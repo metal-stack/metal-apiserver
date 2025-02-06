@@ -13,6 +13,6 @@ COPY --from=opa /opa /usr/local/bin/opa
 COPY . .
 RUN make
 
-FROM gcr.io/distroless-debian12:nonroot
+FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=builder /work/bin/server /
 ENTRYPOINT [ "/server" ]
