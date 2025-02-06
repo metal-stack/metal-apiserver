@@ -42,7 +42,7 @@ jobs:
           version: latest
 
       - name: Lint Rego
-        run: make lint-opa
+        run: make test
 
       - name: Setup OPA
         uses: open-policy-agent/setup-opa@v2
