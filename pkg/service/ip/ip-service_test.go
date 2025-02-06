@@ -11,6 +11,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/metal-stack/api-server/pkg/db/generic"
 	"github.com/metal-stack/api-server/pkg/db/metal"
+	"github.com/metal-stack/api-server/pkg/repository"
 	"github.com/metal-stack/api-server/pkg/test"
 	apiv1 "github.com/metal-stack/api/go/metalstack/api/v2"
 	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
@@ -40,6 +41,8 @@ func Test_ipServiceServer_Get(t *testing.T) {
 
 	ds, err := generic.New(log, "metal", c)
 	require.NoError(t, err)
+
+	repo := repository.New(log, nil, ds, ipam)
 
 	createIPs(t, ctx, ds, ipam, prefixMap, []*metal.IP{{IPAddress: "1.2.3.4"}})
 
@@ -78,7 +81,7 @@ func Test_ipServiceServer_Get(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &ipServiceServer{
 				log:  tt.log,
-				ds:   tt.ds,
+				repo: repo,
 				ipam: ipam,
 			}
 			got, err := i.Get(tt.ctx, connect.NewRequest(tt.rq))
@@ -122,6 +125,8 @@ func Test_ipServiceServer_List(t *testing.T) {
 
 	ds, err := generic.New(log, "metal", c)
 	require.NoError(t, err)
+
+	repo := repository.New(log, nil, ds, ipam)
 
 	ips := []*metal.IP{
 		{Name: "ip1", IPAddress: "1.2.3.4", ProjectID: "p1"},
@@ -183,7 +188,7 @@ func Test_ipServiceServer_List(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &ipServiceServer{
 				log:  tt.log,
-				ds:   tt.ds,
+				repo: repo,
 				ipam: ipam,
 			}
 			got, err := i.List(tt.ctx, connect.NewRequest(tt.rq))
@@ -227,6 +232,8 @@ func Test_ipServiceServer_Update(t *testing.T) {
 
 	ds, err := generic.New(log, "metal", c)
 	require.NoError(t, err)
+
+	repo := repository.New(log, nil, ds, ipam)
 
 	ips := []*metal.IP{
 		{Name: "ip1", IPAddress: "1.2.3.4", ProjectID: "p1"},
@@ -288,7 +295,7 @@ func Test_ipServiceServer_Update(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &ipServiceServer{
 				log:  tt.log,
-				ds:   tt.ds,
+				repo: repo,
 				ipam: ipam,
 			}
 			got, err := i.Update(tt.ctx, connect.NewRequest(tt.rq))
@@ -333,6 +340,8 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 	ds, err := generic.New(log, "metal", c)
 	require.NoError(t, err)
 
+	repo := repository.New(log, nil, ds, ipam)
+
 	ips := []*metal.IP{
 		{Name: "ip1", IPAddress: "1.2.3.4", ProjectID: "p1"},
 		{Name: "ip2", IPAddress: "1.2.3.5", ProjectID: "p1"},
@@ -376,7 +385,7 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &ipServiceServer{
 				log:  tt.log,
-				ds:   tt.ds,
+				repo: repo,
 				ipam: ipam,
 			}
 			got, err := i.Delete(tt.ctx, connect.NewRequest(tt.rq))

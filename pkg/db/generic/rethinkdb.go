@@ -33,9 +33,7 @@ type (
 		SetCreated(created time.Time)
 	}
 
-	EntityQuery interface {
-		Query(q r.Term) *r.Term
-	}
+	EntityQuery func(q r.Term) r.Term
 
 	Storage[E Entity] interface {
 		Create(ctx context.Context, e E) (E, error)
@@ -161,7 +159,7 @@ func (rs *rethinkStore[E]) Delete(ctx context.Context, e E) error {
 // Find implements Storage.
 func (rs *rethinkStore[E]) Find(ctx context.Context, query EntityQuery) (E, error) {
 	var zero E
-	res, err := query.Query(rs.table).Run(rs.queryExecutor, r.RunOpts{Context: ctx})
+	res, err := query(rs.table).Run(rs.queryExecutor, r.RunOpts{Context: ctx})
 	if err != nil {
 		return zero, fmt.Errorf("cannot find %v in database: %w", rs.tableName, err)
 	}
@@ -186,8 +184,8 @@ func (rs *rethinkStore[E]) Find(ctx context.Context, query EntityQuery) (E, erro
 }
 
 func (rs *rethinkStore[E]) Search(ctx context.Context, query EntityQuery) ([]E, error) {
-	rs.log.Info("search", "table", rs.table, "query", query.Query(rs.table))
-	res, err := query.Query(rs.table).Run(rs.queryExecutor, r.RunOpts{Context: ctx})
+	rs.log.Info("search", "table", rs.table, "query", query(rs.table).String())
+	res, err := query(rs.table).Run(rs.queryExecutor, r.RunOpts{Context: ctx})
 	if err != nil {
 		return nil, fmt.Errorf("cannot search %v in database: %w", rs.tableName, err)
 	}

@@ -28,9 +28,17 @@ func New(log *slog.Logger, mdc mdm.Client, ds *generic.Datastore, ipam ipamv1con
 
 func (r *Repository) IP(scope ProjectScope) *ipRepository {
 	return &ipRepository{
+		r:     r,
+		scope: scope,
+	}
+}
+
+func (r *Repository) UnscopedIP() *ipUnscopedRepository {
+	return &ipUnscopedRepository{
 		r: r,
 	}
 }
+
 func (r *Repository) Network() *networkRepository {
 	return &networkRepository{
 		r: r,

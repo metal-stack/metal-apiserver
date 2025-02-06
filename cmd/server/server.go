@@ -33,6 +33,7 @@ import (
 	"github.com/metal-stack/api-server/pkg/db/generic"
 	"github.com/metal-stack/api-server/pkg/invite"
 	ratelimiter "github.com/metal-stack/api-server/pkg/rate-limiter"
+	"github.com/metal-stack/api-server/pkg/repository"
 	"github.com/metal-stack/api-server/pkg/service/health"
 	"github.com/metal-stack/api-server/pkg/service/ip"
 	"github.com/metal-stack/api-server/pkg/service/method"
@@ -164,7 +165,10 @@ func (s *server) Run() error {
 	if err != nil {
 		return err
 	}
-	ipService := ip.New(ip.Config{Log: s.log, Datastore: ds, Ipam: s.c.Ipam})
+
+	repo := repository.New(s.log, s.c.MasterClient, ds, s.c.Ipam)
+
+	ipService := ip.New(ip.Config{Log: s.log, Repo: repo})
 	tokenService := token.New(token.Config{
 		Log:           s.log,
 		CertStore:     certStore,
