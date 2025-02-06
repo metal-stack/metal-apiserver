@@ -79,7 +79,7 @@ func (r *ipRepository) Delete(ctx context.Context, id string) (*metal.IP, error)
 }
 
 func (r *ipRepository) List(ctx context.Context, rq *apiv2.IPServiceListRequest) ([]*metal.IP, error) {
-	ip, err := r.r.ds.IP().Search(ctx, queries.IpFilter(rq))
+	ip, err := r.r.ds.IP().List(ctx, queries.IpFilter(rq))
 	if err != nil {
 		return nil, err
 	}

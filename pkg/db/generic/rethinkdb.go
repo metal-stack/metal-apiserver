@@ -41,9 +41,8 @@ type (
 		Upsert(ctx context.Context, e E) error
 		Delete(ctx context.Context, e E) error
 		Get(ctx context.Context, id string) (E, error)
-		Find(ctx context.Context, query EntityQuery) (E, error)
-		Search(ctx context.Context, query EntityQuery) ([]E, error)
-		List(ctx context.Context) ([]E, error)
+		Find(ctx context.Context, queries ...EntityQuery) (E, error)
+		List(ctx context.Context, queries ...EntityQuery) ([]E, error)
 	}
 
 	Datastore struct {
@@ -157,9 +156,14 @@ func (rs *rethinkStore[E]) Delete(ctx context.Context, e E) error {
 }
 
 // Find implements Storage.
-func (rs *rethinkStore[E]) Find(ctx context.Context, query EntityQuery) (E, error) {
+func (rs *rethinkStore[E]) Find(ctx context.Context, queries ...EntityQuery) (E, error) {
+	query := rs.table
+	for _, q := range queries {
+		query = q(query)
+	}
+
 	var zero E
-	res, err := query(rs.table).Run(rs.queryExecutor, r.RunOpts{Context: ctx})
+	res, err := query.Run(rs.queryExecutor, r.RunOpts{Context: ctx})
 	if err != nil {
 		return zero, fmt.Errorf("cannot find %v in database: %w", rs.tableName, err)
 	}
@@ -183,9 +187,15 @@ func (rs *rethinkStore[E]) Find(ctx context.Context, query EntityQuery) (E, erro
 	return *e, nil
 }
 
-func (rs *rethinkStore[E]) Search(ctx context.Context, query EntityQuery) ([]E, error) {
-	rs.log.Info("search", "table", rs.table, "query", query(rs.table).String())
-	res, err := query(rs.table).Run(rs.queryExecutor, r.RunOpts{Context: ctx})
+func (rs *rethinkStore[E]) List(ctx context.Context, queries ...EntityQuery) ([]E, error) {
+	query := rs.table
+	for _, q := range queries {
+		query = q(query)
+	}
+
+	rs.log.Debug("list", "table", rs.table, "query", query.String())
+
+	res, err := query.Run(rs.queryExecutor, r.RunOpts{Context: ctx})
 	if err != nil {
 		return nil, fmt.Errorf("cannot search %v in database: %w", rs.tableName, err)
 	}
@@ -196,21 +206,7 @@ func (rs *rethinkStore[E]) Search(ctx context.Context, query EntityQuery) ([]E, 
 	if err != nil {
 		return nil, fmt.Errorf("cannot fetch all entities: %w", err)
 	}
-	return *result, nil
-}
 
-func (rs *rethinkStore[E]) List(ctx context.Context) ([]E, error) {
-	res, err := rs.table.Run(rs.queryExecutor, r.RunOpts{Context: ctx})
-	if err != nil {
-		return nil, fmt.Errorf("cannot list %v from database: %w", rs.tableName, err)
-	}
-	defer res.Close()
-
-	result := new([]E)
-	err = res.All(result)
-	if err != nil {
-		return nil, fmt.Errorf("cannot fetch all entities: %w", err)
-	}
 	return *result, nil
 }
 
