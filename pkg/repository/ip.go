@@ -9,6 +9,7 @@ type ipRepository struct {
 	r *Repository
 }
 
+// nolint:unused
 type ipUnscopedRepository struct {
 	r *Repository
 }
@@ -27,6 +28,7 @@ func (r *ipRepository) Get(ctx context.Context, id string) (string, error) {
 	return "1.2.3.4", nil
 }
 
+// nolint:unused
 func (ur *ipUnscopedRepository) List() []string {
 	return []string{"1.2.3.4", "fe80::1"}
 }

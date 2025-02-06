@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"golang.org/x/oauth2"
 )
@@ -14,7 +15,7 @@ import (
 var (
 	// Replace with your Dex server's settings
 	clientID     = "your-dex-client-id"
-	clientSecret = "your-dex-client-secret"
+	clientSecret = "your-dex-client-secret" // nolint:gosec
 	dexEndpoint  = oauth2.Endpoint{
 		AuthURL:  "http://localhost:5556/auth",
 		TokenURL: "https://your-dex-server/token",
@@ -61,7 +62,7 @@ func getAuthCodeFromCallback() string {
 		fmt.Fprintf(w, "Authentication successful! You can close this window.")
 	})
 
-	server := &http.Server{Addr: ":8080"}
+	server := &http.Server{Addr: ":8080", ReadHeaderTimeout: time.Minute}
 	go func() {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Failed to start server: %v", err)
@@ -69,10 +70,10 @@ func getAuthCodeFromCallback() string {
 	}()
 
 	fmt.Println("Waiting for authentication...")
-	for code == "" {
+	for code == "" { // nolint:staticcheck
 	}
 
-	server.Shutdown(context.Background())
+	_ = server.Shutdown(context.Background())
 	return code
 }
 

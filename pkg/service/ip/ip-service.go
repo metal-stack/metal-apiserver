@@ -37,8 +37,10 @@ type ipServiceServer struct {
 
 func New(c Config) apiv2connect.IPServiceHandler {
 	return &ipServiceServer{
-		log: c.Log.WithGroup("ipService"),
-		ds:  c.Datastore,
+		log:  c.Log.WithGroup("ipService"),
+		ds:   c.Datastore,
+		mdc:  c.MasterDataClient,
+		ipam: c.Ipam,
 	}
 }
 

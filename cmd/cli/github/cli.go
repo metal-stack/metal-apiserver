@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
@@ -15,7 +16,7 @@ import (
 // Configuration for the OAuth2 client
 var (
 	clientID       = "your-github-client-id"
-	clientSecret   = "your-github-client-secret"
+	clientSecret   = "your-github-client-secret"   // nolint:gosec
 	oauth2Endpoint = github.Endpoint               // Use GitHub's predefined endpoint
 	scopes         = []string{"read:user", "repo"} // Adjust scopes as needed
 )
@@ -60,7 +61,7 @@ func getAuthCodeFromCallback() string {
 		fmt.Fprintf(w, "Authentication successful! You can close this window.")
 	})
 
-	server := &http.Server{Addr: ":8080"}
+	server := &http.Server{Addr: ":8080", ReadHeaderTimeout: time.Minute}
 	go func() {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Failed to start server: %v", err)
@@ -69,11 +70,11 @@ func getAuthCodeFromCallback() string {
 
 	// Wait for the user to authenticate and the callback to fire
 	fmt.Println("Waiting for authentication...")
-	for code == "" {
+	for code == "" { // nolint:staticcheck
 	}
 
 	// Shutdown the server after capturing the code
-	server.Shutdown(context.Background())
+	_ = server.Shutdown(context.Background())
 	return code
 }
 
