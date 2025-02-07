@@ -154,17 +154,28 @@ func (i *ipServiceServer) Create(ctx context.Context, rq *connect.Request[apiv2.
 		// FIXME map generic errors to connect errors
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	projectID := p.Meta.Id
 
 	nw, err := i.repo.Network(repository.ProjectScope(req.Project)).Get(ctx, req.Network)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	var af metal.AddressFamily
 	if req.AddressFamily != nil {
 		err := validate.ValidateAddressFamily(*req.AddressFamily)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
+		switch *req.AddressFamily {
+		case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4:
+			af = metal.IPv4AddressFamily
+		case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6:
+			af = metal.IPv6AddressFamily
+		case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_UNSPECIFIED:
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("unsupported addressfamily"))
+		}
+
 		if !slices.Contains(nw.AddressFamilies, af) {
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("there is no prefix for the given addressfamily:%s present in network:%s", string(*req.AddressFamily), req.Network))
 		}
@@ -175,9 +186,8 @@ func (i *ipServiceServer) Create(ctx context.Context, rq *connect.Request[apiv2.
 
 	// for private, unshared networks the project id must be the same
 	// for external networks the project id is not checked
-	if !nw.Shared && nw.ParentNetworkID != "" && p.Project.Meta.Id != nw.ProjectID {
-		// r.sendError(request, response, defaultError(fmt.Errorf("can not allocate ip for project %q because network belongs to %q and the network is not shared", p.Project.Meta.Id, nw.ProjectID)))
-		return
+	if !nw.Shared && nw.ParentNetworkID != "" && p.Meta.Id != nw.ProjectID {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("can not allocate ip for project %q because network belongs to %q and the network is not shared", p.Meta.Id, nw.ProjectID))
 	}
 
 	// TODO: Following operations should span a database transaction if possible
@@ -187,24 +197,31 @@ func (i *ipServiceServer) Create(ctx context.Context, rq *connect.Request[apiv2.
 		ipParentCidr string
 	)
 
-	if specificIP == "" {
-		ipAddress, ipParentCidr, err = allocateRandomIP(ctx, nw, r.ipamer, requestPayload.AddressFamily)
+	if req.Ip == nil {
+		ipAddress, ipParentCidr, err = i.repo.IP(repository.ProjectScope(projectID)).AllocateRandomIP(ctx, nw, &af)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	} else {
-		ipAddress, ipParentCidr, err = allocateSpecificIP(ctx, nw, specificIP, r.ipamer)
+		ipAddress, ipParentCidr, err = i.repo.IP(repository.ProjectScope(projectID)).AllocateSpecificIP(ctx, nw, *req.Ip)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}
 
 	ipType := metal.Ephemeral
-	if requestPayload.Type == metal.Static {
-		ipType = metal.Static
+	if req.Type != nil {
+		switch *req.Type {
+		case apiv2.IPType_IP_TYPE_EPHEMERAL:
+			ipType = metal.Ephemeral
+		case apiv2.IPType_IP_TYPE_STATIC:
+			ipType = metal.Static
+		case apiv2.IPType_IP_TYPE_UNSPECIFIED:
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("given ip type is not supported:%s", req.Type.String()))
+		}
 	}
 
-	r.logger(request).Info("allocated ip in ipam", "ip", ipAddress, "network", nw.ID, "type", ipType)
+	i.log.Info("allocated ip in ipam", "ip", ipAddress, "network", nw.ID, "type", ipType)
 
 	ip := &metal.IP{
 		IPAddress:        ipAddress,
@@ -212,18 +229,17 @@ func (i *ipServiceServer) Create(ctx context.Context, rq *connect.Request[apiv2.
 		Name:             name,
 		Description:      description,
 		NetworkID:        nw.ID,
-		ProjectID:        p.GetProject().GetMeta().GetId(),
+		ProjectID:        projectID,
 		Type:             ipType,
 		Tags:             tags,
 	}
 
-	err = r.ds.CreateIP(ip)
+	created, err := i.repo.IP(repository.ProjectScope(projectID)).Create(ctx, ip)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// return connect.NewResponse(&apiv1.IPServiceAllocateResponse{Ip: convert(ipResp.Payload)}), nil
-	return connect.NewResponse(&apiv2.IPServiceCreateResponse{Ip: &apiv2.IP{Ip: "1.2.3.4", Project: "p1", Name: ""}}), nil
+	return connect.NewResponse(&apiv2.IPServiceCreateResponse{Ip: convert(created)}), nil
 }
 
 // Static implements v1.IPServiceServer

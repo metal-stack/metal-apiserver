@@ -1,5 +1,7 @@
 package metal
 
+import "net/netip"
+
 type (
 	Network struct {
 		Base
@@ -33,3 +35,40 @@ type (
 	// Prefixes is an array of prefixes
 	Prefixes []Prefix
 )
+
+const (
+	// InvalidAddressFamily identifies a invalid Addressfamily
+	InvalidAddressFamily = AddressFamily("invalid")
+	// IPv4AddressFamily identifies IPv4
+	IPv4AddressFamily = AddressFamily("IPv4")
+	// IPv6AddressFamily identifies IPv6
+	IPv6AddressFamily = AddressFamily("IPv6")
+)
+
+func (p *Prefix) String() string {
+	return p.IP + "/" + p.Length
+}
+
+// OfFamily returns the prefixes of the given address family.
+// be aware that malformed prefixes are just skipped, so do not use this for validation or something.
+func (p Prefixes) OfFamily(af AddressFamily) Prefixes {
+	var res Prefixes
+
+	for _, prefix := range p {
+		pfx, err := netip.ParsePrefix(prefix.String())
+		if err != nil {
+			continue
+		}
+
+		if pfx.Addr().Is4() && af == IPv6AddressFamily {
+			continue
+		}
+		if pfx.Addr().Is6() && af == IPv4AddressFamily {
+			continue
+		}
+
+		res = append(res, prefix)
+	}
+
+	return res
+}
