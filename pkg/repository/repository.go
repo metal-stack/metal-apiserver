@@ -39,8 +39,15 @@ func (r *Repository) UnscopedIP() *ipUnscopedRepository {
 	}
 }
 
-func (r *Repository) Network() *networkRepository {
+func (r *Repository) Network(scope ProjectScope) *networkRepository {
 	return &networkRepository{
+		r:     r,
+		scope: scope,
+	}
+}
+
+func (r *Repository) Project() *projectRepository {
+	return &projectRepository{
 		r: r,
 	}
 }

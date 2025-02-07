@@ -48,11 +48,11 @@ type (
 	Datastore struct {
 		ip        Storage[*metal.IP]
 		partition Storage[*metal.Partition]
+		network   Storage[*metal.Network]
 		// event               Storage[*metal.ProvisioningEventContainer]
 		// filesystemlayout    Storage[*metal.FilesystemLayout]
 		// image               Storage[*metal.Image]
 		// machine             Storage[*metal.Machine]
-		// network             Storage[*metal.Network]
 		// size                Storage[*metal.Size]
 		// sizeimageConstraint Storage[*metal.SizeImageConstraint]
 		// sw                  Storage[*metal.Switch]
@@ -82,6 +82,10 @@ func New(log *slog.Logger, dbname string, queryExecutor r.QueryExecutor) (*Datas
 	if err != nil {
 		return nil, err
 	}
+	network, err := newStorage[*metal.Network](log, dbname, "network", queryExecutor)
+	if err != nil {
+		return nil, err
+	}
 	partition, err := newStorage[*metal.Partition](log, dbname, "partition", queryExecutor)
 	if err != nil {
 		return nil, err
@@ -89,11 +93,11 @@ func New(log *slog.Logger, dbname string, queryExecutor r.QueryExecutor) (*Datas
 	return &Datastore{
 		ip:        ip,
 		partition: partition,
+		network:   network,
 		// event:               newStorage[*metal.ProvisioningEventContainer](log, dbname, "event", queryExecutor),
 		// filesystemlayout:    newStorage[*metal.FilesystemLayout](log, dbname, "filesystemlayout", queryExecutor),
 		// image:               newStorage[*metal.Image](log, dbname, "image", queryExecutor),
 		// machine:             newStorage[*metal.Machine](log, dbname, "machine", queryExecutor),
-		// network:             newStorage[*metal.Network](log, dbname, "network", queryExecutor),
 		// size:                newStorage[*metal.Size](log, dbname, "size", queryExecutor),
 		// sizeimageConstraint: newStorage[*metal.SizeImageConstraint](log, dbname, "sizeimageconstraint", queryExecutor),
 		// sw:                  newStorage[*metal.Switch](log, dbname, "switch", queryExecutor),
@@ -103,6 +107,9 @@ func New(log *slog.Logger, dbname string, queryExecutor r.QueryExecutor) (*Datas
 
 func (d *Datastore) IP() Storage[*metal.IP] {
 	return d.ip
+}
+func (d *Datastore) Network() Storage[*metal.Network] {
+	return d.network
 }
 func (d *Datastore) Partition() Storage[*metal.Partition] {
 	return d.partition

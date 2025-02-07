@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"connectrpc.com/connect"
+	"github.com/metal-stack/api-server/pkg/db/generic"
 	"github.com/metal-stack/api-server/pkg/db/metal"
 	"github.com/metal-stack/api-server/pkg/db/queries"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -22,7 +23,7 @@ func (r *ipRepository) Get(ctx context.Context, id string) (*metal.IP, error) {
 	}
 
 	if r.scope != ProjectScope(ip.ProjectID) {
-		return nil, fmt.Errorf("TODO: NOT YOUR ENTITY NOT FOUND")
+		return nil, generic.NotFound("ip with id:%s not found", id)
 	}
 
 	return ip, nil
@@ -69,6 +70,8 @@ func (r *ipRepository) Delete(ctx context.Context, id string) (*metal.IP, error)
 	if err != nil {
 		return nil, err
 	}
+
+	// FIXME delete in ipam with the help of Tx
 
 	err = r.r.ds.IP().Delete(ctx, ip)
 	if err != nil {

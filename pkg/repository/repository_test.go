@@ -32,10 +32,10 @@ func TestGet(t *testing.T) {
 
 	ip, err := repo.IP("project1").Get(ctx, "asdf")
 	require.Error(t, err)
-	nw, err := repo.Network().Get(ctx, "asdf")
+	nw, err := repo.Network("project1").Get(ctx, "asdf")
 	require.Error(t, err)
 
-	fmt.Printf("%s %s", ip, nw)
+	fmt.Printf("%v %v", ip, nw)
 }
 
 func TestIpUnscopedList(t *testing.T) {

@@ -3,13 +3,16 @@ package ip
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
+	"slices"
 	"time"
 
 	"connectrpc.com/connect"
 	"github.com/metal-stack/api-server/pkg/db/generic"
 	"github.com/metal-stack/api-server/pkg/db/metal"
 	"github.com/metal-stack/api-server/pkg/repository"
+	"github.com/metal-stack/api-server/pkg/validate"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 
@@ -119,108 +122,105 @@ func (i *ipServiceServer) Delete(ctx context.Context, rq *connect.Request[apiv2.
 // Allocate implements v1.IPServiceServer
 func (i *ipServiceServer) Create(ctx context.Context, rq *connect.Request[apiv2.IPServiceCreateRequest]) (*connect.Response[apiv2.IPServiceCreateResponse], error) {
 	i.log.Debug("allocate", "ip", rq)
-	// req := rq.Msg
+	req := rq.Msg
 
-	// if req.Network == "" {
-	// 	return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("network should not be empty"))
-	// }
-	// if req.Project == "" {
-	// 	return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("project should not be empty"))
-	// }
+	if req.Network == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("network should not be empty"))
+	}
+	if req.Project == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("project should not be empty"))
+	}
 
-	// p, err := i.mdc.Project().Get(ctx, &mdmv1.ProjectGetRequest{Id: req.Project})
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// if p.Project == nil || p.Project.Meta == nil {
-	// 	return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("error retrieving project %q", req.Project))
-	// }
+	var (
+		name        string
+		description string
+	)
 
-	// var (
-	// 	name        string
-	// 	description string
-	// )
+	if req.Name != nil {
+		name = *req.Name
+	}
+	if req.Description != nil {
+		description = *req.Description
+	}
+	tags := req.Tags
+	if req.MachineId != nil {
+		tags = append(tags, tag.New(tag.MachineID, *req.MachineId))
+	}
+	// Ensure no duplicates
+	tags = tag.NewTagMap(tags).Slice()
 
-	// if req.Name != nil {
-	// 	name = *req.Name
-	// }
-	// if req.Description != nil {
-	// 	description = *req.Description
-	// }
-	// tags := req.Tags
-	// if req.MachineId != nil {
-	// 	tags = append(tags, tag.New(tag.MachineID, *req.MachineId))
-	// }
-	// // Ensure no duplicates
-	// tags = tag.NewTagMap(tags).Slice()
+	p, err := i.repo.Project().Get(ctx, req.Project)
+	if err != nil {
+		// FIXME map generic errors to connect errors
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 
-	// nw, err := i.ds.FindNetworkByID(req.Network)
-	// if err != nil {
-	// 	// r.sendError(request, response, defaultError(err))
-	// 	return  nil, connect.NewError(connect.CodeInternal,err)
-	// }
+	nw, err := i.repo.Network(repository.ProjectScope(req.Project)).Get(ctx, req.Network)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 
-	// if req.AddressFamily != nil {
-	// 	err := validate.ValidateAddressFamily(*req.AddressFamily)
-	// 	if err != nil {
-	// 		return nil, connect.NewError(connect.CodeInvalidArgument,err)
-	// 	}
-	// 	if !slices.Contains(nw.AddressFamilies, af) {
-	// 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("there is no prefix for the given addressfamily:%s present in network:%s", string(*req.AddressFamily), req.Network))
-	// 	}
-	// 	if req.Ip != nil {
-	// 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("it is not possible to specify specificIP and addressfamily"))
-	// 	}
-	// }
+	if req.AddressFamily != nil {
+		err := validate.ValidateAddressFamily(*req.AddressFamily)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+		if !slices.Contains(nw.AddressFamilies, af) {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("there is no prefix for the given addressfamily:%s present in network:%s", string(*req.AddressFamily), req.Network))
+		}
+		if req.Ip != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("it is not possible to specify specificIP and addressfamily"))
+		}
+	}
 
-	// // for private, unshared networks the project id must be the same
-	// // for external networks the project id is not checked
-	// if !nw.Shared && nw.ParentNetworkID != "" && p.Project.Meta.Id != nw.ProjectID {
-	// 	// r.sendError(request, response, defaultError(fmt.Errorf("can not allocate ip for project %q because network belongs to %q and the network is not shared", p.Project.Meta.Id, nw.ProjectID)))
-	// 	return
-	// }
+	// for private, unshared networks the project id must be the same
+	// for external networks the project id is not checked
+	if !nw.Shared && nw.ParentNetworkID != "" && p.Project.Meta.Id != nw.ProjectID {
+		// r.sendError(request, response, defaultError(fmt.Errorf("can not allocate ip for project %q because network belongs to %q and the network is not shared", p.Project.Meta.Id, nw.ProjectID)))
+		return
+	}
 
-	// // TODO: Following operations should span a database transaction if possible
+	// TODO: Following operations should span a database transaction if possible
 
-	// var (
-	// 	ipAddress    string
-	// 	ipParentCidr string
-	// )
+	var (
+		ipAddress    string
+		ipParentCidr string
+	)
 
-	// if specificIP == "" {
-	// 	ipAddress, ipParentCidr, err = allocateRandomIP(ctx, nw, r.ipamer, requestPayload.AddressFamily)
-	// 	if err != nil {
-	// 		return nil, connect.NewError(connect.CodeInternal, err)
-	// 	}
-	// } else {
-	// 	ipAddress, ipParentCidr, err = allocateSpecificIP(ctx, nw, specificIP, r.ipamer)
-	// 	if err != nil {
-	// 		return nil, connect.NewError(connect.CodeInternal, err)
-	// 	}
-	// }
+	if specificIP == "" {
+		ipAddress, ipParentCidr, err = allocateRandomIP(ctx, nw, r.ipamer, requestPayload.AddressFamily)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	} else {
+		ipAddress, ipParentCidr, err = allocateSpecificIP(ctx, nw, specificIP, r.ipamer)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
 
-	// ipType := metal.Ephemeral
-	// if requestPayload.Type == metal.Static {
-	// 	ipType = metal.Static
-	// }
+	ipType := metal.Ephemeral
+	if requestPayload.Type == metal.Static {
+		ipType = metal.Static
+	}
 
-	// r.logger(request).Info("allocated ip in ipam", "ip", ipAddress, "network", nw.ID, "type", ipType)
+	r.logger(request).Info("allocated ip in ipam", "ip", ipAddress, "network", nw.ID, "type", ipType)
 
-	// ip := &metal.IP{
-	// 	IPAddress:        ipAddress,
-	// 	ParentPrefixCidr: ipParentCidr,
-	// 	Name:             name,
-	// 	Description:      description,
-	// 	NetworkID:        nw.ID,
-	// 	ProjectID:        p.GetProject().GetMeta().GetId(),
-	// 	Type:             ipType,
-	// 	Tags:             tags,
-	// }
+	ip := &metal.IP{
+		IPAddress:        ipAddress,
+		ParentPrefixCidr: ipParentCidr,
+		Name:             name,
+		Description:      description,
+		NetworkID:        nw.ID,
+		ProjectID:        p.GetProject().GetMeta().GetId(),
+		Type:             ipType,
+		Tags:             tags,
+	}
 
-	// err = r.ds.CreateIP(ip)
-	// if err != nil {
-	// 	return nil, connect.NewError(connect.CodeInternal, err)
-	// }
+	err = r.ds.CreateIP(ip)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 
 	// return connect.NewResponse(&apiv1.IPServiceAllocateResponse{Ip: convert(ipResp.Payload)}), nil
 	return connect.NewResponse(&apiv2.IPServiceCreateResponse{Ip: &apiv2.IP{Ip: "1.2.3.4", Project: "p1", Name: ""}}), nil
