@@ -144,7 +144,7 @@ func (s *server) Run() error {
 		}
 		auditInterceptor, err := auditing.NewConnectInterceptor(s.c.Auditing, s.log, shouldAudit)
 		if err != nil {
-			return fmt.Errorf("unable to create auditing interceptor:%w", err)
+			return fmt.Errorf("unable to create auditing interceptor: %w", err)
 		}
 		allInterceptors = append(allInterceptors, auditInterceptor)
 	}

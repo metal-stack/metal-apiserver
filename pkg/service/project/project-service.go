@@ -507,7 +507,7 @@ func (p *projectServiceServer) Invite(ctx context.Context, rq *connect.Request[a
 		Id: pgr.Project.TenantId,
 	})
 	if err != nil {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no account:%q found %w", pgr.Project.TenantId, err))
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no account: %q found %w", pgr.Project.TenantId, err))
 	}
 
 	secret, err := invite.GenerateInviteSecret()
@@ -566,7 +566,7 @@ func (p *projectServiceServer) InviteAccept(ctx context.Context, rq *connect.Req
 		Id: t.UserId,
 	})
 	if err != nil {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no account:%q found %w", t.UserId, err))
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no account: %q found %w", t.UserId, err))
 	}
 
 	invitee := tgr.Tenant
@@ -575,7 +575,7 @@ func (p *projectServiceServer) InviteAccept(ctx context.Context, rq *connect.Req
 		Id: inv.Project,
 	})
 	if err != nil {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no project:%q for invite not found %w", inv.Project, err))
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no project: %q for invite not found %w", inv.Project, err))
 	}
 
 	if pgr.Project.TenantId == invitee.Meta.Id {

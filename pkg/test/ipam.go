@@ -14,14 +14,16 @@ import (
 )
 
 func StartIpam(t *testing.T) ipamv1connect.IpamServiceClient {
-
-	ctx := context.Background()
-	mux := http.NewServeMux()
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+	var (
+		ctx = context.Background()
+		mux = http.NewServeMux()
+		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+	)
 
 	mux.Handle(ipamv1connect.NewIpamServiceHandler(
 		service.New(log, goipam.New(ctx)),
 	))
+
 	server := httptest.NewUnstartedServer(mux)
 	server.EnableHTTP2 = true
 	server.StartTLS()
@@ -30,5 +32,6 @@ func StartIpam(t *testing.T) ipamv1connect.IpamServiceClient {
 		server.Client(),
 		server.URL,
 	)
+
 	return ipamclient
 }

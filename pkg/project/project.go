@@ -15,7 +15,7 @@ import (
 
 const (
 	DefaultProjectAnnotation = "metal-stack.io/default-project"
-	ProjectRoleAnnotation    = "metalstack.cloud/project-role"
+	ProjectRoleAnnotation    = "metal-stack.io/project-role"
 	AvatarURLAnnotation      = "avatarUrl"
 )
 

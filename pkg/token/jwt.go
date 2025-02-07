@@ -32,7 +32,7 @@ func NewJWT(tokenType v1.TokenType, subject, issuer string, expires time.Duratio
 		expires = DefaultExpiration
 	}
 	if expires > MaxExpiration {
-		return "", nil, fmt.Errorf("expires:%q exceeds maximum:%q", expires, MaxExpiration)
+		return "", nil, fmt.Errorf("expires: %q exceeds maximum: %q", expires, MaxExpiration)
 	}
 
 	issuedAt := time.Now().UTC()

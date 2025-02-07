@@ -81,5 +81,19 @@ func (q *Queue) Delete(ref string) error {
 }
 
 func (q *Queue) run() {
+	actions := make(chan Action)
 
+	for {
+		select {
+		case action := <-actions:
+			switch action {
+			case ActionIpDelete:
+
+			}
+		}
+	}
+}
+
+func ipDelete() error {
+	return nil
 }

@@ -216,11 +216,11 @@ func createRedisClient(logger *slog.Logger, address, password string, dbName Red
 	})
 	pong, err := client.Ping(context.Background()).Result()
 	if err != nil {
-		return nil, fmt.Errorf("unable to create redis client:%w", err)
+		return nil, fmt.Errorf("unable to create redis client: %w", err)
 	}
 
 	if strings.ToLower(pong) != "pong" {
-		return nil, fmt.Errorf("unable to create redis client, did not get PONG result:%q", pong)
+		return nil, fmt.Errorf("unable to create redis client, did not get PONG result: %q", pong)
 	}
 
 	return client, nil

@@ -11,7 +11,7 @@ import (
 	"connectrpc.com/connect"
 	putil "github.com/metal-stack/api-server/pkg/project"
 	msvc "github.com/metal-stack/api-server/pkg/service/method"
-	"github.com/metal-stack/api/go/metalstack/api/v2"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	mdc "github.com/metal-stack/masterdata-api/pkg/client"
@@ -311,14 +311,14 @@ func (u *tenantServiceServer) Invite(ctx context.Context, rq *connect.Request[ap
 		Id: req.Login,
 	})
 	if err != nil {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no tenant:%q found %w", req.Login, err))
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no tenant: %q found %w", req.Login, err))
 	}
 
 	invitee, err := u.masterClient.Tenant().Get(ctx, &mdcv1.TenantGetRequest{
 		Id: t.UserId,
 	})
 	if err != nil {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no tenant:%q found %w", t.UserId, err))
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no tenant: %q found %w", t.UserId, err))
 	}
 
 	secret, err := invite.GenerateInviteSecret()
@@ -377,7 +377,7 @@ func (u *tenantServiceServer) InviteAccept(ctx context.Context, rq *connect.Requ
 		Id: t.UserId,
 	})
 	if err != nil {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no account:%q found %w", t.UserId, err))
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no account: %q found %w", t.UserId, err))
 	}
 
 	invitee := tgr.Tenant

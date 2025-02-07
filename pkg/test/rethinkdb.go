@@ -9,14 +9,17 @@ import (
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
 
+const rethinkDbImage = "rethinkdb:2.4.4-bookworm-slim"
+
 func StartRethink(t testing.TB) (container testcontainers.Container, s *r.Session, err error) {
 	ctx := context.Background()
 	var log testcontainers.Logging
 	if t != nil {
 		log = testcontainers.TestLogger(t)
 	}
+
 	req := testcontainers.ContainerRequest{
-		Image:        "rethinkdb:2.4.4-bookworm-slim",
+		Image:        rethinkDbImage,
 		ExposedPorts: []string{"8080/tcp", "28015/tcp"},
 		Env:          map[string]string{"RETHINKDB_PASSWORD": "rethink"},
 		WaitingFor: wait.ForAll(
@@ -24,6 +27,7 @@ func StartRethink(t testing.TB) (container testcontainers.Container, s *r.Sessio
 		),
 		Cmd: []string{"rethinkdb", "--bind", "all", "--directory", "/tmp", "--initial-password", "rethink", "--io-threads", "500"},
 	}
+
 	rtContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
 		Started:          true,
@@ -32,10 +36,12 @@ func StartRethink(t testing.TB) (container testcontainers.Container, s *r.Sessio
 	if err != nil {
 		panic(err.Error())
 	}
+
 	ip, err := rtContainer.Host(ctx)
 	if err != nil {
 		return rtContainer, nil, err
 	}
+
 	port, err := rtContainer.MappedPort(ctx, "28015")
 	if err != nil {
 		return rtContainer, nil, err
