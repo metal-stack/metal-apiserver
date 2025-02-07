@@ -79,7 +79,3 @@ func (q *Queue) List() []Tx {
 func (q *Queue) Delete(ref string) error {
 	return nil
 }
-
-func (q *Queue) run() {
-
-}

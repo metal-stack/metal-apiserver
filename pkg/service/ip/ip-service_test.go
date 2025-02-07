@@ -105,7 +105,7 @@ func Test_ipServiceServer_Get(t *testing.T) {
 					),
 				},
 			); diff != "" {
-				t.Errorf("ipServiceServer.Get() = %v, want %vņdiff:%s", got.Msg, tt.want, diff)
+				t.Errorf("ipServiceServer.Get() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
 			}
 		})
 	}
@@ -212,7 +212,7 @@ func Test_ipServiceServer_List(t *testing.T) {
 					),
 				},
 			); diff != "" {
-				t.Errorf("ipServiceServer.List() = %v, want %vņdiff:%s", got.Msg, tt.want, diff)
+				t.Errorf("ipServiceServer.List() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
 			}
 		})
 	}
@@ -319,7 +319,7 @@ func Test_ipServiceServer_Update(t *testing.T) {
 					),
 				},
 			); diff != "" {
-				t.Errorf("ipServiceServer.Update() = %v, want %vņdiff:%s", got.Msg, tt.want, diff)
+				t.Errorf("ipServiceServer.Update() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
 			}
 		})
 	}
@@ -415,7 +415,7 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 					),
 				},
 			); diff != "" {
-				t.Errorf("ipServiceServer.Delete() = %v, want %vņdiff:%s", got.Msg, tt.want, diff)
+				t.Errorf("ipServiceServer.Delete() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
 			}
 		})
 	}

@@ -20,12 +20,13 @@ type (
 )
 
 const (
+	// TODO: maybe should move to metal-lib?
 	TagEmail       = "metal-stack.io/email"
 	TagPhoneNumber = "metal-stack.io/phone"
 	TagAvatarURL   = "metal-stack.io/avatarurl"
 	TagCreator     = "metal-stack.io/creator"
 
-	TenantRoleAnnotation = "metalstack.cloud/tenant-role"
+	TenantRoleAnnotation = "metal-stack.io/tenant-role"
 )
 
 func TenantRoleFromMap(annotations map[string]string) apiv1.TenantRole {

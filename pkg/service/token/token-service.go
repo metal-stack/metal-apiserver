@@ -13,7 +13,7 @@ import (
 	putil "github.com/metal-stack/api-server/pkg/project"
 	"github.com/metal-stack/api-server/pkg/service/method"
 	tokenutil "github.com/metal-stack/api-server/pkg/token"
-	"github.com/metal-stack/api/go/metalstack/api/v2"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/api/go/permissions"
 	mdc "github.com/metal-stack/masterdata-api/pkg/client"
@@ -368,18 +368,18 @@ func validateTokenCreate(currentToken *apiv2.Token, req *apiv2.TokenServiceCreat
 		// Check if the requested subject, e.g. project or organization can be accessed
 		tokenProjectPermissions, ok := tokenPermissionsMap[reqSubjectID]
 		if !ok {
-			return fmt.Errorf("requested subject:%q access is not allowed", reqSubjectID)
+			return fmt.Errorf("requested subject: %q access is not allowed", reqSubjectID)
 		}
 
 		for _, reqMethod := range reqSubjectPermission.Methods {
 			// Check if the requested permissions are part of all available methods
 			if !servicePermissions.Methods[reqMethod] {
-				return fmt.Errorf("requested method:%q is not allowed", reqMethod)
+				return fmt.Errorf("requested method: %q is not allowed", reqMethod)
 			}
 
 			// Check if the requested permissions are part of the token
 			if !slices.Contains(tokenProjectPermissions.Methods, reqMethod) {
-				return fmt.Errorf("requested method:%q is not allowed for subject:%q", reqMethod, reqSubjectID)
+				return fmt.Errorf("requested method: %q is not allowed for subject: %q", reqMethod, reqSubjectID)
 			}
 		}
 	}
@@ -413,53 +413,53 @@ func validateTokenCreate(currentToken *apiv2.Token, req *apiv2.TokenServiceCreat
 	// first check if the requested role subject is part of the token subject
 	for reqProjectID, reqRole := range requestedProjectRoles {
 		if reqRole == apiv2.ProjectRole_PROJECT_ROLE_UNSPECIFIED {
-			return fmt.Errorf("requested project role:%q is not allowed", reqRole.String())
+			return fmt.Errorf("requested project role: %q is not allowed", reqRole.String())
 		}
 
 		projectRole, ok := tokenProjectRoles[reqProjectID]
 		if !ok {
-			return fmt.Errorf("requested project:%q is not allowed", reqProjectID)
+			return fmt.Errorf("requested project: %q is not allowed", reqProjectID)
 		}
 
 		// OWNER has the lowest index
 		if reqRole < projectRole {
-			return fmt.Errorf("requested role:%q is higher than allowed role:%q", reqRole.String(), projectRole.String())
+			return fmt.Errorf("requested role: %q is higher than allowed role: %q", reqRole.String(), projectRole.String())
 		}
 	}
 
 	for reqTenantID, reqRole := range requestedTenantRoles {
 		if reqRole == apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED {
-			return fmt.Errorf("requested tenant role:%q is not allowed", reqRole.String())
+			return fmt.Errorf("requested tenant role: %q is not allowed", reqRole.String())
 		}
 
 		tenantRole, ok := tokenTenantRoles[reqTenantID]
 		if !ok {
-			return fmt.Errorf("requested tenant:%q is not allowed", reqTenantID)
+			return fmt.Errorf("requested tenant: %q is not allowed", reqTenantID)
 		}
 
 		// OWNER has the lowest index
 		if reqRole < tenantRole {
-			return fmt.Errorf("requested role:%q is higher than allowed role:%q", reqRole.String(), tenantRole.String())
+			return fmt.Errorf("requested role: %q is higher than allowed role: %q", reqRole.String(), tenantRole.String())
 		}
 	}
 
 	if requestedAdminRole != nil {
 		if currentToken.AdminRole == nil {
-			return fmt.Errorf("requested admin role:%q is not allowed", requestedAdminRole.String())
+			return fmt.Errorf("requested admin role: %q is not allowed", requestedAdminRole.String())
 		}
 
 		if *requestedAdminRole == apiv2.AdminRole_ADMIN_ROLE_UNSPECIFIED {
-			return fmt.Errorf("requested admin role:%q is not allowed", requestedAdminRole.String())
+			return fmt.Errorf("requested admin role: %q is not allowed", requestedAdminRole.String())
 		}
 
 		if *requestedAdminRole < *currentToken.AdminRole {
-			return fmt.Errorf("requested admin role:%q is not allowed", requestedAdminRole.String())
+			return fmt.Errorf("requested admin role: %q is not allowed", requestedAdminRole.String())
 		}
 	}
 
 	// Validate Expire
 	if req.Expires.AsDuration() > tokenutil.MaxExpiration {
-		return fmt.Errorf("requested expiration duration:%q exceeds max expiration:%q", req.Expires.AsDuration(), tokenutil.MaxExpiration)
+		return fmt.Errorf("requested expiration duration: %q exceeds max expiration: %q", req.Expires.AsDuration(), tokenutil.MaxExpiration)
 	}
 
 	return nil

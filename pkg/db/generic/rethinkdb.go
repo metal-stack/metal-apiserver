@@ -76,6 +76,7 @@ func New(log *slog.Logger, dbname string, queryExecutor r.QueryExecutor) (*Datas
 	if err != nil {
 		return nil, fmt.Errorf("cannot create database: %w", err)
 	}
+
 	// create tables
 	// TODO loop over them
 	ip, err := newStorage[*metal.IP](log, dbname, "ip", queryExecutor)
@@ -90,6 +91,7 @@ func New(log *slog.Logger, dbname string, queryExecutor r.QueryExecutor) (*Datas
 	if err != nil {
 		return nil, err
 	}
+
 	return &Datastore{
 		ip:        ip,
 		partition: partition,
@@ -124,14 +126,18 @@ func newStorage[E Entity](log *slog.Logger, dbname, tableName string, queryExecu
 		table:         r.DB(dbname).Table(tableName),
 		tableName:     tableName,
 	}
-	err := ds.Initialize()
+
+	err := ds.initialize()
 	if err != nil {
 		return nil, err
 	}
+
 	return ds, nil
 }
 
-// Create implements Storage.
+// Create creates the given entity in the database. in case it is already present, a conflict error will be returned.
+//
+// if the ID field of the entity is an empty string, the ID will be generated automatically.
 func (rs *rethinkStore[E]) Create(ctx context.Context, e E) (E, error) {
 	now := time.Now()
 	e.SetCreated(now)
@@ -153,16 +159,19 @@ func (rs *rethinkStore[E]) Create(ctx context.Context, e E) (E, error) {
 	return e, nil
 }
 
-// Delete implements Storage.
+// Delete deletes the given entity from the database.
 func (rs *rethinkStore[E]) Delete(ctx context.Context, e E) error {
 	_, err := rs.table.Get(e.GetID()).Delete().RunWrite(rs.queryExecutor, r.RunOpts{Context: ctx})
 	if err != nil {
 		return fmt.Errorf("cannot delete %v with id %q from database: %w", rs.tableName, e.GetID(), err)
 	}
+
 	return nil
 }
 
-// Find implements Storage.
+// Find attempts to find a single entity from the given set of queries.
+//
+// if either none or more than one entities were found by the query, an error gets returned.
 func (rs *rethinkStore[E]) Find(ctx context.Context, queries ...EntityQuery) (E, error) {
 	query := rs.table
 	for _, q := range queries {
@@ -194,6 +203,7 @@ func (rs *rethinkStore[E]) Find(ctx context.Context, queries ...EntityQuery) (E,
 	return *e, nil
 }
 
+// List returns all entities present in the database, optionally filtered by the given set of queries.
 func (rs *rethinkStore[E]) List(ctx context.Context, queries ...EntityQuery) ([]E, error) {
 	query := rs.table
 	for _, q := range queries {
@@ -209,6 +219,7 @@ func (rs *rethinkStore[E]) List(ctx context.Context, queries ...EntityQuery) ([]
 	defer res.Close()
 
 	result := new([]E)
+
 	err = res.All(result)
 	if err != nil {
 		return nil, fmt.Errorf("cannot fetch all entities: %w", err)
@@ -217,43 +228,50 @@ func (rs *rethinkStore[E]) List(ctx context.Context, queries ...EntityQuery) ([]
 	return *result, nil
 }
 
-// Get implements Storage.
+// Get returns the entity of the given ID  from the database.
 func (rs *rethinkStore[E]) Get(ctx context.Context, id string) (E, error) {
 	var zero E
 	res, err := rs.table.Get(id).Run(rs.queryExecutor, r.RunOpts{Context: ctx})
 	if err != nil {
 		return zero, fmt.Errorf("cannot find %v with id %q in database: %w", rs.tableName, id, err)
 	}
+
 	defer res.Close()
 	if res.IsNil() {
 		return zero, NotFound("no %v with id %q found", rs.tableName, id)
 	}
+
 	e := new(E)
 	err = res.One(e)
 	if err != nil {
 		return zero, fmt.Errorf("more than one %v with same id exists: %w", rs.tableName, err)
 	}
+
 	return *e, nil
 }
 
-// Update implements Storage.
+// Update updates the entity to the contents of the new entity.
+//
+// it uses the "changed" timestamp of the old entity to figure out if it was already modified by some other process.
+// if this happens a conflict error will be returned.
 func (rs *rethinkStore[E]) Update(ctx context.Context, new, old E) error {
 	new.SetChanged(time.Now())
 
-	// FIXME use context
 	_, err := rs.table.Get(old.GetID()).Replace(func(row r.Term) r.Term {
 		return r.Branch(row.Field("changed").Eq(r.Expr(old.GetChanged())), new, r.Error(entityAlreadyModifiedErrorMessage))
-	}).RunWrite(rs.queryExecutor)
+	}).RunWrite(rs.queryExecutor, r.RunOpts{Context: ctx})
 	if err != nil {
 		if strings.Contains(err.Error(), entityAlreadyModifiedErrorMessage) {
 			return Conflict("cannot update %v (%s): %s", rs.tableName, old.GetID(), entityAlreadyModifiedErrorMessage)
 		}
+
 		return fmt.Errorf("cannot update %v (%s): %w", rs.tableName, old.GetID(), err)
 	}
 
 	return nil
 }
 
+// Upsert inserts the given entity into the database, replacing it completely if it is already present.
 func (rs *rethinkStore[E]) Upsert(ctx context.Context, e E) error {
 	now := time.Now()
 	if e.GetCreated().IsZero() {
@@ -271,12 +289,13 @@ func (rs *rethinkStore[E]) Upsert(ctx context.Context, e E) error {
 	if e.GetID() == "" && len(res.GeneratedKeys) > 0 {
 		e.SetID(res.GeneratedKeys[0])
 	}
+
 	return nil
 }
 
-// Initialize initializes the database, it should be called before serving the metal-api
+// initialize initializes the database, it should be called before serving the metal-api
 // in order to ensure that tables, pools, permissions are properly initialized
-func (rs *rethinkStore[E]) Initialize() error {
+func (rs *rethinkStore[E]) initialize() error {
 	return rs.initializeTable(r.TableCreateOpts{Shards: 1, Replicas: 1})
 }
 
@@ -289,5 +308,6 @@ func (rs *rethinkStore[E]) initializeTable(opts r.TableCreateOpts) error {
 	if err != nil {
 		return fmt.Errorf("cannot create table %s %w", rs.tableName, err)
 	}
+
 	return nil
 }
