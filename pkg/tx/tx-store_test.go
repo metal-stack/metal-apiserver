@@ -32,10 +32,10 @@ func Test_txStore_AddTx(t *testing.T) {
 			mr := miniredis.RunT(t)
 			client := redis.NewClient(&redis.Options{Addr: mr.Addr()})
 
-			tr, err := NewTxStore(log, client)
+			tr, err := NewTxStore(ctx, log, client)
 			require.NoError(t, err)
 
-			if err := tr.AddTx(tt.tx); (err != nil) != tt.wantErr {
+			if err := tr.AddTx(ctx, tt.tx); (err != nil) != tt.wantErr {
 				t.Errorf("txStore.AddTx() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
