@@ -16,10 +16,6 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 
-	mdm "github.com/metal-stack/masterdata-api/pkg/client"
-
-	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
-	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	"github.com/metal-stack/metal-lib/pkg/tag"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -32,8 +28,6 @@ type Config struct {
 type ipServiceServer struct {
 	log  *slog.Logger
 	repo *repository.Repository
-	mdc  mdm.Client
-	ipam ipamv1connect.IpamServiceClient
 }
 
 func New(c Config) apiv2connect.IPServiceHandler {
@@ -104,24 +98,13 @@ func (i *ipServiceServer) Delete(ctx context.Context, rq *connect.Request[apiv2.
 		return nil, err
 	}
 
-	_, err = i.ipam.ReleaseIP(ctx, connect.NewRequest(&ipamv1.ReleaseIPRequest{Ip: req.Ip, PrefixCidr: ip.ParentPrefixCidr}))
-	if err != nil {
-		var connectErr *connect.Error
-		if errors.As(err, &connectErr) {
-			if connectErr.Code() != connect.CodeNotFound {
-				return nil, err
-			}
-		}
-	}
-
 	return connect.NewResponse(&apiv2.IPServiceDeleteResponse{
 		Ip: convert(ip),
 	}), nil
 }
 
-// Allocate implements v1.IPServiceServer
 func (i *ipServiceServer) Create(ctx context.Context, rq *connect.Request[apiv2.IPServiceCreateRequest]) (*connect.Response[apiv2.IPServiceCreateResponse], error) {
-	i.log.Debug("allocate", "ip", rq)
+	i.log.Debug("create", "ip", rq)
 	req := rq.Msg
 
 	if req.Network == "" {

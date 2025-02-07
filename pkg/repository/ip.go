@@ -11,15 +11,13 @@ import (
 	"github.com/metal-stack/api-server/pkg/db/metal"
 	"github.com/metal-stack/api-server/pkg/db/queries"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	apiv1 "github.com/metal-stack/go-ipam/api/v1"
+	ipamapiv1 "github.com/metal-stack/go-ipam/api/v1"
 )
 
 type ipRepository struct {
 	r     *Repository
 	scope ProjectScope
 }
-
-// FIXME IPAM
 
 func (r *ipRepository) Get(ctx context.Context, id string) (*metal.IP, error) {
 	ip, err := r.r.ds.IP().Get(ctx, id)
@@ -87,6 +85,16 @@ func (r *ipRepository) Delete(ctx context.Context, id string) (*metal.IP, error)
 
 	// FIXME delete in ipam with the help of Tx
 
+	_, err = r.r.ipam.ReleaseIP(ctx, connect.NewRequest(&ipamapiv1.ReleaseIPRequest{Ip: ip.IPAddress, PrefixCidr: ip.ParentPrefixCidr}))
+	if err != nil {
+		var connectErr *connect.Error
+		if errors.As(err, &connectErr) {
+			if connectErr.Code() != connect.CodeNotFound {
+				return nil, err
+			}
+		}
+	}
+
 	err = r.r.ds.IP().Delete(ctx, ip)
 	if err != nil {
 		return nil, err
@@ -125,7 +133,7 @@ func (r *ipRepository) AllocateSpecificIP(ctx context.Context, parent *metal.Net
 			continue
 		}
 
-		resp, err := r.r.ipam.AcquireIP(ctx, connect.NewRequest(&apiv1.AcquireIPRequest{PrefixCidr: prefix.String(), Ip: &specificIP}))
+		resp, err := r.r.ipam.AcquireIP(ctx, connect.NewRequest(&ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String(), Ip: &specificIP}))
 		var connectErr *connect.Error
 		if errors.As(err, &connectErr) {
 			if connectErr.Code() == connect.CodeAlreadyExists {
@@ -151,7 +159,7 @@ func (r *ipRepository) AllocateRandomIP(ctx context.Context, parent *metal.Netwo
 	}
 
 	for _, prefix := range parent.Prefixes.OfFamily(addressfamily) {
-		resp, err := r.r.ipam.AcquireIP(ctx, connect.NewRequest(&apiv1.AcquireIPRequest{PrefixCidr: prefix.String()}))
+		resp, err := r.r.ipam.AcquireIP(ctx, connect.NewRequest(&ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String()}))
 		if err != nil {
 			var connectErr *connect.Error
 			if errors.As(err, &connectErr) {

@@ -18,6 +18,10 @@ func (r *networkRepository) Get(ctx context.Context, id string) (*metal.Network,
 		return nil, err
 	}
 
+	if nw.Shared || nw.PrivateSuper || nw.ProjectID == "" {
+		return nw, nil
+	}
+
 	if r.scope != ProjectScope(nw.ProjectID) {
 		return nil, generic.NotFound("network with id:%s not found", id)
 	}
