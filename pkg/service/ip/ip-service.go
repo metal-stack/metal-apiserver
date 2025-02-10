@@ -160,7 +160,7 @@ func (i *ipServiceServer) Create(ctx context.Context, rq *connect.Request[apiv2.
 		}
 
 		if !slices.Contains(nw.AddressFamilies, af) {
-			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("there is no prefix for the given addressfamily:%s present in network:%s", string(*req.AddressFamily), req.Network))
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("there is no prefix for the given addressfamily:%s present in network:%s %s", af, req.Network, nw.AddressFamilies))
 		}
 		if req.Ip != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("it is not possible to specify specificIP and addressfamily"))

@@ -145,7 +145,7 @@ func Test_Create(t *testing.T) {
 				adminSubjects: []string{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested project:"kubies" is not allowed`,
+			wantErrMessage: `permission_denied: requested project: "kubies" is not allowed`,
 		},
 		{
 			name: "user and token with project access can create project token",
@@ -203,7 +203,7 @@ func Test_Create(t *testing.T) {
 				projectRoles:  map[string]v1.ProjectRole{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: outdated token: requested project:"kubies" is not allowed`,
+			wantErrMessage: `permission_denied: outdated token: requested project: "kubies" is not allowed`,
 		},
 		{
 			name: "project without but user with project access cannot create project token",
@@ -227,7 +227,7 @@ func Test_Create(t *testing.T) {
 				},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested project:"kubies" is not allowed`,
+			wantErrMessage: `permission_denied: requested project: "kubies" is not allowed`,
 		},
 		{
 			name: "admin user and token can create new admin token",
@@ -275,7 +275,7 @@ func Test_Create(t *testing.T) {
 				adminSubjects: []string{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: outdated token: requested admin role:"ADMIN_ROLE_EDITOR" is not allowed`,
+			wantErrMessage: `permission_denied: outdated token: requested admin role: "ADMIN_ROLE_EDITOR" is not allowed`,
 		},
 
 		{
@@ -297,7 +297,7 @@ func Test_Create(t *testing.T) {
 				adminSubjects: []string{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested tenant:"mascots" is not allowed`,
+			wantErrMessage: `permission_denied: requested tenant: "mascots" is not allowed`,
 		},
 		{
 			name: "user and token with tenant access can create tenant token",
@@ -354,7 +354,7 @@ func Test_Create(t *testing.T) {
 				projectRoles:  map[string]v1.ProjectRole{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: outdated token: requested tenant:"mascots" is not allowed`,
+			wantErrMessage: `permission_denied: outdated token: requested tenant: "mascots" is not allowed`,
 		},
 		{
 			name: "token without but user with tenant access cannot create tenant token",
@@ -378,7 +378,7 @@ func Test_Create(t *testing.T) {
 				},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested tenant:"mascots" is not allowed`,
+			wantErrMessage: `permission_denied: requested tenant: "mascots" is not allowed`,
 		},
 	}
 
@@ -544,7 +544,7 @@ func Test_validateTokenCreate(t *testing.T) {
 			},
 			adminSubjects:  []string{},
 			wantErr:        true,
-			wantErrMessage: "requested method:\"/metalstack.api.v2.UnknownService/Get\" is not allowed",
+			wantErrMessage: "requested method: \"/metalstack.api.v2.UnknownService/Get\" is not allowed",
 		},
 		{
 			name: "simple token with one project and permission, wrong project given",
@@ -568,7 +568,7 @@ func Test_validateTokenCreate(t *testing.T) {
 			},
 			adminSubjects:  []string{},
 			wantErr:        true,
-			wantErrMessage: "requested subject:\"cde\" access is not allowed",
+			wantErrMessage: "requested subject: \"cde\" access is not allowed",
 		},
 		{
 			name: "simple token with one project and permission, wrong message given",
@@ -592,7 +592,7 @@ func Test_validateTokenCreate(t *testing.T) {
 			},
 			adminSubjects:  []string{},
 			wantErr:        true,
-			wantErrMessage: "requested method:\"/metalstack.api.v2.IPService/List\" is not allowed for subject:\"abc\"",
+			wantErrMessage: "requested method: \"/metalstack.api.v2.IPService/List\" is not allowed for subject: \"abc\"",
 		},
 		{
 			name: "simple token with one project and permission, wrong messages given",
@@ -623,7 +623,7 @@ func Test_validateTokenCreate(t *testing.T) {
 			},
 			adminSubjects:  []string{},
 			wantErr:        true,
-			wantErrMessage: "requested method:\"/metalstack.api.v2.IPService/List\" is not allowed for subject:\"abc\"",
+			wantErrMessage: "requested method: \"/metalstack.api.v2.IPService/List\" is not allowed for subject: \"abc\"",
 		},
 		{
 			name: "expiration too long",
@@ -641,7 +641,7 @@ func Test_validateTokenCreate(t *testing.T) {
 			},
 			adminSubjects:  []string{},
 			wantErr:        true,
-			wantErrMessage: "requested expiration duration:\"2400h0m0s\" exceeds max expiration:\"2160h0m0s\"",
+			wantErrMessage: "requested expiration duration: \"2400h0m0s\" exceeds max expiration:  \"2160h0m0s\"",
 		},
 		// Roles from Token
 		{
@@ -669,7 +669,7 @@ func Test_validateTokenCreate(t *testing.T) {
 			},
 			adminSubjects:  []string{},
 			wantErr:        true,
-			wantErrMessage: "requested tenant:\"john@github\" is not allowed",
+			wantErrMessage: "requested tenant: \"john@github\" is not allowed",
 		},
 		{
 			name: "token has to low role",
@@ -699,7 +699,7 @@ func Test_validateTokenCreate(t *testing.T) {
 			},
 			adminSubjects:  []string{},
 			wantErr:        true,
-			wantErrMessage: "requested role:\"TENANT_ROLE_EDITOR\" is higher than allowed role:\"TENANT_ROLE_VIEWER\"",
+			wantErrMessage: "requested role: \"TENANT_ROLE_EDITOR\" is higher than allowed role: \"TENANT_ROLE_VIEWER\"",
 		},
 		{
 			name: "token request has unspecified role",
@@ -729,7 +729,7 @@ func Test_validateTokenCreate(t *testing.T) {
 			},
 			adminSubjects:  []string{},
 			wantErr:        true,
-			wantErrMessage: "requested tenant role:\"TENANT_ROLE_UNSPECIFIED\" is not allowed",
+			wantErrMessage: "requested tenant role: \"TENANT_ROLE_UNSPECIFIED\" is not allowed",
 		},
 		// AdminSubjects
 		{
@@ -746,7 +746,7 @@ func Test_validateTokenCreate(t *testing.T) {
 				Expires:     inOneHour,
 			},
 			wantErr:        true,
-			wantErrMessage: "requested admin role:\"ADMIN_ROLE_VIEWER\" is not allowed",
+			wantErrMessage: "requested admin role: \"ADMIN_ROLE_VIEWER\" is not allowed",
 		},
 		{
 			name: "requested admin role but is only viewer of admin orga",
@@ -764,7 +764,7 @@ func Test_validateTokenCreate(t *testing.T) {
 				Expires:     inOneHour,
 			},
 			wantErr:        true,
-			wantErrMessage: "requested admin role:\"ADMIN_ROLE_EDITOR\" is not allowed",
+			wantErrMessage: "requested admin role: \"ADMIN_ROLE_EDITOR\" is not allowed",
 		},
 		{
 			name: "token requested admin role but is editor in admin orga",
@@ -871,7 +871,7 @@ func Test_Update(t *testing.T) {
 				adminSubjects: []string{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested project:"kubies" is not allowed`,
+			wantErrMessage: `permission_denied: requested project: "kubies" is not allowed`,
 		},
 		{
 			name: "user and token with project access can update project token",
@@ -943,7 +943,7 @@ func Test_Update(t *testing.T) {
 				projectRoles:  map[string]v1.ProjectRole{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: outdated token: requested project:"kubies" is not allowed`,
+			wantErrMessage: `permission_denied: outdated token: requested project: "kubies" is not allowed`,
 		},
 		{
 			name: "project without but user with project access cannot create project token",
@@ -974,7 +974,7 @@ func Test_Update(t *testing.T) {
 				},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested project:"kubies" is not allowed`,
+			wantErrMessage: `permission_denied: requested project: "kubies" is not allowed`,
 		},
 		{
 			name: "admin user and token can update admin token",
@@ -1035,7 +1035,7 @@ func Test_Update(t *testing.T) {
 				adminSubjects: []string{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: outdated token: requested admin role:"ADMIN_ROLE_EDITOR" is not allowed`,
+			wantErrMessage: `permission_denied: outdated token: requested admin role: "ADMIN_ROLE_EDITOR" is not allowed`,
 		},
 		{
 			name: "user and token without tenant access cannot update tenant token",
@@ -1061,7 +1061,7 @@ func Test_Update(t *testing.T) {
 				adminSubjects: []string{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested tenant:"mascots" is not allowed`,
+			wantErrMessage: `permission_denied: requested tenant: "mascots" is not allowed`,
 		},
 		{
 			name: "user and token with tenant access can update tenant token",
@@ -1131,7 +1131,7 @@ func Test_Update(t *testing.T) {
 				projectRoles:  map[string]v1.ProjectRole{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: outdated token: requested tenant:"mascots" is not allowed`,
+			wantErrMessage: `permission_denied: outdated token: requested tenant: "mascots" is not allowed`,
 		},
 		{
 			name: "token without but user with tenant access cannot update tenant token",
@@ -1160,7 +1160,7 @@ func Test_Update(t *testing.T) {
 				},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested tenant:"mascots" is not allowed`,
+			wantErrMessage: `permission_denied: requested tenant: "mascots" is not allowed`,
 		},
 		{
 			name: "token does not exist in database",

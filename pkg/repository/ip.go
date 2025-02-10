@@ -112,6 +112,7 @@ func (r *ipRepository) List(ctx context.Context, rq *apiv2.IPServiceListRequest)
 	return ip, nil
 }
 
+// FIXME must be part of Create
 func (r *ipRepository) AllocateSpecificIP(ctx context.Context, parent *metal.Network, specificIP string) (ipAddress, parentPrefixCidr string, err error) {
 	parsedIP, err := netip.ParseAddr(specificIP)
 	if err != nil {
@@ -150,6 +151,7 @@ func (r *ipRepository) AllocateSpecificIP(ctx context.Context, parent *metal.Net
 	return "", "", fmt.Errorf("specific ip not contained in any of the defined prefixes")
 }
 
+// FIXME must be part of Create
 func (r *ipRepository) AllocateRandomIP(ctx context.Context, parent *metal.Network, af *metal.AddressFamily) (ipAddress, parentPrefixCidr string, err error) {
 	var addressfamily = metal.IPv4AddressFamily
 	if af != nil {

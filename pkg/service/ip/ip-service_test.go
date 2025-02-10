@@ -3,7 +3,6 @@ package ip
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"slices"
 	"testing"
@@ -462,21 +461,31 @@ func Test_ipServiceServer_Create(t *testing.T) {
 	nws := []*metal.Network{
 		{Base: metal.Base{ID: "internet"}, Prefixes: metal.Prefixes{metal.Prefix{IP: "1.2.0.0", Length: "24"}}},
 		{Base: metal.Base{ID: "tenant-network"}, PrivateSuper: true, Prefixes: metal.Prefixes{metal.Prefix{IP: "10.2.0.0", Length: "24"}}},
+		{Base: metal.Base{ID: "tenant-network-v6"}, PrivateSuper: true, Prefixes: metal.Prefixes{metal.Prefix{IP: "2001:db8:1::", Length: "64"}}},
+		{Base: metal.Base{
+			ID: "tenant-network-dualstack"},
+			PrivateSuper: true,
+			Prefixes: metal.Prefixes{
+				{IP: "10.3.0.0", Length: "24"},
+				{IP: "2001:db8:2::", Length: "64"},
+			}},
 	}
-	createNetworks(t, ctx, ds, ipam, nws)
+	createNetworks(t, ctx, repo, nws)
 	createIPs(t, ctx, ds, ipam, prefixMap, ips)
 
 	tests := []struct {
-		name    string
-		ctx     context.Context
-		rq      *apiv2.IPServiceCreateRequest
-		log     *slog.Logger
-		repo    *repository.Repository
-		want    *apiv2.IPServiceCreateResponse
-		wantErr bool
+		name           string
+		ctx            context.Context
+		rq             *apiv2.IPServiceCreateRequest
+		log            *slog.Logger
+		repo           *repository.Repository
+		want           *apiv2.IPServiceCreateResponse
+		wantErr        bool
+		wantReturnCode connect.Code
+		wantErrMessage string
 	}{
 		{
-			name: "create random ipv4",
+			name: "create random ephemeral ipv4",
 			ctx:  ctx,
 			log:  log,
 			repo: repo,
@@ -488,6 +497,119 @@ func Test_ipServiceServer_Create(t *testing.T) {
 				Ip: &apiv2.IP{Ip: "1.2.0.1", Network: "internet", Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL},
 			},
 		},
+		{
+			name: "create random ephemeral ipv6",
+			ctx:  ctx,
+			log:  log,
+			repo: repo,
+			rq: &apiv2.IPServiceCreateRequest{
+				Network: "tenant-network-v6",
+				Project: "p1",
+			},
+			want: &apiv2.IPServiceCreateResponse{
+				Ip: &apiv2.IP{Ip: "2001:db8:1::1", Network: "tenant-network-v6", Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL},
+			},
+		},
+		{
+			name: "create specific ephemeral ipv6",
+			ctx:  ctx,
+			log:  log,
+			repo: repo,
+			rq: &apiv2.IPServiceCreateRequest{
+				Network: "tenant-network-v6",
+				Project: "p1",
+				Ip:      pointer.Pointer("2001:db8:1::99"),
+			},
+			want: &apiv2.IPServiceCreateResponse{
+				Ip: &apiv2.IP{Ip: "2001:db8:1::99", Network: "tenant-network-v6", Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL},
+			},
+		},
+		{
+			name: "create random ephemeral ipv4 from a dualstack network",
+			ctx:  ctx,
+			log:  log,
+			repo: repo,
+			rq: &apiv2.IPServiceCreateRequest{
+				Network: "tenant-network-dualstack",
+				Project: "p1",
+			},
+			want: &apiv2.IPServiceCreateResponse{
+				Ip: &apiv2.IP{Ip: "10.3.0.1", Network: "tenant-network-dualstack", Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL},
+			},
+		},
+		{
+			name: "create random ephemeral ipv6 from a dualstack network",
+			ctx:  ctx,
+			log:  log,
+			repo: repo,
+			rq: &apiv2.IPServiceCreateRequest{
+				Network:       "tenant-network-dualstack",
+				Project:       "p1",
+				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(),
+			},
+			want: &apiv2.IPServiceCreateResponse{
+				Ip: &apiv2.IP{Ip: "2001:db8:2::1", Network: "tenant-network-dualstack", Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL},
+			},
+		},
+		{
+			name: "create specific ephemeral ipv4",
+			ctx:  ctx,
+			log:  log,
+			repo: repo,
+			rq: &apiv2.IPServiceCreateRequest{
+				Network: "internet",
+				Project: "p1",
+				Ip:      pointer.Pointer("1.2.0.99"),
+			},
+			want: &apiv2.IPServiceCreateResponse{
+				Ip: &apiv2.IP{Ip: "1.2.0.99", Network: "internet", Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL},
+			},
+		},
+		{
+			name: "create specific static ipv4",
+			ctx:  ctx,
+			log:  log,
+			repo: repo,
+			rq: &apiv2.IPServiceCreateRequest{
+				Network: "internet",
+				Project: "p1",
+				Ip:      pointer.Pointer("1.2.0.100"),
+				Type:    apiv2.IPType_IP_TYPE_STATIC.Enum(),
+			},
+			want: &apiv2.IPServiceCreateResponse{
+				Ip: &apiv2.IP{Ip: "1.2.0.100", Network: "internet", Project: "p1", Type: apiv2.IPType_IP_TYPE_STATIC},
+			},
+		},
+		{
+			name: "create specific ipv4 which is already allocated",
+			ctx:  ctx,
+			log:  log,
+			repo: repo,
+			rq: &apiv2.IPServiceCreateRequest{
+				Network: "internet",
+				Project: "p1",
+				Ip:      pointer.Pointer("1.2.0.1"),
+			},
+			want:           nil,
+			wantErr:        true,
+			wantReturnCode: connect.CodeInternal, // FIXME should be InvalidArgument
+			wantErrMessage: "internal: Conflict ip already allocated",
+		},
+		{
+			name: "allocate a static specific ip outside prefix",
+			ctx:  ctx,
+			log:  log,
+			repo: repo,
+			rq: &apiv2.IPServiceCreateRequest{
+				Network: "internet",
+				Project: "p1",
+				Ip:      pointer.Pointer("1.3.0.1"),
+			},
+			want:           nil,
+			wantErr:        true,
+			wantReturnCode: connect.CodeInternal, // FIXME should be InvalidArgument
+			wantErrMessage: "internal: specific ip not contained in any of the defined prefixes",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -498,6 +620,14 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			got, err := i.Create(tt.ctx, connect.NewRequest(tt.rq))
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ipServiceServer.Create() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if (err != nil) && tt.wantErr {
+				require.Equal(t, tt.wantErrMessage, err.Error())
+				var connectErr *connect.Error
+				if errors.As(err, &connectErr) && tt.wantReturnCode != connectErr.Code() {
+					t.Errorf("ipServiceServer.Create() errcode = %v, wantReturnCode %v", connectErr.Code(), tt.wantReturnCode)
+				}
 				return
 			}
 
@@ -516,6 +646,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 	}
 }
 
+// FIXME use repository
 func createIPs(t *testing.T, ctx context.Context, ds *generic.Datastore, ipam ipamv1connect.IpamServiceClient, prefixesMap map[string][]string, ips []*metal.IP) {
 	for prefix := range prefixesMap {
 		_, err := ipam.CreatePrefix(ctx, connect.NewRequest(&ipamv1.CreatePrefixRequest{Cidr: prefix}))
@@ -542,15 +673,9 @@ func createIPs(t *testing.T, ctx context.Context, ds *generic.Datastore, ipam ip
 	}
 }
 
-func createNetworks(t *testing.T, ctx context.Context, ds *generic.Datastore, ipam ipamv1connect.IpamServiceClient, nws []*metal.Network) {
+func createNetworks(t *testing.T, ctx context.Context, repo *repository.Repository, nws []*metal.Network) {
 	for _, nw := range nws {
-		fmt.Printf("create network %s", nw.ID)
-		_, err := ds.Network().Create(ctx, nw)
+		_, err := repo.Network(repository.ProjectScope(nw.ProjectID)).Create(ctx, nw)
 		require.NoError(t, err)
-
-		for _, prefix := range nw.Prefixes {
-			_, err = ipam.CreatePrefix(ctx, connect.NewRequest(&ipamv1.CreatePrefixRequest{Cidr: prefix.String()}))
-			require.NoError(t, err)
-		}
 	}
 }
