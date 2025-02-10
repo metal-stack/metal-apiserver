@@ -9,20 +9,18 @@ import (
 	"testing"
 
 	"connectrpc.com/connect"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-cmp/cmp"
-	"github.com/metal-stack/api/go/metalstack/api/v2"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 
+	"github.com/metal-stack/api-server/pkg/repository"
 	ipservice "github.com/metal-stack/api-server/pkg/service/ip"
 	tutil "github.com/metal-stack/api-server/pkg/tenant"
+	"github.com/metal-stack/api-server/pkg/test"
 	"github.com/metal-stack/api-server/pkg/token"
 
 	mdmv1 "github.com/metal-stack/masterdata-api/api/v1"
-	"github.com/metal-stack/metal-go/api/client/ip"
-	"github.com/metal-stack/metal-go/api/client/network"
-	"github.com/metal-stack/metal-go/api/models"
-	metalmock "github.com/metal-stack/metal-go/test/client"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/metal-stack/metal-lib/pkg/testcommon"
 	"github.com/metal-stack/security"
 
@@ -33,18 +31,19 @@ import (
 
 func Test_tenantInterceptor_WrapUnary(t *testing.T) {
 	logger := slog.Default()
+	ipam := test.StartIpam(t)
 	tests := []struct {
 		name               string
 		ip                 *apiv2.IPServiceCreateRequest
 		projectServiceMock func(mock *tmock.Mock)
 		tenantServiceMock  func(mock *tmock.Mock)
-		metalMocks         *metalmock.MetalMockFns
 		want               *apiv2.IPServiceCreateResponse
 		wantErr            *connect.Error
 	}{
 		{
 			name: "create ip with existing project",
 			ip: &apiv2.IPServiceCreateRequest{
+				Network: "n1",
 				Project: "p1",
 			},
 			projectServiceMock: func(mock *tmock.Mock) {
@@ -56,18 +55,6 @@ func Test_tenantInterceptor_WrapUnary(t *testing.T) {
 				mock.On("Get", tmock.Anything, &mdmv1.TenantGetRequest{
 					Id: "t1",
 				}).Return(&mdmv1.TenantResponse{Tenant: &mdmv1.Tenant{Meta: &mdmv1.Meta{Id: "t1"}}}, nil)
-			},
-			metalMocks: &metalmock.MetalMockFns{
-				Network: func(mock *tmock.Mock) {
-					mock.On("FindNetworks", tmock.Anything, nil).Return(&network.FindNetworksOK{Payload: []*models.V1NetworkResponse{{ID: pointer.Pointer("internet")}}}, nil)
-				},
-				IP: func(mock *tmock.Mock) {
-					mock.On("AllocateIP", ip.NewAllocateIPParams().WithBody(&models.V1IPAllocateRequest{
-						Projectid: pointer.Pointer("p1"),
-						Networkid: pointer.Pointer("internet"),
-						Type:      pointer.Pointer("ephemeral"),
-					}), nil).Return(&ip.AllocateIPCreated{Payload: &models.V1IPResponse{Ipaddress: pointer.Pointer("1.2.3.4"), Projectid: pointer.Pointer("p1"), Networkid: pointer.Pointer("internet")}}, nil)
-				},
 			},
 			want:    &apiv2.IPServiceCreateResponse{},
 			wantErr: nil,
@@ -88,13 +75,13 @@ func Test_tenantInterceptor_WrapUnary(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
-			ipService := ipservice.New(ipservice.Config{
-				Log: logger,
-			})
-
 			mc := newMasterdataMockClient(t, tt.tenantServiceMock, nil, tt.projectServiceMock, nil)
 			interceptor := NewInterceptor(logger, mc)
+
+			ipService := ipservice.New(ipservice.Config{
+				Repo: repository.New(logger, mc, nil, ipam), // FIXME datastore mock is missing
+				Log:  logger,
+			})
 
 			mux := http.NewServeMux()
 			mux.Handle(apiv2connect.NewIPServiceHandler(ipService, connect.WithInterceptors(interceptor)))
@@ -121,6 +108,8 @@ func Test_tenantInterceptor_WrapUnary(t *testing.T) {
 				})
 
 				got, err := client.Create(ctx, connect.NewRequest(tt.ip))
+				spew.Dump(got)
+				spew.Dump(err)
 
 				if err != nil {
 					if diff := cmp.Diff(tt.wantErr, err, testcommon.ErrorStringComparer()); diff != "" {
