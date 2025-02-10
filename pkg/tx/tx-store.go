@@ -32,7 +32,7 @@ func NewTxStore(ctx context.Context, log *slog.Logger, client *redis.Client) (*t
 	}, nil
 }
 
-func (t *txStore) AddTx(ctx context.Context, tx Tx) error {
+func (t *txStore) AddTx(ctx context.Context, tx *Tx) error {
 	serializedTx, err := json.Marshal(tx)
 	if err != nil {
 		return err

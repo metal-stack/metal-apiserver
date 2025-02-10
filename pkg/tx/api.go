@@ -1,8 +1,11 @@
 package tx
 
 import (
+	"context"
 	"log/slog"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
 type Action string
@@ -45,27 +48,32 @@ type Activity struct {
 }
 
 type Queue struct {
-	log   *slog.Logger
-	redis any
+	log     *slog.Logger
+	txStore *txStore
 }
 
-func New(log *slog.Logger, redis any) *Queue {
-	return &Queue{
-		log:   log,
-		redis: redis,
+func New(log *slog.Logger, client *redis.Client) (*Queue, error) {
+	ctx := context.Background()
+	txStore, err := NewTxStore(ctx, log, client)
+	if err != nil {
+		return nil, err
 	}
+	return &Queue{
+		log:     log,
+		txStore: txStore,
+	}, nil
 }
 
-func (q *Queue) Insert(jobs ...Job) error {
+func (q *Queue) Insert(ctx context.Context, jobs ...Job) error {
 	now := time.Now()
 
-	_ = &Tx{
+	tx := &Tx{
 		Jobs:       jobs,
 		Created:    now,
 		Expiration: now.Add(defaultExpiration),
 	}
 
-	// TODO: redis.Add(tx)
+	q.txStore.AddTx(ctx, tx)
 
 	return nil
 }

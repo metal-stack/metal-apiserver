@@ -18,12 +18,12 @@ func Test_txStore_AddTx(t *testing.T) {
 	ctx := context.Background()
 	tests := []struct {
 		name    string
-		tx      Tx
+		tx      *Tx
 		wantErr bool
 	}{
 		{
 			name:    "simple",
-			tx:      Tx{Jobs: []Job{{ID: "j1", Action: ActionIpDelete}}},
+			tx:      &Tx{Jobs: []Job{{ID: "j1", Action: ActionIpDelete}}},
 			wantErr: false,
 		},
 	}
@@ -44,7 +44,7 @@ func Test_txStore_AddTx(t *testing.T) {
 			require.Len(t, data, 1)
 
 			spew.Dump(data)
-			t.Fail()
+			// t.Fail()
 
 			// go func() {
 			// 	err := tr.Process()
