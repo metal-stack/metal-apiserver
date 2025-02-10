@@ -18,30 +18,30 @@ const (
 type Job struct {
 	// ID is the unique identifier for the object to apply this job to
 	// be aware that this should be an "allocation uuid" and not necessarily the primary key in the database of this object
-	ID string
+	ID string `json:"id,omitempty"`
 
 	// Action describes the action to be done when this job runs
-	Action Action
+	Action Action `json:"action,omitempty"`
 }
 
 type Tx struct {
 	// Reference is the identifier of this transaction
-	Reference string
+	Reference string `json:"reference,omitempty"`
 
-	// jobs are the jobs that are run in this transaction
-	jobs []Job
+	// Jobs are the Jobs that are run in this transaction
+	Jobs []Job `json:"jobs,omitempty"`
 
-	Created    time.Time
-	Expiration time.Time
+	Created    time.Time `json:"created,omitempty"`
+	Expiration time.Time `json:"expiration,omitempty"`
 
-	Activities []Activity
+	Activities []Activity `json:"activities,omitempty"`
 
-	LastError error
+	LastError error `json:"last_error,omitempty"`
 }
 
 type Activity struct {
-	Timestamp time.Time
-	Message   string
+	Timestamp time.Time `json:"timestamp,omitempty"`
+	Message   string    `json:"message,omitempty"`
 }
 
 type Queue struct {
@@ -60,7 +60,7 @@ func (q *Queue) Insert(jobs ...Job) error {
 	now := time.Now()
 
 	_ = &Tx{
-		jobs:       jobs,
+		Jobs:       jobs,
 		Created:    now,
 		Expiration: now.Add(defaultExpiration),
 	}

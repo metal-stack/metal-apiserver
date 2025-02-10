@@ -115,7 +115,7 @@ func (t *txStore) Process(ctx context.Context) error {
 }
 
 func (t *txStore) processTx(tx Tx) error {
-	for _, job := range tx.jobs {
+	for _, job := range tx.Jobs {
 		switch job.Action {
 		case ActionIpDelete:
 			t.log.Info("delete ip", "uuid", job.ID)

@@ -23,7 +23,7 @@ func Test_txStore_AddTx(t *testing.T) {
 	}{
 		{
 			name:    "simple",
-			tx:      Tx{jobs: []Job{{ID: "j1", Action: ActionIpDelete}}},
+			tx:      Tx{Jobs: []Job{{ID: "j1", Action: ActionIpDelete}}},
 			wantErr: false,
 		},
 	}
