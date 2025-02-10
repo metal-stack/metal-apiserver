@@ -73,9 +73,7 @@ func (q *Queue) Insert(ctx context.Context, jobs ...Job) error {
 		Expiration: now.Add(defaultExpiration),
 	}
 
-	q.txStore.AddTx(ctx, tx)
-
-	return nil
+	return q.txStore.AddTx(ctx, tx)
 }
 
 func (q *Queue) List() []Tx {
