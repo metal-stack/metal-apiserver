@@ -610,6 +610,36 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			wantReturnCode: connect.CodeInternal, // FIXME should be InvalidArgument
 			wantErrMessage: "internal: specific ip not contained in any of the defined prefixes",
 		},
+		{
+			name: "allocate a random ip with unavailable addressfamily",
+			ctx:  ctx,
+			log:  log,
+			repo: repo,
+			rq: &apiv2.IPServiceCreateRequest{
+				Network:       "tenant-network-v6",
+				Project:       "p1",
+				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4.Enum(),
+			},
+			want:           nil,
+			wantErr:        true,
+			wantReturnCode: connect.CodeInvalidArgument,
+			wantErrMessage: "invalid_argument: there is no prefix for the given addressfamily:IPv4 present in network:tenant-network-v6 [IPv6]",
+		},
+		{
+			name: "allocate a random ip with unavailable addressfamily",
+			ctx:  ctx,
+			log:  log,
+			repo: repo,
+			rq: &apiv2.IPServiceCreateRequest{
+				Network:       "tenant-network",
+				Project:       "p1",
+				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(),
+			},
+			want:           nil,
+			wantErr:        true,
+			wantReturnCode: connect.CodeInvalidArgument,
+			wantErrMessage: "invalid_argument: there is no prefix for the given addressfamily:IPv6 present in network:tenant-network [IPv4]",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

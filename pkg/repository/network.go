@@ -76,7 +76,9 @@ func (r *networkRepository) Create(ctx context.Context, nw *metal.Network) (*met
 
 	for _, prefix := range nw.Prefixes {
 		_, err = r.r.ipam.CreatePrefix(ctx, connect.NewRequest(&ipamv1.CreatePrefixRequest{Cidr: prefix.String()}))
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return resp, nil
