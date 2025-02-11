@@ -88,10 +88,17 @@ func (q *Queue) Insert(ctx context.Context, jobs ...Job) error {
 	return q.txStore.AddTx(ctx, tx)
 }
 
-func (q *Queue) List() []Tx {
-	// TODO: redis scan
-
-	return nil
+func (q *Queue) List() ([]Tx, error) {
+	pending, err := q.txStore.Pending(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	var txs []Tx
+	for _, p := range pending {
+		// FIXME
+		txs = append(txs, Tx{Reference: p.ID})
+	}
+	return txs, nil
 }
 
 func (q *Queue) Delete(ref string) error {
