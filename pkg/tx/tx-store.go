@@ -4,15 +4,18 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 )
 
 const (
-	stream = "metal-tx"
-	group  = "txStore"
+	stream = "metal:tx"
+	group  = "apiserver"
 )
 
 type (
@@ -21,6 +24,7 @@ type (
 		client           *redis.Client
 		messageIdToStart string
 		actionFns        actionFns
+		processErrors    []error
 	}
 
 	actionFns map[Action]actionFn
@@ -28,17 +32,30 @@ type (
 )
 
 func NewTxStore(ctx context.Context, log *slog.Logger, client *redis.Client, actions actionFns) (*txStore, error) {
-	result := client.XGroupCreateMkStream(ctx, stream, group, "$")
-	if result.Err() != nil {
-		return nil, result.Err()
+	// Check if group exists
+	infoResult := client.XInfoGroups(ctx, stream)
+	if infoResult.Err() != nil && !errors.Is(infoResult.Err(), redis.Nil) {
+		return nil, fmt.Errorf("xinfo group: %w", infoResult.Err())
 	}
 
-	return &txStore{
+	result := client.XGroupCreateMkStream(ctx, stream, group, "$")
+	if result.Err() != nil && !strings.Contains(result.Err().Error(), "BUSYGROUP") {
+		return nil, fmt.Errorf("xgroup create: %w", result.Err())
+	}
+
+	store := &txStore{
 		log:              log,
 		client:           client,
 		actionFns:        actions,
 		messageIdToStart: "0-0", // Start from beginning on startup, if set to ">" it starts with new unprocessed entries
-	}, nil
+	}
+	go func() {
+		err := store.Process(ctx)
+		if err != nil {
+			panic(err)
+		}
+	}()
+	return store, nil
 }
 
 func (t *txStore) AddTx(ctx context.Context, tx *Tx) error {
@@ -87,6 +104,7 @@ func (t *txStore) Process(ctx context.Context) error {
 		}).Result()
 		if err != nil {
 			t.log.Error("unable to receive from stream", "error", err)
+			t.processErrors = append(t.processErrors, err)
 		}
 
 		///we have received the data we should loop it and queue the messages
@@ -97,6 +115,7 @@ func (t *txStore) Process(ctx context.Context) error {
 					txJson, err := base64.StdEncoding.DecodeString(txString.(string))
 					if err != nil {
 						t.log.Error("unable to decode tx to json bytes", "tx reference", txReference, "error", err)
+						t.processErrors = append(t.processErrors, err)
 						continue
 					}
 
@@ -104,18 +123,21 @@ func (t *txStore) Process(ctx context.Context) error {
 					err = json.Unmarshal(txJson, &tx)
 					if err != nil {
 						t.log.Error("unable to unmarshal tx to json", "tx reference", txReference, "error", err)
+						t.processErrors = append(t.processErrors, err)
 						continue
 					}
 
 					err = t.processTx(tx)
 					if err != nil {
 						t.log.Error("unable to process tx", "tx reference", txReference, "error", err)
+						t.processErrors = append(t.processErrors, err)
 						continue
 					}
 
 					acked := t.client.XAck(ctx, stream, message.ID)
 					if acked.Err() != nil {
 						t.log.Error("tx could not be acked", "error", err)
+						t.processErrors = append(t.processErrors, err)
 					}
 					t.messageIdToStart = message.ID
 				}
@@ -125,17 +147,66 @@ func (t *txStore) Process(ctx context.Context) error {
 }
 
 func (t *txStore) processTx(tx Tx) error {
+	var errs []error
 	for _, job := range tx.Jobs {
 
 		action, ok := t.actionFns[job.Action]
 		if !ok {
-			return fmt.Errorf("no action func defined for action:%s", job.Action)
+			errs = append(errs, fmt.Errorf("no action func defined for action:%s", job.Action))
 		}
 		err := action(job.ID)
 		if err != nil {
-			return fmt.Errorf("error executing action: %s with id: %s error: %w", job.Action, job.ID, err)
+			errs = append(errs, fmt.Errorf("error executing action: %s with id: %s error: %w", job.Action, job.ID, err))
 		}
 	}
 
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
+
 	return nil
+}
+
+type Pending struct {
+	ID         string
+	Consumer   string
+	Idle       time.Duration
+	RetryCount int64
+}
+
+func (t *txStore) Pending(ctx context.Context) ([]Pending, error) {
+	pendingStreams, err := t.client.XPendingExt(ctx, &redis.XPendingExtArgs{
+		Stream: stream,
+		Group:  group,
+		Start:  "-",
+		End:    "+",
+		Count:  10,
+	}).Result()
+	if err != nil && !errors.Is(err, redis.Nil) {
+		return nil, err
+	}
+
+	var pendingTxs []Pending
+	for _, stream := range pendingStreams {
+		pendingTxs = append(pendingTxs, Pending{
+			ID:         stream.ID,
+			Consumer:   stream.Consumer,
+			Idle:       stream.Idle,
+			RetryCount: stream.RetryCount,
+		})
+	}
+	return pendingTxs, nil
+}
+
+func (t *txStore) Info(ctx context.Context) (*redis.XInfoStream, error) {
+	streamInfo, err := t.client.XInfoStream(ctx, stream).Result()
+	if err != nil && !errors.Is(err, redis.Nil) {
+		return nil, err
+	}
+
+	return streamInfo, nil
+}
+
+func (t *txStore) Errors() error {
+	return errors.Join(t.processErrors...)
 }
