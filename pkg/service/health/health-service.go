@@ -10,7 +10,7 @@ import (
 	"connectrpc.com/connect"
 	apiv1 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
-	metalgo "github.com/metal-stack/metal-go"
+	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -25,8 +25,8 @@ type healthchecker interface {
 type Config struct {
 	Log                 *slog.Logger
 	Ctx                 context.Context
-	MetalClient         metalgo.Client
 	HealthcheckInterval time.Duration
+	Ipam                ipamv1connect.IpamServiceClient
 }
 
 type healthServiceServer struct {
@@ -38,8 +38,9 @@ type healthServiceServer struct {
 
 func New(c Config) (apiv2connect.HealthServiceHandler, error) {
 	var checkers []healthchecker
-	if c.MetalClient != nil {
-		checkers = append(checkers, &machineHealthChecker{m: c.MetalClient})
+
+	if c.Ipam != nil {
+		checkers = append(checkers, &ipamHealthChecker{ipam: c.Ipam})
 	}
 
 	h := &healthServiceServer{
