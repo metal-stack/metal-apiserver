@@ -26,6 +26,7 @@ func Test_txStore_AddTx(t *testing.T) {
 			name: "simple",
 			tx:   &Tx{Jobs: []Job{{ID: "j1", Action: ActionIpDelete}}},
 			actionFns: actionFns{ActionIpDelete: func(id string) error {
+				t.Logf("process job with id:%s", id)
 				return nil
 			}},
 			wantErr: false,

@@ -17,9 +17,10 @@ const (
 
 type (
 	txStore struct {
-		log       *slog.Logger
-		client    *redis.Client
-		actionFns actionFns
+		log              *slog.Logger
+		client           *redis.Client
+		messageIdToStart string
+		actionFns        actionFns
 	}
 
 	actionFns map[Action]actionFn
@@ -33,9 +34,10 @@ func NewTxStore(ctx context.Context, log *slog.Logger, client *redis.Client, act
 	}
 
 	return &txStore{
-		log:       log,
-		client:    client,
-		actionFns: actions,
+		log:              log,
+		client:           client,
+		actionFns:        actions,
+		messageIdToStart: "0-0", // Start from beginning on startup, if set to ">" it starts with new unprocessed entries
 	}, nil
 }
 
@@ -76,7 +78,7 @@ func (t *txStore) Process(ctx context.Context) error {
 	for {
 		data, err := t.client.XReadGroup(ctx, &redis.XReadGroupArgs{
 			Group:   group,
-			Streams: []string{stream, ">"},
+			Streams: []string{stream, t.messageIdToStart},
 			//count is number of entries we want to read from redis
 			// Count: 4,
 			//we use the block command to make sure if no entry is found we wait
@@ -115,6 +117,7 @@ func (t *txStore) Process(ctx context.Context) error {
 					if acked.Err() != nil {
 						t.log.Error("tx could not be acked", "error", err)
 					}
+					t.messageIdToStart = message.ID
 				}
 			}
 		}
