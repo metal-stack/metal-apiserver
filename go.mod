@@ -20,7 +20,7 @@ require (
 	github.com/metal-stack/go-ipam v1.14.8
 	github.com/metal-stack/masterdata-api v0.11.5
 	github.com/metal-stack/metal-lib v0.19.2
-	github.com/metal-stack/security v0.9.2
+	github.com/metal-stack/security v0.9.3
 	github.com/metal-stack/v v1.0.3
 	github.com/open-policy-agent/opa v1.1.0
 	github.com/prometheus/client_golang v1.20.5
@@ -31,7 +31,7 @@ require (
 	github.com/urfave/cli/v2 v2.27.5
 	go.opentelemetry.io/otel/exporters/prometheus v0.56.0
 	go.opentelemetry.io/otel/sdk/metric v1.34.0
-	golang.org/x/net v0.34.0
+	golang.org/x/net v0.35.0
 	golang.org/x/oauth2 v0.26.0
 	golang.org/x/sync v0.11.0
 	google.golang.org/protobuf v1.36.5
@@ -90,7 +90,7 @@ require (
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/cel-go v0.23.2 // indirect
-	github.com/google/flatbuffers v25.1.24+incompatible // indirect
+	github.com/google/flatbuffers v25.2.10+incompatible // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.2.0 // indirect
 	github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed // indirect

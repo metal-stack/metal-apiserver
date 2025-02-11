@@ -17,13 +17,17 @@ func Test_txStore_AddTx(t *testing.T) {
 
 	ctx := context.Background()
 	tests := []struct {
-		name    string
-		tx      *Tx
-		wantErr bool
+		name      string
+		tx        *Tx
+		actionFns actionFns
+		wantErr   bool
 	}{
 		{
-			name:    "simple",
-			tx:      &Tx{Jobs: []Job{{ID: "j1", Action: ActionIpDelete}}},
+			name: "simple",
+			tx:   &Tx{Jobs: []Job{{ID: "j1", Action: ActionIpDelete}}},
+			actionFns: actionFns{ActionIpDelete: func(id string) error {
+				return nil
+			}},
 			wantErr: false,
 		},
 	}
@@ -32,7 +36,7 @@ func Test_txStore_AddTx(t *testing.T) {
 			mr := miniredis.RunT(t)
 			client := redis.NewClient(&redis.Options{Addr: mr.Addr()})
 
-			tr, err := NewTxStore(ctx, log, client)
+			tr, err := NewTxStore(ctx, log, client, tt.actionFns)
 			require.NoError(t, err)
 
 			if err := tr.AddTx(ctx, tt.tx); (err != nil) != tt.wantErr {

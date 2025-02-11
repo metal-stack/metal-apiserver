@@ -15,20 +15,27 @@ const (
 	group  = "txStore"
 )
 
-type txStore struct {
-	log    *slog.Logger
-	client *redis.Client
-}
+type (
+	txStore struct {
+		log       *slog.Logger
+		client    *redis.Client
+		actionFns actionFns
+	}
 
-func NewTxStore(ctx context.Context, log *slog.Logger, client *redis.Client) (*txStore, error) {
+	actionFns map[Action]actionFn
+	actionFn  func(id string) error
+)
+
+func NewTxStore(ctx context.Context, log *slog.Logger, client *redis.Client, actions actionFns) (*txStore, error) {
 	result := client.XGroupCreateMkStream(ctx, stream, group, "$")
 	if result.Err() != nil {
 		return nil, result.Err()
 	}
 
 	return &txStore{
-		log:    log,
-		client: client,
+		log:       log,
+		client:    client,
+		actionFns: actions,
 	}, nil
 }
 
@@ -116,9 +123,14 @@ func (t *txStore) Process(ctx context.Context) error {
 
 func (t *txStore) processTx(tx Tx) error {
 	for _, job := range tx.Jobs {
-		switch job.Action {
-		case ActionIpDelete:
-			t.log.Info("delete ip", "uuid", job.ID)
+
+		action, ok := t.actionFns[job.Action]
+		if !ok {
+			return fmt.Errorf("no action func defined for action:%s", job.Action)
+		}
+		err := action(job.ID)
+		if err != nil {
+			return fmt.Errorf("error executing action: %s with id: %s error: %w", job.Action, job.ID, err)
 		}
 	}
 
