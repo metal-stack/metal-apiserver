@@ -12,16 +12,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/metal-stack/api-server/pkg/invite"
 	putil "github.com/metal-stack/api-server/pkg/project"
+	"github.com/metal-stack/api-server/pkg/repository"
 	tutil "github.com/metal-stack/api-server/pkg/tenant"
 	"github.com/metal-stack/api-server/pkg/token"
 	apiv1 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	v1 "github.com/metal-stack/masterdata-api/api/v1"
 	mdc "github.com/metal-stack/masterdata-api/pkg/client"
-	metalgo "github.com/metal-stack/metal-go"
-	"github.com/metal-stack/metal-go/api/client/ip"
-	"github.com/metal-stack/metal-go/api/client/project"
-	"github.com/metal-stack/metal-go/api/models"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -30,14 +27,14 @@ import (
 type Config struct {
 	Log          *slog.Logger
 	MasterClient mdc.Client
-	MetalClient  metalgo.Client
+	Repo         repository.Repository
 	InviteStore  invite.ProjectInviteStore
 	TokenStore   token.TokenStore
 }
 type projectServiceServer struct {
 	log          *slog.Logger
 	masterClient mdc.Client
-	metalClient  metalgo.Client
+	repo         repository.Repository
 	inviteStore  invite.ProjectInviteStore
 	tokenStore   token.TokenStore
 }
@@ -46,9 +43,9 @@ func New(c Config) apiv2connect.ProjectServiceHandler {
 	return &projectServiceServer{
 		log:          c.Log.WithGroup("projectService"),
 		masterClient: c.MasterClient,
-		metalClient:  c.MetalClient,
 		inviteStore:  c.InviteStore,
 		tokenStore:   c.TokenStore,
+		repo:         c.Repo,
 	}
 }
 
@@ -271,20 +268,18 @@ func (p *projectServiceServer) Delete(ctx context.Context, rq *connect.Request[a
 		}
 	}
 
-	ips, err := p.metalClient.IP().FindIPs(ip.NewFindIPsParams().WithBody(&models.V1IPFindRequest{
-		Projectid: req.Project,
-	}).WithContext(ctx), nil)
+	ips, err := p.repo.IP(repository.ProjectScope(req.Project)).List(ctx, &apiv1.IPServiceListRequest{Project: req.Project})
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("error retrieving ips: %w", err))
 	}
 
-	if len(ips.Payload) > 0 {
+	if len(ips) > 0 {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("there are still ips associated with this project, you need to delete them first"))
 	}
 
-	_, err = p.metalClient.Project().DeleteProject(project.NewDeleteProjectParams().WithID(req.Project).WithContext(ctx), nil)
+	_, err = p.masterClient.Project().Delete(ctx, &v1.ProjectDeleteRequest{Id: req.Project})
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("error updating project: %w", err))
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("error deleting project: %w", err))
 	}
 
 	// TODO: ensure project tokens are revoked / cleaned up
