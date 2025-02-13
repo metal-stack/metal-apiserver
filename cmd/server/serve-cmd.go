@@ -164,15 +164,14 @@ func createAuditingClient(cli *cli.Context, log *slog.Logger) (auditing.Auditing
 	if !auditingEnabled {
 		return nil, nil
 	}
-	c := auditing.Config{
+	c := auditing.MeilisearchConfig{
 		URL:              cli.String("auditing-url"),
 		APIKey:           cli.String("auditing-api-key"),
-		Log:              log,
 		IndexPrefix:      cli.String("auditing-index-prefix"),
 		RotationInterval: auditing.Interval(cli.String("auditing-index-interval")),
 		Keep:             cli.Int64("auditing-index-keep"),
 	}
-	return auditing.New(c)
+	return auditing.NewMeilisearch(auditing.Config{Component: "apiserver", Log: log}, c)
 }
 
 type RedisDatabase string

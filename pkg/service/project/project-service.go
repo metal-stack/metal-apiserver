@@ -268,6 +268,8 @@ func (p *projectServiceServer) Delete(ctx context.Context, rq *connect.Request[a
 		}
 	}
 
+	// FIXME check for machines and networks first
+
 	ips, err := p.repo.IP(repository.ProjectScope(req.Project)).List(ctx, &apiv1.IPServiceListRequest{Project: req.Project})
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("error retrieving ips: %w", err))
