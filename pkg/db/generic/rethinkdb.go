@@ -46,11 +46,11 @@ type (
 	}
 
 	Datastore struct {
-		ip        Storage[*metal.IP]
-		partition Storage[*metal.Partition]
-		network   Storage[*metal.Network]
+		ip               Storage[*metal.IP]
+		partition        Storage[*metal.Partition]
+		network          Storage[*metal.Network]
+		filesystemlayout Storage[*metal.FilesystemLayout]
 		// event               Storage[*metal.ProvisioningEventContainer]
-		// filesystemlayout    Storage[*metal.FilesystemLayout]
 		// image               Storage[*metal.Image]
 		// machine             Storage[*metal.Machine]
 		// size                Storage[*metal.Size]
@@ -91,13 +91,16 @@ func New(log *slog.Logger, dbname string, queryExecutor r.QueryExecutor) (*Datas
 	if err != nil {
 		return nil, err
 	}
-
+	filesystemlayout, err := newStorage[*metal.FilesystemLayout](log, dbname, "filesystemlayout", queryExecutor)
+	if err != nil {
+		return nil, err
+	}
 	return &Datastore{
-		ip:        ip,
-		partition: partition,
-		network:   network,
+		ip:               ip,
+		partition:        partition,
+		network:          network,
+		filesystemlayout: filesystemlayout,
 		// event:               newStorage[*metal.ProvisioningEventContainer](log, dbname, "event", queryExecutor),
-		// filesystemlayout:    newStorage[*metal.FilesystemLayout](log, dbname, "filesystemlayout", queryExecutor),
 		// image:               newStorage[*metal.Image](log, dbname, "image", queryExecutor),
 		// machine:             newStorage[*metal.Machine](log, dbname, "machine", queryExecutor),
 		// size:                newStorage[*metal.Size](log, dbname, "size", queryExecutor),
@@ -115,6 +118,9 @@ func (d *Datastore) Network() Storage[*metal.Network] {
 }
 func (d *Datastore) Partition() Storage[*metal.Partition] {
 	return d.partition
+}
+func (d *Datastore) FilesystemLayout() Storage[*metal.FilesystemLayout] {
+	return d.filesystemlayout
 }
 
 // newStorage creates a new Storage which uses the given database abstraction.

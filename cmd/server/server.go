@@ -34,6 +34,7 @@ import (
 	"github.com/metal-stack/api-server/pkg/invite"
 	ratelimiter "github.com/metal-stack/api-server/pkg/rate-limiter"
 	"github.com/metal-stack/api-server/pkg/repository"
+	"github.com/metal-stack/api-server/pkg/service/filesystem"
 	"github.com/metal-stack/api-server/pkg/service/health"
 	"github.com/metal-stack/api-server/pkg/service/ip"
 	"github.com/metal-stack/api-server/pkg/service/method"
@@ -169,6 +170,7 @@ func (s *server) Run() error {
 	repo := repository.New(s.log, s.c.MasterClient, ds, s.c.Ipam)
 
 	ipService := ip.New(ip.Config{Log: s.log, Repo: repo})
+	filesystemService := filesystem.New(filesystem.Config{Log: s.log, Repo: repo})
 	tokenService := token.New(token.Config{
 		Log:           s.log,
 		CertStore:     certStore,
@@ -188,6 +190,7 @@ func (s *server) Run() error {
 	mux.Handle(apiv2connect.NewTokenServiceHandler(tokenService, interceptors))
 	mux.Handle(apiv2connect.NewTenantServiceHandler(tenantService, interceptors))
 	mux.Handle(apiv2connect.NewProjectServiceHandler(projectService, interceptors))
+	mux.Handle(apiv2connect.NewFilesystemServiceHandler(filesystemService, interceptors))
 	mux.Handle(apiv2connect.NewIPServiceHandler(ipService, interceptors))
 	mux.Handle(apiv2connect.NewMethodServiceHandler(methodService, interceptors))
 	mux.Handle(apiv2connect.NewVersionServiceHandler(versionService, interceptors))

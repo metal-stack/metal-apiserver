@@ -51,3 +51,8 @@ func (r *Repository) Project() *projectRepository {
 		r: r,
 	}
 }
+func (r *Repository) FilesystemLayout() *filesystemRepository {
+	return &filesystemRepository{
+		r: r,
+	}
+}

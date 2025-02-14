@@ -32,12 +32,7 @@ type (
 )
 
 func NewTxStore(ctx context.Context, log *slog.Logger, client *redis.Client, actions actionFns) (*txStore, error) {
-	// Check if group exists
-	infoResult := client.XInfoGroups(ctx, stream)
-	if infoResult.Err() != nil && !errors.Is(infoResult.Err(), redis.Nil) {
-		return nil, fmt.Errorf("xinfo group: %w", infoResult.Err())
-	}
-
+	// Check if group exists, create otherwise
 	result := client.XGroupCreateMkStream(ctx, stream, group, "$")
 	if result.Err() != nil && !strings.Contains(result.Err().Error(), "BUSYGROUP") {
 		return nil, fmt.Errorf("xgroup create: %w", result.Err())
@@ -74,7 +69,7 @@ func (t *txStore) AddTx(ctx context.Context, tx *Tx) error {
 		///in our case we called it send_order_emails
 		//note you can have as many stream as possible
 		//such as one for email...another for notifications
-		ID:     tx.Reference,
+		// ID:     tx.Reference,
 		Stream: stream,
 		MaxLen: 0, //  means unlimited
 		Approx: true,
@@ -94,10 +89,12 @@ func (t *txStore) Process(ctx context.Context) error {
 
 	for {
 		data, err := t.client.XReadGroup(ctx, &redis.XReadGroupArgs{
-			Group:   group,
-			Streams: []string{stream, t.messageIdToStart},
+			Group:    group,
+			Streams:  []string{stream, ">"},
+			Consumer: "me",
+			NoAck:    true,
 			//count is number of entries we want to read from redis
-			// Count: 4,
+			Count: 1,
 			//we use the block command to make sure if no entry is found we wait
 			//until an entry is found
 			Block: 0,
@@ -105,6 +102,7 @@ func (t *txStore) Process(ctx context.Context) error {
 		if err != nil {
 			t.log.Error("unable to receive from stream", "error", err)
 			t.processErrors = append(t.processErrors, err)
+			continue
 		}
 
 		///we have received the data we should loop it and queue the messages
