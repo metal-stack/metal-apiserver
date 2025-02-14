@@ -6,8 +6,11 @@ import (
 	"log/slog"
 	"os"
 	"testing"
+	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/metal-stack/api-server/pkg/test"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -31,6 +34,7 @@ func Test_txStore_AddTx(t *testing.T) {
 	}
 
 	var processedJobs []string
+	actionDone := make(chan bool)
 
 	tests := []struct {
 		name              string
@@ -41,43 +45,71 @@ func Test_txStore_AddTx(t *testing.T) {
 		wantPending       []Pending
 	}{
 		{
-			name: "simple",
-			tx:   &Tx{Jobs: []Job{{ID: "j1", Action: ActionIpDelete}}},
+			name: "simple ip",
+			tx:   &Tx{Jobs: []Job{{ID: "j100", Action: ActionIpDelete}}},
 			actionFns: actionFns{ActionIpDelete: func(id string) error {
-				log.Info("delete", "id", id)
+				log.Info("delete", "ip", id)
 				processedJobs = append(processedJobs, id)
+				actionDone <- true
 				return nil
 			}},
-			wantProcessedJobs: []string{"j1"},
+			wantProcessedJobs: []string{"j100"},
 			wantErr:           false,
 		},
 		{
-			name: "pending",
+			name: "simple network",
+			tx:   &Tx{Jobs: []Job{{ID: "j200", Action: ActionNetworkDelete}}},
+			actionFns: actionFns{ActionNetworkDelete: func(id string) error {
+				log.Info("delete", "network", id)
+				processedJobs = append(processedJobs, id)
+				actionDone <- true
+				return nil
+			}},
+			wantProcessedJobs: []string{"j200"},
+			wantErr:           false,
+		},
+		{
+			name: "one successful job",
 			tx:   &Tx{Jobs: alotJobs},
 			actionFns: actionFns{ActionIpDelete: func(id string) error {
+				log.Info("delete many", "id", id)
 				if id == "j0" {
-					log.Info("delete", "id", id)
 					processedJobs = append(processedJobs, id)
+					actionDone <- true
 					return nil
 				}
+				actionDone <- true
 				return fmt.Errorf("unable to process:%s", id)
 			}},
 			wantErr:           false,
 			wantProcessedJobs: []string{"j0"},
-			wantPending:       []Pending{{ID: "j2"}},
+			wantPending:       []Pending{{ID: "j0"}, {ID: "j1"}},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			clear(processedJobs)
+			processedJobs = []string{}
+			ctx, cancel := context.WithCancel(ctx)
 			ts, err := NewTxStore(ctx, log, client, tt.actionFns)
 			require.NoError(t, err)
+			defer cancel()
 
 			if err := ts.AddTx(ctx, tt.tx); (err != nil) != tt.wantErr {
 				t.Errorf("txStore.AddTx() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			require.EqualValues(t, tt.wantProcessedJobs, processedJobs)
+			assert.Eventually(t, func() bool {
+				if diff := cmp.Diff(tt.wantProcessedJobs, processedJobs); diff == "" {
+					return true
+				}
+				return false
+			}, time.Second, 20*time.Millisecond)
+			require.ElementsMatch(t, tt.wantProcessedJobs, processedJobs)
+
+			// pending, err := ts.Pending(ctx)
+			// assert.NoError(t, err)
+			// require.ElementsMatch(t, tt.wantPending, pending)
+			// t.Logf("pending:%#v", pending)
 
 			// if len(tt.wantPending) > 0 {
 			// 	pending, err := ts.Pending(ctx)
@@ -89,7 +121,7 @@ func Test_txStore_AddTx(t *testing.T) {
 			// 	t.Log(ts.Errors())
 			// 	require.Equal(t, tt.wantPending, pending)
 			// }
-
+			<-actionDone
 		})
 	}
 }

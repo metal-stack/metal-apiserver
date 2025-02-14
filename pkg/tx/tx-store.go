@@ -88,6 +88,11 @@ func (t *txStore) Process(ctx context.Context) error {
 	// TODO: read the history of unprocessed jobs with 0, then just tail unprocessed jobs with >
 
 	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
 		data, err := t.client.XReadGroup(ctx, &redis.XReadGroupArgs{
 			Group:    group,
 			Streams:  []string{stream, ">"},
@@ -132,10 +137,10 @@ func (t *txStore) Process(ctx context.Context) error {
 						continue
 					}
 
-					acked := t.client.XAck(ctx, stream, message.ID)
+					acked := t.client.XAck(ctx, stream, group, message.ID)
 					if acked.Err() != nil {
-						t.log.Error("tx could not be acked", "error", err)
-						t.processErrors = append(t.processErrors, err)
+						t.log.Error("tx could not be acked", "error", acked.Err())
+						t.processErrors = append(t.processErrors, acked.Err())
 					}
 					t.messageIdToStart = message.ID
 				}
@@ -151,10 +156,16 @@ func (t *txStore) processTx(tx Tx) error {
 		action, ok := t.actionFns[job.Action]
 		if !ok {
 			errs = append(errs, fmt.Errorf("no action func defined for action:%s", job.Action))
+			continue
+		}
+		if action == nil {
+			errs = append(errs, fmt.Errorf("action is nil for action:%s", job.Action))
+			continue
 		}
 		err := action(job.ID)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("error executing action: %s with id: %s error: %w", job.Action, job.ID, err))
+			continue
 		}
 	}
 

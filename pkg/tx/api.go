@@ -16,7 +16,8 @@ var (
 )
 
 const (
-	ActionIpDelete Action = "ip-delete"
+	ActionIpDelete      Action = "ip-delete"
+	ActionNetworkDelete Action = "network-delete"
 )
 
 type Job struct {
