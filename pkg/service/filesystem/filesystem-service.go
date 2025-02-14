@@ -179,9 +179,9 @@ func convert(in *metal.FilesystemLayout) (*apiv2.FilesystemLayout, error) {
 	}
 
 	fsl := &apiv2.FilesystemLayout{
-		Id: in.ID,
-		// Name: in.Name,
-		// Description: in.Description,
+		Id:             in.ID,
+		Name:           &in.Name,
+		Description:    &in.Description,
 		Filesystems:    filesystems,
 		Disks:          disks,
 		Raid:           raid,
