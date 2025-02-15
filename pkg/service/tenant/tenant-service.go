@@ -41,6 +41,8 @@ type TenantService interface {
 	apiv2connect.TenantServiceHandler
 }
 
+// FIXME use repo where possible
+
 func New(c Config) TenantService {
 	return &tenantServiceServer{
 		log:          c.Log.WithGroup("tenantService"),

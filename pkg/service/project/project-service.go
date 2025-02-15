@@ -27,14 +27,17 @@ import (
 type Config struct {
 	Log          *slog.Logger
 	MasterClient mdc.Client
-	Repo         repository.Repository
+	Repo         *repository.Repostore
 	InviteStore  invite.ProjectInviteStore
 	TokenStore   token.TokenStore
 }
+
+// FIXME use repo where possible
+
 type projectServiceServer struct {
 	log          *slog.Logger
 	masterClient mdc.Client
-	repo         repository.Repository
+	repo         *repository.Repostore
 	inviteStore  invite.ProjectInviteStore
 	tokenStore   token.TokenStore
 }

@@ -55,7 +55,7 @@ func TestIpUnscopedList(t *testing.T) {
 
 	repo := repository.New(log, nil, ds, ipam)
 
-	ips, err := repo.UnscopedIP().List(ctx)
+	ips, err := repo.UnscopedIP().List(ctx, nil)
 	require.NoError(t, err)
 
 	assert.Empty(t, ips)
