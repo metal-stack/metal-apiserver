@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/metal-stack/api-server/pkg/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -98,13 +97,9 @@ func Test_txStore_AddTx(t *testing.T) {
 				t.Errorf("txStore.AddTx() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			assert.Eventually(t, func() bool {
-				if diff := cmp.Diff(tt.wantProcessedJobs, processedJobs); diff == "" {
-					return true
-				}
-				return false
-			}, time.Second, 20*time.Millisecond)
-			require.ElementsMatch(t, tt.wantProcessedJobs, processedJobs)
+			assert.EventuallyWithT(t, func(c *assert.CollectT) {
+				assert.ElementsMatch(c, tt.wantProcessedJobs, processedJobs)
+			}, time.Second, 100*time.Millisecond)
 
 			// pending, err := ts.Pending(ctx)
 			// assert.NoError(t, err)
