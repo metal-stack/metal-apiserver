@@ -76,7 +76,7 @@ func (r *networkRepository) Create(ctx context.Context, req *apiv2.NetworkServic
 		}
 		prefixes = append(prefixes, metal.Prefix{
 			IP:     parsed.Addr().String(),
-			Length: strconv.Itoa(parsed.Addr().BitLen()),
+			Length: strconv.Itoa(parsed.Bits()),
 		})
 	}
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/netip"
 	"slices"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/metal-stack/api-server/pkg/validate"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	ipamapiv1 "github.com/metal-stack/go-ipam/api/v1"
+	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/metal-stack/metal-lib/pkg/tag"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -23,7 +23,6 @@ import (
 type ipRepository struct {
 	r     *Repostore
 	scope ProjectScope
-	log   *slog.Logger
 }
 
 func (r *ipRepository) Get(ctx context.Context, id string) (*metal.IP, error) {
@@ -40,7 +39,7 @@ func (r *ipRepository) Get(ctx context.Context, id string) (*metal.IP, error) {
 }
 
 func (r *ipRepository) Create(ctx context.Context, req *apiv2.IPServiceCreateRequest) (*metal.IP, error) {
-
+	r.r.log.Debug("")
 	var (
 		name        string
 		description string
@@ -71,7 +70,7 @@ func (r *ipRepository) Create(ctx context.Context, req *apiv2.IPServiceCreateReq
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	var af metal.AddressFamily
+	var af *metal.AddressFamily
 	if req.AddressFamily != nil {
 		err := validate.ValidateAddressFamily(*req.AddressFamily)
 		if err != nil {
@@ -79,15 +78,15 @@ func (r *ipRepository) Create(ctx context.Context, req *apiv2.IPServiceCreateReq
 		}
 		switch *req.AddressFamily {
 		case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4:
-			af = metal.IPv4AddressFamily
+			af = pointer.Pointer(metal.IPv4AddressFamily)
 		case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6:
-			af = metal.IPv6AddressFamily
+			af = pointer.Pointer(metal.IPv6AddressFamily)
 		case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_UNSPECIFIED:
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("unsupported addressfamily"))
 		}
 
-		if !slices.Contains(nw.AddressFamilies, af) {
-			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("there is no prefix for the given addressfamily:%s present in network:%s %s", af, req.Network, nw.AddressFamilies))
+		if !slices.Contains(nw.AddressFamilies, *af) {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("there is no prefix for the given addressfamily:%s present in network:%s %s", *af, req.Network, nw.AddressFamilies))
 		}
 		if req.Ip != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("it is not possible to specify specificIP and addressfamily"))
@@ -108,7 +107,7 @@ func (r *ipRepository) Create(ctx context.Context, req *apiv2.IPServiceCreateReq
 	)
 
 	if req.Ip == nil {
-		ipAddress, ipParentCidr, err = r.AllocateRandomIP(ctx, nw, &af)
+		ipAddress, ipParentCidr, err = r.AllocateRandomIP(ctx, nw, af)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -131,7 +130,7 @@ func (r *ipRepository) Create(ctx context.Context, req *apiv2.IPServiceCreateReq
 		}
 	}
 
-	r.log.Info("allocated ip in ipam", "ip", ipAddress, "network", nw.ID, "type", ipType)
+	r.r.log.Info("allocated ip in ipam", "ip", ipAddress, "network", nw.ID, "type", ipType)
 
 	uuid, err := uuid.NewV7()
 	if err != nil {
@@ -232,7 +231,6 @@ func (r *ipRepository) List(ctx context.Context, rq *apiv2.IPServiceListRequest)
 	return ip, nil
 }
 
-// FIXME must be part of Create
 func (r *ipRepository) AllocateSpecificIP(ctx context.Context, parent *metal.Network, specificIP string) (ipAddress, parentPrefixCidr string, err error) {
 	parsedIP, err := netip.ParseAddr(specificIP)
 	if err != nil {
@@ -271,9 +269,8 @@ func (r *ipRepository) AllocateSpecificIP(ctx context.Context, parent *metal.Net
 	return "", "", fmt.Errorf("specific ip not contained in any of the defined prefixes")
 }
 
-// FIXME must be part of Create
 func (r *ipRepository) AllocateRandomIP(ctx context.Context, parent *metal.Network, af *metal.AddressFamily) (ipAddress, parentPrefixCidr string, err error) {
-	var addressfamily = metal.IPv4AddressFamily
+	addressfamily := metal.IPv4AddressFamily
 	if af != nil {
 		addressfamily = *af
 	} else if len(parent.AddressFamilies) == 1 {
@@ -295,14 +292,9 @@ func (r *ipRepository) AllocateRandomIP(ctx context.Context, parent *metal.Netwo
 		return resp.Msg.Ip.Ip, prefix.String(), nil
 	}
 
-	return "", "", fmt.Errorf("cannot allocate free ip in ipam, no ips left")
+	return "", "", fmt.Errorf("cannot allocate random free ip in ipam, no ips left in network:%s af:%s parent afs:%#v", parent.ID, addressfamily, parent.AddressFamilies)
 }
 func (r *ipRepository) ConvertToInternal(ip *apiv2.IP) (*metal.IP, error) {
-
-	
-
-
-
 
 	panic("unimplemented")
 }

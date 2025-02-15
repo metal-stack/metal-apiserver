@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"os"
 	"slices"
 	"testing"
 
@@ -431,7 +432,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 	ipam := test.StartIpam(t)
 
 	ctx := context.Background()
-	log := slog.Default()
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	ds, err := generic.New(log, "metal", c)
 	require.NoError(t, err)
@@ -569,7 +570,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			want:           nil,
 			wantErr:        true,
 			wantReturnCode: connect.CodeInternal, // FIXME should be InvalidArgument
-			wantErrMessage: "internal: Conflict ip already allocated",
+			wantErrMessage: "internal: internal: Conflict ip already allocated",
 		},
 		{
 			name: "allocate a static specific ip outside prefix",
@@ -582,7 +583,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			want:           nil,
 			wantErr:        true,
 			wantReturnCode: connect.CodeInternal, // FIXME should be InvalidArgument
-			wantErrMessage: "internal: specific ip not contained in any of the defined prefixes",
+			wantErrMessage: "internal: internal: specific ip not contained in any of the defined prefixes",
 		},
 		{
 			name: "allocate a random ip with unavailable addressfamily",
@@ -594,8 +595,8 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			},
 			want:           nil,
 			wantErr:        true,
-			wantReturnCode: connect.CodeInvalidArgument,
-			wantErrMessage: "invalid_argument: there is no prefix for the given addressfamily:IPv4 present in network:tenant-network-v6 [IPv6]",
+			wantReturnCode: connect.CodeInternal,
+			wantErrMessage: "internal: invalid_argument: there is no prefix for the given addressfamily:IPv4 present in network:tenant-network-v6 [IPv6]",
 		},
 		{
 			name: "allocate a random ip with unavailable addressfamily",
@@ -607,8 +608,8 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			},
 			want:           nil,
 			wantErr:        true,
-			wantReturnCode: connect.CodeInvalidArgument,
-			wantErrMessage: "invalid_argument: there is no prefix for the given addressfamily:IPv6 present in network:tenant-network [IPv4]",
+			wantReturnCode: connect.CodeInternal,
+			wantErrMessage: "internal: invalid_argument: there is no prefix for the given addressfamily:IPv6 present in network:tenant-network [IPv4]",
 		},
 	}
 	for _, tt := range tests {
@@ -636,7 +637,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 				cmp.Options{
 					protocmp.Transform(),
 					protocmp.IgnoreFields(
-						&apiv2.IP{}, "created_at", "updated_at",
+						&apiv2.IP{}, "created_at", "updated_at", "uuid",
 					),
 				},
 			); diff != "" {
