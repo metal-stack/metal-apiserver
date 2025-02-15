@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"os"
 	"slices"
 	"testing"
 
@@ -431,7 +432,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 	ipam := test.StartIpam(t)
 
 	ctx := context.Background()
-	log := slog.Default()
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	ds, err := generic.New(log, "metal", c)
 	require.NoError(t, err)
@@ -458,17 +459,11 @@ func Test_ipServiceServer_Create(t *testing.T) {
 		{Name: "ip4", IPAddress: "2001:db8::1", ProjectID: "p2", NetworkID: "n2"},
 		{Name: "ip5", IPAddress: "2.3.4.5", ProjectID: "p2", NetworkID: "n3", ParentPrefixCidr: "2.3.4.0/24"},
 	}
-	nws := []*metal.Network{
-		{Base: metal.Base{ID: "internet"}, Prefixes: metal.Prefixes{metal.Prefix{IP: "1.2.0.0", Length: "24"}}},
-		{Base: metal.Base{ID: "tenant-network"}, PrivateSuper: true, Prefixes: metal.Prefixes{metal.Prefix{IP: "10.2.0.0", Length: "24"}}},
-		{Base: metal.Base{ID: "tenant-network-v6"}, PrivateSuper: true, Prefixes: metal.Prefixes{metal.Prefix{IP: "2001:db8:1::", Length: "64"}}},
-		{Base: metal.Base{
-			ID: "tenant-network-dualstack"},
-			PrivateSuper: true,
-			Prefixes: metal.Prefixes{
-				{IP: "10.3.0.0", Length: "24"},
-				{IP: "2001:db8:2::", Length: "64"},
-			}},
+	nws := []*apiv2.NetworkServiceCreateRequest{
+		{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.0.0/24"}},
+		{Id: pointer.Pointer("tenant-network"), Prefixes: []string{"10.2.0.0/24"}, Options: &apiv2.NetworkOptions{PrivateSuper: true}},
+		{Id: pointer.Pointer("tenant-network-v6"), Prefixes: []string{"2001:db8:1::/64"}, Options: &apiv2.NetworkOptions{PrivateSuper: true}},
+		{Id: pointer.Pointer("tenant-network-dualstack"), Prefixes: []string{"10.3.0.0/24", "2001:db8:2::/64"}, Options: &apiv2.NetworkOptions{PrivateSuper: true}},
 	}
 	createNetworks(t, ctx, repo, nws)
 	createIPs(t, ctx, ds, ipam, prefixMap, ips)
@@ -477,8 +472,6 @@ func Test_ipServiceServer_Create(t *testing.T) {
 		name           string
 		ctx            context.Context
 		rq             *apiv2.IPServiceCreateRequest
-		log            *slog.Logger
-		repo           *repository.Repository
 		want           *apiv2.IPServiceCreateResponse
 		wantErr        bool
 		wantReturnCode connect.Code
@@ -487,8 +480,6 @@ func Test_ipServiceServer_Create(t *testing.T) {
 		{
 			name: "create random ephemeral ipv4",
 			ctx:  ctx,
-			log:  log,
-			repo: repo,
 			rq: &apiv2.IPServiceCreateRequest{
 				Network: "internet",
 				Project: "p1",
@@ -500,8 +491,6 @@ func Test_ipServiceServer_Create(t *testing.T) {
 		{
 			name: "create random ephemeral ipv6",
 			ctx:  ctx,
-			log:  log,
-			repo: repo,
 			rq: &apiv2.IPServiceCreateRequest{
 				Network: "tenant-network-v6",
 				Project: "p1",
@@ -513,8 +502,6 @@ func Test_ipServiceServer_Create(t *testing.T) {
 		{
 			name: "create specific ephemeral ipv6",
 			ctx:  ctx,
-			log:  log,
-			repo: repo,
 			rq: &apiv2.IPServiceCreateRequest{
 				Network: "tenant-network-v6",
 				Project: "p1",
@@ -527,8 +514,6 @@ func Test_ipServiceServer_Create(t *testing.T) {
 		{
 			name: "create random ephemeral ipv4 from a dualstack network",
 			ctx:  ctx,
-			log:  log,
-			repo: repo,
 			rq: &apiv2.IPServiceCreateRequest{
 				Network: "tenant-network-dualstack",
 				Project: "p1",
@@ -540,8 +525,6 @@ func Test_ipServiceServer_Create(t *testing.T) {
 		{
 			name: "create random ephemeral ipv6 from a dualstack network",
 			ctx:  ctx,
-			log:  log,
-			repo: repo,
 			rq: &apiv2.IPServiceCreateRequest{
 				Network:       "tenant-network-dualstack",
 				Project:       "p1",
@@ -554,8 +537,6 @@ func Test_ipServiceServer_Create(t *testing.T) {
 		{
 			name: "create specific ephemeral ipv4",
 			ctx:  ctx,
-			log:  log,
-			repo: repo,
 			rq: &apiv2.IPServiceCreateRequest{
 				Network: "internet",
 				Project: "p1",
@@ -568,8 +549,6 @@ func Test_ipServiceServer_Create(t *testing.T) {
 		{
 			name: "create specific static ipv4",
 			ctx:  ctx,
-			log:  log,
-			repo: repo,
 			rq: &apiv2.IPServiceCreateRequest{
 				Network: "internet",
 				Project: "p1",
@@ -583,8 +562,6 @@ func Test_ipServiceServer_Create(t *testing.T) {
 		{
 			name: "create specific ipv4 which is already allocated",
 			ctx:  ctx,
-			log:  log,
-			repo: repo,
 			rq: &apiv2.IPServiceCreateRequest{
 				Network: "internet",
 				Project: "p1",
@@ -593,13 +570,11 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			want:           nil,
 			wantErr:        true,
 			wantReturnCode: connect.CodeInternal, // FIXME should be InvalidArgument
-			wantErrMessage: "internal: Conflict ip already allocated",
+			wantErrMessage: "internal: internal: Conflict ip already allocated",
 		},
 		{
 			name: "allocate a static specific ip outside prefix",
 			ctx:  ctx,
-			log:  log,
-			repo: repo,
 			rq: &apiv2.IPServiceCreateRequest{
 				Network: "internet",
 				Project: "p1",
@@ -608,13 +583,11 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			want:           nil,
 			wantErr:        true,
 			wantReturnCode: connect.CodeInternal, // FIXME should be InvalidArgument
-			wantErrMessage: "internal: specific ip not contained in any of the defined prefixes",
+			wantErrMessage: "internal: internal: specific ip not contained in any of the defined prefixes",
 		},
 		{
 			name: "allocate a random ip with unavailable addressfamily",
 			ctx:  ctx,
-			log:  log,
-			repo: repo,
 			rq: &apiv2.IPServiceCreateRequest{
 				Network:       "tenant-network-v6",
 				Project:       "p1",
@@ -622,14 +595,12 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			},
 			want:           nil,
 			wantErr:        true,
-			wantReturnCode: connect.CodeInvalidArgument,
-			wantErrMessage: "invalid_argument: there is no prefix for the given addressfamily:IPv4 present in network:tenant-network-v6 [IPv6]",
+			wantReturnCode: connect.CodeInternal,
+			wantErrMessage: "internal: invalid_argument: there is no prefix for the given addressfamily:IPv4 present in network:tenant-network-v6 [IPv6]",
 		},
 		{
 			name: "allocate a random ip with unavailable addressfamily",
 			ctx:  ctx,
-			log:  log,
-			repo: repo,
 			rq: &apiv2.IPServiceCreateRequest{
 				Network:       "tenant-network",
 				Project:       "p1",
@@ -637,15 +608,15 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			},
 			want:           nil,
 			wantErr:        true,
-			wantReturnCode: connect.CodeInvalidArgument,
-			wantErrMessage: "invalid_argument: there is no prefix for the given addressfamily:IPv6 present in network:tenant-network [IPv4]",
+			wantReturnCode: connect.CodeInternal,
+			wantErrMessage: "internal: invalid_argument: there is no prefix for the given addressfamily:IPv6 present in network:tenant-network [IPv4]",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &ipServiceServer{
-				log:  tt.log,
-				repo: tt.repo,
+				log:  log,
+				repo: repo,
 			}
 			got, err := i.Create(tt.ctx, connect.NewRequest(tt.rq))
 			if (err != nil) != tt.wantErr {
@@ -666,7 +637,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 				cmp.Options{
 					protocmp.Transform(),
 					protocmp.IgnoreFields(
-						&apiv2.IP{}, "created_at", "updated_at",
+						&apiv2.IP{}, "created_at", "updated_at", "uuid",
 					),
 				},
 			); diff != "" {
@@ -703,9 +674,10 @@ func createIPs(t *testing.T, ctx context.Context, ds *generic.Datastore, ipam ip
 	}
 }
 
-func createNetworks(t *testing.T, ctx context.Context, repo *repository.Repository, nws []*metal.Network) {
+func createNetworks(t *testing.T, ctx context.Context, repo *repository.Repostore, nws []*apiv2.NetworkServiceCreateRequest) {
 	for _, nw := range nws {
-		_, err := repo.Network(repository.ProjectScope(nw.ProjectID)).Create(ctx, nw)
+		// TODO do not care about project here
+		_, err := repo.Network(repository.ProjectScope("")).Create(ctx, nw)
 		require.NoError(t, err)
 	}
 }

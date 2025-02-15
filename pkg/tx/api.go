@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/metal-stack/api-server/pkg/db/metal"
 	"github.com/metal-stack/api-server/pkg/repository"
 	"github.com/redis/go-redis/v9"
 )
@@ -54,12 +55,12 @@ type Queue struct {
 	txStore *txStore
 }
 
-func New(log *slog.Logger, client *redis.Client, repo repository.Repository) (*Queue, error) {
+func New(log *slog.Logger, client *redis.Client, repo *repository.Repostore) (*Queue, error) {
 	ctx := context.Background()
 
 	actionFns := actionFns{
 		ActionIpDelete: func(id string) error {
-			_, err := repo.IP(repository.ProjectScope("FIXME unscoped")).Delete(ctx, id)
+			_, err := repo.IP(repository.ProjectScope("FIXME unscoped")).Delete(ctx, &metal.IP{IPAddress: id})
 			if err != nil {
 				return err
 			}

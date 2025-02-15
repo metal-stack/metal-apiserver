@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/metal-stack/api-server/pkg/db/metal"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
@@ -9,7 +10,7 @@ import (
 )
 
 type filesystemRepository struct {
-	r *Repository
+	r *Repostore
 }
 
 func (r *filesystemRepository) Get(ctx context.Context, id string) (*metal.FilesystemLayout, error) {
@@ -21,13 +22,18 @@ func (r *filesystemRepository) Get(ctx context.Context, id string) (*metal.Files
 	return fsl, nil
 }
 
-func (r *filesystemRepository) Create(ctx context.Context, rq *metal.FilesystemLayout) (*metal.FilesystemLayout, error) {
-	fsl, err := r.r.ds.FilesystemLayout().Create(ctx, rq)
+func (r *filesystemRepository) Create(ctx context.Context, rq *adminv2.FilesystemServiceCreateRequest) (*metal.FilesystemLayout, error) {
+	fsl, err := r.ConvertToInternal(rq.FilesystemLayout)
 	if err != nil {
 		return nil, err
 	}
 
-	return fsl, nil
+	resp, err := r.r.ds.FilesystemLayout().Create(ctx, fsl)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
 }
 
 func (r *filesystemRepository) Update(ctx context.Context, rq *adminv2.FilesystemServiceUpdateRequest) (*metal.FilesystemLayout, error) {
@@ -48,8 +54,8 @@ func (r *filesystemRepository) Update(ctx context.Context, rq *adminv2.Filesyste
 	return &new, nil
 }
 
-func (r *filesystemRepository) Delete(ctx context.Context, id string) (*metal.FilesystemLayout, error) {
-	fsl, err := r.Get(ctx, id)
+func (r *filesystemRepository) Delete(ctx context.Context, fsl *metal.FilesystemLayout) (*metal.FilesystemLayout, error) {
+	fsl, err := r.Get(ctx, fsl.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -62,11 +68,149 @@ func (r *filesystemRepository) Delete(ctx context.Context, id string) (*metal.Fi
 	return fsl, nil
 }
 
-func (r *filesystemRepository) List(ctx context.Context, rq *apiv2.IPServiceListRequest) ([]*metal.FilesystemLayout, error) {
+func (r *filesystemRepository) Find(ctx context.Context, rq *apiv2.FilesystemServiceListRequest) (*metal.FilesystemLayout, error) {
+	panic("unimplemented")
+}
+
+func (r *filesystemRepository) List(ctx context.Context, rq *apiv2.FilesystemServiceListRequest) ([]*metal.FilesystemLayout, error) {
 	ip, err := r.r.ds.FilesystemLayout().List(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	return ip, nil
+}
+
+func (r *filesystemRepository) ConvertToInternal(msg *apiv2.FilesystemLayout) (*metal.FilesystemLayout, error) {
+	panic("unimplemented")
+}
+func (r *filesystemRepository) ConvertToProto(in *metal.FilesystemLayout) (*apiv2.FilesystemLayout, error) {
+
+	var filesystems []*apiv2.Filesystem
+	for _, fs := range in.Filesystems {
+		var f apiv2.Format
+		switch fs.Format {
+		case metal.NONE:
+			f = apiv2.Format_FORMAT_NONE
+		case metal.EXT3:
+			f = apiv2.Format_FORMAT_EXT3
+		case metal.EXT4:
+			f = apiv2.Format_FORMAT_EXT4
+		case metal.SWAP:
+			f = apiv2.Format_FORMAT_SWAP
+		case metal.TMPFS:
+			f = apiv2.Format_FORMAT_TMPFS
+		case metal.VFAT:
+			f = apiv2.Format_FORMAT_VFAT
+		default:
+			return nil, fmt.Errorf("unknown filesystem format:%s", fs.Format)
+		}
+
+		filesystems = append(filesystems, &apiv2.Filesystem{
+			Device: fs.Device,
+			Format: f,
+		})
+	}
+	var disks []*apiv2.Disk
+	for _, d := range in.Disks {
+		var partitions []*apiv2.DiskPartition
+		for _, p := range d.Partitions {
+			var gpt *apiv2.GPTType
+			if p.GPTType != nil {
+				switch *p.GPTType {
+				case metal.GPTBoot:
+					gpt = apiv2.GPTType_GPT_TYPE_BOOT.Enum()
+				case metal.GPTLinux:
+					gpt = apiv2.GPTType_GPT_TYPE_LINUX.Enum()
+				case metal.GPTLinuxLVM:
+					gpt = apiv2.GPTType_GPT_TYPE_LINUX_LVM.Enum()
+				case metal.GPTLinuxRaid:
+					gpt = apiv2.GPTType_GPT_TYPE_LINUX_RAID.Enum()
+				default:
+					return nil, fmt.Errorf("unknown gpttype:%s", *p.GPTType)
+				}
+			}
+
+			partitions = append(partitions, &apiv2.DiskPartition{
+				Number:  uint32(p.Number),
+				Label:   p.Label,
+				Size:    p.Size,
+				GptType: gpt,
+			})
+		}
+		disks = append(disks, &apiv2.Disk{
+			Device:          d.Device,
+			Partitions:      partitions,
+			WipeOnReinstall: d.WipeOnReinstall,
+		})
+	}
+
+	var raid []*apiv2.Raid
+	for _, r := range in.Raid {
+		var level apiv2.RaidLevel
+		switch r.Level {
+		case metal.RaidLevel0:
+			level = apiv2.RaidLevel_RAID_LEVEL_0
+		case metal.RaidLevel1:
+			level = apiv2.RaidLevel_RAID_LEVEL_1
+		default:
+			return nil, fmt.Errorf("unknown raid level:%s", r.Level)
+		}
+		raid = append(raid, &apiv2.Raid{
+			ArrayName:     r.ArrayName,
+			Devices:       r.Devices,
+			Level:         level,
+			CreateOptions: r.CreateOptions,
+			Spares:        int32(r.Spares), // nolint:gosec
+		})
+	}
+
+	var volumegroups []*apiv2.VolumeGroup
+	for _, vg := range in.VolumeGroups {
+		volumegroups = append(volumegroups, &apiv2.VolumeGroup{
+			Name:    vg.Name,
+			Devices: vg.Devices,
+			Tags:    vg.Tags,
+		})
+	}
+
+	var logicalvolumes []*apiv2.LogicalVolume
+	for _, lv := range in.LogicalVolumes {
+		var lvmType apiv2.LVMType
+		switch lv.LVMType {
+		case metal.LVMTypeLinear:
+			lvmType = apiv2.LVMType_LVM_TYPE_LINEAR
+		case metal.LVMTypeRaid1:
+			lvmType = apiv2.LVMType_LVM_TYPE_RAID1
+		case metal.LVMTypeStriped:
+			lvmType = apiv2.LVMType_LVM_TYPE_STRIPED
+		default:
+			return nil, fmt.Errorf("unknown lvm type:%s", lv.LVMType)
+		}
+		logicalvolumes = append(logicalvolumes, &apiv2.LogicalVolume{
+			Name:        lv.Name,
+			VolumeGroup: lv.VolumeGroup,
+			Size:        lv.Size,
+			LvmType:     lvmType,
+		})
+	}
+
+	constraints := &apiv2.FilesystemLayoutConstraints{
+		Sizes:  in.Constraints.Sizes,
+		Images: in.Constraints.Images,
+	}
+
+	fsl := &apiv2.FilesystemLayout{
+		Id:             in.ID,
+		Name:           &in.Name,
+		Description:    &in.Description,
+		Filesystems:    filesystems,
+		Disks:          disks,
+		Raid:           raid,
+		VolumeGroups:   volumegroups,
+		LogicalVolumes: logicalvolumes,
+		Constraints:    constraints,
+	}
+
+	return fsl, nil
 }

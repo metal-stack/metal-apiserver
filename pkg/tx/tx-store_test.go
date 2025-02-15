@@ -32,7 +32,7 @@ func Test_txStore_AddTx(t *testing.T) {
 		})
 	}
 
-	var processedJobs []string
+	processedJobs := make(chan string)
 	actionDone := make(chan bool)
 
 	tests := []struct {
@@ -48,7 +48,7 @@ func Test_txStore_AddTx(t *testing.T) {
 			tx:   &Tx{Jobs: []Job{{ID: "j100", Action: ActionIpDelete}}},
 			actionFns: actionFns{ActionIpDelete: func(id string) error {
 				log.Info("delete", "ip", id)
-				processedJobs = append(processedJobs, id)
+				processedJobs <- id
 				actionDone <- true
 				return nil
 			}},
@@ -60,7 +60,7 @@ func Test_txStore_AddTx(t *testing.T) {
 			tx:   &Tx{Jobs: []Job{{ID: "j200", Action: ActionNetworkDelete}}},
 			actionFns: actionFns{ActionNetworkDelete: func(id string) error {
 				log.Info("delete", "network", id)
-				processedJobs = append(processedJobs, id)
+				processedJobs <- id
 				actionDone <- true
 				return nil
 			}},
@@ -73,7 +73,7 @@ func Test_txStore_AddTx(t *testing.T) {
 			actionFns: actionFns{ActionIpDelete: func(id string) error {
 				log.Info("delete many", "id", id)
 				if id == "j0" {
-					processedJobs = append(processedJobs, id)
+					processedJobs <- id
 					actionDone <- true
 					return nil
 				}
@@ -87,7 +87,7 @@ func Test_txStore_AddTx(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			processedJobs = []string{}
+			var processed []string
 			ctx, cancel := context.WithCancel(ctx)
 			ts, err := NewTxStore(ctx, log, client, tt.actionFns)
 			require.NoError(t, err)
@@ -98,7 +98,10 @@ func Test_txStore_AddTx(t *testing.T) {
 			}
 
 			assert.EventuallyWithT(t, func(c *assert.CollectT) {
-				assert.ElementsMatch(c, tt.wantProcessedJobs, processedJobs)
+				jobid := <-processedJobs
+				processed = append(processed, jobid)
+
+				assert.ElementsMatch(c, tt.wantProcessedJobs, processed)
 			}, time.Second, 100*time.Millisecond)
 
 			// pending, err := ts.Pending(ctx)

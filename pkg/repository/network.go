@@ -4,15 +4,18 @@ import (
 	"context"
 	"net/netip"
 	"slices"
+	"strconv"
 
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 	"github.com/metal-stack/api-server/pkg/db/generic"
 	"github.com/metal-stack/api-server/pkg/db/metal"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
 )
 
 type networkRepository struct {
-	r     *Repository
+	r     *Repostore
 	scope ProjectScope
 }
 
@@ -33,8 +36,8 @@ func (r *networkRepository) Get(ctx context.Context, id string) (*metal.Network,
 	return nw, nil
 }
 
-func (r *networkRepository) Delete(ctx context.Context, id string) (*metal.Network, error) {
-	nw, err := r.Get(ctx, id)
+func (r *networkRepository) Delete(ctx context.Context, n *metal.Network) (*metal.Network, error) {
+	nw, err := r.Get(ctx, n.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -49,10 +52,15 @@ func (r *networkRepository) Delete(ctx context.Context, id string) (*metal.Netwo
 	return nw, nil
 }
 
-func (r *networkRepository) Create(ctx context.Context, nw *metal.Network) (*metal.Network, error) {
-	var afs metal.AddressFamilies
-	for _, p := range nw.Prefixes {
-		parsed, err := netip.ParsePrefix(p.String())
+func (r *networkRepository) Create(ctx context.Context, req *apiv2.NetworkServiceCreateRequest) (*metal.Network, error) {
+
+	var (
+		id       string
+		afs      metal.AddressFamilies
+		prefixes metal.Prefixes
+	)
+	for _, p := range req.Prefixes {
+		parsed, err := netip.ParsePrefix(p)
 		if err != nil {
 			return nil, err
 		}
@@ -66,8 +74,30 @@ func (r *networkRepository) Create(ctx context.Context, nw *metal.Network) (*met
 				afs = append(afs, metal.IPv6AddressFamily)
 			}
 		}
+		prefixes = append(prefixes, metal.Prefix{
+			IP:     parsed.Addr().String(),
+			Length: strconv.Itoa(parsed.Bits()),
+		})
 	}
-	nw.AddressFamilies = afs
+
+	if req.Id == nil {
+		uuid, err := uuid.NewV7()
+		if err != nil {
+			return nil, err
+		}
+		id = uuid.String()
+	} else {
+		id = *req.Id
+	}
+
+	nw := &metal.Network{
+		Base: metal.Base{
+			ID: id,
+		},
+		// FIXME more fields
+		Prefixes:        prefixes,
+		AddressFamilies: afs,
+	}
 
 	resp, err := r.r.ds.Network().Create(ctx, nw)
 	if err != nil {
@@ -82,4 +112,20 @@ func (r *networkRepository) Create(ctx context.Context, nw *metal.Network) (*met
 	}
 
 	return resp, nil
+}
+
+func (r *networkRepository) Update(ctx context.Context, msg *apiv2.NetworkServiceUpdateRequest) (*metal.Network, error) {
+	panic("unimplemented")
+}
+func (r *networkRepository) Find(ctx context.Context, query *apiv2.NetworkServiceListRequest) (*metal.Network, error) {
+	panic("unimplemented")
+}
+func (r *networkRepository) List(ctx context.Context, query *apiv2.NetworkServiceListRequest) ([]*metal.Network, error) {
+	panic("unimplemented")
+}
+func (r *networkRepository) ConvertToInternal(msg *apiv2.Network) (*metal.Network, error) {
+	panic("unimplemented")
+}
+func (r *networkRepository) ConvertToProto(e *metal.Network) (*apiv2.Network, error) {
+	panic("unimplemented")
 }
