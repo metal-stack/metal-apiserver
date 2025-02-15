@@ -161,7 +161,7 @@ func (r *filesystemRepository) ConvertToProto(in *metal.FilesystemLayout) (*apiv
 			Devices:       r.Devices,
 			Level:         level,
 			CreateOptions: r.CreateOptions,
-			Spares:        int32(r.Spares),
+			Spares:        int32(r.Spares), // nolint:gosec
 		})
 	}
 
