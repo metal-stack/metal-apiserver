@@ -23,15 +23,12 @@ type (
 		log              *slog.Logger
 		client           *redis.Client
 		messageIdToStart string
-		actionFns        actionFns
+		actionFns        ActionFns
 		processErrors    []error
 	}
-
-	actionFns map[Action]actionFn
-	actionFn  func(id string) error
 )
 
-func NewTxStore(ctx context.Context, log *slog.Logger, client *redis.Client, actions actionFns) (*txStore, error) {
+func newTxStore(ctx context.Context, log *slog.Logger, client *redis.Client, actions ActionFns) (*txStore, error) {
 	// Check if group exists, create otherwise
 	result := client.XGroupCreateMkStream(ctx, stream, group, "$")
 	if result.Err() != nil && !strings.Contains(result.Err().Error(), "BUSYGROUP") {
@@ -61,20 +58,10 @@ func (t *txStore) AddTx(ctx context.Context, tx *Tx) error {
 
 	stringTx := base64.StdEncoding.EncodeToString(serializedTx) // do we need to encode or not?
 	data := map[string]any{tx.Reference: stringTx}
-	//we have received  an order here send it to
-	//redis has a function called xadd that we will use to add this to our stream
-	//you can read more about it on the link shared above.
 	err = t.client.XAdd(ctx, &redis.XAddArgs{
-		///this is the name we want to give to our stream
-		///in our case we called it send_order_emails
-		//note you can have as many stream as possible
-		//such as one for email...another for notifications
-		// ID:     tx.Reference,
 		Stream: stream,
-		MaxLen: 0, //  means unlimited
+		MaxLen: 1000, // evict old entries, keep maximum 1000
 		Approx: true,
-		//values is the data you want to send to the stream
-		//in our case we send a map with email and message keys
 		Values: data,
 	}).Err()
 	if err != nil {

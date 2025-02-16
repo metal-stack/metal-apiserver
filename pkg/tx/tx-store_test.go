@@ -38,7 +38,7 @@ func Test_txStore_AddTx(t *testing.T) {
 	tests := []struct {
 		name              string
 		tx                *Tx
-		actionFns         actionFns
+		actionFns         ActionFns
 		wantProcessedJobs []string
 		wantErr           bool
 		wantPending       []Pending
@@ -46,7 +46,7 @@ func Test_txStore_AddTx(t *testing.T) {
 		{
 			name: "simple ip",
 			tx:   &Tx{Jobs: []Job{{ID: "j100", Action: ActionIpDelete}}},
-			actionFns: actionFns{ActionIpDelete: func(id string) error {
+			actionFns: ActionFns{ActionIpDelete: func(id string) error {
 				log.Info("delete", "ip", id)
 				processedJobs <- id
 				actionDone <- true
@@ -58,7 +58,7 @@ func Test_txStore_AddTx(t *testing.T) {
 		{
 			name: "simple network",
 			tx:   &Tx{Jobs: []Job{{ID: "j200", Action: ActionNetworkDelete}}},
-			actionFns: actionFns{ActionNetworkDelete: func(id string) error {
+			actionFns: ActionFns{ActionNetworkDelete: func(id string) error {
 				log.Info("delete", "network", id)
 				processedJobs <- id
 				actionDone <- true
@@ -70,7 +70,7 @@ func Test_txStore_AddTx(t *testing.T) {
 		{
 			name: "one successful job",
 			tx:   &Tx{Jobs: alotJobs},
-			actionFns: actionFns{ActionIpDelete: func(id string) error {
+			actionFns: ActionFns{ActionIpDelete: func(id string) error {
 				log.Info("delete many", "id", id)
 				if id == "j0" {
 					processedJobs <- id
@@ -89,7 +89,7 @@ func Test_txStore_AddTx(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var processed []string
 			ctx, cancel := context.WithCancel(ctx)
-			ts, err := NewTxStore(ctx, log, client, tt.actionFns)
+			ts, err := newTxStore(ctx, log, client, tt.actionFns)
 			require.NoError(t, err)
 			defer cancel()
 
