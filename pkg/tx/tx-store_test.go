@@ -38,7 +38,7 @@ func Test_txStore_AddTx(t *testing.T) {
 	tests := []struct {
 		name              string
 		tx                *Tx
-		actionFns         ActionFns
+		actionFn          ActionFn
 		wantProcessedJobs []string
 		wantErr           bool
 		wantPending       []Pending
@@ -46,31 +46,34 @@ func Test_txStore_AddTx(t *testing.T) {
 		{
 			name: "simple ip",
 			tx:   &Tx{Jobs: []Job{{ID: "j100", Action: ActionIpDelete}}},
-			actionFns: ActionFns{ActionIpDelete: func(id string) error {
+			actionFn: func(ctx context.Context, job Job) error {
+				id := job.ID
 				log.Info("delete", "ip", id)
 				processedJobs <- id
 				actionDone <- true
 				return nil
-			}},
+			},
 			wantProcessedJobs: []string{"j100"},
 			wantErr:           false,
 		},
 		{
 			name: "simple network",
 			tx:   &Tx{Jobs: []Job{{ID: "j200", Action: ActionNetworkDelete}}},
-			actionFns: ActionFns{ActionNetworkDelete: func(id string) error {
+			actionFn: func(ctx context.Context, job Job) error {
+				id := job.ID
 				log.Info("delete", "network", id)
 				processedJobs <- id
 				actionDone <- true
 				return nil
-			}},
+			},
 			wantProcessedJobs: []string{"j200"},
 			wantErr:           false,
 		},
 		{
 			name: "one successful job",
 			tx:   &Tx{Jobs: alotJobs},
-			actionFns: ActionFns{ActionIpDelete: func(id string) error {
+			actionFn: func(ctx context.Context, job Job) error {
+				id := job.ID
 				log.Info("delete many", "id", id)
 				if id == "j0" {
 					processedJobs <- id
@@ -79,7 +82,7 @@ func Test_txStore_AddTx(t *testing.T) {
 				}
 				actionDone <- true
 				return fmt.Errorf("unable to process:%s", id)
-			}},
+			},
 			wantErr:           false,
 			wantProcessedJobs: []string{"j0"},
 			wantPending:       []Pending{{ID: "j0"}, {ID: "j1"}},
@@ -89,7 +92,7 @@ func Test_txStore_AddTx(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var processed []string
 			ctx, cancel := context.WithCancel(ctx)
-			ts, err := newTxStore(ctx, log, client, tt.actionFns)
+			ts, err := newTxStore(ctx, log, client, tt.actionFn)
 			require.NoError(t, err)
 			defer cancel()
 

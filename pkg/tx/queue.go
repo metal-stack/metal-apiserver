@@ -15,8 +15,7 @@ const (
 type (
 	Action string
 
-	ActionFns map[Action]ActionFn
-	ActionFn  func(id string) error
+	ActionFn func(ctx context.Context, job Job) error
 
 	Job struct {
 		// ID is the unique identifier for the object to apply this job to
@@ -43,10 +42,10 @@ type (
 	}
 )
 
-func New(log *slog.Logger, client *redis.Client, actionFns ActionFns) (*Queue, error) {
+func New(log *slog.Logger, client *redis.Client, actionFn ActionFn) (*Queue, error) {
 	ctx := context.Background()
 
-	txStore, err := newTxStore(ctx, log, client, actionFns)
+	txStore, err := newTxStore(ctx, log, client, actionFn)
 	if err != nil {
 		return nil, err
 	}

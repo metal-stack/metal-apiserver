@@ -3,6 +3,7 @@ package tx_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"testing"
@@ -25,7 +26,7 @@ func TestQueue(t *testing.T) {
 	ctx := context.Background()
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	container, c, err := test.StartRethink(t)
+	container, rethinkSession, err := test.StartRethink(t)
 	require.NoError(t, err)
 	defer func() {
 		_ = container.Terminate(context.Background())
@@ -39,12 +40,14 @@ func TestQueue(t *testing.T) {
 
 	ipam := test.StartIpam(t)
 
-	ds, err := generic.New(log, "metal", c)
+	ds, err := generic.New(log, "metal", rethinkSession)
 	require.NoError(t, err)
 
-	actionFns := tx.ActionFns{
-		tx.ActionIpDelete: func(id string) error {
-			metalIP, err := ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPServiceListRequest{Uuid: &id}))
+	actionFn := func(ctx context.Context, job tx.Job) error {
+		switch job.Action {
+		case tx.ActionIpDelete:
+
+			metalIP, err := ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPServiceListRequest{Uuid: &job.ID}))
 			if err != nil && !generic.IsNotFound(err) {
 				return err
 			}
@@ -67,10 +70,14 @@ func TestQueue(t *testing.T) {
 			}
 
 			return nil
-		},
+		case tx.ActionNetworkDelete:
+			return fmt.Errorf("action:%s is not implemented yet", job.Action)
+		default:
+			return fmt.Errorf("action:%s is not implemented yet", job.Action)
+		}
 	}
 
-	q, err := tx.New(log, client, actionFns)
+	q, err := tx.New(log, client, actionFn)
 	require.NoError(t, err)
 
 	pfx, err := ipam.CreatePrefix(ctx, connect.NewRequest(&ipamv1.CreatePrefixRequest{Cidr: "1.2.3.0/24"}))

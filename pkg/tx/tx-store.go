@@ -23,12 +23,12 @@ type (
 		log              *slog.Logger
 		client           *redis.Client
 		messageIdToStart string
-		actionFns        ActionFns
+		actionFn         ActionFn
 		processErrors    []error
 	}
 )
 
-func newTxStore(ctx context.Context, log *slog.Logger, client *redis.Client, actions ActionFns) (*txStore, error) {
+func newTxStore(ctx context.Context, log *slog.Logger, client *redis.Client, actionFn ActionFn) (*txStore, error) {
 	// Check if group exists, create otherwise
 	result := client.XGroupCreateMkStream(ctx, stream, group, "$")
 	if result.Err() != nil && !strings.Contains(result.Err().Error(), "BUSYGROUP") {
@@ -38,7 +38,7 @@ func newTxStore(ctx context.Context, log *slog.Logger, client *redis.Client, act
 	store := &txStore{
 		log:              log,
 		client:           client,
-		actionFns:        actions,
+		actionFn:         actionFn,
 		messageIdToStart: "0-0", // Start from beginning on startup, if set to ">" it starts with new unprocessed entries
 	}
 	go func() {
@@ -117,7 +117,7 @@ func (t *txStore) Process(ctx context.Context) error {
 						continue
 					}
 
-					err = t.processTx(tx)
+					err = t.processTx(ctx, tx)
 					if err != nil {
 						t.log.Error("unable to process tx", "tx reference", txReference, "error", err)
 						t.processErrors = append(t.processErrors, err)
@@ -136,20 +136,10 @@ func (t *txStore) Process(ctx context.Context) error {
 	}
 }
 
-func (t *txStore) processTx(tx Tx) error {
+func (t *txStore) processTx(ctx context.Context, tx Tx) error {
 	var errs []error
 	for _, job := range tx.Jobs {
-
-		action, ok := t.actionFns[job.Action]
-		if !ok {
-			errs = append(errs, fmt.Errorf("no action func defined for action:%s", job.Action))
-			continue
-		}
-		if action == nil {
-			errs = append(errs, fmt.Errorf("action is nil for action:%s", job.Action))
-			continue
-		}
-		err := action(job.ID)
+		err := t.actionFn(ctx, job)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("error executing action: %s with id: %s error: %w", job.Action, job.ID, err))
 			continue
