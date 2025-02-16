@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"os"
 	"testing"
 	"time"
 
@@ -22,6 +23,7 @@ import (
 
 func TestQueue(t *testing.T) {
 	ctx := context.Background()
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	container, c, err := test.StartRethink(t)
 	require.NoError(t, err)
@@ -37,8 +39,6 @@ func TestQueue(t *testing.T) {
 
 	ipam := test.StartIpam(t)
 
-	log := slog.Default()
-
 	ds, err := generic.New(log, "metal", c)
 	require.NoError(t, err)
 
@@ -48,10 +48,13 @@ func TestQueue(t *testing.T) {
 			if err != nil && !generic.IsNotFound(err) {
 				return err
 			}
+			log.Info("ds find", "metalip", metalIP)
 
 			_, err = ipam.ReleaseIP(ctx, connect.NewRequest(&ipamv1.ReleaseIPRequest{PrefixCidr: metalIP.ParentPrefixCidr, Ip: metalIP.IPAddress}))
-			var connectErr *connect.Error
-			if errors.As(err, &connectErr) {
+			if err != nil {
+				log.Error("ipam release", "error", err)
+				var connectErr *connect.Error
+				errors.As(err, &connectErr)
 				if connectErr.Code() != connect.CodeNotFound {
 					return err
 				}
@@ -59,6 +62,7 @@ func TestQueue(t *testing.T) {
 
 			err = ds.IP().Delete(ctx, metalIP)
 			if err != nil && !generic.IsNotFound(err) {
+				log.Error("ds delete", "error", err)
 				return err
 			}
 
@@ -76,8 +80,9 @@ func TestQueue(t *testing.T) {
 
 	allocationUUID := uuid.NewString()
 	metalIP, err := ds.IP().Create(ctx, &metal.IP{
-		IPAddress:      ipamIP.Msg.Ip.Ip,
-		AllocationUUID: allocationUUID,
+		IPAddress:        ipamIP.Msg.Ip.Ip,
+		AllocationUUID:   allocationUUID,
+		ParentPrefixCidr: pfx.Msg.Prefix.Cidr,
 	})
 	require.NoError(t, err)
 
@@ -96,14 +101,13 @@ func TestQueue(t *testing.T) {
 	// Now check that the IPs are really released
 
 	assert.EventuallyWithT(t, func(collect *assert.CollectT) {
+		// metal entity must be gone
 		_, err = ds.IP().Get(ctx, metalIP.IPAddress)
-		if err != nil && !generic.IsNotFound(err) {
-			t.Fail()
-		}
-		pfx, err := ipam.GetPrefix(ctx, connect.NewRequest(&ipamv1.GetPrefixRequest{Cidr: pfx.Msg.Prefix.Cidr}))
-		require.NoError(t, err)
+		require.EqualError(t, err, generic.NotFound("no ip with id %q found", metalIP.IPAddress).Error())
+
+		// ipam entity as well, check by trying to acquire the same again
 		_, err = ipam.AcquireIP(ctx, connect.NewRequest(&ipamv1.AcquireIPRequest{PrefixCidr: pfx.Msg.Prefix.Cidr, Ip: &ipamIP.Msg.Ip.Ip}))
-		require.Error(t, err)
+		require.NoError(t, err)
 	}, time.Second, 100*time.Millisecond)
 
 }
