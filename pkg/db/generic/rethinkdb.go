@@ -191,16 +191,16 @@ func (rs *rethinkStore[E]) Find(ctx context.Context, queries ...EntityQuery) (E,
 	}
 	defer res.Close()
 	if res.IsNil() {
-		return zero, NotFound("no %v with found", rs.tableName)
+		return zero, NotFound("no %v found", rs.tableName)
 	}
 
 	e := new(E)
 	hasResult := res.Next(e)
 	if !hasResult {
-		return zero, fmt.Errorf("cannot find %v in database: %w", rs.tableName, err)
+		return zero, NotFound("cannot find %v", rs.tableName)
 	}
 
-	next := new(E)
+	next := map[string]any{}
 	hasResult = res.Next(&next)
 	if hasResult {
 		return zero, fmt.Errorf("more than one %v exists", rs.tableName)
