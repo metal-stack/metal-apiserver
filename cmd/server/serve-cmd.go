@@ -211,7 +211,7 @@ func createRedisClient(logger *slog.Logger, address, password string, dbName Red
 		Addr:       address,
 		Password:   password,
 		DB:         db,
-		ClientName: "api-server",
+		ClientName: "metal-apiserver",
 	})
 	pong, err := client.Ping(context.Background()).Result()
 	if err != nil {

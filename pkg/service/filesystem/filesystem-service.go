@@ -48,7 +48,25 @@ func (f *filesystemServiceServer) Get(ctx context.Context, rq *connect.Request[a
 }
 
 func (f *filesystemServiceServer) List(ctx context.Context, rq *connect.Request[apiv2.FilesystemServiceListRequest]) (*connect.Response[apiv2.FilesystemServiceListResponse], error) {
-	panic("unimplemented")
+	req := rq.Msg
+	resp, err := f.repo.FilesystemLayout().List(ctx, req)
+	if err != nil {
+		if generic.IsNotFound(err) {
+			return nil, connect.NewError(connect.CodeNotFound, err)
+		}
+		return nil, err
+	}
+	var fsls []*apiv2.FilesystemLayout
+	for _, r := range resp {
+		fsl, err := f.repo.FilesystemLayout().ConvertToProto(r)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		fsls = append(fsls, fsl)
+	}
+	return connect.NewResponse(&apiv2.FilesystemServiceListResponse{
+		FilesystemLayouts: fsls,
+	}), nil
 }
 
 func (f *filesystemServiceServer) Match(ctx context.Context, rq *connect.Request[apiv2.FilesystemServiceMatchRequest]) (*connect.Response[apiv2.FilesystemServiceMatchResponse], error) {

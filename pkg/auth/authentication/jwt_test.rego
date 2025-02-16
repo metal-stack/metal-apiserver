@@ -34,7 +34,7 @@ public := {"keys": [
 	},
 ]}
 
-allowed_issuers := ["cloud", "api-server"]
+allowed_issuers := ["cloud", "metal-apiserver"]
 
 valid_jwt := io.jwt.encode_sign(
 	{
@@ -42,7 +42,7 @@ valid_jwt := io.jwt.encode_sign(
 		"alg": "ES512",
 	},
 	{
-		"iss": "api-server",
+		"iss": "metal-apiserver",
 		"sub": "johndoe@github",
 		"name": "John Doe",
 		"iat": time.now_ns() / 1000000000,
@@ -58,7 +58,7 @@ jwt_with_wrong_secret := io.jwt.encode_sign(
 		"alg": "ES512",
 	},
 	{
-		"iss": "api-server",
+		"iss": "metal-apiserver",
 		"sub": "johndoe@github",
 		"name": "John Doe",
 		"iat": time.now_ns() / 1000000000,
@@ -92,7 +92,7 @@ test_token_expired if {
 				"alg": "ES512",
 			},
 			{
-				"iss": "api-server",
+				"iss": "metal-apiserver",
 				"sub": "johndoe@github",
 				"name": "John Doe",
 				"iat": time.now_ns() / 1000000000,
@@ -167,7 +167,7 @@ test_valid_token if {
 				"alg": "ES512",
 			},
 			{
-				"iss": "api-server",
+				"iss": "metal-apiserver",
 				"sub": "johndoe@github",
 				"name": "John Doe",
 				"jti": "91515033-8f6b-4543-ae44-5ccf2b47e3c5",

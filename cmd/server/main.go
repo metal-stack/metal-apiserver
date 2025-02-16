@@ -174,8 +174,8 @@ var (
 
 func main() {
 	app := &cli.App{
-		Name:  "api-server",
-		Usage: "cli for metal cloud",
+		Name:  "metal-apiserver",
+		Usage: "apiserver for metal-stack.io",
 		Commands: []*cli.Command{
 			serveCmd,
 			tokenCmd,

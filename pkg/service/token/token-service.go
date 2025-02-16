@@ -112,7 +112,7 @@ func (t *tokenService) CreateApiTokenWithoutPermissionCheck(ctx context.Context,
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	secret, token, err := tokenutil.NewJWT(apiv2.TokenType_TOKEN_TYPE_API, "api-server-cli", t.issuer, expires, privateKey)
+	secret, token, err := tokenutil.NewJWT(apiv2.TokenType_TOKEN_TYPE_API, "metal-apiserver-cli", t.issuer, expires, privateKey)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
