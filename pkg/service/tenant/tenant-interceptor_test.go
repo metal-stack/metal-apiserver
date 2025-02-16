@@ -14,10 +14,7 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 
-	"github.com/metal-stack/api-server/pkg/repository"
-	ipservice "github.com/metal-stack/api-server/pkg/service/ip"
 	tutil "github.com/metal-stack/api-server/pkg/tenant"
-	"github.com/metal-stack/api-server/pkg/test"
 	"github.com/metal-stack/api-server/pkg/token"
 
 	mdmv1 "github.com/metal-stack/masterdata-api/api/v1"
@@ -29,21 +26,58 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type fakeIpServiceServer struct {
+	project string
+}
+
+// Create implements apiv2connect.IPServiceHandler.
+func (f *fakeIpServiceServer) Create(context.Context, *connect.Request[apiv2.IPServiceCreateRequest]) (*connect.Response[apiv2.IPServiceCreateResponse], error) {
+	panic("unimplemented")
+}
+
+// Delete implements apiv2connect.IPServiceHandler.
+func (f *fakeIpServiceServer) Delete(context.Context, *connect.Request[apiv2.IPServiceDeleteRequest]) (*connect.Response[apiv2.IPServiceDeleteResponse], error) {
+	panic("unimplemented")
+}
+
+// Get implements apiv2connect.IPServiceHandler.
+func (f *fakeIpServiceServer) Get(context.Context, *connect.Request[apiv2.IPServiceGetRequest]) (*connect.Response[apiv2.IPServiceGetResponse], error) {
+	return connect.NewResponse(&apiv2.IPServiceGetResponse{
+		Ip: &apiv2.IP{
+			Ip:      "1.2.3.4",
+			Project: f.project,
+		},
+	}), nil
+}
+
+// List implements apiv2connect.IPServiceHandler.
+func (f *fakeIpServiceServer) List(context.Context, *connect.Request[apiv2.IPServiceListRequest]) (*connect.Response[apiv2.IPServiceListResponse], error) {
+	panic("unimplemented")
+}
+
+// Update implements apiv2connect.IPServiceHandler.
+func (f *fakeIpServiceServer) Update(context.Context, *connect.Request[apiv2.IPServiceUpdateRequest]) (*connect.Response[apiv2.IPServiceUpdateResponse], error) {
+	panic("unimplemented")
+}
+
+func newFakeIpServiceServer(project string) apiv2connect.IPServiceHandler {
+	return &fakeIpServiceServer{project: project}
+}
+
 func Test_tenantInterceptor_WrapUnary(t *testing.T) {
 	logger := slog.Default()
-	ipam := test.StartIpam(t)
+
 	tests := []struct {
 		name               string
-		ip                 *apiv2.IPServiceCreateRequest
+		ip                 *apiv2.IPServiceGetRequest
 		projectServiceMock func(mock *tmock.Mock)
 		tenantServiceMock  func(mock *tmock.Mock)
-		want               *apiv2.IPServiceCreateResponse
+		want               *apiv2.IPServiceGetResponse
 		wantErr            *connect.Error
 	}{
 		{
 			name: "create ip with existing project",
-			ip: &apiv2.IPServiceCreateRequest{
-				Network: "n1",
+			ip: &apiv2.IPServiceGetRequest{
 				Project: "p1",
 			},
 			projectServiceMock: func(mock *tmock.Mock) {
@@ -56,12 +90,12 @@ func Test_tenantInterceptor_WrapUnary(t *testing.T) {
 					Id: "t1",
 				}).Return(&mdmv1.TenantResponse{Tenant: &mdmv1.Tenant{Meta: &mdmv1.Meta{Id: "t1"}}}, nil)
 			},
-			want:    &apiv2.IPServiceCreateResponse{},
+			want:    &apiv2.IPServiceGetResponse{},
 			wantErr: nil,
 		},
 		{
 			name: "create ip with non-existing project",
-			ip: &apiv2.IPServiceCreateRequest{
+			ip: &apiv2.IPServiceGetRequest{
 				Project: "p2",
 			},
 			projectServiceMock: func(mock *tmock.Mock) {
@@ -78,10 +112,7 @@ func Test_tenantInterceptor_WrapUnary(t *testing.T) {
 			mc := newMasterdataMockClient(t, tt.tenantServiceMock, nil, tt.projectServiceMock, nil)
 			interceptor := NewInterceptor(logger, mc)
 
-			ipService := ipservice.New(ipservice.Config{
-				Repo: repository.New(logger, mc, nil, ipam), // FIXME datastore mock is missing
-				Log:  logger,
-			})
+			ipService := newFakeIpServiceServer(tt.ip.Project)
 
 			mux := http.NewServeMux()
 			mux.Handle(apiv2connect.NewIPServiceHandler(ipService, connect.WithInterceptors(interceptor)))
@@ -107,7 +138,7 @@ func Test_tenantInterceptor_WrapUnary(t *testing.T) {
 					UserId: "t1",
 				})
 
-				got, err := client.Create(ctx, connect.NewRequest(tt.ip))
+				got, err := client.Get(ctx, connect.NewRequest(tt.ip))
 				spew.Dump(got)
 				spew.Dump(err)
 
@@ -117,7 +148,6 @@ func Test_tenantInterceptor_WrapUnary(t *testing.T) {
 					}
 				} else {
 					require.Equal(t, got.Msg.Ip.Project, tt.ip.Project)
-					// require.EqualValues(t, got.Msg.Ip.Name, *tt.ip.Name)
 					require.NotEmpty(t, got.Msg.Ip.Ip)
 				}
 			}

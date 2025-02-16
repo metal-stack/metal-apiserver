@@ -31,8 +31,6 @@ type (
 	}
 )
 
-// FIXME use repo where possible
-
 func NewInterceptor(log *slog.Logger, masterClient mdc.Client) *tenantInterceptor {
 	return &tenantInterceptor{
 		projectCache: cache.New(1*time.Hour, func(ctx context.Context, id string) (*mdcv1.Project, error) {

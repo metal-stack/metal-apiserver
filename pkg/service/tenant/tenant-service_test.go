@@ -77,10 +77,10 @@ func Test_service_Create(t *testing.T) {
 					Tenant: &mdmv1.Tenant{
 						Meta: &mdmv1.Meta{
 							Annotations: map[string]string{
-								"metal-stack.io/avatarurl":    "https://example.jpg",
-								"metal-stack.io/email":        "foo@a.b",
-								"metal-stack.io/phone":        "1023",
-								"metal-stack.io/creator":      "original-owner",
+								"metal-stack.io/avatarurl": "https://example.jpg",
+								"metal-stack.io/email":     "foo@a.b",
+								"metal-stack.io/phone":     "1023",
+								"metal-stack.io/creator":   "original-owner",
 							},
 						},
 						Name:        "test",
@@ -95,7 +95,7 @@ func Test_service_Create(t *testing.T) {
 				member := &mdmv1.TenantMember{
 					Meta: &mdmv1.Meta{
 						Annotations: map[string]string{
-							"metalstack.cloud/tenant-role": "TENANT_ROLE_OWNER",
+							"metal-stack.io/tenant-role": "TENANT_ROLE_OWNER",
 						},
 					},
 					TenantId: "<generated-at-runtime>",

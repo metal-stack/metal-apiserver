@@ -36,6 +36,20 @@ opa-fmt:
 	docker run --rm -it --user $$(id -u):$$(id -g) -v $(PWD)/pkg/auth/authentication:/work openpolicyagent/opa:latest-static fmt --v1-compatible --rego-v1 -w /work
 	docker run --rm -it --user $$(id -u):$$(id -g) -v $(PWD)/pkg/auth/authorization:/work openpolicyagent/opa:latest-static fmt --v1-compatible --rego-v1 -w /work
 
+.PHONY: mocks
+mocks:
+	rm -rf pkg/db/generic/mocks
+	rm -rf pkg/repository/mocks
+
+	# docker run --rm \
+	# 	--user $$(id -u):$$(id -g) \
+	# 	-w /work \
+	# 	-v $(PWD):/work \
+	# 	vektra/mockery:latest --keeptree --inpackage --dir pkg/repository --output pkg/test/mocks --all --log-level debug
+
+	# mockery --keeptree --inpackage --dir pkg/db/generic --output pkg/db/generic/mocks --all --log-level debug
+	# mockery --keeptree --inpackage --dir pkg/repository --output pkg/repository/mocks --all --log-level debug
+
 .PHONY: golint
 golint:
 	golangci-lint run -p bugs -p unused -D protogetter
