@@ -265,8 +265,8 @@ github.com/mattn/go-sqlite3 v1.14.22 h1:2gZY6PC6kBnID23Tichd1K+Z0oS6nE/XwU+Vz/5o
 github.com/mattn/go-sqlite3 v1.14.22/go.mod h1:Uh1q+B4BYcTPb+yiD3kU8Ct7aC0hY9fxUwlHK0RXw+Y=
 github.com/meilisearch/meilisearch-go v0.27.2 h1:3G21dJ5i208shnLPDsIEZ0L0Geg/5oeXABFV7nlK94k=
 github.com/meilisearch/meilisearch-go v0.27.2/go.mod h1:SxuSqDcPBIykjWz1PX+KzsYzArNLSCadQodWs8extS0=
-github.com/metal-stack/api v0.0.0-20250215131113-f94e37c36e19 h1:6gVT0VRC0XqQK6yf3ZWFU2V0CoOWzlznM/M9el0MJNM=
-github.com/metal-stack/api v0.0.0-20250215131113-f94e37c36e19/go.mod h1:wbWjD6lB5B6BVjpdzK74EUFVDmdOCTBWnHNiKIYQXhA=
+github.com/metal-stack/api v0.0.0-20250215154137-19d24309789e h1:562DGyDBl0e8PoblXnJG0V7g68w0dqLTYWtiAua85CI=
+github.com/metal-stack/api v0.0.0-20250215154137-19d24309789e/go.mod h1:wbWjD6lB5B6BVjpdzK74EUFVDmdOCTBWnHNiKIYQXhA=
 github.com/metal-stack/go-ipam v1.14.8 h1:M840hp1RcM2fHfMjFG5rn02yKFq6hXh+WvmYISxvnwA=
 github.com/metal-stack/go-ipam v1.14.8/go.mod h1:LzAKT0X9dGAMs1uoLyJfJZkhwMMDLaSYvx9n6MJ9FI4=
 github.com/metal-stack/masterdata-api v0.11.5 h1:r7bYdhdVgOjCk6k7K/SCLlHALH23ZuMGY8E4udk4wXQ=
@@ -470,8 +470,8 @@ golang.org/x/crypto v0.0.0-20210921155107-089bfa567519/go.mod h1:GvvjBRRGRdwPK5y
 golang.org/x/crypto v0.0.0-20220214200702-86341886e292/go.mod h1:IxCIyHEi3zRg3s0A5j5BB6A9Jmi73HwBIUl50j+osU4=
 golang.org/x/crypto v0.33.0 h1:IOBPskki6Lysi0lo9qQvbxiQ+FvsCC/YWOecCHAixus=
 golang.org/x/crypto v0.33.0/go.mod h1:bVdXmD7IV/4GdElGPozy6U7lWdRXA4qyRVGJV57uQ5M=
-golang.org/x/exp v0.0.0-20250210185358-939b2ce775ac h1:l5+whBCLH3iH2ZNHYLbAe58bo7yrN4mVcnkHDYz5vvs=
-golang.org/x/exp v0.0.0-20250210185358-939b2ce775ac/go.mod h1:hH+7mtFmImwwcMvScyxUhjuVHR3HGaDPMn9rMSUUbxo=
+golang.org/x/exp v0.0.0-20250215185904-eff6e970281f h1:oFMYAjX0867ZD2jcNiLBrI9BdpmEkvPyi5YrBGXbamg=
+golang.org/x/exp v0.0.0-20250215185904-eff6e970281f/go.mod h1:BHOTPb3L19zxehTsLoJXVaTktb06DFgmdW6Wb9s8jqk=
 golang.org/x/mod v0.2.0/go.mod h1:s0Qsj1ACt9ePp/hMypM3fl4fZqREWJwdYDEqhRiZZUA=
 golang.org/x/mod v0.3.0/go.mod h1:s0Qsj1ACt9ePp/hMypM3fl4fZqREWJwdYDEqhRiZZUA=
 golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4/go.mod h1:jJ57K6gSWd91VN4djpZkiMVwK6gcyfeH4XE8wZrZaV4=
