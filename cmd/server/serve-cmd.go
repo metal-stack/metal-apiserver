@@ -180,6 +180,7 @@ const (
 	redisDatabaseTokens       RedisDatabase = "token"
 	redisDatabaseRateLimiting RedisDatabase = "rate-limiter"
 	redisDatabaseInvites      RedisDatabase = "invite"
+	redisDatabaseTx           RedisDatabase = "tx"
 )
 
 func createRedisClient(logger *slog.Logger, address, password string, dbName RedisDatabase) (*redis.Client, error) {
@@ -191,6 +192,8 @@ func createRedisClient(logger *slog.Logger, address, password string, dbName Red
 		db = 1
 	case redisDatabaseInvites:
 		db = 2
+	case redisDatabaseTx:
+		db = 3
 	default:
 		return nil, fmt.Errorf("invalid db name: %s", dbName)
 	}

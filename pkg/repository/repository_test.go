@@ -6,9 +6,11 @@ import (
 	"log/slog"
 	"testing"
 
+	"github.com/alicebob/miniredis/v2"
 	"github.com/metal-stack/api-server/pkg/db/generic"
 	"github.com/metal-stack/api-server/pkg/repository"
 	"github.com/metal-stack/api-server/pkg/test"
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -16,6 +18,8 @@ import (
 func TestGet(t *testing.T) {
 	ctx := context.Background()
 	log := slog.Default()
+	r := miniredis.RunT(t)
+	rc := redis.NewClient(&redis.Options{Addr: r.Addr()})
 
 	container, c, err := test.StartRethink(t)
 	require.NoError(t, err)
@@ -28,7 +32,8 @@ func TestGet(t *testing.T) {
 	ds, err := generic.New(log, "metal", c)
 	require.NoError(t, err)
 
-	repo := repository.New(log, nil, ds, ipam)
+	repo, err := repository.New(log, nil, ds, ipam, rc)
+	require.NoError(t, err)
 
 	ip, err := repo.IP("project1").Get(ctx, "asdf")
 	require.Error(t, err)
@@ -41,6 +46,8 @@ func TestGet(t *testing.T) {
 func TestIpUnscopedList(t *testing.T) {
 	ctx := context.Background()
 	log := slog.Default()
+	r := miniredis.RunT(t)
+	rc := redis.NewClient(&redis.Options{Addr: r.Addr()})
 
 	container, c, err := test.StartRethink(t)
 	require.NoError(t, err)
@@ -53,7 +60,8 @@ func TestIpUnscopedList(t *testing.T) {
 	ds, err := generic.New(log, "metal", c)
 	require.NoError(t, err)
 
-	repo := repository.New(log, nil, ds, ipam)
+	repo, err := repository.New(log, nil, ds, ipam, rc)
+	require.NoError(t, err)
 
 	ips, err := repo.UnscopedIP().List(ctx, nil)
 	require.NoError(t, err)

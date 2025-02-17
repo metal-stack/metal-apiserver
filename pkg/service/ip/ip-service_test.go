@@ -9,7 +9,9 @@ import (
 	"testing"
 
 	"connectrpc.com/connect"
+	"github.com/alicebob/miniredis/v2"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/uuid"
 	"github.com/metal-stack/api-server/pkg/db/generic"
 	"github.com/metal-stack/api-server/pkg/db/metal"
 	"github.com/metal-stack/api-server/pkg/repository"
@@ -21,6 +23,7 @@ import (
 	mdmock "github.com/metal-stack/masterdata-api/api/v1/mocks"
 	mdm "github.com/metal-stack/masterdata-api/pkg/client"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
+	"github.com/redis/go-redis/v9"
 	testifymock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -38,6 +41,8 @@ func Test_ipServiceServer_Get(t *testing.T) {
 	defer func() {
 		_ = container.Terminate(context.Background())
 	}()
+	r := miniredis.RunT(t)
+	rc := redis.NewClient(&redis.Options{Addr: r.Addr()})
 
 	ipam := test.StartIpam(t)
 
@@ -47,7 +52,8 @@ func Test_ipServiceServer_Get(t *testing.T) {
 	ds, err := generic.New(log, "metal", c)
 	require.NoError(t, err)
 
-	repo := repository.New(log, nil, ds, ipam)
+	repo, err := repository.New(log, nil, ds, ipam, rc)
+	require.NoError(t, err)
 
 	createIPs(t, ctx, ds, ipam, prefixMap, []*metal.IP{{IPAddress: "1.2.3.4"}})
 
@@ -105,7 +111,7 @@ func Test_ipServiceServer_Get(t *testing.T) {
 				cmp.Options{
 					protocmp.Transform(),
 					protocmp.IgnoreFields(
-						&apiv2.IP{}, "created_at", "updated_at",
+						&apiv2.IP{}, "created_at", "updated_at", "uuid",
 					),
 				},
 			); diff != "" {
@@ -121,6 +127,8 @@ func Test_ipServiceServer_List(t *testing.T) {
 	defer func() {
 		_ = container.Terminate(context.Background())
 	}()
+	r := miniredis.RunT(t)
+	rc := redis.NewClient(&redis.Options{Addr: r.Addr()})
 
 	ipam := test.StartIpam(t)
 
@@ -130,7 +138,8 @@ func Test_ipServiceServer_List(t *testing.T) {
 	ds, err := generic.New(log, "metal", c)
 	require.NoError(t, err)
 
-	repo := repository.New(log, nil, ds, ipam)
+	repo, err := repository.New(log, nil, ds, ipam, rc)
+	require.NoError(t, err)
 
 	ips := []*metal.IP{
 		{Name: "ip1", IPAddress: "1.2.3.4", ProjectID: "p1"},
@@ -211,7 +220,7 @@ func Test_ipServiceServer_List(t *testing.T) {
 				cmp.Options{
 					protocmp.Transform(),
 					protocmp.IgnoreFields(
-						&apiv2.IP{}, "created_at", "updated_at",
+						&apiv2.IP{}, "created_at", "updated_at", "uuid",
 					),
 				},
 			); diff != "" {
@@ -227,6 +236,8 @@ func Test_ipServiceServer_Update(t *testing.T) {
 	defer func() {
 		_ = container.Terminate(context.Background())
 	}()
+	r := miniredis.RunT(t)
+	rc := redis.NewClient(&redis.Options{Addr: r.Addr()})
 
 	ipam := test.StartIpam(t)
 
@@ -236,7 +247,8 @@ func Test_ipServiceServer_Update(t *testing.T) {
 	ds, err := generic.New(log, "metal", c)
 	require.NoError(t, err)
 
-	repo := repository.New(log, nil, ds, ipam)
+	repo, err := repository.New(log, nil, ds, ipam, rc)
+	require.NoError(t, err)
 
 	ips := []*metal.IP{
 		{Name: "ip1", IPAddress: "1.2.3.4", ProjectID: "p1"},
@@ -317,7 +329,7 @@ func Test_ipServiceServer_Update(t *testing.T) {
 				cmp.Options{
 					protocmp.Transform(),
 					protocmp.IgnoreFields(
-						&apiv2.IP{}, "created_at", "updated_at",
+						&apiv2.IP{}, "created_at", "updated_at", "uuid",
 					),
 				},
 			); diff != "" {
@@ -328,28 +340,34 @@ func Test_ipServiceServer_Update(t *testing.T) {
 }
 
 func Test_ipServiceServer_Delete(t *testing.T) {
+	ctx := context.Background()
 	container, c, err := test.StartRethink(t)
 	require.NoError(t, err)
 	defer func() {
 		_ = container.Terminate(context.Background())
 	}()
+	container, rc, err := test.StartValkey(t, ctx)
+	require.NoError(t, err)
+	defer func() {
+		_ = container.Terminate(ctx)
+	}()
 
 	ipam := test.StartIpam(t)
 
-	ctx := context.Background()
 	log := slog.Default()
 
 	ds, err := generic.New(log, "metal", c)
 	require.NoError(t, err)
 
-	repo := repository.New(log, nil, ds, ipam)
+	repo, err := repository.New(log, nil, ds, ipam, rc)
+	require.NoError(t, err)
 
 	ips := []*metal.IP{
-		{Name: "ip1", IPAddress: "1.2.3.4", ProjectID: "p1"},
-		{Name: "ip2", IPAddress: "1.2.3.5", ProjectID: "p1"},
-		{Name: "ip3", IPAddress: "1.2.3.6", ProjectID: "p1", NetworkID: "n1"},
-		{Name: "ip4", IPAddress: "2001:db8::1", ProjectID: "p2", NetworkID: "n2"},
-		{Name: "ip5", IPAddress: "2.3.4.5", ProjectID: "p2", NetworkID: "n3", ParentPrefixCidr: "2.3.4.0/24"},
+		{Name: "ip1", IPAddress: "1.2.3.4", ProjectID: "p1", ParentPrefixCidr: "1.2.3.0/24", AllocationUUID: uuid.NewString()},
+		{Name: "ip2", IPAddress: "1.2.3.5", ProjectID: "p1", ParentPrefixCidr: "1.2.3.0/24", AllocationUUID: uuid.NewString()},
+		{Name: "ip3", IPAddress: "1.2.3.6", ProjectID: "p1", NetworkID: "n1", ParentPrefixCidr: "1.2.3.0/24", AllocationUUID: uuid.NewString()},
+		{Name: "ip4", IPAddress: "2001:db8::1", ProjectID: "p2", NetworkID: "n2", ParentPrefixCidr: "2001:db8::/64", AllocationUUID: uuid.NewString()},
+		{Name: "ip5", IPAddress: "2.3.4.5", ProjectID: "p2", NetworkID: "n3", ParentPrefixCidr: "2.3.4.0/24", AllocationUUID: uuid.NewString()},
 	}
 	createIPs(t, ctx, ds, ipam, prefixMap, ips)
 
@@ -412,7 +430,7 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 				cmp.Options{
 					protocmp.Transform(),
 					protocmp.IgnoreFields(
-						&apiv2.IP{}, "created_at", "updated_at",
+						&apiv2.IP{}, "created_at", "updated_at", "uuid",
 					),
 				},
 			); diff != "" {
@@ -428,6 +446,8 @@ func Test_ipServiceServer_Create(t *testing.T) {
 	defer func() {
 		_ = container.Terminate(context.Background())
 	}()
+	r := miniredis.RunT(t)
+	rc := redis.NewClient(&redis.Options{Addr: r.Addr()})
 
 	ipam := test.StartIpam(t)
 
@@ -450,7 +470,8 @@ func Test_ipServiceServer_Create(t *testing.T) {
 
 	mdc := mdm.NewMock(&psc, &tsc, nil, nil)
 
-	repo := repository.New(log, mdc, ds, ipam)
+	repo, err := repository.New(log, mdc, ds, ipam, rc)
+	require.NoError(t, err)
 
 	ips := []*metal.IP{
 		{Name: "ip1", IPAddress: "1.2.3.4", ProjectID: "p1"},

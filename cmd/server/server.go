@@ -93,6 +93,10 @@ func (s *server) Run() error {
 	if err != nil {
 		return err
 	}
+	txRedisClient, err := createRedisClient(s.log, s.c.RedisAddr, s.c.RedisPassword, redisDatabaseInvites)
+	if err != nil {
+		return err
+	}
 	tokenStore := tokencommon.NewRedisStore(tokenRedisClient)
 	certStore := certs.NewRedisStore(&certs.Config{
 		RedisClient: tokenRedisClient,
@@ -167,7 +171,10 @@ func (s *server) Run() error {
 		return err
 	}
 
-	repo := repository.New(s.log, s.c.MasterClient, ds, s.c.Ipam)
+	repo, err := repository.New(s.log, s.c.MasterClient, ds, s.c.Ipam, txRedisClient)
+	if err != nil {
+		return err
+	}
 
 	ipService := ip.New(ip.Config{Log: s.log, Repo: repo})
 	filesystemService := filesystem.New(filesystem.Config{Log: s.log, Repo: repo})

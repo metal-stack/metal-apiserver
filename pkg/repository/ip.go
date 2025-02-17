@@ -12,6 +12,7 @@ import (
 	"github.com/metal-stack/api-server/pkg/db/generic"
 	"github.com/metal-stack/api-server/pkg/db/metal"
 	"github.com/metal-stack/api-server/pkg/db/queries"
+	"github.com/metal-stack/api-server/pkg/tx"
 	"github.com/metal-stack/api-server/pkg/validate"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	ipamapiv1 "github.com/metal-stack/go-ipam/api/v1"
@@ -198,28 +199,20 @@ func (r *ipRepository) Delete(ctx context.Context, ip *metal.IP) (*metal.IP, err
 	if err != nil {
 		return nil, err
 	}
-
-	// FIXME delete in ipam with the help of Tx
-
-	_, err = r.r.ipam.ReleaseIP(ctx, connect.NewRequest(&ipamapiv1.ReleaseIPRequest{Ip: ip.IPAddress, PrefixCidr: ip.ParentPrefixCidr}))
+	err = r.r.q.Insert(ctx, &tx.Tx{Jobs: []tx.Job{{ID: ip.AllocationUUID, Action: tx.ActionIpDelete}}})
 	if err != nil {
-		var connectErr *connect.Error
-		if errors.As(err, &connectErr) {
-			if connectErr.Code() != connect.CodeNotFound {
-				return nil, err
-			}
-		}
+		return nil, err
 	}
+	return ip, nil
+}
 
-	err = r.r.ds.IP().Delete(ctx, ip)
+func (r *ipRepository) Find(ctx context.Context, rq *apiv2.IPServiceListRequest) (*metal.IP, error) {
+	ip, err := r.r.ds.IP().Find(ctx, queries.IpFilter(rq))
 	if err != nil {
 		return nil, err
 	}
 
 	return ip, nil
-}
-func (r *ipRepository) Find(ctx context.Context, rq *apiv2.IPServiceListRequest) (*metal.IP, error) {
-	panic("unimplemented")
 }
 
 func (r *ipRepository) List(ctx context.Context, rq *apiv2.IPServiceListRequest) ([]*metal.IP, error) {
@@ -320,4 +313,35 @@ func (r *ipRepository) ConvertToProto(metalIP *metal.IP) (*apiv2.IP, error) {
 		UpdatedAt:   timestamppb.New(metalIP.Changed),
 	}
 	return ip, nil
+}
+
+func (r *Repostore) IpDeleteAction(ctx context.Context, job tx.Job) error {
+	metalIP, err := r.ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPServiceListRequest{Uuid: &job.ID}))
+	if err != nil && !generic.IsNotFound(err) {
+		return err
+	}
+	if metalIP == nil {
+		r.log.Info("ds find, metalip is nil", "job", job)
+
+		return nil
+	}
+	r.log.Info("ds find", "metalip", metalIP)
+
+	_, err = r.ipam.ReleaseIP(ctx, connect.NewRequest(&ipamapiv1.ReleaseIPRequest{PrefixCidr: metalIP.ParentPrefixCidr, Ip: metalIP.IPAddress}))
+	if err != nil {
+		r.log.Error("ipam release", "error", err)
+		var connectErr *connect.Error
+		errors.As(err, &connectErr)
+		if connectErr.Code() != connect.CodeNotFound {
+			return err
+		}
+	}
+
+	err = r.ds.IP().Delete(ctx, metalIP)
+	if err != nil && !generic.IsNotFound(err) {
+		r.log.Error("ds delete", "error", err)
+		return err
+	}
+
+	return nil
 }
