@@ -18,6 +18,9 @@ func IpProjectScoped(project string) func(q r.Term) r.Term {
 }
 
 func IpFilter(rq *apiv2.IPServiceListRequest) func(q r.Term) r.Term {
+	if rq == nil {
+		return nil
+	}
 	return func(q r.Term) r.Term {
 		// Project is mandatory
 		q = q.Filter(func(row r.Term) r.Term {

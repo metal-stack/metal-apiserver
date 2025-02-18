@@ -10,6 +10,7 @@ import (
 	"github.com/metal-stack/api-server/pkg/db/generic"
 	"github.com/metal-stack/api-server/pkg/db/repository"
 	"github.com/metal-stack/api-server/pkg/test"
+	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -35,9 +36,9 @@ func TestGet(t *testing.T) {
 	repo, err := repository.New(log, nil, ds, ipam, rc)
 	require.NoError(t, err)
 
-	ip, err := repo.IP("project1").Get(ctx, "asdf")
+	ip, err := repo.IP(pointer.Pointer("project1")).Get(ctx, "asdf")
 	require.Error(t, err)
-	nw, err := repo.Network("project1").Get(ctx, "asdf")
+	nw, err := repo.Network(pointer.Pointer("project1")).Get(ctx, "asdf")
 	require.Error(t, err)
 
 	fmt.Printf("%v %v", ip, nw)
@@ -63,7 +64,7 @@ func TestIpUnscopedList(t *testing.T) {
 	repo, err := repository.New(log, nil, ds, ipam, rc)
 	require.NoError(t, err)
 
-	ips, err := repo.UnscopedIP().List(ctx, nil)
+	ips, err := repo.IP(nil).List(ctx, nil)
 	require.NoError(t, err)
 
 	assert.Empty(t, ips)

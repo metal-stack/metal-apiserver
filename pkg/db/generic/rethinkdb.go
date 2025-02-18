@@ -213,6 +213,9 @@ func (rs *rethinkStore[E]) Find(ctx context.Context, queries ...EntityQuery) (E,
 func (rs *rethinkStore[E]) List(ctx context.Context, queries ...EntityQuery) ([]E, error) {
 	query := rs.table
 	for _, q := range queries {
+		if q == nil {
+			continue
+		}
 		query = q(query)
 	}
 

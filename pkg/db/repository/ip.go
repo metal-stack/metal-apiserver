@@ -23,7 +23,7 @@ import (
 
 type ipRepository struct {
 	r     *Repostore
-	scope ProjectScope
+	scope *ProjectScope
 }
 
 func (r *ipRepository) Get(ctx context.Context, id string) (*metal.IP, error) {
@@ -32,11 +32,22 @@ func (r *ipRepository) Get(ctx context.Context, id string) (*metal.IP, error) {
 		return nil, err
 	}
 
-	if r.scope != ProjectScope(ip.ProjectID) {
-		return nil, generic.NotFound("ip with id:%s not found", id)
+	err = r.MatchScope(ip)
+	if err != nil {
+		return nil, err
 	}
 
 	return ip, nil
+}
+
+func (r *ipRepository) MatchScope(ip *metal.IP) error {
+	if r.scope == nil {
+		return nil
+	}
+	if r.scope.projectID == ip.ProjectID {
+		return nil
+	}
+	return generic.NotFound("ip:%s for project:%s not found", ip.IPAddress, ip.ProjectID)
 }
 
 func (r *ipRepository) Create(ctx context.Context, req *apiv2.IPServiceCreateRequest) (*metal.IP, error) {
@@ -59,14 +70,14 @@ func (r *ipRepository) Create(ctx context.Context, req *apiv2.IPServiceCreateReq
 	// Ensure no duplicates
 	tags = tag.NewTagMap(tags).Slice()
 
-	p, err := r.r.Project().Get(ctx, req.Project)
+	p, err := r.r.Project(&req.Project).Get(ctx, req.Project)
 	if err != nil {
 		// FIXME map generic errors to connect errors
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	projectID := p.Meta.Id
 
-	nw, err := r.r.Network(ProjectScope(req.Project)).Get(ctx, req.Network)
+	nw, err := r.r.Network(&req.Project).Get(ctx, req.Network)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

@@ -22,6 +22,11 @@ func (r *filesystemRepository) Get(ctx context.Context, id string) (*metal.Files
 	return fsl, nil
 }
 
+// Filesystem is not project scoped
+func (r *filesystemRepository) MatchScope(_ *metal.FilesystemLayout) error {
+	return nil
+}
+
 func (r *filesystemRepository) Create(ctx context.Context, rq *adminv2.FilesystemServiceCreateRequest) (*metal.FilesystemLayout, error) {
 	fsl, err := r.ConvertToInternal(rq.FilesystemLayout)
 	if err != nil {

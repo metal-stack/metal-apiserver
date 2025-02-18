@@ -37,14 +37,14 @@ func (i *ipServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2.IPS
 	req := rq.Msg
 
 	// Project is already checked in the tenant-interceptor, ipam must not be consulted
-	resp, err := i.repo.IP(repository.ProjectScope(req.Project)).Get(ctx, req.Ip)
+	resp, err := i.repo.IP(&req.Project).Get(ctx, req.Ip)
 	if err != nil {
 		if generic.IsNotFound(err) {
 			return nil, connect.NewError(connect.CodeNotFound, err)
 		}
 		return nil, err
 	}
-	converted, err := i.repo.IP(repository.ProjectScope(req.Project)).ConvertToProto(resp)
+	converted, err := i.repo.IP(&req.Project).ConvertToProto(resp)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -59,7 +59,7 @@ func (i *ipServiceServer) List(ctx context.Context, rq *connect.Request[apiv2.IP
 	i.log.Debug("list", "ip", rq)
 	req := rq.Msg
 
-	resp, err := i.repo.IP(repository.ProjectScope(req.Project)).List(ctx, req)
+	resp, err := i.repo.IP(&req.Project).List(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func (i *ipServiceServer) List(ctx context.Context, rq *connect.Request[apiv2.IP
 			continue
 		}
 
-		converted, err := i.repo.IP(repository.ProjectScope(req.Project)).ConvertToProto(ip)
+		converted, err := i.repo.IP(&req.Project).ConvertToProto(ip)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -93,14 +93,14 @@ func (i *ipServiceServer) Delete(ctx context.Context, rq *connect.Request[apiv2.
 	// TODO also delete in go-ipam in one transaction
 	// maybe reuse asyncActor from metal-api
 	// Ensure that only this ip with the same uuid gets deleted
-	ip, err := i.repo.IP(repository.ProjectScope(req.Project)).Delete(ctx, &metal.IP{IPAddress: req.Ip})
+	ip, err := i.repo.IP(&req.Project).Delete(ctx, &metal.IP{IPAddress: req.Ip})
 	if err != nil {
 		if generic.IsNotFound(err) {
 			return nil, connect.NewError(connect.CodeNotFound, err)
 		}
 		return nil, err
 	}
-	converted, err := i.repo.IP(repository.ProjectScope(req.Project)).ConvertToProto(ip)
+	converted, err := i.repo.IP(&req.Project).ConvertToProto(ip)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -119,12 +119,12 @@ func (i *ipServiceServer) Create(ctx context.Context, rq *connect.Request[apiv2.
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("project should not be empty"))
 	}
 
-	created, err := i.repo.IP(repository.ProjectScope(req.Project)).Create(ctx, req)
+	created, err := i.repo.IP(&req.Project).Create(ctx, req)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	converted, err := i.repo.IP(repository.ProjectScope(req.Project)).ConvertToProto(created)
+	converted, err := i.repo.IP(&req.Project).ConvertToProto(created)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -138,14 +138,14 @@ func (i *ipServiceServer) Update(ctx context.Context, rq *connect.Request[apiv2.
 
 	req := rq.Msg
 
-	ip, err := i.repo.IP(repository.ProjectScope(req.Project)).Update(ctx, req)
+	ip, err := i.repo.IP(&req.Project).Update(ctx, req)
 	if err != nil {
 		if generic.IsNotFound(err) {
 			return nil, connect.NewError(connect.CodeNotFound, err)
 		}
 		return nil, err
 	}
-	converted, err := i.repo.IP(repository.ProjectScope(req.Project)).ConvertToProto(ip)
+	converted, err := i.repo.IP(&req.Project).ConvertToProto(ip)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

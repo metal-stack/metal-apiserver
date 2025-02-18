@@ -26,6 +26,7 @@ type (
 		List(ctx context.Context, query Q) ([]E, error)
 		ConvertToInternal(msg M) (E, error)
 		ConvertToProto(e E) (M, error)
+		MatchScope(e E) error
 	}
 
 	Entity        any
@@ -42,7 +43,9 @@ type (
 		q    *tx.Queue
 	}
 
-	ProjectScope string
+	ProjectScope struct {
+		projectID string
+	}
 )
 
 func New(log *slog.Logger, mdc mdm.Client, ds *generic.Datastore, ipam ipamv1connect.IpamServiceClient, redis *redis.Client) (*Repostore, error) {
@@ -66,29 +69,42 @@ func New(log *slog.Logger, mdc mdm.Client, ds *generic.Datastore, ipam ipamv1con
 	return r, nil
 }
 
-func (r *Repostore) IP(scope ProjectScope) Repository[*metal.IP, *apiv2.IP, *apiv2.IPServiceCreateRequest, *apiv2.IPServiceUpdateRequest, *apiv2.IPServiceListRequest] {
+func (r *Repostore) IP(project *string) Repository[*metal.IP, *apiv2.IP, *apiv2.IPServiceCreateRequest, *apiv2.IPServiceUpdateRequest, *apiv2.IPServiceListRequest] {
+	var scope *ProjectScope
+	if project != nil {
+		scope = &ProjectScope{
+			projectID: *project,
+		}
+	}
 	return &ipRepository{
 		r:     r,
 		scope: scope,
 	}
 }
 
-func (r *Repostore) UnscopedIP() Repository[*metal.IP, *apiv2.IP, *apiv2.IPServiceCreateRequest, *apiv2.IPServiceUpdateRequest, *apiv2.IPServiceListRequest] {
-	return &ipUnscopedRepository{
-		r: r,
+func (r *Repostore) Network(project *string) Repository[*metal.Network, *apiv2.Network, *apiv2.NetworkServiceCreateRequest, *apiv2.NetworkServiceUpdateRequest, *apiv2.NetworkServiceListRequest] { // FIXME apiv2 types
+	var scope *ProjectScope
+	if project != nil {
+		scope = &ProjectScope{
+			projectID: *project,
+		}
 	}
-}
-
-func (r *Repostore) Network(scope ProjectScope) Repository[*metal.Network, *apiv2.Network, *apiv2.NetworkServiceCreateRequest, *apiv2.NetworkServiceUpdateRequest, *apiv2.NetworkServiceListRequest] { // FIXME apiv2 types
 	return &networkRepository{
 		r:     r,
 		scope: scope,
 	}
 }
 
-func (r *Repostore) Project() Repository[*mdcv1.Project, *apiv2.Project, *apiv2.ProjectServiceCreateRequest, *apiv2.ProjectServiceUpdateRequest, *apiv2.ProjectServiceListRequest] {
+func (r *Repostore) Project(project *string) Repository[*mdcv1.Project, *apiv2.Project, *apiv2.ProjectServiceCreateRequest, *apiv2.ProjectServiceUpdateRequest, *apiv2.ProjectServiceListRequest] {
+	var scope *ProjectScope
+	if project != nil {
+		scope = &ProjectScope{
+			projectID: *project,
+		}
+	}
 	return &projectRepository{
-		r: r,
+		r:     r,
+		scope: scope,
 	}
 }
 func (r *Repostore) FilesystemLayout() Repository[*metal.FilesystemLayout, *apiv2.FilesystemLayout, *adminv2.FilesystemServiceCreateRequest, *adminv2.FilesystemServiceUpdateRequest, *apiv2.FilesystemServiceListRequest] {

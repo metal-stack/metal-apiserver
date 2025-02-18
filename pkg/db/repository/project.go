@@ -9,7 +9,8 @@ import (
 )
 
 type projectRepository struct {
-	r *Repostore
+	r     *Repostore
+	scope *ProjectScope
 }
 
 func (r *projectRepository) Get(ctx context.Context, id string) (*mdcv1.Project, error) {
@@ -21,7 +22,22 @@ func (r *projectRepository) Get(ctx context.Context, id string) (*mdcv1.Project,
 	if resp.Project == nil || resp.Project.Meta == nil {
 		return nil, generic.NotFound("error retrieving project %q", id)
 	}
+	err = r.MatchScope(resp.Project)
+	if err != nil {
+		return nil, err
+	}
+
 	return resp.Project, nil
+}
+
+func (r *projectRepository) MatchScope(p *mdcv1.Project) error {
+	if r.scope == nil {
+		return nil
+	}
+	if r.scope.projectID == p.Meta.Id {
+		return nil
+	}
+	return generic.NotFound("project:%s not found", p.Meta.Id)
 }
 
 func (r *projectRepository) Create(ctx context.Context, e *apiv2.ProjectServiceCreateRequest) (*mdcv1.Project, error) {

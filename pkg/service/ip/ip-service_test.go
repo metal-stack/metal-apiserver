@@ -55,7 +55,7 @@ func Test_ipServiceServer_Get(t *testing.T) {
 	repo, err := repository.New(log, nil, ds, ipam, rc)
 	require.NoError(t, err)
 
-	createIPs(t, ctx, ds, ipam, prefixMap, []*metal.IP{{IPAddress: "1.2.3.4"}})
+	createIPs(t, ctx, ds, ipam, prefixMap, []*metal.IP{{IPAddress: "1.2.3.4", ProjectID: "p1"}})
 
 	require.NoError(t, err)
 
@@ -73,9 +73,9 @@ func Test_ipServiceServer_Get(t *testing.T) {
 			name:    "get existing",
 			log:     log,
 			ctx:     ctx,
-			rq:      &apiv2.IPServiceGetRequest{Ip: "1.2.3.4"},
+			rq:      &apiv2.IPServiceGetRequest{Ip: "1.2.3.4", Project: "p1"},
 			ds:      ds,
-			want:    &apiv2.IPServiceGetResponse{Ip: &apiv2.IP{Ip: "1.2.3.4"}},
+			want:    &apiv2.IPServiceGetResponse{Ip: &apiv2.IP{Ip: "1.2.3.4", Project: "p1"}},
 			wantErr: false,
 		},
 		{
@@ -698,7 +698,7 @@ func createIPs(t *testing.T, ctx context.Context, ds *generic.Datastore, ipam ip
 func createNetworks(t *testing.T, ctx context.Context, repo *repository.Repostore, nws []*apiv2.NetworkServiceCreateRequest) {
 	for _, nw := range nws {
 		// TODO do not care about project here
-		_, err := repo.Network(repository.ProjectScope("")).Create(ctx, nw)
+		_, err := repo.Network(nil).Create(ctx, nw)
 		require.NoError(t, err)
 	}
 }

@@ -112,4 +112,9 @@ func TestFindAndListGeneric(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, listBoth)
 	require.Len(t, listBoth, 2)
+
+	listWithNilQuery, err := ds.IP().List(ctx, nil)
+	require.NoError(t, err)
+	require.NotNil(t, listWithNilQuery)
+	require.Len(t, listWithNilQuery, 2)
 }

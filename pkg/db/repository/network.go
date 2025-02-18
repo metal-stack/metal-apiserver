@@ -16,7 +16,7 @@ import (
 
 type networkRepository struct {
 	r     *Repostore
-	scope ProjectScope
+	scope *ProjectScope
 }
 
 func (r *networkRepository) Get(ctx context.Context, id string) (*metal.Network, error) {
@@ -29,11 +29,21 @@ func (r *networkRepository) Get(ctx context.Context, id string) (*metal.Network,
 		return nw, nil
 	}
 
-	if r.scope != ProjectScope(nw.ProjectID) {
-		return nil, generic.NotFound("network with id:%s not found", id)
+	err = r.MatchScope(nw)
+	if err != nil {
+		return nil, err
 	}
 
 	return nw, nil
+}
+func (r *networkRepository) MatchScope(nw *metal.Network) error {
+	if r.scope == nil {
+		return nil
+	}
+	if r.scope.projectID == nw.ProjectID {
+		return nil
+	}
+	return generic.NotFound("nw:%s for project:%s not found", nw.ID, nw.ProjectID)
 }
 
 func (r *networkRepository) Delete(ctx context.Context, n *metal.Network) (*metal.Network, error) {

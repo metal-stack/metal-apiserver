@@ -18,6 +18,7 @@ import (
 	"connectrpc.com/otelconnect"
 	"connectrpc.com/validate"
 
+	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
@@ -37,6 +38,7 @@ import (
 	"github.com/metal-stack/api-server/pkg/service/filesystem"
 	"github.com/metal-stack/api-server/pkg/service/health"
 	"github.com/metal-stack/api-server/pkg/service/ip"
+	ipadmin "github.com/metal-stack/api-server/pkg/service/ip/admin"
 	"github.com/metal-stack/api-server/pkg/service/method"
 	"github.com/metal-stack/api-server/pkg/service/project"
 	"github.com/metal-stack/api-server/pkg/service/tenant"
@@ -137,6 +139,7 @@ func (s *server) Run() error {
 	})
 
 	allInterceptors := []connect.Interceptor{metricsInterceptor, authz, ratelimitInterceptor, validationInterceptor, tenantInterceptor}
+	allAdminInterceptors := []connect.Interceptor{metricsInterceptor, authz, validationInterceptor, tenantInterceptor}
 	if s.c.Auditing != nil {
 		servicePermissions := permissions.GetServicePermissions()
 		shouldAudit := func(fullMethod string) bool {
@@ -152,8 +155,10 @@ func (s *server) Run() error {
 			return fmt.Errorf("unable to create auditing interceptor: %w", err)
 		}
 		allInterceptors = append(allInterceptors, auditInterceptor)
+		allAdminInterceptors = append(allAdminInterceptors, auditInterceptor)
 	}
 	interceptors := connect.WithInterceptors(allInterceptors...)
+	adminInterceptors := connect.WithInterceptors(allAdminInterceptors...)
 
 	methodService := method.New()
 	tenantService := tenant.New(tenant.Config{
@@ -202,6 +207,10 @@ func (s *server) Run() error {
 	mux.Handle(apiv2connect.NewMethodServiceHandler(methodService, interceptors))
 	mux.Handle(apiv2connect.NewVersionServiceHandler(versionService, interceptors))
 	mux.Handle(apiv2connect.NewHealthServiceHandler(healthService, interceptors))
+
+	// Admin services
+	adminIpService := ipadmin.New(ipadmin.Config{Log: s.log, Repo: repo})
+	mux.Handle(adminv2connect.NewIPServiceHandler(adminIpService, adminInterceptors))
 
 	allServiceNames := permissions.GetServices()
 	// Static HealthCheckers
