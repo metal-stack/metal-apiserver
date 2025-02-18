@@ -1,6 +1,9 @@
 package metal
 
-import "net/netip"
+import (
+	"net/netip"
+	"slices"
+)
 
 type (
 	Network struct {
@@ -17,7 +20,6 @@ type (
 		Underlay                   bool              `rethinkdb:"underlay"`
 		Shared                     bool              `rethinkdb:"shared"`
 		Labels                     map[string]string `rethinkdb:"labels"`
-		AddressFamilies            AddressFamilies   `rethinkdb:"addressfamilies"`
 		AdditionalAnnouncableCIDRs []string          `rethinkdb:"additionalannouncablecidrs" description:"list of cidrs which are added to the route maps per tenant private network, these are typically pod- and service cidrs, can only be set in a supernetwork"`
 	}
 
@@ -71,4 +73,30 @@ func (p Prefixes) OfFamily(af AddressFamily) Prefixes {
 	}
 
 	return res
+}
+
+// AddressFamilies returns the addressfamilies of given prefixes.
+// be aware that malformed prefixes are just skipped, so do not use this for validation or something.
+func (p Prefixes) AddressFamilies() AddressFamilies {
+	var afs AddressFamilies
+
+	for _, prefix := range p {
+		pfx, err := netip.ParsePrefix(prefix.String())
+		if err != nil {
+			continue
+		}
+
+		var af AddressFamily
+		if pfx.Addr().Is4() {
+			af = IPv4AddressFamily
+		}
+		if pfx.Addr().Is6() {
+			af = IPv6AddressFamily
+		}
+		if !slices.Contains(afs, af) {
+			afs = append(afs, af)
+		}
+	}
+
+	return afs
 }

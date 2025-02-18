@@ -95,8 +95,7 @@ func (r *networkRepository) Create(ctx context.Context, req *apiv2.NetworkServic
 			ID: id,
 		},
 		// FIXME more fields
-		Prefixes:        prefixes,
-		AddressFamilies: afs,
+		Prefixes: prefixes,
 	}
 
 	resp, err := r.r.ds.Network().Create(ctx, nw)

@@ -257,7 +257,7 @@ func (s *server) Run() error {
 }
 
 // newCORS
-// TODO review what is strictly required
+// FIXME replace with https://github.com/connectrpc/cors-go
 func newCORS() *cors.Cors {
 	// To let web developers play with the demo service from browsers, we need a
 	// very permissive CORS setup.
