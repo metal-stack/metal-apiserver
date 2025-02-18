@@ -14,7 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/metal-stack/api-server/pkg/db/generic"
 	"github.com/metal-stack/api-server/pkg/db/metal"
-	"github.com/metal-stack/api-server/pkg/repository"
+	"github.com/metal-stack/api-server/pkg/db/repository"
 	"github.com/metal-stack/api-server/pkg/test"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	ipamv1 "github.com/metal-stack/go-ipam/api/v1"

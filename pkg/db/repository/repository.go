@@ -7,7 +7,7 @@ import (
 
 	"github.com/metal-stack/api-server/pkg/db/generic"
 	"github.com/metal-stack/api-server/pkg/db/metal"
-	"github.com/metal-stack/api-server/pkg/tx"
+	"github.com/metal-stack/api-server/pkg/db/tx"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"

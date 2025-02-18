@@ -10,9 +10,9 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
+	"github.com/metal-stack/api-server/pkg/db/repository"
 	"github.com/metal-stack/api-server/pkg/invite"
 	putil "github.com/metal-stack/api-server/pkg/project"
-	"github.com/metal-stack/api-server/pkg/repository"
 	tutil "github.com/metal-stack/api-server/pkg/tenant"
 	"github.com/metal-stack/api-server/pkg/token"
 	apiv1 "github.com/metal-stack/api/go/metalstack/api/v2"

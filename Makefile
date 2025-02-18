@@ -39,16 +39,16 @@ opa-fmt:
 .PHONY: mocks
 mocks:
 	rm -rf pkg/db/generic/mocks
-	rm -rf pkg/repository/mocks
+	rm -rf pkg/db/repository/mocks
 
 	# docker run --rm \
 	# 	--user $$(id -u):$$(id -g) \
 	# 	-w /work \
 	# 	-v $(PWD):/work \
-	# 	vektra/mockery:latest --keeptree --inpackage --dir pkg/repository --output pkg/test/mocks --all --log-level debug
+	# 	vektra/mockery:latest --keeptree --inpackage --dir pkg/db/repository --output pkg/test/mocks --all --log-level debug
 
 	# mockery --keeptree --inpackage --dir pkg/db/generic --output pkg/db/generic/mocks --all --log-level debug
-	# mockery --keeptree --inpackage --dir pkg/repository --output pkg/repository/mocks --all --log-level debug
+	# mockery --keeptree --inpackage --dir pkg/db/repository --output pkg/db/repository/mocks --all --log-level debug
 
 .PHONY: golint
 golint:
