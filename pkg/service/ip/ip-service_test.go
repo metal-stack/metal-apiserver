@@ -154,7 +154,7 @@ func Test_ipServiceServer_List(t *testing.T) {
 		name           string
 		log            *slog.Logger
 		ctx            context.Context
-		rq             *apiv2.IPServiceListRequest
+		rq             *apiv2.IPQuery
 		ds             *generic.Datastore
 		want           *apiv2.IPServiceListResponse
 		wantReturnCode connect.Code
@@ -164,7 +164,7 @@ func Test_ipServiceServer_List(t *testing.T) {
 			name:    "get by ip",
 			log:     log,
 			ctx:     ctx,
-			rq:      &apiv2.IPServiceListRequest{Ip: pointer.Pointer("1.2.3.4"), Project: "p1"},
+			rq:      &apiv2.IPQuery{Ip: pointer.Pointer("1.2.3.4"), Project: pointer.Pointer("p1")},
 			ds:      ds,
 			want:    &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{{Name: "ip1", Ip: "1.2.3.4", Project: "p1"}}},
 			wantErr: false,
@@ -173,7 +173,7 @@ func Test_ipServiceServer_List(t *testing.T) {
 			name:    "get by project",
 			log:     log,
 			ctx:     ctx,
-			rq:      &apiv2.IPServiceListRequest{Project: "p1"},
+			rq:      &apiv2.IPQuery{Project: pointer.Pointer("p1")},
 			ds:      ds,
 			want:    &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{{Name: "ip1", Ip: "1.2.3.4", Project: "p1"}, {Name: "ip2", Ip: "1.2.3.5", Project: "p1"}, {Name: "ip3", Ip: "1.2.3.6", Project: "p1", Network: "n1"}}},
 			wantErr: false,
@@ -182,7 +182,7 @@ func Test_ipServiceServer_List(t *testing.T) {
 			name:    "get by addressfamily",
 			log:     log,
 			ctx:     ctx,
-			rq:      &apiv2.IPServiceListRequest{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(), Project: "p2"},
+			rq:      &apiv2.IPQuery{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(), Project: pointer.Pointer("p2")},
 			ds:      ds,
 			want:    &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{{Name: "ip4", Ip: "2001:db8::1", Project: "p2", Network: "n2"}}},
 			wantErr: false,
@@ -191,7 +191,7 @@ func Test_ipServiceServer_List(t *testing.T) {
 			name:    "get by parent prefix cidr",
 			log:     log,
 			ctx:     ctx,
-			rq:      &apiv2.IPServiceListRequest{ParentPrefixCidr: pointer.Pointer("2.3.4.0/24"), Project: "p2"},
+			rq:      &apiv2.IPQuery{ParentPrefixCidr: pointer.Pointer("2.3.4.0/24"), Project: pointer.Pointer("p2")},
 			ds:      ds,
 			want:    &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{{Name: "ip5", Ip: "2.3.4.5", Project: "p2", Network: "n3"}}},
 			wantErr: false,
@@ -203,7 +203,7 @@ func Test_ipServiceServer_List(t *testing.T) {
 				log:  tt.log,
 				repo: repo,
 			}
-			got, err := i.List(tt.ctx, connect.NewRequest(tt.rq))
+			got, err := i.List(tt.ctx, connect.NewRequest(&apiv2.IPServiceListRequest{Query: tt.rq}))
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ipServiceServer.List() error = %v, wantErr %v", err, tt.wantErr)
 				return

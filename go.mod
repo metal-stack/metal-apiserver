@@ -17,7 +17,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/klauspost/connect-compress/v2 v2.0.0
 	github.com/lestrrat-go/jwx/v2 v2.1.3
-	github.com/metal-stack/api v0.0.0-20250218093651-a189f26af4d4
+	github.com/metal-stack/api v0.0.0-20250218162458-49d467ba7afe
 	github.com/metal-stack/go-ipam v1.14.8
 	github.com/metal-stack/masterdata-api v0.11.5
 	github.com/metal-stack/metal-lib v0.20.1

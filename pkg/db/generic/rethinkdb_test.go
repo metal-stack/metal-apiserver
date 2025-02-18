@@ -88,27 +88,27 @@ func TestFindAndListGeneric(t *testing.T) {
 	require.Equal(t, "p1", created2.ProjectID)
 	require.NotNil(t, created2.Created)
 
-	found, err := ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPServiceListRequest{Ip: pointer.Pointer("1.2.3.4"), Project: "p1"}))
+	found, err := ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Ip: pointer.Pointer("1.2.3.4"), Project: pointer.Pointer("p1")}))
 	require.NoError(t, err)
 	require.NotNil(t, found)
 	require.Equal(t, "1.2.3.4", found.IPAddress)
 
-	notfound, err := ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPServiceListRequest{Ip: pointer.Pointer("1.2.3.5")}))
+	notfound, err := ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Ip: pointer.Pointer("1.2.3.5")}))
 	require.Nil(t, notfound)
 	require.Error(t, err)
 	require.EqualError(t, err, generic.NotFound("no ip found").Error())
 
-	moreThanOneFound, err := ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPServiceListRequest{Project: "p1"}))
+	moreThanOneFound, err := ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Project: pointer.Pointer("p1")}))
 	require.Nil(t, moreThanOneFound)
 	require.Error(t, err)
 	require.EqualError(t, err, "more than one ip exists")
 
-	listOnlyOne, err := ds.IP().List(ctx, queries.IpFilter(&apiv2.IPServiceListRequest{Ip: pointer.Pointer("1.2.3.4"), Project: "p1"}))
+	listOnlyOne, err := ds.IP().List(ctx, queries.IpFilter(&apiv2.IPQuery{Ip: pointer.Pointer("1.2.3.4"), Project: pointer.Pointer("p1")}))
 	require.NoError(t, err)
 	require.NotNil(t, listOnlyOne)
 	require.Len(t, listOnlyOne, 1)
 
-	listBoth, err := ds.IP().List(ctx, queries.IpFilter(&apiv2.IPServiceListRequest{Project: "p1"}))
+	listBoth, err := ds.IP().List(ctx, queries.IpFilter(&apiv2.IPQuery{Project: pointer.Pointer("p1")}))
 	require.NoError(t, err)
 	require.NotNil(t, listBoth)
 	require.Len(t, listBoth, 2)

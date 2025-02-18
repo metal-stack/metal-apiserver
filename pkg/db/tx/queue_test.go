@@ -47,7 +47,7 @@ func TestQueue(t *testing.T) {
 		switch job.Action {
 		case tx.ActionIpDelete:
 
-			metalIP, err := ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPServiceListRequest{Uuid: &job.ID}))
+			metalIP, err := ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Uuid: &job.ID}))
 			if err != nil && !generic.IsNotFound(err) {
 				return err
 			}

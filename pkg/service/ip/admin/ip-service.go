@@ -33,20 +33,7 @@ func (i *ipServiceServer) List(ctx context.Context, rq *connect.Request[adminv2.
 	i.log.Debug("list", "ip", rq)
 	req := rq.Msg
 
-	adminReq := &apiv2.IPServiceListRequest{
-		Ip:               req.Ip,
-		Network:          req.Network,
-		Project:          req.Project,
-		Name:             req.Name,
-		Uuid:             req.Uuid,
-		MachineId:        req.MachineId,
-		ParentPrefixCidr: req.ParentPrefixCidr,
-		Tags:             req.Tags,
-		Type:             req.Type,
-		AddressFamily:    req.AddressFamily,
-	}
-
-	resp, err := i.repo.IP(nil).List(ctx, adminReq)
+	resp, err := i.repo.IP(nil).List(ctx, req.Query)
 	if err != nil {
 		return nil, err
 	}

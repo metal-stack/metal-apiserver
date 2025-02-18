@@ -59,7 +59,7 @@ func (i *ipServiceServer) List(ctx context.Context, rq *connect.Request[apiv2.IP
 	i.log.Debug("list", "ip", rq)
 	req := rq.Msg
 
-	resp, err := i.repo.IP(&req.Project).List(ctx, req)
+	resp, err := i.repo.IP(&req.Project).List(ctx, req.Query)
 	if err != nil {
 		return nil, err
 	}

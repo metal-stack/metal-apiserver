@@ -17,15 +17,16 @@ func IpProjectScoped(project string) func(q r.Term) r.Term {
 	}
 }
 
-func IpFilter(rq *apiv2.IPServiceListRequest) func(q r.Term) r.Term {
+func IpFilter(rq *apiv2.IPQuery) func(q r.Term) r.Term {
 	if rq == nil {
 		return nil
 	}
 	return func(q r.Term) r.Term {
-		// Project is mandatory
-		q = q.Filter(func(row r.Term) r.Term {
-			return row.Field("projectid").Eq(rq.Project)
-		})
+		if rq.Project != nil {
+			q = q.Filter(func(row r.Term) r.Term {
+				return row.Field("projectid").Eq(rq.Project)
+			})
+		}
 
 		if rq.Ip != nil {
 			q = q.Filter(func(row r.Term) r.Term {

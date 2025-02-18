@@ -69,7 +69,7 @@ func New(log *slog.Logger, mdc mdm.Client, ds *generic.Datastore, ipam ipamv1con
 	return r, nil
 }
 
-func (r *Repostore) IP(project *string) Repository[*metal.IP, *apiv2.IP, *apiv2.IPServiceCreateRequest, *apiv2.IPServiceUpdateRequest, *apiv2.IPServiceListRequest] {
+func (r *Repostore) IP(project *string) Repository[*metal.IP, *apiv2.IP, *apiv2.IPServiceCreateRequest, *apiv2.IPServiceUpdateRequest, *apiv2.IPQuery] {
 	var scope *ProjectScope
 	if project != nil {
 		scope = &ProjectScope{

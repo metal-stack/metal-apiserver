@@ -217,7 +217,7 @@ func (r *ipRepository) Delete(ctx context.Context, ip *metal.IP) (*metal.IP, err
 	return ip, nil
 }
 
-func (r *ipRepository) Find(ctx context.Context, rq *apiv2.IPServiceListRequest) (*metal.IP, error) {
+func (r *ipRepository) Find(ctx context.Context, rq *apiv2.IPQuery) (*metal.IP, error) {
 	ip, err := r.r.ds.IP().Find(ctx, queries.IpFilter(rq))
 	if err != nil {
 		return nil, err
@@ -226,7 +226,7 @@ func (r *ipRepository) Find(ctx context.Context, rq *apiv2.IPServiceListRequest)
 	return ip, nil
 }
 
-func (r *ipRepository) List(ctx context.Context, rq *apiv2.IPServiceListRequest) ([]*metal.IP, error) {
+func (r *ipRepository) List(ctx context.Context, rq *apiv2.IPQuery) ([]*metal.IP, error) {
 	ip, err := r.r.ds.IP().List(ctx, queries.IpFilter(rq))
 	if err != nil {
 		return nil, err
@@ -327,7 +327,7 @@ func (r *ipRepository) ConvertToProto(metalIP *metal.IP) (*apiv2.IP, error) {
 }
 
 func (r *Repostore) IpDeleteAction(ctx context.Context, job tx.Job) error {
-	metalIP, err := r.ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPServiceListRequest{Uuid: &job.ID}))
+	metalIP, err := r.ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Uuid: &job.ID}))
 	if err != nil && !generic.IsNotFound(err) {
 		return err
 	}
