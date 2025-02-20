@@ -89,8 +89,6 @@ rethinkdb-up:
 rethinkdb-rm:
 	docker rm -f metaldb
 
-
-
 .PHONY: auditing-up
 auditing-up:
 	docker run -d --name auditing -p 7700:7700 -e MEILI_MASTER_KEY=geheim getmeili/meilisearch:v1.6.2
