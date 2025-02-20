@@ -73,7 +73,7 @@ var serveCmd = &cli.Command{
 		redisAddr := ctx.String(redisAddrFlag.Name)
 		stage := ctx.String(stageFlag.Name)
 
-		rethinkDBSession, err := createRedisDBClient(ctx)
+		rethinkDBSession, err := createRethinkDBClient(ctx)
 		if err != nil {
 			log.Error("unable to create rethinkdb client", "error", err)
 			os.Exit(1)
@@ -122,12 +122,12 @@ func retryConnectMasterdataClient(cli *cli.Context, logger *slog.Logger) mdm.Cli
 	for {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		client, err = mdm.NewClient(ctx,
-			cli.String("masterdata-api-hostname"),
-			cli.Int("masterdata-api-port"),
-			cli.String("masterdata-api-cert-path"),
-			cli.String("masterdata-api-cert-key-path"),
-			cli.String("masterdata-api-ca-path"),
-			cli.String("masterdata-api-hmac"),
+			cli.String(masterdataApiHostnameFlag.Name),
+			cli.Int(masterdataApiPortFlag.Name),
+			cli.String(masterdataApiCertPathFlag.Name),
+			cli.String(masterdataApiCertKeyPathFlag.Name),
+			cli.String(masterdataApiCAPathFlag.Name),
+			cli.String(masterdataApiHmacFlag.Name),
 			false, // TLSSkipInsecure
 			slog.Default(),
 		)
@@ -145,12 +145,12 @@ func retryConnectMasterdataClient(cli *cli.Context, logger *slog.Logger) mdm.Cli
 	return client
 }
 
-func createRedisDBClient(cli *cli.Context) (*r.Session, error) {
+func createRethinkDBClient(cli *cli.Context) (*r.Session, error) {
 	session, err := r.Connect(r.ConnectOpts{
-		Addresses: cli.StringSlice("db-addr"),
-		Database:  cli.String("db-name"),
-		Username:  cli.String("db-user"),
-		Password:  cli.String("db-password"),
+		Addresses: cli.StringSlice(rethinkdbAddressesFlag.Name),
+		Database:  cli.String(rethinkdbDBFlag.Name),
+		Username:  cli.String(rethinkdbUserFlag.Name),
+		Password:  cli.String(rethinkdbPasswordFlag.Name),
 		MaxIdle:   10,
 		MaxOpen:   20,
 	})
@@ -160,16 +160,16 @@ func createRedisDBClient(cli *cli.Context) (*r.Session, error) {
 // createAuditingClient creates a new auditing client
 // Can return nil,nil if auditing is disabled!
 func createAuditingClient(cli *cli.Context, log *slog.Logger) (auditing.Auditing, error) {
-	auditingEnabled := cli.Bool("auditing-enabled")
+	auditingEnabled := cli.Bool(auditingEnabledFlag.Name)
 	if !auditingEnabled {
 		return nil, nil
 	}
 	c := auditing.MeilisearchConfig{
-		URL:              cli.String("auditing-url"),
-		APIKey:           cli.String("auditing-api-key"),
-		IndexPrefix:      cli.String("auditing-index-prefix"),
-		RotationInterval: auditing.Interval(cli.String("auditing-index-interval")),
-		Keep:             cli.Int64("auditing-index-keep"),
+		URL:              cli.String(auditingUrlFlag.Name),
+		APIKey:           cli.String(auditingApiKeyFlag.Name),
+		IndexPrefix:      cli.String(auditingIndexPrefixFlag.Name),
+		RotationInterval: auditing.Interval(cli.String(auditingIndexIntervalFlag.Name)),
+		Keep:             cli.Int64(auditingIndexKeepFlag.Name),
 	}
 	return auditing.NewMeilisearch(auditing.Config{Component: "apiserver", Log: log}, c)
 }
