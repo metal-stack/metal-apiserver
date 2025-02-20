@@ -309,7 +309,7 @@ func (rs *rethinkStore[E]) initialize() error {
 }
 
 func (rs *rethinkStore[E]) initializeTable(opts r.TableCreateOpts) error {
-	rs.log.Info("starting database init", "table", rs.tableName)
+	rs.log.Debug("init table", "db", rs.dbname, "table", rs.tableName)
 
 	err := r.DB(rs.dbname).TableList().Contains(rs.tableName).Do(func(row r.Term) r.Term {
 		return r.Branch(row, nil, r.DB(rs.dbname).TableCreate(rs.tableName, opts))
