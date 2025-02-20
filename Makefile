@@ -56,20 +56,40 @@ golint:
 
 .PHONY: run
 run:
-	go run ./... cmd/server serve --log-level debug --stage dev
+	go run github.com/metal-stack/api-server/cmd/server serve \
+		--log-level debug \
+		--stage DEV \
+		--masterdata-api-ca-path pkg/test/certs/ca.pem \
+		--masterdata-api-cert-path pkg/test/certs/client.pem \
+		--masterdata-api-cert-key-path pkg/test/certs/client-key.pem \
+		--rethinkdb-addresses localhost:28015 \
+		--rethinkdb-dbname metal \
+		--rethinkdb-password rethink \
+		--rethinkdb-user admin \
+		--session-secret geheim
 
 .PHONY: masterdata-up
 masterdata-up:
 	docker pull ghcr.io/metal-stack/masterdata-api || true
 	docker network create metalstack || true
-	docker run -d --name masterdatadb --network metalstack -e POSTGRES_PASSWORD="password" -e POSTGRES_USER="masterdata" -e POSTGRES_DB="masterdata" postgres:16-alpine
+	docker run -d --name masterdatadb --network metalstack -e POSTGRES_PASSWORD="password" -e POSTGRES_USER="masterdata" -e POSTGRES_DB="masterdata" postgres:17-alpine
 	sleep 5
-	docker run -d --name masterdata-api -p 50051:50051 -e MASTERDATA_API_DBHOST=masterdatadb --network metalstack -v $(PWD)/certs:/certs ghcr.io/metal-stack/masterdata-api
+	docker run -d --name masterdata-api -p 50051:50051 -e MASTERDATA_API_DBHOST=masterdatadb --network metalstack -v $(PWD)/pkg/test/certs:/certs ghcr.io/metal-stack/masterdata-api
 
 .PHONY: masterdata-rm
 masterdata-rm:
 	docker rm -f masterdatadb masterdata-api
 	docker network rm metalstack
+
+.PHONY: rethinkdb-up
+rethinkdb-up:
+	docker run -d --name metaldb -p 28015:28015 -p 8080:8080 -e RETHINKDB_PASSWORD=rethink  rethinkdb:2.4.4-bookworm-slim rethinkdb --bind all --directory /tmp --initial-password rethink
+
+.PHONY: rethinkdb-rm
+rethinkdb-rm:
+	docker rm -f metaldb
+
+
 
 .PHONY: auditing-up
 auditing-up:
