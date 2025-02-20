@@ -16,7 +16,7 @@ const (
 var (
 	httpServerEndpointFlag = &cli.StringFlag{
 		Name:  "http-server-endpoint",
-		Value: "localhost:8080",
+		Value: "localhost:8081",
 		Usage: "http server bind address",
 	}
 	metricServerEndpointFlag = &cli.StringFlag{
@@ -24,15 +24,9 @@ var (
 		Value: "localhost:2112",
 		Usage: "metric server endpoint",
 	}
-	frontEndUrlFlag = &cli.StringFlag{
-		Name:    "front-end-url",
-		Value:   "http://localhost:3000",
-		Usage:   "URL of the frontend (console)",
-		EnvVars: []string{"FRONT_END_URL"},
-	}
 	serverHttpUrlFlag = &cli.StringFlag{
 		Name:  "server-http-url",
-		Value: "http://localhost:8080",
+		Value: "http://localhost:8081",
 		Usage: "the url on which the http server is reachable from the outside",
 	}
 	sessionSecretFlag = &cli.StringFlag{

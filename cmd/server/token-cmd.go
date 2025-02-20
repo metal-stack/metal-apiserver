@@ -10,7 +10,7 @@ import (
 	"github.com/metal-stack/api-server/pkg/certs"
 	"github.com/metal-stack/api-server/pkg/service/token"
 	tokencommon "github.com/metal-stack/api-server/pkg/token"
-	apiv1 "github.com/metal-stack/api/go/metalstack/api/v2"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/urfave/cli/v2"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -87,60 +87,60 @@ var tokenCmd = &cli.Command{
 			Issuer:     ctx.String(serverHttpUrlFlag.Name),
 		})
 
-		var permissions []*apiv1.MethodPermission
+		var permissions []*apiv2.MethodPermission
 		for _, m := range ctx.StringSlice(tokenPermissionsFlag.Name) {
 			project, semicolonSeparatedMethods, ok := strings.Cut(m, "=")
 			if !ok {
 				return fmt.Errorf("permissions must be provided in the form <project>=<methods-colon-separated>")
 			}
 
-			permissions = append(permissions, &apiv1.MethodPermission{
+			permissions = append(permissions, &apiv2.MethodPermission{
 				Subject: project,
 				Methods: strings.Split(semicolonSeparatedMethods, ":"),
 			})
 		}
 
-		projectRoles := map[string]apiv1.ProjectRole{}
+		projectRoles := map[string]apiv2.ProjectRole{}
 		for _, r := range ctx.StringSlice(tokenProjectRolesFlag.Name) {
 			projectID, roleString, ok := strings.Cut(r, "=")
 			if !ok {
 				return fmt.Errorf("project roles must be provided in the form <project-id>=<role>")
 			}
 
-			role, ok := apiv1.ProjectRole_value[roleString]
+			role, ok := apiv2.ProjectRole_value[roleString]
 			if !ok {
 				return fmt.Errorf("unknown role: %s", roleString)
 			}
 
-			projectRoles[projectID] = apiv1.ProjectRole(role)
+			projectRoles[projectID] = apiv2.ProjectRole(role)
 		}
 
-		tenantRoles := map[string]apiv1.TenantRole{}
+		tenantRoles := map[string]apiv2.TenantRole{}
 		for _, r := range ctx.StringSlice(tokenTenantRolesFlag.Name) {
 			tenantID, roleString, ok := strings.Cut(r, "=")
 			if !ok {
 				return fmt.Errorf("tenant roles must be provided in the form <tenant-id>=<role>")
 			}
 
-			role, ok := apiv1.TenantRole_value[roleString]
+			role, ok := apiv2.TenantRole_value[roleString]
 			if !ok {
 				return fmt.Errorf("unknown role: %s", roleString)
 			}
 
-			tenantRoles[tenantID] = apiv1.TenantRole(role)
+			tenantRoles[tenantID] = apiv2.TenantRole(role)
 		}
 
-		var adminRole *apiv1.AdminRole
+		var adminRole *apiv2.AdminRole
 		if roleString := ctx.String(tokenAdminRoleFlag.Name); roleString != "" {
-			role, ok := apiv1.AdminRole_value[roleString]
+			role, ok := apiv2.AdminRole_value[roleString]
 			if !ok {
 				return fmt.Errorf("unknown role: %s", roleString)
 			}
 
-			adminRole = pointer.Pointer(apiv1.AdminRole(role))
+			adminRole = pointer.Pointer(apiv2.AdminRole(role))
 		}
 
-		resp, err := tokenService.CreateApiTokenWithoutPermissionCheck(context.Background(), connect.NewRequest(&apiv1.TokenServiceCreateRequest{
+		resp, err := tokenService.CreateApiTokenWithoutPermissionCheck(context.Background(), connect.NewRequest(&apiv2.TokenServiceCreateRequest{
 			Description:  ctx.String(tokenDescriptionFlag.Name),
 			Expires:      durationpb.New(ctx.Duration(tokenExpirationFlag.Name)),
 			ProjectRoles: projectRoles,

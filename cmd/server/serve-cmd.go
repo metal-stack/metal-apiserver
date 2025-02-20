@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"testing"
 	"time"
 
 	"connectrpc.com/connect"
@@ -14,6 +15,7 @@ import (
 	"github.com/avast/retry-go/v4"
 	compress "github.com/klauspost/connect-compress/v2"
 
+	"github.com/metal-stack/api-server/pkg/test"
 	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	mdm "github.com/metal-stack/masterdata-api/pkg/client"
@@ -32,7 +34,6 @@ var serveCmd = &cli.Command{
 		httpServerEndpointFlag,
 		metricServerEndpointFlag,
 		sessionSecretFlag,
-		frontEndUrlFlag,
 		serverHttpUrlFlag,
 		masterdataApiHostnameFlag,
 		masterdataApiPortFlag,
@@ -73,7 +74,7 @@ var serveCmd = &cli.Command{
 		redisAddr := ctx.String(redisAddrFlag.Name)
 		stage := ctx.String(stageFlag.Name)
 
-		rethinkDBSession, err := createRethinkDBClient(ctx)
+		rethinkDBSession, err := createRethinkDBClient(ctx, log)
 		if err != nil {
 			log.Error("unable to create rethinkdb client", "error", err)
 			os.Exit(1)
@@ -88,7 +89,6 @@ var serveCmd = &cli.Command{
 		c := config{
 			HttpServerEndpoint:                  ctx.String(httpServerEndpointFlag.Name),
 			MetricsServerEndpoint:               ctx.String(metricServerEndpointFlag.Name),
-			FrontEndUrl:                         ctx.String(frontEndUrlFlag.Name),
 			Log:                                 log,
 			MasterClient:                        retryConnectMasterdataClient(ctx, log),
 			ServerHttpURL:                       ctx.String(serverHttpUrlFlag.Name),
@@ -99,7 +99,7 @@ var serveCmd = &cli.Command{
 			AdminOrgs:                           ctx.StringSlice(adminOrgsFlag.Name),
 			MaxRequestsPerMinuteToken:           ctx.Int(maxRequestsPerMinuteFlag.Name),
 			MaxRequestsPerMinuteUnauthenticated: ctx.Int(maxRequestsPerMinuteUnauthenticatedFlag.Name),
-			RethinkDB:                           ctx.String(rethinkdbDBFlag.Name),
+			RethinkDB:                           ctx.String(rethinkdbDBNameFlag.Name),
 			RethinkDBSession:                    rethinkDBSession,
 			Ipam:                                ipam,
 		}
@@ -145,12 +145,17 @@ func retryConnectMasterdataClient(cli *cli.Context, logger *slog.Logger) mdm.Cli
 	return client
 }
 
-func createRethinkDBClient(cli *cli.Context) (*r.Session, error) {
+func createRethinkDBClient(cli *cli.Context, log *slog.Logger) (*r.Session, error) {
+	addresses := cli.StringSlice(rethinkdbAddressesFlag.Name)
+	dbname := cli.String(rethinkdbDBNameFlag.Name)
+	user := cli.String(rethinkdbUserFlag.Name)
+	password := cli.String(rethinkdbPasswordFlag.Name)
+	log.Info("create rethinkdb client", "addresses", addresses, "dbname", dbname, "user", user, "password", password)
 	session, err := r.Connect(r.ConnectOpts{
-		Addresses: cli.StringSlice(rethinkdbAddressesFlag.Name),
-		Database:  cli.String(rethinkdbDBFlag.Name),
-		Username:  cli.String(rethinkdbUserFlag.Name),
-		Password:  cli.String(rethinkdbPasswordFlag.Name),
+		Addresses: addresses,
+		Database:  dbname,
+		Username:  user,
+		Password:  password,
 		MaxIdle:   10,
 		MaxOpen:   20,
 	})
@@ -230,6 +235,11 @@ func createRedisClient(logger *slog.Logger, address, password string, dbName Red
 
 func createIpamClient(cli *cli.Context, log *slog.Logger) (ipamv1connect.IpamServiceClient, error) {
 	ipamgrpcendpoint := cli.String(ipamGrpcEndpointFlag.Name)
+	log.Info("create ipam client", "stage", cli.String(stageFlag.Name))
+	if cli.String(stageFlag.Name) == stageDEV {
+		log.Warn("ipam grpc endpoint not configured, starting in memory ipam service")
+		return test.StartIpam(&testing.T{}), nil
+	}
 
 	ipamService := ipamv1connect.NewIpamServiceClient(
 		http.DefaultClient,

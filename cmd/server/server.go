@@ -17,9 +17,12 @@ import (
 	"connectrpc.com/grpcreflect"
 	"connectrpc.com/otelconnect"
 	"connectrpc.com/validate"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
+
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
 	"go.opentelemetry.io/otel/exporters/prometheus"
@@ -55,7 +58,6 @@ import (
 type config struct {
 	HttpServerEndpoint                  string
 	MetricsServerEndpoint               string
-	FrontEndUrl                         string
 	ServerHttpURL                       string
 	Log                                 *slog.Logger
 	MasterClient                        mdm.Client
@@ -258,6 +260,22 @@ func (s *server) Run() error {
 			return
 		}
 	}()
+
+	if s.c.Stage == stageDEV {
+		resp, err := tokenService.CreateApiTokenWithoutPermissionCheck(context.Background(), connect.NewRequest(&apiv2.TokenServiceCreateRequest{
+			Description:  "admin token only for development, valid for 2h",
+			Expires:      durationpb.New(time.Hour * 2),
+			ProjectRoles: nil,
+			TenantRoles:  nil,
+			AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			Permissions:  nil,
+		}))
+		if err != nil {
+			return err
+		}
+
+		s.log.Info("admin token", "stage", s.c.Stage, "jwt", resp.Msg.Secret)
+	}
 
 	<-signals
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
