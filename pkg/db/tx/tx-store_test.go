@@ -24,9 +24,9 @@ func Test_txStore_AddTx(t *testing.T) {
 		_ = container.Terminate(ctx)
 	}()
 
-	var alotJobs []Job
+	var alotJobs []Step
 	for i := range 2 {
-		alotJobs = append(alotJobs, Job{
+		alotJobs = append(alotJobs, Step{
 			ID:     fmt.Sprintf("j%d", i),
 			Action: ActionIpDelete,
 		})
@@ -37,7 +37,7 @@ func Test_txStore_AddTx(t *testing.T) {
 
 	tests := []struct {
 		name              string
-		tx                *Tx
+		tx                *Task
 		actionFn          ActionFn
 		wantProcessedJobs []string
 		wantErr           bool
@@ -45,8 +45,8 @@ func Test_txStore_AddTx(t *testing.T) {
 	}{
 		{
 			name: "simple ip",
-			tx:   &Tx{Jobs: []Job{{ID: "j100", Action: ActionIpDelete}}},
-			actionFn: func(ctx context.Context, job Job) error {
+			tx:   &Task{Steps: []Step{{ID: "j100", Action: ActionIpDelete}}},
+			actionFn: func(ctx context.Context, job Step) error {
 				id := job.ID
 				log.Info("delete", "ip", id)
 				processedJobs <- id
@@ -58,8 +58,8 @@ func Test_txStore_AddTx(t *testing.T) {
 		},
 		{
 			name: "simple network",
-			tx:   &Tx{Jobs: []Job{{ID: "j200", Action: ActionNetworkDelete}}},
-			actionFn: func(ctx context.Context, job Job) error {
+			tx:   &Task{Steps: []Step{{ID: "j200", Action: ActionNetworkDelete}}},
+			actionFn: func(ctx context.Context, job Step) error {
 				id := job.ID
 				log.Info("delete", "network", id)
 				processedJobs <- id
@@ -71,8 +71,8 @@ func Test_txStore_AddTx(t *testing.T) {
 		},
 		{
 			name: "one successful job",
-			tx:   &Tx{Jobs: alotJobs},
-			actionFn: func(ctx context.Context, job Job) error {
+			tx:   &Task{Steps: alotJobs},
+			actionFn: func(ctx context.Context, job Step) error {
 				id := job.ID
 				log.Info("delete many", "id", id)
 				if id == "j0" {

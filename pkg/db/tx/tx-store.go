@@ -50,7 +50,7 @@ func newTxStore(ctx context.Context, log *slog.Logger, client *redis.Client, act
 	return store, nil
 }
 
-func (t *txStore) AddTx(ctx context.Context, tx *Tx) error {
+func (t *txStore) AddTx(ctx context.Context, tx *Task) error {
 	serializedTx, err := json.Marshal(tx)
 	if err != nil {
 		return err
@@ -109,7 +109,7 @@ func (t *txStore) Process(ctx context.Context) error {
 						continue
 					}
 
-					var tx Tx
+					var tx Task
 					err = json.Unmarshal(txJson, &tx)
 					if err != nil {
 						t.log.Error("unable to unmarshal tx to json", "tx reference", txReference, "error", err)
@@ -136,12 +136,12 @@ func (t *txStore) Process(ctx context.Context) error {
 	}
 }
 
-func (t *txStore) processTx(ctx context.Context, tx Tx) error {
+func (t *txStore) processTx(ctx context.Context, tx Task) error {
 	var errs []error
-	for _, job := range tx.Jobs {
-		err := t.actionFn(ctx, job)
+	for _, step := range tx.Steps {
+		err := t.actionFn(ctx, step)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("error executing action: %s with id: %s error: %w", job.Action, job.ID, err))
+			errs = append(errs, fmt.Errorf("error executing action: %s with id: %s error: %w", step.Action, step.ID, err))
 			continue
 		}
 	}
@@ -160,6 +160,7 @@ type Pending struct {
 	RetryCount int64
 }
 
+// FIXME make it useful
 func (t *txStore) Pending(ctx context.Context) ([]Pending, error) {
 	pendingStreams, err := t.client.XPendingExt(ctx, &redis.XPendingExtArgs{
 		Stream: stream,
@@ -184,6 +185,7 @@ func (t *txStore) Pending(ctx context.Context) ([]Pending, error) {
 	return pendingTxs, nil
 }
 
+// FIXME make it useful
 func (t *txStore) Info(ctx context.Context) (*redis.XInfoStream, error) {
 	streamInfo, err := t.client.XInfoStream(ctx, stream).Result()
 	if err != nil && !errors.Is(err, redis.Nil) {

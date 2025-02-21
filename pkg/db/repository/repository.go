@@ -17,10 +17,18 @@ import (
 )
 
 type (
+	Validated[M any] struct {
+		message M
+	}
 	Repository[E Entity, M Message, C CreateMessage, U UpdateMessage, Q Query] interface {
 		Get(ctx context.Context, id string) (E, error)
-		Create(ctx context.Context, c C) (E, error)
-		Update(ctx context.Context, msg U) (E, error)
+
+		ValidateCreate(ctx context.Context, create C) (*Validated[C], error)
+		Create(ctx context.Context, c *Validated[C]) (E, error)
+
+		ValidateUpdate(ctx context.Context, msg U) (*Validated[U], error)
+		Update(ctx context.Context, msg *Validated[U]) (E, error)
+
 		Delete(ctx context.Context, e E) (E, error)
 		Find(ctx context.Context, query Q) (E, error)
 		List(ctx context.Context, query Q) ([]E, error)
@@ -35,22 +43,40 @@ type (
 	CreateMessage any
 	Query         any
 
-	Repostore struct { // TODO naming
-		log  *slog.Logger
-		ds   *generic.Datastore
-		mdc  mdm.Client
-		ipam ipamv1connect.IpamServiceClient
-		q    *tx.Queue
+	Store struct {
+		log   *slog.Logger
+		ds    *generic.Datastore
+		mdc   mdm.Client
+		ipam  ipamv1connect.IpamServiceClient
+		tasks *tx.Tasks
 	}
 
 	ProjectScope struct {
 		projectID string
 	}
+
+	IP interface {
+		Repository[*metal.IP, *apiv2.IP, *apiv2.IPServiceCreateRequest, *apiv2.IPServiceUpdateRequest, *apiv2.IPQuery]
+		// TODO define additional methods only for the IP repository
+		// AdditionalMethod()
+	}
+
+	Network interface {
+		Repository[*metal.Network, *apiv2.Network, *apiv2.NetworkServiceCreateRequest, *apiv2.NetworkServiceUpdateRequest, *apiv2.NetworkServiceListRequest]
+	}
+
+	Project interface {
+		Repository[*mdcv1.Project, *apiv2.Project, *apiv2.ProjectServiceCreateRequest, *apiv2.ProjectServiceUpdateRequest, *apiv2.ProjectServiceListRequest]
+	}
+
+	FilesystemLayout interface {
+		Repository[*metal.FilesystemLayout, *apiv2.FilesystemLayout, *adminv2.FilesystemServiceCreateRequest, *adminv2.FilesystemServiceUpdateRequest, *apiv2.FilesystemServiceListRequest]
+	}
 )
 
-func New(log *slog.Logger, mdc mdm.Client, ds *generic.Datastore, ipam ipamv1connect.IpamServiceClient, redis *redis.Client) (*Repostore, error) {
+func New(log *slog.Logger, mdc mdm.Client, ds *generic.Datastore, ipam ipamv1connect.IpamServiceClient, redis *redis.Client) (*Store, error) {
 
-	r := &Repostore{
+	r := &Store{
 		log:  log,
 		mdc:  mdc,
 		ipam: ipam,
@@ -59,17 +85,17 @@ func New(log *slog.Logger, mdc mdm.Client, ds *generic.Datastore, ipam ipamv1con
 
 	actionFn := r.getActionFn()
 
-	q, err := tx.New(log, redis, actionFn)
+	tasks, err := tx.New(log, redis, actionFn)
 	if err != nil {
 		return nil, err
 	}
 
-	r.q = q
+	r.tasks = tasks
 
 	return r, nil
 }
 
-func (r *Repostore) IP(project *string) Repository[*metal.IP, *apiv2.IP, *apiv2.IPServiceCreateRequest, *apiv2.IPServiceUpdateRequest, *apiv2.IPQuery] {
+func (r *Store) IP(project *string) IP {
 	var scope *ProjectScope
 	if project != nil {
 		scope = &ProjectScope{
@@ -82,7 +108,7 @@ func (r *Repostore) IP(project *string) Repository[*metal.IP, *apiv2.IP, *apiv2.
 	}
 }
 
-func (r *Repostore) Network(project *string) Repository[*metal.Network, *apiv2.Network, *apiv2.NetworkServiceCreateRequest, *apiv2.NetworkServiceUpdateRequest, *apiv2.NetworkServiceListRequest] { // FIXME apiv2 types
+func (r *Store) Network(project *string) Network {
 	var scope *ProjectScope
 	if project != nil {
 		scope = &ProjectScope{
@@ -95,7 +121,7 @@ func (r *Repostore) Network(project *string) Repository[*metal.Network, *apiv2.N
 	}
 }
 
-func (r *Repostore) Project(project *string) Repository[*mdcv1.Project, *apiv2.Project, *apiv2.ProjectServiceCreateRequest, *apiv2.ProjectServiceUpdateRequest, *apiv2.ProjectServiceListRequest] {
+func (r *Store) Project(project *string) Project {
 	var scope *ProjectScope
 	if project != nil {
 		scope = &ProjectScope{
@@ -107,14 +133,14 @@ func (r *Repostore) Project(project *string) Repository[*mdcv1.Project, *apiv2.P
 		scope: scope,
 	}
 }
-func (r *Repostore) FilesystemLayout() Repository[*metal.FilesystemLayout, *apiv2.FilesystemLayout, *adminv2.FilesystemServiceCreateRequest, *adminv2.FilesystemServiceUpdateRequest, *apiv2.FilesystemServiceListRequest] {
-	return &filesystemRepository{
+func (r *Store) FilesystemLayout() FilesystemLayout {
+	return &filesystemLayoutRepository{
 		r: r,
 	}
 }
 
-func (r *Repostore) getActionFn() tx.ActionFn {
-	return func(ctx context.Context, job tx.Job) error {
+func (r *Store) getActionFn() tx.ActionFn {
+	return func(ctx context.Context, job tx.Step) error {
 		if job.ID == "" {
 			return fmt.Errorf("job id must not be empty")
 		}

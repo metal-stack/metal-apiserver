@@ -22,7 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestQueue(t *testing.T) {
+func TestTasks(t *testing.T) {
 	ctx := context.Background()
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
@@ -43,7 +43,7 @@ func TestQueue(t *testing.T) {
 	ds, err := generic.New(log, "metal", rethinkSession)
 	require.NoError(t, err)
 
-	actionFn := func(ctx context.Context, job tx.Job) error {
+	actionFn := func(ctx context.Context, job tx.Step) error {
 		switch job.Action {
 		case tx.ActionIpDelete:
 
@@ -93,8 +93,8 @@ func TestQueue(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	ipdeleteTx := &tx.Tx{
-		Jobs: []tx.Job{
+	ipdeleteTx := &tx.Task{
+		Steps: []tx.Step{
 			{
 				ID:     metalIP.AllocationUUID,
 				Action: tx.ActionIpDelete,

@@ -15,10 +15,21 @@ import (
 )
 
 type networkRepository struct {
-	r     *Repostore
+	r     *Store
 	scope *ProjectScope
 }
 
+func (r *networkRepository) ValidateCreate(ctx context.Context, req *apiv2.NetworkServiceCreateRequest) (*Validated[*apiv2.NetworkServiceCreateRequest], error) {
+	return &Validated[*apiv2.NetworkServiceCreateRequest]{
+		message: req,
+	}, nil
+}
+
+func (r *networkRepository) ValidateUpdate(ctx context.Context, req *apiv2.NetworkServiceUpdateRequest) (*Validated[*apiv2.NetworkServiceUpdateRequest], error) {
+	return &Validated[*apiv2.NetworkServiceUpdateRequest]{
+		message: req,
+	}, nil
+}
 func (r *networkRepository) Get(ctx context.Context, id string) (*metal.Network, error) {
 	nw, err := r.r.ds.Network().Get(ctx, id)
 	if err != nil {
@@ -62,8 +73,9 @@ func (r *networkRepository) Delete(ctx context.Context, n *metal.Network) (*meta
 	return nw, nil
 }
 
-func (r *networkRepository) Create(ctx context.Context, req *apiv2.NetworkServiceCreateRequest) (*metal.Network, error) {
+func (r *networkRepository) Create(ctx context.Context, rq *Validated[*apiv2.NetworkServiceCreateRequest]) (*metal.Network, error) {
 
+	req := rq.message
 	var (
 		id       string
 		afs      metal.AddressFamilies
@@ -123,7 +135,7 @@ func (r *networkRepository) Create(ctx context.Context, req *apiv2.NetworkServic
 	return resp, nil
 }
 
-func (r *networkRepository) Update(ctx context.Context, msg *apiv2.NetworkServiceUpdateRequest) (*metal.Network, error) {
+func (r *networkRepository) Update(ctx context.Context, msg *Validated[*apiv2.NetworkServiceUpdateRequest]) (*metal.Network, error) {
 	panic("unimplemented")
 }
 func (r *networkRepository) Find(ctx context.Context, query *apiv2.NetworkServiceListRequest) (*metal.Network, error) {

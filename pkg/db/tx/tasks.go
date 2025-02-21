@@ -15,63 +15,66 @@ const (
 type (
 	Action string
 
-	ActionFn func(ctx context.Context, job Job) error
+	ActionFn func(ctx context.Context, step Step) error
 
-	Job struct {
+	Step struct {
 		// ID is the unique identifier for the object to apply this job to
 		// be aware that this should be an "allocation uuid" and not necessarily the primary key in the database of this object
 		ID string `json:"id,omitempty"`
 
 		// Action describes the action to be done when this job runs
 		Action Action `json:"action,omitempty"`
+
+		// Args might be necessary for complex Steps which require more query arguments than the primary ID of a Entity.
+		Args map[string]any
 	}
 
-	Tx struct {
+	Task struct {
 		// Reference is the identifier of this transaction
 		Reference string `json:"reference,omitempty"`
 
-		// Jobs are the Jobs that are run in this transaction
-		Jobs []Job `json:"jobs,omitempty"`
+		// Steps are the Steps that are run in this transaction
+		Steps []Step `json:"steps,omitempty"`
 
 		LastError error `json:"last_error,omitempty"`
 	}
 
-	Queue struct {
+	Tasks struct {
 		log     *slog.Logger
 		txStore *txStore
 	}
 )
 
-func New(log *slog.Logger, client *redis.Client, actionFn ActionFn) (*Queue, error) {
+func New(log *slog.Logger, client *redis.Client, actionFn ActionFn) (*Tasks, error) {
 	ctx := context.Background()
 
 	txStore, err := newTxStore(ctx, log, client, actionFn)
 	if err != nil {
 		return nil, err
 	}
-	return &Queue{
+	return &Tasks{
 		log:     log,
 		txStore: txStore,
 	}, nil
 }
 
-func (q *Queue) Insert(ctx context.Context, tx *Tx) error {
+func (q *Tasks) Insert(ctx context.Context, tx *Task) error {
 	return q.txStore.AddTx(ctx, tx)
 }
 
-func (q *Queue) List() ([]Tx, error) {
+func (q *Tasks) List() ([]Task, error) {
 	pending, err := q.txStore.Pending(context.Background())
 	if err != nil {
 		return nil, err
 	}
-	var txs []Tx
+	var txs []Task
 	for _, p := range pending {
 		// FIXME
-		txs = append(txs, Tx{Reference: p.ID})
+		txs = append(txs, Task{Reference: p.ID})
 	}
 	return txs, nil
 }
 
-func (q *Queue) Delete(ref string) error {
+func (q *Tasks) Delete(ref string) error {
 	return nil
 }

@@ -9,10 +9,21 @@ import (
 )
 
 type projectRepository struct {
-	r     *Repostore
+	r     *Store
 	scope *ProjectScope
 }
 
+func (r *projectRepository) ValidateCreate(ctx context.Context, req *apiv2.ProjectServiceCreateRequest) (*Validated[*apiv2.ProjectServiceCreateRequest], error) {
+	return &Validated[*apiv2.ProjectServiceCreateRequest]{
+		message: req,
+	}, nil
+}
+
+func (r *projectRepository) ValidateUpdate(ctx context.Context, req *apiv2.ProjectServiceUpdateRequest) (*Validated[*apiv2.ProjectServiceUpdateRequest], error) {
+	return &Validated[*apiv2.ProjectServiceUpdateRequest]{
+		message: req,
+	}, nil
+}
 func (r *projectRepository) Get(ctx context.Context, id string) (*mdcv1.Project, error) {
 	resp, err := r.r.mdc.Project().Get(ctx, &mdcv1.ProjectGetRequest{Id: id})
 	if err != nil {
@@ -40,10 +51,10 @@ func (r *projectRepository) MatchScope(p *mdcv1.Project) error {
 	return generic.NotFound("project:%s not found", p.Meta.Id)
 }
 
-func (r *projectRepository) Create(ctx context.Context, e *apiv2.ProjectServiceCreateRequest) (*mdcv1.Project, error) {
+func (r *projectRepository) Create(ctx context.Context, e *Validated[*apiv2.ProjectServiceCreateRequest]) (*mdcv1.Project, error) {
 	panic("unimplemented")
 }
-func (r *projectRepository) Update(ctx context.Context, msg *apiv2.ProjectServiceUpdateRequest) (*mdcv1.Project, error) {
+func (r *projectRepository) Update(ctx context.Context, msg *Validated[*apiv2.ProjectServiceUpdateRequest]) (*mdcv1.Project, error) {
 	panic("unimplemented")
 }
 func (r *projectRepository) Delete(ctx context.Context, e *mdcv1.Project) (*mdcv1.Project, error) {

@@ -22,7 +22,7 @@ import (
 )
 
 type ipRepository struct {
-	r     *Repostore
+	r     *Store
 	scope *ProjectScope
 }
 
@@ -50,12 +50,32 @@ func (r *ipRepository) MatchScope(ip *metal.IP) error {
 	return generic.NotFound("ip:%s for project:%s not found", ip.IPAddress, ip.ProjectID)
 }
 
-func (r *ipRepository) Create(ctx context.Context, req *apiv2.IPServiceCreateRequest) (*metal.IP, error) {
+func (r *ipRepository) ValidateCreate(ctx context.Context, req *apiv2.IPServiceCreateRequest) (*Validated[*apiv2.IPServiceCreateRequest], error) {
+	if req.Network == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("network should not be empty"))
+	}
+	if req.Project == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("project should not be empty"))
+	}
+
+	return &Validated[*apiv2.IPServiceCreateRequest]{
+		message: req,
+	}, nil
+}
+
+func (r *ipRepository) ValidateUpdate(ctx context.Context, req *apiv2.IPServiceUpdateRequest) (*Validated[*apiv2.IPServiceUpdateRequest], error) {
+	return &Validated[*apiv2.IPServiceUpdateRequest]{
+		message: req,
+	}, nil
+}
+
+func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServiceCreateRequest]) (*metal.IP, error) {
 	r.r.log.Debug("")
 	var (
 		name        string
 		description string
 	)
+	req := rq.message
 
 	if req.Name != nil {
 		name = *req.Name
@@ -169,7 +189,8 @@ func (r *ipRepository) Create(ctx context.Context, req *apiv2.IPServiceCreateReq
 	return resp, nil
 }
 
-func (r *ipRepository) Update(ctx context.Context, rq *apiv2.IPServiceUpdateRequest) (*metal.IP, error) {
+func (r *ipRepository) Update(ctx context.Context, req *Validated[*apiv2.IPServiceUpdateRequest]) (*metal.IP, error) {
+	rq := req.message
 	old, err := r.Get(ctx, rq.Ip)
 	if err != nil {
 		return nil, err
@@ -210,7 +231,7 @@ func (r *ipRepository) Delete(ctx context.Context, ip *metal.IP) (*metal.IP, err
 	if err != nil {
 		return nil, err
 	}
-	err = r.r.q.Insert(ctx, &tx.Tx{Jobs: []tx.Job{{ID: ip.AllocationUUID, Action: tx.ActionIpDelete}}})
+	err = r.r.tasks.Insert(ctx, &tx.Task{Steps: []tx.Step{{ID: ip.AllocationUUID, Action: tx.ActionIpDelete}}})
 	if err != nil {
 		return nil, err
 	}
@@ -326,7 +347,7 @@ func (r *ipRepository) ConvertToProto(metalIP *metal.IP) (*apiv2.IP, error) {
 	return ip, nil
 }
 
-func (r *Repostore) IpDeleteAction(ctx context.Context, job tx.Job) error {
+func (r *Store) IpDeleteAction(ctx context.Context, job tx.Step) error {
 	metalIP, err := r.ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Uuid: &job.ID}))
 	if err != nil && !generic.IsNotFound(err) {
 		return err

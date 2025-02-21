@@ -9,11 +9,23 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 )
 
-type filesystemRepository struct {
-	r *Repostore
+type filesystemLayoutRepository struct {
+	r *Store
 }
 
-func (r *filesystemRepository) Get(ctx context.Context, id string) (*metal.FilesystemLayout, error) {
+func (r *filesystemLayoutRepository) ValidateCreate(ctx context.Context, req *adminv2.FilesystemServiceCreateRequest) (*Validated[*adminv2.FilesystemServiceCreateRequest], error) {
+	return &Validated[*adminv2.FilesystemServiceCreateRequest]{
+		message: req,
+	}, nil
+}
+
+func (r *filesystemLayoutRepository) ValidateUpdate(ctx context.Context, req *adminv2.FilesystemServiceUpdateRequest) (*Validated[*adminv2.FilesystemServiceUpdateRequest], error) {
+	return &Validated[*adminv2.FilesystemServiceUpdateRequest]{
+		message: req,
+	}, nil
+}
+
+func (r *filesystemLayoutRepository) Get(ctx context.Context, id string) (*metal.FilesystemLayout, error) {
 	fsl, err := r.r.ds.FilesystemLayout().Get(ctx, id)
 	if err != nil {
 		return nil, err
@@ -23,12 +35,12 @@ func (r *filesystemRepository) Get(ctx context.Context, id string) (*metal.Files
 }
 
 // Filesystem is not project scoped
-func (r *filesystemRepository) MatchScope(_ *metal.FilesystemLayout) error {
+func (r *filesystemLayoutRepository) MatchScope(_ *metal.FilesystemLayout) error {
 	return nil
 }
 
-func (r *filesystemRepository) Create(ctx context.Context, rq *adminv2.FilesystemServiceCreateRequest) (*metal.FilesystemLayout, error) {
-	fsl, err := r.ConvertToInternal(rq.FilesystemLayout)
+func (r *filesystemLayoutRepository) Create(ctx context.Context, rq *Validated[*adminv2.FilesystemServiceCreateRequest]) (*metal.FilesystemLayout, error) {
+	fsl, err := r.ConvertToInternal(rq.message.FilesystemLayout)
 	if err != nil {
 		return nil, err
 	}
@@ -41,8 +53,8 @@ func (r *filesystemRepository) Create(ctx context.Context, rq *adminv2.Filesyste
 	return resp, nil
 }
 
-func (r *filesystemRepository) Update(ctx context.Context, rq *adminv2.FilesystemServiceUpdateRequest) (*metal.FilesystemLayout, error) {
-	old, err := r.Get(ctx, rq.FilesystemLayout.Id)
+func (r *filesystemLayoutRepository) Update(ctx context.Context, rq *Validated[*adminv2.FilesystemServiceUpdateRequest]) (*metal.FilesystemLayout, error) {
+	old, err := r.Get(ctx, rq.message.FilesystemLayout.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +71,7 @@ func (r *filesystemRepository) Update(ctx context.Context, rq *adminv2.Filesyste
 	return &new, nil
 }
 
-func (r *filesystemRepository) Delete(ctx context.Context, fsl *metal.FilesystemLayout) (*metal.FilesystemLayout, error) {
+func (r *filesystemLayoutRepository) Delete(ctx context.Context, fsl *metal.FilesystemLayout) (*metal.FilesystemLayout, error) {
 	fsl, err := r.Get(ctx, fsl.ID)
 	if err != nil {
 		return nil, err
@@ -73,11 +85,11 @@ func (r *filesystemRepository) Delete(ctx context.Context, fsl *metal.Filesystem
 	return fsl, nil
 }
 
-func (r *filesystemRepository) Find(ctx context.Context, rq *apiv2.FilesystemServiceListRequest) (*metal.FilesystemLayout, error) {
+func (r *filesystemLayoutRepository) Find(ctx context.Context, rq *apiv2.FilesystemServiceListRequest) (*metal.FilesystemLayout, error) {
 	panic("unimplemented")
 }
 
-func (r *filesystemRepository) List(ctx context.Context, rq *apiv2.FilesystemServiceListRequest) ([]*metal.FilesystemLayout, error) {
+func (r *filesystemLayoutRepository) List(ctx context.Context, rq *apiv2.FilesystemServiceListRequest) ([]*metal.FilesystemLayout, error) {
 	ip, err := r.r.ds.FilesystemLayout().List(ctx)
 	if err != nil {
 		return nil, err
@@ -86,10 +98,10 @@ func (r *filesystemRepository) List(ctx context.Context, rq *apiv2.FilesystemSer
 	return ip, nil
 }
 
-func (r *filesystemRepository) ConvertToInternal(msg *apiv2.FilesystemLayout) (*metal.FilesystemLayout, error) {
+func (r *filesystemLayoutRepository) ConvertToInternal(msg *apiv2.FilesystemLayout) (*metal.FilesystemLayout, error) {
 	panic("unimplemented")
 }
-func (r *filesystemRepository) ConvertToProto(in *metal.FilesystemLayout) (*apiv2.FilesystemLayout, error) {
+func (r *filesystemLayoutRepository) ConvertToProto(in *metal.FilesystemLayout) (*apiv2.FilesystemLayout, error) {
 
 	var filesystems []*apiv2.Filesystem
 	for _, fs := range in.Filesystems {
