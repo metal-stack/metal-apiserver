@@ -26,7 +26,7 @@ type (
 		Action Action `json:"action,omitempty"`
 
 		// Args might be necessary for complex Steps which require more query arguments than the primary ID of a Entity.
-		Args map[string]any
+		Args map[string]any `json:"args,omitempty"`
 	}
 
 	Task struct {

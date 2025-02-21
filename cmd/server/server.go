@@ -111,6 +111,8 @@ func (s *server) Run() error {
 		Log:            s.log,
 		CertStore:      certStore,
 		AllowedIssuers: []string{s.c.ServerHttpURL},
+		TokenStore:     tokenStore,
+		MasterClient:   s.c.MasterClient,
 	}
 	authz, err := auth.New(authcfg)
 	if err != nil {

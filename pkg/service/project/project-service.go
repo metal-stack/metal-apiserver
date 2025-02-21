@@ -27,7 +27,7 @@ import (
 type Config struct {
 	Log          *slog.Logger
 	MasterClient mdc.Client
-	Repo         *repository.Repostore
+	Repo         *repository.Store
 	InviteStore  invite.ProjectInviteStore
 	TokenStore   token.TokenStore
 }
@@ -37,7 +37,7 @@ type Config struct {
 type projectServiceServer struct {
 	log          *slog.Logger
 	masterClient mdc.Client
-	repo         *repository.Repostore
+	repo         *repository.Store
 	inviteStore  invite.ProjectInviteStore
 	tokenStore   token.TokenStore
 }

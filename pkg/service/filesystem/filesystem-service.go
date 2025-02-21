@@ -13,12 +13,12 @@ import (
 
 type Config struct {
 	Log  *slog.Logger
-	Repo *repository.Repostore
+	Repo *repository.Store
 }
 
 type filesystemServiceServer struct {
 	log  *slog.Logger
-	repo *repository.Repostore
+	repo *repository.Store
 }
 
 func New(c Config) apiv2connect.FilesystemServiceHandler {

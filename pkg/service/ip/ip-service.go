@@ -2,7 +2,6 @@ package ip
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 
 	"connectrpc.com/connect"
@@ -17,12 +16,12 @@ import (
 
 type Config struct {
 	Log  *slog.Logger
-	Repo *repository.Repostore
+	Repo *repository.Store
 }
 
 type ipServiceServer struct {
 	log  *slog.Logger
-	repo *repository.Repostore
+	repo *repository.Store
 }
 
 func New(c Config) apiv2connect.IPServiceHandler {
@@ -112,14 +111,12 @@ func (i *ipServiceServer) Create(ctx context.Context, rq *connect.Request[apiv2.
 	i.log.Debug("create", "ip", rq)
 	req := rq.Msg
 
-	if req.Network == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("network should not be empty"))
-	}
-	if req.Project == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("project should not be empty"))
+	validated, err := i.repo.IP(&req.Project).ValidateCreate(ctx, req)
+	if err != nil {
+		return nil, err
 	}
 
-	created, err := i.repo.IP(&req.Project).Create(ctx, req)
+	created, err := i.repo.IP(&req.Project).Create(ctx, validated)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -138,7 +135,12 @@ func (i *ipServiceServer) Update(ctx context.Context, rq *connect.Request[apiv2.
 
 	req := rq.Msg
 
-	ip, err := i.repo.IP(&req.Project).Update(ctx, req)
+	validated, err := i.repo.IP(&req.Project).ValidateUpdate(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	ip, err := i.repo.IP(&req.Project).Update(ctx, validated)
 	if err != nil {
 		if generic.IsNotFound(err) {
 			return nil, connect.NewError(connect.CodeNotFound, err)

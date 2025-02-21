@@ -695,10 +695,13 @@ func createIPs(t *testing.T, ctx context.Context, ds *generic.Datastore, ipam ip
 	}
 }
 
-func createNetworks(t *testing.T, ctx context.Context, repo *repository.Repostore, nws []*apiv2.NetworkServiceCreateRequest) {
+func createNetworks(t *testing.T, ctx context.Context, repo *repository.Store, nws []*apiv2.NetworkServiceCreateRequest) {
 	for _, nw := range nws {
 		// TODO do not care about project here
-		_, err := repo.Network(nil).Create(ctx, nw)
+
+		validated, err := repo.Network(nil).ValidateCreate(ctx, nw)
+		require.NoError(t, err)
+		_, err = repo.Network(nil).Create(ctx, validated)
 		require.NoError(t, err)
 	}
 }

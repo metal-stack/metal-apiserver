@@ -58,7 +58,7 @@ var (
 	}
 	masterdataApiCAPathFlag = &cli.StringFlag{
 		Name:  "masterdata-api-ca-path",
-		Value: "certs/ca.pem",
+		Value: "certs/server-key.pem",
 		Usage: "masterdata-api CA path",
 	}
 	masterdataApiCertPathFlag = &cli.StringFlag{

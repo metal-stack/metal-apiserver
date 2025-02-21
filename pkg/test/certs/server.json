@@ -1,7 +1,10 @@
 {
-  "CN": "localhost",
+  "CN": "masterdata-api",
   "hosts": [
-    "localhost"
+    "localhost",
+    "masterdata-api",
+    "masterdata-api.metal-control-plane.svc",
+    "masterdata-api.metal-control-plane.svc.cluster.local"
   ],
   "key": {
     "algo": "ecdsa",
@@ -9,9 +12,11 @@
   },
   "names": [
     {
-      "C": "DE",
-      "L": "Bavaria",
-      "ST": "Munich"
+      "C":  "DE",
+      "L":  "Munich",
+      "O":  "metal-stack",
+      "OU": "DevOps",
+      "ST": "Bavaria"
     }
   ]
 }
