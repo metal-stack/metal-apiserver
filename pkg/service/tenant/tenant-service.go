@@ -190,9 +190,10 @@ func (u *tenantServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2
 			Description: tenant.Description,
 			AvatarUrl:   tenant.AvatarUrl,
 			CreatedBy:   "",
-			CreatedAt:   tenant.CreatedAt,
-			UpdatedAt:   tenant.UpdatedAt,
-			DeletedAt:   tenant.DeletedAt,
+			Meta: &apiv2.Meta{
+				CreatedAt: tenant.Meta.CreatedAt,
+				UpdatedAt: tenant.Meta.UpdatedAt,
+			},
 		}, TenantMembers: nil}), nil
 	case apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED:
 		if msvc.IsAdminToken(t) {

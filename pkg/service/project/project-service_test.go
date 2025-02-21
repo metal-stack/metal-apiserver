@@ -115,6 +115,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 			want: &apiv1.ProjectServiceGetResponse{
 				Project: &apiv1.Project{
 					Uuid:      "project",
+					Meta:      &apiv1.Meta{},
 					Tenant:    "me",
 					AvatarUrl: pointer.Pointer(""),
 				},
@@ -194,6 +195,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 			want: &apiv1.ProjectServiceGetResponse{
 				Project: &apiv1.Project{
 					Uuid:      "project",
+					Meta:  &apiv1.Meta{},
 					Tenant:    "me",
 					AvatarUrl: pointer.Pointer(""),
 				},
@@ -277,6 +279,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 			want: &apiv1.ProjectServiceGetResponse{
 				Project: &apiv1.Project{
 					Uuid:      "project",
+					Meta:  &apiv1.Meta{},
 					Tenant:    "me",
 					AvatarUrl: pointer.Pointer(""),
 				},
@@ -360,6 +363,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 			want: &apiv1.ProjectServiceGetResponse{
 				Project: &apiv1.Project{
 					Uuid:      "project",
+					Meta:  &apiv1.Meta{},
 					Tenant:    "me",
 					AvatarUrl: pointer.Pointer(""),
 				},
@@ -434,6 +438,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 			want: &apiv1.ProjectServiceGetResponse{
 				Project: &apiv1.Project{
 					Uuid:      "project",
+					Meta:  &apiv1.Meta{},
 					Tenant:    "me",
 					AvatarUrl: pointer.Pointer(""),
 				},
@@ -494,6 +499,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 			want: &apiv1.ProjectServiceGetResponse{
 				Project: &apiv1.Project{
 					Uuid:      "project",
+					Meta:  &apiv1.Meta{},
 					Tenant:    "me",
 					AvatarUrl: pointer.Pointer(""),
 				},

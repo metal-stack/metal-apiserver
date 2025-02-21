@@ -59,14 +59,19 @@ func IpFilter(rq *apiv2.IPQuery) func(q r.Term) r.Term {
 		}
 
 		if rq.MachineId != nil {
-			rq.Tags = append(rq.Tags, fmt.Sprintf("%s=%s", tag.MachineID, *rq.MachineId))
+			tag := fmt.Sprintf("%s=%s", tag.MachineID, *rq.MachineId)
+			q = q.Filter(func(row r.Term) r.Term {
+				return row.Field("tags").Contains(r.Expr(tag))
+			})
 		}
 
-		for _, t := range rq.Tags {
-			t := t
-			q = q.Filter(func(row r.Term) r.Term {
-				return row.Field("tags").Contains(r.Expr(t))
-			})
+		if rq.Labels != nil {
+			for key, value := range rq.Labels.Labels {
+				tag := fmt.Sprintf("%s=%s", key, value)
+				q = q.Filter(func(row r.Term) r.Term {
+					return row.Field("tags").Contains(r.Expr(tag))
+				})
+			}
 		}
 
 		if rq.Type != nil {

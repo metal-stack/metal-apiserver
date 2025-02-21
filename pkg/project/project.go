@@ -44,9 +44,11 @@ func ToProject(p *mdcv1.Project) (*apiv1.Project, error) {
 		Description:      p.Description,
 		Tenant:           p.TenantId,
 		IsDefaultProject: IsDefaultProject(p),
-		CreatedAt:        p.Meta.CreatedTime,
-		UpdatedAt:        p.Meta.UpdatedTime,
-		AvatarUrl:        &avatarUrl,
+		Meta: &apiv1.Meta{
+			CreatedAt: p.Meta.CreatedTime,
+			UpdatedAt: p.Meta.UpdatedTime,
+		},
+		AvatarUrl: &avatarUrl,
 	}, nil
 }
 

@@ -70,8 +70,10 @@ func ConvertFromTenant(t *mdcv1.Tenant) *apiv1.Tenant {
 		Description: t.Description,
 		Email:       email,
 		AvatarUrl:   avatarURL,
-		CreatedAt:   t.Meta.CreatedTime,
-		UpdatedAt:   t.Meta.UpdatedTime,
+		Meta: &apiv1.Meta{
+			CreatedAt: t.Meta.CreatedTime,
+			UpdatedAt: t.Meta.UpdatedTime,
+		},
 	}
 
 	return tenant

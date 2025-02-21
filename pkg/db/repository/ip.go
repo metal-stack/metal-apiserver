@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/netip"
 	"slices"
+	"strings"
 
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
@@ -83,7 +84,7 @@ func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServic
 	if req.Description != nil {
 		description = *req.Description
 	}
-	tags := req.Tags
+	tags := labelsToTags(req.Labels)
 	if req.MachineId != nil {
 		tags = append(tags, tag.New(tag.MachineID, *req.MachineId))
 	}
@@ -216,7 +217,10 @@ func (r *ipRepository) Update(ctx context.Context, req *Validated[*apiv2.IPServi
 		}
 		new.Type = t
 	}
-	new.Tags = rq.Tags
+	if rq.Labels != nil {
+		tags := labelsToTags(rq.Labels)
+		new.Tags = tags
+	}
 
 	err = r.r.ds.IP().Update(ctx, &new, old)
 	if err != nil {
@@ -340,9 +344,11 @@ func (r *ipRepository) ConvertToProto(metalIP *metal.IP) (*apiv2.IP, error) {
 		Network:     metalIP.NetworkID,
 		Project:     metalIP.ProjectID,
 		Type:        t,
-		Tags:        metalIP.Tags,
-		CreatedAt:   timestamppb.New(metalIP.Created),
-		UpdatedAt:   timestamppb.New(metalIP.Changed),
+		Meta: &apiv2.Meta{
+			Labels:    tagsToLabels(metalIP.Tags),
+			CreatedAt: timestamppb.New(metalIP.Created),
+			UpdatedAt: timestamppb.New(metalIP.Changed),
+		},
 	}
 	return ip, nil
 }
@@ -376,4 +382,28 @@ func (r *Store) IpDeleteAction(ctx context.Context, job tx.Step) error {
 	}
 
 	return nil
+}
+
+func labelsToTags(labels *apiv2.Labels) []string {
+	if labels == nil {
+		return nil
+	}
+	var tags []string
+	for key, value := range labels.Labels {
+		tags = append(tags, fmt.Sprintf("%s=%s", key, value))
+	}
+	return tags
+}
+func tagsToLabels(tags []string) *apiv2.Labels {
+	if len(tags) == 0 {
+		return nil
+	}
+	var labels = &apiv2.Labels{
+		Labels: map[string]string{},
+	}
+	for _, t := range tags {
+		key, value, _ := strings.Cut(t, "=")
+		labels.Labels[key] = value
+	}
+	return labels
 }

@@ -75,7 +75,7 @@ func Test_ipServiceServer_Get(t *testing.T) {
 			ctx:     ctx,
 			rq:      &apiv2.IPServiceGetRequest{Ip: "1.2.3.4", Project: "p1"},
 			ds:      ds,
-			want:    &apiv2.IPServiceGetResponse{Ip: &apiv2.IP{Ip: "1.2.3.4", Project: "p1"}},
+			want:    &apiv2.IPServiceGetResponse{Ip: &apiv2.IP{Ip: "1.2.3.4", Project: "p1", Meta: &apiv2.Meta{}}},
 			wantErr: false,
 		},
 		{
@@ -111,7 +111,10 @@ func Test_ipServiceServer_Get(t *testing.T) {
 				cmp.Options{
 					protocmp.Transform(),
 					protocmp.IgnoreFields(
-						&apiv2.IP{}, "created_at", "updated_at", "uuid",
+						&apiv2.IP{}, "uuid",
+					),
+					protocmp.IgnoreFields(
+						&apiv2.Meta{}, "created_at", "updated_at",
 					),
 				},
 			); diff != "" {
@@ -166,16 +169,19 @@ func Test_ipServiceServer_List(t *testing.T) {
 			ctx:     ctx,
 			rq:      &apiv2.IPQuery{Ip: pointer.Pointer("1.2.3.4"), Project: pointer.Pointer("p1")},
 			ds:      ds,
-			want:    &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{{Name: "ip1", Ip: "1.2.3.4", Project: "p1"}}},
+			want:    &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{{Name: "ip1", Ip: "1.2.3.4", Project: "p1", Meta: &apiv2.Meta{}}}},
 			wantErr: false,
 		},
 		{
-			name:    "get by project",
-			log:     log,
-			ctx:     ctx,
-			rq:      &apiv2.IPQuery{Project: pointer.Pointer("p1")},
-			ds:      ds,
-			want:    &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{{Name: "ip1", Ip: "1.2.3.4", Project: "p1"}, {Name: "ip2", Ip: "1.2.3.5", Project: "p1"}, {Name: "ip3", Ip: "1.2.3.6", Project: "p1", Network: "n1"}}},
+			name: "get by project",
+			log:  log,
+			ctx:  ctx,
+			rq:   &apiv2.IPQuery{Project: pointer.Pointer("p1")},
+			ds:   ds,
+			want: &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{
+				{Name: "ip1", Ip: "1.2.3.4", Project: "p1", Meta: &apiv2.Meta{}},
+				{Name: "ip2", Ip: "1.2.3.5", Project: "p1", Meta: &apiv2.Meta{}},
+				{Name: "ip3", Ip: "1.2.3.6", Project: "p1", Network: "n1", Meta: &apiv2.Meta{}}}},
 			wantErr: false,
 		},
 		{
@@ -184,7 +190,7 @@ func Test_ipServiceServer_List(t *testing.T) {
 			ctx:     ctx,
 			rq:      &apiv2.IPQuery{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(), Project: pointer.Pointer("p2")},
 			ds:      ds,
-			want:    &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{{Name: "ip4", Ip: "2001:db8::1", Project: "p2", Network: "n2"}}},
+			want:    &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{{Name: "ip4", Ip: "2001:db8::1", Project: "p2", Network: "n2", Meta: &apiv2.Meta{}}}},
 			wantErr: false,
 		},
 		{
@@ -193,7 +199,7 @@ func Test_ipServiceServer_List(t *testing.T) {
 			ctx:     ctx,
 			rq:      &apiv2.IPQuery{ParentPrefixCidr: pointer.Pointer("2.3.4.0/24"), Project: pointer.Pointer("p2")},
 			ds:      ds,
-			want:    &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{{Name: "ip5", Ip: "2.3.4.5", Project: "p2", Network: "n3"}}},
+			want:    &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{{Name: "ip5", Ip: "2.3.4.5", Project: "p2", Network: "n3", Meta: &apiv2.Meta{}}}},
 			wantErr: false,
 		},
 	}
@@ -220,7 +226,10 @@ func Test_ipServiceServer_List(t *testing.T) {
 				cmp.Options{
 					protocmp.Transform(),
 					protocmp.IgnoreFields(
-						&apiv2.IP{}, "created_at", "updated_at", "uuid",
+						&apiv2.IP{}, "uuid",
+					),
+					protocmp.IgnoreFields(
+						&apiv2.Meta{}, "created_at", "updated_at",
 					),
 				},
 			); diff != "" {
@@ -275,7 +284,7 @@ func Test_ipServiceServer_Update(t *testing.T) {
 			ctx:     ctx,
 			rq:      &apiv2.IPServiceUpdateRequest{Ip: "1.2.3.4", Project: "p1", Name: pointer.Pointer("ip1-changed")},
 			ds:      ds,
-			want:    &apiv2.IPServiceUpdateResponse{Ip: &apiv2.IP{Name: "ip1-changed", Ip: "1.2.3.4", Project: "p1"}},
+			want:    &apiv2.IPServiceUpdateResponse{Ip: &apiv2.IP{Name: "ip1-changed", Ip: "1.2.3.4", Project: "p1", Meta: &apiv2.Meta{}}},
 			wantErr: false,
 		},
 		{
@@ -284,7 +293,7 @@ func Test_ipServiceServer_Update(t *testing.T) {
 			ctx:     ctx,
 			rq:      &apiv2.IPServiceUpdateRequest{Ip: "1.2.3.5", Project: "p1", Description: pointer.Pointer("test was here")},
 			ds:      ds,
-			want:    &apiv2.IPServiceUpdateResponse{Ip: &apiv2.IP{Name: "ip2", Ip: "1.2.3.5", Project: "p1", Description: "test was here"}},
+			want:    &apiv2.IPServiceUpdateResponse{Ip: &apiv2.IP{Name: "ip2", Ip: "1.2.3.5", Project: "p1", Description: "test was here", Meta: &apiv2.Meta{}}},
 			wantErr: false,
 		},
 		{
@@ -293,16 +302,16 @@ func Test_ipServiceServer_Update(t *testing.T) {
 			ctx:     ctx,
 			rq:      &apiv2.IPServiceUpdateRequest{Ip: "1.2.3.6", Project: "p1", Type: apiv2.IPType_IP_TYPE_STATIC.Enum()},
 			ds:      ds,
-			want:    &apiv2.IPServiceUpdateResponse{Ip: &apiv2.IP{Name: "ip3", Ip: "1.2.3.6", Project: "p1", Network: "n1", Type: apiv2.IPType_IP_TYPE_STATIC}},
+			want:    &apiv2.IPServiceUpdateResponse{Ip: &apiv2.IP{Name: "ip3", Ip: "1.2.3.6", Project: "p1", Network: "n1", Type: apiv2.IPType_IP_TYPE_STATIC, Meta: &apiv2.Meta{}}},
 			wantErr: false,
 		},
 		{
 			name:    "update tags",
 			log:     log,
 			ctx:     ctx,
-			rq:      &apiv2.IPServiceUpdateRequest{Ip: "2001:db8::1", Project: "p2", Tags: []string{"color=red", "purpose=lb"}},
+			rq:      &apiv2.IPServiceUpdateRequest{Ip: "2001:db8::1", Project: "p2", Labels: &apiv2.Labels{Labels: map[string]string{"color": "red", "purpose": "lb"}}},
 			ds:      ds,
-			want:    &apiv2.IPServiceUpdateResponse{Ip: &apiv2.IP{Name: "ip4", Ip: "2001:db8::1", Project: "p2", Network: "n2", Tags: []string{"color=red", "purpose=lb"}}},
+			want:    &apiv2.IPServiceUpdateResponse{Ip: &apiv2.IP{Name: "ip4", Ip: "2001:db8::1", Project: "p2", Network: "n2", Meta: &apiv2.Meta{Labels: &apiv2.Labels{Labels: map[string]string{"color": "red", "purpose": "lb"}}}}},
 			wantErr: false,
 		},
 	}
@@ -329,7 +338,10 @@ func Test_ipServiceServer_Update(t *testing.T) {
 				cmp.Options{
 					protocmp.Transform(),
 					protocmp.IgnoreFields(
-						&apiv2.IP{}, "created_at", "updated_at", "uuid",
+						&apiv2.IP{}, "uuid",
+					),
+					protocmp.IgnoreFields(
+						&apiv2.Meta{}, "created_at", "updated_at",
 					),
 				},
 			); diff != "" {
@@ -387,7 +399,7 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 			ctx:     ctx,
 			rq:      &apiv2.IPServiceDeleteRequest{Ip: "1.2.3.4", Project: "p1"},
 			ds:      ds,
-			want:    &apiv2.IPServiceDeleteResponse{Ip: &apiv2.IP{Name: "ip1", Ip: "1.2.3.4", Project: "p1"}},
+			want:    &apiv2.IPServiceDeleteResponse{Ip: &apiv2.IP{Name: "ip1", Ip: "1.2.3.4", Project: "p1", Meta: &apiv2.Meta{}}},
 			wantErr: false,
 		},
 		{
@@ -430,7 +442,10 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 				cmp.Options{
 					protocmp.Transform(),
 					protocmp.IgnoreFields(
-						&apiv2.IP{}, "created_at", "updated_at", "uuid",
+						&apiv2.IP{}, "uuid",
+					),
+					protocmp.IgnoreFields(
+						&apiv2.Meta{}, "created_at", "updated_at",
 					),
 				},
 			); diff != "" {
@@ -506,7 +521,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 				Project: "p1",
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "1.2.0.1", Network: "internet", Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL},
+				Ip: &apiv2.IP{Ip: "1.2.0.1", Network: "internet", Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
 			},
 		},
 		{
@@ -517,7 +532,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 				Project: "p1",
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "2001:db8:1::1", Network: "tenant-network-v6", Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL},
+				Ip: &apiv2.IP{Ip: "2001:db8:1::1", Network: "tenant-network-v6", Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
 			},
 		},
 		{
@@ -529,7 +544,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 				Ip:      pointer.Pointer("2001:db8:1::99"),
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "2001:db8:1::99", Network: "tenant-network-v6", Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL},
+				Ip: &apiv2.IP{Ip: "2001:db8:1::99", Network: "tenant-network-v6", Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
 			},
 		},
 		{
@@ -540,7 +555,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 				Project: "p1",
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "10.3.0.1", Network: "tenant-network-dualstack", Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL},
+				Ip: &apiv2.IP{Ip: "10.3.0.1", Network: "tenant-network-dualstack", Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
 			},
 		},
 		{
@@ -552,7 +567,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(),
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "2001:db8:2::1", Network: "tenant-network-dualstack", Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL},
+				Ip: &apiv2.IP{Ip: "2001:db8:2::1", Network: "tenant-network-dualstack", Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
 			},
 		},
 		{
@@ -564,7 +579,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 				Ip:      pointer.Pointer("1.2.0.99"),
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "1.2.0.99", Network: "internet", Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL},
+				Ip: &apiv2.IP{Ip: "1.2.0.99", Network: "internet", Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
 			},
 		},
 		{
@@ -577,7 +592,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 				Type:    apiv2.IPType_IP_TYPE_STATIC.Enum(),
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "1.2.0.100", Network: "internet", Project: "p1", Type: apiv2.IPType_IP_TYPE_STATIC},
+				Ip: &apiv2.IP{Ip: "1.2.0.100", Network: "internet", Project: "p1", Type: apiv2.IPType_IP_TYPE_STATIC, Meta: &apiv2.Meta{}},
 			},
 		},
 		{
@@ -658,7 +673,10 @@ func Test_ipServiceServer_Create(t *testing.T) {
 				cmp.Options{
 					protocmp.Transform(),
 					protocmp.IgnoreFields(
-						&apiv2.IP{}, "created_at", "updated_at", "uuid",
+						&apiv2.IP{}, "uuid",
+					),
+					protocmp.IgnoreFields(
+						&apiv2.Meta{}, "created_at", "updated_at",
 					),
 				},
 			); diff != "" {

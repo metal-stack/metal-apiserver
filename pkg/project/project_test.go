@@ -168,6 +168,7 @@ func TestGetProjectsAndTenants(t *testing.T) {
 				Projects: []*v1.Project{
 					{
 						Uuid:             "4ec2dcf8-19e3-437d-96e5-dcde95dc6e55",
+						Meta:             &v1.Meta{},
 						Name:             "default-project",
 						Description:      "default-project of user test-user",
 						Tenant:           "test-user",
@@ -176,6 +177,7 @@ func TestGetProjectsAndTenants(t *testing.T) {
 					},
 					{
 						Uuid:             "c1829741-f398-412c-8c0a-284e298d1a81",
+						Meta:             &v1.Meta{},
 						Name:             "default-project",
 						Description:      "default-project of user b",
 						Tenant:           "b",
@@ -184,6 +186,7 @@ func TestGetProjectsAndTenants(t *testing.T) {
 					},
 					{
 						Uuid:             "a5bf9cef-b01b-4f68-be92-756bd3691b80",
+						Meta:             &v1.Meta{},
 						Name:             "My project C",
 						Description:      "Created by user c",
 						Tenant:           "c",
@@ -193,6 +196,7 @@ func TestGetProjectsAndTenants(t *testing.T) {
 				},
 				DefaultProject: &v1.Project{
 					Uuid:             "4ec2dcf8-19e3-437d-96e5-dcde95dc6e55",
+					Meta:             &v1.Meta{},
 					Name:             "default-project",
 					Description:      "default-project of user test-user",
 					Tenant:           "test-user",
@@ -202,11 +206,13 @@ func TestGetProjectsAndTenants(t *testing.T) {
 				Tenants: []*v1.Tenant{
 					{
 						Login:     "test-user",
+						Meta:      &v1.Meta{},
 						Name:      "test-user",
 						AvatarUrl: "https://example.jpg",
 					},
 					{
 						Login:       "tenant-d",
+						Meta:        &v1.Meta{},
 						Name:        "Tenant D",
 						AvatarUrl:   "https://example.jpg",
 						Description: "This is tenant D",
@@ -214,6 +220,7 @@ func TestGetProjectsAndTenants(t *testing.T) {
 				},
 				DefaultTenant: &v1.Tenant{
 					Login:     "test-user",
+					Meta:      &v1.Meta{},
 					Name:      "test-user",
 					AvatarUrl: "https://example.jpg",
 				},

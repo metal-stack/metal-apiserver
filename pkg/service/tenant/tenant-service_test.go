@@ -178,6 +178,7 @@ func Test_service_Get(t *testing.T) {
 			},
 			want: &apiv1.TenantServiceGetResponse{Tenant: &apiv1.Tenant{
 				Login: "me",
+				Meta:  &apiv1.Meta{},
 			},
 				TenantMembers: []*apiv1.TenantMember{
 					{
@@ -222,6 +223,7 @@ func Test_service_Get(t *testing.T) {
 			},
 			want: &apiv1.TenantServiceGetResponse{Tenant: &apiv1.Tenant{
 				Login: "me",
+				Meta:  &apiv1.Meta{},
 			},
 				TenantMembers: []*apiv1.TenantMember{
 					{
@@ -276,6 +278,7 @@ func Test_service_Get(t *testing.T) {
 			},
 			want: &apiv1.TenantServiceGetResponse{Tenant: &apiv1.Tenant{
 				Login: "me",
+				Meta:  &apiv1.Meta{},
 			},
 				TenantMembers: []*apiv1.TenantMember{
 					{
@@ -330,6 +333,7 @@ func Test_service_Get(t *testing.T) {
 			},
 			want: &apiv1.TenantServiceGetResponse{Tenant: &apiv1.Tenant{
 				Login: "me",
+				Meta:  &apiv1.Meta{},
 			},
 				TenantMembers: []*apiv1.TenantMember{
 					{
@@ -364,6 +368,7 @@ func Test_service_Get(t *testing.T) {
 			},
 			want: &apiv1.TenantServiceGetResponse{Tenant: &apiv1.Tenant{
 				Login:       "me",
+				Meta:        &apiv1.Meta{},
 				Name:        "name",
 				Description: "description",
 				Email:       "",
