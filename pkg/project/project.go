@@ -7,7 +7,7 @@ import (
 
 	"connectrpc.com/connect"
 	tutil "github.com/metal-stack/api-server/pkg/tenant"
-	apiv1 "github.com/metal-stack/api/go/metalstack/api/v2"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	mdc "github.com/metal-stack/masterdata-api/pkg/client"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
@@ -19,32 +19,32 @@ const (
 	AvatarURLAnnotation      = "avatarUrl"
 )
 
-func ProjectRoleFromMap(annotations map[string]string) apiv1.ProjectRole {
+func ProjectRoleFromMap(annotations map[string]string) apiv2.ProjectRole {
 	if annotations == nil {
-		return apiv1.ProjectRole_PROJECT_ROLE_UNSPECIFIED
+		return apiv2.ProjectRole_PROJECT_ROLE_UNSPECIFIED
 	}
 
 	var (
 		annotation  = annotations[ProjectRoleAnnotation]
-		projectRole = apiv1.ProjectRole(apiv1.ProjectRole_value[annotation])
+		projectRole = apiv2.ProjectRole(apiv2.ProjectRole_value[annotation])
 	)
 
 	return projectRole
 }
 
-func ToProject(p *mdcv1.Project) (*apiv1.Project, error) {
+func ToProject(p *mdcv1.Project) (*apiv2.Project, error) {
 	if p.Meta == nil {
 		return nil, fmt.Errorf("project meta is nil")
 	}
 	avatarUrl := p.Meta.Annotations[AvatarURLAnnotation]
 
-	return &apiv1.Project{
+	return &apiv2.Project{
 		Uuid:             p.Meta.Id,
 		Name:             p.Name,
 		Description:      p.Description,
 		Tenant:           p.TenantId,
 		IsDefaultProject: IsDefaultProject(p),
-		Meta: &apiv1.Meta{
+		Meta: &apiv2.Meta{
 			CreatedAt: p.Meta.CreatedTime,
 			UpdatedAt: p.Meta.UpdatedTime,
 		},
@@ -106,24 +106,24 @@ func GetProject(ctx context.Context, c mdc.Client, projectID string) (*mdcv1.Pro
 }
 
 type ProjectsAndTenants struct {
-	Projects       []*apiv1.Project
-	DefaultProject *apiv1.Project
-	Tenants        []*apiv1.Tenant
-	DefaultTenant  *apiv1.Tenant
-	ProjectRoles   map[string]apiv1.ProjectRole
-	TenantRoles    map[string]apiv1.TenantRole
+	Projects       []*apiv2.Project
+	DefaultProject *apiv2.Project
+	Tenants        []*apiv2.Tenant
+	DefaultTenant  *apiv2.Tenant
+	ProjectRoles   map[string]apiv2.ProjectRole
+	TenantRoles    map[string]apiv2.TenantRole
 }
 
 // GetProjectsAndTenants returns all projects and tenants that the user is participating in
 func GetProjectsAndTenants(ctx context.Context, masterClient mdc.Client, userId string) (*ProjectsAndTenants, error) {
 	var (
-		projectRoles   = map[string]apiv1.ProjectRole{}
-		projects       []*apiv1.Project
-		defaultProject *apiv1.Project
+		projectRoles   = map[string]apiv2.ProjectRole{}
+		projects       []*apiv2.Project
+		defaultProject *apiv2.Project
 
-		tenantRoles   = map[string]apiv1.TenantRole{}
-		tenants       []*apiv1.Tenant
-		defaultTenant *apiv1.Tenant
+		tenantRoles   = map[string]apiv2.TenantRole{}
+		tenants       []*apiv2.Tenant
+		defaultTenant *apiv2.Tenant
 	)
 
 	projectResp, err := masterClient.Tenant().FindParticipatingProjects(ctx, &mdcv1.FindParticipatingProjectsRequest{TenantId: userId, IncludeInherited: pointer.Pointer(true)})
@@ -156,13 +156,13 @@ func GetProjectsAndTenants(ctx context.Context, masterClient mdc.Client, userId 
 		)
 
 		switch {
-		case projectRole == apiv1.ProjectRole_PROJECT_ROLE_OWNER, tenantRole == apiv1.TenantRole_TENANT_ROLE_OWNER:
-			projectRole = apiv1.ProjectRole_PROJECT_ROLE_OWNER
-		case projectRole == apiv1.ProjectRole_PROJECT_ROLE_EDITOR, tenantRole == apiv1.TenantRole_TENANT_ROLE_EDITOR:
-			projectRole = apiv1.ProjectRole_PROJECT_ROLE_EDITOR
-		case projectRole == apiv1.ProjectRole_PROJECT_ROLE_VIEWER, tenantRole == apiv1.TenantRole_TENANT_ROLE_VIEWER:
-			projectRole = apiv1.ProjectRole_PROJECT_ROLE_VIEWER
-		case tenantRole == apiv1.TenantRole_TENANT_ROLE_GUEST:
+		case projectRole == apiv2.ProjectRole_PROJECT_ROLE_OWNER, tenantRole == apiv2.TenantRole_TENANT_ROLE_OWNER:
+			projectRole = apiv2.ProjectRole_PROJECT_ROLE_OWNER
+		case projectRole == apiv2.ProjectRole_PROJECT_ROLE_EDITOR, tenantRole == apiv2.TenantRole_TENANT_ROLE_EDITOR:
+			projectRole = apiv2.ProjectRole_PROJECT_ROLE_EDITOR
+		case projectRole == apiv2.ProjectRole_PROJECT_ROLE_VIEWER, tenantRole == apiv2.TenantRole_TENANT_ROLE_VIEWER:
+			projectRole = apiv2.ProjectRole_PROJECT_ROLE_VIEWER
+		case tenantRole == apiv2.TenantRole_TENANT_ROLE_GUEST:
 			// user has no access to this project, ignore
 			continue
 		default:
@@ -189,19 +189,21 @@ func GetProjectsAndTenants(ctx context.Context, masterClient mdc.Client, userId 
 			tenantRole  = tutil.TenantRoleFromMap(tenantWithAnnotations.TenantAnnotations)
 		)
 
-		if tenantRole == apiv1.TenantRole_TENANT_ROLE_UNSPECIFIED && projectRole > 0 {
-			tenantRole = apiv1.TenantRole_TENANT_ROLE_GUEST
+		if tenantRole == apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED && projectRole > 0 {
+			tenantRole = apiv2.TenantRole_TENANT_ROLE_GUEST
 		}
 
 		tenantRoles[t.Meta.GetId()] = tenantRole
 	}
 
-	if defaultProject == nil {
-		return nil, fmt.Errorf("unable to find a default project for user: %s", userId)
-	}
-	if defaultTenant == nil {
-		return nil, fmt.Errorf("unable to find a default tenant for user: %s", userId)
-	}
+	// FIXME needs to be discussed if required
+
+	// if defaultProject == nil {
+	// 	return nil, fmt.Errorf("unable to find a default project for user: %s", userId)
+	// }
+	// if defaultTenant == nil {
+	// 	return nil, fmt.Errorf("unable to find a default tenant for user: %s", userId)
+	// }
 
 	return &ProjectsAndTenants{
 		Tenants:        tenants,

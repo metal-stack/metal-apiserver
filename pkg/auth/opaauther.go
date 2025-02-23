@@ -19,7 +19,7 @@ import (
 	putil "github.com/metal-stack/api-server/pkg/project"
 	"github.com/metal-stack/api-server/pkg/service/method"
 	"github.com/metal-stack/api-server/pkg/token"
-	v1 "github.com/metal-stack/api/go/metalstack/api/v2"
+	v2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/permissions"
 	mdc "github.com/metal-stack/masterdata-api/pkg/client"
 	"github.com/metal-stack/metal-lib/pkg/cache"
@@ -246,7 +246,7 @@ func (o *opa) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 	})
 }
 
-func (o *opa) decide(ctx context.Context, methodName string, jwtTokenfunc func(string) string, req any) (*v1.Token, error) {
+func (o *opa) decide(ctx context.Context, methodName string, jwtTokenfunc func(string) string, req any) (*v2.Token, error) {
 	// Allow all methods which have public visibility defined in the proto definition
 	// o.log.Debug("authorize", "method", methodName, "req", req, "visibility", o.visibility, "servicepermissions", *o.servicePermissions)
 
@@ -268,11 +268,11 @@ func (o *opa) decide(ctx context.Context, methodName string, jwtTokenfunc func(s
 	var (
 		bearer         = jwtTokenfunc(authorizationHeader)
 		_, jwtToken, _ = strings.Cut(bearer, " ")
-		t              *v1.Token
-		projectRoles   map[string]v1.ProjectRole
-		tenantRoles    map[string]v1.TenantRole
-		permissions    map[string]*v1.MethodPermission
-		adminRole      *v1.AdminRole
+		t              *v2.Token
+		projectRoles   map[string]v2.ProjectRole
+		tenantRoles    map[string]v2.TenantRole
+		permissions    map[string]*v2.MethodPermission
+		adminRole      *v2.AdminRole
 	)
 	jwtToken = strings.TrimSpace(jwtToken)
 
@@ -302,7 +302,7 @@ func (o *opa) decide(ctx context.Context, methodName string, jwtTokenfunc func(s
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		if t.TokenType == v1.TokenType_TOKEN_TYPE_API {
+		if t.TokenType == v2.TokenType_TOKEN_TYPE_API {
 			projectRoles := t.ProjectRoles
 			tenantRoles := t.TenantRoles
 			permissions := method.PermissionsBySubject(t)
@@ -334,12 +334,13 @@ func (o *opa) decide(ctx context.Context, methodName string, jwtTokenfunc func(s
 		projectRoles = pat.ProjectRoles
 		tenantRoles = pat.TenantRoles
 		permissions = nil // consoletokens should never have permissions cause they are not stored in the masterdata-db
+		o.log.Debug("decide", "adminsubjects", o.adminSubjects, "userid", t.UserId)
 		if slices.Contains(o.adminSubjects, t.UserId) {
 			// we do not store admin roles in the masterdata-api, but we can use this from the static configuration passed to the api-server
 			adminRole = t.AdminRole
 		}
 
-		if t.TokenType == v1.TokenType_TOKEN_TYPE_CONSOLE {
+		if t.TokenType == v2.TokenType_TOKEN_TYPE_CONSOLE {
 			// as we do not store roles in the console token, we set the roles from the information in the masterdata-db
 			t.ProjectRoles = projectRoles
 			t.TenantRoles = tenantRoles
@@ -371,7 +372,7 @@ func (o *opa) authorize(ctx context.Context, input map[string]any) (authorizatio
 	return evalResult[authorizationDecision](ctx, o.log.WithGroup("authorization"), o.authorizationQuery, input)
 }
 
-func newOpaAuthorizationRequest(method string, req any, token *v1.Token, methodPermissions map[string]*v1.MethodPermission, projectRoles map[string]v1.ProjectRole, tenantRoles map[string]v1.TenantRole, adminRole *v1.AdminRole) map[string]any {
+func newOpaAuthorizationRequest(method string, req any, token *v2.Token, methodPermissions map[string]*v2.MethodPermission, projectRoles map[string]v2.ProjectRole, tenantRoles map[string]v2.TenantRole, adminRole *v2.AdminRole) map[string]any {
 	input := map[string]any{
 		"method":  method,
 		"request": req,

@@ -53,6 +53,7 @@ func New(c Config) TenantService {
 }
 
 func (u *tenantServiceServer) List(ctx context.Context, rq *connect.Request[apiv2.TenantServiceListRequest]) (*connect.Response[apiv2.TenantServiceListResponse], error) {
+	u.log.Debug("list", "req", rq.Msg)
 	token, ok := token.TokenFromContext(ctx)
 	if !ok || token == nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))

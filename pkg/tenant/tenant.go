@@ -27,6 +27,11 @@ const (
 	TagCreator     = "metal-stack.io/creator"
 
 	TenantRoleAnnotation = "metal-stack.io/tenant-role"
+
+	// Master Tenant which must be present on every metal-stack installation
+	MasterTenant = "metal-stack"
+	// Master Tenant Project ID must be present on every metal-stack installation
+	MasterTenantProjectId = "00000000-0000-0000-0000-000000000000"
 )
 
 func TenantRoleFromMap(annotations map[string]string) apiv1.TenantRole {

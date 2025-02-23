@@ -144,10 +144,10 @@ var (
 		Usage:   "the password to the redis key value store",
 		EnvVars: []string{"REDIS_PASSWORD"},
 	}
-	adminOrgsFlag = &cli.StringSliceFlag{
-		Name:  "admin-orgs",
+	adminsFlag = &cli.StringSliceFlag{
+		Name:  "admin-subjects",
 		Value: cli.NewStringSlice("metal-stack-ops@github"),
-		Usage: "the organizations that are considered as administrators when creating api tokens such that members gain extended api access permissions",
+		Usage: "the user subjects that are considered as administrators when creating api tokens to gain extended api access permissions",
 	}
 	maxRequestsPerMinuteFlag = &cli.IntFlag{
 		Name:  "max-requests-per-minute",

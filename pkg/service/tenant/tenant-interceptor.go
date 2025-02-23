@@ -126,6 +126,7 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 
 			tgr, err := i.masterClient.Tenant().Get(ctx, &mdcv1.TenantGetRequest{Id: tok.UserId})
 			if mdcv1.IsNotFound(err) {
+				i.log.Debug("tenant interceptor", "tenant not found", err)
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			if err != nil {

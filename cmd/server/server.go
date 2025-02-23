@@ -19,6 +19,7 @@ import (
 	"connectrpc.com/validate"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
@@ -45,6 +46,7 @@ import (
 	"github.com/metal-stack/api-server/pkg/service/method"
 	"github.com/metal-stack/api-server/pkg/service/project"
 	"github.com/metal-stack/api-server/pkg/service/tenant"
+	tenantadmin "github.com/metal-stack/api-server/pkg/service/tenant/admin"
 	"github.com/metal-stack/api-server/pkg/service/token"
 	"github.com/metal-stack/api-server/pkg/service/version"
 	tokencommon "github.com/metal-stack/api-server/pkg/token"
@@ -65,7 +67,7 @@ type config struct {
 	Stage                               string
 	RedisAddr                           string
 	RedisPassword                       string
-	AdminOrgs                           []string
+	Admins                              []string
 	MaxRequestsPerMinuteToken           int
 	MaxRequestsPerMinuteUnauthenticated int
 	RethinkDBSession                    *r.Session
@@ -111,6 +113,7 @@ func (s *server) Run() error {
 		Log:            s.log,
 		CertStore:      certStore,
 		AllowedIssuers: []string{s.c.ServerHttpURL},
+		AdminSubjects:  s.c.Admins,
 		TokenStore:     tokenStore,
 		MasterClient:   s.c.MasterClient,
 	}
@@ -169,6 +172,11 @@ func (s *server) Run() error {
 		Log:          s.log,
 		MasterClient: s.c.MasterClient,
 	})
+
+	adminTenantService := tenantadmin.New(tenantadmin.Config{
+		Log:          s.log,
+		MasterClient: s.c.MasterClient,
+	})
 	projectService := project.New(project.Config{
 		Log:          s.log,
 		MasterClient: s.c.MasterClient,
@@ -192,7 +200,7 @@ func (s *server) Run() error {
 		CertStore:     certStore,
 		TokenStore:    tokenStore,
 		Issuer:        s.c.ServerHttpURL,
-		AdminSubjects: s.c.AdminOrgs,
+		AdminSubjects: s.c.Admins,
 	})
 	versionService := version.New(version.Config{Log: s.log})
 	healthService, err := health.New(health.Config{Ctx: context.Background(), Log: s.log, HealthcheckInterval: 1 * time.Minute})
@@ -215,6 +223,7 @@ func (s *server) Run() error {
 	// Admin services
 	adminIpService := ipadmin.New(ipadmin.Config{Log: s.log, Repo: repo})
 	mux.Handle(adminv2connect.NewIPServiceHandler(adminIpService, adminInterceptors))
+	mux.Handle(adminv2connect.NewTenantServiceHandler(adminTenantService, adminInterceptors))
 
 	allServiceNames := permissions.GetServices()
 	// Static HealthCheckers
@@ -264,6 +273,19 @@ func (s *server) Run() error {
 	}()
 
 	if s.c.Stage == stageDEV {
+		tresp, err := adminTenantService.Create(context.Background(), connect.NewRequest(&adminv2.TenantServiceCreateRequest{Name: "metal-stack-ops@github"}))
+		if err != nil {
+			var connectErr *connect.Error
+			if !errors.As(err, &connectErr) {
+				return err
+			}
+			if connectErr.Code() == connect.CodeAlreadyExists {
+				return nil
+			}
+			return err
+		}
+		s.log.Info("admin tenant created", "tenant", tresp.Msg)
+
 		resp, err := tokenService.CreateApiTokenWithoutPermissionCheck(context.Background(), connect.NewRequest(&apiv2.TokenServiceCreateRequest{
 			Description:  "admin token only for development, valid for 2h",
 			Expires:      durationpb.New(time.Hour * 2),

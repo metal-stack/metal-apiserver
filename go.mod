@@ -1,6 +1,6 @@
 module github.com/metal-stack/api-server
 
-go 1.24
+go 1.24.0
 
 require (
 	connectrpc.com/connect v1.18.1
@@ -12,11 +12,11 @@ require (
 	github.com/avast/retry-go/v4 v4.6.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/golang-jwt/jwt/v5 v5.2.1
-	github.com/google/go-cmp v0.6.0
+	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
 	github.com/klauspost/connect-compress/v2 v2.0.0
 	github.com/lestrrat-go/jwx/v2 v2.1.3
-	github.com/metal-stack/api v0.0.0-20250220173109-c6a4ac6a0503
+	github.com/metal-stack/api v0.0.0-20250222142443-0bdb570a46db
 	github.com/metal-stack/go-ipam v1.14.9
 	github.com/metal-stack/masterdata-api v0.11.5
 	github.com/metal-stack/metal-lib v0.20.1
@@ -24,7 +24,7 @@ require (
 	github.com/metal-stack/v v1.0.3
 	github.com/open-policy-agent/opa v1.1.0
 	github.com/prometheus/client_golang v1.21.0
-	github.com/redis/go-redis/v9 v9.7.0
+	github.com/redis/go-redis/v9 v9.7.1
 	github.com/rs/cors v1.11.1
 	github.com/stretchr/testify v1.10.0
 	github.com/testcontainers/testcontainers-go v0.35.0
@@ -168,7 +168,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba // indirect
-	golang.org/x/crypto v0.33.0 // indirect
+	golang.org/x/crypto v0.34.0 // indirect
 	golang.org/x/exp v0.0.0-20250218142911-aa4b98e5adaa // indirect
 	golang.org/x/oauth2 v0.26.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect

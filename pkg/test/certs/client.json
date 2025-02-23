@@ -1,5 +1,5 @@
 {
-  "CN": "masterdata-client",
+  "CN": "client",
   "hosts": [""],
   "key": {
     "algo": "ecdsa",
@@ -7,11 +7,9 @@
   },
   "names": [
     {
-      "C":  "DE",
-      "L":  "Munich",
-      "O":  "metal-stack",
-      "OU": "DevOps",
-      "ST": "Bavaria"
+      "C": "DE",
+      "L": "Bavaria",
+      "ST": "Munich"
     }
   ]
 }
