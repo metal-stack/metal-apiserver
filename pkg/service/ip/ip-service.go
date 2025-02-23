@@ -89,9 +89,6 @@ func (i *ipServiceServer) Delete(ctx context.Context, rq *connect.Request[apiv2.
 	i.log.Debug("delete", "ip", rq)
 	req := rq.Msg
 
-	// TODO also delete in go-ipam in one transaction
-	// maybe reuse asyncActor from metal-api
-	// Ensure that only this ip with the same uuid gets deleted
 	ip, err := i.repo.IP(&req.Project).Delete(ctx, &metal.IP{IPAddress: req.Ip})
 	if err != nil {
 		if generic.IsNotFound(err) {

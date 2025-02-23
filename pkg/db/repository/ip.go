@@ -132,8 +132,6 @@ func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServic
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("can not allocate ip for project %q because network belongs to %q and the network is not shared", p.Meta.Id, nw.ProjectID))
 	}
 
-	// TODO: Following operations should span a database transaction if possible
-
 	var (
 		ipAddress    string
 		ipParentCidr string
