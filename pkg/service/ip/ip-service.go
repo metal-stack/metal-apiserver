@@ -5,9 +5,9 @@ import (
 	"log/slog"
 
 	"connectrpc.com/connect"
-	"github.com/metal-stack/api-server/pkg/db/generic"
 	"github.com/metal-stack/api-server/pkg/db/metal"
 	"github.com/metal-stack/api-server/pkg/db/repository"
+	"github.com/metal-stack/api-server/pkg/errorutil"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 
@@ -38,7 +38,7 @@ func (i *ipServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2.IPS
 	// Project is already checked in the tenant-interceptor, ipam must not be consulted
 	resp, err := i.repo.IP(&req.Project).Get(ctx, req.Ip)
 	if err != nil {
-		if generic.IsNotFound(err) {
+		if errorutil.IsNotFound(err) {
 			return nil, connect.NewError(connect.CodeNotFound, err)
 		}
 		return nil, err
@@ -91,7 +91,7 @@ func (i *ipServiceServer) Delete(ctx context.Context, rq *connect.Request[apiv2.
 
 	ip, err := i.repo.IP(&req.Project).Delete(ctx, &metal.IP{IPAddress: req.Ip})
 	if err != nil {
-		if generic.IsNotFound(err) {
+		if errorutil.IsNotFound(err) {
 			return nil, connect.NewError(connect.CodeNotFound, err)
 		}
 		return nil, err
@@ -115,6 +115,12 @@ func (i *ipServiceServer) Create(ctx context.Context, rq *connect.Request[apiv2.
 
 	created, err := i.repo.IP(&req.Project).Create(ctx, validated)
 	if err != nil {
+		if errorutil.IsConflict(err) {
+			return nil, connect.NewError(connect.CodeAlreadyExists, err)
+		}
+		if errorutil.IsInvalidArgument(err) {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -139,7 +145,10 @@ func (i *ipServiceServer) Update(ctx context.Context, rq *connect.Request[apiv2.
 
 	ip, err := i.repo.IP(&req.Project).Update(ctx, validated)
 	if err != nil {
-		if generic.IsNotFound(err) {
+		if errorutil.IsConflict(err) {
+			return nil, connect.NewError(connect.CodeAlreadyExists, err)
+		}
+		if errorutil.IsNotFound(err) {
 			return nil, connect.NewError(connect.CodeNotFound, err)
 		}
 		return nil, err

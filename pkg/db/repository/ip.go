@@ -15,6 +15,7 @@ import (
 	"github.com/metal-stack/api-server/pkg/db/queries"
 	"github.com/metal-stack/api-server/pkg/db/tx"
 	"github.com/metal-stack/api-server/pkg/db/validate"
+	"github.com/metal-stack/api-server/pkg/errorutil"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	ipamapiv1 "github.com/metal-stack/go-ipam/api/v1"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
@@ -94,13 +95,13 @@ func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServic
 	p, err := r.r.Project(&req.Project).Get(ctx, req.Project)
 	if err != nil {
 		// FIXME map generic errors to connect errors
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, err
 	}
 	projectID := p.Meta.Id
 
 	nw, err := r.r.Network(&req.Project).Get(ctx, req.Network)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, err
 	}
 
 	var af *metal.AddressFamily
@@ -140,12 +141,12 @@ func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServic
 	if req.Ip == nil {
 		ipAddress, ipParentCidr, err = r.AllocateRandomIP(ctx, nw, af)
 		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
+			return nil, err
 		}
 	} else {
 		ipAddress, ipParentCidr, err = r.AllocateSpecificIP(ctx, nw, *req.Ip)
 		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
+			return nil, err
 		}
 	}
 
@@ -280,12 +281,6 @@ func (r *ipRepository) AllocateSpecificIP(ctx context.Context, parent *metal.Net
 		}
 
 		resp, err := r.r.ipam.AcquireIP(ctx, connect.NewRequest(&ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String(), Ip: &specificIP}))
-		var connectErr *connect.Error
-		if errors.As(err, &connectErr) {
-			if connectErr.Code() == connect.CodeAlreadyExists {
-				return "", "", generic.Conflict("ip already allocated")
-			}
-		}
 		if err != nil {
 			return "", "", err
 		}
@@ -293,7 +288,7 @@ func (r *ipRepository) AllocateSpecificIP(ctx context.Context, parent *metal.Net
 		return resp.Msg.Ip.Ip, prefix.String(), nil
 	}
 
-	return "", "", fmt.Errorf("specific ip not contained in any of the defined prefixes")
+	return "", "", generic.InvalidArgument("specific ip %s not contained in any of the defined prefixes", specificIP)
 }
 
 func (r *ipRepository) AllocateRandomIP(ctx context.Context, parent *metal.Network, af *metal.AddressFamily) (ipAddress, parentPrefixCidr string, err error) {
@@ -307,11 +302,8 @@ func (r *ipRepository) AllocateRandomIP(ctx context.Context, parent *metal.Netwo
 	for _, prefix := range parent.Prefixes.OfFamily(addressfamily) {
 		resp, err := r.r.ipam.AcquireIP(ctx, connect.NewRequest(&ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String()}))
 		if err != nil {
-			var connectErr *connect.Error
-			if errors.As(err, &connectErr) {
-				if connectErr.Code() == connect.CodeNotFound {
-					continue
-				}
+			if errorutil.IsNotFound(err) {
+				continue
 			}
 			return "", "", err
 		}
@@ -353,28 +345,23 @@ func (r *ipRepository) ConvertToProto(metalIP *metal.IP) (*apiv2.IP, error) {
 
 func (r *Store) IpDeleteAction(ctx context.Context, job tx.Step) error {
 	metalIP, err := r.ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Uuid: &job.ID}))
-	if err != nil && !generic.IsNotFound(err) {
+	if err != nil && !errorutil.IsNotFound(err) {
 		return err
 	}
 	if metalIP == nil {
 		r.log.Info("ds find, metalip is nil", "job", job)
-
 		return nil
 	}
 	r.log.Info("ds find", "metalip", metalIP)
 
 	_, err = r.ipam.ReleaseIP(ctx, connect.NewRequest(&ipamapiv1.ReleaseIPRequest{PrefixCidr: metalIP.ParentPrefixCidr, Ip: metalIP.IPAddress}))
-	if err != nil {
+	if err != nil && !errorutil.IsNotFound(err) {
 		r.log.Error("ipam release", "error", err)
-		var connectErr *connect.Error
-		errors.As(err, &connectErr)
-		if connectErr.Code() != connect.CodeNotFound {
-			return err
-		}
+		return err
 	}
 
 	err = r.ds.IP().Delete(ctx, metalIP)
-	if err != nil && !generic.IsNotFound(err) {
+	if err != nil && !errorutil.IsNotFound(err) {
 		r.log.Error("ds delete", "error", err)
 		return err
 	}

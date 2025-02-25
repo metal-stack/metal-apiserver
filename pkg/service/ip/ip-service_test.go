@@ -605,8 +605,8 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			},
 			want:           nil,
 			wantErr:        true,
-			wantReturnCode: connect.CodeInternal, // FIXME should be InvalidArgument
-			wantErrMessage: "internal: internal: Conflict ip already allocated",
+			wantReturnCode: connect.CodeAlreadyExists,
+			wantErrMessage: "already_exists: already_exists: AlreadyAllocatedError: given ip:1.2.0.1 is already allocated",
 		},
 		{
 			name: "allocate a static specific ip outside prefix",
@@ -618,8 +618,8 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			},
 			want:           nil,
 			wantErr:        true,
-			wantReturnCode: connect.CodeInternal, // FIXME should be InvalidArgument
-			wantErrMessage: "internal: internal: specific ip not contained in any of the defined prefixes",
+			wantReturnCode: connect.CodeInvalidArgument,
+			wantErrMessage: "invalid_argument: InvalidArgument specific ip 1.3.0.1 not contained in any of the defined prefixes",
 		},
 		{
 			name: "allocate a random ip with unavailable addressfamily",
@@ -631,8 +631,8 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			},
 			want:           nil,
 			wantErr:        true,
-			wantReturnCode: connect.CodeInternal,
-			wantErrMessage: "internal: invalid_argument: there is no prefix for the given addressfamily:IPv4 present in network:tenant-network-v6 [IPv6]",
+			wantReturnCode: connect.CodeInvalidArgument,
+			wantErrMessage: "invalid_argument: invalid_argument: there is no prefix for the given addressfamily:IPv4 present in network:tenant-network-v6 [IPv6]",
 		},
 		{
 			name: "allocate a random ip with unavailable addressfamily",
@@ -644,8 +644,8 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			},
 			want:           nil,
 			wantErr:        true,
-			wantReturnCode: connect.CodeInternal,
-			wantErrMessage: "internal: invalid_argument: there is no prefix for the given addressfamily:IPv6 present in network:tenant-network [IPv4]",
+			wantReturnCode: connect.CodeInvalidArgument,
+			wantErrMessage: "invalid_argument: invalid_argument: there is no prefix for the given addressfamily:IPv6 present in network:tenant-network [IPv4]",
 		},
 	}
 	for _, tt := range tests {

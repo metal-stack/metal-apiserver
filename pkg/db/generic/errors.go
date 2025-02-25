@@ -5,11 +5,13 @@ import (
 	"fmt"
 )
 
+// FIXME decide if this should go into pkg/errorutil
+
 var (
-	errNotFound = errors.New("NotFound")
-	errConflict = errors.New("Conflict")
-	// TODO refactor implementations of fmt.Errorf to metal.Internal() in datastore and service
-	errInternal = errors.New("Internal")
+	errNotFound        = errors.New("NotFound")
+	errConflict        = errors.New("Conflict")
+	errInternal        = errors.New("Internal")
+	errInvalidArgument = errors.New("InvalidArgument")
 )
 
 // NotFound creates a new notfound error with a given error message.
@@ -40,4 +42,14 @@ func Internal(format string, args ...interface{}) error {
 // IsInternal checks if an error is a Internal error.
 func IsInternal(e error) bool {
 	return errors.Is(e, errInternal)
+}
+
+// InvalidArgument creates a new InvalidArgument error with a given error message and the original error.
+func InvalidArgument(format string, args ...interface{}) error {
+	return fmt.Errorf("%w %s", errInvalidArgument, fmt.Sprintf(format, args...))
+}
+
+// IsInvalidArgument checks if an error is a InvalidArgument error.
+func IsInvalidArgument(e error) bool {
+	return errors.Is(e, errInvalidArgument)
 }
