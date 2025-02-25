@@ -38,14 +38,11 @@ func (i *ipServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2.IPS
 	// Project is already checked in the tenant-interceptor, ipam must not be consulted
 	resp, err := i.repo.IP(&req.Project).Get(ctx, req.Ip)
 	if err != nil {
-		if errorutil.IsNotFound(err) {
-			return nil, connect.NewError(connect.CodeNotFound, err)
-		}
-		return nil, err
+		return nil, errorutil.Convert(err)
 	}
 	converted, err := i.repo.IP(&req.Project).ConvertToProto(resp)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.Convert(err)
 	}
 
 	return connect.NewResponse(&apiv2.IPServiceGetResponse{
@@ -74,7 +71,7 @@ func (i *ipServiceServer) List(ctx context.Context, rq *connect.Request[apiv2.IP
 
 		converted, err := i.repo.IP(&req.Project).ConvertToProto(ip)
 		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
+			return nil, errorutil.Convert(err)
 		}
 		res = append(res, converted)
 	}
@@ -91,14 +88,11 @@ func (i *ipServiceServer) Delete(ctx context.Context, rq *connect.Request[apiv2.
 
 	ip, err := i.repo.IP(&req.Project).Delete(ctx, &metal.IP{IPAddress: req.Ip})
 	if err != nil {
-		if errorutil.IsNotFound(err) {
-			return nil, connect.NewError(connect.CodeNotFound, err)
-		}
-		return nil, err
+		return nil, errorutil.Convert(err)
 	}
 	converted, err := i.repo.IP(&req.Project).ConvertToProto(ip)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.Convert(err)
 	}
 
 	return connect.NewResponse(&apiv2.IPServiceDeleteResponse{Ip: converted}), nil
@@ -115,18 +109,12 @@ func (i *ipServiceServer) Create(ctx context.Context, rq *connect.Request[apiv2.
 
 	created, err := i.repo.IP(&req.Project).Create(ctx, validated)
 	if err != nil {
-		if errorutil.IsConflict(err) {
-			return nil, connect.NewError(connect.CodeAlreadyExists, err)
-		}
-		if errorutil.IsInvalidArgument(err) {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		}
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.Convert(err)
 	}
 
 	converted, err := i.repo.IP(&req.Project).ConvertToProto(created)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.Convert(err)
 	}
 
 	return connect.NewResponse(&apiv2.IPServiceCreateResponse{Ip: converted}), nil
@@ -145,17 +133,11 @@ func (i *ipServiceServer) Update(ctx context.Context, rq *connect.Request[apiv2.
 
 	ip, err := i.repo.IP(&req.Project).Update(ctx, validated)
 	if err != nil {
-		if errorutil.IsConflict(err) {
-			return nil, connect.NewError(connect.CodeAlreadyExists, err)
-		}
-		if errorutil.IsNotFound(err) {
-			return nil, connect.NewError(connect.CodeNotFound, err)
-		}
-		return nil, err
+		return nil, errorutil.Convert(err)
 	}
 	converted, err := i.repo.IP(&req.Project).ConvertToProto(ip)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.Convert(err)
 	}
 	return connect.NewResponse(&apiv2.IPServiceUpdateResponse{Ip: converted}), nil
 }

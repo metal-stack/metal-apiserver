@@ -606,7 +606,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			want:           nil,
 			wantErr:        true,
 			wantReturnCode: connect.CodeAlreadyExists,
-			wantErrMessage: "already_exists: already_exists: AlreadyAllocatedError: given ip:1.2.0.1 is already allocated",
+			wantErrMessage: "already_exists: AlreadyAllocatedError: given ip:1.2.0.1 is already allocated", // FIXME potentially a go-ipam error handling bug
 		},
 		{
 			name: "allocate a static specific ip outside prefix",
@@ -619,7 +619,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			want:           nil,
 			wantErr:        true,
 			wantReturnCode: connect.CodeInvalidArgument,
-			wantErrMessage: "invalid_argument: InvalidArgument specific ip 1.3.0.1 not contained in any of the defined prefixes",
+			wantErrMessage: "invalid_argument: InvalidArgument specific ip 1.3.0.1 not contained in any of the defined prefixes", // FIXME potentially a go-ipam error handling bug
 		},
 		{
 			name: "allocate a random ip with unavailable addressfamily",
@@ -632,7 +632,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			want:           nil,
 			wantErr:        true,
 			wantReturnCode: connect.CodeInvalidArgument,
-			wantErrMessage: "invalid_argument: invalid_argument: there is no prefix for the given addressfamily:IPv4 present in network:tenant-network-v6 [IPv6]",
+			wantErrMessage: "invalid_argument: there is no prefix for the given addressfamily:IPv4 present in network:tenant-network-v6 [IPv6]",
 		},
 		{
 			name: "allocate a random ip with unavailable addressfamily",
@@ -645,7 +645,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			want:           nil,
 			wantErr:        true,
 			wantReturnCode: connect.CodeInvalidArgument,
-			wantErrMessage: "invalid_argument: invalid_argument: there is no prefix for the given addressfamily:IPv6 present in network:tenant-network [IPv4]",
+			wantErrMessage: "invalid_argument: there is no prefix for the given addressfamily:IPv6 present in network:tenant-network [IPv4]",
 		},
 	}
 	for _, tt := range tests {
