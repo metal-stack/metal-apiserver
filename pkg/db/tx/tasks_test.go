@@ -15,6 +15,7 @@ import (
 	"github.com/metal-stack/api-server/pkg/db/metal"
 	"github.com/metal-stack/api-server/pkg/db/queries"
 	"github.com/metal-stack/api-server/pkg/db/tx"
+	"github.com/metal-stack/api-server/pkg/errorutil"
 	"github.com/metal-stack/api-server/pkg/test"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
@@ -48,7 +49,7 @@ func TestTasks(t *testing.T) {
 		case tx.ActionIpDelete:
 
 			metalIP, err := ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Uuid: &job.ID}))
-			if err != nil && !generic.IsNotFound(err) {
+			if err != nil && !errorutil.IsNotFound(err) {
 				return err
 			}
 			log.Info("ds find", "metalip", metalIP)
@@ -64,7 +65,7 @@ func TestTasks(t *testing.T) {
 			}
 
 			err = ds.IP().Delete(ctx, metalIP)
-			if err != nil && !generic.IsNotFound(err) {
+			if err != nil && !errorutil.IsNotFound(err) {
 				log.Error("ds delete", "error", err)
 				return err
 			}
@@ -110,7 +111,7 @@ func TestTasks(t *testing.T) {
 	assert.EventuallyWithT(t, func(collect *assert.CollectT) {
 		// metal entity must be gone
 		_, err = ds.IP().Get(ctx, metalIP.IPAddress)
-		require.EqualError(t, err, generic.NotFound("no ip with id %q found", metalIP.IPAddress).Error())
+		require.EqualError(t, err, errorutil.NotFound("no ip with id %q found", metalIP.IPAddress).Error())
 
 		// ipam entity as well, check by trying to acquire the same again
 		_, err = ipam.AcquireIP(ctx, connect.NewRequest(&ipamv1.AcquireIPRequest{PrefixCidr: pfx.Msg.Prefix.Cidr, Ip: &ipamIP.Msg.Ip.Ip}))

@@ -2,15 +2,22 @@ package errorutil
 
 import (
 	"errors"
+	"fmt"
 
 	"connectrpc.com/connect"
-	"github.com/metal-stack/api-server/pkg/db/generic"
 	"google.golang.org/grpc/status"
 
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 )
 
 // TODO: find a more generic impl.
+
+var (
+	errNotFound        = errors.New("NotFound")
+	errConflict        = errors.New("Conflict")
+	errInternal        = errors.New("Internal")
+	errInvalidArgument = errors.New("InvalidArgument")
+)
 
 // Convert compares the error and maps it to a appropriate connect.Error
 func Convert(err error) *connect.Error {
@@ -28,6 +35,26 @@ func Convert(err error) *connect.Error {
 	}
 
 	return connect.NewError(connect.CodeInternal, err)
+}
+
+// NotFound creates a new notfound error with a given error message.
+func NotFound(format string, args ...interface{}) error {
+	return fmt.Errorf("%w %s", errNotFound, fmt.Sprintf(format, args...))
+}
+
+// Conflict creates a new conflict error with a given error message.
+func Conflict(format string, args ...interface{}) error {
+	return fmt.Errorf("%w %s", errConflict, fmt.Sprintf(format, args...))
+}
+
+// Internal creates a new Internal error with a given error message and the original error.
+func Internal(format string, args ...interface{}) error {
+	return fmt.Errorf("%w %s", errInternal, fmt.Sprintf(format, args...))
+}
+
+// InvalidArgument creates a new InvalidArgument error with a given error message and the original error.
+func InvalidArgument(format string, args ...interface{}) error {
+	return fmt.Errorf("%w %s", errInvalidArgument, fmt.Sprintf(format, args...))
 }
 
 func IsNotFound(err error) bool {
@@ -59,7 +86,7 @@ func notFound(err error) *connect.Error {
 	}
 
 	// RethinkDB Error
-	if generic.IsNotFound(err) {
+	if errors.Is(err, errNotFound) {
 		return connect.NewError(connect.CodeNotFound, err)
 	}
 
@@ -87,7 +114,7 @@ func conflict(err error) *connect.Error {
 	}
 
 	// RethinkDB Error
-	if generic.IsConflict(err) {
+	if errors.Is(err, errConflict) {
 		return connect.NewError(connect.CodeAlreadyExists, err)
 	}
 
@@ -115,7 +142,7 @@ func internal(err error) *connect.Error {
 	}
 
 	// RethinkDB Error
-	if generic.IsInternal(err) {
+	if errors.Is(err, errInternal) {
 		return connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -143,7 +170,7 @@ func invalidArgument(err error) *connect.Error {
 	}
 
 	//RethinkDB error
-	if generic.IsInvalidArgument(err) {
+	if errors.Is(err, errInvalidArgument) {
 		return connect.NewError(connect.CodeInvalidArgument, err)
 	}
 

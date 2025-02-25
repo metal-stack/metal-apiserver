@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"github.com/metal-stack/api-server/pkg/db/generic"
+	"github.com/metal-stack/api-server/pkg/errorutil"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 )
@@ -31,7 +31,7 @@ func (r *projectRepository) Get(ctx context.Context, id string) (*mdcv1.Project,
 		return nil, err
 	}
 	if resp.Project == nil || resp.Project.Meta == nil {
-		return nil, generic.NotFound("error retrieving project %q", id)
+		return nil, errorutil.NotFound("error retrieving project %q", id)
 	}
 	err = r.MatchScope(resp.Project)
 	if err != nil {
@@ -48,7 +48,7 @@ func (r *projectRepository) MatchScope(p *mdcv1.Project) error {
 	if r.scope.projectID == p.Meta.Id {
 		return nil
 	}
-	return generic.NotFound("project:%s not found", p.Meta.Id)
+	return errorutil.NotFound("project:%s not found", p.Meta.Id)
 }
 
 func (r *projectRepository) Create(ctx context.Context, e *Validated[*apiv2.ProjectServiceCreateRequest]) (*mdcv1.Project, error) {

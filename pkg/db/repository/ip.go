@@ -10,7 +10,6 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
-	"github.com/metal-stack/api-server/pkg/db/generic"
 	"github.com/metal-stack/api-server/pkg/db/metal"
 	"github.com/metal-stack/api-server/pkg/db/queries"
 	"github.com/metal-stack/api-server/pkg/db/tx"
@@ -49,7 +48,7 @@ func (r *ipRepository) MatchScope(ip *metal.IP) error {
 	if r.scope.projectID == ip.ProjectID {
 		return nil
 	}
-	return generic.NotFound("ip:%s for project:%s not found", ip.IPAddress, ip.ProjectID)
+	return errorutil.NotFound("ip:%s for project:%s not found", ip.IPAddress, ip.ProjectID)
 }
 
 func (r *ipRepository) ValidateCreate(ctx context.Context, req *apiv2.IPServiceCreateRequest) (*Validated[*apiv2.IPServiceCreateRequest], error) {
@@ -288,7 +287,7 @@ func (r *ipRepository) AllocateSpecificIP(ctx context.Context, parent *metal.Net
 		return resp.Msg.Ip.Ip, prefix.String(), nil
 	}
 
-	return "", "", generic.InvalidArgument("specific ip %s not contained in any of the defined prefixes", specificIP)
+	return "", "", errorutil.InvalidArgument("specific ip %s not contained in any of the defined prefixes", specificIP)
 }
 
 func (r *ipRepository) AllocateRandomIP(ctx context.Context, parent *metal.Network, af *metal.AddressFamily) (ipAddress, parentPrefixCidr string, err error) {

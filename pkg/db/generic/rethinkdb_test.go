@@ -8,6 +8,7 @@ import (
 	"github.com/metal-stack/api-server/pkg/db/generic"
 	"github.com/metal-stack/api-server/pkg/db/metal"
 	"github.com/metal-stack/api-server/pkg/db/queries"
+	"github.com/metal-stack/api-server/pkg/errorutil"
 	"github.com/metal-stack/api-server/pkg/test"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
@@ -29,7 +30,7 @@ func TestGenericCRUD(t *testing.T) {
 	nonexisting, err := ds.IP().Get(ctx, "1.2.3.4")
 	require.Nil(t, nonexisting)
 	require.Error(t, err)
-	require.EqualError(t, err, generic.NotFound("no ip with id \"1.2.3.4\" found").Error())
+	require.EqualError(t, err, errorutil.NotFound("no ip with id \"1.2.3.4\" found").Error())
 
 	created, err := ds.IP().Create(ctx, &metal.IP{IPAddress: "1.2.3.4"})
 	require.NoError(t, err)
@@ -79,7 +80,7 @@ func TestFindAndListGeneric(t *testing.T) {
 	createdAlreadyExist, err := ds.IP().Create(ctx, &metal.IP{IPAddress: "1.2.3.4", ProjectID: "p1"})
 	require.Nil(t, createdAlreadyExist)
 	require.Error(t, err)
-	require.EqualError(t, err, generic.Conflict("cannot create ip in database, entity already exists: 1.2.3.4").Error())
+	require.EqualError(t, err, errorutil.Conflict("cannot create ip in database, entity already exists: 1.2.3.4").Error())
 
 	created2, err := ds.IP().Create(ctx, &metal.IP{IPAddress: "1.2.3.2", ProjectID: "p1"})
 	require.NoError(t, err)
@@ -96,7 +97,7 @@ func TestFindAndListGeneric(t *testing.T) {
 	notfound, err := ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Ip: pointer.Pointer("1.2.3.5")}))
 	require.Nil(t, notfound)
 	require.Error(t, err)
-	require.EqualError(t, err, generic.NotFound("no ip found").Error())
+	require.EqualError(t, err, errorutil.NotFound("no ip found").Error())
 
 	moreThanOneFound, err := ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Project: pointer.Pointer("p1")}))
 	require.Nil(t, moreThanOneFound)

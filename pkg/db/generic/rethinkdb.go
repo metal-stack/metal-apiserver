@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/metal-stack/api-server/pkg/db/metal"
+	"github.com/metal-stack/api-server/pkg/errorutil"
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
 
@@ -153,7 +154,7 @@ func (rs *rethinkStore[E]) Create(ctx context.Context, e E) (E, error) {
 	res, err := rs.table.Insert(e).RunWrite(rs.queryExecutor, r.RunOpts{Context: ctx})
 	if err != nil {
 		if r.IsConflictErr(err) {
-			return zero, Conflict("cannot create %v in database, entity already exists: %s", rs.tableName, e.GetID())
+			return zero, errorutil.Conflict("cannot create %v in database, entity already exists: %s", rs.tableName, e.GetID())
 		}
 		return zero, fmt.Errorf("cannot create %v in database: %w", rs.tableName, err)
 	}
@@ -191,13 +192,13 @@ func (rs *rethinkStore[E]) Find(ctx context.Context, queries ...EntityQuery) (E,
 	}
 	defer res.Close()
 	if res.IsNil() {
-		return zero, NotFound("no %v found", rs.tableName)
+		return zero, errorutil.NotFound("no %v found", rs.tableName)
 	}
 
 	e := new(E)
 	hasResult := res.Next(e)
 	if !hasResult {
-		return zero, NotFound("cannot find %v", rs.tableName)
+		return zero, errorutil.NotFound("cannot find %v", rs.tableName)
 	}
 
 	next := map[string]any{}
@@ -247,7 +248,7 @@ func (rs *rethinkStore[E]) Get(ctx context.Context, id string) (E, error) {
 
 	defer res.Close()
 	if res.IsNil() {
-		return zero, NotFound("no %v with id %q found", rs.tableName, id)
+		return zero, errorutil.NotFound("no %v with id %q found", rs.tableName, id)
 	}
 
 	e := new(E)
@@ -271,7 +272,7 @@ func (rs *rethinkStore[E]) Update(ctx context.Context, new, old E) error {
 	}).RunWrite(rs.queryExecutor, r.RunOpts{Context: ctx})
 	if err != nil {
 		if strings.Contains(err.Error(), entityAlreadyModifiedErrorMessage) {
-			return Conflict("cannot update %v (%s): %s", rs.tableName, old.GetID(), entityAlreadyModifiedErrorMessage)
+			return errorutil.Conflict("cannot update %v (%s): %s", rs.tableName, old.GetID(), entityAlreadyModifiedErrorMessage)
 		}
 
 		return fmt.Errorf("cannot update %v (%s): %w", rs.tableName, old.GetID(), err)

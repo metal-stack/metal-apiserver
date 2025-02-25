@@ -5,8 +5,8 @@ import (
 	"log/slog"
 
 	"connectrpc.com/connect"
-	"github.com/metal-stack/api-server/pkg/db/generic"
 	"github.com/metal-stack/api-server/pkg/db/repository"
+	"github.com/metal-stack/api-server/pkg/errorutil"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 )
@@ -32,15 +32,12 @@ func (f *filesystemServiceServer) Get(ctx context.Context, rq *connect.Request[a
 	req := rq.Msg
 	resp, err := f.repo.FilesystemLayout().Get(ctx, req.Id)
 	if err != nil {
-		if generic.IsNotFound(err) {
-			return nil, connect.NewError(connect.CodeNotFound, err)
-		}
-		return nil, err
+		return nil, errorutil.Convert(err)
 	}
 
 	fsl, err := f.repo.FilesystemLayout().ConvertToProto(resp)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.Convert(err)
 	}
 	return connect.NewResponse(&apiv2.FilesystemServiceGetResponse{
 		FilesystemLayout: fsl,
@@ -51,16 +48,13 @@ func (f *filesystemServiceServer) List(ctx context.Context, rq *connect.Request[
 	req := rq.Msg
 	resp, err := f.repo.FilesystemLayout().List(ctx, req)
 	if err != nil {
-		if generic.IsNotFound(err) {
-			return nil, connect.NewError(connect.CodeNotFound, err)
-		}
-		return nil, err
+		return nil, errorutil.Convert(err)
 	}
 	var fsls []*apiv2.FilesystemLayout
 	for _, r := range resp {
 		fsl, err := f.repo.FilesystemLayout().ConvertToProto(r)
 		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
+			return nil, errorutil.Convert(err)
 		}
 		fsls = append(fsls, fsl)
 	}
