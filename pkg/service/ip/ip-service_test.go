@@ -619,7 +619,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			want:           nil,
 			wantErr:        true,
 			wantReturnCode: connect.CodeInvalidArgument,
-			wantErrMessage: "invalid_argument: InvalidArgument specific ip 1.3.0.1 not contained in any of the defined prefixes", // FIXME potentially a go-ipam error handling bug
+			wantErrMessage: "invalid_argument: specific ip 1.3.0.1 not contained in any of the defined prefixes", // FIXME potentially a go-ipam error handling bug
 		},
 		{
 			name: "allocate a random ip with unavailable addressfamily",

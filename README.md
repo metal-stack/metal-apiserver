@@ -4,4 +4,4 @@ This is meant as a POC implementation of the metal-stack [V2 API](https://github
 
 TODO:
 
-- Find a proper solution how we can call other services from one service. E.g. Repository Pattern
+- Use [asynq](https://github.com/hibiken/asynq?tab=readme-ov-file) for Tx

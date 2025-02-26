@@ -6,6 +6,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/metal-stack/api-server/pkg/db/repository"
+	"github.com/metal-stack/api-server/pkg/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -49,7 +50,7 @@ func (i *ipServiceServer) List(ctx context.Context, rq *connect.Request[adminv2.
 
 		converted, err := i.repo.IP(nil).ConvertToProto(ip)
 		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
+			return nil, errorutil.Convert(err)
 		}
 		res = append(res, converted)
 	}

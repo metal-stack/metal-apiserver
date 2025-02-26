@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/netip"
 	"slices"
@@ -53,10 +52,10 @@ func (r *ipRepository) MatchScope(ip *metal.IP) error {
 
 func (r *ipRepository) ValidateCreate(ctx context.Context, req *apiv2.IPServiceCreateRequest) (*Validated[*apiv2.IPServiceCreateRequest], error) {
 	if req.Network == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("network should not be empty"))
+		return nil, errorutil.InvalidArgument("network should not be empty")
 	}
 	if req.Project == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("project should not be empty"))
+		return nil, errorutil.InvalidArgument("project should not be empty")
 	}
 
 	return &Validated[*apiv2.IPServiceCreateRequest]{
@@ -107,7 +106,7 @@ func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServic
 	if req.AddressFamily != nil {
 		err := validate.ValidateAddressFamily(*req.AddressFamily)
 		if err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+			return nil, errorutil.NewInvalidArgument(err)
 		}
 		switch *req.AddressFamily {
 		case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4:
@@ -115,21 +114,21 @@ func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServic
 		case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6:
 			af = pointer.Pointer(metal.IPv6AddressFamily)
 		case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_UNSPECIFIED:
-			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("unsupported addressfamily"))
+			return nil, errorutil.InvalidArgument("unsupported addressfamily")
 		}
 
 		if !slices.Contains(nw.Prefixes.AddressFamilies(), *af) {
-			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("there is no prefix for the given addressfamily:%s present in network:%s %s", *af, req.Network, nw.Prefixes.AddressFamilies()))
+			return nil, errorutil.InvalidArgument("there is no prefix for the given addressfamily:%s present in network:%s %s", *af, req.Network, nw.Prefixes.AddressFamilies())
 		}
 		if req.Ip != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("it is not possible to specify specificIP and addressfamily"))
+			return nil, errorutil.InvalidArgument("it is not possible to specify specificIP and addressfamily")
 		}
 	}
 
 	// for private, unshared networks the project id must be the same
 	// for external networks the project id is not checked
 	if !nw.Shared && nw.ParentNetworkID != "" && p.Meta.Id != nw.ProjectID {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("can not allocate ip for project %q because network belongs to %q and the network is not shared", p.Meta.Id, nw.ProjectID))
+		return nil, errorutil.InvalidArgument("can not allocate ip for project %q because network belongs to %q and the network is not shared", p.Meta.Id, nw.ProjectID)
 	}
 
 	var (
@@ -157,7 +156,7 @@ func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServic
 		case apiv2.IPType_IP_TYPE_STATIC:
 			ipType = metal.Static
 		case apiv2.IPType_IP_TYPE_UNSPECIFIED:
-			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("given ip type is not supported:%s", req.Type.String()))
+			return nil, errorutil.InvalidArgument("given ip type is not supported:%s", req.Type.String())
 		}
 	}
 
@@ -211,7 +210,7 @@ func (r *ipRepository) Update(ctx context.Context, req *Validated[*apiv2.IPServi
 		case apiv2.IPType_IP_TYPE_STATIC.String():
 			t = metal.Static
 		case apiv2.IPType_IP_TYPE_UNSPECIFIED.String():
-			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("ip type cannot be unspecified: %s", rq.Type))
+			return nil, errorutil.InvalidArgument("ip type cannot be unspecified: %s", rq.Type)
 		}
 		new.Type = t
 	}
@@ -310,7 +309,7 @@ func (r *ipRepository) AllocateRandomIP(ctx context.Context, parent *metal.Netwo
 		return resp.Msg.Ip.Ip, prefix.String(), nil
 	}
 
-	return "", "", fmt.Errorf("cannot allocate random free ip in ipam, no ips left in network:%s af:%s parent afs:%#v", parent.ID, addressfamily, parent.Prefixes.AddressFamilies())
+	return "", "", errorutil.InvalidArgument("cannot allocate random free ip in ipam, no ips left in network:%s af:%s parent afs:%#v", parent.ID, addressfamily, parent.Prefixes.AddressFamilies())
 }
 func (r *ipRepository) ConvertToInternal(ip *apiv2.IP) (*metal.IP, error) {
 

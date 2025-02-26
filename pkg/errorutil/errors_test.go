@@ -20,7 +20,7 @@ func TestIsNotFound(t *testing.T) {
 		{
 			name: "generic",
 			err:  NotFound("ip was not found"),
-			want: connect.NewError(connect.CodeNotFound, errors.New("NotFound ip was not found")),
+			want: connect.NewError(connect.CodeNotFound, errors.New("ip was not found")),
 		},
 		{
 			name: "masterdata",
@@ -86,7 +86,7 @@ func _TestIsNotFound(t *testing.T) {
 		},
 		{
 			name: "Test 2",
-			err:  errNotFound,
+			err:  connect.NewError(connect.CodeNotFound, errors.New("")),
 			want: true,
 		},
 		{
@@ -118,7 +118,7 @@ func TestIsConflict(t *testing.T) {
 		},
 		{
 			name: "Test 2",
-			err:  errConflict,
+			err:  connect.NewError(connect.CodeAlreadyExists, errors.New("")),
 			want: true,
 		},
 		{
@@ -150,7 +150,7 @@ func TestIsInternal(t *testing.T) {
 		},
 		{
 			name: "Test 2",
-			err:  errInternal,
+			err:  connect.NewError(connect.CodeInternal, errors.New("")),
 			want: true,
 		},
 		{

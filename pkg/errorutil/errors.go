@@ -12,13 +12,6 @@ import (
 
 // TODO: find a more generic impl.
 
-var (
-	errNotFound        = errors.New("NotFound")
-	errConflict        = errors.New("Conflict")
-	errInternal        = errors.New("Internal")
-	errInvalidArgument = errors.New("InvalidArgument")
-)
-
 // Convert compares the error and maps it to a appropriate connect.Error
 func Convert(err error) *connect.Error {
 	if err := notFound(err); err != nil {
@@ -38,23 +31,43 @@ func Convert(err error) *connect.Error {
 }
 
 // NotFound creates a new notfound error with a given error message.
-func NotFound(format string, args ...interface{}) error {
-	return fmt.Errorf("%w %s", errNotFound, fmt.Sprintf(format, args...))
+func NotFound(format string, args ...any) error {
+	return connect.NewError(connect.CodeNotFound, fmt.Errorf(format, args...))
 }
 
 // Conflict creates a new conflict error with a given error message.
-func Conflict(format string, args ...interface{}) error {
-	return fmt.Errorf("%w %s", errConflict, fmt.Sprintf(format, args...))
+func Conflict(format string, args ...any) error {
+	return connect.NewError(connect.CodeAlreadyExists, fmt.Errorf(format, args...))
 }
 
 // Internal creates a new Internal error with a given error message and the original error.
-func Internal(format string, args ...interface{}) error {
-	return fmt.Errorf("%w %s", errInternal, fmt.Sprintf(format, args...))
+func Internal(format string, args ...any) error {
+	return connect.NewError(connect.CodeInternal, fmt.Errorf(format, args...))
 }
 
 // InvalidArgument creates a new InvalidArgument error with a given error message and the original error.
-func InvalidArgument(format string, args ...interface{}) error {
-	return fmt.Errorf("%w %s", errInvalidArgument, fmt.Sprintf(format, args...))
+func InvalidArgument(format string, args ...any) error {
+	return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf(format, args...))
+}
+
+// NewNotFound creates a new notfound error with a given error message.
+func NewNotFound(err error) error {
+	return connect.NewError(connect.CodeNotFound, err)
+}
+
+// NewConflict creates a new conflict error with a given error message.
+func NewConflict(err error) error {
+	return connect.NewError(connect.CodeAlreadyExists, err)
+}
+
+// NewInternal creates a new Internal error with a given error message and the original error.
+func NewInternal(err error) error {
+	return connect.NewError(connect.CodeInternal, err)
+}
+
+// NewInvalidArgument creates a new InvalidArgument error with a given error message and the original error.
+func NewInvalidArgument(err error) error {
+	return connect.NewError(connect.CodeInvalidArgument, err)
 }
 
 func IsNotFound(err error) bool {
@@ -85,11 +98,6 @@ func notFound(err error) *connect.Error {
 		}
 	}
 
-	// RethinkDB Error
-	if errors.Is(err, errNotFound) {
-		return connect.NewError(connect.CodeNotFound, err)
-	}
-
 	// Masterdata Error
 	if mdcv1.IsNotFound(err) {
 		st, ok := status.FromError(err)
@@ -111,11 +119,6 @@ func conflict(err error) *connect.Error {
 		if connectErr.Code() == connect.CodeAlreadyExists {
 			return connectErr
 		}
-	}
-
-	// RethinkDB Error
-	if errors.Is(err, errConflict) {
-		return connect.NewError(connect.CodeAlreadyExists, err)
 	}
 
 	// Masterdata Error
@@ -141,11 +144,6 @@ func internal(err error) *connect.Error {
 		}
 	}
 
-	// RethinkDB Error
-	if errors.Is(err, errInternal) {
-		return connect.NewError(connect.CodeInternal, err)
-	}
-
 	// Masterdata Error
 	if mdcv1.IsInternal(err) {
 		st, ok := status.FromError(err)
@@ -167,11 +165,6 @@ func invalidArgument(err error) *connect.Error {
 		if connectErr.Code() == connect.CodeInvalidArgument {
 			return connectErr
 		}
-	}
-
-	//RethinkDB error
-	if errors.Is(err, errInvalidArgument) {
-		return connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
 	// Masterdata Error
