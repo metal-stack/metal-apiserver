@@ -26,6 +26,9 @@ func Convert(err error) *connect.Error {
 	if err := internal(err); err != nil {
 		return err
 	}
+	if err := unauthenticated(err); err != nil {
+		return err
+	}
 
 	return connect.NewError(connect.CodeInternal, err)
 }
@@ -50,6 +53,11 @@ func InvalidArgument(format string, args ...any) error {
 	return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf(format, args...))
 }
 
+// Unauthenticated creates a new Unauthenticated error with a given error message and the original error.
+func Unauthenticated(format string, args ...any) error {
+	return connect.NewError(connect.CodeUnauthenticated, fmt.Errorf(format, args...))
+}
+
 // NewNotFound creates a new notfound error with a given error message.
 func NewNotFound(err error) error {
 	return connect.NewError(connect.CodeNotFound, err)
@@ -70,6 +78,11 @@ func NewInvalidArgument(err error) error {
 	return connect.NewError(connect.CodeInvalidArgument, err)
 }
 
+// NewUnauthenticated creates a new Unauthenticated error with a given error message and the original error.
+func NewUnauthenticated(err error) error {
+	return connect.NewError(connect.CodeUnauthenticated, err)
+}
+
 func IsNotFound(err error) bool {
 	e := notFound(err)
 	return e != nil
@@ -84,6 +97,10 @@ func IsInternal(err error) bool {
 }
 func IsInvalidArgument(err error) bool {
 	e := invalidArgument(err)
+	return e != nil
+}
+func IsUnauthenticated(err error) bool {
+	e := unauthenticated(err)
 	return e != nil
 }
 
@@ -174,6 +191,20 @@ func invalidArgument(err error) *connect.Error {
 			return connect.NewError(connect.CodeInvalidArgument, errors.New(st.Message()))
 		}
 		return connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	return nil
+}
+
+// unauthenticated compares the given error if it is a unauthenticated and returns true, otherwise false
+func unauthenticated(err error) *connect.Error {
+
+	// Ipam or other connect error
+	var connectErr *connect.Error
+	if errors.As(err, &connectErr) {
+		if connectErr.Code() == connect.CodeUnauthenticated {
+			return connectErr
+		}
 	}
 
 	return nil
