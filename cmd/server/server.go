@@ -33,6 +33,7 @@ import (
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 
+	asyncserver "github.com/metal-stack/api-server/pkg/async/server"
 	"github.com/metal-stack/api-server/pkg/auth"
 	"github.com/metal-stack/api-server/pkg/certs"
 	"github.com/metal-stack/api-server/pkg/db/generic"
@@ -99,7 +100,7 @@ func (s *server) Run() error {
 	if err != nil {
 		return err
 	}
-	txRedisClient, err := createRedisClient(s.log, s.c.RedisAddr, s.c.RedisPassword, redisDatabaseInvites)
+	txRedisClient, err := createRedisClient(s.log, s.c.RedisAddr, s.c.RedisPassword, redisDatabaseTx)
 	if err != nil {
 		return err
 	}
@@ -268,6 +269,16 @@ func (s *server) Run() error {
 		err := ms.ListenAndServe()
 		if err != nil {
 			s.log.Error("unable to start metric endpoint", "error", err)
+			return
+		}
+	}()
+
+	asyncServer, asyncServerMux := asyncserver.New(s.log, repo, txRedisClient)
+	go func() {
+		s.log.Info("starting asynq server")
+		err := asyncServer.Run(asyncServerMux)
+		if err != nil {
+			s.log.Error("unable to start asynq server", "error", err)
 			return
 		}
 	}()

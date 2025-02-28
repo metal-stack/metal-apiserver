@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/netip"
 	"slices"
@@ -9,9 +10,10 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
+	"github.com/hibiken/asynq"
+	asyncclient "github.com/metal-stack/api-server/pkg/async/client"
 	"github.com/metal-stack/api-server/pkg/db/metal"
 	"github.com/metal-stack/api-server/pkg/db/queries"
-	"github.com/metal-stack/api-server/pkg/db/tx"
 	"github.com/metal-stack/api-server/pkg/db/validate"
 	"github.com/metal-stack/api-server/pkg/errorutil"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -232,10 +234,13 @@ func (r *ipRepository) Delete(ctx context.Context, ip *metal.IP) (*metal.IP, err
 	if err != nil {
 		return nil, err
 	}
-	err = r.r.tasks.Insert(ctx, &tx.Task{Steps: []tx.Step{{ID: ip.AllocationUUID, Action: tx.ActionIpDelete}}})
+
+	info, err := r.r.async.NewIPDeleteTask(ip.AllocationUUID, ip.IPAddress, ip.ProjectID)
 	if err != nil {
 		return nil, err
 	}
+	r.r.log.Info("ip delete queued", "info", info)
+
 	return ip, nil
 }
 
@@ -341,13 +346,38 @@ func (r *ipRepository) ConvertToProto(metalIP *metal.IP) (*apiv2.IP, error) {
 	return ip, nil
 }
 
-func (r *Store) IpDeleteAction(ctx context.Context, job tx.Step) error {
-	metalIP, err := r.ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Uuid: &job.ID}))
+//---------------------------------------------------------------
+// Write a function HandleXXXTask to handle the input task.
+// Note that it satisfies the asynq.HandlerFunc interface.
+//
+// Handler doesn't need to be a function. You can define a type
+// that satisfies asynq.Handler interface. See examples below.
+//---------------------------------------------------------------
+
+type IPProcessor struct {
+	R *Store
+}
+
+func (ip *IPProcessor) ProcessTask(ctx context.Context, t *asynq.Task) error {
+
+	// use p.r.IPDeleteAction here
+	return nil
+}
+
+func (r *Store) IpDeleteAction(ctx context.Context, t *asynq.Task) error {
+
+	var payload asyncclient.IPDeletePayload
+	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+		return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)
+	}
+	r.log.Info("delete ip", "uuid", payload.AllocationUUID, "ip", payload.IP)
+
+	metalIP, err := r.ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Uuid: &payload.AllocationUUID}))
 	if err != nil && !errorutil.IsNotFound(err) {
 		return err
 	}
 	if metalIP == nil {
-		r.log.Info("ds find, metalip is nil", "job", job)
+		r.log.Info("ds find, metalip is nil", "task", t)
 		return nil
 	}
 	r.log.Info("ds find", "metalip", metalIP)

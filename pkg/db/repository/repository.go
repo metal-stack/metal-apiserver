@@ -2,12 +2,12 @@ package repository
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 
+	asyncclient "github.com/metal-stack/api-server/pkg/async/client"
 	"github.com/metal-stack/api-server/pkg/db/generic"
 	"github.com/metal-stack/api-server/pkg/db/metal"
-	"github.com/metal-stack/api-server/pkg/db/tx"
+
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
@@ -48,7 +48,7 @@ type (
 		ds    *generic.Datastore
 		mdc   mdm.Client
 		ipam  ipamv1connect.IpamServiceClient
-		tasks *tx.Tasks
+		async *asyncclient.Client
 	}
 
 	ProjectScope struct {
@@ -77,20 +77,12 @@ type (
 func New(log *slog.Logger, mdc mdm.Client, ds *generic.Datastore, ipam ipamv1connect.IpamServiceClient, redis *redis.Client) (*Store, error) {
 
 	r := &Store{
-		log:  log,
-		mdc:  mdc,
-		ipam: ipam,
-		ds:   ds,
+		log:   log,
+		mdc:   mdc,
+		ipam:  ipam,
+		ds:    ds,
+		async: asyncclient.New(log, redis),
 	}
-
-	actionFn := r.getActionFn()
-
-	tasks, err := tx.New(log, redis, actionFn)
-	if err != nil {
-		return nil, err
-	}
-
-	r.tasks = tasks
 
 	return r, nil
 }
@@ -136,24 +128,5 @@ func (r *Store) Project(project *string) Project {
 func (r *Store) FilesystemLayout() FilesystemLayout {
 	return &filesystemLayoutRepository{
 		r: r,
-	}
-}
-
-func (r *Store) getActionFn() tx.ActionFn {
-	return func(ctx context.Context, job tx.Step) error {
-		if job.ID == "" {
-			return fmt.Errorf("job id must not be empty")
-		}
-		if job.Action == "" {
-			return fmt.Errorf("job action must not be empty")
-		}
-		switch job.Action {
-		case tx.ActionIpDelete:
-			return r.IpDeleteAction(ctx, job)
-		case tx.ActionNetworkDelete:
-			return fmt.Errorf("action:%s is not implemented yet", job.Action)
-		default:
-			return fmt.Errorf("action:%s is not implemented yet", job.Action)
-		}
 	}
 }
