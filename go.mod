@@ -23,7 +23,7 @@ require (
 	github.com/metal-stack/metal-lib v0.20.2
 	github.com/metal-stack/security v0.9.3
 	github.com/metal-stack/v v1.0.3
-	github.com/open-policy-agent/opa v1.1.0
+	github.com/open-policy-agent/opa v1.2.0
 	github.com/prometheus/client_golang v1.21.0
 	github.com/redis/go-redis/v9 v9.7.1
 	github.com/rs/cors v1.11.1
@@ -47,7 +47,6 @@ require (
 	dario.cat/mergo v1.0.1 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
-	github.com/OneOfOne/xxhash v1.2.8 // indirect
 	github.com/agnivade/levenshtein v1.2.1 // indirect
 	github.com/alicebob/gopher-json v0.0.0-20230218143504-906a9b012302 // indirect
 	github.com/andybalholm/brotli v1.1.1 // indirect
