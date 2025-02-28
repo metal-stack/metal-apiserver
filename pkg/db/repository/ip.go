@@ -368,7 +368,7 @@ func (r *Store) IpDeleteAction(ctx context.Context, t *asynq.Task) error {
 
 	var payload asyncclient.IPDeletePayload
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
-		return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)
+		return fmt.Errorf("json.Unmarshal failed: %w %w", err, asynq.SkipRetry)
 	}
 	r.log.Info("delete ip", "uuid", payload.AllocationUUID, "ip", payload.IP)
 

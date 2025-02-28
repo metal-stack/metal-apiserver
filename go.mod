@@ -20,7 +20,7 @@ require (
 	github.com/metal-stack/api v0.0.0-20250222142443-0bdb570a46db
 	github.com/metal-stack/go-ipam v1.14.9
 	github.com/metal-stack/masterdata-api v0.11.5
-	github.com/metal-stack/metal-lib v0.20.1
+	github.com/metal-stack/metal-lib v0.20.2
 	github.com/metal-stack/security v0.9.3
 	github.com/metal-stack/v v1.0.3
 	github.com/open-policy-agent/opa v1.1.0

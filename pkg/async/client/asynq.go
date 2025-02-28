@@ -28,21 +28,27 @@ type (
 	Client struct {
 		client *asynq.Client
 		log    *slog.Logger
+		opts   []asynq.Option
 	}
 )
 
 func New(log *slog.Logger, redis *redis.Client) *Client {
 	client := asynq.NewClientFromRedisClient(redis)
 
+	opts := []asynq.Option{
+		asynq.MaxRetry(5),
+		asynq.Timeout(20 * time.Minute),
+	}
 	return &Client{
 		log:    log,
 		client: client,
+		opts:   opts,
 	}
 }
 
-func (a *Client) Enqueue(task *asynq.Task) (*asynq.TaskInfo, error) {
-	a.log.Debug("enqueue", "task", task.Type())
-	return a.client.Enqueue(task)
+func (c *Client) enqueue(task *asynq.Task) (*asynq.TaskInfo, error) {
+	c.log.Debug("enqueue", "task", task.Type())
+	return c.client.Enqueue(task)
 }
 
 //----------------------------------------------
@@ -50,28 +56,28 @@ func (a *Client) Enqueue(task *asynq.Task) (*asynq.TaskInfo, error) {
 // A task consists of a type and a payload.
 //----------------------------------------------
 
-func (a *Client) NewIPDeleteTask(allocationUUID, ip, project string) (*asynq.TaskInfo, error) {
+func (c *Client) NewIPDeleteTask(allocationUUID, ip, project string) (*asynq.TaskInfo, error) {
 	payload, err := json.Marshal(IPDeletePayload{AllocationUUID: allocationUUID, IP: ip, Project: project})
 	if err != nil {
 		return nil, err
 	}
 	// TODO configurable retry and timeout
-	task, err := asynq.NewTask(TypeIpDelete, payload, asynq.MaxRetry(5), asynq.Timeout(20*time.Minute)), nil
+	task, err := asynq.NewTask(TypeIpDelete, payload, c.opts...), nil
 	if err != nil {
 		return nil, err
 	}
-	return a.Enqueue(task)
+	return c.enqueue(task)
 }
 
-func (a *Client) NewNetworkDeleteTask(uuid string) (*asynq.TaskInfo, error) {
+func (c *Client) NewNetworkDeleteTask(uuid string) (*asynq.TaskInfo, error) {
 	payload, err := json.Marshal(NetworkDeletePayload{UUID: uuid})
 	if err != nil {
 		return nil, err
 	}
 	// TODO configurable retry and timeout
-	task, err := asynq.NewTask(TypeIpDelete, payload, asynq.MaxRetry(5), asynq.Timeout(20*time.Minute)), nil
+	task, err := asynq.NewTask(TypeIpDelete, payload, c.opts...), nil
 	if err != nil {
 		return nil, err
 	}
-	return a.Enqueue(task)
+	return c.enqueue(task)
 }

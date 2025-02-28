@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func TestIsNotFound(t *testing.T) {
+func TestNotFoundInternal(t *testing.T) {
 	tests := []struct {
 		name string
 		err  error
@@ -73,7 +73,7 @@ func TestNotFound(t *testing.T) {
 	}
 }
 
-func _TestIsNotFound(t *testing.T) {
+func TestIsNotFound(t *testing.T) {
 	tests := []struct {
 		name string
 		err  error
