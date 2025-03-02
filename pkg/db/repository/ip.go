@@ -139,12 +139,12 @@ func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServic
 	)
 
 	if req.Ip == nil {
-		ipAddress, ipParentCidr, err = r.AllocateRandomIP(ctx, nw, af)
+		ipAddress, ipParentCidr, err = r.allocateRandomIP(ctx, nw, af)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		ipAddress, ipParentCidr, err = r.AllocateSpecificIP(ctx, nw, *req.Ip)
+		ipAddress, ipParentCidr, err = r.allocateSpecificIP(ctx, nw, *req.Ip)
 		if err != nil {
 			return nil, err
 		}
@@ -262,7 +262,7 @@ func (r *ipRepository) List(ctx context.Context, rq *apiv2.IPQuery) ([]*metal.IP
 	return ip, nil
 }
 
-func (r *ipRepository) AllocateSpecificIP(ctx context.Context, parent *metal.Network, specificIP string) (ipAddress, parentPrefixCidr string, err error) {
+func (r *ipRepository) allocateSpecificIP(ctx context.Context, parent *metal.Network, specificIP string) (ipAddress, parentPrefixCidr string, err error) {
 	parsedIP, err := netip.ParseAddr(specificIP)
 	if err != nil {
 		return "", "", fmt.Errorf("unable to parse specific ip: %w", err)
@@ -294,7 +294,7 @@ func (r *ipRepository) AllocateSpecificIP(ctx context.Context, parent *metal.Net
 	return "", "", errorutil.InvalidArgument("specific ip %s not contained in any of the defined prefixes", specificIP)
 }
 
-func (r *ipRepository) AllocateRandomIP(ctx context.Context, parent *metal.Network, af *metal.AddressFamily) (ipAddress, parentPrefixCidr string, err error) {
+func (r *ipRepository) allocateRandomIP(ctx context.Context, parent *metal.Network, af *metal.AddressFamily) (ipAddress, parentPrefixCidr string, err error) {
 	addressfamily := metal.IPv4AddressFamily
 	if af != nil {
 		addressfamily = *af
@@ -354,17 +354,7 @@ func (r *ipRepository) ConvertToProto(metalIP *metal.IP) (*apiv2.IP, error) {
 // that satisfies asynq.Handler interface. See examples below.
 //---------------------------------------------------------------
 
-type IPProcessor struct {
-	R *Store
-}
-
-func (ip *IPProcessor) ProcessTask(ctx context.Context, t *asynq.Task) error {
-
-	// use p.r.IPDeleteAction here
-	return nil
-}
-
-func (r *Store) IpDeleteAction(ctx context.Context, t *asynq.Task) error {
+func (r *Store) IpDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
 
 	var payload asyncclient.IPDeletePayload
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {

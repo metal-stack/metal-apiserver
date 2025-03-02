@@ -6,7 +6,7 @@ require (
 	connectrpc.com/connect v1.18.1
 	connectrpc.com/grpchealth v1.3.0
 	connectrpc.com/grpcreflect v1.3.0
-	connectrpc.com/otelconnect v0.7.1
+	connectrpc.com/otelconnect v0.7.2
 	connectrpc.com/validate v0.2.0
 	github.com/alicebob/miniredis/v2 v2.34.0
 	github.com/avast/retry-go/v4 v4.6.1
@@ -172,13 +172,13 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba // indirect
 	golang.org/x/crypto v0.35.0 // indirect
-	golang.org/x/exp v0.0.0-20250218142911-aa4b98e5adaa // indirect
+	golang.org/x/exp v0.0.0-20250228200357-dead58393ab7 // indirect
 	golang.org/x/oauth2 v0.27.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
 	golang.org/x/time v0.10.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20250224174004-546df14abb99 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250224174004-546df14abb99 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20250227231956-55c901821b1e // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250227231956-55c901821b1e // indirect
 	gopkg.in/cenkalti/backoff.v2 v2.2.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

@@ -28,7 +28,7 @@ func New(log *slog.Logger, store *repository.Store, redis *redis.Client) (*asynq
 	// mux maps a type to a handler
 
 	mux := asynq.NewServeMux()
-	mux.HandleFunc(asyncclient.TypeIpDelete, store.IpDeleteAction)
+	mux.HandleFunc(asyncclient.TypeIpDelete, store.IpDeleteHandleFn)
 	// ...register other handlers...
 	return srv, mux
 }
