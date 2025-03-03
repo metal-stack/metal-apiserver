@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"slices"
 	"time"
 
 	"connectrpc.com/connect"
@@ -75,7 +74,7 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 			}
 		)
 
-		if getPublicScope(req) {
+		if permissions.IsPublicScope(req) {
 			i.log.Debug("tenant interceptor", "request-scope", "public")
 
 			if tokenInCtx {
@@ -96,7 +95,7 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 			return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("token must be present when requesting non-public scope method"))
 		}
 
-		if getSelfScope(req) {
+		if permissions.IsSelfScope(req) {
 			i.log.Debug("tenant interceptor", "request-scope", "self")
 
 			err := setUserFieldsByTenantLookup(tok.UserId)
@@ -107,7 +106,7 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 			return next(ctx, req)
 		}
 
-		if getAdminScope(req) {
+		if permissions.IsAdminScope(req) {
 			i.log.Debug("tenant interceptor", "request-scope", "admin")
 
 			err := setUserFieldsByTenantLookup(tok.UserId)
@@ -120,7 +119,7 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 			return next(ctx, req)
 		}
 
-		if tenantID, ok := getTenantScope(req); ok {
+		if tenantID, ok := permissions.GetTenantFromRequest(req); ok {
 			i.log.Debug("tenant interceptor", "request-scope", "tenant", "id", tenantID)
 
 			err := setUserFieldsByTenantLookup(tenantID)
@@ -131,7 +130,7 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 			return next(ctx, req)
 		}
 
-		if projectID, ok := getProjectScope(req); ok {
+		if projectID, ok := permissions.GetProjectFromRequest(req); ok {
 			i.log.Debug("tenant interceptor", "request-scope", "project", "id", projectID)
 
 			project, err := i.projectCache.Get(ctx, projectID)
@@ -165,64 +164,4 @@ func (i *tenantInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFu
 	return connect.StreamingHandlerFunc(func(ctx context.Context, conn connect.StreamingHandlerConn) error {
 		return next(ctx, conn)
 	})
-}
-
-func getPublicScope(req connect.AnyRequest) bool {
-	servicePermissions := permissions.GetServicePermissions()
-
-	_, ok := servicePermissions.Visibility.Public[req.Spec().Procedure]
-	return ok
-}
-
-func getSelfScope(req connect.AnyRequest) bool {
-	servicePermissions := permissions.GetServicePermissions()
-
-	_, ok := servicePermissions.Visibility.Self[req.Spec().Procedure]
-	return ok
-}
-
-func getAdminScope(req connect.AnyRequest) bool {
-	servicePermissions := permissions.GetServicePermissions()
-
-	for _, proc := range servicePermissions.Roles.Admin {
-		if slices.Contains(proc, req.Spec().Procedure) {
-			return true
-		}
-	}
-
-	return false
-}
-
-func getProjectScope(req connect.AnyRequest) (string, bool) {
-	servicePermissions := permissions.GetServicePermissions()
-
-	for _, proc := range servicePermissions.Roles.Project {
-		if !slices.Contains(proc, req.Spec().Procedure) {
-			continue
-		}
-
-		switch rq := req.Any().(type) {
-		case interface{ GetProject() string }:
-			return rq.GetProject(), true
-		}
-	}
-
-	return "", false
-}
-
-func getTenantScope(req connect.AnyRequest) (string, bool) {
-	servicePermissions := permissions.GetServicePermissions()
-
-	for _, proc := range servicePermissions.Roles.Tenant {
-		if !slices.Contains(proc, req.Spec().Procedure) {
-			continue
-		}
-
-		switch rq := req.Any().(type) {
-		case interface{ GetLogin() string }:
-			return rq.GetLogin(), true
-		}
-	}
-
-	return "", false
 }

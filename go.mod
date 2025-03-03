@@ -16,7 +16,7 @@ require (
 	github.com/hibiken/asynq v0.25.1
 	github.com/klauspost/connect-compress/v2 v2.0.0
 	github.com/lestrrat-go/jwx/v2 v2.1.4
-	github.com/metal-stack/api v0.0.0-20250222142443-0bdb570a46db
+	github.com/metal-stack/api v0.0.0-20250303092723-abbd3384aeb3
 	github.com/metal-stack/go-ipam v1.14.9
 	github.com/metal-stack/masterdata-api v0.11.5
 	github.com/metal-stack/metal-lib v0.20.2
