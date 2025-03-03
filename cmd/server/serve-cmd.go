@@ -309,7 +309,7 @@ func ensureProviderTenant(ctx context.Context, c *config, providerTenantID strin
 					},
 				},
 				Name:        providerTenantID,
-				Description: "initial provider tenant for metal-stack-cloud",
+				Description: "initial provider tenant for metal-stack",
 			},
 		})
 		if err != nil {
