@@ -163,7 +163,7 @@ func (p *projectServiceServer) List(ctx context.Context, rq *connect.Request[api
 		result []*apiv1.Project
 	)
 
-	projectsAndTenants, err := putil.GetProjectsAndTenants(ctx, p.masterClient, token.UserId)
+	projectsAndTenants, err := putil.GetProjectsAndTenants(ctx, p.masterClient, token.UserId, putil.DefaultProjectRequired)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("error retrieving projects from backend: %w", err))
 	}

@@ -164,6 +164,11 @@ var (
 		Value: "http://ipam:9090",
 		Usage: "the ipam grpc server endpoint",
 	}
+	ensureProviderTenantFlag = &cli.StringFlag{
+		Name:  "ensure-provider-tenant",
+		Value: "metal-stack",
+		Usage: "ensures a provider tenant on startup (used for bootstrapping and technical tokens). can be disabled by setting to empty string.",
+	}
 )
 
 func main() {

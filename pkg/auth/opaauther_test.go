@@ -14,7 +14,7 @@ import (
 	"github.com/metal-stack/api-server/pkg/certs"
 	putil "github.com/metal-stack/api-server/pkg/project"
 	"github.com/metal-stack/api-server/pkg/token"
-	"github.com/metal-stack/api/go/metalstack/admin/v2"
+	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	v2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/metal-stack/metal-lib/pkg/testcommon"
@@ -71,7 +71,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 					Methods: []string{"/metalstack.api.v2.UnknownService/Get"},
 				},
 			},
-			wantErr: connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("method denied or unknown: /metalstack.api.v2.UnknownService/Get")),
+			wantErr: connect.NewError(connect.CodePermissionDenied, fmt.Errorf("method denied or unknown: /metalstack.api.v2.UnknownService/Get")),
 		},
 		// {
 		// 	name:    "cluster get not allowed, no token",
@@ -226,7 +226,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 					Methods: []string{"/metalstack.admin.v2.TenantService/List"},
 				},
 			},
-			wantErr: connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("not allowed to call: /metalstack.admin.v2.TenantService/List")),
+			wantErr: connect.NewError(connect.CodePermissionDenied, fmt.Errorf("not allowed to call: /metalstack.admin.v2.TenantService/List")),
 		},
 		{
 			name:        "admin api tenantlist is allowed",
@@ -243,7 +243,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			req:         adminv2.TenantServiceListRequest{},
 			permissions: []*v2.MethodPermission{},
 			adminRole:   pointer.Pointer(v2.AdminRole_ADMIN_ROLE_EDITOR),
-			wantErr:     connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("not allowed to call: /metalstack.admin.v2.TenantService/List")),
+			wantErr:     connect.NewError(connect.CodePermissionDenied, fmt.Errorf("not allowed to call: /metalstack.admin.v2.TenantService/List")),
 		},
 		{
 			name:        "admin editor accessed api/v1 methods tenant invite is allowed",
@@ -260,7 +260,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			req:         v2.TenantServiceInvitesListRequest{},
 			permissions: []*v2.MethodPermission{},
 			adminRole:   pointer.Pointer(v2.AdminRole_ADMIN_ROLE_VIEWER),
-			wantErr:     connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("not allowed to call: /metalstack.api.v2.TenantService/Invite")),
+			wantErr:     connect.NewError(connect.CodePermissionDenied, fmt.Errorf("not allowed to call: /metalstack.api.v2.TenantService/Invite")),
 		},
 		{
 			name:        "admin editor can access api/v1 self methods",
@@ -310,7 +310,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			projectRoles: map[string]v2.ProjectRole{
 				"project-a": v2.ProjectRole_PROJECT_ROLE_VIEWER,
 			},
-			wantErr: connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("not allowed to call: /metalstack.api.v2.IPService/Get")),
+			wantErr: connect.NewError(connect.CodePermissionDenied, fmt.Errorf("not allowed to call: /metalstack.api.v2.IPService/Get")),
 		},
 		{
 			name:        "ip create allowed for owner",
@@ -336,7 +336,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			projectRoles: map[string]v2.ProjectRole{
 				"project-a": v2.ProjectRole_PROJECT_ROLE_VIEWER,
 			},
-			wantErr: connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("not allowed to call: /metalstack.api.v2.IPService/Create")),
+			wantErr: connect.NewError(connect.CodePermissionDenied, fmt.Errorf("not allowed to call: /metalstack.api.v2.IPService/Create")),
 		},
 		{
 			name:    "version service allowed without token because it is public visibility",
@@ -406,7 +406,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			subject: "john.doe@github",
 			method:  "/metalstack.api.v2.ProjectService/List",
 			req:     v2.ProjectServiceListRequest{},
-			wantErr: connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("not allowed to call: /metalstack.api.v2.ProjectService/List")),
+			wantErr: connect.NewError(connect.CodePermissionDenied, fmt.Errorf("not allowed to call: /metalstack.api.v2.ProjectService/List")),
 		},
 		{
 			name:    "project get service has not visibility self",
@@ -419,7 +419,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 					Methods: []string{"/metalstack.api.v2.IPService/List"},
 				},
 			},
-			wantErr: connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("not allowed to call: /metalstack.api.v2.ProjectService/Get")),
+			wantErr: connect.NewError(connect.CodePermissionDenied, fmt.Errorf("not allowed to call: /metalstack.api.v2.ProjectService/Get")),
 		},
 		{
 			name:      "access project with console token",

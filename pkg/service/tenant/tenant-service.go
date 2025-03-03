@@ -64,7 +64,7 @@ func (u *tenantServiceServer) List(ctx context.Context, rq *connect.Request[apiv
 		result []*apiv2.Tenant
 	)
 
-	projectsAndTenants, err := putil.GetProjectsAndTenants(ctx, u.masterClient, token.UserId)
+	projectsAndTenants, err := putil.GetProjectsAndTenants(ctx, u.masterClient, token.UserId, putil.DefaultProjectNotRequired)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("error retrieving tenants from backend: %w", err))
 	}
