@@ -105,6 +105,13 @@ func GetProject(ctx context.Context, c mdc.Client, projectID string) (*mdcv1.Pro
 	return getResp.Project, nil
 }
 
+type DefaultProjectRequirement bool
+
+const (
+	DefaultProjectRequired    DefaultProjectRequirement = true
+	DefaultProjectNotRequired DefaultProjectRequirement = false
+)
+
 type ProjectsAndTenants struct {
 	Projects       []*apiv2.Project
 	DefaultProject *apiv2.Project
@@ -115,7 +122,7 @@ type ProjectsAndTenants struct {
 }
 
 // GetProjectsAndTenants returns all projects and tenants that the user is participating in
-func GetProjectsAndTenants(ctx context.Context, masterClient mdc.Client, userId string) (*ProjectsAndTenants, error) {
+func GetProjectsAndTenants(ctx context.Context, masterClient mdc.Client, userId string, defaultIsRequired DefaultProjectRequirement) (*ProjectsAndTenants, error) {
 	var (
 		projectRoles   = map[string]apiv2.ProjectRole{}
 		projects       []*apiv2.Project
@@ -196,14 +203,12 @@ func GetProjectsAndTenants(ctx context.Context, masterClient mdc.Client, userId 
 		tenantRoles[t.Meta.GetId()] = tenantRole
 	}
 
-	// FIXME needs to be discussed if required
-
-	// if defaultProject == nil {
-	// 	return nil, fmt.Errorf("unable to find a default project for user: %s", userId)
-	// }
-	// if defaultTenant == nil {
-	// 	return nil, fmt.Errorf("unable to find a default tenant for user: %s", userId)
-	// }
+	if defaultIsRequired && defaultProject == nil {
+		return nil, fmt.Errorf("unable to find a default project for user: %s", userId)
+	}
+	if defaultTenant == nil {
+		return nil, fmt.Errorf("unable to find a default tenant for user: %s", userId)
+	}
 
 	return &ProjectsAndTenants{
 		Tenants:        tenants,

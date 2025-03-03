@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -14,11 +15,18 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	"github.com/avast/retry-go/v4"
 	compress "github.com/klauspost/connect-compress/v2"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/metal-stack/api-server/pkg/test"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	mdm "github.com/metal-stack/masterdata-api/pkg/client"
+
+	putil "github.com/metal-stack/api-server/pkg/project"
+	tutil "github.com/metal-stack/api-server/pkg/tenant"
+	mdmv1 "github.com/metal-stack/masterdata-api/api/v1"
+
 	"github.com/metal-stack/metal-lib/auditing"
 	"github.com/metal-stack/v"
 	"github.com/redis/go-redis/v9"
@@ -59,6 +67,7 @@ var serveCmd = &cli.Command{
 		maxRequestsPerMinuteFlag,
 		maxRequestsPerMinuteUnauthenticatedFlag,
 		ipamGrpcEndpointFlag,
+		ensureProviderTenantFlag,
 	},
 	Action: func(ctx *cli.Context) error {
 		log, level, err := createLoggers(ctx)
@@ -102,6 +111,22 @@ var serveCmd = &cli.Command{
 			RethinkDB:                           ctx.String(rethinkdbDBNameFlag.Name),
 			RethinkDBSession:                    rethinkDBSession,
 			Ipam:                                ipam,
+		}
+
+		if providerTenant := ctx.String(ensureProviderTenantFlag.Name); providerTenant != "" {
+			err := ensureProviderTenant(ctx.Context, &c, providerTenant)
+			if err != nil {
+				return err
+			}
+
+			err = ensureProviderProject(ctx.Context, &c, providerTenant)
+			if err != nil {
+				return err
+			}
+
+			log.Info("ensured provider tenant", "id", providerTenant)
+
+			c.Admins = append(c.Admins, providerTenant)
 		}
 
 		log.Info("running api-server", "version", v.V, "level", level, "http endpoint", c.HttpServerEndpoint)
@@ -264,4 +289,115 @@ func createIpamClient(cli *cli.Context, log *slog.Logger) (ipamv1connect.IpamSer
 
 	log.Info("ipam initialized")
 	return ipamService, nil
+}
+
+func ensureProviderTenant(ctx context.Context, c *config, providerTenantID string) error {
+	_, err := c.MasterClient.Tenant().Get(ctx, &mdmv1.TenantGetRequest{
+		Id: providerTenantID,
+	})
+	if err != nil && !mdmv1.IsNotFound(err) {
+		return fmt.Errorf("unable to get tenant %q: %w", providerTenantID, err)
+	}
+
+	if err != nil && mdmv1.IsNotFound(err) {
+		_, err := c.MasterClient.Tenant().Create(ctx, &mdmv1.TenantCreateRequest{
+			Tenant: &mdmv1.Tenant{
+				Meta: &mdmv1.Meta{
+					Id: providerTenantID,
+					Annotations: map[string]string{
+						tutil.TagCreator: providerTenantID,
+					},
+				},
+				Name:        providerTenantID,
+				Description: "initial provider tenant for metal-stack-cloud",
+			},
+		})
+		if err != nil {
+			return fmt.Errorf("unable to create tenant:%s %w", providerTenantID, err)
+		}
+	}
+
+	_, err = tutil.GetTenantMember(ctx, c.MasterClient, providerTenantID, providerTenantID)
+	if err == nil {
+		return nil
+	}
+
+	if connect.CodeOf(err) != connect.CodeNotFound {
+		return err
+	}
+
+	_, err = c.MasterClient.TenantMember().Create(ctx, &mdmv1.TenantMemberCreateRequest{
+		TenantMember: &mdmv1.TenantMember{
+			Meta: &mdmv1.Meta{
+				Annotations: map[string]string{
+					tutil.TenantRoleAnnotation: apiv2.TenantRole_TENANT_ROLE_OWNER.String(),
+				},
+			},
+			TenantId: providerTenantID,
+			MemberId: providerTenantID,
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func ensureProviderProject(ctx context.Context, c *config, providerTenantID string) error {
+	ensureMembership := func(projectId string) error {
+		_, _, err := putil.GetProjectMember(ctx, c.MasterClient, projectId, providerTenantID)
+		if err == nil {
+			return nil
+		}
+		if connect.CodeOf(err) != connect.CodeNotFound {
+			return err
+		}
+
+		_, err = c.MasterClient.ProjectMember().Create(ctx, &mdmv1.ProjectMemberCreateRequest{
+			ProjectMember: &mdmv1.ProjectMember{
+				Meta: &mdmv1.Meta{
+					Annotations: map[string]string{
+						putil.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_OWNER.String(),
+					},
+				},
+				ProjectId: projectId,
+				TenantId:  providerTenantID,
+			},
+		})
+
+		return err
+	}
+
+	resp, err := c.MasterClient.Project().Find(ctx, &mdmv1.ProjectFindRequest{
+		TenantId: wrapperspb.String(providerTenantID),
+		Annotations: map[string]string{
+			putil.DefaultProjectAnnotation: strconv.FormatBool(true),
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("unable to get find project %q: %w", providerTenantID, err)
+	}
+
+	if len(resp.Projects) > 0 {
+		return ensureMembership(resp.Projects[0].Meta.Id)
+	}
+
+	project, err := c.MasterClient.Project().Create(ctx, &mdmv1.ProjectCreateRequest{
+		Project: &mdmv1.Project{
+			Meta: &mdmv1.Meta{
+				Annotations: map[string]string{
+					putil.DefaultProjectAnnotation: strconv.FormatBool(true),
+				},
+			},
+			Name:        "Default Project",
+			TenantId:    providerTenantID,
+			Description: "Default project of " + providerTenantID,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("unable to create project: %w", err)
+	}
+
+	return ensureMembership(project.Project.Meta.Id)
 }

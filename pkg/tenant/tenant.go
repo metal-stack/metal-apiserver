@@ -10,15 +10,6 @@ import (
 	mdc "github.com/metal-stack/masterdata-api/pkg/client"
 )
 
-type (
-	projectAndTenant struct {
-		p *mdcv1.Project
-		t *mdcv1.Tenant
-	}
-
-	projectAndTenantKey struct{}
-)
-
 const (
 	// TODO: maybe should move to metal-lib?
 	TagEmail       = "metal-stack.io/email"
@@ -82,24 +73,6 @@ func ConvertFromTenant(t *mdcv1.Tenant) *apiv1.Tenant {
 	}
 
 	return tenant
-}
-
-// ContextWithProjectAndTenant stores project and tenant in the context
-// this should be called early in a request interceptor.
-func ContextWithProjectAndTenant(ctx context.Context, project *mdcv1.Project, tenant *mdcv1.Tenant) context.Context {
-	return context.WithValue(ctx, projectAndTenantKey{}, projectAndTenant{p: project, t: tenant})
-}
-
-// ProjectAndTenantFromContext retrieves project and tenant and ok from the context
-// if previously stored by calling ContextWithProjectAndTenant.
-func ProjectAndTenantFromContext(ctx context.Context) (project *mdcv1.Project, tenant *mdcv1.Tenant, ok bool) {
-	value := ctx.Value(projectAndTenantKey{})
-
-	projectAndTenant, ok := value.(projectAndTenant)
-	if ok {
-		return projectAndTenant.p, projectAndTenant.t, true
-	}
-	return nil, nil, ok
 }
 
 func GetTenantMember(ctx context.Context, c mdc.Client, tenantID, memberID string) (*mdcv1.TenantMember, error) {

@@ -11,7 +11,7 @@ import (
 	putil "github.com/metal-stack/api-server/pkg/project"
 
 	"github.com/metal-stack/api-server/pkg/token"
-	"github.com/metal-stack/api/go/metalstack/api/v2"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 )
 
@@ -41,7 +41,7 @@ func (u *userServiceServer) Get(ctx context.Context, _ *connect.Request[apiv2.Us
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
 	}
 
-	projectsAndTenants, err := putil.GetProjectsAndTenants(ctx, u.masterClient, t.UserId)
+	projectsAndTenants, err := putil.GetProjectsAndTenants(ctx, u.masterClient, t.UserId, putil.DefaultProjectRequired)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

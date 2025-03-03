@@ -17,6 +17,11 @@ import (
 )
 
 var (
+	tokenSubjectFlag = &cli.StringFlag{
+		Name:  "subject",
+		Value: "metal-stack",
+		Usage: "requested subject for the token (should be present in the database)",
+	}
 	tokenDescriptionFlag = &cli.StringFlag{
 		Name:  "description",
 		Value: "",
@@ -56,6 +61,7 @@ var tokenCmd = &cli.Command{
 		logLevelFlag,
 		redisAddrFlag,
 		redisPasswordFlag,
+		tokenSubjectFlag,
 		tokenDescriptionFlag,
 		tokenPermissionsFlag,
 		tokenProjectRolesFlag,
@@ -139,8 +145,12 @@ var tokenCmd = &cli.Command{
 
 			adminRole = pointer.Pointer(apiv2.AdminRole(role))
 		}
+		subject := ctx.String(tokenSubjectFlag.Name)
+		if subject == "" {
+			return fmt.Errorf("token subject cannot be empty")
+		}
 
-		resp, err := tokenService.CreateApiTokenWithoutPermissionCheck(context.Background(), connect.NewRequest(&apiv2.TokenServiceCreateRequest{
+		resp, err := tokenService.CreateApiTokenWithoutPermissionCheck(context.Background(), subject, connect.NewRequest(&apiv2.TokenServiceCreateRequest{
 			Description:  ctx.String(tokenDescriptionFlag.Name),
 			Expires:      durationpb.New(ctx.Duration(tokenExpirationFlag.Name)),
 			ProjectRoles: projectRoles,

@@ -47,7 +47,7 @@ type tokenService struct {
 type TokenService interface {
 	apiv2connect.TokenServiceHandler
 	CreateConsoleTokenWithoutPermissionCheck(ctx context.Context, subject string, expiration *time.Duration) (*connect.Response[apiv2.TokenServiceCreateResponse], error)
-	CreateApiTokenWithoutPermissionCheck(ctx context.Context, rq *connect.Request[apiv2.TokenServiceCreateRequest]) (*connect.Response[apiv2.TokenServiceCreateResponse], error)
+	CreateApiTokenWithoutPermissionCheck(ctx context.Context, subject string, rq *connect.Request[apiv2.TokenServiceCreateRequest]) (*connect.Response[apiv2.TokenServiceCreateResponse], error)
 }
 
 func New(c Config) TokenService {
@@ -62,7 +62,7 @@ func New(c Config) TokenService {
 		adminSubjects:      c.AdminSubjects,
 
 		projectsAndTenantsGetter: func(ctx context.Context, userId string) (*putil.ProjectsAndTenants, error) {
-			return putil.GetProjectsAndTenants(ctx, c.MasterClient, userId)
+			return putil.GetProjectsAndTenants(ctx, c.MasterClient, userId, putil.DefaultProjectNotRequired)
 		},
 	}
 }
@@ -98,7 +98,7 @@ func (t *tokenService) CreateConsoleTokenWithoutPermissionCheck(ctx context.Cont
 
 // CreateApiTokenWithoutPermissionCheck is only called from the api-server command line interface
 // No validation against requested roles and permissions is required and implemented here
-func (t *tokenService) CreateApiTokenWithoutPermissionCheck(ctx context.Context, rq *connect.Request[apiv2.TokenServiceCreateRequest]) (*connect.Response[apiv2.TokenServiceCreateResponse], error) {
+func (t *tokenService) CreateApiTokenWithoutPermissionCheck(ctx context.Context, subject string, rq *connect.Request[apiv2.TokenServiceCreateRequest]) (*connect.Response[apiv2.TokenServiceCreateResponse], error) {
 	t.log.Debug("create", "token", rq)
 	req := rq.Msg
 
@@ -112,7 +112,7 @@ func (t *tokenService) CreateApiTokenWithoutPermissionCheck(ctx context.Context,
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	secret, token, err := tokenutil.NewJWT(apiv2.TokenType_TOKEN_TYPE_API, "metal-stack-ops@github", t.issuer, expires, privateKey)
+	secret, token, err := tokenutil.NewJWT(apiv2.TokenType_TOKEN_TYPE_API, subject, t.issuer, expires, privateKey)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

@@ -127,7 +127,7 @@ func New(c Config) (*opa, error) {
 		servicePermissions:  servicePermissions,
 		adminSubjects:       c.AdminSubjects,
 		projectsAndTenantsGetter: func(ctx context.Context, userId string) (*putil.ProjectsAndTenants, error) {
-			return putil.GetProjectsAndTenants(ctx, c.MasterClient, userId)
+			return putil.GetProjectsAndTenants(ctx, c.MasterClient, userId, putil.DefaultProjectNotRequired)
 		},
 	}, nil
 }
@@ -310,15 +310,15 @@ func (o *opa) decide(ctx context.Context, methodName string, jwtTokenfunc func(s
 
 			decision, err := o.authorize(ctx, newOpaAuthorizationRequest(methodName, req, t, permissions, projectRoles, tenantRoles, adminRole))
 			if err != nil {
-				return nil, connect.NewError(connect.CodeUnauthenticated, err)
+				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 
 			if !decision.Allow {
 				if decision.Reason != "" {
-					return nil, connect.NewError(connect.CodeUnauthenticated, errors.New(decision.Reason))
+					return nil, connect.NewError(connect.CodePermissionDenied, errors.New(decision.Reason))
 				}
 
-				return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("not allowed to call: %s", methodName))
+				return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("not allowed to call: %s", methodName))
 			}
 		}
 
@@ -350,7 +350,7 @@ func (o *opa) decide(ctx context.Context, methodName string, jwtTokenfunc func(s
 
 	decision, err := o.authorize(ctx, newOpaAuthorizationRequest(methodName, req, t, permissions, projectRoles, tenantRoles, adminRole))
 	if err != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, err)
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	if decision.Allow {
@@ -358,10 +358,10 @@ func (o *opa) decide(ctx context.Context, methodName string, jwtTokenfunc func(s
 	}
 
 	if decision.Reason != "" {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New(decision.Reason))
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New(decision.Reason))
 	}
 
-	return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("not allowed to call: %s", methodName))
+	return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("not allowed to call: %s", methodName))
 }
 
 func (o *opa) authenticate(ctx context.Context, input map[string]any) (authenticationDecision, error) {
