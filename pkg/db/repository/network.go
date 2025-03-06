@@ -30,6 +30,13 @@ func (r *networkRepository) ValidateUpdate(ctx context.Context, req *apiv2.Netwo
 		message: req,
 	}, nil
 }
+
+func (r *networkRepository) ValidateDelete(ctx context.Context, req *metal.Network) (*Validated[*metal.Network], error) {
+	return &Validated[*metal.Network]{
+		message: req,
+	}, nil
+}
+
 func (r *networkRepository) Get(ctx context.Context, id string) (*metal.Network, error) {
 	nw, err := r.r.ds.Network().Get(ctx, id)
 	if err != nil {
@@ -57,8 +64,8 @@ func (r *networkRepository) MatchScope(nw *metal.Network) error {
 	return errorutil.NotFound("nw:%s for project:%s not found", nw.ID, nw.ProjectID)
 }
 
-func (r *networkRepository) Delete(ctx context.Context, n *metal.Network) (*metal.Network, error) {
-	nw, err := r.Get(ctx, n.ID)
+func (r *networkRepository) Delete(ctx context.Context, n *Validated[*metal.Network]) (*metal.Network, error) {
+	nw, err := r.Get(ctx, n.message.ID)
 	if err != nil {
 		return nil, err
 	}

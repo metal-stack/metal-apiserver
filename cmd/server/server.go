@@ -17,8 +17,10 @@ import (
 	"connectrpc.com/grpcreflect"
 	"connectrpc.com/otelconnect"
 	"connectrpc.com/validate"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -39,6 +41,8 @@ import (
 	ratelimiter "github.com/metal-stack/api-server/pkg/rate-limiter"
 	"github.com/metal-stack/api-server/pkg/service/filesystem"
 	"github.com/metal-stack/api-server/pkg/service/health"
+	"github.com/metal-stack/api-server/pkg/service/image"
+	imageadmin "github.com/metal-stack/api-server/pkg/service/image/admin"
 	"github.com/metal-stack/api-server/pkg/service/ip"
 	ipadmin "github.com/metal-stack/api-server/pkg/service/ip/admin"
 	"github.com/metal-stack/api-server/pkg/service/method"
@@ -193,6 +197,7 @@ func (s *server) Run() error {
 
 	ipService := ip.New(ip.Config{Log: s.log, Repo: repo})
 	filesystemService := filesystem.New(filesystem.Config{Log: s.log, Repo: repo})
+	imageService := image.New(image.Config{Log: s.log, Repo: repo})
 	tokenService := token.New(token.Config{
 		Log:           s.log,
 		CertStore:     certStore,
@@ -213,6 +218,7 @@ func (s *server) Run() error {
 	mux.Handle(apiv2connect.NewTenantServiceHandler(tenantService, interceptors))
 	mux.Handle(apiv2connect.NewProjectServiceHandler(projectService, interceptors))
 	mux.Handle(apiv2connect.NewFilesystemServiceHandler(filesystemService, interceptors))
+	mux.Handle(apiv2connect.NewImageServiceHandler(imageService, interceptors))
 	mux.Handle(apiv2connect.NewIPServiceHandler(ipService, interceptors))
 	mux.Handle(apiv2connect.NewMethodServiceHandler(methodService, interceptors))
 	mux.Handle(apiv2connect.NewVersionServiceHandler(versionService, interceptors))
@@ -220,7 +226,9 @@ func (s *server) Run() error {
 
 	// Admin services
 	adminIpService := ipadmin.New(ipadmin.Config{Log: s.log, Repo: repo})
+	adminImageService := imageadmin.New(imageadmin.Config{Log: s.log, Repo: repo})
 	mux.Handle(adminv2connect.NewIPServiceHandler(adminIpService, adminInterceptors))
+	mux.Handle(adminv2connect.NewImageServiceHandler(adminImageService, adminInterceptors))
 	mux.Handle(adminv2connect.NewTenantServiceHandler(adminTenantService, adminInterceptors))
 
 	allServiceNames := permissions.GetServices()
@@ -279,6 +287,22 @@ func (s *server) Run() error {
 			return
 		}
 	}()
+
+	if s.c.Stage == stageDEV {
+		resp, err := tokenService.CreateApiTokenWithoutPermissionCheck(context.Background(), "metal-stack", connect.NewRequest(&apiv2.TokenServiceCreateRequest{
+			Description:  "admin token only for development, valid for 2h",
+			Expires:      durationpb.New(time.Hour * 2),
+			ProjectRoles: nil,
+			TenantRoles:  nil,
+			AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			Permissions:  nil,
+		}))
+		if err != nil {
+			return err
+		}
+
+		s.log.Info("admin token", "stage", s.c.Stage, "jwt", resp.Msg.Secret)
+	}
 
 	<-signals
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)

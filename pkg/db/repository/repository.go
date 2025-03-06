@@ -29,11 +29,15 @@ type (
 		ValidateUpdate(ctx context.Context, msg U) (*Validated[U], error)
 		Update(ctx context.Context, msg *Validated[U]) (E, error)
 
-		Delete(ctx context.Context, e E) (E, error)
+		ValidateDelete(ctx context.Context, e E) (*Validated[E], error)
+		Delete(ctx context.Context, e *Validated[E]) (E, error)
+
 		Find(ctx context.Context, query Q) (E, error)
 		List(ctx context.Context, query Q) ([]E, error)
+
 		ConvertToInternal(msg M) (E, error)
 		ConvertToProto(e E) (M, error)
+
 		MatchScope(e E) error
 	}
 
@@ -72,6 +76,12 @@ type (
 	FilesystemLayout interface {
 		Repository[*metal.FilesystemLayout, *apiv2.FilesystemLayout, *adminv2.FilesystemServiceCreateRequest, *adminv2.FilesystemServiceUpdateRequest, *apiv2.FilesystemServiceListRequest]
 	}
+
+	Image interface {
+		Repository[*metal.Image, *apiv2.Image, *adminv2.ImageServiceCreateRequest, *adminv2.ImageServiceUpdateRequest, *apiv2.ImageQuery]
+		GetMostRecentImageFor(id string, images []*metal.Image) (*metal.Image, error)
+		SortImages(images []*metal.Image) []*metal.Image
+	}
 )
 
 func New(log *slog.Logger, mdc mdm.Client, ds *generic.Datastore, ipam ipamv1connect.IpamServiceClient, redis *redis.Client) (*Store, error) {
@@ -97,6 +107,12 @@ func (r *Store) IP(project *string) IP {
 	return &ipRepository{
 		r:     r,
 		scope: scope,
+	}
+}
+
+func (r *Store) Image() Image {
+	return &imageRepository{
+		r: r,
 	}
 }
 

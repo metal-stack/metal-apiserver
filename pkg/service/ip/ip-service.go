@@ -86,7 +86,12 @@ func (i *ipServiceServer) Delete(ctx context.Context, rq *connect.Request[apiv2.
 	i.log.Debug("delete", "ip", rq)
 	req := rq.Msg
 
-	ip, err := i.repo.IP(&req.Project).Delete(ctx, &metal.IP{IPAddress: req.Ip})
+	validated, err := i.repo.IP(&req.Project).ValidateDelete(ctx, &metal.IP{IPAddress: req.Ip})
+	if err != nil {
+		return nil, err
+	}
+
+	ip, err := i.repo.IP(&req.Project).Delete(ctx, validated)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

@@ -66,7 +66,15 @@ func (r *ipRepository) ValidateCreate(ctx context.Context, req *apiv2.IPServiceC
 }
 
 func (r *ipRepository) ValidateUpdate(ctx context.Context, req *apiv2.IPServiceUpdateRequest) (*Validated[*apiv2.IPServiceUpdateRequest], error) {
+	// TODO implement
 	return &Validated[*apiv2.IPServiceUpdateRequest]{
+		message: req,
+	}, nil
+}
+
+func (r *ipRepository) ValidateDelete(ctx context.Context, req *metal.IP) (*Validated[*metal.IP], error) {
+	// TODO implement
+	return &Validated[*metal.IP]{
 		message: req,
 	}, nil
 }
@@ -229,8 +237,8 @@ func (r *ipRepository) Update(ctx context.Context, req *Validated[*apiv2.IPServi
 	return &new, nil
 }
 
-func (r *ipRepository) Delete(ctx context.Context, ip *metal.IP) (*metal.IP, error) {
-	ip, err := r.Get(ctx, ip.GetID())
+func (r *ipRepository) Delete(ctx context.Context, rq *Validated[*metal.IP]) (*metal.IP, error) {
+	ip, err := r.Get(ctx, rq.message.GetID())
 	if err != nil {
 		return nil, err
 	}

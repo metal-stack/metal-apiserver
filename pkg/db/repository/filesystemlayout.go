@@ -24,6 +24,11 @@ func (r *filesystemLayoutRepository) ValidateUpdate(ctx context.Context, req *ad
 		message: req,
 	}, nil
 }
+func (r *filesystemLayoutRepository) ValidateDelete(ctx context.Context, req *metal.FilesystemLayout) (*Validated[*metal.FilesystemLayout], error) {
+	return &Validated[*metal.FilesystemLayout]{
+		message: req,
+	}, nil
+}
 
 func (r *filesystemLayoutRepository) Get(ctx context.Context, id string) (*metal.FilesystemLayout, error) {
 	fsl, err := r.r.ds.FilesystemLayout().Get(ctx, id)
@@ -71,8 +76,8 @@ func (r *filesystemLayoutRepository) Update(ctx context.Context, rq *Validated[*
 	return &new, nil
 }
 
-func (r *filesystemLayoutRepository) Delete(ctx context.Context, fsl *metal.FilesystemLayout) (*metal.FilesystemLayout, error) {
-	fsl, err := r.Get(ctx, fsl.ID)
+func (r *filesystemLayoutRepository) Delete(ctx context.Context, rq *Validated[*metal.FilesystemLayout]) (*metal.FilesystemLayout, error) {
+	fsl, err := r.Get(ctx, rq.message.ID)
 	if err != nil {
 		return nil, err
 	}
