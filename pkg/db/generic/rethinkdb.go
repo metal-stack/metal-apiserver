@@ -51,8 +51,8 @@ type (
 		partition        Storage[*metal.Partition]
 		network          Storage[*metal.Network]
 		filesystemlayout Storage[*metal.FilesystemLayout]
+		image            Storage[*metal.Image]
 		// event               Storage[*metal.ProvisioningEventContainer]
-		// image               Storage[*metal.Image]
 		// machine             Storage[*metal.Machine]
 		// size                Storage[*metal.Size]
 		// sizeimageConstraint Storage[*metal.SizeImageConstraint]
@@ -96,11 +96,16 @@ func New(log *slog.Logger, dbname string, queryExecutor r.QueryExecutor) (*Datas
 	if err != nil {
 		return nil, err
 	}
+	image, err := newStorage[*metal.Image](log, dbname, "image", queryExecutor)
+	if err != nil {
+		return nil, err
+	}
 	return &Datastore{
 		ip:               ip,
 		partition:        partition,
 		network:          network,
 		filesystemlayout: filesystemlayout,
+		image:            image,
 		// event:               newStorage[*metal.ProvisioningEventContainer](log, dbname, "event", queryExecutor),
 		// image:               newStorage[*metal.Image](log, dbname, "image", queryExecutor),
 		// machine:             newStorage[*metal.Machine](log, dbname, "machine", queryExecutor),
@@ -122,6 +127,9 @@ func (d *Datastore) Partition() Storage[*metal.Partition] {
 }
 func (d *Datastore) FilesystemLayout() Storage[*metal.FilesystemLayout] {
 	return d.filesystemlayout
+}
+func (d *Datastore) Image() Storage[*metal.Image] {
+	return d.image
 }
 
 // newStorage creates a new Storage which uses the given database abstraction.
@@ -149,7 +157,7 @@ func (rs *rethinkStore[E]) Create(ctx context.Context, e E) (E, error) {
 	now := time.Now()
 	e.SetCreated(now)
 	e.SetChanged(now)
-
+	rs.log.Debug("create", "entity", e)
 	var zero E
 	res, err := rs.table.Insert(e).RunWrite(rs.queryExecutor, r.RunOpts{Context: ctx})
 	if err != nil {

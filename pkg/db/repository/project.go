@@ -24,6 +24,13 @@ func (r *projectRepository) ValidateUpdate(ctx context.Context, req *apiv2.Proje
 		message: req,
 	}, nil
 }
+
+func (r *projectRepository) ValidateDelete(ctx context.Context, req *mdcv1.Project) (*Validated[*mdcv1.Project], error) {
+	return &Validated[*mdcv1.Project]{
+		message: req,
+	}, nil
+}
+
 func (r *projectRepository) Get(ctx context.Context, id string) (*mdcv1.Project, error) {
 	resp, err := r.r.mdc.Project().Get(ctx, &mdcv1.ProjectGetRequest{Id: id})
 	if err != nil {
@@ -57,7 +64,7 @@ func (r *projectRepository) Create(ctx context.Context, e *Validated[*apiv2.Proj
 func (r *projectRepository) Update(ctx context.Context, msg *Validated[*apiv2.ProjectServiceUpdateRequest]) (*mdcv1.Project, error) {
 	panic("unimplemented")
 }
-func (r *projectRepository) Delete(ctx context.Context, e *mdcv1.Project) (*mdcv1.Project, error) {
+func (r *projectRepository) Delete(ctx context.Context, e *Validated[*mdcv1.Project]) (*mdcv1.Project, error) {
 	panic("unimplemented")
 }
 func (r *projectRepository) Find(ctx context.Context, query *apiv2.ProjectServiceListRequest) (*mdcv1.Project, error) {
