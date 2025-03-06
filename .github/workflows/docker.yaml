@@ -41,7 +41,7 @@ jobs:
         with:
           version: latest
 
-      - name: Lint Rego and run tests
+      - name: run tests
         run: make test
 
       - name: Setup OPA

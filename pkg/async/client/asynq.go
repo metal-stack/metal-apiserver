@@ -2,9 +2,11 @@ package client
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
 )
@@ -61,6 +63,12 @@ func (c *Client) NewIPDeleteTask(allocationUUID, ip, project string) (*asynq.Tas
 	if err != nil {
 		return nil, err
 	}
+
+	err = c.addTaskID()
+	if err != nil {
+		return nil, err
+	}
+
 	// TODO configurable retry and timeout
 	task, err := asynq.NewTask(TypeIpDelete, payload, c.opts...), nil
 	if err != nil {
@@ -74,10 +82,27 @@ func (c *Client) NewNetworkDeleteTask(uuid string) (*asynq.TaskInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	err = c.addTaskID()
+	if err != nil {
+		return nil, err
+	}
+
 	// TODO configurable retry and timeout
 	task, err := asynq.NewTask(TypeIpDelete, payload, c.opts...), nil
 	if err != nil {
 		return nil, err
 	}
 	return c.enqueue(task)
+}
+
+// addTaskID generate a random taskID to ensure unique execution
+// see: https://github.com/hibiken/asynq/wiki/Unique-Tasks
+func (c *Client) addTaskID() error {
+	taskId, err := uuid.NewV7()
+	if err != nil {
+		return fmt.Errorf("unable to generate a unique task id:%w", err)
+	}
+	c.opts = append(c.opts, asynq.TaskID(taskId.String()))
+	return nil
 }
