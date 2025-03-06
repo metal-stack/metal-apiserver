@@ -42,6 +42,7 @@ import (
 	"github.com/metal-stack/api-server/pkg/service/filesystem"
 	"github.com/metal-stack/api-server/pkg/service/health"
 	"github.com/metal-stack/api-server/pkg/service/image"
+	imageadmin "github.com/metal-stack/api-server/pkg/service/image/admin"
 	"github.com/metal-stack/api-server/pkg/service/ip"
 	ipadmin "github.com/metal-stack/api-server/pkg/service/ip/admin"
 	"github.com/metal-stack/api-server/pkg/service/method"
@@ -225,7 +226,9 @@ func (s *server) Run() error {
 
 	// Admin services
 	adminIpService := ipadmin.New(ipadmin.Config{Log: s.log, Repo: repo})
+	adminImageService := imageadmin.New(imageadmin.Config{Log: s.log, Repo: repo})
 	mux.Handle(adminv2connect.NewIPServiceHandler(adminIpService, adminInterceptors))
+	mux.Handle(adminv2connect.NewImageServiceHandler(adminImageService, adminInterceptors))
 	mux.Handle(adminv2connect.NewTenantServiceHandler(adminTenantService, adminInterceptors))
 
 	allServiceNames := permissions.GetServices()

@@ -2,7 +2,6 @@ package metal
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -62,41 +61,12 @@ func VersionClassificationFrom(classification apiv2.ImageClassification) (Versio
 // ImageFeatureType specifies the features of a images
 type ImageFeatureType string
 
-// ImageFeatureString returns the features of an image as a string.
-func (i *Image) ImageFeatureString() string {
-	features := make([]string, 0, len(i.Features))
-	for k := range i.Features {
-		features = append(features, string(k))
-	}
-	return strings.Join(features, ", ")
-}
-
 const (
 	// ImageFeatureFirewall from this image only a firewall can created
 	ImageFeatureFirewall ImageFeatureType = "firewall"
 	// ImageFeatureMachine from this image only a machine can created
 	ImageFeatureMachine ImageFeatureType = "machine"
 )
-
-// Images is a collection of images.
-type Images []Image
-
-// ImageMap is an indexed map for images.
-type ImageMap map[string]Image
-
-// ByID creates an indexed map from an image collection.
-func (ii Images) ByID() ImageMap {
-	res := make(ImageMap)
-	for i, f := range ii {
-		res[f.ID] = ii[i]
-	}
-	return res
-}
-
-// HasFeature returns true if this image has given feature enabled, otherwise false.
-func (i *Image) HasFeature(feature ImageFeatureType) bool {
-	return i.Features[feature]
-}
 
 func ImageFeaturesFrom(features []apiv2.ImageFeature) (map[ImageFeatureType]bool, error) {
 	var result = make(map[ImageFeatureType]bool)

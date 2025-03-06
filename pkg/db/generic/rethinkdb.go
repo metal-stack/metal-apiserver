@@ -157,7 +157,7 @@ func (rs *rethinkStore[E]) Create(ctx context.Context, e E) (E, error) {
 	now := time.Now()
 	e.SetCreated(now)
 	e.SetChanged(now)
-	rs.log.Debug("create", "entity", e)
+
 	var zero E
 	res, err := rs.table.Insert(e).RunWrite(rs.queryExecutor, r.RunOpts{Context: ctx})
 	if err != nil {
