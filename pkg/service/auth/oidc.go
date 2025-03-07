@@ -28,12 +28,15 @@ func OIDCHubProvider(c ProviderConfig) authOption {
 		p := &provider{
 			log: a.log,
 		}
+		scopes := []string{"openid", "email", "profile"}
 		// FIXME check error
 		oidc, _ := openidConnect.New(
 			c.ClientID,
 			c.ClientSecret,
 			a.ProviderCallbackURL(p.Name()),
-			c.DiscoveryURL)
+			c.DiscoveryURL,
+			scopes...,
+		)
 		oidc.SetName(p.Name())
 		goth.UseProviders(oidc)
 		a.AddProviderBackend(p)
@@ -45,17 +48,15 @@ func (g *provider) Name() string {
 }
 
 func (g *provider) User(ctx context.Context, user goth.User) (*providerUser, error) {
-	g.log.Info("user", "rawdata", user)
-
-	// FIXME logto.io stores the userid in sub, make this configurable ?
-	loginRaw, ok := user.RawData["sub"]
+	g.log.Info("user", "user", user)
+	sub, ok := user.RawData["sub"]
 	if !ok {
-		return nil, fmt.Errorf("oidc raw data does not contain login field")
+		return nil, fmt.Errorf("oidc raw data does not contain sub field")
 	}
 
-	login, ok := loginRaw.(string)
+	login, ok := sub.(string)
 	if !ok {
-		return nil, fmt.Errorf("oidc login field does not contain a string (but %T)", loginRaw)
+		return nil, fmt.Errorf("oidc login field does not contain a string (but %T)", sub)
 	}
 
 	return &providerUser{
