@@ -7,8 +7,10 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -39,6 +41,7 @@ import (
 	"github.com/metal-stack/api-server/pkg/db/repository"
 	"github.com/metal-stack/api-server/pkg/invite"
 	ratelimiter "github.com/metal-stack/api-server/pkg/rate-limiter"
+	authservice "github.com/metal-stack/api-server/pkg/service/auth"
 	"github.com/metal-stack/api-server/pkg/service/filesystem"
 	"github.com/metal-stack/api-server/pkg/service/health"
 	"github.com/metal-stack/api-server/pkg/service/image"
@@ -62,7 +65,11 @@ import (
 type config struct {
 	HttpServerEndpoint                  string
 	MetricsServerEndpoint               string
+	FrontEndUrl                         string
 	ServerHttpURL                       string
+	OIDCClientID                        string
+	OIDCClientSecret                    string
+	OIDCDiscoveryURL                    string
 	Log                                 *slog.Logger
 	MasterClient                        mdm.Client
 	Auditing                            auditing.Auditing
@@ -241,7 +248,30 @@ func (s *server) Run() error {
 	mux.Handle(grpcreflect.NewHandlerV1(reflector))
 	mux.Handle(grpcreflect.NewHandlerV1Alpha(reflector))
 
+	// OIDC Login Authentication
+	frontendURL, err := url.Parse(s.c.FrontEndUrl)
+	if err != nil {
+		return fmt.Errorf("failed to parse frontend url %w", err)
+	}
+
+	auth := authservice.New(authservice.Config{
+		Log:          s.log,
+		TokenService: tokenService,
+		MasterClient: s.c.MasterClient,
+		Auditing:     s.c.Auditing,
+		FrontEndUrl:  frontendURL,
+		CallbackUrl:  s.c.ServerHttpURL + "/auth/{provider}/callback",
+	}).With(
+		authservice.OIDCHubProvider(authservice.ProviderConfig{
+			ClientID:     s.c.OIDCClientID,
+			ClientSecret: s.c.OIDCClientSecret,
+			DiscoveryURL: s.c.OIDCDiscoveryURL,
+		}),
+	)
+
 	// Add all authentication handlers in one go
+	mux.Handle(auth.NewHandler(strings.EqualFold(s.c.Stage, stageDEV)))
+	// END OIDC Login Authentication
 
 	apiServer := &http.Server{
 		Addr:              s.c.HttpServerEndpoint,

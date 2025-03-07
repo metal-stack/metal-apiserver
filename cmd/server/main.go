@@ -36,6 +36,33 @@ var (
 		Required: true,
 		EnvVars:  []string{"SESSION_SECRET"},
 	}
+	frontEndUrlFlag = &cli.StringFlag{
+		Name:    "front-end-url",
+		Value:   "https://metal-stack.io",
+		Usage:   "URL of the frontend (metalctl)",
+		EnvVars: []string{"FRONT_END_URL"},
+	}
+	oidcClientIdFlag = &cli.StringFlag{
+		Name:     "oidc-client-id",
+		Value:    "",
+		Usage:    "id of the oauth app in oidc",
+		Required: true,
+		EnvVars:  []string{"OIDC_CLIENT_ID"},
+	}
+	oidcClientSecretFlag = &cli.StringFlag{
+		Name:     "oidc-client-secret",
+		Value:    "",
+		Usage:    "client secret of the oauth app in oidc",
+		Required: true,
+		EnvVars:  []string{"OIDC_CLIENT_SECRET"},
+	}
+	oidcDiscoveryUrlFlag = &cli.StringFlag{
+		Name:     "oidc-discovery-url",
+		Value:    "",
+		Usage:    "discovery url of the oauth app in oidc",
+		Required: true,
+		EnvVars:  []string{"OIDC_DISCOVERY_URL"},
+	}
 	logLevelFlag = &cli.StringFlag{
 		Name:  "log-level",
 		Value: "info",

@@ -68,6 +68,10 @@ var serveCmd = &cli.Command{
 		maxRequestsPerMinuteUnauthenticatedFlag,
 		ipamGrpcEndpointFlag,
 		ensureProviderTenantFlag,
+		frontEndUrlFlag,
+		oidcClientIdFlag,
+		oidcClientSecretFlag,
+		oidcDiscoveryUrlFlag,
 	},
 	Action: func(ctx *cli.Context) error {
 		log, level, err := createLoggers(ctx)
@@ -101,6 +105,7 @@ var serveCmd = &cli.Command{
 			Log:                                 log,
 			MasterClient:                        retryConnectMasterdataClient(ctx, log),
 			ServerHttpURL:                       ctx.String(serverHttpUrlFlag.Name),
+			FrontEndUrl:                         ctx.String(frontEndUrlFlag.Name),
 			Auditing:                            audit,
 			Stage:                               stage,
 			RedisAddr:                           redisAddr,
@@ -111,6 +116,9 @@ var serveCmd = &cli.Command{
 			RethinkDB:                           ctx.String(rethinkdbDBNameFlag.Name),
 			RethinkDBSession:                    rethinkDBSession,
 			Ipam:                                ipam,
+			OIDCClientID:                        ctx.String(oidcClientIdFlag.Name),
+			OIDCClientSecret:                    ctx.String(oidcClientSecretFlag.Name),
+			OIDCDiscoveryURL:                    ctx.String(oidcDiscoveryUrlFlag.Name),
 		}
 
 		if providerTenant := ctx.String(ensureProviderTenantFlag.Name); providerTenant != "" {
