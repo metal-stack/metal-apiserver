@@ -11,12 +11,14 @@ import (
 
 type provider struct {
 	log *slog.Logger
+	pc  ProviderConfig
 }
 
 type ProviderConfig struct {
-	ClientID     string
-	ClientSecret string
-	DiscoveryURL string
+	ClientID      string
+	ClientSecret  string
+	DiscoveryURL  string
+	EndsessionURL string
 }
 
 func OIDCHubProvider(c ProviderConfig) authOption {
@@ -27,6 +29,7 @@ func OIDCHubProvider(c ProviderConfig) authOption {
 		}
 		p := &provider{
 			log: a.log,
+			pc:  c,
 		}
 		scopes := []string{"openid", "email", "profile"}
 		// FIXME check error
@@ -45,6 +48,10 @@ func OIDCHubProvider(c ProviderConfig) authOption {
 
 func (g *provider) Name() string {
 	return "oidc"
+}
+
+func (g *provider) EndSessionRedirectURL() string {
+	return g.pc.EndsessionURL
 }
 
 func (g *provider) User(ctx context.Context, user goth.User) (*providerUser, error) {

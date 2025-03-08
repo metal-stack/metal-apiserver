@@ -70,6 +70,7 @@ type config struct {
 	OIDCClientID                        string
 	OIDCClientSecret                    string
 	OIDCDiscoveryURL                    string
+	OIDCEndSessionURL                   string
 	Log                                 *slog.Logger
 	MasterClient                        mdm.Client
 	Auditing                            auditing.Auditing
@@ -263,9 +264,10 @@ func (s *server) Run() error {
 		CallbackUrl:  s.c.ServerHttpURL + "/auth/{provider}/callback",
 	}).With(
 		authservice.OIDCHubProvider(authservice.ProviderConfig{
-			ClientID:     s.c.OIDCClientID,
-			ClientSecret: s.c.OIDCClientSecret,
-			DiscoveryURL: s.c.OIDCDiscoveryURL,
+			ClientID:      s.c.OIDCClientID,
+			ClientSecret:  s.c.OIDCClientSecret,
+			DiscoveryURL:  s.c.OIDCDiscoveryURL,
+			EndsessionURL: s.c.OIDCEndSessionURL,
 		}),
 	)
 

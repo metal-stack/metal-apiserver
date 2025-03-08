@@ -72,6 +72,7 @@ var serveCmd = &cli.Command{
 		oidcClientIdFlag,
 		oidcClientSecretFlag,
 		oidcDiscoveryUrlFlag,
+		oidcEndSessionUrlFlag,
 	},
 	Action: func(ctx *cli.Context) error {
 		log, level, err := createLoggers(ctx)
@@ -119,6 +120,7 @@ var serveCmd = &cli.Command{
 			OIDCClientID:                        ctx.String(oidcClientIdFlag.Name),
 			OIDCClientSecret:                    ctx.String(oidcClientSecretFlag.Name),
 			OIDCDiscoveryURL:                    ctx.String(oidcDiscoveryUrlFlag.Name),
+			OIDCEndSessionURL:                   ctx.String(oidcEndSessionUrlFlag.Name),
 		}
 
 		if providerTenant := ctx.String(ensureProviderTenantFlag.Name); providerTenant != "" {

@@ -57,6 +57,7 @@ type providerUser struct {
 type providerBackend interface {
 	Name() string
 	User(ctx context.Context, user goth.User) (*providerUser, error)
+	EndSessionRedirectURL() string
 }
 
 type auth struct {
@@ -106,8 +107,8 @@ func (a *auth) NewHandler(isDevStage bool) (string, http.Handler) {
 	r.HandleFunc("/auth/{provider}/callback", a.Callback)
 	// Register oauth login handler
 	r.HandleFunc("/auth/{provider}", a.Login)
-	// Register oauth login handler
-	r.HandleFunc("/logout/{provider}", a.Logout)
+	// Register oauth logout handler
+	r.HandleFunc("/auth/logout/{provider}", a.Logout)
 
 	return "/auth/", r
 }
@@ -204,6 +205,17 @@ func (a *auth) Logout(res http.ResponseWriter, req *http.Request) {
 	err := gothic.Logout(res, req)
 	if err != nil {
 		fmt.Fprintln(res, err)
+		return
+	}
+
+	providerName, err := gothic.GetProviderName(req)
+	if err != nil {
+		a.log.Error("cannot obtain provider name", "err", err)
+	}
+	provider, ok := a.providerBackends[providerName]
+
+	if ok && provider.EndSessionRedirectURL() != "" {
+		http.Redirect(res, req, provider.EndSessionRedirectURL(), http.StatusSeeOther)
 		return
 	}
 

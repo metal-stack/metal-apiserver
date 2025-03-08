@@ -68,6 +68,7 @@ run:
 		--rethinkdb-user admin \
 		--oidc-client-id w33moxuvwvbfyencb8y05 \
 		--oidc-client-secret Ov2BHsxF4XyvIVDRuV8LD9dfkaDFfo8M \
+		--oidc-end-session-url http://localhost:3001/oidc/session/end \
 		--oidc-discovery-url http://localhost:3001/oidc/.well-known/openid-configuration \
 		--session-secret geheim
 

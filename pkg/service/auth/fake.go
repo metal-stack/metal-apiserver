@@ -74,3 +74,6 @@ func (p *fakeProviderBackend) User(_ context.Context, _ goth.User) (*providerUse
 		provider:  p.Name(),
 	}, nil
 }
+func (g *fakeProviderBackend) EndSessionRedirectURL() string {
+	return ""
+}

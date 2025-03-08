@@ -63,6 +63,12 @@ var (
 		Required: true,
 		EnvVars:  []string{"OIDC_DISCOVERY_URL"},
 	}
+	oidcEndSessionUrlFlag = &cli.StringFlag{
+		Name:     "oidc-end-session-url",
+		Value:    "",
+		Required: true,
+		EnvVars:  []string{"OIDC_END_SESSION_URL"},
+	}
 	logLevelFlag = &cli.StringFlag{
 		Name:  "log-level",
 		Value: "info",
