@@ -22,7 +22,7 @@ import (
 
 func Test_imageServiceServer_Create(t *testing.T) {
 	log := slog.Default()
-	repo, container := test.StartRepository(t, log)
+	repo, container := test.StartRepository(t, log, nil)
 	defer func() {
 		_ = container.Terminate(context.Background())
 	}()
@@ -113,7 +113,7 @@ func Test_imageServiceServer_Create(t *testing.T) {
 
 func Test_imageServiceServer_Update(t *testing.T) {
 	log := slog.Default()
-	repo, container := test.StartRepository(t, log)
+	repo, container := test.StartRepository(t, log, nil)
 	defer func() {
 		_ = container.Terminate(context.Background())
 	}()
@@ -245,7 +245,7 @@ func Test_imageServiceServer_Update(t *testing.T) {
 
 func Test_imageServiceServer_Delete(t *testing.T) {
 	log := slog.Default()
-	repo, container := test.StartRepository(t, log)
+	repo, container := test.StartRepository(t, log, nil)
 	defer func() {
 		_ = container.Terminate(context.Background())
 	}()

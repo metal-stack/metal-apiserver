@@ -22,7 +22,7 @@ import (
 
 func Test_imageServiceServer_Get(t *testing.T) {
 	log := slog.Default()
-	repo, container := test.StartRepository(t, log)
+	repo, container := test.StartRepository(t, log, nil)
 	defer func() {
 		_ = container.Terminate(context.Background())
 	}()
@@ -107,7 +107,7 @@ func Test_imageServiceServer_Get(t *testing.T) {
 
 func Test_imageServiceServer_List(t *testing.T) {
 	log := slog.Default()
-	repo, container := test.StartRepository(t, log)
+	repo, container := test.StartRepository(t, log, nil)
 	defer func() {
 		_ = container.Terminate(context.Background())
 	}()
@@ -283,7 +283,7 @@ func Test_imageServiceServer_List(t *testing.T) {
 
 func Test_imageServiceServer_Latest(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	repo, container := test.StartRepository(t, log)
+	repo, container := test.StartRepository(t, log, nil)
 	defer func() {
 		_ = container.Terminate(context.Background())
 	}()
