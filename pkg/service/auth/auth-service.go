@@ -224,6 +224,8 @@ func (a *auth) Logout(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// FIXME invalidate token of this user.
+
 	res.Header().Set("Location", "/static/")
 	res.WriteHeader(http.StatusTemporaryRedirect)
 }
