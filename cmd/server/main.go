@@ -129,35 +129,40 @@ var (
 		Value: "",
 		Usage: "rethinkdb password to connect",
 	}
-	auditingUrlFlag = &cli.StringFlag{
-		Name:  "auditing-url",
-		Value: "http://localhost:7700",
-		Usage: "url of the auditing service",
-	}
-	auditingApiKeyFlag = &cli.StringFlag{
-		Name:  "auditing-api-key",
-		Value: "geheim",
-		Usage: "api key for the auditing service",
-	}
-	auditingEnabledFlag = &cli.BoolFlag{
-		Name:  "auditing-enabled",
+	auditingTimescaleEnabledFlag = &cli.BoolFlag{
+		Name:  "auditing-timescaledb-enabled",
 		Value: false,
-		Usage: "enable auditing",
+		Usage: "enable timescaledb auditing",
 	}
-	auditingIndexPrefixFlag = &cli.StringFlag{
-		Name:  "auditing-index-prefix",
+	auditingTimescaleHostFlag = &cli.StringFlag{
+		Name:  "auditing-timescaledb-host",
+		Value: "",
+		Usage: "timescaledb auditing database host",
+	}
+	auditingTimescalePortFlag = &cli.StringFlag{
+		Name:  "auditing-timescaledb-port",
+		Value: "5432",
+		Usage: "timescaledb auditing database port",
+	}
+	auditingTimescaleDbFlag = &cli.StringFlag{
+		Name:  "auditing-timescaledb-db",
 		Value: "auditing",
-		Usage: "auditing index prefix",
+		Usage: "timescaledb auditing database",
 	}
-	auditingIndexIntervalFlag = &cli.StringFlag{
-		Name:  "auditing-index-interval",
-		Value: "@daily",
-		Usage: "auditing index creation interval, can be one of @hourly|@daily|@monthly",
+	auditingTimescaleUserFlag = &cli.StringFlag{
+		Name:  "auditing-timescaledb-user",
+		Value: "postgres",
+		Usage: "timescaledb auditing database user",
 	}
-	auditingIndexKeepFlag = &cli.Int64Flag{
-		Name:  "auditing-index-keep",
-		Value: 10,
-		Usage: "auditing index retention, keep only the newest amount of indexes",
+	auditingTimescalePasswordFlag = &cli.StringFlag{
+		Name:  "auditing-timescaledb-password",
+		Value: "",
+		Usage: "timescaledb auditing database password",
+	}
+	auditingTimescaleRetentionFlag = &cli.StringFlag{
+		Name:  "auditing-timescaledb-retention",
+		Value: "14 days",
+		Usage: "timescaledb auditing database retention",
 	}
 	stageFlag = &cli.StringFlag{
 		Name:    "stage",

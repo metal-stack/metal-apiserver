@@ -54,12 +54,13 @@ var serveCmd = &cli.Command{
 		rethinkdbDBNameFlag,
 		rethinkdbPasswordFlag,
 		rethinkdbUserFlag,
-		auditingUrlFlag,
-		auditingApiKeyFlag,
-		auditingEnabledFlag,
-		auditingIndexPrefixFlag,
-		auditingIndexIntervalFlag,
-		auditingIndexKeepFlag,
+		auditingTimescaleEnabledFlag,
+		auditingTimescaleHostFlag,
+		auditingTimescalePortFlag,
+		auditingTimescaleDbFlag,
+		auditingTimescaleUserFlag,
+		auditingTimescalePasswordFlag,
+		auditingTimescaleRetentionFlag,
 		stageFlag,
 		redisAddrFlag,
 		redisPasswordFlag,
@@ -200,18 +201,25 @@ func createRethinkDBClient(cli *cli.Context, log *slog.Logger) (*r.Session, erro
 // createAuditingClient creates a new auditing client
 // Can return nil,nil if auditing is disabled!
 func createAuditingClient(cli *cli.Context, log *slog.Logger) (auditing.Auditing, error) {
-	auditingEnabled := cli.Bool(auditingEnabledFlag.Name)
+	const auditingComponent = "metal-stack.io"
+
+	auditingEnabled := cli.Bool(auditingTimescaleEnabledFlag.Name)
 	if !auditingEnabled {
 		return nil, nil
 	}
-	c := auditing.MeilisearchConfig{
-		URL:              cli.String(auditingUrlFlag.Name),
-		APIKey:           cli.String(auditingApiKeyFlag.Name),
-		IndexPrefix:      cli.String(auditingIndexPrefixFlag.Name),
-		RotationInterval: auditing.Interval(cli.String(auditingIndexIntervalFlag.Name)),
-		Keep:             cli.Int64(auditingIndexKeepFlag.Name),
+
+	auditingCfg := auditing.Config{
+		Log:       log,
+		Component: auditingComponent,
 	}
-	return auditing.NewMeilisearch(auditing.Config{Component: "apiserver", Log: log}, c)
+	return auditing.NewTimescaleDB(auditingCfg, auditing.TimescaleDbConfig{
+		Host:      cli.String(auditingTimescaleHostFlag.Name),
+		Port:      cli.String(auditingTimescalePortFlag.Name),
+		DB:        cli.String(auditingTimescaleDbFlag.Name),
+		User:      cli.String(auditingTimescaleUserFlag.Name),
+		Password:  cli.String(auditingTimescalePasswordFlag.Name),
+		Retention: cli.String(auditingTimescaleRetentionFlag.Name),
+	})
 }
 
 type RedisDatabase string
