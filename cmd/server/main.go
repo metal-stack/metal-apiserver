@@ -104,15 +104,11 @@ var (
 		Value: "certs/client-key.pem",
 		Usage: "masterdata-api certificate key path",
 	}
-	rethinkdbDBFlag = &cli.StringFlag{
-		Name:  "rethinkdb-db",
-		Value: "rethinkdb",
-		Usage: "rethinkdb database to connect to",
-	}
 	rethinkdbAddressesFlag = &cli.StringSliceFlag{
-		Name:  "rethinkdb-addresses",
-		Value: &cli.StringSlice{},
-		Usage: "rethinkdb addresses without http prefix",
+		Name:     "rethinkdb-addresses",
+		Value:    &cli.StringSlice{},
+		Required: true,
+		Usage:    "rethinkdb addresses without http prefix",
 	}
 	rethinkdbDBNameFlag = &cli.StringFlag{
 		Name:  "rethinkdb-dbname",
@@ -121,13 +117,14 @@ var (
 	}
 	rethinkdbUserFlag = &cli.StringFlag{
 		Name:  "rethinkdb-user",
-		Value: "",
+		Value: "admin",
 		Usage: "rethinkdb username to connect",
 	}
 	rethinkdbPasswordFlag = &cli.StringFlag{
-		Name:  "rethinkdb-password",
-		Value: "",
-		Usage: "rethinkdb password to connect",
+		Name:     "rethinkdb-password",
+		Value:    "",
+		Required: true,
+		Usage:    "rethinkdb password to connect",
 	}
 	auditingTimescaleEnabledFlag = &cli.BoolFlag{
 		Name:  "auditing-timescaledb-enabled",

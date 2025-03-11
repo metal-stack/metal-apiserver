@@ -50,7 +50,6 @@ var serveCmd = &cli.Command{
 		masterdataApiCertPathFlag,
 		masterdataApiCertKeyPathFlag,
 		rethinkdbAddressesFlag,
-		rethinkdbDBFlag,
 		rethinkdbDBNameFlag,
 		rethinkdbPasswordFlag,
 		rethinkdbUserFlag,
