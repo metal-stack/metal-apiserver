@@ -70,9 +70,9 @@ type auth struct {
 	callbackUrl      string
 }
 
-type authOption func(*auth)
+type authOption func(*auth) error
 
-func New(c Config, options ...authOption) *auth {
+func New(c Config, options ...authOption) (*auth, error) {
 	a := &auth{
 		log:              c.Log,
 		tokenService:     c.TokenService,
@@ -85,12 +85,15 @@ func New(c Config, options ...authOption) *auth {
 	return a.With(options...)
 }
 
-func (a *auth) NewHandler(isDevStage bool) (string, http.Handler) {
+func (a *auth) NewHandler(isDevStage bool) (string, http.Handler, error) {
 	a.log.Info("authhandler", "isDevStage", isDevStage)
 	// FIXME: can be replaced byr  := http.NewServeMux() since go-1.22
 	r := mux.NewRouter()
 	if isDevStage {
-		a.With(FakeProvider())
+		_, err := a.With(FakeProvider())
+		if err != nil {
+			return "", nil, err
+		}
 	}
 
 	key := []byte(os.Getenv("SESSION_SECRET"))
@@ -110,14 +113,16 @@ func (a *auth) NewHandler(isDevStage bool) (string, http.Handler) {
 	// Register oauth logout handler
 	r.HandleFunc("/auth/logout/{provider}", a.Logout)
 
-	return "/auth/", r
+	return "/auth/", r, nil
 }
 
-func (a *auth) With(options ...authOption) *auth {
+func (a *auth) With(options ...authOption) (*auth, error) {
 	for _, o := range options {
-		o(a)
+		if err := o(a); err != nil {
+			return nil, err
+		}
 	}
-	return a
+	return a, nil
 }
 
 func (a *auth) AddProviderBackend(p providerBackend) {

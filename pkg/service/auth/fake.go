@@ -26,10 +26,11 @@ func (f fakeSession) Authorize(_ goth.Provider, _ goth.Params) (string, error) {
 }
 
 func FakeProvider() authOption {
-	return func(a *auth) {
+	return func(a *auth) error {
 		p := &fakeProviderBackend{}
 		goth.UseProviders(p)
 		a.AddProviderBackend(p)
+		return nil
 	}
 }
 

@@ -255,14 +255,19 @@ func (s *server) Run() error {
 		return fmt.Errorf("failed to parse frontend url %w", err)
 	}
 
-	auth := authservice.New(authservice.Config{
+	auth, err := authservice.New(authservice.Config{
 		Log:          s.log,
 		TokenService: tokenService,
 		MasterClient: s.c.MasterClient,
 		Auditing:     s.c.Auditing,
 		FrontEndUrl:  frontendURL,
 		CallbackUrl:  s.c.ServerHttpURL + "/auth/{provider}/callback",
-	}).With(
+	})
+	if err != nil {
+		return err
+	}
+
+	_, err = auth.With(
 		authservice.OIDCHubProvider(authservice.ProviderConfig{
 			ClientID:      s.c.OIDCClientID,
 			ClientSecret:  s.c.OIDCClientSecret,
@@ -270,9 +275,17 @@ func (s *server) Run() error {
 			EndsessionURL: s.c.OIDCEndSessionURL,
 		}),
 	)
+	if err != nil {
+		return err
+	}
+
+	authHandlerPath, authHandler, err := auth.NewHandler(strings.EqualFold(s.c.Stage, stageDEV))
+	if err != nil {
+		return err
+	}
 
 	// Add all authentication handlers in one go
-	mux.Handle(auth.NewHandler(strings.EqualFold(s.c.Stage, stageDEV)))
+	mux.Handle(authHandlerPath, authHandler)
 	// END OIDC Login Authentication
 
 	apiServer := &http.Server{

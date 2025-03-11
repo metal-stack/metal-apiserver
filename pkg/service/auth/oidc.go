@@ -22,27 +22,32 @@ type ProviderConfig struct {
 }
 
 func OIDCHubProvider(c ProviderConfig) authOption {
-	return func(a *auth) {
+	return func(a *auth) error {
 		if c.ClientID == "" || c.ClientSecret == "" {
-			a.log.Warn("no oidc client id or secret configured")
-			return
+			return fmt.Errorf("oidc client id or secret is not configured")
 		}
 		p := &provider{
 			log: a.log,
 			pc:  c,
 		}
 		scopes := []string{"openid", "email", "profile"}
-		// FIXME check error
-		oidc, _ := openidConnect.New(
+
+		oidc, err := openidConnect.New(
 			c.ClientID,
 			c.ClientSecret,
 			a.ProviderCallbackURL(p.Name()),
 			c.DiscoveryURL,
 			scopes...,
 		)
+		if err != nil {
+			return fmt.Errorf("unable to initialize oidc provider: %w", err)
+		}
+
 		oidc.SetName(p.Name())
 		goth.UseProviders(oidc)
 		a.AddProviderBackend(p)
+
+		return nil
 	}
 }
 
