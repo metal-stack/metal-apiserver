@@ -85,9 +85,10 @@ var (
 		Usage: "masterdata-api port",
 	}
 	masterdataApiHmacFlag = &cli.StringFlag{
-		Name:  "masterdata-api-hmac",
-		Value: "",
-		Usage: "masterdata-api-hmac",
+		Name:    "masterdata-api-hmac",
+		Value:   "",
+		Usage:   "masterdata-api-hmac",
+		EnvVars: []string{"MASTERDATA_API_HMAC"},
 	}
 	masterdataApiCAPathFlag = &cli.StringFlag{
 		Name:  "masterdata-api-ca-path",
