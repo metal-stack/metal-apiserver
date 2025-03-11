@@ -117,7 +117,18 @@ func (s *server) Run() error {
 	certStore := certs.NewRedisStore(&certs.Config{
 		RedisClient: tokenRedisClient,
 	})
-	inviteStore := invite.NewProjectRedisStore(inviteRedisClient)
+	projectInviteStore := invite.NewProjectRedisStore(inviteRedisClient)
+	tenantInviteStore := invite.NewTenantRedisStore(inviteRedisClient)
+
+	ds, err := generic.New(s.log, s.c.RethinkDB, s.c.RethinkDBSession)
+	if err != nil {
+		return err
+	}
+
+	repo, err := repository.New(s.log, s.c.MasterClient, ds, s.c.Ipam, txRedisClient)
+	if err != nil {
+		return err
+	}
 
 	authcfg := auth.Config{
 		Log:            s.log,
@@ -181,27 +192,23 @@ func (s *server) Run() error {
 	tenantService := tenant.New(tenant.Config{
 		Log:          s.log,
 		MasterClient: s.c.MasterClient,
+		InviteStore:  tenantInviteStore,
+		TokenStore:   tokenStore,
 	})
 
 	adminTenantService := tenantadmin.New(tenantadmin.Config{
 		Log:          s.log,
 		MasterClient: s.c.MasterClient,
+		InviteStore:  tenantInviteStore,
+		TokenStore:   tokenStore,
 	})
 	projectService := project.New(project.Config{
 		Log:          s.log,
 		MasterClient: s.c.MasterClient,
-		InviteStore:  inviteStore,
+		InviteStore:  projectInviteStore,
+		Repo:         repo,
+		TokenStore:   tokenStore,
 	})
-
-	ds, err := generic.New(s.log, s.c.RethinkDB, s.c.RethinkDBSession)
-	if err != nil {
-		return err
-	}
-
-	repo, err := repository.New(s.log, s.c.MasterClient, ds, s.c.Ipam, txRedisClient)
-	if err != nil {
-		return err
-	}
 
 	ipService := ip.New(ip.Config{Log: s.log, Repo: repo})
 	filesystemService := filesystem.New(filesystem.Config{Log: s.log, Repo: repo})
