@@ -66,14 +66,44 @@ func (r *ipRepository) ValidateCreate(ctx context.Context, req *apiv2.IPServiceC
 }
 
 func (r *ipRepository) ValidateUpdate(ctx context.Context, req *apiv2.IPServiceUpdateRequest) (*Validated[*apiv2.IPServiceUpdateRequest], error) {
-	// TODO implement
+	old, err := r.Find(ctx, &apiv2.IPQuery{Ip: &req.Ip, Project: &req.Project})
+	if err != nil {
+		return nil, err
+	}
+	if old.Type == metal.Static && req.Type == apiv2.IPType_IP_TYPE_EPHEMERAL.Enum() {
+		return nil, errorutil.InvalidArgument("cannot change type of ip address from static to ephemeral")
+	}
 	return &Validated[*apiv2.IPServiceUpdateRequest]{
 		message: req,
 	}, nil
 }
 
 func (r *ipRepository) ValidateDelete(ctx context.Context, req *metal.IP) (*Validated[*metal.IP], error) {
-	// TODO implement
+	if req.IPAddress == "" {
+		return nil, errorutil.InvalidArgument("ipaddress is empty")
+	}
+	if req.AllocationUUID == "" {
+		return nil, errorutil.InvalidArgument("allocationUUID is empty")
+	}
+	if req.ProjectID == "" {
+		return nil, errorutil.InvalidArgument("projectId is empty")
+	}
+	ip, err := r.Find(ctx, &apiv2.IPQuery{Ip: &req.IPAddress, Uuid: &req.AllocationUUID, Project: &req.ProjectID})
+	if err != nil {
+		if errorutil.IsNotFound(err) {
+			return &Validated[*metal.IP]{
+				message: req,
+			}, nil
+		}
+		return nil, err
+	}
+
+	for _, t := range ip.Tags {
+		if strings.HasPrefix(t, tag.MachineID) {
+			return nil, errorutil.InvalidArgument("ip with machine scope cannot be deleted")
+		}
+	}
+
 	return &Validated[*metal.IP]{
 		message: req,
 	}, nil
@@ -102,7 +132,6 @@ func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServic
 
 	p, err := r.r.Project(&req.Project).Get(ctx, req.Project)
 	if err != nil {
-		// FIXME map generic errors to connect errors
 		return nil, err
 	}
 	projectID := p.Meta.Id
@@ -188,6 +217,8 @@ func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServic
 		Type:             ipType,
 		Tags:             tags,
 	}
+
+	r.r.log.Info("create ip in db", "ip", ip)
 
 	resp, err := r.r.ds.IP().Create(ctx, ip)
 	if err != nil {

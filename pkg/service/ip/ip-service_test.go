@@ -350,7 +350,7 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 	ips := []*apiv2.IPServiceCreateRequest{
 		{Name: pointer.Pointer("ip1"), Ip: pointer.Pointer("1.2.3.4"), Project: "p1", Network: "internet"},
 		{Name: pointer.Pointer("ip2"), Ip: pointer.Pointer("1.2.3.5"), Project: "p1", Network: "internet"},
-		{Name: pointer.Pointer("ip3"), Ip: pointer.Pointer("1.2.3.6"), Project: "p1", Network: "internet"},
+		{Name: pointer.Pointer("ip3"), Ip: pointer.Pointer("1.2.3.6"), Project: "p1", Network: "internet", MachineId: pointer.Pointer("abc")},
 		{Name: pointer.Pointer("ip4"), Ip: pointer.Pointer("2001:db8::1"), Project: "p2", Network: "internetv6", Labels: &apiv2.Labels{Labels: map[string]string{"color": "red"}}},
 		{Name: pointer.Pointer("ip5"), Ip: pointer.Pointer("2.3.4.5"), Project: "p2", Network: "n3"},
 	}
@@ -362,8 +362,9 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 		name           string
 		rq             *apiv2.IPServiceDeleteRequest
 		want           *apiv2.IPServiceDeleteResponse
-		wantReturnCode connect.Code
 		wantErr        bool
+		wantReturnCode connect.Code
+		wantErrMessage string
 	}{
 		{
 			name:    "delete known ip",
@@ -377,6 +378,15 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 			want:           nil,
 			wantErr:        true,
 			wantReturnCode: connect.CodeNotFound,
+			wantErrMessage: "not_found: no ip with id \"1.2.3.7\" found",
+		},
+		{
+			name:           "delete machine ip",
+			rq:             &apiv2.IPServiceDeleteRequest{Ip: "1.2.3.6", Project: "p1"},
+			want:           nil,
+			wantErr:        true,
+			wantReturnCode: connect.CodeInvalidArgument,
+			wantErrMessage: "invalid_argument: ip with machine scope cannot be deleted",
 		},
 	}
 	for _, tt := range tests {
@@ -391,16 +401,11 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 				return
 			}
 			if (err != nil) && tt.wantErr {
+				require.Equal(t, tt.wantErrMessage, err.Error())
 				var connectErr *connect.Error
 				if errors.As(err, &connectErr) && tt.wantReturnCode != connectErr.Code() {
 					t.Errorf("ipServiceServer.Delete() errcode = %v, wantReturnCode %v", connectErr.Code(), tt.wantReturnCode)
 				}
-			}
-			if tt.want == nil && got == nil {
-				return
-			}
-			if tt.want == nil && got != nil {
-				t.Error("tt.want is nil but got is not")
 				return
 			}
 			if diff := cmp.Diff(

@@ -5,7 +5,6 @@ import (
 	"log/slog"
 
 	"connectrpc.com/connect"
-	"github.com/metal-stack/api-server/pkg/db/metal"
 	"github.com/metal-stack/api-server/pkg/db/repository"
 	"github.com/metal-stack/api-server/pkg/errorutil"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -85,13 +84,17 @@ func (i *ipServiceServer) List(ctx context.Context, rq *connect.Request[apiv2.IP
 func (i *ipServiceServer) Delete(ctx context.Context, rq *connect.Request[apiv2.IPServiceDeleteRequest]) (*connect.Response[apiv2.IPServiceDeleteResponse], error) {
 	i.log.Debug("delete", "ip", rq)
 	req := rq.Msg
+	ip, err := i.repo.IP(&req.Project).Get(ctx, req.Ip)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
 
-	validated, err := i.repo.IP(&req.Project).ValidateDelete(ctx, &metal.IP{IPAddress: req.Ip})
+	validated, err := i.repo.IP(&req.Project).ValidateDelete(ctx, ip)
 	if err != nil {
 		return nil, err
 	}
 
-	ip, err := i.repo.IP(&req.Project).Delete(ctx, validated)
+	ip, err = i.repo.IP(&req.Project).Delete(ctx, validated)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
