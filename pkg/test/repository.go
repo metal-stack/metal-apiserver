@@ -14,7 +14,7 @@ import (
 )
 
 func StartRepository(t *testing.T, log *slog.Logger, masterdataMockClient mdc.Client) (*repository.Store, testcontainers.Container) {
-	container, c, err := StartRethink(t)
+	container, c, err := StartRethink(t, log)
 	require.NoError(t, err)
 
 	r := miniredis.RunT(t)
@@ -22,7 +22,7 @@ func StartRepository(t *testing.T, log *slog.Logger, masterdataMockClient mdc.Cl
 
 	ipam := StartIpam(t)
 
-	ds, err := generic.New(log, "metal", c)
+	ds, err := generic.New(log, c)
 	require.NoError(t, err)
 
 	repo, err := repository.New(log, masterdataMockClient, ds, ipam, rc)

@@ -27,7 +27,7 @@ func TestTasks(t *testing.T) {
 	ctx := context.Background()
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	container, rethinkSession, err := test.StartRethink(t)
+	container, rethinkSession, err := test.StartRethink(t, log)
 	require.NoError(t, err)
 	defer func() {
 		_ = container.Terminate(context.Background())
@@ -41,7 +41,7 @@ func TestTasks(t *testing.T) {
 
 	ipam := test.StartIpam(t)
 
-	ds, err := generic.New(log, "metal", rethinkSession)
+	ds, err := generic.New(log, rethinkSession)
 	require.NoError(t, err)
 
 	actionFn := func(ctx context.Context, job tx.Step) error {

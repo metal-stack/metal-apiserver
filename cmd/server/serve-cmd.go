@@ -16,7 +16,9 @@ import (
 	"github.com/avast/retry-go/v4"
 	compress "github.com/klauspost/connect-compress/v2"
 	"google.golang.org/protobuf/types/known/wrapperspb"
+	"gopkg.in/rethinkdb/rethinkdb-go.v6"
 
+	"github.com/metal-stack/api-server/pkg/db/generic"
 	"github.com/metal-stack/api-server/pkg/test"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
@@ -31,7 +33,6 @@ import (
 	"github.com/metal-stack/v"
 	"github.com/redis/go-redis/v9"
 	"github.com/urfave/cli/v2"
-	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
 
 var serveCmd = &cli.Command{
@@ -88,9 +89,16 @@ var serveCmd = &cli.Command{
 		redisAddr := ctx.String(redisAddrFlag.Name)
 		stage := ctx.String(stageFlag.Name)
 
-		rethinkDBSession, err := createRethinkDBClient(ctx, log)
+		ds, err := generic.New(log.WithGroup("datastore"), rethinkdb.ConnectOpts{
+			Addresses: ctx.StringSlice(rethinkdbAddressesFlag.Name),
+			Database:  ctx.String(rethinkdbDBNameFlag.Name),
+			Username:  ctx.String(rethinkdbUserFlag.Name),
+			Password:  ctx.String(rethinkdbPasswordFlag.Name),
+			MaxIdle:   10,
+			MaxOpen:   20,
+		})
 		if err != nil {
-			log.Error("unable to create rethinkdb client", "error", err)
+			log.Error("unable to create datastore", "error", err)
 			os.Exit(1)
 		}
 
@@ -100,11 +108,17 @@ var serveCmd = &cli.Command{
 			os.Exit(1)
 		}
 
+		mc, err := createMasterdataClient(ctx, log)
+		if err != nil {
+			log.Error("unable to create masterdata-client", "error", err)
+			os.Exit(1)
+		}
+
 		c := config{
 			HttpServerEndpoint:                  ctx.String(httpServerEndpointFlag.Name),
 			MetricsServerEndpoint:               ctx.String(metricServerEndpointFlag.Name),
 			Log:                                 log,
-			MasterClient:                        retryConnectMasterdataClient(ctx, log),
+			MasterClient:                        mc,
 			ServerHttpURL:                       ctx.String(serverHttpUrlFlag.Name),
 			FrontEndUrl:                         ctx.String(frontEndUrlFlag.Name),
 			Auditing:                            audit,
@@ -114,8 +128,7 @@ var serveCmd = &cli.Command{
 			Admins:                              ctx.StringSlice(adminsFlag.Name),
 			MaxRequestsPerMinuteToken:           ctx.Int(maxRequestsPerMinuteFlag.Name),
 			MaxRequestsPerMinuteUnauthenticated: ctx.Int(maxRequestsPerMinuteUnauthenticatedFlag.Name),
-			RethinkDB:                           ctx.String(rethinkdbDBNameFlag.Name),
-			RethinkDBSession:                    rethinkDBSession,
+			Datastore:                           ds,
 			Ipam:                                ipam,
 			OIDCClientID:                        ctx.String(oidcClientIdFlag.Name),
 			OIDCClientSecret:                    ctx.String(oidcClientSecretFlag.Name),
@@ -149,52 +162,28 @@ var serveCmd = &cli.Command{
 	},
 }
 
-// retryConnectMasterdataClient creates a client to the masterdata-api
-// this is a blocking operation
-func retryConnectMasterdataClient(cli *cli.Context, logger *slog.Logger) mdm.Client {
-	var err error
-	var client mdm.Client
-	for {
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		client, err = mdm.NewClient(ctx,
-			cli.String(masterdataApiHostnameFlag.Name),
-			cli.Int(masterdataApiPortFlag.Name),
-			cli.String(masterdataApiCertPathFlag.Name),
-			cli.String(masterdataApiCertKeyPathFlag.Name),
-			cli.String(masterdataApiCAPathFlag.Name),
-			cli.String(masterdataApiHmacFlag.Name),
-			false, // TLSSkipInsecure
-			slog.Default(),
-		)
-		if err == nil {
-			defer cancel()
-			break
-		}
-		cancel()
-		logger.Error("unable to initialize masterdata-api client, retrying...", "error", err)
-		time.Sleep(3 * time.Second)
+// createMasterdataClient creates a client to the masterdata-api
+func createMasterdataClient(cli *cli.Context, log *slog.Logger) (mdm.Client, error) {
+	ctx, cancel := context.WithTimeout(cli.Context, 3*time.Second)
+	defer cancel()
+
+	client, err := mdm.NewClient(ctx,
+		cli.String(masterdataApiHostnameFlag.Name),
+		cli.Int(masterdataApiPortFlag.Name),
+		cli.String(masterdataApiCertPathFlag.Name),
+		cli.String(masterdataApiCertKeyPathFlag.Name),
+		cli.String(masterdataApiCAPathFlag.Name),
+		cli.String(masterdataApiHmacFlag.Name),
+		false, // TLSSkipInsecure
+		log.WithGroup("masterdata-client"),
+	)
+	if err != nil {
+		return nil, err
 	}
 
-	logger.Info("masterdata client initialized")
+	log.Info("masterdata client initialized")
 
-	return client
-}
-
-func createRethinkDBClient(cli *cli.Context, log *slog.Logger) (*r.Session, error) {
-	addresses := cli.StringSlice(rethinkdbAddressesFlag.Name)
-	dbname := cli.String(rethinkdbDBNameFlag.Name)
-	user := cli.String(rethinkdbUserFlag.Name)
-	password := cli.String(rethinkdbPasswordFlag.Name)
-	log.Info("create rethinkdb client", "addresses", addresses, "dbname", dbname, "user", user, "password", password)
-	session, err := r.Connect(r.ConnectOpts{
-		Addresses: addresses,
-		Database:  dbname,
-		Username:  user,
-		Password:  password,
-		MaxIdle:   10,
-		MaxOpen:   20,
-	})
-	return session, err
+	return client, nil
 }
 
 // createAuditingClient creates a new auditing client

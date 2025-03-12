@@ -49,7 +49,7 @@ type (
 
 	Store struct {
 		log   *slog.Logger
-		ds    *generic.Datastore
+		ds    generic.Datastore
 		mdc   mdm.Client
 		ipam  ipamv1connect.IpamServiceClient
 		async *asyncclient.Client
@@ -84,7 +84,7 @@ type (
 	}
 )
 
-func New(log *slog.Logger, mdc mdm.Client, ds *generic.Datastore, ipam ipamv1connect.IpamServiceClient, redis *redis.Client) (*Store, error) {
+func New(log *slog.Logger, mdc mdm.Client, ds generic.Datastore, ipam ipamv1connect.IpamServiceClient, redis *redis.Client) (*Store, error) {
 
 	r := &Store{
 		log:   log,
