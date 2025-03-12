@@ -76,7 +76,7 @@ var serveCmd = &cli.Command{
 		oidcEndSessionUrlFlag,
 	},
 	Action: func(ctx *cli.Context) error {
-		log, level, err := createLoggers(ctx)
+		log, level, err := createLogger(ctx)
 		if err != nil {
 			return fmt.Errorf("unable to create logger %w", err)
 		}

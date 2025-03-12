@@ -214,6 +214,7 @@ func main() {
 		Commands: []*cli.Command{
 			serveCmd,
 			tokenCmd,
+			datastoreCmd,
 		},
 	}
 
@@ -223,7 +224,7 @@ func main() {
 	}
 }
 
-func createLoggers(ctx *cli.Context) (*slog.Logger, slog.Level, error) {
+func createLogger(ctx *cli.Context) (*slog.Logger, slog.Level, error) {
 	var (
 		level  = slog.LevelInfo
 		lvlvar slog.LevelVar

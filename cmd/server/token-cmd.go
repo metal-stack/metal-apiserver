@@ -71,7 +71,7 @@ var tokenCmd = &cli.Command{
 		serverHttpUrlFlag,
 	},
 	Action: func(ctx *cli.Context) error {
-		log, _, err := createLoggers(ctx)
+		log, _, err := createLogger(ctx)
 		if err != nil {
 			return fmt.Errorf("unable to create logger %w", err)
 		}
