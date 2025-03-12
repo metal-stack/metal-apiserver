@@ -217,6 +217,7 @@ func (s *server) Run() error {
 		Log:           s.log,
 		CertStore:     certStore,
 		TokenStore:    tokenStore,
+		MasterClient:  s.c.MasterClient,
 		Issuer:        s.c.ServerHttpURL,
 		AdminSubjects: s.c.Admins,
 	})

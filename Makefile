@@ -6,6 +6,8 @@ VERSION := $(or ${VERSION},$(shell git describe --tags --exact-match 2> /dev/nul
 CGO_ENABLED := 1
 LINKMODE := -extldflags '-static -s -w'
 
+MINI_LAB_KUBECONFIG := $(shell pwd)/../mini-lab/.kubeconfig
+
 all: test-opa test server
 
 .PHONY: server
@@ -100,3 +102,12 @@ auditing-up:
 .PHONY: auditing-rm
 auditing-rm:
 	docker rm -f auditing
+
+
+.PHONY: mini-lab-push
+mini-lab-push:
+	make server
+	docker build -f Dockerfile -t metalstack/metal-apiserver:latest .
+	kind --name metal-control-plane load docker-image metalstack/metal-apiserver:latest
+	kubectl --kubeconfig=$(MINI_LAB_KUBECONFIG) patch deployments.apps -n metal-control-plane metal-apiserver --patch='{"spec":{"template":{"spec":{"containers":[{"name": "apiserver","imagePullPolicy":"IfNotPresent","image":"metalstack/metal-apiserver:latest"}]}}}}'
+	kubectl --kubeconfig=$(MINI_LAB_KUBECONFIG) delete pod -n metal-control-plane -l app=metal-apiserver
