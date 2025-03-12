@@ -22,7 +22,7 @@ func TestGet(t *testing.T) {
 	r := miniredis.RunT(t)
 	rc := redis.NewClient(&redis.Options{Addr: r.Addr()})
 
-	container, c, err := test.StartRethink(t)
+	container, c, err := test.StartRethink(t, log)
 	require.NoError(t, err)
 	defer func() {
 		_ = container.Terminate(context.Background())
@@ -30,7 +30,7 @@ func TestGet(t *testing.T) {
 
 	ipam := test.StartIpam(t)
 
-	ds, err := generic.New(log, "metal", c)
+	ds, err := generic.New(log, c)
 	require.NoError(t, err)
 
 	repo, err := repository.New(log, nil, ds, ipam, rc)
@@ -50,7 +50,7 @@ func TestIpUnscopedList(t *testing.T) {
 	r := miniredis.RunT(t)
 	rc := redis.NewClient(&redis.Options{Addr: r.Addr()})
 
-	container, c, err := test.StartRethink(t)
+	container, c, err := test.StartRethink(t, log)
 	require.NoError(t, err)
 	defer func() {
 		_ = container.Terminate(context.Background())
@@ -58,7 +58,7 @@ func TestIpUnscopedList(t *testing.T) {
 
 	ipam := test.StartIpam(t)
 
-	ds, err := generic.New(log, "metal", c)
+	ds, err := generic.New(log, c)
 	require.NoError(t, err)
 
 	repo, err := repository.New(log, nil, ds, ipam, rc)

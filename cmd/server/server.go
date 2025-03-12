@@ -29,7 +29,6 @@ import (
 	"github.com/rs/cors"
 	"go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/sdk/metric"
-	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
@@ -77,11 +76,10 @@ type config struct {
 	Stage                               string
 	RedisAddr                           string
 	RedisPassword                       string
+	Datastore                           generic.Datastore
 	Admins                              []string
 	MaxRequestsPerMinuteToken           int
 	MaxRequestsPerMinuteUnauthenticated int
-	RethinkDBSession                    *r.Session
-	RethinkDB                           string
 	Ipam                                ipamv1connect.IpamServiceClient
 }
 type server struct {
@@ -120,12 +118,7 @@ func (s *server) Run() error {
 	projectInviteStore := invite.NewProjectRedisStore(inviteRedisClient)
 	tenantInviteStore := invite.NewTenantRedisStore(inviteRedisClient)
 
-	ds, err := generic.New(s.log, s.c.RethinkDB, s.c.RethinkDBSession)
-	if err != nil {
-		return err
-	}
-
-	repo, err := repository.New(s.log, s.c.MasterClient, ds, s.c.Ipam, txRedisClient)
+	repo, err := repository.New(s.log, s.c.MasterClient, s.c.Datastore, s.c.Ipam, txRedisClient)
 	if err != nil {
 		return err
 	}

@@ -16,15 +16,16 @@ import (
 )
 
 func TestGenericCRUD(t *testing.T) {
-	container, c, err := test.StartRethink(t)
+	log := slog.Default()
+
+	container, c, err := test.StartRethink(t, log)
 	require.NoError(t, err)
 	defer func() {
 		_ = container.Terminate(context.Background())
 	}()
 	ctx := context.Background()
-	log := slog.Default()
 
-	ds, err := generic.New(log, "metal", c)
+	ds, err := generic.New(log, c)
 	require.NoError(t, err)
 
 	nonexisting, err := ds.IP().Get(ctx, "1.2.3.4")
@@ -59,15 +60,16 @@ func TestGenericCRUD(t *testing.T) {
 }
 
 func TestFindAndListGeneric(t *testing.T) {
-	container, c, err := test.StartRethink(t)
+	log := slog.Default()
+
+	container, c, err := test.StartRethink(t, log)
 	require.NoError(t, err)
 	defer func() {
 		_ = container.Terminate(context.Background())
 	}()
 	ctx := context.Background()
-	log := slog.Default()
 
-	ds, err := generic.New(log, "metal", c)
+	ds, err := generic.New(log, c)
 	require.NoError(t, err)
 
 	created, err := ds.IP().Create(ctx, &metal.IP{IPAddress: "1.2.3.4", ProjectID: "p1"})

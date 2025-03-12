@@ -2,8 +2,11 @@ package test
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 
+	"github.com/metal-stack/api-server/pkg/db/generic"
+	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
@@ -11,11 +14,11 @@ import (
 
 const rethinkDbImage = "rethinkdb:2.4.4-bookworm-slim"
 
-func StartRethink(t testing.TB) (container testcontainers.Container, s *r.Session, err error) {
+func StartRethink(t testing.TB, log *slog.Logger) (container testcontainers.Container, s r.ConnectOpts, err error) {
 	ctx := context.Background()
-	var log testcontainers.Logging
+	var tLog testcontainers.Logging
 	if t != nil {
-		log = testcontainers.TestLogger(t)
+		tLog = testcontainers.TestLogger(t)
 	}
 
 	req := testcontainers.ContainerRequest{
@@ -31,7 +34,7 @@ func StartRethink(t testing.TB) (container testcontainers.Container, s *r.Sessio
 	rtContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
 		Started:          true,
-		Logger:           log,
+		Logger:           tLog,
 	})
 	if err != nil {
 		panic(err.Error())
@@ -39,21 +42,25 @@ func StartRethink(t testing.TB) (container testcontainers.Container, s *r.Sessio
 
 	ip, err := rtContainer.Host(ctx)
 	if err != nil {
-		return rtContainer, nil, err
+		return rtContainer, r.ConnectOpts{}, err
 	}
 
 	port, err := rtContainer.MappedPort(ctx, "28015")
 	if err != nil {
-		return rtContainer, nil, err
+		return rtContainer, r.ConnectOpts{}, err
 	}
-	session, err := r.Connect(r.ConnectOpts{
+
+	opts := r.ConnectOpts{
 		Addresses: []string{ip + ":" + port.Port()},
 		Database:  "metal",
 		Username:  "admin",
 		Password:  "rethink",
 		MaxIdle:   10,
 		MaxOpen:   20,
-	})
+	}
 
-	return rtContainer, session, err
+	err = generic.Initialize(ctx, log, opts)
+	require.NoError(t, err)
+
+	return rtContainer, opts, err
 }
