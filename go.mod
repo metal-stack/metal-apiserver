@@ -1,4 +1,4 @@
-module github.com/metal-stack/api-server
+module github.com/metal-stack/metal-apiserver
 
 go 1.24.0
 

@@ -5,10 +5,10 @@ import (
 	"log/slog"
 
 	"connectrpc.com/connect"
-	"github.com/metal-stack/api-server/pkg/db/repository"
-	"github.com/metal-stack/api-server/pkg/errorutil"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
+	"github.com/metal-stack/metal-apiserver/pkg/db/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 )
 
 type Config struct {

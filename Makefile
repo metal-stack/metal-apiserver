@@ -17,7 +17,7 @@ server:
 								   -X 'github.com/metal-stack/v.Revision=$(GITVERSION)' \
 								   -X 'github.com/metal-stack/v.GitSHA1=$(SHA)' \
 								   -X 'github.com/metal-stack/v.BuildDate=$(BUILDDATE)'" \
-	   -o bin/server github.com/metal-stack/api-server/cmd/server
+	   -o bin/server github.com/metal-stack/metal-apiserver/cmd/server
 	strip bin/server
 
 .PHONY: test
@@ -58,7 +58,7 @@ golint:
 
 .PHONY: run
 run:
-	go run github.com/metal-stack/api-server/cmd/server serve \
+	go run github.com/metal-stack/metal-apiserver/cmd/server serve \
 		--log-level debug \
 		--stage DEV \
 		--masterdata-api-ca-path pkg/test/certs/ca.pem \

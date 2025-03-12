@@ -7,7 +7,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/go-cmp/cmp"
-	"github.com/metal-stack/api-server/pkg/db/metal"
+	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	metalcommon "github.com/metal-stack/metal-lib/pkg/metal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

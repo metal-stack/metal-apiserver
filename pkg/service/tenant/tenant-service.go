@@ -9,19 +9,19 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	putil "github.com/metal-stack/api-server/pkg/project"
-	msvc "github.com/metal-stack/api-server/pkg/service/method"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	mdc "github.com/metal-stack/masterdata-api/pkg/client"
+	putil "github.com/metal-stack/metal-apiserver/pkg/project"
+	msvc "github.com/metal-stack/metal-apiserver/pkg/service/method"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
-	"github.com/metal-stack/api-server/pkg/invite"
-	tutil "github.com/metal-stack/api-server/pkg/tenant"
-	"github.com/metal-stack/api-server/pkg/token"
+	"github.com/metal-stack/metal-apiserver/pkg/invite"
+	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
+	"github.com/metal-stack/metal-apiserver/pkg/token"
 )
 
 type Config struct {

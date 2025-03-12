@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/metal-stack/api-server/pkg/test"
+	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

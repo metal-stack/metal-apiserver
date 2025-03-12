@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/metal-stack/api-server/pkg/db/metal"
+	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 )
 
 func TestPrefixes_OfFamily(t *testing.T) {

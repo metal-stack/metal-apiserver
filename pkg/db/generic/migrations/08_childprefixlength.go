@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/netip"
 
-	"github.com/metal-stack/api-server/pkg/db/generic"
-	"github.com/metal-stack/api-server/pkg/db/metal"
+	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
 

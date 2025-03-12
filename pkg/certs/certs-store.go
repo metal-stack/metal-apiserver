@@ -17,7 +17,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lestrrat-go/jwx/v2/jwk"
-	"github.com/metal-stack/api-server/pkg/token"
+	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/redis/go-redis/v9"
 )
 

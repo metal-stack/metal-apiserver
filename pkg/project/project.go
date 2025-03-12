@@ -6,10 +6,10 @@ import (
 	"strconv"
 
 	"connectrpc.com/connect"
-	tutil "github.com/metal-stack/api-server/pkg/tenant"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	mdc "github.com/metal-stack/masterdata-api/pkg/client"
+	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 )
 

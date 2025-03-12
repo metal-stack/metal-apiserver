@@ -14,7 +14,7 @@ import (
 	"github.com/metal-stack/metal-lib/pkg/testcommon"
 	"github.com/stretchr/testify/mock"
 
-	tutil "github.com/metal-stack/api-server/pkg/tenant"
+	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
 )
 
 func newMasterdataMockClient(

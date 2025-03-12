@@ -9,8 +9,8 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"github.com/metal-stack/api-server/pkg/service/method"
 	v1 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/service/method"
 )
 
 const (

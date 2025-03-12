@@ -3,9 +3,9 @@ package repository
 import (
 	"context"
 
-	"github.com/metal-stack/api-server/pkg/errorutil"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 )
 
 type projectRepository struct {

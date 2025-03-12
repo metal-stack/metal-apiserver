@@ -17,16 +17,16 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	"gopkg.in/rethinkdb/rethinkdb-go.v6"
 
-	"github.com/metal-stack/api-server/pkg/db/generic"
-	"github.com/metal-stack/api-server/pkg/test"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	mdm "github.com/metal-stack/masterdata-api/pkg/client"
+	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/test"
 
-	putil "github.com/metal-stack/api-server/pkg/project"
-	tutil "github.com/metal-stack/api-server/pkg/tenant"
 	mdmv1 "github.com/metal-stack/masterdata-api/api/v1"
+	putil "github.com/metal-stack/metal-apiserver/pkg/project"
+	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
 
 	"github.com/metal-stack/metal-lib/auditing"
 	"github.com/metal-stack/v"

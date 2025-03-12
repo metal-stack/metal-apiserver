@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	tutil "github.com/metal-stack/api-server/pkg/tenant"
-	"github.com/metal-stack/api-server/pkg/token"
 	"github.com/metal-stack/api/go/permissions"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	mdc "github.com/metal-stack/masterdata-api/pkg/client"
+	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
+	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/cache"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/metal-stack/security"

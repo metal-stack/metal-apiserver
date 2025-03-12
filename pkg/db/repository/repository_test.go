@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/alicebob/miniredis/v2"
-	"github.com/metal-stack/api-server/pkg/db/generic"
-	"github.com/metal-stack/api-server/pkg/db/repository"
-	"github.com/metal-stack/api-server/pkg/test"
+	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/db/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"

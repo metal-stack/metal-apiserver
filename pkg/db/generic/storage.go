@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/metal-stack/api-server/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
 

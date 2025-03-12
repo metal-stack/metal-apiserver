@@ -5,12 +5,12 @@ import (
 	"log/slog"
 
 	"connectrpc.com/connect"
-	"github.com/metal-stack/api-server/pkg/invite"
-	tutil "github.com/metal-stack/api-server/pkg/tenant"
-	"github.com/metal-stack/api-server/pkg/token"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
+	"github.com/metal-stack/metal-apiserver/pkg/invite"
+	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
+	"github.com/metal-stack/metal-apiserver/pkg/token"
 
 	v1 "github.com/metal-stack/masterdata-api/api/v1"
 	mdc "github.com/metal-stack/masterdata-api/pkg/client"

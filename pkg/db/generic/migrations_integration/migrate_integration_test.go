@@ -7,9 +7,9 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/metal-stack/api-server/pkg/db/generic"
-	"github.com/metal-stack/api-server/pkg/db/metal"
-	"github.com/metal-stack/api-server/pkg/test"
+	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/metal-stack/metal-apiserver/pkg/test"
 
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 
@@ -17,7 +17,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	_ "github.com/metal-stack/api-server/pkg/db/generic/migrations"
+	_ "github.com/metal-stack/metal-apiserver/pkg/db/generic/migrations"
 )
 
 func Test_MigrationChildPrefixLength(t *testing.T) {

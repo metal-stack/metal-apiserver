@@ -4,8 +4,8 @@ import (
 	"log/slog"
 
 	"github.com/hibiken/asynq"
-	asyncclient "github.com/metal-stack/api-server/pkg/async/client"
-	"github.com/metal-stack/api-server/pkg/db/repository"
+	asyncclient "github.com/metal-stack/metal-apiserver/pkg/async/client"
+	"github.com/metal-stack/metal-apiserver/pkg/db/repository"
 	"github.com/redis/go-redis/v9"
 )
 

@@ -4,9 +4,9 @@ import (
 	"context"
 	"log/slog"
 
-	asyncclient "github.com/metal-stack/api-server/pkg/async/client"
-	"github.com/metal-stack/api-server/pkg/db/generic"
-	"github.com/metal-stack/api-server/pkg/db/metal"
+	asyncclient "github.com/metal-stack/metal-apiserver/pkg/async/client"
+	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"

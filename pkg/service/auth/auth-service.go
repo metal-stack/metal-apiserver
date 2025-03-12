@@ -26,9 +26,9 @@ import (
 	mdc "github.com/metal-stack/masterdata-api/pkg/client"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
-	putil "github.com/metal-stack/api-server/pkg/project"
-	"github.com/metal-stack/api-server/pkg/service/token"
-	tutil "github.com/metal-stack/api-server/pkg/tenant"
+	putil "github.com/metal-stack/metal-apiserver/pkg/project"
+	"github.com/metal-stack/metal-apiserver/pkg/service/token"
+	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
 	"github.com/metal-stack/metal-lib/auditing"
 )
 

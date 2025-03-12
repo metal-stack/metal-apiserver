@@ -8,14 +8,14 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/alicebob/miniredis/v2"
-	"github.com/metal-stack/api-server/pkg/invite"
-	putil "github.com/metal-stack/api-server/pkg/project"
-	tutil "github.com/metal-stack/api-server/pkg/tenant"
-	"github.com/metal-stack/api-server/pkg/token"
-	"github.com/metal-stack/api/go/metalstack/api/v2"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	mdmv1 "github.com/metal-stack/masterdata-api/api/v1"
 	mdmv1mock "github.com/metal-stack/masterdata-api/api/v1/mocks"
 	mdc "github.com/metal-stack/masterdata-api/pkg/client"
+	"github.com/metal-stack/metal-apiserver/pkg/invite"
+	putil "github.com/metal-stack/metal-apiserver/pkg/project"
+	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
+	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
@@ -195,7 +195,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 			want: &apiv2.ProjectServiceGetResponse{
 				Project: &apiv2.Project{
 					Uuid:      "project",
-					Meta:  &apiv2.Meta{},
+					Meta:      &apiv2.Meta{},
 					Tenant:    "me",
 					AvatarUrl: pointer.Pointer(""),
 				},
@@ -279,7 +279,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 			want: &apiv2.ProjectServiceGetResponse{
 				Project: &apiv2.Project{
 					Uuid:      "project",
-					Meta:  &apiv2.Meta{},
+					Meta:      &apiv2.Meta{},
 					Tenant:    "me",
 					AvatarUrl: pointer.Pointer(""),
 				},
@@ -363,7 +363,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 			want: &apiv2.ProjectServiceGetResponse{
 				Project: &apiv2.Project{
 					Uuid:      "project",
-					Meta:  &apiv2.Meta{},
+					Meta:      &apiv2.Meta{},
 					Tenant:    "me",
 					AvatarUrl: pointer.Pointer(""),
 				},
@@ -438,7 +438,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 			want: &apiv2.ProjectServiceGetResponse{
 				Project: &apiv2.Project{
 					Uuid:      "project",
-					Meta:  &apiv2.Meta{},
+					Meta:      &apiv2.Meta{},
 					Tenant:    "me",
 					AvatarUrl: pointer.Pointer(""),
 				},
@@ -499,7 +499,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 			want: &apiv2.ProjectServiceGetResponse{
 				Project: &apiv2.Project{
 					Uuid:      "project",
-					Meta:  &apiv2.Meta{},
+					Meta:      &apiv2.Meta{},
 					Tenant:    "me",
 					AvatarUrl: pointer.Pointer(""),
 				},

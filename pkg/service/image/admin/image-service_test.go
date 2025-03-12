@@ -12,10 +12,10 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
-	"github.com/metal-stack/api-server/pkg/db/repository"
-	"github.com/metal-stack/api-server/pkg/test"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/db/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"

@@ -6,8 +6,8 @@ import (
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/lestrrat-go/jwx/v2/jwk"
-	"github.com/metal-stack/api-server/pkg/certs"
-	"github.com/metal-stack/api-server/pkg/token"
+	"github.com/metal-stack/metal-apiserver/pkg/certs"
+	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"

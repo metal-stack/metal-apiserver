@@ -3,7 +3,7 @@ package generic
 import (
 	"log/slog"
 
-	"github.com/metal-stack/api-server/pkg/db/metal"
+	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
 

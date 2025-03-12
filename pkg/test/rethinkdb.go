@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/metal-stack/api-server/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"

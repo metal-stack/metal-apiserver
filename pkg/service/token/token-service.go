@@ -9,14 +9,14 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/metal-stack/api-server/pkg/certs"
-	putil "github.com/metal-stack/api-server/pkg/project"
-	"github.com/metal-stack/api-server/pkg/service/method"
-	tokenutil "github.com/metal-stack/api-server/pkg/token"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/api/go/permissions"
 	mdc "github.com/metal-stack/masterdata-api/pkg/client"
+	"github.com/metal-stack/metal-apiserver/pkg/certs"
+	putil "github.com/metal-stack/metal-apiserver/pkg/project"
+	"github.com/metal-stack/metal-apiserver/pkg/service/method"
+	tokenutil "github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 )
 

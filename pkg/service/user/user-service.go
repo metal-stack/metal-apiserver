@@ -8,11 +8,11 @@ import (
 	"connectrpc.com/connect"
 	mdc "github.com/metal-stack/masterdata-api/pkg/client"
 
-	putil "github.com/metal-stack/api-server/pkg/project"
+	putil "github.com/metal-stack/metal-apiserver/pkg/project"
 
-	"github.com/metal-stack/api-server/pkg/token"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
+	"github.com/metal-stack/metal-apiserver/pkg/token"
 )
 
 type Config struct {

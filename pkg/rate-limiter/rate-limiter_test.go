@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/metal-stack/api-server/pkg/certs"
-	"github.com/metal-stack/api-server/pkg/token"
+	"github.com/metal-stack/metal-apiserver/pkg/certs"
+	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 

@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/metal-stack/api-server/pkg/certs"
-	"github.com/metal-stack/api-server/pkg/service/token"
-	tokencommon "github.com/metal-stack/api-server/pkg/token"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/certs"
+	"github.com/metal-stack/metal-apiserver/pkg/service/token"
+	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/urfave/cli/v2"
 	"google.golang.org/protobuf/types/known/durationpb"

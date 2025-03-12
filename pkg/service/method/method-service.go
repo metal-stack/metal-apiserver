@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"connectrpc.com/connect"
-	"github.com/metal-stack/api-server/pkg/token"
 	apiv1 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/api/go/permissions"
+	"github.com/metal-stack/metal-apiserver/pkg/token"
 )
 
 type methodServiceServer struct {
