@@ -220,21 +220,28 @@ func main() {
 
 	err := app.Run(os.Args)
 	if err != nil {
-		log.Fatalf("Error in cli: %v", err)
+		log.Fatalf("error in cli: %v", err)
 	}
 }
 
-func createLogger(ctx *cli.Context) (*slog.Logger, slog.Level, error) {
-	var (
-		level  = slog.LevelInfo
-		lvlvar slog.LevelVar
-	)
+func createLogger(ctx *cli.Context) (*slog.Logger, error) {
+	var lvlvar slog.LevelVar
+
 	err := lvlvar.UnmarshalText([]byte(ctx.String(logLevelFlag.Name)))
 	if err != nil {
-		return nil, level, err
+		return nil, err
 	}
-	level = lvlvar.Level()
 
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level}))
-	return logger, level, nil
+	log := slog.New(
+		slog.NewJSONHandler(
+			os.Stdout,
+			&slog.HandlerOptions{
+				Level: lvlvar.Level(),
+			},
+		),
+	)
+
+	log.Info("created slog logger", "level", lvlvar.String())
+
+	return log, nil
 }

@@ -35,7 +35,7 @@ var datastoreCmd = &cli.Command{
 			Name:        "init",
 			Description: "initializes the datastore. must be run before the server can act on the datastore.",
 			Action: func(ctx *cli.Context) error {
-				log, _, err := createLogger(ctx)
+				log, err := createLogger(ctx)
 				if err != nil {
 					return fmt.Errorf("unable to create logger %w", err)
 				}
@@ -63,7 +63,7 @@ var datastoreCmd = &cli.Command{
 				dryRunFlag,
 			},
 			Action: func(ctx *cli.Context) error {
-				log, _, err := createLogger(ctx)
+				log, err := createLogger(ctx)
 				if err != nil {
 					return fmt.Errorf("unable to create logger %w", err)
 				}

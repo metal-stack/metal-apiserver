@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -76,18 +75,25 @@ var serveCmd = &cli.Command{
 		oidcEndSessionUrlFlag,
 	},
 	Action: func(ctx *cli.Context) error {
-		log, level, err := createLogger(ctx)
+		log, err := createLogger(ctx)
 		if err != nil {
 			return fmt.Errorf("unable to create logger %w", err)
 		}
+
 		audit, err := createAuditingClient(ctx, log)
 		if err != nil {
-			log.Error("unable to create auditing client", "error", err)
-			os.Exit(1)
+			return fmt.Errorf("unable to create auditing client: %w", err)
 		}
 
-		redisAddr := ctx.String(redisAddrFlag.Name)
-		stage := ctx.String(stageFlag.Name)
+		ipam, err := createIpamClient(ctx, log)
+		if err != nil {
+			return fmt.Errorf("unable to create ipam client: %w", err)
+		}
+
+		mc, err := createMasterdataClient(ctx, log)
+		if err != nil {
+			return fmt.Errorf("unable to create masterdata.client: %w", err)
+		}
 
 		ds, err := generic.New(log.WithGroup("datastore"), rethinkdb.ConnectOpts{
 			Addresses: ctx.StringSlice(rethinkdbAddressesFlag.Name),
@@ -98,20 +104,7 @@ var serveCmd = &cli.Command{
 			MaxOpen:   20,
 		})
 		if err != nil {
-			log.Error("unable to create datastore", "error", err)
-			os.Exit(1)
-		}
-
-		ipam, err := createIpamClient(ctx, log)
-		if err != nil {
-			log.Error("unable to create ipam client", "error", err)
-			os.Exit(1)
-		}
-
-		mc, err := createMasterdataClient(ctx, log)
-		if err != nil {
-			log.Error("unable to create masterdata-client", "error", err)
-			os.Exit(1)
+			return fmt.Errorf("unable to create datastore: %w", err)
 		}
 
 		c := config{
@@ -122,8 +115,8 @@ var serveCmd = &cli.Command{
 			ServerHttpURL:                       ctx.String(serverHttpUrlFlag.Name),
 			FrontEndUrl:                         ctx.String(frontEndUrlFlag.Name),
 			Auditing:                            audit,
-			Stage:                               stage,
-			RedisAddr:                           redisAddr,
+			Stage:                               ctx.String(stageFlag.Name),
+			RedisAddr:                           ctx.String(redisAddrFlag.Name),
 			RedisPassword:                       ctx.String(redisPasswordFlag.Name),
 			Admins:                              ctx.StringSlice(adminsFlag.Name),
 			MaxRequestsPerMinuteToken:           ctx.Int(maxRequestsPerMinuteFlag.Name),
@@ -152,12 +145,13 @@ var serveCmd = &cli.Command{
 			c.Admins = append(c.Admins, providerTenant)
 		}
 
-		log.Info("running api-server", "version", v.V, "level", level, "http endpoint", c.HttpServerEndpoint)
+		log.Info("running api-server", "version", v.V, "http endpoint", c.HttpServerEndpoint)
+
 		s := newServer(c)
 		if err := s.Run(); err != nil {
-			log.Error("unable to execute server", "error", err)
-			os.Exit(1)
+			return fmt.Errorf("unable to execute server: %w", err)
 		}
+
 		return nil
 	},
 }
