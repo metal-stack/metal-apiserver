@@ -10,10 +10,10 @@ import (
 func TestMigrations_Between(t *testing.T) {
 	tests := []struct {
 		name    string
-		ms      Migrations
+		ms      migrations
 		current int
 		target  *int
-		want    Migrations
+		want    migrations
 		wantErr bool
 	}{
 		{

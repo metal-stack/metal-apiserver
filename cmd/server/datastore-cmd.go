@@ -7,6 +7,8 @@ import (
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/urfave/cli/v2"
 	"gopkg.in/rethinkdb/rethinkdb-go.v6"
+
+	_ "github.com/metal-stack/api-server/pkg/db/generic/migrations"
 )
 
 var (

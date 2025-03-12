@@ -13,24 +13,24 @@ import (
 )
 
 type (
-	// MigrateFunc is a function that contains database migration logic
-	MigrateFunc func(ctx context.Context, db *r.Term, session r.QueryExecutor, ds Datastore) error
-
-	// Migrations is a list of migrations
-	Migrations []Migration
-
 	// Migration defines a database migration
 	Migration struct {
 		Name    string
 		Version int
-		Up      MigrateFunc
+		Up      migrateFunc
 	}
 
-	// MigrationVersionEntry is a version entry in the migration database
-	MigrationVersionEntry struct {
+	// migrationVersionEntry is a version entry in the migration database
+	migrationVersionEntry struct {
 		Version int    `rethinkdb:"id"`
 		Name    string `rethinkdb:"name"`
 	}
+
+	// migrateFunc is a function that contains database migration logic
+	migrateFunc func(ctx context.Context, db *r.Term, session r.QueryExecutor, ds Datastore) error
+
+	// migrations is a list of migrations
+	migrations []Migration
 )
 
 const (
@@ -38,7 +38,7 @@ const (
 )
 
 var (
-	migrations            Migrations
+	ms                    migrations
 	migrationRegisterLock sync.Mutex
 )
 
@@ -49,12 +49,12 @@ func MustRegisterMigration(m Migration) {
 	}
 	migrationRegisterLock.Lock()
 	defer migrationRegisterLock.Unlock()
-	for _, migration := range migrations {
+	for _, migration := range ms {
 		if migration.Version == m.Version {
 			panic(fmt.Sprintf("migration with version %d is defined multiple times", m.Version))
 		}
 	}
-	migrations = append(migrations, m)
+	ms = append(ms, m)
 }
 
 // Migrate runs database migrations and puts the database into read only mode for demoted runtime users.
@@ -73,7 +73,7 @@ func Migrate(ctx context.Context, opts r.ConnectOpts, log *slog.Logger, targetVe
 
 	ds.queryExecutor = session // the metal user cannot create tables
 
-	_, err = migrationTable.Insert(MigrationVersionEntry{Version: 0}, r.InsertOpts{
+	_, err = migrationTable.Insert(migrationVersionEntry{Version: 0}, r.InsertOpts{
 		Conflict: "replace",
 	}).RunWrite(session, r.RunOpts{Context: ctx})
 	if err != nil {
@@ -86,7 +86,7 @@ func Migrate(ctx context.Context, opts r.ConnectOpts, log *slog.Logger, targetVe
 	}
 	defer results.Close()
 
-	var current MigrationVersionEntry
+	var current migrationVersionEntry
 	err = results.One(&current)
 	if err != nil {
 		return err
@@ -95,7 +95,7 @@ func Migrate(ctx context.Context, opts r.ConnectOpts, log *slog.Logger, targetVe
 	if targetVersion != nil && *targetVersion < current.Version {
 		return fmt.Errorf("target version (=%d) smaller than current version (=%d) and down migrations not supported", *targetVersion, current.Version)
 	}
-	ms, err := migrations.between(current.Version, targetVersion)
+	ms, err := ms.between(current.Version, targetVersion)
 	if err != nil {
 		return err
 	}
@@ -136,7 +136,7 @@ func Migrate(ctx context.Context, opts r.ConnectOpts, log *slog.Logger, targetVe
 			return fmt.Errorf("error running database migration: %w", err)
 		}
 
-		_, err := migrationTable.Insert(MigrationVersionEntry{Version: m.Version, Name: m.Name}, r.InsertOpts{
+		_, err := migrationTable.Insert(migrationVersionEntry{Version: m.Version, Name: m.Name}, r.InsertOpts{
 			Conflict: "replace",
 		}).RunWrite(ds.queryExecutor)
 		if err != nil {
@@ -152,8 +152,8 @@ func Migrate(ctx context.Context, opts r.ConnectOpts, log *slog.Logger, targetVe
 // between returns a sorted slice of migrations that are between the given current version
 // and target version (target version contained). If target version is nil all newer versions
 // than current are contained in the slice.
-func (ms Migrations) between(current int, target *int) (Migrations, error) {
-	var result Migrations
+func (ms migrations) between(current int, target *int) (migrations, error) {
+	var result migrations
 	targetFound := false
 	for _, m := range ms {
 		if target != nil {
