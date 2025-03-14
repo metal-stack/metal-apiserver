@@ -7,6 +7,7 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/grpc/status"
 
+	"github.com/google/go-cmp/cmp"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 )
 
@@ -208,4 +209,25 @@ func unauthenticated(err error) *connect.Error {
 	}
 
 	return nil
+}
+
+func ConnectErrorComparer() cmp.Option {
+	return cmp.Comparer(func(x, y *connect.Error) bool {
+		if x == nil && y == nil {
+			return true
+		}
+		if x == nil && y != nil {
+			return false
+		}
+		if x != nil && y == nil {
+			return false
+		}
+		if x.Error() != y.Error() {
+			return false
+		}
+		if x.Code() != y.Code() {
+			return false
+		}
+		return true
+	})
 }

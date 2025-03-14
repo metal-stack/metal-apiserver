@@ -72,9 +72,13 @@ func (r *ipRepository) ValidateUpdate(ctx context.Context, req *apiv2.IPServiceU
 	if err != nil {
 		return nil, err
 	}
-	if old.Type == metal.Static && req.Type == apiv2.IPType_IP_TYPE_EPHEMERAL.Enum() {
-		return nil, errorutil.InvalidArgument("cannot change type of ip address from static to ephemeral")
+
+	if req.Type != nil {
+		if old.Type == metal.Static && *req.Type != apiv2.IPType_IP_TYPE_STATIC {
+			return nil, errorutil.InvalidArgument("cannot change type of ip address from static to ephemeral")
+		}
 	}
+
 	return &Validated[*apiv2.IPServiceUpdateRequest]{
 		message: req,
 	}, nil
