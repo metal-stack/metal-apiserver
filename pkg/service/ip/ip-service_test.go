@@ -76,15 +76,8 @@ func Test_ipServiceServer_Get(t *testing.T) {
 				t.Errorf("diff = %s", diff)
 			}
 
-			if tt.want == nil && got == nil {
-				return
-			}
-			if tt.want == nil && got != nil {
-				t.Error("tt.want is nil but got is not")
-				return
-			}
 			if diff := cmp.Diff(
-				tt.want, got.Msg,
+				tt.want, pointer.SafeDeref(got).Msg,
 				cmp.Options{
 					protocmp.Transform(),
 					protocmp.IgnoreFields(
@@ -190,15 +183,8 @@ func Test_ipServiceServer_List(t *testing.T) {
 				t.Errorf("diff = %s", diff)
 			}
 
-			if tt.want == nil && got == nil {
-				return
-			}
-			if tt.want == nil && got != nil {
-				t.Error("tt.want is nil but got is not")
-				return
-			}
 			if diff := cmp.Diff(
-				tt.want, got.Msg,
+				tt.want, pointer.SafeDeref(got).Msg,
 				cmp.Options{
 					protocmp.Transform(),
 					protocmp.IgnoreFields(
@@ -300,16 +286,8 @@ func Test_ipServiceServer_Update(t *testing.T) {
 				t.Errorf("diff = %s", diff)
 			}
 
-			if tt.want == nil && got == nil {
-				return
-			}
-			if tt.want == nil && got != nil {
-				t.Error("tt.want is nil but got is not")
-				return
-			}
-
 			if diff := cmp.Diff(
-				tt.want, got.Msg,
+				tt.want, pointer.SafeDeref(got).Msg,
 				cmp.Options{
 					protocmp.Transform(),
 					protocmp.IgnoreFields(
@@ -401,16 +379,8 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 				t.Errorf("diff = %s", diff)
 			}
 
-			if tt.want == nil && got == nil {
-				return
-			}
-			if tt.want == nil && got != nil {
-				t.Error("tt.want is nil but got is not")
-				return
-			}
-
 			if diff := cmp.Diff(
-				tt.want, got.Msg,
+				tt.want, pointer.SafeDeref(got).Msg,
 				cmp.Options{
 					protocmp.Transform(),
 					protocmp.IgnoreFields(
@@ -598,16 +568,8 @@ func Test_ipServiceServer_Create(t *testing.T) {
 				t.Errorf("diff = %s", diff)
 			}
 
-			if tt.want == nil && got == nil {
-				return
-			}
-			if tt.want == nil && got != nil {
-				t.Error("tt.want is nil but got is not")
-				return
-			}
-
 			if diff := cmp.Diff(
-				tt.want, got.Msg,
+				tt.want, pointer.SafeDeref(got).Msg,
 				cmp.Options{
 					protocmp.Transform(),
 					protocmp.IgnoreFields(
