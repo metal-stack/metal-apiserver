@@ -14,11 +14,10 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	ipamapiv1 "github.com/metal-stack/go-ipam/api/v1"
 	asyncclient "github.com/metal-stack/metal-apiserver/pkg/async/client"
-	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
-	"github.com/metal-stack/metal-apiserver/pkg/db/validate"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/validate"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/metal-stack/metal-lib/pkg/tag"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -124,7 +123,12 @@ func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServic
 	if req.Description != nil {
 		description = *req.Description
 	}
-	tags := labelsToTags(req.Labels)
+
+	var tags []string
+	if req.Labels != nil {
+		tags = tag.TagMap(req.Labels.Labels).Slice()
+	}
+
 	if req.MachineId != nil {
 		tags = append(tags, tag.New(tag.MachineID, *req.MachineId))
 	}
@@ -257,7 +261,7 @@ func (r *ipRepository) Update(ctx context.Context, req *Validated[*apiv2.IPServi
 		new.Type = t
 	}
 	if rq.Labels != nil {
-		tags := labelsToTags(rq.Labels)
+		tags := tag.TagMap(rq.Labels.Labels).Slice()
 		new.Tags = tags
 	}
 
@@ -300,18 +304,6 @@ func (r *ipRepository) List(ctx context.Context, rq *apiv2.IPQuery) ([]*metal.IP
 	}
 
 	return ip, nil
-}
-
-func (r *ipRepository) scopedFilters(filter generic.EntityQuery) []generic.EntityQuery {
-	var qs []generic.EntityQuery
-	r.r.log.Info("scopedFilters", "scope", r.scope)
-	if r.scope != nil {
-		qs = append(qs, queries.IpProjectScoped(r.scope.projectID))
-	}
-	if filter != nil {
-		qs = append(qs, filter)
-	}
-	return qs
 }
 
 func (r *ipRepository) allocateSpecificIP(ctx context.Context, parent *metal.Network, specificIP string) (ipAddress, parentPrefixCidr string, err error) {
@@ -368,10 +360,11 @@ func (r *ipRepository) allocateRandomIP(ctx context.Context, parent *metal.Netwo
 
 	return "", "", errorutil.InvalidArgument("cannot allocate random free ip in ipam, no ips left in network:%s af:%s parent afs:%#v", parent.ID, addressfamily, parent.Prefixes.AddressFamilies())
 }
-func (r *ipRepository) ConvertToInternal(ip *apiv2.IP) (*metal.IP, error) {
 
+func (r *ipRepository) ConvertToInternal(ip *apiv2.IP) (*metal.IP, error) {
 	panic("unimplemented")
 }
+
 func (r *ipRepository) ConvertToProto(metalIP *metal.IP) (*apiv2.IP, error) {
 	t := apiv2.IPType_IP_TYPE_UNSPECIFIED
 	switch metalIP.Type {
@@ -390,7 +383,9 @@ func (r *ipRepository) ConvertToProto(metalIP *metal.IP) (*apiv2.IP, error) {
 		Project:     metalIP.ProjectID,
 		Type:        t,
 		Meta: &apiv2.Meta{
-			Labels:    tagsToLabels(metalIP.Tags),
+			Labels: &apiv2.Labels{
+				Labels: tag.NewTagMap(metalIP.Tags),
+			},
 			CreatedAt: timestamppb.New(metalIP.Created),
 			UpdatedAt: timestamppb.New(metalIP.Changed),
 		},
@@ -437,28 +432,4 @@ func (r *Store) IpDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
 	}
 
 	return nil
-}
-
-func labelsToTags(labels *apiv2.Labels) []string {
-	if labels == nil {
-		return nil
-	}
-	var tags []string
-	for key, value := range labels.Labels {
-		tags = append(tags, fmt.Sprintf("%s=%s", key, value))
-	}
-	return tags
-}
-func tagsToLabels(tags []string) *apiv2.Labels {
-	if len(tags) == 0 {
-		return nil
-	}
-	var labels = &apiv2.Labels{
-		Labels: map[string]string{},
-	}
-	for _, t := range tags {
-		key, value, _ := strings.Cut(t, "=")
-		labels.Labels[key] = value
-	}
-	return labels
 }

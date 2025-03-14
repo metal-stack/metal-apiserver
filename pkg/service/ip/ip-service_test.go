@@ -13,7 +13,7 @@ import (
 	mdmv1 "github.com/metal-stack/masterdata-api/api/v1"
 	mdmock "github.com/metal-stack/masterdata-api/api/v1/mocks"
 	mdm "github.com/metal-stack/masterdata-api/pkg/client"
-	"github.com/metal-stack/metal-apiserver/pkg/db/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	testifymock "github.com/stretchr/testify/mock"
