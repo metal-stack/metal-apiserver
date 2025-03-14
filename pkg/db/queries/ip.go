@@ -24,7 +24,7 @@ func IpFilter(rq *apiv2.IPQuery) func(q r.Term) r.Term {
 	return func(q r.Term) r.Term {
 		if rq.Project != nil {
 			q = q.Filter(func(row r.Term) r.Term {
-				return row.Field("projectid").Eq(rq.Project)
+				return row.Field("projectid").Eq(*rq.Project)
 			})
 		}
 

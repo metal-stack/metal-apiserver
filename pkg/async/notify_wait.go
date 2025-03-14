@@ -3,6 +3,7 @@ package async
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -39,7 +40,9 @@ const (
 	elemAccessor = "e"
 )
 
-func New[E any](log *slog.Logger, client *redis.Client, streamName string) (Notifier[E], Waiter[E]) {
+func New[E any](log *slog.Logger, client *redis.Client, streamNamePrefix string) (Notifier[E], Waiter[E]) {
+	var elem E
+	streamName := fmt.Sprintf("%s:%T", streamNamePrefix, elem)
 	return &notifier[E]{
 			log:        log.WithGroup("notify").With("stream-name", streamName),
 			streamName: streamName,

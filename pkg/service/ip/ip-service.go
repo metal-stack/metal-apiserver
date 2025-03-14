@@ -9,8 +9,6 @@ import (
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/db/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
-
-	"github.com/metal-stack/metal-lib/pkg/tag"
 )
 
 type Config struct {
@@ -61,13 +59,6 @@ func (i *ipServiceServer) List(ctx context.Context, rq *connect.Request[apiv2.IP
 
 	var res []*apiv2.IP
 	for _, ip := range resp {
-
-		m := tag.NewTagMap(ip.Tags)
-		if _, ok := m.Value(tag.MachineID); ok {
-			// we do not want to show machine ips (e.g. firewall public ips)
-			continue
-		}
-
 		converted, err := i.repo.IP(&req.Project).ConvertToProto(ip)
 		if err != nil {
 			return nil, errorutil.Convert(err)

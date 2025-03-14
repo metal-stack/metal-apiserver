@@ -14,6 +14,7 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	ipamapiv1 "github.com/metal-stack/go-ipam/api/v1"
 	asyncclient "github.com/metal-stack/metal-apiserver/pkg/async/client"
+	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/db/validate"
@@ -284,7 +285,7 @@ func (r *ipRepository) Delete(ctx context.Context, rq *Validated[*metal.IP]) (*m
 }
 
 func (r *ipRepository) Find(ctx context.Context, rq *apiv2.IPQuery) (*metal.IP, error) {
-	ip, err := r.r.ds.IP().Find(ctx, queries.IpFilter(rq))
+	ip, err := r.r.ds.IP().Find(ctx, r.scopedFilters(queries.IpFilter(rq))...)
 	if err != nil {
 		return nil, err
 	}
@@ -293,12 +294,24 @@ func (r *ipRepository) Find(ctx context.Context, rq *apiv2.IPQuery) (*metal.IP, 
 }
 
 func (r *ipRepository) List(ctx context.Context, rq *apiv2.IPQuery) ([]*metal.IP, error) {
-	ip, err := r.r.ds.IP().List(ctx, queries.IpFilter(rq))
+	ip, err := r.r.ds.IP().List(ctx, r.scopedFilters(queries.IpFilter(rq))...)
 	if err != nil {
 		return nil, err
 	}
 
 	return ip, nil
+}
+
+func (r *ipRepository) scopedFilters(filter generic.EntityQuery) []generic.EntityQuery {
+	var qs []generic.EntityQuery
+	r.r.log.Info("scopedFilters", "scope", r.scope)
+	if r.scope != nil {
+		qs = append(qs, queries.IpProjectScoped(r.scope.projectID))
+	}
+	if filter != nil {
+		qs = append(qs, filter)
+	}
+	return qs
 }
 
 func (r *ipRepository) allocateSpecificIP(ctx context.Context, parent *metal.Network, specificIP string) (ipAddress, parentPrefixCidr string, err error) {
