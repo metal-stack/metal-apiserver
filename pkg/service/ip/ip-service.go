@@ -33,11 +33,11 @@ func (i *ipServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2.IPS
 	req := rq.Msg
 
 	// Project is already checked in the tenant-interceptor, ipam must not be consulted
-	resp, err := i.repo.IP(&req.Project).Get(ctx, req.Ip)
+	resp, err := i.repo.IP(req.Project).Get(ctx, req.Ip)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	converted, err := i.repo.IP(&req.Project).ConvertToProto(resp)
+	converted, err := i.repo.IP(req.Project).ConvertToProto(resp)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -52,14 +52,14 @@ func (i *ipServiceServer) List(ctx context.Context, rq *connect.Request[apiv2.IP
 	i.log.Debug("list", "ip", rq)
 	req := rq.Msg
 
-	resp, err := i.repo.IP(&req.Project).List(ctx, req.Query)
+	resp, err := i.repo.IP(req.Project).List(ctx, req.Query)
 	if err != nil {
 		return nil, err
 	}
 
 	var res []*apiv2.IP
 	for _, ip := range resp {
-		converted, err := i.repo.IP(&req.Project).ConvertToProto(ip)
+		converted, err := i.repo.IP(req.Project).ConvertToProto(ip)
 		if err != nil {
 			return nil, errorutil.Convert(err)
 		}
@@ -75,21 +75,21 @@ func (i *ipServiceServer) List(ctx context.Context, rq *connect.Request[apiv2.IP
 func (i *ipServiceServer) Delete(ctx context.Context, rq *connect.Request[apiv2.IPServiceDeleteRequest]) (*connect.Response[apiv2.IPServiceDeleteResponse], error) {
 	i.log.Debug("delete", "ip", rq)
 	req := rq.Msg
-	ip, err := i.repo.IP(&req.Project).Get(ctx, req.Ip)
+	ip, err := i.repo.IP(req.Project).Get(ctx, req.Ip)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	validated, err := i.repo.IP(&req.Project).ValidateDelete(ctx, ip)
+	validated, err := i.repo.IP(req.Project).ValidateDelete(ctx, ip)
 	if err != nil {
 		return nil, err
 	}
 
-	ip, err = i.repo.IP(&req.Project).Delete(ctx, validated)
+	ip, err = i.repo.IP(req.Project).Delete(ctx, validated)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	converted, err := i.repo.IP(&req.Project).ConvertToProto(ip)
+	converted, err := i.repo.IP(req.Project).ConvertToProto(ip)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -101,17 +101,17 @@ func (i *ipServiceServer) Create(ctx context.Context, rq *connect.Request[apiv2.
 	i.log.Debug("create", "ip", rq)
 	req := rq.Msg
 
-	validated, err := i.repo.IP(&req.Project).ValidateCreate(ctx, req)
+	validated, err := i.repo.IP(req.Project).ValidateCreate(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 
-	created, err := i.repo.IP(&req.Project).Create(ctx, validated)
+	created, err := i.repo.IP(req.Project).Create(ctx, validated)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := i.repo.IP(&req.Project).ConvertToProto(created)
+	converted, err := i.repo.IP(req.Project).ConvertToProto(created)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -125,16 +125,16 @@ func (i *ipServiceServer) Update(ctx context.Context, rq *connect.Request[apiv2.
 
 	req := rq.Msg
 
-	validated, err := i.repo.IP(&req.Project).ValidateUpdate(ctx, req)
+	validated, err := i.repo.IP(req.Project).ValidateUpdate(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 
-	ip, err := i.repo.IP(&req.Project).Update(ctx, validated)
+	ip, err := i.repo.IP(req.Project).Update(ctx, validated)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	converted, err := i.repo.IP(&req.Project).ConvertToProto(ip)
+	converted, err := i.repo.IP(req.Project).ConvertToProto(ip)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

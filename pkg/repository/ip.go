@@ -46,9 +46,11 @@ func (r *ipRepository) MatchScope(ip *metal.IP) error {
 	if r.scope == nil {
 		return nil
 	}
+
 	if r.scope.projectID == ip.ProjectID {
 		return nil
 	}
+
 	return errorutil.NotFound("ip:%s for project:%s not found", ip.IPAddress, ip.ProjectID)
 }
 
@@ -110,7 +112,6 @@ func (r *ipRepository) ValidateDelete(ctx context.Context, req *metal.IP) (*Vali
 }
 
 func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServiceCreateRequest]) (*metal.IP, error) {
-	r.r.log.Debug("")
 	var (
 		name        string
 		description string
@@ -283,6 +284,7 @@ func (r *ipRepository) Delete(ctx context.Context, rq *Validated[*metal.IP]) (*m
 	if err != nil {
 		return nil, err
 	}
+
 	r.r.log.Info("ip delete queued", "info", info)
 
 	return ip, nil
@@ -374,6 +376,13 @@ func (r *ipRepository) ConvertToProto(metalIP *metal.IP) (*apiv2.IP, error) {
 		t = apiv2.IPType_IP_TYPE_STATIC
 	}
 
+	var labels *apiv2.Labels
+	if len(metalIP.Tags) > 0 {
+		labels = &apiv2.Labels{
+			Labels: tag.NewTagMap(metalIP.Tags),
+		}
+	}
+
 	ip := &apiv2.IP{
 		Ip:          metalIP.IPAddress,
 		Uuid:        metalIP.AllocationUUID,
@@ -383,9 +392,7 @@ func (r *ipRepository) ConvertToProto(metalIP *metal.IP) (*apiv2.IP, error) {
 		Project:     metalIP.ProjectID,
 		Type:        t,
 		Meta: &apiv2.Meta{
-			Labels: &apiv2.Labels{
-				Labels: tag.NewTagMap(metalIP.Tags),
-			},
+			Labels:    labels,
 			CreatedAt: timestamppb.New(metalIP.Created),
 			UpdatedAt: timestamppb.New(metalIP.Changed),
 		},

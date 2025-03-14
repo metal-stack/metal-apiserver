@@ -148,39 +148,43 @@ func Test_ipServiceServer_List(t *testing.T) {
 		wantReturnCode connect.Code
 		wantErr        bool
 	}{
-		// {
-		// 	name:    "get by ip",
-		// 	rq:      &apiv2.IPQuery{Ip: pointer.Pointer("1.2.3.4"), Project: pointer.Pointer("p1")},
-		// 	want:    &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{{Name: "ip1", Ip: "1.2.3.4", Project: "p1", Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}}}},
-		// 	wantErr: false,
-		// },
 		{
-			name:    "get all",
-			rq:      &apiv2.IPServiceListRequest{Project: "p1", Query: &apiv2.IPQuery{Project: pointer.Pointer("p1")}},
+			name:    "get by ip",
+			rq:      &apiv2.IPServiceListRequest{Project: "p1", Query: &apiv2.IPQuery{Ip: pointer.Pointer("1.2.3.4"), Project: pointer.Pointer("p1")}},
 			want:    &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{{Name: "ip1", Ip: "1.2.3.4", Project: "p1", Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}}}},
 			wantErr: false,
 		},
-		// {
-		// 	name: "get by project",
-		// 	rq:   &apiv2.IPQuery{Project: pointer.Pointer("p1")},
-		// 	want: &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{
-		// 		{Name: "ip1", Ip: "1.2.3.4", Project: "p1", Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
-		// 		{Name: "ip2", Ip: "1.2.3.5", Project: "p1", Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
-		// 		{Name: "ip3", Ip: "1.2.3.6", Project: "p1", Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}}}},
-		// 	wantErr: false,
-		// },
-		// {
-		// 	name:    "get by addressfamily",
-		// 	rq:      &apiv2.IPQuery{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(), Project: pointer.Pointer("p2")},
-		// 	want:    &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{{Name: "ip4", Ip: "2001:db8::1", Project: "p2", Network: "internetv6", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}}}},
-		// 	wantErr: false,
-		// },
-		// {
-		// 	name:    "get by parent prefix cidr",
-		// 	rq:      &apiv2.IPQuery{ParentPrefixCidr: pointer.Pointer("2.3.4.0/24"), Project: pointer.Pointer("p2")},
-		// 	want:    &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{{Name: "ip5", Ip: "2.3.4.5", Project: "p2", Network: "n3", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}}}},
-		// 	wantErr: false,
-		// },
+		{
+			name: "get all of p1",
+			rq:   &apiv2.IPServiceListRequest{Project: "p1", Query: &apiv2.IPQuery{}},
+			want: &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{
+				{Name: "ip1", Ip: "1.2.3.4", Project: "p1", Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
+				{Name: "ip2", Ip: "1.2.3.5", Project: "p1", Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
+				{Name: "ip3", Ip: "1.2.3.6", Project: "p1", Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
+			}},
+			wantErr: false,
+		},
+		{
+			name: "get by project",
+			rq:   &apiv2.IPServiceListRequest{Project: "p1", Query: &apiv2.IPQuery{Project: pointer.Pointer("p1")}},
+			want: &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{
+				{Name: "ip1", Ip: "1.2.3.4", Project: "p1", Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
+				{Name: "ip2", Ip: "1.2.3.5", Project: "p1", Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
+				{Name: "ip3", Ip: "1.2.3.6", Project: "p1", Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}}}},
+			wantErr: false,
+		},
+		{
+			name:    "get by addressfamily",
+			rq:      &apiv2.IPServiceListRequest{Project: "p2", Query: &apiv2.IPQuery{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(), Project: pointer.Pointer("p2")}},
+			want:    &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{{Name: "ip4", Ip: "2001:db8::1", Project: "p2", Network: "internetv6", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}}}},
+			wantErr: false,
+		},
+		{
+			name:    "get by parent prefix cidr",
+			rq:      &apiv2.IPServiceListRequest{Project: "p2", Query: &apiv2.IPQuery{ParentPrefixCidr: pointer.Pointer("2.3.4.0/24"), Project: pointer.Pointer("p2")}},
+			want:    &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{{Name: "ip5", Ip: "2.3.4.5", Project: "p2", Network: "n3", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}}}},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -643,10 +647,10 @@ func Test_ipServiceServer_Create(t *testing.T) {
 
 func createIPs(t *testing.T, ctx context.Context, repo *repository.Store, ips []*apiv2.IPServiceCreateRequest) {
 	for _, ip := range ips {
-		validated, err := repo.IP(nil).ValidateCreate(ctx, ip)
+		validated, err := repo.UnscopedIP().ValidateCreate(ctx, ip)
 		require.NoError(t, err)
 
-		_, err = repo.IP(nil).Create(ctx, validated)
+		_, err = repo.UnscopedIP().Create(ctx, validated)
 		require.NoError(t, err)
 	}
 }
