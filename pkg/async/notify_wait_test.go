@@ -51,21 +51,39 @@ func Test_notifier_NotifyAndWait(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			defer cancel()
+			ctx1, cancel1 := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel1()
+			ctx2, cancel2 := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel2()
 
-			n, w := async.New[string](log, client, tt.name)
+			n, w1 := async.New[string](log, client, tt.name)
+			_, w2 := async.New[string](log, client, tt.name)
 
-			var machineIDs []string
+			var (
+				waiter1machineIDs []string
+				waiter2machineIDs []string
+			)
 
 			go func() {
-				for mid := range w.Wait(ctx) {
-					t.Logf("got machineID: %s", mid)
+				for mid := range w1.Wait(ctx1) {
+					t.Logf("waiter 1 got machineID: %s", mid)
 
-					machineIDs = append(machineIDs, mid)
+					waiter1machineIDs = append(waiter1machineIDs, mid)
 
-					if len(machineIDs) == len(tt.machineIDs) {
-						cancel()
+					if len(waiter1machineIDs) == len(tt.machineIDs) {
+						cancel1()
+					}
+				}
+			}()
+
+			go func() {
+				for mid := range w2.Wait(ctx2) {
+					t.Logf("waiter 2 got machineID: %s", mid)
+
+					waiter2machineIDs = append(waiter2machineIDs, mid)
+
+					if len(waiter2machineIDs) == len(tt.machineIDs) {
+						cancel2()
 					}
 				}
 			}()
@@ -73,14 +91,16 @@ func Test_notifier_NotifyAndWait(t *testing.T) {
 			time.Sleep(100 * time.Millisecond) // this one's important!
 
 			for _, m := range tt.machineIDs {
-				if err := n.Notify(ctx, m); (err != nil) != tt.wantErr {
+				if err := n.Notify(context.Background(), m); (err != nil) != tt.wantErr {
 					t.Errorf("notifier.Notify() error = %v, wantErr %v", err, tt.wantErr)
 				}
 			}
 
-			<-ctx.Done()
+			<-ctx1.Done()
+			<-ctx2.Done()
 
-			assert.ElementsMatch(t, tt.machineIDs, machineIDs)
+			assert.ElementsMatch(t, tt.machineIDs, waiter1machineIDs)
+			assert.ElementsMatch(t, tt.machineIDs, waiter2machineIDs)
 		})
 	}
 }
