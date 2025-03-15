@@ -5,7 +5,7 @@ import (
 
 	"github.com/hibiken/asynq"
 	asyncclient "github.com/metal-stack/metal-apiserver/pkg/async/client"
-	"github.com/metal-stack/metal-apiserver/pkg/db/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/redis/go-redis/v9"
 )
 

@@ -14,9 +14,9 @@ import (
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	v1 "github.com/metal-stack/masterdata-api/api/v1"
 	mdc "github.com/metal-stack/masterdata-api/pkg/client"
-	"github.com/metal-stack/metal-apiserver/pkg/db/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	putil "github.com/metal-stack/metal-apiserver/pkg/project"
+	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
@@ -273,7 +273,7 @@ func (p *projectServiceServer) Delete(ctx context.Context, rq *connect.Request[a
 
 	// FIXME check for machines and networks first
 
-	ips, err := p.repo.IP(&req.Project).List(ctx, &apiv2.IPQuery{Project: &req.Project})
+	ips, err := p.repo.IP(req.Project).List(ctx, &apiv2.IPQuery{Project: &req.Project})
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("error retrieving ips: %w", err))
 	}

@@ -85,7 +85,6 @@ type (
 )
 
 func New(log *slog.Logger, mdc mdm.Client, ds generic.Datastore, ipam ipamv1connect.IpamServiceClient, redis *redis.Client) (*Store, error) {
-
 	r := &Store{
 		log:   log,
 		mdc:   mdc,
@@ -97,16 +96,19 @@ func New(log *slog.Logger, mdc mdm.Client, ds generic.Datastore, ipam ipamv1conn
 	return r, nil
 }
 
-func (r *Store) IP(project *string) IP {
-	var scope *ProjectScope
-	if project != nil {
-		scope = &ProjectScope{
-			projectID: *project,
-		}
+func (r *Store) IP(project string) IP {
+	return &ipRepository{
+		r: r,
+		scope: &ProjectScope{
+			projectID: project,
+		},
 	}
+}
+
+func (r *Store) UnscopedIP() IP {
 	return &ipRepository{
 		r:     r,
-		scope: scope,
+		scope: nil,
 	}
 }
 

@@ -8,7 +8,7 @@ import (
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
-	"github.com/metal-stack/metal-apiserver/pkg/db/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/redis/go-redis/v9"
@@ -36,7 +36,7 @@ func TestGet(t *testing.T) {
 	repo, err := repository.New(log, nil, ds, ipam, rc)
 	require.NoError(t, err)
 
-	ip, err := repo.IP(pointer.Pointer("project1")).Get(ctx, "asdf")
+	ip, err := repo.IP("project1").Get(ctx, "asdf")
 	require.Error(t, err)
 	nw, err := repo.Network(pointer.Pointer("project1")).Get(ctx, "asdf")
 	require.Error(t, err)
@@ -64,7 +64,7 @@ func TestIpUnscopedList(t *testing.T) {
 	repo, err := repository.New(log, nil, ds, ipam, rc)
 	require.NoError(t, err)
 
-	ips, err := repo.IP(nil).List(ctx, nil)
+	ips, err := repo.UnscopedIP().List(ctx, nil)
 	require.NoError(t, err)
 
 	assert.Empty(t, ips)

@@ -8,8 +8,8 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	"github.com/metal-stack/metal-apiserver/pkg/db/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-lib/pkg/tag"
 )
 
@@ -34,7 +34,7 @@ func (i *ipServiceServer) List(ctx context.Context, rq *connect.Request[adminv2.
 	i.log.Debug("list", "ip", rq)
 	req := rq.Msg
 
-	resp, err := i.repo.IP(nil).List(ctx, req.Query)
+	resp, err := i.repo.UnscopedIP().List(ctx, req.Query)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +48,7 @@ func (i *ipServiceServer) List(ctx context.Context, rq *connect.Request[adminv2.
 			continue
 		}
 
-		converted, err := i.repo.IP(nil).ConvertToProto(ip)
+		converted, err := i.repo.UnscopedIP().ConvertToProto(ip)
 		if err != nil {
 			return nil, errorutil.Convert(err)
 		}
