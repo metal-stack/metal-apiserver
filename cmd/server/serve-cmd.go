@@ -22,6 +22,8 @@ import (
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	mdm "github.com/metal-stack/masterdata-api/pkg/client"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/service"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 
 	mdmv1 "github.com/metal-stack/masterdata-api/api/v1"
@@ -90,6 +92,11 @@ var serveCmd = &cli.Command{
 			return fmt.Errorf("unable to create ipam client: %w", err)
 		}
 
+		redisConfig, err := createRedisClients(ctx, log)
+		if err != nil {
+			return fmt.Errorf("unable to create redis clients: %w", err)
+		}
+
 		mc, err := createMasterdataClient(ctx, log)
 		if err != nil {
 			return fmt.Errorf("unable to create masterdata.client: %w", err)
@@ -107,26 +114,31 @@ var serveCmd = &cli.Command{
 			return fmt.Errorf("unable to create datastore: %w", err)
 		}
 
-		c := config{
+		repo, err := repository.New(log, mc, ds, ipam, redisConfig.AsyncClient)
+		if err != nil {
+			return fmt.Errorf("unable to create repository: %w", err)
+		}
+
+		stage := ctx.String(stageFlag.Name)
+		c := service.Config{
 			HttpServerEndpoint:                  ctx.String(httpServerEndpointFlag.Name),
 			MetricsServerEndpoint:               ctx.String(metricServerEndpointFlag.Name),
 			Log:                                 log,
+			Repository:                          repo,
 			MasterClient:                        mc,
 			ServerHttpURL:                       ctx.String(serverHttpUrlFlag.Name),
 			FrontEndUrl:                         ctx.String(frontEndUrlFlag.Name),
 			Auditing:                            audit,
-			Stage:                               ctx.String(stageFlag.Name),
-			RedisAddr:                           ctx.String(redisAddrFlag.Name),
-			RedisPassword:                       ctx.String(redisPasswordFlag.Name),
+			Stage:                               stage,
+			RedisConfig:                         redisConfig,
 			Admins:                              ctx.StringSlice(adminsFlag.Name),
 			MaxRequestsPerMinuteToken:           ctx.Int(maxRequestsPerMinuteFlag.Name),
 			MaxRequestsPerMinuteUnauthenticated: ctx.Int(maxRequestsPerMinuteUnauthenticatedFlag.Name),
-			Datastore:                           ds,
-			Ipam:                                ipam,
 			OIDCClientID:                        ctx.String(oidcClientIdFlag.Name),
 			OIDCClientSecret:                    ctx.String(oidcClientSecretFlag.Name),
 			OIDCDiscoveryURL:                    ctx.String(oidcDiscoveryUrlFlag.Name),
 			OIDCEndSessionURL:                   ctx.String(oidcEndSessionUrlFlag.Name),
+			IsStageDev:                          strings.EqualFold(stage, stageDEV),
 		}
 
 		if providerTenant := ctx.String(ensureProviderTenantFlag.Name); providerTenant != "" {
@@ -210,10 +222,36 @@ const (
 	redisDatabaseTokens       RedisDatabase = "token"
 	redisDatabaseRateLimiting RedisDatabase = "rate-limiter"
 	redisDatabaseInvites      RedisDatabase = "invite"
-	redisDatabaseTx           RedisDatabase = "tx"
+	redisDatabaseAsync        RedisDatabase = "async"
 )
 
-func createRedisClient(logger *slog.Logger, address, password string, dbName RedisDatabase) (*redis.Client, error) {
+func createRedisClients(cli *cli.Context, logger *slog.Logger) (*service.RedisConfig, error) {
+
+	token, err := createRedisClient(cli, logger, redisDatabaseTokens)
+	if err != nil {
+		return nil, err
+	}
+	rate, err := createRedisClient(cli, logger, redisDatabaseRateLimiting)
+	if err != nil {
+		return nil, err
+	}
+	invite, err := createRedisClient(cli, logger, redisDatabaseInvites)
+	if err != nil {
+		return nil, err
+	}
+	async, err := createRedisClient(cli, logger, redisDatabaseAsync)
+	if err != nil {
+		return nil, err
+	}
+	return &service.RedisConfig{
+		TokenClient:     token,
+		RateLimitClient: rate,
+		InviteClient:    invite,
+		AsyncClient:     async,
+	}, nil
+}
+
+func createRedisClient(cli *cli.Context, logger *slog.Logger, dbName RedisDatabase) (*redis.Client, error) {
 	db := 0
 	switch dbName {
 	case redisDatabaseTokens:
@@ -222,11 +260,14 @@ func createRedisClient(logger *slog.Logger, address, password string, dbName Red
 		db = 1
 	case redisDatabaseInvites:
 		db = 2
-	case redisDatabaseTx:
+	case redisDatabaseAsync:
 		db = 3
 	default:
 		return nil, fmt.Errorf("invalid db name: %s", dbName)
 	}
+
+	address := cli.String(redisAddrFlag.Name)
+	password := cli.String(redisPasswordFlag.Name)
 
 	// If we see performance Issues we can try this client
 	// client, err := rueidis.NewClient(rueidis.ClientOption{InitAddress: c.RedisAddresses})
@@ -291,7 +332,7 @@ func createIpamClient(cli *cli.Context, log *slog.Logger) (ipamv1connect.IpamSer
 	return ipamService, nil
 }
 
-func ensureProviderTenant(ctx context.Context, c *config, providerTenantID string) error {
+func ensureProviderTenant(ctx context.Context, c *service.Config, providerTenantID string) error {
 	_, err := c.MasterClient.Tenant().Get(ctx, &mdmv1.TenantGetRequest{
 		Id: providerTenantID,
 	})
@@ -344,7 +385,7 @@ func ensureProviderTenant(ctx context.Context, c *config, providerTenantID strin
 	return nil
 }
 
-func ensureProviderProject(ctx context.Context, c *config, providerTenantID string) error {
+func ensureProviderProject(ctx context.Context, c *service.Config, providerTenantID string) error {
 	ensureMembership := func(projectId string) error {
 		_, _, err := putil.GetProjectMember(ctx, c.MasterClient, projectId, providerTenantID)
 		if err == nil {
