@@ -14,6 +14,7 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	ipamapiv1 "github.com/metal-stack/go-ipam/api/v1"
 	asyncclient "github.com/metal-stack/metal-apiserver/pkg/async/client"
+	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
@@ -443,4 +444,16 @@ func (r *Store) IpDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
 	}
 
 	return nil
+}
+
+func (r *ipRepository) scopedFilters(filter generic.EntityQuery) []generic.EntityQuery {
+	var qs []generic.EntityQuery
+	r.r.log.Info("scopedFilters", "scope", r.scope)
+	if r.scope != nil {
+		qs = append(qs, queries.IpProjectScoped(r.scope.projectID))
+	}
+	if filter != nil {
+		qs = append(qs, filter)
+	}
+	return qs
 }
