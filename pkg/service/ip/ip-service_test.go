@@ -13,11 +13,9 @@ import (
 	mdmock "github.com/metal-stack/masterdata-api/api/v1/mocks"
 	mdm "github.com/metal-stack/masterdata-api/pkg/client"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
-	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	testifymock "github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -43,8 +41,8 @@ func Test_ipServiceServer_Get(t *testing.T) {
 	}()
 	ctx := context.Background()
 
-	createNetworks(t, ctx, repo, []*apiv2.NetworkServiceCreateRequest{{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.3.0/24"}}})
-	createIPs(t, ctx, repo, []*apiv2.IPServiceCreateRequest{{Ip: pointer.Pointer("1.2.3.4"), Project: "p1", Network: "internet"}})
+	test.CreateNetworks(t, ctx, repo, []*apiv2.NetworkServiceCreateRequest{{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.3.0/24"}}})
+	test.CreateIPs(t, ctx, repo, []*apiv2.IPServiceCreateRequest{{Ip: pointer.Pointer("1.2.3.4"), Project: "p1", Network: "internet"}})
 
 	tests := []struct {
 		name    string
@@ -130,8 +128,8 @@ func Test_ipServiceServer_List(t *testing.T) {
 		{Name: pointer.Pointer("ip5"), Ip: pointer.Pointer("2.3.4.5"), Project: "p2", Network: "n3"},
 	}
 
-	createNetworks(t, ctx, repo, nws)
-	createIPs(t, ctx, repo, ips)
+	test.CreateNetworks(t, ctx, repo, nws)
+	test.CreateIPs(t, ctx, repo, ips)
 
 	tests := []struct {
 		name    string
@@ -238,8 +236,8 @@ func Test_ipServiceServer_Update(t *testing.T) {
 		{Name: pointer.Pointer("ip6"), Ip: pointer.Pointer("2.3.4.6"), Project: "p2", Network: "n3", Type: apiv2.IPType_IP_TYPE_STATIC.Enum()},
 	}
 
-	createNetworks(t, ctx, repo, nws)
-	createIPs(t, ctx, repo, ips)
+	test.CreateNetworks(t, ctx, repo, nws)
+	test.CreateIPs(t, ctx, repo, ips)
 
 	tests := []struct {
 		name    string
@@ -341,8 +339,8 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 		{Name: pointer.Pointer("ip5"), Ip: pointer.Pointer("2.3.4.5"), Project: "p2", Network: "n3"},
 	}
 
-	createNetworks(t, ctx, repo, nws)
-	createIPs(t, ctx, repo, ips)
+	test.CreateNetworks(t, ctx, repo, nws)
+	test.CreateIPs(t, ctx, repo, ips)
 
 	tests := []struct {
 		name    string
@@ -432,8 +430,8 @@ func Test_ipServiceServer_Create(t *testing.T) {
 		{Name: pointer.Pointer("ip5"), Ip: pointer.Pointer("10.2.0.5"), Project: "p2", Network: "tenant-network"},
 	}
 
-	createNetworks(t, ctx, repo, nws)
-	createIPs(t, ctx, repo, ips)
+	test.CreateNetworks(t, ctx, repo, nws)
+	test.CreateIPs(t, ctx, repo, ips)
 
 	tests := []struct {
 		name    string
@@ -583,26 +581,5 @@ func Test_ipServiceServer_Create(t *testing.T) {
 				t.Errorf("ipServiceServer.Create() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
 			}
 		})
-	}
-}
-
-func createIPs(t *testing.T, ctx context.Context, repo *repository.Store, ips []*apiv2.IPServiceCreateRequest) {
-	for _, ip := range ips {
-		validated, err := repo.UnscopedIP().ValidateCreate(ctx, ip)
-		require.NoError(t, err)
-
-		_, err = repo.UnscopedIP().Create(ctx, validated)
-		require.NoError(t, err)
-	}
-}
-
-func createNetworks(t *testing.T, ctx context.Context, repo *repository.Store, nws []*apiv2.NetworkServiceCreateRequest) {
-	for _, nw := range nws {
-		// TODO do not care about project here
-
-		validated, err := repo.Network(nil).ValidateCreate(ctx, nw)
-		require.NoError(t, err)
-		_, err = repo.Network(nil).Create(ctx, validated)
-		require.NoError(t, err)
 	}
 }
