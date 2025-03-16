@@ -206,10 +206,22 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	mux.Handle(grpcreflect.NewHandlerV1(reflector))
 	mux.Handle(grpcreflect.NewHandlerV1Alpha(reflector))
 
-	// OIDC Login Authentication
+	// Add OIDC Handlers
+	authHandlerPath, authHandler, err := oidcAuthHandler(log, tokenService, c)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add all authentication handlers in one go
+	mux.Handle(authHandlerPath, authHandler)
+	// END OIDC Login Authentication
+	return mux, nil
+}
+
+func oidcAuthHandler(log *slog.Logger, tokenService token.TokenService, c Config) (string, http.Handler, error) {
 	frontendURL, err := url.Parse(c.FrontEndUrl)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse frontend url %w", err)
+		return "", nil, fmt.Errorf("failed to parse frontend url %w", err)
 	}
 
 	auth, err := authservice.New(authservice.Config{
@@ -221,7 +233,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 		CallbackUrl:  c.ServerHttpURL + "/auth/{provider}/callback",
 	})
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 
 	_, err = auth.With(
@@ -233,16 +245,9 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 		}),
 	)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 
-	authHandlerPath, authHandler, err := auth.NewHandler(c.IsStageDev)
-	if err != nil {
-		return nil, err
-	}
+	return auth.NewHandler(c.IsStageDev)
 
-	// Add all authentication handlers in one go
-	mux.Handle(authHandlerPath, authHandler)
-	// END OIDC Login Authentication
-	return mux, nil
 }
