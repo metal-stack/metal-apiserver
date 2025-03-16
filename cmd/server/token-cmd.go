@@ -76,7 +76,7 @@ var tokenCmd = &cli.Command{
 			return fmt.Errorf("unable to create logger %w", err)
 		}
 
-		tokenRedisClient, err := createRedisClient(log, ctx.String(redisAddrFlag.Name), ctx.String(redisPasswordFlag.Name), redisDatabaseTokens)
+		tokenRedisClient, err := createRedisClient(ctx, log, redisDatabaseTokens)
 		if err != nil {
 			return err
 		}
