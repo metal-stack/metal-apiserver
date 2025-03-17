@@ -68,7 +68,6 @@ func CreateNetworks(t *testing.T, ctx context.Context, repo *repository.Store, n
 	}
 }
 
-// FIXME refactor to use the repo client once project and tenant repository implementation is ready
 func CreateProjects(t *testing.T, ctx context.Context, repo *repository.Store, projects []*apiv2.ProjectServiceCreateRequest) {
 	for _, p := range projects {
 		validated, err := repo.Project(nil).ValidateCreate(ctx, p)
