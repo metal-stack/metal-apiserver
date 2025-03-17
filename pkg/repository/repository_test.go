@@ -10,7 +10,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,7 +37,7 @@ func TestGet(t *testing.T) {
 
 	ip, err := repo.IP("project1").Get(ctx, "asdf")
 	require.Error(t, err)
-	nw, err := repo.Network(pointer.Pointer("project1")).Get(ctx, "asdf")
+	nw, err := repo.Network("project1").Get(ctx, "asdf")
 	require.Error(t, err)
 
 	fmt.Printf("%v %v", ip, nw)

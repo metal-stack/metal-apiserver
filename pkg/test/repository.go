@@ -61,18 +61,18 @@ func CreateNetworks(t *testing.T, ctx context.Context, repo *repository.Store, n
 	for _, nw := range nws {
 		// TODO do not care about project here
 
-		validated, err := repo.Network(nil).ValidateCreate(ctx, nw)
+		validated, err := repo.UnscopedNetwork().ValidateCreate(ctx, nw)
 		require.NoError(t, err)
-		_, err = repo.Network(nil).Create(ctx, validated)
+		_, err = repo.UnscopedNetwork().Create(ctx, validated)
 		require.NoError(t, err)
 	}
 }
 
 func CreateProjects(t *testing.T, ctx context.Context, repo *repository.Store, projects []*apiv2.ProjectServiceCreateRequest) {
 	for _, p := range projects {
-		validated, err := repo.Project(nil).ValidateCreate(ctx, p)
+		validated, err := repo.UnscopedProject().ValidateCreate(ctx, p)
 		require.NoError(t, err)
-		_, err = repo.Project(nil).Create(ctx, validated)
+		_, err = repo.UnscopedProject().Create(ctx, validated)
 		require.NoError(t, err)
 	}
 }

@@ -121,34 +121,40 @@ func (r *Store) Image() Image {
 	}
 }
 
-func (r *Store) Network(project *string) Network {
-	var scope *ProjectScope
-	if project != nil {
-		scope = &ProjectScope{
-			projectID: *project,
-		}
-	}
+func (r *Store) Network(project string) Network {
 	return &networkRepository{
-		r:     r,
-		scope: scope,
+		r: r,
+		scope: &ProjectScope{
+			projectID: project,
+		},
 	}
 }
 
-func (r *Store) Project(project *string) Project {
-	var scope *ProjectScope
-	if project != nil {
-		scope = &ProjectScope{
-			projectID: *project,
-		}
-	}
-	return &projectRepository{
+func (r *Store) UnscopedNetwork() Network {
+	return &networkRepository{
 		r:     r,
-		scope: scope,
+		scope: nil,
 	}
 }
+func (r *Store) Project(project string) Project {
+	return &projectRepository{
+		r: r,
+		scope: &ProjectScope{
+			projectID: project,
+		},
+	}
+}
+
+func (r *Store) UnscopedProject() Project {
+	return &projectRepository{
+		r:     r,
+		scope: nil,
+	}
+}
+
 func (r *Store) Tenant() Tenant {
 	return &tenantRepository{
-		r:     r,
+		r: r,
 	}
 }
 

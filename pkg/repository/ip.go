@@ -141,13 +141,13 @@ func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServic
 	// Ensure no duplicates
 	tags = tag.NewTagMap(tags).Slice()
 
-	p, err := r.r.Project(&req.Project).Get(ctx, req.Project)
+	p, err := r.r.Project(req.Project).Get(ctx, req.Project)
 	if err != nil {
 		return nil, err
 	}
 	projectID := p.Meta.Id
 
-	nw, err := r.r.Network(&req.Project).Get(ctx, req.Network)
+	nw, err := r.r.Network(req.Project).Get(ctx, req.Network)
 	if err != nil {
 		return nil, err
 	}
