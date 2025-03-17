@@ -21,7 +21,7 @@ func StartRepository(t *testing.T, log *slog.Logger) (*repository.Store, func())
 	r := miniredis.RunT(t)
 	rc := redis.NewClient(&redis.Options{Addr: r.Addr()})
 
-	ipam := StartIpam(t)
+	ipam, ipamCloser := StartIpam(t)
 
 	ds, err := generic.New(log, c)
 	require.NoError(t, err)
@@ -31,6 +31,7 @@ func StartRepository(t *testing.T, log *slog.Logger) (*repository.Store, func())
 	closer := func() {
 		_ = connection.Close()
 		_ = container.Terminate(context.Background())
+		ipamCloser()
 	}
 
 	repo, err := repository.New(log, mdc, ds, ipam, rc)

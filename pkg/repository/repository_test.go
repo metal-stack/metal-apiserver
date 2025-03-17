@@ -27,7 +27,8 @@ func TestGet(t *testing.T) {
 		_ = container.Terminate(context.Background())
 	}()
 
-	ipam := test.StartIpam(t)
+	ipam, closer := test.StartIpam(t)
+	defer closer()
 
 	ds, err := generic.New(log, c)
 	require.NoError(t, err)
@@ -55,7 +56,8 @@ func TestIpUnscopedList(t *testing.T) {
 		_ = container.Terminate(context.Background())
 	}()
 
-	ipam := test.StartIpam(t)
+	ipam, closer := test.StartIpam(t)
+	defer closer()
 
 	ds, err := generic.New(log, c)
 	require.NoError(t, err)

@@ -11,16 +11,14 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/async"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func Test_notifier_NotifyAndWait(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	container, client, err := test.StartValkey(t, context.Background())
-	require.NoError(t, err)
+	client, closer := test.StartValkey(t, context.Background())
 	defer func() {
-		_ = container.Terminate(context.Background())
+		closer()
 	}()
 
 	oneThousandMachines := make([]string, 0, 1000)

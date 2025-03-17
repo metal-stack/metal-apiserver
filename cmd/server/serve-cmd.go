@@ -304,7 +304,8 @@ func createIpamClient(cli *cli.Context, log *slog.Logger) (ipamv1connect.IpamSer
 	log.Info("create ipam client", "stage", cli.String(stageFlag.Name))
 	if cli.String(stageFlag.Name) == stageDEV {
 		log.Warn("ipam grpc endpoint not configured, starting in memory ipam service")
-		return test.StartIpam(&testing.T{}), nil
+		ipam, _ := test.StartIpam(&testing.T{})
+		return ipam, nil
 	}
 
 	ipamService := ipamv1connect.NewIpamServiceClient(

@@ -13,7 +13,7 @@ import (
 	"github.com/metal-stack/go-ipam/pkg/service"
 )
 
-func StartIpam(t *testing.T) ipamv1connect.IpamServiceClient {
+func StartIpam(t *testing.T) (ipamv1connect.IpamServiceClient, func()) {
 	var (
 		ctx = context.Background()
 		mux = http.NewServeMux()
@@ -33,5 +33,9 @@ func StartIpam(t *testing.T) ipamv1connect.IpamServiceClient {
 		server.URL,
 	)
 
-	return ipamclient
+	closer := func() {
+		server.Close()
+	}
+
+	return ipamclient, closer
 }
