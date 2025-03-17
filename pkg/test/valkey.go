@@ -26,7 +26,7 @@ func StartValkey(t *testing.T, ctx context.Context) (*redis.Client, func()) {
 	client := redis.NewClient(options)
 
 	closer := func() {
-		_ = valkeyContainer.Terminate(context.Background())
+		_ = valkeyContainer.Terminate(ctx)
 	}
 
 	return client, closer
