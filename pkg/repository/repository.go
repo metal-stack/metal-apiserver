@@ -72,6 +72,9 @@ type (
 	Project interface {
 		Repository[*mdcv1.Project, *apiv2.Project, *apiv2.ProjectServiceCreateRequest, *apiv2.ProjectServiceUpdateRequest, *apiv2.ProjectServiceListRequest]
 	}
+	Tenant interface {
+		Repository[*mdcv1.Tenant, *apiv2.Tenant, *apiv2.TenantServiceCreateRequest, *apiv2.TenantServiceUpdateRequest, *apiv2.TenantServiceListRequest]
+	}
 
 	FilesystemLayout interface {
 		Repository[*metal.FilesystemLayout, *apiv2.FilesystemLayout, *adminv2.FilesystemServiceCreateRequest, *adminv2.FilesystemServiceUpdateRequest, *apiv2.FilesystemServiceListRequest]
@@ -143,6 +146,12 @@ func (r *Store) Project(project *string) Project {
 		scope: scope,
 	}
 }
+func (r *Store) Tenant() Tenant {
+	return &tenantRepository{
+		r:     r,
+	}
+}
+
 func (r *Store) FilesystemLayout() FilesystemLayout {
 	return &filesystemLayoutRepository{
 		r: r,
