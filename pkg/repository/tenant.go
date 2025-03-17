@@ -8,29 +8,40 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 )
 
+// FIXME completely untested and incomplete
+
 type tenantRepository struct {
 	r *Store
 }
 
 // ValidateCreate implements Tenant.
 func (t *tenantRepository) ValidateCreate(ctx context.Context, create *apiv2.TenantServiceCreateRequest) (*Validated[*apiv2.TenantServiceCreateRequest], error) {
-	panic("unimplemented")
+	return &Validated[*apiv2.TenantServiceCreateRequest]{
+		message: create,
+	}, nil
 }
 
 // ValidateDelete implements Tenant.
 func (t *tenantRepository) ValidateDelete(ctx context.Context, e *v1.Tenant) (*Validated[*v1.Tenant], error) {
-	panic("unimplemented")
+	return &Validated[*v1.Tenant]{
+		message: e,
+	}, nil
 }
 
 // ValidateUpdate implements Tenant.
 func (t *tenantRepository) ValidateUpdate(ctx context.Context, msg *apiv2.TenantServiceUpdateRequest) (*Validated[*apiv2.TenantServiceUpdateRequest], error) {
-	panic("unimplemented")
+	return &Validated[*apiv2.TenantServiceUpdateRequest]{
+		message: msg,
+	}, nil
 }
 
 // Create implements Tenant.
 func (t *tenantRepository) Create(ctx context.Context, c *Validated[*apiv2.TenantServiceCreateRequest]) (*v1.Tenant, error) {
 	// FIXME howto set the avatarurl during create ??
 	tenant := &v1.Tenant{
+		Meta: &v1.Meta{
+			Id: c.message.Name,
+		},
 		Name: c.message.Name,
 	}
 

@@ -21,9 +21,9 @@ import (
 
 func Test_imageServiceServer_Get(t *testing.T) {
 	log := slog.Default()
-	repo, container := test.StartRepository(t, log, nil)
+	repo, closer := test.StartRepository(t, log)
 	defer func() {
-		_ = container.Terminate(context.Background())
+		closer()
 	}()
 	ctx := context.Background()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -96,9 +96,9 @@ func Test_imageServiceServer_Get(t *testing.T) {
 
 func Test_imageServiceServer_List(t *testing.T) {
 	log := slog.Default()
-	repo, container := test.StartRepository(t, log, nil)
+	repo, closer := test.StartRepository(t, log)
 	defer func() {
-		_ = container.Terminate(context.Background())
+		closer()
 	}()
 	ctx := context.Background()
 
@@ -263,9 +263,9 @@ func Test_imageServiceServer_List(t *testing.T) {
 
 func Test_imageServiceServer_Latest(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	repo, container := test.StartRepository(t, log, nil)
+	repo, closer := test.StartRepository(t, log)
 	defer func() {
-		_ = container.Terminate(context.Background())
+		closer()
 	}()
 	ctx := context.Background()
 

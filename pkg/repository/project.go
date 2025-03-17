@@ -10,6 +10,8 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 )
 
+// FIXME completely untested and incomplete
+
 type projectRepository struct {
 	r     *Store
 	scope *ProjectScope
@@ -63,6 +65,9 @@ func (r *projectRepository) Create(ctx context.Context, e *Validated[*apiv2.Proj
 
 	// FIXME howto set the avatarurl during create ??
 	project := &mdcv1.Project{
+		Meta: &mdcv1.Meta{
+			Id: e.message.Name,
+		},
 		Name:        e.message.Name,
 		Description: e.message.Description,
 		TenantId:    e.message.Login,

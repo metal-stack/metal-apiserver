@@ -8,16 +8,13 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	mdc "github.com/metal-stack/masterdata-api/pkg/client"
-	apiv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go"
 )
 
-func StartRepository(t *testing.T, log *slog.Logger, masterdataMockClient mdc.Client) (*repository.Store, testcontainers.Container) {
+func StartRepository(t *testing.T, log *slog.Logger) (*repository.Store, func()) {
 	container, c, err := StartRethink(t, log)
 	require.NoError(t, err)
 
@@ -29,9 +26,16 @@ func StartRepository(t *testing.T, log *slog.Logger, masterdataMockClient mdc.Cl
 	ds, err := generic.New(log, c)
 	require.NoError(t, err)
 
-	repo, err := repository.New(log, masterdataMockClient, ds, ipam, rc)
+	mdc, connection := StartMasterdataInMemory(t, log)
+
+	closer := func() {
+		_ = connection.Close()
+		_ = container.Terminate(context.Background())
+	}
+
+	repo, err := repository.New(log, mdc, ds, ipam, rc)
 	require.NoError(t, err)
-	return repo, container
+	return repo, closer
 }
 
 func CreateImages(t *testing.T, ctx context.Context, repo *repository.Store, images []*adminv2.ImageServiceCreateRequest) {
@@ -65,15 +69,19 @@ func CreateNetworks(t *testing.T, ctx context.Context, repo *repository.Store, n
 }
 
 // FIXME refactor to use the repo client once project and tenant repository implementation is ready
-func CreateProjects(t *testing.T, ctx context.Context, client mdc.Client, projects []*apiv1.Project) {
+func CreateProjects(t *testing.T, ctx context.Context, repo *repository.Store, projects []*apiv2.ProjectServiceCreateRequest) {
 	for _, p := range projects {
-		_, err := client.Project().Create(ctx, &apiv1.ProjectCreateRequest{Project: p})
+		validated, err := repo.Project(nil).ValidateCreate(ctx, p)
+		require.NoError(t, err)
+		_, err = repo.Project(nil).Create(ctx, validated)
 		require.NoError(t, err)
 	}
 }
-func CreateTenants(t *testing.T, ctx context.Context, client mdc.Client, tenants []*apiv1.Tenant) {
+func CreateTenants(t *testing.T, ctx context.Context, repo *repository.Store, tenants []*apiv2.TenantServiceCreateRequest) {
 	for _, tenant := range tenants {
-		_, err := client.Tenant().Create(ctx, &apiv1.TenantCreateRequest{Tenant: tenant})
+		validated, err := repo.Tenant().ValidateCreate(ctx, tenant)
+		require.NoError(t, err)
+		_, err = repo.Tenant().Create(ctx, validated)
 		require.NoError(t, err)
 	}
 }

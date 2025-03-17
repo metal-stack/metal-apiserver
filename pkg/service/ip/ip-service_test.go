@@ -9,7 +9,6 @@ import (
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	mdmv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
@@ -19,16 +18,14 @@ import (
 func Test_ipServiceServer_Get(t *testing.T) {
 	log := slog.Default()
 
-	mdc, connection := test.StartMasterdataInMemory(t, log)
-	repo, container := test.StartRepository(t, log, mdc)
+	repo, closer := test.StartRepository(t, log)
 	defer func() {
-		_ = container.Terminate(context.Background())
-		_ = connection.Close()
+		closer()
 	}()
 	ctx := context.Background()
 
-	test.CreateTenants(t, ctx, mdc, []*mdmv1.Tenant{{Name: "t1", Meta: &mdmv1.Meta{Id: "t1"}}})
-	test.CreateProjects(t, ctx, mdc, []*mdmv1.Project{{Name: "p1", Meta: &mdmv1.Meta{Id: "p1"}, TenantId: "t1"}, {Name: "p2", Meta: &mdmv1.Meta{Id: "p2"}, TenantId: "t1"}})
+	test.CreateTenants(t, ctx, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
+	test.CreateProjects(t, ctx, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
 	test.CreateNetworks(t, ctx, repo, []*apiv2.NetworkServiceCreateRequest{{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.3.0/24"}}})
 	test.CreateIPs(t, ctx, repo, []*apiv2.IPServiceCreateRequest{{Ip: pointer.Pointer("1.2.3.4"), Project: "p1", Network: "internet"}})
 
@@ -83,16 +80,14 @@ func Test_ipServiceServer_Get(t *testing.T) {
 func Test_ipServiceServer_List(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	mdc, connection := test.StartMasterdataInMemory(t, log)
-	repo, container := test.StartRepository(t, log, mdc)
+	repo, closer := test.StartRepository(t, log)
 	defer func() {
-		_ = container.Terminate(context.Background())
-		_ = connection.Close()
+		closer()
 	}()
 	ctx := context.Background()
 
-	test.CreateTenants(t, ctx, mdc, []*mdmv1.Tenant{{Name: "t1", Meta: &mdmv1.Meta{Id: "t1"}}})
-	test.CreateProjects(t, ctx, mdc, []*mdmv1.Project{{Name: "p1", Meta: &mdmv1.Meta{Id: "p1"}, TenantId: "t1"}, {Name: "p2", Meta: &mdmv1.Meta{Id: "p2"}, TenantId: "t1"}})
+	test.CreateTenants(t, ctx, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
+	test.CreateProjects(t, ctx, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
 
 	nws := []*apiv2.NetworkServiceCreateRequest{
 		{Id: pointer.Pointer("internet"), Project: pointer.Pointer("p0"), Prefixes: []string{"1.2.3.0/24"}},
@@ -182,17 +177,14 @@ func Test_ipServiceServer_List(t *testing.T) {
 func Test_ipServiceServer_Update(t *testing.T) {
 	log := slog.Default()
 
-	mdc, connection := test.StartMasterdataInMemory(t, log)
-	repo, container := test.StartRepository(t, log, mdc)
+	repo, closer := test.StartRepository(t, log)
 	defer func() {
-		_ = container.Terminate(context.Background())
-		_ = connection.Close()
+		closer()
 	}()
 	ctx := context.Background()
 
-	test.CreateTenants(t, ctx, mdc, []*mdmv1.Tenant{{Name: "t1", Meta: &mdmv1.Meta{Id: "t1"}}})
-	test.CreateProjects(t, ctx, mdc, []*mdmv1.Project{{Name: "p1", Meta: &mdmv1.Meta{Id: "p1"}, TenantId: "t1"}, {Name: "p2", Meta: &mdmv1.Meta{Id: "p2"}, TenantId: "t1"}})
-
+	test.CreateTenants(t, ctx, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
+	test.CreateProjects(t, ctx, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
 	nws := []*apiv2.NetworkServiceCreateRequest{
 		{Id: pointer.Pointer("internet"), Project: pointer.Pointer("p0"), Prefixes: []string{"1.2.3.0/24"}},
 		{Id: pointer.Pointer("internetv6"), Project: pointer.Pointer("p0"), Prefixes: []string{"2001:db8::/96"}},
@@ -276,16 +268,14 @@ func Test_ipServiceServer_Update(t *testing.T) {
 func Test_ipServiceServer_Delete(t *testing.T) {
 	log := slog.Default()
 
-	mdc, connection := test.StartMasterdataInMemory(t, log)
-	repo, container := test.StartRepository(t, log, mdc)
+	repo, closer := test.StartRepository(t, log)
 	defer func() {
-		_ = container.Terminate(context.Background())
-		_ = connection.Close()
+		closer()
 	}()
 	ctx := context.Background()
 
-	test.CreateTenants(t, ctx, mdc, []*mdmv1.Tenant{{Name: "t1", Meta: &mdmv1.Meta{Id: "t1"}}})
-	test.CreateProjects(t, ctx, mdc, []*mdmv1.Project{{Name: "p1", Meta: &mdmv1.Meta{Id: "p1"}, TenantId: "t1"}, {Name: "p2", Meta: &mdmv1.Meta{Id: "p2"}, TenantId: "t1"}})
+	test.CreateTenants(t, ctx, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
+	test.CreateProjects(t, ctx, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
 
 	nws := []*apiv2.NetworkServiceCreateRequest{
 		{Id: pointer.Pointer("internet"), Project: pointer.Pointer("p0"), Prefixes: []string{"1.2.3.0/24"}},
@@ -359,16 +349,15 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 
 func Test_ipServiceServer_Create(t *testing.T) {
 	log := slog.Default()
-	mdc, connection := test.StartMasterdataInMemory(t, log)
-	repo, container := test.StartRepository(t, log, mdc)
+
+	repo, closer := test.StartRepository(t, log)
 	defer func() {
-		_ = container.Terminate(context.Background())
-		_ = connection.Close()
+		closer()
 	}()
 	ctx := context.Background()
 
-	test.CreateTenants(t, ctx, mdc, []*mdmv1.Tenant{{Name: "t1", Meta: &mdmv1.Meta{Id: "t1"}}})
-	test.CreateProjects(t, ctx, mdc, []*mdmv1.Project{{Name: "p1", Meta: &mdmv1.Meta{Id: "p1"}, TenantId: "t1"}, {Name: "p2", Meta: &mdmv1.Meta{Id: "p2"}, TenantId: "t1"}})
+	test.CreateTenants(t, ctx, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
+	test.CreateProjects(t, ctx, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
 
 	nws := []*apiv2.NetworkServiceCreateRequest{
 		{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.0.0/16"}},
