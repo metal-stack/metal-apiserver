@@ -46,9 +46,6 @@ require (
 
 )
 
-// newer versions break image_test.go
-replace github.com/Masterminds/semver/v3 => github.com/Masterminds/semver/v3 v3.3.0
-
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.5-20250307204501-0409229c3780.1 // indirect
 	cel.dev/expr v0.22.0 // indirect

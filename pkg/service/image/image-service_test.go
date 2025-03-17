@@ -119,7 +119,7 @@ func Test_imageServiceServer_List(t *testing.T) {
 			Image: &apiv2.Image{Id: "firewall-12.0.20241231", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL}},
 		},
 		{
-			Image: &apiv2.Image{Id: "ubuntu-24.04.20241231", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
+			Image: &apiv2.Image{Id: "ubuntu-24.4.20241231", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
 		},
 	})
 
@@ -159,7 +159,7 @@ func Test_imageServiceServer_List(t *testing.T) {
 						Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_PREVIEW,
 					},
 					{
-						Id:             "ubuntu-24.04.20241231",
+						Id:             "ubuntu-24.4.20241231",
 						Url:            url,
 						Name:           pointer.Pointer(""),
 						Description:    pointer.Pointer(""),
@@ -312,7 +312,7 @@ func Test_imageServiceServer_Latest(t *testing.T) {
 		},
 		{
 			name:    "list latest ubuntu which does not match",
-			request: &apiv2.ImageServiceLatestRequest{Os: "ubuntu-24.04"},
+			request: &apiv2.ImageServiceLatestRequest{Os: "ubuntu-24.4"},
 			want:    nil,
 			wantErr: errorutil.NotFound(`no image for os:ubuntu version:24.4.0 found`),
 		},
