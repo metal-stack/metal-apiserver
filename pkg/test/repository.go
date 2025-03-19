@@ -18,13 +18,13 @@ func StartRepository(t *testing.T, log *slog.Logger) (*repository.Store, func())
 	container, c, err := StartRethink(t, log)
 	require.NoError(t, err)
 
+	ds, err := generic.New(log, c)
+	require.NoError(t, err)
+
 	r := miniredis.RunT(t)
 	rc := redis.NewClient(&redis.Options{Addr: r.Addr()})
 
 	ipam, ipamCloser := StartIpam(t)
-
-	ds, err := generic.New(log, c)
-	require.NoError(t, err)
 
 	mdc, connection := StartMasterdataInMemory(t, log)
 
@@ -39,49 +39,49 @@ func StartRepository(t *testing.T, log *slog.Logger) (*repository.Store, func())
 	return repo, closer
 }
 
-func CreateImages(t *testing.T, ctx context.Context, repo *repository.Store, images []*adminv2.ImageServiceCreateRequest) {
+func CreateImages(t *testing.T, repo *repository.Store, images []*adminv2.ImageServiceCreateRequest) {
 	for _, img := range images {
-		validated, err := repo.Image().ValidateCreate(ctx, img)
+		validated, err := repo.Image().ValidateCreate(t.Context(), img)
 		require.NoError(t, err)
-		_, err = repo.Image().Create(ctx, validated)
+		_, err = repo.Image().Create(t.Context(), validated)
 		require.NoError(t, err)
 	}
 }
 
-func CreateIPs(t *testing.T, ctx context.Context, repo *repository.Store, ips []*apiv2.IPServiceCreateRequest) {
+func CreateIPs(t *testing.T, repo *repository.Store, ips []*apiv2.IPServiceCreateRequest) {
 	for _, ip := range ips {
-		validated, err := repo.UnscopedIP().ValidateCreate(ctx, ip)
+		validated, err := repo.UnscopedIP().ValidateCreate(t.Context(), ip)
 		require.NoError(t, err)
 
-		_, err = repo.UnscopedIP().Create(ctx, validated)
+		_, err = repo.UnscopedIP().Create(t.Context(), validated)
 		require.NoError(t, err)
 	}
 }
 
-func CreateNetworks(t *testing.T, ctx context.Context, repo *repository.Store, nws []*apiv2.NetworkServiceCreateRequest) {
+func CreateNetworks(t *testing.T, repo *repository.Store, nws []*apiv2.NetworkServiceCreateRequest) {
 	for _, nw := range nws {
 		// TODO do not care about project here
 
-		validated, err := repo.UnscopedNetwork().ValidateCreate(ctx, nw)
+		validated, err := repo.UnscopedNetwork().ValidateCreate(t.Context(), nw)
 		require.NoError(t, err)
-		_, err = repo.UnscopedNetwork().Create(ctx, validated)
+		_, err = repo.UnscopedNetwork().Create(t.Context(), validated)
 		require.NoError(t, err)
 	}
 }
 
-func CreateProjects(t *testing.T, ctx context.Context, repo *repository.Store, projects []*apiv2.ProjectServiceCreateRequest) {
+func CreateProjects(t *testing.T, repo *repository.Store, projects []*apiv2.ProjectServiceCreateRequest) {
 	for _, p := range projects {
-		validated, err := repo.UnscopedProject().ValidateCreate(ctx, p)
+		validated, err := repo.UnscopedProject().ValidateCreate(t.Context(), p)
 		require.NoError(t, err)
-		_, err = repo.UnscopedProject().Create(ctx, validated)
+		_, err = repo.UnscopedProject().Create(t.Context(), validated)
 		require.NoError(t, err)
 	}
 }
-func CreateTenants(t *testing.T, ctx context.Context, repo *repository.Store, tenants []*apiv2.TenantServiceCreateRequest) {
+func CreateTenants(t *testing.T, repo *repository.Store, tenants []*apiv2.TenantServiceCreateRequest) {
 	for _, tenant := range tenants {
-		validated, err := repo.Tenant().ValidateCreate(ctx, tenant)
+		validated, err := repo.Tenant().ValidateCreate(t.Context(), tenant)
 		require.NoError(t, err)
-		_, err = repo.Tenant().Create(ctx, validated)
+		_, err = repo.Tenant().Create(t.Context(), validated)
 		require.NoError(t, err)
 	}
 }

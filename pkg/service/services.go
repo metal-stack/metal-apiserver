@@ -24,6 +24,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	authservice "github.com/metal-stack/metal-apiserver/pkg/service/auth"
 	"github.com/metal-stack/metal-apiserver/pkg/service/filesystem"
+	filesystemadmin "github.com/metal-stack/metal-apiserver/pkg/service/filesystem/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/health"
 	"github.com/metal-stack/metal-apiserver/pkg/service/image"
 	imageadmin "github.com/metal-stack/metal-apiserver/pkg/service/image/admin"
@@ -192,8 +193,10 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	// Admin services
 	adminIpService := ipadmin.New(ipadmin.Config{Log: log, Repo: c.Repository})
 	adminImageService := imageadmin.New(imageadmin.Config{Log: log, Repo: c.Repository})
+	adminFilesystemService := filesystemadmin.New(filesystemadmin.Config{Log: log, Repo: c.Repository})
 	mux.Handle(adminv2connect.NewIPServiceHandler(adminIpService, adminInterceptors))
 	mux.Handle(adminv2connect.NewImageServiceHandler(adminImageService, adminInterceptors))
+	mux.Handle(adminv2connect.NewFilesystemServiceHandler(adminFilesystemService, adminInterceptors))
 	mux.Handle(adminv2connect.NewTenantServiceHandler(adminTenantService, adminInterceptors))
 
 	allServiceNames := permissions.GetServices()

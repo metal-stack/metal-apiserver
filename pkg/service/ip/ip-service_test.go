@@ -1,7 +1,6 @@
 package ip
 
 import (
-	"context"
 	"log/slog"
 	"os"
 	"testing"
@@ -19,15 +18,14 @@ func Test_ipServiceServer_Get(t *testing.T) {
 	log := slog.Default()
 
 	repo, closer := test.StartRepository(t, log)
-	defer func() {
-		closer()
-	}()
-	ctx := context.Background()
+	defer closer()
 
-	test.CreateTenants(t, ctx, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
-	test.CreateProjects(t, ctx, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
-	test.CreateNetworks(t, ctx, repo, []*apiv2.NetworkServiceCreateRequest{{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.3.0/24"}}})
-	test.CreateIPs(t, ctx, repo, []*apiv2.IPServiceCreateRequest{{Ip: pointer.Pointer("1.2.3.4"), Project: "p1", Network: "internet"}})
+	ctx := t.Context()
+
+	test.CreateTenants(t, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
+	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
+	test.CreateNetworks(t, repo, []*apiv2.NetworkServiceCreateRequest{{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.3.0/24"}}})
+	test.CreateIPs(t, repo, []*apiv2.IPServiceCreateRequest{{Ip: pointer.Pointer("1.2.3.4"), Project: "p1", Network: "internet"}})
 
 	tests := []struct {
 		name    string
@@ -81,13 +79,12 @@ func Test_ipServiceServer_List(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	repo, closer := test.StartRepository(t, log)
-	defer func() {
-		closer()
-	}()
-	ctx := context.Background()
+	defer closer()
 
-	test.CreateTenants(t, ctx, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
-	test.CreateProjects(t, ctx, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
+	ctx := t.Context()
+
+	test.CreateTenants(t, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
+	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
 
 	nws := []*apiv2.NetworkServiceCreateRequest{
 		{Id: pointer.Pointer("internet"), Project: pointer.Pointer("p0"), Prefixes: []string{"1.2.3.0/24"}},
@@ -103,8 +100,8 @@ func Test_ipServiceServer_List(t *testing.T) {
 		{Name: pointer.Pointer("ip5"), Ip: pointer.Pointer("2.3.4.5"), Project: "p2", Network: "n3"},
 	}
 
-	test.CreateNetworks(t, ctx, repo, nws)
-	test.CreateIPs(t, ctx, repo, ips)
+	test.CreateNetworks(t, repo, nws)
+	test.CreateIPs(t, repo, ips)
 
 	tests := []struct {
 		name    string
@@ -178,13 +175,12 @@ func Test_ipServiceServer_Update(t *testing.T) {
 	log := slog.Default()
 
 	repo, closer := test.StartRepository(t, log)
-	defer func() {
-		closer()
-	}()
-	ctx := context.Background()
+	defer closer()
 
-	test.CreateTenants(t, ctx, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
-	test.CreateProjects(t, ctx, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
+	ctx := t.Context()
+
+	test.CreateTenants(t, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
+	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
 	nws := []*apiv2.NetworkServiceCreateRequest{
 		{Id: pointer.Pointer("internet"), Project: pointer.Pointer("p0"), Prefixes: []string{"1.2.3.0/24"}},
 		{Id: pointer.Pointer("internetv6"), Project: pointer.Pointer("p0"), Prefixes: []string{"2001:db8::/96"}},
@@ -199,8 +195,8 @@ func Test_ipServiceServer_Update(t *testing.T) {
 		{Name: pointer.Pointer("ip6"), Ip: pointer.Pointer("2.3.4.6"), Project: "p2", Network: "n3", Type: apiv2.IPType_IP_TYPE_STATIC.Enum()},
 	}
 
-	test.CreateNetworks(t, ctx, repo, nws)
-	test.CreateIPs(t, ctx, repo, ips)
+	test.CreateNetworks(t, repo, nws)
+	test.CreateIPs(t, repo, ips)
 
 	tests := []struct {
 		name    string
@@ -269,13 +265,12 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 	log := slog.Default()
 
 	repo, closer := test.StartRepository(t, log)
-	defer func() {
-		closer()
-	}()
-	ctx := context.Background()
+	defer closer()
 
-	test.CreateTenants(t, ctx, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
-	test.CreateProjects(t, ctx, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
+	ctx := t.Context()
+
+	test.CreateTenants(t, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
+	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
 
 	nws := []*apiv2.NetworkServiceCreateRequest{
 		{Id: pointer.Pointer("internet"), Project: pointer.Pointer("p0"), Prefixes: []string{"1.2.3.0/24"}},
@@ -291,8 +286,8 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 		{Name: pointer.Pointer("ip5"), Ip: pointer.Pointer("2.3.4.5"), Project: "p2", Network: "n3"},
 	}
 
-	test.CreateNetworks(t, ctx, repo, nws)
-	test.CreateIPs(t, ctx, repo, ips)
+	test.CreateNetworks(t, repo, nws)
+	test.CreateIPs(t, repo, ips)
 
 	tests := []struct {
 		name    string
@@ -351,13 +346,12 @@ func Test_ipServiceServer_Create(t *testing.T) {
 	log := slog.Default()
 
 	repo, closer := test.StartRepository(t, log)
-	defer func() {
-		closer()
-	}()
-	ctx := context.Background()
+	defer closer()
 
-	test.CreateTenants(t, ctx, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
-	test.CreateProjects(t, ctx, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
+	ctx := t.Context()
+
+	test.CreateTenants(t, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
+	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
 
 	nws := []*apiv2.NetworkServiceCreateRequest{
 		{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.0.0/16"}},
@@ -373,8 +367,8 @@ func Test_ipServiceServer_Create(t *testing.T) {
 		{Name: pointer.Pointer("ip5"), Ip: pointer.Pointer("10.2.0.5"), Project: "p2", Network: "tenant-network"},
 	}
 
-	test.CreateNetworks(t, ctx, repo, nws)
-	test.CreateIPs(t, ctx, repo, ips)
+	test.CreateNetworks(t, repo, nws)
+	test.CreateIPs(t, repo, ips)
 
 	tests := []struct {
 		name    string

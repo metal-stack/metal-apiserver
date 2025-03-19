@@ -1,7 +1,6 @@
 package image
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -22,17 +21,16 @@ import (
 func Test_imageServiceServer_Get(t *testing.T) {
 	log := slog.Default()
 	repo, closer := test.StartRepository(t, log)
-	defer func() {
-		closer()
-	}()
-	ctx := context.Background()
+	defer closer()
+
+	ctx := t.Context()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, "a image")
 	}))
 	url := ts.URL
 	defer ts.Close()
 
-	test.CreateImages(t, ctx, repo, []*adminv2.ImageServiceCreateRequest{
+	test.CreateImages(t, repo, []*adminv2.ImageServiceCreateRequest{
 		{
 			Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
 		},
@@ -97,10 +95,9 @@ func Test_imageServiceServer_Get(t *testing.T) {
 func Test_imageServiceServer_List(t *testing.T) {
 	log := slog.Default()
 	repo, closer := test.StartRepository(t, log)
-	defer func() {
-		closer()
-	}()
-	ctx := context.Background()
+	defer closer()
+
+	ctx := t.Context()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, "a image")
@@ -108,7 +105,7 @@ func Test_imageServiceServer_List(t *testing.T) {
 	url := ts.URL
 	defer ts.Close()
 
-	test.CreateImages(t, ctx, repo, []*adminv2.ImageServiceCreateRequest{
+	test.CreateImages(t, repo, []*adminv2.ImageServiceCreateRequest{
 		{
 			Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}, Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED},
 		},
@@ -264,10 +261,9 @@ func Test_imageServiceServer_List(t *testing.T) {
 func Test_imageServiceServer_Latest(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	repo, closer := test.StartRepository(t, log)
-	defer func() {
-		closer()
-	}()
-	ctx := context.Background()
+	defer closer()
+
+	ctx := t.Context()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, "a image")
@@ -275,7 +271,7 @@ func Test_imageServiceServer_Latest(t *testing.T) {
 	url := ts.URL
 	defer ts.Close()
 
-	test.CreateImages(t, ctx, repo, []*adminv2.ImageServiceCreateRequest{
+	test.CreateImages(t, repo, []*adminv2.ImageServiceCreateRequest{
 		{
 			Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
 		},
