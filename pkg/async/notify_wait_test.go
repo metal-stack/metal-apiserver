@@ -16,7 +16,7 @@ import (
 func Test_notifier_NotifyAndWait(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	client, closer := test.StartValkey(t, context.Background())
+	client, closer := test.StartValkey(t)
 	defer func() {
 		closer()
 	}()

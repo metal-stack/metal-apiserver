@@ -169,7 +169,7 @@ func (r *filesystemLayoutRepository) ConvertToInternal(f *apiv2.FilesystemLayout
 		parts := []metal.DiskPartition{}
 		for _, p := range disk.Partitions {
 			part := metal.DiskPartition{
-				Number: uint8(p.Number),
+				Number: uint8(p.Number), // nolint:gosec
 				Size:   p.Size,
 				Label:  p.Label,
 			}

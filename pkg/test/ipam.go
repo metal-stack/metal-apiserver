@@ -1,7 +1,6 @@
 package test
 
 import (
-	"context"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -15,7 +14,7 @@ import (
 
 func StartIpam(t *testing.T) (ipamv1connect.IpamServiceClient, func()) {
 	var (
-		ctx = context.Background()
+		ctx = t.Context()
 		mux = http.NewServeMux()
 		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 	)

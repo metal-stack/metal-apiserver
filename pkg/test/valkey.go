@@ -1,7 +1,6 @@
 package test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/redis/go-redis/v9"
@@ -9,7 +8,8 @@ import (
 	"github.com/testcontainers/testcontainers-go/modules/valkey"
 )
 
-func StartValkey(t *testing.T, ctx context.Context) (*redis.Client, func()) {
+func StartValkey(t *testing.T) (*redis.Client, func()) {
+	ctx := t.Context()
 	valkeyContainer, err := valkey.Run(ctx,
 		"valkey/valkey:8-alpine",
 		valkey.WithSnapshotting(10, 1),

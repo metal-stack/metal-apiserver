@@ -24,7 +24,7 @@ import (
 
 func StartApiserver(t *testing.T, log *slog.Logger) (baseURL, adminToken string, closer func()) {
 	repo, repocloser := test.StartRepository(t, log)
-	redis, valkeycloser := test.StartValkey(t, t.Context())
+	redis, valkeycloser := test.StartValkey(t)
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, "{}")

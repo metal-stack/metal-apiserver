@@ -1,7 +1,6 @@
 package test
 
 import (
-	"context"
 	"log/slog"
 	"testing"
 
@@ -15,7 +14,7 @@ import (
 const rethinkDbImage = "rethinkdb:2.4.4-bookworm-slim"
 
 func StartRethink(t testing.TB, log *slog.Logger) (container testcontainers.Container, s r.ConnectOpts, err error) {
-	ctx := context.Background()
+	ctx := t.Context()
 	var tLog testcontainers.Logging
 	if t != nil {
 		tLog = testcontainers.TestLogger(t)
