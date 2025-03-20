@@ -35,19 +35,13 @@ func StartRethink(t testing.TB, log *slog.Logger) (container testcontainers.Cont
 		Started:          true,
 		Logger:           tLog,
 	})
-	if err != nil {
-		panic(err.Error())
-	}
+	require.NoError(t, err)
 
 	ip, err := rtContainer.Host(ctx)
-	if err != nil {
-		return rtContainer, r.ConnectOpts{}, err
-	}
+	require.NoError(t, err)
 
 	port, err := rtContainer.MappedPort(ctx, "28015")
-	if err != nil {
-		return rtContainer, r.ConnectOpts{}, err
-	}
+	require.NoError(t, err)
 
 	opts := r.ConnectOpts{
 		Addresses: []string{ip + ":" + port.Port()},

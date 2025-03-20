@@ -12,6 +12,7 @@ import (
 	mdc "github.com/metal-stack/masterdata-api/pkg/client"
 	"github.com/metal-stack/masterdata-api/pkg/datastore"
 	"github.com/metal-stack/masterdata-api/pkg/service"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
@@ -19,26 +20,23 @@ import (
 
 func StartMasterdataWithCochroach(t *testing.T, log *slog.Logger) (mdc.Client, *grpc.ClientConn, func()) {
 	cr, err := testserver.NewTestServer()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	db, err := sqlx.Open("postgres", cr.PGURL().String())
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	ps := datastore.New(log, db, &apiv1.Project{})
 	pms := datastore.New(log, db, &apiv1.ProjectMember{})
 	ts := datastore.New(log, db, &apiv1.Tenant{})
 	tms := datastore.New(log, db, &apiv1.TenantMember{})
 
-	datastore.InitTables(log, db,
+	err = datastore.InitTables(log, db,
 		&apiv1.Project{},
 		&apiv1.ProjectMember{},
 		&apiv1.Tenant{},
 		&apiv1.TenantMember{},
 	)
+	require.NoError(t, err)
 
 	projectService := service.NewProjectService(log, ps, pms, ts)
 	projectMemberService := service.NewProjectMemberService(log, ps, pms, ts)
@@ -73,9 +71,7 @@ func StartMasterdataWithCochroach(t *testing.T, log *slog.Logger) (mdc.Client, *
 		grpc.WithContextDialer(dialer.bufDialer),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
-	if err != nil {
-		t.Fatalf("error connecting to grpc server:%v", err)
-	}
+	require.NoError(t, err)
 
 	mc := &memoryClient{conn: conn}
 
@@ -128,9 +124,7 @@ func StartMasterdataInMemory(t *testing.T, log *slog.Logger) (mdc.Client, *grpc.
 		grpc.WithContextDialer(dialer.bufDialer),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
-	if err != nil {
-		t.Fatalf("error connecting to grpc server:%v", err)
-	}
+	require.NoError(t, err)
 
 	mc := &memoryClient{conn: conn}
 
