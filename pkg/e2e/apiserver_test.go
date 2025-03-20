@@ -31,12 +31,6 @@ func TestUnauthenticated(t *testing.T) {
 	require.EqualError(t, err, "unauthenticated: invalid token")
 }
 func TestAuthenticated(t *testing.T) {
-
-	// FIXME does not work actually because in-memory masterdata-api does not have a working impl of
-	// masterClient.Tenant().FindParticipatingProjects
-	// masterClient.Tenant().FindParticipatingTenants
-	t.SkipNow()
-
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	baseURL, adminToken, closer := StartApiserver(t, log)
 	defer closer()

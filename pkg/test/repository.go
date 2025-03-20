@@ -8,11 +8,38 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/masterdata-api/pkg/client"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 )
+
+func StartRepositoryWithCockroach(t *testing.T, log *slog.Logger) (*repository.Store, client.Client, func()) {
+	container, c, err := StartRethink(t, log)
+	require.NoError(t, err)
+
+	ds, err := generic.New(log, c)
+	require.NoError(t, err)
+
+	r := miniredis.RunT(t)
+	rc := redis.NewClient(&redis.Options{Addr: r.Addr()})
+
+	ipam, ipamCloser := StartIpam(t)
+
+	mdc, connection, masterdataCloser := StartMasterdataWithCochroach(t, log)
+
+	closer := func() {
+		_ = connection.Close()
+		_ = container.Terminate(context.Background())
+		ipamCloser()
+		masterdataCloser()
+	}
+
+	repo, err := repository.New(log, mdc, ds, ipam, rc)
+	require.NoError(t, err)
+	return repo, mdc, closer
+}
 
 func StartRepository(t *testing.T, log *slog.Logger) (*repository.Store, func()) {
 	container, c, err := StartRethink(t, log)
@@ -26,12 +53,13 @@ func StartRepository(t *testing.T, log *slog.Logger) (*repository.Store, func())
 
 	ipam, ipamCloser := StartIpam(t)
 
-	mdc, connection := StartMasterdataInMemory(t, log)
+	mdc, connection, masterdataCloser := StartMasterdataInMemory(t, log)
 
 	closer := func() {
 		_ = connection.Close()
 		_ = container.Terminate(context.Background())
 		ipamCloser()
+		masterdataCloser()
 	}
 
 	repo, err := repository.New(log, mdc, ds, ipam, rc)

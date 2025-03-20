@@ -10,6 +10,7 @@ import (
 
 	"connectrpc.com/connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	v1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/service"
 	"github.com/metal-stack/metal-apiserver/pkg/service/token"
@@ -17,13 +18,19 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/metal-stack/metal-apiserver/pkg/test"
+
+	putil "github.com/metal-stack/metal-apiserver/pkg/project"
+	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
+
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 )
 
 func StartApiserver(t *testing.T, log *slog.Logger) (baseURL, adminToken string, closer func()) {
-	repo, repocloser := test.StartRepository(t, log)
+	ctx := t.Context()
+
+	repo, masterdataClient, repocloser := test.StartRepositoryWithCockroach(t, log)
 	redis, valkeycloser := test.StartValkey(t)
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -33,6 +40,8 @@ func StartApiserver(t *testing.T, log *slog.Logger) (baseURL, adminToken string,
 	defer ts.Close()
 
 	subject := "e2e-tests"
+	providerTenant := "metal-stack"
+
 	c := service.Config{
 		Log:           log,
 		Repository:    repo,
@@ -44,9 +53,11 @@ func StartApiserver(t *testing.T, log *slog.Logger) (baseURL, adminToken string,
 			InviteClient:    redis,
 			AsyncClient:     redis,
 		},
+		MasterClient:     masterdataClient,
 		OIDCClientID:     "oidc-client-id",
 		OIDCClientSecret: "oidc-client-secret",
 		OIDCDiscoveryURL: discoveryURL,
+		Admins:           []string{providerTenant, subject},
 	}
 
 	mux, err := service.New(log, c)
@@ -69,7 +80,29 @@ func StartApiserver(t *testing.T, log *slog.Logger) (baseURL, adminToken string,
 		Issuer:     subject,
 	})
 
-	resp, err := tokenService.CreateApiTokenWithoutPermissionCheck(t.Context(), subject, connect.NewRequest(&apiv2.TokenServiceCreateRequest{
+	err = tutil.EnsureProviderTenant(ctx, c.MasterClient, providerTenant)
+	require.NoError(t, err)
+
+	err = putil.EnsureProviderProject(ctx, c.MasterClient, providerTenant)
+	require.NoError(t, err)
+
+	_, err = masterdataClient.Tenant().Create(ctx, &v1.TenantCreateRequest{Tenant: &v1.Tenant{Meta: &v1.Meta{Id: subject}, Name: subject}})
+	require.NoError(t, err)
+
+	_, err = masterdataClient.TenantMember().Create(ctx, &v1.TenantMemberCreateRequest{
+		TenantMember: &v1.TenantMember{
+			Meta: &v1.Meta{
+				Annotations: map[string]string{
+					tutil.TenantRoleAnnotation: apiv2.TenantRole_TENANT_ROLE_OWNER.String(),
+				},
+			},
+			TenantId: subject,
+			MemberId: subject,
+		},
+	})
+	require.NoError(t, err)
+
+	resp, err := tokenService.CreateApiTokenWithoutPermissionCheck(ctx, subject, connect.NewRequest(&apiv2.TokenServiceCreateRequest{
 		Description:  "e2e admin token",
 		Expires:      durationpb.New(time.Hour),
 		ProjectRoles: nil,

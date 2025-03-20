@@ -85,6 +85,10 @@ type (
 		GetMostRecentImageFor(id string, images []*metal.Image) (*metal.Image, error)
 		SortImages(images []*metal.Image) []*metal.Image
 	}
+
+	Partition interface {
+		Repository[*metal.Partition, *apiv2.Partition, *adminv2.PartitionServiceCreateRequest, *adminv2.PartitionServiceUpdateRequest, *apiv2.PartitionServiceListRequest]
+	}
 )
 
 func New(log *slog.Logger, mdc mdm.Client, ds generic.Datastore, ipam ipamv1connect.IpamServiceClient, redis *redis.Client) (*Store, error) {
@@ -160,6 +164,11 @@ func (r *Store) Tenant() Tenant {
 
 func (r *Store) FilesystemLayout() FilesystemLayout {
 	return &filesystemLayoutRepository{
+		r: r,
+	}
+}
+func (r *Store) Partition() Partition {
+	return &partitionRepository{
 		r: r,
 	}
 }
