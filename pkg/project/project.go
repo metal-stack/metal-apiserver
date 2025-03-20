@@ -11,6 +11,7 @@ import (
 	mdc "github.com/metal-stack/masterdata-api/pkg/client"
 	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 const (
@@ -218,4 +219,63 @@ func GetProjectsAndTenants(ctx context.Context, masterClient mdc.Client, userId 
 		ProjectRoles:   projectRoles,
 		TenantRoles:    tenantRoles,
 	}, nil
+}
+
+
+func EnsureProviderProject(ctx context.Context, masterClient mdc.Client, providerTenantID string) error {
+	ensureMembership := func(projectId string) error {
+		_, _, err := GetProjectMember(ctx, masterClient, projectId, providerTenantID)
+		if err == nil {
+			return nil
+		}
+		if connect.CodeOf(err) != connect.CodeNotFound {
+			return err
+		}
+
+		_, err = masterClient.ProjectMember().Create(ctx, &mdcv1.ProjectMemberCreateRequest{
+			ProjectMember: &mdcv1.ProjectMember{
+				Meta: &mdcv1.Meta{
+					Annotations: map[string]string{
+						ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_OWNER.String(),
+					},
+				},
+				ProjectId: projectId,
+				TenantId:  providerTenantID,
+			},
+		})
+
+		return err
+	}
+
+	resp, err := masterClient.Project().Find(ctx, &mdcv1.ProjectFindRequest{
+		TenantId: wrapperspb.String(providerTenantID),
+		Annotations: map[string]string{
+			DefaultProjectAnnotation: strconv.FormatBool(true),
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("unable to get find project %q: %w", providerTenantID, err)
+	}
+
+	if len(resp.Projects) > 0 {
+		return ensureMembership(resp.Projects[0].Meta.Id)
+	}
+
+	project, err := masterClient.Project().Create(ctx, &mdcv1.ProjectCreateRequest{
+		Project: &mdcv1.Project{
+			Meta: &mdcv1.Meta{
+				Annotations: map[string]string{
+					DefaultProjectAnnotation: strconv.FormatBool(true),
+				},
+			},
+			Name:        "Default Project",
+			TenantId:    providerTenantID,
+			Description: "Default project of " + providerTenantID,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("unable to create project: %w", err)
+	}
+
+	return ensureMembership(project.Project.Meta.Id)
 }

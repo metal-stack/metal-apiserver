@@ -18,7 +18,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
-	"github.com/metal-stack/metal-apiserver/pkg/repository/validate"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/metal-stack/metal-lib/pkg/tag"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -141,29 +140,27 @@ func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServic
 	// Ensure no duplicates
 	tags = tag.NewTagMap(tags).Slice()
 
-	p, err := r.r.Project(&req.Project).Get(ctx, req.Project)
+	p, err := r.r.Project(req.Project).Get(ctx, req.Project)
 	if err != nil {
 		return nil, err
 	}
 	projectID := p.Meta.Id
 
-	nw, err := r.r.Network(&req.Project).Get(ctx, req.Network)
+	nw, err := r.r.Network(req.Project).Get(ctx, req.Network)
 	if err != nil {
 		return nil, err
 	}
 
 	var af *metal.AddressFamily
 	if req.AddressFamily != nil {
-		err := validate.ValidateAddressFamily(*req.AddressFamily)
-		if err != nil {
-			return nil, errorutil.NewInvalidArgument(err)
-		}
 		switch *req.AddressFamily {
 		case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4:
 			af = pointer.Pointer(metal.IPv4AddressFamily)
 		case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6:
 			af = pointer.Pointer(metal.IPv6AddressFamily)
 		case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_UNSPECIFIED:
+			return nil, errorutil.InvalidArgument("unsupported addressfamily")
+		default:
 			return nil, errorutil.InvalidArgument("unsupported addressfamily")
 		}
 

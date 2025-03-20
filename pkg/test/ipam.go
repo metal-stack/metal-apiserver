@@ -1,7 +1,6 @@
 package test
 
 import (
-	"context"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -13,9 +12,9 @@ import (
 	"github.com/metal-stack/go-ipam/pkg/service"
 )
 
-func StartIpam(t *testing.T) ipamv1connect.IpamServiceClient {
+func StartIpam(t *testing.T) (ipamv1connect.IpamServiceClient, func()) {
 	var (
-		ctx = context.Background()
+		ctx = t.Context()
 		mux = http.NewServeMux()
 		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 	)
@@ -33,5 +32,9 @@ func StartIpam(t *testing.T) ipamv1connect.IpamServiceClient {
 		server.URL,
 	)
 
-	return ipamclient
+	closer := func() {
+		server.Close()
+	}
+
+	return ipamclient, closer
 }

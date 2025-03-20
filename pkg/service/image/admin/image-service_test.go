@@ -21,10 +21,9 @@ import (
 
 func Test_imageServiceServer_Create(t *testing.T) {
 	log := slog.Default()
-	repo, container := test.StartRepository(t, log, nil)
-	defer func() {
-		_ = container.Terminate(context.Background())
-	}()
+	repo, closer := test.StartRepository(t, log)
+	defer closer()
+
 	ctx := context.Background()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, "a image")
@@ -96,10 +95,9 @@ func Test_imageServiceServer_Create(t *testing.T) {
 
 func Test_imageServiceServer_Update(t *testing.T) {
 	log := slog.Default()
-	repo, container := test.StartRepository(t, log, nil)
-	defer func() {
-		_ = container.Terminate(context.Background())
-	}()
+	repo, closer := test.StartRepository(t, log)
+	defer closer()
+
 	ctx := context.Background()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.String(), "/invalid") {
@@ -115,7 +113,7 @@ func Test_imageServiceServer_Update(t *testing.T) {
 
 	defer ts.Close()
 
-	test.CreateImages(t, ctx, repo, []*adminv2.ImageServiceCreateRequest{
+	test.CreateImages(t, repo, []*adminv2.ImageServiceCreateRequest{
 		{
 			Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: validURL, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
 		},
@@ -213,10 +211,9 @@ func Test_imageServiceServer_Update(t *testing.T) {
 
 func Test_imageServiceServer_Delete(t *testing.T) {
 	log := slog.Default()
-	repo, container := test.StartRepository(t, log, nil)
-	defer func() {
-		_ = container.Terminate(context.Background())
-	}()
+	repo, closer := test.StartRepository(t, log)
+	defer closer()
+
 	ctx := context.Background()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, "a image")
@@ -224,7 +221,7 @@ func Test_imageServiceServer_Delete(t *testing.T) {
 	url := ts.URL
 	defer ts.Close()
 
-	test.CreateImages(t, ctx, repo, []*adminv2.ImageServiceCreateRequest{
+	test.CreateImages(t, repo, []*adminv2.ImageServiceCreateRequest{
 		{
 			Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
 		},

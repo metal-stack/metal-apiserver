@@ -6,6 +6,7 @@ import (
 
 	"connectrpc.com/connect"
 	apiv1 "github.com/metal-stack/api/go/metalstack/api/v2"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	mdc "github.com/metal-stack/masterdata-api/pkg/client"
 )
@@ -94,4 +95,57 @@ func GetTenantMember(ctx context.Context, c mdc.Client, tenantID, memberID strin
 	}
 
 	return memberships.GetTenantMembers()[0], nil
+}
+
+func EnsureProviderTenant(ctx context.Context, c mdc.Client, providerTenantID string) error {
+	_, err := c.Tenant().Get(ctx, &mdcv1.TenantGetRequest{
+		Id: providerTenantID,
+	})
+	if err != nil && !mdcv1.IsNotFound(err) {
+		return fmt.Errorf("unable to get tenant %q: %w", providerTenantID, err)
+	}
+
+	if err != nil && mdcv1.IsNotFound(err) {
+		_, err := c.Tenant().Create(ctx, &mdcv1.TenantCreateRequest{
+			Tenant: &mdcv1.Tenant{
+				Meta: &mdcv1.Meta{
+					Id: providerTenantID,
+					Annotations: map[string]string{
+						TagCreator: providerTenantID,
+					},
+				},
+				Name:        providerTenantID,
+				Description: "initial provider tenant for metal-stack",
+			},
+		})
+		if err != nil {
+			return fmt.Errorf("unable to create tenant:%s %w", providerTenantID, err)
+		}
+	}
+
+	_, err = GetTenantMember(ctx, c, providerTenantID, providerTenantID)
+	if err == nil {
+		return nil
+	}
+
+	if connect.CodeOf(err) != connect.CodeNotFound {
+		return err
+	}
+
+	_, err = c.TenantMember().Create(ctx, &mdcv1.TenantMemberCreateRequest{
+		TenantMember: &mdcv1.TenantMember{
+			Meta: &mdcv1.Meta{
+				Annotations: map[string]string{
+					TenantRoleAnnotation: apiv2.TenantRole_TENANT_ROLE_OWNER.String(),
+				},
+			},
+			TenantId: providerTenantID,
+			MemberId: providerTenantID,
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

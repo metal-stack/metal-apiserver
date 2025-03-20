@@ -1,7 +1,6 @@
 package image
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -21,18 +20,17 @@ import (
 
 func Test_imageServiceServer_Get(t *testing.T) {
 	log := slog.Default()
-	repo, container := test.StartRepository(t, log, nil)
-	defer func() {
-		_ = container.Terminate(context.Background())
-	}()
-	ctx := context.Background()
+	repo, closer := test.StartRepository(t, log)
+	defer closer()
+
+	ctx := t.Context()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, "a image")
 	}))
 	url := ts.URL
 	defer ts.Close()
 
-	test.CreateImages(t, ctx, repo, []*adminv2.ImageServiceCreateRequest{
+	test.CreateImages(t, repo, []*adminv2.ImageServiceCreateRequest{
 		{
 			Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
 		},
@@ -96,11 +94,10 @@ func Test_imageServiceServer_Get(t *testing.T) {
 
 func Test_imageServiceServer_List(t *testing.T) {
 	log := slog.Default()
-	repo, container := test.StartRepository(t, log, nil)
-	defer func() {
-		_ = container.Terminate(context.Background())
-	}()
-	ctx := context.Background()
+	repo, closer := test.StartRepository(t, log)
+	defer closer()
+
+	ctx := t.Context()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, "a image")
@@ -108,7 +105,7 @@ func Test_imageServiceServer_List(t *testing.T) {
 	url := ts.URL
 	defer ts.Close()
 
-	test.CreateImages(t, ctx, repo, []*adminv2.ImageServiceCreateRequest{
+	test.CreateImages(t, repo, []*adminv2.ImageServiceCreateRequest{
 		{
 			Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}, Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED},
 		},
@@ -119,7 +116,7 @@ func Test_imageServiceServer_List(t *testing.T) {
 			Image: &apiv2.Image{Id: "firewall-12.0.20241231", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL}},
 		},
 		{
-			Image: &apiv2.Image{Id: "ubuntu-24.04.20241231", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
+			Image: &apiv2.Image{Id: "ubuntu-24.4.20241231", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
 		},
 	})
 
@@ -159,7 +156,7 @@ func Test_imageServiceServer_List(t *testing.T) {
 						Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_PREVIEW,
 					},
 					{
-						Id:             "ubuntu-24.04.20241231",
+						Id:             "ubuntu-24.4.20241231",
 						Url:            url,
 						Name:           pointer.Pointer(""),
 						Description:    pointer.Pointer(""),
@@ -263,11 +260,10 @@ func Test_imageServiceServer_List(t *testing.T) {
 
 func Test_imageServiceServer_Latest(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	repo, container := test.StartRepository(t, log, nil)
-	defer func() {
-		_ = container.Terminate(context.Background())
-	}()
-	ctx := context.Background()
+	repo, closer := test.StartRepository(t, log)
+	defer closer()
+
+	ctx := t.Context()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, "a image")
@@ -275,7 +271,7 @@ func Test_imageServiceServer_Latest(t *testing.T) {
 	url := ts.URL
 	defer ts.Close()
 
-	test.CreateImages(t, ctx, repo, []*adminv2.ImageServiceCreateRequest{
+	test.CreateImages(t, repo, []*adminv2.ImageServiceCreateRequest{
 		{
 			Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
 		},
@@ -312,7 +308,7 @@ func Test_imageServiceServer_Latest(t *testing.T) {
 		},
 		{
 			name:    "list latest ubuntu which does not match",
-			request: &apiv2.ImageServiceLatestRequest{Os: "ubuntu-24.04"},
+			request: &apiv2.ImageServiceLatestRequest{Os: "ubuntu-24.4"},
 			want:    nil,
 			wantErr: errorutil.NotFound(`no image for os:ubuntu version:24.4.0 found`),
 		},

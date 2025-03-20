@@ -1,7 +1,6 @@
 package ip
 
 import (
-	"context"
 	"log/slog"
 	"os"
 	"testing"
@@ -9,40 +8,24 @@ import (
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	mdmv1 "github.com/metal-stack/masterdata-api/api/v1"
-	mdmock "github.com/metal-stack/masterdata-api/api/v1/mocks"
-	mdm "github.com/metal-stack/masterdata-api/pkg/client"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
-	testifymock "github.com/stretchr/testify/mock"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
 func Test_ipServiceServer_Get(t *testing.T) {
 	log := slog.Default()
 
-	psc := mdmock.ProjectServiceClient{}
-	psc.On("Get", testifymock.Anything, &mdmv1.ProjectGetRequest{Id: "p2"}).Return(&mdmv1.ProjectResponse{
-		Project: &mdmv1.Project{
-			Meta: &mdmv1.Meta{Id: "p2"},
-		}}, nil)
-	psc.On("Get", testifymock.Anything, &mdmv1.ProjectGetRequest{Id: "p1"}).Return(&mdmv1.ProjectResponse{
-		Project: &mdmv1.Project{
-			Meta: &mdmv1.Meta{Id: "p1"},
-		}}, nil)
-	tsc := mdmock.TenantServiceClient{}
+	repo, closer := test.StartRepository(t, log)
+	defer closer()
 
-	mdc := mdm.NewMock(&psc, &tsc, nil, nil)
+	ctx := t.Context()
 
-	repo, container := test.StartRepository(t, log, mdc)
-	defer func() {
-		_ = container.Terminate(context.Background())
-	}()
-	ctx := context.Background()
-
-	test.CreateNetworks(t, ctx, repo, []*apiv2.NetworkServiceCreateRequest{{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.3.0/24"}}})
-	test.CreateIPs(t, ctx, repo, []*apiv2.IPServiceCreateRequest{{Ip: pointer.Pointer("1.2.3.4"), Project: "p1", Network: "internet"}})
+	test.CreateTenants(t, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
+	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
+	test.CreateNetworks(t, repo, []*apiv2.NetworkServiceCreateRequest{{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.3.0/24"}}})
+	test.CreateIPs(t, repo, []*apiv2.IPServiceCreateRequest{{Ip: pointer.Pointer("1.2.3.4"), Project: "p1", Network: "internet"}})
 
 	tests := []struct {
 		name    string
@@ -95,24 +78,13 @@ func Test_ipServiceServer_Get(t *testing.T) {
 func Test_ipServiceServer_List(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	psc := mdmock.ProjectServiceClient{}
-	psc.On("Get", testifymock.Anything, &mdmv1.ProjectGetRequest{Id: "p2"}).Return(&mdmv1.ProjectResponse{
-		Project: &mdmv1.Project{
-			Meta: &mdmv1.Meta{Id: "p2"},
-		}}, nil)
-	psc.On("Get", testifymock.Anything, &mdmv1.ProjectGetRequest{Id: "p1"}).Return(&mdmv1.ProjectResponse{
-		Project: &mdmv1.Project{
-			Meta: &mdmv1.Meta{Id: "p1"},
-		}}, nil)
-	tsc := mdmock.TenantServiceClient{}
+	repo, closer := test.StartRepository(t, log)
+	defer closer()
 
-	mdc := mdm.NewMock(&psc, &tsc, nil, nil)
+	ctx := t.Context()
 
-	repo, container := test.StartRepository(t, log, mdc)
-	defer func() {
-		_ = container.Terminate(context.Background())
-	}()
-	ctx := context.Background()
+	test.CreateTenants(t, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
+	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
 
 	nws := []*apiv2.NetworkServiceCreateRequest{
 		{Id: pointer.Pointer("internet"), Project: pointer.Pointer("p0"), Prefixes: []string{"1.2.3.0/24"}},
@@ -128,8 +100,8 @@ func Test_ipServiceServer_List(t *testing.T) {
 		{Name: pointer.Pointer("ip5"), Ip: pointer.Pointer("2.3.4.5"), Project: "p2", Network: "n3"},
 	}
 
-	test.CreateNetworks(t, ctx, repo, nws)
-	test.CreateIPs(t, ctx, repo, ips)
+	test.CreateNetworks(t, repo, nws)
+	test.CreateIPs(t, repo, ips)
 
 	tests := []struct {
 		name    string
@@ -202,26 +174,13 @@ func Test_ipServiceServer_List(t *testing.T) {
 func Test_ipServiceServer_Update(t *testing.T) {
 	log := slog.Default()
 
-	psc := mdmock.ProjectServiceClient{}
-	psc.On("Get", testifymock.Anything, &mdmv1.ProjectGetRequest{Id: "p2"}).Return(&mdmv1.ProjectResponse{
-		Project: &mdmv1.Project{
-			Meta: &mdmv1.Meta{Id: "p2"},
-		}}, nil)
-	psc.On("Get", testifymock.Anything, &mdmv1.ProjectGetRequest{Id: "p1"}).Return(&mdmv1.ProjectResponse{
-		Project: &mdmv1.Project{
-			Meta: &mdmv1.Meta{Id: "p1"},
-		}}, nil)
-	tsc := mdmock.TenantServiceClient{}
+	repo, closer := test.StartRepository(t, log)
+	defer closer()
 
-	mdc := mdm.NewMock(&psc, &tsc, nil, nil)
+	ctx := t.Context()
 
-	repo, container := test.StartRepository(t, log, mdc)
-
-	defer func() {
-		_ = container.Terminate(context.Background())
-	}()
-	ctx := context.Background()
-
+	test.CreateTenants(t, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
+	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
 	nws := []*apiv2.NetworkServiceCreateRequest{
 		{Id: pointer.Pointer("internet"), Project: pointer.Pointer("p0"), Prefixes: []string{"1.2.3.0/24"}},
 		{Id: pointer.Pointer("internetv6"), Project: pointer.Pointer("p0"), Prefixes: []string{"2001:db8::/96"}},
@@ -236,8 +195,8 @@ func Test_ipServiceServer_Update(t *testing.T) {
 		{Name: pointer.Pointer("ip6"), Ip: pointer.Pointer("2.3.4.6"), Project: "p2", Network: "n3", Type: apiv2.IPType_IP_TYPE_STATIC.Enum()},
 	}
 
-	test.CreateNetworks(t, ctx, repo, nws)
-	test.CreateIPs(t, ctx, repo, ips)
+	test.CreateNetworks(t, repo, nws)
+	test.CreateIPs(t, repo, ips)
 
 	tests := []struct {
 		name    string
@@ -305,25 +264,13 @@ func Test_ipServiceServer_Update(t *testing.T) {
 func Test_ipServiceServer_Delete(t *testing.T) {
 	log := slog.Default()
 
-	psc := mdmock.ProjectServiceClient{}
-	psc.On("Get", testifymock.Anything, &mdmv1.ProjectGetRequest{Id: "p2"}).Return(&mdmv1.ProjectResponse{
-		Project: &mdmv1.Project{
-			Meta: &mdmv1.Meta{Id: "p2"},
-		}}, nil)
-	psc.On("Get", testifymock.Anything, &mdmv1.ProjectGetRequest{Id: "p1"}).Return(&mdmv1.ProjectResponse{
-		Project: &mdmv1.Project{
-			Meta: &mdmv1.Meta{Id: "p1"},
-		}}, nil)
-	tsc := mdmock.TenantServiceClient{}
+	repo, closer := test.StartRepository(t, log)
+	defer closer()
 
-	mdc := mdm.NewMock(&psc, &tsc, nil, nil)
+	ctx := t.Context()
 
-	repo, container := test.StartRepository(t, log, mdc)
-
-	defer func() {
-		_ = container.Terminate(context.Background())
-	}()
-	ctx := context.Background()
+	test.CreateTenants(t, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
+	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
 
 	nws := []*apiv2.NetworkServiceCreateRequest{
 		{Id: pointer.Pointer("internet"), Project: pointer.Pointer("p0"), Prefixes: []string{"1.2.3.0/24"}},
@@ -339,8 +286,8 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 		{Name: pointer.Pointer("ip5"), Ip: pointer.Pointer("2.3.4.5"), Project: "p2", Network: "n3"},
 	}
 
-	test.CreateNetworks(t, ctx, repo, nws)
-	test.CreateIPs(t, ctx, repo, ips)
+	test.CreateNetworks(t, repo, nws)
+	test.CreateIPs(t, repo, ips)
 
 	tests := []struct {
 		name    string
@@ -396,25 +343,15 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 }
 
 func Test_ipServiceServer_Create(t *testing.T) {
-	psc := mdmock.ProjectServiceClient{}
-	psc.On("Get", testifymock.Anything, &mdmv1.ProjectGetRequest{Id: "p2"}).Return(&mdmv1.ProjectResponse{
-		Project: &mdmv1.Project{
-			Meta: &mdmv1.Meta{Id: "p2"},
-		}}, nil)
-	psc.On("Get", testifymock.Anything, &mdmv1.ProjectGetRequest{Id: "p1"}).Return(&mdmv1.ProjectResponse{
-		Project: &mdmv1.Project{
-			Meta: &mdmv1.Meta{Id: "p1"},
-		}}, nil)
-	tsc := mdmock.TenantServiceClient{}
-
-	mdc := mdm.NewMock(&psc, &tsc, nil, nil)
-
 	log := slog.Default()
-	repo, container := test.StartRepository(t, log, mdc)
-	defer func() {
-		_ = container.Terminate(context.Background())
-	}()
-	ctx := context.Background()
+
+	repo, closer := test.StartRepository(t, log)
+	defer closer()
+
+	ctx := t.Context()
+
+	test.CreateTenants(t, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
+	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
 
 	nws := []*apiv2.NetworkServiceCreateRequest{
 		{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.0.0/16"}},
@@ -430,8 +367,8 @@ func Test_ipServiceServer_Create(t *testing.T) {
 		{Name: pointer.Pointer("ip5"), Ip: pointer.Pointer("10.2.0.5"), Project: "p2", Network: "tenant-network"},
 	}
 
-	test.CreateNetworks(t, ctx, repo, nws)
-	test.CreateIPs(t, ctx, repo, ips)
+	test.CreateNetworks(t, repo, nws)
+	test.CreateIPs(t, repo, ips)
 
 	tests := []struct {
 		name    string
