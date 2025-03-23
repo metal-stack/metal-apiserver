@@ -87,7 +87,7 @@ type (
 	}
 
 	Partition interface {
-		Repository[*metal.Partition, *apiv2.Partition, *adminv2.PartitionServiceCreateRequest, *adminv2.PartitionServiceUpdateRequest, *apiv2.PartitionServiceListRequest]
+		Repository[*metal.Partition, *apiv2.Partition, *adminv2.PartitionServiceCreateRequest, *adminv2.PartitionServiceUpdateRequest, *apiv2.PartitionQuery]
 	}
 )
 

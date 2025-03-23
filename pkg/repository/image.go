@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"sort"
 	"strings"
 	"time"
@@ -32,7 +31,7 @@ func (r *imageRepository) ValidateCreate(ctx context.Context, req *adminv2.Image
 	if image.Url == "" {
 		return nil, errorutil.InvalidArgument("image url must not be empty")
 	}
-	if err := checkIfImageExists(ctx, image); err != nil {
+	if err := checkIfUrlExists(ctx, "image", image.Id, image.Url); err != nil {
 		return nil, errorutil.NewInvalidArgument(err)
 	}
 	if len(image.Features) == 0 {
@@ -63,7 +62,7 @@ func (r *imageRepository) ValidateUpdate(ctx context.Context, req *adminv2.Image
 		return nil, errorutil.InvalidArgument("image id must not be empty")
 	}
 	if image.Url != "" {
-		if err := checkIfImageExists(ctx, image); err != nil {
+		if err := checkIfUrlExists(ctx, "image", image.Id, image.Url); err != nil {
 			return nil, errorutil.NewInvalidArgument(err)
 		}
 	}
@@ -272,28 +271,6 @@ func (r *imageRepository) ConvertToProto(in *metal.Image) (*apiv2.Image, error) 
 		ExpiresAt:      timestamppb.New(in.ExpirationDate),
 	}
 	return image, nil
-}
-
-func checkIfImageExists(ctx context.Context, image *apiv2.Image) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodHead, image.Url, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("image:%s is not accessible under:%s error:%w", image.Id, image.Url, err)
-	}
-	defer resp.Body.Close()
-
-	// Consider 2xx and 3xx status codes as available
-	if resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusBadRequest {
-		return nil
-	}
-
-	return fmt.Errorf("image:%s is not accessible under:%s statuscode:%d", image.Id, image.Url, resp.StatusCode)
 }
 
 // GetMostRecentImageFor

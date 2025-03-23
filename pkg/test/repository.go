@@ -97,6 +97,15 @@ func CreateNetworks(t *testing.T, repo *repository.Store, nws []*apiv2.NetworkSe
 	}
 }
 
+func CreatePartitions(t *testing.T, repo *repository.Store, partitions []*adminv2.PartitionServiceCreateRequest) {
+	for _, partition := range partitions {
+		validated, err := repo.Partition().ValidateCreate(t.Context(), partition)
+		require.NoError(t, err)
+		_, err = repo.Partition().Create(t.Context(), validated)
+		require.NoError(t, err)
+	}
+}
+
 func CreateProjects(t *testing.T, repo *repository.Store, projects []*apiv2.ProjectServiceCreateRequest) {
 	for _, p := range projects {
 		validated, err := repo.UnscopedProject().ValidateCreate(t.Context(), p)
