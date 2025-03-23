@@ -27,13 +27,13 @@ func validatePartition(ctx context.Context, partition *apiv2.Partition) error {
 	if partition.BootConfiguration.ImageUrl == "" {
 		return errorutil.InvalidArgument("partition.bootconfiguration.imageurl must not be empty")
 	}
-	if err := checkIfUrlExists(ctx, "partition", partition.Id, partition.BootConfiguration.ImageUrl); err != nil {
+	if err := checkIfUrlExists(ctx, "partition imageurl of", partition.Id, partition.BootConfiguration.ImageUrl); err != nil {
 		return errorutil.NewInvalidArgument(err)
 	}
 	if partition.BootConfiguration.KernelUrl == "" {
 		return errorutil.InvalidArgument("partition.bootconfiguration.kernelurl must not be empty")
 	}
-	if err := checkIfUrlExists(ctx, "partition", partition.Id, partition.BootConfiguration.KernelUrl); err != nil {
+	if err := checkIfUrlExists(ctx, "partition kernelurl of", partition.Id, partition.BootConfiguration.KernelUrl); err != nil {
 		return errorutil.NewInvalidArgument(err)
 	}
 
