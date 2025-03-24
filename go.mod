@@ -26,7 +26,7 @@ require (
 	github.com/markbates/goth v1.80.0
 	github.com/metal-stack/api v0.0.0-20250321155152-ecf8c0632563
 	github.com/metal-stack/go-ipam v1.14.10
-	github.com/metal-stack/masterdata-api v0.11.8-0.20250320071333-8b84089ca43c
+	github.com/metal-stack/masterdata-api v0.11.8
 	github.com/metal-stack/metal-lib v0.20.2
 	github.com/metal-stack/security v0.9.3
 	github.com/metal-stack/v v1.0.3
