@@ -187,6 +187,8 @@ func (f *FilesystemLayout) Validate() error {
 			if strings.HasPrefix(disk.Device, "/dev/nvme") {
 				partitionPrefix = "p"
 			}
+			// naming of scsi and sata device is like /dev/sda1 where /dev/sda is the device and 1 is the partition number
+			// in contrast to nvme devices: /dev/nvme0n1p2 where /dev/nvme0n1 is the default namespace (n1) of device /dev/nvme0 and p1 is the first partition
 			devname := fmt.Sprintf("%s%s%d", disk.Device, partitionPrefix, partition.Number)
 			providedDevices[devname] = true
 		}

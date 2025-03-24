@@ -4,13 +4,21 @@ import (
 	"context"
 	"net"
 	"net/netip"
+	"regexp"
 
-	"github.com/asaskevich/govalidator"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+)
+
+const (
+	dnsName string = `^([a-zA-Z0-9_]{1}[a-zA-Z0-9_-]{0,62}){1}(\.[a-zA-Z0-9_]{1}[a-zA-Z0-9_-]{0,62})*[\._]?$`
+)
+
+var (
+	regexDNSName = regexp.MustCompile(dnsName)
 )
 
 type partitionRepository struct {
@@ -57,7 +65,7 @@ func validatePartition(ctx context.Context, partition *apiv2.Partition) error {
 				return errorutil.InvalidArgument("ip: %s for ntp server not correct err: %w", ntp.Address, err)
 			}
 		} else {
-			if !govalidator.IsDNSName(ntp.Address) {
+			if !regexDNSName.MatchString(ntp.Address) {
 				return errorutil.InvalidArgument("dns name: %s for ntp server not correct", ntp.Address)
 			}
 		}
