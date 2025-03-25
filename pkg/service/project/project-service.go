@@ -54,8 +54,9 @@ func New(c Config) apiv2connect.ProjectServiceHandler {
 
 func (p *projectServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2.ProjectServiceGetRequest]) (*connect.Response[apiv2.ProjectServiceGetResponse], error) {
 	var (
-		t, ok = token.TokenFromContext(ctx)
-		req   = rq.Msg
+		t, ok                   = token.TokenFromContext(ctx)
+		req                     = rq.Msg
+		includeInheritedMembers bool
 	)
 	if !ok || t == nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
@@ -90,7 +91,6 @@ func (p *projectServiceServer) Get(ctx context.Context, rq *connect.Request[apiv
 
 	role := t.TenantRoles[project.Tenant]
 
-	includeInheritedMembers := false
 	if role != apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED && role < apiv2.TenantRole_TENANT_ROLE_GUEST {
 		includeInheritedMembers = true
 	}

@@ -25,7 +25,7 @@ func Test_imageServiceServer_Get(t *testing.T) {
 
 	ctx := t.Context()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "a image")
+		_, _ = fmt.Fprintln(w, "a image")
 	}))
 	url := ts.URL
 	defer ts.Close()
@@ -100,7 +100,7 @@ func Test_imageServiceServer_List(t *testing.T) {
 	ctx := t.Context()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "a image")
+		_, _ = fmt.Fprintln(w, "a image")
 	}))
 	url := ts.URL
 	defer ts.Close()
@@ -266,7 +266,7 @@ func Test_imageServiceServer_Latest(t *testing.T) {
 	ctx := t.Context()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "a image")
+		_, _ = fmt.Fprintln(w, "a image")
 	}))
 	url := ts.URL
 	defer ts.Close()

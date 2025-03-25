@@ -12,7 +12,6 @@ import (
 	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 
-	v1 "github.com/metal-stack/masterdata-api/api/v1"
 	mdc "github.com/metal-stack/masterdata-api/pkg/client"
 )
 
@@ -50,12 +49,12 @@ func (t *tenantServiceServer) Create(ctx context.Context, rq *connect.Request[ad
 	t.log.Debug("create", "request", req)
 
 	tenant := &mdcv1.Tenant{
-		Meta: &v1.Meta{
+		Meta: &mdcv1.Meta{
 			Id: req.Name,
 		},
 	}
 
-	resp, err := t.masterClient.Tenant().Create(ctx, &v1.TenantCreateRequest{Tenant: tenant})
+	resp, err := t.masterClient.Tenant().Create(ctx, &mdcv1.TenantCreateRequest{Tenant: tenant})
 	if err != nil {
 		return nil, err
 	}

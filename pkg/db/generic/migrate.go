@@ -84,8 +84,9 @@ func Migrate(ctx context.Context, opts r.ConnectOpts, log *slog.Logger, targetVe
 	if err != nil {
 		return err
 	}
-	defer results.Close()
-
+	defer func() {
+		_ = results.Close()
+	}()
 	var current migrationVersionEntry
 	err = results.One(&current)
 	if err != nil {

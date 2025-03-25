@@ -34,7 +34,7 @@ func StartApiserver(t *testing.T, log *slog.Logger) (baseURL, adminToken string,
 	redis, valkeycloser := test.StartValkey(t)
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "{}")
+		_, _ = fmt.Fprintln(w, "{}")
 	}))
 	discoveryURL := ts.URL
 	defer ts.Close()

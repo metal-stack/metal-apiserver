@@ -26,7 +26,7 @@ func Test_partitionServiceServer_Get(t *testing.T) {
 	ctx := t.Context()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "a image")
+		_, _ = fmt.Fprintln(w, "a image")
 	}))
 
 	validURL := ts.URL
@@ -95,7 +95,7 @@ func Test_partitionServiceServer_List(t *testing.T) {
 	ctx := t.Context()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "a image")
+		_, _ = fmt.Fprintln(w, "a image")
 	}))
 
 	validURL := ts.URL

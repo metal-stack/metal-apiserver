@@ -33,9 +33,9 @@ jobs:
           cache: false
 
       - name: Lint Go
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
         with:
-          args: --build-tags integration -p bugs -p unused -D protogetter --timeout=10m
+          args: --build-tags integration -D protogetter --timeout=10m
 
       - uses: StyraInc/setup-regal@v1
         with:

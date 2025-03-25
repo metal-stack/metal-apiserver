@@ -274,7 +274,7 @@ func TestFilesystemLayouts_From(t *testing.T) {
 				}
 				return
 			}
-			if !reflect.DeepEqual(got.Base.ID, *tt.want) {
+			if !reflect.DeepEqual(got.ID, *tt.want) {
 				t.Errorf("FilesystemLayouts.From() = %v, want %v", got, tt.want)
 			}
 		})

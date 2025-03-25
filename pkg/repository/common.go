@@ -19,8 +19,9 @@ func checkIfUrlExists(ctx context.Context, entity, id, url string) error {
 	if err != nil {
 		return fmt.Errorf("%s:%s is not accessible under:%s error:%w", entity, id, url, err)
 	}
-	defer resp.Body.Close()
-
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	// Consider 2xx and 3xx status codes as available
 	if resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusBadRequest {
 		return nil

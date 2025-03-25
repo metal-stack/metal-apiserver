@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"connectrpc.com/connect"
-	apiv1 "github.com/metal-stack/api/go/metalstack/api/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	mdc "github.com/metal-stack/masterdata-api/pkg/client"
@@ -26,20 +25,20 @@ const (
 	MasterTenantProjectId = "00000000-0000-0000-0000-000000000000"
 )
 
-func TenantRoleFromMap(annotations map[string]string) apiv1.TenantRole {
+func TenantRoleFromMap(annotations map[string]string) apiv2.TenantRole {
 	if annotations == nil {
-		return apiv1.TenantRole_TENANT_ROLE_UNSPECIFIED
+		return apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED
 	}
 
 	var (
 		annotation = annotations[TenantRoleAnnotation]
-		tenantRole = apiv1.TenantRole(apiv1.TenantRole_value[annotation])
+		tenantRole = apiv2.TenantRole(apiv2.TenantRole_value[annotation])
 	)
 
 	return tenantRole
 }
 
-func Convert(t *apiv1.Tenant) *mdcv1.Tenant {
+func Convert(t *apiv2.Tenant) *mdcv1.Tenant {
 	ann := map[string]string{
 		TagEmail:     t.Email,
 		TagAvatarURL: t.AvatarUrl,
@@ -56,18 +55,18 @@ func Convert(t *apiv1.Tenant) *mdcv1.Tenant {
 	}
 }
 
-func ConvertFromTenant(t *mdcv1.Tenant) *apiv1.Tenant {
+func ConvertFromTenant(t *mdcv1.Tenant) *apiv2.Tenant {
 	ann := t.Meta.Annotations
 	email := ann[TagEmail]
 	avatarURL := ann[TagAvatarURL]
 
-	tenant := &apiv1.Tenant{
+	tenant := &apiv2.Tenant{
 		Login:       t.Meta.Id,
 		Name:        t.Name,
 		Description: t.Description,
 		Email:       email,
 		AvatarUrl:   avatarURL,
-		Meta: &apiv1.Meta{
+		Meta: &apiv2.Meta{
 			CreatedAt: t.Meta.CreatedTime,
 			UpdatedAt: t.Meta.UpdatedTime,
 		},

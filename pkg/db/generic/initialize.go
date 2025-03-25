@@ -82,7 +82,9 @@ func Initialize(ctx context.Context, log *slog.Logger, opts r.ConnectOpts) error
 	if err != nil {
 		return err
 	}
-	defer res.Close()
+	defer func() {
+		_ = res.Close()
+	}()
 
 	ds.log.Info("database init complete")
 

@@ -209,7 +209,7 @@ func (a *auth) Login(res http.ResponseWriter, req *http.Request) {
 func (a *auth) Logout(res http.ResponseWriter, req *http.Request) {
 	err := gothic.Logout(res, req)
 	if err != nil {
-		fmt.Fprintln(res, err)
+		_, _ = fmt.Fprintln(res, err)
 		return
 	}
 

@@ -26,7 +26,7 @@ func Test_imageServiceServer_Create(t *testing.T) {
 
 	ctx := context.Background()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "a image")
+		_, _ = fmt.Fprintln(w, "a image")
 	}))
 	url := ts.URL
 	defer ts.Close()
@@ -105,7 +105,7 @@ func Test_imageServiceServer_Update(t *testing.T) {
 			return
 		}
 
-		fmt.Fprintln(w, "a image")
+		_, _ = fmt.Fprintln(w, "a image")
 	}))
 
 	validURL := ts.URL
@@ -216,7 +216,7 @@ func Test_imageServiceServer_Delete(t *testing.T) {
 
 	ctx := context.Background()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "a image")
+		_, _ = fmt.Fprintln(w, "a image")
 	}))
 	url := ts.URL
 	defer ts.Close()
