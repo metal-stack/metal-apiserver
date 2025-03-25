@@ -83,8 +83,9 @@ func Initialize(ctx context.Context, log *slog.Logger, opts r.ConnectOpts) error
 		return err
 	}
 	defer func() {
-		err = res.Close()
-		ds.log.Error("unable to close database connection", "error", err)
+		if err := res.Close(); err != nil {
+			ds.log.Error("unable to close database connection", "error", err)
+		}
 	}()
 
 	ds.log.Info("database init complete")
