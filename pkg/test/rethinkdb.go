@@ -1,7 +1,6 @@
 package test
 
 import (
-	"context"
 	"log/slog"
 	"testing"
 
@@ -15,7 +14,7 @@ import (
 const rethinkDbImage = "rethinkdb:2.4.4-bookworm-slim"
 
 func StartRethink(t testing.TB, log *slog.Logger) (container testcontainers.Container, s r.ConnectOpts, err error) {
-	ctx := context.Background()
+	ctx := t.Context()
 	var tLog testcontainers.Logging
 	if t != nil {
 		tLog = testcontainers.TestLogger(t)
@@ -36,19 +35,13 @@ func StartRethink(t testing.TB, log *slog.Logger) (container testcontainers.Cont
 		Started:          true,
 		Logger:           tLog,
 	})
-	if err != nil {
-		panic(err.Error())
-	}
+	require.NoError(t, err)
 
 	ip, err := rtContainer.Host(ctx)
-	if err != nil {
-		return rtContainer, r.ConnectOpts{}, err
-	}
+	require.NoError(t, err)
 
 	port, err := rtContainer.MappedPort(ctx, "28015")
-	if err != nil {
-		return rtContainer, r.ConnectOpts{}, err
-	}
+	require.NoError(t, err)
 
 	opts := r.ConnectOpts{
 		Addresses: []string{ip + ":" + port.Port()},

@@ -24,12 +24,15 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	authservice "github.com/metal-stack/metal-apiserver/pkg/service/auth"
 	"github.com/metal-stack/metal-apiserver/pkg/service/filesystem"
+	filesystemadmin "github.com/metal-stack/metal-apiserver/pkg/service/filesystem/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/health"
 	"github.com/metal-stack/metal-apiserver/pkg/service/image"
 	imageadmin "github.com/metal-stack/metal-apiserver/pkg/service/image/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/ip"
 	ipadmin "github.com/metal-stack/metal-apiserver/pkg/service/ip/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/method"
+	"github.com/metal-stack/metal-apiserver/pkg/service/partition"
+	partitionadmin "github.com/metal-stack/metal-apiserver/pkg/service/partition/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/project"
 	"github.com/metal-stack/metal-apiserver/pkg/service/tenant"
 	tenantadmin "github.com/metal-stack/metal-apiserver/pkg/service/tenant/admin"
@@ -161,6 +164,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 
 	ipService := ip.New(ip.Config{Log: log, Repo: c.Repository})
 	filesystemService := filesystem.New(filesystem.Config{Log: log, Repo: c.Repository})
+	partitionService := partition.New(partition.Config{Log: log, Repo: c.Repository})
 	imageService := image.New(image.Config{Log: log, Repo: c.Repository})
 	tokenService := token.New(token.Config{
 		Log:           log,
@@ -183,6 +187,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	mux.Handle(apiv2connect.NewTenantServiceHandler(tenantService, interceptors))
 	mux.Handle(apiv2connect.NewProjectServiceHandler(projectService, interceptors))
 	mux.Handle(apiv2connect.NewFilesystemServiceHandler(filesystemService, interceptors))
+	mux.Handle(apiv2connect.NewPartitionServiceHandler(partitionService, interceptors))
 	mux.Handle(apiv2connect.NewImageServiceHandler(imageService, interceptors))
 	mux.Handle(apiv2connect.NewIPServiceHandler(ipService, interceptors))
 	mux.Handle(apiv2connect.NewMethodServiceHandler(methodService, interceptors))
@@ -192,8 +197,12 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	// Admin services
 	adminIpService := ipadmin.New(ipadmin.Config{Log: log, Repo: c.Repository})
 	adminImageService := imageadmin.New(imageadmin.Config{Log: log, Repo: c.Repository})
+	adminFilesystemService := filesystemadmin.New(filesystemadmin.Config{Log: log, Repo: c.Repository})
+	adminPartitionService := partitionadmin.New(partitionadmin.Config{Log: log, Repo: c.Repository})
 	mux.Handle(adminv2connect.NewIPServiceHandler(adminIpService, adminInterceptors))
 	mux.Handle(adminv2connect.NewImageServiceHandler(adminImageService, adminInterceptors))
+	mux.Handle(adminv2connect.NewFilesystemServiceHandler(adminFilesystemService, adminInterceptors))
+	mux.Handle(adminv2connect.NewPartitionServiceHandler(adminPartitionService, adminInterceptors))
 	mux.Handle(adminv2connect.NewTenantServiceHandler(adminTenantService, adminInterceptors))
 
 	allServiceNames := permissions.GetServices()

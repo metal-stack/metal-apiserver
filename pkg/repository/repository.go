@@ -72,6 +72,9 @@ type (
 	Project interface {
 		Repository[*mdcv1.Project, *apiv2.Project, *apiv2.ProjectServiceCreateRequest, *apiv2.ProjectServiceUpdateRequest, *apiv2.ProjectServiceListRequest]
 	}
+	Tenant interface {
+		Repository[*mdcv1.Tenant, *apiv2.Tenant, *apiv2.TenantServiceCreateRequest, *apiv2.TenantServiceUpdateRequest, *apiv2.TenantServiceListRequest]
+	}
 
 	FilesystemLayout interface {
 		Repository[*metal.FilesystemLayout, *apiv2.FilesystemLayout, *adminv2.FilesystemServiceCreateRequest, *adminv2.FilesystemServiceUpdateRequest, *apiv2.FilesystemServiceListRequest]
@@ -81,6 +84,10 @@ type (
 		Repository[*metal.Image, *apiv2.Image, *adminv2.ImageServiceCreateRequest, *adminv2.ImageServiceUpdateRequest, *apiv2.ImageQuery]
 		GetMostRecentImageFor(id string, images []*metal.Image) (*metal.Image, error)
 		SortImages(images []*metal.Image) []*metal.Image
+	}
+
+	Partition interface {
+		Repository[*metal.Partition, *apiv2.Partition, *adminv2.PartitionServiceCreateRequest, *adminv2.PartitionServiceUpdateRequest, *apiv2.PartitionQuery]
 	}
 )
 
@@ -118,33 +125,50 @@ func (r *Store) Image() Image {
 	}
 }
 
-func (r *Store) Network(project *string) Network {
-	var scope *ProjectScope
-	if project != nil {
-		scope = &ProjectScope{
-			projectID: *project,
-		}
-	}
+func (r *Store) Network(project string) Network {
 	return &networkRepository{
-		r:     r,
-		scope: scope,
+		r: r,
+		scope: &ProjectScope{
+			projectID: project,
+		},
 	}
 }
 
-func (r *Store) Project(project *string) Project {
-	var scope *ProjectScope
-	if project != nil {
-		scope = &ProjectScope{
-			projectID: *project,
-		}
-	}
-	return &projectRepository{
+func (r *Store) UnscopedNetwork() Network {
+	return &networkRepository{
 		r:     r,
-		scope: scope,
+		scope: nil,
 	}
 }
+func (r *Store) Project(project string) Project {
+	return &projectRepository{
+		r: r,
+		scope: &ProjectScope{
+			projectID: project,
+		},
+	}
+}
+
+func (r *Store) UnscopedProject() Project {
+	return &projectRepository{
+		r:     r,
+		scope: nil,
+	}
+}
+
+func (r *Store) Tenant() Tenant {
+	return &tenantRepository{
+		r: r,
+	}
+}
+
 func (r *Store) FilesystemLayout() FilesystemLayout {
 	return &filesystemLayoutRepository{
+		r: r,
+	}
+}
+func (r *Store) Partition() Partition {
+	return &partitionRepository{
 		r: r,
 	}
 }
