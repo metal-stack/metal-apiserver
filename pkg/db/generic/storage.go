@@ -76,7 +76,8 @@ func (s *storage[E]) Find(ctx context.Context, queries ...EntityQuery) (E, error
 		return zero, fmt.Errorf("cannot find %v in database: %w", s.tableName, err)
 	}
 	defer func() {
-		_ = res.Close()
+		err = res.Close()
+		s.r.log.Error("unable to close database connection", "error", err)
 	}()
 	if res.IsNil() {
 		return zero, errorutil.NotFound("no %v found", s.tableName)
@@ -114,7 +115,8 @@ func (s *storage[E]) List(ctx context.Context, queries ...EntityQuery) ([]E, err
 		return nil, fmt.Errorf("cannot search %v in database: %w", s.tableName, err)
 	}
 	defer func() {
-		_ = res.Close()
+		err = res.Close()
+		s.r.log.Error("unable to close database connection", "error", err)
 	}()
 
 	result := new([]E)
@@ -136,7 +138,8 @@ func (s *storage[E]) Get(ctx context.Context, id string) (E, error) {
 	}
 
 	defer func() {
-		_ = res.Close()
+		err = res.Close()
+		s.r.log.Error("unable to close database connection", "error", err)
 	}()
 	if res.IsNil() {
 		return zero, errorutil.NotFound("no %v with id %q found", s.tableName, id)

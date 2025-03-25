@@ -85,7 +85,8 @@ func Migrate(ctx context.Context, opts r.ConnectOpts, log *slog.Logger, targetVe
 		return err
 	}
 	defer func() {
-		_ = results.Close()
+		err = results.Close()
+		ds.log.Error("unable to close database connection", "error", err)
 	}()
 	var current migrationVersionEntry
 	err = results.One(&current)
