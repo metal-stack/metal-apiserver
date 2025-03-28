@@ -17,6 +17,11 @@ const (
 	TypeNetworkDelete = "network:delete"
 )
 
+var (
+	defaultAsynqRetries = asynq.MaxRetry(5)
+	defaultAsynqTimeout = asynq.Timeout(20 * time.Minute)
+)
+
 type (
 	IPDeletePayload struct {
 		AllocationUUID string `json:"allocation_uuid,omitempty"`
@@ -34,23 +39,19 @@ type (
 	}
 )
 
-func New(log *slog.Logger, redis *redis.Client) *Client {
+func New(log *slog.Logger, redis *redis.Client, opts ...asynq.Option) *Client {
 	client := asynq.NewClientFromRedisClient(redis)
 
-	opts := []asynq.Option{
-		asynq.MaxRetry(5),
-		asynq.Timeout(20 * time.Minute),
+	// Set default opts
+	if len(opts) == 0 {
+		opts = append([]asynq.Option{defaultAsynqRetries, defaultAsynqTimeout}, opts...)
 	}
+
 	return &Client{
 		log:    log,
 		client: client,
 		opts:   opts,
 	}
-}
-
-func (c *Client) enqueue(task *asynq.Task) (*asynq.TaskInfo, error) {
-	c.log.Debug("enqueue", "task", task.Type())
-	return c.client.Enqueue(task)
 }
 
 //----------------------------------------------
@@ -61,7 +62,7 @@ func (c *Client) enqueue(task *asynq.Task) (*asynq.TaskInfo, error) {
 func (c *Client) NewIPDeleteTask(allocationUUID, ip, project string) (*asynq.TaskInfo, error) {
 	payload, err := json.Marshal(IPDeletePayload{AllocationUUID: allocationUUID, IP: ip, Project: project})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to marshal ip delete payload:%w", err)
 	}
 
 	err = c.addTaskID()
@@ -69,18 +70,18 @@ func (c *Client) NewIPDeleteTask(allocationUUID, ip, project string) (*asynq.Tas
 		return nil, err
 	}
 
-	// TODO configurable retry and timeout
-	task, err := asynq.NewTask(TypeIpDelete, payload, c.opts...), nil
+	task := asynq.NewTask(TypeIpDelete, payload, c.opts...)
+	taskInfo, err := c.client.Enqueue(task)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to enqueue ip delete task:%w", err)
 	}
-	return c.enqueue(task)
+	return taskInfo, nil
 }
 
 func (c *Client) NewNetworkDeleteTask(uuid string) (*asynq.TaskInfo, error) {
 	payload, err := json.Marshal(NetworkDeletePayload{UUID: uuid})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to marshal network delete payload:%w", err)
 	}
 
 	err = c.addTaskID()
@@ -88,12 +89,12 @@ func (c *Client) NewNetworkDeleteTask(uuid string) (*asynq.TaskInfo, error) {
 		return nil, err
 	}
 
-	// TODO configurable retry and timeout
-	task, err := asynq.NewTask(TypeIpDelete, payload, c.opts...), nil
+	task := asynq.NewTask(TypeIpDelete, payload, c.opts...)
+	taskInfo, err := c.client.Enqueue(task)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to enqueue network delete task:%w", err)
 	}
-	return c.enqueue(task)
+	return taskInfo, nil
 }
 
 // addTaskID generate a random taskID to ensure unique execution
