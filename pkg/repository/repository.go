@@ -61,12 +61,13 @@ type (
 
 	IP interface {
 		Repository[*metal.IP, *apiv2.IP, *apiv2.IPServiceCreateRequest, *apiv2.IPServiceUpdateRequest, *apiv2.IPQuery]
-		// TODO define additional methods only for the IP repository
-		// AdditionalMethod()
 	}
 
 	Network interface {
-		Repository[*metal.Network, *apiv2.Network, *apiv2.NetworkServiceCreateRequest, *apiv2.NetworkServiceUpdateRequest, *apiv2.NetworkServiceListRequest]
+		Repository[*metal.Network, *apiv2.Network, *adminv2.NetworkServiceCreateRequest, *adminv2.NetworkServiceUpdateRequest, *adminv2.NetworkServiceListRequest]
+		// AllocateNetwork is a reduced version of Create for end users, used by apiv2 networkservice/create
+		AllocateNetwork(context.Context, *apiv2.NetworkServiceCreateRequest) (*metal.Network, error)
+		GetNetworkUsage(context.Context, *metal.Network) (*apiv2.NetworkConsumption, error)
 	}
 
 	Project interface {

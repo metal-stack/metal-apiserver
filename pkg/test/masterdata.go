@@ -91,7 +91,6 @@ func StartMasterdataInMemory(t *testing.T, log *slog.Logger) (mdc.Client, *grpc.
 
 	projectService := service.NewProjectService(log, ps, pms, ts)
 	projectMemberService := service.NewProjectMemberService(log, ps, pms, ts)
-	// FIXME db should not be required here
 	tenantService := service.NewTenantService(nil, log, ts, tms)
 
 	tenantMemberService := service.NewTenantMemberService(log, ts, tms)

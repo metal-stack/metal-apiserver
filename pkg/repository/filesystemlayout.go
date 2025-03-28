@@ -130,12 +130,12 @@ func (r *filesystemLayoutRepository) Find(ctx context.Context, rq *apiv2.Filesys
 }
 
 func (r *filesystemLayoutRepository) List(ctx context.Context, rq *apiv2.FilesystemServiceListRequest) ([]*metal.FilesystemLayout, error) {
-	ip, err := r.r.ds.FilesystemLayout().List(ctx)
+	fsls, err := r.r.ds.FilesystemLayout().List(ctx)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	return ip, nil
+	return fsls, nil
 }
 
 func (r *filesystemLayoutRepository) ConvertToInternal(f *apiv2.FilesystemLayout) (*metal.FilesystemLayout, error) {
