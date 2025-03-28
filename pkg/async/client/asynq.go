@@ -44,7 +44,7 @@ func New(log *slog.Logger, redis *redis.Client, opts ...asynq.Option) *Client {
 
 	// Set default opts
 	if len(opts) == 0 {
-		opts = append(opts, defaultAsynqRetries, defaultAsynqTimeout)
+		opts = append([]asynq.Option{defaultAsynqRetries, defaultAsynqTimeout}, opts...)
 	}
 
 	return &Client{
