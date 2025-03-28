@@ -7,6 +7,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
+	tlog "github.com/testcontainers/testcontainers-go/log"
 	"github.com/testcontainers/testcontainers-go/wait"
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
@@ -15,10 +16,6 @@ const rethinkDbImage = "rethinkdb:2.4.4-bookworm-slim"
 
 func StartRethink(t testing.TB, log *slog.Logger) (container testcontainers.Container, s r.ConnectOpts, err error) {
 	ctx := t.Context()
-	var tLog testcontainers.Logging
-	if t != nil {
-		tLog = testcontainers.TestLogger(t)
-	}
 
 	req := testcontainers.ContainerRequest{
 		Image:        rethinkDbImage,
@@ -33,7 +30,7 @@ func StartRethink(t testing.TB, log *slog.Logger) (container testcontainers.Cont
 	rtContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
 		Started:          true,
-		Logger:           tLog,
+		Logger:           tlog.TestLogger(t),
 	})
 	require.NoError(t, err)
 
@@ -52,7 +49,7 @@ func StartRethink(t testing.TB, log *slog.Logger) (container testcontainers.Cont
 		MaxOpen:   20,
 	}
 
-	err = generic.Initialize(ctx, log, opts)
+	err = generic.Initialize(ctx, log, opts, generic.AsnPoolRange(uint(1), uint(10)), generic.VrfPoolRange(uint(1), uint(10)))
 	require.NoError(t, err)
 
 	return rtContainer, opts, err

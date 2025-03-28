@@ -18,7 +18,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/metal-stack/metal-lib/pkg/tag"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -51,7 +50,7 @@ func (r *ipRepository) MatchScope(ip *metal.IP) error {
 		return nil
 	}
 
-	return errorutil.NotFound("ip:%s for project:%s not found", ip.IPAddress, ip.ProjectID)
+	return errorutil.NotFound("ip:%s project:%s for scope:%s not found", ip.IPAddress, ip.ProjectID, r.scope.projectID)
 }
 
 func (r *ipRepository) ValidateCreate(ctx context.Context, req *apiv2.IPServiceCreateRequest) (*Validated[*apiv2.IPServiceCreateRequest], error) {
@@ -153,19 +152,13 @@ func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServic
 
 	var af *metal.AddressFamily
 	if req.AddressFamily != nil {
-		switch *req.AddressFamily {
-		case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4:
-			af = pointer.Pointer(metal.IPv4AddressFamily)
-		case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6:
-			af = pointer.Pointer(metal.IPv6AddressFamily)
-		case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_UNSPECIFIED:
-			return nil, errorutil.InvalidArgument("unsupported addressfamily")
-		default:
-			return nil, errorutil.InvalidArgument("unsupported addressfamily")
+		af, err := metal.ToAddressFamily(*req.AddressFamily)
+		if err != nil {
+			return nil, errorutil.NewInvalidArgument(err)
 		}
 
-		if !slices.Contains(nw.Prefixes.AddressFamilies(), *af) {
-			return nil, errorutil.InvalidArgument("there is no prefix for the given addressfamily:%s present in network:%s %s", *af, req.Network, nw.Prefixes.AddressFamilies())
+		if !slices.Contains(nw.Prefixes.AddressFamilies(), af) {
+			return nil, errorutil.InvalidArgument("there is no prefix for the given addressfamily:%s present in network:%s %s", af, req.Network, nw.Prefixes.AddressFamilies())
 		}
 		if req.Ip != nil {
 			return nil, errorutil.InvalidArgument("it is not possible to specify specificIP and addressfamily")
@@ -293,7 +286,7 @@ func (r *ipRepository) Delete(ctx context.Context, rq *Validated[*metal.IP]) (*m
 }
 
 func (r *ipRepository) Find(ctx context.Context, rq *apiv2.IPQuery) (*metal.IP, error) {
-	ip, err := r.r.ds.IP().Find(ctx, r.scopedFilters(queries.IpFilter(rq))...)
+	ip, err := r.r.ds.IP().Find(ctx, r.scopedIPFilters(queries.IpFilter(rq))...)
 	if err != nil {
 		return nil, err
 	}
@@ -302,7 +295,7 @@ func (r *ipRepository) Find(ctx context.Context, rq *apiv2.IPQuery) (*metal.IP, 
 }
 
 func (r *ipRepository) List(ctx context.Context, rq *apiv2.IPQuery) ([]*metal.IP, error) {
-	ip, err := r.r.ds.IP().List(ctx, r.scopedFilters(queries.IpFilter(rq))...)
+	ip, err := r.r.ds.IP().List(ctx, r.scopedIPFilters(queries.IpFilter(rq))...)
 	if err != nil {
 		return nil, err
 	}
@@ -443,7 +436,7 @@ func (r *Store) IpDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
 	return nil
 }
 
-func (r *ipRepository) scopedFilters(filter generic.EntityQuery) []generic.EntityQuery {
+func (r *ipRepository) scopedIPFilters(filter generic.EntityQuery) []generic.EntityQuery {
 	var qs []generic.EntityQuery
 	r.r.log.Info("scopedFilters", "scope", r.scope)
 	if r.scope != nil {

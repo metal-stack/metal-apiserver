@@ -54,5 +54,9 @@ type (
 		// sizeimageConstraint Storage[*metal.SizeImageConstraint]
 		// sw                  Storage[*metal.Switch]
 		// switchStatus        Storage[*metal.SwitchStatus]
+
+		// Pools
+		AsnPool() *integerPool
+		VrfPool() *integerPool
 	}
 )

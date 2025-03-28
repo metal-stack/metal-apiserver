@@ -10,17 +10,17 @@ import (
 // An Image describes an image which could be used for provisioning.
 type Image struct {
 	Base
-	URL      string                    `rethinkdb:"url" json:"url"`
-	Features map[ImageFeatureType]bool `rethinkdb:"features" json:"features"`
+	URL      string                    `rethinkdb:"url"`
+	Features map[ImageFeatureType]bool `rethinkdb:"features"`
 	// OS is parsed from id and is the first part, specifies operating system derivate, internal usage only
-	OS string `rethinkdb:"os" json:"os"`
+	OS string `rethinkdb:"os"`
 	// Version is parsed from id and is the second part, specifies operating system version, internal usage only
-	Version string `rethinkdb:"version" json:"version"`
+	Version string `rethinkdb:"version"`
 	// ExpirationDate defines the time in the future, when this image is not considered for machine allocations anymore
-	ExpirationDate time.Time `rethinkdb:"expirationDate" json:"expirationDate"`
+	ExpirationDate time.Time `rethinkdb:"expirationDate"`
 	// Classification defines the state of a version (preview, supported, deprecated)
 	// only informational, no action depending on the classification done
-	Classification VersionClassification `rethinkdb:"classification" json:"classification"`
+	Classification VersionClassification `rethinkdb:"classification"`
 }
 
 // DefaultImageExpiration if not specified images will last for about 3 month

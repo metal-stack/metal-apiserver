@@ -86,10 +86,8 @@ func CreateIPs(t *testing.T, repo *repository.Store, ips []*apiv2.IPServiceCreat
 	}
 }
 
-func CreateNetworks(t *testing.T, repo *repository.Store, nws []*apiv2.NetworkServiceCreateRequest) {
+func CreateNetworks(t *testing.T, repo *repository.Store, nws []*adminv2.NetworkServiceCreateRequest) {
 	for _, nw := range nws {
-		// TODO do not care about project here
-
 		validated, err := repo.UnscopedNetwork().ValidateCreate(t.Context(), nw)
 		require.NoError(t, err)
 		_, err = repo.UnscopedNetwork().Create(t.Context(), validated)
