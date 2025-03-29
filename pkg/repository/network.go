@@ -39,7 +39,7 @@ func (r *networkRepository) ValidateCreate(ctx context.Context, req *adminv2.Net
 	if req.Project != nil {
 		_, err := r.r.UnscopedProject().Get(ctx, *req.Project)
 		if err != nil {
-			return nil, errorutil.Convert(err)
+			return nil, err
 		}
 	}
 
@@ -353,10 +353,11 @@ func (r *networkRepository) MatchScope(nw *metal.Network) error {
 	if r.scope == nil {
 		return nil
 	}
-	if r.scope.projectID == nw.ProjectID {
+	eventualNw := pointer.SafeDeref(nw)
+	if r.scope.projectID == eventualNw.ProjectID {
 		return nil
 	}
-	return errorutil.NotFound("network:%s project:%s for scope:%s not found", nw.ID, nw.ProjectID, r.scope.projectID)
+	return errorutil.NotFound("network:%s project:%s for scope:%s not found", eventualNw.ID, eventualNw.ProjectID, r.scope.projectID)
 }
 
 func (r *networkRepository) Delete(ctx context.Context, n *Validated[*metal.Network]) (*metal.Network, error) {
@@ -410,7 +411,91 @@ func (r *Store) NetworkDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 	return nil
 }
 
-func (r *networkRepository) AllocateNetwork(ctx context.Context, rq *apiv2.NetworkServiceCreateRequest) (*metal.Network, error) {
+func (r *networkRepository) ValidateAllocateNetwork(ctx context.Context, rq *apiv2.NetworkServiceCreateRequest) (*Validated[*apiv2.NetworkServiceCreateRequest], error) {
+	if rq.Project == "" {
+		return nil, errorutil.InvalidArgument("project must not be empty")
+	}
+	if rq.Partition == nil {
+		return nil, errorutil.InvalidArgument("partition must not be empty")
+	}
+	_, err := r.r.Project(rq.Project).Get(ctx, rq.Project)
+	if err != nil {
+		return nil, err
+	}
+	partition, err := r.r.Partition().Get(ctx, *rq.Partition)
+	if err != nil {
+		return nil, err
+	}
+
+	destPrefixes := metal.Prefixes{}
+	for _, p := range rq.DestinationPrefixes {
+		prefix, _, err := metal.NewPrefixFromCIDR(p)
+		if err != nil {
+			return nil, errorutil.InvalidArgument("given prefix %v is not a valid ip with mask: %w", p, err)
+
+		}
+
+		destPrefixes = append(destPrefixes, *prefix)
+	}
+
+	var superNetwork *metal.Network
+	if rq.ParentNetworkId != nil {
+		superNetwork, err = r.r.UnscopedNetwork().Get(ctx, *rq.ParentNetworkId)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		superNetwork, err = r.r.UnscopedNetwork().Find(ctx, &adminv2.NetworkServiceListRequest{Query: &apiv2.NetworkQuery{
+			Partition: &partition.ID,
+			Options: &apiv2.NetworkQuery_Options{
+				PrivateSuper: pointer.Pointer(true),
+			},
+		}})
+		if err != nil {
+			return nil, errorutil.InvalidArgument("unable to find a privatesuper in partition:%s %w", partition.ID, err)
+		}
+	}
+
+	if len(superNetwork.DefaultChildPrefixLength) == 0 {
+		return nil, errorutil.InvalidArgument("supernetwork %s has no defaultchildprefixlength specified", superNetwork.ID)
+	}
+
+	length := superNetwork.DefaultChildPrefixLength
+	if len(rq.Length) > 0 {
+		for _, cpl := range rq.Length {
+			addressfamily, err := metal.ToAddressFamily(cpl.AddressFamily)
+			if err != nil {
+				return nil, errorutil.InvalidArgument("addressfamily of length is invalid %w", err)
+			}
+			length[addressfamily] = uint8(cpl.Length)
+		}
+	}
+
+	if rq.AddressFamily != nil {
+		addressfamily, err := metal.ToAddressFamily(*rq.AddressFamily)
+		if err != nil {
+			return nil, errorutil.InvalidArgument("addressfamily is invalid %w", err)
+		}
+		bits, ok := length[addressfamily]
+		if !ok {
+			return nil, errorutil.InvalidArgument("addressfamily %s specified, but no childprefixlength for this addressfamily", *rq.AddressFamily)
+		}
+		length = metal.ChildPrefixLength{
+			addressfamily: bits,
+		}
+	}
+
+	err = validatePrefixesAndAddressFamilies(superNetwork.Prefixes, destPrefixes.AddressFamilies(), length, false)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
+	return &Validated[*apiv2.NetworkServiceCreateRequest]{
+		message: rq,
+	}, nil
+}
+
+func (r *networkRepository) AllocateNetwork(ctx context.Context, rq *Validated[*apiv2.NetworkServiceCreateRequest]) (*metal.Network, error) {
 	panic("unimplemented")
 }
 

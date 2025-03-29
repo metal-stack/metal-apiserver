@@ -181,7 +181,7 @@ func Test_ipServiceServer_Update(t *testing.T) {
 	ctx := t.Context()
 
 	test.CreateTenants(t, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
+	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p0", Login: "t1"}, {Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
 	nws := []*adminv2.NetworkServiceCreateRequest{
 		{Id: pointer.Pointer("internet"), Project: pointer.Pointer("p0"), Prefixes: []string{"1.2.3.0/24"}},
 		{Id: pointer.Pointer("internetv6"), Project: pointer.Pointer("p0"), Prefixes: []string{"2001:db8::/96"}},
@@ -271,7 +271,7 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 	ctx := t.Context()
 
 	test.CreateTenants(t, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
+	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p0", Login: "t1"}, {Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
 
 	nws := []*adminv2.NetworkServiceCreateRequest{
 		{Id: pointer.Pointer("internet"), Project: pointer.Pointer("p0"), Prefixes: []string{"1.2.3.0/24"}},
@@ -344,8 +344,7 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 }
 
 func Test_ipServiceServer_Create(t *testing.T) {
-	log := slog.Default()
-
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	repo, closer := test.StartRepository(t, log)
 	defer closer()
 

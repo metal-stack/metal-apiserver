@@ -18,6 +18,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/metal-stack/metal-lib/pkg/tag"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -46,11 +47,12 @@ func (r *ipRepository) MatchScope(ip *metal.IP) error {
 		return nil
 	}
 
-	if r.scope.projectID == ip.ProjectID {
+	eventualIP := pointer.SafeDeref(ip)
+	if r.scope.projectID == eventualIP.ProjectID {
 		return nil
 	}
 
-	return errorutil.NotFound("ip:%s project:%s for scope:%s not found", ip.IPAddress, ip.ProjectID, r.scope.projectID)
+	return errorutil.NotFound("ip:%s project:%s for scope:%s not found", eventualIP.IPAddress, eventualIP.ProjectID, r.scope.projectID)
 }
 
 func (r *ipRepository) ValidateCreate(ctx context.Context, req *apiv2.IPServiceCreateRequest) (*Validated[*apiv2.IPServiceCreateRequest], error) {
@@ -145,24 +147,26 @@ func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServic
 	}
 	projectID := p.Meta.Id
 
-	nw, err := r.r.Network(req.Project).Get(ctx, req.Network)
+	// FIXME we must check if the network is project scoped or not
+	nw, err := r.r.UnscopedNetwork().Get(ctx, req.Network)
 	if err != nil {
 		return nil, err
 	}
 
 	var af *metal.AddressFamily
 	if req.AddressFamily != nil {
-		af, err := metal.ToAddressFamily(*req.AddressFamily)
+		convertedAf, err := metal.ToAddressFamily(*req.AddressFamily)
 		if err != nil {
 			return nil, errorutil.NewInvalidArgument(err)
 		}
 
-		if !slices.Contains(nw.Prefixes.AddressFamilies(), af) {
-			return nil, errorutil.InvalidArgument("there is no prefix for the given addressfamily:%s present in network:%s %s", af, req.Network, nw.Prefixes.AddressFamilies())
+		if !slices.Contains(nw.Prefixes.AddressFamilies(), convertedAf) {
+			return nil, errorutil.InvalidArgument("there is no prefix for the given addressfamily:%s present in network:%s %s", convertedAf, req.Network, nw.Prefixes.AddressFamilies())
 		}
 		if req.Ip != nil {
 			return nil, errorutil.InvalidArgument("it is not possible to specify specificIP and addressfamily")
 		}
+		af = &convertedAf
 	}
 
 	// for private, unshared networks the project id must be the same
@@ -343,6 +347,7 @@ func (r *ipRepository) allocateRandomIP(ctx context.Context, parent *metal.Netwo
 		addressfamily = parent.Prefixes.AddressFamilies()[0]
 	}
 
+	r.r.log.Debug("allocateRandomIP from", "network", parent.ID, "addressfamily", addressfamily)
 	for _, prefix := range parent.Prefixes.OfFamily(addressfamily) {
 		resp, err := r.r.ipam.AcquireIP(ctx, connect.NewRequest(&ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String()}))
 		if err != nil {
