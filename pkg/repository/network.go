@@ -20,6 +20,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type networkRepository struct {
@@ -28,7 +29,6 @@ type networkRepository struct {
 }
 
 func (r *networkRepository) ValidateCreate(ctx context.Context, req *adminv2.NetworkServiceCreateRequest) (*Validated[*adminv2.NetworkServiceCreateRequest], error) {
-
 	if req.Id != nil {
 		_, err := r.Get(ctx, *req.Id)
 		if err != nil && !errorutil.IsNotFound(err) {
@@ -90,7 +90,7 @@ func (r *networkRepository) ValidateCreate(ctx context.Context, req *adminv2.Net
 		return nil, errorutil.Convert(err)
 	}
 
-	allNetworks, err := r.List(ctx, &adminv2.NetworkServiceListRequest{})
+	allNetworks, err := r.List(ctx, &apiv2.NetworkQuery{})
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -116,19 +116,18 @@ func (r *networkRepository) ValidateCreate(ctx context.Context, req *adminv2.Net
 		if err != nil {
 			return nil, errorutil.Convert(err)
 		}
-		var nw *metal.Network
 		if privateSuper {
-			nw, err = r.Find(ctx, &adminv2.NetworkServiceListRequest{Query: &apiv2.NetworkQuery{Partition: req.Partition, Options: &apiv2.NetworkQuery_Options{PrivateSuper: &privateSuper}}})
+			_, err = r.Find(ctx, &apiv2.NetworkQuery{Partition: req.Partition, Options: &apiv2.NetworkQuery_Options{PrivateSuper: &privateSuper}})
 			if err != nil && !errorutil.IsNotFound(err) {
 				return nil, errorutil.Convert(err)
 			}
-			if nw.ID != "" {
+			if !errorutil.IsNotFound(err) {
 				return nil, errorutil.InvalidArgument("partition with id %q already has a private super network", partition.ID)
 			}
 		}
 
 		if underlay {
-			_, err = r.Find(ctx, &adminv2.NetworkServiceListRequest{Query: &apiv2.NetworkQuery{Partition: req.Partition, Options: &apiv2.NetworkQuery_Options{Underlay: &underlay}}})
+			_, err = r.Find(ctx, &apiv2.NetworkQuery{Partition: req.Partition, Options: &apiv2.NetworkQuery_Options{Underlay: &underlay}})
 			if err != nil && !errorutil.IsNotFound(err) {
 				return nil, errorutil.Convert(err)
 			} else {
@@ -167,7 +166,7 @@ func validatePrefixesAndAddressFamilies(prefixes metal.Prefixes, destPrefixesAfs
 		for _, p := range prefixes.OfFamily(af) {
 			ipprefix, err := netip.ParsePrefix(p.String())
 			if err != nil {
-				return fmt.Errorf("given prefix %v is not a valid ip with mask: %w", p, err)
+				return fmt.Errorf("given prefix %q is not a valid ip with mask: %w", p.String(), err)
 			}
 			if int(length) <= ipprefix.Bits() {
 				return fmt.Errorf("given defaultchildprefixlength %d is not greater than prefix length of:%s", length, p.String())
@@ -312,7 +311,7 @@ func (r *networkRepository) ValidateDelete(ctx context.Context, req *metal.Netwo
 		return nil, err
 	}
 
-	children, err := r.List(ctx, &adminv2.NetworkServiceListRequest{Query: &apiv2.NetworkQuery{ParentNetworkId: &req.ID}})
+	children, err := r.List(ctx, &apiv2.NetworkQuery{ParentNetworkId: &req.ID})
 	if err != nil {
 		return nil, err
 	}
@@ -337,7 +336,7 @@ func (r *networkRepository) ValidateDelete(ctx context.Context, req *metal.Netwo
 
 func (r *networkRepository) Get(ctx context.Context, id string) (*metal.Network, error) {
 	nw, err := r.r.ds.Network().Get(ctx, id)
-	if err != nil && !errorutil.IsNotFound(err) {
+	if err != nil {
 		return nil, err
 	}
 
@@ -427,6 +426,18 @@ func (r *networkRepository) ValidateAllocateNetwork(ctx context.Context, rq *api
 		return nil, err
 	}
 
+	if rq.Options != nil {
+		if rq.Options.Underlay {
+			return nil, errorutil.InvalidArgument("it is not possible to allocate a underlay network")
+		}
+		if rq.Options.PrivateSuper {
+			return nil, errorutil.InvalidArgument("it is not possible to allocate a private-super network")
+		}
+		if rq.Options.Shared {
+			return nil, errorutil.InvalidArgument("it is not possible to allocate a shared network")
+		}
+	}
+
 	destPrefixes := metal.Prefixes{}
 	for _, p := range rq.DestinationPrefixes {
 		prefix, _, err := metal.NewPrefixFromCIDR(p)
@@ -445,12 +456,12 @@ func (r *networkRepository) ValidateAllocateNetwork(ctx context.Context, rq *api
 			return nil, err
 		}
 	} else {
-		superNetwork, err = r.r.UnscopedNetwork().Find(ctx, &adminv2.NetworkServiceListRequest{Query: &apiv2.NetworkQuery{
+		superNetwork, err = r.r.UnscopedNetwork().Find(ctx, &apiv2.NetworkQuery{
 			Partition: &partition.ID,
 			Options: &apiv2.NetworkQuery_Options{
 				PrivateSuper: pointer.Pointer(true),
 			},
-		}})
+		})
 		if err != nil {
 			return nil, errorutil.InvalidArgument("unable to find a privatesuper in partition:%s %w", partition.ID, err)
 		}
@@ -527,12 +538,12 @@ func (r *networkRepository) AllocateNetwork(ctx context.Context, rq *Validated[*
 		shared = req.Options.Shared
 	}
 
-	parent, err := r.r.UnscopedNetwork().Find(ctx, &adminv2.NetworkServiceListRequest{Query: &apiv2.NetworkQuery{
+	parent, err := r.r.UnscopedNetwork().Find(ctx, &apiv2.NetworkQuery{
 		Partition: &partition,
 		Options: &apiv2.NetworkQuery_Options{
 			PrivateSuper: pointer.Pointer(true),
 		},
-	}})
+	})
 	if err != nil {
 		return nil, errorutil.InvalidArgument("unable to find a privatesuper in partition:%s %w", partition, err)
 	}
@@ -550,20 +561,40 @@ func (r *networkRepository) AllocateNetwork(ctx context.Context, rq *Validated[*
 
 		destPrefixes = append(destPrefixes, *prefix)
 	}
+	length := parent.DefaultChildPrefixLength
 
-	for _, pl := range req.Length {
-		af, err := metal.ToAddressFamily(pl.AddressFamily)
-		if err != nil {
-			return nil, errorutil.NewInvalidArgument(err)
+	if len(req.Length) > 0 {
+		for _, pl := range req.Length {
+			af, err := metal.ToAddressFamily(pl.AddressFamily)
+			if err != nil {
+				return nil, errorutil.NewInvalidArgument(err)
+			}
+			length[af] = uint8(pl.Length)
 		}
+	}
 
-		childPrefix, err := r.createChildPrefix(ctx, parent.Prefixes, af, uint8(pl.Length))
+	if req.AddressFamily != nil {
+		addressfamily, err := metal.ToAddressFamily(*req.AddressFamily)
+		if err != nil {
+			return nil, errorutil.InvalidArgument("addressfamily is invalid %w", err)
+		}
+		bits, ok := length[addressfamily]
+		if !ok {
+			return nil, errorutil.InvalidArgument("addressfamily %s specified, but no childprefixlength for this addressfamily", *req.AddressFamily)
+		}
+		length = metal.ChildPrefixLength{
+			addressfamily: bits,
+		}
+	}
+
+	for af, l := range length {
+		childPrefix, err := r.createChildPrefix(ctx, parent.Prefixes, af, l)
 		if err != nil {
 			return nil, err
 		}
-
 		childPrefixes = append(childPrefixes, *childPrefix)
 	}
+	r.r.log.Debug("acquire network", "child prefixes", childPrefixes)
 
 	nw := &metal.Network{
 		Base: metal.Base{
@@ -609,7 +640,7 @@ func (r *networkRepository) createChildPrefix(ctx context.Context, parentPrefixe
 			continue
 		}
 
-		pfx, _, err := metal.NewPrefixFromCIDR(resp.Msg.String())
+		pfx, _, err := metal.NewPrefixFromCIDR(resp.Msg.Prefix.Cidr)
 		if err != nil {
 			return nil, errorutil.NewInternal(err)
 		}
@@ -632,6 +663,7 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 		projectId   string
 		partition   string
 		labels      map[string]string
+		vrf         uint
 
 		privateSuper bool
 		underlay     bool
@@ -682,8 +714,6 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 		}
 		childPrefixLength[af] = uint8(pl.Length)
 	}
-
-	var vrf uint
 
 	if req.Vrf != nil {
 		vrf, err = r.r.ds.VrfPool().AcquireUniqueInteger(ctx, uint(*req.Vrf))
@@ -740,6 +770,7 @@ func (r *networkRepository) Update(ctx context.Context, req *Validated[*adminv2.
 	newNetwork := *old
 
 	new := req.message.Network
+	r.r.log.Debug("update network", "old", old, "new", new)
 
 	if new.Name != nil {
 		newNetwork.Name = *new.Name
@@ -747,7 +778,7 @@ func (r *networkRepository) Update(ctx context.Context, req *Validated[*adminv2.
 	if new.Description != nil {
 		newNetwork.Description = *new.Description
 	}
-	if new.Meta.Labels != nil {
+	if new.Meta != nil && new.Meta.Labels != nil {
 		newNetwork.Labels = new.Meta.Labels.Labels
 	}
 	// Fixme network options
@@ -803,6 +834,7 @@ func (r *networkRepository) Update(ctx context.Context, req *Validated[*adminv2.
 		}
 	}
 
+	r.r.log.Debug("updated network", "old", old, "new", newNetwork)
 	err = r.r.ds.Network().Update(ctx, &newNetwork, old)
 	if err != nil {
 		return nil, err
@@ -811,16 +843,16 @@ func (r *networkRepository) Update(ctx context.Context, req *Validated[*adminv2.
 	return &newNetwork, nil
 }
 
-func (r *networkRepository) Find(ctx context.Context, query *adminv2.NetworkServiceListRequest) (*metal.Network, error) {
-	nw, err := r.r.ds.Network().Find(ctx, r.scopedNetworkFilters(queries.NetworkFilter(query.Query))...)
+func (r *networkRepository) Find(ctx context.Context, query *apiv2.NetworkQuery) (*metal.Network, error) {
+	nw, err := r.r.ds.Network().Find(ctx, r.scopedNetworkFilters(queries.NetworkFilter(query))...)
 	if err != nil {
 		return nil, err
 	}
 
 	return nw, nil
 }
-func (r *networkRepository) List(ctx context.Context, query *adminv2.NetworkServiceListRequest) ([]*metal.Network, error) {
-	nws, err := r.r.ds.Network().List(ctx, r.scopedNetworkFilters(queries.NetworkFilter(query.Query))...)
+func (r *networkRepository) List(ctx context.Context, query *apiv2.NetworkQuery) ([]*metal.Network, error) {
+	nws, err := r.r.ds.Network().List(ctx, r.scopedNetworkFilters(queries.NetworkFilter(query))...)
 	if err != nil {
 		return nil, err
 	}
@@ -831,7 +863,74 @@ func (r *networkRepository) ConvertToInternal(msg *apiv2.Network) (*metal.Networ
 	panic("unimplemented")
 }
 func (r *networkRepository) ConvertToProto(e *metal.Network) (*apiv2.Network, error) {
-	panic("unimplemented")
+	var (
+		defaultChildPrefixLength []*apiv2.ChildPrefixLength
+		consumption              *apiv2.NetworkConsumption
+		options                  *apiv2.NetworkOptions
+		labels                   *apiv2.Labels
+	)
+
+	if e == nil {
+		return nil, nil
+	}
+
+	if e.Labels != nil {
+		labels = &apiv2.Labels{
+			Labels: e.Labels,
+		}
+	}
+
+	if e.Nat || e.PrivateSuper || e.Shared || e.Underlay {
+		options = &apiv2.NetworkOptions{
+			Shared:       e.Underlay,
+			Nat:          e.Nat,
+			PrivateSuper: e.PrivateSuper,
+			Underlay:     e.Underlay,
+		}
+	}
+
+	for af, length := range e.DefaultChildPrefixLength {
+		var newAF apiv2.IPAddressFamily
+		switch af {
+		case metal.IPv4AddressFamily:
+			newAF = apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4
+		case metal.IPv6AddressFamily:
+			newAF = apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6
+		default:
+			return nil, errorutil.InvalidArgument("unknown addressfamily %s", af)
+		}
+		defaultChildPrefixLength = append(defaultChildPrefixLength, &apiv2.ChildPrefixLength{
+			AddressFamily: newAF,
+			Length:        uint32(length),
+		})
+	}
+
+	nw := &apiv2.Network{
+		Id:                         e.ID,
+		Name:                       pointer.PointerOrNil(e.Name),
+		Description:                pointer.PointerOrNil(e.Description),
+		Partition:                  pointer.PointerOrNil(e.PartitionID),
+		Project:                    pointer.PointerOrNil(e.ProjectID),
+		Prefixes:                   e.Prefixes.String(),
+		DestinationPrefixes:        e.DestinationPrefixes.String(),
+		Vrf:                        pointer.PointerOrNil(uint32(e.Vrf)),
+		ParentNetworkId:            pointer.PointerOrNil(e.ParentNetworkID),
+		AdditionalAnnouncebleCidrs: e.AdditionalAnnouncableCIDRs,
+		Meta: &apiv2.Meta{
+			Labels:    labels,
+			CreatedAt: timestamppb.New(e.Created),
+			UpdatedAt: timestamppb.New(e.Changed),
+		},
+		Options:                  options,
+		DefaultChildPrefixLength: defaultChildPrefixLength,
+	}
+	consumption, err := r.GetNetworkUsage(context.Background(), e)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+	nw.Consumption = consumption
+
+	return nw, nil
 }
 
 func (r *networkRepository) GetNetworkUsage(ctx context.Context, nw *metal.Network) (*apiv2.NetworkConsumption, error) {

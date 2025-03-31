@@ -64,10 +64,11 @@ type (
 	}
 
 	Network interface {
-		Repository[*metal.Network, *apiv2.Network, *adminv2.NetworkServiceCreateRequest, *adminv2.NetworkServiceUpdateRequest, *adminv2.NetworkServiceListRequest]
+		Repository[*metal.Network, *apiv2.Network, *adminv2.NetworkServiceCreateRequest, *adminv2.NetworkServiceUpdateRequest, *apiv2.NetworkQuery]
 		// AllocateNetwork is a reduced version of Create for end users, used by apiv2 networkservice/create
 		ValidateAllocateNetwork(context.Context, *apiv2.NetworkServiceCreateRequest) (*Validated[*apiv2.NetworkServiceCreateRequest], error)
 		AllocateNetwork(context.Context, *Validated[*apiv2.NetworkServiceCreateRequest]) (*metal.Network, error)
+
 		GetNetworkUsage(context.Context, *metal.Network) (*apiv2.NetworkConsumption, error)
 	}
 

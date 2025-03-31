@@ -164,7 +164,7 @@ func NewPrefixesFromCIDRs(cidrs []string) (Prefixes, error) {
 func NewPrefixFromCIDR(cidr string) (*Prefix, *netip.Prefix, error) {
 	prefix, err := netip.ParsePrefix(cidr)
 	if err != nil {
-		return nil, nil, fmt.Errorf("given cidr %s is not a valid ip with mask: %w", cidr, err)
+		return nil, nil, fmt.Errorf("given cidr %q is not a valid ip with mask: %w", cidr, err)
 	}
 	ip := prefix.Addr().String()
 	length := strconv.Itoa(prefix.Bits())
