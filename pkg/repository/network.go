@@ -396,7 +396,7 @@ func (r *Store) NetworkDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 		}
 	}
 	if nw.Vrf > 0 {
-		err = r.ds.VrfPool().ReleaseUniqueInteger(nw.Vrf)
+		err = r.ds.VrfPool().ReleaseUniqueInteger(ctx, nw.Vrf)
 		if err != nil {
 			return fmt.Errorf("unable to release vrf:%d %w", nw.Vrf, err)
 		}
@@ -496,7 +496,131 @@ func (r *networkRepository) ValidateAllocateNetwork(ctx context.Context, rq *api
 }
 
 func (r *networkRepository) AllocateNetwork(ctx context.Context, rq *Validated[*apiv2.NetworkServiceCreateRequest]) (*metal.Network, error) {
-	panic("unimplemented")
+	req := rq.message
+	var (
+		name        string
+		description string
+		partition   string
+		labels      map[string]string
+
+		destPrefixes  = metal.Prefixes{}
+		childPrefixes = metal.Prefixes{}
+
+		nat    bool
+		shared bool
+	)
+
+	if req.Partition != nil {
+		partition = *req.Partition
+	}
+	if req.Name != nil {
+		name = *req.Name
+	}
+	if req.Description != nil {
+		description = *req.Description
+	}
+	if req.Labels != nil {
+		labels = req.Labels.Labels
+	}
+	if req.Options != nil {
+		nat = req.Options.Nat
+		shared = req.Options.Shared
+	}
+
+	parent, err := r.r.UnscopedNetwork().Find(ctx, &adminv2.NetworkServiceListRequest{Query: &apiv2.NetworkQuery{
+		Partition: &partition,
+		Options: &apiv2.NetworkQuery_Options{
+			PrivateSuper: pointer.Pointer(true),
+		},
+	}})
+	if err != nil {
+		return nil, errorutil.InvalidArgument("unable to find a privatesuper in partition:%s %w", partition, err)
+	}
+
+	vrf, err := r.r.ds.VrfPool().AcquireRandomUniqueInteger(ctx)
+	if err != nil {
+		return nil, errorutil.Internal("could not acquire a vrf: %w", err)
+	}
+
+	for _, p := range req.DestinationPrefixes {
+		prefix, _, err := metal.NewPrefixFromCIDR(p)
+		if err != nil {
+			return nil, errorutil.InvalidArgument("given prefix %v is not a valid ip with mask: %w", p, err)
+		}
+
+		destPrefixes = append(destPrefixes, *prefix)
+	}
+
+	for _, pl := range req.Length {
+		af, err := metal.ToAddressFamily(pl.AddressFamily)
+		if err != nil {
+			return nil, errorutil.NewInvalidArgument(err)
+		}
+
+		childPrefix, err := r.createChildPrefix(ctx, parent.Prefixes, af, uint8(pl.Length))
+		if err != nil {
+			return nil, err
+		}
+
+		childPrefixes = append(childPrefixes, *childPrefix)
+	}
+
+	nw := &metal.Network{
+		Base: metal.Base{
+			Name:        name,
+			Description: description,
+		},
+		Prefixes:            childPrefixes,
+		DestinationPrefixes: destPrefixes,
+		PartitionID:         partition,
+		ProjectID:           req.Project,
+		Nat:                 nat,
+		PrivateSuper:        false,
+		Underlay:            false,
+		Shared:              shared,
+		Vrf:                 vrf,
+		ParentNetworkID:     parent.ID,
+		Labels:              labels,
+	}
+
+	nw, err = r.r.ds.Network().Create(ctx, nw)
+	if err != nil {
+		return nil, err
+	}
+
+	return nw, nil
+}
+
+func (r *networkRepository) createChildPrefix(ctx context.Context, parentPrefixes metal.Prefixes, af metal.AddressFamily, childLength uint8) (*metal.Prefix, error) {
+	var (
+		errs []error
+	)
+
+	for _, parentPrefix := range parentPrefixes.OfFamily(af) {
+		resp, err := r.r.ipam.AcquireChildPrefix(ctx, connect.NewRequest(&ipamv1.AcquireChildPrefixRequest{
+			Cidr:   parentPrefix.String(),
+			Length: uint32(childLength),
+		}))
+		if err != nil {
+			if errorutil.IsNotFound(err) {
+				continue
+			}
+			errs = append(errs, err)
+			continue
+		}
+
+		pfx, _, err := metal.NewPrefixFromCIDR(resp.Msg.String())
+		if err != nil {
+			return nil, errorutil.NewInternal(err)
+		}
+		return pfx, nil
+	}
+
+	if len(errs) > 0 {
+		return nil, errorutil.Internal("cannot allocate free child prefix in ipam: %w", errors.Join(errs...))
+	}
+
+	return nil, errorutil.Internal("cannot allocate free child prefix in one of the given parent prefixes in ipam: %s", parentPrefixes.String())
 }
 
 func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.NetworkServiceCreateRequest]) (*metal.Network, error) {
@@ -562,7 +686,7 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 	var vrf uint
 
 	if req.Vrf != nil {
-		vrf, err = r.r.ds.VrfPool().AcquireUniqueInteger(uint(*req.Vrf))
+		vrf, err = r.r.ds.VrfPool().AcquireUniqueInteger(ctx, uint(*req.Vrf))
 		if err != nil {
 			if !errorutil.IsConflict(err) {
 				return nil, errorutil.InvalidArgument("could not acquire vrf: %w", err)

@@ -134,14 +134,14 @@ func (ip *integerPool) initialize() error {
 }
 
 // AcquireRandomUniqueInteger returns a random unique integer from the pool.
-func (ip *integerPool) AcquireRandomUniqueInteger() (uint, error) {
+func (ip *integerPool) AcquireRandomUniqueInteger(ctx context.Context) (uint, error) {
 	t := ip.table.Limit(1)
 
 	var integer uint
 	err := retry.Do(
 		func() error {
 			var err2 error
-			integer, err2 = ip.genericAcquire(&t)
+			integer, err2 = ip.genericAcquire(ctx, &t)
 			return err2
 		},
 		retry.Attempts(10),
@@ -153,7 +153,7 @@ func (ip *integerPool) AcquireRandomUniqueInteger() (uint, error) {
 }
 
 // AcquireUniqueInteger returns a unique integer from the pool.
-func (ip *integerPool) AcquireUniqueInteger(value uint) (uint, error) {
+func (ip *integerPool) AcquireUniqueInteger(ctx context.Context, value uint) (uint, error) {
 	err := ip.verifyRange(value)
 	if err != nil {
 		return 0, err
@@ -161,11 +161,11 @@ func (ip *integerPool) AcquireUniqueInteger(value uint) (uint, error) {
 
 	t := ip.table.Get(value)
 
-	return ip.genericAcquire(&t)
+	return ip.genericAcquire(ctx, &t)
 }
 
 // ReleaseUniqueInteger returns a unique integer to the pool.
-func (ip *integerPool) ReleaseUniqueInteger(id uint) error {
+func (ip *integerPool) ReleaseUniqueInteger(ctx context.Context, id uint) error {
 	err := ip.verifyRange(id)
 	if err != nil {
 		return err
@@ -175,7 +175,7 @@ func (ip *integerPool) ReleaseUniqueInteger(id uint) error {
 		ID: id,
 	}
 
-	_, err = ip.table.Insert(i, r.InsertOpts{Conflict: "replace"}).RunWrite(ip.r.queryExecutor)
+	_, err = ip.table.Insert(i, r.InsertOpts{Conflict: "replace"}).RunWrite(ip.r.queryExecutor, r.RunOpts{Context: ctx})
 	if err != nil {
 		return err
 	}
@@ -183,14 +183,14 @@ func (ip *integerPool) ReleaseUniqueInteger(id uint) error {
 	return nil
 }
 
-func (ip *integerPool) genericAcquire(term *r.Term) (uint, error) {
-	res, err := term.Delete(r.DeleteOpts{ReturnChanges: true}).RunWrite(ip.r.queryExecutor)
+func (ip *integerPool) genericAcquire(ctx context.Context, term *r.Term) (uint, error) {
+	res, err := term.Delete(r.DeleteOpts{ReturnChanges: true}).RunWrite(ip.r.queryExecutor, r.RunOpts{Context: ctx})
 	if err != nil {
 		return 0, err
 	}
 
 	if len(res.Changes) == 0 {
-		res, err := ip.table.Count().Run(ip.r.queryExecutor)
+		res, err := ip.table.Count().Run(ip.r.queryExecutor, r.RunOpts{Context: ctx})
 		if err != nil {
 			return 0, err
 		}
