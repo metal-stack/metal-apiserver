@@ -73,21 +73,21 @@ func (r *networkRepository) ValidateCreate(ctx context.Context, req *adminv2.Net
 
 	prefixes, err := metal.NewPrefixesFromCIDRs(req.Prefixes)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, errorutil.NewInvalidArgument(err)
 	}
 	destPrefixes, err := metal.NewPrefixesFromCIDRs(req.DestinationPrefixes)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, errorutil.NewInvalidArgument(err)
 	}
 
 	err = validatePrefixesAndAddressFamilies(prefixes, destPrefixes.AddressFamilies(), childPrefixLength, privateSuper)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, errorutil.NewInvalidArgument(err)
 	}
 
 	err = validateAdditionalAnnouncableCIDRs(req.AdditionalAnnounceableCidrs, privateSuper)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, errorutil.NewInvalidArgument(err)
 	}
 
 	allNetworks, err := r.List(ctx, &apiv2.NetworkQuery{})
@@ -108,7 +108,7 @@ func (r *networkRepository) ValidateCreate(ctx context.Context, req *adminv2.Net
 
 	err = goipam.PrefixesOverlapping(existingPrefixes.String(), prefixes.String())
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, errorutil.NewConflict(err)
 	}
 
 	if req.Partition != nil {
@@ -709,6 +709,7 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
+
 	for _, pl := range req.DefaultChildPrefixLength {
 		af, err := metal.ToAddressFamily(pl.AddressFamily)
 		if err != nil {
