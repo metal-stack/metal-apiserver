@@ -15,9 +15,7 @@ func StartAsynqServer(t *testing.T, log *slog.Logger, repository *repository.Sto
 	go func() {
 		log.Info("starting asynq server")
 		err := asyncServer.Run(asyncServerMux)
-		if err != nil {
-			require.NoError(t, err)
-		}
+		require.NoError(t, err)
 	}()
 
 	closer := func() {

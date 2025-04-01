@@ -93,6 +93,7 @@ func (p Prefixes) String() []string {
 	for _, element := range p {
 		result = append(result, element.String())
 	}
+	slices.Sort(result)
 	return result
 }
 
@@ -157,6 +158,7 @@ func NewPrefixesFromCIDRs(cidrs []string) (Prefixes, error) {
 		}
 		result = append(result, *prefix)
 	}
+
 	return result, nil
 }
 
