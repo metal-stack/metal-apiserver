@@ -443,7 +443,6 @@ func (r *Store) IpDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
 
 func (r *ipRepository) scopedIPFilters(filter generic.EntityQuery) []generic.EntityQuery {
 	var qs []generic.EntityQuery
-	r.r.log.Info("scopedFilters", "scope", r.scope)
 	if r.scope != nil {
 		qs = append(qs, queries.IpProjectScoped(r.scope.projectID))
 	}

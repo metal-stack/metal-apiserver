@@ -30,6 +30,7 @@ type (
 func New(log *slog.Logger, opts r.ConnectOpts, dsOpts ...dataStoreOption) (*datastore, error) {
 	// the datastore runs with the metal user (not admin user) that cannot write during migrations
 	opts.Username = demotedUser
+	log = log.WithGroup("datastore")
 
 	log.Info("create rethinkdb client", "addresses", opts.Addresses, "dbname", opts.Database, "user", opts.Username, "password", opts.Password)
 

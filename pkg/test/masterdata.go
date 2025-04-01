@@ -25,6 +25,7 @@ func StartMasterdataWithCochroach(t *testing.T, log *slog.Logger) (mdc.Client, *
 	db, err := sqlx.Open("postgres", cr.PGURL().String())
 	require.NoError(t, err)
 
+	log = log.WithGroup("masterdata")
 	ps := datastore.New(log, db, &apiv1.Project{})
 	pms := datastore.New(log, db, &apiv1.ProjectMember{})
 	ts := datastore.New(log, db, &apiv1.Tenant{})
@@ -84,6 +85,8 @@ func StartMasterdataWithCochroach(t *testing.T, log *slog.Logger) (mdc.Client, *
 }
 
 func StartMasterdataInMemory(t *testing.T, log *slog.Logger) (mdc.Client, *grpc.ClientConn, func()) {
+	log = log.WithGroup("masterdata")
+
 	ps := datastore.NewMemory(log, &apiv1.Project{})
 	pms := datastore.NewMemory(log, &apiv1.ProjectMember{})
 	ts := datastore.NewMemory(log, &apiv1.Tenant{})

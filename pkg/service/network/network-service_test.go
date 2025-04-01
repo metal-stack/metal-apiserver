@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
@@ -15,6 +16,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -480,6 +482,18 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		{
+			name:    "project does not match",
+			rq:      &apiv2.NetworkServiceDeleteRequest{Id: "p1-network-b", Project: "p2"},
+			want:    nil,
+			wantErr: errorutil.NotFound("network:p1-network-b project:p1 for scope:p2 not found"),
+		},
+		{
+			name:    "network does not exist anymore",
+			rq:      &apiv2.NetworkServiceDeleteRequest{Id: "p1-network-a", Project: "pa"},
+			want:    nil,
+			wantErr: errorutil.NotFound(`no network with id "p1-network-a" found`),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -491,8 +505,6 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
-			// TODO check if network is actually deleted
-
 			if diff := cmp.Diff(
 				tt.want, pointer.SafeDeref(got).Msg,
 				cmp.Options{
@@ -507,6 +519,16 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 			); diff != "" {
 				t.Errorf("networkServiceServer.Create() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
 			}
+
+			if tt.want == nil {
+				return
+			}
+			assert.EventuallyWithT(t, func(collect *assert.CollectT) {
+				_, err := repo.UnscopedNetwork().Get(ctx, tt.rq.Id)
+				t.Logf("check for network:%q being deleted:%v", tt.rq.Id, err)
+				assert.True(collect, errorutil.IsNotFound(err))
+			}, 5*time.Second, 100*time.Millisecond)
+
 		})
 	}
 }

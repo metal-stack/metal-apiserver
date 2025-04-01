@@ -380,7 +380,7 @@ func (r *Store) NetworkDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
 		return fmt.Errorf("json.Unmarshal failed: %w %w", err, asynq.SkipRetry)
 	}
-	r.log.Info("delete network", "uuid", payload.UUID)
+	r.log.Info("delete network handler", "uuid", payload.UUID)
 
 	nw, err := r.ds.Network().Get(ctx, payload.UUID)
 	if err != nil && !errorutil.IsNotFound(err) {
@@ -669,6 +669,7 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 		underlay     bool
 		nat          bool
 		vrfShared    bool
+		shared       bool
 
 		childPrefixLength = metal.ChildPrefixLength{}
 	)
@@ -697,6 +698,7 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 		underlay = req.Options.Underlay
 		nat = req.Options.Nat
 		vrfShared = req.Options.VrfShared
+		shared = req.Options.Shared
 	}
 
 	prefixes, err := metal.NewPrefixesFromCIDRs(req.Prefixes)
@@ -744,6 +746,7 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 		PrivateSuper:               privateSuper,
 		Underlay:                   underlay,
 		Vrf:                        vrf,
+		Shared:                     shared,
 		Labels:                     labels,
 		AdditionalAnnouncableCIDRs: req.AdditionalAnnounceableCidrs,
 	}
@@ -979,7 +982,6 @@ func (r *networkRepository) GetNetworkUsage(ctx context.Context, nw *metal.Netwo
 
 func (r *networkRepository) scopedNetworkFilters(filter generic.EntityQuery) []generic.EntityQuery {
 	var qs []generic.EntityQuery
-	r.r.log.Info("scopedFilters", "scope", r.scope)
 	if r.scope != nil {
 		qs = append(qs, queries.NetworkProjectScoped(r.scope.projectID))
 	}

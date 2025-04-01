@@ -29,15 +29,18 @@ func StartRepositoryWithCockroach(t *testing.T, log *slog.Logger) (*repository.S
 
 	mdc, connection, masterdataCloser := StartMasterdataWithCochroach(t, log)
 
+	repo, err := repository.New(log, mdc, ds, ipam, rc)
+	require.NoError(t, err)
+
+	asyncCloser := StartAsynqServer(t, log.WithGroup("asynq"), repo, rc)
+
 	closer := func() {
 		_ = connection.Close()
 		_ = container.Terminate(context.Background())
 		ipamCloser()
 		masterdataCloser()
+		asyncCloser()
 	}
-
-	repo, err := repository.New(log, mdc, ds, ipam, rc)
-	require.NoError(t, err)
 	return repo, mdc, closer
 }
 
@@ -55,15 +58,18 @@ func StartRepository(t *testing.T, log *slog.Logger) (*repository.Store, func())
 
 	mdc, connection, masterdataCloser := StartMasterdataInMemory(t, log)
 
+	repo, err := repository.New(log, mdc, ds, ipam, rc)
+	require.NoError(t, err)
+
+	asyncCloser := StartAsynqServer(t, log.WithGroup("asynq"), repo, rc)
+
 	closer := func() {
 		_ = connection.Close()
 		_ = container.Terminate(context.Background())
 		ipamCloser()
 		masterdataCloser()
+		asyncCloser()
 	}
-
-	repo, err := repository.New(log, mdc, ds, ipam, rc)
-	require.NoError(t, err)
 	return repo, closer
 }
 
