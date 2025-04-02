@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/netip"
 	"slices"
+	"sort"
 
 	"connectrpc.com/connect"
 	"github.com/hibiken/asynq"
@@ -80,12 +81,18 @@ func (r *networkRepository) ValidateCreate(ctx context.Context, req *adminv2.Net
 		return nil, errorutil.NewInvalidArgument(err)
 	}
 
+	// Destination Prefixes must not overlap with prefixes
+	err = goipam.PrefixesOverlapping(prefixes.String(), destPrefixes.String())
+	if err != nil {
+		return nil, errorutil.NewInvalidArgument(err)
+	}
+
 	err = validatePrefixesAndAddressFamilies(prefixes, destPrefixes.AddressFamilies(), childPrefixLength, privateSuper)
 	if err != nil {
 		return nil, errorutil.NewInvalidArgument(err)
 	}
 
-	err = validateAdditionalAnnouncableCIDRs(req.AdditionalAnnounceableCidrs, privateSuper)
+	err = validateAdditionalAnnouncableCIDRs(req.AdditionalAnnouncableCidrs, privateSuper)
 	if err != nil {
 		return nil, errorutil.NewInvalidArgument(err)
 	}
@@ -232,14 +239,9 @@ func (r *networkRepository) ValidateUpdate(ctx context.Context, req *adminv2.Net
 
 		prefixesToBeRemoved = old.SubtractPrefixes(prefixes...)
 
-		for _, prefixToBeRemoved := range prefixesToBeRemoved {
-			ips, err := r.r.UnscopedIP().List(ctx, &apiv2.IPQuery{ParentPrefixCidr: pointer.Pointer(prefixToBeRemoved.String())})
-			if err != nil {
-				return nil, errorutil.Convert(err)
-			}
-			if len(ips) > 0 {
-				return nil, errorutil.InvalidArgument("there are still ips:%v present in one of the prefixes which should be removed:%s", ips, prefixToBeRemoved)
-			}
+		err = r.arePrefixesEmpty(ctx, prefixesToBeRemoved)
+		if err != nil {
+			return nil, err
 		}
 
 		prefixesToBeAdded = newNetwork.SubtractPrefixes(old.Prefixes...)
@@ -270,13 +272,13 @@ func (r *networkRepository) ValidateUpdate(ctx context.Context, req *adminv2.Net
 		newNetwork.DefaultChildPrefixLength = newDefaultChildPrefixLength
 	}
 
-	err = validateAdditionalAnnouncableCIDRs(new.AdditionalAnnouncebleCidrs, old.PrivateSuper)
+	err = validateAdditionalAnnouncableCIDRs(new.AdditionalAnnouncableCidrs, old.PrivateSuper)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
 	for _, oldcidr := range old.AdditionalAnnouncableCIDRs {
-		if !req.Force && !slices.Contains(new.AdditionalAnnouncebleCidrs, oldcidr) {
+		if !req.Force && !slices.Contains(new.AdditionalAnnouncableCidrs, oldcidr) {
 			return nil, errorutil.InvalidArgument("you cannot remove %q from additionalannouncablecidrs without force flag set", oldcidr)
 		}
 	}
@@ -300,6 +302,19 @@ func (r *networkRepository) ValidateUpdate(ctx context.Context, req *adminv2.Net
 	}, nil
 }
 
+func (r *networkRepository) arePrefixesEmpty(ctx context.Context, prefixes metal.Prefixes) error {
+	for _, prefixToCheck := range prefixes {
+		ips, err := r.r.UnscopedIP().List(ctx, &apiv2.IPQuery{ParentPrefixCidr: pointer.Pointer(prefixToCheck.String())})
+		if err != nil {
+			return errorutil.Convert(err)
+		}
+		if len(ips) > 0 {
+			return errorutil.InvalidArgument("there are still %d ips present in one of the prefixes:%s", len(ips), prefixToCheck)
+		}
+	}
+	return nil
+}
+
 func (r *networkRepository) ValidateDelete(ctx context.Context, req *metal.Network) (*Validated[*metal.Network], error) {
 	old, err := r.Get(ctx, req.ID)
 	if err != nil {
@@ -319,14 +334,9 @@ func (r *networkRepository) ValidateDelete(ctx context.Context, req *metal.Netwo
 		return nil, errorutil.InvalidArgument("cannot remove network with existing child networks")
 	}
 
-	for _, prefix := range old.Prefixes {
-		ips, err := r.r.UnscopedIP().List(ctx, &apiv2.IPQuery{ParentPrefixCidr: pointer.Pointer(prefix.String())})
-		if err != nil {
-			return nil, errorutil.Convert(err)
-		}
-		if len(ips) > 0 {
-			return nil, errorutil.InvalidArgument("there are still ips:%v present in one of the prefixes:%s", ips, prefix)
-		}
+	err = r.arePrefixesEmpty(ctx, old.Prefixes)
+	if err != nil {
+		return nil, err
 	}
 
 	return &Validated[*metal.Network]{
@@ -749,7 +759,7 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 		Vrf:                        vrf,
 		Shared:                     shared,
 		Labels:                     labels,
-		AdditionalAnnouncableCIDRs: req.AdditionalAnnounceableCidrs,
+		AdditionalAnnouncableCIDRs: req.AdditionalAnnouncableCidrs,
 	}
 
 	resp, err := r.r.ds.Network().Create(ctx, nw)
@@ -822,7 +832,7 @@ func (r *networkRepository) Update(ctx context.Context, req *Validated[*adminv2.
 		newNetwork.DefaultChildPrefixLength = newDefaultChildPrefixLength
 	}
 
-	newNetwork.AdditionalAnnouncableCIDRs = new.AdditionalAnnouncebleCidrs
+	newNetwork.AdditionalAnnouncableCIDRs = new.AdditionalAnnouncableCidrs
 
 	for _, p := range prefixesToBeRemoved {
 		_, err := r.r.ipam.DeletePrefix(ctx, connect.NewRequest(&ipamv1.DeletePrefixRequest{Cidr: p.String()}))
@@ -909,6 +919,10 @@ func (r *networkRepository) ConvertToProto(e *metal.Network) (*apiv2.Network, er
 		})
 	}
 
+	sort.Slice(defaultChildPrefixLength, func(i, j int) bool {
+		return defaultChildPrefixLength[i].AddressFamily < defaultChildPrefixLength[j].AddressFamily
+	})
+
 	nw := &apiv2.Network{
 		Id:                         e.ID,
 		Name:                       pointer.PointerOrNil(e.Name),
@@ -919,7 +933,7 @@ func (r *networkRepository) ConvertToProto(e *metal.Network) (*apiv2.Network, er
 		DestinationPrefixes:        e.DestinationPrefixes.String(),
 		Vrf:                        pointer.PointerOrNil(uint32(e.Vrf)),
 		ParentNetworkId:            pointer.PointerOrNil(e.ParentNetworkID),
-		AdditionalAnnouncebleCidrs: e.AdditionalAnnouncableCIDRs,
+		AdditionalAnnouncableCidrs: e.AdditionalAnnouncableCIDRs,
 		Meta: &apiv2.Meta{
 			Labels:    labels,
 			CreatedAt: timestamppb.New(e.Created),

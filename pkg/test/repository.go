@@ -101,6 +101,21 @@ func CreateNetworks(t *testing.T, repo *repository.Store, nws []*adminv2.Network
 	}
 }
 
+// NetworkMap maps network.Name to network.Id
+type NetworkMap map[string]string
+
+func AllocateNetworks(t *testing.T, repo *repository.Store, nws []*apiv2.NetworkServiceCreateRequest) NetworkMap {
+	var networkMap = NetworkMap{}
+	for _, nw := range nws {
+		validated, err := repo.UnscopedNetwork().ValidateAllocateNetwork(t.Context(), nw)
+		require.NoError(t, err)
+		resp, err := repo.UnscopedNetwork().AllocateNetwork(t.Context(), validated)
+		require.NoError(t, err)
+		networkMap[resp.Name] = resp.ID
+	}
+	return networkMap
+}
+
 func CreatePartitions(t *testing.T, repo *repository.Store, partitions []*adminv2.PartitionServiceCreateRequest) {
 	for _, partition := range partitions {
 		validated, err := repo.Partition().ValidateCreate(t.Context(), partition)

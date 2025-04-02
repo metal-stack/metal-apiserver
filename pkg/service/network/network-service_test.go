@@ -130,6 +130,8 @@ func Test_networkServiceServer_List(t *testing.T) {
 				Networks: []*apiv2.Network{
 					{Id: "p1-network-a", Meta: &apiv2.Meta{}, Name: pointer.Pointer("P1 Network"), Project: pointer.Pointer("p1"), Prefixes: []string{"2.3.4.0/24"}},
 					{Id: "p1-network-b", Meta: &apiv2.Meta{}, Name: pointer.Pointer("P1 Network"), Project: pointer.Pointer("p1"), Prefixes: []string{"2.3.5.0/24"}},
+
+					// FIXME internet (project is nil must be present here)
 				},
 			},
 			wantErr: nil,
