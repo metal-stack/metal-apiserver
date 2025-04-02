@@ -775,3 +775,122 @@ func Test_networkServiceServer_List(t *testing.T) {
 		})
 	}
 }
+
+func Test_networkServiceServer_Update(t *testing.T) {
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+	repo, closer := test.StartRepository(t, log)
+	defer closer()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintln(w, "a image")
+	}))
+	defer ts.Close()
+
+	validURL := ts.URL
+
+	ctx := t.Context()
+
+	test.CreateTenants(t, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}, {Name: "t0"}})
+	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}, {Name: "p3", Login: "t1"}, {Name: "p0", Login: "t0"}})
+
+	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+		{Partition: &apiv2.Partition{Id: "partition-two", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+		{Partition: &apiv2.Partition{Id: "partition-three", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+		{Partition: &apiv2.Partition{Id: "partition-four", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+	})
+
+	test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+		{
+			Id:                       pointer.Pointer("tenant-super-network"),
+			Prefixes:                 []string{"10.100.0.0/14"},
+			DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4, Length: 22}},
+			Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
+			Partition:                pointer.Pointer("partition-one"),
+		},
+		{
+			Id:                       pointer.Pointer("tenant-super-network-v6"),
+			Prefixes:                 []string{"2001:db8::/96"},
+			DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6, Length: 112}},
+			Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
+			Partition:                pointer.Pointer("partition-two"),
+		},
+		{
+			Id:                       pointer.Pointer("tenant-super-network-dualstack"),
+			Prefixes:                 []string{"2001:dc8::/96", "10.200.0.0/14"},
+			DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6, Length: 112}, {AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4, Length: 22}},
+			Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
+			Partition:                pointer.Pointer("partition-three"),
+		},
+		{Id: pointer.Pointer("underlay"), Name: pointer.Pointer("Underlay Network"), Project: pointer.Pointer("p0"), Prefixes: []string{"10.0.0.0/24"}, Options: &apiv2.NetworkOptions{Underlay: true}},
+		{Id: pointer.Pointer("internet"), Prefixes: []string{"20.0.0.0/24"}, DestinationPrefixes: []string{"0.0.0.0/0"}},
+	})
+
+	networkMap := test.AllocateNetworks(t, repo, []*apiv2.NetworkServiceCreateRequest{
+		{Name: pointer.Pointer("tenant-1"), Project: "p1", Partition: pointer.Pointer("partition-one")},
+		{Name: pointer.Pointer("tenant-2"), Project: "p1", Partition: pointer.Pointer("partition-one"), Labels: &apiv2.Labels{Labels: map[string]string{"size": "small", "color": "blue"}}},
+	})
+
+	tests := []struct {
+		name    string
+		rq      *adminv2.NetworkServiceUpdateRequest
+		want    *adminv2.NetworkServiceUpdateResponse
+		wantErr error
+	}{
+		{
+			name: "add label to tenant network",
+			rq: &adminv2.NetworkServiceUpdateRequest{
+				Network: &apiv2.Network{
+					Id: networkMap["tenant-1"],
+					Meta: &apiv2.Meta{
+						Labels: &apiv2.Labels{Labels: map[string]string{"color": "red", "size": "large"}},
+					},
+				},
+			},
+			want: &adminv2.NetworkServiceUpdateResponse{
+				Network: &apiv2.Network{
+					Id: networkMap["tenant-1"],
+					Meta: &apiv2.Meta{
+						Labels: &apiv2.Labels{Labels: map[string]string{"color": "red", "size": "large"}},
+					},
+					Name:            pointer.Pointer("tenant-1"),
+					Partition:       pointer.Pointer("partition-one"),
+					Project:         pointer.Pointer("p1"),
+					Prefixes:        []string{"10.100.0.0/22"},
+					Vrf:             pointer.Pointer(uint32(4)),
+					ParentNetworkId: pointer.Pointer("tenant-super-network"),
+				},
+			},
+			// TODO can options be changed ?
+			wantErr: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			n := &networkServiceServer{
+				log:  log,
+				repo: repo,
+			}
+			got, err := n.Update(ctx, connect.NewRequest(tt.rq))
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("diff = %s", diff)
+			}
+
+			if diff := cmp.Diff(
+				tt.want, pointer.SafeDeref(got).Msg,
+				cmp.Options{
+					protocmp.Transform(),
+					protocmp.IgnoreFields(
+						&apiv2.Network{}, "consumption",
+					),
+					protocmp.IgnoreFields(
+						&apiv2.Meta{}, "created_at", "updated_at",
+					),
+				},
+			); diff != "" {
+				t.Errorf("networkServiceServer.Update() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
+			}
+		})
+	}
+}

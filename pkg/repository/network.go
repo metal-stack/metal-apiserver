@@ -221,7 +221,7 @@ func (r *networkRepository) ValidateUpdate(ctx context.Context, req *adminv2.Net
 
 	var (
 		prefixesToBeRemoved metal.Prefixes
-		prefixesToBeAdded   metal.Prefixes
+		destPrefixAfs       metal.AddressFamilies
 	)
 
 	if len(new.Prefixes) > 0 {
@@ -238,13 +238,8 @@ func (r *networkRepository) ValidateUpdate(ctx context.Context, req *adminv2.Net
 		if err != nil {
 			return nil, err
 		}
-
-		prefixesToBeAdded = newNetwork.SubtractPrefixes(old.Prefixes...)
 	}
 
-	var (
-		destPrefixAfs metal.AddressFamilies
-	)
 	if len(new.DestinationPrefixes) > 0 {
 		destPrefixes, err := metal.NewPrefixesFromCIDRs(new.DestinationPrefixes)
 		if err != nil {
@@ -260,11 +255,10 @@ func (r *networkRepository) ValidateUpdate(ctx context.Context, req *adminv2.Net
 	}
 
 	if len(new.DefaultChildPrefixLength) > 0 {
-		newDefaultChildPrefixLength, err := metal.ToDefaultChildPrefixLength(new.DefaultChildPrefixLength, newNetwork.Prefixes)
+		_, err := metal.ToDefaultChildPrefixLength(new.DefaultChildPrefixLength, newNetwork.Prefixes)
 		if err != nil {
 			return nil, errorutil.NewInvalidArgument(err)
 		}
-		newNetwork.DefaultChildPrefixLength = newDefaultChildPrefixLength
 	}
 
 	err = validateAdditionalAnnouncableCIDRs(new.AdditionalAnnouncableCidrs, old.PrivateSuper)
@@ -275,20 +269,6 @@ func (r *networkRepository) ValidateUpdate(ctx context.Context, req *adminv2.Net
 	for _, oldcidr := range old.AdditionalAnnouncableCIDRs {
 		if !req.Force && !slices.Contains(new.AdditionalAnnouncableCidrs, oldcidr) {
 			return nil, errorutil.InvalidArgument("you cannot remove %q from additionalannouncablecidrs without force flag set", oldcidr)
-		}
-	}
-
-	for _, p := range prefixesToBeRemoved {
-		_, err := r.r.ipam.DeletePrefix(ctx, connect.NewRequest(&ipamv1.DeletePrefixRequest{Cidr: p.String()}))
-		if err != nil {
-			return nil, errorutil.Convert(err)
-		}
-	}
-
-	for _, p := range prefixesToBeAdded {
-		_, err := r.r.ipam.CreatePrefix(ctx, connect.NewRequest(&ipamv1.CreatePrefixRequest{Cidr: p.String()}))
-		if err != nil {
-			return nil, errorutil.Convert(err)
 		}
 	}
 
