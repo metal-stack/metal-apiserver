@@ -261,16 +261,6 @@ func Test_networkServiceServer_Create(t *testing.T) {
 			wantErr: errorutil.InvalidArgument(`6.0.1.0/24 overlaps 6.0.0.0/16`),
 		},
 		{
-			name: "overlapping prefixes and destinationprefixes",
-			rq: &adminv2.NetworkServiceCreateRequest{
-				Id:                  pointer.Pointer("overlapping prefixes_and_destinationprefixes"),
-				Prefixes:            []string{"7.0.0.0/16"},
-				DestinationPrefixes: []string{"7.0.1.0/24"},
-			},
-			want:    nil,
-			wantErr: errorutil.InvalidArgument(`7.0.1.0/24 overlaps 7.0.0.0/16`),
-		},
-		{
 			name: "dualstack internet without project",
 			rq:   &adminv2.NetworkServiceCreateRequest{Id: pointer.Pointer("internet-dualstack"), Prefixes: []string{"2.3.4.0/24", "2002:db8::/96"}},
 			want: &adminv2.NetworkServiceCreateResponse{
@@ -308,6 +298,23 @@ func Test_networkServiceServer_Create(t *testing.T) {
 					Vrf:                        pointer.Pointer(uint32(9)),
 					AdditionalAnnouncableCidrs: []string{"10.100.0.0/16"},
 				}},
+			wantErr: nil,
+		},
+		{
+			name: "underlay",
+			rq: &adminv2.NetworkServiceCreateRequest{
+				Id: pointer.Pointer("underlay-2"), Name: pointer.Pointer("Underlay Network"), Project: pointer.Pointer("p0"), Prefixes: []string{"16.0.0.0/24"}, Options: &apiv2.NetworkOptions{Underlay: true},
+			},
+			want: &adminv2.NetworkServiceCreateResponse{
+				Network: &apiv2.Network{
+					Id:       "underlay-2",
+					Meta:     &apiv2.Meta{},
+					Name:     pointer.Pointer("Underlay Network"),
+					Project:  pointer.Pointer("p0"),
+					Prefixes: []string{"16.0.0.0/24"},
+					Options:  &apiv2.NetworkOptions{Underlay: true},
+				},
+			},
 			wantErr: nil,
 		},
 		// TODO: parentNetworkID, Addressfamily
@@ -465,6 +472,305 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 				},
 			); diff != "" {
 				t.Errorf("networkServiceServer.Delete() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
+			}
+		})
+	}
+}
+
+func Test_networkServiceServer_List(t *testing.T) {
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+	repo, closer := test.StartRepository(t, log)
+	defer closer()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintln(w, "a image")
+	}))
+	defer ts.Close()
+
+	validURL := ts.URL
+
+	ctx := t.Context()
+
+	test.CreateTenants(t, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}, {Name: "t0"}})
+	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}, {Name: "p3", Login: "t1"}, {Name: "p0", Login: "t0"}})
+
+	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+		{Partition: &apiv2.Partition{Id: "partition-two", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+		{Partition: &apiv2.Partition{Id: "partition-three", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+		{Partition: &apiv2.Partition{Id: "partition-four", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+	})
+
+	test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+		{
+			Id:                       pointer.Pointer("tenant-super-network"),
+			Prefixes:                 []string{"10.100.0.0/14"},
+			DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4, Length: 22}},
+			Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
+			Partition:                pointer.Pointer("partition-one"),
+		},
+		{
+			Id:                       pointer.Pointer("tenant-super-network-v6"),
+			Prefixes:                 []string{"2001:db8::/96"},
+			DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6, Length: 112}},
+			Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
+			Partition:                pointer.Pointer("partition-two"),
+		},
+		{
+			Id:                       pointer.Pointer("tenant-super-network-dualstack"),
+			Prefixes:                 []string{"2001:dc8::/96", "10.200.0.0/14"},
+			DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6, Length: 112}, {AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4, Length: 22}},
+			Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
+			Partition:                pointer.Pointer("partition-three"),
+		},
+		{Id: pointer.Pointer("underlay"), Name: pointer.Pointer("Underlay Network"), Project: pointer.Pointer("p0"), Prefixes: []string{"10.0.0.0/24"}, Options: &apiv2.NetworkOptions{Underlay: true}},
+		{Id: pointer.Pointer("internet"), Prefixes: []string{"20.0.0.0/24"}, DestinationPrefixes: []string{"0.0.0.0/0"}},
+	})
+	networkMap := test.AllocateNetworks(t, repo, []*apiv2.NetworkServiceCreateRequest{
+		{Name: pointer.Pointer("tenant-1"), Project: "p1", Partition: pointer.Pointer("partition-one")},
+		{Name: pointer.Pointer("tenant-2"), Project: "p1", Partition: pointer.Pointer("partition-one"), Labels: &apiv2.Labels{Labels: map[string]string{"size": "small", "color": "blue"}}},
+	})
+
+	test.CreateIPs(t, repo, []*apiv2.IPServiceCreateRequest{
+		{Network: networkMap["tenant-1"], Project: "p1", Name: pointer.Pointer("ip-1")},
+	})
+
+	tests := []struct {
+		name    string
+		rq      *adminv2.NetworkServiceListRequest
+		want    *adminv2.NetworkServiceListResponse
+		wantErr error
+	}{
+		// {
+		// 	name: "list all",
+		// 	rq:   &adminv2.NetworkServiceListRequest{},
+		// 	want: &adminv2.NetworkServiceListResponse{
+		// 		Networks: []*apiv2.Network{
+		// 			{
+		// 				Id:              networkMap["tenant-1"],
+		// 				Meta:            &apiv2.Meta{},
+		// 				Name:            pointer.Pointer("tenant-1"),
+		// 				Partition:       pointer.Pointer("partition-one"),
+		// 				Project:         pointer.Pointer("p1"),
+		// 				Prefixes:        []string{"10.100.0.0/22"},
+		// 				Vrf:             pointer.Pointer(uint32(4)),
+		// 				ParentNetworkId: pointer.Pointer("tenant-super-network"),
+		// 			},
+		// 			{
+		// 				Id:              networkMap["tenant-2"],
+		// 				Meta:            &apiv2.Meta{},
+		// 				Name:            pointer.Pointer("tenant-2"),
+		// 				Partition:       pointer.Pointer("partition-one"),
+		// 				Project:         pointer.Pointer("p1"),
+		// 				Prefixes:        []string{"10.100.4.0/22"},
+		// 				Vrf:             pointer.Pointer(uint32(5)),
+		// 				ParentNetworkId: pointer.Pointer("tenant-super-network"),
+		// 			},
+		// 			{
+		// 				Id:                       "tenant-super-network-v6",
+		// 				Meta:                     &apiv2.Meta{},
+		// 				Partition:                pointer.Pointer("partition-two"),
+		// 				Prefixes:                 []string{"2001:db8::/96"},
+		// 				Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
+		// 				DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6, Length: 112}},
+		// 			},
+		// 			{
+		// 				Id:                       "tenant-super-network",
+		// 				Meta:                     &apiv2.Meta{},
+		// 				Partition:                pointer.Pointer("partition-one"),
+		// 				Prefixes:                 []string{"10.100.0.0/14"},
+		// 				Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
+		// 				DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4, Length: 22}},
+		// 			},
+		// 			{
+		// 				Id:                       "tenant-super-network-dualstack",
+		// 				Meta:                     &apiv2.Meta{},
+		// 				Partition:                pointer.Pointer("partition-three"),
+		// 				Prefixes:                 []string{"10.200.0.0/14", "2001:dc8::/96"},
+		// 				Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
+		// 				DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4, Length: 22}, {AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6, Length: 112}},
+		// 			},
+		// 			{
+		// 				Id:       "underlay",
+		// 				Meta:     &apiv2.Meta{},
+		// 				Name:     pointer.Pointer("Underlay Network"),
+		// 				Project:  pointer.Pointer("p0"),
+		// 				Prefixes: []string{"10.0.0.0/24"},
+		// 				Options:  &apiv2.NetworkOptions{Underlay: true},
+		// 			},
+		// 		},
+		// 	},
+		// 	wantErr: nil,
+		// },
+		{
+			name: "specific id",
+			rq: &adminv2.NetworkServiceListRequest{
+				Query: &apiv2.NetworkQuery{Id: pointer.Pointer(networkMap["tenant-1"])},
+			},
+			want: &adminv2.NetworkServiceListResponse{
+				Networks: []*apiv2.Network{
+					{
+						Id:              networkMap["tenant-1"],
+						Meta:            &apiv2.Meta{},
+						Name:            pointer.Pointer("tenant-1"),
+						Partition:       pointer.Pointer("partition-one"),
+						Project:         pointer.Pointer("p1"),
+						Prefixes:        []string{"10.100.0.0/22"},
+						Vrf:             pointer.Pointer(uint32(4)),
+						ParentNetworkId: pointer.Pointer("tenant-super-network"),
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "underlay",
+			rq: &adminv2.NetworkServiceListRequest{
+				Query: &apiv2.NetworkQuery{Options: &apiv2.NetworkQuery_Options{Underlay: pointer.Pointer(true)}},
+			},
+			want: &adminv2.NetworkServiceListResponse{
+				Networks: []*apiv2.Network{
+					{
+						Id:       "underlay",
+						Meta:     &apiv2.Meta{},
+						Name:     pointer.Pointer("Underlay Network"),
+						Project:  pointer.Pointer("p0"),
+						Prefixes: []string{"10.0.0.0/24"},
+						Options:  &apiv2.NetworkOptions{Underlay: true},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "super tenant in partition-one",
+			rq: &adminv2.NetworkServiceListRequest{
+				Query: &apiv2.NetworkQuery{Partition: pointer.Pointer("partition-one"), Options: &apiv2.NetworkQuery_Options{PrivateSuper: pointer.Pointer(true)}},
+			},
+			want: &adminv2.NetworkServiceListResponse{
+				Networks: []*apiv2.Network{
+					{
+						Id:                       "tenant-super-network",
+						Meta:                     &apiv2.Meta{},
+						Partition:                pointer.Pointer("partition-one"),
+						Prefixes:                 []string{"10.100.0.0/14"},
+						Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
+						DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4, Length: 22}},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "with v6 prefixes",
+			rq: &adminv2.NetworkServiceListRequest{
+				Query: &apiv2.NetworkQuery{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum()},
+			},
+			want: &adminv2.NetworkServiceListResponse{
+				Networks: []*apiv2.Network{
+					{
+						Id:                       "tenant-super-network-dualstack",
+						Meta:                     &apiv2.Meta{},
+						Partition:                pointer.Pointer("partition-three"),
+						Prefixes:                 []string{"10.200.0.0/14", "2001:dc8::/96"},
+						Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
+						DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4, Length: 22}, {AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6, Length: 112}},
+					},
+					{
+						Id:                       "tenant-super-network-v6",
+						Meta:                     &apiv2.Meta{},
+						Partition:                pointer.Pointer("partition-two"),
+						Prefixes:                 []string{"2001:db8::/96"},
+						Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
+						DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6, Length: 112}},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "specific prefixes",
+			rq: &adminv2.NetworkServiceListRequest{
+				Query: &apiv2.NetworkQuery{Prefixes: []string{"2001:dc8::/96"}},
+			},
+			want: &adminv2.NetworkServiceListResponse{
+				Networks: []*apiv2.Network{
+					{
+						Id:                       "tenant-super-network-dualstack",
+						Meta:                     &apiv2.Meta{},
+						Partition:                pointer.Pointer("partition-three"),
+						Prefixes:                 []string{"10.200.0.0/14", "2001:dc8::/96"},
+						Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
+						DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4, Length: 22}, {AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6, Length: 112}},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "specific destinationprefixes",
+			rq: &adminv2.NetworkServiceListRequest{
+				Query: &apiv2.NetworkQuery{DestinationPrefixes: []string{"0.0.0.0/0"}},
+			},
+			want: &adminv2.NetworkServiceListResponse{
+				Networks: []*apiv2.Network{
+					{
+						Id:                  "internet",
+						Meta:                &apiv2.Meta{},
+						Prefixes:            []string{"20.0.0.0/24"},
+						DestinationPrefixes: []string{"0.0.0.0/0"},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "by labels",
+			rq: &adminv2.NetworkServiceListRequest{
+				Query: &apiv2.NetworkQuery{Labels: &apiv2.Labels{Labels: map[string]string{"size": "small"}}},
+			},
+			want: &adminv2.NetworkServiceListResponse{
+				Networks: []*apiv2.Network{
+					{
+						Id:              networkMap["tenant-2"],
+						Meta:            &apiv2.Meta{Labels: &apiv2.Labels{Labels: map[string]string{"size": "small", "color": "blue"}}},
+						Name:            pointer.Pointer("tenant-2"),
+						Partition:       pointer.Pointer("partition-one"),
+						Project:         pointer.Pointer("p1"),
+						Prefixes:        []string{"10.100.4.0/22"},
+						Vrf:             pointer.Pointer(uint32(5)),
+						ParentNetworkId: pointer.Pointer("tenant-super-network"),
+					},
+				},
+			},
+			wantErr: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			n := &networkServiceServer{
+				log:  log,
+				repo: repo,
+			}
+			got, err := n.List(ctx, connect.NewRequest(tt.rq))
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("diff = %s", diff)
+			}
+
+			if diff := cmp.Diff(
+				tt.want, pointer.SafeDeref(got).Msg,
+				cmp.Options{
+					protocmp.Transform(),
+					protocmp.IgnoreFields(
+						&apiv2.Network{}, "consumption",
+					),
+					protocmp.IgnoreFields(
+						&apiv2.Meta{}, "created_at", "updated_at",
+					),
+				},
+			); diff != "" {
+				t.Errorf("networkServiceServer.List() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
 			}
 		})
 	}

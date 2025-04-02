@@ -1,6 +1,9 @@
 package queries
 
 import (
+	"net/netip"
+	"strconv"
+
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
@@ -82,6 +85,43 @@ func NetworkFilter(rq *apiv2.NetworkQuery) func(q r.Term) r.Term {
 				return row.Field("nat").Eq(*rq.Options.Nat)
 			})
 		}
+
+		for _, prefix := range rq.Prefixes {
+			pfx := netip.MustParsePrefix(prefix)
+			ip := pfx.Addr()
+			length := pfx.Bits()
+
+			q = q.Filter(func(row r.Term) r.Term {
+				return row.Field("prefixes").Map(func(p r.Term) r.Term {
+					return p.Field("ip")
+				}).Contains(r.Expr(ip.String()))
+			})
+
+			q = q.Filter(func(row r.Term) r.Term {
+				return row.Field("prefixes").Map(func(p r.Term) r.Term {
+					return p.Field("length")
+				}).Contains(r.Expr(strconv.Itoa(length)))
+			})
+		}
+
+		for _, destPrefix := range rq.DestinationPrefixes {
+			pfx := netip.MustParsePrefix(destPrefix)
+			ip := pfx.Addr()
+			length := pfx.Bits()
+
+			q = q.Filter(func(row r.Term) r.Term {
+				return row.Field("destinationprefixes").Map(func(dp r.Term) r.Term {
+					return dp.Field("ip")
+				}).Contains(r.Expr(ip.String()))
+			})
+
+			q = q.Filter(func(row r.Term) r.Term {
+				return row.Field("destinationprefixes").Map(func(dp r.Term) r.Term {
+					return dp.Field("length")
+				}).Contains(r.Expr(strconv.Itoa(length)))
+			})
+		}
+
 		if rq.AddressFamily != nil {
 			var separator string
 			switch rq.AddressFamily.String() {
@@ -92,7 +132,9 @@ func NetworkFilter(rq *apiv2.NetworkQuery) func(q r.Term) r.Term {
 			}
 
 			q = q.Filter(func(row r.Term) r.Term {
-				return row.Field("id").Match(separator)
+				return row.Field("prefixes").Contains(func(p r.Term) r.Term {
+					return p.Field("ip").Match(separator)
+				})
 			})
 		}
 

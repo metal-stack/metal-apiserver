@@ -8,6 +8,7 @@ import (
 	"net/netip"
 	"slices"
 	"sort"
+	"strings"
 
 	"connectrpc.com/connect"
 	"github.com/hibiken/asynq"
@@ -77,12 +78,6 @@ func (r *networkRepository) ValidateCreate(ctx context.Context, req *adminv2.Net
 		return nil, errorutil.NewInvalidArgument(err)
 	}
 	destPrefixes, err := metal.NewPrefixesFromCIDRs(req.DestinationPrefixes)
-	if err != nil {
-		return nil, errorutil.NewInvalidArgument(err)
-	}
-
-	// Destination Prefixes must not overlap with prefixes
-	err = goipam.PrefixesOverlapping(prefixes.String(), destPrefixes.String())
 	if err != nil {
 		return nil, errorutil.NewInvalidArgument(err)
 	}
@@ -871,6 +866,10 @@ func (r *networkRepository) List(ctx context.Context, query *apiv2.NetworkQuery)
 		return nil, err
 	}
 
+	slices.SortFunc(nws, func(a, b *metal.Network) int {
+		return strings.Compare(a.ID, b.ID)
+	})
+
 	return nws, nil
 }
 func (r *networkRepository) ConvertToInternal(msg *apiv2.Network) (*metal.Network, error) {
@@ -896,7 +895,7 @@ func (r *networkRepository) ConvertToProto(e *metal.Network) (*apiv2.Network, er
 
 	if e.Nat || e.PrivateSuper || e.Shared || e.Underlay {
 		options = &apiv2.NetworkOptions{
-			Shared:       e.Underlay,
+			Shared:       e.Shared,
 			Nat:          e.Nat,
 			PrivateSuper: e.PrivateSuper,
 			Underlay:     e.Underlay,
