@@ -122,6 +122,32 @@ func (n *networkServiceServer) List(ctx context.Context, rq *connect.Request[api
 	}), nil
 }
 
+// ListBaseNetworks implements apiv2connect.NetworkServiceHandler.
+func (n *networkServiceServer) ListBaseNetworks(ctx context.Context, rq *connect.Request[apiv2.NetworkServiceListBaseNetworksRequest]) (*connect.Response[apiv2.NetworkServiceListBaseNetworksResponse], error) {
+	n.log.Debug("listbasenetworks", "req", rq)
+	req := rq.Msg
+	resp, err := n.repo.UnscopedNetwork().List(ctx, req.Query)
+	if err != nil {
+		return nil, err
+	}
+
+	var res []*apiv2.Network
+	for _, nw := range resp {
+		// TODO convert to a equivalent reql query
+		if nw.Shared || nw.ProjectID == "" {
+			converted, err := n.repo.UnscopedNetwork().ConvertToProto(nw)
+			if err != nil {
+				return nil, errorutil.Convert(err)
+			}
+			res = append(res, converted)
+		}
+	}
+
+	return connect.NewResponse(&apiv2.NetworkServiceListBaseNetworksResponse{
+		Networks: res,
+	}), nil
+}
+
 // Update implements apiv2connect.NetworkServiceHandler.
 func (n *networkServiceServer) Update(ctx context.Context, rq *connect.Request[apiv2.NetworkServiceUpdateRequest]) (*connect.Response[apiv2.NetworkServiceUpdateResponse], error) {
 	n.log.Debug("update", "req", rq)

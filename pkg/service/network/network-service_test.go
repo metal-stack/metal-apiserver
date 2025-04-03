@@ -87,7 +87,7 @@ func Test_networkServiceServer_Get(t *testing.T) {
 }
 
 func Test_networkServiceServer_List(t *testing.T) {
-	log := slog.Default()
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	repo, closer := test.StartRepository(t, log)
 	defer closer()
@@ -130,8 +130,6 @@ func Test_networkServiceServer_List(t *testing.T) {
 				Networks: []*apiv2.Network{
 					{Id: "p1-network-a", Meta: &apiv2.Meta{}, Name: pointer.Pointer("P1 Network"), Project: pointer.Pointer("p1"), Prefixes: []string{"2.3.4.0/24"}},
 					{Id: "p1-network-b", Meta: &apiv2.Meta{}, Name: pointer.Pointer("P1 Network"), Project: pointer.Pointer("p1"), Prefixes: []string{"2.3.5.0/24"}},
-
-					// FIXME internet (project is nil must be present here)
 				},
 			},
 			wantErr: nil,
@@ -167,6 +165,75 @@ func Test_networkServiceServer_List(t *testing.T) {
 				},
 			); diff != "" {
 				t.Errorf("networkServiceServer.List() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
+			}
+		})
+	}
+}
+
+func Test_networkServiceServer_ListBaseNetworks(t *testing.T) {
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+	repo, closer := test.StartRepository(t, log)
+	defer closer()
+
+	ctx := t.Context()
+
+	test.CreateTenants(t, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}, {Name: "t0"}})
+	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}, {Name: "p3", Login: "t1"}, {Name: "p0", Login: "t0"}})
+	test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.3.0/24"}}})
+	test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+		{Id: pointer.Pointer("p1-network-a"), Name: pointer.Pointer("P1 Network"), Project: pointer.Pointer("p1"), Prefixes: []string{"2.3.4.0/24"}},
+		{Id: pointer.Pointer("p1-network-b"), Name: pointer.Pointer("P1 Network"), Project: pointer.Pointer("p1"), Prefixes: []string{"2.3.5.0/24"}},
+		{Id: pointer.Pointer("p2-network-a"), Name: pointer.Pointer("P2 Network"), Project: pointer.Pointer("p2"), Prefixes: []string{"3.3.1.0/24"}},
+		{Id: pointer.Pointer("p2-network-b"), Name: pointer.Pointer("P2 Network"), Project: pointer.Pointer("p2"), Prefixes: []string{"3.3.2.0/24"}},
+
+		{Id: pointer.Pointer("p3-network-a"), Name: pointer.Pointer("Shared Storage Network"), Project: pointer.Pointer("p3"), Prefixes: []string{"4.3.4.0/24"}, Options: &apiv2.NetworkOptions{Shared: true}},
+
+		{Id: pointer.Pointer("underlay"), Name: pointer.Pointer("Underlay Network"), Project: pointer.Pointer("p0"), Prefixes: []string{"10.0.0.0/24"}},
+	})
+
+	tests := []struct {
+		name    string
+		rq      *apiv2.NetworkServiceListBaseNetworksRequest
+		want    *apiv2.NetworkServiceListBaseNetworksResponse
+		wantErr error
+	}{
+		{
+			name: "list by project",
+			rq:   &apiv2.NetworkServiceListBaseNetworksRequest{},
+			want: &apiv2.NetworkServiceListBaseNetworksResponse{
+				Networks: []*apiv2.Network{
+					{Id: "internet", Meta: &apiv2.Meta{}, Prefixes: []string{"1.2.3.0/24"}},
+					{Id: "p3-network-a", Meta: &apiv2.Meta{}, Name: pointer.Pointer("Shared Storage Network"), Project: pointer.Pointer("p3"), Prefixes: []string{"4.3.4.0/24"}, Options: &apiv2.NetworkOptions{Shared: true}},
+				},
+			},
+			wantErr: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			n := &networkServiceServer{
+				log:  log,
+				repo: repo,
+			}
+			got, err := n.ListBaseNetworks(ctx, connect.NewRequest(tt.rq))
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("diff = %s", diff)
+			}
+
+			if diff := cmp.Diff(
+				tt.want, pointer.SafeDeref(got).Msg,
+				cmp.Options{
+					protocmp.Transform(),
+					protocmp.IgnoreFields(
+						&apiv2.Network{}, "consumption",
+					),
+					protocmp.IgnoreFields(
+						&apiv2.Meta{}, "created_at", "updated_at",
+					),
+				},
+			); diff != "" {
+				t.Errorf("networkServiceServer.ListBaseNetworks() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
 			}
 		})
 	}

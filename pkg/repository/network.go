@@ -221,6 +221,7 @@ func (r *networkRepository) ValidateUpdate(ctx context.Context, req *adminv2.Net
 
 	var (
 		prefixesToBeRemoved metal.Prefixes
+		prefixesToBeAdded   metal.Prefixes
 		destPrefixAfs       metal.AddressFamilies
 	)
 
@@ -238,6 +239,13 @@ func (r *networkRepository) ValidateUpdate(ctx context.Context, req *adminv2.Net
 		if err != nil {
 			return nil, err
 		}
+		prefixesToBeAdded = newNetwork.SubtractPrefixes(old.Prefixes...)
+	}
+
+	r.r.log.Debug("validate update", "old parent", old.ParentNetworkID, "prefixes to remove", prefixesToBeRemoved, "prefixes to add", prefixesToBeAdded)
+	// Do not allow to change prefixes on child networks
+	if old.ParentNetworkID != "" && (len(prefixesToBeRemoved) > 0 || len(prefixesToBeAdded) > 0) {
+		return nil, errorutil.InvalidArgument("cannot change prefixes in child networks")
 	}
 
 	if len(new.DestinationPrefixes) > 0 {
@@ -245,7 +253,6 @@ func (r *networkRepository) ValidateUpdate(ctx context.Context, req *adminv2.Net
 		if err != nil {
 			return nil, errorutil.Convert(err)
 		}
-		newNetwork.DestinationPrefixes = destPrefixes
 		destPrefixAfs = destPrefixes.AddressFamilies()
 	}
 
@@ -788,6 +795,10 @@ func (r *networkRepository) Update(ctx context.Context, req *Validated[*adminv2.
 
 		newNetwork.Prefixes = prefixes
 		prefixesToBeRemoved = old.SubtractPrefixes(prefixes...)
+		err = r.arePrefixesEmpty(ctx, prefixesToBeRemoved)
+		if err != nil {
+			return nil, err
+		}
 		prefixesToBeAdded = newNetwork.SubtractPrefixes(old.Prefixes...)
 	}
 

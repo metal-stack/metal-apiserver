@@ -862,9 +862,40 @@ func Test_networkServiceServer_Update(t *testing.T) {
 					ParentNetworkId: pointer.Pointer("tenant-super-network"),
 				},
 			},
-			// TODO can options be changed ?
 			wantErr: nil,
 		},
+		{
+			name: "add prefixes to tenant network",
+			rq: &adminv2.NetworkServiceUpdateRequest{
+				Network: &apiv2.Network{
+					Id:       networkMap["tenant-1"],
+					Prefixes: []string{"10.100.0.0/22", "10.101.0.0/22", "10.102.0.0/22"},
+				},
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument("cannot change prefixes in child networks"),
+		},
+		{
+			name: "add prefixes to tenant super network",
+			rq: &adminv2.NetworkServiceUpdateRequest{
+				Network: &apiv2.Network{
+					Id:       "tenant-super-network",
+					Prefixes: []string{"10.100.0.0/14", "10.101.0.0/14"},
+				},
+			},
+			want: &adminv2.NetworkServiceUpdateResponse{
+				Network: &apiv2.Network{
+					Id:                       "tenant-super-network",
+					Meta:                     &apiv2.Meta{},
+					Partition:                pointer.Pointer("partition-one"),
+					Prefixes:                 []string{"10.100.0.0/14", "10.101.0.0/14"},
+					Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
+					DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4, Length: 22}},
+				},
+			},
+			wantErr: nil,
+		},
+		// TODO can options be changed ?
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
