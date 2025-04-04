@@ -128,10 +128,10 @@ func Test_service_Create(t *testing.T) {
 			})
 
 			s := &tenantServiceServer{
-				log:          slog.Default(),
-				masterClient: newMasterdataMockClient(t, tt.tenantServiceMock, tt.tenantMemberServiceMock, nil, nil),
-				inviteStore:  nil,
-				tokenStore:   tokenStore,
+				log: slog.Default(),
+				// masterClient: newMasterdataMockClient(t, tt.tenantServiceMock, tt.tenantMemberServiceMock, nil, nil),
+				inviteStore: nil,
+				tokenStore:  tokenStore,
 			}
 
 			result, err := s.Create(ctx, connect.NewRequest(tt.tenant))
@@ -393,10 +393,10 @@ func Test_service_Get(t *testing.T) {
 			})
 
 			s := &tenantServiceServer{
-				log:          slog.Default(),
-				masterClient: newMasterdataMockClient(t, tt.tenantServiceMock, tt.tenantMemberServiceMock, nil, nil),
-				inviteStore:  nil,
-				tokenStore:   tokenStore,
+				log: slog.Default(),
+				// masterClient: newMasterdataMockClient(t, tt.tenantServiceMock, tt.tenantMemberServiceMock, nil, nil),
+				inviteStore: nil,
+				tokenStore:  tokenStore,
 			}
 
 			result, err := s.Get(ctx, connect.NewRequest(tt.req))
@@ -497,9 +497,9 @@ func Test_service_InviteAccept(t *testing.T) {
 			}
 
 			s := &tenantServiceServer{
-				log:          slog.Default(),
-				masterClient: newMasterdataMockClient(t, tt.tenantServiceMock, tt.tenantMemberServiceMock, nil, nil),
-				inviteStore:  inviteStore,
+				log: slog.Default(),
+				// masterClient: newMasterdataMockClient(t, tt.tenantServiceMock, tt.tenantMemberServiceMock, nil, nil),
+				inviteStore: inviteStore,
 			}
 
 			result, err := s.InviteAccept(ctx, connect.NewRequest(tt.tenant))
