@@ -110,16 +110,19 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 		return nil, err
 	}
 
-	tenantInterceptor := tenant.NewInterceptor(log, c.MasterClient)
-	ratelimitInterceptor := ratelimiter.NewInterceptor(&ratelimiter.Config{
-		Log:                                 log,
-		RedisClient:                         c.RedisConfig.RateLimitClient,
-		MaxRequestsPerMinuteToken:           c.MaxRequestsPerMinuteToken,
-		MaxRequestsPerMinuteUnauthenticated: c.MaxRequestsPerMinuteUnauthenticated,
-	})
+	var (
+		logInteceptor        = newLogRequestInterceptor(log)
+		tenantInterceptor    = tenant.NewInterceptor(log, c.MasterClient)
+		ratelimitInterceptor = ratelimiter.NewInterceptor(&ratelimiter.Config{
+			Log:                                 log,
+			RedisClient:                         c.RedisConfig.RateLimitClient,
+			MaxRequestsPerMinuteToken:           c.MaxRequestsPerMinuteToken,
+			MaxRequestsPerMinuteUnauthenticated: c.MaxRequestsPerMinuteUnauthenticated,
+		})
+	)
 
-	allInterceptors := []connect.Interceptor{metricsInterceptor, authz, ratelimitInterceptor, validationInterceptor, tenantInterceptor}
-	allAdminInterceptors := []connect.Interceptor{metricsInterceptor, authz, validationInterceptor, tenantInterceptor}
+	allInterceptors := []connect.Interceptor{metricsInterceptor, logInteceptor, authz, ratelimitInterceptor, validationInterceptor, tenantInterceptor}
+	allAdminInterceptors := []connect.Interceptor{metricsInterceptor, logInteceptor, authz, validationInterceptor, tenantInterceptor}
 	if c.Auditing != nil {
 		servicePermissions := permissions.GetServicePermissions()
 		shouldAudit := func(fullMethod string) bool {
