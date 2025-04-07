@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
 
 	"connectrpc.com/connect"
@@ -20,18 +19,24 @@ func newLogRequestInterceptor(log *slog.Logger) *logInterceptor {
 
 func (i *logInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 	return connect.UnaryFunc(func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-		log := i.log.With("procedure", req.Spec().Procedure)
+		var (
+			log   = i.log.With("procedure", req.Spec().Procedure)
+			debug = i.log.Enabled(ctx, slog.LevelDebug)
+		)
 
-		if i.log.Enabled(ctx, slog.LevelDebug) {
-			marshaled, _ := json.Marshal(req.Any())
-			log = log.With("body", marshaled)
+		if debug {
+			log = log.With("body", req.Any())
 		}
 
 		log.Info("handling unary call")
 
 		response, err := next(ctx, req)
 		if err != nil {
-			i.log.Error("error during unary call", "error", err)
+			if debug {
+				log = log.With("body", response.Any())
+			}
+
+			log.Error("error during unary call", "error", err)
 		}
 
 		return response, err

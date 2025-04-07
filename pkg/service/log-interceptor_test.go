@@ -37,7 +37,7 @@ func Test_logInterceptor_AuditingCtx(t *testing.T) {
 			level:       slog.LevelInfo,
 			method:      "/metalstack.api.v2.HealthService/Get",
 			handler:     handler[apiv2.HealthServiceGetRequest, apiv2.HealthServiceGetResponse](),
-			wantContain: `level=INFO msg="handling unary call" procedure=/metalstack.api.v2.HealthService/Get`,
+			wantContain: `"level":"INFO","msg":"handling unary call","procedure":"/metalstack.api.v2.HealthService/Get"`,
 		},
 		{
 			name: "log debug",
@@ -51,7 +51,7 @@ func Test_logInterceptor_AuditingCtx(t *testing.T) {
 			level:       slog.LevelDebug,
 			method:      "/metalstack.api.v2.IPService/Create",
 			handler:     handler[apiv2.IPServiceCreateRequest, apiv2.IPServiceCreateResponse](),
-			wantContain: `level=INFO msg="handling unary call" procedure=/metalstack.api.v2.IPService/Create body="{\"network`,
+			wantContain: `"level":"INFO","msg":"handling unary call","procedure":"/metalstack.api.v2.IPService/Create","body":{"network":`,
 		},
 	}
 	for _, tt := range tests {
@@ -59,7 +59,7 @@ func Test_logInterceptor_AuditingCtx(t *testing.T) {
 
 			var (
 				buf            bytes.Buffer
-				logger         = slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: tt.level}))
+				logger         = slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: tt.level}))
 				logInterceptor = newLogRequestInterceptor(logger)
 				called         = false
 
