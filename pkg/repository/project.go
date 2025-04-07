@@ -9,8 +9,10 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	putil "github.com/metal-stack/metal-apiserver/pkg/project"
 	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // FIXME completely untested and incomplete
@@ -65,17 +67,29 @@ func (r *projectRepository) MatchScope(p *mdcv1.Project) error {
 	if r.scope == nil {
 		return nil
 	}
+
 	if r.scope.projectID == p.Meta.Id {
 		return nil
 	}
+
 	return errorutil.NotFound("project:%s not found", p.Meta.Id)
 }
 
 func (r *projectRepository) Create(ctx context.Context, e *Validated[*apiv2.ProjectServiceCreateRequest]) (*mdcv1.Project, error) {
-	// FIXME howto set the avatarurl during create ??
+	return r.CreateWithID(ctx, e, "")
+}
+
+func (r *projectRepository) CreateWithID(ctx context.Context, e *Validated[*apiv2.ProjectServiceCreateRequest], id string) (*mdcv1.Project, error) {
+	ann := map[string]string{}
+
+	if e.message.AvatarUrl != nil {
+		ann[putil.AvatarURLAnnotation] = *e.message.AvatarUrl
+	}
+
 	project := &mdcv1.Project{
 		Meta: &mdcv1.Meta{
-			Id: e.message.Name,
+			Annotations: ann,
+			Id:          id,
 		},
 		Name:        e.message.Name,
 		Description: e.message.Description,
@@ -90,17 +104,27 @@ func (r *projectRepository) Create(ctx context.Context, e *Validated[*apiv2.Proj
 	return resp.Project, nil
 }
 
-func (r *projectRepository) Update(ctx context.Context, msg *Validated[*apiv2.ProjectServiceUpdateRequest]) (*mdcv1.Project, error) {
+func (r *projectRepository) Update(ctx context.Context, e *Validated[*apiv2.ProjectServiceUpdateRequest]) (*mdcv1.Project, error) {
 	panic("unimplemented")
 }
+
 func (r *projectRepository) Delete(ctx context.Context, e *Validated[*mdcv1.Project]) (*mdcv1.Project, error) {
 	panic("unimplemented")
 }
+
 func (r *projectRepository) Find(ctx context.Context, query *apiv2.ProjectServiceListRequest) (*mdcv1.Project, error) {
 	panic("unimplemented")
 }
+
 func (r *projectRepository) List(ctx context.Context, query *apiv2.ProjectServiceListRequest) ([]*mdcv1.Project, error) {
 	panic("unimplemented")
+}
+
+func (t *projectRepository) Member() ProjectMember {
+	return &projectMemberRepository{
+		r:     t.r,
+		scope: t.scope,
+	}
 }
 
 func (r *projectRepository) ConvertToInternal(p *apiv2.Project) (*mdcv1.Project, error) {
@@ -157,6 +181,7 @@ func ToProject(p *mdcv1.Project) (*apiv2.Project, error) {
 	if p.Meta == nil {
 		return nil, fmt.Errorf("project meta is nil")
 	}
+
 	avatarUrl := p.Meta.Annotations[avatarURLAnnotation]
 
 	return &apiv2.Project{
@@ -172,40 +197,40 @@ func ToProject(p *mdcv1.Project) (*apiv2.Project, error) {
 	}, nil
 }
 
-func (r *projectRepository) GetMember(ctx context.Context, projectID, tenantID string) (*mdcv1.ProjectMember, *mdcv1.Project, error) {
-	getResp, err := r.r.mdc.Project().Get(ctx, &mdcv1.ProjectGetRequest{
-		Id: projectID,
-	})
-	if err != nil {
-		return nil, nil, connect.NewError(connect.CodeInternal, fmt.Errorf("no project found with id %q: %w", projectID, err))
-	}
+// func (r *projectRepository) GetMember(ctx context.Context, projectID, tenantID string) (*mdcv1.ProjectMember, *mdcv1.Project, error) {
+// 	getResp, err := r.r.mdc.Project().Get(ctx, &mdcv1.ProjectGetRequest{
+// 		Id: projectID,
+// 	})
+// 	if err != nil {
+// 		return nil, nil, connect.NewError(connect.CodeInternal, fmt.Errorf("no project found with id %q: %w", projectID, err))
+// 	}
 
-	memberships, err := r.r.mdc.ProjectMember().Find(ctx, &mdcv1.ProjectMemberFindRequest{
-		ProjectId: &projectID,
-		TenantId:  &tenantID,
-	})
-	if err != nil {
-		return nil, nil, connect.NewError(connect.CodeInternal, err)
-	}
+// 	memberships, err := r.r.mdc.ProjectMember().Find(ctx, &mdcv1.ProjectMemberFindRequest{
+// 		ProjectId: &projectID,
+// 		TenantId:  &tenantID,
+// 	})
+// 	if err != nil {
+// 		return nil, nil, connect.NewError(connect.CodeInternal, err)
+// 	}
 
-	switch len(memberships.ProjectMembers) {
-	case 0:
-		return nil, nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("tenant %s is not a member of project %s", tenantID, projectID))
-	case 1:
-		// fallthrough
-	default:
-		return nil, nil, connect.NewError(connect.CodeInternal, fmt.Errorf("found multiple membership associations for a member to a project"))
-	}
+// 	switch len(memberships.ProjectMembers) {
+// 	case 0:
+// 		return nil, nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("tenant %s is not a member of project %s", tenantID, projectID))
+// 	case 1:
+// 		// fallthrough
+// 	default:
+// 		return nil, nil, connect.NewError(connect.CodeInternal, fmt.Errorf("found multiple membership associations for a member to a project"))
+// 	}
 
-	return memberships.GetProjectMembers()[0], getResp.Project, nil
-}
+// 	return memberships.GetProjectMembers()[0], getResp.Project, nil
+// }
 
-type DefaultProjectRequirement bool
+// type DefaultProjectRequirement bool
 
-const (
-	DefaultProjectRequired    DefaultProjectRequirement = true
-	DefaultProjectNotRequired DefaultProjectRequirement = false
-)
+// const (
+// 	DefaultProjectRequired    DefaultProjectRequirement = true
+// 	DefaultProjectNotRequired DefaultProjectRequirement = false
+// )
 
 type ProjectsAndTenants struct {
 	Projects       []*apiv2.Project
@@ -308,52 +333,52 @@ func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId st
 	}, nil
 }
 
-// func (r *projectRepository) EnsureProviderProject(ctx context.Context, providerTenantID string) error {
-// 	ensureMembership := func(projectId string) error {
-// 		_, _, err := r.GetMember(ctx, projectId, providerTenantID)
-// 		if err == nil {
-// 			return nil
-// 		}
-// 		if connect.CodeOf(err) != connect.CodeNotFound {
-// 			return err
-// 		}
+func (r *projectRepository) EnsureProviderProject(ctx context.Context, providerTenantID string) error {
+	ensureMembership := func(projectId string) error {
+		_, err := r.r.Project(projectId).Member().Get(ctx, providerTenantID)
+		if err == nil {
+			return nil
+		}
+		if connect.CodeOf(err) != connect.CodeNotFound {
+			return err
+		}
 
-// 		_, err = r.r.mdc.ProjectMember().Create(ctx, &mdcv1.ProjectMemberCreateRequest{
-// 			ProjectMember: &mdcv1.ProjectMember{
-// 				Meta: &mdcv1.Meta{
-// 					Annotations: map[string]string{
-// 						ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_OWNER.String(),
-// 					},
-// 				},
-// 				ProjectId: projectId,
-// 				TenantId:  providerTenantID,
-// 			},
-// 		})
+		_, err = r.r.mdc.ProjectMember().Create(ctx, &mdcv1.ProjectMemberCreateRequest{
+			ProjectMember: &mdcv1.ProjectMember{
+				Meta: &mdcv1.Meta{
+					Annotations: map[string]string{
+						ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_OWNER.String(),
+					},
+				},
+				ProjectId: projectId,
+				TenantId:  providerTenantID,
+			},
+		})
 
-// 		return err
-// 	}
+		return err
+	}
 
-// 	resp, err := r.r.mdc.Project().Find(ctx, &mdcv1.ProjectFindRequest{
-// 		TenantId: wrapperspb.String(providerTenantID),
-// 	})
-// 	if err != nil {
-// 		return fmt.Errorf("unable to get find project %q: %w", providerTenantID, err)
-// 	}
+	resp, err := r.r.mdc.Project().Find(ctx, &mdcv1.ProjectFindRequest{
+		TenantId: wrapperspb.String(providerTenantID),
+	})
+	if err != nil {
+		return fmt.Errorf("unable to get find project %q: %w", providerTenantID, err)
+	}
 
-// 	if len(resp.Projects) > 0 {
-// 		return ensureMembership(resp.Projects[0].Meta.Id)
-// 	}
+	if len(resp.Projects) > 0 {
+		return ensureMembership(resp.Projects[0].Meta.Id)
+	}
 
-// 	project, err := r.r.mdc.Project().Create(ctx, &mdcv1.ProjectCreateRequest{
-// 		Project: &mdcv1.Project{
-// 			Name:        "Default Project",
-// 			TenantId:    providerTenantID,
-// 			Description: "Default project of " + providerTenantID,
-// 		},
-// 	})
-// 	if err != nil {
-// 		return fmt.Errorf("unable to create project: %w", err)
-// 	}
+	project, err := r.r.mdc.Project().Create(ctx, &mdcv1.ProjectCreateRequest{
+		Project: &mdcv1.Project{
+			Name:        "Default Project",
+			TenantId:    providerTenantID,
+			Description: "Default project of " + providerTenantID,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("unable to create project: %w", err)
+	}
 
-// 	return ensureMembership(project.Project.Meta.Id)
-// }
+	return ensureMembership(project.Project.Meta.Id)
+}

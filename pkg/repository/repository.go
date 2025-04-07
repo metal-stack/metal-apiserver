@@ -72,12 +72,21 @@ type (
 
 	Project interface {
 		Repository[*mdcv1.Project, *apiv2.Project, *apiv2.ProjectServiceCreateRequest, *apiv2.ProjectServiceUpdateRequest, *apiv2.ProjectServiceListRequest]
+		Member() ProjectMember
 		GetProjectsAndTenants(ctx context.Context, userId string) (*ProjectsAndTenants, error)
+		EnsureProviderProject(ctx context.Context, providerTenantID string) error
 	}
+
+	ProjectMember interface {
+		Repository[*mdcv1.ProjectMember, *apiv2.ProjectMember, *ProjectMemberCreateRequest, *ProjectMemberUpdateRequest, *ProjectMemberQuery]
+	}
+
 	Tenant interface {
 		Repository[*mdcv1.Tenant, *apiv2.Tenant, *apiv2.TenantServiceCreateRequest, *apiv2.TenantServiceUpdateRequest, *apiv2.TenantServiceListRequest]
+		CreateWithID(ctx context.Context, c *Validated[*apiv2.TenantServiceCreateRequest], id string) (*mdcv1.Tenant, error)
 		Member(tenantID string) TenantMember
 		ListTenantMembers(ctx context.Context, tenant string, includeInherited bool) ([]*mdcv1.TenantWithMembershipAnnotations, error)
+		FindParticipatingTenants(ctx context.Context, tenant string, includeInherited bool) ([]*mdcv1.TenantWithMembershipAnnotations, error)
 	}
 
 	TenantMember interface {

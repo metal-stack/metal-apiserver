@@ -13,7 +13,7 @@ import (
 	v1 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/permissions"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
-	putil "github.com/metal-stack/metal-apiserver/pkg/project"
+	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/redis/go-redis/v9"
@@ -33,11 +33,10 @@ func Test_tokenService_CreateConsoleTokenWithoutPermissionCheck(t *testing.T) {
 	})
 
 	service := New(Config{
-		Log:          slog.Default(),
-		TokenStore:   tokenStore,
-		CertStore:    certStore,
-		MasterClient: nil,
-		Issuer:       "http://test",
+		Log:        slog.Default(),
+		TokenStore: tokenStore,
+		CertStore:  certStore,
+		Issuer:     "http://test",
 	})
 
 	got, err := service.CreateConsoleTokenWithoutPermissionCheck(ctx, "test", pointer.Pointer(1*time.Minute))
@@ -399,7 +398,6 @@ func Test_Create(t *testing.T) {
 				Log:           slog.Default(),
 				TokenStore:    tokenStore,
 				CertStore:     certStore,
-				MasterClient:  nil,
 				Issuer:        "http://test",
 				AdminSubjects: tt.state.adminSubjects,
 			})
@@ -409,8 +407,8 @@ func Test_Create(t *testing.T) {
 				t.Fatalf("want new token service to be tokenService, got: %T", rawService)
 			}
 
-			service.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*putil.ProjectsAndTenants, error) {
-				return &putil.ProjectsAndTenants{
+			service.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
+				return &repository.ProjectsAndTenants{
 					ProjectRoles: tt.state.projectRoles,
 					TenantRoles:  tt.state.tenantRoles,
 				}, nil
@@ -1217,7 +1215,6 @@ func Test_Update(t *testing.T) {
 				Log:           slog.Default(),
 				TokenStore:    tokenStore,
 				CertStore:     certStore,
-				MasterClient:  nil,
 				Issuer:        "http://test",
 				AdminSubjects: tt.state.adminSubjects,
 			})
@@ -1227,8 +1224,8 @@ func Test_Update(t *testing.T) {
 				t.Fatalf("want new token service to be tokenService, got: %T", rawService)
 			}
 
-			service.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*putil.ProjectsAndTenants, error) {
-				return &putil.ProjectsAndTenants{
+			service.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
+				return &repository.ProjectsAndTenants{
 					ProjectRoles: tt.state.projectRoles,
 					TenantRoles:  tt.state.tenantRoles,
 				}, nil

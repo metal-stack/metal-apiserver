@@ -19,7 +19,6 @@ import (
 
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 
-	putil "github.com/metal-stack/metal-apiserver/pkg/project"
 	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
 
 	"github.com/stretchr/testify/require"
@@ -83,7 +82,7 @@ func StartApiserver(t *testing.T, log *slog.Logger) (baseURL, adminToken string,
 	err = tutil.EnsureProviderTenant(ctx, c.MasterClient, providerTenant)
 	require.NoError(t, err)
 
-	err = putil.EnsureProviderProject(ctx, c.MasterClient, providerTenant)
+	err = repo.UnscopedProject().EnsureProviderProject(ctx, providerTenant)
 	require.NoError(t, err)
 
 	_, err = masterdataClient.Tenant().Create(ctx, &v1.TenantCreateRequest{Tenant: &v1.Tenant{Meta: &v1.Meta{Id: subject}, Name: subject}})

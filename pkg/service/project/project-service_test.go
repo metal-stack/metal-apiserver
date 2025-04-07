@@ -533,9 +533,9 @@ func Test_projectServiceServer_Get(t *testing.T) {
 			})
 
 			p := &projectServiceServer{
-				log:          slog.Default(),
-				masterClient: newMasterdataMockClient(t, tt.tenantServiceMock, nil, tt.projectServiceMock, tt.projectMemberServiceMock),
-				tokenStore:   tokenStore,
+				log:        slog.Default(),
+				repo:       nil, // FIXME
+				tokenStore: tokenStore,
 			}
 
 			result, err := p.Get(ctx, connect.NewRequest(tt.req))
@@ -642,9 +642,9 @@ func Test_service_InviteAccept(t *testing.T) {
 			}
 
 			p := &projectServiceServer{
-				log:          slog.Default(),
-				masterClient: newMasterdataMockClient(t, tt.tenantServiceMock, nil, tt.projectServiceMock, tt.projectMemberServiceMock),
-				inviteStore:  inviteStore,
+				log:         slog.Default(),
+				repo:        nil, // FIXME
+				inviteStore: inviteStore,
 			}
 
 			result, err := p.InviteAccept(ctx, connect.NewRequest(tt.tenant))
