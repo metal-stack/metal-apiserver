@@ -13,7 +13,7 @@ import (
 	mdmv1mock "github.com/metal-stack/masterdata-api/api/v1/mocks"
 	mdc "github.com/metal-stack/masterdata-api/pkg/client"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
-	putil "github.com/metal-stack/metal-apiserver/pkg/project"
+	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
@@ -86,7 +86,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 								Meta: &mdmv1.Meta{Id: "me"},
 							},
 							ProjectAnnotations: map[string]string{
-								putil.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_OWNER.String(),
+								repository.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_OWNER.String(),
 							},
 							TenantAnnotations: map[string]string{
 								tutil.TenantRoleAnnotation: apiv2.TenantRole_TENANT_ROLE_OWNER.String(),
@@ -103,7 +103,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 						{
 							Meta: &mdmv1.Meta{
 								Annotations: map[string]string{
-									putil.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_OWNER.String(),
+									repository.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_OWNER.String(),
 								},
 							},
 							ProjectId: "project",
@@ -174,7 +174,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 						{
 							Meta: &mdmv1.Meta{
 								Annotations: map[string]string{
-									putil.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_OWNER.String(),
+									repository.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_OWNER.String(),
 								},
 							},
 							ProjectId: "project",
@@ -183,7 +183,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 						{
 							Meta: &mdmv1.Meta{
 								Annotations: map[string]string{
-									putil.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_VIEWER.String(),
+									repository.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_VIEWER.String(),
 								},
 							},
 							ProjectId: "project",
@@ -258,7 +258,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 						{
 							Meta: &mdmv1.Meta{
 								Annotations: map[string]string{
-									putil.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_OWNER.String(),
+									repository.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_OWNER.String(),
 								},
 							},
 							ProjectId: "project",
@@ -267,7 +267,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 						{
 							Meta: &mdmv1.Meta{
 								Annotations: map[string]string{
-									putil.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_EDITOR.String(),
+									repository.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_EDITOR.String(),
 								},
 							},
 							ProjectId: "project",
@@ -342,7 +342,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 						{
 							Meta: &mdmv1.Meta{
 								Annotations: map[string]string{
-									putil.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_OWNER.String(),
+									repository.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_OWNER.String(),
 								},
 							},
 							ProjectId: "project",
@@ -351,7 +351,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 						{
 							Meta: &mdmv1.Meta{
 								Annotations: map[string]string{
-									putil.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_VIEWER.String(),
+									repository.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_VIEWER.String(),
 								},
 							},
 							ProjectId: "project",
@@ -426,7 +426,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 						{
 							Meta: &mdmv1.Meta{
 								Annotations: map[string]string{
-									putil.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_OWNER.String(),
+									repository.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_OWNER.String(),
 								},
 							},
 							ProjectId: "project",
@@ -478,7 +478,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 						{
 							Meta: &mdmv1.Meta{
 								Annotations: map[string]string{
-									putil.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_OWNER.String(),
+									repository.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_OWNER.String(),
 								},
 							},
 							ProjectId: "project",
@@ -487,7 +487,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 						{
 							Meta: &mdmv1.Meta{
 								Annotations: map[string]string{
-									putil.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_EDITOR.String(),
+									repository.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_EDITOR.String(),
 								},
 							},
 							ProjectId: "project",
@@ -587,7 +587,7 @@ func Test_service_InviteAccept(t *testing.T) {
 					ProjectMember: &mdmv1.ProjectMember{
 						Meta: &mdmv1.Meta{
 							Annotations: map[string]string{
-								putil.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_EDITOR.String(),
+								repository.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_EDITOR.String(),
 							},
 						},
 						TenantId:  "new-member",

@@ -8,7 +8,6 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
-	putil "github.com/metal-stack/metal-apiserver/pkg/project"
 	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
 )
 
@@ -45,7 +44,7 @@ func (t *projectMemberRepository) ConvertToInternal(msg *apiv2.ProjectMember) (*
 func (t *projectMemberRepository) ConvertToProto(e *mdcv1.ProjectMember) (*apiv2.ProjectMember, error) {
 	return &apiv2.ProjectMember{
 		Id:        e.TenantId,
-		Role:      putil.ProjectRoleFromMap(e.Meta.Annotations),
+		Role:      ProjectRoleFromMap(e.Meta.Annotations),
 		CreatedAt: e.Meta.CreatedTime,
 	}, nil
 }

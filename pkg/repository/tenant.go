@@ -24,6 +24,17 @@ func (t *tenantRepository) ValidateCreate(ctx context.Context, create *apiv2.Ten
 }
 
 func (t *tenantRepository) ValidateDelete(ctx context.Context, e *mdcv1.Tenant) (*Validated[*mdcv1.Tenant], error) {
+	projects, err := t.r.UnscopedProject().List(ctx, &apiv2.ProjectServiceListRequest{
+		Tenant: &e.Meta.Id,
+	})
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
+	if len(projects) > 0 {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("there are still projects associated with this tenant, you need to delete them first"))
+	}
+
 	return &Validated[*mdcv1.Tenant]{
 		message: e,
 	}, nil

@@ -9,7 +9,6 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
-	putil "github.com/metal-stack/metal-apiserver/pkg/project"
 	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -83,7 +82,7 @@ func (r *projectRepository) CreateWithID(ctx context.Context, e *Validated[*apiv
 	ann := map[string]string{}
 
 	if e.message.AvatarUrl != nil {
-		ann[putil.AvatarURLAnnotation] = *e.message.AvatarUrl
+		ann[avatarURLAnnotation] = *e.message.AvatarUrl
 	}
 
 	project := &mdcv1.Project{

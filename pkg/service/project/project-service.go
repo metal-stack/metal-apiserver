@@ -15,7 +15,6 @@ import (
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
-	putil "github.com/metal-stack/metal-apiserver/pkg/project"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
@@ -375,7 +374,7 @@ func (p *projectServiceServer) UpdateMember(ctx context.Context, rq *connect.Req
 		// TODO: currently the API defines that only owners can update members so there is no possibility to elevate permissions
 		// probably, we should still check that no elevation of permissions is possible in case we later change the API
 
-		membership.Meta.Annotations[putil.ProjectRoleAnnotation] = req.Role.String()
+		membership.Meta.Annotations[repository.ProjectRoleAnnotation] = req.Role.String()
 	}
 	lastOwner, err := p.checkIfMemberIsLastOwner(ctx, membership)
 	if err != nil {
@@ -579,14 +578,14 @@ func (p *projectServiceServer) InvitesList(ctx context.Context, rq *connect.Requ
 }
 
 func (p *projectServiceServer) checkIfMemberIsLastOwner(ctx context.Context, membership *mdcv1.ProjectMember) (bool, error) {
-	isOwner := membership.Meta.Annotations[putil.ProjectRoleAnnotation] == apiv2.ProjectRole_PROJECT_ROLE_OWNER.String()
+	isOwner := membership.Meta.Annotations[repository.ProjectRoleAnnotation] == apiv2.ProjectRole_PROJECT_ROLE_OWNER.String()
 	if !isOwner {
 		return false, nil
 	}
 
 	memberships, err := p.repo.Project(membership.ProjectId).Member().List(ctx, &repository.ProjectMemberQuery{
 		Annotations: map[string]string{
-			putil.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_OWNER.String(),
+			repository.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_OWNER.String(),
 		},
 	})
 	if err != nil {
