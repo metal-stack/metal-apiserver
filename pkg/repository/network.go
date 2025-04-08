@@ -19,25 +19,25 @@ type networkRepository struct {
 	scope *ProjectScope
 }
 
-func (r *networkRepository) ValidateCreate(ctx context.Context, req *apiv2.NetworkServiceCreateRequest) (*Validated[*apiv2.NetworkServiceCreateRequest], error) {
-	return &Validated[*apiv2.NetworkServiceCreateRequest]{
+func (r *networkRepository) validateCreate(ctx context.Context, req *apiv2.NetworkServiceCreateRequest) (*validated[*apiv2.NetworkServiceCreateRequest], error) {
+	return &validated[*apiv2.NetworkServiceCreateRequest]{
+		entity: req,
+	}, nil
+}
+
+func (r *networkRepository) validateUpdate(ctx context.Context, req *apiv2.NetworkServiceUpdateRequest, old *metal.Network) (*validatedUpdate[*metal.Network, *apiv2.NetworkServiceUpdateRequest], error) {
+	return &validatedUpdate[*metal.Network, *apiv2.NetworkServiceUpdateRequest]{
 		message: req,
 	}, nil
 }
 
-func (r *networkRepository) ValidateUpdate(ctx context.Context, req *apiv2.NetworkServiceUpdateRequest) (*ValidatedUpdate[*metal.Network, *apiv2.NetworkServiceUpdateRequest], error) {
-	return &ValidatedUpdate[*metal.Network, *apiv2.NetworkServiceUpdateRequest]{
-		message: req,
+func (r *networkRepository) validateDelete(ctx context.Context, e *metal.Network) (*validatedDelete[*metal.Network], error) {
+	return &validatedDelete[*metal.Network]{
+		entity: e,
 	}, nil
 }
 
-func (r *networkRepository) ValidateDelete(ctx context.Context, req *metal.Network) (*Validated[*metal.Network], error) {
-	return &Validated[*metal.Network]{
-		message: req,
-	}, nil
-}
-
-func (r *networkRepository) Get(ctx context.Context, id string) (*metal.Network, error) {
+func (r *networkRepository) get(ctx context.Context, id string) (*metal.Network, error) {
 	nw, err := r.r.ds.Network().Get(ctx, id)
 	if err != nil {
 		return nil, err
@@ -47,14 +47,14 @@ func (r *networkRepository) Get(ctx context.Context, id string) (*metal.Network,
 		return nw, nil
 	}
 
-	err = r.MatchScope(nw)
+	err = r.matchScope(nw)
 	if err != nil {
 		return nil, err
 	}
 
 	return nw, nil
 }
-func (r *networkRepository) MatchScope(nw *metal.Network) error {
+func (r *networkRepository) matchScope(nw *metal.Network) error {
 	if r.scope == nil {
 		return nil
 	}
@@ -64,25 +64,20 @@ func (r *networkRepository) MatchScope(nw *metal.Network) error {
 	return errorutil.NotFound("nw:%s for project:%s not found", nw.ID, nw.ProjectID)
 }
 
-func (r *networkRepository) Delete(ctx context.Context, n *Validated[*metal.Network]) (*metal.Network, error) {
-	nw, err := r.Get(ctx, n.message.ID)
-	if err != nil {
-		return nil, err
-	}
-
+func (r *networkRepository) delete(ctx context.Context, n *validatedDelete[*metal.Network]) (*metal.Network, error) {
 	// FIXME delete in ipam with the help of Tx
 
-	err = r.r.ds.Network().Delete(ctx, nw)
+	err := r.r.ds.Network().Delete(ctx, n.entity)
 	if err != nil {
 		return nil, err
 	}
 
-	return nw, nil
+	return n.entity, nil
 }
 
-func (r *networkRepository) Create(ctx context.Context, rq *Validated[*apiv2.NetworkServiceCreateRequest]) (*metal.Network, error) {
+func (r *networkRepository) create(ctx context.Context, rq *validated[*apiv2.NetworkServiceCreateRequest]) (*metal.Network, error) {
 
-	req := rq.message
+	req := rq.entity
 	var (
 		id       string
 		afs      metal.AddressFamilies
@@ -142,18 +137,18 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*apiv2.Net
 	return resp, nil
 }
 
-func (r *networkRepository) Update(ctx context.Context, msg *ValidatedUpdate[*metal.Network, *apiv2.NetworkServiceUpdateRequest]) (*metal.Network, error) {
+func (r *networkRepository) update(ctx context.Context, msg *validatedUpdate[*metal.Network, *apiv2.NetworkServiceUpdateRequest]) (*metal.Network, error) {
 	panic("unimplemented")
 }
-func (r *networkRepository) Find(ctx context.Context, query *apiv2.NetworkServiceListRequest) (*metal.Network, error) {
+func (r *networkRepository) find(ctx context.Context, query *apiv2.NetworkServiceListRequest) (*metal.Network, error) {
 	panic("unimplemented")
 }
-func (r *networkRepository) List(ctx context.Context, query *apiv2.NetworkServiceListRequest) ([]*metal.Network, error) {
+func (r *networkRepository) list(ctx context.Context, query *apiv2.NetworkServiceListRequest) ([]*metal.Network, error) {
 	panic("unimplemented")
 }
-func (r *networkRepository) ConvertToInternal(msg *apiv2.Network) (*metal.Network, error) {
+func (r *networkRepository) convertToInternal(msg *apiv2.Network) (*metal.Network, error) {
 	panic("unimplemented")
 }
-func (r *networkRepository) ConvertToProto(e *metal.Network) (*apiv2.Network, error) {
+func (r *networkRepository) convertToProto(e *metal.Network) (*apiv2.Network, error) {
 	panic("unimplemented")
 }

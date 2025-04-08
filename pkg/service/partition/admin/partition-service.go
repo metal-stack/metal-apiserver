@@ -7,7 +7,6 @@ import (
 	"connectrpc.com/connect"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
-	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 )
@@ -33,19 +32,16 @@ func New(c Config) adminv2connect.PartitionServiceHandler {
 func (p *partitionServiceServer) Create(ctx context.Context, rq *connect.Request[adminv2.PartitionServiceCreateRequest]) (*connect.Response[adminv2.PartitionServiceCreateResponse], error) {
 	p.log.Debug("create", "msg", rq.Msg)
 
-	validated, err := p.repo.Partition().ValidateCreate(ctx, rq.Msg)
+	image, err := p.repo.Partition().Create(ctx, rq.Msg)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	image, err := p.repo.Partition().Create(ctx, validated)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
 	converted, err := p.repo.Partition().ConvertToProto(image)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
+
 	return connect.NewResponse(&adminv2.PartitionServiceCreateResponse{Partition: converted}), nil
 }
 
@@ -53,12 +49,7 @@ func (p *partitionServiceServer) Create(ctx context.Context, rq *connect.Request
 func (p *partitionServiceServer) Delete(ctx context.Context, rq *connect.Request[adminv2.PartitionServiceDeleteRequest]) (*connect.Response[adminv2.PartitionServiceDeleteResponse], error) {
 	p.log.Debug("delete", "msg", rq.Msg)
 
-	validated, err := p.repo.Partition().ValidateDelete(ctx, &metal.Partition{Base: metal.Base{ID: rq.Msg.Id}})
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	partition, err := p.repo.Partition().Delete(ctx, validated)
+	partition, err := p.repo.Partition().Delete(ctx, rq.Msg.Id)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -73,12 +64,7 @@ func (p *partitionServiceServer) Delete(ctx context.Context, rq *connect.Request
 func (p *partitionServiceServer) Update(ctx context.Context, rq *connect.Request[adminv2.PartitionServiceUpdateRequest]) (*connect.Response[adminv2.PartitionServiceUpdateResponse], error) {
 	p.log.Debug("update", "msg", rq.Msg)
 
-	validated, err := p.repo.Partition().ValidateUpdate(ctx, rq.Msg)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	partition, err := p.repo.Partition().Update(ctx, validated)
+	partition, err := p.repo.Partition().Update(ctx, rq.Msg.Partition.Id, rq.Msg)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

@@ -75,29 +75,29 @@ func validatePartition(ctx context.Context, partition *apiv2.Partition) error {
 }
 
 // ValidateCreate implements Partition.
-func (p *partitionRepository) ValidateCreate(ctx context.Context, req *adminv2.PartitionServiceCreateRequest) (*Validated[*adminv2.PartitionServiceCreateRequest], error) {
+func (p *partitionRepository) validateCreate(ctx context.Context, req *adminv2.PartitionServiceCreateRequest) (*validated[*adminv2.PartitionServiceCreateRequest], error) {
 	partition := req.Partition
 	err := validatePartition(ctx, partition)
 	if err != nil {
 		return nil, err
 	}
-	return &Validated[*adminv2.PartitionServiceCreateRequest]{
-		message: req,
+	return &validated[*adminv2.PartitionServiceCreateRequest]{
+		entity: req,
 	}, nil
 }
 
 // ValidateDelete implements Partition.
-func (p *partitionRepository) ValidateDelete(ctx context.Context, req *metal.Partition) (*Validated[*metal.Partition], error) {
+func (p *partitionRepository) validateDelete(ctx context.Context, e *metal.Partition) (*validatedDelete[*metal.Partition], error) {
 
 	// FIXME all entities with partition relation must be deleted before
 
-	return &Validated[*metal.Partition]{
-		message: req,
+	return &validatedDelete[*metal.Partition]{
+		entity: e,
 	}, nil
 }
 
 // ValidateUpdate implements Partition.
-func (p *partitionRepository) ValidateUpdate(ctx context.Context, req *adminv2.PartitionServiceUpdateRequest) (*ValidatedUpdate[*metal.Partition, *adminv2.PartitionServiceUpdateRequest], error) {
+func (p *partitionRepository) validateUpdate(ctx context.Context, req *adminv2.PartitionServiceUpdateRequest, old *metal.Partition) (*validatedUpdate[*metal.Partition, *adminv2.PartitionServiceUpdateRequest], error) {
 	partition := req.Partition
 
 	err := validatePartition(ctx, partition)
@@ -105,22 +105,15 @@ func (p *partitionRepository) ValidateUpdate(ctx context.Context, req *adminv2.P
 		return nil, err
 	}
 
-	old, err := p.Get(ctx, partition.Id)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	// validate updates against old entity can go here
-
-	return &ValidatedUpdate[*metal.Partition, *adminv2.PartitionServiceUpdateRequest]{
+	return &validatedUpdate[*metal.Partition, *adminv2.PartitionServiceUpdateRequest]{
 		message: req,
 		entity:  old,
 	}, nil
 }
 
 // Create implements Partition.
-func (p *partitionRepository) Create(ctx context.Context, c *Validated[*adminv2.PartitionServiceCreateRequest]) (*metal.Partition, error) {
-	partition, err := p.ConvertToInternal(c.message.Partition)
+func (p *partitionRepository) create(ctx context.Context, c *validated[*adminv2.PartitionServiceCreateRequest]) (*metal.Partition, error) {
+	partition, err := p.convertToInternal(c.entity.Partition)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -134,22 +127,17 @@ func (p *partitionRepository) Create(ctx context.Context, c *Validated[*adminv2.
 }
 
 // Delete implements Partition.
-func (p *partitionRepository) Delete(ctx context.Context, e *Validated[*metal.Partition]) (*metal.Partition, error) {
-	partition, err := p.Get(ctx, e.message.ID)
+func (p *partitionRepository) delete(ctx context.Context, e *validatedDelete[*metal.Partition]) (*metal.Partition, error) {
+	err := p.r.ds.Partition().Delete(ctx, e.entity)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	err = p.r.ds.Partition().Delete(ctx, partition)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	return partition, nil
+	return e.entity, nil
 }
 
 // Get implements Partition.
-func (p *partitionRepository) Get(ctx context.Context, id string) (*metal.Partition, error) {
+func (p *partitionRepository) get(ctx context.Context, id string) (*metal.Partition, error) {
 	partition, err := p.r.ds.Partition().Get(ctx, id)
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -159,10 +147,10 @@ func (p *partitionRepository) Get(ctx context.Context, id string) (*metal.Partit
 }
 
 // Update implements Partition.
-func (p *partitionRepository) Update(ctx context.Context, u *ValidatedUpdate[*metal.Partition, *adminv2.PartitionServiceUpdateRequest]) (*metal.Partition, error) {
+func (p *partitionRepository) update(ctx context.Context, u *validatedUpdate[*metal.Partition, *adminv2.PartitionServiceUpdateRequest]) (*metal.Partition, error) {
 	partition := u.message.Partition
 
-	new, err := p.ConvertToInternal(partition)
+	new, err := p.convertToInternal(partition)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -178,7 +166,7 @@ func (p *partitionRepository) Update(ctx context.Context, u *ValidatedUpdate[*me
 }
 
 // Find implements Partition.
-func (p *partitionRepository) Find(ctx context.Context, query *apiv2.PartitionQuery) (*metal.Partition, error) {
+func (p *partitionRepository) find(ctx context.Context, query *apiv2.PartitionQuery) (*metal.Partition, error) {
 	partition, err := p.r.ds.Partition().Find(ctx, queries.PartitionFilter(query))
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -187,7 +175,7 @@ func (p *partitionRepository) Find(ctx context.Context, query *apiv2.PartitionQu
 }
 
 // List implements Partition.
-func (p *partitionRepository) List(ctx context.Context, query *apiv2.PartitionQuery) ([]*metal.Partition, error) {
+func (p *partitionRepository) list(ctx context.Context, query *apiv2.PartitionQuery) ([]*metal.Partition, error) {
 	partitions, err := p.r.ds.Partition().List(ctx, queries.PartitionFilter(query))
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -196,13 +184,13 @@ func (p *partitionRepository) List(ctx context.Context, query *apiv2.PartitionQu
 }
 
 // MatchScope implements Partition.
-func (p *partitionRepository) MatchScope(e *metal.Partition) error {
+func (p *partitionRepository) matchScope(e *metal.Partition) error {
 	// Not Project Scoped
-	panic("unimplemented")
+	return nil
 }
 
 // ConvertToInternal implements Partition.
-func (p *partitionRepository) ConvertToInternal(msg *apiv2.Partition) (*metal.Partition, error) {
+func (p *partitionRepository) convertToInternal(msg *apiv2.Partition) (*metal.Partition, error) {
 	mgm := ""
 	if len(msg.MgmtServiceAddresses) > 0 {
 		// FIXME migrate metal model to slice as well
@@ -249,7 +237,7 @@ func (p *partitionRepository) ConvertToInternal(msg *apiv2.Partition) (*metal.Pa
 }
 
 // ConvertToProto implements Partition.
-func (p *partitionRepository) ConvertToProto(e *metal.Partition) (*apiv2.Partition, error) {
+func (p *partitionRepository) convertToProto(e *metal.Partition) (*apiv2.Partition, error) {
 	var (
 		dnsServers []*apiv2.DNSServer
 		ntpServers []*apiv2.NTPServer

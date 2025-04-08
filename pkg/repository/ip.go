@@ -28,13 +28,13 @@ type ipRepository struct {
 	scope *ProjectScope
 }
 
-func (r *ipRepository) Get(ctx context.Context, id string) (*metal.IP, error) {
+func (r *ipRepository) get(ctx context.Context, id string) (*metal.IP, error) {
 	ip, err := r.r.ds.IP().Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	err = r.MatchScope(ip)
+	err = r.matchScope(ip)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +42,7 @@ func (r *ipRepository) Get(ctx context.Context, id string) (*metal.IP, error) {
 	return ip, nil
 }
 
-func (r *ipRepository) MatchScope(ip *metal.IP) error {
+func (r *ipRepository) matchScope(ip *metal.IP) error {
 	if r.scope == nil {
 		return nil
 	}
@@ -54,7 +54,7 @@ func (r *ipRepository) MatchScope(ip *metal.IP) error {
 	return errorutil.NotFound("ip:%s for project:%s not found", ip.IPAddress, ip.ProjectID)
 }
 
-func (r *ipRepository) ValidateCreate(ctx context.Context, req *apiv2.IPServiceCreateRequest) (*Validated[*apiv2.IPServiceCreateRequest], error) {
+func (r *ipRepository) validateCreate(ctx context.Context, req *apiv2.IPServiceCreateRequest) (*validated[*apiv2.IPServiceCreateRequest], error) {
 	if req.Network == "" {
 		return nil, errorutil.InvalidArgument("network should not be empty")
 	}
@@ -62,13 +62,13 @@ func (r *ipRepository) ValidateCreate(ctx context.Context, req *apiv2.IPServiceC
 		return nil, errorutil.InvalidArgument("project should not be empty")
 	}
 
-	return &Validated[*apiv2.IPServiceCreateRequest]{
-		message: req,
+	return &validated[*apiv2.IPServiceCreateRequest]{
+		entity: req,
 	}, nil
 }
 
-func (r *ipRepository) ValidateUpdate(ctx context.Context, req *apiv2.IPServiceUpdateRequest) (*ValidatedUpdate[*metal.IP, *apiv2.IPServiceUpdateRequest], error) {
-	e, err := r.Find(ctx, &apiv2.IPQuery{Ip: &req.Ip, Project: &req.Project})
+func (r *ipRepository) validateUpdate(ctx context.Context, req *apiv2.IPServiceUpdateRequest, old *metal.IP) (*validatedUpdate[*metal.IP, *apiv2.IPServiceUpdateRequest], error) {
+	e, err := r.find(ctx, &apiv2.IPQuery{Ip: &req.Ip, Project: &req.Project})
 	if err != nil {
 		return nil, err
 	}
@@ -79,27 +79,27 @@ func (r *ipRepository) ValidateUpdate(ctx context.Context, req *apiv2.IPServiceU
 		}
 	}
 
-	return &ValidatedUpdate[*metal.IP, *apiv2.IPServiceUpdateRequest]{
+	return &validatedUpdate[*metal.IP, *apiv2.IPServiceUpdateRequest]{
 		message: req,
 		entity:  e,
 	}, nil
 }
 
-func (r *ipRepository) ValidateDelete(ctx context.Context, req *metal.IP) (*Validated[*metal.IP], error) {
-	if req.IPAddress == "" {
+func (r *ipRepository) validateDelete(ctx context.Context, e *metal.IP) (*validatedDelete[*metal.IP], error) {
+	if e.IPAddress == "" {
 		return nil, errorutil.InvalidArgument("ipaddress is empty")
 	}
-	if req.AllocationUUID == "" {
+	if e.AllocationUUID == "" {
 		return nil, errorutil.InvalidArgument("allocationUUID is empty")
 	}
-	if req.ProjectID == "" {
+	if e.ProjectID == "" {
 		return nil, errorutil.InvalidArgument("projectId is empty")
 	}
-	ip, err := r.Find(ctx, &apiv2.IPQuery{Ip: &req.IPAddress, Uuid: &req.AllocationUUID, Project: &req.ProjectID})
+	ip, err := r.find(ctx, &apiv2.IPQuery{Ip: &e.IPAddress, Uuid: &e.AllocationUUID, Project: &e.ProjectID})
 	if err != nil {
 		if errorutil.IsNotFound(err) {
-			return &Validated[*metal.IP]{
-				message: req,
+			return &validatedDelete[*metal.IP]{
+				entity: e,
 			}, nil
 		}
 		return nil, err
@@ -111,17 +111,17 @@ func (r *ipRepository) ValidateDelete(ctx context.Context, req *metal.IP) (*Vali
 		}
 	}
 
-	return &Validated[*metal.IP]{
-		message: req,
+	return &validatedDelete[*metal.IP]{
+		entity: e,
 	}, nil
 }
 
-func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServiceCreateRequest]) (*metal.IP, error) {
+func (r *ipRepository) create(ctx context.Context, rq *validated[*apiv2.IPServiceCreateRequest]) (*metal.IP, error) {
 	var (
 		name        string
 		description string
 	)
-	req := rq.message
+	req := rq.entity
 
 	if req.Name != nil {
 		name = *req.Name
@@ -237,9 +237,9 @@ func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServic
 	return resp, nil
 }
 
-func (r *ipRepository) Update(ctx context.Context, u *ValidatedUpdate[*metal.IP, *apiv2.IPServiceUpdateRequest]) (*metal.IP, error) {
+func (r *ipRepository) update(ctx context.Context, u *validatedUpdate[*metal.IP, *apiv2.IPServiceUpdateRequest]) (*metal.IP, error) {
 	rq := u.message
-	old, err := r.Get(ctx, rq.Ip)
+	old, err := r.get(ctx, rq.Ip)
 	if err != nil {
 		return nil, err
 	}
@@ -276,23 +276,18 @@ func (r *ipRepository) Update(ctx context.Context, u *ValidatedUpdate[*metal.IP,
 	return &new, nil
 }
 
-func (r *ipRepository) Delete(ctx context.Context, rq *Validated[*metal.IP]) (*metal.IP, error) {
-	ip, err := r.Get(ctx, rq.message.GetID())
-	if err != nil {
-		return nil, err
-	}
-
-	info, err := r.r.async.NewIPDeleteTask(ip.AllocationUUID, ip.IPAddress, ip.ProjectID)
+func (r *ipRepository) delete(ctx context.Context, rq *validatedDelete[*metal.IP]) (*metal.IP, error) {
+	info, err := r.r.async.NewIPDeleteTask(rq.entity.AllocationUUID, rq.entity.IPAddress, rq.entity.ProjectID)
 	if err != nil {
 		return nil, err
 	}
 
 	r.r.log.Info("ip delete queued", "info", info)
 
-	return ip, nil
+	return rq.entity, nil
 }
 
-func (r *ipRepository) Find(ctx context.Context, rq *apiv2.IPQuery) (*metal.IP, error) {
+func (r *ipRepository) find(ctx context.Context, rq *apiv2.IPQuery) (*metal.IP, error) {
 	ip, err := r.r.ds.IP().Find(ctx, r.scopedFilters(queries.IpFilter(rq))...)
 	if err != nil {
 		return nil, err
@@ -301,7 +296,7 @@ func (r *ipRepository) Find(ctx context.Context, rq *apiv2.IPQuery) (*metal.IP, 
 	return ip, nil
 }
 
-func (r *ipRepository) List(ctx context.Context, rq *apiv2.IPQuery) ([]*metal.IP, error) {
+func (r *ipRepository) list(ctx context.Context, rq *apiv2.IPQuery) ([]*metal.IP, error) {
 	ip, err := r.r.ds.IP().List(ctx, r.scopedFilters(queries.IpFilter(rq))...)
 	if err != nil {
 		return nil, err
@@ -365,11 +360,11 @@ func (r *ipRepository) allocateRandomIP(ctx context.Context, parent *metal.Netwo
 	return "", "", errorutil.InvalidArgument("cannot allocate random free ip in ipam, no ips left in network:%s af:%s parent afs:%#v", parent.ID, addressfamily, parent.Prefixes.AddressFamilies())
 }
 
-func (r *ipRepository) ConvertToInternal(ip *apiv2.IP) (*metal.IP, error) {
+func (r *ipRepository) convertToInternal(ip *apiv2.IP) (*metal.IP, error) {
 	panic("unimplemented")
 }
 
-func (r *ipRepository) ConvertToProto(metalIP *metal.IP) (*apiv2.IP, error) {
+func (r *ipRepository) convertToProto(metalIP *metal.IP) (*apiv2.IP, error) {
 	t := apiv2.IPType_IP_TYPE_UNSPECIFIED
 	switch metalIP.Type {
 	case metal.Ephemeral:

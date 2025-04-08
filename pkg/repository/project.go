@@ -17,25 +17,25 @@ type projectRepository struct {
 	scope *ProjectScope
 }
 
-func (r *projectRepository) ValidateCreate(ctx context.Context, req *apiv2.ProjectServiceCreateRequest) (*Validated[*apiv2.ProjectServiceCreateRequest], error) {
-	return &Validated[*apiv2.ProjectServiceCreateRequest]{
+func (r *projectRepository) validateCreate(ctx context.Context, req *apiv2.ProjectServiceCreateRequest) (*validated[*apiv2.ProjectServiceCreateRequest], error) {
+	return &validated[*apiv2.ProjectServiceCreateRequest]{
+		entity: req,
+	}, nil
+}
+
+func (r *projectRepository) validateUpdate(ctx context.Context, req *apiv2.ProjectServiceUpdateRequest, old *mdcv1.Project) (*validatedUpdate[*mdcv1.Project, *apiv2.ProjectServiceUpdateRequest], error) {
+	return &validatedUpdate[*mdcv1.Project, *apiv2.ProjectServiceUpdateRequest]{
 		message: req,
 	}, nil
 }
 
-func (r *projectRepository) ValidateUpdate(ctx context.Context, req *apiv2.ProjectServiceUpdateRequest) (*ValidatedUpdate[*mdcv1.Project, *apiv2.ProjectServiceUpdateRequest], error) {
-	return &ValidatedUpdate[*mdcv1.Project, *apiv2.ProjectServiceUpdateRequest]{
-		message: req,
+func (r *projectRepository) validateDelete(ctx context.Context, e *mdcv1.Project) (*validatedDelete[*mdcv1.Project], error) {
+	return &validatedDelete[*mdcv1.Project]{
+		entity: e,
 	}, nil
 }
 
-func (r *projectRepository) ValidateDelete(ctx context.Context, req *mdcv1.Project) (*Validated[*mdcv1.Project], error) {
-	return &Validated[*mdcv1.Project]{
-		message: req,
-	}, nil
-}
-
-func (r *projectRepository) Get(ctx context.Context, id string) (*mdcv1.Project, error) {
+func (r *projectRepository) get(ctx context.Context, id string) (*mdcv1.Project, error) {
 	resp, err := r.r.mdc.Project().Get(ctx, &mdcv1.ProjectGetRequest{Id: id})
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -43,7 +43,7 @@ func (r *projectRepository) Get(ctx context.Context, id string) (*mdcv1.Project,
 	if resp.Project == nil || resp.Project.Meta == nil {
 		return nil, errorutil.NotFound("error retrieving project %q", id)
 	}
-	err = r.MatchScope(resp.Project)
+	err = r.matchScope(resp.Project)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -51,7 +51,7 @@ func (r *projectRepository) Get(ctx context.Context, id string) (*mdcv1.Project,
 	return resp.Project, nil
 }
 
-func (r *projectRepository) MatchScope(p *mdcv1.Project) error {
+func (r *projectRepository) matchScope(p *mdcv1.Project) error {
 	if r.scope == nil {
 		return nil
 	}
@@ -61,16 +61,16 @@ func (r *projectRepository) MatchScope(p *mdcv1.Project) error {
 	return errorutil.NotFound("project:%s not found", p.Meta.Id)
 }
 
-func (r *projectRepository) Create(ctx context.Context, e *Validated[*apiv2.ProjectServiceCreateRequest]) (*mdcv1.Project, error) {
+func (r *projectRepository) create(ctx context.Context, e *validated[*apiv2.ProjectServiceCreateRequest]) (*mdcv1.Project, error) {
 
 	// FIXME howto set the avatarurl during create ??
 	project := &mdcv1.Project{
 		Meta: &mdcv1.Meta{
-			Id: e.message.Name,
+			Id: e.entity.Name,
 		},
-		Name:        e.message.Name,
-		Description: e.message.Description,
-		TenantId:    e.message.Login,
+		Name:        e.entity.Name,
+		Description: e.entity.Description,
+		TenantId:    e.entity.Login,
 	}
 
 	resp, err := r.r.mdc.Project().Create(ctx, &mdcv1.ProjectCreateRequest{Project: project})
@@ -80,19 +80,19 @@ func (r *projectRepository) Create(ctx context.Context, e *Validated[*apiv2.Proj
 
 	return resp.Project, nil
 }
-func (r *projectRepository) Update(ctx context.Context, msg *ValidatedUpdate[*mdcv1.Project, *apiv2.ProjectServiceUpdateRequest]) (*mdcv1.Project, error) {
+func (r *projectRepository) update(ctx context.Context, msg *validatedUpdate[*mdcv1.Project, *apiv2.ProjectServiceUpdateRequest]) (*mdcv1.Project, error) {
 	panic("unimplemented")
 }
-func (r *projectRepository) Delete(ctx context.Context, e *Validated[*mdcv1.Project]) (*mdcv1.Project, error) {
+func (r *projectRepository) delete(ctx context.Context, e *validatedDelete[*mdcv1.Project]) (*mdcv1.Project, error) {
 	panic("unimplemented")
 }
-func (r *projectRepository) Find(ctx context.Context, query *apiv2.ProjectServiceListRequest) (*mdcv1.Project, error) {
+func (r *projectRepository) find(ctx context.Context, query *apiv2.ProjectServiceListRequest) (*mdcv1.Project, error) {
 	panic("unimplemented")
 }
-func (r *projectRepository) List(ctx context.Context, query *apiv2.ProjectServiceListRequest) ([]*mdcv1.Project, error) {
+func (r *projectRepository) list(ctx context.Context, query *apiv2.ProjectServiceListRequest) ([]*mdcv1.Project, error) {
 	panic("unimplemented")
 }
-func (r *projectRepository) ConvertToInternal(p *apiv2.Project) (*mdcv1.Project, error) {
+func (r *projectRepository) convertToInternal(p *apiv2.Project) (*mdcv1.Project, error) {
 	meta := &mdcv1.Meta{
 		Id:          p.Uuid,
 		CreatedTime: p.Meta.CreatedAt,
@@ -116,7 +116,7 @@ const (
 	avatarURLAnnotation      = "avatarUrl"
 )
 
-func (r *projectRepository) ConvertToProto(p *mdcv1.Project) (*apiv2.Project, error) {
+func (r *projectRepository) convertToProto(p *mdcv1.Project) (*apiv2.Project, error) {
 	if p.Meta == nil {
 		return nil, errors.New("project meta is nil")
 	}

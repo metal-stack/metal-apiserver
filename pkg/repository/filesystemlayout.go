@@ -15,8 +15,8 @@ type filesystemLayoutRepository struct {
 	r *Store
 }
 
-func (r *filesystemLayoutRepository) ValidateCreate(ctx context.Context, req *adminv2.FilesystemServiceCreateRequest) (*Validated[*adminv2.FilesystemServiceCreateRequest], error) {
-	fsl, err := r.ConvertToInternal(req.FilesystemLayout)
+func (r *filesystemLayoutRepository) validateCreate(ctx context.Context, req *adminv2.FilesystemServiceCreateRequest) (*validated[*adminv2.FilesystemServiceCreateRequest], error) {
+	fsl, err := r.convertToInternal(req.FilesystemLayout)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -24,13 +24,13 @@ func (r *filesystemLayoutRepository) ValidateCreate(ctx context.Context, req *ad
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	return &Validated[*adminv2.FilesystemServiceCreateRequest]{
-		message: req,
+	return &validated[*adminv2.FilesystemServiceCreateRequest]{
+		entity: req,
 	}, nil
 }
 
-func (r *filesystemLayoutRepository) ValidateUpdate(ctx context.Context, req *adminv2.FilesystemServiceUpdateRequest) (*ValidatedUpdate[*metal.FilesystemLayout, *adminv2.FilesystemServiceUpdateRequest], error) {
-	fsl, err := r.ConvertToInternal(req.FilesystemLayout)
+func (r *filesystemLayoutRepository) validateUpdate(ctx context.Context, req *adminv2.FilesystemServiceUpdateRequest, old *metal.FilesystemLayout) (*validatedUpdate[*metal.FilesystemLayout, *adminv2.FilesystemServiceUpdateRequest], error) {
+	fsl, err := r.convertToInternal(req.FilesystemLayout)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -40,7 +40,7 @@ func (r *filesystemLayoutRepository) ValidateUpdate(ctx context.Context, req *ad
 		return nil, errorutil.Convert(err)
 	}
 
-	allFsls, err := r.List(ctx, &apiv2.FilesystemServiceListRequest{})
+	allFsls, err := r.list(ctx, &apiv2.FilesystemServiceListRequest{})
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -52,26 +52,21 @@ func (r *filesystemLayoutRepository) ValidateUpdate(ctx context.Context, req *ad
 		return nil, errorutil.Convert(err)
 	}
 
-	old, err := r.Get(ctx, fsl.ID)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
 	// validate updates against old entity can go here
 
-	return &ValidatedUpdate[*metal.FilesystemLayout, *adminv2.FilesystemServiceUpdateRequest]{
+	return &validatedUpdate[*metal.FilesystemLayout, *adminv2.FilesystemServiceUpdateRequest]{
 		entity:  old,
 		message: req,
 	}, nil
 }
-func (r *filesystemLayoutRepository) ValidateDelete(ctx context.Context, req *metal.FilesystemLayout) (*Validated[*metal.FilesystemLayout], error) {
-	// FIXME implement a lookup if any machine uses this fsl
-	return &Validated[*metal.FilesystemLayout]{
-		message: req,
+
+func (r *filesystemLayoutRepository) validateDelete(ctx context.Context, e *metal.FilesystemLayout) (*validatedDelete[*metal.FilesystemLayout], error) {
+	return &validatedDelete[*metal.FilesystemLayout]{
+		entity: e,
 	}, nil
 }
 
-func (r *filesystemLayoutRepository) Get(ctx context.Context, id string) (*metal.FilesystemLayout, error) {
+func (r *filesystemLayoutRepository) get(ctx context.Context, id string) (*metal.FilesystemLayout, error) {
 	fsl, err := r.r.ds.FilesystemLayout().Get(ctx, id)
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -81,12 +76,12 @@ func (r *filesystemLayoutRepository) Get(ctx context.Context, id string) (*metal
 }
 
 // Filesystem is not project scoped
-func (r *filesystemLayoutRepository) MatchScope(_ *metal.FilesystemLayout) error {
+func (r *filesystemLayoutRepository) matchScope(_ *metal.FilesystemLayout) error {
 	return nil
 }
 
-func (r *filesystemLayoutRepository) Create(ctx context.Context, rq *Validated[*adminv2.FilesystemServiceCreateRequest]) (*metal.FilesystemLayout, error) {
-	fsl, err := r.ConvertToInternal(rq.message.FilesystemLayout)
+func (r *filesystemLayoutRepository) create(ctx context.Context, rq *validated[*adminv2.FilesystemServiceCreateRequest]) (*metal.FilesystemLayout, error) {
+	fsl, err := r.convertToInternal(rq.entity.FilesystemLayout)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -99,8 +94,8 @@ func (r *filesystemLayoutRepository) Create(ctx context.Context, rq *Validated[*
 	return resp, nil
 }
 
-func (r *filesystemLayoutRepository) Update(ctx context.Context, u *ValidatedUpdate[*metal.FilesystemLayout, *adminv2.FilesystemServiceUpdateRequest]) (*metal.FilesystemLayout, error) {
-	newFsl, err := r.ConvertToInternal(u.message.FilesystemLayout)
+func (r *filesystemLayoutRepository) update(ctx context.Context, u *validatedUpdate[*metal.FilesystemLayout, *adminv2.FilesystemServiceUpdateRequest]) (*metal.FilesystemLayout, error) {
+	newFsl, err := r.convertToInternal(u.message.FilesystemLayout)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -117,25 +112,20 @@ func (r *filesystemLayoutRepository) Update(ctx context.Context, u *ValidatedUpd
 	return newFsl, nil
 }
 
-func (r *filesystemLayoutRepository) Delete(ctx context.Context, rq *Validated[*metal.FilesystemLayout]) (*metal.FilesystemLayout, error) {
-	fsl, err := r.Get(ctx, rq.message.ID)
+func (r *filesystemLayoutRepository) delete(ctx context.Context, rq *validatedDelete[*metal.FilesystemLayout]) (*metal.FilesystemLayout, error) {
+	err := r.r.ds.FilesystemLayout().Delete(ctx, rq.entity)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	err = r.r.ds.FilesystemLayout().Delete(ctx, fsl)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	return fsl, nil
+	return rq.entity, nil
 }
 
-func (r *filesystemLayoutRepository) Find(ctx context.Context, rq *apiv2.FilesystemServiceListRequest) (*metal.FilesystemLayout, error) {
+func (r *filesystemLayoutRepository) find(ctx context.Context, rq *apiv2.FilesystemServiceListRequest) (*metal.FilesystemLayout, error) {
 	panic("unimplemented")
 }
 
-func (r *filesystemLayoutRepository) List(ctx context.Context, rq *apiv2.FilesystemServiceListRequest) ([]*metal.FilesystemLayout, error) {
+func (r *filesystemLayoutRepository) list(ctx context.Context, rq *apiv2.FilesystemServiceListRequest) ([]*metal.FilesystemLayout, error) {
 	ip, err := r.r.ds.FilesystemLayout().List(ctx)
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -144,7 +134,7 @@ func (r *filesystemLayoutRepository) List(ctx context.Context, rq *apiv2.Filesys
 	return ip, nil
 }
 
-func (r *filesystemLayoutRepository) ConvertToInternal(f *apiv2.FilesystemLayout) (*metal.FilesystemLayout, error) {
+func (r *filesystemLayoutRepository) convertToInternal(f *apiv2.FilesystemLayout) (*metal.FilesystemLayout, error) {
 	var (
 		fss = []metal.Filesystem{}
 		ds  = []metal.Disk{}
@@ -268,7 +258,7 @@ func (r *filesystemLayoutRepository) ConvertToInternal(f *apiv2.FilesystemLayout
 	return fl, nil
 
 }
-func (r *filesystemLayoutRepository) ConvertToProto(in *metal.FilesystemLayout) (*apiv2.FilesystemLayout, error) {
+func (r *filesystemLayoutRepository) convertToProto(in *metal.FilesystemLayout) (*apiv2.FilesystemLayout, error) {
 
 	var filesystems []*apiv2.Filesystem
 	for _, fs := range in.Filesystems {
