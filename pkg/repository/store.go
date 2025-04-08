@@ -25,9 +25,8 @@ type (
 		async *asyncclient.Client
 	}
 
-	store[S any, E Entity, M Message, C CreateMessage, U UpdateMessage, Q Query] struct {
-		s     *Store
-		typed S
+	store[R Repo, E Entity, M Message, C CreateMessage, U UpdateMessage, Q Query] struct {
+		typed R
 		repository[E, M, C, U, Q]
 	}
 )
@@ -70,7 +69,6 @@ func (s *Store) Image() Image {
 
 	return &store[*imageRepository, *metal.Image, *apiv2.Image, *adminv2.ImageServiceCreateRequest, *adminv2.ImageServiceUpdateRequest, *apiv2.ImageQuery]{
 		repository: repository,
-		s:          s,
 		typed:      repository,
 	}
 }
@@ -93,7 +91,6 @@ func (s *Store) network(scope *ProjectScope) Network {
 
 	return &store[*networkRepository, *metal.Network, *apiv2.Network, *apiv2.NetworkServiceCreateRequest, *apiv2.NetworkServiceUpdateRequest, *apiv2.NetworkServiceListRequest]{
 		repository: repository,
-		s:          s,
 		typed:      repository,
 	}
 }
@@ -116,7 +113,6 @@ func (s *Store) project(scope *ProjectScope) Project {
 
 	return &store[*projectRepository, *mdcv1.Project, *apiv2.Project, *apiv2.ProjectServiceCreateRequest, *apiv2.ProjectServiceUpdateRequest, *apiv2.ProjectServiceListRequest]{
 		repository: repository,
-		s:          s,
 		typed:      repository,
 	}
 }
@@ -128,7 +124,6 @@ func (s *Store) Tenant() Tenant {
 
 	return &store[*tenantRepository, *mdcv1.Tenant, *apiv2.Tenant, *apiv2.TenantServiceCreateRequest, *apiv2.TenantServiceUpdateRequest, *apiv2.TenantServiceListRequest]{
 		repository: repository,
-		s:          s,
 		typed:      repository,
 	}
 }
@@ -140,7 +135,6 @@ func (s *Store) FilesystemLayout() FilesystemLayout {
 
 	return &store[*filesystemLayoutRepository, *metal.FilesystemLayout, *apiv2.FilesystemLayout, *adminv2.FilesystemServiceCreateRequest, *adminv2.FilesystemServiceUpdateRequest, *apiv2.FilesystemServiceListRequest]{
 		repository: repository,
-		s:          s,
 		typed:      repository,
 	}
 }
@@ -151,7 +145,6 @@ func (s *Store) Partition() Partition {
 
 	return &store[*partitionRepository, *metal.Partition, *apiv2.Partition, *adminv2.PartitionServiceCreateRequest, *adminv2.PartitionServiceUpdateRequest, *apiv2.PartitionQuery]{
 		repository: repository,
-		s:          s,
 		typed:      repository,
 	}
 }
