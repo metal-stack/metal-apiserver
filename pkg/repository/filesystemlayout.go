@@ -29,16 +29,38 @@ func (r *filesystemLayoutRepository) ValidateCreate(ctx context.Context, req *ad
 	}, nil
 }
 
-func (r *filesystemLayoutRepository) ValidateUpdate(ctx context.Context, req *adminv2.FilesystemServiceUpdateRequest) (*Validated[*adminv2.FilesystemServiceUpdateRequest], error) {
+func (r *filesystemLayoutRepository) ValidateUpdate(ctx context.Context, req *adminv2.FilesystemServiceUpdateRequest) (*ValidatedUpdate[*metal.FilesystemLayout, *adminv2.FilesystemServiceUpdateRequest], error) {
 	fsl, err := r.ConvertToInternal(req.FilesystemLayout)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
+
 	err = fsl.Validate()
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	return &Validated[*adminv2.FilesystemServiceUpdateRequest]{
+
+	allFsls, err := r.List(ctx, &apiv2.FilesystemServiceListRequest{})
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
+	allFsls = append(allFsls, fsl)
+
+	err = metal.FilesystemLayouts(allFsls).Validate()
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
+	old, err := r.Get(ctx, fsl.ID)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
+	// validate updates against old entity can go here
+
+	return &ValidatedUpdate[*metal.FilesystemLayout, *adminv2.FilesystemServiceUpdateRequest]{
+		entity:  old,
 		message: req,
 	}, nil
 }
@@ -77,33 +99,17 @@ func (r *filesystemLayoutRepository) Create(ctx context.Context, rq *Validated[*
 	return resp, nil
 }
 
-func (r *filesystemLayoutRepository) Update(ctx context.Context, rq *Validated[*adminv2.FilesystemServiceUpdateRequest]) (*metal.FilesystemLayout, error) {
-	old, err := r.Get(ctx, rq.message.FilesystemLayout.Id)
+func (r *filesystemLayoutRepository) Update(ctx context.Context, u *ValidatedUpdate[*metal.FilesystemLayout, *adminv2.FilesystemServiceUpdateRequest]) (*metal.FilesystemLayout, error) {
+	newFsl, err := r.ConvertToInternal(u.message.FilesystemLayout)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	var allFsls metal.FilesystemLayouts
-	fsls, err := r.List(ctx, &apiv2.FilesystemServiceListRequest{})
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-	allFsls = append(allFsls, fsls...)
-
-	newFsl, err := r.ConvertToInternal(rq.message.FilesystemLayout)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	allFsls = append(allFsls, newFsl)
-	err = allFsls.Validate()
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
+	newFsl.SetChanged(u.entity.Changed)
 
 	// FIXME implement update logic
 
-	err = r.r.ds.FilesystemLayout().Update(ctx, newFsl, old)
+	err = r.r.ds.FilesystemLayout().Update(ctx, newFsl)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

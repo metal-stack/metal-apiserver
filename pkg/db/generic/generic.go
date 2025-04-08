@@ -34,7 +34,7 @@ type (
 
 	Storage[E Entity] interface {
 		Create(ctx context.Context, e E) (E, error)
-		Update(ctx context.Context, new, old E) error
+		Update(ctx context.Context, e E) error
 		Upsert(ctx context.Context, e E) error
 		Delete(ctx context.Context, e E) error
 		Get(ctx context.Context, id string) (E, error)

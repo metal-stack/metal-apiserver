@@ -41,7 +41,7 @@ func TestGenericCRUD(t *testing.T) {
 
 	newIP := *created
 	newIP.Description = "Modified IP"
-	err = ds.IP().Update(ctx, &newIP, created)
+	err = ds.IP().Update(ctx, &newIP)
 	require.NoError(t, err)
 
 	updated, err := ds.IP().Get(ctx, "1.2.3.4")

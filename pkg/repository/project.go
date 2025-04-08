@@ -23,8 +23,8 @@ func (r *projectRepository) ValidateCreate(ctx context.Context, req *apiv2.Proje
 	}, nil
 }
 
-func (r *projectRepository) ValidateUpdate(ctx context.Context, req *apiv2.ProjectServiceUpdateRequest) (*Validated[*apiv2.ProjectServiceUpdateRequest], error) {
-	return &Validated[*apiv2.ProjectServiceUpdateRequest]{
+func (r *projectRepository) ValidateUpdate(ctx context.Context, req *apiv2.ProjectServiceUpdateRequest) (*ValidatedUpdate[*mdcv1.Project, *apiv2.ProjectServiceUpdateRequest], error) {
+	return &ValidatedUpdate[*mdcv1.Project, *apiv2.ProjectServiceUpdateRequest]{
 		message: req,
 	}, nil
 }
@@ -80,7 +80,7 @@ func (r *projectRepository) Create(ctx context.Context, e *Validated[*apiv2.Proj
 
 	return resp.Project, nil
 }
-func (r *projectRepository) Update(ctx context.Context, msg *Validated[*apiv2.ProjectServiceUpdateRequest]) (*mdcv1.Project, error) {
+func (r *projectRepository) Update(ctx context.Context, msg *ValidatedUpdate[*mdcv1.Project, *apiv2.ProjectServiceUpdateRequest]) (*mdcv1.Project, error) {
 	panic("unimplemented")
 }
 func (r *projectRepository) Delete(ctx context.Context, e *Validated[*mdcv1.Project]) (*mdcv1.Project, error) {

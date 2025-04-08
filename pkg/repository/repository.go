@@ -20,14 +20,20 @@ type (
 	Validated[M any] struct {
 		message M
 	}
+	ValidatedUpdate[E Entity, M any] struct {
+		message M
+		// entity is the fetched entity at the point of the validation.
+		// it can be modified for the update and used for applying the update in the update function.
+		entity E
+	}
 	Repository[E Entity, M Message, C CreateMessage, U UpdateMessage, Q Query] interface {
 		Get(ctx context.Context, id string) (E, error)
 
 		ValidateCreate(ctx context.Context, create C) (*Validated[C], error)
 		Create(ctx context.Context, c *Validated[C]) (E, error)
 
-		ValidateUpdate(ctx context.Context, msg U) (*Validated[U], error)
-		Update(ctx context.Context, msg *Validated[U]) (E, error)
+		// ValidateUpdate(ctx context.Context, msg U) (*ValidatedUpdate[E, U], error)
+		Update(ctx context.Context, msg *ValidatedUpdate[E, U]) (E, error)
 
 		ValidateDelete(ctx context.Context, e E) (*Validated[E], error)
 		Delete(ctx context.Context, e *Validated[E]) (E, error)
@@ -39,6 +45,27 @@ type (
 		ConvertToProto(e E) (M, error)
 
 		MatchScope(e E) error
+	}
+
+	repository[E Entity, M Message, C CreateMessage, U UpdateMessage, Q Query] interface {
+		get(ctx context.Context, id string) (E, error)
+
+		validateCreate(ctx context.Context, create C) (*Validated[C], error)
+		create(ctx context.Context, c *Validated[C]) (E, error)
+
+		validateUpdate(ctx context.Context, msg U, old E) (*ValidatedUpdate[E, U], error)
+		update(ctx context.Context, msg *ValidatedUpdate[E, U]) (E, error)
+
+		validateDelete(ctx context.Context, e E) (*Validated[E], error)
+		delete(ctx context.Context, e *Validated[E]) (E, error)
+
+		find(ctx context.Context, query Q) (E, error)
+		list(ctx context.Context, query Q) ([]E, error)
+
+		convertToInternal(msg M) (E, error)
+		convertToProto(e E) (M, error)
+
+		matchScope(e E) error
 	}
 
 	Entity        any
@@ -55,14 +82,16 @@ type (
 		async *asyncclient.Client
 	}
 
+	store[E Entity, M Message, C CreateMessage, U UpdateMessage, Q Query] struct {
+		impl repository[E, M, C, U, Q]
+	}
+
 	ProjectScope struct {
 		projectID string
 	}
 
 	IP interface {
 		Repository[*metal.IP, *apiv2.IP, *apiv2.IPServiceCreateRequest, *apiv2.IPServiceUpdateRequest, *apiv2.IPQuery]
-		// TODO define additional methods only for the IP repository
-		// AdditionalMethod()
 	}
 
 	Network interface {
@@ -104,10 +133,12 @@ func New(log *slog.Logger, mdc mdm.Client, ds generic.Datastore, ipam ipamv1conn
 }
 
 func (r *Store) IP(project string) IP {
-	return &ipRepository{
-		r: r,
-		scope: &ProjectScope{
-			projectID: project,
+	return &store[*metal.IP, *apiv2.IP, *apiv2.IPServiceCreateRequest, *apiv2.IPServiceUpdateRequest, *apiv2.IPQuery]{
+		impl: &ipRepository{
+			r: r,
+			scope: &ProjectScope{
+				projectID: project,
+			},
 		},
 	}
 }
@@ -171,4 +202,64 @@ func (r *Store) Partition() Partition {
 	return &partitionRepository{
 		r: r,
 	}
+}
+
+// ConvertToInternal implements IP.
+func (s *store[E, M, C, U, Q]) ConvertToInternal(msg *apiv2.IP) (*metal.IP, error) {
+	return s.impl.convertToInternal(msg)
+}
+
+// ConvertToProto implements IP.
+func (s *store[E, M, C, U, Q]) ConvertToProto(e *metal.IP) (*apiv2.IP, error) {
+	panic("unimplemented")
+}
+
+// Create implements IP.
+func (s *store[E, M, C, U, Q]) Create(ctx context.Context, c *Validated[*apiv2.IPServiceCreateRequest]) (*metal.IP, error) {
+	panic("unimplemented")
+}
+
+// Delete implements IP.
+func (s *store[E, M, C, U, Q]) Delete(ctx context.Context, e *Validated[*metal.IP]) (*metal.IP, error) {
+	panic("unimplemented")
+}
+
+// Find implements IP.
+func (s *store[E, M, C, U, Q]) Find(ctx context.Context, query *apiv2.IPQuery) (*metal.IP, error) {
+	panic("unimplemented")
+}
+
+// Get implements IP.
+func (s *store[E, M, C, U, Q]) Get(ctx context.Context, id string) (*metal.IP, error) {
+	panic("unimplemented")
+}
+
+// List implements IP.
+func (s *store[E, M, C, U, Q]) List(ctx context.Context, query *apiv2.IPQuery) ([]*metal.IP, error) {
+	panic("unimplemented")
+}
+
+// MatchScope implements IP.
+func (s *store[E, M, C, U, Q]) MatchScope(e *metal.IP) error {
+	panic("unimplemented")
+}
+
+// Update implements IP.
+func (s *store[E, M, C, U, Q]) Update(ctx context.Context, msg *ValidatedUpdate[*metal.IP, *apiv2.IPServiceUpdateRequest]) (*metal.IP, error) {
+	panic("unimplemented")
+}
+
+// ValidateCreate implements IP.
+func (s *store[E, M, C, U, Q]) ValidateCreate(ctx context.Context, create *apiv2.IPServiceCreateRequest) (*Validated[*apiv2.IPServiceCreateRequest], error) {
+	panic("unimplemented")
+}
+
+// ValidateDelete implements IP.
+func (s *store[E, M, C, U, Q]) ValidateDelete(ctx context.Context, e *metal.IP) (*Validated[*metal.IP], error) {
+	panic("unimplemented")
+}
+
+// ValidateUpdate implements IP.
+func (s *store[E, M, C, U, Q]) ValidateUpdate(ctx context.Context, msg *apiv2.IPServiceUpdateRequest) (*ValidatedUpdate[*metal.IP, *apiv2.IPServiceUpdateRequest], error) {
+	panic("unimplemented")
 }

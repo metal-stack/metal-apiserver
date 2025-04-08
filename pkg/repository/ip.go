@@ -67,20 +67,21 @@ func (r *ipRepository) ValidateCreate(ctx context.Context, req *apiv2.IPServiceC
 	}, nil
 }
 
-func (r *ipRepository) ValidateUpdate(ctx context.Context, req *apiv2.IPServiceUpdateRequest) (*Validated[*apiv2.IPServiceUpdateRequest], error) {
-	old, err := r.Find(ctx, &apiv2.IPQuery{Ip: &req.Ip, Project: &req.Project})
+func (r *ipRepository) ValidateUpdate(ctx context.Context, req *apiv2.IPServiceUpdateRequest) (*ValidatedUpdate[*metal.IP, *apiv2.IPServiceUpdateRequest], error) {
+	e, err := r.Find(ctx, &apiv2.IPQuery{Ip: &req.Ip, Project: &req.Project})
 	if err != nil {
 		return nil, err
 	}
 
 	if req.Type != nil {
-		if old.Type == metal.Static && *req.Type != apiv2.IPType_IP_TYPE_STATIC {
+		if e.Type == metal.Static && *req.Type != apiv2.IPType_IP_TYPE_STATIC {
 			return nil, errorutil.InvalidArgument("cannot change type of ip address from static to ephemeral")
 		}
 	}
 
-	return &Validated[*apiv2.IPServiceUpdateRequest]{
+	return &ValidatedUpdate[*metal.IP, *apiv2.IPServiceUpdateRequest]{
 		message: req,
+		entity:  e,
 	}, nil
 }
 
@@ -236,20 +237,19 @@ func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServic
 	return resp, nil
 }
 
-func (r *ipRepository) Update(ctx context.Context, req *Validated[*apiv2.IPServiceUpdateRequest]) (*metal.IP, error) {
-	rq := req.message
+func (r *ipRepository) Update(ctx context.Context, u *ValidatedUpdate[*metal.IP, *apiv2.IPServiceUpdateRequest]) (*metal.IP, error) {
+	rq := u.message
 	old, err := r.Get(ctx, rq.Ip)
 	if err != nil {
 		return nil, err
 	}
 
 	new := *old
-
 	if rq.Description != nil {
-		new.Description = *rq.Description
+		u.entity.Description = *rq.Description
 	}
 	if rq.Name != nil {
-		new.Name = *rq.Name
+		u.entity.Name = *rq.Name
 	}
 	if rq.Type != nil {
 		var t metal.IPType
@@ -261,14 +261,14 @@ func (r *ipRepository) Update(ctx context.Context, req *Validated[*apiv2.IPServi
 		case apiv2.IPType_IP_TYPE_UNSPECIFIED.String():
 			return nil, errorutil.InvalidArgument("ip type cannot be unspecified: %s", rq.Type)
 		}
-		new.Type = t
+		u.entity.Type = t
 	}
 	if rq.Labels != nil {
 		tags := tag.TagMap(rq.Labels.Labels).Slice()
-		new.Tags = tags
+		u.entity.Tags = tags
 	}
 
-	err = r.r.ds.IP().Update(ctx, &new, old)
+	err = r.r.ds.IP().Update(ctx, &new)
 	if err != nil {
 		return nil, err
 	}

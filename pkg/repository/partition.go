@@ -97,14 +97,24 @@ func (p *partitionRepository) ValidateDelete(ctx context.Context, req *metal.Par
 }
 
 // ValidateUpdate implements Partition.
-func (p *partitionRepository) ValidateUpdate(ctx context.Context, req *adminv2.PartitionServiceUpdateRequest) (*Validated[*adminv2.PartitionServiceUpdateRequest], error) {
+func (p *partitionRepository) ValidateUpdate(ctx context.Context, req *adminv2.PartitionServiceUpdateRequest) (*ValidatedUpdate[*metal.Partition, *adminv2.PartitionServiceUpdateRequest], error) {
 	partition := req.Partition
+
 	err := validatePartition(ctx, partition)
 	if err != nil {
 		return nil, err
 	}
-	return &Validated[*adminv2.PartitionServiceUpdateRequest]{
+
+	old, err := p.Get(ctx, partition.Id)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
+	// validate updates against old entity can go here
+
+	return &ValidatedUpdate[*metal.Partition, *adminv2.PartitionServiceUpdateRequest]{
 		message: req,
+		entity:  old,
 	}, nil
 }
 
@@ -149,23 +159,21 @@ func (p *partitionRepository) Get(ctx context.Context, id string) (*metal.Partit
 }
 
 // Update implements Partition.
-func (p *partitionRepository) Update(ctx context.Context, req *Validated[*adminv2.PartitionServiceUpdateRequest]) (*metal.Partition, error) {
-	partition := req.message.Partition
-
-	old, err := p.Get(ctx, partition.Id)
-	if err != nil {
-		return nil, err
-	}
+func (p *partitionRepository) Update(ctx context.Context, u *ValidatedUpdate[*metal.Partition, *adminv2.PartitionServiceUpdateRequest]) (*metal.Partition, error) {
+	partition := u.message.Partition
 
 	new, err := p.ConvertToInternal(partition)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	err = p.r.ds.Partition().Update(ctx, new, old)
+	new.SetChanged(u.entity.Changed)
+
+	err = p.r.ds.Partition().Update(ctx, new)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
+
 	return new, nil
 }
 

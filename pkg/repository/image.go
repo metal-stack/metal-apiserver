@@ -56,11 +56,12 @@ func (r *imageRepository) ValidateCreate(ctx context.Context, req *adminv2.Image
 	}, nil
 }
 
-func (r *imageRepository) ValidateUpdate(ctx context.Context, req *adminv2.ImageServiceUpdateRequest) (*Validated[*adminv2.ImageServiceUpdateRequest], error) {
+func (r *imageRepository) ValidateUpdate(ctx context.Context, req *adminv2.ImageServiceUpdateRequest) (*ValidatedUpdate[*metal.Image, *adminv2.ImageServiceUpdateRequest], error) {
 	image := req.Image
 	if image.Id == "" {
 		return nil, errorutil.InvalidArgument("image id must not be empty")
 	}
+
 	if image.Url != "" {
 		if err := checkIfUrlExists(ctx, "image", image.Id, image.Url); err != nil {
 			return nil, errorutil.NewInvalidArgument(err)
@@ -83,10 +84,19 @@ func (r *imageRepository) ValidateUpdate(ctx context.Context, req *adminv2.Image
 		}
 	}
 
-	return &Validated[*adminv2.ImageServiceUpdateRequest]{
+	old, err := r.r.ds.Image().Get(ctx, image.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	// validate updates against old entity can go here
+
+	return &ValidatedUpdate[*metal.Image, *adminv2.ImageServiceUpdateRequest]{
 		message: req,
+		entity:  old,
 	}, nil
 }
+
 func (r *imageRepository) ValidateDelete(ctx context.Context, req *metal.Image) (*Validated[*metal.Image], error) {
 	// TODO implement, deletion should only be possible if no machine/firewall allocation with this image exist
 	// can be done once the machine repository is here
@@ -124,48 +134,42 @@ func (r *imageRepository) Create(ctx context.Context, rq *Validated[*adminv2.Ima
 	return resp, nil
 }
 
-func (r *imageRepository) Update(ctx context.Context, rq *Validated[*adminv2.ImageServiceUpdateRequest]) (*metal.Image, error) {
+func (r *imageRepository) Update(ctx context.Context, rq *ValidatedUpdate[*metal.Image, *adminv2.ImageServiceUpdateRequest]) (*metal.Image, error) {
 	image := rq.message.Image
 
-	old, err := r.Get(ctx, image.Id)
-	if err != nil {
-		return nil, err
-	}
-	new := *old
-
 	if image.Name != nil {
-		new.Name = *image.Name
+		rq.entity.Name = *image.Name
 	}
 	if image.Description != nil {
-		new.Description = *image.Description
+		rq.entity.Description = *image.Description
 	}
 	if image.ExpiresAt != nil {
-		new.ExpirationDate = image.ExpiresAt.AsTime()
+		rq.entity.ExpirationDate = image.ExpiresAt.AsTime()
 	}
 	if image.Classification != apiv2.ImageClassification_IMAGE_CLASSIFICATION_UNSPECIFIED {
 		classification, err := metal.VersionClassificationFrom(image.Classification)
 		if err != nil {
 			return nil, err
 		}
-		new.Classification = classification
+		rq.entity.Classification = classification
 	}
 	if len(image.Features) != 0 {
 		features, err := metal.ImageFeaturesFrom(image.Features)
 		if err != nil {
 			return nil, err
 		}
-		new.Features = features
+		rq.entity.Features = features
 	}
 	if image.Url != "" {
-		new.URL = image.Url
+		rq.entity.URL = image.Url
 	}
 
-	err = r.r.ds.Image().Update(ctx, &new, old)
+	err := r.r.ds.Image().Update(ctx, rq.entity)
 	if err != nil {
 		return nil, err
 	}
 
-	return &new, nil
+	return rq.entity, nil
 }
 
 func (r *imageRepository) Delete(ctx context.Context, rq *Validated[*metal.Image]) (*metal.Image, error) {

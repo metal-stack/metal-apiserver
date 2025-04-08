@@ -25,8 +25,8 @@ func (r *networkRepository) ValidateCreate(ctx context.Context, req *apiv2.Netwo
 	}, nil
 }
 
-func (r *networkRepository) ValidateUpdate(ctx context.Context, req *apiv2.NetworkServiceUpdateRequest) (*Validated[*apiv2.NetworkServiceUpdateRequest], error) {
-	return &Validated[*apiv2.NetworkServiceUpdateRequest]{
+func (r *networkRepository) ValidateUpdate(ctx context.Context, req *apiv2.NetworkServiceUpdateRequest) (*ValidatedUpdate[*metal.Network, *apiv2.NetworkServiceUpdateRequest], error) {
+	return &ValidatedUpdate[*metal.Network, *apiv2.NetworkServiceUpdateRequest]{
 		message: req,
 	}, nil
 }
@@ -142,7 +142,7 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*apiv2.Net
 	return resp, nil
 }
 
-func (r *networkRepository) Update(ctx context.Context, msg *Validated[*apiv2.NetworkServiceUpdateRequest]) (*metal.Network, error) {
+func (r *networkRepository) Update(ctx context.Context, msg *ValidatedUpdate[*metal.Network, *apiv2.NetworkServiceUpdateRequest]) (*metal.Network, error) {
 	panic("unimplemented")
 }
 func (r *networkRepository) Find(ctx context.Context, query *apiv2.NetworkServiceListRequest) (*metal.Network, error) {
