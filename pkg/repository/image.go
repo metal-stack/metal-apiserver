@@ -23,87 +23,72 @@ type imageRepository struct {
 	r *Store
 }
 
-func (r *imageRepository) validateCreate(ctx context.Context, req *adminv2.ImageServiceCreateRequest) (*validated[*adminv2.ImageServiceCreateRequest], error) {
+func (r *imageRepository) validateCreate(ctx context.Context, req *adminv2.ImageServiceCreateRequest) error {
 	image := req.Image
 	if image.Id == "" {
-		return nil, errorutil.InvalidArgument("image id must not be empty")
+		return errorutil.InvalidArgument("image id must not be empty")
 	}
 	if image.Url == "" {
-		return nil, errorutil.InvalidArgument("image url must not be empty")
+		return errorutil.InvalidArgument("image url must not be empty")
 	}
 	if err := checkIfUrlExists(ctx, "image", image.Id, image.Url); err != nil {
-		return nil, errorutil.NewInvalidArgument(err)
+		return errorutil.NewInvalidArgument(err)
 	}
 	if len(image.Features) == 0 {
-		return nil, errorutil.InvalidArgument("image features must not be empty")
+		return errorutil.InvalidArgument("image features must not be empty")
 	}
 	if _, err := metal.ImageFeaturesFrom(image.Features); err != nil {
-		return nil, errorutil.NewInvalidArgument(err)
+		return errorutil.NewInvalidArgument(err)
 	}
 	if _, err := metal.VersionClassificationFrom(image.Classification); err != nil {
-		return nil, errorutil.NewInvalidArgument(err)
+		return errorutil.NewInvalidArgument(err)
 	}
 	if _, _, err := metalcommon.GetOsAndSemverFromImage(image.Id); err != nil {
-		return nil, errorutil.NewInvalidArgument(err)
+		return errorutil.NewInvalidArgument(err)
 	}
 	if image.ExpiresAt != nil && !image.ExpiresAt.AsTime().IsZero() {
 		if image.ExpiresAt.AsTime().Before(time.Now()) {
-			return nil, errorutil.InvalidArgument("image expiresAt must be in the future")
+			return errorutil.InvalidArgument("image expiresAt must be in the future")
 		}
 	}
-	return &validated[*adminv2.ImageServiceCreateRequest]{
-		entity: req,
-	}, nil
+	return nil
 }
 
-func (r *imageRepository) validateUpdate(ctx context.Context, req *adminv2.ImageServiceUpdateRequest, old *metal.Image) (*validatedUpdate[*metal.Image, *adminv2.ImageServiceUpdateRequest], error) {
+func (r *imageRepository) validateUpdate(ctx context.Context, req *adminv2.ImageServiceUpdateRequest, _ *metal.Image) error {
 	image := req.Image
 	if image.Id == "" {
-		return nil, errorutil.InvalidArgument("image id must not be empty")
+		return errorutil.InvalidArgument("image id must not be empty")
 	}
-
 	if image.Url != "" {
 		if err := checkIfUrlExists(ctx, "image", image.Id, image.Url); err != nil {
-			return nil, errorutil.NewInvalidArgument(err)
+			return errorutil.NewInvalidArgument(err)
 		}
 	}
 	if len(image.Features) >= 0 {
 		if _, err := metal.ImageFeaturesFrom(image.Features); err != nil {
-			return nil, errorutil.NewInvalidArgument(err)
+			return errorutil.NewInvalidArgument(err)
 		}
 	}
 	if _, err := metal.VersionClassificationFrom(image.Classification); err != nil {
-		return nil, errorutil.NewInvalidArgument(err)
+		return errorutil.NewInvalidArgument(err)
 	}
 	if _, _, err := metalcommon.GetOsAndSemverFromImage(image.Id); err != nil {
-		return nil, errorutil.NewInvalidArgument(err)
+		return errorutil.NewInvalidArgument(err)
 	}
 	if image.ExpiresAt != nil && !image.ExpiresAt.AsTime().IsZero() {
 		if image.ExpiresAt.AsTime().Before(time.Now()) {
-			return nil, errorutil.InvalidArgument("image expiresAt must be in the future")
+			return errorutil.InvalidArgument("image expiresAt must be in the future")
 		}
 	}
 
-	old, err := r.r.ds.Image().Get(ctx, image.Id)
-	if err != nil {
-		return nil, err
-	}
-
-	// validate updates against old entity can go here
-
-	return &validatedUpdate[*metal.Image, *adminv2.ImageServiceUpdateRequest]{
-		message: req,
-		entity:  old,
-	}, nil
+	return nil
 }
 
-func (r *imageRepository) validateDelete(ctx context.Context, e *metal.Image) (*validatedDelete[*metal.Image], error) {
+func (r *imageRepository) validateDelete(ctx context.Context, req *metal.Image) error {
 	// TODO implement, deletion should only be possible if no machine/firewall allocation with this image exist
 	// can be done once the machine repository is here
 
-	return &validatedDelete[*metal.Image]{
-		entity: e,
-	}, nil
+	return nil
 }
 
 func (r *imageRepository) get(ctx context.Context, id string) (*metal.Image, error) {
@@ -116,12 +101,12 @@ func (r *imageRepository) get(ctx context.Context, id string) (*metal.Image, err
 }
 
 // Image is not project scoped
-func (r *imageRepository) matchScope(_ *metal.Image) error {
-	return nil
+func (r *imageRepository) matchScope(_ *metal.Image) bool {
+	return true
 }
 
-func (r *imageRepository) create(ctx context.Context, rq *validated[*adminv2.ImageServiceCreateRequest]) (*metal.Image, error) {
-	fsl, err := r.convertToInternal(rq.entity.Image)
+func (r *imageRepository) create(ctx context.Context, rq *adminv2.ImageServiceCreateRequest) (*metal.Image, error) {
+	fsl, err := r.convertToInternal(rq.Image)
 	if err != nil {
 		return nil, err
 	}
@@ -134,51 +119,57 @@ func (r *imageRepository) create(ctx context.Context, rq *validated[*adminv2.Ima
 	return resp, nil
 }
 
-func (r *imageRepository) update(ctx context.Context, rq *validatedUpdate[*metal.Image, *adminv2.ImageServiceUpdateRequest]) (*metal.Image, error) {
-	image := rq.message.Image
+func (r *imageRepository) update(ctx context.Context, e *metal.Image, rq *adminv2.ImageServiceUpdateRequest) (*metal.Image, error) {
+	image := rq.Image
+
+	old, err := r.get(ctx, image.Id)
+	if err != nil {
+		return nil, err
+	}
+	new := *old
 
 	if image.Name != nil {
-		rq.entity.Name = *image.Name
+		new.Name = *image.Name
 	}
 	if image.Description != nil {
-		rq.entity.Description = *image.Description
+		new.Description = *image.Description
 	}
 	if image.ExpiresAt != nil {
-		rq.entity.ExpirationDate = image.ExpiresAt.AsTime()
+		new.ExpirationDate = image.ExpiresAt.AsTime()
 	}
 	if image.Classification != apiv2.ImageClassification_IMAGE_CLASSIFICATION_UNSPECIFIED {
 		classification, err := metal.VersionClassificationFrom(image.Classification)
 		if err != nil {
 			return nil, err
 		}
-		rq.entity.Classification = classification
+		new.Classification = classification
 	}
 	if len(image.Features) != 0 {
 		features, err := metal.ImageFeaturesFrom(image.Features)
 		if err != nil {
 			return nil, err
 		}
-		rq.entity.Features = features
+		new.Features = features
 	}
 	if image.Url != "" {
-		rq.entity.URL = image.Url
+		new.URL = image.Url
 	}
 
-	err := r.r.ds.Image().Update(ctx, rq.entity)
+	err = r.r.ds.Image().Update(ctx, &new)
 	if err != nil {
 		return nil, err
 	}
 
-	return rq.entity, nil
+	return &new, nil
 }
 
-func (r *imageRepository) delete(ctx context.Context, rq *validatedDelete[*metal.Image]) (*metal.Image, error) {
-	err := r.r.ds.Image().Delete(ctx, rq.entity)
+func (r *imageRepository) delete(ctx context.Context, e *metal.Image) error {
+	err := r.r.ds.Image().Delete(ctx, e)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return rq.entity, nil
+	return nil
 }
 
 func (r *imageRepository) find(ctx context.Context, rq *apiv2.ImageQuery) (*metal.Image, error) {

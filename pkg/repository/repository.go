@@ -11,20 +11,6 @@ import (
 )
 
 type (
-	validated[M any] struct {
-		entity M
-	}
-
-	validatedDelete[E any] struct {
-		entity E
-	}
-	validatedUpdate[E Entity, M any] struct {
-		message M
-		// entity is the fetched entity at the point of the validation.
-		// it can be modified for the update and used for applying the update in the update function.
-		entity E
-	}
-
 	Repository[S any, E Entity, M Message, C CreateMessage, U UpdateMessage, Q Query] interface {
 		Get(ctx context.Context, id string) (E, error)
 
@@ -46,14 +32,14 @@ type (
 	repository[E Entity, M Message, C CreateMessage, U UpdateMessage, Q Query] interface {
 		get(ctx context.Context, id string) (E, error)
 
-		validateCreate(ctx context.Context, create C) (*validated[C], error)
-		create(ctx context.Context, c *validated[C]) (E, error)
+		validateCreate(ctx context.Context, create C) error
+		create(ctx context.Context, c C) (E, error)
 
-		validateUpdate(ctx context.Context, msg U, old E) (*validatedUpdate[E, U], error)
-		update(ctx context.Context, msg *validatedUpdate[E, U]) (E, error)
+		validateUpdate(ctx context.Context, msg U, old E) error
+		update(ctx context.Context, e E, msg U) (E, error)
 
-		validateDelete(ctx context.Context, e E) (*validatedDelete[E], error)
-		delete(ctx context.Context, e *validatedDelete[E]) (E, error)
+		validateDelete(ctx context.Context, e E) error
+		delete(ctx context.Context, e E) error
 
 		find(ctx context.Context, query Q) (E, error)
 		list(ctx context.Context, query Q) ([]E, error)
@@ -61,7 +47,7 @@ type (
 		convertToInternal(msg M) (E, error)
 		convertToProto(e E) (M, error)
 
-		matchScope(e E) error
+		matchScope(e E) bool
 	}
 
 	Entity        any

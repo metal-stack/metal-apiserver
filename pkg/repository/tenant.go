@@ -15,38 +15,32 @@ type tenantRepository struct {
 }
 
 // ValidateCreate implements Tenant.
-func (t *tenantRepository) validateCreate(ctx context.Context, create *apiv2.TenantServiceCreateRequest) (*validated[*apiv2.TenantServiceCreateRequest], error) {
-	return &validated[*apiv2.TenantServiceCreateRequest]{
-		entity: create,
-	}, nil
+func (t *tenantRepository) validateCreate(ctx context.Context, create *apiv2.TenantServiceCreateRequest) error {
+	return nil
 }
 
 // ValidateDelete implements Tenant.
-func (t *tenantRepository) validateDelete(ctx context.Context, e *mdcv1.Tenant) (*validatedDelete[*mdcv1.Tenant], error) {
-	return &validatedDelete[*mdcv1.Tenant]{
-		entity: e,
-	}, nil
+func (t *tenantRepository) validateDelete(ctx context.Context, e *mdcv1.Tenant) error {
+	return nil
 }
 
 // ValidateUpdate implements Tenant.
-func (t *tenantRepository) validateUpdate(ctx context.Context, msg *apiv2.TenantServiceUpdateRequest, old *mdcv1.Tenant) (*validatedUpdate[*mdcv1.Tenant, *apiv2.TenantServiceUpdateRequest], error) {
-	return &validatedUpdate[*mdcv1.Tenant, *apiv2.TenantServiceUpdateRequest]{
-		message: msg,
-	}, nil
+func (t *tenantRepository) validateUpdate(ctx context.Context, msg *apiv2.TenantServiceUpdateRequest, _ *mdcv1.Tenant) error {
+	return nil
 }
 
 // Create implements Tenant.
-func (t *tenantRepository) create(ctx context.Context, c *validated[*apiv2.TenantServiceCreateRequest]) (*mdcv1.Tenant, error) {
+func (t *tenantRepository) create(ctx context.Context, rq *apiv2.TenantServiceCreateRequest) (*mdcv1.Tenant, error) {
 	// FIXME howto set the avatarurl during create ??
 	tenant := &mdcv1.Tenant{
 		Meta: &mdcv1.Meta{
-			Id: c.entity.Name,
+			Id: rq.Name,
 		},
-		Name: c.entity.Name,
+		Name: rq.Name,
 	}
 
-	if c.entity.Description != nil {
-		tenant.Description = *c.entity.Description
+	if rq.Description != nil {
+		tenant.Description = *rq.Description
 	}
 
 	resp, err := t.r.mdc.Tenant().Create(ctx, &mdcv1.TenantCreateRequest{Tenant: tenant})
@@ -58,7 +52,7 @@ func (t *tenantRepository) create(ctx context.Context, c *validated[*apiv2.Tenan
 }
 
 // Delete implements Tenant.
-func (t *tenantRepository) delete(ctx context.Context, e *validatedDelete[*mdcv1.Tenant]) (*mdcv1.Tenant, error) {
+func (t *tenantRepository) delete(ctx context.Context, e *mdcv1.Tenant) error {
 	panic("unimplemented")
 }
 
@@ -83,12 +77,12 @@ func (t *tenantRepository) list(ctx context.Context, query *apiv2.TenantServiceL
 }
 
 // MatchScope implements Tenant.
-func (t *tenantRepository) matchScope(e *mdcv1.Tenant) error {
+func (t *tenantRepository) matchScope(e *mdcv1.Tenant) bool {
 	panic("unimplemented")
 }
 
 // Update implements Tenant.
-func (t *tenantRepository) update(ctx context.Context, msg *validatedUpdate[*mdcv1.Tenant, *apiv2.TenantServiceUpdateRequest]) (*mdcv1.Tenant, error) {
+func (t *tenantRepository) update(ctx context.Context, e *mdcv1.Tenant, msg *apiv2.TenantServiceUpdateRequest) (*mdcv1.Tenant, error) {
 	panic("unimplemented")
 }
 

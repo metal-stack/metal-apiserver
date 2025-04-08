@@ -75,45 +75,34 @@ func validatePartition(ctx context.Context, partition *apiv2.Partition) error {
 }
 
 // ValidateCreate implements Partition.
-func (p *partitionRepository) validateCreate(ctx context.Context, req *adminv2.PartitionServiceCreateRequest) (*validated[*adminv2.PartitionServiceCreateRequest], error) {
+func (p *partitionRepository) validateCreate(ctx context.Context, req *adminv2.PartitionServiceCreateRequest) error {
 	partition := req.Partition
 	err := validatePartition(ctx, partition)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return &validated[*adminv2.PartitionServiceCreateRequest]{
-		entity: req,
-	}, nil
+	return nil
 }
 
 // ValidateDelete implements Partition.
-func (p *partitionRepository) validateDelete(ctx context.Context, e *metal.Partition) (*validatedDelete[*metal.Partition], error) {
-
+func (p *partitionRepository) validateDelete(ctx context.Context, req *metal.Partition) error {
 	// FIXME all entities with partition relation must be deleted before
-
-	return &validatedDelete[*metal.Partition]{
-		entity: e,
-	}, nil
+	return nil
 }
 
 // ValidateUpdate implements Partition.
-func (p *partitionRepository) validateUpdate(ctx context.Context, req *adminv2.PartitionServiceUpdateRequest, old *metal.Partition) (*validatedUpdate[*metal.Partition, *adminv2.PartitionServiceUpdateRequest], error) {
+func (p *partitionRepository) validateUpdate(ctx context.Context, req *adminv2.PartitionServiceUpdateRequest, _ *metal.Partition) error {
 	partition := req.Partition
-
 	err := validatePartition(ctx, partition)
 	if err != nil {
-		return nil, err
+		return err
 	}
-
-	return &validatedUpdate[*metal.Partition, *adminv2.PartitionServiceUpdateRequest]{
-		message: req,
-		entity:  old,
-	}, nil
+	return nil
 }
 
 // Create implements Partition.
-func (p *partitionRepository) create(ctx context.Context, c *validated[*adminv2.PartitionServiceCreateRequest]) (*metal.Partition, error) {
-	partition, err := p.convertToInternal(c.entity.Partition)
+func (p *partitionRepository) create(ctx context.Context, c *adminv2.PartitionServiceCreateRequest) (*metal.Partition, error) {
+	partition, err := p.convertToInternal(c.Partition)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -127,13 +116,13 @@ func (p *partitionRepository) create(ctx context.Context, c *validated[*adminv2.
 }
 
 // Delete implements Partition.
-func (p *partitionRepository) delete(ctx context.Context, e *validatedDelete[*metal.Partition]) (*metal.Partition, error) {
-	err := p.r.ds.Partition().Delete(ctx, e.entity)
+func (p *partitionRepository) delete(ctx context.Context, e *metal.Partition) error {
+	err := p.r.ds.Partition().Delete(ctx, e)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return errorutil.Convert(err)
 	}
 
-	return e.entity, nil
+	return nil
 }
 
 // Get implements Partition.
@@ -147,21 +136,20 @@ func (p *partitionRepository) get(ctx context.Context, id string) (*metal.Partit
 }
 
 // Update implements Partition.
-func (p *partitionRepository) update(ctx context.Context, u *validatedUpdate[*metal.Partition, *adminv2.PartitionServiceUpdateRequest]) (*metal.Partition, error) {
-	partition := u.message.Partition
+func (p *partitionRepository) update(ctx context.Context, e *metal.Partition, req *adminv2.PartitionServiceUpdateRequest) (*metal.Partition, error) {
+	partition := req.Partition
 
 	new, err := p.convertToInternal(partition)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	new.SetChanged(u.entity.Changed)
+	new.SetChanged(e.Changed)
 
 	err = p.r.ds.Partition().Update(ctx, new)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-
 	return new, nil
 }
 
@@ -184,9 +172,9 @@ func (p *partitionRepository) list(ctx context.Context, query *apiv2.PartitionQu
 }
 
 // MatchScope implements Partition.
-func (p *partitionRepository) matchScope(e *metal.Partition) error {
+func (p *partitionRepository) matchScope(e *metal.Partition) bool {
 	// Not Project Scoped
-	return nil
+	return true
 }
 
 // ConvertToInternal implements Partition.

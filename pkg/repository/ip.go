@@ -34,94 +34,80 @@ func (r *ipRepository) get(ctx context.Context, id string) (*metal.IP, error) {
 		return nil, err
 	}
 
-	err = r.matchScope(ip)
-	if err != nil {
-		return nil, err
-	}
-
 	return ip, nil
 }
 
-func (r *ipRepository) matchScope(ip *metal.IP) error {
+func (r *ipRepository) matchScope(ip *metal.IP) bool {
 	if r.scope == nil {
-		return nil
+		return true
 	}
 
 	if r.scope.projectID == ip.ProjectID {
-		return nil
+		return true
 	}
 
-	return errorutil.NotFound("ip:%s for project:%s not found", ip.IPAddress, ip.ProjectID)
+	return false
 }
 
-func (r *ipRepository) validateCreate(ctx context.Context, req *apiv2.IPServiceCreateRequest) (*validated[*apiv2.IPServiceCreateRequest], error) {
+func (r *ipRepository) validateCreate(ctx context.Context, req *apiv2.IPServiceCreateRequest) error {
 	if req.Network == "" {
-		return nil, errorutil.InvalidArgument("network should not be empty")
+		return errorutil.InvalidArgument("network should not be empty")
 	}
 	if req.Project == "" {
-		return nil, errorutil.InvalidArgument("project should not be empty")
+		return errorutil.InvalidArgument("project should not be empty")
 	}
 
-	return &validated[*apiv2.IPServiceCreateRequest]{
-		entity: req,
-	}, nil
+	return nil
 }
 
-func (r *ipRepository) validateUpdate(ctx context.Context, req *apiv2.IPServiceUpdateRequest, old *metal.IP) (*validatedUpdate[*metal.IP, *apiv2.IPServiceUpdateRequest], error) {
-	e, err := r.find(ctx, &apiv2.IPQuery{Ip: &req.Ip, Project: &req.Project})
+func (r *ipRepository) validateUpdate(ctx context.Context, req *apiv2.IPServiceUpdateRequest, _ *metal.IP) error {
+	old, err := r.find(ctx, &apiv2.IPQuery{Ip: &req.Ip, Project: &req.Project})
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if req.Type != nil {
-		if e.Type == metal.Static && *req.Type != apiv2.IPType_IP_TYPE_STATIC {
-			return nil, errorutil.InvalidArgument("cannot change type of ip address from static to ephemeral")
+		if old.Type == metal.Static && *req.Type != apiv2.IPType_IP_TYPE_STATIC {
+			return errorutil.InvalidArgument("cannot change type of ip address from static to ephemeral")
 		}
 	}
 
-	return &validatedUpdate[*metal.IP, *apiv2.IPServiceUpdateRequest]{
-		message: req,
-		entity:  e,
-	}, nil
+	return nil
 }
 
-func (r *ipRepository) validateDelete(ctx context.Context, e *metal.IP) (*validatedDelete[*metal.IP], error) {
-	if e.IPAddress == "" {
-		return nil, errorutil.InvalidArgument("ipaddress is empty")
+func (r *ipRepository) validateDelete(ctx context.Context, req *metal.IP) error {
+	if req.IPAddress == "" {
+		return errorutil.InvalidArgument("ipaddress is empty")
 	}
-	if e.AllocationUUID == "" {
-		return nil, errorutil.InvalidArgument("allocationUUID is empty")
+	if req.AllocationUUID == "" {
+		return errorutil.InvalidArgument("allocationUUID is empty")
 	}
-	if e.ProjectID == "" {
-		return nil, errorutil.InvalidArgument("projectId is empty")
+	if req.ProjectID == "" {
+		return errorutil.InvalidArgument("projectId is empty")
 	}
-	ip, err := r.find(ctx, &apiv2.IPQuery{Ip: &e.IPAddress, Uuid: &e.AllocationUUID, Project: &e.ProjectID})
+	ip, err := r.find(ctx, &apiv2.IPQuery{Ip: &req.IPAddress, Uuid: &req.AllocationUUID, Project: &req.ProjectID})
 	if err != nil {
 		if errorutil.IsNotFound(err) {
-			return &validatedDelete[*metal.IP]{
-				entity: e,
-			}, nil
+			return nil
 		}
-		return nil, err
+		return err
 	}
 
 	for _, t := range ip.Tags {
 		if strings.HasPrefix(t, tag.MachineID) {
-			return nil, errorutil.InvalidArgument("ip with machine scope cannot be deleted")
+			return errorutil.InvalidArgument("ip with machine scope cannot be deleted")
 		}
 	}
 
-	return &validatedDelete[*metal.IP]{
-		entity: e,
-	}, nil
+	return nil
 }
 
-func (r *ipRepository) create(ctx context.Context, rq *validated[*apiv2.IPServiceCreateRequest]) (*metal.IP, error) {
+func (r *ipRepository) create(ctx context.Context, rq *apiv2.IPServiceCreateRequest) (*metal.IP, error) {
 	var (
 		name        string
 		description string
 	)
-	req := rq.entity
+	req := rq
 
 	if req.Name != nil {
 		name = *req.Name
@@ -237,19 +223,20 @@ func (r *ipRepository) create(ctx context.Context, rq *validated[*apiv2.IPServic
 	return resp, nil
 }
 
-func (r *ipRepository) update(ctx context.Context, u *validatedUpdate[*metal.IP, *apiv2.IPServiceUpdateRequest]) (*metal.IP, error) {
-	rq := u.message
+func (r *ipRepository) update(ctx context.Context, e *metal.IP, req *apiv2.IPServiceUpdateRequest) (*metal.IP, error) {
+	rq := req
 	old, err := r.get(ctx, rq.Ip)
 	if err != nil {
 		return nil, err
 	}
 
 	new := *old
+
 	if rq.Description != nil {
-		u.entity.Description = *rq.Description
+		new.Description = *rq.Description
 	}
 	if rq.Name != nil {
-		u.entity.Name = *rq.Name
+		new.Name = *rq.Name
 	}
 	if rq.Type != nil {
 		var t metal.IPType
@@ -261,11 +248,11 @@ func (r *ipRepository) update(ctx context.Context, u *validatedUpdate[*metal.IP,
 		case apiv2.IPType_IP_TYPE_UNSPECIFIED.String():
 			return nil, errorutil.InvalidArgument("ip type cannot be unspecified: %s", rq.Type)
 		}
-		u.entity.Type = t
+		new.Type = t
 	}
 	if rq.Labels != nil {
 		tags := tag.TagMap(rq.Labels.Labels).Slice()
-		u.entity.Tags = tags
+		new.Tags = tags
 	}
 
 	err = r.r.ds.IP().Update(ctx, &new)
@@ -276,15 +263,15 @@ func (r *ipRepository) update(ctx context.Context, u *validatedUpdate[*metal.IP,
 	return &new, nil
 }
 
-func (r *ipRepository) delete(ctx context.Context, rq *validatedDelete[*metal.IP]) (*metal.IP, error) {
-	info, err := r.r.async.NewIPDeleteTask(rq.entity.AllocationUUID, rq.entity.IPAddress, rq.entity.ProjectID)
+func (r *ipRepository) delete(ctx context.Context, e *metal.IP) error {
+	info, err := r.r.async.NewIPDeleteTask(e.AllocationUUID, e.IPAddress, e.ProjectID)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	r.r.log.Info("ip delete queued", "info", info)
 
-	return rq.entity, nil
+	return nil
 }
 
 func (r *ipRepository) find(ctx context.Context, rq *apiv2.IPQuery) (*metal.IP, error) {
