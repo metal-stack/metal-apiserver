@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	metalcommon "github.com/metal-stack/metal-lib/pkg/metal"
 )
 
@@ -200,14 +199,14 @@ func (f *FilesystemLayout) Validate() error {
 		for _, device := range raid.Devices {
 			_, ok := providedDevices[device]
 			if !ok {
-				return errorutil.InvalidArgument("device:%s not provided by disk for raid:%s", device, raid.ArrayName)
+				return fmt.Errorf("device:%s not provided by disk for raid:%s", device, raid.ArrayName)
 			}
 		}
 		providedDevices[raid.ArrayName] = true
 
 		_, ok := SupportedRaidLevels[raid.Level]
 		if !ok {
-			return errorutil.InvalidArgument("given raidlevel:%s is not supported", raid.Level)
+			return fmt.Errorf("given raidlevel:%s is not supported", raid.Level)
 		}
 	}
 
@@ -217,7 +216,7 @@ func (f *FilesystemLayout) Validate() error {
 		for _, device := range vg.Devices {
 			_, ok := providedDevices[device]
 			if !ok {
-				return errorutil.InvalidArgument("device:%s not provided by machine for vg:%s", device, vg.Name)
+				return fmt.Errorf("device:%s not provided by machine for vg:%s", device, vg.Name)
 			}
 		}
 		vgdevices[vg.Name] = len(vg.Devices)
@@ -231,12 +230,12 @@ func (f *FilesystemLayout) Validate() error {
 	for _, lv := range f.LogicalVolumes {
 		_, ok := vgdevices[lv.VolumeGroup]
 		if !ok {
-			return errorutil.InvalidArgument("volumegroup:%s not configured for lv:%s", lv.VolumeGroup, lv.Name)
+			return fmt.Errorf("volumegroup:%s not configured for lv:%s", lv.VolumeGroup, lv.Name)
 		}
 		// raid or striped lvmtype is only possible for more than one disk
 		if lv.LVMType == LVMTypeRaid1 || lv.LVMType == LVMTypeStriped {
 			if vgdevices[lv.VolumeGroup] < 2 {
-				return errorutil.InvalidArgument("fsl:%q lv:%s in vg:%s is configured for lvmtype:%s but has only %d disk, consider linear instead", f.ID, lv.Name, lv.VolumeGroup, lv.LVMType, vgdevices[lv.VolumeGroup])
+				return fmt.Errorf("fsl:%q lv:%s in vg:%s is configured for lvmtype:%s but has only %d disk, consider linear instead", f.ID, lv.Name, lv.VolumeGroup, lv.LVMType, vgdevices[lv.VolumeGroup])
 			}
 		}
 		providedDevices[path.Join("/dev/", lv.VolumeGroup, lv.Name)] = true
@@ -250,11 +249,11 @@ func (f *FilesystemLayout) Validate() error {
 		}
 		_, ok := providedDevices[fs.Device]
 		if !ok {
-			return errorutil.InvalidArgument("device:%s for filesystem:%s is not configured", fs.Device, *fs.Path)
+			return fmt.Errorf("device:%s for filesystem:%s is not configured", fs.Device, *fs.Path)
 		}
 		_, ok = SupportedFormats[fs.Format]
 		if !ok {
-			return errorutil.InvalidArgument("filesystem:%s format:%s is not supported", *fs.Path, fs.Format)
+			return fmt.Errorf("filesystem:%s format:%s is not supported", *fs.Path, fs.Format)
 		}
 		err := validateCreateOptions(fs.CreateOptions)
 		if err != nil {
@@ -274,7 +273,7 @@ func (f *FilesystemLayout) Validate() error {
 func validateCreateOptions(opts []string) error {
 	for _, opt := range opts {
 		if len(strings.Fields(opt)) > 1 {
-			return errorutil.InvalidArgument("the given createoption:%q contains whitespace and must be split into separate options", opt)
+			return fmt.Errorf("the given createoption:%q contains whitespace and must be split into separate options", opt)
 		}
 	}
 	return nil
@@ -284,7 +283,7 @@ func (c *FilesystemLayoutConstraints) validate() error {
 	// no pure wildcard in images
 	for os, vc := range c.Images {
 		if os == "*" {
-			return errorutil.InvalidArgument("just '*' is not allowed as image os constraint")
+			return fmt.Errorf("just '*' is not allowed as image os constraint")
 		}
 		// a single "*" is possible
 		if strings.TrimSpace(vc) == "*" {
@@ -300,13 +299,13 @@ func (c *FilesystemLayoutConstraints) validate() error {
 	// no wildcard in size
 	for _, s := range c.Sizes {
 		if strings.Contains(s, "*") {
-			return errorutil.InvalidArgument("no wildcard allowed in size constraint")
+			return fmt.Errorf("no wildcard allowed in size constraint")
 		}
 		_, ok := sizeSet[s]
 		if !ok {
 			sizeSet[s] = true
 		} else {
-			return errorutil.InvalidArgument("size %s is configured more than once", s)
+			return fmt.Errorf("size %s is configured more than once", s)
 		}
 	}
 	return nil
@@ -321,7 +320,7 @@ func convertToOpAndVersion(versionconstraint string) (string, *semver.Version, e
 	if len(parts) == 1 {
 		version, err := semver.NewVersion(parts[0])
 		if err != nil {
-			return "", nil, errorutil.InvalidArgument("given imageconstraint:%s is not valid, missing space between op and version? %w", parts[0], err)
+			return "", nil, fmt.Errorf("given imageconstraint:%s is not valid, missing space between op and version? %w", parts[0], err)
 		}
 		return "", version, nil
 	}
@@ -329,15 +328,15 @@ func convertToOpAndVersion(versionconstraint string) (string, *semver.Version, e
 		op := parts[0]
 		_, ok := validOPS[op]
 		if !ok {
-			return "", nil, errorutil.InvalidArgument("given imageconstraint op:%s is not supported", op)
+			return "", nil, fmt.Errorf("given imageconstraint op:%s is not supported", op)
 		}
 		version, err := semver.NewVersion(parts[1])
 		if err != nil {
-			return "", nil, errorutil.InvalidArgument("given version:%s is not valid:%w", parts[1], err)
+			return "", nil, fmt.Errorf("given version:%s is not valid:%w", parts[1], err)
 		}
 		return op, version, nil
 	}
-	return "", nil, errorutil.InvalidArgument("could not find a valid op or version in:%s", versionconstraint)
+	return "", nil, fmt.Errorf("could not find a valid op or version in:%s", versionconstraint)
 }
 
 // Validate ensures that for all Filesystemlayouts not more than one constraint matches the same size and image constraint
@@ -373,7 +372,7 @@ func (fls FilesystemLayouts) Validate() error {
 		}
 	}
 	if len(violations) > 0 {
-		return errorutil.InvalidArgument("these combinations already exist:%s", strings.Join(violations, ","))
+		return fmt.Errorf("these combinations already exist:%s", strings.Join(violations, ","))
 	}
 
 	return nil
@@ -383,7 +382,7 @@ func hasCollisions(versionConstraints []string) error {
 	// simple exclusion
 	for _, vc := range versionConstraints {
 		if strings.TrimSpace(vc) == "*" && len(versionConstraints) > 1 {
-			return errorutil.InvalidArgument("at least one `*` and more than one constraint")
+			return fmt.Errorf("at least one `*` and more than one constraint")
 		}
 	}
 
@@ -409,7 +408,7 @@ func hasCollisions(versionConstraints []string) error {
 				return err
 			}
 			if constrainti.Check(versionj) && constraintj.Check(versioni) {
-				return errorutil.InvalidArgument("constraint:%s overlaps:%s", constrainti, constraintj)
+				return fmt.Errorf("constraint:%s overlaps:%s", constrainti, constraintj)
 			}
 		}
 	}
@@ -431,7 +430,7 @@ func (d Disk) validate() error {
 
 		_, ok := partNumbers[partition.Number]
 		if ok {
-			return errorutil.InvalidArgument("device:%s partition number:%d given more than once", d.Device, partition.Number)
+			return fmt.Errorf("device:%s partition number:%d given more than once", d.Device, partition.Number)
 		}
 
 		partNumbers[partition.Number] = true
@@ -439,12 +438,12 @@ func (d Disk) validate() error {
 		if partition.GPTType != nil {
 			_, ok := SupportedGPTTypes[*partition.GPTType]
 			if !ok {
-				return errorutil.InvalidArgument("given GPTType:%s for partition:%d on disk:%s is not supported", *partition.GPTType, partition.Number, d.Device)
+				return fmt.Errorf("given GPTType:%s for partition:%d on disk:%s is not supported", *partition.GPTType, partition.Number, d.Device)
 			}
 		}
 	}
 	if hasVariablePartition && (parts[len(parts)-1] != 0) {
-		return errorutil.InvalidArgument("device:%s variable sized partition not the last one", d.Device)
+		return fmt.Errorf("device:%s variable sized partition not the last one", d.Device)
 	}
 	return nil
 }
@@ -458,7 +457,7 @@ func (lvms LogicalVolumes) validate() error {
 
 	for i, lvm := range lvms {
 		if lvm.Size == 0 && i != len(lvms)-1 {
-			return errorutil.InvalidArgument("lv:%s in vg:%s, variable sized lv must be the last", lvm.Name, lvm.VolumeGroup)
+			return fmt.Errorf("lv:%s in vg:%s, variable sized lv must be the last", lvm.Name, lvm.VolumeGroup)
 		}
 	}
 	return nil
@@ -498,7 +497,7 @@ func (fls FilesystemLayouts) From(size, image string) (*FilesystemLayout, error)
 			return fl, nil
 		}
 	}
-	return nil, errorutil.InvalidArgument("could not find a matching filesystemLayout for size:%s and image:%s", size, image)
+	return nil, fmt.Errorf("could not find a matching filesystemLayout for size:%s and image:%s", size, image)
 }
 
 // IsReinstallable returns true if at least one disk configures has WipeOnReInstall set, otherwise false
@@ -583,7 +582,7 @@ func ToFormat(format string) (*Format, error) {
 	f := Format(format)
 	_, ok := SupportedFormats[f]
 	if !ok {
-		return nil, errorutil.InvalidArgument("given format:%s is not supported, but:%s", format, supportedFormats())
+		return nil, fmt.Errorf("given format:%s is not supported, but:%s", format, supportedFormats())
 	}
 	return &f, nil
 }
@@ -592,7 +591,7 @@ func ToGPTType(gptType string) (*GPTType, error) {
 	g := GPTType(gptType)
 	_, ok := SupportedGPTTypes[g]
 	if !ok {
-		return nil, errorutil.InvalidArgument("given GPTType:%s is not supported, but:%s", gptType, supportedGPTTypes())
+		return nil, fmt.Errorf("given GPTType:%s is not supported, but:%s", gptType, supportedGPTTypes())
 	}
 	return &g, nil
 }
@@ -601,7 +600,7 @@ func ToRaidLevel(level string) (*RaidLevel, error) {
 	l := RaidLevel(level)
 	_, ok := SupportedRaidLevels[l]
 	if !ok {
-		return nil, errorutil.InvalidArgument("given raidlevel:%s is not supported, but:%s", level, supportedRaidLevels())
+		return nil, fmt.Errorf("given raidlevel:%s is not supported, but:%s", level, supportedRaidLevels())
 	}
 	return &l, nil
 }
@@ -610,7 +609,7 @@ func ToLVMType(lvmtype string) (*LVMType, error) {
 	l := LVMType(lvmtype)
 	_, ok := SupportedLVMTypes[l]
 	if !ok {
-		return nil, errorutil.InvalidArgument("given lvmtype:%s is not supported, but:%s", lvmtype, supportedLVMTypes())
+		return nil, fmt.Errorf("given lvmtype:%s is not supported, but:%s", lvmtype, supportedLVMTypes())
 	}
 	return &l, nil
 }

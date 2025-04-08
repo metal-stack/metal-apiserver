@@ -1,12 +1,14 @@
 package metal
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/go-cmp/cmp"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-lib/pkg/testcommon"
 )
 
 var (
@@ -393,7 +395,7 @@ func TestFilesystemLayout_Validate(t *testing.T) {
 				Filesystems: []Filesystem{{Path: strPtr("/boot"), Device: "/dev/sda1", Format: VFAT}},
 				Disks:       []Disk{{Device: "/dev/sda", Partitions: []DiskPartition{{Number: 1}}}},
 			},
-			wantErr: errorutil.InvalidArgument("just '*' is not allowed as image os constraint"),
+			wantErr: fmt.Errorf("just '*' is not allowed as image os constraint"),
 		},
 		{
 			id:   "fsl-3",
@@ -403,7 +405,7 @@ func TestFilesystemLayout_Validate(t *testing.T) {
 				Filesystems: []Filesystem{{Path: strPtr("/boot"), Device: "/dev/sda1", Format: VFAT}},
 				Disks:       []Disk{{Device: "/dev/sda", Partitions: []DiskPartition{{Number: 1}}}},
 			},
-			wantErr: errorutil.InvalidArgument("no wildcard allowed in size constraint"),
+			wantErr: fmt.Errorf("no wildcard allowed in size constraint"),
 		},
 		{
 			id:   "fsl-4",
@@ -413,7 +415,7 @@ func TestFilesystemLayout_Validate(t *testing.T) {
 				Filesystems: []Filesystem{{Path: strPtr("/boot"), Device: "/dev/sda1", Format: VFAT}},
 				Disks:       []Disk{{Device: "/dev/sda", Partitions: []DiskPartition{{Number: 1}}}},
 			},
-			wantErr: errorutil.InvalidArgument("size c1-large is configured more than once"),
+			wantErr: fmt.Errorf("size c1-large is configured more than once"),
 		},
 		{
 			id:   "fsl-5",
@@ -422,7 +424,7 @@ func TestFilesystemLayout_Validate(t *testing.T) {
 				Filesystems: []Filesystem{{Path: strPtr("/boot"), Device: "/dev/sda1", Format: VFAT}, {Path: strPtr("/"), Device: "/dev/sda2", Format: EXT4}},
 				Disks:       []Disk{{Device: "/dev/sda", Partitions: []DiskPartition{{Number: 1}}}},
 			},
-			wantErr: errorutil.InvalidArgument("device:/dev/sda2 for filesystem:/ is not configured"),
+			wantErr: fmt.Errorf("device:/dev/sda2 for filesystem:/ is not configured"),
 		},
 		{
 			id:   "fsl-6",
@@ -431,7 +433,7 @@ func TestFilesystemLayout_Validate(t *testing.T) {
 				Filesystems: []Filesystem{{Path: strPtr("/boot"), Device: "/dev/sda1", Format: "xfs"}},
 				Disks:       []Disk{{Device: "/dev/sda", Partitions: []DiskPartition{{Number: 1}}}},
 			},
-			wantErr: errorutil.InvalidArgument("filesystem:/boot format:xfs is not supported"),
+			wantErr: fmt.Errorf("filesystem:/boot format:xfs is not supported"),
 		},
 		{
 			id:   "fsl-7",
@@ -440,7 +442,7 @@ func TestFilesystemLayout_Validate(t *testing.T) {
 				Filesystems: []Filesystem{{Path: strPtr("/boot"), Device: "/dev/sda1", Format: "vfat"}},
 				Disks:       []Disk{{Device: "/dev/sda", Partitions: []DiskPartition{{Number: 1, GPTType: &GPTInvalid}}}},
 			},
-			wantErr: errorutil.InvalidArgument("given GPTType:ff00 for partition:1 on disk:/dev/sda is not supported"),
+			wantErr: fmt.Errorf("given GPTType:ff00 for partition:1 on disk:/dev/sda is not supported"),
 		},
 		{
 			id:   "fsl-8",
@@ -470,7 +472,7 @@ func TestFilesystemLayout_Validate(t *testing.T) {
 					{ArrayName: "/dev/md1", Devices: []string{"/dev/sda1", "/dev/sdb1"}, Level: "6"},
 				},
 			},
-			wantErr: errorutil.InvalidArgument("given raidlevel:6 is not supported"),
+			wantErr: fmt.Errorf("given raidlevel:6 is not supported"),
 		},
 		{
 			id:   "fsl-10",
@@ -482,7 +484,7 @@ func TestFilesystemLayout_Validate(t *testing.T) {
 					{Device: "/dev/sdb", Partitions: []DiskPartition{{Number: 1}}},
 				},
 			},
-			wantErr: errorutil.InvalidArgument("device:/dev/md1 for filesystem:/boot is not configured"),
+			wantErr: fmt.Errorf("device:/dev/md1 for filesystem:/boot is not configured"),
 		},
 		{
 			id:   "fsl-11",
@@ -497,7 +499,7 @@ func TestFilesystemLayout_Validate(t *testing.T) {
 					{ArrayName: "/dev/md1", Devices: []string{"/dev/sda2", "/dev/sdb2"}, Level: RaidLevel1},
 				},
 			},
-			wantErr: errorutil.InvalidArgument("device:/dev/sda2 not provided by disk for raid:/dev/md1"),
+			wantErr: fmt.Errorf("device:/dev/sda2 not provided by disk for raid:/dev/md1"),
 		},
 		{
 			id:   "fsl-12",
@@ -552,7 +554,7 @@ func TestFilesystemLayout_Validate(t *testing.T) {
 					{Name: "boot", VolumeGroup: "vgroot", Size: 100, LVMType: LVMTypeRaid1},
 				},
 			},
-			wantErr: errorutil.InvalidArgument("device:/dev/vg00/boot for filesystem:/boot is not configured"),
+			wantErr: fmt.Errorf("device:/dev/vg00/boot for filesystem:/boot is not configured"),
 		},
 		{
 			id:   "fsl-15",
@@ -572,7 +574,7 @@ func TestFilesystemLayout_Validate(t *testing.T) {
 					{Name: "/opt", VolumeGroup: "vgroot", Size: 20000000, LVMType: LVMTypeRaid1},
 				},
 			},
-			wantErr: errorutil.InvalidArgument("lv:/var in vg:vgroot, variable sized lv must be the last"),
+			wantErr: fmt.Errorf("lv:/var in vg:vgroot, variable sized lv must be the last"),
 		},
 		{
 			id:   "fsl-16",
@@ -590,7 +592,7 @@ func TestFilesystemLayout_Validate(t *testing.T) {
 					{Name: "boot", VolumeGroup: "vgroot", Size: 100000000, LVMType: LVMTypeRaid1},
 				},
 			},
-			wantErr: errorutil.InvalidArgument("fsl:\"fsl-16\" lv:boot in vg:vgroot is configured for lvmtype:raid1 but has only 1 disk, consider linear instead"),
+			wantErr: fmt.Errorf("fsl:\"fsl-16\" lv:boot in vg:vgroot is configured for lvmtype:raid1 but has only 1 disk, consider linear instead"),
 		},
 		{
 			id:   "fsl-17",
@@ -608,7 +610,7 @@ func TestFilesystemLayout_Validate(t *testing.T) {
 					{Name: "boot", VolumeGroup: "vgroot", Size: 100000000, LVMType: LVMTypeStriped},
 				},
 			},
-			wantErr: errorutil.InvalidArgument("fsl:\"fsl-17\" lv:boot in vg:vgroot is configured for lvmtype:striped but has only 1 disk, consider linear instead"),
+			wantErr: fmt.Errorf("fsl:\"fsl-17\" lv:boot in vg:vgroot is configured for lvmtype:striped but has only 1 disk, consider linear instead"),
 		},
 		{
 			id:   "fsl-18",
@@ -646,7 +648,7 @@ func TestFilesystemLayout_Validate(t *testing.T) {
 					{Device: "/dev/sda1"},
 				},
 			},
-			wantErr: errorutil.InvalidArgument("the given createoption:\"-F 32\" contains whitespace and must be split into separate options"),
+			wantErr: fmt.Errorf("the given createoption:\"-F 32\" contains whitespace and must be split into separate options"),
 		},
 		{
 			id:   "fsl-20",
@@ -683,7 +685,7 @@ func TestFilesystemLayout_Validate(t *testing.T) {
 				LogicalVolumes: tt.fields.LogicalVolumes,
 			}
 			err := f.Validate()
-			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer(), testcommon.ErrorStringComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 		})
@@ -716,7 +718,7 @@ func TestDisk_validate(t *testing.T) {
 					{Number: 2, Size: 0},
 					{Number: 3, Size: 100},
 				}},
-			wantErr: errorutil.InvalidArgument("device:/dev/sda variable sized partition not the last one"),
+			wantErr: fmt.Errorf("device:/dev/sda variable sized partition not the last one"),
 		},
 		{
 			name: "fails because not duplicate partition number",
@@ -727,7 +729,7 @@ func TestDisk_validate(t *testing.T) {
 					{Number: 2, Size: 100},
 					{Number: 2, Size: 100},
 				}},
-			wantErr: errorutil.InvalidArgument("device:/dev/sda partition number:2 given more than once"),
+			wantErr: fmt.Errorf("device:/dev/sda partition number:2 given more than once"),
 		},
 	}
 	for _, tt := range tests {
@@ -739,7 +741,7 @@ func TestDisk_validate(t *testing.T) {
 				WipeOnReinstall: tt.fields.Wipe,
 			}
 			err := d.validate()
-			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer(), testcommon.ErrorStringComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 		})
@@ -786,7 +788,7 @@ func TestFilesystemLayouts_Validate(t *testing.T) {
 				{Base: Base{ID: "default2"}, Constraints: FilesystemLayoutConstraints{Sizes: []string{"c1-large", "s1-large", "s1-xlarge"}, Images: map[string]string{"ubuntu": "*", "debian": "< 9"}}},
 				{Base: Base{ID: "firewall"}, Constraints: FilesystemLayoutConstraints{Sizes: []string{"c1-large", "c1-xlarge"}, Images: map[string]string{"firewall": "*"}}},
 			},
-			wantErr: errorutil.InvalidArgument("these combinations already exist:c1-large->[ubuntu *]"),
+			wantErr: fmt.Errorf("these combinations already exist:c1-large->[ubuntu *]"),
 		},
 		{
 			name: "one overlapping, same sizes, different images",
@@ -802,7 +804,7 @@ func TestFilesystemLayouts_Validate(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.fls.Validate()
-			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer(), testcommon.ErrorStringComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 		})
@@ -829,21 +831,21 @@ func Test_convertToOpAndVersion(t *testing.T) {
 			versionconstraint: ">=10.0.1",
 			op:                "",
 			version:           nil,
-			wantErr:           errorutil.InvalidArgument("given imageconstraint:>=10.0.1 is not valid, missing space between op and version? Invalid Semantic Version"),
+			wantErr:           fmt.Errorf("given imageconstraint:>=10.0.1 is not valid, missing space between op and version? %w", semver.ErrInvalidSemVer),
 		},
 		{
 			name:              "invalid version",
 			versionconstraint: ">= 10.x.1",
 			op:                "",
 			version:           nil,
-			wantErr:           errorutil.InvalidArgument("given version:10.x.1 is not valid:Invalid Semantic Version"),
+			wantErr:           fmt.Errorf("given version:10.x.1 is not valid:%w", semver.ErrInvalidSemVer),
 		},
 	}
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			got, got1, err := convertToOpAndVersion(tt.versionconstraint)
-			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer(), testcommon.ErrorStringComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 			if got != tt.op {
@@ -875,24 +877,24 @@ func Test_hasCollisions(t *testing.T) {
 		{
 			name:               "simple star match",
 			versionConstraints: []string{">= 10", "<= 9.9", "*"},
-			wantErr:            errorutil.InvalidArgument("at least one `*` and more than one constraint"),
+			wantErr:            fmt.Errorf("at least one `*` and more than one constraint"),
 		},
 		{
 			name:               "simple versions overlap",
 			versionConstraints: []string{">= 10", "<= 9.9", ">= 9.8"},
-			wantErr:            errorutil.InvalidArgument("constraint:<=9.9 overlaps:>=9.8"),
+			wantErr:            fmt.Errorf("constraint:<=9.9 overlaps:>=9.8"),
 		},
 		{
 			name:               "simple versions overlap reverse",
 			versionConstraints: []string{">= 9.8", "<= 9.9", ">= 10"},
-			wantErr:            errorutil.InvalidArgument("constraint:>=9.8 overlaps:<=9.9"),
+			wantErr:            fmt.Errorf("constraint:>=9.8 overlaps:<=9.9"),
 		},
 	}
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			err := hasCollisions(tt.versionConstraints)
-			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer(), testcommon.ErrorStringComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 		})
@@ -915,14 +917,14 @@ func TestToFormat(t *testing.T) {
 		{
 			name:    "invalid format",
 			format:  "ext5",
-			wantErr: errorutil.InvalidArgument("given format:ext5 is not supported, but:ext3,ext4,none,swap,tmpfs,vfat"),
+			wantErr: fmt.Errorf("given format:ext5 is not supported, but:ext3,ext4,none,swap,tmpfs,vfat"),
 		},
 	}
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := ToFormat(tt.format)
-			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer(), testcommon.ErrorStringComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 			if got != nil && *got != tt.want {
@@ -948,14 +950,14 @@ func TestToGPTType(t *testing.T) {
 		{
 			name:    "invalid type",
 			gpttyp:  "8301",
-			wantErr: errorutil.InvalidArgument("given GPTType:8301 is not supported, but:8300,8e00,ef00,fd00"),
+			wantErr: fmt.Errorf("given GPTType:8301 is not supported, but:8300,8e00,ef00,fd00"),
 		},
 	}
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := ToGPTType(tt.gpttyp)
-			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer(), testcommon.ErrorStringComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 			if got != nil && *got != tt.want {
@@ -981,14 +983,14 @@ func TestToRaidLevel(t *testing.T) {
 		{
 			name:    "invalid level",
 			level:   "raid5",
-			wantErr: errorutil.InvalidArgument("given raidlevel:raid5 is not supported, but:0,1"),
+			wantErr: fmt.Errorf("given raidlevel:raid5 is not supported, but:0,1"),
 		},
 	}
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := ToRaidLevel(tt.level)
-			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer(), testcommon.ErrorStringComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 			if got != nil && *got != tt.want {
@@ -1014,14 +1016,14 @@ func TestToLVMType(t *testing.T) {
 		{
 			name:    "invalid lvmtype",
 			lvmtyp:  "raid5",
-			wantErr: errorutil.InvalidArgument("given lvmtype:raid5 is not supported, but:linear,raid1,striped"),
+			wantErr: fmt.Errorf("given lvmtype:raid5 is not supported, but:linear,raid1,striped"),
 		},
 	}
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := ToLVMType(tt.lvmtyp)
-			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer(), testcommon.ErrorStringComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 			if got != nil && *got != tt.want {

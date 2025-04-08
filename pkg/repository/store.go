@@ -7,6 +7,7 @@ import (
 	asyncclient "github.com/metal-stack/metal-apiserver/pkg/async/client"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -169,10 +170,15 @@ func (s *store[S, E, M, C, U, Q]) Create(ctx context.Context, c C) (E, error) {
 
 	err := s.validateCreate(ctx, c)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.NewInvalidArgument(err)
 	}
 
-	return s.create(ctx, c)
+	created, err := s.create(ctx, c)
+	if err != nil {
+		return zero, errorutil.Convert(err)
+	}
+
+	return created, nil
 }
 
 func (s *store[S, E, M, C, U, Q]) Delete(ctx context.Context, id string) (E, error) {
@@ -180,24 +186,31 @@ func (s *store[S, E, M, C, U, Q]) Delete(ctx context.Context, id string) (E, err
 
 	e, err := s.get(ctx, id)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.Convert(err)
 	}
 
 	err = s.validateDelete(ctx, e)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.NewInvalidArgument(err)
 	}
 
 	err = s.delete(ctx, e)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.Convert(err)
 	}
 
 	return e, nil
 }
 
 func (s *store[S, E, M, C, U, Q]) Find(ctx context.Context, query Q) (E, error) {
-	return s.find(ctx, query)
+	var zero E
+
+	e, err := s.find(ctx, query)
+	if err != nil {
+		return zero, errorutil.Convert(err)
+	}
+
+	return e, nil
 }
 
 func (s *store[S, E, M, C, U, Q]) Get(ctx context.Context, id string) (E, error) {
@@ -205,7 +218,7 @@ func (s *store[S, E, M, C, U, Q]) Get(ctx context.Context, id string) (E, error)
 
 	e, err := s.get(ctx, id)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.Convert(err)
 	}
 
 	// FIXME: this will break the tests!
@@ -226,15 +239,20 @@ func (s *store[S, E, M, C, U, Q]) Update(ctx context.Context, id string, u U) (E
 
 	e, err := s.get(ctx, id)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.Convert(err)
 	}
 
 	err = s.validateUpdate(ctx, u, e)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.NewInvalidArgument(err)
 	}
 
-	return s.update(ctx, e, u)
+	updated, err := s.update(ctx, e, u)
+	if err != nil {
+		return zero, errorutil.Convert(err)
+	}
+
+	return updated, nil
 }
 
 func (s *store[S, E, M, C, U, Q]) AdditionalMethods() S {

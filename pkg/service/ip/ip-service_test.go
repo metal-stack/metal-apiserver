@@ -469,7 +469,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 				Ip:      pointer.Pointer("1.3.0.1"),
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("specific ip 1.3.0.1 not contained in any of the defined prefixes"),
+			wantErr: errorutil.Internal("specific ip 1.3.0.1 not contained in any of the defined prefixes"),
 		},
 		{
 			name: "allocate a random ip with unavailable addressfamily",
@@ -479,7 +479,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4.Enum(),
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("there is no prefix for the given addressfamily:IPv4 present in network:tenant-network-v6 [IPv6]"),
+			wantErr: errorutil.Internal("there is no prefix for the given addressfamily:IPv4 present in network:tenant-network-v6 [IPv6]"),
 		},
 		{
 			name: "allocate a random ip with unavailable addressfamily",
@@ -489,7 +489,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(),
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("there is no prefix for the given addressfamily:IPv6 present in network:tenant-network [IPv4]"),
+			wantErr: errorutil.Internal("there is no prefix for the given addressfamily:IPv6 present in network:tenant-network [IPv4]"),
 		},
 	}
 	for _, tt := range tests {

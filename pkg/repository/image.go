@@ -26,29 +26,29 @@ type imageRepository struct {
 func (r *imageRepository) validateCreate(ctx context.Context, req *adminv2.ImageServiceCreateRequest) error {
 	image := req.Image
 	if image.Id == "" {
-		return errorutil.InvalidArgument("image id must not be empty")
+		return fmt.Errorf("image id must not be empty")
 	}
 	if image.Url == "" {
-		return errorutil.InvalidArgument("image url must not be empty")
+		return fmt.Errorf("image url must not be empty")
 	}
 	if err := checkIfUrlExists(ctx, "image", image.Id, image.Url); err != nil {
-		return errorutil.NewInvalidArgument(err)
+		return err
 	}
 	if len(image.Features) == 0 {
-		return errorutil.InvalidArgument("image features must not be empty")
+		return fmt.Errorf("image features must not be empty")
 	}
 	if _, err := metal.ImageFeaturesFrom(image.Features); err != nil {
-		return errorutil.NewInvalidArgument(err)
+		return err
 	}
 	if _, err := metal.VersionClassificationFrom(image.Classification); err != nil {
-		return errorutil.NewInvalidArgument(err)
+		return err
 	}
 	if _, _, err := metalcommon.GetOsAndSemverFromImage(image.Id); err != nil {
-		return errorutil.NewInvalidArgument(err)
+		return err
 	}
 	if image.ExpiresAt != nil && !image.ExpiresAt.AsTime().IsZero() {
 		if image.ExpiresAt.AsTime().Before(time.Now()) {
-			return errorutil.InvalidArgument("image expiresAt must be in the future")
+			return fmt.Errorf("image expiresAt must be in the future")
 		}
 	}
 	return nil
@@ -57,27 +57,27 @@ func (r *imageRepository) validateCreate(ctx context.Context, req *adminv2.Image
 func (r *imageRepository) validateUpdate(ctx context.Context, req *adminv2.ImageServiceUpdateRequest, _ *metal.Image) error {
 	image := req.Image
 	if image.Id == "" {
-		return errorutil.InvalidArgument("image id must not be empty")
+		return fmt.Errorf("image id must not be empty")
 	}
 	if image.Url != "" {
 		if err := checkIfUrlExists(ctx, "image", image.Id, image.Url); err != nil {
-			return errorutil.NewInvalidArgument(err)
+			return err
 		}
 	}
 	if len(image.Features) >= 0 {
 		if _, err := metal.ImageFeaturesFrom(image.Features); err != nil {
-			return errorutil.NewInvalidArgument(err)
+			return err
 		}
 	}
 	if _, err := metal.VersionClassificationFrom(image.Classification); err != nil {
-		return errorutil.NewInvalidArgument(err)
+		return err
 	}
 	if _, _, err := metalcommon.GetOsAndSemverFromImage(image.Id); err != nil {
-		return errorutil.NewInvalidArgument(err)
+		return err
 	}
 	if image.ExpiresAt != nil && !image.ExpiresAt.AsTime().IsZero() {
 		if image.ExpiresAt.AsTime().Before(time.Now()) {
-			return errorutil.InvalidArgument("image expiresAt must be in the future")
+			return fmt.Errorf("image expiresAt must be in the future")
 		}
 	}
 
@@ -307,6 +307,7 @@ func (r *imageRepository) GetMostRecentImageFor(id string, images []*metal.Image
 	if latestImage != nil {
 		return latestImage, nil
 	}
+
 	return nil, errorutil.NotFound("no image for os:%s version:%s found", os, sv)
 }
 
@@ -327,5 +328,6 @@ func (r *imageRepository) SortImages(images []*metal.Image) []*metal.Image {
 		}
 		return c <= 0
 	})
+
 	return images
 }

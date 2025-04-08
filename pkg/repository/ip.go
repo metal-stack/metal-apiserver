@@ -51,10 +51,10 @@ func (r *ipRepository) matchScope(ip *metal.IP) bool {
 
 func (r *ipRepository) validateCreate(ctx context.Context, req *apiv2.IPServiceCreateRequest) error {
 	if req.Network == "" {
-		return errorutil.InvalidArgument("network should not be empty")
+		return fmt.Errorf("network should not be empty")
 	}
 	if req.Project == "" {
-		return errorutil.InvalidArgument("project should not be empty")
+		return fmt.Errorf("project should not be empty")
 	}
 
 	return nil
@@ -68,7 +68,7 @@ func (r *ipRepository) validateUpdate(ctx context.Context, req *apiv2.IPServiceU
 
 	if req.Type != nil {
 		if old.Type == metal.Static && *req.Type != apiv2.IPType_IP_TYPE_STATIC {
-			return errorutil.InvalidArgument("cannot change type of ip address from static to ephemeral")
+			return fmt.Errorf("cannot change type of ip address from static to ephemeral")
 		}
 	}
 
@@ -77,13 +77,13 @@ func (r *ipRepository) validateUpdate(ctx context.Context, req *apiv2.IPServiceU
 
 func (r *ipRepository) validateDelete(ctx context.Context, req *metal.IP) error {
 	if req.IPAddress == "" {
-		return errorutil.InvalidArgument("ipaddress is empty")
+		return fmt.Errorf("ipaddress is empty")
 	}
 	if req.AllocationUUID == "" {
-		return errorutil.InvalidArgument("allocationUUID is empty")
+		return fmt.Errorf("allocationUUID is empty")
 	}
 	if req.ProjectID == "" {
-		return errorutil.InvalidArgument("projectId is empty")
+		return fmt.Errorf("projectId is empty")
 	}
 	ip, err := r.find(ctx, &apiv2.IPQuery{Ip: &req.IPAddress, Uuid: &req.AllocationUUID, Project: &req.ProjectID})
 	if err != nil {
@@ -95,7 +95,7 @@ func (r *ipRepository) validateDelete(ctx context.Context, req *metal.IP) error 
 
 	for _, t := range ip.Tags {
 		if strings.HasPrefix(t, tag.MachineID) {
-			return errorutil.InvalidArgument("ip with machine scope cannot be deleted")
+			return fmt.Errorf("ip with machine scope cannot be deleted")
 		}
 	}
 
@@ -146,23 +146,23 @@ func (r *ipRepository) create(ctx context.Context, rq *apiv2.IPServiceCreateRequ
 		case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6:
 			af = pointer.Pointer(metal.IPv6AddressFamily)
 		case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_UNSPECIFIED:
-			return nil, errorutil.InvalidArgument("unsupported addressfamily")
+			return nil, fmt.Errorf("unsupported addressfamily")
 		default:
-			return nil, errorutil.InvalidArgument("unsupported addressfamily")
+			return nil, fmt.Errorf("unsupported addressfamily")
 		}
 
 		if !slices.Contains(nw.Prefixes.AddressFamilies(), *af) {
-			return nil, errorutil.InvalidArgument("there is no prefix for the given addressfamily:%s present in network:%s %s", *af, req.Network, nw.Prefixes.AddressFamilies())
+			return nil, fmt.Errorf("there is no prefix for the given addressfamily:%s present in network:%s %s", *af, req.Network, nw.Prefixes.AddressFamilies())
 		}
 		if req.Ip != nil {
-			return nil, errorutil.InvalidArgument("it is not possible to specify specificIP and addressfamily")
+			return nil, fmt.Errorf("it is not possible to specify specificIP and addressfamily")
 		}
 	}
 
 	// for private, unshared networks the project id must be the same
 	// for external networks the project id is not checked
 	if !nw.Shared && nw.ParentNetworkID != "" && p.Meta.Id != nw.ProjectID {
-		return nil, errorutil.InvalidArgument("can not allocate ip for project %q because network belongs to %q and the network is not shared", p.Meta.Id, nw.ProjectID)
+		return nil, fmt.Errorf("can not allocate ip for project %q because network belongs to %q and the network is not shared", p.Meta.Id, nw.ProjectID)
 	}
 
 	var (
@@ -190,7 +190,7 @@ func (r *ipRepository) create(ctx context.Context, rq *apiv2.IPServiceCreateRequ
 		case apiv2.IPType_IP_TYPE_STATIC:
 			ipType = metal.Static
 		case apiv2.IPType_IP_TYPE_UNSPECIFIED:
-			return nil, errorutil.InvalidArgument("given ip type is not supported:%s", req.Type.String())
+			return nil, fmt.Errorf("given ip type is not supported:%s", req.Type.String())
 		}
 	}
 
@@ -246,7 +246,7 @@ func (r *ipRepository) update(ctx context.Context, e *metal.IP, req *apiv2.IPSer
 		case apiv2.IPType_IP_TYPE_STATIC.String():
 			t = metal.Static
 		case apiv2.IPType_IP_TYPE_UNSPECIFIED.String():
-			return nil, errorutil.InvalidArgument("ip type cannot be unspecified: %s", rq.Type)
+			return nil, fmt.Errorf("ip type cannot be unspecified: %s", rq.Type)
 		}
 		new.Type = t
 	}
@@ -321,7 +321,7 @@ func (r *ipRepository) allocateSpecificIP(ctx context.Context, parent *metal.Net
 		return resp.Msg.Ip.Ip, prefix.String(), nil
 	}
 
-	return "", "", errorutil.InvalidArgument("specific ip %s not contained in any of the defined prefixes", specificIP)
+	return "", "", fmt.Errorf("specific ip %s not contained in any of the defined prefixes", specificIP)
 }
 
 func (r *ipRepository) allocateRandomIP(ctx context.Context, parent *metal.Network, af *metal.AddressFamily) (ipAddress, parentPrefixCidr string, err error) {
@@ -344,7 +344,7 @@ func (r *ipRepository) allocateRandomIP(ctx context.Context, parent *metal.Netwo
 		return resp.Msg.Ip.Ip, prefix.String(), nil
 	}
 
-	return "", "", errorutil.InvalidArgument("cannot allocate random free ip in ipam, no ips left in network:%s af:%s parent afs:%#v", parent.ID, addressfamily, parent.Prefixes.AddressFamilies())
+	return "", "", fmt.Errorf("cannot allocate random free ip in ipam, no ips left in network:%s af:%s parent afs:%#v", parent.ID, addressfamily, parent.Prefixes.AddressFamilies())
 }
 
 func (r *ipRepository) convertToInternal(ip *apiv2.IP) (*metal.IP, error) {

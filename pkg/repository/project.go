@@ -32,7 +32,7 @@ func (r *projectRepository) validateDelete(ctx context.Context, req *mdcv1.Proje
 func (r *projectRepository) get(ctx context.Context, id string) (*mdcv1.Project, error) {
 	resp, err := r.r.mdc.Project().Get(ctx, &mdcv1.ProjectGetRequest{Id: id})
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 	if resp.Project == nil || resp.Project.Meta == nil {
 		return nil, errorutil.NotFound("error retrieving project %q", id)
@@ -65,7 +65,7 @@ func (r *projectRepository) create(ctx context.Context, e *apiv2.ProjectServiceC
 
 	resp, err := r.r.mdc.Project().Create(ctx, &mdcv1.ProjectCreateRequest{Project: project})
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	return resp.Project, nil

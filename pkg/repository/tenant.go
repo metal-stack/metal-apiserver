@@ -5,7 +5,6 @@ import (
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
-	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 )
 
 // FIXME completely untested and incomplete
@@ -45,7 +44,7 @@ func (t *tenantRepository) create(ctx context.Context, rq *apiv2.TenantServiceCr
 
 	resp, err := t.r.mdc.Tenant().Create(ctx, &mdcv1.TenantCreateRequest{Tenant: tenant})
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	return resp.Tenant, nil
@@ -65,7 +64,7 @@ func (t *tenantRepository) find(ctx context.Context, query *apiv2.TenantServiceL
 func (t *tenantRepository) get(ctx context.Context, id string) (*mdcv1.Tenant, error) {
 	resp, err := t.r.mdc.Tenant().Get(ctx, &mdcv1.TenantGetRequest{Id: id})
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	return resp.Tenant, nil

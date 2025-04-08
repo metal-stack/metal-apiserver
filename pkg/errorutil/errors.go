@@ -84,6 +84,10 @@ func NewUnauthenticated(err error) error {
 	return connect.NewError(connect.CodeUnauthenticated, err)
 }
 
+func NewFailedPrecondition(err error) error {
+	return connect.NewError(connect.CodeFailedPrecondition, err)
+}
+
 func IsNotFound(err error) bool {
 	e := notFound(err)
 	return e != nil

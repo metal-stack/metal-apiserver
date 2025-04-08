@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/netip"
 	"regexp"
@@ -10,7 +11,6 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
-	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 )
 
 const (
@@ -27,46 +27,46 @@ type partitionRepository struct {
 
 func validatePartition(ctx context.Context, partition *apiv2.Partition) error {
 	if partition.Id == "" {
-		return errorutil.InvalidArgument("partition id must not be empty")
+		return fmt.Errorf("partition id must not be empty")
 	}
 	if partition.BootConfiguration == nil {
-		return errorutil.InvalidArgument("partition.bootconfiguration must not be nil")
+		return fmt.Errorf("partition.bootconfiguration must not be nil")
 	}
 	if partition.BootConfiguration.ImageUrl == "" {
-		return errorutil.InvalidArgument("partition.bootconfiguration.imageurl must not be empty")
+		return fmt.Errorf("partition.bootconfiguration.imageurl must not be empty")
 	}
 	if err := checkIfUrlExists(ctx, "partition imageurl of", partition.Id, partition.BootConfiguration.ImageUrl); err != nil {
-		return errorutil.NewInvalidArgument(err)
+		return err
 	}
 	if partition.BootConfiguration.KernelUrl == "" {
-		return errorutil.InvalidArgument("partition.bootconfiguration.kernelurl must not be empty")
+		return fmt.Errorf("partition.bootconfiguration.kernelurl must not be empty")
 	}
 	if err := checkIfUrlExists(ctx, "partition kernelurl of", partition.Id, partition.BootConfiguration.KernelUrl); err != nil {
-		return errorutil.NewInvalidArgument(err)
+		return err
 	}
 
 	if len(partition.DnsServer) > 3 {
-		return errorutil.InvalidArgument("not more than 3 dnsservers must be specified")
+		return fmt.Errorf("not more than 3 dnsservers must be specified")
 	}
 	for _, dns := range partition.DnsServer {
 		_, err := netip.ParseAddr(dns.Ip)
 		if err != nil {
-			return errorutil.InvalidArgument("dnsserver ip is not valid:%w", err)
+			return fmt.Errorf("dnsserver ip is not valid:%w", err)
 		}
 	}
 
 	if len(partition.NtpServer) > 5 {
-		return errorutil.InvalidArgument("not more than 5 ntpservers must be specified")
+		return fmt.Errorf("not more than 5 ntpservers must be specified")
 	}
 	for _, ntp := range partition.NtpServer {
 		if net.ParseIP(ntp.Address) != nil {
 			_, err := netip.ParseAddr(ntp.Address)
 			if err != nil {
-				return errorutil.InvalidArgument("ip: %s for ntp server not correct err: %w", ntp.Address, err)
+				return fmt.Errorf("ip: %s for ntp server not correct err: %w", ntp.Address, err)
 			}
 		} else {
 			if !regexDNSName.MatchString(ntp.Address) {
-				return errorutil.InvalidArgument("dns name: %s for ntp server not correct", ntp.Address)
+				return fmt.Errorf("dns name: %s for ntp server not correct", ntp.Address)
 			}
 		}
 	}
@@ -76,12 +76,7 @@ func validatePartition(ctx context.Context, partition *apiv2.Partition) error {
 
 // ValidateCreate implements Partition.
 func (p *partitionRepository) validateCreate(ctx context.Context, req *adminv2.PartitionServiceCreateRequest) error {
-	partition := req.Partition
-	err := validatePartition(ctx, partition)
-	if err != nil {
-		return err
-	}
-	return nil
+	return validatePartition(ctx, req.Partition)
 }
 
 // ValidateDelete implements Partition.
@@ -92,24 +87,19 @@ func (p *partitionRepository) validateDelete(ctx context.Context, req *metal.Par
 
 // ValidateUpdate implements Partition.
 func (p *partitionRepository) validateUpdate(ctx context.Context, req *adminv2.PartitionServiceUpdateRequest, _ *metal.Partition) error {
-	partition := req.Partition
-	err := validatePartition(ctx, partition)
-	if err != nil {
-		return err
-	}
-	return nil
+	return validatePartition(ctx, req.Partition)
 }
 
 // Create implements Partition.
 func (p *partitionRepository) create(ctx context.Context, c *adminv2.PartitionServiceCreateRequest) (*metal.Partition, error) {
 	partition, err := p.convertToInternal(c.Partition)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	resp, err := p.r.ds.Partition().Create(ctx, partition)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	return resp, nil
@@ -119,7 +109,7 @@ func (p *partitionRepository) create(ctx context.Context, c *adminv2.PartitionSe
 func (p *partitionRepository) delete(ctx context.Context, e *metal.Partition) error {
 	err := p.r.ds.Partition().Delete(ctx, e)
 	if err != nil {
-		return errorutil.Convert(err)
+		return err
 	}
 
 	return nil
@@ -129,7 +119,7 @@ func (p *partitionRepository) delete(ctx context.Context, e *metal.Partition) er
 func (p *partitionRepository) get(ctx context.Context, id string) (*metal.Partition, error) {
 	partition, err := p.r.ds.Partition().Get(ctx, id)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	return partition, nil
@@ -141,14 +131,14 @@ func (p *partitionRepository) update(ctx context.Context, e *metal.Partition, re
 
 	new, err := p.convertToInternal(partition)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	new.SetChanged(e.Changed)
 
 	err = p.r.ds.Partition().Update(ctx, new)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 	return new, nil
 }
@@ -157,7 +147,7 @@ func (p *partitionRepository) update(ctx context.Context, e *metal.Partition, re
 func (p *partitionRepository) find(ctx context.Context, query *apiv2.PartitionQuery) (*metal.Partition, error) {
 	partition, err := p.r.ds.Partition().Find(ctx, queries.PartitionFilter(query))
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 	return partition, nil
 }
@@ -166,7 +156,7 @@ func (p *partitionRepository) find(ctx context.Context, query *apiv2.PartitionQu
 func (p *partitionRepository) list(ctx context.Context, query *apiv2.PartitionQuery) ([]*metal.Partition, error) {
 	partitions, err := p.r.ds.Partition().List(ctx, queries.PartitionFilter(query))
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 	return partitions, nil
 }
