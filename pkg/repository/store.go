@@ -156,15 +156,15 @@ func (r *Store) Partition() Partition {
 	}
 }
 
-func (s *store[S, E, M, C, U, Q]) ConvertToInternal(msg M) (E, error) {
+func (s *store[R, E, M, C, U, Q]) ConvertToInternal(msg M) (E, error) {
 	return s.convertToInternal(msg)
 }
 
-func (s *store[S, E, M, C, U, Q]) ConvertToProto(e E) (M, error) {
+func (s *store[R, E, M, C, U, Q]) ConvertToProto(e E) (M, error) {
 	return s.convertToProto(e)
 }
 
-func (s *store[S, E, M, C, U, Q]) Create(ctx context.Context, c C) (E, error) {
+func (s *store[R, E, M, C, U, Q]) Create(ctx context.Context, c C) (E, error) {
 	var zero E
 
 	err := s.validateCreate(ctx, c)
@@ -175,7 +175,7 @@ func (s *store[S, E, M, C, U, Q]) Create(ctx context.Context, c C) (E, error) {
 	return s.create(ctx, c)
 }
 
-func (s *store[S, E, M, C, U, Q]) Delete(ctx context.Context, id string) (E, error) {
+func (s *store[R, E, M, C, U, Q]) Delete(ctx context.Context, id string) (E, error) {
 	var zero E
 
 	e, err := s.get(ctx, id)
@@ -196,11 +196,11 @@ func (s *store[S, E, M, C, U, Q]) Delete(ctx context.Context, id string) (E, err
 	return e, nil
 }
 
-func (s *store[S, E, M, C, U, Q]) Find(ctx context.Context, query Q) (E, error) {
+func (s *store[R, E, M, C, U, Q]) Find(ctx context.Context, query Q) (E, error) {
 	return s.find(ctx, query)
 }
 
-func (s *store[S, E, M, C, U, Q]) Get(ctx context.Context, id string) (E, error) {
+func (s *store[R, E, M, C, U, Q]) Get(ctx context.Context, id string) (E, error) {
 	var zero E
 
 	e, err := s.get(ctx, id)
@@ -217,11 +217,11 @@ func (s *store[S, E, M, C, U, Q]) Get(ctx context.Context, id string) (E, error)
 	return e, nil
 }
 
-func (s *store[S, E, M, C, U, Q]) List(ctx context.Context, query Q) ([]E, error) {
+func (s *store[R, E, M, C, U, Q]) List(ctx context.Context, query Q) ([]E, error) {
 	return s.list(ctx, query)
 }
 
-func (s *store[S, E, M, C, U, Q]) Update(ctx context.Context, id string, u U) (E, error) {
+func (s *store[R, E, M, C, U, Q]) Update(ctx context.Context, id string, u U) (E, error) {
 	var zero E
 
 	e, err := s.get(ctx, id)
@@ -237,6 +237,6 @@ func (s *store[S, E, M, C, U, Q]) Update(ctx context.Context, id string, u U) (E
 	return s.update(ctx, e, u)
 }
 
-func (s *store[S, E, M, C, U, Q]) AdditionalMethods() S {
+func (s *store[R, E, M, C, U, Q]) AdditionalMethods() R {
 	return s.typed
 }

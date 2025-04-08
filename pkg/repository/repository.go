@@ -11,7 +11,7 @@ import (
 )
 
 type (
-	Repository[S any, E Entity, M Message, C CreateMessage, U UpdateMessage, Q Query] interface {
+	Repository[R Repo, E Entity, M Message, C CreateMessage, U UpdateMessage, Q Query] interface {
 		Get(ctx context.Context, id string) (E, error)
 
 		Create(ctx context.Context, c C) (E, error)
@@ -26,7 +26,7 @@ type (
 		ConvertToInternal(msg M) (E, error)
 		ConvertToProto(e E) (M, error)
 
-		AdditionalMethods() S
+		AdditionalMethods() R
 	}
 
 	repository[E Entity, M Message, C CreateMessage, U UpdateMessage, Q Query] interface {
@@ -50,13 +50,20 @@ type (
 		matchScope(e E) bool
 	}
 
-	Entity        any
-	Message       any
+	// Repo is the typed repository in order to expose public functions on the repository to the consumers.
+	Repo any
+	// Entity is the internal representation of an api resource, which is stored in the backend.
+	Entity any
+	// Message is the external representation of an api resource for consumers.
+	Message any
+	// UpdateMessage is an external request to update an entity for consumers.
 	UpdateMessage any
+	// CreateMessage is an external request to create an entity for consumers.
 	// TODO: ideally all update messages should clearly expose the identifier in order to get the entity with it!
 	// UpdateMessage interface{ ID() string }
 	CreateMessage any
-	Query         any
+	// Query is an external representation to filter an entity for consumers.
+	Query any
 
 	ProjectScope struct {
 		projectID string
