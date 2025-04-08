@@ -11,7 +11,7 @@ import (
 // FIXME completely untested and incomplete
 
 type tenantRepository struct {
-	r *Store
+	s *Store
 }
 
 // ValidateCreate implements Tenant.
@@ -43,7 +43,7 @@ func (t *tenantRepository) create(ctx context.Context, rq *apiv2.TenantServiceCr
 		tenant.Description = *rq.Description
 	}
 
-	resp, err := t.r.mdc.Tenant().Create(ctx, &mdcv1.TenantCreateRequest{Tenant: tenant})
+	resp, err := t.s.mdc.Tenant().Create(ctx, &mdcv1.TenantCreateRequest{Tenant: tenant})
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -63,7 +63,7 @@ func (t *tenantRepository) find(ctx context.Context, query *apiv2.TenantServiceL
 
 // Get implements Tenant.
 func (t *tenantRepository) get(ctx context.Context, id string) (*mdcv1.Tenant, error) {
-	resp, err := t.r.mdc.Tenant().Get(ctx, &mdcv1.TenantGetRequest{Id: id})
+	resp, err := t.s.mdc.Tenant().Get(ctx, &mdcv1.TenantGetRequest{Id: id})
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

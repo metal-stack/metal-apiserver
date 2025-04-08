@@ -13,7 +13,7 @@ import (
 // FIXME completely untested and incomplete
 
 type projectRepository struct {
-	r     *Store
+	s     *Store
 	scope *ProjectScope
 }
 
@@ -30,7 +30,7 @@ func (r *projectRepository) validateDelete(ctx context.Context, req *mdcv1.Proje
 }
 
 func (r *projectRepository) get(ctx context.Context, id string) (*mdcv1.Project, error) {
-	resp, err := r.r.mdc.Project().Get(ctx, &mdcv1.ProjectGetRequest{Id: id})
+	resp, err := r.s.mdc.Project().Get(ctx, &mdcv1.ProjectGetRequest{Id: id})
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -63,7 +63,7 @@ func (r *projectRepository) create(ctx context.Context, e *apiv2.ProjectServiceC
 		TenantId:    e.Login,
 	}
 
-	resp, err := r.r.mdc.Project().Create(ctx, &mdcv1.ProjectCreateRequest{Project: project})
+	resp, err := r.s.mdc.Project().Create(ctx, &mdcv1.ProjectCreateRequest{Project: project})
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

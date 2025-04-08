@@ -20,7 +20,7 @@ import (
 )
 
 type imageRepository struct {
-	r *Store
+	s *Store
 }
 
 func (r *imageRepository) validateCreate(ctx context.Context, req *adminv2.ImageServiceCreateRequest) error {
@@ -92,7 +92,7 @@ func (r *imageRepository) validateDelete(ctx context.Context, req *metal.Image) 
 }
 
 func (r *imageRepository) get(ctx context.Context, id string) (*metal.Image, error) {
-	fsl, err := r.r.ds.Image().Get(ctx, id)
+	fsl, err := r.s.ds.Image().Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func (r *imageRepository) create(ctx context.Context, rq *adminv2.ImageServiceCr
 		return nil, err
 	}
 
-	resp, err := r.r.ds.Image().Create(ctx, fsl)
+	resp, err := r.s.ds.Image().Create(ctx, fsl)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +155,7 @@ func (r *imageRepository) update(ctx context.Context, e *metal.Image, rq *adminv
 		new.URL = image.Url
 	}
 
-	err = r.r.ds.Image().Update(ctx, &new)
+	err = r.s.ds.Image().Update(ctx, &new)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +164,7 @@ func (r *imageRepository) update(ctx context.Context, e *metal.Image, rq *adminv
 }
 
 func (r *imageRepository) delete(ctx context.Context, e *metal.Image) error {
-	err := r.r.ds.Image().Delete(ctx, e)
+	err := r.s.ds.Image().Delete(ctx, e)
 	if err != nil {
 		return err
 	}
@@ -173,7 +173,7 @@ func (r *imageRepository) delete(ctx context.Context, e *metal.Image) error {
 }
 
 func (r *imageRepository) find(ctx context.Context, rq *apiv2.ImageQuery) (*metal.Image, error) {
-	image, err := r.r.ds.Image().Find(ctx, queries.ImageFilter(rq))
+	image, err := r.s.ds.Image().Find(ctx, queries.ImageFilter(rq))
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +182,7 @@ func (r *imageRepository) find(ctx context.Context, rq *apiv2.ImageQuery) (*meta
 }
 
 func (r *imageRepository) list(ctx context.Context, rq *apiv2.ImageQuery) ([]*metal.Image, error) {
-	images, err := r.r.ds.Image().List(ctx, queries.ImageFilter(rq))
+	images, err := r.s.ds.Image().List(ctx, queries.ImageFilter(rq))
 	if err != nil {
 		return nil, err
 	}

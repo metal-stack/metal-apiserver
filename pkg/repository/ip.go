@@ -24,12 +24,12 @@ import (
 )
 
 type ipRepository struct {
-	r     *Store
+	s     *Store
 	scope *ProjectScope
 }
 
 func (r *ipRepository) get(ctx context.Context, id string) (*metal.IP, error) {
-	ip, err := r.r.ds.IP().Get(ctx, id)
+	ip, err := r.s.ds.IP().Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -127,13 +127,13 @@ func (r *ipRepository) create(ctx context.Context, rq *apiv2.IPServiceCreateRequ
 	// Ensure no duplicates
 	tags = tag.NewTagMap(tags).Slice()
 
-	p, err := r.r.Project(req.Project).Get(ctx, req.Project)
+	p, err := r.s.Project(req.Project).Get(ctx, req.Project)
 	if err != nil {
 		return nil, err
 	}
 	projectID := p.Meta.Id
 
-	nw, err := r.r.Network(req.Project).Get(ctx, req.Network)
+	nw, err := r.s.Network(req.Project).Get(ctx, req.Network)
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +194,7 @@ func (r *ipRepository) create(ctx context.Context, rq *apiv2.IPServiceCreateRequ
 		}
 	}
 
-	r.r.log.Info("allocated ip in ipam", "ip", ipAddress, "network", nw.ID, "type", ipType)
+	r.s.log.Info("allocated ip in ipam", "ip", ipAddress, "network", nw.ID, "type", ipType)
 
 	uuid, err := uuid.NewV7()
 	if err != nil {
@@ -213,9 +213,9 @@ func (r *ipRepository) create(ctx context.Context, rq *apiv2.IPServiceCreateRequ
 		Tags:             tags,
 	}
 
-	r.r.log.Info("create ip in db", "ip", ip)
+	r.s.log.Info("create ip in db", "ip", ip)
 
-	resp, err := r.r.ds.IP().Create(ctx, ip)
+	resp, err := r.s.ds.IP().Create(ctx, ip)
 	if err != nil {
 		return nil, err
 	}
@@ -255,7 +255,7 @@ func (r *ipRepository) update(ctx context.Context, e *metal.IP, req *apiv2.IPSer
 		new.Tags = tags
 	}
 
-	err = r.r.ds.IP().Update(ctx, &new)
+	err = r.s.ds.IP().Update(ctx, &new)
 	if err != nil {
 		return nil, err
 	}
@@ -264,18 +264,18 @@ func (r *ipRepository) update(ctx context.Context, e *metal.IP, req *apiv2.IPSer
 }
 
 func (r *ipRepository) delete(ctx context.Context, e *metal.IP) error {
-	info, err := r.r.async.NewIPDeleteTask(e.AllocationUUID, e.IPAddress, e.ProjectID)
+	info, err := r.s.async.NewIPDeleteTask(e.AllocationUUID, e.IPAddress, e.ProjectID)
 	if err != nil {
 		return err
 	}
 
-	r.r.log.Info("ip delete queued", "info", info)
+	r.s.log.Info("ip delete queued", "info", info)
 
 	return nil
 }
 
 func (r *ipRepository) find(ctx context.Context, rq *apiv2.IPQuery) (*metal.IP, error) {
-	ip, err := r.r.ds.IP().Find(ctx, r.scopedFilters(queries.IpFilter(rq))...)
+	ip, err := r.s.ds.IP().Find(ctx, r.scopedFilters(queries.IpFilter(rq))...)
 	if err != nil {
 		return nil, err
 	}
@@ -284,7 +284,7 @@ func (r *ipRepository) find(ctx context.Context, rq *apiv2.IPQuery) (*metal.IP, 
 }
 
 func (r *ipRepository) list(ctx context.Context, rq *apiv2.IPQuery) ([]*metal.IP, error) {
-	ip, err := r.r.ds.IP().List(ctx, r.scopedFilters(queries.IpFilter(rq))...)
+	ip, err := r.s.ds.IP().List(ctx, r.scopedFilters(queries.IpFilter(rq))...)
 	if err != nil {
 		return nil, err
 	}
@@ -313,7 +313,7 @@ func (r *ipRepository) allocateSpecificIP(ctx context.Context, parent *metal.Net
 			continue
 		}
 
-		resp, err := r.r.ipam.AcquireIP(ctx, connect.NewRequest(&ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String(), Ip: &specificIP}))
+		resp, err := r.s.ipam.AcquireIP(ctx, connect.NewRequest(&ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String(), Ip: &specificIP}))
 		if err != nil {
 			return "", "", err
 		}
@@ -333,7 +333,7 @@ func (r *ipRepository) allocateRandomIP(ctx context.Context, parent *metal.Netwo
 	}
 
 	for _, prefix := range parent.Prefixes.OfFamily(addressfamily) {
-		resp, err := r.r.ipam.AcquireIP(ctx, connect.NewRequest(&ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String()}))
+		resp, err := r.s.ipam.AcquireIP(ctx, connect.NewRequest(&ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String()}))
 		if err != nil {
 			if errorutil.IsNotFound(err) {
 				continue
@@ -427,7 +427,7 @@ func (r *Store) IpDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
 
 func (r *ipRepository) scopedFilters(filter generic.EntityQuery) []generic.EntityQuery {
 	var qs []generic.EntityQuery
-	r.r.log.Info("scopedFilters", "scope", r.scope)
+	r.s.log.Info("scopedFilters", "scope", r.scope)
 	if r.scope != nil {
 		qs = append(qs, queries.IpProjectScoped(r.scope.projectID))
 	}

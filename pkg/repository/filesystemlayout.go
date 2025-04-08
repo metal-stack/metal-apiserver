@@ -12,7 +12,7 @@ import (
 )
 
 type filesystemLayoutRepository struct {
-	r *Store
+	s *Store
 }
 
 func (r *filesystemLayoutRepository) validateCreate(ctx context.Context, req *adminv2.FilesystemServiceCreateRequest) error {
@@ -44,7 +44,7 @@ func (r *filesystemLayoutRepository) validateDelete(ctx context.Context, e *meta
 }
 
 func (r *filesystemLayoutRepository) get(ctx context.Context, id string) (*metal.FilesystemLayout, error) {
-	fsl, err := r.r.ds.FilesystemLayout().Get(ctx, id)
+	fsl, err := r.s.ds.FilesystemLayout().Get(ctx, id)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -63,7 +63,7 @@ func (r *filesystemLayoutRepository) create(ctx context.Context, rq *adminv2.Fil
 		return nil, errorutil.Convert(err)
 	}
 
-	resp, err := r.r.ds.FilesystemLayout().Create(ctx, fsl)
+	resp, err := r.s.ds.FilesystemLayout().Create(ctx, fsl)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -99,7 +99,7 @@ func (r *filesystemLayoutRepository) update(ctx context.Context, e *metal.Filesy
 
 	// FIXME implement update logic
 
-	err = r.r.ds.FilesystemLayout().Update(ctx, newFsl)
+	err = r.s.ds.FilesystemLayout().Update(ctx, newFsl)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -108,7 +108,7 @@ func (r *filesystemLayoutRepository) update(ctx context.Context, e *metal.Filesy
 }
 
 func (r *filesystemLayoutRepository) delete(ctx context.Context, e *metal.FilesystemLayout) error {
-	err := r.r.ds.FilesystemLayout().Delete(ctx, e)
+	err := r.s.ds.FilesystemLayout().Delete(ctx, e)
 	if err != nil {
 		return errorutil.Convert(err)
 	}
@@ -121,7 +121,7 @@ func (r *filesystemLayoutRepository) find(ctx context.Context, rq *apiv2.Filesys
 }
 
 func (r *filesystemLayoutRepository) list(ctx context.Context, rq *apiv2.FilesystemServiceListRequest) ([]*metal.FilesystemLayout, error) {
-	ip, err := r.r.ds.FilesystemLayout().List(ctx)
+	ip, err := r.s.ds.FilesystemLayout().List(ctx)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

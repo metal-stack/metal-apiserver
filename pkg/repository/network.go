@@ -14,7 +14,7 @@ import (
 )
 
 type networkRepository struct {
-	r     *Store
+	s     *Store
 	scope *ProjectScope
 }
 
@@ -31,7 +31,7 @@ func (r *networkRepository) validateDelete(ctx context.Context, req *metal.Netwo
 }
 
 func (r *networkRepository) get(ctx context.Context, id string) (*metal.Network, error) {
-	nw, err := r.r.ds.Network().Get(ctx, id)
+	nw, err := r.s.ds.Network().Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +56,7 @@ func (r *networkRepository) matchScope(nw *metal.Network) bool {
 func (r *networkRepository) delete(ctx context.Context, n *metal.Network) error {
 	// FIXME delete in ipam with the help of Tx
 
-	err := r.r.ds.Network().Delete(ctx, n)
+	err := r.s.ds.Network().Delete(ctx, n)
 	if err != nil {
 		return err
 	}
@@ -110,13 +110,13 @@ func (r *networkRepository) create(ctx context.Context, rq *apiv2.NetworkService
 		Prefixes: prefixes,
 	}
 
-	resp, err := r.r.ds.Network().Create(ctx, nw)
+	resp, err := r.s.ds.Network().Create(ctx, nw)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, prefix := range nw.Prefixes {
-		_, err = r.r.ipam.CreatePrefix(ctx, connect.NewRequest(&ipamv1.CreatePrefixRequest{Cidr: prefix.String()}))
+		_, err = r.s.ipam.CreatePrefix(ctx, connect.NewRequest(&ipamv1.CreatePrefixRequest{Cidr: prefix.String()}))
 		if err != nil {
 			return nil, err
 		}

@@ -44,114 +44,114 @@ func New(log *slog.Logger, mdc mdm.Client, ds generic.Datastore, ipam ipamv1conn
 	return r, nil
 }
 
-func (r *Store) IP(project string) IP {
-	return r.ip(&ProjectScope{
+func (s *Store) IP(project string) IP {
+	return s.ip(&ProjectScope{
 		projectID: project,
 	})
 }
 
-func (r *Store) UnscopedIP() IP {
-	return r.ip(nil)
+func (s *Store) UnscopedIP() IP {
+	return s.ip(nil)
 }
 
-func (r *Store) ip(scope *ProjectScope) IP {
+func (s *Store) ip(scope *ProjectScope) IP {
 	return &store[*ipRepository, *metal.IP, *apiv2.IP, *apiv2.IPServiceCreateRequest, *apiv2.IPServiceUpdateRequest, *apiv2.IPQuery]{
 		repository: &ipRepository{
-			r:     r,
+			s:     s,
 			scope: scope,
 		},
 	}
 }
 
-func (r *Store) Image() Image {
+func (s *Store) Image() Image {
 	repository := &imageRepository{
-		r: r,
+		s: s,
 	}
 
 	return &store[*imageRepository, *metal.Image, *apiv2.Image, *adminv2.ImageServiceCreateRequest, *adminv2.ImageServiceUpdateRequest, *apiv2.ImageQuery]{
 		repository: repository,
-		s:          r,
+		s:          s,
 		typed:      repository,
 	}
 }
 
-func (r *Store) Network(project string) Network {
-	return r.network(&ProjectScope{
+func (s *Store) Network(project string) Network {
+	return s.network(&ProjectScope{
 		projectID: project,
 	})
 }
 
-func (r *Store) UnscopedNetwork() Network {
-	return r.network(nil)
+func (s *Store) UnscopedNetwork() Network {
+	return s.network(nil)
 }
 
-func (r *Store) network(scope *ProjectScope) Network {
+func (s *Store) network(scope *ProjectScope) Network {
 	repository := &networkRepository{
-		r:     r,
+		s:     s,
 		scope: scope,
 	}
 
 	return &store[*networkRepository, *metal.Network, *apiv2.Network, *apiv2.NetworkServiceCreateRequest, *apiv2.NetworkServiceUpdateRequest, *apiv2.NetworkServiceListRequest]{
 		repository: repository,
-		s:          r,
+		s:          s,
 		typed:      repository,
 	}
 }
 
-func (r *Store) Project(project string) Project {
-	return r.project(&ProjectScope{
+func (s *Store) Project(project string) Project {
+	return s.project(&ProjectScope{
 		projectID: project,
 	})
 }
 
-func (r *Store) UnscopedProject() Project {
-	return r.project(nil)
+func (s *Store) UnscopedProject() Project {
+	return s.project(nil)
 }
 
-func (r *Store) project(scope *ProjectScope) Project {
+func (s *Store) project(scope *ProjectScope) Project {
 	repository := &projectRepository{
-		r:     r,
+		s:     s,
 		scope: scope,
 	}
 
 	return &store[*projectRepository, *mdcv1.Project, *apiv2.Project, *apiv2.ProjectServiceCreateRequest, *apiv2.ProjectServiceUpdateRequest, *apiv2.ProjectServiceListRequest]{
 		repository: repository,
-		s:          r,
+		s:          s,
 		typed:      repository,
 	}
 }
 
-func (r *Store) Tenant() Tenant {
+func (s *Store) Tenant() Tenant {
 	repository := &tenantRepository{
-		r: r,
+		s: s,
 	}
 
 	return &store[*tenantRepository, *mdcv1.Tenant, *apiv2.Tenant, *apiv2.TenantServiceCreateRequest, *apiv2.TenantServiceUpdateRequest, *apiv2.TenantServiceListRequest]{
 		repository: repository,
-		s:          r,
+		s:          s,
 		typed:      repository,
 	}
 }
 
-func (r *Store) FilesystemLayout() FilesystemLayout {
+func (s *Store) FilesystemLayout() FilesystemLayout {
 	repository := &filesystemLayoutRepository{
-		r: r,
+		s: s,
 	}
 
 	return &store[*filesystemLayoutRepository, *metal.FilesystemLayout, *apiv2.FilesystemLayout, *adminv2.FilesystemServiceCreateRequest, *adminv2.FilesystemServiceUpdateRequest, *apiv2.FilesystemServiceListRequest]{
 		repository: repository,
-		s:          r,
+		s:          s,
 		typed:      repository,
 	}
 }
-func (r *Store) Partition() Partition {
+func (s *Store) Partition() Partition {
 	repository := &partitionRepository{
-		r: r,
+		s: s,
 	}
 
 	return &store[*partitionRepository, *metal.Partition, *apiv2.Partition, *adminv2.PartitionServiceCreateRequest, *adminv2.PartitionServiceUpdateRequest, *apiv2.PartitionQuery]{
 		repository: repository,
-		s:          r,
+		s:          s,
 		typed:      repository,
 	}
 }
