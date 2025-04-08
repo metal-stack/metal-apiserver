@@ -101,9 +101,11 @@ func (r *filesystemLayoutRepository) Update(ctx context.Context, rq *Validated[*
 		return nil, errorutil.Convert(err)
 	}
 
+	newFsl.SetChanged(old.Changed)
+
 	// FIXME implement update logic
 
-	err = r.r.ds.FilesystemLayout().Update(ctx, newFsl, old)
+	err = r.r.ds.FilesystemLayout().Update(ctx, newFsl)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

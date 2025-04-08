@@ -265,7 +265,7 @@ func (r *ipRepository) Update(ctx context.Context, req *Validated[*apiv2.IPServi
 		new.Tags = tags
 	}
 
-	err = r.r.ds.IP().Update(ctx, &new, old)
+	err = r.r.ds.IP().Update(ctx, &new)
 	if err != nil {
 		return nil, err
 	}

@@ -162,7 +162,7 @@ func (r *imageRepository) Update(ctx context.Context, rq *Validated[*adminv2.Ima
 		new.URL = image.Url
 	}
 
-	err = r.r.ds.Image().Update(ctx, &new, old)
+	err = r.r.ds.Image().Update(ctx, &new)
 	if err != nil {
 		return nil, err
 	}
