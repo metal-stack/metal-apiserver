@@ -23,10 +23,12 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-type ipRepository struct {
-	s     *Store
-	scope *ProjectScope
-}
+type (
+	ipRepository struct {
+		s     *Store
+		scope *ProjectScope
+	}
+)
 
 func (r *ipRepository) get(ctx context.Context, id string) (*metal.IP, error) {
 	ip, err := r.s.ds.IP().Get(ctx, id)
@@ -57,6 +59,48 @@ func (r *ipRepository) validateCreate(ctx context.Context, req *apiv2.IPServiceC
 		return errorutil.InvalidArgument("project should not be empty")
 	}
 
+	if req.Type != nil {
+		switch *req.Type {
+		case apiv2.IPType_IP_TYPE_EPHEMERAL, apiv2.IPType_IP_TYPE_STATIC:
+			break
+		case apiv2.IPType_IP_TYPE_UNSPECIFIED:
+			return errorutil.InvalidArgument("given ip type is not supported:%s", req.Type.String())
+		}
+	}
+
+	nw, err := r.s.UnscopedNetwork().Get(ctx, req.Network) // the scope is checked afterwards. maybe it would be better to have a call that already does this?
+	if err != nil {
+		return err
+	}
+
+	// for private, unshared networks the project id must be the same
+	// for external networks the project id is not checked
+	if !nw.Shared && nw.ParentNetworkID != "" && req.Project != nw.ProjectID {
+		return errorutil.InvalidArgument("network %q not found", req.Network)
+	}
+
+	if req.AddressFamily != nil {
+		var af *metal.AddressFamily
+
+		switch *req.AddressFamily {
+		case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4:
+			af = pointer.Pointer(metal.IPv4AddressFamily)
+		case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6:
+			af = pointer.Pointer(metal.IPv6AddressFamily)
+		case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_UNSPECIFIED:
+			return errorutil.InvalidArgument("unsupported addressfamily")
+		default:
+			return errorutil.InvalidArgument("unsupported addressfamily")
+		}
+
+		if !slices.Contains(nw.Prefixes.AddressFamilies(), *af) {
+			return errorutil.InvalidArgument("there is no prefix for the given addressfamily:%s present in network:%s %s", *af, req.Network, nw.Prefixes.AddressFamilies())
+		}
+		if req.Ip != nil {
+			return errorutil.InvalidArgument("it is not possible to specify specificIP and addressfamily")
+		}
+	}
+
 	return nil
 }
 
@@ -85,6 +129,7 @@ func (r *ipRepository) validateDelete(ctx context.Context, req *metal.IP) error 
 	if req.ProjectID == "" {
 		return errorutil.InvalidArgument("projectId is empty")
 	}
+
 	ip, err := r.find(ctx, &apiv2.IPQuery{Ip: &req.IPAddress, Uuid: &req.AllocationUUID, Project: &req.ProjectID})
 	if err != nil {
 		if errorutil.IsNotFound(err) {
@@ -127,15 +172,9 @@ func (r *ipRepository) create(ctx context.Context, rq *apiv2.IPServiceCreateRequ
 	// Ensure no duplicates
 	tags = tag.NewTagMap(tags).Slice()
 
-	p, err := r.s.Project(req.Project).Get(ctx, req.Project)
-	if err != nil {
-		return nil, err
-	}
-	projectID := p.Meta.Id
-
-	nw, err := r.s.Network(req.Project).Get(ctx, req.Network)
-	if err != nil {
-		return nil, err
+	ipType := metal.Ephemeral
+	if pointer.SafeDeref(req.Type) == apiv2.IPType_IP_TYPE_STATIC {
+		ipType = metal.Static
 	}
 
 	var af *metal.AddressFamily
@@ -145,30 +184,21 @@ func (r *ipRepository) create(ctx context.Context, rq *apiv2.IPServiceCreateRequ
 			af = pointer.Pointer(metal.IPv4AddressFamily)
 		case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6:
 			af = pointer.Pointer(metal.IPv6AddressFamily)
-		case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_UNSPECIFIED:
-			return nil, errorutil.InvalidArgument("unsupported addressfamily")
-		default:
-			return nil, errorutil.InvalidArgument("unsupported addressfamily")
 		}
-
-		if !slices.Contains(nw.Prefixes.AddressFamilies(), *af) {
-			return nil, errorutil.InvalidArgument("there is no prefix for the given addressfamily:%s present in network:%s %s", *af, req.Network, nw.Prefixes.AddressFamilies())
-		}
-		if req.Ip != nil {
-			return nil, errorutil.InvalidArgument("it is not possible to specify specificIP and addressfamily")
-		}
-	}
-
-	// for private, unshared networks the project id must be the same
-	// for external networks the project id is not checked
-	if !nw.Shared && nw.ParentNetworkID != "" && p.Meta.Id != nw.ProjectID {
-		return nil, errorutil.InvalidArgument("can not allocate ip for project %q because network belongs to %q and the network is not shared", p.Meta.Id, nw.ProjectID)
 	}
 
 	var (
+		err          error
 		ipAddress    string
 		ipParentCidr string
 	)
+
+	nw, err := r.s.UnscopedNetwork().Get(ctx, req.Network) // TODO: maybe it would be useful to be able to pass this through from the validation or use a short-lived cache in the ip repo
+	if err != nil {
+		return nil, err
+	}
+
+	// as this is more or less a transaction... shouldn't we put this into async?
 
 	if req.Ip == nil {
 		ipAddress, ipParentCidr, err = r.allocateRandomIP(ctx, nw, af)
@@ -182,19 +212,7 @@ func (r *ipRepository) create(ctx context.Context, rq *apiv2.IPServiceCreateRequ
 		}
 	}
 
-	ipType := metal.Ephemeral
-	if req.Type != nil {
-		switch *req.Type {
-		case apiv2.IPType_IP_TYPE_EPHEMERAL:
-			ipType = metal.Ephemeral
-		case apiv2.IPType_IP_TYPE_STATIC:
-			ipType = metal.Static
-		case apiv2.IPType_IP_TYPE_UNSPECIFIED:
-			return nil, errorutil.InvalidArgument("given ip type is not supported:%s", req.Type.String())
-		}
-	}
-
-	r.s.log.Info("allocated ip in ipam", "ip", ipAddress, "network", nw.ID, "type", ipType)
+	r.s.log.Info("created ip in ipam", "ip", ipAddress, "network", nw.ID)
 
 	uuid, err := uuid.NewV7()
 	if err != nil {
@@ -208,17 +226,17 @@ func (r *ipRepository) create(ctx context.Context, rq *apiv2.IPServiceCreateRequ
 		Name:             name,
 		Description:      description,
 		NetworkID:        nw.ID,
-		ProjectID:        projectID,
+		ProjectID:        req.Project,
 		Type:             ipType,
 		Tags:             tags,
 	}
-
-	r.s.log.Info("create ip in db", "ip", ip)
 
 	resp, err := r.s.ds.IP().Create(ctx, ip)
 	if err != nil {
 		return nil, err
 	}
+
+	r.s.log.Info("created ip in metal-db", "ip", ipAddress, "network", nw.ID, "type", ipType)
 
 	return resp, nil
 }

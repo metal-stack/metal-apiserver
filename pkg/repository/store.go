@@ -7,6 +7,7 @@ import (
 	asyncclient "github.com/metal-stack/metal-apiserver/pkg/async/client"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -176,6 +177,11 @@ func (s *store[R, E, M, C, U, Q]) Delete(ctx context.Context, id string) (E, err
 		return zero, err
 	}
 
+	ok := s.matchScope(e)
+	if !ok {
+		return zero, errorutil.NotFound("entity %q not found", id)
+	}
+
 	err = s.validateDelete(ctx, e)
 	if err != nil {
 		return zero, err
@@ -201,11 +207,10 @@ func (s *store[R, E, M, C, U, Q]) Get(ctx context.Context, id string) (E, error)
 		return zero, err
 	}
 
-	// FIXME: this will break the tests!
-	// ok := s.matchScope(e)
-	// if !ok {
-	// 	return zero, errorutil.NotFound("entity %q not found", id)
-	// }
+	ok := s.matchScope(e)
+	if !ok {
+		return zero, errorutil.NotFound("entity %q not found", id)
+	}
 
 	return e, nil
 }
@@ -220,6 +225,11 @@ func (s *store[R, E, M, C, U, Q]) Update(ctx context.Context, id string, u U) (E
 	e, err := s.get(ctx, id)
 	if err != nil {
 		return zero, err
+	}
+
+	ok := s.matchScope(e)
+	if !ok {
+		return zero, errorutil.NotFound("entity %q not found", id)
 	}
 
 	err = s.validateUpdate(ctx, u, e)
