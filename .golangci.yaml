@@ -6,16 +6,13 @@ run:
   concurrency: 4
   build-tags:
     - integration
+
 linters:
   disable:
     - protogetter
   enable:
     - testifylint
     - unused
-  presets:
-    - bugs
-    - unused
-  fast: true
 
   # seems to be related to https://github.com/dominikh/go-tools/issues/1616
   exclusions:
