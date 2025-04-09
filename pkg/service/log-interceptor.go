@@ -32,7 +32,7 @@ func (i *logInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 
 		response, err := next(ctx, req)
 		if err != nil {
-			if debug {
+			if debug && response != nil {
 				log = log.With("body", response.Any())
 			}
 
