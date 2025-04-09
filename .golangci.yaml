@@ -1,0 +1,25 @@
+---
+version: "2"
+
+run:
+  timeout: 10m
+  concurrency: 4
+  build-tags:
+    - integration
+linters:
+  disable:
+    - protogetter
+  enable:
+    - testifylint
+    - unused
+  presets:
+    - bugs
+    - unused
+  fast: true
+
+  # seems to be related to https://github.com/dominikh/go-tools/issues/1616
+  exclusions:
+    rules:
+      - path: 'pkg/repository/.*\.go'
+        linters:
+          - unused
