@@ -154,19 +154,14 @@ func (n *networkServiceServer) Update(ctx context.Context, rq *connect.Request[a
 	req := rq.Msg
 
 	nur := &adminv2.NetworkServiceUpdateRequest{
-		Network: &apiv2.Network{
-			Id:          req.Id,
-			Project:     &req.Project,
-			Name:        req.Name,
-			Description: req.Description,
-			// FIXME which fields should be updateable
-		},
+		Id:          req.Id,
+		Name:        req.Name,
+		Description: req.Description,
+		// FIXME which fields should be updateable
 	}
 
-	if req.Labels != nil {
-		nur.Network.Meta = &apiv2.Meta{
-			Labels: req.Labels,
-		}
+	if req.Labels != nil && req.Labels.Labels != nil {
+		nur.Labels = req.Labels
 	}
 
 	validated, err := n.repo.Network(req.Project).ValidateUpdate(ctx, nur)

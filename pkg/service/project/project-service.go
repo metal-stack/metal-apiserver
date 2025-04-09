@@ -263,14 +263,6 @@ func (p *projectServiceServer) Delete(ctx context.Context, rq *connect.Request[a
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no project found with id %q: %w", req.Project, err))
 	}
 
-	if t.AdminRole != nil && *t.AdminRole == apiv2.AdminRole_ADMIN_ROLE_EDITOR {
-		// we allow deleting default-projects with admins explicitly in order to allow an admin to fully delete a tenant on demand
-	} else {
-		if putil.IsDefaultProject(getResp.Project) {
-			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("the default-project cannot be deleted"))
-		}
-	}
-
 	// FIXME check for machines and networks first
 
 	ips, err := p.repo.IP(req.Project).List(ctx, &apiv2.IPQuery{Project: &req.Project})
@@ -348,13 +340,9 @@ func (p *projectServiceServer) RemoveMember(ctx context.Context, rq *connect.Req
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
 	}
 
-	membership, project, err := putil.GetProjectMember(ctx, p.masterClient, req.Project, req.MemberId)
+	membership, _, err := putil.GetProjectMember(ctx, p.masterClient, req.Project, req.MemberId)
 	if err != nil {
 		return nil, err
-	}
-
-	if putil.IsDefaultProject(project) && project.TenantId == req.MemberId {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot remove a user from their own default project"))
 	}
 
 	lastOwner, err := p.checkIfMemberIsLastOwner(ctx, membership)
@@ -379,7 +367,7 @@ func (p *projectServiceServer) UpdateMember(ctx context.Context, rq *connect.Req
 	var (
 		req = rq.Msg
 	)
-	membership, project, err := putil.GetProjectMember(ctx, p.masterClient, req.Project, req.MemberId)
+	membership, _, err := putil.GetProjectMember(ctx, p.masterClient, req.Project, req.MemberId)
 	var connectErr *connect.Error
 
 	if errors.As(err, &connectErr) {
@@ -425,9 +413,7 @@ func (p *projectServiceServer) UpdateMember(ctx context.Context, rq *connect.Req
 	if err != nil {
 		return nil, err
 	}
-	if putil.IsDefaultProject(project) && project.TenantId == req.MemberId && req.Role != apiv2.ProjectRole_PROJECT_ROLE_OWNER {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot demote a user's role within their default project"))
-	}
+
 	if req.Role != apiv2.ProjectRole_PROJECT_ROLE_UNSPECIFIED {
 		// TODO: currently the API defines that only owners can update members so there is no possibility to elevate permissions
 		// probably, we should still check that no elevation of permissions is possible in case we later change the API

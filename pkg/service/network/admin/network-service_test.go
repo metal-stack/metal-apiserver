@@ -47,25 +47,31 @@ func Test_networkServiceServer_Create(t *testing.T) {
 		{
 			Id:                       pointer.Pointer("tenant-super-network"),
 			Prefixes:                 []string{"10.100.0.0/14"},
-			DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4, Length: 22}},
-			Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
+			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+			Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER,
 			Partition:                pointer.Pointer("partition-one"),
 		},
 		{
 			Id:                       pointer.Pointer("tenant-super-network-v6"),
 			Prefixes:                 []string{"2001:db8::/96"},
-			DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6, Length: 112}},
-			Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
+			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv6: pointer.Pointer(uint32(112))},
+			Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER,
 			Partition:                pointer.Pointer("partition-two"),
 		},
 		{
 			Id:                       pointer.Pointer("tenant-super-network-dualstack"),
 			Prefixes:                 []string{"2001:dc8::/96", "10.200.0.0/14"},
-			DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6, Length: 112}, {AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4, Length: 22}},
-			Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
+			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22)), Ipv6: pointer.Pointer(uint32(112))},
+			Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER,
 			Partition:                pointer.Pointer("partition-three"),
 		},
-		{Id: pointer.Pointer("underlay"), Name: pointer.Pointer("Underlay Network"), Project: pointer.Pointer("p0"), Prefixes: []string{"10.0.0.0/24"}},
+		{
+			Id:       pointer.Pointer("underlay"),
+			Name:     pointer.Pointer("Underlay Network"),
+			Project:  pointer.Pointer("p0"),
+			Prefixes: []string{"10.0.0.0/24"},
+			Type:     apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
+		},
 	})
 
 	tests := []struct {
@@ -82,6 +88,7 @@ func Test_networkServiceServer_Create(t *testing.T) {
 					Id:       "internet",
 					Meta:     &apiv2.Meta{},
 					Prefixes: []string{"1.2.3.0/24"},
+					Type:     apiv2.NetworkType_NETWORK_TYPE_SHARED.Enum(),
 				}},
 			wantErr: nil,
 		},
@@ -117,18 +124,16 @@ func Test_networkServiceServer_Create(t *testing.T) {
 		},
 		{
 			name:    "super network without defaultchildprefixes",
-			rq:      &adminv2.NetworkServiceCreateRequest{Id: pointer.Pointer("super-1"), Prefixes: []string{"2.3.4.0/24"}, Options: &apiv2.NetworkOptions{PrivateSuper: true}},
+			rq:      &adminv2.NetworkServiceCreateRequest{Id: pointer.Pointer("super-1"), Prefixes: []string{"2.3.4.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`private super network must always contain a defaultchildprefixlength`),
 		},
 		{
 			name: "super network without defaultchildprefixes",
 			rq: &adminv2.NetworkServiceCreateRequest{
-				Id:       pointer.Pointer("super-1"),
-				Prefixes: []string{"2.3.4.0/24"},
-				DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{
-					{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4, Length: 26},
-				},
+				Id:                       pointer.Pointer("super-1"),
+				Prefixes:                 []string{"2.3.4.0/24"},
+				DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(26))},
 			},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`defaultchildprefixlength can only be set for privatesuper networks`),
@@ -136,24 +141,21 @@ func Test_networkServiceServer_Create(t *testing.T) {
 		{
 			name: "super network with defaultchildprefixes, but wrong af",
 			rq: &adminv2.NetworkServiceCreateRequest{
-				Id:       pointer.Pointer("super-1"),
-				Prefixes: []string{"2.3.4.0/24"},
-				Options:  &apiv2.NetworkOptions{PrivateSuper: true},
-				DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{
-					{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6, Length: 112},
-				}},
+				Id:                       pointer.Pointer("super-1"),
+				Prefixes:                 []string{"2.3.4.0/24"},
+				Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER,
+				DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv6: pointer.Pointer(uint32(112))},
+			},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`private super network must always contain a defaultchildprefixlength per addressfamily:IPv4`),
 		},
 		{
 			name: "super network with defaultchildprefixes, but wrong length",
 			rq: &adminv2.NetworkServiceCreateRequest{
-				Id:       pointer.Pointer("super-1"),
-				Prefixes: []string{"2.3.4.0/24"},
-				Options:  &apiv2.NetworkOptions{PrivateSuper: true},
-				DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{
-					{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4, Length: 22},
-				}},
+				Id:                       pointer.Pointer("super-1"),
+				Prefixes:                 []string{"2.3.4.0/24"},
+				Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER,
+				DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))}},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`given defaultchildprefixlength 22 is not greater than prefix length of:2.3.4.0/24`),
 		},
@@ -162,7 +164,6 @@ func Test_networkServiceServer_Create(t *testing.T) {
 			rq: &adminv2.NetworkServiceCreateRequest{
 				Id:                         pointer.Pointer("super-1"),
 				Prefixes:                   []string{"2.3.4.0/24"},
-				Options:                    &apiv2.NetworkOptions{PrivateSuper: false},
 				AdditionalAnnouncableCidrs: []string{"10.100.0.0/24"},
 			},
 
@@ -183,13 +184,11 @@ func Test_networkServiceServer_Create(t *testing.T) {
 		{
 			name: "super network already exist in this partition",
 			rq: &adminv2.NetworkServiceCreateRequest{
-				Id:        pointer.Pointer("super-1"),
-				Prefixes:  []string{"2.3.4.0/24"},
-				Partition: pointer.Pointer("partition-one"),
-				DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{
-					{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4, Length: 26},
-				},
-				Options: &apiv2.NetworkOptions{PrivateSuper: true},
+				Id:                       pointer.Pointer("super-1"),
+				Prefixes:                 []string{"2.3.4.0/24"},
+				Partition:                pointer.Pointer("partition-one"),
+				DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(26))},
+				Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER,
 			},
 
 			want:    nil,
@@ -201,7 +200,7 @@ func Test_networkServiceServer_Create(t *testing.T) {
 				Id:        pointer.Pointer("underlay-1"),
 				Prefixes:  []string{"2.3.4.0/24"},
 				Partition: pointer.Pointer("partition-one"),
-				Options:   &apiv2.NetworkOptions{Underlay: true},
+				Type:      apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
 			},
 
 			want:    nil,
@@ -213,7 +212,7 @@ func Test_networkServiceServer_Create(t *testing.T) {
 				Id:        pointer.Pointer("underlay-1"),
 				Prefixes:  []string{"2.3.4.0/24"},
 				Partition: pointer.Pointer("partition-one"),
-				Options:   &apiv2.NetworkOptions{Underlay: true},
+				Type:      apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
 			},
 			want: nil,
 			// FIXME: this is not true, see above
@@ -222,12 +221,11 @@ func Test_networkServiceServer_Create(t *testing.T) {
 		{
 			name: "super network can not have nat",
 			rq: &adminv2.NetworkServiceCreateRequest{
-				Id:       pointer.Pointer("super-1"),
-				Prefixes: []string{"2.3.4.0/24"},
-				DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{
-					{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4, Length: 26},
-				},
-				Options: &apiv2.NetworkOptions{Nat: true, PrivateSuper: true},
+				Id:                       pointer.Pointer("super-1"),
+				Prefixes:                 []string{"2.3.4.0/24"},
+				DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(26))},
+				NatType:                  apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE.Enum(),
+				Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER,
 			},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`private super or underlay network is not supposed to NAT`),
@@ -237,7 +235,8 @@ func Test_networkServiceServer_Create(t *testing.T) {
 			rq: &adminv2.NetworkServiceCreateRequest{
 				Id:       pointer.Pointer("underlay-1"),
 				Prefixes: []string{"2.3.4.0/24"},
-				Options:  &apiv2.NetworkOptions{Underlay: true, Nat: true},
+				NatType:  apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE.Enum(),
+				Type:     apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
 			},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`private super or underlay network is not supposed to NAT`),
@@ -278,8 +277,8 @@ func Test_networkServiceServer_Create(t *testing.T) {
 				Name:                       pointer.Pointer("Super Network"),
 				Description:                pointer.Pointer("Super Network"),
 				Prefixes:                   []string{"2002:dc8::/96", "11.200.0.0/14"},
-				DefaultChildPrefixLength:   []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6, Length: 112}, {AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4, Length: 22}},
-				Options:                    &apiv2.NetworkOptions{PrivateSuper: true},
+				DefaultChildPrefixLength:   &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22)), Ipv6: pointer.Pointer(uint32(112))},
+				Type:                       apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER,
 				Partition:                  pointer.Pointer("partition-four"),
 				Vrf:                        pointer.Pointer(uint32(9)),
 				AdditionalAnnouncableCidrs: []string{"10.100.0.0/16"},
@@ -292,8 +291,8 @@ func Test_networkServiceServer_Create(t *testing.T) {
 					Name:                       pointer.Pointer("Super Network"),
 					Description:                pointer.Pointer("Super Network"),
 					Prefixes:                   []string{"11.200.0.0/14", "2002:dc8::/96"},
-					DefaultChildPrefixLength:   []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4, Length: 22}, {AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6, Length: 112}},
-					Options:                    &apiv2.NetworkOptions{PrivateSuper: true},
+					DefaultChildPrefixLength:   &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22)), Ipv6: pointer.Pointer(uint32(112))},
+					Type:                       apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER.Enum(),
 					Partition:                  pointer.Pointer("partition-four"),
 					Vrf:                        pointer.Pointer(uint32(9)),
 					AdditionalAnnouncableCidrs: []string{"10.100.0.0/16"},
@@ -303,7 +302,7 @@ func Test_networkServiceServer_Create(t *testing.T) {
 		{
 			name: "underlay",
 			rq: &adminv2.NetworkServiceCreateRequest{
-				Id: pointer.Pointer("underlay-2"), Name: pointer.Pointer("Underlay Network"), Project: pointer.Pointer("p0"), Prefixes: []string{"16.0.0.0/24"}, Options: &apiv2.NetworkOptions{Underlay: true},
+				Id: pointer.Pointer("underlay-2"), Name: pointer.Pointer("Underlay Network"), Project: pointer.Pointer("p0"), Prefixes: []string{"16.0.0.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
 			},
 			want: &adminv2.NetworkServiceCreateResponse{
 				Network: &apiv2.Network{
@@ -312,7 +311,7 @@ func Test_networkServiceServer_Create(t *testing.T) {
 					Name:     pointer.Pointer("Underlay Network"),
 					Project:  pointer.Pointer("p0"),
 					Prefixes: []string{"16.0.0.0/24"},
-					Options:  &apiv2.NetworkOptions{Underlay: true},
+					Type:     apiv2.NetworkType_NETWORK_TYPE_UNDERLAY.Enum(),
 				},
 			},
 			wantErr: nil,
@@ -377,25 +376,31 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 		{
 			Id:                       pointer.Pointer("tenant-super-network"),
 			Prefixes:                 []string{"10.100.0.0/14"},
-			DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4, Length: 22}},
-			Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
+			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+			Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER,
 			Partition:                pointer.Pointer("partition-one"),
 		},
 		{
 			Id:                       pointer.Pointer("tenant-super-network-v6"),
 			Prefixes:                 []string{"2001:db8::/96"},
-			DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6, Length: 112}},
-			Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
+			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv6: pointer.Pointer(uint32(112))},
+			Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER,
 			Partition:                pointer.Pointer("partition-two"),
 		},
 		{
 			Id:                       pointer.Pointer("tenant-super-network-dualstack"),
 			Prefixes:                 []string{"2001:dc8::/96", "10.200.0.0/14"},
-			DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6, Length: 112}, {AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4, Length: 22}},
-			Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
+			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22)), Ipv6: pointer.Pointer(uint32(112))},
+			Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER,
 			Partition:                pointer.Pointer("partition-three"),
 		},
-		{Id: pointer.Pointer("underlay"), Name: pointer.Pointer("Underlay Network"), Project: pointer.Pointer("p0"), Prefixes: []string{"10.0.0.0/24"}},
+		{
+			Id:       pointer.Pointer("underlay"),
+			Name:     pointer.Pointer("Underlay Network"),
+			Project:  pointer.Pointer("p0"),
+			Prefixes: []string{"10.0.0.0/24"},
+			Type:     apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
+		},
 	})
 	networkMap := test.AllocateNetworks(t, repo, []*apiv2.NetworkServiceCreateRequest{
 		{Name: pointer.Pointer("tenant-1"), Project: "p1", Partition: pointer.Pointer("partition-one")},
@@ -506,26 +511,37 @@ func Test_networkServiceServer_List(t *testing.T) {
 		{
 			Id:                       pointer.Pointer("tenant-super-network"),
 			Prefixes:                 []string{"10.100.0.0/14"},
-			DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4, Length: 22}},
-			Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
+			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+			Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER,
 			Partition:                pointer.Pointer("partition-one"),
 		},
 		{
 			Id:                       pointer.Pointer("tenant-super-network-v6"),
 			Prefixes:                 []string{"2001:db8::/96"},
-			DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6, Length: 112}},
-			Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
+			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv6: pointer.Pointer(uint32(112))},
+			Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER,
 			Partition:                pointer.Pointer("partition-two"),
 		},
 		{
 			Id:                       pointer.Pointer("tenant-super-network-dualstack"),
 			Prefixes:                 []string{"2001:dc8::/96", "10.200.0.0/14"},
-			DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6, Length: 112}, {AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4, Length: 22}},
-			Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
+			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22)), Ipv6: pointer.Pointer(uint32(112))},
+			Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER,
 			Partition:                pointer.Pointer("partition-three"),
 		},
-		{Id: pointer.Pointer("underlay"), Name: pointer.Pointer("Underlay Network"), Project: pointer.Pointer("p0"), Prefixes: []string{"10.0.0.0/24"}, Options: &apiv2.NetworkOptions{Underlay: true}},
-		{Id: pointer.Pointer("internet"), Prefixes: []string{"20.0.0.0/24"}, DestinationPrefixes: []string{"0.0.0.0/0"}},
+		{
+			Id:       pointer.Pointer("underlay"),
+			Name:     pointer.Pointer("Underlay Network"),
+			Project:  pointer.Pointer("p0"),
+			Prefixes: []string{"10.0.0.0/24"},
+			Type:     apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
+		},
+		{
+			Id:                  pointer.Pointer("internet"),
+			Prefixes:            []string{"20.0.0.0/24"},
+			DestinationPrefixes: []string{"0.0.0.0/0"},
+			Type:                apiv2.NetworkType_NETWORK_TYPE_SHARED,
+		},
 	})
 	networkMap := test.AllocateNetworks(t, repo, []*apiv2.NetworkServiceCreateRequest{
 		{Name: pointer.Pointer("tenant-1"), Project: "p1", Partition: pointer.Pointer("partition-one")},
@@ -627,7 +643,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 		{
 			name: "underlay",
 			rq: &adminv2.NetworkServiceListRequest{
-				Query: &apiv2.NetworkQuery{Options: &apiv2.NetworkQuery_Options{Underlay: pointer.Pointer(true)}},
+				Query: &apiv2.NetworkQuery{Type: apiv2.NetworkType_NETWORK_TYPE_UNDERLAY.Enum()},
 			},
 			want: &adminv2.NetworkServiceListResponse{
 				Networks: []*apiv2.Network{
@@ -637,7 +653,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 						Name:     pointer.Pointer("Underlay Network"),
 						Project:  pointer.Pointer("p0"),
 						Prefixes: []string{"10.0.0.0/24"},
-						Options:  &apiv2.NetworkOptions{Underlay: true},
+						Type:     apiv2.NetworkType_NETWORK_TYPE_UNDERLAY.Enum(),
 					},
 				},
 			},
@@ -646,7 +662,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 		{
 			name: "super tenant in partition-one",
 			rq: &adminv2.NetworkServiceListRequest{
-				Query: &apiv2.NetworkQuery{Partition: pointer.Pointer("partition-one"), Options: &apiv2.NetworkQuery_Options{PrivateSuper: pointer.Pointer(true)}},
+				Query: &apiv2.NetworkQuery{Partition: pointer.Pointer("partition-one"), Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER.Enum()},
 			},
 			want: &adminv2.NetworkServiceListResponse{
 				Networks: []*apiv2.Network{
@@ -655,8 +671,8 @@ func Test_networkServiceServer_List(t *testing.T) {
 						Meta:                     &apiv2.Meta{},
 						Partition:                pointer.Pointer("partition-one"),
 						Prefixes:                 []string{"10.100.0.0/14"},
-						Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
-						DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4, Length: 22}},
+						Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER.Enum(),
+						DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
 					},
 				},
 			},
@@ -674,16 +690,16 @@ func Test_networkServiceServer_List(t *testing.T) {
 						Meta:                     &apiv2.Meta{},
 						Partition:                pointer.Pointer("partition-three"),
 						Prefixes:                 []string{"10.200.0.0/14", "2001:dc8::/96"},
-						Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
-						DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4, Length: 22}, {AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6, Length: 112}},
+						Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER.Enum(),
+						DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22)), Ipv6: pointer.Pointer(uint32(112))},
 					},
 					{
 						Id:                       "tenant-super-network-v6",
 						Meta:                     &apiv2.Meta{},
 						Partition:                pointer.Pointer("partition-two"),
 						Prefixes:                 []string{"2001:db8::/96"},
-						Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
-						DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6, Length: 112}},
+						Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER.Enum(),
+						DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv6: pointer.Pointer(uint32(112))},
 					},
 				},
 			},
@@ -701,8 +717,8 @@ func Test_networkServiceServer_List(t *testing.T) {
 						Meta:                     &apiv2.Meta{},
 						Partition:                pointer.Pointer("partition-three"),
 						Prefixes:                 []string{"10.200.0.0/14", "2001:dc8::/96"},
-						Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
-						DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4, Length: 22}, {AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6, Length: 112}},
+						Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER.Enum(),
+						DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22)), Ipv6: pointer.Pointer(uint32(112))},
 					},
 				},
 			},
@@ -805,26 +821,37 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{
 			Id:                       pointer.Pointer("tenant-super-network"),
 			Prefixes:                 []string{"10.100.0.0/14"},
-			DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4, Length: 22}},
-			Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
+			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+			Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER,
 			Partition:                pointer.Pointer("partition-one"),
 		},
 		{
 			Id:                       pointer.Pointer("tenant-super-network-v6"),
 			Prefixes:                 []string{"2001:db8::/96"},
-			DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6, Length: 112}},
-			Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
+			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv6: pointer.Pointer(uint32(112))},
+			Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER,
 			Partition:                pointer.Pointer("partition-two"),
 		},
 		{
 			Id:                       pointer.Pointer("tenant-super-network-dualstack"),
 			Prefixes:                 []string{"2001:dc8::/96", "10.200.0.0/14"},
-			DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6, Length: 112}, {AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4, Length: 22}},
-			Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
+			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22)), Ipv6: pointer.Pointer(uint32(112))},
+			Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER,
 			Partition:                pointer.Pointer("partition-three"),
 		},
-		{Id: pointer.Pointer("underlay"), Name: pointer.Pointer("Underlay Network"), Project: pointer.Pointer("p0"), Prefixes: []string{"10.0.0.0/24"}, Options: &apiv2.NetworkOptions{Underlay: true}},
-		{Id: pointer.Pointer("internet"), Prefixes: []string{"20.0.0.0/24"}, DestinationPrefixes: []string{"0.0.0.0/0"}},
+		{
+			Id:       pointer.Pointer("underlay"),
+			Name:     pointer.Pointer("Underlay Network"),
+			Project:  pointer.Pointer("p0"),
+			Prefixes: []string{"10.0.0.0/24"},
+			Type:     apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
+		},
+		{
+			Id:                  pointer.Pointer("internet"),
+			Prefixes:            []string{"20.0.0.0/24"},
+			DestinationPrefixes: []string{"0.0.0.0/0"},
+			Type:                apiv2.NetworkType_NETWORK_TYPE_SHARED,
+		},
 	})
 
 	networkMap := test.AllocateNetworks(t, repo, []*apiv2.NetworkServiceCreateRequest{
@@ -841,12 +868,8 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{
 			name: "add label to tenant network",
 			rq: &adminv2.NetworkServiceUpdateRequest{
-				Network: &apiv2.Network{
-					Id: networkMap["tenant-1"],
-					Meta: &apiv2.Meta{
-						Labels: &apiv2.Labels{Labels: map[string]string{"color": "red", "size": "large"}},
-					},
-				},
+				Id:     networkMap["tenant-1"],
+				Labels: &apiv2.Labels{Labels: map[string]string{"color": "red", "size": "large"}},
 			},
 			want: &adminv2.NetworkServiceUpdateResponse{
 				Network: &apiv2.Network{
@@ -867,10 +890,8 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{
 			name: "add prefixes to tenant network",
 			rq: &adminv2.NetworkServiceUpdateRequest{
-				Network: &apiv2.Network{
-					Id:       networkMap["tenant-1"],
-					Prefixes: []string{"10.100.0.0/22", "10.101.0.0/22", "10.102.0.0/22"},
-				},
+				Id:       networkMap["tenant-1"],
+				Prefixes: []string{"10.100.0.0/22", "10.101.0.0/22", "10.102.0.0/22"},
 			},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument("cannot change prefixes in child networks"),
@@ -878,10 +899,8 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{
 			name: "add prefixes to tenant super network",
 			rq: &adminv2.NetworkServiceUpdateRequest{
-				Network: &apiv2.Network{
-					Id:       "tenant-super-network",
-					Prefixes: []string{"10.100.0.0/14", "10.101.0.0/14"},
-				},
+				Id:       "tenant-super-network",
+				Prefixes: []string{"10.100.0.0/14", "10.101.0.0/14"},
 			},
 			want: &adminv2.NetworkServiceUpdateResponse{
 				Network: &apiv2.Network{
@@ -889,13 +908,12 @@ func Test_networkServiceServer_Update(t *testing.T) {
 					Meta:                     &apiv2.Meta{},
 					Partition:                pointer.Pointer("partition-one"),
 					Prefixes:                 []string{"10.100.0.0/14", "10.101.0.0/14"},
-					Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
-					DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4, Length: 22}},
+					Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER.Enum(),
+					DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
 				},
 			},
 			wantErr: nil,
 		},
-		// TODO can options be changed ?
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

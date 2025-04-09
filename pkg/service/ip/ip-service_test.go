@@ -355,9 +355,9 @@ func Test_ipServiceServer_Create(t *testing.T) {
 
 	nws := []*adminv2.NetworkServiceCreateRequest{
 		{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.0.0/16"}},
-		{Id: pointer.Pointer("tenant-network"), Prefixes: []string{"10.2.0.0/24"}, Options: &apiv2.NetworkOptions{PrivateSuper: true}, DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4, Length: 28}}},
-		{Id: pointer.Pointer("tenant-network-v6"), Prefixes: []string{"2001:db8:1::/64"}, Options: &apiv2.NetworkOptions{PrivateSuper: true}, DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6, Length: 80}}},
-		{Id: pointer.Pointer("tenant-network-dualstack"), Prefixes: []string{"10.3.0.0/24", "2001:db8:2::/64"}, Options: &apiv2.NetworkOptions{PrivateSuper: true}, DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4, Length: 28}, {AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6, Length: 80}}},
+		{Id: pointer.Pointer("tenant-network"), Prefixes: []string{"10.2.0.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER, DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(28))}},
+		{Id: pointer.Pointer("tenant-network-v6"), Prefixes: []string{"2001:db8:1::/64"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER, DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv6: pointer.Pointer(uint32(80))}},
+		{Id: pointer.Pointer("tenant-network-dualstack"), Prefixes: []string{"10.3.0.0/24", "2001:db8:2::/64"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER, DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(28)), Ipv6: pointer.Pointer(uint32(80))}},
 	}
 	ips := []*apiv2.IPServiceCreateRequest{
 		{Name: pointer.Pointer("ip1"), Ip: pointer.Pointer("1.2.3.4"), Project: "p1", Network: "internet"},

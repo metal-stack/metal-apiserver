@@ -64,25 +64,25 @@ func NetworkFilter(rq *apiv2.NetworkQuery) func(q r.Term) r.Term {
 			}
 		}
 
-		if rq.Options != nil && rq.Options.Underlay != nil {
+		if rq.Type != nil && rq.Type == apiv2.NetworkType_NETWORK_TYPE_UNDERLAY.Enum() {
 			q = q.Filter(func(row r.Term) r.Term {
-				return row.Field("underlay").Eq(*rq.Options.Underlay)
+				return row.Field("underlay").Eq(true)
 			})
 		}
-		if rq.Options != nil && rq.Options.Shared != nil {
+		if rq.Type != nil && rq.Type == apiv2.NetworkType_NETWORK_TYPE_SHARED.Enum() {
 			q = q.Filter(func(row r.Term) r.Term {
-				return row.Field("shared").Eq(*rq.Options.Shared)
+				return row.Field("shared").Eq(true)
 			})
 		}
 
-		if rq.Options != nil && rq.Options.PrivateSuper != nil {
+		if rq.Type != nil && (rq.Type == apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER.Enum() || rq.Type == apiv2.NetworkType_NETWORK_TYPE_SUPER_VRF_SHARED.Enum()) {
 			q = q.Filter(func(row r.Term) r.Term {
-				return row.Field("privatesuper").Eq(*rq.Options.PrivateSuper)
+				return row.Field("privatesuper").Eq(true)
 			})
 		}
-		if rq.Options != nil && rq.Options.Nat != nil {
+		if rq.NatType != nil && rq.NatType == apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE.Enum() {
 			q = q.Filter(func(row r.Term) r.Term {
-				return row.Field("nat").Eq(*rq.Options.Nat)
+				return row.Field("nat").Eq(true)
 			})
 		}
 
