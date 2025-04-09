@@ -60,7 +60,7 @@ func (r *networkRepository) ValidateCreate(ctx context.Context, req *adminv2.Net
 	case apiv2.NetworkType_NETWORK_TYPE_SUPER_VRF_SHARED:
 		privateSuper = true
 		// can have multiple super networks
-	case apiv2.NetworkType_NETWORK_TYPE_PRIVATE:
+	case apiv2.NetworkType_NETWORK_TYPE_PRIVATE, apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SHARED:
 		private = true
 	case apiv2.NetworkType_NETWORK_TYPE_SHARED, apiv2.NetworkType_NETWORK_TYPE_UNSPECIFIED:
 		// If no networktype was specified, we assume shared
@@ -661,7 +661,7 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 	)
 
 	switch req.Type {
-	case apiv2.NetworkType_NETWORK_TYPE_SHARED, apiv2.NetworkType_NETWORK_TYPE_UNSPECIFIED:
+	case apiv2.NetworkType_NETWORK_TYPE_SHARED, apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SHARED, apiv2.NetworkType_NETWORK_TYPE_UNSPECIFIED:
 		// If no network type was specified, we assume shared
 		shared = true
 	case apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER:
@@ -669,8 +669,6 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 	case apiv2.NetworkType_NETWORK_TYPE_SUPER_VRF_SHARED:
 		privateSuper = true
 	case apiv2.NetworkType_NETWORK_TYPE_PRIVATE:
-		//
-	case apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SHARED:
 		//
 	case apiv2.NetworkType_NETWORK_TYPE_UNDERLAY:
 		underlay = true
@@ -909,6 +907,12 @@ func (r *networkRepository) ConvertToProto(e *metal.Network) (*apiv2.Network, er
 	}
 	if e.ParentNetworkID != "" {
 		networkType = apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum()
+	}
+	if e.NetworkType != nil {
+		switch *e.NetworkType {
+		case metal.PrivateNetworkType:
+			networkType = apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum()
+		}
 	}
 	// TODO: how to detect private super shared vrf
 

@@ -229,7 +229,7 @@ func Test_networkServiceServer_ListBaseNetworks(t *testing.T) {
 			rq:   &apiv2.NetworkServiceListBaseNetworksRequest{},
 			want: &apiv2.NetworkServiceListBaseNetworksResponse{
 				Networks: []*apiv2.Network{
-					{Id: "internet", Meta: &apiv2.Meta{}, Prefixes: []string{"1.2.3.0/24"}},
+					{Id: "internet", Meta: &apiv2.Meta{}, Prefixes: []string{"1.2.3.0/24"}, DestinationPrefixes: []string{"0.0.0.0/0"}, Type: apiv2.NetworkType_NETWORK_TYPE_SHARED.Enum()},
 					{Id: "p3-network-a", Meta: &apiv2.Meta{}, Name: pointer.Pointer("Shared Storage Network"), Project: pointer.Pointer("p3"), Prefixes: []string{"4.3.4.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_SHARED.Enum()},
 				},
 			},
@@ -306,7 +306,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 			name: "update name",
 			rq:   &apiv2.NetworkServiceUpdateRequest{Id: "p1-network-a", Project: "p1", Name: pointer.Pointer("P1 Updated Network")},
 			want: &apiv2.NetworkServiceUpdateResponse{
-				Network: &apiv2.Network{Id: "p1-network-a", Meta: &apiv2.Meta{}, Name: pointer.Pointer("P1 Updated Network"), Project: pointer.Pointer("p1"), Prefixes: []string{"2.3.4.0/24"}},
+				Network: &apiv2.Network{Id: "p1-network-a", Meta: &apiv2.Meta{}, Name: pointer.Pointer("P1 Updated Network"), Project: pointer.Pointer("p1"), Prefixes: []string{"2.3.4.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum()},
 			},
 			wantErr: nil,
 		},
@@ -314,7 +314,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 			name: "update description",
 			rq:   &apiv2.NetworkServiceUpdateRequest{Id: "p1-network-b", Project: "p1", Description: pointer.Pointer("P1 Description")},
 			want: &apiv2.NetworkServiceUpdateResponse{
-				Network: &apiv2.Network{Id: "p1-network-b", Meta: &apiv2.Meta{}, Name: pointer.Pointer("P1 Network"), Description: pointer.Pointer("P1 Description"), Project: pointer.Pointer("p1"), Prefixes: []string{"2.3.5.0/24"}},
+				Network: &apiv2.Network{Id: "p1-network-b", Meta: &apiv2.Meta{}, Name: pointer.Pointer("P1 Network"), Description: pointer.Pointer("P1 Description"), Project: pointer.Pointer("p1"), Prefixes: []string{"2.3.5.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum()},
 			},
 			wantErr: nil,
 		},
@@ -322,7 +322,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 			name: "update labels",
 			rq:   &apiv2.NetworkServiceUpdateRequest{Id: "p3-network-a", Project: "p3", Labels: &apiv2.Labels{Labels: map[string]string{"size": "small"}}},
 			want: &apiv2.NetworkServiceUpdateResponse{
-				Network: &apiv2.Network{Id: "p3-network-a", Meta: &apiv2.Meta{Labels: &apiv2.Labels{Labels: map[string]string{"size": "small"}}}, Name: pointer.Pointer("P3 Network"), Project: pointer.Pointer("p3"), Prefixes: []string{"4.3.4.0/24"}},
+				Network: &apiv2.Network{Id: "p3-network-a", Meta: &apiv2.Meta{Labels: &apiv2.Labels{Labels: map[string]string{"size": "small"}}}, Name: pointer.Pointer("P3 Network"), Project: pointer.Pointer("p3"), Prefixes: []string{"4.3.4.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum()},
 			},
 			wantErr: nil,
 		},
@@ -338,6 +338,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 			want:    nil,
 			wantErr: errorutil.NotFound(`network:p3-network-a project:p3 for scope:p4 not found`),
 		},
+		// FIXME remove labels
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
