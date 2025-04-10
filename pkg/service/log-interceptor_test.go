@@ -51,7 +51,7 @@ func Test_logInterceptor_AuditingCtx(t *testing.T) {
 			level:       slog.LevelDebug,
 			method:      "/metalstack.api.v2.IPService/Create",
 			handler:     handler[apiv2.IPServiceCreateRequest, apiv2.IPServiceCreateResponse](),
-			wantContain: `"level":"INFO","msg":"handling unary call","procedure":"/metalstack.api.v2.IPService/Create","body":{"network":`,
+			wantContain: `"level":"INFO","msg":"handling unary call","procedure":"/metalstack.api.v2.IPService/Create","request":{"network":`,
 		},
 	}
 	for _, tt := range tests {

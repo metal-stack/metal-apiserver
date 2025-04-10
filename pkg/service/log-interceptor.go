@@ -25,7 +25,7 @@ func (i *logInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 		)
 
 		if debug {
-			log = log.With("body", req.Any())
+			log = log.With("request", req.Any())
 		}
 
 		log.Info("handling unary call")
@@ -33,7 +33,7 @@ func (i *logInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 		response, err := next(ctx, req)
 		if err != nil {
 			if debug && response != nil {
-				log = log.With("body", response.Any())
+				log = log.With("response", response.Any())
 			}
 
 			log.Error("error during unary call", "error", err)
