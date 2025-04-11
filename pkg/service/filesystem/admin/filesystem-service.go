@@ -31,8 +31,6 @@ func New(c Config) adminv2connect.FilesystemServiceHandler {
 
 // Create implements adminv2connect.FilesystemServiceHandler.
 func (f *filesystemServiceServer) Create(ctx context.Context, rq *connect.Request[adminv2.FilesystemServiceCreateRequest]) (*connect.Response[adminv2.FilesystemServiceCreateResponse], error) {
-	f.log.Debug("create", "msg", rq.Msg)
-
 	validated, err := f.repo.FilesystemLayout().ValidateCreate(ctx, rq.Msg)
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -51,8 +49,6 @@ func (f *filesystemServiceServer) Create(ctx context.Context, rq *connect.Reques
 
 // Delete implements adminv2connect.FilesystemServiceHandler.
 func (f *filesystemServiceServer) Delete(ctx context.Context, rq *connect.Request[adminv2.FilesystemServiceDeleteRequest]) (*connect.Response[adminv2.FilesystemServiceDeleteResponse], error) {
-	f.log.Debug("delete", "msg", rq.Msg)
-
 	validated, err := f.repo.FilesystemLayout().ValidateDelete(ctx, &metal.FilesystemLayout{Base: metal.Base{ID: rq.Msg.Id}})
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -71,8 +67,6 @@ func (f *filesystemServiceServer) Delete(ctx context.Context, rq *connect.Reques
 
 // Update implements adminv2connect.FilesystemServiceHandler.
 func (f *filesystemServiceServer) Update(ctx context.Context, rq *connect.Request[adminv2.FilesystemServiceUpdateRequest]) (*connect.Response[adminv2.FilesystemServiceUpdateResponse], error) {
-	f.log.Debug("update", "msg", rq.Msg)
-
 	validated, err := f.repo.FilesystemLayout().ValidateUpdate(ctx, rq.Msg)
 	if err != nil {
 		return nil, errorutil.Convert(err)

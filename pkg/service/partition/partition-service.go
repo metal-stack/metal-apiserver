@@ -30,7 +30,6 @@ func New(c Config) apiv2connect.PartitionServiceHandler {
 
 // Get implements apiv2connect.PartitionServiceHandler.
 func (p *partitionServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2.PartitionServiceGetRequest]) (*connect.Response[apiv2.PartitionServiceGetResponse], error) {
-	p.log.Debug("get", "msg", rq.Msg)
 	partition, err := p.repo.Partition().Get(ctx, rq.Msg.Id)
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -44,7 +43,6 @@ func (p *partitionServiceServer) Get(ctx context.Context, rq *connect.Request[ap
 
 // List implements apiv2connect.PartitionServiceHandler.
 func (p *partitionServiceServer) List(ctx context.Context, rq *connect.Request[apiv2.PartitionServiceListRequest]) (*connect.Response[apiv2.PartitionServiceListResponse], error) {
-	p.log.Debug("list", "msg", rq.Msg)
 	partitions, err := p.repo.Partition().List(ctx, rq.Msg.Query)
 	if err != nil {
 		return nil, errorutil.Convert(err)

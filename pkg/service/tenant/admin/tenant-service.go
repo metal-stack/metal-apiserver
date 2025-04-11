@@ -46,7 +46,6 @@ func New(c Config) TenantService {
 // Create implements TenantService.
 func (t *tenantServiceServer) Create(ctx context.Context, rq *connect.Request[adminv2.TenantServiceCreateRequest]) (*connect.Response[adminv2.TenantServiceCreateResponse], error) {
 	req := rq.Msg
-	t.log.Debug("create", "request", req)
 
 	tenant := &mdcv1.Tenant{
 		Meta: &mdcv1.Meta{
