@@ -1,7 +1,6 @@
 package test
 
 import (
-	"context"
 	"log/slog"
 	"testing"
 
@@ -9,18 +8,13 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/masterdata-api/pkg/client"
-	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 )
 
 func StartRepositoryWithCockroach(t *testing.T, log *slog.Logger) (*repository.Store, client.Client, func()) {
-	container, c, err := StartRethink(t, log)
-	require.NoError(t, err)
-
-	ds, err := generic.New(log, c)
-	require.NoError(t, err)
+	ds, _, rethinkCloser := StartRethink(t, log)
 
 	r := miniredis.RunT(t)
 	rc := redis.NewClient(&redis.Options{Addr: r.Addr()})
@@ -36,7 +30,7 @@ func StartRepositoryWithCockroach(t *testing.T, log *slog.Logger) (*repository.S
 
 	closer := func() {
 		_ = connection.Close()
-		_ = container.Terminate(context.Background())
+		rethinkCloser()
 		ipamCloser()
 		masterdataCloser()
 		asyncCloser()
@@ -45,11 +39,7 @@ func StartRepositoryWithCockroach(t *testing.T, log *slog.Logger) (*repository.S
 }
 
 func StartRepository(t *testing.T, log *slog.Logger) (*repository.Store, func()) {
-	container, c, err := StartRethink(t, log)
-	require.NoError(t, err)
-
-	ds, err := generic.New(log, c)
-	require.NoError(t, err)
+	ds, _, rethinkCloser := StartRethink(t, log)
 
 	r := miniredis.RunT(t)
 	rc := redis.NewClient(&redis.Options{Addr: r.Addr()})
@@ -65,7 +55,7 @@ func StartRepository(t *testing.T, log *slog.Logger) (*repository.Store, func())
 
 	closer := func() {
 		_ = connection.Close()
-		_ = container.Terminate(context.Background())
+		rethinkCloser()
 		ipamCloser()
 		masterdataCloser()
 		asyncCloser()
