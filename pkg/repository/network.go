@@ -735,10 +735,12 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 	} else {
 		// FIXME in case req.vrf is nil, the network will be created with a 0 vrf ?
 		// This is the case in the actual metal-api implementation
-		// Therefor we create a random vrf instead
-		vrf, err = r.r.ds.VrfPool().AcquireRandomUniqueInteger(ctx)
-		if err != nil {
-			return nil, errorutil.Internal("could not acquire a vrf: %w", err)
+		// Therefor we create a random vrf instead for private networks
+		if !privateSuper {
+			vrf, err = r.r.ds.VrfPool().AcquireRandomUniqueInteger(ctx)
+			if err != nil {
+				return nil, errorutil.Internal("could not acquire a vrf: %w", err)
+			}
 		}
 	}
 

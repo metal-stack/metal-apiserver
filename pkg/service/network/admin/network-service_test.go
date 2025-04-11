@@ -875,7 +875,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 					Partition:       pointer.Pointer("partition-one"),
 					Project:         pointer.Pointer("p1"),
 					Prefixes:        []string{"10.100.0.0/22"},
-					Vrf:             pointer.Pointer(uint32(4)),
+					Vrf:             pointer.Pointer(uint32(10)),
 					ParentNetworkId: pointer.Pointer("tenant-super-network"),
 					Type:            apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum(),
 				},
