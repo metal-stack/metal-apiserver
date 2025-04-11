@@ -6,21 +6,16 @@ import (
 	"os"
 	"testing"
 
-	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/stretchr/testify/require"
 )
 
 func Test_AcquireAndReleaseUniqueInteger(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	container, c, err := test.StartRethink(t, log)
-	require.NoError(t, err)
+	ds, _, close := test.StartRethink(t, log)
 	defer func() {
-		_ = container.Terminate(t.Context())
+		close()
 	}()
-
-	ds, err := generic.New(log, c)
-	require.NoError(t, err)
 
 	tests := []struct {
 		name       string
