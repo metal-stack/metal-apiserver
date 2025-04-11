@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/alicebob/miniredis/v2"
-	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/redis/go-redis/v9"
@@ -21,17 +20,13 @@ func TestGet(t *testing.T) {
 	r := miniredis.RunT(t)
 	rc := redis.NewClient(&redis.Options{Addr: r.Addr()})
 
-	container, c, err := test.StartRethink(t, log)
-	require.NoError(t, err)
+	ds, _, rethinkCloser := test.StartRethink(t, log)
 	defer func() {
-		_ = container.Terminate(context.Background())
+		rethinkCloser()
 	}()
 
 	ipam, closer := test.StartIpam(t)
 	defer closer()
-
-	ds, err := generic.New(log, c)
-	require.NoError(t, err)
 
 	repo, err := repository.New(log, nil, ds, ipam, rc)
 	require.NoError(t, err)
@@ -50,17 +45,13 @@ func TestIpUnscopedList(t *testing.T) {
 	r := miniredis.RunT(t)
 	rc := redis.NewClient(&redis.Options{Addr: r.Addr()})
 
-	container, c, err := test.StartRethink(t, log)
-	require.NoError(t, err)
+	ds, _, rethinkCloser := test.StartRethink(t, log)
 	defer func() {
-		_ = container.Terminate(context.Background())
+		rethinkCloser()
 	}()
 
 	ipam, closer := test.StartIpam(t)
 	defer closer()
-
-	ds, err := generic.New(log, c)
-	require.NoError(t, err)
 
 	repo, err := repository.New(log, nil, ds, ipam, rc)
 	require.NoError(t, err)

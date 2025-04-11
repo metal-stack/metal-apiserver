@@ -1,6 +1,7 @@
 package test
 
 import (
+	"context"
 	"log/slog"
 	"testing"
 
@@ -13,7 +14,7 @@ import (
 
 const rethinkDbImage = "rethinkdb:2.4.4-bookworm-slim"
 
-func StartRethink(t testing.TB, log *slog.Logger) (container testcontainers.Container, s r.ConnectOpts, err error) {
+func StartRethink(t testing.TB, log *slog.Logger) (generic.Datastore, r.ConnectOpts, func()) {
 	ctx := t.Context()
 	var tLog testcontainers.Logging
 	if t != nil {
@@ -55,5 +56,12 @@ func StartRethink(t testing.TB, log *slog.Logger) (container testcontainers.Cont
 	err = generic.Initialize(ctx, log, opts)
 	require.NoError(t, err)
 
-	return rtContainer, opts, err
+	ds, err := generic.New(log, opts)
+	require.NoError(t, err)
+
+	closer := func() {
+		_ = rtContainer.Terminate(context.Background())
+	}
+
+	return ds, opts, closer
 }

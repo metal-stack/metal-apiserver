@@ -3,7 +3,6 @@
 package migrations_integration
 
 import (
-	"context"
 	"log/slog"
 	"os"
 
@@ -28,16 +27,12 @@ func Test_MigrationChildPrefixLength(t *testing.T) {
 		PrivateNetworkPrefixLength uint8  `rethinkdb:"privatenetworkprefixlength"`
 	}
 
-	ctx := context.Background()
-
-	container, c, err := test.StartRethink(t, log)
-	require.NoError(t, err)
+	ds, c, rethinkCloser := test.StartRethink(t, log)
 	defer func() {
-		_ = container.Terminate(ctx)
+		rethinkCloser()
 	}()
 
-	ds, err := generic.New(log, c)
-	require.NoError(t, err)
+	ctx := t.Context()
 
 	var (
 		p1 = &tmpPartition{
