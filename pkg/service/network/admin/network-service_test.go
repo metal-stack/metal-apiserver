@@ -66,11 +66,12 @@ func Test_networkServiceServer_Create(t *testing.T) {
 			Partition:                pointer.Pointer("partition-three"),
 		},
 		{
-			Id:       pointer.Pointer("underlay"),
-			Name:     pointer.Pointer("Underlay Network"),
-			Project:  pointer.Pointer("p0"),
-			Prefixes: []string{"10.0.0.0/24"},
-			Type:     apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
+			Id:        pointer.Pointer("underlay"),
+			Name:      pointer.Pointer("Underlay Network"),
+			Project:   pointer.Pointer("p0"),
+			Partition: pointer.Pointer("partition-one"),
+			Prefixes:  []string{"10.0.0.0/24"},
+			Type:      apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
 		},
 	})
 
@@ -147,7 +148,7 @@ func Test_networkServiceServer_Create(t *testing.T) {
 				DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv6: pointer.Pointer(uint32(112))},
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument(`private super network must always contain a defaultchildprefixlength per addressfamily:IPv4`),
+			wantErr: errorutil.InvalidArgument(`childprefixlength for addressfamily: "IPv6" specified, but no "IPv6" addressfamily found in prefixes`),
 		},
 		{
 			name: "super network with defaultchildprefixes, but wrong length",
@@ -192,7 +193,7 @@ func Test_networkServiceServer_Create(t *testing.T) {
 			},
 
 			want:    nil,
-			wantErr: errorutil.InvalidArgument(`partition with id "partition-one" already has a private super network`),
+			wantErr: errorutil.InvalidArgument(`partition with id "partition-one" already has a network of type NETWORK_TYPE_PRIVATE_SUPER`),
 		},
 		{
 			name: "underlay network already exist in this partition",
@@ -204,19 +205,7 @@ func Test_networkServiceServer_Create(t *testing.T) {
 			},
 
 			want:    nil,
-			wantErr: errorutil.InvalidArgument(`partition with id "partition-one" already has an underlay network`),
-		},
-		{
-			name: "underlay network already exist in this partition",
-			rq: &adminv2.NetworkServiceCreateRequest{
-				Id:        pointer.Pointer("underlay-1"),
-				Prefixes:  []string{"2.3.4.0/24"},
-				Partition: pointer.Pointer("partition-one"),
-				Type:      apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
-			},
-			want: nil,
-			// FIXME: this is not true, see above
-			wantErr: errorutil.InvalidArgument(`partition with id "partition-one" already has an underlay network`),
+			wantErr: errorutil.InvalidArgument(`partition with id "partition-one" already has a network of type NETWORK_TYPE_UNDERLAY`),
 		},
 		{
 			name: "super network can not have nat",
@@ -228,7 +217,7 @@ func Test_networkServiceServer_Create(t *testing.T) {
 				Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER,
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument(`private super or underlay network is not supposed to NAT`),
+			wantErr: errorutil.InvalidArgument(`network with type:NETWORK_TYPE_PRIVATE_SUPER does not support nat`),
 		},
 		{
 			name: "underlay network can not have nat",
@@ -239,7 +228,7 @@ func Test_networkServiceServer_Create(t *testing.T) {
 				Type:     apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument(`private super or underlay network is not supposed to NAT`),
+			wantErr: errorutil.InvalidArgument(`network with type:NETWORK_TYPE_UNDERLAY does not support nat`),
 		},
 		{
 			name: "overlapping prefixes",
@@ -267,6 +256,7 @@ func Test_networkServiceServer_Create(t *testing.T) {
 					Id:       "internet-dualstack",
 					Meta:     &apiv2.Meta{},
 					Prefixes: []string{"2.3.4.0/24", "2002:db8::/96"},
+					Type:     apiv2.NetworkType_NETWORK_TYPE_SHARED.Enum(),
 				}},
 			wantErr: nil,
 		},
@@ -341,7 +331,7 @@ func Test_networkServiceServer_Create(t *testing.T) {
 					),
 				},
 			); diff != "" {
-				t.Errorf("networkServiceServer.Create() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
+				t.Errorf("networkServiceServer.Create() = %v, want %vņdiff: %s", pointer.SafeDeref(got).Msg, tt.want, diff)
 			}
 		})
 	}
@@ -436,7 +426,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 			wantErr: errorutil.NotFound(`no network with id "not-existing" found`),
 		},
 		{
-			name: "not existing",
+			name: "existing",
 			rq:   &adminv2.NetworkServiceDeleteRequest{Id: networkMap["tenant-2"]},
 			want: &adminv2.NetworkServiceDeleteResponse{
 				Network: &apiv2.Network{
@@ -448,6 +438,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 					Prefixes:        []string{"10.100.4.0/22"},
 					Vrf:             pointer.Pointer(uint32(5)),
 					ParentNetworkId: pointer.Pointer("tenant-super-network"),
+					Type:            apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum(),
 				},
 			},
 			wantErr: nil,
@@ -476,7 +467,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 					),
 				},
 			); diff != "" {
-				t.Errorf("networkServiceServer.Delete() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
+				t.Errorf("networkServiceServer.Delete() = %v, want %vņdiff: %s", pointer.SafeDeref(got).Msg, tt.want, diff)
 			}
 		})
 	}
@@ -635,6 +626,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 						Prefixes:        []string{"10.100.0.0/22"},
 						Vrf:             pointer.Pointer(uint32(4)),
 						ParentNetworkId: pointer.Pointer("tenant-super-network"),
+						Type:            apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum(),
 					},
 				},
 			},
@@ -736,6 +728,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 						Meta:                &apiv2.Meta{},
 						Prefixes:            []string{"20.0.0.0/24"},
 						DestinationPrefixes: []string{"0.0.0.0/0"},
+						Type:                apiv2.NetworkType_NETWORK_TYPE_SHARED.Enum(),
 					},
 				},
 			},
@@ -757,6 +750,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 						Prefixes:        []string{"10.100.4.0/22"},
 						Vrf:             pointer.Pointer(uint32(5)),
 						ParentNetworkId: pointer.Pointer("tenant-super-network"),
+						Type:            apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum(),
 					},
 				},
 			},
@@ -786,7 +780,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 					),
 				},
 			); diff != "" {
-				t.Errorf("networkServiceServer.List() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
+				t.Errorf("networkServiceServer.List() = %v, want %vņdiff: %s", pointer.SafeDeref(got).Msg, tt.want, diff)
 			}
 		})
 	}
@@ -883,6 +877,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 					Prefixes:        []string{"10.100.0.0/22"},
 					Vrf:             pointer.Pointer(uint32(4)),
 					ParentNetworkId: pointer.Pointer("tenant-super-network"),
+					Type:            apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum(),
 				},
 			},
 			wantErr: nil,
@@ -938,7 +933,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 					),
 				},
 			); diff != "" {
-				t.Errorf("networkServiceServer.Update() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
+				t.Errorf("networkServiceServer.Update() = %v, want %vņdiff: %s", pointer.SafeDeref(got).Msg, tt.want, diff)
 			}
 		})
 	}

@@ -81,7 +81,7 @@ func Test_networkServiceServer_Get(t *testing.T) {
 					),
 				},
 			); diff != "" {
-				t.Errorf("networkServiceServer.Get() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
+				t.Errorf("networkServiceServer.Get() = %v, want %vņdiff: %s", pointer.SafeDeref(got).Msg, tt.want, diff)
 			}
 		})
 	}
@@ -175,7 +175,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 					),
 				},
 			); diff != "" {
-				t.Errorf("networkServiceServer.List() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
+				t.Errorf("networkServiceServer.List() = %v, want %vņdiff: %s", pointer.SafeDeref(got).Msg, tt.want, diff)
 			}
 		})
 	}
@@ -259,7 +259,7 @@ func Test_networkServiceServer_ListBaseNetworks(t *testing.T) {
 					),
 				},
 			); diff != "" {
-				t.Errorf("networkServiceServer.ListBaseNetworks() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
+				t.Errorf("networkServiceServer.ListBaseNetworks() = %v, want %vņdiff: %s", pointer.SafeDeref(got).Msg, tt.want, diff)
 			}
 		})
 	}
@@ -363,7 +363,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 					),
 				},
 			); diff != "" {
-				t.Errorf("networkServiceServer.Update() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
+				t.Errorf("networkServiceServer.Update() = %v, want %vņdiff: %s", pointer.SafeDeref(got).Msg, tt.want, diff)
 			}
 		})
 	}
@@ -536,7 +536,7 @@ func Test_networkServiceServer_Create(t *testing.T) {
 					ParentNetworkId: pointer.Pointer("tenant-super-network-dualstack"),
 					Partition:       pointer.Pointer("partition-three"),
 					Project:         pointer.Pointer("p2"),
-					Prefixes:        []string{"10.200.8.0/22", "2001:dc8::2:0/116"},
+					Prefixes:        []string{"2001:dc8::2:0/116"},
 					Type:            apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum(),
 				}},
 			wantErr: nil,
@@ -565,7 +565,7 @@ func Test_networkServiceServer_Create(t *testing.T) {
 					),
 				},
 			); diff != "" {
-				t.Errorf("networkServiceServer.Create() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
+				t.Errorf("networkServiceServer.Create() = %v, want %vņdiff: %s", pointer.SafeDeref(got).Msg, tt.want, diff)
 			}
 		})
 	}
@@ -613,7 +613,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 			name: "delete existing",
 			rq:   &apiv2.NetworkServiceDeleteRequest{Id: "p1-network-a", Project: "p1"},
 			want: &apiv2.NetworkServiceDeleteResponse{
-				Network: &apiv2.Network{Id: "p1-network-a", Meta: &apiv2.Meta{}, Name: pointer.Pointer("P1 Network"), Project: pointer.Pointer("p1"), Prefixes: []string{"2.3.4.0/24"}},
+				Network: &apiv2.Network{Id: "p1-network-a", Meta: &apiv2.Meta{}, Name: pointer.Pointer("P1 Network"), Project: pointer.Pointer("p1"), Prefixes: []string{"2.3.4.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum()},
 			},
 			wantErr: nil,
 		},
@@ -652,7 +652,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 					),
 				},
 			); diff != "" {
-				t.Errorf("networkServiceServer.Create() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
+				t.Errorf("networkServiceServer.Create() = %v, want %vņdiff: %s", pointer.SafeDeref(got).Msg, tt.want, diff)
 			}
 
 			if tt.want == nil {

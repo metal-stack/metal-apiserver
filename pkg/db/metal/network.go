@@ -140,14 +140,14 @@ func ToChildPrefixLength(cpl *apiv2.ChildPrefixLength, prefixes Prefixes) (Child
 
 	if cpl.Ipv4 != nil {
 		if !slices.Contains(prefixes.AddressFamilies(), IPv4AddressFamily) {
-			return nil, fmt.Errorf("no addressfamily %q present for defaultchildprefixlength: %d", IPv4AddressFamily, *cpl.Ipv4)
+			return nil, fmt.Errorf("childprefixlength for addressfamily: %q specified, but no %q addressfamily found in prefixes", IPv4AddressFamily, IPv4AddressFamily)
 		}
 		childPrefixLength[IPv4AddressFamily] = uint8(*cpl.Ipv4)
 	}
 
 	if cpl.Ipv6 != nil {
 		if !slices.Contains(prefixes.AddressFamilies(), IPv6AddressFamily) {
-			return nil, fmt.Errorf("no addressfamily %q present for defaultchildprefixlength: %d", IPv6AddressFamily, *cpl.Ipv6)
+			return nil, fmt.Errorf("childprefixlength for addressfamily: %q specified, but no %q addressfamily found in prefixes", IPv6AddressFamily, IPv6AddressFamily)
 		}
 		childPrefixLength[IPv6AddressFamily] = uint8(*cpl.Ipv6)
 	}

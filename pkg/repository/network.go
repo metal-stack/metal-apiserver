@@ -45,6 +45,13 @@ func (r *networkRepository) ValidateCreate(ctx context.Context, req *adminv2.Net
 		}
 	}
 
+	if req.Partition != nil {
+		_, err := r.r.Partition().Get(ctx, *req.Partition)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	var (
 		nat          bool
 		privateSuper bool
@@ -74,7 +81,7 @@ func (r *networkRepository) ValidateCreate(ctx context.Context, req *adminv2.Net
 		return nil, errorutil.InvalidArgument("given networktype:%s is invalid", req.Type)
 	}
 
-	if req.NatType != nil && req.NatType == apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE.Enum() {
+	if req.NatType != nil && *req.NatType == apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE {
 		nat = true
 	}
 
@@ -86,8 +93,8 @@ func (r *networkRepository) ValidateCreate(ctx context.Context, req *adminv2.Net
 		return nil, errorutil.InvalidArgument("defaultchildprefixlength can only be set for privatesuper networks")
 	}
 
-	if nat && req.Type == apiv2.NetworkType_NETWORK_TYPE_UNDERLAY {
-		return nil, errorutil.InvalidArgument("underlay network does not support nat")
+	if nat && (req.Type == apiv2.NetworkType_NETWORK_TYPE_UNDERLAY || req.Type == apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER) {
+		return nil, errorutil.InvalidArgument("network with type:%s does not support nat", req.Type)
 	}
 
 	prefixes, err := metal.NewPrefixesFromCIDRs(req.Prefixes)
@@ -153,7 +160,7 @@ func (r *networkRepository) networkTypeInPartitionPossible(ctx context.Context, 
 		return errorutil.Convert(err)
 	}
 	if !errorutil.IsNotFound(err) {
-		return errorutil.InvalidArgument("partition with id %q already has a private super network", *partition)
+		return errorutil.InvalidArgument("partition with id %q already has a network of type %s", *partition, networkType)
 	}
 	return nil
 }
@@ -211,27 +218,21 @@ func (r *networkRepository) ValidateUpdate(ctx context.Context, req *adminv2.Net
 		return nil, errorutil.InvalidArgument("defaultchildprefixlength can only be set on privatesuper")
 	}
 
+	if old.ParentNetworkID != "" || (old.NetworkType != nil && *old.NetworkType == metal.PrivateNetworkType) {
+		if len(req.Prefixes) > 0 {
+			return nil, errorutil.InvalidArgument("cannot change prefixes in child networks")
+		}
+	}
+
 	var (
 		prefixesToBeRemoved metal.Prefixes
 		prefixesToBeAdded   metal.Prefixes
 		destPrefixAfs       metal.AddressFamilies
 	)
 
-	if len(req.Prefixes) > 0 {
-		prefixes, err := metal.NewPrefixesFromCIDRs(req.Prefixes)
-		if err != nil {
-			return nil, errorutil.Convert(err)
-		}
-
-		newNetwork.Prefixes = prefixes
-
-		prefixesToBeRemoved = old.SubtractPrefixes(prefixes...)
-
-		err = r.arePrefixesEmpty(ctx, prefixesToBeRemoved)
-		if err != nil {
-			return nil, err
-		}
-		prefixesToBeAdded = newNetwork.SubtractPrefixes(old.Prefixes...)
+	prefixesToBeRemoved, prefixesToBeAdded, err = r.calculatePrefixDifferences(ctx, old, &newNetwork, req.Prefixes)
+	if err != nil {
+		return nil, errorutil.Convert(err)
 	}
 
 	r.r.log.Debug("validate update", "old parent", old.ParentNetworkID, "prefixes to remove", prefixesToBeRemoved, "prefixes to add", prefixesToBeAdded)
@@ -272,10 +273,31 @@ func (r *networkRepository) ValidateUpdate(ctx context.Context, req *adminv2.Net
 			return nil, errorutil.InvalidArgument("you cannot remove %q from additionalannouncablecidrs without force flag set", oldcidr)
 		}
 	}
+	r.r.log.Debug("validated update")
 
 	return &Validated[*adminv2.NetworkServiceUpdateRequest]{
 		message: req,
 	}, nil
+}
+
+func (r *networkRepository) calculatePrefixDifferences(ctx context.Context, existingNetwork, newNetwork *metal.Network, prefixes []string) (toRemoved, toAdded metal.Prefixes, err error) {
+	if len(prefixes) == 0 {
+		return
+	}
+	pfxs, err := metal.NewPrefixesFromCIDRs(prefixes)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	toRemoved = existingNetwork.SubtractPrefixes(pfxs...)
+
+	err = r.arePrefixesEmpty(ctx, toRemoved)
+	if err != nil {
+		return nil, nil, err
+	}
+	toAdded = newNetwork.SubtractPrefixes(existingNetwork.Prefixes...)
+	newNetwork.Prefixes = pfxs
+	return toRemoved, toAdded, nil
 }
 
 func (r *networkRepository) arePrefixesEmpty(ctx context.Context, prefixes metal.Prefixes) error {
@@ -414,6 +436,7 @@ func (r *networkRepository) ValidateAllocateNetwork(ctx context.Context, rq *api
 
 	var superNetwork *metal.Network
 	if rq.ParentNetworkId != nil {
+		// FIXME network type must be shared
 		superNetwork, err = r.r.UnscopedNetwork().Get(ctx, *rq.ParentNetworkId)
 		if err != nil {
 			return nil, err
@@ -424,7 +447,7 @@ func (r *networkRepository) ValidateAllocateNetwork(ctx context.Context, rq *api
 			Type:      apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER.Enum(),
 		})
 		if err != nil {
-			return nil, errorutil.InvalidArgument("unable to find a privatesuper in partition:%s %w", partition.ID, err)
+			return nil, errorutil.InvalidArgument("unable to find a private super in partition:%s %w", partition.ID, err)
 		}
 	}
 
@@ -710,7 +733,13 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 			}
 		}
 	} else {
-		// FIXME in case req.vrf is nil, the network will be created with a 0 vrf ? This is the case in the actual metal-api implementation
+		// FIXME in case req.vrf is nil, the network will be created with a 0 vrf ?
+		// This is the case in the actual metal-api implementation
+		// Therefor we create a random vrf instead
+		vrf, err = r.r.ds.VrfPool().AcquireRandomUniqueInteger(ctx)
+		if err != nil {
+			return nil, errorutil.Internal("could not acquire a vrf: %w", err)
+		}
 	}
 
 	var (
@@ -793,19 +822,9 @@ func (r *networkRepository) Update(ctx context.Context, rq *Validated[*adminv2.N
 		prefixesToBeAdded   metal.Prefixes
 	)
 
-	if len(req.Prefixes) > 0 {
-		prefixes, err := metal.NewPrefixesFromCIDRs(req.Prefixes)
-		if err != nil {
-			return nil, errorutil.Convert(err)
-		}
-
-		newNetwork.Prefixes = prefixes
-		prefixesToBeRemoved = old.SubtractPrefixes(prefixes...)
-		err = r.arePrefixesEmpty(ctx, prefixesToBeRemoved)
-		if err != nil {
-			return nil, err
-		}
-		prefixesToBeAdded = newNetwork.SubtractPrefixes(old.Prefixes...)
+	prefixesToBeRemoved, prefixesToBeAdded, err = r.calculatePrefixDifferences(ctx, old, &newNetwork, req.Prefixes)
+	if err != nil {
+		return nil, errorutil.Convert(err)
 	}
 
 	if req.DestinationPrefixes != nil {
@@ -827,6 +846,8 @@ func (r *networkRepository) Update(ctx context.Context, rq *Validated[*adminv2.N
 	if req.Force {
 		newNetwork.AdditionalAnnouncableCIDRs = req.AdditionalAnnouncableCidrs
 	}
+
+	r.r.log.Debug("update", "network id", newNetwork.ID, "prefixes to add", prefixesToBeAdded, "prefixes to remove", prefixesToBeRemoved)
 
 	for _, p := range prefixesToBeRemoved {
 		_, err := r.r.ipam.DeletePrefix(ctx, connect.NewRequest(&ipamv1.DeletePrefixRequest{Cidr: p.String()}))
