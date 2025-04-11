@@ -11,34 +11,27 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 )
 
 type networkRepository struct {
-	r     *Store
+	s     *Store
 	scope *ProjectScope
 }
 
-func (r *networkRepository) ValidateCreate(ctx context.Context, req *apiv2.NetworkServiceCreateRequest) (*Validated[*apiv2.NetworkServiceCreateRequest], error) {
-	return &Validated[*apiv2.NetworkServiceCreateRequest]{
-		message: req,
-	}, nil
+func (r *networkRepository) validateCreate(ctx context.Context, req *apiv2.NetworkServiceCreateRequest) error {
+	return nil
 }
 
-func (r *networkRepository) ValidateUpdate(ctx context.Context, req *apiv2.NetworkServiceUpdateRequest) (*Validated[*apiv2.NetworkServiceUpdateRequest], error) {
-	return &Validated[*apiv2.NetworkServiceUpdateRequest]{
-		message: req,
-	}, nil
+func (r *networkRepository) validateUpdate(ctx context.Context, req *apiv2.NetworkServiceUpdateRequest, _ *metal.Network) error {
+	return nil
 }
 
-func (r *networkRepository) ValidateDelete(ctx context.Context, req *metal.Network) (*Validated[*metal.Network], error) {
-	return &Validated[*metal.Network]{
-		message: req,
-	}, nil
+func (r *networkRepository) validateDelete(ctx context.Context, req *metal.Network) error {
+	return nil
 }
 
-func (r *networkRepository) Get(ctx context.Context, id string) (*metal.Network, error) {
-	nw, err := r.r.ds.Network().Get(ctx, id)
+func (r *networkRepository) get(ctx context.Context, id string) (*metal.Network, error) {
+	nw, err := r.s.ds.Network().Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -47,42 +40,32 @@ func (r *networkRepository) Get(ctx context.Context, id string) (*metal.Network,
 		return nw, nil
 	}
 
-	err = r.MatchScope(nw)
-	if err != nil {
-		return nil, err
-	}
-
 	return nw, nil
 }
-func (r *networkRepository) MatchScope(nw *metal.Network) error {
+
+func (r *networkRepository) matchScope(nw *metal.Network) bool {
 	if r.scope == nil {
-		return nil
+		return true
 	}
 	if r.scope.projectID == nw.ProjectID {
-		return nil
+		return true
 	}
-	return errorutil.NotFound("nw:%s for project:%s not found", nw.ID, nw.ProjectID)
+	return false
 }
 
-func (r *networkRepository) Delete(ctx context.Context, n *Validated[*metal.Network]) (*metal.Network, error) {
-	nw, err := r.Get(ctx, n.message.ID)
-	if err != nil {
-		return nil, err
-	}
-
+func (r *networkRepository) delete(ctx context.Context, n *metal.Network) error {
 	// FIXME delete in ipam with the help of Tx
 
-	err = r.r.ds.Network().Delete(ctx, nw)
+	err := r.s.ds.Network().Delete(ctx, n)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return nw, nil
+	return nil
 }
 
-func (r *networkRepository) Create(ctx context.Context, rq *Validated[*apiv2.NetworkServiceCreateRequest]) (*metal.Network, error) {
-
-	req := rq.message
+func (r *networkRepository) create(ctx context.Context, rq *apiv2.NetworkServiceCreateRequest) (*metal.Network, error) {
+	req := rq
 	var (
 		id       string
 		afs      metal.AddressFamilies
@@ -127,13 +110,13 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*apiv2.Net
 		Prefixes: prefixes,
 	}
 
-	resp, err := r.r.ds.Network().Create(ctx, nw)
+	resp, err := r.s.ds.Network().Create(ctx, nw)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, prefix := range nw.Prefixes {
-		_, err = r.r.ipam.CreatePrefix(ctx, connect.NewRequest(&ipamv1.CreatePrefixRequest{Cidr: prefix.String()}))
+		_, err = r.s.ipam.CreatePrefix(ctx, connect.NewRequest(&ipamv1.CreatePrefixRequest{Cidr: prefix.String()}))
 		if err != nil {
 			return nil, err
 		}
@@ -142,18 +125,18 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*apiv2.Net
 	return resp, nil
 }
 
-func (r *networkRepository) Update(ctx context.Context, msg *Validated[*apiv2.NetworkServiceUpdateRequest]) (*metal.Network, error) {
+func (r *networkRepository) update(ctx context.Context, e *metal.Network, rq *apiv2.NetworkServiceUpdateRequest) (*metal.Network, error) {
 	panic("unimplemented")
 }
-func (r *networkRepository) Find(ctx context.Context, query *apiv2.NetworkServiceListRequest) (*metal.Network, error) {
+func (r *networkRepository) find(ctx context.Context, query *apiv2.NetworkServiceListRequest) (*metal.Network, error) {
 	panic("unimplemented")
 }
-func (r *networkRepository) List(ctx context.Context, query *apiv2.NetworkServiceListRequest) ([]*metal.Network, error) {
+func (r *networkRepository) list(ctx context.Context, query *apiv2.NetworkServiceListRequest) ([]*metal.Network, error) {
 	panic("unimplemented")
 }
-func (r *networkRepository) ConvertToInternal(msg *apiv2.Network) (*metal.Network, error) {
+func (r *networkRepository) convertToInternal(msg *apiv2.Network) (*metal.Network, error) {
 	panic("unimplemented")
 }
-func (r *networkRepository) ConvertToProto(e *metal.Network) (*apiv2.Network, error) {
+func (r *networkRepository) convertToProto(e *metal.Network) (*apiv2.Network, error) {
 	panic("unimplemented")
 }
