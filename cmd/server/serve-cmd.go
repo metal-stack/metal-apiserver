@@ -23,7 +23,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/service"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 
-	putil "github.com/metal-stack/metal-apiserver/pkg/project"
 	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
 
 	"github.com/metal-stack/metal-lib/auditing"
@@ -143,7 +142,7 @@ var serveCmd = &cli.Command{
 				return err
 			}
 
-			err = putil.EnsureProviderProject(ctx.Context, c.MasterClient, providerTenant)
+			err = repo.UnscopedProject().EnsureProviderProject(ctx.Context, providerTenant)
 			if err != nil {
 				return err
 			}

@@ -11,22 +11,17 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
-	"connectrpc.com/connect"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
-	mdc "github.com/metal-stack/masterdata-api/pkg/client"
-	"google.golang.org/protobuf/types/known/wrapperspb"
-
-	putil "github.com/metal-stack/metal-apiserver/pkg/project"
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/service/token"
 	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
 	"github.com/metal-stack/metal-lib/auditing"
@@ -38,7 +33,7 @@ const (
 
 type Config struct {
 	TokenService token.TokenService
-	MasterClient mdc.Client
+	Repo         *repository.Store
 	Auditing     auditing.Auditing
 	Log          *slog.Logger
 	CallbackUrl  string // will replace `"{" + providerKey + ""}"` with the actual provider name
@@ -63,11 +58,11 @@ type providerBackend interface {
 type auth struct {
 	providerBackends map[string]providerBackend
 	tokenService     token.TokenService
-	masterClient     mdc.Client
 	audit            auditing.Auditing
 	log              *slog.Logger
 	frontEndUrl      *url.URL
 	callbackUrl      string
+	repo             *repository.Store
 }
 
 type authOption func(*auth) error
@@ -76,11 +71,11 @@ func New(c Config, options ...authOption) (*auth, error) {
 	a := &auth{
 		log:              c.Log,
 		tokenService:     c.TokenService,
-		masterClient:     c.MasterClient,
 		audit:            c.Auditing,
 		providerBackends: map[string]providerBackend{},
 		frontEndUrl:      c.FrontEndUrl,
 		callbackUrl:      c.CallbackUrl,
+		repo:             c.Repo,
 	}
 	return a.With(options...)
 }
@@ -261,7 +256,7 @@ func (a *auth) Callback(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Ensure tenant and default project and token
+	// Ensure tenant and token
 
 	err = a.ensureTenant(ctx, u)
 	if err != nil {
@@ -269,15 +264,9 @@ func (a *auth) Callback(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	err = a.ensureDefaultProject(ctx, u)
-	if err != nil {
-		http.Error(res, fmt.Sprintf("unable to create tenant: %v", err), http.StatusInternalServerError)
-		return
-	}
-
 	// Create Token
 
-	pat, err := putil.GetProjectsAndTenants(ctx, a.masterClient, u.login, putil.DefaultProjectRequired)
+	pat, err := a.repo.UnscopedProject().GetProjectsAndTenants(ctx, u.login)
 	if err != nil {
 		http.Error(res, fmt.Sprintf("unable to lookup projects and tenants: %v", err), http.StatusInternalServerError)
 		return
@@ -339,130 +328,58 @@ func (a *auth) Callback(res http.ResponseWriter, req *http.Request) {
 	http.Redirect(res, req, redirectURL.String(), http.StatusSeeOther)
 }
 
-// FIXME move to repository
 func (a *auth) ensureTenant(ctx context.Context, u *providerUser) error {
-	resp, err := a.masterClient.Tenant().Get(ctx, &mdcv1.TenantGetRequest{
-		Id: u.login,
-	})
-	if err != nil && !mdcv1.IsNotFound(err) {
-		return fmt.Errorf("unable to get tenant:%s %w", u.login, err)
+	tenant, err := a.repo.Tenant().Get(ctx, u.login)
+	if err != nil && !errorutil.IsNotFound(err) {
+		return fmt.Errorf("unable to get tenant %s: %w", u.login, err)
 	}
 
-	var tenant *mdcv1.Tenant
-
-	if err != nil && mdcv1.IsNotFound(err) {
-		resp, err := a.masterClient.Tenant().Create(ctx, &mdcv1.TenantCreateRequest{
-			Tenant: &mdcv1.Tenant{
-				Meta: &mdcv1.Meta{
-					Id: u.login,
-					Annotations: map[string]string{
-						tutil.TagEmail:     u.email, // TODO: this field can be empty, fallback to user email would be great but for github this is also empty (#151)
-						tutil.TagAvatarURL: u.avatarUrl,
-						tutil.TagCreator:   u.login,
-					},
-				},
-				Name: u.name,
-			},
+	if err != nil && errorutil.IsNotFound(err) {
+		validated, err := a.repo.Tenant().ValidateCreate(ctx, &apiv2.TenantServiceCreateRequest{
+			Name:      u.login,
+			Email:     &u.email, // TODO: this field can be empty, fallback to user email would be great but for github this is also empty (#151)
+			AvatarUrl: &u.avatarUrl,
 		})
+
+		created, err := a.repo.Tenant().CreateWithID(ctx, validated, u.login)
 		if err != nil {
 			return fmt.Errorf("unable to create tenant:%s %w", u.login, err)
 		}
 
-		tenant = resp.Tenant
-	} else {
-		tenant = resp.Tenant
+		tenant = created
 	}
 
 	if tenant.Meta.Annotations[tutil.TagAvatarURL] != u.avatarUrl {
 		tenant.Meta.Annotations[tutil.TagAvatarURL] = u.avatarUrl
 
-		_, err = a.masterClient.Tenant().Update(ctx, &mdcv1.TenantUpdateRequest{
-			Tenant: tenant,
+		validated, err := a.repo.Tenant().ValidateUpdate(ctx, &apiv2.TenantServiceUpdateRequest{
+			Login:     u.login,
+			AvatarUrl: &u.avatarUrl,
 		})
+
+		updated, err := a.repo.Tenant().Update(ctx, validated)
 		if err != nil {
 			return fmt.Errorf("unable to update tenant:%s %w", u.login, err)
 		}
+
+		tenant = updated
 	}
 
-	_, err = tutil.GetTenantMember(ctx, a.masterClient, u.login, u.login)
+	_, err = a.repo.Tenant().Member(u.login).Get(ctx, u.login)
 	if err == nil {
 		return nil
 	}
 
-	if connect.CodeOf(err) != connect.CodeNotFound {
+	if errorutil.IsNotFound(err) {
 		return err
 	}
 
-	_, err = a.masterClient.TenantMember().Create(ctx, &mdcv1.TenantMemberCreateRequest{
-		TenantMember: &mdcv1.TenantMember{
-			Meta: &mdcv1.Meta{
-				Annotations: map[string]string{
-					tutil.TenantRoleAnnotation: apiv2.TenantRole_TENANT_ROLE_OWNER.String(),
-				},
-			},
-			TenantId: u.login,
-			MemberId: u.login,
-		},
+	validatedMember, err := a.repo.Tenant().Member(u.login).ValidateCreate(ctx, &repository.TenantMemberCreateRequest{
+		Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
+		MemberID: u.login,
 	})
+
+	_, err = a.repo.Tenant().Member(u.login).Create(ctx, validatedMember)
 
 	return err
-}
-
-// FIXME move to repository
-func (a *auth) ensureDefaultProject(ctx context.Context, u *providerUser) error {
-	ensureMembership := func(projectId string) error {
-		_, _, err := putil.GetProjectMember(ctx, a.masterClient, projectId, u.login)
-		if err == nil {
-			return nil
-		}
-		if connect.CodeOf(err) != connect.CodeNotFound {
-			return err
-		}
-
-		_, err = a.masterClient.ProjectMember().Create(ctx, &mdcv1.ProjectMemberCreateRequest{
-			ProjectMember: &mdcv1.ProjectMember{
-				Meta: &mdcv1.Meta{
-					Annotations: map[string]string{
-						putil.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_OWNER.String(),
-					},
-				},
-				ProjectId: projectId,
-				TenantId:  u.login,
-			},
-		})
-
-		return err
-	}
-
-	resp, err := a.masterClient.Project().Find(ctx, &mdcv1.ProjectFindRequest{
-		TenantId: wrapperspb.String(u.login),
-		Annotations: map[string]string{
-			putil.DefaultProjectAnnotation: strconv.FormatBool(true),
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("unable to get find projects: %w", err)
-	}
-
-	if len(resp.Projects) > 0 {
-		return ensureMembership(resp.Projects[0].Meta.Id)
-	}
-
-	project, err := a.masterClient.Project().Create(ctx, &mdcv1.ProjectCreateRequest{
-		Project: &mdcv1.Project{
-			Meta: &mdcv1.Meta{
-				Annotations: map[string]string{
-					putil.DefaultProjectAnnotation: strconv.FormatBool(true),
-				},
-			},
-			Name:        "Default Project",
-			TenantId:    u.login,
-			Description: "Default project of " + u.login,
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("unable to create project: %w", err)
-	}
-
-	return ensureMembership(project.Project.Meta.Id)
 }
