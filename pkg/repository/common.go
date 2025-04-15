@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -28,4 +29,12 @@ func checkIfUrlExists(ctx context.Context, entity, id, url string) error {
 	}
 
 	return fmt.Errorf("%s:%s is not accessible under:%s statuscode:%d", entity, id, url, resp.StatusCode)
+}
+
+// FIXME better func name
+func appendErrIf(errs []error, condition bool, msg string) []error {
+	if !condition {
+		return append(errs, errors.New(msg))
+	}
+	return errs
 }

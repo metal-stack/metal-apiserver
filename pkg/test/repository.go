@@ -4,13 +4,17 @@ import (
 	"log/slog"
 	"testing"
 
+	"connectrpc.com/connect"
 	"github.com/alicebob/miniredis/v2"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
+	"github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	"github.com/metal-stack/masterdata-api/pkg/client"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
+	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
 
 func StartRepositoryWithCockroach(t *testing.T, log *slog.Logger) (*repository.Store, client.Client, func()) {
@@ -38,11 +42,27 @@ func StartRepositoryWithCockroach(t *testing.T, log *slog.Logger) (*repository.S
 	return repo, mdc, closer
 }
 
-func StartRepository(t *testing.T, log *slog.Logger) (*repository.Store, func()) {
-	ds, _, rethinkCloser := StartRethink(t, log)
+type testStore struct {
+	*repository.Store
+	queryExecutor *r.Session
+	ipam          apiv1connect.IpamServiceClient
+}
 
-	r := miniredis.RunT(t)
-	rc := redis.NewClient(&redis.Options{Addr: r.Addr()})
+func (s *testStore) CleanNetworkTable(t *testing.T) {
+	_, err := r.DB("metal").Table("network").Delete().RunWrite(s.queryExecutor)
+	require.NoError(t, err)
+}
+
+func StartRepository(t *testing.T, log *slog.Logger) (*repository.Store, func()) {
+	s, close := StartRepositoryWithCleanup(t, log)
+	return s.Store, close
+}
+
+func StartRepositoryWithCleanup(t *testing.T, log *slog.Logger) (*testStore, func()) {
+	ds, opts, rethinkCloser := StartRethink(t, log)
+
+	mr := miniredis.RunT(t)
+	rc := redis.NewClient(&redis.Options{Addr: mr.Addr()})
 
 	ipam, ipamCloser := StartIpam(t)
 
@@ -60,7 +80,15 @@ func StartRepository(t *testing.T, log *slog.Logger) (*repository.Store, func())
 		masterdataCloser()
 		asyncCloser()
 	}
-	return repo, closer
+
+	session, err := r.Connect(opts)
+	require.NoError(t, err)
+
+	return &testStore{
+		Store:         repo,
+		queryExecutor: session,
+		ipam:          ipam,
+	}, closer
 }
 
 func CreateImages(t *testing.T, repo *repository.Store, images []*adminv2.ImageServiceCreateRequest) {
@@ -87,6 +115,18 @@ func CreateNetworks(t *testing.T, repo *repository.Store, nws []*adminv2.Network
 		validated, err := repo.UnscopedNetwork().ValidateCreate(t.Context(), nw)
 		require.NoError(t, err)
 		_, err = repo.UnscopedNetwork().Create(t.Context(), validated)
+		require.NoError(t, err)
+	}
+}
+
+func DeleteNetworks(t *testing.T, testStore *testStore) {
+	_, err := r.DB("metal").Table("network").Delete().RunWrite(testStore.queryExecutor)
+	require.NoError(t, err)
+
+	resp, err := testStore.ipam.ListPrefixes(t.Context(), connect.NewRequest(&ipamv1.ListPrefixesRequest{}))
+	require.NoError(t, err)
+	for _, prefix := range resp.Msg.Prefixes {
+		_, err := testStore.ipam.DeletePrefix(t.Context(), connect.NewRequest(&ipamv1.DeletePrefixRequest{Cidr: prefix.Cidr}))
 		require.NoError(t, err)
 	}
 }

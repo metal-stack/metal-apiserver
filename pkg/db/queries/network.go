@@ -4,6 +4,7 @@ import (
 	"net/netip"
 	"strconv"
 
+	"github.com/metal-stack/api/go/enum"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
@@ -64,26 +65,23 @@ func NetworkFilter(rq *apiv2.NetworkQuery) func(q r.Term) r.Term {
 			}
 		}
 
-		if rq.Type != nil && *rq.Type == apiv2.NetworkType_NETWORK_TYPE_UNDERLAY {
-			q = q.Filter(func(row r.Term) r.Term {
-				return row.Field("underlay").Eq(true)
-			})
-		}
-		if rq.Type != nil && *rq.Type == apiv2.NetworkType_NETWORK_TYPE_SHARED {
-			q = q.Filter(func(row r.Term) r.Term {
-				return row.Field("shared").Eq(true)
-			})
+		// TODO: this requires migration of existing bool flags
+		if rq.Type != nil {
+			stringValue, err := enum.GetStringValue(rq.Type)
+			if err == nil {
+				q = q.Filter(func(row r.Term) r.Term {
+					return row.Field("networkType").Eq(stringValue)
+				})
+			}
 		}
 
-		if rq.Type != nil && (*rq.Type == apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER || *rq.Type == apiv2.NetworkType_NETWORK_TYPE_SUPER_VRF_SHARED) {
-			q = q.Filter(func(row r.Term) r.Term {
-				return row.Field("privatesuper").Eq(true)
-			})
-		}
-		if rq.NatType != nil && *rq.NatType == apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE {
-			q = q.Filter(func(row r.Term) r.Term {
-				return row.Field("nat").Eq(true)
-			})
+		if rq.NatType != nil {
+			stringValue, err := enum.GetStringValue(*rq.NatType)
+			if err == nil {
+				q = q.Filter(func(row r.Term) r.Term {
+					return row.Field("natType").Eq(stringValue)
+				})
+			}
 		}
 
 		for _, prefix := range rq.Prefixes {

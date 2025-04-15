@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/metal-stack/api/go/enum"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 )
 
@@ -65,12 +66,14 @@ const (
 	// UnderlayNetworkType identifies a underlay network
 	UnderlayNetworkType = NetworkType("underlay")
 	// SuperVrfSharedNetworkType identifies a private super network where private networks can be allocated from but they will share the vrf ids with its super
-	SuperVrfSharedNetworkType = NetworkType("private-super-shared-vrf")
+	SuperVrfSharedNetworkType = NetworkType("super-vrf-shared")
 	// VrfSharedNetworkType identifies a private network with shares vrf ids with other private networks
-	VrfSharedNetworkType = NetworkType("private-shared-vrf")
+	VrfSharedNetworkType = NetworkType("vrf-shared")
 
 	// PrivateSuperNetworkType identifies a private super network where private networks can be allocated from
 	PrivateSuperNetworkType = NetworkType("private-super")
+	// PrivateSuperNamespacedNetworkType identifies a private super network where private networks can be allocated from, namespaced per project
+	PrivateSuperNamespacedNetworkType = NetworkType("private-super-namespaced")
 	// PrivateNetworkType identifies a private network which is only used in one project for machines and firewalls without external connectivity
 	PrivateNetworkType = NetworkType("private")
 	// PrivateSharedNetworkType identifies a private network which can be shared, e.g. ips allocated from different projects
@@ -94,6 +97,8 @@ func ToNetworkTyp(nwt apiv2.NetworkType) (NetworkType, error) {
 		return VrfSharedNetworkType, nil
 	case apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER:
 		return PrivateSuperNetworkType, nil
+	case apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER_NAMESPACED:
+		return PrivateSuperNamespacedNetworkType, nil
 	case apiv2.NetworkType_NETWORK_TYPE_SUPER_VRF_SHARED:
 		return SuperVrfSharedNetworkType, nil
 	case apiv2.NetworkType_NETWORK_TYPE_SHARED:
@@ -105,6 +110,14 @@ func ToNetworkTyp(nwt apiv2.NetworkType) (NetworkType, error) {
 		return SharedNetworkType, nil
 	}
 	return InvalidNetworkType, fmt.Errorf("given networkType:%q is invalid", nwt)
+}
+
+func FromNetworkTyp(nwt NetworkType) (apiv2.NetworkType, error) {
+	apiv2NetworkType, err := enum.GetEnum[apiv2.NetworkType](string(nwt))
+	if err != nil {
+		return apiv2.NetworkType_NETWORK_TYPE_UNSPECIFIED, fmt.Errorf("given networkType:%q is invalid", nwt)
+	}
+	return apiv2NetworkType, nil
 }
 
 func ToNATType(nt apiv2.NATType) (NATType, error) {
@@ -160,7 +173,7 @@ func ToChildPrefixLength(cpl *apiv2.ChildPrefixLength, prefixes Prefixes) (Child
 				return nil, fmt.Errorf("given prefix %q is not a valid ip with mask: %w", p.String(), err)
 			}
 			if int(length) <= ipprefix.Bits() {
-				return nil, fmt.Errorf("given defaultchildprefixlength %d is not greater than prefix length of:%s", length, p.String())
+				return nil, fmt.Errorf("given childprefixlength %d is not greater than prefix length of:%s", length, p.String())
 			}
 		}
 	}

@@ -50,7 +50,7 @@ func StartRethink(t testing.TB, log *slog.Logger) (generic.Datastore, r.ConnectO
 		MaxOpen:   20,
 	}
 
-	err = generic.Initialize(ctx, log, opts, generic.AsnPoolRange(uint(1), uint(10)), generic.VrfPoolRange(uint(1), uint(10)))
+	err = generic.Initialize(ctx, log, opts, generic.AsnPoolRange(uint(1), uint(100)), generic.VrfPoolRange(uint(1), uint(100)))
 	require.NoError(t, err)
 
 	ds, err := generic.New(log, opts)

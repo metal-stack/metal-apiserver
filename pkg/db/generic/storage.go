@@ -157,6 +157,14 @@ func (s *storage[E]) Get(ctx context.Context, id string) (E, error) {
 	return *e, nil
 }
 
+func (s *storage[E]) CheckAlreadyExists(ctx context.Context, id string) error {
+	_, err := s.Get(ctx, id)
+	if !errorutil.IsNotFound(err) {
+		return errorutil.Conflict("%s with id:%s already exists", s.tableName, id)
+	}
+	return nil
+}
+
 // Update updates the entity to the contents of the new entity.
 //
 // it uses the "changed" timestamp of the old entity to figure out if it was already modified by some other process.

@@ -13,7 +13,6 @@ import (
 	"github.com/hibiken/asynq"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	goipam "github.com/metal-stack/go-ipam"
 	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
 	asyncclient "github.com/metal-stack/metal-apiserver/pkg/async/client"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
@@ -27,257 +26,6 @@ import (
 type networkRepository struct {
 	r     *Store
 	scope *ProjectScope
-}
-
-func (r *networkRepository) ValidateCreate(ctx context.Context, req *adminv2.NetworkServiceCreateRequest) (*Validated[*adminv2.NetworkServiceCreateRequest], error) {
-	r.r.log.Debug("validate create", "req", req)
-	if req.Id != nil {
-		_, err := r.Get(ctx, *req.Id)
-		if err != nil && !errorutil.IsNotFound(err) {
-			return nil, errorutil.Conflict("network with id:%s already exists", *req.Id)
-		}
-	}
-
-	if req.Project != nil {
-		_, err := r.r.UnscopedProject().Get(ctx, *req.Project)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if req.Partition != nil {
-		_, err := r.r.Partition().Get(ctx, *req.Partition)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	var (
-		nat          bool
-		privateSuper bool
-		private      bool
-	)
-
-	switch req.Type {
-	case apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER:
-		privateSuper = true
-		if err := r.networkTypeInPartitionPossible(ctx, req.Partition, &req.Type); err != nil {
-			return nil, err
-		}
-	case apiv2.NetworkType_NETWORK_TYPE_SUPER_VRF_SHARED:
-		privateSuper = true
-		// can have multiple super networks
-	case apiv2.NetworkType_NETWORK_TYPE_PRIVATE, apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SHARED:
-		private = true
-	case apiv2.NetworkType_NETWORK_TYPE_SHARED, apiv2.NetworkType_NETWORK_TYPE_UNSPECIFIED:
-		// If no networktype was specified, we assume shared
-		// shared = true
-	case apiv2.NetworkType_NETWORK_TYPE_UNDERLAY:
-		// underlay = true
-		if err := r.networkTypeInPartitionPossible(ctx, req.Partition, &req.Type); err != nil {
-			return nil, err
-		}
-	default:
-		return nil, errorutil.InvalidArgument("given networktype:%s is invalid", req.Type)
-	}
-
-	if req.NatType != nil && *req.NatType == apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE {
-		nat = true
-	}
-
-	if !private && len(req.Prefixes) == 0 {
-		return nil, errorutil.InvalidArgument("no prefixes given")
-	}
-
-	if !privateSuper && (req.DefaultChildPrefixLength != nil) {
-		return nil, errorutil.InvalidArgument("defaultchildprefixlength can only be set for privatesuper networks")
-	}
-
-	if nat && (req.Type == apiv2.NetworkType_NETWORK_TYPE_UNDERLAY || req.Type == apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER) {
-		return nil, errorutil.InvalidArgument("network with type:%s does not support nat", req.Type)
-	}
-
-	prefixes, err := metal.NewPrefixesFromCIDRs(req.Prefixes)
-	if err != nil {
-		return nil, errorutil.NewInvalidArgument(err)
-	}
-	destPrefixes, err := metal.NewPrefixesFromCIDRs(req.DestinationPrefixes)
-	if err != nil {
-		return nil, errorutil.NewInvalidArgument(err)
-	}
-
-	defaultChildPrefixLength, err := metal.ToChildPrefixLength(req.DefaultChildPrefixLength, prefixes)
-	if err != nil {
-		return nil, errorutil.NewInvalidArgument(err)
-	}
-	_, err = metal.ToChildPrefixLength(req.MinChildPrefixLength, prefixes)
-	if err != nil {
-		return nil, errorutil.NewInvalidArgument(err)
-	}
-
-	err = r.validatePrefixesAndAddressFamilies(prefixes, destPrefixes.AddressFamilies(), defaultChildPrefixLength, privateSuper)
-	if err != nil {
-		return nil, errorutil.NewInvalidArgument(err)
-	}
-
-	err = r.validateAdditionalAnnouncableCIDRs(req.AdditionalAnnouncableCidrs, privateSuper)
-	if err != nil {
-		return nil, errorutil.NewInvalidArgument(err)
-	}
-
-	allNetworks, err := r.List(ctx, &apiv2.NetworkQuery{})
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-	existingPrefixes := metal.Prefixes{}
-	existingPrefixesMap := make(map[string]bool)
-	for _, nw := range allNetworks {
-		for _, p := range nw.Prefixes {
-			_, ok := existingPrefixesMap[p.String()]
-			if !ok {
-				existingPrefixes = append(existingPrefixes, p)
-				existingPrefixesMap[p.String()] = true
-			}
-		}
-	}
-
-	err = goipam.PrefixesOverlapping(existingPrefixes.String(), prefixes.String())
-	if err != nil {
-		return nil, errorutil.NewConflict(err)
-	}
-
-	return &Validated[*adminv2.NetworkServiceCreateRequest]{
-		message: req,
-	}, nil
-}
-
-func (r *networkRepository) networkTypeInPartitionPossible(ctx context.Context, partition *string, networkType *apiv2.NetworkType) error {
-	if partition == nil {
-		return nil
-	}
-	_, err := r.Find(ctx, &apiv2.NetworkQuery{Partition: partition, Type: networkType})
-	if err != nil && !errorutil.IsNotFound(err) {
-		return errorutil.Convert(err)
-	}
-	if !errorutil.IsNotFound(err) {
-		return errorutil.InvalidArgument("partition with id %q already has a network of type %s", *partition, networkType)
-	}
-	return nil
-}
-
-func (r *networkRepository) validatePrefixesAndAddressFamilies(prefixes metal.Prefixes, destPrefixesAfs metal.AddressFamilies, defaultChildPrefixLength metal.ChildPrefixLength, privateSuper bool) error {
-	for _, af := range destPrefixesAfs {
-		if !slices.Contains(prefixes.AddressFamilies(), af) {
-			return fmt.Errorf("addressfamily:%s of destination prefixes is not present in existing prefixes", af)
-		}
-	}
-
-	if !privateSuper {
-		return nil
-	}
-
-	if len(defaultChildPrefixLength) == 0 {
-		return fmt.Errorf("private super network must always contain a defaultchildprefixlength")
-	}
-
-	for _, af := range prefixes.AddressFamilies() {
-		if _, exists := defaultChildPrefixLength[af]; !exists {
-			return fmt.Errorf("private super network must always contain a defaultchildprefixlength per addressfamily:%s", af)
-		}
-	}
-
-	return nil
-}
-
-func (r *networkRepository) validateAdditionalAnnouncableCIDRs(additionalCidrs []string, privateSuper bool) error {
-	if len(additionalCidrs) == 0 {
-		return nil
-	}
-
-	if !privateSuper {
-		return errors.New("additionalannouncablecidrs can only be set in a private super network")
-	}
-
-	for _, cidr := range additionalCidrs {
-		_, err := netip.ParsePrefix(cidr)
-		if err != nil {
-			return fmt.Errorf("given cidr:%q in additionalannouncablecidrs is malformed:%w", cidr, err)
-		}
-	}
-
-	return nil
-}
-func (r *networkRepository) ValidateUpdate(ctx context.Context, req *adminv2.NetworkServiceUpdateRequest) (*Validated[*adminv2.NetworkServiceUpdateRequest], error) {
-	old, err := r.Get(ctx, req.Id)
-	if err != nil {
-		return nil, err
-	}
-	newNetwork := *old
-
-	if req.DefaultChildPrefixLength != nil && !old.PrivateSuper {
-		return nil, errorutil.InvalidArgument("defaultchildprefixlength can only be set on privatesuper")
-	}
-
-	if old.ParentNetworkID != "" || (old.NetworkType != nil && *old.NetworkType == metal.PrivateNetworkType) {
-		if len(req.Prefixes) > 0 {
-			return nil, errorutil.InvalidArgument("cannot change prefixes in child networks")
-		}
-	}
-
-	var (
-		prefixesToBeRemoved metal.Prefixes
-		prefixesToBeAdded   metal.Prefixes
-		destPrefixAfs       metal.AddressFamilies
-	)
-
-	prefixesToBeRemoved, prefixesToBeAdded, err = r.calculatePrefixDifferences(ctx, old, &newNetwork, req.Prefixes)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	r.r.log.Debug("validate update", "old parent", old.ParentNetworkID, "prefixes to remove", prefixesToBeRemoved, "prefixes to add", prefixesToBeAdded)
-	// Do not allow to change prefixes on child networks
-	if old.ParentNetworkID != "" && (len(prefixesToBeRemoved) > 0 || len(prefixesToBeAdded) > 0) {
-		return nil, errorutil.InvalidArgument("cannot change prefixes in child networks")
-	}
-
-	if req.DestinationPrefixes != nil {
-		destPrefixes, err := metal.NewPrefixesFromCIDRs(req.DestinationPrefixes)
-		if err != nil {
-			return nil, errorutil.Convert(err)
-		}
-		destPrefixAfs = destPrefixes.AddressFamilies()
-	}
-
-	err = r.validatePrefixesAndAddressFamilies(newNetwork.Prefixes, destPrefixAfs, old.DefaultChildPrefixLength, old.PrivateSuper)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	_, err = metal.ToChildPrefixLength(req.DefaultChildPrefixLength, newNetwork.Prefixes)
-	if err != nil {
-		return nil, errorutil.NewInvalidArgument(err)
-	}
-	_, err = metal.ToChildPrefixLength(req.MinChildPrefixLength, newNetwork.Prefixes)
-	if err != nil {
-		return nil, errorutil.NewInvalidArgument(err)
-	}
-
-	err = r.validateAdditionalAnnouncableCIDRs(req.AdditionalAnnouncableCidrs, old.PrivateSuper)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	for _, oldcidr := range old.AdditionalAnnouncableCIDRs {
-		if !req.Force && !slices.Contains(req.AdditionalAnnouncableCidrs, oldcidr) {
-			return nil, errorutil.InvalidArgument("you cannot remove %q from additionalannouncablecidrs without force flag set", oldcidr)
-		}
-	}
-	r.r.log.Debug("validated update")
-
-	return &Validated[*adminv2.NetworkServiceUpdateRequest]{
-		message: req,
-	}, nil
 }
 
 func (r *networkRepository) calculatePrefixDifferences(ctx context.Context, existingNetwork, newNetwork *metal.Network, prefixes []string) (toRemoved, toAdded metal.Prefixes, err error) {
@@ -298,48 +46,6 @@ func (r *networkRepository) calculatePrefixDifferences(ctx context.Context, exis
 	toAdded = newNetwork.SubtractPrefixes(existingNetwork.Prefixes...)
 	newNetwork.Prefixes = pfxs
 	return toRemoved, toAdded, nil
-}
-
-func (r *networkRepository) arePrefixesEmpty(ctx context.Context, prefixes metal.Prefixes) error {
-	for _, prefixToCheck := range prefixes {
-		ips, err := r.r.UnscopedIP().List(ctx, &apiv2.IPQuery{ParentPrefixCidr: pointer.Pointer(prefixToCheck.String())})
-		if err != nil {
-			return errorutil.Convert(err)
-		}
-		if len(ips) > 0 {
-			return errorutil.InvalidArgument("there are still %d ips present in one of the prefixes:%s", len(ips), prefixToCheck)
-		}
-	}
-	return nil
-}
-
-func (r *networkRepository) ValidateDelete(ctx context.Context, req *metal.Network) (*Validated[*metal.Network], error) {
-	old, err := r.Get(ctx, req.ID)
-	if err != nil {
-		if errorutil.IsNotFound(err) {
-			return &Validated[*metal.Network]{
-				message: req,
-			}, nil
-		}
-		return nil, err
-	}
-
-	children, err := r.List(ctx, &apiv2.NetworkQuery{ParentNetworkId: &req.ID})
-	if err != nil {
-		return nil, err
-	}
-	if len(children) > 0 {
-		return nil, errorutil.InvalidArgument("cannot remove network with existing child networks")
-	}
-
-	err = r.arePrefixesEmpty(ctx, old.Prefixes)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Validated[*metal.Network]{
-		message: req,
-	}, nil
 }
 
 func (r *networkRepository) Get(ctx context.Context, id string) (*metal.Network, error) {
@@ -416,76 +122,6 @@ func (r *Store) NetworkDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 	}
 
 	return nil
-}
-
-func (r *networkRepository) ValidateAllocateNetwork(ctx context.Context, rq *apiv2.NetworkServiceCreateRequest) (*Validated[*apiv2.NetworkServiceCreateRequest], error) {
-	if rq.Project == "" {
-		return nil, errorutil.InvalidArgument("project must not be empty")
-	}
-	if rq.Partition == nil {
-		return nil, errorutil.InvalidArgument("partition must not be empty")
-	}
-	_, err := r.r.Project(rq.Project).Get(ctx, rq.Project)
-	if err != nil {
-		return nil, err
-	}
-	partition, err := r.r.Partition().Get(ctx, *rq.Partition)
-	if err != nil {
-		return nil, err
-	}
-
-	var superNetwork *metal.Network
-	if rq.ParentNetworkId != nil {
-		// FIXME network type must be shared
-		superNetwork, err = r.r.UnscopedNetwork().Get(ctx, *rq.ParentNetworkId)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		superNetwork, err = r.r.UnscopedNetwork().Find(ctx, &apiv2.NetworkQuery{
-			Partition: &partition.ID,
-			Type:      apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER.Enum(),
-		})
-		if err != nil {
-			return nil, errorutil.InvalidArgument("unable to find a private super in partition:%s %w", partition.ID, err)
-		}
-	}
-
-	if len(superNetwork.DefaultChildPrefixLength) == 0 {
-		return nil, errorutil.InvalidArgument("supernetwork %s has no defaultchildprefixlength specified", superNetwork.ID)
-	}
-
-	length := superNetwork.DefaultChildPrefixLength
-	if rq.Length != nil {
-		l, err := metal.ToChildPrefixLength(rq.Length, superNetwork.Prefixes)
-		if err != nil {
-			return nil, errorutil.NewInvalidArgument(err)
-		}
-		length = l
-	}
-
-	if rq.AddressFamily != nil {
-		addressfamily, err := metal.ToAddressFamily(*rq.AddressFamily)
-		if err != nil {
-			return nil, errorutil.InvalidArgument("addressfamily is invalid %w", err)
-		}
-		bits, ok := length[addressfamily]
-		if !ok {
-			return nil, errorutil.InvalidArgument("addressfamily %s specified, but no childprefixlength for this addressfamily", *rq.AddressFamily)
-		}
-		length = metal.ChildPrefixLength{
-			addressfamily: bits,
-		}
-	}
-
-	err = r.validatePrefixesAndAddressFamilies(superNetwork.Prefixes, nil, length, false)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	return &Validated[*apiv2.NetworkServiceCreateRequest]{
-		message: rq,
-	}, nil
 }
 
 func (r *networkRepository) AllocateNetwork(ctx context.Context, rq *Validated[*apiv2.NetworkServiceCreateRequest]) (*metal.Network, error) {
@@ -733,7 +369,7 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 			}
 		}
 	} else {
-		// FIXME in case req.vrf is nil, the network will be created with a 0 vrf ?
+		// FIXME in case req.vrf is nil, the network will be created with a nil vrf ?
 		// This is the case in the actual metal-api implementation
 		// Therefor we create a random vrf instead for private networks
 		if !privateSuper {
@@ -767,6 +403,7 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 			Description: description,
 		},
 		Prefixes:                   prefixes,
+		ParentNetworkID:            pointer.SafeDeref(req.ParentNetworkId),
 		DestinationPrefixes:        destPrefixes,
 		DefaultChildPrefixLength:   defaultChildPrefixLength,
 		MinChildPrefixLength:       minChildPrefixLength,
@@ -932,10 +569,11 @@ func (r *networkRepository) ConvertToProto(e *metal.Network) (*apiv2.Network, er
 		networkType = apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum()
 	}
 	if e.NetworkType != nil {
-		switch *e.NetworkType {
-		case metal.PrivateNetworkType:
-			networkType = apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum()
+		nwt, err := metal.FromNetworkTyp(*e.NetworkType)
+		if err != nil {
+			return nil, err
 		}
+		networkType = &nwt
 	}
 	// TODO: how to detect private super shared vrf
 

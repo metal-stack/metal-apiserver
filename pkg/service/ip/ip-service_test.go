@@ -60,15 +60,13 @@ func Test_ipServiceServer_Get(t *testing.T) {
 
 			if diff := cmp.Diff(
 				tt.want, pointer.SafeDeref(got).Msg,
-				cmp.Options{
-					protocmp.Transform(),
-					protocmp.IgnoreFields(
-						&apiv2.IP{}, "uuid",
-					),
-					protocmp.IgnoreFields(
-						&apiv2.Meta{}, "created_at", "updated_at",
-					),
-				},
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.IP{}, "uuid",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
 			); diff != "" {
 				t.Errorf("ipServiceServer.Get() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
 			}
@@ -156,15 +154,13 @@ func Test_ipServiceServer_List(t *testing.T) {
 
 			if diff := cmp.Diff(
 				tt.want, pointer.SafeDeref(got).Msg,
-				cmp.Options{
-					protocmp.Transform(),
-					protocmp.IgnoreFields(
-						&apiv2.IP{}, "uuid",
-					),
-					protocmp.IgnoreFields(
-						&apiv2.Meta{}, "created_at", "updated_at",
-					),
-				},
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.IP{}, "uuid",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
 			); diff != "" {
 				t.Errorf("ipServiceServer.List() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
 			}
@@ -246,15 +242,13 @@ func Test_ipServiceServer_Update(t *testing.T) {
 
 			if diff := cmp.Diff(
 				tt.want, pointer.SafeDeref(got).Msg,
-				cmp.Options{
-					protocmp.Transform(),
-					protocmp.IgnoreFields(
-						&apiv2.IP{}, "uuid",
-					),
-					protocmp.IgnoreFields(
-						&apiv2.Meta{}, "created_at", "updated_at",
-					),
-				},
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.IP{}, "uuid",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
 			); diff != "" {
 				t.Errorf("ipServiceServer.Update() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
 			}
@@ -327,15 +321,13 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 
 			if diff := cmp.Diff(
 				tt.want, pointer.SafeDeref(got).Msg,
-				cmp.Options{
-					protocmp.Transform(),
-					protocmp.IgnoreFields(
-						&apiv2.IP{}, "uuid",
-					),
-					protocmp.IgnoreFields(
-						&apiv2.Meta{}, "created_at", "updated_at",
-					),
-				},
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.IP{}, "uuid",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
 			); diff != "" {
 				t.Errorf("ipServiceServer.Delete() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
 			}
@@ -505,15 +497,13 @@ func Test_ipServiceServer_Create(t *testing.T) {
 
 			if diff := cmp.Diff(
 				tt.want, pointer.SafeDeref(got).Msg,
-				cmp.Options{
-					protocmp.Transform(),
-					protocmp.IgnoreFields(
-						&apiv2.IP{}, "uuid",
-					),
-					protocmp.IgnoreFields(
-						&apiv2.Meta{}, "created_at", "updated_at",
-					),
-				},
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.IP{}, "uuid",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
 			); diff != "" {
 				t.Errorf("ipServiceServer.Create() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
 			}
