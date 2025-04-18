@@ -18,7 +18,7 @@ const (
 )
 
 var (
-	defaultAsynqRetries = asynq.MaxRetry(5)
+	defaultAsynqRetries = asynq.MaxRetry(50)
 	defaultAsynqTimeout = asynq.Timeout(20 * time.Minute)
 )
 
@@ -89,7 +89,7 @@ func (c *Client) NewNetworkDeleteTask(uuid string) (*asynq.TaskInfo, error) {
 		return nil, err
 	}
 
-	task := asynq.NewTask(TypeIpDelete, payload, c.opts...)
+	task := asynq.NewTask(TypeNetworkDelete, payload, c.opts...)
 	taskInfo, err := c.client.Enqueue(task)
 	if err != nil {
 		return nil, fmt.Errorf("unable to enqueue network delete task:%w", err)

@@ -42,7 +42,7 @@ func ImageFilter(rq *apiv2.ImageQuery) func(q r.Term) r.Term {
 			q = q.Filter(func(row r.Term) r.Term {
 				feature, err := apienum.GetStringValue(*rq.Feature)
 				if err == nil {
-					return row.Field("features").HasFields([]string{feature})
+					return row.Field("features").HasFields([]string{*feature})
 				} else {
 					return q
 				}

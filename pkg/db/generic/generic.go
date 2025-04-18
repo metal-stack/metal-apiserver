@@ -38,6 +38,7 @@ type (
 		Upsert(ctx context.Context, e E) error
 		Delete(ctx context.Context, e E) error
 		Get(ctx context.Context, id string) (E, error)
+		CheckAlreadyExists(ctx context.Context, id string) error
 		Find(ctx context.Context, queries ...EntityQuery) (E, error)
 		List(ctx context.Context, queries ...EntityQuery) ([]E, error)
 	}
@@ -54,5 +55,9 @@ type (
 		// sizeimageConstraint Storage[*metal.SizeImageConstraint]
 		// sw                  Storage[*metal.Switch]
 		// switchStatus        Storage[*metal.SwitchStatus]
+
+		// Pools
+		AsnPool() *integerPool
+		VrfPool() *integerPool
 	}
 )
