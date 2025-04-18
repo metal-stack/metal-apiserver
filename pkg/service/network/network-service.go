@@ -8,6 +8,7 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
+	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 )
@@ -134,7 +135,11 @@ func (n *networkServiceServer) ListBaseNetworks(ctx context.Context, rq *connect
 	var res []*apiv2.Network
 	for _, nw := range resp {
 		// TODO convert to a equivalent reql query
-		if nw.Shared || nw.ProjectID == "" {
+		if nw.NetworkType == nil {
+			continue
+		}
+		switch *nw.NetworkType {
+		case metal.PrivateSharedNetworkType, metal.SharedNetworkType, metal.VrfSharedNetworkType:
 			converted, err := n.repo.UnscopedNetwork().ConvertToProto(nw)
 			if err != nil {
 				return nil, errorutil.Convert(err)

@@ -28,26 +28,6 @@ type networkRepository struct {
 	scope *ProjectScope
 }
 
-func (r *networkRepository) calculatePrefixDifferences(ctx context.Context, existingNetwork, newNetwork *metal.Network, prefixes []string) (toRemoved, toAdded metal.Prefixes, err error) {
-	if len(prefixes) == 0 {
-		return
-	}
-	pfxs, err := metal.NewPrefixesFromCIDRs(prefixes)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	toRemoved = existingNetwork.SubtractPrefixes(pfxs...)
-
-	err = r.arePrefixesEmpty(ctx, toRemoved)
-	if err != nil {
-		return nil, nil, err
-	}
-	toAdded = newNetwork.SubtractPrefixes(existingNetwork.Prefixes...)
-	newNetwork.Prefixes = pfxs
-	return toRemoved, toAdded, nil
-}
-
 func (r *networkRepository) Get(ctx context.Context, id string) (*metal.Network, error) {
 	nw, err := r.r.ds.Network().Get(ctx, id)
 	if err != nil {
@@ -88,6 +68,8 @@ func (r *networkRepository) Delete(ctx context.Context, n *Validated[*metal.Netw
 	return nw, nil
 }
 
+// NetworkDeleteHandleFn is called async to ensure all dependent entities are deleted
+// Async deletion must be scheduled by async.NewNetworkDeleteTask
 func (r *Store) NetworkDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
 
 	var payload asyncclient.NetworkDeletePayload
@@ -137,8 +119,7 @@ func (r *networkRepository) AllocateNetwork(ctx context.Context, rq *Validated[*
 		nat    bool
 		shared bool
 
-		parent      *metal.Network
-		networkType metal.NetworkType
+		parent *metal.Network
 	)
 
 	if req.Partition != nil {
@@ -157,69 +138,24 @@ func (r *networkRepository) AllocateNetwork(ctx context.Context, rq *Validated[*
 		return nil, errorutil.InvalidArgument("either partition or parentnetworkid must be specified")
 	}
 
-	// TODO: if parentNetworkID is given fetch this
-	if req.ParentNetworkId != nil {
-		p, err := r.r.UnscopedNetwork().Find(ctx, &apiv2.NetworkQuery{
-			Id:   req.ParentNetworkId,
-			Type: apiv2.NetworkType_NETWORK_TYPE_SUPER_VRF_SHARED.Enum(),
-		})
-		if err != nil {
-			return nil, errorutil.InvalidArgument("unable to find a super network with id:%s %w", *req.ParentNetworkId, err)
-		}
-		parent = p
-		networkType = metal.VrfSharedNetworkType
-	} else {
-		p, err := r.r.UnscopedNetwork().Find(ctx, &apiv2.NetworkQuery{
-			Partition: &partition,
-			Type:      apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER.Enum(),
-		})
-		if err != nil {
-			return nil, errorutil.InvalidArgument("unable to find a private super in partition:%s %w", partition, err)
-		}
-		parent = p
-		networkType = metal.PrivateNetworkType
+	childPrefixes, parent, err := r.allocateChildPrefixes(ctx, req.ParentNetworkId, req.Partition, req.Length, req.AddressFamily)
+	if err != nil {
+		return nil, err
 	}
 
-	if parent.NATType != nil && *parent.NATType == metal.IPv4MasqueradeNATType {
-		nat = true
-	}
+	r.r.log.Debug("acquire network", "child prefixes", childPrefixes)
 
 	vrf, err := r.r.ds.VrfPool().AcquireRandomUniqueInteger(ctx)
 	if err != nil {
 		return nil, errorutil.Internal("could not acquire a vrf: %w", err)
 	}
 
-	length := parent.DefaultChildPrefixLength
-	if req.Length != nil {
-		l, err := metal.ToChildPrefixLength(req.Length, parent.Prefixes)
-		if err != nil {
-			return nil, errorutil.NewInvalidArgument(err)
-		}
-		length = l
+	// Inherit nat from Parent
+	if parent.NATType != nil && *parent.NATType == metal.IPv4MasqueradeNATType {
+		nat = true
 	}
 
-	if req.AddressFamily != nil {
-		addressfamily, err := metal.ToAddressFamily(*req.AddressFamily)
-		if err != nil {
-			return nil, errorutil.InvalidArgument("addressfamily is invalid %w", err)
-		}
-		bits, ok := length[addressfamily]
-		if !ok {
-			return nil, errorutil.InvalidArgument("addressfamily %s specified, but no childprefixlength for this addressfamily", *req.AddressFamily)
-		}
-		length = metal.ChildPrefixLength{
-			addressfamily: bits,
-		}
-	}
-
-	for af, l := range length {
-		childPrefix, err := r.createChildPrefix(ctx, parent.Prefixes, af, l)
-		if err != nil {
-			return nil, err
-		}
-		childPrefixes = append(childPrefixes, *childPrefix)
-	}
-	r.r.log.Debug("acquire network", "child prefixes", childPrefixes)
+	networkType := metal.PrivateNetworkType
 
 	nw := &metal.Network{
 		Base: metal.Base{
@@ -246,38 +182,6 @@ func (r *networkRepository) AllocateNetwork(ctx context.Context, rq *Validated[*
 	}
 
 	return nw, nil
-}
-
-func (r *networkRepository) createChildPrefix(ctx context.Context, parentPrefixes metal.Prefixes, af metal.AddressFamily, childLength uint8) (*metal.Prefix, error) {
-	var (
-		errs []error
-	)
-
-	for _, parentPrefix := range parentPrefixes.OfFamily(af) {
-		resp, err := r.r.ipam.AcquireChildPrefix(ctx, connect.NewRequest(&ipamv1.AcquireChildPrefixRequest{
-			Cidr:   parentPrefix.String(),
-			Length: uint32(childLength),
-		}))
-		if err != nil {
-			if errorutil.IsNotFound(err) {
-				continue
-			}
-			errs = append(errs, err)
-			continue
-		}
-
-		pfx, _, err := metal.NewPrefixFromCIDR(resp.Msg.Prefix.Cidr)
-		if err != nil {
-			return nil, errorutil.NewInternal(err)
-		}
-		return pfx, nil
-	}
-
-	if len(errs) > 0 {
-		return nil, errorutil.Internal("cannot allocate free child prefix in ipam: %w", errors.Join(errs...))
-	}
-
-	return nil, errorutil.Internal("cannot allocate free child prefix in one of the given parent prefixes in ipam: %s", parentPrefixes.String())
 }
 
 func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.NetworkServiceCreateRequest]) (*metal.Network, error) {
@@ -319,6 +223,12 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 		underlay     bool
 	)
 
+	prefixes, err := metal.NewPrefixesFromCIDRs(req.Prefixes)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
+	// TODO this switch is incomplete
 	switch req.Type {
 	case apiv2.NetworkType_NETWORK_TYPE_SHARED, apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SHARED, apiv2.NetworkType_NETWORK_TYPE_UNSPECIFIED:
 		// If no network type was specified, we assume shared
@@ -327,7 +237,12 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 		privateSuper = true
 	case apiv2.NetworkType_NETWORK_TYPE_SUPER_VRF_SHARED:
 		privateSuper = true
-	case apiv2.NetworkType_NETWORK_TYPE_PRIVATE:
+	case apiv2.NetworkType_NETWORK_TYPE_PRIVATE, apiv2.NetworkType_NETWORK_TYPE_VRF_SHARED:
+		childPrefixes, _, err := r.allocateChildPrefixes(ctx, req.ParentNetworkId, req.Partition, req.Length, req.AddressFamily)
+		if err != nil {
+			return nil, err
+		}
+		prefixes = childPrefixes
 		//
 	case apiv2.NetworkType_NETWORK_TYPE_UNDERLAY:
 		underlay = true
@@ -339,10 +254,6 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 		nat = true
 	}
 
-	prefixes, err := metal.NewPrefixesFromCIDRs(req.Prefixes)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
 	destPrefixes, err := metal.NewPrefixesFromCIDRs(req.DestinationPrefixes)
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -687,4 +598,125 @@ func (r *networkRepository) scopedNetworkFilters(filter generic.EntityQuery) []g
 		qs = append(qs, filter)
 	}
 	return qs
+}
+
+func (r *networkRepository) calculatePrefixDifferences(ctx context.Context, existingNetwork, newNetwork *metal.Network, prefixes []string) (toRemoved, toAdded metal.Prefixes, err error) {
+	if len(prefixes) == 0 {
+		return
+	}
+	pfxs, err := metal.NewPrefixesFromCIDRs(prefixes)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	toRemoved = existingNetwork.SubtractPrefixes(pfxs...)
+
+	err = r.arePrefixesEmpty(ctx, toRemoved)
+	if err != nil {
+		return nil, nil, err
+	}
+	toAdded = newNetwork.SubtractPrefixes(existingNetwork.Prefixes...)
+	newNetwork.Prefixes = pfxs
+	return toRemoved, toAdded, nil
+}
+
+func (r *networkRepository) allocateChildPrefixes(ctx context.Context, parentNetworkId, partitionId *string, requestedLength *apiv2.ChildPrefixLength, af *apiv2.IPAddressFamily) (metal.Prefixes, *metal.Network, error) {
+
+	var (
+		prefixes metal.Prefixes
+		parent   *metal.Network
+	)
+
+	if parentNetworkId != nil {
+		p, err := r.r.UnscopedNetwork().Find(ctx, &apiv2.NetworkQuery{Id: parentNetworkId})
+		if err != nil {
+			return nil, nil, errorutil.InvalidArgument("unable to find a super network with id:%s %w", *parentNetworkId, err)
+		}
+		if p.NetworkType == nil {
+			return nil, nil, errorutil.InvalidArgument("parent network with id:%s does not have a networktype set", *parentNetworkId)
+		}
+		switch *p.NetworkType {
+		case metal.PrivateSuperNetworkType, metal.PrivateSuperNamespacedNetworkType, metal.SuperVrfSharedNetworkType:
+			// all good
+		default:
+			return nil, nil, errorutil.InvalidArgument("parent network with id:%s is not a valid super network but has type:%s", *parentNetworkId, *p.NetworkType)
+		}
+		parent = p
+	} else {
+		p, err := r.r.UnscopedNetwork().Find(ctx, &apiv2.NetworkQuery{
+			Partition: partitionId,
+			Type:      apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER.Enum(),
+		})
+		if err != nil {
+			return nil, nil, errorutil.InvalidArgument("unable to find a private super in partition:%s %w", *partitionId, err)
+		}
+		parent = p
+	}
+
+	// TODO implement namespaced child networks
+
+	length := parent.DefaultChildPrefixLength
+	if requestedLength != nil {
+		l, err := metal.ToChildPrefixLength(requestedLength, parent.Prefixes)
+		if err != nil {
+			return nil, nil, errorutil.NewInvalidArgument(err)
+		}
+		length = l
+	}
+
+	if af != nil {
+		addressfamily, err := metal.ToAddressFamily(*af)
+		if err != nil {
+			return nil, nil, errorutil.InvalidArgument("addressfamily is invalid %w", err)
+		}
+		bits, ok := length[addressfamily]
+		if !ok {
+			return nil, nil, errorutil.InvalidArgument("addressfamily %s specified, but no childprefixlength for this addressfamily", *af)
+		}
+		length = metal.ChildPrefixLength{
+			addressfamily: bits,
+		}
+	}
+
+	for af, l := range length {
+		childPrefix, err := r.createChildPrefix(ctx, parent.Prefixes, af, l)
+		if err != nil {
+			return nil, nil, err
+		}
+		prefixes = append(prefixes, *childPrefix)
+	}
+
+	return prefixes, parent, nil
+}
+
+func (r *networkRepository) createChildPrefix(ctx context.Context, parentPrefixes metal.Prefixes, af metal.AddressFamily, childLength uint8) (*metal.Prefix, error) {
+	var (
+		errs []error
+	)
+
+	for _, parentPrefix := range parentPrefixes.OfFamily(af) {
+		resp, err := r.r.ipam.AcquireChildPrefix(ctx, connect.NewRequest(&ipamv1.AcquireChildPrefixRequest{
+			Cidr:   parentPrefix.String(),
+			Length: uint32(childLength),
+		}))
+		if err != nil {
+			if errorutil.IsNotFound(err) {
+				continue
+			}
+			errs = append(errs, err)
+			continue
+		}
+
+		pfx, _, err := metal.NewPrefixFromCIDR(resp.Msg.Prefix.Cidr)
+		if err != nil {
+			return nil, errorutil.NewInternal(err)
+		}
+		return pfx, nil
+	}
+
+	if len(errs) > 0 {
+		return nil, errorutil.Internal("cannot allocate free child prefix in ipam: %w", errors.Join(errs...))
+	}
+
+	return nil, errorutil.Internal("cannot allocate free child prefix in one of the given parent prefixes in ipam: %s", parentPrefixes.String())
 }

@@ -20,6 +20,11 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
+var (
+	tenants  = []*apiv2.TenantServiceCreateRequest{{Name: "t1"}, {Name: "t0"}}
+	projects = []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}, {Name: "p3", Login: "t1"}, {Name: "p0", Login: "t0"}}
+)
+
 func Test_networkServiceServer_Get(t *testing.T) {
 	log := slog.Default()
 
@@ -28,9 +33,11 @@ func Test_networkServiceServer_Get(t *testing.T) {
 
 	ctx := t.Context()
 
-	test.CreateTenants(t, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
-	test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.3.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_SHARED}})
+	test.CreateTenants(t, repo, tenants)
+	test.CreateProjects(t, repo, projects)
+	test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+		{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.3.0/24"}, Vrf: pointer.Pointer(uint32(9)), Type: apiv2.NetworkType_NETWORK_TYPE_SHARED},
+	})
 
 	tests := []struct {
 		name    string
@@ -47,7 +54,7 @@ func Test_networkServiceServer_Get(t *testing.T) {
 					Meta:     &apiv2.Meta{},
 					Prefixes: []string{"1.2.3.0/24"},
 					Type:     apiv2.NetworkType_NETWORK_TYPE_SHARED.Enum(),
-					Vrf:      pointer.Pointer(uint32(4)),
+					Vrf:      pointer.Pointer(uint32(9)),
 				},
 			},
 			wantErr: nil,
@@ -94,27 +101,48 @@ func Test_networkServiceServer_List(t *testing.T) {
 
 	ctx := t.Context()
 
-	test.CreateTenants(t, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}, {Name: "t0"}})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}, {Name: "p3", Login: "t1"}, {Name: "p0", Login: "t0"}})
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintln(w, "a image")
+	}))
+	defer ts.Close()
+
+	validURL := ts.URL
+
+	test.CreateTenants(t, repo, tenants)
+	test.CreateProjects(t, repo, projects)
+	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+	})
 	test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
-		{Id: pointer.Pointer("p1-network-a"), Name: pointer.Pointer("P1 Network"), Project: pointer.Pointer("p1"), Prefixes: []string{"2.3.4.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE},
-		{Id: pointer.Pointer("p1-network-b"), Name: pointer.Pointer("P1 Network"), Project: pointer.Pointer("p1"), Prefixes: []string{"2.3.5.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE},
-		{Id: pointer.Pointer("p2-network-a"), Name: pointer.Pointer("P2 Network"), Project: pointer.Pointer("p2"), Prefixes: []string{"3.3.1.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE},
-		{Id: pointer.Pointer("p2-network-b"), Name: pointer.Pointer("P2 Network"), Project: pointer.Pointer("p2"), Prefixes: []string{"3.3.2.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE},
-		{Id: pointer.Pointer("p3-network-a"), Name: pointer.Pointer("P3 Network"), Project: pointer.Pointer("p3"), Prefixes: []string{"4.3.4.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE},
 		{
-			Id:       pointer.Pointer("underlay"),
-			Name:     pointer.Pointer("Underlay Network"),
-			Project:  pointer.Pointer("p0"),
-			Prefixes: []string{"10.0.0.0/24"},
-			Type:     apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
+			Id:                       pointer.Pointer("tenant-super-network"),
+			Prefixes:                 []string{"10.100.0.0/14"},
+			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+			Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER,
+			Partition:                pointer.Pointer("partition-one"),
+		},
+		{
+			Id:        pointer.Pointer("underlay"),
+			Name:      pointer.Pointer("Underlay Network"),
+			Partition: pointer.Pointer("partition-one"),
+			Prefixes:  []string{"10.0.0.0/24"},
+			Type:      apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
 		},
 		{
 			Id:                  pointer.Pointer("internet"),
 			Prefixes:            []string{"1.2.3.0/24"},
 			DestinationPrefixes: []string{"0.0.0.0/0"},
+			Vrf:                 pointer.Pointer(uint32(11)),
 			Type:                apiv2.NetworkType_NETWORK_TYPE_SHARED,
 		},
+	})
+
+	networkMap := test.AllocateNetworks(t, repo, []*apiv2.NetworkServiceCreateRequest{
+		{Name: pointer.Pointer("p1-network-a"), Project: "p1", Partition: pointer.Pointer("partition-one")},
+		{Name: pointer.Pointer("p1-network-b"), Project: "p1", Partition: pointer.Pointer("partition-one")},
+		{Name: pointer.Pointer("p2-network-a"), Project: "p2", Partition: pointer.Pointer("partition-one")},
+		{Name: pointer.Pointer("p2-network-b"), Project: "p2", Partition: pointer.Pointer("partition-one")},
+		{Name: pointer.Pointer("p3-network-a"), Project: "p3", Partition: pointer.Pointer("partition-one")},
 	})
 
 	tests := []struct {
@@ -128,7 +156,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 			rq:   &apiv2.NetworkServiceListRequest{Project: "", Query: &apiv2.NetworkQuery{Id: pointer.Pointer("internet")}},
 			want: &apiv2.NetworkServiceListResponse{
 				Networks: []*apiv2.Network{
-					{Id: "internet", Meta: &apiv2.Meta{}, Prefixes: []string{"1.2.3.0/24"}, DestinationPrefixes: []string{"0.0.0.0/0"}, Type: apiv2.NetworkType_NETWORK_TYPE_SHARED.Enum()},
+					{Id: "internet", Meta: &apiv2.Meta{}, Prefixes: []string{"1.2.3.0/24"}, DestinationPrefixes: []string{"0.0.0.0/0"}, Vrf: pointer.Pointer(uint32(11)), Type: apiv2.NetworkType_NETWORK_TYPE_SHARED.Enum()},
 				},
 			},
 			wantErr: nil,
@@ -138,8 +166,26 @@ func Test_networkServiceServer_List(t *testing.T) {
 			rq:   &apiv2.NetworkServiceListRequest{Project: "p1", Query: &apiv2.NetworkQuery{Project: pointer.Pointer("p1")}},
 			want: &apiv2.NetworkServiceListResponse{
 				Networks: []*apiv2.Network{
-					{Id: "p1-network-a", Meta: &apiv2.Meta{}, Name: pointer.Pointer("P1 Network"), Project: pointer.Pointer("p1"), Prefixes: []string{"2.3.4.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum()},
-					{Id: "p1-network-b", Meta: &apiv2.Meta{}, Name: pointer.Pointer("P1 Network"), Project: pointer.Pointer("p1"), Prefixes: []string{"2.3.5.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum()},
+					{
+						Id:              networkMap["p1-network-a"],
+						Meta:            &apiv2.Meta{},
+						Name:            pointer.Pointer("p1-network-a"),
+						ParentNetworkId: pointer.Pointer("tenant-super-network"),
+						Project:         pointer.Pointer("p1"),
+						Partition:       pointer.Pointer("partition-one"),
+						Vrf:             pointer.Pointer(uint32(30)),
+						Type:            apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum(),
+					},
+					{
+						Id:              networkMap["p1-network-b"],
+						Meta:            &apiv2.Meta{},
+						Name:            pointer.Pointer("p1-network-b"),
+						ParentNetworkId: pointer.Pointer("tenant-super-network"),
+						Project:         pointer.Pointer("p1"),
+						Partition:       pointer.Pointer("partition-one"),
+						Vrf:             pointer.Pointer(uint32(35)),
+						Type:            apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum(),
+					},
 				},
 			},
 			wantErr: nil,
@@ -166,7 +212,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 				tt.want, pointer.SafeDeref(got).Msg,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
-					&apiv2.Network{}, "consumption",
+					&apiv2.Network{}, "consumption", "prefixes",
 				),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
@@ -184,33 +230,45 @@ func Test_networkServiceServer_ListBaseNetworks(t *testing.T) {
 	repo, closer := test.StartRepository(t, log)
 	defer closer()
 
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintln(w, "a image")
+	}))
+	defer ts.Close()
+
+	validURL := ts.URL
+
 	ctx := t.Context()
 
-	test.CreateTenants(t, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}, {Name: "t0"}})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}, {Name: "p3", Login: "t1"}, {Name: "p0", Login: "t0"}})
+	test.CreateTenants(t, repo, tenants)
+	test.CreateProjects(t, repo, projects)
+	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+	})
 	test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
-		{Id: pointer.Pointer("p1-network-a"), Name: pointer.Pointer("P1 Network"), Project: pointer.Pointer("p1"), Prefixes: []string{"2.3.4.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE},
-		{Id: pointer.Pointer("p1-network-b"), Name: pointer.Pointer("P1 Network"), Project: pointer.Pointer("p1"), Prefixes: []string{"2.3.5.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE},
-		{Id: pointer.Pointer("p2-network-a"), Name: pointer.Pointer("P2 Network"), Project: pointer.Pointer("p2"), Prefixes: []string{"3.3.1.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE},
-		{Id: pointer.Pointer("p2-network-b"), Name: pointer.Pointer("P2 Network"), Project: pointer.Pointer("p2"), Prefixes: []string{"3.3.2.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE},
-
 		{
-			Id:       pointer.Pointer("p3-network-a"),
-			Name:     pointer.Pointer("Shared Storage Network"),
-			Project:  pointer.Pointer("p3"),
-			Prefixes: []string{"4.3.4.0/24"},
-			Type:     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SHARED},
-		{
-			Id:       pointer.Pointer("underlay"),
-			Name:     pointer.Pointer("Underlay Network"),
-			Project:  pointer.Pointer("p0"),
-			Prefixes: []string{"10.0.0.0/24"},
-			Type:     apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
+			Id:                       pointer.Pointer("tenant-super-network"),
+			Prefixes:                 []string{"10.100.0.0/14"},
+			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+			Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER,
+			Partition:                pointer.Pointer("partition-one"),
 		},
 		{
-			Id:                  pointer.Pointer("internet"),
+			Name:      pointer.Pointer("Shared Storage Network"),
+			Project:   pointer.Pointer("p3"),
+			Partition: pointer.Pointer("partition-one"),
+			Type:      apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SHARED},
+		{
+			Id:        pointer.Pointer("underlay"),
+			Name:      pointer.Pointer("Underlay Network"),
+			Partition: pointer.Pointer("partition-one"),
+			Prefixes:  []string{"10.0.0.0/24"},
+			Type:      apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
+		},
+		{
+			Id:                  pointer.Pointer("0-internet"),
 			Prefixes:            []string{"1.2.3.0/24"},
 			DestinationPrefixes: []string{"0.0.0.0/0"},
+			Vrf:                 pointer.Pointer(uint32(11)),
 			Type:                apiv2.NetworkType_NETWORK_TYPE_SHARED,
 		},
 	})
@@ -226,8 +284,23 @@ func Test_networkServiceServer_ListBaseNetworks(t *testing.T) {
 			rq:   &apiv2.NetworkServiceListBaseNetworksRequest{},
 			want: &apiv2.NetworkServiceListBaseNetworksResponse{
 				Networks: []*apiv2.Network{
-					{Id: "internet", Meta: &apiv2.Meta{}, Prefixes: []string{"1.2.3.0/24"}, DestinationPrefixes: []string{"0.0.0.0/0"}, Type: apiv2.NetworkType_NETWORK_TYPE_SHARED.Enum()},
-					{Id: "p3-network-a", Meta: &apiv2.Meta{}, Name: pointer.Pointer("Shared Storage Network"), Project: pointer.Pointer("p3"), Prefixes: []string{"4.3.4.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_SHARED.Enum()},
+					{
+						Id:                  "0-internet",
+						Meta:                &apiv2.Meta{},
+						Prefixes:            []string{"1.2.3.0/24"},
+						DestinationPrefixes: []string{"0.0.0.0/0"},
+						Vrf:                 pointer.Pointer(uint32(11)),
+						Type:                apiv2.NetworkType_NETWORK_TYPE_SHARED.Enum(),
+					},
+					{
+						Id:        "p3-network-a",
+						Meta:      &apiv2.Meta{},
+						Name:      pointer.Pointer("Shared Storage Network"),
+						Project:   pointer.Pointer("p3"),
+						Partition: pointer.Pointer("partition-one"),
+						Vrf:       pointer.Pointer(uint32(20)),
+						Type:      apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SHARED.Enum(),
+					},
 				},
 			},
 			wantErr: nil,
@@ -248,7 +321,7 @@ func Test_networkServiceServer_ListBaseNetworks(t *testing.T) {
 				tt.want, pointer.SafeDeref(got).Msg,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
-					&apiv2.Network{}, "consumption",
+					&apiv2.Network{}, "consumption", "id",
 				),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
@@ -266,29 +339,48 @@ func Test_networkServiceServer_Update(t *testing.T) {
 	repo, closer := test.StartRepository(t, log)
 	defer closer()
 
-	ctx := t.Context()
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintln(w, "a image")
+	}))
+	defer ts.Close()
 
-	test.CreateTenants(t, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}, {Name: "t0"}})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}, {Name: "p3", Login: "t1"}, {Name: "p0", Login: "t0"}})
+	validURL := ts.URL
+
+	test.CreateTenants(t, repo, tenants)
+	test.CreateProjects(t, repo, projects)
+	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+	})
 	test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
-		{Id: pointer.Pointer("p1-network-a"), Name: pointer.Pointer("P1 Network"), Project: pointer.Pointer("p1"), Prefixes: []string{"2.3.4.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE},
-		{Id: pointer.Pointer("p1-network-b"), Name: pointer.Pointer("P1 Network"), Project: pointer.Pointer("p1"), Prefixes: []string{"2.3.5.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE},
-		{Id: pointer.Pointer("p2-network-a"), Name: pointer.Pointer("P2 Network"), Project: pointer.Pointer("p2"), Prefixes: []string{"3.3.1.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE},
-		{Id: pointer.Pointer("p2-network-b"), Name: pointer.Pointer("P2 Network"), Project: pointer.Pointer("p2"), Prefixes: []string{"3.3.2.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE},
-		{Id: pointer.Pointer("p3-network-a"), Name: pointer.Pointer("P3 Network"), Project: pointer.Pointer("p3"), Prefixes: []string{"4.3.4.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE, Labels: &apiv2.Labels{Labels: map[string]string{"color": "red"}}},
 		{
-			Id:       pointer.Pointer("underlay"),
-			Name:     pointer.Pointer("Underlay Network"),
-			Project:  pointer.Pointer("p0"),
-			Prefixes: []string{"10.0.0.0/24"},
-			Type:     apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
+			Id:                       pointer.Pointer("tenant-super-network"),
+			Prefixes:                 []string{"10.100.0.0/14"},
+			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+			Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER,
+			Partition:                pointer.Pointer("partition-one"),
+		},
+		{
+			Id:        pointer.Pointer("underlay"),
+			Name:      pointer.Pointer("Underlay Network"),
+			Partition: pointer.Pointer("partition-one"),
+			Prefixes:  []string{"10.0.0.0/24"},
+			Type:      apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
 		},
 		{
 			Id:                  pointer.Pointer("internet"),
 			Prefixes:            []string{"1.2.3.0/24"},
 			DestinationPrefixes: []string{"0.0.0.0/0"},
+			Vrf:                 pointer.Pointer(uint32(11)),
 			Type:                apiv2.NetworkType_NETWORK_TYPE_SHARED,
 		},
+	})
+
+	networkMap := test.AllocateNetworks(t, repo, []*apiv2.NetworkServiceCreateRequest{
+		{Name: pointer.Pointer("p1-network-a"), Project: "p1", Partition: pointer.Pointer("partition-one")},
+		{Name: pointer.Pointer("p1-network-b"), Project: "p1", Partition: pointer.Pointer("partition-one")},
+		{Name: pointer.Pointer("p2-network-a"), Project: "p2", Partition: pointer.Pointer("partition-one")},
+		{Name: pointer.Pointer("p2-network-b"), Project: "p2", Partition: pointer.Pointer("partition-one")},
+		{Name: pointer.Pointer("p3-network-a"), Project: "p3", Partition: pointer.Pointer("partition-one")},
 	})
 
 	tests := []struct {
@@ -299,25 +391,62 @@ func Test_networkServiceServer_Update(t *testing.T) {
 	}{
 		{
 			name: "update name",
-			rq:   &apiv2.NetworkServiceUpdateRequest{Id: "p1-network-a", Project: "p1", Name: pointer.Pointer("P1 Updated Network")},
+			rq:   &apiv2.NetworkServiceUpdateRequest{Id: networkMap["p1-network-a"], Project: "p1", Name: pointer.Pointer("P1 Updated Network")},
 			want: &apiv2.NetworkServiceUpdateResponse{
-				Network: &apiv2.Network{Id: "p1-network-a", Meta: &apiv2.Meta{}, Name: pointer.Pointer("P1 Updated Network"), Project: pointer.Pointer("p1"), Prefixes: []string{"2.3.4.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum()},
+				Network: &apiv2.Network{
+					Id:              networkMap["p1-network-a"],
+					Meta:            &apiv2.Meta{},
+					Name:            pointer.Pointer("P1 Updated Network"),
+					ParentNetworkId: pointer.Pointer("tenant-super-network"),
+					Project:         pointer.Pointer("p1"),
+					Partition:       pointer.Pointer("partition-one"),
+					Vrf:             pointer.Pointer(uint32(30)),
+					Prefixes:        []string{"10.100.0.0/22"},
+					Type:            apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum(),
+				},
 			},
 			wantErr: nil,
 		},
 		{
 			name: "update description",
-			rq:   &apiv2.NetworkServiceUpdateRequest{Id: "p1-network-b", Project: "p1", Description: pointer.Pointer("P1 Description")},
+			rq:   &apiv2.NetworkServiceUpdateRequest{Id: networkMap["p1-network-b"], Project: "p1", Description: pointer.Pointer("P1 Description")},
 			want: &apiv2.NetworkServiceUpdateResponse{
-				Network: &apiv2.Network{Id: "p1-network-b", Meta: &apiv2.Meta{}, Name: pointer.Pointer("P1 Network"), Description: pointer.Pointer("P1 Description"), Project: pointer.Pointer("p1"), Prefixes: []string{"2.3.5.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum()},
+				Network: &apiv2.Network{
+					Id:              networkMap["p1-network-b"],
+					Meta:            &apiv2.Meta{},
+					Name:            pointer.Pointer("p1-network-b"),
+					Description:     pointer.Pointer("P1 Description"),
+					ParentNetworkId: pointer.Pointer("tenant-super-network"),
+					Project:         pointer.Pointer("p1"),
+					Partition:       pointer.Pointer("partition-one"),
+					Prefixes:        []string{"10.100.4.0/22"},
+					Vrf:             pointer.Pointer(uint32(35)),
+					Type:            apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum(),
+				},
 			},
 			wantErr: nil,
 		},
 		{
 			name: "update labels",
-			rq:   &apiv2.NetworkServiceUpdateRequest{Id: "p3-network-a", Project: "p3", Labels: &apiv2.Labels{Labels: map[string]string{"size": "small"}}},
+			rq: &apiv2.NetworkServiceUpdateRequest{
+				Id:      networkMap["p3-network-a"],
+				Project: "p3",
+				Labels:  &apiv2.Labels{Labels: map[string]string{"size": "small"}},
+			},
 			want: &apiv2.NetworkServiceUpdateResponse{
-				Network: &apiv2.Network{Id: "p3-network-a", Meta: &apiv2.Meta{Labels: &apiv2.Labels{Labels: map[string]string{"size": "small"}}}, Name: pointer.Pointer("P3 Network"), Project: pointer.Pointer("p3"), Prefixes: []string{"4.3.4.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum()},
+				Network: &apiv2.Network{
+					Id: networkMap["p3-network-a"],
+					Meta: &apiv2.Meta{
+						Labels: &apiv2.Labels{Labels: map[string]string{"size": "small"}},
+					},
+					Name:            pointer.Pointer("p3-network-a"),
+					ParentNetworkId: pointer.Pointer("tenant-super-network"),
+					Project:         pointer.Pointer("p3"),
+					Partition:       pointer.Pointer("partition-one"),
+					Prefixes:        []string{"10.100.16.0/22"},
+					Vrf:             pointer.Pointer(uint32(46)),
+					Type:            apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum(),
+				},
 			},
 			wantErr: nil,
 		},
@@ -329,9 +458,9 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		},
 		{
 			name:    "wrong project",
-			rq:      &apiv2.NetworkServiceUpdateRequest{Id: "p3-network-a", Project: "p4"},
+			rq:      &apiv2.NetworkServiceUpdateRequest{Id: networkMap["p3-network-a"], Project: "p4"},
 			want:    nil,
-			wantErr: errorutil.NotFound(`network:p3-network-a project:p3 for scope:p4 not found`),
+			wantErr: errorutil.NotFound("network:%s project:p3 for scope:p4 not found", networkMap["p3-network-a"]),
 		},
 		// FIXME remove labels
 	}
@@ -341,7 +470,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 				log:  log,
 				repo: repo,
 			}
-			got, err := n.Update(ctx, connect.NewRequest(tt.rq))
+			got, err := n.Update(t.Context(), connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
@@ -377,8 +506,8 @@ func Test_networkServiceServer_Create(t *testing.T) {
 
 	ctx := t.Context()
 
-	test.CreateTenants(t, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}, {Name: "t0"}})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}, {Name: "p3", Login: "t1"}, {Name: "p0", Login: "t0"}})
+	test.CreateTenants(t, repo, tenants)
+	test.CreateProjects(t, repo, projects)
 
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
@@ -571,28 +700,48 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 
 	ctx := t.Context()
 
-	test.CreateTenants(t, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}, {Name: "t0"}})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}, {Name: "p3", Login: "t1"}, {Name: "p0", Login: "t0"}})
-	test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
-		{Id: pointer.Pointer("p1-network-a"), Name: pointer.Pointer("P1 Network"), Project: pointer.Pointer("p1"), Prefixes: []string{"2.3.4.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE},
-		{Id: pointer.Pointer("p1-network-b"), Name: pointer.Pointer("P1 Network"), Project: pointer.Pointer("p1"), Prefixes: []string{"2.3.5.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE},
-		{Id: pointer.Pointer("p2-network-a"), Name: pointer.Pointer("P2 Network"), Project: pointer.Pointer("p2"), Prefixes: []string{"3.3.1.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE},
-		{Id: pointer.Pointer("p2-network-b"), Name: pointer.Pointer("P2 Network"), Project: pointer.Pointer("p2"), Prefixes: []string{"3.3.2.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE},
-		{Id: pointer.Pointer("p3-network-a"), Name: pointer.Pointer("P3 Network"), Project: pointer.Pointer("p3"), Prefixes: []string{"4.3.4.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE, Labels: &apiv2.Labels{Labels: map[string]string{"color": "red"}}},
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintln(w, "a image")
+	}))
+	defer ts.Close()
 
+	validURL := ts.URL
+
+	test.CreateTenants(t, repo, tenants)
+	test.CreateProjects(t, repo, projects)
+	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+	})
+	test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
 		{
-			Id:       pointer.Pointer("underlay"),
-			Name:     pointer.Pointer("Underlay Network"),
-			Project:  pointer.Pointer("p0"),
-			Prefixes: []string{"10.0.0.0/24"},
-			Type:     apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
+			Id:                       pointer.Pointer("tenant-super-network"),
+			Prefixes:                 []string{"10.100.0.0/14"},
+			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+			Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER,
+			Partition:                pointer.Pointer("partition-one"),
+		},
+		{
+			Id:        pointer.Pointer("underlay"),
+			Name:      pointer.Pointer("Underlay Network"),
+			Partition: pointer.Pointer("partition-one"),
+			Prefixes:  []string{"10.0.0.0/24"},
+			Type:      apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
 		},
 		{
 			Id:                  pointer.Pointer("internet"),
 			Prefixes:            []string{"1.2.3.0/24"},
 			DestinationPrefixes: []string{"0.0.0.0/0"},
+			Vrf:                 pointer.Pointer(uint32(11)),
 			Type:                apiv2.NetworkType_NETWORK_TYPE_SHARED,
 		},
+	})
+
+	networkMap := test.AllocateNetworks(t, repo, []*apiv2.NetworkServiceCreateRequest{
+		{Name: pointer.Pointer("p1-network-a"), Project: "p1", Partition: pointer.Pointer("partition-one")},
+		{Name: pointer.Pointer("p1-network-b"), Project: "p1", Partition: pointer.Pointer("partition-one")},
+		{Name: pointer.Pointer("p2-network-a"), Project: "p2", Partition: pointer.Pointer("partition-one")},
+		{Name: pointer.Pointer("p2-network-b"), Project: "p2", Partition: pointer.Pointer("partition-one")},
+		{Name: pointer.Pointer("p3-network-a"), Project: "p3", Partition: pointer.Pointer("partition-one")},
 	})
 
 	tests := []struct {
@@ -603,23 +752,33 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 	}{
 		{
 			name: "delete existing",
-			rq:   &apiv2.NetworkServiceDeleteRequest{Id: "p1-network-a", Project: "p1"},
+			rq:   &apiv2.NetworkServiceDeleteRequest{Id: networkMap["p1-network-a"], Project: "p1"},
 			want: &apiv2.NetworkServiceDeleteResponse{
-				Network: &apiv2.Network{Id: "p1-network-a", Meta: &apiv2.Meta{}, Name: pointer.Pointer("P1 Network"), Project: pointer.Pointer("p1"), Prefixes: []string{"2.3.4.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum()},
+				Network: &apiv2.Network{
+					Id:              networkMap["p1-network-a"],
+					Meta:            &apiv2.Meta{},
+					Name:            pointer.Pointer("p1-network-a"),
+					ParentNetworkId: pointer.Pointer("tenant-super-network"),
+					Project:         pointer.Pointer("p1"),
+					Partition:       pointer.Pointer("partition-one"),
+					Prefixes:        []string{"10.100.0.0/22"},
+					Vrf:             pointer.Pointer(uint32(35)),
+					Type:            apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum(),
+				},
 			},
 			wantErr: nil,
 		},
 		{
 			name:    "project does not match",
-			rq:      &apiv2.NetworkServiceDeleteRequest{Id: "p1-network-b", Project: "p2"},
+			rq:      &apiv2.NetworkServiceDeleteRequest{Id: networkMap["p1-network-b"], Project: "p2"},
 			want:    nil,
-			wantErr: errorutil.NotFound("network:p1-network-b project:p1 for scope:p2 not found"),
+			wantErr: errorutil.NotFound("network:%s project:p1 for scope:p2 not found", networkMap["p1-network-b"]),
 		},
 		{
 			name:    "network does not exist anymore",
-			rq:      &apiv2.NetworkServiceDeleteRequest{Id: "p1-network-a", Project: "pa"},
+			rq:      &apiv2.NetworkServiceDeleteRequest{Id: networkMap["p1-network-a"], Project: "pa"},
 			want:    nil,
-			wantErr: errorutil.NotFound(`no network with id "p1-network-a" found`),
+			wantErr: errorutil.NotFound(`no network with id %q found`, networkMap["p1-network-a"]),
 		},
 	}
 	for _, tt := range tests {

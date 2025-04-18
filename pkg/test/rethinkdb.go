@@ -22,10 +22,11 @@ func StartRethink(t testing.TB, log *slog.Logger) (generic.Datastore, r.ConnectO
 		Image:        rethinkDbImage,
 		ExposedPorts: []string{"8080/tcp", "28015/tcp"},
 		Env:          map[string]string{"RETHINKDB_PASSWORD": "rethink"},
+		Tmpfs:        map[string]string{"/data": "rw"},
 		WaitingFor: wait.ForAll(
 			wait.ForListeningPort("28015/tcp"),
 		),
-		Cmd: []string{"rethinkdb", "--bind", "all", "--directory", "/tmp", "--initial-password", "rethink", "--io-threads", "500"},
+		Cmd: []string{"rethinkdb", "--bind", "all", "--directory", "/data", "--initial-password", "rethink", "--io-threads", "500"},
 	}
 
 	rtContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{

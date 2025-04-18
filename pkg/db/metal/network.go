@@ -106,8 +106,7 @@ func ToNetworkTyp(nwt apiv2.NetworkType) (NetworkType, error) {
 	case apiv2.NetworkType_NETWORK_TYPE_UNDERLAY:
 		return UnderlayNetworkType, nil
 	case apiv2.NetworkType_NETWORK_TYPE_UNSPECIFIED:
-		// TODO: Shared network is default if none is specified, should we make this a failure
-		return SharedNetworkType, nil
+		return InvalidNetworkType, fmt.Errorf("given networkType:%q is invalid", nwt)
 	}
 	return InvalidNetworkType, fmt.Errorf("given networkType:%q is invalid", nwt)
 }
