@@ -114,8 +114,6 @@ func (r *networkRepository) AllocateNetwork(ctx context.Context, rq *Validated[*
 		partition   string
 		labels      map[string]string
 
-		childPrefixes = metal.Prefixes{}
-
 		nat    bool
 		shared bool
 
