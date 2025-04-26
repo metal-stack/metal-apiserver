@@ -90,7 +90,7 @@ func Test_networkServiceServer_CreatePrivateNetwork(t *testing.T) {
 					Name:            pointer.Pointer("private-1"),
 					Project:         pointer.Pointer("p1"),
 					ParentNetworkId: pointer.Pointer("tenant-super-network"),
-					Prefixes:        []string{"FIXME"},
+					Prefixes:        []string{"10.100.0.0/22"},
 				},
 			},
 			wantErr: nil,
@@ -116,12 +116,13 @@ func Test_networkServiceServer_CreatePrivateNetwork(t *testing.T) {
 			},
 			want: &adminv2.NetworkServiceCreateResponse{
 				Network: &apiv2.Network{
-					Meta:      &apiv2.Meta{},
-					Type:      apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum(),
-					Name:      pointer.Pointer("private-1"),
-					Project:   pointer.Pointer("p1"),
-					Partition: pointer.Pointer("partition-one"),
-					Prefixes:  []string{"FIXME"},
+					Meta:            &apiv2.Meta{},
+					Type:            apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum(),
+					Name:            pointer.Pointer("private-1"),
+					Project:         pointer.Pointer("p1"),
+					Partition:       pointer.Pointer("partition-one"),
+					ParentNetworkId: pointer.Pointer("tenant-super-network"),
+					Prefixes:        []string{"10.100.0.0/22"},
 				},
 			},
 			wantErr: nil,
@@ -135,7 +136,6 @@ func Test_networkServiceServer_CreatePrivateNetwork(t *testing.T) {
 						Prefixes:                 []string{"10.100.0.0/14"},
 						DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
 						Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER_NAMESPACED,
-						Partition:                pointer.Pointer("partition-one"),
 					},
 				})
 			},
@@ -152,11 +152,12 @@ func Test_networkServiceServer_CreatePrivateNetwork(t *testing.T) {
 					Name:            pointer.Pointer("private-1"),
 					Project:         pointer.Pointer("p1"),
 					ParentNetworkId: pointer.Pointer("tenant-super-network"),
-					Prefixes:        []string{"FIXME"},
+					Prefixes:        []string{"10.100.0.0/22"},
 				},
 			},
 			wantErr: nil,
 		},
+		// FIXME, check for namespace created
 	}
 
 	for _, tt := range tests {

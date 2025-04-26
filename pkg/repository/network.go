@@ -109,9 +109,9 @@ func (r *Store) NetworkDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 func (r *networkRepository) AllocateNetwork(ctx context.Context, rq *Validated[*apiv2.NetworkServiceCreateRequest]) (*metal.Network, error) {
 	req := rq.message
 	var (
-		name        string
-		description string
-		partition   string
+		name        = pointer.SafeDeref(req.Name)
+		description = pointer.SafeDeref(req.Description)
+		partition   = pointer.SafeDeref(req.Partition)
 		labels      map[string]string
 
 		nat    bool
@@ -120,15 +120,6 @@ func (r *networkRepository) AllocateNetwork(ctx context.Context, rq *Validated[*
 		parent *metal.Network
 	)
 
-	if req.Partition != nil {
-		partition = *req.Partition
-	}
-	if req.Name != nil {
-		name = *req.Name
-	}
-	if req.Description != nil {
-		description = *req.Description
-	}
 	if req.Labels != nil {
 		labels = req.Labels.Labels
 	}
@@ -185,65 +176,96 @@ func (r *networkRepository) AllocateNetwork(ctx context.Context, rq *Validated[*
 func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.NetworkServiceCreateRequest]) (*metal.Network, error) {
 	req := rq.message
 	var (
-		id          string
-		name        string
-		description string
-		projectId   string
-		partition   string
+		id          = pointer.SafeDeref(req.Id)
+		name        = pointer.SafeDeref(req.Name)
+		description = pointer.SafeDeref(req.Description)
+		projectId   = pointer.SafeDeref(req.Project)
+		partition   = pointer.SafeDeref(req.Partition)
 		labels      map[string]string
 		vrf         uint
 
-		nat bool
-	)
-
-	if req.Id != nil {
-		id = *req.Id
-	}
-	if req.Project != nil {
-		projectId = *req.Project
-	}
-	if req.Partition != nil {
-		partition = *req.Partition
-	}
-	if req.Name != nil {
-		name = *req.Name
-	}
-	if req.Description != nil {
-		description = *req.Description
-	}
-	if req.Labels != nil {
-		labels = req.Labels.Labels
-	}
-
-	var (
+		nat          bool
 		privateSuper bool
 		shared       bool
 		underlay     bool
 	)
+
+	if req.Labels != nil {
+		labels = req.Labels.Labels
+	}
 
 	prefixes, err := metal.NewPrefixesFromCIDRs(req.Prefixes)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	// TODO this switch is incomplete
 	switch req.Type {
-	case apiv2.NetworkType_NETWORK_TYPE_SHARED, apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SHARED, apiv2.NetworkType_NETWORK_TYPE_UNSPECIFIED:
-		// If no network type was specified, we assume shared
-		shared = true
-	case apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER:
-		privateSuper = true
-	case apiv2.NetworkType_NETWORK_TYPE_SUPER_VRF_SHARED:
-		privateSuper = true
-	case apiv2.NetworkType_NETWORK_TYPE_PRIVATE, apiv2.NetworkType_NETWORK_TYPE_VRF_SHARED:
-		childPrefixes, _, err := r.allocateChildPrefixes(ctx, req.ParentNetworkId, req.Partition, req.Length, req.AddressFamily)
+	case apiv2.NetworkType_NETWORK_TYPE_PRIVATE, apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SHARED:
+		//
+		childPrefixes, parent, err := r.allocateChildPrefixes(ctx, req.ParentNetworkId, req.Partition, req.Length, req.AddressFamily)
 		if err != nil {
 			return nil, err
 		}
-		prefixes = childPrefixes
+
+		vrf, err := r.r.ds.VrfPool().AcquireRandomUniqueInteger(ctx)
+		if err != nil {
+			return nil, errorutil.Internal("could not acquire a vrf: %w", err)
+		}
+
+		// Inherit nat from Parent
+		if parent.NATType != nil && *parent.NATType == metal.IPv4MasqueradeNATType {
+			nat = true
+		}
+
+		networkType, err := metal.ToNetworkTyp(req.Type)
+		if err != nil {
+			return nil, errorutil.NewInternal(err)
+		}
+		if req.Type == apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SHARED {
+			shared = true
+		}
+
+		nw := &metal.Network{
+			Base: metal.Base{
+				Name:        name,
+				Description: description,
+			},
+			Prefixes:        childPrefixes,
+			PartitionID:     partition,
+			ProjectID:       projectId,
+			Nat:             nat,
+			PrivateSuper:    false,
+			Underlay:        false,
+			Shared:          shared,
+			Vrf:             vrf,
+			ParentNetworkID: parent.ID,
+			Labels:          labels,
+			NATType:         parent.NATType,
+			NetworkType:     &networkType,
+		}
+
+		nw, err = r.r.ds.Network().Create(ctx, nw)
+		if err != nil {
+			return nil, err
+		}
+
+		return nw, nil
+
+	case apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER, apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER_NAMESPACED:
+		privateSuper = true
+		//
+	case apiv2.NetworkType_NETWORK_TYPE_SUPER_VRF_SHARED:
+		//
+	case apiv2.NetworkType_NETWORK_TYPE_VRF_SHARED:
+		//
+	case apiv2.NetworkType_NETWORK_TYPE_SHARED:
+		shared = true
 		//
 	case apiv2.NetworkType_NETWORK_TYPE_UNDERLAY:
 		underlay = true
+		//
+	case apiv2.NetworkType_NETWORK_TYPE_UNSPECIFIED:
+		fallthrough
 	default:
 		return nil, errorutil.InvalidArgument("given networktype:%s is invalid", req.Type)
 	}

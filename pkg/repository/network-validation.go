@@ -53,7 +53,7 @@ func (r *networkRepository) ValidateCreate(ctx context.Context, req *adminv2.Net
 	case apiv2.NetworkType_NETWORK_TYPE_UNDERLAY:
 		err = r.validateCreateNetworkTypeUnderlay(ctx, req)
 	case apiv2.NetworkType_NETWORK_TYPE_UNSPECIFIED:
-		return nil, errorutil.InvalidArgument("given networktype:%s is invalid", req.Type)
+		fallthrough
 	default:
 		return nil, errorutil.InvalidArgument("given networktype:%s is invalid", req.Type)
 	}
@@ -503,7 +503,7 @@ func (r *networkRepository) prefixesOverlapping(ctx context.Context, prefixes []
 func (r *networkRepository) networkTypeInPartitionPossible(ctx context.Context, partition *string, networkType *apiv2.NetworkType) error {
 	_, err := r.Find(ctx, &apiv2.NetworkQuery{Partition: partition, Type: networkType})
 	if !errorutil.IsNotFound(err) {
-		return errorutil.InvalidArgument("partition with id %q already has a network of type %s", *partition, networkType)
+		return errorutil.InvalidArgument("partition with id %q already has a network of type %s", pointer.SafeDeref(partition), networkType)
 	}
 	return nil
 }
