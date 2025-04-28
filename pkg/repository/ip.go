@@ -171,6 +171,7 @@ func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServic
 
 	// for private, unshared networks the project id must be the same
 	// for external networks the project id is not checked
+	// FIXME convert to use network Type
 	if !nw.Shared && nw.ParentNetworkID != "" && p.Meta.Id != nw.ProjectID {
 		return nil, errorutil.InvalidArgument("can not allocate ip for project %q because network belongs to %q and the network is not shared", p.Meta.Id, nw.ProjectID)
 	}
