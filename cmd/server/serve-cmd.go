@@ -122,6 +122,7 @@ var serveCmd = &cli.Command{
 			Log:                                 log,
 			Repository:                          repo,
 			MasterClient:                        mc,
+			IpamClient:                          ipam,
 			ServerHttpURL:                       ctx.String(serverHttpUrlFlag.Name),
 			FrontEndUrl:                         ctx.String(frontEndUrlFlag.Name),
 			Auditing:                            audit,

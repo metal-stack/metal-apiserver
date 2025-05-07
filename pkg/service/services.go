@@ -16,6 +16,7 @@ import (
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/api/go/permissions"
+	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	mdm "github.com/metal-stack/masterdata-api/pkg/client"
 	authpkg "github.com/metal-stack/metal-apiserver/pkg/auth"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
@@ -57,6 +58,7 @@ type Config struct {
 	OIDCEndSessionURL                   string
 	Repository                          *repository.Store
 	MasterClient                        mdm.Client
+	IpamClient                          ipamv1connect.IpamServiceClient
 	Auditing                            auditing.Auditing
 	Stage                               string
 	RedisConfig                         *RedisConfig
@@ -175,7 +177,13 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 		AdminSubjects: c.Admins,
 	})
 	versionService := version.New(version.Config{Log: log})
-	healthService, err := health.New(health.Config{Ctx: context.Background(), Log: log, HealthcheckInterval: 1 * time.Minute})
+	healthService, err := health.New(health.Config{
+		Ctx:                 context.Background(),
+		Log:                 log,
+		HealthcheckInterval: 1 * time.Minute,
+		Ipam:                c.IpamClient,
+		Masterdata:          c.MasterClient,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize health service %w", err)
 	}
