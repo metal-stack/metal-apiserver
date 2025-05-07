@@ -44,6 +44,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/sdk/metric"
+	"gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
 
 type Config struct {
@@ -59,6 +60,7 @@ type Config struct {
 	Repository                          *repository.Store
 	MasterClient                        mdm.Client
 	IpamClient                          ipamv1connect.IpamServiceClient
+	RethinkDBConnectOpts                rethinkdb.ConnectOpts
 	Auditing                            auditing.Auditing
 	Stage                               string
 	RedisConfig                         *RedisConfig
@@ -178,11 +180,12 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	})
 	versionService := version.New(version.Config{Log: log})
 	healthService, err := health.New(health.Config{
-		Ctx:                 context.Background(),
-		Log:                 log,
-		HealthcheckInterval: 1 * time.Minute,
-		Ipam:                c.IpamClient,
-		Masterdata:          c.MasterClient,
+		Ctx:                  context.Background(),
+		Log:                  log,
+		HealthcheckInterval:  1 * time.Minute,
+		Ipam:                 c.IpamClient,
+		Masterdata:           c.MasterClient,
+		RethinkDBConnectOpts: &c.RethinkDBConnectOpts,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize health service %w", err)

@@ -98,14 +98,16 @@ var serveCmd = &cli.Command{
 			return fmt.Errorf("unable to create masterdata.client: %w", err)
 		}
 
-		ds, err := generic.New(log.WithGroup("datastore"), rethinkdb.ConnectOpts{
+		connectOpts := rethinkdb.ConnectOpts{
 			Addresses: ctx.StringSlice(rethinkdbAddressesFlag.Name),
 			Database:  ctx.String(rethinkdbDBNameFlag.Name),
 			Username:  ctx.String(rethinkdbUserFlag.Name),
 			Password:  ctx.String(rethinkdbPasswordFlag.Name),
 			MaxIdle:   10,
 			MaxOpen:   20,
-		})
+		}
+
+		ds, err := generic.New(log.WithGroup("datastore"), connectOpts)
 		if err != nil {
 			return fmt.Errorf("unable to create datastore: %w", err)
 		}
@@ -122,6 +124,7 @@ var serveCmd = &cli.Command{
 			Log:                                 log,
 			Repository:                          repo,
 			MasterClient:                        mc,
+			RethinkDBConnectOpts:                connectOpts,
 			IpamClient:                          ipam,
 			ServerHttpURL:                       ctx.String(serverHttpUrlFlag.Name),
 			FrontEndUrl:                         ctx.String(frontEndUrlFlag.Name),
