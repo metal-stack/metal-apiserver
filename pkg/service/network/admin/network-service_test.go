@@ -1458,6 +1458,25 @@ func Test_networkServiceServer_Update(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		{
+			name: "change nattype of tenant super network",
+			rq: &adminv2.NetworkServiceUpdateRequest{
+				Id:      "tenant-super-network",
+				NatType: apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE.Enum(),
+			},
+			want: &adminv2.NetworkServiceUpdateResponse{
+				Network: &apiv2.Network{
+					Id:                       "tenant-super-network",
+					Meta:                     &apiv2.Meta{},
+					Partition:                pointer.Pointer("partition-one"),
+					Prefixes:                 []string{"10.100.0.0/14", "10.101.0.0/14"},
+					Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER.Enum(),
+					DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+					NatType:                  apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE.Enum(),
+				},
+			},
+			wantErr: nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

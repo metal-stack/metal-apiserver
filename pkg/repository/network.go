@@ -366,7 +366,6 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 }
 
 func (r *networkRepository) Update(ctx context.Context, rq *Validated[*adminv2.NetworkServiceUpdateRequest]) (*metal.Network, error) {
-	r.r.log.Info("update", "req", rq.message)
 	old, err := r.Get(ctx, rq.message.Id)
 	if err != nil {
 		return nil, err
@@ -394,7 +393,19 @@ func (r *networkRepository) Update(ctx context.Context, rq *Validated[*adminv2.N
 		}
 	}
 
-	// TODO Nattype
+	if req.NatType != nil {
+		nt, err := metal.ToNATType(*req.NatType)
+		if err != nil {
+			return nil, err
+		}
+		newNetwork.NATType = &nt
+		switch nt {
+		case metal.IPv4MasqueradeNATType:
+			newNetwork.Nat = true
+		case metal.NoneNATType:
+			//
+		}
+	}
 
 	var (
 		prefixesToBeRemoved metal.Prefixes
