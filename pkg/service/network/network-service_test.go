@@ -381,7 +381,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{Name: pointer.Pointer("p1-network-a"), Project: "p1", Partition: pointer.Pointer("partition-one")},
 		{Name: pointer.Pointer("p1-network-b"), Project: "p1", Partition: pointer.Pointer("partition-one")},
 		{Name: pointer.Pointer("p2-network-a"), Project: "p2", Partition: pointer.Pointer("partition-one")},
-		{Name: pointer.Pointer("p2-network-b"), Project: "p2", Partition: pointer.Pointer("partition-one")},
+		{Name: pointer.Pointer("p2-network-b"), Project: "p2", Partition: pointer.Pointer("partition-one"), Labels: &apiv2.Labels{Labels: map[string]string{"a": "b"}}},
 		{Name: pointer.Pointer("p3-network-a"), Project: "p3", Partition: pointer.Pointer("partition-one")},
 	})
 
@@ -433,7 +433,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 			rq: &apiv2.NetworkServiceUpdateRequest{
 				Id:      networkMap["p3-network-a"],
 				Project: "p3",
-				Labels:  &apiv2.Labels{Labels: map[string]string{"size": "small"}},
+				Labels:  &apiv2.UpdateLabels{Update: &apiv2.Labels{Labels: map[string]string{"size": "small"}}},
 			},
 			want: &apiv2.NetworkServiceUpdateResponse{
 				Network: &apiv2.Network{
@@ -453,6 +453,30 @@ func Test_networkServiceServer_Update(t *testing.T) {
 			wantErr: nil,
 		},
 		{
+			name: "remove labels",
+			rq: &apiv2.NetworkServiceUpdateRequest{
+				Id:      networkMap["p2-network-b"],
+				Project: "p2",
+				Labels:  &apiv2.UpdateLabels{Remove: []string{"a"}},
+			},
+			want: &apiv2.NetworkServiceUpdateResponse{
+				Network: &apiv2.Network{
+					Id: networkMap["p2-network-b"],
+					Meta: &apiv2.Meta{
+						Labels: &apiv2.Labels{},
+					},
+					Name:            pointer.Pointer("p2-network-b"),
+					ParentNetworkId: pointer.Pointer("tenant-super-network"),
+					Project:         pointer.Pointer("p2"),
+					Partition:       pointer.Pointer("partition-one"),
+					Prefixes:        []string{"10.100.12.0/22"},
+					Vrf:             pointer.Pointer(uint32(44)),
+					Type:            apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum(),
+				},
+			},
+			wantErr: nil,
+		},
+		{
 			name:    "update non-existing",
 			rq:      &apiv2.NetworkServiceUpdateRequest{Id: "p4-network-a", Project: "p4"},
 			want:    nil,
@@ -464,7 +488,6 @@ func Test_networkServiceServer_Update(t *testing.T) {
 			want:    nil,
 			wantErr: errorutil.NotFound("network:%s project:p3 for scope:p4 not found", networkMap["p3-network-a"]),
 		},
-		// FIXME remove labels
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

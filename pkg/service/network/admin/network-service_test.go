@@ -1412,7 +1412,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 			name: "add label to tenant network",
 			rq: &adminv2.NetworkServiceUpdateRequest{
 				Id:     networkMap["tenant-1"],
-				Labels: &apiv2.Labels{Labels: map[string]string{"color": "red", "size": "large"}},
+				Labels: &apiv2.UpdateLabels{Update: &apiv2.Labels{Labels: map[string]string{"color": "red", "size": "large"}}},
 			},
 			want: &adminv2.NetworkServiceUpdateResponse{
 				Network: &apiv2.Network{

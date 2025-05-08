@@ -366,6 +366,7 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 }
 
 func (r *networkRepository) Update(ctx context.Context, rq *Validated[*adminv2.NetworkServiceUpdateRequest]) (*metal.Network, error) {
+	r.r.log.Info("update", "req", rq.message)
 	old, err := r.Get(ctx, rq.message.Id)
 	if err != nil {
 		return nil, err
@@ -379,13 +380,21 @@ func (r *networkRepository) Update(ctx context.Context, rq *Validated[*adminv2.N
 	if req.Description != nil {
 		newNetwork.Description = *req.Description
 	}
-	if req.Labels != nil && req.Labels.Labels != nil {
-		newNetwork.Labels = req.Labels.Labels
+	if req.Labels != nil {
+		for _, remove := range req.Labels.Remove {
+			delete(newNetwork.Labels, remove)
+		}
+		if req.Labels.Update != nil {
+			for k, v := range req.Labels.Update.Labels {
+				if newNetwork.Labels == nil {
+					newNetwork.Labels = make(map[string]string)
+				}
+				newNetwork.Labels[k] = v
+			}
+		}
 	}
-	// Fixme network options
-	// if new.Options != nil && new.Options.Shared != nil {
-	// 	newNetwork.Shared = *new.Shared
-	// }
+
+	// TODO Nattype
 
 	var (
 		prefixesToBeRemoved metal.Prefixes

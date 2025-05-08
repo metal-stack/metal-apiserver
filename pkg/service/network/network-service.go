@@ -162,11 +162,8 @@ func (n *networkServiceServer) Update(ctx context.Context, rq *connect.Request[a
 		Id:          req.Id,
 		Name:        req.Name,
 		Description: req.Description,
+		Labels:      req.Labels,
 		// FIXME which fields should be updateable
-	}
-
-	if req.Labels != nil && req.Labels.Labels != nil {
-		nur.Labels = req.Labels
 	}
 
 	validated, err := n.repo.Network(req.Project).ValidateUpdate(ctx, nur)

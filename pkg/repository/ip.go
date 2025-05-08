@@ -262,8 +262,17 @@ func (r *ipRepository) Update(ctx context.Context, req *Validated[*apiv2.IPServi
 		new.Type = t
 	}
 	if rq.Labels != nil {
-		tags := tag.TagMap(rq.Labels.Labels).Slice()
-		new.Tags = tags
+		existing := tag.NewTagMap(new.Tags)
+		for _, remove := range rq.Labels.Remove {
+			delete(existing, remove)
+		}
+		if rq.Labels.Update != nil {
+			for k, v := range rq.Labels.Update.Labels {
+				existing[k] = v
+			}
+
+		}
+		new.Tags = existing.Slice()
 	}
 
 	err = r.r.ds.IP().Update(ctx, &new)

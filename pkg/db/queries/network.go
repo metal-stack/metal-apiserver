@@ -65,7 +65,6 @@ func NetworkFilter(rq *apiv2.NetworkQuery) func(q r.Term) r.Term {
 			}
 		}
 
-		// TODO: this requires migration of existing bool flags
 		if rq.Type != nil {
 			stringValue, err := enum.GetStringValue(rq.Type)
 			if err == nil {
