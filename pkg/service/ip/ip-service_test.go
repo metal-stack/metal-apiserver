@@ -263,6 +263,22 @@ func Test_ipServiceServer_Update(t *testing.T) {
 			want: &apiv2.IPServiceUpdateResponse{Ip: &apiv2.IP{Name: "ip4", Ip: "2001:db8::1", Project: "p2", Network: "internetv6", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{Labels: &apiv2.Labels{Labels: map[string]string{"color": "red", "purpose": "lb"}}}}},
 		},
 		{
+			name: "delete tags",
+			rq: &apiv2.IPServiceUpdateRequest{
+				Ip: "2001:db8::1", Project: "p2",
+				Labels: &apiv2.UpdateLabels{Remove: []string{"color", "purpose"}}},
+			want: &apiv2.IPServiceUpdateResponse{
+				Ip: &apiv2.IP{
+					Name:    "ip4",
+					Ip:      "2001:db8::1",
+					Project: "p2",
+					Network: "internetv6",
+					Type:    apiv2.IPType_IP_TYPE_EPHEMERAL,
+					Meta:    &apiv2.Meta{},
+				},
+			},
+		},
+		{
 			name:    "update error",
 			rq:      &apiv2.IPServiceUpdateRequest{Ip: "2.3.4.6", Project: "p2", Type: apiv2.IPType_IP_TYPE_EPHEMERAL.Enum()},
 			want:    nil,
