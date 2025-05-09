@@ -669,19 +669,22 @@ func (r *networkRepository) ValidateAllocateNetwork(ctx context.Context, rq *api
 	if rq.Project == "" {
 		return nil, errorutil.InvalidArgument("project must not be empty")
 	}
-	if rq.Partition == nil {
-		return nil, errorutil.InvalidArgument("partition must not be empty")
-	}
+	var (
+		superNetwork *metal.Network
+		partitionId  *string
+	)
 	_, err := r.r.Project(rq.Project).Get(ctx, rq.Project)
 	if err != nil {
 		return nil, err
 	}
-	partition, err := r.r.Partition().Get(ctx, *rq.Partition)
-	if err != nil {
-		return nil, err
+	if rq.Partition != nil {
+		partition, err := r.r.Partition().Get(ctx, *rq.Partition)
+		if err != nil {
+			return nil, err
+		}
+		partitionId = &partition.ID
 	}
 
-	var superNetwork *metal.Network
 	if rq.ParentNetworkId != nil {
 		// FIXME network type must be shared
 		superNetwork, err = r.r.UnscopedNetwork().Get(ctx, *rq.ParentNetworkId)
@@ -690,11 +693,11 @@ func (r *networkRepository) ValidateAllocateNetwork(ctx context.Context, rq *api
 		}
 	} else {
 		superNetwork, err = r.r.UnscopedNetwork().Find(ctx, &apiv2.NetworkQuery{
-			Partition: &partition.ID,
+			Partition: partitionId,
 			Type:      apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER.Enum(),
 		})
 		if err != nil {
-			return nil, errorutil.InvalidArgument("unable to find a private super in partition:%s %w", partition.ID, err)
+			return nil, errorutil.InvalidArgument("unable to find a private super in partition:%s %w", partitionId, err)
 		}
 	}
 

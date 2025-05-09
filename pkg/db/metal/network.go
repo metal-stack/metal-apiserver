@@ -19,6 +19,7 @@ type (
 		MinChildPrefixLength       ChildPrefixLength `rethinkdb:"minchildprefixlength" description:"if privatesuper, this defines the minimum bitlen of child prefixes per addressfamily if not nil"`
 		PartitionID                string            `rethinkdb:"partitionid"`
 		ProjectID                  string            `rethinkdb:"projectid"`
+		Namespace                  *string           `rethinkdb:"namespace" description:"if this is a namespaced private network, the namespace is stored here, otherwise nil"`
 		ParentNetworkID            string            `rethinkdb:"parentnetworkid"`
 		Vrf                        uint              `rethinkdb:"vrf"`
 		PrivateSuper               bool              `rethinkdb:"privatesuper"`

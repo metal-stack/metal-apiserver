@@ -25,7 +25,7 @@ require (
 	github.com/klauspost/connect-compress/v2 v2.0.0
 	github.com/lestrrat-go/jwx/v2 v2.1.6
 	github.com/markbates/goth v1.81.0
-	github.com/metal-stack/api v0.0.0-20250508090834-5e74bdf41658
+	github.com/metal-stack/api v0.0.0-20250509064250-5e363a390136
 	github.com/metal-stack/go-ipam v1.14.11
 	github.com/metal-stack/masterdata-api v0.11.11
 	github.com/metal-stack/metal-lib v0.22.1
@@ -54,7 +54,7 @@ require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.6-20250425153114-8976f5be98c1.1 // indirect
 	buf.build/go/protovalidate v0.12.0 // indirect
 	cel.dev/expr v0.23.1 // indirect
-	dario.cat/mergo v1.0.1 // indirect
+	dario.cat/mergo v1.0.2 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/Masterminds/squirrel v1.5.4 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect

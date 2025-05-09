@@ -338,7 +338,7 @@ func (r *ipRepository) allocateSpecificIP(ctx context.Context, parent *metal.Net
 			continue
 		}
 
-		resp, err := r.r.ipam.AcquireIP(ctx, connect.NewRequest(&ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String(), Ip: &specificIP}))
+		resp, err := r.r.ipam.AcquireIP(ctx, connect.NewRequest(&ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String(), Ip: &specificIP, Namespace: parent.Namespace}))
 		if err != nil {
 			return "", "", err
 		}
@@ -359,7 +359,7 @@ func (r *ipRepository) allocateRandomIP(ctx context.Context, parent *metal.Netwo
 
 	r.r.log.Debug("allocateRandomIP from", "network", parent.ID, "addressfamily", addressfamily)
 	for _, prefix := range parent.Prefixes.OfFamily(addressfamily) {
-		resp, err := r.r.ipam.AcquireIP(ctx, connect.NewRequest(&ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String()}))
+		resp, err := r.r.ipam.AcquireIP(ctx, connect.NewRequest(&ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String(), Namespace: parent.Namespace}))
 		if err != nil {
 			if errorutil.IsNotFound(err) {
 				continue
@@ -436,7 +436,12 @@ func (r *Store) IpDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
 	}
 	r.log.Info("ds find", "metalip", metalIP)
 
-	_, err = r.ipam.ReleaseIP(ctx, connect.NewRequest(&ipamapiv1.ReleaseIPRequest{PrefixCidr: metalIP.ParentPrefixCidr, Ip: metalIP.IPAddress}))
+	metalNW, err := r.ds.Network().Get(ctx, metalIP.NetworkID)
+	if err != nil {
+		return err
+	}
+
+	_, err = r.ipam.ReleaseIP(ctx, connect.NewRequest(&ipamapiv1.ReleaseIPRequest{PrefixCidr: metalIP.ParentPrefixCidr, Ip: metalIP.IPAddress, Namespace: metalNW.Namespace}))
 	if err != nil && !errorutil.IsNotFound(err) {
 		r.log.Error("ipam release", "error", err)
 		return err

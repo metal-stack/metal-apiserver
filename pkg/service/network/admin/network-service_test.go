@@ -132,7 +132,7 @@ func Test_networkServiceServer_CreatePrivateNetwork(t *testing.T) {
 			preparefn: func(t *testing.T) {
 				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
 					{
-						Id:                       pointer.Pointer("tenant-super-network"),
+						Id:                       pointer.Pointer("tenant-super-network-namespaced"),
 						Prefixes:                 []string{"10.100.0.0/14"},
 						DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
 						Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER_NAMESPACED,
@@ -143,7 +143,7 @@ func Test_networkServiceServer_CreatePrivateNetwork(t *testing.T) {
 				Type:            apiv2.NetworkType_NETWORK_TYPE_PRIVATE,
 				Name:            pointer.Pointer("private-1"),
 				Project:         pointer.Pointer("p1"),
-				ParentNetworkId: pointer.Pointer("tenant-super-network"),
+				ParentNetworkId: pointer.Pointer("tenant-super-network-namespaced"),
 			},
 			want: &adminv2.NetworkServiceCreateResponse{
 				Network: &apiv2.Network{
@@ -151,13 +151,13 @@ func Test_networkServiceServer_CreatePrivateNetwork(t *testing.T) {
 					Type:            apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum(),
 					Name:            pointer.Pointer("private-1"),
 					Project:         pointer.Pointer("p1"),
-					ParentNetworkId: pointer.Pointer("tenant-super-network"),
+					Namespace:       pointer.Pointer("p1"),
+					ParentNetworkId: pointer.Pointer("tenant-super-network-namespaced"),
 					Prefixes:        []string{"10.100.0.0/22"},
 				},
 			},
 			wantErr: nil,
 		},
-		// FIXME, check for namespace created
 	}
 
 	for _, tt := range tests {
