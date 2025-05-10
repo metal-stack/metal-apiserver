@@ -117,15 +117,13 @@ func Test_partitionServiceServer_Create(t *testing.T) {
 			}
 			if diff := cmp.Diff(
 				tt.want, pointer.SafeDeref(got).Msg,
-				cmp.Options{
-					protocmp.Transform(),
-					protocmp.IgnoreFields(
-						&apiv2.Image{}, "meta", "expires_at",
-					),
-					protocmp.IgnoreFields(
-						&apiv2.Meta{}, "created_at", "updated_at",
-					),
-				},
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Image{}, "meta", "expires_at",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
 			); diff != "" {
 				t.Errorf("partitionServiceServer.Create() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
 			}
@@ -258,15 +256,13 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 			}
 			if diff := cmp.Diff(
 				tt.want, pointer.SafeDeref(got).Msg,
-				cmp.Options{
-					protocmp.Transform(),
-					protocmp.IgnoreFields(
-						&apiv2.Image{}, "expires_at",
-					),
-					protocmp.IgnoreFields(
-						&apiv2.Meta{}, "created_at", "updated_at",
-					),
-				},
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Image{}, "expires_at",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
 			); diff != "" {
 				t.Errorf("partitionServiceServer.Update() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
 			}
@@ -326,15 +322,13 @@ func Test_partitionServiceServer_Delete(t *testing.T) {
 			}
 			if diff := cmp.Diff(
 				tt.want, pointer.SafeDeref(got).Msg,
-				cmp.Options{
-					protocmp.Transform(),
-					protocmp.IgnoreFields(
-						&apiv2.Image{}, "meta", "expires_at",
-					),
-					protocmp.IgnoreFields(
-						&apiv2.Meta{}, "created_at", "updated_at",
-					),
-				},
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Image{}, "meta", "expires_at",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
 			); diff != "" {
 				t.Errorf("partitionServiceServer.Delete() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
 			}

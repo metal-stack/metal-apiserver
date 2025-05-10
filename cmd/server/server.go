@@ -87,6 +87,7 @@ func (s *server) Run() error {
 	<-signals
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
+	asyncServer.Shutdown()
 	return apiServer.Shutdown(ctx)
 }
 

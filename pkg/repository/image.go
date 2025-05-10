@@ -51,6 +51,8 @@ func (r *imageRepository) ValidateCreate(ctx context.Context, req *adminv2.Image
 			return nil, errorutil.InvalidArgument("image expiresAt must be in the future")
 		}
 	}
+	// FIXME implement: https://github.com/metal-stack/metal-api/issues/92
+
 	return &Validated[*adminv2.ImageServiceCreateRequest]{
 		message: req,
 	}, nil

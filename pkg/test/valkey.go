@@ -12,7 +12,7 @@ func StartValkey(t *testing.T) (*redis.Client, func()) {
 	ctx := t.Context()
 	valkeyContainer, err := valkey.Run(ctx,
 		"valkey/valkey:8-alpine",
-		valkey.WithSnapshotting(10, 1),
+		valkey.WithSnapshotting(1000, 100),
 		valkey.WithLogLevel(valkey.LogLevelVerbose),
 	)
 	require.NoError(t, err)
