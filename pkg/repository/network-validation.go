@@ -40,16 +40,12 @@ func (r *networkRepository) ValidateCreate(ctx context.Context, req *adminv2.Net
 	)
 
 	switch req.Type {
-	case apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER, apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER_NAMESPACED:
-		err = r.validateCreateNetworkTypePrivateSuper(ctx, req)
-	case apiv2.NetworkType_NETWORK_TYPE_PRIVATE, apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SHARED:
-		err = r.validateCreateNetworkTypePrivate(ctx, req)
-	case apiv2.NetworkType_NETWORK_TYPE_SUPER_VRF_SHARED:
-		err = r.validateCreateNetworkTypeSuperVrfShared(ctx, req)
-	case apiv2.NetworkType_NETWORK_TYPE_VRF_SHARED:
-		err = r.validateCreateNetworkTypeVrfShared(ctx, req)
-	case apiv2.NetworkType_NETWORK_TYPE_SHARED:
-		err = r.validateCreateNetworkTypeShared(ctx, req)
+	case apiv2.NetworkType_NETWORK_TYPE_SUPER, apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED:
+		err = r.validateCreateNetworkTypeSuper(ctx, req)
+	case apiv2.NetworkType_NETWORK_TYPE_CHILD, apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED:
+		err = r.validateCreateNetworkTypeChild(ctx, req)
+	case apiv2.NetworkType_NETWORK_TYPE_EXTERNAL:
+		err = r.validateCreateNetworkTypeExternal(ctx, req)
 	case apiv2.NetworkType_NETWORK_TYPE_UNDERLAY:
 		err = r.validateCreateNetworkTypeUnderlay(ctx, req)
 	case apiv2.NetworkType_NETWORK_TYPE_UNSPECIFIED:
@@ -68,10 +64,10 @@ func (r *networkRepository) ValidateCreate(ctx context.Context, req *adminv2.Net
 	}, nil
 }
 
-func (r *networkRepository) validateCreateNetworkTypePrivate(ctx context.Context, req *adminv2.NetworkServiceCreateRequest) error {
+func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, req *adminv2.NetworkServiceCreateRequest) error {
 	// id must be nil
-	// if partition is not nil, a privateSuper in this partition must be present and is used
-	// if partition is nil, a privateSuperNamespaces must be present and is used
+	// if partition is not nil, a super in this partition must be present and is used
+	// if partition is nil, a superNamespaces must be present and is used
 	// project is mandatory
 	// parent network id is optional, if not given, exactly one private super must be found before
 	// nat is optional
@@ -108,10 +104,10 @@ func (r *networkRepository) validateCreateNetworkTypePrivate(ctx context.Context
 			return err
 		}
 		switch *parent.NetworkType {
-		case metal.PrivateSuperNetworkType, metal.PrivateSuperNamespacedNetworkType:
+		case metal.SuperNetworkType, metal.SuperNamespacedNetworkType:
 			// all good
-		case metal.InvalidNetworkType, metal.PrivateNetworkType, metal.PrivateSharedNetworkType, metal.SharedNetworkType, metal.SuperVrfSharedNetworkType, metal.UnderlayNetworkType:
-			return errorutil.InvalidArgument("given parentnetwork must be either a private super or a private super namespace network")
+		case metal.InvalidNetworkType, metal.ChildNetworkType, metal.ChildSharedNetworkType, metal.ExternalNetworkType, metal.UnderlayNetworkType:
+			return errorutil.InvalidArgument("given parentnetwork must be either a super or a super namespace network")
 		}
 		parentNetwork = parent
 	}
@@ -123,7 +119,7 @@ func (r *networkRepository) validateCreateNetworkTypePrivate(ctx context.Context
 		parent, err := r.r.UnscopedNetwork().Find(ctx, &apiv2.NetworkQuery{
 			Partition: req.Partition,
 			Project:   pointer.Pointer(""),
-			Type:      apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER.Enum(),
+			Type:      apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
 		})
 		if err != nil {
 			return errorutil.InvalidArgument("unable to find a private super in partition:%s %w", *req.Partition, err)
@@ -177,7 +173,7 @@ func (r *networkRepository) validateCreateNetworkTypePrivate(ctx context.Context
 	return nil
 }
 
-func (r *networkRepository) validateCreateNetworkTypePrivateSuper(ctx context.Context, req *adminv2.NetworkServiceCreateRequest) error {
+func (r *networkRepository) validateCreateNetworkTypeSuper(ctx context.Context, req *adminv2.NetworkServiceCreateRequest) error {
 	// id must not be nil and must not conflict
 	// if partition is specified, only one per partition is possible, otherwise only one without partition
 	// project must be nil
@@ -204,7 +200,7 @@ func (r *networkRepository) validateCreateNetworkTypePrivateSuper(ctx context.Co
 		return errorutil.NewInvalidArgument(errors.Join(errs...))
 	}
 
-	if req.Partition != nil && req.Type == apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER_NAMESPACED {
+	if req.Partition != nil && req.Type == apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED {
 		return errorutil.InvalidArgument("partition must not be specified for namespaced private super")
 	}
 	if err := r.networkTypeInPartitionPossible(ctx, req.Partition, &req.Type); err != nil {
@@ -241,9 +237,9 @@ func (r *networkRepository) validateCreateNetworkTypePrivateSuper(ctx context.Co
 	return nil
 }
 
-func (r *networkRepository) validateCreateNetworkTypeShared(ctx context.Context, req *adminv2.NetworkServiceCreateRequest) error {
+func (r *networkRepository) validateCreateNetworkTypeExternal(ctx context.Context, req *adminv2.NetworkServiceCreateRequest) error {
 	// id must not be nil and must not conflict
-	// partition is optional, multiple shared per partition are possible
+	// partition is optional, multiple external per partition are possible
 	// project must be nil
 	// vrf must not be nil
 	// prefixes must be specified
@@ -290,68 +286,7 @@ func (r *networkRepository) validateCreateNetworkTypeShared(ctx context.Context,
 	}
 	return nil
 }
-func (r *networkRepository) validateCreateNetworkTypeSuperVrfShared(ctx context.Context, req *adminv2.NetworkServiceCreateRequest) error {
-	// id must not be nil and must not conflict
-	// partition is optional, multiple shared per partition are possible
-	// project must be nil
-	// vrf must not be nil
-	// prefixes must be specified, default- and min childprefixlength must match prefix addressfamilies
-	// parent network id must not be specified
-	// additionalannouncable cidrs must not be specified
-	// nat must not be specified
-	// addressfamily and length must not be specified
 
-	var errs []error
-
-	errs = validate(errs, req.Id != nil, "id must not be nil")
-	errs = validate(errs, req.Prefixes != nil, "prefixes must not be nil")
-	errs = validate(errs, req.Vrf != nil, "vrf must not be nil")
-	errs = validate(errs, req.DefaultChildPrefixLength != nil, "defaultchildprefixlength must not be nil")
-
-	errs = validate(errs, req.Project == nil, "project must be nil")
-	errs = validate(errs, req.ParentNetworkId == nil, "parentNetworkId must be nil")
-	errs = validate(errs, req.AddressFamily == nil, "addressfamily must be nil")
-	errs = validate(errs, req.Length == nil, "length must be nil")
-	errs = validate(errs, req.DestinationPrefixes == nil, "destinationprefixes must be nil")
-	errs = validate(errs, req.AdditionalAnnouncableCidrs == nil, "additionalannouncablecidrs must be nil")
-
-	if len(errs) > 0 {
-		return errorutil.NewInvalidArgument(errors.Join(errs...))
-	}
-
-	if req.NatType != nil && *req.NatType != apiv2.NATType_NAT_TYPE_NONE {
-		return errorutil.InvalidArgument("nattype my only be nil or none")
-	}
-
-	prefixes, err := metal.NewPrefixesFromCIDRs(req.Prefixes)
-	if err != nil {
-		return errorutil.NewInvalidArgument(err)
-	}
-
-	defaultChildPrefixLength, err := metal.ToChildPrefixLength(req.DefaultChildPrefixLength, prefixes)
-	if err != nil {
-		return errorutil.NewInvalidArgument(err)
-	}
-
-	if _, err := metal.ToChildPrefixLength(req.MinChildPrefixLength, prefixes); err != nil {
-		return errorutil.NewInvalidArgument(err)
-	}
-
-	if err := r.validatePrefixesAndAddressFamilies(prefixes, nil, defaultChildPrefixLength, true); err != nil {
-		return errorutil.NewInvalidArgument(err)
-	}
-
-	if err := r.validateAdditionalAnnouncableCIDRs(req.AdditionalAnnouncableCidrs, true); err != nil {
-		return errorutil.NewInvalidArgument(err)
-
-	}
-
-	if err := r.prefixesOverlapping(ctx, prefixes.String()); err != nil {
-		return err
-	}
-
-	return nil
-}
 func (r *networkRepository) validateCreateNetworkTypeUnderlay(ctx context.Context, req *adminv2.NetworkServiceCreateRequest) error {
 	// id must not be nil and must not conflict
 	// partition must be specified
@@ -399,77 +334,6 @@ func (r *networkRepository) validateCreateNetworkTypeUnderlay(ctx context.Contex
 
 	if err := r.prefixesOverlapping(ctx, prefixes.String()); err != nil {
 		return err
-	}
-
-	return nil
-}
-func (r *networkRepository) validateCreateNetworkTypeVrfShared(ctx context.Context, req *adminv2.NetworkServiceCreateRequest) error {
-	// id must be nil
-	// a super vrf shared network must be present
-	// project is mandatory
-	// parent network id is required
-	// nat is optional
-	// if length is given, must not be smaller than min child prefix length
-	// requested addressfamily must be possible
-	// prefixes and destination prefixes must not be specified
-	// additional announcable cidrs must not be specified
-	// vrf must not be specified
-	// defaultchildprefixlength and minchildprefixlength must not be specified
-
-	var errs []error
-
-	errs = validate(errs, req.Project != nil, "project must not be nil")
-	errs = validate(errs, req.ParentNetworkId != nil, "parentNetworkId must not be nil")
-
-	errs = validate(errs, req.Id != nil, "id must not be nil")
-	errs = validate(errs, req.Prefixes != nil, "prefixes must not be nil")
-	errs = validate(errs, req.Partition != nil, "partition must not be nil")
-	errs = validate(errs, req.Vrf == nil, "vrf must be nil")
-	errs = validate(errs, req.DestinationPrefixes == nil, "destinationprefixes must be nil")
-	errs = validate(errs, req.AdditionalAnnouncableCidrs == nil, "additionalannouncablecidrs must be nil")
-	errs = validate(errs, req.DefaultChildPrefixLength == nil, "defaultchildprefixlength must be nil")
-	errs = validate(errs, req.MinChildPrefixLength == nil, "minchildprefixlength must be nil")
-
-	if len(errs) > 0 {
-		return errorutil.NewInvalidArgument(errors.Join(errs...))
-	}
-
-	parentNetwork, err := r.r.UnscopedNetwork().Get(ctx, *req.ParentNetworkId)
-	if err != nil {
-		return err
-	}
-	if *parentNetwork.NetworkType != metal.SuperVrfSharedNetworkType {
-		return errorutil.InvalidArgument("given parentnetwork must be super vrf shared network")
-	}
-	if len(parentNetwork.DefaultChildPrefixLength) == 0 {
-		return errorutil.InvalidArgument("supernetwork %s has no defaultchildprefixlength specified", parentNetwork.ID)
-	}
-
-	length := parentNetwork.DefaultChildPrefixLength
-	if req.Length != nil {
-		l, err := metal.ToChildPrefixLength(req.Length, parentNetwork.Prefixes)
-		if err != nil {
-			return errorutil.NewInvalidArgument(err)
-		}
-		length = l
-	}
-
-	if req.AddressFamily != nil {
-		addressfamily, err := metal.ToAddressFamily(*req.AddressFamily)
-		if err != nil {
-			return errorutil.InvalidArgument("addressfamily is invalid %w", err)
-		}
-		bits, ok := length[addressfamily]
-		if !ok {
-			return errorutil.InvalidArgument("addressfamily %s specified, but no childprefixlength for this addressfamily", *req.AddressFamily)
-		}
-		length = metal.ChildPrefixLength{
-			addressfamily: bits,
-		}
-	}
-
-	if err := r.validatePrefixesAndAddressFamilies(parentNetwork.Prefixes, nil, length, false); err != nil {
-		return errorutil.Convert(err)
 	}
 
 	return nil
@@ -561,7 +425,7 @@ func (r *networkRepository) ValidateUpdate(ctx context.Context, req *adminv2.Net
 		return nil, errorutil.InvalidArgument("defaultchildprefixlength can only be set on privatesuper")
 	}
 
-	if old.ParentNetworkID != "" || (old.NetworkType != nil && *old.NetworkType == metal.PrivateNetworkType) {
+	if old.ParentNetworkID != "" || (old.NetworkType != nil && *old.NetworkType == metal.ChildNetworkType) {
 		if len(req.Prefixes) > 0 {
 			return nil, errorutil.InvalidArgument("cannot change prefixes in child networks")
 		}
@@ -694,10 +558,10 @@ func (r *networkRepository) ValidateAllocateNetwork(ctx context.Context, rq *api
 	} else {
 		superNetwork, err = r.r.UnscopedNetwork().Find(ctx, &apiv2.NetworkQuery{
 			Partition: partitionId,
-			Type:      apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER.Enum(),
+			Type:      apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
 		})
 		if err != nil {
-			return nil, errorutil.InvalidArgument("unable to find a private super in partition:%s %w", partitionId, err)
+			return nil, errorutil.InvalidArgument("unable to find a super in partition:%s %w", *partitionId, err)
 		}
 	}
 

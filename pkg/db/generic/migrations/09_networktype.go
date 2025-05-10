@@ -47,28 +47,28 @@ func init() {
 			// No convert all networks
 			for _, old := range nws {
 				new := *old
-				if slices.Contains(sharedVrfs, old.Vrf) {
-					if old.ParentNetworkID != "" {
-						new.NetworkType = pointer.Pointer(metal.VrfSharedNetworkType)
-					} else {
-						new.NetworkType = pointer.Pointer(metal.SuperVrfSharedNetworkType)
-					}
-				}
+				// if slices.Contains(sharedVrfs, old.Vrf) {
+				// 	if old.ParentNetworkID != "" {
+				// 		new.NetworkType = pointer.Pointer(metal.VrfSharedNetworkType)
+				// 	} else {
+				// 		new.NetworkType = pointer.Pointer(metal.SuperVrfSharedNetworkType)
+				// 	}
+				// }
 				if old.Shared && old.ParentNetworkID != "" {
-					new.NetworkType = pointer.Pointer(metal.PrivateSharedNetworkType)
+					new.NetworkType = pointer.Pointer(metal.ChildSharedNetworkType)
 				}
 				if old.Shared && old.ParentNetworkID == "" {
-					new.NetworkType = pointer.Pointer(metal.SharedNetworkType)
+					new.NetworkType = pointer.Pointer(metal.ExternalNetworkType)
 				}
 				if !old.Shared && old.ParentNetworkID != "" && !slices.Contains(sharedVrfs, old.Vrf) {
-					new.NetworkType = pointer.Pointer(metal.PrivateNetworkType)
+					new.NetworkType = pointer.Pointer(metal.ChildNetworkType)
 				}
 				// TODO: This is weird in the current metal-api implementation, internet is not shared ?
 				if old.ProjectID == "" && old.ParentNetworkID == "" && !slices.Contains(sharedVrfs, old.Vrf) {
-					new.NetworkType = pointer.Pointer(metal.SharedNetworkType)
+					new.NetworkType = pointer.Pointer(metal.ExternalNetworkType)
 				}
 				if old.PrivateSuper {
-					new.NetworkType = pointer.Pointer(metal.PrivateSuperNetworkType)
+					new.NetworkType = pointer.Pointer(metal.SuperNetworkType)
 				}
 				if old.Underlay {
 					new.NetworkType = pointer.Pointer(metal.UnderlayNetworkType)

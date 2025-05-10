@@ -139,7 +139,7 @@ func (n *networkServiceServer) ListBaseNetworks(ctx context.Context, rq *connect
 			continue
 		}
 		switch *nw.NetworkType {
-		case metal.PrivateSharedNetworkType, metal.SharedNetworkType, metal.VrfSharedNetworkType:
+		case metal.ChildSharedNetworkType, metal.ExternalNetworkType:
 			converted, err := n.repo.UnscopedNetwork().ConvertToProto(nw)
 			if err != nil {
 				return nil, errorutil.Convert(err)

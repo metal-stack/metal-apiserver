@@ -34,7 +34,7 @@ var (
 		Shared:                     true,
 		Labels:                     map[string]string{"color": "red", "size": "small"},
 		AdditionalAnnouncableCIDRs: []string{"10.240.0.0/12"},
-		NetworkType:                pointer.Pointer(metal.SharedNetworkType),
+		NetworkType:                pointer.Pointer(metal.ExternalNetworkType),
 		NATType:                    pointer.Pointer(metal.IPv4MasqueradeNATType),
 	}
 	n2 = &metal.Network{
@@ -53,7 +53,7 @@ var (
 		Shared:                     false,
 		Labels:                     map[string]string{"color": "green", "size": "medium"},
 		AdditionalAnnouncableCIDRs: []string{"10.241.0.0/12"},
-		NetworkType:                pointer.Pointer(metal.PrivateNetworkType),
+		NetworkType:                pointer.Pointer(metal.ChildNetworkType),
 		NATType:                    pointer.Pointer(metal.NoneNATType),
 	}
 	n3 = &metal.Network{
@@ -72,7 +72,7 @@ var (
 		Shared:                     false,
 		Labels:                     map[string]string{"color": "blue", "size": "large"},
 		AdditionalAnnouncableCIDRs: []string{"10.241.0.0/12"},
-		NetworkType:                pointer.Pointer(metal.SharedNetworkType),
+		NetworkType:                pointer.Pointer(metal.ExternalNetworkType),
 		NATType:                    pointer.Pointer(metal.NoneNATType),
 	}
 	networks = []*metal.Network{n1, n2, n3}
@@ -160,7 +160,7 @@ func TestNetworkFilter(t *testing.T) {
 		},
 		{
 			name:    "by networktype",
-			rq:      &apiv2.NetworkQuery{Type: apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum()},
+			rq:      &apiv2.NetworkQuery{Type: apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum()},
 			want:    []*metal.Network{n2},
 			wantErr: nil,
 		},

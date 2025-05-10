@@ -62,23 +62,19 @@ const (
 
 	// InvalidNetworkType identifies a invalid network
 	InvalidNetworkType = NetworkType("invalid")
-	// SharedNetworkType identifies a network where ips can be allocated from different projects
-	SharedNetworkType = NetworkType("shared")
+	// ExternalNetworkType identifies a network where ips can be allocated from different projects
+	ExternalNetworkType = NetworkType("external")
 	// UnderlayNetworkType identifies a underlay network
 	UnderlayNetworkType = NetworkType("underlay")
-	// SuperVrfSharedNetworkType identifies a private super network where private networks can be allocated from but they will share the vrf ids with its super
-	SuperVrfSharedNetworkType = NetworkType("super-vrf-shared")
-	// VrfSharedNetworkType identifies a private network with shares vrf ids with other private networks
-	VrfSharedNetworkType = NetworkType("vrf-shared")
 
-	// PrivateSuperNetworkType identifies a private super network where private networks can be allocated from
-	PrivateSuperNetworkType = NetworkType("private-super")
-	// PrivateSuperNamespacedNetworkType identifies a private super network where private networks can be allocated from, namespaced per project
-	PrivateSuperNamespacedNetworkType = NetworkType("private-super-namespaced")
-	// PrivateNetworkType identifies a private network which is only used in one project for machines and firewalls without external connectivity
-	PrivateNetworkType = NetworkType("private")
-	// PrivateSharedNetworkType identifies a private network which can be shared, e.g. ips allocated from different projects
-	PrivateSharedNetworkType = NetworkType("private-shared")
+	// SuperNetworkType identifies a super network where child networks can be allocated from
+	SuperNetworkType = NetworkType("super")
+	// SuperNamespacedNetworkType identifies a super network where child networks can be allocated from, namespaced per project
+	SuperNamespacedNetworkType = NetworkType("super-namespaced")
+	// ChildNetworkType identifies a child network which is only used in one project for machines and firewalls without external connectivity
+	ChildNetworkType = NetworkType("child")
+	// ChildSharedNetworkType identifies a child network which can be shared, e.g. ips allocated from different projects
+	ChildSharedNetworkType = NetworkType("child-shared")
 
 	// NATType
 	InvalidNATType = NATType("invalid")
@@ -88,22 +84,18 @@ const (
 	IPv4MasqueradeNATType = NATType("ipv4-masquerade")
 )
 
-func ToNetworkTyp(nwt apiv2.NetworkType) (NetworkType, error) {
+func ToNetworkType(nwt apiv2.NetworkType) (NetworkType, error) {
 	switch nwt {
-	case apiv2.NetworkType_NETWORK_TYPE_PRIVATE:
-		return PrivateNetworkType, nil
-	case apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SHARED:
-		return PrivateSharedNetworkType, nil
-	case apiv2.NetworkType_NETWORK_TYPE_VRF_SHARED:
-		return VrfSharedNetworkType, nil
-	case apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER:
-		return PrivateSuperNetworkType, nil
-	case apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER_NAMESPACED:
-		return PrivateSuperNamespacedNetworkType, nil
-	case apiv2.NetworkType_NETWORK_TYPE_SUPER_VRF_SHARED:
-		return SuperVrfSharedNetworkType, nil
-	case apiv2.NetworkType_NETWORK_TYPE_SHARED:
-		return SharedNetworkType, nil
+	case apiv2.NetworkType_NETWORK_TYPE_CHILD:
+		return ChildNetworkType, nil
+	case apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED:
+		return ChildSharedNetworkType, nil
+	case apiv2.NetworkType_NETWORK_TYPE_SUPER:
+		return SuperNetworkType, nil
+	case apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED:
+		return SuperNamespacedNetworkType, nil
+	case apiv2.NetworkType_NETWORK_TYPE_EXTERNAL:
+		return ExternalNetworkType, nil
 	case apiv2.NetworkType_NETWORK_TYPE_UNDERLAY:
 		return UnderlayNetworkType, nil
 	case apiv2.NetworkType_NETWORK_TYPE_UNSPECIFIED:
@@ -112,7 +104,7 @@ func ToNetworkTyp(nwt apiv2.NetworkType) (NetworkType, error) {
 	return InvalidNetworkType, fmt.Errorf("given networkType:%q is invalid", nwt)
 }
 
-func FromNetworkTyp(nwt NetworkType) (apiv2.NetworkType, error) {
+func FromNetworkType(nwt NetworkType) (apiv2.NetworkType, error) {
 	apiv2NetworkType, err := enum.GetEnum[apiv2.NetworkType](string(nwt))
 	if err != nil {
 		return apiv2.NetworkType_NETWORK_TYPE_UNSPECIFIED, fmt.Errorf("given networkType:%q is invalid", nwt)

@@ -36,7 +36,7 @@ func Test_networkServiceServer_Get(t *testing.T) {
 	test.CreateTenants(t, repo, tenants)
 	test.CreateProjects(t, repo, projects)
 	test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
-		{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.3.0/24"}, Vrf: pointer.Pointer(uint32(9)), Type: apiv2.NetworkType_NETWORK_TYPE_SHARED},
+		{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.3.0/24"}, Vrf: pointer.Pointer(uint32(9)), Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL},
 	})
 
 	tests := []struct {
@@ -53,7 +53,7 @@ func Test_networkServiceServer_Get(t *testing.T) {
 					Id:       "internet",
 					Meta:     &apiv2.Meta{},
 					Prefixes: []string{"1.2.3.0/24"},
-					Type:     apiv2.NetworkType_NETWORK_TYPE_SHARED.Enum(),
+					Type:     apiv2.NetworkType_NETWORK_TYPE_EXTERNAL.Enum(),
 					Vrf:      pointer.Pointer(uint32(9)),
 				},
 			},
@@ -118,7 +118,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 			Id:                       pointer.Pointer("tenant-super-network"),
 			Prefixes:                 []string{"10.100.0.0/14"},
 			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
-			Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER,
+			Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
 			Partition:                pointer.Pointer("partition-one"),
 		},
 		{
@@ -133,7 +133,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 			Prefixes:            []string{"1.2.3.0/24"},
 			DestinationPrefixes: []string{"0.0.0.0/0"},
 			Vrf:                 pointer.Pointer(uint32(11)),
-			Type:                apiv2.NetworkType_NETWORK_TYPE_SHARED,
+			Type:                apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
 		},
 	})
 
@@ -156,7 +156,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 			rq:   &apiv2.NetworkServiceListRequest{Project: "", Query: &apiv2.NetworkQuery{Id: pointer.Pointer("internet")}},
 			want: &apiv2.NetworkServiceListResponse{
 				Networks: []*apiv2.Network{
-					{Id: "internet", Meta: &apiv2.Meta{}, Prefixes: []string{"1.2.3.0/24"}, DestinationPrefixes: []string{"0.0.0.0/0"}, Vrf: pointer.Pointer(uint32(11)), Type: apiv2.NetworkType_NETWORK_TYPE_SHARED.Enum()},
+					{Id: "internet", Meta: &apiv2.Meta{}, Prefixes: []string{"1.2.3.0/24"}, DestinationPrefixes: []string{"0.0.0.0/0"}, Vrf: pointer.Pointer(uint32(11)), Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL.Enum()},
 				},
 			},
 			wantErr: nil,
@@ -174,7 +174,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 						Project:         pointer.Pointer("p1"),
 						Partition:       pointer.Pointer("partition-one"),
 						Vrf:             pointer.Pointer(uint32(30)),
-						Type:            apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum(),
+						Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
 					},
 					{
 						Id:              networkMap["p1-network-b"],
@@ -184,7 +184,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 						Project:         pointer.Pointer("p1"),
 						Partition:       pointer.Pointer("partition-one"),
 						Vrf:             pointer.Pointer(uint32(35)),
-						Type:            apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum(),
+						Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
 					},
 				},
 			},
@@ -249,14 +249,14 @@ func Test_networkServiceServer_ListBaseNetworks(t *testing.T) {
 			Id:                       pointer.Pointer("tenant-super-network"),
 			Prefixes:                 []string{"10.100.0.0/14"},
 			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
-			Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER,
+			Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
 			Partition:                pointer.Pointer("partition-one"),
 		},
 		{
 			Name:      pointer.Pointer("Shared Storage Network"),
 			Project:   pointer.Pointer("p3"),
 			Partition: pointer.Pointer("partition-one"),
-			Type:      apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SHARED},
+			Type:      apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED},
 		{
 			Id:        pointer.Pointer("underlay"),
 			Name:      pointer.Pointer("Underlay Network"),
@@ -269,7 +269,7 @@ func Test_networkServiceServer_ListBaseNetworks(t *testing.T) {
 			Prefixes:            []string{"1.2.3.0/24"},
 			DestinationPrefixes: []string{"0.0.0.0/0"},
 			Vrf:                 pointer.Pointer(uint32(11)),
-			Type:                apiv2.NetworkType_NETWORK_TYPE_SHARED,
+			Type:                apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
 		},
 	})
 
@@ -290,7 +290,7 @@ func Test_networkServiceServer_ListBaseNetworks(t *testing.T) {
 						Prefixes:            []string{"1.2.3.0/24"},
 						DestinationPrefixes: []string{"0.0.0.0/0"},
 						Vrf:                 pointer.Pointer(uint32(11)),
-						Type:                apiv2.NetworkType_NETWORK_TYPE_SHARED.Enum(),
+						Type:                apiv2.NetworkType_NETWORK_TYPE_EXTERNAL.Enum(),
 					},
 					{
 						Id:              "p3-network-a",
@@ -301,7 +301,7 @@ func Test_networkServiceServer_ListBaseNetworks(t *testing.T) {
 						ParentNetworkId: pointer.Pointer("tenant-super-network"),
 						Prefixes:        []string{"10.100.0.0/22"},
 						Vrf:             pointer.Pointer(uint32(20)),
-						Type:            apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SHARED.Enum(),
+						Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED.Enum(),
 					},
 				},
 			},
@@ -358,7 +358,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 			Id:                       pointer.Pointer("tenant-super-network"),
 			Prefixes:                 []string{"10.100.0.0/14"},
 			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
-			Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER,
+			Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
 			Partition:                pointer.Pointer("partition-one"),
 		},
 		{
@@ -373,7 +373,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 			Prefixes:            []string{"1.2.3.0/24"},
 			DestinationPrefixes: []string{"0.0.0.0/0"},
 			Vrf:                 pointer.Pointer(uint32(11)),
-			Type:                apiv2.NetworkType_NETWORK_TYPE_SHARED,
+			Type:                apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
 		},
 	})
 
@@ -404,7 +404,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 					Partition:       pointer.Pointer("partition-one"),
 					Vrf:             pointer.Pointer(uint32(30)),
 					Prefixes:        []string{"10.100.0.0/22"},
-					Type:            apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum(),
+					Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
 				},
 			},
 			wantErr: nil,
@@ -423,7 +423,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 					Partition:       pointer.Pointer("partition-one"),
 					Prefixes:        []string{"10.100.4.0/22"},
 					Vrf:             pointer.Pointer(uint32(35)),
-					Type:            apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum(),
+					Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
 				},
 			},
 			wantErr: nil,
@@ -447,7 +447,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 					Partition:       pointer.Pointer("partition-one"),
 					Prefixes:        []string{"10.100.16.0/22"},
 					Vrf:             pointer.Pointer(uint32(46)),
-					Type:            apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum(),
+					Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
 				},
 			},
 			wantErr: nil,
@@ -471,7 +471,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 					Partition:       pointer.Pointer("partition-one"),
 					Prefixes:        []string{"10.100.12.0/22"},
 					Vrf:             pointer.Pointer(uint32(44)),
-					Type:            apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum(),
+					Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
 				},
 			},
 			wantErr: nil,
@@ -545,21 +545,21 @@ func Test_networkServiceServer_Create(t *testing.T) {
 			Id:                       pointer.Pointer("tenant-super-network"),
 			Prefixes:                 []string{"10.100.0.0/14"},
 			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
-			Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER,
+			Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
 			Partition:                pointer.Pointer("partition-one"),
 		},
 		{
 			Id:                       pointer.Pointer("tenant-super-network-v6"),
 			Prefixes:                 []string{"2001:db8::/96"},
 			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv6: pointer.Pointer(uint32(112))},
-			Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER,
+			Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
 			Partition:                pointer.Pointer("partition-two"),
 		},
 		{
 			Id:                       pointer.Pointer("tenant-super-network-dualstack"),
 			Prefixes:                 []string{"2001:dc8::/96", "10.200.0.0/14"},
 			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22)), Ipv6: pointer.Pointer(uint32(112))},
-			Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER,
+			Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
 			Partition:                pointer.Pointer("partition-three"),
 		},
 		{
@@ -574,7 +574,7 @@ func Test_networkServiceServer_Create(t *testing.T) {
 			Prefixes:            []string{"1.2.3.0/24"},
 			DestinationPrefixes: []string{"0.0.0.0/0"},
 			Vrf:                 pointer.Pointer(uint32(90)),
-			Type:                apiv2.NetworkType_NETWORK_TYPE_SHARED,
+			Type:                apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
 		},
 	})
 
@@ -595,7 +595,7 @@ func Test_networkServiceServer_Create(t *testing.T) {
 					Partition:       pointer.Pointer("partition-one"),
 					Project:         pointer.Pointer("p1"),
 					Prefixes:        []string{"10.100.0.0/22"},
-					Type:            apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum(),
+					Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
 				}},
 			wantErr: nil,
 		},
@@ -610,7 +610,7 @@ func Test_networkServiceServer_Create(t *testing.T) {
 					Partition:       pointer.Pointer("partition-two"),
 					Project:         pointer.Pointer("p1"),
 					Prefixes:        []string{"2001:db8::/112"},
-					Type:            apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum(),
+					Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
 				}},
 			wantErr: nil,
 		},
@@ -625,7 +625,7 @@ func Test_networkServiceServer_Create(t *testing.T) {
 					Partition:       pointer.Pointer("partition-three"),
 					Project:         pointer.Pointer("p1"),
 					Prefixes:        []string{"10.200.0.0/22", "2001:dc8::/112"},
-					Type:            apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum(),
+					Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
 				}},
 			wantErr: nil,
 		},
@@ -645,7 +645,7 @@ func Test_networkServiceServer_Create(t *testing.T) {
 					Partition:       pointer.Pointer("partition-three"),
 					Project:         pointer.Pointer("p2"),
 					Prefixes:        []string{"2001:dc8::1:0/112"},
-					Type:            apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum(),
+					Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
 				}},
 			wantErr: nil,
 		},
@@ -665,7 +665,7 @@ func Test_networkServiceServer_Create(t *testing.T) {
 					Partition:       pointer.Pointer("partition-three"),
 					Project:         pointer.Pointer("p2"),
 					Prefixes:        []string{"10.200.4.0/22"},
-					Type:            apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum(),
+					Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
 				}},
 			wantErr: nil,
 		},
@@ -685,7 +685,7 @@ func Test_networkServiceServer_Create(t *testing.T) {
 					Partition:       pointer.Pointer("partition-three"),
 					Project:         pointer.Pointer("p2"),
 					Prefixes:        []string{"2001:dc8::2:0/116"},
-					Type:            apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum(),
+					Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
 				}},
 			wantErr: nil,
 		},
@@ -742,7 +742,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 			Id:                       pointer.Pointer("tenant-super-network"),
 			Prefixes:                 []string{"10.100.0.0/14"},
 			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
-			Type:                     apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER,
+			Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
 			Partition:                pointer.Pointer("partition-one"),
 		},
 		{
@@ -757,7 +757,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 			Prefixes:            []string{"1.2.3.0/24"},
 			DestinationPrefixes: []string{"0.0.0.0/0"},
 			Vrf:                 pointer.Pointer(uint32(11)),
-			Type:                apiv2.NetworkType_NETWORK_TYPE_SHARED,
+			Type:                apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
 		},
 	})
 
@@ -788,7 +788,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 					Partition:       pointer.Pointer("partition-one"),
 					Prefixes:        []string{"10.100.0.0/22"},
 					Vrf:             pointer.Pointer(uint32(35)),
-					Type:            apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum(),
+					Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
 				},
 			},
 			wantErr: nil,

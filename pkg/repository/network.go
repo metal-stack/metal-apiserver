@@ -144,11 +144,11 @@ func (r *networkRepository) AllocateNetwork(ctx context.Context, rq *Validated[*
 	if parent.NATType != nil && *parent.NATType == metal.IPv4MasqueradeNATType {
 		nat = true
 	}
-	if *parent.NetworkType == metal.PrivateSuperNamespacedNetworkType {
+	if *parent.NetworkType == metal.SuperNamespacedNetworkType {
 		namespace = &req.Project
 	}
 
-	networkType := metal.PrivateNetworkType
+	networkType := metal.ChildNetworkType
 
 	nw := &metal.Network{
 		Base: metal.Base{
@@ -205,7 +205,7 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 	}
 
 	switch req.Type {
-	case apiv2.NetworkType_NETWORK_TYPE_PRIVATE, apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SHARED:
+	case apiv2.NetworkType_NETWORK_TYPE_CHILD, apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED:
 		childPrefixes, parent, err := r.allocateChildPrefixes(ctx, req.Project, req.ParentNetworkId, req.Partition, req.Length, req.AddressFamily)
 		if err != nil {
 			return nil, err
@@ -221,15 +221,15 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 			nat = true
 		}
 
-		networkType, err := metal.ToNetworkTyp(req.Type)
+		networkType, err := metal.ToNetworkType(req.Type)
 		if err != nil {
 			return nil, errorutil.NewInternal(err)
 		}
-		if req.Type == apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SHARED {
+		if req.Type == apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED {
 			shared = true
 		}
 		var namespace *string
-		if *parent.NetworkType == metal.PrivateSuperNamespacedNetworkType {
+		if *parent.NetworkType == metal.SuperNamespacedNetworkType {
 			namespace = req.Project
 		}
 
@@ -260,14 +260,10 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 
 		return nw, nil
 
-	case apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER, apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER_NAMESPACED:
+	case apiv2.NetworkType_NETWORK_TYPE_SUPER, apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED:
 		privateSuper = true
 		//
-	case apiv2.NetworkType_NETWORK_TYPE_SUPER_VRF_SHARED:
-		//
-	case apiv2.NetworkType_NETWORK_TYPE_VRF_SHARED:
-		//
-	case apiv2.NetworkType_NETWORK_TYPE_SHARED:
+	case apiv2.NetworkType_NETWORK_TYPE_EXTERNAL:
 		shared = true
 		//
 	case apiv2.NetworkType_NETWORK_TYPE_UNDERLAY:
@@ -303,15 +299,12 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 			if !errorutil.IsConflict(err) {
 				return nil, errorutil.InvalidArgument("could not acquire vrf: %w", err)
 			}
-			// FIXME parent must have this type, backwards compatibility. Should look at parent for private_shared_vrf
-			if req.Type != apiv2.NetworkType_NETWORK_TYPE_SUPER_VRF_SHARED {
-				return nil, errorutil.InvalidArgument("cannot acquire a unique vrf id twice except parent networktype is %s", apiv2.NetworkType_NETWORK_TYPE_SUPER_VRF_SHARED)
-			}
 		}
 	} else {
 		// FIXME in case req.vrf is nil, the network will be created with a nil vrf ?
 		// This is the case in the actual metal-api implementation
 		// Therefor we create a random vrf instead for private networks
+		// FIXME not for the underlay
 		if !privateSuper {
 			vrf, err = r.r.ds.VrfPool().AcquireRandomUniqueInteger(ctx)
 			if err != nil {
@@ -331,7 +324,7 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 		}
 		natType = &nat
 	}
-	networkType, err := metal.ToNetworkTyp(req.Type)
+	networkType, err := metal.ToNetworkType(req.Type)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -517,19 +510,19 @@ func (r *networkRepository) ConvertToProto(e *metal.Network) (*apiv2.Network, er
 		natType = apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE.Enum()
 	}
 	if e.PrivateSuper {
-		networkType = apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER.Enum()
+		networkType = apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum()
 	}
 	if e.Shared {
-		networkType = apiv2.NetworkType_NETWORK_TYPE_SHARED.Enum()
+		networkType = apiv2.NetworkType_NETWORK_TYPE_EXTERNAL.Enum()
 	}
 	if e.Underlay {
 		networkType = apiv2.NetworkType_NETWORK_TYPE_UNDERLAY.Enum()
 	}
 	if e.ParentNetworkID != "" {
-		networkType = apiv2.NetworkType_NETWORK_TYPE_PRIVATE.Enum()
+		networkType = apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum()
 	}
 	if e.NetworkType != nil {
-		nwt, err := metal.FromNetworkTyp(*e.NetworkType)
+		nwt, err := metal.FromNetworkType(*e.NetworkType)
 		if err != nil {
 			return nil, err
 		}
@@ -688,9 +681,9 @@ func (r *networkRepository) allocateChildPrefixes(ctx context.Context, projectId
 			return nil, nil, errorutil.InvalidArgument("parent network with id:%s does not have a networktype set", *parentNetworkId)
 		}
 		switch *p.NetworkType {
-		case metal.PrivateSuperNetworkType, metal.SuperVrfSharedNetworkType:
+		case metal.SuperNetworkType:
 			// all good
-		case metal.PrivateSuperNamespacedNetworkType:
+		case metal.SuperNamespacedNetworkType:
 			namespace = projectId
 		default:
 			return nil, nil, errorutil.InvalidArgument("parent network with id:%s is not a valid super network but has type:%s", *parentNetworkId, *p.NetworkType)
@@ -699,7 +692,7 @@ func (r *networkRepository) allocateChildPrefixes(ctx context.Context, projectId
 	} else {
 		p, err := r.r.UnscopedNetwork().Find(ctx, &apiv2.NetworkQuery{
 			Partition: partitionId,
-			Type:      apiv2.NetworkType_NETWORK_TYPE_PRIVATE_SUPER.Enum(),
+			Type:      apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
 		})
 		if err != nil {
 			return nil, nil, errorutil.InvalidArgument("unable to find a private super in partition:%s %w", *partitionId, err)
