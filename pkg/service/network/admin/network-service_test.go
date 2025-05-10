@@ -667,7 +667,7 @@ func _Test_networkServiceServer_CreateSuperVrfShared(t *testing.T) {
 			wantErr: errorutil.InvalidArgument("defaultchildprefixlength must not be nil"),
 		},
 		{
-			name: "dc-interconnect-2 with already existig dc-interconnect",
+			name: "dc-interconnect-2 with already existing dc-interconnect",
 			preparefn: func(t *testing.T) {
 				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
 					{
