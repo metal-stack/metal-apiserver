@@ -2,8 +2,6 @@ module github.com/metal-stack/metal-apiserver
 
 go 1.24.0
 
-toolchain go1.24.2
-
 require (
 	connectrpc.com/connect v1.18.1
 	connectrpc.com/grpchealth v1.4.0
@@ -28,7 +26,7 @@ require (
 	github.com/metal-stack/api v0.0.0-20250509114457-f9a7a417f35b
 	github.com/metal-stack/go-ipam v1.14.11
 	github.com/metal-stack/masterdata-api v0.11.11
-	github.com/metal-stack/metal-lib v0.22.1
+	github.com/metal-stack/metal-lib v0.23.0
 	github.com/metal-stack/security v0.9.4
 	github.com/metal-stack/v v1.0.3
 	github.com/open-policy-agent/opa v1.4.2
@@ -79,7 +77,7 @@ require (
 	github.com/docker/docker v28.1.1+incompatible // indirect
 	github.com/docker/go-connections v0.5.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
-	github.com/ebitengine/purego v0.8.2 // indirect
+	github.com/ebitengine/purego v0.8.3 // indirect
 	github.com/emicklei/go-restful-openapi/v2 v2.11.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.2 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
@@ -185,8 +183,8 @@ require (
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/text v0.25.0 // indirect
 	golang.org/x/time v0.11.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20250505200425-f936aa4a68b2 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250505200425-f936aa4a68b2 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20250512202823-5a2f75b736a9 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250512202823-5a2f75b736a9 // indirect
 	gopkg.in/cenkalti/backoff.v2 v2.2.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

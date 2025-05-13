@@ -74,9 +74,11 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 	// shared is optional
 	// if length is given, must not be smaller than min child prefix length
 	// requested addressfamily must be possible
-	// prefixes and destination prefixes must not be specified
+	// prefixes must not be specified
+	// destination prefixes must not be specified but inherited from super
 	// additional announcable cidrs must not be specified
-	// vrf must not be specified
+	// vrf can be specified, if the super has vrf specified it will be inherited.
+	// if vrf in the super is nil and vrf is nil it will be created from the vrf pool, otherwise the given vrf will be used (formerly known as shared-vrf)
 	// defaultchildprefixlength and minchildprefixlength must not be specified
 
 	var errs []error
@@ -85,7 +87,6 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 
 	errs = validate(errs, req.Id == nil, "id must be nil")
 	errs = validate(errs, req.Prefixes == nil, "prefixes must be nil")
-	errs = validate(errs, req.Vrf == nil, "vrf must be nil")
 	errs = validate(errs, req.DestinationPrefixes == nil, "destination prefixes must be nil")
 	errs = validate(errs, req.AdditionalAnnouncableCidrs == nil, "additional announcable cidrs must be nil")
 	errs = validate(errs, req.DefaultChildPrefixLength == nil, "default child prefix length must be nil")
@@ -132,6 +133,12 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 	if len(parentNetwork.DefaultChildPrefixLength) == 0 {
 		return errorutil.InvalidArgument("supernetwork %s has no defaultchildprefixlength specified", parentNetwork.ID)
 	}
+	if parentNetwork.Vrf != 0 && req.Vrf != nil {
+		return errorutil.InvalidArgument("supernetwork %s has vrf specified:%d therefore the vrf must be nil", parentNetwork.ID, parentNetwork.Vrf)
+	}
+	if parentNetwork.ProjectID != "" && (parentNetwork.ProjectID != *req.Project) {
+		return errorutil.InvalidArgument("supernetwork %s is project scoped, requested child project:%s does not match", parentNetwork.ID, *req.Project)
+	}
 
 	length := parentNetwork.DefaultChildPrefixLength
 	if req.Length != nil {
@@ -176,8 +183,9 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 func (r *networkRepository) validateCreateNetworkTypeSuper(ctx context.Context, req *adminv2.NetworkServiceCreateRequest) error {
 	// id must not be nil and must not conflict
 	// if partition is specified, only one per partition is possible, otherwise only one without partition
-	// project must be nil
-	// vrf must be nil
+	// if this is project scoped, child project must match, otherwise can be freely specified.
+	// If the vrf id is given, child networks will inherit this vrf.
+	// If the vrf id is nil in this network, child vrf is taken from the pool.
 	// prefixes must be specified, default- and min childprefixlength must match prefix addressfamilies
 	// parent network id must not be specified
 	// additionalannouncable cidrs should be specified and validated
@@ -190,8 +198,6 @@ func (r *networkRepository) validateCreateNetworkTypeSuper(ctx context.Context, 
 	errs = validate(errs, req.Prefixes != nil, "prefixes must not be nil")
 	errs = validate(errs, req.DefaultChildPrefixLength != nil, "defaultchildprefixlength must not be nil")
 
-	errs = validate(errs, req.Project == nil, "project must be nil")
-	errs = validate(errs, req.Vrf == nil, "vrf must be nil")
 	errs = validate(errs, req.ParentNetworkId == nil, "parentNetworkId must be nil")
 	errs = validate(errs, req.AddressFamily == nil, "addressfamily must be nil")
 	errs = validate(errs, req.Length == nil, "length must be nil")
