@@ -118,6 +118,7 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 		vrf         uint
 
 		nat          bool
+		natType      *metal.NATType
 		privateSuper bool
 		shared       bool
 		underlay     bool
@@ -230,21 +231,8 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 			}
 		}
 	} else {
-		// FIXME in case req.vrf is nil, the network will be created with a nil vrf ?
-		// This is the case in the actual metal-api implementation
-		// Therefor we create a random vrf instead for private networks
-		// FIXME not for the underlay
-		if !privateSuper {
-			vrf, err = r.r.ds.VrfPool().AcquireRandomUniqueInteger(ctx)
-			if err != nil {
-				return nil, errorutil.Internal("could not acquire a vrf: %w", err)
-			}
-		}
+		// Only create a random VRF Id for child networks, all other networks must either specify one, or do not set it at all (underlay, super network)
 	}
-
-	var (
-		natType *metal.NATType
-	)
 
 	if req.NatType != nil {
 		nat, err := metal.ToNATType(*req.NatType)
