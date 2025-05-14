@@ -8,7 +8,31 @@ import (
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
 
-func Initialize(ctx context.Context, log *slog.Logger, opts r.ConnectOpts) error {
+type dataStoreOption interface{}
+
+type vrfPoolRange struct {
+	min, max uint
+}
+
+func VrfPoolRange(min, max uint) dataStoreOption {
+	return &vrfPoolRange{
+		min: min,
+		max: max,
+	}
+}
+
+type asnPoolRange struct {
+	min, max uint
+}
+
+func AsnPoolRange(min, max uint) dataStoreOption {
+	return &asnPoolRange{
+		min: min,
+		max: max,
+	}
+}
+
+func Initialize(ctx context.Context, log *slog.Logger, opts r.ConnectOpts, dsOpts ...dataStoreOption) error {
 	db := r.DB(opts.Database)
 
 	session, err := r.Connect(opts)
@@ -47,7 +71,7 @@ func Initialize(ctx context.Context, log *slog.Logger, opts r.ConnectOpts) error
 
 	log.Info("initializing tables")
 
-	ds, err := New(log, opts)
+	ds, err := New(log, opts, dsOpts...)
 	if err != nil {
 		return err
 	}
@@ -87,6 +111,15 @@ func Initialize(ctx context.Context, log *slog.Logger, opts r.ConnectOpts) error
 			ds.log.Error("unable to close database connection", "error", err)
 		}
 	}()
+
+	ds.log.Info("initializing pools")
+
+	if err := ds.asnPool.initialize(); err != nil {
+		return err
+	}
+	if err := ds.vrfPool.initialize(); err != nil {
+		return err
+	}
 
 	ds.log.Info("database init complete")
 
