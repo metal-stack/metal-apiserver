@@ -106,78 +106,6 @@ func (r *Store) NetworkDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 	return nil
 }
 
-func (r *networkRepository) AllocateNetwork(ctx context.Context, rq *Validated[*apiv2.NetworkServiceCreateRequest]) (*metal.Network, error) {
-	req := rq.message
-	var (
-		name        = pointer.SafeDeref(req.Name)
-		description = pointer.SafeDeref(req.Description)
-		partition   = pointer.SafeDeref(req.Partition)
-		labels      map[string]string
-		namespace   *string
-
-		nat    bool
-		shared bool
-
-		parent *metal.Network
-	)
-
-	if req.Labels != nil {
-		labels = req.Labels.Labels
-	}
-	if req.ParentNetworkId != nil && partition != "" {
-		return nil, errorutil.InvalidArgument("either partition or parentnetworkid must be specified")
-	}
-
-	childPrefixes, parent, err := r.allocateChildPrefixes(ctx, &req.Project, req.ParentNetworkId, req.Partition, req.Length, req.AddressFamily)
-	if err != nil {
-		return nil, err
-	}
-
-	r.r.log.Debug("acquire network", "child prefixes", childPrefixes)
-
-	vrf, err := r.r.ds.VrfPool().AcquireRandomUniqueInteger(ctx)
-	if err != nil {
-		return nil, errorutil.Internal("could not acquire a vrf: %w", err)
-	}
-
-	// Inherit nat from Parent
-	if parent.NATType != nil && *parent.NATType == metal.IPv4MasqueradeNATType {
-		nat = true
-	}
-	if *parent.NetworkType == metal.SuperNamespacedNetworkType {
-		namespace = &req.Project
-	}
-
-	networkType := metal.ChildNetworkType
-
-	nw := &metal.Network{
-		Base: metal.Base{
-			Name:        name,
-			Description: description,
-		},
-		Prefixes:        childPrefixes,
-		PartitionID:     partition,
-		ProjectID:       req.Project,
-		Namespace:       namespace,
-		Nat:             nat,
-		PrivateSuper:    false,
-		Underlay:        false,
-		Shared:          shared,
-		Vrf:             vrf,
-		ParentNetworkID: parent.ID,
-		Labels:          labels,
-		NATType:         parent.NATType,
-		NetworkType:     &networkType,
-	}
-
-	nw, err = r.r.ds.Network().Create(ctx, nw)
-	if err != nil {
-		return nil, err
-	}
-
-	return nw, nil
-}
-
 func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.NetworkServiceCreateRequest]) (*metal.Network, error) {
 	req := rq.message
 	var (
@@ -238,19 +166,20 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 				Name:        name,
 				Description: description,
 			},
-			Prefixes:        childPrefixes,
-			PartitionID:     partition,
-			ProjectID:       projectId,
-			Namespace:       namespace,
-			Nat:             nat,
-			PrivateSuper:    false,
-			Underlay:        false,
-			Shared:          shared,
-			Vrf:             vrf,
-			ParentNetworkID: parent.ID,
-			Labels:          labels,
-			NATType:         parent.NATType,
-			NetworkType:     &networkType,
+			Prefixes:            childPrefixes,
+			DestinationPrefixes: parent.DestinationPrefixes,
+			PartitionID:         partition,
+			ProjectID:           projectId,
+			Namespace:           namespace,
+			Nat:                 nat,
+			PrivateSuper:        false,
+			Underlay:            false,
+			Shared:              shared,
+			Vrf:                 vrf,
+			ParentNetworkID:     parent.ID,
+			Labels:              labels,
+			NATType:             parent.NATType,
+			NetworkType:         &networkType,
 		}
 
 		nw, err = r.r.ds.Network().Create(ctx, nw)

@@ -23,6 +23,8 @@ var (
 	projects = []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}, {Name: "p3", Login: "t1"}, {Name: "p0", Login: "t0"}}
 )
 
+// FIXME write test cases for new network type restrictions.
+
 func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 

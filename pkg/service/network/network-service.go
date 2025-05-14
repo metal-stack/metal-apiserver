@@ -33,19 +33,31 @@ func New(c Config) apiv2connect.NetworkServiceHandler {
 // Create implements apiv2connect.NetworkServiceHandler.
 func (n *networkServiceServer) Create(ctx context.Context, rq *connect.Request[apiv2.NetworkServiceCreateRequest]) (*connect.Response[apiv2.NetworkServiceCreateResponse], error) {
 	n.log.Debug("create", "req", rq)
-	req := rq.Msg
+	r := rq.Msg
 
-	validated, err := n.repo.Network(req.Project).ValidateAllocateNetwork(ctx, req)
+	req := &adminv2.NetworkServiceCreateRequest{
+		Project:         &r.Project,
+		Name:            r.Name,
+		Description:     r.Description,
+		Partition:       r.Partition,
+		ParentNetworkId: r.ParentNetworkId,
+		Labels:          r.Labels,
+		Length:          r.Length,
+		AddressFamily:   r.AddressFamily,
+		Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD, // Non Admins can only create Child Networks
+	}
+
+	validated, err := n.repo.Network(r.Project).ValidateCreate(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 
-	created, err := n.repo.Network(req.Project).AllocateNetwork(ctx, validated)
+	created, err := n.repo.Network(r.Project).Create(ctx, validated)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := n.repo.Network(req.Project).ConvertToProto(created)
+	converted, err := n.repo.Network(r.Project).ConvertToProto(created)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
