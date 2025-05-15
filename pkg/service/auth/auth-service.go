@@ -87,7 +87,8 @@ func New(c Config, options ...authOption) (*auth, error) {
 
 func (a *auth) NewHandler(isDevStage bool) (string, http.Handler, error) {
 	a.log.Info("authhandler", "isDevStage", isDevStage)
-	// FIXME: can be replaced by := http.NewServeMux() since go-1.22 and goth v1.81
+	// FIXME: since go-1.22 and goth v1.81 can be replaced by
+	// r := http.NewServeMux()
 	r := mux.NewRouter()
 	if isDevStage {
 		_, err := a.With(FakeProvider())

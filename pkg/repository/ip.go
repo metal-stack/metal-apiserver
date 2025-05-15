@@ -438,7 +438,7 @@ func (r *Store) IpDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
 
 	metalNW, err := r.ds.Network().Get(ctx, metalIP.NetworkID)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to retrieve parent network: %w", err)
 	}
 
 	_, err = r.ipam.ReleaseIP(ctx, connect.NewRequest(&ipamapiv1.ReleaseIPRequest{PrefixCidr: metalIP.ParentPrefixCidr, Ip: metalIP.IPAddress, Namespace: metalNW.Namespace}))
