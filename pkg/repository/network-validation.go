@@ -130,7 +130,7 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 			Type:      apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
 		})
 		if err != nil {
-			return errorutil.InvalidArgument("unable to find a private super in partition:%s %w", *req.Partition, err)
+			return errorutil.InvalidArgument("unable to find a super in partition:%s %w", *req.Partition, err)
 		}
 		parentNetwork = parent
 	}
@@ -138,13 +138,13 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 		return errorutil.InvalidArgument("no parent network found")
 	}
 	if len(parentNetwork.DefaultChildPrefixLength) == 0 {
-		return errorutil.InvalidArgument("supernetwork %s has no defaultchildprefixlength specified", parentNetwork.ID)
+		return errorutil.InvalidArgument("super network %s has no default child prefix length specified", parentNetwork.ID)
 	}
 	if parentNetwork.Vrf != 0 && req.Vrf != nil {
-		return errorutil.InvalidArgument("supernetwork %q inherits vrf %d to its child networks, therefore the vrf must be nil", parentNetwork.ID, parentNetwork.Vrf)
+		return errorutil.InvalidArgument("super network %q inherits vrf %d to its child networks, therefore the vrf must be nil", parentNetwork.ID, parentNetwork.Vrf)
 	}
 	if parentNetwork.ProjectID != "" && (parentNetwork.ProjectID != *req.Project) {
-		return errorutil.InvalidArgument("supernetwork %s is project scoped, requested child project:%s does not match", parentNetwork.ID, *req.Project)
+		return errorutil.InvalidArgument("super network %s is project scoped, requested child project:%s does not match", parentNetwork.ID, *req.Project)
 	}
 
 	length := parentNetwork.DefaultChildPrefixLength
@@ -203,9 +203,9 @@ func (r *networkRepository) validateCreateNetworkTypeSuper(ctx context.Context, 
 
 	errs = validate(errs, req.Id != nil, "id must not be nil")
 	errs = validate(errs, req.Prefixes != nil, "prefixes must not be nil")
-	errs = validate(errs, req.DefaultChildPrefixLength != nil, "defaultchildprefixlength must not be nil")
+	errs = validate(errs, req.DefaultChildPrefixLength != nil, "default child prefix length must not be nil")
 
-	errs = validate(errs, req.ParentNetworkId == nil, "parentNetworkId must be nil")
+	errs = validate(errs, req.ParentNetworkId == nil, "parent network id must be nil")
 	errs = validate(errs, req.AddressFamily == nil, "addressfamily must be nil")
 	errs = validate(errs, req.Length == nil, "length must be nil")
 
@@ -269,12 +269,12 @@ func (r *networkRepository) validateCreateNetworkTypeExternal(ctx context.Contex
 	errs = validate(errs, req.Prefixes != nil, "prefixes must not be nil")
 	errs = validate(errs, req.Vrf != nil, "vrf must not be nil")
 
-	errs = validate(errs, req.ParentNetworkId == nil, "parentNetworkId must be nil")
+	errs = validate(errs, req.ParentNetworkId == nil, "parent network id must be nil")
 	errs = validate(errs, req.AddressFamily == nil, "addressfamily must be nil")
 	errs = validate(errs, req.Length == nil, "length must be nil")
-	errs = validate(errs, req.AdditionalAnnouncableCidrs == nil, "additionalannouncablecidrs must be nil")
-	errs = validate(errs, req.DefaultChildPrefixLength == nil, "defaultchildprefixlength must be nil")
-	errs = validate(errs, req.MinChildPrefixLength == nil, "minchildprefixlength must be nil")
+	errs = validate(errs, req.AdditionalAnnouncableCidrs == nil, "additional announcable cidrs must be nil")
+	errs = validate(errs, req.DefaultChildPrefixLength == nil, "default child prefix length must be nil")
+	errs = validate(errs, req.MinChildPrefixLength == nil, "min child prefix length must be nil")
 
 	if len(errs) > 0 {
 		return errorutil.NewInvalidArgument(errors.Join(errs...))
@@ -320,13 +320,13 @@ func (r *networkRepository) validateCreateNetworkTypeUnderlay(ctx context.Contex
 
 	errs = validate(errs, req.Project == nil, "project must be nil")
 	errs = validate(errs, req.Vrf == nil, "vrf must be nil")
-	errs = validate(errs, req.ParentNetworkId == nil, "parentNetworkId must be nil")
+	errs = validate(errs, req.ParentNetworkId == nil, "parent network id must be nil")
 	errs = validate(errs, req.AddressFamily == nil, "addressfamily must be nil")
 	errs = validate(errs, req.Length == nil, "length must be nil")
-	errs = validate(errs, req.DestinationPrefixes == nil, "destinationprefixes must be nil")
-	errs = validate(errs, req.AdditionalAnnouncableCidrs == nil, "additionalannouncablecidrs must be nil")
-	errs = validate(errs, req.DefaultChildPrefixLength == nil, "defaultchildprefixlength must be nil")
-	errs = validate(errs, req.MinChildPrefixLength == nil, "minchildprefixlength must be nil")
+	errs = validate(errs, req.DestinationPrefixes == nil, "destination prefixes must be nil")
+	errs = validate(errs, req.AdditionalAnnouncableCidrs == nil, "additional announcable cidrs must be nil")
+	errs = validate(errs, req.DefaultChildPrefixLength == nil, "default child prefix length must be nil")
+	errs = validate(errs, req.MinChildPrefixLength == nil, "min child prefix length must be nil")
 
 	if len(errs) > 0 {
 		return errorutil.NewInvalidArgument(errors.Join(errs...))

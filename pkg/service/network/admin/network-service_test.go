@@ -239,7 +239,7 @@ func Test_networkServiceServer_CreateSuper(t *testing.T) {
 				Partition: pointer.Pointer("partition-one"),
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("defaultchildprefixlength must not be nil"),
+			wantErr: errorutil.InvalidArgument("default child prefix length must not be nil"),
 		},
 		{
 			name: "create a super network in partition where already a super exists",
