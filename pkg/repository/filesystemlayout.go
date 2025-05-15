@@ -132,12 +132,12 @@ func (r *filesystemLayoutRepository) Find(ctx context.Context, rq *apiv2.Filesys
 }
 
 func (r *filesystemLayoutRepository) List(ctx context.Context, rq *apiv2.FilesystemServiceListRequest) ([]*metal.FilesystemLayout, error) {
-	ip, err := r.r.ds.FilesystemLayout().List(ctx)
+	fsls, err := r.r.ds.FilesystemLayout().List(ctx)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	return ip, nil
+	return fsls, nil
 }
 
 func (r *filesystemLayoutRepository) ConvertToInternal(f *apiv2.FilesystemLayout) (*metal.FilesystemLayout, error) {
@@ -268,24 +268,10 @@ func (r *filesystemLayoutRepository) ConvertToProto(in *metal.FilesystemLayout) 
 
 	var filesystems []*apiv2.Filesystem
 	for _, fs := range in.Filesystems {
-		var f apiv2.Format
-		switch fs.Format {
-		case metal.NONE:
-			f = apiv2.Format_FORMAT_NONE
-		case metal.EXT3:
-			f = apiv2.Format_FORMAT_EXT3
-		case metal.EXT4:
-			f = apiv2.Format_FORMAT_EXT4
-		case metal.SWAP:
-			f = apiv2.Format_FORMAT_SWAP
-		case metal.TMPFS:
-			f = apiv2.Format_FORMAT_TMPFS
-		case metal.VFAT:
-			f = apiv2.Format_FORMAT_VFAT
-		default:
-			return nil, fmt.Errorf("unknown filesystem format:%s", fs.Format)
+		f, err := enum.GetEnum[apiv2.Format](string(fs.Format))
+		if err != nil {
+			return nil, err
 		}
-
 		filesystems = append(filesystems, &apiv2.Filesystem{
 			Device: fs.Device,
 			Format: f,
@@ -299,18 +285,11 @@ func (r *filesystemLayoutRepository) ConvertToProto(in *metal.FilesystemLayout) 
 		for _, p := range d.Partitions {
 			var gpt *apiv2.GPTType
 			if p.GPTType != nil {
-				switch *p.GPTType {
-				case metal.GPTBoot:
-					gpt = apiv2.GPTType_GPT_TYPE_BOOT.Enum()
-				case metal.GPTLinux:
-					gpt = apiv2.GPTType_GPT_TYPE_LINUX.Enum()
-				case metal.GPTLinuxLVM:
-					gpt = apiv2.GPTType_GPT_TYPE_LINUX_LVM.Enum()
-				case metal.GPTLinuxRaid:
-					gpt = apiv2.GPTType_GPT_TYPE_LINUX_RAID.Enum()
-				default:
-					return nil, fmt.Errorf("unknown gpttype:%s", *p.GPTType)
+				gptParsed, err := enum.GetEnum[apiv2.GPTType](string(*p.GPTType))
+				if err != nil {
+					return nil, err
 				}
+				gpt = &gptParsed
 			}
 
 			partitions = append(partitions, &apiv2.DiskPartition{
@@ -358,16 +337,9 @@ func (r *filesystemLayoutRepository) ConvertToProto(in *metal.FilesystemLayout) 
 
 	var logicalvolumes []*apiv2.LogicalVolume
 	for _, lv := range in.LogicalVolumes {
-		var lvmType apiv2.LVMType
-		switch lv.LVMType {
-		case metal.LVMTypeLinear:
-			lvmType = apiv2.LVMType_LVM_TYPE_LINEAR
-		case metal.LVMTypeRaid1:
-			lvmType = apiv2.LVMType_LVM_TYPE_RAID1
-		case metal.LVMTypeStriped:
-			lvmType = apiv2.LVMType_LVM_TYPE_STRIPED
-		default:
-			return nil, fmt.Errorf("unknown lvm type:%s", lv.LVMType)
+		lvmType, err := enum.GetEnum[apiv2.LVMType](string(lv.LVMType))
+		if err != nil {
+			return nil, err
 		}
 		logicalvolumes = append(logicalvolumes, &apiv2.LogicalVolume{
 			Name:        lv.Name,
