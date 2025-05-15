@@ -41,7 +41,7 @@ func (u *userServiceServer) Get(ctx context.Context, _ *connect.Request[apiv2.Us
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
 	}
 
-	projectsAndTenants, err := putil.GetProjectsAndTenants(ctx, u.masterClient, t.UserId, putil.DefaultProjectRequired)
+	projectsAndTenants, err := putil.GetProjectsAndTenants(ctx, u.masterClient, t.UserId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

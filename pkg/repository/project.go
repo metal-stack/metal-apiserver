@@ -111,8 +111,7 @@ func (r *projectRepository) ConvertToInternal(p *apiv2.Project) (*mdcv1.Project,
 // FIXME copied over from pkg/project/project.go
 // remove there once all services are converted to repo
 const (
-	defaultProjectAnnotation = "metal-stack.io/default-project"
-	avatarURLAnnotation      = "avatarUrl"
+	avatarURLAnnotation = "avatarUrl"
 )
 
 func (r *projectRepository) ConvertToProto(p *mdcv1.Project) (*apiv2.Project, error) {

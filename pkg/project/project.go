@@ -93,24 +93,16 @@ func GetProject(ctx context.Context, c mdc.Client, projectID string) (*mdcv1.Pro
 	return getResp.Project, nil
 }
 
-type DefaultProjectRequirement bool
-
-const (
-	DefaultProjectRequired    DefaultProjectRequirement = true
-	DefaultProjectNotRequired DefaultProjectRequirement = false
-)
-
 type ProjectsAndTenants struct {
-	Projects       []*apiv2.Project
-	DefaultProject *apiv2.Project
-	Tenants        []*apiv2.Tenant
-	DefaultTenant  *apiv2.Tenant
-	ProjectRoles   map[string]apiv2.ProjectRole
-	TenantRoles    map[string]apiv2.TenantRole
+	Projects      []*apiv2.Project
+	Tenants       []*apiv2.Tenant
+	DefaultTenant *apiv2.Tenant
+	ProjectRoles  map[string]apiv2.ProjectRole
+	TenantRoles   map[string]apiv2.TenantRole
 }
 
 // GetProjectsAndTenants returns all projects and tenants that the user is participating in
-func GetProjectsAndTenants(ctx context.Context, masterClient mdc.Client, userId string, defaultIsRequired DefaultProjectRequirement) (*ProjectsAndTenants, error) {
+func GetProjectsAndTenants(ctx context.Context, masterClient mdc.Client, userId string) (*ProjectsAndTenants, error) {
 	var (
 		projectRoles = map[string]apiv2.ProjectRole{}
 		projects     []*apiv2.Project

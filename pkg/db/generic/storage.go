@@ -30,7 +30,7 @@ func newStorage[E Entity](re *datastore, tableName string) *storage[E] {
 
 // Create creates the given entity in the database. in case it is already present, a conflict error will be returned.
 
-// if the ID field of the entity is an empty string, the ID will be generated automatically as UUIDv7
+// if the ID field of the entity is an empty string, the ID will be generated automatically as UUIDv7.
 func (s *storage[E]) Create(ctx context.Context, e E) (E, error) {
 	now := time.Now()
 	e.SetCreated(now)
@@ -39,7 +39,7 @@ func (s *storage[E]) Create(ctx context.Context, e E) (E, error) {
 	var zero E
 
 	// Create a uuidv7 id if an empty string is given
-	// this ensures alphabetically ordered by creation date uuids.
+	// this ensures alphabetically ordered uuids by creation date.
 	if e.GetID() == "" {
 		uid, err := uuid.NewV7()
 		if err != nil {
@@ -48,16 +48,12 @@ func (s *storage[E]) Create(ctx context.Context, e E) (E, error) {
 		e.SetID(uid.String())
 	}
 
-	res, err := s.table.Insert(e).RunWrite(s.r.queryExecutor, r.RunOpts{Context: ctx})
+	_, err := s.table.Insert(e).RunWrite(s.r.queryExecutor, r.RunOpts{Context: ctx})
 	if err != nil {
 		if r.IsConflictErr(err) {
 			return zero, errorutil.Conflict("cannot create %v in database, entity already exists: %s", s.tableName, e.GetID())
 		}
 		return zero, fmt.Errorf("cannot create %v in database: %w", s.tableName, err)
-	}
-
-	if e.GetID() == "" && len(res.GeneratedKeys) > 0 {
-		e.SetID(res.GeneratedKeys[0])
 	}
 
 	return e, nil

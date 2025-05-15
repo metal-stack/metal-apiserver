@@ -5,6 +5,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
+	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/valkey"
 )
 
@@ -14,6 +15,7 @@ func StartValkey(t *testing.T) (*redis.Client, func()) {
 		"valkey/valkey:8-alpine",
 		valkey.WithSnapshotting(1000, 100),
 		valkey.WithLogLevel(valkey.LogLevelVerbose),
+		testcontainers.WithTmpfs(map[string]string{"/data": "rw"}),
 	)
 	require.NoError(t, err)
 

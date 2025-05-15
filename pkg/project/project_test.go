@@ -192,7 +192,6 @@ func TestGetProjectsAndTenants(t *testing.T) {
 						AvatarUrl:   pointer.Pointer(""),
 					},
 				},
-				DefaultProject: nil,
 				Tenants: []*v1.Tenant{
 					{
 						Login:     "test-user",
@@ -230,7 +229,7 @@ func TestGetProjectsAndTenants(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mc := newMasterdataMockClient(t, tt.tenantServiceMock, tt.tenantMemberServiceMock, tt.projectServiceMock, tt.projectMemberServiceMock)
 
-			got, err := GetProjectsAndTenants(ctx, mc, "test-user", DefaultProjectRequired)
+			got, err := GetProjectsAndTenants(ctx, mc, "test-user")
 
 			if diff := cmp.Diff(tt.wantErr, err, testcommon.ErrorStringComparer()); diff != "" {
 				t.Errorf("error diff (+got -want):\n %s", diff)
