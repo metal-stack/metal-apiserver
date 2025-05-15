@@ -33,6 +33,8 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/service/ip"
 	ipadmin "github.com/metal-stack/metal-apiserver/pkg/service/ip/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/method"
+	"github.com/metal-stack/metal-apiserver/pkg/service/network"
+	networkadmin "github.com/metal-stack/metal-apiserver/pkg/service/network/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/partition"
 	partitionadmin "github.com/metal-stack/metal-apiserver/pkg/service/partition/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/project"
@@ -170,6 +172,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	})
 
 	ipService := ip.New(ip.Config{Log: log, Repo: c.Repository})
+	networkService := network.New(network.Config{Log: log, Repo: c.Repository})
 	filesystemService := filesystem.New(filesystem.Config{Log: log, Repo: c.Repository})
 	partitionService := partition.New(partition.Config{Log: log, Repo: c.Repository})
 	imageService := image.New(image.Config{Log: log, Repo: c.Repository})
@@ -197,27 +200,30 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	mux := http.NewServeMux()
 
 	// Register the services
-	mux.Handle(apiv2connect.NewTokenServiceHandler(tokenService, interceptors))
-	mux.Handle(apiv2connect.NewTenantServiceHandler(tenantService, interceptors))
-	mux.Handle(apiv2connect.NewProjectServiceHandler(projectService, interceptors))
 	mux.Handle(apiv2connect.NewFilesystemServiceHandler(filesystemService, interceptors))
-	mux.Handle(apiv2connect.NewPartitionServiceHandler(partitionService, interceptors))
+	mux.Handle(apiv2connect.NewHealthServiceHandler(healthService, interceptors))
 	mux.Handle(apiv2connect.NewImageServiceHandler(imageService, interceptors))
 	mux.Handle(apiv2connect.NewIPServiceHandler(ipService, interceptors))
 	mux.Handle(apiv2connect.NewMethodServiceHandler(methodService, interceptors))
+	mux.Handle(apiv2connect.NewNetworkServiceHandler(networkService, interceptors))
+	mux.Handle(apiv2connect.NewPartitionServiceHandler(partitionService, interceptors))
+	mux.Handle(apiv2connect.NewProjectServiceHandler(projectService, interceptors))
+	mux.Handle(apiv2connect.NewTenantServiceHandler(tenantService, interceptors))
+	mux.Handle(apiv2connect.NewTokenServiceHandler(tokenService, interceptors))
 	mux.Handle(apiv2connect.NewVersionServiceHandler(versionService, interceptors))
-	mux.Handle(apiv2connect.NewHealthServiceHandler(healthService, interceptors))
 
 	// Admin services
 	adminIpService := ipadmin.New(ipadmin.Config{Log: log, Repo: c.Repository})
 	adminImageService := imageadmin.New(imageadmin.Config{Log: log, Repo: c.Repository})
 	adminFilesystemService := filesystemadmin.New(filesystemadmin.Config{Log: log, Repo: c.Repository})
 	adminPartitionService := partitionadmin.New(partitionadmin.Config{Log: log, Repo: c.Repository})
+	adminNetworkService := networkadmin.New(networkadmin.Config{Log: log, Repo: c.Repository})
 	mux.Handle(adminv2connect.NewIPServiceHandler(adminIpService, adminInterceptors))
 	mux.Handle(adminv2connect.NewImageServiceHandler(adminImageService, adminInterceptors))
 	mux.Handle(adminv2connect.NewFilesystemServiceHandler(adminFilesystemService, adminInterceptors))
 	mux.Handle(adminv2connect.NewPartitionServiceHandler(adminPartitionService, adminInterceptors))
 	mux.Handle(adminv2connect.NewTenantServiceHandler(adminTenantService, adminInterceptors))
+	mux.Handle(adminv2connect.NewNetworkServiceHandler(adminNetworkService, adminInterceptors))
 
 	allServiceNames := permissions.GetServices()
 	// Static HealthCheckers
