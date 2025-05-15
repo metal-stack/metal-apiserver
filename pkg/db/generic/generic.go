@@ -59,5 +59,7 @@ type (
 		// Pools
 		AsnPool() *integerPool
 		VrfPool() *integerPool
+
+		Version(ctx context.Context) (string, error)
 	}
 )

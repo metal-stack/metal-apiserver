@@ -20,6 +20,7 @@ import (
 	mdm "github.com/metal-stack/masterdata-api/pkg/client"
 	authpkg "github.com/metal-stack/metal-apiserver/pkg/auth"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
+	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	ratelimiter "github.com/metal-stack/metal-apiserver/pkg/rate-limiter"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
@@ -44,7 +45,6 @@ import (
 	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/sdk/metric"
-	"gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
 
 type Config struct {
@@ -57,10 +57,10 @@ type Config struct {
 	OIDCClientSecret                    string
 	OIDCDiscoveryURL                    string
 	OIDCEndSessionURL                   string
+	Datastore                           generic.Datastore
 	Repository                          *repository.Store
 	MasterClient                        mdm.Client
 	IpamClient                          ipamv1connect.IpamServiceClient
-	RethinkDBConnectOpts                rethinkdb.ConnectOpts
 	Auditing                            auditing.Auditing
 	Stage                               string
 	RedisConfig                         *RedisConfig
@@ -114,16 +114,19 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 		return nil, err
 	}
 
-	tenantInterceptor := tenant.NewInterceptor(log, c.MasterClient)
-	ratelimitInterceptor := ratelimiter.NewInterceptor(&ratelimiter.Config{
-		Log:                                 log,
-		RedisClient:                         c.RedisConfig.RateLimitClient,
-		MaxRequestsPerMinuteToken:           c.MaxRequestsPerMinuteToken,
-		MaxRequestsPerMinuteUnauthenticated: c.MaxRequestsPerMinuteUnauthenticated,
-	})
+	var (
+		logInteceptor        = newLogRequestInterceptor(log)
+		tenantInterceptor    = tenant.NewInterceptor(log, c.MasterClient)
+		ratelimitInterceptor = ratelimiter.NewInterceptor(&ratelimiter.Config{
+			Log:                                 log,
+			RedisClient:                         c.RedisConfig.RateLimitClient,
+			MaxRequestsPerMinuteToken:           c.MaxRequestsPerMinuteToken,
+			MaxRequestsPerMinuteUnauthenticated: c.MaxRequestsPerMinuteUnauthenticated,
+		})
+	)
 
-	allInterceptors := []connect.Interceptor{metricsInterceptor, authz, ratelimitInterceptor, validationInterceptor, tenantInterceptor}
-	allAdminInterceptors := []connect.Interceptor{metricsInterceptor, authz, validationInterceptor, tenantInterceptor}
+	allInterceptors := []connect.Interceptor{metricsInterceptor, logInteceptor, authz, ratelimitInterceptor, validationInterceptor, tenantInterceptor}
+	allAdminInterceptors := []connect.Interceptor{metricsInterceptor, logInteceptor, authz, validationInterceptor, tenantInterceptor}
 	if c.Auditing != nil {
 		servicePermissions := permissions.GetServicePermissions()
 		shouldAudit := func(fullMethod string) bool {
@@ -180,12 +183,12 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	})
 	versionService := version.New(version.Config{Log: log})
 	healthService, err := health.New(health.Config{
-		Ctx:                  context.Background(),
-		Log:                  log,
-		HealthcheckInterval:  1 * time.Minute,
-		Ipam:                 c.IpamClient,
-		Masterdata:           c.MasterClient,
-		RethinkDBConnectOpts: &c.RethinkDBConnectOpts,
+		Ctx:                 context.Background(),
+		Log:                 log,
+		HealthcheckInterval: 1 * time.Minute,
+		Ipam:                c.IpamClient,
+		Masterdata:          c.MasterClient,
+		Datastore:           c.Datastore,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize health service %w", err)
