@@ -97,6 +97,11 @@ func TestNetworkFilter(t *testing.T) {
 		want []*metal.Network
 	}{
 		{
+			name: "empty request returns unfiltered",
+			rq:   nil,
+			want: []*metal.Network{n1, n2, n3},
+		},
+		{
 			name: "by id",
 			rq:   &apiv2.NetworkQuery{Id: &n1.ID},
 			want: []*metal.Network{n1},
