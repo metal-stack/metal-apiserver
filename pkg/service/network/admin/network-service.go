@@ -31,7 +31,6 @@ func New(c Config) adminv2connect.NetworkServiceHandler {
 
 // Create implements adminv2connect.NetworkServiceHandler.
 func (n *networkServiceServer) Create(ctx context.Context, rq *connect.Request[adminv2.NetworkServiceCreateRequest]) (*connect.Response[adminv2.NetworkServiceCreateResponse], error) {
-	n.log.Debug("create", "req", rq)
 	req := rq.Msg
 
 	validated, err := n.repo.UnscopedNetwork().ValidateCreate(ctx, req)
@@ -54,7 +53,6 @@ func (n *networkServiceServer) Create(ctx context.Context, rq *connect.Request[a
 
 // Delete implements adminv2connect.NetworkServiceHandler.
 func (n *networkServiceServer) Delete(ctx context.Context, rq *connect.Request[adminv2.NetworkServiceDeleteRequest]) (*connect.Response[adminv2.NetworkServiceDeleteResponse], error) {
-	n.log.Debug("delete", "req", rq)
 	req := rq.Msg
 
 	nw, err := n.repo.UnscopedNetwork().Get(ctx, req.Id)
@@ -81,7 +79,6 @@ func (n *networkServiceServer) Delete(ctx context.Context, rq *connect.Request[a
 
 // List implements adminv2connect.NetworkServiceHandler.
 func (n *networkServiceServer) List(ctx context.Context, rq *connect.Request[adminv2.NetworkServiceListRequest]) (*connect.Response[adminv2.NetworkServiceListResponse], error) {
-	n.log.Debug("list", "req", rq)
 	req := rq.Msg
 
 	resp, err := n.repo.UnscopedNetwork().List(ctx, req.Query)
@@ -105,7 +102,6 @@ func (n *networkServiceServer) List(ctx context.Context, rq *connect.Request[adm
 
 // Update implements adminv2connect.NetworkServiceHandler.
 func (n *networkServiceServer) Update(ctx context.Context, rq *connect.Request[adminv2.NetworkServiceUpdateRequest]) (*connect.Response[adminv2.NetworkServiceUpdateResponse], error) {
-	n.log.Debug("update", "req", rq)
 	req := rq.Msg
 
 	validated, err := n.repo.UnscopedNetwork().ValidateUpdate(ctx, req)

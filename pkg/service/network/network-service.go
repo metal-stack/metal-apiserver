@@ -32,7 +32,6 @@ func New(c Config) apiv2connect.NetworkServiceHandler {
 
 // Create implements apiv2connect.NetworkServiceHandler.
 func (n *networkServiceServer) Create(ctx context.Context, rq *connect.Request[apiv2.NetworkServiceCreateRequest]) (*connect.Response[apiv2.NetworkServiceCreateResponse], error) {
-	n.log.Debug("create", "req", rq)
 	r := rq.Msg
 
 	req := &adminv2.NetworkServiceCreateRequest{
@@ -67,7 +66,6 @@ func (n *networkServiceServer) Create(ctx context.Context, rq *connect.Request[a
 
 // Delete implements apiv2connect.NetworkServiceHandler.
 func (n *networkServiceServer) Delete(ctx context.Context, rq *connect.Request[apiv2.NetworkServiceDeleteRequest]) (*connect.Response[apiv2.NetworkServiceDeleteResponse], error) {
-	n.log.Debug("delete", "req", rq)
 	req := rq.Msg
 
 	nw, err := n.repo.Network(req.Project).Get(ctx, req.Id)
@@ -94,7 +92,7 @@ func (n *networkServiceServer) Delete(ctx context.Context, rq *connect.Request[a
 
 // Get implements apiv2connect.NetworkServiceHandler.
 func (n *networkServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2.NetworkServiceGetRequest]) (*connect.Response[apiv2.NetworkServiceGetResponse], error) {
-	n.log.Debug("get", "req", rq)
+
 	req := rq.Msg
 
 	// Project is already checked in the tenant-interceptor, ipam must not be consulted
@@ -114,7 +112,7 @@ func (n *networkServiceServer) Get(ctx context.Context, rq *connect.Request[apiv
 
 // List implements apiv2connect.NetworkServiceHandler.
 func (n *networkServiceServer) List(ctx context.Context, rq *connect.Request[apiv2.NetworkServiceListRequest]) (*connect.Response[apiv2.NetworkServiceListResponse], error) {
-	n.log.Debug("list", "req", rq)
+
 	req := rq.Msg
 	resp, err := n.repo.Network(req.Project).List(ctx, req.Query)
 	if err != nil {
@@ -137,7 +135,6 @@ func (n *networkServiceServer) List(ctx context.Context, rq *connect.Request[api
 
 // ListBaseNetworks implements apiv2connect.NetworkServiceHandler.
 func (n *networkServiceServer) ListBaseNetworks(ctx context.Context, rq *connect.Request[apiv2.NetworkServiceListBaseNetworksRequest]) (*connect.Response[apiv2.NetworkServiceListBaseNetworksResponse], error) {
-	n.log.Debug("listbasenetworks", "req", rq)
 	req := rq.Msg
 	resp, err := n.repo.UnscopedNetwork().List(ctx, req.Query)
 	if err != nil {
@@ -167,7 +164,6 @@ func (n *networkServiceServer) ListBaseNetworks(ctx context.Context, rq *connect
 
 // Update implements apiv2connect.NetworkServiceHandler.
 func (n *networkServiceServer) Update(ctx context.Context, rq *connect.Request[apiv2.NetworkServiceUpdateRequest]) (*connect.Response[apiv2.NetworkServiceUpdateResponse], error) {
-	n.log.Debug("update", "req", rq)
 	req := rq.Msg
 
 	nur := &adminv2.NetworkServiceUpdateRequest{
