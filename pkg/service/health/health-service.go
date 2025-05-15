@@ -11,7 +11,9 @@ import (
 	apiv1 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
+	mdm "github.com/metal-stack/masterdata-api/pkg/client"
 	"golang.org/x/sync/errgroup"
+	"gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
 
 const (
@@ -23,10 +25,12 @@ type healthchecker interface {
 }
 
 type Config struct {
-	Log                 *slog.Logger
-	Ctx                 context.Context
-	HealthcheckInterval time.Duration
-	Ipam                ipamv1connect.IpamServiceClient
+	Log                  *slog.Logger
+	Ctx                  context.Context
+	HealthcheckInterval  time.Duration
+	Ipam                 ipamv1connect.IpamServiceClient
+	Masterdata           mdm.Client
+	RethinkDBConnectOpts *rethinkdb.ConnectOpts
 }
 
 type healthServiceServer struct {
@@ -41,6 +45,12 @@ func New(c Config) (apiv2connect.HealthServiceHandler, error) {
 
 	if c.Ipam != nil {
 		checkers = append(checkers, &ipamHealthChecker{ipam: c.Ipam})
+	}
+	if c.Masterdata != nil {
+		checkers = append(checkers, &masterdataHealthChecker{mdm: c.Masterdata})
+	}
+	if c.RethinkDBConnectOpts != nil {
+		checkers = append(checkers, &rethinkdbHealthChecker{connectOpts: *c.RethinkDBConnectOpts})
 	}
 
 	h := &healthServiceServer{

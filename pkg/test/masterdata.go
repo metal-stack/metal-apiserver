@@ -25,6 +25,7 @@ func StartMasterdataWithCochroach(t *testing.T, log *slog.Logger) (mdc.Client, *
 	db, err := sqlx.Open("postgres", cr.PGURL().String())
 	require.NoError(t, err)
 
+	log = log.WithGroup("masterdata")
 	ps := datastore.New(log, db, &apiv1.Project{})
 	pms := datastore.New(log, db, &apiv1.ProjectMember{})
 	ts := datastore.New(log, db, &apiv1.Tenant{})
@@ -84,6 +85,8 @@ func StartMasterdataWithCochroach(t *testing.T, log *slog.Logger) (mdc.Client, *
 }
 
 func StartMasterdataInMemory(t *testing.T, log *slog.Logger) (mdc.Client, *grpc.ClientConn, func()) {
+	log = log.WithGroup("masterdata")
+
 	ps := datastore.NewMemory(log, &apiv1.Project{})
 	pms := datastore.NewMemory(log, &apiv1.ProjectMember{})
 	ts := datastore.NewMemory(log, &apiv1.Tenant{})
@@ -91,7 +94,6 @@ func StartMasterdataInMemory(t *testing.T, log *slog.Logger) (mdc.Client, *grpc.
 
 	projectService := service.NewProjectService(log, ps, pms, ts)
 	projectMemberService := service.NewProjectMemberService(log, ps, pms, ts)
-	// FIXME db should not be required here
 	tenantService := service.NewTenantService(nil, log, ts, tms)
 
 	tenantMemberService := service.NewTenantMemberService(log, ts, tms)
@@ -170,4 +172,9 @@ func (c memoryClient) Tenant() apiv1.TenantServiceClient {
 // Tenant is the root accessor for tenant related functions
 func (c memoryClient) TenantMember() apiv1.TenantMemberServiceClient {
 	return apiv1.NewTenantMemberServiceClient(c.conn)
+}
+
+// Project is the root accessor for project related functions
+func (c memoryClient) Version() apiv1.VersionServiceClient {
+	return apiv1.NewVersionServiceClient(c.conn)
 }
