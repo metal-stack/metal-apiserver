@@ -153,7 +153,7 @@ func (r *filesystemLayoutRepository) ConvertToInternal(f *apiv2.FilesystemLayout
 		if err != nil {
 			return nil, err
 		}
-		format, err := metal.ToFormat(formatString)
+		format, err := metal.ToFormat(*formatString)
 		if err != nil {
 			return nil, err
 		}
@@ -180,7 +180,7 @@ func (r *filesystemLayoutRepository) ConvertToInternal(f *apiv2.FilesystemLayout
 				if err != nil {
 					return nil, err
 				}
-				gptType, err := metal.ToGPTType(gptTypeString)
+				gptType, err := metal.ToGPTType(*gptTypeString)
 				if err != nil {
 					return nil, err
 				}
@@ -200,7 +200,7 @@ func (r *filesystemLayoutRepository) ConvertToInternal(f *apiv2.FilesystemLayout
 		if err != nil {
 			return nil, err
 		}
-		level, err := metal.ToRaidLevel(raidLevelString)
+		level, err := metal.ToRaidLevel(*raidLevelString)
 		if err != nil {
 			return nil, err
 		}
@@ -226,7 +226,7 @@ func (r *filesystemLayoutRepository) ConvertToInternal(f *apiv2.FilesystemLayout
 		if err != nil {
 			return nil, err
 		}
-		lvmtype, err := metal.ToLVMType(lvmtypeString)
+		lvmtype, err := metal.ToLVMType(*lvmtypeString)
 		if err != nil {
 			return nil, err
 		}
