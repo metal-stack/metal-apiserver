@@ -55,7 +55,6 @@ func (r *networkRepository) ValidateCreate(ctx context.Context, req *adminv2.Net
 	}
 
 	if err != nil {
-		// return nil, fmt.Errorf("req:%s %w", req, err)
 		return nil, err
 	}
 
@@ -91,9 +90,14 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 	errs = validate(errs, req.AdditionalAnnouncableCidrs == nil, "additional announcable cidrs must be nil")
 	errs = validate(errs, req.DefaultChildPrefixLength == nil, "default child prefix length must be nil")
 	errs = validate(errs, req.MinChildPrefixLength == nil, "min child prefix length length must be nil")
+	errs = validate(errs, req.MinChildPrefixLength == nil, "min child prefix length length must be nil")
 
 	if len(errs) > 0 {
 		return errorutil.NewInvalidArgument(errors.Join(errs...))
+	}
+
+	if req.Partition != nil && req.ParentNetworkId != nil {
+		return errorutil.InvalidArgument("if parent network id is specified, partition must be nil")
 	}
 
 	var (
@@ -102,18 +106,21 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 	if req.ParentNetworkId != nil {
 		parent, err := r.r.UnscopedNetwork().Get(ctx, *req.ParentNetworkId)
 		if err != nil {
-			return err
+			return errorutil.Convert(fmt.Errorf("unable to retrieve parent network: %w", err))
 		}
+
 		switch *parent.NetworkType {
 		case metal.SuperNetworkType, metal.SuperNamespacedNetworkType:
 			// all good
 		case metal.ChildNetworkType, metal.ChildSharedNetworkType, metal.ExternalNetworkType, metal.UnderlayNetworkType:
 			return errorutil.InvalidArgument("given parentnetwork must be either a super or a super namespace network")
 		}
+
+		if parent.ProjectID != "" && parent.ProjectID != *req.Project {
+			return errorutil.InvalidArgument("child network creation not allowed in network %s", *req.ParentNetworkId)
+		}
+
 		parentNetwork = parent
-	}
-	if req.Partition != nil && parentNetwork != nil {
-		return errorutil.InvalidArgument("if parentnetworkId is specified, partition must be nil")
 	}
 
 	if req.Partition != nil {
@@ -134,7 +141,7 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 		return errorutil.InvalidArgument("supernetwork %s has no defaultchildprefixlength specified", parentNetwork.ID)
 	}
 	if parentNetwork.Vrf != 0 && req.Vrf != nil {
-		return errorutil.InvalidArgument("supernetwork %s has vrf specified:%d therefore the vrf must be nil", parentNetwork.ID, parentNetwork.Vrf)
+		return errorutil.InvalidArgument("supernetwork %q inherits vrf %d to its child networks, therefore the vrf must be nil", parentNetwork.ID, parentNetwork.Vrf)
 	}
 	if parentNetwork.ProjectID != "" && (parentNetwork.ProjectID != *req.Project) {
 		return errorutil.InvalidArgument("supernetwork %s is project scoped, requested child project:%s does not match", parentNetwork.ID, *req.Project)
@@ -153,7 +160,7 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 				continue
 			}
 			if cl < ml {
-				return errorutil.InvalidArgument("given length %v is smaller than allowed %v", l, parentNetwork.MinChildPrefixLength)
+				return errorutil.InvalidArgument("requested prefix length %v is smaller than allowed (super network defines a minimum of %v)", l, parentNetwork.MinChildPrefixLength)
 			}
 		}
 
@@ -246,7 +253,7 @@ func (r *networkRepository) validateCreateNetworkTypeSuper(ctx context.Context, 
 func (r *networkRepository) validateCreateNetworkTypeExternal(ctx context.Context, req *adminv2.NetworkServiceCreateRequest) error {
 	// id must not be nil and must not conflict
 	// partition is optional, multiple external per partition are possible
-	// project must be nil
+	// project is optional (if given, only ips with this project can be acquired in this network)
 	// vrf must not be nil
 	// prefixes must be specified
 	// destination prefixes can be specified
@@ -262,7 +269,6 @@ func (r *networkRepository) validateCreateNetworkTypeExternal(ctx context.Contex
 	errs = validate(errs, req.Prefixes != nil, "prefixes must not be nil")
 	errs = validate(errs, req.Vrf != nil, "vrf must not be nil")
 
-	errs = validate(errs, req.Project == nil, "project must be nil")
 	errs = validate(errs, req.ParentNetworkId == nil, "parentNetworkId must be nil")
 	errs = validate(errs, req.AddressFamily == nil, "addressfamily must be nil")
 	errs = validate(errs, req.Length == nil, "length must be nil")
@@ -338,6 +344,8 @@ func (r *networkRepository) validateCreateNetworkTypeUnderlay(ctx context.Contex
 		return errorutil.InvalidArgument("underlay can only contain ipv4 prefixes")
 	}
 
+	// theoretically underlay networks can overlap by partition, but if an operator wants to do zonal routing
+	// this would be forbidden, so we restrict this for now
 	if err := r.prefixesOverlapping(ctx, prefixes.String()); err != nil {
 		return err
 	}
@@ -346,14 +354,27 @@ func (r *networkRepository) validateCreateNetworkTypeUnderlay(ctx context.Contex
 }
 
 func (r *networkRepository) prefixesOverlapping(ctx context.Context, prefixes []string) error {
-
 	allNetworks, err := r.List(ctx, &apiv2.NetworkQuery{})
 	if err != nil {
 		return errorutil.Convert(err)
 	}
-	existingPrefixes := metal.Prefixes{}
-	existingPrefixesMap := make(map[string]bool)
+
+	var (
+		existingPrefixes    = metal.Prefixes{}
+		existingPrefixesMap = make(map[string]bool)
+	)
+
 	for _, nw := range allNetworks {
+		if nw.ParentNetworkID != "" {
+			// as we check the super networks this includes the child networks automatically
+			// theoretically it would be nice to filter them out directly in the database query
+			continue
+		}
+		if nw.Namespace != nil {
+			// super namespaced networks can overlap!
+			continue
+		}
+
 		for _, p := range nw.Prefixes {
 			_, ok := existingPrefixesMap[p.String()]
 			if !ok {
@@ -367,6 +388,7 @@ func (r *networkRepository) prefixesOverlapping(ctx context.Context, prefixes []
 	if err != nil {
 		return errorutil.NewConflict(err)
 	}
+
 	return nil
 }
 
@@ -378,43 +400,43 @@ func (r *networkRepository) networkTypeInPartitionPossible(ctx context.Context, 
 	return nil
 }
 
-func (r *networkRepository) validatePrefixesAndAddressFamilies(prefixes metal.Prefixes, destPrefixesAfs metal.AddressFamilies, defaultChildPrefixLength metal.ChildPrefixLength, privateSuper bool) error {
+func (r *networkRepository) validatePrefixesAndAddressFamilies(prefixes metal.Prefixes, destPrefixesAfs metal.AddressFamilies, defaultChildPrefixLength metal.ChildPrefixLength, super bool) error {
 	for _, af := range destPrefixesAfs {
 		if !slices.Contains(prefixes.AddressFamilies(), af) {
 			return fmt.Errorf("addressfamily:%s of destination prefixes is not present in existing prefixes", af)
 		}
 	}
 
-	if !privateSuper {
+	if !super {
 		return nil
 	}
 
 	if len(defaultChildPrefixLength) == 0 {
-		return fmt.Errorf("private super network must always contain a defaultchildprefixlength")
+		return fmt.Errorf("a super network must always contain a default child prefix length")
 	}
 
 	for _, af := range prefixes.AddressFamilies() {
 		if _, exists := defaultChildPrefixLength[af]; !exists {
-			return fmt.Errorf("private super network must always contain a defaultchildprefixlength per addressfamily:%s", af)
+			return fmt.Errorf("a super network must always contain a default child prefix length per addressfamily: %s", af)
 		}
 	}
 
 	return nil
 }
 
-func (r *networkRepository) validateAdditionalAnnouncableCIDRs(additionalCidrs []string, privateSuper bool) error {
+func (r *networkRepository) validateAdditionalAnnouncableCIDRs(additionalCidrs []string, super bool) error {
 	if len(additionalCidrs) == 0 {
 		return nil
 	}
 
-	if !privateSuper {
-		return errors.New("additionalannouncablecidrs can only be set in a private super network")
+	if !super {
+		return errors.New("additional announcable cidrs can only be set in a private super network")
 	}
 
 	for _, cidr := range additionalCidrs {
 		_, err := netip.ParsePrefix(cidr)
 		if err != nil {
-			return fmt.Errorf("given cidr:%q in additionalannouncablecidrs is malformed:%w", cidr, err)
+			return fmt.Errorf("given cidr:%q in additional announcable cidrs is malformed:%w", cidr, err)
 		}
 	}
 
@@ -428,7 +450,7 @@ func (r *networkRepository) ValidateUpdate(ctx context.Context, req *adminv2.Net
 	newNetwork := *old
 
 	if req.DefaultChildPrefixLength != nil && !old.PrivateSuper {
-		return nil, errorutil.InvalidArgument("defaultchildprefixlength can only be set on privatesuper")
+		return nil, errorutil.InvalidArgument("default child prefix length can only be set on super networks")
 	}
 
 	if old.ParentNetworkID != "" || (old.NetworkType != nil && *old.NetworkType == metal.ChildNetworkType) {
@@ -486,6 +508,7 @@ func (r *networkRepository) ValidateUpdate(ctx context.Context, req *adminv2.Net
 			return nil, errorutil.InvalidArgument("you cannot remove %q from additionalannouncablecidrs without force flag set", oldcidr)
 		}
 	}
+
 	r.r.log.Debug("validated update")
 
 	return &Validated[*adminv2.NetworkServiceUpdateRequest]{
@@ -500,7 +523,7 @@ func (r *networkRepository) arePrefixesEmpty(ctx context.Context, prefixes metal
 			return errorutil.Convert(err)
 		}
 		if len(ips) > 0 {
-			return errorutil.InvalidArgument("there are still %d ips present in one of the prefixes:%s", len(ips), prefixToCheck)
+			return errorutil.InvalidArgument("there are still %d ips present in prefix: %s", len(ips), prefixToCheck)
 		}
 	}
 	return nil

@@ -362,7 +362,7 @@ func Test_networkServiceServer_CreateSuper(t *testing.T) {
 				Partition:                  pointer.Pointer("partition-one"),
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument(`given cidr:"3.4.5.6.0/23" in additionalannouncablecidrs is malformed:netip.ParsePrefix("3.4.5.6.0/23"): ParseAddr("3.4.5.6.0"): IPv4 address too long`),
+			wantErr: errorutil.InvalidArgument(`given cidr:"3.4.5.6.0/23" in additional announcable cidrs is malformed:netip.ParsePrefix("3.4.5.6.0/23"): ParseAddr("3.4.5.6.0"): IPv4 address too long`),
 		},
 		{
 			name:      "create a super network",
@@ -514,14 +514,22 @@ func Test_networkServiceServer_CreateExternal(t *testing.T) {
 		{
 			name: "internet-3 project given",
 			rq: &adminv2.NetworkServiceCreateRequest{
-				Id:       pointer.Pointer("internet-3"),
-				Prefixes: []string{"1.2.3.0/24"},
+				Id:       pointer.Pointer("project-scoped-internet-3"),
+				Prefixes: []string{"1.2.5.0/24"},
 				Type:     apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
-				Vrf:      pointer.Pointer(uint32(94)),
+				Vrf:      pointer.Pointer(uint32(95)),
 				Project:  pointer.Pointer("p1"),
 			},
-			want:    nil,
-			wantErr: errorutil.InvalidArgument(`project must be nil`),
+			want: &adminv2.NetworkServiceCreateResponse{
+				Network: &apiv2.Network{
+					Id:       "project-scoped-internet-3",
+					Meta:     &apiv2.Meta{},
+					Prefixes: []string{"1.2.5.0/24"},
+					Vrf:      pointer.Pointer(uint32(95)),
+					Type:     apiv2.NetworkType_NETWORK_TYPE_EXTERNAL.Enum(),
+					Project:  pointer.Pointer("p1"),
+				}},
+			wantErr: nil,
 		},
 		{
 			name: "internet-3 with malformed destinationprefixes",
@@ -604,158 +612,158 @@ func Test_networkServiceServer_CreateExternal(t *testing.T) {
 }
 
 // FIXME adopt to new usecases, rename test func properly
-func _Test_networkServiceServer_CreateSuperVrfShared(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+// func _Test_networkServiceServer_CreateSuperVrfShared(t *testing.T) {
+// 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
-	defer closer()
-	repo := testStore.Store
+// 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+// 	defer closer()
+// 	repo := testStore.Store
 
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = fmt.Fprintln(w, "a image")
-	}))
-	defer ts.Close()
+// 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+// 		_, _ = fmt.Fprintln(w, "a image")
+// 	}))
+// 	defer ts.Close()
 
-	validURL := ts.URL
+// 	validURL := ts.URL
 
-	ctx := t.Context()
+// 	ctx := t.Context()
 
-	test.CreateTenants(t, repo, tenants)
-	test.CreateProjects(t, repo, projects)
+// 	test.CreateTenants(t, repo, tenants)
+// 	test.CreateProjects(t, repo, projects)
 
-	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
-		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
-		{Partition: &apiv2.Partition{Id: "partition-two", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
-	})
+// 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+// 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+// 		{Partition: &apiv2.Partition{Id: "partition-two", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+// 	})
 
-	tests := []struct {
-		name      string
-		preparefn func(t *testing.T)
-		rq        *adminv2.NetworkServiceCreateRequest
-		want      *adminv2.NetworkServiceCreateResponse
-		wantErr   error
-	}{
-		{
-			name: "dc-interconnect already exists",
-			preparefn: func(t *testing.T) {
-				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
-					{
-						Id:                       pointer.Pointer("dc-interconnect"),
-						Prefixes:                 []string{"100.64.0.0/16"},
-						Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
-						DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(28))},
-						Vrf:                      pointer.Pointer(uint32(10)),
-					},
-				})
-			},
-			rq: &adminv2.NetworkServiceCreateRequest{
-				Id:       pointer.Pointer("dc-interconnect"),
-				Prefixes: []string{"2.3.4.0/24"},
-				Type:     apiv2.NetworkType_NETWORK_TYPE_SUPER,
-				Vrf:      pointer.Pointer(uint32(11)),
-			},
-			want:    nil,
-			wantErr: errorutil.Conflict("network with id:dc-interconnect already exists"),
-		},
-		{
-			name:      "dc-interconnect has no childprefixlength specified",
-			preparefn: nil,
-			rq: &adminv2.NetworkServiceCreateRequest{
-				Id:       pointer.Pointer("dc-interconnect"),
-				Prefixes: []string{"1.2.3.0/24"},
-				Type:     apiv2.NetworkType_NETWORK_TYPE_SUPER,
-				Vrf:      pointer.Pointer(uint32(21)),
-			}, want: nil,
-			wantErr: errorutil.InvalidArgument("defaultchildprefixlength must not be nil"),
-		},
-		{
-			name: "dc-interconnect-2 with already existing dc-interconnect",
-			preparefn: func(t *testing.T) {
-				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
-					{
-						Id:                       pointer.Pointer("dc-interconnect"),
-						Prefixes:                 []string{"100.64.0.0/16"},
-						Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
-						DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(28))},
-						Vrf:                      pointer.Pointer(uint32(10)),
-					},
-				})
-			},
-			rq: &adminv2.NetworkServiceCreateRequest{
-				Id:                       pointer.Pointer("dc-interconnect-2"),
-				Prefixes:                 []string{"2.3.4.0/24"},
-				Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
-				DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(28))},
-				Vrf:                      pointer.Pointer(uint32(11)),
-			},
-			want: &adminv2.NetworkServiceCreateResponse{
-				Network: &apiv2.Network{
-					Id:                       "dc-interconnect",
-					Meta:                     &apiv2.Meta{},
-					Prefixes:                 []string{"2.3.4.0/24"},
-					DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(28))},
-					Vrf:                      pointer.Pointer(uint32(91)),
-					Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
-				}},
-			wantErr: nil,
-		},
-		{
-			name: "dc-interconnect",
-			rq: &adminv2.NetworkServiceCreateRequest{
-				Id:                       pointer.Pointer("dc-interconnect"),
-				Prefixes:                 []string{"1.2.3.0/24"},
-				Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
-				DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(28))},
-				Vrf:                      pointer.Pointer(uint32(91)),
-			},
-			want: &adminv2.NetworkServiceCreateResponse{
-				Network: &apiv2.Network{
-					Id:                       "dc-interconnect",
-					Meta:                     &apiv2.Meta{},
-					Prefixes:                 []string{"1.2.3.0/24"},
-					DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(28))},
-					Vrf:                      pointer.Pointer(uint32(91)),
-					Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
-				}},
-			wantErr: nil,
-		},
-	}
+// 	tests := []struct {
+// 		name      string
+// 		preparefn func(t *testing.T)
+// 		rq        *adminv2.NetworkServiceCreateRequest
+// 		want      *adminv2.NetworkServiceCreateResponse
+// 		wantErr   error
+// 	}{
+// 		{
+// 			name: "dc-interconnect already exists",
+// 			preparefn: func(t *testing.T) {
+// 				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+// 					{
+// 						Id:                       pointer.Pointer("dc-interconnect"),
+// 						Prefixes:                 []string{"100.64.0.0/16"},
+// 						Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
+// 						DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(28))},
+// 						Vrf:                      pointer.Pointer(uint32(10)),
+// 					},
+// 				})
+// 			},
+// 			rq: &adminv2.NetworkServiceCreateRequest{
+// 				Id:       pointer.Pointer("dc-interconnect"),
+// 				Prefixes: []string{"2.3.4.0/24"},
+// 				Type:     apiv2.NetworkType_NETWORK_TYPE_SUPER,
+// 				Vrf:      pointer.Pointer(uint32(11)),
+// 			},
+// 			want:    nil,
+// 			wantErr: errorutil.Conflict("network with id:dc-interconnect already exists"),
+// 		},
+// 		{
+// 			name:      "dc-interconnect has no childprefixlength specified",
+// 			preparefn: nil,
+// 			rq: &adminv2.NetworkServiceCreateRequest{
+// 				Id:       pointer.Pointer("dc-interconnect"),
+// 				Prefixes: []string{"1.2.3.0/24"},
+// 				Type:     apiv2.NetworkType_NETWORK_TYPE_SUPER,
+// 				Vrf:      pointer.Pointer(uint32(21)),
+// 			}, want: nil,
+// 			wantErr: errorutil.InvalidArgument("defaultchildprefixlength must not be nil"),
+// 		},
+// 		{
+// 			name: "dc-interconnect-2 with already existing dc-interconnect",
+// 			preparefn: func(t *testing.T) {
+// 				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+// 					{
+// 						Id:                       pointer.Pointer("dc-interconnect"),
+// 						Prefixes:                 []string{"100.64.0.0/16"},
+// 						Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
+// 						DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(28))},
+// 						Vrf:                      pointer.Pointer(uint32(10)),
+// 					},
+// 				})
+// 			},
+// 			rq: &adminv2.NetworkServiceCreateRequest{
+// 				Id:                       pointer.Pointer("dc-interconnect-2"),
+// 				Prefixes:                 []string{"2.3.4.0/24"},
+// 				Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
+// 				DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(28))},
+// 				Vrf:                      pointer.Pointer(uint32(11)),
+// 			},
+// 			want: &adminv2.NetworkServiceCreateResponse{
+// 				Network: &apiv2.Network{
+// 					Id:                       "dc-interconnect",
+// 					Meta:                     &apiv2.Meta{},
+// 					Prefixes:                 []string{"2.3.4.0/24"},
+// 					DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(28))},
+// 					Vrf:                      pointer.Pointer(uint32(91)),
+// 					Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
+// 				}},
+// 			wantErr: nil,
+// 		},
+// 		{
+// 			name: "dc-interconnect",
+// 			rq: &adminv2.NetworkServiceCreateRequest{
+// 				Id:                       pointer.Pointer("dc-interconnect"),
+// 				Prefixes:                 []string{"1.2.3.0/24"},
+// 				Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
+// 				DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(28))},
+// 				Vrf:                      pointer.Pointer(uint32(91)),
+// 			},
+// 			want: &adminv2.NetworkServiceCreateResponse{
+// 				Network: &apiv2.Network{
+// 					Id:                       "dc-interconnect",
+// 					Meta:                     &apiv2.Meta{},
+// 					Prefixes:                 []string{"1.2.3.0/24"},
+// 					DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(28))},
+// 					Vrf:                      pointer.Pointer(uint32(91)),
+// 					Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
+// 				}},
+// 			wantErr: nil,
+// 		},
+// 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			n := &networkServiceServer{
-				log:  log,
-				repo: repo,
-			}
+// 	for _, tt := range tests {
+// 		t.Run(tt.name, func(t *testing.T) {
+// 			n := &networkServiceServer{
+// 				log:  log,
+// 				repo: repo,
+// 			}
 
-			defer func() {
-				test.DeleteNetworks(t, testStore)
-			}()
+// 			defer func() {
+// 				test.DeleteNetworks(t, testStore)
+// 			}()
 
-			if tt.preparefn != nil {
-				tt.preparefn(t)
-			}
+// 			if tt.preparefn != nil {
+// 				tt.preparefn(t)
+// 			}
 
-			got, err := n.Create(ctx, connect.NewRequest(tt.rq))
-			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
-				t.Errorf("diff = %s", diff)
-			}
+// 			got, err := n.Create(ctx, connect.NewRequest(tt.rq))
+// 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+// 				t.Errorf("diff = %s", diff)
+// 			}
 
-			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
-				protocmp.Transform(),
-				protocmp.IgnoreFields(
-					&apiv2.Network{}, "consumption", "id", "vrf",
-				),
-				protocmp.IgnoreFields(
-					&apiv2.Meta{}, "created_at", "updated_at",
-				),
-			); diff != "" {
-				t.Errorf("networkServiceServer.Create() = %v, want %vņdiff: %s", pointer.SafeDeref(got).Msg, tt.want, diff)
-			}
-		})
-	}
-}
+// 			if diff := cmp.Diff(
+// 				tt.want, pointer.SafeDeref(got).Msg,
+// 				protocmp.Transform(),
+// 				protocmp.IgnoreFields(
+// 					&apiv2.Network{}, "consumption", "id", "vrf",
+// 				),
+// 				protocmp.IgnoreFields(
+// 					&apiv2.Meta{}, "created_at", "updated_at",
+// 				),
+// 			); diff != "" {
+// 				t.Errorf("networkServiceServer.Create() = %v, want %vņdiff: %s", pointer.SafeDeref(got).Msg, tt.want, diff)
+// 			}
+// 		})
+// 	}
+// }
 
 func Test_networkServiceServer_CreateUnderlay(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
@@ -962,7 +970,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 			name:    "network has ips",
 			rq:      &adminv2.NetworkServiceDeleteRequest{Id: networkMap["tenant-1"]},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument(`there are still 1 ips present in one of the prefixes:{10.100.0.0 22}`),
+			wantErr: errorutil.InvalidArgument(`there are still 1 ips present in prefix: {10.100.0.0 22}`),
 		},
 		{
 			name:    "super network has child",

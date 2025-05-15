@@ -82,6 +82,9 @@ func (r *Store) NetworkDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 	if err != nil && !errorutil.IsNotFound(err) {
 		return err
 	}
+	if errorutil.IsNotFound(err) {
+		return nil
+	}
 
 	for _, prefix := range nw.Prefixes {
 		_, err = r.ipam.DeletePrefix(ctx, connect.NewRequest(&ipamv1.DeletePrefixRequest{Cidr: prefix.String(), Namespace: nw.Namespace}))
@@ -223,6 +226,7 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 		return nil, errorutil.NewInvalidArgument(err)
 	}
 
+	// Only create a random VRF Id for child networks, all other networks must either specify one, or do not set it at all (underlay, super network)
 	if req.Vrf != nil {
 		vrf, err = r.r.ds.VrfPool().AcquireUniqueInteger(ctx, uint(*req.Vrf))
 		if err != nil {
@@ -230,8 +234,6 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 				return nil, errorutil.InvalidArgument("could not acquire vrf: %w", err)
 			}
 		}
-	} else {
-		// Only create a random VRF Id for child networks, all other networks must either specify one, or do not set it at all (underlay, super network)
 	}
 
 	if req.NatType != nil {

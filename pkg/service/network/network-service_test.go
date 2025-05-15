@@ -538,6 +538,7 @@ func Test_networkServiceServer_Create(t *testing.T) {
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 		{Partition: &apiv2.Partition{Id: "partition-two", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 		{Partition: &apiv2.Partition{Id: "partition-three", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+		{Partition: &apiv2.Partition{Id: "partition-four", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 	})
 
 	test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
@@ -561,6 +562,14 @@ func Test_networkServiceServer_Create(t *testing.T) {
 			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22)), Ipv6: pointer.Pointer(uint32(112))},
 			Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
 			Partition:                pointer.Pointer("partition-three"),
+		},
+		{
+			Id:                       pointer.Pointer("super-with-project"),
+			Project:                  pointer.Pointer("p1"),
+			Prefixes:                 []string{"192.168.2.0/24"},
+			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(28))},
+			Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
+			Partition:                pointer.Pointer("partition-four"),
 		},
 		{
 			Id:        pointer.Pointer("underlay"),
@@ -688,6 +697,16 @@ func Test_networkServiceServer_Create(t *testing.T) {
 					Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
 				}},
 			wantErr: nil,
+		},
+		{
+			name: "disallow child network creation for super network that is scoped on a different project",
+			rq: &apiv2.NetworkServiceCreateRequest{
+				Project:         "p2",
+				Name:            pointer.Pointer("My Machine Network"),
+				ParentNetworkId: pointer.Pointer("super-with-project"),
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument("child network creation not allowed in network super-with-project"),
 		},
 	}
 	for _, tt := range tests {
