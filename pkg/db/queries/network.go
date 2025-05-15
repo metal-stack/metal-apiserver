@@ -41,6 +41,12 @@ func NetworkFilter(rq *apiv2.NetworkQuery) func(q r.Term) r.Term {
 			})
 		}
 
+		if rq.Description != nil {
+			q = q.Filter(func(row r.Term) r.Term {
+				return row.Field("description").Eq(*rq.Description)
+			})
+		}
+
 		if rq.Partition != nil {
 			q = q.Filter(func(row r.Term) r.Term {
 				return row.Field("partitionid").Eq(*rq.Partition)
