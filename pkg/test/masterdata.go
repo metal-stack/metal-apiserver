@@ -174,7 +174,6 @@ func (c memoryClient) TenantMember() apiv1.TenantMemberServiceClient {
 	return apiv1.NewTenantMemberServiceClient(c.conn)
 }
 
-// Project is the root accessor for project related functions
 func (c memoryClient) Version() apiv1.VersionServiceClient {
 	return apiv1.NewVersionServiceClient(c.conn)
 }
