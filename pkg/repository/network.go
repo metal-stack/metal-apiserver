@@ -607,8 +607,6 @@ func (r *networkRepository) allocateChildPrefixes(ctx context.Context, projectId
 		parent = p
 	}
 
-	// TODO implement namespaced child networks
-
 	length := parent.DefaultChildPrefixLength
 	if requestedLength != nil {
 		l, err := metal.ToChildPrefixLength(requestedLength, parent.Prefixes)
@@ -670,9 +668,6 @@ func (r *networkRepository) createChildPrefix(ctx context.Context, namespace *st
 			Namespace: namespace,
 		}))
 		if err != nil {
-			if errorutil.IsNotFound(err) {
-				continue
-			}
 			errs = append(errs, fmt.Errorf("unable to acquire child prefix:%v", err))
 			continue
 		}
