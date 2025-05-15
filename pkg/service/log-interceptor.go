@@ -31,12 +31,15 @@ func (i *logInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 		log.Info("handling unary call")
 
 		response, err := next(ctx, req)
-		if err != nil {
-			if debug && response != nil {
-				log = log.With("response", response.Any())
-			}
 
+		if debug && response != nil {
+			log = log.With("response", response.Any())
+		}
+
+		if err != nil {
 			log.Error("error during unary call", "error", err)
+		} else if debug {
+			log.Debug("handled call successfully")
 		}
 
 		return response, err
