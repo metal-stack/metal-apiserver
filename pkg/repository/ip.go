@@ -147,10 +147,13 @@ func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServic
 	}
 	projectID := p.Meta.Id
 
-	// FIXME we must check if the network is project scoped or not
 	nw, err := r.r.UnscopedNetwork().Get(ctx, req.Network)
 	if err != nil {
 		return nil, err
+	}
+
+	if nw.ProjectID != "" && nw.ProjectID != req.Project {
+		return nil, errorutil.InvalidArgument("ip creation not allowed in network %s", req.Network)
 	}
 
 	var af *metal.AddressFamily

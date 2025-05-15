@@ -452,6 +452,11 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			Project:         "p1",
 			ParentNetworkId: pointer.Pointer("tenant-super-network-namespaced"),
 		},
+		{
+			Name:            pointer.Pointer("private-namespaced-2"),
+			Project:         "p2",
+			ParentNetworkId: pointer.Pointer("tenant-super-network-namespaced"),
+		},
 	}
 
 	test.CreateNetworks(t, repo, nws)
@@ -589,6 +594,16 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument("there is no prefix for the given addressfamily:IPv6 present in network:tenant-network [IPv4]"),
+		},
+		{
+			name: "disallow creating an ip address in a project-scoped network that does not belong to the request project",
+			rq: &apiv2.IPServiceCreateRequest{
+				Network:       childNetworksMap["private-namespaced-2"],
+				Project:       "p1",
+				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(),
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument("ip creation not allowed in network %s", childNetworksMap["private-namespaced-2"]),
 		},
 	}
 	for _, tt := range tests {
