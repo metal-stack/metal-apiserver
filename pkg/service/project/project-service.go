@@ -367,7 +367,6 @@ func (p *projectServiceServer) UpdateMember(ctx context.Context, rq *connect.Req
 	var (
 		req = rq.Msg
 	)
-
 	membership, _, err := putil.GetProjectMember(ctx, p.masterClient, req.Project, req.MemberId)
 	var connectErr *connect.Error
 

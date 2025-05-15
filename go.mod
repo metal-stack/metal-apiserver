@@ -6,7 +6,7 @@ toolchain go1.24.3
 
 require (
 	connectrpc.com/connect v1.18.1
-	connectrpc.com/grpchealth v1.3.0
+	connectrpc.com/grpchealth v1.4.0
 	connectrpc.com/grpcreflect v1.3.0
 	connectrpc.com/otelconnect v0.7.2
 	connectrpc.com/validate v0.3.0
@@ -27,7 +27,7 @@ require (
 	github.com/markbates/goth v1.80.0
 	github.com/metal-stack/api v0.0.0-20250515071937-0e2eb023e6af
 	github.com/metal-stack/go-ipam v1.14.10
-	github.com/metal-stack/masterdata-api v0.11.8
+	github.com/metal-stack/masterdata-api v0.11.11
 	github.com/metal-stack/metal-lib v0.21.0
 	github.com/metal-stack/security v0.9.3
 	github.com/metal-stack/v v1.0.3

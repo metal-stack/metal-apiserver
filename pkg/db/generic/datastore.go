@@ -1,6 +1,7 @@
 package generic
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 
@@ -75,6 +76,22 @@ func New(log *slog.Logger, opts r.ConnectOpts, dsOpts ...dataStoreOption) (*data
 	ds.vrfPool = newIntegerPool(ds, vrfIntegerPool, "integerpool", vrfMin, vrfMax)
 
 	return ds, nil
+}
+
+func (ds *datastore) Version(ctx context.Context) (string, error) {
+	cursor, err := r.DB("rethinkdb").Table("server_status").Field("process").Field("version").Run(ds.queryExecutor, r.RunOpts{Context: ctx})
+	if err != nil {
+		return "", err
+	}
+
+	var version string
+
+	err = cursor.One(&version)
+	if err != nil {
+		return "", err
+	}
+
+	return version, nil
 }
 
 func (ds *datastore) IP() Storage[*metal.IP] {

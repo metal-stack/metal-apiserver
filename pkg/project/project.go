@@ -20,6 +20,8 @@ const (
 	AvatarURLAnnotation      = "avatarUrl"
 )
 
+// FIXME this should go to project repository
+
 func ProjectRoleFromMap(annotations map[string]string) apiv2.ProjectRole {
 	if annotations == nil {
 		return apiv2.ProjectRole_PROJECT_ROLE_UNSPECIFIED

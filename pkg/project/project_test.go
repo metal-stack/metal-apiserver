@@ -41,7 +41,7 @@ func newMasterdataMockClient(
 		tenantMemberServiceMock(&tmsc.Mock)
 	}
 
-	return mdc.NewMock(psc, tsc, pmsc, tmsc)
+	return mdc.NewMock(psc, tsc, pmsc, tmsc, nil)
 }
 
 func TestGetProjectsAndTenants(t *testing.T) {
