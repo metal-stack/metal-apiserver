@@ -51,17 +51,12 @@ type (
 )
 
 const (
-	// InvalidAddressFamily identifies a invalid Addressfamily
-	InvalidAddressFamily = AddressFamily("invalid")
 	// IPv4AddressFamily identifies IPv4
 	IPv4AddressFamily = AddressFamily("IPv4")
 	// IPv6AddressFamily identifies IPv6
 	IPv6AddressFamily = AddressFamily("IPv6")
 
 	// NetworkType
-
-	// InvalidNetworkType identifies a invalid network
-	InvalidNetworkType = NetworkType("invalid")
 	// ExternalNetworkType identifies a network where ips can be allocated from different projects
 	ExternalNetworkType = NetworkType("external")
 	// UnderlayNetworkType identifies a underlay network
@@ -99,9 +94,9 @@ func ToNetworkType(nwt apiv2.NetworkType) (NetworkType, error) {
 	case apiv2.NetworkType_NETWORK_TYPE_UNDERLAY:
 		return UnderlayNetworkType, nil
 	case apiv2.NetworkType_NETWORK_TYPE_UNSPECIFIED:
-		return InvalidNetworkType, fmt.Errorf("given networkType:%q is invalid", nwt)
+		return NetworkType(""), fmt.Errorf("given networkType:%q is invalid", nwt)
 	}
-	return InvalidNetworkType, fmt.Errorf("given networkType:%q is invalid", nwt)
+	return NetworkType(""), fmt.Errorf("given networkType:%q is invalid", nwt)
 }
 
 func FromNetworkType(nwt NetworkType) (apiv2.NetworkType, error) {
@@ -131,9 +126,9 @@ func ToAddressFamily(af apiv2.IPAddressFamily) (AddressFamily, error) {
 	case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6:
 		return IPv6AddressFamily, nil
 	case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_UNSPECIFIED:
-		return InvalidAddressFamily, fmt.Errorf("given addressfamily:%q is invalid", af)
+		return AddressFamily(""), fmt.Errorf("given addressfamily:%q is invalid", af)
 	}
-	return InvalidAddressFamily, fmt.Errorf("given addressfamily:%q is invalid", af)
+	return AddressFamily(""), fmt.Errorf("given addressfamily:%q is invalid", af)
 }
 
 func ToChildPrefixLength(cpl *apiv2.ChildPrefixLength, prefixes Prefixes) (ChildPrefixLength, error) {

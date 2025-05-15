@@ -107,7 +107,7 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 		switch *parent.NetworkType {
 		case metal.SuperNetworkType, metal.SuperNamespacedNetworkType:
 			// all good
-		case metal.InvalidNetworkType, metal.ChildNetworkType, metal.ChildSharedNetworkType, metal.ExternalNetworkType, metal.UnderlayNetworkType:
+		case metal.ChildNetworkType, metal.ChildSharedNetworkType, metal.ExternalNetworkType, metal.UnderlayNetworkType:
 			return errorutil.InvalidArgument("given parentnetwork must be either a super or a super namespace network")
 		}
 		parentNetwork = parent
