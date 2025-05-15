@@ -1,12 +1,10 @@
 package generic_test
 
 import (
-	"context"
 	"log/slog"
 	"testing"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
@@ -18,15 +16,12 @@ import (
 func TestGenericCRUD(t *testing.T) {
 	log := slog.Default()
 
-	container, c, err := test.StartRethink(t, log)
-	require.NoError(t, err)
+	ds, _, rethinkCloser := test.StartRethink(t, log)
 	defer func() {
-		_ = container.Terminate(context.Background())
+		rethinkCloser()
 	}()
-	ctx := context.Background()
 
-	ds, err := generic.New(log, c)
-	require.NoError(t, err)
+	ctx := t.Context()
 
 	nonexisting, err := ds.IP().Get(ctx, "1.2.3.4")
 	require.Nil(t, nonexisting)
@@ -39,9 +34,8 @@ func TestGenericCRUD(t *testing.T) {
 	require.Equal(t, "1.2.3.4", created.IPAddress)
 	require.NotNil(t, created.Created)
 
-	newIP := *created
-	newIP.Description = "Modified IP"
-	err = ds.IP().Update(ctx, &newIP, created)
+	created.Description = "Modified IP"
+	err = ds.IP().Update(ctx, created)
 	require.NoError(t, err)
 
 	updated, err := ds.IP().Get(ctx, "1.2.3.4")
@@ -62,15 +56,12 @@ func TestGenericCRUD(t *testing.T) {
 func TestFindAndListGeneric(t *testing.T) {
 	log := slog.Default()
 
-	container, c, err := test.StartRethink(t, log)
-	require.NoError(t, err)
+	ds, _, rethinkCloser := test.StartRethink(t, log)
 	defer func() {
-		_ = container.Terminate(context.Background())
+		rethinkCloser()
 	}()
-	ctx := context.Background()
 
-	ds, err := generic.New(log, c)
-	require.NoError(t, err)
+	ctx := t.Context()
 
 	created, err := ds.IP().Create(ctx, &metal.IP{IPAddress: "1.2.3.4", ProjectID: "p1"})
 	require.NoError(t, err)

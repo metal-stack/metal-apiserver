@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
@@ -29,23 +30,30 @@ func newStorage[E Entity](re *datastore, tableName string) *storage[E] {
 
 // Create creates the given entity in the database. in case it is already present, a conflict error will be returned.
 
-// if the ID field of the entity is an empty string, the ID will be generated automatically.
+// if the ID field of the entity is an empty string, the ID will be generated automatically as UUIDv7.
 func (s *storage[E]) Create(ctx context.Context, e E) (E, error) {
 	now := time.Now()
 	e.SetCreated(now)
 	e.SetChanged(now)
 
 	var zero E
-	res, err := s.table.Insert(e).RunWrite(s.r.queryExecutor, r.RunOpts{Context: ctx})
+
+	// Create a uuidv7 id if an empty string is given
+	// this ensures alphabetically ordered uuids by creation date.
+	if e.GetID() == "" {
+		uid, err := uuid.NewV7()
+		if err != nil {
+			return zero, err
+		}
+		e.SetID(uid.String())
+	}
+
+	_, err := s.table.Insert(e).RunWrite(s.r.queryExecutor, r.RunOpts{Context: ctx})
 	if err != nil {
 		if r.IsConflictErr(err) {
 			return zero, errorutil.Conflict("cannot create %v in database, entity already exists: %s", s.tableName, e.GetID())
 		}
 		return zero, fmt.Errorf("cannot create %v in database: %w", s.tableName, err)
-	}
-
-	if e.GetID() == "" && len(res.GeneratedKeys) > 0 {
-		e.SetID(res.GeneratedKeys[0])
 	}
 
 	return e, nil
@@ -161,18 +169,23 @@ func (s *storage[E]) Get(ctx context.Context, id string) (E, error) {
 //
 // it uses the "changed" timestamp of the old entity to figure out if it was already modified by some other process.
 // if this happens a conflict error will be returned.
-func (s *storage[E]) Update(ctx context.Context, new, old E) error {
-	new.SetChanged(time.Now())
+func (s *storage[E]) Update(ctx context.Context, e E) error {
+	if e.GetChanged().IsZero() {
+		return fmt.Errorf("cannot update %v (%s): no changed timestamp set on entity", s.tableName, e.GetID())
+	}
 
-	_, err := s.table.Get(old.GetID()).Replace(func(row r.Term) r.Term {
-		return r.Branch(row.Field("changed").Eq(r.Expr(old.GetChanged())), new, r.Error(entityAlreadyModifiedErrorMessage))
+	changedTimestamp := e.GetChanged()
+	e.SetChanged(time.Now())
+
+	_, err := s.table.Get(e.GetID()).Replace(func(row r.Term) r.Term {
+		return r.Branch(row.Field("changed").Eq(r.Expr(changedTimestamp)), e, r.Error(entityAlreadyModifiedErrorMessage))
 	}).RunWrite(s.r.queryExecutor, r.RunOpts{Context: ctx})
 	if err != nil {
 		if strings.Contains(err.Error(), entityAlreadyModifiedErrorMessage) {
-			return errorutil.Conflict("cannot update %v (%s): %s", s.tableName, old.GetID(), entityAlreadyModifiedErrorMessage)
+			return errorutil.Conflict("cannot update %v (%s): %s", s.tableName, e.GetID(), entityAlreadyModifiedErrorMessage)
 		}
 
-		return fmt.Errorf("cannot update %v (%s): %w", s.tableName, old.GetID(), err)
+		return fmt.Errorf("cannot update %v (%s): %w", s.tableName, e.GetID(), err)
 	}
 
 	return nil

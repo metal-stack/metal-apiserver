@@ -69,7 +69,7 @@ func init() {
 					new.DefaultChildPrefixLength = defaultChildPrefixLength
 				}
 
-				err = ds.Network().Update(ctx, &new, old)
+				err = ds.Network().Update(ctx, &new)
 				if err != nil {
 					return err
 				}

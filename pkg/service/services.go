@@ -16,6 +16,7 @@ import (
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/api/go/permissions"
+	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	mdm "github.com/metal-stack/masterdata-api/pkg/client"
 	authpkg "github.com/metal-stack/metal-apiserver/pkg/auth"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
@@ -43,6 +44,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/sdk/metric"
+	"gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
 
 type Config struct {
@@ -57,6 +59,8 @@ type Config struct {
 	OIDCEndSessionURL                   string
 	Repository                          *repository.Store
 	MasterClient                        mdm.Client
+	IpamClient                          ipamv1connect.IpamServiceClient
+	RethinkDBConnectOpts                rethinkdb.ConnectOpts
 	Auditing                            auditing.Auditing
 	Stage                               string
 	RedisConfig                         *RedisConfig

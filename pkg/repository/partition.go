@@ -162,7 +162,9 @@ func (p *partitionRepository) Update(ctx context.Context, req *Validated[*adminv
 		return nil, errorutil.Convert(err)
 	}
 
-	err = p.r.ds.Partition().Update(ctx, new, old)
+	new.SetChanged(old.Changed)
+
+	err = p.r.ds.Partition().Update(ctx, new)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

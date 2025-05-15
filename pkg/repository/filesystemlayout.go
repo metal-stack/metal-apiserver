@@ -101,9 +101,11 @@ func (r *filesystemLayoutRepository) Update(ctx context.Context, rq *Validated[*
 		return nil, errorutil.Convert(err)
 	}
 
+	newFsl.SetChanged(old.Changed)
+
 	// FIXME implement update logic
 
-	err = r.r.ds.FilesystemLayout().Update(ctx, newFsl, old)
+	err = r.r.ds.FilesystemLayout().Update(ctx, newFsl)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -151,7 +153,7 @@ func (r *filesystemLayoutRepository) ConvertToInternal(f *apiv2.FilesystemLayout
 		if err != nil {
 			return nil, err
 		}
-		format, err := metal.ToFormat(formatString)
+		format, err := metal.ToFormat(*formatString)
 		if err != nil {
 			return nil, err
 		}
@@ -178,7 +180,7 @@ func (r *filesystemLayoutRepository) ConvertToInternal(f *apiv2.FilesystemLayout
 				if err != nil {
 					return nil, err
 				}
-				gptType, err := metal.ToGPTType(gptTypeString)
+				gptType, err := metal.ToGPTType(*gptTypeString)
 				if err != nil {
 					return nil, err
 				}
@@ -198,7 +200,7 @@ func (r *filesystemLayoutRepository) ConvertToInternal(f *apiv2.FilesystemLayout
 		if err != nil {
 			return nil, err
 		}
-		level, err := metal.ToRaidLevel(raidLevelString)
+		level, err := metal.ToRaidLevel(*raidLevelString)
 		if err != nil {
 			return nil, err
 		}
@@ -224,7 +226,7 @@ func (r *filesystemLayoutRepository) ConvertToInternal(f *apiv2.FilesystemLayout
 		if err != nil {
 			return nil, err
 		}
-		lvmtype, err := metal.ToLVMType(lvmtypeString)
+		lvmtype, err := metal.ToLVMType(*lvmtypeString)
 		if err != nil {
 			return nil, err
 		}

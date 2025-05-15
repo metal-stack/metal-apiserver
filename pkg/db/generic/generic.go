@@ -13,8 +13,6 @@ const entityAlreadyModifiedErrorMessage = "the entity was changed from another, 
 type (
 	// Entity is an interface that allows metal entities to be created and stored
 	// into the database with the generic creation and update functions.
-	//
-	// see https://go.googlesource.com/proposal/+/HEAD/design/43651-type-parameters.md#pointer-method-example for possible solution to prevent slices of pointers.
 	Entity interface {
 		// GetID returns the entity's id
 		GetID() string
@@ -23,6 +21,8 @@ type (
 		// GetChanged returns the entity's changed time
 		GetChanged() time.Time
 		// SetChanged sets the entity's changed time
+		// TODO: it would be great if SetChanged would be private such that the caller cannot tamper with the modification timestamps
+		//       probably this also applies to SetCreated and SetID
 		SetChanged(changed time.Time)
 		// GetCreated sets the entity's creation time
 		GetCreated() time.Time
@@ -34,7 +34,7 @@ type (
 
 	Storage[E Entity] interface {
 		Create(ctx context.Context, e E) (E, error)
-		Update(ctx context.Context, new, old E) error
+		Update(ctx context.Context, e E) error
 		Upsert(ctx context.Context, e E) error
 		Delete(ctx context.Context, e E) error
 		Get(ctx context.Context, id string) (E, error)
@@ -54,5 +54,9 @@ type (
 		// sizeimageConstraint Storage[*metal.SizeImageConstraint]
 		// sw                  Storage[*metal.Switch]
 		// switchStatus        Storage[*metal.SwitchStatus]
+
+		// Pools
+		AsnPool() *integerPool
+		VrfPool() *integerPool
 	}
 )

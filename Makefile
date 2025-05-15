@@ -22,7 +22,7 @@ server:
 
 .PHONY: test
 test:
-	go test ./... -race -coverprofile=coverage.out -covermode=atomic && go tool cover -func=coverage.out
+	go test ./... -race -coverprofile=coverage.out -covermode=atomic -p 2 -timeout=300s && go tool cover -func=coverage.out
 
 .PHONY: test-opa
 test-opa:
