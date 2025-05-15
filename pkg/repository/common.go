@@ -29,3 +29,12 @@ func checkIfUrlExists(ctx context.Context, entity, id, url string) error {
 
 	return fmt.Errorf("%s:%s is not accessible under:%s statuscode:%d", entity, id, url, resp.StatusCode)
 }
+
+// validate condition, if condition evaluates to false, append formatted error message to given slice of errors.
+// a slice of errors must be passed
+func validate(errs []error, condition bool, format string, args ...any) []error {
+	if !condition {
+		return append(errs, fmt.Errorf(format, args...))
+	}
+	return errs
+}
