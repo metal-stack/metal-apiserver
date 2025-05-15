@@ -267,19 +267,9 @@ func NewPrefixFromCIDR(cidr string) (*Prefix, *netip.Prefix, error) {
 
 // SubtractPrefixes returns the prefixes of the network minus the prefixes passed in the arguments
 func (n *Network) SubtractPrefixes(prefixes ...Prefix) []Prefix {
-	var result []Prefix
-	for _, p := range n.Prefixes {
-		contains := false
-		for i := range prefixes {
-			if p.equals(&prefixes[i]) {
-				contains = true
-				break
-			}
-		}
-		if contains {
-			continue
-		}
-		result = append(result, p)
-	}
-	return result
+	return slices.DeleteFunc(n.Prefixes, func(a Prefix) bool {
+		return slices.ContainsFunc(prefixes, func(b Prefix) bool {
+			return a.equals(&b)
+		})
+	})
 }
