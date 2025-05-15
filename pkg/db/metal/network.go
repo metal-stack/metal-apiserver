@@ -28,8 +28,8 @@ type (
 		Shared                     bool              `rethinkdb:"shared"`
 		Labels                     map[string]string `rethinkdb:"labels"`
 		AdditionalAnnouncableCIDRs []string          `rethinkdb:"additionalannouncablecidrs" description:"list of cidrs which are added to the route maps per tenant private network, these are typically pod- and service cidrs, can only be set in a supernetwork"`
-		NetworkType                *NetworkType      `rethinkdb:"networkType"`
-		NATType                    *NATType          `rethinkdb:"natType"`
+		NetworkType                *NetworkType      `rethinkdb:"networktype"`
+		NATType                    *NATType          `rethinkdb:"nattype"`
 	}
 
 	NATType     string

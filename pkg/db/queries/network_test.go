@@ -100,13 +100,13 @@ func TestNetworkFilter(t *testing.T) {
 	}{
 		{
 			name:    "by id",
-			rq:      &apiv2.NetworkQuery{Id: pointer.Pointer("n1")},
+			rq:      &apiv2.NetworkQuery{Id: &n1.ID},
 			want:    []*metal.Network{n1},
 			wantErr: nil,
 		},
 		{
 			name:    "by id 2",
-			rq:      &apiv2.NetworkQuery{Id: pointer.Pointer("n2")},
+			rq:      &apiv2.NetworkQuery{Id: &n2.ID},
 			want:    []*metal.Network{n2},
 			wantErr: nil,
 		},
@@ -124,25 +124,25 @@ func TestNetworkFilter(t *testing.T) {
 		},
 		{
 			name:    "by project",
-			rq:      &apiv2.NetworkQuery{Project: pointer.Pointer("p1")},
+			rq:      &apiv2.NetworkQuery{Project: &n1.ProjectID},
 			want:    []*metal.Network{n1},
 			wantErr: nil,
 		},
 		{
 			name:    "by parent network",
-			rq:      &apiv2.NetworkQuery{ParentNetworkId: pointer.Pointer("parent-network-2")},
+			rq:      &apiv2.NetworkQuery{ParentNetworkId: &n2.ParentNetworkID},
 			want:    []*metal.Network{n2},
 			wantErr: nil,
 		},
 		{
 			name:    "by partition",
-			rq:      &apiv2.NetworkQuery{Partition: pointer.Pointer("partition-1")},
+			rq:      &apiv2.NetworkQuery{Partition: &n1.PartitionID},
 			want:    []*metal.Network{n1},
 			wantErr: nil,
 		},
 		{
 			name:    "by vrf",
-			rq:      &apiv2.NetworkQuery{Vrf: pointer.Pointer(uint32(42))},
+			rq:      &apiv2.NetworkQuery{Vrf: pointer.Pointer(uint32(n1.Vrf))},
 			want:    []*metal.Network{n1},
 			wantErr: nil,
 		},

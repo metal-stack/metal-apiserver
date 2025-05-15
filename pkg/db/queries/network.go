@@ -69,7 +69,7 @@ func NetworkFilter(rq *apiv2.NetworkQuery) func(q r.Term) r.Term {
 			stringValue, err := enum.GetStringValue(rq.Type)
 			if err == nil {
 				q = q.Filter(func(row r.Term) r.Term {
-					return row.Field("networkType").Eq(stringValue)
+					return row.Field("networktype").Eq(stringValue)
 				})
 			}
 		}
@@ -78,7 +78,7 @@ func NetworkFilter(rq *apiv2.NetworkQuery) func(q r.Term) r.Term {
 			stringValue, err := enum.GetStringValue(*rq.NatType)
 			if err == nil {
 				q = q.Filter(func(row r.Term) r.Term {
-					return row.Field("natType").Eq(stringValue)
+					return row.Field("nattype").Eq(stringValue)
 				})
 			}
 		}
