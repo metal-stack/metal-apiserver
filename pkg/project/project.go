@@ -40,31 +40,16 @@ func ToProject(p *mdcv1.Project) (*apiv2.Project, error) {
 	avatarUrl := p.Meta.Annotations[AvatarURLAnnotation]
 
 	return &apiv2.Project{
-		Uuid:             p.Meta.Id,
-		Name:             p.Name,
-		Description:      p.Description,
-		Tenant:           p.TenantId,
-		IsDefaultProject: IsDefaultProject(p),
+		Uuid:        p.Meta.Id,
+		Name:        p.Name,
+		Description: p.Description,
+		Tenant:      p.TenantId,
 		Meta: &apiv2.Meta{
 			CreatedAt: p.Meta.CreatedTime,
 			UpdatedAt: p.Meta.UpdatedTime,
 		},
 		AvatarUrl: &avatarUrl,
 	}, nil
-}
-
-func IsDefaultProject(p *mdcv1.Project) bool {
-	value, ok := p.Meta.Annotations[DefaultProjectAnnotation]
-	if !ok {
-		return false
-	}
-
-	res, err := strconv.ParseBool(value)
-	if err != nil {
-		return false
-	}
-
-	return res
 }
 
 func GetProjectMember(ctx context.Context, c mdc.Client, projectID, tenantID string) (*mdcv1.ProjectMember, *mdcv1.Project, error) {
@@ -106,28 +91,19 @@ func GetProject(ctx context.Context, c mdc.Client, projectID string) (*mdcv1.Pro
 	return getResp.Project, nil
 }
 
-type DefaultProjectRequirement bool
-
-const (
-	DefaultProjectRequired    DefaultProjectRequirement = true
-	DefaultProjectNotRequired DefaultProjectRequirement = false
-)
-
 type ProjectsAndTenants struct {
-	Projects       []*apiv2.Project
-	DefaultProject *apiv2.Project
-	Tenants        []*apiv2.Tenant
-	DefaultTenant  *apiv2.Tenant
-	ProjectRoles   map[string]apiv2.ProjectRole
-	TenantRoles    map[string]apiv2.TenantRole
+	Projects      []*apiv2.Project
+	Tenants       []*apiv2.Tenant
+	DefaultTenant *apiv2.Tenant
+	ProjectRoles  map[string]apiv2.ProjectRole
+	TenantRoles   map[string]apiv2.TenantRole
 }
 
 // GetProjectsAndTenants returns all projects and tenants that the user is participating in
-func GetProjectsAndTenants(ctx context.Context, masterClient mdc.Client, userId string, defaultIsRequired DefaultProjectRequirement) (*ProjectsAndTenants, error) {
+func GetProjectsAndTenants(ctx context.Context, masterClient mdc.Client, userId string) (*ProjectsAndTenants, error) {
 	var (
-		projectRoles   = map[string]apiv2.ProjectRole{}
-		projects       []*apiv2.Project
-		defaultProject *apiv2.Project
+		projectRoles = map[string]apiv2.ProjectRole{}
+		projects     []*apiv2.Project
 
 		tenantRoles   = map[string]apiv2.TenantRole{}
 		tenants       []*apiv2.Tenant
@@ -150,10 +126,6 @@ func GetProjectsAndTenants(ctx context.Context, masterClient mdc.Client, userId 
 		apip, err := ToProject(p)
 		if err != nil {
 			return nil, fmt.Errorf("unable to convert project %w", err)
-		}
-
-		if p.TenantId == userId && IsDefaultProject(p) {
-			defaultProject = apip
 		}
 
 		projects = append(projects, apip)
@@ -204,23 +176,18 @@ func GetProjectsAndTenants(ctx context.Context, masterClient mdc.Client, userId 
 		tenantRoles[t.Meta.GetId()] = tenantRole
 	}
 
-	if defaultIsRequired && defaultProject == nil {
-		return nil, fmt.Errorf("unable to find a default project for user: %s", userId)
-	}
 	if defaultTenant == nil {
 		return nil, fmt.Errorf("unable to find a default tenant for user: %s", userId)
 	}
 
 	return &ProjectsAndTenants{
-		Tenants:        tenants,
-		Projects:       projects,
-		DefaultTenant:  defaultTenant,
-		DefaultProject: defaultProject,
-		ProjectRoles:   projectRoles,
-		TenantRoles:    tenantRoles,
+		Tenants:       tenants,
+		Projects:      projects,
+		DefaultTenant: defaultTenant,
+		ProjectRoles:  projectRoles,
+		TenantRoles:   tenantRoles,
 	}, nil
 }
-
 
 func EnsureProviderProject(ctx context.Context, masterClient mdc.Client, providerTenantID string) error {
 	ensureMembership := func(projectId string) error {

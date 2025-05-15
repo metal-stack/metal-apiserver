@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -24,7 +23,6 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	mdc "github.com/metal-stack/masterdata-api/pkg/client"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	putil "github.com/metal-stack/metal-apiserver/pkg/project"
 	"github.com/metal-stack/metal-apiserver/pkg/service/token"
@@ -269,15 +267,9 @@ func (a *auth) Callback(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	err = a.ensureDefaultProject(ctx, u)
-	if err != nil {
-		http.Error(res, fmt.Sprintf("unable to create tenant: %v", err), http.StatusInternalServerError)
-		return
-	}
-
 	// Create Token
 
-	pat, err := putil.GetProjectsAndTenants(ctx, a.masterClient, u.login, putil.DefaultProjectRequired)
+	pat, err := putil.GetProjectsAndTenants(ctx, a.masterClient, u.login)
 	if err != nil {
 		http.Error(res, fmt.Sprintf("unable to lookup projects and tenants: %v", err), http.StatusInternalServerError)
 		return
@@ -406,63 +398,4 @@ func (a *auth) ensureTenant(ctx context.Context, u *providerUser) error {
 	})
 
 	return err
-}
-
-// FIXME move to repository
-func (a *auth) ensureDefaultProject(ctx context.Context, u *providerUser) error {
-	ensureMembership := func(projectId string) error {
-		_, _, err := putil.GetProjectMember(ctx, a.masterClient, projectId, u.login)
-		if err == nil {
-			return nil
-		}
-		if connect.CodeOf(err) != connect.CodeNotFound {
-			return err
-		}
-
-		_, err = a.masterClient.ProjectMember().Create(ctx, &mdcv1.ProjectMemberCreateRequest{
-			ProjectMember: &mdcv1.ProjectMember{
-				Meta: &mdcv1.Meta{
-					Annotations: map[string]string{
-						putil.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_OWNER.String(),
-					},
-				},
-				ProjectId: projectId,
-				TenantId:  u.login,
-			},
-		})
-
-		return err
-	}
-
-	resp, err := a.masterClient.Project().Find(ctx, &mdcv1.ProjectFindRequest{
-		TenantId: wrapperspb.String(u.login),
-		Annotations: map[string]string{
-			putil.DefaultProjectAnnotation: strconv.FormatBool(true),
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("unable to get find projects: %w", err)
-	}
-
-	if len(resp.Projects) > 0 {
-		return ensureMembership(resp.Projects[0].Meta.Id)
-	}
-
-	project, err := a.masterClient.Project().Create(ctx, &mdcv1.ProjectCreateRequest{
-		Project: &mdcv1.Project{
-			Meta: &mdcv1.Meta{
-				Annotations: map[string]string{
-					putil.DefaultProjectAnnotation: strconv.FormatBool(true),
-				},
-			},
-			Name:        "Default Project",
-			TenantId:    u.login,
-			Description: "Default project of " + u.login,
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("unable to create project: %w", err)
-	}
-
-	return ensureMembership(project.Project.Meta.Id)
 }

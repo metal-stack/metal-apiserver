@@ -123,11 +123,10 @@ func (r *projectRepository) ConvertToProto(p *mdcv1.Project) (*apiv2.Project, er
 	avatarUrl := p.Meta.Annotations[avatarURLAnnotation]
 
 	return &apiv2.Project{
-		Uuid:             p.Meta.Id,
-		Name:             p.Name,
-		Description:      p.Description,
-		Tenant:           p.TenantId,
-		IsDefaultProject: isDefaultProject(p),
+		Uuid:        p.Meta.Id,
+		Name:        p.Name,
+		Description: p.Description,
+		Tenant:      p.TenantId,
 		Meta: &apiv2.Meta{
 			CreatedAt: p.Meta.CreatedTime,
 			UpdatedAt: p.Meta.UpdatedTime,
