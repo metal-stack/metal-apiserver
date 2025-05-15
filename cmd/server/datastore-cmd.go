@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/urfave/cli/v2"
 	"gopkg.in/rethinkdb/rethinkdb-go.v6"
 
@@ -31,6 +30,7 @@ var datastoreCmd = &cli.Command{
 		rethinkdbDBNameFlag,
 		rethinkdbPasswordFlag,
 		rethinkdbUserFlag,
+		logLevelFlag,
 	},
 	Subcommands: []*cli.Command{
 		{
@@ -70,6 +70,11 @@ var datastoreCmd = &cli.Command{
 					return fmt.Errorf("unable to create logger %w", err)
 				}
 
+				var targetVersion *int
+				if v := ctx.Int(targetVersionFlag.Name); v >= 0 {
+					targetVersion = &v
+				}
+
 				err = generic.Migrate(ctx.Context, rethinkdb.ConnectOpts{
 					Addresses: ctx.StringSlice(rethinkdbAddressesFlag.Name),
 					Database:  ctx.String(rethinkdbDBNameFlag.Name),
@@ -77,7 +82,7 @@ var datastoreCmd = &cli.Command{
 					Password:  ctx.String(rethinkdbPasswordFlag.Name),
 					MaxIdle:   10,
 					MaxOpen:   20,
-				}, log.WithGroup("datastore"), pointer.Pointer(ctx.Int(targetVersionFlag.Name)), ctx.Bool(dryRunFlag.Name))
+				}, log.WithGroup("datastore"), targetVersion, ctx.Bool(dryRunFlag.Name))
 				if err != nil {
 					return fmt.Errorf("unable to initialize datastore: %w", err)
 				}
