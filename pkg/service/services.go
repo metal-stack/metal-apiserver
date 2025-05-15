@@ -179,7 +179,14 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 		AdminSubjects: c.Admins,
 	})
 	versionService := version.New(version.Config{Log: log})
-	healthService, err := health.New(health.Config{Ctx: context.Background(), Log: log, HealthcheckInterval: 1 * time.Minute})
+	healthService, err := health.New(health.Config{
+		Ctx:                  context.Background(),
+		Log:                  log,
+		HealthcheckInterval:  1 * time.Minute,
+		Ipam:                 c.IpamClient,
+		Masterdata:           c.MasterClient,
+		RethinkDBConnectOpts: &c.RethinkDBConnectOpts,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize health service %w", err)
 	}
