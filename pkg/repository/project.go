@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"errors"
-	"strconv"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
@@ -112,8 +111,7 @@ func (r *projectRepository) ConvertToInternal(p *apiv2.Project) (*mdcv1.Project,
 // FIXME copied over from pkg/project/project.go
 // remove there once all services are converted to repo
 const (
-	defaultProjectAnnotation = "metal-stack.io/default-project"
-	avatarURLAnnotation      = "avatarUrl"
+	avatarURLAnnotation = "avatarUrl"
 )
 
 func (r *projectRepository) ConvertToProto(p *mdcv1.Project) (*apiv2.Project, error) {
@@ -134,17 +132,4 @@ func (r *projectRepository) ConvertToProto(p *mdcv1.Project) (*apiv2.Project, er
 		AvatarUrl: &avatarUrl,
 	}, nil
 
-}
-func isDefaultProject(p *mdcv1.Project) bool {
-	value, ok := p.Meta.Annotations[defaultProjectAnnotation]
-	if !ok {
-		return false
-	}
-
-	res, err := strconv.ParseBool(value)
-	if err != nil {
-		return false
-	}
-
-	return res
 }

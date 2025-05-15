@@ -263,10 +263,6 @@ func (p *projectServiceServer) Delete(ctx context.Context, rq *connect.Request[a
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no project found with id %q: %w", req.Project, err))
 	}
 
-	if t.AdminRole != nil && *t.AdminRole == apiv2.AdminRole_ADMIN_ROLE_EDITOR {
-		// we allow deleting default-projects with admins explicitly in order to allow an admin to fully delete a tenant on demand
-	}
-
 	// FIXME check for machines and networks first
 
 	ips, err := p.repo.IP(req.Project).List(ctx, &apiv2.IPQuery{Project: &req.Project})
