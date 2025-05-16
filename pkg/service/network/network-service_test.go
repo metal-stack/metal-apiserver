@@ -609,6 +609,21 @@ func Test_networkServiceServer_Create(t *testing.T) {
 			wantErr: nil,
 		},
 		{
+			name: "simple network defaults to v4 with empty length",
+			rq:   &apiv2.NetworkServiceCreateRequest{Project: "p1", Name: pointer.Pointer("My Machine Network"), Length: &apiv2.ChildPrefixLength{}, Partition: pointer.Pointer("partition-one")},
+			want: &apiv2.NetworkServiceCreateResponse{
+				Network: &apiv2.Network{
+					Name:            pointer.Pointer("My Machine Network"),
+					Meta:            &apiv2.Meta{},
+					ParentNetworkId: pointer.Pointer("tenant-super-network"),
+					Partition:       pointer.Pointer("partition-one"),
+					Project:         pointer.Pointer("p1"),
+					Prefixes:        []string{"10.100.4.0/22"},
+					Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
+				}},
+			wantErr: nil,
+		},
+		{
 			name: "simple network defaults to v6",
 			rq:   &apiv2.NetworkServiceCreateRequest{Project: "p1", Name: pointer.Pointer("My Machine Network"), Partition: pointer.Pointer("partition-two")},
 			want: &apiv2.NetworkServiceCreateResponse{

@@ -608,7 +608,8 @@ func (r *networkRepository) allocateChildPrefixes(ctx context.Context, projectId
 	}
 
 	length := parent.DefaultChildPrefixLength
-	if requestedLength != nil {
+	if requestedLength != nil && (requestedLength.Ipv4 != nil || requestedLength.Ipv6 != nil) {
+		// FIXME in case requestedLength is Zero, length is returned zero as well
 		l, err := metal.ToChildPrefixLength(requestedLength, parent.Prefixes)
 		if err != nil {
 			return nil, nil, errorutil.NewInvalidArgument(err)
@@ -668,6 +669,11 @@ func (r *networkRepository) createChildPrefix(ctx context.Context, namespace *st
 			Namespace: namespace,
 		}))
 		if err != nil {
+			// If in one of the prefixes is not enough room for a prefix, ignore it an proceed
+			// hopefully one of the prefixes has one left.
+			if errorutil.IsNotFound(err) {
+				continue
+			}
 			errs = append(errs, fmt.Errorf("unable to acquire child prefix:%v", err))
 			continue
 		}
