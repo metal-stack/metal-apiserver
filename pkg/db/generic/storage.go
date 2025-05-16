@@ -165,8 +165,6 @@ func (s *storage[E]) Get(ctx context.Context, id string) (E, error) {
 	return *e, nil
 }
 
-
-
 // Update updates the entity to the contents of the new entity.
 //
 // it uses the "changed" timestamp of the old entity to figure out if it was already modified by some other process.
