@@ -434,6 +434,14 @@ func Test_ipServiceServer_Create(t *testing.T) {
 	nws := []*adminv2.NetworkServiceCreateRequest{
 		{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.3.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: pointer.Pointer(uint32(11))},
 		{Id: pointer.Pointer("internetv6"), Prefixes: []string{"2001:db8::/96"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: pointer.Pointer(uint32(12))},
+		{
+			Id:        pointer.Pointer("external-with-project"),
+			Project:   pointer.Pointer("p1"),
+			Prefixes:  []string{"192.168.3.0/24"},
+			Type:      apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
+			Vrf:       pointer.Pointer(uint32(45)),
+			Partition: pointer.Pointer("partition-three"),
+		},
 		{Id: pointer.Pointer("tenant-network"), Partition: pointer.Pointer("partition-one"), Prefixes: []string{"10.2.0.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_SUPER, DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(28))}},
 		{Id: pointer.Pointer("tenant-network-v6"), Partition: pointer.Pointer("partition-two"), Prefixes: []string{"2001:db8:1::/64"}, Type: apiv2.NetworkType_NETWORK_TYPE_SUPER, DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv6: pointer.Pointer(uint32(80))}},
 		{Id: pointer.Pointer("tenant-network-dualstack"), Partition: pointer.Pointer("partition-three"), Prefixes: []string{"10.3.0.0/24", "2001:db8:2::/64"}, Type: apiv2.NetworkType_NETWORK_TYPE_SUPER, DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(28)), Ipv6: pointer.Pointer(uint32(80))}},
@@ -603,7 +611,28 @@ func Test_ipServiceServer_Create(t *testing.T) {
 				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(),
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("ip creation not allowed in network %s", childNetworksMap["private-namespaced-2"]),
+			wantErr: errorutil.InvalidArgument("not allowed to create ip with project p1 in network %s scoped to project p2", childNetworksMap["private-namespaced-2"]),
+		},
+		{
+			name: "create ip in project-scoped external network",
+			rq: &apiv2.IPServiceCreateRequest{
+				Network: "external-with-project",
+				Project: "p1",
+				Type:    apiv2.IPType_IP_TYPE_STATIC.Enum(),
+			},
+			want: &apiv2.IPServiceCreateResponse{
+				Ip: &apiv2.IP{Ip: "192.168.3.1", Network: "external-with-project", Project: "p1", Type: apiv2.IPType_IP_TYPE_STATIC, Meta: &apiv2.Meta{}},
+			},
+		},
+		{
+			name: "create ip from external network with different project is not allowed",
+			rq: &apiv2.IPServiceCreateRequest{
+				Network: "external-with-project",
+				Project: "p2",
+				Type:    apiv2.IPType_IP_TYPE_STATIC.Enum(),
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument("not allowed to create ip with project p2 in network external-with-project scoped to project p1"),
 		},
 	}
 	for _, tt := range tests {

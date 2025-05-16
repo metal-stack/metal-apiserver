@@ -143,9 +143,20 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 			return nil, err
 		}
 
-		vrf, err := r.r.ds.VrfPool().AcquireRandomUniqueInteger(ctx)
-		if err != nil {
-			return nil, errorutil.Internal("could not acquire a vrf: %w", err)
+		var vrf uint
+		if parent.Vrf > 0 {
+			vrf = parent.Vrf
+		}
+
+		if vrf == 0 {
+			vrf, err = r.r.ds.VrfPool().AcquireRandomUniqueInteger(ctx)
+			if err != nil {
+				return nil, errorutil.Internal("could not acquire a vrf: %w", err)
+			}
+		}
+
+		if partition == "" {
+			partition = parent.PartitionID
 		}
 
 		// Inherit nat from Parent
@@ -634,7 +645,7 @@ func (r *networkRepository) allocateChildPrefixes(ctx context.Context, projectId
 	for af, l := range length {
 		childPrefix, err := r.createChildPrefix(ctx, namespace, parent.Prefixes, af, l)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, errorutil.InvalidArgument("error creating child network in parent %s:%w", parent.ID, err)
 		}
 		prefixes = append(prefixes, *childPrefix)
 	}
