@@ -45,13 +45,6 @@ func TestGenericCRUD(t *testing.T) {
 	require.Equal(t, "Modified IP", updated.Description)
 	require.NotNil(t, updated.Changed)
 
-	// Check Unique
-	err = ds.IP().CheckAlreadyExists(ctx, "1.2.3.4")
-	require.EqualError(t, err, errorutil.Conflict("ip with id:1.2.3.4 already exists").Error())
-
-	err = ds.IP().CheckAlreadyExists(ctx, "1.2.3.5")
-	require.NoError(t, err)
-
 	// Delete does not give a notfound
 	err = ds.IP().Delete(ctx, &metal.IP{IPAddress: "1.2.3.5"})
 	require.NoError(t, err)

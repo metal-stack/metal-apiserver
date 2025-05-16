@@ -18,8 +18,8 @@ import (
 func (r *networkRepository) ValidateCreate(ctx context.Context, req *adminv2.NetworkServiceCreateRequest) (*Validated[*adminv2.NetworkServiceCreateRequest], error) {
 	r.r.log.Debug("validate create", "req", req)
 	if req.Id != nil {
-		if err := r.r.ds.Network().CheckAlreadyExists(ctx, *req.Id); err != nil {
-			return nil, err
+		if checkAlreadyExists(ctx, r.r.ds.Network(), *req.Id) {
+			return nil, errorutil.Conflict("network with id:%s already exists", *req.Id)
 		}
 	}
 

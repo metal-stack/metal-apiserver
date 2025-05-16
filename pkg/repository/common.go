@@ -10,6 +10,8 @@ import (
 	"time"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 )
 
 func checkIfUrlExists(ctx context.Context, entity, id, url string) error {
@@ -113,4 +115,12 @@ func updateLabelsOnMap(rq *apiv2.UpdateLabels, existingLabels map[string]string)
 	}
 
 	return result
+}
+
+func checkAlreadyExists[E generic.Entity](ctx context.Context, s generic.Storage[E], id string) bool {
+	_, err := s.Get(ctx, id)
+	if !errorutil.IsNotFound(err) {
+		return true
+	}
+	return false
 }
