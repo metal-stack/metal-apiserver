@@ -12,6 +12,7 @@ import (
 
 const (
 	// TODO: maybe should move to metal-lib?
+	// FIXME: overlaps with metalstack.cloud annotations
 	TagEmail       = "metal-stack.io/email"
 	TagPhoneNumber = "metal-stack.io/phone"
 	TagAvatarURL   = "metal-stack.io/avatarurl"
@@ -24,6 +25,8 @@ const (
 	// Master Tenant Project ID must be present on every metal-stack installation
 	MasterTenantProjectId = "00000000-0000-0000-0000-000000000000"
 )
+
+// FIXME this should go to tenant repository
 
 func TenantRoleFromMap(annotations map[string]string) apiv2.TenantRole {
 	if annotations == nil {

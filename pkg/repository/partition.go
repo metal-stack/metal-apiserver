@@ -26,6 +26,7 @@ type partitionRepository struct {
 }
 
 func validatePartition(ctx context.Context, partition *apiv2.Partition) error {
+	//FIXME use validate helper
 	if partition.Id == "" {
 		return errorutil.InvalidArgument("partition id must not be empty")
 	}

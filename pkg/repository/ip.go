@@ -47,14 +47,16 @@ func (r *ipRepository) MatchScope(ip *metal.IP) error {
 		return nil
 	}
 
-	if r.scope.projectID == ip.ProjectID {
+	eventualIP := pointer.SafeDeref(ip)
+	if r.scope.projectID == eventualIP.ProjectID {
 		return nil
 	}
 
-	return errorutil.NotFound("ip:%s for project:%s not found", ip.IPAddress, ip.ProjectID)
+	return errorutil.NotFound("ip:%s project:%s for scope:%s not found", eventualIP.IPAddress, eventualIP.ProjectID, r.scope.projectID)
 }
 
 func (r *ipRepository) ValidateCreate(ctx context.Context, req *apiv2.IPServiceCreateRequest) (*Validated[*apiv2.IPServiceCreateRequest], error) {
+	// FIXME use validate helper
 	if req.Network == "" {
 		return nil, errorutil.InvalidArgument("network should not be empty")
 	}
@@ -85,6 +87,8 @@ func (r *ipRepository) ValidateUpdate(ctx context.Context, req *apiv2.IPServiceU
 }
 
 func (r *ipRepository) ValidateDelete(ctx context.Context, req *metal.IP) (*Validated[*metal.IP], error) {
+	// FIXME use validate helper
+
 	if req.IPAddress == "" {
 		return nil, errorutil.InvalidArgument("ipaddress is empty")
 	}
@@ -146,34 +150,34 @@ func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServic
 	}
 	projectID := p.Meta.Id
 
-	nw, err := r.r.Network(req.Project).Get(ctx, req.Network)
+	nw, err := r.r.UnscopedNetwork().Get(ctx, req.Network)
 	if err != nil {
 		return nil, err
 	}
 
+	if nw.ProjectID != "" && nw.ProjectID != req.Project {
+		return nil, errorutil.InvalidArgument("ip creation not allowed in network %s", req.Network)
+	}
+
 	var af *metal.AddressFamily
 	if req.AddressFamily != nil {
-		switch *req.AddressFamily {
-		case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4:
-			af = pointer.Pointer(metal.IPv4AddressFamily)
-		case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6:
-			af = pointer.Pointer(metal.IPv6AddressFamily)
-		case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_UNSPECIFIED:
-			return nil, errorutil.InvalidArgument("unsupported addressfamily")
-		default:
-			return nil, errorutil.InvalidArgument("unsupported addressfamily")
+		convertedAf, err := metal.ToAddressFamily(*req.AddressFamily)
+		if err != nil {
+			return nil, errorutil.NewInvalidArgument(err)
 		}
 
-		if !slices.Contains(nw.Prefixes.AddressFamilies(), *af) {
-			return nil, errorutil.InvalidArgument("there is no prefix for the given addressfamily:%s present in network:%s %s", *af, req.Network, nw.Prefixes.AddressFamilies())
+		if !slices.Contains(nw.Prefixes.AddressFamilies(), convertedAf) {
+			return nil, errorutil.InvalidArgument("there is no prefix for the given addressfamily:%s present in network:%s %s", convertedAf, req.Network, nw.Prefixes.AddressFamilies())
 		}
 		if req.Ip != nil {
 			return nil, errorutil.InvalidArgument("it is not possible to specify specificIP and addressfamily")
 		}
+		af = &convertedAf
 	}
 
 	// for private, unshared networks the project id must be the same
 	// for external networks the project id is not checked
+	// FIXME convert to use network Type
 	if !nw.Shared && nw.ParentNetworkID != "" && p.Meta.Id != nw.ProjectID {
 		return nil, errorutil.InvalidArgument("can not allocate ip for project %q because network belongs to %q and the network is not shared", p.Meta.Id, nw.ProjectID)
 	}
@@ -264,8 +268,7 @@ func (r *ipRepository) Update(ctx context.Context, req *Validated[*apiv2.IPServi
 		new.Type = t
 	}
 	if rq.Labels != nil {
-		tags := tag.TagMap(rq.Labels.Labels).Slice()
-		new.Tags = tags
+		new.Tags = updateLabelsOnSlice(rq.Labels, new.Tags)
 	}
 
 	err = r.r.ds.IP().Update(ctx, &new)
@@ -293,7 +296,7 @@ func (r *ipRepository) Delete(ctx context.Context, rq *Validated[*metal.IP]) (*m
 }
 
 func (r *ipRepository) Find(ctx context.Context, rq *apiv2.IPQuery) (*metal.IP, error) {
-	ip, err := r.r.ds.IP().Find(ctx, r.scopedFilters(queries.IpFilter(rq))...)
+	ip, err := r.r.ds.IP().Find(ctx, r.scopedIPFilters(queries.IpFilter(rq))...)
 	if err != nil {
 		return nil, err
 	}
@@ -302,7 +305,7 @@ func (r *ipRepository) Find(ctx context.Context, rq *apiv2.IPQuery) (*metal.IP, 
 }
 
 func (r *ipRepository) List(ctx context.Context, rq *apiv2.IPQuery) ([]*metal.IP, error) {
-	ip, err := r.r.ds.IP().List(ctx, r.scopedFilters(queries.IpFilter(rq))...)
+	ip, err := r.r.ds.IP().List(ctx, r.scopedIPFilters(queries.IpFilter(rq))...)
 	if err != nil {
 		return nil, err
 	}
@@ -331,7 +334,7 @@ func (r *ipRepository) allocateSpecificIP(ctx context.Context, parent *metal.Net
 			continue
 		}
 
-		resp, err := r.r.ipam.AcquireIP(ctx, connect.NewRequest(&ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String(), Ip: &specificIP}))
+		resp, err := r.r.ipam.AcquireIP(ctx, connect.NewRequest(&ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String(), Ip: &specificIP, Namespace: parent.Namespace}))
 		if err != nil {
 			return "", "", err
 		}
@@ -350,8 +353,9 @@ func (r *ipRepository) allocateRandomIP(ctx context.Context, parent *metal.Netwo
 		addressfamily = parent.Prefixes.AddressFamilies()[0]
 	}
 
+	r.r.log.Debug("allocateRandomIP from", "network", parent.ID, "addressfamily", addressfamily)
 	for _, prefix := range parent.Prefixes.OfFamily(addressfamily) {
-		resp, err := r.r.ipam.AcquireIP(ctx, connect.NewRequest(&ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String()}))
+		resp, err := r.r.ipam.AcquireIP(ctx, connect.NewRequest(&ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String(), Namespace: parent.Namespace}))
 		if err != nil {
 			if errorutil.IsNotFound(err) {
 				continue
@@ -428,7 +432,12 @@ func (r *Store) IpDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
 	}
 	r.log.Info("ds find", "metalip", metalIP)
 
-	_, err = r.ipam.ReleaseIP(ctx, connect.NewRequest(&ipamapiv1.ReleaseIPRequest{PrefixCidr: metalIP.ParentPrefixCidr, Ip: metalIP.IPAddress}))
+	metalNW, err := r.ds.Network().Get(ctx, metalIP.NetworkID)
+	if err != nil {
+		return fmt.Errorf("unable to retrieve parent network: %w", err)
+	}
+
+	_, err = r.ipam.ReleaseIP(ctx, connect.NewRequest(&ipamapiv1.ReleaseIPRequest{PrefixCidr: metalIP.ParentPrefixCidr, Ip: metalIP.IPAddress, Namespace: metalNW.Namespace}))
 	if err != nil && !errorutil.IsNotFound(err) {
 		r.log.Error("ipam release", "error", err)
 		return err
@@ -443,9 +452,8 @@ func (r *Store) IpDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
 	return nil
 }
 
-func (r *ipRepository) scopedFilters(filter generic.EntityQuery) []generic.EntityQuery {
+func (r *ipRepository) scopedIPFilters(filter generic.EntityQuery) []generic.EntityQuery {
 	var qs []generic.EntityQuery
-	r.r.log.Info("scopedFilters", "scope", r.scope)
 	if r.scope != nil {
 		qs = append(qs, queries.IpProjectScoped(r.scope.projectID))
 	}

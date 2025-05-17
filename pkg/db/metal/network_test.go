@@ -105,3 +105,82 @@ func TestPrefixes_AddressFamilies(t *testing.T) {
 		})
 	}
 }
+
+func TestNetwork_SubtractPrefixes(t *testing.T) {
+	tests := []struct {
+		name     string
+		existing metal.Prefixes
+		subtract metal.Prefixes
+		want     metal.Prefixes
+	}{
+		{
+			name: "subtract single prefix from existing prefixes",
+			existing: metal.Prefixes{
+				{IP: "1.2.3.4", Length: "32"},
+				{IP: "2.3.4.5", Length: "32"},
+				{IP: "3.4.5.6", Length: "32"},
+				{IP: "10.0.0.0", Length: "8"},
+			},
+			subtract: metal.Prefixes{
+				{IP: "2.3.4.5", Length: "32"},
+			},
+			want: metal.Prefixes{
+				{IP: "1.2.3.4", Length: "32"},
+				{IP: "3.4.5.6", Length: "32"},
+				{IP: "10.0.0.0", Length: "8"},
+			},
+		},
+		{
+			name: "subtract two prefix from existing prefixes",
+			existing: metal.Prefixes{
+				{IP: "1.2.3.4", Length: "32"},
+				{IP: "2.3.4.5", Length: "32"},
+				{IP: "3.4.5.6", Length: "32"},
+				{IP: "10.0.0.0", Length: "8"},
+			},
+			subtract: metal.Prefixes{
+				{IP: "2.3.4.5", Length: "32"},
+				{IP: "10.0.0.0", Length: "8"},
+			},
+			want: metal.Prefixes{
+				{IP: "1.2.3.4", Length: "32"},
+				{IP: "3.4.5.6", Length: "32"},
+			},
+		},
+		{
+			name: "subtract non existing prefix",
+			existing: metal.Prefixes{
+				{IP: "1.2.3.4", Length: "32"},
+				{IP: "2.3.4.5", Length: "32"},
+				{IP: "3.4.5.6", Length: "32"},
+				{IP: "10.0.0.0", Length: "8"},
+			},
+			subtract: metal.Prefixes{
+				{IP: "255.255.255.0", Length: "24"},
+			},
+			want: metal.Prefixes{
+				{IP: "1.2.3.4", Length: "32"},
+				{IP: "2.3.4.5", Length: "32"},
+				{IP: "3.4.5.6", Length: "32"},
+				{IP: "10.0.0.0", Length: "8"},
+			},
+		},
+		{
+			name:     "subtract from empty",
+			existing: nil,
+			subtract: metal.Prefixes{
+				{IP: "255.255.255.0", Length: "24"},
+			},
+			want: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			n := &metal.Network{Prefixes: tt.existing}
+
+			if diff := cmp.Diff(tt.want, metal.Prefixes(n.SubtractPrefixes(tt.subtract...))); diff != "" {
+				t.Errorf("diff = %s", diff)
+			}
+		})
+	}
+}

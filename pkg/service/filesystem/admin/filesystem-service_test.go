@@ -91,9 +91,7 @@ func Test_filesystemServiceServer_Create(t *testing.T) {
 			}
 			if diff := cmp.Diff(
 				tt.want, pointer.SafeDeref(got).Msg,
-				cmp.Options{
-					protocmp.Transform(),
-				},
+				protocmp.Transform(),
 			); diff != "" {
 				t.Errorf("imageServiceServer.Create() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
 			}
@@ -186,9 +184,7 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 			}
 			if diff := cmp.Diff(
 				tt.want, pointer.SafeDeref(got).Msg,
-				cmp.Options{
-					protocmp.Transform(),
-				},
+				protocmp.Transform(),
 			); diff != "" {
 				t.Errorf("imageServiceServer.Create() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
 			}
@@ -274,9 +270,7 @@ func Test_filesystemServiceServer_Delete(t *testing.T) {
 			}
 			if diff := cmp.Diff(
 				tt.want, pointer.SafeDeref(got).Msg,
-				cmp.Options{
-					protocmp.Transform(),
-				},
+				protocmp.Transform(),
 			); diff != "" {
 				t.Errorf("imageServiceServer.Create() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
 			}
