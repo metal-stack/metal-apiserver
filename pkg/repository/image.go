@@ -24,6 +24,7 @@ type imageRepository struct {
 }
 
 func (r *imageRepository) ValidateCreate(ctx context.Context, req *adminv2.ImageServiceCreateRequest) (*Validated[*adminv2.ImageServiceCreateRequest], error) {
+	// FIXME use validate helper
 	image := req.Image
 	if image.Id == "" {
 		return nil, errorutil.InvalidArgument("image id must not be empty")
@@ -59,6 +60,7 @@ func (r *imageRepository) ValidateCreate(ctx context.Context, req *adminv2.Image
 }
 
 func (r *imageRepository) ValidateUpdate(ctx context.Context, req *adminv2.ImageServiceUpdateRequest) (*Validated[*adminv2.ImageServiceUpdateRequest], error) {
+	// FIXME use validate helper
 	image := req.Image
 	if image.Id == "" {
 		return nil, errorutil.InvalidArgument("image id must not be empty")

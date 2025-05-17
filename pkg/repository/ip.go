@@ -56,6 +56,7 @@ func (r *ipRepository) MatchScope(ip *metal.IP) error {
 }
 
 func (r *ipRepository) ValidateCreate(ctx context.Context, req *apiv2.IPServiceCreateRequest) (*Validated[*apiv2.IPServiceCreateRequest], error) {
+	// FIXME use validate helper
 	if req.Network == "" {
 		return nil, errorutil.InvalidArgument("network should not be empty")
 	}
@@ -86,6 +87,8 @@ func (r *ipRepository) ValidateUpdate(ctx context.Context, req *apiv2.IPServiceU
 }
 
 func (r *ipRepository) ValidateDelete(ctx context.Context, req *metal.IP) (*Validated[*metal.IP], error) {
+	// FIXME use validate helper
+
 	if req.IPAddress == "" {
 		return nil, errorutil.InvalidArgument("ipaddress is empty")
 	}
