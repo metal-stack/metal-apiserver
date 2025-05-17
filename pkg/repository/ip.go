@@ -156,7 +156,7 @@ func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServic
 	}
 
 	if nw.ProjectID != "" && nw.ProjectID != req.Project {
-		return nil, errorutil.InvalidArgument("ip creation not allowed in network %s", req.Network)
+		return nil, errorutil.InvalidArgument("not allowed to create ip with project %s in network %s scoped to project %s", req.Project, req.Network, nw.ProjectID)
 	}
 
 	var af *metal.AddressFamily

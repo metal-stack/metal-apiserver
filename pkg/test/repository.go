@@ -12,6 +12,7 @@ import (
 	"github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	"github.com/metal-stack/masterdata-api/pkg/client"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
@@ -123,11 +124,18 @@ func DeleteNetworks(t *testing.T, testStore *testStore) {
 	_, err := r.DB("metal").Table("network").Delete().RunWrite(testStore.queryExecutor)
 	require.NoError(t, err)
 
-	resp, err := testStore.ipam.ListPrefixes(t.Context(), connect.NewRequest(&ipamv1.ListPrefixesRequest{}))
+	nsResp, err := testStore.ipam.ListNamespaces(t.Context(), connect.NewRequest(&ipamv1.ListNamespacesRequest{}))
 	require.NoError(t, err)
-	for _, prefix := range resp.Msg.Prefixes {
-		_, err := testStore.ipam.DeletePrefix(t.Context(), connect.NewRequest(&ipamv1.DeletePrefixRequest{Cidr: prefix.Cidr}))
+
+	for _, ns := range nsResp.Msg.Namespace {
+		resp, err := testStore.ipam.ListPrefixes(t.Context(), connect.NewRequest(&ipamv1.ListPrefixesRequest{
+			Namespace: pointer.Pointer(ns),
+		}))
 		require.NoError(t, err)
+		for _, prefix := range resp.Msg.Prefixes {
+			_, err := testStore.ipam.DeletePrefix(t.Context(), connect.NewRequest(&ipamv1.DeletePrefixRequest{Cidr: prefix.Cidr}))
+			require.NoError(t, err)
+		}
 	}
 }
 

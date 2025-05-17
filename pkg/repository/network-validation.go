@@ -117,7 +117,7 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 		}
 
 		if parent.ProjectID != "" && parent.ProjectID != *req.Project {
-			return errorutil.InvalidArgument("child network creation not allowed in network %s", *req.ParentNetworkId)
+			return errorutil.InvalidArgument("not allowed to create child network with project %s in network %s scoped to project %s", *req.Project, *req.ParentNetworkId, parent.ProjectID)
 		}
 
 		parentNetwork = parent
@@ -216,8 +216,11 @@ func (r *networkRepository) validateCreateNetworkTypeSuper(ctx context.Context, 
 	if req.Partition != nil && req.Type == apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED {
 		return errorutil.InvalidArgument("partition must not be specified for namespaced private super")
 	}
-	if err := r.networkTypeInPartitionPossible(ctx, req.Partition, &req.Type); err != nil {
-		return err
+
+	if req.Partition != nil {
+		if err := r.networkTypeInPartitionPossible(ctx, req.Partition, &req.Type); err != nil {
+			return err
+		}
 	}
 
 	prefixes, err := metal.NewPrefixesFromCIDRs(req.Prefixes)
