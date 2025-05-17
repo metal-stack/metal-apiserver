@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"connectrpc.com/connect"
+	"github.com/google/go-cmp/cmp"
+	"github.com/metal-stack/metal-lib/pkg/testcommon"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -164,6 +166,45 @@ func TestIsInternal(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := IsInternal(tt.err); got != tt.want {
 				t.Errorf("IsInternal() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestWrapping(t *testing.T) {
+	tests := []struct {
+		name    string
+		err     error
+		wantErr error
+	}{
+		{
+			name:    "one error",
+			err:     Internal("something went wrong"),
+			wantErr: connect.NewError(connect.CodeInternal, errors.New("something went wrong")),
+		},
+
+		{
+			name:    "two errors",
+			err:     Internal("wrapping error: %w", fmt.Errorf("root error")),
+			wantErr: connect.NewError(connect.CodeInternal, errors.New("wrapping error: root error")),
+		},
+		{
+			name:    "two errors upside down",
+			err:     fmt.Errorf("wrapping error: %w", Internal("root error")),
+			wantErr: connect.NewError(connect.CodeInternal, errors.New("wrapping error: internal: root error")),
+		},
+
+		{
+			name:    "converted two errors upside down",
+			err:     Convert(fmt.Errorf("wrapping error: %w", Internal("root error"))),
+			wantErr: connect.NewError(connect.CodeInternal, errors.New("wrapping error: internal: root error")),
+		},
+	}
+	for i := range tests {
+		tt := tests[i]
+		t.Run(tt.name, func(t *testing.T) {
+			if diff := cmp.Diff(tt.wantErr, tt.err, testcommon.ErrorStringComparer()); diff != "" {
+				t.Errorf("wrappig()  %v", diff)
 			}
 		})
 	}
