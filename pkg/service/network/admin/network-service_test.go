@@ -93,6 +93,8 @@ func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 					Project:         pointer.Pointer("p1"),
 					ParentNetworkId: pointer.Pointer("tenant-super-network"),
 					Prefixes:        []string{"10.100.0.0/22"},
+					Partition:       pointer.Pointer("partition-one"),
+					Vrf:             pointer.Pointer(uint32(20)),
 				},
 			},
 			wantErr: nil,
@@ -125,6 +127,7 @@ func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 					Partition:       pointer.Pointer("partition-one"),
 					ParentNetworkId: pointer.Pointer("tenant-super-network"),
 					Prefixes:        []string{"10.100.0.0/22"},
+					Vrf:             pointer.Pointer(uint32(30)),
 				},
 			},
 			wantErr: nil,
@@ -156,6 +159,202 @@ func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 					Namespace:       pointer.Pointer("p1"),
 					ParentNetworkId: pointer.Pointer("tenant-super-network-namespaced"),
 					Prefixes:        []string{"10.100.0.0/22"},
+					Vrf:             pointer.Pointer(uint32(35)),
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "create child network from super network with vrf",
+			preparefn: func(t *testing.T) {
+				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+					{
+						Id:                       pointer.Pointer("tenant-super-with-vrf"),
+						Prefixes:                 []string{"10.100.0.0/14"},
+						DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+						Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
+						Vrf:                      pointer.Pointer(uint32(45)),
+					},
+				})
+			},
+			rq: &adminv2.NetworkServiceCreateRequest{
+				Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD,
+				Name:            pointer.Pointer("private-1"),
+				Project:         pointer.Pointer("p1"),
+				ParentNetworkId: pointer.Pointer("tenant-super-with-vrf"),
+			},
+			want: &adminv2.NetworkServiceCreateResponse{
+				Network: &apiv2.Network{
+					Meta:            &apiv2.Meta{},
+					Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
+					Name:            pointer.Pointer("private-1"),
+					Project:         pointer.Pointer("p1"),
+					ParentNetworkId: pointer.Pointer("tenant-super-with-vrf"),
+					Prefixes:        []string{"10.100.0.0/22"},
+					Vrf:             pointer.Pointer(uint32(45)),
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "create child network from super network with partition and inherit partition",
+			preparefn: func(t *testing.T) {
+				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+					{
+						Id:                       pointer.Pointer("tenant-super-with-partition"),
+						Prefixes:                 []string{"10.100.0.0/14"},
+						DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+						Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
+						Partition:                pointer.Pointer("partition-one"),
+						Vrf:                      pointer.Pointer(uint32(46)),
+					},
+				})
+			},
+			rq: &adminv2.NetworkServiceCreateRequest{
+				Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD,
+				Name:            pointer.Pointer("private-1"),
+				Project:         pointer.Pointer("p1"),
+				ParentNetworkId: pointer.Pointer("tenant-super-with-partition"),
+			},
+			want: &adminv2.NetworkServiceCreateResponse{
+				Network: &apiv2.Network{
+					Meta:            &apiv2.Meta{},
+					Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
+					Name:            pointer.Pointer("private-1"),
+					Project:         pointer.Pointer("p1"),
+					ParentNetworkId: pointer.Pointer("tenant-super-with-partition"),
+					Prefixes:        []string{"10.100.0.0/22"},
+					Partition:       pointer.Pointer("partition-one"),
+					Vrf:             pointer.Pointer(uint32(46)),
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "create child network from super network with destination prefixes",
+			preparefn: func(t *testing.T) {
+				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+					{
+						Id:                       pointer.Pointer("tenant-super-with-dst-prefixes"),
+						Prefixes:                 []string{"10.100.0.0/14"},
+						DestinationPrefixes:      []string{"1.2.3.0/24"},
+						DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+						Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
+						Vrf:                      pointer.Pointer(uint32(47)),
+					},
+				})
+			},
+			rq: &adminv2.NetworkServiceCreateRequest{
+				Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD,
+				Name:            pointer.Pointer("private-1"),
+				Project:         pointer.Pointer("p1"),
+				ParentNetworkId: pointer.Pointer("tenant-super-with-dst-prefixes"),
+			},
+			want: &adminv2.NetworkServiceCreateResponse{
+				Network: &apiv2.Network{
+					Meta:                &apiv2.Meta{},
+					Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
+					Name:                pointer.Pointer("private-1"),
+					Project:             pointer.Pointer("p1"),
+					ParentNetworkId:     pointer.Pointer("tenant-super-with-dst-prefixes"),
+					Prefixes:            []string{"10.100.0.0/22"},
+					DestinationPrefixes: []string{"1.2.3.0/24"},
+					Vrf:                 pointer.Pointer(uint32(47)),
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "create child network from project scoped super network",
+			preparefn: func(t *testing.T) {
+				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+					{
+						Id:                       pointer.Pointer("project-scoped-tenant-super"),
+						Prefixes:                 []string{"10.100.0.0/14"},
+						DestinationPrefixes:      []string{"1.2.3.0/24"},
+						DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+						Project:                  pointer.Pointer("p1"),
+						Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
+						Vrf:                      pointer.Pointer(uint32(48)),
+					},
+				})
+			},
+			rq: &adminv2.NetworkServiceCreateRequest{
+				Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD,
+				Name:            pointer.Pointer("private-1"),
+				Project:         pointer.Pointer("p1"),
+				ParentNetworkId: pointer.Pointer("project-scoped-tenant-super"),
+			},
+			want: &adminv2.NetworkServiceCreateResponse{
+				Network: &apiv2.Network{
+					Meta:                &apiv2.Meta{},
+					Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
+					Name:                pointer.Pointer("private-1"),
+					Project:             pointer.Pointer("p1"),
+					ParentNetworkId:     pointer.Pointer("project-scoped-tenant-super"),
+					Prefixes:            []string{"10.100.0.0/22"},
+					DestinationPrefixes: []string{"1.2.3.0/24"},
+					Vrf:                 pointer.Pointer(uint32(48)),
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "create child network with invalid project from project scoped super network",
+			preparefn: func(t *testing.T) {
+				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+					{
+						Id:                       pointer.Pointer("project-scoped-tenant-super"),
+						Prefixes:                 []string{"10.100.0.0/14"},
+						DestinationPrefixes:      []string{"1.2.3.0/24"},
+						DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+						Project:                  pointer.Pointer("p1"),
+						Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
+						Vrf:                      pointer.Pointer(uint32(49)),
+					},
+				})
+			},
+			rq: &adminv2.NetworkServiceCreateRequest{
+				Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD,
+				Name:            pointer.Pointer("private-1"),
+				Project:         pointer.Pointer("p2"),
+				ParentNetworkId: pointer.Pointer("project-scoped-tenant-super"),
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument("not allowed to create child network with project p2 in network project-scoped-tenant-super scoped to project p1"),
+		},
+		{
+			name: "create child network from namespaced super network",
+			preparefn: func(t *testing.T) {
+				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+					{
+						Id:                       pointer.Pointer("project-scoped-tenant-super"),
+						Prefixes:                 []string{"10.100.0.0/14"},
+						DestinationPrefixes:      []string{"1.2.3.0/24"},
+						DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+						Project:                  pointer.Pointer("p1"),
+						Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED,
+						Vrf:                      pointer.Pointer(uint32(49)),
+					},
+				})
+			},
+			rq: &adminv2.NetworkServiceCreateRequest{
+				Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD,
+				Name:            pointer.Pointer("private-1"),
+				Project:         pointer.Pointer("p1"),
+				ParentNetworkId: pointer.Pointer("project-scoped-tenant-super"),
+			},
+			want: &adminv2.NetworkServiceCreateResponse{
+				Network: &apiv2.Network{
+					Meta:                &apiv2.Meta{},
+					Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
+					Name:                pointer.Pointer("private-1"),
+					Project:             pointer.Pointer("p1"),
+					ParentNetworkId:     pointer.Pointer("project-scoped-tenant-super"),
+					Prefixes:            []string{"10.100.0.0/22"},
+					DestinationPrefixes: []string{"1.2.3.0/24"},
+					Namespace:           pointer.Pointer("p1"),
+					Vrf:                 pointer.Pointer(uint32(49)),
 				},
 			},
 			wantErr: nil,
@@ -186,7 +385,7 @@ func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 				tt.want, pointer.SafeDeref(got).Msg,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
-					&apiv2.Network{}, "consumption", "id", "vrf",
+					&apiv2.Network{}, "consumption", "id",
 				),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
@@ -365,7 +564,7 @@ func Test_networkServiceServer_CreateSuper(t *testing.T) {
 			wantErr: errorutil.InvalidArgument(`given cidr:"3.4.5.6.0/23" in additional announcable cidrs is malformed:netip.ParsePrefix("3.4.5.6.0/23"): ParseAddr("3.4.5.6.0"): IPv4 address too long`),
 		},
 		{
-			name:      "create a super network",
+			name:      "create a super network without vrf",
 			preparefn: nil,
 			rq: &adminv2.NetworkServiceCreateRequest{
 				Id:                         pointer.Pointer("tenant-super-network"),
@@ -386,6 +585,259 @@ func Test_networkServiceServer_CreateSuper(t *testing.T) {
 					AdditionalAnnouncableCidrs: []string{"10.240.0.0/12"},
 					Type:                       apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
 					Partition:                  pointer.Pointer("partition-one"),
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:      "create a super network with vrf",
+			preparefn: nil,
+			rq: &adminv2.NetworkServiceCreateRequest{
+				Id:                         pointer.Pointer("tenant-super-network"),
+				Prefixes:                   []string{"10.100.0.0/14", "2001:db8::/96"},
+				DefaultChildPrefixLength:   &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22)), Ipv6: pointer.Pointer(uint32(112))},
+				MinChildPrefixLength:       &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(20)), Ipv6: pointer.Pointer(uint32(104))},
+				AdditionalAnnouncableCidrs: []string{"10.240.0.0/12"},
+				Type:                       apiv2.NetworkType_NETWORK_TYPE_SUPER,
+				Partition:                  pointer.Pointer("partition-one"),
+				Vrf:                        pointer.Pointer(uint32(45)),
+			},
+			want: &adminv2.NetworkServiceCreateResponse{
+				Network: &apiv2.Network{
+					Id:                         "tenant-super-network",
+					Meta:                       &apiv2.Meta{},
+					Prefixes:                   []string{"10.100.0.0/14", "2001:db8::/96"},
+					DefaultChildPrefixLength:   &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22)), Ipv6: pointer.Pointer(uint32(112))},
+					MinChildPrefixLength:       &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(20)), Ipv6: pointer.Pointer(uint32(104))},
+					AdditionalAnnouncableCidrs: []string{"10.240.0.0/12"},
+					Type:                       apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
+					Partition:                  pointer.Pointer("partition-one"),
+					Vrf:                        pointer.Pointer(uint32(45)),
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "create a second super network without partition",
+			preparefn: func(t *testing.T) {
+				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+					{
+						Id:                       pointer.Pointer("tenant-super-network"),
+						Prefixes:                 []string{"10.100.0.0/14"},
+						DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+						Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
+					},
+				})
+			},
+			rq: &adminv2.NetworkServiceCreateRequest{
+				Id:                       pointer.Pointer("tenant-super-network-2"),
+				Prefixes:                 []string{"10.200.0.0/14"},
+				DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+				MinChildPrefixLength:     &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(20))},
+				Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
+			},
+			want: &adminv2.NetworkServiceCreateResponse{
+				Network: &apiv2.Network{
+					Id:                       "tenant-super-network",
+					Meta:                     &apiv2.Meta{},
+					Prefixes:                 []string{"10.200.0.0/14"},
+					DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+					MinChildPrefixLength:     &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(20))},
+					Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
+				},
+			},
+			wantErr: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			n := &networkServiceServer{
+				log:  log,
+				repo: repo,
+			}
+
+			defer func() {
+				test.DeleteNetworks(t, testStore)
+			}()
+
+			if tt.preparefn != nil {
+				tt.preparefn(t)
+			}
+
+			got, err := n.Create(ctx, connect.NewRequest(tt.rq))
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("diff = %s", diff)
+			}
+
+			if diff := cmp.Diff(
+				tt.want, pointer.SafeDeref(got).Msg,
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Network{}, "consumption", "id", "vrf",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
+			); diff != "" {
+				t.Errorf("networkServiceServer.Create() = %v, want %vņdiff: %s", pointer.SafeDeref(got).Msg, tt.want, diff)
+			}
+		})
+	}
+}
+
+func Test_networkServiceServer_CreateSuperNamespaced(t *testing.T) {
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	defer closer()
+	repo := testStore.Store
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintln(w, "a image")
+	}))
+	defer ts.Close()
+
+	validURL := ts.URL
+
+	ctx := t.Context()
+
+	test.CreateTenants(t, repo, tenants)
+	test.CreateProjects(t, repo, projects)
+
+	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+		{Partition: &apiv2.Partition{Id: "partition-two", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+	})
+
+	tests := []struct {
+		name      string
+		preparefn func(t *testing.T)
+		rq        *adminv2.NetworkServiceCreateRequest
+		want      *adminv2.NetworkServiceCreateResponse
+		wantErr   error
+	}{
+		{
+			name:      "create a namespaced super network without defaultchildprefixlength",
+			preparefn: nil,
+			rq: &adminv2.NetworkServiceCreateRequest{
+				Id:       pointer.Pointer("tenant-super-network"),
+				Prefixes: []string{"10.100.0.0/14"},
+				Type:     apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED,
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument("default child prefix length must not be nil"),
+		},
+		{
+			name:      "create a namespaced super network with partition is not allowed",
+			preparefn: nil,
+			rq: &adminv2.NetworkServiceCreateRequest{
+				Id:                       pointer.Pointer("tenant-super-network"),
+				Prefixes:                 []string{"10.100.0.0/14"},
+				DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+				Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED,
+				Partition:                pointer.Pointer("partition-one"),
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument("partition must not be specified for namespaced private super"),
+		},
+		{
+			name:      "create a super network with defaultchildprefixlength but wrong af",
+			preparefn: nil,
+			rq: &adminv2.NetworkServiceCreateRequest{
+				Id:                       pointer.Pointer("tenant-super-network"),
+				Prefixes:                 []string{"10.100.0.0/14"},
+				DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv6: pointer.Pointer(uint32(112))},
+				Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED,
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument(`childprefixlength for addressfamily: "IPv6" specified, but no "IPv6" addressfamily found in prefixes`),
+		},
+		{
+			name:      "create a super network with childprefixlength but wrong length",
+			preparefn: nil,
+			rq: &adminv2.NetworkServiceCreateRequest{
+				Id:                       pointer.Pointer("tenant-super-network"),
+				Prefixes:                 []string{"10.100.0.0/24"},
+				DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+				Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED,
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument(`given childprefixlength 22 is not greater than prefix length of:10.100.0.0/24`),
+		},
+		{
+			name:      "create a super network with minchildprefixlength but wrong length",
+			preparefn: nil,
+			rq: &adminv2.NetworkServiceCreateRequest{
+				Id:                       pointer.Pointer("tenant-super-network"),
+				Prefixes:                 []string{"10.100.0.0/24"},
+				DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(26))},
+				MinChildPrefixLength:     &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(20))},
+				Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED,
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument(`given childprefixlength 20 is not greater than prefix length of:10.100.0.0/24`),
+		},
+		{
+			name:      "create a super network with minchildprefixlength but wrong length",
+			preparefn: nil,
+			rq: &adminv2.NetworkServiceCreateRequest{
+				Id:                         pointer.Pointer("tenant-super-network"),
+				Prefixes:                   []string{"10.100.0.0/24"},
+				DefaultChildPrefixLength:   &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(26))},
+				MinChildPrefixLength:       &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(25))},
+				AdditionalAnnouncableCidrs: []string{"3.4.5.6.0/23"},
+				Type:                       apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED,
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument(`given cidr:"3.4.5.6.0/23" in additional announcable cidrs is malformed:netip.ParsePrefix("3.4.5.6.0/23"): ParseAddr("3.4.5.6.0"): IPv4 address too long`),
+		},
+		{
+			name:      "create a namespaced super network without vrf",
+			preparefn: nil,
+			rq: &adminv2.NetworkServiceCreateRequest{
+				Id:                         pointer.Pointer("tenant-super-network"),
+				Prefixes:                   []string{"10.100.0.0/14", "2001:db8::/96"},
+				DefaultChildPrefixLength:   &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22)), Ipv6: pointer.Pointer(uint32(112))},
+				MinChildPrefixLength:       &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(20)), Ipv6: pointer.Pointer(uint32(104))},
+				AdditionalAnnouncableCidrs: []string{"10.240.0.0/12"},
+				Type:                       apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED,
+			},
+			want: &adminv2.NetworkServiceCreateResponse{
+				Network: &apiv2.Network{
+					Id:                         "tenant-super-network",
+					Meta:                       &apiv2.Meta{},
+					Prefixes:                   []string{"10.100.0.0/14", "2001:db8::/96"},
+					DefaultChildPrefixLength:   &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22)), Ipv6: pointer.Pointer(uint32(112))},
+					MinChildPrefixLength:       &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(20)), Ipv6: pointer.Pointer(uint32(104))},
+					AdditionalAnnouncableCidrs: []string{"10.240.0.0/12"},
+					Type:                       apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED.Enum(),
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:      "create a namespaced super network with vrf",
+			preparefn: nil,
+			rq: &adminv2.NetworkServiceCreateRequest{
+				Id:                         pointer.Pointer("tenant-super-network"),
+				Prefixes:                   []string{"10.100.0.0/14", "2001:db8::/96"},
+				DefaultChildPrefixLength:   &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22)), Ipv6: pointer.Pointer(uint32(112))},
+				MinChildPrefixLength:       &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(20)), Ipv6: pointer.Pointer(uint32(104))},
+				AdditionalAnnouncableCidrs: []string{"10.240.0.0/12"},
+				Type:                       apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED,
+				Vrf:                        pointer.Pointer(uint32(45)),
+			},
+			want: &adminv2.NetworkServiceCreateResponse{
+				Network: &apiv2.Network{
+					Id:                         "tenant-super-network",
+					Meta:                       &apiv2.Meta{},
+					Prefixes:                   []string{"10.100.0.0/14", "2001:db8::/96"},
+					DefaultChildPrefixLength:   &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22)), Ipv6: pointer.Pointer(uint32(112))},
+					MinChildPrefixLength:       &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(20)), Ipv6: pointer.Pointer(uint32(104))},
+					AdditionalAnnouncableCidrs: []string{"10.240.0.0/12"},
+					Type:                       apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED.Enum(),
+					Vrf:                        pointer.Pointer(uint32(45)),
 				},
 			},
 			wantErr: nil,
@@ -568,6 +1020,42 @@ func Test_networkServiceServer_CreateExternal(t *testing.T) {
 					Id:       "internet",
 					Meta:     &apiv2.Meta{},
 					Prefixes: []string{"1.2.3.0/24"},
+					Vrf:      pointer.Pointer(uint32(91)),
+					Type:     apiv2.NetworkType_NETWORK_TYPE_EXTERNAL.Enum(),
+				}},
+			wantErr: nil,
+		},
+		{
+			name: "multiple prefixes of same af",
+			rq: &adminv2.NetworkServiceCreateRequest{
+				Id:       pointer.Pointer("internet"),
+				Prefixes: []string{"1.2.3.0/24", "2.3.4.0/24"},
+				Type:     apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
+				Vrf:      pointer.Pointer(uint32(91)),
+			},
+			want: &adminv2.NetworkServiceCreateResponse{
+				Network: &apiv2.Network{
+					Id:       "internet",
+					Meta:     &apiv2.Meta{},
+					Prefixes: []string{"1.2.3.0/24", "2.3.4.0/24"},
+					Vrf:      pointer.Pointer(uint32(91)),
+					Type:     apiv2.NetworkType_NETWORK_TYPE_EXTERNAL.Enum(),
+				}},
+			wantErr: nil,
+		},
+		{
+			name: "multiple prefixes of mixed af",
+			rq: &adminv2.NetworkServiceCreateRequest{
+				Id:       pointer.Pointer("internet"),
+				Prefixes: []string{"1.2.3.0/24", "2.3.4.0/24", "2001:db8::/64", "2002:db8::/64"},
+				Type:     apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
+				Vrf:      pointer.Pointer(uint32(91)),
+			},
+			want: &adminv2.NetworkServiceCreateResponse{
+				Network: &apiv2.Network{
+					Id:       "internet",
+					Meta:     &apiv2.Meta{},
+					Prefixes: []string{"1.2.3.0/24", "2.3.4.0/24", "2001:db8::/64", "2002:db8::/64"},
 					Vrf:      pointer.Pointer(uint32(91)),
 					Type:     apiv2.NetworkType_NETWORK_TYPE_EXTERNAL.Enum(),
 				}},
