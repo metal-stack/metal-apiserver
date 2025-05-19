@@ -119,6 +119,14 @@ func ToNATType(nt apiv2.NATType) (NATType, error) {
 	return InvalidNATType, fmt.Errorf("given natType:%q is invalid", nt)
 }
 
+func FromNATType(nt NATType) (apiv2.NATType, error) {
+	apiv2NatType, err := enum.GetEnum[apiv2.NATType](string(nt))
+	if err != nil {
+		return apiv2.NATType_NAT_TYPE_UNSPECIFIED, fmt.Errorf("given nat type %q is invalid", nt)
+	}
+	return apiv2NatType, nil
+}
+
 func ToAddressFamily(af apiv2.IPAddressFamily) (AddressFamily, error) {
 	switch af {
 	case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4:

@@ -11,6 +11,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-lib/pkg/pointer"
 )
 
 type Config struct {
@@ -92,7 +93,6 @@ func (n *networkServiceServer) Delete(ctx context.Context, rq *connect.Request[a
 
 // Get implements apiv2connect.NetworkServiceHandler.
 func (n *networkServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2.NetworkServiceGetRequest]) (*connect.Response[apiv2.NetworkServiceGetResponse], error) {
-
 	req := rq.Msg
 
 	// Project is already checked in the tenant-interceptor, ipam must not be consulted
@@ -136,23 +136,35 @@ func (n *networkServiceServer) List(ctx context.Context, rq *connect.Request[api
 // ListBaseNetworks implements apiv2connect.NetworkServiceHandler.
 func (n *networkServiceServer) ListBaseNetworks(ctx context.Context, rq *connect.Request[apiv2.NetworkServiceListBaseNetworksRequest]) (*connect.Response[apiv2.NetworkServiceListBaseNetworksResponse], error) {
 	req := rq.Msg
-	resp, err := n.repo.UnscopedNetwork().List(ctx, req.Query)
+
+	projectNetworks, err := n.repo.Network(req.Project).List(ctx, req.Query)
+	if err != nil {
+		return nil, err
+	}
+
+	baseNetworksQuery := req.Query
+	baseNetworksQuery.Project = pointer.Pointer("")
+
+	baseNetworks, err := n.repo.UnscopedNetwork().List(ctx, baseNetworksQuery)
 	if err != nil {
 		return nil, err
 	}
 
 	var res []*apiv2.Network
-	for _, nw := range resp {
+	for _, nw := range append(baseNetworks, projectNetworks...) {
 		// TODO convert to a equivalent reql query
-		if nw.NetworkType == nil {
-			continue
-		}
-		switch *nw.NetworkType {
-		case metal.ChildSharedNetworkType, metal.ExternalNetworkType:
+		switch pointer.SafeDeref(nw.NetworkType) {
+		case metal.ChildSharedNetworkType, metal.ExternalNetworkType, metal.SuperNetworkType, metal.SuperNamespacedNetworkType:
 			converted, err := n.repo.UnscopedNetwork().ConvertToProto(nw)
 			if err != nil {
 				return nil, errorutil.Convert(err)
 			}
+
+			// users should not see usage of global networks, only admins
+			if nw.ProjectID == "" {
+				converted.Consumption = nil
+			}
+
 			res = append(res, converted)
 		}
 	}

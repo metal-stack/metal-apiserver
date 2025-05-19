@@ -29,6 +29,24 @@ func New(c Config) adminv2connect.NetworkServiceHandler {
 	}
 }
 
+func (n *networkServiceServer) Get(ctx context.Context, rq *connect.Request[adminv2.NetworkServiceGetRequest]) (*connect.Response[adminv2.NetworkServiceGetResponse], error) {
+	req := rq.Msg
+
+	// Project is already checked in the tenant-interceptor, ipam must not be consulted
+	resp, err := n.repo.UnscopedNetwork().Get(ctx, req.Id)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+	converted, err := n.repo.UnscopedNetwork().ConvertToProto(resp)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
+	return connect.NewResponse(&adminv2.NetworkServiceGetResponse{
+		Network: converted,
+	}), nil
+}
+
 // Create implements adminv2connect.NetworkServiceHandler.
 func (n *networkServiceServer) Create(ctx context.Context, rq *connect.Request[adminv2.NetworkServiceCreateRequest]) (*connect.Response[adminv2.NetworkServiceCreateResponse], error) {
 	req := rq.Msg

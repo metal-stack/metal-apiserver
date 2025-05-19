@@ -425,21 +425,14 @@ func (r *networkRepository) ConvertToProto(e *metal.Network) (*apiv2.Network, er
 		}
 	}
 
-	if e.Nat {
-		natType = apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE.Enum()
+	if e.NATType != nil {
+		nt, err := metal.FromNATType(*e.NATType)
+		if err != nil {
+			return nil, err
+		}
+		natType = &nt
 	}
-	if e.PrivateSuper {
-		networkType = apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum()
-	}
-	if e.Shared {
-		networkType = apiv2.NetworkType_NETWORK_TYPE_EXTERNAL.Enum()
-	}
-	if e.Underlay {
-		networkType = apiv2.NetworkType_NETWORK_TYPE_UNDERLAY.Enum()
-	}
-	if e.ParentNetworkID != "" {
-		networkType = apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum()
-	}
+
 	if e.NetworkType != nil {
 		nwt, err := metal.FromNetworkType(*e.NetworkType)
 		if err != nil {
@@ -447,7 +440,6 @@ func (r *networkRepository) ConvertToProto(e *metal.Network) (*apiv2.Network, er
 		}
 		networkType = &nwt
 	}
-	// TODO: how to detect private super shared vrf
 
 	defaultChildPrefixLength, err := r.toProtoChildPrefixLength(e.DefaultChildPrefixLength)
 	if err != nil {
