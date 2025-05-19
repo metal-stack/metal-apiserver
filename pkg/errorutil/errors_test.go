@@ -182,29 +182,27 @@ func TestWrapping(t *testing.T) {
 			err:     Internal("something went wrong"),
 			wantErr: connect.NewError(connect.CodeInternal, errors.New("something went wrong")),
 		},
-
 		{
 			name:    "two errors",
 			err:     Internal("wrapping error: %w", fmt.Errorf("root error")),
-			wantErr: connect.NewError(connect.CodeInternal, errors.New("wrapping error: root error")),
+			wantErr: connect.NewError(connect.CodeInternal, fmt.Errorf("wrapping error: %w", errors.New("root error"))),
 		},
 		{
 			name:    "two errors upside down",
 			err:     fmt.Errorf("wrapping error: %w", Internal("root error")),
-			wantErr: connect.NewError(connect.CodeInternal, errors.New("wrapping error: internal: root error")),
+			wantErr: fmt.Errorf("wrapping error: %w", connect.NewError(connect.CodeInternal, errors.New("root error"))),
 		},
-
 		{
 			name:    "converted two errors upside down",
 			err:     Convert(fmt.Errorf("wrapping error: %w", Internal("root error"))),
-			wantErr: connect.NewError(connect.CodeInternal, errors.New("wrapping error: internal: root error")),
+			wantErr: connect.NewError(connect.CodeInternal, fmt.Errorf("wrapping error: %w", connect.NewError(connect.CodeInternal, errors.New("root error")))),
 		},
 	}
 	for i := range tests {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			if diff := cmp.Diff(tt.wantErr, tt.err, testcommon.ErrorStringComparer()); diff != "" {
-				t.Errorf("wrappig()  %v", diff)
+				t.Errorf("wrapping() %v", diff)
 			}
 		})
 	}
