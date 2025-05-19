@@ -17,9 +17,12 @@ import (
 
 // Convert compares the error and maps it to a appropriate connect.Error
 func Convert(err error) *connect.Error {
+	// Ipam or other connect errors
 	var connectErr *connect.Error
 	if errors.As(err, &connectErr) {
-		// Ipam or other connect errors
+		// when the connect error is wrapped deeper a tree, connect.Error() calls the string function on
+		// the error and adds things like "internal: ..."
+		// so we replace the wrapped error message with the direct message
 		cleaned := strings.Replace(err.Error(), connectErr.Error(), connectErr.Message(), 1)
 		return connect.NewError(connectErr.Code(), errors.New(cleaned))
 	}
@@ -28,7 +31,7 @@ func Convert(err error) *connect.Error {
 	if code := status.Code(err); code != codes.Unknown {
 		// when the grpc error is wrapped deeper a tree, status.FromError calls the string function on
 		// the error and adds "rpc error: ..."
-		// so we unwrap the grpc status on our own and replace the error message with the direct code
+		// so we unwrap the grpc status on our own and replace the error message with the direct message
 		type grpcstatus interface{ GRPCStatus() *status.Status }
 		var (
 			iterErr = err
