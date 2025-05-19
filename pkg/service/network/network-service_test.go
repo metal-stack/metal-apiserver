@@ -751,7 +751,7 @@ func Test_networkServiceServer_Create(t *testing.T) {
 				ParentNetworkId: pointer.Pointer("super-with-project"),
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("child network creation not allowed in network super-with-project"),
+			wantErr: errorutil.InvalidArgument("not allowed to create child network with project p2 in network super-with-project scoped to project p1"),
 		},
 	}
 	for _, tt := range tests {
