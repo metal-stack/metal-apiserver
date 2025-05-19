@@ -241,9 +241,8 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 	if req.Vrf != nil {
 		vrf, err = r.r.ds.VrfPool().AcquireUniqueInteger(ctx, uint(*req.Vrf))
 		if err != nil {
-			if !errorutil.IsConflict(err) {
-				return nil, errorutil.InvalidArgument("could not acquire vrf: %w", err)
-			}
+			return nil, err
+
 		}
 	}
 
