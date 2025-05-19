@@ -125,6 +125,15 @@ func IsUnauthenticated(err error) bool {
 
 // IsNotFound compares the given error if it is a NotFound and returns true, otherwise false
 func notFound(err error) *connect.Error {
+
+	// Ipam or other connect error
+	var connectErr *connect.Error
+	if errors.As(err, &connectErr) {
+		if connectErr.Code() == connect.CodeNotFound {
+			return connectErr
+		}
+	}
+
 	// Masterdata Error
 	if mdcv1.IsNotFound(err) {
 		st, ok := status.FromError(err)
@@ -139,6 +148,15 @@ func notFound(err error) *connect.Error {
 
 // IsConflict compares the given error if it is a Conflict and returns true, otherwise false
 func conflict(err error) *connect.Error {
+
+	// Ipam or other connect error
+	var connectErr *connect.Error
+	if errors.As(err, &connectErr) {
+		if connectErr.Code() == connect.CodeAlreadyExists {
+			return connectErr
+		}
+	}
+
 	// Masterdata Error
 	if mdcv1.IsConflict(err) {
 		st, ok := status.FromError(err)
@@ -153,6 +171,15 @@ func conflict(err error) *connect.Error {
 
 // IsInternal compares the given error if it is a InternalServer and returns true, otherwise false
 func internal(err error) *connect.Error {
+
+	// Ipam or other connect error
+	var connectErr *connect.Error
+	if errors.As(err, &connectErr) {
+		if connectErr.Code() == connect.CodeInternal {
+			return connectErr
+		}
+	}
+
 	// Masterdata Error
 	if mdcv1.IsInternal(err) {
 		st, ok := status.FromError(err)
@@ -167,6 +194,15 @@ func internal(err error) *connect.Error {
 
 // IsInvalidArgument compares the given error if it is a InvalidArgument and returns true, otherwise false
 func invalidArgument(err error) *connect.Error {
+
+	// Ipam or other connect error
+	var connectErr *connect.Error
+	if errors.As(err, &connectErr) {
+		if connectErr.Code() == connect.CodeInvalidArgument {
+			return connectErr
+		}
+	}
+
 	// Masterdata Error
 	if mdcv1.IsOptimistickLockError(err) {
 		st, ok := status.FromError(err)
@@ -180,7 +216,16 @@ func invalidArgument(err error) *connect.Error {
 }
 
 // unauthenticated compares the given error if it is a unauthenticated and returns true, otherwise false
-func unauthenticated(_ error) *connect.Error {
+func unauthenticated(err error) *connect.Error {
+
+	// Ipam or other connect error
+	var connectErr *connect.Error
+	if errors.As(err, &connectErr) {
+		if connectErr.Code() == connect.CodeUnauthenticated {
+			return connectErr
+		}
+	}
+
 	return nil
 }
 
