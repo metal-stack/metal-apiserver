@@ -171,7 +171,7 @@ func TestIsInternal(t *testing.T) {
 	}
 }
 
-func TestWrapping(t *testing.T) {
+func TestWrappedInternal(t *testing.T) {
 	tests := []struct {
 		name    string
 		err     error
@@ -192,16 +192,58 @@ func TestWrapping(t *testing.T) {
 			err:     fmt.Errorf("wrapping error: %w", Internal("root error")),
 			wantErr: fmt.Errorf("wrapping error: %w", connect.NewError(connect.CodeInternal, errors.New("root error"))),
 		},
-		{
-			name:    "converted two errors upside down",
-			err:     Convert(fmt.Errorf("wrapping error: %w", Internal("root error"))),
-			wantErr: connect.NewError(connect.CodeInternal, fmt.Errorf("wrapping error: %w", connect.NewError(connect.CodeInternal, errors.New("root error")))),
-		},
 	}
 	for i := range tests {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			if diff := cmp.Diff(tt.wantErr, tt.err, testcommon.ErrorStringComparer()); diff != "" {
+				t.Errorf("wrapping() %v", diff)
+			}
+		})
+	}
+}
+
+func TestConvert(t *testing.T) {
+	tests := []struct {
+		name    string
+		err     error
+		wantErr error
+	}{
+		{
+			name:    "non specific error",
+			err:     fmt.Errorf("something went wrong"),
+			wantErr: connect.NewError(connect.CodeInternal, errors.New("something went wrong")),
+		},
+		{
+			name:    "passing connect error",
+			err:     Internal("something went wrong"),
+			wantErr: connect.NewError(connect.CodeInternal, errors.New("something went wrong")),
+		},
+		{
+			name:    "wrapped connect error",
+			err:     Internal("wrapping error: %w", fmt.Errorf("root error")),
+			wantErr: connect.NewError(connect.CodeInternal, fmt.Errorf("wrapping error: %w", errors.New("root error"))),
+		},
+		{
+			name:    "wrapped connect error gets unwrapped",
+			err:     fmt.Errorf("wrapping error: %w", Internal("root error")),
+			wantErr: connect.NewError(connect.CodeInternal, fmt.Errorf("wrapping error: root error")),
+		},
+		{
+			name:    "grpc error gets converted",
+			err:     status.Errorf(codes.AlreadyExists, "project already exists"), // TODO: check if this is really returned by a grpc client like that
+			wantErr: connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("project already exists")),
+		},
+		{
+			name:    "wrapped grpc error gets unwrapped",
+			err:     fmt.Errorf("wrapping error: %w", status.Errorf(codes.AlreadyExists, "project already exists")),
+			wantErr: connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("wrapping error: project already exists")),
+		},
+	}
+	for i := range tests {
+		tt := tests[i]
+		t.Run(tt.name, func(t *testing.T) {
+			if diff := cmp.Diff(tt.wantErr, Convert(tt.err), testcommon.ErrorStringComparer()); diff != "" {
 				t.Errorf("wrapping() %v", diff)
 			}
 		})

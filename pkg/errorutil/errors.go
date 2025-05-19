@@ -3,8 +3,10 @@ package errorutil
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"connectrpc.com/connect"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/google/go-cmp/cmp"
@@ -15,20 +17,36 @@ import (
 
 // Convert compares the error and maps it to a appropriate connect.Error
 func Convert(err error) *connect.Error {
-	if err := notFound(err); err != nil {
-		return err
+	var connectErr *connect.Error
+	if errors.As(err, &connectErr) {
+		// Ipam or other connect errors
+		cleaned := strings.Replace(err.Error(), connectErr.Error(), connectErr.Message(), 1)
+		return connect.NewError(connectErr.Code(), errors.New(cleaned))
 	}
-	if err := conflict(err); err != nil {
-		return err
-	}
-	if err := invalidArgument(err); err != nil {
-		return err
-	}
-	if err := internal(err); err != nil {
-		return err
-	}
-	if err := unauthenticated(err); err != nil {
-		return err
+
+	// for masterdata-api or other pure grpc apis
+	if code := status.Code(err); code != codes.Unknown {
+		// when the grpc error is wrapped deeper a tree, status.FromError calls the string function on
+		// the error and adds "rpc error: ..."
+		// so we unwrap the grpc status on our own and replace the error message with the direct code
+		type grpcstatus interface{ GRPCStatus() *status.Status }
+		var (
+			iterErr = err
+		)
+
+		for {
+			st, ok := iterErr.(grpcstatus)
+			if ok {
+				cleaned := strings.Replace(err.Error(), st.GRPCStatus().String(), st.GRPCStatus().Message(), 1)
+				return connect.NewError(connect.Code(st.GRPCStatus().Code()), errors.New(cleaned))
+			}
+
+			iterErr = errors.Unwrap(iterErr)
+			if iterErr == nil {
+				// just a theoretical case
+				return connect.NewError(connect.Code(code), err)
+			}
+		}
 	}
 
 	return connect.NewError(connect.CodeInternal, err)
@@ -107,15 +125,6 @@ func IsUnauthenticated(err error) bool {
 
 // IsNotFound compares the given error if it is a NotFound and returns true, otherwise false
 func notFound(err error) *connect.Error {
-
-	// Ipam or other connect error
-	var connectErr *connect.Error
-	if errors.As(err, &connectErr) {
-		if connectErr.Code() == connect.CodeNotFound {
-			return connectErr
-		}
-	}
-
 	// Masterdata Error
 	if mdcv1.IsNotFound(err) {
 		st, ok := status.FromError(err)
@@ -130,15 +139,6 @@ func notFound(err error) *connect.Error {
 
 // IsConflict compares the given error if it is a Conflict and returns true, otherwise false
 func conflict(err error) *connect.Error {
-
-	// Ipam or other connect error
-	var connectErr *connect.Error
-	if errors.As(err, &connectErr) {
-		if connectErr.Code() == connect.CodeAlreadyExists {
-			return connectErr
-		}
-	}
-
 	// Masterdata Error
 	if mdcv1.IsConflict(err) {
 		st, ok := status.FromError(err)
@@ -153,15 +153,6 @@ func conflict(err error) *connect.Error {
 
 // IsInternal compares the given error if it is a InternalServer and returns true, otherwise false
 func internal(err error) *connect.Error {
-
-	// Ipam or other connect error
-	var connectErr *connect.Error
-	if errors.As(err, &connectErr) {
-		if connectErr.Code() == connect.CodeInternal {
-			return connectErr
-		}
-	}
-
 	// Masterdata Error
 	if mdcv1.IsInternal(err) {
 		st, ok := status.FromError(err)
@@ -176,15 +167,6 @@ func internal(err error) *connect.Error {
 
 // IsInvalidArgument compares the given error if it is a InvalidArgument and returns true, otherwise false
 func invalidArgument(err error) *connect.Error {
-
-	// Ipam or other connect error
-	var connectErr *connect.Error
-	if errors.As(err, &connectErr) {
-		if connectErr.Code() == connect.CodeInvalidArgument {
-			return connectErr
-		}
-	}
-
 	// Masterdata Error
 	if mdcv1.IsOptimistickLockError(err) {
 		st, ok := status.FromError(err)
@@ -198,16 +180,7 @@ func invalidArgument(err error) *connect.Error {
 }
 
 // unauthenticated compares the given error if it is a unauthenticated and returns true, otherwise false
-func unauthenticated(err error) *connect.Error {
-
-	// Ipam or other connect error
-	var connectErr *connect.Error
-	if errors.As(err, &connectErr) {
-		if connectErr.Code() == connect.CodeUnauthenticated {
-			return connectErr
-		}
-	}
-
+func unauthenticated(_ error) *connect.Error {
 	return nil
 }
 
