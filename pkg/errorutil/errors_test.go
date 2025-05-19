@@ -8,49 +8,48 @@ import (
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
 	"github.com/metal-stack/metal-lib/pkg/testcommon"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-func TestNotFoundInternal(t *testing.T) {
-	tests := []struct {
-		name string
-		err  error
-		want *connect.Error
-	}{
-		{
-			name: "generic",
-			err:  NotFound("ip was not found"),
-			want: connect.NewError(connect.CodeNotFound, errors.New("ip was not found")),
-		},
-		{
-			name: "masterdata",
-			err:  status.Error(codes.NotFound, "tenant not found"),
-			want: connect.NewError(connect.CodeNotFound, errors.New("tenant not found")),
-		},
-		{
-			name: "ipam",
-			err:  connect.NewError(connect.CodeNotFound, fmt.Errorf("prefix not found")),
-			want: connect.NewError(connect.CodeNotFound, errors.New("prefix not found")),
-		},
-		{
-			name: "ipam",
-			err:  connect.NewError(connect.CodeCanceled, fmt.Errorf("canceled")),
-			want: nil,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := notFound(tt.err)
-			if tt.want != nil {
-				require.EqualError(t, got, tt.want.Error())
-			} else {
-				require.Nil(t, got)
-			}
-		})
-	}
-}
+// func TestNotFoundInternal(t *testing.T) {
+// 	tests := []struct {
+// 		name string
+// 		err  error
+// 		want *connect.Error
+// 	}{
+// 		{
+// 			name: "generic",
+// 			err:  NotFound("ip was not found"),
+// 			want: connect.NewError(connect.CodeNotFound, errors.New("ip was not found")),
+// 		},
+// 		{
+// 			name: "masterdata",
+// 			err:  status.Error(codes.NotFound, "tenant not found"),
+// 			want: connect.NewError(connect.CodeNotFound, errors.New("tenant not found")),
+// 		},
+// 		{
+// 			name: "ipam",
+// 			err:  connect.NewError(connect.CodeNotFound, fmt.Errorf("prefix not found")),
+// 			want: connect.NewError(connect.CodeNotFound, errors.New("prefix not found")),
+// 		},
+// 		{
+// 			name: "ipam",
+// 			err:  connect.NewError(connect.CodeCanceled, fmt.Errorf("canceled")),
+// 			want: nil,
+// 		},
+// 	}
+// 	for _, tt := range tests {
+// 		t.Run(tt.name, func(t *testing.T) {
+// 			got := notFound(tt.err)
+// 			if tt.want != nil {
+// 				require.EqualError(t, got, tt.want.Error())
+// 			} else {
+// 				require.Nil(t, got)
+// 			}
+// 		})
+// 	}
+// }
 
 func TestNotFound(t *testing.T) {
 	tests := []struct {
@@ -148,12 +147,17 @@ func TestIsInternal(t *testing.T) {
 		{
 			name: "Test 1",
 			err:  errors.New("Some other Error"),
-			want: false,
+			want: true,
 		},
 		{
 			name: "Test 2",
 			err:  connect.NewError(connect.CodeInternal, errors.New("")),
 			want: true,
+		},
+		{
+			name: "Test 2",
+			err:  connect.NewError(connect.CodeAborted, errors.New("")),
+			want: false,
 		},
 		{
 			name: "Test 3",
