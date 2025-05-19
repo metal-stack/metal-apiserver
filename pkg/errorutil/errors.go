@@ -6,14 +6,14 @@ import (
 	"strings"
 
 	"connectrpc.com/connect"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/google/go-cmp/cmp"
 )
 
 // Convert compares the error and maps it to a appropriate connect.Error
-// if there are multiple errors wrapped this function only cares about the first found error in the error tree
+// if there is no backend-specific wrapped error given to this function, it will just return an internal error.
+// if there are multiple errors wrapped this function only cares about the first found error in the error tree.
 func Convert(err error) *connect.Error {
 	// Ipam or other connect errors
 	var connectErr *connect.Error
@@ -26,7 +26,7 @@ func Convert(err error) *connect.Error {
 	}
 
 	// for masterdata-api or other pure grpc apis
-	if code := status.Code(err); code != codes.Unknown {
+	if _, ok := status.FromError(err); ok {
 		// when the grpc error is wrapped deeper a tree, status.FromError calls the string function on
 		// the error and adds "rpc error: ..."
 		// so we unwrap the grpc status on our own and replace the error message with the direct message
@@ -45,7 +45,7 @@ func Convert(err error) *connect.Error {
 			iterErr = errors.Unwrap(iterErr)
 			if iterErr == nil {
 				// just a theoretical case
-				return connect.NewError(connect.Code(code), err)
+				return connect.NewError(connect.CodeUnknown, err)
 			}
 		}
 	}
