@@ -37,15 +37,8 @@ func (i *ipServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2.IPS
 		err     error
 	)
 
-	if req.Namespace == nil {
-		metalIP, err = i.repo.IP(req.Project).Get(ctx, req.Ip)
-	} else {
-		ip := metal.CreateNamespacedIPAddress(req.Namespace, req.Ip)
-		metalIP, err = i.repo.IP(req.Project).Find(ctx, &apiv2.IPQuery{
-			Ip:        &ip,
-			Namespace: req.Namespace,
-		})
-	}
+	ip := metal.CreateNamespacedIPAddress(req.Namespace, req.Ip)
+	metalIP, err = i.repo.IP(req.Project).Get(ctx, ip)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
