@@ -7,6 +7,7 @@ import (
 	"connectrpc.com/connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
+	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 )
@@ -31,12 +32,25 @@ func New(c Config) apiv2connect.IPServiceHandler {
 func (i *ipServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2.IPServiceGetRequest]) (*connect.Response[apiv2.IPServiceGetResponse], error) {
 	req := rq.Msg
 
-	// Project is already checked in the tenant-interceptor, ipam must not be consulted
-	resp, err := i.repo.IP(req.Project).Get(ctx, req.Ip)
+	var (
+		metalIP *metal.IP
+		err     error
+	)
+
+	if req.Namespace == nil {
+		metalIP, err = i.repo.IP(req.Project).Get(ctx, req.Ip)
+	} else {
+		ip := metal.CreateNamespacedIPAddress(req.Namespace, req.Ip)
+		metalIP, err = i.repo.IP(req.Project).Find(ctx, &apiv2.IPQuery{
+			Ip:        &ip,
+			Namespace: req.Namespace,
+		})
+	}
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	converted, err := i.repo.IP(req.Project).ConvertToProto(resp)
+
+	converted, err := i.repo.IP(req.Project).ConvertToProto(metalIP)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

@@ -19,7 +19,7 @@ import (
 )
 
 func Test_ipServiceServer_Get(t *testing.T) {
-	log := slog.Default()
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	repo, closer := test.StartRepository(t, log)
 	defer closer()
@@ -28,8 +28,26 @@ func Test_ipServiceServer_Get(t *testing.T) {
 
 	test.CreateTenants(t, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
 	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
-	test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.3.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: pointer.Pointer(uint32(11))}})
-	test.CreateIPs(t, repo, []*apiv2.IPServiceCreateRequest{{Ip: pointer.Pointer("1.2.3.4"), Project: "p1", Network: "internet"}})
+	networks := test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+		{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.3.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: pointer.Pointer(uint32(11))},
+		{
+			Id:                       pointer.Pointer("tenant-super-namespaced"),
+			Prefixes:                 []string{"12.100.0.0/16"},
+			DestinationPrefixes:      []string{"1.2.3.0/24"},
+			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+			Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED,
+		},
+		{
+			Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD,
+			Name:            pointer.Pointer("private-1"),
+			Project:         pointer.Pointer("p1"),
+			ParentNetworkId: pointer.Pointer("tenant-super-namespaced"),
+		},
+	})
+	test.CreateIPs(t, repo, []*apiv2.IPServiceCreateRequest{
+		{Ip: pointer.Pointer("1.2.3.4"), Project: "p1", Network: "internet"},
+		{Ip: pointer.Pointer("12.100.0.4"), Project: "p1", Network: networks["private-1"]},
+	})
 
 	tests := []struct {
 		name    string
@@ -48,6 +66,12 @@ func Test_ipServiceServer_Get(t *testing.T) {
 			rq:      &apiv2.IPServiceGetRequest{Ip: "1.2.3.5"},
 			want:    nil,
 			wantErr: errorutil.NotFound(`no ip with id "1.2.3.5" found`),
+		},
+		{
+			name:    "get namespaced existing",
+			rq:      &apiv2.IPServiceGetRequest{Ip: "12.100.0.4", Project: "p1", Namespace: pointer.Pointer("p1")},
+			want:    &apiv2.IPServiceGetResponse{Ip: &apiv2.IP{Ip: "12.100.0.4", Project: "p1", Namespace: pointer.Pointer("p1"), Network: networks["private-1"], Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}}},
+			wantErr: nil,
 		},
 	}
 	for _, tt := range tests {
