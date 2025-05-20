@@ -655,7 +655,18 @@ func (r *networkRepository) createChildPrefix(ctx context.Context, namespace *st
 			return nil, errorutil.Internal("unable to create namespace:%v", err)
 		}
 		for _, parentPrefix := range parentPrefixes.OfFamily(af) {
-			_, err := r.r.ipam.CreatePrefix(ctx, connect.NewRequest(&ipamv1.CreatePrefixRequest{
+			_, err := r.r.ipam.GetPrefix(ctx, connect.NewRequest(&ipamv1.GetPrefixRequest{
+				Cidr:      parentPrefix.String(),
+				Namespace: namespace,
+			}))
+			if err == nil {
+				continue
+			}
+			if !errorutil.IsNotFound(err) {
+				return nil, errorutil.Internal("unable to get prefix %s from super network in ipam:%v", parentPrefix.String(), err)
+			}
+
+			_, err = r.r.ipam.CreatePrefix(ctx, connect.NewRequest(&ipamv1.CreatePrefixRequest{
 				Cidr:      parentPrefix.String(),
 				Namespace: namespace,
 			}))

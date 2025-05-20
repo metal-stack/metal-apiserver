@@ -244,7 +244,7 @@ func Test_networkServiceServer_ListBaseNetworks(t *testing.T) {
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 	})
-	test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+	networks := test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
 		{
 			Id:                       pointer.Pointer("tenant-super-network"),
 			Prefixes:                 []string{"10.100.0.0/14"},
@@ -256,7 +256,8 @@ func Test_networkServiceServer_ListBaseNetworks(t *testing.T) {
 			Name:      pointer.Pointer("Shared Storage Network"),
 			Project:   pointer.Pointer("p3"),
 			Partition: pointer.Pointer("partition-one"),
-			Type:      apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED},
+			Type:      apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED,
+		},
 		{
 			Id:        pointer.Pointer("underlay"),
 			Name:      pointer.Pointer("Underlay Network"),
@@ -280,7 +281,7 @@ func Test_networkServiceServer_ListBaseNetworks(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "list by project",
+			name: "list without project",
 			rq:   &apiv2.NetworkServiceListBaseNetworksRequest{},
 			want: &apiv2.NetworkServiceListBaseNetworksResponse{
 				Networks: []*apiv2.Network{
@@ -293,7 +294,24 @@ func Test_networkServiceServer_ListBaseNetworks(t *testing.T) {
 						Type:                apiv2.NetworkType_NETWORK_TYPE_EXTERNAL.Enum(),
 					},
 					{
-						Id:              "p3-network-a",
+						Id:                       "tenant-super-network",
+						Meta:                     &apiv2.Meta{},
+						Prefixes:                 []string{"10.100.0.0/14"},
+						DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+						Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
+						Partition:                pointer.Pointer("partition-one"),
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "list by project",
+			rq:   &apiv2.NetworkServiceListBaseNetworksRequest{Project: "p3"},
+			want: &apiv2.NetworkServiceListBaseNetworksResponse{
+				Networks: []*apiv2.Network{
+					{
+						Id:              networks["p3-network-a"],
 						Meta:            &apiv2.Meta{},
 						Name:            pointer.Pointer("Shared Storage Network"),
 						Project:         pointer.Pointer("p3"),
@@ -302,6 +320,22 @@ func Test_networkServiceServer_ListBaseNetworks(t *testing.T) {
 						Prefixes:        []string{"10.100.0.0/22"},
 						Vrf:             pointer.Pointer(uint32(20)),
 						Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED.Enum(),
+					},
+					{
+						Id:                  "0-internet",
+						Meta:                &apiv2.Meta{},
+						Prefixes:            []string{"1.2.3.0/24"},
+						DestinationPrefixes: []string{"0.0.0.0/0"},
+						Vrf:                 pointer.Pointer(uint32(11)),
+						Type:                apiv2.NetworkType_NETWORK_TYPE_EXTERNAL.Enum(),
+					},
+					{
+						Id:                       "tenant-super-network",
+						Meta:                     &apiv2.Meta{},
+						Prefixes:                 []string{"10.100.0.0/14"},
+						DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+						Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
+						Partition:                pointer.Pointer("partition-one"),
 					},
 				},
 			},

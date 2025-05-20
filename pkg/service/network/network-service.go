@@ -137,11 +137,19 @@ func (n *networkServiceServer) List(ctx context.Context, rq *connect.Request[api
 func (n *networkServiceServer) ListBaseNetworks(ctx context.Context, rq *connect.Request[apiv2.NetworkServiceListBaseNetworksRequest]) (*connect.Response[apiv2.NetworkServiceListBaseNetworksResponse], error) {
 	req := rq.Msg
 
-	projectNetworks, err := n.repo.Network(req.Project).List(ctx, req.Query)
-	if err != nil {
-		return nil, err
+	var networks []*metal.Network
+
+	if req.Project != "" {
+		projectNetworks, err := n.repo.Network(req.Project).List(ctx, req.Query)
+		if err != nil {
+			return nil, err
+		}
+		networks = append(networks, projectNetworks...)
 	}
 
+	if req.Query == nil {
+		req.Query = &apiv2.NetworkQuery{}
+	}
 	baseNetworksQuery := req.Query
 	baseNetworksQuery.Project = pointer.Pointer("")
 
@@ -149,9 +157,10 @@ func (n *networkServiceServer) ListBaseNetworks(ctx context.Context, rq *connect
 	if err != nil {
 		return nil, err
 	}
+	networks = append(networks, baseNetworks...)
 
 	var res []*apiv2.Network
-	for _, nw := range append(baseNetworks, projectNetworks...) {
+	for _, nw := range networks {
 		// TODO convert to a equivalent reql query
 		switch pointer.SafeDeref(nw.NetworkType) {
 		case metal.ChildSharedNetworkType, metal.ExternalNetworkType, metal.SuperNetworkType, metal.SuperNamespacedNetworkType:

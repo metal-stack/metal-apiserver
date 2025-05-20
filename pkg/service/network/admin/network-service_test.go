@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -392,6 +393,280 @@ func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 				),
 			); diff != "" {
 				t.Errorf("networkServiceServer.Create() = %v, want %vņdiff: %s", pointer.SafeDeref(got).Msg, tt.want, diff)
+			}
+		})
+	}
+}
+
+func Test_networkServiceServer_CreateChildNetworksFromSuperNameSpaced(t *testing.T) {
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	defer closer()
+	repo := testStore.Store
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintln(w, "a image")
+	}))
+	defer ts.Close()
+
+	validURL := ts.URL
+
+	ctx := t.Context()
+
+	test.CreateTenants(t, repo, tenants)
+	test.CreateProjects(t, repo, projects)
+
+	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+	})
+
+	tests := []struct {
+		name      string
+		preparefn func(t *testing.T)
+		rqs       []*adminv2.NetworkServiceCreateRequest
+		want      []*adminv2.NetworkServiceCreateResponse
+		wantErr   error
+	}{
+		{
+			name: "create one child network from namespaced super network",
+			preparefn: func(t *testing.T) {
+				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+					{
+						Id:                       pointer.Pointer("project-scoped-tenant-super"),
+						Prefixes:                 []string{"12.100.0.0/16"},
+						DestinationPrefixes:      []string{"1.2.3.0/24"},
+						DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+						Project:                  pointer.Pointer("p1"),
+						Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED,
+						Vrf:                      pointer.Pointer(uint32(51)),
+					},
+				})
+			},
+			rqs: []*adminv2.NetworkServiceCreateRequest{
+				{
+					Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD,
+					Name:            pointer.Pointer("private-1"),
+					Project:         pointer.Pointer("p1"),
+					ParentNetworkId: pointer.Pointer("project-scoped-tenant-super"),
+				},
+			},
+			want: []*adminv2.NetworkServiceCreateResponse{
+				{
+					Network: &apiv2.Network{
+						Meta:                &apiv2.Meta{},
+						Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
+						Name:                pointer.Pointer("private-1"),
+						Project:             pointer.Pointer("p1"),
+						ParentNetworkId:     pointer.Pointer("project-scoped-tenant-super"),
+						Prefixes:            []string{"12.100.0.0/22"},
+						DestinationPrefixes: []string{"1.2.3.0/24"},
+						Namespace:           pointer.Pointer("p1"),
+						Vrf:                 pointer.Pointer(uint32(51)),
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "create two child network from namespaced super network",
+			preparefn: func(t *testing.T) {
+				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+					{
+						Id:                       pointer.Pointer("tenant-super-namespaced-1"),
+						Prefixes:                 []string{"13.100.0.0/14"},
+						DestinationPrefixes:      []string{"1.2.3.0/24"},
+						DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+						Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED,
+						Vrf:                      pointer.Pointer(uint32(52)),
+					},
+				})
+			},
+			rqs: []*adminv2.NetworkServiceCreateRequest{
+				{
+					Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD,
+					Name:            pointer.Pointer("private-1"),
+					Project:         pointer.Pointer("p1"),
+					ParentNetworkId: pointer.Pointer("tenant-super-namespaced-1"),
+				},
+				{
+					Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD,
+					Name:            pointer.Pointer("private-2"),
+					Project:         pointer.Pointer("p1"),
+					ParentNetworkId: pointer.Pointer("tenant-super-namespaced-1"),
+				},
+			},
+			want: []*adminv2.NetworkServiceCreateResponse{
+				{
+					Network: &apiv2.Network{
+						Meta:                &apiv2.Meta{},
+						Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
+						Name:                pointer.Pointer("private-1"),
+						Project:             pointer.Pointer("p1"),
+						ParentNetworkId:     pointer.Pointer("tenant-super-namespaced-1"),
+						Prefixes:            []string{"13.100.0.0/22"},
+						DestinationPrefixes: []string{"1.2.3.0/24"},
+						Namespace:           pointer.Pointer("p1"),
+						Vrf:                 pointer.Pointer(uint32(52)),
+					},
+				},
+				{
+					Network: &apiv2.Network{
+						Meta:                &apiv2.Meta{},
+						Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
+						Name:                pointer.Pointer("private-2"),
+						Project:             pointer.Pointer("p1"),
+						ParentNetworkId:     pointer.Pointer("tenant-super-namespaced-1"),
+						Prefixes:            []string{"13.100.4.0/22"},
+						DestinationPrefixes: []string{"1.2.3.0/24"},
+						Namespace:           pointer.Pointer("p1"),
+						Vrf:                 pointer.Pointer(uint32(52)),
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "create four child networks in different projects from namespaced super network",
+			preparefn: func(t *testing.T) {
+				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+					{
+						Id:                       pointer.Pointer("tenant-super-namespaced-1"),
+						Prefixes:                 []string{"14.100.0.0/14"},
+						DestinationPrefixes:      []string{"1.2.3.0/24"},
+						DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+						Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED,
+						Vrf:                      pointer.Pointer(uint32(53)),
+					},
+				})
+			},
+			rqs: []*adminv2.NetworkServiceCreateRequest{
+				{
+					Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD,
+					Name:            pointer.Pointer("private-1"),
+					Project:         pointer.Pointer("p1"),
+					ParentNetworkId: pointer.Pointer("tenant-super-namespaced-1"),
+				},
+				{
+					Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD,
+					Name:            pointer.Pointer("private-2"),
+					Project:         pointer.Pointer("p1"),
+					ParentNetworkId: pointer.Pointer("tenant-super-namespaced-1"),
+				},
+				{
+					Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD,
+					Name:            pointer.Pointer("private-3"),
+					Project:         pointer.Pointer("p2"),
+					ParentNetworkId: pointer.Pointer("tenant-super-namespaced-1"),
+				},
+				{
+					Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD,
+					Name:            pointer.Pointer("private-4"),
+					Project:         pointer.Pointer("p3"),
+					ParentNetworkId: pointer.Pointer("tenant-super-namespaced-1"),
+				},
+			},
+			want: []*adminv2.NetworkServiceCreateResponse{
+				{
+					Network: &apiv2.Network{
+						Meta:                &apiv2.Meta{},
+						Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
+						Name:                pointer.Pointer("private-1"),
+						Project:             pointer.Pointer("p1"),
+						ParentNetworkId:     pointer.Pointer("tenant-super-namespaced-1"),
+						Prefixes:            []string{"14.100.0.0/22"},
+						DestinationPrefixes: []string{"1.2.3.0/24"},
+						Namespace:           pointer.Pointer("p1"),
+						Vrf:                 pointer.Pointer(uint32(53)),
+					},
+				},
+				{
+					Network: &apiv2.Network{
+						Meta:                &apiv2.Meta{},
+						Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
+						Name:                pointer.Pointer("private-2"),
+						Project:             pointer.Pointer("p1"),
+						ParentNetworkId:     pointer.Pointer("tenant-super-namespaced-1"),
+						Prefixes:            []string{"14.100.4.0/22"},
+						DestinationPrefixes: []string{"1.2.3.0/24"},
+						Namespace:           pointer.Pointer("p1"),
+						Vrf:                 pointer.Pointer(uint32(53)),
+					},
+				},
+				{
+					Network: &apiv2.Network{
+						Meta:                &apiv2.Meta{},
+						Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
+						Name:                pointer.Pointer("private-3"),
+						Project:             pointer.Pointer("p2"),
+						ParentNetworkId:     pointer.Pointer("tenant-super-namespaced-1"),
+						Prefixes:            []string{"14.100.0.0/22"}, // Child Prefixes start over at super network base prefix per project
+						DestinationPrefixes: []string{"1.2.3.0/24"},
+						Namespace:           pointer.Pointer("p2"),
+						Vrf:                 pointer.Pointer(uint32(53)),
+					},
+				},
+				{
+					Network: &apiv2.Network{
+						Meta:                &apiv2.Meta{},
+						Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
+						Name:                pointer.Pointer("private-4"),
+						Project:             pointer.Pointer("p3"),
+						ParentNetworkId:     pointer.Pointer("tenant-super-namespaced-1"),
+						Prefixes:            []string{"14.100.0.0/22"}, // Child Prefixes start over at super network base prefix per project
+						DestinationPrefixes: []string{"1.2.3.0/24"},
+						Namespace:           pointer.Pointer("p3"),
+						Vrf:                 pointer.Pointer(uint32(53)),
+					},
+				},
+			},
+			wantErr: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			n := &networkServiceServer{
+				log:  log,
+				repo: repo,
+			}
+
+			defer func() {
+				test.DeleteNetworks(t, testStore)
+			}()
+
+			if tt.preparefn != nil {
+				tt.preparefn(t)
+			}
+
+			var (
+				result []*adminv2.NetworkServiceCreateResponse
+				errs   []error
+			)
+			for _, rq := range tt.rqs {
+				got, err := n.Create(ctx, connect.NewRequest(rq))
+				if err != nil {
+					errs = append(errs, err)
+				} else {
+					result = append(result, got.Msg)
+				}
+			}
+			err := errors.Join(errs...)
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("diff = %s", diff)
+			}
+
+			if diff := cmp.Diff(
+				tt.want, result,
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Network{}, "consumption", "id",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
+			); diff != "" {
+				t.Errorf("networkServiceServer.Create() = %v, want %vņdiff: %s", result, tt.want, diff)
 			}
 		})
 	}

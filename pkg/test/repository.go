@@ -111,13 +111,17 @@ func CreateIPs(t *testing.T, repo *repository.Store, ips []*apiv2.IPServiceCreat
 	}
 }
 
-func CreateNetworks(t *testing.T, repo *repository.Store, nws []*adminv2.NetworkServiceCreateRequest) {
+func CreateNetworks(t *testing.T, repo *repository.Store, nws []*adminv2.NetworkServiceCreateRequest) NetworkMap {
+	var networkMap = NetworkMap{}
+
 	for _, nw := range nws {
 		validated, err := repo.UnscopedNetwork().ValidateCreate(t.Context(), nw)
 		require.NoError(t, err)
-		_, err = repo.UnscopedNetwork().Create(t.Context(), validated)
+		resp, err := repo.UnscopedNetwork().Create(t.Context(), validated)
 		require.NoError(t, err)
+		networkMap[resp.Name] = resp.ID
 	}
+	return networkMap
 }
 
 func DeleteNetworks(t *testing.T, testStore *testStore) {
