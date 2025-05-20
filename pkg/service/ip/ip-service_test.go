@@ -560,7 +560,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 				Type:    apiv2.IPType_IP_TYPE_STATIC.Enum(),
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "10.100.0.1", Network: childNetworksMap["private-namespaced-1"], Project: "p1", Type: apiv2.IPType_IP_TYPE_STATIC, Meta: &apiv2.Meta{}},
+				Ip: &apiv2.IP{Ip: "10.100.0.1", Network: childNetworksMap["private-namespaced-1"], Namespace: pointer.Pointer("p1"), Project: "p1", Type: apiv2.IPType_IP_TYPE_STATIC, Meta: &apiv2.Meta{}},
 			},
 		},
 		{

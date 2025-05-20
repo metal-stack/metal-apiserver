@@ -220,7 +220,8 @@ func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServic
 
 	ip := &metal.IP{
 		AllocationUUID:   uuid.String(),
-		IPAddress:        ipAddress,
+		IPAddress:        metal.CreateNamespacedIPAddress(nw.Namespace, ipAddress),
+		Namespace:        nw.Namespace,
 		ParentPrefixCidr: ipParentCidr,
 		Name:             name,
 		Description:      description,
@@ -389,13 +390,19 @@ func (r *ipRepository) ConvertToProto(metalIP *metal.IP) (*apiv2.IP, error) {
 		}
 	}
 
+	ipaddress, err := metalIP.GetIPAddress()
+	if err != nil {
+		return nil, err
+	}
+
 	ip := &apiv2.IP{
-		Ip:          metalIP.IPAddress,
+		Ip:          ipaddress,
 		Uuid:        metalIP.AllocationUUID,
 		Name:        metalIP.Name,
 		Description: metalIP.Description,
 		Network:     metalIP.NetworkID,
 		Project:     metalIP.ProjectID,
+		Namespace:   metalIP.Namespace,
 		Type:        t,
 		Meta: &apiv2.Meta{
 			Labels:    labels,
