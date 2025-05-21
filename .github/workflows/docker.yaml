@@ -49,9 +49,11 @@ jobs:
       - name: Build
         run: |
           make
-
-      - name: Publish Codecoverage report
-        run: bash <(curl -s https://codecov.io/bash)
+      - name: Upload code coverage
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true # optional (default = false)
 
   build:
     name: Docker Build
