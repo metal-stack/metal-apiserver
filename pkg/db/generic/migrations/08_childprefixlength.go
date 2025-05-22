@@ -59,7 +59,7 @@ func init() {
 					}
 				}
 
-				if new.PrivateSuper {
+				if new.PrivateSuper { // nolint:staticcheck
 					if new.DefaultChildPrefixLength == nil {
 						new.DefaultChildPrefixLength = metal.ChildPrefixLength{}
 					}

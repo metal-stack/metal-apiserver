@@ -318,7 +318,7 @@ func (r *networkRepository) Update(ctx context.Context, rq *Validated[*adminv2.N
 		newNetwork.NATType = &nt
 		switch nt {
 		case metal.IPv4MasqueradeNATType:
-			newNetwork.Nat = true
+			newNetwork.Nat = true // nolint:staticcheck
 		case metal.NoneNATType:
 			//
 		}
