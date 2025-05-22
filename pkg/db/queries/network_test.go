@@ -63,6 +63,7 @@ var (
 		MinChildPrefixLength:       metal.ChildPrefixLength{metal.IPv6AddressFamily: 56, metal.IPv4AddressFamily: 14},
 		PartitionID:                "partition-3",
 		ProjectID:                  "p3",
+		Namespace:                  pointer.Pointer("p3"),
 		ParentNetworkID:            "parent-network-3",
 		Vrf:                        uint(44),
 		PrivateSuper:               false,
@@ -135,6 +136,11 @@ func TestNetworkFilter(t *testing.T) {
 			name: "by project",
 			rq:   &apiv2.NetworkQuery{Project: &n1.ProjectID},
 			want: []*metal.Network{n1},
+		},
+		{
+			name: "by namespace",
+			rq:   &apiv2.NetworkQuery{Namespace: n3.Namespace},
+			want: []*metal.Network{n3},
 		},
 		{
 			name: "by parent network",

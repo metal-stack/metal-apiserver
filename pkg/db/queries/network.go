@@ -41,6 +41,12 @@ func NetworkFilter(rq *apiv2.NetworkQuery) func(q r.Term) r.Term {
 			})
 		}
 
+		if rq.Namespace != nil {
+			q = q.Filter(func(row r.Term) r.Term {
+				return row.Field("namespace").Eq(*rq.Namespace)
+			})
+		}
+
 		if rq.Description != nil {
 			q = q.Filter(func(row r.Term) r.Term {
 				return row.Field("description").Eq(*rq.Description)
