@@ -3,6 +3,7 @@ package metal_test
 import (
 	"testing"
 
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 )
@@ -79,6 +80,52 @@ func TestCreateNamespacedIPAddress(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := metal.CreateNamespacedIPAddress(tt.namespace, tt.ip); got != tt.want {
 				t.Errorf("CreateNamespacedIPAddress() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestToIPType(t *testing.T) {
+	tests := []struct {
+		name    string
+		ipt     *apiv2.IPType
+		want    metal.IPType
+		wantErr bool
+	}{
+		{
+			name:    "none given",
+			ipt:     nil,
+			want:    metal.Ephemeral,
+			wantErr: false,
+		},
+		{
+			name:    "ephemeral given",
+			ipt:     apiv2.IPType_IP_TYPE_EPHEMERAL.Enum(),
+			want:    metal.Ephemeral,
+			wantErr: false,
+		},
+		{
+			name:    "static given",
+			ipt:     apiv2.IPType_IP_TYPE_STATIC.Enum(),
+			want:    metal.Static,
+			wantErr: false,
+		},
+		{
+			name:    "unknown given",
+			ipt:     apiv2.IPType_IP_TYPE_UNSPECIFIED.Enum(),
+			want:    metal.Ephemeral,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := metal.ToIPType(tt.ipt)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ToIPType() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("ToIPType() = %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/netip"
 	"slices"
-	"strings"
 
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
@@ -55,70 +54,6 @@ func (r *ipRepository) MatchScope(ip *metal.IP) error {
 	return errorutil.NotFound("ip:%s project:%s for scope:%s not found", eventualIP.IPAddress, eventualIP.ProjectID, r.scope.projectID)
 }
 
-func (r *ipRepository) ValidateCreate(ctx context.Context, req *apiv2.IPServiceCreateRequest) (*Validated[*apiv2.IPServiceCreateRequest], error) {
-	// FIXME use validate helper
-	if req.Network == "" {
-		return nil, errorutil.InvalidArgument("network should not be empty")
-	}
-	if req.Project == "" {
-		return nil, errorutil.InvalidArgument("project should not be empty")
-	}
-
-	return &Validated[*apiv2.IPServiceCreateRequest]{
-		message: req,
-	}, nil
-}
-
-func (r *ipRepository) ValidateUpdate(ctx context.Context, req *apiv2.IPServiceUpdateRequest) (*Validated[*apiv2.IPServiceUpdateRequest], error) {
-	old, err := r.Find(ctx, &apiv2.IPQuery{Ip: &req.Ip, Project: &req.Project})
-	if err != nil {
-		return nil, err
-	}
-
-	if req.Type != nil {
-		if old.Type == metal.Static && *req.Type != apiv2.IPType_IP_TYPE_STATIC {
-			return nil, errorutil.InvalidArgument("cannot change type of ip address from static to ephemeral")
-		}
-	}
-
-	return &Validated[*apiv2.IPServiceUpdateRequest]{
-		message: req,
-	}, nil
-}
-
-func (r *ipRepository) ValidateDelete(ctx context.Context, req *metal.IP) (*Validated[*metal.IP], error) {
-	// FIXME use validate helper
-
-	if req.IPAddress == "" {
-		return nil, errorutil.InvalidArgument("ipaddress is empty")
-	}
-	if req.AllocationUUID == "" {
-		return nil, errorutil.InvalidArgument("allocationUUID is empty")
-	}
-	if req.ProjectID == "" {
-		return nil, errorutil.InvalidArgument("projectId is empty")
-	}
-	ip, err := r.Find(ctx, &apiv2.IPQuery{Ip: &req.IPAddress, Uuid: &req.AllocationUUID, Project: &req.ProjectID})
-	if err != nil {
-		if errorutil.IsNotFound(err) {
-			return &Validated[*metal.IP]{
-				message: req,
-			}, nil
-		}
-		return nil, err
-	}
-
-	for _, t := range ip.Tags {
-		if strings.HasPrefix(t, tag.MachineID) {
-			return nil, errorutil.InvalidArgument("ip with machine scope cannot be deleted")
-		}
-	}
-
-	return &Validated[*metal.IP]{
-		message: req,
-	}, nil
-}
-
 func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServiceCreateRequest]) (*metal.IP, error) {
 	var (
 		name        string
@@ -159,6 +94,18 @@ func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServic
 		return nil, errorutil.InvalidArgument("not allowed to create ip with project %s in network %s scoped to project %s", req.Project, req.Network, nw.ProjectID)
 	}
 
+	// for private, unshared networks the project id must be the same
+	// for external networks the project id is not checked
+	// if !nw.Shared && nw.ParentNetworkID != "" && p.Meta.Id != nw.ProjectID {
+	if nw.ProjectID != projectID {
+		switch *nw.NetworkType {
+		case metal.ChildSharedNetworkType, metal.ExternalNetworkType:
+			// this is fine
+		default:
+			return nil, errorutil.InvalidArgument("can not allocate ip for project %q because network belongs to %q and the network is of type:%s", p.Meta.Id, nw.ProjectID, *nw.NetworkType)
+		}
+	}
+
 	var af *metal.AddressFamily
 	if req.AddressFamily != nil {
 		convertedAf, err := metal.ToAddressFamily(*req.AddressFamily)
@@ -173,13 +120,6 @@ func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServic
 			return nil, errorutil.InvalidArgument("it is not possible to specify specificIP and addressfamily")
 		}
 		af = &convertedAf
-	}
-
-	// for private, unshared networks the project id must be the same
-	// for external networks the project id is not checked
-	// FIXME convert to use network Type
-	if !nw.Shared && nw.ParentNetworkID != "" && p.Meta.Id != nw.ProjectID {
-		return nil, errorutil.InvalidArgument("can not allocate ip for project %q because network belongs to %q and the network is not shared", p.Meta.Id, nw.ProjectID)
 	}
 
 	var (
@@ -199,16 +139,9 @@ func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServic
 		}
 	}
 
-	ipType := metal.Ephemeral
-	if req.Type != nil {
-		switch *req.Type {
-		case apiv2.IPType_IP_TYPE_EPHEMERAL:
-			ipType = metal.Ephemeral
-		case apiv2.IPType_IP_TYPE_STATIC:
-			ipType = metal.Static
-		case apiv2.IPType_IP_TYPE_UNSPECIFIED:
-			return nil, errorutil.InvalidArgument("given ip type is not supported:%s", req.Type.String())
-		}
+	ipType, err := metal.ToIPType(req.Type)
+	if err != nil {
+		return nil, err
 	}
 
 	r.r.log.Info("allocated ip in ipam", "ip", ipAddress, "network", nw.ID, "type", ipType)

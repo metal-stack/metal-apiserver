@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 )
 
@@ -93,4 +94,22 @@ func CreateNamespacedIPAddress(namespace *string, ip string) string {
 		return ip
 	}
 	return fmt.Sprintf("%s%s%s", *namespace, namespaceSeparator, ip)
+}
+
+func ToIPType(ipt *apiv2.IPType) (IPType, error) {
+	if ipt == nil {
+		return Ephemeral, nil
+	}
+
+	switch *ipt {
+	case apiv2.IPType_IP_TYPE_EPHEMERAL:
+		return Ephemeral, nil
+	case apiv2.IPType_IP_TYPE_STATIC:
+		return Static, nil
+	case apiv2.IPType_IP_TYPE_UNSPECIFIED:
+		return Ephemeral, errorutil.InvalidArgument("given ip type is not supported:%s", ipt.String())
+	default:
+		return Ephemeral, errorutil.InvalidArgument("given ip type is not supported:%s", ipt.String())
+	}
+
 }
