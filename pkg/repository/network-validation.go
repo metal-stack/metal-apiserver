@@ -109,10 +109,7 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 			return errorutil.Convert(fmt.Errorf("unable to retrieve parent network: %w", err))
 		}
 
-		switch *parent.NetworkType {
-		case metal.SuperNetworkType, metal.SuperNamespacedNetworkType:
-			// all good
-		case metal.ChildNetworkType, metal.ChildSharedNetworkType, metal.ExternalNetworkType, metal.UnderlayNetworkType:
+		if !metal.IsSuperNetwork(parent.NetworkType) {
 			return errorutil.InvalidArgument("given parentnetwork must be either a super or a super namespace network")
 		}
 
@@ -452,14 +449,16 @@ func (r *networkRepository) ValidateUpdate(ctx context.Context, req *adminv2.Net
 	}
 	newNetwork := *old
 
-	if req.DefaultChildPrefixLength != nil && !old.PrivateSuper {
+	if old.NetworkType == nil {
+		return nil, errorutil.Internal("networktype is nil")
+	}
+
+	if req.DefaultChildPrefixLength != nil && !metal.IsSuperNetwork(old.NetworkType) {
 		return nil, errorutil.InvalidArgument("default child prefix length can only be set on super networks")
 	}
 
-	if old.ParentNetworkID != "" || (old.NetworkType != nil && *old.NetworkType == metal.ChildNetworkType) {
-		if len(req.Prefixes) > 0 {
-			return nil, errorutil.InvalidArgument("cannot change prefixes in child networks")
-		}
+	if len(req.Prefixes) > 0 && metal.IsChildNetwork(old.NetworkType) {
+		return nil, errorutil.InvalidArgument("cannot change prefixes in child networks")
 	}
 
 	var (

@@ -7,6 +7,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/metal-stack/metal-lib/pkg/pointer"
 )
 
 func TestPrefixes_OfFamily(t *testing.T) {
@@ -436,6 +437,77 @@ func TestToAddressFamily(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Errorf("ToAddressFamily() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsSuperNetwork(t *testing.T) {
+	tests := []struct {
+		name string
+		nt   *metal.NetworkType
+		want bool
+	}{
+		{
+			name: "super",
+			nt:   pointer.Pointer(metal.SuperNetworkType),
+			want: true,
+		},
+		{
+			name: "super namespaced",
+			nt:   pointer.Pointer(metal.SuperNamespacedNetworkType),
+			want: true,
+		},
+		{
+			name: "underlay",
+			nt:   pointer.Pointer(metal.UnderlayNetworkType),
+			want: false,
+		},
+		{
+			name: "nil",
+			nt:   nil,
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := metal.IsSuperNetwork(tt.nt); got != tt.want {
+				t.Errorf("IsChildNetwork() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+func TestIsChildNetwork(t *testing.T) {
+	tests := []struct {
+		name string
+		nt   *metal.NetworkType
+		want bool
+	}{
+		{
+			name: "child",
+			nt:   pointer.Pointer(metal.ChildNetworkType),
+			want: true,
+		},
+		{
+			name: "child shared",
+			nt:   pointer.Pointer(metal.ChildSharedNetworkType),
+			want: true,
+		},
+		{
+			name: "underlay",
+			nt:   pointer.Pointer(metal.UnderlayNetworkType),
+			want: false,
+		},
+		{
+			name: "nil",
+			nt:   nil,
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := metal.IsChildNetwork(tt.nt); got != tt.want {
+				t.Errorf("IsChildNetwork() = %v, want %v", got, tt.want)
 			}
 		})
 	}

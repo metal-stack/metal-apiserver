@@ -79,6 +79,26 @@ const (
 	IPv4MasqueradeNATType = NATType("ipv4-masquerade")
 )
 
+func IsSuperNetwork(nt *NetworkType) bool {
+	if nt == nil {
+		return false
+	}
+	if *nt == SuperNetworkType || *nt == SuperNamespacedNetworkType {
+		return true
+	}
+	return false
+}
+
+func IsChildNetwork(nt *NetworkType) bool {
+	if nt == nil {
+		return false
+	}
+	if *nt == ChildNetworkType || *nt == ChildSharedNetworkType {
+		return true
+	}
+	return false
+}
+
 func ToNetworkType(nwt apiv2.NetworkType) (NetworkType, error) {
 	switch nwt {
 	case apiv2.NetworkType_NETWORK_TYPE_CHILD:
