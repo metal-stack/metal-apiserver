@@ -178,7 +178,7 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 		}
 	}
 
-	if err := r.validatePrefixesAndAddressFamilies(parentNetwork.Prefixes, nil, length, false); err != nil {
+	if err := r.validatePrefixesAndAddressFamilies(parentNetwork.Prefixes, nil, length, pointer.Pointer(metal.ChildNetworkType)); err != nil {
 		return errorutil.Convert(err)
 	}
 	return nil
@@ -234,11 +234,11 @@ func (r *networkRepository) validateCreateNetworkTypeSuper(ctx context.Context, 
 		return errorutil.NewInvalidArgument(err)
 	}
 
-	if err := r.validatePrefixesAndAddressFamilies(prefixes, nil, defaultChildPrefixLength, true); err != nil {
+	if err := r.validatePrefixesAndAddressFamilies(prefixes, nil, defaultChildPrefixLength, pointer.Pointer(metal.SuperNetworkType)); err != nil {
 		return errorutil.NewInvalidArgument(err)
 	}
 
-	if err := r.validateAdditionalAnnouncableCIDRs(req.AdditionalAnnouncableCidrs, true); err != nil {
+	if err := r.validateAdditionalAnnouncableCIDRs(req.AdditionalAnnouncableCidrs, pointer.Pointer(metal.SuperNetworkType)); err != nil {
 		return errorutil.NewInvalidArgument(err)
 
 	}
@@ -289,7 +289,7 @@ func (r *networkRepository) validateCreateNetworkTypeExternal(ctx context.Contex
 		return errorutil.NewInvalidArgument(err)
 	}
 
-	if err := r.validatePrefixesAndAddressFamilies(prefixes, destinationprefixes.AddressFamilies(), nil, false); err != nil {
+	if err := r.validatePrefixesAndAddressFamilies(prefixes, destinationprefixes.AddressFamilies(), nil, pointer.Pointer(metal.ExternalNetworkType)); err != nil {
 		return errorutil.NewInvalidArgument(err)
 	}
 
@@ -400,14 +400,14 @@ func (r *networkRepository) networkTypeInPartitionPossible(ctx context.Context, 
 	return nil
 }
 
-func (r *networkRepository) validatePrefixesAndAddressFamilies(prefixes metal.Prefixes, destPrefixesAfs metal.AddressFamilies, defaultChildPrefixLength metal.ChildPrefixLength, super bool) error {
+func (r *networkRepository) validatePrefixesAndAddressFamilies(prefixes metal.Prefixes, destPrefixesAfs metal.AddressFamilies, defaultChildPrefixLength metal.ChildPrefixLength, networkType *metal.NetworkType) error {
 	for _, af := range destPrefixesAfs {
 		if !slices.Contains(prefixes.AddressFamilies(), af) {
 			return fmt.Errorf("addressfamily:%s of destination prefixes is not present in existing prefixes", af)
 		}
 	}
 
-	if !super {
+	if !metal.IsSuperNetwork(networkType) {
 		return nil
 	}
 
@@ -424,12 +424,12 @@ func (r *networkRepository) validatePrefixesAndAddressFamilies(prefixes metal.Pr
 	return nil
 }
 
-func (r *networkRepository) validateAdditionalAnnouncableCIDRs(additionalCidrs []string, super bool) error {
+func (r *networkRepository) validateAdditionalAnnouncableCIDRs(additionalCidrs []string, networkType *metal.NetworkType) error {
 	if len(additionalCidrs) == 0 {
 		return nil
 	}
 
-	if !super {
+	if !metal.IsSuperNetwork(networkType) {
 		return errors.New("additional announcable cidrs can only be set in a private super network")
 	}
 
@@ -486,7 +486,7 @@ func (r *networkRepository) ValidateUpdate(ctx context.Context, req *adminv2.Net
 		destPrefixAfs = destPrefixes.AddressFamilies()
 	}
 
-	err = r.validatePrefixesAndAddressFamilies(newNetwork.Prefixes, destPrefixAfs, old.DefaultChildPrefixLength, old.PrivateSuper)
+	err = r.validatePrefixesAndAddressFamilies(newNetwork.Prefixes, destPrefixAfs, old.DefaultChildPrefixLength, old.NetworkType)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -500,7 +500,7 @@ func (r *networkRepository) ValidateUpdate(ctx context.Context, req *adminv2.Net
 		return nil, errorutil.NewInvalidArgument(err)
 	}
 
-	err = r.validateAdditionalAnnouncableCIDRs(req.AdditionalAnnouncableCidrs, old.PrivateSuper)
+	err = r.validateAdditionalAnnouncableCIDRs(req.AdditionalAnnouncableCidrs, old.NetworkType)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

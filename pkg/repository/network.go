@@ -135,6 +135,10 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
+	networkType, err := metal.ToNetworkType(req.Type)
+	if err != nil {
+		return nil, errorutil.NewInternal(err)
+	}
 
 	switch req.Type {
 	case apiv2.NetworkType_NETWORK_TYPE_CHILD, apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED:
@@ -164,10 +168,6 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 			nat = true
 		}
 
-		networkType, err := metal.ToNetworkType(req.Type)
-		if err != nil {
-			return nil, errorutil.NewInternal(err)
-		}
 		if req.Type == apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED {
 			shared = true
 		}
@@ -252,10 +252,6 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 			return nil, errorutil.Convert(err)
 		}
 		natType = &nat
-	}
-	networkType, err := metal.ToNetworkType(req.Type)
-	if err != nil {
-		return nil, errorutil.Convert(err)
 	}
 
 	nw := &metal.Network{

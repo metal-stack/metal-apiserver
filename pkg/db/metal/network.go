@@ -22,14 +22,26 @@ type (
 		Namespace                  *string           `rethinkdb:"namespace" description:"if this is a namespaced private network, the namespace is stored here, otherwise nil"`
 		ParentNetworkID            string            `rethinkdb:"parentnetworkid"`
 		Vrf                        uint              `rethinkdb:"vrf"`
-		PrivateSuper               bool              `rethinkdb:"privatesuper"`
-		Nat                        bool              `rethinkdb:"nat"`
-		Underlay                   bool              `rethinkdb:"underlay"`
-		Shared                     bool              `rethinkdb:"shared"`
 		Labels                     map[string]string `rethinkdb:"labels"`
 		AdditionalAnnouncableCIDRs []string          `rethinkdb:"additionalannouncablecidrs" description:"list of cidrs which are added to the route maps per tenant private network, these are typically pod- and service cidrs, can only be set in a supernetwork"`
 		NetworkType                *NetworkType      `rethinkdb:"networktype"`
 		NATType                    *NATType          `rethinkdb:"nattype"`
+		// PrivateSuper if set identifies this Network as a Super Network for private networks
+		//
+		// Deprecated: use SuperNetworkType instead
+		PrivateSuper bool `rethinkdb:"privatesuper"`
+		// Underlay if set indicates as a underlay network for firewalls and switches
+		//
+		// Deprecated: use UnderlayNetworkType instead
+		Underlay bool `rethinkdb:"underlay"`
+		// Shared if set indicates that this network can be used from other projects to acquire ips from
+		//
+		// Deprecated: use ChildSharedNetworkType instead
+		Shared bool `rethinkdb:"shared"`
+		// Nat if set, traffic entering this network is masqueraded behind the interface entering this network
+		//
+		// Deprecated: use IPv4MasqueradeNATType instead
+		Nat bool `rethinkdb:"nat"`
 	}
 
 	NATType     string
