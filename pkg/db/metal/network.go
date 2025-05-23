@@ -8,6 +8,7 @@ import (
 
 	"github.com/metal-stack/api/go/enum"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-lib/pkg/pointer"
 )
 
 type (
@@ -63,39 +64,39 @@ type (
 )
 
 const (
-	// IPv4AddressFamily identifies IPv4
-	IPv4AddressFamily = AddressFamily("IPv4")
-	// IPv6AddressFamily identifies IPv6
-	IPv6AddressFamily = AddressFamily("IPv6")
+	// AddressFamilyIPv4 identifies IPv4
+	AddressFamilyIPv4 = AddressFamily("IPv4")
+	// AddressFamilyIPv6 identifies IPv6
+	AddressFamilyIPv6 = AddressFamily("IPv6")
 
 	// NetworkType
-	// ExternalNetworkType identifies a network where ips can be allocated from different projects
-	ExternalNetworkType = NetworkType("external")
-	// UnderlayNetworkType identifies a underlay network
-	UnderlayNetworkType = NetworkType("underlay")
+	// NetworkTypeExternal identifies a network where ips can be allocated from different projects
+	NetworkTypeExternal = NetworkType("external")
+	// NetworkTypeUnderlay identifies a underlay network
+	NetworkTypeUnderlay = NetworkType("underlay")
 
-	// SuperNetworkType identifies a super network where child networks can be allocated from
-	SuperNetworkType = NetworkType("super")
-	// SuperNamespacedNetworkType identifies a super network where child networks can be allocated from, namespaced per project
-	SuperNamespacedNetworkType = NetworkType("super-namespaced")
-	// ChildNetworkType identifies a child network which is only used in one project for machines and firewalls without external connectivity
-	ChildNetworkType = NetworkType("child")
-	// ChildSharedNetworkType identifies a child network which can be shared, e.g. ips allocated from different projects
-	ChildSharedNetworkType = NetworkType("child-shared")
+	// NetworkTypeSuper identifies a super network where child networks can be allocated from
+	NetworkTypeSuper = NetworkType("super")
+	// NetworkTypeSuperNamespaced identifies a super network where child networks can be allocated from, namespaced per project
+	NetworkTypeSuperNamespaced = NetworkType("super-namespaced")
+	// NetworkTypeChild identifies a child network which is only used in one project for machines and firewalls without external connectivity
+	NetworkTypeChild = NetworkType("child")
+	// NetworkTypeChildShared identifies a child network which can be shared, e.g. ips allocated from different projects
+	NetworkTypeChildShared = NetworkType("child-shared")
 
 	// NATType
-	InvalidNATType = NATType("invalid")
-	// NoneNATType no nat in place when traffic leaves this network
-	NoneNATType = NATType("none")
-	// IPv4MasqueradeNATType masquerade ipv4 behind gateway ip
-	IPv4MasqueradeNATType = NATType("ipv4-masquerade")
+	NATTypeInvalid = NATType("invalid")
+	// NATTypeNone no nat in place when traffic leaves this network
+	NATTypeNone = NATType("none")
+	// NATTypeIPv4Masquerade masquerade ipv4 behind gateway ip
+	NATTypeIPv4Masquerade = NATType("ipv4-masq")
 )
 
 func IsSuperNetwork(nt *NetworkType) bool {
 	if nt == nil {
 		return false
 	}
-	if *nt == SuperNetworkType || *nt == SuperNamespacedNetworkType {
+	if *nt == NetworkTypeSuper || *nt == NetworkTypeSuperNamespaced {
 		return true
 	}
 	return false
@@ -105,7 +106,7 @@ func IsChildNetwork(nt *NetworkType) bool {
 	if nt == nil {
 		return false
 	}
-	if *nt == ChildNetworkType || *nt == ChildSharedNetworkType {
+	if *nt == NetworkTypeChild || *nt == NetworkTypeChildShared {
 		return true
 	}
 	return false
@@ -114,17 +115,17 @@ func IsChildNetwork(nt *NetworkType) bool {
 func ToNetworkType(nwt apiv2.NetworkType) (NetworkType, error) {
 	switch nwt {
 	case apiv2.NetworkType_NETWORK_TYPE_CHILD:
-		return ChildNetworkType, nil
+		return NetworkTypeChild, nil
 	case apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED:
-		return ChildSharedNetworkType, nil
+		return NetworkTypeChildShared, nil
 	case apiv2.NetworkType_NETWORK_TYPE_SUPER:
-		return SuperNetworkType, nil
+		return NetworkTypeSuper, nil
 	case apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED:
-		return SuperNamespacedNetworkType, nil
+		return NetworkTypeSuperNamespaced, nil
 	case apiv2.NetworkType_NETWORK_TYPE_EXTERNAL:
-		return ExternalNetworkType, nil
+		return NetworkTypeExternal, nil
 	case apiv2.NetworkType_NETWORK_TYPE_UNDERLAY:
-		return UnderlayNetworkType, nil
+		return NetworkTypeUnderlay, nil
 	case apiv2.NetworkType_NETWORK_TYPE_UNSPECIFIED:
 		return NetworkType(""), fmt.Errorf("given networkType:%q is invalid", nwt)
 	}
@@ -142,13 +143,13 @@ func FromNetworkType(nwt NetworkType) (apiv2.NetworkType, error) {
 func ToNATType(nt apiv2.NATType) (NATType, error) {
 	switch nt {
 	case apiv2.NATType_NAT_TYPE_NONE:
-		return NoneNATType, nil
+		return NATTypeNone, nil
 	case apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE:
-		return IPv4MasqueradeNATType, nil
+		return NATTypeIPv4Masquerade, nil
 	case apiv2.NATType_NAT_TYPE_UNSPECIFIED:
-		return InvalidNATType, fmt.Errorf("given natType:%q is invalid", nt)
+		return NATTypeInvalid, fmt.Errorf("given natType:%q is invalid", nt)
 	}
-	return InvalidNATType, fmt.Errorf("given natType:%q is invalid", nt)
+	return NATTypeInvalid, fmt.Errorf("given natType:%q is invalid", nt)
 }
 
 func FromNATType(nt NATType) (apiv2.NATType, error) {
@@ -162,34 +163,49 @@ func FromNATType(nt NATType) (apiv2.NATType, error) {
 func ToAddressFamily(af apiv2.IPAddressFamily) (AddressFamily, error) {
 	switch af {
 	case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4:
-		return IPv4AddressFamily, nil
+		return AddressFamilyIPv4, nil
 	case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6:
-		return IPv6AddressFamily, nil
+		return AddressFamilyIPv6, nil
 	case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_UNSPECIFIED:
-		return AddressFamily(""), fmt.Errorf("given addressfamily:%q is invalid", af)
+		return "", fmt.Errorf("given addressfamily %q is invalid", af)
 	}
-	return AddressFamily(""), fmt.Errorf("given addressfamily:%q is invalid", af)
+
+	return "", fmt.Errorf("given addressfamily %q is invalid", af)
+}
+
+// ToAddressFamilyFromNetwork returns the metal address family of the corresponding apiv2 address family.
+// Attention: this function might return nil for network family dual stack!!
+func ToAddressFamilyFromNetwork(af apiv2.NetworkAddressFamily) (*AddressFamily, error) {
+	switch af {
+	case apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_DUAL_STACK:
+		return nil, nil
+	case apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_V4:
+		return pointer.Pointer(AddressFamilyIPv4), nil
+	case apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_V6:
+		return pointer.Pointer(AddressFamilyIPv6), nil
+	default:
+		return nil, fmt.Errorf("given addressfamily %q is invalid", af)
+	}
 }
 
 func ToChildPrefixLength(cpl *apiv2.ChildPrefixLength, prefixes Prefixes) (ChildPrefixLength, error) {
-
 	childPrefixLength := ChildPrefixLength{}
 	if cpl == nil {
 		return nil, nil
 	}
 
 	if cpl.Ipv4 != nil {
-		if !slices.Contains(prefixes.AddressFamilies(), IPv4AddressFamily) {
-			return nil, fmt.Errorf("childprefixlength for addressfamily: %q specified, but no %q addressfamily found in prefixes", IPv4AddressFamily, IPv4AddressFamily)
+		if !slices.Contains(prefixes.AddressFamilies(), AddressFamilyIPv4) {
+			return nil, fmt.Errorf("childprefixlength for addressfamily: %q specified, but no %q addressfamily found in prefixes", AddressFamilyIPv4, AddressFamilyIPv4)
 		}
-		childPrefixLength[IPv4AddressFamily] = uint8(*cpl.Ipv4)
+		childPrefixLength[AddressFamilyIPv4] = uint8(*cpl.Ipv4)
 	}
 
 	if cpl.Ipv6 != nil {
-		if !slices.Contains(prefixes.AddressFamilies(), IPv6AddressFamily) {
-			return nil, fmt.Errorf("childprefixlength for addressfamily: %q specified, but no %q addressfamily found in prefixes", IPv6AddressFamily, IPv6AddressFamily)
+		if !slices.Contains(prefixes.AddressFamilies(), AddressFamilyIPv6) {
+			return nil, fmt.Errorf("childprefixlength for addressfamily: %q specified, but no %q addressfamily found in prefixes", AddressFamilyIPv6, AddressFamilyIPv6)
 		}
-		childPrefixLength[IPv6AddressFamily] = uint8(*cpl.Ipv6)
+		childPrefixLength[AddressFamilyIPv6] = uint8(*cpl.Ipv6)
 	}
 
 	for af, length := range childPrefixLength {
@@ -237,10 +253,10 @@ func (p Prefixes) OfFamily(af AddressFamily) Prefixes {
 			continue
 		}
 
-		if pfx.Addr().Is4() && af == IPv6AddressFamily {
+		if pfx.Addr().Is4() && af == AddressFamilyIPv6 {
 			continue
 		}
-		if pfx.Addr().Is6() && af == IPv4AddressFamily {
+		if pfx.Addr().Is6() && af == AddressFamilyIPv4 {
 			continue
 		}
 
@@ -263,10 +279,10 @@ func (p Prefixes) AddressFamilies() AddressFamilies {
 
 		var af AddressFamily
 		if pfx.Addr().Is4() {
-			af = IPv4AddressFamily
+			af = AddressFamilyIPv4
 		}
 		if pfx.Addr().Is6() {
-			af = IPv6AddressFamily
+			af = AddressFamilyIPv6
 		}
 		if !slices.Contains(afs, af) {
 			afs = append(afs, af)

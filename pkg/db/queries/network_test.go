@@ -21,8 +21,8 @@ var (
 		Base:                       metal.Base{ID: "n1", Name: "n1", Description: "Network 1"},
 		Prefixes:                   metal.Prefixes{{IP: "10.0.0.0", Length: "8"}},
 		DestinationPrefixes:        metal.Prefixes{{IP: "0.0.0.0", Length: "0"}},
-		DefaultChildPrefixLength:   metal.ChildPrefixLength{metal.IPv4AddressFamily: 22},
-		MinChildPrefixLength:       metal.ChildPrefixLength{metal.IPv4AddressFamily: 14},
+		DefaultChildPrefixLength:   metal.ChildPrefixLength{metal.AddressFamilyIPv4: 22},
+		MinChildPrefixLength:       metal.ChildPrefixLength{metal.AddressFamilyIPv4: 14},
 		PartitionID:                "partition-1",
 		ProjectID:                  "p1",
 		ParentNetworkID:            "parent-network",
@@ -33,15 +33,15 @@ var (
 		Shared:                     true,
 		Labels:                     map[string]string{"color": "red", "size": "small"},
 		AdditionalAnnouncableCIDRs: []string{"10.240.0.0/12"},
-		NetworkType:                pointer.Pointer(metal.ExternalNetworkType),
-		NATType:                    pointer.Pointer(metal.IPv4MasqueradeNATType),
+		NetworkType:                pointer.Pointer(metal.NetworkTypeExternal),
+		NATType:                    pointer.Pointer(metal.NATTypeIPv4Masquerade),
 	}
 	n2 = &metal.Network{
 		Base:                       metal.Base{ID: "n2", Name: "n2", Description: "Network 2"},
 		Prefixes:                   metal.Prefixes{{IP: "2001:db8::", Length: "96"}},
 		DestinationPrefixes:        metal.Prefixes{{IP: "::", Length: "0"}},
-		DefaultChildPrefixLength:   metal.ChildPrefixLength{metal.IPv6AddressFamily: 64},
-		MinChildPrefixLength:       metal.ChildPrefixLength{metal.IPv6AddressFamily: 56},
+		DefaultChildPrefixLength:   metal.ChildPrefixLength{metal.AddressFamilyIPv6: 64},
+		MinChildPrefixLength:       metal.ChildPrefixLength{metal.AddressFamilyIPv6: 56},
 		PartitionID:                "partition-2",
 		ProjectID:                  "p2",
 		ParentNetworkID:            "parent-network-2",
@@ -52,15 +52,15 @@ var (
 		Shared:                     false,
 		Labels:                     map[string]string{"color": "green", "size": "medium"},
 		AdditionalAnnouncableCIDRs: []string{"10.241.0.0/12"},
-		NetworkType:                pointer.Pointer(metal.ChildNetworkType),
-		NATType:                    pointer.Pointer(metal.NoneNATType),
+		NetworkType:                pointer.Pointer(metal.NetworkTypeChild),
+		NATType:                    pointer.Pointer(metal.NATTypeNone),
 	}
 	n3 = &metal.Network{
 		Base:                       metal.Base{ID: "n3", Name: "n3", Description: "Network 3"},
 		Prefixes:                   metal.Prefixes{{IP: "2001:db8::", Length: "96"}, {IP: "13.0.0.0", Length: "8"}},
 		DestinationPrefixes:        metal.Prefixes{{IP: "::", Length: "0"}, {IP: "0.0.0.0", Length: "0"}},
-		DefaultChildPrefixLength:   metal.ChildPrefixLength{metal.IPv6AddressFamily: 64, metal.IPv4AddressFamily: 22},
-		MinChildPrefixLength:       metal.ChildPrefixLength{metal.IPv6AddressFamily: 56, metal.IPv4AddressFamily: 14},
+		DefaultChildPrefixLength:   metal.ChildPrefixLength{metal.AddressFamilyIPv6: 64, metal.AddressFamilyIPv4: 22},
+		MinChildPrefixLength:       metal.ChildPrefixLength{metal.AddressFamilyIPv6: 56, metal.AddressFamilyIPv4: 14},
 		PartitionID:                "partition-3",
 		ProjectID:                  "p3",
 		Namespace:                  pointer.Pointer("p3"),
@@ -72,8 +72,8 @@ var (
 		Shared:                     false,
 		Labels:                     map[string]string{"color": "blue", "size": "large"},
 		AdditionalAnnouncableCIDRs: []string{"10.241.0.0/12"},
-		NetworkType:                pointer.Pointer(metal.ExternalNetworkType),
-		NATType:                    pointer.Pointer(metal.NoneNATType),
+		NetworkType:                pointer.Pointer(metal.NetworkTypeExternal),
+		NATType:                    pointer.Pointer(metal.NATTypeNone),
 	}
 	networks = []*metal.Network{n1, n2, n3}
 )
@@ -179,21 +179,26 @@ func TestNetworkFilter(t *testing.T) {
 		},
 		{
 			name: "by addressfamily",
-			rq:   &apiv2.NetworkQuery{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4.Enum()},
+			rq:   &apiv2.NetworkQuery{AddressFamily: apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_V4.Enum()},
 			want: []*metal.Network{n1, n3},
 		},
 		{
 			name: "by addressfamily 2",
-			rq:   &apiv2.NetworkQuery{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum()},
+			rq:   &apiv2.NetworkQuery{AddressFamily: apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_V6.Enum()},
 			want: []*metal.Network{n2, n3},
 		},
 		{
 			name: "by addressfamily 3, with no result",
 			rq: &apiv2.NetworkQuery{
-				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(),
+				AddressFamily: apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_V6.Enum(),
 				Id:            pointer.Pointer("n1"),
 			},
 			want: nil,
+		},
+		{
+			name: "by addressfamily 4 (dual stack)",
+			rq:   &apiv2.NetworkQuery{AddressFamily: apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_DUAL_STACK.Enum()},
+			want: []*metal.Network{n3},
 		},
 		{
 			name: "by prefixes",
@@ -247,7 +252,7 @@ func TestNetworkFilter(t *testing.T) {
 					metal.Network{}, "Created", "Changed",
 				),
 			); diff != "" {
-				t.Errorf("networkServiceServer.Create() = %v, want %vņdiff: %s", got, tt.want, diff)
+				t.Errorf("networkServiceServer.List() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 
 		})

@@ -6,6 +6,7 @@ import (
 
 	"github.com/metal-stack/api/go/enum"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
@@ -87,10 +88,10 @@ func NetworkFilter(rq *apiv2.NetworkQuery) func(q r.Term) r.Term {
 		}
 
 		if rq.NatType != nil {
-			stringValue, err := enum.GetStringValue(*rq.NatType)
+			nt, err := metal.ToNATType(*rq.NatType)
 			if err == nil {
 				q = q.Filter(func(row r.Term) r.Term {
-					return row.Field("nattype").Eq(stringValue)
+					return row.Field("nattype").Eq(string(nt))
 				})
 			}
 		}
@@ -132,19 +133,35 @@ func NetworkFilter(rq *apiv2.NetworkQuery) func(q r.Term) r.Term {
 		}
 
 		if rq.AddressFamily != nil {
+			const (
+				ipv4Separator = "\\."
+				ipv6Separator = ":"
+			)
+
 			var separator string
+
 			switch rq.AddressFamily.String() {
-			case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4.String():
-				separator = "\\."
-			case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.String():
-				separator = ":"
+			case apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_V4.String():
+				separator = ipv4Separator
+			case apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_V6.String():
+				separator = ipv6Separator
+			case apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_DUAL_STACK.String():
+				q = q.Filter(func(row r.Term) r.Term {
+					return row.Field("prefixes").Contains(func(p r.Term) r.Term {
+						return p.Field("ip").Match(ipv4Separator)
+					}).And(row.Field("prefixes").Contains(func(p r.Term) r.Term {
+						return p.Field("ip").Match(ipv6Separator)
+					}))
+				})
 			}
 
-			q = q.Filter(func(row r.Term) r.Term {
-				return row.Field("prefixes").Contains(func(p r.Term) r.Term {
-					return p.Field("ip").Match(separator)
+			if separator != "" {
+				q = q.Filter(func(row r.Term) r.Term {
+					return row.Field("prefixes").Contains(func(p r.Term) r.Term {
+						return p.Field("ip").Match(separator)
+					})
 				})
-			})
+			}
 		}
 
 		return q

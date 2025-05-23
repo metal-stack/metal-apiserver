@@ -163,7 +163,7 @@ func (n *networkServiceServer) ListBaseNetworks(ctx context.Context, rq *connect
 	for _, nw := range networks {
 		// TODO convert to a equivalent reql query
 		switch pointer.SafeDeref(nw.NetworkType) {
-		case metal.ChildSharedNetworkType, metal.ExternalNetworkType, metal.SuperNetworkType, metal.SuperNamespacedNetworkType:
+		case metal.NetworkTypeChildShared, metal.NetworkTypeExternal, metal.NetworkTypeSuper, metal.NetworkTypeSuperNamespaced:
 			converted, err := n.repo.UnscopedNetwork().ConvertToProto(nw)
 			if err != nil {
 				return nil, errorutil.Convert(err)

@@ -164,7 +164,7 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 		}
 
 		// Inherit nat from Parent
-		if parent.NATType != nil && *parent.NATType == metal.IPv4MasqueradeNATType {
+		if parent.NATType != nil && *parent.NATType == metal.NATTypeIPv4Masquerade {
 			nat = true
 		}
 
@@ -172,7 +172,7 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 			shared = true
 		}
 		var namespace *string
-		if *parent.NetworkType == metal.SuperNamespacedNetworkType {
+		if *parent.NetworkType == metal.NetworkTypeSuperNamespaced {
 			namespace = req.Project
 		}
 
@@ -317,9 +317,9 @@ func (r *networkRepository) Update(ctx context.Context, rq *Validated[*adminv2.N
 		}
 		newNetwork.NATType = &nt
 		switch nt {
-		case metal.IPv4MasqueradeNATType:
+		case metal.NATTypeIPv4Masquerade:
 			newNetwork.Nat = true // nolint:staticcheck
-		case metal.NoneNATType:
+		case metal.NATTypeNone:
 			//
 		}
 	}
@@ -484,9 +484,9 @@ func (r *networkRepository) toProtoChildPrefixLength(childPrefixLength metal.Chi
 			result = &apiv2.ChildPrefixLength{}
 		}
 		switch af {
-		case metal.IPv4AddressFamily:
+		case metal.AddressFamilyIPv4:
 			result.Ipv4 = pointer.Pointer(uint32(length))
-		case metal.IPv6AddressFamily:
+		case metal.AddressFamilyIPv6:
 			result.Ipv6 = pointer.Pointer(uint32(length))
 		default:
 			return nil, errorutil.InvalidArgument("unknown addressfamily %s", af)
@@ -505,9 +505,9 @@ func (r *networkRepository) GetNetworkUsage(ctx context.Context, nw *metal.Netwo
 		if err != nil {
 			return nil, err
 		}
-		af := metal.IPv4AddressFamily
+		af := metal.AddressFamilyIPv4
 		if pfx.Addr().Is6() {
-			af = metal.IPv6AddressFamily
+			af = metal.AddressFamilyIPv6
 		}
 		resp, err := r.r.ipam.PrefixUsage(ctx, connect.NewRequest(&ipamv1.PrefixUsageRequest{Cidr: prefix.String(), Namespace: nw.Namespace}))
 		if err != nil {
@@ -515,7 +515,7 @@ func (r *networkRepository) GetNetworkUsage(ctx context.Context, nw *metal.Netwo
 		}
 		u := resp.Msg
 		switch af {
-		case metal.IPv4AddressFamily:
+		case metal.AddressFamilyIPv4:
 			if consumption.Ipv4 == nil {
 				consumption.Ipv4 = &apiv2.NetworkUsage{}
 			}
@@ -523,7 +523,7 @@ func (r *networkRepository) GetNetworkUsage(ctx context.Context, nw *metal.Netwo
 			consumption.Ipv4.UsedIps += u.AcquiredIps
 			consumption.Ipv4.AvailablePrefixes += uint64(len(u.AvailablePrefixes))
 			consumption.Ipv4.UsedPrefixes += u.AcquiredPrefixes
-		case metal.IPv6AddressFamily:
+		case metal.AddressFamilyIPv6:
 			if consumption.Ipv6 == nil {
 				consumption.Ipv6 = &apiv2.NetworkUsage{}
 			}
@@ -568,7 +568,7 @@ func (r *networkRepository) calculatePrefixDifferences(ctx context.Context, exis
 	return toRemoved, toAdded, nil
 }
 
-func (r *networkRepository) allocateChildPrefixes(ctx context.Context, projectId, parentNetworkId, partitionId *string, requestedLength *apiv2.ChildPrefixLength, af *apiv2.IPAddressFamily) (metal.Prefixes, *metal.Network, error) {
+func (r *networkRepository) allocateChildPrefixes(ctx context.Context, projectId, parentNetworkId, partitionId *string, requestedLength *apiv2.ChildPrefixLength, af *apiv2.NetworkAddressFamily) (metal.Prefixes, *metal.Network, error) {
 
 	var (
 		prefixes  metal.Prefixes
@@ -586,9 +586,9 @@ func (r *networkRepository) allocateChildPrefixes(ctx context.Context, projectId
 			return nil, nil, errorutil.InvalidArgument("parent network with id:%s does not have a networktype set", *parentNetworkId)
 		}
 		switch *p.NetworkType {
-		case metal.SuperNetworkType:
+		case metal.NetworkTypeSuper:
 			// all good
-		case metal.SuperNamespacedNetworkType:
+		case metal.NetworkTypeSuperNamespaced:
 			namespace = projectId
 		default:
 			return nil, nil, errorutil.InvalidArgument("parent network with id:%s is not a valid super network but has type:%s", *parentNetworkId, *p.NetworkType)
@@ -605,31 +605,36 @@ func (r *networkRepository) allocateChildPrefixes(ctx context.Context, projectId
 		parent = p
 	}
 
-	length := parent.DefaultChildPrefixLength
+	parentLength := parent.DefaultChildPrefixLength
 	if requestedLength != nil && (requestedLength.Ipv4 != nil || requestedLength.Ipv6 != nil) {
 		// FIXME in case requestedLength is Zero, length is returned zero as well
 		l, err := metal.ToChildPrefixLength(requestedLength, parent.Prefixes)
 		if err != nil {
 			return nil, nil, errorutil.NewInvalidArgument(err)
 		}
-		length = l
+		parentLength = l
 	}
 
-	if af != nil {
-		addressfamily, err := metal.ToAddressFamily(*af)
-		if err != nil {
-			return nil, nil, errorutil.InvalidArgument("addressfamily is invalid %w", err)
-		}
-		bits, ok := length[addressfamily]
+	if af == nil {
+		af = apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_DUAL_STACK.Enum()
+	}
+
+	metalAddressFamily, err := metal.ToAddressFamilyFromNetwork(*af)
+	if err != nil {
+		return nil, nil, errorutil.InvalidArgument("%w", err)
+	}
+
+	if metalAddressFamily != nil {
+		bits, ok := parentLength[*metalAddressFamily]
 		if !ok {
 			return nil, nil, errorutil.InvalidArgument("addressfamily %s specified, but no childprefixlength for this addressfamily", *af)
 		}
-		length = metal.ChildPrefixLength{
-			addressfamily: bits,
+		parentLength = metal.ChildPrefixLength{
+			*metalAddressFamily: bits,
 		}
 	}
 
-	for af, l := range length {
+	for af, l := range parentLength {
 		childPrefix, err := r.createChildPrefix(ctx, namespace, parent.Prefixes, af, l)
 		if err != nil {
 			return nil, nil, errorutil.InvalidArgument("error creating child network in parent %s:%w", parent.ID, err)

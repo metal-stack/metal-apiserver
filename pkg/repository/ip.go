@@ -99,7 +99,7 @@ func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServic
 	// if !nw.Shared && nw.ParentNetworkID != "" && p.Meta.Id != nw.ProjectID {
 	if nw.ProjectID != projectID {
 		switch *nw.NetworkType {
-		case metal.ChildSharedNetworkType, metal.ExternalNetworkType:
+		case metal.NetworkTypeChildShared, metal.NetworkTypeExternal:
 			// this is fine
 		default:
 			return nil, errorutil.InvalidArgument("can not allocate ip for project %q because network belongs to %q and the network is of type:%s", p.Meta.Id, nw.ProjectID, *nw.NetworkType)
@@ -253,9 +253,9 @@ func (r *ipRepository) allocateSpecificIP(ctx context.Context, parent *metal.Net
 		return "", "", fmt.Errorf("unable to parse specific ip: %w", err)
 	}
 
-	af := metal.IPv4AddressFamily
+	af := metal.AddressFamilyIPv4
 	if parsedIP.Is6() {
-		af = metal.IPv6AddressFamily
+		af = metal.AddressFamilyIPv6
 	}
 
 	for _, prefix := range parent.Prefixes.OfFamily(af) {
@@ -280,7 +280,7 @@ func (r *ipRepository) allocateSpecificIP(ctx context.Context, parent *metal.Net
 }
 
 func (r *ipRepository) allocateRandomIP(ctx context.Context, parent *metal.Network, af *metal.AddressFamily) (ipAddress, parentPrefixCidr string, err error) {
-	addressfamily := metal.IPv4AddressFamily
+	addressfamily := metal.AddressFamilyIPv4
 	if af != nil {
 		addressfamily = *af
 	} else if len(parent.Prefixes.AddressFamilies()) == 1 {

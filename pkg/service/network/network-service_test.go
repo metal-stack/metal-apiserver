@@ -723,7 +723,7 @@ func Test_networkServiceServer_Create(t *testing.T) {
 				Project:       "p2",
 				Name:          pointer.Pointer("My Machine Network"),
 				Partition:     pointer.Pointer("partition-three"),
-				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(),
+				AddressFamily: apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_V6.Enum(),
 			},
 			want: &apiv2.NetworkServiceCreateResponse{
 				Network: &apiv2.Network{
@@ -743,7 +743,7 @@ func Test_networkServiceServer_Create(t *testing.T) {
 				Project:       "p2",
 				Name:          pointer.Pointer("My Machine Network"),
 				Partition:     pointer.Pointer("partition-three"),
-				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4.Enum(),
+				AddressFamily: apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_V4.Enum(),
 			},
 			want: &apiv2.NetworkServiceCreateResponse{
 				Network: &apiv2.Network{

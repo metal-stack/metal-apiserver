@@ -1374,7 +1374,6 @@ func Test_networkServiceServer_CreateExternal(t *testing.T) {
 	}
 }
 
-
 func Test_networkServiceServer_CreateUnderlay(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
@@ -1749,7 +1748,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 		// 				Partition:                pointer.Pointer("partition-two"),
 		// 				Prefixes:                 []string{"2001:db8::/96"},
 		// 				Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
-		// 				DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6, Length: 112}},
+		// 				DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_V6, Length: 112}},
 		// 			},
 		// 			{
 		// 				Id:                       "tenant-super-network",
@@ -1757,7 +1756,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 		// 				Partition:                pointer.Pointer("partition-one"),
 		// 				Prefixes:                 []string{"10.100.0.0/14"},
 		// 				Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
-		// 				DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4, Length: 22}},
+		// 				DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_V4, Length: 22}},
 		// 			},
 		// 			{
 		// 				Id:                       "tenant-super-network-dualstack",
@@ -1765,7 +1764,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 		// 				Partition:                pointer.Pointer("partition-three"),
 		// 				Prefixes:                 []string{"10.200.0.0/14", "2001:dc8::/96"},
 		// 				Options:                  &apiv2.NetworkOptions{PrivateSuper: true},
-		// 				DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4, Length: 22}, {AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6, Length: 112}},
+		// 				DefaultChildPrefixLength: []*apiv2.ChildPrefixLength{{AddressFamily: apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_V4, Length: 22}, {AddressFamily: apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_V6, Length: 112}},
 		// 			},
 		// 			{
 		// 				Id:       "underlay",
@@ -1842,7 +1841,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 		{
 			name: "with v6 prefixes",
 			rq: &adminv2.NetworkServiceListRequest{
-				Query: &apiv2.NetworkQuery{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum()},
+				Query: &apiv2.NetworkQuery{AddressFamily: apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_V6.Enum()},
 			},
 			want: &adminv2.NetworkServiceListResponse{
 				Networks: []*apiv2.Network{

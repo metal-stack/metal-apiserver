@@ -19,13 +19,13 @@ func TestPrefixes_OfFamily(t *testing.T) {
 	}{
 		{
 			name: "no prefixes filtered by ipv4",
-			af:   metal.IPv4AddressFamily,
+			af:   metal.AddressFamilyIPv4,
 			p:    metal.Prefixes{},
 			want: nil,
 		},
 		{
 			name: "prefixes filtered by ipv4",
-			af:   metal.IPv4AddressFamily,
+			af:   metal.AddressFamilyIPv4,
 			p: metal.Prefixes{
 				{IP: "1.2.3.0", Length: "28"},
 				{IP: "fe80::", Length: "64"},
@@ -36,7 +36,7 @@ func TestPrefixes_OfFamily(t *testing.T) {
 		},
 		{
 			name: "prefixes filtered by ipv6",
-			af:   metal.IPv6AddressFamily,
+			af:   metal.AddressFamilyIPv6,
 			p: metal.Prefixes{
 				{IP: "1.2.3.0", Length: "28"},
 				{IP: "fe80::", Length: "64"},
@@ -47,7 +47,7 @@ func TestPrefixes_OfFamily(t *testing.T) {
 		},
 		{
 			name: "malformed prefixes are skipped",
-			af:   metal.IPv6AddressFamily,
+			af:   metal.AddressFamilyIPv6,
 			p: metal.Prefixes{
 				{IP: "1.2.3.0", Length: "28"},
 				{IP: "fe80::", Length: "metal-stack-rulez"},
@@ -76,14 +76,14 @@ func TestPrefixes_AddressFamilies(t *testing.T) {
 			p: metal.Prefixes{
 				{IP: "1.2.3.0", Length: "28"},
 			},
-			want: metal.AddressFamilies{metal.IPv4AddressFamily},
+			want: metal.AddressFamilies{metal.AddressFamilyIPv4},
 		},
 		{
 			name: "only ipv6",
 			p: metal.Prefixes{
 				{IP: "fe80::", Length: "64"},
 			},
-			want: metal.AddressFamilies{metal.IPv6AddressFamily},
+			want: metal.AddressFamilies{metal.AddressFamilyIPv6},
 		},
 		{
 			name: "both afs",
@@ -91,7 +91,7 @@ func TestPrefixes_AddressFamilies(t *testing.T) {
 				{IP: "1.2.3.0", Length: "28"},
 				{IP: "fe80::", Length: "64"},
 			},
-			want: metal.AddressFamilies{metal.IPv4AddressFamily, metal.IPv6AddressFamily},
+			want: metal.AddressFamilies{metal.AddressFamilyIPv4, metal.AddressFamilyIPv6},
 		},
 		{
 			name: "nil prefixes",
@@ -197,37 +197,37 @@ func TestToNetworkType(t *testing.T) {
 		{
 			name:    "child network type",
 			nwt:     apiv2.NetworkType_NETWORK_TYPE_CHILD,
-			want:    metal.ChildNetworkType,
+			want:    metal.NetworkTypeChild,
 			wantErr: false,
 		},
 		{
 			name:    "child shared network type",
 			nwt:     apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED,
-			want:    metal.ChildSharedNetworkType,
+			want:    metal.NetworkTypeChildShared,
 			wantErr: false,
 		},
 		{
 			name:    "super network type",
 			nwt:     apiv2.NetworkType_NETWORK_TYPE_SUPER,
-			want:    metal.SuperNetworkType,
+			want:    metal.NetworkTypeSuper,
 			wantErr: false,
 		},
 		{
 			name:    "super namespaced network type",
 			nwt:     apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED,
-			want:    metal.SuperNamespacedNetworkType,
+			want:    metal.NetworkTypeSuperNamespaced,
 			wantErr: false,
 		},
 		{
 			name:    "external network type",
 			nwt:     apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
-			want:    metal.ExternalNetworkType,
+			want:    metal.NetworkTypeExternal,
 			wantErr: false,
 		},
 		{
 			name:    "underlay network type",
 			nwt:     apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
-			want:    metal.UnderlayNetworkType,
+			want:    metal.NetworkTypeUnderlay,
 			wantErr: false,
 		},
 		{
@@ -267,37 +267,37 @@ func TestFromNetworkType(t *testing.T) {
 
 		{
 			name:    "child network type",
-			nwt:     metal.ChildNetworkType,
+			nwt:     metal.NetworkTypeChild,
 			want:    apiv2.NetworkType_NETWORK_TYPE_CHILD,
 			wantErr: false,
 		},
 		{
 			name:    "child shared network type",
-			nwt:     metal.ChildSharedNetworkType,
+			nwt:     metal.NetworkTypeChildShared,
 			want:    apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED,
 			wantErr: false,
 		},
 		{
 			name:    "super network type",
-			nwt:     metal.SuperNetworkType,
+			nwt:     metal.NetworkTypeSuper,
 			want:    apiv2.NetworkType_NETWORK_TYPE_SUPER,
 			wantErr: false,
 		},
 		{
 			name:    "super namespaced network type",
-			nwt:     metal.SuperNamespacedNetworkType,
+			nwt:     metal.NetworkTypeSuperNamespaced,
 			want:    apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED,
 			wantErr: false,
 		},
 		{
 			name:    "external network type",
-			nwt:     metal.ExternalNetworkType,
+			nwt:     metal.NetworkTypeExternal,
 			want:    apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
 			wantErr: false,
 		},
 		{
 			name:    "underlay network type",
-			nwt:     metal.UnderlayNetworkType,
+			nwt:     metal.NetworkTypeUnderlay,
 			want:    apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
 			wantErr: false,
 		},
@@ -332,19 +332,19 @@ func TestToNATType(t *testing.T) {
 		{
 			name:    "none nattype",
 			nt:      apiv2.NATType_NAT_TYPE_NONE,
-			want:    metal.NoneNATType,
+			want:    metal.NATTypeNone,
 			wantErr: false,
 		},
 		{
 			name:    "masq nattype",
 			nt:      apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE,
-			want:    metal.IPv4MasqueradeNATType,
+			want:    metal.NATTypeIPv4Masquerade,
 			wantErr: false,
 		},
 		{
 			name:    "unspecified nattype",
 			nt:      apiv2.NATType_NAT_TYPE_UNSPECIFIED,
-			want:    metal.InvalidNATType,
+			want:    metal.NATTypeInvalid,
 			wantErr: true,
 		},
 	}
@@ -371,19 +371,19 @@ func TestFromNATType(t *testing.T) {
 	}{
 		{
 			name:    "none nattype",
-			nt:      metal.NoneNATType,
+			nt:      metal.NATTypeNone,
 			want:    apiv2.NATType_NAT_TYPE_NONE,
 			wantErr: false,
 		},
 		{
 			name:    "masq nattype",
-			nt:      metal.IPv4MasqueradeNATType,
+			nt:      metal.NATTypeIPv4Masquerade,
 			want:    apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE,
 			wantErr: false,
 		},
 		{
 			name:    "unspecified nattype",
-			nt:      metal.InvalidNATType,
+			nt:      metal.NATTypeInvalid,
 			want:    apiv2.NATType_NAT_TYPE_UNSPECIFIED,
 			wantErr: true,
 		},
@@ -412,13 +412,13 @@ func TestToAddressFamily(t *testing.T) {
 		{
 			name:    "ipv4",
 			af:      apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4,
-			want:    metal.IPv4AddressFamily,
+			want:    metal.AddressFamilyIPv4,
 			wantErr: false,
 		},
 		{
 			name:    "ipv6",
 			af:      apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6,
-			want:    metal.IPv6AddressFamily,
+			want:    metal.AddressFamilyIPv6,
 			wantErr: false,
 		},
 		{
@@ -450,17 +450,17 @@ func TestIsSuperNetwork(t *testing.T) {
 	}{
 		{
 			name: "super",
-			nt:   pointer.Pointer(metal.SuperNetworkType),
+			nt:   pointer.Pointer(metal.NetworkTypeSuper),
 			want: true,
 		},
 		{
 			name: "super namespaced",
-			nt:   pointer.Pointer(metal.SuperNamespacedNetworkType),
+			nt:   pointer.Pointer(metal.NetworkTypeSuperNamespaced),
 			want: true,
 		},
 		{
 			name: "underlay",
-			nt:   pointer.Pointer(metal.UnderlayNetworkType),
+			nt:   pointer.Pointer(metal.NetworkTypeUnderlay),
 			want: false,
 		},
 		{
@@ -485,17 +485,17 @@ func TestIsChildNetwork(t *testing.T) {
 	}{
 		{
 			name: "child",
-			nt:   pointer.Pointer(metal.ChildNetworkType),
+			nt:   pointer.Pointer(metal.NetworkTypeChild),
 			want: true,
 		},
 		{
 			name: "child shared",
-			nt:   pointer.Pointer(metal.ChildSharedNetworkType),
+			nt:   pointer.Pointer(metal.NetworkTypeChildShared),
 			want: true,
 		},
 		{
 			name: "underlay",
-			nt:   pointer.Pointer(metal.UnderlayNetworkType),
+			nt:   pointer.Pointer(metal.NetworkTypeUnderlay),
 			want: false,
 		},
 		{

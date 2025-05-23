@@ -144,7 +144,7 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 		return errorutil.InvalidArgument("super network %s is project scoped, requested child project:%s does not match", parentNetwork.ID, *req.Project)
 	}
 
-	length := parentNetwork.DefaultChildPrefixLength
+	parentLength := parentNetwork.DefaultChildPrefixLength
 	if req.Length != nil {
 		l, err := metal.ToChildPrefixLength(req.Length, parentNetwork.Prefixes)
 		if err != nil {
@@ -161,26 +161,33 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 			}
 		}
 
-		length = l
+		parentLength = l
 	}
 
-	if req.AddressFamily != nil {
-		addressfamily, err := metal.ToAddressFamily(*req.AddressFamily)
-		if err != nil {
-			return errorutil.InvalidArgument("addressfamily is invalid %w", err)
-		}
-		bits, ok := length[addressfamily]
+	af := req.AddressFamily
+	if af == nil {
+		af = apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_DUAL_STACK.Enum()
+	}
+
+	metalAddressFamily, err := metal.ToAddressFamilyFromNetwork(*af)
+	if err != nil {
+		return errorutil.InvalidArgument("%w", err)
+	}
+
+	if metalAddressFamily != nil {
+		bits, ok := parentLength[*metalAddressFamily]
 		if !ok {
 			return errorutil.InvalidArgument("addressfamily %s specified, but no childprefixlength for this addressfamily", *req.AddressFamily)
 		}
-		length = metal.ChildPrefixLength{
-			addressfamily: bits,
+		parentLength = metal.ChildPrefixLength{
+			*metalAddressFamily: bits,
 		}
 	}
 
-	if err := r.validatePrefixesAndAddressFamilies(parentNetwork.Prefixes, nil, length, pointer.Pointer(metal.ChildNetworkType)); err != nil {
+	if err := r.validatePrefixesAndAddressFamilies(parentNetwork.Prefixes, nil, parentLength, pointer.Pointer(metal.NetworkTypeChild)); err != nil {
 		return errorutil.Convert(err)
 	}
+
 	return nil
 }
 
@@ -234,11 +241,11 @@ func (r *networkRepository) validateCreateNetworkTypeSuper(ctx context.Context, 
 		return errorutil.NewInvalidArgument(err)
 	}
 
-	if err := r.validatePrefixesAndAddressFamilies(prefixes, nil, defaultChildPrefixLength, pointer.Pointer(metal.SuperNetworkType)); err != nil {
+	if err := r.validatePrefixesAndAddressFamilies(prefixes, nil, defaultChildPrefixLength, pointer.Pointer(metal.NetworkTypeSuper)); err != nil {
 		return errorutil.NewInvalidArgument(err)
 	}
 
-	if err := r.validateAdditionalAnnouncableCIDRs(req.AdditionalAnnouncableCidrs, pointer.Pointer(metal.SuperNetworkType)); err != nil {
+	if err := r.validateAdditionalAnnouncableCIDRs(req.AdditionalAnnouncableCidrs, pointer.Pointer(metal.NetworkTypeSuper)); err != nil {
 		return errorutil.NewInvalidArgument(err)
 
 	}
@@ -289,7 +296,7 @@ func (r *networkRepository) validateCreateNetworkTypeExternal(ctx context.Contex
 		return errorutil.NewInvalidArgument(err)
 	}
 
-	if err := r.validatePrefixesAndAddressFamilies(prefixes, destinationprefixes.AddressFamilies(), nil, pointer.Pointer(metal.ExternalNetworkType)); err != nil {
+	if err := r.validatePrefixesAndAddressFamilies(prefixes, destinationprefixes.AddressFamilies(), nil, pointer.Pointer(metal.NetworkTypeExternal)); err != nil {
 		return errorutil.NewInvalidArgument(err)
 	}
 
@@ -340,7 +347,7 @@ func (r *networkRepository) validateCreateNetworkTypeUnderlay(ctx context.Contex
 	if err != nil {
 		return errorutil.NewInvalidArgument(err)
 	}
-	if slices.Contains(prefixes.AddressFamilies(), metal.IPv6AddressFamily) {
+	if slices.Contains(prefixes.AddressFamilies(), metal.AddressFamilyIPv6) {
 		return errorutil.InvalidArgument("underlay can only contain ipv4 prefixes")
 	}
 
