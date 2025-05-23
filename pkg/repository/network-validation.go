@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/netip"
 	"slices"
+	"sort"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -146,22 +147,23 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 
 	parentLength := parentNetwork.DefaultChildPrefixLength
 	if req.Length != nil {
-		l, err := metal.ToChildPrefixLength(req.Length, parentNetwork.Prefixes)
-		if err != nil {
+		cpl := metal.ToChildPrefixLength(req.Length)
+
+		if err := r.validateChildPrefixLength(cpl, parentNetwork.Prefixes); err != nil {
 			return errorutil.NewInvalidArgument(err)
 		}
 
 		for af, ml := range parentNetwork.MinChildPrefixLength {
-			cl, ok := l[af]
+			cl, ok := cpl[af]
 			if !ok {
 				continue
 			}
 			if cl < ml {
-				return errorutil.InvalidArgument("requested prefix length %v is smaller than allowed (super network defines a minimum of %v)", l, parentNetwork.MinChildPrefixLength)
+				return errorutil.InvalidArgument("requested prefix length %v is smaller than allowed (super network defines a minimum of %v)", cpl, parentNetwork.MinChildPrefixLength)
 			}
 		}
 
-		parentLength = l
+		parentLength = cpl
 	}
 
 	af := req.AddressFamily
@@ -232,12 +234,13 @@ func (r *networkRepository) validateCreateNetworkTypeSuper(ctx context.Context, 
 		return errorutil.NewInvalidArgument(err)
 	}
 
-	defaultChildPrefixLength, err := metal.ToChildPrefixLength(req.DefaultChildPrefixLength, prefixes)
-	if err != nil {
+	defaultChildPrefixLength := metal.ToChildPrefixLength(req.DefaultChildPrefixLength)
+	if err := r.validateChildPrefixLength(defaultChildPrefixLength, prefixes); err != nil {
 		return errorutil.NewInvalidArgument(err)
 	}
 
-	if _, err := metal.ToChildPrefixLength(req.MinChildPrefixLength, prefixes); err != nil {
+	minChildPrefixLength := metal.ToChildPrefixLength(req.MinChildPrefixLength)
+	if err := r.validateChildPrefixLength(minChildPrefixLength, prefixes); err != nil {
 		return errorutil.NewInvalidArgument(err)
 	}
 
@@ -498,12 +501,13 @@ func (r *networkRepository) ValidateUpdate(ctx context.Context, req *adminv2.Net
 		return nil, errorutil.Convert(err)
 	}
 
-	_, err = metal.ToChildPrefixLength(req.DefaultChildPrefixLength, newNetwork.Prefixes)
-	if err != nil {
+	dcpl := metal.ToChildPrefixLength(req.DefaultChildPrefixLength)
+	if err := r.validateChildPrefixLength(dcpl, newNetwork.Prefixes); err != nil {
 		return nil, errorutil.NewInvalidArgument(err)
 	}
-	_, err = metal.ToChildPrefixLength(req.MinChildPrefixLength, newNetwork.Prefixes)
-	if err != nil {
+
+	mcpl := metal.ToChildPrefixLength(req.MinChildPrefixLength)
+	if err = r.validateChildPrefixLength(mcpl, newNetwork.Prefixes); err != nil {
 		return nil, errorutil.NewInvalidArgument(err)
 	}
 
@@ -565,4 +569,33 @@ func (r *networkRepository) ValidateDelete(ctx context.Context, req *metal.Netwo
 	return &Validated[*metal.Network]{
 		message: req,
 	}, nil
+}
+
+func (*networkRepository) validateChildPrefixLength(cpl metal.ChildPrefixLength, prefixes metal.Prefixes) error {
+	var (
+		addressFamilies = prefixes.AddressFamilies()
+		errs            []error
+	)
+
+	for af, length := range cpl {
+		if !slices.Contains(addressFamilies, af) {
+			errs = append(errs, fmt.Errorf("child prefix length for addressfamily %q specified, but not found in prefixes", af))
+			continue
+		}
+
+		// check if childprefixlength is set and matches addressfamily
+		for _, p := range prefixes.OfFamily(af) {
+			ipprefix, err := netip.ParsePrefix(p.String())
+			if err != nil {
+				errs = append(errs, fmt.Errorf("given prefix %q is not a valid ip with mask: %w", p.String(), err))
+			}
+			if int(length) <= ipprefix.Bits() {
+				errs = append(errs, fmt.Errorf("given childprefixlength %d is not greater than prefix length of:%s", length, p.String()))
+			}
+		}
+	}
+
+	sort.Slice(errs, func(i, j int) bool { return errs[i].Error() < errs[j].Error() }) // for testability
+
+	return errors.Join(errs...)
 }

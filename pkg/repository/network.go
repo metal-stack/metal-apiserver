@@ -228,14 +228,10 @@ func (r *networkRepository) Create(ctx context.Context, rq *Validated[*adminv2.N
 		return nil, errorutil.Convert(err)
 	}
 
-	defaultChildPrefixLength, err := metal.ToChildPrefixLength(req.DefaultChildPrefixLength, prefixes)
-	if err != nil {
-		return nil, errorutil.NewInvalidArgument(err)
-	}
-	minChildPrefixLength, err := metal.ToChildPrefixLength(req.MinChildPrefixLength, prefixes)
-	if err != nil {
-		return nil, errorutil.NewInvalidArgument(err)
-	}
+	var (
+		defaultChildPrefixLength = metal.ToChildPrefixLength(req.DefaultChildPrefixLength)
+		minChildPrefixLength     = metal.ToChildPrefixLength(req.MinChildPrefixLength)
+	)
 
 	// Only create a random VRF Id for child networks, all other networks must either specify one, or do not set it at all (underlay, super network)
 	if req.Vrf != nil {
@@ -343,11 +339,7 @@ func (r *networkRepository) Update(ctx context.Context, rq *Validated[*adminv2.N
 	}
 
 	if req.DefaultChildPrefixLength != nil {
-		newDefaultChildPrefixLength, err := metal.ToChildPrefixLength(req.DefaultChildPrefixLength, newNetwork.Prefixes)
-		if err != nil {
-			return nil, errorutil.NewInvalidArgument(err)
-		}
-		newNetwork.DefaultChildPrefixLength = newDefaultChildPrefixLength
+		newNetwork.DefaultChildPrefixLength = metal.ToChildPrefixLength(req.DefaultChildPrefixLength)
 	}
 
 	if req.Force {
@@ -608,11 +600,7 @@ func (r *networkRepository) allocateChildPrefixes(ctx context.Context, projectId
 	parentLength := parent.DefaultChildPrefixLength
 	if requestedLength != nil && (requestedLength.Ipv4 != nil || requestedLength.Ipv6 != nil) {
 		// FIXME in case requestedLength is Zero, length is returned zero as well
-		l, err := metal.ToChildPrefixLength(requestedLength, parent.Prefixes)
-		if err != nil {
-			return nil, nil, errorutil.NewInvalidArgument(err)
-		}
-		parentLength = l
+		parentLength = metal.ToChildPrefixLength(requestedLength)
 	}
 
 	if af == nil {

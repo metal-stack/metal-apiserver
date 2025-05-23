@@ -24,8 +24,6 @@ var (
 	projects = []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}, {Name: "p3", Login: "t1"}, {Name: "p0", Login: "t0"}}
 )
 
-// FIXME write test cases for new network type restrictions.
-
 func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
@@ -794,7 +792,7 @@ func Test_networkServiceServer_CreateSuper(t *testing.T) {
 				Partition:                pointer.Pointer("partition-one"),
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument(`childprefixlength for addressfamily: "IPv6" specified, but no "IPv6" addressfamily found in prefixes`),
+			wantErr: errorutil.InvalidArgument(`child prefix length for addressfamily "IPv6" specified, but not found in prefixes`),
 		},
 		{
 			name:      "create a super network with childprefixlength but wrong length",
@@ -1026,7 +1024,7 @@ func Test_networkServiceServer_CreateSuperNamespaced(t *testing.T) {
 				Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED,
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument(`childprefixlength for addressfamily: "IPv6" specified, but no "IPv6" addressfamily found in prefixes`),
+			wantErr: errorutil.InvalidArgument(`child prefix length for addressfamily "IPv6" specified, but not found in prefixes`),
 		},
 		{
 			name:      "create a super network with childprefixlength but wrong length",

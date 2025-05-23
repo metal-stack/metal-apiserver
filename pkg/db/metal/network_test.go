@@ -512,3 +512,41 @@ func TestIsChildNetwork(t *testing.T) {
 		})
 	}
 }
+
+func TestToChildPrefixLength(t *testing.T) {
+	tests := []struct {
+		name string
+		cpl  *apiv2.ChildPrefixLength
+		want metal.ChildPrefixLength
+	}{
+		{
+			name: "nil results into nil",
+			cpl:  nil,
+			want: nil,
+		},
+		{
+			name: "zero results into zero",
+			cpl:  &apiv2.ChildPrefixLength{},
+			want: metal.ChildPrefixLength{},
+		},
+		{
+			name: "ipv4 and ipv6 are properly mapped",
+			cpl: &apiv2.ChildPrefixLength{
+				Ipv4: pointer.Pointer(uint32(28)),
+				Ipv6: pointer.Pointer(uint32(56)),
+			},
+			want: metal.ChildPrefixLength{
+				metal.AddressFamilyIPv4: 28,
+				metal.AddressFamilyIPv6: 56,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := metal.ToChildPrefixLength(tt.cpl)
+			if diff := cmp.Diff(got, tt.want); diff != "" {
+				t.Errorf("diff = %s", diff)
+			}
+		})
+	}
+}

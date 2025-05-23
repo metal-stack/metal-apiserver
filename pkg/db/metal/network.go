@@ -127,9 +127,10 @@ func ToNetworkType(nwt apiv2.NetworkType) (NetworkType, error) {
 	case apiv2.NetworkType_NETWORK_TYPE_UNDERLAY:
 		return NetworkTypeUnderlay, nil
 	case apiv2.NetworkType_NETWORK_TYPE_UNSPECIFIED:
+		fallthrough
+	default:
 		return NetworkType(""), fmt.Errorf("given networkType:%q is invalid", nwt)
 	}
-	return NetworkType(""), fmt.Errorf("given networkType:%q is invalid", nwt)
 }
 
 func FromNetworkType(nwt NetworkType) (apiv2.NetworkType, error) {
@@ -147,9 +148,10 @@ func ToNATType(nt apiv2.NATType) (NATType, error) {
 	case apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE:
 		return NATTypeIPv4Masquerade, nil
 	case apiv2.NATType_NAT_TYPE_UNSPECIFIED:
+		fallthrough
+	default:
 		return NATTypeInvalid, fmt.Errorf("given natType:%q is invalid", nt)
 	}
-	return NATTypeInvalid, fmt.Errorf("given natType:%q is invalid", nt)
 }
 
 func FromNATType(nt NATType) (apiv2.NATType, error) {
@@ -167,10 +169,10 @@ func ToAddressFamily(af apiv2.IPAddressFamily) (AddressFamily, error) {
 	case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6:
 		return AddressFamilyIPv6, nil
 	case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_UNSPECIFIED:
+		fallthrough
+	default:
 		return "", fmt.Errorf("given addressfamily %q is invalid", af)
 	}
-
-	return "", fmt.Errorf("given addressfamily %q is invalid", af)
 }
 
 // ToAddressFamilyFromNetwork returns the metal address family of the corresponding apiv2 address family.
@@ -188,40 +190,22 @@ func ToAddressFamilyFromNetwork(af apiv2.NetworkAddressFamily) (*AddressFamily, 
 	}
 }
 
-func ToChildPrefixLength(cpl *apiv2.ChildPrefixLength, prefixes Prefixes) (ChildPrefixLength, error) {
-	childPrefixLength := ChildPrefixLength{}
+func ToChildPrefixLength(cpl *apiv2.ChildPrefixLength) ChildPrefixLength {
 	if cpl == nil {
-		return nil, nil
+		return nil
 	}
 
+	childPrefixLength := ChildPrefixLength{}
+
 	if cpl.Ipv4 != nil {
-		if !slices.Contains(prefixes.AddressFamilies(), AddressFamilyIPv4) {
-			return nil, fmt.Errorf("childprefixlength for addressfamily: %q specified, but no %q addressfamily found in prefixes", AddressFamilyIPv4, AddressFamilyIPv4)
-		}
 		childPrefixLength[AddressFamilyIPv4] = uint8(*cpl.Ipv4)
 	}
 
 	if cpl.Ipv6 != nil {
-		if !slices.Contains(prefixes.AddressFamilies(), AddressFamilyIPv6) {
-			return nil, fmt.Errorf("childprefixlength for addressfamily: %q specified, but no %q addressfamily found in prefixes", AddressFamilyIPv6, AddressFamilyIPv6)
-		}
 		childPrefixLength[AddressFamilyIPv6] = uint8(*cpl.Ipv6)
 	}
 
-	for af, length := range childPrefixLength {
-		// check if childprefixlength is set and matches addressfamily
-		for _, p := range prefixes.OfFamily(af) {
-			ipprefix, err := netip.ParsePrefix(p.String())
-			if err != nil {
-				return nil, fmt.Errorf("given prefix %q is not a valid ip with mask: %w", p.String(), err)
-			}
-			if int(length) <= ipprefix.Bits() {
-				return nil, fmt.Errorf("given childprefixlength %d is not greater than prefix length of:%s", length, p.String())
-			}
-		}
-	}
-
-	return childPrefixLength, nil
+	return childPrefixLength
 }
 
 func (p *Prefix) String() string {
