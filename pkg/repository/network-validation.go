@@ -146,7 +146,7 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 	}
 
 	parentLength := parentNetwork.DefaultChildPrefixLength
-	if req.Length != nil {
+	if req.Length != nil && (req.Length.Ipv4 != nil || req.Length.Ipv6 != nil) {
 		cpl := metal.ToChildPrefixLength(req.Length)
 
 		if err := r.validateChildPrefixLength(cpl, parentNetwork.Prefixes); err != nil {
