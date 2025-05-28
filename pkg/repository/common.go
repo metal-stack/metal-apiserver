@@ -67,7 +67,6 @@ func updateLabelsOnSlice(rq *apiv2.UpdateLabels, existingTags []string) []string
 	}
 
 	for _, remove := range rq.Remove {
-		// TODO: do we want to return an error in case the label did not exist before?
 		delete(tagMap, remove)
 		pureLabels = slices.DeleteFunc(pureLabels, func(l string) bool { return l == remove })
 	}
