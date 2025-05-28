@@ -61,12 +61,11 @@ type (
 
 	IP interface {
 		Repository[*metal.IP, *apiv2.IP, *apiv2.IPServiceCreateRequest, *apiv2.IPServiceUpdateRequest, *apiv2.IPQuery]
-		// TODO define additional methods only for the IP repository
-		// AdditionalMethod()
 	}
 
 	Network interface {
-		Repository[*metal.Network, *apiv2.Network, *apiv2.NetworkServiceCreateRequest, *apiv2.NetworkServiceUpdateRequest, *apiv2.NetworkServiceListRequest]
+		Repository[*metal.Network, *apiv2.Network, *adminv2.NetworkServiceCreateRequest, *adminv2.NetworkServiceUpdateRequest, *apiv2.NetworkQuery]
+		GetNetworkUsage(context.Context, *metal.Network) (*apiv2.NetworkConsumption, error)
 	}
 
 	Project interface {

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -117,15 +118,13 @@ func Test_partitionServiceServer_Create(t *testing.T) {
 			}
 			if diff := cmp.Diff(
 				tt.want, pointer.SafeDeref(got).Msg,
-				cmp.Options{
-					protocmp.Transform(),
-					protocmp.IgnoreFields(
-						&apiv2.Image{}, "meta", "expires_at",
-					),
-					protocmp.IgnoreFields(
-						&apiv2.Meta{}, "created_at", "updated_at",
-					),
-				},
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Image{}, "meta", "expires_at",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
 			); diff != "" {
 				t.Errorf("partitionServiceServer.Create() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
 			}
@@ -258,15 +257,13 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 			}
 			if diff := cmp.Diff(
 				tt.want, pointer.SafeDeref(got).Msg,
-				cmp.Options{
-					protocmp.Transform(),
-					protocmp.IgnoreFields(
-						&apiv2.Image{}, "expires_at",
-					),
-					protocmp.IgnoreFields(
-						&apiv2.Meta{}, "created_at", "updated_at",
-					),
-				},
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Image{}, "expires_at",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
 			); diff != "" {
 				t.Errorf("partitionServiceServer.Update() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
 			}
@@ -275,7 +272,7 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 }
 
 func Test_partitionServiceServer_Delete(t *testing.T) {
-	log := slog.Default()
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	repo, closer := test.StartRepository(t, log)
 	defer closer()
 
@@ -288,8 +285,17 @@ func Test_partitionServiceServer_Delete(t *testing.T) {
 	defer ts.Close()
 
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+		{Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+		{Partition: &apiv2.Partition{Id: "partition-2", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+	})
+
+	test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
 		{
-			Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
+			Id:                       pointer.Pointer("tenant-super-network"),
+			Prefixes:                 []string{"10.100.0.0/14"},
+			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+			Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
+			Partition:                pointer.Pointer("partition-2"),
 		},
 	})
 
@@ -301,9 +307,15 @@ func Test_partitionServiceServer_Delete(t *testing.T) {
 	}{
 		{
 			name:    "delete non existing",
+			request: &adminv2.PartitionServiceDeleteRequest{Id: "partition-3"},
+			want:    nil,
+			wantErr: errorutil.NotFound(`no partition with id "partition-3" found`),
+		},
+		{
+			name:    "delete with attached network",
 			request: &adminv2.PartitionServiceDeleteRequest{Id: "partition-2"},
 			want:    nil,
-			wantErr: errorutil.NotFound(`no partition with id "partition-2" found`),
+			wantErr: errorutil.InvalidArgument(`there are still networks in "partition-2"`),
 		},
 		{
 			name:    "delete existing",
@@ -326,15 +338,13 @@ func Test_partitionServiceServer_Delete(t *testing.T) {
 			}
 			if diff := cmp.Diff(
 				tt.want, pointer.SafeDeref(got).Msg,
-				cmp.Options{
-					protocmp.Transform(),
-					protocmp.IgnoreFields(
-						&apiv2.Image{}, "meta", "expires_at",
-					),
-					protocmp.IgnoreFields(
-						&apiv2.Meta{}, "created_at", "updated_at",
-					),
-				},
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Image{}, "meta", "expires_at",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
 			); diff != "" {
 				t.Errorf("partitionServiceServer.Delete() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
 			}

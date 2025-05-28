@@ -120,13 +120,13 @@ func Migrate(ctx context.Context, opts r.ConnectOpts, log *slog.Logger, targetVe
 	db := r.DB(opts.Database)
 
 	log.Info("setting demoted runtime user to read only", "user", demotedUser)
-	_, err = db.Grant(demotedUser, map[string]interface{}{"read": true, "write": false}).RunWrite(ds.queryExecutor)
+	_, err = db.Grant(demotedUser, map[string]any{"read": true, "write": false}).RunWrite(ds.queryExecutor)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		log.Info("removing read only", "user", demotedUser)
-		_, err = db.Grant(demotedUser, map[string]interface{}{"read": true, "write": true}).RunWrite(ds.queryExecutor)
+		_, err = db.Grant(demotedUser, map[string]any{"read": true, "write": true}).RunWrite(ds.queryExecutor)
 		if err != nil {
 			log.Error("error giving back write permissions", "user", demotedUser)
 		}

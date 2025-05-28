@@ -28,7 +28,7 @@ func TestGenericCRUD(t *testing.T) {
 	require.Error(t, err)
 	require.EqualError(t, err, errorutil.NotFound("no ip with id \"1.2.3.4\" found").Error())
 
-	created, err := ds.IP().Create(ctx, &metal.IP{IPAddress: "1.2.3.4"})
+	created, err := ds.IP().Create(ctx, &metal.IP{IPAddress: "1.2.3.4", ProjectID: "p1", Namespace: pointer.Pointer("n1"), AllocationUUID: "uuid-1"})
 	require.NoError(t, err)
 	require.NotNil(t, created)
 	require.Equal(t, "1.2.3.4", created.IPAddress)
@@ -44,6 +44,24 @@ func TestGenericCRUD(t *testing.T) {
 	require.Equal(t, "1.2.3.4", updated.IPAddress)
 	require.Equal(t, "Modified IP", updated.Description)
 	require.NotNil(t, updated.Changed)
+
+	// Find by IP and Namespace
+	found, err := ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Ip: pointer.Pointer("1.2.3.4"), Namespace: pointer.Pointer("n1")}))
+	require.NoError(t, err)
+	require.NotNil(t, found)
+	require.NotNil(t, found.Namespace)
+	require.Equal(t, "1.2.3.4", found.IPAddress)
+	require.Equal(t, "n1", *found.Namespace)
+
+	// Find by IP, AllocationUUID and Namespace
+	found2, err := ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Ip: pointer.Pointer("1.2.3.4"), Namespace: pointer.Pointer("n1")}))
+	require.NoError(t, err)
+	require.NotNil(t, found2)
+	require.NotNil(t, found2.Namespace)
+	require.NotEmpty(t, found2.AllocationUUID)
+	require.Equal(t, "1.2.3.4", found2.IPAddress)
+	require.Equal(t, "n1", *found2.Namespace)
+	require.Equal(t, "uuid-1", found2.AllocationUUID)
 
 	// Delete does not give a notfound
 	err = ds.IP().Delete(ctx, &metal.IP{IPAddress: "1.2.3.5"})

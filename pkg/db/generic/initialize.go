@@ -8,7 +8,7 @@ import (
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
 
-type dataStoreOption interface{}
+type dataStoreOption any
 
 type vrfPoolRange struct {
 	min, max uint
