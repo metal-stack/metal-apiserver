@@ -77,6 +77,7 @@ func (s *storage[E]) Find(ctx context.Context, queries ...EntityQuery) (E, error
 	for _, q := range queries {
 		query = q(query)
 	}
+	s.r.log.Debug("find", "table", s.table, "query", query.String())
 
 	var zero E
 	res, err := query.Run(s.r.queryExecutor, r.RunOpts{Context: ctx})
