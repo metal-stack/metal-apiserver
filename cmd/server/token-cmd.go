@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -150,7 +149,7 @@ var tokenCmd = &cli.Command{
 			return fmt.Errorf("token subject cannot be empty")
 		}
 
-		resp, err := tokenService.CreateApiTokenWithoutPermissionCheck(context.Background(), subject, connect.NewRequest(&apiv2.TokenServiceCreateRequest{
+		resp, err := tokenService.CreateApiTokenWithoutPermissionCheck(ctx.Context, subject, connect.NewRequest(&apiv2.TokenServiceCreateRequest{
 			Description:  ctx.String(tokenDescriptionFlag.Name),
 			Expires:      durationpb.New(ctx.Duration(tokenExpirationFlag.Name)),
 			ProjectRoles: projectRoles,

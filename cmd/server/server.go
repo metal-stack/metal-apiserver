@@ -32,7 +32,7 @@ func newServer(c service.Config) *server {
 	}
 }
 
-func (s *server) Run() error {
+func (s *server) Run(ctx context.Context) error {
 
 	mux, err := service.New(s.log, s.c)
 	if err != nil {
@@ -85,7 +85,7 @@ func (s *server) Run() error {
 	}()
 
 	<-signals
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 	asyncServer.Shutdown()
 	return apiServer.Shutdown(ctx)

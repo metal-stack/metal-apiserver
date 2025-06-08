@@ -1,7 +1,6 @@
 package project
 
 import (
-	"context"
 	"strconv"
 	"testing"
 
@@ -45,7 +44,7 @@ func newMasterdataMockClient(
 }
 
 func TestGetProjectsAndTenants(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	tests := []struct {
 		name                     string

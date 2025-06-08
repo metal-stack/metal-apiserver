@@ -160,7 +160,7 @@ var serveCmd = &cli.Command{
 		log.Info("running api-server", "version", v.V, "http endpoint", c.HttpServerEndpoint)
 
 		s := newServer(c)
-		if err := s.Run(); err != nil {
+		if err := s.Run(ctx.Context); err != nil {
 			return fmt.Errorf("unable to execute server: %w", err)
 		}
 
@@ -287,7 +287,7 @@ func createRedisClient(cli *cli.Context, logger *slog.Logger, dbName RedisDataba
 		DB:         db,
 		ClientName: "metal-apiserver",
 	})
-	pong, err := client.Ping(context.Background()).Result()
+	pong, err := client.Ping(cli.Context).Result()
 	if err != nil {
 		return nil, fmt.Errorf("unable to create redis client: %w", err)
 	}
@@ -316,7 +316,7 @@ func createIpamClient(cli *cli.Context, log *slog.Logger) (ipamv1connect.IpamSer
 	)
 
 	err := retry.Do(func() error {
-		version, err := ipamService.Version(context.Background(), connect.NewRequest(&ipamv1.VersionRequest{}))
+		version, err := ipamService.Version(cli.Context, connect.NewRequest(&ipamv1.VersionRequest{}))
 		if err != nil {
 			return err
 		}

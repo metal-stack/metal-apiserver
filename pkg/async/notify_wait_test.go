@@ -49,9 +49,9 @@ func Test_notifier_NotifyAndWait(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx1, cancel1 := context.WithTimeout(context.Background(), 2*time.Second)
+			ctx1, cancel1 := context.WithTimeout(t.Context(), 2*time.Second)
 			defer cancel1()
-			ctx2, cancel2 := context.WithTimeout(context.Background(), 2*time.Second)
+			ctx2, cancel2 := context.WithTimeout(t.Context(), 2*time.Second)
 			defer cancel2()
 
 			n, w1 := async.New[string](log, client, tt.name)
@@ -89,7 +89,7 @@ func Test_notifier_NotifyAndWait(t *testing.T) {
 			time.Sleep(100 * time.Millisecond) // this one's important!
 
 			for _, m := range tt.machineIDs {
-				if err := n.Notify(context.Background(), m); (err != nil) != tt.wantErr {
+				if err := n.Notify(t.Context(), m); (err != nil) != tt.wantErr {
 					t.Errorf("notifier.Notify() error = %v, wantErr %v", err, tt.wantErr)
 				}
 			}

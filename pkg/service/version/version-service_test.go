@@ -24,7 +24,7 @@ func Test_versionServiceServer_Get(t *testing.T) {
 	}{
 		{
 			name:     "simple",
-			ctx:      context.Background(),
+			ctx:      t.Context(),
 			req:      &apiv1.VersionServiceGetRequest{},
 			revision: "abc",
 			version:  "v0.0.1",
