@@ -41,7 +41,7 @@ func newMasterdataMockClient(
 		tenantMemberServiceMock(&tmsc.Mock)
 	}
 
-	return mdc.NewMock(psc, tsc, pmsc, tmsc)
+	return mdc.NewMock(psc, tsc, pmsc, tmsc, nil)
 }
 
 func TestGetProjectsAndTenants(t *testing.T) {
@@ -168,41 +168,29 @@ func TestGetProjectsAndTenants(t *testing.T) {
 			want: &ProjectsAndTenants{
 				Projects: []*v1.Project{
 					{
-						Uuid:             "4ec2dcf8-19e3-437d-96e5-dcde95dc6e55",
-						Meta:             &v1.Meta{},
-						Name:             "default-project",
-						Description:      "default-project of user test-user",
-						Tenant:           "test-user",
-						IsDefaultProject: true,
-						AvatarUrl:        pointer.Pointer(""),
+						Uuid:        "4ec2dcf8-19e3-437d-96e5-dcde95dc6e55",
+						Meta:        &v1.Meta{},
+						Name:        "default-project",
+						Description: "default-project of user test-user",
+						Tenant:      "test-user",
+						AvatarUrl:   pointer.Pointer(""),
 					},
 					{
-						Uuid:             "c1829741-f398-412c-8c0a-284e298d1a81",
-						Meta:             &v1.Meta{},
-						Name:             "default-project",
-						Description:      "default-project of user b",
-						Tenant:           "b",
-						IsDefaultProject: true,
-						AvatarUrl:        pointer.Pointer(""),
+						Uuid:        "c1829741-f398-412c-8c0a-284e298d1a81",
+						Meta:        &v1.Meta{},
+						Name:        "default-project",
+						Description: "default-project of user b",
+						Tenant:      "b",
+						AvatarUrl:   pointer.Pointer(""),
 					},
 					{
-						Uuid:             "a5bf9cef-b01b-4f68-be92-756bd3691b80",
-						Meta:             &v1.Meta{},
-						Name:             "My project C",
-						Description:      "Created by user c",
-						Tenant:           "c",
-						IsDefaultProject: false,
-						AvatarUrl:        pointer.Pointer(""),
+						Uuid:        "a5bf9cef-b01b-4f68-be92-756bd3691b80",
+						Meta:        &v1.Meta{},
+						Name:        "My project C",
+						Description: "Created by user c",
+						Tenant:      "c",
+						AvatarUrl:   pointer.Pointer(""),
 					},
-				},
-				DefaultProject: &v1.Project{
-					Uuid:             "4ec2dcf8-19e3-437d-96e5-dcde95dc6e55",
-					Meta:             &v1.Meta{},
-					Name:             "default-project",
-					Description:      "default-project of user test-user",
-					Tenant:           "test-user",
-					IsDefaultProject: true,
-					AvatarUrl:        pointer.Pointer(""),
 				},
 				Tenants: []*v1.Tenant{
 					{
@@ -241,7 +229,7 @@ func TestGetProjectsAndTenants(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mc := newMasterdataMockClient(t, tt.tenantServiceMock, tt.tenantMemberServiceMock, tt.projectServiceMock, tt.projectMemberServiceMock)
 
-			got, err := GetProjectsAndTenants(ctx, mc, "test-user", DefaultProjectRequired)
+			got, err := GetProjectsAndTenants(ctx, mc, "test-user")
 
 			if diff := cmp.Diff(tt.wantErr, err, testcommon.ErrorStringComparer()); diff != "" {
 				t.Errorf("error diff (+got -want):\n %s", diff)

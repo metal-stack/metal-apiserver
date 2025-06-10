@@ -1,4 +1,4 @@
-package admin
+ackage admin
 
 import (
 	"context"
@@ -30,8 +30,6 @@ func New(c Config) adminv2connect.ImageServiceHandler {
 
 // Create implements adminv2connect.ImageServiceHandler.
 func (i *imageServiceServer) Create(ctx context.Context, rq *connect.Request[adminv2.ImageServiceCreateRequest]) (*connect.Response[adminv2.ImageServiceCreateResponse], error) {
-	i.log.Debug("create", "msg", rq.Msg)
-
 	image, err := i.repo.Image().Create(ctx, rq.Msg)
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -47,8 +45,6 @@ func (i *imageServiceServer) Create(ctx context.Context, rq *connect.Request[adm
 
 // Delete implements adminv2connect.ImageServiceHandler.
 func (i *imageServiceServer) Delete(ctx context.Context, rq *connect.Request[adminv2.ImageServiceDeleteRequest]) (*connect.Response[adminv2.ImageServiceDeleteResponse], error) {
-	i.log.Debug("delete", "msg", rq.Msg)
-
 	image, err := i.repo.Image().Delete(ctx, rq.Msg.Id)
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -64,8 +60,6 @@ func (i *imageServiceServer) Delete(ctx context.Context, rq *connect.Request[adm
 
 // Update implements adminv2connect.ImageServiceHandler.
 func (i *imageServiceServer) Update(ctx context.Context, rq *connect.Request[adminv2.ImageServiceUpdateRequest]) (*connect.Response[adminv2.ImageServiceUpdateResponse], error) {
-	i.log.Debug("update", "msg", rq.Msg)
-
 	image, err := i.repo.Image().Update(ctx, rq.Msg.Image.Id, rq.Msg)
 	if err != nil {
 		return nil, errorutil.Convert(err)

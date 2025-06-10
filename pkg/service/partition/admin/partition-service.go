@@ -30,8 +30,6 @@ func New(c Config) adminv2connect.PartitionServiceHandler {
 
 // Create implements adminv2connect.PartitionServiceHandler.
 func (p *partitionServiceServer) Create(ctx context.Context, rq *connect.Request[adminv2.PartitionServiceCreateRequest]) (*connect.Response[adminv2.PartitionServiceCreateResponse], error) {
-	p.log.Debug("create", "msg", rq.Msg)
-
 	image, err := p.repo.Partition().Create(ctx, rq.Msg)
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -47,8 +45,6 @@ func (p *partitionServiceServer) Create(ctx context.Context, rq *connect.Request
 
 // Delete implements adminv2connect.PartitionServiceHandler.
 func (p *partitionServiceServer) Delete(ctx context.Context, rq *connect.Request[adminv2.PartitionServiceDeleteRequest]) (*connect.Response[adminv2.PartitionServiceDeleteResponse], error) {
-	p.log.Debug("delete", "msg", rq.Msg)
-
 	partition, err := p.repo.Partition().Delete(ctx, rq.Msg.Id)
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -62,8 +58,6 @@ func (p *partitionServiceServer) Delete(ctx context.Context, rq *connect.Request
 
 // Update implements adminv2connect.PartitionServiceHandler.
 func (p *partitionServiceServer) Update(ctx context.Context, rq *connect.Request[adminv2.PartitionServiceUpdateRequest]) (*connect.Response[adminv2.PartitionServiceUpdateResponse], error) {
-	p.log.Debug("update", "msg", rq.Msg)
-
 	partition, err := p.repo.Partition().Update(ctx, rq.Msg.Partition.Id, rq.Msg)
 	if err != nil {
 		return nil, errorutil.Convert(err)

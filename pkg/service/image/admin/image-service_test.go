@@ -77,15 +77,13 @@ func Test_imageServiceServer_Create(t *testing.T) {
 			}
 			if diff := cmp.Diff(
 				tt.want, pointer.SafeDeref(got).Msg,
-				cmp.Options{
-					protocmp.Transform(),
-					protocmp.IgnoreFields(
-						&apiv2.Image{}, "meta", "expires_at",
-					),
-					protocmp.IgnoreFields(
-						&apiv2.Meta{}, "created_at", "updated_at",
-					),
-				},
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Image{}, "meta", "expires_at",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
 			); diff != "" {
 				t.Errorf("imageServiceServer.Create() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
 			}
@@ -193,15 +191,13 @@ func Test_imageServiceServer_Update(t *testing.T) {
 
 			if diff := cmp.Diff(
 				tt.want, pointer.SafeDeref(got).Msg,
-				cmp.Options{
-					protocmp.Transform(),
-					protocmp.IgnoreFields(
-						&apiv2.Image{}, "meta", "expires_at",
-					),
-					protocmp.IgnoreFields(
-						&apiv2.Meta{}, "created_at", "updated_at",
-					),
-				},
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Image{}, "meta", "expires_at",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
 			); diff != "" {
 				t.Errorf("imageServiceServer.Update() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
 			}
@@ -266,15 +262,13 @@ func Test_imageServiceServer_Delete(t *testing.T) {
 			}
 			if diff := cmp.Diff(
 				tt.want, pointer.SafeDeref(got).Msg,
-				cmp.Options{
-					protocmp.Transform(),
-					protocmp.IgnoreFields(
-						&apiv2.Image{}, "meta", "expires_at",
-					),
-					protocmp.IgnoreFields(
-						&apiv2.Meta{}, "created_at", "updated_at",
-					),
-				},
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Image{}, "meta", "expires_at",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
 			); diff != "" {
 				t.Errorf("imageServiceServer.Delete() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
 			}

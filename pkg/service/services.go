@@ -16,9 +16,11 @@ import (
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/api/go/permissions"
+	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	mdm "github.com/metal-stack/masterdata-api/pkg/client"
 	authpkg "github.com/metal-stack/metal-apiserver/pkg/auth"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
+	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	ratelimiter "github.com/metal-stack/metal-apiserver/pkg/rate-limiter"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
@@ -31,6 +33,8 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/service/ip"
 	ipadmin "github.com/metal-stack/metal-apiserver/pkg/service/ip/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/method"
+	"github.com/metal-stack/metal-apiserver/pkg/service/network"
+	networkadmin "github.com/metal-stack/metal-apiserver/pkg/service/network/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/partition"
 	partitionadmin "github.com/metal-stack/metal-apiserver/pkg/service/partition/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/project"
@@ -55,8 +59,10 @@ type Config struct {
 	OIDCClientSecret                    string
 	OIDCDiscoveryURL                    string
 	OIDCEndSessionURL                   string
+	Datastore                           generic.Datastore
 	Repository                          *repository.Store
 	MasterClient                        mdm.Client
+	IpamClient                          ipamv1connect.IpamServiceClient
 	Auditing                            auditing.Auditing
 	Stage                               string
 	RedisConfig                         *RedisConfig
@@ -110,16 +116,19 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 		return nil, err
 	}
 
-	tenantInterceptor := tenant.NewInterceptor(log, c.MasterClient)
-	ratelimitInterceptor := ratelimiter.NewInterceptor(&ratelimiter.Config{
-		Log:                                 log,
-		RedisClient:                         c.RedisConfig.RateLimitClient,
-		MaxRequestsPerMinuteToken:           c.MaxRequestsPerMinuteToken,
-		MaxRequestsPerMinuteUnauthenticated: c.MaxRequestsPerMinuteUnauthenticated,
-	})
+	var (
+		logInteceptor        = newLogRequestInterceptor(log)
+		tenantInterceptor    = tenant.NewInterceptor(log, c.MasterClient)
+		ratelimitInterceptor = ratelimiter.NewInterceptor(&ratelimiter.Config{
+			Log:                                 log,
+			RedisClient:                         c.RedisConfig.RateLimitClient,
+			MaxRequestsPerMinuteToken:           c.MaxRequestsPerMinuteToken,
+			MaxRequestsPerMinuteUnauthenticated: c.MaxRequestsPerMinuteUnauthenticated,
+		})
+	)
 
-	allInterceptors := []connect.Interceptor{metricsInterceptor, authz, ratelimitInterceptor, validationInterceptor, tenantInterceptor}
-	allAdminInterceptors := []connect.Interceptor{metricsInterceptor, authz, validationInterceptor, tenantInterceptor}
+	allInterceptors := []connect.Interceptor{metricsInterceptor, logInteceptor, authz, ratelimitInterceptor, validationInterceptor, tenantInterceptor}
+	allAdminInterceptors := []connect.Interceptor{metricsInterceptor, logInteceptor, authz, validationInterceptor, tenantInterceptor}
 	if c.Auditing != nil {
 		servicePermissions := permissions.GetServicePermissions()
 		shouldAudit := func(fullMethod string) bool {
@@ -163,6 +172,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	})
 
 	ipService := ip.New(ip.Config{Log: log, Repo: c.Repository})
+	networkService := network.New(network.Config{Log: log, Repo: c.Repository})
 	filesystemService := filesystem.New(filesystem.Config{Log: log, Repo: c.Repository})
 	partitionService := partition.New(partition.Config{Log: log, Repo: c.Repository})
 	imageService := image.New(image.Config{Log: log, Repo: c.Repository})
@@ -175,7 +185,14 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 		AdminSubjects: c.Admins,
 	})
 	versionService := version.New(version.Config{Log: log})
-	healthService, err := health.New(health.Config{Ctx: context.Background(), Log: log, HealthcheckInterval: 1 * time.Minute})
+	healthService, err := health.New(health.Config{
+		Ctx:                 context.Background(),
+		Log:                 log,
+		HealthcheckInterval: 1 * time.Minute,
+		Ipam:                c.IpamClient,
+		Masterdata:          c.MasterClient,
+		Datastore:           c.Datastore,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize health service %w", err)
 	}
@@ -183,27 +200,30 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	mux := http.NewServeMux()
 
 	// Register the services
-	mux.Handle(apiv2connect.NewTokenServiceHandler(tokenService, interceptors))
-	mux.Handle(apiv2connect.NewTenantServiceHandler(tenantService, interceptors))
-	mux.Handle(apiv2connect.NewProjectServiceHandler(projectService, interceptors))
 	mux.Handle(apiv2connect.NewFilesystemServiceHandler(filesystemService, interceptors))
-	mux.Handle(apiv2connect.NewPartitionServiceHandler(partitionService, interceptors))
+	mux.Handle(apiv2connect.NewHealthServiceHandler(healthService, interceptors))
 	mux.Handle(apiv2connect.NewImageServiceHandler(imageService, interceptors))
 	mux.Handle(apiv2connect.NewIPServiceHandler(ipService, interceptors))
 	mux.Handle(apiv2connect.NewMethodServiceHandler(methodService, interceptors))
+	mux.Handle(apiv2connect.NewNetworkServiceHandler(networkService, interceptors))
+	mux.Handle(apiv2connect.NewPartitionServiceHandler(partitionService, interceptors))
+	mux.Handle(apiv2connect.NewProjectServiceHandler(projectService, interceptors))
+	mux.Handle(apiv2connect.NewTenantServiceHandler(tenantService, interceptors))
+	mux.Handle(apiv2connect.NewTokenServiceHandler(tokenService, interceptors))
 	mux.Handle(apiv2connect.NewVersionServiceHandler(versionService, interceptors))
-	mux.Handle(apiv2connect.NewHealthServiceHandler(healthService, interceptors))
 
 	// Admin services
 	adminIpService := ipadmin.New(ipadmin.Config{Log: log, Repo: c.Repository})
 	adminImageService := imageadmin.New(imageadmin.Config{Log: log, Repo: c.Repository})
 	adminFilesystemService := filesystemadmin.New(filesystemadmin.Config{Log: log, Repo: c.Repository})
 	adminPartitionService := partitionadmin.New(partitionadmin.Config{Log: log, Repo: c.Repository})
+	adminNetworkService := networkadmin.New(networkadmin.Config{Log: log, Repo: c.Repository})
 	mux.Handle(adminv2connect.NewIPServiceHandler(adminIpService, adminInterceptors))
 	mux.Handle(adminv2connect.NewImageServiceHandler(adminImageService, adminInterceptors))
 	mux.Handle(adminv2connect.NewFilesystemServiceHandler(adminFilesystemService, adminInterceptors))
 	mux.Handle(adminv2connect.NewPartitionServiceHandler(adminPartitionService, adminInterceptors))
 	mux.Handle(adminv2connect.NewTenantServiceHandler(adminTenantService, adminInterceptors))
+	mux.Handle(adminv2connect.NewNetworkServiceHandler(adminNetworkService, adminInterceptors))
 
 	allServiceNames := permissions.GetServices()
 	// Static HealthCheckers

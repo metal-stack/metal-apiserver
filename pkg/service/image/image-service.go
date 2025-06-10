@@ -30,7 +30,6 @@ func New(c Config) apiv2connect.ImageServiceHandler {
 
 // Get implements apiv2connect.ImageServiceHandler.
 func (i *imageServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2.ImageServiceGetRequest]) (*connect.Response[apiv2.ImageServiceGetResponse], error) {
-	i.log.Debug("get", "msg", rq.Msg)
 	image, err := i.repo.Image().Get(ctx, rq.Msg.Id)
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -44,7 +43,6 @@ func (i *imageServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2.
 
 // List implements apiv2connect.ImageServiceHandler.
 func (i *imageServiceServer) List(ctx context.Context, rq *connect.Request[apiv2.ImageServiceListRequest]) (*connect.Response[apiv2.ImageServiceListResponse], error) {
-	i.log.Debug("list", "msg", rq.Msg)
 	images, err := i.repo.Image().List(ctx, rq.Msg.Query)
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -61,12 +59,10 @@ func (i *imageServiceServer) List(ctx context.Context, rq *connect.Request[apiv2
 	}
 
 	return connect.NewResponse(&apiv2.ImageServiceListResponse{Images: result}), nil
-
 }
 
 // Fixme, call if Get was called with "Latest:true"
 func (i *imageServiceServer) Latest(ctx context.Context, rq *connect.Request[apiv2.ImageServiceLatestRequest]) (*connect.Response[apiv2.ImageServiceLatestResponse], error) {
-	i.log.Debug("latest", "msg", rq.Msg)
 	images, err := i.repo.Image().List(ctx, &apiv2.ImageQuery{})
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -82,5 +78,4 @@ func (i *imageServiceServer) Latest(ctx context.Context, rq *connect.Request[api
 		return nil, errorutil.Convert(err)
 	}
 	return connect.NewResponse(&apiv2.ImageServiceLatestResponse{Image: converted}), nil
-
 }

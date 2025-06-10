@@ -127,7 +127,7 @@ func New(c Config) (*opa, error) {
 		servicePermissions:  servicePermissions,
 		adminSubjects:       c.AdminSubjects,
 		projectsAndTenantsGetter: func(ctx context.Context, userId string) (*putil.ProjectsAndTenants, error) {
-			return putil.GetProjectsAndTenants(ctx, c.MasterClient, userId, putil.DefaultProjectNotRequired)
+			return putil.GetProjectsAndTenants(ctx, c.MasterClient, userId)
 		},
 	}, nil
 }

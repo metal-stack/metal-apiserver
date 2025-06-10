@@ -24,6 +24,7 @@ type imageRepository struct {
 }
 
 func (r *imageRepository) validateCreate(ctx context.Context, req *adminv2.ImageServiceCreateRequest) error {
+	// FIXME use validate helper
 	image := req.Image
 	if image.Id == "" {
 		return errorutil.InvalidArgument("image id must not be empty")
@@ -51,6 +52,7 @@ func (r *imageRepository) validateCreate(ctx context.Context, req *adminv2.Image
 			return errorutil.InvalidArgument("image expiresAt must be in the future")
 		}
 	}
+	// FIXME implement: https://github.com/metal-stack/metal-api/issues/92
 	return nil
 }
 

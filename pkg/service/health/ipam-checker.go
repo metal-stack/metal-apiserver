@@ -1,7 +1,6 @@
 package health
 
 import (
-	// ipamv1 "github.com/metal-stack/go-ipam/api/v1"
 	"context"
 	"fmt"
 
@@ -22,12 +21,14 @@ func (h *ipamHealthChecker) Health(ctx context.Context) *apiv2.HealthStatus {
 		status  = apiv2.ServiceStatus_SERVICE_STATUS_HEALTHY
 		message string
 	)
+
 	if err != nil {
 		status = apiv2.ServiceStatus_SERVICE_STATUS_UNHEALTHY
 		message = err.Error()
 	} else {
-		message = fmt.Sprintf("connected to ipam service version:%q", resp.Msg.Revision)
+		message = fmt.Sprintf("connected to ipam service version %q", resp.Msg.Revision)
 	}
+
 	return &apiv2.HealthStatus{
 		Name:    apiv2.Service_SERVICE_IPAM,
 		Status:  status,

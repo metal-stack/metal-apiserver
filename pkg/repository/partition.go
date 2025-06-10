@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"net"
 	"net/netip"
 	"regexp"
@@ -26,6 +27,7 @@ type partitionRepository struct {
 }
 
 func validatePartition(ctx context.Context, partition *apiv2.Partition) error {
+	//FIXME use validate helper
 	if partition.Id == "" {
 		return errorutil.InvalidArgument("partition id must not be empty")
 	}
@@ -82,7 +84,22 @@ func (p *partitionRepository) validateCreate(ctx context.Context, req *adminv2.P
 // ValidateDelete implements Partition.
 func (p *partitionRepository) validateDelete(ctx context.Context, req *metal.Partition) error {
 	// FIXME all entities with partition relation must be deleted before
-	return nil
+
+	nwsresp, err := p.r.ds.Network().List(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{Partition: &req.ID}))
+	if err != nil {
+		return nil, err
+	}
+	p.r.log.Info("networks in partition", "partition", req.ID, "networks", nwsresp)
+	var errs []error
+	errs = validate(errs, len(nwsresp) == 0, "there are still networks in %q", req.ID)
+
+	if len(errs) > 0 {
+		return nil, errorutil.NewInvalidArgument(errors.Join(errs...))
+	}
+
+	return &Validated[*metal.Partition]{
+		message: req,
+	}, nil
 }
 
 // ValidateUpdate implements Partition.
