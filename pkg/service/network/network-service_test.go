@@ -520,7 +520,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 			name:    "wrong project",
 			rq:      &apiv2.NetworkServiceUpdateRequest{Id: networkMap["p3-network-a"], Project: "p4"},
 			want:    nil,
-			wantErr: errorutil.NotFound("network:%s project:p3 for scope:p4 not found", networkMap["p3-network-a"]),
+			wantErr: errorutil.NotFound("*metal.Network with id %q not found", networkMap["p3-network-a"]),
 		},
 	}
 	for _, tt := range tests {
@@ -895,7 +895,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 			name:    "project does not match",
 			rq:      &apiv2.NetworkServiceDeleteRequest{Id: networkMap["p1-network-b"], Project: "p2"},
 			want:    nil,
-			wantErr: errorutil.NotFound("network:%s project:p1 for scope:p2 not found", networkMap["p1-network-b"]),
+			wantErr: errorutil.NotFound("*metal.Network with id %q not found", networkMap["p1-network-b"]),
 		},
 		{
 			name:    "network does not exist anymore",

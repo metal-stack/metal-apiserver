@@ -2061,14 +2061,14 @@ func Test_networkServiceServer_Update(t *testing.T) {
 			name: "add prefixes to tenant super network",
 			rq: &adminv2.NetworkServiceUpdateRequest{
 				Id:       "tenant-super-network",
-				Prefixes: []string{"10.100.0.0/14", "10.101.0.0/14"},
+				Prefixes: []string{"10.100.0.0/14", "10.104.0.0/14"},
 			},
 			want: &adminv2.NetworkServiceUpdateResponse{
 				Network: &apiv2.Network{
 					Id:                       "tenant-super-network",
 					Meta:                     &apiv2.Meta{},
 					Partition:                pointer.Pointer("partition-one"),
-					Prefixes:                 []string{"10.100.0.0/14", "10.101.0.0/14"},
+					Prefixes:                 []string{"10.100.0.0/14", "10.104.0.0/14"},
 					Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
 					DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
 				},
@@ -2086,7 +2086,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 					Id:                       "tenant-super-network",
 					Meta:                     &apiv2.Meta{},
 					Partition:                pointer.Pointer("partition-one"),
-					Prefixes:                 []string{"10.100.0.0/14", "10.101.0.0/14"},
+					Prefixes:                 []string{"10.100.0.0/14", "10.104.0.0/14"},
 					Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
 					DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
 					NatType:                  apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE.Enum(),

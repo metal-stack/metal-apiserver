@@ -23,7 +23,7 @@ var (
 )
 
 type partitionRepository struct {
-	r *Store
+	s *Store
 }
 
 func validatePartition(ctx context.Context, partition *apiv2.Partition) error {
@@ -77,59 +77,44 @@ func validatePartition(ctx context.Context, partition *apiv2.Partition) error {
 }
 
 // ValidateCreate implements Partition.
-func (p *partitionRepository) ValidateCreate(ctx context.Context, req *adminv2.PartitionServiceCreateRequest) (*Validated[*adminv2.PartitionServiceCreateRequest], error) {
-	partition := req.Partition
-	err := validatePartition(ctx, partition)
-	if err != nil {
-		return nil, err
-	}
-	return &Validated[*adminv2.PartitionServiceCreateRequest]{
-		message: req,
-	}, nil
+func (p *partitionRepository) validateCreate(ctx context.Context, req *adminv2.PartitionServiceCreateRequest) error {
+	return validatePartition(ctx, req.Partition)
 }
 
 // ValidateDelete implements Partition.
-func (p *partitionRepository) ValidateDelete(ctx context.Context, req *metal.Partition) (*Validated[*metal.Partition], error) {
-
+func (p *partitionRepository) validateDelete(ctx context.Context, req *metal.Partition) error {
 	// FIXME all entities with partition relation must be deleted before
 
-	nwsresp, err := p.r.ds.Network().List(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{Partition: &req.ID}))
+	nwsresp, err := p.s.ds.Network().List(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{Partition: &req.ID}))
 	if err != nil {
-		return nil, err
+		return err
 	}
-	p.r.log.Info("networks in partition", "partition", req.ID, "networks", nwsresp)
+
+	p.s.log.Info("networks in partition", "partition", req.ID, "networks", nwsresp)
+
 	var errs []error
 	errs = validate(errs, len(nwsresp) == 0, "there are still networks in %q", req.ID)
 
-	if len(errs) > 0 {
-		return nil, errorutil.NewInvalidArgument(errors.Join(errs...))
+	if err := errors.Join(errs...); err != nil {
+		return errorutil.InvalidArgument("%w", err)
 	}
 
-	return &Validated[*metal.Partition]{
-		message: req,
-	}, nil
+	return nil
 }
 
 // ValidateUpdate implements Partition.
-func (p *partitionRepository) ValidateUpdate(ctx context.Context, req *adminv2.PartitionServiceUpdateRequest) (*Validated[*adminv2.PartitionServiceUpdateRequest], error) {
-	partition := req.Partition
-	err := validatePartition(ctx, partition)
-	if err != nil {
-		return nil, err
-	}
-	return &Validated[*adminv2.PartitionServiceUpdateRequest]{
-		message: req,
-	}, nil
+func (p *partitionRepository) validateUpdate(ctx context.Context, req *adminv2.PartitionServiceUpdateRequest, _ *metal.Partition) error {
+	return validatePartition(ctx, req.Partition)
 }
 
 // Create implements Partition.
-func (p *partitionRepository) Create(ctx context.Context, c *Validated[*adminv2.PartitionServiceCreateRequest]) (*metal.Partition, error) {
-	partition, err := p.ConvertToInternal(c.message.Partition)
+func (p *partitionRepository) create(ctx context.Context, c *adminv2.PartitionServiceCreateRequest) (*metal.Partition, error) {
+	partition, err := p.convertToInternal(c.Partition)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	resp, err := p.r.ds.Partition().Create(ctx, partition)
+	resp, err := p.s.ds.Partition().Create(ctx, partition)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -138,23 +123,18 @@ func (p *partitionRepository) Create(ctx context.Context, c *Validated[*adminv2.
 }
 
 // Delete implements Partition.
-func (p *partitionRepository) Delete(ctx context.Context, e *Validated[*metal.Partition]) (*metal.Partition, error) {
-	partition, err := p.Get(ctx, e.message.ID)
+func (p *partitionRepository) delete(ctx context.Context, e *metal.Partition) error {
+	err := p.s.ds.Partition().Delete(ctx, e)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return errorutil.Convert(err)
 	}
 
-	err = p.r.ds.Partition().Delete(ctx, partition)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	return partition, nil
+	return nil
 }
 
 // Get implements Partition.
-func (p *partitionRepository) Get(ctx context.Context, id string) (*metal.Partition, error) {
-	partition, err := p.r.ds.Partition().Get(ctx, id)
+func (p *partitionRepository) get(ctx context.Context, id string) (*metal.Partition, error) {
+	partition, err := p.s.ds.Partition().Get(ctx, id)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -163,22 +143,17 @@ func (p *partitionRepository) Get(ctx context.Context, id string) (*metal.Partit
 }
 
 // Update implements Partition.
-func (p *partitionRepository) Update(ctx context.Context, req *Validated[*adminv2.PartitionServiceUpdateRequest]) (*metal.Partition, error) {
-	partition := req.message.Partition
+func (p *partitionRepository) update(ctx context.Context, e *metal.Partition, req *adminv2.PartitionServiceUpdateRequest) (*metal.Partition, error) {
+	partition := req.Partition
 
-	old, err := p.Get(ctx, partition.Id)
-	if err != nil {
-		return nil, err
-	}
-
-	new, err := p.ConvertToInternal(partition)
+	new, err := p.convertToInternal(partition)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	new.SetChanged(old.Changed)
+	new.SetChanged(e.Changed)
 
-	err = p.r.ds.Partition().Update(ctx, new)
+	err = p.s.ds.Partition().Update(ctx, new)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -186,8 +161,8 @@ func (p *partitionRepository) Update(ctx context.Context, req *Validated[*adminv
 }
 
 // Find implements Partition.
-func (p *partitionRepository) Find(ctx context.Context, query *apiv2.PartitionQuery) (*metal.Partition, error) {
-	partition, err := p.r.ds.Partition().Find(ctx, queries.PartitionFilter(query))
+func (p *partitionRepository) find(ctx context.Context, query *apiv2.PartitionQuery) (*metal.Partition, error) {
+	partition, err := p.s.ds.Partition().Find(ctx, queries.PartitionFilter(query))
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -195,8 +170,8 @@ func (p *partitionRepository) Find(ctx context.Context, query *apiv2.PartitionQu
 }
 
 // List implements Partition.
-func (p *partitionRepository) List(ctx context.Context, query *apiv2.PartitionQuery) ([]*metal.Partition, error) {
-	partitions, err := p.r.ds.Partition().List(ctx, queries.PartitionFilter(query))
+func (p *partitionRepository) list(ctx context.Context, query *apiv2.PartitionQuery) ([]*metal.Partition, error) {
+	partitions, err := p.s.ds.Partition().List(ctx, queries.PartitionFilter(query))
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -204,13 +179,13 @@ func (p *partitionRepository) List(ctx context.Context, query *apiv2.PartitionQu
 }
 
 // MatchScope implements Partition.
-func (p *partitionRepository) MatchScope(e *metal.Partition) error {
+func (p *partitionRepository) matchScope(e *metal.Partition) bool {
 	// Not Project Scoped
-	panic("unimplemented")
+	return true
 }
 
 // ConvertToInternal implements Partition.
-func (p *partitionRepository) ConvertToInternal(msg *apiv2.Partition) (*metal.Partition, error) {
+func (p *partitionRepository) convertToInternal(msg *apiv2.Partition) (*metal.Partition, error) {
 	mgm := ""
 	if len(msg.MgmtServiceAddresses) > 0 {
 		// FIXME migrate metal model to slice as well
@@ -257,7 +232,7 @@ func (p *partitionRepository) ConvertToInternal(msg *apiv2.Partition) (*metal.Pa
 }
 
 // ConvertToProto implements Partition.
-func (p *partitionRepository) ConvertToProto(e *metal.Partition) (*apiv2.Partition, error) {
+func (p *partitionRepository) convertToProto(e *metal.Partition) (*apiv2.Partition, error) {
 	var (
 		dnsServers []*apiv2.DNSServer
 		ntpServers []*apiv2.NTPServer

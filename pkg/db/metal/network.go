@@ -213,7 +213,7 @@ func (p *Prefix) String() string {
 }
 
 // equals returns true when prefixes have the same cidr.
-func (p *Prefix) equals(other *Prefix) bool {
+func (p *Prefix) equals(other Prefix) bool {
 	return p.String() == other.String()
 }
 
@@ -305,11 +305,14 @@ func NewPrefixFromCIDR(cidr string) (*Prefix, *netip.Prefix, error) {
 	}, &prefix, nil
 }
 
-// SubtractPrefixes returns the prefixes of the network minus the prefixes passed in the arguments
-func (n *Network) SubtractPrefixes(prefixes ...Prefix) []Prefix {
-	return slices.DeleteFunc(n.Prefixes, func(a Prefix) bool {
+// SubtractPrefixes returns the prefixes minus the prefixes passed in the arguments
+func (p Prefixes) SubtractPrefixes(prefixes ...Prefix) Prefixes {
+	var copy Prefixes
+	copy = append(copy, p...)
+
+	return slices.DeleteFunc(copy, func(a Prefix) bool {
 		return slices.ContainsFunc(prefixes, func(b Prefix) bool {
-			return a.equals(&b)
+			return a.equals(b)
 		})
 	})
 }

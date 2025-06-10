@@ -11,39 +11,31 @@ import (
 	"github.com/metal-stack/metal-lib/pkg/tag"
 )
 
-func (r *ipRepository) ValidateCreate(ctx context.Context, req *apiv2.IPServiceCreateRequest) (*Validated[*apiv2.IPServiceCreateRequest], error) {
+func (r *ipRepository) validateCreate(ctx context.Context, req *apiv2.IPServiceCreateRequest) error {
 	var errs []error
 
 	errs = validate(errs, req.Project != "", "project should not be empty")
 	errs = validate(errs, req.Network != "", "network should not be empty")
 
-	if len(errs) > 0 {
-		return nil, errorutil.NewInvalidArgument(errors.Join(errs...))
-	}
-
-	return &Validated[*apiv2.IPServiceCreateRequest]{
-		message: req,
-	}, nil
+	return errors.Join(errs...)
 }
 
-func (r *ipRepository) ValidateUpdate(ctx context.Context, req *apiv2.IPServiceUpdateRequest) (*Validated[*apiv2.IPServiceUpdateRequest], error) {
-	old, err := r.Find(ctx, &apiv2.IPQuery{Ip: &req.Ip, Project: &req.Project})
+func (r *ipRepository) validateUpdate(ctx context.Context, req *apiv2.IPServiceUpdateRequest, _ *metal.IP) error {
+	old, err := r.find(ctx, &apiv2.IPQuery{Ip: &req.Ip, Project: &req.Project})
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if req.Type != nil {
 		if old.Type == metal.Static && *req.Type != apiv2.IPType_IP_TYPE_STATIC {
-			return nil, errorutil.InvalidArgument("cannot change type of ip address from static to ephemeral")
+			return errorutil.InvalidArgument("cannot change type of ip address from static to ephemeral")
 		}
 	}
 
-	return &Validated[*apiv2.IPServiceUpdateRequest]{
-		message: req,
-	}, nil
+	return nil
 }
 
-func (r *ipRepository) ValidateDelete(ctx context.Context, req *metal.IP) (*Validated[*metal.IP], error) {
+func (r *ipRepository) validateDelete(ctx context.Context, req *metal.IP) error {
 	var errs []error
 
 	errs = validate(errs, req.IPAddress != "", "ipaddress is empty")
@@ -51,26 +43,22 @@ func (r *ipRepository) ValidateDelete(ctx context.Context, req *metal.IP) (*Vali
 	errs = validate(errs, req.ProjectID != "", "projectId is empty")
 
 	if len(errs) > 0 {
-		return nil, errorutil.NewInvalidArgument(errors.Join(errs...))
+		return errorutil.NewInvalidArgument(errors.Join(errs...))
 	}
 
-	ip, err := r.Find(ctx, &apiv2.IPQuery{Ip: &req.IPAddress, Uuid: &req.AllocationUUID, Project: &req.ProjectID})
+	ip, err := r.find(ctx, &apiv2.IPQuery{Ip: &req.IPAddress, Uuid: &req.AllocationUUID, Project: &req.ProjectID})
 	if err != nil {
 		if errorutil.IsNotFound(err) {
-			return &Validated[*metal.IP]{
-				message: req,
-			}, nil
+			return nil
 		}
-		return nil, err
+		return err
 	}
 
 	for _, t := range ip.Tags {
 		if strings.HasPrefix(t, tag.MachineID) {
-			return nil, errorutil.InvalidArgument("ip with machine scope cannot be deleted")
+			return errorutil.InvalidArgument("ip with machine scope cannot be deleted")
 		}
 	}
 
-	return &Validated[*metal.IP]{
-		message: req,
-	}, nil
+	return nil
 }

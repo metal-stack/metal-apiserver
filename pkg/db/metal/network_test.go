@@ -178,10 +178,16 @@ func TestNetwork_SubtractPrefixes(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			n := &metal.Network{Prefixes: tt.existing}
+			var copyExisting metal.Prefixes
+			copyExisting = append(copyExisting, tt.existing...)
 
-			if diff := cmp.Diff(tt.want, metal.Prefixes(n.SubtractPrefixes(tt.subtract...))); diff != "" {
+			if diff := cmp.Diff(tt.want, metal.Prefixes(tt.existing.SubtractPrefixes(tt.subtract...))); diff != "" {
 				t.Errorf("diff = %s", diff)
+			}
+
+			// check existing not modified
+			if diff := cmp.Diff(tt.existing, copyExisting); diff != "" {
+				t.Errorf("modified prefixes = %s", diff)
 			}
 		})
 	}

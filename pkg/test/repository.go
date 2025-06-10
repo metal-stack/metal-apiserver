@@ -94,19 +94,14 @@ func StartRepositoryWithCleanup(t *testing.T, log *slog.Logger) (*testStore, fun
 
 func CreateImages(t *testing.T, repo *repository.Store, images []*adminv2.ImageServiceCreateRequest) {
 	for _, img := range images {
-		validated, err := repo.Image().ValidateCreate(t.Context(), img)
-		require.NoError(t, err)
-		_, err = repo.Image().Create(t.Context(), validated)
+		_, err := repo.Image().Create(t.Context(), img)
 		require.NoError(t, err)
 	}
 }
 
 func CreateIPs(t *testing.T, repo *repository.Store, ips []*apiv2.IPServiceCreateRequest) {
 	for _, ip := range ips {
-		validated, err := repo.UnscopedIP().ValidateCreate(t.Context(), ip)
-		require.NoError(t, err)
-
-		_, err = repo.UnscopedIP().Create(t.Context(), validated)
+		_, err := repo.UnscopedIP().Create(t.Context(), ip)
 		require.NoError(t, err)
 	}
 }
@@ -115,9 +110,7 @@ func CreateNetworks(t *testing.T, repo *repository.Store, nws []*adminv2.Network
 	var networkMap = NetworkMap{}
 
 	for _, nw := range nws {
-		validated, err := repo.UnscopedNetwork().ValidateCreate(t.Context(), nw)
-		require.NoError(t, err)
-		resp, err := repo.UnscopedNetwork().Create(t.Context(), validated)
+		resp, err := repo.UnscopedNetwork().Create(t.Context(), nw)
 		require.NoError(t, err)
 		networkMap[resp.Name] = resp.ID
 	}
@@ -162,9 +155,7 @@ func AllocateNetworks(t *testing.T, repo *repository.Store, nws []*apiv2.Network
 			Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD, // Non Admins can only create Child Networks
 		}
 
-		validated, err := repo.UnscopedNetwork().ValidateCreate(t.Context(), req)
-		require.NoError(t, err)
-		resp, err := repo.UnscopedNetwork().Create(t.Context(), validated)
+		resp, err := repo.UnscopedNetwork().Create(t.Context(), req)
 		require.NoError(t, err)
 		networkMap[resp.Name] = resp.ID
 	}
@@ -173,26 +164,20 @@ func AllocateNetworks(t *testing.T, repo *repository.Store, nws []*apiv2.Network
 
 func CreatePartitions(t *testing.T, repo *repository.Store, partitions []*adminv2.PartitionServiceCreateRequest) {
 	for _, partition := range partitions {
-		validated, err := repo.Partition().ValidateCreate(t.Context(), partition)
-		require.NoError(t, err)
-		_, err = repo.Partition().Create(t.Context(), validated)
+		_, err := repo.Partition().Create(t.Context(), partition)
 		require.NoError(t, err)
 	}
 }
 
 func CreateProjects(t *testing.T, repo *repository.Store, projects []*apiv2.ProjectServiceCreateRequest) {
 	for _, p := range projects {
-		validated, err := repo.UnscopedProject().ValidateCreate(t.Context(), p)
-		require.NoError(t, err)
-		_, err = repo.UnscopedProject().Create(t.Context(), validated)
+		_, err := repo.UnscopedProject().Create(t.Context(), p)
 		require.NoError(t, err)
 	}
 }
 func CreateTenants(t *testing.T, repo *repository.Store, tenants []*apiv2.TenantServiceCreateRequest) {
 	for _, tenant := range tenants {
-		validated, err := repo.Tenant().ValidateCreate(t.Context(), tenant)
-		require.NoError(t, err)
-		_, err = repo.Tenant().Create(t.Context(), validated)
+		_, err := repo.Tenant().Create(t.Context(), tenant)
 		require.NoError(t, err)
 	}
 }

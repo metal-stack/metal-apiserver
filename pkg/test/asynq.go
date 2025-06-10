@@ -7,7 +7,7 @@ import (
 	asyncserver "github.com/metal-stack/metal-apiserver/pkg/async/server"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/redis/go-redis/v9"
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/assert"
 )
 
 func StartAsynqServer(t *testing.T, log *slog.Logger, repository *repository.Store, redis *redis.Client) func() {
@@ -15,7 +15,7 @@ func StartAsynqServer(t *testing.T, log *slog.Logger, repository *repository.Sto
 	go func() {
 		log.Info("starting asynq server")
 		err := asyncServer.Run(asyncServerMux)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	}()
 
 	closer := func() {

@@ -47,12 +47,7 @@ func (n *networkServiceServer) Create(ctx context.Context, rq *connect.Request[a
 		Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD, // Non Admins can only create Child Networks
 	}
 
-	validated, err := n.repo.Network(r.Project).ValidateCreate(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-
-	created, err := n.repo.Network(r.Project).Create(ctx, validated)
+	created, err := n.repo.Network(r.Project).Create(ctx, req)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -69,17 +64,7 @@ func (n *networkServiceServer) Create(ctx context.Context, rq *connect.Request[a
 func (n *networkServiceServer) Delete(ctx context.Context, rq *connect.Request[apiv2.NetworkServiceDeleteRequest]) (*connect.Response[apiv2.NetworkServiceDeleteResponse], error) {
 	req := rq.Msg
 
-	nw, err := n.repo.Network(req.Project).Get(ctx, req.Id)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	validated, err := n.repo.Network(req.Project).ValidateDelete(ctx, nw)
-	if err != nil {
-		return nil, err
-	}
-
-	nw, err = n.repo.Network(req.Project).Delete(ctx, validated)
+	nw, err := n.repo.Network(req.Project).Delete(ctx, req.Id)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -195,12 +180,7 @@ func (n *networkServiceServer) Update(ctx context.Context, rq *connect.Request[a
 		// FIXME which fields should be updateable
 	}
 
-	validated, err := n.repo.Network(req.Project).ValidateUpdate(ctx, nur)
-	if err != nil {
-		return nil, err
-	}
-
-	nw, err := n.repo.Network(req.Project).Update(ctx, validated)
+	nw, err := n.repo.Network(req.Project).Update(ctx, nur.Id, nur)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -208,5 +188,6 @@ func (n *networkServiceServer) Update(ctx context.Context, rq *connect.Request[a
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
+
 	return connect.NewResponse(&apiv2.NetworkServiceUpdateResponse{Network: converted}), nil
 }
