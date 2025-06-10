@@ -42,12 +42,7 @@ func (r *networkRepository) matchScope(nw *metal.Network) bool {
 		return true
 	}
 
-	eventualNw := pointer.SafeDeref(nw)
-	if r.scope.projectID == eventualNw.ProjectID {
-		return true
-	}
-
-	return false
+	return r.scope.projectID == pointer.SafeDeref(nw).ProjectID
 }
 
 func (r *networkRepository) delete(ctx context.Context, nw *metal.Network) error {

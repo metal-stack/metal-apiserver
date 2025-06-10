@@ -33,7 +33,7 @@ jobs:
           cache: false
 
       - name: Lint Go
-        uses: golangci/golangci-lint-action@v7
+        uses: golangci/golangci-lint-action@v8
 
       - uses: StyraInc/setup-regal@v1
         with:
@@ -96,4 +96,3 @@ jobs:
           push: true
           sbom: true
           tags: ${{ steps.meta.outputs.tags }}
-        

@@ -43,12 +43,7 @@ func (r *ipRepository) matchScope(ip *metal.IP) bool {
 		return true
 	}
 
-	eventualIP := pointer.SafeDeref(ip)
-	if r.scope.projectID == eventualIP.ProjectID {
-		return true
-	}
-
-	return false
+	return r.scope.projectID == pointer.SafeDeref(ip).ProjectID
 }
 
 func (r *ipRepository) create(ctx context.Context, rq *apiv2.IPServiceCreateRequest) (*metal.IP, error) {
