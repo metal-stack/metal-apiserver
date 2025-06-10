@@ -1,7 +1,6 @@
 package repository_test
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"testing"
@@ -15,7 +14,7 @@ import (
 )
 
 func TestGet(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	log := slog.Default()
 	r := miniredis.RunT(t)
 	rc := redis.NewClient(&redis.Options{Addr: r.Addr()})
@@ -40,7 +39,7 @@ func TestGet(t *testing.T) {
 }
 
 func TestIpUnscopedList(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	log := slog.Default()
 	r := miniredis.RunT(t)
 	rc := redis.NewClient(&redis.Options{Addr: r.Addr()})
