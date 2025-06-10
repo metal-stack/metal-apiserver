@@ -75,7 +75,6 @@ type (
 
 	Network interface {
 		Repository[*networkRepository, *metal.Network, *apiv2.Network, *adminv2.NetworkServiceCreateRequest, *adminv2.NetworkServiceUpdateRequest, *apiv2.NetworkQuery]
-		GetNetworkUsage(context.Context, *metal.Network) (*apiv2.NetworkConsumption, error)
 	}
 
 	Project interface {

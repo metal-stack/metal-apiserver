@@ -1,4 +1,4 @@
-ackage admin
+package admin
 
 import (
 	"context"

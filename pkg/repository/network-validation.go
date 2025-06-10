@@ -16,23 +16,23 @@ import (
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 )
 
-func (r *networkRepository) ValidateCreate(ctx context.Context, req *adminv2.NetworkServiceCreateRequest) (*Validated[*adminv2.NetworkServiceCreateRequest], error) {
-	r.r.log.Debug("validate create", "req", req)
+func (r *networkRepository) validateCreate(ctx context.Context, req *adminv2.NetworkServiceCreateRequest) error {
+	r.s.log.Debug("validate create", "req", req)
 	if req.Id != nil {
-		if checkAlreadyExists(ctx, r.r.ds.Network(), *req.Id) {
-			return nil, errorutil.Conflict("network with id:%s already exists", *req.Id)
+		if checkAlreadyExists(ctx, r.s.ds.Network(), *req.Id) {
+			return errorutil.Conflict("network with id:%s already exists", *req.Id)
 		}
 	}
 
 	if req.Project != nil {
-		if _, err := r.r.UnscopedProject().Get(ctx, *req.Project); err != nil {
-			return nil, err
+		if _, err := r.s.UnscopedProject().Get(ctx, *req.Project); err != nil {
+			return err
 		}
 	}
 
 	if req.Partition != nil {
-		if _, err := r.r.Partition().Get(ctx, *req.Partition); err != nil {
-			return nil, err
+		if _, err := r.s.Partition().Get(ctx, *req.Partition); err != nil {
+			return err
 		}
 	}
 
@@ -52,16 +52,14 @@ func (r *networkRepository) ValidateCreate(ctx context.Context, req *adminv2.Net
 	case apiv2.NetworkType_NETWORK_TYPE_UNSPECIFIED:
 		fallthrough
 	default:
-		return nil, errorutil.InvalidArgument("given networktype:%s is invalid", req.Type)
+		return errorutil.InvalidArgument("given networktype:%s is invalid", req.Type)
 	}
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return &Validated[*adminv2.NetworkServiceCreateRequest]{
-		message: req,
-	}, nil
+	return nil
 }
 
 func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, req *adminv2.NetworkServiceCreateRequest) error {
@@ -105,7 +103,7 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 		parentNetwork *metal.Network
 	)
 	if req.ParentNetworkId != nil {
-		parent, err := r.r.UnscopedNetwork().Get(ctx, *req.ParentNetworkId)
+		parent, err := r.s.UnscopedNetwork().Get(ctx, *req.ParentNetworkId)
 		if err != nil {
 			return errorutil.Convert(fmt.Errorf("unable to retrieve parent network: %w", err))
 		}
@@ -122,7 +120,7 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 	}
 
 	if req.Partition != nil {
-		parent, err := r.r.UnscopedNetwork().Find(ctx, &apiv2.NetworkQuery{
+		parent, err := r.s.UnscopedNetwork().Find(ctx, &apiv2.NetworkQuery{
 			Partition: req.Partition,
 			Project:   pointer.Pointer(""),
 			Type:      apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
@@ -364,7 +362,7 @@ func (r *networkRepository) validateCreateNetworkTypeUnderlay(ctx context.Contex
 }
 
 func (r *networkRepository) prefixesOverlapping(ctx context.Context, prefixes []string) error {
-	allNetworks, err := r.List(ctx, &apiv2.NetworkQuery{})
+	allNetworks, err := r.list(ctx, &apiv2.NetworkQuery{})
 	if err != nil {
 		return errorutil.Convert(err)
 	}
@@ -403,7 +401,7 @@ func (r *networkRepository) prefixesOverlapping(ctx context.Context, prefixes []
 }
 
 func (r *networkRepository) networkTypeInPartitionPossible(ctx context.Context, partition *string, networkType *apiv2.NetworkType) error {
-	_, err := r.Find(ctx, &apiv2.NetworkQuery{Partition: partition, Type: networkType})
+	_, err := r.find(ctx, &apiv2.NetworkQuery{Partition: partition, Type: networkType})
 	if !errorutil.IsNotFound(err) {
 		return errorutil.InvalidArgument("partition with id %q already has a network of type %s", pointer.SafeDeref(partition), networkType)
 	}
@@ -452,26 +450,24 @@ func (r *networkRepository) validateAdditionalAnnouncableCIDRs(additionalCidrs [
 
 	return nil
 }
-func (r *networkRepository) ValidateUpdate(ctx context.Context, req *adminv2.NetworkServiceUpdateRequest) (*Validated[*adminv2.NetworkServiceUpdateRequest], error) {
-	old, err := r.Get(ctx, req.Id)
-	if err != nil {
-		return nil, err
-	}
+
+func (r *networkRepository) validateUpdate(ctx context.Context, req *adminv2.NetworkServiceUpdateRequest, old *metal.Network) error {
 	newNetwork := *old
 
 	if old.NetworkType == nil {
-		return nil, errorutil.Internal("networktype is nil")
+		return errorutil.Internal("networktype is nil")
 	}
 
 	if req.DefaultChildPrefixLength != nil && !metal.IsSuperNetwork(old.NetworkType) {
-		return nil, errorutil.InvalidArgument("default child prefix length can only be set on super networks")
+		return errorutil.InvalidArgument("default child prefix length can only be set on super networks")
 	}
 
 	if len(req.Prefixes) > 0 && metal.IsChildNetwork(old.NetworkType) {
-		return nil, errorutil.InvalidArgument("cannot change prefixes in child networks")
+		return errorutil.InvalidArgument("cannot change prefixes in child networks")
 	}
 
 	var (
+		err                 error
 		prefixesToBeRemoved metal.Prefixes
 		prefixesToBeAdded   metal.Prefixes
 		destPrefixAfs       metal.AddressFamilies
@@ -479,59 +475,57 @@ func (r *networkRepository) ValidateUpdate(ctx context.Context, req *adminv2.Net
 
 	prefixesToBeRemoved, prefixesToBeAdded, err = r.calculatePrefixDifferences(ctx, old, &newNetwork, req.Prefixes)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return errorutil.Convert(err)
 	}
 
-	r.r.log.Debug("validate update", "old parent", old.ParentNetworkID, "prefixes to remove", prefixesToBeRemoved, "prefixes to add", prefixesToBeAdded)
+	r.s.log.Debug("validate update", "old parent", old.ParentNetworkID, "prefixes to remove", prefixesToBeRemoved, "prefixes to add", prefixesToBeAdded)
 	// Do not allow to change prefixes on child networks
 	if old.ParentNetworkID != "" && (len(prefixesToBeRemoved) > 0 || len(prefixesToBeAdded) > 0) {
-		return nil, errorutil.InvalidArgument("cannot change prefixes in child networks")
+		return errorutil.InvalidArgument("cannot change prefixes in child networks")
 	}
 
 	if req.DestinationPrefixes != nil {
 		destPrefixes, err := metal.NewPrefixesFromCIDRs(req.DestinationPrefixes)
 		if err != nil {
-			return nil, errorutil.Convert(err)
+			return errorutil.Convert(err)
 		}
 		destPrefixAfs = destPrefixes.AddressFamilies()
 	}
 
 	err = r.validatePrefixesAndAddressFamilies(newNetwork.Prefixes, destPrefixAfs, old.DefaultChildPrefixLength, old.NetworkType)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return errorutil.Convert(err)
 	}
 
 	dcpl := metal.ToChildPrefixLength(req.DefaultChildPrefixLength)
 	if err := r.validateChildPrefixLength(dcpl, newNetwork.Prefixes); err != nil {
-		return nil, errorutil.NewInvalidArgument(err)
+		return errorutil.NewInvalidArgument(err)
 	}
 
 	mcpl := metal.ToChildPrefixLength(req.MinChildPrefixLength)
 	if err = r.validateChildPrefixLength(mcpl, newNetwork.Prefixes); err != nil {
-		return nil, errorutil.NewInvalidArgument(err)
+		return errorutil.NewInvalidArgument(err)
 	}
 
 	err = r.validateAdditionalAnnouncableCIDRs(req.AdditionalAnnouncableCidrs, old.NetworkType)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return errorutil.Convert(err)
 	}
 
 	for _, oldcidr := range old.AdditionalAnnouncableCIDRs {
 		if !req.Force && !slices.Contains(req.AdditionalAnnouncableCidrs, oldcidr) {
-			return nil, errorutil.InvalidArgument("you cannot remove %q from additionalannouncablecidrs without force flag set", oldcidr)
+			return errorutil.InvalidArgument("you cannot remove %q from additionalannouncablecidrs without force flag set", oldcidr)
 		}
 	}
 
-	r.r.log.Debug("validated update")
+	r.s.log.Debug("validated update")
 
-	return &Validated[*adminv2.NetworkServiceUpdateRequest]{
-		message: req,
-	}, nil
+	return nil
 }
 
 func (r *networkRepository) arePrefixesEmpty(ctx context.Context, prefixes metal.Prefixes) error {
 	for _, prefixToCheck := range prefixes {
-		ips, err := r.r.UnscopedIP().List(ctx, &apiv2.IPQuery{ParentPrefixCidr: pointer.Pointer(prefixToCheck.String())})
+		ips, err := r.s.UnscopedIP().List(ctx, &apiv2.IPQuery{ParentPrefixCidr: pointer.Pointer(prefixToCheck.String())})
 		if err != nil {
 			return errorutil.Convert(err)
 		}
@@ -542,33 +536,22 @@ func (r *networkRepository) arePrefixesEmpty(ctx context.Context, prefixes metal
 	return nil
 }
 
-func (r *networkRepository) ValidateDelete(ctx context.Context, req *metal.Network) (*Validated[*metal.Network], error) {
-	old, err := r.Get(ctx, req.ID)
+func (r *networkRepository) validateDelete(ctx context.Context, nw *metal.Network) error {
+	children, err := r.list(ctx, &apiv2.NetworkQuery{ParentNetworkId: &nw.ID})
 	if err != nil {
-		if errorutil.IsNotFound(err) {
-			return &Validated[*metal.Network]{
-				message: req,
-			}, nil
-		}
-		return nil, err
+		return err
 	}
 
-	children, err := r.List(ctx, &apiv2.NetworkQuery{ParentNetworkId: &req.ID})
-	if err != nil {
-		return nil, err
-	}
 	if len(children) > 0 {
-		return nil, errorutil.InvalidArgument("cannot remove network with existing child networks")
+		return errorutil.InvalidArgument("cannot remove network with existing child networks")
 	}
 
-	err = r.arePrefixesEmpty(ctx, old.Prefixes)
+	err = r.arePrefixesEmpty(ctx, nw.Prefixes)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return &Validated[*metal.Network]{
-		message: req,
-	}, nil
+	return nil
 }
 
 func (*networkRepository) validateChildPrefixLength(cpl metal.ChildPrefixLength, prefixes metal.Prefixes) error {

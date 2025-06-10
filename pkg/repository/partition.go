@@ -85,21 +85,17 @@ func (p *partitionRepository) validateCreate(ctx context.Context, req *adminv2.P
 func (p *partitionRepository) validateDelete(ctx context.Context, req *metal.Partition) error {
 	// FIXME all entities with partition relation must be deleted before
 
-	nwsresp, err := p.r.ds.Network().List(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{Partition: &req.ID}))
+	nwsresp, err := p.s.ds.Network().List(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{Partition: &req.ID}))
 	if err != nil {
-		return nil, err
+		return err
 	}
-	p.r.log.Info("networks in partition", "partition", req.ID, "networks", nwsresp)
+
+	p.s.log.Info("networks in partition", "partition", req.ID, "networks", nwsresp)
+
 	var errs []error
 	errs = validate(errs, len(nwsresp) == 0, "there are still networks in %q", req.ID)
 
-	if len(errs) > 0 {
-		return nil, errorutil.NewInvalidArgument(errors.Join(errs...))
-	}
-
-	return &Validated[*metal.Partition]{
-		message: req,
-	}, nil
+	return errors.Join(errs...)
 }
 
 // ValidateUpdate implements Partition.

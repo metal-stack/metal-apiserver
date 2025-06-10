@@ -45,13 +45,13 @@ func (r *ipRepository) matchScope(ip *metal.IP) bool {
 
 	eventualIP := pointer.SafeDeref(ip)
 	if r.scope.projectID == eventualIP.ProjectID {
-		return nil
+		return true
 	}
 
-	return errorutil.NotFound("ip:%s project:%s for scope:%s not found", eventualIP.IPAddress, eventualIP.ProjectID, r.scope.projectID)
+	return false
 }
 
-func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServiceCreateRequest]) (*metal.IP, error) {
+func (r *ipRepository) create(ctx context.Context, rq *apiv2.IPServiceCreateRequest) (*metal.IP, error) {
 	var (
 		name        string
 		description string
@@ -76,12 +76,7 @@ func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServic
 	// Ensure no duplicates
 	tags = tag.NewTagMap(tags).Slice()
 
-	ipType := metal.Ephemeral
-	if pointer.SafeDeref(req.Type) == apiv2.IPType_IP_TYPE_STATIC {
-		ipType = metal.Static
-	}
-
-	nw, err := r.r.UnscopedNetwork().Get(ctx, req.Network)
+	nw, err := r.s.UnscopedNetwork().Get(ctx, req.Network) // TODO: maybe it would be useful to be able to pass this through from the validation or use a short-lived cache in the ip repo
 	if err != nil {
 		return nil, err
 	}
@@ -93,14 +88,16 @@ func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServic
 	// for private, unshared networks the project id must be the same
 	// for external networks the project id is not checked
 	// if !nw.Shared && nw.ParentNetworkID != "" && p.Meta.Id != nw.ProjectID {
-	if nw.ProjectID != projectID {
+	if nw.ProjectID != rq.Project {
 		switch *nw.NetworkType {
 		case metal.NetworkTypeChildShared, metal.NetworkTypeExternal:
 			// this is fine
 		default:
-			return nil, errorutil.InvalidArgument("can not allocate ip for project %q because network belongs to %q and the network is of type:%s", p.Meta.Id, nw.ProjectID, *nw.NetworkType)
+			return nil, errorutil.InvalidArgument("can not allocate ip for project %q because network belongs to %q and the network is of type:%s", req.Project, nw.ProjectID, *nw.NetworkType)
 		}
 	}
+
+	// FIXME: move validation to ip validation
 
 	var af *metal.AddressFamily
 	if req.AddressFamily != nil {
@@ -119,15 +116,9 @@ func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServic
 	}
 
 	var (
-		err          error
 		ipAddress    string
 		ipParentCidr string
 	)
-
-	nw, err := r.s.UnscopedNetwork().Get(ctx, req.Network) // TODO: maybe it would be useful to be able to pass this through from the validation or use a short-lived cache in the ip repo
-	if err != nil {
-		return nil, err
-	}
 
 	// as this is more or less a transaction... shouldn't we put this into async?
 
@@ -226,8 +217,8 @@ func (r *ipRepository) delete(ctx context.Context, e *metal.IP) error {
 	return nil
 }
 
-func (r *ipRepository) Find(ctx context.Context, rq *apiv2.IPQuery) (*metal.IP, error) {
-	ip, err := r.r.ds.IP().Find(ctx, r.scopedIPFilters(queries.IpFilter(rq))...)
+func (r *ipRepository) find(ctx context.Context, rq *apiv2.IPQuery) (*metal.IP, error) {
+	ip, err := r.s.ds.IP().Find(ctx, r.scopedIPFilters(queries.IpFilter(rq))...)
 	if err != nil {
 		return nil, err
 	}
@@ -235,8 +226,8 @@ func (r *ipRepository) Find(ctx context.Context, rq *apiv2.IPQuery) (*metal.IP, 
 	return ip, nil
 }
 
-func (r *ipRepository) List(ctx context.Context, rq *apiv2.IPQuery) ([]*metal.IP, error) {
-	ip, err := r.r.ds.IP().List(ctx, r.scopedIPFilters(queries.IpFilter(rq))...)
+func (r *ipRepository) list(ctx context.Context, rq *apiv2.IPQuery) ([]*metal.IP, error) {
+	ip, err := r.s.ds.IP().List(ctx, r.scopedIPFilters(queries.IpFilter(rq))...)
 	if err != nil {
 		return nil, err
 	}
@@ -265,7 +256,7 @@ func (r *ipRepository) allocateSpecificIP(ctx context.Context, parent *metal.Net
 			continue
 		}
 
-		resp, err := r.r.ipam.AcquireIP(ctx, connect.NewRequest(&ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String(), Ip: &specificIP, Namespace: parent.Namespace}))
+		resp, err := r.s.ipam.AcquireIP(ctx, connect.NewRequest(&ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String(), Ip: &specificIP, Namespace: parent.Namespace}))
 		if err != nil {
 			return "", "", err
 		}
@@ -284,9 +275,9 @@ func (r *ipRepository) allocateRandomIP(ctx context.Context, parent *metal.Netwo
 		addressfamily = parent.Prefixes.AddressFamilies()[0]
 	}
 
-	r.r.log.Debug("allocateRandomIP from", "network", parent.ID, "addressfamily", addressfamily)
+	r.s.log.Debug("allocateRandomIP from", "network", parent.ID, "addressfamily", addressfamily)
 	for _, prefix := range parent.Prefixes.OfFamily(addressfamily) {
-		resp, err := r.r.ipam.AcquireIP(ctx, connect.NewRequest(&ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String(), Namespace: parent.Namespace}))
+		resp, err := r.s.ipam.AcquireIP(ctx, connect.NewRequest(&ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String(), Namespace: parent.Namespace}))
 		if err != nil {
 			if errorutil.IsNotFound(err) {
 				continue

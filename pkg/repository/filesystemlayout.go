@@ -121,7 +121,7 @@ func (r *filesystemLayoutRepository) find(ctx context.Context, rq *apiv2.Filesys
 }
 
 func (r *filesystemLayoutRepository) list(ctx context.Context, rq *apiv2.FilesystemServiceListRequest) ([]*metal.FilesystemLayout, error) {
-	fsls, err := r.r.ds.FilesystemLayout().List(ctx)
+	fsls, err := r.s.ds.FilesystemLayout().List(ctx)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

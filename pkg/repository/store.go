@@ -90,7 +90,7 @@ func (s *Store) network(scope *ProjectScope) Network {
 		scope: scope,
 	}
 
-	return &store[*networkRepository, *metal.Network, *apiv2.Network, *apiv2.NetworkServiceCreateRequest, *apiv2.NetworkServiceUpdateRequest, *apiv2.NetworkServiceListRequest]{
+	return &store[*networkRepository, *metal.Network, *apiv2.Network, *adminv2.NetworkServiceCreateRequest, *adminv2.NetworkServiceUpdateRequest, *apiv2.NetworkQuery]{
 		repository: repository,
 		typed:      repository,
 	}

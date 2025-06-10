@@ -155,9 +155,7 @@ func AllocateNetworks(t *testing.T, repo *repository.Store, nws []*apiv2.Network
 			Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD, // Non Admins can only create Child Networks
 		}
 
-		validated, err := repo.UnscopedNetwork().ValidateCreate(t.Context(), req)
-		require.NoError(t, err)
-		resp, err := repo.UnscopedNetwork().Create(t.Context(), validated)
+		resp, err := repo.UnscopedNetwork().Create(t.Context(), req)
 		require.NoError(t, err)
 		networkMap[resp.Name] = resp.ID
 	}
