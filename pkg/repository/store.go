@@ -179,7 +179,7 @@ func (s *store[R, E, M, C, U, Q]) Delete(ctx context.Context, id string) (E, err
 
 	ok := s.matchScope(e)
 	if !ok {
-		return zero, errorutil.NotFound("entity %q not found", id)
+		return zero, errorutil.NotFound("%T with id %q not found", e, id)
 	}
 
 	err = s.validateDelete(ctx, e)
@@ -209,7 +209,7 @@ func (s *store[R, E, M, C, U, Q]) Get(ctx context.Context, id string) (E, error)
 
 	ok := s.matchScope(e)
 	if !ok {
-		return zero, errorutil.NotFound("entity %q not found", id)
+		return zero, errorutil.NotFound("%T with id %q not found", e, id)
 	}
 
 	return e, nil
@@ -229,7 +229,7 @@ func (s *store[R, E, M, C, U, Q]) Update(ctx context.Context, id string, u U) (E
 
 	ok := s.matchScope(e)
 	if !ok {
-		return zero, errorutil.NotFound("entity %q not found", id)
+		return zero, errorutil.NotFound("%T with id %q not found", e, id)
 	}
 
 	err = s.validateUpdate(ctx, u, e)

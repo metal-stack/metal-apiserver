@@ -275,8 +275,12 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 	return resp, nil
 }
 
-func (r *networkRepository) update(ctx context.Context, newNetwork *metal.Network, req *adminv2.NetworkServiceUpdateRequest) (*metal.Network, error) {
-	old := *newNetwork
+func (r *networkRepository) update(ctx context.Context, _ *metal.Network, req *adminv2.NetworkServiceUpdateRequest) (*metal.Network, error) {
+	old, err := r.get(ctx, req.Id) // TODO: utilize network that was passed here
+	if err != nil {
+		return nil, err
+	}
+	newNetwork := *old
 
 	if req.Name != nil {
 		newNetwork.Name = *req.Name
@@ -303,12 +307,11 @@ func (r *networkRepository) update(ctx context.Context, newNetwork *metal.Networ
 	}
 
 	var (
-		err                 error
 		prefixesToBeRemoved metal.Prefixes
 		prefixesToBeAdded   metal.Prefixes
 	)
 
-	prefixesToBeRemoved, prefixesToBeAdded, err = r.calculatePrefixDifferences(ctx, &old, newNetwork, req.Prefixes)
+	prefixesToBeRemoved, prefixesToBeAdded, err = r.calculatePrefixDifferences(ctx, old, &newNetwork, req.Prefixes)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -347,12 +350,12 @@ func (r *networkRepository) update(ctx context.Context, newNetwork *metal.Networ
 
 	r.s.log.Debug("updated network", "old", old, "new", newNetwork)
 	newNetwork.SetChanged(old.Changed)
-	err = r.s.ds.Network().Update(ctx, newNetwork)
+	err = r.s.ds.Network().Update(ctx, &newNetwork)
 	if err != nil {
 		return nil, err
 	}
 
-	return newNetwork, nil
+	return &newNetwork, nil
 }
 
 func (r *networkRepository) find(ctx context.Context, query *apiv2.NetworkQuery) (*metal.Network, error) {

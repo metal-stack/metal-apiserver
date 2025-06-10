@@ -46,12 +46,11 @@ func (r *ipRepository) matchScope(ip *metal.IP) bool {
 	return r.scope.projectID == pointer.SafeDeref(ip).ProjectID
 }
 
-func (r *ipRepository) create(ctx context.Context, rq *apiv2.IPServiceCreateRequest) (*metal.IP, error) {
+func (r *ipRepository) create(ctx context.Context, req *apiv2.IPServiceCreateRequest) (*metal.IP, error) {
 	var (
 		name        string
 		description string
 	)
-	req := rq
 
 	if req.Name != nil {
 		name = *req.Name
@@ -83,7 +82,7 @@ func (r *ipRepository) create(ctx context.Context, rq *apiv2.IPServiceCreateRequ
 	// for private, unshared networks the project id must be the same
 	// for external networks the project id is not checked
 	// if !nw.Shared && nw.ParentNetworkID != "" && p.Meta.Id != nw.ProjectID {
-	if nw.ProjectID != rq.Project {
+	if nw.ProjectID != req.Project {
 		switch *nw.NetworkType {
 		case metal.NetworkTypeChildShared, metal.NetworkTypeExternal:
 			// this is fine

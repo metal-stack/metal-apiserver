@@ -20,10 +20,12 @@ func (r *filesystemLayoutRepository) validateCreate(ctx context.Context, req *ad
 	if err != nil {
 		return errorutil.Convert(err)
 	}
+
 	err = fsl.Validate()
 	if err != nil {
 		return errorutil.Convert(err)
 	}
+
 	return nil
 }
 
@@ -32,10 +34,25 @@ func (r *filesystemLayoutRepository) validateUpdate(ctx context.Context, req *ad
 	if err != nil {
 		return errorutil.Convert(err)
 	}
+
+	var allFsls metal.FilesystemLayouts
+	fsls, err := r.list(ctx, &apiv2.FilesystemServiceListRequest{})
+	if err != nil {
+		return errorutil.Convert(err)
+	}
+	allFsls = append(allFsls, fsls...)
+
+	allFsls = append(allFsls, fsl)
+	err = allFsls.Validate()
+	if err != nil {
+		return errorutil.Convert(err)
+	}
+
 	err = fsl.Validate()
 	if err != nil {
 		return errorutil.Convert(err)
 	}
+
 	return nil
 }
 func (r *filesystemLayoutRepository) validateDelete(ctx context.Context, e *metal.FilesystemLayout) error {
@@ -71,33 +88,13 @@ func (r *filesystemLayoutRepository) create(ctx context.Context, rq *adminv2.Fil
 	return resp, nil
 }
 
-func (r *filesystemLayoutRepository) update(ctx context.Context, e *metal.FilesystemLayout, rq *adminv2.FilesystemServiceUpdateRequest) (*metal.FilesystemLayout, error) {
-	old, err := r.get(ctx, rq.FilesystemLayout.Id)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	var allFsls metal.FilesystemLayouts
-	fsls, err := r.list(ctx, &apiv2.FilesystemServiceListRequest{})
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-	allFsls = append(allFsls, fsls...)
-
+func (r *filesystemLayoutRepository) update(ctx context.Context, fsl *metal.FilesystemLayout, rq *adminv2.FilesystemServiceUpdateRequest) (*metal.FilesystemLayout, error) {
 	newFsl, err := r.convertToInternal(rq.FilesystemLayout)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	allFsls = append(allFsls, newFsl)
-	err = allFsls.Validate()
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	newFsl.SetChanged(old.Changed)
-
-	// FIXME implement update logic
+	newFsl.SetChanged(fsl.Changed)
 
 	err = r.s.ds.FilesystemLayout().Update(ctx, newFsl)
 	if err != nil {
@@ -254,7 +251,6 @@ func (r *filesystemLayoutRepository) convertToInternal(f *apiv2.FilesystemLayout
 
 }
 func (r *filesystemLayoutRepository) convertToProto(in *metal.FilesystemLayout) (*apiv2.FilesystemLayout, error) {
-
 	var filesystems []*apiv2.Filesystem
 	for _, fs := range in.Filesystems {
 		f, err := enum.GetEnum[apiv2.Format](string(fs.Format))

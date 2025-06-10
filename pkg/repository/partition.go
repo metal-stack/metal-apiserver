@@ -95,7 +95,11 @@ func (p *partitionRepository) validateDelete(ctx context.Context, req *metal.Par
 	var errs []error
 	errs = validate(errs, len(nwsresp) == 0, "there are still networks in %q", req.ID)
 
-	return errors.Join(errs...)
+	if err := errors.Join(errs...); err != nil {
+		return errorutil.InvalidArgument("%w", err)
+	}
+
+	return nil
 }
 
 // ValidateUpdate implements Partition.
