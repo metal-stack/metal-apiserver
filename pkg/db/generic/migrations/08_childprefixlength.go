@@ -52,19 +52,19 @@ func init() {
 						return err
 					}
 					if parsed.Addr().Is4() {
-						defaultChildPrefixLength[metal.IPv4AddressFamily] = 22
+						defaultChildPrefixLength[metal.AddressFamilyIPv4] = 22
 					}
 					if parsed.Addr().Is6() {
-						defaultChildPrefixLength[metal.IPv6AddressFamily] = 64
+						defaultChildPrefixLength[metal.AddressFamilyIPv6] = 64
 					}
 				}
 
-				if new.PrivateSuper {
+				if new.PrivateSuper { // nolint:staticcheck
 					if new.DefaultChildPrefixLength == nil {
 						new.DefaultChildPrefixLength = metal.ChildPrefixLength{}
 					}
 					if partition.PrivateNetworkPrefixLength > 0 {
-						defaultChildPrefixLength[metal.IPv4AddressFamily] = partition.PrivateNetworkPrefixLength
+						defaultChildPrefixLength[metal.AddressFamilyIPv4] = partition.PrivateNetworkPrefixLength
 					}
 					new.DefaultChildPrefixLength = defaultChildPrefixLength
 				}
