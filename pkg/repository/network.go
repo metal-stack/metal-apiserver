@@ -275,21 +275,15 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 	return resp, nil
 }
 
-func (r *networkRepository) update(ctx context.Context, _ *metal.Network, req *adminv2.NetworkServiceUpdateRequest) (*metal.Network, error) {
-	old, err := r.get(ctx, req.Id) // TODO: utilize network that was passed here
-	if err != nil {
-		return nil, err
-	}
-	newNetwork := *old
-
+func (r *networkRepository) update(ctx context.Context, nw *metal.Network, req *adminv2.NetworkServiceUpdateRequest) (*metal.Network, error) {
 	if req.Name != nil {
-		newNetwork.Name = *req.Name
+		nw.Name = *req.Name
 	}
 	if req.Description != nil {
-		newNetwork.Description = *req.Description
+		nw.Description = *req.Description
 	}
 	if req.Labels != nil {
-		newNetwork.Labels = updateLabelsOnMap(req.Labels, newNetwork.Labels)
+		nw.Labels = updateLabelsOnMap(req.Labels, nw.Labels)
 	}
 
 	if req.NatType != nil {
@@ -297,21 +291,23 @@ func (r *networkRepository) update(ctx context.Context, _ *metal.Network, req *a
 		if err != nil {
 			return nil, err
 		}
-		newNetwork.NATType = &nt
+
+		nw.NATType = &nt
 		switch nt {
 		case metal.NATTypeIPv4Masquerade:
-			newNetwork.Nat = true // nolint:staticcheck
+			nw.Nat = true // nolint:staticcheck
 		case metal.NATTypeNone:
 			//
 		}
 	}
 
 	var (
+		err                 error
 		prefixesToBeRemoved metal.Prefixes
 		prefixesToBeAdded   metal.Prefixes
 	)
 
-	prefixesToBeRemoved, prefixesToBeAdded, err = r.calculatePrefixDifferences(ctx, old, &newNetwork, req.Prefixes)
+	prefixesToBeRemoved, prefixesToBeAdded, err = r.calculatePrefixDifferences(ctx, nw, req.Prefixes)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -321,41 +317,49 @@ func (r *networkRepository) update(ctx context.Context, _ *metal.Network, req *a
 		if err != nil {
 			return nil, errorutil.Convert(err)
 		}
-		newNetwork.DestinationPrefixes = destPrefixes
+
+		nw.DestinationPrefixes = destPrefixes
 	}
 
 	if req.DefaultChildPrefixLength != nil {
-		newNetwork.DefaultChildPrefixLength = metal.ToChildPrefixLength(req.DefaultChildPrefixLength)
+		nw.DefaultChildPrefixLength = metal.ToChildPrefixLength(req.DefaultChildPrefixLength)
 	}
 
 	if req.Force {
-		newNetwork.AdditionalAnnouncableCIDRs = req.AdditionalAnnouncableCidrs
+		nw.AdditionalAnnouncableCIDRs = req.AdditionalAnnouncableCidrs
 	}
 
-	r.s.log.Debug("update", "network id", newNetwork.ID, "prefixes to add", prefixesToBeAdded, "prefixes to remove", prefixesToBeRemoved)
+	r.s.log.Debug("update", "network id", nw.ID, "prefixes to add", prefixesToBeAdded, "prefixes to remove", prefixesToBeRemoved)
 
 	for _, p := range prefixesToBeRemoved {
-		_, err := r.s.ipam.DeletePrefix(ctx, connect.NewRequest(&ipamv1.DeletePrefixRequest{Cidr: p.String(), Namespace: newNetwork.Namespace}))
+		_, err := r.s.ipam.DeletePrefix(ctx, connect.NewRequest(&ipamv1.DeletePrefixRequest{Cidr: p.String(), Namespace: nw.Namespace}))
 		if err != nil {
 			return nil, errorutil.Convert(err)
 		}
 	}
 
 	for _, p := range prefixesToBeAdded {
-		_, err := r.s.ipam.CreatePrefix(ctx, connect.NewRequest(&ipamv1.CreatePrefixRequest{Cidr: p.String(), Namespace: newNetwork.Namespace}))
+		_, err := r.s.ipam.CreatePrefix(ctx, connect.NewRequest(&ipamv1.CreatePrefixRequest{Cidr: p.String(), Namespace: nw.Namespace}))
 		if err != nil {
 			return nil, errorutil.Convert(err)
 		}
 	}
 
-	r.s.log.Debug("updated network", "old", old, "new", newNetwork)
-	newNetwork.SetChanged(old.Changed)
-	err = r.s.ds.Network().Update(ctx, &newNetwork)
+	if req.Prefixes != nil {
+		pfxs, err := metal.NewPrefixesFromCIDRs(req.Prefixes)
+		if err != nil {
+			return nil, err
+		}
+
+		nw.Prefixes = pfxs
+	}
+
+	err = r.s.ds.Network().Update(ctx, nw)
 	if err != nil {
 		return nil, err
 	}
 
-	return &newNetwork, nil
+	return nw, nil
 }
 
 func (r *networkRepository) find(ctx context.Context, query *apiv2.NetworkQuery) (*metal.Network, error) {
@@ -448,7 +452,7 @@ func (r *networkRepository) convertToProto(e *metal.Network) (*apiv2.Network, er
 		MinChildPrefixLength:     minChildPrefixLength,
 		Type:                     networkType,
 	}
-	consumption, err = r.GetNetworkUsage(context.Background(), e)
+	consumption, err = r.getNetworkUsage(context.Background(), e)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -475,7 +479,7 @@ func (r *networkRepository) toProtoChildPrefixLength(childPrefixLength metal.Chi
 	return result, nil
 }
 
-func (r *networkRepository) GetNetworkUsage(ctx context.Context, nw *metal.Network) (*apiv2.NetworkConsumption, error) {
+func (r *networkRepository) getNetworkUsage(ctx context.Context, nw *metal.Network) (*apiv2.NetworkConsumption, error) {
 	consumption := &apiv2.NetworkConsumption{}
 	if nw == nil {
 		return consumption, nil
@@ -528,28 +532,29 @@ func (r *networkRepository) scopedNetworkFilters(filter generic.EntityQuery) []g
 	return qs
 }
 
-func (r *networkRepository) calculatePrefixDifferences(ctx context.Context, existingNetwork, newNetwork *metal.Network, prefixes []string) (toRemoved, toAdded metal.Prefixes, err error) {
-	if len(prefixes) == 0 {
+func (r *networkRepository) calculatePrefixDifferences(ctx context.Context, nw *metal.Network, newPrefixes []string) (toRemove, toAdd metal.Prefixes, err error) {
+	if newPrefixes == nil {
 		return
 	}
-	pfxs, err := metal.NewPrefixesFromCIDRs(prefixes)
+
+	pfxs, err := metal.NewPrefixesFromCIDRs(newPrefixes)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	toRemoved = existingNetwork.SubtractPrefixes(pfxs...)
+	toRemove = nw.Prefixes.SubtractPrefixes(pfxs...)
 
-	err = r.arePrefixesEmpty(ctx, toRemoved)
+	err = r.arePrefixesEmpty(ctx, toRemove)
 	if err != nil {
 		return nil, nil, err
 	}
-	toAdded = newNetwork.SubtractPrefixes(existingNetwork.Prefixes...)
-	newNetwork.Prefixes = pfxs
-	return toRemoved, toAdded, nil
+
+	toAdd = pfxs.SubtractPrefixes(nw.Prefixes...)
+
+	return toRemove, toAdd, nil
 }
 
 func (r *networkRepository) allocateChildPrefixes(ctx context.Context, projectId, parentNetworkId, partitionId *string, requestedLength *apiv2.ChildPrefixLength, af *apiv2.NetworkAddressFamily) (metal.Prefixes, *metal.Network, error) {
-
 	var (
 		prefixes  metal.Prefixes
 		parent    *metal.Network

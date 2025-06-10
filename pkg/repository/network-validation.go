@@ -451,18 +451,16 @@ func (r *networkRepository) validateAdditionalAnnouncableCIDRs(additionalCidrs [
 	return nil
 }
 
-func (r *networkRepository) validateUpdate(ctx context.Context, req *adminv2.NetworkServiceUpdateRequest, old *metal.Network) error {
-	newNetwork := *old
-
-	if old.NetworkType == nil {
+func (r *networkRepository) validateUpdate(ctx context.Context, req *adminv2.NetworkServiceUpdateRequest, nw *metal.Network) error {
+	if nw.NetworkType == nil {
 		return errorutil.Internal("networktype is nil")
 	}
 
-	if req.DefaultChildPrefixLength != nil && !metal.IsSuperNetwork(old.NetworkType) {
+	if req.DefaultChildPrefixLength != nil && !metal.IsSuperNetwork(nw.NetworkType) {
 		return errorutil.InvalidArgument("default child prefix length can only be set on super networks")
 	}
 
-	if len(req.Prefixes) > 0 && metal.IsChildNetwork(old.NetworkType) {
+	if len(req.Prefixes) > 0 && metal.IsChildNetwork(nw.NetworkType) {
 		return errorutil.InvalidArgument("cannot change prefixes in child networks")
 	}
 
@@ -473,14 +471,14 @@ func (r *networkRepository) validateUpdate(ctx context.Context, req *adminv2.Net
 		destPrefixAfs       metal.AddressFamilies
 	)
 
-	prefixesToBeRemoved, prefixesToBeAdded, err = r.calculatePrefixDifferences(ctx, old, &newNetwork, req.Prefixes)
+	prefixesToBeRemoved, prefixesToBeAdded, err = r.calculatePrefixDifferences(ctx, nw, req.Prefixes)
 	if err != nil {
 		return errorutil.Convert(err)
 	}
 
-	r.s.log.Debug("validate update", "old parent", old.ParentNetworkID, "prefixes to remove", prefixesToBeRemoved, "prefixes to add", prefixesToBeAdded)
+	r.s.log.Debug("validate update", "old parent", nw.ParentNetworkID, "prefixes to remove", prefixesToBeRemoved, "prefixes to add", prefixesToBeAdded)
 	// Do not allow to change prefixes on child networks
-	if old.ParentNetworkID != "" && (len(prefixesToBeRemoved) > 0 || len(prefixesToBeAdded) > 0) {
+	if nw.ParentNetworkID != "" && (len(prefixesToBeRemoved) > 0 || len(prefixesToBeAdded) > 0) {
 		return errorutil.InvalidArgument("cannot change prefixes in child networks")
 	}
 
@@ -492,27 +490,27 @@ func (r *networkRepository) validateUpdate(ctx context.Context, req *adminv2.Net
 		destPrefixAfs = destPrefixes.AddressFamilies()
 	}
 
-	err = r.validatePrefixesAndAddressFamilies(newNetwork.Prefixes, destPrefixAfs, old.DefaultChildPrefixLength, old.NetworkType)
+	err = r.validatePrefixesAndAddressFamilies(nw.Prefixes, destPrefixAfs, nw.DefaultChildPrefixLength, nw.NetworkType)
 	if err != nil {
 		return errorutil.Convert(err)
 	}
 
 	dcpl := metal.ToChildPrefixLength(req.DefaultChildPrefixLength)
-	if err := r.validateChildPrefixLength(dcpl, newNetwork.Prefixes); err != nil {
+	if err := r.validateChildPrefixLength(dcpl, nw.Prefixes); err != nil {
 		return errorutil.NewInvalidArgument(err)
 	}
 
 	mcpl := metal.ToChildPrefixLength(req.MinChildPrefixLength)
-	if err = r.validateChildPrefixLength(mcpl, newNetwork.Prefixes); err != nil {
+	if err = r.validateChildPrefixLength(mcpl, nw.Prefixes); err != nil {
 		return errorutil.NewInvalidArgument(err)
 	}
 
-	err = r.validateAdditionalAnnouncableCIDRs(req.AdditionalAnnouncableCidrs, old.NetworkType)
+	err = r.validateAdditionalAnnouncableCIDRs(req.AdditionalAnnouncableCidrs, nw.NetworkType)
 	if err != nil {
 		return errorutil.Convert(err)
 	}
 
-	for _, oldcidr := range old.AdditionalAnnouncableCIDRs {
+	for _, oldcidr := range nw.AdditionalAnnouncableCIDRs {
 		if !req.Force && !slices.Contains(req.AdditionalAnnouncableCidrs, oldcidr) {
 			return errorutil.InvalidArgument("you cannot remove %q from additionalannouncablecidrs without force flag set", oldcidr)
 		}
