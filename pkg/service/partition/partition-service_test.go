@@ -70,15 +70,13 @@ func Test_partitionServiceServer_Get(t *testing.T) {
 
 			if diff := cmp.Diff(
 				tt.want, pointer.SafeDeref(got).Msg,
-				cmp.Options{
-					protocmp.Transform(),
-					protocmp.IgnoreFields(
-						&apiv2.IP{}, "uuid",
-					),
-					protocmp.IgnoreFields(
-						&apiv2.Meta{}, "created_at", "updated_at",
-					),
-				},
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.IP{}, "uuid",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
 			); diff != "" {
 				t.Errorf("partitionServiceServer.Get() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
 			}
@@ -155,15 +153,13 @@ func Test_partitionServiceServer_List(t *testing.T) {
 
 			if diff := cmp.Diff(
 				tt.want, pointer.SafeDeref(got).Msg,
-				cmp.Options{
-					protocmp.Transform(),
-					protocmp.IgnoreFields(
-						&apiv2.IP{}, "uuid",
-					),
-					protocmp.IgnoreFields(
-						&apiv2.Meta{}, "created_at", "updated_at",
-					),
-				},
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.IP{}, "uuid",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
 			); diff != "" {
 				t.Errorf("partitionServiceServer.List() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
 			}

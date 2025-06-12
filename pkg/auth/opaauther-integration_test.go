@@ -67,7 +67,7 @@ func Test_opa_cert_rotation(t *testing.T) {
 			return o
 		}()
 
-		ctx     = context.Background()
+		ctx     = t.Context()
 		service = func() tokenservice.TokenService {
 			s := tokenservice.New(tokenservice.Config{
 				Log:           log,
