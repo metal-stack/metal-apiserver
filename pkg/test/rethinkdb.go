@@ -1,7 +1,6 @@
 package test
 
 import (
-	"context"
 	"log/slog"
 	"testing"
 
@@ -58,7 +57,7 @@ func StartRethink(t testing.TB, log *slog.Logger) (generic.Datastore, r.ConnectO
 	require.NoError(t, err)
 
 	closer := func() {
-		_ = rtContainer.Terminate(context.Background())
+		_ = rtContainer.Terminate(t.Context())
 	}
 
 	return ds, opts, closer

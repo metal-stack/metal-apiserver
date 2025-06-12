@@ -81,7 +81,7 @@ func Test_logInterceptor_AuditingCtx(t *testing.T) {
 			})
 
 			require.NotNil(t, tt.reqFn)
-			err := tt.reqFn(context.Background(), c)
+			err := tt.reqFn(t.Context(), c)
 			require.NoError(t, err)
 
 			assert.Contains(t, buf.String(), tt.wantContain)

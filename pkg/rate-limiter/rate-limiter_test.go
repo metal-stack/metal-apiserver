@@ -1,7 +1,6 @@
 package ratelimiter
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -17,7 +16,7 @@ import (
 )
 
 func Test_ratelimiter_CheckLimitTokenAccess(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	s := miniredis.RunT(t)
 	c := redis.NewClient(&redis.Options{Addr: s.Addr()})
 
@@ -27,7 +26,7 @@ func Test_ratelimiter_CheckLimitTokenAccess(t *testing.T) {
 
 	privateKey, err := certs.NewRedisStore(&certs.Config{
 		RedisClient: c,
-	}).LatestPrivate(context.Background())
+	}).LatestPrivate(ctx)
 	require.NoError(t, err)
 
 	_, tok, err := token.NewJWT(v1.TokenType_TOKEN_TYPE_CONSOLE, "userid", "issuer", 30*time.Minute, privateKey)

@@ -1,7 +1,6 @@
 package token
 
 import (
-	"context"
 	"log/slog"
 	"testing"
 	"time"
@@ -16,7 +15,7 @@ import (
 )
 
 func TestRedisStore(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	s := miniredis.RunT(t)
 	c := redis.NewClient(&redis.Options{Addr: s.Addr()})
 
@@ -57,7 +56,7 @@ func TestRedisStore(t *testing.T) {
 }
 
 func TestRedisStoreSetAndGet(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	s := miniredis.RunT(t)
 	c := redis.NewClient(&redis.Options{Addr: s.Addr()})
 
