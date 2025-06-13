@@ -368,6 +368,22 @@ func (r *networkRepository) validateCreateNetworkTypeUnderlay(ctx context.Contex
 }
 
 func (r *networkRepository) prefixesOverlapping(ctx context.Context, prefixes []string) error {
+	if len(prefixes) == 0 {
+		return nil
+	}
+	// Check input prefixes for overlapping as well
+	for _, pfx := range prefixes {
+		cloned := slices.Clone(prefixes)
+		remaining := slices.DeleteFunc(cloned, func(s string) bool {
+			return s == pfx
+		})
+
+		err := goipam.PrefixesOverlapping(remaining, []string{pfx})
+		if err != nil {
+			return errorutil.NewConflict(err)
+		}
+	}
+
 	allNetworks, err := r.List(ctx, &apiv2.NetworkQuery{})
 	if err != nil {
 		return errorutil.Convert(err)
@@ -487,6 +503,10 @@ func (r *networkRepository) ValidateUpdate(ctx context.Context, req *adminv2.Net
 
 	prefixesToBeRemoved, prefixesToBeAdded, err = r.calculatePrefixDifferences(ctx, old, req.Prefixes)
 	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
+	if err := r.prefixesOverlapping(ctx, prefixesToBeAdded.String()); err != nil {
 		return nil, errorutil.Convert(err)
 	}
 

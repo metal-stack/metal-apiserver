@@ -837,6 +837,21 @@ func Test_networkServiceServer_CreateSuper(t *testing.T) {
 			wantErr: errorutil.InvalidArgument(`given cidr:"3.4.5.6.0/23" in additional announcable cidrs is malformed:netip.ParsePrefix("3.4.5.6.0/23"): ParseAddr("3.4.5.6.0"): IPv4 address too long`),
 		},
 		{
+			name:      "create a super network with overlapping prefixes",
+			preparefn: nil,
+			rq: &adminv2.NetworkServiceCreateRequest{
+				Id:                         pointer.Pointer("tenant-super-network"),
+				Prefixes:                   []string{"15.100.0.0/14", "15.100.0.0/16"},
+				DefaultChildPrefixLength:   &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+				MinChildPrefixLength:       &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(20))},
+				AdditionalAnnouncableCidrs: []string{"10.240.0.0/12"},
+				Type:                       apiv2.NetworkType_NETWORK_TYPE_SUPER,
+				Partition:                  pointer.Pointer("partition-one"),
+			},
+			want:    nil,
+			wantErr: errorutil.Conflict("15.100.0.0/14 overlaps 15.100.0.0/16"),
+		},
+		{
 			name:      "create a super network without vrf",
 			preparefn: nil,
 			rq: &adminv2.NetworkServiceCreateRequest{
@@ -2044,6 +2059,15 @@ func Test_networkServiceServer_Update(t *testing.T) {
 			},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`malformed prefix "10.105.0.0/14" given, please specify it as "10.104.0.0/14"`),
+		},
+		{
+			name: "add overlapping prefix",
+			rq: &adminv2.NetworkServiceUpdateRequest{
+				Id:       "tenant-super-network",
+				Prefixes: []string{"10.100.0.0/14", "10.100.0.0/16"},
+			},
+			want:    nil,
+			wantErr: errorutil.Conflict(`10.100.0.0/16 overlaps 10.100.0.0/14`),
 		},
 		{
 			name: "add label to tenant network",
