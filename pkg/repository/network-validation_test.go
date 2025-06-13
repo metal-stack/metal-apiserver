@@ -119,3 +119,53 @@ func Test_networkRepository_validateChildPrefixLength(t *testing.T) {
 		})
 	}
 }
+
+func Test_networkRepository_validatePrefixesOnBoundaries(t *testing.T) {
+	tests := []struct {
+		name     string
+		prefixes []string
+		wantErr  error
+	}{
+		{
+			name:     "correct ipv4",
+			prefixes: []string{"10.0.0.0/8", "192.168.1.0/24"},
+		},
+		{
+			name:     "one incorrect ipv4",
+			prefixes: []string{"10.0.0.0/8", "192.168.1.0/24", "10.105.0.0/14"},
+			wantErr:  errors.New(`malformed prefix "10.105.0.0/14" given, please specify it as "10.104.0.0/14"`),
+		},
+		{
+			name:     "two incorrect ipv4",
+			prefixes: []string{"20.105.0.0/14", "10.0.0.0/8", "192.168.1.0/24", "10.105.0.0/14"},
+			wantErr: errors.New(`malformed prefix "20.105.0.0/14" given, please specify it as "20.104.0.0/14"
+malformed prefix "10.105.0.0/14" given, please specify it as "10.104.0.0/14"`),
+		},
+		{
+			name:     "correct ipv6",
+			prefixes: []string{"2001:abcd:1::/96"},
+		},
+		{
+			name:     "one incorrect ipv6",
+			prefixes: []string{"2001:abcd:1::/96", "2001:abcd:1:1::/48"},
+			wantErr:  errors.New(`malformed prefix "2001:abcd:1:1::/48" given, please specify it as "2001:abcd:1::/48"`),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			n := &networkRepository{}
+			err := n.validatePrefixesOnBoundaries(tt.prefixes)
+
+			if err == nil {
+				err = errors.New("")
+			}
+			if tt.wantErr == nil {
+				tt.wantErr = errors.New("")
+			}
+
+			if diff := cmp.Diff(err.Error(), tt.wantErr.Error()); diff != "" {
+				t.Errorf("diff = %s", diff)
+			}
+		})
+	}
+}

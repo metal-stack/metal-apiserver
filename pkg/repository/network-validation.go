@@ -36,6 +36,10 @@ func (r *networkRepository) ValidateCreate(ctx context.Context, req *adminv2.Net
 		}
 	}
 
+	if err := r.validatePrefixesOnBoundaries(req.Prefixes); err != nil {
+		return nil, errorutil.NewInvalidArgument(err)
+	}
+
 	var (
 		err error
 	)
@@ -471,13 +475,17 @@ func (r *networkRepository) ValidateUpdate(ctx context.Context, req *adminv2.Net
 		return nil, errorutil.InvalidArgument("cannot change prefixes in child networks")
 	}
 
+	if err := r.validatePrefixesOnBoundaries(req.Prefixes); err != nil {
+		return nil, errorutil.NewInvalidArgument(err)
+	}
+
 	var (
 		prefixesToBeRemoved metal.Prefixes
 		prefixesToBeAdded   metal.Prefixes
 		destPrefixAfs       metal.AddressFamilies
 	)
 
-	prefixesToBeRemoved, prefixesToBeAdded, err = r.calculatePrefixDifferences(ctx, old, &newNetwork, req.Prefixes)
+	prefixesToBeRemoved, prefixesToBeAdded, err = r.calculatePrefixDifferences(ctx, old, req.Prefixes)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -587,7 +595,7 @@ func (*networkRepository) validateChildPrefixLength(cpl metal.ChildPrefixLength,
 		for _, p := range prefixes.OfFamily(af) {
 			ipprefix, err := netip.ParsePrefix(p.String())
 			if err != nil {
-				errs = append(errs, fmt.Errorf("given prefix %q is not a valid ip with mask: %w", p.String(), err))
+				errs = append(errs, err)
 			}
 			if int(length) <= ipprefix.Bits() {
 				errs = append(errs, fmt.Errorf("given childprefixlength %d is not greater than prefix length of:%s", length, p.String()))
@@ -596,6 +604,21 @@ func (*networkRepository) validateChildPrefixLength(cpl metal.ChildPrefixLength,
 	}
 
 	sort.Slice(errs, func(i, j int) bool { return errs[i].Error() < errs[j].Error() }) // for testability
+
+	return errors.Join(errs...)
+}
+
+func (*networkRepository) validatePrefixesOnBoundaries(prefixes []string) error {
+	var errs []error
+	for _, pfx := range prefixes {
+		parsed, err := netip.ParsePrefix(pfx)
+		if err != nil {
+			return err
+		}
+		if parsed.Masked().String() != pfx {
+			errs = append(errs, fmt.Errorf("malformed prefix %q given, please specify it as %q", pfx, parsed.Masked().String()))
+		}
+	}
 
 	return errors.Join(errs...)
 }
