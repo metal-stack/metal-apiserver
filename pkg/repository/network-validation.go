@@ -501,7 +501,12 @@ func (r *networkRepository) ValidateUpdate(ctx context.Context, req *adminv2.Net
 		destPrefixAfs       metal.AddressFamilies
 	)
 
-	prefixesToBeRemoved, prefixesToBeAdded, err = r.calculatePrefixDifferences(ctx, old, req.Prefixes)
+	prefixesToBeRemoved, prefixesToBeAdded, err = r.calculatePrefixDifferences(old, req.Prefixes)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
+	err = r.arePrefixesEmpty(ctx, prefixesToBeRemoved)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

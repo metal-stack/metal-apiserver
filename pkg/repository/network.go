@@ -330,7 +330,11 @@ func (r *networkRepository) Update(ctx context.Context, rq *Validated[*adminv2.N
 		req.Prefixes = old.Prefixes.String()
 	}
 
-	prefixesToBeRemoved, prefixesToBeAdded, err = r.calculatePrefixDifferences(ctx, old, req.Prefixes)
+	prefixesToBeRemoved, prefixesToBeAdded, err = r.calculatePrefixDifferences(old, req.Prefixes)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+	err = r.arePrefixesEmpty(ctx, prefixesToBeRemoved)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -551,7 +555,7 @@ func (r *networkRepository) scopedNetworkFilters(filter generic.EntityQuery) []g
 	return qs
 }
 
-func (r *networkRepository) calculatePrefixDifferences(ctx context.Context, existingNetwork *metal.Network, prefixes []string) (toRemoved, toAdded metal.Prefixes, err error) {
+func (r *networkRepository) calculatePrefixDifferences(existingNetwork *metal.Network, prefixes []string) (toRemoved, toAdded metal.Prefixes, err error) {
 	if len(prefixes) == 0 {
 		return
 	}
@@ -561,11 +565,6 @@ func (r *networkRepository) calculatePrefixDifferences(ctx context.Context, exis
 	}
 
 	toRemoved = existingNetwork.Prefixes.SubtractPrefixes(pfxs...)
-
-	err = r.arePrefixesEmpty(ctx, toRemoved)
-	if err != nil {
-		return nil, nil, err
-	}
 
 	toAdded = pfxs.SubtractPrefixes(existingNetwork.Prefixes...)
 	return toRemoved, toAdded, nil
