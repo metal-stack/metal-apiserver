@@ -837,6 +837,21 @@ func Test_networkServiceServer_CreateSuper(t *testing.T) {
 			wantErr: errorutil.InvalidArgument(`given cidr:"3.4.5.6.0/23" in additional announcable cidrs is malformed:netip.ParsePrefix("3.4.5.6.0/23"): ParseAddr("3.4.5.6.0"): IPv4 address too long`),
 		},
 		{
+			name:      "create a super network with overlapping prefixes",
+			preparefn: nil,
+			rq: &adminv2.NetworkServiceCreateRequest{
+				Id:                         pointer.Pointer("tenant-super-network"),
+				Prefixes:                   []string{"15.100.0.0/14", "15.100.0.0/16"},
+				DefaultChildPrefixLength:   &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+				MinChildPrefixLength:       &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(20))},
+				AdditionalAnnouncableCidrs: []string{"10.240.0.0/12"},
+				Type:                       apiv2.NetworkType_NETWORK_TYPE_SUPER,
+				Partition:                  pointer.Pointer("partition-one"),
+			},
+			want:    nil,
+			wantErr: errorutil.Conflict("15.100.0.0/14 overlaps 15.100.0.0/16"),
+		},
+		{
 			name:      "create a super network without vrf",
 			preparefn: nil,
 			rq: &adminv2.NetworkServiceCreateRequest{
@@ -1234,7 +1249,7 @@ func Test_networkServiceServer_CreateExternal(t *testing.T) {
 				Vrf:      pointer.Pointer(uint32(94)),
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument(`given cidr "1.2.3.4.0/24" is not a valid ip with mask: netip.ParsePrefix("1.2.3.4.0/24"): ParseAddr("1.2.3.4.0"): IPv4 address too long`),
+			wantErr: errorutil.InvalidArgument(`netip.ParsePrefix("1.2.3.4.0/24"): ParseAddr("1.2.3.4.0"): IPv4 address too long`),
 		},
 		{
 			name: "internet-3 project given",
@@ -1266,7 +1281,7 @@ func Test_networkServiceServer_CreateExternal(t *testing.T) {
 				Vrf:                 pointer.Pointer(uint32(94)),
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument(`given cidr "1.2.3.4.0/24" is not a valid ip with mask: netip.ParsePrefix("1.2.3.4.0/24"): ParseAddr("1.2.3.4.0"): IPv4 address too long`),
+			wantErr: errorutil.InvalidArgument(`netip.ParsePrefix("1.2.3.4.0/24"): ParseAddr("1.2.3.4.0"): IPv4 address too long`),
 		},
 		{
 			name: "internet-3 with mixed af for prefixes and destinationprefixes",
@@ -1279,6 +1294,17 @@ func Test_networkServiceServer_CreateExternal(t *testing.T) {
 			},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`addressfamily:IPv6 of destination prefixes is not present in existing prefixes`),
+		},
+		{
+			name: "external with prefix not specified at bitmask boundary",
+			rq: &adminv2.NetworkServiceCreateRequest{
+				Id:       pointer.Pointer("internet-4"),
+				Prefixes: []string{"1.2.3.0/22"},
+				Type:     apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
+				Vrf:      pointer.Pointer(uint32(94)),
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument(`expecting canonical form of prefix "1.2.3.0/22", please specify it as "1.2.0.0/22"`),
 		},
 		{
 			name: "internet",
@@ -1577,7 +1603,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 			name:    "network has ips",
 			rq:      &adminv2.NetworkServiceDeleteRequest{Id: networkMap["tenant-1"]},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument(`there are still 1 ips present in prefix: {10.100.0.0 22}`),
+			wantErr: errorutil.InvalidArgument(`there are still 1 ips present in prefix: 10.100.0.0/22`),
 		},
 		{
 			name:    "super network has child",
@@ -2007,7 +2033,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		},
 		{
 			Id:                  pointer.Pointer("internet"),
-			Prefixes:            []string{"20.0.0.0/24"},
+			Prefixes:            []string{"20.0.0.0/24", "30.0.0.0/24"},
 			DestinationPrefixes: []string{"0.0.0.0/0"},
 			Type:                apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
 			Vrf:                 pointer.Pointer(uint32(1)),
@@ -2019,12 +2045,54 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{Name: pointer.Pointer("tenant-2"), Project: "p1", Partition: pointer.Pointer("partition-one"), Labels: &apiv2.Labels{Labels: map[string]string{"size": "small", "color": "blue"}}},
 	})
 
+	test.CreateIPs(t, repo, []*apiv2.IPServiceCreateRequest{{
+		Network: "internet",
+		Project: "p1",
+		Name:    pointer.Pointer("my internet ip"),
+		Ip:      pointer.Pointer("30.0.0.42"),
+	}})
+
 	tests := []struct {
 		name    string
 		rq      *adminv2.NetworkServiceUpdateRequest
 		want    *adminv2.NetworkServiceUpdateResponse
 		wantErr error
 	}{
+		{
+			name: "add malformed prefix",
+			rq: &adminv2.NetworkServiceUpdateRequest{
+				Id:       "tenant-super-network",
+				Prefixes: []string{"10.100.0.0/14", "10.105.0.0/14"},
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument(`expecting canonical form of prefix "10.105.0.0/14", please specify it as "10.104.0.0/14"`),
+		},
+		{
+			name: "remove all prefixes",
+			rq: &adminv2.NetworkServiceUpdateRequest{
+				Id: "tenant-super-network",
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument(`removing all prefixes is not supported`),
+		},
+		{
+			name: "add overlapping prefix",
+			rq: &adminv2.NetworkServiceUpdateRequest{
+				Id:       "tenant-super-network",
+				Prefixes: []string{"10.100.0.0/14", "10.100.0.0/16"},
+			},
+			want:    nil,
+			wantErr: errorutil.Conflict(`10.100.0.0/16 overlaps 10.100.0.0/14`),
+		},
+		{
+			name: "remove prefix where ip is used",
+			rq: &adminv2.NetworkServiceUpdateRequest{
+				Id:       "internet",
+				Prefixes: []string{"20.0.0.0/24"},
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument(`there are still 1 ips present in prefix: 30.0.0.0/24`),
+		},
 		{
 			name: "add label to tenant network",
 			rq: &adminv2.NetworkServiceUpdateRequest{
@@ -2061,14 +2129,14 @@ func Test_networkServiceServer_Update(t *testing.T) {
 			name: "add prefixes to tenant super network",
 			rq: &adminv2.NetworkServiceUpdateRequest{
 				Id:       "tenant-super-network",
-				Prefixes: []string{"10.100.0.0/14", "10.101.0.0/14"},
+				Prefixes: []string{"10.100.0.0/14", "10.104.0.0/14"},
 			},
 			want: &adminv2.NetworkServiceUpdateResponse{
 				Network: &apiv2.Network{
 					Id:                       "tenant-super-network",
 					Meta:                     &apiv2.Meta{},
 					Partition:                pointer.Pointer("partition-one"),
-					Prefixes:                 []string{"10.100.0.0/14", "10.101.0.0/14"},
+					Prefixes:                 []string{"10.100.0.0/14", "10.104.0.0/14"},
 					Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
 					DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
 				},
@@ -2078,15 +2146,16 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{
 			name: "change nattype of tenant super network",
 			rq: &adminv2.NetworkServiceUpdateRequest{
-				Id:      "tenant-super-network",
-				NatType: apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE.Enum(),
+				Id:       "tenant-super-network",
+				Prefixes: []string{"10.100.0.0/14", "10.104.0.0/14"},
+				NatType:  apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE.Enum(),
 			},
 			want: &adminv2.NetworkServiceUpdateResponse{
 				Network: &apiv2.Network{
 					Id:                       "tenant-super-network",
 					Meta:                     &apiv2.Meta{},
 					Partition:                pointer.Pointer("partition-one"),
-					Prefixes:                 []string{"10.100.0.0/14", "10.101.0.0/14"},
+					Prefixes:                 []string{"10.100.0.0/14", "10.104.0.0/14"},
 					Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
 					DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
 					NatType:                  apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE.Enum(),

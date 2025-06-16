@@ -36,6 +36,10 @@ func (r *networkRepository) ValidateCreate(ctx context.Context, req *adminv2.Net
 		}
 	}
 
+	if err := r.validatePrefixesOnBoundaries(req.Prefixes); err != nil {
+		return nil, errorutil.NewInvalidArgument(err)
+	}
+
 	var (
 		err error
 	)
@@ -364,6 +368,22 @@ func (r *networkRepository) validateCreateNetworkTypeUnderlay(ctx context.Contex
 }
 
 func (r *networkRepository) prefixesOverlapping(ctx context.Context, prefixes []string) error {
+	if len(prefixes) == 0 {
+		return nil
+	}
+	// Check input prefixes for overlapping as well
+	for _, pfx := range prefixes {
+		cloned := slices.Clone(prefixes)
+		remaining := slices.DeleteFunc(cloned, func(s string) bool {
+			return s == pfx
+		})
+
+		err := goipam.PrefixesOverlapping(remaining, []string{pfx})
+		if err != nil {
+			return errorutil.NewConflict(err)
+		}
+	}
+
 	allNetworks, err := r.List(ctx, &apiv2.NetworkQuery{})
 	if err != nil {
 		return errorutil.Convert(err)
@@ -471,14 +491,31 @@ func (r *networkRepository) ValidateUpdate(ctx context.Context, req *adminv2.Net
 		return nil, errorutil.InvalidArgument("cannot change prefixes in child networks")
 	}
 
+	if len(req.Prefixes) == 0 && !metal.IsChildNetwork(old.NetworkType) {
+		return nil, errorutil.InvalidArgument("removing all prefixes is not supported")
+	}
+
+	if err := r.validatePrefixesOnBoundaries(req.Prefixes); err != nil {
+		return nil, errorutil.NewInvalidArgument(err)
+	}
+
 	var (
 		prefixesToBeRemoved metal.Prefixes
 		prefixesToBeAdded   metal.Prefixes
 		destPrefixAfs       metal.AddressFamilies
 	)
 
-	prefixesToBeRemoved, prefixesToBeAdded, err = r.calculatePrefixDifferences(ctx, old, &newNetwork, req.Prefixes)
+	prefixesToBeRemoved, prefixesToBeAdded, err = r.calculatePrefixDifferences(old, req.Prefixes)
 	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
+	err = r.arePrefixesEmpty(ctx, prefixesToBeRemoved)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
+	if err := r.prefixesOverlapping(ctx, prefixesToBeAdded.String()); err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
@@ -536,7 +573,7 @@ func (r *networkRepository) arePrefixesEmpty(ctx context.Context, prefixes metal
 			return errorutil.Convert(err)
 		}
 		if len(ips) > 0 {
-			return errorutil.InvalidArgument("there are still %d ips present in prefix: %s", len(ips), prefixToCheck)
+			return errorutil.InvalidArgument("there are still %d ips present in prefix: %s", len(ips), prefixToCheck.String())
 		}
 	}
 	return nil
@@ -587,7 +624,7 @@ func (*networkRepository) validateChildPrefixLength(cpl metal.ChildPrefixLength,
 		for _, p := range prefixes.OfFamily(af) {
 			ipprefix, err := netip.ParsePrefix(p.String())
 			if err != nil {
-				errs = append(errs, fmt.Errorf("given prefix %q is not a valid ip with mask: %w", p.String(), err))
+				errs = append(errs, err)
 			}
 			if int(length) <= ipprefix.Bits() {
 				errs = append(errs, fmt.Errorf("given childprefixlength %d is not greater than prefix length of:%s", length, p.String()))
@@ -596,6 +633,21 @@ func (*networkRepository) validateChildPrefixLength(cpl metal.ChildPrefixLength,
 	}
 
 	sort.Slice(errs, func(i, j int) bool { return errs[i].Error() < errs[j].Error() }) // for testability
+
+	return errors.Join(errs...)
+}
+
+func (*networkRepository) validatePrefixesOnBoundaries(prefixes []string) error {
+	var errs []error
+	for _, pfx := range prefixes {
+		parsed, err := netip.ParsePrefix(pfx)
+		if err != nil {
+			return err
+		}
+		if parsed.Masked().String() != pfx {
+			errs = append(errs, fmt.Errorf("expecting canonical form of prefix %q, please specify it as %q", pfx, parsed.Masked().String()))
+		}
+	}
 
 	return errors.Join(errs...)
 }
