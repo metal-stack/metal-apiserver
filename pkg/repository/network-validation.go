@@ -491,6 +491,10 @@ func (r *networkRepository) ValidateUpdate(ctx context.Context, req *adminv2.Net
 		return nil, errorutil.InvalidArgument("cannot change prefixes in child networks")
 	}
 
+	if len(req.Prefixes) == 0 && !metal.IsChildNetwork(old.NetworkType) {
+		return nil, errorutil.InvalidArgument("removing all prefixes is not supported")
+	}
+
 	if err := r.validatePrefixesOnBoundaries(req.Prefixes); err != nil {
 		return nil, errorutil.NewInvalidArgument(err)
 	}
@@ -569,7 +573,7 @@ func (r *networkRepository) arePrefixesEmpty(ctx context.Context, prefixes metal
 			return errorutil.Convert(err)
 		}
 		if len(ips) > 0 {
-			return errorutil.InvalidArgument("there are still %d ips present in prefix: %s", len(ips), prefixToCheck)
+			return errorutil.InvalidArgument("there are still %d ips present in prefix: %s", len(ips), prefixToCheck.String())
 		}
 	}
 	return nil

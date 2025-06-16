@@ -1603,7 +1603,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 			name:    "network has ips",
 			rq:      &adminv2.NetworkServiceDeleteRequest{Id: networkMap["tenant-1"]},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument(`there are still 1 ips present in prefix: {10.100.0.0 22}`),
+			wantErr: errorutil.InvalidArgument(`there are still 1 ips present in prefix: 10.100.0.0/22`),
 		},
 		{
 			name:    "super network has child",
@@ -2033,7 +2033,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		},
 		{
 			Id:                  pointer.Pointer("internet"),
-			Prefixes:            []string{"20.0.0.0/24"},
+			Prefixes:            []string{"20.0.0.0/24", "30.0.0.0/24"},
 			DestinationPrefixes: []string{"0.0.0.0/0"},
 			Type:                apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
 			Vrf:                 pointer.Pointer(uint32(1)),
@@ -2044,6 +2044,13 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{Name: pointer.Pointer("tenant-1"), Project: "p1", Partition: pointer.Pointer("partition-one")},
 		{Name: pointer.Pointer("tenant-2"), Project: "p1", Partition: pointer.Pointer("partition-one"), Labels: &apiv2.Labels{Labels: map[string]string{"size": "small", "color": "blue"}}},
 	})
+
+	test.CreateIPs(t, repo, []*apiv2.IPServiceCreateRequest{{
+		Network: "internet",
+		Project: "p1",
+		Name:    pointer.Pointer("my internet ip"),
+		Ip:      pointer.Pointer("30.0.0.42"),
+	}})
 
 	tests := []struct {
 		name    string
@@ -2061,6 +2068,14 @@ func Test_networkServiceServer_Update(t *testing.T) {
 			wantErr: errorutil.InvalidArgument(`malformed prefix "10.105.0.0/14" given, please specify it as "10.104.0.0/14"`),
 		},
 		{
+			name: "remove all prefixes",
+			rq: &adminv2.NetworkServiceUpdateRequest{
+				Id: "tenant-super-network",
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument(`removing all prefixes is not supported`),
+		},
+		{
 			name: "add overlapping prefix",
 			rq: &adminv2.NetworkServiceUpdateRequest{
 				Id:       "tenant-super-network",
@@ -2068,6 +2083,15 @@ func Test_networkServiceServer_Update(t *testing.T) {
 			},
 			want:    nil,
 			wantErr: errorutil.Conflict(`10.100.0.0/16 overlaps 10.100.0.0/14`),
+		},
+		{
+			name: "remove prefix where ip is used",
+			rq: &adminv2.NetworkServiceUpdateRequest{
+				Id:       "internet",
+				Prefixes: []string{"20.0.0.0/24"},
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument(`there are still 1 ips present in prefix: 30.0.0.0/24`),
 		},
 		{
 			name: "add label to tenant network",
