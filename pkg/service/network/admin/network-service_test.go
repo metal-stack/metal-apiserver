@@ -1304,7 +1304,7 @@ func Test_networkServiceServer_CreateExternal(t *testing.T) {
 				Vrf:      pointer.Pointer(uint32(94)),
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument(`malformed prefix "1.2.3.0/22" given, please specify it as "1.2.0.0/22"`),
+			wantErr: errorutil.InvalidArgument(`expecting canonical form of prefix "1.2.3.0/22", please specify it as "1.2.0.0/22"`),
 		},
 		{
 			name: "internet",
@@ -2065,7 +2065,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 				Prefixes: []string{"10.100.0.0/14", "10.105.0.0/14"},
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument(`malformed prefix "10.105.0.0/14" given, please specify it as "10.104.0.0/14"`),
+			wantErr: errorutil.InvalidArgument(`expecting canonical form of prefix "10.105.0.0/14", please specify it as "10.104.0.0/14"`),
 		},
 		{
 			name: "remove all prefixes",

@@ -133,13 +133,13 @@ func Test_networkRepository_validatePrefixesOnBoundaries(t *testing.T) {
 		{
 			name:     "one incorrect ipv4",
 			prefixes: []string{"10.0.0.0/8", "192.168.1.0/24", "10.105.0.0/14"},
-			wantErr:  errors.New(`malformed prefix "10.105.0.0/14" given, please specify it as "10.104.0.0/14"`),
+			wantErr:  errors.New(`expecting canonical form of prefix "10.105.0.0/14", please specify it as "10.104.0.0/14"`),
 		},
 		{
 			name:     "two incorrect ipv4",
 			prefixes: []string{"20.105.0.0/14", "10.0.0.0/8", "192.168.1.0/24", "10.105.0.0/14"},
-			wantErr: errors.New(`malformed prefix "20.105.0.0/14" given, please specify it as "20.104.0.0/14"
-malformed prefix "10.105.0.0/14" given, please specify it as "10.104.0.0/14"`),
+			wantErr: errors.New(`expecting canonical form of prefix "20.105.0.0/14", please specify it as "20.104.0.0/14"
+expecting canonical form of prefix "10.105.0.0/14", please specify it as "10.104.0.0/14"`),
 		},
 		{
 			name:     "correct ipv6",
@@ -148,7 +148,7 @@ malformed prefix "10.105.0.0/14" given, please specify it as "10.104.0.0/14"`),
 		{
 			name:     "one incorrect ipv6",
 			prefixes: []string{"2001:abcd:1::/96", "2001:abcd:1:1::/48"},
-			wantErr:  errors.New(`malformed prefix "2001:abcd:1:1::/48" given, please specify it as "2001:abcd:1::/48"`),
+			wantErr:  errors.New(`expecting canonical form of prefix "2001:abcd:1:1::/48", please specify it as "2001:abcd:1::/48"`),
 		},
 	}
 	for _, tt := range tests {

@@ -645,7 +645,7 @@ func (*networkRepository) validatePrefixesOnBoundaries(prefixes []string) error 
 			return err
 		}
 		if parsed.Masked().String() != pfx {
-			errs = append(errs, fmt.Errorf("malformed prefix %q given, please specify it as %q", pfx, parsed.Masked().String()))
+			errs = append(errs, fmt.Errorf("expecting canonical form of prefix %q, please specify it as %q", pfx, parsed.Masked().String()))
 		}
 	}
 
