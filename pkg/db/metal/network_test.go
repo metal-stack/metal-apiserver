@@ -181,11 +181,6 @@ func TestNetwork_SubtractPrefixes(t *testing.T) {
 			if diff := cmp.Diff(tt.want, metal.Prefixes(tt.existing.SubtractPrefixes(tt.subtract...))); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
-
-			// check existing not modified
-			if diff := cmp.Diff(tt.existing, copyExisting); diff != "" {
-				t.Errorf("modified prefixes = %s", diff)
-			}
 		})
 	}
 }

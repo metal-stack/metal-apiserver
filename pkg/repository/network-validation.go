@@ -37,7 +37,7 @@ func (r *networkRepository) validateCreate(ctx context.Context, req *adminv2.Net
 	}
 
 	if err := r.validatePrefixesOnBoundaries(req.Prefixes); err != nil {
-		return nil, errorutil.NewInvalidArgument(err)
+		return errorutil.NewInvalidArgument(err)
 	}
 
 	var (
@@ -382,7 +382,7 @@ func (r *networkRepository) prefixesOverlapping(ctx context.Context, prefixes []
 		}
 	}
 
-	allNetworks, err := r.List(ctx, &apiv2.NetworkQuery{})
+	allNetworks, err := r.list(ctx, &apiv2.NetworkQuery{})
 	if err != nil {
 		return errorutil.Convert(err)
 	}
@@ -484,12 +484,12 @@ func (r *networkRepository) validateUpdate(ctx context.Context, req *adminv2.Net
 		return errorutil.InvalidArgument("cannot change prefixes in child networks")
 	}
 
-	if len(req.Prefixes) == 0 && !metal.IsChildNetwork(old.NetworkType) {
-		return nil, errorutil.InvalidArgument("removing all prefixes is not supported")
+	if len(req.Prefixes) == 0 && !metal.IsChildNetwork(nw.NetworkType) {
+		return errorutil.InvalidArgument("removing all prefixes is not supported")
 	}
 
 	if err := r.validatePrefixesOnBoundaries(req.Prefixes); err != nil {
-		return nil, errorutil.NewInvalidArgument(err)
+		return errorutil.NewInvalidArgument(err)
 	}
 
 	var (
@@ -499,21 +499,22 @@ func (r *networkRepository) validateUpdate(ctx context.Context, req *adminv2.Net
 		destPrefixAfs       metal.AddressFamilies
 	)
 
-	prefixesToBeRemoved, prefixesToBeAdded, err = r.calculatePrefixDifferences(old, req.Prefixes)
+	prefixesToBeRemoved, prefixesToBeAdded, err = r.calculatePrefixDifferences(nw, req.Prefixes)
 	if err != nil {
 		return errorutil.Convert(err)
 	}
 
 	err = r.arePrefixesEmpty(ctx, prefixesToBeRemoved)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return errorutil.Convert(err)
 	}
 
 	if err := r.prefixesOverlapping(ctx, prefixesToBeAdded.String()); err != nil {
-		return nil, errorutil.Convert(err)
+		return errorutil.Convert(err)
 	}
 
-	r.r.log.Debug("validate update", "old parent", old.ParentNetworkID, "prefixes to remove", prefixesToBeRemoved, "prefixes to add", prefixesToBeAdded)
+	r.s.log.Debug("validate update", "parent", nw.ParentNetworkID, "prefixes to remove", prefixesToBeRemoved, "prefixes to add", prefixesToBeAdded)
+
 	// Do not allow to change prefixes on child networks
 	if nw.ParentNetworkID != "" && (len(prefixesToBeRemoved) > 0 || len(prefixesToBeAdded) > 0) {
 		return errorutil.InvalidArgument("cannot change prefixes in child networks")

@@ -308,11 +308,11 @@ func (r *networkRepository) update(ctx context.Context, nw *metal.Network, req *
 	)
 
 	// Ensure child networks can be updated without loosing the prefixes.
-	if metal.IsChildNetwork(old.NetworkType) {
-		req.Prefixes = old.Prefixes.String()
+	if metal.IsChildNetwork(nw.NetworkType) {
+		req.Prefixes = nw.Prefixes.String()
 	}
 
-	prefixesToBeRemoved, prefixesToBeAdded, err = r.calculatePrefixDifferences(old, req.Prefixes)
+	prefixesToBeRemoved, prefixesToBeAdded, err = r.calculatePrefixDifferences(nw, req.Prefixes)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -325,7 +325,7 @@ func (r *networkRepository) update(ctx context.Context, nw *metal.Network, req *
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	newNetwork.Prefixes = pfxs
+	nw.Prefixes = pfxs
 
 	if req.DestinationPrefixes != nil {
 		destPrefixes, err := metal.NewPrefixesFromCIDRs(req.DestinationPrefixes)
@@ -552,7 +552,7 @@ func (r *networkRepository) calculatePrefixDifferences(existingNetwork *metal.Ne
 		return
 	}
 
-	pfxs, err := metal.NewPrefixesFromCIDRs(newPrefixes)
+	pfxs, err := metal.NewPrefixesFromCIDRs(prefixes)
 	if err != nil {
 		return nil, nil, err
 	}
