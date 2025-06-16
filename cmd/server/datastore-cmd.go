@@ -1,10 +1,11 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"gopkg.in/rethinkdb/rethinkdb-go.v6"
 
 	_ "github.com/metal-stack/metal-apiserver/pkg/db/generic/migrations"
@@ -23,7 +24,7 @@ var (
 	}
 )
 
-func newDatastoreCmd() *cli.Command {
+func newDatastoreCmd(ctx context.Context) *cli.Command {
 	return &cli.Command{
 		Name: "datastore",
 		Flags: []cli.Flag{
@@ -33,21 +34,21 @@ func newDatastoreCmd() *cli.Command {
 			rethinkdbUserFlag,
 			logLevelFlag,
 		},
-		Subcommands: []*cli.Command{
+		Commands: []*cli.Command{
 			{
 				Name:        "init",
 				Description: "initializes the datastore. must be run before the server can act on the datastore.",
-				Action: func(ctx *cli.Context) error {
-					log, err := createLogger(ctx)
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					log, err := createLogger(cmd)
 					if err != nil {
 						return fmt.Errorf("unable to create logger %w", err)
 					}
 
-					err = generic.Initialize(ctx.Context, log.WithGroup("datastore"), rethinkdb.ConnectOpts{
-						Addresses: ctx.StringSlice(rethinkdbAddressesFlag.Name),
-						Database:  ctx.String(rethinkdbDBNameFlag.Name),
-						Username:  ctx.String(rethinkdbUserFlag.Name),
-						Password:  ctx.String(rethinkdbPasswordFlag.Name),
+					err = generic.Initialize(ctx, log.WithGroup("datastore"), rethinkdb.ConnectOpts{
+						Addresses: cmd.StringSlice(rethinkdbAddressesFlag.Name),
+						Database:  cmd.String(rethinkdbDBNameFlag.Name),
+						Username:  cmd.String(rethinkdbUserFlag.Name),
+						Password:  cmd.String(rethinkdbPasswordFlag.Name),
 						MaxIdle:   10,
 						MaxOpen:   20,
 					})
@@ -65,25 +66,25 @@ func newDatastoreCmd() *cli.Command {
 					targetVersionFlag,
 					dryRunFlag,
 				},
-				Action: func(ctx *cli.Context) error {
-					log, err := createLogger(ctx)
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					log, err := createLogger(cmd)
 					if err != nil {
 						return fmt.Errorf("unable to create logger %w", err)
 					}
 
 					var targetVersion *int
-					if v := ctx.Int(targetVersionFlag.Name); v >= 0 {
+					if v := cmd.Int(targetVersionFlag.Name); v >= 0 {
 						targetVersion = &v
 					}
 
-					err = generic.Migrate(ctx.Context, rethinkdb.ConnectOpts{
-						Addresses: ctx.StringSlice(rethinkdbAddressesFlag.Name),
-						Database:  ctx.String(rethinkdbDBNameFlag.Name),
-						Username:  ctx.String(rethinkdbUserFlag.Name),
-						Password:  ctx.String(rethinkdbPasswordFlag.Name),
+					err = generic.Migrate(ctx, rethinkdb.ConnectOpts{
+						Addresses: cmd.StringSlice(rethinkdbAddressesFlag.Name),
+						Database:  cmd.String(rethinkdbDBNameFlag.Name),
+						Username:  cmd.String(rethinkdbUserFlag.Name),
+						Password:  cmd.String(rethinkdbPasswordFlag.Name),
 						MaxIdle:   10,
 						MaxOpen:   20,
-					}, log.WithGroup("datastore"), targetVersion, ctx.Bool(dryRunFlag.Name))
+					}, log.WithGroup("datastore"), targetVersion, cmd.Bool(dryRunFlag.Name))
 					if err != nil {
 						return fmt.Errorf("unable to initialize datastore: %w", err)
 					}

@@ -1,11 +1,12 @@
 package main
 
 import (
+	"context"
 	"log"
 	"log/slog"
 	"os"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 const (
@@ -34,40 +35,40 @@ var (
 		Value:    "geheim",
 		Usage:    "session secret encrypts the cookie, used by goth cookiestore",
 		Required: true,
-		EnvVars:  []string{"SESSION_SECRET"},
+		Sources:  cli.EnvVars("SESSION_SECRET"),
 	}
 	frontEndUrlFlag = &cli.StringFlag{
 		Name:    "front-end-url",
 		Value:   "https://metal-stack.io",
 		Usage:   "URL of the frontend (metalctl)",
-		EnvVars: []string{"FRONT_END_URL"},
+		Sources: cli.EnvVars("FRONT_END_URL"),
 	}
 	oidcClientIdFlag = &cli.StringFlag{
 		Name:     "oidc-client-id",
 		Value:    "",
 		Usage:    "id of the oauth app in oidc",
 		Required: true,
-		EnvVars:  []string{"OIDC_CLIENT_ID"},
+		Sources:  cli.EnvVars("OIDC_CLIENT_ID"),
 	}
 	oidcClientSecretFlag = &cli.StringFlag{
 		Name:     "oidc-client-secret",
 		Value:    "",
 		Usage:    "client secret of the oauth app in oidc",
 		Required: true,
-		EnvVars:  []string{"OIDC_CLIENT_SECRET"},
+		Sources:  cli.EnvVars("OIDC_CLIENT_SECRET"),
 	}
 	oidcDiscoveryUrlFlag = &cli.StringFlag{
 		Name:     "oidc-discovery-url",
 		Value:    "",
 		Usage:    "discovery url of the oauth app in oidc",
 		Required: true,
-		EnvVars:  []string{"OIDC_DISCOVERY_URL"},
+		Sources:  cli.EnvVars("OIDC_DISCOVERY_URL"),
 	}
 	oidcEndSessionUrlFlag = &cli.StringFlag{
 		Name:     "oidc-end-session-url",
 		Value:    "",
-		Required: true,
-		EnvVars:  []string{"OIDC_END_SESSION_URL"},
+		Required: false,
+		Sources:  cli.EnvVars("OIDC_END_SESSION_URL"),
 	}
 	logLevelFlag = &cli.StringFlag{
 		Name:  "log-level",
@@ -88,7 +89,7 @@ var (
 		Name:    "masterdata-api-hmac",
 		Value:   "",
 		Usage:   "masterdata-api-hmac",
-		EnvVars: []string{"MASTERDATA_API_HMAC"},
+		Sources: cli.EnvVars("MASTERDATA_API_HMAC"),
 	}
 	masterdataApiCAPathFlag = &cli.StringFlag{
 		Name:  "masterdata-api-ca-path",
@@ -107,7 +108,7 @@ var (
 	}
 	rethinkdbAddressesFlag = &cli.StringSliceFlag{
 		Name:     "rethinkdb-addresses",
-		Value:    &cli.StringSlice{},
+		Value:    []string{},
 		Required: true,
 		Usage:    "rethinkdb addresses without http prefix",
 	}
@@ -166,23 +167,23 @@ var (
 		Name:    "stage",
 		Value:   stagePROD,
 		Usage:   "deployment stage of application",
-		EnvVars: []string{"STAGE"},
+		Sources: cli.EnvVars("STAGE"),
 	}
 	redisAddrFlag = &cli.StringFlag{
 		Name:    "redis-addr",
 		Value:   "",
 		Usage:   "the address to a redis key value store",
-		EnvVars: []string{"REDIS_ADDR"},
+		Sources: cli.EnvVars("REDIS_ADDR"),
 	}
 	redisPasswordFlag = &cli.StringFlag{
 		Name:    "redis-password",
 		Value:   "",
 		Usage:   "the password to the redis key value store",
-		EnvVars: []string{"REDIS_PASSWORD"},
+		Sources: cli.EnvVars("REDIS_PASSWORD"),
 	}
 	adminsFlag = &cli.StringSliceFlag{
 		Name:  "admin-subjects",
-		Value: cli.NewStringSlice("metal-stack-ops@github"),
+		Value: []string{"metal-stack-ops@github"},
 		Usage: "the user subjects that are considered as administrators when creating api tokens to gain extended api access permissions",
 	}
 	maxRequestsPerMinuteFlag = &cli.IntFlag{
@@ -208,26 +209,27 @@ var (
 )
 
 func main() {
-	app := &cli.App{
+	ctx := context.Background()
+	app := &cli.Command{
 		Name:  "metal-apiserver",
 		Usage: "apiserver for metal-stack.io",
 		Commands: []*cli.Command{
-			newServeCmd(),
-			newTokenCmd(),
-			newDatastoreCmd(),
+			newServeCmd(ctx),
+			newTokenCmd(ctx),
+			newDatastoreCmd(ctx),
 		},
 	}
 
-	err := app.Run(os.Args)
+	err := app.Run(ctx, os.Args)
 	if err != nil {
 		log.Fatalf("error in cli: %v", err)
 	}
 }
 
-func createLogger(ctx *cli.Context) (*slog.Logger, error) {
+func createLogger(cmd *cli.Command) (*slog.Logger, error) {
 	var lvlvar slog.LevelVar
 
-	err := lvlvar.UnmarshalText([]byte(ctx.String(logLevelFlag.Name)))
+	err := lvlvar.UnmarshalText([]byte(cmd.String(logLevelFlag.Name)))
 	if err != nil {
 		return nil, err
 	}
