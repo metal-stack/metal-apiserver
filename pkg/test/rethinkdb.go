@@ -1,7 +1,6 @@
 package test
 
 import (
-	"context"
 	"log/slog"
 	"testing"
 
@@ -29,26 +28,23 @@ func StartRethink(t testing.TB, log *slog.Logger) (generic.Datastore, r.ConnectO
 		Cmd: []string{"rethinkdb", "--bind", "all", "--directory", "/data", "--initial-password", "rethink", "--io-threads", "500"},
 	}
 
-	rtContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+	c, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
 		Started:          true,
 		Logger:           tlog.TestLogger(t),
 	})
 	require.NoError(t, err)
 
-	ip, err := rtContainer.Host(ctx)
-	require.NoError(t, err)
-
-	port, err := rtContainer.MappedPort(ctx, "28015")
+	endpoint, err := c.PortEndpoint(ctx, "28015/tcp", "")
 	require.NoError(t, err)
 
 	opts := r.ConnectOpts{
-		Addresses: []string{ip + ":" + port.Port()},
-		Database:  "metal",
-		Username:  "admin",
-		Password:  "rethink",
-		MaxIdle:   10,
-		MaxOpen:   20,
+		Address:  endpoint,
+		Database: "metal",
+		Username: "admin",
+		Password: "rethink",
+		MaxIdle:  10,
+		MaxOpen:  20,
 	}
 
 	err = generic.Initialize(ctx, log, opts, generic.AsnPoolRange(uint(1), uint(100)), generic.VrfPoolRange(uint(1), uint(100)))
@@ -58,7 +54,7 @@ func StartRethink(t testing.TB, log *slog.Logger) (generic.Datastore, r.ConnectO
 	require.NoError(t, err)
 
 	closer := func() {
-		_ = rtContainer.Terminate(context.Background())
+		_ = c.Terminate(t.Context())
 	}
 
 	return ds, opts, closer

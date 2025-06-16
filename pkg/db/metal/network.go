@@ -212,11 +212,6 @@ func (p *Prefix) String() string {
 	return p.IP + "/" + p.Length
 }
 
-// equals returns true when prefixes have the same cidr.
-func (p *Prefix) equals(other Prefix) bool {
-	return p.String() == other.String()
-}
-
 func (p Prefixes) String() []string {
 	result := []string{}
 	for _, element := range p {
@@ -295,7 +290,7 @@ func NewPrefixesFromCIDRs(cidrs []string) (Prefixes, error) {
 func NewPrefixFromCIDR(cidr string) (*Prefix, *netip.Prefix, error) {
 	prefix, err := netip.ParsePrefix(cidr)
 	if err != nil {
-		return nil, nil, fmt.Errorf("given cidr %q is not a valid ip with mask: %w", cidr, err)
+		return nil, nil, err
 	}
 	ip := prefix.Addr().String()
 	length := strconv.Itoa(prefix.Bits())
@@ -305,14 +300,13 @@ func NewPrefixFromCIDR(cidr string) (*Prefix, *netip.Prefix, error) {
 	}, &prefix, nil
 }
 
-// SubtractPrefixes returns the prefixes minus the prefixes passed in the arguments
-func (p Prefixes) SubtractPrefixes(prefixes ...Prefix) Prefixes {
+// SubtractPrefixes returns the prefixes of the network minus the prefixes passed in the arguments
+func (p Prefixes) SubtractPrefixes(target ...Prefix) []Prefix {
 	var copy Prefixes
 	copy = append(copy, p...)
-
 	return slices.DeleteFunc(copy, func(a Prefix) bool {
-		return slices.ContainsFunc(prefixes, func(b Prefix) bool {
-			return a.equals(b)
+		return slices.ContainsFunc(target, func(b Prefix) bool {
+			return a.String() == b.String()
 		})
 	})
 }

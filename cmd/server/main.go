@@ -212,9 +212,9 @@ func main() {
 		Name:  "metal-apiserver",
 		Usage: "apiserver for metal-stack.io",
 		Commands: []*cli.Command{
-			serveCmd,
-			tokenCmd,
-			datastoreCmd,
+			newServeCmd(),
+			newTokenCmd(),
+			newDatastoreCmd(),
 		},
 	}
 

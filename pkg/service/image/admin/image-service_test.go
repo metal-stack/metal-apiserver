@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -24,7 +23,7 @@ func Test_imageServiceServer_Create(t *testing.T) {
 	repo, closer := test.StartRepository(t, log)
 	defer closer()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
 	}))
@@ -96,7 +95,7 @@ func Test_imageServiceServer_Update(t *testing.T) {
 	repo, closer := test.StartRepository(t, log)
 	defer closer()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.String(), "/invalid") {
 			http.Error(w, "not found", http.StatusNotFound)
@@ -210,7 +209,7 @@ func Test_imageServiceServer_Delete(t *testing.T) {
 	repo, closer := test.StartRepository(t, log)
 	defer closer()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
 	}))

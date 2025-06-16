@@ -307,10 +307,25 @@ func (r *networkRepository) update(ctx context.Context, nw *metal.Network, req *
 		prefixesToBeAdded   metal.Prefixes
 	)
 
-	prefixesToBeRemoved, prefixesToBeAdded, err = r.calculatePrefixDifferences(ctx, nw, req.Prefixes)
+	// Ensure child networks can be updated without loosing the prefixes.
+	if metal.IsChildNetwork(old.NetworkType) {
+		req.Prefixes = old.Prefixes.String()
+	}
+
+	prefixesToBeRemoved, prefixesToBeAdded, err = r.calculatePrefixDifferences(old, req.Prefixes)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
+	err = r.arePrefixesEmpty(ctx, prefixesToBeRemoved)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
+	pfxs, err := metal.NewPrefixesFromCIDRs(req.Prefixes)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+	newNetwork.Prefixes = pfxs
 
 	if req.DestinationPrefixes != nil {
 		destPrefixes, err := metal.NewPrefixesFromCIDRs(req.DestinationPrefixes)
@@ -532,8 +547,8 @@ func (r *networkRepository) scopedNetworkFilters(filter generic.EntityQuery) []g
 	return qs
 }
 
-func (r *networkRepository) calculatePrefixDifferences(ctx context.Context, nw *metal.Network, newPrefixes []string) (toRemove, toAdd metal.Prefixes, err error) {
-	if newPrefixes == nil {
+func (r *networkRepository) calculatePrefixDifferences(existingNetwork *metal.Network, prefixes []string) (toRemoved, toAdded metal.Prefixes, err error) {
+	if len(prefixes) == 0 {
 		return
 	}
 
@@ -542,16 +557,10 @@ func (r *networkRepository) calculatePrefixDifferences(ctx context.Context, nw *
 		return nil, nil, err
 	}
 
-	toRemove = nw.Prefixes.SubtractPrefixes(pfxs...)
+	toRemoved = existingNetwork.Prefixes.SubtractPrefixes(pfxs...)
 
-	err = r.arePrefixesEmpty(ctx, toRemove)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	toAdd = pfxs.SubtractPrefixes(nw.Prefixes...)
-
-	return toRemove, toAdd, nil
+	toAdded = pfxs.SubtractPrefixes(existingNetwork.Prefixes...)
+	return toRemoved, toAdded, nil
 }
 
 func (r *networkRepository) allocateChildPrefixes(ctx context.Context, projectId, parentNetworkId, partitionId *string, requestedLength *apiv2.ChildPrefixLength, af *apiv2.NetworkAddressFamily) (metal.Prefixes, *metal.Network, error) {
