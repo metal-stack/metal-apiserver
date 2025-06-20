@@ -114,7 +114,7 @@ func (r *ipRepository) create(ctx context.Context, req *apiv2.IPServiceCreateReq
 		ipParentCidr string
 	)
 
-	// as this is more or less a transaction... shouldn't we put this into async?
+	// FIXME as this is more or less a transaction... shouldn't we put this into async?
 
 	if req.Ip == nil {
 		ipAddress, ipParentCidr, err = r.allocateRandomIP(ctx, nw, af)
