@@ -23,12 +23,12 @@ import (
 )
 
 type ipRepository struct {
-	r     *Store
+	s     *Store
 	scope *ProjectScope
 }
 
 func (r *ipRepository) Get(ctx context.Context, id string) (*metal.IP, error) {
-	ip, err := r.r.ds.IP().Get(ctx, id)
+	ip, err := r.s.ds.IP().Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -79,13 +79,13 @@ func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServic
 	// Ensure no duplicates
 	tags = tag.NewTagMap(tags).Slice()
 
-	p, err := r.r.Project(req.Project).Get(ctx, req.Project)
+	p, err := r.s.Project(req.Project).Get(ctx, req.Project)
 	if err != nil {
 		return nil, err
 	}
 	projectID := p.Meta.Id
 
-	nw, err := r.r.UnscopedNetwork().Get(ctx, req.Network)
+	nw, err := r.s.UnscopedNetwork().Get(ctx, req.Network)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +144,7 @@ func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServic
 		return nil, err
 	}
 
-	r.r.log.Info("allocated ip in ipam", "ip", ipAddress, "network", nw.ID, "type", ipType)
+	r.s.log.Info("allocated ip in ipam", "ip", ipAddress, "network", nw.ID, "type", ipType)
 
 	uuid, err := uuid.NewV7()
 	if err != nil {
@@ -164,9 +164,9 @@ func (r *ipRepository) Create(ctx context.Context, rq *Validated[*apiv2.IPServic
 		Tags:             tags,
 	}
 
-	r.r.log.Info("create ip in db", "ip", ip)
+	r.s.log.Info("create ip in db", "ip", ip)
 
-	resp, err := r.r.ds.IP().Create(ctx, ip)
+	resp, err := r.s.ds.IP().Create(ctx, ip)
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +205,7 @@ func (r *ipRepository) Update(ctx context.Context, req *Validated[*apiv2.IPServi
 		new.Tags = updateLabelsOnSlice(rq.Labels, new.Tags)
 	}
 
-	err = r.r.ds.IP().Update(ctx, &new)
+	err = r.s.ds.IP().Update(ctx, &new)
 	if err != nil {
 		return nil, err
 	}
@@ -219,18 +219,18 @@ func (r *ipRepository) Delete(ctx context.Context, rq *Validated[*metal.IP]) (*m
 		return nil, err
 	}
 
-	info, err := r.r.async.NewIPDeleteTask(ip.AllocationUUID, ip.IPAddress, ip.ProjectID)
+	info, err := r.s.async.NewIPDeleteTask(ip.AllocationUUID, ip.IPAddress, ip.ProjectID)
 	if err != nil {
 		return nil, err
 	}
 
-	r.r.log.Info("ip delete queued", "info", info)
+	r.s.log.Info("ip delete queued", "info", info)
 
 	return ip, nil
 }
 
 func (r *ipRepository) Find(ctx context.Context, rq *apiv2.IPQuery) (*metal.IP, error) {
-	ip, err := r.r.ds.IP().Find(ctx, r.scopedIPFilters(queries.IpFilter(rq))...)
+	ip, err := r.s.ds.IP().Find(ctx, r.scopedIPFilters(queries.IpFilter(rq))...)
 	if err != nil {
 		return nil, err
 	}
@@ -239,7 +239,7 @@ func (r *ipRepository) Find(ctx context.Context, rq *apiv2.IPQuery) (*metal.IP, 
 }
 
 func (r *ipRepository) List(ctx context.Context, rq *apiv2.IPQuery) ([]*metal.IP, error) {
-	ip, err := r.r.ds.IP().List(ctx, r.scopedIPFilters(queries.IpFilter(rq))...)
+	ip, err := r.s.ds.IP().List(ctx, r.scopedIPFilters(queries.IpFilter(rq))...)
 	if err != nil {
 		return nil, err
 	}
@@ -268,7 +268,7 @@ func (r *ipRepository) allocateSpecificIP(ctx context.Context, parent *metal.Net
 			continue
 		}
 
-		resp, err := r.r.ipam.AcquireIP(ctx, connect.NewRequest(&ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String(), Ip: &specificIP, Namespace: parent.Namespace}))
+		resp, err := r.s.ipam.AcquireIP(ctx, connect.NewRequest(&ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String(), Ip: &specificIP, Namespace: parent.Namespace}))
 		if err != nil {
 			return "", "", err
 		}
@@ -287,9 +287,9 @@ func (r *ipRepository) allocateRandomIP(ctx context.Context, parent *metal.Netwo
 		addressfamily = parent.Prefixes.AddressFamilies()[0]
 	}
 
-	r.r.log.Debug("allocateRandomIP from", "network", parent.ID, "addressfamily", addressfamily)
+	r.s.log.Debug("allocateRandomIP from", "network", parent.ID, "addressfamily", addressfamily)
 	for _, prefix := range parent.Prefixes.OfFamily(addressfamily) {
-		resp, err := r.r.ipam.AcquireIP(ctx, connect.NewRequest(&ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String(), Namespace: parent.Namespace}))
+		resp, err := r.s.ipam.AcquireIP(ctx, connect.NewRequest(&ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String(), Namespace: parent.Namespace}))
 		if err != nil {
 			if errorutil.IsNotFound(err) {
 				continue

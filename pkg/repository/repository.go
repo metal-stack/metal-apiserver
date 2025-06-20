@@ -104,7 +104,7 @@ func New(log *slog.Logger, mdc mdm.Client, ds generic.Datastore, ipam ipamv1conn
 
 func (r *Store) IP(project string) IP {
 	return &ipRepository{
-		r: r,
+		s: r,
 		scope: &ProjectScope{
 			projectID: project,
 		},
@@ -113,20 +113,20 @@ func (r *Store) IP(project string) IP {
 
 func (r *Store) UnscopedIP() IP {
 	return &ipRepository{
-		r:     r,
+		s:     r,
 		scope: nil,
 	}
 }
 
 func (r *Store) Image() Image {
 	return &imageRepository{
-		r: r,
+		s: r,
 	}
 }
 
 func (r *Store) Network(project string) Network {
 	return &networkRepository{
-		r: r,
+		s: r,
 		scope: &ProjectScope{
 			projectID: project,
 		},
@@ -135,13 +135,13 @@ func (r *Store) Network(project string) Network {
 
 func (r *Store) UnscopedNetwork() Network {
 	return &networkRepository{
-		r:     r,
+		s:     r,
 		scope: nil,
 	}
 }
 func (r *Store) Project(project string) Project {
 	return &projectRepository{
-		r: r,
+		s: r,
 		scope: &ProjectScope{
 			projectID: project,
 		},
@@ -150,24 +150,24 @@ func (r *Store) Project(project string) Project {
 
 func (r *Store) UnscopedProject() Project {
 	return &projectRepository{
-		r:     r,
+		s:     r,
 		scope: nil,
 	}
 }
 
 func (r *Store) Tenant() Tenant {
 	return &tenantRepository{
-		r: r,
+		s: r,
 	}
 }
 
 func (r *Store) FilesystemLayout() FilesystemLayout {
 	return &filesystemLayoutRepository{
-		r: r,
+		s: r,
 	}
 }
 func (r *Store) Partition() Partition {
 	return &partitionRepository{
-		r: r,
+		s: r,
 	}
 }
