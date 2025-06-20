@@ -57,6 +57,7 @@ func (r *imageRepository) validateCreate(ctx context.Context, req *adminv2.Image
 }
 
 func (r *imageRepository) validateUpdate(ctx context.Context, req *adminv2.ImageServiceUpdateRequest, _ *metal.Image) error {
+	// FIXME use validate helper
 	image := req.Image
 	if image.Id == "" {
 		return errorutil.InvalidArgument("image id must not be empty")
