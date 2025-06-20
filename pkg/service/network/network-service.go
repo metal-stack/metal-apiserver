@@ -180,7 +180,7 @@ func (n *networkServiceServer) Update(ctx context.Context, rq *connect.Request[a
 		// FIXME which fields should be updateable
 	}
 
-	nw, err := n.repo.Network(req.Project).Update(ctx, nur.Id, nur)
+	nw, err := n.repo.Network(req.Project).Update(ctx, nur)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

@@ -9,8 +9,10 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 
+	id "github.com/metal-stack/api/go/id"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	mdm "github.com/metal-stack/masterdata-api/pkg/client"
@@ -219,17 +221,22 @@ func (s *store[R, E, M, C, U, Q]) List(ctx context.Context, query Q) ([]E, error
 	return s.list(ctx, query)
 }
 
-func (s *store[R, E, M, C, U, Q]) Update(ctx context.Context, id string, u U) (E, error) {
+func (s *store[R, E, M, C, U, Q]) Update(ctx context.Context, u U) (E, error) {
 	var zero E
 
-	e, err := s.get(ctx, id)
+	idString, err := id.Get(u)
+	if err != nil {
+		return zero, err
+	}
+
+	e, err := s.Get(ctx, idString)
 	if err != nil {
 		return zero, err
 	}
 
 	ok := s.matchScope(e)
 	if !ok {
-		return zero, errorutil.NotFound("%T with id %q not found", e, id)
+		return zero, errorutil.NotFound("%T with id %q not found", e, idString)
 	}
 
 	err = s.validateUpdate(ctx, u, e)

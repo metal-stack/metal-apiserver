@@ -360,15 +360,6 @@ func (r *networkRepository) update(ctx context.Context, nw *metal.Network, req *
 		}
 	}
 
-	if req.Prefixes != nil {
-		pfxs, err := metal.NewPrefixesFromCIDRs(req.Prefixes)
-		if err != nil {
-			return nil, err
-		}
-
-		nw.Prefixes = pfxs
-	}
-
 	err = r.s.ds.Network().Update(ctx, nw)
 	if err != nil {
 		return nil, err

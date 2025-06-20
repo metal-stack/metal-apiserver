@@ -58,7 +58,7 @@ func (p *partitionServiceServer) Delete(ctx context.Context, rq *connect.Request
 
 // Update implements adminv2connect.PartitionServiceHandler.
 func (p *partitionServiceServer) Update(ctx context.Context, rq *connect.Request[adminv2.PartitionServiceUpdateRequest]) (*connect.Response[adminv2.PartitionServiceUpdateResponse], error) {
-	partition, err := p.repo.Partition().Update(ctx, rq.Msg.Partition.Id, rq.Msg)
+	partition, err := p.repo.Partition().Update(ctx, rq.Msg)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

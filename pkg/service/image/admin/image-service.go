@@ -60,7 +60,7 @@ func (i *imageServiceServer) Delete(ctx context.Context, rq *connect.Request[adm
 
 // Update implements adminv2connect.ImageServiceHandler.
 func (i *imageServiceServer) Update(ctx context.Context, rq *connect.Request[adminv2.ImageServiceUpdateRequest]) (*connect.Response[adminv2.ImageServiceUpdateResponse], error) {
-	image, err := i.repo.Image().Update(ctx, rq.Msg.Image.Id, rq.Msg)
+	image, err := i.repo.Image().Update(ctx, rq.Msg)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
