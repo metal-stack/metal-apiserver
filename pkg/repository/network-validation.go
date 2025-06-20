@@ -17,21 +17,21 @@ import (
 )
 
 func (r *networkRepository) ValidateCreate(ctx context.Context, req *adminv2.NetworkServiceCreateRequest) (*Validated[*adminv2.NetworkServiceCreateRequest], error) {
-	r.r.log.Debug("validate create", "req", req)
+	r.s.log.Debug("validate create", "req", req)
 	if req.Id != nil {
-		if checkAlreadyExists(ctx, r.r.ds.Network(), *req.Id) {
+		if checkAlreadyExists(ctx, r.s.ds.Network(), *req.Id) {
 			return nil, errorutil.Conflict("network with id:%s already exists", *req.Id)
 		}
 	}
 
 	if req.Project != nil {
-		if _, err := r.r.UnscopedProject().Get(ctx, *req.Project); err != nil {
+		if _, err := r.s.UnscopedProject().Get(ctx, *req.Project); err != nil {
 			return nil, err
 		}
 	}
 
 	if req.Partition != nil {
-		if _, err := r.r.Partition().Get(ctx, *req.Partition); err != nil {
+		if _, err := r.s.Partition().Get(ctx, *req.Partition); err != nil {
 			return nil, err
 		}
 	}
@@ -109,7 +109,7 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 		parentNetwork *metal.Network
 	)
 	if req.ParentNetworkId != nil {
-		parent, err := r.r.UnscopedNetwork().Get(ctx, *req.ParentNetworkId)
+		parent, err := r.s.UnscopedNetwork().Get(ctx, *req.ParentNetworkId)
 		if err != nil {
 			return errorutil.Convert(fmt.Errorf("unable to retrieve parent network: %w", err))
 		}
@@ -126,7 +126,7 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 	}
 
 	if req.Partition != nil {
-		parent, err := r.r.UnscopedNetwork().Find(ctx, &apiv2.NetworkQuery{
+		parent, err := r.s.UnscopedNetwork().Find(ctx, &apiv2.NetworkQuery{
 			Partition: req.Partition,
 			Project:   pointer.Pointer(""),
 			Type:      apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
@@ -519,7 +519,7 @@ func (r *networkRepository) ValidateUpdate(ctx context.Context, req *adminv2.Net
 		return nil, errorutil.Convert(err)
 	}
 
-	r.r.log.Debug("validate update", "old parent", old.ParentNetworkID, "prefixes to remove", prefixesToBeRemoved, "prefixes to add", prefixesToBeAdded)
+	r.s.log.Debug("validate update", "old parent", old.ParentNetworkID, "prefixes to remove", prefixesToBeRemoved, "prefixes to add", prefixesToBeAdded)
 	// Do not allow to change prefixes on child networks
 	if old.ParentNetworkID != "" && (len(prefixesToBeRemoved) > 0 || len(prefixesToBeAdded) > 0) {
 		return nil, errorutil.InvalidArgument("cannot change prefixes in child networks")
@@ -559,7 +559,7 @@ func (r *networkRepository) ValidateUpdate(ctx context.Context, req *adminv2.Net
 		}
 	}
 
-	r.r.log.Debug("validated update")
+	r.s.log.Debug("validated update")
 
 	return &Validated[*adminv2.NetworkServiceUpdateRequest]{
 		message: req,
@@ -568,7 +568,7 @@ func (r *networkRepository) ValidateUpdate(ctx context.Context, req *adminv2.Net
 
 func (r *networkRepository) arePrefixesEmpty(ctx context.Context, prefixes metal.Prefixes) error {
 	for _, prefixToCheck := range prefixes {
-		ips, err := r.r.UnscopedIP().List(ctx, &apiv2.IPQuery{ParentPrefixCidr: pointer.Pointer(prefixToCheck.String())})
+		ips, err := r.s.UnscopedIP().List(ctx, &apiv2.IPQuery{ParentPrefixCidr: pointer.Pointer(prefixToCheck.String())})
 		if err != nil {
 			return errorutil.Convert(err)
 		}

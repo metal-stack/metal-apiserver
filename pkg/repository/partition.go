@@ -23,7 +23,7 @@ var (
 )
 
 type partitionRepository struct {
-	r *Store
+	s *Store
 }
 
 func validatePartition(ctx context.Context, partition *apiv2.Partition) error {
@@ -93,11 +93,11 @@ func (p *partitionRepository) ValidateDelete(ctx context.Context, req *metal.Par
 
 	// FIXME all entities with partition relation must be deleted before
 
-	nwsresp, err := p.r.ds.Network().List(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{Partition: &req.ID}))
+	nwsresp, err := p.s.ds.Network().List(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{Partition: &req.ID}))
 	if err != nil {
 		return nil, err
 	}
-	p.r.log.Info("networks in partition", "partition", req.ID, "networks", nwsresp)
+	p.s.log.Info("networks in partition", "partition", req.ID, "networks", nwsresp)
 	var errs []error
 	errs = validate(errs, len(nwsresp) == 0, "there are still networks in %q", req.ID)
 
@@ -129,7 +129,7 @@ func (p *partitionRepository) Create(ctx context.Context, c *Validated[*adminv2.
 		return nil, errorutil.Convert(err)
 	}
 
-	resp, err := p.r.ds.Partition().Create(ctx, partition)
+	resp, err := p.s.ds.Partition().Create(ctx, partition)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -144,7 +144,7 @@ func (p *partitionRepository) Delete(ctx context.Context, e *Validated[*metal.Pa
 		return nil, errorutil.Convert(err)
 	}
 
-	err = p.r.ds.Partition().Delete(ctx, partition)
+	err = p.s.ds.Partition().Delete(ctx, partition)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -154,7 +154,7 @@ func (p *partitionRepository) Delete(ctx context.Context, e *Validated[*metal.Pa
 
 // Get implements Partition.
 func (p *partitionRepository) Get(ctx context.Context, id string) (*metal.Partition, error) {
-	partition, err := p.r.ds.Partition().Get(ctx, id)
+	partition, err := p.s.ds.Partition().Get(ctx, id)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -178,7 +178,7 @@ func (p *partitionRepository) Update(ctx context.Context, req *Validated[*adminv
 
 	new.SetChanged(old.Changed)
 
-	err = p.r.ds.Partition().Update(ctx, new)
+	err = p.s.ds.Partition().Update(ctx, new)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -187,7 +187,7 @@ func (p *partitionRepository) Update(ctx context.Context, req *Validated[*adminv
 
 // Find implements Partition.
 func (p *partitionRepository) Find(ctx context.Context, query *apiv2.PartitionQuery) (*metal.Partition, error) {
-	partition, err := p.r.ds.Partition().Find(ctx, queries.PartitionFilter(query))
+	partition, err := p.s.ds.Partition().Find(ctx, queries.PartitionFilter(query))
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -196,7 +196,7 @@ func (p *partitionRepository) Find(ctx context.Context, query *apiv2.PartitionQu
 
 // List implements Partition.
 func (p *partitionRepository) List(ctx context.Context, query *apiv2.PartitionQuery) ([]*metal.Partition, error) {
-	partitions, err := p.r.ds.Partition().List(ctx, queries.PartitionFilter(query))
+	partitions, err := p.s.ds.Partition().List(ctx, queries.PartitionFilter(query))
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
