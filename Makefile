@@ -8,7 +8,7 @@ LINKMODE := -extldflags '-static -s -w'
 
 MINI_LAB_KUBECONFIG := $(shell pwd)/../mini-lab/.kubeconfig
 
-all: test-opa test server
+all: test-opa lint-opa test server
 
 .PHONY: server
 server:
@@ -26,11 +26,11 @@ test:
 
 .PHONY: test-opa
 test-opa:
-	make -C pkg/auth test
+	@$(MAKE) -C pkg/auth test
 
 .PHONY: lint-opa
 lint-opa:
-	make -C pkg/auth lint
+	cd pkg/auth && $(MAKE) lint
 
 .PHONY: opa-fmt
 opa-fmt:
