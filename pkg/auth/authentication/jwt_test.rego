@@ -1,7 +1,8 @@
 package api.v1.metalstack.io.authentication_test
 
-import data.api.v1.metalstack.io.authentication
 import rego.v1
+
+import data.api.v1.metalstack.io.authentication
 
 private1 := {
 	"crv": "P-521",
@@ -35,6 +36,7 @@ public := {"keys": [
 ]}
 
 allowed_issuers := ["cloud", "metal-apiserver"]
+now := time.now_ns()
 
 valid_jwt := io.jwt.encode_sign(
 	{
@@ -45,9 +47,9 @@ valid_jwt := io.jwt.encode_sign(
 		"iss": "metal-apiserver",
 		"sub": "johndoe@github",
 		"name": "John Doe",
-		"iat": time.now_ns() / 1000000000,
-		"nbf": (time.now_ns() / 1000000000) - 100,
-		"exp": (time.now_ns() / 1000000000) + 100,
+		"iat": now / 1000000000,
+		"nbf": (now / 1000000000) - 100,
+		"exp": (now / 1000000000) + 100,
 	},
 	private1,
 )
@@ -61,9 +63,9 @@ jwt_with_wrong_secret := io.jwt.encode_sign(
 		"iss": "metal-apiserver",
 		"sub": "johndoe@github",
 		"name": "John Doe",
-		"iat": time.now_ns() / 1000000000,
-		"nbf": (time.now_ns() / 1000000000) - 100,
-		"exp": (time.now_ns() / 1000000000) + 100,
+		"iat": now / 1000000000,
+		"nbf": (now / 1000000000) - 100,
+		"exp": (now / 1000000000) + 100,
 	},
 	private1,
 )
@@ -77,9 +79,9 @@ jwt_with_wrong_issuer := io.jwt.encode_sign(
 		"iss": "someone-evil",
 		"sub": "johndoe@github",
 		"name": "John Doe",
-		"iat": time.now_ns() / 1000000000,
-		"nbf": (time.now_ns() / 1000000000) - 100,
-		"exp": (time.now_ns() / 1000000000) + 100,
+		"iat": now / 1000000000,
+		"nbf": (now / 1000000000) - 100,
+		"exp": (now / 1000000000) + 100,
 	},
 	private1,
 )
@@ -95,9 +97,9 @@ test_token_expired if {
 				"iss": "metal-apiserver",
 				"sub": "johndoe@github",
 				"name": "John Doe",
-				"iat": time.now_ns() / 1000000000,
-				"nbf": (time.now_ns() / 1000000000) - 100000,
-				"exp": (time.now_ns() / 1000000000) - 10000,
+				"iat": now / 1000000000,
+				"nbf": (now / 1000000000) - 100000,
+				"exp": (now / 1000000000) - 10000,
 			},
 			private1,
 		),
@@ -120,9 +122,9 @@ test_invalid_issuer if {
 				"iss": "someone-evil",
 				"sub": "johndoe@github",
 				"name": "John Doe",
-				"iat": time.now_ns() / 1000000000,
-				"nbf": (time.now_ns() / 1000000000) - 100000,
-				"exp": (time.now_ns() / 1000000000) + 10000,
+				"iat": now / 1000000000,
+				"nbf": (now / 1000000000) - 100000,
+				"exp": (now / 1000000000) + 10000,
 			},
 			private1,
 		),
@@ -145,9 +147,9 @@ test_expired_token_and_invalid_issuer if {
 				"iss": "someone-evil",
 				"sub": "johndoe@github",
 				"name": "John Doe",
-				"iat": time.now_ns() / 1000000000,
-				"nbf": (time.now_ns() / 1000000000) - 100000,
-				"exp": (time.now_ns() / 1000000000) - 10000,
+				"iat": now / 1000000000,
+				"nbf": (now / 1000000000) - 100000,
+				"exp": (now / 1000000000) - 10000,
 			},
 			private1,
 		),
@@ -171,9 +173,9 @@ test_valid_token if {
 				"sub": "johndoe@github",
 				"name": "John Doe",
 				"jti": "91515033-8f6b-4543-ae44-5ccf2b47e3c5",
-				"iat": time.now_ns() / 1000000000,
-				"nbf": (time.now_ns() / 1000000000) - 100000,
-				"exp": (time.now_ns() / 1000000000) + 10000,
+				"iat": now / 1000000000,
+				"nbf": (now / 1000000000) - 100000,
+				"exp": (now / 1000000000) + 10000,
 			},
 			private1,
 		),
