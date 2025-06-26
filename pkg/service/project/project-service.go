@@ -206,10 +206,15 @@ func (p *projectServiceServer) Create(ctx context.Context, rq *connect.Request[a
 		return nil, connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("a project with name %q already exists for this organization", req.Name))
 	}
 
+	uuid, err := uuid.NewV7()
+	if err != nil {
+		return nil, err
+	}
+
 	createResp, err := p.masterClient.Project().Create(ctx, &v1.ProjectCreateRequest{
 		Project: &v1.Project{
 			Meta: &v1.Meta{
-				Id: uuid.NewString(),
+				Id: uuid.String(),
 				Annotations: map[string]string{
 					putil.AvatarURLAnnotation: pointer.SafeDeref(req.AvatarUrl),
 				},
