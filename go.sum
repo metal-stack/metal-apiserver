@@ -1,7 +1,7 @@
-buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.6-20250603165357-b52ab10f4468.1 h1:uwSqFkn8DDTzNlaV9TxgSXY5OCaNdb4rH+Axd2FujkE=
-buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.6-20250603165357-b52ab10f4468.1/go.mod h1:avRlCjnFzl98VPaeCtJ24RrV/wwHFzB8sWXhj26+n/U=
-buf.build/go/protovalidate v0.12.0 h1:4GKJotbspQjRCcqZMGVSuC8SjwZ/FmgtSuKDpKUTZew=
-buf.build/go/protovalidate v0.12.0/go.mod h1:q3PFfbzI05LeqxSwq+begW2syjy2Z6hLxZSkP1OH/D0=
+buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.6-20250612022732-297b8109523d.1 h1:AGcXSSKkdfFsRk7qvOnl5VsaifpqL2Iwp9Xhmjchvpo=
+buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.6-20250612022732-297b8109523d.1/go.mod h1:avRlCjnFzl98VPaeCtJ24RrV/wwHFzB8sWXhj26+n/U=
+buf.build/go/protovalidate v0.13.0 h1:t7nC2w79q8M2KaZfFTaXmyFhnYWTPbGFtZS2rebdIQM=
+buf.build/go/protovalidate v0.13.0/go.mod h1:b0ZWMqcwgx2sa1IXTFT9EpJlMp03ESY4f8t9yulcykg=
 cel.dev/expr v0.24.0 h1:56OvJKSH3hDGL0ml5uSxZmz3/3Pq4tJ+fb1unVLAFcY=
 cel.dev/expr v0.24.0/go.mod h1:hLPLo1W4QUmuYdA72RBX06QTs6MXw941piREPl3Yfiw=
 connectrpc.com/connect v1.18.1 h1:PAg7CjSAGvscaf6YZKUefjoih5Z/qYkyaTrBW8xvYPw=
@@ -281,8 +281,8 @@ github.com/markbates/goth v1.81.0 h1:XVcCkeGWokynPV7MXvgb8pd2s3r7DS40P7931w6kdnE
 github.com/markbates/goth v1.81.0/go.mod h1:+6z31QyUms84EHmuBY7iuqYSxyoN3njIgg9iCF/lR1k=
 github.com/mattn/go-sqlite3 v1.14.22 h1:2gZY6PC6kBnID23Tichd1K+Z0oS6nE/XwU+Vz/5o4kU=
 github.com/mattn/go-sqlite3 v1.14.22/go.mod h1:Uh1q+B4BYcTPb+yiD3kU8Ct7aC0hY9fxUwlHK0RXw+Y=
-github.com/metal-stack/api v0.0.1 h1:kuxvFiWuMFcvvAecKY4OhSQxeBJfuojAYq5SUbJvK8U=
-github.com/metal-stack/api v0.0.1/go.mod h1:gLRg6Rxkt0FGJnTNmmhclgrdMKT3el6O85+KgqYYCqE=
+github.com/metal-stack/api v0.0.2-0.20250620074531-b801b0a79fa4 h1:Mp3y0rO0ZsSMMgmkPts5+4yHfZp5/SoJ3p2V7YqiaXw=
+github.com/metal-stack/api v0.0.2-0.20250620074531-b801b0a79fa4/go.mod h1:hWv9QiPqNsiur7iE+Xa6byMhx5WznHMSQqsbjH0HfUg=
 github.com/metal-stack/go-ipam v1.14.12 h1:yb9mZ7FGKaaPeiSe4X6BLrGquuw9WPoxCSSDzSx+/fY=
 github.com/metal-stack/go-ipam v1.14.12/go.mod h1:B6R3ADxm1r5C1DJafhI90oB3+DRRby076yS9QQ664oY=
 github.com/metal-stack/masterdata-api v0.11.11 h1:TA7sKDQAzaZkVs2ByfXmMh5HhcF3nGAIlYbA5VfR3oo=

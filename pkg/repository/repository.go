@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"google.golang.org/protobuf/proto"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -16,7 +17,7 @@ type (
 
 		Create(ctx context.Context, c C) (E, error)
 
-		Update(ctx context.Context, id string, u U) (E, error)
+		Update(ctx context.Context, u U) (E, error)
 
 		Delete(ctx context.Context, id string) (E, error)
 
@@ -57,7 +58,7 @@ type (
 	// Message is the external representation of an api resource for consumers.
 	Message any
 	// UpdateMessage is an external request to update an entity for consumers.
-	UpdateMessage any
+	UpdateMessage proto.Message
 	// CreateMessage is an external request to create an entity for consumers.
 	// TODO: ideally all update messages should clearly expose the identifier in order to get the entity with it!
 	// UpdateMessage interface{ ID() string }

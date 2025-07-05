@@ -133,6 +133,7 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 		{
 			name: "update constraints",
 			rq: &adminv2.FilesystemServiceUpdateRequest{
+				Id: existing.Msg.FilesystemLayout.Id,
 				FilesystemLayout: &apiv2.FilesystemLayout{
 					Id:          existing.Msg.FilesystemLayout.Id,
 					Name:        pointer.Pointer("Default FSL"),
@@ -167,7 +168,7 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 		},
 		{
 			name:    "update nonexisting",
-			rq:      &adminv2.FilesystemServiceUpdateRequest{FilesystemLayout: &apiv2.FilesystemLayout{Id: "no-existing"}},
+			rq:      &adminv2.FilesystemServiceUpdateRequest{Id: "no-existing", FilesystemLayout: &apiv2.FilesystemLayout{Id: "no-existing"}},
 			want:    nil,
 			wantErr: errorutil.NotFound(`no filesystemlayout with id "no-existing" found`),
 		},

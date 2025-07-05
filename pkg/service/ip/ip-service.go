@@ -113,7 +113,7 @@ func (i *ipServiceServer) Create(ctx context.Context, rq *connect.Request[apiv2.
 func (i *ipServiceServer) Update(ctx context.Context, rq *connect.Request[apiv2.IPServiceUpdateRequest]) (*connect.Response[apiv2.IPServiceUpdateResponse], error) {
 	req := rq.Msg
 
-	ip, err := i.repo.IP(req.Project).Update(ctx, req.Ip, rq.Msg)
+	ip, err := i.repo.IP(req.Project).Update(ctx, rq.Msg)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

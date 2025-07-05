@@ -108,7 +108,7 @@ func (n *networkServiceServer) List(ctx context.Context, rq *connect.Request[adm
 func (n *networkServiceServer) Update(ctx context.Context, rq *connect.Request[adminv2.NetworkServiceUpdateRequest]) (*connect.Response[adminv2.NetworkServiceUpdateResponse], error) {
 	req := rq.Msg
 
-	nw, err := n.repo.UnscopedNetwork().Update(ctx, req.Id, req)
+	nw, err := n.repo.UnscopedNetwork().Update(ctx, req)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

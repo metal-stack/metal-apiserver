@@ -124,19 +124,19 @@ func Test_imageServiceServer_Update(t *testing.T) {
 	}{
 		{
 			name:    "simple update on non existing",
-			request: &adminv2.ImageServiceUpdateRequest{Image: &apiv2.Image{Id: "debian-12.0.20250101"}},
+			request: &adminv2.ImageServiceUpdateRequest{Id: "debian-12.0.20250101", Image: &apiv2.Image{Id: "debian-12.0.20250101"}},
 			want:    nil,
 			wantErr: errorutil.NotFound(`no image with id "debian-12.0.20250101" found`),
 		},
 		{
 			name:    "simple update on existing, invalid url",
-			request: &adminv2.ImageServiceUpdateRequest{Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: invalidURL}},
+			request: &adminv2.ImageServiceUpdateRequest{Id: "debian-12.0.20241231", Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: invalidURL}},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`image:debian-12.0.20241231 is not accessible under:%s statuscode:404`, invalidURL),
 		},
 		{
 			name:    "simple update on existing update name",
-			request: &adminv2.ImageServiceUpdateRequest{Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: validURL, Name: pointer.Pointer("NewName")}},
+			request: &adminv2.ImageServiceUpdateRequest{Id: "debian-12.0.20241231", Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: validURL, Name: pointer.Pointer("NewName")}},
 			want: &adminv2.ImageServiceUpdateResponse{
 				Image: &apiv2.Image{
 					Id:             "debian-12.0.20241231",
@@ -150,7 +150,7 @@ func Test_imageServiceServer_Update(t *testing.T) {
 		},
 		{
 			name:    "simple update on existing update feature",
-			request: &adminv2.ImageServiceUpdateRequest{Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: validURL, Name: pointer.Pointer("NewName"), Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL}}},
+			request: &adminv2.ImageServiceUpdateRequest{Id: "debian-12.0.20241231", Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: validURL, Name: pointer.Pointer("NewName"), Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL}}},
 			want: &adminv2.ImageServiceUpdateResponse{
 				Image: &apiv2.Image{
 					Id:             "debian-12.0.20241231",
@@ -164,7 +164,7 @@ func Test_imageServiceServer_Update(t *testing.T) {
 		},
 		{
 			name:    "simple update on existing update classification",
-			request: &adminv2.ImageServiceUpdateRequest{Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: validURL, Name: pointer.Pointer("NewName"), Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL}, Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED}},
+			request: &adminv2.ImageServiceUpdateRequest{Id: "debian-12.0.20241231", Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: validURL, Name: pointer.Pointer("NewName"), Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL}, Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED}},
 			want: &adminv2.ImageServiceUpdateResponse{
 				Image: &apiv2.Image{
 					Id:             "debian-12.0.20241231",
