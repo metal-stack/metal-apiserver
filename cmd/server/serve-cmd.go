@@ -29,10 +29,10 @@ import (
 	"github.com/metal-stack/metal-lib/auditing"
 	"github.com/metal-stack/v"
 	"github.com/redis/go-redis/v9"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
-func newServeCmd() *cli.Command {
+func newServeCmd(ctx context.Context) *cli.Command {
 	return &cli.Command{
 		Name:  "serve",
 		Usage: "start the api server",
@@ -73,37 +73,37 @@ func newServeCmd() *cli.Command {
 			oidcDiscoveryUrlFlag,
 			oidcEndSessionUrlFlag,
 		},
-		Action: func(ctx *cli.Context) error {
-			log, err := createLogger(ctx)
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			log, err := createLogger(cmd)
 			if err != nil {
 				return fmt.Errorf("unable to create logger %w", err)
 			}
 
-			audit, err := createAuditingClient(ctx, log)
+			audit, err := createAuditingClient(cmd, log)
 			if err != nil {
 				return fmt.Errorf("unable to create auditing client: %w", err)
 			}
 
-			ipam, err := createIpamClient(ctx, log)
+			ipam, err := createIpamClient(ctx, cmd, log)
 			if err != nil {
 				return fmt.Errorf("unable to create ipam client: %w", err)
 			}
 
-			redisConfig, err := createRedisClients(ctx, log)
+			redisConfig, err := createRedisClients(ctx, cmd, log)
 			if err != nil {
 				return fmt.Errorf("unable to create redis clients: %w", err)
 			}
 
-			mc, err := createMasterdataClient(ctx, log)
+			mc, err := createMasterdataClient(ctx, cmd, log)
 			if err != nil {
 				return fmt.Errorf("unable to create masterdata.client: %w", err)
 			}
 
 			connectOpts := rethinkdb.ConnectOpts{
-				Addresses: ctx.StringSlice(rethinkdbAddressesFlag.Name),
-				Database:  ctx.String(rethinkdbDBNameFlag.Name),
-				Username:  ctx.String(rethinkdbUserFlag.Name),
-				Password:  ctx.String(rethinkdbPasswordFlag.Name),
+				Addresses: cmd.StringSlice(rethinkdbAddressesFlag.Name),
+				Database:  cmd.String(rethinkdbDBNameFlag.Name),
+				Username:  cmd.String(rethinkdbUserFlag.Name),
+				Password:  cmd.String(rethinkdbPasswordFlag.Name),
 				MaxIdle:   10,
 				MaxOpen:   20,
 			}
@@ -118,37 +118,37 @@ func newServeCmd() *cli.Command {
 				return fmt.Errorf("unable to create repository: %w", err)
 			}
 
-			stage := ctx.String(stageFlag.Name)
+			stage := cmd.String(stageFlag.Name)
 			c := service.Config{
-				HttpServerEndpoint:                  ctx.String(httpServerEndpointFlag.Name),
-				MetricsServerEndpoint:               ctx.String(metricServerEndpointFlag.Name),
+				HttpServerEndpoint:                  cmd.String(httpServerEndpointFlag.Name),
+				MetricsServerEndpoint:               cmd.String(metricServerEndpointFlag.Name),
 				Log:                                 log,
 				Repository:                          repo,
 				MasterClient:                        mc,
 				Datastore:                           ds,
 				IpamClient:                          ipam,
-				ServerHttpURL:                       ctx.String(serverHttpUrlFlag.Name),
-				FrontEndUrl:                         ctx.String(frontEndUrlFlag.Name),
+				ServerHttpURL:                       cmd.String(serverHttpUrlFlag.Name),
+				FrontEndUrl:                         cmd.String(frontEndUrlFlag.Name),
 				Auditing:                            audit,
 				Stage:                               stage,
 				RedisConfig:                         redisConfig,
-				Admins:                              ctx.StringSlice(adminsFlag.Name),
-				MaxRequestsPerMinuteToken:           ctx.Int(maxRequestsPerMinuteFlag.Name),
-				MaxRequestsPerMinuteUnauthenticated: ctx.Int(maxRequestsPerMinuteUnauthenticatedFlag.Name),
-				OIDCClientID:                        ctx.String(oidcClientIdFlag.Name),
-				OIDCClientSecret:                    ctx.String(oidcClientSecretFlag.Name),
-				OIDCDiscoveryURL:                    ctx.String(oidcDiscoveryUrlFlag.Name),
-				OIDCEndSessionURL:                   ctx.String(oidcEndSessionUrlFlag.Name),
+				Admins:                              cmd.StringSlice(adminsFlag.Name),
+				MaxRequestsPerMinuteToken:           cmd.Int(maxRequestsPerMinuteFlag.Name),
+				MaxRequestsPerMinuteUnauthenticated: cmd.Int(maxRequestsPerMinuteUnauthenticatedFlag.Name),
+				OIDCClientID:                        cmd.String(oidcClientIdFlag.Name),
+				OIDCClientSecret:                    cmd.String(oidcClientSecretFlag.Name),
+				OIDCDiscoveryURL:                    cmd.String(oidcDiscoveryUrlFlag.Name),
+				OIDCEndSessionURL:                   cmd.String(oidcEndSessionUrlFlag.Name),
 				IsStageDev:                          strings.EqualFold(stage, stageDEV),
 			}
 
-			if providerTenant := ctx.String(ensureProviderTenantFlag.Name); providerTenant != "" {
-				err := tutil.EnsureProviderTenant(ctx.Context, c.MasterClient, providerTenant)
+			if providerTenant := cmd.String(ensureProviderTenantFlag.Name); providerTenant != "" {
+				err := tutil.EnsureProviderTenant(ctx, c.MasterClient, providerTenant)
 				if err != nil {
 					return err
 				}
 
-				err = putil.EnsureProviderProject(ctx.Context, c.MasterClient, providerTenant)
+				err = putil.EnsureProviderProject(ctx, c.MasterClient, providerTenant)
 				if err != nil {
 					return err
 				}
@@ -161,7 +161,7 @@ func newServeCmd() *cli.Command {
 			log.Info("running api-server", "version", v.V, "http endpoint", c.HttpServerEndpoint)
 
 			s := newServer(c)
-			if err := s.Run(ctx.Context); err != nil {
+			if err := s.Run(ctx); err != nil {
 				return fmt.Errorf("unable to execute server: %w", err)
 			}
 
@@ -171,17 +171,17 @@ func newServeCmd() *cli.Command {
 }
 
 // createMasterdataClient creates a client to the masterdata-api
-func createMasterdataClient(cli *cli.Context, log *slog.Logger) (mdm.Client, error) {
-	ctx, cancel := context.WithTimeout(cli.Context, 3*time.Second)
+func createMasterdataClient(ctx context.Context, cmd *cli.Command, log *slog.Logger) (mdm.Client, error) {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
 	client, err := mdm.NewClient(ctx,
-		cli.String(masterdataApiHostnameFlag.Name),
-		cli.Int(masterdataApiPortFlag.Name),
-		cli.String(masterdataApiCertPathFlag.Name),
-		cli.String(masterdataApiCertKeyPathFlag.Name),
-		cli.String(masterdataApiCAPathFlag.Name),
-		cli.String(masterdataApiHmacFlag.Name),
+		cmd.String(masterdataApiHostnameFlag.Name),
+		cmd.Int(masterdataApiPortFlag.Name),
+		cmd.String(masterdataApiCertPathFlag.Name),
+		cmd.String(masterdataApiCertKeyPathFlag.Name),
+		cmd.String(masterdataApiCAPathFlag.Name),
+		cmd.String(masterdataApiHmacFlag.Name),
 		false, // TLSSkipInsecure
 		log.WithGroup("masterdata-client"),
 	)
@@ -196,10 +196,10 @@ func createMasterdataClient(cli *cli.Context, log *slog.Logger) (mdm.Client, err
 
 // createAuditingClient creates a new auditing client
 // Can return nil,nil if auditing is disabled!
-func createAuditingClient(cli *cli.Context, log *slog.Logger) (auditing.Auditing, error) {
+func createAuditingClient(cmd *cli.Command, log *slog.Logger) (auditing.Auditing, error) {
 	const auditingComponent = "metal-stack.io"
 
-	auditingEnabled := cli.Bool(auditingTimescaleEnabledFlag.Name)
+	auditingEnabled := cmd.Bool(auditingTimescaleEnabledFlag.Name)
 	if !auditingEnabled {
 		return nil, nil
 	}
@@ -209,12 +209,12 @@ func createAuditingClient(cli *cli.Context, log *slog.Logger) (auditing.Auditing
 		Component: auditingComponent,
 	}
 	return auditing.NewTimescaleDB(auditingCfg, auditing.TimescaleDbConfig{
-		Host:      cli.String(auditingTimescaleHostFlag.Name),
-		Port:      cli.String(auditingTimescalePortFlag.Name),
-		DB:        cli.String(auditingTimescaleDbFlag.Name),
-		User:      cli.String(auditingTimescaleUserFlag.Name),
-		Password:  cli.String(auditingTimescalePasswordFlag.Name),
-		Retention: cli.String(auditingTimescaleRetentionFlag.Name),
+		Host:      cmd.String(auditingTimescaleHostFlag.Name),
+		Port:      cmd.String(auditingTimescalePortFlag.Name),
+		DB:        cmd.String(auditingTimescaleDbFlag.Name),
+		User:      cmd.String(auditingTimescaleUserFlag.Name),
+		Password:  cmd.String(auditingTimescalePasswordFlag.Name),
+		Retention: cmd.String(auditingTimescaleRetentionFlag.Name),
 	})
 }
 
@@ -227,21 +227,21 @@ const (
 	redisDatabaseAsync        RedisDatabase = "async"
 )
 
-func createRedisClients(cli *cli.Context, logger *slog.Logger) (*service.RedisConfig, error) {
+func createRedisClients(ctx context.Context, cmd *cli.Command, logger *slog.Logger) (*service.RedisConfig, error) {
 
-	token, err := createRedisClient(cli, logger, redisDatabaseTokens)
+	token, err := createRedisClient(ctx, cmd, logger, redisDatabaseTokens)
 	if err != nil {
 		return nil, err
 	}
-	rate, err := createRedisClient(cli, logger, redisDatabaseRateLimiting)
+	rate, err := createRedisClient(ctx, cmd, logger, redisDatabaseRateLimiting)
 	if err != nil {
 		return nil, err
 	}
-	invite, err := createRedisClient(cli, logger, redisDatabaseInvites)
+	invite, err := createRedisClient(ctx, cmd, logger, redisDatabaseInvites)
 	if err != nil {
 		return nil, err
 	}
-	async, err := createRedisClient(cli, logger, redisDatabaseAsync)
+	async, err := createRedisClient(ctx, cmd, logger, redisDatabaseAsync)
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +253,7 @@ func createRedisClients(cli *cli.Context, logger *slog.Logger) (*service.RedisCo
 	}, nil
 }
 
-func createRedisClient(cli *cli.Context, logger *slog.Logger, dbName RedisDatabase) (*redis.Client, error) {
+func createRedisClient(ctx context.Context, cmd *cli.Command, logger *slog.Logger, dbName RedisDatabase) (*redis.Client, error) {
 	db := 0
 	switch dbName {
 	case redisDatabaseTokens:
@@ -268,8 +268,8 @@ func createRedisClient(cli *cli.Context, logger *slog.Logger, dbName RedisDataba
 		return nil, fmt.Errorf("invalid db name: %s", dbName)
 	}
 
-	address := cli.String(redisAddrFlag.Name)
-	password := cli.String(redisPasswordFlag.Name)
+	address := cmd.String(redisAddrFlag.Name)
+	password := cmd.String(redisPasswordFlag.Name)
 
 	// If we see performance Issues we can try this client
 	// client, err := rueidis.NewClient(rueidis.ClientOption{InitAddress: c.RedisAddresses})
@@ -289,7 +289,7 @@ func createRedisClient(cli *cli.Context, logger *slog.Logger, dbName RedisDataba
 		DB:         db,
 		ClientName: "metal-apiserver",
 	})
-	pong, err := client.Ping(cli.Context).Result()
+	pong, err := client.Ping(ctx).Result()
 	if err != nil {
 		return nil, fmt.Errorf("unable to create redis client: %w", err)
 	}
@@ -301,10 +301,10 @@ func createRedisClient(cli *cli.Context, logger *slog.Logger, dbName RedisDataba
 	return client, nil
 }
 
-func createIpamClient(cli *cli.Context, log *slog.Logger) (ipamv1connect.IpamServiceClient, error) {
-	ipamgrpcendpoint := cli.String(ipamGrpcEndpointFlag.Name)
-	log.Info("create ipam client", "stage", cli.String(stageFlag.Name))
-	if cli.String(stageFlag.Name) == stageDEV {
+func createIpamClient(ctx context.Context, cmd *cli.Command, log *slog.Logger) (ipamv1connect.IpamServiceClient, error) {
+	ipamgrpcendpoint := cmd.String(ipamGrpcEndpointFlag.Name)
+	log.Info("create ipam client", "stage", cmd.String(stageFlag.Name))
+	if cmd.String(stageFlag.Name) == stageDEV {
 		log.Warn("ipam grpc endpoint not configured, starting in memory ipam service")
 		ipam, _ := test.StartIpam(&testing.T{})
 		return ipam, nil
@@ -318,7 +318,7 @@ func createIpamClient(cli *cli.Context, log *slog.Logger) (ipamv1connect.IpamSer
 	)
 
 	err := retry.Do(func() error {
-		version, err := ipamService.Version(cli.Context, connect.NewRequest(&ipamv1.VersionRequest{}))
+		version, err := ipamService.Version(ctx, connect.NewRequest(&ipamv1.VersionRequest{}))
 		if err != nil {
 			return err
 		}
