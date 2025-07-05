@@ -51,12 +51,7 @@ func (n *networkServiceServer) Get(ctx context.Context, rq *connect.Request[admi
 func (n *networkServiceServer) Create(ctx context.Context, rq *connect.Request[adminv2.NetworkServiceCreateRequest]) (*connect.Response[adminv2.NetworkServiceCreateResponse], error) {
 	req := rq.Msg
 
-	validated, err := n.repo.UnscopedNetwork().ValidateCreate(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-
-	created, err := n.repo.UnscopedNetwork().Create(ctx, validated)
+	created, err := n.repo.UnscopedNetwork().Create(ctx, req)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -73,20 +68,11 @@ func (n *networkServiceServer) Create(ctx context.Context, rq *connect.Request[a
 func (n *networkServiceServer) Delete(ctx context.Context, rq *connect.Request[adminv2.NetworkServiceDeleteRequest]) (*connect.Response[adminv2.NetworkServiceDeleteResponse], error) {
 	req := rq.Msg
 
-	nw, err := n.repo.UnscopedNetwork().Get(ctx, req.Id)
+	nw, err := n.repo.UnscopedNetwork().Delete(ctx, req.Id)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	validated, err := n.repo.UnscopedNetwork().ValidateDelete(ctx, nw)
-	if err != nil {
-		return nil, err
-	}
-
-	nw, err = n.repo.UnscopedNetwork().Delete(ctx, validated)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
 	converted, err := n.repo.UnscopedNetwork().ConvertToProto(nw)
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -122,18 +108,15 @@ func (n *networkServiceServer) List(ctx context.Context, rq *connect.Request[adm
 func (n *networkServiceServer) Update(ctx context.Context, rq *connect.Request[adminv2.NetworkServiceUpdateRequest]) (*connect.Response[adminv2.NetworkServiceUpdateResponse], error) {
 	req := rq.Msg
 
-	validated, err := n.repo.UnscopedNetwork().ValidateUpdate(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-
-	nw, err := n.repo.UnscopedNetwork().Update(ctx, validated)
+	nw, err := n.repo.UnscopedNetwork().Update(ctx, req.Id, req)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
+
 	converted, err := n.repo.UnscopedNetwork().ConvertToProto(nw)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
+
 	return connect.NewResponse(&adminv2.NetworkServiceUpdateResponse{Network: converted}), nil
 }
