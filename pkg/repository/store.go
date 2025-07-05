@@ -229,7 +229,7 @@ func (s *store[R, E, M, C, U, Q]) Update(ctx context.Context, u U) (E, error) {
 		return zero, err
 	}
 
-	e, err := s.Get(ctx, idString)
+	e, err := s.get(ctx, idString)
 	if err != nil {
 		return zero, err
 	}
