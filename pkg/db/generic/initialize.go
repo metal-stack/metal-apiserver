@@ -89,6 +89,9 @@ func Initialize(ctx context.Context, log *slog.Logger, opts r.ConnectOpts, dsOpt
 	if err := ds.partition.initialize(ctx); err != nil {
 		return err
 	}
+	if err := ds.size.initialize(ctx); err != nil {
+		return err
+	}
 	if err := ds.network.initialize(ctx); err != nil {
 		return err
 	}

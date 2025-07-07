@@ -181,3 +181,9 @@ func CreateTenants(t *testing.T, repo *repository.Store, tenants []*apiv2.Tenant
 		require.NoError(t, err)
 	}
 }
+func CreateSizes(t *testing.T, repo *repository.Store, sizes []*adminv2.SizeServiceCreateRequest) {
+	for _, size := range sizes {
+		_, err := repo.Size().Create(t.Context(), size)
+		require.NoError(t, err)
+	}
+}

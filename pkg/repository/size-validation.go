@@ -20,12 +20,16 @@ func (r *sizeRepository) validateCreate(ctx context.Context, req *adminv2.SizeSe
 	if err != nil {
 		errs = append(errs, err)
 	}
-	err = r.valideteSizesNotOverlapping(ctx, req.Size)
+	err = r.validateSizesNotOverlapping(ctx, req.Size)
 	if err != nil {
 		errs = append(errs, err)
 	}
 
-	return errors.Join(errs...)
+	if len(errs) > 0 {
+		return errorutil.NewInvalidArgument(errors.Join(errs...))
+	}
+
+	return nil
 }
 
 func (r *sizeRepository) validateUpdate(ctx context.Context, req *adminv2.SizeServiceUpdateRequest, _ *metal.Size) error {
@@ -37,12 +41,16 @@ func (r *sizeRepository) validateUpdate(ctx context.Context, req *adminv2.SizeSe
 	if err != nil {
 		errs = append(errs, err)
 	}
-	err = r.valideteSizesNotOverlapping(ctx, req.Size)
+	err = r.validateSizesNotOverlapping(ctx, req.Size)
 	if err != nil {
 		errs = append(errs, err)
 	}
 
-	return errors.Join(errs...)
+	if len(errs) > 0 {
+		return errorutil.NewInvalidArgument(errors.Join(errs...))
+	}
+
+	return nil
 }
 
 func (r *sizeRepository) validateDelete(ctx context.Context, req *metal.Size) error {
@@ -93,13 +101,12 @@ func (r *sizeRepository) validateSizeConstraints(size *apiv2.Size) error {
 	return errors.Join(errs...)
 }
 
-func (r *sizeRepository) valideteSizesNotOverlapping(ctx context.Context, size *apiv2.Size) error {
+func (r *sizeRepository) validateSizesNotOverlapping(ctx context.Context, size *apiv2.Size) error {
 	sizes, err := r.s.ds.Size().List(ctx)
 	if err != nil {
 		return err
 	}
-
-	metalSize, err := r.s.ds.Size().Get(ctx, size.Id)
+	metalSize, err := r.convertToInternal(size)
 	if err != nil {
 		return err
 	}

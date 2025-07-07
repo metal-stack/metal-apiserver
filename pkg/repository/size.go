@@ -37,34 +37,9 @@ func (r *sizeRepository) create(ctx context.Context, req *adminv2.SizeServiceCre
 	if req.Size == nil {
 		return nil, nil
 	}
-	var (
-		id          = req.Size.Id
-		name        = pointer.SafeDeref(req.Size.Name)
-		description = pointer.SafeDeref(req.Size.Description)
-		labels      map[string]string
-		constraints []metal.Constraint
-	)
-
-	if req.Size.Meta != nil && req.Size.Meta.Labels != nil {
-		labels = req.Size.Meta.Labels.Labels
-	}
-
-	for _, c := range req.Size.Constraints {
-		metalConstraint, err := metal.ToConstraint(c)
-		if err != nil {
-			return nil, err
-		}
-		constraints = append(constraints, *metalConstraint)
-	}
-
-	size := &metal.Size{
-		Base: metal.Base{
-			ID:          id,
-			Name:        name,
-			Description: description,
-		},
-		Labels:      labels,
-		Constraints: constraints,
+	size, err := r.convertToInternal(req.Size)
+	if err != nil {
+		return nil, err
 	}
 
 	resp, err := r.s.ds.Size().Create(ctx, size)
@@ -143,8 +118,37 @@ func (r *sizeRepository) list(ctx context.Context, rq *apiv2.SizeQuery) ([]*meta
 	return ip, nil
 }
 
-func (r *sizeRepository) convertToInternal(ip *apiv2.Size) (*metal.Size, error) {
-	panic("unimplemented")
+func (r *sizeRepository) convertToInternal(e *apiv2.Size) (*metal.Size, error) {
+	if e == nil {
+		return nil, nil
+	}
+	var constraints []metal.Constraint
+	if e.Constraints != nil {
+		for _, c := range e.Constraints {
+			metalConstraint, err := metal.ToConstraint(c)
+			if err != nil {
+				return nil, err
+			}
+			constraints = append(constraints, *metalConstraint)
+		}
+	}
+
+	var labels map[string]string
+	if e.Meta != nil && e.Meta.Labels != nil {
+		labels = e.Meta.Labels.Labels
+	}
+
+	size := &metal.Size{
+		Base: metal.Base{
+			ID:          e.Id,
+			Name:        pointer.SafeDeref(e.Name),
+			Description: pointer.SafeDeref(e.Description),
+		},
+		Labels:      labels,
+		Constraints: constraints,
+	}
+
+	return size, nil
 }
 
 func (r *sizeRepository) convertToProto(e *metal.Size) (*apiv2.Size, error) {
