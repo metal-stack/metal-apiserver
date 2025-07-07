@@ -139,6 +139,132 @@ func Test_sizeServiceServer_Create(t *testing.T) {
 	}
 }
 
+func Test_sizeServiceServer_Update(t *testing.T) {
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+	repo, closer := test.StartRepository(t, log)
+	defer closer()
+
+	ctx := t.Context()
+
+	sizes := []*adminv2.SizeServiceCreateRequest{
+		{
+			Size: &apiv2.Size{
+				Id: "n1-medium-x86", Name: pointer.Pointer("n1-medium-x86"),
+				Constraints: []*apiv2.SizeConstraint{
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 10 * 1024 * 1024, Max: 10 * 1024 * 1024},
+				},
+			},
+		},
+		{
+			Size: &apiv2.Size{
+				Id: "n2-medium-x86", Name: pointer.Pointer("n2-medium-x86"),
+				Constraints: []*apiv2.SizeConstraint{
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 8, Max: 8},
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 10 * 1024 * 1024, Max: 10 * 1024 * 1024},
+				},
+			},
+		},
+		{
+			Size: &apiv2.Size{
+				Id: "n3-medium-x86", Name: pointer.Pointer("n3-medium-x86"),
+				Constraints: []*apiv2.SizeConstraint{
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 12, Max: 12},
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 10 * 1024 * 1024, Max: 10 * 1024 * 1024},
+				},
+			},
+		},
+	}
+
+	test.CreateSizes(t, repo, sizes)
+
+	tests := []struct {
+		name    string
+		rq      *adminv2.SizeServiceUpdateRequest
+		want    *adminv2.SizeServiceUpdateResponse
+		wantErr error
+	}{
+		{
+			name: "update n1-medium name and description",
+			rq: &adminv2.SizeServiceUpdateRequest{
+				Size: &apiv2.Size{
+					Id: "n1-medium-x86", Name: pointer.Pointer("n1-medium"), Description: pointer.Pointer("best for firewalls"),
+					Constraints: []*apiv2.SizeConstraint{
+						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
+						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
+						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 10 * 1024 * 1024, Max: 10 * 1024 * 1024},
+					},
+				},
+			},
+			want: &adminv2.SizeServiceUpdateResponse{
+				Size: &apiv2.Size{
+					Id: "n1-medium-x86", Name: pointer.Pointer("n1-medium"), Description: pointer.Pointer("best for firewalls"),
+					Meta: &apiv2.Meta{},
+					Constraints: []*apiv2.SizeConstraint{
+						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
+						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
+						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 10 * 1024 * 1024, Max: 10 * 1024 * 1024},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "update n2-medium constraints",
+			rq: &adminv2.SizeServiceUpdateRequest{
+				Size: &apiv2.Size{
+					Id: "n2-medium-x86",
+					Constraints: []*apiv2.SizeConstraint{
+						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 6, Max: 12},
+						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 2 * 1024 * 1024},
+						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 20 * 1024 * 1024, Max: 30 * 1024 * 1024},
+					},
+				},
+			},
+			want: &adminv2.SizeServiceUpdateResponse{
+				Size: &apiv2.Size{
+					Id: "n2-medium-x86", Name: pointer.Pointer("n2-medium-x86"),
+					Meta: &apiv2.Meta{},
+					Constraints: []*apiv2.SizeConstraint{
+						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 6, Max: 12},
+						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 2 * 1024 * 1024},
+						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 20 * 1024 * 1024, Max: 30 * 1024 * 1024},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &sizeServiceServer{
+				log:  log,
+				repo: repo,
+			}
+			got, err := s.Update(ctx, connect.NewRequest(tt.rq))
+
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("diff = %s", diff)
+			}
+
+			if diff := cmp.Diff(
+				tt.want, pointer.SafeDeref(got).Msg,
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
+			); diff != "" {
+				t.Errorf("sizeServiceServer.Update() = %v, want %vņdiff: %s", pointer.SafeDeref(got).Msg, tt.want, diff)
+			}
+
+		})
+	}
+}
+
 func Test_sizeServiceServer_Delete(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
