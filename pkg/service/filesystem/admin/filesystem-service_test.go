@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"connectrpc.com/connect"
+	"github.com/Masterminds/semver/v3"
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -16,6 +17,9 @@ import (
 )
 
 func Test_filesystemServiceServer_Create(t *testing.T) {
+	// Restore old (<= v3.3.1) behavior
+	semver.CoerceNewVersion = false
+
 	log := slog.Default()
 	repo, closer := test.StartRepository(t, log)
 	defer closer()
@@ -76,7 +80,7 @@ func Test_filesystemServiceServer_Create(t *testing.T) {
 				},
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("given version:12.04 is not valid:Invalid Semantic Version"),
+			wantErr: errorutil.InvalidArgument("given version:12.04 is not valid:version segment starts with 0"),
 		},
 	}
 	for _, tt := range tests {

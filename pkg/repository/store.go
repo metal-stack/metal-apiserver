@@ -139,6 +139,16 @@ func (s *Store) FilesystemLayout() FilesystemLayout {
 		typed:      repository,
 	}
 }
+func (s *Store) Size() Size {
+	repository := &sizeRepository{
+		s: s,
+	}
+
+	return &store[*sizeRepository, *metal.Size, *apiv2.Size, *adminv2.SizeServiceCreateRequest, *adminv2.SizeServiceUpdateRequest, *apiv2.SizeQuery]{
+		repository: repository,
+		typed:      repository,
+	}
+}
 func (s *Store) Partition() Partition {
 	repository := &partitionRepository{
 		s: s,
