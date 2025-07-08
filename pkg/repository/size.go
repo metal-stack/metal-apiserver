@@ -53,24 +53,23 @@ func (r *sizeRepository) create(ctx context.Context, req *adminv2.SizeServiceCre
 }
 
 func (r *sizeRepository) update(ctx context.Context, e *metal.Size, req *adminv2.SizeServiceUpdateRequest) (*metal.Size, error) {
-	rq := req.Size
-	old, err := r.get(ctx, rq.Id)
+	old, err := r.get(ctx, req.Id)
 	if err != nil {
 		return nil, err
 	}
 
 	new := *old
 
-	if rq.Description != nil {
-		new.Description = *rq.Description
+	if req.Description != nil {
+		new.Description = *req.Description
 	}
-	if rq.Name != nil {
-		new.Name = *rq.Name
+	if req.Name != nil {
+		new.Name = *req.Name
 	}
 
 	var constraints []metal.Constraint
-	if rq.Constraints != nil {
-		for _, c := range rq.Constraints {
+	if req.Constraints != nil {
+		for _, c := range req.Constraints {
 			metalConstraint, err := metal.ToConstraint(c)
 			if err != nil {
 				return nil, err
@@ -80,8 +79,8 @@ func (r *sizeRepository) update(ctx context.Context, e *metal.Size, req *adminv2
 		new.Constraints = constraints
 	}
 
-	if req.Size.Meta != nil && req.Size.Meta.Labels != nil {
-		new.Labels = req.Size.Meta.Labels.Labels
+	if req.Labels != nil {
+		new.Labels = updateLabelsOnMap(req.Labels, new.Labels)
 	}
 
 	err = r.s.ds.Size().Update(ctx, &new)

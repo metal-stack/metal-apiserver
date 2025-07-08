@@ -16,7 +16,7 @@ func (r *sizeRepository) validateCreate(ctx context.Context, req *adminv2.SizeSe
 		errs []error
 	)
 
-	err := r.validateSizeConstraints(req.Size)
+	err := r.validateSizeConstraints(req.Size.Constraints)
 	if err != nil {
 		errs = append(errs, err)
 	}
@@ -37,11 +37,19 @@ func (r *sizeRepository) validateUpdate(ctx context.Context, req *adminv2.SizeSe
 		errs []error
 	)
 
-	err := r.validateSizeConstraints(req.Size)
+	err := r.validateSizeConstraints(req.Constraints)
 	if err != nil {
 		errs = append(errs, err)
 	}
-	err = r.validateSizesNotOverlapping(ctx, req.Size)
+
+	size := &apiv2.Size{
+		Id:          req.Id,
+		Name:        req.Name,
+		Description: req.Description,
+		Constraints: req.Constraints,
+	}
+
+	err = r.validateSizesNotOverlapping(ctx, size)
 	if err != nil {
 		errs = append(errs, err)
 	}
@@ -65,13 +73,13 @@ func (r *sizeRepository) validateDelete(ctx context.Context, req *metal.Size) er
 	return nil
 }
 
-func (r *sizeRepository) validateSizeConstraints(size *apiv2.Size) error {
+func (r *sizeRepository) validateSizeConstraints(constraints []*apiv2.SizeConstraint) error {
 	var (
 		errs       []error
 		typeCounts = map[apiv2.SizeConstraintType]uint{}
 	)
 
-	for i, c := range size.Constraints {
+	for i, c := range constraints {
 		typeCounts[c.Type]++
 
 		metalConstraint, err := metal.ToConstraint(c)
@@ -85,16 +93,16 @@ func (r *sizeRepository) validateSizeConstraints(size *apiv2.Size) error {
 			errs = append(errs, fmt.Errorf("constraint at index %d is invalid: %w", i, err))
 		}
 
-		switch t := c.Type; t {
+		switch c.Type {
 		case apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_GPU, apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE:
 		case apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES:
-			if typeCounts[t] > 1 {
-				errs = append(errs, fmt.Errorf("constraint at index %d is invalid: type duplicates are not allowed for type %q", i, t))
+			if typeCounts[c.Type] > 1 {
+				errs = append(errs, fmt.Errorf("constraint at index %d is invalid: type duplicates are not allowed for type %q", i, c.Type))
 			}
 		case apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_UNSPECIFIED:
 			fallthrough
 		default:
-			errs = append(errs, fmt.Errorf("invalid constraint type:%q", t))
+			errs = append(errs, fmt.Errorf("invalid constraint type:%q", c.Type))
 		}
 	}
 

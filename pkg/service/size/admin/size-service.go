@@ -45,7 +45,7 @@ func (s *sizeServiceServer) Create(ctx context.Context, rq *connect.Request[admi
 
 // Update implements adminv2connect.SizeServiceHandler.
 func (s *sizeServiceServer) Update(ctx context.Context, rq *connect.Request[adminv2.SizeServiceUpdateRequest]) (*connect.Response[adminv2.SizeServiceUpdateResponse], error) {
-	size, err := s.repo.Size().Update(ctx, rq.Msg.Size.Id, rq.Msg)
+	size, err := s.repo.Size().Update(ctx, rq.Msg.Id, rq.Msg)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

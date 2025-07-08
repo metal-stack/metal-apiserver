@@ -163,7 +163,7 @@ func (c *Constraint) Validate() error {
 		return fmt.Errorf("identifier is malformed: %w", err)
 	}
 
-	switch t := c.Type; t {
+	switch c.Type {
 	case GPUConstraint:
 		if c.Identifier == "" {
 			return fmt.Errorf("for gpu constraints an identifier is required")

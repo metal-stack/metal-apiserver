@@ -171,6 +171,11 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 		{
 			Size: &apiv2.Size{
 				Id: "n3-medium-x86", Name: pointer.Pointer("n3-medium-x86"),
+				Meta: &apiv2.Meta{
+					Labels: &apiv2.Labels{
+						Labels: map[string]string{"purpose": "worker", "location": "munich", "architecture": "x86"},
+					},
+				},
 				Constraints: []*apiv2.SizeConstraint{
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 12, Max: 12},
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
@@ -191,13 +196,11 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 		{
 			name: "update n1-medium name and description",
 			rq: &adminv2.SizeServiceUpdateRequest{
-				Size: &apiv2.Size{
-					Id: "n1-medium-x86", Name: pointer.Pointer("n1-medium"), Description: pointer.Pointer("best for firewalls"),
-					Constraints: []*apiv2.SizeConstraint{
-						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
-						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
-						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 10 * 1024 * 1024, Max: 10 * 1024 * 1024},
-					},
+				Id: "n1-medium-x86", Name: pointer.Pointer("n1-medium"), Description: pointer.Pointer("best for firewalls"),
+				Constraints: []*apiv2.SizeConstraint{
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 10 * 1024 * 1024, Max: 10 * 1024 * 1024},
 				},
 			},
 			want: &adminv2.SizeServiceUpdateResponse{
@@ -216,13 +219,11 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 		{
 			name: "update n2-medium constraints",
 			rq: &adminv2.SizeServiceUpdateRequest{
-				Size: &apiv2.Size{
-					Id: "n2-medium-x86",
-					Constraints: []*apiv2.SizeConstraint{
-						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 6, Max: 12},
-						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 2 * 1024 * 1024},
-						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 20 * 1024 * 1024, Max: 30 * 1024 * 1024},
-					},
+				Id: "n2-medium-x86",
+				Constraints: []*apiv2.SizeConstraint{
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 6, Max: 12},
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 2 * 1024 * 1024},
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 20 * 1024 * 1024, Max: 30 * 1024 * 1024},
 				},
 			},
 			want: &adminv2.SizeServiceUpdateResponse{
@@ -233,6 +234,31 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 6, Max: 12},
 						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 2 * 1024 * 1024},
 						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 20 * 1024 * 1024, Max: 30 * 1024 * 1024},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "update n3-medium labels",
+			rq: &adminv2.SizeServiceUpdateRequest{
+				Id: "n3-medium-x86",
+				Labels: &apiv2.UpdateLabels{
+					Update: &apiv2.Labels{Labels: map[string]string{"purpose": "big worker"}},
+					Remove: []string{"location"},
+				},
+			},
+			want: &adminv2.SizeServiceUpdateResponse{
+				Size: &apiv2.Size{
+					Id: "n3-medium-x86", Name: pointer.Pointer("n3-medium-x86"),
+					Meta: &apiv2.Meta{
+						Labels: &apiv2.Labels{
+							Labels: map[string]string{"purpose": "big worker", "architecture": "x86"},
+						},
+					}, Constraints: []*apiv2.SizeConstraint{
+						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 12, Max: 12},
+						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
+						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 10 * 1024 * 1024, Max: 10 * 1024 * 1024},
 					},
 				},
 			},
