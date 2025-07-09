@@ -74,13 +74,13 @@ func Test_filesystemServiceServer_Create(t *testing.T) {
 					Constraints: &apiv2.FilesystemLayoutConstraints{
 						Sizes: []string{"c1-large-x86"},
 						Images: map[string]string{
-							"debian": ">= 12.04",
+							"debian": ">=12.04",
 						},
 					},
 				},
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("given version:12.04 is not valid:version segment starts with 0"),
+			wantErr: errorutil.InvalidArgument("given imageconstraint:>=12.04 is not valid, missing space between op and version? invalid semantic version"),
 		},
 	}
 	for _, tt := range tests {

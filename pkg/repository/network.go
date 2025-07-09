@@ -307,7 +307,7 @@ func (r *networkRepository) update(ctx context.Context, nw *metal.Network, req *
 		prefixesToBeAdded   metal.Prefixes
 	)
 
-	// Ensure child networks can be updated without loosing the prefixes.
+	// Ensure child networks can be updated without losing the prefixes.
 	if metal.IsChildNetwork(nw.NetworkType) {
 		req.Prefixes = nw.Prefixes.String()
 	}
