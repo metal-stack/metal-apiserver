@@ -23,7 +23,7 @@ require (
 	github.com/klauspost/connect-compress/v2 v2.0.0
 	github.com/lestrrat-go/jwx/v2 v2.1.6
 	github.com/markbates/goth v1.81.0
-	github.com/metal-stack/api v0.0.1
+	github.com/metal-stack/api v0.0.2
 	github.com/metal-stack/go-ipam v1.14.12
 	github.com/metal-stack/masterdata-api v0.11.11
 	github.com/metal-stack/metal-lib v0.23.1
@@ -33,6 +33,7 @@ require (
 	github.com/prometheus/client_golang v1.22.0
 	github.com/redis/go-redis/v9 v9.11.0
 	github.com/rs/cors v1.11.1
+	github.com/samber/lo v1.51.0
 	github.com/stretchr/testify v1.10.0
 	github.com/testcontainers/testcontainers-go v0.37.0
 	github.com/testcontainers/testcontainers-go/modules/valkey v0.37.0
@@ -41,7 +42,7 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.37.0
 	golang.org/x/net v0.41.0
 	golang.org/x/oauth2 v0.30.0
-	golang.org/x/sync v0.15.0
+	golang.org/x/sync v0.16.0
 	google.golang.org/grpc v1.73.0
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/rethinkdb/rethinkdb-go.v6 v6.2.2
@@ -183,7 +184,7 @@ require (
 	golang.org/x/crypto v0.39.0 // indirect
 	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b // indirect
 	golang.org/x/sys v0.33.0 // indirect
-	golang.org/x/text v0.26.0 // indirect
+	golang.org/x/text v0.27.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250707201910-8d1bb00bc6a7 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250707201910-8d1bb00bc6a7 // indirect

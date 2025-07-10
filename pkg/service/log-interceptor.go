@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"connectrpc.com/connect"
 )
@@ -22,6 +23,7 @@ func (i *logInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 		var (
 			log   = i.log.With("procedure", req.Spec().Procedure)
 			debug = i.log.Enabled(ctx, slog.LevelDebug)
+			start = time.Now()
 		)
 
 		if debug {
@@ -39,7 +41,7 @@ func (i *logInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 		if err != nil {
 			log.Error("error during unary call", "error", err)
 		} else if debug {
-			log.Debug("handled call successfully")
+			log.Debug("handled call successfully", "duration", time.Since(start).String())
 		}
 
 		return response, err
