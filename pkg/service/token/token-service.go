@@ -339,6 +339,87 @@ func (t *tokenService) Revoke(ctx context.Context, rq *connect.Request[apiv2.Tok
 	return connect.NewResponse(&apiv2.TokenServiceRevokeResponse{}), nil
 }
 
+func (t *tokenService) Refresh(ctx context.Context, _ *connect.Request[apiv2.TokenServiceRefreshRequest]) (*connect.Response[apiv2.TokenServiceRefreshResponse], error) {
+	token, ok := tokenutil.TokenFromContext(ctx)
+	if !ok || token == nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
+	}
+
+	oldtoken, err := t.tokens.Get(ctx, token.UserId, token.Uuid)
+	if err != nil {
+		if errors.Is(err, tokenutil.ErrTokenNotFound) {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("token not found"))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// we first copy the token permission from the old token
+	createRequest := &apiv2.TokenServiceCreateRequest{
+		Permissions:  oldtoken.Permissions,
+		ProjectRoles: oldtoken.ProjectRoles,
+		TenantRoles:  oldtoken.TenantRoles,
+		AdminRole:    oldtoken.AdminRole,
+	}
+
+	err = validateTokenCreate(token, createRequest, t.servicePermissions, t.adminSubjects)
+	if err != nil {
+		return nil, connect.NewError(connect.CodePermissionDenied, err)
+	}
+
+	// now, we validate if the user is still permitted to refresh the token
+	// doing this check is not strictly necessary because the resulting token would fail in the opa auther when being compared
+	// to the actual user permissions, but it's nicer for the user to already prevent token update immediately in this place
+
+	projectsAndTenants, err := t.projectsAndTenantsGetter(ctx, token.GetUserId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	fullUserToken := &apiv2.Token{
+		UserId:       token.UserId,
+		ProjectRoles: projectsAndTenants.ProjectRoles,
+		TenantRoles:  projectsAndTenants.TenantRoles,
+		AdminRole:    nil,
+	}
+	if slices.Contains(t.adminSubjects, token.UserId) {
+		fullUserToken.AdminRole = apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum()
+	}
+	err = validateTokenCreate(fullUserToken, createRequest, t.servicePermissions, t.adminSubjects)
+	if err != nil {
+		return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("outdated token: %w", err))
+	}
+
+	// now follows the refresh, aka create a new token
+
+	privateKey, err := t.certs.LatestPrivate(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// New duration is calculated from the old token
+	exp := oldtoken.Expires.AsTime().Sub(oldtoken.IssuedAt.AsTime())
+
+	secret, newToken, err := tokenutil.NewJWT(apiv2.TokenType_TOKEN_TYPE_API, token.GetUserId(), t.issuer, exp, privateKey)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	newToken.Description = oldtoken.Description
+	newToken.Permissions = oldtoken.Permissions
+	newToken.ProjectRoles = oldtoken.ProjectRoles
+	newToken.TenantRoles = oldtoken.TenantRoles
+	newToken.AdminRole = oldtoken.AdminRole
+
+	err = t.tokens.Set(ctx, newToken)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&apiv2.TokenServiceRefreshResponse{
+		Token:  newToken,
+		Secret: secret,
+	}), nil
+}
+
 func validateTokenCreate(currentToken *apiv2.Token, req *apiv2.TokenServiceCreateRequest, servicePermissions *permissions.ServicePermissions, adminIDs []string) error {
 	var (
 		tokenPermissionsMap = method.PermissionsBySubject(currentToken)

@@ -3,6 +3,7 @@ package token
 import (
 	"context"
 	"log/slog"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/google/go-cmp/cmp"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	v1 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/permissions"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
@@ -20,6 +22,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func Test_tokenService_CreateConsoleTokenWithoutPermissionCheck(t *testing.T) {
@@ -1250,6 +1253,142 @@ func Test_Update(t *testing.T) {
 				assert.Equal(t, tt.wantToken.Uuid, got.Uuid, "uuid")
 				assert.Equal(t, tt.wantToken.Description, got.Description, "description")
 				assert.Equal(t, tt.wantToken.UserId, got.UserId, "user id")
+				assert.Equal(t, tt.wantToken.TokenType, got.TokenType, "token type")
+				assert.Equal(t, tt.wantToken.AdminRole, got.AdminRole, "admin role")
+				assert.Equal(t, tt.wantToken.Permissions, got.Permissions, "permissions")
+				assert.Equal(t, tt.wantToken.ProjectRoles, got.ProjectRoles, "project roles")
+				assert.Equal(t, tt.wantToken.TenantRoles, got.TenantRoles, "tenant roles")
+			}
+		})
+	}
+}
+
+func Test_Refresh(t *testing.T) {
+	iat := time.Now()
+	exp := iat.Add(time.Hour)
+	type state struct {
+		adminSubjects []string
+		projectRoles  map[string]v1.ProjectRole
+		tenantRoles   map[string]v1.TenantRole
+	}
+	tests := []struct {
+		name           string
+		sessionToken   *v1.Token
+		existingToken  *v1.Token
+		state          state
+		wantErr        bool
+		wantErrMessage string
+		wantToken      *v1.Token
+	}{
+		{
+			name: "can update bare token",
+			sessionToken: &v1.Token{
+				UserId:       "phippy",
+				Uuid:         "111",
+				Permissions:  []*v1.MethodPermission{},
+				ProjectRoles: map[string]v1.ProjectRole{},
+				TenantRoles:  map[string]v1.TenantRole{},
+			},
+			existingToken: &v1.Token{
+				Uuid:         "111",
+				UserId:       "phippy",
+				Permissions:  []*v1.MethodPermission{},
+				ProjectRoles: map[string]v1.ProjectRole{},
+				TenantRoles:  map[string]v1.TenantRole{},
+				TokenType:    v1.TokenType_TOKEN_TYPE_API,
+				IssuedAt:     timestamppb.New(iat),
+				Expires:      timestamppb.New(exp),
+			},
+			state: state{
+				adminSubjects: []string{},
+			},
+			wantToken: &v1.Token{
+				Uuid:         "111",
+				UserId:       "phippy",
+				Permissions:  nil,
+				ProjectRoles: map[string]v1.ProjectRole{},
+				TenantRoles:  map[string]v1.TenantRole{},
+				TokenType:    v1.TokenType_TOKEN_TYPE_API,
+				IssuedAt:     timestamppb.New(exp),
+				Expires:      timestamppb.New(exp.Add(time.Hour)),
+			},
+		},
+		// FIXME more tests
+		{
+			name: "token does not exist in database",
+			sessionToken: &v1.Token{
+				UserId:      "phippy",
+				Permissions: []*v1.MethodPermission{},
+				ProjectRoles: map[string]v1.ProjectRole{
+					"kubies": v1.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+			},
+			state: state{
+				adminSubjects: []string{},
+				projectRoles: map[string]v1.ProjectRole{
+					"kubies": v1.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+				tenantRoles: map[string]v1.TenantRole{},
+			},
+			wantErr:        true,
+			wantErrMessage: `not_found: token not found`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(token.ContextWithToken(t.Context(), tt.sessionToken))
+			defer cancel()
+
+			s := miniredis.RunT(t)
+			c := redis.NewClient(&redis.Options{Addr: s.Addr()})
+
+			tokenStore := token.NewRedisStore(c)
+			certStore := certs.NewRedisStore(&certs.Config{
+				RedisClient: c,
+			})
+
+			if tt.existingToken != nil {
+				err := tokenStore.Set(ctx, tt.existingToken)
+				require.NoError(t, err)
+			}
+
+			rawService := New(Config{
+				Log:           slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})),
+				TokenStore:    tokenStore,
+				CertStore:     certStore,
+				MasterClient:  nil,
+				Issuer:        "http://test",
+				AdminSubjects: tt.state.adminSubjects,
+			})
+
+			service, ok := rawService.(*tokenService)
+			if !ok {
+				t.Fatalf("want new token service to be tokenService, got: %T", rawService)
+			}
+
+			service.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*putil.ProjectsAndTenants, error) {
+				return &putil.ProjectsAndTenants{
+					ProjectRoles: tt.state.projectRoles,
+					TenantRoles:  tt.state.tenantRoles,
+				}, nil
+			}
+
+			response, err := service.Refresh(ctx, connect.NewRequest(&apiv2.TokenServiceRefreshRequest{}))
+			switch {
+			case tt.wantErr && err != nil:
+				if dff := cmp.Diff(tt.wantErrMessage, err.Error()); dff != "" {
+					t.Fatal(dff)
+				}
+			case tt.wantErr && err == nil:
+				t.Fatalf("want error %q, got response %q", tt.wantErrMessage, response)
+			case err != nil:
+				t.Fatalf("want response, got error %q", err)
+
+			default:
+				got := response.Msg.Token
+				assert.Equal(t, tt.wantToken.UserId, got.UserId, "userId")
+				assert.Equal(t, tt.wantToken.Description, got.Description, "description")
 				assert.Equal(t, tt.wantToken.TokenType, got.TokenType, "token type")
 				assert.Equal(t, tt.wantToken.AdminRole, got.AdminRole, "admin role")
 				assert.Equal(t, tt.wantToken.Permissions, got.Permissions, "permissions")
