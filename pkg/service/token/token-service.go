@@ -442,6 +442,13 @@ func validateTokenCreate(currentToken *apiv2.Token, req *apiv2.TokenServiceCreat
 
 	for _, reqSubjectPermission := range requestedPermissions {
 		reqSubjectID := reqSubjectPermission.Subject
+
+		// If admin skip this checks
+		// FIXME is this correct
+		if slices.Contains(adminIDs, currentToken.UserId) && currentToken.AdminRole != nil {
+			continue
+		}
+
 		// Check if the requested subject, e.g. project or organization can be accessed
 		tokenProjectPermissions, ok := tokenPermissionsMap[reqSubjectID]
 		if !ok {
