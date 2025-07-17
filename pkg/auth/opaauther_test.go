@@ -384,7 +384,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			wantErr: connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("invalid token")),
 		},
 		{
-			name:    "project list service has visibility self",
+			name:    "project list service has visibility self but wrong methodpermissions",
 			subject: "john.doe@github",
 			method:  "/metalstack.api.v2.ProjectService/List",
 			req:     v2.ProjectServiceListRequest{},
@@ -399,7 +399,39 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 					Methods: []string{"/metalstack.api.v2.IPService/List"},
 				},
 			},
-			// TODO: I don't really understand why any permissions are necessary?
+			wantErr: connect.NewError(connect.CodePermissionDenied, fmt.Errorf("not allowed to call: /metalstack.api.v2.ProjectService/List")),
+		},
+		{
+			name:      "project list service has visibility self and console token",
+			subject:   "john.doe@github",
+			method:    "/metalstack.api.v2.ProjectService/List",
+			tokenType: v2.TokenType_TOKEN_TYPE_CONSOLE,
+			req:       v2.ProjectServiceListRequest{},
+			projectsAndTenants: &putil.ProjectsAndTenants{
+				TenantRoles: map[string]v2.TenantRole{
+					"john.doe@github": v2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+		},
+		{
+			name:      "project list service has visibility self with api token and proper method permissions",
+			subject:   "john.doe@github",
+			method:    "/metalstack.api.v2.ProjectService/List",
+			tokenType: v2.TokenType_TOKEN_TYPE_API,
+			req:       v2.ProjectServiceListRequest{},
+			// FIXME this is weird, if a api token is created for specific methods, but still tenant or project roles are defined
+			// self methods can not be called
+			// projectsAndTenants: &putil.ProjectsAndTenants{
+			// 	TenantRoles: map[string]v2.TenantRole{
+			// 		"john.doe@github": v2.TenantRole_TENANT_ROLE_OWNER,
+			// 	},
+			// },
+			permissions: []*v2.MethodPermission{
+				{
+					Subject: "a-project",
+					Methods: []string{"/metalstack.api.v2.ProjectService/List"},
+				},
+			},
 		},
 		{
 			name:    "project list service has visibility self but token has not permissions",
@@ -433,10 +465,27 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:      "metal-image-cache-sync token works",
+			subject:   "metal-image-cache-sync@metal-stack.io",
+			method:    "/metalstack.api.v2.ImageService/List",
+			req:       v2.ImageServiceListRequest{},
+			tokenType: v2.TokenType_TOKEN_TYPE_API,
+			permissions: []*v2.MethodPermission{
+				{
+					Subject: "project-a",
+					Methods: []string{
+						"/metalstack.api.v2.ImageService/List",
+						"/metalstack.api.v2.PartitionService/List",
+						"/metalstack.api.v2.TokenService/Refresh",
+					},
+				},
+			},
+			wantErr: nil,
+		},
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			s := miniredis.RunT(t)
 			defer s.Close()

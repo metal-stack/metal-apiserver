@@ -305,7 +305,7 @@ func (o *opa) decide(ctx context.Context, methodName string, jwtTokenfunc func(s
 		if t.TokenType == v2.TokenType_TOKEN_TYPE_API {
 			projectRoles := t.ProjectRoles
 			tenantRoles := t.TenantRoles
-			permissions := method.PermissionsBySubject(t)
+			permissions = method.PermissionsBySubject(t)
 			adminRole := t.AdminRole
 
 			decision, err := o.authorize(ctx, newOpaAuthorizationRequest(methodName, req, t, permissions, projectRoles, tenantRoles, adminRole))
@@ -333,7 +333,6 @@ func (o *opa) decide(ctx context.Context, methodName string, jwtTokenfunc func(s
 
 		projectRoles = pat.ProjectRoles
 		tenantRoles = pat.TenantRoles
-		permissions = nil // consoletokens should never have permissions cause they are not stored in the masterdata-db
 		o.log.Debug("decide", "adminsubjects", o.adminSubjects, "userid", t.UserId)
 		if slices.Contains(o.adminSubjects, t.UserId) {
 			// we do not store admin roles in the masterdata-api, but we can use this from the static configuration passed to the api-server
@@ -345,8 +344,12 @@ func (o *opa) decide(ctx context.Context, methodName string, jwtTokenfunc func(s
 			t.ProjectRoles = projectRoles
 			t.TenantRoles = tenantRoles
 			t.AdminRole = adminRole
+			// consoletokens should never have permissions cause they are not stored in the masterdata-db
+			permissions = nil
 		}
 	}
+
+	o.log.Info("decision context", "method", methodName, "req", req, "token", t, "permission", permissions, "projectRoles", projectRoles, "tenantRoles", tenantRoles)
 
 	decision, err := o.authorize(ctx, newOpaAuthorizationRequest(methodName, req, t, permissions, projectRoles, tenantRoles, adminRole))
 	if err != nil {

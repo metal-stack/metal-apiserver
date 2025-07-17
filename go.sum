@@ -282,8 +282,8 @@ github.com/mattn/go-sqlite3 v1.14.22 h1:2gZY6PC6kBnID23Tichd1K+Z0oS6nE/XwU+Vz/5o
 github.com/mattn/go-sqlite3 v1.14.22/go.mod h1:Uh1q+B4BYcTPb+yiD3kU8Ct7aC0hY9fxUwlHK0RXw+Y=
 github.com/mdelapenya/tlscert v0.2.0 h1:7H81W6Z/4weDvZBNOfQte5GpIMo0lGYEeWbkGp5LJHI=
 github.com/mdelapenya/tlscert v0.2.0/go.mod h1:O4njj3ELLnJjGdkN7M/vIVCpZ+Cf0L6muqOG4tLSl8o=
-github.com/metal-stack/api v0.0.5 h1:fxvUpzc/mkYUhm/grHpvOcEDB3Nz3urKQPp5H8HV22s=
-github.com/metal-stack/api v0.0.5/go.mod h1:V6yms3/nDRe2M9QatFtCSTQV5EFtqUnT6SZkonSkKJY=
+github.com/metal-stack/api v0.0.6 h1:fQjSfa+SwlTkHPBayy9rEID+bha/56fOfXOhHrEcGBg=
+github.com/metal-stack/api v0.0.6/go.mod h1:V6yms3/nDRe2M9QatFtCSTQV5EFtqUnT6SZkonSkKJY=
 github.com/metal-stack/go-ipam v1.14.12 h1:yb9mZ7FGKaaPeiSe4X6BLrGquuw9WPoxCSSDzSx+/fY=
 github.com/metal-stack/go-ipam v1.14.12/go.mod h1:B6R3ADxm1r5C1DJafhI90oB3+DRRby076yS9QQ664oY=
 github.com/metal-stack/masterdata-api v0.11.11 h1:TA7sKDQAzaZkVs2ByfXmMh5HhcF3nGAIlYbA5VfR3oo=
@@ -556,8 +556,8 @@ google.golang.org/genproto/googleapis/api v0.0.0-20250715232539-7130f93afb79 h1:
 google.golang.org/genproto/googleapis/api v0.0.0-20250715232539-7130f93afb79/go.mod h1:HKJDgKsFUnv5VAGeQjz8kxcgDP0HoE0iZNp0OdZNlhE=
 google.golang.org/genproto/googleapis/rpc v0.0.0-20250715232539-7130f93afb79 h1:1ZwqphdOdWYXsUHgMpU/101nCtf/kSp9hOrcvFsnl10=
 google.golang.org/genproto/googleapis/rpc v0.0.0-20250715232539-7130f93afb79/go.mod h1:qQ0YXyHHx3XkvlzUtpXDkS29lDSafHMZBAZDc03LQ3A=
-google.golang.org/grpc v1.73.0 h1:VIWSmpI2MegBtTuFt5/JWy2oXxtjJ/e89Z70ImfD2ok=
-google.golang.org/grpc v1.73.0/go.mod h1:50sbHOUqWoCQGI8V2HQLJM0B+LMlIUjNSZmow7EVBQc=
+google.golang.org/grpc v1.74.0 h1:sxRSkyLxlceWQiqDofxDot3d4u7DyoHPc7SBXMj8gGY=
+google.golang.org/grpc v1.74.0/go.mod h1:NZUaK8dAMUfzhK6uxZ+9511LtOrk73UGWOFoNvz7z+s=
 google.golang.org/protobuf v1.36.6 h1:z1NpPI8ku2WgiWnf+t9wTPsn6eP1L7ksHUlkfLvd9xY=
 google.golang.org/protobuf v1.36.6/go.mod h1:jduwjTPXsFjZGTmRluh+L6NjiWu7pchiJ2/5YcXBHnY=
 gopkg.in/airbrake/gobrake.v2 v2.0.9/go.mod h1:/h5ZAUhDkGaJfjzjKLSjv6zCL6O0LLBxU4K+aSYdM/U=
