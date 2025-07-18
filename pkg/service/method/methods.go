@@ -3,6 +3,7 @@ package method
 import (
 	v1 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/permissions"
+	"github.com/metal-stack/metal-lib/pkg/pointer"
 )
 
 func IsAdminToken(token *v1.Token) bool {
@@ -12,7 +13,10 @@ func IsAdminToken(token *v1.Token) bool {
 func PermissionsBySubject(token *v1.Token) map[string]*v1.MethodPermission {
 	res := map[string]*v1.MethodPermission{}
 	for _, p := range token.Permissions {
-		perm, ok := res[p.Subject]
+		if p.Subject == nil {
+			p.Subject = pointer.Pointer("*")
+		}
+		perm, ok := res[*p.Subject]
 		if !ok {
 			perm = &v1.MethodPermission{
 				Subject: p.Subject,
@@ -21,7 +25,7 @@ func PermissionsBySubject(token *v1.Token) map[string]*v1.MethodPermission {
 
 		perm.Methods = append(perm.Methods, p.Methods...)
 
-		res[p.Subject] = perm
+		res[*p.Subject] = perm
 	}
 	return res
 }
@@ -33,7 +37,7 @@ func AllowedMethodsFromRoles(servicePermissions *permissions.ServicePermissions,
 		perm, ok := perms[projectID]
 		if !ok {
 			perm = &v1.MethodPermission{
-				Subject: projectID,
+				Subject: &projectID,
 			}
 		}
 
@@ -46,7 +50,7 @@ func AllowedMethodsFromRoles(servicePermissions *permissions.ServicePermissions,
 		perm, ok := perms[tenantID]
 		if !ok {
 			perm = &v1.MethodPermission{
-				Subject: tenantID,
+				Subject: &tenantID,
 			}
 		}
 

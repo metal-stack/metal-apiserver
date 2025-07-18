@@ -67,7 +67,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			req:     nil,
 			permissions: []*v2.MethodPermission{
 				{
-					Subject: "john.doe@github",
+					Subject: pointer.Pointer("john.doe@github"),
 					Methods: []string{"/metalstack.api.v2.UnknownService/Get"},
 				},
 			},
@@ -222,7 +222,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			req:     adminv2.TenantServiceListRequest{},
 			permissions: []*v2.MethodPermission{
 				{
-					Subject: "john.doe@github",
+					Subject: pointer.Pointer("john.doe@github"),
 					Methods: []string{"/metalstack.admin.v2.TenantService/List"},
 				},
 			},
@@ -395,7 +395,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			},
 			permissions: []*v2.MethodPermission{
 				{
-					Subject: "a-project",
+					Subject: pointer.Pointer("a-project"),
 					Methods: []string{"/metalstack.api.v2.IPService/List"},
 				},
 			},
@@ -428,7 +428,6 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			// },
 			permissions: []*v2.MethodPermission{
 				{
-					Subject: "a-project",
 					Methods: []string{"/metalstack.api.v2.ProjectService/List"},
 				},
 			},
@@ -447,7 +446,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			req:     v2.ProjectServiceGetRequest{Project: "a-project"},
 			permissions: []*v2.MethodPermission{
 				{
-					Subject: "a-project",
+					Subject: pointer.Pointer("a-project"),
 					Methods: []string{"/metalstack.api.v2.IPService/List"},
 				},
 			},
@@ -473,7 +472,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			tokenType: v2.TokenType_TOKEN_TYPE_API,
 			permissions: []*v2.MethodPermission{
 				{
-					Subject: "project-a",
+					Subject: pointer.Pointer("a-project"),
 					Methods: []string{
 						"/metalstack.api.v2.ImageService/List",
 						"/metalstack.api.v2.PartitionService/List",
@@ -504,6 +503,122 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			}
 
 			jwt, tok, err := token.NewJWT(tokenType, tt.subject, defaultIssuer, exp, key)
+			require.NoError(t, err)
+
+			if tt.userJwtMutateFn != nil {
+				jwt = tt.userJwtMutateFn(t, jwt)
+			}
+
+			tok.Permissions = tt.permissions
+			tok.ProjectRoles = tt.projectRoles
+			tok.TenantRoles = tt.tenantRoles
+			tok.AdminRole = tt.adminRole
+
+			err = tokenStore.Set(ctx, tok)
+			require.NoError(t, err)
+
+			o, err := New(Config{
+				Log:            slog.Default(),
+				CertStore:      certStore,
+				CertCacheTime:  pointer.Pointer(0 * time.Second),
+				TokenStore:     tokenStore,
+				AllowedIssuers: []string{defaultIssuer},
+				AdminSubjects:  []string{"john.doe@github"},
+			})
+			require.NoError(t, err)
+
+			o.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*putil.ProjectsAndTenants, error) {
+				if tt.projectsAndTenants == nil {
+					return &putil.ProjectsAndTenants{}, nil
+				}
+				return tt.projectsAndTenants, nil
+			}
+
+			jwtTokenFunc := func(_ string) string {
+				return "Bearer " + jwt
+			}
+
+			_, err = o.decide(ctx, tt.method, jwtTokenFunc, tt.req)
+			if diff := cmp.Diff(tt.wantErr, err, testcommon.ErrorStringComparer()); diff != "" {
+				t.Error(err.Error())
+				t.Errorf("error diff (+got -want):\n %s", diff)
+			}
+		})
+	}
+}
+
+func Test_opa_authorize_with_permissions_optional_subject(t *testing.T) {
+	var (
+		certStore, key = prepare(t)
+		defaultIssuer  = "https://api-server"
+	)
+
+	tests := []struct {
+		name               string
+		subject            string
+		method             string
+		permissions        []*v2.MethodPermission
+		projectRoles       map[string]v2.ProjectRole
+		tenantRoles        map[string]v2.TenantRole
+		adminRole          *v2.AdminRole
+		userJwtMutateFn    func(t *testing.T, jwt string) string
+		expiration         *time.Duration
+		req                any
+		projectsAndTenants *putil.ProjectsAndTenants
+		tokenType          v2.TokenType
+		wantErr            error
+	}{
+		{
+			name:      "project list service has visibility self with api token and proper method permissions",
+			subject:   "john.doe@github",
+			method:    "/metalstack.api.v2.ProjectService/List",
+			tokenType: v2.TokenType_TOKEN_TYPE_API,
+			req:       v2.ProjectServiceListRequest{},
+			projectsAndTenants: &putil.ProjectsAndTenants{
+				TenantRoles: map[string]v2.TenantRole{
+					"john.doe@github": v2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			permissions: []*v2.MethodPermission{
+				{
+					Methods: []string{"/metalstack.api.v2.ProjectService/List"},
+				},
+			},
+		},
+		{
+			name:      "metal-image-cache-sync token works",
+			subject:   "metal-image-cache-sync@metal-stack.io",
+			method:    "/metalstack.api.v2.ImageService/List",
+			req:       v2.ImageServiceListRequest{},
+			tokenType: v2.TokenType_TOKEN_TYPE_API,
+			permissions: []*v2.MethodPermission{
+				{
+					// Subject: pointer.Pointer("a-project"),
+					Methods: []string{
+						"/metalstack.api.v2.ImageService/List",
+						"/metalstack.api.v2.PartitionService/List",
+						"/metalstack.api.v2.TokenService/Refresh",
+					},
+				},
+			},
+			wantErr: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := miniredis.RunT(t)
+			defer s.Close()
+
+			ctx := t.Context()
+			tokenStore := token.NewRedisStore(redis.NewClient(&redis.Options{Addr: s.Addr()}))
+
+			exp := time.Hour
+			if tt.expiration != nil {
+				exp = *tt.expiration
+			}
+
+			jwt, tok, err := token.NewJWT(tt.tokenType, tt.subject, defaultIssuer, exp, key)
 			require.NoError(t, err)
 
 			if tt.userJwtMutateFn != nil {

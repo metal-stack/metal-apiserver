@@ -70,7 +70,7 @@ func TestRedisStoreSetAndGet(t *testing.T) {
 		Description: "abc",
 		Permissions: []*v1.MethodPermission{
 			{
-				Subject: "a",
+				Subject: pointer.Pointer("a"),
 				Methods: []string{"b", "c"},
 			},
 		},

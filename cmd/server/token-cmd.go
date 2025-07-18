@@ -101,7 +101,7 @@ func newTokenCmd() *cli.Command {
 				}
 
 				permissions = append(permissions, &apiv2.MethodPermission{
-					Subject: project,
+					Subject: &project,
 					Methods: strings.Split(semicolonSeparatedMethods, ":"),
 				})
 			}

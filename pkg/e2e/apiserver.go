@@ -15,6 +15,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/service"
 	"github.com/metal-stack/metal-apiserver/pkg/service/token"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
+	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/metal-stack/metal-apiserver/pkg/test"
@@ -111,7 +112,7 @@ func StartApiserver(t *testing.T, log *slog.Logger) (baseURL, adminToken string,
 		AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
 		Permissions: []*apiv2.MethodPermission{
 			{
-				Subject: "*",
+				Subject: pointer.Pointer("*"),
 			},
 		},
 	}))

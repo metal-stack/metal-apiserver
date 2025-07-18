@@ -308,6 +308,8 @@ func (o *opa) decide(ctx context.Context, methodName string, jwtTokenfunc func(s
 			permissions = method.PermissionsBySubject(t)
 			adminRole := t.AdminRole
 
+			o.log.Info("decision context", "method", methodName, "req", req, "token", t, "permission", permissions, "projectRoles", projectRoles, "tenantRoles", tenantRoles)
+
 			decision, err := o.authorize(ctx, newOpaAuthorizationRequest(methodName, req, t, permissions, projectRoles, tenantRoles, adminRole))
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
