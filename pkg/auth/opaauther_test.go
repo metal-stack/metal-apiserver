@@ -30,10 +30,10 @@ func prepare(t *testing.T) (certs.CertStore, *ecdsa.PrivateKey) {
 	store := certs.NewRedisStore(&certs.Config{
 		RedisClient: c,
 	})
-	_, err := store.LatestPrivate(context.Background())
+	_, err := store.LatestPrivate(t.Context())
 	require.NoError(t, err)
 
-	key, err := store.LatestPrivate(context.Background())
+	key, err := store.LatestPrivate(t.Context())
 	require.NoError(t, err)
 
 	return store, key
@@ -441,7 +441,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			s := miniredis.RunT(t)
 			defer s.Close()
 
-			ctx := context.Background()
+			ctx := t.Context()
 			tokenStore := token.NewRedisStore(redis.NewClient(&redis.Options{Addr: s.Addr()}))
 
 			exp := time.Hour

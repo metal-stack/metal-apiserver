@@ -53,6 +53,7 @@ func StartApiserver(t *testing.T, log *slog.Logger) (baseURL, adminToken string,
 			AsyncClient:     redis,
 		},
 		MasterClient:     masterdataClient,
+		Datastore:        nil, // TODO: for healthcheck e2e tests this needs to be wired up
 		OIDCClientID:     "oidc-client-id",
 		OIDCClientSecret: "oidc-client-secret",
 		OIDCDiscoveryURL: discoveryURL,

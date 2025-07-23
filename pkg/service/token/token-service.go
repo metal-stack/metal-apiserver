@@ -98,7 +98,6 @@ func (t *tokenService) CreateConsoleTokenWithoutPermissionCheck(ctx context.Cont
 // CreateApiTokenWithoutPermissionCheck is only called from the api-server command line interface
 // No validation against requested roles and permissions is required and implemented here
 func (t *tokenService) CreateApiTokenWithoutPermissionCheck(ctx context.Context, subject string, rq *connect.Request[apiv2.TokenServiceCreateRequest]) (*connect.Response[apiv2.TokenServiceCreateResponse], error) {
-	t.log.Debug("create", "token", rq)
 	req := rq.Msg
 
 	expires := tokenutil.DefaultExpiration
@@ -135,8 +134,6 @@ func (t *tokenService) CreateApiTokenWithoutPermissionCheck(ctx context.Context,
 
 // Get returns the token by a given uuid for the user who requests it.
 func (t *tokenService) Get(ctx context.Context, rq *connect.Request[apiv2.TokenServiceGetRequest]) (*connect.Response[apiv2.TokenServiceGetResponse], error) {
-	t.log.Debug("get", "token", rq)
-
 	token, ok := tokenutil.TokenFromContext(ctx)
 	if !ok || token == nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
@@ -158,7 +155,6 @@ func (t *tokenService) Get(ctx context.Context, rq *connect.Request[apiv2.TokenS
 // Update updates a given token of a user.
 // We need to prevent a user from elevating permissions here.
 func (t *tokenService) Update(ctx context.Context, rq *connect.Request[apiv2.TokenServiceUpdateRequest]) (*connect.Response[apiv2.TokenServiceUpdateResponse], error) {
-	t.log.Debug("update", "token", rq)
 	req := rq.Msg
 
 	token, ok := tokenutil.TokenFromContext(ctx)

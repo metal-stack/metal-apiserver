@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -54,116 +53,118 @@ var (
 	}
 )
 
-var tokenCmd = &cli.Command{
-	Name:  "token",
-	Usage: "create api tokens for cloud infrastructure services that depend on the api-server like accounting, status dashboard, ...",
-	Flags: []cli.Flag{
-		logLevelFlag,
-		redisAddrFlag,
-		redisPasswordFlag,
-		tokenSubjectFlag,
-		tokenDescriptionFlag,
-		tokenPermissionsFlag,
-		tokenProjectRolesFlag,
-		tokenTenantRolesFlag,
-		tokenAdminRoleFlag,
-		tokenExpirationFlag,
-		serverHttpUrlFlag,
-	},
-	Action: func(ctx *cli.Context) error {
-		log, err := createLogger(ctx)
-		if err != nil {
-			return fmt.Errorf("unable to create logger %w", err)
-		}
-
-		tokenRedisClient, err := createRedisClient(ctx, log, redisDatabaseTokens)
-		if err != nil {
-			return err
-		}
-
-		tokenStore := tokencommon.NewRedisStore(tokenRedisClient)
-		certStore := certs.NewRedisStore(&certs.Config{
-			RedisClient: tokenRedisClient,
-		})
-
-		tokenService := token.New(token.Config{
-			Log:        log,
-			TokenStore: tokenStore,
-			CertStore:  certStore,
-			Issuer:     ctx.String(serverHttpUrlFlag.Name),
-		})
-
-		var permissions []*apiv2.MethodPermission
-		for _, m := range ctx.StringSlice(tokenPermissionsFlag.Name) {
-			project, semicolonSeparatedMethods, ok := strings.Cut(m, "=")
-			if !ok {
-				return fmt.Errorf("permissions must be provided in the form <project>=<methods-colon-separated>")
+func newTokenCmd() *cli.Command {
+	return &cli.Command{
+		Name:  "token",
+		Usage: "create api tokens for cloud infrastructure services that depend on the api-server like accounting, status dashboard, ...",
+		Flags: []cli.Flag{
+			logLevelFlag,
+			redisAddrFlag,
+			redisPasswordFlag,
+			tokenSubjectFlag,
+			tokenDescriptionFlag,
+			tokenPermissionsFlag,
+			tokenProjectRolesFlag,
+			tokenTenantRolesFlag,
+			tokenAdminRoleFlag,
+			tokenExpirationFlag,
+			serverHttpUrlFlag,
+		},
+		Action: func(ctx *cli.Context) error {
+			log, err := createLogger(ctx)
+			if err != nil {
+				return fmt.Errorf("unable to create logger %w", err)
 			}
 
-			permissions = append(permissions, &apiv2.MethodPermission{
-				Subject: project,
-				Methods: strings.Split(semicolonSeparatedMethods, ":"),
+			tokenRedisClient, err := createRedisClient(ctx, log, redisDatabaseTokens)
+			if err != nil {
+				return err
+			}
+
+			tokenStore := tokencommon.NewRedisStore(tokenRedisClient)
+			certStore := certs.NewRedisStore(&certs.Config{
+				RedisClient: tokenRedisClient,
 			})
-		}
 
-		projectRoles := map[string]apiv2.ProjectRole{}
-		for _, r := range ctx.StringSlice(tokenProjectRolesFlag.Name) {
-			projectID, roleString, ok := strings.Cut(r, "=")
-			if !ok {
-				return fmt.Errorf("project roles must be provided in the form <project-id>=<role>")
+			tokenService := token.New(token.Config{
+				Log:        log,
+				TokenStore: tokenStore,
+				CertStore:  certStore,
+				Issuer:     ctx.String(serverHttpUrlFlag.Name),
+			})
+
+			var permissions []*apiv2.MethodPermission
+			for _, m := range ctx.StringSlice(tokenPermissionsFlag.Name) {
+				project, semicolonSeparatedMethods, ok := strings.Cut(m, "=")
+				if !ok {
+					return fmt.Errorf("permissions must be provided in the form <project>=<methods-colon-separated>")
+				}
+
+				permissions = append(permissions, &apiv2.MethodPermission{
+					Subject: project,
+					Methods: strings.Split(semicolonSeparatedMethods, ":"),
+				})
 			}
 
-			role, ok := apiv2.ProjectRole_value[roleString]
-			if !ok {
-				return fmt.Errorf("unknown role: %s", roleString)
+			projectRoles := map[string]apiv2.ProjectRole{}
+			for _, r := range ctx.StringSlice(tokenProjectRolesFlag.Name) {
+				projectID, roleString, ok := strings.Cut(r, "=")
+				if !ok {
+					return fmt.Errorf("project roles must be provided in the form <project-id>=<role>")
+				}
+
+				role, ok := apiv2.ProjectRole_value[roleString]
+				if !ok {
+					return fmt.Errorf("unknown role: %s", roleString)
+				}
+
+				projectRoles[projectID] = apiv2.ProjectRole(role)
 			}
 
-			projectRoles[projectID] = apiv2.ProjectRole(role)
-		}
+			tenantRoles := map[string]apiv2.TenantRole{}
+			for _, r := range ctx.StringSlice(tokenTenantRolesFlag.Name) {
+				tenantID, roleString, ok := strings.Cut(r, "=")
+				if !ok {
+					return fmt.Errorf("tenant roles must be provided in the form <tenant-id>=<role>")
+				}
 
-		tenantRoles := map[string]apiv2.TenantRole{}
-		for _, r := range ctx.StringSlice(tokenTenantRolesFlag.Name) {
-			tenantID, roleString, ok := strings.Cut(r, "=")
-			if !ok {
-				return fmt.Errorf("tenant roles must be provided in the form <tenant-id>=<role>")
+				role, ok := apiv2.TenantRole_value[roleString]
+				if !ok {
+					return fmt.Errorf("unknown role: %s", roleString)
+				}
+
+				tenantRoles[tenantID] = apiv2.TenantRole(role)
 			}
 
-			role, ok := apiv2.TenantRole_value[roleString]
-			if !ok {
-				return fmt.Errorf("unknown role: %s", roleString)
+			var adminRole *apiv2.AdminRole
+			if roleString := ctx.String(tokenAdminRoleFlag.Name); roleString != "" {
+				role, ok := apiv2.AdminRole_value[roleString]
+				if !ok {
+					return fmt.Errorf("unknown role: %s", roleString)
+				}
+
+				adminRole = pointer.Pointer(apiv2.AdminRole(role))
+			}
+			subject := ctx.String(tokenSubjectFlag.Name)
+			if subject == "" {
+				return fmt.Errorf("token subject cannot be empty")
 			}
 
-			tenantRoles[tenantID] = apiv2.TenantRole(role)
-		}
-
-		var adminRole *apiv2.AdminRole
-		if roleString := ctx.String(tokenAdminRoleFlag.Name); roleString != "" {
-			role, ok := apiv2.AdminRole_value[roleString]
-			if !ok {
-				return fmt.Errorf("unknown role: %s", roleString)
+			resp, err := tokenService.CreateApiTokenWithoutPermissionCheck(ctx.Context, subject, connect.NewRequest(&apiv2.TokenServiceCreateRequest{
+				Description:  ctx.String(tokenDescriptionFlag.Name),
+				Expires:      durationpb.New(ctx.Duration(tokenExpirationFlag.Name)),
+				ProjectRoles: projectRoles,
+				TenantRoles:  tenantRoles,
+				AdminRole:    adminRole,
+				Permissions:  permissions,
+			}))
+			if err != nil {
+				return err
 			}
 
-			adminRole = pointer.Pointer(apiv2.AdminRole(role))
-		}
-		subject := ctx.String(tokenSubjectFlag.Name)
-		if subject == "" {
-			return fmt.Errorf("token subject cannot be empty")
-		}
+			fmt.Println(resp.Msg.Secret)
 
-		resp, err := tokenService.CreateApiTokenWithoutPermissionCheck(context.Background(), subject, connect.NewRequest(&apiv2.TokenServiceCreateRequest{
-			Description:  ctx.String(tokenDescriptionFlag.Name),
-			Expires:      durationpb.New(ctx.Duration(tokenExpirationFlag.Name)),
-			ProjectRoles: projectRoles,
-			TenantRoles:  tenantRoles,
-			AdminRole:    adminRole,
-			Permissions:  permissions,
-		}))
-		if err != nil {
-			return err
-		}
-
-		fmt.Println(resp.Msg.Secret)
-
-		return nil
-	},
+			return nil
+		},
+	}
 }

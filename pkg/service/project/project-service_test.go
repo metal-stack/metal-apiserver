@@ -1,7 +1,6 @@
 package project
 
 import (
-	"context"
 	"log/slog"
 	"testing"
 	"time"
@@ -48,7 +47,7 @@ func newMasterdataMockClient(
 		tenantMemberServiceMock(&tmsc.Mock)
 	}
 
-	return mdc.NewMock(psc, tsc, pmsc, tmsc)
+	return mdc.NewMock(psc, tsc, pmsc, tmsc, nil)
 }
 
 func Test_projectServiceServer_Get(t *testing.T) {
@@ -526,7 +525,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 
 			tokenStore := token.NewRedisStore(c)
 
-			ctx := token.ContextWithToken(context.Background(), &apiv2.Token{
+			ctx := token.ContextWithToken(t.Context(), &apiv2.Token{
 				TenantRoles: map[string]apiv2.TenantRole{
 					tt.want.Project.Tenant: tt.tenantRole,
 				},
@@ -546,7 +545,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 }
 
 func Test_service_InviteAccept(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	secret, err := invite.GenerateInviteSecret()
 	require.NoError(t, err)
 

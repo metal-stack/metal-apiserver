@@ -50,8 +50,6 @@ func New(c Config) TenantService {
 }
 
 func (u *tenantServiceServer) List(ctx context.Context, rq *connect.Request[apiv2.TenantServiceListRequest]) (*connect.Response[apiv2.TenantServiceListResponse], error) {
-	u.log.Debug("list", "req", rq.Msg)
-
 	token, ok := token.TokenFromContext(ctx)
 	if !ok || token == nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
@@ -84,8 +82,6 @@ func (u *tenantServiceServer) List(ctx context.Context, rq *connect.Request[apiv
 }
 
 func (u *tenantServiceServer) Create(ctx context.Context, rq *connect.Request[apiv2.TenantServiceCreateRequest]) (*connect.Response[apiv2.TenantServiceCreateResponse], error) {
-	u.log.Debug("create", "tenant", rq)
-
 	var (
 		req   = rq.Msg
 		t, ok = token.TokenFromContext(ctx)
@@ -146,8 +142,6 @@ func (u *tenantServiceServer) Create(ctx context.Context, rq *connect.Request[ap
 }
 
 func (u *tenantServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2.TenantServiceGetRequest]) (*connect.Response[apiv2.TenantServiceGetResponse], error) {
-	u.log.Debug("get", "tenant", rq)
-
 	var (
 		t, ok = token.TokenFromContext(ctx)
 		req   = rq.Msg
@@ -225,7 +219,6 @@ func (u *tenantServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2
 }
 
 func (u *tenantServiceServer) Update(ctx context.Context, rq *connect.Request[apiv2.TenantServiceUpdateRequest]) (*connect.Response[apiv2.TenantServiceUpdateResponse], error) {
-	u.log.Debug("update", "tenant", rq)
 	req := rq.Msg
 
 	validated, err := u.repo.Tenant().ValidateUpdate(ctx, req)
@@ -255,14 +248,14 @@ func (u *tenantServiceServer) Delete(ctx context.Context, rq *connect.Request[ap
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
 	}
 
-	u.log.Debug("delete", "tenant", rq)
-
 	validated, err := u.repo.Tenant().ValidateDelete(ctx, &mdcv1.Tenant{
 		Name: req.Login,
 	})
 	if err != nil {
 		return nil, err
 	}
+
+	u.log.Debug("delete", "tenant", rq)
 
 	if t.UserId == req.Login {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("the personal tenant (default-tenant) cannot be deleted"))
@@ -409,8 +402,6 @@ func (u *tenantServiceServer) InviteDelete(ctx context.Context, rq *connect.Requ
 	var (
 		req = rq.Msg
 	)
-
-	u.log.Debug("tenant invite delete", "req", req)
 
 	err := u.inviteStore.DeleteInvite(ctx, &apiv2.TenantInvite{Secret: req.Secret, TargetTenant: req.Login})
 	if err != nil {

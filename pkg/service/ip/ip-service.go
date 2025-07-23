@@ -7,6 +7,7 @@ import (
 	"connectrpc.com/connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
+	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 )
@@ -29,15 +30,20 @@ func New(c Config) apiv2connect.IPServiceHandler {
 }
 
 func (i *ipServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2.IPServiceGetRequest]) (*connect.Response[apiv2.IPServiceGetResponse], error) {
-	i.log.Debug("get", "ip", rq)
 	req := rq.Msg
 
-	// Project is already checked in the tenant-interceptor, ipam must not be consulted
-	resp, err := i.repo.IP(req.Project).Get(ctx, req.Ip)
+	var (
+		metalIP *metal.IP
+		err     error
+	)
+
+	ip := metal.CreateNamespacedIPAddress(req.Namespace, req.Ip)
+	metalIP, err = i.repo.IP(req.Project).Get(ctx, ip)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	converted, err := i.repo.IP(req.Project).ConvertToProto(resp)
+
+	converted, err := i.repo.IP(req.Project).ConvertToProto(metalIP)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -49,7 +55,6 @@ func (i *ipServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2.IPS
 
 // List implements v1.IPServiceServer
 func (i *ipServiceServer) List(ctx context.Context, rq *connect.Request[apiv2.IPServiceListRequest]) (*connect.Response[apiv2.IPServiceListResponse], error) {
-	i.log.Debug("list", "ip", rq)
 	req := rq.Msg
 
 	resp, err := i.repo.IP(req.Project).List(ctx, req.Query)
@@ -73,7 +78,6 @@ func (i *ipServiceServer) List(ctx context.Context, rq *connect.Request[apiv2.IP
 
 // Delete implements v1.IPServiceServer
 func (i *ipServiceServer) Delete(ctx context.Context, rq *connect.Request[apiv2.IPServiceDeleteRequest]) (*connect.Response[apiv2.IPServiceDeleteResponse], error) {
-	i.log.Debug("delete", "ip", rq)
 	req := rq.Msg
 	ip, err := i.repo.IP(req.Project).Get(ctx, req.Ip)
 	if err != nil {
@@ -98,7 +102,6 @@ func (i *ipServiceServer) Delete(ctx context.Context, rq *connect.Request[apiv2.
 }
 
 func (i *ipServiceServer) Create(ctx context.Context, rq *connect.Request[apiv2.IPServiceCreateRequest]) (*connect.Response[apiv2.IPServiceCreateResponse], error) {
-	i.log.Debug("create", "ip", rq)
 	req := rq.Msg
 
 	validated, err := i.repo.IP(req.Project).ValidateCreate(ctx, req)
@@ -121,8 +124,6 @@ func (i *ipServiceServer) Create(ctx context.Context, rq *connect.Request[apiv2.
 
 // Static implements v1.IPServiceServer
 func (i *ipServiceServer) Update(ctx context.Context, rq *connect.Request[apiv2.IPServiceUpdateRequest]) (*connect.Response[apiv2.IPServiceUpdateResponse], error) {
-	i.log.Debug("update", "ip", rq)
-
 	req := rq.Msg
 
 	validated, err := i.repo.IP(req.Project).ValidateUpdate(ctx, req)

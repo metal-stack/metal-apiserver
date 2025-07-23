@@ -1,7 +1,6 @@
 package certs_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/alicebob/miniredis/v2"
@@ -15,7 +14,7 @@ import (
 
 func Test_redisStore(t *testing.T) {
 	var (
-		ctx   = context.Background()
+		ctx   = t.Context()
 		s     = miniredis.RunT(t)
 		c     = redis.NewClient(&redis.Options{Addr: s.Addr()})
 		store = certs.NewRedisStore(&certs.Config{

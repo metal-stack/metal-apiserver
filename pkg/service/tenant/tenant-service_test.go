@@ -1,7 +1,6 @@
 package tenant
 
 import (
-	"context"
 	"log/slog"
 	"testing"
 	"time"
@@ -51,7 +50,7 @@ func newMasterdataMockClient(
 		tenantMemberServiceMock(&tmsc.Mock)
 	}
 
-	return mdc.NewMock(psc, tsc, nil, tmsc)
+	return mdc.NewMock(psc, tsc, nil, tmsc, nil)
 }
 
 func Test_service_Create(t *testing.T) {
@@ -123,7 +122,7 @@ func Test_service_Create(t *testing.T) {
 
 			tokenStore := token.NewRedisStore(c)
 
-			ctx := token.ContextWithToken(context.Background(), &apiv1.Token{
+			ctx := token.ContextWithToken(t.Context(), &apiv1.Token{
 				UserId: "original-owner",
 			})
 
@@ -386,7 +385,7 @@ func Test_service_Get(t *testing.T) {
 
 			tokenStore := token.NewRedisStore(c)
 
-			ctx := token.ContextWithToken(context.Background(), &apiv1.Token{
+			ctx := token.ContextWithToken(t.Context(), &apiv1.Token{
 				TenantRoles: map[string]apiv1.TenantRole{
 					tt.req.Login: tt.tenantRole,
 				},
@@ -407,7 +406,7 @@ func Test_service_Get(t *testing.T) {
 }
 
 func Test_service_InviteAccept(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	secret, err := invite.GenerateInviteSecret()
 	require.NoError(t, err)
 

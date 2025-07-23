@@ -14,7 +14,7 @@ import (
 )
 
 type tenantRepository struct {
-	r *Store
+	s *Store
 }
 
 func (t *tenantRepository) ValidateCreate(ctx context.Context, create *apiv2.TenantServiceCreateRequest) (*Validated[*apiv2.TenantServiceCreateRequest], error) {
@@ -24,7 +24,7 @@ func (t *tenantRepository) ValidateCreate(ctx context.Context, create *apiv2.Ten
 }
 
 func (t *tenantRepository) ValidateDelete(ctx context.Context, e *mdcv1.Tenant) (*Validated[*mdcv1.Tenant], error) {
-	projects, err := t.r.UnscopedProject().List(ctx, &apiv2.ProjectServiceListRequest{
+	projects, err := t.s.UnscopedProject().List(ctx, &apiv2.ProjectServiceListRequest{
 		Tenant: &e.Meta.Id,
 	})
 	if err != nil {
@@ -83,7 +83,7 @@ func (t *tenantRepository) CreateWithID(ctx context.Context, c *Validated[*apiv2
 		tenant.Description = *c.message.Description
 	}
 
-	resp, err := t.r.mdc.Tenant().Create(ctx, &mdcv1.TenantCreateRequest{Tenant: tenant})
+	resp, err := t.s.mdc.Tenant().Create(ctx, &mdcv1.TenantCreateRequest{Tenant: tenant})
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -100,7 +100,8 @@ func (t *tenantRepository) Find(ctx context.Context, query *apiv2.TenantServiceL
 }
 
 func (t *tenantRepository) Get(ctx context.Context, id string) (*mdcv1.Tenant, error) {
-	resp, err := t.r.mdc.Tenant().Get(ctx, &mdcv1.TenantGetRequest{Id: id})
+	resp, err := t.s.mdc.Tenant().Get(ctx, &mdcv1.TenantGetRequest{Id: id})
+	// Get implements Tenant.
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -131,13 +132,13 @@ func (t *tenantRepository) ConvertToProto(e *mdcv1.Tenant) (*apiv2.Tenant, error
 
 func (t *tenantRepository) Member(tenantID string) TenantMember {
 	return &tenantMemberRepository{
-		r:     t.r,
+		r:     t.s,
 		scope: &TenantScope{tenantID: tenantID},
 	}
 }
 
 func (t *tenantRepository) ListTenantMembers(ctx context.Context, tenant string, includeInherited bool) ([]*mdcv1.TenantWithMembershipAnnotations, error) {
-	resp, err := t.r.mdc.Tenant().ListTenantMembers(ctx, &mdcv1.ListTenantMembersRequest{
+	resp, err := t.s.mdc.Tenant().ListTenantMembers(ctx, &mdcv1.ListTenantMembersRequest{
 		TenantId:         tenant,
 		IncludeInherited: pointer.Pointer(includeInherited),
 	})
@@ -149,7 +150,7 @@ func (t *tenantRepository) ListTenantMembers(ctx context.Context, tenant string,
 }
 
 func (r *tenantRepository) FindParticipatingTenants(ctx context.Context, tenant string, includeInherited bool) ([]*mdcv1.TenantWithMembershipAnnotations, error) {
-	resp, err := r.r.mdc.Tenant().FindParticipatingTenants(ctx, &mdcv1.FindParticipatingTenantsRequest{
+	resp, err := r.s.mdc.Tenant().FindParticipatingTenants(ctx, &mdcv1.FindParticipatingTenantsRequest{
 		TenantId:         tenant,
 		IncludeInherited: pointer.Pointer(includeInherited),
 	})

@@ -20,10 +20,11 @@ import (
 )
 
 type imageRepository struct {
-	r *Store
+	s *Store
 }
 
 func (r *imageRepository) ValidateCreate(ctx context.Context, req *adminv2.ImageServiceCreateRequest) (*Validated[*adminv2.ImageServiceCreateRequest], error) {
+	// FIXME use validate helper
 	image := req.Image
 	if image.Id == "" {
 		return nil, errorutil.InvalidArgument("image id must not be empty")
@@ -51,12 +52,15 @@ func (r *imageRepository) ValidateCreate(ctx context.Context, req *adminv2.Image
 			return nil, errorutil.InvalidArgument("image expiresAt must be in the future")
 		}
 	}
+	// FIXME implement: https://github.com/metal-stack/metal-api/issues/92
+
 	return &Validated[*adminv2.ImageServiceCreateRequest]{
 		message: req,
 	}, nil
 }
 
 func (r *imageRepository) ValidateUpdate(ctx context.Context, req *adminv2.ImageServiceUpdateRequest) (*Validated[*adminv2.ImageServiceUpdateRequest], error) {
+	// FIXME use validate helper
 	image := req.Image
 	if image.Id == "" {
 		return nil, errorutil.InvalidArgument("image id must not be empty")
@@ -97,7 +101,7 @@ func (r *imageRepository) ValidateDelete(ctx context.Context, req *metal.Image) 
 }
 
 func (r *imageRepository) Get(ctx context.Context, id string) (*metal.Image, error) {
-	fsl, err := r.r.ds.Image().Get(ctx, id)
+	fsl, err := r.s.ds.Image().Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +120,7 @@ func (r *imageRepository) Create(ctx context.Context, rq *Validated[*adminv2.Ima
 		return nil, err
 	}
 
-	resp, err := r.r.ds.Image().Create(ctx, fsl)
+	resp, err := r.s.ds.Image().Create(ctx, fsl)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +164,7 @@ func (r *imageRepository) Update(ctx context.Context, rq *Validated[*adminv2.Ima
 		new.URL = image.Url
 	}
 
-	err = r.r.ds.Image().Update(ctx, &new, old)
+	err = r.s.ds.Image().Update(ctx, &new)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +178,7 @@ func (r *imageRepository) Delete(ctx context.Context, rq *Validated[*metal.Image
 		return nil, err
 	}
 
-	err = r.r.ds.Image().Delete(ctx, fsl)
+	err = r.s.ds.Image().Delete(ctx, fsl)
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +187,7 @@ func (r *imageRepository) Delete(ctx context.Context, rq *Validated[*metal.Image
 }
 
 func (r *imageRepository) Find(ctx context.Context, rq *apiv2.ImageQuery) (*metal.Image, error) {
-	image, err := r.r.ds.Image().Find(ctx, queries.ImageFilter(rq))
+	image, err := r.s.ds.Image().Find(ctx, queries.ImageFilter(rq))
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +196,7 @@ func (r *imageRepository) Find(ctx context.Context, rq *apiv2.ImageQuery) (*meta
 }
 
 func (r *imageRepository) List(ctx context.Context, rq *apiv2.ImageQuery) ([]*metal.Image, error) {
-	images, err := r.r.ds.Image().List(ctx, queries.ImageFilter(rq))
+	images, err := r.s.ds.Image().List(ctx, queries.ImageFilter(rq))
 	if err != nil {
 		return nil, err
 	}

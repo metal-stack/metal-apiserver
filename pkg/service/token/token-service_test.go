@@ -23,7 +23,7 @@ import (
 )
 
 func Test_tokenService_CreateConsoleTokenWithoutPermissionCheck(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	s := miniredis.RunT(t)
 	c := redis.NewClient(&redis.Options{Addr: s.Addr()})
 
@@ -383,7 +383,7 @@ func Test_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(token.ContextWithToken(context.Background(), tt.sessionToken))
+			ctx, cancel := context.WithCancel(token.ContextWithToken(t.Context(), tt.sessionToken))
 			defer cancel()
 
 			s := miniredis.RunT(t)
@@ -1195,7 +1195,7 @@ func Test_Update(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(token.ContextWithToken(context.Background(), tt.sessionToken))
+			ctx, cancel := context.WithCancel(token.ContextWithToken(t.Context(), tt.sessionToken))
 			defer cancel()
 
 			s := miniredis.RunT(t)

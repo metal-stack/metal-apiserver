@@ -1,7 +1,6 @@
 package invite
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -58,7 +57,7 @@ func Test_ProjectInvite(t *testing.T) {
 		now   = timestamppb.Now()
 		mr    = miniredis.RunT(t)
 		store = NewProjectRedisStore(redis.NewClient(&redis.Options{Addr: mr.Addr()}))
-		ctx   = context.Background()
+		ctx   = t.Context()
 
 		i = &apiv1.ProjectInvite{
 			Secret:      secret,
@@ -101,7 +100,7 @@ func Test_TenantInvite(t *testing.T) {
 		now   = timestamppb.Now()
 		mr    = miniredis.RunT(t)
 		store = NewTenantRedisStore(redis.NewClient(&redis.Options{Addr: mr.Addr()}))
-		ctx   = context.Background()
+		ctx   = t.Context()
 
 		i = &apiv1.TenantInvite{
 			Secret:           secret,

@@ -1,7 +1,12 @@
 package metal
 
 import (
+	"fmt"
+	"strings"
 	"time"
+
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 )
 
 // IPType is the type of an ip.
@@ -19,12 +24,14 @@ const (
 
 // IP of a machine/firewall.
 type IP struct {
+	// IPAddress is stored either as the plain IP or prefixed with the namespace if the namespace is not nil
 	IPAddress string `rethinkdb:"id"`
 	// AllocationID will be randomly generated during IP creation and helps identifying the point in time
 	// when an IP was created. This is not the primary key!
 	// This field can help to distinguish whether an IP address was re-acquired or
 	// if it is still the same ip address as before.
 	AllocationUUID   string    `rethinkdb:"allocationuuid"`
+	Namespace        *string   `rethinkdb:"namespace" description:"if this is a ip in a namespaced private network, the namespace is stored here, otherwise nil"`
 	ParentPrefixCidr string    `rethinkdb:"prefix"`
 	Name             string    `rethinkdb:"name"`
 	Description      string    `rethinkdb:"description"`
@@ -64,4 +71,45 @@ func (ip *IP) GetCreated() time.Time {
 // SetCreated sets the creation timestamp of the entity
 func (ip *IP) SetCreated(created time.Time) {
 	ip.Created = created
+}
+
+// ---------------
+
+const namespaceSeparator = "-"
+
+// GetIPAddress returns the IPAddress of this IP without namespace if namespaced
+func (ip *IP) GetIPAddress() (string, error) {
+	if ip.Namespace == nil {
+		return ip.IPAddress, nil
+	}
+	ipaddress, found := strings.CutPrefix(ip.IPAddress, *ip.Namespace+namespaceSeparator)
+	if found {
+		return ipaddress, nil
+	}
+	return "", errorutil.Internal("ip %q is namespaced, but namespace not stored in ip field", ip.IPAddress)
+}
+
+func CreateNamespacedIPAddress(namespace *string, ip string) string {
+	if namespace == nil {
+		return ip
+	}
+	return fmt.Sprintf("%s%s%s", *namespace, namespaceSeparator, ip)
+}
+
+func ToIPType(ipt *apiv2.IPType) (IPType, error) {
+	if ipt == nil {
+		return Ephemeral, nil
+	}
+
+	switch *ipt {
+	case apiv2.IPType_IP_TYPE_EPHEMERAL:
+		return Ephemeral, nil
+	case apiv2.IPType_IP_TYPE_STATIC:
+		return Static, nil
+	case apiv2.IPType_IP_TYPE_UNSPECIFIED:
+		fallthrough
+	default:
+		return Ephemeral, errorutil.InvalidArgument("given ip type is not supported:%s", ipt.String())
+	}
+
 }

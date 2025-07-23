@@ -33,7 +33,7 @@ jobs:
           cache: false
 
       - name: Lint Go
-        uses: golangci/golangci-lint-action@v7
+        uses: golangci/golangci-lint-action@v8
         with:
           args: --build-tags integration -D protogetter --timeout=10m
 
@@ -49,6 +49,11 @@ jobs:
       - name: Build
         run: |
           make
+      - name: Upload code coverage
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true # optional (default = false)
 
   build:
     name: Docker Build
@@ -72,20 +77,25 @@ jobs:
           check-latest: true
           cache: false
 
-      - name: Make tag
-        run: |
-          [ "${GITHUB_EVENT_NAME}" == 'pull_request' ] && echo "tag=${GITHUB_HEAD_REF##*/}" >> $GITHUB_ENV || true
-          [ "${GITHUB_EVENT_NAME}" == 'release' ] && echo "tag=${GITHUB_REF##*/}" >> $GITHUB_ENV || true
-          [ "${GITHUB_EVENT_NAME}" == 'push' ] && echo "tag=latest" >> $GITHUB_ENV || true
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
       - name: Build
         run: |
           make server
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Build and push image
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.tag }}
+          sbom: true
+          tags: ${{ steps.meta.outputs.tags }}
         

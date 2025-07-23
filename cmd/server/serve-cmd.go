@@ -31,136 +31,142 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-var serveCmd = &cli.Command{
-	Name:  "serve",
-	Usage: "start the api server",
-	Flags: []cli.Flag{
-		logLevelFlag,
-		httpServerEndpointFlag,
-		metricServerEndpointFlag,
-		sessionSecretFlag,
-		serverHttpUrlFlag,
-		masterdataApiHostnameFlag,
-		masterdataApiPortFlag,
-		masterdataApiHmacFlag,
-		masterdataApiCAPathFlag,
-		masterdataApiCertPathFlag,
-		masterdataApiCertKeyPathFlag,
-		rethinkdbAddressesFlag,
-		rethinkdbDBNameFlag,
-		rethinkdbPasswordFlag,
-		rethinkdbUserFlag,
-		auditingTimescaleEnabledFlag,
-		auditingTimescaleHostFlag,
-		auditingTimescalePortFlag,
-		auditingTimescaleDbFlag,
-		auditingTimescaleUserFlag,
-		auditingTimescalePasswordFlag,
-		auditingTimescaleRetentionFlag,
-		stageFlag,
-		redisAddrFlag,
-		redisPasswordFlag,
-		adminsFlag,
-		maxRequestsPerMinuteFlag,
-		maxRequestsPerMinuteUnauthenticatedFlag,
-		ipamGrpcEndpointFlag,
-		ensureProviderTenantFlag,
-		frontEndUrlFlag,
-		oidcClientIdFlag,
-		oidcClientSecretFlag,
-		oidcDiscoveryUrlFlag,
-		oidcEndSessionUrlFlag,
-	},
-	Action: func(ctx *cli.Context) error {
-		log, err := createLogger(ctx)
-		if err != nil {
-			return fmt.Errorf("unable to create logger %w", err)
-		}
-
-		audit, err := createAuditingClient(ctx, log)
-		if err != nil {
-			return fmt.Errorf("unable to create auditing client: %w", err)
-		}
-
-		ipam, err := createIpamClient(ctx, log)
-		if err != nil {
-			return fmt.Errorf("unable to create ipam client: %w", err)
-		}
-
-		redisConfig, err := createRedisClients(ctx, log)
-		if err != nil {
-			return fmt.Errorf("unable to create redis clients: %w", err)
-		}
-
-		mc, err := createMasterdataClient(ctx, log)
-		if err != nil {
-			return fmt.Errorf("unable to create masterdata.client: %w", err)
-		}
-
-		ds, err := generic.New(log.WithGroup("datastore"), rethinkdb.ConnectOpts{
-			Addresses: ctx.StringSlice(rethinkdbAddressesFlag.Name),
-			Database:  ctx.String(rethinkdbDBNameFlag.Name),
-			Username:  ctx.String(rethinkdbUserFlag.Name),
-			Password:  ctx.String(rethinkdbPasswordFlag.Name),
-			MaxIdle:   10,
-			MaxOpen:   20,
-		})
-		if err != nil {
-			return fmt.Errorf("unable to create datastore: %w", err)
-		}
-
-		repo, err := repository.New(log, mc, ds, ipam, redisConfig.AsyncClient)
-		if err != nil {
-			return fmt.Errorf("unable to create repository: %w", err)
-		}
-
-		stage := ctx.String(stageFlag.Name)
-		c := service.Config{
-			HttpServerEndpoint:                  ctx.String(httpServerEndpointFlag.Name),
-			MetricsServerEndpoint:               ctx.String(metricServerEndpointFlag.Name),
-			Log:                                 log,
-			Repository:                          repo,
-			MasterClient:                        mc,
-			ServerHttpURL:                       ctx.String(serverHttpUrlFlag.Name),
-			FrontEndUrl:                         ctx.String(frontEndUrlFlag.Name),
-			Auditing:                            audit,
-			Stage:                               stage,
-			RedisConfig:                         redisConfig,
-			Admins:                              ctx.StringSlice(adminsFlag.Name),
-			MaxRequestsPerMinuteToken:           ctx.Int(maxRequestsPerMinuteFlag.Name),
-			MaxRequestsPerMinuteUnauthenticated: ctx.Int(maxRequestsPerMinuteUnauthenticatedFlag.Name),
-			OIDCClientID:                        ctx.String(oidcClientIdFlag.Name),
-			OIDCClientSecret:                    ctx.String(oidcClientSecretFlag.Name),
-			OIDCDiscoveryURL:                    ctx.String(oidcDiscoveryUrlFlag.Name),
-			OIDCEndSessionURL:                   ctx.String(oidcEndSessionUrlFlag.Name),
-			IsStageDev:                          strings.EqualFold(stage, stageDEV),
-		}
-
-		if providerTenant := ctx.String(ensureProviderTenantFlag.Name); providerTenant != "" {
-			err := tutil.EnsureProviderTenant(ctx.Context, c.MasterClient, providerTenant)
+func newServeCmd() *cli.Command {
+	return &cli.Command{
+		Name:  "serve",
+		Usage: "start the api server",
+		Flags: []cli.Flag{
+			logLevelFlag,
+			httpServerEndpointFlag,
+			metricServerEndpointFlag,
+			sessionSecretFlag,
+			serverHttpUrlFlag,
+			masterdataApiHostnameFlag,
+			masterdataApiPortFlag,
+			masterdataApiHmacFlag,
+			masterdataApiCAPathFlag,
+			masterdataApiCertPathFlag,
+			masterdataApiCertKeyPathFlag,
+			rethinkdbAddressesFlag,
+			rethinkdbDBNameFlag,
+			rethinkdbPasswordFlag,
+			rethinkdbUserFlag,
+			auditingTimescaleEnabledFlag,
+			auditingTimescaleHostFlag,
+			auditingTimescalePortFlag,
+			auditingTimescaleDbFlag,
+			auditingTimescaleUserFlag,
+			auditingTimescalePasswordFlag,
+			auditingTimescaleRetentionFlag,
+			stageFlag,
+			redisAddrFlag,
+			redisPasswordFlag,
+			adminsFlag,
+			maxRequestsPerMinuteFlag,
+			maxRequestsPerMinuteUnauthenticatedFlag,
+			ipamGrpcEndpointFlag,
+			ensureProviderTenantFlag,
+			frontEndUrlFlag,
+			oidcClientIdFlag,
+			oidcClientSecretFlag,
+			oidcDiscoveryUrlFlag,
+			oidcEndSessionUrlFlag,
+		},
+		Action: func(ctx *cli.Context) error {
+			log, err := createLogger(ctx)
 			if err != nil {
-				return err
+				return fmt.Errorf("unable to create logger %w", err)
 			}
 
-			err = repo.UnscopedProject().EnsureProviderProject(ctx.Context, providerTenant)
+			audit, err := createAuditingClient(ctx, log)
 			if err != nil {
-				return err
+				return fmt.Errorf("unable to create auditing client: %w", err)
 			}
 
-			log.Info("ensured provider tenant", "id", providerTenant)
+			ipam, err := createIpamClient(ctx, log)
+			if err != nil {
+				return fmt.Errorf("unable to create ipam client: %w", err)
+			}
 
-			c.Admins = append(c.Admins, providerTenant)
-		}
+			redisConfig, err := createRedisClients(ctx, log)
+			if err != nil {
+				return fmt.Errorf("unable to create redis clients: %w", err)
+			}
 
-		log.Info("running api-server", "version", v.V, "http endpoint", c.HttpServerEndpoint)
+			mc, err := createMasterdataClient(ctx, log)
+			if err != nil {
+				return fmt.Errorf("unable to create masterdata.client: %w", err)
+			}
 
-		s := newServer(c)
-		if err := s.Run(); err != nil {
-			return fmt.Errorf("unable to execute server: %w", err)
-		}
+			connectOpts := rethinkdb.ConnectOpts{
+				Addresses: ctx.StringSlice(rethinkdbAddressesFlag.Name),
+				Database:  ctx.String(rethinkdbDBNameFlag.Name),
+				Username:  ctx.String(rethinkdbUserFlag.Name),
+				Password:  ctx.String(rethinkdbPasswordFlag.Name),
+				MaxIdle:   10,
+				MaxOpen:   20,
+			}
 
-		return nil
-	},
+			ds, err := generic.New(log.WithGroup("datastore"), connectOpts)
+			if err != nil {
+				return fmt.Errorf("unable to create datastore: %w", err)
+			}
+
+			repo, err := repository.New(log, mc, ds, ipam, redisConfig.AsyncClient)
+			if err != nil {
+				return fmt.Errorf("unable to create repository: %w", err)
+			}
+
+			stage := ctx.String(stageFlag.Name)
+			c := service.Config{
+				HttpServerEndpoint:                  ctx.String(httpServerEndpointFlag.Name),
+				MetricsServerEndpoint:               ctx.String(metricServerEndpointFlag.Name),
+				Log:                                 log,
+				Repository:                          repo,
+				MasterClient:                        mc,
+				Datastore:                           ds,
+				IpamClient:                          ipam,
+				ServerHttpURL:                       ctx.String(serverHttpUrlFlag.Name),
+				FrontEndUrl:                         ctx.String(frontEndUrlFlag.Name),
+				Auditing:                            audit,
+				Stage:                               stage,
+				RedisConfig:                         redisConfig,
+				Admins:                              ctx.StringSlice(adminsFlag.Name),
+				MaxRequestsPerMinuteToken:           ctx.Int(maxRequestsPerMinuteFlag.Name),
+				MaxRequestsPerMinuteUnauthenticated: ctx.Int(maxRequestsPerMinuteUnauthenticatedFlag.Name),
+				OIDCClientID:                        ctx.String(oidcClientIdFlag.Name),
+				OIDCClientSecret:                    ctx.String(oidcClientSecretFlag.Name),
+				OIDCDiscoveryURL:                    ctx.String(oidcDiscoveryUrlFlag.Name),
+				OIDCEndSessionURL:                   ctx.String(oidcEndSessionUrlFlag.Name),
+				IsStageDev:                          strings.EqualFold(stage, stageDEV),
+			}
+
+			if providerTenant := ctx.String(ensureProviderTenantFlag.Name); providerTenant != "" {
+				err := tutil.EnsureProviderTenant(ctx.Context, c.MasterClient, providerTenant)
+				if err != nil {
+					return err
+				}
+
+				err = repo.UnscopedProject().EnsureProviderProject(ctx.Context, providerTenant)
+				if err != nil {
+					return err
+				}
+
+				log.Info("ensured provider tenant", "id", providerTenant)
+
+				c.Admins = append(c.Admins, providerTenant)
+			}
+
+			log.Info("running api-server", "version", v.V, "http endpoint", c.HttpServerEndpoint)
+
+			s := newServer(c)
+			if err := s.Run(ctx.Context); err != nil {
+				return fmt.Errorf("unable to execute server: %w", err)
+			}
+
+			return nil
+		},
+	}
 }
 
 // createMasterdataClient creates a client to the masterdata-api
@@ -282,7 +288,7 @@ func createRedisClient(cli *cli.Context, logger *slog.Logger, dbName RedisDataba
 		DB:         db,
 		ClientName: "metal-apiserver",
 	})
-	pong, err := client.Ping(context.Background()).Result()
+	pong, err := client.Ping(cli.Context).Result()
 	if err != nil {
 		return nil, fmt.Errorf("unable to create redis client: %w", err)
 	}
@@ -311,7 +317,7 @@ func createIpamClient(cli *cli.Context, log *slog.Logger) (ipamv1connect.IpamSer
 	)
 
 	err := retry.Do(func() error {
-		version, err := ipamService.Version(context.Background(), connect.NewRequest(&ipamv1.VersionRequest{}))
+		version, err := ipamService.Version(cli.Context, connect.NewRequest(&ipamv1.VersionRequest{}))
 		if err != nil {
 			return err
 		}

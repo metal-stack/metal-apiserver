@@ -230,6 +230,11 @@ func (p *projectServiceServer) Delete(ctx context.Context, rq *connect.Request[a
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
 	}
 
+	_, err := p.repo.Project(req.Project).Get(ctx, req.Project)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no project found with id %q: %w", req.Project, err))
+	}
+
 	// FIXME check for machines and networks first
 
 	ips, err := p.repo.IP(req.Project).List(ctx, &apiv2.IPQuery{Project: &req.Project})

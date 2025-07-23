@@ -45,14 +45,13 @@ func (u *userServiceServer) Get(ctx context.Context, _ *connect.Request[apiv2.Us
 	}
 
 	user := &apiv2.User{
-		Login:          t.UserId,
-		Name:           projectsAndTenants.DefaultTenant.Name,
-		Email:          projectsAndTenants.DefaultTenant.Email,
-		AvatarUrl:      projectsAndTenants.DefaultTenant.AvatarUrl,
-		Tenants:        projectsAndTenants.Tenants,
-		Projects:       projectsAndTenants.Projects,
-		DefaultTenant:  projectsAndTenants.DefaultTenant,
-		DefaultProject: projectsAndTenants.DefaultProject,
+		Login:         t.UserId,
+		Name:          projectsAndTenants.DefaultTenant.Name,
+		Email:         projectsAndTenants.DefaultTenant.Email,
+		AvatarUrl:     projectsAndTenants.DefaultTenant.AvatarUrl,
+		Tenants:       projectsAndTenants.Tenants,
+		Projects:      projectsAndTenants.Projects,
+		DefaultTenant: projectsAndTenants.DefaultTenant,
 	}
 
 	return connect.NewResponse(&apiv2.UserServiceGetResponse{User: user}), nil

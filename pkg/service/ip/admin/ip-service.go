@@ -30,7 +30,6 @@ func New(c Config) adminv2connect.IPServiceHandler {
 }
 
 func (i *ipServiceServer) List(ctx context.Context, rq *connect.Request[adminv2.IPServiceListRequest]) (*connect.Response[adminv2.IPServiceListResponse], error) {
-	i.log.Debug("list", "ip", rq)
 	req := rq.Msg
 
 	resp, err := i.repo.UnscopedIP().List(ctx, req.Query)

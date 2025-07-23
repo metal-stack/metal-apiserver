@@ -22,7 +22,7 @@ const (
 )
 
 type projectRepository struct {
-	r     *Store
+	s     *Store
 	scope *ProjectScope
 }
 
@@ -45,7 +45,7 @@ func (r *projectRepository) ValidateDelete(ctx context.Context, req *mdcv1.Proje
 }
 
 func (r *projectRepository) Get(ctx context.Context, id string) (*mdcv1.Project, error) {
-	resp, err := r.r.mdc.Project().Get(ctx, &mdcv1.ProjectGetRequest{Id: id})
+	resp, err := r.s.mdc.Project().Get(ctx, &mdcv1.ProjectGetRequest{Id: id})
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -95,7 +95,7 @@ func (r *projectRepository) CreateWithID(ctx context.Context, e *Validated[*apiv
 		TenantId:    e.message.Login,
 	}
 
-	resp, err := r.r.mdc.Project().Create(ctx, &mdcv1.ProjectCreateRequest{Project: project})
+	resp, err := r.s.mdc.Project().Create(ctx, &mdcv1.ProjectCreateRequest{Project: project})
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -121,7 +121,7 @@ func (r *projectRepository) List(ctx context.Context, query *apiv2.ProjectServic
 
 func (t *projectRepository) Member() ProjectMember {
 	return &projectMemberRepository{
-		r:     t.r,
+		r:     t.s,
 		scope: t.scope,
 	}
 }
@@ -252,12 +252,12 @@ func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId st
 		defaultTenant *apiv2.Tenant
 	)
 
-	projectResp, err := r.r.mdc.Tenant().FindParticipatingProjects(ctx, &mdcv1.FindParticipatingProjectsRequest{TenantId: userId, IncludeInherited: pointer.Pointer(true)})
+	projectResp, err := r.s.mdc.Tenant().FindParticipatingProjects(ctx, &mdcv1.FindParticipatingProjectsRequest{TenantId: userId, IncludeInherited: pointer.Pointer(true)})
 	if err != nil {
 		return nil, err
 	}
 
-	tenantResp, err := r.r.mdc.Tenant().FindParticipatingTenants(ctx, &mdcv1.FindParticipatingTenantsRequest{TenantId: userId, IncludeInherited: pointer.Pointer(true)})
+	tenantResp, err := r.s.mdc.Tenant().FindParticipatingTenants(ctx, &mdcv1.FindParticipatingTenantsRequest{TenantId: userId, IncludeInherited: pointer.Pointer(true)})
 	if err != nil {
 		return nil, err
 	}
@@ -334,7 +334,7 @@ func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId st
 
 func (r *projectRepository) EnsureProviderProject(ctx context.Context, providerTenantID string) error {
 	ensureMembership := func(projectId string) error {
-		_, err := r.r.Project(projectId).Member().Get(ctx, providerTenantID)
+		_, err := r.s.Project(projectId).Member().Get(ctx, providerTenantID)
 		if err == nil {
 			return nil
 		}
@@ -342,7 +342,7 @@ func (r *projectRepository) EnsureProviderProject(ctx context.Context, providerT
 			return err
 		}
 
-		_, err = r.r.mdc.ProjectMember().Create(ctx, &mdcv1.ProjectMemberCreateRequest{
+		_, err = r.s.mdc.ProjectMember().Create(ctx, &mdcv1.ProjectMemberCreateRequest{
 			ProjectMember: &mdcv1.ProjectMember{
 				Meta: &mdcv1.Meta{
 					Annotations: map[string]string{
@@ -357,7 +357,7 @@ func (r *projectRepository) EnsureProviderProject(ctx context.Context, providerT
 		return err
 	}
 
-	resp, err := r.r.mdc.Project().Find(ctx, &mdcv1.ProjectFindRequest{
+	resp, err := r.s.mdc.Project().Find(ctx, &mdcv1.ProjectFindRequest{
 		TenantId: wrapperspb.String(providerTenantID),
 	})
 	if err != nil {
@@ -368,7 +368,7 @@ func (r *projectRepository) EnsureProviderProject(ctx context.Context, providerT
 		return ensureMembership(resp.Projects[0].Meta.Id)
 	}
 
-	project, err := r.r.mdc.Project().Create(ctx, &mdcv1.ProjectCreateRequest{
+	project, err := r.s.mdc.Project().Create(ctx, &mdcv1.ProjectCreateRequest{
 		Project: &mdcv1.Project{
 			Name:        "Default Project",
 			TenantId:    providerTenantID,

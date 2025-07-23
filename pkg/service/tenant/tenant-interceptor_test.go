@@ -234,7 +234,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 			})
 
 			require.NotNil(t, tt.reqFn)
-			err := tt.reqFn(context.Background(), c)
+			err := tt.reqFn(t.Context(), c)
 			if tt.wantErr != "" {
 				require.EqualError(t, err, tt.wantErr)
 				return
