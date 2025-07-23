@@ -67,7 +67,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			req:     nil,
 			permissions: []*v2.MethodPermission{
 				{
-					Subject: pointer.Pointer("john.doe@github"),
+					Subject: "john.doe@github",
 					Methods: []string{"/metalstack.api.v2.UnknownService/Get"},
 				},
 			},
@@ -222,7 +222,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			req:     adminv2.TenantServiceListRequest{},
 			permissions: []*v2.MethodPermission{
 				{
-					Subject: pointer.Pointer("john.doe@github"),
+					Subject: "john.doe@github",
 					Methods: []string{"/metalstack.admin.v2.TenantService/List"},
 				},
 			},
@@ -395,7 +395,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			},
 			permissions: []*v2.MethodPermission{
 				{
-					Subject: pointer.Pointer("a-project"),
+					Subject: "a-project",
 					Methods: []string{"/metalstack.api.v2.IPService/List"},
 				},
 			},
@@ -446,7 +446,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			req:     v2.ProjectServiceGetRequest{Project: "a-project"},
 			permissions: []*v2.MethodPermission{
 				{
-					Subject: pointer.Pointer("a-project"),
+					Subject: "a-project",
 					Methods: []string{"/metalstack.api.v2.IPService/List"},
 				},
 			},
@@ -472,7 +472,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			tokenType: v2.TokenType_TOKEN_TYPE_API,
 			permissions: []*v2.MethodPermission{
 				{
-					Subject: pointer.Pointer("a-project"),
+					Subject: "a-project",
 					Methods: []string{
 						"/metalstack.api.v2.ImageService/List",
 						"/metalstack.api.v2.PartitionService/List",
@@ -581,6 +581,7 @@ func Test_opa_authorize_with_permissions_optional_subject(t *testing.T) {
 			},
 			permissions: []*v2.MethodPermission{
 				{
+					Subject: "*",
 					Methods: []string{"/metalstack.api.v2.ProjectService/List"},
 				},
 			},

@@ -465,7 +465,7 @@ func Test_validateTokenCreate(t *testing.T) {
 			token: &apiv2.Token{
 				Permissions: []*apiv2.MethodPermission{
 					{
-						Subject: pointer.Pointer(""),
+						Subject: "",
 						Methods: []string{""},
 					},
 				},
@@ -489,7 +489,7 @@ func Test_validateTokenCreate(t *testing.T) {
 				Description: "i want to get a cluster for this project",
 				Permissions: []*apiv2.MethodPermission{
 					{
-						Subject: pointer.Pointer("ae8d2493-41ec-4efd-bbb4-81085b20b6fe"),
+						Subject: "ae8d2493-41ec-4efd-bbb4-81085b20b6fe",
 						Methods: []string{
 							"/metalstack.api.v2.IPService/Get",
 						},
@@ -506,7 +506,7 @@ func Test_validateTokenCreate(t *testing.T) {
 			token: &apiv2.Token{
 				Permissions: []*apiv2.MethodPermission{
 					{
-						Subject: pointer.Pointer("abc"),
+						Subject: "abc",
 						Methods: []string{"/metalstack.api.v2.IPService/Get"},
 					},
 				},
@@ -515,7 +515,7 @@ func Test_validateTokenCreate(t *testing.T) {
 				Description: "i want to get a cluster",
 				Permissions: []*apiv2.MethodPermission{
 					{
-						Subject: pointer.Pointer("abc"),
+						Subject: "abc",
 						Methods: []string{"/metalstack.api.v2.IPService/Get"},
 					},
 				},
@@ -529,7 +529,7 @@ func Test_validateTokenCreate(t *testing.T) {
 			token: &apiv2.Token{
 				Permissions: []*apiv2.MethodPermission{
 					{
-						Subject: pointer.Pointer("abc"),
+						Subject: "abc",
 						Methods: []string{"/metalstack.api.v2.IPService/Get"},
 					},
 				},
@@ -538,7 +538,7 @@ func Test_validateTokenCreate(t *testing.T) {
 				Description: "i want to get a cluster",
 				Permissions: []*apiv2.MethodPermission{
 					{
-						Subject: pointer.Pointer("abc"),
+						Subject: "abc",
 						Methods: []string{"/metalstack.api.v2.UnknownService/Get"},
 					},
 				},
@@ -553,7 +553,7 @@ func Test_validateTokenCreate(t *testing.T) {
 			token: &apiv2.Token{
 				Permissions: []*apiv2.MethodPermission{
 					{
-						Subject: pointer.Pointer("abc"),
+						Subject: "abc",
 						Methods: []string{"/metalstack.api.v2.IPService/Get"},
 					},
 				},
@@ -562,7 +562,7 @@ func Test_validateTokenCreate(t *testing.T) {
 				Description: "i want to get a cluster",
 				Permissions: []*apiv2.MethodPermission{
 					{
-						Subject: pointer.Pointer("cde"),
+						Subject: "cde",
 						Methods: []string{"/metalstack.api.v2.IPService/Get"},
 					},
 				},
@@ -577,7 +577,7 @@ func Test_validateTokenCreate(t *testing.T) {
 			token: &apiv2.Token{
 				Permissions: []*apiv2.MethodPermission{
 					{
-						Subject: pointer.Pointer("abc"),
+						Subject: "abc",
 						Methods: []string{"/metalstack.api.v2.IPService/Get"},
 					},
 				},
@@ -586,7 +586,7 @@ func Test_validateTokenCreate(t *testing.T) {
 				Description: "i want to list clusters",
 				Permissions: []*apiv2.MethodPermission{
 					{
-						Subject: pointer.Pointer("abc"),
+						Subject: "abc",
 						Methods: []string{"/metalstack.api.v2.IPService/List"},
 					},
 				},
@@ -601,7 +601,7 @@ func Test_validateTokenCreate(t *testing.T) {
 			token: &apiv2.Token{
 				Permissions: []*apiv2.MethodPermission{
 					{
-						Subject: pointer.Pointer("abc"),
+						Subject: "abc",
 						Methods: []string{
 							"/metalstack.api.v2.IPService/Create",
 							"/metalstack.api.v2.IPService/Get",
@@ -614,7 +614,7 @@ func Test_validateTokenCreate(t *testing.T) {
 				Description: "i want to get and list clusters",
 				Permissions: []*apiv2.MethodPermission{
 					{
-						Subject: pointer.Pointer("abc"),
+						Subject: "abc",
 						Methods: []string{
 							"/metalstack.api.v2.IPService/Get",
 							"/metalstack.api.v2.IPService/List",
@@ -632,7 +632,7 @@ func Test_validateTokenCreate(t *testing.T) {
 			token: &apiv2.Token{
 				Permissions: []*apiv2.MethodPermission{
 					{
-						Subject: pointer.Pointer(""),
+						Subject: "",
 						Methods: []string{""},
 					},
 				},
@@ -651,7 +651,7 @@ func Test_validateTokenCreate(t *testing.T) {
 			token: &apiv2.Token{
 				Permissions: []*apiv2.MethodPermission{
 					{
-						Subject: pointer.Pointer("abc"),
+						Subject: "abc",
 						Methods: []string{"/metalstack.api.v2.IPService/Get"},
 					},
 				},
@@ -660,7 +660,7 @@ func Test_validateTokenCreate(t *testing.T) {
 				Description: "i want to get a cluster",
 				Permissions: []*apiv2.MethodPermission{
 					{
-						Subject: pointer.Pointer("abc"),
+						Subject: "abc",
 						Methods: []string{"/metalstack.api.v2.IPService/Get"},
 					},
 				},
@@ -678,7 +678,7 @@ func Test_validateTokenCreate(t *testing.T) {
 			token: &apiv2.Token{
 				Permissions: []*apiv2.MethodPermission{
 					{
-						Subject: pointer.Pointer("abc"),
+						Subject: "abc",
 						Methods: []string{"/metalstack.api.v2.IPService/Get"},
 					},
 				},
@@ -690,7 +690,7 @@ func Test_validateTokenCreate(t *testing.T) {
 				Description: "i want to get a cluster",
 				Permissions: []*apiv2.MethodPermission{
 					{
-						Subject: pointer.Pointer("abc"),
+						Subject: "abc",
 						Methods: []string{"/metalstack.api.v2.IPService/Get"},
 					},
 				},
@@ -708,7 +708,7 @@ func Test_validateTokenCreate(t *testing.T) {
 			token: &apiv2.Token{
 				Permissions: []*apiv2.MethodPermission{
 					{
-						Subject: pointer.Pointer("abc"),
+						Subject: "abc",
 						Methods: []string{"/metalstack.api.v2.IPService/Get"},
 					},
 				},
@@ -720,7 +720,7 @@ func Test_validateTokenCreate(t *testing.T) {
 				Description: "i want to get a cluster",
 				Permissions: []*apiv2.MethodPermission{
 					{
-						Subject: pointer.Pointer("abc"),
+						Subject: "abc",
 						Methods: []string{"/metalstack.api.v2.IPService/Get"},
 					},
 				},

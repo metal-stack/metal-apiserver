@@ -442,7 +442,7 @@ func validateTokenCreate(currentToken *apiv2.Token, req *apiv2.TokenServiceCreat
 
 	for _, reqSubjectPermission := range requestedPermissions {
 		reqSubjectID := reqSubjectPermission.Subject
-		if reqSubjectID == nil {
+		if reqSubjectID == "*" {
 			continue
 		}
 
@@ -453,7 +453,7 @@ func validateTokenCreate(currentToken *apiv2.Token, req *apiv2.TokenServiceCreat
 		}
 
 		// Check if the requested subject, e.g. project or organization can be accessed
-		tokenProjectPermissions, ok := tokenPermissionsMap[*reqSubjectID]
+		tokenProjectPermissions, ok := tokenPermissionsMap[reqSubjectID]
 		if !ok {
 			return fmt.Errorf("requested subject: %q access is not allowed", reqSubjectID)
 		}
@@ -470,7 +470,6 @@ func validateTokenCreate(currentToken *apiv2.Token, req *apiv2.TokenServiceCreat
 			}
 		}
 	}
-	
 
 	// derive if a user has admin privileges in case he belongs to a certain id, which was preconfigured in the deployment
 	for _, subject := range adminIDs {

@@ -34,7 +34,7 @@ type token struct {
 type methodPermission struct {
 	// Subject maybe either the project or the organization
 	// for which the methods should be allowed
-	Subject *string `json:"subject,omitempty"`
+	Subject string `json:"subject,omitempty"`
 	// Methods which should be accessible
 	Methods []string `json:"methods,omitempty"`
 }
