@@ -64,7 +64,7 @@ func (p *projectServiceServer) Get(ctx context.Context, rq *connect.Request[apiv
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	projectMembers, err := p.repo.Project(req.Project).Member().List(ctx, &repository.ProjectMemberQuery{})
+	projectMembers, err := p.repo.Project(req.Project).AdditionalMethods().Member().List(ctx, &repository.ProjectMemberQuery{})
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("unable to list project members: %w", err))
 	}
@@ -72,7 +72,7 @@ func (p *projectServiceServer) Get(ctx context.Context, rq *connect.Request[apiv
 	memberMap := map[string]*apiv2.ProjectMember{}
 
 	for _, pm := range projectMembers {
-		converted, err := p.repo.Project(req.Project).Member().ConvertToProto(pm)
+		converted, err := p.repo.Project(req.Project).AdditionalMethods().Member().ConvertToProto(pm)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -92,7 +92,7 @@ func (p *projectServiceServer) Get(ctx context.Context, rq *connect.Request[apiv
 	if includeInheritedMembers {
 		// we are at least viewer for this tenant, we should also be able to see all indirect members of this project
 
-		tenantMembers, err := p.repo.Tenant().ListTenantMembers(ctx, converted.Tenant, includeInheritedMembers)
+		tenantMembers, err := p.repo.Tenant().AdditionalMethods().ListTenantMembers(ctx, converted.Tenant, includeInheritedMembers)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("unable to list project members: %w", err))
 		}
@@ -154,7 +154,7 @@ func (p *projectServiceServer) List(ctx context.Context, rq *connect.Request[api
 		result []*apiv2.Project
 	)
 
-	projectsAndTenants, err := p.repo.UnscopedProject().GetProjectsAndTenants(ctx, token.UserId) // FIXME: there has to be a scoped version of this, too
+	projectsAndTenants, err := p.repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, token.UserId) // FIXME: there has to be a scoped version of this, too
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("error retrieving projects from backend: %w", err))
 	}
@@ -185,16 +185,11 @@ func (p *projectServiceServer) Create(ctx context.Context, rq *connect.Request[a
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
 	}
 
-	validated, err := p.repo.UnscopedProject().ValidateCreate(ctx, &apiv2.ProjectServiceCreateRequest{
+	created, err := p.repo.UnscopedProject().Create(ctx, &apiv2.ProjectServiceCreateRequest{
 		Name:        req.Name,
 		Description: req.Description,
 		AvatarUrl:   req.AvatarUrl,
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	created, err := p.repo.UnscopedProject().Create(ctx, validated)
 	if err != nil {
 		return nil, err
 	}
@@ -204,15 +199,10 @@ func (p *projectServiceServer) Create(ctx context.Context, rq *connect.Request[a
 		return nil, err
 	}
 
-	validatedMember, err := p.repo.Project(converted.Uuid).Member().ValidateCreate(ctx, &repository.ProjectMemberCreateRequest{
+	_, err = p.repo.Project(converted.Uuid).AdditionalMethods().Member().Create(ctx, &repository.ProjectMemberCreateRequest{
 		MemberID: req.Login,
 		Role:     apiv2.ProjectRole_PROJECT_ROLE_OWNER,
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = p.repo.Project(converted.Uuid).Member().Create(ctx, validatedMember)
 	if err != nil {
 		return nil, err
 	}
@@ -246,12 +236,7 @@ func (p *projectServiceServer) Delete(ctx context.Context, rq *connect.Request[a
 		return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("there are still ips associated with this project, you need to delete them first"))
 	}
 
-	validated, err := p.repo.Project(req.Project).ValidateDelete(ctx, &mdcv1.Project{Meta: &mdcv1.Meta{Id: req.Project}})
-	if err != nil {
-		return nil, err
-	}
-
-	deleted, err := p.repo.Project(req.Project).Delete(ctx, validated)
+	deleted, err := p.repo.Project(req.Project).Delete(ctx, req.Project)
 	if err != nil {
 		return nil, err
 	}
@@ -271,12 +256,7 @@ func (p *projectServiceServer) Update(ctx context.Context, rq *connect.Request[a
 		req = rq.Msg
 	)
 
-	validated, err := p.repo.Project(req.Project).ValidateUpdate(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-
-	updated, err := p.repo.Project(req.Project).Update(ctx, validated)
+	updated, err := p.repo.Project(req.Project).Update(ctx, req.Project, req)
 	if err != nil {
 		return nil, err
 	}
@@ -299,7 +279,7 @@ func (p *projectServiceServer) RemoveMember(ctx context.Context, rq *connect.Req
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
 	}
 
-	membership, err := p.repo.Project(req.Project).Member().Get(ctx, req.MemberId)
+	membership, err := p.repo.Project(req.Project).AdditionalMethods().Member().Get(ctx, req.MemberId)
 	if err != nil {
 		return nil, err
 	}
@@ -312,16 +292,7 @@ func (p *projectServiceServer) RemoveMember(ctx context.Context, rq *connect.Req
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot remove last owner of a project"))
 	}
 
-	validatedMember, err := p.repo.Project(req.Project).Member().ValidateDelete(ctx, &mdcv1.ProjectMember{
-		Meta: &mdcv1.Meta{
-			Id: req.MemberId,
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = p.repo.Project(req.Project).Member().Delete(ctx, validatedMember)
+	_, err = p.repo.Project(req.Project).AdditionalMethods().Member().Delete(ctx, membership.Meta.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -334,7 +305,7 @@ func (p *projectServiceServer) UpdateMember(ctx context.Context, rq *connect.Req
 		req = rq.Msg
 	)
 
-	membership, err := p.repo.Project(req.Project).Member().Get(ctx, req.MemberId)
+	membership, err := p.repo.Project(req.Project).AdditionalMethods().Member().Get(ctx, req.MemberId)
 
 	if errorutil.IsNotFound(err) {
 		// if there does not exist a direct membership for this user but the user belongs to the tenant already, we create a direct membership for the project
@@ -343,7 +314,7 @@ func (p *projectServiceServer) UpdateMember(ctx context.Context, rq *connect.Req
 			return nil, err
 		}
 
-		partiTenants, err := p.repo.Tenant().FindParticipatingTenants(ctx, req.MemberId, true)
+		partiTenants, err := p.repo.Tenant().AdditionalMethods().FindParticipatingTenants(ctx, req.MemberId, true)
 		if err != nil {
 			return nil, err
 		}
@@ -389,19 +360,14 @@ func (p *projectServiceServer) UpdateMember(ctx context.Context, rq *connect.Req
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot demote last owner's permissions"))
 	}
 
-	validated, err := p.repo.Project(req.Project).Member().ValidateUpdate(ctx, &repository.ProjectMemberUpdateRequest{
+	updated, err := p.repo.Project(req.Project).AdditionalMethods().Member().Update(ctx, membership.Meta.Id, &repository.ProjectMemberUpdateRequest{
 		Member: membership,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	updated, err := p.repo.Project(req.Project).Member().Update(ctx, validated)
-	if err != nil {
-		return nil, err
-	}
-
-	converted, err := p.repo.Project(req.Project).Member().ConvertToProto(updated)
+	converted, err := p.repo.Project(req.Project).AdditionalMethods().Member().ConvertToProto(updated)
 	if err != nil {
 		return nil, err
 	}
@@ -414,15 +380,10 @@ func (p *projectServiceServer) createProjectMembership(ctx context.Context, tena
 		role = apiv2.ProjectRole_PROJECT_ROLE_VIEWER
 	}
 
-	validated, err := p.repo.Project(projectID).Member().ValidateCreate(ctx, &repository.ProjectMemberCreateRequest{
+	created, err := p.repo.Project(projectID).AdditionalMethods().Member().Create(ctx, &repository.ProjectMemberCreateRequest{
 		MemberID: tenantID,
 		Role:     role,
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	created, err := p.repo.Project(projectID).Member().Create(ctx, validated)
 	if err != nil {
 		return nil, err
 	}
@@ -528,7 +489,7 @@ func (p *projectServiceServer) InviteAccept(ctx context.Context, rq *connect.Req
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("an owner cannot accept invitations to own projects"))
 	}
 
-	memberships, err := p.repo.Project(inv.Project).Member().List(ctx, &repository.ProjectMemberQuery{
+	memberships, err := p.repo.Project(inv.Project).AdditionalMethods().Member().List(ctx, &repository.ProjectMemberQuery{
 		MemberId: &invitee.Meta.Id,
 	})
 	if err != nil {
@@ -544,12 +505,10 @@ func (p *projectServiceServer) InviteAccept(ctx context.Context, rq *connect.Req
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	validated, err := p.repo.Project(inv.Project).Member().ValidateCreate(ctx, &repository.ProjectMemberCreateRequest{
+	_, err = p.repo.Project(inv.Project).AdditionalMethods().Member().Create(ctx, &repository.ProjectMemberCreateRequest{
 		Role:     inv.Role,
 		MemberID: invitee.Meta.Id,
 	})
-
-	_, err = p.repo.Project(inv.Project).Member().Create(ctx, validated)
 	if err != nil {
 		return nil, err
 	}
@@ -588,7 +547,7 @@ func (p *projectServiceServer) checkIfMemberIsLastOwner(ctx context.Context, mem
 		return false, nil
 	}
 
-	memberships, err := p.repo.Project(membership.ProjectId).Member().List(ctx, &repository.ProjectMemberQuery{
+	memberships, err := p.repo.Project(membership.ProjectId).AdditionalMethods().Member().List(ctx, &repository.ProjectMemberQuery{
 		Annotations: map[string]string{
 			repository.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_OWNER.String(),
 		},

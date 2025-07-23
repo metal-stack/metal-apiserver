@@ -12,7 +12,7 @@ import (
 )
 
 type projectMemberRepository struct {
-	r     *Store
+	s     *Store
 	scope *ProjectScope
 }
 
@@ -30,7 +30,19 @@ type (
 	}
 )
 
-func (t *projectMemberRepository) ConvertToInternal(msg *apiv2.ProjectMember) (*mdcv1.ProjectMember, error) {
+func (r *projectMemberRepository) validateCreate(ctx context.Context, req *ProjectMemberCreateRequest) error {
+	return nil
+}
+
+func (r *projectMemberRepository) validateUpdate(ctx context.Context, req *ProjectMemberUpdateRequest, _ *mdcv1.ProjectMember) error {
+	return nil
+}
+
+func (r *projectMemberRepository) validateDelete(ctx context.Context, req *mdcv1.ProjectMember) error {
+	return nil
+}
+
+func (t *projectMemberRepository) convertToInternal(msg *apiv2.ProjectMember) (*mdcv1.ProjectMember, error) {
 	return &mdcv1.ProjectMember{
 		Meta: &mdcv1.Meta{
 			Id: msg.Id,
@@ -41,7 +53,7 @@ func (t *projectMemberRepository) ConvertToInternal(msg *apiv2.ProjectMember) (*
 	}, nil
 }
 
-func (t *projectMemberRepository) ConvertToProto(e *mdcv1.ProjectMember) (*apiv2.ProjectMember, error) {
+func (t *projectMemberRepository) convertToProto(e *mdcv1.ProjectMember) (*apiv2.ProjectMember, error) {
 	return &apiv2.ProjectMember{
 		Id:        e.TenantId,
 		Role:      ProjectRoleFromMap(e.Meta.Annotations),
@@ -49,15 +61,15 @@ func (t *projectMemberRepository) ConvertToProto(e *mdcv1.ProjectMember) (*apiv2
 	}, nil
 }
 
-func (t *projectMemberRepository) Create(ctx context.Context, c *Validated[*ProjectMemberCreateRequest]) (*mdcv1.ProjectMember, error) {
-	resp, err := t.r.mdc.ProjectMember().Create(ctx, &mdcv1.ProjectMemberCreateRequest{
+func (t *projectMemberRepository) create(ctx context.Context, c *ProjectMemberCreateRequest) (*mdcv1.ProjectMember, error) {
+	resp, err := t.s.mdc.ProjectMember().Create(ctx, &mdcv1.ProjectMemberCreateRequest{
 		ProjectMember: &mdcv1.ProjectMember{
 			Meta: &mdcv1.Meta{
 				Annotations: map[string]string{
-					tutil.TenantRoleAnnotation: c.message.Role.String(),
+					tutil.TenantRoleAnnotation: c.Role.String(),
 				},
 			},
-			TenantId:  c.message.MemberID,
+			TenantId:  c.MemberID,
 			ProjectId: t.scope.projectID,
 		},
 	})
@@ -68,23 +80,23 @@ func (t *projectMemberRepository) Create(ctx context.Context, c *Validated[*Proj
 	return resp.ProjectMember, nil
 }
 
-func (t *projectMemberRepository) Delete(ctx context.Context, e *Validated[*mdcv1.ProjectMember]) (*mdcv1.ProjectMember, error) {
-	resp, err := t.r.mdc.ProjectMember().Delete(ctx, &mdcv1.ProjectMemberDeleteRequest{
-		Id: e.message.Meta.Id,
+func (t *projectMemberRepository) delete(ctx context.Context, e *mdcv1.ProjectMember) error {
+	_, err := t.s.mdc.ProjectMember().Delete(ctx, &mdcv1.ProjectMemberDeleteRequest{
+		Id: e.Meta.Id,
 	})
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return errorutil.Convert(err)
 	}
 
-	return resp.ProjectMember, nil
+	return nil
 }
 
-func (t *projectMemberRepository) Find(ctx context.Context, query *ProjectMemberQuery) (*mdcv1.ProjectMember, error) {
+func (t *projectMemberRepository) find(ctx context.Context, query *ProjectMemberQuery) (*mdcv1.ProjectMember, error) {
 	if query.MemberId == nil {
 		return nil, fmt.Errorf("member id must be specified")
 	}
 
-	memberships, err := t.List(ctx, query)
+	memberships, err := t.list(ctx, query)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -101,8 +113,8 @@ func (t *projectMemberRepository) Find(ctx context.Context, query *ProjectMember
 	return memberships[0], nil
 }
 
-func (t *projectMemberRepository) Get(ctx context.Context, id string) (*mdcv1.ProjectMember, error) {
-	resp, err := t.r.mdc.ProjectMember().Get(ctx, &mdcv1.ProjectMemberGetRequest{
+func (t *projectMemberRepository) get(ctx context.Context, id string) (*mdcv1.ProjectMember, error) {
+	resp, err := t.s.mdc.ProjectMember().Get(ctx, &mdcv1.ProjectMemberGetRequest{
 		Id: id,
 	})
 	if err != nil {
@@ -112,8 +124,8 @@ func (t *projectMemberRepository) Get(ctx context.Context, id string) (*mdcv1.Pr
 	return resp.ProjectMember, nil
 }
 
-func (t *projectMemberRepository) List(ctx context.Context, query *ProjectMemberQuery) ([]*mdcv1.ProjectMember, error) {
-	resp, err := t.r.mdc.ProjectMember().Find(ctx, &mdcv1.ProjectMemberFindRequest{
+func (t *projectMemberRepository) list(ctx context.Context, query *ProjectMemberQuery) ([]*mdcv1.ProjectMember, error) {
+	resp, err := t.s.mdc.ProjectMember().Find(ctx, &mdcv1.ProjectMemberFindRequest{
 		ProjectId:   &t.scope.projectID,
 		TenantId:    query.MemberId,
 		Annotations: query.Annotations,
@@ -125,35 +137,17 @@ func (t *projectMemberRepository) List(ctx context.Context, query *ProjectMember
 	return resp.ProjectMembers, nil
 }
 
-func (t *projectMemberRepository) MatchScope(e *mdcv1.ProjectMember) error {
+func (t *projectMemberRepository) matchScope(e *mdcv1.ProjectMember) bool {
 	panic("unimplemented")
 }
 
-func (t *projectMemberRepository) Update(ctx context.Context, msg *Validated[*ProjectMemberUpdateRequest]) (*mdcv1.ProjectMember, error) {
-	resp, err := t.r.mdc.ProjectMember().Update(ctx, &mdcv1.ProjectMemberUpdateRequest{
-		ProjectMember: msg.message.Member,
+func (t *projectMemberRepository) update(ctx context.Context, _ *mdcv1.ProjectMember, msg *ProjectMemberUpdateRequest) (*mdcv1.ProjectMember, error) {
+	resp, err := t.s.mdc.ProjectMember().Update(ctx, &mdcv1.ProjectMemberUpdateRequest{
+		ProjectMember: msg.Member,
 	})
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
 	return resp.ProjectMember, nil
-}
-
-func (t *projectMemberRepository) ValidateCreate(ctx context.Context, create *ProjectMemberCreateRequest) (*Validated[*ProjectMemberCreateRequest], error) {
-	return &Validated[*ProjectMemberCreateRequest]{
-		message: create,
-	}, nil
-}
-
-func (t *projectMemberRepository) ValidateDelete(ctx context.Context, e *mdcv1.ProjectMember) (*Validated[*mdcv1.ProjectMember], error) {
-	return &Validated[*mdcv1.ProjectMember]{
-		message: e,
-	}, nil
-}
-
-func (t *projectMemberRepository) ValidateUpdate(ctx context.Context, msg *ProjectMemberUpdateRequest) (*Validated[*ProjectMemberUpdateRequest], error) {
-	return &Validated[*ProjectMemberUpdateRequest]{
-		message: msg,
-	}, nil
 }

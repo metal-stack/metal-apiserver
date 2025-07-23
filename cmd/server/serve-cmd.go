@@ -147,7 +147,7 @@ func newServeCmd() *cli.Command {
 					return err
 				}
 
-				err = repo.UnscopedProject().EnsureProviderProject(ctx.Context, providerTenant)
+				err = repo.UnscopedProject().AdditionalMethods().EnsureProviderProject(ctx.Context, providerTenant)
 				if err != nil {
 					return err
 				}

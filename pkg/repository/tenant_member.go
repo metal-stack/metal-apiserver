@@ -12,7 +12,7 @@ import (
 )
 
 type tenantMemberRepository struct {
-	r     *Store
+	s     *Store
 	scope *TenantScope
 }
 
@@ -30,23 +30,35 @@ type (
 	}
 )
 
-func (t *tenantMemberRepository) ConvertToInternal(msg *mdcv1.TenantMember) (*mdcv1.TenantMember, error) {
+func (r *tenantMemberRepository) validateCreate(ctx context.Context, req *TenantMemberCreateRequest) error {
+	return nil
+}
+
+func (r *tenantMemberRepository) validateUpdate(ctx context.Context, req *TenantMemberUpdateRequest, _ *mdcv1.TenantMember) error {
+	return nil
+}
+
+func (r *tenantMemberRepository) validateDelete(ctx context.Context, req *mdcv1.TenantMember) error {
+	return nil
+}
+
+func (t *tenantMemberRepository) convertToInternal(msg *mdcv1.TenantMember) (*mdcv1.TenantMember, error) {
 	return msg, nil
 }
 
-func (t *tenantMemberRepository) ConvertToProto(e *mdcv1.TenantMember) (*mdcv1.TenantMember, error) {
+func (t *tenantMemberRepository) convertToProto(e *mdcv1.TenantMember) (*mdcv1.TenantMember, error) {
 	return e, nil
 }
 
-func (t *tenantMemberRepository) Create(ctx context.Context, c *Validated[*TenantMemberCreateRequest]) (*mdcv1.TenantMember, error) {
-	resp, err := t.r.mdc.TenantMember().Create(ctx, &mdcv1.TenantMemberCreateRequest{
+func (t *tenantMemberRepository) create(ctx context.Context, c *TenantMemberCreateRequest) (*mdcv1.TenantMember, error) {
+	resp, err := t.s.mdc.TenantMember().Create(ctx, &mdcv1.TenantMemberCreateRequest{
 		TenantMember: &mdcv1.TenantMember{
 			Meta: &mdcv1.Meta{
 				Annotations: map[string]string{
-					tutil.TenantRoleAnnotation: c.message.Role.String(),
+					tutil.TenantRoleAnnotation: c.Role.String(),
 				},
 			},
-			MemberId: c.message.MemberID,
+			MemberId: c.MemberID,
 			TenantId: t.scope.tenantID,
 		},
 	})
@@ -57,23 +69,23 @@ func (t *tenantMemberRepository) Create(ctx context.Context, c *Validated[*Tenan
 	return resp.TenantMember, nil
 }
 
-func (t *tenantMemberRepository) Delete(ctx context.Context, e *Validated[*mdcv1.TenantMember]) (*mdcv1.TenantMember, error) {
-	resp, err := t.r.mdc.TenantMember().Delete(ctx, &mdcv1.TenantMemberDeleteRequest{
-		Id: e.message.MemberId,
+func (t *tenantMemberRepository) delete(ctx context.Context, e *mdcv1.TenantMember) error {
+	_, err := t.s.mdc.TenantMember().Delete(ctx, &mdcv1.TenantMemberDeleteRequest{
+		Id: e.MemberId,
 	})
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return errorutil.Convert(err)
 	}
 
-	return resp.TenantMember, nil
+	return nil
 }
 
-func (t *tenantMemberRepository) Find(ctx context.Context, query *TenantMemberQuery) (*mdcv1.TenantMember, error) {
+func (t *tenantMemberRepository) find(ctx context.Context, query *TenantMemberQuery) (*mdcv1.TenantMember, error) {
 	if query.MemberId == nil {
 		return nil, fmt.Errorf("member id must be specified")
 	}
 
-	memberships, err := t.List(ctx, query)
+	memberships, err := t.list(ctx, query)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -90,8 +102,8 @@ func (t *tenantMemberRepository) Find(ctx context.Context, query *TenantMemberQu
 	return memberships[0], nil
 }
 
-func (t *tenantMemberRepository) Get(ctx context.Context, id string) (*mdcv1.TenantMember, error) {
-	resp, err := t.r.mdc.TenantMember().Get(ctx, &mdcv1.TenantMemberGetRequest{
+func (t *tenantMemberRepository) get(ctx context.Context, id string) (*mdcv1.TenantMember, error) {
+	resp, err := t.s.mdc.TenantMember().Get(ctx, &mdcv1.TenantMemberGetRequest{
 		Id: id,
 	})
 	if err != nil {
@@ -101,8 +113,8 @@ func (t *tenantMemberRepository) Get(ctx context.Context, id string) (*mdcv1.Ten
 	return resp.TenantMember, nil
 }
 
-func (t *tenantMemberRepository) List(ctx context.Context, query *TenantMemberQuery) ([]*mdcv1.TenantMember, error) {
-	resp, err := t.r.mdc.TenantMember().Find(ctx, &mdcv1.TenantMemberFindRequest{
+func (t *tenantMemberRepository) list(ctx context.Context, query *TenantMemberQuery) ([]*mdcv1.TenantMember, error) {
+	resp, err := t.s.mdc.TenantMember().Find(ctx, &mdcv1.TenantMemberFindRequest{
 		TenantId:    &t.scope.tenantID,
 		MemberId:    query.MemberId,
 		Annotations: query.Annotations,
@@ -114,35 +126,17 @@ func (t *tenantMemberRepository) List(ctx context.Context, query *TenantMemberQu
 	return resp.TenantMembers, nil
 }
 
-func (t *tenantMemberRepository) MatchScope(e *mdcv1.TenantMember) error {
+func (t *tenantMemberRepository) matchScope(e *mdcv1.TenantMember) bool {
 	panic("unimplemented")
 }
 
-func (t *tenantMemberRepository) Update(ctx context.Context, msg *Validated[*TenantMemberUpdateRequest]) (*mdcv1.TenantMember, error) {
-	resp, err := t.r.mdc.TenantMember().Update(ctx, &mdcv1.TenantMemberUpdateRequest{
-		TenantMember: msg.message.Member,
+func (t *tenantMemberRepository) update(ctx context.Context, _ *mdcv1.TenantMember, msg *TenantMemberUpdateRequest) (*mdcv1.TenantMember, error) {
+	resp, err := t.s.mdc.TenantMember().Update(ctx, &mdcv1.TenantMemberUpdateRequest{
+		TenantMember: msg.Member,
 	})
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
 	return resp.TenantMember, nil
-}
-
-func (t *tenantMemberRepository) ValidateCreate(ctx context.Context, create *TenantMemberCreateRequest) (*Validated[*TenantMemberCreateRequest], error) {
-	return &Validated[*TenantMemberCreateRequest]{
-		message: create,
-	}, nil
-}
-
-func (t *tenantMemberRepository) ValidateDelete(ctx context.Context, e *mdcv1.TenantMember) (*Validated[*mdcv1.TenantMember], error) {
-	return &Validated[*mdcv1.TenantMember]{
-		message: e,
-	}, nil
-}
-
-func (t *tenantMemberRepository) ValidateUpdate(ctx context.Context, msg *TenantMemberUpdateRequest) (*Validated[*TenantMemberUpdateRequest], error) {
-	return &Validated[*TenantMemberUpdateRequest]{
-		message: msg,
-	}, nil
 }

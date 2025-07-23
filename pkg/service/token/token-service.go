@@ -61,7 +61,7 @@ func New(c Config) TokenService {
 		adminSubjects:      c.AdminSubjects,
 
 		projectsAndTenantsGetter: func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
-			return c.Repo.UnscopedProject().GetProjectsAndTenants(ctx, userId)
+			return c.Repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, userId)
 		},
 	}
 }

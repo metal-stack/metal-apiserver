@@ -83,7 +83,7 @@ func StartApiserver(t *testing.T, log *slog.Logger) (baseURL, adminToken string,
 	err = tutil.EnsureProviderTenant(ctx, c.MasterClient, providerTenant)
 	require.NoError(t, err)
 
-	err = repo.UnscopedProject().EnsureProviderProject(ctx, providerTenant)
+	err = repo.UnscopedProject().AdditionalMethods().EnsureProviderProject(ctx, providerTenant)
 	require.NoError(t, err)
 
 	_, err = masterdataClient.Tenant().Create(ctx, &v1.TenantCreateRequest{Tenant: &v1.Tenant{Meta: &v1.Meta{Id: subject}, Name: subject}})

@@ -26,25 +26,41 @@ type projectRepository struct {
 	scope *ProjectScope
 }
 
-func (r *projectRepository) ValidateCreate(ctx context.Context, req *apiv2.ProjectServiceCreateRequest) (*Validated[*apiv2.ProjectServiceCreateRequest], error) {
-	return &Validated[*apiv2.ProjectServiceCreateRequest]{
-		message: req,
-	}, nil
+func (r *projectRepository) Member() ProjectMember {
+	return r.projectMember(&ProjectScope{
+		projectID: r.scope.projectID,
+	})
 }
 
-func (r *projectRepository) ValidateUpdate(ctx context.Context, req *apiv2.ProjectServiceUpdateRequest) (*Validated[*apiv2.ProjectServiceUpdateRequest], error) {
-	return &Validated[*apiv2.ProjectServiceUpdateRequest]{
-		message: req,
-	}, nil
+func (r *projectRepository) UnscopedMember() ProjectMember {
+	return r.projectMember(nil)
 }
 
-func (r *projectRepository) ValidateDelete(ctx context.Context, req *mdcv1.Project) (*Validated[*mdcv1.Project], error) {
-	return &Validated[*mdcv1.Project]{
-		message: req,
-	}, nil
+func (r *projectRepository) projectMember(scope *ProjectScope) ProjectMember {
+	repository := &projectMemberRepository{
+		s:     r.s,
+		scope: scope,
+	}
+
+	return &store[*projectMemberRepository, *mdcv1.ProjectMember, *apiv2.ProjectMember, *ProjectMemberCreateRequest, *ProjectMemberUpdateRequest, *ProjectMemberQuery]{
+		repository: repository,
+		typed:      repository,
+	}
 }
 
-func (r *projectRepository) Get(ctx context.Context, id string) (*mdcv1.Project, error) {
+func (r *projectRepository) validateCreate(ctx context.Context, req *apiv2.ProjectServiceCreateRequest) error {
+	return nil
+}
+
+func (r *projectRepository) validateUpdate(ctx context.Context, req *apiv2.ProjectServiceUpdateRequest, _ *mdcv1.Project) error {
+	return nil
+}
+
+func (r *projectRepository) validateDelete(ctx context.Context, req *mdcv1.Project) error {
+	return nil
+}
+
+func (r *projectRepository) get(ctx context.Context, id string) (*mdcv1.Project, error) {
 	resp, err := r.s.mdc.Project().Get(ctx, &mdcv1.ProjectGetRequest{Id: id})
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -54,35 +70,29 @@ func (r *projectRepository) Get(ctx context.Context, id string) (*mdcv1.Project,
 		return nil, errorutil.NotFound("project %q has no meta", id)
 	}
 
-	err = r.MatchScope(resp.Project)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
 	return resp.Project, nil
 }
 
-func (r *projectRepository) MatchScope(p *mdcv1.Project) error {
+func (r *projectRepository) matchScope(p *mdcv1.Project) bool {
 	if r.scope == nil {
-		return nil
+		return true
 	}
 
 	if r.scope.projectID == p.Meta.Id {
-		return nil
+		return true
 	}
-
-	return errorutil.NotFound("project:%s not found", p.Meta.Id)
+	return false
 }
 
-func (r *projectRepository) Create(ctx context.Context, e *Validated[*apiv2.ProjectServiceCreateRequest]) (*mdcv1.Project, error) {
+func (r *projectRepository) create(ctx context.Context, e *apiv2.ProjectServiceCreateRequest) (*mdcv1.Project, error) {
 	return r.CreateWithID(ctx, e, "")
 }
 
-func (r *projectRepository) CreateWithID(ctx context.Context, e *Validated[*apiv2.ProjectServiceCreateRequest], id string) (*mdcv1.Project, error) {
+func (r *projectRepository) CreateWithID(ctx context.Context, e *apiv2.ProjectServiceCreateRequest, id string) (*mdcv1.Project, error) {
 	ann := map[string]string{}
 
-	if e.message.AvatarUrl != nil {
-		ann[avatarURLAnnotation] = *e.message.AvatarUrl
+	if e.AvatarUrl != nil {
+		ann[avatarURLAnnotation] = *e.AvatarUrl
 	}
 
 	project := &mdcv1.Project{
@@ -90,9 +100,9 @@ func (r *projectRepository) CreateWithID(ctx context.Context, e *Validated[*apiv
 			Annotations: ann,
 			Id:          id,
 		},
-		Name:        e.message.Name,
-		Description: e.message.Description,
-		TenantId:    e.message.Login,
+		Name:        e.Name,
+		Description: e.Description,
+		TenantId:    e.Login,
 	}
 
 	resp, err := r.s.mdc.Project().Create(ctx, &mdcv1.ProjectCreateRequest{Project: project})
@@ -103,30 +113,24 @@ func (r *projectRepository) CreateWithID(ctx context.Context, e *Validated[*apiv
 	return resp.Project, nil
 }
 
-func (r *projectRepository) Update(ctx context.Context, e *Validated[*apiv2.ProjectServiceUpdateRequest]) (*mdcv1.Project, error) {
+func (r *projectRepository) update(ctx context.Context, e *mdcv1.Project, msg *apiv2.ProjectServiceUpdateRequest) (*mdcv1.Project, error) {
 	panic("unimplemented")
 }
 
-func (r *projectRepository) Delete(ctx context.Context, e *Validated[*mdcv1.Project]) (*mdcv1.Project, error) {
+func (r *projectRepository) delete(ctx context.Context, e *mdcv1.Project) error {
 	panic("unimplemented")
 }
 
-func (r *projectRepository) Find(ctx context.Context, query *apiv2.ProjectServiceListRequest) (*mdcv1.Project, error) {
+func (r *projectRepository) find(ctx context.Context, query *apiv2.ProjectServiceListRequest) (*mdcv1.Project, error) {
 	panic("unimplemented")
 }
 
-func (r *projectRepository) List(ctx context.Context, query *apiv2.ProjectServiceListRequest) ([]*mdcv1.Project, error) {
+func (r *projectRepository) list(ctx context.Context, query *apiv2.ProjectServiceListRequest) ([]*mdcv1.Project, error) {
 	panic("unimplemented")
 }
 
-func (t *projectRepository) Member() ProjectMember {
-	return &projectMemberRepository{
-		r:     t.s,
-		scope: t.scope,
-	}
-}
+func (r *projectRepository) convertToInternal(p *apiv2.Project) (*mdcv1.Project, error) {
 
-func (r *projectRepository) ConvertToInternal(p *apiv2.Project) (*mdcv1.Project, error) {
 	meta := &mdcv1.Meta{
 		Id:          p.Uuid,
 		CreatedTime: p.Meta.CreatedAt,
@@ -143,7 +147,7 @@ func (r *projectRepository) ConvertToInternal(p *apiv2.Project) (*mdcv1.Project,
 	}, nil
 }
 
-func (r *projectRepository) ConvertToProto(p *mdcv1.Project) (*apiv2.Project, error) {
+func (r *projectRepository) convertToProto(p *mdcv1.Project) (*apiv2.Project, error) {
 	if p.Meta == nil {
 		return nil, errors.New("project meta is nil")
 	}
@@ -334,7 +338,7 @@ func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId st
 
 func (r *projectRepository) EnsureProviderProject(ctx context.Context, providerTenantID string) error {
 	ensureMembership := func(projectId string) error {
-		_, err := r.s.Project(projectId).Member().Get(ctx, providerTenantID)
+		_, err := r.s.Project(projectId).AdditionalMethods().Member().Get(ctx, providerTenantID)
 		if err == nil {
 			return nil
 		}

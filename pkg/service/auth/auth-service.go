@@ -267,7 +267,7 @@ func (a *auth) Callback(res http.ResponseWriter, req *http.Request) {
 
 	// Create Token
 
-	pat, err := a.repo.UnscopedProject().GetProjectsAndTenants(ctx, u.login)
+	pat, err := a.repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, u.login)
 	if err != nil {
 		http.Error(res, fmt.Sprintf("unable to lookup projects and tenants: %v", err), http.StatusInternalServerError)
 		return
@@ -336,13 +336,11 @@ func (a *auth) ensureTenant(ctx context.Context, u *providerUser) error {
 	}
 
 	if err != nil && errorutil.IsNotFound(err) {
-		validated, err := a.repo.Tenant().ValidateCreate(ctx, &apiv2.TenantServiceCreateRequest{
+		created, err := a.repo.Tenant().AdditionalMethods().CreateWithID(ctx, &apiv2.TenantServiceCreateRequest{
 			Name:      u.login,
 			Email:     &u.email, // TODO: this field can be empty, fallback to user email would be great but for github this is also empty (#151)
 			AvatarUrl: &u.avatarUrl,
-		})
-
-		created, err := a.repo.Tenant().CreateWithID(ctx, validated, u.login)
+		}, u.login)
 		if err != nil {
 			return fmt.Errorf("unable to create tenant:%s %w", u.login, err)
 		}
@@ -353,12 +351,10 @@ func (a *auth) ensureTenant(ctx context.Context, u *providerUser) error {
 	if tenant.Meta.Annotations[tutil.TagAvatarURL] != u.avatarUrl {
 		tenant.Meta.Annotations[tutil.TagAvatarURL] = u.avatarUrl
 
-		validated, err := a.repo.Tenant().ValidateUpdate(ctx, &apiv2.TenantServiceUpdateRequest{
+		updated, err := a.repo.Tenant().Update(ctx, tenant.Meta.Id, &apiv2.TenantServiceUpdateRequest{
 			Login:     u.login,
 			AvatarUrl: &u.avatarUrl,
 		})
-
-		updated, err := a.repo.Tenant().Update(ctx, validated)
 		if err != nil {
 			return fmt.Errorf("unable to update tenant:%s %w", u.login, err)
 		}
@@ -366,7 +362,7 @@ func (a *auth) ensureTenant(ctx context.Context, u *providerUser) error {
 		tenant = updated
 	}
 
-	_, err = a.repo.Tenant().Member(u.login).Get(ctx, u.login)
+	_, err = a.repo.Tenant().AdditionalMethods().Member(u.login).Get(ctx, u.login)
 	if err == nil {
 		return nil
 	}
@@ -375,12 +371,10 @@ func (a *auth) ensureTenant(ctx context.Context, u *providerUser) error {
 		return err
 	}
 
-	validatedMember, err := a.repo.Tenant().Member(u.login).ValidateCreate(ctx, &repository.TenantMemberCreateRequest{
+	_, err = a.repo.Tenant().AdditionalMethods().Member(u.login).Create(ctx, &repository.TenantMemberCreateRequest{
 		Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
 		MemberID: u.login,
 	})
-
-	_, err = a.repo.Tenant().Member(u.login).Create(ctx, validatedMember)
 
 	return err
 }

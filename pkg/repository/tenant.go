@@ -17,40 +17,34 @@ type tenantRepository struct {
 	s *Store
 }
 
-func (t *tenantRepository) ValidateCreate(ctx context.Context, create *apiv2.TenantServiceCreateRequest) (*Validated[*apiv2.TenantServiceCreateRequest], error) {
-	return &Validated[*apiv2.TenantServiceCreateRequest]{
-		message: create,
-	}, nil
+func (t *tenantRepository) validateCreate(ctx context.Context, create *apiv2.TenantServiceCreateRequest) error {
+	return nil
 }
 
-func (t *tenantRepository) ValidateDelete(ctx context.Context, e *mdcv1.Tenant) (*Validated[*mdcv1.Tenant], error) {
+func (t *tenantRepository) validateDelete(ctx context.Context, e *mdcv1.Tenant) error {
 	projects, err := t.s.UnscopedProject().List(ctx, &apiv2.ProjectServiceListRequest{
 		Tenant: &e.Meta.Id,
 	})
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return errorutil.Convert(err)
 	}
 
 	if len(projects) > 0 {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("there are still projects associated with this tenant, you need to delete them first"))
+		return connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("there are still projects associated with this tenant, you need to delete them first"))
 	}
 
-	return &Validated[*mdcv1.Tenant]{
-		message: e,
-	}, nil
+	return nil
 }
 
-func (t *tenantRepository) ValidateUpdate(ctx context.Context, msg *apiv2.TenantServiceUpdateRequest) (*Validated[*apiv2.TenantServiceUpdateRequest], error) {
-	return &Validated[*apiv2.TenantServiceUpdateRequest]{
-		message: msg,
-	}, nil
+func (t *tenantRepository) validateUpdate(ctx context.Context, msg *apiv2.TenantServiceUpdateRequest, _ *mdcv1.Tenant) error {
+	return nil
 }
 
-func (t *tenantRepository) Create(ctx context.Context, c *Validated[*apiv2.TenantServiceCreateRequest]) (*mdcv1.Tenant, error) {
-	return t.CreateWithID(ctx, c, "")
+func (t *tenantRepository) create(ctx context.Context, rq *apiv2.TenantServiceCreateRequest) (*mdcv1.Tenant, error) {
+	return t.CreateWithID(ctx, rq, "")
 }
 
-func (t *tenantRepository) CreateWithID(ctx context.Context, c *Validated[*apiv2.TenantServiceCreateRequest], id string) (*mdcv1.Tenant, error) {
+func (t *tenantRepository) CreateWithID(ctx context.Context, c *apiv2.TenantServiceCreateRequest, id string) (*mdcv1.Tenant, error) {
 	tok, ok := token.TokenFromContext(ctx)
 
 	if !ok || tok == nil {
@@ -61,14 +55,14 @@ func (t *tenantRepository) CreateWithID(ctx context.Context, c *Validated[*apiv2
 		tutil.TagCreator: tok.UserId,
 	}
 
-	if c.message.Email != nil {
-		ann[tutil.TagEmail] = *c.message.Email
+	if c.Email != nil {
+		ann[tutil.TagEmail] = *c.Email
 	}
-	if c.message.AvatarUrl != nil {
-		ann[tutil.TagAvatarURL] = *c.message.AvatarUrl
+	if c.AvatarUrl != nil {
+		ann[tutil.TagAvatarURL] = *c.AvatarUrl
 	}
-	if c.message.PhoneNumber != nil {
-		ann[tutil.TagPhoneNumber] = *c.message.PhoneNumber
+	if c.PhoneNumber != nil {
+		ann[tutil.TagPhoneNumber] = *c.PhoneNumber
 	}
 
 	tenant := &mdcv1.Tenant{
@@ -76,11 +70,11 @@ func (t *tenantRepository) CreateWithID(ctx context.Context, c *Validated[*apiv2
 			Id:          id,
 			Annotations: ann,
 		},
-		Name: c.message.Name,
+		Name: c.Name,
 	}
 
-	if c.message.Description != nil {
-		tenant.Description = *c.message.Description
+	if c.Description != nil {
+		tenant.Description = *c.Description
 	}
 
 	resp, err := t.s.mdc.Tenant().Create(ctx, &mdcv1.TenantCreateRequest{Tenant: tenant})
@@ -91,17 +85,16 @@ func (t *tenantRepository) CreateWithID(ctx context.Context, c *Validated[*apiv2
 	return resp.Tenant, nil
 }
 
-func (t *tenantRepository) Delete(ctx context.Context, e *Validated[*mdcv1.Tenant]) (*mdcv1.Tenant, error) {
+func (t *tenantRepository) delete(ctx context.Context, e *mdcv1.Tenant) error {
 	panic("unimplemented")
 }
 
-func (t *tenantRepository) Find(ctx context.Context, query *apiv2.TenantServiceListRequest) (*mdcv1.Tenant, error) {
+func (t *tenantRepository) find(ctx context.Context, query *apiv2.TenantServiceListRequest) (*mdcv1.Tenant, error) {
 	panic("unimplemented")
 }
 
-func (t *tenantRepository) Get(ctx context.Context, id string) (*mdcv1.Tenant, error) {
+func (t *tenantRepository) get(ctx context.Context, id string) (*mdcv1.Tenant, error) {
 	resp, err := t.s.mdc.Tenant().Get(ctx, &mdcv1.TenantGetRequest{Id: id})
-	// Get implements Tenant.
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -109,31 +102,46 @@ func (t *tenantRepository) Get(ctx context.Context, id string) (*mdcv1.Tenant, e
 	return resp.Tenant, nil
 }
 
-func (t *tenantRepository) List(ctx context.Context, query *apiv2.TenantServiceListRequest) ([]*mdcv1.Tenant, error) {
+func (t *tenantRepository) list(ctx context.Context, query *apiv2.TenantServiceListRequest) ([]*mdcv1.Tenant, error) {
 	panic("unimplemented")
 }
 
 // MatchScope implements Tenant.
-func (t *tenantRepository) MatchScope(e *mdcv1.Tenant) error {
+func (t *tenantRepository) matchScope(e *mdcv1.Tenant) bool {
 	panic("unimplemented")
 }
 
-func (t *tenantRepository) Update(ctx context.Context, msg *Validated[*apiv2.TenantServiceUpdateRequest]) (*mdcv1.Tenant, error) {
+func (t *tenantRepository) update(ctx context.Context, e *mdcv1.Tenant, msg *apiv2.TenantServiceUpdateRequest) (*mdcv1.Tenant, error) {
 	panic("unimplemented")
 }
 
-func (t *tenantRepository) ConvertToInternal(msg *apiv2.Tenant) (*mdcv1.Tenant, error) {
+func (t *tenantRepository) convertToInternal(msg *apiv2.Tenant) (*mdcv1.Tenant, error) {
 	panic("unimplemented")
 }
 
-func (t *tenantRepository) ConvertToProto(e *mdcv1.Tenant) (*apiv2.Tenant, error) {
+func (t *tenantRepository) convertToProto(e *mdcv1.Tenant) (*apiv2.Tenant, error) {
 	panic("unimplemented")
 }
 
-func (t *tenantRepository) Member(tenantID string) TenantMember {
-	return &tenantMemberRepository{
-		r:     t.s,
-		scope: &TenantScope{tenantID: tenantID},
+func (r *tenantRepository) Member(tenantID string) TenantMember {
+	return r.tenantMember(&TenantScope{
+		tenantID: tenantID,
+	})
+}
+
+func (r *tenantRepository) UnscopedMember() TenantMember {
+	return r.tenantMember(nil)
+}
+
+func (r *tenantRepository) tenantMember(scope *TenantScope) TenantMember {
+	repository := &tenantMemberRepository{
+		s:     r.s,
+		scope: scope,
+	}
+
+	return &store[*tenantMemberRepository, *mdcv1.TenantMember, *mdcv1.TenantMember, *TenantMemberCreateRequest, *TenantMemberUpdateRequest, *TenantMemberQuery]{
+		repository: repository,
+		typed:      repository,
 	}
 }
 

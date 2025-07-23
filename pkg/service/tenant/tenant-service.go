@@ -60,7 +60,7 @@ func (u *tenantServiceServer) List(ctx context.Context, rq *connect.Request[apiv
 		result []*apiv2.Tenant
 	)
 
-	projectsAndTenants, err := u.repo.UnscopedProject().GetProjectsAndTenants(ctx, token.UserId)
+	projectsAndTenants, err := u.repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, token.UserId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("error retrieving tenants from backend: %w", err))
 	}
@@ -108,12 +108,7 @@ func (u *tenantServiceServer) Create(ctx context.Context, rq *connect.Request[ap
 		}
 	}
 
-	validated, err := u.repo.Tenant().ValidateCreate(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-
-	created, err := u.repo.Tenant().Create(ctx, validated)
+	created, err := u.repo.Tenant().Create(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -124,16 +119,10 @@ func (u *tenantServiceServer) Create(ctx context.Context, rq *connect.Request[ap
 	}
 
 	// make tenant owner and member of its own tenant
-
-	validatedMember, err := u.repo.Tenant().Member(t.UserId).ValidateCreate(ctx, &repository.TenantMemberCreateRequest{
+	_, err = u.repo.Tenant().AdditionalMethods().Member(t.UserId).Create(ctx, &repository.TenantMemberCreateRequest{
 		MemberID: converted.Login,
 		Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = u.repo.Tenant().Member(t.UserId).Create(ctx, validatedMember)
 	if err != nil {
 		return nil, err // TODO: give more instructions what to do now!
 	}
@@ -191,7 +180,7 @@ func (u *tenantServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("tenant role insufficient"))
 	}
 
-	members, err := u.repo.Tenant().ListTenantMembers(ctx, req.Login, true)
+	members, err := u.repo.Tenant().AdditionalMethods().ListTenantMembers(ctx, req.Login, true)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("unable to list tenant members: %w", err))
 	}
@@ -221,12 +210,7 @@ func (u *tenantServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2
 func (u *tenantServiceServer) Update(ctx context.Context, rq *connect.Request[apiv2.TenantServiceUpdateRequest]) (*connect.Response[apiv2.TenantServiceUpdateResponse], error) {
 	req := rq.Msg
 
-	validated, err := u.repo.Tenant().ValidateUpdate(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-
-	updated, err := u.repo.Tenant().Update(ctx, validated)
+	updated, err := u.repo.Tenant().Update(ctx, req.Login, req)
 	if err != nil {
 		return nil, err
 	}
@@ -248,13 +232,6 @@ func (u *tenantServiceServer) Delete(ctx context.Context, rq *connect.Request[ap
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
 	}
 
-	validated, err := u.repo.Tenant().ValidateDelete(ctx, &mdcv1.Tenant{
-		Name: req.Login,
-	})
-	if err != nil {
-		return nil, err
-	}
-
 	u.log.Debug("delete", "tenant", rq)
 
 	if t.UserId == req.Login {
@@ -272,7 +249,7 @@ func (u *tenantServiceServer) Delete(ctx context.Context, rq *connect.Request[ap
 		return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("there are still projects associated with this tenant, you need to delete them first"))
 	}
 
-	deleted, err := u.repo.Tenant().Delete(ctx, validated)
+	deleted, err := u.repo.Tenant().Delete(ctx, req.Login)
 	if err != nil {
 		return nil, err
 	}
@@ -366,7 +343,7 @@ func (u *tenantServiceServer) InviteAccept(ctx context.Context, rq *connect.Requ
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("an owner cannot accept invitations to own tenants"))
 	}
 
-	memberships, err := u.repo.Tenant().Member(inv.TargetTenant).List(ctx, &repository.TenantMemberQuery{
+	memberships, err := u.repo.Tenant().AdditionalMethods().Member(inv.TargetTenant).List(ctx, &repository.TenantMemberQuery{
 		MemberId: &invitee.Meta.Id,
 	})
 	if err != nil {
@@ -382,15 +359,10 @@ func (u *tenantServiceServer) InviteAccept(ctx context.Context, rq *connect.Requ
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	validatedMember, err := u.repo.Tenant().Member(inv.TargetTenant).ValidateCreate(ctx, &repository.TenantMemberCreateRequest{
+	_, err = u.repo.Tenant().AdditionalMethods().Member(inv.TargetTenant).Create(ctx, &repository.TenantMemberCreateRequest{
 		MemberID: invitee.Meta.Id,
 		Role:     inv.Role,
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = u.repo.Tenant().Member(inv.TargetTenant).Create(ctx, validatedMember)
 	if err != nil {
 		return nil, err
 	}
@@ -446,7 +418,7 @@ func (u *tenantServiceServer) RemoveMember(ctx context.Context, rq *connect.Requ
 		req = rq.Msg
 	)
 
-	membership, err := u.repo.Tenant().Member(req.Login).Get(ctx, req.MemberId)
+	membership, err := u.repo.Tenant().AdditionalMethods().Member(req.Login).Get(ctx, req.MemberId)
 	if err != nil {
 		return nil, err
 	}
@@ -463,12 +435,7 @@ func (u *tenantServiceServer) RemoveMember(ctx context.Context, rq *connect.Requ
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot remove last owner of a tenant"))
 	}
 
-	validatedMember, err := u.repo.Tenant().Member(req.Login).ValidateDelete(ctx, membership)
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = u.repo.Tenant().Member(req.Login).Delete(ctx, validatedMember)
+	_, err = u.repo.Tenant().AdditionalMethods().Member(req.Login).Delete(ctx, membership.Meta.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -481,7 +448,7 @@ func (u *tenantServiceServer) UpdateMember(ctx context.Context, rq *connect.Requ
 		req = rq.Msg
 	)
 
-	membership, err := u.repo.Tenant().Member(req.Login).Get(ctx, req.MemberId)
+	membership, err := u.repo.Tenant().AdditionalMethods().Member(req.Login).Get(ctx, req.MemberId)
 	if err != nil {
 		return nil, err
 	}
@@ -506,12 +473,7 @@ func (u *tenantServiceServer) UpdateMember(ctx context.Context, rq *connect.Requ
 		membership.Meta.Annotations[tutil.TenantRoleAnnotation] = req.Role.String()
 	}
 
-	validatedMember, err := u.repo.Tenant().Member(req.Login).ValidateUpdate(ctx, &repository.TenantMemberUpdateRequest{Member: membership})
-	if err != nil {
-		return nil, err
-	}
-
-	updatedMember, err := u.repo.Tenant().Member(req.Login).Update(ctx, validatedMember)
+	updatedMember, err := u.repo.Tenant().AdditionalMethods().Member(req.Login).Update(ctx, membership.Meta.Id, &repository.TenantMemberUpdateRequest{Member: membership})
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -529,7 +491,7 @@ func (u *tenantServiceServer) checkIfMemberIsLastOwner(ctx context.Context, memb
 		return false, nil
 	}
 
-	members, err := u.repo.Tenant().Member(membership.TenantId).List(ctx, &repository.TenantMemberQuery{
+	members, err := u.repo.Tenant().AdditionalMethods().Member(membership.TenantId).List(ctx, &repository.TenantMemberQuery{
 		Annotations: map[string]string{
 			tutil.TenantRoleAnnotation: apiv2.TenantRole_TENANT_ROLE_OWNER.String(),
 		},
