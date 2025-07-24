@@ -11,12 +11,12 @@ import (
 	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
 )
 
-type tenantMemberRepository struct {
-	s     *Store
-	scope *TenantScope
-}
-
 type (
+	tenantMemberRepository struct {
+		s     *Store
+		scope *TenantScope
+	}
+
 	TenantMemberCreateRequest struct {
 		MemberID string
 		Role     apiv2.TenantRole
@@ -30,16 +30,46 @@ type (
 	}
 )
 
-func (r *tenantMemberRepository) validateCreate(ctx context.Context, req *TenantMemberCreateRequest) error {
+func (t *tenantMemberRepository) validateCreate(ctx context.Context, req *TenantMemberCreateRequest) error {
 	return nil
 }
 
-func (r *tenantMemberRepository) validateUpdate(ctx context.Context, req *TenantMemberUpdateRequest, _ *mdcv1.TenantMember) error {
+func (t *tenantMemberRepository) validateUpdate(ctx context.Context, req *TenantMemberUpdateRequest, _ *mdcv1.TenantMember) error {
 	return nil
 }
 
-func (r *tenantMemberRepository) validateDelete(ctx context.Context, req *mdcv1.TenantMember) error {
+func (t *tenantMemberRepository) validateDelete(ctx context.Context, req *mdcv1.TenantMember) error {
+	if req.MemberId == req.TenantId {
+		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot remove a member from their own default tenant"))
+	}
+
+	lastOwner, err := t.checkIfMemberIsLastOwner(ctx, req)
+	if err != nil {
+		return err
+	}
+	if lastOwner {
+		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot remove last owner of a tenant"))
+	}
+
 	return nil
+}
+
+func (t *tenantMemberRepository) checkIfMemberIsLastOwner(ctx context.Context, req *mdcv1.TenantMember) (bool, error) {
+	isOwner := tutil.TenantRoleFromMap(req.Meta.Annotations) == apiv2.TenantRole_TENANT_ROLE_OWNER
+	if !isOwner {
+		return false, nil
+	}
+
+	members, err := t.list(ctx, &TenantMemberQuery{
+		Annotations: map[string]string{
+			tutil.TenantRoleAnnotation: apiv2.TenantRole_TENANT_ROLE_OWNER.String(),
+		},
+	})
+	if err != nil {
+		return false, err
+	}
+
+	return len(members) < 2, nil
 }
 
 func (t *tenantMemberRepository) convertToInternal(msg *mdcv1.TenantMember) (*mdcv1.TenantMember, error) {
@@ -127,7 +157,11 @@ func (t *tenantMemberRepository) list(ctx context.Context, query *TenantMemberQu
 }
 
 func (t *tenantMemberRepository) matchScope(e *mdcv1.TenantMember) bool {
-	panic("unimplemented")
+	if t.scope == nil {
+		return true
+	}
+
+	return t.scope.tenantID == e.TenantId
 }
 
 func (t *tenantMemberRepository) update(ctx context.Context, _ *mdcv1.TenantMember, msg *TenantMemberUpdateRequest) (*mdcv1.TenantMember, error) {

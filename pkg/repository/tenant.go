@@ -11,6 +11,7 @@ import (
 	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 type tenantRepository struct {
@@ -38,6 +39,10 @@ func (t *tenantRepository) validateDelete(ctx context.Context, e *mdcv1.Tenant) 
 
 func (t *tenantRepository) validateUpdate(ctx context.Context, msg *apiv2.TenantServiceUpdateRequest, _ *mdcv1.Tenant) error {
 	return nil
+}
+
+func (t *tenantRepository) matchScope(e *mdcv1.Tenant) bool {
+	return true
 }
 
 func (t *tenantRepository) create(ctx context.Context, rq *apiv2.TenantServiceCreateRequest) (*mdcv1.Tenant, error) {
@@ -86,11 +91,28 @@ func (t *tenantRepository) CreateWithID(ctx context.Context, c *apiv2.TenantServ
 }
 
 func (t *tenantRepository) delete(ctx context.Context, e *mdcv1.Tenant) error {
-	panic("unimplemented")
+	_, err := t.s.mdc.Tenant().Delete(ctx, &mdcv1.TenantDeleteRequest{Id: e.Meta.Id})
+	if err != nil {
+		return errorutil.Convert(err)
+	}
+
+	return nil
 }
 
 func (t *tenantRepository) find(ctx context.Context, query *apiv2.TenantServiceListRequest) (*mdcv1.Tenant, error) {
-	panic("unimplemented")
+	tenants, err := t.list(ctx, query)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
+	switch len(tenants) {
+	case 0:
+		return nil, errorutil.NotFound("cannot find tenant")
+	case 1:
+		return tenants[0], nil
+	default:
+		return nil, fmt.Errorf("more than one tenant exists")
+	}
 }
 
 func (t *tenantRepository) get(ctx context.Context, id string) (*mdcv1.Tenant, error) {
@@ -103,24 +125,88 @@ func (t *tenantRepository) get(ctx context.Context, id string) (*mdcv1.Tenant, e
 }
 
 func (t *tenantRepository) list(ctx context.Context, query *apiv2.TenantServiceListRequest) ([]*mdcv1.Tenant, error) {
-	panic("unimplemented")
-}
+	var (
+		id   *wrapperspb.StringValue
+		name *wrapperspb.StringValue
+	)
 
-// MatchScope implements Tenant.
-func (t *tenantRepository) matchScope(e *mdcv1.Tenant) bool {
-	panic("unimplemented")
+	if query.Id != nil {
+		id = &wrapperspb.StringValue{Value: *query.Id}
+	}
+	if query.Name != nil {
+		name = &wrapperspb.StringValue{Value: *query.Name}
+	}
+
+	resp, err := t.s.mdc.Tenant().Find(ctx, &mdcv1.TenantFindRequest{
+		Id:   id,
+		Name: name,
+	})
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
+	return resp.GetTenants(), nil
 }
 
 func (t *tenantRepository) update(ctx context.Context, e *mdcv1.Tenant, msg *apiv2.TenantServiceUpdateRequest) (*mdcv1.Tenant, error) {
-	panic("unimplemented")
+	if msg.Name != nil {
+		e.Name = *msg.Name
+	}
+	if msg.Description != nil {
+		e.Description = *msg.Description
+	}
+
+	ann := e.Meta.Annotations
+
+	if msg.Email != nil {
+		ann[tutil.TagEmail] = *msg.Email
+	}
+	if msg.AvatarUrl != nil {
+		ann[tutil.TagAvatarURL] = *msg.AvatarUrl
+	}
+	// TODO: add phone number to update request?
+	// if msg. != nil {
+	// 	ann[tutil.TagPhoneNumber] = *msg.PhoneNumber
+	// }
+
+	resp, err := t.s.mdc.Tenant().Update(ctx, &mdcv1.TenantUpdateRequest{Tenant: e})
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
+	return resp.Tenant, nil
 }
 
-func (t *tenantRepository) convertToInternal(msg *apiv2.Tenant) (*mdcv1.Tenant, error) {
-	panic("unimplemented")
+func (t *tenantRepository) convertToInternal(tenant *apiv2.Tenant) (*mdcv1.Tenant, error) {
+	ann := map[string]string{
+		tutil.TagEmail:     tenant.Email,
+		tutil.TagAvatarURL: tenant.AvatarUrl,
+		// tutil.TagPhoneNumber:  tenant.,
+	}
+
+	return &mdcv1.Tenant{
+		Meta: &mdcv1.Meta{
+			Id:          tenant.Login,
+			Kind:        "Tenant",
+			Annotations: ann,
+		},
+		Name:        tenant.Name,
+		Description: tenant.Description,
+	}, nil
 }
 
-func (t *tenantRepository) convertToProto(e *mdcv1.Tenant) (*apiv2.Tenant, error) {
-	panic("unimplemented")
+func (te *tenantRepository) convertToProto(t *mdcv1.Tenant) (*apiv2.Tenant, error) {
+	return &apiv2.Tenant{
+		Login:       t.Meta.Id,
+		Name:        t.Name,
+		Description: t.Description,
+		Email:       t.Meta.Annotations[tutil.TagEmail],
+		AvatarUrl:   t.Meta.Annotations[tutil.TagAvatarURL],
+		Meta: &apiv2.Meta{
+			CreatedAt: t.Meta.CreatedTime,
+			UpdatedAt: t.Meta.UpdatedTime,
+		},
+	}, nil
 }
 
 func (r *tenantRepository) Member(tenantID string) TenantMember {

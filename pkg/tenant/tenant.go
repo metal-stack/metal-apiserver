@@ -41,43 +41,6 @@ func TenantRoleFromMap(annotations map[string]string) apiv2.TenantRole {
 	return tenantRole
 }
 
-func Convert(t *apiv2.Tenant) *mdcv1.Tenant {
-	ann := map[string]string{
-		TagEmail:     t.Email,
-		TagAvatarURL: t.AvatarUrl,
-	}
-
-	return &mdcv1.Tenant{
-		Meta: &mdcv1.Meta{
-			Id:          t.Login,
-			Kind:        "Tenant",
-			Annotations: ann,
-		},
-		Name:        t.Name,
-		Description: t.Description,
-	}
-}
-
-func ConvertFromTenant(t *mdcv1.Tenant) *apiv2.Tenant {
-	ann := t.Meta.Annotations
-	email := ann[TagEmail]
-	avatarURL := ann[TagAvatarURL]
-
-	tenant := &apiv2.Tenant{
-		Login:       t.Meta.Id,
-		Name:        t.Name,
-		Description: t.Description,
-		Email:       email,
-		AvatarUrl:   avatarURL,
-		Meta: &apiv2.Meta{
-			CreatedAt: t.Meta.CreatedTime,
-			UpdatedAt: t.Meta.UpdatedTime,
-		},
-	}
-
-	return tenant
-}
-
 func GetTenantMember(ctx context.Context, c mdc.Client, tenantID, memberID string) (*mdcv1.TenantMember, error) {
 	memberships, err := c.TenantMember().Find(ctx, &mdcv1.TenantMemberFindRequest{
 		MemberId: &memberID,

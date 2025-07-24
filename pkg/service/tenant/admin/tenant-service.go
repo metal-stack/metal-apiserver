@@ -7,25 +7,23 @@ import (
 	"connectrpc.com/connect"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
-	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
-	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
+	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
-
-	mdc "github.com/metal-stack/masterdata-api/pkg/client"
 )
 
 type Config struct {
-	Log          *slog.Logger
-	MasterClient mdc.Client
-	InviteStore  invite.TenantInviteStore
-	TokenStore   token.TokenStore
+	Log         *slog.Logger
+	Repo        *repository.Store
+	InviteStore invite.TenantInviteStore
+	TokenStore  token.TokenStore
 }
 type tenantServiceServer struct {
-	log          *slog.Logger
-	masterClient mdc.Client
-	inviteStore  invite.TenantInviteStore
-	tokenStore   token.TokenStore
+	log         *slog.Logger
+	repo        *repository.Store
+	inviteStore invite.TenantInviteStore
+	tokenStore  token.TokenStore
 }
 
 type TenantService interface {
@@ -36,10 +34,10 @@ type TenantService interface {
 
 func New(c Config) TenantService {
 	return &tenantServiceServer{
-		log:          c.Log.WithGroup("adminTenantService"),
-		masterClient: c.MasterClient,
-		inviteStore:  c.InviteStore,
-		tokenStore:   c.TokenStore,
+		log:         c.Log.WithGroup("adminTenantService"),
+		repo:        c.Repo,
+		inviteStore: c.InviteStore,
+		tokenStore:  c.TokenStore,
 	}
 }
 
@@ -47,18 +45,23 @@ func New(c Config) TenantService {
 func (t *tenantServiceServer) Create(ctx context.Context, rq *connect.Request[adminv2.TenantServiceCreateRequest]) (*connect.Response[adminv2.TenantServiceCreateResponse], error) {
 	req := rq.Msg
 
-	tenant := &mdcv1.Tenant{
-		Meta: &mdcv1.Meta{
-			Id: req.Name,
-		},
-	}
-
-	resp, err := t.masterClient.Tenant().Create(ctx, &mdcv1.TenantCreateRequest{Tenant: tenant})
+	created, err := t.repo.Tenant().Create(ctx, &apiv2.TenantServiceCreateRequest{
+		Name:        req.Name,
+		Description: req.Description,
+		Email:       req.Email,
+		AvatarUrl:   req.AvatarUrl,
+		PhoneNumber: req.PhoneNumber,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	return connect.NewResponse(&adminv2.TenantServiceCreateResponse{Tenant: tutil.ConvertFromTenant(resp.Tenant)}), nil
+	converted, err := t.repo.Tenant().ConvertToProto(created)
+	if err != nil {
+		return nil, err
+	}
+
+	return connect.NewResponse(&adminv2.TenantServiceCreateResponse{Tenant: converted}), nil
 }
 
 // List implements TenantService.

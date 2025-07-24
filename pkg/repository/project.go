@@ -302,7 +302,10 @@ func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId st
 	for _, tenantWithAnnotations := range tenantResp.Tenants {
 		t := tenantWithAnnotations.Tenant
 
-		apit := tutil.ConvertFromTenant(t)
+		apit, err := r.s.Tenant().ConvertToProto(t)
+		if err != nil {
+			return nil, err
+		}
 
 		if t.Meta.Id == userId {
 			defaultTenant = apit

@@ -158,10 +158,10 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	})
 
 	adminTenantService := tenantadmin.New(tenantadmin.Config{
-		Log:          log,
-		MasterClient: c.MasterClient,
-		InviteStore:  tenantInviteStore,
-		TokenStore:   tokenStore,
+		Log:         log,
+		Repo:        c.Repository,
+		InviteStore: tenantInviteStore,
+		TokenStore:  tokenStore,
 	})
 	projectService := project.New(project.Config{
 		Log:         log,
