@@ -9,7 +9,6 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
-	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
@@ -278,7 +277,7 @@ func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId st
 
 		var (
 			projectRole = ProjectRoleFromMap(projectWithAnnotations.ProjectAnnotations)
-			tenantRole  = tutil.TenantRoleFromMap(projectWithAnnotations.TenantAnnotations)
+			tenantRole  = TenantRoleFromMap(projectWithAnnotations.TenantAnnotations)
 		)
 
 		switch {
@@ -315,7 +314,7 @@ func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId st
 
 		var (
 			projectRole = ProjectRoleFromMap(tenantWithAnnotations.ProjectAnnotations)
-			tenantRole  = tutil.TenantRoleFromMap(tenantWithAnnotations.TenantAnnotations)
+			tenantRole  = TenantRoleFromMap(tenantWithAnnotations.TenantAnnotations)
 		)
 
 		if tenantRole == apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED && projectRole > 0 {

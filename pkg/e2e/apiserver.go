@@ -10,16 +10,14 @@ import (
 
 	"connectrpc.com/connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	v1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
+	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/service"
 	"github.com/metal-stack/metal-apiserver/pkg/service/token"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/metal-stack/metal-apiserver/pkg/test"
-
-	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/http2"
@@ -80,26 +78,22 @@ func StartApiserver(t *testing.T, log *slog.Logger) (baseURL, adminToken string,
 		Issuer:     subject,
 	})
 
-	err = tutil.EnsureProviderTenant(ctx, c.MasterClient, providerTenant)
+	err = repo.Tenant().AdditionalMethods().EnsureProviderTenant(ctx, providerTenant)
 	require.NoError(t, err)
 
 	err = repo.UnscopedProject().AdditionalMethods().EnsureProviderProject(ctx, providerTenant)
 	require.NoError(t, err)
 
-	_, err = masterdataClient.Tenant().Create(ctx, &v1.TenantCreateRequest{Tenant: &v1.Tenant{Meta: &v1.Meta{Id: subject}, Name: subject}})
+	tenant, err := repo.Tenant().Create(ctx, &apiv2.TenantServiceCreateRequest{
+		Name: "subject",
+	})
 	require.NoError(t, err)
 
-	_, err = masterdataClient.TenantMember().Create(ctx, &v1.TenantMemberCreateRequest{
-		TenantMember: &v1.TenantMember{
-			Meta: &v1.Meta{
-				Annotations: map[string]string{
-					tutil.TenantRoleAnnotation: apiv2.TenantRole_TENANT_ROLE_OWNER.String(),
-				},
-			},
-			TenantId: subject,
-			MemberId: subject,
-		},
+	_, err = repo.Tenant().AdditionalMethods().Member(tenant.Meta.Id).Create(ctx, &repository.TenantMemberCreateRequest{
+		MemberID: subject,
+		Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
 	})
+
 	require.NoError(t, err)
 
 	resp, err := tokenService.CreateApiTokenWithoutPermissionCheck(ctx, subject, connect.NewRequest(&apiv2.TokenServiceCreateRequest{

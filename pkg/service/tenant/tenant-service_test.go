@@ -13,7 +13,7 @@ import (
 	mdmv1mock "github.com/metal-stack/masterdata-api/api/v1/mocks"
 	mdc "github.com/metal-stack/masterdata-api/pkg/client"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
-	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
+	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/metal-stack/metal-lib/pkg/testcommon"
@@ -169,7 +169,7 @@ func Test_service_Get(t *testing.T) {
 								Meta: &mdmv1.Meta{Id: "me"},
 							},
 							TenantAnnotations: map[string]string{
-								tutil.TenantRoleAnnotation: apiv1.ProjectRole_PROJECT_ROLE_OWNER.String(),
+								repository.TenantRoleAnnotation: apiv1.ProjectRole_PROJECT_ROLE_OWNER.String(),
 							},
 						},
 					},
@@ -206,7 +206,7 @@ func Test_service_Get(t *testing.T) {
 								Meta: &mdmv1.Meta{Id: "me"},
 							},
 							TenantAnnotations: map[string]string{
-								tutil.TenantRoleAnnotation: apiv1.ProjectRole_PROJECT_ROLE_OWNER.String(),
+								repository.TenantRoleAnnotation: apiv1.ProjectRole_PROJECT_ROLE_OWNER.String(),
 							},
 						},
 						{
@@ -214,7 +214,7 @@ func Test_service_Get(t *testing.T) {
 								Meta: &mdmv1.Meta{Id: "viewer"},
 							},
 							TenantAnnotations: map[string]string{
-								tutil.TenantRoleAnnotation: apiv1.ProjectRole_PROJECT_ROLE_VIEWER.String(),
+								repository.TenantRoleAnnotation: apiv1.ProjectRole_PROJECT_ROLE_VIEWER.String(),
 							},
 						},
 					},
@@ -255,7 +255,7 @@ func Test_service_Get(t *testing.T) {
 								Meta: &mdmv1.Meta{Id: "me"},
 							},
 							TenantAnnotations: map[string]string{
-								tutil.TenantRoleAnnotation: apiv1.TenantRole_TENANT_ROLE_OWNER.String(),
+								repository.TenantRoleAnnotation: apiv1.TenantRole_TENANT_ROLE_OWNER.String(),
 							},
 							ProjectIds: []string{
 								"1",
@@ -266,7 +266,7 @@ func Test_service_Get(t *testing.T) {
 								Meta: &mdmv1.Meta{Id: "guest"},
 							},
 							TenantAnnotations: map[string]string{
-								tutil.TenantRoleAnnotation: apiv1.ProjectRole_PROJECT_ROLE_UNSPECIFIED.String(),
+								repository.TenantRoleAnnotation: apiv1.ProjectRole_PROJECT_ROLE_UNSPECIFIED.String(),
 							},
 							ProjectIds: []string{
 								"1",
@@ -316,7 +316,7 @@ func Test_service_Get(t *testing.T) {
 								Meta: &mdmv1.Meta{Id: "me"},
 							},
 							TenantAnnotations: map[string]string{
-								tutil.TenantRoleAnnotation: apiv1.ProjectRole_PROJECT_ROLE_OWNER.String(),
+								repository.TenantRoleAnnotation: apiv1.ProjectRole_PROJECT_ROLE_OWNER.String(),
 							},
 						},
 						{
@@ -324,7 +324,7 @@ func Test_service_Get(t *testing.T) {
 								Meta: &mdmv1.Meta{Id: "viewer"},
 							},
 							TenantAnnotations: map[string]string{
-								tutil.TenantRoleAnnotation: apiv1.ProjectRole_PROJECT_ROLE_VIEWER.String(),
+								repository.TenantRoleAnnotation: apiv1.ProjectRole_PROJECT_ROLE_VIEWER.String(),
 							},
 						},
 					},
@@ -358,7 +358,7 @@ func Test_service_Get(t *testing.T) {
 					Meta: &mdmv1.Meta{
 						Id: "me",
 						Annotations: map[string]string{
-							tutil.TagEmail: "mail@me.com",
+							repository.TagEmail: "mail@me.com",
 						},
 					},
 					Name:        "name",
@@ -440,7 +440,7 @@ func Test_service_InviteAccept(t *testing.T) {
 					TenantMember: &mdmv1.TenantMember{
 						Meta: &mdmv1.Meta{
 							Annotations: map[string]string{
-								tutil.TenantRoleAnnotation: apiv1.TenantRole_TENANT_ROLE_EDITOR.String(),
+								repository.TenantRoleAnnotation: apiv1.TenantRole_TENANT_ROLE_EDITOR.String(),
 							},
 						},
 						TenantId: "a",

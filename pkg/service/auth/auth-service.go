@@ -23,7 +23,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/service/token"
-	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
 	"github.com/metal-stack/metal-lib/auditing"
 )
 
@@ -348,8 +347,8 @@ func (a *auth) ensureTenant(ctx context.Context, u *providerUser) error {
 		tenant = created
 	}
 
-	if tenant.Meta.Annotations[tutil.TagAvatarURL] != u.avatarUrl {
-		tenant.Meta.Annotations[tutil.TagAvatarURL] = u.avatarUrl
+	if tenant.Meta.Annotations[repository.TagAvatarURL] != u.avatarUrl {
+		tenant.Meta.Annotations[repository.TagAvatarURL] = u.avatarUrl
 
 		updated, err := a.repo.Tenant().Update(ctx, tenant.Meta.Id, &apiv2.TenantServiceUpdateRequest{
 			Login:     u.login,

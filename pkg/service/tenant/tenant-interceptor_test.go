@@ -12,7 +12,7 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 
 	"github.com/metal-stack/api/go/client"
-	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
+	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 
 	mdmv1 "github.com/metal-stack/masterdata-api/api/v1"
@@ -70,7 +70,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 			tenantServiceMock: func(mock *tmock.Mock) {
 				mock.On("Get", tmock.Anything, &mdmv1.TenantGetRequest{
 					Id: "john@github",
-				}).Return(&mdmv1.TenantResponse{Tenant: &mdmv1.Tenant{Meta: &mdmv1.Meta{Id: "john@github", Annotations: map[string]string{tutil.TagEmail: "mail@john"}}}}, nil)
+				}).Return(&mdmv1.TenantResponse{Tenant: &mdmv1.Tenant{Meta: &mdmv1.Meta{Id: "john@github", Annotations: map[string]string{repository.TagEmail: "mail@john"}}}}, nil)
 			},
 			wantUser: &security.User{
 				EMail:   "mail@john",
@@ -107,7 +107,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 			tenantServiceMock: func(mock *tmock.Mock) {
 				mock.On("Get", tmock.Anything, &mdmv1.TenantGetRequest{
 					Id: "user@github",
-				}).Return(&mdmv1.TenantResponse{Tenant: &mdmv1.Tenant{Meta: &mdmv1.Meta{Id: "user@github", Annotations: map[string]string{tutil.TagEmail: "mail@user"}}}}, nil)
+				}).Return(&mdmv1.TenantResponse{Tenant: &mdmv1.Tenant{Meta: &mdmv1.Meta{Id: "user@github", Annotations: map[string]string{repository.TagEmail: "mail@user"}}}}, nil)
 			},
 			wantUser: &security.User{
 				EMail:   "mail@user",
@@ -139,7 +139,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 			tenantServiceMock: func(mock *tmock.Mock) {
 				mock.On("Get", tmock.Anything, &mdmv1.TenantGetRequest{
 					Id: "t1",
-				}).Return(&mdmv1.TenantResponse{Tenant: &mdmv1.Tenant{Meta: &mdmv1.Meta{Id: "t1", Annotations: map[string]string{tutil.TagEmail: "mail@t1"}}}}, nil)
+				}).Return(&mdmv1.TenantResponse{Tenant: &mdmv1.Tenant{Meta: &mdmv1.Meta{Id: "t1", Annotations: map[string]string{repository.TagEmail: "mail@t1"}}}}, nil)
 			},
 			wantUser: &security.User{
 				EMail:   "mail@t1",
@@ -167,7 +167,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 			tenantServiceMock: func(mock *tmock.Mock) {
 				mock.On("Get", tmock.Anything, &mdmv1.TenantGetRequest{
 					Id: "a-tenant",
-				}).Return(&mdmv1.TenantResponse{Tenant: &mdmv1.Tenant{Meta: &mdmv1.Meta{Id: "a-tenant", Annotations: map[string]string{tutil.TagEmail: "mail@tenant-a"}}}}, nil)
+				}).Return(&mdmv1.TenantResponse{Tenant: &mdmv1.Tenant{Meta: &mdmv1.Meta{Id: "a-tenant", Annotations: map[string]string{repository.TagEmail: "mail@tenant-a"}}}}, nil)
 			},
 			wantUser: &security.User{
 				EMail:   "mail@tenant-a",
@@ -192,7 +192,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 			tenantServiceMock: func(mock *tmock.Mock) {
 				mock.On("Get", tmock.Anything, &mdmv1.TenantGetRequest{
 					Id: "user@github",
-				}).Return(&mdmv1.TenantResponse{Tenant: &mdmv1.Tenant{Meta: &mdmv1.Meta{Id: "user@github", Annotations: map[string]string{tutil.TagEmail: "mail@github"}}}}, nil)
+				}).Return(&mdmv1.TenantResponse{Tenant: &mdmv1.Tenant{Meta: &mdmv1.Meta{Id: "user@github", Annotations: map[string]string{repository.TagEmail: "mail@github"}}}}, nil)
 			},
 			wantUser: &security.User{
 				EMail:   "mail@github",

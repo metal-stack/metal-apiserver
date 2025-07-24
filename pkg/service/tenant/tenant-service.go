@@ -19,7 +19,6 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
-	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 )
 
@@ -101,7 +100,7 @@ func (u *tenantServiceServer) Create(ctx context.Context, rq *connect.Request[ap
 	}
 
 	if pointer.SafeDeref(req.Email) == "" && ownTenant.Meta != nil && ownTenant.Meta.Annotations != nil {
-		req.Email = pointer.Pointer(ownTenant.Meta.Annotations[tutil.TagEmail])
+		req.Email = pointer.Pointer(ownTenant.Meta.Annotations[repository.TagEmail])
 
 		if pointer.SafeDeref(req.Email) == "" {
 			return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("email is required"))
@@ -187,7 +186,7 @@ func (u *tenantServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2
 
 	var tenantMembers []*apiv2.TenantMember
 	for _, member := range members {
-		tenantRole := tutil.TenantRoleFromMap(member.TenantAnnotations)
+		tenantRole := repository.TenantRoleFromMap(member.TenantAnnotations)
 		if tenantRole == apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED {
 			tenantRole = apiv2.TenantRole_TENANT_ROLE_GUEST
 		}
@@ -470,7 +469,7 @@ func (u *tenantServiceServer) UpdateMember(ctx context.Context, rq *connect.Requ
 		// TODO: currently the API defines that only owners can update members so there is no possibility to elevate permissions
 		// probably, we should still check that no elevation of permissions is possible in case we later change the API
 
-		membership.Meta.Annotations[tutil.TenantRoleAnnotation] = req.Role.String()
+		membership.Meta.Annotations[repository.TenantRoleAnnotation] = req.Role.String()
 	}
 
 	updatedMember, err := u.repo.Tenant().AdditionalMethods().Member(req.Login).Update(ctx, membership.Meta.Id, &repository.TenantMemberUpdateRequest{Member: membership})
@@ -486,14 +485,14 @@ func (u *tenantServiceServer) UpdateMember(ctx context.Context, rq *connect.Requ
 }
 
 func (u *tenantServiceServer) checkIfMemberIsLastOwner(ctx context.Context, membership *mdcv1.TenantMember) (bool, error) {
-	isOwner := tutil.TenantRoleFromMap(membership.Meta.Annotations) == apiv2.TenantRole_TENANT_ROLE_OWNER
+	isOwner := repository.TenantRoleFromMap(membership.Meta.Annotations) == apiv2.TenantRole_TENANT_ROLE_OWNER
 	if !isOwner {
 		return false, nil
 	}
 
 	members, err := u.repo.Tenant().AdditionalMethods().Member(membership.TenantId).List(ctx, &repository.TenantMemberQuery{
 		Annotations: map[string]string{
-			tutil.TenantRoleAnnotation: apiv2.TenantRole_TENANT_ROLE_OWNER.String(),
+			repository.TenantRoleAnnotation: apiv2.TenantRole_TENANT_ROLE_OWNER.String(),
 		},
 	})
 	if err != nil {

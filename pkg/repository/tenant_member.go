@@ -8,7 +8,6 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
-	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
 )
 
 type (
@@ -55,14 +54,14 @@ func (t *tenantMemberRepository) validateDelete(ctx context.Context, req *mdcv1.
 }
 
 func (t *tenantMemberRepository) checkIfMemberIsLastOwner(ctx context.Context, req *mdcv1.TenantMember) (bool, error) {
-	isOwner := tutil.TenantRoleFromMap(req.Meta.Annotations) == apiv2.TenantRole_TENANT_ROLE_OWNER
+	isOwner := TenantRoleFromMap(req.Meta.Annotations) == apiv2.TenantRole_TENANT_ROLE_OWNER
 	if !isOwner {
 		return false, nil
 	}
 
 	members, err := t.list(ctx, &TenantMemberQuery{
 		Annotations: map[string]string{
-			tutil.TenantRoleAnnotation: apiv2.TenantRole_TENANT_ROLE_OWNER.String(),
+			TenantRoleAnnotation: apiv2.TenantRole_TENANT_ROLE_OWNER.String(),
 		},
 	})
 	if err != nil {
@@ -85,7 +84,7 @@ func (t *tenantMemberRepository) create(ctx context.Context, c *TenantMemberCrea
 		TenantMember: &mdcv1.TenantMember{
 			Meta: &mdcv1.Meta{
 				Annotations: map[string]string{
-					tutil.TenantRoleAnnotation: c.Role.String(),
+					TenantRoleAnnotation: c.Role.String(),
 				},
 			},
 			MemberId: c.MemberID,

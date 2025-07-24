@@ -16,7 +16,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
-	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -99,7 +98,7 @@ func (p *projectServiceServer) Get(ctx context.Context, rq *connect.Request[apiv
 
 		for _, tm := range tenantMembers {
 			var projectRole apiv2.ProjectRole
-			switch tutil.TenantRoleFromMap(tm.TenantAnnotations) {
+			switch repository.TenantRoleFromMap(tm.TenantAnnotations) {
 			case apiv2.TenantRole_TENANT_ROLE_OWNER:
 				projectRole = apiv2.ProjectRole_PROJECT_ROLE_OWNER
 			case apiv2.TenantRole_TENANT_ROLE_EDITOR:

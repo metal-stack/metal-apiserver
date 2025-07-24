@@ -8,7 +8,6 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
-	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
 )
 
 type projectMemberRepository struct {
@@ -66,7 +65,7 @@ func (t *projectMemberRepository) create(ctx context.Context, c *ProjectMemberCr
 		ProjectMember: &mdcv1.ProjectMember{
 			Meta: &mdcv1.Meta{
 				Annotations: map[string]string{
-					tutil.TenantRoleAnnotation: c.Role.String(),
+					TenantRoleAnnotation: c.Role.String(),
 				},
 			},
 			TenantId:  c.MemberID,

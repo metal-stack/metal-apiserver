@@ -23,8 +23,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/service"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 
-	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
-
 	"github.com/metal-stack/metal-lib/auditing"
 	"github.com/metal-stack/v"
 	"github.com/redis/go-redis/v9"
@@ -142,7 +140,7 @@ func newServeCmd() *cli.Command {
 			}
 
 			if providerTenant := ctx.String(ensureProviderTenantFlag.Name); providerTenant != "" {
-				err := tutil.EnsureProviderTenant(ctx.Context, c.MasterClient, providerTenant)
+				err := repo.Tenant().AdditionalMethods().EnsureProviderTenant(ctx.Context, providerTenant)
 				if err != nil {
 					return err
 				}

@@ -8,10 +8,24 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
-	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
+)
+
+const (
+	// FIXME: overlaps with metalstack.cloud annotations
+	TagEmail       = "metal-stack.io/email"
+	TagPhoneNumber = "metal-stack.io/phone"
+	TagAvatarURL   = "metal-stack.io/avatarurl"
+	TagCreator     = "metal-stack.io/creator"
+
+	TenantRoleAnnotation = "metal-stack.io/tenant-role"
+
+	// Master Tenant which must be present on every metal-stack installation
+	MasterTenant = "metal-stack"
+	// Master Tenant Project ID must be present on every metal-stack installation
+	MasterTenantProjectId = "00000000-0000-0000-0000-000000000000"
 )
 
 type tenantRepository struct {
@@ -57,17 +71,17 @@ func (t *tenantRepository) CreateWithID(ctx context.Context, c *apiv2.TenantServ
 	}
 
 	ann := map[string]string{
-		tutil.TagCreator: tok.UserId,
+		TagCreator: tok.UserId,
 	}
 
 	if c.Email != nil {
-		ann[tutil.TagEmail] = *c.Email
+		ann[TagEmail] = *c.Email
 	}
 	if c.AvatarUrl != nil {
-		ann[tutil.TagAvatarURL] = *c.AvatarUrl
+		ann[TagAvatarURL] = *c.AvatarUrl
 	}
 	if c.PhoneNumber != nil {
-		ann[tutil.TagPhoneNumber] = *c.PhoneNumber
+		ann[TagPhoneNumber] = *c.PhoneNumber
 	}
 
 	tenant := &mdcv1.Tenant{
@@ -159,10 +173,10 @@ func (t *tenantRepository) update(ctx context.Context, e *mdcv1.Tenant, msg *api
 	ann := e.Meta.Annotations
 
 	if msg.Email != nil {
-		ann[tutil.TagEmail] = *msg.Email
+		ann[TagEmail] = *msg.Email
 	}
 	if msg.AvatarUrl != nil {
-		ann[tutil.TagAvatarURL] = *msg.AvatarUrl
+		ann[TagAvatarURL] = *msg.AvatarUrl
 	}
 	// TODO: add phone number to update request?
 	// if msg. != nil {
@@ -179,8 +193,8 @@ func (t *tenantRepository) update(ctx context.Context, e *mdcv1.Tenant, msg *api
 
 func (t *tenantRepository) convertToInternal(tenant *apiv2.Tenant) (*mdcv1.Tenant, error) {
 	ann := map[string]string{
-		tutil.TagEmail:     tenant.Email,
-		tutil.TagAvatarURL: tenant.AvatarUrl,
+		TagEmail:     tenant.Email,
+		TagAvatarURL: tenant.AvatarUrl,
 		// tutil.TagPhoneNumber:  tenant.,
 	}
 
@@ -200,8 +214,8 @@ func (te *tenantRepository) convertToProto(t *mdcv1.Tenant) (*apiv2.Tenant, erro
 		Login:       t.Meta.Id,
 		Name:        t.Name,
 		Description: t.Description,
-		Email:       t.Meta.Annotations[tutil.TagEmail],
-		AvatarUrl:   t.Meta.Annotations[tutil.TagAvatarURL],
+		Email:       t.Meta.Annotations[TagEmail],
+		AvatarUrl:   t.Meta.Annotations[TagAvatarURL],
 		Meta: &apiv2.Meta{
 			CreatedAt: t.Meta.CreatedTime,
 			UpdatedAt: t.Meta.UpdatedTime,
@@ -253,4 +267,53 @@ func (r *tenantRepository) FindParticipatingTenants(ctx context.Context, tenant 
 	}
 
 	return resp.Tenants, nil
+}
+
+func TenantRoleFromMap(annotations map[string]string) apiv2.TenantRole {
+	if annotations == nil {
+		return apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED
+	}
+
+	var (
+		annotation = annotations[TenantRoleAnnotation]
+		tenantRole = apiv2.TenantRole(apiv2.TenantRole_value[annotation])
+	)
+
+	return tenantRole
+}
+
+func (r *tenantRepository) EnsureProviderTenant(ctx context.Context, providerTenantID string) error {
+	_, err := r.s.Tenant().Get(ctx, providerTenantID)
+	if err != nil && !errorutil.IsNotFound(err) {
+		return fmt.Errorf("unable to get tenant %q: %w", providerTenantID, err)
+	}
+
+	if err != nil && errorutil.IsNotFound(err) {
+		_, err := r.CreateWithID(ctx, &apiv2.TenantServiceCreateRequest{
+			Name:        providerTenantID,
+			Description: pointer.Pointer("initial provider tenant for metal-stack"),
+		}, providerTenantID)
+		if err != nil {
+			return fmt.Errorf("unable to create tenant:%s %w", providerTenantID, err)
+		}
+	}
+
+	_, err = r.Member(providerTenantID).Get(ctx, providerTenantID)
+	if err == nil {
+		return nil
+	}
+
+	if connect.CodeOf(err) != connect.CodeNotFound {
+		return err
+	}
+
+	_, err = r.Member(providerTenantID).Create(ctx, &TenantMemberCreateRequest{
+		MemberID: providerTenantID,
+		Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
