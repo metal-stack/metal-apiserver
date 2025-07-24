@@ -10,7 +10,6 @@ import (
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // FIXME completely untested and incomplete
@@ -386,7 +385,7 @@ func (r *projectRepository) EnsureProviderProject(ctx context.Context, providerT
 	}
 
 	resp, err := r.s.mdc.Project().Find(ctx, &mdcv1.ProjectFindRequest{
-		TenantId: wrapperspb.String(providerTenantID),
+		TenantId: &providerTenantID,
 	})
 	if err != nil {
 		return fmt.Errorf("unable to get find project %q: %w", providerTenantID, err)

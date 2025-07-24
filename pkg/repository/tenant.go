@@ -10,7 +10,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
-	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 const (
@@ -143,21 +142,9 @@ func (t *tenantRepository) get(ctx context.Context, id string) (*mdcv1.Tenant, e
 }
 
 func (t *tenantRepository) list(ctx context.Context, query *apiv2.TenantServiceListRequest) ([]*mdcv1.Tenant, error) {
-	var (
-		id   *wrapperspb.StringValue
-		name *wrapperspb.StringValue
-	)
-
-	if query.Id != nil {
-		id = &wrapperspb.StringValue{Value: *query.Id}
-	}
-	if query.Name != nil {
-		name = &wrapperspb.StringValue{Value: *query.Name}
-	}
-
 	resp, err := t.s.mdc.Tenant().Find(ctx, &mdcv1.TenantFindRequest{
-		Id:   id,
-		Name: name,
+		Id:   query.Id,
+		Name: query.Name,
 	})
 	if err != nil {
 		return nil, errorutil.Convert(err)
