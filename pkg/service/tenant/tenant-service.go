@@ -100,7 +100,7 @@ func (u *tenantServiceServer) Create(ctx context.Context, rq *connect.Request[ap
 	}
 
 	if pointer.SafeDeref(req.Email) == "" && ownTenant.Meta != nil && ownTenant.Meta.Annotations != nil {
-		req.Email = pointer.Pointer(ownTenant.Meta.Annotations[repository.TagEmail])
+		req.Email = pointer.Pointer(ownTenant.Meta.Annotations[repository.TenantTagEmail])
 
 		if pointer.SafeDeref(req.Email) == "" {
 			return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("email is required"))
@@ -224,29 +224,8 @@ func (u *tenantServiceServer) Update(ctx context.Context, rq *connect.Request[ap
 
 func (u *tenantServiceServer) Delete(ctx context.Context, rq *connect.Request[apiv2.TenantServiceDeleteRequest]) (*connect.Response[apiv2.TenantServiceDeleteResponse], error) {
 	var (
-		t, ok = token.TokenFromContext(ctx)
-		req   = rq.Msg
+		req = rq.Msg
 	)
-	if !ok || t == nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
-	}
-
-	u.log.Debug("delete", "tenant", rq)
-
-	if t.UserId == req.Login {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("the personal tenant (default-tenant) cannot be deleted"))
-	}
-
-	projects, err := u.repo.UnscopedProject().List(ctx, &apiv2.ProjectServiceListRequest{
-		Tenant: &req.Login,
-	})
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("unable to lookup projects: %w", err))
-	}
-
-	if len(projects) > 0 {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("there are still projects associated with this tenant, you need to delete them first"))
-	}
 
 	deleted, err := u.repo.Tenant().Delete(ctx, req.Login)
 	if err != nil {
@@ -422,18 +401,6 @@ func (u *tenantServiceServer) RemoveMember(ctx context.Context, rq *connect.Requ
 		return nil, err
 	}
 
-	if membership.MemberId == membership.TenantId {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot remove a member from their own default tenant"))
-	}
-
-	lastOwner, err := u.checkIfMemberIsLastOwner(ctx, membership)
-	if err != nil {
-		return nil, err
-	}
-	if lastOwner {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot remove last owner of a tenant"))
-	}
-
 	_, err = u.repo.Tenant().AdditionalMethods().Member(req.Login).Delete(ctx, membership.Meta.Id)
 	if err != nil {
 		return nil, err
@@ -452,23 +419,7 @@ func (u *tenantServiceServer) UpdateMember(ctx context.Context, rq *connect.Requ
 		return nil, err
 	}
 
-	if membership.MemberId == membership.TenantId && req.Role != apiv2.TenantRole_TENANT_ROLE_OWNER {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot demote a user's role within their own default tenant"))
-	}
-
-	lastOwner, err := u.checkIfMemberIsLastOwner(ctx, membership)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	if lastOwner && req.Role != apiv2.TenantRole_TENANT_ROLE_OWNER {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot demote last owner's permissions"))
-	}
-
 	if req.Role != apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED {
-		// TODO: currently the API defines that only owners can update members so there is no possibility to elevate permissions
-		// probably, we should still check that no elevation of permissions is possible in case we later change the API
-
 		membership.Meta.Annotations[repository.TenantRoleAnnotation] = req.Role.String()
 	}
 
@@ -482,22 +433,4 @@ func (u *tenantServiceServer) UpdateMember(ctx context.Context, rq *connect.Requ
 		Role:      req.Role,
 		CreatedAt: updatedMember.Meta.CreatedTime,
 	}}), nil
-}
-
-func (u *tenantServiceServer) checkIfMemberIsLastOwner(ctx context.Context, membership *mdcv1.TenantMember) (bool, error) {
-	isOwner := repository.TenantRoleFromMap(membership.Meta.Annotations) == apiv2.TenantRole_TENANT_ROLE_OWNER
-	if !isOwner {
-		return false, nil
-	}
-
-	members, err := u.repo.Tenant().AdditionalMethods().Member(membership.TenantId).List(ctx, &repository.TenantMemberQuery{
-		Annotations: map[string]string{
-			repository.TenantRoleAnnotation: apiv2.TenantRole_TENANT_ROLE_OWNER.String(),
-		},
-	})
-	if err != nil {
-		return false, err
-	}
-
-	return len(members) < 2, nil
 }

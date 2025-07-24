@@ -65,7 +65,7 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 				}
 
 				user.Tenant = tgr.Tenant.Meta.Id
-				user.EMail = tgr.Tenant.Meta.Annotations[repository.TagEmail]
+				user.EMail = tgr.Tenant.Meta.Annotations[repository.TenantTagEmail]
 
 				// update the context with the user information BEFORE calling next
 				ctx = security.PutUserInContext(ctx, user)

@@ -219,22 +219,6 @@ func (p *projectServiceServer) Delete(ctx context.Context, rq *connect.Request[a
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
 	}
 
-	_, err := p.repo.Project(req.Project).Get(ctx, req.Project)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no project found with id %q: %w", req.Project, err))
-	}
-
-	// FIXME check for machines and networks first
-
-	ips, err := p.repo.IP(req.Project).List(ctx, &apiv2.IPQuery{Project: &req.Project})
-	if err != nil {
-		return nil, err
-	}
-
-	if len(ips) > 0 {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("there are still ips associated with this project, you need to delete them first"))
-	}
-
 	deleted, err := p.repo.Project(req.Project).Delete(ctx, req.Project)
 	if err != nil {
 		return nil, err
@@ -244,8 +228,6 @@ func (p *projectServiceServer) Delete(ctx context.Context, rq *connect.Request[a
 	if err != nil {
 		return nil, err
 	}
-
-	// TODO: ensure project tokens are revoked / cleaned up
 
 	return connect.NewResponse(&apiv2.ProjectServiceDeleteResponse{Project: converted}), nil
 }
@@ -281,14 +263,6 @@ func (p *projectServiceServer) RemoveMember(ctx context.Context, rq *connect.Req
 	membership, err := p.repo.Project(req.Project).AdditionalMethods().Member().Get(ctx, req.MemberId)
 	if err != nil {
 		return nil, err
-	}
-
-	lastOwner, err := p.checkIfMemberIsLastOwner(ctx, membership)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if lastOwner {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot remove last owner of a project"))
 	}
 
 	_, err = p.repo.Project(req.Project).AdditionalMethods().Member().Delete(ctx, membership.Meta.Id)
@@ -346,17 +320,7 @@ func (p *projectServiceServer) UpdateMember(ctx context.Context, rq *connect.Req
 	}
 
 	if req.Role != apiv2.ProjectRole_PROJECT_ROLE_UNSPECIFIED {
-		// TODO: currently the API defines that only owners can update members so there is no possibility to elevate permissions
-		// probably, we should still check that no elevation of permissions is possible in case we later change the API
-
 		membership.Meta.Annotations[repository.ProjectRoleAnnotation] = req.Role.String()
-	}
-	lastOwner, err := p.checkIfMemberIsLastOwner(ctx, membership)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if lastOwner && req.Role != apiv2.ProjectRole_PROJECT_ROLE_OWNER {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot demote last owner's permissions"))
 	}
 
 	updated, err := p.repo.Project(req.Project).AdditionalMethods().Member().Update(ctx, membership.Meta.Id, &repository.ProjectMemberUpdateRequest{
@@ -538,22 +502,4 @@ func (p *projectServiceServer) InvitesList(ctx context.Context, rq *connect.Requ
 	}
 
 	return connect.NewResponse(&apiv2.ProjectServiceInvitesListResponse{Invites: invites}), nil
-}
-
-func (p *projectServiceServer) checkIfMemberIsLastOwner(ctx context.Context, membership *mdcv1.ProjectMember) (bool, error) {
-	isOwner := membership.Meta.Annotations[repository.ProjectRoleAnnotation] == apiv2.ProjectRole_PROJECT_ROLE_OWNER.String()
-	if !isOwner {
-		return false, nil
-	}
-
-	memberships, err := p.repo.Project(membership.ProjectId).AdditionalMethods().Member().List(ctx, &repository.ProjectMemberQuery{
-		Annotations: map[string]string{
-			repository.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_OWNER.String(),
-		},
-	})
-	if err != nil {
-		return false, err
-	}
-
-	return len(memberships) < 2, nil
 }

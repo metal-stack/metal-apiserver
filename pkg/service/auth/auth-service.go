@@ -347,8 +347,8 @@ func (a *auth) ensureTenant(ctx context.Context, u *providerUser) error {
 		tenant = created
 	}
 
-	if tenant.Meta.Annotations[repository.TagAvatarURL] != u.avatarUrl {
-		tenant.Meta.Annotations[repository.TagAvatarURL] = u.avatarUrl
+	if tenant.Meta.Annotations[repository.TenantTagAvatarURL] != u.avatarUrl {
+		tenant.Meta.Annotations[repository.TenantTagAvatarURL] = u.avatarUrl
 
 		updated, err := a.repo.Tenant().Update(ctx, tenant.Meta.Id, &apiv2.TenantServiceUpdateRequest{
 			Login:     u.login,

@@ -358,7 +358,7 @@ func Test_service_Get(t *testing.T) {
 					Meta: &mdmv1.Meta{
 						Id: "me",
 						Annotations: map[string]string{
-							repository.TagEmail: "mail@me.com",
+							repository.TenantTagEmail: "mail@me.com",
 						},
 					},
 					Name:        "name",

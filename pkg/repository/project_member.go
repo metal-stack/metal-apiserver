@@ -29,15 +29,37 @@ type (
 	}
 )
 
-func (r *projectMemberRepository) validateCreate(ctx context.Context, req *ProjectMemberCreateRequest) error {
+func (t *projectMemberRepository) validateCreate(ctx context.Context, req *ProjectMemberCreateRequest) error {
 	return nil
 }
 
-func (r *projectMemberRepository) validateUpdate(ctx context.Context, req *ProjectMemberUpdateRequest, _ *mdcv1.ProjectMember) error {
+func (t *projectMemberRepository) validateUpdate(ctx context.Context, req *ProjectMemberUpdateRequest, membership *mdcv1.ProjectMember) error {
+	role := ProjectRoleFromMap(req.Member.Meta.Annotations)
+
+	// TODO: currently the API defines that only owners can update members so there is no possibility to elevate permissions
+	// probably, we should still check that no elevation of permissions is possible in case we later change the API
+
+	lastOwner, err := t.checkIfMemberIsLastOwner(ctx, membership)
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	if lastOwner && role != apiv2.ProjectRole_PROJECT_ROLE_OWNER {
+		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot demote last owner's permissions"))
+	}
+
 	return nil
 }
 
-func (r *projectMemberRepository) validateDelete(ctx context.Context, req *mdcv1.ProjectMember) error {
+func (t *projectMemberRepository) validateDelete(ctx context.Context, req *mdcv1.ProjectMember) error {
+	lastOwner, err := t.checkIfMemberIsLastOwner(ctx, req)
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+	if lastOwner {
+		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot remove last owner of a project"))
+	}
+
 	return nil
 }
 
@@ -137,7 +159,11 @@ func (t *projectMemberRepository) list(ctx context.Context, query *ProjectMember
 }
 
 func (t *projectMemberRepository) matchScope(e *mdcv1.ProjectMember) bool {
-	panic("unimplemented")
+	if t.scope == nil {
+		return true
+	}
+
+	return t.scope.projectID == e.ProjectId
 }
 
 func (t *projectMemberRepository) update(ctx context.Context, _ *mdcv1.ProjectMember, msg *ProjectMemberUpdateRequest) (*mdcv1.ProjectMember, error) {
@@ -149,4 +175,22 @@ func (t *projectMemberRepository) update(ctx context.Context, _ *mdcv1.ProjectMe
 	}
 
 	return resp.ProjectMember, nil
+}
+
+func (t *projectMemberRepository) checkIfMemberIsLastOwner(ctx context.Context, membership *mdcv1.ProjectMember) (bool, error) {
+	isOwner := membership.Meta.Annotations[ProjectRoleAnnotation] == apiv2.ProjectRole_PROJECT_ROLE_OWNER.String()
+	if !isOwner {
+		return false, nil
+	}
+
+	memberships, err := t.list(ctx, &ProjectMemberQuery{
+		Annotations: map[string]string{
+			ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_OWNER.String(),
+		},
+	})
+	if err != nil {
+		return false, err
+	}
+
+	return len(memberships) < 2, nil
 }

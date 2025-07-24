@@ -15,17 +15,12 @@ import (
 
 const (
 	// FIXME: overlaps with metalstack.cloud annotations
-	TagEmail       = "metal-stack.io/email"
-	TagPhoneNumber = "metal-stack.io/phone"
-	TagAvatarURL   = "metal-stack.io/avatarurl"
-	TagCreator     = "metal-stack.io/creator"
+	TenantTagEmail       = "metal-stack.io/email"
+	TenantTagPhoneNumber = "metal-stack.io/phone"
+	TenantTagAvatarURL   = "metal-stack.io/avatarurl"
+	TenantTagCreator     = "metal-stack.io/creator"
 
 	TenantRoleAnnotation = "metal-stack.io/tenant-role"
-
-	// Master Tenant which must be present on every metal-stack installation
-	MasterTenant = "metal-stack"
-	// Master Tenant Project ID must be present on every metal-stack installation
-	MasterTenantProjectId = "00000000-0000-0000-0000-000000000000"
 )
 
 type tenantRepository struct {
@@ -37,6 +32,15 @@ func (t *tenantRepository) validateCreate(ctx context.Context, create *apiv2.Ten
 }
 
 func (t *tenantRepository) validateDelete(ctx context.Context, e *mdcv1.Tenant) error {
+	tok, ok := token.TokenFromContext(ctx)
+	if !ok || t == nil {
+		return connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
+	}
+
+	if tok.UserId == e.Meta.Id {
+		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("the personal tenant (default-tenant) cannot be deleted"))
+	}
+
 	projects, err := t.s.UnscopedProject().List(ctx, &apiv2.ProjectServiceListRequest{
 		Tenant: &e.Meta.Id,
 	})
@@ -71,17 +75,17 @@ func (t *tenantRepository) CreateWithID(ctx context.Context, c *apiv2.TenantServ
 	}
 
 	ann := map[string]string{
-		TagCreator: tok.UserId,
+		TenantTagCreator: tok.UserId,
 	}
 
 	if c.Email != nil {
-		ann[TagEmail] = *c.Email
+		ann[TenantTagEmail] = *c.Email
 	}
 	if c.AvatarUrl != nil {
-		ann[TagAvatarURL] = *c.AvatarUrl
+		ann[TenantTagAvatarURL] = *c.AvatarUrl
 	}
 	if c.PhoneNumber != nil {
-		ann[TagPhoneNumber] = *c.PhoneNumber
+		ann[TenantTagPhoneNumber] = *c.PhoneNumber
 	}
 
 	tenant := &mdcv1.Tenant{
@@ -173,10 +177,10 @@ func (t *tenantRepository) update(ctx context.Context, e *mdcv1.Tenant, msg *api
 	ann := e.Meta.Annotations
 
 	if msg.Email != nil {
-		ann[TagEmail] = *msg.Email
+		ann[TenantTagEmail] = *msg.Email
 	}
 	if msg.AvatarUrl != nil {
-		ann[TagAvatarURL] = *msg.AvatarUrl
+		ann[TenantTagAvatarURL] = *msg.AvatarUrl
 	}
 	// TODO: add phone number to update request?
 	// if msg. != nil {
@@ -193,8 +197,8 @@ func (t *tenantRepository) update(ctx context.Context, e *mdcv1.Tenant, msg *api
 
 func (t *tenantRepository) convertToInternal(tenant *apiv2.Tenant) (*mdcv1.Tenant, error) {
 	ann := map[string]string{
-		TagEmail:     tenant.Email,
-		TagAvatarURL: tenant.AvatarUrl,
+		TenantTagEmail:     tenant.Email,
+		TenantTagAvatarURL: tenant.AvatarUrl,
 		// tutil.TagPhoneNumber:  tenant.,
 	}
 
@@ -214,8 +218,8 @@ func (te *tenantRepository) convertToProto(t *mdcv1.Tenant) (*apiv2.Tenant, erro
 		Login:       t.Meta.Id,
 		Name:        t.Name,
 		Description: t.Description,
-		Email:       t.Meta.Annotations[TagEmail],
-		AvatarUrl:   t.Meta.Annotations[TagAvatarURL],
+		Email:       t.Meta.Annotations[TenantTagEmail],
+		AvatarUrl:   t.Meta.Annotations[TenantTagAvatarURL],
 		Meta: &apiv2.Meta{
 			CreatedAt: t.Meta.CreatedTime,
 			UpdatedAt: t.Meta.UpdatedTime,
