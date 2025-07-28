@@ -3,9 +3,9 @@ package api.v1.metalstack.io.authorization_test
 import data.api.v1.metalstack.io.authorization
 import rego.v1
 
-visibilitymethods := ["/metalstack.api.v2.PublicService/List"]
+public_visibilitymethods := ["/metalstack.api.v2.PublicService/List"]
 
-visibility := {"public": {"/metalstack.api.v2.PublicService/List": true}}
+public_visibility := {"public": {"/metalstack.api.v2.PublicService/List": true}}
 
 test_public_visibility_with_token_allowed if {
 	authorization.decision.allow with input as {
@@ -13,8 +13,8 @@ test_public_visibility_with_token_allowed if {
 		"token": tokenv1,
 		"request": {"project": "project-a"},
 	}
-		with data.methods as visibilitymethods
-		with data.visibility as visibility
+		with data.methods as public_visibilitymethods
+		with data.visibility as public_visibility
 }
 
 test_public_visibility_without_token_allowed if {
@@ -23,6 +23,6 @@ test_public_visibility_without_token_allowed if {
 		"token": null,
 		"request": {},
 	}
-		with data.methods as visibilitymethods
-		with data.visibility as visibility
+		with data.methods as public_visibilitymethods
+		with data.visibility as public_visibility
 }
