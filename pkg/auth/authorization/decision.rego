@@ -74,6 +74,12 @@ service_allowed if {
 	input.permissions # this key exists!
 }
 
+service_allowed if {
+	is_self_service
+
+	input.method in input.permissions["*"] # this key exists!
+}
+
 is_public_service if {
 	data.visibility.public[input.method]
 }
