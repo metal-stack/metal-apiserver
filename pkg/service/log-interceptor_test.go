@@ -76,12 +76,13 @@ func Test_logInterceptor_AuditingCtx(t *testing.T) {
 			server := httptest.NewServer(mux)
 			defer server.Close()
 
-			c := client.New(client.DialConfig{
+			c, err := client.New(&client.DialConfig{
 				BaseURL: server.URL,
 			})
+			require.NoError(t, err)
 
 			require.NotNil(t, tt.reqFn)
-			err := tt.reqFn(t.Context(), c)
+			err = tt.reqFn(t.Context(), c)
 			require.NoError(t, err)
 
 			assert.Contains(t, buf.String(), tt.wantContain)

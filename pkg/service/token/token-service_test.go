@@ -3,6 +3,7 @@ package token
 import (
 	"context"
 	"log/slog"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -10,7 +11,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/google/go-cmp/cmp"
-	v1 "github.com/metal-stack/api/go/metalstack/api/v2"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/permissions"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	putil "github.com/metal-stack/metal-apiserver/pkg/project"
@@ -20,6 +21,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func Test_tokenService_CreateConsoleTokenWithoutPermissionCheck(t *testing.T) {
@@ -63,7 +65,7 @@ func Test_tokenService_CreateConsoleTokenWithoutPermissionCheck(t *testing.T) {
 
 	// listing tokens
 
-	tokenList, err := service.List(token.ContextWithToken(ctx, got.Msg.Token), &connect.Request[v1.TokenServiceListRequest]{})
+	tokenList, err := service.List(token.ContextWithToken(ctx, got.Msg.Token), &connect.Request[apiv2.TokenServiceListRequest]{})
 	require.NoError(t, err)
 
 	require.NotNil(t, tokenList)
@@ -83,7 +85,7 @@ func Test_tokenService_CreateConsoleTokenWithoutPermissionCheck(t *testing.T) {
 	require.Error(t, err)
 
 	// List must now be empty
-	tokenList, err = service.List(token.ContextWithToken(ctx, got.Msg.Token), &connect.Request[v1.TokenServiceListRequest]{})
+	tokenList, err = service.List(token.ContextWithToken(ctx, got.Msg.Token), &connect.Request[apiv2.TokenServiceListRequest]{})
 	require.NoError(t, err)
 
 	require.NotNil(t, tokenList)
@@ -94,52 +96,52 @@ func Test_tokenService_CreateConsoleTokenWithoutPermissionCheck(t *testing.T) {
 func Test_Create(t *testing.T) {
 	type state struct {
 		adminSubjects []string
-		projectRoles  map[string]v1.ProjectRole
-		tenantRoles   map[string]v1.TenantRole
+		projectRoles  map[string]apiv2.ProjectRole
+		tenantRoles   map[string]apiv2.TenantRole
 	}
 	tests := []struct {
 		name           string
-		sessionToken   *v1.Token
-		req            *v1.TokenServiceCreateRequest
+		sessionToken   *apiv2.Token
+		req            *apiv2.TokenServiceCreateRequest
 		state          state
 		wantErr        bool
 		wantErrMessage string
-		wantToken      *v1.Token
+		wantToken      *apiv2.Token
 	}{
 		{
 			name: "can create bare token",
-			sessionToken: &v1.Token{
+			sessionToken: &apiv2.Token{
 				UserId:       "phippy",
-				Permissions:  []*v1.MethodPermission{},
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles:  map[string]v1.TenantRole{},
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
 			},
-			req: &v1.TokenServiceCreateRequest{
+			req: &apiv2.TokenServiceCreateRequest{
 				Description: "empty token",
 			},
 			state: state{
 				adminSubjects: []string{},
 			},
-			wantToken: &v1.Token{
+			wantToken: &apiv2.Token{
 				UserId:      "phippy",
 				Description: "empty token",
-				TokenType:   v1.TokenType_TOKEN_TYPE_API,
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
 			},
 		},
 		{
 			name: "user and token without project access cannot create project token",
-			sessionToken: &v1.Token{
+			sessionToken: &apiv2.Token{
 				UserId:       "phippy",
-				Permissions:  []*v1.MethodPermission{},
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles:  map[string]v1.TenantRole{},
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
 			},
-			req: &v1.TokenServiceCreateRequest{
+			req: &apiv2.TokenServiceCreateRequest{
 				Description: "project token",
-				ProjectRoles: map[string]v1.ProjectRole{
-					"kubies": v1.ProjectRole_PROJECT_ROLE_EDITOR,
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
-				TenantRoles: map[string]v1.TenantRole{},
+				TenantRoles: map[string]apiv2.TenantRole{},
 			},
 			state: state{
 				adminSubjects: []string{},
@@ -149,81 +151,81 @@ func Test_Create(t *testing.T) {
 		},
 		{
 			name: "user and token with project access can create project token",
-			sessionToken: &v1.Token{
+			sessionToken: &apiv2.Token{
 				UserId:      "phippy",
-				Permissions: []*v1.MethodPermission{},
-				ProjectRoles: map[string]v1.ProjectRole{
-					"kubies": v1.ProjectRole_PROJECT_ROLE_EDITOR,
+				Permissions: []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
-				TenantRoles: map[string]v1.TenantRole{},
+				TenantRoles: map[string]apiv2.TenantRole{},
 			},
-			req: &v1.TokenServiceCreateRequest{
+			req: &apiv2.TokenServiceCreateRequest{
 				Description: "project token",
-				ProjectRoles: map[string]v1.ProjectRole{
-					"kubies": v1.ProjectRole_PROJECT_ROLE_EDITOR,
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
-				TenantRoles: map[string]v1.TenantRole{},
+				TenantRoles: map[string]apiv2.TenantRole{},
 			},
 			state: state{
 				adminSubjects: []string{},
-				projectRoles: map[string]v1.ProjectRole{
-					"kubies": v1.ProjectRole_PROJECT_ROLE_EDITOR,
+				projectRoles: map[string]apiv2.ProjectRole{
+					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 			},
-			wantToken: &v1.Token{
+			wantToken: &apiv2.Token{
 				UserId:      "phippy",
 				Description: "project token",
-				TokenType:   v1.TokenType_TOKEN_TYPE_API,
-				ProjectRoles: map[string]v1.ProjectRole{
-					"kubies": v1.ProjectRole_PROJECT_ROLE_EDITOR,
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 
-				TenantRoles: map[string]v1.TenantRole{},
+				TenantRoles: map[string]apiv2.TenantRole{},
 			},
 		},
 		{
 			name: "user without but token with project access cannot create project token",
-			sessionToken: &v1.Token{
+			sessionToken: &apiv2.Token{
 				UserId:      "phippy",
-				Permissions: []*v1.MethodPermission{},
-				ProjectRoles: map[string]v1.ProjectRole{
-					"kubies": v1.ProjectRole_PROJECT_ROLE_EDITOR,
+				Permissions: []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
-				TenantRoles: map[string]v1.TenantRole{},
+				TenantRoles: map[string]apiv2.TenantRole{},
 			},
-			req: &v1.TokenServiceCreateRequest{
+			req: &apiv2.TokenServiceCreateRequest{
 				Description: "project token",
-				ProjectRoles: map[string]v1.ProjectRole{
-					"kubies": v1.ProjectRole_PROJECT_ROLE_EDITOR,
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
-				TenantRoles: map[string]v1.TenantRole{},
+				TenantRoles: map[string]apiv2.TenantRole{},
 			},
 			state: state{
 				adminSubjects: []string{},
-				projectRoles:  map[string]v1.ProjectRole{},
+				projectRoles:  map[string]apiv2.ProjectRole{},
 			},
 			wantErr:        true,
 			wantErrMessage: `permission_denied: outdated token: requested project: "kubies" is not allowed`,
 		},
 		{
 			name: "project without but user with project access cannot create project token",
-			sessionToken: &v1.Token{
+			sessionToken: &apiv2.Token{
 				UserId:       "phippy",
-				Permissions:  []*v1.MethodPermission{},
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles:  map[string]v1.TenantRole{},
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
 			},
-			req: &v1.TokenServiceCreateRequest{
+			req: &apiv2.TokenServiceCreateRequest{
 				Description: "project token",
-				ProjectRoles: map[string]v1.ProjectRole{
-					"kubies": v1.ProjectRole_PROJECT_ROLE_EDITOR,
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
-				TenantRoles: map[string]v1.TenantRole{},
+				TenantRoles: map[string]apiv2.TenantRole{},
 			},
 			state: state{
 				adminSubjects: []string{},
-				projectRoles: map[string]v1.ProjectRole{
-					"kubies": v1.ProjectRole_PROJECT_ROLE_EDITOR,
+				projectRoles: map[string]apiv2.ProjectRole{
+					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 			},
 			wantErr:        true,
@@ -231,45 +233,45 @@ func Test_Create(t *testing.T) {
 		},
 		{
 			name: "admin user and token can create new admin token",
-			sessionToken: &v1.Token{
+			sessionToken: &apiv2.Token{
 				UserId:       "phippy",
-				Permissions:  []*v1.MethodPermission{},
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles:  map[string]v1.TenantRole{},
-				AdminRole:    v1.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
 			},
-			req: &v1.TokenServiceCreateRequest{
+			req: &apiv2.TokenServiceCreateRequest{
 				Description:  "admin token",
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles:  map[string]v1.TenantRole{},
-				AdminRole:    v1.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
 			},
 			state: state{
 				adminSubjects: []string{"phippy"},
 			},
-			wantToken: &v1.Token{
+			wantToken: &apiv2.Token{
 				UserId:       "phippy",
 				Description:  "admin token",
-				TokenType:    v1.TokenType_TOKEN_TYPE_API,
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles:  map[string]v1.TenantRole{},
-				AdminRole:    v1.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
 			},
 		},
 		{
 			name: "admin token but not user cannot create new admin token",
-			sessionToken: &v1.Token{
+			sessionToken: &apiv2.Token{
 				UserId:       "phippy",
-				Permissions:  []*v1.MethodPermission{},
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles:  map[string]v1.TenantRole{},
-				AdminRole:    v1.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
 			},
-			req: &v1.TokenServiceCreateRequest{
+			req: &apiv2.TokenServiceCreateRequest{
 				Description:  "admin token",
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles:  map[string]v1.TenantRole{},
-				AdminRole:    v1.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
 			},
 			state: state{
 				adminSubjects: []string{},
@@ -280,17 +282,17 @@ func Test_Create(t *testing.T) {
 
 		{
 			name: "user and token without tenant access cannot create tenant token",
-			sessionToken: &v1.Token{
+			sessionToken: &apiv2.Token{
 				UserId:       "phippy",
-				Permissions:  []*v1.MethodPermission{},
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles:  map[string]v1.TenantRole{},
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
 			},
-			req: &v1.TokenServiceCreateRequest{
+			req: &apiv2.TokenServiceCreateRequest{
 				Description:  "project token",
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles: map[string]v1.TenantRole{
-					"mascots": v1.TenantRole_TENANT_ROLE_EDITOR,
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
 			},
 			state: state{
@@ -301,80 +303,80 @@ func Test_Create(t *testing.T) {
 		},
 		{
 			name: "user and token with tenant access can create tenant token",
-			sessionToken: &v1.Token{
+			sessionToken: &apiv2.Token{
 				UserId:       "phippy",
-				Permissions:  []*v1.MethodPermission{},
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles: map[string]v1.TenantRole{
-					"mascots": v1.TenantRole_TENANT_ROLE_EDITOR,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
 			},
-			req: &v1.TokenServiceCreateRequest{
+			req: &apiv2.TokenServiceCreateRequest{
 				Description:  "project token",
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles: map[string]v1.TenantRole{
-					"mascots": v1.TenantRole_TENANT_ROLE_EDITOR,
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
 			},
 			state: state{
 				adminSubjects: []string{},
-				tenantRoles: map[string]v1.TenantRole{
-					"mascots": v1.TenantRole_TENANT_ROLE_EDITOR,
+				tenantRoles: map[string]apiv2.TenantRole{
+					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
 			},
-			wantToken: &v1.Token{
+			wantToken: &apiv2.Token{
 				UserId:       "phippy",
 				Description:  "project token",
-				TokenType:    *v1.TokenType_TOKEN_TYPE_API.Enum(),
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles: map[string]v1.TenantRole{
-					"mascots": v1.TenantRole_TENANT_ROLE_EDITOR,
+				TokenType:    *apiv2.TokenType_TOKEN_TYPE_API.Enum(),
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
 			},
 		},
 		{
 			name: "user without but token with tenant access cannot create tenant token",
-			sessionToken: &v1.Token{
+			sessionToken: &apiv2.Token{
 				UserId:       "phippy",
-				Permissions:  []*v1.MethodPermission{},
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles: map[string]v1.TenantRole{
-					"mascots": v1.TenantRole_TENANT_ROLE_EDITOR,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
 			},
-			req: &v1.TokenServiceCreateRequest{
+			req: &apiv2.TokenServiceCreateRequest{
 				Description:  "project token",
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles: map[string]v1.TenantRole{
-					"mascots": v1.TenantRole_TENANT_ROLE_EDITOR,
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
 			},
 			state: state{
 				adminSubjects: []string{},
-				projectRoles:  map[string]v1.ProjectRole{},
+				projectRoles:  map[string]apiv2.ProjectRole{},
 			},
 			wantErr:        true,
 			wantErrMessage: `permission_denied: outdated token: requested tenant: "mascots" is not allowed`,
 		},
 		{
 			name: "token without but user with tenant access cannot create tenant token",
-			sessionToken: &v1.Token{
+			sessionToken: &apiv2.Token{
 				UserId:       "phippy",
-				Permissions:  []*v1.MethodPermission{},
-				ProjectRoles: map[string]v1.ProjectRole{},
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
 			},
-			req: &v1.TokenServiceCreateRequest{
+			req: &apiv2.TokenServiceCreateRequest{
 				Description:  "project token",
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles: map[string]v1.TenantRole{
-					"mascots": v1.TenantRole_TENANT_ROLE_EDITOR,
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
 			},
 			state: state{
 				adminSubjects: []string{},
-				projectRoles:  map[string]v1.ProjectRole{},
-				tenantRoles: map[string]v1.TenantRole{
-					"mascots": v1.TenantRole_TENANT_ROLE_EDITOR,
+				projectRoles:  map[string]apiv2.ProjectRole{},
+				tenantRoles: map[string]apiv2.TenantRole{
+					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
 			},
 			wantErr:        true,
@@ -452,23 +454,23 @@ func Test_validateTokenCreate(t *testing.T) {
 	oneHundredDays := durationpb.New(100 * 24 * time.Hour)
 	tests := []struct {
 		name           string
-		token          *v1.Token
-		req            *v1.TokenServiceCreateRequest
+		token          *apiv2.Token
+		req            *apiv2.TokenServiceCreateRequest
 		adminSubjects  []string
 		wantErr        bool
 		wantErrMessage string
 	}{
 		{
 			name: "simple token with empty permissions and roles",
-			token: &v1.Token{
-				Permissions: []*v1.MethodPermission{
+			token: &apiv2.Token{
+				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: "",
 						Methods: []string{""},
 					},
 				},
 			},
-			req: &v1.TokenServiceCreateRequest{
+			req: &apiv2.TokenServiceCreateRequest{
 				Description: "i don't need any permissions",
 				Expires:     inOneHour,
 			},
@@ -478,14 +480,14 @@ func Test_validateTokenCreate(t *testing.T) {
 		// Inherited Permissions
 		{
 			name: "simple token with no permissions but project role",
-			token: &v1.Token{
-				ProjectRoles: map[string]v1.ProjectRole{
-					"ae8d2493-41ec-4efd-bbb4-81085b20b6fe": v1.ProjectRole_PROJECT_ROLE_OWNER,
+			token: &apiv2.Token{
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"ae8d2493-41ec-4efd-bbb4-81085b20b6fe": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
 				},
 			},
-			req: &v1.TokenServiceCreateRequest{
+			req: &apiv2.TokenServiceCreateRequest{
 				Description: "i want to get a cluster for this project",
-				Permissions: []*v1.MethodPermission{
+				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: "ae8d2493-41ec-4efd-bbb4-81085b20b6fe",
 						Methods: []string{
@@ -501,17 +503,17 @@ func Test_validateTokenCreate(t *testing.T) {
 		// Permissions from Token
 		{
 			name: "simple token with one project and permission",
-			token: &v1.Token{
-				Permissions: []*v1.MethodPermission{
+			token: &apiv2.Token{
+				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: "abc",
 						Methods: []string{"/metalstack.api.v2.IPService/Get"},
 					},
 				},
 			},
-			req: &v1.TokenServiceCreateRequest{
+			req: &apiv2.TokenServiceCreateRequest{
 				Description: "i want to get a cluster",
-				Permissions: []*v1.MethodPermission{
+				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: "abc",
 						Methods: []string{"/metalstack.api.v2.IPService/Get"},
@@ -524,17 +526,17 @@ func Test_validateTokenCreate(t *testing.T) {
 		},
 		{
 			name: "simple token with unknown method",
-			token: &v1.Token{
-				Permissions: []*v1.MethodPermission{
+			token: &apiv2.Token{
+				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: "abc",
 						Methods: []string{"/metalstack.api.v2.IPService/Get"},
 					},
 				},
 			},
-			req: &v1.TokenServiceCreateRequest{
+			req: &apiv2.TokenServiceCreateRequest{
 				Description: "i want to get a cluster",
-				Permissions: []*v1.MethodPermission{
+				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: "abc",
 						Methods: []string{"/metalstack.api.v2.UnknownService/Get"},
@@ -548,17 +550,17 @@ func Test_validateTokenCreate(t *testing.T) {
 		},
 		{
 			name: "simple token with one project and permission, wrong project given",
-			token: &v1.Token{
-				Permissions: []*v1.MethodPermission{
+			token: &apiv2.Token{
+				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: "abc",
 						Methods: []string{"/metalstack.api.v2.IPService/Get"},
 					},
 				},
 			},
-			req: &v1.TokenServiceCreateRequest{
+			req: &apiv2.TokenServiceCreateRequest{
 				Description: "i want to get a cluster",
-				Permissions: []*v1.MethodPermission{
+				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: "cde",
 						Methods: []string{"/metalstack.api.v2.IPService/Get"},
@@ -572,17 +574,17 @@ func Test_validateTokenCreate(t *testing.T) {
 		},
 		{
 			name: "simple token with one project and permission, wrong message given",
-			token: &v1.Token{
-				Permissions: []*v1.MethodPermission{
+			token: &apiv2.Token{
+				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: "abc",
 						Methods: []string{"/metalstack.api.v2.IPService/Get"},
 					},
 				},
 			},
-			req: &v1.TokenServiceCreateRequest{
+			req: &apiv2.TokenServiceCreateRequest{
 				Description: "i want to list clusters",
-				Permissions: []*v1.MethodPermission{
+				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: "abc",
 						Methods: []string{"/metalstack.api.v2.IPService/List"},
@@ -596,8 +598,8 @@ func Test_validateTokenCreate(t *testing.T) {
 		},
 		{
 			name: "simple token with one project and permission, wrong messages given",
-			token: &v1.Token{
-				Permissions: []*v1.MethodPermission{
+			token: &apiv2.Token{
+				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: "abc",
 						Methods: []string{
@@ -608,9 +610,9 @@ func Test_validateTokenCreate(t *testing.T) {
 					},
 				},
 			},
-			req: &v1.TokenServiceCreateRequest{
+			req: &apiv2.TokenServiceCreateRequest{
 				Description: "i want to get and list clusters",
-				Permissions: []*v1.MethodPermission{
+				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: "abc",
 						Methods: []string{
@@ -627,15 +629,15 @@ func Test_validateTokenCreate(t *testing.T) {
 		},
 		{
 			name: "expiration too long",
-			token: &v1.Token{
-				Permissions: []*v1.MethodPermission{
+			token: &apiv2.Token{
+				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: "",
 						Methods: []string{""},
 					},
 				},
 			},
-			req: &v1.TokenServiceCreateRequest{
+			req: &apiv2.TokenServiceCreateRequest{
 				Description: "i don't need any permissions",
 				Expires:     oneHundredDays,
 			},
@@ -646,24 +648,24 @@ func Test_validateTokenCreate(t *testing.T) {
 		// Roles from Token
 		{
 			name: "token has no role",
-			token: &v1.Token{
-				Permissions: []*v1.MethodPermission{
+			token: &apiv2.Token{
+				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: "abc",
 						Methods: []string{"/metalstack.api.v2.IPService/Get"},
 					},
 				},
 			},
-			req: &v1.TokenServiceCreateRequest{
+			req: &apiv2.TokenServiceCreateRequest{
 				Description: "i want to get a cluster",
-				Permissions: []*v1.MethodPermission{
+				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: "abc",
 						Methods: []string{"/metalstack.api.v2.IPService/Get"},
 					},
 				},
-				TenantRoles: map[string]v1.TenantRole{
-					"john@github": v1.TenantRole_TENANT_ROLE_OWNER,
+				TenantRoles: map[string]apiv2.TenantRole{
+					"john@github": apiv2.TenantRole_TENANT_ROLE_OWNER,
 				},
 				Expires: inOneHour,
 			},
@@ -673,27 +675,27 @@ func Test_validateTokenCreate(t *testing.T) {
 		},
 		{
 			name: "token has to low role",
-			token: &v1.Token{
-				Permissions: []*v1.MethodPermission{
+			token: &apiv2.Token{
+				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: "abc",
 						Methods: []string{"/metalstack.api.v2.IPService/Get"},
 					},
 				},
-				TenantRoles: map[string]v1.TenantRole{
-					"company-a@github": v1.TenantRole_TENANT_ROLE_VIEWER,
+				TenantRoles: map[string]apiv2.TenantRole{
+					"company-a@github": apiv2.TenantRole_TENANT_ROLE_VIEWER,
 				},
 			},
-			req: &v1.TokenServiceCreateRequest{
+			req: &apiv2.TokenServiceCreateRequest{
 				Description: "i want to get a cluster",
-				Permissions: []*v1.MethodPermission{
+				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: "abc",
 						Methods: []string{"/metalstack.api.v2.IPService/Get"},
 					},
 				},
-				TenantRoles: map[string]v1.TenantRole{
-					"company-a@github": v1.TenantRole_TENANT_ROLE_EDITOR,
+				TenantRoles: map[string]apiv2.TenantRole{
+					"company-a@github": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
 				Expires: inOneHour,
 			},
@@ -703,27 +705,27 @@ func Test_validateTokenCreate(t *testing.T) {
 		},
 		{
 			name: "token request has unspecified role",
-			token: &v1.Token{
-				Permissions: []*v1.MethodPermission{
+			token: &apiv2.Token{
+				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: "abc",
 						Methods: []string{"/metalstack.api.v2.IPService/Get"},
 					},
 				},
-				TenantRoles: map[string]v1.TenantRole{
-					"company-a@github": v1.TenantRole_TENANT_ROLE_VIEWER,
+				TenantRoles: map[string]apiv2.TenantRole{
+					"company-a@github": apiv2.TenantRole_TENANT_ROLE_VIEWER,
 				},
 			},
-			req: &v1.TokenServiceCreateRequest{
+			req: &apiv2.TokenServiceCreateRequest{
 				Description: "i want to get a cluster",
-				Permissions: []*v1.MethodPermission{
+				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: "abc",
 						Methods: []string{"/metalstack.api.v2.IPService/Get"},
 					},
 				},
-				TenantRoles: map[string]v1.TenantRole{
-					"company-a@github": v1.TenantRole_TENANT_ROLE_UNSPECIFIED,
+				TenantRoles: map[string]apiv2.TenantRole{
+					"company-a@github": apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED,
 				},
 				Expires: inOneHour,
 			},
@@ -735,14 +737,14 @@ func Test_validateTokenCreate(t *testing.T) {
 		{
 			name:          "requested admin role but is not allowed",
 			adminSubjects: []string{},
-			token: &v1.Token{
-				TenantRoles: map[string]v1.TenantRole{
-					"company-a@github": v1.TenantRole_TENANT_ROLE_EDITOR,
+			token: &apiv2.Token{
+				TenantRoles: map[string]apiv2.TenantRole{
+					"company-a@github": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
 			},
-			req: &v1.TokenServiceCreateRequest{
+			req: &apiv2.TokenServiceCreateRequest{
 				Description: "i want to get admin access",
-				AdminRole:   pointer.Pointer(v1.AdminRole_ADMIN_ROLE_VIEWER),
+				AdminRole:   pointer.Pointer(apiv2.AdminRole_ADMIN_ROLE_VIEWER),
 				Expires:     inOneHour,
 			},
 			wantErr:        true,
@@ -753,14 +755,14 @@ func Test_validateTokenCreate(t *testing.T) {
 			adminSubjects: []string{
 				"company-a@github",
 			},
-			token: &v1.Token{
-				TenantRoles: map[string]v1.TenantRole{
-					"company-a@github": v1.TenantRole_TENANT_ROLE_VIEWER,
+			token: &apiv2.Token{
+				TenantRoles: map[string]apiv2.TenantRole{
+					"company-a@github": apiv2.TenantRole_TENANT_ROLE_VIEWER,
 				},
 			},
-			req: &v1.TokenServiceCreateRequest{
+			req: &apiv2.TokenServiceCreateRequest{
 				Description: "i want to get admin access",
-				AdminRole:   pointer.Pointer(v1.AdminRole_ADMIN_ROLE_EDITOR),
+				AdminRole:   pointer.Pointer(apiv2.AdminRole_ADMIN_ROLE_EDITOR),
 				Expires:     inOneHour,
 			},
 			wantErr:        true,
@@ -771,15 +773,15 @@ func Test_validateTokenCreate(t *testing.T) {
 			adminSubjects: []string{
 				"company-a@github",
 			},
-			token: &v1.Token{
+			token: &apiv2.Token{
 				UserId: "company-a@github",
-				TenantRoles: map[string]v1.TenantRole{
-					"company-a@github": v1.TenantRole_TENANT_ROLE_EDITOR,
+				TenantRoles: map[string]apiv2.TenantRole{
+					"company-a@github": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
 			},
-			req: &v1.TokenServiceCreateRequest{
+			req: &apiv2.TokenServiceCreateRequest{
 				Description: "i want to get admin access",
-				AdminRole:   pointer.Pointer(v1.AdminRole_ADMIN_ROLE_EDITOR),
+				AdminRole:   pointer.Pointer(apiv2.AdminRole_ADMIN_ROLE_EDITOR),
 				Expires:     inOneHour,
 			},
 			wantErr: false,
@@ -802,70 +804,70 @@ func Test_validateTokenCreate(t *testing.T) {
 func Test_Update(t *testing.T) {
 	type state struct {
 		adminSubjects []string
-		projectRoles  map[string]v1.ProjectRole
-		tenantRoles   map[string]v1.TenantRole
+		projectRoles  map[string]apiv2.ProjectRole
+		tenantRoles   map[string]apiv2.TenantRole
 	}
 	tests := []struct {
 		name           string
-		sessionToken   *v1.Token
-		tokenToUpdate  *v1.Token
-		req            *v1.TokenServiceUpdateRequest
+		sessionToken   *apiv2.Token
+		tokenToUpdate  *apiv2.Token
+		req            *apiv2.TokenServiceUpdateRequest
 		state          state
 		wantErr        bool
 		wantErrMessage string
-		wantToken      *v1.Token
+		wantToken      *apiv2.Token
 	}{
 		{
 			name: "can update bare token",
-			sessionToken: &v1.Token{
+			sessionToken: &apiv2.Token{
 				UserId:       "phippy",
-				Permissions:  []*v1.MethodPermission{},
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles:  map[string]v1.TenantRole{},
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
 			},
-			tokenToUpdate: &v1.Token{
+			tokenToUpdate: &apiv2.Token{
 				Uuid:         "111",
 				UserId:       "phippy",
-				Permissions:  []*v1.MethodPermission{},
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles:  map[string]v1.TenantRole{},
-				TokenType:    v1.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 			},
-			req: &v1.TokenServiceUpdateRequest{
+			req: &apiv2.TokenServiceUpdateRequest{
 				Uuid:        "111",
 				Description: pointer.Pointer("update!"),
 			},
 			state: state{
 				adminSubjects: []string{},
 			},
-			wantToken: &v1.Token{
+			wantToken: &apiv2.Token{
 				Uuid:        "111",
 				UserId:      "phippy",
 				Description: "update!",
-				TokenType:   v1.TokenType_TOKEN_TYPE_API,
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
 			},
 		},
 		{
 			name: "user and token without project access cannot update project token",
-			sessionToken: &v1.Token{
+			sessionToken: &apiv2.Token{
 				UserId:       "phippy",
-				Permissions:  []*v1.MethodPermission{},
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles:  map[string]v1.TenantRole{},
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
 			},
-			tokenToUpdate: &v1.Token{
+			tokenToUpdate: &apiv2.Token{
 				Uuid:         "111",
 				UserId:       "phippy",
-				Permissions:  []*v1.MethodPermission{},
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles:  map[string]v1.TenantRole{},
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
 			},
-			req: &v1.TokenServiceUpdateRequest{
+			req: &apiv2.TokenServiceUpdateRequest{
 				Uuid: "111",
-				ProjectRoles: map[string]v1.ProjectRole{
-					"kubies": v1.ProjectRole_PROJECT_ROLE_EDITOR,
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
-				TenantRoles: map[string]v1.TenantRole{},
+				TenantRoles: map[string]apiv2.TenantRole{},
 			},
 			state: state{
 				adminSubjects: []string{},
@@ -875,102 +877,102 @@ func Test_Update(t *testing.T) {
 		},
 		{
 			name: "user and token with project access can update project token",
-			sessionToken: &v1.Token{
+			sessionToken: &apiv2.Token{
 				UserId:      "phippy",
-				Permissions: []*v1.MethodPermission{},
-				ProjectRoles: map[string]v1.ProjectRole{
-					"kubies": v1.ProjectRole_PROJECT_ROLE_EDITOR,
+				Permissions: []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
-				TenantRoles: map[string]v1.TenantRole{},
+				TenantRoles: map[string]apiv2.TenantRole{},
 			},
-			tokenToUpdate: &v1.Token{
+			tokenToUpdate: &apiv2.Token{
 				Uuid:         "111",
 				UserId:       "phippy",
-				Permissions:  []*v1.MethodPermission{},
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles:  map[string]v1.TenantRole{},
-				TokenType:    v1.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 			},
-			req: &v1.TokenServiceUpdateRequest{
+			req: &apiv2.TokenServiceUpdateRequest{
 				Uuid: "111",
-				ProjectRoles: map[string]v1.ProjectRole{
-					"kubies": v1.ProjectRole_PROJECT_ROLE_EDITOR,
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
-				TenantRoles: map[string]v1.TenantRole{},
+				TenantRoles: map[string]apiv2.TenantRole{},
 			},
 			state: state{
 				adminSubjects: []string{},
-				projectRoles: map[string]v1.ProjectRole{
-					"kubies": v1.ProjectRole_PROJECT_ROLE_EDITOR,
+				projectRoles: map[string]apiv2.ProjectRole{
+					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 			},
-			wantToken: &v1.Token{
+			wantToken: &apiv2.Token{
 				Uuid:      "111",
 				UserId:    "phippy",
-				TokenType: v1.TokenType_TOKEN_TYPE_API,
-				ProjectRoles: map[string]v1.ProjectRole{
-					"kubies": v1.ProjectRole_PROJECT_ROLE_EDITOR,
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
-				TenantRoles: map[string]v1.TenantRole{},
+				TenantRoles: map[string]apiv2.TenantRole{},
 			},
 		},
 		{
 			name: "user without but token with project access cannot update project token",
-			sessionToken: &v1.Token{
+			sessionToken: &apiv2.Token{
 				UserId:      "phippy",
-				Permissions: []*v1.MethodPermission{},
-				ProjectRoles: map[string]v1.ProjectRole{
-					"kubies": v1.ProjectRole_PROJECT_ROLE_EDITOR,
+				Permissions: []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
-				TenantRoles: map[string]v1.TenantRole{},
+				TenantRoles: map[string]apiv2.TenantRole{},
 			},
-			tokenToUpdate: &v1.Token{
+			tokenToUpdate: &apiv2.Token{
 				Uuid:         "111",
 				UserId:       "phippy",
-				Permissions:  []*v1.MethodPermission{},
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles:  map[string]v1.TenantRole{},
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
 			},
-			req: &v1.TokenServiceUpdateRequest{
+			req: &apiv2.TokenServiceUpdateRequest{
 				Uuid: "111",
-				ProjectRoles: map[string]v1.ProjectRole{
-					"kubies": v1.ProjectRole_PROJECT_ROLE_EDITOR,
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
-				TenantRoles: map[string]v1.TenantRole{},
+				TenantRoles: map[string]apiv2.TenantRole{},
 			},
 			state: state{
 				adminSubjects: []string{},
-				projectRoles:  map[string]v1.ProjectRole{},
+				projectRoles:  map[string]apiv2.ProjectRole{},
 			},
 			wantErr:        true,
 			wantErrMessage: `permission_denied: outdated token: requested project: "kubies" is not allowed`,
 		},
 		{
 			name: "project without but user with project access cannot create project token",
-			sessionToken: &v1.Token{
+			sessionToken: &apiv2.Token{
 				UserId:       "phippy",
-				Permissions:  []*v1.MethodPermission{},
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles:  map[string]v1.TenantRole{},
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
 			},
-			tokenToUpdate: &v1.Token{
+			tokenToUpdate: &apiv2.Token{
 				Uuid:         "111",
 				UserId:       "phippy",
-				Permissions:  []*v1.MethodPermission{},
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles:  map[string]v1.TenantRole{},
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
 			},
-			req: &v1.TokenServiceUpdateRequest{
+			req: &apiv2.TokenServiceUpdateRequest{
 				Uuid: "111",
-				ProjectRoles: map[string]v1.ProjectRole{
-					"kubies": v1.ProjectRole_PROJECT_ROLE_EDITOR,
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
-				TenantRoles: map[string]v1.TenantRole{},
+				TenantRoles: map[string]apiv2.TenantRole{},
 			},
 			state: state{
 				adminSubjects: []string{},
-				projectRoles: map[string]v1.ProjectRole{
-					"kubies": v1.ProjectRole_PROJECT_ROLE_EDITOR,
+				projectRoles: map[string]apiv2.ProjectRole{
+					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 			},
 			wantErr:        true,
@@ -978,58 +980,58 @@ func Test_Update(t *testing.T) {
 		},
 		{
 			name: "admin user and token can update admin token",
-			sessionToken: &v1.Token{
+			sessionToken: &apiv2.Token{
 				UserId:       "phippy",
-				Permissions:  []*v1.MethodPermission{},
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles:  map[string]v1.TenantRole{},
-				AdminRole:    v1.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
 			},
-			tokenToUpdate: &v1.Token{
+			tokenToUpdate: &apiv2.Token{
 				Uuid:         "111",
 				UserId:       "phippy",
-				Permissions:  []*v1.MethodPermission{},
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles:  map[string]v1.TenantRole{},
-				AdminRole:    v1.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
-				TokenType:    v1.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 			},
-			req: &v1.TokenServiceUpdateRequest{
+			req: &apiv2.TokenServiceUpdateRequest{
 				Uuid:         "111",
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles:  map[string]v1.TenantRole{},
-				AdminRole:    v1.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
 			},
 			state: state{
 				adminSubjects: []string{"phippy"},
 			},
-			wantToken: &v1.Token{
+			wantToken: &apiv2.Token{
 				Uuid:         "111",
 				UserId:       "phippy",
-				TokenType:    v1.TokenType_TOKEN_TYPE_API,
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles:  map[string]v1.TenantRole{},
-				AdminRole:    v1.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
 			},
 		},
 		{
 			name: "admin token but user cannot update admin token",
-			sessionToken: &v1.Token{
+			sessionToken: &apiv2.Token{
 				UserId:       "phippy",
-				Permissions:  []*v1.MethodPermission{},
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles:  map[string]v1.TenantRole{},
-				AdminRole:    v1.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
 			},
-			tokenToUpdate: &v1.Token{
+			tokenToUpdate: &apiv2.Token{
 				Uuid:      "111",
 				UserId:    "phippy",
-				TokenType: v1.TokenType_TOKEN_TYPE_API,
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 			},
-			req: &v1.TokenServiceUpdateRequest{
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles:  map[string]v1.TenantRole{},
-				AdminRole:    v1.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			req: &apiv2.TokenServiceUpdateRequest{
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
 			},
 			state: state{
 				adminSubjects: []string{},
@@ -1039,22 +1041,22 @@ func Test_Update(t *testing.T) {
 		},
 		{
 			name: "user and token without tenant access cannot update tenant token",
-			sessionToken: &v1.Token{
+			sessionToken: &apiv2.Token{
 				UserId:       "phippy",
-				Permissions:  []*v1.MethodPermission{},
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles:  map[string]v1.TenantRole{},
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
 			},
-			tokenToUpdate: &v1.Token{
+			tokenToUpdate: &apiv2.Token{
 				Uuid:      "111",
 				UserId:    "phippy",
-				TokenType: v1.TokenType_TOKEN_TYPE_API,
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 			},
-			req: &v1.TokenServiceUpdateRequest{
+			req: &apiv2.TokenServiceUpdateRequest{
 				Uuid:         "111",
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles: map[string]v1.TenantRole{
-					"mascots": v1.TenantRole_TENANT_ROLE_EDITOR,
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
 			},
 			state: state{
@@ -1065,98 +1067,98 @@ func Test_Update(t *testing.T) {
 		},
 		{
 			name: "user and token with tenant access can update tenant token",
-			sessionToken: &v1.Token{
+			sessionToken: &apiv2.Token{
 				UserId:       "phippy",
-				Permissions:  []*v1.MethodPermission{},
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles: map[string]v1.TenantRole{
-					"mascots": v1.TenantRole_TENANT_ROLE_EDITOR,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
 			},
-			tokenToUpdate: &v1.Token{
+			tokenToUpdate: &apiv2.Token{
 				Uuid:         "111",
 				UserId:       "phippy",
-				TokenType:    v1.TokenType_TOKEN_TYPE_API,
-				Permissions:  []*v1.MethodPermission{},
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles:  map[string]v1.TenantRole{},
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
 			},
-			req: &v1.TokenServiceUpdateRequest{
+			req: &apiv2.TokenServiceUpdateRequest{
 				Uuid:         "111",
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles: map[string]v1.TenantRole{
-					"mascots": v1.TenantRole_TENANT_ROLE_EDITOR,
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
 			},
 			state: state{
 				adminSubjects: []string{},
-				tenantRoles: map[string]v1.TenantRole{
-					"mascots": v1.TenantRole_TENANT_ROLE_EDITOR,
+				tenantRoles: map[string]apiv2.TenantRole{
+					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
 			},
-			wantToken: &v1.Token{
+			wantToken: &apiv2.Token{
 				Uuid:         "111",
 				UserId:       "phippy",
-				TokenType:    *v1.TokenType_TOKEN_TYPE_API.Enum(),
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles: map[string]v1.TenantRole{
-					"mascots": v1.TenantRole_TENANT_ROLE_EDITOR,
+				TokenType:    *apiv2.TokenType_TOKEN_TYPE_API.Enum(),
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
 			},
 		},
 		{
 			name: "user without but token with tenant access cannot update tenant token",
-			sessionToken: &v1.Token{
+			sessionToken: &apiv2.Token{
 				UserId:       "phippy",
-				Permissions:  []*v1.MethodPermission{},
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles: map[string]v1.TenantRole{
-					"mascots": v1.TenantRole_TENANT_ROLE_EDITOR,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
 			},
-			tokenToUpdate: &v1.Token{
+			tokenToUpdate: &apiv2.Token{
 				Uuid:      "111",
 				UserId:    "phippy",
-				TokenType: v1.TokenType_TOKEN_TYPE_API,
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 			},
-			req: &v1.TokenServiceUpdateRequest{
+			req: &apiv2.TokenServiceUpdateRequest{
 				Uuid:         "111",
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles: map[string]v1.TenantRole{
-					"mascots": v1.TenantRole_TENANT_ROLE_EDITOR,
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
 			},
 			state: state{
 				adminSubjects: []string{},
-				projectRoles:  map[string]v1.ProjectRole{},
+				projectRoles:  map[string]apiv2.ProjectRole{},
 			},
 			wantErr:        true,
 			wantErrMessage: `permission_denied: outdated token: requested tenant: "mascots" is not allowed`,
 		},
 		{
 			name: "token without but user with tenant access cannot update tenant token",
-			sessionToken: &v1.Token{
+			sessionToken: &apiv2.Token{
 				UserId:       "phippy",
-				Permissions:  []*v1.MethodPermission{},
-				ProjectRoles: map[string]v1.ProjectRole{},
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
 			},
-			tokenToUpdate: &v1.Token{
+			tokenToUpdate: &apiv2.Token{
 				Uuid:      "111",
 				UserId:    "phippy",
-				TokenType: v1.TokenType_TOKEN_TYPE_API,
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 			},
-			req: &v1.TokenServiceUpdateRequest{
+			req: &apiv2.TokenServiceUpdateRequest{
 				Uuid:         "111",
-				ProjectRoles: map[string]v1.ProjectRole{},
-				TenantRoles: map[string]v1.TenantRole{
-					"mascots": v1.TenantRole_TENANT_ROLE_EDITOR,
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
 			},
 			state: state{
 				adminSubjects: []string{},
-				projectRoles:  map[string]v1.ProjectRole{},
-				tenantRoles: map[string]v1.TenantRole{
-					"mascots": v1.TenantRole_TENANT_ROLE_EDITOR,
+				projectRoles:  map[string]apiv2.ProjectRole{},
+				tenantRoles: map[string]apiv2.TenantRole{
+					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
 			},
 			wantErr:        true,
@@ -1164,31 +1166,31 @@ func Test_Update(t *testing.T) {
 		},
 		{
 			name: "token does not exist in database",
-			sessionToken: &v1.Token{
+			sessionToken: &apiv2.Token{
 				UserId:      "phippy",
-				Permissions: []*v1.MethodPermission{},
-				ProjectRoles: map[string]v1.ProjectRole{
-					"kubies": v1.ProjectRole_PROJECT_ROLE_EDITOR,
+				Permissions: []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 			},
-			tokenToUpdate: &v1.Token{
+			tokenToUpdate: &apiv2.Token{
 				Uuid:      "111",
 				UserId:    "phippy",
-				TokenType: v1.TokenType_TOKEN_TYPE_API,
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 			},
-			req: &v1.TokenServiceUpdateRequest{
+			req: &apiv2.TokenServiceUpdateRequest{
 				Uuid: "222",
-				ProjectRoles: map[string]v1.ProjectRole{
-					"kubies": v1.ProjectRole_PROJECT_ROLE_EDITOR,
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
-				TenantRoles: map[string]v1.TenantRole{},
+				TenantRoles: map[string]apiv2.TenantRole{},
 			},
 			state: state{
 				adminSubjects: []string{},
-				projectRoles: map[string]v1.ProjectRole{
-					"kubies": v1.ProjectRole_PROJECT_ROLE_EDITOR,
+				projectRoles: map[string]apiv2.ProjectRole{
+					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
-				tenantRoles: map[string]v1.TenantRole{},
+				tenantRoles: map[string]apiv2.TenantRole{},
 			},
 			wantErr:        true,
 			wantErrMessage: `not_found: token not found`,
@@ -1250,6 +1252,142 @@ func Test_Update(t *testing.T) {
 				assert.Equal(t, tt.wantToken.Uuid, got.Uuid, "uuid")
 				assert.Equal(t, tt.wantToken.Description, got.Description, "description")
 				assert.Equal(t, tt.wantToken.UserId, got.UserId, "user id")
+				assert.Equal(t, tt.wantToken.TokenType, got.TokenType, "token type")
+				assert.Equal(t, tt.wantToken.AdminRole, got.AdminRole, "admin role")
+				assert.Equal(t, tt.wantToken.Permissions, got.Permissions, "permissions")
+				assert.Equal(t, tt.wantToken.ProjectRoles, got.ProjectRoles, "project roles")
+				assert.Equal(t, tt.wantToken.TenantRoles, got.TenantRoles, "tenant roles")
+			}
+		})
+	}
+}
+
+func Test_Refresh(t *testing.T) {
+	iat := time.Now()
+	exp := iat.Add(time.Hour)
+	type state struct {
+		adminSubjects []string
+		projectRoles  map[string]apiv2.ProjectRole
+		tenantRoles   map[string]apiv2.TenantRole
+	}
+	tests := []struct {
+		name           string
+		sessionToken   *apiv2.Token
+		existingToken  *apiv2.Token
+		state          state
+		wantErr        bool
+		wantErrMessage string
+		wantToken      *apiv2.Token
+	}{
+		{
+			name: "can update bare token",
+			sessionToken: &apiv2.Token{
+				UserId:       "phippy",
+				Uuid:         "111",
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			existingToken: &apiv2.Token{
+				Uuid:         "111",
+				UserId:       "phippy",
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				IssuedAt:     timestamppb.New(iat),
+				Expires:      timestamppb.New(exp),
+			},
+			state: state{
+				adminSubjects: []string{},
+			},
+			wantToken: &apiv2.Token{
+				Uuid:         "111",
+				UserId:       "phippy",
+				Permissions:  nil,
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				IssuedAt:     timestamppb.New(exp),
+				Expires:      timestamppb.New(exp.Add(time.Hour)),
+			},
+		},
+		// FIXME more tests
+		{
+			name: "token does not exist in database",
+			sessionToken: &apiv2.Token{
+				UserId:      "phippy",
+				Permissions: []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+			},
+			state: state{
+				adminSubjects: []string{},
+				projectRoles: map[string]apiv2.ProjectRole{
+					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+				tenantRoles: map[string]apiv2.TenantRole{},
+			},
+			wantErr:        true,
+			wantErrMessage: `not_found: token not found`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(token.ContextWithToken(t.Context(), tt.sessionToken))
+			defer cancel()
+
+			s := miniredis.RunT(t)
+			c := redis.NewClient(&redis.Options{Addr: s.Addr()})
+
+			tokenStore := token.NewRedisStore(c)
+			certStore := certs.NewRedisStore(&certs.Config{
+				RedisClient: c,
+			})
+
+			if tt.existingToken != nil {
+				err := tokenStore.Set(ctx, tt.existingToken)
+				require.NoError(t, err)
+			}
+
+			rawService := New(Config{
+				Log:           slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})),
+				TokenStore:    tokenStore,
+				CertStore:     certStore,
+				MasterClient:  nil,
+				Issuer:        "http://test",
+				AdminSubjects: tt.state.adminSubjects,
+			})
+
+			service, ok := rawService.(*tokenService)
+			if !ok {
+				t.Fatalf("want new token service to be tokenService, got: %T", rawService)
+			}
+
+			service.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*putil.ProjectsAndTenants, error) {
+				return &putil.ProjectsAndTenants{
+					ProjectRoles: tt.state.projectRoles,
+					TenantRoles:  tt.state.tenantRoles,
+				}, nil
+			}
+
+			response, err := service.Refresh(ctx, connect.NewRequest(&apiv2.TokenServiceRefreshRequest{}))
+			switch {
+			case tt.wantErr && err != nil:
+				if dff := cmp.Diff(tt.wantErrMessage, err.Error()); dff != "" {
+					t.Fatal(dff)
+				}
+			case tt.wantErr && err == nil:
+				t.Fatalf("want error %q, got response %q", tt.wantErrMessage, response)
+			case err != nil:
+				t.Fatalf("want response, got error %q", err)
+
+			default:
+				got := response.Msg.Token
+				assert.Equal(t, tt.wantToken.UserId, got.UserId, "userId")
+				assert.Equal(t, tt.wantToken.Description, got.Description, "description")
 				assert.Equal(t, tt.wantToken.TokenType, got.TokenType, "token type")
 				assert.Equal(t, tt.wantToken.AdminRole, got.AdminRole, "admin role")
 				assert.Equal(t, tt.wantToken.Permissions, got.Permissions, "permissions")

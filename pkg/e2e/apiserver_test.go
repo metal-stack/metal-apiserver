@@ -17,18 +17,18 @@ func TestUnauthenticated(t *testing.T) {
 	defer closer()
 	require.NotNil(t, baseURL, adminToken)
 
-	apiClient := client.New(client.DialConfig{
+	apiClient, err := client.New(&client.DialConfig{
 		BaseURL:   baseURL,
-		Token:     "a-token",
 		Debug:     true,
 		UserAgent: "integration test",
 	})
+	require.NoError(t, err)
 
 	ctx := t.Context()
 
-	v, err := apiClient.Apiv2().Version().Get(ctx, connect.NewRequest(&apiv2.VersionServiceGetRequest{}))
-	require.Nil(t, v)
-	require.EqualError(t, err, "unauthenticated: invalid token")
+	images, err := apiClient.Apiv2().Image().List(ctx, connect.NewRequest(&apiv2.ImageServiceListRequest{}))
+	require.Nil(t, images)
+	require.EqualError(t, err, "permission_denied: not allowed to call: /metalstack.api.v2.ImageService/List")
 }
 func TestAuthenticated(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
@@ -36,12 +36,13 @@ func TestAuthenticated(t *testing.T) {
 	defer closer()
 	require.NotNil(t, baseURL, adminToken)
 
-	apiClient := client.New(client.DialConfig{
+	apiClient, err := client.New(&client.DialConfig{
 		BaseURL:   baseURL,
 		Token:     adminToken,
 		Debug:     true,
 		UserAgent: "integration test",
 	})
+	require.NoError(t, err)
 
 	ctx := t.Context()
 
