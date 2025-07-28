@@ -229,12 +229,13 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 			server := httptest.NewServer(mux)
 			defer server.Close()
 
-			c := client.New(client.DialConfig{
+			c, err := client.New(&client.DialConfig{
 				BaseURL: server.URL,
 			})
+			require.NoError(t, err)
 
 			require.NotNil(t, tt.reqFn)
-			err := tt.reqFn(t.Context(), c)
+			err = tt.reqFn(t.Context(), c)
 			if tt.wantErr != "" {
 				require.EqualError(t, err, tt.wantErr)
 				return
