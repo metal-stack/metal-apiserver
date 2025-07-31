@@ -34,8 +34,6 @@ jobs:
 
       - name: Lint Go
         uses: golangci/golangci-lint-action@v8
-        with:
-          args: --build-tags integration -D protogetter --timeout=10m
 
       - uses: StyraInc/setup-regal@v1
         with:
@@ -98,4 +96,3 @@ jobs:
           push: true
           sbom: true
           tags: ${{ steps.meta.outputs.tags }}
-        

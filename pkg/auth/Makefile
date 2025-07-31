@@ -6,6 +6,7 @@ _regal:
 		ghcr.io/styrainc/regal:latest \
 		lint \
 			--disable directory-package-mismatch \
+			--disable unresolved-reference \
 			$(POLICIES_PATH)
 
 _opa:

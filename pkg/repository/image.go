@@ -20,88 +20,82 @@ import (
 )
 
 type imageRepository struct {
-	r *Store
+	s *Store
 }
 
-func (r *imageRepository) ValidateCreate(ctx context.Context, req *adminv2.ImageServiceCreateRequest) (*Validated[*adminv2.ImageServiceCreateRequest], error) {
+func (r *imageRepository) validateCreate(ctx context.Context, req *adminv2.ImageServiceCreateRequest) error {
 	// FIXME use validate helper
 	image := req.Image
 	if image.Id == "" {
-		return nil, errorutil.InvalidArgument("image id must not be empty")
+		return errorutil.InvalidArgument("image id must not be empty")
 	}
 	if image.Url == "" {
-		return nil, errorutil.InvalidArgument("image url must not be empty")
+		return errorutil.InvalidArgument("image url must not be empty")
 	}
 	if err := checkIfUrlExists(ctx, "image", image.Id, image.Url); err != nil {
-		return nil, errorutil.NewInvalidArgument(err)
+		return errorutil.NewInvalidArgument(err)
 	}
 	if len(image.Features) == 0 {
-		return nil, errorutil.InvalidArgument("image features must not be empty")
+		return errorutil.InvalidArgument("image features must not be empty")
 	}
 	if _, err := metal.ImageFeaturesFrom(image.Features); err != nil {
-		return nil, errorutil.NewInvalidArgument(err)
+		return errorutil.NewInvalidArgument(err)
 	}
 	if _, err := metal.VersionClassificationFrom(image.Classification); err != nil {
-		return nil, errorutil.NewInvalidArgument(err)
+		return errorutil.NewInvalidArgument(err)
 	}
 	if _, _, err := metalcommon.GetOsAndSemverFromImage(image.Id); err != nil {
-		return nil, errorutil.NewInvalidArgument(err)
+		return errorutil.NewInvalidArgument(err)
 	}
 	if image.ExpiresAt != nil && !image.ExpiresAt.AsTime().IsZero() {
 		if image.ExpiresAt.AsTime().Before(time.Now()) {
-			return nil, errorutil.InvalidArgument("image expiresAt must be in the future")
+			return errorutil.InvalidArgument("image expiresAt must be in the future")
 		}
 	}
 	// FIXME implement: https://github.com/metal-stack/metal-api/issues/92
-
-	return &Validated[*adminv2.ImageServiceCreateRequest]{
-		message: req,
-	}, nil
+	return nil
 }
 
-func (r *imageRepository) ValidateUpdate(ctx context.Context, req *adminv2.ImageServiceUpdateRequest) (*Validated[*adminv2.ImageServiceUpdateRequest], error) {
+func (r *imageRepository) validateUpdate(ctx context.Context, req *adminv2.ImageServiceUpdateRequest, _ *metal.Image) error {
 	// FIXME use validate helper
 	image := req.Image
 	if image.Id == "" {
-		return nil, errorutil.InvalidArgument("image id must not be empty")
+		return errorutil.InvalidArgument("image id must not be empty")
 	}
 	if image.Url != "" {
 		if err := checkIfUrlExists(ctx, "image", image.Id, image.Url); err != nil {
-			return nil, errorutil.NewInvalidArgument(err)
+			return errorutil.NewInvalidArgument(err)
 		}
 	}
 	if len(image.Features) >= 0 {
 		if _, err := metal.ImageFeaturesFrom(image.Features); err != nil {
-			return nil, errorutil.NewInvalidArgument(err)
+			return errorutil.NewInvalidArgument(err)
 		}
 	}
 	if _, err := metal.VersionClassificationFrom(image.Classification); err != nil {
-		return nil, errorutil.NewInvalidArgument(err)
+		return errorutil.NewInvalidArgument(err)
 	}
 	if _, _, err := metalcommon.GetOsAndSemverFromImage(image.Id); err != nil {
-		return nil, errorutil.NewInvalidArgument(err)
+		return errorutil.NewInvalidArgument(err)
 	}
 	if image.ExpiresAt != nil && !image.ExpiresAt.AsTime().IsZero() {
 		if image.ExpiresAt.AsTime().Before(time.Now()) {
-			return nil, errorutil.InvalidArgument("image expiresAt must be in the future")
+			return errorutil.InvalidArgument("image expiresAt must be in the future")
 		}
 	}
 
-	return &Validated[*adminv2.ImageServiceUpdateRequest]{
-		message: req,
-	}, nil
+	return nil
 }
-func (r *imageRepository) ValidateDelete(ctx context.Context, req *metal.Image) (*Validated[*metal.Image], error) {
+
+func (r *imageRepository) validateDelete(ctx context.Context, req *metal.Image) error {
 	// TODO implement, deletion should only be possible if no machine/firewall allocation with this image exist
 	// can be done once the machine repository is here
 
-	return &Validated[*metal.Image]{
-		message: req,
-	}, nil
+	return nil
 }
 
-func (r *imageRepository) Get(ctx context.Context, id string) (*metal.Image, error) {
-	fsl, err := r.r.ds.Image().Get(ctx, id)
+func (r *imageRepository) get(ctx context.Context, id string) (*metal.Image, error) {
+	fsl, err := r.s.ds.Image().Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -110,17 +104,17 @@ func (r *imageRepository) Get(ctx context.Context, id string) (*metal.Image, err
 }
 
 // Image is not project scoped
-func (r *imageRepository) MatchScope(_ *metal.Image) error {
-	return nil
+func (r *imageRepository) matchScope(_ *metal.Image) bool {
+	return true
 }
 
-func (r *imageRepository) Create(ctx context.Context, rq *Validated[*adminv2.ImageServiceCreateRequest]) (*metal.Image, error) {
-	fsl, err := r.ConvertToInternal(rq.message.Image)
+func (r *imageRepository) create(ctx context.Context, rq *adminv2.ImageServiceCreateRequest) (*metal.Image, error) {
+	fsl, err := r.convertToInternal(rq.Image)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := r.r.ds.Image().Create(ctx, fsl)
+	resp, err := r.s.ds.Image().Create(ctx, fsl)
 	if err != nil {
 		return nil, err
 	}
@@ -128,10 +122,10 @@ func (r *imageRepository) Create(ctx context.Context, rq *Validated[*adminv2.Ima
 	return resp, nil
 }
 
-func (r *imageRepository) Update(ctx context.Context, rq *Validated[*adminv2.ImageServiceUpdateRequest]) (*metal.Image, error) {
-	image := rq.message.Image
+func (r *imageRepository) update(ctx context.Context, e *metal.Image, rq *adminv2.ImageServiceUpdateRequest) (*metal.Image, error) {
+	image := rq.Image
 
-	old, err := r.Get(ctx, image.Id)
+	old, err := r.get(ctx, image.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +158,7 @@ func (r *imageRepository) Update(ctx context.Context, rq *Validated[*adminv2.Ima
 		new.URL = image.Url
 	}
 
-	err = r.r.ds.Image().Update(ctx, &new)
+	err = r.s.ds.Image().Update(ctx, &new)
 	if err != nil {
 		return nil, err
 	}
@@ -172,22 +166,17 @@ func (r *imageRepository) Update(ctx context.Context, rq *Validated[*adminv2.Ima
 	return &new, nil
 }
 
-func (r *imageRepository) Delete(ctx context.Context, rq *Validated[*metal.Image]) (*metal.Image, error) {
-	fsl, err := r.Get(ctx, rq.message.ID)
+func (r *imageRepository) delete(ctx context.Context, e *metal.Image) error {
+	err := r.s.ds.Image().Delete(ctx, e)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	err = r.r.ds.Image().Delete(ctx, fsl)
-	if err != nil {
-		return nil, err
-	}
-
-	return fsl, nil
+	return nil
 }
 
-func (r *imageRepository) Find(ctx context.Context, rq *apiv2.ImageQuery) (*metal.Image, error) {
-	image, err := r.r.ds.Image().Find(ctx, queries.ImageFilter(rq))
+func (r *imageRepository) find(ctx context.Context, rq *apiv2.ImageQuery) (*metal.Image, error) {
+	image, err := r.s.ds.Image().Find(ctx, queries.ImageFilter(rq))
 	if err != nil {
 		return nil, err
 	}
@@ -195,8 +184,8 @@ func (r *imageRepository) Find(ctx context.Context, rq *apiv2.ImageQuery) (*meta
 	return image, nil
 }
 
-func (r *imageRepository) List(ctx context.Context, rq *apiv2.ImageQuery) ([]*metal.Image, error) {
-	images, err := r.r.ds.Image().List(ctx, queries.ImageFilter(rq))
+func (r *imageRepository) list(ctx context.Context, rq *apiv2.ImageQuery) ([]*metal.Image, error) {
+	images, err := r.s.ds.Image().List(ctx, queries.ImageFilter(rq))
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +193,7 @@ func (r *imageRepository) List(ctx context.Context, rq *apiv2.ImageQuery) ([]*me
 	return images, nil
 }
 
-func (r *imageRepository) ConvertToInternal(msg *apiv2.Image) (*metal.Image, error) {
+func (r *imageRepository) convertToInternal(msg *apiv2.Image) (*metal.Image, error) {
 	features, err := metal.ImageFeaturesFrom(msg.Features)
 	if err != nil {
 		return nil, err
@@ -237,7 +226,7 @@ func (r *imageRepository) ConvertToInternal(msg *apiv2.Image) (*metal.Image, err
 	}
 	return image, nil
 }
-func (r *imageRepository) ConvertToProto(in *metal.Image) (*apiv2.Image, error) {
+func (r *imageRepository) convertToProto(in *metal.Image) (*apiv2.Image, error) {
 	var features []apiv2.ImageFeature
 	for feature := range in.Features {
 		switch feature {
