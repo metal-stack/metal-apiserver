@@ -11,7 +11,6 @@ import (
 	mdc "github.com/metal-stack/masterdata-api/pkg/client"
 	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 const (
@@ -217,7 +216,7 @@ func EnsureProviderProject(ctx context.Context, masterClient mdc.Client, provide
 	}
 
 	resp, err := masterClient.Project().Find(ctx, &mdcv1.ProjectFindRequest{
-		TenantId: wrapperspb.String(providerTenantID),
+		TenantId: &providerTenantID,
 		Annotations: map[string]string{
 			DefaultProjectAnnotation: strconv.FormatBool(true),
 		},
