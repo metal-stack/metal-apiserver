@@ -34,7 +34,10 @@ type (
 	}
 
 	MachineDeletePayload struct {
-		AllocationUUID string `json:"allocation_uuid,omitempty"`
+		// UUID of the machine which should be deleted (the machine)
+		UUID *string `json:"uuid,omitempty"`
+		// AllocationUUID of the machine allocation which should be deleted
+		AllocationUUID *string `json:"allocation_uuid,omitempty"`
 	}
 
 	Client struct {
@@ -102,8 +105,8 @@ func (c *Client) NewNetworkDeleteTask(uuid string) (*asynq.TaskInfo, error) {
 	return taskInfo, nil
 }
 
-func (c *Client) NewMachineDeleteTask(allocationUUID string) (*asynq.TaskInfo, error) {
-	payload, err := json.Marshal(MachineDeletePayload{AllocationUUID: allocationUUID})
+func (c *Client) NewMachineDeleteTask(uuid, allocationUUID *string) (*asynq.TaskInfo, error) {
+	payload, err := json.Marshal(MachineDeletePayload{UUID: uuid, AllocationUUID: allocationUUID})
 	if err != nil {
 		return nil, fmt.Errorf("unable to marshal machine delete payload:%w", err)
 	}

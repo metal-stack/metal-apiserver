@@ -75,7 +75,16 @@ func (r *machineRepository) update(ctx context.Context, m *metal.Machine, req *a
 }
 
 func (r *machineRepository) delete(ctx context.Context, m *metal.Machine) error {
-	info, err := r.s.async.NewMachineDeleteTask(m.Allocation.UUID)
+	var (
+		uuid           *string
+		allocationUUID *string
+	)
+	uuid = &m.ID
+	if m.Allocation != nil {
+		uuid = nil
+		allocationUUID = &m.Allocation.UUID
+	}
+	info, err := r.s.async.NewMachineDeleteTask(uuid, allocationUUID)
 	if err != nil {
 		return err
 	}
