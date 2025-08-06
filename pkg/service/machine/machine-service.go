@@ -71,8 +71,20 @@ func (m *machineServiceServer) List(ctx context.Context, rq *connect.Request[api
 }
 
 // Update implements apiv2connect.MachineServiceHandler.
-func (m *machineServiceServer) Update(context.Context, *connect.Request[apiv2.MachineServiceUpdateRequest]) (*connect.Response[apiv2.MachineServiceUpdateResponse], error) {
-	panic("unimplemented")
+func (m *machineServiceServer) Update(ctx context.Context, rq *connect.Request[apiv2.MachineServiceUpdateRequest]) (*connect.Response[apiv2.MachineServiceUpdateResponse], error) {
+	req := rq.Msg
+
+	ms, err := m.repo.Machine(req.Project).Update(ctx, req.Uuid, req)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
+	converted, err := m.repo.UnscopedMachine().ConvertToProto(ms)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
+	return connect.NewResponse(&apiv2.MachineServiceUpdateResponse{Machine: converted}), nil
 }
 
 // Delete implements apiv2connect.MachineServiceHandler.

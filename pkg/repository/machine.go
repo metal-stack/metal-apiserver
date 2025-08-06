@@ -2,17 +2,12 @@ package repository
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"slices"
 	"strings"
 
-	"connectrpc.com/connect"
 	"github.com/hibiken/asynq"
 	"github.com/metal-stack/api/go/enum"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	ipamapiv1 "github.com/metal-stack/go-ipam/api/v1"
-	asyncclient "github.com/metal-stack/metal-apiserver/pkg/async/client"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
@@ -54,8 +49,29 @@ func (r *machineRepository) create(ctx context.Context, req *apiv2.MachineServic
 	panic("unimplemented")
 }
 
-func (r *machineRepository) update(ctx context.Context, e *metal.Machine, req *apiv2.MachineServiceUpdateRequest) (*metal.Machine, error) {
-	panic("unimplemented")
+func (r *machineRepository) update(ctx context.Context, m *metal.Machine, req *apiv2.MachineServiceUpdateRequest) (*metal.Machine, error) {
+	if m.Allocation == nil {
+		return m, errorutil.InvalidArgument("only allocated machines can be updated")
+	}
+
+	if req.Description != nil {
+		m.Allocation.Description = *req.Description
+	}
+
+	if req.Labels != nil {
+		// FIXME in my opinion the allocation tags should be updated
+		// FIXME prevent update of our tags
+		m.Tags = updateLabelsOnSlice(req.Labels, m.Tags)
+	}
+
+	if len(req.SshPublicKeys) > 0 && m.Allocation != nil {
+		m.Allocation.SSHPubKeys = req.SshPublicKeys
+	}
+	if err := r.s.ds.Machine().Update(ctx, m); err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
+	return m, nil
 }
 
 func (r *machineRepository) delete(ctx context.Context, e *metal.Machine) error {
@@ -321,38 +337,6 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 
 func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
 	// FIXME
-	var payload asyncclient.IPDeletePayload
-	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
-		return fmt.Errorf("json.Unmarshal failed: %w %w", err, asynq.SkipRetry)
-	}
-	r.log.Info("delete ip", "uuid", payload.AllocationUUID, "ip", payload.IP)
-
-	metalIP, err := r.ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Uuid: &payload.AllocationUUID}))
-	if err != nil && !errorutil.IsNotFound(err) {
-		return err
-	}
-	if metalIP == nil {
-		r.log.Info("ds find, metalip is nil", "task", t)
-		return nil
-	}
-	r.log.Info("ds find", "metalip", metalIP)
-
-	metalNW, err := r.ds.Network().Get(ctx, metalIP.NetworkID)
-	if err != nil {
-		return fmt.Errorf("unable to retrieve parent network: %w", err)
-	}
-
-	_, err = r.ipam.ReleaseIP(ctx, connect.NewRequest(&ipamapiv1.ReleaseIPRequest{PrefixCidr: metalIP.ParentPrefixCidr, Ip: metalIP.IPAddress, Namespace: metalNW.Namespace}))
-	if err != nil && !errorutil.IsNotFound(err) {
-		r.log.Error("ipam release", "error", err)
-		return err
-	}
-
-	err = r.ds.IP().Delete(ctx, metalIP)
-	if err != nil && !errorutil.IsNotFound(err) {
-		r.log.Error("ds delete", "error", err)
-		return err
-	}
 
 	return nil
 }

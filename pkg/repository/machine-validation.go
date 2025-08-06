@@ -12,7 +12,8 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 }
 
 func (r *machineRepository) validateUpdate(ctx context.Context, req *apiv2.MachineServiceUpdateRequest, _ *metal.Machine) error {
-	panic("unimplemented")
+	// FIXME implement with admin machine update
+	return nil
 }
 
 func (r *machineRepository) validateDelete(ctx context.Context, req *metal.Machine) error {

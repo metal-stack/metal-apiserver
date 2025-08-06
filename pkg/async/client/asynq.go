@@ -32,6 +32,10 @@ type (
 		UUID string `json:"uuid,omitempty"`
 	}
 
+	MachineDeletePayload struct {
+		AllocationUUID string `json:"uuid,omitempty"`
+	}
+
 	Client struct {
 		client *asynq.Client
 		log    *slog.Logger
