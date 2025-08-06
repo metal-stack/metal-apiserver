@@ -12,6 +12,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
@@ -206,8 +207,11 @@ func Test_imageServiceServer_Update(t *testing.T) {
 
 func Test_imageServiceServer_Delete(t *testing.T) {
 	log := slog.Default()
-	repo, closer := test.StartRepository(t, log)
+	ds, opts, rethinkcloser := test.StartRethink(t, log)
+
+	testStore, closer := test.StartRepositoryWithRethinkDB(t, log, ds, opts, rethinkcloser)
 	defer closer()
+	repo := testStore.Store
 
 	ctx := t.Context()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -219,6 +223,18 @@ func Test_imageServiceServer_Delete(t *testing.T) {
 	test.CreateImages(t, repo, []*adminv2.ImageServiceCreateRequest{
 		{
 			Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
+		},
+		{
+			Image: &apiv2.Image{Id: "debian-11.0.20221231", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
+		},
+	})
+
+	test.CreateMachines(t, testStore, []*metal.Machine{
+		{
+			Base: metal.Base{ID: "m1"},
+			Allocation: &metal.MachineAllocation{
+				ImageID: "debian-11.0.20221231",
+			},
 		},
 	})
 
@@ -247,6 +263,12 @@ func Test_imageServiceServer_Delete(t *testing.T) {
 					Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_PREVIEW,
 				},
 			},
+		},
+		{
+			name:    "delete image with existing allocated machine",
+			request: &adminv2.ImageServiceDeleteRequest{Id: "debian-11.0.20221231"},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument(`cannot remove image with existing machine allocations`),
 		},
 	}
 	for _, tt := range tests {

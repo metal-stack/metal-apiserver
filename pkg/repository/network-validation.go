@@ -582,6 +582,16 @@ func (r *networkRepository) validateDelete(ctx context.Context, nw *metal.Networ
 		return errorutil.InvalidArgument("cannot remove network with existing child networks")
 	}
 
+	machines, err := r.s.UnscopedMachine().List(ctx, &apiv2.MachineQuery{
+		Network: &apiv2.MachineNetworkQuery{Networks: []string{nw.ID}},
+	})
+	if err != nil {
+		return err
+	}
+	if len(machines) > 0 {
+		return errorutil.InvalidArgument("cannot remove network with existing machine allocations")
+	}
+
 	err = r.arePrefixesEmpty(ctx, nw.Prefixes)
 	if err != nil {
 		return err

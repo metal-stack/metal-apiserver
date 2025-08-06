@@ -87,10 +87,16 @@ func (r *imageRepository) validateUpdate(ctx context.Context, req *adminv2.Image
 	return nil
 }
 
-func (r *imageRepository) validateDelete(ctx context.Context, req *metal.Image) error {
-	// TODO implement, deletion should only be possible if no machine/firewall allocation with this image exist
-	// can be done once the machine repository is here
-
+func (r *imageRepository) validateDelete(ctx context.Context, img *metal.Image) error {
+	machines, err := r.s.UnscopedMachine().List(ctx, &apiv2.MachineQuery{
+		Allocation: &apiv2.MachineAllocationQuery{Image: &img.ID},
+	})
+	if err != nil {
+		return err
+	}
+	if len(machines) > 0 {
+		return errorutil.InvalidArgument("cannot remove image with existing machine allocations")
+	}
 	return nil
 }
 

@@ -36,6 +36,8 @@ func (s *storage[E]) Create(ctx context.Context, e E) (E, error) {
 	e.SetCreated(now)
 	e.SetChanged(now)
 
+	s.r.log.Debug("create", "table", s.table, "entity", e)
+	
 	var zero E
 
 	// Create a uuidv7 id if an empty string is given

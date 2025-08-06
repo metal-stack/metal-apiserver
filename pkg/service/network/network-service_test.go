@@ -13,6 +13,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
@@ -818,8 +819,10 @@ func Test_networkServiceServer_Create(t *testing.T) {
 func Test_networkServiceServer_Delete(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	repo, closer := test.StartRepository(t, log)
+	ds, opts, rethinkcloser := test.StartRethink(t, log)
+	testStore, closer := test.StartRepositoryWithRethinkDB(t, log, ds, opts, rethinkcloser)
 	defer closer()
+	repo := testStore.Store
 
 	ctx := t.Context()
 
@@ -867,6 +870,19 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 		{Name: pointer.Pointer("p3-network-a"), Project: "p3", Partition: pointer.Pointer("partition-one")},
 	})
 
+	test.CreateMachines(t, testStore, []*metal.Machine{
+		{
+			Base: metal.Base{ID: "m1"}, PartitionID: "partition-one",
+			Allocation: &metal.MachineAllocation{
+				MachineNetworks: []*metal.MachineNetwork{
+					{
+						NetworkID: networkMap["p3-network-a"],
+					},
+				},
+			},
+		},
+	})
+
 	tests := []struct {
 		name    string
 		rq      *apiv2.NetworkServiceDeleteRequest
@@ -902,6 +918,12 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 			rq:      &apiv2.NetworkServiceDeleteRequest{Id: networkMap["p1-network-a"], Project: "pa"},
 			want:    nil,
 			wantErr: errorutil.NotFound(`no network with id %q found`, networkMap["p1-network-a"]),
+		},
+		{
+			name:    "network has machine allocation",
+			rq:      &apiv2.NetworkServiceDeleteRequest{Id: networkMap["p3-network-a"], Project: "p3"},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument(`cannot remove network with existing machine allocations`),
 		},
 	}
 	for _, tt := range tests {

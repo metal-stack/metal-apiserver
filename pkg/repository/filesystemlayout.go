@@ -55,8 +55,16 @@ func (r *filesystemLayoutRepository) validateUpdate(ctx context.Context, req *ad
 
 	return nil
 }
-func (r *filesystemLayoutRepository) validateDelete(ctx context.Context, e *metal.FilesystemLayout) error {
-	// FIXME implement a lookup if any machine uses this fsl
+func (r *filesystemLayoutRepository) validateDelete(ctx context.Context, fsl *metal.FilesystemLayout) error {
+	machines, err := r.s.UnscopedMachine().List(ctx, &apiv2.MachineQuery{
+		Allocation: &apiv2.MachineAllocationQuery{FilesystemLayout: &fsl.ID},
+	})
+	if err != nil {
+		return err
+	}
+	if len(machines) > 0 {
+		return errorutil.InvalidArgument("cannot remove filesystemlayout with existing machine allocations")
+	}
 	return nil
 }
 

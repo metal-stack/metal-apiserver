@@ -32,6 +32,7 @@ import (
 	imageadmin "github.com/metal-stack/metal-apiserver/pkg/service/image/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/ip"
 	ipadmin "github.com/metal-stack/metal-apiserver/pkg/service/ip/admin"
+	"github.com/metal-stack/metal-apiserver/pkg/service/machine"
 	"github.com/metal-stack/metal-apiserver/pkg/service/method"
 	"github.com/metal-stack/metal-apiserver/pkg/service/network"
 	networkadmin "github.com/metal-stack/metal-apiserver/pkg/service/network/admin"
@@ -172,6 +173,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	})
 
 	ipService := ip.New(ip.Config{Log: log, Repo: c.Repository})
+	machineService := machine.New(machine.Config{Log: log, Repo: c.Repository})
 	networkService := network.New(network.Config{Log: log, Repo: c.Repository})
 	filesystemService := filesystem.New(filesystem.Config{Log: log, Repo: c.Repository})
 	partitionService := partition.New(partition.Config{Log: log, Repo: c.Repository})
@@ -204,6 +206,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	mux.Handle(apiv2connect.NewHealthServiceHandler(healthService, interceptors))
 	mux.Handle(apiv2connect.NewImageServiceHandler(imageService, interceptors))
 	mux.Handle(apiv2connect.NewIPServiceHandler(ipService, interceptors))
+	mux.Handle(apiv2connect.NewMachineServiceHandler(machineService, interceptors))
 	mux.Handle(apiv2connect.NewMethodServiceHandler(methodService, interceptors))
 	mux.Handle(apiv2connect.NewNetworkServiceHandler(networkService, interceptors))
 	mux.Handle(apiv2connect.NewPartitionServiceHandler(partitionService, interceptors))
