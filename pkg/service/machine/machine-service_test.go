@@ -22,9 +22,7 @@ import (
 func Test_machineServiceServer_Get(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	ds, opts, rethinkcloser := test.StartRethink(t, log)
-
-	testStore, closer := test.StartRepositoryWithRethinkDB(t, log, ds, opts, rethinkcloser)
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
 	repo := testStore.Store
 
@@ -108,9 +106,7 @@ func Test_machineServiceServer_Get(t *testing.T) {
 func Test_machineServiceServer_List(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	ds, opts, rethinkcloser := test.StartRethink(t, log)
-
-	testStore, closer := test.StartRepositoryWithRethinkDB(t, log, ds, opts, rethinkcloser)
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
 	repo := testStore.Store
 
@@ -245,9 +241,7 @@ func Test_machineServiceServer_List(t *testing.T) {
 func Test_machineServiceServer_Update(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	ds, opts, rethinkcloser := test.StartRethink(t, log)
-
-	testStore, closer := test.StartRepositoryWithRethinkDB(t, log, ds, opts, rethinkcloser)
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
 	repo := testStore.Store
 

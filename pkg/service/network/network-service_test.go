@@ -819,8 +819,7 @@ func Test_networkServiceServer_Create(t *testing.T) {
 func Test_networkServiceServer_Delete(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	ds, opts, rethinkcloser := test.StartRethink(t, log)
-	testStore, closer := test.StartRepositoryWithRethinkDB(t, log, ds, opts, rethinkcloser)
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
 	repo := testStore.Store
 

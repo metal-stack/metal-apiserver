@@ -62,7 +62,9 @@ func StartRepository(t *testing.T, log *slog.Logger) (*repository.Store, func())
 	return s.Store, close
 }
 
-func StartRepositoryWithRethinkDB(t *testing.T, log *slog.Logger, ds generic.Datastore, opts r.ConnectOpts, rethinkCloser func()) (*testStore, func()) {
+func StartRepositoryWithCleanup(t *testing.T, log *slog.Logger) (*testStore, func()) {
+	ds, opts, rethinkCloser := StartRethink(t, log)
+
 	mr := miniredis.RunT(t)
 	rc := redis.NewClient(&redis.Options{Addr: mr.Addr()})
 
@@ -92,12 +94,6 @@ func StartRepositoryWithRethinkDB(t *testing.T, log *slog.Logger, ds generic.Dat
 		queryExecutor: session,
 		ipam:          ipam,
 	}, closer
-}
-
-func StartRepositoryWithCleanup(t *testing.T, log *slog.Logger) (*testStore, func()) {
-	ds, opts, rethinkCloser := StartRethink(t, log)
-
-	return StartRepositoryWithRethinkDB(t, log, ds, opts, rethinkCloser)
 }
 
 func CreateImages(t *testing.T, repo *repository.Store, images []*adminv2.ImageServiceCreateRequest) {

@@ -74,13 +74,13 @@ func (r *machineRepository) update(ctx context.Context, m *metal.Machine, req *a
 	return m, nil
 }
 
-func (r *machineRepository) delete(ctx context.Context, e *metal.Machine) error {
-	// info, err := r.s.async.NewMachineDeleteTask(e.AllocationUUID, e.IPAddress, e.ProjectID)
-	// if err != nil {
-	// 	return err
-	// }
+func (r *machineRepository) delete(ctx context.Context, m *metal.Machine) error {
+	info, err := r.s.async.NewMachineDeleteTask(m.Allocation.UUID)
+	if err != nil {
+		return err
+	}
 
-	// r.s.log.Info("ip delete queued", "info", info)
+	r.s.log.Info("machine delete queued", "info", info)
 
 	return nil
 }
