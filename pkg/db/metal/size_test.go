@@ -4,8 +4,57 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
+	"github.com/stretchr/testify/require"
+)
+
+var (
+	microSize = Size{
+		Base: Base{
+			ID: "micro",
+		},
+		Constraints: []Constraint{
+			{
+				Type: CoreConstraint,
+				Min:  1,
+				Max:  1,
+			},
+			{
+				Type: MemoryConstraint,
+				Min:  1024,
+				Max:  1024,
+			},
+			{
+				Type: StorageConstraint,
+				Min:  0,
+				Max:  1024,
+			},
+		},
+	}
+	tinySize = Size{
+		Base: Base{
+			ID: "tiny",
+		},
+		Constraints: []Constraint{
+			{
+				Type: CoreConstraint,
+				Min:  1,
+				Max:  1,
+			},
+			{
+				Type: MemoryConstraint,
+				Min:  1025,
+				Max:  1077838336,
+			},
+			{
+				Type: StorageConstraint,
+				Min:  1024,
+				Max:  2048,
+			},
+		},
+	}
 )
 
 func TestFromConstraint(t *testing.T) {
@@ -89,6 +138,820 @@ func TestToConstraint(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ToConstraint() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSizes_Overlaps(t *testing.T) {
+	tests := []struct {
+		name  string
+		sz    Size
+		sizes Sizes
+		want  *Size
+	}{
+		{
+			name: "non-overlapping size",
+			sz: Size{
+				Base: Base{
+					ID: "micro",
+				},
+				Constraints: []Constraint{
+					{
+						Type: CoreConstraint,
+						Min:  1,
+						Max:  1,
+					},
+					{
+						Type: MemoryConstraint,
+						Min:  1024,
+						Max:  1024,
+					},
+					{
+						Type: StorageConstraint,
+						Min:  0,
+						Max:  1024,
+					},
+				},
+			},
+			sizes: Sizes{
+				tinySize,
+				Size{
+					Base: Base{
+						ID: "large",
+					},
+					Constraints: []Constraint{
+						{
+							Type: CoreConstraint,
+							Min:  8,
+							Max:  16,
+						},
+						{
+							Type: MemoryConstraint,
+							Min:  1024,
+							Max:  1077838336,
+						},
+						{
+							Type: StorageConstraint,
+							Min:  1024,
+							Max:  2048,
+						},
+					},
+				},
+			},
+			want: nil,
+		},
+		{
+			name: "overlapping size",
+			sz: Size{
+				Base: Base{
+					ID: "microOverlapping",
+				},
+				Constraints: []Constraint{
+					{
+						Type: CoreConstraint,
+						Min:  1,
+						Max:  1,
+					},
+					{
+						Type: MemoryConstraint,
+						Min:  1024,
+						Max:  1024,
+					},
+					{
+						Type: StorageConstraint,
+						Min:  0,
+						Max:  2048,
+					},
+				},
+			},
+			sizes: Sizes{
+				{
+					Base: Base{
+						ID: "micro",
+					},
+					Constraints: []Constraint{
+						{
+							Type: CoreConstraint,
+							Min:  1,
+							Max:  1,
+						},
+						{
+							Type: MemoryConstraint,
+							Min:  1024,
+							Max:  1024,
+						},
+						{
+							Type: StorageConstraint,
+							Min:  0,
+							Max:  1024,
+						},
+					},
+				},
+				{
+					Base: Base{
+						ID: "tiny",
+					},
+					Constraints: []Constraint{
+						{
+							Type: CoreConstraint,
+							Min:  1,
+							Max:  1,
+						},
+						{
+							Type: MemoryConstraint,
+							Min:  1025,
+							Max:  1077838336,
+						},
+						{
+							Type: StorageConstraint,
+							Min:  1024,
+							Max:  2048,
+						},
+					},
+				},
+				Size{
+					Base: Base{
+						ID: "large",
+					},
+					Constraints: []Constraint{
+						{
+							Type: CoreConstraint,
+							Min:  8,
+							Max:  16,
+						},
+						{
+							Type: MemoryConstraint,
+							Min:  1024,
+							Max:  1077838336,
+						},
+						{
+							Type: StorageConstraint,
+							Min:  1024,
+							Max:  2048,
+						},
+					},
+				},
+			},
+			want: &microSize,
+		},
+		{
+			name: "add incomplete size",
+			sz: Size{
+				Base: Base{
+					ID: "microIncomplete",
+				},
+				Constraints: []Constraint{
+					{
+						Type: CoreConstraint,
+						Min:  1,
+						Max:  1,
+					},
+				},
+			},
+			sizes: Sizes{
+				microSize,
+				tinySize,
+				Size{
+					Base: Base{
+						ID: "large",
+					},
+					Constraints: []Constraint{
+						{
+							Type: CoreConstraint,
+							Min:  8,
+							Max:  16,
+						},
+						{
+							Type: MemoryConstraint,
+							Min:  1024,
+							Max:  1077838336,
+						},
+						{
+							Type: StorageConstraint,
+							Min:  1024,
+							Max:  2048,
+						},
+					},
+				},
+			},
+			want: nil,
+		},
+
+		{
+			name: "two different sizes",
+			sz: Size{
+				Base: Base{
+					ID: "two different",
+				},
+				Constraints: []Constraint{
+					{
+						Type: CoreConstraint,
+						Min:  1,
+						Max:  1,
+					},
+				},
+			},
+			sizes: Sizes{
+				Size{
+					Base: Base{
+						ID: "micro",
+					},
+					Constraints: []Constraint{
+						{
+							Type: MemoryConstraint,
+							Min:  1024,
+							Max:  1024,
+						},
+					},
+				},
+			},
+			want: nil,
+		},
+	}
+
+	for i := range tests {
+		tt := tests[i]
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.sz.Validate(nil)
+			require.NoError(t, err)
+			got := tt.sz.Overlaps(tt.sizes)
+
+			if diff := cmp.Diff(got, tt.want); diff != "" {
+				t.Errorf("(-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestSize_Validate(t *testing.T) {
+	tests := []struct {
+		name           string
+		size           Size
+		wantErrMessage *string
+	}{
+		{
+			name: "cpu min and max wrong",
+			size: Size{
+				Base: Base{
+					ID: "broken-cpu-size",
+				},
+				Constraints: []Constraint{
+					{
+						Type: CoreConstraint,
+						Min:  8,
+						Max:  2,
+					},
+				},
+			},
+			wantErrMessage: pointer.Pointer("size \"broken-cpu-size\" is invalid: constraint at index 0 is invalid: max is smaller than min"),
+		},
+		{
+			name: "memory min and max wrong",
+			size: Size{
+				Base: Base{
+					ID: "broken-memory-size",
+				},
+				Constraints: []Constraint{
+					{
+						Type: MemoryConstraint,
+						Min:  8,
+						Max:  2,
+					},
+				},
+			},
+			wantErrMessage: pointer.Pointer("size \"broken-memory-size\" is invalid: constraint at index 0 is invalid: max is smaller than min"),
+		},
+		{
+			name: "storage is working",
+			size: Size{
+				Base: Base{
+					ID: "storage-size",
+				},
+				Constraints: []Constraint{
+					{
+						Type: StorageConstraint,
+						Min:  2,
+						Max:  8,
+					},
+				},
+			},
+			wantErrMessage: nil,
+		},
+		{
+			name: "two gpu constraints are allowed",
+			size: Size{
+				Base: Base{
+					ID: "gpu-size",
+				},
+				Constraints: []Constraint{
+					{
+						Type:       GPUConstraint,
+						Min:        1,
+						Max:        1,
+						Identifier: "A100*",
+					},
+					{
+						Type:       GPUConstraint,
+						Min:        2,
+						Max:        2,
+						Identifier: "H100*",
+					},
+				},
+			},
+			wantErrMessage: nil,
+		},
+		{
+			name: "two cpu constraints are not allowed",
+			size: Size{
+				Base: Base{
+					ID: "cpu-size",
+				},
+				Constraints: []Constraint{
+					{
+						Type:       CoreConstraint,
+						Min:        1,
+						Max:        1,
+						Identifier: "Intel Xeon Silver",
+					},
+					{
+						Type:       CoreConstraint,
+						Min:        2,
+						Max:        2,
+						Identifier: "Intel Xeon Gold",
+					},
+				},
+			},
+			wantErrMessage: pointer.Pointer("size \"cpu-size\" is invalid: constraint at index 1 is invalid: type duplicates are not allowed for type \"cores\""),
+		},
+		{
+			name: "gpu size without identifier",
+			size: Size{
+				Base: Base{
+					ID: "invalid-gpu-size",
+				},
+				Constraints: []Constraint{
+					{
+						Type: GPUConstraint,
+						Min:  2,
+						Max:  8,
+					},
+				},
+			},
+			wantErrMessage: pointer.Pointer("size \"invalid-gpu-size\" is invalid: constraint at index 0 is invalid: for gpu constraints an identifier is required"),
+		},
+		{
+			name: "storage with invalid identifier",
+			size: Size{
+				Base: Base{
+					ID: "invalid-storage-size",
+				},
+				Constraints: []Constraint{
+					{
+						Type:       StorageConstraint,
+						Identifier: "][",
+						Min:        2,
+						Max:        8,
+					},
+				},
+			},
+			wantErrMessage: pointer.Pointer("size \"invalid-storage-size\" is invalid: constraint at index 0 is invalid: identifier is malformed: syntax error in pattern"),
+		},
+		{
+			name: "memory with identifier",
+			size: Size{
+				Base: Base{
+					ID: "invalid-memory-size",
+				},
+				Constraints: []Constraint{
+					{
+						Type:       MemoryConstraint,
+						Identifier: "Kingston",
+						Min:        2,
+						Max:        8,
+					},
+				},
+			},
+			wantErrMessage: pointer.Pointer("size \"invalid-memory-size\" is invalid: constraint at index 0 is invalid: for memory constraints an identifier is not allowed"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.size.Validate(nil)
+			if err != nil {
+				require.EqualError(t, err, *tt.wantErrMessage)
+			}
+			if err == nil && tt.wantErrMessage != nil {
+				t.Errorf("expected error not raise:%s", *tt.wantErrMessage)
+			}
+		})
+	}
+}
+
+func TestConstraint_overlaps(t *testing.T) {
+	tests := []struct {
+		name  string
+		this  Constraint
+		other Constraint
+		want  bool
+	}{
+		{
+			name: "no overlap, different types",
+			this: Constraint{
+				Type: CoreConstraint,
+			},
+			other: Constraint{
+				Type: GPUConstraint,
+			},
+			want: false,
+		},
+		{
+			name: "no overlap, different identifiers",
+			this: Constraint{
+				Type:       CoreConstraint,
+				Identifier: "b",
+			},
+			other: Constraint{
+				Type:       CoreConstraint,
+				Identifier: "a",
+			},
+			want: false,
+		},
+
+		{
+			name: "no overlap, different range",
+			this: Constraint{
+				Type:       CoreConstraint,
+				Identifier: "a",
+				Min:        0,
+				Max:        2,
+			},
+			other: Constraint{
+				Type:       CoreConstraint,
+				Identifier: "a",
+				Min:        3,
+				Max:        4,
+			},
+			want: false,
+		},
+
+		{
+			name: "partial overlap, over range",
+			this: Constraint{
+				Type:       CoreConstraint,
+				Identifier: "a",
+				Min:        0,
+				Max:        4,
+			},
+			other: Constraint{
+				Type:       CoreConstraint,
+				Identifier: "a",
+				Min:        3,
+				Max:        5,
+			},
+			want: true,
+		},
+
+		{
+			name: "partial overlap, under range",
+			this: Constraint{
+				Type:       CoreConstraint,
+				Identifier: "a",
+				Min:        2,
+				Max:        4,
+			},
+			other: Constraint{
+				Type:       CoreConstraint,
+				Identifier: "a",
+				Min:        1,
+				Max:        3,
+			},
+			want: true,
+		},
+		{
+			name: "partial overlap, in range",
+			this: Constraint{
+				Type:       CoreConstraint,
+				Identifier: "a",
+				Min:        1,
+				Max:        5,
+			},
+			other: Constraint{
+				Type:       CoreConstraint,
+				Identifier: "a",
+				Min:        2,
+				Max:        3,
+			},
+			want: true,
+		},
+		{
+			name: "different disk types",
+			this: Constraint{
+				Type:       StorageConstraint,
+				Identifier: "/dev/sd*",
+				Min:        1,
+				Max:        5,
+			},
+			other: Constraint{
+				Type:       StorageConstraint,
+				Identifier: "/dev/nvme*",
+				Min:        1,
+				Max:        5,
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			if got := tt.this.overlaps(tt.other); got != tt.want {
+				t.Errorf("Constraint.overlaps() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSize_overlaps(t *testing.T) {
+	tests := []struct {
+		name        string
+		this        *Size
+		other       *Size
+		wantOverlap bool
+	}{
+		{
+			name: "no overlap, different types",
+			this: &Size{
+				Constraints: []Constraint{
+					{Type: MemoryConstraint},
+				},
+			},
+			other: &Size{
+				Constraints: []Constraint{
+					{Type: CoreConstraint},
+				},
+			},
+			wantOverlap: false,
+		},
+		{
+			name: "no overlap, different identifiers",
+			this: &Size{
+				Constraints: []Constraint{
+					{Type: MemoryConstraint, Identifier: "a"},
+				},
+			},
+			other: &Size{
+				Constraints: []Constraint{
+					{Type: MemoryConstraint, Identifier: "b"},
+				},
+			},
+			wantOverlap: false,
+		},
+		{
+			name: "no overlap, different range",
+			this: &Size{
+				Constraints: []Constraint{
+					{Type: MemoryConstraint, Identifier: "a", Min: 0, Max: 4},
+				},
+			},
+			other: &Size{
+				Constraints: []Constraint{
+					{Type: MemoryConstraint, Identifier: "a", Min: 5, Max: 8},
+				},
+			},
+			wantOverlap: false,
+		},
+		{
+			name: "no overlap, different gpus",
+			this: &Size{
+				Constraints: []Constraint{
+					{Type: GPUConstraint, Identifier: "a", Min: 1, Max: 1},
+				},
+			},
+			other: &Size{
+				Constraints: []Constraint{
+					{Type: GPUConstraint, Identifier: "a", Min: 1, Max: 1},
+					{Type: GPUConstraint, Identifier: "b", Min: 2, Max: 2},
+				},
+			},
+			wantOverlap: false,
+		},
+		{
+			name: "overlapping size",
+			this: &Size{
+				Constraints: []Constraint{
+					{
+						Type: CoreConstraint,
+						Min:  1,
+						Max:  1,
+					},
+					{
+						Type: MemoryConstraint,
+						Min:  1024,
+						Max:  1024,
+					},
+					{
+						Type: StorageConstraint,
+						Min:  0,
+						Max:  2048,
+					},
+				},
+			},
+			other: &Size{
+				Constraints: []Constraint{
+					{
+						Type: CoreConstraint,
+						Min:  1,
+						Max:  1,
+					},
+					{
+						Type: MemoryConstraint,
+						Min:  1024,
+						Max:  1024,
+					},
+					{
+						Type: StorageConstraint,
+						Min:  0,
+						Max:  1024,
+					},
+				},
+			},
+			wantOverlap: true,
+		},
+		{
+			name: "non overlapping size",
+			this: &Size{
+				Constraints: []Constraint{
+					{
+						Type: CoreConstraint,
+						Min:  1,
+						Max:  1,
+					},
+					{
+						Type: MemoryConstraint,
+						Min:  1024,
+						Max:  1024,
+					},
+					{
+						Type:       StorageConstraint,
+						Identifier: "/dev/sd*",
+						Min:        0,
+						Max:        2048,
+					},
+				},
+			},
+			other: &Size{
+				Constraints: []Constraint{
+					{
+						Type: CoreConstraint,
+						Min:  1,
+						Max:  1,
+					},
+					{
+						Type: MemoryConstraint,
+						Min:  1024,
+						Max:  1024,
+					},
+					{
+						Type:       StorageConstraint,
+						Identifier: "/dev/nvme*",
+						Min:        0,
+						Max:        2024,
+					},
+				},
+			},
+			wantOverlap: false,
+		},
+		{
+			name: "overlap, all the same",
+			this: &Size{
+				Constraints: []Constraint{
+					{Type: MemoryConstraint, Identifier: "a", Min: 5, Max: 8},
+					{Type: GPUConstraint, Identifier: "a", Min: 1, Max: 1},
+					{Type: CoreConstraint, Min: 4, Max: 4},
+				},
+			},
+			other: &Size{
+				Constraints: []Constraint{
+					{Type: CoreConstraint, Min: 4, Max: 4},
+					{Type: GPUConstraint, Identifier: "a", Min: 1, Max: 1},
+					{Type: MemoryConstraint, Identifier: "a", Min: 5, Max: 8},
+				},
+			},
+			wantOverlap: true,
+		},
+		{
+			name: "independent of order #1",
+			this: &Size{
+				Base: Base{
+					ID: "g1-medium-x86",
+				},
+				Constraints: []Constraint{
+					{
+						Type: CoreConstraint,
+						Min:  32,
+						Max:  32,
+					},
+					{
+						Type: MemoryConstraint,
+						Min:  257698037760,
+						Max:  300647710720,
+					},
+					{
+						Type: StorageConstraint,
+						Min:  1500000000000,
+						Max:  2000000000000,
+					},
+					{
+						Type:       GPUConstraint,
+						Min:        1,
+						Max:        1,
+						Identifier: "AD102GL*",
+					},
+				},
+			},
+			other: &Size{
+				Base: Base{
+					ID: "c2-xlarge-x86",
+				},
+				Constraints: []Constraint{
+					{
+						Type: CoreConstraint,
+						Min:  32,
+						Max:  32,
+					},
+					{
+						Type: MemoryConstraint,
+						Min:  220000000000,
+						Max:  280000000000,
+					},
+					{
+						Type: StorageConstraint,
+						Min:  500000000000,
+						Max:  4000000000000,
+					},
+				},
+			},
+			wantOverlap: false,
+		},
+		{
+			name: "independent of order #2",
+			this: &Size{
+				Base: Base{
+					ID: "c2-xlarge-x86",
+				},
+				Constraints: []Constraint{
+					{
+						Type: CoreConstraint,
+						Min:  32,
+						Max:  32,
+					},
+					{
+						Type: MemoryConstraint,
+						Min:  220000000000,
+						Max:  280000000000,
+					},
+					{
+						Type: StorageConstraint,
+						Min:  500000000000,
+						Max:  4000000000000,
+					},
+				},
+			},
+			other: &Size{
+				Base: Base{
+					ID: "g1-medium-x86",
+				},
+				Constraints: []Constraint{
+					{
+						Type: CoreConstraint,
+						Min:  32,
+						Max:  32,
+					},
+					{
+						Type: MemoryConstraint,
+						Min:  257698037760,
+						Max:  300647710720,
+					},
+					{
+						Type: StorageConstraint,
+						Min:  1500000000000,
+						Max:  2000000000000,
+					},
+					{
+						Type:       GPUConstraint,
+						Min:        1,
+						Max:        1,
+						Identifier: "AD102GL*",
+					},
+				},
+			},
+			wantOverlap: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.this.overlaps(tt.other); !reflect.DeepEqual(got, tt.wantOverlap) {
+				t.Errorf("Size.Overlaps() = %v, want %v", got, tt.wantOverlap)
 			}
 		})
 	}
