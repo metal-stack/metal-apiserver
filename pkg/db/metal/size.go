@@ -1,7 +1,6 @@
 package metal
 
 import (
-	"errors"
 	"fmt"
 	"path/filepath"
 
@@ -105,13 +104,15 @@ func (s *Size) overlaps(so *Size) bool {
 	})
 
 	for t, srcConstraints := range srcTypes {
-		constraints, ok := destTypes[t]
+		destConstraints, ok := destTypes[t]
 		if !ok {
+			// Strictly speaking this is wrong, but machines might have no gpus
+			// We should prevent sizes without cpu/memory/storage constraints
 			return false
 		}
 		for _, sc := range srcConstraints {
-			for _, c := range constraints {
-				if !c.overlaps(sc) {
+			for _, dc := range destConstraints {
+				if !dc.overlaps(sc) {
 					return false
 				}
 			}
@@ -119,13 +120,15 @@ func (s *Size) overlaps(so *Size) bool {
 	}
 
 	for t, destConstraints := range destTypes {
-		constraints, ok := srcTypes[t]
+		srcConstraints, ok := srcTypes[t]
 		if !ok {
+			// Strictly speaking this is wrong, but machines might have no gpus
+			// We should prevent sizes without cpu/memory/storage constraints
 			return false
 		}
-		for _, sc := range destConstraints {
-			for _, c := range constraints {
-				if !c.overlaps(sc) {
+		for _, dc := range destConstraints {
+			for _, sc := range srcConstraints {
+				if !sc.overlaps(dc) {
 					return false
 				}
 			}
@@ -135,7 +138,7 @@ func (s *Size) overlaps(so *Size) bool {
 	return true
 }
 
-// overlaps is proven correct, requires that constraint are validated before that max is not smaller than min
+// overlaps is correct under the precondition that max is not smaller than min
 func (c *Constraint) overlaps(other Constraint) bool {
 	if c.Type != other.Type {
 		return false
@@ -166,61 +169,6 @@ func (c *Constraint) Validate() error {
 	}
 
 	switch c.Type {
-	case GPUConstraint:
-		if c.Identifier == "" {
-			return fmt.Errorf("for gpu constraints an identifier is required")
-		}
-	case MemoryConstraint:
-		if c.Identifier != "" {
-			return fmt.Errorf("for memory constraints an identifier is not allowed")
-		}
-	case CoreConstraint, StorageConstraint:
-	}
-
-	return nil
-}
-
-// Validate a size, returns error if a invalid size is passed
-func (s *Size) Validate(partitions PartitionMap) error {
-	var (
-		errs       []error
-		typeCounts = map[ConstraintType]uint{}
-	)
-
-	for i, c := range s.Constraints {
-		typeCounts[c.Type]++
-
-		err := c.validate()
-		if err != nil {
-			errs = append(errs, fmt.Errorf("constraint at index %d is invalid: %w", i, err))
-		}
-
-		switch t := c.Type; t {
-		case GPUConstraint, StorageConstraint:
-		case MemoryConstraint, CoreConstraint:
-			if typeCounts[t] > 1 {
-				errs = append(errs, fmt.Errorf("constraint at index %d is invalid: type duplicates are not allowed for type %q", i, t))
-			}
-		}
-	}
-
-	if len(errs) > 0 {
-		return fmt.Errorf("size %q is invalid: %w", s.ID, errors.Join(errs...))
-	}
-
-	return nil
-}
-
-func (c *Constraint) validate() error {
-	if c.Max < c.Min {
-		return fmt.Errorf("max is smaller than min")
-	}
-
-	if _, err := filepath.Match(c.Identifier, ""); err != nil {
-		return fmt.Errorf("identifier is malformed: %w", err)
-	}
-
-	switch t := c.Type; t {
 	case GPUConstraint:
 		if c.Identifier == "" {
 			return fmt.Errorf("for gpu constraints an identifier is required")

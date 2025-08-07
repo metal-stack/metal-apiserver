@@ -255,7 +255,8 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 						Labels: &apiv2.Labels{
 							Labels: map[string]string{"purpose": "big worker", "architecture": "x86"},
 						},
-					}, Constraints: []*apiv2.SizeConstraint{
+					},
+					Constraints: []*apiv2.SizeConstraint{
 						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 12, Max: 12},
 						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
 						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 10 * 1024 * 1024, Max: 10 * 1024 * 1024},
@@ -264,6 +265,7 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		// FIXME implement some with will produce errors
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

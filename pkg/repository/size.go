@@ -185,12 +185,15 @@ func (r *sizeRepository) convertToProto(e *metal.Size) (*apiv2.Size, error) {
 			UpdatedAt: timestamppb.New(e.Changed),
 		},
 	}
+
 	return size, nil
 }
+
 func (r *sizeRepository) sizeFilters(filter generic.EntityQuery) []generic.EntityQuery {
 	var qs []generic.EntityQuery
 	if filter != nil {
 		qs = append(qs, filter)
 	}
+
 	return qs
 }

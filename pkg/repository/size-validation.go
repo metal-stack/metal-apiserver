@@ -49,9 +49,11 @@ func (r *sizeRepository) validateUpdate(ctx context.Context, req *adminv2.SizeSe
 		Constraints: req.Constraints,
 	}
 
-	err = r.validateSizesNotOverlapping(ctx, size)
-	if err != nil {
-		errs = append(errs, err)
+	if req.Constraints != nil {
+		err = r.validateSizesNotOverlapping(ctx, size)
+		if err != nil {
+			errs = append(errs, err)
+		}
 	}
 
 	if len(errs) > 0 {
