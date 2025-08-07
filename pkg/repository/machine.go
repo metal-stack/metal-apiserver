@@ -221,9 +221,9 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 				if err != nil {
 					return nil, err
 				}
-				var ports []int32
+				var ports []uint32
 				for _, p := range e.Ports {
-					ports = append(ports, int32(p))
+					ports = append(ports, uint32(p))
 				}
 				egress = append(egress, &apiv2.FirewallEgressRule{
 					Protocol: protocol,
@@ -237,9 +237,9 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 				if err != nil {
 					return nil, err
 				}
-				var ports []int32
+				var ports []uint32
 				for _, p := range i.Ports {
-					ports = append(ports, int32(p))
+					ports = append(ports, uint32(p))
 				}
 				ingress = append(ingress, &apiv2.FirewallIngressRule{
 					Protocol: protocol,
@@ -290,7 +290,7 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 			Project:          alloc.Project,
 			Image:            apiv2Image,
 			FilesystemLayout: filesystemLayout,
-			MachineNetworks:  machineNetworks,
+			Networks:         machineNetworks,
 			Hostname:         alloc.Hostname,
 			SshPublicKeys:    alloc.SSHPubKeys,
 			Userdata:         alloc.UserData,
