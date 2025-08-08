@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -11,7 +12,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/service/token"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
@@ -28,17 +29,17 @@ var (
 	}
 	tokenPermissionsFlag = &cli.StringSliceFlag{
 		Name:  "permissions",
-		Value: &cli.StringSlice{},
+		Value: []string{},
 		Usage: "requested permissions for the token",
 	}
 	tokenProjectRolesFlag = &cli.StringSliceFlag{
 		Name:  "project-roles",
-		Value: &cli.StringSlice{},
+		Value: []string{},
 		Usage: "requested project roles for the token",
 	}
 	tokenTenantRolesFlag = &cli.StringSliceFlag{
 		Name:  "tenant-roles",
-		Value: &cli.StringSlice{},
+		Value: []string{},
 		Usage: "requested tenant roles for the token",
 	}
 	tokenAdminRoleFlag = &cli.StringFlag{
@@ -53,7 +54,7 @@ var (
 	}
 )
 
-func newTokenCmd() *cli.Command {
+func newTokenCmd(ctx context.Context) *cli.Command {
 	return &cli.Command{
 		Name:  "token",
 		Usage: "create api tokens for cloud infrastructure services that depend on the api-server like accounting, status dashboard, ...",
@@ -70,13 +71,13 @@ func newTokenCmd() *cli.Command {
 			tokenExpirationFlag,
 			serverHttpUrlFlag,
 		},
-		Action: func(ctx *cli.Context) error {
-			log, err := createLogger(ctx)
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			log, err := createLogger(cmd)
 			if err != nil {
 				return fmt.Errorf("unable to create logger %w", err)
 			}
 
-			tokenRedisClient, err := createRedisClient(ctx, log, redisDatabaseTokens)
+			tokenRedisClient, err := createRedisClient(ctx, cmd, log, redisDatabaseTokens)
 			if err != nil {
 				return err
 			}
@@ -90,11 +91,11 @@ func newTokenCmd() *cli.Command {
 				Log:        log,
 				TokenStore: tokenStore,
 				CertStore:  certStore,
-				Issuer:     ctx.String(serverHttpUrlFlag.Name),
+				Issuer:     cmd.String(serverHttpUrlFlag.Name),
 			})
 
 			var permissions []*apiv2.MethodPermission
-			for _, m := range ctx.StringSlice(tokenPermissionsFlag.Name) {
+			for _, m := range cmd.StringSlice(tokenPermissionsFlag.Name) {
 				project, semicolonSeparatedMethods, ok := strings.Cut(m, "=")
 				if !ok {
 					return fmt.Errorf("permissions must be provided in the form <project>=<methods-colon-separated>")
@@ -107,7 +108,7 @@ func newTokenCmd() *cli.Command {
 			}
 
 			projectRoles := map[string]apiv2.ProjectRole{}
-			for _, r := range ctx.StringSlice(tokenProjectRolesFlag.Name) {
+			for _, r := range cmd.StringSlice(tokenProjectRolesFlag.Name) {
 				projectID, roleString, ok := strings.Cut(r, "=")
 				if !ok {
 					return fmt.Errorf("project roles must be provided in the form <project-id>=<role>")
@@ -122,7 +123,7 @@ func newTokenCmd() *cli.Command {
 			}
 
 			tenantRoles := map[string]apiv2.TenantRole{}
-			for _, r := range ctx.StringSlice(tokenTenantRolesFlag.Name) {
+			for _, r := range cmd.StringSlice(tokenTenantRolesFlag.Name) {
 				tenantID, roleString, ok := strings.Cut(r, "=")
 				if !ok {
 					return fmt.Errorf("tenant roles must be provided in the form <tenant-id>=<role>")
@@ -137,7 +138,7 @@ func newTokenCmd() *cli.Command {
 			}
 
 			var adminRole *apiv2.AdminRole
-			if roleString := ctx.String(tokenAdminRoleFlag.Name); roleString != "" {
+			if roleString := cmd.String(tokenAdminRoleFlag.Name); roleString != "" {
 				role, ok := apiv2.AdminRole_value[roleString]
 				if !ok {
 					return fmt.Errorf("unknown role: %s", roleString)
@@ -145,14 +146,14 @@ func newTokenCmd() *cli.Command {
 
 				adminRole = pointer.Pointer(apiv2.AdminRole(role))
 			}
-			subject := ctx.String(tokenSubjectFlag.Name)
+			subject := cmd.String(tokenSubjectFlag.Name)
 			if subject == "" {
 				return fmt.Errorf("token subject cannot be empty")
 			}
 
-			resp, err := tokenService.CreateApiTokenWithoutPermissionCheck(ctx.Context, subject, connect.NewRequest(&apiv2.TokenServiceCreateRequest{
-				Description:  ctx.String(tokenDescriptionFlag.Name),
-				Expires:      durationpb.New(ctx.Duration(tokenExpirationFlag.Name)),
+			resp, err := tokenService.CreateApiTokenWithoutPermissionCheck(ctx, subject, connect.NewRequest(&apiv2.TokenServiceCreateRequest{
+				Description:  cmd.String(tokenDescriptionFlag.Name),
+				Expires:      durationpb.New(cmd.Duration(tokenExpirationFlag.Name)),
 				ProjectRoles: projectRoles,
 				TenantRoles:  tenantRoles,
 				AdminRole:    adminRole,
