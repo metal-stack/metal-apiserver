@@ -265,7 +265,19 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 			},
 			wantErr: nil,
 		},
-		// FIXME implement some with will produce errors
+		{
+			name: "update n3-medium which will overlap",
+			rq: &adminv2.SizeServiceUpdateRequest{
+				Id: "n3-medium-x86",
+				Constraints: []*apiv2.SizeConstraint{
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 6},
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 10 * 1024 * 1024, Max: 10 * 1024 * 1024},
+				},
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument("already_exists: given size n1-medium-x86 overlaps with existing sizes"),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
