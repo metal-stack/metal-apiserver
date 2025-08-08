@@ -126,7 +126,8 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 		labels           *apiv2.Labels
 		bios             *apiv2.MachineBios
 		allocation       *apiv2.MachineAllocation
-		state            *apiv2.MachineStateDetails
+		condition        *apiv2.MachineCondition
+		status           *apiv2.MachineStatus
 		size             *apiv2.Size
 		vpn              *apiv2.MachineVPN
 		dnsServers       []*apiv2.DNSServer
@@ -307,10 +308,16 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 	if err != nil {
 		return nil, err
 	}
-	state = &apiv2.MachineStateDetails{
-		State:              apiv2.MachineState(stateString),
-		Description:        m.State.Description,
-		Issuer:             m.State.Issuer,
+	condition = &apiv2.MachineCondition{
+		State:       apiv2.MachineState(stateString),
+		Description: m.State.Description,
+		Issuer:      m.State.Issuer,
+	}
+
+	status = &apiv2.MachineStatus{
+		Condition:          condition,
+		LedState:           &apiv2.MachineChassisIdentifyLEDState{},
+		Liveliness:         apiv2.MachineLiveliness_MACHINE_LIVELINESS_UNKNOWN,
 		MetalHammerVersion: m.State.MetalHammerVersion,
 	}
 
@@ -327,9 +334,7 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 		Hardware:                 hardware,
 		Bios:                     bios,
 		Allocation:               allocation,
-		State:                    state,
-		LedState:                 &apiv2.MachineChassisIdentifyLEDState{},
-		Liveliness:               0,
+		Status:                   status,
 		RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
 	}
 
