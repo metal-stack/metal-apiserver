@@ -131,6 +131,9 @@ func Test_sizeRepository_validateSizeConstraints(t *testing.T) {
 			if tt.wantErr == nil && err != nil {
 				t.Errorf("wantErr is nil but err is not nil %v", err)
 			}
+			if err == nil && tt.wantErr != nil {
+				t.Errorf("err is nil but wantErr is not nil %v", err)
+			}
 			if diff := cmp.Diff(err.Error(), tt.wantErr.Error()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}

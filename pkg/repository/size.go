@@ -122,14 +122,12 @@ func (r *sizeRepository) convertToInternal(e *apiv2.Size) (*metal.Size, error) {
 		return nil, nil
 	}
 	var constraints []metal.Constraint
-	if e.Constraints != nil {
-		for _, c := range e.Constraints {
-			metalConstraint, err := metal.ToConstraint(c)
-			if err != nil {
-				return nil, err
-			}
-			constraints = append(constraints, *metalConstraint)
+	for _, c := range e.Constraints {
+		metalConstraint, err := metal.ToConstraint(c)
+		if err != nil {
+			return nil, err
 		}
+		constraints = append(constraints, *metalConstraint)
 	}
 
 	var labels map[string]string
