@@ -18,6 +18,7 @@ type (
 		dbname        string
 
 		ip        *storage[*metal.IP]
+		size      *storage[*metal.Size]
 		partition *storage[*metal.Partition]
 		network   *storage[*metal.Network]
 		fsl       *storage[*metal.FilesystemLayout]
@@ -47,6 +48,7 @@ func New(log *slog.Logger, opts r.ConnectOpts, dsOpts ...dataStoreOption) (*data
 	}
 
 	ds.ip = newStorage[*metal.IP](ds, "ip")
+	ds.size = newStorage[*metal.Size](ds, "size")
 	ds.partition = newStorage[*metal.Partition](ds, "partition")
 	ds.network = newStorage[*metal.Network](ds, "network")
 	ds.fsl = newStorage[*metal.FilesystemLayout](ds, "filesystemlayout")
@@ -96,6 +98,10 @@ func (ds *datastore) Version(ctx context.Context) (string, error) {
 
 func (ds *datastore) IP() Storage[*metal.IP] {
 	return ds.ip
+}
+
+func (ds *datastore) Size() Storage[*metal.Size] {
+	return ds.size
 }
 
 func (ds *datastore) Partition() Storage[*metal.Partition] {

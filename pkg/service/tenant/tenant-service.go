@@ -17,7 +17,6 @@ import (
 	msvc "github.com/metal-stack/metal-apiserver/pkg/service/method"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
@@ -275,7 +274,7 @@ func (u *tenantServiceServer) Delete(ctx context.Context, rq *connect.Request[ap
 	}
 
 	pfr, err := u.masterClient.Project().Find(ctx, &mdcv1.ProjectFindRequest{
-		TenantId: wrapperspb.String(req.Login),
+		TenantId: &req.Login,
 	})
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("unable to lookup projects: %w", err))
