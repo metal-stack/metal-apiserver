@@ -133,7 +133,6 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 		dnsServers       []*apiv2.DNSServer
 		ntpServers       []*apiv2.NTPServer
 		firewallRules    *apiv2.FirewallRules
-		bootInfo         *apiv2.BootInfo
 		machineNetworks  []*apiv2.MachineNetwork
 		filesystemLayout *apiv2.FilesystemLayout
 	)
@@ -187,11 +186,6 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 			filesystemLayout, err = r.s.FilesystemLayout().ConvertToProto(fsl)
 			if err != nil {
 				return nil, err
-			}
-		}
-		if alloc.MachineSetup != nil {
-			bootInfo = &apiv2.BootInfo{
-				// FIXME we decide to not implement Reinstall
 			}
 		}
 
@@ -278,10 +272,14 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 				NetworkType:         networkType,
 				NatType:             natType,
 				Vrf:                 uint64(nw.Vrf),
-				Asn:                 uint64(nw.ASN),
+				Asn:                 nw.ASN,
 			})
 		}
 
+		role, err := enum.GetEnum[apiv2.MachineRole](string(alloc.Role))
+		if err != nil {
+			return nil, err
+		}
 		allocation = &apiv2.MachineAllocation{
 			Uuid:             alloc.UUID,
 			Meta:             &apiv2.Meta{},
@@ -295,8 +293,7 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 			Hostname:         alloc.Hostname,
 			SshPublicKeys:    alloc.SSHPubKeys,
 			Userdata:         alloc.UserData,
-			BootInfo:         bootInfo,
-			Role:             0,
+			Role:             role,
 			FirewallRules:    firewallRules,
 			DnsServer:        dnsServers,
 			NtpServer:        ntpServers,

@@ -21,7 +21,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 type Config struct {
@@ -195,8 +194,8 @@ func (p *projectServiceServer) Create(ctx context.Context, rq *connect.Request[a
 	}
 
 	findResp, err := p.masterClient.Project().Find(ctx, &v1.ProjectFindRequest{
-		Name:     wrapperspb.String(req.Name),
-		TenantId: wrapperspb.String(req.Login),
+		Name:     &req.Name,
+		TenantId: &req.Login,
 	})
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("error retrieving projects from backend: %w", err))

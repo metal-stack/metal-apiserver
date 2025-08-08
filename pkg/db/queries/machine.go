@@ -97,12 +97,6 @@ func MachineFilter(rq *apiv2.MachineQuery) func(q r.Term) r.Term {
 				})
 			}
 
-			if alloc.Succeeded != nil {
-				q = q.Filter(func(row r.Term) r.Term {
-					return row.Field("allocation").Field("succeeded").Eq(*alloc.Succeeded)
-				})
-			}
-
 			if alloc.FilesystemLayout != nil {
 				q = q.Filter(func(row r.Term) r.Term {
 					return row.Field("allocation").Field("filesystemlayout").Field("id").Eq(*alloc.FilesystemLayout)

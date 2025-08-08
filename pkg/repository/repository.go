@@ -90,6 +90,9 @@ type (
 	FilesystemLayout interface {
 		Repository[*filesystemLayoutRepository, *metal.FilesystemLayout, *apiv2.FilesystemLayout, *adminv2.FilesystemServiceCreateRequest, *adminv2.FilesystemServiceUpdateRequest, *apiv2.FilesystemServiceListRequest]
 	}
+	Size interface {
+		Repository[*sizeRepository, *metal.Size, *apiv2.Size, *adminv2.SizeServiceCreateRequest, *adminv2.SizeServiceUpdateRequest, *apiv2.SizeQuery]
+	}
 
 	Image interface {
 		Repository[*imageRepository, *metal.Image, *apiv2.Image, *adminv2.ImageServiceCreateRequest, *adminv2.ImageServiceUpdateRequest, *apiv2.ImageQuery]

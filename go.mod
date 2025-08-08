@@ -23,9 +23,9 @@ require (
 	github.com/klauspost/connect-compress/v2 v2.0.0
 	github.com/lestrrat-go/jwx/v2 v2.1.6
 	github.com/markbates/goth v1.81.0
-	github.com/metal-stack/api v0.0.9-0.20250808102418-ba5e987feb43
+	github.com/metal-stack/api v0.0.9
 	github.com/metal-stack/go-ipam v1.14.12
-	github.com/metal-stack/masterdata-api v0.11.11
+	github.com/metal-stack/masterdata-api v0.12.0
 	github.com/metal-stack/metal-lib v0.23.3
 	github.com/metal-stack/security v0.9.4
 	github.com/metal-stack/v v1.0.3
@@ -33,6 +33,7 @@ require (
 	github.com/prometheus/client_golang v1.23.0
 	github.com/redis/go-redis/v9 v9.12.0
 	github.com/rs/cors v1.11.1
+	github.com/samber/lo v1.51.0
 	github.com/stretchr/testify v1.10.0
 	github.com/testcontainers/testcontainers-go v0.38.0
 	github.com/testcontainers/testcontainers-go/modules/valkey v0.38.0
@@ -75,7 +76,7 @@ require (
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/docker/docker v28.3.3+incompatible // indirect
-	github.com/docker/go-connections v0.5.0 // indirect
+	github.com/docker/go-connections v0.6.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/ebitengine/purego v0.8.4 // indirect
 	github.com/emicklei/go-restful-openapi/v2 v2.11.0 // indirect
@@ -183,9 +184,9 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba // indirect
-	golang.org/x/crypto v0.40.0 // indirect
+	golang.org/x/crypto v0.41.0 // indirect
 	golang.org/x/exp v0.0.0-20250718183923-645b1fa84792 // indirect
-	golang.org/x/sys v0.34.0 // indirect
+	golang.org/x/sys v0.35.0 // indirect
 	golang.org/x/text v0.28.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250804133106-a7a43d27e69b // indirect
