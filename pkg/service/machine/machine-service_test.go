@@ -42,11 +42,16 @@ func Test_machineServiceServer_Get(t *testing.T) {
 			Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
 		},
 	})
+	test.CreateSizes(t, repo, []*adminv2.SizeServiceCreateRequest{
+		{
+			Size: &apiv2.Size{Id: "c1-large-x86"},
+		},
+	})
 
 	// We need to create machines directly on the database because there is no MachineCreateRequest available and never will.
 	// Once the boot-service is available we can simulate a pxe booting machine the actually create a machine from the api level.
 	test.CreateMachines(t, testStore, []*metal.Machine{
-		{Base: metal.Base{ID: "m1"}, PartitionID: "partition-1"},
+		{Base: metal.Base{ID: "m1"}, PartitionID: "partition-1", SizeID: "c1-large-x86"},
 	})
 
 	tests := []struct {
@@ -65,6 +70,7 @@ func Test_machineServiceServer_Get(t *testing.T) {
 					Partition:                &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
 					Bios:                     &apiv2.MachineBios{},
 					Hardware:                 &apiv2.MachineHardware{},
+					Size:                     &apiv2.Size{Id: "c1-large-x86", Meta: &apiv2.Meta{}},
 					RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
 					Status: &apiv2.MachineStatus{
 						Condition:  &apiv2.MachineCondition{},
@@ -132,15 +138,19 @@ func Test_machineServiceServer_List(t *testing.T) {
 	test.CreateImages(t, repo, []*adminv2.ImageServiceCreateRequest{
 		{Image: &apiv2.Image{Id: "debian-12", Url: validURL, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}}},
 	})
+	test.CreateSizes(t, repo, []*adminv2.SizeServiceCreateRequest{
+		{Size: &apiv2.Size{Id: "c1-large-x86", Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 8, Max: 8}}}},
+		{Size: &apiv2.Size{Id: "c1-medium-x86", Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4}}}},
+	})
 
 	// We need to create machines directly on the database because there is no MachineCreateRequest available and never will.
 	// Once the boot-service is available we can simulate a pxe booting machine the actually create a machine from the api level.
 	test.CreateMachines(t, testStore, []*metal.Machine{
-		{Base: metal.Base{ID: "m1"}, PartitionID: "partition-1"},
-		{Base: metal.Base{ID: "m2"}, PartitionID: "partition-1"},
-		{Base: metal.Base{ID: "m3"}, PartitionID: "partition-1", Allocation: &metal.MachineAllocation{Project: "p1", ImageID: "debian-12"}},
-		{Base: metal.Base{ID: "m4"}, PartitionID: "partition-1", Allocation: &metal.MachineAllocation{Project: "p2", ImageID: "debian-12"}},
-		{Base: metal.Base{ID: "m5"}, PartitionID: "partition-1", Allocation: &metal.MachineAllocation{Project: "p2", ImageID: "debian-12"}},
+		{Base: metal.Base{ID: "m1"}, PartitionID: "partition-1", SizeID: "c1-medium-x86"},
+		{Base: metal.Base{ID: "m2"}, PartitionID: "partition-1", SizeID: "c1-medium-x86"},
+		{Base: metal.Base{ID: "m3"}, PartitionID: "partition-1", SizeID: "c1-large-x86", Allocation: &metal.MachineAllocation{Project: "p1", ImageID: "debian-12"}},
+		{Base: metal.Base{ID: "m4"}, PartitionID: "partition-1", SizeID: "c1-large-x86", Allocation: &metal.MachineAllocation{Project: "p2", ImageID: "debian-12"}},
+		{Base: metal.Base{ID: "m5"}, PartitionID: "partition-1", SizeID: "c1-large-x86", Allocation: &metal.MachineAllocation{Project: "p2", ImageID: "debian-12"}},
 	})
 
 	tests := []struct {
@@ -160,6 +170,7 @@ func Test_machineServiceServer_List(t *testing.T) {
 						Partition:                &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
 						Bios:                     &apiv2.MachineBios{},
 						Hardware:                 &apiv2.MachineHardware{},
+						Size:                     &apiv2.Size{Id: "c1-large-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 8, Max: 8}}},
 						RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
 						Status: &apiv2.MachineStatus{
 							Condition:  &apiv2.MachineCondition{},
@@ -195,6 +206,7 @@ func Test_machineServiceServer_List(t *testing.T) {
 						Partition:                &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
 						Bios:                     &apiv2.MachineBios{},
 						Hardware:                 &apiv2.MachineHardware{},
+						Size:                     &apiv2.Size{Id: "c1-large-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 8, Max: 8}}},
 						RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
 						Status: &apiv2.MachineStatus{
 							Condition:  &apiv2.MachineCondition{},
@@ -273,22 +285,26 @@ func Test_machineServiceServer_Update(t *testing.T) {
 	test.CreateImages(t, repo, []*adminv2.ImageServiceCreateRequest{
 		{Image: &apiv2.Image{Id: "debian-12", Url: validURL, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}}},
 	})
+	test.CreateSizes(t, repo, []*adminv2.SizeServiceCreateRequest{
+		{Size: &apiv2.Size{Id: "c1-large-x86", Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 8, Max: 8}}}},
+		{Size: &apiv2.Size{Id: "c1-medium-x86", Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4}}}},
+	})
 
 	// We need to create machines directly on the database because there is no MachineCreateRequest available and never will.
 	// Once the boot-service is available we can simulate a pxe booting machine the actually create a machine from the api level.
 	test.CreateMachines(t, testStore, []*metal.Machine{
 		{
-			Base: metal.Base{ID: "m1"}, PartitionID: "partition-1",
+			Base: metal.Base{ID: "m1"}, PartitionID: "partition-1", SizeID: "c1-medium-x86",
 		},
 		{
-			Base: metal.Base{ID: "m2"}, PartitionID: "partition-1",
+			Base: metal.Base{ID: "m2"}, PartitionID: "partition-1", SizeID: "c1-medium-x86",
 		},
 		{
-			Base: metal.Base{ID: "m3"}, PartitionID: "partition-1",
+			Base: metal.Base{ID: "m3"}, PartitionID: "partition-1", SizeID: "c1-medium-x86",
 			Allocation: &metal.MachineAllocation{Project: "p1", ImageID: "debian-12"},
 		},
 		{
-			Base: metal.Base{ID: "m4"}, PartitionID: "partition-1",
+			Base: metal.Base{ID: "m4"}, PartitionID: "partition-1", SizeID: "c1-medium-x86",
 			Allocation: &metal.MachineAllocation{
 				Description: "my-machine",
 				Project:     "p2",
@@ -297,7 +313,7 @@ func Test_machineServiceServer_Update(t *testing.T) {
 			},
 		},
 		{
-			Base: metal.Base{ID: "m5"}, PartitionID: "partition-1",
+			Base: metal.Base{ID: "m5"}, PartitionID: "partition-1", SizeID: "c1-medium-x86",
 			Allocation: &metal.MachineAllocation{Project: "p2", ImageID: "debian-12"},
 		},
 	})
@@ -330,6 +346,7 @@ func Test_machineServiceServer_Update(t *testing.T) {
 					Partition:                &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
 					Bios:                     &apiv2.MachineBios{},
 					Hardware:                 &apiv2.MachineHardware{},
+					Size:                     &apiv2.Size{Id: "c1-medium-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4}}},
 					RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
 					Status: &apiv2.MachineStatus{
 						Condition:  &apiv2.MachineCondition{},
@@ -367,6 +384,7 @@ func Test_machineServiceServer_Update(t *testing.T) {
 					Partition:                &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
 					Bios:                     &apiv2.MachineBios{},
 					Hardware:                 &apiv2.MachineHardware{},
+					Size:                     &apiv2.Size{Id: "c1-medium-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4}}},
 					RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
 					Status: &apiv2.MachineStatus{
 						Condition:  &apiv2.MachineCondition{},

@@ -151,7 +151,14 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 	if err != nil {
 		return nil, err
 	}
-	// FIXME Fetch Size
+	metalSize, err := r.s.Size().Get(ctx, m.SizeID)
+	if err != nil {
+		return nil, err
+	}
+	size, err = r.s.Size().ConvertToProto(metalSize)
+	if err != nil {
+		return nil, err
+	}
 
 	hardware := &apiv2.MachineHardware{
 		Memory: m.Hardware.Memory,
