@@ -283,7 +283,7 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 			})
 		}
 
-		role, err := enum.GetEnum[apiv2.MachineRole](string(alloc.Role))
+		allocationType, err := enum.GetEnum[apiv2.MachineAllocationType](string(alloc.Role))
 		if err != nil {
 			return nil, err
 		}
@@ -300,7 +300,7 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 			Hostname:         alloc.Hostname,
 			SshPublicKeys:    alloc.SSHPubKeys,
 			Userdata:         alloc.UserData,
-			Role:             role,
+			AllocationType:   allocationType,
 			FirewallRules:    firewallRules,
 			DnsServer:        dnsServers,
 			NtpServer:        ntpServers,

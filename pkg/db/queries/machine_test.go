@@ -293,12 +293,12 @@ func TestMachineFilter(t *testing.T) {
 		},
 		{
 			name: "by role",
-			rq:   &apiv2.MachineQuery{Allocation: &apiv2.MachineAllocationQuery{Role: apiv2.MachineRole_MACHINE_ROLE_MACHINE.Enum()}},
+			rq:   &apiv2.MachineQuery{Allocation: &apiv2.MachineAllocationQuery{AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE.Enum()}},
 			want: []*metal.Machine{m1},
 		},
 		{
 			name: "by role",
-			rq:   &apiv2.MachineQuery{Allocation: &apiv2.MachineAllocationQuery{Role: apiv2.MachineRole_MACHINE_ROLE_FIREWALL.Enum()}},
+			rq:   &apiv2.MachineQuery{Allocation: &apiv2.MachineAllocationQuery{AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL.Enum()}},
 			want: []*metal.Machine{m2},
 		},
 		{

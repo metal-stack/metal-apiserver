@@ -87,8 +87,8 @@ func MachineFilter(rq *apiv2.MachineQuery) func(q r.Term) r.Term {
 				})
 			}
 
-			if alloc.Role != nil {
-				roleString, err := enum.GetStringValue(*alloc.Role)
+			if alloc.AllocationType != nil {
+				roleString, err := enum.GetStringValue(*alloc.AllocationType)
 				if err != nil {
 					return q
 				}
