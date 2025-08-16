@@ -50,8 +50,8 @@ type (
 		Network() Storage[*metal.Network]
 		FilesystemLayout() Storage[*metal.FilesystemLayout]
 		Image() Storage[*metal.Image]
-		// event               Storage[*metal.ProvisioningEventContainer]
-		// size                Storage[*metal.Size]
+		Event() Storage[*metal.ProvisioningEventContainer]
+
 		// sizeimageConstraint Storage[*metal.SizeImageConstraint]
 		// sw                  Storage[*metal.Switch]
 		// switchStatus        Storage[*metal.SwitchStatus]

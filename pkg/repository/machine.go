@@ -219,7 +219,7 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 				ingress []*apiv2.FirewallIngressRule
 			)
 			for _, e := range alloc.FirewallRules.Egress {
-				protocol, err := enum.GetEnum[apiv2.IPProtocol](string(e.Protocol))
+				protocol, err := enum.GetEnum[apiv2.IPProtocol](strings.ToLower(string(e.Protocol)))
 				if err != nil {
 					return nil, err
 				}
@@ -235,7 +235,7 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 				})
 			}
 			for _, i := range alloc.FirewallRules.Ingress {
-				protocol, err := enum.GetEnum[apiv2.IPProtocol](string(i.Protocol))
+				protocol, err := enum.GetEnum[apiv2.IPProtocol](strings.ToLower(string(i.Protocol)))
 				if err != nil {
 					return nil, err
 				}
@@ -283,7 +283,7 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 			})
 		}
 
-		allocationType, err := enum.GetEnum[apiv2.MachineAllocationType](string(alloc.Role))
+		allocationType, err := enum.GetEnum[apiv2.MachineAllocationType](strings.ToLower(string(alloc.Role)))
 		if err != nil {
 			return nil, err
 		}
@@ -308,7 +308,7 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 		}
 	}
 
-	stateString, err := enum.GetEnum[apiv2.MachineState](string(m.State.Value))
+	stateString, err := enum.GetEnum[apiv2.MachineState](strings.ToLower(string(m.State.Value)))
 	if err != nil {
 		return nil, err
 	}
@@ -318,10 +318,56 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 		Issuer:      m.State.Issuer,
 	}
 
+	event, err := r.s.ds.Event().Get(ctx, m.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	liveliness, err := enum.GetEnum[apiv2.MachineLiveliness](strings.ToLower(string(event.Liveliness)))
+	if err != nil {
+		return nil, err
+	}
+	var (
+		lastEventTime  *timestamppb.Timestamp
+		lastErrorEvent *apiv2.MachineProvisioningEvent
+		state          apiv2.MachineProvisioningEventState
+		events         []*apiv2.MachineProvisioningEvent
+	)
+	if event.LastEventTime != nil {
+		lastEventTime = timestamppb.New(*event.LastEventTime)
+	}
+	if event.LastErrorEvent != nil {
+		lastErrorEvent = &apiv2.MachineProvisioningEvent{
+			Time:  timestamppb.New(event.LastErrorEvent.Time),
+			Event: event.LastErrorEvent.Message,
+		}
+	}
+
+	state, err = enum.GetEnum[apiv2.MachineProvisioningEventState](strings.ToLower(string(event.LastErrorEvent.Event)))
+	if err != nil {
+		return nil, err
+	}
+
+	for _, e := range event.Events {
+		events = append(events, &apiv2.MachineProvisioningEvent{
+			Time: timestamppb.New(e.Time),
+			// FIXME this must be a enum in apiv2
+			Event:   string(e.Event),
+			Message: e.Message,
+		})
+	}
+
+	recentEvents := &apiv2.MachineRecentProvisioningEvents{
+		LastEventTime:  lastEventTime,
+		LastErrorEvent: lastErrorEvent,
+		Events:         events,
+		State:          state,
+	}
+
 	status = &apiv2.MachineStatus{
 		Condition:          condition,
 		LedState:           &apiv2.MachineChassisIdentifyLEDState{},
-		Liveliness:         apiv2.MachineLiveliness_MACHINE_LIVELINESS_UNKNOWN,
+		Liveliness:         liveliness,
 		MetalHammerVersion: m.State.MetalHammerVersion,
 	}
 
@@ -339,7 +385,7 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 		Bios:                     bios,
 		Allocation:               allocation,
 		Status:                   status,
-		RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
+		RecentProvisioningEvents: recentEvents,
 	}
 
 	return result, nil

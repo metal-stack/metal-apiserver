@@ -19,6 +19,7 @@ type (
 
 		ip        *storage[*metal.IP]
 		machine   *storage[*metal.Machine]
+		event     *storage[*metal.ProvisioningEventContainer]
 		size      *storage[*metal.Size]
 		partition *storage[*metal.Partition]
 		network   *storage[*metal.Network]
@@ -55,6 +56,7 @@ func New(log *slog.Logger, opts r.ConnectOpts, dsOpts ...dataStoreOption) (*data
 	ds.network = newStorage[*metal.Network](ds, "network")
 	ds.fsl = newStorage[*metal.FilesystemLayout](ds, "filesystemlayout")
 	ds.image = newStorage[*metal.Image](ds, "image")
+	ds.event = newStorage[*metal.ProvisioningEventContainer](ds, "event")
 
 	var (
 		vrfMin = uint(1)
@@ -123,6 +125,10 @@ func (ds *datastore) FilesystemLayout() Storage[*metal.FilesystemLayout] {
 
 func (ds *datastore) Image() Storage[*metal.Image] {
 	return ds.image
+}
+
+func (ds *datastore) Event() Storage[*metal.ProvisioningEventContainer] {
+	return ds.event
 }
 
 func (ds *datastore) AsnPool() *integerPool {

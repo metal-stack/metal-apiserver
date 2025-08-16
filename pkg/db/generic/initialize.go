@@ -104,6 +104,9 @@ func Initialize(ctx context.Context, log *slog.Logger, opts r.ConnectOpts, dsOpt
 	if err := ds.image.initialize(ctx); err != nil {
 		return err
 	}
+	if err := ds.event.initialize(ctx); err != nil {
+		return err
+	}
 
 	ds.log.Info("waiting for tables to be ready")
 

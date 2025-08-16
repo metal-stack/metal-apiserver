@@ -294,17 +294,17 @@ type MetalGPU struct {
 	Model  string `rethinkdb:"model"`
 }
 
-// // MachineLiveliness indicates the liveliness of a machine
-// type MachineLiveliness string
+// MachineLiveliness indicates the liveliness of a machine
+type MachineLiveliness string
 
-// // The enums for the machine liveliness states.
-// const (
-// 	MachineLivelinessAlive   MachineLiveliness = "Alive"
-// 	MachineLivelinessDead    MachineLiveliness = "Dead"
-// 	MachineLivelinessUnknown MachineLiveliness = "Unknown"
-// 	MachineDeadAfter         time.Duration     = 5 * time.Minute
-// 	MachineResurrectAfter    time.Duration     = time.Hour
-// )
+// The enums for the machine liveliness states.
+const (
+	MachineLivelinessAlive   MachineLiveliness = "Alive"
+	MachineLivelinessDead    MachineLiveliness = "Dead"
+	MachineLivelinessUnknown MachineLiveliness = "Unknown"
+	MachineDeadAfter         time.Duration     = 5 * time.Minute
+	MachineResurrectAfter    time.Duration     = time.Hour
+)
 
 // func capacityOf[V any](identifier string, vs []V, countFn func(v V) (model string, count uint64)) (uint64, []V) {
 // 	var (
