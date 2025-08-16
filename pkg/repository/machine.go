@@ -288,8 +288,11 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 			return nil, err
 		}
 		allocation = &apiv2.MachineAllocation{
-			Uuid:             alloc.UUID,
-			Meta:             &apiv2.Meta{},
+			Uuid: alloc.UUID,
+			Meta: &apiv2.Meta{
+				CreatedAt: timestamppb.New(alloc.Created),
+				// FIXME what about User defined tags
+			},
 			Name:             alloc.Name,
 			Description:      alloc.Description,
 			CreatedBy:        alloc.Creator,
@@ -341,11 +344,10 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 			Time:  timestamppb.New(event.LastErrorEvent.Time),
 			Event: event.LastErrorEvent.Message,
 		}
-	}
-
-	state, err = enum.GetEnum[apiv2.MachineProvisioningEventState](strings.ToLower(string(event.LastErrorEvent.Event)))
-	if err != nil {
-		return nil, err
+		state, err = enum.GetEnum[apiv2.MachineProvisioningEventState](strings.ToLower(string(event.LastErrorEvent.Event)))
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	for _, e := range event.Events {
