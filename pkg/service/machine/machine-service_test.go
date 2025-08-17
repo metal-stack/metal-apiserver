@@ -65,17 +65,19 @@ func Test_machineServiceServer_Get(t *testing.T) {
 			rq:   &apiv2.MachineServiceGetRequest{Uuid: "m1"},
 			want: &apiv2.MachineServiceGetResponse{
 				Machine: &apiv2.Machine{
-					Uuid:                     "m1",
-					Meta:                     &apiv2.Meta{},
-					Partition:                &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
-					Bios:                     &apiv2.MachineBios{},
-					Hardware:                 &apiv2.MachineHardware{},
-					Size:                     &apiv2.Size{Id: "c1-large-x86", Meta: &apiv2.Meta{}},
-					RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
+					Uuid:      "m1",
+					Meta:      &apiv2.Meta{},
+					Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
+					Bios:      &apiv2.MachineBios{},
+					Hardware:  &apiv2.MachineHardware{},
+					Size:      &apiv2.Size{Id: "c1-large-x86", Meta: &apiv2.Meta{}},
+					RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
+						Events: []*apiv2.MachineProvisioningEvent{{Event: "Alive", Message: "machine created for test"}},
+					},
 					Status: &apiv2.MachineStatus{
 						Condition:  &apiv2.MachineCondition{},
 						LedState:   &apiv2.MachineChassisIdentifyLEDState{},
-						Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_UNKNOWN,
+						Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
 					},
 				},
 			},
@@ -104,6 +106,9 @@ func Test_machineServiceServer_Get(t *testing.T) {
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.MachineProvisioningEvent{}, "time",
 				),
 			); diff != "" {
 				t.Errorf("machineServiceServer.Get() = %v, want %v diff: %s", got.Msg, tt.want, diff)
@@ -165,17 +170,19 @@ func Test_machineServiceServer_List(t *testing.T) {
 			want: &apiv2.MachineServiceListResponse{
 				Machines: []*apiv2.Machine{
 					{
-						Uuid:                     "m3",
-						Meta:                     &apiv2.Meta{},
-						Partition:                &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
-						Bios:                     &apiv2.MachineBios{},
-						Hardware:                 &apiv2.MachineHardware{},
-						Size:                     &apiv2.Size{Id: "c1-large-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 8, Max: 8}}},
-						RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
+						Uuid:      "m3",
+						Meta:      &apiv2.Meta{},
+						Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
+						Bios:      &apiv2.MachineBios{},
+						Hardware:  &apiv2.MachineHardware{},
+						Size:      &apiv2.Size{Id: "c1-large-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 8, Max: 8}}},
+						RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
+							Events: []*apiv2.MachineProvisioningEvent{{Event: "Alive", Message: "machine created for test"}},
+						},
 						Status: &apiv2.MachineStatus{
 							Condition:  &apiv2.MachineCondition{},
 							LedState:   &apiv2.MachineChassisIdentifyLEDState{},
-							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_UNKNOWN,
+							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
 						},
 						Allocation: &apiv2.MachineAllocation{
 							Project: "p1",
@@ -201,17 +208,19 @@ func Test_machineServiceServer_List(t *testing.T) {
 			want: &apiv2.MachineServiceListResponse{
 				Machines: []*apiv2.Machine{
 					{
-						Uuid:                     "m4",
-						Meta:                     &apiv2.Meta{},
-						Partition:                &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
-						Bios:                     &apiv2.MachineBios{},
-						Hardware:                 &apiv2.MachineHardware{},
-						Size:                     &apiv2.Size{Id: "c1-large-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 8, Max: 8}}},
-						RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
+						Uuid:      "m4",
+						Meta:      &apiv2.Meta{},
+						Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
+						Bios:      &apiv2.MachineBios{},
+						Hardware:  &apiv2.MachineHardware{},
+						Size:      &apiv2.Size{Id: "c1-large-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 8, Max: 8}}},
+						RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
+							Events: []*apiv2.MachineProvisioningEvent{{Event: "Alive", Message: "machine created for test"}},
+						},
 						Status: &apiv2.MachineStatus{
 							Condition:  &apiv2.MachineCondition{},
 							LedState:   &apiv2.MachineChassisIdentifyLEDState{},
-							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_UNKNOWN,
+							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
 						},
 						Allocation: &apiv2.MachineAllocation{
 							Project: "p2",
@@ -251,6 +260,9 @@ func Test_machineServiceServer_List(t *testing.T) {
 				),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.MachineProvisioningEvent{}, "time",
 				),
 			); diff != "" {
 				t.Errorf("machineServiceServer.List() = %v, want %v diff: %s", got.Msg, tt.want, diff)
@@ -343,15 +355,17 @@ func Test_machineServiceServer_Update(t *testing.T) {
 							Labels: map[string]string{"color": "red"},
 						},
 					},
-					Partition:                &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
-					Bios:                     &apiv2.MachineBios{},
-					Hardware:                 &apiv2.MachineHardware{},
-					Size:                     &apiv2.Size{Id: "c1-medium-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4}}},
-					RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
+					Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
+					Bios:      &apiv2.MachineBios{},
+					Hardware:  &apiv2.MachineHardware{},
+					Size:      &apiv2.Size{Id: "c1-medium-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4}}},
+					RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
+						Events: []*apiv2.MachineProvisioningEvent{{Event: "Alive", Message: "machine created for test"}},
+					},
 					Status: &apiv2.MachineStatus{
 						Condition:  &apiv2.MachineCondition{},
 						LedState:   &apiv2.MachineChassisIdentifyLEDState{},
-						Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_UNKNOWN,
+						Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
 					},
 					Allocation: &apiv2.MachineAllocation{
 						Project: "p1",
@@ -379,17 +393,19 @@ func Test_machineServiceServer_Update(t *testing.T) {
 			},
 			want: &apiv2.MachineServiceUpdateResponse{
 				Machine: &apiv2.Machine{
-					Uuid:                     "m4",
-					Meta:                     &apiv2.Meta{},
-					Partition:                &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
-					Bios:                     &apiv2.MachineBios{},
-					Hardware:                 &apiv2.MachineHardware{},
-					Size:                     &apiv2.Size{Id: "c1-medium-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4}}},
-					RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
+					Uuid:      "m4",
+					Meta:      &apiv2.Meta{},
+					Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
+					Bios:      &apiv2.MachineBios{},
+					Hardware:  &apiv2.MachineHardware{},
+					Size:      &apiv2.Size{Id: "c1-medium-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4}}},
+					RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
+						Events: []*apiv2.MachineProvisioningEvent{{Event: "Alive", Message: "machine created for test"}},
+					},
 					Status: &apiv2.MachineStatus{
 						Condition:  &apiv2.MachineCondition{},
 						LedState:   &apiv2.MachineChassisIdentifyLEDState{},
-						Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_UNKNOWN,
+						Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
 					},
 					Allocation: &apiv2.MachineAllocation{
 						Project:       "p2",
@@ -430,6 +446,9 @@ func Test_machineServiceServer_Update(t *testing.T) {
 				),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.MachineProvisioningEvent{}, "time",
 				),
 			); diff != "" {
 				t.Errorf("machineServiceServer.Update() = %v, want %v diff: %s", got.Msg, tt.want, diff)

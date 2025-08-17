@@ -3,6 +3,7 @@ package test
 import (
 	"log/slog"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/alicebob/miniredis/v2"
@@ -128,6 +129,20 @@ func CreateMachines(t *testing.T, testStore *testStore, machines []*metal.Machin
 	for _, machine := range machines {
 		_, err := testStore.ds.Machine().Create(t.Context(), machine)
 		require.NoError(t, err)
+		event := &metal.ProvisioningEventContainer{
+			Base: metal.Base{ID: machine.ID},
+			Events: metal.ProvisioningEvents{
+				{
+					Time:    time.Now(),
+					Event:   metal.ProvisioningEventAlive,
+					Message: "machine created for test",
+				},
+			},
+			Liveliness: metal.MachineLivelinessAlive,
+		}
+		_, err = testStore.ds.Event().Create(t.Context(), event)
+		require.NoError(t, err)
+
 	}
 }
 

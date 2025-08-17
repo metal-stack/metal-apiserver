@@ -33,6 +33,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/service/ip"
 	ipadmin "github.com/metal-stack/metal-apiserver/pkg/service/ip/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/machine"
+	machineadmin "github.com/metal-stack/metal-apiserver/pkg/service/machine/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/method"
 	"github.com/metal-stack/metal-apiserver/pkg/service/network"
 	networkadmin "github.com/metal-stack/metal-apiserver/pkg/service/network/admin"
@@ -225,6 +226,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	adminFilesystemService := filesystemadmin.New(filesystemadmin.Config{Log: log, Repo: c.Repository})
 	adminPartitionService := partitionadmin.New(partitionadmin.Config{Log: log, Repo: c.Repository})
 	adminSizeService := sizeadmin.New(sizeadmin.Config{Log: log, Repo: c.Repository})
+	adminMachineService := machineadmin.New(machineadmin.Config{Log: log, Repo: c.Repository})
 	adminNetworkService := networkadmin.New(networkadmin.Config{Log: log, Repo: c.Repository})
 	mux.Handle(adminv2connect.NewIPServiceHandler(adminIpService, adminInterceptors))
 	mux.Handle(adminv2connect.NewImageServiceHandler(adminImageService, adminInterceptors))
@@ -233,6 +235,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	mux.Handle(adminv2connect.NewSizeServiceHandler(adminSizeService, adminInterceptors))
 	mux.Handle(adminv2connect.NewTenantServiceHandler(adminTenantService, adminInterceptors))
 	mux.Handle(adminv2connect.NewNetworkServiceHandler(adminNetworkService, adminInterceptors))
+	mux.Handle(adminv2connect.NewMachineServiceHandler(adminMachineService, adminInterceptors))
 
 	allServiceNames := permissions.GetServices()
 	// Static HealthCheckers
