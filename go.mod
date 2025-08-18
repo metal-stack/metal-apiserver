@@ -22,8 +22,8 @@ require (
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/klauspost/connect-compress/v2 v2.0.0
 	github.com/lestrrat-go/jwx/v2 v2.1.6
-	github.com/markbates/goth v1.81.0
-	github.com/metal-stack/api v0.0.12-0.20250818052029-1d3c54d0b728
+	github.com/markbates/goth v1.82.0
+	github.com/metal-stack/api v0.0.12
 	github.com/metal-stack/go-ipam v1.14.12
 	github.com/metal-stack/masterdata-api v0.12.0
 	github.com/metal-stack/metal-lib v0.23.3
