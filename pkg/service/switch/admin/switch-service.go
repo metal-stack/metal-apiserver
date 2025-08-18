@@ -7,7 +7,6 @@ import (
 	"connectrpc.com/connect"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
-	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 )
 
@@ -29,5 +28,17 @@ func New(c Config) adminv2connect.SwitchServiceHandler {
 }
 
 func (s *switchServiceServer) Update(ctx context.Context, rq *connect.Request[adminv2.SwitchServiceUpdateRequest]) (*connect.Response[adminv2.SwitchServiceUpdateResponse], error) {
-	return nil, errorutil.Internal("not implemented")
+	panic("unimplemented")
+}
+
+func (s *switchServiceServer) Delete(ctx context.Context, rq *connect.Request[adminv2.SwitchServiceDeleteRequest]) (*connect.Response[adminv2.SwitchServiceDeleteResponse], error) {
+	panic("unimplemented")
+}
+
+func (s *switchServiceServer) Migrate(ctx context.Context, rq *connect.Request[adminv2.SwitchServiceMigrateRequest]) (*connect.Response[adminv2.SwitchServiceMigrateResponse], error) {
+	panic("unimplemented")
+}
+
+func (s *switchServiceServer) Port(ctx context.Context, rq *connect.Request[adminv2.SwitchServicePortRequest]) (*connect.Response[adminv2.SwitchServicePortResponse], error) {
+	panic("unimplemented")
 }
