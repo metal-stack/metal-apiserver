@@ -11,6 +11,7 @@ import (
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	mdm "github.com/metal-stack/masterdata-api/pkg/client"
@@ -157,6 +158,17 @@ func (s *Store) Partition() Partition {
 	}
 
 	return &store[*partitionRepository, *metal.Partition, *apiv2.Partition, *adminv2.PartitionServiceCreateRequest, *adminv2.PartitionServiceUpdateRequest, *apiv2.PartitionQuery]{
+		repository: repository,
+		typed:      repository,
+	}
+}
+
+func (s *Store) Switch() Switch {
+	repository := &switchRepository{
+		s: s,
+	}
+
+	return &store[*switchRepository, *metal.Switch, *apiv2.Switch, *infrav2.SwitchServiceCreateRequest, *adminv2.SwitchServiceUpdateRequest, *apiv2.SwitchQuery]{
 		repository: repository,
 		typed:      repository,
 	}
