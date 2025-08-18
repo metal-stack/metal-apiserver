@@ -393,7 +393,7 @@ func (r *networkRepository) prefixesOverlapping(ctx context.Context, prefixes []
 	)
 
 	for _, nw := range allNetworks {
-		if nw.ParentNetwork != "" {
+		if nw.ParentNetworkID != "" {
 			// as we check the super networks this includes the child networks automatically
 			// theoretically it would be nice to filter them out directly in the database query
 			continue
@@ -513,10 +513,10 @@ func (r *networkRepository) validateUpdate(ctx context.Context, req *adminv2.Net
 		return errorutil.Convert(err)
 	}
 
-	r.s.log.Debug("validate update", "parent", nw.ParentNetwork, "prefixes to remove", prefixesToBeRemoved, "prefixes to add", prefixesToBeAdded)
+	r.s.log.Debug("validate update", "parent", nw.ParentNetworkID, "prefixes to remove", prefixesToBeRemoved, "prefixes to add", prefixesToBeAdded)
 
 	// Do not allow to change prefixes on child networks
-	if nw.ParentNetwork != "" && (len(prefixesToBeRemoved) > 0 || len(prefixesToBeAdded) > 0) {
+	if nw.ParentNetworkID != "" && (len(prefixesToBeRemoved) > 0 || len(prefixesToBeAdded) > 0) {
 		return errorutil.InvalidArgument("cannot change prefixes in child networks")
 	}
 

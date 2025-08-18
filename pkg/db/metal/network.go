@@ -21,7 +21,7 @@ type (
 		PartitionID                string            `rethinkdb:"partitionid"`
 		ProjectID                  string            `rethinkdb:"projectid"`
 		Namespace                  *string           `rethinkdb:"namespace" description:"if this is a namespaced private network, the namespace is stored here, otherwise nil"`
-		ParentNetwork              string            `rethinkdb:"parentnetworkid"`
+		ParentNetworkID            string            `rethinkdb:"parentnetworkid"`
 		Vrf                        uint              `rethinkdb:"vrf"`
 		Labels                     map[string]string `rethinkdb:"labels"`
 		AdditionalAnnouncableCIDRs []string          `rethinkdb:"additionalannouncablecidrs" description:"list of cidrs which are added to the route maps per tenant private network, these are typically pod- and service cidrs, can only be set in a supernetwork"`
