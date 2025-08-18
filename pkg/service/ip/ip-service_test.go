@@ -38,10 +38,10 @@ func Test_ipServiceServer_Get(t *testing.T) {
 			Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED,
 		},
 		{
-			Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD,
-			Name:            pointer.Pointer("private-1"),
-			Project:         pointer.Pointer("p1"),
-			ParentNetworkId: pointer.Pointer("tenant-super-namespaced"),
+			Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD,
+			Name:          pointer.Pointer("private-1"),
+			Project:       pointer.Pointer("p1"),
+			ParentNetwork: pointer.Pointer("tenant-super-namespaced"),
 		},
 	})
 	test.CreateIPs(t, repo, []*apiv2.IPServiceCreateRequest{
@@ -374,7 +374,7 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 	ips := []*apiv2.IPServiceCreateRequest{
 		{Name: pointer.Pointer("ip1"), Ip: pointer.Pointer("1.2.3.4"), Project: "p1", Network: "internet"},
 		{Name: pointer.Pointer("ip2"), Ip: pointer.Pointer("1.2.3.5"), Project: "p1", Network: "internet"},
-		{Name: pointer.Pointer("ip3"), Ip: pointer.Pointer("1.2.3.6"), Project: "p1", Network: "internet", MachineId: pointer.Pointer("abc")},
+		{Name: pointer.Pointer("ip3"), Ip: pointer.Pointer("1.2.3.6"), Project: "p1", Network: "internet", Machine: pointer.Pointer("abc")},
 		{Name: pointer.Pointer("ip4"), Ip: pointer.Pointer("2001:db8::1"), Project: "p2", Network: "internetv6", Labels: &apiv2.Labels{Labels: map[string]string{"color": "red"}}},
 		{Name: pointer.Pointer("ip5"), Ip: pointer.Pointer("2.3.4.5"), Project: "p2", Network: "n3"},
 	}
@@ -478,29 +478,29 @@ func Test_ipServiceServer_Create(t *testing.T) {
 	}
 	childNetworks := []*apiv2.NetworkServiceCreateRequest{
 		{
-			Name:            pointer.Pointer("private-v4"),
-			Project:         "p1",
-			ParentNetworkId: pointer.Pointer("tenant-network"),
+			Name:          pointer.Pointer("private-v4"),
+			Project:       "p1",
+			ParentNetwork: pointer.Pointer("tenant-network"),
 		},
 		{
-			Name:            pointer.Pointer("private-v6"),
-			Project:         "p1",
-			ParentNetworkId: pointer.Pointer("tenant-network-v6"),
+			Name:          pointer.Pointer("private-v6"),
+			Project:       "p1",
+			ParentNetwork: pointer.Pointer("tenant-network-v6"),
 		},
 		{
-			Name:            pointer.Pointer("private-dualstack"),
-			Project:         "p1",
-			ParentNetworkId: pointer.Pointer("tenant-network-dualstack"),
+			Name:          pointer.Pointer("private-dualstack"),
+			Project:       "p1",
+			ParentNetwork: pointer.Pointer("tenant-network-dualstack"),
 		},
 		{
-			Name:            pointer.Pointer("private-namespaced-1"),
-			Project:         "p1",
-			ParentNetworkId: pointer.Pointer("tenant-super-network-namespaced"),
+			Name:          pointer.Pointer("private-namespaced-1"),
+			Project:       "p1",
+			ParentNetwork: pointer.Pointer("tenant-super-network-namespaced"),
 		},
 		{
-			Name:            pointer.Pointer("private-namespaced-2"),
-			Project:         "p2",
-			ParentNetworkId: pointer.Pointer("tenant-super-network-namespaced"),
+			Name:          pointer.Pointer("private-namespaced-2"),
+			Project:       "p2",
+			ParentNetwork: pointer.Pointer("tenant-super-network-namespaced"),
 		},
 	}
 

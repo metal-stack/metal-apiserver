@@ -82,7 +82,7 @@ func (r *ratelimiter) limit(ctx context.Context, k string, maxRequestsPerMinute 
 }
 
 func keyFromToken(t *v1.Token) string {
-	return prefix + t.UserId + separator + t.Uuid + separator + strconv.Itoa(time.Now().Minute())
+	return prefix + t.User + separator + t.Uuid + separator + strconv.Itoa(time.Now().Minute())
 }
 
 func keyFromIP(ip string) string {
