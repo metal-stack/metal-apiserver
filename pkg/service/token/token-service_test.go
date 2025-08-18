@@ -57,7 +57,7 @@ func Test_tokenService_CreateConsoleTokenWithoutPermissionCheck(t *testing.T) {
 	require.NotNil(t, claims)
 
 	assert.NotEmpty(t, got.Msg.GetToken().GetUuid())
-	assert.Equal(t, "test", got.Msg.GetToken().GetUserId())
+	assert.Equal(t, "test", got.Msg.GetToken().GetUser())
 
 	// verifying keydb entry
 	err = tokenStore.Set(ctx, got.Msg.GetToken())
@@ -74,14 +74,14 @@ func Test_tokenService_CreateConsoleTokenWithoutPermissionCheck(t *testing.T) {
 	require.Len(t, tokenList.Msg.Tokens, 1)
 
 	// Check still present
-	_, err = tokenStore.Get(ctx, got.Msg.GetToken().GetUserId(), got.Msg.GetToken().GetUuid())
+	_, err = tokenStore.Get(ctx, got.Msg.GetToken().GetUser(), got.Msg.GetToken().GetUuid())
 	require.NoError(t, err)
 
 	// Check unpresent after revocation
-	err = tokenStore.Revoke(ctx, got.Msg.GetToken().GetUserId(), got.Msg.GetToken().GetUuid())
+	err = tokenStore.Revoke(ctx, got.Msg.GetToken().GetUser(), got.Msg.GetToken().GetUuid())
 	require.NoError(t, err)
 
-	_, err = tokenStore.Get(ctx, got.Msg.GetToken().GetUserId(), got.Msg.GetToken().GetUuid())
+	_, err = tokenStore.Get(ctx, got.Msg.GetToken().GetUser(), got.Msg.GetToken().GetUuid())
 	require.Error(t, err)
 
 	// List must now be empty
@@ -111,7 +111,7 @@ func Test_Create(t *testing.T) {
 		{
 			name: "can create bare token",
 			sessionToken: &apiv2.Token{
-				UserId:       "phippy",
+				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -123,7 +123,7 @@ func Test_Create(t *testing.T) {
 				adminSubjects: []string{},
 			},
 			wantToken: &apiv2.Token{
-				UserId:      "phippy",
+				User:        "phippy",
 				Description: "empty token",
 				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
 			},
@@ -131,7 +131,7 @@ func Test_Create(t *testing.T) {
 		{
 			name: "user and token without project access cannot create project token",
 			sessionToken: &apiv2.Token{
-				UserId:       "phippy",
+				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -152,7 +152,7 @@ func Test_Create(t *testing.T) {
 		{
 			name: "user and token with project access can create project token",
 			sessionToken: &apiv2.Token{
-				UserId:      "phippy",
+				User:        "phippy",
 				Permissions: []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
@@ -173,7 +173,7 @@ func Test_Create(t *testing.T) {
 				},
 			},
 			wantToken: &apiv2.Token{
-				UserId:      "phippy",
+				User:        "phippy",
 				Description: "project token",
 				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
 				ProjectRoles: map[string]apiv2.ProjectRole{
@@ -186,7 +186,7 @@ func Test_Create(t *testing.T) {
 		{
 			name: "user without but token with project access cannot create project token",
 			sessionToken: &apiv2.Token{
-				UserId:      "phippy",
+				User:        "phippy",
 				Permissions: []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
@@ -210,7 +210,7 @@ func Test_Create(t *testing.T) {
 		{
 			name: "project without but user with project access cannot create project token",
 			sessionToken: &apiv2.Token{
-				UserId:       "phippy",
+				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -234,7 +234,7 @@ func Test_Create(t *testing.T) {
 		{
 			name: "admin user and token can create new admin token",
 			sessionToken: &apiv2.Token{
-				UserId:       "phippy",
+				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -250,7 +250,7 @@ func Test_Create(t *testing.T) {
 				adminSubjects: []string{"phippy"},
 			},
 			wantToken: &apiv2.Token{
-				UserId:       "phippy",
+				User:         "phippy",
 				Description:  "admin token",
 				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				ProjectRoles: map[string]apiv2.ProjectRole{},
@@ -261,7 +261,7 @@ func Test_Create(t *testing.T) {
 		{
 			name: "admin token but not user cannot create new admin token",
 			sessionToken: &apiv2.Token{
-				UserId:       "phippy",
+				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -283,7 +283,7 @@ func Test_Create(t *testing.T) {
 		{
 			name: "user and token without tenant access cannot create tenant token",
 			sessionToken: &apiv2.Token{
-				UserId:       "phippy",
+				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -304,7 +304,7 @@ func Test_Create(t *testing.T) {
 		{
 			name: "user and token with tenant access can create tenant token",
 			sessionToken: &apiv2.Token{
-				UserId:       "phippy",
+				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles: map[string]apiv2.TenantRole{
@@ -325,7 +325,7 @@ func Test_Create(t *testing.T) {
 				},
 			},
 			wantToken: &apiv2.Token{
-				UserId:       "phippy",
+				User:         "phippy",
 				Description:  "project token",
 				TokenType:    *apiv2.TokenType_TOKEN_TYPE_API.Enum(),
 				ProjectRoles: map[string]apiv2.ProjectRole{},
@@ -337,7 +337,7 @@ func Test_Create(t *testing.T) {
 		{
 			name: "user without but token with tenant access cannot create tenant token",
 			sessionToken: &apiv2.Token{
-				UserId:       "phippy",
+				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles: map[string]apiv2.TenantRole{
@@ -361,7 +361,7 @@ func Test_Create(t *testing.T) {
 		{
 			name: "token without but user with tenant access cannot create tenant token",
 			sessionToken: &apiv2.Token{
-				UserId:       "phippy",
+				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 			},
@@ -437,7 +437,7 @@ func Test_Create(t *testing.T) {
 
 				got := response.Msg.Token
 				assert.Equal(t, tt.wantToken.Description, got.Description, "description")
-				assert.Equal(t, tt.wantToken.UserId, got.UserId, "user id")
+				assert.Equal(t, tt.wantToken.User, got.User, "user id")
 				assert.Equal(t, tt.wantToken.TokenType, got.TokenType, "token type")
 				assert.Equal(t, tt.wantToken.AdminRole, got.AdminRole, "admin role")
 				assert.Equal(t, tt.wantToken.Permissions, got.Permissions, "permissions")
@@ -774,7 +774,7 @@ func Test_validateTokenCreate(t *testing.T) {
 				"company-a@github",
 			},
 			token: &apiv2.Token{
-				UserId: "company-a@github",
+				User: "company-a@github",
 				TenantRoles: map[string]apiv2.TenantRole{
 					"company-a@github": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
@@ -820,14 +820,14 @@ func Test_Update(t *testing.T) {
 		{
 			name: "can update bare token",
 			sessionToken: &apiv2.Token{
-				UserId:       "phippy",
+				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
 			},
 			tokenToUpdate: &apiv2.Token{
 				Uuid:         "111",
-				UserId:       "phippy",
+				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -842,7 +842,7 @@ func Test_Update(t *testing.T) {
 			},
 			wantToken: &apiv2.Token{
 				Uuid:        "111",
-				UserId:      "phippy",
+				User:        "phippy",
 				Description: "update!",
 				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
 			},
@@ -850,14 +850,14 @@ func Test_Update(t *testing.T) {
 		{
 			name: "user and token without project access cannot update project token",
 			sessionToken: &apiv2.Token{
-				UserId:       "phippy",
+				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
 			},
 			tokenToUpdate: &apiv2.Token{
 				Uuid:         "111",
-				UserId:       "phippy",
+				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -878,7 +878,7 @@ func Test_Update(t *testing.T) {
 		{
 			name: "user and token with project access can update project token",
 			sessionToken: &apiv2.Token{
-				UserId:      "phippy",
+				User:        "phippy",
 				Permissions: []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
@@ -887,7 +887,7 @@ func Test_Update(t *testing.T) {
 			},
 			tokenToUpdate: &apiv2.Token{
 				Uuid:         "111",
-				UserId:       "phippy",
+				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -908,7 +908,7 @@ func Test_Update(t *testing.T) {
 			},
 			wantToken: &apiv2.Token{
 				Uuid:      "111",
-				UserId:    "phippy",
+				User:      "phippy",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
@@ -919,7 +919,7 @@ func Test_Update(t *testing.T) {
 		{
 			name: "user without but token with project access cannot update project token",
 			sessionToken: &apiv2.Token{
-				UserId:      "phippy",
+				User:        "phippy",
 				Permissions: []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
@@ -928,7 +928,7 @@ func Test_Update(t *testing.T) {
 			},
 			tokenToUpdate: &apiv2.Token{
 				Uuid:         "111",
-				UserId:       "phippy",
+				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -950,14 +950,14 @@ func Test_Update(t *testing.T) {
 		{
 			name: "project without but user with project access cannot create project token",
 			sessionToken: &apiv2.Token{
-				UserId:       "phippy",
+				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
 			},
 			tokenToUpdate: &apiv2.Token{
 				Uuid:         "111",
-				UserId:       "phippy",
+				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -981,7 +981,7 @@ func Test_Update(t *testing.T) {
 		{
 			name: "admin user and token can update admin token",
 			sessionToken: &apiv2.Token{
-				UserId:       "phippy",
+				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -989,7 +989,7 @@ func Test_Update(t *testing.T) {
 			},
 			tokenToUpdate: &apiv2.Token{
 				Uuid:         "111",
-				UserId:       "phippy",
+				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -1007,7 +1007,7 @@ func Test_Update(t *testing.T) {
 			},
 			wantToken: &apiv2.Token{
 				Uuid:         "111",
-				UserId:       "phippy",
+				User:         "phippy",
 				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -1017,7 +1017,7 @@ func Test_Update(t *testing.T) {
 		{
 			name: "admin token but user cannot update admin token",
 			sessionToken: &apiv2.Token{
-				UserId:       "phippy",
+				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -1025,7 +1025,7 @@ func Test_Update(t *testing.T) {
 			},
 			tokenToUpdate: &apiv2.Token{
 				Uuid:      "111",
-				UserId:    "phippy",
+				User:      "phippy",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 			},
 			req: &apiv2.TokenServiceUpdateRequest{
@@ -1042,14 +1042,14 @@ func Test_Update(t *testing.T) {
 		{
 			name: "user and token without tenant access cannot update tenant token",
 			sessionToken: &apiv2.Token{
-				UserId:       "phippy",
+				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
 			},
 			tokenToUpdate: &apiv2.Token{
 				Uuid:      "111",
-				UserId:    "phippy",
+				User:      "phippy",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 			},
 			req: &apiv2.TokenServiceUpdateRequest{
@@ -1068,7 +1068,7 @@ func Test_Update(t *testing.T) {
 		{
 			name: "user and token with tenant access can update tenant token",
 			sessionToken: &apiv2.Token{
-				UserId:       "phippy",
+				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles: map[string]apiv2.TenantRole{
@@ -1077,7 +1077,7 @@ func Test_Update(t *testing.T) {
 			},
 			tokenToUpdate: &apiv2.Token{
 				Uuid:         "111",
-				UserId:       "phippy",
+				User:         "phippy",
 				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
@@ -1098,7 +1098,7 @@ func Test_Update(t *testing.T) {
 			},
 			wantToken: &apiv2.Token{
 				Uuid:         "111",
-				UserId:       "phippy",
+				User:         "phippy",
 				TokenType:    *apiv2.TokenType_TOKEN_TYPE_API.Enum(),
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles: map[string]apiv2.TenantRole{
@@ -1109,7 +1109,7 @@ func Test_Update(t *testing.T) {
 		{
 			name: "user without but token with tenant access cannot update tenant token",
 			sessionToken: &apiv2.Token{
-				UserId:       "phippy",
+				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles: map[string]apiv2.TenantRole{
@@ -1118,7 +1118,7 @@ func Test_Update(t *testing.T) {
 			},
 			tokenToUpdate: &apiv2.Token{
 				Uuid:      "111",
-				UserId:    "phippy",
+				User:      "phippy",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 			},
 			req: &apiv2.TokenServiceUpdateRequest{
@@ -1138,13 +1138,13 @@ func Test_Update(t *testing.T) {
 		{
 			name: "token without but user with tenant access cannot update tenant token",
 			sessionToken: &apiv2.Token{
-				UserId:       "phippy",
+				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 			},
 			tokenToUpdate: &apiv2.Token{
 				Uuid:      "111",
-				UserId:    "phippy",
+				User:      "phippy",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 			},
 			req: &apiv2.TokenServiceUpdateRequest{
@@ -1167,7 +1167,7 @@ func Test_Update(t *testing.T) {
 		{
 			name: "token does not exist in database",
 			sessionToken: &apiv2.Token{
-				UserId:      "phippy",
+				User:        "phippy",
 				Permissions: []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
@@ -1175,7 +1175,7 @@ func Test_Update(t *testing.T) {
 			},
 			tokenToUpdate: &apiv2.Token{
 				Uuid:      "111",
-				UserId:    "phippy",
+				User:      "phippy",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 			},
 			req: &apiv2.TokenServiceUpdateRequest{
@@ -1251,7 +1251,7 @@ func Test_Update(t *testing.T) {
 				got := response.Msg.Token
 				assert.Equal(t, tt.wantToken.Uuid, got.Uuid, "uuid")
 				assert.Equal(t, tt.wantToken.Description, got.Description, "description")
-				assert.Equal(t, tt.wantToken.UserId, got.UserId, "user id")
+				assert.Equal(t, tt.wantToken.User, got.User, "user id")
 				assert.Equal(t, tt.wantToken.TokenType, got.TokenType, "token type")
 				assert.Equal(t, tt.wantToken.AdminRole, got.AdminRole, "admin role")
 				assert.Equal(t, tt.wantToken.Permissions, got.Permissions, "permissions")
@@ -1282,7 +1282,7 @@ func Test_Refresh(t *testing.T) {
 		{
 			name: "can update bare token",
 			sessionToken: &apiv2.Token{
-				UserId:       "phippy",
+				User:         "phippy",
 				Uuid:         "111",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
@@ -1290,7 +1290,7 @@ func Test_Refresh(t *testing.T) {
 			},
 			existingToken: &apiv2.Token{
 				Uuid:         "111",
-				UserId:       "phippy",
+				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -1303,7 +1303,7 @@ func Test_Refresh(t *testing.T) {
 			},
 			wantToken: &apiv2.Token{
 				Uuid:         "111",
-				UserId:       "phippy",
+				User:         "phippy",
 				Permissions:  nil,
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -1316,7 +1316,7 @@ func Test_Refresh(t *testing.T) {
 		{
 			name: "token does not exist in database",
 			sessionToken: &apiv2.Token{
-				UserId:      "phippy",
+				User:        "phippy",
 				Permissions: []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
@@ -1386,7 +1386,7 @@ func Test_Refresh(t *testing.T) {
 
 			default:
 				got := response.Msg.Token
-				assert.Equal(t, tt.wantToken.UserId, got.UserId, "userId")
+				assert.Equal(t, tt.wantToken.User, got.User, "userId")
 				assert.Equal(t, tt.wantToken.Description, got.Description, "description")
 				assert.Equal(t, tt.wantToken.TokenType, got.TokenType, "token type")
 				assert.Equal(t, tt.wantToken.AdminRole, got.AdminRole, "admin role")

@@ -566,8 +566,8 @@ func Test_service_InviteAccept(t *testing.T) {
 				Secret: secret,
 			},
 			token: &apiv2.Token{
-				Uuid:   "123",
-				UserId: "new-member",
+				Uuid: "123",
+				User: "new-member",
 			},
 			tenantServiceMock: func(mock *tmock.Mock) {
 				mock.On("Get", tmock.Anything, &mdmv1.TenantGetRequest{Id: "new-member"}).Return(&mdmv1.TenantResponse{Tenant: &mdmv1.Tenant{

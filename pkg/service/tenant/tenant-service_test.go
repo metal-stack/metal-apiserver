@@ -123,7 +123,7 @@ func Test_service_Create(t *testing.T) {
 			tokenStore := token.NewRedisStore(c)
 
 			ctx := token.ContextWithToken(t.Context(), &apiv1.Token{
-				UserId: "original-owner",
+				User: "original-owner",
 			})
 
 			s := &tenantServiceServer{
@@ -283,14 +283,14 @@ func Test_service_Get(t *testing.T) {
 					{
 						Id:   "me",
 						Role: 1,
-						ProjectIds: []string{
+						Projects: []string{
 							"1",
 						},
 					},
 					{
 						Id:   "guest",
 						Role: 4,
-						ProjectIds: []string{
+						Projects: []string{
 							"1",
 						},
 					},
@@ -426,8 +426,8 @@ func Test_service_InviteAccept(t *testing.T) {
 				Secret: secret,
 			},
 			token: &apiv1.Token{
-				Uuid:   "123",
-				UserId: "new-member",
+				Uuid: "123",
+				User: "new-member",
 			},
 			tenantServiceMock: func(mock *tmock.Mock) {
 				mock.On("Get", tmock.Anything, &mdmv1.TenantGetRequest{Id: "new-member"}).Return(&mdmv1.TenantResponse{Tenant: &mdmv1.Tenant{

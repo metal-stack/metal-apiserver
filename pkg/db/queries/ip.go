@@ -64,8 +64,8 @@ func IpFilter(rq *apiv2.IPQuery) func(q r.Term) r.Term {
 			})
 		}
 
-		if rq.MachineId != nil {
-			tag := fmt.Sprintf("%s=%s", tag.MachineID, *rq.MachineId)
+		if rq.Machine != nil {
+			tag := fmt.Sprintf("%s=%s", tag.MachineID, *rq.Machine)
 			q = q.Filter(func(row r.Term) r.Term {
 				return row.Field("tags").Contains(r.Expr(tag))
 			})
