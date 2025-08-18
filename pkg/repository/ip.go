@@ -64,8 +64,8 @@ func (r *ipRepository) create(ctx context.Context, req *apiv2.IPServiceCreateReq
 		tags = tag.TagMap(req.Labels.Labels).Slice()
 	}
 
-	if req.MachineId != nil {
-		tags = append(tags, tag.New(tag.MachineID, *req.MachineId))
+	if req.Machine != nil {
+		tags = append(tags, tag.New(tag.MachineID, *req.Machine))
 	}
 	// Ensure no duplicates
 	tags = tag.NewTagMap(tags).Slice()
@@ -81,7 +81,7 @@ func (r *ipRepository) create(ctx context.Context, req *apiv2.IPServiceCreateReq
 
 	// for private, unshared networks the project id must be the same
 	// for external networks the project id is not checked
-	// if !nw.Shared && nw.ParentNetworkID != "" && p.Meta.Id != nw.ProjectID {
+	// if !nw.Shared && nw.ParentNetwork != "" && p.Meta.Id != nw.ProjectID {
 	if nw.ProjectID != req.Project {
 		switch *nw.NetworkType {
 		case metal.NetworkTypeChildShared, metal.NetworkTypeExternal:

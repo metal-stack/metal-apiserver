@@ -11,8 +11,8 @@ import (
 type token struct {
 	// Uuid of the jwt token, used to reference it by revoke
 	Uuid string `json:"uuid,omitempty"`
-	// UserId who created this token
-	UserId string `json:"user_id,omitempty"`
+	// User who created this token
+	User string `json:"user,omitempty"`
 	// Description is a user given description of this token.
 	Description string `json:"description,omitempty"`
 	// Permissions is a list of service methods this token can be used for
@@ -78,7 +78,7 @@ func toInternal(t *v1.Token) *token {
 
 	return &token{
 		Uuid:         t.Uuid,
-		UserId:       t.UserId,
+		User:         t.User,
 		Description:  t.Description,
 		Permissions:  permissions,
 		Expires:      expires,
@@ -129,7 +129,7 @@ func toExternal(t *token) *v1.Token {
 
 	return &v1.Token{
 		Uuid:         t.Uuid,
-		UserId:       t.UserId,
+		User:         t.User,
 		Description:  t.Description,
 		Permissions:  permissions,
 		Expires:      expires,

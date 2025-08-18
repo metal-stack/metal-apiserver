@@ -62,7 +62,7 @@ service_allowed if {
 	is_self_service
 
 	not input.permissions # if no permissions given (that means the key does not exist at all!), we only respect roles
-	input.tenant_roles[input.token.user_id] == "TENANT_ROLE_OWNER" # only owner role may visit self
+	input.tenant_roles[input.token.user] == "TENANT_ROLE_OWNER" # only owner role may visit self
 }
 
 service_allowed if {

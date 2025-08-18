@@ -36,15 +36,15 @@ func (n *networkServiceServer) Create(ctx context.Context, rq *connect.Request[a
 	r := rq.Msg
 
 	req := &adminv2.NetworkServiceCreateRequest{
-		Project:         &r.Project,
-		Name:            r.Name,
-		Description:     r.Description,
-		Partition:       r.Partition,
-		ParentNetworkId: r.ParentNetworkId,
-		Labels:          r.Labels,
-		Length:          r.Length,
-		AddressFamily:   r.AddressFamily,
-		Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD, // Non Admins can only create Child Networks
+		Project:       &r.Project,
+		Name:          r.Name,
+		Description:   r.Description,
+		Partition:     r.Partition,
+		ParentNetwork: r.ParentNetwork,
+		Labels:        r.Labels,
+		Length:        r.Length,
+		AddressFamily: r.AddressFamily,
+		Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD, // Non Admins can only create Child Networks
 	}
 
 	created, err := n.repo.Network(r.Project).Create(ctx, req)

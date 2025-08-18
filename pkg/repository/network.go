@@ -129,7 +129,7 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 
 	switch req.Type {
 	case apiv2.NetworkType_NETWORK_TYPE_CHILD, apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED:
-		childPrefixes, parent, err := r.allocateChildPrefixes(ctx, req.Project, req.ParentNetworkId, req.Partition, req.Length, req.AddressFamily)
+		childPrefixes, parent, err := r.allocateChildPrefixes(ctx, req.Project, req.ParentNetwork, req.Partition, req.Length, req.AddressFamily)
 		if err != nil {
 			return nil, err
 		}
@@ -244,7 +244,7 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 			Description: description,
 		},
 		Prefixes:                   prefixes,
-		ParentNetworkID:            pointer.SafeDeref(req.ParentNetworkId),
+		ParentNetworkID:            pointer.SafeDeref(req.ParentNetwork),
 		DestinationPrefixes:        destPrefixes,
 		DefaultChildPrefixLength:   defaultChildPrefixLength,
 		MinChildPrefixLength:       minChildPrefixLength,
@@ -446,7 +446,7 @@ func (r *networkRepository) convertToProto(e *metal.Network) (*apiv2.Network, er
 		Prefixes:                   e.Prefixes.String(),
 		DestinationPrefixes:        e.DestinationPrefixes.String(),
 		Vrf:                        pointer.PointerOrNil(uint32(e.Vrf)),
-		ParentNetworkId:            pointer.PointerOrNil(e.ParentNetworkID),
+		ParentNetwork:              pointer.PointerOrNil(e.ParentNetworkID),
 		AdditionalAnnouncableCidrs: e.AdditionalAnnouncableCIDRs,
 		Meta: &apiv2.Meta{
 			Labels:    labels,

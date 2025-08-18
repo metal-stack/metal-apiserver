@@ -61,7 +61,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 				return err
 			},
 			token: &apiv2.Token{
-				UserId:    "john@github",
+				User:      "john@github",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				AdminRole: nil,
 			},
@@ -99,8 +99,8 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 				return err
 			},
 			token: &apiv2.Token{
-				Uuid:   "a-uuid",
-				UserId: "user@github",
+				Uuid: "a-uuid",
+				User: "user@github",
 			},
 			method:  "/metalstack.api.v2.ProjectService/List",
 			handler: handler[apiv2.ProjectServiceListRequest, apiv2.ProjectServiceListResponse](),
@@ -127,7 +127,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 				return err
 			},
 			token: &apiv2.Token{
-				UserId: "user@github",
+				User: "user@github",
 			},
 			method:  "/metalstack.api.v2.IPService/Get",
 			handler: handler[apiv2.IPServiceGetRequest, apiv2.IPServiceGetResponse](),
@@ -160,7 +160,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 				return err
 			},
 			token: &apiv2.Token{
-				UserId: "user@github",
+				User: "user@github",
 			},
 			method:  "/metalstack.api.v2.TenantService/Get",
 			handler: handler[apiv2.TenantServiceGetRequest, apiv2.TenantServiceGetResponse](),
@@ -185,7 +185,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 				return err
 			},
 			token: &apiv2.Token{
-				UserId: "user@github",
+				User: "user@github",
 			},
 			method:  "/metalstack.admin.v2.TenantService/List",
 			handler: handler[adminv2.TenantServiceListRequest, adminv2.TenantServiceListResponse](),
