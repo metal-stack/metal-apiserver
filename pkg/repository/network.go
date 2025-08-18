@@ -554,21 +554,21 @@ func (r *networkRepository) calculatePrefixDifferences(existingNetwork *metal.Ne
 	return toRemoved, toAdded, nil
 }
 
-func (r *networkRepository) allocateChildPrefixes(ctx context.Context, projectId, ParentNetwork, partitionId *string, requestedLength *apiv2.ChildPrefixLength, af *apiv2.NetworkAddressFamily) (metal.Prefixes, *metal.Network, error) {
+func (r *networkRepository) allocateChildPrefixes(ctx context.Context, projectId, parentNetworkId, partitionId *string, requestedLength *apiv2.ChildPrefixLength, af *apiv2.NetworkAddressFamily) (metal.Prefixes, *metal.Network, error) {
 	var (
 		prefixes  metal.Prefixes
 		parent    *metal.Network
 		namespace *string
 	)
 
-	if ParentNetwork != nil {
-		r.s.log.Info("get network", "parent", *ParentNetwork)
-		p, err := r.s.UnscopedNetwork().Get(ctx, *ParentNetwork)
+	if parentNetworkId != nil {
+		r.s.log.Info("get network", "parent", *parentNetworkId)
+		p, err := r.s.UnscopedNetwork().Get(ctx, *parentNetworkId)
 		if err != nil {
-			return nil, nil, errorutil.InvalidArgument("unable to find a super network with id:%s %w", *ParentNetwork, err)
+			return nil, nil, errorutil.InvalidArgument("unable to find a super network with id:%s %w", *parentNetworkId, err)
 		}
 		if p.NetworkType == nil {
-			return nil, nil, errorutil.InvalidArgument("parent network with id:%s does not have a networktype set", *ParentNetwork)
+			return nil, nil, errorutil.InvalidArgument("parent network with id:%s does not have a networktype set", *parentNetworkId)
 		}
 		switch *p.NetworkType {
 		case metal.NetworkTypeSuper:
@@ -576,7 +576,7 @@ func (r *networkRepository) allocateChildPrefixes(ctx context.Context, projectId
 		case metal.NetworkTypeSuperNamespaced:
 			namespace = projectId
 		default:
-			return nil, nil, errorutil.InvalidArgument("parent network with id:%s is not a valid super network but has type:%s", *ParentNetwork, *p.NetworkType)
+			return nil, nil, errorutil.InvalidArgument("parent network with id:%s is not a valid super network but has type:%s", *parentNetworkId, *p.NetworkType)
 		}
 		parent = p
 	} else {
