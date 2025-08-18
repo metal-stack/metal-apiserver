@@ -340,9 +340,13 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 		lastEventTime = timestamppb.New(*event.LastEventTime)
 	}
 	if event.LastErrorEvent != nil {
+		eventType, err := enum.GetEnum[apiv2.MachineProvisioningEventType](event.LastErrorEvent.Message)
+		if err != nil {
+			return nil, err
+		}
 		lastErrorEvent = &apiv2.MachineProvisioningEvent{
 			Time:  timestamppb.New(event.LastErrorEvent.Time),
-			Event: event.LastErrorEvent.Message,
+			Event: eventType,
 		}
 		state, err = enum.GetEnum[apiv2.MachineProvisioningEventState](strings.ToLower(string(event.LastErrorEvent.Event)))
 		if err != nil {
@@ -351,10 +355,14 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 	}
 
 	for _, e := range event.Events {
+		eventType, err := enum.GetEnum[apiv2.MachineProvisioningEventType](string(e.Event))
+		if err != nil {
+			return nil, err
+		}
+
 		events = append(events, &apiv2.MachineProvisioningEvent{
-			Time: timestamppb.New(e.Time),
-			// FIXME this must be a enum in apiv2
-			Event:   string(e.Event),
+			Time:    timestamppb.New(e.Time),
+			Event:   eventType,
 			Message: e.Message,
 		})
 	}

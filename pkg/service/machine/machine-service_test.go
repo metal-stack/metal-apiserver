@@ -72,7 +72,7 @@ func Test_machineServiceServer_Get(t *testing.T) {
 					Hardware:  &apiv2.MachineHardware{},
 					Size:      &apiv2.Size{Id: "c1-large-x86", Meta: &apiv2.Meta{}},
 					RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
-						Events: []*apiv2.MachineProvisioningEvent{{Event: "Alive", Message: "machine created for test"}},
+						Events: []*apiv2.MachineProvisioningEvent{{Event: apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_ALIVE, Message: "machine created for test"}},
 					},
 					Status: &apiv2.MachineStatus{
 						Condition:  &apiv2.MachineCondition{},
@@ -177,7 +177,7 @@ func Test_machineServiceServer_List(t *testing.T) {
 						Hardware:  &apiv2.MachineHardware{},
 						Size:      &apiv2.Size{Id: "c1-large-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 8, Max: 8}}},
 						RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
-							Events: []*apiv2.MachineProvisioningEvent{{Event: "Alive", Message: "machine created for test"}},
+							Events: []*apiv2.MachineProvisioningEvent{{Event: apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_ALIVE, Message: "machine created for test"}},
 						},
 						Status: &apiv2.MachineStatus{
 							Condition:  &apiv2.MachineCondition{},
@@ -215,7 +215,7 @@ func Test_machineServiceServer_List(t *testing.T) {
 						Hardware:  &apiv2.MachineHardware{},
 						Size:      &apiv2.Size{Id: "c1-large-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 8, Max: 8}}},
 						RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
-							Events: []*apiv2.MachineProvisioningEvent{{Event: "Alive", Message: "machine created for test"}},
+							Events: []*apiv2.MachineProvisioningEvent{{Event: apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_ALIVE, Message: "machine created for test"}},
 						},
 						Status: &apiv2.MachineStatus{
 							Condition:  &apiv2.MachineCondition{},
@@ -360,7 +360,7 @@ func Test_machineServiceServer_Update(t *testing.T) {
 					Hardware:  &apiv2.MachineHardware{},
 					Size:      &apiv2.Size{Id: "c1-medium-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4}}},
 					RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
-						Events: []*apiv2.MachineProvisioningEvent{{Event: "Alive", Message: "machine created for test"}},
+						Events: []*apiv2.MachineProvisioningEvent{{Event: apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_ALIVE, Message: "machine created for test"}},
 					},
 					Status: &apiv2.MachineStatus{
 						Condition:  &apiv2.MachineCondition{},
@@ -400,7 +400,7 @@ func Test_machineServiceServer_Update(t *testing.T) {
 					Hardware:  &apiv2.MachineHardware{},
 					Size:      &apiv2.Size{Id: "c1-medium-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4}}},
 					RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
-						Events: []*apiv2.MachineProvisioningEvent{{Event: "Alive", Message: "machine created for test"}},
+						Events: []*apiv2.MachineProvisioningEvent{{Event: apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_ALIVE, Message: "machine created for test"}},
 					},
 					Status: &apiv2.MachineStatus{
 						Condition:  &apiv2.MachineCondition{},
