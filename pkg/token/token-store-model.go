@@ -12,7 +12,7 @@ type token struct {
 	// Uuid of the jwt token, used to reference it by revoke
 	Uuid string `json:"uuid,omitempty"`
 	// User who created this token
-	User string `json:"user_id,omitempty"`
+	User string `json:"user,omitempty"`
 	// Description is a user given description of this token.
 	Description string `json:"description,omitempty"`
 	// Permissions is a list of service methods this token can be used for
