@@ -99,15 +99,15 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 		return errorutil.NewInvalidArgument(errors.Join(errs...))
 	}
 
-	if req.Partition != nil && req.ParentNetworkId != nil {
+	if req.Partition != nil && req.ParentNetwork != nil {
 		return errorutil.InvalidArgument("if parent network id is specified, partition must be nil")
 	}
 
 	var (
 		parentNetwork *metal.Network
 	)
-	if req.ParentNetworkId != nil {
-		parent, err := r.s.UnscopedNetwork().Get(ctx, *req.ParentNetworkId)
+	if req.ParentNetwork != nil {
+		parent, err := r.s.UnscopedNetwork().Get(ctx, *req.ParentNetwork)
 		if err != nil {
 			return errorutil.Convert(fmt.Errorf("unable to retrieve parent network: %w", err))
 		}
@@ -117,7 +117,7 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 		}
 
 		if parent.ProjectID != "" && parent.ProjectID != *req.Project {
-			return errorutil.InvalidArgument("not allowed to create child network with project %s in network %s scoped to project %s", *req.Project, *req.ParentNetworkId, parent.ProjectID)
+			return errorutil.InvalidArgument("not allowed to create child network with project %s in network %s scoped to project %s", *req.Project, *req.ParentNetwork, parent.ProjectID)
 		}
 
 		parentNetwork = parent
@@ -213,7 +213,7 @@ func (r *networkRepository) validateCreateNetworkTypeSuper(ctx context.Context, 
 	errs = validate(errs, req.Prefixes != nil, "prefixes must not be nil")
 	errs = validate(errs, req.DefaultChildPrefixLength != nil, "default child prefix length must not be nil")
 
-	errs = validate(errs, req.ParentNetworkId == nil, "parent network id must be nil")
+	errs = validate(errs, req.ParentNetwork == nil, "parent network id must be nil")
 	errs = validate(errs, req.AddressFamily == nil, "addressfamily must be nil")
 	errs = validate(errs, req.Length == nil, "length must be nil")
 
@@ -281,7 +281,7 @@ func (r *networkRepository) validateCreateNetworkTypeExternal(ctx context.Contex
 	errs = validate(errs, req.Prefixes != nil, "prefixes must not be nil")
 	errs = validate(errs, req.Vrf != nil, "vrf must not be nil")
 
-	errs = validate(errs, req.ParentNetworkId == nil, "parent network id must be nil")
+	errs = validate(errs, req.ParentNetwork == nil, "parent network id must be nil")
 	errs = validate(errs, req.AddressFamily == nil, "addressfamily must be nil")
 	errs = validate(errs, req.Length == nil, "length must be nil")
 	errs = validate(errs, req.AdditionalAnnouncableCidrs == nil, "additional announcable cidrs must be nil")
@@ -332,7 +332,7 @@ func (r *networkRepository) validateCreateNetworkTypeUnderlay(ctx context.Contex
 
 	errs = validate(errs, req.Project == nil, "project must be nil")
 	errs = validate(errs, req.Vrf == nil, "vrf must be nil")
-	errs = validate(errs, req.ParentNetworkId == nil, "parent network id must be nil")
+	errs = validate(errs, req.ParentNetwork == nil, "parent network id must be nil")
 	errs = validate(errs, req.AddressFamily == nil, "addressfamily must be nil")
 	errs = validate(errs, req.Length == nil, "length must be nil")
 	errs = validate(errs, req.DestinationPrefixes == nil, "destination prefixes must be nil")
@@ -393,7 +393,7 @@ func (r *networkRepository) prefixesOverlapping(ctx context.Context, prefixes []
 	)
 
 	for _, nw := range allNetworks {
-		if nw.ParentNetworkID != "" {
+		if nw.ParentNetwork != "" {
 			// as we check the super networks this includes the child networks automatically
 			// theoretically it would be nice to filter them out directly in the database query
 			continue
@@ -513,10 +513,10 @@ func (r *networkRepository) validateUpdate(ctx context.Context, req *adminv2.Net
 		return errorutil.Convert(err)
 	}
 
-	r.s.log.Debug("validate update", "parent", nw.ParentNetworkID, "prefixes to remove", prefixesToBeRemoved, "prefixes to add", prefixesToBeAdded)
+	r.s.log.Debug("validate update", "parent", nw.ParentNetwork, "prefixes to remove", prefixesToBeRemoved, "prefixes to add", prefixesToBeAdded)
 
 	// Do not allow to change prefixes on child networks
-	if nw.ParentNetworkID != "" && (len(prefixesToBeRemoved) > 0 || len(prefixesToBeAdded) > 0) {
+	if nw.ParentNetwork != "" && (len(prefixesToBeRemoved) > 0 || len(prefixesToBeAdded) > 0) {
 		return errorutil.InvalidArgument("cannot change prefixes in child networks")
 	}
 
@@ -573,7 +573,7 @@ func (r *networkRepository) arePrefixesEmpty(ctx context.Context, prefixes metal
 }
 
 func (r *networkRepository) validateDelete(ctx context.Context, nw *metal.Network) error {
-	children, err := r.list(ctx, &apiv2.NetworkQuery{ParentNetworkId: &nw.ID})
+	children, err := r.list(ctx, &apiv2.NetworkQuery{ParentNetwork: &nw.ID})
 	if err != nil {
 		return err
 	}

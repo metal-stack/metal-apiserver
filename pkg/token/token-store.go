@@ -54,7 +54,7 @@ func (r *redisStore) Set(ctx context.Context, token *v1.Token) error {
 		return fmt.Errorf("unable to encode token: %w", err)
 	}
 
-	_, err = r.client.Set(ctx, key(token.UserId, token.Uuid), string(encoded), time.Until(token.Expires.AsTime())).Result()
+	_, err = r.client.Set(ctx, key(token.User, token.Uuid), string(encoded), time.Until(token.Expires.AsTime())).Result()
 	if err != nil {
 		return err
 	}

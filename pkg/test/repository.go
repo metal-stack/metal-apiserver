@@ -144,15 +144,15 @@ func AllocateNetworks(t *testing.T, repo *repository.Store, nws []*apiv2.Network
 	for _, nw := range nws {
 
 		req := &adminv2.NetworkServiceCreateRequest{
-			Project:         &nw.Project,
-			Name:            nw.Name,
-			Description:     nw.Description,
-			Partition:       nw.Partition,
-			ParentNetworkId: nw.ParentNetworkId,
-			Labels:          nw.Labels,
-			Length:          nw.Length,
-			AddressFamily:   nw.AddressFamily,
-			Type:            apiv2.NetworkType_NETWORK_TYPE_CHILD, // Non Admins can only create Child Networks
+			Project:       &nw.Project,
+			Name:          nw.Name,
+			Description:   nw.Description,
+			Partition:     nw.Partition,
+			ParentNetwork: nw.ParentNetwork,
+			Labels:        nw.Labels,
+			Length:        nw.Length,
+			AddressFamily: nw.AddressFamily,
+			Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD, // Non Admins can only create Child Networks
 		}
 
 		resp, err := repo.UnscopedNetwork().Create(t.Context(), req)

@@ -60,9 +60,9 @@ func NetworkFilter(rq *apiv2.NetworkQuery) func(q r.Term) r.Term {
 			})
 		}
 
-		if rq.ParentNetworkId != nil {
+		if rq.ParentNetwork != nil {
 			q = q.Filter(func(row r.Term) r.Term {
-				return row.Field("parentnetworkid").Eq(*rq.ParentNetworkId)
+				return row.Field("ParentNetwork").Eq(*rq.ParentNetwork)
 			})
 		}
 		if rq.Vrf != nil {

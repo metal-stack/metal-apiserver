@@ -62,7 +62,7 @@ func (u *tenantServiceServer) List(ctx context.Context, rq *connect.Request[apiv
 		result []*apiv2.Tenant
 	)
 
-	projectsAndTenants, err := putil.GetProjectsAndTenants(ctx, u.masterClient, token.UserId)
+	projectsAndTenants, err := putil.GetProjectsAndTenants(ctx, u.masterClient, token.User)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("error retrieving tenants from backend: %w", err))
 	}
@@ -93,11 +93,11 @@ func (u *tenantServiceServer) Create(ctx context.Context, rq *connect.Request[ap
 	}
 
 	resp, err := u.masterClient.Tenant().Get(ctx, &mdcv1.TenantGetRequest{
-		Id: t.UserId,
+		Id: t.User,
 	})
 	if err != nil {
 		if mdcv1.IsNotFound(err) {
-			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no tenant found with id %q: %w", t.UserId, err))
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no tenant found with id %q: %w", t.User, err))
 		}
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -114,7 +114,7 @@ func (u *tenantServiceServer) Create(ctx context.Context, rq *connect.Request[ap
 
 	ann := map[string]string{
 		tutil.TagEmail:   email,
-		tutil.TagCreator: t.UserId,
+		tutil.TagCreator: t.User,
 	}
 
 	if req.AvatarUrl != nil {
@@ -142,7 +142,7 @@ func (u *tenantServiceServer) Create(ctx context.Context, rq *connect.Request[ap
 					tutil.TenantRoleAnnotation: apiv2.TenantRole_TENANT_ROLE_OWNER.String(),
 				},
 			},
-			MemberId: t.UserId,
+			MemberId: t.User,
 			TenantId: tcr.Tenant.Meta.Id,
 		},
 	})
@@ -213,10 +213,10 @@ func (u *tenantServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2
 		}
 
 		tenantMembers = append(tenantMembers, &apiv2.TenantMember{
-			Id:         member.Tenant.Meta.Id,
-			Role:       tenantRole,
-			CreatedAt:  member.Tenant.Meta.CreatedTime,
-			ProjectIds: member.ProjectIds,
+			Id:        member.Tenant.Meta.Id,
+			Role:      tenantRole,
+			CreatedAt: member.Tenant.Meta.CreatedTime,
+			Projects:  member.ProjectIds,
 		})
 
 	}
@@ -269,7 +269,7 @@ func (u *tenantServiceServer) Delete(ctx context.Context, rq *connect.Request[ap
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
 	}
 
-	if t.UserId == req.Login {
+	if t.User == req.Login {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("the personal tenant (default-tenant) cannot be deleted"))
 	}
 
@@ -311,10 +311,10 @@ func (u *tenantServiceServer) Invite(ctx context.Context, rq *connect.Request[ap
 	}
 
 	invitee, err := u.masterClient.Tenant().Get(ctx, &mdcv1.TenantGetRequest{
-		Id: t.UserId,
+		Id: t.User,
 	})
 	if err != nil {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no tenant: %q found %w", t.UserId, err))
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no tenant: %q found %w", t.User, err))
 	}
 
 	secret, err := invite.GenerateInviteSecret()
@@ -370,10 +370,10 @@ func (u *tenantServiceServer) InviteAccept(ctx context.Context, rq *connect.Requ
 	}
 
 	tgr, err := u.masterClient.Tenant().Get(ctx, &mdcv1.TenantGetRequest{
-		Id: t.UserId,
+		Id: t.User,
 	})
 	if err != nil {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no account: %q found %w", t.UserId, err))
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no account: %q found %w", t.User, err))
 	}
 
 	invitee := tgr.Tenant
@@ -465,7 +465,7 @@ func (u *tenantServiceServer) RemoveMember(ctx context.Context, rq *connect.Requ
 		req = rq.Msg
 	)
 
-	membership, err := tutil.GetTenantMember(ctx, u.masterClient, req.Login, req.MemberId)
+	membership, err := tutil.GetTenantMember(ctx, u.masterClient, req.Login, req.Member)
 	if err != nil {
 		return nil, err
 	}
@@ -497,7 +497,7 @@ func (u *tenantServiceServer) UpdateMember(ctx context.Context, rq *connect.Requ
 		req = rq.Msg
 	)
 
-	membership, err := tutil.GetTenantMember(ctx, u.masterClient, req.Login, req.MemberId)
+	membership, err := tutil.GetTenantMember(ctx, u.masterClient, req.Login, req.Member)
 	if err != nil {
 		return nil, err
 	}
@@ -528,7 +528,7 @@ func (u *tenantServiceServer) UpdateMember(ctx context.Context, rq *connect.Requ
 	}
 
 	return connect.NewResponse(&apiv2.TenantServiceUpdateMemberResponse{TenantMember: &apiv2.TenantMember{
-		Id:        req.MemberId,
+		Id:        req.Member,
 		Role:      req.Role,
 		CreatedAt: updatedMember.TenantMember.Meta.CreatedTime,
 	}}), nil

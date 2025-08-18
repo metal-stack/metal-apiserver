@@ -129,7 +129,7 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 
 	switch req.Type {
 	case apiv2.NetworkType_NETWORK_TYPE_CHILD, apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED:
-		childPrefixes, parent, err := r.allocateChildPrefixes(ctx, req.Project, req.ParentNetworkId, req.Partition, req.Length, req.AddressFamily)
+		childPrefixes, parent, err := r.allocateChildPrefixes(ctx, req.Project, req.ParentNetwork, req.Partition, req.Length, req.AddressFamily)
 		if err != nil {
 			return nil, err
 		}
@@ -178,7 +178,7 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 			Underlay:            false,
 			Shared:              shared,
 			Vrf:                 vrf,
-			ParentNetworkID:     parent.ID,
+			ParentNetwork:       parent.ID,
 			Labels:              labels,
 			NATType:             parent.NATType,
 			NetworkType:         &networkType,
@@ -244,7 +244,7 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 			Description: description,
 		},
 		Prefixes:                   prefixes,
-		ParentNetworkID:            pointer.SafeDeref(req.ParentNetworkId),
+		ParentNetwork:              pointer.SafeDeref(req.ParentNetwork),
 		DestinationPrefixes:        destPrefixes,
 		DefaultChildPrefixLength:   defaultChildPrefixLength,
 		MinChildPrefixLength:       minChildPrefixLength,
@@ -446,7 +446,7 @@ func (r *networkRepository) convertToProto(e *metal.Network) (*apiv2.Network, er
 		Prefixes:                   e.Prefixes.String(),
 		DestinationPrefixes:        e.DestinationPrefixes.String(),
 		Vrf:                        pointer.PointerOrNil(uint32(e.Vrf)),
-		ParentNetworkId:            pointer.PointerOrNil(e.ParentNetworkID),
+		ParentNetwork:              pointer.PointerOrNil(e.ParentNetwork),
 		AdditionalAnnouncableCidrs: e.AdditionalAnnouncableCIDRs,
 		Meta: &apiv2.Meta{
 			Labels:    labels,
@@ -554,21 +554,21 @@ func (r *networkRepository) calculatePrefixDifferences(existingNetwork *metal.Ne
 	return toRemoved, toAdded, nil
 }
 
-func (r *networkRepository) allocateChildPrefixes(ctx context.Context, projectId, parentNetworkId, partitionId *string, requestedLength *apiv2.ChildPrefixLength, af *apiv2.NetworkAddressFamily) (metal.Prefixes, *metal.Network, error) {
+func (r *networkRepository) allocateChildPrefixes(ctx context.Context, projectId, ParentNetwork, partitionId *string, requestedLength *apiv2.ChildPrefixLength, af *apiv2.NetworkAddressFamily) (metal.Prefixes, *metal.Network, error) {
 	var (
 		prefixes  metal.Prefixes
 		parent    *metal.Network
 		namespace *string
 	)
 
-	if parentNetworkId != nil {
-		r.s.log.Info("get network", "parent", *parentNetworkId)
-		p, err := r.s.UnscopedNetwork().Get(ctx, *parentNetworkId)
+	if ParentNetwork != nil {
+		r.s.log.Info("get network", "parent", *ParentNetwork)
+		p, err := r.s.UnscopedNetwork().Get(ctx, *ParentNetwork)
 		if err != nil {
-			return nil, nil, errorutil.InvalidArgument("unable to find a super network with id:%s %w", *parentNetworkId, err)
+			return nil, nil, errorutil.InvalidArgument("unable to find a super network with id:%s %w", *ParentNetwork, err)
 		}
 		if p.NetworkType == nil {
-			return nil, nil, errorutil.InvalidArgument("parent network with id:%s does not have a networktype set", *parentNetworkId)
+			return nil, nil, errorutil.InvalidArgument("parent network with id:%s does not have a networktype set", *ParentNetwork)
 		}
 		switch *p.NetworkType {
 		case metal.NetworkTypeSuper:
@@ -576,7 +576,7 @@ func (r *networkRepository) allocateChildPrefixes(ctx context.Context, projectId
 		case metal.NetworkTypeSuperNamespaced:
 			namespace = projectId
 		default:
-			return nil, nil, errorutil.InvalidArgument("parent network with id:%s is not a valid super network but has type:%s", *parentNetworkId, *p.NetworkType)
+			return nil, nil, errorutil.InvalidArgument("parent network with id:%s is not a valid super network but has type:%s", *ParentNetwork, *p.NetworkType)
 		}
 		parent = p
 	} else {

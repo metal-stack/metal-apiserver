@@ -162,7 +162,7 @@ func (p *projectServiceServer) List(ctx context.Context, rq *connect.Request[api
 		result []*apiv2.Project
 	)
 
-	projectsAndTenants, err := putil.GetProjectsAndTenants(ctx, p.masterClient, token.UserId)
+	projectsAndTenants, err := putil.GetProjectsAndTenants(ctx, p.masterClient, token.User)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("error retrieving projects from backend: %w", err))
 	}
@@ -240,7 +240,7 @@ func (p *projectServiceServer) Create(ctx context.Context, rq *connect.Request[a
 				},
 			},
 			ProjectId: project.Uuid,
-			TenantId:  t.UserId,
+			TenantId:  t.User,
 		},
 	})
 	if err != nil {
@@ -344,7 +344,7 @@ func (p *projectServiceServer) RemoveMember(ctx context.Context, rq *connect.Req
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
 	}
 
-	membership, _, err := putil.GetProjectMember(ctx, p.masterClient, req.Project, req.MemberId)
+	membership, _, err := putil.GetProjectMember(ctx, p.masterClient, req.Project, req.Member)
 	if err != nil {
 		return nil, err
 	}
@@ -371,7 +371,7 @@ func (p *projectServiceServer) UpdateMember(ctx context.Context, rq *connect.Req
 	var (
 		req = rq.Msg
 	)
-	membership, _, err := putil.GetProjectMember(ctx, p.masterClient, req.Project, req.MemberId)
+	membership, _, err := putil.GetProjectMember(ctx, p.masterClient, req.Project, req.Member)
 	var connectErr *connect.Error
 
 	if errors.As(err, &connectErr) {
@@ -381,7 +381,7 @@ func (p *projectServiceServer) UpdateMember(ctx context.Context, rq *connect.Req
 			if projecterr != nil {
 				return nil, err
 			}
-			partiTenants, err := p.masterClient.Tenant().FindParticipatingTenants(ctx, &v1.FindParticipatingTenantsRequest{TenantId: req.MemberId, IncludeInherited: pointer.Pointer(true)})
+			partiTenants, err := p.masterClient.Tenant().FindParticipatingTenants(ctx, &v1.FindParticipatingTenantsRequest{TenantId: req.Member, IncludeInherited: pointer.Pointer(true)})
 			if err != nil {
 				return nil, err
 			}
@@ -397,7 +397,7 @@ func (p *projectServiceServer) UpdateMember(ctx context.Context, rq *connect.Req
 				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("tenant is not part of the project's tenants"))
 			}
 			// Create new project membership since the user is part of the tenant
-			membership, err = p.createProjectMembership(ctx, req.MemberId, req.Project, req.Role)
+			membership, err = p.createProjectMembership(ctx, req.Member, req.Project, req.Role)
 
 			if err != nil {
 				return nil, err
@@ -405,7 +405,7 @@ func (p *projectServiceServer) UpdateMember(ctx context.Context, rq *connect.Req
 
 			return connect.NewResponse(&apiv2.ProjectServiceUpdateMemberResponse{
 				ProjectMember: &apiv2.ProjectMember{
-					Id:                  req.MemberId,
+					Id:                  req.Member,
 					Role:                req.Role,
 					InheritedMembership: false,
 					CreatedAt:           membership.Meta.CreatedTime,
@@ -438,7 +438,7 @@ func (p *projectServiceServer) UpdateMember(ctx context.Context, rq *connect.Req
 	}
 
 	return connect.NewResponse(&apiv2.ProjectServiceUpdateMemberResponse{ProjectMember: &apiv2.ProjectMember{
-		Id:        req.MemberId,
+		Id:        req.Member,
 		Role:      req.Role,
 		CreatedAt: updatedMember.ProjectMember.Meta.CreatedTime,
 	}}), nil
@@ -553,10 +553,10 @@ func (p *projectServiceServer) InviteAccept(ctx context.Context, rq *connect.Req
 	}
 
 	tgr, err := p.masterClient.Tenant().Get(ctx, &v1.TenantGetRequest{
-		Id: t.UserId,
+		Id: t.User,
 	})
 	if err != nil {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no account: %q found %w", t.UserId, err))
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no account: %q found %w", t.User, err))
 	}
 
 	invitee := tgr.Tenant
