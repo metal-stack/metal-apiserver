@@ -242,6 +242,7 @@ var (
 			},
 			MetalCPUs: []metal.MetalCPU{
 				{Cores: 4},
+				{Cores: 6},
 			},
 			MetalGPUs: []metal.MetalGPU{},
 		},
@@ -380,11 +381,11 @@ func TestMachineFilter(t *testing.T) {
 			rq:   &apiv2.MachineQuery{Allocation: &apiv2.MachineAllocationQuery{Image: pointer.Pointer("debian-12")}},
 			want: []*metal.Machine{m1},
 		},
-		// { FIXME fails
-		// 	name: "by fsl",
-		// 	rq:   &apiv2.MachineQuery{Allocation: &apiv2.MachineAllocationQuery{FilesystemLayout: pointer.Pointer("n1-medium-fsl")}},
-		// 	want: []*metal.Machine{m1},
-		// },
+		{
+			name: "by fsl",
+			rq:   &apiv2.MachineQuery{Allocation: &apiv2.MachineAllocationQuery{FilesystemLayout: pointer.Pointer("n1-medium-fsl")}},
+			want: []*metal.Machine{m2},
+		},
 
 		// Network Queries
 		{
@@ -424,11 +425,11 @@ func TestMachineFilter(t *testing.T) {
 			rq:   &apiv2.MachineQuery{Hardware: &apiv2.MachineHardwareQuery{Memory: pointer.Pointer(uint64(2048))}},
 			want: []*metal.Machine{m3},
 		},
-		// { FIXME query must sum up all cores of all metalcpus
-		// 	name: "by hardware cpus",
-		// 	rq:   &apiv2.MachineQuery{Hardware: &apiv2.MachineHardwareQuery{CpuCores: pointer.Pointer(uint32(4))}},
-		// 	want: []*metal.Machine{m3},
-		// },
+		{
+			name: "by hardware cpus",
+			rq:   &apiv2.MachineQuery{Hardware: &apiv2.MachineHardwareQuery{CpuCores: pointer.Pointer(uint32(10))}},
+			want: []*metal.Machine{m3},
+		},
 
 		// Nic Queries
 		{

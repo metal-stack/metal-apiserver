@@ -167,7 +167,7 @@ func MachineFilter(rq *apiv2.MachineQuery) func(q r.Term) r.Term {
 
 			if hw.CpuCores != nil {
 				q = q.Filter(func(row r.Term) r.Term {
-					return row.Field("hardware").Field("cpus").Field("cores").Eq(*hw.CpuCores)
+					return row.Field("hardware").Field("cpus").Sum("cores").Eq(*hw.CpuCores)
 				})
 			}
 		}
