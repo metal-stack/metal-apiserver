@@ -267,7 +267,6 @@ func (p *projectServiceServer) Delete(ctx context.Context, rq *connect.Request[a
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no project found with id %q: %w", req.Project, err))
 	}
 
-	// FIXME check for machines and networks first
 	ms, err := p.repo.Machine(req.Project).List(ctx, &apiv2.MachineQuery{Allocation: &apiv2.MachineAllocationQuery{Project: &req.Project}})
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("error retrieving machines: %w", err))

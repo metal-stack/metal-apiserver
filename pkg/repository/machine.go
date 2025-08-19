@@ -160,12 +160,60 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 		return nil, err
 	}
 
+	var (
+		disks []*apiv2.MachineBlockDevice
+		cpus  []*apiv2.MetalCPU
+		gpus  []*apiv2.MetalGPU
+		nics  []*apiv2.MachineNic
+	)
+
+	for _, disk := range m.Hardware.Disks {
+		disks = append(disks, &apiv2.MachineBlockDevice{
+			Name: disk.Name,
+			Size: disk.Size,
+		})
+	}
+
+	for _, cpu := range m.Hardware.MetalCPUs {
+		cpus = append(cpus, &apiv2.MetalCPU{
+			Vendor:  cpu.Vendor,
+			Model:   cpu.Model,
+			Cores:   cpu.Cores,
+			Threads: cpu.Threads,
+		})
+	}
+
+	for _, gpu := range m.Hardware.MetalGPUs {
+		gpus = append(gpus, &apiv2.MetalGPU{
+			Vendor: gpu.Model,
+			Model:  gpu.Model,
+		})
+	}
+
+	for _, nic := range m.Hardware.Nics {
+		var neighs []*apiv2.MachineNic
+		for _, neigh := range nic.Neighbors {
+			neighs = append(neighs, &apiv2.MachineNic{
+				Mac:        string(neigh.MacAddress),
+				Name:       neigh.Name,
+				Identifier: neigh.Identifier,
+			})
+		}
+		nics = append(nics, &apiv2.MachineNic{
+			Mac:        string(nic.MacAddress),
+			Name:       nic.Name,
+			Identifier: nic.Identifier,
+			Neighbors:  neighs,
+			// TODO need we more in apiv2.MachineNic
+		})
+	}
+
 	hardware := &apiv2.MachineHardware{
 		Memory: m.Hardware.Memory,
-		Disks:  []*apiv2.MachineBlockDevice{},
-		Cpus:   []*apiv2.MetalCPU{},
-		Gpus:   []*apiv2.MetalGPU{},
-		Nics:   []*apiv2.MachineNic{},
+		Disks:  disks,
+		Cpus:   cpus,
+		Gpus:   gpus,
+		Nics:   nics,
 	}
 
 	bios = &apiv2.MachineBios{
