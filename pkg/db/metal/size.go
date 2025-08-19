@@ -1,4 +1,4 @@
-	package metal
+package metal
 
 import (
 	"fmt"

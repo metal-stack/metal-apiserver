@@ -21,6 +21,14 @@ import (
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
 
+// TODO should we make all methods return/consume the teststore ?
+type testStore struct {
+	*repository.Store
+	ds            generic.Datastore
+	queryExecutor *r.Session
+	ipam          apiv1connect.IpamServiceClient
+}
+
 func StartRepositoryWithCockroach(t *testing.T, log *slog.Logger) (*repository.Store, client.Client, func()) {
 	ds, _, rethinkCloser := StartRethink(t, log)
 
@@ -44,13 +52,6 @@ func StartRepositoryWithCockroach(t *testing.T, log *slog.Logger) (*repository.S
 		asyncCloser()
 	}
 	return repo, mdc, closer
-}
-
-type testStore struct {
-	*repository.Store
-	ds            generic.Datastore
-	queryExecutor *r.Session
-	ipam          apiv1connect.IpamServiceClient
 }
 
 func (s *testStore) CleanNetworkTable(t *testing.T) {

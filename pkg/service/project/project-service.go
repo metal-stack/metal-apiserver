@@ -268,6 +268,13 @@ func (p *projectServiceServer) Delete(ctx context.Context, rq *connect.Request[a
 	}
 
 	// FIXME check for machines and networks first
+	ms, err := p.repo.Machine(req.Project).List(ctx, &apiv2.MachineQuery{Allocation: &apiv2.MachineAllocationQuery{Project: &req.Project}})
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("error retrieving machines: %w", err))
+	}
+	if len(ms) > 0 {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("there are still machines associated with this project, you need to delete them first"))
+	}
 
 	ips, err := p.repo.IP(req.Project).List(ctx, &apiv2.IPQuery{Project: &req.Project})
 	if err != nil {
@@ -276,6 +283,15 @@ func (p *projectServiceServer) Delete(ctx context.Context, rq *connect.Request[a
 
 	if len(ips) > 0 {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("there are still ips associated with this project, you need to delete them first"))
+	}
+
+	nws, err := p.repo.Network(req.Project).List(ctx, &apiv2.NetworkQuery{Project: &req.Project})
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("error retrieving networks: %w", err))
+	}
+
+	if len(nws) > 0 {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("there are still networks associated with this project, you need to delete them first"))
 	}
 
 	_, err = p.masterClient.Project().Delete(ctx, &v1.ProjectDeleteRequest{Id: req.Project})
