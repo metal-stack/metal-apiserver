@@ -29,5 +29,15 @@ func New(c Config) infrav2connect.SwitchServiceHandler {
 }
 
 func (s *switchServiceServer) Create(ctx context.Context, rq *connect.Request[infrav2.SwitchServiceCreateRequest]) (*connect.Response[infrav2.SwitchServiceCreateResponse], error) {
-	return nil, errorutil.Internal("not implemented")
+	sw, err := s.repo.Switch().Create(ctx, rq.Msg)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
+	converted, err := s.repo.Switch().ConvertToProto(sw)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
+	return connect.NewResponse(&infrav2.SwitchServiceCreateResponse{Switch: converted}), nil
 }
