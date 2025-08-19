@@ -2,6 +2,7 @@ package queries
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/metal-stack/api/go/enum"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -253,7 +254,7 @@ func MachineFilter(rq *apiv2.MachineQuery) func(q r.Term) r.Term {
 				return q
 			}
 			q = q.Filter(func(row r.Term) r.Term {
-				return row.Field("state").Field("value").Eq(stateString)
+				return row.Field("state").Field("value").Eq(strings.ToUpper(*stateString))
 			})
 		}
 
