@@ -13,6 +13,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
@@ -272,8 +273,9 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 
 func Test_partitionServiceServer_Delete(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	repo, closer := test.StartRepository(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
+	repo := testStore.Store
 
 	ctx := t.Context()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -286,6 +288,7 @@ func Test_partitionServiceServer_Delete(t *testing.T) {
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 		{Partition: &apiv2.Partition{Id: "partition-2", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+		{Partition: &apiv2.Partition{Id: "partition-3", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 	})
 
 	test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
@@ -298,6 +301,10 @@ func Test_partitionServiceServer_Delete(t *testing.T) {
 		},
 	})
 
+	test.CreateMachines(t, testStore, []*metal.Machine{
+		{Base: metal.Base{ID: "m1"}, PartitionID: "partition-3", SizeID: "c1-large-x86"},
+	})
+
 	tests := []struct {
 		name    string
 		request *adminv2.PartitionServiceDeleteRequest
@@ -306,15 +313,21 @@ func Test_partitionServiceServer_Delete(t *testing.T) {
 	}{
 		{
 			name:    "delete non existing",
-			request: &adminv2.PartitionServiceDeleteRequest{Id: "partition-3"},
+			request: &adminv2.PartitionServiceDeleteRequest{Id: "partition-4"},
 			want:    nil,
-			wantErr: errorutil.NotFound(`no partition with id "partition-3" found`),
+			wantErr: errorutil.NotFound(`no partition with id "partition-4" found`),
 		},
 		{
 			name:    "delete with attached network",
 			request: &adminv2.PartitionServiceDeleteRequest{Id: "partition-2"},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`there are still networks in "partition-2"`),
+		},
+		{
+			name:    "delete with a machine",
+			request: &adminv2.PartitionServiceDeleteRequest{Id: "partition-3"},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument(`there are still machines in "partition-3"`),
 		},
 		{
 			name:    "delete existing",

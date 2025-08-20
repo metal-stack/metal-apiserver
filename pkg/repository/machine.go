@@ -458,7 +458,7 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 //---------------------------------------------------------------
 
 func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
-	// FIXME
+	// FIXME implement with machineDelete
 
 	return nil
 }

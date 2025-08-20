@@ -83,7 +83,16 @@ func (p *partitionRepository) validateCreate(ctx context.Context, req *adminv2.P
 
 // ValidateDelete implements Partition.
 func (p *partitionRepository) validateDelete(ctx context.Context, req *metal.Partition) error {
-	// FIXME all entities with partition relation must be deleted before
+	var errs []error
+
+	ms, err := p.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{Partition: &req.ID}))
+	if err != nil {
+		return err
+	}
+
+	p.s.log.Info("machines in partition", "partition", req.ID, "machines", ms)
+
+	errs = validate(errs, len(ms) == 0, "there are still machines in %q", req.ID)
 
 	nwsresp, err := p.s.ds.Network().List(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{Partition: &req.ID}))
 	if err != nil {
@@ -92,7 +101,6 @@ func (p *partitionRepository) validateDelete(ctx context.Context, req *metal.Par
 
 	p.s.log.Info("networks in partition", "partition", req.ID, "networks", nwsresp)
 
-	var errs []error
 	errs = validate(errs, len(nwsresp) == 0, "there are still networks in %q", req.ID)
 
 	if err := errors.Join(errs...); err != nil {

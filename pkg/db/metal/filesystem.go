@@ -512,39 +512,39 @@ func (fl *FilesystemLayout) IsReinstallable() bool {
 }
 
 // Matches the specific FilesystemLayout against the selected Hardware
-// FIXME enable once MachineHardware is implemented here
-// func (fl *FilesystemLayout) Matches(hardware MachineHardware) error {
-// 	requiredDevices := make(map[string]uint64)
-// 	existingDevices := make(map[string]uint64)
-// 	for _, disk := range fl.Disks {
-// 		var requiredSize uint64
-// 		for _, partition := range disk.Partitions {
-// 			requiredSize += partition.Size
-// 		}
-// 		requiredDevices[disk.Device] = requiredSize
-// 	}
+func (fl *FilesystemLayout) Matches(hardware MachineHardware) error {
+	requiredDevices := make(map[string]uint64)
+	existingDevices := make(map[string]uint64)
 
-// 	for _, disk := range hardware.Disks {
-// 		diskName := disk.Name
-// 		if !strings.HasPrefix(diskName, "/dev/") {
-// 			diskName = fmt.Sprintf("/dev/%s", disk.Name)
-// 		}
-// 		// convert bytes to mebibytes
-// 		size := disk.Size / (1024 * 1024)
-// 		existingDevices[diskName] = size
-// 	}
+	for _, disk := range fl.Disks {
+		var requiredSize uint64
+		for _, partition := range disk.Partitions {
+			requiredSize += partition.Size
+		}
+		requiredDevices[disk.Device] = requiredSize
+	}
 
-// 	for requiredDevice, requiredSize := range requiredDevices {
-// 		existingSize, ok := existingDevices[requiredDevice]
-// 		if !ok {
-// 			return fmt.Errorf("device:%s does not exist on given hardware", requiredDevice)
-// 		}
-// 		if existingSize < requiredSize {
-// 			return fmt.Errorf("device:%s is not big enough required:%dMiB, existing:%dMiB", requiredDevice, requiredSize, existingSize)
-// 		}
-// 	}
-// 	return nil
-// }
+	for _, disk := range hardware.Disks {
+		diskName := disk.Name
+		if !strings.HasPrefix(diskName, "/dev/") {
+			diskName = fmt.Sprintf("/dev/%s", disk.Name)
+		}
+		// convert bytes to mebibytes
+		size := disk.Size / (1024 * 1024)
+		existingDevices[diskName] = size
+	}
+
+	for requiredDevice, requiredSize := range requiredDevices {
+		existingSize, ok := existingDevices[requiredDevice]
+		if !ok {
+			return fmt.Errorf("device:%s does not exist on given hardware", requiredDevice)
+		}
+		if existingSize < requiredSize {
+			return fmt.Errorf("device:%s is not big enough required:%dMiB, existing:%dMiB", requiredDevice, requiredSize, existingSize)
+		}
+	}
+	return nil
+}
 
 func supportedFormats() string {
 	sf := []string{}
