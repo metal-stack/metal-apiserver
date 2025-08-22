@@ -143,7 +143,7 @@ func StartRepositoryWithCleanup(t *testing.T, log *slog.Logger, testOpts ...test
 		ipamCloser()
 		masterdataCloser()
 		asyncCloser()
-		rc.Close()
+		_ = rc.Close()
 		if valkeyCloser != nil {
 			valkeyCloser()
 		}
