@@ -9,8 +9,6 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	mdmv1 "github.com/metal-stack/masterdata-api/api/v1"
-	mdmv1mock "github.com/metal-stack/masterdata-api/api/v1/mocks"
-	mdc "github.com/metal-stack/masterdata-api/pkg/client"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
@@ -21,33 +19,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
-
-func newMasterdataMockClient(
-	t *testing.T,
-	tenantServiceMock func(mock *tmock.Mock),
-	tenantMemberServiceMock func(mock *tmock.Mock),
-	projectServiceMock func(mock *tmock.Mock),
-	projectMemberServiceMock func(mock *tmock.Mock),
-) *mdc.MockClient {
-	tsc := mdmv1mock.NewTenantServiceClient(t)
-	if tenantServiceMock != nil {
-		tenantServiceMock(&tsc.Mock)
-	}
-	psc := mdmv1mock.NewProjectServiceClient(t)
-	if projectServiceMock != nil {
-		projectServiceMock(&psc.Mock)
-	}
-	pmsc := mdmv1mock.NewProjectMemberServiceClient(t)
-	if projectMemberServiceMock != nil {
-		projectMemberServiceMock(&pmsc.Mock)
-	}
-	tmsc := mdmv1mock.NewTenantMemberServiceClient(t)
-	if tenantMemberServiceMock != nil {
-		tenantMemberServiceMock(&tmsc.Mock)
-	}
-
-	return mdc.NewMock(psc, tsc, pmsc, tmsc, nil)
-}
 
 func Test_projectServiceServer_Get(t *testing.T) {
 	tests := []struct {

@@ -41,8 +41,7 @@ func (r *projectRepository) projectMember(scope *ProjectScope) ProjectMember {
 	}
 
 	return &store[*projectMemberRepository, *mdcv1.ProjectMember, *apiv2.ProjectMember, *ProjectMemberCreateRequest, *ProjectMemberUpdateRequest, *ProjectMemberQuery]{
-		repository: repository,
-		typed:      repository,
+		typed: repository,
 	}
 }
 
@@ -220,56 +219,19 @@ func ToProject(p *mdcv1.Project) (*apiv2.Project, error) {
 	}, nil
 }
 
-// func (r *projectRepository) GetMember(ctx context.Context, projectID, tenantID string) (*mdcv1.ProjectMember, *mdcv1.Project, error) {
-// 	getResp, err := r.r.mdc.Project().Get(ctx, &mdcv1.ProjectGetRequest{
-// 		Id: projectID,
-// 	})
-// 	if err != nil {
-// 		return nil, nil, connect.NewError(connect.CodeInternal, fmt.Errorf("no project found with id %q: %w", projectID, err))
-// 	}
-
-// 	memberships, err := r.r.mdc.ProjectMember().Find(ctx, &mdcv1.ProjectMemberFindRequest{
-// 		ProjectId: &projectID,
-// 		TenantId:  &tenantID,
-// 	})
-// 	if err != nil {
-// 		return nil, nil, connect.NewError(connect.CodeInternal, err)
-// 	}
-
-// 	switch len(memberships.ProjectMembers) {
-// 	case 0:
-// 		return nil, nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("tenant %s is not a member of project %s", tenantID, projectID))
-// 	case 1:
-// 		// fallthrough
-// 	default:
-// 		return nil, nil, connect.NewError(connect.CodeInternal, fmt.Errorf("found multiple membership associations for a member to a project"))
-// 	}
-
-// 	return memberships.GetProjectMembers()[0], getResp.Project, nil
-// }
-
-// type DefaultProjectRequirement bool
-
-// const (
-// 	DefaultProjectRequired    DefaultProjectRequirement = true
-// 	DefaultProjectNotRequired DefaultProjectRequirement = false
-// )
-
 type ProjectsAndTenants struct {
-	Projects       []*apiv2.Project
-	DefaultProject *apiv2.Project
-	Tenants        []*apiv2.Tenant
-	DefaultTenant  *apiv2.Tenant
-	ProjectRoles   map[string]apiv2.ProjectRole
-	TenantRoles    map[string]apiv2.TenantRole
+	Projects      []*apiv2.Project
+	Tenants       []*apiv2.Tenant
+	DefaultTenant *apiv2.Tenant
+	ProjectRoles  map[string]apiv2.ProjectRole
+	TenantRoles   map[string]apiv2.TenantRole
 }
 
 // GetProjectsAndTenants returns all projects and tenants that the user is participating in
 func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId string) (*ProjectsAndTenants, error) {
 	var (
-		projectRoles   = map[string]apiv2.ProjectRole{}
-		projects       []*apiv2.Project
-		defaultProject *apiv2.Project
+		projectRoles = map[string]apiv2.ProjectRole{}
+		projects     []*apiv2.Project
 
 		tenantRoles   = map[string]apiv2.TenantRole{}
 		tenants       []*apiv2.Tenant
@@ -350,12 +312,11 @@ func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId st
 	}
 
 	return &ProjectsAndTenants{
-		Tenants:        tenants,
-		Projects:       projects,
-		DefaultTenant:  defaultTenant,
-		DefaultProject: defaultProject,
-		ProjectRoles:   projectRoles,
-		TenantRoles:    tenantRoles,
+		Tenants:       tenants,
+		Projects:      projects,
+		DefaultTenant: defaultTenant,
+		ProjectRoles:  projectRoles,
+		TenantRoles:   tenantRoles,
 	}, nil
 }
 
@@ -395,16 +356,13 @@ func (r *projectRepository) EnsureProviderProject(ctx context.Context, providerT
 		return ensureMembership(resp.Projects[0].Meta.Id)
 	}
 
-	project, err := r.s.mdc.Project().Create(ctx, &mdcv1.ProjectCreateRequest{
-		Project: &mdcv1.Project{
-			Name:        "Default Project",
-			TenantId:    providerTenantID,
-			Description: "Default project of " + providerTenantID,
-		},
-	})
+	project, err := r.s.UnscopedProject().AdditionalMethods().CreateWithID(ctx, &apiv2.ProjectServiceCreateRequest{
+		Name:        "Default Project",
+		Description: "Default project of " + providerTenantID,
+	}, providerTenantID)
 	if err != nil {
 		return fmt.Errorf("unable to create project: %w", err)
 	}
 
-	return ensureMembership(project.Project.Meta.Id)
+	return ensureMembership(project.Meta.Id)
 }

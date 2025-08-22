@@ -26,6 +26,10 @@ type tenantRepository struct {
 	s *Store
 }
 
+func (t *tenantRepository) Test() string {
+	return ""
+}
+
 func (t *tenantRepository) validateCreate(ctx context.Context, create *apiv2.TenantServiceCreateRequest) error {
 	return nil
 }
