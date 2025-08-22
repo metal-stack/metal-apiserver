@@ -44,14 +44,14 @@ type (
 
 	Datastore interface {
 		IP() Storage[*metal.IP]
+		Machine() Storage[*metal.Machine]
 		Size() Storage[*metal.Size]
 		Partition() Storage[*metal.Partition]
 		Network() Storage[*metal.Network]
 		FilesystemLayout() Storage[*metal.FilesystemLayout]
 		Image() Storage[*metal.Image]
-		// event               Storage[*metal.ProvisioningEventContainer]
-		// machine             Storage[*metal.Machine]
-		// size                Storage[*metal.Size]
+		Event() Storage[*metal.ProvisioningEventContainer]
+
 		// sizeimageConstraint Storage[*metal.SizeImageConstraint]
 		// sw                  Storage[*metal.Switch]
 		// switchStatus        Storage[*metal.SwitchStatus]

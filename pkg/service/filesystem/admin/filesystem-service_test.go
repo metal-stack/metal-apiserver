@@ -8,10 +8,10 @@ import (
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -104,25 +104,22 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 	repo, closer := test.StartRepository(t, log)
 	defer closer()
 
-	f := &filesystemServiceServer{repo: repo, log: log}
-
-	fslcr := &adminv2.FilesystemServiceCreateRequest{
-		FilesystemLayout: &apiv2.FilesystemLayout{
-			Id:          "default",
-			Name:        pointer.Pointer("Default FSL"),
-			Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: pointer.Pointer("/"), Label: pointer.Pointer("root")}},
-			Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1")}}}},
-			Constraints: &apiv2.FilesystemLayoutConstraints{
-				Sizes: []string{"c1-large-x86"},
-				Images: map[string]string{
-					"debian": ">= 12.0",
+	test.CreateFilesystemLayouts(t, repo, []*adminv2.FilesystemServiceCreateRequest{
+		{
+			FilesystemLayout: &apiv2.FilesystemLayout{
+				Id:          "default",
+				Name:        pointer.Pointer("Default FSL"),
+				Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: pointer.Pointer("/"), Label: pointer.Pointer("root")}},
+				Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1")}}}},
+				Constraints: &apiv2.FilesystemLayoutConstraints{
+					Sizes: []string{"c1-large-x86"},
+					Images: map[string]string{
+						"debian": ">= 12.0",
+					},
 				},
 			},
 		},
-	}
-
-	existing, err := f.Create(t.Context(), connect.NewRequest(fslcr))
-	require.NoError(t, err)
+	})
 
 	tests := []struct {
 		name    string
@@ -134,7 +131,7 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 			name: "update constraints",
 			rq: &adminv2.FilesystemServiceUpdateRequest{
 				FilesystemLayout: &apiv2.FilesystemLayout{
-					Id:          existing.Msg.FilesystemLayout.Id,
+					Id:          "default",
 					Name:        pointer.Pointer("Default FSL"),
 					Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: pointer.Pointer("/"), Label: pointer.Pointer("root")}},
 					Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1")}}}},
@@ -194,28 +191,51 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 
 func Test_filesystemServiceServer_Delete(t *testing.T) {
 	log := slog.Default()
-	repo, closer := test.StartRepository(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
+	repo := testStore.Store
 
-	f := &filesystemServiceServer{repo: repo, log: log}
-
-	fslcr := &adminv2.FilesystemServiceCreateRequest{
-		FilesystemLayout: &apiv2.FilesystemLayout{
-			Id:          "default",
-			Name:        pointer.Pointer("Default FSL"),
-			Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: pointer.Pointer("/"), Label: pointer.Pointer("root")}},
-			Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1")}}}},
-			Constraints: &apiv2.FilesystemLayoutConstraints{
-				Sizes: []string{"c1-large-x86"},
-				Images: map[string]string{
-					"debian": ">= 12.0",
+	test.CreateFilesystemLayouts(t, repo, []*adminv2.FilesystemServiceCreateRequest{
+		{
+			FilesystemLayout: &apiv2.FilesystemLayout{
+				Id:          "default",
+				Name:        pointer.Pointer("Default FSL"),
+				Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: pointer.Pointer("/"), Label: pointer.Pointer("root")}},
+				Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1")}}}},
+				Constraints: &apiv2.FilesystemLayoutConstraints{
+					Sizes: []string{"c1-large-x86"},
+					Images: map[string]string{
+						"debian": ">= 12.0",
+					},
 				},
 			},
 		},
-	}
+		{
+			FilesystemLayout: &apiv2.FilesystemLayout{
+				Id:          "m1-large",
+				Name:        pointer.Pointer("Default FSL"),
+				Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: pointer.Pointer("/"), Label: pointer.Pointer("root")}},
+				Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1")}}}},
+				Constraints: &apiv2.FilesystemLayoutConstraints{
+					Sizes: []string{"m1-large-x86"},
+					Images: map[string]string{
+						"debian": ">= 12.0",
+					},
+				},
+			},
+		},
+	})
 
-	existing, err := f.Create(t.Context(), connect.NewRequest(fslcr))
-	require.NoError(t, err)
+	test.CreateMachines(t, testStore, []*metal.Machine{
+		{
+			Base: metal.Base{ID: "m1"}, PartitionID: "partition-one",
+			Allocation: &metal.MachineAllocation{
+				FilesystemLayout: &metal.FilesystemLayout{
+					Base: metal.Base{ID: "m1-large"},
+				},
+			},
+		},
+	})
 
 	tests := []struct {
 		name    string
@@ -226,7 +246,7 @@ func Test_filesystemServiceServer_Delete(t *testing.T) {
 		{
 			name: "delete existing",
 			rq: &adminv2.FilesystemServiceDeleteRequest{
-				Id: existing.Msg.FilesystemLayout.Id,
+				Id: "default",
 			},
 			want: &adminv2.FilesystemServiceDeleteResponse{
 				FilesystemLayout: &apiv2.FilesystemLayout{
@@ -256,6 +276,12 @@ func Test_filesystemServiceServer_Delete(t *testing.T) {
 			rq:      &adminv2.FilesystemServiceDeleteRequest{Id: "no-existing"},
 			want:    nil,
 			wantErr: errorutil.NotFound(`no filesystemlayout with id "no-existing" found`),
+		},
+		{
+			name:    "remove with existing machine allocation",
+			rq:      &adminv2.FilesystemServiceDeleteRequest{Id: "m1-large"},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument(`cannot remove filesystemlayout with existing machine allocations`),
 		},
 	}
 	for _, tt := range tests {

@@ -74,6 +74,19 @@ func (r *projectRepository) validateDelete(ctx context.Context, req *mdcv1.Proje
 		return connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("there are still ips associated with this project, you need to delete them first"))
 	}
 
+	ms, err := r.s.Machine(req.Meta.Id).List(ctx, &apiv2.MachineQuery{
+		Allocation: &apiv2.MachineAllocationQuery{
+			Project: &req.Meta.Id,
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	if len(ms) > 0 {
+		return connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("there are still machines associated with this project, you need to delete them first"))
+	}
+
 	// TODO: ensure project tokens are revoked / cleaned up
 
 	return nil

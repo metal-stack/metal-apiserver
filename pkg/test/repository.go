@@ -3,6 +3,7 @@ package test
 import (
 	"log/slog"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/alicebob/miniredis/v2"
@@ -11,12 +12,22 @@ import (
 	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
 	"github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	"github.com/metal-stack/masterdata-api/pkg/client"
+	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
+
+// TODO should we make all methods return/consume the teststore ?
+type testStore struct {
+	*repository.Store
+	ds            generic.Datastore
+	queryExecutor *r.Session
+	ipam          apiv1connect.IpamServiceClient
+}
 
 func StartRepositoryWithCockroach(t *testing.T, log *slog.Logger) (*repository.Store, client.Client, func()) {
 	ds, _, rethinkCloser := StartRethink(t, log)
@@ -41,12 +52,6 @@ func StartRepositoryWithCockroach(t *testing.T, log *slog.Logger) (*repository.S
 		asyncCloser()
 	}
 	return repo, mdc, closer
-}
-
-type testStore struct {
-	*repository.Store
-	queryExecutor *r.Session
-	ipam          apiv1connect.IpamServiceClient
 }
 
 func (s *testStore) CleanNetworkTable(t *testing.T) {
@@ -87,6 +92,7 @@ func StartRepositoryWithCleanup(t *testing.T, log *slog.Logger) (*testStore, fun
 
 	return &testStore{
 		Store:         repo,
+		ds:            ds,
 		queryExecutor: session,
 		ipam:          ipam,
 	}, closer
@@ -99,10 +105,45 @@ func CreateImages(t *testing.T, repo *repository.Store, images []*adminv2.ImageS
 	}
 }
 
+func CreateFilesystemLayouts(t *testing.T, repo *repository.Store, fsls []*adminv2.FilesystemServiceCreateRequest) {
+	for _, fsl := range fsls {
+		_, err := repo.FilesystemLayout().Create(t.Context(), fsl)
+		require.NoError(t, err)
+	}
+}
+
 func CreateIPs(t *testing.T, repo *repository.Store, ips []*apiv2.IPServiceCreateRequest) {
 	for _, ip := range ips {
 		_, err := repo.UnscopedIP().Create(t.Context(), ip)
 		require.NoError(t, err)
+	}
+}
+
+func CreateMachinesWithAllocation(t *testing.T, repo *repository.Store, machines []*apiv2.MachineServiceCreateRequest) {
+	for _, machine := range machines {
+		_, err := repo.UnscopedMachine().Create(t.Context(), machine)
+		require.NoError(t, err)
+	}
+}
+
+func CreateMachines(t *testing.T, testStore *testStore, machines []*metal.Machine) {
+	for _, machine := range machines {
+		_, err := testStore.ds.Machine().Create(t.Context(), machine)
+		require.NoError(t, err)
+		event := &metal.ProvisioningEventContainer{
+			Base: metal.Base{ID: machine.ID},
+			Events: metal.ProvisioningEvents{
+				{
+					Time:    time.Now(),
+					Event:   metal.ProvisioningEventAlive,
+					Message: "machine created for test",
+				},
+			},
+			Liveliness: metal.MachineLivelinessAlive,
+		}
+		_, err = testStore.ds.Event().Create(t.Context(), event)
+		require.NoError(t, err)
+
 	}
 }
 
