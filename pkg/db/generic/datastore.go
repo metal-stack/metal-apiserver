@@ -130,6 +130,8 @@ func (ds *datastore) Image() Storage[*metal.Image] {
 
 func (ds *datastore) Switch() Storage[*metal.Switch] {
 	return ds.sw
+}
+
 func (ds *datastore) Event() Storage[*metal.ProvisioningEventContainer] {
 	return ds.event
 }

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -157,7 +158,7 @@ func (r *switchRepository) convertToProto(sw *metal.Switch) (*apiv2.Switch, erro
 	for _, nic := range sw.Nics {
 		var bgpPortState *apiv2.SwitchBGPPortState
 		if nic.BGPPortState != nil {
-			bgpState, err := metal.FromBGPState(nic.BGPPortState.State)
+			bgpState, err := metal.FromBGPState(nic.BGPPortState.BgpState)
 			if err != nil {
 				return nil, err
 			}
@@ -167,7 +168,7 @@ func (r *switchRepository) convertToProto(sw *metal.Switch) (*apiv2.Switch, erro
 				PeerGroup:             nic.BGPPortState.PeerGroup,
 				VrfName:               nic.BGPPortState.VrfName,
 				BgpState:              bgpState,
-				BgpTimerUpEstablished: durationpb.New(nic.BGPPortState.BGPTimerUpEstablished),
+				BgpTimerUpEstablished: durationpb.New(time.Duration(nic.BGPPortState.BgpTimerUpEstablished)),
 				SentPrefixCounter:     nic.BGPPortState.SentPrefixCounter,
 				AcceptedPrefixCounter: nic.BGPPortState.AcceptedPrefixCounter,
 			}
@@ -185,7 +186,7 @@ func (r *switchRepository) convertToProto(sw *metal.Switch) (*apiv2.Switch, erro
 		nics = append(nics, &apiv2.SwitchNic{
 			Name:       nic.Name,
 			Identifier: nic.Identifier,
-			Mac:        nic.Mac,
+			Mac:        nic.MacAddress,
 			Vrf:        new(string),
 			State: &apiv2.NicState{
 				Desired: desiredState,

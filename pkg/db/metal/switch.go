@@ -2,7 +2,6 @@ package metal
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/metal-stack/api/go/enum"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -39,39 +38,8 @@ type SwitchOS struct {
 	MetalCoreVersion string         `rethinkdb:"metal_core_version"`
 }
 
-// FIXME: Nic is part of machine service PR. Remove once it is merged.
-type Nic struct {
-	Mac          string        `rethinkdb:"macAddress"`
-	Name         string        `rethinkdb:"name"`
-	Identifier   string        `rethinkdb:"identifier"`
-	Vrf          *string       `rethinkdb:"vrf"`
-	Neighbors    Nics          `rethinkdb:"neighbors"`
-	Hostname     string        `rethinkdb:"hostname"`
-	State        *NicState     `rethinkdb:"state"`
-	BGPPortState *BGPPortState `rethinkdb:"bgpPortState"`
-}
-
-type Nics []Nic
-
-type NicState struct {
-	Desired SwitchPortStatus `rethinkdb:"desired"`
-	Actual  SwitchPortStatus `rethinkdb:"actual"`
-}
-
-type BGPPortState struct {
-	Neighbor              string        `rethinkdb:"neighbor"`
-	PeerGroup             string        `rethinkdb:"peergroup"`
-	VrfName               string        `rethinkdb:"vrfname"`
-	State                 BGPState      `rethinkdb:"state"`
-	BGPTimerUpEstablished time.Duration `rethinkdb:"bgptimerupestablished"`
-	SentPrefixCounter     uint64        `rethinkdb:"sentprefixcounter"`
-	AcceptedPrefixCounter uint64        `rethinkdb:"acceptedprefixcounter"`
-}
-
 type SwitchReplaceMode string
-type SwitchPortStatus string
 type SwitchOSVendor string
-type BGPState string
 
 const (
 	ReplaceModeReplace     = SwitchReplaceMode("replace")
@@ -79,16 +47,6 @@ const (
 
 	SwitchOSVendorCumulus = SwitchOSVendor("Cumulus")
 	SwitchOSVendorSonic   = SwitchOSVendor("SONiC")
-
-	SwitchPortStatusUp   = SwitchPortStatus("up")
-	SwitchPortStatusDown = SwitchPortStatus("down")
-
-	BGPStateIdle        = BGPState("idle")
-	BGPStateConnect     = BGPState("connect")
-	BGPStateActive      = BGPState("active")
-	BGPStateOpenSent    = BGPState("open-sent")
-	BGPStateOpenConfirm = BGPState("open-confirm")
-	BGPStateEstablished = BGPState("established")
 )
 
 func ToReplaceMode(mode apiv2.SwitchReplaceMode) (SwitchReplaceMode, error) {
@@ -191,19 +149,19 @@ func ToMetalNics(switchNics []*apiv2.SwitchNic) (Nics, error) {
 			continue
 		}
 
-		var bgpPortState *BGPPortState
+		var bgpPortState *SwitchBGPPortState
 		if nic.BgpPortState != nil {
 			bgpState, err := ToBGPState(nic.BgpPortState.BgpState)
 			if err != nil {
 				return nil, err
 			}
 
-			bgpPortState = &BGPPortState{
+			bgpPortState = &SwitchBGPPortState{
 				Neighbor:              nic.BgpPortState.Neighbor,
 				PeerGroup:             nic.BgpPortState.PeerGroup,
 				VrfName:               nic.BgpPortState.VrfName,
-				State:                 bgpState,
-				BGPTimerUpEstablished: nic.BgpPortState.BgpTimerUpEstablished.AsDuration(),
+				BgpState:              bgpState,
+				BgpTimerUpEstablished: uint64(nic.BgpPortState.BgpTimerUpEstablished.AsDuration()),
 				SentPrefixCounter:     nic.BgpPortState.SentPrefixCounter,
 				AcceptedPrefixCounter: nic.BgpPortState.AcceptedPrefixCounter,
 			}
@@ -221,7 +179,7 @@ func ToMetalNics(switchNics []*apiv2.SwitchNic) (Nics, error) {
 		nics = append(nics, Nic{
 			Name:       nic.Name,
 			Identifier: nic.Identifier,
-			Mac:        nic.Mac,
+			MacAddress: nic.Mac,
 			Vrf:        nic.Vrf,
 			State: &NicState{
 				Desired: desiredState,
