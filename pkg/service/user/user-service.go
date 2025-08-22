@@ -39,13 +39,13 @@ func (u *userServiceServer) Get(ctx context.Context, _ *connect.Request[apiv2.Us
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
 	}
 
-	projectsAndTenants, err := u.repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, t.UserId)
+	projectsAndTenants, err := u.repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, t.User)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	user := &apiv2.User{
-		Login:         t.UserId,
+		Login:         t.User,
 		Name:          projectsAndTenants.DefaultTenant.Name,
 		Email:         projectsAndTenants.DefaultTenant.Email,
 		AvatarUrl:     projectsAndTenants.DefaultTenant.AvatarUrl,

@@ -36,7 +36,7 @@ func (t *tenantRepository) validateDelete(ctx context.Context, e *mdcv1.Tenant) 
 		return connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
 	}
 
-	if tok.UserId == e.Meta.Id {
+	if tok.User == e.Meta.Id {
 		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("the personal tenant (default-tenant) cannot be deleted"))
 	}
 
@@ -74,7 +74,7 @@ func (t *tenantRepository) CreateWithID(ctx context.Context, c *apiv2.TenantServ
 	}
 
 	ann := map[string]string{
-		TenantTagCreator: tok.UserId,
+		TenantTagCreator: tok.User,
 	}
 
 	if c.Email != nil {

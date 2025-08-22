@@ -153,7 +153,7 @@ func (p *projectServiceServer) List(ctx context.Context, rq *connect.Request[api
 		result []*apiv2.Project
 	)
 
-	projectsAndTenants, err := p.repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, token.UserId) // FIXME: there has to be a scoped version of this, too
+	projectsAndTenants, err := p.repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, token.User) // FIXME: there has to be a scoped version of this, too
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("error retrieving projects from backend: %w", err))
 	}
@@ -260,7 +260,7 @@ func (p *projectServiceServer) RemoveMember(ctx context.Context, rq *connect.Req
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
 	}
 
-	membership, err := p.repo.Project(req.Project).AdditionalMethods().Member().Get(ctx, req.MemberId)
+	membership, err := p.repo.Project(req.Project).AdditionalMethods().Member().Get(ctx, req.Member)
 	if err != nil {
 		return nil, err
 	}
@@ -278,7 +278,7 @@ func (p *projectServiceServer) UpdateMember(ctx context.Context, rq *connect.Req
 		req = rq.Msg
 	)
 
-	membership, err := p.repo.Project(req.Project).AdditionalMethods().Member().Get(ctx, req.MemberId)
+	membership, err := p.repo.Project(req.Project).AdditionalMethods().Member().Get(ctx, req.Member)
 
 	if errorutil.IsNotFound(err) {
 		// if there does not exist a direct membership for this user but the user belongs to the tenant already, we create a direct membership for the project
@@ -287,7 +287,7 @@ func (p *projectServiceServer) UpdateMember(ctx context.Context, rq *connect.Req
 			return nil, err
 		}
 
-		partiTenants, err := p.repo.Tenant().AdditionalMethods().FindParticipatingTenants(ctx, req.MemberId, true)
+		partiTenants, err := p.repo.Tenant().AdditionalMethods().FindParticipatingTenants(ctx, req.Member, true)
 		if err != nil {
 			return nil, err
 		}
@@ -299,7 +299,7 @@ func (p *projectServiceServer) UpdateMember(ctx context.Context, rq *connect.Req
 		}
 
 		// Create new project membership since the user is part of the tenant
-		membership, err = p.createProjectMembership(ctx, req.MemberId, req.Project, req.Role)
+		membership, err = p.createProjectMembership(ctx, req.Member, req.Project, req.Role)
 
 		if err != nil {
 			return nil, err
@@ -307,7 +307,7 @@ func (p *projectServiceServer) UpdateMember(ctx context.Context, rq *connect.Req
 
 		return connect.NewResponse(&apiv2.ProjectServiceUpdateMemberResponse{
 			ProjectMember: &apiv2.ProjectMember{
-				Id:                  req.MemberId,
+				Id:                  req.Member,
 				Role:                req.Role,
 				InheritedMembership: false,
 				CreatedAt:           membership.Meta.CreatedTime,
@@ -438,7 +438,7 @@ func (p *projectServiceServer) InviteAccept(ctx context.Context, rq *connect.Req
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	invitee, err := p.repo.Tenant().Get(ctx, t.UserId)
+	invitee, err := p.repo.Tenant().Get(ctx, t.User)
 	if err != nil {
 		return nil, err
 	}

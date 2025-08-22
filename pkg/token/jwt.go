@@ -65,7 +65,7 @@ func NewJWT(tokenType v1.TokenType, subject, issuer string, expires time.Duratio
 
 	token := &v1.Token{
 		Uuid:      claims.ID,
-		UserId:    subject,
+		User:      subject,
 		Expires:   timestamppb.New(expiresAt),
 		IssuedAt:  timestamppb.New(issuedAt),
 		TokenType: tokenType,

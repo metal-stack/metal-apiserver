@@ -139,7 +139,7 @@ func (t *tokenService) Get(ctx context.Context, rq *connect.Request[apiv2.TokenS
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
 	}
 
-	res, err := t.tokens.Get(ctx, token.UserId, rq.Msg.Uuid)
+	res, err := t.tokens.Get(ctx, token.User, rq.Msg.Uuid)
 	if err != nil {
 		if errors.Is(err, tokenutil.ErrTokenNotFound) {
 			return nil, connect.NewError(connect.CodeNotFound, errors.New("token not found"))
@@ -181,17 +181,17 @@ func (t *tokenService) Update(ctx context.Context, rq *connect.Request[apiv2.Tok
 	// doing this check is not strictly necessary because the resulting token would fail in the opa auther when being compared
 	// to the actual user permissions, but it's nicer for the user to already prevent token update immediately in this place
 
-	projectsAndTenants, err := t.projectsAndTenantsGetter(ctx, token.GetUserId())
+	projectsAndTenants, err := t.projectsAndTenantsGetter(ctx, token.GetUser())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	fullUserToken := &apiv2.Token{
-		UserId:       token.UserId,
+		User:         token.User,
 		ProjectRoles: projectsAndTenants.ProjectRoles,
 		TenantRoles:  projectsAndTenants.TenantRoles,
 		AdminRole:    nil,
 	}
-	if slices.Contains(t.adminSubjects, token.UserId) {
+	if slices.Contains(t.adminSubjects, token.User) {
 		fullUserToken.AdminRole = apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum()
 	}
 	err = validateTokenCreate(fullUserToken, createRequest, t.servicePermissions, t.adminSubjects)
@@ -201,7 +201,7 @@ func (t *tokenService) Update(ctx context.Context, rq *connect.Request[apiv2.Tok
 
 	// now follows the update
 
-	tokenToUpdate, err := t.tokens.Get(ctx, token.UserId, rq.Msg.Uuid)
+	tokenToUpdate, err := t.tokens.Get(ctx, token.User, rq.Msg.Uuid)
 	if err != nil {
 		if errors.Is(err, tokenutil.ErrTokenNotFound) {
 			return nil, connect.NewError(connect.CodeNotFound, errors.New("token not found"))
@@ -259,17 +259,17 @@ func (t *tokenService) Create(ctx context.Context, rq *connect.Request[apiv2.Tok
 	// doing this check is not strictly necessary because the resulting token would fail in the opa auther when being compared
 	// to the actual user permissions, but it's nicer for the user to already prevent token creation immediately in this place
 
-	projectsAndTenants, err := t.projectsAndTenantsGetter(ctx, token.GetUserId())
+	projectsAndTenants, err := t.projectsAndTenantsGetter(ctx, token.GetUser())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	fullUserToken := &apiv2.Token{
-		UserId:       token.UserId,
+		User:         token.User,
 		ProjectRoles: projectsAndTenants.ProjectRoles,
 		TenantRoles:  projectsAndTenants.TenantRoles,
 		AdminRole:    nil,
 	}
-	if slices.Contains(t.adminSubjects, token.UserId) {
+	if slices.Contains(t.adminSubjects, token.User) {
 		fullUserToken.AdminRole = apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum()
 	}
 	err = validateTokenCreate(fullUserToken, req, t.servicePermissions, t.adminSubjects)
@@ -282,7 +282,7 @@ func (t *tokenService) Create(ctx context.Context, rq *connect.Request[apiv2.Tok
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	secret, token, err := tokenutil.NewJWT(apiv2.TokenType_TOKEN_TYPE_API, token.GetUserId(), t.issuer, req.Expires.AsDuration(), privateKey)
+	secret, token, err := tokenutil.NewJWT(apiv2.TokenType_TOKEN_TYPE_API, token.GetUser(), t.issuer, req.Expires.AsDuration(), privateKey)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -313,7 +313,7 @@ func (t *tokenService) List(ctx context.Context, _ *connect.Request[apiv2.TokenS
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
 	}
 
-	tokens, err := t.tokens.List(ctx, token.UserId)
+	tokens, err := t.tokens.List(ctx, token.User)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -330,7 +330,7 @@ func (t *tokenService) Revoke(ctx context.Context, rq *connect.Request[apiv2.Tok
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
 	}
 
-	err := t.tokens.Revoke(ctx, token.UserId, rq.Msg.Uuid)
+	err := t.tokens.Revoke(ctx, token.User, rq.Msg.Uuid)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -344,7 +344,7 @@ func (t *tokenService) Refresh(ctx context.Context, _ *connect.Request[apiv2.Tok
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
 	}
 
-	oldtoken, err := t.tokens.Get(ctx, token.UserId, token.Uuid)
+	oldtoken, err := t.tokens.Get(ctx, token.User, token.Uuid)
 	if err != nil {
 		if errors.Is(err, tokenutil.ErrTokenNotFound) {
 			return nil, connect.NewError(connect.CodeNotFound, errors.New("token not found"))
@@ -369,17 +369,17 @@ func (t *tokenService) Refresh(ctx context.Context, _ *connect.Request[apiv2.Tok
 	// doing this check is not strictly necessary because the resulting token would fail in the opa auther when being compared
 	// to the actual user permissions, but it's nicer for the user to already prevent token update immediately in this place
 
-	projectsAndTenants, err := t.projectsAndTenantsGetter(ctx, token.GetUserId())
+	projectsAndTenants, err := t.projectsAndTenantsGetter(ctx, token.GetUser())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	fullUserToken := &apiv2.Token{
-		UserId:       token.UserId,
+		User:         token.User,
 		ProjectRoles: projectsAndTenants.ProjectRoles,
 		TenantRoles:  projectsAndTenants.TenantRoles,
 		AdminRole:    nil,
 	}
-	if slices.Contains(t.adminSubjects, token.UserId) {
+	if slices.Contains(t.adminSubjects, token.User) {
 		fullUserToken.AdminRole = apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum()
 	}
 	err = validateTokenCreate(fullUserToken, createRequest, t.servicePermissions, t.adminSubjects)
@@ -397,7 +397,7 @@ func (t *tokenService) Refresh(ctx context.Context, _ *connect.Request[apiv2.Tok
 	// New duration is calculated from the old token
 	exp := oldtoken.Expires.AsTime().Sub(oldtoken.IssuedAt.AsTime())
 
-	secret, newToken, err := tokenutil.NewJWT(apiv2.TokenType_TOKEN_TYPE_API, token.GetUserId(), t.issuer, exp, privateKey)
+	secret, newToken, err := tokenutil.NewJWT(apiv2.TokenType_TOKEN_TYPE_API, token.GetUser(), t.issuer, exp, privateKey)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -447,7 +447,7 @@ func validateTokenCreate(currentToken *apiv2.Token, req *apiv2.TokenServiceCreat
 
 		// If admin skip this checks
 		// FIXME is this correct
-		if slices.Contains(adminIDs, currentToken.UserId) && currentToken.AdminRole != nil {
+		if slices.Contains(adminIDs, currentToken.User) && currentToken.AdminRole != nil {
 			continue
 		}
 
@@ -472,7 +472,7 @@ func validateTokenCreate(currentToken *apiv2.Token, req *apiv2.TokenServiceCreat
 
 	// derive if a user has admin privileges in case he belongs to a certain id, which was preconfigured in the deployment
 	for _, subject := range adminIDs {
-		if currentToken.UserId != subject {
+		if currentToken.User != subject {
 			// we exclude invited members of an admin tenant
 			continue
 		}

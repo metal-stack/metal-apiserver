@@ -144,7 +144,7 @@ func TestNetworkFilter(t *testing.T) {
 		},
 		{
 			name: "by parent network",
-			rq:   &apiv2.NetworkQuery{ParentNetworkId: &n2.ParentNetworkID},
+			rq:   &apiv2.NetworkQuery{ParentNetwork: &n2.ParentNetworkID},
 			want: []*metal.Network{n2},
 		},
 		{

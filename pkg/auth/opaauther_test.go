@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"log/slog"
+	"os"
 	"testing"
 	"time"
 
@@ -407,7 +408,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			method:    "/metalstack.api.v2.ProjectService/List",
 			tokenType: v2.TokenType_TOKEN_TYPE_CONSOLE,
 			req:       v2.ProjectServiceListRequest{},
-			projectsAndTenants: &putil.ProjectsAndTenants{
+			projectsAndTenants: &repository.ProjectsAndTenants{
 				TenantRoles: map[string]v2.TenantRole{
 					"john.doe@github": v2.TenantRole_TENANT_ROLE_OWNER,
 				},
@@ -518,7 +519,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			require.NoError(t, err)
 
 			o, err := New(Config{
-				Log:            slog.Default(),
+				Log:            slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})),
 				CertStore:      certStore,
 				CertCacheTime:  pointer.Pointer(0 * time.Second),
 				TokenStore:     tokenStore,
@@ -564,7 +565,7 @@ func Test_opa_authorize_with_permissions_optional_subject(t *testing.T) {
 		userJwtMutateFn    func(t *testing.T, jwt string) string
 		expiration         *time.Duration
 		req                any
-		projectsAndTenants *putil.ProjectsAndTenants
+		projectsAndTenants *repository.ProjectsAndTenants
 		tokenType          v2.TokenType
 		wantErr            error
 	}{
@@ -574,7 +575,7 @@ func Test_opa_authorize_with_permissions_optional_subject(t *testing.T) {
 			method:    "/metalstack.api.v2.ProjectService/List",
 			tokenType: v2.TokenType_TOKEN_TYPE_API,
 			req:       v2.ProjectServiceListRequest{},
-			projectsAndTenants: &putil.ProjectsAndTenants{
+			projectsAndTenants: &repository.ProjectsAndTenants{
 				TenantRoles: map[string]v2.TenantRole{
 					"john.doe@github": v2.TenantRole_TENANT_ROLE_OWNER,
 				},
@@ -644,9 +645,9 @@ func Test_opa_authorize_with_permissions_optional_subject(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			o.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*putil.ProjectsAndTenants, error) {
+			o.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
 				if tt.projectsAndTenants == nil {
-					return &putil.ProjectsAndTenants{}, nil
+					return &repository.ProjectsAndTenants{}, nil
 				}
 				return tt.projectsAndTenants, nil
 			}

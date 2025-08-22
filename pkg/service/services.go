@@ -38,6 +38,8 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/service/partition"
 	partitionadmin "github.com/metal-stack/metal-apiserver/pkg/service/partition/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/project"
+	"github.com/metal-stack/metal-apiserver/pkg/service/size"
+	sizeadmin "github.com/metal-stack/metal-apiserver/pkg/service/size/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/tenant"
 	tenantadmin "github.com/metal-stack/metal-apiserver/pkg/service/tenant/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/token"
@@ -174,6 +176,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	networkService := network.New(network.Config{Log: log, Repo: c.Repository})
 	filesystemService := filesystem.New(filesystem.Config{Log: log, Repo: c.Repository})
 	partitionService := partition.New(partition.Config{Log: log, Repo: c.Repository})
+	sizeService := size.New(size.Config{Log: log, Repo: c.Repository})
 	imageService := image.New(image.Config{Log: log, Repo: c.Repository})
 	tokenService := token.New(token.Config{
 		Log:           log,
@@ -206,6 +209,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	mux.Handle(apiv2connect.NewMethodServiceHandler(methodService, interceptors))
 	mux.Handle(apiv2connect.NewNetworkServiceHandler(networkService, interceptors))
 	mux.Handle(apiv2connect.NewPartitionServiceHandler(partitionService, interceptors))
+	mux.Handle(apiv2connect.NewSizeServiceHandler(sizeService, interceptors))
 	mux.Handle(apiv2connect.NewProjectServiceHandler(projectService, interceptors))
 	mux.Handle(apiv2connect.NewTenantServiceHandler(tenantService, interceptors))
 	mux.Handle(apiv2connect.NewTokenServiceHandler(tokenService, interceptors))
@@ -216,11 +220,13 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	adminImageService := imageadmin.New(imageadmin.Config{Log: log, Repo: c.Repository})
 	adminFilesystemService := filesystemadmin.New(filesystemadmin.Config{Log: log, Repo: c.Repository})
 	adminPartitionService := partitionadmin.New(partitionadmin.Config{Log: log, Repo: c.Repository})
+	adminSizeService := sizeadmin.New(sizeadmin.Config{Log: log, Repo: c.Repository})
 	adminNetworkService := networkadmin.New(networkadmin.Config{Log: log, Repo: c.Repository})
 	mux.Handle(adminv2connect.NewIPServiceHandler(adminIpService, adminInterceptors))
 	mux.Handle(adminv2connect.NewImageServiceHandler(adminImageService, adminInterceptors))
 	mux.Handle(adminv2connect.NewFilesystemServiceHandler(adminFilesystemService, adminInterceptors))
 	mux.Handle(adminv2connect.NewPartitionServiceHandler(adminPartitionService, adminInterceptors))
+	mux.Handle(adminv2connect.NewSizeServiceHandler(adminSizeService, adminInterceptors))
 	mux.Handle(adminv2connect.NewTenantServiceHandler(adminTenantService, adminInterceptors))
 	mux.Handle(adminv2connect.NewNetworkServiceHandler(adminNetworkService, adminInterceptors))
 

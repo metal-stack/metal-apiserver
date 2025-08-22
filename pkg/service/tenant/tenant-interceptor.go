@@ -52,7 +52,7 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 				Tenant:  "",
 				Groups:  []security.ResourceAccess{},
 				Issuer:  "",
-				Subject: pointer.SafeDeref(tok).UserId,
+				Subject: pointer.SafeDeref(tok).User,
 			}
 
 			setUserFieldsByTenantLookup = func(tenantID string) error {
@@ -78,7 +78,7 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 			i.log.Debug("tenant interceptor", "request-scope", "public")
 
 			if tokenInCtx {
-				err := setUserFieldsByTenantLookup(tok.UserId)
+				err := setUserFieldsByTenantLookup(tok.User)
 				if err != nil {
 					return nil, err
 				}
@@ -98,7 +98,7 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 		if permissions.IsSelfScope(req) {
 			i.log.Debug("tenant interceptor", "request-scope", "self")
 
-			err := setUserFieldsByTenantLookup(tok.UserId)
+			err := setUserFieldsByTenantLookup(tok.User)
 			if err != nil {
 				return nil, err
 			}
@@ -109,7 +109,7 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 		if permissions.IsAdminScope(req) {
 			i.log.Debug("tenant interceptor", "request-scope", "admin")
 
-			err := setUserFieldsByTenantLookup(tok.UserId)
+			err := setUserFieldsByTenantLookup(tok.User)
 			if err != nil {
 				return nil, err
 			}

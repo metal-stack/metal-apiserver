@@ -44,6 +44,7 @@ type (
 
 	Datastore interface {
 		IP() Storage[*metal.IP]
+		Size() Storage[*metal.Size]
 		Partition() Storage[*metal.Partition]
 		Network() Storage[*metal.Network]
 		FilesystemLayout() Storage[*metal.FilesystemLayout]

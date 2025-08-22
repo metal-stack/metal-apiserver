@@ -59,7 +59,7 @@ func (u *tenantServiceServer) List(ctx context.Context, rq *connect.Request[apiv
 		result []*apiv2.Tenant
 	)
 
-	projectsAndTenants, err := u.repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, token.UserId)
+	projectsAndTenants, err := u.repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, token.User)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("error retrieving tenants from backend: %w", err))
 	}
@@ -90,10 +90,10 @@ func (u *tenantServiceServer) Create(ctx context.Context, rq *connect.Request[ap
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
 	}
 
-	ownTenant, err := u.repo.Tenant().Get(ctx, t.UserId)
+	ownTenant, err := u.repo.Tenant().Get(ctx, t.User)
 	if err != nil {
 		if mdcv1.IsNotFound(err) {
-			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no tenant found with id %q: %w", t.UserId, err))
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no tenant found with id %q: %w", t.User, err))
 		}
 
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -118,7 +118,7 @@ func (u *tenantServiceServer) Create(ctx context.Context, rq *connect.Request[ap
 	}
 
 	// make tenant owner and member of its own tenant
-	_, err = u.repo.Tenant().AdditionalMethods().Member(t.UserId).Create(ctx, &repository.TenantMemberCreateRequest{
+	_, err = u.repo.Tenant().AdditionalMethods().Member(t.User).Create(ctx, &repository.TenantMemberCreateRequest{
 		MemberID: converted.Login,
 		Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
 	})
@@ -192,10 +192,10 @@ func (u *tenantServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2
 		}
 
 		tenantMembers = append(tenantMembers, &apiv2.TenantMember{
-			Id:         member.Tenant.Meta.Id,
-			Role:       tenantRole,
-			CreatedAt:  member.Tenant.Meta.CreatedTime,
-			ProjectIds: member.ProjectIds,
+			Id:        member.Tenant.Meta.Id,
+			Role:      tenantRole,
+			CreatedAt: member.Tenant.Meta.CreatedTime,
+			Projects:  member.ProjectIds,
 		})
 	}
 
@@ -254,7 +254,7 @@ func (u *tenantServiceServer) Invite(ctx context.Context, rq *connect.Request[ap
 		return nil, err
 	}
 
-	invitee, err := u.repo.Tenant().Get(ctx, t.UserId)
+	invitee, err := u.repo.Tenant().Get(ctx, t.User)
 	if err != nil {
 		return nil, err
 	}
@@ -312,7 +312,7 @@ func (u *tenantServiceServer) InviteAccept(ctx context.Context, rq *connect.Requ
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	invitee, err := u.repo.Tenant().Get(ctx, t.UserId)
+	invitee, err := u.repo.Tenant().Get(ctx, t.User)
 	if err != nil {
 		return nil, err
 	}
@@ -396,7 +396,7 @@ func (u *tenantServiceServer) RemoveMember(ctx context.Context, rq *connect.Requ
 		req = rq.Msg
 	)
 
-	membership, err := u.repo.Tenant().AdditionalMethods().Member(req.Login).Get(ctx, req.MemberId)
+	membership, err := u.repo.Tenant().AdditionalMethods().Member(req.Login).Get(ctx, req.Member)
 	if err != nil {
 		return nil, err
 	}
@@ -414,7 +414,7 @@ func (u *tenantServiceServer) UpdateMember(ctx context.Context, rq *connect.Requ
 		req = rq.Msg
 	)
 
-	membership, err := u.repo.Tenant().AdditionalMethods().Member(req.Login).Get(ctx, req.MemberId)
+	membership, err := u.repo.Tenant().AdditionalMethods().Member(req.Login).Get(ctx, req.Member)
 	if err != nil {
 		return nil, err
 	}
@@ -429,7 +429,7 @@ func (u *tenantServiceServer) UpdateMember(ctx context.Context, rq *connect.Requ
 	}
 
 	return connect.NewResponse(&apiv2.TenantServiceUpdateMemberResponse{TenantMember: &apiv2.TenantMember{
-		Id:        req.MemberId,
+		Id:        req.Member,
 		Role:      req.Role,
 		CreatedAt: updatedMember.Meta.CreatedTime,
 	}}), nil

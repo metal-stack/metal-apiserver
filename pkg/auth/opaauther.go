@@ -327,15 +327,15 @@ func (o *opa) decide(ctx context.Context, methodName string, jwtTokenfunc func(s
 		// this way we do not need to struggle updating all the permissions of tokens that were issued in the past
 		// if performance becomes an issue we need to reconsider this solution
 
-		pat, err := o.projectsAndTenantsGetter(ctx, t.UserId)
+		pat, err := o.projectsAndTenantsGetter(ctx, t.User)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
 		projectRoles = pat.ProjectRoles
 		tenantRoles = pat.TenantRoles
-		o.log.Debug("decide", "adminsubjects", o.adminSubjects, "userid", t.UserId)
-		if slices.Contains(o.adminSubjects, t.UserId) {
+		o.log.Debug("decide", "adminsubjects", o.adminSubjects, "user", t.User)
+		if slices.Contains(o.adminSubjects, t.User) {
 			// we do not store admin roles in the masterdata-api, but we can use this from the static configuration passed to the api-server
 			adminRole = t.AdminRole
 		}

@@ -21,9 +21,9 @@ func TestRedisStore(t *testing.T) {
 
 	store := NewRedisStore(c)
 
-	johnDoeToken := &v1.Token{UserId: "john@doe.com", Uuid: "abc"}
-	willSmithToken := &v1.Token{UserId: "will@smith.com", Uuid: "def"}
-	frankZappaToken := &v1.Token{UserId: "frank@zappa.com", Uuid: "cde"}
+	johnDoeToken := &v1.Token{User: "john@doe.com", Uuid: "abc"}
+	willSmithToken := &v1.Token{User: "will@smith.com", Uuid: "def"}
+	frankZappaToken := &v1.Token{User: "frank@zappa.com", Uuid: "cde"}
 
 	err := store.Set(ctx, johnDoeToken)
 	require.NoError(t, err)
@@ -31,11 +31,11 @@ func TestRedisStore(t *testing.T) {
 	err = store.Set(ctx, willSmithToken)
 	require.NoError(t, err)
 
-	tok, err := store.Get(ctx, johnDoeToken.UserId, johnDoeToken.Uuid)
+	tok, err := store.Get(ctx, johnDoeToken.User, johnDoeToken.Uuid)
 	require.NoError(t, err)
 	require.NotNil(t, tok)
 
-	tok, err = store.Get(ctx, frankZappaToken.UserId, frankZappaToken.Uuid)
+	tok, err = store.Get(ctx, frankZappaToken.User, frankZappaToken.Uuid)
 	require.Error(t, err)
 	require.Nil(t, tok)
 
@@ -47,10 +47,10 @@ func TestRedisStore(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, allTokens, 2)
 
-	err = store.Revoke(ctx, johnDoeToken.UserId, johnDoeToken.Uuid)
+	err = store.Revoke(ctx, johnDoeToken.User, johnDoeToken.Uuid)
 	require.NoError(t, err)
 
-	tok, err = store.Get(ctx, johnDoeToken.UserId, johnDoeToken.Uuid)
+	tok, err = store.Get(ctx, johnDoeToken.User, johnDoeToken.Uuid)
 	require.Error(t, err)
 	require.Nil(t, tok)
 }
@@ -66,7 +66,7 @@ func TestRedisStoreSetAndGet(t *testing.T) {
 
 	inTok := &v1.Token{
 		Uuid:        "bd21fe60-047c-45aa-812d-adc44e098a38",
-		UserId:      "john@doe.com",
+		User:        "john@doe.com",
 		Description: "abc",
 		Permissions: []*v1.MethodPermission{
 			{
@@ -93,7 +93,7 @@ func TestRedisStoreSetAndGet(t *testing.T) {
 
 	require.NoError(t, store.Migrate(ctx, slog.Default()))
 
-	outTok, err := store.Get(ctx, inTok.UserId, inTok.Uuid)
+	outTok, err := store.Get(ctx, inTok.User, inTok.Uuid)
 	require.NoError(t, err)
 	require.NotNil(t, outTok)
 
