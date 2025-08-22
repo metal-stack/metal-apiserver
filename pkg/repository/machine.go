@@ -39,7 +39,7 @@ func (r *machineRepository) matchScope(machine *metal.Machine) bool {
 	}
 
 	if machine.Allocation == nil {
-		return true
+		return false
 	}
 
 	return r.scope.projectID == pointer.SafeDeref(machine).Allocation.Project
@@ -62,7 +62,7 @@ func (r *machineRepository) update(ctx context.Context, m *metal.Machine, req *a
 		m.Allocation.Labels = updateLabelsOnMap(req.Labels, m.Allocation.Labels)
 	}
 
-	if len(req.SshPublicKeys) > 0 && m.Allocation != nil {
+	if len(req.SshPublicKeys) > 0 {
 		m.Allocation.SSHPubKeys = req.SshPublicKeys
 	}
 	if err := r.s.ds.Machine().Update(ctx, m); err != nil {
@@ -93,12 +93,12 @@ func (r *machineRepository) delete(ctx context.Context, m *metal.Machine) error 
 }
 
 func (r *machineRepository) find(ctx context.Context, rq *apiv2.MachineQuery) (*metal.Machine, error) {
-	ip, err := r.s.ds.Machine().Find(ctx, r.scopedMachineFilters(queries.MachineFilter(rq))...)
+	ms, err := r.s.ds.Machine().Find(ctx, r.scopedMachineFilters(queries.MachineFilter(rq))...)
 	if err != nil {
 		return nil, err
 	}
 
-	return ip, nil
+	return ms, nil
 }
 
 func (r *machineRepository) list(ctx context.Context, rq *apiv2.MachineQuery) ([]*metal.Machine, error) {
