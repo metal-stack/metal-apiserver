@@ -49,6 +49,7 @@ type (
 		Network() Storage[*metal.Network]
 		FilesystemLayout() Storage[*metal.FilesystemLayout]
 		Image() Storage[*metal.Image]
+		Switch() Storage[*metal.Switch]
 		// event               Storage[*metal.ProvisioningEventContainer]
 		// machine             Storage[*metal.Machine]
 		// size                Storage[*metal.Size]

@@ -256,3 +256,50 @@ func TestConvert(t *testing.T) {
 		})
 	}
 }
+
+func Test_errorsAreEqual(t *testing.T) {
+	tests := []struct {
+		name string
+		x    error
+		y    error
+		want bool
+	}{
+		{
+			name: "both nil",
+			x:    nil,
+			y:    nil,
+			want: true,
+		},
+		{
+			name: "x nil, y not nil",
+			x:    nil,
+			y:    fmt.Errorf("error"),
+			want: false,
+		},
+		{
+			name: "x not nil, y nil",
+			x:    fmt.Errorf("error"),
+			y:    nil,
+			want: false,
+		},
+		{
+			name: "different messages",
+			x:    fmt.Errorf("error"),
+			y:    fmt.Errorf("different error"),
+			want: false,
+		},
+		{
+			name: "same messages",
+			x:    fmt.Errorf("error"),
+			y:    fmt.Errorf("error"),
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := errorsAreEqual(tt.x, tt.y); got != tt.want {
+				t.Errorf("errorsAreEqual() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

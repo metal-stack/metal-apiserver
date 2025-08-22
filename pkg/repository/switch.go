@@ -6,7 +6,9 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
@@ -16,39 +18,92 @@ type switchRepository struct {
 }
 
 func (r *switchRepository) get(ctx context.Context, id string) (*metal.Switch, error) {
-	panic("unimplemented")
-}
+	sw, err := r.s.ds.Switch().Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
 
-func (r *switchRepository) validateCreate(ctx context.Context, req *infrav2.SwitchServiceCreateRequest) error {
-	panic("unimplemented")
+	return sw, nil
 }
 
 func (r *switchRepository) create(ctx context.Context, req *infrav2.SwitchServiceCreateRequest) (*metal.Switch, error) {
-	panic("unimplemented")
-}
+	if req.Switch == nil {
+		return nil, nil
+	}
+	sw, err := r.convertToInternal(req.Switch)
+	if err != nil {
+		return nil, err
+	}
 
-func (r *switchRepository) validateUpdate(ctx context.Context, req *adminv2.SwitchServiceUpdateRequest, oldSwitch *metal.Switch) error {
-	panic("unimplemented")
+	resp, err := r.s.ds.Switch().Create(ctx, sw)
+	if err != nil {
+		return nil, err
+	}
+
+	r.s.log.Info("created switch in metal-db", "switch", sw)
+
+	return resp, nil
 }
 
 func (r *switchRepository) update(ctx context.Context, oldSwitch *metal.Switch, req *adminv2.SwitchServiceUpdateRequest) (*metal.Switch, error) {
-	panic("unimplemented")
-}
+	new := *oldSwitch
 
-func (r *switchRepository) validateDelete(ctx context.Context, sw *metal.Switch) error {
-	panic("unimplemented")
+	if req.Description != nil {
+		new.Description = *req.Description
+	}
+	if req.RackId != nil {
+		new.RackID = *req.RackId
+	}
+	if req.ReplaceMode != nil {
+		replaceMode, err := metal.ToReplaceMode(*req.ReplaceMode)
+		if err != nil {
+			return nil, err
+		}
+		new.ReplaceMode = replaceMode
+	}
+	if req.ManagementIp != nil {
+		new.ManagementIP = *req.ManagementIp
+	}
+	if req.ManagementUser != nil {
+		new.ManagementUser = *req.ManagementUser
+	}
+	if req.ConsoleCommand != nil {
+		new.ConsoleCommand = *req.ConsoleCommand
+	}
+	if len(req.Nics) > 0 {
+		nics, err := metal.ToMetalNics(req.Nics)
+		if err != nil {
+			return nil, err
+		}
+		new.Nics = nics
+	}
+
+	err := r.s.ds.Switch().Update(ctx, &new)
+	if err != nil {
+		return nil, err
+	}
+
+	return &new, nil
 }
 
 func (r *switchRepository) delete(ctx context.Context, sw *metal.Switch) error {
-	panic("unimplemented")
+	return r.s.ds.Switch().Delete(ctx, sw)
 }
 
 func (r *switchRepository) find(ctx context.Context, query *apiv2.SwitchQuery) (*metal.Switch, error) {
-	panic("unimplemented")
+	sw, err := r.s.ds.Switch().Find(ctx, r.switchFilters(queries.SwitchFilter(query))...)
+	if err != nil {
+		return nil, err
+	}
+	return sw, nil
 }
 
 func (r *switchRepository) list(ctx context.Context, query *apiv2.SwitchQuery) ([]*metal.Switch, error) {
-	panic("unimplemented")
+	switches, err := r.s.ds.Switch().List(ctx, r.switchFilters(queries.SwitchFilter(query))...)
+	if err != nil {
+		return nil, err
+	}
+	return switches, err
 }
 
 func (r *switchRepository) convertToInternal(sw *apiv2.Switch) (*metal.Switch, error) {
@@ -56,46 +111,9 @@ func (r *switchRepository) convertToInternal(sw *apiv2.Switch) (*metal.Switch, e
 		return nil, nil
 	}
 
-	var nics metal.Nics
-	for _, nic := range sw.Nics {
-		var bgpPortState *metal.BGPPortState
-		if nic.BgpPortState != nil {
-			bgpState, err := metal.ToBGPState(nic.BgpPortState.BgpState)
-			if err != nil {
-				return nil, err
-			}
-
-			bgpPortState = &metal.BGPPortState{
-				Neighbor:              nic.BgpPortState.Neighbor,
-				PeerGroup:             nic.BgpPortState.PeerGroup,
-				VrfName:               nic.BgpPortState.VrfName,
-				State:                 bgpState,
-				BGPTimerUpEstablished: nic.BgpPortState.BgpTimerUpEstablished.AsDuration(),
-				SentPrefixCounter:     nic.BgpPortState.SentPrefixCounter,
-				AcceptedPrefixCounter: nic.BgpPortState.AcceptedPrefixCounter,
-			}
-		}
-
-		desiredState, err := metal.ToSwitchPortStatus(nic.State.Desired)
-		if err != nil {
-			return nil, err
-		}
-		actualState, err := metal.ToSwitchPortStatus(nic.State.Actual)
-		if err != nil {
-			return nil, err
-		}
-
-		nics = append(nics, metal.Nic{
-			Name:       nic.Name,
-			Identifier: nic.Identifier,
-			Mac:        nic.Mac,
-			Vrf:        nic.Vrf,
-			State: &metal.NicState{
-				Desired: desiredState,
-				Actual:  actualState,
-			},
-			BGPPortState: bgpPortState,
-		})
+	nics, err := metal.ToMetalNics(sw.Nics)
+	if err != nil {
+		return nil, err
 	}
 
 	replaceMode, err := metal.ToReplaceMode(sw.ReplaceMode)
@@ -217,4 +235,12 @@ func (r *switchRepository) Migrate(ctx context.Context, oldSwitch, newSwitch str
 
 func (r *switchRepository) Port(ctx context.Context, id, port string, status apiv2.SwitchPortStatus) (*metal.Switch, error) {
 	panic("unimplemented")
+}
+
+func (r *switchRepository) switchFilters(filter generic.EntityQuery) []generic.EntityQuery {
+	var qs []generic.EntityQuery
+	if filter != nil {
+		qs = append(qs, filter)
+	}
+	return qs
 }

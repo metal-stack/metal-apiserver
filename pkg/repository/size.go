@@ -100,21 +100,21 @@ func (r *sizeRepository) delete(ctx context.Context, e *metal.Size) error {
 }
 
 func (r *sizeRepository) find(ctx context.Context, rq *apiv2.SizeQuery) (*metal.Size, error) {
-	ip, err := r.s.ds.Size().Find(ctx, r.sizeFilters(queries.SizeFilter(rq))...)
+	size, err := r.s.ds.Size().Find(ctx, r.sizeFilters(queries.SizeFilter(rq))...)
 	if err != nil {
 		return nil, err
 	}
 
-	return ip, nil
+	return size, nil
 }
 
 func (r *sizeRepository) list(ctx context.Context, rq *apiv2.SizeQuery) ([]*metal.Size, error) {
-	ip, err := r.s.ds.Size().List(ctx, r.sizeFilters(queries.SizeFilter(rq))...)
+	sizes, err := r.s.ds.Size().List(ctx, r.sizeFilters(queries.SizeFilter(rq))...)
 	if err != nil {
 		return nil, err
 	}
 
-	return ip, nil
+	return sizes, nil
 }
 
 func (r *sizeRepository) convertToInternal(e *apiv2.Size) (*metal.Size, error) {

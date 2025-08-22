@@ -11,13 +11,13 @@ import (
 type Switch struct {
 	Base
 	RackID             string            `rethinkdb:"rackid"`
-	Partition          string            `rethinkdb:"partition"`
-	ReplaceMode        SwitchReplaceMode `rethinkdb:"replacemode"`
-	ManagementIP       string            `rethinkdb:"managementip"`
-	ManagementUser     string            `rethinkdb:"managementuser"`
-	ConsoleCommand     string            `rethinkdb:"consolecommand"`
+	Partition          string            `rethinkdb:"partitionid"`
+	ReplaceMode        SwitchReplaceMode `rethinkdb:"mode"`
+	ManagementIP       string            `rethinkdb:"management_ip"`
+	ManagementUser     string            `rethinkdb:"management_user"`
+	ConsoleCommand     string            `rethinkdb:"console_command"`
 	OS                 SwitchOS          `rethinkdb:"os"`
-	Nics               Nics              `rethinkdb:"nics"`
+	Nics               Nics              `rethinkdb:"network_interfaces"`
 	MachineConnections ConnectionMap     `rethinkdb:"machineconnections"`
 }
 
@@ -28,22 +28,27 @@ type Connection struct {
 	MachineID string `rethinkdb:"machineid"`
 }
 
+type Connections []Connection
+
 // ConnectionMap maps machine ids to connections
-type ConnectionMap map[string]Connection
+type ConnectionMap map[string]Connections
 
 type SwitchOS struct {
 	Vendor           SwitchOSVendor `rethinkdb:"vendor"`
 	Version          string         `rethinkdb:"version"`
-	MetalCoreVersion string         `rethinkdb:"metalcoreversion"`
+	MetalCoreVersion string         `rethinkdb:"metal_core_version"`
 }
 
+// FIXME: Nic is part of machine service PR. Remove once it is merged.
 type Nic struct {
+	Mac          string        `rethinkdb:"macAddress"`
 	Name         string        `rethinkdb:"name"`
 	Identifier   string        `rethinkdb:"identifier"`
-	Mac          string        `rethinkdb:"mac"`
 	Vrf          *string       `rethinkdb:"vrf"`
+	Neighbors    Nics          `rethinkdb:"neighbors"`
+	Hostname     string        `rethinkdb:"hostname"`
 	State        *NicState     `rethinkdb:"state"`
-	BGPPortState *BGPPortState `rethinkdb:"bgpportstate"`
+	BGPPortState *BGPPortState `rethinkdb:"bgpPortState"`
 }
 
 type Nics []Nic
@@ -176,4 +181,55 @@ func FromBGPState(state BGPState) (apiv2.BGPState, error) {
 		return apiv2.BGPState_BGP_STATE_UNSPECIFIED, fmt.Errorf("bgp state:%q is invalid", state)
 	}
 	return apiv2State, nil
+}
+
+func ToMetalNics(switchNics []*apiv2.SwitchNic) (Nics, error) {
+	var nics Nics
+
+	for _, nic := range switchNics {
+		if nic == nil {
+			continue
+		}
+
+		var bgpPortState *BGPPortState
+		if nic.BgpPortState != nil {
+			bgpState, err := ToBGPState(nic.BgpPortState.BgpState)
+			if err != nil {
+				return nil, err
+			}
+
+			bgpPortState = &BGPPortState{
+				Neighbor:              nic.BgpPortState.Neighbor,
+				PeerGroup:             nic.BgpPortState.PeerGroup,
+				VrfName:               nic.BgpPortState.VrfName,
+				State:                 bgpState,
+				BGPTimerUpEstablished: nic.BgpPortState.BgpTimerUpEstablished.AsDuration(),
+				SentPrefixCounter:     nic.BgpPortState.SentPrefixCounter,
+				AcceptedPrefixCounter: nic.BgpPortState.AcceptedPrefixCounter,
+			}
+		}
+
+		desiredState, err := ToSwitchPortStatus(nic.State.Desired)
+		if err != nil {
+			return nil, err
+		}
+		actualState, err := ToSwitchPortStatus(nic.State.Actual)
+		if err != nil {
+			return nil, err
+		}
+
+		nics = append(nics, Nic{
+			Name:       nic.Name,
+			Identifier: nic.Identifier,
+			Mac:        nic.Mac,
+			Vrf:        nic.Vrf,
+			State: &NicState{
+				Desired: desiredState,
+				Actual:  actualState,
+			},
+			BGPPortState: bgpPortState,
+		})
+	}
+
+	return nics, nil
 }
