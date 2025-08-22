@@ -29,12 +29,13 @@ var (
 func Test_networkServiceServer_Get(t *testing.T) {
 	log := slog.Default()
 
-	repo, closer := test.StartRepository(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
+	repo := testStore.Store
 
 	ctx := t.Context()
 
-	test.CreateTenants(t, repo, tenants)
+	test.CreateTenants(t, testStore, tenants)
 	test.CreateProjects(t, repo, projects)
 	test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
 		{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.3.0/24"}, Vrf: pointer.Pointer(uint32(9)), Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL},
@@ -97,8 +98,9 @@ func Test_networkServiceServer_Get(t *testing.T) {
 func Test_networkServiceServer_List(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	repo, closer := test.StartRepository(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
+	repo := testStore.Store
 
 	ctx := t.Context()
 
@@ -109,7 +111,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 
 	validURL := ts.URL
 
-	test.CreateTenants(t, repo, tenants)
+	test.CreateTenants(t, testStore, tenants)
 	test.CreateProjects(t, repo, projects)
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
@@ -228,8 +230,9 @@ func Test_networkServiceServer_List(t *testing.T) {
 func Test_networkServiceServer_ListBaseNetworks(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	repo, closer := test.StartRepository(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
+	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -240,7 +243,7 @@ func Test_networkServiceServer_ListBaseNetworks(t *testing.T) {
 
 	ctx := t.Context()
 
-	test.CreateTenants(t, repo, tenants)
+	test.CreateTenants(t, testStore, tenants)
 	test.CreateProjects(t, repo, projects)
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
@@ -373,8 +376,9 @@ func Test_networkServiceServer_ListBaseNetworks(t *testing.T) {
 func Test_networkServiceServer_Update(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	repo, closer := test.StartRepository(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
+	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -383,7 +387,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 
 	validURL := ts.URL
 
-	test.CreateTenants(t, repo, tenants)
+	test.CreateTenants(t, testStore, tenants)
 	test.CreateProjects(t, repo, projects)
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
@@ -554,8 +558,9 @@ func Test_networkServiceServer_Update(t *testing.T) {
 func Test_networkServiceServer_Create(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	repo, closer := test.StartRepository(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
+	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -566,7 +571,7 @@ func Test_networkServiceServer_Create(t *testing.T) {
 
 	ctx := t.Context()
 
-	test.CreateTenants(t, repo, tenants)
+	test.CreateTenants(t, testStore, tenants)
 	test.CreateProjects(t, repo, projects)
 
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
@@ -832,7 +837,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 
 	validURL := ts.URL
 
-	test.CreateTenants(t, repo, tenants)
+	test.CreateTenants(t, testStore, tenants)
 	test.CreateProjects(t, repo, projects)
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},

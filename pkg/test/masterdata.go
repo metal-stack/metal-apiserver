@@ -18,7 +18,7 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 )
 
-func StartMasterdataWithCochroach(t *testing.T, log *slog.Logger) (mdc.Client, *grpc.ClientConn, func()) {
+func StartMasterdataWithCockroach(t *testing.T, log *slog.Logger) (mdc.Client, *grpc.ClientConn, func()) {
 	cr, err := testserver.NewTestServer()
 	require.NoError(t, err)
 

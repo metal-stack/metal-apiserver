@@ -118,8 +118,8 @@ func (u *tenantServiceServer) Create(ctx context.Context, rq *connect.Request[ap
 	}
 
 	// make tenant owner and member of its own tenant
-	_, err = u.repo.Tenant().AdditionalMethods().Member(t.User).Create(ctx, &repository.TenantMemberCreateRequest{
-		MemberID: converted.Login,
+	_, err = u.repo.Tenant().AdditionalMethods().Member(converted.Login).Create(ctx, &repository.TenantMemberCreateRequest{
+		MemberID: t.GetUser(),
 		Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
 	})
 	if err != nil {
@@ -140,11 +140,7 @@ func (u *tenantServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2
 
 	tenant, err := u.repo.Tenant().Get(ctx, req.Login)
 	if err != nil {
-		if mdcv1.IsNotFound(err) {
-			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no tenant found with id %q: %w", req.Login, err))
-		}
-
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, err
 	}
 
 	converted, err := u.repo.Tenant().ConvertToProto(tenant)

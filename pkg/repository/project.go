@@ -41,7 +41,8 @@ func (r *projectRepository) projectMember(scope *ProjectScope) ProjectMember {
 	}
 
 	return &store[*projectMemberRepository, *mdcv1.ProjectMember, *apiv2.ProjectMember, *ProjectMemberCreateRequest, *ProjectMemberUpdateRequest, *ProjectMemberQuery]{
-		typed: repository,
+		typed:      repository,
+		repository: repository,
 	}
 }
 
@@ -315,7 +316,7 @@ func (r *projectRepository) EnsureProviderProject(ctx context.Context, providerT
 		TenantId: &providerTenantID,
 	})
 	if err != nil {
-		return fmt.Errorf("unable to get find project %q: %w", providerTenantID, err)
+		return fmt.Errorf("unable to find project %q: %w", providerTenantID, err)
 	}
 
 	if len(resp.Projects) > 0 {
@@ -325,6 +326,7 @@ func (r *projectRepository) EnsureProviderProject(ctx context.Context, providerT
 	project, err := r.s.UnscopedProject().AdditionalMethods().CreateWithID(ctx, &apiv2.ProjectServiceCreateRequest{
 		Name:        "Default Project",
 		Description: "Default project of " + providerTenantID,
+		Login:       providerTenantID,
 	}, providerTenantID)
 	if err != nil {
 		return fmt.Errorf("unable to create project: %w", err)

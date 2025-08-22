@@ -21,12 +21,13 @@ import (
 func Test_ipServiceServer_Get(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	repo, closer := test.StartRepository(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
+	repo := testStore.Store
 
 	ctx := t.Context()
 
-	test.CreateTenants(t, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
+	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
 	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
 	networks := test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
 		{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.3.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: pointer.Pointer(uint32(11))},
@@ -104,8 +105,9 @@ func Test_ipServiceServer_Get(t *testing.T) {
 func Test_ipServiceServer_List(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	repo, closer := test.StartRepository(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
+	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -116,7 +118,7 @@ func Test_ipServiceServer_List(t *testing.T) {
 
 	ctx := t.Context()
 
-	test.CreateTenants(t, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
+	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
 	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p0", Login: "t1"}, {Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
@@ -216,8 +218,9 @@ func Test_ipServiceServer_List(t *testing.T) {
 func Test_ipServiceServer_Update(t *testing.T) {
 	log := slog.Default()
 
-	repo, closer := test.StartRepository(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
+	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -228,7 +231,7 @@ func Test_ipServiceServer_Update(t *testing.T) {
 
 	ctx := t.Context()
 
-	test.CreateTenants(t, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
+	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
 	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p0", Login: "t1"}, {Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
@@ -340,8 +343,10 @@ func Test_ipServiceServer_Update(t *testing.T) {
 func Test_ipServiceServer_Delete(t *testing.T) {
 	log := slog.Default()
 
-	repo, closer := test.StartRepository(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
+	repo := testStore.Store
+
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
 	}))
@@ -351,7 +356,7 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 
 	ctx := t.Context()
 
-	test.CreateTenants(t, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
+	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
 	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p0", Login: "t1"}, {Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
@@ -435,8 +440,10 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 
 func Test_ipServiceServer_Create(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	repo, closer := test.StartRepository(t, log)
+
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
+	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -447,7 +454,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 
 	ctx := t.Context()
 
-	test.CreateTenants(t, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
+	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
 	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p0", Login: "t1"}, {Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},

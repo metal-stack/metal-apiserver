@@ -84,7 +84,6 @@ type RedisConfig struct {
 }
 
 func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
-
 	tokenStore := tokencommon.NewRedisStore(c.RedisConfig.TokenClient)
 	certStore := certs.NewRedisStore(&certs.Config{
 		RedisClient: c.RedisConfig.TokenClient,

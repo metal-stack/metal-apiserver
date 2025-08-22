@@ -35,7 +35,7 @@ func Test_machineServiceServer_Get(t *testing.T) {
 
 	ctx := t.Context()
 
-	test.CreateTenants(t, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
+	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
 	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
 		{
@@ -158,7 +158,7 @@ func Test_machineServiceServer_List(t *testing.T) {
 
 	ctx := t.Context()
 
-	test.CreateTenants(t, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
+	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
 	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
 		{
@@ -312,7 +312,7 @@ func Test_machineServiceServer_Update(t *testing.T) {
 
 	ctx := t.Context()
 
-	test.CreateTenants(t, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
+	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
 	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
 		{
