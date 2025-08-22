@@ -190,14 +190,6 @@ func MachineFilter(rq *apiv2.MachineQuery) func(q r.Term) r.Term {
 				})
 			}
 
-			for _, vrf := range nic.Vrfs {
-				q = q.Filter(func(row r.Term) r.Term {
-					return row.Field("hardware").Field("network_interfaces").Map(func(nic r.Term) r.Term {
-						return nic.Field("vrf")
-					}).Contains(r.Expr(vrf))
-				})
-			}
-
 			for _, mac := range nic.NeighborMacs {
 				q = q.Filter(func(row r.Term) r.Term {
 					return row.Field("hardware").Field("network_interfaces").Contains(func(nic r.Term) r.Term {
@@ -218,15 +210,6 @@ func MachineFilter(rq *apiv2.MachineQuery) func(q r.Term) r.Term {
 				})
 			}
 
-			for _, vrf := range nic.NeighborVrfs {
-				q = q.Filter(func(row r.Term) r.Term {
-					return row.Field("hardware").Field("network_interfaces").Contains(func(nic r.Term) r.Term {
-						return nic.Field("neighbors").Contains(func(neigh r.Term) r.Term {
-							return neigh.Field("vrf").Eq(vrf)
-						})
-					})
-				})
-			}
 		}
 
 		if rq.Disk != nil {

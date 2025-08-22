@@ -56,12 +56,13 @@ type Machine struct {
 
 // A MachineAllocation stores the data which are only present for allocated machines.
 type MachineAllocation struct {
-	Creator          string            `rethinkdb:"creator"`
-	Created          time.Time         `rethinkdb:"created"`
-	Name             string            `rethinkdb:"name"`
-	Description      string            `rethinkdb:"description"`
-	Project          string            `rethinkdb:"project"`
-	ImageID          string            `rethinkdb:"imageid"`
+	Creator     string    `rethinkdb:"creator"`
+	Created     time.Time `rethinkdb:"created"`
+	Name        string    `rethinkdb:"name"`
+	Description string    `rethinkdb:"description"`
+	Project     string    `rethinkdb:"project"`
+	ImageID     string    `rethinkdb:"imageid"`
+	// FIXME remove and replace with a reference
 	FilesystemLayout *FilesystemLayout `rethinkdb:"filesystemlayout"`
 	MachineNetworks  []*MachineNetwork `rethinkdb:"networks"`
 	Hostname         string            `rethinkdb:"hostname"`
@@ -69,14 +70,16 @@ type MachineAllocation struct {
 	UserData         string            `rethinkdb:"userdata"`
 	ConsolePassword  string            `rethinkdb:"console_password"`
 	Succeeded        bool              `rethinkdb:"succeeded"`
-	Reinstall        bool              `rethinkdb:"reinstall"`
-	MachineSetup     *MachineSetup     `rethinkdb:"setup"`
-	Role             Role              `rethinkdb:"role"`
-	VPN              *MachineVPN       `rethinkdb:"vpn"`
-	UUID             string            `rethinkdb:"uuid"`
-	FirewallRules    *FirewallRules    `rethinkdb:"firewall_rules"`
-	DNSServers       DNSServers        `rethinkdb:"dns_servers"`
-	NTPServers       NTPServers        `rethinkdb:"ntp_servers"`
+	// FIXME can be removed once the reinstall feature is completely removed
+	Reinstall bool `rethinkdb:"reinstall"`
+	// FIXME can be removed once the reinstall feature is completely removed
+	MachineSetup  *MachineSetup  `rethinkdb:"setup"`
+	Role          Role           `rethinkdb:"role"`
+	VPN           *MachineVPN    `rethinkdb:"vpn"`
+	UUID          string         `rethinkdb:"uuid"`
+	FirewallRules *FirewallRules `rethinkdb:"firewall_rules"`
+	DNSServers    DNSServers     `rethinkdb:"dns_servers"`
+	NTPServers    NTPServers     `rethinkdb:"ntp_servers"`
 }
 
 // A MachineState describes the state of a machine. If the Value is AvailableState,
@@ -247,7 +250,7 @@ const (
 // }
 
 // A MachineSetup stores the data used for machine reinstallations.
-// FIXME do we need this
+// FIXME decision was made to delete this.
 type MachineSetup struct {
 	ImageID      string `rethinkdb:"imageid"`
 	PrimaryDisk  string `rethinkdb:"primarydisk"`

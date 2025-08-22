@@ -107,6 +107,7 @@ type (
 		Partitions []DiskPartition `rethinkdb:"partitions"`
 		// WipeOnReinstall, if set to true the whole disk will be erased if reinstall happens
 		// during fresh install all disks are wiped
+		// FIXME can be removed once the reinstall feature is completely removed
 		WipeOnReinstall bool `rethinkdb:"wipeonreinstall"`
 	}
 

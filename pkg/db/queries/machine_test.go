@@ -442,12 +442,6 @@ func TestMachineFilter(t *testing.T) {
 			rq:   &apiv2.MachineQuery{Nic: &apiv2.MachineNicQuery{Names: []string{"eth0"}}},
 			want: []*metal.Machine{m3},
 		},
-		// FIXME is a string in the backend and not populated
-		// {
-		// 	name: "by nic vrf",
-		// 	rq:   &apiv2.MachineQuery{Nic: &apiv2.MachineNicQuery{Vrfs: []uint64{4009}}},
-		// 	want: []*metal.Machine{m3},
-		// },
 		{
 			name: "by nic neighbor mac",
 			rq:   &apiv2.MachineQuery{Nic: &apiv2.MachineNicQuery{NeighborMacs: []string{"cc:dd"}}},
@@ -458,12 +452,6 @@ func TestMachineFilter(t *testing.T) {
 			rq:   &apiv2.MachineQuery{Nic: &apiv2.MachineNicQuery{NeighborNames: []string{"swp1"}}},
 			want: []*metal.Machine{m3},
 		},
-		// FIXME is a string in the backend and not populated
-		// {
-		// 	name: "by nic neighbor vrf",
-		// 	rq:   &apiv2.MachineQuery{Nic: &apiv2.MachineNicQuery{NeighborVrfs: []uint64{4009}}},
-		// 	want: []*metal.Machine{m3},
-		// },
 
 		// Disk Queries
 		{

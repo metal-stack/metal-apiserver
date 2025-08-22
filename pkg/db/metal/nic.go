@@ -5,6 +5,7 @@ package metal
 type MacAddress string
 
 // Nic information.
+// This is used for machine nics and switch nics as backing store
 type Nic struct {
 	MacAddress   MacAddress          `rethinkdb:"macAddress"`
 	Name         string              `rethinkdb:"name"`
@@ -29,6 +30,7 @@ type NicState struct {
 }
 
 type SwitchBGPPortState struct {
+	// FIXME add rethinkdb annotations, check against existing database entries
 	Neighbor              string
 	PeerGroup             string
 	VrfName               string
