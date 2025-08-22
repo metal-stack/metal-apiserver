@@ -654,3 +654,5 @@ func Test_service_InviteAccept(t *testing.T) {
 		})
 	}
 }
+
+// FIXME test delete which traverses all assets with project reference

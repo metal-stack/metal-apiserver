@@ -33,6 +33,8 @@ import (
 	imageadmin "github.com/metal-stack/metal-apiserver/pkg/service/image/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/ip"
 	ipadmin "github.com/metal-stack/metal-apiserver/pkg/service/ip/admin"
+	"github.com/metal-stack/metal-apiserver/pkg/service/machine"
+	machineadmin "github.com/metal-stack/metal-apiserver/pkg/service/machine/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/method"
 	"github.com/metal-stack/metal-apiserver/pkg/service/network"
 	networkadmin "github.com/metal-stack/metal-apiserver/pkg/service/network/admin"
@@ -179,6 +181,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	})
 
 	ipService := ip.New(ip.Config{Log: log, Repo: c.Repository})
+	machineService := machine.New(machine.Config{Log: log, Repo: c.Repository})
 	networkService := network.New(network.Config{Log: log, Repo: c.Repository})
 	filesystemService := filesystem.New(filesystem.Config{Log: log, Repo: c.Repository})
 	partitionService := partition.New(partition.Config{Log: log, Repo: c.Repository})
@@ -212,6 +215,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	mux.Handle(apiv2connect.NewHealthServiceHandler(healthService, interceptors))
 	mux.Handle(apiv2connect.NewImageServiceHandler(imageService, interceptors))
 	mux.Handle(apiv2connect.NewIPServiceHandler(ipService, interceptors))
+	mux.Handle(apiv2connect.NewMachineServiceHandler(machineService, interceptors))
 	mux.Handle(apiv2connect.NewMethodServiceHandler(methodService, interceptors))
 	mux.Handle(apiv2connect.NewNetworkServiceHandler(networkService, interceptors))
 	mux.Handle(apiv2connect.NewPartitionServiceHandler(partitionService, interceptors))
@@ -227,6 +231,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	adminFilesystemService := filesystemadmin.New(filesystemadmin.Config{Log: log, Repo: c.Repository})
 	adminPartitionService := partitionadmin.New(partitionadmin.Config{Log: log, Repo: c.Repository})
 	adminSizeService := sizeadmin.New(sizeadmin.Config{Log: log, Repo: c.Repository})
+	adminMachineService := machineadmin.New(machineadmin.Config{Log: log, Repo: c.Repository})
 	adminNetworkService := networkadmin.New(networkadmin.Config{Log: log, Repo: c.Repository})
 	adminSwitchService := switchadmin.New(switchadmin.Config{Log: log, Repo: c.Repository})
 	mux.Handle(adminv2connect.NewIPServiceHandler(adminIpService, adminInterceptors))
@@ -237,6 +242,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	mux.Handle(adminv2connect.NewTenantServiceHandler(adminTenantService, adminInterceptors))
 	mux.Handle(adminv2connect.NewNetworkServiceHandler(adminNetworkService, adminInterceptors))
 	mux.Handle(adminv2connect.NewSwitchServiceHandler(adminSwitchService, adminInterceptors))
+	mux.Handle(adminv2connect.NewMachineServiceHandler(adminMachineService, adminInterceptors))
 
 	// Infra services
 	infraSwitchService := switchinfra.New(switchinfra.Config{Log: log, Repo: c.Repository})

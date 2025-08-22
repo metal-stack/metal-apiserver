@@ -9,6 +9,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
@@ -308,23 +309,47 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 func Test_sizeServiceServer_Delete(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	repo, closer := test.StartRepository(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
+	repo := testStore.Store
 
 	ctx := t.Context()
 
 	sizes := []*adminv2.SizeServiceCreateRequest{
-		{Size: &apiv2.Size{
-			Id: "n1-medium-x86", Name: pointer.Pointer("n1-medium-x86"),
-			Constraints: []*apiv2.SizeConstraint{
-				{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
-				{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
-				{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 10 * 1024 * 1024, Max: 10 * 1024 * 1024},
+		{
+			Size: &apiv2.Size{
+				Id: "n1-medium-x86", Name: pointer.Pointer("n1-medium-x86"),
+				Constraints: []*apiv2.SizeConstraint{
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 10 * 1024 * 1024, Max: 10 * 1024 * 1024},
+				},
 			},
-		}},
+		},
+		{
+			Size: &apiv2.Size{
+				Id: "c1-large-x86", Name: pointer.Pointer("c1-large-x86"),
+				Constraints: []*apiv2.SizeConstraint{
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 12, Max: 12},
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 10 * 1024 * 1024, Max: 10 * 1024 * 1024},
+				},
+			},
+		},
 	}
 
 	test.CreateSizes(t, repo, sizes)
+	test.CreateMachines(t, testStore, []*metal.Machine{
+		{
+			Base: metal.Base{ID: "m1"}, PartitionID: "partition-one",
+			SizeID: "c1-large-x86",
+			Allocation: &metal.MachineAllocation{
+				FilesystemLayout: &metal.FilesystemLayout{
+					Base: metal.Base{ID: "m1-large"},
+				},
+			},
+		},
+	})
 
 	tests := []struct {
 		name    string
@@ -338,13 +363,12 @@ func Test_sizeServiceServer_Delete(t *testing.T) {
 			want:    nil,
 			wantErr: errorutil.NotFound(`no size with id "non-existing" found`),
 		},
-		// FIXME implement validation once machine-service is implemented
-		// {
-		// 	name:    "delete existing with attached machines",
-		// 	rq:      &adminv2.SizeServiceDeleteRequest{Id: "non-existing"},
-		// 	want:    nil,
-		// 	wantErr: errorutil.NotFound(`no size with id "non-existing" found`),
-		// },
+		{
+			name:    "delete existing with attached machines",
+			rq:      &adminv2.SizeServiceDeleteRequest{Id: "c1-large-x86"},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument(`cannot remove size with existing machines of this size`),
+		},
 		{
 			name: "delete n1-medium",
 			rq:   &adminv2.SizeServiceDeleteRequest{Id: "n1-medium-x86"},

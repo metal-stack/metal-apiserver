@@ -18,6 +18,8 @@ type (
 		dbname        string
 
 		ip        *storage[*metal.IP]
+		machine   *storage[*metal.Machine]
+		event     *storage[*metal.ProvisioningEventContainer]
 		size      *storage[*metal.Size]
 		partition *storage[*metal.Partition]
 		network   *storage[*metal.Network]
@@ -49,11 +51,13 @@ func New(log *slog.Logger, opts r.ConnectOpts, dsOpts ...dataStoreOption) (*data
 	}
 
 	ds.ip = newStorage[*metal.IP](ds, "ip")
+	ds.machine = newStorage[*metal.Machine](ds, "machine")
 	ds.size = newStorage[*metal.Size](ds, "size")
 	ds.partition = newStorage[*metal.Partition](ds, "partition")
 	ds.network = newStorage[*metal.Network](ds, "network")
 	ds.fsl = newStorage[*metal.FilesystemLayout](ds, "filesystemlayout")
 	ds.image = newStorage[*metal.Image](ds, "image")
+	ds.event = newStorage[*metal.ProvisioningEventContainer](ds, "event")
 
 	var (
 		vrfMin = uint(1)
@@ -101,6 +105,9 @@ func (ds *datastore) IP() Storage[*metal.IP] {
 	return ds.ip
 }
 
+func (ds *datastore) Machine() Storage[*metal.Machine] {
+	return ds.machine
+}
 func (ds *datastore) Size() Storage[*metal.Size] {
 	return ds.size
 }
@@ -123,6 +130,8 @@ func (ds *datastore) Image() Storage[*metal.Image] {
 
 func (ds *datastore) Switch() Storage[*metal.Switch] {
 	return ds.sw
+func (ds *datastore) Event() Storage[*metal.ProvisioningEventContainer] {
+	return ds.event
 }
 
 func (ds *datastore) AsnPool() *integerPool {

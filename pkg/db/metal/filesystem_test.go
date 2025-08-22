@@ -285,80 +285,80 @@ func strPtr(s string) *string {
 	return &s
 }
 
-// func TestFilesystemLayout_Matches(t *testing.T) {
-// 	type fields struct {
-// 		Disks []Disk
-// 		Raid  []Raid
-// 	}
-// 	type args struct {
-// 		hardware MachineHardware
-// 	}
-// 	tests := []struct {
-// 		name      string
-// 		fields    fields
-// 		args      args
-// 		wantErr   bool
-// 		errString string
-// 	}{
-// 		{
-// 			name: "simple match",
-// 			fields: fields{
-// 				Disks: []Disk{{Device: "/dev/sda"}, {Device: "/dev/sdb"}},
-// 			},
-// 			args:    args{hardware: MachineHardware{Disks: []BlockDevice{{Name: "/dev/sda"}, {Name: "/dev/sdb"}}}},
-// 			wantErr: false,
-// 		},
-// 		{
-// 			name: "simple match with old device naming",
-// 			fields: fields{
-// 				Disks: []Disk{{Device: "/dev/sda"}, {Device: "/dev/sdb"}},
-// 			},
-// 			args:    args{hardware: MachineHardware{Disks: []BlockDevice{{Name: "sda"}, {Name: "sdb"}}}},
-// 			wantErr: false,
-// 		},
-// 		{
-// 			name: "simple no match device missing",
-// 			fields: fields{
-// 				Disks: []Disk{{Device: "/dev/sda"}, {Device: "/dev/sdb"}},
-// 			},
-// 			args:      args{hardware: MachineHardware{Disks: []BlockDevice{{Name: "/dev/sda"}, {Name: "/dev/sdc"}}}},
-// 			wantErr:   true,
-// 			errString: "device:/dev/sdb does not exist on given hardware",
-// 		},
-// 		{
-// 			name: "simple no match device to small",
-// 			fields: fields{
-// 				Disks: []Disk{
-// 					{Device: "/dev/sda", Partitions: []DiskPartition{{Size: 100}, {Size: 100}}},
-// 					{Device: "/dev/sdb", Partitions: []DiskPartition{{Size: 100}, {Size: 100}}}},
-// 			},
-// 			args: args{hardware: MachineHardware{Disks: []BlockDevice{
-// 				{Name: "/dev/sda", Size: 300000000},
-// 				{Name: "/dev/sdb", Size: 100000000},
-// 			}}},
-// 			wantErr:   true,
-// 			errString: "device:/dev/sdb is not big enough required:200MiB, existing:95MiB",
-// 		},
-// 	}
-// 	for _, tt := range tests {
-// 		tt := tt
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			fl := &FilesystemLayout{
-// 				Disks: tt.fields.Disks,
-// 				Raid:  tt.fields.Raid,
-// 			}
-// 			err := fl.Matches(tt.args.hardware)
-// 			if (err != nil) != tt.wantErr {
-// 				t.Errorf("FilesystemLayout.Matches() error = %v, wantErr %v", err, tt.wantErr)
-// 				return
-// 			}
-// 			if (err != nil) && err.Error() != tt.errString {
-// 				t.Errorf("FilesystemLayout.Matches() error = %v, errString %v", err, tt.errString)
-// 				return
-// 			}
-// 		})
-// 	}
-// }
+func TestFilesystemLayout_Matches(t *testing.T) {
+	type fields struct {
+		Disks []Disk
+		Raid  []Raid
+	}
+	type args struct {
+		hardware MachineHardware
+	}
+	tests := []struct {
+		name      string
+		fields    fields
+		args      args
+		wantErr   bool
+		errString string
+	}{
+		{
+			name: "simple match",
+			fields: fields{
+				Disks: []Disk{{Device: "/dev/sda"}, {Device: "/dev/sdb"}},
+			},
+			args:    args{hardware: MachineHardware{Disks: []BlockDevice{{Name: "/dev/sda"}, {Name: "/dev/sdb"}}}},
+			wantErr: false,
+		},
+		{
+			name: "simple match with old device naming",
+			fields: fields{
+				Disks: []Disk{{Device: "/dev/sda"}, {Device: "/dev/sdb"}},
+			},
+			args:    args{hardware: MachineHardware{Disks: []BlockDevice{{Name: "sda"}, {Name: "sdb"}}}},
+			wantErr: false,
+		},
+		{
+			name: "simple no match device missing",
+			fields: fields{
+				Disks: []Disk{{Device: "/dev/sda"}, {Device: "/dev/sdb"}},
+			},
+			args:      args{hardware: MachineHardware{Disks: []BlockDevice{{Name: "/dev/sda"}, {Name: "/dev/sdc"}}}},
+			wantErr:   true,
+			errString: "device:/dev/sdb does not exist on given hardware",
+		},
+		{
+			name: "simple no match device to small",
+			fields: fields{
+				Disks: []Disk{
+					{Device: "/dev/sda", Partitions: []DiskPartition{{Size: 100}, {Size: 100}}},
+					{Device: "/dev/sdb", Partitions: []DiskPartition{{Size: 100}, {Size: 100}}}},
+			},
+			args: args{hardware: MachineHardware{Disks: []BlockDevice{
+				{Name: "/dev/sda", Size: 300000000},
+				{Name: "/dev/sdb", Size: 100000000},
+			}}},
+			wantErr:   true,
+			errString: "device:/dev/sdb is not big enough required:200MiB, existing:95MiB",
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			fl := &FilesystemLayout{
+				Disks: tt.fields.Disks,
+				Raid:  tt.fields.Raid,
+			}
+			err := fl.Matches(tt.args.hardware)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("FilesystemLayout.Matches() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if (err != nil) && err.Error() != tt.errString {
+				t.Errorf("FilesystemLayout.Matches() error = %v, errString %v", err, tt.errString)
+				return
+			}
+		})
+	}
+}
 
 func TestFilesystemLayout_Validate(t *testing.T) {
 	type fields struct {
@@ -736,7 +736,6 @@ func TestDisk_validate(t *testing.T) {
 			d := Disk{
 				Device:          tt.fields.Device,
 				Partitions:      tt.fields.Partitions,
-				WipeOnReinstall: tt.fields.Wipe,
 			}
 			err := d.validate()
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
