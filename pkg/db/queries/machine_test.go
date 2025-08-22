@@ -49,8 +49,6 @@ var (
 			UserData:        "",
 			ConsolePassword: "",
 			Succeeded:       true,
-			Reinstall:       false,
-			MachineSetup:    &metal.MachineSetup{},
 			Role:            metal.RoleMachine,
 			VPN:             &metal.MachineVPN{},
 			UUID:            "alloc-m1",
@@ -60,6 +58,9 @@ var (
 			},
 			DNSServers: metal.DNSServers{},
 			NTPServers: metal.NTPServers{},
+			Labels: map[string]string{
+				"color": "red",
+			},
 		},
 		PartitionID:  "p1",
 		SizeID:       "c1-medium",
@@ -129,8 +130,6 @@ var (
 			UserData:        "",
 			ConsolePassword: "",
 			Succeeded:       true,
-			Reinstall:       false,
-			MachineSetup:    &metal.MachineSetup{},
 			Role:            metal.RoleFirewall,
 			VPN:             &metal.MachineVPN{},
 			UUID:            "alloc-m2",
@@ -200,8 +199,6 @@ var (
 			UserData:        "",
 			ConsolePassword: "",
 			Succeeded:       false,
-			Reinstall:       false,
-			MachineSetup:    &metal.MachineSetup{},
 			Role:            "",
 			VPN:             &metal.MachineVPN{},
 			UUID:            "",
@@ -362,31 +359,35 @@ func TestMachineFilter(t *testing.T) {
 			want: []*metal.Machine{m1},
 		},
 		{
-			name: "by project",
+			name: "by allocation project",
 			rq:   &apiv2.MachineQuery{Allocation: &apiv2.MachineAllocationQuery{Project: pointer.Pointer("p1")}},
 			want: []*metal.Machine{m1},
 		},
 		{
-			name: "by role",
+			name: "by allocation role machine",
 			rq:   &apiv2.MachineQuery{Allocation: &apiv2.MachineAllocationQuery{AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE.Enum()}},
 			want: []*metal.Machine{m1},
 		},
 		{
-			name: "by role",
+			name: "by allocation role firewall",
 			rq:   &apiv2.MachineQuery{Allocation: &apiv2.MachineAllocationQuery{AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL.Enum()}},
 			want: []*metal.Machine{m2},
 		},
 		{
-			name: "by image",
+			name: "by allocation image",
 			rq:   &apiv2.MachineQuery{Allocation: &apiv2.MachineAllocationQuery{Image: pointer.Pointer("debian-12")}},
 			want: []*metal.Machine{m1},
 		},
 		{
-			name: "by fsl",
+			name: "by allocation fsl",
 			rq:   &apiv2.MachineQuery{Allocation: &apiv2.MachineAllocationQuery{FilesystemLayout: pointer.Pointer("n1-medium-fsl")}},
 			want: []*metal.Machine{m2},
 		},
-
+		{
+			name: "by allocation labels",
+			rq:   &apiv2.MachineQuery{Allocation: &apiv2.MachineAllocationQuery{Labels: &apiv2.Labels{Labels: map[string]string{"color": "red"}}}},
+			want: []*metal.Machine{m1},
+		},
 		// Network Queries
 		{
 			name: "by network id",

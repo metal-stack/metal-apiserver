@@ -349,12 +349,8 @@ func Test_machineServiceServer_Update(t *testing.T) {
 			}},
 			want: &apiv2.MachineServiceUpdateResponse{
 				Machine: &apiv2.Machine{
-					Uuid: "m3",
-					Meta: &apiv2.Meta{
-						Labels: &apiv2.Labels{
-							Labels: map[string]string{"color": "red"},
-						},
-					},
+					Uuid:      "m3",
+					Meta:      &apiv2.Meta{},
 					Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
 					Bios:      &apiv2.MachineBios{},
 					Hardware:  &apiv2.MachineHardware{},
@@ -369,8 +365,11 @@ func Test_machineServiceServer_Update(t *testing.T) {
 					},
 					Allocation: &apiv2.MachineAllocation{
 						Project: "p1",
-						Meta:    &apiv2.Meta{},
-						Image: &apiv2.Image{
+						Meta: &apiv2.Meta{
+							Labels: &apiv2.Labels{
+								Labels: map[string]string{"color": "red"},
+							},
+						}, Image: &apiv2.Image{
 							Id:             "debian-12",
 							Meta:           &apiv2.Meta{},
 							Url:            validURL,

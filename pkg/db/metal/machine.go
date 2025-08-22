@@ -62,6 +62,8 @@ type MachineAllocation struct {
 	Description string    `rethinkdb:"description"`
 	Project     string    `rethinkdb:"project"`
 	ImageID     string    `rethinkdb:"imageid"`
+	// FIXME once we implement machine create, store the reference to the fsl instead of the whole copy here
+	FilesystemLayoutID string `rethinkdb:"filesystemlayoutid"`
 	// FIXME remove and replace with a reference
 	FilesystemLayout *FilesystemLayout `rethinkdb:"filesystemlayout"`
 	MachineNetworks  []*MachineNetwork `rethinkdb:"networks"`
@@ -70,16 +72,13 @@ type MachineAllocation struct {
 	UserData         string            `rethinkdb:"userdata"`
 	ConsolePassword  string            `rethinkdb:"console_password"`
 	Succeeded        bool              `rethinkdb:"succeeded"`
-	// FIXME can be removed once the reinstall feature is completely removed
-	Reinstall bool `rethinkdb:"reinstall"`
-	// FIXME can be removed once the reinstall feature is completely removed
-	MachineSetup  *MachineSetup  `rethinkdb:"setup"`
-	Role          Role           `rethinkdb:"role"`
-	VPN           *MachineVPN    `rethinkdb:"vpn"`
-	UUID          string         `rethinkdb:"uuid"`
-	FirewallRules *FirewallRules `rethinkdb:"firewall_rules"`
-	DNSServers    DNSServers     `rethinkdb:"dns_servers"`
-	NTPServers    NTPServers     `rethinkdb:"ntp_servers"`
+	Role             Role              `rethinkdb:"role"`
+	VPN              *MachineVPN       `rethinkdb:"vpn"`
+	UUID             string            `rethinkdb:"uuid"`
+	FirewallRules    *FirewallRules    `rethinkdb:"firewall_rules"`
+	DNSServers       DNSServers        `rethinkdb:"dns_servers"`
+	NTPServers       NTPServers        `rethinkdb:"ntp_servers"`
+	Labels           map[string]string `rethinkdb:"labels"`
 }
 
 // A MachineState describes the state of a machine. If the Value is AvailableState,
@@ -248,18 +247,6 @@ const (
 // 	}
 // 	return nil
 // }
-
-// A MachineSetup stores the data used for machine reinstallations.
-// FIXME decision was made to delete this.
-type MachineSetup struct {
-	ImageID      string `rethinkdb:"imageid"`
-	PrimaryDisk  string `rethinkdb:"primarydisk"`
-	OSPartition  string `rethinkdb:"ospartition"`
-	Initrd       string `rethinkdb:"initrd"`
-	Cmdline      string `rethinkdb:"cmdline"`
-	Kernel       string `rethinkdb:"kernel"`
-	BootloaderID string `rethinkdb:"bootloaderid"`
-}
 
 // MachineNetwork stores the Network details of the machine
 type MachineNetwork struct {

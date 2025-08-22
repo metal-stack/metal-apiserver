@@ -102,6 +102,19 @@ func MachineFilter(rq *apiv2.MachineQuery) func(q r.Term) r.Term {
 				q = q.Filter(func(row r.Term) r.Term {
 					return row.Field("allocation").Field("filesystemlayout").Field("id").Eq(*alloc.FilesystemLayout)
 				})
+				// FIXME once we implemented machine create, this field should be considered
+				// Needs help howto filter for both ?
+				// q = q.Filter(func(row r.Term) r.Term {
+				// 	return row.Field("allocation").Field("filesystemlayoutid").Eq(*alloc.FilesystemLayout)
+				// })
+			}
+
+			if alloc.Labels != nil {
+				for key, value := range alloc.Labels.Labels {
+					q = q.Filter(func(row r.Term) r.Term {
+						return row.Field("allocation").Field("labels").Field(key).Eq(value)
+					})
+				}
 			}
 		}
 

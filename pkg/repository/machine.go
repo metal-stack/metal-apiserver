@@ -59,9 +59,7 @@ func (r *machineRepository) update(ctx context.Context, m *metal.Machine, req *a
 	}
 
 	if req.Labels != nil {
-		// FIXME in my opinion the allocation tags should be updated
-		// FIXME prevent update of our tags
-		m.Tags = updateLabelsOnSlice(req.Labels, m.Tags)
+		m.Allocation.Labels = updateLabelsOnMap(req.Labels, m.Allocation.Labels)
 	}
 
 	if len(req.SshPublicKeys) > 0 && m.Allocation != nil {
@@ -124,6 +122,7 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 	var (
 		ctx              = context.Background()
 		labels           *apiv2.Labels
+		allocationLabels *apiv2.Labels
 		bios             *apiv2.MachineBios
 		allocation       *apiv2.MachineAllocation
 		condition        *apiv2.MachineCondition
@@ -335,11 +334,18 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 		if err != nil {
 			return nil, err
 		}
+
+		if m.Allocation.Labels != nil {
+			allocationLabels = &apiv2.Labels{
+				Labels: m.Allocation.Labels,
+			}
+		}
+
 		allocation = &apiv2.MachineAllocation{
 			Uuid: alloc.UUID,
 			Meta: &apiv2.Meta{
 				CreatedAt: timestamppb.New(alloc.Created),
-				// FIXME what about User defined tags
+				Labels:    allocationLabels,
 			},
 			Name:             alloc.Name,
 			Description:      alloc.Description,
