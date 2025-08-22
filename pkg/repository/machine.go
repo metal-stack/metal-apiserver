@@ -38,11 +38,8 @@ func (r *machineRepository) matchScope(machine *metal.Machine) bool {
 		return true
 	}
 
-	if machine.Allocation == nil {
-		return false
-	}
-
-	return r.scope.projectID == pointer.SafeDeref(machine).Allocation.Project
+	allocationProject := pointer.SafeDeref(pointer.SafeDeref(machine).Allocation).Project
+	return r.scope.projectID == allocationProject
 }
 
 func (r *machineRepository) create(ctx context.Context, req *apiv2.MachineServiceCreateRequest) (*metal.Machine, error) {

@@ -47,11 +47,14 @@ func Test_machineServiceServer_Get(t *testing.T) {
 			Size: &apiv2.Size{Id: "c1-large-x86"},
 		},
 	})
+	test.CreateImages(t, repo, []*adminv2.ImageServiceCreateRequest{
+		{Image: &apiv2.Image{Id: "debian-12", Url: validURL, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}}},
+	})
 
 	// We need to create machines directly on the database because there is no MachineCreateRequest available and never will.
 	// Once the boot-service is available we can simulate a pxe booting machine the actually create a machine from the api level.
 	test.CreateMachines(t, testStore, []*metal.Machine{
-		{Base: metal.Base{ID: "m1"}, PartitionID: "partition-1", SizeID: "c1-large-x86"},
+		{Base: metal.Base{ID: "m1"}, PartitionID: "partition-1", SizeID: "c1-large-x86", Allocation: &metal.MachineAllocation{Project: "p1", ImageID: "debian-12"}},
 	})
 
 	tests := []struct {
@@ -62,7 +65,7 @@ func Test_machineServiceServer_Get(t *testing.T) {
 	}{
 		{
 			name: "get existing",
-			rq:   &apiv2.MachineServiceGetRequest{Uuid: "m1"},
+			rq:   &apiv2.MachineServiceGetRequest{Uuid: "m1", Project: "p1"},
 			want: &apiv2.MachineServiceGetResponse{
 				Machine: &apiv2.Machine{
 					Uuid:      "m1",
@@ -79,9 +82,28 @@ func Test_machineServiceServer_Get(t *testing.T) {
 						LedState:   &apiv2.MachineChassisIdentifyLEDState{},
 						Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
 					},
+					Allocation: &apiv2.MachineAllocation{
+						Project: "p1",
+						Meta:    &apiv2.Meta{},
+						Image: &apiv2.Image{
+							Id:             "debian-12",
+							Meta:           &apiv2.Meta{},
+							Url:            validURL,
+							Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE},
+							Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_PREVIEW,
+							Description:    pointer.Pointer(""),
+							Name:           pointer.Pointer(""),
+						},
+					},
 				},
 			},
 			wantErr: nil,
+		},
+		{
+			name:    "get existing with wrong project",
+			rq:      &apiv2.MachineServiceGetRequest{Uuid: "m1", Project: "p2"},
+			want:    nil,
+			wantErr: errorutil.NotFound(`*metal.Machine with id "m1" not found`),
 		},
 		{
 			name:    "get non existing",
@@ -104,6 +126,9 @@ func Test_machineServiceServer_Get(t *testing.T) {
 			if diff := cmp.Diff(
 				tt.want, pointer.SafeDeref(got).Msg,
 				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Image{}, "expires_at",
+				),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
