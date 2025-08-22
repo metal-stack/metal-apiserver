@@ -105,9 +105,6 @@ type (
 		Device string `rethinkdb:"device"`
 		// Partitions to create on this device
 		Partitions []DiskPartition `rethinkdb:"partitions"`
-		// WipeOnReinstall, if set to true the whole disk will be erased if reinstall happens
-		// during fresh install all disks are wiped
-		WipeOnReinstall bool `rethinkdb:"wipeonreinstall"`
 	}
 
 	// Raid is optional, if given the devices must match.
@@ -501,50 +498,40 @@ func (fls FilesystemLayouts) From(size, image string) (*FilesystemLayout, error)
 	return nil, errorutil.InvalidArgument("could not find a matching filesystemLayout for size:%s and image:%s", size, image)
 }
 
-// IsReinstallable returns true if at least one disk configures has WipeOnReInstall set, otherwise false
-func (fl *FilesystemLayout) IsReinstallable() bool {
-	for _, d := range fl.Disks {
-		if d.WipeOnReinstall {
-			return true
+// Matches the specific FilesystemLayout against the selected Hardware
+func (fl *FilesystemLayout) Matches(hardware MachineHardware) error {
+	requiredDevices := make(map[string]uint64)
+	existingDevices := make(map[string]uint64)
+
+	for _, disk := range fl.Disks {
+		var requiredSize uint64
+		for _, partition := range disk.Partitions {
+			requiredSize += partition.Size
+		}
+		requiredDevices[disk.Device] = requiredSize
+	}
+
+	for _, disk := range hardware.Disks {
+		diskName := disk.Name
+		if !strings.HasPrefix(diskName, "/dev/") {
+			diskName = fmt.Sprintf("/dev/%s", disk.Name)
+		}
+		// convert bytes to mebibytes
+		size := disk.Size / (1024 * 1024)
+		existingDevices[diskName] = size
+	}
+
+	for requiredDevice, requiredSize := range requiredDevices {
+		existingSize, ok := existingDevices[requiredDevice]
+		if !ok {
+			return fmt.Errorf("device:%s does not exist on given hardware", requiredDevice)
+		}
+		if existingSize < requiredSize {
+			return fmt.Errorf("device:%s is not big enough required:%dMiB, existing:%dMiB", requiredDevice, requiredSize, existingSize)
 		}
 	}
-	return false
+	return nil
 }
-
-// Matches the specific FilesystemLayout against the selected Hardware
-// FIXME enable once MachineHardware is implemented here
-// func (fl *FilesystemLayout) Matches(hardware MachineHardware) error {
-// 	requiredDevices := make(map[string]uint64)
-// 	existingDevices := make(map[string]uint64)
-// 	for _, disk := range fl.Disks {
-// 		var requiredSize uint64
-// 		for _, partition := range disk.Partitions {
-// 			requiredSize += partition.Size
-// 		}
-// 		requiredDevices[disk.Device] = requiredSize
-// 	}
-
-// 	for _, disk := range hardware.Disks {
-// 		diskName := disk.Name
-// 		if !strings.HasPrefix(diskName, "/dev/") {
-// 			diskName = fmt.Sprintf("/dev/%s", disk.Name)
-// 		}
-// 		// convert bytes to mebibytes
-// 		size := disk.Size / (1024 * 1024)
-// 		existingDevices[diskName] = size
-// 	}
-
-// 	for requiredDevice, requiredSize := range requiredDevices {
-// 		existingSize, ok := existingDevices[requiredDevice]
-// 		if !ok {
-// 			return fmt.Errorf("device:%s does not exist on given hardware", requiredDevice)
-// 		}
-// 		if existingSize < requiredSize {
-// 			return fmt.Errorf("device:%s is not big enough required:%dMiB, existing:%dMiB", requiredDevice, requiredSize, existingSize)
-// 		}
-// 	}
-// 	return nil
-// }
 
 func supportedFormats() string {
 	sf := []string{}

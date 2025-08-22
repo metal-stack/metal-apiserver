@@ -71,5 +71,6 @@ func (p *partitionServiceServer) Update(ctx context.Context, rq *connect.Request
 
 // Capacity implements adminv2connect.PartitionServiceHandler.
 func (p *partitionServiceServer) Capacity(ctx context.Context, rq *connect.Request[adminv2.PartitionServiceCapacityRequest]) (*connect.Response[adminv2.PartitionServiceCapacityResponse], error) {
+	// FIXME size reservations must be implemented to be able to calculate this
 	panic("unimplemented")
 }

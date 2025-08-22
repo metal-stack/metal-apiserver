@@ -2,6 +2,7 @@ package generic_test
 
 import (
 	"log/slog"
+	"os"
 	"testing"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -14,8 +15,7 @@ import (
 )
 
 func TestGenericCRUD(t *testing.T) {
-	log := slog.Default()
-
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ds, _, rethinkCloser := test.StartRethink(t, log)
 	defer func() {
 		rethinkCloser()
@@ -69,6 +69,34 @@ func TestGenericCRUD(t *testing.T) {
 
 	err = ds.IP().Delete(ctx, &metal.IP{IPAddress: "1.2.3.4"})
 	require.NoError(t, err)
+
+	m1, err := ds.Machine().Get(ctx, "m1")
+	require.Nil(t, m1)
+	require.Error(t, err)
+	require.EqualError(t, err, errorutil.NotFound("no machine with id \"m1\" found").Error())
+
+	createdMachine1, err := ds.Machine().Create(ctx, &metal.Machine{Base: metal.Base{ID: "m1"}})
+	require.NoError(t, err)
+	require.NotNil(t, createdMachine1)
+	require.Equal(t, "m1", createdMachine1.ID)
+	require.NotNil(t, createdMachine1.Created)
+
+	m1, err = ds.Machine().Get(ctx, "m1")
+	require.NotNil(t, m1)
+	require.NoError(t, err)
+	require.Equal(t, "m1", m1.ID)
+
+	m1, err = ds.Machine().Find(ctx, queries.MachineFilter(&apiv2.MachineQuery{Uuid: pointer.Pointer("m1")}))
+	require.NotNil(t, m1)
+	require.NoError(t, err)
+	require.Equal(t, "m1", m1.ID)
+
+	ms, err := ds.Machine().List(ctx, queries.MachineFilter(nil))
+	require.NotEmpty(t, ms)
+	require.NoError(t, err)
+	require.Len(t, ms, 1)
+	require.Equal(t, "m1", ms[0].ID)
+
 }
 
 func TestFindAndListGeneric(t *testing.T) {

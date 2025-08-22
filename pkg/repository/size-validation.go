@@ -64,12 +64,14 @@ func (r *sizeRepository) validateUpdate(ctx context.Context, req *adminv2.SizeSe
 }
 
 func (r *sizeRepository) validateDelete(ctx context.Context, req *metal.Size) error {
-	var errs []error
-
-	// FIXME find all machines with this size
-
-	if len(errs) > 0 {
-		return errorutil.NewInvalidArgument(errors.Join(errs...))
+	machines, err := r.s.UnscopedMachine().List(ctx, &apiv2.MachineQuery{
+		Size: &req.ID,
+	})
+	if err != nil {
+		return err
+	}
+	if len(machines) > 0 {
+		return errorutil.InvalidArgument("cannot remove size with existing machines of this size")
 	}
 
 	return nil

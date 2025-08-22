@@ -86,6 +86,9 @@ func Initialize(ctx context.Context, log *slog.Logger, opts r.ConnectOpts, dsOpt
 	if err := ds.ip.initialize(ctx); err != nil {
 		return err
 	}
+	if err := ds.machine.initialize(ctx); err != nil {
+		return err
+	}
 	if err := ds.partition.initialize(ctx); err != nil {
 		return err
 	}
@@ -99,6 +102,9 @@ func Initialize(ctx context.Context, log *slog.Logger, opts r.ConnectOpts, dsOpt
 		return err
 	}
 	if err := ds.image.initialize(ctx); err != nil {
+		return err
+	}
+	if err := ds.event.initialize(ctx); err != nil {
 		return err
 	}
 

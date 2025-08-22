@@ -40,13 +40,13 @@ type integerPool struct {
 }
 
 type integer struct {
-	ID uint `rethinkdb:"id" json:"id"`
+	ID uint `rethinkdb:"id"`
 }
 
 // integerinfo contains information on the integer pool.
 type integerinfo struct {
 	ID            string `rethinkdb:"id"`
-	IsInitialized bool   `rethinkdb:"isInitialized" json:"isInitialized"`
+	IsInitialized bool   `rethinkdb:"isInitialized"`
 }
 
 func newIntegerPool(d *datastore, poolType integerPoolType, tableName string, min, max uint) *integerPool {

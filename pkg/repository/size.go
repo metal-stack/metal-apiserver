@@ -47,8 +47,6 @@ func (r *sizeRepository) create(ctx context.Context, req *adminv2.SizeServiceCre
 		return nil, err
 	}
 
-	r.s.log.Info("created size in metal-db", "size", size)
-
 	return resp, nil
 }
 
