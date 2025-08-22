@@ -105,10 +105,6 @@ type (
 		Device string `rethinkdb:"device"`
 		// Partitions to create on this device
 		Partitions []DiskPartition `rethinkdb:"partitions"`
-		// WipeOnReinstall, if set to true the whole disk will be erased if reinstall happens
-		// during fresh install all disks are wiped
-		// FIXME can be removed once the reinstall feature is completely removed
-		WipeOnReinstall bool `rethinkdb:"wipeonreinstall"`
 	}
 
 	// Raid is optional, if given the devices must match.
@@ -500,16 +496,6 @@ func (fls FilesystemLayouts) From(size, image string) (*FilesystemLayout, error)
 		}
 	}
 	return nil, errorutil.InvalidArgument("could not find a matching filesystemLayout for size:%s and image:%s", size, image)
-}
-
-// IsReinstallable returns true if at least one disk configures has WipeOnReInstall set, otherwise false
-func (fl *FilesystemLayout) IsReinstallable() bool {
-	for _, d := range fl.Disks {
-		if d.WipeOnReinstall {
-			return true
-		}
-	}
-	return false
 }
 
 // Matches the specific FilesystemLayout against the selected Hardware

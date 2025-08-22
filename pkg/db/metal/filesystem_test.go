@@ -736,7 +736,6 @@ func TestDisk_validate(t *testing.T) {
 			d := Disk{
 				Device:          tt.fields.Device,
 				Partitions:      tt.fields.Partitions,
-				WipeOnReinstall: tt.fields.Wipe,
 			}
 			err := d.validate()
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {

@@ -183,9 +183,8 @@ func (r *filesystemLayoutRepository) convertToInternal(f *apiv2.FilesystemLayout
 			parts = append(parts, part)
 		}
 		d := metal.Disk{
-			Device:          string(disk.Device),
-			Partitions:      parts,
-			WipeOnReinstall: disk.WipeOnReinstall,
+			Device:     string(disk.Device),
+			Partitions: parts,
 		}
 		ds = append(ds, d)
 	}
@@ -293,9 +292,8 @@ func (r *filesystemLayoutRepository) convertToProto(in *metal.FilesystemLayout) 
 			})
 		}
 		disks = append(disks, &apiv2.Disk{
-			Device:          d.Device,
-			Partitions:      partitions,
-			WipeOnReinstall: d.WipeOnReinstall,
+			Device:     d.Device,
+			Partitions: partitions,
 		})
 	}
 

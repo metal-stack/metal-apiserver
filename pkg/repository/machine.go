@@ -203,7 +203,6 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 			Name:       nic.Name,
 			Identifier: nic.Identifier,
 			Neighbors:  neighs,
-			// TODO need we more in apiv2.MachineNic
 		})
 	}
 
