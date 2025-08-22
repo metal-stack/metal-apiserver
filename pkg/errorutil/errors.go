@@ -128,23 +128,30 @@ func IsUnauthenticated(err error) bool {
 	return connectErr.Code() == connect.CodeUnauthenticated
 }
 
+func ErrorComparer() cmp.Option {
+	return cmp.Comparer(func(x, y error) bool {
+		return errorsAreEqual(x, y)
+	})
+}
+
 func ConnectErrorComparer() cmp.Option {
 	return cmp.Comparer(func(x, y *connect.Error) bool {
-		if x == nil && y == nil {
-			return true
-		}
-		if x == nil && y != nil {
-			return false
-		}
-		if x != nil && y == nil {
-			return false
-		}
-		if x.Error() != y.Error() {
-			return false
-		}
-		if x.Code() != y.Code() {
-			return false
-		}
-		return true
+		return errorsAreEqual(x, y) && x.Code() == y.Code()
 	})
+}
+
+func errorsAreEqual(x, y error) bool {
+	if x == nil && y == nil {
+		return true
+	}
+	if x == nil && y != nil {
+		return false
+	}
+	if x != nil && y == nil {
+		return false
+	}
+	if x.Error() != y.Error() {
+		return false
+	}
+	return true
 }
