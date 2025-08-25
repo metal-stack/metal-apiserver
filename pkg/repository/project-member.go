@@ -41,6 +41,10 @@ func (t *projectMemberRepository) convertToInternal(msg *apiv2.ProjectMember) (*
 }
 
 func (t *projectMemberRepository) convertToProto(e *mdcv1.ProjectMember) (*apiv2.ProjectMember, error) {
+	if e.Meta.Annotations == nil {
+		e.Meta.Annotations = map[string]string{}
+	}
+
 	return &apiv2.ProjectMember{
 		Id:        e.TenantId,
 		Role:      ProjectRoleFromMap(e.Meta.Annotations),
@@ -53,7 +57,7 @@ func (t *projectMemberRepository) create(ctx context.Context, c *ProjectMemberCr
 		ProjectMember: &mdcv1.ProjectMember{
 			Meta: &mdcv1.Meta{
 				Annotations: map[string]string{
-					TenantRoleAnnotation: c.Role.String(),
+					ProjectRoleAnnotation: c.Role.String(),
 				},
 			},
 			TenantId:  c.MemberID,
@@ -94,7 +98,7 @@ func (t *projectMemberRepository) find(ctx context.Context, query *ProjectMember
 	case 1:
 		// noop
 	default:
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("found multiple membership associations for a member to a tenant"))
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("found multiple membership associations for a member to a project"))
 	}
 
 	return memberships[0], nil

@@ -124,28 +124,31 @@ func (t *tenantRepository) list(ctx context.Context, query *apiv2.TenantServiceL
 	return resp.GetTenants(), nil
 }
 
-func (t *tenantRepository) update(ctx context.Context, e *mdcv1.Tenant, msg *apiv2.TenantServiceUpdateRequest) (*mdcv1.Tenant, error) {
-	if msg.Name != nil {
-		e.Name = *msg.Name
+func (t *tenantRepository) update(ctx context.Context, tenant *mdcv1.Tenant, rq *apiv2.TenantServiceUpdateRequest) (*mdcv1.Tenant, error) {
+	if rq.Name != nil {
+		tenant.Name = *rq.Name
 	}
-	if msg.Description != nil {
-		e.Description = *msg.Description
-	}
-
-	ann := e.Meta.Annotations
-
-	if msg.Email != nil {
-		ann[TenantTagEmail] = *msg.Email
-	}
-	if msg.AvatarUrl != nil {
-		ann[TenantTagAvatarURL] = *msg.AvatarUrl
+	if rq.Description != nil {
+		tenant.Description = *rq.Description
 	}
 
-	if msg.Labels != nil {
-		e.Meta.Labels = updateLabelsOnSlice(msg.Labels, e.Meta.Labels)
+	ann := tenant.Meta.Annotations
+	if ann == nil {
+		ann = map[string]string{}
 	}
 
-	resp, err := t.s.mdc.Tenant().Update(ctx, &mdcv1.TenantUpdateRequest{Tenant: e})
+	if rq.Email != nil {
+		ann[TenantTagEmail] = *rq.Email
+	}
+	if rq.AvatarUrl != nil {
+		ann[TenantTagAvatarURL] = *rq.AvatarUrl
+	}
+
+	if rq.Labels != nil {
+		tenant.Meta.Labels = updateLabelsOnSlice(rq.Labels, tenant.Meta.Labels)
+	}
+
+	resp, err := t.s.mdc.Tenant().Update(ctx, &mdcv1.TenantUpdateRequest{Tenant: tenant})
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

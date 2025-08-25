@@ -336,6 +336,13 @@ func CreateProjects(t *testing.T, repo *repository.Store, projects []*apiv2.Proj
 	}
 }
 
+func CreateProjectMemberships(t *testing.T, testStore *testStore, project string, memberships []*repository.ProjectMemberCreateRequest) {
+	for _, membership := range memberships {
+		_, err := testStore.Project(project).AdditionalMethods().Member().Create(t.Context(), membership)
+		require.NoError(t, err)
+	}
+}
+
 func CreateTenants(t *testing.T, testStore *testStore, tenants []*apiv2.TenantServiceCreateRequest) {
 	for _, tenant := range tenants {
 		tok, err := testStore.tokenService.CreateApiTokenWithoutPermissionCheck(t.Context(), tenant.GetName(), connect.NewRequest(&apiv2.TokenServiceCreateRequest{

@@ -40,12 +40,23 @@ func Test_tenantServiceServer_Get(t *testing.T) {
 				},
 			},
 		},
-		{Name: "will.smith@github"},
+		{Name: "will.smith@github"},  // direct tenant member
+		{Name: "tina.turner@github"}, // inherited tenant member
+	})
+	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{
+		{
+			Name:  "project-a",
+			Login: "john.doe@github",
+		},
 	})
 
 	test.CreateTenantMemberships(t, testStore, "john.doe@github", []*repository.TenantMemberCreateRequest{
 		{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 		{MemberID: "will.smith@github", Role: apiv2.TenantRole_TENANT_ROLE_EDITOR},
+	})
+	test.CreateProjectMemberships(t, testStore, "project-a", []*repository.ProjectMemberCreateRequest{
+		{MemberID: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
+		{MemberID: "tina.turner@github", Role: apiv2.ProjectRole_PROJECT_ROLE_VIEWER},
 	})
 
 	tests := []struct {
@@ -78,8 +89,14 @@ func Test_tenantServiceServer_Get(t *testing.T) {
 				},
 				TenantMembers: []*apiv2.TenantMember{
 					{
-						Id:   "john.doe@github",
-						Role: apiv2.TenantRole_TENANT_ROLE_OWNER,
+						Id:       "john.doe@github",
+						Projects: []string{"project-a"},
+						Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
+					},
+					{
+						Id:       "tina.turner@github",
+						Projects: []string{"project-a"},
+						Role:     apiv2.TenantRole_TENANT_ROLE_GUEST,
 					},
 					{
 						Id:   "will.smith@github",

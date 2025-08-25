@@ -55,17 +55,20 @@ func (p *projectServiceServer) Get(ctx context.Context, rq *connect.Request[apiv
 
 	project, err := p.repo.Project(req.Project).Get(ctx, req.Project)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, err
 	}
+
+	// TODO: maybe we should shadow some fields of the project when a tenant guest accesses this endpoint
+	// e.g. project annotations should not be completely visible?
 
 	converted, err := p.repo.Project(req.Project).ConvertToProto(project)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, err
 	}
 
 	projectMembers, err := p.repo.Project(req.Project).AdditionalMethods().Member().List(ctx, &repository.ProjectMemberQuery{})
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("unable to list project members: %w", err))
+		return nil, err
 	}
 
 	memberMap := map[string]*apiv2.ProjectMember{}

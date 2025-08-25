@@ -18,8 +18,6 @@ func (r *projectRepository) validateUpdate(ctx context.Context, req *apiv2.Proje
 }
 
 func (r *projectRepository) validateDelete(ctx context.Context, req *mdcv1.Project) error {
-	// FIXME check for machines
-
 	networks, err := r.s.Network(req.Meta.Id).List(ctx, &apiv2.NetworkQuery{Project: &req.Meta.Id})
 	if err != nil {
 		return err
