@@ -21,7 +21,7 @@ type (
 		Role     apiv2.TenantRole
 	}
 	TenantMemberUpdateRequest struct {
-		Member *mdcv1.TenantMember
+		Role apiv2.TenantRole
 	}
 	TenantMemberQuery struct {
 		MemberId    *string
@@ -48,11 +48,13 @@ func (t *tenantMemberRepository) checkIfMemberIsLastOwner(ctx context.Context, r
 }
 
 func (t *tenantMemberRepository) convertToInternal(msg *mdcv1.TenantMember) (*mdcv1.TenantMember, error) {
-	return msg, nil
+	// this is an internal interface, so no implementation here
+	panic("unimplemented")
 }
 
 func (t *tenantMemberRepository) convertToProto(e *mdcv1.TenantMember) (*mdcv1.TenantMember, error) {
-	return e, nil
+	// this is an internal interface, so no implementation here
+	panic("unimplemented")
 }
 
 func (t *tenantMemberRepository) create(ctx context.Context, c *TenantMemberCreateRequest) (*mdcv1.TenantMember, error) {
@@ -76,7 +78,7 @@ func (t *tenantMemberRepository) create(ctx context.Context, c *TenantMemberCrea
 
 func (t *tenantMemberRepository) delete(ctx context.Context, e *mdcv1.TenantMember) error {
 	_, err := t.s.mdc.TenantMember().Delete(ctx, &mdcv1.TenantMemberDeleteRequest{
-		Id: e.MemberId,
+		Id: e.Meta.Id,
 	})
 	if err != nil {
 		return errorutil.Convert(err)
@@ -108,14 +110,14 @@ func (t *tenantMemberRepository) find(ctx context.Context, query *TenantMemberQu
 }
 
 func (t *tenantMemberRepository) get(ctx context.Context, id string) (*mdcv1.TenantMember, error) {
-	resp, err := t.s.mdc.TenantMember().Get(ctx, &mdcv1.TenantMemberGetRequest{
-		Id: id,
+	member, err := t.find(ctx, &TenantMemberQuery{
+		MemberId: &id,
 	})
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
-	return resp.TenantMember, nil
+	return member, nil
 }
 
 func (t *tenantMemberRepository) list(ctx context.Context, query *TenantMemberQuery) ([]*mdcv1.TenantMember, error) {
@@ -139,9 +141,13 @@ func (t *tenantMemberRepository) matchScope(e *mdcv1.TenantMember) bool {
 	return t.scope.tenantID == e.TenantId
 }
 
-func (t *tenantMemberRepository) update(ctx context.Context, _ *mdcv1.TenantMember, msg *TenantMemberUpdateRequest) (*mdcv1.TenantMember, error) {
+func (t *tenantMemberRepository) update(ctx context.Context, member *mdcv1.TenantMember, msg *TenantMemberUpdateRequest) (*mdcv1.TenantMember, error) {
+	if msg.Role != apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED {
+		member.Meta.Annotations[TenantRoleAnnotation] = msg.Role.String()
+	}
+
 	resp, err := t.s.mdc.TenantMember().Update(ctx, &mdcv1.TenantMemberUpdateRequest{
-		TenantMember: msg.Member,
+		TenantMember: member,
 	})
 	if err != nil {
 		return nil, errorutil.Convert(err)

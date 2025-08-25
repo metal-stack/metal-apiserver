@@ -392,12 +392,7 @@ func (u *tenantServiceServer) RemoveMember(ctx context.Context, rq *connect.Requ
 		req = rq.Msg
 	)
 
-	membership, err := u.repo.Tenant().AdditionalMethods().Member(req.Login).Get(ctx, req.Member)
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = u.repo.Tenant().AdditionalMethods().Member(req.Login).Delete(ctx, membership.Meta.Id)
+	_, err := u.repo.Tenant().AdditionalMethods().Member(req.Login).Delete(ctx, req.Member)
 	if err != nil {
 		return nil, err
 	}
@@ -410,16 +405,9 @@ func (u *tenantServiceServer) UpdateMember(ctx context.Context, rq *connect.Requ
 		req = rq.Msg
 	)
 
-	membership, err := u.repo.Tenant().AdditionalMethods().Member(req.Login).Get(ctx, req.Member)
-	if err != nil {
-		return nil, err
-	}
-
-	if req.Role != apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED {
-		membership.Meta.Annotations[repository.TenantRoleAnnotation] = req.Role.String()
-	}
-
-	updatedMember, err := u.repo.Tenant().AdditionalMethods().Member(req.Login).Update(ctx, membership.Meta.Id, &repository.TenantMemberUpdateRequest{Member: membership})
+	updatedMember, err := u.repo.Tenant().AdditionalMethods().Member(req.Login).Update(ctx, req.Member, &repository.TenantMemberUpdateRequest{
+		Role: rq.Msg.Role,
+	})
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
