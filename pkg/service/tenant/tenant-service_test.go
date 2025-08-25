@@ -763,7 +763,7 @@ func Test_tenantServiceServer_InviteFlow(t *testing.T) {
 		}))
 		require.NoError(t, err)
 
-		require.Len(t, got.Msg.Invites, 0)
+		require.Empty(t, got.Msg.Invites)
 
 		getResp, err := u.Get(reqCtx, connect.NewRequest(&apiv2.TenantServiceGetRequest{
 			Login: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
