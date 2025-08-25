@@ -30,6 +30,7 @@ func TestUnauthenticated(t *testing.T) {
 	require.Nil(t, images)
 	require.EqualError(t, err, "permission_denied: not allowed to call: /metalstack.api.v2.ImageService/List")
 }
+
 func TestAuthenticated(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	baseURL, adminToken, closer := StartApiserver(t, log)

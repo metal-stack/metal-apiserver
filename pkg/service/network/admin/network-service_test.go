@@ -40,7 +40,7 @@ func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 
 	ctx := t.Context()
 
-	test.CreateTenants(t, repo, tenants)
+	test.CreateTenants(t, testStore, tenants)
 	test.CreateProjects(t, repo, projects)
 
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
@@ -412,7 +412,7 @@ func Test_networkServiceServer_CreateChildNetworksFromSuperNameSpaced(t *testing
 
 	ctx := t.Context()
 
-	test.CreateTenants(t, repo, tenants)
+	test.CreateTenants(t, testStore, tenants)
 	test.CreateProjects(t, repo, projects)
 
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
@@ -686,7 +686,7 @@ func Test_networkServiceServer_CreateSuper(t *testing.T) {
 
 	ctx := t.Context()
 
-	test.CreateTenants(t, repo, tenants)
+	test.CreateTenants(t, testStore, tenants)
 	test.CreateProjects(t, repo, projects)
 
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
@@ -990,7 +990,7 @@ func Test_networkServiceServer_CreateSuperNamespaced(t *testing.T) {
 
 	ctx := t.Context()
 
-	test.CreateTenants(t, repo, tenants)
+	test.CreateTenants(t, testStore, tenants)
 	test.CreateProjects(t, repo, projects)
 
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
@@ -1184,7 +1184,7 @@ func Test_networkServiceServer_CreateExternal(t *testing.T) {
 
 	ctx := t.Context()
 
-	test.CreateTenants(t, repo, tenants)
+	test.CreateTenants(t, testStore, tenants)
 	test.CreateProjects(t, repo, projects)
 
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
@@ -1414,7 +1414,7 @@ func Test_networkServiceServer_CreateUnderlay(t *testing.T) {
 
 	ctx := t.Context()
 
-	test.CreateTenants(t, repo, tenants)
+	test.CreateTenants(t, testStore, tenants)
 	test.CreateProjects(t, repo, projects)
 
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
@@ -1532,8 +1532,9 @@ func Test_networkServiceServer_CreateUnderlay(t *testing.T) {
 func Test_networkServiceServer_Delete(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	repo, closer := test.StartRepository(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
+	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -1544,7 +1545,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 
 	ctx := t.Context()
 
-	test.CreateTenants(t, repo, tenants)
+	test.CreateTenants(t, testStore, tenants)
 	test.CreateProjects(t, repo, projects)
 
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
@@ -1667,8 +1668,9 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 func Test_networkServiceServer_List(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	repo, closer := test.StartRepository(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
+	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -1679,7 +1681,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 
 	ctx := t.Context()
 
-	test.CreateTenants(t, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}, {Name: "t0"}})
+	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}, {Name: "t0"}})
 	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}, {Name: "p3", Login: "t1"}, {Name: "p0", Login: "t0"}})
 
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
@@ -1980,8 +1982,9 @@ func Test_networkServiceServer_List(t *testing.T) {
 func Test_networkServiceServer_Update(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	repo, closer := test.StartRepository(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
+	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -1992,7 +1995,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 
 	ctx := t.Context()
 
-	test.CreateTenants(t, repo, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}, {Name: "t0"}})
+	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}, {Name: "t0"}})
 	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}, {Name: "p3", Login: "t1"}, {Name: "p0", Login: "t0"}})
 
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{

@@ -10,17 +10,12 @@ import (
 
 	"connectrpc.com/connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	v1 "github.com/metal-stack/masterdata-api/api/v1"
-	"github.com/metal-stack/metal-apiserver/pkg/certs"
+	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/service"
-	"github.com/metal-stack/metal-apiserver/pkg/service/token"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/metal-stack/metal-apiserver/pkg/test"
-
-	putil "github.com/metal-stack/metal-apiserver/pkg/project"
-	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/http2"
@@ -30,8 +25,8 @@ import (
 func StartApiserver(t *testing.T, log *slog.Logger) (baseURL, adminToken string, closer func()) {
 	ctx := t.Context()
 
-	repo, masterdataClient, repocloser := test.StartRepositoryWithCockroach(t, log)
-	redis, valkeycloser := test.StartValkey(t)
+	testStore, repocloser := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true), test.WithValkey(true))
+	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "{}")
@@ -45,15 +40,15 @@ func StartApiserver(t *testing.T, log *slog.Logger) (baseURL, adminToken string,
 	c := service.Config{
 		Log:           log,
 		Repository:    repo,
-		ServerHttpURL: subject,
+		ServerHttpURL: "https://test.io",
 		RedisConfig: &service.RedisConfig{
 			// Take the same redis db for all
-			TokenClient:     redis,
-			RateLimitClient: redis,
-			InviteClient:    redis,
-			AsyncClient:     redis,
+			TokenClient:     testStore.GetRedisClient(),
+			RateLimitClient: testStore.GetRedisClient(),
+			InviteClient:    testStore.GetRedisClient(),
+			AsyncClient:     testStore.GetRedisClient(),
 		},
-		MasterClient:     masterdataClient,
+		MasterClient:     testStore.GetMasterdataClient(),
 		Datastore:        nil, // TODO: for healthcheck e2e tests this needs to be wired up
 		OIDCClientID:     "oidc-client-id",
 		OIDCClientSecret: "oidc-client-secret",
@@ -69,41 +64,39 @@ func StartApiserver(t *testing.T, log *slog.Logger) (baseURL, adminToken string,
 	server := httptest.NewUnstartedServer(h2c.NewHandler(mux, &http2.Server{}))
 	server.Start()
 
-	tokenStore := tokencommon.NewRedisStore(redis)
-	certStore := certs.NewRedisStore(&certs.Config{
-		RedisClient: redis,
-	})
-
-	tokenService := token.New(token.Config{
-		Log:        log,
-		TokenStore: tokenStore,
-		CertStore:  certStore,
-		Issuer:     subject,
-	})
-
-	err = tutil.EnsureProviderTenant(ctx, c.MasterClient, providerTenant)
+	tok, err := testStore.GetTokenService().CreateApiTokenWithoutPermissionCheck(t.Context(), subject, connect.NewRequest(&apiv2.TokenServiceCreateRequest{
+		Expires:   durationpb.New(time.Minute),
+		AdminRole: apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+	}))
 	require.NoError(t, err)
 
-	err = putil.EnsureProviderProject(ctx, c.MasterClient, providerTenant)
+	reqCtx := tokencommon.ContextWithToken(t.Context(), tok.Msg.Token)
+
+	err = repo.Tenant().AdditionalMethods().EnsureProviderTenant(reqCtx, providerTenant)
 	require.NoError(t, err)
 
-	_, err = masterdataClient.Tenant().Create(ctx, &v1.TenantCreateRequest{Tenant: &v1.Tenant{Meta: &v1.Meta{Id: subject}, Name: subject}})
+	err = repo.UnscopedProject().AdditionalMethods().EnsureProviderProject(ctx, providerTenant)
 	require.NoError(t, err)
 
-	_, err = masterdataClient.TenantMember().Create(ctx, &v1.TenantMemberCreateRequest{
-		TenantMember: &v1.TenantMember{
-			Meta: &v1.Meta{
-				Annotations: map[string]string{
-					tutil.TenantRoleAnnotation: apiv2.TenantRole_TENANT_ROLE_OWNER.String(),
-				},
-			},
-			TenantId: subject,
-			MemberId: subject,
-		},
+	tenant, err := repo.Tenant().AdditionalMethods().CreateWithID(reqCtx, &apiv2.TenantServiceCreateRequest{
+		Name: subject,
+	}, subject)
+	require.NoError(t, err)
+
+	_, err = repo.Tenant().AdditionalMethods().Member(tenant.Meta.Id).Create(reqCtx, &repository.TenantMemberCreateRequest{
+		MemberID: subject,
+		Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
 	})
 	require.NoError(t, err)
 
-	resp, err := tokenService.CreateApiTokenWithoutPermissionCheck(ctx, subject, connect.NewRequest(&apiv2.TokenServiceCreateRequest{
+	_, err = repo.Tenant().AdditionalMethods().Member(providerTenant).Create(ctx, &repository.TenantMemberCreateRequest{
+		MemberID: tenant.Meta.Id,
+		Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
+	})
+
+	require.NoError(t, err)
+
+	resp, err := testStore.GetTokenService().CreateApiTokenWithoutPermissionCheck(ctx, subject, connect.NewRequest(&apiv2.TokenServiceCreateRequest{
 		Description:  "e2e admin token",
 		Expires:      durationpb.New(time.Hour),
 		ProjectRoles: nil,
@@ -119,7 +112,6 @@ func StartApiserver(t *testing.T, log *slog.Logger) (baseURL, adminToken string,
 
 	closer = func() {
 		repocloser()
-		valkeycloser()
 		server.Close()
 	}
 

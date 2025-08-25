@@ -20,8 +20,9 @@ import (
 func Test_partitionServiceServer_Get(t *testing.T) {
 	log := slog.Default()
 
-	repo, closer := test.StartRepository(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
+	repo := testStore.Store
 
 	ctx := t.Context()
 
@@ -87,8 +88,9 @@ func Test_partitionServiceServer_Get(t *testing.T) {
 func Test_partitionServiceServer_List(t *testing.T) {
 	log := slog.Default()
 
-	repo, closer := test.StartRepository(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
+	repo := testStore.Store
 
 	ctx := t.Context()
 

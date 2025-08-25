@@ -15,11 +15,10 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	v2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/permissions"
-	mdc "github.com/metal-stack/masterdata-api/pkg/client"
 	authentication "github.com/metal-stack/metal-apiserver/pkg/auth/authentication"
 	authorization "github.com/metal-stack/metal-apiserver/pkg/auth/authorization"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
-	putil "github.com/metal-stack/metal-apiserver/pkg/project"
+	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/service/method"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/cache"
@@ -42,7 +41,7 @@ type (
 		TokenStore     token.TokenStore
 		AllowedIssuers []string
 		AdminSubjects  []string
-		MasterClient   mdc.Client
+		Repo           *repository.Store
 	}
 
 	// opa is a gRPC server authorizer using OPA as backend
@@ -55,7 +54,7 @@ type (
 		certCache                *cache.Cache[any, *cacheReturn]
 		tokenStore               token.TokenStore
 		adminSubjects            []string
-		projectsAndTenantsGetter func(ctx context.Context, userId string) (*putil.ProjectsAndTenants, error)
+		projectsAndTenantsGetter func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error)
 	}
 
 	cacheReturn struct {
@@ -126,8 +125,8 @@ func New(c Config) (*opa, error) {
 		visibility:          servicePermissions.Visibility,
 		servicePermissions:  servicePermissions,
 		adminSubjects:       c.AdminSubjects,
-		projectsAndTenantsGetter: func(ctx context.Context, userId string) (*putil.ProjectsAndTenants, error) {
-			return putil.GetProjectsAndTenants(ctx, c.MasterClient, userId)
+		projectsAndTenantsGetter: func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
+			return c.Repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, userId)
 		},
 	}, nil
 }

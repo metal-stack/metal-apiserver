@@ -84,7 +84,6 @@ type RedisConfig struct {
 }
 
 func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
-
 	tokenStore := tokencommon.NewRedisStore(c.RedisConfig.TokenClient)
 	certStore := certs.NewRedisStore(&certs.Config{
 		RedisClient: c.RedisConfig.TokenClient,
@@ -98,7 +97,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 		AllowedIssuers: []string{c.ServerHttpURL},
 		AdminSubjects:  c.Admins,
 		TokenStore:     tokenStore,
-		MasterClient:   c.MasterClient,
+		Repo:           c.Repository,
 	}
 	authz, err := authpkg.New(authcfg)
 	if err != nil {
@@ -155,24 +154,23 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 
 	methodService := method.New()
 	tenantService := tenant.New(tenant.Config{
-		Log:          log,
-		MasterClient: c.MasterClient,
-		InviteStore:  tenantInviteStore,
-		TokenStore:   tokenStore,
+		Log:         log,
+		Repo:        c.Repository,
+		InviteStore: tenantInviteStore,
+		TokenStore:  tokenStore,
 	})
 
 	adminTenantService := tenantadmin.New(tenantadmin.Config{
-		Log:          log,
-		MasterClient: c.MasterClient,
-		InviteStore:  tenantInviteStore,
-		TokenStore:   tokenStore,
+		Log:         log,
+		Repo:        c.Repository,
+		InviteStore: tenantInviteStore,
+		TokenStore:  tokenStore,
 	})
 	projectService := project.New(project.Config{
-		Log:          log,
-		MasterClient: c.MasterClient,
-		InviteStore:  projectInviteStore,
-		Repo:         c.Repository,
-		TokenStore:   tokenStore,
+		Log:         log,
+		InviteStore: projectInviteStore,
+		Repo:        c.Repository,
+		TokenStore:  tokenStore,
 	})
 
 	ipService := ip.New(ip.Config{Log: log, Repo: c.Repository})
@@ -186,7 +184,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 		Log:           log,
 		CertStore:     certStore,
 		TokenStore:    tokenStore,
-		MasterClient:  c.MasterClient,
+		Repo:          c.Repository,
 		Issuer:        c.ServerHttpURL,
 		AdminSubjects: c.Admins,
 	})
@@ -268,7 +266,7 @@ func oidcAuthHandler(log *slog.Logger, tokenService token.TokenService, c Config
 	auth, err := authservice.New(authservice.Config{
 		Log:          log,
 		TokenService: tokenService,
-		MasterClient: c.MasterClient,
+		Repo:         c.Repository,
 		Auditing:     c.Auditing,
 		FrontEndUrl:  frontendURL,
 		CallbackUrl:  c.ServerHttpURL + "/auth/{provider}/callback",

@@ -15,7 +15,7 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	v2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
-	putil "github.com/metal-stack/metal-apiserver/pkg/project"
+	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/metal-stack/metal-lib/pkg/testcommon"
@@ -57,7 +57,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 		userJwtMutateFn    func(t *testing.T, jwt string) string
 		expiration         *time.Duration
 		req                any
-		projectsAndTenants *putil.ProjectsAndTenants
+		projectsAndTenants *repository.ProjectsAndTenants
 		tokenType          v2.TokenType
 		wantErr            error
 	}{
@@ -278,7 +278,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			method:      "/metalstack.api.v2.IPService/Get",
 			req:         v2.IPServiceGetRequest{Project: "project-a"},
 			permissions: []*v2.MethodPermission{},
-			projectsAndTenants: &putil.ProjectsAndTenants{
+			projectsAndTenants: &repository.ProjectsAndTenants{
 				ProjectRoles: map[string]v2.ProjectRole{
 					"project-a": v2.ProjectRole_PROJECT_ROLE_OWNER,
 				},
@@ -293,7 +293,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			method:      "/metalstack.api.v2.IPService/Get",
 			req:         v2.IPServiceGetRequest{Project: "project-a"},
 			permissions: []*v2.MethodPermission{},
-			projectsAndTenants: &putil.ProjectsAndTenants{
+			projectsAndTenants: &repository.ProjectsAndTenants{
 				ProjectRoles: map[string]v2.ProjectRole{
 					"project-a": v2.ProjectRole_PROJECT_ROLE_VIEWER,
 				},
@@ -319,7 +319,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			method:      "/metalstack.api.v2.IPService/Create",
 			req:         v2.IPServiceCreateRequest{Project: "project-a"},
 			permissions: []*v2.MethodPermission{},
-			projectsAndTenants: &putil.ProjectsAndTenants{
+			projectsAndTenants: &repository.ProjectsAndTenants{
 				ProjectRoles: map[string]v2.ProjectRole{
 					"project-a": v2.ProjectRole_PROJECT_ROLE_OWNER,
 				},
@@ -362,7 +362,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			subject: "john.doe@github",
 			method:  "/metalstack.api.v2.TokenService/Create",
 			req:     v2.TokenServiceCreateRequest{},
-			projectsAndTenants: &putil.ProjectsAndTenants{
+			projectsAndTenants: &repository.ProjectsAndTenants{
 				TenantRoles: map[string]v2.TenantRole{
 					"john.doe@github": v2.TenantRole_TENANT_ROLE_OWNER,
 				},
@@ -389,7 +389,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			subject: "john.doe@github",
 			method:  "/metalstack.api.v2.ProjectService/List",
 			req:     v2.ProjectServiceListRequest{},
-			projectsAndTenants: &putil.ProjectsAndTenants{
+			projectsAndTenants: &repository.ProjectsAndTenants{
 				TenantRoles: map[string]v2.TenantRole{
 					"john.doe@github": v2.TenantRole_TENANT_ROLE_OWNER,
 				},
@@ -408,7 +408,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			method:    "/metalstack.api.v2.ProjectService/List",
 			tokenType: v2.TokenType_TOKEN_TYPE_CONSOLE,
 			req:       v2.ProjectServiceListRequest{},
-			projectsAndTenants: &putil.ProjectsAndTenants{
+			projectsAndTenants: &repository.ProjectsAndTenants{
 				TenantRoles: map[string]v2.TenantRole{
 					"john.doe@github": v2.TenantRole_TENANT_ROLE_OWNER,
 				},
@@ -459,7 +459,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			method:    "/metalstack.api.v2.ProjectService/Get",
 			req:       v2.ProjectServiceGetRequest{Project: "project-a"},
 			tokenType: v2.TokenType_TOKEN_TYPE_CONSOLE,
-			projectsAndTenants: &putil.ProjectsAndTenants{
+			projectsAndTenants: &repository.ProjectsAndTenants{
 				ProjectRoles: map[string]v2.ProjectRole{
 					"project-a": v2.ProjectRole_PROJECT_ROLE_OWNER,
 				},
@@ -528,9 +528,9 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			o.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*putil.ProjectsAndTenants, error) {
+			o.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
 				if tt.projectsAndTenants == nil {
-					return &putil.ProjectsAndTenants{}, nil
+					return &repository.ProjectsAndTenants{}, nil
 				}
 				return tt.projectsAndTenants, nil
 			}
@@ -565,7 +565,7 @@ func Test_opa_authorize_with_permissions_optional_subject(t *testing.T) {
 		userJwtMutateFn    func(t *testing.T, jwt string) string
 		expiration         *time.Duration
 		req                any
-		projectsAndTenants *putil.ProjectsAndTenants
+		projectsAndTenants *repository.ProjectsAndTenants
 		tokenType          v2.TokenType
 		wantErr            error
 	}{
@@ -575,7 +575,7 @@ func Test_opa_authorize_with_permissions_optional_subject(t *testing.T) {
 			method:    "/metalstack.api.v2.ProjectService/List",
 			tokenType: v2.TokenType_TOKEN_TYPE_API,
 			req:       v2.ProjectServiceListRequest{},
-			projectsAndTenants: &putil.ProjectsAndTenants{
+			projectsAndTenants: &repository.ProjectsAndTenants{
 				TenantRoles: map[string]v2.TenantRole{
 					"john.doe@github": v2.TenantRole_TENANT_ROLE_OWNER,
 				},
@@ -645,9 +645,9 @@ func Test_opa_authorize_with_permissions_optional_subject(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			o.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*putil.ProjectsAndTenants, error) {
+			o.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
 				if tt.projectsAndTenants == nil {
-					return &putil.ProjectsAndTenants{}, nil
+					return &repository.ProjectsAndTenants{}, nil
 				}
 				return tt.projectsAndTenants, nil
 			}

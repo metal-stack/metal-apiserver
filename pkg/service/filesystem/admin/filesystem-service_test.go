@@ -17,8 +17,10 @@ import (
 
 func Test_filesystemServiceServer_Create(t *testing.T) {
 	log := slog.Default()
-	repo, closer := test.StartRepository(t, log)
+
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
+	repo := testStore.Store
 
 	tests := []struct {
 		name    string
@@ -101,8 +103,10 @@ func Test_filesystemServiceServer_Create(t *testing.T) {
 
 func Test_filesystemServiceServer_Update(t *testing.T) {
 	log := slog.Default()
-	repo, closer := test.StartRepository(t, log)
+
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
+	repo := testStore.Store
 
 	test.CreateFilesystemLayouts(t, repo, []*adminv2.FilesystemServiceCreateRequest{
 		{
