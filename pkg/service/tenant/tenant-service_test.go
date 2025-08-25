@@ -799,22 +799,13 @@ func Test_tenantServiceServer_MemberUpdate(t *testing.T) {
 	defer closer()
 	repo := testStore.Store
 
-	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{
-		{Name: "john.doe@github"},
-		{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044"},
-		{Name: "will.smith@github"},
-	})
-
-	test.CreateTenantMemberships(t, testStore, "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", []*repository.TenantMemberCreateRequest{
-		{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
-		{MemberID: "will.smith@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
-	})
-
 	tests := []struct {
-		name    string
-		rq      *apiv2.TenantServiceUpdateMemberRequest
-		want    *apiv2.TenantServiceUpdateMemberResponse
-		wantErr error
+		name                  string
+		rq                    *apiv2.TenantServiceUpdateMemberRequest
+		existingTenants       []*apiv2.TenantServiceCreateRequest
+		existingTenantMembers map[string][]*repository.TenantMemberCreateRequest
+		want                  *apiv2.TenantServiceUpdateMemberResponse
+		wantErr               error
 	}{
 		{
 			name: "update a member",
@@ -823,6 +814,17 @@ func Test_tenantServiceServer_MemberUpdate(t *testing.T) {
 				Member: "will.smith@github",
 				Role:   apiv2.TenantRole_TENANT_ROLE_EDITOR,
 			},
+			existingTenants: []*apiv2.TenantServiceCreateRequest{
+				{Name: "john.doe@github"},
+				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044"},
+				{Name: "will.smith@github"},
+			},
+			existingTenantMembers: map[string][]*repository.TenantMemberCreateRequest{
+				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
+					{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+					{MemberID: "will.smith@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+				},
+			},
 			want: &apiv2.TenantServiceUpdateMemberResponse{
 				TenantMember: &apiv2.TenantMember{
 					Id:   "will.smith@github",
@@ -830,6 +832,41 @@ func Test_tenantServiceServer_MemberUpdate(t *testing.T) {
 				},
 			},
 			wantErr: nil,
+		},
+		{
+			name: "unable to demote own default tenant",
+			rq: &apiv2.TenantServiceUpdateMemberRequest{
+				Login:  "john.doe@github",
+				Member: "john.doe@github",
+				Role:   apiv2.TenantRole_TENANT_ROLE_EDITOR,
+			},
+			existingTenants: []*apiv2.TenantServiceCreateRequest{
+				{Name: "john.doe@github"},
+			},
+			existingTenantMembers: map[string][]*repository.TenantMemberCreateRequest{
+				"john.doe@github": {
+					{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+				},
+			},
+			wantErr: errorutil.InvalidArgument("cannot demote a user's role within their own default tenant"),
+		},
+		{
+			name: "unable to demote last owner",
+			rq: &apiv2.TenantServiceUpdateMemberRequest{
+				Login:  "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
+				Member: "john.doe@github",
+				Role:   apiv2.TenantRole_TENANT_ROLE_EDITOR,
+			},
+			existingTenants: []*apiv2.TenantServiceCreateRequest{
+				{Name: "john.doe@github"},
+				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044"},
+			},
+			existingTenantMembers: map[string][]*repository.TenantMemberCreateRequest{
+				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
+					{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+				},
+			},
+			wantErr: errorutil.InvalidArgument("cannot demote last owner's permissions"),
 		},
 	}
 	for _, tt := range tests {
@@ -840,6 +877,16 @@ func Test_tenantServiceServer_MemberUpdate(t *testing.T) {
 				inviteStore: testStore.GetTenantInviteStore(),
 				tokenStore:  testStore.GetTokenStore(),
 			}
+
+			test.CreateTenants(t, testStore, tt.existingTenants)
+			if tt.existingTenantMembers != nil {
+				for tenant, members := range tt.existingTenantMembers {
+					test.CreateTenantMemberships(t, testStore, tenant, members)
+				}
+			}
+			defer func() {
+				testStore.DeleteTenants()
+			}()
 
 			tok := testStore.GetToken("john.doe@github", &apiv2.TokenServiceCreateRequest{
 				Expires: durationpb.New(time.Hour),
@@ -875,21 +922,12 @@ func Test_tenantServiceServer_MemberRemove(t *testing.T) {
 	defer closer()
 	repo := testStore.Store
 
-	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{
-		{Name: "john.doe@github"},
-		{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044"},
-		{Name: "will.smith@github"},
-	})
-
-	test.CreateTenantMemberships(t, testStore, "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", []*repository.TenantMemberCreateRequest{
-		{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
-		{MemberID: "will.smith@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
-	})
-
 	tests := []struct {
-		name    string
-		rq      *apiv2.TenantServiceRemoveMemberRequest
-		wantErr error
+		name                  string
+		existingTenants       []*apiv2.TenantServiceCreateRequest
+		existingTenantMembers map[string][]*repository.TenantMemberCreateRequest
+		rq                    *apiv2.TenantServiceRemoveMemberRequest
+		wantErr               error
 	}{
 		{
 			name: "remove a member",
@@ -897,7 +935,53 @@ func Test_tenantServiceServer_MemberRemove(t *testing.T) {
 				Login:  "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
 				Member: "will.smith@github",
 			},
+			existingTenants: []*apiv2.TenantServiceCreateRequest{
+				{Name: "john.doe@github"},
+				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044"},
+				{Name: "will.smith@github"},
+			},
+			existingTenantMembers: map[string][]*repository.TenantMemberCreateRequest{
+				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
+					{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+					{MemberID: "will.smith@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+				},
+			},
 			wantErr: nil,
+		},
+		{
+			name: "unable to remove own default tenant",
+			rq: &apiv2.TenantServiceRemoveMemberRequest{
+				Login:  "john.doe@github",
+				Member: "john.doe@github",
+			},
+			existingTenants: []*apiv2.TenantServiceCreateRequest{
+				{Name: "john.doe@github"},
+				{Name: "will.smith@github"},
+			},
+			existingTenantMembers: map[string][]*repository.TenantMemberCreateRequest{
+				"john.doe@github": {
+					{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+					{MemberID: "will.smith@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+				},
+			},
+			wantErr: errorutil.InvalidArgument("cannot remove a member from their own default tenant"),
+		},
+		{
+			name: "unable to remove last owner",
+			rq: &apiv2.TenantServiceRemoveMemberRequest{
+				Login:  "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
+				Member: "john.doe@github",
+			},
+			existingTenants: []*apiv2.TenantServiceCreateRequest{
+				{Name: "john.doe@github"},
+				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044"},
+			},
+			existingTenantMembers: map[string][]*repository.TenantMemberCreateRequest{
+				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
+					{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+				},
+			},
+			wantErr: errorutil.InvalidArgument("cannot remove last owner of a tenant"),
 		},
 	}
 	for _, tt := range tests {
@@ -908,6 +992,16 @@ func Test_tenantServiceServer_MemberRemove(t *testing.T) {
 				inviteStore: testStore.GetTenantInviteStore(),
 				tokenStore:  testStore.GetTokenStore(),
 			}
+
+			test.CreateTenants(t, testStore, tt.existingTenants)
+			if tt.existingTenantMembers != nil {
+				for tenant, members := range tt.existingTenantMembers {
+					test.CreateTenantMemberships(t, testStore, tenant, members)
+				}
+			}
+			defer func() {
+				testStore.DeleteTenants()
+			}()
 
 			tok := testStore.GetToken("john.doe@github", &apiv2.TokenServiceCreateRequest{
 				Expires: durationpb.New(time.Hour),
