@@ -19,375 +19,6 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
-// func Test_service_Get(t *testing.T) {
-// 	tests := []struct {
-// 		name                    string
-// 		req                     *apiv1.TenantServiceGetRequest
-// 		tenantRole              apiv1.TenantRole
-// 		tenantServiceMock       func(mock *tmock.Mock)
-// 		tenantMemberServiceMock func(mock *tmock.Mock)
-// 		want                    *apiv1.TenantServiceGetResponse
-// 		wantErr                 *connect.Error
-// 	}{
-// 		{
-// 			name: "no members apart from self",
-// 			req: &apiv1.TenantServiceGetRequest{
-// 				Login: "me",
-// 			},
-// 			tenantRole: apiv1.TenantRole_TENANT_ROLE_OWNER,
-// 			tenantServiceMock: func(mock *tmock.Mock) {
-// 				mock.On("Get", tmock.Anything, &mdmv1.TenantGetRequest{Id: "me"}).Return(&mdmv1.TenantResponse{Tenant: &mdmv1.Tenant{
-// 					Meta: &mdmv1.Meta{Id: "me"},
-// 				}}, nil)
-
-// 				mock.On("ListTenantMembers", tmock.Anything, &mdmv1.ListTenantMembersRequest{TenantId: "me"}).Return(&mdmv1.ListTenantMembersResponse{
-// 					Tenants: []*mdmv1.TenantWithMembershipAnnotations{
-// 						{
-// 							Tenant: &mdmv1.Tenant{
-// 								Meta: &mdmv1.Meta{Id: "me"},
-// 							},
-// 							TenantAnnotations: map[string]string{
-// 								repository.TenantRoleAnnotation: apiv1.ProjectRole_PROJECT_ROLE_OWNER.String(),
-// 							},
-// 						},
-// 					},
-// 				}, nil)
-// 			},
-// 			want: &apiv1.TenantServiceGetResponse{Tenant: &apiv1.Tenant{
-// 				Login: "me",
-// 				Meta:  &apiv1.Meta{},
-// 			},
-// 				TenantMembers: []*apiv1.TenantMember{
-// 					{
-// 						Id:   "me",
-// 						Role: 1,
-// 					},
-// 				},
-// 			},
-// 			wantErr: nil,
-// 		},
-// 		{
-// 			name: "one direct member",
-// 			req: &apiv1.TenantServiceGetRequest{
-// 				Login: "me",
-// 			},
-// 			tenantRole: apiv1.TenantRole_TENANT_ROLE_OWNER,
-// 			tenantServiceMock: func(mock *tmock.Mock) {
-// 				mock.On("Get", tmock.Anything, &mdmv1.TenantGetRequest{Id: "me"}).Return(&mdmv1.TenantResponse{Tenant: &mdmv1.Tenant{
-// 					Meta: &mdmv1.Meta{Id: "me"},
-// 				}}, nil)
-
-// 				mock.On("ListTenantMembers", tmock.Anything, &mdmv1.ListTenantMembersRequest{TenantId: "me"}).Return(&mdmv1.ListTenantMembersResponse{
-// 					Tenants: []*mdmv1.TenantWithMembershipAnnotations{
-// 						{
-// 							Tenant: &mdmv1.Tenant{
-// 								Meta: &mdmv1.Meta{Id: "me"},
-// 							},
-// 							TenantAnnotations: map[string]string{
-// 								repository.TenantRoleAnnotation: apiv1.ProjectRole_PROJECT_ROLE_OWNER.String(),
-// 							},
-// 						},
-// 						{
-// 							Tenant: &mdmv1.Tenant{
-// 								Meta: &mdmv1.Meta{Id: "viewer"},
-// 							},
-// 							TenantAnnotations: map[string]string{
-// 								repository.TenantRoleAnnotation: apiv1.ProjectRole_PROJECT_ROLE_VIEWER.String(),
-// 							},
-// 						},
-// 					},
-// 				}, nil)
-// 			},
-// 			want: &apiv1.TenantServiceGetResponse{Tenant: &apiv1.Tenant{
-// 				Login: "me",
-// 				Meta:  &apiv1.Meta{},
-// 			},
-// 				TenantMembers: []*apiv1.TenantMember{
-// 					{
-// 						Id:   "me",
-// 						Role: 1,
-// 					},
-// 					{
-// 						Id:   "viewer",
-// 						Role: 3,
-// 					},
-// 				},
-// 			},
-// 			wantErr: nil,
-// 		},
-// 		{
-// 			name: "one guest member",
-// 			req: &apiv1.TenantServiceGetRequest{
-// 				Login: "me",
-// 			},
-// 			tenantRole: apiv1.TenantRole_TENANT_ROLE_OWNER,
-// 			tenantServiceMock: func(mock *tmock.Mock) {
-// 				mock.On("Get", tmock.Anything, &mdmv1.TenantGetRequest{Id: "me"}).Return(&mdmv1.TenantResponse{Tenant: &mdmv1.Tenant{
-// 					Meta: &mdmv1.Meta{Id: "me"},
-// 				}}, nil)
-
-// 				mock.On("ListTenantMembers", tmock.Anything, &mdmv1.ListTenantMembersRequest{TenantId: "me"}).Return(&mdmv1.ListTenantMembersResponse{
-// 					Tenants: []*mdmv1.TenantWithMembershipAnnotations{
-// 						{
-// 							Tenant: &mdmv1.Tenant{
-// 								Meta: &mdmv1.Meta{Id: "me"},
-// 							},
-// 							TenantAnnotations: map[string]string{
-// 								repository.TenantRoleAnnotation: apiv1.TenantRole_TENANT_ROLE_OWNER.String(),
-// 							},
-// 							ProjectIds: []string{
-// 								"1",
-// 							},
-// 						},
-// 						{
-// 							Tenant: &mdmv1.Tenant{
-// 								Meta: &mdmv1.Meta{Id: "guest"},
-// 							},
-// 							TenantAnnotations: map[string]string{
-// 								repository.TenantRoleAnnotation: apiv1.ProjectRole_PROJECT_ROLE_UNSPECIFIED.String(),
-// 							},
-// 							ProjectIds: []string{
-// 								"1",
-// 							},
-// 						},
-// 					},
-// 				}, nil)
-// 			},
-// 			want: &apiv1.TenantServiceGetResponse{Tenant: &apiv1.Tenant{
-// 				Login: "me",
-// 				Meta:  &apiv1.Meta{},
-// 			},
-// 				TenantMembers: []*apiv1.TenantMember{
-// 					{
-// 						Id:   "me",
-// 						Role: 1,
-// 						Projects: []string{
-// 							"1",
-// 						},
-// 					},
-// 					{
-// 						Id:   "guest",
-// 						Role: 4,
-// 						Projects: []string{
-// 							"1",
-// 						},
-// 					},
-// 				},
-// 			},
-// 			wantErr: nil,
-// 		},
-// 		{
-// 			name: "tenant viewer sends get request",
-// 			req: &apiv1.TenantServiceGetRequest{
-// 				Login: "me",
-// 			},
-// 			tenantRole: apiv1.TenantRole_TENANT_ROLE_VIEWER,
-// 			tenantServiceMock: func(mock *tmock.Mock) {
-// 				mock.On("Get", tmock.Anything, &mdmv1.TenantGetRequest{Id: "me"}).Return(&mdmv1.TenantResponse{Tenant: &mdmv1.Tenant{
-// 					Meta: &mdmv1.Meta{Id: "me"},
-// 				}}, nil)
-
-// 				mock.On("ListTenantMembers", tmock.Anything, &mdmv1.ListTenantMembersRequest{TenantId: "me"}).Return(&mdmv1.ListTenantMembersResponse{
-// 					Tenants: []*mdmv1.TenantWithMembershipAnnotations{
-// 						{
-// 							Tenant: &mdmv1.Tenant{
-// 								Meta: &mdmv1.Meta{Id: "me"},
-// 							},
-// 							TenantAnnotations: map[string]string{
-// 								repository.TenantRoleAnnotation: apiv1.ProjectRole_PROJECT_ROLE_OWNER.String(),
-// 							},
-// 						},
-// 						{
-// 							Tenant: &mdmv1.Tenant{
-// 								Meta: &mdmv1.Meta{Id: "viewer"},
-// 							},
-// 							TenantAnnotations: map[string]string{
-// 								repository.TenantRoleAnnotation: apiv1.ProjectRole_PROJECT_ROLE_VIEWER.String(),
-// 							},
-// 						},
-// 					},
-// 				}, nil)
-// 			},
-// 			want: &apiv1.TenantServiceGetResponse{Tenant: &apiv1.Tenant{
-// 				Login: "me",
-// 				Meta:  &apiv1.Meta{},
-// 			},
-// 				TenantMembers: []*apiv1.TenantMember{
-// 					{
-// 						Id:   "me",
-// 						Role: 1,
-// 					},
-// 					{
-// 						Id:   "viewer",
-// 						Role: 3,
-// 					},
-// 				},
-// 			},
-// 			wantErr: nil,
-// 		},
-// 		{
-// 			name: "tenant guest sends get request",
-// 			req: &apiv1.TenantServiceGetRequest{
-// 				Login: "me",
-// 			},
-// 			tenantRole: apiv1.TenantRole_TENANT_ROLE_GUEST,
-// 			tenantServiceMock: func(mock *tmock.Mock) {
-// 				mock.On("Get", tmock.Anything, &mdmv1.TenantGetRequest{Id: "me"}).Return(&mdmv1.TenantResponse{Tenant: &mdmv1.Tenant{
-// 					Meta: &mdmv1.Meta{
-// 						Id: "me",
-// 						Annotations: map[string]string{
-// 							repository.TenantTagEmail: "mail@me.com",
-// 						},
-// 					},
-// 					Name:        "name",
-// 					Description: "description",
-// 				}}, nil)
-// 			},
-// 			want: &apiv1.TenantServiceGetResponse{Tenant: &apiv1.Tenant{
-// 				Login:       "me",
-// 				Meta:        &apiv1.Meta{},
-// 				Name:        "name",
-// 				Description: "description",
-// 				Email:       "",
-// 			},
-// 			},
-// 			wantErr: nil,
-// 		},
-// 	}
-// 	for _, tt := range tests {
-// 		tt := tt
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			m := miniredis.RunT(t)
-// 			defer m.Close()
-// 			c := redis.NewClient(&redis.Options{Addr: m.Addr()})
-
-// 			tokenStore := token.NewRedisStore(c)
-
-// 			ctx := token.ContextWithToken(t.Context(), &apiv1.Token{
-// 				TenantRoles: map[string]apiv1.TenantRole{
-// 					tt.req.Login: tt.tenantRole,
-// 				},
-// 			})
-
-// 			s := &tenantServiceServer{
-// 				log: slog.Default(),
-// 				// masterClient: newMasterdataMockClient(t, tt.tenantServiceMock, tt.tenantMemberServiceMock, nil, nil),
-// 				inviteStore: nil,
-// 				tokenStore:  tokenStore,
-// 			}
-
-// 			result, err := s.Get(ctx, connect.NewRequest(tt.req))
-// 			require.NoError(t, err)
-// 			assert.Equal(t, result.Msg.Tenant, tt.want.Tenant)
-// 		})
-// 	}
-// }
-
-// func Test_service_InviteAccept(t *testing.T) {
-// 	ctx := t.Context()
-// 	secret, err := invite.GenerateInviteSecret()
-// 	require.NoError(t, err)
-
-// 	tests := []struct {
-// 		name                    string
-// 		tenant                  *apiv1.TenantServiceInviteAcceptRequest
-// 		token                   *apiv1.Token
-// 		tenantServiceMock       func(mock *tmock.Mock)
-// 		tenantMemberServiceMock func(mock *tmock.Mock)
-// 		inviteStorePrepare      func(store invite.TenantInviteStore)
-// 		want                    *apiv1.TenantServiceInviteAcceptResponse
-// 		wantErr                 *connect.Error
-// 	}{
-// 		{
-// 			name: "accept an invite",
-// 			tenant: &apiv1.TenantServiceInviteAcceptRequest{
-// 				Secret: secret,
-// 			},
-// 			token: &apiv1.Token{
-// 				Uuid: "123",
-// 				User: "new-member",
-// 			},
-// 			tenantServiceMock: func(mock *tmock.Mock) {
-// 				mock.On("Get", tmock.Anything, &mdmv1.TenantGetRequest{Id: "new-member"}).Return(&mdmv1.TenantResponse{Tenant: &mdmv1.Tenant{
-// 					Meta: &mdmv1.Meta{Id: "new-member"},
-// 				}}, nil)
-// 			},
-// 			tenantMemberServiceMock: func(mock *tmock.Mock) {
-// 				mock.On("Find", tmock.Anything, &mdmv1.TenantMemberFindRequest{TenantId: pointer.Pointer("a"), MemberId: pointer.Pointer("new-member")}).Return(&mdmv1.TenantMemberListResponse{TenantMembers: nil}, nil)
-// 				mock.On("Create", tmock.Anything, &mdmv1.TenantMemberCreateRequest{
-// 					TenantMember: &mdmv1.TenantMember{
-// 						Meta: &mdmv1.Meta{
-// 							Annotations: map[string]string{
-// 								repository.TenantRoleAnnotation: apiv1.TenantRole_TENANT_ROLE_EDITOR.String(),
-// 							},
-// 						},
-// 						TenantId: "a",
-// 						MemberId: "new-member",
-// 					},
-// 				}).Return(&mdmv1.TenantMemberResponse{
-// 					TenantMember: &mdmv1.TenantMember{
-// 						Meta: &mdmv1.Meta{
-// 							Id: "a-random-uuid",
-// 						},
-// 						TenantId: "a",
-// 						MemberId: "new-member",
-// 					},
-// 				}, nil)
-// 			},
-// 			inviteStorePrepare: func(store invite.TenantInviteStore) {
-// 				err := store.SetInvite(ctx, &apiv1.TenantInvite{
-// 					Secret:           secret,
-// 					TargetTenant:     "a",
-// 					Role:             apiv1.TenantRole_TENANT_ROLE_EDITOR,
-// 					Joined:           false,
-// 					TargetTenantName: "name of a",
-// 					Tenant:           "user a",
-// 					TenantName:       "name of user a",
-// 					ExpiresAt:        timestamppb.New(time.Now().Add(10 * time.Minute)),
-// 					JoinedAt:         nil,
-// 				})
-// 				require.NoError(t, err)
-// 			},
-// 			want: &apiv1.TenantServiceInviteAcceptResponse{
-// 				TenantName: "name of a",
-// 				Tenant:     "a",
-// 			},
-// 			wantErr: nil,
-// 		},
-// 	}
-// 	for _, tt := range tests {
-// 		tt := tt
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			m := miniredis.RunT(t)
-// 			defer m.Close()
-
-// 			var (
-// 				c = redis.NewClient(&redis.Options{Addr: m.Addr()})
-
-// 				inviteStore = invite.NewTenantRedisStore(c)
-// 			)
-
-// 			ctx := token.ContextWithToken(ctx, tt.token)
-
-// 			if tt.inviteStorePrepare != nil {
-// 				tt.inviteStorePrepare(inviteStore)
-// 			}
-
-// 			s := &tenantServiceServer{
-// 				log: slog.Default(),
-// 				// masterClient: newMasterdataMockClient(t, tt.tenantServiceMock, tt.tenantMemberServiceMock, nil, nil),
-// 				inviteStore: inviteStore,
-// 			}
-
-// 			result, err := s.InviteAccept(ctx, connect.NewRequest(tt.tenant))
-// 			require.NoError(t, err)
-
-// 			assert.Equal(t, result.Msg.TenantName, tt.want.TenantName)
-// 			assert.Equal(t, result.Msg.Tenant, tt.want.Tenant)
-// 		})
-// 	}
-// }
-
 func Test_tenantServiceServer_Get(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
@@ -395,12 +26,25 @@ func Test_tenantServiceServer_Get(t *testing.T) {
 	defer closer()
 	repo := testStore.Store
 
-	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "john.doe@github"}})
+	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{
+		{
+			Name:        "john.doe@github",
+			Email:       pointer.Pointer("john.doe@github.com"),
+			Description: pointer.Pointer("a description"),
+			AvatarUrl:   pointer.Pointer("http://test"),
+			Labels: &apiv2.Labels{
+				Labels: map[string]string{
+					"a": "b",
+				},
+			},
+		},
+	})
 
 	tests := []struct {
 		name    string
 		rq      *apiv2.TenantServiceGetRequest
 		want    *apiv2.TenantServiceGetResponse
+		as      *apiv2.TenantRole
 		wantErr error
 	}{
 		{
@@ -410,9 +54,36 @@ func Test_tenantServiceServer_Get(t *testing.T) {
 			},
 			want: &apiv2.TenantServiceGetResponse{
 				Tenant: &apiv2.Tenant{
-					Meta:  &apiv2.Meta{},
-					Name:  "john.doe@github",
-					Login: "john.doe@github",
+					Meta: &apiv2.Meta{
+						Labels: &apiv2.Labels{
+							Labels: map[string]string{
+								"a": "b",
+							},
+						},
+					},
+					Name:        "john.doe@github",
+					Login:       "john.doe@github",
+					Email:       "john.doe@github.com",
+					Description: "a description",
+					AvatarUrl:   "http://test",
+					CreatedBy:   "john.doe@github",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "get a tenant as guest member",
+			rq: &apiv2.TenantServiceGetRequest{
+				Login: "john.doe@github",
+			},
+			as: pointer.Pointer(apiv2.TenantRole_TENANT_ROLE_GUEST),
+			want: &apiv2.TenantServiceGetResponse{
+				Tenant: &apiv2.Tenant{
+					Meta:        &apiv2.Meta{},
+					Name:        "john.doe@github",
+					Login:       "john.doe@github",
+					Description: "a description",
+					AvatarUrl:   "http://test",
 				},
 			},
 			wantErr: nil,
@@ -435,10 +106,15 @@ func Test_tenantServiceServer_Get(t *testing.T) {
 				tokenStore:  testStore.GetTokenStore(),
 			}
 
+			as := apiv2.TenantRole_TENANT_ROLE_OWNER
+			if tt.as != nil {
+				as = *tt.as
+			}
+
 			tok := testStore.GetToken("john.doe@github", &apiv2.TokenServiceCreateRequest{
 				Expires: durationpb.New(time.Hour),
 				TenantRoles: map[string]apiv2.TenantRole{
-					"john.doe@github": apiv2.TenantRole_TENANT_ROLE_OWNER,
+					"john.doe@github": as,
 				},
 			})
 
