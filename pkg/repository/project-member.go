@@ -29,40 +29,6 @@ type (
 	}
 )
 
-func (t *projectMemberRepository) validateCreate(ctx context.Context, req *ProjectMemberCreateRequest) error {
-	return nil
-}
-
-func (t *projectMemberRepository) validateUpdate(ctx context.Context, req *ProjectMemberUpdateRequest, membership *mdcv1.ProjectMember) error {
-	role := ProjectRoleFromMap(req.Member.Meta.Annotations)
-
-	// TODO: currently the API defines that only owners can update members so there is no possibility to elevate permissions
-	// probably, we should still check that no elevation of permissions is possible in case we later change the API
-
-	lastOwner, err := t.checkIfMemberIsLastOwner(ctx, membership)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
-
-	if lastOwner && role != apiv2.ProjectRole_PROJECT_ROLE_OWNER {
-		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot demote last owner's permissions"))
-	}
-
-	return nil
-}
-
-func (t *projectMemberRepository) validateDelete(ctx context.Context, req *mdcv1.ProjectMember) error {
-	lastOwner, err := t.checkIfMemberIsLastOwner(ctx, req)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
-	if lastOwner {
-		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot remove last owner of a project"))
-	}
-
-	return nil
-}
-
 func (t *projectMemberRepository) convertToInternal(msg *apiv2.ProjectMember) (*mdcv1.ProjectMember, error) {
 	return &mdcv1.ProjectMember{
 		Meta: &mdcv1.Meta{
@@ -126,7 +92,7 @@ func (t *projectMemberRepository) find(ctx context.Context, query *ProjectMember
 	case 0:
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("tenant %s is not a member of project %s", *query.MemberId, t.scope.projectID))
 	case 1:
-		// fallthrough
+		// noop
 	default:
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("found multiple membership associations for a member to a tenant"))
 	}

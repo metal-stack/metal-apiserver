@@ -29,48 +29,6 @@ type (
 	}
 )
 
-func (t *tenantMemberRepository) validateCreate(ctx context.Context, req *TenantMemberCreateRequest) error {
-	return nil
-}
-
-func (t *tenantMemberRepository) validateUpdate(ctx context.Context, req *TenantMemberUpdateRequest, membership *mdcv1.TenantMember) error {
-	role := TenantRoleFromMap(req.Member.Meta.Annotations)
-
-	// TODO: currently the API defines that only owners can update members so there is no possibility to elevate permissions
-	// probably, we should still check that no elevation of permissions is possible in case we later change the API
-
-	if membership.MemberId == membership.TenantId && role != apiv2.TenantRole_TENANT_ROLE_OWNER {
-		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot demote a user's role within their own default tenant"))
-	}
-
-	lastOwner, err := t.checkIfMemberIsLastOwner(ctx, membership)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
-
-	if lastOwner && role != apiv2.TenantRole_TENANT_ROLE_OWNER {
-		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot demote last owner's permissions"))
-	}
-
-	return nil
-}
-
-func (t *tenantMemberRepository) validateDelete(ctx context.Context, req *mdcv1.TenantMember) error {
-	if req.MemberId == req.TenantId {
-		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot remove a member from their own default tenant"))
-	}
-
-	lastOwner, err := t.checkIfMemberIsLastOwner(ctx, req)
-	if err != nil {
-		return err
-	}
-	if lastOwner {
-		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot remove last owner of a tenant"))
-	}
-
-	return nil
-}
-
 func (t *tenantMemberRepository) checkIfMemberIsLastOwner(ctx context.Context, req *mdcv1.TenantMember) (bool, error) {
 	isOwner := TenantRoleFromMap(req.Meta.Annotations) == apiv2.TenantRole_TENANT_ROLE_OWNER
 	if !isOwner {
@@ -141,7 +99,7 @@ func (t *tenantMemberRepository) find(ctx context.Context, query *TenantMemberQu
 	case 0:
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("tenant %s is not a member of tenant %s", t.scope.tenantID, *query.MemberId))
 	case 1:
-		// fallthrough
+		// noop
 	default:
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("found multiple membership associations for a member to a tenant"))
 	}
