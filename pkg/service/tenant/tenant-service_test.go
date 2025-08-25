@@ -14,97 +14,10 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
-
-// func Test_service_Create(t *testing.T) {
-// 	tests := []struct {
-// 		name                    string
-// 		tenant                  *apiv1.TenantServiceCreateRequest
-// 		tenantServiceMock       func(mock *tmock.Mock)
-// 		tenantMemberServiceMock func(mock *tmock.Mock)
-// 		want                    *apiv1.TenantServiceCreateResponse
-// 		wantErr                 *connect.Error
-// 	}{
-// 		{
-// 			name: "create user",
-// 			tenant: &apiv1.TenantServiceCreateRequest{
-// 				Name:        "test",
-// 				Description: pointer.Pointer("test tenant"),
-// 				Email:       pointer.Pointer("foo@a.b"),
-// 				AvatarUrl:   pointer.Pointer("https://example.jpg"),
-// 				PhoneNumber: pointer.Pointer("1023"),
-// 			},
-// 			tenantServiceMock: func(mock *tmock.Mock) {
-// 				matcher := testcommon.MatchByCmpDiff(t, &mdmv1.TenantCreateRequest{
-// 					Tenant: &mdmv1.Tenant{
-// 						Meta: &mdmv1.Meta{
-// 							Annotations: map[string]string{
-// 								"metal-stack.io/avatarurl": "https://example.jpg",
-// 								"metal-stack.io/email":     "foo@a.b",
-// 								"metal-stack.io/phone":     "1023",
-// 								"metal-stack.io/creator":   "original-owner",
-// 							},
-// 						},
-// 						Name:        "test",
-// 						Description: "test tenant",
-// 					},
-// 				}, cmpopts.IgnoreTypes(protoimpl.MessageState{}))
-
-// 				mock.On("Get", tmock.Anything, &mdmv1.TenantGetRequest{Id: "original-owner"}).Return(&mdmv1.TenantResponse{Tenant: &mdmv1.Tenant{}}, nil)
-// 				mock.On("Create", tmock.Anything, matcher).Return(&mdmv1.TenantResponse{Tenant: &mdmv1.Tenant{Meta: &mdmv1.Meta{Id: "e7938bfa-9e47-4fa4-af8c-c059f938f467"}, Name: "test"}}, nil)
-// 			},
-// 			tenantMemberServiceMock: func(mock *tmock.Mock) {
-// 				member := &mdmv1.TenantMember{
-// 					Meta: &mdmv1.Meta{
-// 						Annotations: map[string]string{
-// 							"metal-stack.io/tenant-role": "TENANT_ROLE_OWNER",
-// 						},
-// 					},
-// 					TenantId: "<generated-at-runtime>",
-// 					MemberId: "original-owner",
-// 				}
-// 				matcher := testcommon.MatchByCmpDiff(t, &mdmv1.TenantMemberCreateRequest{
-// 					TenantMember: member,
-// 				}, cmpopts.IgnoreTypes(protoimpl.MessageState{}), cmpopts.IgnoreFields(mdmv1.TenantMember{}, "TenantId"))
-
-// 				mock.On("Create", tmock.Anything, matcher).Return(&mdmv1.TenantMemberResponse{TenantMember: member}, nil)
-// 			},
-// 			want: &apiv1.TenantServiceCreateResponse{Tenant: &apiv1.Tenant{
-// 				Login: "e7938bfa-9e47-4fa4-af8c-c059f938f467",
-// 				Name:  "test",
-// 			}},
-// 			wantErr: nil,
-// 		},
-// 	}
-// 	for _, tt := range tests {
-// 		tt := tt
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			m := miniredis.RunT(t)
-// 			defer m.Close()
-// 			c := redis.NewClient(&redis.Options{Addr: m.Addr()})
-
-// 			tokenStore := token.NewRedisStore(c)
-
-// 			ctx := token.ContextWithToken(t.Context(), &apiv1.Token{
-// 				User: "original-owner",
-// 			})
-
-// 			s := &tenantServiceServer{
-// 				log: slog.Default(),
-// 				// masterClient: newMasterdataMockClient(t, tt.tenantServiceMock, tt.tenantMemberServiceMock, nil, nil),
-// 				inviteStore: nil,
-// 				tokenStore:  tokenStore,
-// 			}
-
-// 			result, err := s.Create(ctx, connect.NewRequest(tt.tenant))
-// 			require.NoError(t, err)
-// 			assert.Equal(t, result.Msg.Tenant.Login, tt.want.Tenant.Login)
-// 			assert.Equal(t, result.Msg.Tenant.Name, tt.want.Tenant.Name)
-// 		})
-// 	}
-// }
 
 // func Test_service_Get(t *testing.T) {
 // 	tests := []struct {
@@ -540,13 +453,7 @@ func Test_tenantServiceServer_Get(t *testing.T) {
 				tt.want, pointer.SafeDeref(got).Msg,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
-					&apiv2.Image{}, "expires_at",
-				),
-				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
-				),
-				protocmp.IgnoreFields(
-					&apiv2.MachineProvisioningEvent{}, "time",
 				),
 			); diff != "" {
 				t.Errorf("%v, want %v diff: %s", got.Msg, tt.want, diff)
@@ -664,13 +571,242 @@ func Test_tenantServiceServer_List(t *testing.T) {
 				tt.want, pointer.SafeDeref(got).Msg,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
-					&apiv2.Image{}, "expires_at",
+					&apiv2.Meta{}, "created_at", "updated_at",
 				),
+			); diff != "" {
+				t.Errorf("%v, want %v diff: %s", got.Msg, tt.want, diff)
+			}
+		})
+	}
+}
+
+func Test_tenantServiceServer_Create(t *testing.T) {
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
+	defer closer()
+	repo := testStore.Store
+
+	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "john.doe@github"}})
+
+	tests := []struct {
+		name        string
+		rq          *apiv2.TenantServiceCreateRequest
+		want        *apiv2.TenantServiceCreateResponse
+		wantMembers []*apiv2.TenantMember
+		wantErr     error
+	}{
+		{
+			name: "create a tenant",
+			rq: &apiv2.TenantServiceCreateRequest{
+				Name:        "My New Org Tenant",
+				Description: pointer.Pointer("tenant desc"),
+				Email:       pointer.Pointer("tenant@github"),
+				AvatarUrl:   pointer.Pointer("http://test"),
+				Labels: &apiv2.Labels{
+					Labels: map[string]string{
+						"a": "b",
+					},
+				},
+			},
+			want: &apiv2.TenantServiceCreateResponse{
+				Tenant: &apiv2.Tenant{
+					Login: "a-uuid",
+					Meta: &apiv2.Meta{
+						Labels: &apiv2.Labels{
+							Labels: map[string]string{
+								"a": "b",
+							},
+						},
+					},
+					Name:        "My New Org Tenant",
+					Email:       "tenant@github",
+					Description: "tenant desc",
+					AvatarUrl:   "http://test",
+					CreatedBy:   "john.doe@github",
+				},
+			},
+			wantMembers: []*apiv2.TenantMember{
+				{
+					Id:       "john.doe@github",
+					Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
+					Projects: []string{},
+				},
+			},
+			wantErr: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			u := &tenantServiceServer{
+				log:         log,
+				repo:        repo,
+				inviteStore: testStore.GetTenantInviteStore(),
+				tokenStore:  testStore.GetTokenStore(),
+			}
+
+			tok := testStore.GetToken("john.doe@github", &apiv2.TokenServiceCreateRequest{
+				Expires: durationpb.New(time.Hour),
+				TenantRoles: map[string]apiv2.TenantRole{
+					"john.doe@github": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			})
+
+			reqCtx := token.ContextWithToken(t.Context(), tok)
+
+			got, err := u.Create(reqCtx, connect.NewRequest(tt.rq))
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("diff = %s", diff)
+			}
+
+			assert.NotEmpty(t, got.Msg.Tenant.Login)
+
+			if diff := cmp.Diff(
+				tt.want, pointer.SafeDeref(got).Msg,
+				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 				protocmp.IgnoreFields(
-					&apiv2.MachineProvisioningEvent{}, "time",
+					&apiv2.Tenant{}, "login",
+				),
+			); diff != "" {
+				t.Errorf("%v, want %v diff: %s", got.Msg, tt.want, diff)
+			}
+
+			// to check whether the owner membership was created, we need to get the tenant as well
+			// as we do not request through opa auther, we also need to extend the token
+
+			tok.TenantRoles[got.Msg.Tenant.Login] = apiv2.TenantRole_TENANT_ROLE_OWNER
+
+			reqCtx = token.ContextWithToken(t.Context(), tok)
+
+			getResp, err := u.Get(reqCtx, connect.NewRequest(&apiv2.TenantServiceGetRequest{
+				Login: got.Msg.Tenant.Login,
+			}))
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("diff = %s", diff)
+			}
+
+			tt.want.Tenant.Login = got.Msg.Tenant.Login
+
+			if diff := cmp.Diff(
+				tt.want.Tenant, pointer.SafeDeref(getResp).Msg.Tenant,
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
+			); diff != "" {
+				t.Errorf("%v, want %v diff: %s", getResp.Msg.Tenant, tt.want.Tenant, diff)
+			}
+			if diff := cmp.Diff(
+				tt.wantMembers, pointer.SafeDeref(getResp).Msg.TenantMembers,
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.TenantMember{}, "created_at",
+				),
+			); diff != "" {
+				t.Errorf("%v, want %v diff: %s", getResp.Msg.TenantMembers, tt.wantMembers, diff)
+			}
+		})
+	}
+}
+
+func Test_tenantServiceServer_Update(t *testing.T) {
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
+	defer closer()
+	repo := testStore.Store
+
+	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{
+		Name:        "john.doe@github",
+		Description: pointer.Pointer("old desc"),
+		Email:       pointer.Pointer("old mail"),
+		AvatarUrl:   pointer.Pointer("http://old"),
+		Labels: &apiv2.Labels{
+			Labels: map[string]string{
+				"a": "b",
+			},
+		},
+	}})
+
+	tests := []struct {
+		name    string
+		rq      *apiv2.TenantServiceUpdateRequest
+		want    *apiv2.TenantServiceUpdateResponse
+		wantErr error
+	}{
+		{
+			name: "create a tenant",
+			rq: &apiv2.TenantServiceUpdateRequest{
+				Login:       "john.doe@github",
+				Name:        pointer.Pointer("new name"),
+				Description: pointer.Pointer("new desc"),
+				Email:       pointer.Pointer("new mail"),
+				AvatarUrl:   pointer.Pointer("http://new"),
+				Labels: &apiv2.UpdateLabels{
+					Update: &apiv2.Labels{
+						Labels: map[string]string{
+							"c": "d",
+						},
+					},
+				},
+			},
+			want: &apiv2.TenantServiceUpdateResponse{
+				Tenant: &apiv2.Tenant{
+					Login: "john.doe@github",
+					Meta: &apiv2.Meta{
+						Labels: &apiv2.Labels{
+							Labels: map[string]string{
+								"a": "b",
+								"c": "d",
+							},
+						},
+					},
+					Name:        "new name",
+					Email:       "new mail",
+					Description: "new desc",
+					AvatarUrl:   "http://new",
+					CreatedBy:   "john.doe@github",
+				},
+			},
+			wantErr: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			u := &tenantServiceServer{
+				log:         log,
+				repo:        repo,
+				inviteStore: testStore.GetTenantInviteStore(),
+				tokenStore:  testStore.GetTokenStore(),
+			}
+
+			tok := testStore.GetToken("john.doe@github", &apiv2.TokenServiceCreateRequest{
+				Expires: durationpb.New(time.Hour),
+				TenantRoles: map[string]apiv2.TenantRole{
+					"john.doe@github": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			})
+
+			reqCtx := token.ContextWithToken(t.Context(), tok)
+
+			got, err := u.Update(reqCtx, connect.NewRequest(tt.rq))
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("diff = %s", diff)
+			}
+
+			assert.NotEmpty(t, got.Msg.Tenant.Login)
+
+			if diff := cmp.Diff(
+				tt.want, pointer.SafeDeref(got).Msg,
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.Tenant{}, "login",
 				),
 			); diff != "" {
 				t.Errorf("%v, want %v diff: %s", got.Msg, tt.want, diff)

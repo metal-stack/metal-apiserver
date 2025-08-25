@@ -10,14 +10,14 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
+	"github.com/metal-stack/metal-lib/pkg/tag"
 )
 
 const (
 	// FIXME: overlaps with metalstack.cloud annotations
-	TenantTagEmail       = "metal-stack.io/email"
-	TenantTagPhoneNumber = "metal-stack.io/phone"
-	TenantTagAvatarURL   = "metal-stack.io/avatarurl"
-	TenantTagCreator     = "metal-stack.io/creator"
+	TenantTagEmail     = "metal-stack.io/email"
+	TenantTagAvatarURL = "metal-stack.io/avatarurl"
+	TenantTagCreator   = "metal-stack.io/creator"
 
 	TenantRoleAnnotation = "metal-stack.io/tenant-role"
 )
@@ -51,14 +51,17 @@ func (t *tenantRepository) CreateWithID(ctx context.Context, c *apiv2.TenantServ
 	if c.AvatarUrl != nil {
 		ann[TenantTagAvatarURL] = *c.AvatarUrl
 	}
-	if c.PhoneNumber != nil {
-		ann[TenantTagPhoneNumber] = *c.PhoneNumber
+
+	var labels []string
+	if c.Labels != nil && len(c.Labels.Labels) > 0 {
+		labels = tag.TagMap(c.Labels.Labels).Slice()
 	}
 
 	tenant := &mdcv1.Tenant{
 		Meta: &mdcv1.Meta{
 			Id:          id,
 			Annotations: ann,
+			Labels:      labels,
 		},
 		Name: c.Name,
 	}
@@ -137,10 +140,10 @@ func (t *tenantRepository) update(ctx context.Context, e *mdcv1.Tenant, msg *api
 	if msg.AvatarUrl != nil {
 		ann[TenantTagAvatarURL] = *msg.AvatarUrl
 	}
-	// TODO: add phone number to update request?
-	// if msg. != nil {
-	// 	ann[tutil.TagPhoneNumber] = *msg.PhoneNumber
-	// }
+
+	if msg.Labels != nil {
+		e.Meta.Labels = updateLabelsOnSlice(msg.Labels, e.Meta.Labels)
+	}
 
 	resp, err := t.s.mdc.Tenant().Update(ctx, &mdcv1.TenantUpdateRequest{Tenant: e})
 	if err != nil {
@@ -154,7 +157,12 @@ func (t *tenantRepository) convertToInternal(tenant *apiv2.Tenant) (*mdcv1.Tenan
 	ann := map[string]string{
 		TenantTagEmail:     tenant.Email,
 		TenantTagAvatarURL: tenant.AvatarUrl,
-		// tutil.TagPhoneNumber:  tenant.,
+		TenantTagCreator:   tenant.CreatedBy,
+	}
+
+	var labels []string
+	if tenant.Meta != nil && tenant.Meta.Labels != nil && len(tenant.Meta.Labels.Labels) > 0 {
+		labels = tag.TagMap(tenant.Meta.Labels.Labels).Slice()
 	}
 
 	return &mdcv1.Tenant{
@@ -162,6 +170,7 @@ func (t *tenantRepository) convertToInternal(tenant *apiv2.Tenant) (*mdcv1.Tenan
 			Id:          tenant.Login,
 			Kind:        "Tenant",
 			Annotations: ann,
+			Labels:      labels,
 		},
 		Name:        tenant.Name,
 		Description: tenant.Description,
@@ -169,15 +178,24 @@ func (t *tenantRepository) convertToInternal(tenant *apiv2.Tenant) (*mdcv1.Tenan
 }
 
 func (te *tenantRepository) convertToProto(t *mdcv1.Tenant) (*apiv2.Tenant, error) {
+	var labels *apiv2.Labels
+	if t.Meta != nil && t.Meta.Labels != nil && len(t.Meta.Labels) > 0 {
+		labels = &apiv2.Labels{
+			Labels: tag.NewTagMap(t.Meta.Labels),
+		}
+	}
+
 	return &apiv2.Tenant{
 		Login:       t.Meta.Id,
 		Name:        t.Name,
 		Description: t.Description,
 		Email:       t.Meta.Annotations[TenantTagEmail],
 		AvatarUrl:   t.Meta.Annotations[TenantTagAvatarURL],
+		CreatedBy:   t.Meta.Annotations[TenantTagCreator],
 		Meta: &apiv2.Meta{
 			CreatedAt: t.Meta.CreatedTime,
 			UpdatedAt: t.Meta.UpdatedTime,
+			Labels:    labels,
 		},
 	}, nil
 }

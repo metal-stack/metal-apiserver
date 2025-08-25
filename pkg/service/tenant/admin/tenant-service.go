@@ -50,7 +50,6 @@ func (t *tenantServiceServer) Create(ctx context.Context, rq *connect.Request[ad
 		Description: req.Description,
 		Email:       req.Email,
 		AvatarUrl:   req.AvatarUrl,
-		PhoneNumber: req.PhoneNumber,
 	})
 	if err != nil {
 		return nil, err
