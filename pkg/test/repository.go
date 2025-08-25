@@ -351,6 +351,13 @@ func CreateTenants(t *testing.T, testStore *testStore, tenants []*apiv2.TenantSe
 	}
 }
 
+func CreateTenantMemberships(t *testing.T, testStore *testStore, tenant string, memberships []*repository.TenantMemberCreateRequest) {
+	for _, membership := range memberships {
+		_, err := testStore.Tenant().AdditionalMethods().Member(tenant).Create(t.Context(), membership)
+		require.NoError(t, err)
+	}
+}
+
 func CreateSizes(t *testing.T, repo *repository.Store, sizes []*adminv2.SizeServiceCreateRequest) {
 	for _, size := range sizes {
 		_, err := repo.Size().Create(t.Context(), size)

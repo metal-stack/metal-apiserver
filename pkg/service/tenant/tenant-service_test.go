@@ -10,6 +10,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
@@ -554,88 +555,126 @@ func Test_tenantServiceServer_Get(t *testing.T) {
 	}
 }
 
-// func Test_tenantServiceServer_List(t *testing.T) {
-// 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+func Test_tenantServiceServer_List(t *testing.T) {
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-// 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
-// 	defer closer()
-// 	repo := testStore.Store
+	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
+	defer closer()
+	repo := testStore.Store
 
-// 	test.CreateTenantsWithID(t, testStore, []*apiv2.TenantServiceCreateRequest{
-// 		{Name: "john.doe@github"},
-// 		{Name: "will.smith@github"},
-// 		{Name: "tina.turner@github"},
-// 	})
+	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{
+		{Name: "john.doe@github"},
+		{Name: "will.smith@github"},
+		{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044"},
+	})
 
-// 	tests := []struct {
-// 		name    string
-// 		rq      *apiv2.TenantServiceListRequest
-// 		want    *apiv2.TenantServiceListResponse
-// 		wantErr error
-// 	}{
-// 		{
-// 			name: "list the tenants",
-// 			rq:   &apiv2.TenantServiceListRequest{},
-// 			want: &apiv2.TenantServiceListResponse{
-// 				Tenants: []*apiv2.Tenant{
-// 					{
-// 						Meta:  &apiv2.Meta{},
-// 						Name:  "john.doe@github",
-// 						Login: "john.doe@github",
-// 					},
-// 					{
-// 						Meta:  &apiv2.Meta{},
-// 						Name:  "will.smith@github",
-// 						Login: "will.smith@github",
-// 					},
-// 					{
-// 						Meta:  &apiv2.Meta{},
-// 						Name:  "tina.turner@github",
-// 						Login: "tina.turner@github",
-// 					},
-// 				},
-// 			},
-// 			wantErr: nil,
-// 		},
-// 	}
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			u := &tenantServiceServer{
-// 				log:         log,
-// 				repo:        repo,
-// 				inviteStore: testStore.GetTenantInviteStore(),
-// 				tokenStore:  testStore.GetTokenStore(),
-// 			}
+	// create some memberships
+	test.CreateTenantMemberships(t, testStore, "john.doe@github", []*repository.TenantMemberCreateRequest{
+		{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+	})
+	test.CreateTenantMemberships(t, testStore, "will.smith@github", []*repository.TenantMemberCreateRequest{
+		{MemberID: "will.smith@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+	})
+	test.CreateTenantMemberships(t, testStore, "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", []*repository.TenantMemberCreateRequest{
+		{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+	})
 
-// 			tok := testStore.GetToken("john.doe@github", &apiv2.TokenServiceCreateRequest{
-// 				Expires: durationpb.New(time.Hour),
-// 				TenantRoles: map[string]apiv2.TenantRole{
-// 					"john.doe@github": apiv2.TenantRole_TENANT_ROLE_OWNER,
-// 				},
-// 			})
+	tests := []struct {
+		name    string
+		rq      *apiv2.TenantServiceListRequest
+		want    *apiv2.TenantServiceListResponse
+		wantErr error
+	}{
+		{
+			name: "list the tenants",
+			rq:   &apiv2.TenantServiceListRequest{},
+			want: &apiv2.TenantServiceListResponse{
+				Tenants: []*apiv2.Tenant{
+					{
+						Meta:  &apiv2.Meta{},
+						Name:  "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
+						Login: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
+					},
+					{
+						Meta:  &apiv2.Meta{},
+						Name:  "john.doe@github",
+						Login: "john.doe@github",
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "list the tenants filtered by id",
+			rq: &apiv2.TenantServiceListRequest{
+				Id: pointer.Pointer("john.doe@github"),
+			},
+			want: &apiv2.TenantServiceListResponse{
+				Tenants: []*apiv2.Tenant{
+					{
+						Meta:  &apiv2.Meta{},
+						Name:  "john.doe@github",
+						Login: "john.doe@github",
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "list the tenants filtered by name",
+			rq: &apiv2.TenantServiceListRequest{
+				Name: pointer.Pointer("b950f4f5-d8b8-4252-aa02-ae08a1d2b044"),
+			},
+			want: &apiv2.TenantServiceListResponse{
+				Tenants: []*apiv2.Tenant{
+					{
+						Meta:  &apiv2.Meta{},
+						Name:  "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
+						Login: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
+					},
+				},
+			},
+			wantErr: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			u := &tenantServiceServer{
+				log:         log,
+				repo:        repo,
+				inviteStore: testStore.GetTenantInviteStore(),
+				tokenStore:  testStore.GetTokenStore(),
+			}
 
-// 			reqCtx := token.ContextWithToken(t.Context(), tok)
+			tok := testStore.GetToken("john.doe@github", &apiv2.TokenServiceCreateRequest{
+				Expires: durationpb.New(time.Hour),
+				TenantRoles: map[string]apiv2.TenantRole{
+					"john.doe@github": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			})
 
-// 			got, err := u.List(reqCtx, connect.NewRequest(tt.rq))
-// 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
-// 				t.Errorf("diff = %s", diff)
-// 			}
+			reqCtx := token.ContextWithToken(t.Context(), tok)
 
-// 			if diff := cmp.Diff(
-// 				tt.want, pointer.SafeDeref(got).Msg,
-// 				protocmp.Transform(),
-// 				protocmp.IgnoreFields(
-// 					&apiv2.Image{}, "expires_at",
-// 				),
-// 				protocmp.IgnoreFields(
-// 					&apiv2.Meta{}, "created_at", "updated_at",
-// 				),
-// 				protocmp.IgnoreFields(
-// 					&apiv2.MachineProvisioningEvent{}, "time",
-// 				),
-// 			); diff != "" {
-// 				t.Errorf("%v, want %v diff: %s", got.Msg, tt.want, diff)
-// 			}
-// 		})
-// 	}
-// }
+			got, err := u.List(reqCtx, connect.NewRequest(tt.rq))
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("diff = %s", diff)
+			}
+
+			if diff := cmp.Diff(
+				tt.want, pointer.SafeDeref(got).Msg,
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Image{}, "expires_at",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.MachineProvisioningEvent{}, "time",
+				),
+			); diff != "" {
+				t.Errorf("%v, want %v diff: %s", got.Msg, tt.want, diff)
+			}
+		})
+	}
+}
