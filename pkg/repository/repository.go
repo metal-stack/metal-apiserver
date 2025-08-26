@@ -7,7 +7,6 @@ import (
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 )
 
@@ -106,6 +105,6 @@ type (
 	}
 
 	Switch interface {
-		Repository[*switchRepository, *metal.Switch, *apiv2.Switch, *infrav2.SwitchServiceCreateRequest, *adminv2.SwitchServiceUpdateRequest, *apiv2.SwitchQuery]
+		Repository[*switchRepository, *metal.Switch, *apiv2.Switch, *SwitchServiceCreateRequest, *adminv2.SwitchServiceUpdateRequest, *apiv2.SwitchQuery]
 	}
 )

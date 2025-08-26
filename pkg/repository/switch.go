@@ -10,12 +10,79 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 type switchRepository struct {
 	s *Store
+}
+
+type SwitchServiceCreateRequest struct {
+	Switch *apiv2.Switch
+}
+
+func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServiceRegisterRequest) (*metal.Switch, error) {
+	sw, err := r.s.ds.Switch().Get(ctx, req.Switch.Id)
+	if err != nil && !errorutil.IsNotFound(err) {
+		return nil, err
+	}
+	if errorutil.IsNotFound(err) {
+		rq := &SwitchServiceCreateRequest{Switch: req.Switch}
+		err = r.validateCreate(ctx, rq)
+		if err != nil {
+			return nil, err
+		}
+		return r.create(ctx, rq)
+	}
+
+	apiSwitch, err := r.convertToProto(sw)
+	if err != nil {
+		return nil, err
+	}
+	if sw.ReplaceMode == metal.ReplaceModeReplace {
+		return r.replace(ctx, apiSwitch, req.Switch)
+	}
+
+	rq := &adminv2.SwitchServiceUpdateRequest{
+		Id:     req.Switch.Id,
+		RackId: req.Switch.Rack,
+	}
+
+	if req.Switch.Description != "" {
+		rq.Description = &req.Switch.Description
+	}
+	if req.Switch.ReplaceMode != apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_UNSPECIFIED {
+		rq.ReplaceMode = &req.Switch.ReplaceMode
+	}
+	if req.Switch.ManagementIp != "" {
+		rq.ManagementIp = &req.Switch.ManagementIp
+	}
+	if req.Switch.ManagementUser != "" {
+		rq.ManagementUser = &req.Switch.ManagementUser
+	}
+	if req.Switch.ConsoleCommand != "" {
+		rq.ConsoleCommand = &req.Switch.ConsoleCommand
+	}
+	if len(req.Switch.Nics) > 0 {
+		rq.Nics = req.Switch.Nics
+	}
+
+	err = r.validateUpdate(ctx, rq, sw)
+	if err != nil {
+		return nil, err
+	}
+
+	return r.update(ctx, sw, rq)
+}
+
+func (r *switchRepository) Migrate(ctx context.Context, oldSwitch, newSwitch string) (*metal.Switch, error) {
+	panic("unimplemented")
+}
+
+func (r *switchRepository) Port(ctx context.Context, id, port string, status apiv2.SwitchPortStatus) (*metal.Switch, error) {
+	panic("unimplemented")
 }
 
 func (r *switchRepository) get(ctx context.Context, id string) (*metal.Switch, error) {
@@ -27,7 +94,7 @@ func (r *switchRepository) get(ctx context.Context, id string) (*metal.Switch, e
 	return sw, nil
 }
 
-func (r *switchRepository) create(ctx context.Context, req *infrav2.SwitchServiceCreateRequest) (*metal.Switch, error) {
+func (r *switchRepository) create(ctx context.Context, req *SwitchServiceCreateRequest) (*metal.Switch, error) {
 	if req.Switch == nil {
 		return nil, nil
 	}
@@ -89,6 +156,10 @@ func (r *switchRepository) update(ctx context.Context, oldSwitch *metal.Switch, 
 
 func (r *switchRepository) delete(ctx context.Context, sw *metal.Switch) error {
 	return r.s.ds.Switch().Delete(ctx, sw)
+}
+
+func (r *switchRepository) replace(ctx context.Context, oldSwitch, newSwitch *apiv2.Switch) (*metal.Switch, error) {
+	panic("unimplemented")
 }
 
 func (r *switchRepository) find(ctx context.Context, query *apiv2.SwitchQuery) (*metal.Switch, error) {
@@ -228,14 +299,6 @@ func (r *switchRepository) convertToProto(sw *metal.Switch) (*apiv2.Switch, erro
 func (r *switchRepository) matchScope(sw *metal.Switch) bool {
 	// switches are not project scoped
 	return true
-}
-
-func (r *switchRepository) Migrate(ctx context.Context, oldSwitch, newSwitch string) (*metal.Switch, error) {
-	panic("unimplemented")
-}
-
-func (r *switchRepository) Port(ctx context.Context, id, port string, status apiv2.SwitchPortStatus) (*metal.Switch, error) {
-	panic("unimplemented")
 }
 
 func (r *switchRepository) switchFilters(filter generic.EntityQuery) []generic.EntityQuery {

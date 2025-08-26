@@ -28,8 +28,8 @@ func New(c Config) infrav2connect.SwitchServiceHandler {
 	}
 }
 
-func (s *switchServiceServer) Create(ctx context.Context, rq *connect.Request[infrav2.SwitchServiceCreateRequest]) (*connect.Response[infrav2.SwitchServiceCreateResponse], error) {
-	sw, err := s.repo.Switch().Create(ctx, rq.Msg)
+func (s *switchServiceServer) Register(ctx context.Context, rq *connect.Request[infrav2.SwitchServiceRegisterRequest]) (*connect.Response[infrav2.SwitchServiceRegisterResponse], error) {
+	sw, err := s.repo.Switch().AdditionalMethods().Register(ctx, rq.Msg)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -39,5 +39,5 @@ func (s *switchServiceServer) Create(ctx context.Context, rq *connect.Request[in
 		return nil, errorutil.Convert(err)
 	}
 
-	return connect.NewResponse(&infrav2.SwitchServiceCreateResponse{Switch: converted}), nil
+	return connect.NewResponse(&infrav2.SwitchServiceRegisterResponse{Switch: converted}), nil
 }
