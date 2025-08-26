@@ -14,8 +14,6 @@ func (t *projectMemberRepository) validateCreate(ctx context.Context, req *Proje
 }
 
 func (t *projectMemberRepository) validateUpdate(ctx context.Context, req *ProjectMemberUpdateRequest, membership *mdcv1.ProjectMember) error {
-	role := ProjectRoleFromMap(req.Member.Meta.Annotations)
-
 	// TODO: currently the API defines that only owners can update members so there is no possibility to elevate permissions
 	// probably, we should still check that no elevation of permissions is possible in case we later change the API
 
@@ -24,7 +22,7 @@ func (t *projectMemberRepository) validateUpdate(ctx context.Context, req *Proje
 		return connect.NewError(connect.CodeInternal, err)
 	}
 
-	if lastOwner && role != apiv2.ProjectRole_PROJECT_ROLE_OWNER {
+	if lastOwner && req.Role != apiv2.ProjectRole_PROJECT_ROLE_OWNER {
 		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot demote last owner's permissions"))
 	}
 

@@ -65,10 +65,7 @@ func (r *projectRepository) matchScope(p *mdcv1.Project) bool {
 		return true
 	}
 
-	if r.scope.projectID == p.Meta.Id {
-		return true
-	}
-	return false
+	return r.scope.projectID == p.Meta.Id
 }
 
 func (r *projectRepository) create(ctx context.Context, e *apiv2.ProjectServiceCreateRequest) (*mdcv1.Project, error) {
@@ -156,7 +153,7 @@ func (r *projectRepository) find(ctx context.Context, query *apiv2.ProjectServic
 	case 1:
 		return projects[0], nil
 	default:
-		return nil, fmt.Errorf("more than one project exists")
+		return nil, errorutil.Internal("more than one project exists")
 	}
 }
 
@@ -220,7 +217,7 @@ func (r *projectRepository) convertToProto(p *mdcv1.Project) (*apiv2.Project, er
 			UpdatedAt: p.Meta.UpdatedTime,
 			Labels:    labels,
 		},
-		AvatarUrl: pointer.Pointer(p.Meta.Annotations[avatarURLAnnotation]),
+		AvatarUrl: pointer.PointerOrNil(p.Meta.Annotations[avatarURLAnnotation]),
 	}, nil
 
 }
@@ -243,7 +240,10 @@ func ToProject(p *mdcv1.Project) (*apiv2.Project, error) {
 		return nil, fmt.Errorf("project meta is nil")
 	}
 
-	avatarUrl := p.Meta.Annotations[avatarURLAnnotation]
+	var avatarUrl *string
+	if url, ok := p.Meta.Annotations[avatarURLAnnotation]; ok {
+		avatarUrl = &url
+	}
 
 	return &apiv2.Project{
 		Uuid:        p.Meta.Id,
@@ -254,7 +254,7 @@ func ToProject(p *mdcv1.Project) (*apiv2.Project, error) {
 			CreatedAt: p.Meta.CreatedTime,
 			UpdatedAt: p.Meta.UpdatedTime,
 		},
-		AvatarUrl: &avatarUrl,
+		AvatarUrl: avatarUrl,
 	}, nil
 }
 

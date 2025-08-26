@@ -17,14 +17,14 @@ type projectMemberRepository struct {
 
 type (
 	ProjectMemberCreateRequest struct {
-		MemberID string
+		TenantId string
 		Role     apiv2.ProjectRole
 	}
 	ProjectMemberUpdateRequest struct {
-		Member *mdcv1.ProjectMember
+		Role apiv2.ProjectRole
 	}
 	ProjectMemberQuery struct {
-		MemberId    *string
+		TenantId    *string
 		Annotations map[string]string
 	}
 )
@@ -60,7 +60,7 @@ func (t *projectMemberRepository) create(ctx context.Context, c *ProjectMemberCr
 					ProjectRoleAnnotation: c.Role.String(),
 				},
 			},
-			TenantId:  c.MemberID,
+			TenantId:  c.TenantId,
 			ProjectId: t.scope.projectID,
 		},
 	})
@@ -83,8 +83,8 @@ func (t *projectMemberRepository) delete(ctx context.Context, e *mdcv1.ProjectMe
 }
 
 func (t *projectMemberRepository) find(ctx context.Context, query *ProjectMemberQuery) (*mdcv1.ProjectMember, error) {
-	if query.MemberId == nil {
-		return nil, fmt.Errorf("member id must be specified")
+	if query.TenantId == nil {
+		return nil, fmt.Errorf("tenant id must be specified")
 	}
 
 	memberships, err := t.list(ctx, query)
@@ -94,7 +94,7 @@ func (t *projectMemberRepository) find(ctx context.Context, query *ProjectMember
 
 	switch len(memberships) {
 	case 0:
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("tenant %s is not a member of project %s", *query.MemberId, t.scope.projectID))
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("tenant %s is not a member of project %s", *query.TenantId, t.scope.projectID))
 	case 1:
 		// noop
 	default:
@@ -105,20 +105,20 @@ func (t *projectMemberRepository) find(ctx context.Context, query *ProjectMember
 }
 
 func (t *projectMemberRepository) get(ctx context.Context, id string) (*mdcv1.ProjectMember, error) {
-	resp, err := t.s.mdc.ProjectMember().Get(ctx, &mdcv1.ProjectMemberGetRequest{
-		Id: id,
+	member, err := t.find(ctx, &ProjectMemberQuery{
+		TenantId: &id,
 	})
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
-	return resp.ProjectMember, nil
+	return member, nil
 }
 
 func (t *projectMemberRepository) list(ctx context.Context, query *ProjectMemberQuery) ([]*mdcv1.ProjectMember, error) {
 	resp, err := t.s.mdc.ProjectMember().Find(ctx, &mdcv1.ProjectMemberFindRequest{
 		ProjectId:   &t.scope.projectID,
-		TenantId:    query.MemberId,
+		TenantId:    query.TenantId,
 		Annotations: query.Annotations,
 	})
 	if err != nil {
@@ -136,9 +136,13 @@ func (t *projectMemberRepository) matchScope(e *mdcv1.ProjectMember) bool {
 	return t.scope.projectID == e.ProjectId
 }
 
-func (t *projectMemberRepository) update(ctx context.Context, _ *mdcv1.ProjectMember, msg *ProjectMemberUpdateRequest) (*mdcv1.ProjectMember, error) {
+func (t *projectMemberRepository) update(ctx context.Context, member *mdcv1.ProjectMember, msg *ProjectMemberUpdateRequest) (*mdcv1.ProjectMember, error) {
+	if msg.Role != apiv2.ProjectRole_PROJECT_ROLE_UNSPECIFIED {
+		member.Meta.Annotations[ProjectRoleAnnotation] = msg.Role.String()
+	}
+
 	resp, err := t.s.mdc.ProjectMember().Update(ctx, &mdcv1.ProjectMemberUpdateRequest{
-		ProjectMember: msg.Member,
+		ProjectMember: member,
 	})
 	if err != nil {
 		return nil, errorutil.Convert(err)

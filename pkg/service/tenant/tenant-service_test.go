@@ -55,8 +55,8 @@ func Test_tenantServiceServer_Get(t *testing.T) {
 		{MemberID: "will.smith@github", Role: apiv2.TenantRole_TENANT_ROLE_EDITOR},
 	})
 	test.CreateProjectMemberships(t, testStore, "project-a", []*repository.ProjectMemberCreateRequest{
-		{MemberID: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
-		{MemberID: "tina.turner@github", Role: apiv2.ProjectRole_PROJECT_ROLE_VIEWER},
+		{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
+		{TenantId: "tina.turner@github", Role: apiv2.ProjectRole_PROJECT_ROLE_VIEWER},
 	})
 
 	tests := []struct {
@@ -189,7 +189,6 @@ func Test_tenantServiceServer_List(t *testing.T) {
 		{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044"},
 	})
 
-	// create some memberships
 	test.CreateTenantMemberships(t, testStore, "john.doe@github", []*repository.TenantMemberCreateRequest{
 		{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 	})
@@ -515,16 +514,11 @@ func Test_tenantServiceServer_Update(t *testing.T) {
 				t.Errorf("diff = %s", diff)
 			}
 
-			assert.NotEmpty(t, got.Msg.Tenant.Login)
-
 			if diff := cmp.Diff(
 				tt.want, pointer.SafeDeref(got).Msg,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
-				),
-				protocmp.IgnoreFields(
-					&apiv2.Tenant{}, "login",
 				),
 			); diff != "" {
 				t.Errorf("%v, want %v diff: %s", got.Msg, tt.want, diff)

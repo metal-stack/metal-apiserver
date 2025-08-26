@@ -156,7 +156,7 @@ func (p *projectServiceServer) List(ctx context.Context, rq *connect.Request[api
 		result []*apiv2.Project
 	)
 
-	projectsAndTenants, err := p.repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, token.User) // FIXME: there has to be a scoped version of this, too
+	projectsAndTenants, err := p.repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, token.User)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("error retrieving projects from backend: %w", err))
 	}
@@ -164,6 +164,9 @@ func (p *projectServiceServer) List(ctx context.Context, rq *connect.Request[api
 	for _, project := range projectsAndTenants.Projects {
 		// TODO: maybe we can pass the filter and not filter here
 
+		if req.Id != nil && project.Uuid != *req.Id {
+			continue
+		}
 		if req.Name != nil && project.Name != *req.Name {
 			continue
 		}
@@ -173,6 +176,10 @@ func (p *projectServiceServer) List(ctx context.Context, rq *connect.Request[api
 
 		result = append(result, project)
 	}
+
+	sort.SliceStable(result, func(i, j int) bool {
+		return result[i].Uuid < result[j].Uuid
+	})
 
 	return connect.NewResponse(&apiv2.ProjectServiceListResponse{Projects: result}), nil
 }
@@ -187,11 +194,7 @@ func (p *projectServiceServer) Create(ctx context.Context, rq *connect.Request[a
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
 	}
 
-	created, err := p.repo.UnscopedProject().Create(ctx, &apiv2.ProjectServiceCreateRequest{
-		Name:        req.Name,
-		Description: req.Description,
-		AvatarUrl:   req.AvatarUrl,
-	})
+	created, err := p.repo.UnscopedProject().Create(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -202,7 +205,7 @@ func (p *projectServiceServer) Create(ctx context.Context, rq *connect.Request[a
 	}
 
 	_, err = p.repo.Project(converted.Uuid).AdditionalMethods().Member().Create(ctx, &repository.ProjectMemberCreateRequest{
-		MemberID: req.Login,
+		TenantId: req.Login,
 		Role:     apiv2.ProjectRole_PROJECT_ROLE_OWNER,
 	})
 	if err != nil {
@@ -263,12 +266,7 @@ func (p *projectServiceServer) RemoveMember(ctx context.Context, rq *connect.Req
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
 	}
 
-	membership, err := p.repo.Project(req.Project).AdditionalMethods().Member().Get(ctx, req.Member)
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = p.repo.Project(req.Project).AdditionalMethods().Member().Delete(ctx, membership.Meta.Id)
+	_, err := p.repo.Project(req.Project).AdditionalMethods().Member().Delete(ctx, req.Member)
 	if err != nil {
 		return nil, err
 	}
@@ -281,7 +279,9 @@ func (p *projectServiceServer) UpdateMember(ctx context.Context, rq *connect.Req
 		req = rq.Msg
 	)
 
-	membership, err := p.repo.Project(req.Project).AdditionalMethods().Member().Get(ctx, req.Member)
+	updated, err := p.repo.Project(req.Project).AdditionalMethods().Member().Update(ctx, req.Member, &repository.ProjectMemberUpdateRequest{
+		Role: req.Role,
+	})
 
 	if errorutil.IsNotFound(err) {
 		// if there does not exist a direct membership for this user but the user belongs to the tenant already, we create a direct membership for the project
@@ -302,7 +302,7 @@ func (p *projectServiceServer) UpdateMember(ctx context.Context, rq *connect.Req
 		}
 
 		// Create new project membership since the user is part of the tenant
-		membership, err = p.createProjectMembership(ctx, req.Member, req.Project, req.Role)
+		membership, err := p.createProjectMembership(ctx, req.Member, req.Project, req.Role)
 
 		if err != nil {
 			return nil, err
@@ -322,17 +322,6 @@ func (p *projectServiceServer) UpdateMember(ctx context.Context, rq *connect.Req
 		return nil, err
 	}
 
-	if req.Role != apiv2.ProjectRole_PROJECT_ROLE_UNSPECIFIED {
-		membership.Meta.Annotations[repository.ProjectRoleAnnotation] = req.Role.String()
-	}
-
-	updated, err := p.repo.Project(req.Project).AdditionalMethods().Member().Update(ctx, membership.Meta.Id, &repository.ProjectMemberUpdateRequest{
-		Member: membership,
-	})
-	if err != nil {
-		return nil, err
-	}
-
 	converted, err := p.repo.Project(req.Project).AdditionalMethods().Member().ConvertToProto(updated)
 	if err != nil {
 		return nil, err
@@ -347,7 +336,7 @@ func (p *projectServiceServer) createProjectMembership(ctx context.Context, tena
 	}
 
 	created, err := p.repo.Project(projectID).AdditionalMethods().Member().Create(ctx, &repository.ProjectMemberCreateRequest{
-		MemberID: tenantID,
+		TenantId: tenantID,
 		Role:     role,
 	})
 	if err != nil {
@@ -456,7 +445,7 @@ func (p *projectServiceServer) InviteAccept(ctx context.Context, rq *connect.Req
 	}
 
 	memberships, err := p.repo.Project(inv.Project).AdditionalMethods().Member().List(ctx, &repository.ProjectMemberQuery{
-		MemberId: &invitee.Meta.Id,
+		TenantId: &invitee.Meta.Id,
 	})
 	if err != nil {
 		return nil, err
@@ -473,7 +462,7 @@ func (p *projectServiceServer) InviteAccept(ctx context.Context, rq *connect.Req
 
 	_, err = p.repo.Project(inv.Project).AdditionalMethods().Member().Create(ctx, &repository.ProjectMemberCreateRequest{
 		Role:     inv.Role,
-		MemberID: invitee.Meta.Id,
+		TenantId: invitee.Meta.Id,
 	})
 	if err != nil {
 		return nil, err

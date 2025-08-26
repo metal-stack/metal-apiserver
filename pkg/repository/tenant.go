@@ -99,7 +99,7 @@ func (t *tenantRepository) find(ctx context.Context, query *apiv2.TenantServiceL
 	case 1:
 		return tenants[0], nil
 	default:
-		return nil, fmt.Errorf("more than one tenant exists")
+		return nil, errorutil.Internal("more than one tenant exists")
 	}
 }
 
