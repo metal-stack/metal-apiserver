@@ -37,44 +37,34 @@ func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServ
 		return r.create(ctx, rq)
 	}
 
-	apiSwitch, err := r.convertToProto(sw)
+	new := req.Switch
+	old, err := r.convertToProto(sw)
 	if err != nil {
 		return nil, err
 	}
+
 	if sw.ReplaceMode == metal.ReplaceModeReplace {
-		return r.replace(ctx, apiSwitch, req.Switch)
+		return r.replace(ctx, old, new)
 	}
 
-	rq := &adminv2.SwitchServiceUpdateRequest{
-		Id:     req.Switch.Id,
-		RackId: req.Switch.Rack,
+	updateReq := &adminv2.SwitchServiceUpdateRequest{
+		Id:             new.Id,
+		Description:    &new.Description,
+		RackId:         new.Rack,
+		ReplaceMode:    &new.ReplaceMode,
+		ManagementIp:   &new.ManagementIp,
+		ManagementUser: &new.ManagementUser,
+		ConsoleCommand: &new.ConsoleCommand,
+		Nics:           new.Nics,
+		Os:             new.Os,
 	}
 
-	if req.Switch.Description != "" {
-		rq.Description = &req.Switch.Description
-	}
-	if req.Switch.ReplaceMode != apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_UNSPECIFIED {
-		rq.ReplaceMode = &req.Switch.ReplaceMode
-	}
-	if req.Switch.ManagementIp != "" {
-		rq.ManagementIp = &req.Switch.ManagementIp
-	}
-	if req.Switch.ManagementUser != "" {
-		rq.ManagementUser = &req.Switch.ManagementUser
-	}
-	if req.Switch.ConsoleCommand != "" {
-		rq.ConsoleCommand = &req.Switch.ConsoleCommand
-	}
-	if len(req.Switch.Nics) > 0 {
-		rq.Nics = req.Switch.Nics
-	}
-
-	err = r.validateUpdate(ctx, rq, sw)
+	err = r.validateUpdate(ctx, updateReq, sw)
 	if err != nil {
 		return nil, err
 	}
 
-	return r.update(ctx, sw, rq)
+	return r.update(ctx, sw, updateReq)
 }
 
 func (r *switchRepository) Migrate(ctx context.Context, oldSwitch, newSwitch string) (*metal.Switch, error) {
@@ -144,6 +134,17 @@ func (r *switchRepository) update(ctx context.Context, oldSwitch *metal.Switch, 
 			return nil, err
 		}
 		new.Nics = nics
+	}
+	if req.Os != nil {
+		vendor, err := metal.ToSwitchOSVendor(req.Os.Vendor)
+		if err != nil {
+			return nil, err
+		}
+		new.OS = metal.SwitchOS{
+			Vendor:           vendor,
+			Version:          req.Os.Version,
+			MetalCoreVersion: req.Os.MetalCoreVersion,
+		}
 	}
 
 	err := r.s.ds.Switch().Update(ctx, &new)
