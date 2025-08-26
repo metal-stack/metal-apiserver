@@ -18,15 +18,6 @@ func (r *projectRepository) validateUpdate(ctx context.Context, req *apiv2.Proje
 }
 
 func (r *projectRepository) validateDelete(ctx context.Context, req *mdcv1.Project) error {
-	networks, err := r.s.Network(req.Meta.Id).List(ctx, &apiv2.NetworkQuery{Project: &req.Meta.Id})
-	if err != nil {
-		return err
-	}
-
-	if len(networks) > 0 {
-		return connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("there are still networks associated with this project, you need to delete them first"))
-	}
-
 	ips, err := r.s.IP(req.Meta.Id).List(ctx, &apiv2.IPQuery{Project: &req.Meta.Id})
 	if err != nil {
 		return err
@@ -34,6 +25,15 @@ func (r *projectRepository) validateDelete(ctx context.Context, req *mdcv1.Proje
 
 	if len(ips) > 0 {
 		return connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("there are still ips associated with this project, you need to delete them first"))
+	}
+
+	networks, err := r.s.Network(req.Meta.Id).List(ctx, &apiv2.NetworkQuery{Project: &req.Meta.Id})
+	if err != nil {
+		return err
+	}
+
+	if len(networks) > 0 {
+		return connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("there are still networks associated with this project, you need to delete them first"))
 	}
 
 	ms, err := r.s.Machine(req.Meta.Id).List(ctx, &apiv2.MachineQuery{

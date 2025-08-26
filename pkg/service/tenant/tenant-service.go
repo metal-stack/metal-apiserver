@@ -277,7 +277,7 @@ func (u *tenantServiceServer) Invite(ctx context.Context, rq *connect.Request[ap
 		TenantName:       invitee.Name,
 		Tenant:           invitee.Meta.Id,
 		ExpiresAt:        timestamppb.New(expiresAt),
-		JoinedAt:         &timestamppb.Timestamp{},
+		JoinedAt:         nil,
 	}
 
 	u.log.Info("tenant invitation created", "invitation", invite)
@@ -379,6 +379,7 @@ func (u *tenantServiceServer) InvitesList(ctx context.Context, rq *connect.Reque
 	var (
 		req = rq.Msg
 	)
+
 	invites, err := u.inviteStore.ListInvites(ctx, req.Login)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)

@@ -258,9 +258,6 @@ func CreateNetworks(t *testing.T, repo *repository.Store, nws []*adminv2.Network
 }
 
 func DeleteNetworks(t *testing.T, testStore *testStore) {
-	_, err := r.DB("metal").Table("network").Delete().RunWrite(testStore.queryExecutor)
-	require.NoError(t, err)
-
 	nsResp, err := testStore.ipam.ListNamespaces(t.Context(), connect.NewRequest(&ipamv1.ListNamespacesRequest{}))
 	require.NoError(t, err)
 
@@ -269,11 +266,38 @@ func DeleteNetworks(t *testing.T, testStore *testStore) {
 			Namespace: pointer.Pointer(ns),
 		}))
 		require.NoError(t, err)
+
 		for _, prefix := range resp.Msg.Prefixes {
 			_, err := testStore.ipam.DeletePrefix(t.Context(), connect.NewRequest(&ipamv1.DeletePrefixRequest{Cidr: prefix.Cidr}))
 			require.NoError(t, err)
 		}
 	}
+
+	_, err = r.DB("metal").Table("network").Delete().RunWrite(testStore.queryExecutor)
+	require.NoError(t, err)
+
+}
+
+func DeleteIPs(t *testing.T, testStore *testStore) {
+	ips, err := testStore.ds.IP().List(t.Context())
+	require.NoError(t, err)
+
+	for _, ip := range ips {
+		_, err = testStore.ipam.ReleaseIP(t.Context(), connect.NewRequest(&ipamv1.ReleaseIPRequest{
+			PrefixCidr: ip.ParentPrefixCidr,
+			Ip:         ip.IPAddress,
+			Namespace:  ip.Namespace,
+		}))
+		require.NoError(t, err)
+	}
+
+	_, err = r.DB("metal").Table("ip").Delete().RunWrite(testStore.queryExecutor)
+	require.NoError(t, err)
+}
+
+func DeleteMachines(t *testing.T, testStore *testStore) {
+	_, err := r.DB("metal").Table("machine").Delete().RunWrite(testStore.queryExecutor)
+	require.NoError(t, err)
 }
 
 func (t *testStore) DeleteTenants() {
@@ -286,6 +310,21 @@ func (t *testStore) DeleteTenants() {
 	}
 }
 
+func (t *testStore) DeleteTenantInvites() {
+	ts, err := t.mdc.Tenant().Find(t.t.Context(), &mdcv1.TenantFindRequest{})
+	require.NoError(t.t, err)
+
+	for _, tenant := range ts.Tenants {
+		invites, err := t.tenantInviteStore.ListInvites(t.t.Context(), tenant.Meta.Id)
+		require.NoError(t.t, err)
+
+		for _, invite := range invites {
+			err = t.tenantInviteStore.DeleteInvite(t.t.Context(), invite)
+			require.NoError(t.t, err)
+		}
+	}
+}
+
 func (t *testStore) DeleteProjects() {
 	ps, err := t.mdc.Project().Find(t.t.Context(), &mdcv1.ProjectFindRequest{})
 	require.NoError(t.t, err)
@@ -293,6 +332,21 @@ func (t *testStore) DeleteProjects() {
 	for _, p := range ps.Projects {
 		_, err = t.mdc.Project().Delete(t.t.Context(), &mdcv1.ProjectDeleteRequest{Id: p.Meta.Id})
 		require.NoError(t.t, err)
+	}
+}
+
+func (t *testStore) DeleteProjectInvites() {
+	ts, err := t.mdc.Project().Find(t.t.Context(), &mdcv1.ProjectFindRequest{})
+	require.NoError(t.t, err)
+
+	for _, project := range ts.Projects {
+		invites, err := t.projectInviteStore.ListInvites(t.t.Context(), project.Meta.Id)
+		require.NoError(t.t, err)
+
+		for _, invite := range invites {
+			err = t.projectInviteStore.DeleteInvite(t.t.Context(), invite)
+			require.NoError(t.t, err)
+		}
 	}
 }
 
@@ -343,6 +397,13 @@ func CreateProjectMemberships(t *testing.T, testStore *testStore, project string
 	}
 }
 
+func CreateProjectInvites(t *testing.T, testStore *testStore, invites []*apiv2.ProjectInvite) {
+	for _, invite := range invites {
+		err := testStore.projectInviteStore.SetInvite(t.Context(), invite)
+		require.NoError(t, err)
+	}
+}
+
 func CreateTenants(t *testing.T, testStore *testStore, tenants []*apiv2.TenantServiceCreateRequest) {
 	for _, tenant := range tenants {
 		tok, err := testStore.tokenService.CreateApiTokenWithoutPermissionCheck(t.Context(), tenant.GetName(), connect.NewRequest(&apiv2.TokenServiceCreateRequest{
@@ -361,6 +422,13 @@ func CreateTenants(t *testing.T, testStore *testStore, tenants []*apiv2.TenantSe
 func CreateTenantMemberships(t *testing.T, testStore *testStore, tenant string, memberships []*repository.TenantMemberCreateRequest) {
 	for _, membership := range memberships {
 		_, err := testStore.Tenant().AdditionalMethods().Member(tenant).Create(t.Context(), membership)
+		require.NoError(t, err)
+	}
+}
+
+func CreateTenantInvites(t *testing.T, testStore *testStore, invites []*apiv2.TenantInvite) {
+	for _, invite := range invites {
+		err := testStore.tenantInviteStore.SetInvite(t.Context(), invite)
 		require.NoError(t, err)
 	}
 }

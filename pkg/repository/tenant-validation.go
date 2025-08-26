@@ -21,6 +21,7 @@ func (t *tenantRepository) validateDelete(ctx context.Context, e *mdcv1.Tenant) 
 		return connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
 	}
 
+	// TODO: do we really need this prevention?
 	if tok.User == e.Meta.Id {
 		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("the personal tenant (default-tenant) cannot be deleted"))
 	}

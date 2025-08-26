@@ -399,7 +399,7 @@ func (p *projectServiceServer) Invite(ctx context.Context, rq *connect.Request[a
 		Tenant:      project.TenantId,
 		TenantName:  tenant.Name,
 		ExpiresAt:   timestamppb.New(expiresAt),
-		JoinedAt:    &timestamppb.Timestamp{},
+		JoinedAt:    nil,
 	}
 
 	p.log.Info("project invitation created", "invitation", invite)
