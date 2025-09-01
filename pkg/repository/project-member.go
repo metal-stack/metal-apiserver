@@ -47,7 +47,7 @@ func (t *projectMemberRepository) convertToProto(e *mdcv1.ProjectMember) (*apiv2
 
 	return &apiv2.ProjectMember{
 		Id:        e.TenantId,
-		Role:      ProjectRoleFromMap(e.Meta.Annotations),
+		Role:      projectRoleFromMap(e.Meta.Annotations),
 		CreatedAt: e.Meta.CreatedTime,
 	}, nil
 }

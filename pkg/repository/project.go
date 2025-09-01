@@ -219,7 +219,7 @@ func (r *projectRepository) convertToProto(p *mdcv1.Project) (*apiv2.Project, er
 
 }
 
-func ProjectRoleFromMap(annotations map[string]string) apiv2.ProjectRole {
+func projectRoleFromMap(annotations map[string]string) apiv2.ProjectRole {
 	if annotations == nil {
 		return apiv2.ProjectRole_PROJECT_ROLE_UNSPECIFIED
 	}
@@ -295,7 +295,7 @@ func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId st
 		projects = append(projects, apip)
 
 		var (
-			projectRole = ProjectRoleFromMap(projectWithAnnotations.ProjectAnnotations)
+			projectRole = projectRoleFromMap(projectWithAnnotations.ProjectAnnotations)
 			tenantRole  = TenantRoleFromMap(projectWithAnnotations.TenantAnnotations)
 		)
 
@@ -332,7 +332,7 @@ func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId st
 		tenants = append(tenants, apit)
 
 		var (
-			projectRole = ProjectRoleFromMap(tenantWithAnnotations.ProjectAnnotations)
+			projectRole = projectRoleFromMap(tenantWithAnnotations.ProjectAnnotations)
 			tenantRole  = TenantRoleFromMap(tenantWithAnnotations.TenantAnnotations)
 		)
 
