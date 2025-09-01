@@ -2,9 +2,7 @@ package repository
 
 import (
 	"context"
-	"fmt"
 
-	"connectrpc.com/connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
@@ -89,7 +87,7 @@ func (t *tenantMemberRepository) delete(ctx context.Context, e *mdcv1.TenantMemb
 
 func (t *tenantMemberRepository) find(ctx context.Context, query *TenantMemberQuery) (*mdcv1.TenantMember, error) {
 	if query.MemberId == nil {
-		return nil, fmt.Errorf("member id must be specified")
+		return nil, errorutil.InvalidArgument("member id must be specified")
 	}
 
 	memberships, err := t.list(ctx, query)
@@ -99,11 +97,11 @@ func (t *tenantMemberRepository) find(ctx context.Context, query *TenantMemberQu
 
 	switch len(memberships) {
 	case 0:
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("tenant %s is not a member of tenant %s", t.scope.tenantID, *query.MemberId))
+		return nil, errorutil.NotFound("tenant %s is not a member of tenant %s", t.scope.tenantID, *query.MemberId)
 	case 1:
 		// noop
 	default:
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("found multiple membership associations for a member to a tenant"))
+		return nil, errorutil.Internal("found multiple membership associations for a member to a tenant")
 	}
 
 	return memberships[0], nil
