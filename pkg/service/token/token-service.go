@@ -12,19 +12,18 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/api/go/permissions"
-	mdc "github.com/metal-stack/masterdata-api/pkg/client"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
-	putil "github.com/metal-stack/metal-apiserver/pkg/project"
+	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/service/method"
 	tokenutil "github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 )
 
 type Config struct {
-	Log          *slog.Logger
-	TokenStore   tokenutil.TokenStore
-	CertStore    certs.CertStore
-	MasterClient mdc.Client
+	Log        *slog.Logger
+	TokenStore tokenutil.TokenStore
+	CertStore  certs.CertStore
+	Repo       *repository.Store
 
 	// AdminSubjects are the subjects for which the token service allows the creation of admin api tokens
 	AdminSubjects []string
@@ -41,7 +40,7 @@ type tokenService struct {
 	log                *slog.Logger
 	servicePermissions *permissions.ServicePermissions
 
-	projectsAndTenantsGetter func(ctx context.Context, userId string) (*putil.ProjectsAndTenants, error)
+	projectsAndTenantsGetter func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error)
 }
 
 type TokenService interface {
@@ -61,8 +60,8 @@ func New(c Config) TokenService {
 		servicePermissions: servicePermissions,
 		adminSubjects:      c.AdminSubjects,
 
-		projectsAndTenantsGetter: func(ctx context.Context, userId string) (*putil.ProjectsAndTenants, error) {
-			return putil.GetProjectsAndTenants(ctx, c.MasterClient, userId)
+		projectsAndTenantsGetter: func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
+			return c.Repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, userId)
 		},
 	}
 }

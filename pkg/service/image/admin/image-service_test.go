@@ -21,8 +21,10 @@ import (
 
 func Test_imageServiceServer_Create(t *testing.T) {
 	log := slog.Default()
-	repo, closer := test.StartRepository(t, log)
+
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
+	repo := testStore.Store
 
 	ctx := t.Context()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -93,8 +95,10 @@ func Test_imageServiceServer_Create(t *testing.T) {
 
 func Test_imageServiceServer_Update(t *testing.T) {
 	log := slog.Default()
-	repo, closer := test.StartRepository(t, log)
+
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
+	repo := testStore.Store
 
 	ctx := t.Context()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

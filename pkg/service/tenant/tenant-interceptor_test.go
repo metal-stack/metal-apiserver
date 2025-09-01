@@ -5,37 +5,42 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"connectrpc.com/connect"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-lib/pkg/pointer"
 
 	"github.com/metal-stack/api/go/client"
-	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
+	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 
-	mdmv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/security"
 
 	"github.com/stretchr/testify/assert"
-	tmock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
 type interceptorTestFn func(string, []connect.Interceptor, func(context.Context)) *connect.Handler
 
 func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	defer closer()
+
 	tests := []struct {
-		name               string
-		method             string
-		reqFn              func(ctx context.Context, c client.Client) error
-		handler            interceptorTestFn
-		token              *apiv2.Token
-		projectServiceMock func(mock *tmock.Mock)
-		tenantServiceMock  func(mock *tmock.Mock)
-		wantUser           *security.User
-		wantErr            string
+		name             string
+		method           string
+		reqFn            func(ctx context.Context, c client.Client) error
+		handler          interceptorTestFn
+		token            *apiv2.Token
+		existingProjects []*apiv2.ProjectServiceCreateRequest
+		existingTenants  []*apiv2.TenantServiceCreateRequest
+		wantUser         *security.User
+		wantErr          string
 	}{
 		{
 			name: "anonymous request against public endpoint",
@@ -67,10 +72,11 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 			},
 			method:  "/metalstack.api.v2.HealthService/Get",
 			handler: handler[apiv2.HealthServiceGetRequest, apiv2.HealthServiceGetResponse](),
-			tenantServiceMock: func(mock *tmock.Mock) {
-				mock.On("Get", tmock.Anything, &mdmv1.TenantGetRequest{
-					Id: "john@github",
-				}).Return(&mdmv1.TenantResponse{Tenant: &mdmv1.Tenant{Meta: &mdmv1.Meta{Id: "john@github", Annotations: map[string]string{tutil.TagEmail: "mail@john"}}}}, nil)
+			existingTenants: []*apiv2.TenantServiceCreateRequest{
+				{
+					Name:  "john@github",
+					Email: pointer.Pointer("mail@john"),
+				},
 			},
 			wantUser: &security.User{
 				EMail:   "mail@john",
@@ -104,10 +110,11 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 			},
 			method:  "/metalstack.api.v2.ProjectService/List",
 			handler: handler[apiv2.ProjectServiceListRequest, apiv2.ProjectServiceListResponse](),
-			tenantServiceMock: func(mock *tmock.Mock) {
-				mock.On("Get", tmock.Anything, &mdmv1.TenantGetRequest{
-					Id: "user@github",
-				}).Return(&mdmv1.TenantResponse{Tenant: &mdmv1.Tenant{Meta: &mdmv1.Meta{Id: "user@github", Annotations: map[string]string{tutil.TagEmail: "mail@user"}}}}, nil)
+			existingTenants: []*apiv2.TenantServiceCreateRequest{
+				{
+					Name:  "user@github",
+					Email: pointer.Pointer("mail@user"),
+				},
 			},
 			wantUser: &security.User{
 				EMail:   "mail@user",
@@ -131,15 +138,17 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 			},
 			method:  "/metalstack.api.v2.IPService/Get",
 			handler: handler[apiv2.IPServiceGetRequest, apiv2.IPServiceGetResponse](),
-			projectServiceMock: func(mock *tmock.Mock) {
-				mock.On("Get", tmock.Anything, &mdmv1.ProjectGetRequest{
-					Id: "a-project",
-				}).Return(&mdmv1.ProjectResponse{Project: &mdmv1.Project{Meta: &mdmv1.Meta{Id: "a-project"}, Name: "Project A", TenantId: "t1"}}, nil)
+			existingTenants: []*apiv2.TenantServiceCreateRequest{
+				{
+					Name:  "t1",
+					Email: pointer.Pointer("mail@t1"),
+				},
 			},
-			tenantServiceMock: func(mock *tmock.Mock) {
-				mock.On("Get", tmock.Anything, &mdmv1.TenantGetRequest{
-					Id: "t1",
-				}).Return(&mdmv1.TenantResponse{Tenant: &mdmv1.Tenant{Meta: &mdmv1.Meta{Id: "t1", Annotations: map[string]string{tutil.TagEmail: "mail@t1"}}}}, nil)
+			existingProjects: []*apiv2.ProjectServiceCreateRequest{
+				{
+					Name:  "a-project",
+					Login: "t1",
+				},
 			},
 			wantUser: &security.User{
 				EMail:   "mail@t1",
@@ -164,10 +173,11 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 			},
 			method:  "/metalstack.api.v2.TenantService/Get",
 			handler: handler[apiv2.TenantServiceGetRequest, apiv2.TenantServiceGetResponse](),
-			tenantServiceMock: func(mock *tmock.Mock) {
-				mock.On("Get", tmock.Anything, &mdmv1.TenantGetRequest{
-					Id: "a-tenant",
-				}).Return(&mdmv1.TenantResponse{Tenant: &mdmv1.Tenant{Meta: &mdmv1.Meta{Id: "a-tenant", Annotations: map[string]string{tutil.TagEmail: "mail@tenant-a"}}}}, nil)
+			existingTenants: []*apiv2.TenantServiceCreateRequest{
+				{
+					Name:  "a-tenant",
+					Email: pointer.Pointer("mail@tenant-a"),
+				},
 			},
 			wantUser: &security.User{
 				EMail:   "mail@tenant-a",
@@ -189,10 +199,11 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 			},
 			method:  "/metalstack.admin.v2.TenantService/List",
 			handler: handler[adminv2.TenantServiceListRequest, adminv2.TenantServiceListResponse](),
-			tenantServiceMock: func(mock *tmock.Mock) {
-				mock.On("Get", tmock.Anything, &mdmv1.TenantGetRequest{
-					Id: "user@github",
-				}).Return(&mdmv1.TenantResponse{Tenant: &mdmv1.Tenant{Meta: &mdmv1.Meta{Id: "user@github", Annotations: map[string]string{tutil.TagEmail: "mail@github"}}}}, nil)
+			existingTenants: []*apiv2.TenantServiceCreateRequest{
+				{
+					Name:  "user@github",
+					Email: pointer.Pointer("mail@github"),
+				},
 			},
 			wantUser: &security.User{
 				EMail:   "mail@github",
@@ -206,10 +217,8 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			var (
-				mc                = newMasterdataMockClient(t, tt.tenantServiceMock, nil, tt.projectServiceMock, nil)
-				tenantInterceptor = NewInterceptor(slog.Default(), mc)
+				tenantInterceptor = NewInterceptor(slog.Default(), testStore.GetMasterdataClient())
 				called            = false
 
 				interceptors = []connect.Interceptor{
@@ -217,6 +226,14 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 					tenantInterceptor,
 				}
 			)
+
+			test.CreateTenants(t, testStore, tt.existingTenants)
+			test.CreateProjects(t, testStore.Store, tt.existingProjects)
+
+			defer func() {
+				testStore.DeleteProjects()
+				testStore.DeleteTenants()
+			}()
 
 			mux := http.NewServeMux()
 			mux.Handle(tt.method, tt.handler(tt.method, interceptors, func(ctx context.Context) {

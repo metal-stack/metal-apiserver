@@ -12,42 +12,39 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
-	mdc "github.com/metal-stack/masterdata-api/pkg/client"
-	putil "github.com/metal-stack/metal-apiserver/pkg/project"
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	msvc "github.com/metal-stack/metal-apiserver/pkg/service/method"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
-	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 )
 
 type Config struct {
-	Log          *slog.Logger
-	MasterClient mdc.Client
-	InviteStore  invite.TenantInviteStore
-	TokenStore   token.TokenStore
+	Log         *slog.Logger
+	Repo        *repository.Store
+	InviteStore invite.TenantInviteStore
+	TokenStore  token.TokenStore
 }
 type tenantServiceServer struct {
-	log          *slog.Logger
-	masterClient mdc.Client
-	inviteStore  invite.TenantInviteStore
-	tokenStore   token.TokenStore
+	log         *slog.Logger
+	repo        *repository.Store
+	inviteStore invite.TenantInviteStore
+	tokenStore  token.TokenStore
 }
 
 type TenantService interface {
 	apiv2connect.TenantServiceHandler
 }
 
-// FIXME use repo where possible
-
 func New(c Config) TenantService {
 	return &tenantServiceServer{
-		log:          c.Log.WithGroup("tenantService"),
-		masterClient: c.MasterClient,
-		inviteStore:  c.InviteStore,
-		tokenStore:   c.TokenStore,
+		log:         c.Log.WithGroup("tenantService"),
+		inviteStore: c.InviteStore,
+		tokenStore:  c.TokenStore,
+		repo:        c.Repo,
 	}
 }
 
@@ -62,7 +59,7 @@ func (u *tenantServiceServer) List(ctx context.Context, rq *connect.Request[apiv
 		result []*apiv2.Tenant
 	)
 
-	projectsAndTenants, err := putil.GetProjectsAndTenants(ctx, u.masterClient, token.User)
+	projectsAndTenants, err := u.repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, token.User)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("error retrieving tenants from backend: %w", err))
 	}
@@ -85,72 +82,51 @@ func (u *tenantServiceServer) List(ctx context.Context, rq *connect.Request[apiv
 
 func (u *tenantServiceServer) Create(ctx context.Context, rq *connect.Request[apiv2.TenantServiceCreateRequest]) (*connect.Response[apiv2.TenantServiceCreateResponse], error) {
 	var (
-		t, ok = token.TokenFromContext(ctx)
 		req   = rq.Msg
+		t, ok = token.TokenFromContext(ctx)
 	)
+
 	if !ok || t == nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
 	}
 
-	resp, err := u.masterClient.Tenant().Get(ctx, &mdcv1.TenantGetRequest{
-		Id: t.User,
-	})
+	ownTenant, err := u.repo.Tenant().Get(ctx, t.User)
 	if err != nil {
 		if mdcv1.IsNotFound(err) {
 			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no tenant found with id %q: %w", t.User, err))
 		}
+
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	ownTenant := resp.Tenant
+	if pointer.SafeDeref(req.Email) == "" && ownTenant.Meta != nil && ownTenant.Meta.Annotations != nil {
+		req.Email = pointer.Pointer(ownTenant.Meta.Annotations[repository.TenantTagEmail])
 
-	email := pointer.SafeDeref(req.Email)
-	if email == "" && ownTenant.Meta != nil && ownTenant.Meta.Annotations != nil {
-		email = ownTenant.Meta.Annotations[tutil.TagEmail]
-		if email == "" {
+		if pointer.SafeDeref(req.Email) == "" {
 			return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("email is required"))
 		}
 	}
 
-	ann := map[string]string{
-		tutil.TagEmail:   email,
-		tutil.TagCreator: t.User,
-	}
-
-	if req.AvatarUrl != nil {
-		ann[tutil.TagAvatarURL] = *req.AvatarUrl
-	}
-	if req.PhoneNumber != nil {
-		ann[tutil.TagPhoneNumber] = *req.PhoneNumber
-	}
-
-	tcr, err := u.masterClient.Tenant().Create(ctx, &mdcv1.TenantCreateRequest{Tenant: &mdcv1.Tenant{
-		Meta: &mdcv1.Meta{
-			Annotations: ann,
-		},
-		Name:        req.Name,
-		Description: pointer.SafeDeref(req.Description),
-	}})
+	created, err := u.repo.Tenant().Create(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = u.masterClient.TenantMember().Create(ctx, &mdcv1.TenantMemberCreateRequest{
-		TenantMember: &mdcv1.TenantMember{
-			Meta: &mdcv1.Meta{
-				Annotations: map[string]string{
-					tutil.TenantRoleAnnotation: apiv2.TenantRole_TENANT_ROLE_OWNER.String(),
-				},
-			},
-			MemberId: t.User,
-			TenantId: tcr.Tenant.Meta.Id,
-		},
-	})
+	converted, err := u.repo.Tenant().ConvertToProto(created)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("unable to store tenant member: %w", err))
+		return nil, errorutil.Convert(err)
 	}
 
-	return connect.NewResponse(&apiv2.TenantServiceCreateResponse{Tenant: tutil.ConvertFromTenant(tcr.Tenant)}), nil
+	// make tenant owner and member of its own tenant
+	_, err = u.repo.Tenant().AdditionalMethods().Member(converted.Login).Create(ctx, &repository.TenantMemberCreateRequest{
+		MemberID: t.GetUser(),
+		Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
+	})
+	if err != nil {
+		return nil, err // TODO: give more instructions what to do now!
+	}
+
+	return connect.NewResponse(&apiv2.TenantServiceCreateResponse{Tenant: converted}), nil
 }
 
 func (u *tenantServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2.TenantServiceGetRequest]) (*connect.Response[apiv2.TenantServiceGetResponse], error) {
@@ -162,17 +138,16 @@ func (u *tenantServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
 	}
 
-	resp, err := u.masterClient.Tenant().Get(ctx, &mdcv1.TenantGetRequest{
-		Id: req.Login,
-	})
+	tenant, err := u.repo.Tenant().Get(ctx, req.Login)
 	if err != nil {
-		if mdcv1.IsNotFound(err) {
-			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no tenant found with id %q: %w", req.Login, err))
-		}
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, err
 	}
 
-	tenant := tutil.ConvertFromTenant(resp.Tenant)
+	converted, err := u.repo.Tenant().ConvertToProto(tenant)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
 	role := t.TenantRoles[req.Login]
 	switch role {
 	case apiv2.TenantRole_TENANT_ROLE_OWNER, apiv2.TenantRole_TENANT_ROLE_EDITOR, apiv2.TenantRole_TENANT_ROLE_VIEWER:
@@ -180,15 +155,15 @@ func (u *tenantServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2
 		// guests only see a minimal subset of the tenant information, a guest is not part of the tenant!
 
 		return connect.NewResponse(&apiv2.TenantServiceGetResponse{Tenant: &apiv2.Tenant{
-			Login:       tenant.Login,
-			Name:        tenant.Name,
+			Login:       converted.Login,
+			Name:        converted.Name,
 			Email:       "",
-			Description: tenant.Description,
-			AvatarUrl:   tenant.AvatarUrl,
+			Description: converted.Description,
+			AvatarUrl:   converted.AvatarUrl,
 			CreatedBy:   "",
 			Meta: &apiv2.Meta{
-				CreatedAt: tenant.Meta.CreatedAt,
-				UpdatedAt: tenant.Meta.UpdatedAt,
+				CreatedAt: converted.Meta.CreatedAt,
+				UpdatedAt: converted.Meta.UpdatedAt,
 			},
 		}, TenantMembers: nil}), nil
 	case apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED:
@@ -200,14 +175,14 @@ func (u *tenantServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("tenant role insufficient"))
 	}
 
-	tmlr, err := u.masterClient.Tenant().ListTenantMembers(ctx, &mdcv1.ListTenantMembersRequest{TenantId: req.Login})
+	members, err := u.repo.Tenant().AdditionalMethods().ListTenantMembers(ctx, req.Login, true)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("unable to list tenant members: %w", err))
 	}
 
 	var tenantMembers []*apiv2.TenantMember
-	for _, member := range tmlr.Tenants {
-		tenantRole := tutil.TenantRoleFromMap(member.TenantAnnotations)
+	for _, member := range members {
+		tenantRole := repository.TenantRoleFromMap(member.TenantAnnotations)
 		if tenantRole == apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED {
 			tenantRole = apiv2.TenantRole_TENANT_ROLE_GUEST
 		}
@@ -218,80 +193,47 @@ func (u *tenantServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2
 			CreatedAt: member.Tenant.Meta.CreatedTime,
 			Projects:  member.ProjectIds,
 		})
-
 	}
 
 	sort.Slice(tenantMembers, func(i, j int) bool {
 		return tenantMembers[i].Id < tenantMembers[j].Id
 	})
 
-	return connect.NewResponse(&apiv2.TenantServiceGetResponse{Tenant: tenant, TenantMembers: tenantMembers}), nil
+	return connect.NewResponse(&apiv2.TenantServiceGetResponse{Tenant: converted, TenantMembers: tenantMembers}), nil
 }
 
 func (u *tenantServiceServer) Update(ctx context.Context, rq *connect.Request[apiv2.TenantServiceUpdateRequest]) (*connect.Response[apiv2.TenantServiceUpdateResponse], error) {
 	req := rq.Msg
 
-	tgr, err := u.masterClient.Tenant().Get(ctx, &mdcv1.TenantGetRequest{Id: req.Login})
-	if err != nil {
-		return nil, connect.NewError(connect.CodeNotFound, err)
-	}
-
-	tenant := tutil.ConvertFromTenant(tgr.Tenant)
-	// FIXME check for all non nil fields
-	if req.AvatarUrl != nil {
-		tenant.AvatarUrl = *req.AvatarUrl
-	}
-	if req.Email != nil {
-		tenant.Email = *req.Email
-	}
-	if req.Name != nil {
-		tenant.Name = *req.Name
-	}
-	if req.Description != nil {
-		tenant.Description = *req.Description
-	}
-	t := tutil.Convert(tenant)
-	t.Meta.Version = tgr.Tenant.Meta.Version
-
-	tur, err := u.masterClient.Tenant().Update(ctx, &mdcv1.TenantUpdateRequest{Tenant: t})
+	updated, err := u.repo.Tenant().Update(ctx, req.Login, req)
 	if err != nil {
 		return nil, err
 	}
-	return connect.NewResponse(&apiv2.TenantServiceUpdateResponse{Tenant: tutil.ConvertFromTenant(tur.Tenant)}), nil
+
+	converted, err := u.repo.Tenant().ConvertToProto(updated)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
+	return connect.NewResponse(&apiv2.TenantServiceUpdateResponse{Tenant: converted}), nil
 }
 
 func (u *tenantServiceServer) Delete(ctx context.Context, rq *connect.Request[apiv2.TenantServiceDeleteRequest]) (*connect.Response[apiv2.TenantServiceDeleteResponse], error) {
 	var (
-		t, ok = token.TokenFromContext(ctx)
-		req   = rq.Msg
+		req = rq.Msg
 	)
-	if !ok || t == nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
-	}
 
-	if t.User == req.Login {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("the personal tenant (default-tenant) cannot be deleted"))
-	}
-
-	pfr, err := u.masterClient.Project().Find(ctx, &mdcv1.ProjectFindRequest{
-		TenantId: &req.Login,
-	})
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("unable to lookup projects: %w", err))
-	}
-
-	if len(pfr.Projects) > 0 {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("there are still projects associated with this tenant, you need to delete them first"))
-	}
-
-	tdr, err := u.masterClient.Tenant().Delete(ctx, &mdcv1.TenantDeleteRequest{Id: req.Login})
+	deleted, err := u.repo.Tenant().Delete(ctx, req.Login)
 	if err != nil {
 		return nil, err
 	}
 
-	u.log.Debug("deleted", "tenant", tdr.Tenant)
+	converted, err := u.repo.Tenant().ConvertToProto(deleted)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
 
-	return connect.NewResponse(&apiv2.TenantServiceDeleteResponse{Tenant: tutil.ConvertFromTenant(tdr.Tenant)}), nil
+	return connect.NewResponse(&apiv2.TenantServiceDeleteResponse{Tenant: converted}), nil
 }
 
 func (u *tenantServiceServer) Invite(ctx context.Context, rq *connect.Request[apiv2.TenantServiceInviteRequest]) (*connect.Response[apiv2.TenantServiceInviteResponse], error) {
@@ -303,18 +245,14 @@ func (u *tenantServiceServer) Invite(ctx context.Context, rq *connect.Request[ap
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
 	}
 
-	tgr, err := u.masterClient.Tenant().Get(ctx, &mdcv1.TenantGetRequest{
-		Id: req.Login,
-	})
+	targetTenant, err := u.repo.Tenant().Get(ctx, req.Login)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no tenant: %q found %w", req.Login, err))
+		return nil, err
 	}
 
-	invitee, err := u.masterClient.Tenant().Get(ctx, &mdcv1.TenantGetRequest{
-		Id: t.User,
-	})
+	invitee, err := u.repo.Tenant().Get(ctx, t.User)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no tenant: %q found %w", t.User, err))
+		return nil, err
 	}
 
 	secret, err := invite.GenerateInviteSecret()
@@ -332,15 +270,16 @@ func (u *tenantServiceServer) Invite(ctx context.Context, rq *connect.Request[ap
 
 	invite := &apiv2.TenantInvite{
 		Secret:           secret,
-		TargetTenant:     tgr.Tenant.Meta.Id,
+		TargetTenant:     targetTenant.Meta.Id,
 		Role:             req.Role,
 		Joined:           false,
-		TargetTenantName: tgr.Tenant.Name,
-		TenantName:       invitee.Tenant.Name,
-		Tenant:           invitee.Tenant.Meta.Id,
+		TargetTenantName: targetTenant.Name,
+		TenantName:       invitee.Name,
+		Tenant:           invitee.Meta.Id,
 		ExpiresAt:        timestamppb.New(expiresAt),
-		JoinedAt:         &timestamppb.Timestamp{},
+		JoinedAt:         nil,
 	}
+
 	u.log.Info("tenant invitation created", "invitation", invite)
 
 	err = u.inviteStore.SetInvite(ctx, invite)
@@ -369,28 +308,23 @@ func (u *tenantServiceServer) InviteAccept(ctx context.Context, rq *connect.Requ
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	tgr, err := u.masterClient.Tenant().Get(ctx, &mdcv1.TenantGetRequest{
-		Id: t.User,
-	})
+	invitee, err := u.repo.Tenant().Get(ctx, t.User)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no account: %q found %w", t.User, err))
+		return nil, err
 	}
-
-	invitee := tgr.Tenant
 
 	if invitee.Meta.Id == inv.TargetTenant {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("an owner cannot accept invitations to own tenants"))
 	}
 
-	memberships, err := u.masterClient.TenantMember().Find(ctx, &mdcv1.TenantMemberFindRequest{
-		TenantId: &inv.TargetTenant,
+	memberships, err := u.repo.Tenant().AdditionalMethods().Member(inv.TargetTenant).List(ctx, &repository.TenantMemberQuery{
 		MemberId: &invitee.Meta.Id,
 	})
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, err
 	}
 
-	if len(memberships.GetTenantMembers()) > 0 {
+	if len(memberships) > 0 {
 		return nil, connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("%s is already member of tenant %s", invitee.Meta.Id, inv.TargetTenant))
 	}
 
@@ -399,19 +333,12 @@ func (u *tenantServiceServer) InviteAccept(ctx context.Context, rq *connect.Requ
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	_, err = u.masterClient.TenantMember().Create(ctx, &mdcv1.TenantMemberCreateRequest{
-		TenantMember: &mdcv1.TenantMember{
-			Meta: &mdcv1.Meta{
-				Annotations: map[string]string{
-					tutil.TenantRoleAnnotation: inv.Role.String(),
-				},
-			},
-			MemberId: invitee.Meta.Id,
-			TenantId: inv.TargetTenant,
-		},
+	_, err = u.repo.Tenant().AdditionalMethods().Member(inv.TargetTenant).Create(ctx, &repository.TenantMemberCreateRequest{
+		MemberID: invitee.Meta.Id,
+		Role:     inv.Role,
 	})
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("unable to store tenant member: %w", err))
+		return nil, err
 	}
 
 	return connect.NewResponse(&apiv2.TenantServiceInviteAcceptResponse{Tenant: inv.TargetTenant, TenantName: inv.TargetTenantName}), nil
@@ -452,6 +379,7 @@ func (u *tenantServiceServer) InvitesList(ctx context.Context, rq *connect.Reque
 	var (
 		req = rq.Msg
 	)
+
 	invites, err := u.inviteStore.ListInvites(ctx, req.Login)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -465,28 +393,9 @@ func (u *tenantServiceServer) RemoveMember(ctx context.Context, rq *connect.Requ
 		req = rq.Msg
 	)
 
-	membership, err := tutil.GetTenantMember(ctx, u.masterClient, req.Login, req.Member)
+	_, err := u.repo.Tenant().AdditionalMethods().Member(req.Login).Delete(ctx, req.Member)
 	if err != nil {
 		return nil, err
-	}
-
-	if membership.MemberId == membership.TenantId {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot remove a member from their own default tenant"))
-	}
-
-	lastOwner, err := u.checkIfMemberIsLastOwner(ctx, membership)
-	if err != nil {
-		return nil, err
-	}
-	if lastOwner {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot remove last owner of a tenant"))
-	}
-
-	_, err = u.masterClient.TenantMember().Delete(ctx, &mdcv1.TenantMemberDeleteRequest{
-		Id: membership.Meta.Id,
-	})
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&apiv2.TenantServiceRemoveMemberResponse{}), nil
@@ -497,58 +406,16 @@ func (u *tenantServiceServer) UpdateMember(ctx context.Context, rq *connect.Requ
 		req = rq.Msg
 	)
 
-	membership, err := tutil.GetTenantMember(ctx, u.masterClient, req.Login, req.Member)
+	updatedMember, err := u.repo.Tenant().AdditionalMethods().Member(req.Login).Update(ctx, req.Member, &repository.TenantMemberUpdateRequest{
+		Role: rq.Msg.Role,
+	})
 	if err != nil {
 		return nil, err
-	}
-
-	if membership.MemberId == membership.TenantId && req.Role != apiv2.TenantRole_TENANT_ROLE_OWNER {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot demote a user's role within their own default tenant"))
-	}
-
-	lastOwner, err := u.checkIfMemberIsLastOwner(ctx, membership)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	if lastOwner && req.Role != apiv2.TenantRole_TENANT_ROLE_OWNER {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot demote last owner's permissions"))
-	}
-
-	if req.Role != apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED {
-		// TODO: currently the API defines that only owners can update members so there is no possibility to elevate permissions
-		// probably, we should still check that no elevation of permissions is possible in case we later change the API
-
-		membership.Meta.Annotations[tutil.TenantRoleAnnotation] = req.Role.String()
-	}
-
-	updatedMember, err := u.masterClient.TenantMember().Update(ctx, &mdcv1.TenantMemberUpdateRequest{TenantMember: membership})
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&apiv2.TenantServiceUpdateMemberResponse{TenantMember: &apiv2.TenantMember{
 		Id:        req.Member,
 		Role:      req.Role,
-		CreatedAt: updatedMember.TenantMember.Meta.CreatedTime,
+		CreatedAt: updatedMember.Meta.CreatedTime,
 	}}), nil
-}
-
-func (u *tenantServiceServer) checkIfMemberIsLastOwner(ctx context.Context, membership *mdcv1.TenantMember) (bool, error) {
-	isOwner := tutil.TenantRoleFromMap(membership.Meta.Annotations) == apiv2.TenantRole_TENANT_ROLE_OWNER
-	if !isOwner {
-		return false, nil
-	}
-
-	resp, err := u.masterClient.TenantMember().Find(ctx, &mdcv1.TenantMemberFindRequest{
-		TenantId: &membership.TenantId,
-		Annotations: map[string]string{
-			tutil.TenantRoleAnnotation: apiv2.TenantRole_TENANT_ROLE_OWNER.String(),
-		},
-	})
-	if err != nil {
-		return false, err
-	}
-
-	return len(resp.TenantMembers) < 2, nil
 }
