@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"connectrpc.com/connect"
@@ -12,8 +11,6 @@ import (
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/metal-stack/metal-lib/pkg/tag"
 )
-
-// FIXME completely untested and incomplete
 
 const (
 	ProjectRoleAnnotation = "metal-stack.io/project-role"
@@ -197,7 +194,7 @@ func (r *projectRepository) convertToInternal(p *apiv2.Project) (*mdcv1.Project,
 
 func (r *projectRepository) convertToProto(p *mdcv1.Project) (*apiv2.Project, error) {
 	if p.Meta == nil {
-		return nil, errors.New("project meta is nil")
+		return nil, errorutil.Internal("project meta is nil")
 	}
 
 	var labels *apiv2.Labels
@@ -279,12 +276,12 @@ func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId st
 
 	projectResp, err := r.s.mdc.Tenant().FindParticipatingProjects(ctx, &mdcv1.FindParticipatingProjectsRequest{TenantId: userId, IncludeInherited: pointer.Pointer(true)})
 	if err != nil {
-		return nil, err
+		return nil, errorutil.Convert(err)
 	}
 
 	tenantResp, err := r.s.mdc.Tenant().FindParticipatingTenants(ctx, &mdcv1.FindParticipatingTenantsRequest{TenantId: userId, IncludeInherited: pointer.Pointer(true)})
 	if err != nil {
-		return nil, err
+		return nil, errorutil.Convert(err)
 	}
 
 	for _, projectWithAnnotations := range projectResp.Projects {
@@ -292,7 +289,7 @@ func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId st
 
 		apip, err := ToProject(p)
 		if err != nil {
-			return nil, fmt.Errorf("unable to convert project %w", err)
+			return nil, errorutil.Internal("unable to convert project %w", err)
 		}
 
 		projects = append(projects, apip)
@@ -347,7 +344,7 @@ func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId st
 	}
 
 	if defaultTenant == nil {
-		return nil, fmt.Errorf("unable to find a default tenant for user: %s", userId)
+		return nil, errorutil.Internal("unable to find a default tenant for user: %s", userId)
 	}
 
 	return &ProjectsAndTenants{
@@ -388,7 +385,7 @@ func (r *projectRepository) EnsureProviderProject(ctx context.Context, providerT
 		TenantId: &providerTenantID,
 	})
 	if err != nil {
-		return fmt.Errorf("unable to find project %q: %w", providerTenantID, err)
+		return errorutil.Convert(fmt.Errorf("unable to find project %q: %w", providerTenantID, err))
 	}
 
 	if len(resp.Projects) > 0 {
@@ -401,7 +398,7 @@ func (r *projectRepository) EnsureProviderProject(ctx context.Context, providerT
 		Login:       providerTenantID,
 	}, providerTenantID)
 	if err != nil {
-		return fmt.Errorf("unable to create project: %w", err)
+		return errorutil.Convert(fmt.Errorf("unable to create project: %w", err))
 	}
 
 	return ensureMembership(project.Meta.Id)

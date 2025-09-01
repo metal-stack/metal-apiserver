@@ -698,7 +698,7 @@ func Test_tenantServiceServer_MemberUpdate(t *testing.T) {
 					{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 				},
 			},
-			wantErr: errorutil.InvalidArgument("cannot demote a user's role within their own default tenant"),
+			wantErr: errorutil.FailedPrecondition("cannot demote a user's role within their own default tenant"),
 		},
 		{
 			name: "unable to demote last owner",
@@ -716,7 +716,7 @@ func Test_tenantServiceServer_MemberUpdate(t *testing.T) {
 					{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 				},
 			},
-			wantErr: errorutil.InvalidArgument("cannot demote last owner's permissions"),
+			wantErr: errorutil.FailedPrecondition("cannot demote last owner's permissions"),
 		},
 	}
 	for _, tt := range tests {
@@ -814,7 +814,7 @@ func Test_tenantServiceServer_MemberRemove(t *testing.T) {
 					{MemberID: "will.smith@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 				},
 			},
-			wantErr: errorutil.InvalidArgument("cannot remove a member from their own default tenant"),
+			wantErr: errorutil.FailedPrecondition("cannot remove a member from their own default tenant"),
 		},
 		{
 			name: "unable to remove last owner",
@@ -831,7 +831,7 @@ func Test_tenantServiceServer_MemberRemove(t *testing.T) {
 					{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 				},
 			},
-			wantErr: errorutil.InvalidArgument("cannot remove last owner of a tenant"),
+			wantErr: errorutil.FailedPrecondition("cannot remove last owner of a tenant"),
 		},
 	}
 	for _, tt := range tests {

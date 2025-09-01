@@ -14,11 +14,12 @@ import (
 )
 
 const (
-	// FIXME: overlaps with metalstack.cloud annotations
+	// TODO: Migrate to common fields introduced in https://github.com/metal-stack/masterdata-api/pull/127
 	TenantTagEmail     = "metal-stack.io/email"
 	TenantTagAvatarURL = "metal-stack.io/avatarurl"
 	TenantTagCreator   = "metal-stack.io/creator"
 
+	// TODO: Use scoped memberships: https://github.com/metal-stack/masterdata-api/issues/130
 	TenantRoleAnnotation = "metal-stack.io/tenant-role"
 )
 
@@ -38,7 +39,7 @@ func (t *tenantRepository) CreateWithID(ctx context.Context, c *apiv2.TenantServ
 	tok, ok := token.TokenFromContext(ctx)
 
 	if !ok || tok == nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
+		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
 	ann := map[string]string{
@@ -243,7 +244,7 @@ func (r *tenantRepository) FindParticipatingTenants(ctx context.Context, tenant 
 		IncludeInherited: pointer.Pointer(includeInherited),
 	})
 	if err != nil {
-		return nil, err
+		return nil, errorutil.Convert(err)
 	}
 
 	return resp.Tenants, nil
@@ -265,7 +266,7 @@ func TenantRoleFromMap(annotations map[string]string) apiv2.TenantRole {
 func (r *tenantRepository) EnsureProviderTenant(ctx context.Context, providerTenantID string) error {
 	_, err := r.s.Tenant().Get(ctx, providerTenantID)
 	if err != nil && !errorutil.IsNotFound(err) {
-		return fmt.Errorf("unable to get tenant %q: %w", providerTenantID, err)
+		return errorutil.Convert(fmt.Errorf("unable to get tenant %q: %w", providerTenantID, err))
 	}
 
 	if err != nil && errorutil.IsNotFound(err) {
@@ -274,7 +275,7 @@ func (r *tenantRepository) EnsureProviderTenant(ctx context.Context, providerTen
 			Description: pointer.Pointer("initial provider tenant for metal-stack"),
 		}, providerTenantID)
 		if err != nil {
-			return fmt.Errorf("unable to create tenant:%s %w", providerTenantID, err)
+			return errorutil.Convert(fmt.Errorf("unable to create tenant:%s %w", providerTenantID, err))
 		}
 	}
 
@@ -284,7 +285,7 @@ func (r *tenantRepository) EnsureProviderTenant(ctx context.Context, providerTen
 	}
 
 	if connect.CodeOf(err) != connect.CodeNotFound {
-		return err
+		return errorutil.Convert(err)
 	}
 
 	_, err = r.Member(providerTenantID).Create(ctx, &TenantMemberCreateRequest{
@@ -292,7 +293,7 @@ func (r *tenantRepository) EnsureProviderTenant(ctx context.Context, providerTen
 		Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
 	})
 	if err != nil {
-		return err
+		return errorutil.Convert(err)
 	}
 
 	return nil

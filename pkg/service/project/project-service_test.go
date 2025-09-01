@@ -757,7 +757,7 @@ func Test_projectServiceServer_MemberUpdate(t *testing.T) {
 					{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
 				},
 			},
-			wantErr: errorutil.InvalidArgument("cannot demote last owner's permissions"),
+			wantErr: errorutil.FailedPrecondition("cannot demote last owner's permissions"),
 		},
 		{
 			name: "unable to update a project member that is neither member of this project nor inherited member through tenant membership",
@@ -927,7 +927,7 @@ func Test_projectServiceServer_MemberRemove(t *testing.T) {
 					{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
 				},
 			},
-			wantErr: errorutil.InvalidArgument("cannot remove last owner of a project"),
+			wantErr: errorutil.FailedPrecondition("cannot remove last owner of a project"),
 		},
 	}
 	for _, tt := range tests {

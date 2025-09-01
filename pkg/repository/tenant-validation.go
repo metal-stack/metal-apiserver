@@ -2,9 +2,7 @@ package repository
 
 import (
 	"context"
-	"fmt"
 
-	"connectrpc.com/connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
@@ -18,12 +16,11 @@ func (t *tenantRepository) validateCreate(ctx context.Context, create *apiv2.Ten
 func (t *tenantRepository) validateDelete(ctx context.Context, e *mdcv1.Tenant) error {
 	tok, ok := token.TokenFromContext(ctx)
 	if !ok || t == nil {
-		return connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
+		return errorutil.Unauthenticated("no token found in request")
 	}
 
-	// TODO: do we really need this prevention?
 	if tok.User == e.Meta.Id {
-		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("the personal tenant (default-tenant) cannot be deleted"))
+		return errorutil.InvalidArgument("the personal tenant (default-tenant) cannot be deleted")
 	}
 
 	projects, err := t.s.UnscopedProject().List(ctx, &apiv2.ProjectServiceListRequest{
@@ -34,7 +31,7 @@ func (t *tenantRepository) validateDelete(ctx context.Context, e *mdcv1.Tenant) 
 	}
 
 	if len(projects) > 0 {
-		return connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("there are still projects associated with this tenant, you need to delete them first"))
+		return errorutil.FailedPrecondition("there are still projects associated with this tenant, you need to delete them first")
 	}
 
 	return nil
