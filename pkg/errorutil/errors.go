@@ -73,6 +73,11 @@ func InvalidArgument(format string, args ...any) error {
 	return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf(format, args...))
 }
 
+// FailedPrecondition creates a new FailedPrecondition error with a given error message and the original error.
+func FailedPrecondition(format string, args ...any) error {
+	return connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf(format, args...))
+}
+
 // Unauthenticated creates a new Unauthenticated error with a given error message and the original error.
 func Unauthenticated(format string, args ...any) error {
 	return connect.NewError(connect.CodeUnauthenticated, fmt.Errorf(format, args...))
@@ -98,6 +103,11 @@ func NewInvalidArgument(err error) error {
 	return connect.NewError(connect.CodeInvalidArgument, err)
 }
 
+// NewFailedPrecondition creates a new FailedPrecondition error with a given error message and the original error.
+func NewFailedPrecondition(err error) error {
+	return connect.NewError(connect.CodeFailedPrecondition, err)
+}
+
 // NewUnauthenticated creates a new Unauthenticated error with a given error message and the original error.
 func NewUnauthenticated(err error) error {
 	return connect.NewError(connect.CodeUnauthenticated, err)
@@ -121,6 +131,11 @@ func IsInternal(err error) bool {
 func IsInvalidArgument(err error) bool {
 	connectErr := Convert(err)
 	return connectErr.Code() == connect.CodeInvalidArgument
+}
+
+func IsFailedPrecondition(err error) bool {
+	connectErr := Convert(err)
+	return connectErr.Code() == connect.CodeFailedPrecondition
 }
 
 func IsUnauthenticated(err error) bool {

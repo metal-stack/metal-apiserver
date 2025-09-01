@@ -68,6 +68,9 @@ type (
 	ProjectScope struct {
 		projectID string
 	}
+	TenantScope struct {
+		tenantID string
+	}
 
 	IP interface {
 		Repository[*ipRepository, *metal.IP, *apiv2.IP, *apiv2.IPServiceCreateRequest, *apiv2.IPServiceUpdateRequest, *apiv2.IPQuery]
@@ -84,8 +87,16 @@ type (
 		Repository[*projectRepository, *mdcv1.Project, *apiv2.Project, *apiv2.ProjectServiceCreateRequest, *apiv2.ProjectServiceUpdateRequest, *apiv2.ProjectServiceListRequest]
 	}
 
+	ProjectMember interface {
+		Repository[*projectMemberRepository, *mdcv1.ProjectMember, *apiv2.ProjectMember, *ProjectMemberCreateRequest, *ProjectMemberUpdateRequest, *ProjectMemberQuery]
+	}
+
 	Tenant interface {
 		Repository[*tenantRepository, *mdcv1.Tenant, *apiv2.Tenant, *apiv2.TenantServiceCreateRequest, *apiv2.TenantServiceUpdateRequest, *apiv2.TenantServiceListRequest]
+	}
+
+	TenantMember interface {
+		Repository[*tenantMemberRepository, *mdcv1.TenantMember, *mdcv1.TenantMember, *TenantMemberCreateRequest, *TenantMemberUpdateRequest, *TenantMemberQuery]
 	}
 
 	FilesystemLayout interface {

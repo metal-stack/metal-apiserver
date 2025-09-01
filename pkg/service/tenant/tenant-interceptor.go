@@ -11,7 +11,7 @@ import (
 	"github.com/metal-stack/api/go/permissions"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	mdc "github.com/metal-stack/masterdata-api/pkg/client"
-	tutil "github.com/metal-stack/metal-apiserver/pkg/tenant"
+	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/cache"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
@@ -65,7 +65,7 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 				}
 
 				user.Tenant = tgr.Tenant.Meta.Id
-				user.EMail = tgr.Tenant.Meta.Annotations[tutil.TagEmail]
+				user.EMail = tgr.Tenant.Meta.Annotations[repository.TenantTagEmail]
 
 				// update the context with the user information BEFORE calling next
 				ctx = security.PutUserInContext(ctx, user)

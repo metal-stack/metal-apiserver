@@ -19,8 +19,9 @@ func Test_sizeServiceServer_Get(t *testing.T) {
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	repo, closer := test.StartRepository(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
+	repo := testStore.Store
 
 	ctx := t.Context()
 
@@ -91,11 +92,11 @@ func Test_sizeServiceServer_Get(t *testing.T) {
 }
 
 func Test_sizeServiceServer_List(t *testing.T) {
-
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	repo, closer := test.StartRepository(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
+	repo := testStore.Store
 
 	ctx := t.Context()
 
