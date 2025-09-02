@@ -16,6 +16,8 @@ type Nic struct {
 // Nics is a list of nics.
 type Nics []Nic
 
+type NicMap map[string]*Nic
+
 // NicState represents the desired and actual state of a network interface
 // controller (NIC). The Desired field indicates the intended state of the
 // NIC, while Actual indicates its current operational state. The Desired
@@ -38,6 +40,15 @@ type SwitchBGPPortState struct {
 
 type BGPState string
 
+const (
+	BGPStateIdle        = BGPState("idle")
+	BGPStateConnect     = BGPState("connect")
+	BGPStateActive      = BGPState("active")
+	BGPStateOpenSent    = BGPState("open-sent")
+	BGPStateOpenConfirm = BGPState("open-confirm")
+	BGPStateEstablished = BGPState("established")
+)
+
 // SwitchPortStatus is a type alias for a string that represents the status of a switch port.
 // Valid values are defined as constants in this package.
 type SwitchPortStatus string
@@ -50,11 +61,12 @@ const (
 	SwitchPortStatusUnknown SwitchPortStatus = "UNKNOWN"
 	SwitchPortStatusUp      SwitchPortStatus = "UP"
 	SwitchPortStatusDown    SwitchPortStatus = "DOWN"
-
-	BGPStateIdle        = BGPState("idle")
-	BGPStateConnect     = BGPState("connect")
-	BGPStateActive      = BGPState("active")
-	BGPStateOpenSent    = BGPState("open-sent")
-	BGPStateOpenConfirm = BGPState("open-confirm")
-	BGPStateEstablished = BGPState("established")
 )
+
+func (nics Nics) MapByIdentifier() NicMap {
+	nicMap := make(NicMap)
+	for _, nic := range nics {
+		nicMap[nic.Identifier] = &nic
+	}
+	return nicMap
+}

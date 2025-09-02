@@ -44,6 +44,10 @@ func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServ
 	}
 
 	if sw.ReplaceMode == metal.ReplaceModeReplace {
+		err = r.validateReplace(ctx, old, new)
+		if err != nil {
+			return nil, err
+		}
 		return r.replace(ctx, old, new)
 	}
 
@@ -128,6 +132,7 @@ func (r *switchRepository) update(ctx context.Context, oldSwitch *metal.Switch, 
 	if req.ConsoleCommand != nil {
 		new.ConsoleCommand = *req.ConsoleCommand
 	}
+	// FIX: there is more logic when updating nics, see metal-api
 	if len(req.Nics) > 0 {
 		nics, err := metal.ToMetalNics(req.Nics)
 		if err != nil {
@@ -156,6 +161,7 @@ func (r *switchRepository) update(ctx context.Context, oldSwitch *metal.Switch, 
 }
 
 func (r *switchRepository) delete(ctx context.Context, sw *metal.Switch) error {
+	// TODO: also delete switch status
 	return r.s.ds.Switch().Delete(ctx, sw)
 }
 
