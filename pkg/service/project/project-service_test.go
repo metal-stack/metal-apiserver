@@ -1,7 +1,6 @@
 package project
 
 import (
-	"fmt"
 	"log/slog"
 	"os"
 	"testing"
@@ -612,7 +611,7 @@ func Test_projectServiceServer_Delete(t *testing.T) {
 					},
 				},
 			},
-			wantErr: connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("there are still machines associated with this project, you need to delete them first")),
+			wantErr: errorutil.FailedPrecondition("there are still machines associated with this project, you need to delete them first"),
 		},
 		{
 			name: "cannot delete project when ips are still present",
@@ -628,7 +627,7 @@ func Test_projectServiceServer_Delete(t *testing.T) {
 			existingIPs: []*apiv2.IPServiceCreateRequest{
 				{Name: pointer.Pointer("ip1"), Ip: pointer.Pointer("1.2.3.4"), Project: "john.doe@github", Network: "internet"},
 			},
-			wantErr: connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("there are still ips associated with this project, you need to delete them first")),
+			wantErr: errorutil.FailedPrecondition("there are still ips associated with this project, you need to delete them first"),
 		},
 		{
 			name: "cannot delete project when networks are still present",
@@ -641,7 +640,7 @@ func Test_projectServiceServer_Delete(t *testing.T) {
 			existingNetworks: []*adminv2.NetworkServiceCreateRequest{
 				{Id: pointer.Pointer("project-internet"), Project: pointer.Pointer("john.doe@github"), Prefixes: []string{"1.2.4.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: pointer.Pointer(uint32(12))},
 			},
-			wantErr: connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("there are still networks associated with this project, you need to delete them first")),
+			wantErr: errorutil.FailedPrecondition("there are still networks associated with this project, you need to delete them first"),
 		},
 	}
 	for _, tt := range tests {

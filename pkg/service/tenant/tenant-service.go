@@ -3,7 +3,6 @@ package tenant
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"sort"
 	"time"
@@ -51,7 +50,7 @@ func New(c Config) TenantService {
 func (u *tenantServiceServer) List(ctx context.Context, rq *connect.Request[apiv2.TenantServiceListRequest]) (*connect.Response[apiv2.TenantServiceListResponse], error) {
 	token, ok := token.TokenFromContext(ctx)
 	if !ok || token == nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
+		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
 	var (
@@ -61,7 +60,7 @@ func (u *tenantServiceServer) List(ctx context.Context, rq *connect.Request[apiv
 
 	projectsAndTenants, err := u.repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, token.User)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("error retrieving tenants from backend: %w", err))
+		return nil, errorutil.Internal("error retrieving tenants from backend: %w", err)
 	}
 
 	for _, tenant := range projectsAndTenants.Tenants {
@@ -87,23 +86,23 @@ func (u *tenantServiceServer) Create(ctx context.Context, rq *connect.Request[ap
 	)
 
 	if !ok || t == nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
+		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
 	ownTenant, err := u.repo.Tenant().Get(ctx, t.User)
 	if err != nil {
 		if mdcv1.IsNotFound(err) {
-			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no tenant found with id %q: %w", t.User, err))
+			return nil, errorutil.NotFound("no tenant found with id %q: %w", t.User, err)
 		}
 
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 
 	if pointer.SafeDeref(req.Email) == "" && ownTenant.Meta != nil && ownTenant.Meta.Annotations != nil {
 		req.Email = pointer.Pointer(ownTenant.Meta.Annotations[repository.TenantTagEmail])
 
 		if pointer.SafeDeref(req.Email) == "" {
-			return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("email is required"))
+			return nil, errorutil.FailedPrecondition("email is required")
 		}
 	}
 
@@ -135,7 +134,7 @@ func (u *tenantServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2
 		req   = rq.Msg
 	)
 	if !ok || t == nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
+		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
 	tenant, err := u.repo.Tenant().Get(ctx, req.Login)
@@ -172,12 +171,12 @@ func (u *tenantServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2
 		}
 		fallthrough
 	default:
-		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("tenant role insufficient"))
+		return nil, errorutil.Unauthenticated("tenant role insufficient")
 	}
 
 	members, err := u.repo.Tenant().AdditionalMethods().ListTenantMembers(ctx, req.Login, true)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("unable to list tenant members: %w", err))
+		return nil, errorutil.Internal("unable to list tenant members: %w", err)
 	}
 
 	var tenantMembers []*apiv2.TenantMember
@@ -242,7 +241,7 @@ func (u *tenantServiceServer) Invite(ctx context.Context, rq *connect.Request[ap
 		req   = rq.Msg
 	)
 	if !ok || t == nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
+		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
 	targetTenant, err := u.repo.Tenant().Get(ctx, req.Login)
@@ -257,7 +256,7 @@ func (u *tenantServiceServer) Invite(ctx context.Context, rq *connect.Request[ap
 
 	secret, err := invite.GenerateInviteSecret()
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 
 	var (
@@ -265,7 +264,7 @@ func (u *tenantServiceServer) Invite(ctx context.Context, rq *connect.Request[ap
 	)
 
 	if req.Role == apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("tenant role must be specified"))
+		return nil, errorutil.InvalidArgument("tenant role must be specified")
 	}
 
 	invite := &apiv2.TenantInvite{
@@ -284,7 +283,7 @@ func (u *tenantServiceServer) Invite(ctx context.Context, rq *connect.Request[ap
 
 	err = u.inviteStore.SetInvite(ctx, invite)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 
 	return connect.NewResponse(&apiv2.TenantServiceInviteResponse{Invite: invite}), nil
@@ -297,15 +296,15 @@ func (u *tenantServiceServer) InviteAccept(ctx context.Context, rq *connect.Requ
 	)
 
 	if !ok || t == nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
+		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
 	inv, err := u.inviteStore.GetInvite(ctx, req.Secret)
 	if err != nil {
 		if errors.Is(err, invite.ErrInviteNotFound) {
-			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("the given invitation does not exist anymore"))
+			return nil, errorutil.NotFound("the given invitation does not exist anymore")
 		}
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 
 	invitee, err := u.repo.Tenant().Get(ctx, t.User)
@@ -314,7 +313,7 @@ func (u *tenantServiceServer) InviteAccept(ctx context.Context, rq *connect.Requ
 	}
 
 	if invitee.Meta.Id == inv.TargetTenant {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("an owner cannot accept invitations to own tenants"))
+		return nil, errorutil.InvalidArgument("an owner cannot accept invitations to own tenants")
 	}
 
 	memberships, err := u.repo.Tenant().AdditionalMethods().Member(inv.TargetTenant).List(ctx, &repository.TenantMemberQuery{
@@ -325,12 +324,12 @@ func (u *tenantServiceServer) InviteAccept(ctx context.Context, rq *connect.Requ
 	}
 
 	if len(memberships) > 0 {
-		return nil, connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("%s is already member of tenant %s", invitee.Meta.Id, inv.TargetTenant))
+		return nil, errorutil.Conflict("%s is already member of tenant %s", invitee.Meta.Id, inv.TargetTenant)
 	}
 
 	err = u.inviteStore.DeleteInvite(ctx, inv)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 
 	_, err = u.repo.Tenant().AdditionalMethods().Member(inv.TargetTenant).Create(ctx, &repository.TenantMemberCreateRequest{
@@ -351,7 +350,7 @@ func (u *tenantServiceServer) InviteDelete(ctx context.Context, rq *connect.Requ
 
 	err := u.inviteStore.DeleteInvite(ctx, &apiv2.TenantInvite{Secret: req.Secret, TargetTenant: req.Login})
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 
 	u.log.Debug("tenant invite deleted")
@@ -367,9 +366,9 @@ func (u *tenantServiceServer) InviteGet(ctx context.Context, rq *connect.Request
 	inv, err := u.inviteStore.GetInvite(ctx, req.Secret)
 	if err != nil {
 		if errors.Is(err, invite.ErrInviteNotFound) {
-			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("the given invitation does not exist anymore"))
+			return nil, errorutil.NotFound("the given invitation does not exist anymore")
 		}
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 
 	return connect.NewResponse(&apiv2.TenantServiceInviteGetResponse{Invite: inv}), nil
@@ -382,7 +381,7 @@ func (u *tenantServiceServer) InvitesList(ctx context.Context, rq *connect.Reque
 
 	invites, err := u.inviteStore.ListInvites(ctx, req.Login)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 
 	return connect.NewResponse(&apiv2.TenantServiceInvitesListResponse{Invites: invites}), nil

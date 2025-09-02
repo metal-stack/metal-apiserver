@@ -2,7 +2,6 @@ package tenant
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -11,10 +10,12 @@ import (
 	"github.com/metal-stack/api/go/permissions"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	mdc "github.com/metal-stack/masterdata-api/pkg/client"
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/cache"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
+
 	"github.com/metal-stack/security"
 )
 
@@ -58,10 +59,10 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 			setUserFieldsByTenantLookup = func(tenantID string) error {
 				tgr, err := i.masterClient.Tenant().Get(ctx, &mdcv1.TenantGetRequest{Id: tenantID})
 				if mdcv1.IsNotFound(err) {
-					return connect.NewError(connect.CodeNotFound, err)
+					return errorutil.NewNotFound(err)
 				}
 				if err != nil {
-					return connect.NewError(connect.CodeInternal, err)
+					return errorutil.NewInternal(err)
 				}
 
 				user.Tenant = tgr.Tenant.Meta.Id
@@ -92,7 +93,7 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 		}
 
 		if !tokenInCtx {
-			return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("token must be present when requesting non-public scope method"))
+			return nil, errorutil.Unauthenticated("token must be present when requesting non-public scope method")
 		}
 
 		if permissions.IsSelfScope(req) {
@@ -135,10 +136,10 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 
 			project, err := i.projectCache.Get(ctx, projectID)
 			if mdcv1.IsNotFound(err) {
-				return nil, connect.NewError(connect.CodeNotFound, err)
+				return nil, errorutil.NewNotFound(err)
 			}
 			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
+				return nil, errorutil.NewInternal(err)
 			}
 
 			user.Project = projectID
@@ -151,7 +152,7 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 			return next(ctx, req)
 		}
 
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("unable to determine request scope: %q", req.Spec().Procedure))
+		return nil, errorutil.Internal("unable to determine request scope: %q", req.Spec().Procedure)
 	})
 }
 

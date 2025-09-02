@@ -83,6 +83,16 @@ func Unauthenticated(format string, args ...any) error {
 	return connect.NewError(connect.CodeUnauthenticated, fmt.Errorf(format, args...))
 }
 
+// ResourceExhausted creates a new ResourceExhausted error with a given error message and the original error.
+func ResourceExhausted(format string, args ...any) error {
+	return connect.NewError(connect.CodeResourceExhausted, fmt.Errorf(format, args...))
+}
+
+// PermissionDenied creates a new PermissionDenied error with a given error message and the original error.
+func PermissionDenied(format string, args ...any) error {
+	return connect.NewError(connect.CodePermissionDenied, fmt.Errorf(format, args...))
+}
+
 // NewNotFound creates a new notfound error with a given error message.
 func NewNotFound(err error) error {
 	return connect.NewError(connect.CodeNotFound, err)
@@ -113,6 +123,16 @@ func NewUnauthenticated(err error) error {
 	return connect.NewError(connect.CodeUnauthenticated, err)
 }
 
+// NewResourceExhausted creates a new ResourceExhausted error with a given error message and the original error.
+func NewResourceExhausted(err error) error {
+	return connect.NewError(connect.CodeResourceExhausted, err)
+}
+
+// NewPermissionDenied creates a new PermissionDenied error with a given error message and the original error.
+func NewPermissionDenied(err error) error {
+	return connect.NewError(connect.CodePermissionDenied, err)
+}
+
 func IsNotFound(err error) bool {
 	connectErr := Convert(err)
 	return connectErr.Code() == connect.CodeNotFound
@@ -141,6 +161,15 @@ func IsFailedPrecondition(err error) bool {
 func IsUnauthenticated(err error) bool {
 	connectErr := Convert(err)
 	return connectErr.Code() == connect.CodeUnauthenticated
+}
+
+func IsResourceExhausted(err error) bool {
+	connectErr := Convert(err)
+	return connectErr.Code() == connect.CodeResourceExhausted
+}
+func IsPermissionDenied(err error) bool {
+	connectErr := Convert(err)
+	return connectErr.Code() == connect.CodePermissionDenied
 }
 
 func ConnectErrorComparer() cmp.Option {

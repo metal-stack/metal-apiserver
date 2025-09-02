@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"connectrpc.com/connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
@@ -362,7 +361,7 @@ func (r *projectRepository) EnsureProviderProject(ctx context.Context, providerT
 		if err == nil {
 			return nil
 		}
-		if connect.CodeOf(err) != connect.CodeNotFound {
+		if !errorutil.IsNotFound(err) {
 			return err
 		}
 

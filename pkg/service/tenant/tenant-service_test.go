@@ -1,7 +1,6 @@
 package tenant
 
 import (
-	"fmt"
 	"log/slog"
 	"os"
 	"testing"
@@ -595,7 +594,7 @@ func Test_tenantServiceServer_Delete(t *testing.T) {
 			existingProjects: []*apiv2.ProjectServiceCreateRequest{
 				{Name: "project-a", Login: "tenant-a"},
 			},
-			wantErr: connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("there are still projects associated with this tenant, you need to delete them first")),
+			wantErr: errorutil.FailedPrecondition("there are still projects associated with this tenant, you need to delete them first"),
 		},
 	}
 	for _, tt := range tests {
