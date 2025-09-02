@@ -51,25 +51,25 @@ func (r *switchRepository) validateUpdate(ctx context.Context, req *adminv2.Swit
 		errs = append(errs, err)
 	}
 
+	reqOSVendor, err := metal.ToSwitchOSVendor(req.Os.Vendor)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	if reqOSVendor != sw.OS.Vendor {
+		errs = append(errs, fmt.Errorf("cannot update switch os vendor from %s to %s, use replace instead", reqOSVendor, sw.OS.Vendor))
+	}
+
 	err = checkDuplicateNics(sw.Nics)
 	if err != nil {
 		errs = append(errs, err)
 	}
 
-	// TODO: validate
-	// - os vendor cannot be changed, only in replace or migrate
-
 	reqNics, err := metal.ToMetalNics(req.Nics)
 	if err != nil {
 		errs = append(errs, err)
 	}
-	_, removedNics := lo.Difference(mapToIdentifier(reqNics), mapToIdentifier(sw.Nics))
 
-	if connectedNics := connectedNics(removedNics, sw.MachineConnections); len(connectedNics) > 0 {
-		errs = append(errs, fmt.Errorf("removing nics %v which are connected to a machine is not supported", connectedNics))
-	}
-
-	if err = validateNics(sw.Nics, reqNics, sw.MachineConnections); err != nil {
+	if err = validateConnectedNics(sw.Nics, reqNics, sw.MachineConnections); err != nil {
 		errs = append(errs, err)
 	}
 
@@ -98,7 +98,7 @@ func checkDuplicateNics(nics metal.Nics) error {
 		errs = append(errs, fmt.Errorf("switch nics contain duplicate identifiers:%v", duplicateIdentifiers))
 	}
 	if len(duplicateNames) > 0 {
-		errs = append(errs, fmt.Errorf("switch nics contain duplicate name:%v", duplicateNames))
+		errs = append(errs, fmt.Errorf("switch nics contain duplicate names:%v", duplicateNames))
 	}
 
 	if len(errs) > 0 {
@@ -108,43 +108,33 @@ func checkDuplicateNics(nics metal.Nics) error {
 	return nil
 }
 
-func connectedNics(nicIdentifiers []string, connections metal.ConnectionMap) []string {
-	var connectedNics []string
-	for _, nic := range nicIdentifiers {
-		flatConnections := lo.Flatten(lo.Values(connections))
-		connectionIdentifiers := lo.Map(flatConnections, func(c metal.Connection, i int) string {
-			return c.Nic.Identifier
-		})
-		if slices.Contains(connectionIdentifiers, nic) {
-			connectedNics = append(connectedNics, nic)
-		}
-	}
-	return connectedNics
-}
-
-func validateNics(old, new metal.Nics, connections metal.ConnectionMap) error {
+func validateConnectedNics(old, new metal.Nics, connections metal.ConnectionMap) error {
 	var (
 		errs                       []error
 		cannotRemove, cannotRename []string
+		oldNics                    = old.MapByIdentifier()
+		newNics                    = new.MapByIdentifier()
 	)
-
-	oldNics := old.MapByIdentifier()
-	newNics := new.MapByIdentifier()
 
 	for id, oldNic := range oldNics {
 		if !nicIsConnected(id, connections) {
 			continue
 		}
-
 		newNic, ok := newNics[id]
 		if !ok {
 			cannotRemove = append(cannotRemove, id)
 			continue
 		}
-
 		if newNic != nil && newNic.Name != oldNic.Name {
 			cannotRename = append(cannotRename, id)
 		}
+	}
+
+	if len(cannotRemove) > 0 {
+		errs = append(errs, fmt.Errorf("cannot remove nics %v because they are connected to machines", cannotRemove))
+	}
+	if len(cannotRename) > 0 {
+		errs = append(errs, fmt.Errorf("cannot rename nics %v because they are connected to machines", cannotRename))
 	}
 
 	if len(errs) > 0 {
