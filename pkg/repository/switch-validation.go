@@ -81,7 +81,13 @@ func (r *switchRepository) validateUpdate(ctx context.Context, req *adminv2.Swit
 }
 
 func (r *switchRepository) validateDelete(ctx context.Context, sw *metal.Switch) error {
-	panic("unimplemented")
+	// FIX: allow force flag
+
+	if len(sw.MachineConnections) > 0 {
+		return errorutil.FailedPrecondition("cannot delete switch %s while it still has machines connected to it", sw.ID)
+	}
+
+	return nil
 }
 
 func (r *switchRepository) validateReplace(ctx context.Context, old, new *apiv2.Switch) error {

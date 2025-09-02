@@ -12,6 +12,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
+	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
@@ -79,6 +80,10 @@ func (r *switchRepository) Port(ctx context.Context, id, port string, status api
 	panic("unimplemented")
 }
 
+func (r *switchRepository) ConnectMachineWithSwitches(m *metal.Machine) error {
+	panic("unimplemented")
+}
+
 func (r *switchRepository) get(ctx context.Context, id string) (*metal.Switch, error) {
 	sw, err := r.s.ds.Switch().Get(ctx, id)
 	if err != nil {
@@ -132,13 +137,12 @@ func (r *switchRepository) update(ctx context.Context, oldSwitch *metal.Switch, 
 	if req.ConsoleCommand != nil {
 		new.ConsoleCommand = *req.ConsoleCommand
 	}
-	// FIX: there is more logic when updating nics, see metal-api
 	if len(req.Nics) > 0 {
 		nics, err := metal.ToMetalNics(req.Nics)
 		if err != nil {
 			return nil, err
 		}
-		new.Nics = nics
+		new.Nics = updateNics(oldSwitch.Nics, nics)
 	}
 	if req.Os != nil {
 		vendor, err := metal.ToSwitchOSVendor(req.Os.Vendor)
@@ -161,7 +165,7 @@ func (r *switchRepository) update(ctx context.Context, oldSwitch *metal.Switch, 
 }
 
 func (r *switchRepository) delete(ctx context.Context, sw *metal.Switch) error {
-	// TODO: also delete switch status
+	// FIX: also delete switch status
 	return r.s.ds.Switch().Delete(ctx, sw)
 }
 
@@ -216,8 +220,8 @@ func (r *switchRepository) convertToInternal(sw *apiv2.Switch) (*metal.Switch, e
 		ManagementIP:   sw.ManagementIp,
 		ManagementUser: sw.ManagementUser,
 		ConsoleCommand: sw.ConsoleCommand,
-		// FIXME populate machine connections
-		MachineConnections: make(metal.ConnectionMap),
+		// FIX: get machine connections
+		MachineConnections: metal.ConnectionMap{},
 		OS: metal.SwitchOS{
 			Vendor:           vendor,
 			Version:          sw.Os.Version,
@@ -232,48 +236,9 @@ func (r *switchRepository) convertToProto(sw *metal.Switch) (*apiv2.Switch, erro
 		return nil, nil
 	}
 
-	var nics []*apiv2.SwitchNic
-	for _, nic := range sw.Nics {
-		var bgpPortState *apiv2.SwitchBGPPortState
-		if nic.BGPPortState != nil {
-			bgpState, err := metal.FromBGPState(nic.BGPPortState.BgpState)
-			if err != nil {
-				return nil, err
-			}
-
-			bgpPortState = &apiv2.SwitchBGPPortState{
-				Neighbor:              nic.BGPPortState.Neighbor,
-				PeerGroup:             nic.BGPPortState.PeerGroup,
-				VrfName:               nic.BGPPortState.VrfName,
-				BgpState:              bgpState,
-				BgpTimerUpEstablished: durationpb.New(time.Duration(nic.BGPPortState.BgpTimerUpEstablished)),
-				SentPrefixCounter:     nic.BGPPortState.SentPrefixCounter,
-				AcceptedPrefixCounter: nic.BGPPortState.AcceptedPrefixCounter,
-			}
-		}
-
-		desiredState, err := metal.FromSwitchPortStatus(nic.State.Desired)
-		if err != nil {
-			return nil, err
-		}
-		actualState, err := metal.FromSwitchPortStatus(nic.State.Actual)
-		if err != nil {
-			return nil, err
-		}
-
-		nics = append(nics, &apiv2.SwitchNic{
-			Name:       nic.Name,
-			Identifier: nic.Identifier,
-			Mac:        nic.MacAddress,
-			Vrf:        new(string),
-			State: &apiv2.NicState{
-				Desired: desiredState,
-				Actual:  actualState,
-			},
-			// FIXME need machine connections to make bgp filters
-			BgpFilter:    &apiv2.BGPFilter{},
-			BgpPortState: bgpPortState,
-		})
+	nics, err := r.toSwitchNics(sw.Nics, sw.MachineConnections)
+	if err != nil {
+		return nil, err
 	}
 
 	replaceMode, err := metal.FromReplaceMode(sw.ReplaceMode)
@@ -314,4 +279,113 @@ func (r *switchRepository) switchFilters(filter generic.EntityQuery) []generic.E
 		qs = append(qs, filter)
 	}
 	return qs
+}
+
+func (r *switchRepository) toSwitchNics(nics metal.Nics, connections metal.ConnectionMap) ([]*apiv2.SwitchNic, error) {
+	var switchNics []*apiv2.SwitchNic
+	for _, nic := range nics {
+		var bgpPortState *apiv2.SwitchBGPPortState
+		if nic.BGPPortState != nil {
+			bgpState, err := metal.FromBGPState(nic.BGPPortState.BgpState)
+			if err != nil {
+				return nil, err
+			}
+
+			bgpPortState = &apiv2.SwitchBGPPortState{
+				Neighbor:              nic.BGPPortState.Neighbor,
+				PeerGroup:             nic.BGPPortState.PeerGroup,
+				VrfName:               nic.BGPPortState.VrfName,
+				BgpState:              bgpState,
+				BgpTimerUpEstablished: durationpb.New(time.Duration(nic.BGPPortState.BgpTimerUpEstablished)),
+				SentPrefixCounter:     nic.BGPPortState.SentPrefixCounter,
+				AcceptedPrefixCounter: nic.BGPPortState.AcceptedPrefixCounter,
+			}
+		}
+
+		desiredState, err := metal.FromSwitchPortStatus(nic.State.Desired)
+		if err != nil {
+			return nil, err
+		}
+		actualState, err := metal.FromSwitchPortStatus(nic.State.Actual)
+		if err != nil {
+			return nil, err
+		}
+
+		// FIX: which context to use?
+		ctx := context.TODO()
+		m, err := r.getConnectedMachineForNic(ctx, nic, connections)
+		if err != nil {
+			return nil, err
+		}
+
+		networks, err := r.s.ds.Network().List(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		ips, err := r.s.ds.IP().List(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		filter := makeBGPFilter(m, nic.Vrf, networks, ips)
+		switchNics = append(switchNics, &apiv2.SwitchNic{
+			Name:       nic.Name,
+			Identifier: nic.Identifier,
+			Mac:        nic.MacAddress,
+			Vrf:        new(string),
+			State: &apiv2.NicState{
+				Desired: desiredState,
+				Actual:  actualState,
+			},
+			BgpFilter:    filter,
+			BgpPortState: bgpPortState,
+		})
+	}
+
+	return switchNics, nil
+}
+
+func (r *switchRepository) getConnectedMachineForNic(ctx context.Context, nic metal.Nic, connections metal.ConnectionMap) (*metal.Machine, error) {
+	flatConnections := lo.Flatten(lo.Values(connections))
+	connection, found := lo.Find(flatConnections, func(c metal.Connection) bool {
+		return c.Nic.Name == nic.Name
+	})
+
+	if !found {
+		return nil, nil
+	}
+
+	m, err := r.s.ds.Machine().Get(ctx, connection.MachineID)
+	if err != nil {
+		return nil, err
+	}
+
+	return m, nil
+}
+
+func updateNics(old, new metal.Nics) metal.Nics {
+	var (
+		updated metal.Nics
+		oldNics = old.MapByIdentifier()
+		newNics = new.MapByIdentifier()
+	)
+
+	for id, newNic := range newNics {
+		oldNic, ok := oldNics[id]
+		if !ok {
+			updated = append(updated, *newNic)
+			continue
+		}
+
+		updatedNic := *oldNic
+		updatedNic.Name = newNic.Name
+		updated = append(updated, updatedNic)
+	}
+
+	return updated
+}
+
+func makeBGPFilter(m *metal.Machine, vrf *string, networks []*metal.Network, ips []*metal.IP) *apiv2.BGPFilter {
+	panic("unimplemented")
 }
