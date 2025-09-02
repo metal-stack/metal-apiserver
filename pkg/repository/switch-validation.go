@@ -149,10 +149,7 @@ func nicIsConnected(identifier string, connections metal.ConnectionMap) bool {
 	connectionIdentifiers := lo.Map(flatConnections, func(c metal.Connection, i int) string {
 		return c.Nic.Identifier
 	})
-	if slices.Contains(connectionIdentifiers, identifier) {
-		return true
-	}
-	return false
+	return slices.Contains(connectionIdentifiers, identifier)
 }
 
 func mapToIdentifier(nics metal.Nics) []string {
