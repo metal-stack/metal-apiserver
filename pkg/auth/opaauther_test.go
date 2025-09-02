@@ -3,18 +3,17 @@ package auth
 import (
 	"context"
 	"crypto/ecdsa"
-	"fmt"
 	"log/slog"
 	"os"
 	"testing"
 	"time"
 
-	"connectrpc.com/connect"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	v2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
@@ -72,150 +71,8 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 					Methods: []string{"/metalstack.api.v2.UnknownService/Get"},
 				},
 			},
-			wantErr: connect.NewError(connect.CodePermissionDenied, fmt.Errorf("method denied or unknown: /metalstack.api.v2.UnknownService/Get")),
+			wantErr: errorutil.PermissionDenied("method denied or unknown: /metalstack.api.v2.UnknownService/Get"),
 		},
-		// {
-		// 	name:    "cluster get not allowed, no token",
-		// 	subject: "john.doe@github",
-		// 	method:  "/metalstack.api.v2.IPService/Get",
-		// 	req:     v1.ClusterServiceGetRequest{},
-		// 	userJwtMutateFn: func(t *testing.T, jwt string) string {
-		// 		return ""
-		// 	},
-		// 	wantErr: connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("not allowed to call: /metalstack.api.v2.IPService/Get")),
-		// },
-		// FIXME: these tests did not work before because error was suppressed, fix them :(
-		// {
-		// 	name:    "cluster get not allowed, token secret malicious",
-		// 	subject: "john.doe@github",
-		// 	method:  "/metalstack.api.v2.IPService/Get",
-		// 	req:     v1.ClusterServiceGetRequest{},
-		// 	permissions: []*v1.MethodPermission{
-		// 		{
-		// 			Subject: "",
-		// 			Methods: []string{"/metalstack.api.v2.IPService/Get"},
-		// 		},
-		// 	},
-		// 	userJwtMutateFn: func(t *testing.T, _ string) string {
-		// 		jwt, _, err := token.NewJWT(v1.TokenType_TOKEN_TYPE_CONSOLE, "john.doe@github", defaultIssuer, 1*time.Hour, maliciousSigningKey)
-		// 		require.NoError(t, err)
-		// 		return jwt
-		// 	},
-		// 	wantErr: connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("access denied:token is not valid")),
-		// },
-		// {
-		// 	name: "cluster get not allowed, token secret malicious",
-		// 	args: args{
-		// 		token:      mustToken([]*v1.MethodPermission{{Subject: "", Methods: []string{"/metalstack.api.v2.IPService/Get"}}}, nil, nil, &maliciousSigningKey),
-		// 		methodName: "/metalstack.api.v2.IPService/Get",
-		// 		req:        v1.ClusterServiceGetRequest{},
-		// 	},
-		// 	wantErr: connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("access denied:token is not valid")),
-		// },
-		// {
-		// 	name:       "cluster get not allowed, token already expired",
-		// 	subject:    "john.doe@github",
-		// 	method:     "/metalstack.api.v2.IPService/Get",
-		// 	req:        v1.ClusterServiceGetRequest{},
-		// 	expiration: &expired,
-		// 	permissions: []*v1.MethodPermission{
-		// 		{
-		// 			Subject: "john.doe@github",
-		// 			Methods: []string{"/metalstack.api.v2.IPService/Get"},
-		// 		},
-		// 	},
-		// 	wantErr: connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("token has expired")),
-		// },
-		// {
-		// 	name:    "cluster get allowed",
-		// 	subject: "john.doe@github",
-		// 	method:  "/metalstack.api.v2.IPService/Get",
-		// 	req:     v1.ClusterServiceGetRequest{Project: "john.doe@github"},
-		// 	projectsAndTenants: &putil.ProjectsAndTenants{
-		// 		ProjectRoles: map[string]v1.ProjectRole{
-		// 			"john.doe@github": v1.ProjectRole_PROJECT_ROLE_EDITOR,
-		// 		},
-		// 	},
-		// 	permissions: []*v1.MethodPermission{
-		// 		{
-		// 			Subject: "john.doe@github",
-		// 			Methods: []string{"/metalstack.api.v2.IPService/Get"},
-		// 		},
-		// 	},
-		// },
-		// {
-		// 	name:    "method not known",
-		// 	subject: "john.doe@github",
-		// 	method:  "/metalstack.api.v2.IPService/Gest",
-		// 	req:     v1.ClusterServiceGetRequest{Project: "john.doe@github"},
-		// 	permissions: []*v1.MethodPermission{
-		// 		{
-		// 			Subject: "john.doe@github",
-		// 			Methods: []string{"/metalstack.api.v2.IPService/Get"},
-		// 		},
-		// 	},
-		// 	wantErr: connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("method denied or unknown: /metalstack.api.v2.IPService/Gest")),
-		// },
-		// {
-		// 	name:    "cluster get not allowed",
-		// 	subject: "john.doe@github",
-		// 	method:  "/metalstack.api.v2.IPService/Get",
-		// 	req:     v1.ClusterServiceGetRequest{Project: "john.doe@github"},
-		// 	permissions: []*v1.MethodPermission{
-		// 		{
-		// 			Subject: "john.doe@github",
-		// 			Methods: []string{"/metalstack.api.v2.IPService/List"},
-		// 		},
-		// 	},
-		// 	wantErr: connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("not allowed to call: /metalstack.api.v2.IPService/Get")),
-		// },
-		// {
-		// 	name:    "cluster list allowed",
-		// 	subject: "john.doe@github",
-		// 	method:  "/metalstack.api.v2.IPService/List",
-		// 	req:     v1.ClusterServiceGetRequest{Project: "john.doe@github"},
-		// 	projectsAndTenants: &putil.ProjectsAndTenants{
-		// 		ProjectRoles: map[string]v1.ProjectRole{
-		// 			"john.doe@github": v1.ProjectRole_PROJECT_ROLE_EDITOR,
-		// 		},
-		// 	},
-		// 	permissions: []*v1.MethodPermission{
-		// 		{
-		// 			Subject: "john.doe@github",
-		// 			Methods: []string{"/metalstack.api.v2.IPService/List"},
-		// 		},
-		// 	},
-		// },
-		// {
-		// 	name:    "cluster create allowed",
-		// 	subject: "john.doe@github",
-		// 	method:  "/metalstack.api.v2.IPService/Create",
-		// 	req:     v1.ClusterServiceGetRequest{Project: "john.doe@github"},
-		// 	projectsAndTenants: &putil.ProjectsAndTenants{
-		// 		ProjectRoles: map[string]v1.ProjectRole{
-		// 			"john.doe@github": v1.ProjectRole_PROJECT_ROLE_EDITOR,
-		// 		},
-		// 	},
-		// 	permissions: []*v1.MethodPermission{
-		// 		{
-		// 			Subject: "john.doe@github",
-		// 			Methods: []string{"/metalstack.api.v2.IPService/List", "/metalstack.api.v2.IPService/Create"},
-		// 		},
-		// 	},
-		// },
-		// {
-		// 	name:    "cluster create not allowed, wrong project",
-		// 	subject: "john.doe@github",
-		// 	method:  "/metalstack.api.v2.IPService/Create",
-		// 	req:     v1.ClusterServiceGetRequest{Project: "john.doe@github"},
-		// 	permissions: []*v1.MethodPermission{
-		// 		{
-		// 			Subject: "project-a",
-		// 			Methods: []string{"/metalstack.api.v2.IPService/List", "/metalstack.api.v2.IPService/Create"},
-		// 		},
-		// 	},
-		// 	wantErr: connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("not allowed to call: /metalstack.api.v2.IPService/Create")),
-		// },
 		{
 			name:    "admin api tenantlist is not allowed with MethodPermissions",
 			subject: "john.doe@github",
@@ -227,7 +84,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 					Methods: []string{"/metalstack.admin.v2.TenantService/List"},
 				},
 			},
-			wantErr: connect.NewError(connect.CodePermissionDenied, fmt.Errorf("not allowed to call: /metalstack.admin.v2.TenantService/List")),
+			wantErr: errorutil.PermissionDenied("not allowed to call: /metalstack.admin.v2.TenantService/List"),
 		},
 		{
 			name:        "admin api tenantlist is allowed",
@@ -244,7 +101,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			req:         adminv2.TenantServiceListRequest{},
 			permissions: []*v2.MethodPermission{},
 			adminRole:   pointer.Pointer(v2.AdminRole_ADMIN_ROLE_EDITOR),
-			wantErr:     connect.NewError(connect.CodePermissionDenied, fmt.Errorf("not allowed to call: /metalstack.admin.v2.TenantService/List")),
+			wantErr:     errorutil.PermissionDenied("not allowed to call: /metalstack.admin.v2.TenantService/List"),
 		},
 		{
 			name:        "admin editor accessed api/v1 methods tenant invite is allowed",
@@ -261,7 +118,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			req:         v2.TenantServiceInvitesListRequest{},
 			permissions: []*v2.MethodPermission{},
 			adminRole:   pointer.Pointer(v2.AdminRole_ADMIN_ROLE_VIEWER),
-			wantErr:     connect.NewError(connect.CodePermissionDenied, fmt.Errorf("not allowed to call: /metalstack.api.v2.TenantService/Invite")),
+			wantErr:     errorutil.PermissionDenied("not allowed to call: /metalstack.api.v2.TenantService/Invite"),
 		},
 		{
 			name:        "admin editor can access api/v1 self methods",
@@ -311,7 +168,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			projectRoles: map[string]v2.ProjectRole{
 				"project-a": v2.ProjectRole_PROJECT_ROLE_VIEWER,
 			},
-			wantErr: connect.NewError(connect.CodePermissionDenied, fmt.Errorf("not allowed to call: /metalstack.api.v2.IPService/Get")),
+			wantErr: errorutil.PermissionDenied("not allowed to call: /metalstack.api.v2.IPService/Get"),
 		},
 		{
 			name:        "ip create allowed for owner",
@@ -337,7 +194,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			projectRoles: map[string]v2.ProjectRole{
 				"project-a": v2.ProjectRole_PROJECT_ROLE_VIEWER,
 			},
-			wantErr: connect.NewError(connect.CodePermissionDenied, fmt.Errorf("not allowed to call: /metalstack.api.v2.IPService/Create")),
+			wantErr: errorutil.PermissionDenied("not allowed to call: /metalstack.api.v2.IPService/Create"),
 		},
 		{
 			name:    "version service allowed without token because it is public visibility",
@@ -382,7 +239,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			tenantRoles: map[string]v2.TenantRole{
 				"john.doe@github": v2.TenantRole_TENANT_ROLE_OWNER,
 			},
-			wantErr: connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("invalid token")),
+			wantErr: errorutil.Unauthenticated("invalid token"),
 		},
 		{
 			name:    "project list service has visibility self but wrong methodpermissions",
@@ -400,7 +257,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 					Methods: []string{"/metalstack.api.v2.IPService/List"},
 				},
 			},
-			wantErr: connect.NewError(connect.CodePermissionDenied, fmt.Errorf("not allowed to call: /metalstack.api.v2.ProjectService/List")),
+			wantErr: errorutil.PermissionDenied("not allowed to call: /metalstack.api.v2.ProjectService/List"),
 		},
 		{
 			name:      "project list service has visibility self and console token",
@@ -438,7 +295,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			subject: "john.doe@github",
 			method:  "/metalstack.api.v2.ProjectService/List",
 			req:     v2.ProjectServiceListRequest{},
-			wantErr: connect.NewError(connect.CodePermissionDenied, fmt.Errorf("not allowed to call: /metalstack.api.v2.ProjectService/List")),
+			wantErr: errorutil.PermissionDenied("not allowed to call: /metalstack.api.v2.ProjectService/List"),
 		},
 		{
 			name:    "project get service has not visibility self",
@@ -451,7 +308,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 					Methods: []string{"/metalstack.api.v2.IPService/List"},
 				},
 			},
-			wantErr: connect.NewError(connect.CodePermissionDenied, fmt.Errorf("not allowed to call: /metalstack.api.v2.ProjectService/Get")),
+			wantErr: errorutil.PermissionDenied("not allowed to call: /metalstack.api.v2.ProjectService/Get"),
 		},
 		{
 			name:      "access project with console token",

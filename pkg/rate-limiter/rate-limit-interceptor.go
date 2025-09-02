@@ -7,7 +7,9 @@ import (
 	"net/http"
 
 	"connectrpc.com/connect"
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
+
 	"github.com/redis/go-redis/v9"
 )
 
@@ -58,9 +60,9 @@ func (i *ratelimitInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFu
 		if err != nil {
 			var ratelimiterError *errRatelimitReached
 			if errors.As(err, &ratelimiterError) {
-				return nil, connect.NewError(connect.CodeResourceExhausted, err)
+				return nil, errorutil.NewResourceExhausted(err)
 			}
-			return nil, connect.NewError(connect.CodeInternal, err)
+			return nil, errorutil.NewInternal(err)
 		}
 
 		return next(ctx, req)

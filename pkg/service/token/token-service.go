@@ -12,6 +12,8 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/api/go/permissions"
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/service/method"
@@ -76,17 +78,17 @@ func (t *tokenService) CreateConsoleTokenWithoutPermissionCheck(ctx context.Cont
 
 	privateKey, err := t.certs.LatestPrivate(ctx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("unable to fetch signing certificate: %w", err))
+		return nil, errorutil.Internal("unable to fetch signing certificate: %w", err)
 	}
 
 	secret, token, err := tokenutil.NewJWT(apiv2.TokenType_TOKEN_TYPE_CONSOLE, subject, t.issuer, expires, privateKey)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("unable to create console token: %w", err))
+		return nil, errorutil.Internal("unable to create console token: %w", err)
 	}
 
 	err = t.tokens.Set(ctx, token)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 
 	return connect.NewResponse(&apiv2.TokenServiceCreateResponse{
@@ -107,12 +109,12 @@ func (t *tokenService) CreateApiTokenWithoutPermissionCheck(ctx context.Context,
 
 	privateKey, err := t.certs.LatestPrivate(ctx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 
 	secret, token, err := tokenutil.NewJWT(apiv2.TokenType_TOKEN_TYPE_API, subject, t.issuer, expires, privateKey)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 
 	token.Description = req.Description
@@ -123,7 +125,7 @@ func (t *tokenService) CreateApiTokenWithoutPermissionCheck(ctx context.Context,
 
 	err = t.tokens.Set(ctx, token)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 
 	return connect.NewResponse(&apiv2.TokenServiceCreateResponse{
@@ -136,15 +138,15 @@ func (t *tokenService) CreateApiTokenWithoutPermissionCheck(ctx context.Context,
 func (t *tokenService) Get(ctx context.Context, rq *connect.Request[apiv2.TokenServiceGetRequest]) (*connect.Response[apiv2.TokenServiceGetResponse], error) {
 	token, ok := tokenutil.TokenFromContext(ctx)
 	if !ok || token == nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
+		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
 	res, err := t.tokens.Get(ctx, token.User, rq.Msg.Uuid)
 	if err != nil {
 		if errors.Is(err, tokenutil.ErrTokenNotFound) {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("token not found"))
+			return nil, errorutil.NotFound("token not found")
 		}
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 
 	return connect.NewResponse(&apiv2.TokenServiceGetResponse{
@@ -159,7 +161,7 @@ func (t *tokenService) Update(ctx context.Context, rq *connect.Request[apiv2.Tok
 
 	token, ok := tokenutil.TokenFromContext(ctx)
 	if !ok || token == nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
+		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
 	// we first validate token permission elevation for the token used in the token update request,
@@ -174,7 +176,7 @@ func (t *tokenService) Update(ctx context.Context, rq *connect.Request[apiv2.Tok
 
 	err := validateTokenCreate(token, createRequest, t.servicePermissions, t.adminSubjects)
 	if err != nil {
-		return nil, connect.NewError(connect.CodePermissionDenied, err)
+		return nil, errorutil.NewPermissionDenied(err)
 	}
 
 	// now, we validate if the user is still permitted to update the token
@@ -183,7 +185,7 @@ func (t *tokenService) Update(ctx context.Context, rq *connect.Request[apiv2.Tok
 
 	projectsAndTenants, err := t.projectsAndTenantsGetter(ctx, token.GetUser())
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 	fullUserToken := &apiv2.Token{
 		User:         token.User,
@@ -196,7 +198,7 @@ func (t *tokenService) Update(ctx context.Context, rq *connect.Request[apiv2.Tok
 	}
 	err = validateTokenCreate(fullUserToken, createRequest, t.servicePermissions, t.adminSubjects)
 	if err != nil {
-		return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("outdated token: %w", err))
+		return nil, errorutil.PermissionDenied("outdated token: %w", err)
 	}
 
 	// now follows the update
@@ -204,13 +206,13 @@ func (t *tokenService) Update(ctx context.Context, rq *connect.Request[apiv2.Tok
 	tokenToUpdate, err := t.tokens.Get(ctx, token.User, rq.Msg.Uuid)
 	if err != nil {
 		if errors.Is(err, tokenutil.ErrTokenNotFound) {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("token not found"))
+			return nil, errorutil.NotFound("token not found")
 		}
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 
 	if tokenToUpdate.TokenType != apiv2.TokenType_TOKEN_TYPE_API {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("only updating API tokens is currently supported"))
+		return nil, errorutil.FailedPrecondition("only updating API tokens is currently supported")
 	}
 
 	if req.Description != nil {
@@ -230,7 +232,7 @@ func (t *tokenService) Update(ctx context.Context, rq *connect.Request[apiv2.Tok
 
 	err = t.tokens.Set(ctx, tokenToUpdate)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 
 	return connect.NewResponse(&apiv2.TokenServiceUpdateResponse{
@@ -243,7 +245,7 @@ func (t *tokenService) Update(ctx context.Context, rq *connect.Request[apiv2.Tok
 func (t *tokenService) Create(ctx context.Context, rq *connect.Request[apiv2.TokenServiceCreateRequest]) (*connect.Response[apiv2.TokenServiceCreateResponse], error) {
 	token, ok := tokenutil.TokenFromContext(ctx)
 	if !ok || token == nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
+		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 	req := rq.Msg
 
@@ -252,7 +254,7 @@ func (t *tokenService) Create(ctx context.Context, rq *connect.Request[apiv2.Tok
 
 	err := validateTokenCreate(token, req, t.servicePermissions, t.adminSubjects)
 	if err != nil {
-		return nil, connect.NewError(connect.CodePermissionDenied, err)
+		return nil, errorutil.NewPermissionDenied(err)
 	}
 
 	// now, we validate if the user is still permitted to create such a token
@@ -261,7 +263,7 @@ func (t *tokenService) Create(ctx context.Context, rq *connect.Request[apiv2.Tok
 
 	projectsAndTenants, err := t.projectsAndTenantsGetter(ctx, token.GetUser())
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 	fullUserToken := &apiv2.Token{
 		User:         token.User,
@@ -274,17 +276,17 @@ func (t *tokenService) Create(ctx context.Context, rq *connect.Request[apiv2.Tok
 	}
 	err = validateTokenCreate(fullUserToken, req, t.servicePermissions, t.adminSubjects)
 	if err != nil {
-		return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("outdated token: %w", err))
+		return nil, errorutil.PermissionDenied("outdated token: %w", err)
 	}
 
 	privateKey, err := t.certs.LatestPrivate(ctx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 
 	secret, token, err := tokenutil.NewJWT(apiv2.TokenType_TOKEN_TYPE_API, token.GetUser(), t.issuer, req.Expires.AsDuration(), privateKey)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 
 	token.Description = req.Description
@@ -295,7 +297,7 @@ func (t *tokenService) Create(ctx context.Context, rq *connect.Request[apiv2.Tok
 
 	err = t.tokens.Set(ctx, token)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 
 	resp := &apiv2.TokenServiceCreateResponse{
@@ -310,12 +312,12 @@ func (t *tokenService) Create(ctx context.Context, rq *connect.Request[apiv2.Tok
 func (t *tokenService) List(ctx context.Context, _ *connect.Request[apiv2.TokenServiceListRequest]) (*connect.Response[apiv2.TokenServiceListResponse], error) {
 	token, ok := tokenutil.TokenFromContext(ctx)
 	if !ok || token == nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
+		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
 	tokens, err := t.tokens.List(ctx, token.User)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 
 	return connect.NewResponse(&apiv2.TokenServiceListResponse{
@@ -327,12 +329,12 @@ func (t *tokenService) List(ctx context.Context, _ *connect.Request[apiv2.TokenS
 func (t *tokenService) Revoke(ctx context.Context, rq *connect.Request[apiv2.TokenServiceRevokeRequest]) (*connect.Response[apiv2.TokenServiceRevokeResponse], error) {
 	token, ok := tokenutil.TokenFromContext(ctx)
 	if !ok || token == nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
+		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
 	err := t.tokens.Revoke(ctx, token.User, rq.Msg.Uuid)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 
 	return connect.NewResponse(&apiv2.TokenServiceRevokeResponse{}), nil
@@ -341,15 +343,15 @@ func (t *tokenService) Revoke(ctx context.Context, rq *connect.Request[apiv2.Tok
 func (t *tokenService) Refresh(ctx context.Context, _ *connect.Request[apiv2.TokenServiceRefreshRequest]) (*connect.Response[apiv2.TokenServiceRefreshResponse], error) {
 	token, ok := tokenutil.TokenFromContext(ctx)
 	if !ok || token == nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
+		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
 	oldtoken, err := t.tokens.Get(ctx, token.User, token.Uuid)
 	if err != nil {
 		if errors.Is(err, tokenutil.ErrTokenNotFound) {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("token not found"))
+			return nil, errorutil.NotFound("token not found")
 		}
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 
 	// we first copy the token permission from the old token
@@ -362,7 +364,7 @@ func (t *tokenService) Refresh(ctx context.Context, _ *connect.Request[apiv2.Tok
 
 	err = validateTokenCreate(token, createRequest, t.servicePermissions, t.adminSubjects)
 	if err != nil {
-		return nil, connect.NewError(connect.CodePermissionDenied, err)
+		return nil, errorutil.NewPermissionDenied(err)
 	}
 
 	// now, we validate if the user is still permitted to refresh the token
@@ -371,7 +373,7 @@ func (t *tokenService) Refresh(ctx context.Context, _ *connect.Request[apiv2.Tok
 
 	projectsAndTenants, err := t.projectsAndTenantsGetter(ctx, token.GetUser())
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 	fullUserToken := &apiv2.Token{
 		User:         token.User,
@@ -384,14 +386,14 @@ func (t *tokenService) Refresh(ctx context.Context, _ *connect.Request[apiv2.Tok
 	}
 	err = validateTokenCreate(fullUserToken, createRequest, t.servicePermissions, t.adminSubjects)
 	if err != nil {
-		return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("outdated token: %w", err))
+		return nil, errorutil.PermissionDenied("outdated token: %w", err)
 	}
 
 	// now follows the refresh, aka create a new token
 
 	privateKey, err := t.certs.LatestPrivate(ctx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 
 	// New duration is calculated from the old token
@@ -399,7 +401,7 @@ func (t *tokenService) Refresh(ctx context.Context, _ *connect.Request[apiv2.Tok
 
 	secret, newToken, err := tokenutil.NewJWT(apiv2.TokenType_TOKEN_TYPE_API, token.GetUser(), t.issuer, exp, privateKey)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 
 	newToken.Description = oldtoken.Description
@@ -410,7 +412,7 @@ func (t *tokenService) Refresh(ctx context.Context, _ *connect.Request[apiv2.Tok
 
 	err = t.tokens.Set(ctx, newToken)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 
 	return connect.NewResponse(&apiv2.TokenServiceRefreshResponse{
