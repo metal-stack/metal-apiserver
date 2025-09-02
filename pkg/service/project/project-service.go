@@ -50,7 +50,7 @@ func (p *projectServiceServer) Get(ctx context.Context, rq *connect.Request[apiv
 		includeInheritedMembers bool
 	)
 	if !ok || t == nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
+		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
 	project, err := p.repo.Project(req.Project).Get(ctx, req.Project)
@@ -76,7 +76,7 @@ func (p *projectServiceServer) Get(ctx context.Context, rq *connect.Request[apiv
 	for _, pm := range projectMembers {
 		converted, err := p.repo.Project(req.Project).AdditionalMethods().Member().ConvertToProto(pm)
 		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
+			return nil, err
 		}
 
 		memberMap[pm.TenantId] = converted
@@ -96,7 +96,7 @@ func (p *projectServiceServer) Get(ctx context.Context, rq *connect.Request[apiv
 
 		tenantMembers, err := p.repo.Tenant().AdditionalMethods().ListTenantMembers(ctx, converted.Tenant, includeInheritedMembers)
 		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("unable to list project members: %w", err))
+			return nil, fmt.Errorf("unable to list project members: %w", err)
 		}
 
 		for _, tm := range tenantMembers {
@@ -148,7 +148,7 @@ func (p *projectServiceServer) Get(ctx context.Context, rq *connect.Request[apiv
 func (p *projectServiceServer) List(ctx context.Context, rq *connect.Request[apiv2.ProjectServiceListRequest]) (*connect.Response[apiv2.ProjectServiceListResponse], error) {
 	token, ok := token.TokenFromContext(ctx)
 	if !ok || token == nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
+		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
 	var (
@@ -158,7 +158,7 @@ func (p *projectServiceServer) List(ctx context.Context, rq *connect.Request[api
 
 	projectsAndTenants, err := p.repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, token.User)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("error retrieving projects from backend: %w", err))
+		return nil, errorutil.Internal("error retrieving projects from backend: %w", err)
 	}
 
 	for _, project := range projectsAndTenants.Projects {
@@ -191,7 +191,7 @@ func (p *projectServiceServer) Create(ctx context.Context, rq *connect.Request[a
 	)
 
 	if !ok || t == nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
+		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
 	created, err := p.repo.UnscopedProject().Create(ctx, req)
@@ -222,7 +222,7 @@ func (p *projectServiceServer) Delete(ctx context.Context, rq *connect.Request[a
 	)
 
 	if !ok || t == nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
+		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
 	deleted, err := p.repo.Project(req.Project).Delete(ctx, req.Project)
@@ -263,7 +263,7 @@ func (p *projectServiceServer) RemoveMember(ctx context.Context, rq *connect.Req
 	)
 
 	if !ok || t == nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
+		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
 	_, err := p.repo.Project(req.Project).AdditionalMethods().Member().Delete(ctx, req.Member)
@@ -298,7 +298,7 @@ func (p *projectServiceServer) UpdateMember(ctx context.Context, rq *connect.Req
 		if !slices.ContainsFunc(partiTenants, func(t *mdcv1.TenantWithMembershipAnnotations) bool {
 			return t.Tenant.Meta.Id == projectGuest.TenantId
 		}) {
-			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("tenant is not part of the project's tenants"))
+			return nil, errorutil.InvalidArgument("tenant is not part of the project's tenants")
 		}
 
 		// Create new project membership since the user is part of the tenant
@@ -354,9 +354,9 @@ func (p *projectServiceServer) InviteGet(ctx context.Context, rq *connect.Reques
 	inv, err := p.inviteStore.GetInvite(ctx, req.Secret)
 	if err != nil {
 		if errors.Is(err, invite.ErrInviteNotFound) {
-			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("the given invitation does not exist anymore"))
+			return nil, errorutil.NotFound("the given invitation does not exist anymore")
 		}
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 
 	return connect.NewResponse(&apiv2.ProjectServiceInviteGetResponse{Invite: inv}), nil
@@ -379,7 +379,7 @@ func (p *projectServiceServer) Invite(ctx context.Context, rq *connect.Request[a
 
 	secret, err := invite.GenerateInviteSecret()
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 
 	var (
@@ -387,7 +387,7 @@ func (p *projectServiceServer) Invite(ctx context.Context, rq *connect.Request[a
 	)
 
 	if req.Role == apiv2.ProjectRole_PROJECT_ROLE_UNSPECIFIED {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("project role must be specified"))
+		return nil, errorutil.InvalidArgument("project role must be specified")
 	}
 
 	invite := &apiv2.ProjectInvite{
@@ -406,7 +406,7 @@ func (p *projectServiceServer) Invite(ctx context.Context, rq *connect.Request[a
 
 	err = p.inviteStore.SetInvite(ctx, invite)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 
 	return connect.NewResponse(&apiv2.ProjectServiceInviteResponse{Invite: invite}), nil
@@ -419,15 +419,15 @@ func (p *projectServiceServer) InviteAccept(ctx context.Context, rq *connect.Req
 	)
 
 	if !ok || t == nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("no token found in request"))
+		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
 	inv, err := p.inviteStore.GetInvite(ctx, req.Secret)
 	if err != nil {
 		if errors.Is(err, invite.ErrInviteNotFound) {
-			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("the given invitation does not exist anymore"))
+			return nil, errorutil.NotFound("the given invitation does not exist anymore")
 		}
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 
 	invitee, err := p.repo.Tenant().Get(ctx, t.User)
@@ -437,11 +437,11 @@ func (p *projectServiceServer) InviteAccept(ctx context.Context, rq *connect.Req
 
 	project, err := p.repo.UnscopedProject().Get(ctx, inv.Project)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no project: %q for invite not found %w", inv.Project, err))
+		return nil, errorutil.NotFound("no project: %q for invite not found %w", inv.Project, err)
 	}
 
 	if project.TenantId == invitee.Meta.Id {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("an owner cannot accept invitations to own projects"))
+		return nil, errorutil.InvalidArgument("an owner cannot accept invitations to own projects")
 	}
 
 	memberships, err := p.repo.Project(inv.Project).AdditionalMethods().Member().List(ctx, &repository.ProjectMemberQuery{
@@ -452,12 +452,12 @@ func (p *projectServiceServer) InviteAccept(ctx context.Context, rq *connect.Req
 	}
 
 	if len(memberships) > 0 {
-		return nil, connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("%s is already member of project %s", invitee.Meta.Id, inv.Project))
+		return nil, errorutil.Conflict("%s is already member of project %s", invitee.Meta.Id, inv.Project)
 	}
 
 	err = p.inviteStore.DeleteInvite(ctx, inv)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 
 	_, err = p.repo.Project(inv.Project).AdditionalMethods().Member().Create(ctx, &repository.ProjectMemberCreateRequest{
@@ -478,7 +478,7 @@ func (p *projectServiceServer) InviteDelete(ctx context.Context, rq *connect.Req
 
 	err := p.inviteStore.DeleteInvite(ctx, &apiv2.ProjectInvite{Secret: req.Secret, Project: req.Project})
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 
 	return connect.NewResponse(&apiv2.ProjectServiceInviteDeleteResponse{}), nil
@@ -490,7 +490,7 @@ func (p *projectServiceServer) InvitesList(ctx context.Context, rq *connect.Requ
 	)
 	invites, err := p.inviteStore.ListInvites(ctx, req.Project)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 
 	return connect.NewResponse(&apiv2.ProjectServiceInvitesListResponse{Invites: invites}), nil

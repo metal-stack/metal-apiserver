@@ -64,9 +64,15 @@ func (f *filesystemServiceServer) List(ctx context.Context, rq *connect.Request[
 }
 
 func (f *filesystemServiceServer) Match(ctx context.Context, rq *connect.Request[apiv2.FilesystemServiceMatchRequest]) (*connect.Response[apiv2.FilesystemServiceMatchResponse], error) {
-	panic("unimplemented")
-}
+	req := rq.Msg
+	switch match := req.Match.(type) {
+	case *apiv2.FilesystemServiceMatchRequest_SizeAndImage:
+		// call old school fsl try
+	case *apiv2.FilesystemServiceMatchRequest_MachineAndFilesystemlayout:
+		// call old school fsl match
+	default:
+		return nil, errorutil.InvalidArgument("given matchtype %T is unsupported", match)
+	}
 
-func (f *filesystemServiceServer) Try(ctx context.Context, rq *connect.Request[apiv2.FilesystemServiceTryRequest]) (*connect.Response[apiv2.FilesystemServiceTryResponse], error) {
 	panic("unimplemented")
 }

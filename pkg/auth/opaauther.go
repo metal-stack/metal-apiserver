@@ -18,7 +18,9 @@ import (
 	authentication "github.com/metal-stack/metal-apiserver/pkg/auth/authentication"
 	authorization "github.com/metal-stack/metal-apiserver/pkg/auth/authorization"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
+
 	"github.com/metal-stack/metal-apiserver/pkg/service/method"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/cache"
@@ -281,24 +283,24 @@ func (o *opa) decide(ctx context.Context, methodName string, jwtTokenfunc func(s
 			"jwks":  jwks.raw,
 		})
 		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
+			return nil, errorutil.NewInternal(err)
 		}
 
 		if !decision.Valid {
 			if decision.Reason != "" {
-				return nil, connect.NewError(connect.CodeUnauthenticated, errors.New(decision.Reason))
+				return nil, errorutil.NewUnauthenticated(errors.New(decision.Reason))
 			}
 
-			return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("token is invalid or has expired"))
+			return nil, errorutil.Unauthenticated("token is invalid or has expired")
 		}
 
 		t, err = o.tokenStore.Get(ctx, decision.Subject, decision.JwtID)
 		if err != nil {
 			if errors.Is(err, token.ErrTokenNotFound) {
-				return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("token was revoked"))
+				return nil, errorutil.Unauthenticated("token was revoked")
 			}
 
-			return nil, connect.NewError(connect.CodeInternal, err)
+			return nil, errorutil.NewInternal(err)
 		}
 
 		if t.TokenType == v2.TokenType_TOKEN_TYPE_API {
@@ -311,15 +313,15 @@ func (o *opa) decide(ctx context.Context, methodName string, jwtTokenfunc func(s
 
 			decision, err := o.authorize(ctx, newOpaAuthorizationRequest(methodName, req, t, permissions, projectRoles, tenantRoles, adminRole))
 			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
+				return nil, errorutil.NewInternal(err)
 			}
 
 			if !decision.Allow {
 				if decision.Reason != "" {
-					return nil, connect.NewError(connect.CodePermissionDenied, errors.New(decision.Reason))
+					return nil, errorutil.NewPermissionDenied(errors.New(decision.Reason))
 				}
 
-				return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("not allowed to call: %s", methodName))
+				return nil, errorutil.PermissionDenied("not allowed to call: %s", methodName)
 			}
 		}
 
@@ -329,7 +331,7 @@ func (o *opa) decide(ctx context.Context, methodName string, jwtTokenfunc func(s
 
 		pat, err := o.projectsAndTenantsGetter(ctx, t.User)
 		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
+			return nil, errorutil.NewInternal(err)
 		}
 
 		projectRoles = pat.ProjectRoles
@@ -354,7 +356,7 @@ func (o *opa) decide(ctx context.Context, methodName string, jwtTokenfunc func(s
 
 	decision, err := o.authorize(ctx, newOpaAuthorizationRequest(methodName, req, t, permissions, projectRoles, tenantRoles, adminRole))
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, errorutil.NewInternal(err)
 	}
 
 	if decision.Allow {
@@ -362,10 +364,10 @@ func (o *opa) decide(ctx context.Context, methodName string, jwtTokenfunc func(s
 	}
 
 	if decision.Reason != "" {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New(decision.Reason))
+		return nil, errorutil.NewPermissionDenied(errors.New(decision.Reason))
 	}
 
-	return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("not allowed to call: %s", methodName))
+	return nil, errorutil.PermissionDenied("not allowed to call: %s", methodName)
 }
 
 func (o *opa) authenticate(ctx context.Context, input map[string]any) (authenticationDecision, error) {

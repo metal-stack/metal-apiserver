@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"connectrpc.com/connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
@@ -284,7 +283,7 @@ func (r *tenantRepository) EnsureProviderTenant(ctx context.Context, providerTen
 		return nil
 	}
 
-	if connect.CodeOf(err) != connect.CodeNotFound {
+	if !errorutil.IsNotFound(err) {
 		return errorutil.Convert(err)
 	}
 
