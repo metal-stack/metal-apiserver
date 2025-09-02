@@ -41,8 +41,10 @@ func prepare(t *testing.T) (certs.CertStore, *ecdsa.PrivateKey) {
 
 func Test_opa_authorize_with_permissions(t *testing.T) {
 	var (
-		certStore, key = prepare(t)
-		defaultIssuer  = "https://api-server"
+		expired             = -time.Hour
+		certStore, key      = prepare(t)
+		defaultIssuer       = "https://api-server"
+		maliciousSigningKey = "bla"
 	)
 
 	tests := []struct {
@@ -60,6 +62,133 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 		tokenType          v2.TokenType
 		wantErr            error
 	}{
+
+		{
+			name:    "machine get not allowed, no token",
+			subject: "john.doe@github",
+			method:  "/metalstack.api.v2.MachineService/Get",
+			req:     v2.MachineServiceGetRequest{},
+			userJwtMutateFn: func(t *testing.T, jwt string) string {
+				return ""
+			},
+			wantErr: errorutil.PermissionDenied("not allowed to call: /metalstack.api.v2.MachineService/Get"),
+		},
+		{
+			name:   "machine get not allowed, token secret malicious",
+			method: "/metalstack.api.v2.MachineService/Get",
+			req:    v2.MachineServiceGetRequest{},
+			userJwtMutateFn: func(t *testing.T, _ string) string {
+				jwt, _, _ := token.NewJWT(v2.TokenType_TOKEN_TYPE_CONSOLE, "", defaultIssuer, 1*time.Hour, maliciousSigningKey)
+				// require.NoError(t, err)
+				return jwt
+			},
+			wantErr: errorutil.PermissionDenied("not allowed to call: /metalstack.api.v2.MachineService/Get"),
+		},
+		{
+			name:       "machine get not allowed, token already expired",
+			subject:    "john.doe@github",
+			method:     "/metalstack.api.v2.MachineService/Get",
+			req:        v2.MachineServiceGetRequest{},
+			expiration: &expired,
+			permissions: []*v2.MethodPermission{
+				{
+					Subject: "john.doe@github",
+					Methods: []string{"/metalstack.api.v2.IPService/Get"},
+				},
+			},
+			wantErr: errorutil.Unauthenticated("token has expired"),
+		},
+		{
+			name:    "machine get allowed",
+			subject: "john.doe@github",
+			method:  "/metalstack.api.v2.MachineService/Get",
+			req:     v2.MachineServiceGetRequest{Project: "john.doe@github"},
+			projectsAndTenants: &repository.ProjectsAndTenants{
+				ProjectRoles: map[string]v2.ProjectRole{
+					"john.doe@github": v2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+			},
+			permissions: []*v2.MethodPermission{
+				{
+					Subject: "john.doe@github",
+					Methods: []string{"/metalstack.api.v2.MachineService/Get"},
+				},
+			},
+		},
+		{
+			name:    "method not known",
+			subject: "john.doe@github",
+			method:  "/metalstack.api.v2.MachineService/Gest",
+			req:     v2.MachineServiceGetRequest{Project: "john.doe@github"},
+			permissions: []*v2.MethodPermission{
+				{
+					Subject: "john.doe@github",
+					Methods: []string{"/metalstack.api.v2.MachineService/Get"},
+				},
+			},
+			wantErr: errorutil.PermissionDenied("method denied or unknown: /metalstack.api.v2.MachineService/Gest"),
+		},
+		{
+			name:    "machine get not allowed",
+			subject: "john.doe@github",
+			method:  "/metalstack.api.v2.MachineService/Get",
+			req:     v2.MachineServiceGetRequest{Project: "john.doe@github"},
+			permissions: []*v2.MethodPermission{
+				{
+					Subject: "john.doe@github",
+					Methods: []string{"/metalstack.api.v2.MachineService/List"},
+				},
+			},
+			wantErr: errorutil.PermissionDenied("not allowed to call: /metalstack.api.v2.MachineService/Get"),
+		},
+		{
+			name:    "machine list allowed",
+			subject: "john.doe@github",
+			method:  "/metalstack.api.v2.MachineService/List",
+			req:     v2.MachineServiceGetRequest{Project: "john.doe@github"},
+			projectsAndTenants: &repository.ProjectsAndTenants{
+				ProjectRoles: map[string]v2.ProjectRole{
+					"john.doe@github": v2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+			},
+			permissions: []*v2.MethodPermission{
+				{
+					Subject: "john.doe@github",
+					Methods: []string{"/metalstack.api.v2.MachineService/List"},
+				},
+			},
+		},
+		{
+			name:    "machine create allowed",
+			subject: "john.doe@github",
+			method:  "/metalstack.api.v2.MachineService/Create",
+			req:     v2.MachineServiceGetRequest{Project: "john.doe@github"},
+			projectsAndTenants: &repository.ProjectsAndTenants{
+				ProjectRoles: map[string]v2.ProjectRole{
+					"john.doe@github": v2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+			},
+			permissions: []*v2.MethodPermission{
+				{
+					Subject: "john.doe@github",
+					Methods: []string{"/metalstack.api.v2.MachineService/List", "/metalstack.api.v2.MachineService/Create"},
+				},
+			},
+		},
+		{
+			name:    "machine create not allowed, wrong project",
+			subject: "john.doe@github",
+			method:  "/metalstack.api.v2.MachineService/Create",
+			req:     v2.MachineServiceGetRequest{Project: "john.doe@github"},
+			permissions: []*v2.MethodPermission{
+				{
+					Subject: "project-a",
+					Methods: []string{"/metalstack.api.v2.MachineService/List", "/metalstack.api.v2.MachineService/Create"},
+				},
+			},
+			wantErr: errorutil.PermissionDenied("not allowed to call: /metalstack.api.v2.MachineService/Create"),
+		},
+
 		{
 			name:    "unknown service is not allowed",
 			subject: "john.doe@github",
