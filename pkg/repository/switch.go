@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
+	"slices"
+	"strings"
 	"time"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
@@ -388,6 +390,10 @@ func updateNics(old, new metal.Nics) metal.Nics {
 		updatedNic.Name = newNic.Name
 		updated = append(updated, updatedNic)
 	}
+
+	slices.SortStableFunc(updated, func(n1, n2 metal.Nic) int {
+		return strings.Compare(n1.Identifier, n2.Identifier)
+	})
 
 	return updated
 }
