@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"fmt"
+	"net/netip"
 	"time"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
@@ -13,6 +15,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/samber/lo"
+	"go4.org/netipx"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
@@ -220,8 +223,7 @@ func (r *switchRepository) convertToInternal(sw *apiv2.Switch) (*metal.Switch, e
 		ManagementIP:   sw.ManagementIp,
 		ManagementUser: sw.ManagementUser,
 		ConsoleCommand: sw.ConsoleCommand,
-		// FIX: get machine connections
-		MachineConnections: metal.ConnectionMap{},
+		// TODO: do we need to populate machine connections here?
 		OS: metal.SwitchOS{
 			Vendor:           vendor,
 			Version:          sw.Os.Version,
@@ -282,6 +284,18 @@ func (r *switchRepository) switchFilters(filter generic.EntityQuery) []generic.E
 }
 
 func (r *switchRepository) toSwitchNics(nics metal.Nics, connections metal.ConnectionMap) ([]*apiv2.SwitchNic, error) {
+	// FIX: which context to use?
+	ctx := context.TODO()
+	networks, err := r.s.ds.Network().List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	ips, err := r.s.ds.IP().List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	var switchNics []*apiv2.SwitchNic
 	for _, nic := range nics {
 		var bgpPortState *apiv2.SwitchBGPPortState
@@ -311,24 +325,16 @@ func (r *switchRepository) toSwitchNics(nics metal.Nics, connections metal.Conne
 			return nil, err
 		}
 
-		// FIX: which context to use?
-		ctx := context.TODO()
 		m, err := r.getConnectedMachineForNic(ctx, nic, connections)
 		if err != nil {
 			return nil, err
 		}
 
-		networks, err := r.s.ds.Network().List(ctx)
+		filter, err := makeBGPFilter(m, nic.Vrf, networks, ips)
 		if err != nil {
 			return nil, err
 		}
 
-		ips, err := r.s.ds.IP().List(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		filter := makeBGPFilter(m, nic.Vrf, networks, ips)
 		switchNics = append(switchNics, &apiv2.SwitchNic{
 			Name:       nic.Name,
 			Identifier: nic.Identifier,
@@ -386,6 +392,131 @@ func updateNics(old, new metal.Nics) metal.Nics {
 	return updated
 }
 
-func makeBGPFilter(m *metal.Machine, vrf *string, networks []*metal.Network, ips []*metal.IP) *apiv2.BGPFilter {
-	panic("unimplemented")
+func makeBGPFilter(m *metal.Machine, vrf *string, networks []*metal.Network, ips []*metal.IP) (*apiv2.BGPFilter, error) {
+	if m.Allocation == nil {
+		return nil, nil
+	}
+
+	if m.Allocation.Role == metal.RoleFirewall {
+		if vrf != nil && *vrf == "default" {
+			return makeBGPFilterFirewall(m)
+		}
+		return nil, nil
+	}
+
+	return makeBGPFilterMachine(m, metal.NetworksById(networks), metal.IPsByProject(ips))
+}
+
+func makeBGPFilterFirewall(m *metal.Machine) (*apiv2.BGPFilter, error) {
+	vnis := []string{}
+	cidrs := []string{}
+
+	for _, net := range m.Allocation.MachineNetworks {
+		if net.Underlay {
+			for _, ip := range net.IPs {
+				ipwithMask, err := ipWithMask(ip)
+				if err != nil {
+					return nil, err
+				}
+				cidrs = append(cidrs, ipwithMask)
+			}
+		} else {
+			vnis = append(vnis, fmt.Sprintf("%d", net.Vrf))
+			// filter for "project" addresses / cidrs is not possible since EVPN Type-5 routes can not be filtered by prefixes
+		}
+	}
+
+	return &apiv2.BGPFilter{
+		Cidrs: cidrs,
+		Vnis:  vnis,
+	}, nil
+}
+
+func makeBGPFilterMachine(m *metal.Machine, networks metal.NetworkMap, ips metal.IPsMap) (*apiv2.BGPFilter, error) {
+	vnis := []string{}
+	cidrs := []string{}
+
+	var private *metal.MachineNetwork
+	var underlay *metal.MachineNetwork
+	for _, net := range m.Allocation.MachineNetworks {
+		if net.Private {
+			private = net
+			continue
+		}
+		if net.Underlay {
+			underlay = net
+		}
+	}
+
+	if private != nil {
+		cidrs = append(cidrs, private.Prefixes...)
+
+		privateNetwork, ok := networks[private.NetworkID]
+		if !ok {
+			return nil, fmt.Errorf("no private network found for id:%s", private.NetworkID)
+		}
+		parentNetwork, ok := networks[privateNetwork.ParentNetworkID]
+		if !ok {
+			return nil, fmt.Errorf("no parent network found for id:%s", privateNetwork.ParentNetworkID)
+		}
+		if len(parentNetwork.AdditionalAnnouncableCIDRs) > 0 {
+			cidrs = append(cidrs, parentNetwork.AdditionalAnnouncableCIDRs...)
+		}
+	}
+
+	for _, i := range ips[m.Allocation.Project] {
+		if private != nil && private.ContainsIP(i.IPAddress) {
+			continue
+		}
+		if underlay != nil && underlay.ContainsIP(i.IPAddress) {
+			continue
+		}
+
+		// TODO machine BGPFilter must not contain firewall private network IPs
+
+		ipwithMask, err := ipWithMask(i.IPAddress)
+		if err != nil {
+			return nil, err
+		}
+		cidrs = append(cidrs, ipwithMask)
+	}
+
+	compactedCidrs, err := compactCidrs(cidrs)
+	if err != nil {
+		return nil, err
+	}
+
+	return &apiv2.BGPFilter{
+		Cidrs: compactedCidrs,
+		Vnis:  vnis,
+	}, nil
+}
+
+func ipWithMask(ip string) (string, error) {
+	parsed, err := netip.ParseAddr(ip)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s/%d", ip, parsed.BitLen()), nil
+}
+
+// compactCidrs finds the smallest sorted set of prefixes which covers all cidrs passed.
+func compactCidrs(cidrs []string) ([]string, error) {
+	var ipsetBuilder netipx.IPSetBuilder
+	for _, cidr := range cidrs {
+		parsed, err := netip.ParsePrefix(cidr)
+		if err != nil {
+			return nil, err
+		}
+		ipsetBuilder.AddPrefix(parsed)
+	}
+	set, err := ipsetBuilder.IPSet()
+	if err != nil {
+		return nil, fmt.Errorf("unable to create ipset:%w", err)
+	}
+	var compactedCidrs []string
+	for _, pfx := range set.Prefixes() {
+		compactedCidrs = append(compactedCidrs, pfx.String())
+	}
+	return compactedCidrs, nil
 }

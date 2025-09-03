@@ -2,6 +2,7 @@ package metal
 
 import (
 	"fmt"
+	"net"
 	"time"
 )
 
@@ -453,4 +454,18 @@ func LEDStateFrom(name string) (LEDState, error) {
 type ChassisIdentifyLEDState struct {
 	Value       LEDState `rethinkdb:"value"`
 	Description string   `rethinkdb:"description"`
+}
+
+func (n *MachineNetwork) ContainsIP(ip string) bool {
+	pip := net.ParseIP(ip)
+	for _, p := range n.Prefixes {
+		_, n, err := net.ParseCIDR(p)
+		if err != nil {
+			continue
+		}
+		if n.Contains(pip) {
+			return true
+		}
+	}
+	return false
 }
