@@ -59,8 +59,13 @@ service_allowed if {
 }
 
 service_allowed if {
-	print("input", input,  "data roles.machine", data.roles.machine)
+	# print("input", input,  "data roles.machine", data.roles.machine)
 	input.method in data.roles.machine[input.machine_roles[input.request.uuid]]
+}
+
+service_allowed if {
+	# print("input.token.user", input.token.user,  "data roles.infra", data.roles.infra)
+	input.method in data.roles.infra[input.infra_roles[input.token.user]]
 }
 
 # Requests to methods with visibility self

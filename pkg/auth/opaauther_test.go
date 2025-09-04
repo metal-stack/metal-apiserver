@@ -688,6 +688,137 @@ func Test_opa_authorize_machine_scoped(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		{
+			name:    "metal-hammer can not call a machine scoped infra service with wrong uuid",
+			subject: "7c042d8c-2ee1-4c71-b4e9-82953fb9bd94",
+			method:  "/metalstack.infra.v2.BootService/Register",
+			req: infrav2.BootServiceRegisterRequest{
+				Uuid: "beefbeef-2ee1-4c71-b4e9-82953fb9bd94",
+			},
+			tokenType: v2.TokenType_TOKEN_TYPE_API,
+			machineRoles: map[string]v2.MachineRole{
+				"7c042d8c-2ee1-4c71-b4e9-82953fb9bd94": v2.MachineRole_MACHINE_ROLE_EDITOR,
+			},
+			wantErr: errorutil.PermissionDenied("not allowed to call: /metalstack.infra.v2.BootService/Register"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := miniredis.RunT(t)
+			defer s.Close()
+
+			ctx := t.Context()
+			tokenStore := token.NewRedisStore(redis.NewClient(&redis.Options{Addr: s.Addr()}))
+
+			exp := time.Hour
+			if tt.expiration != nil {
+				exp = *tt.expiration
+			}
+
+			tokenType := v2.TokenType_TOKEN_TYPE_API
+			if tt.tokenType != v2.TokenType_TOKEN_TYPE_UNSPECIFIED {
+				tokenType = tt.tokenType
+			}
+
+			jwt, tok, err := token.NewJWT(tokenType, tt.subject, defaultIssuer, exp, key)
+			require.NoError(t, err)
+
+			if tt.userJwtMutateFn != nil {
+				jwt = tt.userJwtMutateFn(t, jwt)
+			}
+
+			tok.Permissions = tt.permissions
+			tok.ProjectRoles = tt.projectRoles
+			tok.TenantRoles = tt.tenantRoles
+			tok.MachineRoles = tt.machineRoles
+			tok.InfraRoles = tt.infraRoles
+			tok.AdminRole = tt.adminRole
+
+			err = tokenStore.Set(ctx, tok)
+			require.NoError(t, err)
+
+			o, err := New(Config{
+				Log:            slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})),
+				CertStore:      certStore,
+				CertCacheTime:  pointer.Pointer(0 * time.Second),
+				TokenStore:     tokenStore,
+				AllowedIssuers: []string{defaultIssuer},
+				AdminSubjects:  []string{"john.doe@github"},
+			})
+			require.NoError(t, err)
+
+			o.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
+				if tt.projectsAndTenants == nil {
+					return &repository.ProjectsAndTenants{}, nil
+				}
+				return tt.projectsAndTenants, nil
+			}
+
+			jwtTokenFunc := func(_ string) string {
+				return "Bearer " + jwt
+			}
+
+			_, err = o.decide(ctx, tt.method, jwtTokenFunc, tt.req)
+			if diff := cmp.Diff(tt.wantErr, err, testcommon.ErrorStringComparer()); diff != "" {
+				t.Error(err.Error())
+				t.Errorf("error diff (+got -want):\n %s", diff)
+			}
+		})
+	}
+}
+
+func Test_opa_authorize_infra_scoped(t *testing.T) {
+	var (
+		certStore, key = prepare(t)
+		defaultIssuer  = "https://api-server"
+	)
+
+	tests := []struct {
+		name               string
+		subject            string
+		method             string
+		permissions        []*v2.MethodPermission
+		projectRoles       map[string]v2.ProjectRole
+		tenantRoles        map[string]v2.TenantRole
+		machineRoles       map[string]v2.MachineRole
+		infraRoles         map[string]v2.InfraRole
+		adminRole          *v2.AdminRole
+		userJwtMutateFn    func(t *testing.T, jwt string) string
+		expiration         *time.Duration
+		req                any
+		projectsAndTenants *repository.ProjectsAndTenants
+		tokenType          v2.TokenType
+		wantErr            error
+	}{
+		{
+			name:    "pixie can call a scoped infra service",
+			subject: "pixie@metal-stack.io",
+			method:  "/metalstack.infra.v2.BootService/Dhcp",
+			req: infrav2.BootServiceDhcpRequest{
+				Uuid:      "7c042d8c-2ee1-4c71-b4e9-82953fb9bd94",
+				Partition: "partition-1",
+			},
+			tokenType: v2.TokenType_TOKEN_TYPE_API,
+			infraRoles: map[string]v2.InfraRole{
+				"pixie@metal-stack.io": v2.InfraRole_INFRA_ROLE_EDITOR,
+			},
+			wantErr: nil,
+		},
+		{
+			name:    "pixie can not call a scoped infra service with wrong subject",
+			subject: "pixie@metal-stack.io",
+			method:  "/metalstack.infra.v2.BootService/Dhcp",
+			req: infrav2.BootServiceDhcpRequest{
+				Uuid:      "7c042d8c-2ee1-4c71-b4e9-82953fb9bd94",
+				Partition: "partition-1",
+			},
+			tokenType: v2.TokenType_TOKEN_TYPE_API,
+			infraRoles: map[string]v2.InfraRole{
+				"metal-bmc@metal-stack.io": v2.InfraRole_INFRA_ROLE_EDITOR,
+			},
+			wantErr: errorutil.PermissionDenied("not allowed to call: /metalstack.infra.v2.BootService/Dhcp"),
+		},
 	}
 
 	for _, tt := range tests {

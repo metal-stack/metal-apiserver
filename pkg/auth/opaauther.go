@@ -305,8 +305,6 @@ func (o *opa) decide(ctx context.Context, methodName string, jwtTokenfunc func(s
 			return nil, errorutil.NewInternal(err)
 		}
 
-		o.log.Debug("################### decide", "token", t)
-
 		if t.TokenType == v2.TokenType_TOKEN_TYPE_API {
 			projectRoles := t.ProjectRoles
 			tenantRoles := t.TenantRoles
@@ -332,6 +330,10 @@ func (o *opa) decide(ctx context.Context, methodName string, jwtTokenfunc func(s
 
 			if _, ok := permissions.GetServicePermissions().Visibility.Machine[methodName]; ok {
 				o.log.Debug("decide: machine request already authenticated, skip further user evaluation")
+				return nil, nil
+			}
+			if _, ok := permissions.GetServicePermissions().Visibility.Infra[methodName]; ok {
+				o.log.Debug("decide: infra request already authenticated, skip further user evaluation")
 				return nil, nil
 			}
 		}
