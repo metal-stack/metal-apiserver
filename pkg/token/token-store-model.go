@@ -27,6 +27,10 @@ type token struct {
 	ProjectRoles map[string]string `json:"project_roles,omitempty"`
 	// TenantRoles associates a tenant id with the corresponding role of the token owner
 	TenantRoles map[string]string `json:"tenant_roles,omitempty"`
+	// MachineRoles associates a machine uuid with the corresponding role of the token owner
+	MachineRoles map[string]string `json:"machine_roles,omitempty"`
+	// InfraRoles associates a infra service with the corresponding role of the token owner
+	InfraRoles map[string]string `json:"infra_roles,omitempty"`
 	// AdminRole defines the admin role of the token owner
 	AdminRole *string `json:"admin_role,omitempty"`
 }
@@ -51,6 +55,8 @@ func toInternal(t *v1.Token) *token {
 	var (
 		projectRoles = map[string]string{}
 		tenantRoles  = map[string]string{}
+		machineRoles = map[string]string{}
+		infraRoles   = map[string]string{}
 
 		expires  *time.Time
 		issuedAt *time.Time
@@ -71,6 +77,12 @@ func toInternal(t *v1.Token) *token {
 	for id, role := range t.TenantRoles {
 		tenantRoles[id] = role.String()
 	}
+	for id, role := range t.MachineRoles {
+		machineRoles[id] = role.String()
+	}
+	for id, role := range t.InfraRoles {
+		infraRoles[id] = role.String()
+	}
 
 	if t.AdminRole != nil {
 		adminRole = pointer.Pointer(t.AdminRole.String())
@@ -86,6 +98,8 @@ func toInternal(t *v1.Token) *token {
 		TokenType:    int32(t.TokenType),
 		ProjectRoles: projectRoles,
 		TenantRoles:  tenantRoles,
+		MachineRoles: machineRoles,
+		InfraRoles:   infraRoles,
 		AdminRole:    adminRole,
 	}
 }
@@ -102,6 +116,8 @@ func toExternal(t *token) *v1.Token {
 	var (
 		projectRoles = map[string]v1.ProjectRole{}
 		tenantRoles  = map[string]v1.TenantRole{}
+		machineRoles = map[string]v1.MachineRole{}
+		infraRoles   = map[string]v1.InfraRole{}
 
 		expires  *timestamppb.Timestamp
 		issuedAt *timestamppb.Timestamp
@@ -122,6 +138,12 @@ func toExternal(t *token) *v1.Token {
 	for id, role := range t.TenantRoles {
 		tenantRoles[id] = v1.TenantRole(v1.TenantRole_value[role])
 	}
+	for id, role := range t.MachineRoles {
+		machineRoles[id] = v1.MachineRole(v1.MachineRole_value[role])
+	}
+	for id, role := range t.InfraRoles {
+		infraRoles[id] = v1.InfraRole(v1.InfraRole_value[role])
+	}
 
 	if t.AdminRole != nil {
 		adminRole = pointer.Pointer(v1.AdminRole(v1.AdminRole_value[*t.AdminRole]))
@@ -137,6 +159,8 @@ func toExternal(t *token) *v1.Token {
 		TokenType:    v1.TokenType(t.TokenType),
 		ProjectRoles: projectRoles,
 		TenantRoles:  tenantRoles,
+		MachineRoles: machineRoles,
+		InfraRoles:   infraRoles,
 		AdminRole:    adminRole,
 	}
 }

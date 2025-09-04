@@ -115,7 +115,37 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 				return nil, err
 			}
 
-			user.Tenant = "" // public methods do not operate on a tenant, therefore erase again
+			user.Tenant = "" // admin methods do not operate on a tenant, therefore erase again
+
+			return next(ctx, req)
+		}
+
+		if permissions.IsMachineScope(req) {
+			i.log.Debug("tenant interceptor", "request-scope", "machine")
+
+			user := &security.User{
+				Name: tok.User,
+			}
+
+			machineId, ok := permissions.GetMachineIdFromRequest(req)
+			if ok {
+				user.Subject = machineId
+			}
+
+			// machine methods do not operate on a tenant, therefore create the security user from the machine id
+			ctx = security.PutUserInContext(ctx, user)
+
+			return next(ctx, req)
+		}
+
+		if permissions.IsInfraScope(req) {
+			i.log.Debug("tenant interceptor", "request-scope", "infra")
+
+			// infra methods do not operate on a tenant, therefore create the security user from the token id
+			ctx = security.PutUserInContext(ctx, &security.User{
+				Name:    tok.User,
+				Subject: tok.User,
+			})
 
 			return next(ctx, req)
 		}

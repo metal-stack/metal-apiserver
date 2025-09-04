@@ -267,13 +267,15 @@ func (o *opa) decide(ctx context.Context, methodName string, jwtTokenfunc func(s
 	}
 
 	var (
-		bearer         = jwtTokenfunc(authorizationHeader)
-		_, jwtToken, _ = strings.Cut(bearer, " ")
-		t              *v2.Token
-		projectRoles   map[string]v2.ProjectRole
-		tenantRoles    map[string]v2.TenantRole
-		permissions    map[string]*v2.MethodPermission
-		adminRole      *v2.AdminRole
+		bearer            = jwtTokenfunc(authorizationHeader)
+		_, jwtToken, _    = strings.Cut(bearer, " ")
+		t                 *v2.Token
+		projectRoles      map[string]v2.ProjectRole
+		tenantRoles       map[string]v2.TenantRole
+		machineRoles      map[string]v2.MachineRole
+		infraRoles        map[string]v2.InfraRole
+		methodPermissions map[string]*v2.MethodPermission
+		adminRole         *v2.AdminRole
 	)
 	jwtToken = strings.TrimSpace(jwtToken)
 
@@ -303,15 +305,19 @@ func (o *opa) decide(ctx context.Context, methodName string, jwtTokenfunc func(s
 			return nil, errorutil.NewInternal(err)
 		}
 
+		o.log.Debug("################### decide", "token", t)
+
 		if t.TokenType == v2.TokenType_TOKEN_TYPE_API {
 			projectRoles := t.ProjectRoles
 			tenantRoles := t.TenantRoles
-			permissions = method.PermissionsBySubject(t)
+			machineRoles := t.MachineRoles
+			infraRoles := t.InfraRoles
+			methodPermissions = method.PermissionsBySubject(t)
 			adminRole := t.AdminRole
 
-			o.log.Info("decision context", "method", methodName, "req", req, "token", t, "permission", permissions, "projectRoles", projectRoles, "tenantRoles", tenantRoles)
+			o.log.Info("decision context", "method", methodName, "req", req, "token", t, "permission", methodPermissions, "projectRoles", projectRoles, "tenantRoles", tenantRoles, "machineRoles", machineRoles, "infraRoles", infraRoles)
 
-			decision, err := o.authorize(ctx, newOpaAuthorizationRequest(methodName, req, t, permissions, projectRoles, tenantRoles, adminRole))
+			decision, err := o.authorize(ctx, newOpaAuthorizationRequest(methodName, req, t, methodPermissions, projectRoles, tenantRoles, machineRoles, infraRoles, adminRole))
 			if err != nil {
 				return nil, errorutil.NewInternal(err)
 			}
@@ -322,6 +328,11 @@ func (o *opa) decide(ctx context.Context, methodName string, jwtTokenfunc func(s
 				}
 
 				return nil, errorutil.PermissionDenied("not allowed to call: %s", methodName)
+			}
+
+			if _, ok := permissions.GetServicePermissions().Visibility.Machine[methodName]; ok {
+				o.log.Debug("decide: machine request already authenticated, skip further user evaluation")
+				return nil, nil
 			}
 		}
 
@@ -348,13 +359,13 @@ func (o *opa) decide(ctx context.Context, methodName string, jwtTokenfunc func(s
 			t.TenantRoles = tenantRoles
 			t.AdminRole = adminRole
 			// consoletokens should never have permissions cause they are not stored in the masterdata-db
-			permissions = nil
+			methodPermissions = nil
 		}
 	}
 
-	o.log.Info("decision context", "method", methodName, "req", req, "token", t, "permission", permissions, "projectRoles", projectRoles, "tenantRoles", tenantRoles)
+	o.log.Info("decision context", "method", methodName, "req", req, "token", t, "permission", methodPermissions, "projectRoles", projectRoles, "tenantRoles", tenantRoles, "machineRoles", machineRoles, "infraRoles", infraRoles)
 
-	decision, err := o.authorize(ctx, newOpaAuthorizationRequest(methodName, req, t, permissions, projectRoles, tenantRoles, adminRole))
+	decision, err := o.authorize(ctx, newOpaAuthorizationRequest(methodName, req, t, methodPermissions, projectRoles, tenantRoles, machineRoles, infraRoles, adminRole))
 	if err != nil {
 		return nil, errorutil.NewInternal(err)
 	}
@@ -378,7 +389,14 @@ func (o *opa) authorize(ctx context.Context, input map[string]any) (authorizatio
 	return evalResult[authorizationDecision](ctx, o.log.WithGroup("authorization"), o.authorizationQuery, input)
 }
 
-func newOpaAuthorizationRequest(method string, req any, token *v2.Token, methodPermissions map[string]*v2.MethodPermission, projectRoles map[string]v2.ProjectRole, tenantRoles map[string]v2.TenantRole, adminRole *v2.AdminRole) map[string]any {
+func newOpaAuthorizationRequest(method string, req any, token *v2.Token,
+	methodPermissions map[string]*v2.MethodPermission,
+	projectRoles map[string]v2.ProjectRole,
+	tenantRoles map[string]v2.TenantRole,
+	machineRoles map[string]v2.MachineRole,
+	infraRoles map[string]v2.InfraRole,
+	adminRole *v2.AdminRole) map[string]any {
+
 	input := map[string]any{
 		"method":  method,
 		"request": req,
@@ -408,6 +426,22 @@ func newOpaAuthorizationRequest(method string, req any, token *v2.Token, methodP
 			roles[tenant] = role.String()
 		}
 		input["tenant_roles"] = roles
+	}
+
+	if len(machineRoles) > 0 {
+		roles := map[string]string{}
+		for machine, role := range machineRoles {
+			roles[machine] = role.String()
+		}
+		input["machine_roles"] = roles
+	}
+
+	if len(infraRoles) > 0 {
+		roles := map[string]string{}
+		for infra, role := range infraRoles {
+			roles[infra] = role.String()
+		}
+		input["infra_roles"] = roles
 	}
 
 	if adminRole != nil {

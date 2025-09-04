@@ -23,15 +23,15 @@ require (
 	github.com/klauspost/connect-compress/v2 v2.0.0
 	github.com/lestrrat-go/jwx/v2 v2.1.6
 	github.com/markbates/goth v1.82.0
-	github.com/metal-stack/api v0.0.18
-	github.com/metal-stack/go-ipam v1.14.12
+	github.com/metal-stack/api v0.0.19-0.20250904131559-9ae58eb28886
+	github.com/metal-stack/go-ipam v1.14.13
 	github.com/metal-stack/masterdata-api v0.12.0
 	github.com/metal-stack/metal-lib v0.23.4
 	github.com/metal-stack/security v0.9.4
 	github.com/metal-stack/v v1.0.3
 	github.com/open-policy-agent/opa v1.8.0
 	github.com/prometheus/client_golang v1.23.0
-	github.com/redis/go-redis/v9 v9.12.1
+	github.com/redis/go-redis/v9 v9.13.0
 	github.com/rs/cors v1.11.1
 	github.com/samber/lo v1.51.0
 	github.com/stretchr/testify v1.11.1
@@ -75,7 +75,7 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/distribution/reference v0.6.0 // indirect
-	github.com/docker/docker v28.3.3+incompatible // indirect
+	github.com/docker/docker v28.4.0+incompatible // indirect
 	github.com/docker/go-connections v0.6.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/ebitengine/purego v0.8.4 // indirect

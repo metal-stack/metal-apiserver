@@ -13,6 +13,8 @@ decision := {"allow": false, "reason": reason} if {
 	not service_allowed
 	not is_public_service
 	not is_self_service
+	not is_machine_service
+	not is_infra_service
 
 	# actual implementation
 	not is_method_allowed
@@ -56,6 +58,11 @@ service_allowed if {
 	input.method in data.roles.tenant[input.tenant_roles[input.request.login]]
 }
 
+service_allowed if {
+	print("input", input,  "data roles.machine", data.roles.machine)
+	input.method in data.roles.machine[input.machine_roles[input.request.uuid]]
+}
+
 # Requests to methods with visibility self
 # endpoint is one of the visibility.Self methods
 service_allowed if {
@@ -86,6 +93,14 @@ is_public_service if {
 
 is_self_service if {
 	data.visibility.self[input.method]
+}
+
+is_machine_service if {
+	data.visibility.machine[input.method]
+}
+
+is_infra_service if {
+	data.visibility.infra[input.method]
 }
 
 is_admin if {
