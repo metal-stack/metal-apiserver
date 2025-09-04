@@ -400,24 +400,27 @@ func updateNics(old, new metal.Nics) metal.Nics {
 
 func makeBGPFilter(m *metal.Machine, vrf *string, networks []*metal.Network, ips []*metal.IP) (*apiv2.BGPFilter, error) {
 	if m.Allocation == nil {
-		return nil, nil
+		return &apiv2.BGPFilter{}, nil
 	}
 
 	if m.Allocation.Role == metal.RoleFirewall {
 		if vrf != nil && *vrf == "default" {
-			return makeBGPFilterFirewall(m)
+			return makeBGPFilterFirewall(m.Allocation.MachineNetworks)
 		}
-		return nil, nil
+		return &apiv2.BGPFilter{}, nil
 	}
 
 	return makeBGPFilterMachine(m, metal.NetworksById(networks), metal.IPsByProject(ips))
 }
 
-func makeBGPFilterFirewall(m *metal.Machine) (*apiv2.BGPFilter, error) {
+func makeBGPFilterFirewall(machineNetworks []*metal.MachineNetwork) (*apiv2.BGPFilter, error) {
 	vnis := []string{}
 	cidrs := []string{}
 
-	for _, net := range m.Allocation.MachineNetworks {
+	for _, net := range machineNetworks {
+		if net == nil {
+			continue
+		}
 		if net.Underlay {
 			for _, ip := range net.IPs {
 				ipwithMask, err := ipWithMask(ip)
@@ -426,7 +429,7 @@ func makeBGPFilterFirewall(m *metal.Machine) (*apiv2.BGPFilter, error) {
 				}
 				cidrs = append(cidrs, ipwithMask)
 			}
-		} else {
+		} else if net.Vrf != 0 {
 			vnis = append(vnis, fmt.Sprintf("%d", net.Vrf))
 			// filter for "project" addresses / cidrs is not possible since EVPN Type-5 routes can not be filtered by prefixes
 		}
@@ -439,12 +442,19 @@ func makeBGPFilterFirewall(m *metal.Machine) (*apiv2.BGPFilter, error) {
 }
 
 func makeBGPFilterMachine(m *metal.Machine, networks metal.NetworkMap, ips metal.IPsMap) (*apiv2.BGPFilter, error) {
-	vnis := []string{}
-	cidrs := []string{}
+	if m.Allocation == nil {
+		return &apiv2.BGPFilter{}, nil
+	}
 
-	var private *metal.MachineNetwork
-	var underlay *metal.MachineNetwork
+	var (
+		cidrs             []string
+		private, underlay *metal.MachineNetwork
+	)
+
 	for _, net := range m.Allocation.MachineNetworks {
+		if net == nil {
+			continue
+		}
 		if net.Private {
 			private = net
 			continue
@@ -463,7 +473,7 @@ func makeBGPFilterMachine(m *metal.Machine, networks metal.NetworkMap, ips metal
 		}
 		parentNetwork, ok := networks[privateNetwork.ParentNetworkID]
 		if !ok {
-			return nil, fmt.Errorf("no parent network found for id:%s", privateNetwork.ParentNetworkID)
+			return nil, fmt.Errorf("parent network %s not found for id:%s", privateNetwork.ParentNetworkID, private.NetworkID)
 		}
 		if len(parentNetwork.AdditionalAnnouncableCIDRs) > 0 {
 			cidrs = append(cidrs, parentNetwork.AdditionalAnnouncableCIDRs...)
@@ -471,9 +481,6 @@ func makeBGPFilterMachine(m *metal.Machine, networks metal.NetworkMap, ips metal
 	}
 
 	for _, i := range ips[m.Allocation.Project] {
-		if private != nil && private.ContainsIP(i.IPAddress) {
-			continue
-		}
 		if underlay != nil && underlay.ContainsIP(i.IPAddress) {
 			continue
 		}
@@ -494,7 +501,7 @@ func makeBGPFilterMachine(m *metal.Machine, networks metal.NetworkMap, ips metal
 
 	return &apiv2.BGPFilter{
 		Cidrs: compactedCidrs,
-		Vnis:  vnis,
+		Vnis:  []string{},
 	}, nil
 }
 
