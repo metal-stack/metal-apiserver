@@ -58,6 +58,7 @@ func New(log *slog.Logger, opts r.ConnectOpts, dsOpts ...dataStoreOption) (*data
 	ds.fsl = newStorage[*metal.FilesystemLayout](ds, "filesystemlayout")
 	ds.image = newStorage[*metal.Image](ds, "image")
 	ds.event = newStorage[*metal.ProvisioningEventContainer](ds, "event")
+	ds.sw = newStorage[*metal.Switch](ds, "switch")
 
 	var (
 		vrfMin = uint(1)
