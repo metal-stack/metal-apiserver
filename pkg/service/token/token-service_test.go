@@ -799,6 +799,101 @@ func Test_validateTokenCreate(t *testing.T) {
 	}
 }
 
+func Test_validateTokenCreateForMachineAndInfra(t *testing.T) {
+	servicePermissions := permissions.GetServicePermissions()
+	inOneHour := durationpb.New(time.Hour)
+	tests := []struct {
+		name           string
+		token          *apiv2.Token
+		req            *apiv2.TokenServiceCreateRequest
+		adminSubjects  []string
+		wantErr        bool
+		wantErrMessage string
+	}{
+		// MachineRoles granted from pixie
+		{
+			name: "pixie creates a token for metal-hammer with admin rights",
+			adminSubjects: []string{
+				"company-a@github",
+			},
+			token: &apiv2.Token{
+				User:      "company-a@github",
+				AdminRole: apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "i want to act as metal-hammer for machine de240964-ff9f-4e3d-95b2-8a96e43788f1",
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+				Expires: inOneHour,
+			},
+			wantErr: false,
+		},
+		{
+			name: "pixie creates a token for metal-hammer with only enough rights",
+			adminSubjects: []string{
+				"company-a@github",
+			},
+			token: &apiv2.Token{
+				User: "pixie@github",
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "*",
+						Methods: []string{"ack.api.v2.TokenService/Create"},
+					},
+				},
+				MachineRoles: map[string]apiv2.MachineRole{
+					"*": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "i want to act as metal-hammer for machine de240964-ff9f-4e3d-95b2-8a96e43788f1",
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+				Expires: inOneHour,
+			},
+			wantErr: false,
+		},
+		{
+			name: "pixie creates a token for metal-hammer with wrong subject rights",
+			adminSubjects: []string{
+				"company-a@github",
+			},
+			token: &apiv2.Token{
+				User: "pixie@github",
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "non-existing-machine",
+						Methods: []string{"ack.api.v2.TokenService/Create"},
+					},
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "i want to act as metal-hammer for machine de240964-ff9f-4e3d-95b2-8a96e43788f1",
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+				Expires: inOneHour,
+			},
+			wantErr:        true,
+			wantErrMessage: "requested machine uuid: \"de240964-ff9f-4e3d-95b2-8a96e43788f1\" is not allowed",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateTokenCreate(tt.token, tt.req, servicePermissions, tt.adminSubjects)
+			if err != nil && !tt.wantErr {
+				t.Errorf("validateTokenCreate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if err != nil && tt.wantErrMessage != err.Error() {
+				t.Errorf("validateTokenCreate() error.Error = %s, wantErrMsg %s", err.Error(), tt.wantErrMessage)
+			}
+		})
+	}
+}
+
 func Test_Update(t *testing.T) {
 	type state struct {
 		adminSubjects []string

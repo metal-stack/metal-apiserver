@@ -426,12 +426,23 @@ func validateTokenCreate(currentToken *apiv2.Token, req *apiv2.TokenServiceCreat
 		tokenPermissionsMap = method.PermissionsBySubject(currentToken)
 		tokenProjectRoles   = currentToken.ProjectRoles
 		tokenTenantRoles    = currentToken.TenantRoles
+		tokenMachineRoles   = currentToken.MachineRoles
+		tokenInfraRoles     = currentToken.InfraRoles
 
 		requestedProjectRoles = req.ProjectRoles
 		requestedTenantRoles  = req.TenantRoles
+		requestedMachineRoles = req.MachineRoles
+		requestedInfraRoles   = req.InfraRoles
 		requestedAdminRole    = req.AdminRole
 		requestedPermissions  = req.Permissions
 	)
+
+	isAdmin := func() bool {
+		if slices.Contains(adminIDs, currentToken.User) && currentToken.AdminRole != nil {
+			return true
+		}
+		return false
+	}()
 
 	// First check all requested permissions are defined in servicePermissions
 
@@ -449,7 +460,7 @@ func validateTokenCreate(currentToken *apiv2.Token, req *apiv2.TokenServiceCreat
 
 		// If admin skip this checks
 		// FIXME is this correct
-		if slices.Contains(adminIDs, currentToken.User) && currentToken.AdminRole != nil {
+		if isAdmin {
 			continue
 		}
 
@@ -528,6 +539,62 @@ func validateTokenCreate(currentToken *apiv2.Token, req *apiv2.TokenServiceCreat
 		// OWNER has the lowest index
 		if reqRole < tenantRole {
 			return fmt.Errorf("requested role: %q is higher than allowed role: %q", reqRole.String(), tenantRole.String())
+		}
+	}
+
+	for reqMachineUUID, reqRole := range requestedMachineRoles {
+		if reqRole == apiv2.MachineRole_MACHINE_ROLE_UNSPECIFIED {
+			return fmt.Errorf("requested machine role: %q is not allowed", reqRole.String())
+		}
+
+		if isAdmin {
+			continue
+		}
+
+		machineRole, okAny := tokenMachineRoles["*"]
+		if okAny {
+			// OWNER has the lowest index
+			if reqRole < machineRole {
+				return fmt.Errorf("requested role: %q is higher than allowed role: %q", reqRole.String(), machineRole.String())
+			}
+			continue
+		}
+		machineRole, ok := tokenMachineRoles[reqMachineUUID]
+		if !ok {
+			return fmt.Errorf("requested machine uuid: %q is not allowed", reqMachineUUID)
+		}
+
+		// OWNER has the lowest index
+		if reqRole < machineRole {
+			return fmt.Errorf("requested role: %q is higher than allowed role: %q", reqRole.String(), machineRole.String())
+		}
+	}
+
+	for reqService, reqRole := range requestedInfraRoles {
+		if reqRole == apiv2.InfraRole_INFRA_ROLE_UNSPECIFIED {
+			return fmt.Errorf("requested infra role: %q is not allowed", reqRole.String())
+		}
+
+		if isAdmin {
+			continue
+		}
+
+		infraRole, okAny := tokenInfraRoles["*"]
+		if okAny {
+			// OWNER has the lowest index
+			if reqRole < infraRole {
+				return fmt.Errorf("requested role: %q is higher than allowed role: %q", reqRole.String(), infraRole.String())
+			}
+			continue
+		}
+		infraRole, ok := tokenInfraRoles[reqService]
+		if !ok {
+			return fmt.Errorf("requested service: %q is not allowed", reqService)
+		}
+
+		// OWNER has the lowest index
+		if reqRole < infraRole {
+			return fmt.Errorf("requested role: %q is higher than allowed role: %q", reqRole.String(), infraRole.String())
 		}
 	}
 
