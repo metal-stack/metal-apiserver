@@ -879,6 +879,45 @@ func Test_validateTokenCreateForMachineAndInfra(t *testing.T) {
 			wantErr:        true,
 			wantErrMessage: "requested machine uuid: \"de240964-ff9f-4e3d-95b2-8a96e43788f1\" is not allowed",
 		},
+		// Infra Role
+		{
+			name: "ansible creates a token for pixie with only enough rights",
+			adminSubjects: []string{
+				"company-a@github",
+			},
+			token: &apiv2.Token{
+				User: "ansible@metal-stack.io",
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "*",
+						Methods: []string{"ack.api.v2.TokenService/Create"},
+					},
+				},
+				MachineRoles: map[string]apiv2.MachineRole{
+					"*": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+				InfraRoles: map[string]apiv2.InfraRole{
+					"*": apiv2.InfraRole_INFRA_ROLE_EDITOR,
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "i want to act as pixiecore",
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "*",
+						Methods: []string{"ack.api.v2.TokenService/Create"},
+					},
+				},
+				MachineRoles: map[string]apiv2.MachineRole{
+					"*": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+				InfraRoles: map[string]apiv2.InfraRole{
+					"pixie@github": apiv2.InfraRole(apiv2.InfraRole_INFRA_ROLE_EDITOR),
+				},
+				Expires: inOneHour,
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
