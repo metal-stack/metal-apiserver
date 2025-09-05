@@ -25,6 +25,7 @@ type (
 		network   *storage[*metal.Network]
 		fsl       *storage[*metal.FilesystemLayout]
 		image     *storage[*metal.Image]
+		sw        *storage[*metal.Switch]
 
 		asnPool *integerPool
 		vrfPool *integerPool
@@ -57,6 +58,7 @@ func New(log *slog.Logger, opts r.ConnectOpts, dsOpts ...dataStoreOption) (*data
 	ds.fsl = newStorage[*metal.FilesystemLayout](ds, "filesystemlayout")
 	ds.image = newStorage[*metal.Image](ds, "image")
 	ds.event = newStorage[*metal.ProvisioningEventContainer](ds, "event")
+	ds.sw = newStorage[*metal.Switch](ds, "switch")
 
 	var (
 		vrfMin = uint(1)
@@ -125,6 +127,10 @@ func (ds *datastore) FilesystemLayout() Storage[*metal.FilesystemLayout] {
 
 func (ds *datastore) Image() Storage[*metal.Image] {
 	return ds.image
+}
+
+func (ds *datastore) Switch() Storage[*metal.Switch] {
+	return ds.sw
 }
 
 func (ds *datastore) Event() Storage[*metal.ProvisioningEventContainer] {

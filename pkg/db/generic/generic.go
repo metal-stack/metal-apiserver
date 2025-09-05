@@ -50,6 +50,7 @@ type (
 		Network() Storage[*metal.Network]
 		FilesystemLayout() Storage[*metal.FilesystemLayout]
 		Image() Storage[*metal.Image]
+		Switch() Storage[*metal.Switch]
 		Event() Storage[*metal.ProvisioningEventContainer]
 
 		// sizeimageConstraint Storage[*metal.SizeImageConstraint]
