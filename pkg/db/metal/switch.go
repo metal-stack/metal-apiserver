@@ -177,6 +177,7 @@ func ToMetalNics(switchNics []*apiv2.SwitchNic) (Nics, error) {
 		}
 
 		nics = append(nics, Nic{
+			// TODO: what about hostname and neighbors?
 			Name:       nic.Name,
 			Identifier: nic.Identifier,
 			MacAddress: nic.Mac,
