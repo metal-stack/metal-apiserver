@@ -918,6 +918,42 @@ func Test_validateTokenCreateForMachineAndInfra(t *testing.T) {
 			},
 			wantErr: false,
 		},
+
+		{
+			name: "ansible creates a token for metal-core with only enough rights",
+			adminSubjects: []string{
+				"company-a@github",
+			},
+			token: &apiv2.Token{
+				User: "ansible@metal-stack.io",
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "*",
+						Methods: []string{"ack.api.v2.TokenService/Create"},
+					},
+				},
+				MachineRoles: map[string]apiv2.MachineRole{
+					"*": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+				InfraRoles: map[string]apiv2.InfraRole{
+					"*": apiv2.InfraRole_INFRA_ROLE_EDITOR,
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "i want to act as metal-core on switch-1",
+				MachineRoles: map[string]apiv2.MachineRole{
+					// Must be able to send events of all machines, e.g. phoned-home etc.
+					"*": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+				InfraRoles: map[string]apiv2.InfraRole{
+					// Must be able to get switch, report switch etc.
+					"switch-1":                  apiv2.InfraRole(apiv2.InfraRole_INFRA_ROLE_EDITOR),
+					"metal-core@metal-stack.io": apiv2.InfraRole(apiv2.InfraRole_INFRA_ROLE_EDITOR),
+				},
+				Expires: inOneHour,
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
