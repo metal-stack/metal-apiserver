@@ -11,6 +11,7 @@ import (
 	"connectrpc.com/connect"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 
 	"github.com/metal-stack/api/go/client"
@@ -212,6 +213,86 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 				Tenant:  "",
 				Issuer:  "",
 				Subject: "user@github",
+			},
+		},
+		{
+			name: "machine register request",
+			reqFn: func(ctx context.Context, c client.Client) error {
+				_, err := c.Infrav2().Boot().Register(ctx, connect.NewRequest(&infrav2.BootServiceRegisterRequest{
+					Uuid: "7c042d8c-2ee1-4c71-b4e9-82953fb9bd94",
+				}))
+				return err
+			},
+			token: &apiv2.Token{
+				User: "7c042d8c-2ee1-4c71-b4e9-82953fb9bd94@metal-stack.dev",
+			},
+			method:  "/metalstack.infra.v2.BootService/Register",
+			handler: handler[infrav2.BootServiceRegisterRequest, infrav2.BootServiceRegisterResponse](),
+			existingTenants: []*apiv2.TenantServiceCreateRequest{
+				{
+					Name:  "user@github",
+					Email: pointer.Pointer("mail@github"),
+				},
+			},
+			wantUser: &security.User{
+				EMail:   "",
+				Name:    "7c042d8c-2ee1-4c71-b4e9-82953fb9bd94@metal-stack.dev",
+				Tenant:  "",
+				Issuer:  "",
+				Subject: "7c042d8c-2ee1-4c71-b4e9-82953fb9bd94",
+			},
+		},
+		{
+			name: "pixie sends a machine boot request",
+			reqFn: func(ctx context.Context, c client.Client) error {
+				_, err := c.Infrav2().Boot().Boot(ctx, connect.NewRequest(&infrav2.BootServiceBootRequest{}))
+				return err
+			},
+			token: &apiv2.Token{
+				User: "pixiecore@metal-stack.dev",
+			},
+			method:  "/metalstack.infra.v2.BootService/Boot",
+			handler: handler[infrav2.BootServiceBootRequest, infrav2.BootServiceBootResponse](),
+			existingTenants: []*apiv2.TenantServiceCreateRequest{
+				{
+					Name:  "user@github",
+					Email: pointer.Pointer("mail@github"),
+				},
+			},
+			wantUser: &security.User{
+				EMail:   "",
+				Name:    "pixiecore@metal-stack.dev",
+				Tenant:  "",
+				Issuer:  "",
+				Subject: "pixiecore@metal-stack.dev",
+			},
+		},
+		{
+			name: "pixie sends a machine dhcp request",
+			reqFn: func(ctx context.Context, c client.Client) error {
+				_, err := c.Infrav2().Boot().Dhcp(ctx, connect.NewRequest(&infrav2.BootServiceDhcpRequest{
+					Uuid:      "7c042d8c-2ee1-4c71-b4e9-82953fb9bd94",
+					Partition: "partition-1",
+				}))
+				return err
+			},
+			token: &apiv2.Token{
+				User: "pixiecore@metal-stack.dev",
+			},
+			method:  "/metalstack.infra.v2.BootService/Dhcp",
+			handler: handler[infrav2.BootServiceDhcpRequest, infrav2.BootServiceDhcpResponse](),
+			existingTenants: []*apiv2.TenantServiceCreateRequest{
+				{
+					Name:  "user@github",
+					Email: pointer.Pointer("mail@github"),
+				},
+			},
+			wantUser: &security.User{
+				EMail:   "",
+				Name:    "pixiecore@metal-stack.dev",
+				Tenant:  "",
+				Issuer:  "",
+				Subject: "pixiecore@metal-stack.dev",
 			},
 		},
 	}

@@ -85,7 +85,9 @@ func TestRedisStoreSetAndGet(t *testing.T) {
 			"bar@github": v1.TenantRole_TENANT_ROLE_EDITOR,
 			"42@github":  v1.TenantRole_TENANT_ROLE_VIEWER,
 		},
-		AdminRole: pointer.Pointer(v1.AdminRole_ADMIN_ROLE_VIEWER),
+		MachineRoles: map[string]v1.MachineRole{},
+		InfraRoles:   map[string]v1.InfraRole{},
+		AdminRole:    pointer.Pointer(v1.AdminRole_ADMIN_ROLE_VIEWER),
 	}
 
 	err := store.Set(ctx, inTok)
