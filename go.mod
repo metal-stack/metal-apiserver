@@ -12,6 +12,7 @@ require (
 	github.com/alicebob/miniredis/v2 v2.35.0
 	github.com/avast/retry-go/v4 v4.6.1
 	github.com/cockroachdb/cockroach-go/v2 v2.4.2
+	github.com/dustin/go-humanize v1.0.1
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
@@ -23,9 +24,10 @@ require (
 	github.com/klauspost/connect-compress/v2 v2.0.0
 	github.com/lestrrat-go/jwx/v2 v2.1.6
 	github.com/markbates/goth v1.82.0
-	github.com/metal-stack/api v0.0.19-0.20250904131559-9ae58eb28886
+	github.com/metal-stack/api v0.0.19-0.20250906123650-7052ad1d6253
 	github.com/metal-stack/go-ipam v1.14.13
 	github.com/metal-stack/masterdata-api v0.12.0
+	github.com/metal-stack/metal-api v0.42.3
 	github.com/metal-stack/metal-lib v0.23.4
 	github.com/metal-stack/security v0.9.4
 	github.com/metal-stack/v v1.0.3

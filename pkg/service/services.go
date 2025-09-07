@@ -15,6 +15,7 @@ import (
 	"connectrpc.com/validate"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
+	"github.com/metal-stack/api/go/metalstack/infra/v2/infrav2connect"
 	"github.com/metal-stack/api/go/permissions"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	mdm "github.com/metal-stack/masterdata-api/pkg/client"
@@ -25,6 +26,7 @@ import (
 	ratelimiter "github.com/metal-stack/metal-apiserver/pkg/rate-limiter"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	authservice "github.com/metal-stack/metal-apiserver/pkg/service/auth"
+	"github.com/metal-stack/metal-apiserver/pkg/service/boot"
 	"github.com/metal-stack/metal-apiserver/pkg/service/filesystem"
 	filesystemadmin "github.com/metal-stack/metal-apiserver/pkg/service/filesystem/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/health"
@@ -120,7 +122,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	}
 
 	var (
-		logInteceptor        = newLogRequestInterceptor(log)
+		logInterceptor       = newLogRequestInterceptor(log)
 		tenantInterceptor    = tenant.NewInterceptor(log, c.MasterClient)
 		ratelimitInterceptor = ratelimiter.NewInterceptor(&ratelimiter.Config{
 			Log:                                 log,
@@ -130,8 +132,8 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 		})
 	)
 
-	allInterceptors := []connect.Interceptor{metricsInterceptor, logInteceptor, authz, ratelimitInterceptor, validationInterceptor, tenantInterceptor}
-	allAdminInterceptors := []connect.Interceptor{metricsInterceptor, logInteceptor, authz, validationInterceptor, tenantInterceptor}
+	allInterceptors := []connect.Interceptor{metricsInterceptor, logInterceptor, authz, ratelimitInterceptor, validationInterceptor, tenantInterceptor}
+	allAdminInterceptors := []connect.Interceptor{metricsInterceptor, logInterceptor, authz, validationInterceptor, tenantInterceptor}
 	if c.Auditing != nil {
 		servicePermissions := permissions.GetServicePermissions()
 		shouldAudit := func(fullMethod string) bool {
@@ -234,6 +236,10 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	mux.Handle(adminv2connect.NewTenantServiceHandler(adminTenantService, adminInterceptors))
 	mux.Handle(adminv2connect.NewNetworkServiceHandler(adminNetworkService, adminInterceptors))
 	mux.Handle(adminv2connect.NewMachineServiceHandler(adminMachineService, adminInterceptors))
+
+	// Infra services, we use adminInterceptors to prevent rate limiting
+	bootService := boot.New(boot.Config{Log: log, Repo: c.Repository})
+	mux.Handle(infrav2connect.NewBootServiceHandler(bootService, adminInterceptors))
 
 	allServiceNames := permissions.GetServices()
 	// Static HealthCheckers
