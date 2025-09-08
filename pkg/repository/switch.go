@@ -341,7 +341,7 @@ func (r *switchRepository) toSwitchNics(nics metal.Nics, connections metal.Conne
 			Name:       nic.Name,
 			Identifier: nic.Identifier,
 			Mac:        nic.MacAddress,
-			Vrf:        new(string),
+			Vrf:        nic.Vrf,
 			State: &apiv2.NicState{
 				Desired: desiredState,
 				Actual:  actualState,
@@ -399,7 +399,7 @@ func updateNics(old, new metal.Nics) metal.Nics {
 }
 
 func makeBGPFilter(m *metal.Machine, vrf *string, networks []*metal.Network, ips []*metal.IP) (*apiv2.BGPFilter, error) {
-	if m.Allocation == nil {
+	if m == nil || m.Allocation == nil {
 		return &apiv2.BGPFilter{}, nil
 	}
 

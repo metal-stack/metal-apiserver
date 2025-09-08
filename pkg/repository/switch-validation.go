@@ -24,6 +24,7 @@ func (r *switchRepository) validateCreate(ctx context.Context, req *SwitchServic
 	sw, err := r.convertToInternal(req.Switch)
 	if err != nil {
 		errs = append(errs, err)
+		return errorutil.NewInvalidArgument(errors.Join(errs...))
 	}
 
 	err = checkDuplicateNics(sw.Nics)
@@ -43,7 +44,7 @@ func (r *switchRepository) validateUpdate(ctx context.Context, req *adminv2.Swit
 
 	sw, err := r.s.ds.Switch().Get(ctx, req.Id)
 	if err != nil {
-		errs = append(errs, err)
+		return errorutil.Convert(err)
 	}
 
 	_, err = r.s.ds.Partition().Get(ctx, sw.Partition)
@@ -51,12 +52,14 @@ func (r *switchRepository) validateUpdate(ctx context.Context, req *adminv2.Swit
 		errs = append(errs, err)
 	}
 
-	reqOSVendor, err := metal.ToSwitchOSVendor(req.Os.Vendor)
-	if err != nil {
-		errs = append(errs, err)
-	}
-	if reqOSVendor != sw.OS.Vendor {
-		errs = append(errs, fmt.Errorf("cannot update switch os vendor from %s to %s, use replace instead", reqOSVendor, sw.OS.Vendor))
+	if req.Os != nil {
+		reqOSVendor, err := metal.ToSwitchOSVendor(req.Os.Vendor)
+		if err != nil {
+			errs = append(errs, err)
+		}
+		if reqOSVendor != sw.OS.Vendor {
+			errs = append(errs, fmt.Errorf("cannot update switch os vendor from %s to %s, use replace instead", sw.OS.Vendor, reqOSVendor))
+		}
 	}
 
 	err = checkDuplicateNics(sw.Nics)

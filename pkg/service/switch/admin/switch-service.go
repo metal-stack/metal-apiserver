@@ -3,6 +3,8 @@ package admin
 import (
 	"context"
 	"log/slog"
+	"slices"
+	"strings"
 
 	"connectrpc.com/connect"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
@@ -57,6 +59,10 @@ func (s *switchServiceServer) List(ctx context.Context, rq *connect.Request[admi
 		}
 		res = append(res, converted)
 	}
+
+	slices.SortFunc(res, func(s1, s2 *apiv2.Switch) int {
+		return strings.Compare(s1.Id, s2.Id)
+	})
 
 	return connect.NewResponse(&adminv2.SwitchServiceListResponse{Switches: res}), nil
 }

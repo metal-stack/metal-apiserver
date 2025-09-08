@@ -439,3 +439,10 @@ func CreateSizes(t *testing.T, repo *repository.Store, sizes []*adminv2.SizeServ
 		require.NoError(t, err)
 	}
 }
+
+func CreateSwitches(t *testing.T, store *repository.Store, switches []*repository.SwitchServiceCreateRequest) {
+	for _, sw := range switches {
+		_, err := store.Switch().Create(t.Context(), sw)
+		require.NoError(t, err)
+	}
+}
