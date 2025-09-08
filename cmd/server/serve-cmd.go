@@ -1,13 +1,11 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
 	"testing"
-	"time"
 
 	"connectrpc.com/connect"
 	"github.com/alicebob/miniredis/v2"
@@ -169,19 +167,19 @@ func newServeCmd() *cli.Command {
 
 // createMasterdataClient creates a client to the masterdata-api
 func createMasterdataClient(cli *cli.Context, log *slog.Logger) (mdm.Client, error) {
-	ctx, cancel := context.WithTimeout(cli.Context, 3*time.Second)
-	defer cancel()
+	const masterdataNamespace = "metal-stack.io"
 
-	client, err := mdm.NewClient(ctx,
-		cli.String(masterdataApiHostnameFlag.Name),
-		cli.Int(masterdataApiPortFlag.Name),
-		cli.String(masterdataApiCertPathFlag.Name),
-		cli.String(masterdataApiCertKeyPathFlag.Name),
-		cli.String(masterdataApiCAPathFlag.Name),
-		cli.String(masterdataApiHmacFlag.Name),
-		false, // TLSSkipInsecure
-		log.WithGroup("masterdata-client"),
-	)
+	client, err := mdm.NewClient(&mdm.Config{
+		Logger:    log.WithGroup("masterdata-client"),
+		Hostname:  cli.String(masterdataApiHostnameFlag.Name),
+		Port:      cli.Uint(masterdataApiPortFlag.Name),
+		CertFile:  cli.String(masterdataApiCertPathFlag.Name),
+		KeyFile:   cli.String(masterdataApiCertKeyPathFlag.Name),
+		CaFile:    cli.String(masterdataApiCAPathFlag.Name),
+		Insecure:  false,
+		HmacKey:   cli.String(masterdataApiHmacFlag.Name),
+		Namespace: masterdataNamespace,
+	})
 	if err != nil {
 		return nil, err
 	}

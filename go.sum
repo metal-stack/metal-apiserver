@@ -315,8 +315,8 @@ github.com/metal-stack/api v0.0.18 h1:zOaU7Q0PJgvpgWZtWtQHLHnZQ6GRb70t8IprbFSVML
 github.com/metal-stack/api v0.0.18/go.mod h1:z3DWiuc85eAINClNVp7/4uBbhClYDdSLihynXPzEiBw=
 github.com/metal-stack/go-ipam v1.14.12 h1:yb9mZ7FGKaaPeiSe4X6BLrGquuw9WPoxCSSDzSx+/fY=
 github.com/metal-stack/go-ipam v1.14.12/go.mod h1:B6R3ADxm1r5C1DJafhI90oB3+DRRby076yS9QQ664oY=
-github.com/metal-stack/masterdata-api v0.12.0 h1:8EZmf/A+GMVpShYvYDJ3YmPoK0MmqsWtzef9y1wRRwo=
-github.com/metal-stack/masterdata-api v0.12.0/go.mod h1:w12kbaV8wmf+/8j7JLWUNDsv6/l8sh6F9OYYYi09hDU=
+github.com/metal-stack/masterdata-api v0.12.1-0.20250911071958-2af1307e06f0 h1:Dla829Dcv06XKwG9YD8LhdVnR6FaDO9deoIN9RtLrsU=
+github.com/metal-stack/masterdata-api v0.12.1-0.20250911071958-2af1307e06f0/go.mod h1:oOFiWkj5UuXSBj3LXT+sPOtHq78gUY07WWuVV4Ty98U=
 github.com/metal-stack/metal-lib v0.23.4 h1:/xvCpgfvkGM8kdF0C3+mP7WGl0wiwU33MKG2UGIDXA8=
 github.com/metal-stack/metal-lib v0.23.4/go.mod h1:Q0GXBtKJ5ycqtwGYtWI7NFKdGo0+q7TLGnstgfUwBCQ=
 github.com/metal-stack/security v0.9.4 h1:qgB4Yx48Wgi57a/ePWE1gdUn4RjilVySQAFRVIoPKBU=
@@ -492,8 +492,8 @@ go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.37.0 h1:Ahq7pZmv87yiyn3jeFz
 go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.37.0/go.mod h1:MJTqhM0im3mRLw1i8uGHnCvUEeS7VwRyxlLC78PA18M=
 go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.37.0 h1:EtFWSnwW9hGObjkIdmlnWSydO+Qs8OwzfzXLUPg4xOc=
 go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.37.0/go.mod h1:QjUEoiGCPkvFZ/MjK6ZZfNOS6mfVEVKYE99dFhuN2LI=
-go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.37.0 h1:bDMKF3RUSxshZ5OjOTi8rsHGaPKsAt76FaqgvIUySLc=
-go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.37.0/go.mod h1:dDT67G/IkA46Mr2l9Uj7HsQVwsjASyV9SjGofsiUZDA=
+go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.38.0 h1:aTL7F04bJHUlztTsNGJ2l+6he8c+y/b//eR0jjjemT4=
+go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.38.0/go.mod h1:kldtb7jDTeol0l3ewcmd8SDvx3EmIE7lyvqbasU3QC4=
 go.opentelemetry.io/otel/exporters/prometheus v0.60.0 h1:cGtQxGvZbnrWdC2GyjZi0PDKVSLWP/Jocix3QWfXtbo=
 go.opentelemetry.io/otel/exporters/prometheus v0.60.0/go.mod h1:hkd1EekxNo69PTV4OWFGZcKQiIqg0RfuWExcPKFvepk=
 go.opentelemetry.io/otel/metric v1.38.0 h1:Kl6lzIYGAh5M159u9NgiRkmoMKjvbsKtYRwgfrA6WpA=

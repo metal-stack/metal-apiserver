@@ -79,7 +79,7 @@ var (
 		Value: "localhost",
 		Usage: "masterdata-api hostname",
 	}
-	masterdataApiPortFlag = &cli.IntFlag{
+	masterdataApiPortFlag = &cli.UintFlag{
 		Name:  "masterdata-api-port",
 		Value: 50051,
 		Usage: "masterdata-api port",

@@ -71,6 +71,7 @@ func StartMasterdataWithCockroach(t *testing.T, log *slog.Logger) (mdc.Client, *
 		"passthrough:///bufnet",
 		grpc.WithContextDialer(dialer.bufDialer),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		mdc.NamespaceInterceptor("metal-stack.io"),
 	)
 	require.NoError(t, err)
 
@@ -125,6 +126,7 @@ func StartMasterdataInMemory(t *testing.T, log *slog.Logger) (mdc.Client, *grpc.
 		"passthrough:///bufnet",
 		grpc.WithContextDialer(dialer.bufDialer),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		mdc.NamespaceInterceptor("metal-stack.io"),
 	)
 	require.NoError(t, err)
 
