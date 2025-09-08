@@ -59,12 +59,12 @@ func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServ
 
 	updateReq := &adminv2.SwitchServiceUpdateRequest{
 		Id:             new.Id,
-		Description:    &new.Description,
+		Description:    pointer.PointerOrNil(new.Description),
 		RackId:         new.Rack,
-		ReplaceMode:    &new.ReplaceMode,
-		ManagementIp:   &new.ManagementIp,
-		ManagementUser: &new.ManagementUser,
-		ConsoleCommand: &new.ConsoleCommand,
+		ReplaceMode:    pointer.PointerOrNil(new.ReplaceMode),
+		ManagementIp:   pointer.PointerOrNil(new.ManagementIp),
+		ManagementUser: pointer.PointerOrNil(new.ManagementUser),
+		ConsoleCommand: pointer.PointerOrNil(new.ConsoleCommand),
 		Nics:           new.Nics,
 		Os:             new.Os,
 	}
@@ -257,7 +257,7 @@ func (r *switchRepository) convertToProto(sw *metal.Switch) (*apiv2.Switch, erro
 	return &apiv2.Switch{
 		Id:             sw.ID,
 		Description:    sw.Description,
-		Rack:           &sw.RackID,
+		Rack:           pointer.PointerOrNil(sw.RackID),
 		Partition:      sw.Partition,
 		ReplaceMode:    replaceMode,
 		ManagementIp:   sw.ManagementIP,
