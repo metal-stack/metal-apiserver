@@ -261,8 +261,8 @@ func (r *imageRepository) convertToProto(in *metal.Image) (*apiv2.Image, error) 
 		Name:        &in.Name,
 		Description: &in.Description,
 		Meta: &apiv2.Meta{
-			CreatedAt: timestamppb.New(in.Created),
-			UpdatedAt: timestamppb.New(in.Changed),
+			CreatedAt: timestamppb.New(in.GetCreated()),
+			UpdatedAt: timestamppb.New(in.GetChanged()),
 		},
 		Url:            in.URL,
 		Features:       features,

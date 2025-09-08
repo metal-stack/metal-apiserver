@@ -28,17 +28,7 @@ func (b *Base) GetChanged() time.Time {
 	return b.Changed
 }
 
-// SetChanged sets the last changed timestamp of the entity
-func (b *Base) SetChanged(changed time.Time) {
-	b.Changed = changed
-}
-
 // GetCreated returns the creation timestamp of the entity
 func (b *Base) GetCreated() time.Time {
 	return b.Created
-}
-
-// SetCreated sets the creation timestamp of the entity
-func (b *Base) SetCreated(created time.Time) {
-	b.Created = created
 }

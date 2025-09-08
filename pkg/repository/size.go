@@ -177,8 +177,8 @@ func (r *sizeRepository) convertToProto(e *metal.Size) (*apiv2.Size, error) {
 		Constraints: constraints,
 		Meta: &apiv2.Meta{
 			Labels:    labels,
-			CreatedAt: timestamppb.New(e.Created),
-			UpdatedAt: timestamppb.New(e.Changed),
+			CreatedAt: timestamppb.New(e.GetCreated()),
+			UpdatedAt: timestamppb.New(e.GetChanged()),
 		},
 	}
 

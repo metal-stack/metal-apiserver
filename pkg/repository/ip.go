@@ -321,8 +321,8 @@ func (r *ipRepository) convertToProto(metalIP *metal.IP) (*apiv2.IP, error) {
 		Type:        t,
 		Meta: &apiv2.Meta{
 			Labels:    labels,
-			CreatedAt: timestamppb.New(metalIP.Created),
-			UpdatedAt: timestamppb.New(metalIP.Changed),
+			CreatedAt: timestamppb.New(metalIP.GetCreated()),
+			UpdatedAt: timestamppb.New(metalIP.GetChanged()),
 		},
 	}
 	return ip, nil

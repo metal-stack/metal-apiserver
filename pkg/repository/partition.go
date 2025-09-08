@@ -6,12 +6,14 @@ import (
 	"net"
 	"net/netip"
 	"regexp"
+	"time"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -152,14 +154,22 @@ func (p *partitionRepository) get(ctx context.Context, id string) (*metal.Partit
 
 // Update implements Partition.
 func (p *partitionRepository) update(ctx context.Context, e *metal.Partition, req *adminv2.PartitionServiceUpdateRequest) (*metal.Partition, error) {
+	oldPartition, err := p.s.ds.Partition().Get(ctx, req.Partition.Id)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
 	partition := req.Partition
+	if partition.Meta == nil {
+		partition.Meta = &apiv2.Meta{}
+	}
+	partition.Meta.CreatedAt = timestamppb.New(oldPartition.GetCreated())
+	partition.Meta.UpdatedAt = timestamppb.New(oldPartition.GetChanged())
 
 	new, err := p.convertToInternal(partition)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-
-	new.SetChanged(e.Changed)
 
 	err = p.s.ds.Partition().Update(ctx, new)
 	if err != nil {
@@ -199,9 +209,21 @@ func (p *partitionRepository) convertToInternal(msg *apiv2.Partition) (*metal.Pa
 		// FIXME migrate metal model to slice as well
 		mgm = msg.MgmtServiceAddresses[0]
 	}
-	var labels map[string]string
-	if msg.Meta != nil && msg.Meta.Labels != nil {
-		labels = msg.Meta.Labels.Labels
+	var (
+		labels    map[string]string
+		createdAt time.Time
+		updatedAt time.Time
+	)
+	if msg.Meta != nil {
+		if msg.Meta.Labels != nil {
+			labels = msg.Meta.Labels.Labels
+		}
+		if msg.Meta.CreatedAt != nil {
+			createdAt = msg.Meta.CreatedAt.AsTime()
+		}
+		if msg.Meta.UpdatedAt != nil {
+			updatedAt = msg.Meta.UpdatedAt.AsTime()
+		}
 	}
 
 	var (
@@ -224,6 +246,8 @@ func (p *partitionRepository) convertToInternal(msg *apiv2.Partition) (*metal.Pa
 			ID:          msg.Id,
 			Name:        msg.Id,
 			Description: msg.Description,
+			Created:     createdAt,
+			Changed:     updatedAt,
 		},
 		MgmtServiceAddress: mgm,
 		BootConfiguration: metal.BootConfiguration{
@@ -256,9 +280,14 @@ func (p *partitionRepository) convertToProto(e *metal.Partition) (*apiv2.Partiti
 		})
 	}
 
-	meta := &apiv2.Meta{}
+	meta := &apiv2.Meta{
+		CreatedAt: timestamppb.New(e.GetCreated()),
+		UpdatedAt: timestamppb.New(e.GetChanged()),
+	}
 	if e.Labels != nil {
-		meta.Labels = &apiv2.Labels{Labels: e.Labels}
+		meta.Labels = &apiv2.Labels{
+			Labels: e.Labels,
+		}
 	}
 
 	partition := &apiv2.Partition{

@@ -450,8 +450,8 @@ func (r *networkRepository) convertToProto(e *metal.Network) (*apiv2.Network, er
 		AdditionalAnnouncableCidrs: e.AdditionalAnnouncableCIDRs,
 		Meta: &apiv2.Meta{
 			Labels:    labels,
-			CreatedAt: timestamppb.New(e.Created),
-			UpdatedAt: timestamppb.New(e.Changed),
+			CreatedAt: timestamppb.New(e.GetCreated()),
+			UpdatedAt: timestamppb.New(e.GetChanged()),
 		},
 		NatType:                  natType,
 		DefaultChildPrefixLength: defaultChildPrefixLength,

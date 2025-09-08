@@ -434,8 +434,8 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 	result := &apiv2.Machine{
 		Uuid: m.ID,
 		Meta: &apiv2.Meta{
-			CreatedAt: timestamppb.New(m.Created),
-			UpdatedAt: timestamppb.New(m.Changed),
+			CreatedAt: timestamppb.New(m.GetCreated()),
+			UpdatedAt: timestamppb.New(m.GetChanged()),
 			Labels:    labels,
 		},
 		Partition:                apiv2Partition,

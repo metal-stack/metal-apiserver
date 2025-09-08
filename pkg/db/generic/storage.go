@@ -3,6 +3,7 @@ package generic
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -32,11 +33,16 @@ func newStorage[E Entity](re *datastore, tableName string) *storage[E] {
 
 // if the ID field of the entity is an empty string, the ID will be generated automatically as UUIDv7.
 func (s *storage[E]) Create(ctx context.Context, e E) (E, error) {
-	now := time.Now()
-	e.SetCreated(now)
-	e.SetChanged(now)
-
 	var zero E
+	now := time.Now()
+	err := s.setCreated(now, e)
+	if err != nil {
+		return zero, err
+	}
+	err = s.setChanged(now, e)
+	if err != nil {
+		return zero, err
+	}
 
 	// Create a uuidv7 id if an empty string is given
 	// this ensures alphabetically ordered uuids by creation date.
@@ -48,7 +54,7 @@ func (s *storage[E]) Create(ctx context.Context, e E) (E, error) {
 		e.SetID(uid.String())
 	}
 
-	_, err := s.table.Insert(e).RunWrite(s.r.queryExecutor, r.RunOpts{Context: ctx})
+	_, err = s.table.Insert(e).RunWrite(s.r.queryExecutor, r.RunOpts{Context: ctx})
 	if err != nil {
 		if r.IsConflictErr(err) {
 			return zero, errorutil.Conflict("cannot create %v in database, entity already exists: %s", s.tableName, e.GetID())
@@ -176,9 +182,12 @@ func (s *storage[E]) Update(ctx context.Context, e E) error {
 	}
 
 	changedTimestamp := e.GetChanged()
-	e.SetChanged(time.Now())
+	err := s.setChanged(time.Now(), e)
+	if err != nil {
+		return err
+	}
 
-	_, err := s.table.Get(e.GetID()).Replace(func(row r.Term) r.Term {
+	_, err = s.table.Get(e.GetID()).Replace(func(row r.Term) r.Term {
 		return r.Branch(row.Field("changed").Eq(r.Expr(changedTimestamp)), e, r.Error(entityAlreadyModifiedErrorMessage))
 	}).RunWrite(s.r.queryExecutor, r.RunOpts{Context: ctx})
 	if err != nil {
@@ -196,9 +205,15 @@ func (s *storage[E]) Update(ctx context.Context, e E) error {
 func (s *storage[E]) Upsert(ctx context.Context, e E) error {
 	now := time.Now()
 	if e.GetCreated().IsZero() {
-		e.SetCreated(now)
+		err := s.setCreated(now, e)
+		if err != nil {
+			return err
+		}
 	}
-	e.SetChanged(now)
+	err := s.setChanged(now, e)
+	if err != nil {
+		return err
+	}
 
 	res, err := s.table.Insert(e, r.InsertOpts{
 		Conflict: "replace",
@@ -218,4 +233,45 @@ func (s *storage[E]) Upsert(ctx context.Context, e E) error {
 // in order to ensure that tables, pools, permissions are properly initialized
 func (s *storage[E]) initialize(ctx context.Context) error {
 	return s.r.createTable(ctx, s.tableName)
+}
+
+func (s storage[E]) setCreated(time time.Time, e E) error {
+	return s.setTimeField("Created", time, e)
+}
+
+func (s storage[E]) setChanged(time time.Time, e E) error {
+	return s.setTimeField("Changed", time, e)
+}
+
+func (s storage[E]) setTimeField(fieldName string, desiredTime time.Time, e E) error {
+	var (
+		// pointer to struct - addressable
+		ps = reflect.ValueOf(e)
+		// struct
+		st       = ps.Elem()
+		timeKind = reflect.TypeOf(time.Time{}).Kind()
+	)
+
+	if st.Kind() == reflect.Struct {
+		// exported field
+		f := st.FieldByName(fieldName)
+		if !f.IsValid() {
+			return fmt.Errorf("%s field is no valid of:%s", fieldName, s.tableName)
+		}
+		// A Value can be changed only if it is
+		// addressable and was not obtained by
+		// the use of unexported struct fields.
+		if !f.CanSet() {
+			return fmt.Errorf("%s can not be set on:%s", fieldName, s.tableName)
+		}
+
+		// change value of N
+		switch f.Kind() {
+		case timeKind:
+			f.Set(reflect.ValueOf(desiredTime))
+		default:
+			return fmt.Errorf("time can no be set on:%s.%s", s.tableName, fieldName)
+		}
+	}
+	return nil
 }

@@ -9,6 +9,7 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type filesystemLayoutRepository struct {
@@ -97,12 +98,22 @@ func (r *filesystemLayoutRepository) create(ctx context.Context, rq *adminv2.Fil
 }
 
 func (r *filesystemLayoutRepository) update(ctx context.Context, fsl *metal.FilesystemLayout, rq *adminv2.FilesystemServiceUpdateRequest) (*metal.FilesystemLayout, error) {
-	newFsl, err := r.convertToInternal(rq.FilesystemLayout)
+	oldFsl, err := r.s.ds.FilesystemLayout().Get(ctx, rq.FilesystemLayout.Id)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	newFsl.SetChanged(fsl.Changed)
+	req := rq.FilesystemLayout
+	if req.Meta == nil {
+		req.Meta = &apiv2.Meta{}
+	}
+	req.Meta.CreatedAt = timestamppb.New(oldFsl.GetCreated())
+	req.Meta.UpdatedAt = timestamppb.New(oldFsl.GetChanged())
+
+	newFsl, err := r.convertToInternal(rq.FilesystemLayout)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
 
 	err = r.s.ds.FilesystemLayout().Update(ctx, newFsl)
 	if err != nil {
@@ -253,6 +264,14 @@ func (r *filesystemLayoutRepository) convertToInternal(f *apiv2.FilesystemLayout
 	}
 	if f.Description != nil {
 		fl.Description = *f.Description
+	}
+	if f.Meta != nil {
+		if f.Meta.CreatedAt != nil {
+			fl.Created = f.Meta.CreatedAt.AsTime()
+		}
+		if f.Meta.UpdatedAt != nil {
+			fl.Changed = f.Meta.UpdatedAt.AsTime()
+		}
 	}
 	return fl, nil
 

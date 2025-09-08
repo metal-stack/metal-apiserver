@@ -32,7 +32,7 @@ func TestGenericCRUD(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, created)
 	require.Equal(t, "1.2.3.4", created.IPAddress)
-	require.NotNil(t, created.Created)
+	require.NotNil(t, created.GetCreated())
 
 	created.Description = "Modified IP"
 	err = ds.IP().Update(ctx, created)
@@ -43,7 +43,7 @@ func TestGenericCRUD(t *testing.T) {
 	require.NotNil(t, updated)
 	require.Equal(t, "1.2.3.4", updated.IPAddress)
 	require.Equal(t, "Modified IP", updated.Description)
-	require.NotNil(t, updated.Changed)
+	require.NotNil(t, updated.GetChanged())
 
 	// Find by IP and Namespace
 	found, err := ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Ip: pointer.Pointer("1.2.3.4"), Namespace: pointer.Pointer("n1")}))
@@ -79,7 +79,7 @@ func TestGenericCRUD(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, createdMachine1)
 	require.Equal(t, "m1", createdMachine1.ID)
-	require.NotNil(t, createdMachine1.Created)
+	require.NotNil(t, createdMachine1.GetCreated())
 
 	m1, err = ds.Machine().Get(ctx, "m1")
 	require.NotNil(t, m1)
@@ -114,7 +114,7 @@ func TestFindAndListGeneric(t *testing.T) {
 	require.NotNil(t, created)
 	require.Equal(t, "1.2.3.4", created.IPAddress)
 	require.Equal(t, "p1", created.ProjectID)
-	require.NotNil(t, created.Created)
+	require.NotNil(t, created.GetCreated())
 
 	createdAlreadyExist, err := ds.IP().Create(ctx, &metal.IP{IPAddress: "1.2.3.4", ProjectID: "p1"})
 	require.Nil(t, createdAlreadyExist)
@@ -126,7 +126,7 @@ func TestFindAndListGeneric(t *testing.T) {
 	require.NotNil(t, created2)
 	require.Equal(t, "1.2.3.2", created2.IPAddress)
 	require.Equal(t, "p1", created2.ProjectID)
-	require.NotNil(t, created2.Created)
+	require.NotNil(t, created2.GetCreated())
 
 	found, err := ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Ip: pointer.Pointer("1.2.3.4"), Project: pointer.Pointer("p1")}))
 	require.NoError(t, err)
