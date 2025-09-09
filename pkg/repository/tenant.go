@@ -34,15 +34,41 @@ func (t *tenantRepository) create(ctx context.Context, rq *apiv2.TenantServiceCr
 	return t.CreateWithID(ctx, rq, "")
 }
 
-func (t *tenantRepository) CreateWithID(ctx context.Context, c *apiv2.TenantServiceCreateRequest, id string) (*mdcv1.Tenant, error) {
-	tok, ok := token.TokenFromContext(ctx)
+type tenantCreateOpts interface {
+}
+type tenantCreateOptWithCreator struct {
+	creator string
+}
 
-	if !ok || tok == nil {
-		return nil, errorutil.Unauthenticated("no token found in request")
+func NewTenantCreateOptWithCreator(creator string) *tenantCreateOptWithCreator {
+	return &tenantCreateOptWithCreator{
+		creator: creator,
+	}
+}
+
+func (t *tenantRepository) CreateWithID(ctx context.Context, c *apiv2.TenantServiceCreateRequest, id string, opts ...tenantCreateOpts) (*mdcv1.Tenant, error) {
+	var creator string
+
+	for _, opt := range opts {
+		switch o := opt.(type) {
+		case *tenantCreateOptWithCreator:
+			creator = o.creator
+		default:
+			return nil, errorutil.Internal("unknown tenantcreateopt:%T", o)
+		}
+	}
+
+	if creator == "" {
+		tok, ok := token.TokenFromContext(ctx)
+
+		if !ok || tok == nil {
+			return nil, errorutil.Unauthenticated("no token found in request")
+		}
+		creator = tok.User
 	}
 
 	ann := map[string]string{
-		TenantTagCreator: tok.User,
+		TenantTagCreator: creator,
 	}
 
 	if c.Email != nil {
@@ -156,7 +182,7 @@ func (t *tenantRepository) update(ctx context.Context, tenant *mdcv1.Tenant, rq 
 	return resp.Tenant, nil
 }
 
-func (t *tenantRepository) convertToInternal(tenant *apiv2.Tenant) (*mdcv1.Tenant, error) {
+func (t *tenantRepository) convertToInternal(ctx context.Context, tenant *apiv2.Tenant) (*mdcv1.Tenant, error) {
 	ann := map[string]string{
 		TenantTagEmail:     tenant.Email,
 		TenantTagAvatarURL: tenant.AvatarUrl,
@@ -180,7 +206,7 @@ func (t *tenantRepository) convertToInternal(tenant *apiv2.Tenant) (*mdcv1.Tenan
 	}, nil
 }
 
-func (te *tenantRepository) convertToProto(t *mdcv1.Tenant) (*apiv2.Tenant, error) {
+func (te *tenantRepository) convertToProto(ctx context.Context, t *mdcv1.Tenant) (*apiv2.Tenant, error) {
 	var labels *apiv2.Labels
 	if t.Meta != nil && t.Meta.Labels != nil && len(t.Meta.Labels) > 0 {
 		labels = &apiv2.Labels{

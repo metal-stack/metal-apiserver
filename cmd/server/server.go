@@ -13,9 +13,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
 
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
-
 	asyncserver "github.com/metal-stack/metal-apiserver/pkg/async/server"
 	"github.com/metal-stack/metal-apiserver/pkg/service"
 )
@@ -39,9 +36,15 @@ func (s *server) Run(ctx context.Context) error {
 		return err
 	}
 
+	p := new(http.Protocols)
+	p.SetHTTP1(true)
+	// For gRPC clients, it's convenient to support HTTP/2 without TLS.
+	p.SetUnencryptedHTTP2(true)
+
 	apiServer := &http.Server{
 		Addr:              s.c.HttpServerEndpoint,
-		Handler:           h2c.NewHandler(newCORS().Handler(mux), &http2.Server{}),
+		Handler:           newCORS().Handler(mux),
+		Protocols:         p,
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       5 * time.Minute,
 		WriteTimeout:      5 * time.Minute,

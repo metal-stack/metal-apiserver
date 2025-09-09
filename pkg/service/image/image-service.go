@@ -34,7 +34,7 @@ func (i *imageServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2.
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	converted, err := i.repo.Image().ConvertToProto(image)
+	converted, err := i.repo.Image().ConvertToProto(ctx, image)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -51,7 +51,7 @@ func (i *imageServiceServer) List(ctx context.Context, rq *connect.Request[apiv2
 
 	sortedImages := i.repo.Image().AdditionalMethods().SortImages(images)
 	for _, image := range sortedImages {
-		converted, err := i.repo.Image().ConvertToProto(image)
+		converted, err := i.repo.Image().ConvertToProto(ctx, image)
 		if err != nil {
 			return nil, errorutil.Convert(err)
 		}
@@ -73,7 +73,7 @@ func (i *imageServiceServer) Latest(ctx context.Context, rq *connect.Request[api
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := i.repo.Image().ConvertToProto(latest)
+	converted, err := i.repo.Image().ConvertToProto(ctx, latest)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

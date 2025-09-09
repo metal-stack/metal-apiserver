@@ -52,7 +52,7 @@ func (n *networkServiceServer) Create(ctx context.Context, rq *connect.Request[a
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := n.repo.Network(r.Project).ConvertToProto(created)
+	converted, err := n.repo.Network(r.Project).ConvertToProto(ctx, created)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -68,7 +68,7 @@ func (n *networkServiceServer) Delete(ctx context.Context, rq *connect.Request[a
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	converted, err := n.repo.Network(req.Project).ConvertToProto(nw)
+	converted, err := n.repo.Network(req.Project).ConvertToProto(ctx, nw)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -85,7 +85,7 @@ func (n *networkServiceServer) Get(ctx context.Context, rq *connect.Request[apiv
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	converted, err := n.repo.Network(req.Project).ConvertToProto(resp)
+	converted, err := n.repo.Network(req.Project).ConvertToProto(ctx, resp)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -106,7 +106,7 @@ func (n *networkServiceServer) List(ctx context.Context, rq *connect.Request[api
 
 	var res []*apiv2.Network
 	for _, nw := range resp {
-		converted, err := n.repo.Network(req.Project).ConvertToProto(nw)
+		converted, err := n.repo.Network(req.Project).ConvertToProto(ctx, nw)
 		if err != nil {
 			return nil, errorutil.Convert(err)
 		}
@@ -149,7 +149,7 @@ func (n *networkServiceServer) ListBaseNetworks(ctx context.Context, rq *connect
 		// TODO convert to a equivalent reql query
 		switch pointer.SafeDeref(nw.NetworkType) {
 		case metal.NetworkTypeChildShared, metal.NetworkTypeExternal, metal.NetworkTypeSuper, metal.NetworkTypeSuperNamespaced:
-			converted, err := n.repo.UnscopedNetwork().ConvertToProto(nw)
+			converted, err := n.repo.UnscopedNetwork().ConvertToProto(ctx, nw)
 			if err != nil {
 				return nil, errorutil.Convert(err)
 			}
@@ -184,7 +184,7 @@ func (n *networkServiceServer) Update(ctx context.Context, rq *connect.Request[a
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	converted, err := n.repo.Network(req.Project).ConvertToProto(nw)
+	converted, err := n.repo.Network(req.Project).ConvertToProto(ctx, nw)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

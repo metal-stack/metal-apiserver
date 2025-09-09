@@ -35,7 +35,7 @@ func (f *filesystemServiceServer) Create(ctx context.Context, rq *connect.Reques
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := f.repo.FilesystemLayout().ConvertToProto(fsl)
+	converted, err := f.repo.FilesystemLayout().ConvertToProto(ctx, fsl)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -50,7 +50,7 @@ func (f *filesystemServiceServer) Delete(ctx context.Context, rq *connect.Reques
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := f.repo.FilesystemLayout().ConvertToProto(fsl)
+	converted, err := f.repo.FilesystemLayout().ConvertToProto(ctx, fsl)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -65,7 +65,7 @@ func (f *filesystemServiceServer) Update(ctx context.Context, rq *connect.Reques
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := f.repo.FilesystemLayout().ConvertToProto(fsl)
+	converted, err := f.repo.FilesystemLayout().ConvertToProto(ctx, fsl)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

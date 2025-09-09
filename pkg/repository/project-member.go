@@ -27,7 +27,7 @@ type (
 	}
 )
 
-func (t *projectMemberRepository) convertToInternal(msg *apiv2.ProjectMember) (*mdcv1.ProjectMember, error) {
+func (t *projectMemberRepository) convertToInternal(ctx context.Context, msg *apiv2.ProjectMember) (*mdcv1.ProjectMember, error) {
 	return &mdcv1.ProjectMember{
 		Meta: &mdcv1.Meta{
 			Id: msg.Id,
@@ -38,7 +38,7 @@ func (t *projectMemberRepository) convertToInternal(msg *apiv2.ProjectMember) (*
 	}, nil
 }
 
-func (t *projectMemberRepository) convertToProto(e *mdcv1.ProjectMember) (*apiv2.ProjectMember, error) {
+func (t *projectMemberRepository) convertToProto(ctx context.Context, e *mdcv1.ProjectMember) (*apiv2.ProjectMember, error) {
 	if e.Meta.Annotations == nil {
 		e.Meta.Annotations = map[string]string{}
 	}
