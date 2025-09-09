@@ -7,7 +7,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-lib/pkg/testcommon"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -354,7 +354,7 @@ func Test_makeBGPFilterMachine(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := makeBGPFilterMachine(tt.m, tt.networks, tt.ips)
-			if diff := cmp.Diff(tt.wantErr, err, errorutil.ErrorComparer()); diff != "" {
+			if diff := cmp.Diff(tt.wantErr, err, testcommon.ErrorStringComparer()); diff != "" {
 				t.Errorf("makeBGPFilterMachine() error diff = %s", diff)
 				return
 			}

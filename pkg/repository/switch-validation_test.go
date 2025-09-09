@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-lib/pkg/testcommon"
 )
 
 func Test_checkDuplicateNics(t *testing.T) {
@@ -62,7 +62,7 @@ func Test_checkDuplicateNics(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := checkDuplicateNics(tt.nics)
-			if diff := cmp.Diff(tt.wantErr, err, errorutil.ErrorComparer()); diff != "" {
+			if diff := cmp.Diff(tt.wantErr, err, testcommon.ErrorStringComparer()); diff != "" {
 				t.Errorf("checkDuplicateNics() error diff = %s", diff)
 			}
 		})
@@ -262,7 +262,7 @@ func Test_validateConnectedNics(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := validateConnectedNics(tt.old, tt.new, tt.connections)
-			if diff := cmp.Diff(tt.wantErr, err, errorutil.ErrorComparer()); diff != "" {
+			if diff := cmp.Diff(tt.wantErr, err, testcommon.ErrorStringComparer()); diff != "" {
 				t.Errorf("validateConnectedNics() error diff = %s", diff)
 			}
 		})
