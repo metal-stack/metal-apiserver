@@ -34,7 +34,7 @@ func (s *switchServiceServer) Register(ctx context.Context, rq *connect.Request[
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := s.repo.Switch().ConvertToProto(sw)
+	converted, err := s.repo.Switch().ConvertToProto(ctx, sw)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

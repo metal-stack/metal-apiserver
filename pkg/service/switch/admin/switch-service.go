@@ -37,7 +37,7 @@ func (s *switchServiceServer) Get(ctx context.Context, rq *connect.Request[admin
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := s.repo.Switch().ConvertToProto(sw)
+	converted, err := s.repo.Switch().ConvertToProto(ctx, sw)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -53,7 +53,7 @@ func (s *switchServiceServer) List(ctx context.Context, rq *connect.Request[admi
 
 	var res []*apiv2.Switch
 	for _, sw := range switches {
-		converted, err := s.repo.Switch().ConvertToProto(sw)
+		converted, err := s.repo.Switch().ConvertToProto(ctx, sw)
 		if err != nil {
 			return nil, errorutil.Convert(err)
 		}
@@ -73,7 +73,7 @@ func (s *switchServiceServer) Update(ctx context.Context, rq *connect.Request[ad
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := s.repo.Switch().ConvertToProto(sw)
+	converted, err := s.repo.Switch().ConvertToProto(ctx, sw)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -87,7 +87,7 @@ func (s *switchServiceServer) Delete(ctx context.Context, rq *connect.Request[ad
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := s.repo.Switch().ConvertToProto(sw)
+	converted, err := s.repo.Switch().ConvertToProto(ctx, sw)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -101,7 +101,7 @@ func (s *switchServiceServer) Migrate(ctx context.Context, rq *connect.Request[a
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := s.repo.Switch().ConvertToProto(sw)
+	converted, err := s.repo.Switch().ConvertToProto(ctx, sw)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -115,7 +115,7 @@ func (s *switchServiceServer) Port(ctx context.Context, rq *connect.Request[admi
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := s.repo.Switch().ConvertToProto(sw)
+	converted, err := s.repo.Switch().ConvertToProto(ctx, sw)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

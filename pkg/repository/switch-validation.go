@@ -21,7 +21,7 @@ func (r *switchRepository) validateCreate(ctx context.Context, req *SwitchServic
 		errs = append(errs, err)
 	}
 
-	sw, err := r.convertToInternal(req.Switch)
+	sw, err := r.convertToInternal(ctx, req.Switch)
 	if err != nil {
 		errs = append(errs, err)
 		return errorutil.NewInvalidArgument(errors.Join(errs...))

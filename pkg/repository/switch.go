@@ -44,7 +44,7 @@ func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServ
 	}
 
 	new := req.Switch
-	old, err := r.convertToProto(sw)
+	old, err := r.convertToProto(ctx, sw)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,7 @@ func (r *switchRepository) create(ctx context.Context, req *SwitchServiceCreateR
 	if req.Switch == nil {
 		return nil, nil
 	}
-	sw, err := r.convertToInternal(req.Switch)
+	sw, err := r.convertToInternal(ctx, req.Switch)
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +194,7 @@ func (r *switchRepository) list(ctx context.Context, query *apiv2.SwitchQuery) (
 	return switches, err
 }
 
-func (r *switchRepository) convertToInternal(sw *apiv2.Switch) (*metal.Switch, error) {
+func (r *switchRepository) convertToInternal(ctx context.Context, sw *apiv2.Switch) (*metal.Switch, error) {
 	if sw == nil {
 		return nil, nil
 	}
@@ -235,12 +235,12 @@ func (r *switchRepository) convertToInternal(sw *apiv2.Switch) (*metal.Switch, e
 	}, nil
 }
 
-func (r *switchRepository) convertToProto(sw *metal.Switch) (*apiv2.Switch, error) {
+func (r *switchRepository) convertToProto(ctx context.Context, sw *metal.Switch) (*apiv2.Switch, error) {
 	if sw == nil {
 		return nil, nil
 	}
 
-	nics, err := r.toSwitchNics(sw.Nics, sw.MachineConnections)
+	nics, err := r.toSwitchNics(ctx, sw.Nics, sw.MachineConnections)
 	if err != nil {
 		return nil, err
 	}
@@ -285,9 +285,7 @@ func (r *switchRepository) switchFilters(filter generic.EntityQuery) []generic.E
 	return qs
 }
 
-func (r *switchRepository) toSwitchNics(nics metal.Nics, connections metal.ConnectionMap) ([]*apiv2.SwitchNic, error) {
-	// FIX: which context to use?
-	ctx := context.TODO()
+func (r *switchRepository) toSwitchNics(ctx context.Context, nics metal.Nics, connections metal.ConnectionMap) ([]*apiv2.SwitchNic, error) {
 	networks, err := r.s.ds.Network().List(ctx)
 	if err != nil {
 		return nil, err
