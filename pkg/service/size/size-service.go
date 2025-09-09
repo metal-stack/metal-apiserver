@@ -35,7 +35,7 @@ func (s *sizeServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2.S
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := s.repo.Size().ConvertToProto(size)
+	converted, err := s.repo.Size().ConvertToProto(ctx, size)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -51,7 +51,7 @@ func (s *sizeServiceServer) List(ctx context.Context, rq *connect.Request[apiv2.
 	}
 	var result []*apiv2.Size
 	for _, size := range sizes {
-		converted, err := s.repo.Size().ConvertToProto(size)
+		converted, err := s.repo.Size().ConvertToProto(ctx, size)
 		if err != nil {
 			return nil, errorutil.Convert(err)
 		}

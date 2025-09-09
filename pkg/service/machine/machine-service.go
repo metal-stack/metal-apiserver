@@ -41,7 +41,7 @@ func (m *machineServiceServer) Get(ctx context.Context, rq *connect.Request[apiv
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	converted, err := m.repo.Machine(req.Project).ConvertToProto(resp)
+	converted, err := m.repo.Machine(req.Project).ConvertToProto(ctx, resp)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -60,7 +60,7 @@ func (m *machineServiceServer) List(ctx context.Context, rq *connect.Request[api
 	var result []*apiv2.Machine
 
 	for _, machine := range machines {
-		converted, err := m.repo.UnscopedMachine().ConvertToProto(machine)
+		converted, err := m.repo.UnscopedMachine().ConvertToProto(ctx, machine)
 		if err != nil {
 			return nil, errorutil.Convert(err)
 		}
@@ -79,7 +79,7 @@ func (m *machineServiceServer) Update(ctx context.Context, rq *connect.Request[a
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := m.repo.UnscopedMachine().ConvertToProto(ms)
+	converted, err := m.repo.UnscopedMachine().ConvertToProto(ctx, ms)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

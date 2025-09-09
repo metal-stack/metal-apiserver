@@ -35,7 +35,7 @@ func (i *imageServiceServer) Create(ctx context.Context, rq *connect.Request[adm
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := i.repo.Image().ConvertToProto(image)
+	converted, err := i.repo.Image().ConvertToProto(ctx, image)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -50,7 +50,7 @@ func (i *imageServiceServer) Delete(ctx context.Context, rq *connect.Request[adm
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := i.repo.Image().ConvertToProto(image)
+	converted, err := i.repo.Image().ConvertToProto(ctx, image)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -65,7 +65,7 @@ func (i *imageServiceServer) Update(ctx context.Context, rq *connect.Request[adm
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := i.repo.Image().ConvertToProto(image)
+	converted, err := i.repo.Image().ConvertToProto(ctx, image)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

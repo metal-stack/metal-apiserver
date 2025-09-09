@@ -55,7 +55,7 @@ func (t *tenantServiceServer) Create(ctx context.Context, rq *connect.Request[ad
 		return nil, err
 	}
 
-	converted, err := t.repo.Tenant().ConvertToProto(created)
+	converted, err := t.repo.Tenant().ConvertToProto(ctx, created)
 	if err != nil {
 		return nil, err
 	}

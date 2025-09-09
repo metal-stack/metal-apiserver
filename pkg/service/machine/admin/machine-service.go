@@ -37,7 +37,7 @@ func (m *machineServiceServer) Get(ctx context.Context, rq *connect.Request[admi
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	converted, err := m.repo.UnscopedMachine().ConvertToProto(resp)
+	converted, err := m.repo.UnscopedMachine().ConvertToProto(ctx, resp)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -74,7 +74,7 @@ func (m *machineServiceServer) List(ctx context.Context, rq *connect.Request[adm
 	var result []*apiv2.Machine
 
 	for _, machine := range machines {
-		converted, err := m.repo.UnscopedMachine().ConvertToProto(machine)
+		converted, err := m.repo.UnscopedMachine().ConvertToProto(ctx, machine)
 		if err != nil {
 			return nil, errorutil.Convert(err)
 		}

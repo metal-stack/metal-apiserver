@@ -182,7 +182,7 @@ func (t *tenantRepository) update(ctx context.Context, tenant *mdcv1.Tenant, rq 
 	return resp.Tenant, nil
 }
 
-func (t *tenantRepository) convertToInternal(tenant *apiv2.Tenant) (*mdcv1.Tenant, error) {
+func (t *tenantRepository) convertToInternal(ctx context.Context, tenant *apiv2.Tenant) (*mdcv1.Tenant, error) {
 	ann := map[string]string{
 		TenantTagEmail:     tenant.Email,
 		TenantTagAvatarURL: tenant.AvatarUrl,
@@ -206,7 +206,7 @@ func (t *tenantRepository) convertToInternal(tenant *apiv2.Tenant) (*mdcv1.Tenan
 	}, nil
 }
 
-func (te *tenantRepository) convertToProto(t *mdcv1.Tenant) (*apiv2.Tenant, error) {
+func (te *tenantRepository) convertToProto(ctx context.Context, t *mdcv1.Tenant) (*apiv2.Tenant, error) {
 	var labels *apiv2.Labels
 	if t.Meta != nil && t.Meta.Labels != nil && len(t.Meta.Labels) > 0 {
 		labels = &apiv2.Labels{

@@ -111,7 +111,7 @@ func (u *tenantServiceServer) Create(ctx context.Context, rq *connect.Request[ap
 		return nil, err
 	}
 
-	converted, err := u.repo.Tenant().ConvertToProto(created)
+	converted, err := u.repo.Tenant().ConvertToProto(ctx, created)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -142,7 +142,7 @@ func (u *tenantServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2
 		return nil, err
 	}
 
-	converted, err := u.repo.Tenant().ConvertToProto(tenant)
+	converted, err := u.repo.Tenant().ConvertToProto(ctx, tenant)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -209,7 +209,7 @@ func (u *tenantServiceServer) Update(ctx context.Context, rq *connect.Request[ap
 		return nil, err
 	}
 
-	converted, err := u.repo.Tenant().ConvertToProto(updated)
+	converted, err := u.repo.Tenant().ConvertToProto(ctx, updated)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -227,7 +227,7 @@ func (u *tenantServiceServer) Delete(ctx context.Context, rq *connect.Request[ap
 		return nil, err
 	}
 
-	converted, err := u.repo.Tenant().ConvertToProto(deleted)
+	converted, err := u.repo.Tenant().ConvertToProto(ctx, deleted)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

@@ -111,13 +111,12 @@ func (r *machineRepository) list(ctx context.Context, rq *apiv2.MachineQuery) ([
 	return machines, nil
 }
 
-func (r *machineRepository) convertToInternal(machine *apiv2.Machine) (*metal.Machine, error) {
+func (r *machineRepository) convertToInternal(ctx context.Context, machine *apiv2.Machine) (*metal.Machine, error) {
 	panic("unimplemented")
 }
 
-func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, error) {
+func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine) (*apiv2.Machine, error) {
 	var (
-		ctx              = context.Background()
 		labels           *apiv2.Labels
 		allocationLabels *apiv2.Labels
 		bios             *apiv2.MachineBios
@@ -143,7 +142,7 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 	if err != nil {
 		return nil, err
 	}
-	apiv2Partition, err := r.s.Partition().ConvertToProto(partition)
+	apiv2Partition, err := r.s.Partition().ConvertToProto(ctx, partition)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +150,7 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 	if err != nil {
 		return nil, err
 	}
-	size, err = r.s.Size().ConvertToProto(metalSize)
+	size, err = r.s.Size().ConvertToProto(ctx, metalSize)
 	if err != nil {
 		return nil, err
 	}
@@ -223,7 +222,7 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 		if err != nil {
 			return nil, err
 		}
-		apiv2Image, err := r.s.Image().ConvertToProto(image)
+		apiv2Image, err := r.s.Image().ConvertToProto(ctx, image)
 		if err != nil {
 			return nil, err
 		}
@@ -233,7 +232,7 @@ func (r *machineRepository) convertToProto(m *metal.Machine) (*apiv2.Machine, er
 			if err != nil {
 				return nil, err
 			}
-			filesystemLayout, err = r.s.FilesystemLayout().ConvertToProto(fsl)
+			filesystemLayout, err = r.s.FilesystemLayout().ConvertToProto(ctx, fsl)
 			if err != nil {
 				return nil, err
 			}
