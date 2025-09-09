@@ -23,6 +23,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/service/token"
+
 	"github.com/metal-stack/metal-lib/auditing"
 )
 
@@ -339,7 +340,7 @@ func (a *auth) ensureTenant(ctx context.Context, u *providerUser) error {
 			Name:      u.login,
 			Email:     &u.email, // TODO: this field can be empty, fallback to user email would be great but for github this is also empty (#151)
 			AvatarUrl: &u.avatarUrl,
-		}, u.login)
+		}, u.login, repository.NewTenantCreateOptWithCreator(u.login))
 		if err != nil {
 			return fmt.Errorf("unable to create tenant:%s %w", u.login, err)
 		}
@@ -364,7 +365,7 @@ func (a *auth) ensureTenant(ctx context.Context, u *providerUser) error {
 		return nil
 	}
 
-	if errorutil.IsNotFound(err) {
+	if !errorutil.IsNotFound(err) {
 		return err
 	}
 
