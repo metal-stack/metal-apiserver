@@ -285,11 +285,11 @@ func (r *ipRepository) allocateRandomIP(ctx context.Context, parent *metal.Netwo
 	return "", "", errorutil.InvalidArgument("cannot allocate random free ip in ipam, no ips left in network:%s af:%s parent afs:%#v", parent.ID, addressfamily, parent.Prefixes.AddressFamilies())
 }
 
-func (r *ipRepository) convertToInternal(ip *apiv2.IP) (*metal.IP, error) {
+func (r *ipRepository) convertToInternal(ctx context.Context, ip *apiv2.IP) (*metal.IP, error) {
 	panic("unimplemented")
 }
 
-func (r *ipRepository) convertToProto(metalIP *metal.IP) (*apiv2.IP, error) {
+func (r *ipRepository) convertToProto(ctx context.Context, metalIP *metal.IP) (*apiv2.IP, error) {
 	t := apiv2.IPType_IP_TYPE_UNSPECIFIED
 	switch metalIP.Type {
 	case metal.Ephemeral:

@@ -35,7 +35,7 @@ func (f *filesystemServiceServer) Get(ctx context.Context, rq *connect.Request[a
 		return nil, errorutil.Convert(err)
 	}
 
-	fsl, err := f.repo.FilesystemLayout().ConvertToProto(resp)
+	fsl, err := f.repo.FilesystemLayout().ConvertToProto(ctx, resp)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -52,7 +52,7 @@ func (f *filesystemServiceServer) List(ctx context.Context, rq *connect.Request[
 	}
 	var fsls []*apiv2.FilesystemLayout
 	for _, r := range resp {
-		fsl, err := f.repo.FilesystemLayout().ConvertToProto(r)
+		fsl, err := f.repo.FilesystemLayout().ConvertToProto(ctx, r)
 		if err != nil {
 			return nil, errorutil.Convert(err)
 		}

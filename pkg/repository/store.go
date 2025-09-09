@@ -190,12 +190,12 @@ func (s *Store) Switch() Switch {
 	}
 }
 
-func (s *store[R, E, M, C, U, Q]) ConvertToInternal(msg M) (E, error) {
-	return s.convertToInternal(msg)
+func (s *store[R, E, M, C, U, Q]) ConvertToInternal(ctx context.Context, msg M) (E, error) {
+	return s.convertToInternal(ctx, msg)
 }
 
-func (s *store[R, E, M, C, U, Q]) ConvertToProto(e E) (M, error) {
-	return s.convertToProto(e)
+func (s *store[R, E, M, C, U, Q]) ConvertToProto(ctx context.Context, e E) (M, error) {
+	return s.convertToProto(ctx, e)
 }
 
 func (s *store[R, E, M, C, U, Q]) Create(ctx context.Context, c C) (E, error) {

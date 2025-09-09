@@ -18,8 +18,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
 )
 
 func StartApiserver(t *testing.T, log *slog.Logger) (baseURL, adminToken string, closer func()) {
@@ -61,7 +59,7 @@ func StartApiserver(t *testing.T, log *slog.Logger) (baseURL, adminToken string,
 
 	// TODO start asynq server mux
 
-	server := httptest.NewUnstartedServer(h2c.NewHandler(mux, &http2.Server{}))
+	server := httptest.NewUnstartedServer(mux)
 	server.Start()
 
 	tok, err := testStore.GetTokenService().CreateApiTokenWithoutPermissionCheck(t.Context(), subject, connect.NewRequest(&apiv2.TokenServiceCreateRequest{

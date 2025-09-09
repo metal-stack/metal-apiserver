@@ -37,7 +37,7 @@ func (n *networkServiceServer) Get(ctx context.Context, rq *connect.Request[admi
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	converted, err := n.repo.UnscopedNetwork().ConvertToProto(resp)
+	converted, err := n.repo.UnscopedNetwork().ConvertToProto(ctx, resp)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -56,7 +56,7 @@ func (n *networkServiceServer) Create(ctx context.Context, rq *connect.Request[a
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := n.repo.UnscopedNetwork().ConvertToProto(created)
+	converted, err := n.repo.UnscopedNetwork().ConvertToProto(ctx, created)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -73,7 +73,7 @@ func (n *networkServiceServer) Delete(ctx context.Context, rq *connect.Request[a
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := n.repo.UnscopedNetwork().ConvertToProto(nw)
+	converted, err := n.repo.UnscopedNetwork().ConvertToProto(ctx, nw)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -92,7 +92,7 @@ func (n *networkServiceServer) List(ctx context.Context, rq *connect.Request[adm
 
 	var res []*apiv2.Network
 	for _, nw := range resp {
-		converted, err := n.repo.UnscopedNetwork().ConvertToProto(nw)
+		converted, err := n.repo.UnscopedNetwork().ConvertToProto(ctx, nw)
 		if err != nil {
 			return nil, errorutil.Convert(err)
 		}
@@ -113,7 +113,7 @@ func (n *networkServiceServer) Update(ctx context.Context, rq *connect.Request[a
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := n.repo.UnscopedNetwork().ConvertToProto(nw)
+	converted, err := n.repo.UnscopedNetwork().ConvertToProto(ctx, nw)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

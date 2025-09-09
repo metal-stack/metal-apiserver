@@ -43,7 +43,7 @@ func (i *ipServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2.IPS
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := i.repo.IP(req.Project).ConvertToProto(metalIP)
+	converted, err := i.repo.IP(req.Project).ConvertToProto(ctx, metalIP)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -64,7 +64,7 @@ func (i *ipServiceServer) List(ctx context.Context, rq *connect.Request[apiv2.IP
 
 	var res []*apiv2.IP
 	for _, ip := range resp {
-		converted, err := i.repo.IP(req.Project).ConvertToProto(ip)
+		converted, err := i.repo.IP(req.Project).ConvertToProto(ctx, ip)
 		if err != nil {
 			return nil, errorutil.Convert(err)
 		}
@@ -85,7 +85,7 @@ func (i *ipServiceServer) Delete(ctx context.Context, rq *connect.Request[apiv2.
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := i.repo.IP(req.Project).ConvertToProto(ip)
+	converted, err := i.repo.IP(req.Project).ConvertToProto(ctx, ip)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -101,7 +101,7 @@ func (i *ipServiceServer) Create(ctx context.Context, rq *connect.Request[apiv2.
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := i.repo.IP(req.Project).ConvertToProto(created)
+	converted, err := i.repo.IP(req.Project).ConvertToProto(ctx, created)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -118,7 +118,7 @@ func (i *ipServiceServer) Update(ctx context.Context, rq *connect.Request[apiv2.
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := i.repo.IP(req.Project).ConvertToProto(ip)
+	converted, err := i.repo.IP(req.Project).ConvertToProto(ctx, ip)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

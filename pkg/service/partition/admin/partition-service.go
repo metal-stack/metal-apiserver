@@ -35,7 +35,7 @@ func (p *partitionServiceServer) Create(ctx context.Context, rq *connect.Request
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := p.repo.Partition().ConvertToProto(image)
+	converted, err := p.repo.Partition().ConvertToProto(ctx, image)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -49,7 +49,7 @@ func (p *partitionServiceServer) Delete(ctx context.Context, rq *connect.Request
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	converted, err := p.repo.Partition().ConvertToProto(partition)
+	converted, err := p.repo.Partition().ConvertToProto(ctx, partition)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -62,7 +62,7 @@ func (p *partitionServiceServer) Update(ctx context.Context, rq *connect.Request
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	converted, err := p.repo.Partition().ConvertToProto(partition)
+	converted, err := p.repo.Partition().ConvertToProto(ctx, partition)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

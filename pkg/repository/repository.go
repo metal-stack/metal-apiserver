@@ -23,8 +23,8 @@ type (
 		Find(ctx context.Context, query Q) (E, error)
 		List(ctx context.Context, query Q) ([]E, error)
 
-		ConvertToInternal(msg M) (E, error)
-		ConvertToProto(e E) (M, error)
+		ConvertToInternal(ctx context.Context, msg M) (E, error)
+		ConvertToProto(ctx context.Context, e E) (M, error)
 
 		AdditionalMethods() R
 	}
@@ -44,8 +44,8 @@ type (
 		find(ctx context.Context, query Q) (E, error)
 		list(ctx context.Context, query Q) ([]E, error)
 
-		convertToInternal(msg M) (E, error)
-		convertToProto(e E) (M, error)
+		convertToInternal(ctx context.Context, msg M) (E, error)
+		convertToProto(ctx context.Context, e E) (M, error)
 
 		matchScope(e E) bool
 	}
