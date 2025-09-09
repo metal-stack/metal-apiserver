@@ -61,6 +61,8 @@ type (
 
 	// Prefixes is an array of prefixes
 	Prefixes []Prefix
+
+	NetworkMap map[string]*Network
 )
 
 const (
@@ -309,4 +311,12 @@ func (p Prefixes) SubtractPrefixes(target ...Prefix) []Prefix {
 			return a.String() == b.String()
 		})
 	})
+}
+
+func NetworksById(networks []*Network) NetworkMap {
+	networkMap := make(NetworkMap)
+	for _, n := range networks {
+		networkMap[n.ID] = n
+	}
+	return networkMap
 }
