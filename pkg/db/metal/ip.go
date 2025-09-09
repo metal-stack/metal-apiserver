@@ -43,6 +43,8 @@ type IP struct {
 	Changed          time.Time `rethinkdb:"changed"`
 }
 
+// IP does not composite Base because IPAddress is treated as id
+
 // GetID returns the ID of the entity
 func (ip *IP) GetID() string {
 	return ip.IPAddress
@@ -58,19 +60,9 @@ func (ip *IP) GetChanged() time.Time {
 	return ip.Changed
 }
 
-// SetChanged sets the last changed timestamp of the entity
-func (ip *IP) SetChanged(changed time.Time) {
-	ip.Changed = changed
-}
-
 // GetCreated returns the creation timestamp of the entity
 func (ip *IP) GetCreated() time.Time {
 	return ip.Created
-}
-
-// SetCreated sets the creation timestamp of the entity
-func (ip *IP) SetCreated(created time.Time) {
-	ip.Created = created
 }
 
 // ---------------
