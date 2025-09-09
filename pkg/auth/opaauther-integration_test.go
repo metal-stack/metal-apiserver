@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
@@ -34,58 +34,59 @@ func Test_opa_cert_rotation(t *testing.T) {
 
 	t.Logf("token lifetime: %s, certificate lifetime: %s, issue new signing certificate after: %s", token.DefaultExpiration, 2*token.MaxExpiration, 2*token.MaxExpiration-renewCertBeforeExpiration)
 
-	var (
-		s   = miniredis.RunT(t)
-		c   = redis.NewClient(&redis.Options{Addr: s.Addr()})
-		log = slog.Default()
+	s := miniredis.RunT(t)
+	c := redis.NewClient(&redis.Options{Addr: s.Addr()})
+	log := slog.Default()
 
-		certStore = certs.NewRedisStore(&certs.Config{
-			RedisClient:               c,
-			RenewCertBeforeExpiration: &renewCertBeforeExpiration,
+	certStore := certs.NewRedisStore(&certs.Config{
+		RedisClient:               c,
+		RenewCertBeforeExpiration: &renewCertBeforeExpiration,
+	})
+	tokenStore := token.NewRedisStore(c)
+
+	opa := func() *opa {
+		o, err := New(Config{
+			Log:            log,
+			CertStore:      certStore,
+			CertCacheTime:  pointer.Pointer(0 * time.Second),
+			TokenStore:     tokenStore,
+			AllowedIssuers: []string{"integration"},
 		})
-		tokenStore = token.NewRedisStore(c)
+		require.NoError(t, err)
 
-		opa = func() *opa {
-			o, err := New(Config{
-				Log:            log,
-				CertStore:      certStore,
-				CertCacheTime:  pointer.Pointer(0 * time.Second),
-				TokenStore:     tokenStore,
-				AllowedIssuers: []string{"integration"},
-			})
-			require.NoError(t, err)
+		o.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
+			return &repository.ProjectsAndTenants{
+				ProjectRoles: map[string]v1.ProjectRole{
+					"test-project": v1.ProjectRole_PROJECT_ROLE_VIEWER,
+				},
+			}, nil
+		}
 
-			o.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
-				return &repository.ProjectsAndTenants{
-					ProjectRoles: map[string]v1.ProjectRole{
-						"test-project": v1.ProjectRole_PROJECT_ROLE_VIEWER,
-					},
-				}, nil
-			}
+		return o
+	}()
+	service := func() tokenservice.TokenService {
+		s := tokenservice.New(tokenservice.Config{
+			Log:           log,
+			CertStore:     certStore,
+			TokenStore:    tokenStore,
+			AdminSubjects: []string{},
+			Issuer:        "integration",
+		})
 
-			return o
-		}()
+		return s
+	}()
 
-		ctx     = t.Context()
-		service = func() tokenservice.TokenService {
-			s := tokenservice.New(tokenservice.Config{
-				Log:           log,
-				CertStore:     certStore,
-				TokenStore:    tokenStore,
-				AdminSubjects: []string{},
-				Issuer:        "integration",
-			})
+	synctest.Test(t, func(t *testing.T) {
 
-			return s
-		}()
+		ctx := t.Context()
 
-		token1 = ""
-		token2 = ""
-		token3 = ""
-
-		wg sync.WaitGroup
-
-		steps = []struct {
+		var (
+			token1     = ""
+			token2     = ""
+			token3     = ""
+			previousAt *time.Duration
+		)
+		steps := []struct {
 			name string
 			at   time.Duration
 			task func(t *testing.T)
@@ -162,34 +163,15 @@ func Test_opa_cert_rotation(t *testing.T) {
 				},
 			},
 		}
-	)
 
-	var (
-		start      = time.Now().Add(1 * time.Second)
-		previousAt *time.Duration
-		mtx        sync.Mutex
-	)
+		time.Sleep(1 * time.Second)
 
-	for _, step := range steps {
-		step := step
-
-		wg.Add(1)
-
-		go t.Run(step.name, func(t *testing.T) {
-			defer wg.Done()
-
-			childCtx, cancel := context.WithDeadline(ctx, start.Add(step.at))
-			defer cancel()
-
-			<-childCtx.Done()
-
-			mtx.Lock()
-			defer mtx.Unlock()
-
+		for _, step := range steps {
 			forwardText := ""
 			if previousAt != nil {
 				forward := step.at - *previousAt
-				forwardText = fmt.Sprintf(" (forwarding redis by %s)", forward)
+				forwardText = fmt.Sprintf(" (forwarding by %s)", forward)
+				time.Sleep(forward)
 				s.FastForward(forward)
 			}
 			previousAt = &step.at
@@ -197,10 +179,8 @@ func Test_opa_cert_rotation(t *testing.T) {
 			t.Logf("%s: running step at %q%s: %q", time.Now(), step.at, forwardText, step.name)
 
 			step.task(t)
-		})
-	}
-
-	wg.Wait()
+		}
+	})
 }
 
 func createNewConsoleToken(t *testing.T, ctx context.Context, service tokenservice.TokenService) string {
