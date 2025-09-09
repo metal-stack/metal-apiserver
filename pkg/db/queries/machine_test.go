@@ -220,12 +220,12 @@ var (
 				{
 					MacAddress: "aa:bb",
 					Name:       "eth0",
-					Vrf:        pointer.Pointer("vrf104009"),
+					Vrf:        "vrf104009",
 					Neighbors: metal.Nics{
 						{
 							MacAddress: "cc:dd",
 							Name:       "swp1",
-							Vrf:        pointer.Pointer("vrf104009"),
+							Vrf:        "vrf104009",
 							Neighbors:  metal.Nics{},
 						},
 					},

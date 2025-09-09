@@ -341,7 +341,7 @@ func (r *switchRepository) toSwitchNics(nics metal.Nics, connections metal.Conne
 			Name:       nic.Name,
 			Identifier: nic.Identifier,
 			Mac:        nic.MacAddress,
-			Vrf:        nic.Vrf,
+			Vrf:        pointer.PointerOrNil(nic.Vrf),
 			State: &apiv2.NicState{
 				Desired: desiredState,
 				Actual:  actualState,
@@ -398,13 +398,13 @@ func updateNics(old, new metal.Nics) metal.Nics {
 	return updated
 }
 
-func makeBGPFilter(m *metal.Machine, vrf *string, networks []*metal.Network, ips []*metal.IP) (*apiv2.BGPFilter, error) {
+func makeBGPFilter(m *metal.Machine, vrf string, networks []*metal.Network, ips []*metal.IP) (*apiv2.BGPFilter, error) {
 	if m == nil || m.Allocation == nil {
 		return &apiv2.BGPFilter{}, nil
 	}
 
 	if m.Allocation.Role == metal.RoleFirewall {
-		if vrf != nil && *vrf == "default" {
+		if vrf == "default" {
 			return makeBGPFilterFirewall(m.Allocation.MachineNetworks)
 		}
 		return &apiv2.BGPFilter{}, nil

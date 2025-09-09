@@ -6,7 +6,7 @@ type Nic struct {
 	MacAddress   string              `rethinkdb:"macAddress"`
 	Name         string              `rethinkdb:"name"`
 	Identifier   string              `rethinkdb:"identifier"`
-	Vrf          *string             `rethinkdb:"vrf"`
+	Vrf          string              `rethinkdb:"vrf"`
 	Neighbors    Nics                `rethinkdb:"neighbors"`
 	Hostname     string              `rethinkdb:"hostname"`
 	State        *NicState           `rethinkdb:"state"`

@@ -105,7 +105,7 @@ func TestToMetalNics(t *testing.T) {
 					MacAddress: "22:22:22:22:22:22",
 					Name:       "Ethernet1",
 					Identifier: "Eth1/2",
-					Vrf:        pointer.Pointer("Vrf100"),
+					Vrf:        "Vrf100",
 					State: &NicState{
 						Desired: SwitchPortStatusUp,
 						Actual:  SwitchPortStatusUp,

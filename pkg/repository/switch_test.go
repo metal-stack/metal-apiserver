@@ -8,7 +8,6 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -46,7 +45,7 @@ func Test_updateNics(t *testing.T) {
 				{
 					Identifier: "Eth1/1",
 					Name:       "Ethernet0",
-					Vrf:        pointer.Pointer("Vrf100"),
+					Vrf:        "Vrf100",
 				},
 			},
 			new: metal.Nics{
@@ -63,7 +62,7 @@ func Test_updateNics(t *testing.T) {
 				{
 					Identifier: "Eth1/1",
 					Name:       "Ethernet2",
-					Vrf:        pointer.Pointer("Vrf100"),
+					Vrf:        "Vrf100",
 				},
 				{
 					Identifier: "Eth1/2",
@@ -86,7 +85,7 @@ func Test_makeBGPFilter(t *testing.T) {
 	tests := []struct {
 		name     string
 		m        *metal.Machine
-		vrf      *string
+		vrf      string
 		networks []*metal.Network
 		ips      []*metal.IP
 		want     *apiv2.BGPFilter
@@ -95,7 +94,6 @@ func Test_makeBGPFilter(t *testing.T) {
 		{
 			name:     "no allocation",
 			m:        &metal.Machine{},
-			vrf:      new(string),
 			networks: []*metal.Network{},
 			ips:      []*metal.IP{},
 			want:     &apiv2.BGPFilter{},
@@ -127,7 +125,7 @@ func Test_makeBGPFilter(t *testing.T) {
 					},
 				},
 			},
-			vrf:      pointer.Pointer("default"),
+			vrf:      "default",
 			networks: []*metal.Network{},
 			ips:      []*metal.IP{},
 			want: &apiv2.BGPFilter{

@@ -5,6 +5,7 @@ import (
 
 	"github.com/metal-stack/api/go/enum"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-lib/pkg/pointer"
 )
 
 type Switch struct {
@@ -181,7 +182,7 @@ func ToMetalNics(switchNics []*apiv2.SwitchNic) (Nics, error) {
 			Name:       nic.Name,
 			Identifier: nic.Identifier,
 			MacAddress: nic.Mac,
-			Vrf:        nic.Vrf,
+			Vrf:        pointer.SafeDeref(nic.Vrf),
 			State: &NicState{
 				Desired: desiredState,
 				Actual:  actualState,
