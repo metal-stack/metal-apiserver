@@ -16,7 +16,7 @@ type filesystemLayoutRepository struct {
 }
 
 func (r *filesystemLayoutRepository) validateCreate(ctx context.Context, req *adminv2.FilesystemServiceCreateRequest) error {
-	fsl, err := r.convertToInternal(req.FilesystemLayout)
+	fsl, err := r.convertToInternal(ctx, req.FilesystemLayout)
 	if err != nil {
 		return errorutil.Convert(err)
 	}
@@ -30,7 +30,7 @@ func (r *filesystemLayoutRepository) validateCreate(ctx context.Context, req *ad
 }
 
 func (r *filesystemLayoutRepository) validateUpdate(ctx context.Context, req *adminv2.FilesystemServiceUpdateRequest, _ *metal.FilesystemLayout) error {
-	fsl, err := r.convertToInternal(req.FilesystemLayout)
+	fsl, err := r.convertToInternal(ctx, req.FilesystemLayout)
 	if err != nil {
 		return errorutil.Convert(err)
 	}
@@ -83,7 +83,7 @@ func (r *filesystemLayoutRepository) matchScope(_ *metal.FilesystemLayout) bool 
 }
 
 func (r *filesystemLayoutRepository) create(ctx context.Context, rq *adminv2.FilesystemServiceCreateRequest) (*metal.FilesystemLayout, error) {
-	fsl, err := r.convertToInternal(rq.FilesystemLayout)
+	fsl, err := r.convertToInternal(ctx, rq.FilesystemLayout)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -97,7 +97,7 @@ func (r *filesystemLayoutRepository) create(ctx context.Context, rq *adminv2.Fil
 }
 
 func (r *filesystemLayoutRepository) update(ctx context.Context, fsl *metal.FilesystemLayout, rq *adminv2.FilesystemServiceUpdateRequest) (*metal.FilesystemLayout, error) {
-	newFsl, err := r.convertToInternal(rq.FilesystemLayout)
+	newFsl, err := r.convertToInternal(ctx, rq.FilesystemLayout)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -134,7 +134,7 @@ func (r *filesystemLayoutRepository) list(ctx context.Context, rq *apiv2.Filesys
 	return fsls, nil
 }
 
-func (r *filesystemLayoutRepository) convertToInternal(f *apiv2.FilesystemLayout) (*metal.FilesystemLayout, error) {
+func (r *filesystemLayoutRepository) convertToInternal(ctx context.Context, f *apiv2.FilesystemLayout) (*metal.FilesystemLayout, error) {
 	var (
 		fss = []metal.Filesystem{}
 		ds  = []metal.Disk{}
@@ -257,7 +257,7 @@ func (r *filesystemLayoutRepository) convertToInternal(f *apiv2.FilesystemLayout
 	return fl, nil
 
 }
-func (r *filesystemLayoutRepository) convertToProto(in *metal.FilesystemLayout) (*apiv2.FilesystemLayout, error) {
+func (r *filesystemLayoutRepository) convertToProto(ctx context.Context, in *metal.FilesystemLayout) (*apiv2.FilesystemLayout, error) {
 	var filesystems []*apiv2.Filesystem
 	for _, fs := range in.Filesystems {
 		f, err := enum.GetEnum[apiv2.Format](string(fs.Format))

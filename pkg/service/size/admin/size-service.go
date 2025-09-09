@@ -35,7 +35,7 @@ func (s *sizeServiceServer) Create(ctx context.Context, rq *connect.Request[admi
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := s.repo.Size().ConvertToProto(size)
+	converted, err := s.repo.Size().ConvertToProto(ctx, size)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -50,7 +50,7 @@ func (s *sizeServiceServer) Update(ctx context.Context, rq *connect.Request[admi
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := s.repo.Size().ConvertToProto(size)
+	converted, err := s.repo.Size().ConvertToProto(ctx, size)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -64,7 +64,7 @@ func (s *sizeServiceServer) Delete(ctx context.Context, rq *connect.Request[admi
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	converted, err := s.repo.Size().ConvertToProto(size)
+	converted, err := s.repo.Size().ConvertToProto(ctx, size)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
