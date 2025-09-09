@@ -38,7 +38,7 @@ func (r *sizeRepository) create(ctx context.Context, req *adminv2.SizeServiceCre
 	if req.Size == nil {
 		return nil, nil
 	}
-	size, err := r.convertToInternal(req.Size)
+	size, err := r.convertToInternal(ctx, req.Size)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +116,7 @@ func (r *sizeRepository) list(ctx context.Context, rq *apiv2.SizeQuery) ([]*meta
 	return ip, nil
 }
 
-func (r *sizeRepository) convertToInternal(e *apiv2.Size) (*metal.Size, error) {
+func (r *sizeRepository) convertToInternal(ctx context.Context, e *apiv2.Size) (*metal.Size, error) {
 	if e == nil {
 		return nil, nil
 	}
@@ -147,7 +147,7 @@ func (r *sizeRepository) convertToInternal(e *apiv2.Size) (*metal.Size, error) {
 	return size, nil
 }
 
-func (r *sizeRepository) convertToProto(e *metal.Size) (*apiv2.Size, error) {
+func (r *sizeRepository) convertToProto(ctx context.Context, e *metal.Size) (*apiv2.Size, error) {
 	if e == nil {
 		return nil, nil
 	}

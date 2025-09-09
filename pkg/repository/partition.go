@@ -117,7 +117,7 @@ func (p *partitionRepository) validateUpdate(ctx context.Context, req *adminv2.P
 
 // Create implements Partition.
 func (p *partitionRepository) create(ctx context.Context, c *adminv2.PartitionServiceCreateRequest) (*metal.Partition, error) {
-	partition, err := p.convertToInternal(c.Partition)
+	partition, err := p.convertToInternal(ctx, c.Partition)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -154,7 +154,7 @@ func (p *partitionRepository) get(ctx context.Context, id string) (*metal.Partit
 func (p *partitionRepository) update(ctx context.Context, e *metal.Partition, req *adminv2.PartitionServiceUpdateRequest) (*metal.Partition, error) {
 	partition := req.Partition
 
-	new, err := p.convertToInternal(partition)
+	new, err := p.convertToInternal(ctx, partition)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -193,7 +193,7 @@ func (p *partitionRepository) matchScope(e *metal.Partition) bool {
 }
 
 // ConvertToInternal implements Partition.
-func (p *partitionRepository) convertToInternal(msg *apiv2.Partition) (*metal.Partition, error) {
+func (p *partitionRepository) convertToInternal(ctx context.Context, msg *apiv2.Partition) (*metal.Partition, error) {
 	mgm := ""
 	if len(msg.MgmtServiceAddresses) > 0 {
 		// FIXME migrate metal model to slice as well
@@ -240,7 +240,7 @@ func (p *partitionRepository) convertToInternal(msg *apiv2.Partition) (*metal.Pa
 }
 
 // ConvertToProto implements Partition.
-func (p *partitionRepository) convertToProto(e *metal.Partition) (*apiv2.Partition, error) {
+func (p *partitionRepository) convertToProto(ctx context.Context, e *metal.Partition) (*apiv2.Partition, error) {
 	var (
 		dnsServers []*apiv2.DNSServer
 		ntpServers []*apiv2.NTPServer

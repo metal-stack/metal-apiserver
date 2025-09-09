@@ -61,7 +61,7 @@ func (p *projectServiceServer) Get(ctx context.Context, rq *connect.Request[apiv
 	// TODO: maybe we should shadow some fields of the project when a tenant guest accesses this endpoint
 	// e.g. project annotations should not be completely visible?
 
-	converted, err := p.repo.Project(req.Project).ConvertToProto(project)
+	converted, err := p.repo.Project(req.Project).ConvertToProto(ctx, project)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func (p *projectServiceServer) Get(ctx context.Context, rq *connect.Request[apiv
 	memberMap := map[string]*apiv2.ProjectMember{}
 
 	for _, pm := range projectMembers {
-		converted, err := p.repo.Project(req.Project).AdditionalMethods().Member().ConvertToProto(pm)
+		converted, err := p.repo.Project(req.Project).AdditionalMethods().Member().ConvertToProto(ctx, pm)
 		if err != nil {
 			return nil, err
 		}
@@ -199,7 +199,7 @@ func (p *projectServiceServer) Create(ctx context.Context, rq *connect.Request[a
 		return nil, err
 	}
 
-	converted, err := p.repo.UnscopedProject().ConvertToProto(created)
+	converted, err := p.repo.UnscopedProject().ConvertToProto(ctx, created)
 	if err != nil {
 		return nil, err
 	}
@@ -230,7 +230,7 @@ func (p *projectServiceServer) Delete(ctx context.Context, rq *connect.Request[a
 		return nil, err
 	}
 
-	converted, err := p.repo.Project(req.Project).ConvertToProto(deleted)
+	converted, err := p.repo.Project(req.Project).ConvertToProto(ctx, deleted)
 	if err != nil {
 		return nil, err
 	}
@@ -248,7 +248,7 @@ func (p *projectServiceServer) Update(ctx context.Context, rq *connect.Request[a
 		return nil, err
 	}
 
-	converted, err := p.repo.Project(req.Project).ConvertToProto(updated)
+	converted, err := p.repo.Project(req.Project).ConvertToProto(ctx, updated)
 	if err != nil {
 		return nil, err
 	}
@@ -322,7 +322,7 @@ func (p *projectServiceServer) UpdateMember(ctx context.Context, rq *connect.Req
 		return nil, err
 	}
 
-	converted, err := p.repo.Project(req.Project).AdditionalMethods().Member().ConvertToProto(updated)
+	converted, err := p.repo.Project(req.Project).AdditionalMethods().Member().ConvertToProto(ctx, updated)
 	if err != nil {
 		return nil, err
 	}

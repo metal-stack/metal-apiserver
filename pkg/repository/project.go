@@ -166,7 +166,7 @@ func (r *projectRepository) list(ctx context.Context, query *apiv2.ProjectServic
 	return resp.GetProjects(), nil
 }
 
-func (r *projectRepository) convertToInternal(p *apiv2.Project) (*mdcv1.Project, error) {
+func (r *projectRepository) convertToInternal(ctx context.Context, p *apiv2.Project) (*mdcv1.Project, error) {
 	var labels []string
 	if p.Meta != nil && p.Meta.Labels != nil && len(p.Meta.Labels.Labels) > 0 {
 		labels = tag.TagMap(p.Meta.Labels.Labels).Slice()
@@ -191,7 +191,7 @@ func (r *projectRepository) convertToInternal(p *apiv2.Project) (*mdcv1.Project,
 	}, nil
 }
 
-func (r *projectRepository) convertToProto(p *mdcv1.Project) (*apiv2.Project, error) {
+func (r *projectRepository) convertToProto(ctx context.Context, p *mdcv1.Project) (*apiv2.Project, error) {
 	if p.Meta == nil {
 		return nil, errorutil.Internal("project meta is nil")
 	}
@@ -319,7 +319,7 @@ func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId st
 	for _, tenantWithAnnotations := range tenantResp.Tenants {
 		t := tenantWithAnnotations.Tenant
 
-		apit, err := r.s.Tenant().ConvertToProto(t)
+		apit, err := r.s.Tenant().ConvertToProto(ctx, t)
 		if err != nil {
 			return nil, err
 		}

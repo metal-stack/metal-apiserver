@@ -39,7 +39,7 @@ func (i *ipServiceServer) List(ctx context.Context, rq *connect.Request[adminv2.
 
 	var res []*apiv2.IP
 	for _, ip := range resp {
-		converted, err := i.repo.UnscopedIP().ConvertToProto(ip)
+		converted, err := i.repo.UnscopedIP().ConvertToProto(ctx, ip)
 		if err != nil {
 			return nil, errorutil.Convert(err)
 		}
