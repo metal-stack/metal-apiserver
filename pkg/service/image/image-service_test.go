@@ -105,6 +105,9 @@ func Test_imageServiceServer_List(t *testing.T) {
 		_, _ = fmt.Fprintln(w, "a image")
 	}))
 	url := ts.URL
+	url2 := url + "/url2"
+	url3 := url + "/url3"
+	url4 := url + "/url4"
 	defer ts.Close()
 
 	test.CreateImages(t, repo, []*adminv2.ImageServiceCreateRequest{
@@ -112,13 +115,13 @@ func Test_imageServiceServer_List(t *testing.T) {
 			Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}, Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED},
 		},
 		{
-			Image: &apiv2.Image{Id: "debian-12.0.20250101", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
+			Image: &apiv2.Image{Id: "debian-12.0.20250101", Url: url2, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
 		},
 		{
-			Image: &apiv2.Image{Id: "firewall-12.0.20241231", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL}},
+			Image: &apiv2.Image{Id: "firewall-12.0.20241231", Url: url3, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL}},
 		},
 		{
-			Image: &apiv2.Image{Id: "ubuntu-24.4.20241231", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
+			Image: &apiv2.Image{Id: "ubuntu-24.4.20241231", Url: url4, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
 		},
 	})
 
@@ -135,7 +138,7 @@ func Test_imageServiceServer_List(t *testing.T) {
 				Images: []*apiv2.Image{
 					{
 						Id:             "debian-12.0.20250101",
-						Url:            url,
+						Url:            url2,
 						Name:           pointer.Pointer(""),
 						Description:    pointer.Pointer(""),
 						Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE},
@@ -151,7 +154,7 @@ func Test_imageServiceServer_List(t *testing.T) {
 					},
 					{
 						Id:             "firewall-12.0.20241231",
-						Url:            url,
+						Url:            url3,
 						Name:           pointer.Pointer(""),
 						Description:    pointer.Pointer(""),
 						Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL},
@@ -159,7 +162,7 @@ func Test_imageServiceServer_List(t *testing.T) {
 					},
 					{
 						Id:             "ubuntu-24.4.20241231",
-						Url:            url,
+						Url:            url4,
 						Name:           pointer.Pointer(""),
 						Description:    pointer.Pointer(""),
 						Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE},
@@ -175,7 +178,23 @@ func Test_imageServiceServer_List(t *testing.T) {
 				Images: []*apiv2.Image{
 					{
 						Id:             "firewall-12.0.20241231",
-						Url:            url,
+						Url:            url3,
+						Name:           pointer.Pointer(""),
+						Description:    pointer.Pointer(""),
+						Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL},
+						Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_PREVIEW,
+					},
+				},
+			},
+		},
+		{
+			name:    "list by url",
+			request: &apiv2.ImageServiceListRequest{Query: &apiv2.ImageQuery{Url: &url3}},
+			want: &apiv2.ImageServiceListResponse{
+				Images: []*apiv2.Image{
+					{
+						Id:             "firewall-12.0.20241231",
+						Url:            url3,
 						Name:           pointer.Pointer(""),
 						Description:    pointer.Pointer(""),
 						Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL},
@@ -207,7 +226,7 @@ func Test_imageServiceServer_List(t *testing.T) {
 				Images: []*apiv2.Image{
 					{
 						Id:             "debian-12.0.20250101",
-						Url:            url,
+						Url:            url2,
 						Name:           pointer.Pointer(""),
 						Description:    pointer.Pointer(""),
 						Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE},
@@ -271,6 +290,9 @@ func Test_imageServiceServer_Latest(t *testing.T) {
 		_, _ = fmt.Fprintln(w, "a image")
 	}))
 	url := ts.URL
+	url2 := url + "/url2"
+	url3 := url + "/url3"
+	url4 := url + "/url4"
 	defer ts.Close()
 
 	test.CreateImages(t, repo, []*adminv2.ImageServiceCreateRequest{
@@ -278,13 +300,13 @@ func Test_imageServiceServer_Latest(t *testing.T) {
 			Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
 		},
 		{
-			Image: &apiv2.Image{Id: "debian-12.0.20250101", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
+			Image: &apiv2.Image{Id: "debian-12.0.20250101", Url: url2, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
 		},
 		{
-			Image: &apiv2.Image{Id: "debian-11.0.20250101", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
+			Image: &apiv2.Image{Id: "debian-11.0.20250101", Url: url3, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
 		},
 		{
-			Image: &apiv2.Image{Id: "debian-12.0.20250201", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
+			Image: &apiv2.Image{Id: "debian-12.0.20250201", Url: url4, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
 		},
 	})
 
@@ -300,7 +322,7 @@ func Test_imageServiceServer_Latest(t *testing.T) {
 			want: &apiv2.ImageServiceLatestResponse{
 				Image: &apiv2.Image{
 					Id:             "debian-12.0.20250201",
-					Url:            url,
+					Url:            url4,
 					Name:           pointer.Pointer(""),
 					Description:    pointer.Pointer(""),
 					Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE},

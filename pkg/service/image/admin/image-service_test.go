@@ -30,8 +30,19 @@ func Test_imageServiceServer_Create(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
 	}))
-	url := ts.URL
 	defer ts.Close()
+	url := ts.URL
+	url2 := url + "/url2"
+	url3 := url + "/url3"
+
+	test.CreateImages(t, repo, []*adminv2.ImageServiceCreateRequest{
+		{
+			Image: &apiv2.Image{Id: "debian-13.0.20241231", Url: url2, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
+		},
+		{
+			Image: &apiv2.Image{Id: "ubuntu-24.4.20241231", Url: url3, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
+		},
+	})
 
 	tests := []struct {
 		name    string
@@ -44,6 +55,27 @@ func Test_imageServiceServer_Create(t *testing.T) {
 			request: &adminv2.ImageServiceCreateRequest{Image: &apiv2.Image{Id: "debian-12.0.20241231"}},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`image url must not be empty`),
+		},
+		{
+			name:    "image url is already set on a other image",
+			request: &adminv2.ImageServiceCreateRequest{Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: url2, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}}},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument(`image url already configured for debian-13.0.20241231`),
+		},
+		{
+			name:    "image url is already set on a other image but different os, which is allowed",
+			request: &adminv2.ImageServiceCreateRequest{Image: &apiv2.Image{Id: "debian-13.0.20251231", Url: url3, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}}},
+			want: &adminv2.ImageServiceCreateResponse{
+				Image: &apiv2.Image{
+					Id:             "debian-13.0.20251231",
+					Url:            url3,
+					Name:           pointer.Pointer(""),
+					Description:    pointer.Pointer(""),
+					Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE},
+					Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_PREVIEW,
+				},
+			},
+			wantErr: nil,
 		},
 		{
 			name:    "image feature is empty",
@@ -112,12 +144,16 @@ func Test_imageServiceServer_Update(t *testing.T) {
 
 	validURL := ts.URL
 	invalidURL := ts.URL + "/invalid"
+	url2 := validURL + "/url2"
 
 	defer ts.Close()
 
 	test.CreateImages(t, repo, []*adminv2.ImageServiceCreateRequest{
 		{
 			Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: validURL, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
+		},
+		{
+			Image: &apiv2.Image{Id: "debian-13.0.20241231", Url: url2, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
 		},
 	})
 
@@ -128,19 +164,25 @@ func Test_imageServiceServer_Update(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name:    "simple update on non existing",
+			name:    "update on non existing",
 			request: &adminv2.ImageServiceUpdateRequest{Image: &apiv2.Image{Id: "debian-12.0.20250101"}},
 			want:    nil,
 			wantErr: errorutil.NotFound(`no image with id "debian-12.0.20250101" found`),
 		},
 		{
-			name:    "simple update on existing, invalid url",
+			name:    "update on existing, invalid url",
 			request: &adminv2.ImageServiceUpdateRequest{Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: invalidURL}},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`image:debian-12.0.20241231 is not accessible under:%s statuscode:404`, invalidURL),
 		},
 		{
-			name:    "simple update on existing update name",
+			name:    "update on existing, existing url",
+			request: &adminv2.ImageServiceUpdateRequest{Image: &apiv2.Image{Id: "debian-13.0.20241231", Url: validURL}},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument(`image url already configured for debian-12.0.20241231`),
+		},
+		{
+			name:    "update on existing name",
 			request: &adminv2.ImageServiceUpdateRequest{Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: validURL, Name: pointer.Pointer("NewName")}},
 			want: &adminv2.ImageServiceUpdateResponse{
 				Image: &apiv2.Image{
@@ -154,7 +196,7 @@ func Test_imageServiceServer_Update(t *testing.T) {
 			},
 		},
 		{
-			name:    "simple update on existing update feature",
+			name:    "update on existing feature",
 			request: &adminv2.ImageServiceUpdateRequest{Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: validURL, Name: pointer.Pointer("NewName"), Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL}}},
 			want: &adminv2.ImageServiceUpdateResponse{
 				Image: &apiv2.Image{
@@ -168,7 +210,7 @@ func Test_imageServiceServer_Update(t *testing.T) {
 			},
 		},
 		{
-			name:    "simple update on existing update classification",
+			name:    "update on existing classification",
 			request: &adminv2.ImageServiceUpdateRequest{Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: validURL, Name: pointer.Pointer("NewName"), Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL}, Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED}},
 			want: &adminv2.ImageServiceUpdateResponse{
 				Image: &apiv2.Image{
@@ -221,6 +263,7 @@ func Test_imageServiceServer_Delete(t *testing.T) {
 		_, _ = fmt.Fprintln(w, "a image")
 	}))
 	url := ts.URL
+	url2 := url + "/url2"
 	defer ts.Close()
 
 	test.CreateImages(t, repo, []*adminv2.ImageServiceCreateRequest{
@@ -228,7 +271,7 @@ func Test_imageServiceServer_Delete(t *testing.T) {
 			Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
 		},
 		{
-			Image: &apiv2.Image{Id: "debian-11.0.20221231", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
+			Image: &apiv2.Image{Id: "debian-11.0.20221231", Url: url2, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
 		},
 	})
 
