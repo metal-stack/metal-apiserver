@@ -117,7 +117,7 @@ func (b *bootServiceServer) Register(ctx context.Context, rq *connect.Request[in
 		MetalGPUs: gpus,
 	}
 
-	size, err := b.repo.Size().AdditionalMethods().FromHardware(machineHardware)
+	size, err := b.repo.Size().AdditionalMethods().FromHardware(ctx, machineHardware)
 	if err != nil {
 		size = &metal.Size{
 			Base: metal.Base{

@@ -196,8 +196,8 @@ func (r *sizeRepository) sizeFilters(filter generic.EntityQuery) []generic.Entit
 }
 
 // FromHardware tries to find a size which matches the given hardware specs.
-func  (r *sizeRepository) FromHardware(hw metal.MachineHardware) (*metal.Size, error) {
-	sz, err := r.s.ds.Size().List(context.Background())
+func (r *sizeRepository) FromHardware(ctx context.Context, hw metal.MachineHardware) (*metal.Size, error) {
+	sz, err := r.s.ds.Size().List(ctx)
 	if err != nil {
 		return nil, err
 	}
