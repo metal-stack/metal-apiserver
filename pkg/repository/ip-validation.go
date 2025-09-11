@@ -26,6 +26,8 @@ func (r *ipRepository) validateUpdate(ctx context.Context, req *apiv2.IPServiceU
 		return err
 	}
 
+	// FIXME Prevent update of internal tags
+
 	if req.Type != nil {
 		if old.Type == metal.Static && *req.Type != apiv2.IPType_IP_TYPE_STATIC {
 			return errorutil.InvalidArgument("cannot change type of ip address from static to ephemeral")
