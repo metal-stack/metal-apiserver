@@ -37,6 +37,11 @@ func ImageFilter(rq *apiv2.ImageQuery) func(q r.Term) r.Term {
 				return row.Field("description").Eq(*rq.Description)
 			})
 		}
+		if rq.Url != nil {
+			q = q.Filter(func(row r.Term) r.Term {
+				return row.Field("url").Eq(*rq.Url)
+			})
+		}
 
 		if rq.Feature != nil {
 			q = q.Filter(func(row r.Term) r.Term {
