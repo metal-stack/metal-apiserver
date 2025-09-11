@@ -7,6 +7,7 @@ import (
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 )
 
@@ -112,5 +113,9 @@ type (
 
 	Partition interface {
 		Repository[*partitionRepository, *metal.Partition, *apiv2.Partition, *adminv2.PartitionServiceCreateRequest, *adminv2.PartitionServiceUpdateRequest, *apiv2.PartitionQuery]
+	}
+
+	ProvisioningEvent interface {
+		Repository[*provisioningEventRepository, *metal.ProvisioningEventContainer, *metal.ProvisioningEventContainer, *infrav2.EventServiceSendRequest, *infrav2.EventServiceSendRequest, *ProvisioningEventQuery]
 	}
 )
