@@ -134,17 +134,15 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 		{
 			name: "update constraints",
 			rq: &adminv2.FilesystemServiceUpdateRequest{
-				FilesystemLayout: &apiv2.FilesystemLayout{
-					Id:          "default",
-					Name:        pointer.Pointer("Default FSL"),
-					Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: pointer.Pointer("/"), Label: pointer.Pointer("root")}},
-					Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1")}}}},
-					Constraints: &apiv2.FilesystemLayoutConstraints{
-						Sizes: []string{"c1-large-x86"},
-						Images: map[string]string{
-							"debian": ">= 12.0",
-							"ubuntu": ">= 24.4",
-						},
+				Id:          "default",
+				Name:        pointer.Pointer("Default FSL"),
+				Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: pointer.Pointer("/"), Label: pointer.Pointer("root")}},
+				Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1")}}}},
+				Constraints: &apiv2.FilesystemLayoutConstraints{
+					Sizes: []string{"c1-large-x86"},
+					Images: map[string]string{
+						"debian": ">= 12.0",
+						"ubuntu": ">= 24.4",
 					},
 				},
 			},
@@ -168,7 +166,7 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 		},
 		{
 			name:    "update nonexisting",
-			rq:      &adminv2.FilesystemServiceUpdateRequest{FilesystemLayout: &apiv2.FilesystemLayout{Id: "no-existing"}},
+			rq:      &adminv2.FilesystemServiceUpdateRequest{Id: "no-existing"},
 			want:    nil,
 			wantErr: errorutil.NotFound(`no filesystemlayout with id "no-existing" found`),
 		},
