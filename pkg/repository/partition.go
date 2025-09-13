@@ -112,7 +112,15 @@ func (p *partitionRepository) validateDelete(ctx context.Context, req *metal.Par
 
 // ValidateUpdate implements Partition.
 func (p *partitionRepository) validateUpdate(ctx context.Context, req *adminv2.PartitionServiceUpdateRequest, _ *metal.Partition) error {
-	return validatePartition(ctx, req.Partition)
+	partition := &apiv2.Partition{
+		Id:                   req.Id,
+		Meta:                 req.Meta,
+		BootConfiguration:    req.BootConfiguration,
+		DnsServer:            req.DnsServer,
+		NtpServer:            req.NtpServer,
+		MgmtServiceAddresses: req.MgmtServiceAddresses,
+	}
+	return validatePartition(ctx, partition)
 }
 
 // Create implements Partition.
@@ -152,8 +160,17 @@ func (p *partitionRepository) get(ctx context.Context, id string) (*metal.Partit
 
 // Update implements Partition.
 func (p *partitionRepository) update(ctx context.Context, e *metal.Partition, req *adminv2.PartitionServiceUpdateRequest) (*metal.Partition, error) {
-	partition := req.Partition
-
+	partition := &apiv2.Partition{
+		Id:                   req.Id,
+		Meta:                 req.Meta,
+		BootConfiguration:    req.BootConfiguration,
+		DnsServer:            req.DnsServer,
+		NtpServer:            req.NtpServer,
+		MgmtServiceAddresses: req.MgmtServiceAddresses,
+	}
+	if req.Description != nil {
+		partition.Description = *req.Description
+	}
 	new, err := p.convertToInternal(ctx, partition)
 	if err != nil {
 		return nil, errorutil.Convert(err)

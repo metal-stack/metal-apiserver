@@ -60,7 +60,7 @@ func (f *filesystemServiceServer) Delete(ctx context.Context, rq *connect.Reques
 
 // Update implements adminv2connect.FilesystemServiceHandler.
 func (f *filesystemServiceServer) Update(ctx context.Context, rq *connect.Request[adminv2.FilesystemServiceUpdateRequest]) (*connect.Response[adminv2.FilesystemServiceUpdateResponse], error) {
-	fsl, err := f.repo.FilesystemLayout().Update(ctx, rq.Msg.FilesystemLayout.Id, rq.Msg)
+	fsl, err := f.repo.FilesystemLayout().Update(ctx, rq.Msg.Id, rq.Msg)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

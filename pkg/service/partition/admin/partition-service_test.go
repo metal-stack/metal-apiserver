@@ -172,53 +172,53 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 	}{
 		{
 			name:    "bootconfig is nil",
-			request: &adminv2.PartitionServiceUpdateRequest{Partition: &apiv2.Partition{Id: "partition-1"}},
+			request: &adminv2.PartitionServiceUpdateRequest{Id: "partition-1"},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`partition.bootconfiguration must not be nil`),
 		},
 		{
 			name:    "imageurl is not accessible is nil",
-			request: &adminv2.PartitionServiceUpdateRequest{Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: invalidURL}}},
+			request: &adminv2.PartitionServiceUpdateRequest{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: invalidURL}},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`partition imageurl of:partition-1 is not accessible under:%s statuscode:404`, invalidURL),
 		},
 		{
 			name:    "kernelurl is not accessible is nil",
-			request: &adminv2.PartitionServiceUpdateRequest{Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: invalidURL}}},
+			request: &adminv2.PartitionServiceUpdateRequest{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: invalidURL}},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`partition kernelurl of:partition-1 is not accessible under:%s statuscode:404`, invalidURL),
 		},
 		{
 			name: "dnsserver is malformed",
-			request: &adminv2.PartitionServiceUpdateRequest{Partition: &apiv2.Partition{
+			request: &adminv2.PartitionServiceUpdateRequest{
 				Id:                "partition-1",
 				DnsServer:         []*apiv2.DNSServer{{Ip: "1.2.3.4.5"}},
-				BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+				BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`dnsserver ip is not valid:ParseAddr("1.2.3.4.5"): IPv4 address too long`),
 		},
 		{
 			name: "too many dnsserver",
-			request: &adminv2.PartitionServiceUpdateRequest{Partition: &apiv2.Partition{
+			request: &adminv2.PartitionServiceUpdateRequest{
 				Id:                "partition-1",
 				DnsServer:         []*apiv2.DNSServer{{Ip: "1.2.3.4"}, {Ip: "1.2.3.5"}, {Ip: "1.2.3.6"}, {Ip: "1.2.3.7"}},
-				BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+				BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`not more than 3 dnsservers must be specified`),
 		},
 		{
 			name: "ntpserver is malformed",
-			request: &adminv2.PartitionServiceUpdateRequest{Partition: &apiv2.Partition{
+			request: &adminv2.PartitionServiceUpdateRequest{
 				Id:                "partition-1",
 				DnsServer:         []*apiv2.DNSServer{{Ip: "1.2.3.4"}},
 				NtpServer:         []*apiv2.NTPServer{{Address: "1:3"}},
-				BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+				BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`dns name: 1:3 for ntp server not correct`),
 		},
 		{
 			name:    "valid partition, change nothing",
-			request: &adminv2.PartitionServiceUpdateRequest{Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+			request: &adminv2.PartitionServiceUpdateRequest{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
 			want: &adminv2.PartitionServiceUpdateResponse{
 				Partition: &apiv2.Partition{Id: "partition-1", Meta: &apiv2.Meta{}, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
 			},
@@ -227,7 +227,7 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 
 		{
 			name:    "valid partition, change image url",
-			request: &adminv2.PartitionServiceUpdateRequest{Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL + "/changed", KernelUrl: validURL}}},
+			request: &adminv2.PartitionServiceUpdateRequest{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL + "/changed", KernelUrl: validURL}},
 			want: &adminv2.PartitionServiceUpdateResponse{
 				Partition: &apiv2.Partition{Id: "partition-1", Meta: &apiv2.Meta{}, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL + "/changed", KernelUrl: validURL}},
 			},
@@ -236,10 +236,10 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 
 		{
 			name: "valid partition, add labels",
-			request: &adminv2.PartitionServiceUpdateRequest{Partition: &apiv2.Partition{
+			request: &adminv2.PartitionServiceUpdateRequest{
 				Id:                "partition-1",
 				Meta:              &apiv2.Meta{Labels: &apiv2.Labels{Labels: map[string]string{"color": "red"}}},
-				BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL + "/changed", KernelUrl: validURL}}},
+				BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL + "/changed", KernelUrl: validURL}},
 			want: &adminv2.PartitionServiceUpdateResponse{
 				Partition: &apiv2.Partition{
 					Id:                "partition-1",

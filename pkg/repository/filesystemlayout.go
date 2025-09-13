@@ -30,7 +30,20 @@ func (r *filesystemLayoutRepository) validateCreate(ctx context.Context, req *ad
 }
 
 func (r *filesystemLayoutRepository) validateUpdate(ctx context.Context, req *adminv2.FilesystemServiceUpdateRequest, _ *metal.FilesystemLayout) error {
-	fsl, err := r.convertToInternal(ctx, req.FilesystemLayout)
+	filesystemLayout := &apiv2.FilesystemLayout{
+		Id:             req.Id,
+		Meta:           req.Meta,
+		Name:           req.Name,
+		Description:    req.Description,
+		Filesystems:    req.Filesystems,
+		Disks:          req.Disks,
+		Raid:           req.Raid,
+		VolumeGroups:   req.VolumeGroups,
+		LogicalVolumes: req.LogicalVolumes,
+		Constraints:    req.Constraints,
+	}
+
+	fsl, err := r.convertToInternal(ctx, filesystemLayout)
 	if err != nil {
 		return errorutil.Convert(err)
 	}
@@ -97,7 +110,20 @@ func (r *filesystemLayoutRepository) create(ctx context.Context, rq *adminv2.Fil
 }
 
 func (r *filesystemLayoutRepository) update(ctx context.Context, fsl *metal.FilesystemLayout, rq *adminv2.FilesystemServiceUpdateRequest) (*metal.FilesystemLayout, error) {
-	newFsl, err := r.convertToInternal(ctx, rq.FilesystemLayout)
+	filesystemLayout := &apiv2.FilesystemLayout{
+		Id:             rq.Id,
+		Meta:           rq.Meta,
+		Name:           rq.Name,
+		Description:    rq.Description,
+		Filesystems:    rq.Filesystems,
+		Disks:          rq.Disks,
+		Raid:           rq.Raid,
+		VolumeGroups:   rq.VolumeGroups,
+		LogicalVolumes: rq.LogicalVolumes,
+		Constraints:    rq.Constraints,
+	}
+
+	newFsl, err := r.convertToInternal(ctx, filesystemLayout)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
