@@ -6,6 +6,7 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type (
@@ -26,6 +27,10 @@ type (
 		Annotations map[string]string
 	}
 )
+
+func (*TenantMemberUpdateRequest) GetUpdatedAt() *timestamppb.Timestamp {
+	return &timestamppb.Timestamp{}
+}
 
 func (t *tenantMemberRepository) checkIfMemberIsLastOwner(ctx context.Context, req *mdcv1.TenantMember) (bool, error) {
 	isOwner := TenantRoleFromMap(req.Meta.Annotations) == apiv2.TenantRole_TENANT_ROLE_OWNER

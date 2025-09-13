@@ -9,6 +9,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/metal-stack/metal-lib/pkg/tag"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -41,6 +42,10 @@ func (r *projectRepository) projectMember(scope *ProjectScope) ProjectMember {
 		typed:      repository,
 		repository: repository,
 	}
+}
+
+func (*ProjectMemberUpdateRequest) GetUpdatedAt() *timestamppb.Timestamp {
+	return &timestamppb.Timestamp{}
 }
 
 func (r *projectRepository) get(ctx context.Context, id string) (*mdcv1.Project, error) {

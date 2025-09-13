@@ -51,12 +51,10 @@ func (r *sizeRepository) create(ctx context.Context, req *adminv2.SizeServiceCre
 }
 
 func (r *sizeRepository) update(ctx context.Context, e *metal.Size, req *adminv2.SizeServiceUpdateRequest) (*metal.Size, error) {
-	old, err := r.get(ctx, req.Id)
-	if err != nil {
-		return nil, err
-	}
+	new := *e
 
-	new := *old
+	// Ensure Optimistic Locking
+	new.Changed = req.UpdatedAt.AsTime()
 
 	if req.Description != nil {
 		new.Description = *req.Description
@@ -81,7 +79,7 @@ func (r *sizeRepository) update(ctx context.Context, e *metal.Size, req *adminv2
 		new.Labels = updateLabelsOnMap(req.Labels, new.Labels)
 	}
 
-	err = r.s.ds.Size().Update(ctx, &new)
+	err := r.s.ds.Size().Update(ctx, &new)
 	if err != nil {
 		return nil, err
 	}
@@ -176,9 +174,10 @@ func (r *sizeRepository) convertToProto(ctx context.Context, e *metal.Size) (*ap
 		Description: pointer.PointerOrNil(e.Description),
 		Constraints: constraints,
 		Meta: &apiv2.Meta{
-			Labels:    labels,
-			CreatedAt: timestamppb.New(e.Created),
-			UpdatedAt: timestamppb.New(e.Changed),
+			Labels:     labels,
+			CreatedAt:  timestamppb.New(e.Created),
+			UpdatedAt:  timestamppb.New(e.Changed),
+			Generation: e.Generation,
 		},
 	}
 

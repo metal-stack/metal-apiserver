@@ -20,14 +20,10 @@ type (
 		SetID(id string)
 		// GetChanged returns the entity's changed time
 		GetChanged() time.Time
-		// SetChanged sets the entity's changed time
-		// TODO: it would be great if SetChanged would be private such that the caller cannot tamper with the modification timestamps
-		//       probably this also applies to SetCreated and SetID
-		SetChanged(changed time.Time)
-		// GetCreated sets the entity's creation time
+		// GetCreated returns the entity's creation time
 		GetCreated() time.Time
-		// SetCreated sets the entity's creation time
-		SetCreated(created time.Time)
+		// GetGeneration returns the entity's generation
+		GetGeneration() uint64
 	}
 
 	EntityQuery func(q r.Term) r.Term

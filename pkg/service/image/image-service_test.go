@@ -56,6 +56,7 @@ func Test_imageServiceServer_Get(t *testing.T) {
 			want: &apiv2.ImageServiceGetResponse{
 				Image: &apiv2.Image{
 					Id:             "debian-12.0.20241231",
+					Meta:           &apiv2.Meta{Generation: 0},
 					Url:            url,
 					Name:           pointer.Pointer(""),
 					Description:    pointer.Pointer(""),
@@ -80,7 +81,7 @@ func Test_imageServiceServer_Get(t *testing.T) {
 				tt.want, pointer.SafeDeref(got).Msg,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
-					&apiv2.Image{}, "meta", "expires_at",
+					&apiv2.Image{}, "expires_at",
 				),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
@@ -135,6 +136,7 @@ func Test_imageServiceServer_List(t *testing.T) {
 				Images: []*apiv2.Image{
 					{
 						Id:             "debian-12.0.20250101",
+						Meta:           &apiv2.Meta{Generation: 0},
 						Url:            url,
 						Name:           pointer.Pointer(""),
 						Description:    pointer.Pointer(""),
@@ -143,6 +145,7 @@ func Test_imageServiceServer_List(t *testing.T) {
 					},
 					{
 						Id:             "debian-12.0.20241231",
+						Meta:           &apiv2.Meta{Generation: 0},
 						Url:            url,
 						Name:           pointer.Pointer(""),
 						Description:    pointer.Pointer(""),
@@ -151,6 +154,7 @@ func Test_imageServiceServer_List(t *testing.T) {
 					},
 					{
 						Id:             "firewall-12.0.20241231",
+						Meta:           &apiv2.Meta{Generation: 0},
 						Url:            url,
 						Name:           pointer.Pointer(""),
 						Description:    pointer.Pointer(""),
@@ -159,6 +163,7 @@ func Test_imageServiceServer_List(t *testing.T) {
 					},
 					{
 						Id:             "ubuntu-24.4.20241231",
+						Meta:           &apiv2.Meta{Generation: 0},
 						Url:            url,
 						Name:           pointer.Pointer(""),
 						Description:    pointer.Pointer(""),
@@ -175,6 +180,7 @@ func Test_imageServiceServer_List(t *testing.T) {
 				Images: []*apiv2.Image{
 					{
 						Id:             "firewall-12.0.20241231",
+						Meta:           &apiv2.Meta{Generation: 0},
 						Url:            url,
 						Name:           pointer.Pointer(""),
 						Description:    pointer.Pointer(""),
@@ -191,6 +197,7 @@ func Test_imageServiceServer_List(t *testing.T) {
 				Images: []*apiv2.Image{
 					{
 						Id:             "debian-12.0.20241231",
+						Meta:           &apiv2.Meta{Generation: 0},
 						Url:            url,
 						Name:           pointer.Pointer(""),
 						Description:    pointer.Pointer(""),
@@ -207,6 +214,7 @@ func Test_imageServiceServer_List(t *testing.T) {
 				Images: []*apiv2.Image{
 					{
 						Id:             "debian-12.0.20250101",
+						Meta:           &apiv2.Meta{Generation: 0},
 						Url:            url,
 						Name:           pointer.Pointer(""),
 						Description:    pointer.Pointer(""),
@@ -215,6 +223,7 @@ func Test_imageServiceServer_List(t *testing.T) {
 					},
 					{
 						Id:             "debian-12.0.20241231",
+						Meta:           &apiv2.Meta{Generation: 0},
 						Url:            url,
 						Name:           pointer.Pointer(""),
 						Description:    pointer.Pointer(""),
@@ -246,7 +255,7 @@ func Test_imageServiceServer_List(t *testing.T) {
 				tt.want, pointer.SafeDeref(got).Msg,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
-					&apiv2.Image{}, "meta", "expires_at",
+					&apiv2.Image{}, "expires_at",
 				),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
@@ -300,6 +309,7 @@ func Test_imageServiceServer_Latest(t *testing.T) {
 			want: &apiv2.ImageServiceLatestResponse{
 				Image: &apiv2.Image{
 					Id:             "debian-12.0.20250201",
+					Meta:           &apiv2.Meta{Generation: 0},
 					Url:            url,
 					Name:           pointer.Pointer(""),
 					Description:    pointer.Pointer(""),
@@ -329,7 +339,7 @@ func Test_imageServiceServer_Latest(t *testing.T) {
 				tt.want, pointer.SafeDeref(got).Msg,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
-					&apiv2.Image{}, "meta", "expires_at",
+					&apiv2.Image{}, "expires_at",
 				),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",

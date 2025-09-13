@@ -51,6 +51,9 @@ func (r *machineRepository) update(ctx context.Context, m *metal.Machine, req *a
 		return m, errorutil.InvalidArgument("only allocated machines can be updated")
 	}
 
+	// Ensure Optimistic Locking
+	m.Changed = req.UpdatedAt.AsTime()
+
 	if req.Description != nil {
 		m.Allocation.Description = *req.Description
 	}
@@ -433,9 +436,10 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 	result := &apiv2.Machine{
 		Uuid: m.ID,
 		Meta: &apiv2.Meta{
-			CreatedAt: timestamppb.New(m.Created),
-			UpdatedAt: timestamppb.New(m.Changed),
-			Labels:    labels,
+			CreatedAt:  timestamppb.New(m.Created),
+			UpdatedAt:  timestamppb.New(m.Changed),
+			Labels:     labels,
+			Generation: m.Generation,
 		},
 		Partition:                apiv2Partition,
 		Rack:                     m.RackID,

@@ -286,6 +286,9 @@ func (r *networkRepository) update(ctx context.Context, nw *metal.Network, req *
 		nw.Labels = updateLabelsOnMap(req.Labels, nw.Labels)
 	}
 
+	// Ensure Optimistic Locking
+	nw.Changed = req.UpdatedAt.AsTime()
+
 	if req.NatType != nil {
 		nt, err := metal.ToNATType(*req.NatType)
 		if err != nil {
@@ -449,9 +452,10 @@ func (r *networkRepository) convertToProto(ctx context.Context, e *metal.Network
 		ParentNetwork:              pointer.PointerOrNil(e.ParentNetworkID),
 		AdditionalAnnouncableCidrs: e.AdditionalAnnouncableCIDRs,
 		Meta: &apiv2.Meta{
-			Labels:    labels,
-			CreatedAt: timestamppb.New(e.Created),
-			UpdatedAt: timestamppb.New(e.Changed),
+			Labels:     labels,
+			CreatedAt:  timestamppb.New(e.Created),
+			UpdatedAt:  timestamppb.New(e.Changed),
+			Generation: e.Generation,
 		},
 		NatType:                  natType,
 		DefaultChildPrefixLength: defaultChildPrefixLength,

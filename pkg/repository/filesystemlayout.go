@@ -9,6 +9,8 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-lib/pkg/pointer"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type filesystemLayoutRepository struct {
@@ -30,7 +32,20 @@ func (r *filesystemLayoutRepository) validateCreate(ctx context.Context, req *ad
 }
 
 func (r *filesystemLayoutRepository) validateUpdate(ctx context.Context, req *adminv2.FilesystemServiceUpdateRequest, _ *metal.FilesystemLayout) error {
-	fsl, err := r.convertToInternal(ctx, req.FilesystemLayout)
+	filesystemLayout := &apiv2.FilesystemLayout{
+		Id:             req.Id,
+		Name:           req.Name,
+		Meta:           &apiv2.Meta{UpdatedAt: req.UpdatedAt},
+		Description:    req.Description,
+		Filesystems:    req.Filesystems,
+		Disks:          req.Disks,
+		Raid:           req.Raid,
+		VolumeGroups:   req.VolumeGroups,
+		LogicalVolumes: req.LogicalVolumes,
+		Constraints:    req.Constraints,
+	}
+
+	fsl, err := r.convertToInternal(ctx, filesystemLayout)
 	if err != nil {
 		return errorutil.Convert(err)
 	}
@@ -97,12 +112,25 @@ func (r *filesystemLayoutRepository) create(ctx context.Context, rq *adminv2.Fil
 }
 
 func (r *filesystemLayoutRepository) update(ctx context.Context, fsl *metal.FilesystemLayout, rq *adminv2.FilesystemServiceUpdateRequest) (*metal.FilesystemLayout, error) {
-	newFsl, err := r.convertToInternal(ctx, rq.FilesystemLayout)
+	filesystemLayout := &apiv2.FilesystemLayout{
+		Id:             rq.Id,
+		Meta:           &apiv2.Meta{UpdatedAt: rq.UpdatedAt},
+		Name:           rq.Name,
+		Description:    rq.Description,
+		Filesystems:    rq.Filesystems,
+		Disks:          rq.Disks,
+		Raid:           rq.Raid,
+		VolumeGroups:   rq.VolumeGroups,
+		LogicalVolumes: rq.LogicalVolumes,
+		Constraints:    rq.Constraints,
+	}
+
+	newFsl, err := r.convertToInternal(ctx, filesystemLayout)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-
-	newFsl.SetChanged(fsl.Changed)
+	// Ensure Optimistic Locking
+	newFsl.Changed = pointer.SafeDeref(filesystemLayout.Meta).UpdatedAt.AsTime()
 
 	err = r.s.ds.FilesystemLayout().Update(ctx, newFsl)
 	if err != nil {
@@ -142,6 +170,7 @@ func (r *filesystemLayoutRepository) convertToInternal(ctx context.Context, f *a
 		vgs = []metal.VolumeGroup{}
 		lvs = []metal.LogicalVolume{}
 	)
+
 	for _, fs := range f.Filesystems {
 		formatString, err := enum.GetStringValue(fs.Format)
 		if err != nil {
@@ -237,6 +266,7 @@ func (r *filesystemLayoutRepository) convertToInternal(ctx context.Context, f *a
 		constraint.Images = f.Constraints.Images
 		constraint.Sizes = f.Constraints.Sizes
 	}
+
 	fl := &metal.FilesystemLayout{
 		Base: metal.Base{
 			ID: f.Id,
@@ -254,6 +284,17 @@ func (r *filesystemLayoutRepository) convertToInternal(ctx context.Context, f *a
 	if f.Description != nil {
 		fl.Description = *f.Description
 	}
+
+	if f.Meta != nil {
+		if f.Meta.CreatedAt != nil {
+			fl.Created = f.Meta.CreatedAt.AsTime()
+		}
+		if f.Meta.UpdatedAt != nil {
+			fl.Changed = f.Meta.UpdatedAt.AsTime()
+		}
+		fl.Generation = f.Meta.Generation
+	}
+
 	return fl, nil
 
 }
@@ -345,8 +386,15 @@ func (r *filesystemLayoutRepository) convertToProto(ctx context.Context, in *met
 		Images: in.Constraints.Images,
 	}
 
+	meta := &apiv2.Meta{
+		CreatedAt:  timestamppb.New(in.Created),
+		UpdatedAt:  timestamppb.New(in.Changed),
+		Generation: in.Generation,
+	}
+
 	fsl := &apiv2.FilesystemLayout{
 		Id:             in.ID,
+		Meta:           meta,
 		Name:           &in.Name,
 		Description:    &in.Description,
 		Filesystems:    filesystems,

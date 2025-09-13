@@ -12,6 +12,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -112,7 +113,15 @@ func (p *partitionRepository) validateDelete(ctx context.Context, req *metal.Par
 
 // ValidateUpdate implements Partition.
 func (p *partitionRepository) validateUpdate(ctx context.Context, req *adminv2.PartitionServiceUpdateRequest, _ *metal.Partition) error {
-	return validatePartition(ctx, req.Partition)
+	partition := &apiv2.Partition{
+		Id:                   req.Id,
+		Meta:                 &apiv2.Meta{UpdatedAt: req.UpdatedAt},
+		BootConfiguration:    req.BootConfiguration,
+		DnsServer:            req.DnsServer,
+		NtpServer:            req.NtpServer,
+		MgmtServiceAddresses: req.MgmtServiceAddresses,
+	}
+	return validatePartition(ctx, partition)
 }
 
 // Create implements Partition.
@@ -152,14 +161,27 @@ func (p *partitionRepository) get(ctx context.Context, id string) (*metal.Partit
 
 // Update implements Partition.
 func (p *partitionRepository) update(ctx context.Context, e *metal.Partition, req *adminv2.PartitionServiceUpdateRequest) (*metal.Partition, error) {
-	partition := req.Partition
-
+	partition := &apiv2.Partition{
+		Id:                   req.Id,
+		Meta:                 &apiv2.Meta{UpdatedAt: req.UpdatedAt},
+		BootConfiguration:    req.BootConfiguration,
+		DnsServer:            req.DnsServer,
+		NtpServer:            req.NtpServer,
+		MgmtServiceAddresses: req.MgmtServiceAddresses,
+	}
+	if req.Description != nil {
+		partition.Description = *req.Description
+	}
 	new, err := p.convertToInternal(ctx, partition)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
+	// Ensure Optimistic Locking
+	new.Changed = req.UpdatedAt.AsTime()
 
-	new.SetChanged(e.Changed)
+	if req.Labels != nil {
+		new.Labels = updateLabelsOnMap(req.Labels, new.Labels)
+	}
 
 	err = p.s.ds.Partition().Update(ctx, new)
 	if err != nil {
@@ -235,6 +257,15 @@ func (p *partitionRepository) convertToInternal(ctx context.Context, msg *apiv2.
 		DNSServers: dnsServers,
 		NTPServers: ntpServers,
 	}
+	if msg.Meta != nil {
+		if msg.Meta.CreatedAt != nil {
+			partition.Created = msg.Meta.CreatedAt.AsTime()
+		}
+		if msg.Meta.UpdatedAt != nil {
+			partition.Changed = msg.Meta.UpdatedAt.AsTime()
+		}
+		partition.Generation = msg.Meta.Generation
+	}
 
 	return partition, nil
 }
@@ -256,7 +287,11 @@ func (p *partitionRepository) convertToProto(ctx context.Context, e *metal.Parti
 		})
 	}
 
-	meta := &apiv2.Meta{}
+	meta := &apiv2.Meta{
+		CreatedAt:  timestamppb.New(e.Created),
+		UpdatedAt:  timestamppb.New(e.Changed),
+		Generation: e.Generation,
+	}
 	if e.Labels != nil {
 		meta.Labels = &apiv2.Labels{Labels: e.Labels}
 	}

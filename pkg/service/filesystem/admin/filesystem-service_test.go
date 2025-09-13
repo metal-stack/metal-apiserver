@@ -13,6 +13,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func Test_filesystemServiceServer_Create(t *testing.T) {
@@ -47,6 +48,7 @@ func Test_filesystemServiceServer_Create(t *testing.T) {
 			want: &adminv2.FilesystemServiceCreateResponse{
 				FilesystemLayout: &apiv2.FilesystemLayout{
 					Id:          "default",
+					Meta:        &apiv2.Meta{Generation: 0},
 					Name:        pointer.Pointer("Default FSL"),
 					Description: pointer.Pointer(""),
 					Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: pointer.Pointer("/"), Label: pointer.Pointer("root")}},
@@ -94,6 +96,9 @@ func Test_filesystemServiceServer_Create(t *testing.T) {
 			if diff := cmp.Diff(
 				tt.want, pointer.SafeDeref(got).Msg,
 				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
 			); diff != "" {
 				t.Errorf("imageServiceServer.Create() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
 			}
@@ -108,7 +113,7 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 	defer closer()
 	repo := testStore.Store
 
-	test.CreateFilesystemLayouts(t, repo, []*adminv2.FilesystemServiceCreateRequest{
+	fslMap := test.CreateFilesystemLayouts(t, repo, []*adminv2.FilesystemServiceCreateRequest{
 		{
 			FilesystemLayout: &apiv2.FilesystemLayout{
 				Id:          "default",
@@ -125,6 +130,8 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 		},
 	})
 
+	log.Info("fslMap", "fsl", fslMap["default"])
+
 	tests := []struct {
 		name    string
 		rq      *adminv2.FilesystemServiceUpdateRequest
@@ -134,23 +141,23 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 		{
 			name: "update constraints",
 			rq: &adminv2.FilesystemServiceUpdateRequest{
-				FilesystemLayout: &apiv2.FilesystemLayout{
-					Id:          "default",
-					Name:        pointer.Pointer("Default FSL"),
-					Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: pointer.Pointer("/"), Label: pointer.Pointer("root")}},
-					Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1")}}}},
-					Constraints: &apiv2.FilesystemLayoutConstraints{
-						Sizes: []string{"c1-large-x86"},
-						Images: map[string]string{
-							"debian": ">= 12.0",
-							"ubuntu": ">= 24.4",
-						},
+				Id:          "default",
+				UpdatedAt:   timestamppb.New(fslMap["default"].Changed),
+				Name:        pointer.Pointer("Default FSL"),
+				Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: pointer.Pointer("/"), Label: pointer.Pointer("root")}},
+				Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1")}}}},
+				Constraints: &apiv2.FilesystemLayoutConstraints{
+					Sizes: []string{"c1-large-x86"},
+					Images: map[string]string{
+						"debian": ">= 12.0",
+						"ubuntu": ">= 24.4",
 					},
 				},
 			},
 			want: &adminv2.FilesystemServiceUpdateResponse{
 				FilesystemLayout: &apiv2.FilesystemLayout{
 					Id:          "default",
+					Meta:        &apiv2.Meta{Generation: 1},
 					Name:        pointer.Pointer("Default FSL"),
 					Description: pointer.Pointer(""),
 					Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: pointer.Pointer("/"), Label: pointer.Pointer("root")}},
@@ -168,7 +175,7 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 		},
 		{
 			name:    "update nonexisting",
-			rq:      &adminv2.FilesystemServiceUpdateRequest{FilesystemLayout: &apiv2.FilesystemLayout{Id: "no-existing"}},
+			rq:      &adminv2.FilesystemServiceUpdateRequest{Id: "no-existing"},
 			want:    nil,
 			wantErr: errorutil.NotFound(`no filesystemlayout with id "no-existing" found`),
 		},
@@ -186,6 +193,9 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 			if diff := cmp.Diff(
 				tt.want, pointer.SafeDeref(got).Msg,
 				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
 			); diff != "" {
 				t.Errorf("imageServiceServer.Create() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
 			}
@@ -255,6 +265,7 @@ func Test_filesystemServiceServer_Delete(t *testing.T) {
 			want: &adminv2.FilesystemServiceDeleteResponse{
 				FilesystemLayout: &apiv2.FilesystemLayout{
 					Id:          "default",
+					Meta:        &apiv2.Meta{Generation: 0},
 					Name:        pointer.Pointer("Default FSL"),
 					Description: pointer.Pointer(""),
 					Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: pointer.Pointer("/"), Label: pointer.Pointer("root")}},
@@ -301,6 +312,9 @@ func Test_filesystemServiceServer_Delete(t *testing.T) {
 			if diff := cmp.Diff(
 				tt.want, pointer.SafeDeref(got).Msg,
 				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
 			); diff != "" {
 				t.Errorf("imageServiceServer.Create() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
 			}

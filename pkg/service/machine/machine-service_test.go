@@ -17,6 +17,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func Test_machineServiceServer_Get(t *testing.T) {
@@ -329,7 +330,7 @@ func Test_machineServiceServer_Update(t *testing.T) {
 
 	// We need to create machines directly on the database because there is no MachineCreateRequest available and never will.
 	// Once the boot-service is available we can simulate a pxe booting machine the actually create a machine from the api level.
-	test.CreateMachines(t, testStore, []*metal.Machine{
+	machineMap := test.CreateMachines(t, testStore, []*metal.Machine{
 		{
 			Base: metal.Base{ID: "m1"}, PartitionID: "partition-1", SizeID: "c1-medium-x86",
 		},
@@ -369,13 +370,17 @@ func Test_machineServiceServer_Update(t *testing.T) {
 		},
 		{
 			name: "Update tags",
-			rq: &apiv2.MachineServiceUpdateRequest{Uuid: "m3", Project: "p1", Labels: &apiv2.UpdateLabels{
-				Update: &apiv2.Labels{Labels: map[string]string{"color": "red"}},
-			}},
+			rq: &apiv2.MachineServiceUpdateRequest{
+				Uuid:      "m3",
+				UpdatedAt: timestamppb.New(machineMap["m3"].Changed),
+				Project:   "p1",
+				Labels: &apiv2.UpdateLabels{
+					Update: &apiv2.Labels{Labels: map[string]string{"color": "red"}},
+				}},
 			want: &apiv2.MachineServiceUpdateResponse{
 				Machine: &apiv2.Machine{
 					Uuid:      "m3",
-					Meta:      &apiv2.Meta{},
+					Meta:      &apiv2.Meta{Generation: 1},
 					Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
 					Bios:      &apiv2.MachineBios{},
 					Hardware:  &apiv2.MachineHardware{},
@@ -412,13 +417,14 @@ func Test_machineServiceServer_Update(t *testing.T) {
 			name: "Update Description and ssh public key",
 			rq: &apiv2.MachineServiceUpdateRequest{
 				Uuid: "m4", Project: "p2",
+				UpdatedAt:     timestamppb.New(machineMap["m4"].Changed),
 				Description:   pointer.Pointer("my-beloved-machine"),
 				SshPublicKeys: []string{"key-2", "key-3"},
 			},
 			want: &apiv2.MachineServiceUpdateResponse{
 				Machine: &apiv2.Machine{
 					Uuid:      "m4",
-					Meta:      &apiv2.Meta{},
+					Meta:      &apiv2.Meta{Generation: 1},
 					Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
 					Bios:      &apiv2.MachineBios{},
 					Hardware:  &apiv2.MachineHardware{},

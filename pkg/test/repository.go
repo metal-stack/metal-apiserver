@@ -197,37 +197,50 @@ func (t *testStore) GetToken(subject string, cr *apiv2.TokenServiceCreateRequest
 	return resp.Msg.GetToken()
 }
 
-func CreateImages(t *testing.T, repo *repository.Store, images []*adminv2.ImageServiceCreateRequest) {
+func CreateImages(t *testing.T, repo *repository.Store, images []*adminv2.ImageServiceCreateRequest) map[string]*metal.Image {
+	imageMap := map[string]*metal.Image{}
 	for _, img := range images {
-		_, err := repo.Image().Create(t.Context(), img)
+		i, err := repo.Image().Create(t.Context(), img)
 		require.NoError(t, err)
+		imageMap[i.ID] = i
 	}
+	return imageMap
 }
 
-func CreateFilesystemLayouts(t *testing.T, repo *repository.Store, fsls []*adminv2.FilesystemServiceCreateRequest) {
+func CreateFilesystemLayouts(t *testing.T, repo *repository.Store, fsls []*adminv2.FilesystemServiceCreateRequest) map[string]*metal.FilesystemLayout {
+	fslMap := map[string]*metal.FilesystemLayout{}
 	for _, fsl := range fsls {
-		_, err := repo.FilesystemLayout().Create(t.Context(), fsl)
+		fsl, err := repo.FilesystemLayout().Create(t.Context(), fsl)
 		require.NoError(t, err)
+		fslMap[fsl.ID] = fsl
 	}
+	return fslMap
 }
 
-func CreateIPs(t *testing.T, repo *repository.Store, ips []*apiv2.IPServiceCreateRequest) {
+func CreateIPs(t *testing.T, repo *repository.Store, ips []*apiv2.IPServiceCreateRequest) map[string]*metal.IP {
+	ipMap := map[string]*metal.IP{}
 	for _, ip := range ips {
-		_, err := repo.UnscopedIP().Create(t.Context(), ip)
+		i, err := repo.UnscopedIP().Create(t.Context(), ip)
 		require.NoError(t, err)
+		ipMap[i.IPAddress] = i
 	}
+	return ipMap
 }
 
-func CreateMachinesWithAllocation(t *testing.T, repo *repository.Store, machines []*apiv2.MachineServiceCreateRequest) {
+func CreateMachinesWithAllocation(t *testing.T, repo *repository.Store, machines []*apiv2.MachineServiceCreateRequest) map[string]*metal.Machine {
+	machineMap := map[string]*metal.Machine{}
 	for _, machine := range machines {
-		_, err := repo.UnscopedMachine().Create(t.Context(), machine)
+		m, err := repo.UnscopedMachine().Create(t.Context(), machine)
 		require.NoError(t, err)
+		machineMap[m.ID] = m
 	}
+	return machineMap
 }
 
-func CreateMachines(t *testing.T, testStore *testStore, machines []*metal.Machine) {
+func CreateMachines(t *testing.T, testStore *testStore, machines []*metal.Machine) map[string]*metal.Machine {
+	machineMap := map[string]*metal.Machine{}
 	for _, machine := range machines {
-		_, err := testStore.ds.Machine().Create(t.Context(), machine)
+		m, err := testStore.ds.Machine().Create(t.Context(), machine)
 		require.NoError(t, err)
 		event := &metal.ProvisioningEventContainer{
 			Base: metal.Base{ID: machine.ID},
@@ -242,17 +255,18 @@ func CreateMachines(t *testing.T, testStore *testStore, machines []*metal.Machin
 		}
 		_, err = testStore.ds.Event().Create(t.Context(), event)
 		require.NoError(t, err)
-
+		machineMap[m.ID] = m
 	}
+	return machineMap
 }
 
-func CreateNetworks(t *testing.T, repo *repository.Store, nws []*adminv2.NetworkServiceCreateRequest) NetworkMap {
-	var networkMap = NetworkMap{}
+func CreateNetworks(t *testing.T, repo *repository.Store, nws []*adminv2.NetworkServiceCreateRequest) map[string]*metal.Network {
+	networkMap := map[string]*metal.Network{}
 
 	for _, nw := range nws {
 		resp, err := repo.UnscopedNetwork().Create(t.Context(), nw)
 		require.NoError(t, err)
-		networkMap[resp.Name] = resp.ID
+		networkMap[resp.ID] = resp
 	}
 	return networkMap
 }
@@ -350,11 +364,8 @@ func (t *testStore) DeleteProjectInvites() {
 	}
 }
 
-// NetworkMap maps network.Name to network.Id
-type NetworkMap map[string]string
-
-func AllocateNetworks(t *testing.T, repo *repository.Store, nws []*apiv2.NetworkServiceCreateRequest) NetworkMap {
-	var networkMap = NetworkMap{}
+func AllocateNetworks(t *testing.T, repo *repository.Store, nws []*apiv2.NetworkServiceCreateRequest) map[string]*metal.Network {
+	networkMap := map[string]*metal.Network{}
 	for _, nw := range nws {
 
 		req := &adminv2.NetworkServiceCreateRequest{
@@ -371,16 +382,19 @@ func AllocateNetworks(t *testing.T, repo *repository.Store, nws []*apiv2.Network
 
 		resp, err := repo.UnscopedNetwork().Create(t.Context(), req)
 		require.NoError(t, err)
-		networkMap[resp.Name] = resp.ID
+		networkMap[resp.Name] = resp
 	}
 	return networkMap
 }
 
-func CreatePartitions(t *testing.T, repo *repository.Store, partitions []*adminv2.PartitionServiceCreateRequest) {
+func CreatePartitions(t *testing.T, repo *repository.Store, partitions []*adminv2.PartitionServiceCreateRequest) map[string]*metal.Partition {
+	partitionMap := map[string]*metal.Partition{}
 	for _, partition := range partitions {
-		_, err := repo.Partition().Create(t.Context(), partition)
+		p, err := repo.Partition().Create(t.Context(), partition)
 		require.NoError(t, err)
+		partitionMap[p.ID] = p
 	}
+	return partitionMap
 }
 
 func CreateProjects(t *testing.T, repo *repository.Store, projects []*apiv2.ProjectServiceCreateRequest) {
@@ -433,9 +447,12 @@ func CreateTenantInvites(t *testing.T, testStore *testStore, invites []*apiv2.Te
 	}
 }
 
-func CreateSizes(t *testing.T, repo *repository.Store, sizes []*adminv2.SizeServiceCreateRequest) {
+func CreateSizes(t *testing.T, repo *repository.Store, sizes []*adminv2.SizeServiceCreateRequest) map[string]*metal.Size {
+	sizeMap := map[string]*metal.Size{}
 	for _, size := range sizes {
-		_, err := repo.Size().Create(t.Context(), size)
+		s, err := repo.Size().Create(t.Context(), size)
 		require.NoError(t, err)
+		sizeMap[s.ID] = s
 	}
+	return sizeMap
 }

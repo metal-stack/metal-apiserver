@@ -16,7 +16,9 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
+	"github.com/samber/lo"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var (
@@ -1591,7 +1593,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 	})
 
 	test.CreateIPs(t, repo, []*apiv2.IPServiceCreateRequest{
-		{Network: networkMap["tenant-1"], Project: "p1", Name: pointer.Pointer("ip-1")},
+		{Network: networkMap["tenant-1"].ID, Project: "p1", Name: pointer.Pointer("ip-1")},
 	})
 
 	tests := []struct {
@@ -1602,7 +1604,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 	}{
 		{
 			name:    "network has ips",
-			rq:      &adminv2.NetworkServiceDeleteRequest{Id: networkMap["tenant-1"]},
+			rq:      &adminv2.NetworkServiceDeleteRequest{Id: networkMap["tenant-1"].ID},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`there are still 1 ips present in prefix: 10.100.0.0/22`),
 		},
@@ -1620,10 +1622,10 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 		},
 		{
 			name: "existing",
-			rq:   &adminv2.NetworkServiceDeleteRequest{Id: networkMap["tenant-2"]},
+			rq:   &adminv2.NetworkServiceDeleteRequest{Id: networkMap["tenant-2"].ID},
 			want: &adminv2.NetworkServiceDeleteResponse{
 				Network: &apiv2.Network{
-					Id:            networkMap["tenant-2"],
+					Id:            networkMap["tenant-2"].ID,
 					Meta:          &apiv2.Meta{},
 					Name:          pointer.Pointer("tenant-2"),
 					Partition:     pointer.Pointer("partition-one"),
@@ -1734,7 +1736,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 	})
 
 	test.CreateIPs(t, repo, []*apiv2.IPServiceCreateRequest{
-		{Network: networkMap["tenant-1"], Project: "p1", Name: pointer.Pointer("ip-1")},
+		{Network: networkMap["tenant-1"].ID, Project: "p1", Name: pointer.Pointer("ip-1")},
 	})
 
 	tests := []struct {
@@ -1807,12 +1809,12 @@ func Test_networkServiceServer_List(t *testing.T) {
 		{
 			name: "specific id",
 			rq: &adminv2.NetworkServiceListRequest{
-				Query: &apiv2.NetworkQuery{Id: pointer.Pointer(networkMap["tenant-1"])},
+				Query: &apiv2.NetworkQuery{Id: pointer.Pointer(networkMap["tenant-1"].ID)},
 			},
 			want: &adminv2.NetworkServiceListResponse{
 				Networks: []*apiv2.Network{
 					{
-						Id:            networkMap["tenant-1"],
+						Id:            networkMap["tenant-1"].ID,
 						Meta:          &apiv2.Meta{},
 						Name:          pointer.Pointer("tenant-1"),
 						Partition:     pointer.Pointer("partition-one"),
@@ -1937,7 +1939,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 			want: &adminv2.NetworkServiceListResponse{
 				Networks: []*apiv2.Network{
 					{
-						Id:            networkMap["tenant-2"],
+						Id:            networkMap["tenant-2"].ID,
 						Meta:          &apiv2.Meta{Labels: &apiv2.Labels{Labels: map[string]string{"size": "small", "color": "blue"}}},
 						Name:          pointer.Pointer("tenant-2"),
 						Partition:     pointer.Pointer("partition-one"),
@@ -2005,7 +2007,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{Partition: &apiv2.Partition{Id: "partition-four", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 	})
 
-	test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+	createdNetworks := test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
 		{
 			Id:                       pointer.Pointer("tenant-super-network"),
 			Prefixes:                 []string{"10.100.0.0/14"},
@@ -2043,10 +2045,12 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		},
 	})
 
-	networkMap := test.AllocateNetworks(t, repo, []*apiv2.NetworkServiceCreateRequest{
+	allocatedNetworks := test.AllocateNetworks(t, repo, []*apiv2.NetworkServiceCreateRequest{
 		{Name: pointer.Pointer("tenant-1"), Project: "p1", Partition: pointer.Pointer("partition-one")},
 		{Name: pointer.Pointer("tenant-2"), Project: "p1", Partition: pointer.Pointer("partition-one"), Labels: &apiv2.Labels{Labels: map[string]string{"size": "small", "color": "blue"}}},
 	})
+
+	networkMap := lo.Assign(createdNetworks, allocatedNetworks)
 
 	test.CreateIPs(t, repo, []*apiv2.IPServiceCreateRequest{{
 		Network: "internet",
@@ -2064,8 +2068,9 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{
 			name: "add malformed prefix",
 			rq: &adminv2.NetworkServiceUpdateRequest{
-				Id:       "tenant-super-network",
-				Prefixes: []string{"10.100.0.0/14", "10.105.0.0/14"},
+				Id:        "tenant-super-network",
+				UpdatedAt: timestamppb.New(networkMap["tenant-super-network"].Changed),
+				Prefixes:  []string{"10.100.0.0/14", "10.105.0.0/14"},
 			},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`expecting canonical form of prefix "10.105.0.0/14", please specify it as "10.104.0.0/14"`),
@@ -2073,7 +2078,8 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{
 			name: "remove all prefixes",
 			rq: &adminv2.NetworkServiceUpdateRequest{
-				Id: "tenant-super-network",
+				Id:        "tenant-super-network",
+				UpdatedAt: timestamppb.New(networkMap["tenant-super-network"].Changed),
 			},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`removing all prefixes is not supported`),
@@ -2081,8 +2087,9 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{
 			name: "add overlapping prefix",
 			rq: &adminv2.NetworkServiceUpdateRequest{
-				Id:       "tenant-super-network",
-				Prefixes: []string{"10.100.0.0/14", "10.100.0.0/16"},
+				Id:        "tenant-super-network",
+				UpdatedAt: timestamppb.New(networkMap["tenant-super-network"].Changed),
+				Prefixes:  []string{"10.100.0.0/14", "10.100.0.0/16"},
 			},
 			want:    nil,
 			wantErr: errorutil.Conflict(`10.100.0.0/16 overlaps 10.100.0.0/14`),
@@ -2090,8 +2097,9 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{
 			name: "remove prefix where ip is used",
 			rq: &adminv2.NetworkServiceUpdateRequest{
-				Id:       "internet",
-				Prefixes: []string{"20.0.0.0/24"},
+				Id:        "internet",
+				UpdatedAt: timestamppb.New(networkMap["internet"].Changed),
+				Prefixes:  []string{"20.0.0.0/24"},
 			},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`there are still 1 ips present in prefix: 30.0.0.0/24`),
@@ -2099,14 +2107,16 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{
 			name: "add label to tenant network",
 			rq: &adminv2.NetworkServiceUpdateRequest{
-				Id:     networkMap["tenant-1"],
-				Labels: &apiv2.UpdateLabels{Update: &apiv2.Labels{Labels: map[string]string{"color": "red", "size": "large"}}},
+				Id:        networkMap["tenant-1"].ID,
+				UpdatedAt: timestamppb.New(networkMap["tenant-1"].Changed),
+				Labels:    &apiv2.UpdateLabels{Update: &apiv2.Labels{Labels: map[string]string{"color": "red", "size": "large"}}},
 			},
 			want: &adminv2.NetworkServiceUpdateResponse{
 				Network: &apiv2.Network{
-					Id: networkMap["tenant-1"],
+					Id: networkMap["tenant-1"].ID,
 					Meta: &apiv2.Meta{
-						Labels: &apiv2.Labels{Labels: map[string]string{"color": "red", "size": "large"}},
+						Labels:     &apiv2.Labels{Labels: map[string]string{"color": "red", "size": "large"}},
+						Generation: 1,
 					},
 					Name:          pointer.Pointer("tenant-1"),
 					Partition:     pointer.Pointer("partition-one"),
@@ -2122,8 +2132,9 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{
 			name: "add prefixes to tenant network",
 			rq: &adminv2.NetworkServiceUpdateRequest{
-				Id:       networkMap["tenant-1"],
-				Prefixes: []string{"10.100.0.0/22", "10.101.0.0/22", "10.102.0.0/22"},
+				Id:        networkMap["tenant-1"].ID,
+				UpdatedAt: timestamppb.New(networkMap["tenant-1"].Changed),
+				Prefixes:  []string{"10.100.0.0/22", "10.101.0.0/22", "10.102.0.0/22"},
 			},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument("cannot change prefixes in child networks"),
@@ -2131,13 +2142,14 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{
 			name: "add prefixes to tenant super network",
 			rq: &adminv2.NetworkServiceUpdateRequest{
-				Id:       "tenant-super-network",
-				Prefixes: []string{"10.100.0.0/14", "10.104.0.0/14"},
+				Id:        "tenant-super-network",
+				UpdatedAt: timestamppb.New(networkMap["tenant-super-network"].Changed),
+				Prefixes:  []string{"10.100.0.0/14", "10.104.0.0/14"},
 			},
 			want: &adminv2.NetworkServiceUpdateResponse{
 				Network: &apiv2.Network{
 					Id:                       "tenant-super-network",
-					Meta:                     &apiv2.Meta{},
+					Meta:                     &apiv2.Meta{Generation: 1},
 					Partition:                pointer.Pointer("partition-one"),
 					Prefixes:                 []string{"10.100.0.0/14", "10.104.0.0/14"},
 					Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
@@ -2147,21 +2159,22 @@ func Test_networkServiceServer_Update(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "change nattype of tenant super network",
+			name: "change nattype of internet",
 			rq: &adminv2.NetworkServiceUpdateRequest{
-				Id:       "tenant-super-network",
-				Prefixes: []string{"10.100.0.0/14", "10.104.0.0/14"},
-				NatType:  apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE.Enum(),
+				Id:        "internet",
+				Prefixes:  []string{"20.0.0.0/24", "30.0.0.0/24"},
+				UpdatedAt: timestamppb.New(networkMap["internet"].Changed),
+				NatType:   apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE.Enum(),
 			},
 			want: &adminv2.NetworkServiceUpdateResponse{
 				Network: &apiv2.Network{
-					Id:                       "tenant-super-network",
-					Meta:                     &apiv2.Meta{},
-					Partition:                pointer.Pointer("partition-one"),
-					Prefixes:                 []string{"10.100.0.0/14", "10.104.0.0/14"},
-					Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
-					DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
-					NatType:                  apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE.Enum(),
+					Id:                  "internet",
+					Meta:                &apiv2.Meta{Generation: 1},
+					Prefixes:            []string{"20.0.0.0/24", "30.0.0.0/24"},
+					DestinationPrefixes: []string{"0.0.0.0/0"},
+					Type:                apiv2.NetworkType_NETWORK_TYPE_EXTERNAL.Enum(),
+					Vrf:                 pointer.Pointer(uint32(1)),
+					NatType:             apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE.Enum(),
 				},
 			},
 			wantErr: nil,

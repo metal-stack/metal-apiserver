@@ -163,12 +163,10 @@ func (r *ipRepository) create(ctx context.Context, req *apiv2.IPServiceCreateReq
 
 func (r *ipRepository) update(ctx context.Context, e *metal.IP, req *apiv2.IPServiceUpdateRequest) (*metal.IP, error) {
 	rq := req
-	old, err := r.get(ctx, rq.Ip)
-	if err != nil {
-		return nil, err
-	}
 
-	new := *old
+	new := *e
+	// Ensure Optimistic Locking
+	new.Changed = req.UpdatedAt.AsTime()
 
 	if rq.Description != nil {
 		new.Description = *rq.Description
@@ -192,7 +190,7 @@ func (r *ipRepository) update(ctx context.Context, e *metal.IP, req *apiv2.IPSer
 		new.Tags = updateLabelsOnSlice(rq.Labels, new.Tags)
 	}
 
-	err = r.s.ds.IP().Update(ctx, &new)
+	err := r.s.ds.IP().Update(ctx, &new)
 	if err != nil {
 		return nil, err
 	}
@@ -320,9 +318,10 @@ func (r *ipRepository) convertToProto(ctx context.Context, metalIP *metal.IP) (*
 		Namespace:   metalIP.Namespace,
 		Type:        t,
 		Meta: &apiv2.Meta{
-			Labels:    labels,
-			CreatedAt: timestamppb.New(metalIP.Created),
-			UpdatedAt: timestamppb.New(metalIP.Changed),
+			Labels:     labels,
+			CreatedAt:  timestamppb.New(metalIP.Created),
+			UpdatedAt:  timestamppb.New(metalIP.Changed),
+			Generation: metalIP.Generation,
 		},
 	}
 	return ip, nil

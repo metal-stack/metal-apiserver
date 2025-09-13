@@ -20,6 +20,7 @@ type (
 	}
 	ProjectMemberUpdateRequest struct {
 		Role apiv2.ProjectRole
+		Meta apiv2.Meta
 	}
 	ProjectMemberQuery struct {
 		TenantId    *string
