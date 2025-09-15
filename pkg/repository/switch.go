@@ -213,19 +213,24 @@ func (r *switchRepository) convertToInternal(ctx context.Context, sw *apiv2.Swit
 		return nil, err
 	}
 
+	connections, err := metal.ToMachineConnections(sw.MachineConnections)
+	if err != nil {
+		return nil, err
+	}
+
 	return &metal.Switch{
 		Base: metal.Base{
 			ID:          sw.Id,
 			Name:        sw.Id,
 			Description: sw.Description,
 		},
-		RackID:         pointer.SafeDeref(sw.Rack),
-		Partition:      sw.Partition,
-		ReplaceMode:    replaceMode,
-		ManagementIP:   sw.ManagementIp,
-		ManagementUser: sw.ManagementUser,
-		ConsoleCommand: sw.ConsoleCommand,
-		// TODO: do we need to populate machine connections here?
+		RackID:             pointer.SafeDeref(sw.Rack),
+		Partition:          sw.Partition,
+		ReplaceMode:        replaceMode,
+		ManagementIP:       sw.ManagementIp,
+		ManagementUser:     sw.ManagementUser,
+		ConsoleCommand:     sw.ConsoleCommand,
+		MachineConnections: connections,
 		OS: metal.SwitchOS{
 			Vendor:           vendor,
 			Version:          sw.Os.Version,
@@ -245,6 +250,8 @@ func (r *switchRepository) convertToProto(ctx context.Context, sw *metal.Switch)
 		return nil, err
 	}
 
+	connections := convertMachineConnections(sw.MachineConnections, nics)
+
 	replaceMode, err := metal.FromReplaceMode(sw.ReplaceMode)
 	if err != nil {
 		return nil, err
@@ -255,15 +262,16 @@ func (r *switchRepository) convertToProto(ctx context.Context, sw *metal.Switch)
 	}
 
 	return &apiv2.Switch{
-		Id:             sw.ID,
-		Description:    sw.Description,
-		Rack:           pointer.PointerOrNil(sw.RackID),
-		Partition:      sw.Partition,
-		ReplaceMode:    replaceMode,
-		ManagementIp:   sw.ManagementIP,
-		ManagementUser: sw.ManagementUser,
-		ConsoleCommand: sw.ConsoleCommand,
-		Nics:           nics,
+		Id:                 sw.ID,
+		Description:        sw.Description,
+		Rack:               pointer.PointerOrNil(sw.RackID),
+		Partition:          sw.Partition,
+		ReplaceMode:        replaceMode,
+		ManagementIp:       sw.ManagementIP,
+		ManagementUser:     sw.ManagementUser,
+		ConsoleCommand:     sw.ConsoleCommand,
+		Nics:               nics,
+		MachineConnections: connections,
 		Os: &apiv2.SwitchOS{
 			Vendor:           vendor,
 			Version:          sw.OS.Version,
@@ -368,6 +376,28 @@ func (r *switchRepository) getConnectedMachineForNic(ctx context.Context, nic me
 	}
 
 	return m, nil
+}
+
+func convertMachineConnections(machineConnections metal.ConnectionMap, nics []*apiv2.SwitchNic) []*apiv2.MachineConnection {
+	var connections []*apiv2.MachineConnection
+
+	for mid, cons := range machineConnections {
+		nic, found := lo.Find(nics, func(n *apiv2.SwitchNic) bool {
+			if len(cons) < 1 {
+				return false
+			}
+			// TODO: is it okay to only add one connection here or should api switch also allow multiple connections for a machine?
+			return n.Name == cons[0].Nic.Name
+		})
+		if found {
+			connections = append(connections, &apiv2.MachineConnection{
+				MachineId: mid,
+				Nic:       nic,
+			})
+		}
+	}
+
+	return connections
 }
 
 func updateNics(old, new metal.Nics) metal.Nics {

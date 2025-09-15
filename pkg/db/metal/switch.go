@@ -146,51 +146,79 @@ func FromBGPState(state BGPState) (apiv2.BGPState, error) {
 func ToMetalNics(switchNics []*apiv2.SwitchNic) (Nics, error) {
 	var nics Nics
 
-	for _, nic := range switchNics {
-		if nic == nil {
+	for _, switchNic := range switchNics {
+		if switchNic == nil {
 			continue
 		}
 
-		var bgpPortState *SwitchBGPPortState
-		if nic.BgpPortState != nil {
-			bgpState, err := ToBGPState(nic.BgpPortState.BgpState)
-			if err != nil {
-				return nil, err
-			}
-
-			bgpPortState = &SwitchBGPPortState{
-				Neighbor:              nic.BgpPortState.Neighbor,
-				PeerGroup:             nic.BgpPortState.PeerGroup,
-				VrfName:               nic.BgpPortState.VrfName,
-				BgpState:              bgpState,
-				BgpTimerUpEstablished: uint64(nic.BgpPortState.BgpTimerUpEstablished.AsDuration()),
-				SentPrefixCounter:     nic.BgpPortState.SentPrefixCounter,
-				AcceptedPrefixCounter: nic.BgpPortState.AcceptedPrefixCounter,
-			}
-		}
-
-		desiredState, err := ToSwitchPortStatus(nic.State.Desired)
-		if err != nil {
-			return nil, err
-		}
-		actualState, err := ToSwitchPortStatus(nic.State.Actual)
+		nic, err := toMetalNic(switchNic)
 		if err != nil {
 			return nil, err
 		}
 
-		nics = append(nics, Nic{
-			// TODO: what about hostname and neighbors?
-			Name:       nic.Name,
-			Identifier: nic.Identifier,
-			MacAddress: nic.Mac,
-			Vrf:        pointer.SafeDeref(nic.Vrf),
-			State: &NicState{
-				Desired: desiredState,
-				Actual:  actualState,
-			},
-			BGPPortState: bgpPortState,
-		})
+		nics = append(nics, *nic)
 	}
 
 	return nics, nil
+}
+
+func toMetalNic(switchNic *apiv2.SwitchNic) (*Nic, error) {
+	var bgpPortState *SwitchBGPPortState
+	if switchNic.BgpPortState != nil {
+		bgpState, err := ToBGPState(switchNic.BgpPortState.BgpState)
+		if err != nil {
+			return nil, err
+		}
+
+		bgpPortState = &SwitchBGPPortState{
+			Neighbor:              switchNic.BgpPortState.Neighbor,
+			PeerGroup:             switchNic.BgpPortState.PeerGroup,
+			VrfName:               switchNic.BgpPortState.VrfName,
+			BgpState:              bgpState,
+			BgpTimerUpEstablished: uint64(switchNic.BgpPortState.BgpTimerUpEstablished.AsDuration()),
+			SentPrefixCounter:     switchNic.BgpPortState.SentPrefixCounter,
+			AcceptedPrefixCounter: switchNic.BgpPortState.AcceptedPrefixCounter,
+		}
+	}
+
+	desiredState, err := ToSwitchPortStatus(switchNic.State.Desired)
+	if err != nil {
+		return nil, err
+	}
+	actualState, err := ToSwitchPortStatus(switchNic.State.Actual)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Nic{
+		// TODO: what about hostname and neighbors?
+		Name:       switchNic.Name,
+		Identifier: switchNic.Identifier,
+		MacAddress: switchNic.Mac,
+		Vrf:        pointer.SafeDeref(switchNic.Vrf),
+		State: &NicState{
+			Desired: desiredState,
+			Actual:  actualState,
+		},
+		BGPPortState: bgpPortState,
+	}, nil
+}
+
+func ToMachineConnections(connections []*apiv2.MachineConnection) (ConnectionMap, error) {
+	machineConnections := make(ConnectionMap)
+
+	for _, con := range connections {
+		nic, err := toMetalNic(con.Nic)
+		if err != nil {
+			return nil, err
+		}
+		machineConnections[con.MachineId] = Connections{
+			{
+				Nic:       *nic,
+				MachineID: con.MachineId,
+			},
+		}
+	}
+
+	return machineConnections, nil
 }

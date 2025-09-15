@@ -438,3 +438,66 @@ func Test_ipWithMask(t *testing.T) {
 		})
 	}
 }
+
+func Test_convertMachineConnections(t *testing.T) {
+	tests := []struct {
+		name               string
+		machineConnections metal.ConnectionMap
+		nics               []*apiv2.SwitchNic
+		want               []*apiv2.MachineConnection
+	}{
+		{
+			name: "ignore malformed empty connections",
+			machineConnections: metal.ConnectionMap{
+				"machine01": metal.Connections{},
+			},
+			nics: []*apiv2.SwitchNic{
+				{
+					Name: "Ethernet0",
+				},
+			},
+			want: nil,
+		},
+		{
+			name: "convert connections",
+			machineConnections: metal.ConnectionMap{
+				"machine01": metal.Connections{
+					{
+						Nic: metal.Nic{
+							Name: "Ethernet0",
+						},
+					},
+					{
+						Nic: metal.Nic{
+							Name: "Ethernet1",
+						},
+					},
+				},
+			},
+			nics: []*apiv2.SwitchNic{
+				{
+					Name: "Ethernet0",
+				},
+				{
+					Name: "Ethernet1",
+				},
+			},
+			want: []*apiv2.MachineConnection{
+				{
+					MachineId: "machine01",
+					Nic: &apiv2.SwitchNic{
+						Name: "Ethernet0",
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := convertMachineConnections(tt.machineConnections, tt.nics)
+			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
+				t.Errorf("convertMachineConnections() diff = %s", diff)
+			}
+		})
+	}
+}
