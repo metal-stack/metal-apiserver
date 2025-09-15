@@ -2,6 +2,7 @@ package metal
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/metal-stack/api/go/enum"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -106,7 +107,7 @@ func ToSwitchPortStatus(status apiv2.SwitchPortStatus) (SwitchPortStatus, error)
 }
 
 func FromSwitchPortStatus(status SwitchPortStatus) (apiv2.SwitchPortStatus, error) {
-	apiv2Status, err := enum.GetEnum[apiv2.SwitchPortStatus](string(status))
+	apiv2Status, err := enum.GetEnum[apiv2.SwitchPortStatus](strings.ToLower(string(status)))
 	if err != nil {
 		return apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNSPECIFIED, fmt.Errorf("switch port status:%q is invalid", status)
 	}
