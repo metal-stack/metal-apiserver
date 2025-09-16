@@ -3,6 +3,7 @@ package tenant
 import (
 	"log/slog"
 	"os"
+	"sort"
 	"testing"
 	"time"
 
@@ -284,6 +285,10 @@ func Test_tenantServiceServer_List(t *testing.T) {
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
+
+			sort.SliceStable(got.Msg.Tenants, func(i, j int) bool {
+				return got.Msg.Tenants[i].Login < got.Msg.Tenants[j].Login
+			})
 
 			if diff := cmp.Diff(
 				tt.want, pointer.SafeDeref(got).Msg,
