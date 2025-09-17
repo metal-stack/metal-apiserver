@@ -48,7 +48,6 @@ func TestAuthenticated(t *testing.T) {
 	ctx := t.Context()
 
 	v, err := apiClient.Apiv2().Version().Get(ctx, connect.NewRequest(&apiv2.VersionServiceGetRequest{}))
-	require.NotNil(t, v)
 	require.NoError(t, err)
-
+	require.NotNil(t, v)
 }
