@@ -167,7 +167,7 @@ func Test_makeBGPFilter(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := makeBGPFilter(tt.m, tt.vrf, tt.networks, tt.ips)
+			got, err := makeBGPFilter(tt.m, nil, tt.vrf, tt.networks, tt.ips)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("makeBGPFilter() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -242,12 +242,13 @@ func Test_makeBGPFilterFirewall(t *testing.T) {
 
 func Test_makeBGPFilterMachine(t *testing.T) {
 	tests := []struct {
-		name     string
-		m        *metal.Machine
-		networks metal.NetworkMap
-		ips      metal.IPsMap
-		want     *apiv2.BGPFilter
-		wantErr  error
+		name            string
+		m               *metal.Machine
+		projectMachines []*metal.Machine
+		networks        metal.NetworkMap
+		ips             metal.IPsMap
+		want            *apiv2.BGPFilter
+		wantErr         error
 	}{
 		{
 			name:     "no allocation",
@@ -298,7 +299,7 @@ func Test_makeBGPFilterMachine(t *testing.T) {
 			wantErr: fmt.Errorf("parent network private not found for id:private-1"),
 		},
 		{
-			name: "add cidrs",
+			name: "add cidrs, skip firewall ips",
 			m: &metal.Machine{
 				Allocation: &metal.MachineAllocation{
 					MachineNetworks: []*metal.MachineNetwork{
@@ -313,6 +314,19 @@ func Test_makeBGPFilterMachine(t *testing.T) {
 						},
 					},
 					Project: "project-a",
+				},
+			},
+			projectMachines: []*metal.Machine{
+				{
+					Allocation: &metal.MachineAllocation{
+						Role: metal.RoleFirewall,
+						MachineNetworks: []*metal.MachineNetwork{
+							{
+								IPs:      []string{"4.4.4.4"},
+								Prefixes: []string{"5.5.5.0/24"},
+							},
+						},
+					},
 				},
 			},
 			networks: metal.NetworkMap{
@@ -337,15 +351,18 @@ func Test_makeBGPFilterMachine(t *testing.T) {
 					{
 						IPAddress: "4.4.4.4",
 					},
-				},
-				"project-b": metal.IPs{
 					{
 						IPAddress: "5.5.5.5",
 					},
 				},
+				"project-b": metal.IPs{
+					{
+						IPAddress: "6.6.6.6",
+					},
+				},
 			},
 			want: &apiv2.BGPFilter{
-				Cidrs: []string{"1.1.1.1/32", "1.1.2.0/24", "2.2.2.0/30", "4.4.4.4/32"},
+				Cidrs: []string{"1.1.1.1/32", "1.1.2.0/24", "2.2.2.0/30"},
 				Vnis:  []string{},
 			},
 			wantErr: nil,
@@ -353,7 +370,7 @@ func Test_makeBGPFilterMachine(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := makeBGPFilterMachine(tt.m, tt.networks, tt.ips)
+			got, err := makeBGPFilterMachine(tt.m, tt.projectMachines, tt.networks, tt.ips)
 			if diff := cmp.Diff(tt.wantErr, err, testcommon.ErrorStringComparer()); diff != "" {
 				t.Errorf("makeBGPFilterMachine() error diff = %s", diff)
 				return
@@ -497,6 +514,80 @@ func Test_convertMachineConnections(t *testing.T) {
 			got := convertMachineConnections(tt.machineConnections, tt.nics)
 			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
 				t.Errorf("convertMachineConnections() diff = %s", diff)
+			}
+		})
+	}
+}
+
+func Test_isFirewallIP(t *testing.T) {
+	tests := []struct {
+		name     string
+		ip       string
+		machines []*metal.Machine
+		want     bool
+	}{
+		{
+			name: "no firewalls",
+			ip:   "2.2.2.2",
+			machines: []*metal.Machine{
+				{
+					Allocation: &metal.MachineAllocation{
+						MachineNetworks: []*metal.MachineNetwork{
+							{
+								Prefixes: []string{"1.1.1.0/24"},
+								IPs:      []string{"2.2.2.2"},
+							},
+						},
+						Role: metal.RoleMachine,
+					},
+				},
+				{
+					Allocation: nil,
+				},
+			},
+			want: false,
+		},
+		{
+			name: "firewall includes ip",
+			ip:   "2.2.2.2",
+			machines: []*metal.Machine{
+				{
+					Allocation: &metal.MachineAllocation{
+						MachineNetworks: []*metal.MachineNetwork{
+							{
+								Prefixes: []string{"1.1.1.0/24"},
+								IPs:      []string{"2.2.2.2"},
+							},
+						},
+						Role: metal.RoleFirewall,
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "firewall prefixes include ip",
+			ip:   "1.1.1.2",
+			machines: []*metal.Machine{
+				{
+					Allocation: &metal.MachineAllocation{
+						MachineNetworks: []*metal.MachineNetwork{
+							{
+								Prefixes: []string{"1.1.1.0/24"},
+								IPs:      []string{"2.2.2.2"},
+							},
+						},
+						Role: metal.RoleFirewall,
+					},
+				},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isFirewallIP(tt.ip, tt.machines); got != tt.want {
+				t.Errorf("checkIfFirewallIP() = %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -338,7 +338,19 @@ func (r *switchRepository) toSwitchNics(ctx context.Context, nics metal.Nics, co
 			return nil, err
 		}
 
-		filter, err := makeBGPFilter(m, nic.Vrf, networks, ips)
+		var projectMachines []*metal.Machine
+		if m != nil && m.Allocation != nil {
+			projectMachines, err = r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
+				Allocation: &apiv2.MachineAllocationQuery{
+					Project: pointer.Pointer(m.Allocation.Project),
+				},
+			}))
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		filter, err := makeBGPFilter(m, projectMachines, nic.Vrf, networks, ips)
 		if err != nil {
 			return nil, err
 		}
@@ -426,7 +438,7 @@ func updateNics(old, new metal.Nics) metal.Nics {
 	return updated
 }
 
-func makeBGPFilter(m *metal.Machine, vrf string, networks []*metal.Network, ips []*metal.IP) (*apiv2.BGPFilter, error) {
+func makeBGPFilter(m *metal.Machine, projectMachines []*metal.Machine, vrf string, networks []*metal.Network, ips []*metal.IP) (*apiv2.BGPFilter, error) {
 	if m == nil || m.Allocation == nil {
 		return &apiv2.BGPFilter{}, nil
 	}
@@ -438,7 +450,7 @@ func makeBGPFilter(m *metal.Machine, vrf string, networks []*metal.Network, ips 
 		return &apiv2.BGPFilter{}, nil
 	}
 
-	return makeBGPFilterMachine(m, metal.NetworksById(networks), metal.IPsByProject(ips))
+	return makeBGPFilterMachine(m, projectMachines, metal.NetworksById(networks), metal.IPsByProject(ips))
 }
 
 func makeBGPFilterFirewall(machineNetworks []*metal.MachineNetwork) (*apiv2.BGPFilter, error) {
@@ -469,7 +481,7 @@ func makeBGPFilterFirewall(machineNetworks []*metal.MachineNetwork) (*apiv2.BGPF
 	}, nil
 }
 
-func makeBGPFilterMachine(m *metal.Machine, networks metal.NetworkMap, ips metal.IPsMap) (*apiv2.BGPFilter, error) {
+func makeBGPFilterMachine(m *metal.Machine, projectMachines []*metal.Machine, networks metal.NetworkMap, ips metal.IPsMap) (*apiv2.BGPFilter, error) {
 	if m.Allocation == nil {
 		return &apiv2.BGPFilter{}, nil
 	}
@@ -513,7 +525,13 @@ func makeBGPFilterMachine(m *metal.Machine, networks metal.NetworkMap, ips metal
 			continue
 		}
 
-		// TODO machine BGPFilter must not contain firewall private network IPs
+		ipAddress, err := i.GetIPAddress()
+		if err != nil {
+			return nil, err
+		}
+		if isFirewallIP(ipAddress, projectMachines) {
+			continue
+		}
 
 		ipwithMask, err := ipWithMask(i.IPAddress)
 		if err != nil {
@@ -560,4 +578,40 @@ func compactCidrs(cidrs []string) ([]string, error) {
 		compactedCidrs = append(compactedCidrs, pfx.String())
 	}
 	return compactedCidrs, nil
+}
+
+func isFirewallIP(ip string, machines []*metal.Machine) bool {
+	parsedIP, err := netip.ParseAddr(ip)
+	if err != nil {
+		return false
+	}
+
+	for _, m := range machines {
+		if m.Allocation == nil || m.Allocation.Role != metal.RoleFirewall {
+			continue
+		}
+
+		for _, nw := range m.Allocation.MachineNetworks {
+			if nw == nil {
+				continue
+			}
+
+			if slices.Contains(nw.IPs, ip) {
+				return true
+			}
+
+			if lo.ContainsBy(nw.Prefixes, func(p string) bool {
+				pfx, err := netip.ParsePrefix(p)
+				if err != nil {
+					return false
+				}
+
+				return pfx.Contains(parsedIP)
+			}) {
+				return true
+			}
+		}
+	}
+
+	return false
 }
