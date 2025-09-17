@@ -402,9 +402,12 @@ func convertMachineConnections(machineConnections metal.ConnectionMap, nics []*a
 			return n.Name == cons[0].Nic.Name
 		})
 		if found {
+			connectedNic := nic
+			connectedNic.BgpFilter = nil // TODO: discuss
+
 			connections = append(connections, &apiv2.MachineConnection{
 				MachineId: mid,
-				Nic:       nic,
+				Nic:       connectedNic,
 			})
 		}
 	}

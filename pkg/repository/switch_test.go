@@ -476,7 +476,7 @@ func Test_convertMachineConnections(t *testing.T) {
 			want: nil,
 		},
 		{
-			name: "convert connections",
+			name: "convert connections, ignore bgp filters",
 			machineConnections: metal.ConnectionMap{
 				"machine01": metal.Connections{
 					{
@@ -494,6 +494,10 @@ func Test_convertMachineConnections(t *testing.T) {
 			nics: []*apiv2.SwitchNic{
 				{
 					Name: "Ethernet0",
+					BgpFilter: &apiv2.BGPFilter{
+						Cidrs: []string{"1.1.1.1"},
+						Vnis:  []string{},
+					},
 				},
 				{
 					Name: "Ethernet1",
