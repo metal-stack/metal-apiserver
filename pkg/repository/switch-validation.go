@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"sort"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -138,6 +139,8 @@ func validateConnectedNics(old, new metal.Nics, connections metal.ConnectionMap)
 			cannotRename = append(cannotRename, id)
 		}
 	}
+	sort.Strings(cannotRemove)
+	sort.Strings(cannotRename)
 
 	if len(cannotRemove) > 0 {
 		errs = append(errs, fmt.Errorf("cannot remove nics %v because they are connected to machines", cannotRemove))
