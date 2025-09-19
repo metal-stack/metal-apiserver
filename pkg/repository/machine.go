@@ -631,18 +631,22 @@ func (r *machineRepository) Register(ctx context.Context, req *infrav2.BootServi
 		}
 	}
 
-	// FIXME Event and Switch service missing
-	ec, err := r.s.ProvisioningEvent().Find(ctx, &ProvisioningEventQuery{MachineId: &m.ID})
+	// FIXME Event and Switch service missing or not implemented yet
+	ec, err := r.s.ds.Event().Find(ctx, TODO)
 	if err != nil && !errorutil.IsNotFound(err) {
 		return nil, err
 	}
 	if ec == nil {
-		_, err = r.s.ProvisioningEvent().Create(ctx, &infrav2.EventServiceSendRequest{
-			Uuid: m.ID,
-			Event: &infrav2.MachineProvisioningEvent{
-				Event:   apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_ALIVE,
-				Time:    timestamppb.Now(),
-				Message: "machine registered",
+		_, err = r.s.ds.Event().Create(ctx, &metal.ProvisioningEventContainer{
+			Base: metal.Base{
+				ID: m.ID,
+			},
+			Events: metal.ProvisioningEvents{
+				{
+					Event:   metal.ProvisioningEventAlive,
+					Time:    time.Now(),
+					Message: "machine registered",
+				},
 			},
 		},
 		)
