@@ -12,13 +12,11 @@ import (
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
 
-type (
-	storage[E Entity] struct {
-		r         *datastore
-		table     r.Term
-		tableName string
-	}
-)
+type storage[E Entity] struct {
+	r         *datastore
+	table     r.Term
+	tableName string
+}
 
 // newStorage creates a new Storage which uses the given database abstraction.
 func newStorage[E Entity](re *datastore, tableName string) *storage[E] {
@@ -33,18 +31,18 @@ func newStorage[E Entity](re *datastore, tableName string) *storage[E] {
 
 // if the ID field of the entity is an empty string, the ID will be generated automatically as UUIDv7.
 func (s *storage[E]) Create(ctx context.Context, e E) (E, error) {
-	now := time.Now()
-	var zero E
-	err := s.setCreated(now, e)
-	if err != nil {
+	var (
+		now  = time.Now()
+		zero E
+	)
+
+	if err := s.setCreated(now, e); err != nil {
 		return zero, err
 	}
-	err = s.setChanged(now, e)
-	if err != nil {
+	if err := s.setChanged(now, e); err != nil {
 		return zero, err
 	}
-	err = s.setGeneration(0, e)
-	if err != nil {
+	if err := s.setGeneration(0, e); err != nil {
 		return zero, err
 	}
 
@@ -58,7 +56,7 @@ func (s *storage[E]) Create(ctx context.Context, e E) (E, error) {
 		e.SetID(uid.String())
 	}
 
-	_, err = s.table.Insert(e).RunWrite(s.r.queryExecutor, r.RunOpts{Context: ctx})
+	_, err := s.table.Insert(e).RunWrite(s.r.queryExecutor, r.RunOpts{Context: ctx})
 	if err != nil {
 		if r.IsConflictErr(err) {
 			return zero, errorutil.Conflict("cannot create %v in database, entity already exists: %s", s.tableName, e.GetID())
@@ -104,6 +102,7 @@ func (s *storage[E]) Find(ctx context.Context, queries ...EntityQuery) (E, error
 	}
 
 	e := new(E)
+
 	hasResult := res.Next(e)
 	if !hasResult {
 		return zero, errorutil.NotFound("cannot find %v", s.tableName)
@@ -187,16 +186,15 @@ func (s *storage[E]) Update(ctx context.Context, e E) error {
 
 	changedTimestamp := e.GetChanged()
 
-	err := s.setChanged(time.Now(), e)
-	if err != nil {
-		return err
-	}
-	err = s.setGeneration(e.GetGeneration()+1, e)
-	if err != nil {
+	if err := s.setChanged(time.Now(), e); err != nil {
 		return err
 	}
 
-	_, err = s.table.Get(e.GetID()).Replace(func(row r.Term) r.Term {
+	if err := s.setGeneration(e.GetGeneration()+1, e); err != nil {
+		return err
+	}
+
+	_, err := s.table.Get(e.GetID()).Replace(func(row r.Term) r.Term {
 		return r.Branch(row.Field("changed").Eq(r.Expr(changedTimestamp)), e, r.Error(entityAlreadyModifiedErrorMessage))
 	}).RunWrite(s.r.queryExecutor, r.RunOpts{Context: ctx})
 	if err != nil {
@@ -219,12 +217,12 @@ func (s *storage[E]) Upsert(ctx context.Context, e E) error {
 			return err
 		}
 	}
-	err := s.setChanged(now, e)
-	if err != nil {
+
+	if err := s.setChanged(now, e); err != nil {
 		return err
 	}
-	err = s.setGeneration(e.GetGeneration()+1, e)
-	if err != nil {
+
+	if err := s.setGeneration(e.GetGeneration()+1, e); err != nil {
 		return err
 	}
 
