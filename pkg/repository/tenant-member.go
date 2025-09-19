@@ -10,7 +10,7 @@ import (
 )
 
 type (
-	tenantMember struct {
+	tenantMemberEntity struct {
 		*mdcv1.TenantMember
 	}
 
@@ -32,13 +32,13 @@ type (
 	}
 )
 
-func (t *tenantMember) SetChanged(time time.Time) {}
+func (t *tenantMemberEntity) SetChanged(time time.Time) {}
 
 func (*TenantMemberUpdateRequest) GetUpdateMeta() *apiv2.UpdateMeta {
 	return &apiv2.UpdateMeta{}
 }
 
-func (t *tenantMemberRepository) checkIfMemberIsLastOwner(ctx context.Context, req *tenantMember) (bool, error) {
+func (t *tenantMemberRepository) checkIfMemberIsLastOwner(ctx context.Context, req *tenantMemberEntity) (bool, error) {
 	isOwner := TenantRoleFromMap(req.Meta.Annotations) == apiv2.TenantRole_TENANT_ROLE_OWNER
 	if !isOwner {
 		return false, nil
@@ -56,17 +56,17 @@ func (t *tenantMemberRepository) checkIfMemberIsLastOwner(ctx context.Context, r
 	return len(members) < 2, nil
 }
 
-func (t *tenantMemberRepository) convertToInternal(ctx context.Context, msg *apiv2.TenantMember) (*tenantMember, error) {
+func (t *tenantMemberRepository) convertToInternal(ctx context.Context, msg *apiv2.TenantMember) (*tenantMemberEntity, error) {
 	// this is an internal interface, so no implementation here
 	panic("unimplemented")
 }
 
-func (t *tenantMemberRepository) convertToProto(ctx context.Context, e *tenantMember) (*apiv2.TenantMember, error) {
+func (t *tenantMemberRepository) convertToProto(ctx context.Context, e *tenantMemberEntity) (*apiv2.TenantMember, error) {
 	// this is an internal interface, so no implementation here
 	panic("unimplemented")
 }
 
-func (t *tenantMemberRepository) create(ctx context.Context, c *TenantMemberCreateRequest) (*tenantMember, error) {
+func (t *tenantMemberRepository) create(ctx context.Context, c *TenantMemberCreateRequest) (*tenantMemberEntity, error) {
 	resp, err := t.s.mdc.TenantMember().Create(ctx, &mdcv1.TenantMemberCreateRequest{
 		TenantMember: &mdcv1.TenantMember{
 			Meta: &mdcv1.Meta{
@@ -82,10 +82,10 @@ func (t *tenantMemberRepository) create(ctx context.Context, c *TenantMemberCrea
 		return nil, errorutil.Convert(err)
 	}
 
-	return &tenantMember{TenantMember: resp.TenantMember}, nil
+	return &tenantMemberEntity{TenantMember: resp.TenantMember}, nil
 }
 
-func (t *tenantMemberRepository) delete(ctx context.Context, e *tenantMember) error {
+func (t *tenantMemberRepository) delete(ctx context.Context, e *tenantMemberEntity) error {
 	_, err := t.s.mdc.TenantMember().Delete(ctx, &mdcv1.TenantMemberDeleteRequest{
 		Id: e.Meta.Id,
 	})
@@ -96,7 +96,7 @@ func (t *tenantMemberRepository) delete(ctx context.Context, e *tenantMember) er
 	return nil
 }
 
-func (t *tenantMemberRepository) find(ctx context.Context, query *TenantMemberQuery) (*tenantMember, error) {
+func (t *tenantMemberRepository) find(ctx context.Context, query *TenantMemberQuery) (*tenantMemberEntity, error) {
 	if query.MemberId == nil {
 		return nil, errorutil.InvalidArgument("member id must be specified")
 	}
@@ -118,7 +118,7 @@ func (t *tenantMemberRepository) find(ctx context.Context, query *TenantMemberQu
 	return memberships[0], nil
 }
 
-func (t *tenantMemberRepository) get(ctx context.Context, id string) (*tenantMember, error) {
+func (t *tenantMemberRepository) get(ctx context.Context, id string) (*tenantMemberEntity, error) {
 	member, err := t.find(ctx, &TenantMemberQuery{
 		MemberId: &id,
 	})
@@ -129,7 +129,7 @@ func (t *tenantMemberRepository) get(ctx context.Context, id string) (*tenantMem
 	return member, nil
 }
 
-func (t *tenantMemberRepository) list(ctx context.Context, query *TenantMemberQuery) ([]*tenantMember, error) {
+func (t *tenantMemberRepository) list(ctx context.Context, query *TenantMemberQuery) ([]*tenantMemberEntity, error) {
 	resp, err := t.s.mdc.TenantMember().Find(ctx, &mdcv1.TenantMemberFindRequest{
 		TenantId:    &t.scope.tenantID,
 		MemberId:    query.MemberId,
@@ -139,15 +139,15 @@ func (t *tenantMemberRepository) list(ctx context.Context, query *TenantMemberQu
 		return nil, errorutil.Convert(err)
 	}
 
-	tms := make([]*tenantMember, 0, len(resp.TenantMembers))
+	tms := make([]*tenantMemberEntity, 0, len(resp.TenantMembers))
 	for _, tm := range resp.TenantMembers {
-		tms = append(tms, &tenantMember{TenantMember: tm})
+		tms = append(tms, &tenantMemberEntity{TenantMember: tm})
 	}
 
 	return tms, nil
 }
 
-func (t *tenantMemberRepository) matchScope(e *tenantMember) bool {
+func (t *tenantMemberRepository) matchScope(e *tenantMemberEntity) bool {
 	if t.scope == nil {
 		return true
 	}
@@ -155,7 +155,7 @@ func (t *tenantMemberRepository) matchScope(e *tenantMember) bool {
 	return t.scope.tenantID == e.TenantId
 }
 
-func (t *tenantMemberRepository) update(ctx context.Context, member *tenantMember, msg *TenantMemberUpdateRequest) (*tenantMember, error) {
+func (t *tenantMemberRepository) update(ctx context.Context, member *tenantMemberEntity, msg *TenantMemberUpdateRequest) (*tenantMemberEntity, error) {
 	if msg.Role != apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED {
 		member.Meta.Annotations[TenantRoleAnnotation] = msg.Role.String()
 	}
@@ -167,5 +167,5 @@ func (t *tenantMemberRepository) update(ctx context.Context, member *tenantMembe
 		return nil, errorutil.Convert(err)
 	}
 
-	return &tenantMember{TenantMember: resp.TenantMember}, nil
+	return &tenantMemberEntity{TenantMember: resp.TenantMember}, nil
 }

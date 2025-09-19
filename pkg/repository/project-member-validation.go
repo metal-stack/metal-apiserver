@@ -11,7 +11,7 @@ func (t *projectMemberRepository) validateCreate(ctx context.Context, req *Proje
 	return nil
 }
 
-func (t *projectMemberRepository) validateUpdate(ctx context.Context, req *ProjectMemberUpdateRequest, membership *projectMember) error {
+func (t *projectMemberRepository) validateUpdate(ctx context.Context, req *ProjectMemberUpdateRequest, membership *projectMemberEntity) error {
 	// TODO: currently the API defines that only owners can update members so there is no possibility to elevate permissions
 	// probably, we should still check that no elevation of permissions is possible in case we later change the API
 
@@ -27,7 +27,7 @@ func (t *projectMemberRepository) validateUpdate(ctx context.Context, req *Proje
 	return nil
 }
 
-func (t *projectMemberRepository) validateDelete(ctx context.Context, req *projectMember) error {
+func (t *projectMemberRepository) validateDelete(ctx context.Context, req *projectMemberEntity) error {
 	lastOwner, err := t.checkIfMemberIsLastOwner(ctx, req)
 	if err != nil {
 		return errorutil.NewFailedPrecondition(err)

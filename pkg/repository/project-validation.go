@@ -11,11 +11,11 @@ func (r *projectRepository) validateCreate(ctx context.Context, req *apiv2.Proje
 	return nil
 }
 
-func (r *projectRepository) validateUpdate(ctx context.Context, req *apiv2.ProjectServiceUpdateRequest, _ *project) error {
+func (r *projectRepository) validateUpdate(ctx context.Context, req *apiv2.ProjectServiceUpdateRequest, _ *projectEntity) error {
 	return nil
 }
 
-func (r *projectRepository) validateDelete(ctx context.Context, req *project) error {
+func (r *projectRepository) validateDelete(ctx context.Context, req *projectEntity) error {
 	ips, err := r.s.IP(req.Meta.Id).List(ctx, &apiv2.IPQuery{Project: &req.Meta.Id})
 	if err != nil {
 		return errorutil.Convert(err)

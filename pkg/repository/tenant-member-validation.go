@@ -11,7 +11,7 @@ func (t *tenantMemberRepository) validateCreate(ctx context.Context, req *Tenant
 	return nil
 }
 
-func (t *tenantMemberRepository) validateUpdate(ctx context.Context, req *TenantMemberUpdateRequest, membership *tenantMember) error {
+func (t *tenantMemberRepository) validateUpdate(ctx context.Context, req *TenantMemberUpdateRequest, membership *tenantMemberEntity) error {
 	// TODO: currently the API defines that only owners can update members so there is no possibility to elevate permissions
 	// probably, we should still check that no elevation of permissions is possible in case we later change the API
 
@@ -31,7 +31,7 @@ func (t *tenantMemberRepository) validateUpdate(ctx context.Context, req *Tenant
 	return nil
 }
 
-func (t *tenantMemberRepository) validateDelete(ctx context.Context, req *tenantMember) error {
+func (t *tenantMemberRepository) validateDelete(ctx context.Context, req *tenantMemberEntity) error {
 	if req.MemberId == req.TenantId {
 		return errorutil.FailedPrecondition("cannot remove a member from their own default tenant")
 	}

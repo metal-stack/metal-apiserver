@@ -9,13 +9,13 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 )
 
-type projectMemberRepository struct {
-	s     *Store
-	scope *ProjectScope
-}
-
 type (
-	projectMember struct {
+	projectMemberRepository struct {
+		s     *Store
+		scope *ProjectScope
+	}
+
+	projectMemberEntity struct {
 		*mdcv1.ProjectMember
 	}
 
@@ -33,10 +33,10 @@ type (
 	}
 )
 
-func (t *projectMember) SetChanged(time time.Time) {}
+func (t *projectMemberEntity) SetChanged(time time.Time) {}
 
-func (t *projectMemberRepository) convertToInternal(ctx context.Context, msg *apiv2.ProjectMember) (*projectMember, error) {
-	return &projectMember{
+func (t *projectMemberRepository) convertToInternal(ctx context.Context, msg *apiv2.ProjectMember) (*projectMemberEntity, error) {
+	return &projectMemberEntity{
 		ProjectMember: &mdcv1.ProjectMember{
 			Meta: &mdcv1.Meta{
 				Id: msg.Id,
@@ -48,7 +48,7 @@ func (t *projectMemberRepository) convertToInternal(ctx context.Context, msg *ap
 	}, nil
 }
 
-func (t *projectMemberRepository) convertToProto(ctx context.Context, e *projectMember) (*apiv2.ProjectMember, error) {
+func (t *projectMemberRepository) convertToProto(ctx context.Context, e *projectMemberEntity) (*apiv2.ProjectMember, error) {
 	if e.Meta.Annotations == nil {
 		e.Meta.Annotations = map[string]string{}
 	}
@@ -60,7 +60,7 @@ func (t *projectMemberRepository) convertToProto(ctx context.Context, e *project
 	}, nil
 }
 
-func (t *projectMemberRepository) create(ctx context.Context, c *ProjectMemberCreateRequest) (*projectMember, error) {
+func (t *projectMemberRepository) create(ctx context.Context, c *ProjectMemberCreateRequest) (*projectMemberEntity, error) {
 	resp, err := t.s.mdc.ProjectMember().Create(ctx, &mdcv1.ProjectMemberCreateRequest{
 		ProjectMember: &mdcv1.ProjectMember{
 			Meta: &mdcv1.Meta{
@@ -76,12 +76,12 @@ func (t *projectMemberRepository) create(ctx context.Context, c *ProjectMemberCr
 		return nil, errorutil.Convert(err)
 	}
 
-	return &projectMember{
+	return &projectMemberEntity{
 		ProjectMember: resp.ProjectMember,
 	}, nil
 }
 
-func (t *projectMemberRepository) delete(ctx context.Context, e *projectMember) error {
+func (t *projectMemberRepository) delete(ctx context.Context, e *projectMemberEntity) error {
 	_, err := t.s.mdc.ProjectMember().Delete(ctx, &mdcv1.ProjectMemberDeleteRequest{
 		Id: e.Meta.Id,
 	})
@@ -92,7 +92,7 @@ func (t *projectMemberRepository) delete(ctx context.Context, e *projectMember) 
 	return nil
 }
 
-func (t *projectMemberRepository) find(ctx context.Context, query *ProjectMemberQuery) (*projectMember, error) {
+func (t *projectMemberRepository) find(ctx context.Context, query *ProjectMemberQuery) (*projectMemberEntity, error) {
 	if query.TenantId == nil {
 		return nil, errorutil.InvalidArgument("tenant id must be specified")
 	}
@@ -114,7 +114,7 @@ func (t *projectMemberRepository) find(ctx context.Context, query *ProjectMember
 	return memberships[0], nil
 }
 
-func (t *projectMemberRepository) get(ctx context.Context, id string) (*projectMember, error) {
+func (t *projectMemberRepository) get(ctx context.Context, id string) (*projectMemberEntity, error) {
 	member, err := t.find(ctx, &ProjectMemberQuery{
 		TenantId: &id,
 	})
@@ -125,7 +125,7 @@ func (t *projectMemberRepository) get(ctx context.Context, id string) (*projectM
 	return member, nil
 }
 
-func (t *projectMemberRepository) list(ctx context.Context, query *ProjectMemberQuery) ([]*projectMember, error) {
+func (t *projectMemberRepository) list(ctx context.Context, query *ProjectMemberQuery) ([]*projectMemberEntity, error) {
 	resp, err := t.s.mdc.ProjectMember().Find(ctx, &mdcv1.ProjectMemberFindRequest{
 		ProjectId:   &t.scope.projectID,
 		TenantId:    query.TenantId,
@@ -135,15 +135,15 @@ func (t *projectMemberRepository) list(ctx context.Context, query *ProjectMember
 		return nil, errorutil.Convert(err)
 	}
 
-	pms := make([]*projectMember, 0, len(resp.ProjectMembers))
+	pms := make([]*projectMemberEntity, 0, len(resp.ProjectMembers))
 	for _, pm := range resp.ProjectMembers {
-		pms = append(pms, &projectMember{ProjectMember: pm})
+		pms = append(pms, &projectMemberEntity{ProjectMember: pm})
 	}
 
 	return pms, nil
 }
 
-func (t *projectMemberRepository) matchScope(e *projectMember) bool {
+func (t *projectMemberRepository) matchScope(e *projectMemberEntity) bool {
 	if t.scope == nil {
 		return true
 	}
@@ -151,7 +151,7 @@ func (t *projectMemberRepository) matchScope(e *projectMember) bool {
 	return t.scope.projectID == e.ProjectId
 }
 
-func (t *projectMemberRepository) update(ctx context.Context, member *projectMember, msg *ProjectMemberUpdateRequest) (*projectMember, error) {
+func (t *projectMemberRepository) update(ctx context.Context, member *projectMemberEntity, msg *ProjectMemberUpdateRequest) (*projectMemberEntity, error) {
 	if msg.Role != apiv2.ProjectRole_PROJECT_ROLE_UNSPECIFIED {
 		member.Meta.Annotations[ProjectRoleAnnotation] = msg.Role.String()
 	}
@@ -163,10 +163,10 @@ func (t *projectMemberRepository) update(ctx context.Context, member *projectMem
 		return nil, errorutil.Convert(err)
 	}
 
-	return &projectMember{ProjectMember: resp.ProjectMember}, nil
+	return &projectMemberEntity{ProjectMember: resp.ProjectMember}, nil
 }
 
-func (t *projectMemberRepository) checkIfMemberIsLastOwner(ctx context.Context, membership *projectMember) (bool, error) {
+func (t *projectMemberRepository) checkIfMemberIsLastOwner(ctx context.Context, membership *projectMemberEntity) (bool, error) {
 	isOwner := membership.Meta.Annotations[ProjectRoleAnnotation] == apiv2.ProjectRole_PROJECT_ROLE_OWNER.String()
 	if !isOwner {
 		return false, nil
