@@ -24,6 +24,8 @@ import (
 )
 
 func Test_tenantServiceServer_Get(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
@@ -179,6 +181,8 @@ func Test_tenantServiceServer_Get(t *testing.T) {
 }
 
 func Test_tenantServiceServer_List(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
@@ -304,6 +308,8 @@ func Test_tenantServiceServer_List(t *testing.T) {
 }
 
 func Test_tenantServiceServer_Create(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
@@ -436,6 +442,8 @@ func Test_tenantServiceServer_Create(t *testing.T) {
 }
 
 func Test_tenantServiceServer_Update(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
@@ -535,6 +543,8 @@ func Test_tenantServiceServer_Update(t *testing.T) {
 }
 
 func Test_tenantServiceServer_Delete(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
@@ -648,6 +658,8 @@ func Test_tenantServiceServer_Delete(t *testing.T) {
 }
 
 func Test_tenantServiceServer_MemberUpdate(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
@@ -771,6 +783,8 @@ func Test_tenantServiceServer_MemberUpdate(t *testing.T) {
 }
 
 func Test_tenantServiceServer_MemberRemove(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
@@ -876,6 +890,8 @@ func Test_tenantServiceServer_MemberRemove(t *testing.T) {
 }
 
 func Test_tenantServiceServer_Invite(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
@@ -968,6 +984,8 @@ func Test_tenantServiceServer_Invite(t *testing.T) {
 }
 
 func Test_tenantServiceServer_InviteGet(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
@@ -1059,6 +1077,8 @@ func Test_tenantServiceServer_InviteGet(t *testing.T) {
 }
 
 func Test_tenantServiceServer_InvitesList(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
@@ -1156,6 +1176,8 @@ func Test_tenantServiceServer_InvitesList(t *testing.T) {
 }
 
 func Test_tenantServiceServer_InviteDelete(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
@@ -1222,6 +1244,8 @@ func Test_tenantServiceServer_InviteDelete(t *testing.T) {
 }
 
 func Test_tenantServiceServer_InviteAccept(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
@@ -1422,6 +1446,8 @@ func Test_tenantServiceServer_InviteAccept(t *testing.T) {
 }
 
 func Test_tenantServiceServer_InviteFlow(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))

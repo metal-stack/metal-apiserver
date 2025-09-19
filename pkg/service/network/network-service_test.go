@@ -29,6 +29,8 @@ var (
 )
 
 func Test_networkServiceServer_Get(t *testing.T) {
+	t.Parallel()
+
 	log := slog.Default()
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
@@ -98,6 +100,8 @@ func Test_networkServiceServer_Get(t *testing.T) {
 }
 
 func Test_networkServiceServer_List(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
@@ -230,6 +234,8 @@ func Test_networkServiceServer_List(t *testing.T) {
 }
 
 func Test_networkServiceServer_ListBaseNetworks(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
@@ -380,6 +386,8 @@ func Test_networkServiceServer_ListBaseNetworks(t *testing.T) {
 }
 
 func Test_networkServiceServer_Update(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
@@ -582,6 +590,8 @@ func Test_networkServiceServer_Update(t *testing.T) {
 }
 
 func Test_networkServiceServer_Create(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
@@ -848,6 +858,8 @@ func Test_networkServiceServer_Create(t *testing.T) {
 }
 
 func Test_networkServiceServer_Delete(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)

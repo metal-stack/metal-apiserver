@@ -17,6 +17,8 @@ import (
 )
 
 func Test_filesystemServiceServer_Create(t *testing.T) {
+	t.Parallel()
+
 	log := slog.Default()
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
@@ -107,6 +109,8 @@ func Test_filesystemServiceServer_Create(t *testing.T) {
 }
 
 func Test_filesystemServiceServer_Update(t *testing.T) {
+	t.Parallel()
+
 	log := slog.Default()
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
@@ -206,6 +210,8 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 }
 
 func Test_filesystemServiceServer_Delete(t *testing.T) {
+	t.Parallel()
+
 	log := slog.Default()
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()

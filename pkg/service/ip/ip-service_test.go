@@ -21,6 +21,8 @@ import (
 )
 
 func Test_ipServiceServer_Get(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
@@ -115,6 +117,8 @@ func Test_ipServiceServer_Get(t *testing.T) {
 }
 
 func Test_ipServiceServer_List(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
@@ -228,6 +232,8 @@ func Test_ipServiceServer_List(t *testing.T) {
 }
 
 func Test_ipServiceServer_Update(t *testing.T) {
+	t.Parallel()
+
 	log := slog.Default()
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
@@ -417,6 +423,8 @@ func Test_ipServiceServer_Update(t *testing.T) {
 }
 
 func Test_ipServiceServer_Delete(t *testing.T) {
+	t.Parallel()
+
 	log := slog.Default()
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
@@ -515,6 +523,8 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 }
 
 func Test_ipServiceServer_Create(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)

@@ -21,6 +21,8 @@ import (
 )
 
 func Test_imageServiceServer_Create(t *testing.T) {
+	t.Parallel()
+
 	log := slog.Default()
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
@@ -96,6 +98,8 @@ func Test_imageServiceServer_Create(t *testing.T) {
 }
 
 func Test_imageServiceServer_Update(t *testing.T) {
+	t.Parallel()
+
 	log := slog.Default()
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
@@ -239,6 +243,8 @@ func Test_imageServiceServer_Update(t *testing.T) {
 }
 
 func Test_imageServiceServer_Delete(t *testing.T) {
+	t.Parallel()
+
 	log := slog.Default()
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)

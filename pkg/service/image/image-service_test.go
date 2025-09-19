@@ -19,6 +19,8 @@ import (
 )
 
 func Test_imageServiceServer_Get(t *testing.T) {
+	t.Parallel()
+
 	log := slog.Default()
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
@@ -94,6 +96,8 @@ func Test_imageServiceServer_Get(t *testing.T) {
 }
 
 func Test_imageServiceServer_List(t *testing.T) {
+	t.Parallel()
+
 	log := slog.Default()
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
@@ -268,6 +272,8 @@ func Test_imageServiceServer_List(t *testing.T) {
 }
 
 func Test_imageServiceServer_Latest(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)

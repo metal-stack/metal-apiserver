@@ -18,18 +18,18 @@ import (
 const rethinkDbImage = "rethinkdb:2.4.4-bookworm-slim"
 
 var (
-	once        sync.Once
 	connectOpts r.ConnectOpts
 	endpoint    string
 	closer      func()
 	mtx         sync.Mutex
+	count       int
 )
 
 func StartRethink(t testing.TB, log *slog.Logger) (generic.Datastore, r.ConnectOpts, func()) {
 	mtx.Lock()
 	defer mtx.Unlock()
 
-	once.Do(func() {
+	if endpoint == "" {
 		ctx := context.Background()
 
 		req := testcontainers.ContainerRequest{
@@ -54,10 +54,12 @@ func StartRethink(t testing.TB, log *slog.Logger) (generic.Datastore, r.ConnectO
 		require.NoError(t, err)
 
 		closer = func() {
-			// FIXME
-			// _ = c.Terminate(ctx)
+			// TODO: clean up database of this test
+
+			// we do not terminate the container here because it's very complex with a shared ds
+			// testcontainers will cleanup the database by itself
 		}
-	})
+	}
 
 	connectOpts = r.ConnectOpts{
 		Address:  endpoint,

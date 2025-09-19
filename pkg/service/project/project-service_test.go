@@ -25,6 +25,8 @@ import (
 )
 
 func Test_projectServiceServer_Get(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
@@ -195,6 +197,8 @@ func Test_projectServiceServer_Get(t *testing.T) {
 }
 
 func Test_projectServiceServer_List(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
@@ -351,6 +355,8 @@ func Test_projectServiceServer_List(t *testing.T) {
 }
 
 func Test_projectServiceServer_Create(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
@@ -447,6 +453,8 @@ func Test_projectServiceServer_Create(t *testing.T) {
 }
 
 func Test_projectServiceServer_Update(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
@@ -548,6 +556,8 @@ func Test_projectServiceServer_Update(t *testing.T) {
 }
 
 func Test_projectServiceServer_Delete(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
@@ -692,6 +702,8 @@ func Test_projectServiceServer_Delete(t *testing.T) {
 }
 
 func Test_projectServiceServer_MemberUpdate(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
@@ -871,6 +883,8 @@ func Test_projectServiceServer_MemberUpdate(t *testing.T) {
 }
 
 func Test_projectServiceServer_MemberRemove(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
@@ -974,6 +988,8 @@ func Test_projectServiceServer_MemberRemove(t *testing.T) {
 }
 
 func Test_projectServiceServer_Invite(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
@@ -1069,6 +1085,8 @@ func Test_projectServiceServer_Invite(t *testing.T) {
 }
 
 func Test_projectServiceServer_InviteGet(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
@@ -1160,6 +1178,8 @@ func Test_projectServiceServer_InviteGet(t *testing.T) {
 }
 
 func Test_projectServiceServer_InvitesList(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
@@ -1257,6 +1277,8 @@ func Test_projectServiceServer_InvitesList(t *testing.T) {
 }
 
 func Test_projectServiceServer_InviteDelete(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
@@ -1323,6 +1345,8 @@ func Test_projectServiceServer_InviteDelete(t *testing.T) {
 }
 
 func Test_projectServiceServer_InviteAccept(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))

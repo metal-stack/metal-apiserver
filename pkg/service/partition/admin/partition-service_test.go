@@ -23,6 +23,8 @@ import (
 )
 
 func Test_partitionServiceServer_Create(t *testing.T) {
+	t.Parallel()
+
 	log := slog.Default()
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
@@ -131,6 +133,8 @@ func Test_partitionServiceServer_Create(t *testing.T) {
 }
 
 func Test_partitionServiceServer_Update(t *testing.T) {
+	t.Parallel()
+
 	log := slog.Default()
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
@@ -339,7 +343,10 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 }
 
 func Test_partitionServiceServer_Delete(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
 	repo := testStore.Store
