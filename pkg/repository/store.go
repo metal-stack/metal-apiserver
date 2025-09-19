@@ -277,18 +277,19 @@ func (s *store[R, E, M, C, U, Q]) AdditionalMethods() R {
 }
 
 func setUpdateMeta(u UpdateMessage, e Entity) error {
-	if u.GetUpdateMeta() == nil {
+	meta := u.GetUpdateMeta()
+
+	if meta == nil {
 		// we actually validate this already with protovalidate, but this is for completeness
 		return errorutil.InvalidArgument("update meta must be set")
 	}
 
-	// Ensure Optimistic Locking, updateMeta will never be nil ensured by protovalidate
-	meta := u.GetUpdateMeta()
+	// ensure optimistic locking, update meta will never be nil ensured by protovalidate
 	switch meta.LockingStrategy {
 	case apiv2.OptimisticLockingStrategy_OPTIMISTIC_LOCKING_STRATEGY_UNSPECIFIED, apiv2.OptimisticLockingStrategy_OPTIMISTIC_LOCKING_STRATEGY_CLIENT:
 		e.SetChanged(meta.UpdatedAt.AsTime())
 	case apiv2.OptimisticLockingStrategy_OPTIMISTIC_LOCKING_STRATEGY_SERVER:
-		// Nothing to do
+		// nothing to do, e.Changed will be taken from the fetched database entity
 	}
 
 	return nil
