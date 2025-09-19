@@ -476,9 +476,10 @@ func Test_projectServiceServer_Update(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "create a project",
+			name: "update a project",
 			rq: &apiv2.ProjectServiceUpdateRequest{
 				Name:        pointer.Pointer("new name"),
+				UpdateMeta:  &apiv2.UpdateMeta{},
 				Description: pointer.Pointer("new desc"),
 				AvatarUrl:   pointer.Pointer("http://new"),
 				Labels: &apiv2.UpdateLabels{

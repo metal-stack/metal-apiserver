@@ -461,9 +461,10 @@ func Test_tenantServiceServer_Update(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "create a tenant",
+			name: "update a tenant",
 			rq: &apiv2.TenantServiceUpdateRequest{
 				Login:       "john.doe@github",
+				UpdateMeta:  &apiv2.UpdateMeta{},
 				Name:        pointer.Pointer("new name"),
 				Description: pointer.Pointer("new desc"),
 				Email:       pointer.Pointer("new mail"),
