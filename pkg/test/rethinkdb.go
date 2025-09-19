@@ -1,7 +1,10 @@
 package test
 
 import (
+	"context"
 	"log/slog"
+	"strings"
+	"sync"
 	"testing"
 
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
@@ -14,48 +17,67 @@ import (
 
 const rethinkDbImage = "rethinkdb:2.4.4-bookworm-slim"
 
+var (
+	once        sync.Once
+	connectOpts r.ConnectOpts
+	endpoint    string
+	closer      func()
+	mtx         sync.Mutex
+)
+
 func StartRethink(t testing.TB, log *slog.Logger) (generic.Datastore, r.ConnectOpts, func()) {
-	ctx := t.Context()
+	mtx.Lock()
+	defer mtx.Unlock()
 
-	req := testcontainers.ContainerRequest{
-		Image:        rethinkDbImage,
-		ExposedPorts: []string{"8080/tcp", "28015/tcp"},
-		Env:          map[string]string{"RETHINKDB_PASSWORD": "rethink"},
-		Tmpfs:        map[string]string{"/data": "rw"},
-		WaitingFor: wait.ForAll(
-			wait.ForListeningPort("28015/tcp"),
-		),
-		Cmd: []string{"rethinkdb", "--bind", "all", "--directory", "/data", "--initial-password", "rethink", "--io-threads", "500"},
-	}
+	once.Do(func() {
+		ctx := context.Background()
 
-	c, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: req,
-		Started:          true,
-		Logger:           tlog.TestLogger(t),
+		req := testcontainers.ContainerRequest{
+			Image:        rethinkDbImage,
+			ExposedPorts: []string{"8080/tcp", "28015/tcp"},
+			Env:          map[string]string{"RETHINKDB_PASSWORD": "rethink"},
+			Tmpfs:        map[string]string{"/data": "rw"},
+			WaitingFor: wait.ForAll(
+				wait.ForListeningPort("28015/tcp"),
+			),
+			Cmd: []string{"rethinkdb", "--bind", "all", "--directory", "/data", "--initial-password", "rethink", "--io-threads", "500"},
+		}
+
+		c, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+			ContainerRequest: req,
+			Started:          true,
+			Logger:           tlog.TestLogger(t),
+		})
+		require.NoError(t, err)
+
+		endpoint, err = c.PortEndpoint(ctx, "28015/tcp", "")
+		require.NoError(t, err)
+
+		closer = func() {
+			// FIXME
+			// _ = c.Terminate(ctx)
+		}
 	})
-	require.NoError(t, err)
 
-	endpoint, err := c.PortEndpoint(ctx, "28015/tcp", "")
-	require.NoError(t, err)
-
-	opts := r.ConnectOpts{
+	connectOpts = r.ConnectOpts{
 		Address:  endpoint,
-		Database: "metal",
+		Database: databaseNameFromT(t),
 		Username: "admin",
 		Password: "rethink",
 		MaxIdle:  10,
-		MaxOpen:  20,
+		MaxOpen:  2000,
 	}
 
-	err = generic.Initialize(ctx, log, opts, generic.AsnPoolRange(uint(1), uint(100)), generic.VrfPoolRange(uint(1), uint(100)))
+	err := generic.Initialize(t.Context(), log, connectOpts, generic.AsnPoolRange(uint(1), uint(100)), generic.VrfPoolRange(uint(1), uint(100)))
 	require.NoError(t, err)
 
-	ds, err := generic.New(log, opts)
+	ds, err := generic.New(log, connectOpts)
 	require.NoError(t, err)
 
-	closer := func() {
-		_ = c.Terminate(t.Context())
-	}
+	return ds, connectOpts, closer
 
-	return ds, opts, closer
+}
+
+func databaseNameFromT(t testing.TB) string {
+	return strings.ReplaceAll(t.Name(), "/", "-")
 }

@@ -37,6 +37,7 @@ type testStore struct {
 	t *testing.T
 	*repository.Store
 	ds            generic.Datastore
+	dbName        string
 	queryExecutor *r.Session
 	ipam          apiv1connect.IpamServiceClient
 
@@ -51,7 +52,7 @@ type testStore struct {
 }
 
 func (s *testStore) CleanNetworkTable(t *testing.T) {
-	_, err := r.DB("metal").Table("network").Delete().RunWrite(s.queryExecutor)
+	_, err := r.DB(s.dbName).Table("network").Delete().RunWrite(s.queryExecutor)
 	require.NoError(t, err)
 }
 
@@ -156,6 +157,7 @@ func StartRepositoryWithCleanup(t *testing.T, log *slog.Logger, testOpts ...test
 		t:                  t,
 		Store:              repo,
 		ds:                 ds,
+		dbName:             opts.Database,
 		queryExecutor:      session,
 		ipam:               ipam,
 		projectInviteStore: projectInviteStore,
@@ -287,7 +289,7 @@ func DeleteNetworks(t *testing.T, testStore *testStore) {
 		}
 	}
 
-	_, err = r.DB("metal").Table("network").Delete().RunWrite(testStore.queryExecutor)
+	_, err = r.DB(testStore.dbName).Table("network").Delete().RunWrite(testStore.queryExecutor)
 	require.NoError(t, err)
 
 }
@@ -305,12 +307,12 @@ func DeleteIPs(t *testing.T, testStore *testStore) {
 		require.NoError(t, err)
 	}
 
-	_, err = r.DB("metal").Table("ip").Delete().RunWrite(testStore.queryExecutor)
+	_, err = r.DB(testStore.dbName).Table("ip").Delete().RunWrite(testStore.queryExecutor)
 	require.NoError(t, err)
 }
 
 func DeleteMachines(t *testing.T, testStore *testStore) {
-	_, err := r.DB("metal").Table("machine").Delete().RunWrite(testStore.queryExecutor)
+	_, err := r.DB(testStore.dbName).Table("machine").Delete().RunWrite(testStore.queryExecutor)
 	require.NoError(t, err)
 }
 

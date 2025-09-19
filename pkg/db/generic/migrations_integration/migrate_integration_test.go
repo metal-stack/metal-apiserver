@@ -100,11 +100,11 @@ func Test_MigrationChildPrefixLength(t *testing.T) {
 	session, err := r.Connect(c)
 	require.NoError(t, err)
 
-	_, err = r.DB("metal").Table("partition").Insert(p1).RunWrite(session)
+	_, err = r.DB(c.Database).Table("partition").Insert(p1).RunWrite(session)
 	require.NoError(t, err)
-	_, err = r.DB("metal").Table("partition").Insert(p2).RunWrite(session)
+	_, err = r.DB(c.Database).Table("partition").Insert(p2).RunWrite(session)
 	require.NoError(t, err)
-	_, err = r.DB("metal").Table("partition").Insert(p3).RunWrite(session)
+	_, err = r.DB(c.Database).Table("partition").Insert(p3).RunWrite(session)
 	require.NoError(t, err)
 
 	_, err = ds.Network().Create(ctx, n1)
