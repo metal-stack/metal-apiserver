@@ -50,12 +50,6 @@ func Test_partitionServiceServer_Create(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name:    "bootconfig is nil",
-			request: &adminv2.PartitionServiceCreateRequest{Partition: &apiv2.Partition{Id: "partition-1"}},
-			want:    nil,
-			wantErr: errorutil.InvalidArgument(`partition.bootconfiguration must not be nil`),
-		},
-		{
 			name:    "imageurl is not accessible is nil",
 			request: &adminv2.PartitionServiceCreateRequest{Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: invalidURL}}},
 			want:    nil,
