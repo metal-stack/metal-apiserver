@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -59,7 +58,7 @@ type (
 	Message any
 	// UpdateMessage is an external request to update an entity for consumers.
 	UpdateMessage interface {
-		GetUpdatedAt() *timestamppb.Timestamp
+		GetUpdateMeta() *apiv2.UpdateMeta
 	}
 	// CreateMessage is an external request to create an entity for consumers.
 	// TODO: ideally all update messages should clearly expose the identifier in order to get the entity with it!

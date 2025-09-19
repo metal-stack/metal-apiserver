@@ -6,7 +6,6 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type (
@@ -28,8 +27,8 @@ type (
 	}
 )
 
-func (*TenantMemberUpdateRequest) GetUpdatedAt() *timestamppb.Timestamp {
-	return &timestamppb.Timestamp{}
+func (*TenantMemberUpdateRequest) GetUpdateMeta() *apiv2.UpdateMeta {
+	return &apiv2.UpdateMeta{}
 }
 
 func (t *tenantMemberRepository) checkIfMemberIsLastOwner(ctx context.Context, req *mdcv1.TenantMember) (bool, error) {
