@@ -143,6 +143,8 @@ func (r *filesystemLayoutRepository) update(ctx context.Context, e *metal.Filesy
 			}
 			vgs = append(vgs, vg)
 		}
+
+		e.VolumeGroups = vgs
 	}
 
 	if rq.LogicalVolumes != nil {
