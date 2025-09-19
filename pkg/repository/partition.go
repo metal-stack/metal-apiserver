@@ -115,7 +115,6 @@ func (p *partitionRepository) validateDelete(ctx context.Context, req *metal.Par
 func (p *partitionRepository) validateUpdate(ctx context.Context, req *adminv2.PartitionServiceUpdateRequest, _ *metal.Partition) error {
 	partition := &apiv2.Partition{
 		Id:                   req.Id,
-		Meta:                 &apiv2.Meta{UpdatedAt: req.UpdatedAt},
 		BootConfiguration:    req.BootConfiguration,
 		DnsServer:            req.DnsServer,
 		NtpServer:            req.NtpServer,
@@ -161,33 +160,53 @@ func (p *partitionRepository) get(ctx context.Context, id string) (*metal.Partit
 
 // Update implements Partition.
 func (p *partitionRepository) update(ctx context.Context, e *metal.Partition, req *adminv2.PartitionServiceUpdateRequest) (*metal.Partition, error) {
-	partition := &apiv2.Partition{
-		Id:                   req.Id,
-		Meta:                 &apiv2.Meta{UpdatedAt: req.UpdatedAt},
-		BootConfiguration:    req.BootConfiguration,
-		DnsServer:            req.DnsServer,
-		NtpServer:            req.NtpServer,
-		MgmtServiceAddresses: req.MgmtServiceAddresses,
+	if req.BootConfiguration != nil {
+		e.BootConfiguration = metal.BootConfiguration{
+			ImageURL:    req.BootConfiguration.ImageUrl,
+			KernelURL:   req.BootConfiguration.KernelUrl,
+			CommandLine: req.BootConfiguration.Commandline,
+		}
 	}
+
 	if req.Description != nil {
-		partition.Description = *req.Description
+		e.Description = *req.Description
 	}
-	new, err := p.convertToInternal(ctx, partition)
-	if err != nil {
-		return nil, errorutil.Convert(err)
+	if req.DnsServer != nil {
+		servers := make(metal.DNSServers, 0, len(req.DnsServer))
+
+		for _, s := range req.DnsServer {
+			servers = append(servers, metal.DNSServer{
+				IP: s.GetIp(),
+			})
+		}
+
+		e.DNSServers = servers
 	}
-	// Ensure Optimistic Locking
-	new.Changed = req.UpdatedAt.AsTime()
+	if req.NtpServer != nil {
+		servers := make(metal.NTPServers, 0, len(req.NtpServer))
+
+		for _, s := range req.NtpServer {
+			servers = append(servers, metal.NTPServer{
+				Address: s.GetAddress(),
+			})
+		}
+
+		e.NTPServers = servers
+	}
+	if len(req.MgmtServiceAddresses) == 1 {
+		e.MgmtServiceAddress = req.MgmtServiceAddresses[0]
+	}
 
 	if req.Labels != nil {
-		new.Labels = updateLabelsOnMap(req.Labels, new.Labels)
+		e.Labels = updateLabelsOnMap(req.Labels, e.Labels)
 	}
 
-	err = p.s.ds.Partition().Update(ctx, new)
+	err := p.s.ds.Partition().Update(ctx, e)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	return new, nil
+
+	return e, nil
 }
 
 // Find implements Partition.

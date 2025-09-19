@@ -51,16 +51,11 @@ func (r *sizeRepository) create(ctx context.Context, req *adminv2.SizeServiceCre
 }
 
 func (r *sizeRepository) update(ctx context.Context, e *metal.Size, req *adminv2.SizeServiceUpdateRequest) (*metal.Size, error) {
-	new := *e
-
-	// Ensure Optimistic Locking
-	new.Changed = req.UpdatedAt.AsTime()
-
 	if req.Description != nil {
-		new.Description = *req.Description
+		e.Description = *req.Description
 	}
 	if req.Name != nil {
-		new.Name = *req.Name
+		e.Name = *req.Name
 	}
 
 	var constraints []metal.Constraint
@@ -72,19 +67,19 @@ func (r *sizeRepository) update(ctx context.Context, e *metal.Size, req *adminv2
 			}
 			constraints = append(constraints, *metalConstraint)
 		}
-		new.Constraints = constraints
+		e.Constraints = constraints
 	}
 
 	if req.Labels != nil {
-		new.Labels = updateLabelsOnMap(req.Labels, new.Labels)
+		e.Labels = updateLabelsOnMap(req.Labels, e.Labels)
 	}
 
-	err := r.s.ds.Size().Update(ctx, &new)
+	err := r.s.ds.Size().Update(ctx, e)
 	if err != nil {
 		return nil, err
 	}
 
-	return &new, nil
+	return e, nil
 }
 
 func (r *sizeRepository) delete(ctx context.Context, e *metal.Size) error {

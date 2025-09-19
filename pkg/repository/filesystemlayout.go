@@ -9,78 +9,11 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type filesystemLayoutRepository struct {
 	s *Store
-}
-
-func (r *filesystemLayoutRepository) validateCreate(ctx context.Context, req *adminv2.FilesystemServiceCreateRequest) error {
-	fsl, err := r.convertToInternal(ctx, req.FilesystemLayout)
-	if err != nil {
-		return errorutil.Convert(err)
-	}
-
-	err = fsl.Validate()
-	if err != nil {
-		return errorutil.Convert(err)
-	}
-
-	return nil
-}
-
-func (r *filesystemLayoutRepository) validateUpdate(ctx context.Context, req *adminv2.FilesystemServiceUpdateRequest, _ *metal.FilesystemLayout) error {
-	filesystemLayout := &apiv2.FilesystemLayout{
-		Id:             req.Id,
-		Name:           req.Name,
-		Meta:           &apiv2.Meta{UpdatedAt: req.UpdatedAt},
-		Description:    req.Description,
-		Filesystems:    req.Filesystems,
-		Disks:          req.Disks,
-		Raid:           req.Raid,
-		VolumeGroups:   req.VolumeGroups,
-		LogicalVolumes: req.LogicalVolumes,
-		Constraints:    req.Constraints,
-	}
-
-	fsl, err := r.convertToInternal(ctx, filesystemLayout)
-	if err != nil {
-		return errorutil.Convert(err)
-	}
-
-	var allFsls metal.FilesystemLayouts
-	fsls, err := r.list(ctx, &apiv2.FilesystemServiceListRequest{})
-	if err != nil {
-		return errorutil.Convert(err)
-	}
-	allFsls = append(allFsls, fsls...)
-
-	allFsls = append(allFsls, fsl)
-	err = allFsls.Validate()
-	if err != nil {
-		return errorutil.Convert(err)
-	}
-
-	err = fsl.Validate()
-	if err != nil {
-		return errorutil.Convert(err)
-	}
-
-	return nil
-}
-func (r *filesystemLayoutRepository) validateDelete(ctx context.Context, fsl *metal.FilesystemLayout) error {
-	machines, err := r.s.UnscopedMachine().List(ctx, &apiv2.MachineQuery{
-		Allocation: &apiv2.MachineAllocationQuery{FilesystemLayout: &fsl.ID},
-	})
-	if err != nil {
-		return err
-	}
-	if len(machines) > 0 {
-		return errorutil.InvalidArgument("cannot remove filesystemlayout with existing machine allocations")
-	}
-	return nil
 }
 
 func (r *filesystemLayoutRepository) get(ctx context.Context, id string) (*metal.FilesystemLayout, error) {
@@ -111,33 +44,150 @@ func (r *filesystemLayoutRepository) create(ctx context.Context, rq *adminv2.Fil
 	return resp, nil
 }
 
-func (r *filesystemLayoutRepository) update(ctx context.Context, fsl *metal.FilesystemLayout, rq *adminv2.FilesystemServiceUpdateRequest) (*metal.FilesystemLayout, error) {
-	filesystemLayout := &apiv2.FilesystemLayout{
-		Id:             rq.Id,
-		Meta:           &apiv2.Meta{UpdatedAt: rq.UpdatedAt},
-		Name:           rq.Name,
-		Description:    rq.Description,
-		Filesystems:    rq.Filesystems,
-		Disks:          rq.Disks,
-		Raid:           rq.Raid,
-		VolumeGroups:   rq.VolumeGroups,
-		LogicalVolumes: rq.LogicalVolumes,
-		Constraints:    rq.Constraints,
+func (r *filesystemLayoutRepository) update(ctx context.Context, e *metal.FilesystemLayout, rq *adminv2.FilesystemServiceUpdateRequest) (*metal.FilesystemLayout, error) {
+	var (
+		fss = []metal.Filesystem{}
+		ds  = []metal.Disk{}
+		rs  = []metal.Raid{}
+		vgs = []metal.VolumeGroup{}
+		lvs = []metal.LogicalVolume{}
+	)
+
+	if rq.Filesystems != nil {
+		for _, fs := range rq.Filesystems {
+			formatString, err := enum.GetStringValue(fs.Format)
+			if err != nil {
+				return nil, err
+			}
+
+			format, err := metal.ToFormat(*formatString)
+			if err != nil {
+				return nil, err
+			}
+
+			fss = append(fss, metal.Filesystem{
+				Path:          fs.Path,
+				Device:        string(fs.Device),
+				Format:        *format,
+				Label:         fs.Label,
+				MountOptions:  fs.MountOptions,
+				CreateOptions: fs.CreateOptions,
+			})
+		}
+
+		e.Filesystems = fss
 	}
 
-	newFsl, err := r.convertToInternal(ctx, filesystemLayout)
+	if rq.Disks != nil {
+		for _, disk := range rq.Disks {
+			parts := []metal.DiskPartition{}
+			for _, p := range disk.Partitions {
+				part := metal.DiskPartition{
+					Number: uint8(p.Number), // nolint:gosec
+					Size:   p.Size,
+					Label:  p.Label,
+				}
+				if p.GptType != nil {
+					gptTypeString, err := enum.GetStringValue(p.GptType)
+					if err != nil {
+						return nil, err
+					}
+					gptType, err := metal.ToGPTType(*gptTypeString)
+					if err != nil {
+						return nil, err
+					}
+					part.GPTType = gptType
+				}
+				parts = append(parts, part)
+			}
+			d := metal.Disk{
+				Device:     string(disk.Device),
+				Partitions: parts,
+			}
+			ds = append(ds, d)
+		}
+
+		e.Disks = ds
+	}
+
+	if rq.Raid != nil {
+		for _, raid := range rq.Raid {
+			raidLevelString, err := enum.GetStringValue(raid.Level)
+			if err != nil {
+				return nil, err
+			}
+
+			level, err := metal.ToRaidLevel(*raidLevelString)
+			if err != nil {
+				return nil, err
+			}
+
+			rs = append(rs, metal.Raid{
+				ArrayName:     raid.ArrayName,
+				Devices:       raid.Devices,
+				Level:         *level,
+				CreateOptions: raid.CreateOptions,
+				Spares:        int(raid.Spares),
+			})
+		}
+
+		e.Raid = rs
+	}
+
+	if rq.VolumeGroups != nil {
+		for _, v := range rq.VolumeGroups {
+			vg := metal.VolumeGroup{
+				Name:    v.Name,
+				Devices: v.Devices,
+				Tags:    v.Tags,
+			}
+			vgs = append(vgs, vg)
+		}
+	}
+
+	if rq.LogicalVolumes != nil {
+		for _, l := range rq.LogicalVolumes {
+			lvmtypeString, err := enum.GetStringValue(l.LvmType)
+			if err != nil {
+				return nil, err
+			}
+
+			lvmtype, err := metal.ToLVMType(*lvmtypeString)
+			if err != nil {
+				return nil, err
+			}
+
+			lvs = append(lvs, metal.LogicalVolume{
+				Name:        l.Name,
+				VolumeGroup: l.VolumeGroup,
+				Size:        l.Size,
+				LVMType:     *lvmtype,
+			})
+		}
+
+		e.LogicalVolumes = lvs
+	}
+
+	if rq.Constraints != nil {
+		e.Constraints = metal.FilesystemLayoutConstraints{
+			Images: rq.Constraints.Images,
+			Sizes:  rq.Constraints.Sizes,
+		}
+	}
+
+	if rq.Name != nil {
+		e.Name = *rq.Name
+	}
+	if rq.Description != nil {
+		e.Description = *rq.Description
+	}
+
+	err := r.s.ds.FilesystemLayout().Update(ctx, e)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	// Ensure Optimistic Locking
-	newFsl.Changed = pointer.SafeDeref(filesystemLayout.Meta).UpdatedAt.AsTime()
 
-	err = r.s.ds.FilesystemLayout().Update(ctx, newFsl)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	return newFsl, nil
+	return e, nil
 }
 
 func (r *filesystemLayoutRepository) delete(ctx context.Context, e *metal.FilesystemLayout) error {

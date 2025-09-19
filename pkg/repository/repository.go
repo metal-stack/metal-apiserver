@@ -2,12 +2,12 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 )
 
 type (
@@ -53,7 +53,9 @@ type (
 	// Repo is the typed repository in order to expose public functions on the repository to the consumers.
 	Repo any
 	// Entity is the internal representation of an api resource, which is stored in the backend.
-	Entity any
+	Entity interface {
+		SetChanged(t time.Time)
+	}
 	// Message is the external representation of an api resource for consumers.
 	Message any
 	// UpdateMessage is an external request to update an entity for consumers.
@@ -86,19 +88,19 @@ type (
 	}
 
 	Project interface {
-		Repository[*projectRepository, *mdcv1.Project, *apiv2.Project, *apiv2.ProjectServiceCreateRequest, *apiv2.ProjectServiceUpdateRequest, *apiv2.ProjectServiceListRequest]
+		Repository[*projectRepository, *project, *apiv2.Project, *apiv2.ProjectServiceCreateRequest, *apiv2.ProjectServiceUpdateRequest, *apiv2.ProjectServiceListRequest]
 	}
 
 	ProjectMember interface {
-		Repository[*projectMemberRepository, *mdcv1.ProjectMember, *apiv2.ProjectMember, *ProjectMemberCreateRequest, *ProjectMemberUpdateRequest, *ProjectMemberQuery]
+		Repository[*projectMemberRepository, *projectMember, *apiv2.ProjectMember, *ProjectMemberCreateRequest, *ProjectMemberUpdateRequest, *ProjectMemberQuery]
 	}
 
 	Tenant interface {
-		Repository[*tenantRepository, *mdcv1.Tenant, *apiv2.Tenant, *apiv2.TenantServiceCreateRequest, *apiv2.TenantServiceUpdateRequest, *apiv2.TenantServiceListRequest]
+		Repository[*tenantRepository, *tenant, *apiv2.Tenant, *apiv2.TenantServiceCreateRequest, *apiv2.TenantServiceUpdateRequest, *apiv2.TenantServiceListRequest]
 	}
 
 	TenantMember interface {
-		Repository[*tenantMemberRepository, *mdcv1.TenantMember, *mdcv1.TenantMember, *TenantMemberCreateRequest, *TenantMemberUpdateRequest, *TenantMemberQuery]
+		Repository[*tenantMemberRepository, *tenantMember, *apiv2.TenantMember, *TenantMemberCreateRequest, *TenantMemberUpdateRequest, *TenantMemberQuery]
 	}
 
 	FilesystemLayout interface {

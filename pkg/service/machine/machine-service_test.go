@@ -371,9 +371,11 @@ func Test_machineServiceServer_Update(t *testing.T) {
 		{
 			name: "Update tags",
 			rq: &apiv2.MachineServiceUpdateRequest{
-				Uuid:      "m3",
-				UpdatedAt: timestamppb.New(machineMap["m3"].Changed),
-				Project:   "p1",
+				Uuid: "m3",
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(machineMap["m3"].Changed),
+				},
+				Project: "p1",
 				Labels: &apiv2.UpdateLabels{
 					Update: &apiv2.Labels{Labels: map[string]string{"color": "red"}},
 				}},
@@ -417,7 +419,9 @@ func Test_machineServiceServer_Update(t *testing.T) {
 			name: "Update Description and ssh public key",
 			rq: &apiv2.MachineServiceUpdateRequest{
 				Uuid: "m4", Project: "p2",
-				UpdatedAt:     timestamppb.New(machineMap["m4"].Changed),
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(machineMap["m4"].Changed),
+				},
 				Description:   pointer.Pointer("my-beloved-machine"),
 				SshPublicKeys: []string{"key-2", "key-3"},
 			},

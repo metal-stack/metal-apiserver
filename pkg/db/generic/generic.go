@@ -8,7 +8,7 @@ import (
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
 
-const entityAlreadyModifiedErrorMessage = "the entity was changed from another, please retry"
+const entityAlreadyModifiedErrorMessage = "the entity was already modified, please retry"
 
 type (
 	// Entity is an interface that allows metal entities to be created and stored

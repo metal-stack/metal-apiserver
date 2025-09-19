@@ -150,9 +150,11 @@ func Test_imageServiceServer_Update(t *testing.T) {
 		{
 			name: "update name",
 			request: &adminv2.ImageServiceUpdateRequest{
-				Id:        "debian-11.0.20231231",
-				UpdatedAt: timestamppb.New(imageMap["debian-11.0.20231231"].Changed),
-				Url:       &validURL, Name: pointer.Pointer("NewName")},
+				Id: "debian-11.0.20231231",
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(imageMap["debian-11.0.20231231"].Changed),
+				},
+				Url: &validURL, Name: pointer.Pointer("NewName")},
 			want: &adminv2.ImageServiceUpdateResponse{
 				Image: &apiv2.Image{
 					Id:             "debian-11.0.20231231",
@@ -168,9 +170,11 @@ func Test_imageServiceServer_Update(t *testing.T) {
 		{
 			name: "update feature",
 			request: &adminv2.ImageServiceUpdateRequest{
-				Id:        "debian-12.0.20241231",
-				UpdatedAt: timestamppb.New(imageMap["debian-12.0.20241231"].Changed),
-				Url:       &validURL, Name: pointer.Pointer("NewName"),
+				Id: "debian-12.0.20241231",
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(imageMap["debian-12.0.20241231"].Changed),
+				},
+				Url: &validURL, Name: pointer.Pointer("NewName"),
 				Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL}},
 			want: &adminv2.ImageServiceUpdateResponse{
 				Image: &apiv2.Image{
@@ -187,9 +191,11 @@ func Test_imageServiceServer_Update(t *testing.T) {
 		{
 			name: "update classification",
 			request: &adminv2.ImageServiceUpdateRequest{
-				Id:        "debian-13.0.20251231",
-				UpdatedAt: timestamppb.New(imageMap["debian-13.0.20251231"].Changed),
-				Url:       &validURL, Name: pointer.Pointer("NewName"),
+				Id: "debian-13.0.20251231",
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(imageMap["debian-13.0.20251231"].Changed),
+				},
+				Url: &validURL, Name: pointer.Pointer("NewName"),
 				Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL},
 				Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED},
 			want: &adminv2.ImageServiceUpdateResponse{

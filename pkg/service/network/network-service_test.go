@@ -439,10 +439,12 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{
 			name: "update name",
 			rq: &apiv2.NetworkServiceUpdateRequest{
-				Id:        networkMap["p1-network-a"].ID,
-				UpdatedAt: timestamppb.New(networkMap["p1-network-a"].Changed),
-				Project:   "p1",
-				Name:      pointer.Pointer("P1 Updated Network")},
+				Id: networkMap["p1-network-a"].ID,
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(networkMap["p1-network-a"].Changed),
+				},
+				Project: "p1",
+				Name:    pointer.Pointer("P1 Updated Network")},
 			want: &apiv2.NetworkServiceUpdateResponse{
 				Network: &apiv2.Network{
 					Id:            networkMap["p1-network-a"].ID,
@@ -461,8 +463,10 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{
 			name: "update description",
 			rq: &apiv2.NetworkServiceUpdateRequest{
-				Id:          networkMap["p1-network-b"].ID,
-				UpdatedAt:   timestamppb.New(networkMap["p1-network-b"].Changed),
+				Id: networkMap["p1-network-b"].ID,
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(networkMap["p1-network-b"].Changed),
+				},
 				Project:     "p1",
 				Description: pointer.Pointer("P1 Description")},
 			want: &apiv2.NetworkServiceUpdateResponse{
@@ -484,10 +488,12 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{
 			name: "update labels",
 			rq: &apiv2.NetworkServiceUpdateRequest{
-				Id:        networkMap["p3-network-a"].ID,
-				UpdatedAt: timestamppb.New(networkMap["p3-network-a"].Changed),
-				Project:   "p3",
-				Labels:    &apiv2.UpdateLabels{Update: &apiv2.Labels{Labels: map[string]string{"size": "small"}}},
+				Id: networkMap["p3-network-a"].ID,
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(networkMap["p3-network-a"].Changed),
+				},
+				Project: "p3",
+				Labels:  &apiv2.UpdateLabels{Update: &apiv2.Labels{Labels: map[string]string{"size": "small"}}},
 			},
 			want: &apiv2.NetworkServiceUpdateResponse{
 				Network: &apiv2.Network{
@@ -510,10 +516,12 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{
 			name: "remove labels",
 			rq: &apiv2.NetworkServiceUpdateRequest{
-				Id:        networkMap["p2-network-b"].ID,
-				UpdatedAt: timestamppb.New(networkMap["p2-network-b"].Changed),
-				Project:   "p2",
-				Labels:    &apiv2.UpdateLabels{Remove: []string{"a"}},
+				Id: networkMap["p2-network-b"].ID,
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(networkMap["p2-network-b"].Changed),
+				},
+				Project: "p2",
+				Labels:  &apiv2.UpdateLabels{Remove: []string{"a"}},
 			},
 			want: &apiv2.NetworkServiceUpdateResponse{
 				Network: &apiv2.Network{

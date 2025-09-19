@@ -2068,9 +2068,11 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{
 			name: "add malformed prefix",
 			rq: &adminv2.NetworkServiceUpdateRequest{
-				Id:        "tenant-super-network",
-				UpdatedAt: timestamppb.New(networkMap["tenant-super-network"].Changed),
-				Prefixes:  []string{"10.100.0.0/14", "10.105.0.0/14"},
+				Id: "tenant-super-network",
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(networkMap["tenant-super-network"].Changed),
+				},
+				Prefixes: []string{"10.100.0.0/14", "10.105.0.0/14"},
 			},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`expecting canonical form of prefix "10.105.0.0/14", please specify it as "10.104.0.0/14"`),
@@ -2078,8 +2080,10 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{
 			name: "remove all prefixes",
 			rq: &adminv2.NetworkServiceUpdateRequest{
-				Id:        "tenant-super-network",
-				UpdatedAt: timestamppb.New(networkMap["tenant-super-network"].Changed),
+				Id: "tenant-super-network",
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(networkMap["tenant-super-network"].Changed),
+				},
 			},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`removing all prefixes is not supported`),
@@ -2087,9 +2091,11 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{
 			name: "add overlapping prefix",
 			rq: &adminv2.NetworkServiceUpdateRequest{
-				Id:        "tenant-super-network",
-				UpdatedAt: timestamppb.New(networkMap["tenant-super-network"].Changed),
-				Prefixes:  []string{"10.100.0.0/14", "10.100.0.0/16"},
+				Id: "tenant-super-network",
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(networkMap["tenant-super-network"].Changed),
+				},
+				Prefixes: []string{"10.100.0.0/14", "10.100.0.0/16"},
 			},
 			want:    nil,
 			wantErr: errorutil.Conflict(`10.100.0.0/16 overlaps 10.100.0.0/14`),
@@ -2097,9 +2103,11 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{
 			name: "remove prefix where ip is used",
 			rq: &adminv2.NetworkServiceUpdateRequest{
-				Id:        "internet",
-				UpdatedAt: timestamppb.New(networkMap["internet"].Changed),
-				Prefixes:  []string{"20.0.0.0/24"},
+				Id: "internet",
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(networkMap["internet"].Changed),
+				},
+				Prefixes: []string{"20.0.0.0/24"},
 			},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`there are still 1 ips present in prefix: 30.0.0.0/24`),
@@ -2107,9 +2115,11 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{
 			name: "add label to tenant network",
 			rq: &adminv2.NetworkServiceUpdateRequest{
-				Id:        networkMap["tenant-1"].ID,
-				UpdatedAt: timestamppb.New(networkMap["tenant-1"].Changed),
-				Labels:    &apiv2.UpdateLabels{Update: &apiv2.Labels{Labels: map[string]string{"color": "red", "size": "large"}}},
+				Id: networkMap["tenant-1"].ID,
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(networkMap["tenant-1"].Changed),
+				},
+				Labels: &apiv2.UpdateLabels{Update: &apiv2.Labels{Labels: map[string]string{"color": "red", "size": "large"}}},
 			},
 			want: &adminv2.NetworkServiceUpdateResponse{
 				Network: &apiv2.Network{
@@ -2132,9 +2142,11 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{
 			name: "add prefixes to tenant network",
 			rq: &adminv2.NetworkServiceUpdateRequest{
-				Id:        networkMap["tenant-1"].ID,
-				UpdatedAt: timestamppb.New(networkMap["tenant-1"].Changed),
-				Prefixes:  []string{"10.100.0.0/22", "10.101.0.0/22", "10.102.0.0/22"},
+				Id: networkMap["tenant-1"].ID,
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(networkMap["tenant-1"].Changed),
+				},
+				Prefixes: []string{"10.100.0.0/22", "10.101.0.0/22", "10.102.0.0/22"},
 			},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument("cannot change prefixes in child networks"),
@@ -2142,9 +2154,11 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{
 			name: "add prefixes to tenant super network",
 			rq: &adminv2.NetworkServiceUpdateRequest{
-				Id:        "tenant-super-network",
-				UpdatedAt: timestamppb.New(networkMap["tenant-super-network"].Changed),
-				Prefixes:  []string{"10.100.0.0/14", "10.104.0.0/14"},
+				Id: "tenant-super-network",
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(networkMap["tenant-super-network"].Changed),
+				},
+				Prefixes: []string{"10.100.0.0/14", "10.104.0.0/14"},
 			},
 			want: &adminv2.NetworkServiceUpdateResponse{
 				Network: &apiv2.Network{
@@ -2161,10 +2175,12 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{
 			name: "change nattype of internet",
 			rq: &adminv2.NetworkServiceUpdateRequest{
-				Id:        "internet",
-				Prefixes:  []string{"20.0.0.0/24", "30.0.0.0/24"},
-				UpdatedAt: timestamppb.New(networkMap["internet"].Changed),
-				NatType:   apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE.Enum(),
+				Id:       "internet",
+				Prefixes: []string{"20.0.0.0/24", "30.0.0.0/24"},
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(networkMap["internet"].Changed),
+				},
+				NatType: apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE.Enum(),
 			},
 			want: &adminv2.NetworkServiceUpdateResponse{
 				Network: &apiv2.Network{

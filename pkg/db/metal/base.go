@@ -38,3 +38,7 @@ func (b *Base) GetCreated() time.Time {
 func (b *Base) GetGeneration() uint64 {
 	return b.Generation
 }
+
+func (b *Base) SetChanged(t time.Time) {
+	b.Changed = t
+}

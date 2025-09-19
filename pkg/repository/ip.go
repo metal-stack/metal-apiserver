@@ -164,16 +164,6 @@ func (r *ipRepository) create(ctx context.Context, req *apiv2.IPServiceCreateReq
 func (r *ipRepository) update(ctx context.Context, e *metal.IP, req *apiv2.IPServiceUpdateRequest) (*metal.IP, error) {
 	rq := req
 
-	// Ensure Optimistic Locking, updateMeta will never be nil ensured by protovalidate
-	if req.UpdateMeta != nil {
-		switch req.UpdateMeta.LockingStrategy {
-		case apiv2.OptimisticLockingStrategy_OPTIMISTIC_LOCKING_STRATEGY_UNSPECIFIED, apiv2.OptimisticLockingStrategy_OPTIMISTIC_LOCKING_STRATEGY_CLIENT:
-			e.Changed = req.UpdateMeta.UpdatedAt.AsTime()
-		case apiv2.OptimisticLockingStrategy_OPTIMISTIC_LOCKING_STRATEGY_SERVER:
-			// Noting to do
-		}
-	}
-
 	if rq.Description != nil {
 		e.Description = *rq.Description
 	}

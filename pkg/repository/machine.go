@@ -51,9 +51,6 @@ func (r *machineRepository) update(ctx context.Context, m *metal.Machine, req *a
 		return m, errorutil.InvalidArgument("only allocated machines can be updated")
 	}
 
-	// Ensure Optimistic Locking
-	m.Changed = req.UpdatedAt.AsTime()
-
 	if req.Description != nil {
 		m.Allocation.Description = *req.Description
 	}

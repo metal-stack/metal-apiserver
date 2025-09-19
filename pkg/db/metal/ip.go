@@ -69,6 +69,10 @@ func (ip *IP) GetGeneration() uint64 {
 	return ip.Generation
 }
 
+func (ip *IP) SetChanged(t time.Time) {
+	ip.Changed = t
+}
+
 // ---------------
 
 const namespaceSeparator = "-"

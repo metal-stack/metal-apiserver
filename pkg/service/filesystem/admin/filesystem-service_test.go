@@ -141,8 +141,10 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 		{
 			name: "update constraints",
 			rq: &adminv2.FilesystemServiceUpdateRequest{
-				Id:          "default",
-				UpdatedAt:   timestamppb.New(fslMap["default"].Changed),
+				Id: "default",
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(fslMap["default"].Changed),
+				},
 				Name:        pointer.Pointer("Default FSL"),
 				Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: pointer.Pointer("/"), Label: pointer.Pointer("root")}},
 				Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1")}}}},

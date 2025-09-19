@@ -128,50 +128,42 @@ func (r *imageRepository) create(ctx context.Context, rq *adminv2.ImageServiceCr
 }
 
 func (r *imageRepository) update(ctx context.Context, e *metal.Image, rq *adminv2.ImageServiceUpdateRequest) (*metal.Image, error) {
-	image := rq
+	if rq.Name != nil {
+		e.Name = *rq.Name
+	}
+	if rq.Description != nil {
+		e.Description = *rq.Description
+	}
+	if rq.ExpiresAt != nil {
+		e.ExpirationDate = rq.ExpiresAt.AsTime()
+	}
 
-	old, err := r.get(ctx, image.Id)
-	if err != nil {
-		return nil, err
-	}
-	new := *old
-
-	// Ensure Optimistic Locking
-	new.Changed = image.UpdatedAt.AsTime()
-
-	if image.Name != nil {
-		new.Name = *image.Name
-	}
-	if image.Description != nil {
-		new.Description = *image.Description
-	}
-	if image.ExpiresAt != nil {
-		new.ExpirationDate = image.ExpiresAt.AsTime()
-	}
-	if image.Classification != apiv2.ImageClassification_IMAGE_CLASSIFICATION_UNSPECIFIED {
-		classification, err := metal.VersionClassificationFrom(image.Classification)
+	if rq.Classification != apiv2.ImageClassification_IMAGE_CLASSIFICATION_UNSPECIFIED {
+		classification, err := metal.VersionClassificationFrom(rq.Classification)
 		if err != nil {
 			return nil, err
 		}
-		new.Classification = classification
+		e.Classification = classification
 	}
-	if len(image.Features) != 0 {
-		features, err := metal.ImageFeaturesFrom(image.Features)
+
+	if len(rq.Features) != 0 {
+		features, err := metal.ImageFeaturesFrom(rq.Features)
 		if err != nil {
 			return nil, err
 		}
-		new.Features = features
-	}
-	if image.Url != nil {
-		new.URL = *image.Url
+		e.Features = features
 	}
 
-	err = r.s.ds.Image().Update(ctx, &new)
+	if rq.Url != nil {
+		e.URL = *rq.Url
+	}
+
+	err := r.s.ds.Image().Update(ctx, e)
 	if err != nil {
 		return nil, err
 	}
 
-	return &new, nil
+	return e, nil
 }
 
 func (r *imageRepository) delete(ctx context.Context, e *metal.Image) error {

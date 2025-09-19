@@ -223,8 +223,10 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 		{
 			name: "valid partition, change nothing",
 			request: &adminv2.PartitionServiceUpdateRequest{
-				Id:                "partition-1",
-				UpdatedAt:         timestamppb.New(partitionMap["partition-1"].Changed),
+				Id: "partition-1",
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(partitionMap["partition-1"].Changed),
+				},
 				BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
 			want: &adminv2.PartitionServiceUpdateResponse{
 				Partition: &apiv2.Partition{
@@ -238,8 +240,10 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 		{
 			name: "valid partition, change image url",
 			request: &adminv2.PartitionServiceUpdateRequest{
-				Id:                "partition-2",
-				UpdatedAt:         timestamppb.New(partitionMap["partition-2"].Changed),
+				Id: "partition-2",
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(partitionMap["partition-2"].Changed),
+				},
 				BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL + "/changed", KernelUrl: validURL}},
 			want: &adminv2.PartitionServiceUpdateResponse{
 				Partition: &apiv2.Partition{
@@ -253,8 +257,10 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 		{
 			name: "valid partition, add labels",
 			request: &adminv2.PartitionServiceUpdateRequest{
-				Id:                "partition-3",
-				UpdatedAt:         timestamppb.New(partitionMap["partition-3"].Changed),
+				Id: "partition-3",
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(partitionMap["partition-3"].Changed),
+				},
 				Labels:            &apiv2.UpdateLabels{Update: &apiv2.Labels{Labels: map[string]string{"color": "red"}}},
 				BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL + "/changed", KernelUrl: validURL}},
 			want: &adminv2.PartitionServiceUpdateResponse{

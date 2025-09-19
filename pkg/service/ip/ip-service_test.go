@@ -285,10 +285,12 @@ func Test_ipServiceServer_Update(t *testing.T) {
 		{
 			name: "update name",
 			rq: &apiv2.IPServiceUpdateRequest{
-				Ip:        "1.2.3.4",
-				UpdatedAt: timestamppb.New(ipmap["1.2.3.4"].Changed),
-				Project:   "p1",
-				Name:      pointer.Pointer("ip1-changed"),
+				Ip: "1.2.3.4",
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(ipmap["1.2.3.4"].Changed),
+				},
+				Project: "p1",
+				Name:    pointer.Pointer("ip1-changed"),
 			},
 			want: &apiv2.IPServiceUpdateResponse{
 				Ip: &apiv2.IP{
@@ -303,8 +305,10 @@ func Test_ipServiceServer_Update(t *testing.T) {
 		{
 			name: "update description",
 			rq: &apiv2.IPServiceUpdateRequest{
-				Ip:          "1.2.3.5",
-				UpdatedAt:   timestamppb.New(ipmap["1.2.3.5"].Changed),
+				Ip: "1.2.3.5",
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(ipmap["1.2.3.5"].Changed),
+				},
 				Project:     "p1",
 				Description: pointer.Pointer("test was here"),
 			},
@@ -321,10 +325,12 @@ func Test_ipServiceServer_Update(t *testing.T) {
 		{
 			name: "update type",
 			rq: &apiv2.IPServiceUpdateRequest{
-				Ip:        "1.2.3.6",
-				UpdatedAt: timestamppb.New(ipmap["1.2.3.6"].Changed),
-				Project:   "p1",
-				Type:      apiv2.IPType_IP_TYPE_STATIC.Enum(),
+				Ip: "1.2.3.6",
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(ipmap["1.2.3.6"].Changed),
+				},
+				Project: "p1",
+				Type:    apiv2.IPType_IP_TYPE_STATIC.Enum(),
 			},
 			want: &apiv2.IPServiceUpdateResponse{Ip: &apiv2.IP{
 				Name:    "ip3",
@@ -338,10 +344,12 @@ func Test_ipServiceServer_Update(t *testing.T) {
 		{
 			name: "update tags",
 			rq: &apiv2.IPServiceUpdateRequest{
-				Ip:        "2001:db8::1",
-				UpdatedAt: timestamppb.New(ipmap["2001:db8::1"].Changed),
-				Project:   "p2",
-				Labels:    &apiv2.UpdateLabels{Update: &apiv2.Labels{Labels: map[string]string{"color": "red", "purpose": "lb"}}},
+				Ip: "2001:db8::1",
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(ipmap["2001:db8::1"].Changed),
+				},
+				Project: "p2",
+				Labels:  &apiv2.UpdateLabels{Update: &apiv2.Labels{Labels: map[string]string{"color": "red", "purpose": "lb"}}},
 			},
 			want: &apiv2.IPServiceUpdateResponse{Ip: &apiv2.IP{
 				Name:    "ip4",
@@ -356,10 +364,12 @@ func Test_ipServiceServer_Update(t *testing.T) {
 		{
 			name: "delete tags",
 			rq: &apiv2.IPServiceUpdateRequest{
-				Ip:        "2001:db8::2",
-				UpdatedAt: timestamppb.New(ipmap["2001:db8::2"].Changed),
-				Project:   "p2",
-				Labels:    &apiv2.UpdateLabels{Remove: []string{"color", "purpose"}}},
+				Ip: "2001:db8::2",
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(ipmap["2001:db8::2"].Changed),
+				},
+				Project: "p2",
+				Labels:  &apiv2.UpdateLabels{Remove: []string{"color", "purpose"}}},
 			want: &apiv2.IPServiceUpdateResponse{
 				Ip: &apiv2.IP{
 					Name:    "ip7",

@@ -286,9 +286,6 @@ func (r *networkRepository) update(ctx context.Context, nw *metal.Network, req *
 		nw.Labels = updateLabelsOnMap(req.Labels, nw.Labels)
 	}
 
-	// Ensure Optimistic Locking
-	nw.Changed = req.UpdatedAt.AsTime()
-
 	if req.NatType != nil {
 		nt, err := metal.ToNATType(*req.NatType)
 		if err != nil {
