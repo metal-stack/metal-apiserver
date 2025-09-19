@@ -265,7 +265,9 @@ func (s *store[R, E, M, C, U, Q]) Update(ctx context.Context, id string, u U) (E
 		return zero, err
 	}
 
-	setUpdateMeta(u, e)
+	if err = setUpdateMeta(u, e); err != nil {
+		return zero, err
+	}
 
 	return s.update(ctx, e, u)
 }
@@ -274,14 +276,20 @@ func (s *store[R, E, M, C, U, Q]) AdditionalMethods() R {
 	return s.typed
 }
 
-func setUpdateMeta(u UpdateMessage, e Entity) {
-	// Ensure Optimistic Locking, updateMeta will never be nil ensured by protovalidate
-	if meta := u.GetUpdateMeta(); meta != nil {
-		switch meta.LockingStrategy {
-		case apiv2.OptimisticLockingStrategy_OPTIMISTIC_LOCKING_STRATEGY_UNSPECIFIED, apiv2.OptimisticLockingStrategy_OPTIMISTIC_LOCKING_STRATEGY_CLIENT:
-			e.SetChanged(meta.UpdatedAt.AsTime())
-		case apiv2.OptimisticLockingStrategy_OPTIMISTIC_LOCKING_STRATEGY_SERVER:
-			// Nothing to do
-		}
+func setUpdateMeta(u UpdateMessage, e Entity) error {
+	if u.GetUpdateMeta() == nil {
+		// we actually validate this already with protovalidate, but this is for completeness
+		return errorutil.InvalidArgument("update meta must be set")
 	}
+
+	// Ensure Optimistic Locking, updateMeta will never be nil ensured by protovalidate
+	meta := u.GetUpdateMeta()
+	switch meta.LockingStrategy {
+	case apiv2.OptimisticLockingStrategy_OPTIMISTIC_LOCKING_STRATEGY_UNSPECIFIED, apiv2.OptimisticLockingStrategy_OPTIMISTIC_LOCKING_STRATEGY_CLIENT:
+		e.SetChanged(meta.UpdatedAt.AsTime())
+	case apiv2.OptimisticLockingStrategy_OPTIMISTIC_LOCKING_STRATEGY_SERVER:
+		// Nothing to do
+	}
+
+	return nil
 }

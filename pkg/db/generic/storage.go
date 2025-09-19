@@ -186,6 +186,7 @@ func (s *storage[E]) Update(ctx context.Context, e E) error {
 	}
 
 	changedTimestamp := e.GetChanged()
+
 	err := s.setChanged(time.Now(), e)
 	if err != nil {
 		return err

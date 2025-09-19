@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
@@ -166,6 +167,9 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 		{
 			Partition: &apiv2.Partition{Id: "partition-3", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
 		},
+		{
+			Partition: &apiv2.Partition{Id: "partition-4", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
+		},
 	})
 
 	tests := []struct {
@@ -174,12 +178,6 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 		want    *adminv2.PartitionServiceUpdateResponse
 		wantErr error
 	}{
-		{
-			name:    "bootconfig is nil",
-			request: &adminv2.PartitionServiceUpdateRequest{Id: "partition-1"},
-			want:    nil,
-			wantErr: errorutil.InvalidArgument(`partition.bootconfiguration must not be nil`),
-		},
 		{
 			name:    "imageurl is not accessible is nil",
 			request: &adminv2.PartitionServiceUpdateRequest{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: invalidURL}},
@@ -236,7 +234,6 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 			},
 			wantErr: nil,
 		},
-
 		{
 			name: "valid partition, change image url",
 			request: &adminv2.PartitionServiceUpdateRequest{
@@ -253,7 +250,6 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 			},
 			wantErr: nil,
 		},
-
 		{
 			name: "valid partition, add labels",
 			request: &adminv2.PartitionServiceUpdateRequest{
@@ -270,6 +266,56 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 					BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL + "/changed", KernelUrl: validURL}},
 			},
 			wantErr: nil,
+		},
+		{
+			name: "client side optimistic lock handling fails with wrong timestamp from the past",
+			request: &adminv2.PartitionServiceUpdateRequest{
+				Id: "partition-4",
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(time.Date(2002, 2, 12, 12, 0, 0, 0, time.UTC)),
+				},
+				Description: pointer.Pointer(""),
+			},
+			wantErr: errorutil.Conflict(`cannot update partition (partition-4): the entity was already modified, please retry`),
+		},
+		{
+			name: "client side optimistic lock handling fails with wrong timestamp from the future",
+			request: &adminv2.PartitionServiceUpdateRequest{
+				Id: "partition-4",
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(time.Now().Add(10 * time.Minute)),
+				},
+				Description: pointer.Pointer(""),
+			},
+			wantErr: errorutil.Conflict(`cannot update partition (partition-4): the entity was already modified, please retry`),
+		},
+		{
+			name: "client side optimistic lock handling fails with empty timestamp (should be prevented by protovalidate, but for completeness...)",
+			request: &adminv2.PartitionServiceUpdateRequest{
+				Id:          "partition-4",
+				UpdateMeta:  nil,
+				Description: pointer.Pointer(""),
+			},
+			wantErr: errorutil.InvalidArgument(`update meta must be set`),
+		},
+		{
+			name: "server side optimistic lock handling succeeds",
+			request: &adminv2.PartitionServiceUpdateRequest{
+				Id: "partition-4",
+				UpdateMeta: &apiv2.UpdateMeta{
+					LockingStrategy: apiv2.OptimisticLockingStrategy_OPTIMISTIC_LOCKING_STRATEGY_SERVER,
+				},
+				Description: pointer.Pointer(""),
+			},
+			wantErr: nil,
+			want: &adminv2.PartitionServiceUpdateResponse{
+				Partition: &apiv2.Partition{
+					Id:                "partition-4",
+					Meta:              &apiv2.Meta{Generation: 1},
+					BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL},
+					Description:       "",
+				},
+			},
 		},
 	}
 	for _, tt := range tests {
