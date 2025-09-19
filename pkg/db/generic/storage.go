@@ -211,9 +211,9 @@ func (s *storage[E]) Update(ctx context.Context, e E) error {
 // Upsert inserts the given entity into the database, replacing it completely if it is already present.
 func (s *storage[E]) Upsert(ctx context.Context, e E) error {
 	now := time.Now()
+
 	if e.GetCreated().IsZero() {
-		err := s.setCreated(now, e)
-		if err != nil {
+		if err := s.setCreated(now, e); err != nil {
 			return err
 		}
 	}
@@ -221,7 +221,6 @@ func (s *storage[E]) Upsert(ctx context.Context, e E) error {
 	if err := s.setChanged(now, e); err != nil {
 		return err
 	}
-
 	if err := s.setGeneration(e.GetGeneration()+1, e); err != nil {
 		return err
 	}
@@ -259,39 +258,14 @@ func (s storage[E]) setGeneration(generation uint64, e E) error {
 }
 
 func (s storage[E]) setTimeField(fieldName string, desiredTime time.Time, e E) error {
-	var (
-		// pointer to struct - addressable
-		ps = reflect.ValueOf(e)
-		// struct
-		st       = ps.Elem()
-		timeKind = reflect.TypeOf(time.Time{}).Kind()
-	)
-
-	if st.Kind() == reflect.Struct {
-		// exported field
-		f := st.FieldByName(fieldName)
-		if !f.IsValid() {
-			return fmt.Errorf("%s field is no valid of:%s", fieldName, s.tableName)
-		}
-		// A Value can be changed only if it is
-		// addressable and was not obtained by
-		// the use of unexported struct fields.
-		if !f.CanSet() {
-			return fmt.Errorf("%s can not be set on:%s", fieldName, s.tableName)
-		}
-
-		// change value of N
-		switch f.Kind() {
-		case timeKind:
-			f.Set(reflect.ValueOf(desiredTime))
-		default:
-			return fmt.Errorf("time can no be set on:%s.%s", s.tableName, fieldName)
-		}
-	}
-	return nil
+	return s.setField(fieldName, reflect.TypeOf(time.Time{}).Kind(), desiredTime, e)
 }
 
 func (s storage[E]) setUint64Field(fieldName string, desired uint64, e E) error {
+	return s.setField(fieldName, reflect.Uint64, desired, e)
+}
+
+func (s storage[E]) setField(fieldName string, kind reflect.Kind, val any, e E) error {
 	var (
 		// pointer to struct - addressable
 		ps = reflect.ValueOf(e)
@@ -314,10 +288,10 @@ func (s storage[E]) setUint64Field(fieldName string, desired uint64, e E) error 
 
 		// change value of N
 		switch f.Kind() {
-		case reflect.Uint64:
-			f.Set(reflect.ValueOf(desired))
+		case kind:
+			f.Set(reflect.ValueOf(val))
 		default:
-			return fmt.Errorf("uint64 can no be set on:%s.%s", s.tableName, fieldName)
+			return fmt.Errorf("time can no be set on:%s.%s", s.tableName, fieldName)
 		}
 	}
 	return nil

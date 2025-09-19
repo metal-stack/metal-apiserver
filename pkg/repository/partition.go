@@ -180,15 +180,19 @@ func (p *partitionRepository) convertToInternal(ctx context.Context, msg *apiv2.
 			Description: msg.Description,
 		},
 		MgmtServiceAddress: mgm,
-		BootConfiguration: metal.BootConfiguration{
+		Labels:             labels,
+		DNSServers:         dnsServers,
+		NTPServers:         ntpServers,
+	}
+
+	if msg.BootConfiguration != nil {
+		partition.BootConfiguration = metal.BootConfiguration{
 			ImageURL:    msg.BootConfiguration.ImageUrl,
 			KernelURL:   msg.BootConfiguration.KernelUrl,
 			CommandLine: msg.BootConfiguration.Commandline,
-		},
-		Labels:     labels,
-		DNSServers: dnsServers,
-		NTPServers: ntpServers,
+		}
 	}
+
 	if msg.Meta != nil {
 		if msg.Meta.CreatedAt != nil {
 			partition.Created = msg.Meta.CreatedAt.AsTime()
