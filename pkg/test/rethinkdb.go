@@ -22,7 +22,6 @@ var (
 	endpoint    string
 	closer      func()
 	mtx         sync.Mutex
-	count       int
 )
 
 func StartRethink(t testing.TB, log *slog.Logger) (generic.Datastore, r.ConnectOpts, func()) {
