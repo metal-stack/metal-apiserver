@@ -30,15 +30,12 @@ func New(c Config) apiv2connect.FilesystemServiceHandler {
 
 func (f *filesystemServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2.FilesystemServiceGetRequest]) (*connect.Response[apiv2.FilesystemServiceGetResponse], error) {
 	req := rq.Msg
-	resp, err := f.repo.FilesystemLayout().Get(ctx, req.Id)
+
+	fsl, err := f.repo.FilesystemLayout().Get(ctx, req.Id)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	fsl, err := f.repo.FilesystemLayout().ConvertToProto(ctx, resp)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
 	return connect.NewResponse(&apiv2.FilesystemServiceGetResponse{
 		FilesystemLayout: fsl,
 	}), nil
@@ -46,18 +43,12 @@ func (f *filesystemServiceServer) Get(ctx context.Context, rq *connect.Request[a
 
 func (f *filesystemServiceServer) List(ctx context.Context, rq *connect.Request[apiv2.FilesystemServiceListRequest]) (*connect.Response[apiv2.FilesystemServiceListResponse], error) {
 	req := rq.Msg
-	resp, err := f.repo.FilesystemLayout().List(ctx, req)
+
+	fsls, err := f.repo.FilesystemLayout().List(ctx, req)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	var fsls []*apiv2.FilesystemLayout
-	for _, r := range resp {
-		fsl, err := f.repo.FilesystemLayout().ConvertToProto(ctx, r)
-		if err != nil {
-			return nil, errorutil.Convert(err)
-		}
-		fsls = append(fsls, fsl)
-	}
+
 	return connect.NewResponse(&apiv2.FilesystemServiceListResponse{
 		FilesystemLayouts: fsls,
 	}), nil
@@ -65,6 +56,7 @@ func (f *filesystemServiceServer) List(ctx context.Context, rq *connect.Request[
 
 func (f *filesystemServiceServer) Match(ctx context.Context, rq *connect.Request[apiv2.FilesystemServiceMatchRequest]) (*connect.Response[apiv2.FilesystemServiceMatchResponse], error) {
 	req := rq.Msg
+
 	switch match := req.Match.(type) {
 	case *apiv2.FilesystemServiceMatchRequest_SizeAndImage:
 		// call old school fsl try

@@ -87,6 +87,7 @@ func (r *sizeRepository) delete(ctx context.Context, e *metal.Size) error {
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 

@@ -87,15 +87,17 @@ func (r *imageRepository) validateUpdate(ctx context.Context, req *adminv2.Image
 }
 
 func (r *imageRepository) validateDelete(ctx context.Context, img *metal.Image) error {
-	machines, err := r.s.UnscopedMachine().List(ctx, &apiv2.MachineQuery{
+	machines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
 		Allocation: &apiv2.MachineAllocationQuery{Image: &img.ID},
-	})
+	}))
 	if err != nil {
 		return err
 	}
+
 	if len(machines) > 0 {
 		return errorutil.InvalidArgument("cannot remove image with existing machine allocations")
 	}
+
 	return nil
 }
 
@@ -190,7 +192,7 @@ func (r *imageRepository) list(ctx context.Context, rq *apiv2.ImageQuery) ([]*me
 		return nil, err
 	}
 
-	return images, nil
+	return r.SortImages(images), nil
 }
 
 func (r *imageRepository) convertToInternal(ctx context.Context, msg *apiv2.Image) (*metal.Image, error) {
@@ -276,7 +278,32 @@ func (r *imageRepository) convertToProto(ctx context.Context, in *metal.Image) (
 // If version is not fully specified, e.g. ubuntu-19.10 or ubuntu-19.10
 // then the most recent ubuntu image (ubuntu-19.10.20200407) is returned
 // If patch is specified e.g. ubuntu-20.04.20200502 then this exact image is searched.
-func (r *imageRepository) GetMostRecentImageFor(id string, images []*metal.Image) (*metal.Image, error) {
+func (r *imageRepository) GetMostRecentImageFor(ctx context.Context, id string, images []*apiv2.Image) (*apiv2.Image, error) {
+	var internalImages []*metal.Image
+
+	for _, img := range images {
+		i, err := r.convertToInternal(ctx, img)
+		if err != nil {
+			return nil, err
+		}
+
+		internalImages = append(internalImages, i)
+	}
+
+	internalLatest, err := r.getMostRecentImageFor(id, internalImages)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := r.convertToProto(ctx, internalLatest)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (r *imageRepository) getMostRecentImageFor(id string, images []*metal.Image) (*metal.Image, error) {
 	os, sv, err := metalcommon.GetOsAndSemverFromImage(id)
 	if err != nil {
 		return nil, err

@@ -1607,7 +1607,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 	})
 
 	test.CreateIPs(t, repo, []*apiv2.IPServiceCreateRequest{
-		{Network: networkMap["tenant-1"].ID, Project: "p1", Name: pointer.Pointer("ip-1")},
+		{Network: networkMap["tenant-1"].Id, Project: "p1", Name: pointer.Pointer("ip-1")},
 	})
 
 	tests := []struct {
@@ -1618,7 +1618,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 	}{
 		{
 			name:    "network has ips",
-			rq:      &adminv2.NetworkServiceDeleteRequest{Id: networkMap["tenant-1"].ID},
+			rq:      &adminv2.NetworkServiceDeleteRequest{Id: networkMap["tenant-1"].Id},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`there are still 1 ips present in prefix: 10.100.0.0/22`),
 		},
@@ -1636,10 +1636,10 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 		},
 		{
 			name: "existing",
-			rq:   &adminv2.NetworkServiceDeleteRequest{Id: networkMap["tenant-2"].ID},
+			rq:   &adminv2.NetworkServiceDeleteRequest{Id: networkMap["tenant-2"].Id},
 			want: &adminv2.NetworkServiceDeleteResponse{
 				Network: &apiv2.Network{
-					Id:            networkMap["tenant-2"].ID,
+					Id:            networkMap["tenant-2"].Id,
 					Meta:          &apiv2.Meta{},
 					Name:          pointer.Pointer("tenant-2"),
 					Partition:     pointer.Pointer("partition-one"),
@@ -1752,7 +1752,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 	})
 
 	test.CreateIPs(t, repo, []*apiv2.IPServiceCreateRequest{
-		{Network: networkMap["tenant-1"].ID, Project: "p1", Name: pointer.Pointer("ip-1")},
+		{Network: networkMap["tenant-1"].Id, Project: "p1", Name: pointer.Pointer("ip-1")},
 	})
 
 	tests := []struct {
@@ -1825,12 +1825,12 @@ func Test_networkServiceServer_List(t *testing.T) {
 		{
 			name: "specific id",
 			rq: &adminv2.NetworkServiceListRequest{
-				Query: &apiv2.NetworkQuery{Id: pointer.Pointer(networkMap["tenant-1"].ID)},
+				Query: &apiv2.NetworkQuery{Id: pointer.Pointer(networkMap["tenant-1"].Id)},
 			},
 			want: &adminv2.NetworkServiceListResponse{
 				Networks: []*apiv2.Network{
 					{
-						Id:            networkMap["tenant-1"].ID,
+						Id:            networkMap["tenant-1"].Id,
 						Meta:          &apiv2.Meta{},
 						Name:          pointer.Pointer("tenant-1"),
 						Partition:     pointer.Pointer("partition-one"),
@@ -1955,7 +1955,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 			want: &adminv2.NetworkServiceListResponse{
 				Networks: []*apiv2.Network{
 					{
-						Id:            networkMap["tenant-2"].ID,
+						Id:            networkMap["tenant-2"].Id,
 						Meta:          &apiv2.Meta{Labels: &apiv2.Labels{Labels: map[string]string{"size": "small", "color": "blue"}}},
 						Name:          pointer.Pointer("tenant-2"),
 						Partition:     pointer.Pointer("partition-one"),
@@ -2088,7 +2088,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 			rq: &adminv2.NetworkServiceUpdateRequest{
 				Id: "tenant-super-network",
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(networkMap["tenant-super-network"].Changed),
+					UpdatedAt: timestamppb.New(networkMap["tenant-super-network"].Meta.UpdatedAt.AsTime()),
 				},
 				Prefixes: []string{"10.100.0.0/14", "10.105.0.0/14"},
 			},
@@ -2100,7 +2100,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 			rq: &adminv2.NetworkServiceUpdateRequest{
 				Id: "tenant-super-network",
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(networkMap["tenant-super-network"].Changed),
+					UpdatedAt: timestamppb.New(networkMap["tenant-super-network"].Meta.UpdatedAt.AsTime()),
 				},
 			},
 			want:    nil,
@@ -2111,7 +2111,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 			rq: &adminv2.NetworkServiceUpdateRequest{
 				Id: "tenant-super-network",
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(networkMap["tenant-super-network"].Changed),
+					UpdatedAt: timestamppb.New(networkMap["tenant-super-network"].Meta.UpdatedAt.AsTime()),
 				},
 				Prefixes: []string{"10.100.0.0/14", "10.100.0.0/16"},
 			},
@@ -2123,7 +2123,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 			rq: &adminv2.NetworkServiceUpdateRequest{
 				Id: "internet",
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(networkMap["internet"].Changed),
+					UpdatedAt: timestamppb.New(networkMap["internet"].Meta.UpdatedAt.AsTime()),
 				},
 				Prefixes: []string{"20.0.0.0/24"},
 			},
@@ -2133,15 +2133,15 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{
 			name: "add label to tenant network",
 			rq: &adminv2.NetworkServiceUpdateRequest{
-				Id: networkMap["tenant-1"].ID,
+				Id: networkMap["tenant-1"].Id,
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(networkMap["tenant-1"].Changed),
+					UpdatedAt: timestamppb.New(networkMap["tenant-1"].Meta.UpdatedAt.AsTime()),
 				},
 				Labels: &apiv2.UpdateLabels{Update: &apiv2.Labels{Labels: map[string]string{"color": "red", "size": "large"}}},
 			},
 			want: &adminv2.NetworkServiceUpdateResponse{
 				Network: &apiv2.Network{
-					Id: networkMap["tenant-1"].ID,
+					Id: networkMap["tenant-1"].Id,
 					Meta: &apiv2.Meta{
 						Labels:     &apiv2.Labels{Labels: map[string]string{"color": "red", "size": "large"}},
 						Generation: 1,
@@ -2160,9 +2160,9 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{
 			name: "add prefixes to tenant network",
 			rq: &adminv2.NetworkServiceUpdateRequest{
-				Id: networkMap["tenant-1"].ID,
+				Id: networkMap["tenant-1"].Id,
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(networkMap["tenant-1"].Changed),
+					UpdatedAt: timestamppb.New(networkMap["tenant-1"].Meta.UpdatedAt.AsTime()),
 				},
 				Prefixes: []string{"10.100.0.0/22", "10.101.0.0/22", "10.102.0.0/22"},
 			},
@@ -2174,7 +2174,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 			rq: &adminv2.NetworkServiceUpdateRequest{
 				Id: "tenant-super-network",
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(networkMap["tenant-super-network"].Changed),
+					UpdatedAt: timestamppb.New(networkMap["tenant-super-network"].Meta.UpdatedAt.AsTime()),
 				},
 				Prefixes: []string{"10.100.0.0/14", "10.104.0.0/14"},
 			},
@@ -2196,7 +2196,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 				Id:       "internet",
 				Prefixes: []string{"20.0.0.0/24", "30.0.0.0/24"},
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(networkMap["internet"].Changed),
+					UpdatedAt: timestamppb.New(networkMap["internet"].Meta.UpdatedAt.AsTime()),
 				},
 				NatType: apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE.Enum(),
 			},

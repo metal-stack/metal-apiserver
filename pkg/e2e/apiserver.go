@@ -81,14 +81,14 @@ func StartApiserver(t *testing.T, log *slog.Logger) (baseURL, adminToken string,
 	}, subject)
 	require.NoError(t, err)
 
-	_, err = repo.Tenant().AdditionalMethods().Member(tenant.Meta.Id).Create(reqCtx, &repository.TenantMemberCreateRequest{
+	_, err = repo.Tenant().AdditionalMethods().Member(tenant.Login).Create(reqCtx, &repository.TenantMemberCreateRequest{
 		MemberID: subject,
 		Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
 	})
 	require.NoError(t, err)
 
 	_, err = repo.Tenant().AdditionalMethods().Member(providerTenant).Create(ctx, &repository.TenantMemberCreateRequest{
-		MemberID: tenant.Meta.Id,
+		MemberID: tenant.Login,
 		Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
 	})
 

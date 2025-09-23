@@ -156,7 +156,7 @@ func Test_imageServiceServer_Update(t *testing.T) {
 			request: &adminv2.ImageServiceUpdateRequest{
 				Id: "debian-11.0.20231231",
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(imageMap["debian-11.0.20231231"].Changed),
+					UpdatedAt: timestamppb.New(imageMap["debian-11.0.20231231"].Meta.UpdatedAt.AsTime()),
 				},
 				Url: &validURL, Name: pointer.Pointer("NewName")},
 			want: &adminv2.ImageServiceUpdateResponse{
@@ -176,7 +176,7 @@ func Test_imageServiceServer_Update(t *testing.T) {
 			request: &adminv2.ImageServiceUpdateRequest{
 				Id: "debian-12.0.20241231",
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(imageMap["debian-12.0.20241231"].Changed),
+					UpdatedAt: timestamppb.New(imageMap["debian-12.0.20241231"].Meta.UpdatedAt.AsTime()),
 				},
 				Url: &validURL, Name: pointer.Pointer("NewName"),
 				Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL}},
@@ -197,7 +197,7 @@ func Test_imageServiceServer_Update(t *testing.T) {
 			request: &adminv2.ImageServiceUpdateRequest{
 				Id: "debian-13.0.20251231",
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(imageMap["debian-13.0.20251231"].Changed),
+					UpdatedAt: timestamppb.New(imageMap["debian-13.0.20251231"].Meta.UpdatedAt.AsTime()),
 				},
 				Url: &validURL, Name: pointer.Pointer("NewName"),
 				Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL},

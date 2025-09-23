@@ -12,7 +12,6 @@ import (
 	"connectrpc.com/connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
-	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
@@ -61,11 +60,6 @@ func (p *projectServiceServer) Get(ctx context.Context, rq *connect.Request[apiv
 	// TODO: maybe we should shadow some fields of the project when a tenant guest accesses this endpoint
 	// e.g. project annotations should not be completely visible?
 
-	converted, err := p.repo.Project(req.Project).ConvertToProto(ctx, project)
-	if err != nil {
-		return nil, err
-	}
-
 	projectMembers, err := p.repo.Project(req.Project).AdditionalMethods().Member().List(ctx, &repository.ProjectMemberQuery{})
 	if err != nil {
 		return nil, err
@@ -74,15 +68,10 @@ func (p *projectServiceServer) Get(ctx context.Context, rq *connect.Request[apiv
 	memberMap := map[string]*apiv2.ProjectMember{}
 
 	for _, pm := range projectMembers {
-		converted, err := p.repo.Project(req.Project).AdditionalMethods().Member().ConvertToProto(ctx, pm)
-		if err != nil {
-			return nil, err
-		}
-
-		memberMap[pm.TenantId] = converted
+		memberMap[pm.Id] = pm
 	}
 
-	role := t.TenantRoles[converted.Tenant]
+	role := t.TenantRoles[project.Tenant]
 
 	if role != apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED && role < apiv2.TenantRole_TENANT_ROLE_GUEST {
 		includeInheritedMembers = true
@@ -94,7 +83,7 @@ func (p *projectServiceServer) Get(ctx context.Context, rq *connect.Request[apiv
 	if includeInheritedMembers {
 		// we are at least viewer for this tenant, we should also be able to see all indirect members of this project
 
-		tenantMembers, err := p.repo.Tenant().AdditionalMethods().ListTenantMembers(ctx, converted.Tenant, includeInheritedMembers)
+		tenantMembers, err := p.repo.Tenant().AdditionalMethods().ListTenantMembers(ctx, project.Tenant, includeInheritedMembers)
 		if err != nil {
 			return nil, fmt.Errorf("unable to list project members: %w", err)
 		}
@@ -114,12 +103,12 @@ func (p *projectServiceServer) Get(ctx context.Context, rq *connect.Request[apiv
 				continue
 			}
 
-			member, ok := memberMap[tm.Tenant.Meta.Id]
+			member, ok := memberMap[tm.Tenant.Login]
 			if !ok {
-				memberMap[tm.Tenant.Meta.Id] = &apiv2.ProjectMember{
-					Id:                  tm.Tenant.Meta.Id,
+				memberMap[tm.Tenant.Login] = &apiv2.ProjectMember{
+					Id:                  tm.Tenant.Login,
 					Role:                projectRole,
-					CreatedAt:           tm.Tenant.Meta.CreatedTime,
+					CreatedAt:           tm.Tenant.Meta.CreatedAt,
 					InheritedMembership: true,
 				}
 
@@ -128,7 +117,7 @@ func (p *projectServiceServer) Get(ctx context.Context, rq *connect.Request[apiv
 
 			if member.Role > projectRole {
 				member.Role = projectRole
-				memberMap[tm.Tenant.Meta.Id] = member
+				memberMap[tm.Tenant.Login] = member
 			}
 		}
 	}
@@ -142,7 +131,7 @@ func (p *projectServiceServer) Get(ctx context.Context, rq *connect.Request[apiv
 		return memberResult[i].Id < memberResult[j].Id
 	})
 
-	return connect.NewResponse(&apiv2.ProjectServiceGetResponse{Project: converted, ProjectMembers: memberResult}), nil
+	return connect.NewResponse(&apiv2.ProjectServiceGetResponse{Project: project, ProjectMembers: memberResult}), nil
 }
 
 func (p *projectServiceServer) List(ctx context.Context, rq *connect.Request[apiv2.ProjectServiceListRequest]) (*connect.Response[apiv2.ProjectServiceListResponse], error) {
@@ -194,17 +183,12 @@ func (p *projectServiceServer) Create(ctx context.Context, rq *connect.Request[a
 		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
-	created, err := p.repo.UnscopedProject().Create(ctx, req)
+	project, err := p.repo.UnscopedProject().Create(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 
-	converted, err := p.repo.UnscopedProject().ConvertToProto(ctx, created)
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = p.repo.Project(converted.Uuid).AdditionalMethods().Member().Create(ctx, &repository.ProjectMemberCreateRequest{
+	_, err = p.repo.Project(project.Uuid).AdditionalMethods().Member().Create(ctx, &repository.ProjectMemberCreateRequest{
 		TenantId: req.Login,
 		Role:     apiv2.ProjectRole_PROJECT_ROLE_OWNER,
 	})
@@ -212,7 +196,7 @@ func (p *projectServiceServer) Create(ctx context.Context, rq *connect.Request[a
 		return nil, err
 	}
 
-	return connect.NewResponse(&apiv2.ProjectServiceCreateResponse{Project: converted}), nil
+	return connect.NewResponse(&apiv2.ProjectServiceCreateResponse{Project: project}), nil
 }
 
 func (p *projectServiceServer) Delete(ctx context.Context, rq *connect.Request[apiv2.ProjectServiceDeleteRequest]) (*connect.Response[apiv2.ProjectServiceDeleteResponse], error) {
@@ -225,17 +209,12 @@ func (p *projectServiceServer) Delete(ctx context.Context, rq *connect.Request[a
 		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
-	deleted, err := p.repo.Project(req.Project).Delete(ctx, req.Project)
+	project, err := p.repo.Project(req.Project).Delete(ctx, req.Project)
 	if err != nil {
 		return nil, err
 	}
 
-	converted, err := p.repo.Project(req.Project).ConvertToProto(ctx, deleted)
-	if err != nil {
-		return nil, err
-	}
-
-	return connect.NewResponse(&apiv2.ProjectServiceDeleteResponse{Project: converted}), nil
+	return connect.NewResponse(&apiv2.ProjectServiceDeleteResponse{Project: project}), nil
 }
 
 func (p *projectServiceServer) Update(ctx context.Context, rq *connect.Request[apiv2.ProjectServiceUpdateRequest]) (*connect.Response[apiv2.ProjectServiceUpdateResponse], error) {
@@ -243,17 +222,12 @@ func (p *projectServiceServer) Update(ctx context.Context, rq *connect.Request[a
 		req = rq.Msg
 	)
 
-	updated, err := p.repo.Project(req.Project).Update(ctx, req.Project, req)
+	project, err := p.repo.Project(req.Project).Update(ctx, req.Project, req)
 	if err != nil {
 		return nil, err
 	}
 
-	converted, err := p.repo.Project(req.Project).ConvertToProto(ctx, updated)
-	if err != nil {
-		return nil, err
-	}
-
-	return connect.NewResponse(&apiv2.ProjectServiceUpdateResponse{Project: converted}), nil
+	return connect.NewResponse(&apiv2.ProjectServiceUpdateResponse{Project: project}), nil
 }
 
 func (p *projectServiceServer) RemoveMember(ctx context.Context, rq *connect.Request[apiv2.ProjectServiceRemoveMemberRequest]) (*connect.Response[apiv2.ProjectServiceRemoveMemberResponse], error) {
@@ -279,7 +253,7 @@ func (p *projectServiceServer) UpdateMember(ctx context.Context, rq *connect.Req
 		req = rq.Msg
 	)
 
-	updated, err := p.repo.Project(req.Project).AdditionalMethods().Member().Update(ctx, req.Member, &repository.ProjectMemberUpdateRequest{
+	pm, err := p.repo.Project(req.Project).AdditionalMethods().Member().Update(ctx, req.Member, &repository.ProjectMemberUpdateRequest{
 		Role: req.Role,
 	})
 
@@ -295,8 +269,8 @@ func (p *projectServiceServer) UpdateMember(ctx context.Context, rq *connect.Req
 			return nil, err
 		}
 
-		if !slices.ContainsFunc(partiTenants, func(t *mdcv1.TenantWithMembershipAnnotations) bool {
-			return t.Tenant.Meta.Id == projectGuest.TenantId
+		if !slices.ContainsFunc(partiTenants, func(t *repository.TenantWithMembershipAnnotations) bool {
+			return t.Tenant.Login == projectGuest.Tenant
 		}) {
 			return nil, errorutil.InvalidArgument("tenant is not part of the project's tenants")
 		}
@@ -313,7 +287,7 @@ func (p *projectServiceServer) UpdateMember(ctx context.Context, rq *connect.Req
 				Id:                  req.Member,
 				Role:                req.Role,
 				InheritedMembership: false,
-				CreatedAt:           membership.Meta.CreatedTime,
+				CreatedAt:           membership.CreatedAt,
 			},
 		}), nil
 	}
@@ -322,15 +296,10 @@ func (p *projectServiceServer) UpdateMember(ctx context.Context, rq *connect.Req
 		return nil, err
 	}
 
-	converted, err := p.repo.Project(req.Project).AdditionalMethods().Member().ConvertToProto(ctx, updated)
-	if err != nil {
-		return nil, err
-	}
-
-	return connect.NewResponse(&apiv2.ProjectServiceUpdateMemberResponse{ProjectMember: converted}), nil
+	return connect.NewResponse(&apiv2.ProjectServiceUpdateMemberResponse{ProjectMember: pm}), nil
 }
 
-func (p *projectServiceServer) createProjectMembership(ctx context.Context, tenantID, projectID string, role apiv2.ProjectRole) (*mdcv1.ProjectMember, error) {
+func (p *projectServiceServer) createProjectMembership(ctx context.Context, tenantID, projectID string, role apiv2.ProjectRole) (*apiv2.ProjectMember, error) {
 	if role == apiv2.ProjectRole_PROJECT_ROLE_UNSPECIFIED {
 		role = apiv2.ProjectRole_PROJECT_ROLE_VIEWER
 	}
@@ -343,7 +312,7 @@ func (p *projectServiceServer) createProjectMembership(ctx context.Context, tena
 		return nil, err
 	}
 
-	return created.ProjectMember, nil
+	return created, nil
 }
 
 func (p *projectServiceServer) InviteGet(ctx context.Context, rq *connect.Request[apiv2.ProjectServiceInviteGetRequest]) (*connect.Response[apiv2.ProjectServiceInviteGetResponse], error) {
@@ -372,7 +341,7 @@ func (p *projectServiceServer) Invite(ctx context.Context, rq *connect.Request[a
 		return nil, err
 	}
 
-	tenant, err := p.repo.Tenant().Get(ctx, project.TenantId)
+	tenant, err := p.repo.Tenant().Get(ctx, project.Tenant)
 	if err != nil {
 		return nil, err
 	}
@@ -392,11 +361,11 @@ func (p *projectServiceServer) Invite(ctx context.Context, rq *connect.Request[a
 
 	invite := &apiv2.ProjectInvite{
 		Secret:      secret,
-		Project:     project.Meta.Id,
+		Project:     project.Uuid,
 		Role:        req.Role,
 		Joined:      false,
 		ProjectName: project.Name,
-		Tenant:      project.TenantId,
+		Tenant:      project.Tenant,
 		TenantName:  tenant.Name,
 		ExpiresAt:   timestamppb.New(expiresAt),
 		JoinedAt:    nil,
@@ -440,19 +409,19 @@ func (p *projectServiceServer) InviteAccept(ctx context.Context, rq *connect.Req
 		return nil, errorutil.NotFound("no project: %q for invite not found %w", inv.Project, err)
 	}
 
-	if project.TenantId == invitee.Meta.Id {
+	if project.Tenant == invitee.Login {
 		return nil, errorutil.InvalidArgument("an owner cannot accept invitations to own projects")
 	}
 
 	memberships, err := p.repo.Project(inv.Project).AdditionalMethods().Member().List(ctx, &repository.ProjectMemberQuery{
-		TenantId: &invitee.Meta.Id,
+		TenantId: &invitee.Login,
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	if len(memberships) > 0 {
-		return nil, errorutil.Conflict("%s is already member of project %s", invitee.Meta.Id, inv.Project)
+		return nil, errorutil.Conflict("%s is already member of project %s", invitee.Login, inv.Project)
 	}
 
 	err = p.inviteStore.DeleteInvite(ctx, inv)
@@ -462,7 +431,7 @@ func (p *projectServiceServer) InviteAccept(ctx context.Context, rq *connect.Req
 
 	_, err = p.repo.Project(inv.Project).AdditionalMethods().Member().Create(ctx, &repository.ProjectMemberCreateRequest{
 		Role:     inv.Role,
-		TenantId: invitee.Meta.Id,
+		TenantId: invitee.Login,
 	})
 	if err != nil {
 		return nil, err

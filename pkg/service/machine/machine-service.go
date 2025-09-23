@@ -37,54 +37,38 @@ func (m *machineServiceServer) Create(context.Context, *connect.Request[apiv2.Ma
 func (m *machineServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2.MachineServiceGetRequest]) (*connect.Response[apiv2.MachineServiceGetResponse], error) {
 	req := rq.Msg
 
-	resp, err := m.repo.Machine(req.Project).Get(ctx, req.Uuid)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-	converted, err := m.repo.Machine(req.Project).ConvertToProto(ctx, resp)
+	machine, err := m.repo.Machine(req.Project).Get(ctx, req.Uuid)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
 	return connect.NewResponse(&apiv2.MachineServiceGetResponse{
-		Machine: converted,
+		Machine: machine,
 	}), nil
 }
 
 // List implements apiv2connect.MachineServiceHandler.
 func (m *machineServiceServer) List(ctx context.Context, rq *connect.Request[apiv2.MachineServiceListRequest]) (*connect.Response[apiv2.MachineServiceListResponse], error) {
-	machines, err := m.repo.Machine(rq.Msg.Project).List(ctx, rq.Msg.Query)
+	req := rq.Msg
+
+	machines, err := m.repo.Machine(rq.Msg.Project).List(ctx, req.Query)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	var result []*apiv2.Machine
 
-	for _, machine := range machines {
-		converted, err := m.repo.UnscopedMachine().ConvertToProto(ctx, machine)
-		if err != nil {
-			return nil, errorutil.Convert(err)
-		}
-		result = append(result, converted)
-	}
-
-	return connect.NewResponse(&apiv2.MachineServiceListResponse{Machines: result}), nil
+	return connect.NewResponse(&apiv2.MachineServiceListResponse{Machines: machines}), nil
 }
 
 // Update implements apiv2connect.MachineServiceHandler.
 func (m *machineServiceServer) Update(ctx context.Context, rq *connect.Request[apiv2.MachineServiceUpdateRequest]) (*connect.Response[apiv2.MachineServiceUpdateResponse], error) {
 	req := rq.Msg
 
-	ms, err := m.repo.Machine(req.Project).Update(ctx, req.Uuid, req)
+	machine, err := m.repo.Machine(req.Project).Update(ctx, req.Uuid, req)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := m.repo.UnscopedMachine().ConvertToProto(ctx, ms)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	return connect.NewResponse(&apiv2.MachineServiceUpdateResponse{Machine: converted}), nil
+	return connect.NewResponse(&apiv2.MachineServiceUpdateResponse{Machine: machine}), nil
 }
 
 // Delete implements apiv2connect.MachineServiceHandler.
