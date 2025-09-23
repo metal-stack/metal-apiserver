@@ -2,10 +2,12 @@ package metal
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/metal-stack/api/go/enum"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 )
 
@@ -163,7 +165,11 @@ func ToMetalNics(switchNics []*apiv2.SwitchNic) (Nics, error) {
 }
 
 func toMetalNic(switchNic *apiv2.SwitchNic) (*Nic, error) {
-	var bgpPortState *SwitchBGPPortState
+	var (
+		bgpPortState *SwitchBGPPortState
+		nicState     *NicState
+	)
+
 	if switchNic.BgpPortState != nil {
 		bgpState, err := ToBGPState(switchNic.BgpPortState.BgpState)
 		if err != nil {
@@ -181,43 +187,61 @@ func toMetalNic(switchNic *apiv2.SwitchNic) (*Nic, error) {
 		}
 	}
 
-	desiredState, err := ToSwitchPortStatus(switchNic.State.Desired)
-	if err != nil {
-		return nil, err
-	}
-	actualState, err := ToSwitchPortStatus(switchNic.State.Actual)
-	if err != nil {
-		return nil, err
+	if switchNic.State != nil {
+		desiredState, err := ToSwitchPortStatus(switchNic.State.Desired)
+		if err != nil {
+			return nil, err
+		}
+		actualState, err := ToSwitchPortStatus(switchNic.State.Actual)
+		if err != nil {
+			return nil, err
+		}
+		nicState = &NicState{
+			Desired: desiredState,
+			Actual:  actualState,
+		}
 	}
 
 	return &Nic{
 		// TODO: what about hostname and neighbors?
-		Name:       switchNic.Name,
-		Identifier: switchNic.Identifier,
-		MacAddress: switchNic.Mac,
-		Vrf:        pointer.SafeDeref(switchNic.Vrf),
-		State: &NicState{
-			Desired: desiredState,
-			Actual:  actualState,
-		},
+		Name:         switchNic.Name,
+		Identifier:   switchNic.Identifier,
+		MacAddress:   switchNic.Mac,
+		Vrf:          pointer.SafeDeref(switchNic.Vrf),
+		State:        nicState,
 		BGPPortState: bgpPortState,
 	}, nil
 }
 
 func ToMachineConnections(connections []*apiv2.MachineConnection) (ConnectionMap, error) {
-	machineConnections := make(ConnectionMap)
+	var (
+		machineConnections = make(ConnectionMap)
+		connectedNics      []string
+		duplicateNics      []string
+	)
 
 	for _, con := range connections {
 		nic, err := toMetalNic(con.Nic)
 		if err != nil {
 			return nil, err
 		}
-		machineConnections[con.MachineId] = Connections{
-			{
-				Nic:       *nic,
-				MachineID: con.MachineId,
-			},
+
+		metalCons := machineConnections[con.MachineId]
+		metalCons = append(metalCons, Connection{
+			Nic:       *nic,
+			MachineID: con.MachineId,
+		})
+
+		machineConnections[con.MachineId] = metalCons
+
+		if slices.Contains(connectedNics, nic.Identifier) {
+			duplicateNics = append(duplicateNics, nic.Identifier)
 		}
+		connectedNics = append(connectedNics, nic.Identifier)
+	}
+
+	if len(duplicateNics) > 0 {
+		return nil, errorutil.InvalidArgument("found multiple connections for nics %v", duplicateNics)
 	}
 
 	return machineConnections, nil

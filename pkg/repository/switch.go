@@ -250,7 +250,10 @@ func (r *switchRepository) convertToProto(ctx context.Context, sw *metal.Switch)
 		return nil, err
 	}
 
-	connections := convertMachineConnections(sw.MachineConnections, nics)
+	connections, err := convertMachineConnections(sw.MachineConnections, nics)
+	if err != nil {
+		return nil, err
+	}
 
 	replaceMode, err := metal.FromReplaceMode(sw.ReplaceMode)
 	if err != nil {
@@ -390,29 +393,34 @@ func (r *switchRepository) getConnectedMachineForNic(ctx context.Context, nic me
 	return m, nil
 }
 
-func convertMachineConnections(machineConnections metal.ConnectionMap, nics []*apiv2.SwitchNic) []*apiv2.MachineConnection {
-	var connections []*apiv2.MachineConnection
+func convertMachineConnections(machineConnections metal.ConnectionMap, nics []*apiv2.SwitchNic) ([]*apiv2.MachineConnection, error) {
+	var (
+		connections  []*apiv2.MachineConnection
+		notFoundNics []string
+	)
 
-	for mid, cons := range machineConnections {
-		nic, found := lo.Find(nics, func(n *apiv2.SwitchNic) bool {
-			if len(cons) < 1 {
-				return false
+	for _, cons := range machineConnections {
+		for _, con := range cons {
+			nic, found := lo.Find(nics, func(n *apiv2.SwitchNic) bool {
+				return n.Identifier == con.Nic.Identifier
+			})
+
+			if !found {
+				notFoundNics = append(notFoundNics, con.Nic.Identifier)
+				continue
 			}
-			// TODO: is it okay to only add one connection here or should api switch also allow multiple connections for a machine?
-			return n.Name == cons[0].Nic.Name
-		})
-		if found {
-			connectedNic := nic
-			connectedNic.BgpFilter = nil // TODO: discuss
-
 			connections = append(connections, &apiv2.MachineConnection{
-				MachineId: mid,
-				Nic:       connectedNic,
+				MachineId: con.MachineID,
+				Nic:       nic,
 			})
 		}
 	}
 
-	return connections
+	if len(notFoundNics) > 0 {
+		return nil, errorutil.InvalidArgument("nics %v could not be found but are connected to machines", notFoundNics)
+	}
+
+	return connections, nil
 }
 
 func updateNics(old, new metal.Nics) metal.Nics {

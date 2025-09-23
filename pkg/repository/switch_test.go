@@ -7,6 +7,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-lib/pkg/testcommon"
 	"google.golang.org/protobuf/testing/protocmp"
 )
@@ -462,6 +463,7 @@ func Test_convertMachineConnections(t *testing.T) {
 		machineConnections metal.ConnectionMap
 		nics               []*apiv2.SwitchNic
 		want               []*apiv2.MachineConnection
+		wantErr            error
 	}{
 		{
 			name: "ignore malformed empty connections",
@@ -470,52 +472,118 @@ func Test_convertMachineConnections(t *testing.T) {
 			},
 			nics: []*apiv2.SwitchNic{
 				{
-					Name: "Ethernet0",
+					Identifier: "Eth1/1",
 				},
 			},
 			want: nil,
 		},
 		{
-			name: "convert connections, ignore bgp filters",
+			name: "convert connections",
 			machineConnections: metal.ConnectionMap{
 				"machine01": metal.Connections{
 					{
+						MachineID: "machine01",
 						Nic: metal.Nic{
-							Name: "Ethernet0",
-						},
-					},
-					{
-						Nic: metal.Nic{
-							Name: "Ethernet1",
+							Identifier: "Eth1/1",
 						},
 					},
 				},
 			},
 			nics: []*apiv2.SwitchNic{
 				{
-					Name: "Ethernet0",
-					BgpFilter: &apiv2.BGPFilter{
-						Cidrs: []string{"1.1.1.1"},
-						Vnis:  []string{},
-					},
-				},
-				{
-					Name: "Ethernet1",
+					Identifier: "Eth1/1",
 				},
 			},
 			want: []*apiv2.MachineConnection{
 				{
 					MachineId: "machine01",
 					Nic: &apiv2.SwitchNic{
-						Name: "Ethernet0",
+						Identifier: "Eth1/1",
 					},
 				},
 			},
 		},
+		{
+			name: "convert connections with a machine connected multiple times",
+			machineConnections: metal.ConnectionMap{
+				"machine01": metal.Connections{
+					{
+						MachineID: "machine01",
+						Nic: metal.Nic{
+							Identifier: "Eth1/1",
+						},
+					},
+					{
+						MachineID: "machine01",
+						Nic: metal.Nic{
+							Identifier: "Eth1/2",
+						},
+					},
+				},
+			},
+			nics: []*apiv2.SwitchNic{
+				{
+					Identifier: "Eth1/1",
+				},
+				{
+					Identifier: "Eth1/2",
+				},
+			},
+			want: []*apiv2.MachineConnection{
+				{
+					MachineId: "machine01",
+					Nic: &apiv2.SwitchNic{
+						Identifier: "Eth1/1",
+					},
+				},
+				{
+					MachineId: "machine01",
+					Nic: &apiv2.SwitchNic{
+						Identifier: "Eth1/2",
+					},
+				},
+			},
+		},
+		{
+			name: "connected nics not found",
+			machineConnections: metal.ConnectionMap{
+				"machine01": metal.Connections{
+					{
+						MachineID: "machine01",
+						Nic: metal.Nic{
+							Identifier: "Eth1/1",
+						},
+					},
+					{
+						MachineID: "machine02",
+						Nic: metal.Nic{
+							Identifier: "Eth1/2",
+						},
+					},
+					{
+						MachineID: "machine03",
+						Nic: metal.Nic{
+							Identifier: "Eth1/3",
+						},
+					},
+				},
+			},
+			nics: []*apiv2.SwitchNic{
+				{
+					Identifier: "Eth1/1",
+				},
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument("nics [Eth1/2 Eth1/3] could not be found but are connected to machines"),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := convertMachineConnections(tt.machineConnections, tt.nics)
+			got, err := convertMachineConnections(tt.machineConnections, tt.nics)
+			if diff := cmp.Diff(tt.wantErr, err, testcommon.ErrorStringComparer()); diff != "" {
+				t.Errorf("convertMachineConnections() error diff = %s", diff)
+			}
+
 			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
 				t.Errorf("convertMachineConnections() diff = %s", diff)
 			}
