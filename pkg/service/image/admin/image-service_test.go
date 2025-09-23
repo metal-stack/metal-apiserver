@@ -17,9 +17,12 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func Test_imageServiceServer_Create(t *testing.T) {
+	t.Parallel()
+
 	log := slog.Default()
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
@@ -57,6 +60,7 @@ func Test_imageServiceServer_Create(t *testing.T) {
 			want: &adminv2.ImageServiceCreateResponse{
 				Image: &apiv2.Image{
 					Id:             "debian-12.0.20241231",
+					Meta:           &apiv2.Meta{Generation: 0},
 					Url:            url,
 					Name:           pointer.Pointer(""),
 					Description:    pointer.Pointer(""),
@@ -81,7 +85,7 @@ func Test_imageServiceServer_Create(t *testing.T) {
 				tt.want, pointer.SafeDeref(got).Msg,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
-					&apiv2.Image{}, "meta", "expires_at",
+					&apiv2.Image{}, "expires_at",
 				),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
@@ -94,6 +98,8 @@ func Test_imageServiceServer_Create(t *testing.T) {
 }
 
 func Test_imageServiceServer_Update(t *testing.T) {
+	t.Parallel()
+
 	log := slog.Default()
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
@@ -115,9 +121,15 @@ func Test_imageServiceServer_Update(t *testing.T) {
 
 	defer ts.Close()
 
-	test.CreateImages(t, repo, []*adminv2.ImageServiceCreateRequest{
+	imageMap := test.CreateImages(t, repo, []*adminv2.ImageServiceCreateRequest{
+		{
+			Image: &apiv2.Image{Id: "debian-11.0.20231231", Url: validURL, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
+		},
 		{
 			Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: validURL, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
+		},
+		{
+			Image: &apiv2.Image{Id: "debian-13.0.20251231", Url: validURL, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
 		},
 	})
 
@@ -129,22 +141,28 @@ func Test_imageServiceServer_Update(t *testing.T) {
 	}{
 		{
 			name:    "simple update on non existing",
-			request: &adminv2.ImageServiceUpdateRequest{Image: &apiv2.Image{Id: "debian-12.0.20250101"}},
+			request: &adminv2.ImageServiceUpdateRequest{Id: "debian-12.0.20250101"},
 			want:    nil,
 			wantErr: errorutil.NotFound(`no image with id "debian-12.0.20250101" found`),
 		},
 		{
-			name:    "simple update on existing, invalid url",
-			request: &adminv2.ImageServiceUpdateRequest{Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: invalidURL}},
+			name:    "invalid url",
+			request: &adminv2.ImageServiceUpdateRequest{Id: "debian-12.0.20241231", Url: &invalidURL},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`image:debian-12.0.20241231 is not accessible under:%s statuscode:404`, invalidURL),
 		},
 		{
-			name:    "simple update on existing update name",
-			request: &adminv2.ImageServiceUpdateRequest{Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: validURL, Name: pointer.Pointer("NewName")}},
+			name: "update name",
+			request: &adminv2.ImageServiceUpdateRequest{
+				Id: "debian-11.0.20231231",
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(imageMap["debian-11.0.20231231"].Changed),
+				},
+				Url: &validURL, Name: pointer.Pointer("NewName")},
 			want: &adminv2.ImageServiceUpdateResponse{
 				Image: &apiv2.Image{
-					Id:             "debian-12.0.20241231",
+					Id:             "debian-11.0.20231231",
+					Meta:           &apiv2.Meta{Generation: 1},
 					Url:            validURL,
 					Name:           pointer.Pointer("NewName"),
 					Description:    pointer.Pointer(""),
@@ -154,11 +172,18 @@ func Test_imageServiceServer_Update(t *testing.T) {
 			},
 		},
 		{
-			name:    "simple update on existing update feature",
-			request: &adminv2.ImageServiceUpdateRequest{Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: validURL, Name: pointer.Pointer("NewName"), Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL}}},
+			name: "update feature",
+			request: &adminv2.ImageServiceUpdateRequest{
+				Id: "debian-12.0.20241231",
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(imageMap["debian-12.0.20241231"].Changed),
+				},
+				Url: &validURL, Name: pointer.Pointer("NewName"),
+				Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL}},
 			want: &adminv2.ImageServiceUpdateResponse{
 				Image: &apiv2.Image{
 					Id:             "debian-12.0.20241231",
+					Meta:           &apiv2.Meta{Generation: 1},
 					Url:            validURL,
 					Name:           pointer.Pointer("NewName"),
 					Description:    pointer.Pointer(""),
@@ -168,11 +193,19 @@ func Test_imageServiceServer_Update(t *testing.T) {
 			},
 		},
 		{
-			name:    "simple update on existing update classification",
-			request: &adminv2.ImageServiceUpdateRequest{Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: validURL, Name: pointer.Pointer("NewName"), Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL}, Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED}},
+			name: "update classification",
+			request: &adminv2.ImageServiceUpdateRequest{
+				Id: "debian-13.0.20251231",
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(imageMap["debian-13.0.20251231"].Changed),
+				},
+				Url: &validURL, Name: pointer.Pointer("NewName"),
+				Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL},
+				Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED},
 			want: &adminv2.ImageServiceUpdateResponse{
 				Image: &apiv2.Image{
-					Id:             "debian-12.0.20241231",
+					Id:             "debian-13.0.20251231",
+					Meta:           &apiv2.Meta{Generation: 1},
 					Url:            validURL,
 					Name:           pointer.Pointer("NewName"),
 					Description:    pointer.Pointer(""),
@@ -197,7 +230,7 @@ func Test_imageServiceServer_Update(t *testing.T) {
 				tt.want, pointer.SafeDeref(got).Msg,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
-					&apiv2.Image{}, "meta", "expires_at",
+					&apiv2.Image{}, "expires_at",
 				),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
@@ -210,6 +243,8 @@ func Test_imageServiceServer_Update(t *testing.T) {
 }
 
 func Test_imageServiceServer_Delete(t *testing.T) {
+	t.Parallel()
+
 	log := slog.Default()
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
@@ -259,6 +294,7 @@ func Test_imageServiceServer_Delete(t *testing.T) {
 			want: &adminv2.ImageServiceDeleteResponse{
 				Image: &apiv2.Image{
 					Id:             "debian-12.0.20241231",
+					Meta:           &apiv2.Meta{Generation: 0},
 					Url:            url,
 					Name:           pointer.Pointer(""),
 					Description:    pointer.Pointer(""),
@@ -288,7 +324,7 @@ func Test_imageServiceServer_Delete(t *testing.T) {
 				tt.want, pointer.SafeDeref(got).Msg,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
-					&apiv2.Image{}, "meta", "expires_at",
+					&apiv2.Image{}, "expires_at",
 				),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",

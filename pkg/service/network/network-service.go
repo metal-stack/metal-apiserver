@@ -177,6 +177,7 @@ func (n *networkServiceServer) Update(ctx context.Context, rq *connect.Request[a
 		Name:        req.Name,
 		Description: req.Description,
 		Labels:      req.Labels,
+		UpdateMeta:  req.UpdateMeta,
 		// FIXME which fields should be updateable
 	}
 
