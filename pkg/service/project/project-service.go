@@ -343,7 +343,7 @@ func (p *projectServiceServer) createProjectMembership(ctx context.Context, tena
 		return nil, err
 	}
 
-	return created, nil
+	return created.ProjectMember, nil
 }
 
 func (p *projectServiceServer) InviteGet(ctx context.Context, rq *connect.Request[apiv2.ProjectServiceInviteGetRequest]) (*connect.Response[apiv2.ProjectServiceInviteGetResponse], error) {

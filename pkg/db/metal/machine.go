@@ -6,36 +6,6 @@ import (
 	"time"
 )
 
-// GetID returns the ID of the entity
-func (m *Machine) GetID() string {
-	return m.ID
-}
-
-// SetID sets the ID of the entity
-func (m *Machine) SetID(id string) {
-	m.ID = id
-}
-
-// GetChanged returns the last changed timestamp of the entity
-func (m *Machine) GetChanged() time.Time {
-	return m.Changed
-}
-
-// SetChanged sets the last changed timestamp of the entity
-func (m *Machine) SetChanged(changed time.Time) {
-	m.Changed = changed
-}
-
-// GetCreated returns the creation timestamp of the entity
-func (m *Machine) GetCreated() time.Time {
-	return m.Created
-}
-
-// SetCreated sets the creation timestamp of the entity
-func (m *Machine) SetCreated(created time.Time) {
-	m.Created = created
-}
-
 // A Machine is a piece of metal which is under the control of our system. It registers itself
 // and can be allocated or freed. If the machine is allocated, the substructure Allocation will
 // be filled. Any unallocated (free) machine won't have such values.

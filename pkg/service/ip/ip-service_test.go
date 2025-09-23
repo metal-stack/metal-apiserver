@@ -15,10 +15,14 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
+	"github.com/samber/lo"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func Test_ipServiceServer_Get(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
@@ -29,7 +33,7 @@ func Test_ipServiceServer_Get(t *testing.T) {
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
 	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
-	networks := test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+	createdNetworks := test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
 		{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.3.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: pointer.Pointer(uint32(11))},
 		{
 			Id:                       pointer.Pointer("tenant-super-namespaced"),
@@ -38,16 +42,21 @@ func Test_ipServiceServer_Get(t *testing.T) {
 			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
 			Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED,
 		},
+	})
+
+	allocatedNetworks := test.AllocateNetworks(t, repo, []*apiv2.NetworkServiceCreateRequest{
 		{
-			Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD,
 			Name:          pointer.Pointer("private-1"),
-			Project:       pointer.Pointer("p1"),
+			Project:       "p1",
 			ParentNetwork: pointer.Pointer("tenant-super-namespaced"),
 		},
 	})
+
+	networks := lo.Assign(createdNetworks, allocatedNetworks)
+
 	test.CreateIPs(t, repo, []*apiv2.IPServiceCreateRequest{
 		{Ip: pointer.Pointer("1.2.3.4"), Project: "p1", Network: "internet"},
-		{Ip: pointer.Pointer("12.100.0.4"), Project: "p1", Network: networks["private-1"]},
+		{Ip: pointer.Pointer("12.100.0.4"), Project: "p1", Network: networks["private-1"].ID},
 	})
 
 	tests := []struct {
@@ -57,9 +66,14 @@ func Test_ipServiceServer_Get(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name:    "get existing",
-			rq:      &apiv2.IPServiceGetRequest{Ip: "1.2.3.4", Project: "p1"},
-			want:    &apiv2.IPServiceGetResponse{Ip: &apiv2.IP{Ip: "1.2.3.4", Project: "p1", Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}}},
+			name: "get existing",
+			rq:   &apiv2.IPServiceGetRequest{Ip: "1.2.3.4", Project: "p1"},
+			want: &apiv2.IPServiceGetResponse{
+				Ip: &apiv2.IP{
+					Ip:      "1.2.3.4",
+					Meta:    &apiv2.Meta{Generation: 0},
+					Project: "p1", Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL,
+				}},
 			wantErr: nil,
 		},
 		{
@@ -71,7 +85,7 @@ func Test_ipServiceServer_Get(t *testing.T) {
 		{
 			name:    "get namespaced existing",
 			rq:      &apiv2.IPServiceGetRequest{Ip: "12.100.0.4", Project: "p1", Namespace: pointer.Pointer("p1")},
-			want:    &apiv2.IPServiceGetResponse{Ip: &apiv2.IP{Ip: "12.100.0.4", Project: "p1", Namespace: pointer.Pointer("p1"), Network: networks["private-1"], Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}}},
+			want:    &apiv2.IPServiceGetResponse{Ip: &apiv2.IP{Ip: "12.100.0.4", Project: "p1", Namespace: pointer.Pointer("p1"), Network: networks["private-1"].ID, Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{Generation: 0}}},
 			wantErr: nil,
 		},
 	}
@@ -103,6 +117,8 @@ func Test_ipServiceServer_Get(t *testing.T) {
 }
 
 func Test_ipServiceServer_List(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
@@ -216,6 +232,8 @@ func Test_ipServiceServer_List(t *testing.T) {
 }
 
 func Test_ipServiceServer_Update(t *testing.T) {
+	t.Parallel()
+
 	log := slog.Default()
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
@@ -258,10 +276,11 @@ func Test_ipServiceServer_Update(t *testing.T) {
 		{Name: pointer.Pointer("ip4"), Ip: pointer.Pointer("2001:db8::1"), Project: "p2", Network: "internetv6", Labels: &apiv2.Labels{Labels: map[string]string{"color": "red"}}},
 		{Name: pointer.Pointer("ip5"), Ip: pointer.Pointer("2.3.4.5"), Project: "p2", Network: "n3"},
 		{Name: pointer.Pointer("ip6"), Ip: pointer.Pointer("2.3.4.6"), Project: "p2", Network: "n3", Type: apiv2.IPType_IP_TYPE_STATIC.Enum()},
+		{Name: pointer.Pointer("ip7"), Ip: pointer.Pointer("2001:db8::2"), Project: "p2", Network: "internetv6", Labels: &apiv2.Labels{Labels: map[string]string{"color": "red"}}},
 	}
 
 	test.CreateNetworks(t, repo, nws)
-	test.CreateIPs(t, repo, ips)
+	ipmap := test.CreateIPs(t, repo, ips)
 
 	tests := []struct {
 		name    string
@@ -271,37 +290,100 @@ func Test_ipServiceServer_Update(t *testing.T) {
 	}{
 		{
 			name: "update name",
-			rq:   &apiv2.IPServiceUpdateRequest{Ip: "1.2.3.4", Project: "p1", Name: pointer.Pointer("ip1-changed")},
-			want: &apiv2.IPServiceUpdateResponse{Ip: &apiv2.IP{Name: "ip1-changed", Ip: "1.2.3.4", Project: "p1", Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}}},
+			rq: &apiv2.IPServiceUpdateRequest{
+				Ip: "1.2.3.4",
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(ipmap["1.2.3.4"].Changed),
+				},
+				Project: "p1",
+				Name:    pointer.Pointer("ip1-changed"),
+			},
+			want: &apiv2.IPServiceUpdateResponse{
+				Ip: &apiv2.IP{
+					Name:    "ip1-changed",
+					Meta:    &apiv2.Meta{Generation: 1},
+					Ip:      "1.2.3.4",
+					Project: "p1",
+					Network: "internet",
+					Type:    apiv2.IPType_IP_TYPE_EPHEMERAL,
+				}},
 		},
 		{
 			name: "update description",
-			rq:   &apiv2.IPServiceUpdateRequest{Ip: "1.2.3.5", Project: "p1", Description: pointer.Pointer("test was here")},
-			want: &apiv2.IPServiceUpdateResponse{Ip: &apiv2.IP{Name: "ip2", Ip: "1.2.3.5", Project: "p1", Description: "test was here", Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}}},
+			rq: &apiv2.IPServiceUpdateRequest{
+				Ip: "1.2.3.5",
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(ipmap["1.2.3.5"].Changed),
+				},
+				Project:     "p1",
+				Description: pointer.Pointer("test was here"),
+			},
+			want: &apiv2.IPServiceUpdateResponse{Ip: &apiv2.IP{
+				Name:        "ip2",
+				Meta:        &apiv2.Meta{Generation: 1},
+				Ip:          "1.2.3.5",
+				Project:     "p1",
+				Description: "test was here",
+				Network:     "internet",
+				Type:        apiv2.IPType_IP_TYPE_EPHEMERAL,
+			}},
 		},
 		{
 			name: "update type",
-			rq:   &apiv2.IPServiceUpdateRequest{Ip: "1.2.3.6", Project: "p1", Type: apiv2.IPType_IP_TYPE_STATIC.Enum()},
-			want: &apiv2.IPServiceUpdateResponse{Ip: &apiv2.IP{Name: "ip3", Ip: "1.2.3.6", Project: "p1", Network: "internet", Type: apiv2.IPType_IP_TYPE_STATIC, Meta: &apiv2.Meta{}}},
+			rq: &apiv2.IPServiceUpdateRequest{
+				Ip: "1.2.3.6",
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(ipmap["1.2.3.6"].Changed),
+				},
+				Project: "p1",
+				Type:    apiv2.IPType_IP_TYPE_STATIC.Enum(),
+			},
+			want: &apiv2.IPServiceUpdateResponse{Ip: &apiv2.IP{
+				Name:    "ip3",
+				Ip:      "1.2.3.6",
+				Meta:    &apiv2.Meta{Generation: 1},
+				Project: "p1",
+				Network: "internet",
+				Type:    apiv2.IPType_IP_TYPE_STATIC,
+			}},
 		},
 		{
 			name: "update tags",
-			rq:   &apiv2.IPServiceUpdateRequest{Ip: "2001:db8::1", Project: "p2", Labels: &apiv2.UpdateLabels{Update: &apiv2.Labels{Labels: map[string]string{"color": "red", "purpose": "lb"}}}},
-			want: &apiv2.IPServiceUpdateResponse{Ip: &apiv2.IP{Name: "ip4", Ip: "2001:db8::1", Project: "p2", Network: "internetv6", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{Labels: &apiv2.Labels{Labels: map[string]string{"color": "red", "purpose": "lb"}}}}},
+			rq: &apiv2.IPServiceUpdateRequest{
+				Ip: "2001:db8::1",
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(ipmap["2001:db8::1"].Changed),
+				},
+				Project: "p2",
+				Labels:  &apiv2.UpdateLabels{Update: &apiv2.Labels{Labels: map[string]string{"color": "red", "purpose": "lb"}}},
+			},
+			want: &apiv2.IPServiceUpdateResponse{Ip: &apiv2.IP{
+				Name:    "ip4",
+				Ip:      "2001:db8::1",
+				Meta:    &apiv2.Meta{Labels: &apiv2.Labels{Labels: map[string]string{"color": "red", "purpose": "lb"}}, Generation: 1},
+				Project: "p2",
+				Network: "internetv6",
+				Type:    apiv2.IPType_IP_TYPE_EPHEMERAL,
+			},
+			},
 		},
 		{
 			name: "delete tags",
 			rq: &apiv2.IPServiceUpdateRequest{
-				Ip: "2001:db8::1", Project: "p2",
-				Labels: &apiv2.UpdateLabels{Remove: []string{"color", "purpose"}}},
+				Ip: "2001:db8::2",
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(ipmap["2001:db8::2"].Changed),
+				},
+				Project: "p2",
+				Labels:  &apiv2.UpdateLabels{Remove: []string{"color", "purpose"}}},
 			want: &apiv2.IPServiceUpdateResponse{
 				Ip: &apiv2.IP{
-					Name:    "ip4",
-					Ip:      "2001:db8::1",
+					Name:    "ip7",
+					Ip:      "2001:db8::2",
 					Project: "p2",
 					Network: "internetv6",
 					Type:    apiv2.IPType_IP_TYPE_EPHEMERAL,
-					Meta:    &apiv2.Meta{},
+					Meta:    &apiv2.Meta{Generation: 1},
 				},
 			},
 		},
@@ -341,6 +423,8 @@ func Test_ipServiceServer_Update(t *testing.T) {
 }
 
 func Test_ipServiceServer_Delete(t *testing.T) {
+	t.Parallel()
+
 	log := slog.Default()
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
@@ -439,6 +523,8 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 }
 
 func Test_ipServiceServer_Create(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
@@ -534,43 +620,43 @@ func Test_ipServiceServer_Create(t *testing.T) {
 		{
 			name: "create random ephemeral ipv6",
 			rq: &apiv2.IPServiceCreateRequest{
-				Network: networks["private-v6"],
+				Network: networks["private-v6"].ID,
 				Project: "p1",
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "2001:db8:1::1", Network: networks["private-v6"], Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
+				Ip: &apiv2.IP{Ip: "2001:db8:1::1", Network: networks["private-v6"].ID, Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
 			},
 		},
 		{
 			name: "create specific ephemeral ipv6",
 			rq: &apiv2.IPServiceCreateRequest{
-				Network: networks["private-v6"],
+				Network: networks["private-v6"].ID,
 				Project: "p1",
 				Ip:      pointer.Pointer("2001:db8:1::99"),
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "2001:db8:1::99", Network: networks["private-v6"], Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
+				Ip: &apiv2.IP{Ip: "2001:db8:1::99", Network: networks["private-v6"].ID, Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
 			},
 		},
 		{
 			name: "create random ephemeral ipv4 from a dualstack network",
 			rq: &apiv2.IPServiceCreateRequest{
-				Network: networks["private-dualstack"],
+				Network: networks["private-dualstack"].ID,
 				Project: "p1",
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "10.3.0.1", Network: networks["private-dualstack"], Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
+				Ip: &apiv2.IP{Ip: "10.3.0.1", Network: networks["private-dualstack"].ID, Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
 			},
 		},
 		{
 			name: "create random ephemeral ipv6 from a dualstack network",
 			rq: &apiv2.IPServiceCreateRequest{
-				Network:       networks["private-dualstack"],
+				Network:       networks["private-dualstack"].ID,
 				Project:       "p1",
 				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(),
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "2001:db8:2::1", Network: networks["private-dualstack"], Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
+				Ip: &apiv2.IP{Ip: "2001:db8:2::1", Network: networks["private-dualstack"].ID, Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
 			},
 		},
 		{
@@ -599,12 +685,12 @@ func Test_ipServiceServer_Create(t *testing.T) {
 		{
 			name: "create ip in a namespaced private",
 			rq: &apiv2.IPServiceCreateRequest{
-				Network: networks["private-namespaced-1"],
+				Network: networks["private-namespaced-1"].ID,
 				Project: "p1",
 				Type:    apiv2.IPType_IP_TYPE_STATIC.Enum(),
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "10.100.0.1", Network: networks["private-namespaced-1"], Namespace: pointer.Pointer("p1"), Project: "p1", Type: apiv2.IPType_IP_TYPE_STATIC, Meta: &apiv2.Meta{}},
+				Ip: &apiv2.IP{Ip: "10.100.0.1", Network: networks["private-namespaced-1"].ID, Namespace: pointer.Pointer("p1"), Project: "p1", Type: apiv2.IPType_IP_TYPE_STATIC, Meta: &apiv2.Meta{}},
 			},
 		},
 		{
@@ -630,32 +716,32 @@ func Test_ipServiceServer_Create(t *testing.T) {
 		{
 			name: "allocate a random ip with unavailable addressfamily",
 			rq: &apiv2.IPServiceCreateRequest{
-				Network:       networks["private-v6"],
+				Network:       networks["private-v6"].ID,
 				Project:       "p1",
 				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4.Enum(),
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("there is no prefix for the given addressfamily:IPv4 present in network:%s [IPv6]", networks["private-v6"]),
+			wantErr: errorutil.InvalidArgument("there is no prefix for the given addressfamily:IPv4 present in network:%s [IPv6]", networks["private-v6"].ID),
 		},
 		{
 			name: "allocate a random ip with unavailable addressfamily",
 			rq: &apiv2.IPServiceCreateRequest{
-				Network:       networks["private-v4"],
+				Network:       networks["private-v4"].ID,
 				Project:       "p1",
 				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(),
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("there is no prefix for the given addressfamily:IPv6 present in network:%s [IPv4]", networks["private-v4"]),
+			wantErr: errorutil.InvalidArgument("there is no prefix for the given addressfamily:IPv6 present in network:%s [IPv4]", networks["private-v4"].ID),
 		},
 		{
 			name: "disallow creating an ip address in a project-scoped network that does not belong to the request project",
 			rq: &apiv2.IPServiceCreateRequest{
-				Network:       networks["private-namespaced-2"],
+				Network:       networks["private-namespaced-2"].ID,
 				Project:       "p1",
 				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(),
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("not allowed to create ip with project p1 in network %s scoped to project p2", networks["private-namespaced-2"]),
+			wantErr: errorutil.InvalidArgument("not allowed to create ip with project p1 in network %s scoped to project p2", networks["private-namespaced-2"].ID),
 		},
 		{
 			name: "create ip in project-scoped external network",

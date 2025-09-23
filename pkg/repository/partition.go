@@ -2,9 +2,6 @@ package repository
 
 import (
 	"context"
-	"errors"
-	"net"
-	"net/netip"
 	"regexp"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
@@ -12,6 +9,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -26,93 +24,16 @@ type partitionRepository struct {
 	s *Store
 }
 
-func validatePartition(ctx context.Context, partition *apiv2.Partition) error {
-	//FIXME use validate helper
-	if partition.Id == "" {
-		return errorutil.InvalidArgument("partition id must not be empty")
-	}
-	if partition.BootConfiguration == nil {
-		return errorutil.InvalidArgument("partition.bootconfiguration must not be nil")
-	}
-	if partition.BootConfiguration.ImageUrl == "" {
-		return errorutil.InvalidArgument("partition.bootconfiguration.imageurl must not be empty")
-	}
-	if err := checkIfUrlExists(ctx, "partition imageurl of", partition.Id, partition.BootConfiguration.ImageUrl); err != nil {
-		return errorutil.NewInvalidArgument(err)
-	}
-	if partition.BootConfiguration.KernelUrl == "" {
-		return errorutil.InvalidArgument("partition.bootconfiguration.kernelurl must not be empty")
-	}
-	if err := checkIfUrlExists(ctx, "partition kernelurl of", partition.Id, partition.BootConfiguration.KernelUrl); err != nil {
-		return errorutil.NewInvalidArgument(err)
-	}
-
-	if len(partition.DnsServer) > 3 {
-		return errorutil.InvalidArgument("not more than 3 dnsservers must be specified")
-	}
-	for _, dns := range partition.DnsServer {
-		_, err := netip.ParseAddr(dns.Ip)
-		if err != nil {
-			return errorutil.InvalidArgument("dnsserver ip is not valid:%w", err)
-		}
-	}
-
-	if len(partition.NtpServer) > 5 {
-		return errorutil.InvalidArgument("not more than 5 ntpservers must be specified")
-	}
-	for _, ntp := range partition.NtpServer {
-		if net.ParseIP(ntp.Address) != nil {
-			_, err := netip.ParseAddr(ntp.Address)
-			if err != nil {
-				return errorutil.InvalidArgument("ip: %s for ntp server not correct err: %w", ntp.Address, err)
-			}
-		} else {
-			if !regexDNSName.MatchString(ntp.Address) {
-				return errorutil.InvalidArgument("dns name: %s for ntp server not correct", ntp.Address)
-			}
-		}
-	}
-
-	return nil
-}
-
-// ValidateCreate implements Partition.
-func (p *partitionRepository) validateCreate(ctx context.Context, req *adminv2.PartitionServiceCreateRequest) error {
-	return validatePartition(ctx, req.Partition)
-}
-
-// ValidateDelete implements Partition.
-func (p *partitionRepository) validateDelete(ctx context.Context, req *metal.Partition) error {
-	var errs []error
-
-	ms, err := p.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{Partition: &req.ID}))
-	if err != nil {
-		return err
-	}
-
-	p.s.log.Info("machines in partition", "partition", req.ID, "machines", ms)
-
-	errs = validate(errs, len(ms) == 0, "there are still machines in %q", req.ID)
-
-	nwsresp, err := p.s.ds.Network().List(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{Partition: &req.ID}))
-	if err != nil {
-		return err
-	}
-
-	p.s.log.Info("networks in partition", "partition", req.ID, "networks", nwsresp)
-
-	errs = validate(errs, len(nwsresp) == 0, "there are still networks in %q", req.ID)
-
-	if err := errors.Join(errs...); err != nil {
-		return errorutil.InvalidArgument("%w", err)
-	}
-
-	return nil
-}
-
 // ValidateUpdate implements Partition.
 func (p *partitionRepository) validateUpdate(ctx context.Context, req *adminv2.PartitionServiceUpdateRequest, _ *metal.Partition) error {
-	return validatePartition(ctx, req.Partition)
+	partition := &apiv2.Partition{
+		Id:                   req.Id,
+		BootConfiguration:    req.BootConfiguration,
+		DnsServer:            req.DnsServer,
+		NtpServer:            req.NtpServer,
+		MgmtServiceAddresses: req.MgmtServiceAddresses,
+	}
+	return validatePartition(ctx, partition)
 }
 
 // Create implements Partition.
@@ -152,20 +73,53 @@ func (p *partitionRepository) get(ctx context.Context, id string) (*metal.Partit
 
 // Update implements Partition.
 func (p *partitionRepository) update(ctx context.Context, e *metal.Partition, req *adminv2.PartitionServiceUpdateRequest) (*metal.Partition, error) {
-	partition := req.Partition
+	if req.BootConfiguration != nil {
+		e.BootConfiguration = metal.BootConfiguration{
+			ImageURL:    req.BootConfiguration.ImageUrl,
+			KernelURL:   req.BootConfiguration.KernelUrl,
+			CommandLine: req.BootConfiguration.Commandline,
+		}
+	}
 
-	new, err := p.convertToInternal(ctx, partition)
+	if req.Description != nil {
+		e.Description = *req.Description
+	}
+	if req.DnsServer != nil {
+		servers := make(metal.DNSServers, 0, len(req.DnsServer))
+
+		for _, s := range req.DnsServer {
+			servers = append(servers, metal.DNSServer{
+				IP: s.GetIp(),
+			})
+		}
+
+		e.DNSServers = servers
+	}
+	if req.NtpServer != nil {
+		servers := make(metal.NTPServers, 0, len(req.NtpServer))
+
+		for _, s := range req.NtpServer {
+			servers = append(servers, metal.NTPServer{
+				Address: s.GetAddress(),
+			})
+		}
+
+		e.NTPServers = servers
+	}
+	if len(req.MgmtServiceAddresses) == 1 {
+		e.MgmtServiceAddress = req.MgmtServiceAddresses[0]
+	}
+
+	if req.Labels != nil {
+		e.Labels = updateLabelsOnMap(req.Labels, e.Labels)
+	}
+
+	err := p.s.ds.Partition().Update(ctx, e)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	new.SetChanged(e.Changed)
-
-	err = p.s.ds.Partition().Update(ctx, new)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-	return new, nil
+	return e, nil
 }
 
 // Find implements Partition.
@@ -226,14 +180,27 @@ func (p *partitionRepository) convertToInternal(ctx context.Context, msg *apiv2.
 			Description: msg.Description,
 		},
 		MgmtServiceAddress: mgm,
-		BootConfiguration: metal.BootConfiguration{
+		Labels:             labels,
+		DNSServers:         dnsServers,
+		NTPServers:         ntpServers,
+	}
+
+	if msg.BootConfiguration != nil {
+		partition.BootConfiguration = metal.BootConfiguration{
 			ImageURL:    msg.BootConfiguration.ImageUrl,
 			KernelURL:   msg.BootConfiguration.KernelUrl,
 			CommandLine: msg.BootConfiguration.Commandline,
-		},
-		Labels:     labels,
-		DNSServers: dnsServers,
-		NTPServers: ntpServers,
+		}
+	}
+
+	if msg.Meta != nil {
+		if msg.Meta.CreatedAt != nil {
+			partition.Created = msg.Meta.CreatedAt.AsTime()
+		}
+		if msg.Meta.UpdatedAt != nil {
+			partition.Changed = msg.Meta.UpdatedAt.AsTime()
+		}
+		partition.Generation = msg.Meta.Generation
 	}
 
 	return partition, nil
@@ -256,7 +223,11 @@ func (p *partitionRepository) convertToProto(ctx context.Context, e *metal.Parti
 		})
 	}
 
-	meta := &apiv2.Meta{}
+	meta := &apiv2.Meta{
+		CreatedAt:  timestamppb.New(e.Created),
+		UpdatedAt:  timestamppb.New(e.Changed),
+		Generation: e.Generation,
+	}
 	if e.Labels != nil {
 		meta.Labels = &apiv2.Labels{Labels: e.Labels}
 	}

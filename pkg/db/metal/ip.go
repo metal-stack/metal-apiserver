@@ -41,6 +41,7 @@ type IP struct {
 	Tags             []string  `rethinkdb:"tags"`
 	Created          time.Time `rethinkdb:"created"`
 	Changed          time.Time `rethinkdb:"changed"`
+	Generation       uint64    `rethinkdb:"generation"`
 }
 
 type IPs []*IP
@@ -61,19 +62,18 @@ func (ip *IP) GetChanged() time.Time {
 	return ip.Changed
 }
 
-// SetChanged sets the last changed timestamp of the entity
-func (ip *IP) SetChanged(changed time.Time) {
-	ip.Changed = changed
-}
-
 // GetCreated returns the creation timestamp of the entity
 func (ip *IP) GetCreated() time.Time {
 	return ip.Created
 }
 
-// SetCreated sets the creation timestamp of the entity
-func (ip *IP) SetCreated(created time.Time) {
-	ip.Created = created
+// GetGeneration returns the generation of the entity
+func (ip *IP) GetGeneration() uint64 {
+	return ip.Generation
+}
+
+func (ip *IP) SetChanged(t time.Time) {
+	ip.Changed = t
 }
 
 // ---------------

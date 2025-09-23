@@ -433,9 +433,10 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 	result := &apiv2.Machine{
 		Uuid: m.ID,
 		Meta: &apiv2.Meta{
-			CreatedAt: timestamppb.New(m.Created),
-			UpdatedAt: timestamppb.New(m.Changed),
-			Labels:    labels,
+			CreatedAt:  timestamppb.New(m.Created),
+			UpdatedAt:  timestamppb.New(m.Changed),
+			Labels:     labels,
+			Generation: m.Generation,
 		},
 		Partition:                apiv2Partition,
 		Rack:                     m.RackID,

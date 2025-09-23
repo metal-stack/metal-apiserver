@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"time"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
@@ -16,10 +17,18 @@ const (
 	avatarURLAnnotation   = "avatarUrl"
 )
 
-type projectRepository struct {
-	s     *Store
-	scope *ProjectScope
-}
+type (
+	projectRepository struct {
+		s     *Store
+		scope *ProjectScope
+	}
+
+	projectEntity struct {
+		*mdcv1.Project
+	}
+)
+
+func (t *projectEntity) SetChanged(time time.Time) {}
 
 func (r *projectRepository) Member() ProjectMember {
 	return r.projectMember(&ProjectScope{
@@ -37,13 +46,17 @@ func (r *projectRepository) projectMember(scope *ProjectScope) ProjectMember {
 		scope: scope,
 	}
 
-	return &store[*projectMemberRepository, *mdcv1.ProjectMember, *apiv2.ProjectMember, *ProjectMemberCreateRequest, *ProjectMemberUpdateRequest, *ProjectMemberQuery]{
+	return &store[*projectMemberRepository, *projectMemberEntity, *apiv2.ProjectMember, *ProjectMemberCreateRequest, *ProjectMemberUpdateRequest, *ProjectMemberQuery]{
 		typed:      repository,
 		repository: repository,
 	}
 }
 
-func (r *projectRepository) get(ctx context.Context, id string) (*mdcv1.Project, error) {
+func (*ProjectMemberUpdateRequest) GetUpdateMeta() *apiv2.UpdateMeta {
+	return &apiv2.UpdateMeta{}
+}
+
+func (r *projectRepository) get(ctx context.Context, id string) (*projectEntity, error) {
 	resp, err := r.s.mdc.Project().Get(ctx, &mdcv1.ProjectGetRequest{Id: id})
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -53,10 +66,12 @@ func (r *projectRepository) get(ctx context.Context, id string) (*mdcv1.Project,
 		return nil, errorutil.NotFound("project %q has no meta", id)
 	}
 
-	return resp.Project, nil
+	return &projectEntity{
+		Project: resp.Project,
+	}, nil
 }
 
-func (r *projectRepository) matchScope(p *mdcv1.Project) bool {
+func (r *projectRepository) matchScope(p *projectEntity) bool {
 	if r.scope == nil {
 		return true
 	}
@@ -64,11 +79,11 @@ func (r *projectRepository) matchScope(p *mdcv1.Project) bool {
 	return r.scope.projectID == p.Meta.Id
 }
 
-func (r *projectRepository) create(ctx context.Context, e *apiv2.ProjectServiceCreateRequest) (*mdcv1.Project, error) {
+func (r *projectRepository) create(ctx context.Context, e *apiv2.ProjectServiceCreateRequest) (*projectEntity, error) {
 	return r.CreateWithID(ctx, e, "")
 }
 
-func (r *projectRepository) CreateWithID(ctx context.Context, e *apiv2.ProjectServiceCreateRequest, id string) (*mdcv1.Project, error) {
+func (r *projectRepository) CreateWithID(ctx context.Context, e *apiv2.ProjectServiceCreateRequest, id string) (*projectEntity, error) {
 	ann := map[string]string{}
 
 	if e.AvatarUrl != nil {
@@ -80,7 +95,7 @@ func (r *projectRepository) CreateWithID(ctx context.Context, e *apiv2.ProjectSe
 		labels = tag.TagMap(e.Labels.Labels).Slice()
 	}
 
-	project := &mdcv1.Project{
+	resp, err := r.s.mdc.Project().Create(ctx, &mdcv1.ProjectCreateRequest{Project: &mdcv1.Project{
 		Meta: &mdcv1.Meta{
 			Annotations: ann,
 			Id:          id,
@@ -89,25 +104,25 @@ func (r *projectRepository) CreateWithID(ctx context.Context, e *apiv2.ProjectSe
 		Name:        e.Name,
 		Description: e.Description,
 		TenantId:    e.Login,
-	}
-
-	resp, err := r.s.mdc.Project().Create(ctx, &mdcv1.ProjectCreateRequest{Project: project})
+	}})
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	return resp.Project, nil
+	return &projectEntity{
+		Project: resp.Project,
+	}, nil
 }
 
-func (r *projectRepository) update(ctx context.Context, project *mdcv1.Project, rq *apiv2.ProjectServiceUpdateRequest) (*mdcv1.Project, error) {
+func (r *projectRepository) update(ctx context.Context, p *projectEntity, rq *apiv2.ProjectServiceUpdateRequest) (*projectEntity, error) {
 	if rq.Description != nil {
-		project.Description = *rq.Description
+		p.Description = *rq.Description
 	}
 	if rq.Name != nil {
-		project.Name = *rq.Name
+		p.Name = *rq.Name
 	}
 
-	ann := project.Meta.Annotations
+	ann := p.Meta.Annotations
 	if ann == nil {
 		ann = map[string]string{}
 	}
@@ -117,18 +132,20 @@ func (r *projectRepository) update(ctx context.Context, project *mdcv1.Project, 
 	}
 
 	if rq.Labels != nil {
-		project.Meta.Labels = updateLabelsOnSlice(rq.Labels, project.Meta.Labels)
+		p.Meta.Labels = updateLabelsOnSlice(rq.Labels, p.Meta.Labels)
 	}
 
-	resp, err := r.s.mdc.Project().Update(ctx, &mdcv1.ProjectUpdateRequest{Project: project})
+	resp, err := r.s.mdc.Project().Update(ctx, &mdcv1.ProjectUpdateRequest{Project: p.Project})
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	return resp.Project, nil
+	return &projectEntity{
+		Project: resp.Project,
+	}, nil
 }
 
-func (r *projectRepository) delete(ctx context.Context, e *mdcv1.Project) error {
+func (r *projectRepository) delete(ctx context.Context, e *projectEntity) error {
 	_, err := r.s.mdc.Project().Delete(ctx, &mdcv1.ProjectDeleteRequest{Id: e.Meta.Id})
 	if err != nil {
 		return errorutil.Convert(err)
@@ -137,7 +154,7 @@ func (r *projectRepository) delete(ctx context.Context, e *mdcv1.Project) error 
 	return nil
 }
 
-func (r *projectRepository) find(ctx context.Context, query *apiv2.ProjectServiceListRequest) (*mdcv1.Project, error) {
+func (r *projectRepository) find(ctx context.Context, query *apiv2.ProjectServiceListRequest) (*projectEntity, error) {
 	projects, err := r.list(ctx, query)
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -153,7 +170,7 @@ func (r *projectRepository) find(ctx context.Context, query *apiv2.ProjectServic
 	}
 }
 
-func (r *projectRepository) list(ctx context.Context, query *apiv2.ProjectServiceListRequest) ([]*mdcv1.Project, error) {
+func (r *projectRepository) list(ctx context.Context, query *apiv2.ProjectServiceListRequest) ([]*projectEntity, error) {
 	resp, err := r.s.mdc.Project().Find(ctx, &mdcv1.ProjectFindRequest{
 		Id:       query.Id,
 		Name:     query.Name,
@@ -163,10 +180,15 @@ func (r *projectRepository) list(ctx context.Context, query *apiv2.ProjectServic
 		return nil, errorutil.Convert(err)
 	}
 
-	return resp.GetProjects(), nil
+	ps := make([]*projectEntity, 0, len(resp.Projects))
+	for _, p := range resp.Projects {
+		ps = append(ps, &projectEntity{Project: p})
+	}
+
+	return ps, nil
 }
 
-func (r *projectRepository) convertToInternal(ctx context.Context, p *apiv2.Project) (*mdcv1.Project, error) {
+func (r *projectRepository) convertToInternal(ctx context.Context, p *apiv2.Project) (*projectEntity, error) {
 	var labels []string
 	if p.Meta != nil && p.Meta.Labels != nil && len(p.Meta.Labels.Labels) > 0 {
 		labels = tag.TagMap(p.Meta.Labels.Labels).Slice()
@@ -183,15 +205,17 @@ func (r *projectRepository) convertToInternal(ctx context.Context, p *apiv2.Proj
 		meta.Annotations["avatarUrl"] = *p.AvatarUrl
 	}
 
-	return &mdcv1.Project{
-		Meta:        meta,
-		Name:        p.Name,
-		Description: p.Description,
-		TenantId:    p.Tenant,
+	return &projectEntity{
+		Project: &mdcv1.Project{
+			Meta:        meta,
+			Name:        p.Name,
+			Description: p.Description,
+			TenantId:    p.Tenant,
+		},
 	}, nil
 }
 
-func (r *projectRepository) convertToProto(ctx context.Context, p *mdcv1.Project) (*apiv2.Project, error) {
+func (r *projectRepository) convertToProto(ctx context.Context, p *projectEntity) (*apiv2.Project, error) {
 	if p.Meta == nil {
 		return nil, errorutil.Internal("project meta is nil")
 	}
@@ -231,7 +255,7 @@ func projectRoleFromMap(annotations map[string]string) apiv2.ProjectRole {
 	return projectRole
 }
 
-func ToProject(p *mdcv1.Project) (*apiv2.Project, error) {
+func toProject(p *projectEntity) (*apiv2.Project, error) {
 	if p.Meta == nil {
 		return nil, fmt.Errorf("project meta is nil")
 	}
@@ -286,7 +310,7 @@ func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId st
 	for _, projectWithAnnotations := range projectResp.Projects {
 		p := projectWithAnnotations.Project
 
-		apip, err := ToProject(p)
+		apip, err := toProject(&projectEntity{Project: p})
 		if err != nil {
 			return nil, errorutil.Internal("unable to convert project %w", err)
 		}
@@ -319,7 +343,7 @@ func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId st
 	for _, tenantWithAnnotations := range tenantResp.Tenants {
 		t := tenantWithAnnotations.Tenant
 
-		apit, err := r.s.Tenant().ConvertToProto(ctx, t)
+		apit, err := r.s.Tenant().ConvertToProto(ctx, &tenantEntity{Tenant: t})
 		if err != nil {
 			return nil, err
 		}

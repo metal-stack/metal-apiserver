@@ -58,28 +58,27 @@ func (r *imageRepository) validateCreate(ctx context.Context, req *adminv2.Image
 
 func (r *imageRepository) validateUpdate(ctx context.Context, req *adminv2.ImageServiceUpdateRequest, _ *metal.Image) error {
 	// FIXME use validate helper
-	image := req.Image
-	if image.Id == "" {
+	if req.Id == "" {
 		return errorutil.InvalidArgument("image id must not be empty")
 	}
-	if image.Url != "" {
-		if err := checkIfUrlExists(ctx, "image", image.Id, image.Url); err != nil {
+	if req.Url != nil {
+		if err := checkIfUrlExists(ctx, "image", req.Id, *req.Url); err != nil {
 			return errorutil.NewInvalidArgument(err)
 		}
 	}
-	if len(image.Features) >= 0 {
-		if _, err := metal.ImageFeaturesFrom(image.Features); err != nil {
+	if len(req.Features) >= 0 {
+		if _, err := metal.ImageFeaturesFrom(req.Features); err != nil {
 			return errorutil.NewInvalidArgument(err)
 		}
 	}
-	if _, err := metal.VersionClassificationFrom(image.Classification); err != nil {
+	if _, err := metal.VersionClassificationFrom(req.Classification); err != nil {
 		return errorutil.NewInvalidArgument(err)
 	}
-	if _, _, err := metalcommon.GetOsAndSemverFromImage(image.Id); err != nil {
+	if _, _, err := metalcommon.GetOsAndSemverFromImage(req.Id); err != nil {
 		return errorutil.NewInvalidArgument(err)
 	}
-	if image.ExpiresAt != nil && !image.ExpiresAt.AsTime().IsZero() {
-		if image.ExpiresAt.AsTime().Before(time.Now()) {
+	if req.ExpiresAt != nil && !req.ExpiresAt.AsTime().IsZero() {
+		if req.ExpiresAt.AsTime().Before(time.Now()) {
 			return errorutil.InvalidArgument("image expiresAt must be in the future")
 		}
 	}
@@ -129,47 +128,42 @@ func (r *imageRepository) create(ctx context.Context, rq *adminv2.ImageServiceCr
 }
 
 func (r *imageRepository) update(ctx context.Context, e *metal.Image, rq *adminv2.ImageServiceUpdateRequest) (*metal.Image, error) {
-	image := rq.Image
+	if rq.Name != nil {
+		e.Name = *rq.Name
+	}
+	if rq.Description != nil {
+		e.Description = *rq.Description
+	}
+	if rq.ExpiresAt != nil {
+		e.ExpirationDate = rq.ExpiresAt.AsTime()
+	}
 
-	old, err := r.get(ctx, image.Id)
-	if err != nil {
-		return nil, err
-	}
-	new := *old
-
-	if image.Name != nil {
-		new.Name = *image.Name
-	}
-	if image.Description != nil {
-		new.Description = *image.Description
-	}
-	if image.ExpiresAt != nil {
-		new.ExpirationDate = image.ExpiresAt.AsTime()
-	}
-	if image.Classification != apiv2.ImageClassification_IMAGE_CLASSIFICATION_UNSPECIFIED {
-		classification, err := metal.VersionClassificationFrom(image.Classification)
+	if rq.Classification != apiv2.ImageClassification_IMAGE_CLASSIFICATION_UNSPECIFIED {
+		classification, err := metal.VersionClassificationFrom(rq.Classification)
 		if err != nil {
 			return nil, err
 		}
-		new.Classification = classification
+		e.Classification = classification
 	}
-	if len(image.Features) != 0 {
-		features, err := metal.ImageFeaturesFrom(image.Features)
+
+	if len(rq.Features) != 0 {
+		features, err := metal.ImageFeaturesFrom(rq.Features)
 		if err != nil {
 			return nil, err
 		}
-		new.Features = features
-	}
-	if image.Url != "" {
-		new.URL = image.Url
+		e.Features = features
 	}
 
-	err = r.s.ds.Image().Update(ctx, &new)
+	if rq.Url != nil {
+		e.URL = *rq.Url
+	}
+
+	err := r.s.ds.Image().Update(ctx, e)
 	if err != nil {
 		return nil, err
 	}
 
-	return &new, nil
+	return e, nil
 }
 
 func (r *imageRepository) delete(ctx context.Context, e *metal.Image) error {
@@ -261,8 +255,9 @@ func (r *imageRepository) convertToProto(ctx context.Context, in *metal.Image) (
 		Name:        &in.Name,
 		Description: &in.Description,
 		Meta: &apiv2.Meta{
-			CreatedAt: timestamppb.New(in.Created),
-			UpdatedAt: timestamppb.New(in.Changed),
+			CreatedAt:  timestamppb.New(in.Created),
+			UpdatedAt:  timestamppb.New(in.Changed),
+			Generation: in.Generation,
 		},
 		Url:            in.URL,
 		Features:       features,

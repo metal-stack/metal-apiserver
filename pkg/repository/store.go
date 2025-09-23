@@ -12,7 +12,6 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
-	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	mdm "github.com/metal-stack/masterdata-api/pkg/client"
 	"github.com/redis/go-redis/v9"
 )
@@ -129,7 +128,7 @@ func (s *Store) project(scope *ProjectScope) Project {
 		scope: scope,
 	}
 
-	return &store[*projectRepository, *mdcv1.Project, *apiv2.Project, *apiv2.ProjectServiceCreateRequest, *apiv2.ProjectServiceUpdateRequest, *apiv2.ProjectServiceListRequest]{
+	return &store[*projectRepository, *projectEntity, *apiv2.Project, *apiv2.ProjectServiceCreateRequest, *apiv2.ProjectServiceUpdateRequest, *apiv2.ProjectServiceListRequest]{
 		repository: repository,
 		typed:      repository,
 	}
@@ -140,7 +139,7 @@ func (s *Store) Tenant() Tenant {
 		s: s,
 	}
 
-	return &store[*tenantRepository, *mdcv1.Tenant, *apiv2.Tenant, *apiv2.TenantServiceCreateRequest, *apiv2.TenantServiceUpdateRequest, *apiv2.TenantServiceListRequest]{
+	return &store[*tenantRepository, *tenantEntity, *apiv2.Tenant, *apiv2.TenantServiceCreateRequest, *apiv2.TenantServiceUpdateRequest, *apiv2.TenantServiceListRequest]{
 		repository: repository,
 		typed:      repository,
 	}
@@ -277,9 +276,32 @@ func (s *store[R, E, M, C, U, Q]) Update(ctx context.Context, id string, u U) (E
 		return zero, err
 	}
 
+	if err = setUpdateMeta(u, e); err != nil {
+		return zero, err
+	}
+
 	return s.update(ctx, e, u)
 }
 
 func (s *store[R, E, M, C, U, Q]) AdditionalMethods() R {
 	return s.typed
+}
+
+func setUpdateMeta(u UpdateMessage, e Entity) error {
+	meta := u.GetUpdateMeta()
+
+	if meta == nil {
+		// we actually validate this already with protovalidate, but this is for completeness
+		return errorutil.InvalidArgument("update meta must be set")
+	}
+
+	// ensure optimistic locking, update meta will never be nil ensured by protovalidate
+	switch meta.LockingStrategy {
+	case apiv2.OptimisticLockingStrategy_OPTIMISTIC_LOCKING_STRATEGY_UNSPECIFIED, apiv2.OptimisticLockingStrategy_OPTIMISTIC_LOCKING_STRATEGY_CLIENT:
+		e.SetChanged(meta.UpdatedAt.AsTime())
+	case apiv2.OptimisticLockingStrategy_OPTIMISTIC_LOCKING_STRATEGY_SERVER:
+		// nothing to do, e.Changed will be taken from the fetched database entity
+	}
+
+	return nil
 }

@@ -37,7 +37,7 @@ func Initialize(ctx context.Context, log *slog.Logger, opts r.ConnectOpts, dsOpt
 
 	session, err := r.Connect(opts)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to connect to database: %w", err)
 	}
 
 	log.Info("creating / updating runtime user metal")
@@ -46,7 +46,7 @@ func Initialize(ctx context.Context, log *slog.Logger, opts r.ConnectOpts, dsOpt
 		Conflict: "update",
 	}).RunWrite(session, r.RunOpts{Context: ctx})
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to ensure runtime user metal: %w", err)
 	}
 
 	log.Info("initializing database", "database", opts.Database)
@@ -62,50 +62,50 @@ func Initialize(ctx context.Context, log *slog.Logger, opts r.ConnectOpts, dsOpt
 
 	_, err = db.Grant(demotedUser, map[string]any{"read": true, "write": true}).RunWrite(session, r.RunOpts{Context: ctx})
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to grant read / write permissions to metal user on database %s: %w", opts.Database, err)
 	}
 	_, err = r.DB("rethinkdb").Grant(demotedUser, map[string]any{"read": true}).RunWrite(session, r.RunOpts{Context: ctx})
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to grant read / write permissions to metal user on rethinkdb database: %w", err)
 	}
 
 	log.Info("initializing tables")
 
 	ds, err := New(log, opts, dsOpts...)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to create datastore: %w", err)
 	}
 
 	ds.queryExecutor = session // the metal user cannot create tables
 
 	err = ds.createTable(ctx, migrationTableName)
 	if err != nil {
-		return err
+		return fmt.Errorf("cannot create migration table: %w", err)
 	}
 
 	if err := ds.ip.initialize(ctx); err != nil {
-		return err
+		return fmt.Errorf("unable to initialize ip datastore: %w", err)
 	}
 	if err := ds.machine.initialize(ctx); err != nil {
-		return err
+		return fmt.Errorf("unable to initialize machine datastore: %w", err)
 	}
 	if err := ds.partition.initialize(ctx); err != nil {
-		return err
+		return fmt.Errorf("unable to initialize partition datastore: %w", err)
 	}
 	if err := ds.size.initialize(ctx); err != nil {
-		return err
+		return fmt.Errorf("unable to initialize size datastore: %w", err)
 	}
 	if err := ds.network.initialize(ctx); err != nil {
-		return err
+		return fmt.Errorf("unable to initialize network datastore: %w", err)
 	}
 	if err := ds.fsl.initialize(ctx); err != nil {
-		return err
+		return fmt.Errorf("unable to initialize fsl datastore: %w", err)
 	}
 	if err := ds.image.initialize(ctx); err != nil {
-		return err
+		return fmt.Errorf("unable to initialize image datastore: %w", err)
 	}
 	if err := ds.event.initialize(ctx); err != nil {
-		return err
+		return fmt.Errorf("unable to initialize event datastore: %w", err)
 	}
 	if err := ds.sw.initialize(ctx); err != nil {
 		return err
@@ -116,7 +116,7 @@ func Initialize(ctx context.Context, log *slog.Logger, opts r.ConnectOpts, dsOpt
 	// be graceful after table creation and wait until ready
 	res, err := db.Wait().Run(session, r.RunOpts{Context: ctx})
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to wait for database creation")
 	}
 	defer func() {
 		if err := res.Close(); err != nil {
@@ -127,10 +127,10 @@ func Initialize(ctx context.Context, log *slog.Logger, opts r.ConnectOpts, dsOpt
 	ds.log.Info("initializing pools")
 
 	if err := ds.asnPool.initialize(); err != nil {
-		return err
+		return fmt.Errorf("unable to initialize asn pool: %w", err)
 	}
 	if err := ds.vrfPool.initialize(); err != nil {
-		return err
+		return fmt.Errorf("unable to initialize vrf pool: %w", err)
 	}
 
 	ds.log.Info("database init complete")

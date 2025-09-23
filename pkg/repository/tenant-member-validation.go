@@ -4,7 +4,6 @@ import (
 	"context"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 )
 
@@ -12,7 +11,7 @@ func (t *tenantMemberRepository) validateCreate(ctx context.Context, req *Tenant
 	return nil
 }
 
-func (t *tenantMemberRepository) validateUpdate(ctx context.Context, req *TenantMemberUpdateRequest, membership *mdcv1.TenantMember) error {
+func (t *tenantMemberRepository) validateUpdate(ctx context.Context, req *TenantMemberUpdateRequest, membership *tenantMemberEntity) error {
 	// TODO: currently the API defines that only owners can update members so there is no possibility to elevate permissions
 	// probably, we should still check that no elevation of permissions is possible in case we later change the API
 
@@ -32,7 +31,7 @@ func (t *tenantMemberRepository) validateUpdate(ctx context.Context, req *Tenant
 	return nil
 }
 
-func (t *tenantMemberRepository) validateDelete(ctx context.Context, req *mdcv1.TenantMember) error {
+func (t *tenantMemberRepository) validateDelete(ctx context.Context, req *tenantMemberEntity) error {
 	if req.MemberId == req.TenantId {
 		return errorutil.FailedPrecondition("cannot remove a member from their own default tenant")
 	}
