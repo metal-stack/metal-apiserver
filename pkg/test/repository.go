@@ -459,9 +459,12 @@ func CreateSizes(t *testing.T, repo *repository.Store, sizes []*adminv2.SizeServ
 	return sizeMap
 }
 
-func CreateSwitches(t *testing.T, store *repository.Store, switches []*repository.SwitchServiceCreateRequest) {
+func CreateSwitches(t *testing.T, store *repository.Store, switches []*repository.SwitchServiceCreateRequest) map[string]*metal.Switch {
+	switchMap := map[string]*metal.Switch{}
 	for _, sw := range switches {
-		_, err := store.Switch().Create(t.Context(), sw)
+		s, err := store.Switch().Create(t.Context(), sw)
 		require.NoError(t, err)
+		switchMap[s.ID] = s
 	}
+	return switchMap
 }

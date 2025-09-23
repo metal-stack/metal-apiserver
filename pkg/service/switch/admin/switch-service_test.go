@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var (
@@ -346,7 +347,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 	)
 
 	test.CreatePartitions(t, repo, partitions)
-	test.CreateSwitches(t, repo, switches)
+	switchMap := test.CreateSwitches(t, repo, switches)
 
 	tests := []struct {
 		name    string
@@ -357,17 +358,23 @@ func Test_switchServiceServer_Update(t *testing.T) {
 		{
 			name: "no updates made",
 			rq: &adminv2.SwitchServiceUpdateRequest{
-				Id: "sw1",
+				Id: "sw3",
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(switchMap["sw3"].Changed),
+				},
 			},
 			want: &adminv2.SwitchServiceUpdateResponse{
-				Switch: sw1.Switch,
+				Switch: sw3.Switch,
 			},
 			wantErr: nil,
 		},
 		{
 			name: "update all valid fields",
 			rq: &adminv2.SwitchServiceUpdateRequest{
-				Id:          "sw1",
+				Id: "sw1",
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(switchMap["sw1"].Changed),
+				},
 				Description: pointer.Pointer("new description"),
 				// TODO: should it be allowed to update the rack?
 				RackId:         pointer.Pointer("rack03"),
