@@ -4,7 +4,6 @@ import (
 	"context"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 )
 
@@ -12,11 +11,11 @@ func (r *projectRepository) validateCreate(ctx context.Context, req *apiv2.Proje
 	return nil
 }
 
-func (r *projectRepository) validateUpdate(ctx context.Context, req *apiv2.ProjectServiceUpdateRequest, _ *mdcv1.Project) error {
+func (r *projectRepository) validateUpdate(ctx context.Context, req *apiv2.ProjectServiceUpdateRequest, _ *projectEntity) error {
 	return nil
 }
 
-func (r *projectRepository) validateDelete(ctx context.Context, req *mdcv1.Project) error {
+func (r *projectRepository) validateDelete(ctx context.Context, req *projectEntity) error {
 	ips, err := r.s.IP(req.Meta.Id).List(ctx, &apiv2.IPQuery{Project: &req.Meta.Id})
 	if err != nil {
 		return errorutil.Convert(err)

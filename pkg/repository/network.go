@@ -449,9 +449,10 @@ func (r *networkRepository) convertToProto(ctx context.Context, e *metal.Network
 		ParentNetwork:              pointer.PointerOrNil(e.ParentNetworkID),
 		AdditionalAnnouncableCidrs: e.AdditionalAnnouncableCIDRs,
 		Meta: &apiv2.Meta{
-			Labels:    labels,
-			CreatedAt: timestamppb.New(e.Created),
-			UpdatedAt: timestamppb.New(e.Changed),
+			Labels:     labels,
+			CreatedAt:  timestamppb.New(e.Created),
+			UpdatedAt:  timestamppb.New(e.Changed),
+			Generation: e.Generation,
 		},
 		NatType:                  natType,
 		DefaultChildPrefixLength: defaultChildPrefixLength,

@@ -27,6 +27,8 @@ import (
 type interceptorTestFn func(string, []connect.Interceptor, func(context.Context)) *connect.Handler
 
 func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)

@@ -66,7 +66,7 @@ func Test_machineServiceServer_Get(t *testing.T) {
 			want: &adminv2.MachineServiceGetResponse{
 				Machine: &apiv2.Machine{
 					Uuid:      "m1",
-					Meta:      &apiv2.Meta{},
+					Meta:      &apiv2.Meta{Generation: 0},
 					Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
 					Bios:      &apiv2.MachineBios{},
 					Hardware:  &apiv2.MachineHardware{},

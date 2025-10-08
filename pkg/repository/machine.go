@@ -435,9 +435,10 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 	result := &apiv2.Machine{
 		Uuid: m.ID,
 		Meta: &apiv2.Meta{
-			CreatedAt: timestamppb.New(m.Created),
-			UpdatedAt: timestamppb.New(m.Changed),
-			Labels:    labels,
+			CreatedAt:  timestamppb.New(m.Created),
+			UpdatedAt:  timestamppb.New(m.Changed),
+			Labels:     labels,
+			Generation: m.Generation,
 		},
 		Partition:                apiv2Partition,
 		Rack:                     m.RackID,
@@ -632,7 +633,7 @@ func (r *machineRepository) Register(ctx context.Context, req *infrav2.BootServi
 	}
 
 	// FIXME Event and Switch service missing or not implemented yet
-	ec, err := r.s.ds.Event().Find(ctx, TODO)
+	ec, err := r.s.ds.Event().Find(ctx, nil)
 	if err != nil && !errorutil.IsNotFound(err) {
 		return nil, err
 	}

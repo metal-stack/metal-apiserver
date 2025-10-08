@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 )
@@ -14,13 +15,21 @@ type (
 	ProvisioningEventQuery struct {
 		MachineId *string
 	}
+
+	EventServiceSendRequest struct {
+		*infrav2.EventServiceSendRequest
+	}
 )
+
+func (*EventServiceSendRequest) GetUpdateMeta() *apiv2.UpdateMeta {
+	return &apiv2.UpdateMeta{}
+}
 
 func (r *provisioningEventRepository) validateCreate(ctx context.Context, req *infrav2.EventServiceSendRequest) error {
 	panic("unimplemented")
 }
 
-func (r *provisioningEventRepository) validateUpdate(ctx context.Context, req *infrav2.EventServiceSendRequest, e *metal.ProvisioningEventContainer) error {
+func (r *provisioningEventRepository) validateUpdate(ctx context.Context, req *EventServiceSendRequest, e *metal.ProvisioningEventContainer) error {
 	panic("unimplemented")
 }
 
@@ -34,7 +43,7 @@ func (r *provisioningEventRepository) create(ctx context.Context, c *infrav2.Eve
 }
 
 // Update implements ProvisioningEvent.
-func (r *provisioningEventRepository) update(ctx context.Context, e *metal.ProvisioningEventContainer, u *infrav2.EventServiceSendRequest) (*metal.ProvisioningEventContainer, error) {
+func (r *provisioningEventRepository) update(ctx context.Context, e *metal.ProvisioningEventContainer, u *EventServiceSendRequest) (*metal.ProvisioningEventContainer, error) {
 	panic("unimplemented")
 }
 

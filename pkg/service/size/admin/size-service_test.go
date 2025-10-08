@@ -14,9 +14,12 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func Test_sizeServiceServer_Create(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
@@ -142,6 +145,8 @@ func Test_sizeServiceServer_Create(t *testing.T) {
 }
 
 func Test_sizeServiceServer_Update(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
@@ -188,7 +193,7 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 		},
 	}
 
-	test.CreateSizes(t, repo, sizes)
+	sizeMap := test.CreateSizes(t, repo, sizes)
 
 	tests := []struct {
 		name    string
@@ -200,6 +205,9 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 			name: "update n1-medium name and description",
 			rq: &adminv2.SizeServiceUpdateRequest{
 				Id: "n1-medium-x86", Name: pointer.Pointer("n1-medium"), Description: pointer.Pointer("best for firewalls"),
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(sizeMap["n1-medium-x86"].Changed),
+				},
 				Constraints: []*apiv2.SizeConstraint{
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
@@ -209,7 +217,7 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 			want: &adminv2.SizeServiceUpdateResponse{
 				Size: &apiv2.Size{
 					Id: "n1-medium-x86", Name: pointer.Pointer("n1-medium"), Description: pointer.Pointer("best for firewalls"),
-					Meta: &apiv2.Meta{},
+					Meta: &apiv2.Meta{Generation: 1},
 					Constraints: []*apiv2.SizeConstraint{
 						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
 						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
@@ -223,6 +231,9 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 			name: "update n2-medium constraints",
 			rq: &adminv2.SizeServiceUpdateRequest{
 				Id: "n2-medium-x86",
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(sizeMap["n2-medium-x86"].Changed),
+				},
 				Constraints: []*apiv2.SizeConstraint{
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 6, Max: 12},
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 2 * 1024 * 1024},
@@ -232,7 +243,7 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 			want: &adminv2.SizeServiceUpdateResponse{
 				Size: &apiv2.Size{
 					Id: "n2-medium-x86", Name: pointer.Pointer("n2-medium-x86"),
-					Meta: &apiv2.Meta{},
+					Meta: &apiv2.Meta{Generation: 1},
 					Constraints: []*apiv2.SizeConstraint{
 						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 6, Max: 12},
 						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 2 * 1024 * 1024},
@@ -246,6 +257,9 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 			name: "update n3-medium labels",
 			rq: &adminv2.SizeServiceUpdateRequest{
 				Id: "n3-medium-x86",
+				UpdateMeta: &apiv2.UpdateMeta{
+					UpdatedAt: timestamppb.New(sizeMap["n3-medium-x86"].Changed),
+				},
 				Labels: &apiv2.UpdateLabels{
 					Update: &apiv2.Labels{Labels: map[string]string{"purpose": "big worker"}},
 					Remove: []string{"location"},
@@ -258,6 +272,7 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 						Labels: &apiv2.Labels{
 							Labels: map[string]string{"purpose": "big worker", "architecture": "x86"},
 						},
+						Generation: 1,
 					},
 					Constraints: []*apiv2.SizeConstraint{
 						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 12, Max: 12},
@@ -309,6 +324,8 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 }
 
 func Test_sizeServiceServer_Delete(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)

@@ -163,18 +163,12 @@ func (r *ipRepository) create(ctx context.Context, req *apiv2.IPServiceCreateReq
 
 func (r *ipRepository) update(ctx context.Context, e *metal.IP, req *apiv2.IPServiceUpdateRequest) (*metal.IP, error) {
 	rq := req
-	old, err := r.get(ctx, rq.Ip)
-	if err != nil {
-		return nil, err
-	}
-
-	new := *old
 
 	if rq.Description != nil {
-		new.Description = *rq.Description
+		e.Description = *rq.Description
 	}
 	if rq.Name != nil {
-		new.Name = *rq.Name
+		e.Name = *rq.Name
 	}
 	if rq.Type != nil {
 		var t metal.IPType
@@ -186,18 +180,18 @@ func (r *ipRepository) update(ctx context.Context, e *metal.IP, req *apiv2.IPSer
 		case apiv2.IPType_IP_TYPE_UNSPECIFIED.String():
 			return nil, errorutil.InvalidArgument("ip type cannot be unspecified: %s", rq.Type)
 		}
-		new.Type = t
+		e.Type = t
 	}
 	if rq.Labels != nil {
-		new.Tags = updateLabelsOnSlice(rq.Labels, new.Tags)
+		e.Tags = updateLabelsOnSlice(rq.Labels, e.Tags)
 	}
 
-	err = r.s.ds.IP().Update(ctx, &new)
+	err := r.s.ds.IP().Update(ctx, e)
 	if err != nil {
 		return nil, err
 	}
 
-	return &new, nil
+	return e, nil
 }
 
 func (r *ipRepository) delete(ctx context.Context, e *metal.IP) error {
@@ -320,9 +314,10 @@ func (r *ipRepository) convertToProto(ctx context.Context, metalIP *metal.IP) (*
 		Namespace:   metalIP.Namespace,
 		Type:        t,
 		Meta: &apiv2.Meta{
-			Labels:    labels,
-			CreatedAt: timestamppb.New(metalIP.Created),
-			UpdatedAt: timestamppb.New(metalIP.Changed),
+			Labels:     labels,
+			CreatedAt:  timestamppb.New(metalIP.Created),
+			UpdatedAt:  timestamppb.New(metalIP.Changed),
+			Generation: metalIP.Generation,
 		},
 	}
 	return ip, nil
