@@ -114,10 +114,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	if err != nil {
 		return nil, err
 	}
-	validationInterceptor, err := validate.NewInterceptor()
-	if err != nil {
-		return nil, err
-	}
+	validationInterceptor := validate.NewInterceptor()
 
 	var (
 		logInteceptor        = newLogRequestInterceptor(log)
