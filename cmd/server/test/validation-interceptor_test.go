@@ -15,8 +15,7 @@ import (
 
 func TestWithValidator(t *testing.T) {
 	t.Parallel()
-	interceptor, err := validate.NewInterceptor()
-	require.NoError(t, err)
+	interceptor := validate.NewInterceptor()
 
 	mux := http.NewServeMux()
 	mux.Handle(apiv2connect.TokenServiceCreateProcedure, connect.NewUnaryHandler(
@@ -29,7 +28,7 @@ func TestWithValidator(t *testing.T) {
 	req := connect.NewRequest(&apiv1.TokenServiceCreateRequest{
 		Description: "",
 	})
-	_, err = apiv2connect.NewTokenServiceClient(srv.Client(), srv.URL).Create(t.Context(), req)
+	_, err := apiv2connect.NewTokenServiceClient(srv.Client(), srv.URL).Create(t.Context(), req)
 	require.Error(t, err)
 	require.EqualError(t, err, "invalid_argument: validation error:\n - description: value length must be at least 2 characters [string.min_len]")
 	require.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
