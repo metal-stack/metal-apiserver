@@ -186,9 +186,6 @@ func ConnectErrorComparer() cmp.Option {
 		if x.Error() != y.Error() {
 			return false
 		}
-		if x.Code() != y.Code() {
-			return false
-		}
-		return true
+		return x.Code() == y.Code()
 	})
 }

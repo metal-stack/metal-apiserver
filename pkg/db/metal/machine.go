@@ -2,6 +2,8 @@ package metal
 
 import (
 	"fmt"
+	"net/netip"
+	"slices"
 	"time"
 )
 
@@ -423,4 +425,19 @@ func LEDStateFrom(name string) (LEDState, error) {
 type ChassisIdentifyLEDState struct {
 	Value       LEDState `rethinkdb:"value"`
 	Description string   `rethinkdb:"description"`
+}
+
+func (n *MachineNetwork) ContainsIP(ip string) bool {
+	pip, err := netip.ParseAddr(ip)
+	if err != nil {
+		return false
+	}
+
+	return slices.ContainsFunc(n.Prefixes, func(p string) bool {
+		n, err := netip.ParsePrefix(p)
+		if err != nil {
+			return false
+		}
+		return n.Contains(pip)
+	})
 }

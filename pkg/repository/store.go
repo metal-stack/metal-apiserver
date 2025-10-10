@@ -178,6 +178,17 @@ func (s *Store) Partition() Partition {
 	}
 }
 
+func (s *Store) Switch() Switch {
+	repository := &switchRepository{
+		s: s,
+	}
+
+	return &store[*switchRepository, *metal.Switch, *apiv2.Switch, *SwitchServiceCreateRequest, *adminv2.SwitchServiceUpdateRequest, *apiv2.SwitchQuery]{
+		repository: repository,
+		typed:      repository,
+	}
+}
+
 func (s *store[R, E, M, C, U, Q]) ConvertToInternal(ctx context.Context, msg M) (E, error) {
 	return s.convertToInternal(ctx, msg)
 }
