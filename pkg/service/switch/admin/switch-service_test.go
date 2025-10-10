@@ -375,9 +375,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 				UpdateMeta: &apiv2.UpdateMeta{
 					UpdatedAt: timestamppb.New(switchMap["sw1"].Changed),
 				},
-				Description: pointer.Pointer("new description"),
-				// TODO: should it be allowed to update the rack?
-				RackId:         pointer.Pointer("rack03"),
+				Description:    pointer.Pointer("new description"),
 				ReplaceMode:    pointer.Pointer(apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE),
 				ManagementIp:   pointer.Pointer("1.1.1.5"),
 				ManagementUser: pointer.Pointer("metal"),
@@ -406,7 +404,6 @@ func Test_switchServiceServer_Update(t *testing.T) {
 						BgpFilter: &apiv2.BGPFilter{},
 					},
 				},
-				// TODO: should there be a dedicated SwitchOSUpdate type where all fields are optional?
 				Os: &apiv2.SwitchOS{
 					Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
 					Version:          "ec202211",
@@ -417,7 +414,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 				Switch: &apiv2.Switch{
 					Id:             "sw1",
 					Description:    "new description",
-					Rack:           pointer.Pointer("rack03"),
+					Rack:           pointer.Pointer("rack01"),
 					Partition:      "partition-a",
 					ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE,
 					ManagementIp:   "1.1.1.5",

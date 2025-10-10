@@ -326,8 +326,7 @@ func Test_makeBGPFilterMachine(t *testing.T) {
 						Role: metal.RoleFirewall,
 						MachineNetworks: []*metal.MachineNetwork{
 							{
-								IPs:      []string{"4.4.4.4"},
-								Prefixes: []string{"5.5.5.0/24"},
+								IPs: []string{"4.4.4.4"},
 							},
 						},
 					},
@@ -354,9 +353,6 @@ func Test_makeBGPFilterMachine(t *testing.T) {
 					},
 					{
 						IPAddress: "4.4.4.4",
-					},
-					{
-						IPAddress: "5.5.5.5",
 					},
 				},
 				"project-b": metal.IPs{

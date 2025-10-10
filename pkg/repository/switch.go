@@ -60,7 +60,6 @@ func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServ
 	updateReq := &adminv2.SwitchServiceUpdateRequest{
 		Id:             new.Id,
 		Description:    pointer.PointerOrNil(new.Description),
-		RackId:         new.Rack,
 		ReplaceMode:    pointer.PointerOrNil(new.ReplaceMode),
 		ManagementIp:   pointer.PointerOrNil(new.ManagementIp),
 		ManagementUser: pointer.PointerOrNil(new.ManagementUser),
@@ -122,9 +121,6 @@ func (r *switchRepository) update(ctx context.Context, oldSwitch *metal.Switch, 
 
 	if req.Description != nil {
 		new.Description = *req.Description
-	}
-	if req.RackId != nil {
-		new.RackID = *req.RackId
 	}
 	if req.ReplaceMode != nil {
 		replaceMode, err := metal.ToReplaceMode(*req.ReplaceMode)
