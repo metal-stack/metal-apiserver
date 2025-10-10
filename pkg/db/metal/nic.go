@@ -58,8 +58,9 @@ type SwitchPortStatus string
 // UP indicates the port is up and operational.
 // DOWN indicates the port is down and not operational.
 const (
-	SwitchPortStatusUp   SwitchPortStatus = "UP"
-	SwitchPortStatusDown SwitchPortStatus = "DOWN"
+	SwitchPortStatusUnknown SwitchPortStatus = "UNKNOWN"
+	SwitchPortStatusUp      SwitchPortStatus = "UP"
+	SwitchPortStatusDown    SwitchPortStatus = "DOWN"
 )
 
 func (nics Nics) MapByIdentifier() NicMap {
