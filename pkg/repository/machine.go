@@ -486,14 +486,14 @@ func (r *machineRepository) Register(ctx context.Context, req *infrav2.BootServi
 			neigh := nic.Neighbors[j]
 			neighs = append(neighs, metal.Nic{
 				Name:       neigh.Name,
-				MacAddress: metal.MacAddress(neigh.Mac),
-				// Hostname:   neigh.Hostname, // FIXME do we really have hostname of the neighbour from the metal-hammer ?
+				MacAddress: neigh.Mac,
+				// Hostname:   neigh.Hostname, // FIXME do we really have hostname of the neighbor from the metal-hammer ?
 				Identifier: neigh.Identifier,
 			})
 		}
 		nics = append(nics, metal.Nic{
 			Name:       nic.Name,
-			MacAddress: metal.MacAddress(nic.Mac),
+			MacAddress: nic.Mac,
 			Identifier: nic.Identifier,
 			Neighbors:  neighs,
 		})

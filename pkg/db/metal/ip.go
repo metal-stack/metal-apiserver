@@ -44,6 +44,9 @@ type IP struct {
 	Generation       uint64    `rethinkdb:"generation"`
 }
 
+type IPs []*IP
+type IPsMap map[string]IPs
+
 // GetID returns the ID of the entity
 func (ip *IP) GetID() string {
 	return ip.IPAddress
@@ -111,5 +114,12 @@ func ToIPType(ipt *apiv2.IPType) (IPType, error) {
 	default:
 		return Ephemeral, errorutil.InvalidArgument("given ip type is not supported:%s", ipt.String())
 	}
+}
 
+func IPsByProject(ips []*IP) IPsMap {
+	ipMap := make(IPsMap)
+	for _, ip := range ips {
+		ipMap[ip.ProjectID] = append(ipMap[ip.ProjectID], ip)
+	}
+	return ipMap
 }

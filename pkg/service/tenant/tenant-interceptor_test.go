@@ -331,6 +331,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 
 			c, err := client.New(&client.DialConfig{
 				BaseURL: server.URL,
+				Log:     log,
 			})
 			require.NoError(t, err)
 

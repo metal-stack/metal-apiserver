@@ -44,6 +44,8 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/service/project"
 	"github.com/metal-stack/metal-apiserver/pkg/service/size"
 	sizeadmin "github.com/metal-stack/metal-apiserver/pkg/service/size/admin"
+	switchadmin "github.com/metal-stack/metal-apiserver/pkg/service/switch/admin"
+	switchinfra "github.com/metal-stack/metal-apiserver/pkg/service/switch/infra"
 	"github.com/metal-stack/metal-apiserver/pkg/service/tenant"
 	tenantadmin "github.com/metal-stack/metal-apiserver/pkg/service/tenant/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/token"
@@ -131,6 +133,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 
 	allInterceptors := []connect.Interceptor{metricsInterceptor, logInterceptor, authz, ratelimitInterceptor, validationInterceptor, tenantInterceptor}
 	allAdminInterceptors := []connect.Interceptor{metricsInterceptor, logInterceptor, authz, validationInterceptor, tenantInterceptor}
+	allInfraInterceptors := []connect.Interceptor{metricsInterceptor, logInterceptor, authz, validationInterceptor}
 	if c.Auditing != nil {
 		servicePermissions := permissions.GetServicePermissions()
 		shouldAudit := func(fullMethod string) bool {
@@ -150,6 +153,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	}
 	interceptors := connect.WithInterceptors(allInterceptors...)
 	adminInterceptors := connect.WithInterceptors(allAdminInterceptors...)
+	infraInterceptors := connect.WithInterceptors(allInfraInterceptors...)
 
 	methodService := method.New()
 	tenantService := tenant.New(tenant.Config{
@@ -225,6 +229,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	adminSizeService := sizeadmin.New(sizeadmin.Config{Log: log, Repo: c.Repository})
 	adminMachineService := machineadmin.New(machineadmin.Config{Log: log, Repo: c.Repository})
 	adminNetworkService := networkadmin.New(networkadmin.Config{Log: log, Repo: c.Repository})
+	adminSwitchService := switchadmin.New(switchadmin.Config{Log: log, Repo: c.Repository})
 	mux.Handle(adminv2connect.NewIPServiceHandler(adminIpService, adminInterceptors))
 	mux.Handle(adminv2connect.NewImageServiceHandler(adminImageService, adminInterceptors))
 	mux.Handle(adminv2connect.NewFilesystemServiceHandler(adminFilesystemService, adminInterceptors))
@@ -232,11 +237,15 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	mux.Handle(adminv2connect.NewSizeServiceHandler(adminSizeService, adminInterceptors))
 	mux.Handle(adminv2connect.NewTenantServiceHandler(adminTenantService, adminInterceptors))
 	mux.Handle(adminv2connect.NewNetworkServiceHandler(adminNetworkService, adminInterceptors))
+	mux.Handle(adminv2connect.NewSwitchServiceHandler(adminSwitchService, adminInterceptors))
 	mux.Handle(adminv2connect.NewMachineServiceHandler(adminMachineService, adminInterceptors))
 
 	// Infra services, we use adminInterceptors to prevent rate limiting
 	bootService := boot.New(boot.Config{Log: log, Repo: c.Repository})
 	mux.Handle(infrav2connect.NewBootServiceHandler(bootService, adminInterceptors))
+	// Infra services
+	infraSwitchService := switchinfra.New(switchinfra.Config{Log: log, Repo: c.Repository})
+	mux.Handle(infrav2connect.NewSwitchServiceHandler(infraSwitchService, infraInterceptors))
 
 	allServiceNames := permissions.GetServices()
 	// Static HealthCheckers
