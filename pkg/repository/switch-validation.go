@@ -158,10 +158,10 @@ func validateConnectedNics(old, new metal.Nics, connections metal.ConnectionMap)
 
 func nicIsConnected(identifier string, connections metal.ConnectionMap) bool {
 	flatConnections := lo.Flatten(lo.Values(connections))
-	connectionIdentifiers := lo.Map(flatConnections, func(c metal.Connection, i int) string {
-		return c.Nic.Identifier
+
+	return slices.ContainsFunc(flatConnections, func(con metal.Connection) bool {
+		return con.Nic.Identifier == identifier
 	})
-	return slices.Contains(connectionIdentifiers, identifier)
 }
 
 func mapToIdentifier(nics metal.Nics) []string {
