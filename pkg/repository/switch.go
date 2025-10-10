@@ -143,7 +143,7 @@ func (r *switchRepository) update(ctx context.Context, oldSwitch *metal.Switch, 
 		new.ConsoleCommand = *req.ConsoleCommand
 	}
 	if len(req.Nics) > 0 {
-		nics, err := metal.ToMetalNics(req.Nics)
+		nics, err := toMetalNics(req.Nics)
 		if err != nil {
 			return nil, err
 		}
@@ -199,7 +199,7 @@ func (r *switchRepository) convertToInternal(ctx context.Context, sw *apiv2.Swit
 		return nil, nil
 	}
 
-	nics, err := metal.ToMetalNics(sw.Nics)
+	nics, err := toMetalNics(sw.Nics)
 	if err != nil {
 		return nil, err
 	}
@@ -213,7 +213,7 @@ func (r *switchRepository) convertToInternal(ctx context.Context, sw *apiv2.Swit
 		return nil, err
 	}
 
-	connections, err := metal.ToMachineConnections(sw.MachineConnections)
+	connections, err := toMachineConnections(sw.MachineConnections)
 	if err != nil {
 		return nil, err
 	}
@@ -625,4 +625,106 @@ func isFirewallIP(ip string, machines []*metal.Machine) bool {
 	}
 
 	return false
+}
+
+func toMetalNics(switchNics []*apiv2.SwitchNic) (metal.Nics, error) {
+	var nics metal.Nics
+
+	for _, switchNic := range switchNics {
+		if switchNic == nil {
+			continue
+		}
+
+		nic, err := toMetalNic(switchNic)
+		if err != nil {
+			return nil, err
+		}
+
+		nics = append(nics, *nic)
+	}
+
+	return nics, nil
+}
+
+func toMetalNic(switchNic *apiv2.SwitchNic) (*metal.Nic, error) {
+	var (
+		bgpPortState *metal.SwitchBGPPortState
+		nicState     *metal.NicState
+	)
+
+	if switchNic.BgpPortState != nil {
+		bgpState, err := metal.ToBGPState(switchNic.BgpPortState.BgpState)
+		if err != nil {
+			return nil, err
+		}
+
+		bgpPortState = &metal.SwitchBGPPortState{
+			Neighbor:              switchNic.BgpPortState.Neighbor,
+			PeerGroup:             switchNic.BgpPortState.PeerGroup,
+			VrfName:               switchNic.BgpPortState.VrfName,
+			BgpState:              bgpState,
+			BgpTimerUpEstablished: uint64(switchNic.BgpPortState.BgpTimerUpEstablished.Seconds),
+			SentPrefixCounter:     switchNic.BgpPortState.SentPrefixCounter,
+			AcceptedPrefixCounter: switchNic.BgpPortState.AcceptedPrefixCounter,
+		}
+	}
+
+	if switchNic.State != nil {
+		desiredState, err := metal.ToSwitchPortStatus(switchNic.State.Desired)
+		if err != nil {
+			return nil, err
+		}
+		actualState, err := metal.ToSwitchPortStatus(switchNic.State.Actual)
+		if err != nil {
+			return nil, err
+		}
+		nicState = &metal.NicState{
+			Desired: &desiredState,
+			Actual:  actualState,
+		}
+	}
+
+	return &metal.Nic{
+		// TODO: what about hostname and neighbors?
+		Name:         switchNic.Name,
+		Identifier:   switchNic.Identifier,
+		MacAddress:   switchNic.Mac,
+		Vrf:          pointer.SafeDeref(switchNic.Vrf),
+		State:        nicState,
+		BGPPortState: bgpPortState,
+	}, nil
+}
+
+func toMachineConnections(connections []*apiv2.MachineConnection) (metal.ConnectionMap, error) {
+	var (
+		machineConnections = make(metal.ConnectionMap)
+		connectedNics      []string
+		duplicateNics      []string
+	)
+
+	for _, con := range connections {
+		nic, err := toMetalNic(con.Nic)
+		if err != nil {
+			return nil, err
+		}
+
+		metalCons := machineConnections[con.MachineId]
+		metalCons = append(metalCons, metal.Connection{
+			Nic:       *nic,
+			MachineID: con.MachineId,
+		})
+
+		machineConnections[con.MachineId] = metalCons
+
+		if slices.Contains(connectedNics, nic.Identifier) {
+			duplicateNics = append(duplicateNics, nic.Identifier)
+		}
+		connectedNics = append(connectedNics, nic.Identifier)
+	}
+
+	if len(duplicateNics) > 0 {
+		return nil, errorutil.InvalidArgument("found multiple connections for nics %v", duplicateNics)
+	}
+
+	return machineConnections, nil
 }

@@ -68,7 +68,7 @@ func (r *switchRepository) validateUpdate(ctx context.Context, req *adminv2.Swit
 		errs = append(errs, err)
 	}
 
-	reqNics, err := metal.ToMetalNics(req.Nics)
+	reqNics, err := toMetalNics(req.Nics)
 	if err != nil {
 		errs = append(errs, err)
 	}
