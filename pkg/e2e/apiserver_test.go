@@ -20,6 +20,7 @@ func TestUnauthenticated(t *testing.T) {
 	apiClient, err := client.New(&client.DialConfig{
 		BaseURL:   baseURL,
 		UserAgent: "integration test",
+		Log:       log,
 	})
 	require.NoError(t, err)
 
@@ -40,6 +41,7 @@ func TestAuthenticated(t *testing.T) {
 		BaseURL:   baseURL,
 		Token:     adminToken,
 		UserAgent: "integration test",
+		Log:       log,
 	})
 	require.NoError(t, err)
 
