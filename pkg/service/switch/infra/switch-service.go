@@ -41,3 +41,7 @@ func (s *switchServiceServer) Register(ctx context.Context, rq *connect.Request[
 
 	return connect.NewResponse(&infrav2.SwitchServiceRegisterResponse{Switch: converted}), nil
 }
+
+func (s *switchServiceServer) Heartbeat(ctx context.Context, rq *connect.Request[infrav2.SwitchServiceHeartbeatRequest]) (*connect.Response[infrav2.SwitchServiceHeartbeatResponse], error) {
+	panic("unimplemented")
+}
