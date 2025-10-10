@@ -78,6 +78,7 @@ func Test_logInterceptor_AuditingCtx(t *testing.T) {
 
 			c, err := client.New(&client.DialConfig{
 				BaseURL: server.URL,
+				Log:     logger,
 			})
 			require.NoError(t, err)
 
