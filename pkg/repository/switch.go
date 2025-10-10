@@ -49,7 +49,7 @@ func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServ
 		return nil, err
 	}
 
-	if sw.ReplaceMode == metal.ReplaceModeReplace {
+	if sw.ReplaceMode == metal.SwitchReplaceModeReplace {
 		err = r.validateReplace(ctx, old, new)
 		if err != nil {
 			return nil, err

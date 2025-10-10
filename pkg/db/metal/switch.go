@@ -46,24 +46,19 @@ type SwitchReplaceMode string
 type SwitchOSVendor string
 
 const (
-	ReplaceModeReplace     = SwitchReplaceMode("replace")
-	ReplaceModeOperational = SwitchReplaceMode("operational")
+	SwitchReplaceModeReplace     = SwitchReplaceMode("replace")
+	SwitchReplaceModeOperational = SwitchReplaceMode("operational")
 
 	SwitchOSVendorCumulus = SwitchOSVendor("Cumulus")
 	SwitchOSVendorSonic   = SwitchOSVendor("SONiC")
 )
 
 func ToReplaceMode(mode apiv2.SwitchReplaceMode) (SwitchReplaceMode, error) {
-	switch mode {
-	case apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL:
-		return ReplaceModeOperational, nil
-	case apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE:
-		return ReplaceModeReplace, nil
-	case apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_UNSPECIFIED:
-		fallthrough
-	default:
-		return SwitchReplaceMode(""), fmt.Errorf("switch replace mode:%q is invalid", mode)
+	stringValue, err := enum.GetStringValue(mode)
+	if err != nil {
+		return SwitchReplaceMode(""), err
 	}
+	return SwitchReplaceMode(*stringValue), nil
 }
 
 func FromReplaceMode(mode SwitchReplaceMode) (apiv2.SwitchReplaceMode, error) {
