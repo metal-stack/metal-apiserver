@@ -245,7 +245,7 @@ func (r *switchRepository) convertToProto(ctx context.Context, sw *metal.Switch)
 		return nil, nil
 	}
 
-	nics, err := r.toSwitchNics(ctx, sw.Nics, sw.MachineConnections)
+	nics, err := r.toSwitchNics(ctx, sw)
 	if err != nil {
 		return nil, err
 	}
@@ -296,7 +296,7 @@ func (r *switchRepository) switchFilters(filter generic.EntityQuery) []generic.E
 	return qs
 }
 
-func (r *switchRepository) toSwitchNics(ctx context.Context, nics metal.Nics, connections metal.ConnectionMap) ([]*apiv2.SwitchNic, error) {
+func (r *switchRepository) toSwitchNics(ctx context.Context, sw *metal.Switch) ([]*apiv2.SwitchNic, error) {
 	networks, err := r.s.ds.Network().List(ctx)
 	if err != nil {
 		return nil, err
@@ -308,7 +308,7 @@ func (r *switchRepository) toSwitchNics(ctx context.Context, nics metal.Nics, co
 	}
 
 	var switchNics []*apiv2.SwitchNic
-	for _, nic := range nics {
+	for _, nic := range sw.Nics {
 		var bgpPortState *apiv2.SwitchBGPPortState
 		if nic.BGPPortState != nil {
 			bgpState, err := metal.FromBGPState(nic.BGPPortState.BgpState)
@@ -336,7 +336,7 @@ func (r *switchRepository) toSwitchNics(ctx context.Context, nics metal.Nics, co
 			return nil, err
 		}
 
-		m, err := r.getConnectedMachineForNic(ctx, nic, connections)
+		m, err := r.getConnectedMachineForNic(ctx, nic, sw.MachineConnections)
 		if err != nil {
 			return nil, err
 		}
@@ -347,6 +347,8 @@ func (r *switchRepository) toSwitchNics(ctx context.Context, nics metal.Nics, co
 				Allocation: &apiv2.MachineAllocationQuery{
 					Project: pointer.Pointer(m.Allocation.Project),
 				},
+				Partition: pointer.Pointer(sw.Partition),
+				Rack:      pointer.Pointer(sw.RackID),
 			}))
 			if err != nil {
 				return nil, err
