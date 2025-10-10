@@ -2,7 +2,8 @@ package metal
 
 import (
 	"fmt"
-	"net"
+	"net/netip"
+	"slices"
 	"time"
 )
 
@@ -427,15 +428,16 @@ type ChassisIdentifyLEDState struct {
 }
 
 func (n *MachineNetwork) ContainsIP(ip string) bool {
-	pip := net.ParseIP(ip)
-	for _, p := range n.Prefixes {
-		_, n, err := net.ParseCIDR(p)
-		if err != nil {
-			continue
-		}
-		if n.Contains(pip) {
-			return true
-		}
+	pip, err := netip.ParseAddr(ip)
+	if err != nil {
+		return false
 	}
-	return false
+
+	return slices.ContainsFunc(n.Prefixes, func(p string) bool {
+		n, err := netip.ParsePrefix(p)
+		if err != nil {
+			return false
+		}
+		return n.Contains(pip)
+	})
 }
