@@ -18,7 +18,7 @@ import (
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/samber/lo"
 	"go4.org/netipx"
-	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type switchRepository struct {
@@ -321,7 +321,7 @@ func (r *switchRepository) toSwitchNics(ctx context.Context, nics metal.Nics, co
 				PeerGroup:             nic.BGPPortState.PeerGroup,
 				VrfName:               nic.BGPPortState.VrfName,
 				BgpState:              bgpState,
-				BgpTimerUpEstablished: durationpb.New(time.Duration(nic.BGPPortState.BgpTimerUpEstablished)),
+				BgpTimerUpEstablished: timestamppb.New(time.Unix(int64(nic.BGPPortState.BgpTimerUpEstablished), 0)),
 				SentPrefixCounter:     nic.BGPPortState.SentPrefixCounter,
 				AcceptedPrefixCounter: nic.BGPPortState.AcceptedPrefixCounter,
 			}

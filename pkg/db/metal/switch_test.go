@@ -7,10 +7,12 @@ import (
 	"github.com/google/go-cmp/cmp"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
-	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestToMetalNics(t *testing.T) {
+	now := time.Now()
+
 	tests := []struct {
 		name       string
 		switchNics []*apiv2.SwitchNic
@@ -85,7 +87,7 @@ func TestToMetalNics(t *testing.T) {
 						PeerGroup:             "external",
 						VrfName:               "Vrf200",
 						BgpState:              apiv2.BGPState_BGP_STATE_ESTABLISHED,
-						BgpTimerUpEstablished: durationpb.New(time.Hour),
+						BgpTimerUpEstablished: timestamppb.New(now.Add(time.Hour)),
 						SentPrefixCounter:     200,
 						AcceptedPrefixCounter: 1,
 					},
@@ -115,7 +117,7 @@ func TestToMetalNics(t *testing.T) {
 						PeerGroup:             "external",
 						VrfName:               "Vrf200",
 						BgpState:              BGPStateEstablished,
-						BgpTimerUpEstablished: uint64(time.Hour),
+						BgpTimerUpEstablished: uint64(now.Add(time.Hour).Unix()),
 						SentPrefixCounter:     200,
 						AcceptedPrefixCounter: 1,
 					},

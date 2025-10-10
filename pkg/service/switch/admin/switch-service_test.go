@@ -19,11 +19,11 @@ import (
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var (
+	now = time.Now()
 	sw1 = &repository.SwitchServiceCreateRequest{
 		Switch: &apiv2.Switch{
 			Id:             "sw1",
@@ -61,7 +61,7 @@ var (
 						PeerGroup:             "external",
 						VrfName:               "Vrf200",
 						BgpState:              apiv2.BGPState_BGP_STATE_CONNECT,
-						BgpTimerUpEstablished: durationpb.New(0),
+						BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Unix(), 0)),
 						SentPrefixCounter:     0,
 						AcceptedPrefixCounter: 0,
 					},
@@ -111,7 +111,7 @@ var (
 						PeerGroup:             "external",
 						VrfName:               "Vrf200",
 						BgpState:              apiv2.BGPState_BGP_STATE_ESTABLISHED,
-						BgpTimerUpEstablished: durationpb.New(time.Minute),
+						BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Add(time.Minute).Unix(), 0)),
 						SentPrefixCounter:     100,
 						AcceptedPrefixCounter: 1,
 					},
@@ -161,7 +161,7 @@ var (
 						PeerGroup:             "external",
 						VrfName:               "Vrf300",
 						BgpState:              apiv2.BGPState_BGP_STATE_IDLE,
-						BgpTimerUpEstablished: durationpb.New(0),
+						BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Unix(), 0)),
 						SentPrefixCounter:     0,
 						AcceptedPrefixCounter: 0,
 					},

@@ -176,7 +176,7 @@ func toMetalNic(switchNic *apiv2.SwitchNic) (*Nic, error) {
 			PeerGroup:             switchNic.BgpPortState.PeerGroup,
 			VrfName:               switchNic.BgpPortState.VrfName,
 			BgpState:              bgpState,
-			BgpTimerUpEstablished: uint64(switchNic.BgpPortState.BgpTimerUpEstablished.AsDuration()),
+			BgpTimerUpEstablished: uint64(switchNic.BgpPortState.BgpTimerUpEstablished.Seconds),
 			SentPrefixCounter:     switchNic.BgpPortState.SentPrefixCounter,
 			AcceptedPrefixCounter: switchNic.BgpPortState.AcceptedPrefixCounter,
 		}
