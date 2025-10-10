@@ -90,7 +90,7 @@ func ToSwitchPortStatus(status apiv2.SwitchPortStatus) (SwitchPortStatus, error)
 	if err != nil {
 		return SwitchPortStatus(""), err
 	}
-	return SwitchPortStatus(*strVal), nil
+	return SwitchPortStatus(strings.ToUpper(*strVal)), nil
 }
 
 func FromSwitchPortStatus(status SwitchPortStatus) (apiv2.SwitchPortStatus, error) {
