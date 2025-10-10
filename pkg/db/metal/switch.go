@@ -80,7 +80,7 @@ func ToSwitchOSVendor(vendor apiv2.SwitchOSVendor) (SwitchOSVendor, error) {
 func FromSwitchOSVendor(vendor SwitchOSVendor) (apiv2.SwitchOSVendor, error) {
 	apiv2Vendor, err := enum.GetEnum[apiv2.SwitchOSVendor](string(vendor))
 	if err != nil {
-		return apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_UNSPECIFIED, fmt.Errorf("switch os vendor:%q is invalid", vendor)
+		return apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_UNSPECIFIED, fmt.Errorf("switch os vendor: %q is invalid", vendor)
 	}
 	return apiv2Vendor, nil
 }
@@ -93,10 +93,14 @@ func ToSwitchPortStatus(status apiv2.SwitchPortStatus) (SwitchPortStatus, error)
 	return SwitchPortStatus(strings.ToUpper(*strVal)), nil
 }
 
-func FromSwitchPortStatus(status SwitchPortStatus) (apiv2.SwitchPortStatus, error) {
-	apiv2Status, err := enum.GetEnum[apiv2.SwitchPortStatus](strings.ToLower(string(status)))
+func FromSwitchPortStatus(status *SwitchPortStatus) (apiv2.SwitchPortStatus, error) {
+	if status == nil {
+		return apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNSPECIFIED, nil
+	}
+
+	apiv2Status, err := enum.GetEnum[apiv2.SwitchPortStatus](strings.ToLower(string(*status)))
 	if err != nil {
-		return apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNSPECIFIED, fmt.Errorf("switch port status:%q is invalid", status)
+		return apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNSPECIFIED, fmt.Errorf("switch port status: %q is invalid", *status)
 	}
 	return apiv2Status, nil
 }
@@ -112,7 +116,7 @@ func ToBGPState(state apiv2.BGPState) (BGPState, error) {
 func FromBGPState(state BGPState) (apiv2.BGPState, error) {
 	apiv2State, err := enum.GetEnum[apiv2.BGPState](string(state))
 	if err != nil {
-		return apiv2.BGPState_BGP_STATE_UNSPECIFIED, fmt.Errorf("bgp state:%q is invalid", state)
+		return apiv2.BGPState_BGP_STATE_UNSPECIFIED, fmt.Errorf("bgp state: %q is invalid", state)
 	}
 	return apiv2State, nil
 }
@@ -169,7 +173,7 @@ func toMetalNic(switchNic *apiv2.SwitchNic) (*Nic, error) {
 			return nil, err
 		}
 		nicState = &NicState{
-			Desired: desiredState,
+			Desired: &desiredState,
 			Actual:  actualState,
 		}
 	}

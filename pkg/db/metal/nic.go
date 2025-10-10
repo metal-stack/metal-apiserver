@@ -23,8 +23,8 @@ type NicMap map[string]*Nic
 // NIC, while Actual indicates its current operational state. The Desired
 // state will be removed when the actual state is equal to the desired state.
 type NicState struct {
-	Desired SwitchPortStatus `rethinkdb:"desired"`
-	Actual  SwitchPortStatus `rethinkdb:"actual"`
+	Desired *SwitchPortStatus `rethinkdb:"desired"`
+	Actual  SwitchPortStatus  `rethinkdb:"actual"`
 }
 
 type SwitchBGPPortState struct {

@@ -331,7 +331,7 @@ func (r *switchRepository) toSwitchNics(ctx context.Context, nics metal.Nics, co
 		if err != nil {
 			return nil, err
 		}
-		actualState, err := metal.FromSwitchPortStatus(nic.State.Actual)
+		actualState, err := metal.FromSwitchPortStatus(&nic.State.Actual)
 		if err != nil {
 			return nil, err
 		}

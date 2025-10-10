@@ -99,7 +99,7 @@ func TestToMetalNics(t *testing.T) {
 					Name:       "Ethernet0",
 					Identifier: "Eth1/1",
 					State: &NicState{
-						Desired: SwitchPortStatusUp,
+						Desired: pointer.Pointer(SwitchPortStatusUp),
 						Actual:  SwitchPortStatusDown,
 					},
 				},
@@ -109,7 +109,7 @@ func TestToMetalNics(t *testing.T) {
 					Identifier: "Eth1/2",
 					Vrf:        "Vrf100",
 					State: &NicState{
-						Desired: SwitchPortStatusUp,
+						Desired: pointer.Pointer(SwitchPortStatusUp),
 						Actual:  SwitchPortStatusUp,
 					},
 					BGPPortState: &SwitchBGPPortState{
