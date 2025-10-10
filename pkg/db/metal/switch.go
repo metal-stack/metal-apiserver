@@ -54,11 +54,11 @@ const (
 )
 
 func ToReplaceMode(mode apiv2.SwitchReplaceMode) (SwitchReplaceMode, error) {
-	stringValue, err := enum.GetStringValue(mode)
+	strVal, err := enum.GetStringValue(mode)
 	if err != nil {
 		return SwitchReplaceMode(""), err
 	}
-	return SwitchReplaceMode(*stringValue), nil
+	return SwitchReplaceMode(*strVal), nil
 }
 
 func FromReplaceMode(mode SwitchReplaceMode) (apiv2.SwitchReplaceMode, error) {
@@ -70,16 +70,11 @@ func FromReplaceMode(mode SwitchReplaceMode) (apiv2.SwitchReplaceMode, error) {
 }
 
 func ToSwitchOSVendor(vendor apiv2.SwitchOSVendor) (SwitchOSVendor, error) {
-	switch vendor {
-	case apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_CUMULUS:
-		return SwitchOSVendorCumulus, nil
-	case apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC:
-		return SwitchOSVendorSonic, nil
-	case apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_UNSPECIFIED:
-		fallthrough
-	default:
-		return SwitchOSVendor(""), fmt.Errorf("switch os vendor:%q is invalid", vendor)
+	strVal, err := enum.GetStringValue(vendor)
+	if err != nil {
+		return SwitchOSVendor(""), err
 	}
+	return SwitchOSVendor(*strVal), nil
 }
 
 func FromSwitchOSVendor(vendor SwitchOSVendor) (apiv2.SwitchOSVendor, error) {
@@ -91,16 +86,11 @@ func FromSwitchOSVendor(vendor SwitchOSVendor) (apiv2.SwitchOSVendor, error) {
 }
 
 func ToSwitchPortStatus(status apiv2.SwitchPortStatus) (SwitchPortStatus, error) {
-	switch status {
-	case apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN:
-		return SwitchPortStatusDown, nil
-	case apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP:
-		return SwitchPortStatusUp, nil
-	case apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNSPECIFIED:
-		fallthrough
-	default:
-		return SwitchPortStatus(""), fmt.Errorf("switch port status:%q is invalid", status)
+	strVal, err := enum.GetStringValue(status)
+	if err != nil {
+		return SwitchPortStatus(""), err
 	}
+	return SwitchPortStatus(*strVal), nil
 }
 
 func FromSwitchPortStatus(status SwitchPortStatus) (apiv2.SwitchPortStatus, error) {
@@ -112,24 +102,11 @@ func FromSwitchPortStatus(status SwitchPortStatus) (apiv2.SwitchPortStatus, erro
 }
 
 func ToBGPState(state apiv2.BGPState) (BGPState, error) {
-	switch state {
-	case apiv2.BGPState_BGP_STATE_IDLE:
-		return BGPStateIdle, nil
-	case apiv2.BGPState_BGP_STATE_CONNECT:
-		return BGPStateConnect, nil
-	case apiv2.BGPState_BGP_STATE_ACTIVE:
-		return BGPStateActive, nil
-	case apiv2.BGPState_BGP_STATE_OPEN_SENT:
-		return BGPStateOpenSent, nil
-	case apiv2.BGPState_BGP_STATE_OPEN_CONFIRM:
-		return BGPStateOpenConfirm, nil
-	case apiv2.BGPState_BGP_STATE_ESTABLISHED:
-		return BGPStateEstablished, nil
-	case apiv2.BGPState_BGP_STATE_UNSPECIFIED:
-		fallthrough
-	default:
-		return BGPState(""), fmt.Errorf("bgp state:%q is invalid", state)
+	strVal, err := enum.GetStringValue(state)
+	if err != nil {
+		return BGPState(""), err
 	}
+	return BGPState(*strVal), nil
 }
 
 func FromBGPState(state BGPState) (apiv2.BGPState, error) {
