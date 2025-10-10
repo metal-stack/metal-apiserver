@@ -609,8 +609,7 @@ func Test_isFirewallIP(t *testing.T) {
 					Allocation: &metal.MachineAllocation{
 						MachineNetworks: []*metal.MachineNetwork{
 							{
-								Prefixes: []string{"1.1.1.0/24"},
-								IPs:      []string{"2.2.2.2"},
+								IPs: []string{"2.2.2.2"},
 							},
 						},
 						Role: metal.RoleMachine,
@@ -630,26 +629,7 @@ func Test_isFirewallIP(t *testing.T) {
 					Allocation: &metal.MachineAllocation{
 						MachineNetworks: []*metal.MachineNetwork{
 							{
-								Prefixes: []string{"1.1.1.0/24"},
-								IPs:      []string{"2.2.2.2"},
-							},
-						},
-						Role: metal.RoleFirewall,
-					},
-				},
-			},
-			want: true,
-		},
-		{
-			name: "firewall prefixes include ip",
-			ip:   "1.1.1.2",
-			machines: []*metal.Machine{
-				{
-					Allocation: &metal.MachineAllocation{
-						MachineNetworks: []*metal.MachineNetwork{
-							{
-								Prefixes: []string{"1.1.1.0/24"},
-								IPs:      []string{"2.2.2.2"},
+								IPs: []string{"2.2.2.2"},
 							},
 						},
 						Role: metal.RoleFirewall,

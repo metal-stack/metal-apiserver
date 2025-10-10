@@ -594,11 +594,6 @@ func compactCidrs(cidrs []string) ([]string, error) {
 }
 
 func isFirewallIP(ip string, machines []*metal.Machine) bool {
-	parsedIP, err := netip.ParseAddr(ip)
-	if err != nil {
-		return false
-	}
-
 	for _, m := range machines {
 		if m.Allocation == nil || m.Allocation.Role != metal.RoleFirewall {
 			continue
@@ -610,17 +605,6 @@ func isFirewallIP(ip string, machines []*metal.Machine) bool {
 			}
 
 			if slices.Contains(nw.IPs, ip) {
-				return true
-			}
-
-			if lo.ContainsBy(nw.Prefixes, func(p string) bool {
-				pfx, err := netip.ParsePrefix(p)
-				if err != nil {
-					return false
-				}
-
-				return pfx.Contains(parsedIP)
-			}) {
 				return true
 			}
 		}
