@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -153,7 +154,7 @@ func newServeCmd() *cli.Command {
 				c.Admins = append(c.Admins, providerTenant)
 			}
 
-			log.Info("running api-server", "version", v.V, "http endpoint", c.HttpServerEndpoint)
+			log.Info("running api-server", "version", v.V.String(), "go-runtime", runtime.Version(), "http-endpoint", c.HttpServerEndpoint)
 
 			s := newServer(c)
 			if err := s.Run(ctx.Context); err != nil {
