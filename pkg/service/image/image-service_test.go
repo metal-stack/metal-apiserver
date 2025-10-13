@@ -75,6 +75,10 @@ func Test_imageServiceServer_Get(t *testing.T) {
 				log:  log,
 				repo: repo,
 			}
+
+			// Execute proto based validation
+			test.Validate(t, tt.request)
+
 			got, err := i.Get(ctx, connect.NewRequest(tt.request))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
@@ -251,6 +255,10 @@ func Test_imageServiceServer_List(t *testing.T) {
 				log:  log,
 				repo: repo,
 			}
+
+			// Execute proto based validation
+			test.Validate(t, tt.request)
+
 			got, err := i.List(ctx, connect.NewRequest(tt.request))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
@@ -337,6 +345,10 @@ func Test_imageServiceServer_Latest(t *testing.T) {
 				log:  log,
 				repo: repo,
 			}
+
+			// Execute proto based validation
+			test.Validate(t, tt.request)
+
 			got, err := i.Latest(ctx, connect.NewRequest(tt.request))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
