@@ -20,6 +20,19 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+var (
+	// m0 = "00000000-0000-0000-0000-000000000000"
+	m1 = "00000000-0000-0000-0000-000000000001"
+	m2 = "00000000-0000-0000-0000-000000000002"
+	m3 = "00000000-0000-0000-0000-000000000003"
+	m4 = "00000000-0000-0000-0000-000000000004"
+	m5 = "00000000-0000-0000-0000-000000000005"
+
+	// p0 = "00000000-0000-0000-0000-000000000000"
+	p1 = "00000000-0000-0000-0000-000000000001"
+	p2 = "00000000-0000-0000-0000-000000000002"
+)
+
 func Test_machineServiceServer_Get(t *testing.T) {
 	t.Parallel()
 
@@ -39,7 +52,7 @@ func Test_machineServiceServer_Get(t *testing.T) {
 	ctx := t.Context()
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
+	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
 		{
 			Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
@@ -57,7 +70,7 @@ func Test_machineServiceServer_Get(t *testing.T) {
 	// We need to create machines directly on the database because there is no MachineCreateRequest available and never will.
 	// Once the boot-service is available we can simulate a pxe booting machine the actually create a machine from the api level.
 	test.CreateMachines(t, testStore, []*metal.Machine{
-		{Base: metal.Base{ID: "m1"}, PartitionID: "partition-1", SizeID: "c1-large-x86", Allocation: &metal.MachineAllocation{Project: "p1", ImageID: "debian-12"}},
+		{Base: metal.Base{ID: m1}, PartitionID: "partition-1", SizeID: "c1-large-x86", Allocation: &metal.MachineAllocation{Project: p1, ImageID: "debian-12"}},
 	})
 
 	tests := []struct {
@@ -68,10 +81,10 @@ func Test_machineServiceServer_Get(t *testing.T) {
 	}{
 		{
 			name: "get existing",
-			rq:   &apiv2.MachineServiceGetRequest{Uuid: "m1", Project: "p1"},
+			rq:   &apiv2.MachineServiceGetRequest{Uuid: m1, Project: p1},
 			want: &apiv2.MachineServiceGetResponse{
 				Machine: &apiv2.Machine{
-					Uuid:      "m1",
+					Uuid:      m1,
 					Meta:      &apiv2.Meta{},
 					Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
 					Bios:      &apiv2.MachineBios{},
@@ -86,7 +99,7 @@ func Test_machineServiceServer_Get(t *testing.T) {
 						Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
 					},
 					Allocation: &apiv2.MachineAllocation{
-						Project: "p1",
+						Project: p1,
 						Meta:    &apiv2.Meta{},
 						Image: &apiv2.Image{
 							Id:             "debian-12",
@@ -104,9 +117,9 @@ func Test_machineServiceServer_Get(t *testing.T) {
 		},
 		{
 			name:    "get existing with wrong project",
-			rq:      &apiv2.MachineServiceGetRequest{Uuid: "m1", Project: "p2"},
+			rq:      &apiv2.MachineServiceGetRequest{Uuid: m1, Project: p2},
 			want:    nil,
-			wantErr: errorutil.NotFound(`*metal.Machine with id "m1" not found`),
+			wantErr: errorutil.NotFound(`*metal.Machine with id %q not found`, m1),
 		},
 		{
 			name:    "get non existing",
@@ -120,6 +133,10 @@ func Test_machineServiceServer_Get(t *testing.T) {
 			m := &machineServiceServer{
 				log:  log,
 				repo: repo,
+			}
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
 			}
 			got, err := m.Get(ctx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
@@ -164,7 +181,7 @@ func Test_machineServiceServer_List(t *testing.T) {
 	ctx := t.Context()
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
+	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
 		{
 			Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
@@ -181,11 +198,11 @@ func Test_machineServiceServer_List(t *testing.T) {
 	// We need to create machines directly on the database because there is no MachineCreateRequest available and never will.
 	// Once the boot-service is available we can simulate a pxe booting machine the actually create a machine from the api level.
 	test.CreateMachines(t, testStore, []*metal.Machine{
-		{Base: metal.Base{ID: "m1"}, PartitionID: "partition-1", SizeID: "c1-medium-x86"},
-		{Base: metal.Base{ID: "m2"}, PartitionID: "partition-1", SizeID: "c1-medium-x86"},
-		{Base: metal.Base{ID: "m3"}, PartitionID: "partition-1", SizeID: "c1-large-x86", Allocation: &metal.MachineAllocation{Project: "p1", ImageID: "debian-12"}},
-		{Base: metal.Base{ID: "m4"}, PartitionID: "partition-1", SizeID: "c1-large-x86", Allocation: &metal.MachineAllocation{Project: "p2", ImageID: "debian-12"}},
-		{Base: metal.Base{ID: "m5"}, PartitionID: "partition-1", SizeID: "c1-large-x86", Allocation: &metal.MachineAllocation{Project: "p2", ImageID: "debian-12"}},
+		{Base: metal.Base{ID: m1}, PartitionID: "partition-1", SizeID: "c1-medium-x86"},
+		{Base: metal.Base{ID: m2}, PartitionID: "partition-1", SizeID: "c1-medium-x86"},
+		{Base: metal.Base{ID: m3}, PartitionID: "partition-1", SizeID: "c1-large-x86", Allocation: &metal.MachineAllocation{Project: p1, ImageID: "debian-12"}},
+		{Base: metal.Base{ID: m4}, PartitionID: "partition-1", SizeID: "c1-large-x86", Allocation: &metal.MachineAllocation{Project: p2, ImageID: "debian-12"}},
+		{Base: metal.Base{ID: m5}, PartitionID: "partition-1", SizeID: "c1-large-x86", Allocation: &metal.MachineAllocation{Project: p2, ImageID: "debian-12"}},
 	})
 
 	tests := []struct {
@@ -196,11 +213,11 @@ func Test_machineServiceServer_List(t *testing.T) {
 	}{
 		{
 			name: "List from p1",
-			rq:   &apiv2.MachineServiceListRequest{Project: "p1"},
+			rq:   &apiv2.MachineServiceListRequest{Project: p1},
 			want: &apiv2.MachineServiceListResponse{
 				Machines: []*apiv2.Machine{
 					{
-						Uuid:      "m3",
+						Uuid:      m3,
 						Meta:      &apiv2.Meta{},
 						Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
 						Bios:      &apiv2.MachineBios{},
@@ -215,7 +232,7 @@ func Test_machineServiceServer_List(t *testing.T) {
 							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
 						},
 						Allocation: &apiv2.MachineAllocation{
-							Project: "p1",
+							Project: p1,
 							Meta:    &apiv2.Meta{},
 							Image: &apiv2.Image{
 								Id:             "debian-12",
@@ -234,11 +251,11 @@ func Test_machineServiceServer_List(t *testing.T) {
 		},
 		{
 			name: "list from p2",
-			rq:   &apiv2.MachineServiceListRequest{Project: "p2", Query: &apiv2.MachineQuery{Uuid: pointer.Pointer("m4")}},
+			rq:   &apiv2.MachineServiceListRequest{Project: p2, Query: &apiv2.MachineQuery{Uuid: pointer.Pointer(m4)}},
 			want: &apiv2.MachineServiceListResponse{
 				Machines: []*apiv2.Machine{
 					{
-						Uuid:      "m4",
+						Uuid:      m4,
 						Meta:      &apiv2.Meta{},
 						Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
 						Bios:      &apiv2.MachineBios{},
@@ -253,7 +270,7 @@ func Test_machineServiceServer_List(t *testing.T) {
 							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
 						},
 						Allocation: &apiv2.MachineAllocation{
-							Project: "p2",
+							Project: p2,
 							Meta:    &apiv2.Meta{},
 							Image: &apiv2.Image{
 								Id:             "debian-12",
@@ -276,6 +293,10 @@ func Test_machineServiceServer_List(t *testing.T) {
 			m := &machineServiceServer{
 				log:  log,
 				repo: repo,
+			}
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
 			}
 			got, err := m.List(ctx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
@@ -320,7 +341,7 @@ func Test_machineServiceServer_Update(t *testing.T) {
 	ctx := t.Context()
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
+	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
 		{
 			Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
@@ -338,27 +359,27 @@ func Test_machineServiceServer_Update(t *testing.T) {
 	// Once the boot-service is available we can simulate a pxe booting machine the actually create a machine from the api level.
 	machineMap := test.CreateMachines(t, testStore, []*metal.Machine{
 		{
-			Base: metal.Base{ID: "m1"}, PartitionID: "partition-1", SizeID: "c1-medium-x86",
+			Base: metal.Base{ID: m1}, PartitionID: "partition-1", SizeID: "c1-medium-x86",
 		},
 		{
-			Base: metal.Base{ID: "m2"}, PartitionID: "partition-1", SizeID: "c1-medium-x86",
+			Base: metal.Base{ID: m2}, PartitionID: "partition-1", SizeID: "c1-medium-x86",
 		},
 		{
-			Base: metal.Base{ID: "m3"}, PartitionID: "partition-1", SizeID: "c1-medium-x86",
-			Allocation: &metal.MachineAllocation{Project: "p1", ImageID: "debian-12"},
+			Base: metal.Base{ID: m3}, PartitionID: "partition-1", SizeID: "c1-medium-x86",
+			Allocation: &metal.MachineAllocation{Project: p1, ImageID: "debian-12"},
 		},
 		{
-			Base: metal.Base{ID: "m4"}, PartitionID: "partition-1", SizeID: "c1-medium-x86",
+			Base: metal.Base{ID: m4}, PartitionID: "partition-1", SizeID: "c1-medium-x86",
 			Allocation: &metal.MachineAllocation{
 				Description: "my-machine",
-				Project:     "p2",
+				Project:     p2,
 				ImageID:     "debian-12",
 				SSHPubKeys:  []string{"key-1", "key-2"},
 			},
 		},
 		{
-			Base: metal.Base{ID: "m5"}, PartitionID: "partition-1", SizeID: "c1-medium-x86",
-			Allocation: &metal.MachineAllocation{Project: "p2", ImageID: "debian-12"},
+			Base: metal.Base{ID: m5}, PartitionID: "partition-1", SizeID: "c1-medium-x86",
+			Allocation: &metal.MachineAllocation{Project: p2, ImageID: "debian-12"},
 		},
 	})
 
@@ -370,24 +391,24 @@ func Test_machineServiceServer_Update(t *testing.T) {
 	}{
 		{
 			name:    "update without allocation",
-			rq:      &apiv2.MachineServiceUpdateRequest{Uuid: "m1", UpdateMeta: &apiv2.UpdateMeta{}},
+			rq:      &apiv2.MachineServiceUpdateRequest{Uuid: m1, UpdateMeta: &apiv2.UpdateMeta{}},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument("only allocated machines can be updated"),
 		},
 		{
 			name: "Update tags",
 			rq: &apiv2.MachineServiceUpdateRequest{
-				Uuid: "m3",
+				Uuid: m3,
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(machineMap["m3"].Changed),
+					UpdatedAt: timestamppb.New(machineMap[m3].Changed),
 				},
-				Project: "p1",
+				Project: p1,
 				Labels: &apiv2.UpdateLabels{
 					Update: &apiv2.Labels{Labels: map[string]string{"color": "red"}},
 				}},
 			want: &apiv2.MachineServiceUpdateResponse{
 				Machine: &apiv2.Machine{
-					Uuid:      "m3",
+					Uuid:      m3,
 					Meta:      &apiv2.Meta{Generation: 1},
 					Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
 					Bios:      &apiv2.MachineBios{},
@@ -402,7 +423,7 @@ func Test_machineServiceServer_Update(t *testing.T) {
 						Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
 					},
 					Allocation: &apiv2.MachineAllocation{
-						Project: "p1",
+						Project: p1,
 						Meta: &apiv2.Meta{
 							Labels: &apiv2.Labels{
 								Labels: map[string]string{"color": "red"},
@@ -424,16 +445,16 @@ func Test_machineServiceServer_Update(t *testing.T) {
 		{
 			name: "Update Description and ssh public key",
 			rq: &apiv2.MachineServiceUpdateRequest{
-				Uuid: "m4", Project: "p2",
+				Uuid: m4, Project: p2,
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(machineMap["m4"].Changed),
+					UpdatedAt: timestamppb.New(machineMap[m4].Changed),
 				},
 				Description:   pointer.Pointer("my-beloved-machine"),
 				SshPublicKeys: []string{"key-2", "key-3"},
 			},
 			want: &apiv2.MachineServiceUpdateResponse{
 				Machine: &apiv2.Machine{
-					Uuid:      "m4",
+					Uuid:      m4,
 					Meta:      &apiv2.Meta{Generation: 1},
 					Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
 					Bios:      &apiv2.MachineBios{},
@@ -448,7 +469,7 @@ func Test_machineServiceServer_Update(t *testing.T) {
 						Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
 					},
 					Allocation: &apiv2.MachineAllocation{
-						Project:       "p2",
+						Project:       p2,
 						Meta:          &apiv2.Meta{},
 						Description:   "my-beloved-machine",
 						SshPublicKeys: []string{"key-2", "key-3"},
@@ -472,6 +493,10 @@ func Test_machineServiceServer_Update(t *testing.T) {
 			m := &machineServiceServer{
 				log:  log,
 				repo: repo,
+			}
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
 			}
 			got, err := m.Update(ctx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {

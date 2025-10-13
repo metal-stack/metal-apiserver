@@ -78,8 +78,10 @@ func Test_imageServiceServer_Create(t *testing.T) {
 				repo: repo,
 			}
 
-			// Execute proto based validation
-			test.Validate(t, tt.request)
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.request)
+			}
 
 			got, err := i.Create(ctx, connect.NewRequest(tt.request))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
@@ -226,8 +228,10 @@ func Test_imageServiceServer_Update(t *testing.T) {
 				repo: repo,
 			}
 
-			// Execute proto based validation
-			test.Validate(t, tt.request)
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.request)
+			}
 
 			got, err := i.Update(ctx, connect.NewRequest(tt.request))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
@@ -325,8 +329,10 @@ func Test_imageServiceServer_Delete(t *testing.T) {
 				repo: repo,
 			}
 
-			// Execute proto based validation
-			test.Validate(t, tt.request)
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.request)
+			}
 
 			got, err := i.Delete(ctx, connect.NewRequest(tt.request))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {

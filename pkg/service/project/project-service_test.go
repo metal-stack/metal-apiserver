@@ -24,6 +24,8 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+// FIXME add proto validation before each service call
+
 func Test_projectServiceServer_Get(t *testing.T) {
 	t.Parallel()
 

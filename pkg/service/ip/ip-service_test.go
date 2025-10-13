@@ -20,6 +20,12 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+var (
+	p0 = "00000000-0000-0000-0000-000000000000"
+	p1 = "00000000-0000-0000-0000-000000000001"
+	p2 = "00000000-0000-0000-0000-000000000002"
+)
+
 func Test_ipServiceServer_Get(t *testing.T) {
 	t.Parallel()
 
@@ -32,7 +38,7 @@ func Test_ipServiceServer_Get(t *testing.T) {
 	ctx := t.Context()
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
+	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
 	createdNetworks := test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
 		{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.3.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: pointer.Pointer(uint32(11))},
 		{
@@ -47,7 +53,7 @@ func Test_ipServiceServer_Get(t *testing.T) {
 	allocatedNetworks := test.AllocateNetworks(t, repo, []*apiv2.NetworkServiceCreateRequest{
 		{
 			Name:          pointer.Pointer("private-1"),
-			Project:       "p1",
+			Project:       p1,
 			ParentNetwork: pointer.Pointer("tenant-super-namespaced"),
 		},
 	})
@@ -55,8 +61,8 @@ func Test_ipServiceServer_Get(t *testing.T) {
 	networks := lo.Assign(createdNetworks, allocatedNetworks)
 
 	test.CreateIPs(t, repo, []*apiv2.IPServiceCreateRequest{
-		{Ip: pointer.Pointer("1.2.3.4"), Project: "p1", Network: "internet"},
-		{Ip: pointer.Pointer("12.100.0.4"), Project: "p1", Network: networks["private-1"].ID},
+		{Ip: pointer.Pointer("1.2.3.4"), Project: p1, Network: "internet"},
+		{Ip: pointer.Pointer("12.100.0.4"), Project: p1, Network: networks["private-1"].ID},
 	})
 
 	tests := []struct {
@@ -67,12 +73,12 @@ func Test_ipServiceServer_Get(t *testing.T) {
 	}{
 		{
 			name: "get existing",
-			rq:   &apiv2.IPServiceGetRequest{Ip: "1.2.3.4", Project: "p1"},
+			rq:   &apiv2.IPServiceGetRequest{Ip: "1.2.3.4", Project: p1},
 			want: &apiv2.IPServiceGetResponse{
 				Ip: &apiv2.IP{
 					Ip:      "1.2.3.4",
 					Meta:    &apiv2.Meta{Generation: 0},
-					Project: "p1", Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL,
+					Project: p1, Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL,
 				}},
 			wantErr: nil,
 		},
@@ -84,8 +90,8 @@ func Test_ipServiceServer_Get(t *testing.T) {
 		},
 		{
 			name:    "get namespaced existing",
-			rq:      &apiv2.IPServiceGetRequest{Ip: "12.100.0.4", Project: "p1", Namespace: pointer.Pointer("p1")},
-			want:    &apiv2.IPServiceGetResponse{Ip: &apiv2.IP{Ip: "12.100.0.4", Project: "p1", Namespace: pointer.Pointer("p1"), Network: networks["private-1"].ID, Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{Generation: 0}}},
+			rq:      &apiv2.IPServiceGetRequest{Ip: "12.100.0.4", Project: p1, Namespace: pointer.Pointer(p1)},
+			want:    &apiv2.IPServiceGetResponse{Ip: &apiv2.IP{Ip: "12.100.0.4", Project: p1, Namespace: pointer.Pointer(p1), Network: networks["private-1"].ID, Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{Generation: 0}}},
 			wantErr: nil,
 		},
 	}
@@ -94,6 +100,10 @@ func Test_ipServiceServer_Get(t *testing.T) {
 			i := &ipServiceServer{
 				log:  log,
 				repo: repo,
+			}
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
 			}
 			got, err := i.Get(ctx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
@@ -135,7 +145,7 @@ func Test_ipServiceServer_List(t *testing.T) {
 	ctx := t.Context()
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p0", Login: "t1"}, {Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
+	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: p0, Login: "t1"}, {Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 		{Partition: &apiv2.Partition{Id: "partition-two", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
@@ -155,11 +165,11 @@ func Test_ipServiceServer_List(t *testing.T) {
 	}
 
 	ips := []*apiv2.IPServiceCreateRequest{
-		{Name: pointer.Pointer("ip1"), Ip: pointer.Pointer("1.2.3.4"), Project: "p1", Network: "internet"},
-		{Name: pointer.Pointer("ip2"), Ip: pointer.Pointer("1.2.3.5"), Project: "p1", Network: "internet"},
-		{Name: pointer.Pointer("ip3"), Ip: pointer.Pointer("1.2.3.6"), Project: "p1", Network: "internet"},
-		{Name: pointer.Pointer("ip4"), Ip: pointer.Pointer("2001:db8::1"), Project: "p2", Network: "internetv6"},
-		{Name: pointer.Pointer("ip5"), Ip: pointer.Pointer("2.3.4.5"), Project: "p2", Network: "n3"},
+		{Name: pointer.Pointer("ip1"), Ip: pointer.Pointer("1.2.3.4"), Project: p1, Network: "internet"},
+		{Name: pointer.Pointer("ip2"), Ip: pointer.Pointer("1.2.3.5"), Project: p1, Network: "internet"},
+		{Name: pointer.Pointer("ip3"), Ip: pointer.Pointer("1.2.3.6"), Project: p1, Network: "internet"},
+		{Name: pointer.Pointer("ip4"), Ip: pointer.Pointer("2001:db8::1"), Project: p2, Network: "internetv6"},
+		{Name: pointer.Pointer("ip5"), Ip: pointer.Pointer("2.3.4.5"), Project: p2, Network: "n3"},
 	}
 
 	test.CreateNetworks(t, repo, nws)
@@ -173,35 +183,35 @@ func Test_ipServiceServer_List(t *testing.T) {
 	}{
 		{
 			name: "get by ip",
-			rq:   &apiv2.IPServiceListRequest{Project: "p1", Query: &apiv2.IPQuery{Ip: pointer.Pointer("1.2.3.4"), Project: pointer.Pointer("p1")}},
-			want: &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{{Name: "ip1", Ip: "1.2.3.4", Project: "p1", Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}}}},
+			rq:   &apiv2.IPServiceListRequest{Project: p1, Query: &apiv2.IPQuery{Ip: pointer.Pointer("1.2.3.4"), Project: pointer.Pointer(p1)}},
+			want: &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{{Name: "ip1", Ip: "1.2.3.4", Project: p1, Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}}}},
 		},
 		{
 			name: "get all of p1",
-			rq:   &apiv2.IPServiceListRequest{Project: "p1", Query: &apiv2.IPQuery{}},
+			rq:   &apiv2.IPServiceListRequest{Project: p1, Query: &apiv2.IPQuery{}},
 			want: &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{
-				{Name: "ip1", Ip: "1.2.3.4", Project: "p1", Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
-				{Name: "ip2", Ip: "1.2.3.5", Project: "p1", Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
-				{Name: "ip3", Ip: "1.2.3.6", Project: "p1", Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
+				{Name: "ip1", Ip: "1.2.3.4", Project: p1, Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
+				{Name: "ip2", Ip: "1.2.3.5", Project: p1, Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
+				{Name: "ip3", Ip: "1.2.3.6", Project: p1, Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
 			}},
 		},
 		{
 			name: "get by project",
-			rq:   &apiv2.IPServiceListRequest{Project: "p1", Query: &apiv2.IPQuery{Project: pointer.Pointer("p1")}},
+			rq:   &apiv2.IPServiceListRequest{Project: p1, Query: &apiv2.IPQuery{Project: pointer.Pointer(p1)}},
 			want: &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{
-				{Name: "ip1", Ip: "1.2.3.4", Project: "p1", Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
-				{Name: "ip2", Ip: "1.2.3.5", Project: "p1", Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
-				{Name: "ip3", Ip: "1.2.3.6", Project: "p1", Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}}}},
+				{Name: "ip1", Ip: "1.2.3.4", Project: p1, Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
+				{Name: "ip2", Ip: "1.2.3.5", Project: p1, Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
+				{Name: "ip3", Ip: "1.2.3.6", Project: p1, Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}}}},
 		},
 		{
 			name: "get by addressfamily",
-			rq:   &apiv2.IPServiceListRequest{Project: "p2", Query: &apiv2.IPQuery{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(), Project: pointer.Pointer("p2")}},
-			want: &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{{Name: "ip4", Ip: "2001:db8::1", Project: "p2", Network: "internetv6", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}}}},
+			rq:   &apiv2.IPServiceListRequest{Project: p2, Query: &apiv2.IPQuery{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(), Project: pointer.Pointer(p2)}},
+			want: &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{{Name: "ip4", Ip: "2001:db8::1", Project: p2, Network: "internetv6", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}}}},
 		},
 		{
 			name: "get by parent prefix cidr",
-			rq:   &apiv2.IPServiceListRequest{Project: "p2", Query: &apiv2.IPQuery{ParentPrefixCidr: pointer.Pointer("2.3.4.0/24"), Project: pointer.Pointer("p2")}},
-			want: &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{{Name: "ip5", Ip: "2.3.4.5", Project: "p2", Network: "n3", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}}}},
+			rq:   &apiv2.IPServiceListRequest{Project: p2, Query: &apiv2.IPQuery{ParentPrefixCidr: pointer.Pointer("2.3.4.0/24"), Project: pointer.Pointer(p2)}},
+			want: &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{{Name: "ip5", Ip: "2.3.4.5", Project: p2, Network: "n3", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}}}},
 		},
 	}
 	for _, tt := range tests {
@@ -209,6 +219,10 @@ func Test_ipServiceServer_List(t *testing.T) {
 			i := &ipServiceServer{
 				log:  log,
 				repo: repo,
+			}
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
 			}
 			got, err := i.List(ctx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
@@ -250,7 +264,7 @@ func Test_ipServiceServer_Update(t *testing.T) {
 	ctx := t.Context()
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p0", Login: "t1"}, {Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
+	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: p0, Login: "t1"}, {Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 		{Partition: &apiv2.Partition{Id: "partition-two", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
@@ -270,13 +284,13 @@ func Test_ipServiceServer_Update(t *testing.T) {
 	}
 
 	ips := []*apiv2.IPServiceCreateRequest{
-		{Name: pointer.Pointer("ip1"), Ip: pointer.Pointer("1.2.3.4"), Project: "p1", Network: "internet"},
-		{Name: pointer.Pointer("ip2"), Ip: pointer.Pointer("1.2.3.5"), Project: "p1", Network: "internet"},
-		{Name: pointer.Pointer("ip3"), Ip: pointer.Pointer("1.2.3.6"), Project: "p1", Network: "internet"},
-		{Name: pointer.Pointer("ip4"), Ip: pointer.Pointer("2001:db8::1"), Project: "p2", Network: "internetv6", Labels: &apiv2.Labels{Labels: map[string]string{"color": "red"}}},
-		{Name: pointer.Pointer("ip5"), Ip: pointer.Pointer("2.3.4.5"), Project: "p2", Network: "n3"},
-		{Name: pointer.Pointer("ip6"), Ip: pointer.Pointer("2.3.4.6"), Project: "p2", Network: "n3", Type: apiv2.IPType_IP_TYPE_STATIC.Enum()},
-		{Name: pointer.Pointer("ip7"), Ip: pointer.Pointer("2001:db8::2"), Project: "p2", Network: "internetv6", Labels: &apiv2.Labels{Labels: map[string]string{"color": "red"}}},
+		{Name: pointer.Pointer("ip1"), Ip: pointer.Pointer("1.2.3.4"), Project: p1, Network: "internet"},
+		{Name: pointer.Pointer("ip2"), Ip: pointer.Pointer("1.2.3.5"), Project: p1, Network: "internet"},
+		{Name: pointer.Pointer("ip3"), Ip: pointer.Pointer("1.2.3.6"), Project: p1, Network: "internet"},
+		{Name: pointer.Pointer("ip4"), Ip: pointer.Pointer("2001:db8::1"), Project: p2, Network: "internetv6", Labels: &apiv2.Labels{Labels: map[string]string{"color": "red"}}},
+		{Name: pointer.Pointer("ip5"), Ip: pointer.Pointer("2.3.4.5"), Project: p2, Network: "n3"},
+		{Name: pointer.Pointer("ip6"), Ip: pointer.Pointer("2.3.4.6"), Project: p2, Network: "n3", Type: apiv2.IPType_IP_TYPE_STATIC.Enum()},
+		{Name: pointer.Pointer("ip7"), Ip: pointer.Pointer("2001:db8::2"), Project: p2, Network: "internetv6", Labels: &apiv2.Labels{Labels: map[string]string{"color": "red"}}},
 	}
 
 	test.CreateNetworks(t, repo, nws)
@@ -295,7 +309,7 @@ func Test_ipServiceServer_Update(t *testing.T) {
 				UpdateMeta: &apiv2.UpdateMeta{
 					UpdatedAt: timestamppb.New(ipmap["1.2.3.4"].Changed),
 				},
-				Project: "p1",
+				Project: p1,
 				Name:    pointer.Pointer("ip1-changed"),
 			},
 			want: &apiv2.IPServiceUpdateResponse{
@@ -303,7 +317,7 @@ func Test_ipServiceServer_Update(t *testing.T) {
 					Name:    "ip1-changed",
 					Meta:    &apiv2.Meta{Generation: 1},
 					Ip:      "1.2.3.4",
-					Project: "p1",
+					Project: p1,
 					Network: "internet",
 					Type:    apiv2.IPType_IP_TYPE_EPHEMERAL,
 				}},
@@ -315,14 +329,14 @@ func Test_ipServiceServer_Update(t *testing.T) {
 				UpdateMeta: &apiv2.UpdateMeta{
 					UpdatedAt: timestamppb.New(ipmap["1.2.3.5"].Changed),
 				},
-				Project:     "p1",
+				Project:     p1,
 				Description: pointer.Pointer("test was here"),
 			},
 			want: &apiv2.IPServiceUpdateResponse{Ip: &apiv2.IP{
 				Name:        "ip2",
 				Meta:        &apiv2.Meta{Generation: 1},
 				Ip:          "1.2.3.5",
-				Project:     "p1",
+				Project:     p1,
 				Description: "test was here",
 				Network:     "internet",
 				Type:        apiv2.IPType_IP_TYPE_EPHEMERAL,
@@ -335,14 +349,14 @@ func Test_ipServiceServer_Update(t *testing.T) {
 				UpdateMeta: &apiv2.UpdateMeta{
 					UpdatedAt: timestamppb.New(ipmap["1.2.3.6"].Changed),
 				},
-				Project: "p1",
+				Project: p1,
 				Type:    apiv2.IPType_IP_TYPE_STATIC.Enum(),
 			},
 			want: &apiv2.IPServiceUpdateResponse{Ip: &apiv2.IP{
 				Name:    "ip3",
 				Ip:      "1.2.3.6",
 				Meta:    &apiv2.Meta{Generation: 1},
-				Project: "p1",
+				Project: p1,
 				Network: "internet",
 				Type:    apiv2.IPType_IP_TYPE_STATIC,
 			}},
@@ -354,14 +368,14 @@ func Test_ipServiceServer_Update(t *testing.T) {
 				UpdateMeta: &apiv2.UpdateMeta{
 					UpdatedAt: timestamppb.New(ipmap["2001:db8::1"].Changed),
 				},
-				Project: "p2",
+				Project: p2,
 				Labels:  &apiv2.UpdateLabels{Update: &apiv2.Labels{Labels: map[string]string{"color": "red", "purpose": "lb"}}},
 			},
 			want: &apiv2.IPServiceUpdateResponse{Ip: &apiv2.IP{
 				Name:    "ip4",
 				Ip:      "2001:db8::1",
 				Meta:    &apiv2.Meta{Labels: &apiv2.Labels{Labels: map[string]string{"color": "red", "purpose": "lb"}}, Generation: 1},
-				Project: "p2",
+				Project: p2,
 				Network: "internetv6",
 				Type:    apiv2.IPType_IP_TYPE_EPHEMERAL,
 			},
@@ -374,13 +388,13 @@ func Test_ipServiceServer_Update(t *testing.T) {
 				UpdateMeta: &apiv2.UpdateMeta{
 					UpdatedAt: timestamppb.New(ipmap["2001:db8::2"].Changed),
 				},
-				Project: "p2",
+				Project: p2,
 				Labels:  &apiv2.UpdateLabels{Remove: []string{"color", "purpose"}}},
 			want: &apiv2.IPServiceUpdateResponse{
 				Ip: &apiv2.IP{
 					Name:    "ip7",
 					Ip:      "2001:db8::2",
-					Project: "p2",
+					Project: p2,
 					Network: "internetv6",
 					Type:    apiv2.IPType_IP_TYPE_EPHEMERAL,
 					Meta:    &apiv2.Meta{Generation: 1},
@@ -389,7 +403,7 @@ func Test_ipServiceServer_Update(t *testing.T) {
 		},
 		{
 			name:    "update error",
-			rq:      &apiv2.IPServiceUpdateRequest{Ip: "2.3.4.6", Project: "p2", Type: apiv2.IPType_IP_TYPE_EPHEMERAL.Enum()},
+			rq:      &apiv2.IPServiceUpdateRequest{Ip: "2.3.4.6", Project: p2, Type: apiv2.IPType_IP_TYPE_EPHEMERAL.Enum()},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument("cannot change type of ip address from static to ephemeral"),
 		},
@@ -399,6 +413,11 @@ func Test_ipServiceServer_Update(t *testing.T) {
 			i := &ipServiceServer{
 				log:  log,
 				repo: repo,
+			}
+
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
 			}
 
 			got, err := i.Update(ctx, connect.NewRequest(tt.rq))
@@ -441,7 +460,7 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 	ctx := t.Context()
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p0", Login: "t1"}, {Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
+	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: p0, Login: "t1"}, {Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 		{Partition: &apiv2.Partition{Id: "partition-two", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
@@ -461,11 +480,11 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 	}
 
 	ips := []*apiv2.IPServiceCreateRequest{
-		{Name: pointer.Pointer("ip1"), Ip: pointer.Pointer("1.2.3.4"), Project: "p1", Network: "internet"},
-		{Name: pointer.Pointer("ip2"), Ip: pointer.Pointer("1.2.3.5"), Project: "p1", Network: "internet"},
-		{Name: pointer.Pointer("ip3"), Ip: pointer.Pointer("1.2.3.6"), Project: "p1", Network: "internet", Machine: pointer.Pointer("abc")},
-		{Name: pointer.Pointer("ip4"), Ip: pointer.Pointer("2001:db8::1"), Project: "p2", Network: "internetv6", Labels: &apiv2.Labels{Labels: map[string]string{"color": "red"}}},
-		{Name: pointer.Pointer("ip5"), Ip: pointer.Pointer("2.3.4.5"), Project: "p2", Network: "n3"},
+		{Name: pointer.Pointer("ip1"), Ip: pointer.Pointer("1.2.3.4"), Project: p1, Network: "internet"},
+		{Name: pointer.Pointer("ip2"), Ip: pointer.Pointer("1.2.3.5"), Project: p1, Network: "internet"},
+		{Name: pointer.Pointer("ip3"), Ip: pointer.Pointer("1.2.3.6"), Project: p1, Network: "internet", Machine: pointer.Pointer("abc")},
+		{Name: pointer.Pointer("ip4"), Ip: pointer.Pointer("2001:db8::1"), Project: p2, Network: "internetv6", Labels: &apiv2.Labels{Labels: map[string]string{"color": "red"}}},
+		{Name: pointer.Pointer("ip5"), Ip: pointer.Pointer("2.3.4.5"), Project: p2, Network: "n3"},
 	}
 
 	test.CreateNetworks(t, repo, nws)
@@ -479,18 +498,18 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 	}{
 		{
 			name: "delete known ip",
-			rq:   &apiv2.IPServiceDeleteRequest{Ip: "1.2.3.4", Project: "p1"},
-			want: &apiv2.IPServiceDeleteResponse{Ip: &apiv2.IP{Name: "ip1", Ip: "1.2.3.4", Project: "p1", Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}}},
+			rq:   &apiv2.IPServiceDeleteRequest{Ip: "1.2.3.4", Project: p1},
+			want: &apiv2.IPServiceDeleteResponse{Ip: &apiv2.IP{Name: "ip1", Ip: "1.2.3.4", Project: p1, Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}}},
 		},
 		{
 			name:    "delete unknown ip",
-			rq:      &apiv2.IPServiceDeleteRequest{Ip: "1.2.3.7", Project: "p1"},
+			rq:      &apiv2.IPServiceDeleteRequest{Ip: "1.2.3.7", Project: p1},
 			want:    nil,
 			wantErr: errorutil.NotFound(`no ip with id "1.2.3.7" found`),
 		},
 		{
 			name:    "delete machine ip",
-			rq:      &apiv2.IPServiceDeleteRequest{Ip: "1.2.3.6", Project: "p1"},
+			rq:      &apiv2.IPServiceDeleteRequest{Ip: "1.2.3.6", Project: p1},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument("ip with machine scope cannot be deleted"),
 		},
@@ -500,6 +519,10 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 			i := &ipServiceServer{
 				log:  log,
 				repo: repo,
+			}
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
 			}
 			got, err := i.Delete(ctx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
@@ -541,7 +564,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 	ctx := t.Context()
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p0", Login: "t1"}, {Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
+	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: p0, Login: "t1"}, {Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 		{Partition: &apiv2.Partition{Id: "partition-two", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
@@ -553,7 +576,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 		{Id: pointer.Pointer("internetv6"), Prefixes: []string{"2001:db8::/96"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: pointer.Pointer(uint32(12))},
 		{
 			Id:        pointer.Pointer("external-with-project"),
-			Project:   pointer.Pointer("p1"),
+			Project:   pointer.Pointer(p1),
 			Prefixes:  []string{"192.168.3.0/24"},
 			Type:      apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
 			Vrf:       pointer.Pointer(uint32(45)),
@@ -565,34 +588,34 @@ func Test_ipServiceServer_Create(t *testing.T) {
 		{Id: pointer.Pointer("tenant-super-network-namespaced"), Prefixes: []string{"10.100.0.0/14"}, DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))}, Type: apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED},
 	}
 	ips := []*apiv2.IPServiceCreateRequest{
-		{Name: pointer.Pointer("ip1"), Ip: pointer.Pointer("1.2.3.4"), Project: "p1", Network: "internet"},
-		{Name: pointer.Pointer("ip2"), Ip: pointer.Pointer("1.2.3.5"), Project: "p1", Network: "internet"},
-		{Name: pointer.Pointer("ip3"), Ip: pointer.Pointer("1.2.3.6"), Project: "p1", Network: "internet"},
+		{Name: pointer.Pointer("ip1"), Ip: pointer.Pointer("1.2.3.4"), Project: p1, Network: "internet"},
+		{Name: pointer.Pointer("ip2"), Ip: pointer.Pointer("1.2.3.5"), Project: p1, Network: "internet"},
+		{Name: pointer.Pointer("ip3"), Ip: pointer.Pointer("1.2.3.6"), Project: p1, Network: "internet"},
 	}
 	childNetworks := []*apiv2.NetworkServiceCreateRequest{
 		{
 			Name:          pointer.Pointer("private-v4"),
-			Project:       "p1",
+			Project:       p1,
 			ParentNetwork: pointer.Pointer("tenant-network"),
 		},
 		{
 			Name:          pointer.Pointer("private-v6"),
-			Project:       "p1",
+			Project:       p1,
 			ParentNetwork: pointer.Pointer("tenant-network-v6"),
 		},
 		{
 			Name:          pointer.Pointer("private-dualstack"),
-			Project:       "p1",
+			Project:       p1,
 			ParentNetwork: pointer.Pointer("tenant-network-dualstack"),
 		},
 		{
 			Name:          pointer.Pointer("private-namespaced-1"),
-			Project:       "p1",
+			Project:       p1,
 			ParentNetwork: pointer.Pointer("tenant-super-network-namespaced"),
 		},
 		{
 			Name:          pointer.Pointer("private-namespaced-2"),
-			Project:       "p2",
+			Project:       p2,
 			ParentNetwork: pointer.Pointer("tenant-super-network-namespaced"),
 		},
 	}
@@ -611,93 +634,93 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			name: "create random ephemeral ipv4",
 			rq: &apiv2.IPServiceCreateRequest{
 				Network: "internet",
-				Project: "p1",
+				Project: p1,
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "1.2.3.1", Network: "internet", Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
+				Ip: &apiv2.IP{Ip: "1.2.3.1", Network: "internet", Project: p1, Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
 			},
 		},
 		{
 			name: "create random ephemeral ipv6",
 			rq: &apiv2.IPServiceCreateRequest{
 				Network: networks["private-v6"].ID,
-				Project: "p1",
+				Project: p1,
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "2001:db8:1::1", Network: networks["private-v6"].ID, Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
+				Ip: &apiv2.IP{Ip: "2001:db8:1::1", Network: networks["private-v6"].ID, Project: p1, Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
 			},
 		},
 		{
 			name: "create specific ephemeral ipv6",
 			rq: &apiv2.IPServiceCreateRequest{
 				Network: networks["private-v6"].ID,
-				Project: "p1",
+				Project: p1,
 				Ip:      pointer.Pointer("2001:db8:1::99"),
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "2001:db8:1::99", Network: networks["private-v6"].ID, Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
+				Ip: &apiv2.IP{Ip: "2001:db8:1::99", Network: networks["private-v6"].ID, Project: p1, Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
 			},
 		},
 		{
 			name: "create random ephemeral ipv4 from a dualstack network",
 			rq: &apiv2.IPServiceCreateRequest{
 				Network: networks["private-dualstack"].ID,
-				Project: "p1",
+				Project: p1,
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "10.3.0.1", Network: networks["private-dualstack"].ID, Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
+				Ip: &apiv2.IP{Ip: "10.3.0.1", Network: networks["private-dualstack"].ID, Project: p1, Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
 			},
 		},
 		{
 			name: "create random ephemeral ipv6 from a dualstack network",
 			rq: &apiv2.IPServiceCreateRequest{
 				Network:       networks["private-dualstack"].ID,
-				Project:       "p1",
+				Project:       p1,
 				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(),
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "2001:db8:2::1", Network: networks["private-dualstack"].ID, Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
+				Ip: &apiv2.IP{Ip: "2001:db8:2::1", Network: networks["private-dualstack"].ID, Project: p1, Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
 			},
 		},
 		{
 			name: "create specific ephemeral ipv4",
 			rq: &apiv2.IPServiceCreateRequest{
 				Network: "internet",
-				Project: "p1",
+				Project: p1,
 				Ip:      pointer.Pointer("1.2.3.99"),
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "1.2.3.99", Network: "internet", Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
+				Ip: &apiv2.IP{Ip: "1.2.3.99", Network: "internet", Project: p1, Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
 			},
 		},
 		{
 			name: "create specific static ipv4",
 			rq: &apiv2.IPServiceCreateRequest{
 				Network: "internet",
-				Project: "p1",
+				Project: p1,
 				Ip:      pointer.Pointer("1.2.3.100"),
 				Type:    apiv2.IPType_IP_TYPE_STATIC.Enum(),
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "1.2.3.100", Network: "internet", Project: "p1", Type: apiv2.IPType_IP_TYPE_STATIC, Meta: &apiv2.Meta{}},
+				Ip: &apiv2.IP{Ip: "1.2.3.100", Network: "internet", Project: p1, Type: apiv2.IPType_IP_TYPE_STATIC, Meta: &apiv2.Meta{}},
 			},
 		},
 		{
 			name: "create ip in a namespaced private",
 			rq: &apiv2.IPServiceCreateRequest{
 				Network: networks["private-namespaced-1"].ID,
-				Project: "p1",
+				Project: p1,
 				Type:    apiv2.IPType_IP_TYPE_STATIC.Enum(),
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "10.100.0.1", Network: networks["private-namespaced-1"].ID, Namespace: pointer.Pointer("p1"), Project: "p1", Type: apiv2.IPType_IP_TYPE_STATIC, Meta: &apiv2.Meta{}},
+				Ip: &apiv2.IP{Ip: "10.100.0.1", Network: networks["private-namespaced-1"].ID, Namespace: pointer.Pointer(p1), Project: p1, Type: apiv2.IPType_IP_TYPE_STATIC, Meta: &apiv2.Meta{}},
 			},
 		},
 		{
 			name: "create specific ipv4 which is already allocated",
 			rq: &apiv2.IPServiceCreateRequest{
 				Network: "internet",
-				Project: "p1",
+				Project: p1,
 				Ip:      pointer.Pointer("1.2.3.1"),
 			},
 			want:    nil,
@@ -707,7 +730,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			name: "allocate a static specific ip outside prefix",
 			rq: &apiv2.IPServiceCreateRequest{
 				Network: "internet",
-				Project: "p1",
+				Project: p1,
 				Ip:      pointer.Pointer("1.3.0.1"),
 			},
 			want:    nil,
@@ -717,7 +740,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			name: "allocate a random ip with unavailable addressfamily",
 			rq: &apiv2.IPServiceCreateRequest{
 				Network:       networks["private-v6"].ID,
-				Project:       "p1",
+				Project:       p1,
 				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4.Enum(),
 			},
 			want:    nil,
@@ -727,7 +750,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			name: "allocate a random ip with unavailable addressfamily",
 			rq: &apiv2.IPServiceCreateRequest{
 				Network:       networks["private-v4"].ID,
-				Project:       "p1",
+				Project:       p1,
 				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(),
 			},
 			want:    nil,
@@ -737,32 +760,32 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			name: "disallow creating an ip address in a project-scoped network that does not belong to the request project",
 			rq: &apiv2.IPServiceCreateRequest{
 				Network:       networks["private-namespaced-2"].ID,
-				Project:       "p1",
+				Project:       p1,
 				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(),
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("not allowed to create ip with project p1 in network %s scoped to project p2", networks["private-namespaced-2"].ID),
+			wantErr: errorutil.InvalidArgument("not allowed to create ip with project %s in network %s scoped to project %s", p1, networks["private-namespaced-2"].ID, p2),
 		},
 		{
 			name: "create ip in project-scoped external network",
 			rq: &apiv2.IPServiceCreateRequest{
 				Network: "external-with-project",
-				Project: "p1",
+				Project: p1,
 				Type:    apiv2.IPType_IP_TYPE_STATIC.Enum(),
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "192.168.3.1", Network: "external-with-project", Project: "p1", Type: apiv2.IPType_IP_TYPE_STATIC, Meta: &apiv2.Meta{}},
+				Ip: &apiv2.IP{Ip: "192.168.3.1", Network: "external-with-project", Project: p1, Type: apiv2.IPType_IP_TYPE_STATIC, Meta: &apiv2.Meta{}},
 			},
 		},
 		{
 			name: "create ip from external network with different project is not allowed",
 			rq: &apiv2.IPServiceCreateRequest{
 				Network: "external-with-project",
-				Project: "p2",
+				Project: p2,
 				Type:    apiv2.IPType_IP_TYPE_STATIC.Enum(),
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("not allowed to create ip with project p2 in network external-with-project scoped to project p1"),
+			wantErr: errorutil.InvalidArgument("not allowed to create ip with project %s in network external-with-project scoped to project %s", p2, p1),
 		},
 	}
 	for _, tt := range tests {
@@ -770,6 +793,10 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			i := &ipServiceServer{
 				log:  log,
 				repo: repo,
+			}
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
 			}
 			got, err := i.Create(
 				ctx, connect.NewRequest(tt.rq),
