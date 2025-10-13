@@ -111,8 +111,7 @@ auditing-rm:
 
 
 .PHONY: mini-lab-push
-mini-lab-push:
-	make server
+mini-lab-push: server
 	docker build -f Dockerfile -t metalstack/metal-apiserver:latest .
 	kind --name metal-control-plane load docker-image metalstack/metal-apiserver:latest
 	kubectl --kubeconfig=$(MINI_LAB_KUBECONFIG) patch deployments.apps -n metal-control-plane metal-apiserver --patch='{"spec":{"template":{"spec":{"containers":[{"name": "apiserver","imagePullPolicy":"IfNotPresent","image":"metalstack/metal-apiserver:latest"}]}}}}'
