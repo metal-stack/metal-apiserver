@@ -23,7 +23,7 @@ require (
 	github.com/klauspost/connect-compress/v2 v2.0.0
 	github.com/lestrrat-go/jwx/v2 v2.1.6
 	github.com/markbates/goth v1.82.0
-	github.com/metal-stack/api v0.0.26
+	github.com/metal-stack/api v0.0.25-0.20251010145913-d423b2408f10
 	github.com/metal-stack/go-ipam v1.14.13
 	github.com/metal-stack/masterdata-api v0.13.0
 	github.com/metal-stack/metal-lib v0.23.5
@@ -33,7 +33,7 @@ require (
 	github.com/prometheus/client_golang v1.23.2
 	github.com/redis/go-redis/v9 v9.14.0
 	github.com/rs/cors v1.11.1
-	github.com/samber/lo v1.51.0
+	github.com/samber/lo v1.52.0
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.39.0
 	github.com/testcontainers/testcontainers-go/modules/valkey v0.39.0
@@ -41,7 +41,7 @@ require (
 	go.opentelemetry.io/otel/exporters/prometheus v0.60.0
 	go.opentelemetry.io/otel/sdk/metric v1.38.0
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba
-	golang.org/x/oauth2 v0.31.0
+	golang.org/x/oauth2 v0.32.0
 	golang.org/x/sync v0.17.0
 	google.golang.org/grpc v1.76.0
 	google.golang.org/protobuf v1.36.10
@@ -75,7 +75,7 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/distribution/reference v0.6.0 // indirect
-	github.com/docker/docker v28.5.0+incompatible // indirect
+	github.com/docker/docker v28.5.1+incompatible // indirect
 	github.com/docker/go-connections v0.6.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/ebitengine/purego v0.9.0 // indirect
@@ -105,7 +105,7 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
-	github.com/gofrs/flock v0.12.1 // indirect
+	github.com/gofrs/flock v0.13.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v1.0.0 // indirect
@@ -194,12 +194,12 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/crypto v0.42.0 // indirect
-	golang.org/x/exp v0.0.0-20251002181428-27f1f14c8bb9 // indirect
-	golang.org/x/net v0.45.0 // indirect
-	golang.org/x/sys v0.36.0 // indirect
-	golang.org/x/text v0.29.0 // indirect
-	golang.org/x/time v0.13.0 // indirect
+	golang.org/x/crypto v0.43.0 // indirect
+	golang.org/x/exp v0.0.0-20251009144603-d2f985daa21b // indirect
+	golang.org/x/net v0.46.0 // indirect
+	golang.org/x/sys v0.37.0 // indirect
+	golang.org/x/text v0.30.0 // indirect
+	golang.org/x/time v0.14.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20251007200510-49b9836ed3ff // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251007200510-49b9836ed3ff // indirect
 	gopkg.in/cenkalti/backoff.v2 v2.2.1 // indirect

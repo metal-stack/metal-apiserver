@@ -25,7 +25,7 @@ func TestWithValidator(t *testing.T) {
 	))
 	srv := startHTTPServer(t, mux)
 
-	req := connect.NewRequest(&apiv1.TokenServiceCreateRequest{
+	req := &apiv1.TokenServiceCreateRequest{
 		Description: `
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
@@ -36,7 +36,7 @@ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 `,
-	})
+	}
 	_, err := apiv2connect.NewTokenServiceClient(srv.Client(), srv.URL).Create(t.Context(), req)
 	require.Error(t, err)
 	require.EqualError(t, err, "invalid_argument: validation error:\n - description: must be shorter than 256 characters [string.is_description]")

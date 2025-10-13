@@ -5,7 +5,6 @@ import (
 	"os"
 	"testing"
 
-	"connectrpc.com/connect"
 	"github.com/metal-stack/api/go/client"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/stretchr/testify/require"
@@ -26,7 +25,7 @@ func TestUnauthenticated(t *testing.T) {
 
 	ctx := t.Context()
 
-	images, err := apiClient.Apiv2().Image().List(ctx, connect.NewRequest(&apiv2.ImageServiceListRequest{}))
+	images, err := apiClient.Apiv2().Image().List(ctx, &apiv2.ImageServiceListRequest{})
 	require.Nil(t, images)
 	require.EqualError(t, err, "permission_denied: not allowed to call: /metalstack.api.v2.ImageService/List")
 }
@@ -47,7 +46,7 @@ func TestAuthenticated(t *testing.T) {
 
 	ctx := t.Context()
 
-	v, err := apiClient.Apiv2().Version().Get(ctx, connect.NewRequest(&apiv2.VersionServiceGetRequest{}))
+	v, err := apiClient.Apiv2().Version().Get(ctx, &apiv2.VersionServiceGetRequest{})
 	require.NoError(t, err)
 	require.NotNil(t, v)
 }

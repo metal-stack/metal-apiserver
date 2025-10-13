@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 
-	"connectrpc.com/connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
@@ -28,8 +27,7 @@ func New(c Config) apiv2connect.FilesystemServiceHandler {
 	}
 }
 
-func (f *filesystemServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2.FilesystemServiceGetRequest]) (*connect.Response[apiv2.FilesystemServiceGetResponse], error) {
-	req := rq.Msg
+func (f *filesystemServiceServer) Get(ctx context.Context, req *apiv2.FilesystemServiceGetRequest) (*apiv2.FilesystemServiceGetResponse, error) {
 	resp, err := f.repo.FilesystemLayout().Get(ctx, req.Id)
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -39,13 +37,12 @@ func (f *filesystemServiceServer) Get(ctx context.Context, rq *connect.Request[a
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	return connect.NewResponse(&apiv2.FilesystemServiceGetResponse{
+	return &apiv2.FilesystemServiceGetResponse{
 		FilesystemLayout: fsl,
-	}), nil
+	}, nil
 }
 
-func (f *filesystemServiceServer) List(ctx context.Context, rq *connect.Request[apiv2.FilesystemServiceListRequest]) (*connect.Response[apiv2.FilesystemServiceListResponse], error) {
-	req := rq.Msg
+func (f *filesystemServiceServer) List(ctx context.Context, req *apiv2.FilesystemServiceListRequest) (*apiv2.FilesystemServiceListResponse, error) {
 	resp, err := f.repo.FilesystemLayout().List(ctx, req)
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -58,13 +55,12 @@ func (f *filesystemServiceServer) List(ctx context.Context, rq *connect.Request[
 		}
 		fsls = append(fsls, fsl)
 	}
-	return connect.NewResponse(&apiv2.FilesystemServiceListResponse{
+	return &apiv2.FilesystemServiceListResponse{
 		FilesystemLayouts: fsls,
-	}), nil
+	}, nil
 }
 
-func (f *filesystemServiceServer) Match(ctx context.Context, rq *connect.Request[apiv2.FilesystemServiceMatchRequest]) (*connect.Response[apiv2.FilesystemServiceMatchResponse], error) {
-	req := rq.Msg
+func (f *filesystemServiceServer) Match(ctx context.Context, req *apiv2.FilesystemServiceMatchRequest) (*apiv2.FilesystemServiceMatchResponse, error) {
 	switch match := req.Match.(type) {
 	case *apiv2.FilesystemServiceMatchRequest_SizeAndImage:
 		// call old school fsl try
