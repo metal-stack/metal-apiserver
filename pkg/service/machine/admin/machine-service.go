@@ -51,17 +51,17 @@ func (m *machineServiceServer) List(ctx context.Context, rq *connect.Request[adm
 	}
 
 	partition := rq.Msg.Partition
-	if partition == "" {
+	if partition == nil {
 		if len(partitions) > 1 {
 			return nil, errorutil.InvalidArgument("no partition specified, but %d partitions available", len(partitions))
 		}
 		if len(partitions) == 1 {
-			partition = partitions[0].Id
+			partition = &partitions[0].ID
 		}
 	}
 
 	q := rq.Msg.Query
-	q.Partition = &partition
+	q.Partition = partition
 
 	machines, err := m.repo.UnscopedMachine().List(ctx, q)
 	if err != nil {

@@ -255,29 +255,6 @@ func projectRoleFromMap(annotations map[string]string) apiv2.ProjectRole {
 	return projectRole
 }
 
-func toProject(p *projectEntity) (*apiv2.Project, error) {
-	if p.Meta == nil {
-		return nil, fmt.Errorf("project meta is nil")
-	}
-
-	var avatarUrl *string
-	if url, ok := p.Meta.Annotations[avatarURLAnnotation]; ok {
-		avatarUrl = &url
-	}
-
-	return &apiv2.Project{
-		Uuid:        p.Meta.Id,
-		Name:        p.Name,
-		Description: p.Description,
-		Tenant:      p.TenantId,
-		Meta: &apiv2.Meta{
-			CreatedAt: p.Meta.CreatedTime,
-			UpdatedAt: p.Meta.UpdatedTime,
-		},
-		AvatarUrl: avatarUrl,
-	}, nil
-}
-
 type ProjectsAndTenants struct {
 	Projects      []*apiv2.Project
 	Tenants       []*apiv2.Tenant
@@ -310,7 +287,7 @@ func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId st
 	for _, projectWithAnnotations := range projectResp.Projects {
 		p := projectWithAnnotations.Project
 
-		apip, err := toProject(&projectEntity{Project: p})
+		apip, err := r.convertToProto(ctx, &projectEntity{Project: p})
 		if err != nil {
 			return nil, errorutil.Internal("unable to convert project %w", err)
 		}
