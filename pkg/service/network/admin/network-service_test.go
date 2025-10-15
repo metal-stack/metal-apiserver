@@ -1636,7 +1636,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 	})
 
 	test.CreateIPs(t, repo, []*apiv2.IPServiceCreateRequest{
-		{Network: networkMap["tenant-1"].Id, Project: "p1", Name: pointer.Pointer("ip-1")},
+		{Network: networkMap["tenant-1"].Id, Project: p1, Name: pointer.Pointer("ip-1")},
 	})
 
 	tests := []struct {
@@ -1785,7 +1785,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 	})
 
 	test.CreateIPs(t, repo, []*apiv2.IPServiceCreateRequest{
-		{Network: networkMap["tenant-1"].Id, Project: "p1", Name: pointer.Pointer("ip-1")},
+		{Network: networkMap["tenant-1"].Id, Project: p1, Name: pointer.Pointer("ip-1")},
 	})
 
 	tests := []struct {

@@ -90,12 +90,13 @@ func Test_switchServiceServer_Register(t *testing.T) {
 			},
 			want: &infrav2.SwitchServiceRegisterResponse{
 				Switch: &apiv2.Switch{
-					Id:          "sw2",
-					Meta:        &apiv2.Meta{Generation: 0},
-					Rack:        nil,
-					Partition:   "partition-b",
-					ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
-					Nics:        []*apiv2.SwitchNic{},
+					Id:           "sw2",
+					Meta:         &apiv2.Meta{Generation: 0},
+					Rack:         nil,
+					Partition:    "partition-b",
+					ManagementIp: "1.1.1.1",
+					ReplaceMode:  apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+					Nics:         []*apiv2.SwitchNic{},
 					Os: &apiv2.SwitchOS{
 						Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_CUMULUS,
 						Version:          "v5.9",

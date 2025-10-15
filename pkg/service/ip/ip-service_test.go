@@ -61,8 +61,8 @@ func Test_ipServiceServer_Get(t *testing.T) {
 	networks := lo.Assign(createdNetworks, allocatedNetworks)
 
 	test.CreateIPs(t, repo, []*apiv2.IPServiceCreateRequest{
-		{Ip: pointer.Pointer("1.2.3.4"), Project: "p1", Network: "internet"},
-		{Ip: pointer.Pointer("12.100.0.4"), Project: "p1", Network: networks["private-1"].Id},
+		{Ip: pointer.Pointer("1.2.3.4"), Project: p1, Network: "internet"},
+		{Ip: pointer.Pointer("12.100.0.4"), Project: p1, Network: networks["private-1"].Id},
 	})
 
 	tests := []struct {
@@ -90,8 +90,8 @@ func Test_ipServiceServer_Get(t *testing.T) {
 		},
 		{
 			name:    "get namespaced existing",
-			rq:      &apiv2.IPServiceGetRequest{Ip: "12.100.0.4", Project: "p1", Namespace: pointer.Pointer("p1")},
-			want:    &apiv2.IPServiceGetResponse{Ip: &apiv2.IP{Ip: "12.100.0.4", Project: "p1", Namespace: pointer.Pointer("p1"), Network: networks["private-1"].Id, Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{Generation: 0}}},
+			rq:      &apiv2.IPServiceGetRequest{Ip: "12.100.0.4", Project: p1, Namespace: pointer.Pointer(p1)},
+			want:    &apiv2.IPServiceGetResponse{Ip: &apiv2.IP{Ip: "12.100.0.4", Project: p1, Namespace: pointer.Pointer(p1), Network: networks["private-1"].Id, Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{Generation: 0}}},
 			wantErr: nil,
 		},
 	}
@@ -644,42 +644,42 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			name: "create random ephemeral ipv6",
 			rq: &apiv2.IPServiceCreateRequest{
 				Network: networks["private-v6"].Id,
-				Project: "p1",
+				Project: p1,
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "2001:db8:1::1", Network: networks["private-v6"].Id, Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
+				Ip: &apiv2.IP{Ip: "2001:db8:1::1", Network: networks["private-v6"].Id, Project: p1, Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
 			},
 		},
 		{
 			name: "create specific ephemeral ipv6",
 			rq: &apiv2.IPServiceCreateRequest{
 				Network: networks["private-v6"].Id,
-				Project: "p1",
+				Project: p1,
 				Ip:      pointer.Pointer("2001:db8:1::99"),
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "2001:db8:1::99", Network: networks["private-v6"].Id, Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
+				Ip: &apiv2.IP{Ip: "2001:db8:1::99", Network: networks["private-v6"].Id, Project: p1, Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
 			},
 		},
 		{
 			name: "create random ephemeral ipv4 from a dualstack network",
 			rq: &apiv2.IPServiceCreateRequest{
 				Network: networks["private-dualstack"].Id,
-				Project: "p1",
+				Project: p1,
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "10.3.0.1", Network: networks["private-dualstack"].Id, Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
+				Ip: &apiv2.IP{Ip: "10.3.0.1", Network: networks["private-dualstack"].Id, Project: p1, Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
 			},
 		},
 		{
 			name: "create random ephemeral ipv6 from a dualstack network",
 			rq: &apiv2.IPServiceCreateRequest{
 				Network:       networks["private-dualstack"].Id,
-				Project:       "p1",
+				Project:       p1,
 				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(),
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "2001:db8:2::1", Network: networks["private-dualstack"].Id, Project: "p1", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
+				Ip: &apiv2.IP{Ip: "2001:db8:2::1", Network: networks["private-dualstack"].Id, Project: p1, Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
 			},
 		},
 		{
@@ -709,11 +709,11 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			name: "create ip in a namespaced private",
 			rq: &apiv2.IPServiceCreateRequest{
 				Network: networks["private-namespaced-1"].Id,
-				Project: "p1",
+				Project: p1,
 				Type:    apiv2.IPType_IP_TYPE_STATIC.Enum(),
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "10.100.0.1", Network: networks["private-namespaced-1"].Id, Namespace: pointer.Pointer("p1"), Project: "p1", Type: apiv2.IPType_IP_TYPE_STATIC, Meta: &apiv2.Meta{}},
+				Ip: &apiv2.IP{Ip: "10.100.0.1", Network: networks["private-namespaced-1"].Id, Namespace: pointer.Pointer(p1), Project: p1, Type: apiv2.IPType_IP_TYPE_STATIC, Meta: &apiv2.Meta{}},
 			},
 		},
 		{
@@ -740,7 +740,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			name: "allocate a random ip with unavailable addressfamily",
 			rq: &apiv2.IPServiceCreateRequest{
 				Network:       networks["private-v6"].Id,
-				Project:       "p1",
+				Project:       p1,
 				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4.Enum(),
 			},
 			want:    nil,
@@ -750,7 +750,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			name: "allocate a random ip with unavailable addressfamily",
 			rq: &apiv2.IPServiceCreateRequest{
 				Network:       networks["private-v4"].Id,
-				Project:       "p1",
+				Project:       p1,
 				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(),
 			},
 			want:    nil,
@@ -760,11 +760,11 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			name: "disallow creating an ip address in a project-scoped network that does not belong to the request project",
 			rq: &apiv2.IPServiceCreateRequest{
 				Network:       networks["private-namespaced-2"].Id,
-				Project:       "p1",
+				Project:       p1,
 				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(),
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("not allowed to create ip with project p1 in network %s scoped to project p2", networks["private-namespaced-2"].Id),
+			wantErr: errorutil.InvalidArgument("not allowed to create ip with project 00000000-0000-0000-0000-000000000001 in network %s scoped to project 00000000-0000-0000-0000-000000000002", networks["private-namespaced-2"].Id),
 		},
 		{
 			name: "create ip in project-scoped external network",

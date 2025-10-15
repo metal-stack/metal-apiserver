@@ -958,7 +958,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 	}{
 		{
 			name: "delete existing",
-			rq:   &apiv2.NetworkServiceDeleteRequest{Id: networkMap["p1-network-a"].Id, Project: "p1"},
+			rq:   &apiv2.NetworkServiceDeleteRequest{Id: networkMap["p1-network-a"].Id, Project: p1},
 			want: &apiv2.NetworkServiceDeleteResponse{
 				Network: &apiv2.Network{
 					Id:            networkMap["p1-network-a"].Id,
@@ -976,19 +976,19 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 		},
 		{
 			name:    "project does not match",
-			rq:      &apiv2.NetworkServiceDeleteRequest{Id: networkMap["p1-network-b"].Id, Project: "p2"},
+			rq:      &apiv2.NetworkServiceDeleteRequest{Id: networkMap["p1-network-b"].Id, Project: p2},
 			want:    nil,
 			wantErr: errorutil.NotFound("*metal.Network with id %q not found", networkMap["p1-network-b"].Id),
 		},
 		{
 			name:    "network does not exist anymore",
-			rq:      &apiv2.NetworkServiceDeleteRequest{Id: networkMap["p1-network-a"].Id, Project: "pa"},
+			rq:      &apiv2.NetworkServiceDeleteRequest{Id: networkMap["p1-network-a"].Id, Project: p1},
 			want:    nil,
 			wantErr: errorutil.NotFound(`no network with id %q found`, networkMap["p1-network-a"].Id),
 		},
 		{
 			name:    "network has machine allocation",
-			rq:      &apiv2.NetworkServiceDeleteRequest{Id: networkMap["p3-network-a"].Id, Project: "p3"},
+			rq:      &apiv2.NetworkServiceDeleteRequest{Id: networkMap["p3-network-a"].Id, Project: p3},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`cannot remove network with existing machine allocations`),
 		},
