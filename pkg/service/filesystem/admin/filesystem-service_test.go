@@ -37,7 +37,7 @@ func Test_filesystemServiceServer_Create(t *testing.T) {
 					Id:          "default",
 					Name:        pointer.Pointer("Default FSL"),
 					Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: pointer.Pointer("/"), Label: pointer.Pointer("root")}},
-					Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1")}}}},
+					Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
 					Constraints: &apiv2.FilesystemLayoutConstraints{
 						Sizes: []string{"c1-large-x86"},
 						Images: map[string]string{
@@ -53,7 +53,7 @@ func Test_filesystemServiceServer_Create(t *testing.T) {
 					Name:        pointer.Pointer("Default FSL"),
 					Description: pointer.Pointer(""),
 					Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: pointer.Pointer("/"), Label: pointer.Pointer("root")}},
-					Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1")}}}},
+					Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
 					Constraints: &apiv2.FilesystemLayoutConstraints{
 						Sizes: []string{"c1-large-x86"},
 						Images: map[string]string{
@@ -71,7 +71,7 @@ func Test_filesystemServiceServer_Create(t *testing.T) {
 					Id:          "default",
 					Name:        pointer.Pointer("Default FSL"),
 					Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: pointer.Pointer("/"), Label: pointer.Pointer("root")}},
-					Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1")}}}},
+					Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
 					Constraints: &apiv2.FilesystemLayoutConstraints{
 						Sizes: []string{"c1-large-x86"},
 						Images: map[string]string{
@@ -89,6 +89,10 @@ func Test_filesystemServiceServer_Create(t *testing.T) {
 			f := &filesystemServiceServer{
 				log:  log,
 				repo: repo,
+			}
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
 			}
 			got, err := f.Create(t.Context(), connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
@@ -122,7 +126,7 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 				Id:          "default",
 				Name:        pointer.Pointer("Default FSL"),
 				Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: pointer.Pointer("/"), Label: pointer.Pointer("root")}},
-				Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1")}}}},
+				Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
 				Constraints: &apiv2.FilesystemLayoutConstraints{
 					Sizes: []string{"c1-large-x86"},
 					Images: map[string]string{
@@ -150,7 +154,7 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 				},
 				Name:        pointer.Pointer("Default FSL"),
 				Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: pointer.Pointer("/"), Label: pointer.Pointer("root")}},
-				Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1")}}}},
+				Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
 				Constraints: &apiv2.FilesystemLayoutConstraints{
 					Sizes: []string{"c1-large-x86"},
 					Images: map[string]string{
@@ -166,7 +170,7 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 					Name:        pointer.Pointer("Default FSL"),
 					Description: pointer.Pointer(""),
 					Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: pointer.Pointer("/"), Label: pointer.Pointer("root")}},
-					Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1")}}}},
+					Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
 					Constraints: &apiv2.FilesystemLayoutConstraints{
 						Sizes: []string{"c1-large-x86"},
 						Images: map[string]string{
@@ -190,6 +194,10 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 			f := &filesystemServiceServer{
 				log:  log,
 				repo: repo,
+			}
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
 			}
 			got, err := f.Update(t.Context(), connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
@@ -222,7 +230,7 @@ func Test_filesystemServiceServer_Delete(t *testing.T) {
 				Id:          "default",
 				Name:        pointer.Pointer("Default FSL"),
 				Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: pointer.Pointer("/"), Label: pointer.Pointer("root")}},
-				Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1")}}}},
+				Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
 				Constraints: &apiv2.FilesystemLayoutConstraints{
 					Sizes: []string{"c1-large-x86"},
 					Images: map[string]string{
@@ -276,7 +284,7 @@ func Test_filesystemServiceServer_Delete(t *testing.T) {
 					Name:        pointer.Pointer("Default FSL"),
 					Description: pointer.Pointer(""),
 					Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: pointer.Pointer("/"), Label: pointer.Pointer("root")}},
-					Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1")}}}},
+					Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
 					Constraints: &apiv2.FilesystemLayoutConstraints{
 						Sizes: []string{"c1-large-x86"},
 						Images: map[string]string{
@@ -311,6 +319,10 @@ func Test_filesystemServiceServer_Delete(t *testing.T) {
 			f := &filesystemServiceServer{
 				log:  log,
 				repo: repo,
+			}
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
 			}
 			got, err := f.Delete(t.Context(), connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {

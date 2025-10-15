@@ -20,7 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func StartApiserver(t *testing.T, log *slog.Logger) (baseURL, adminToken string, closer func()) {
+func StartApiserver(t testing.TB, log *slog.Logger) (baseURL, adminToken string, closer func()) {
 	ctx := t.Context()
 
 	testStore, repocloser := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true), test.WithValkey(true))

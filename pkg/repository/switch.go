@@ -61,8 +61,8 @@ func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServ
 		Description:    pointer.PointerOrNil(new.Description),
 		ReplaceMode:    pointer.PointerOrNil(new.ReplaceMode),
 		ManagementIp:   pointer.PointerOrNil(new.ManagementIp),
-		ManagementUser: pointer.PointerOrNil(new.ManagementUser),
-		ConsoleCommand: pointer.PointerOrNil(new.ConsoleCommand),
+		ManagementUser: new.ManagementUser,
+		ConsoleCommand: new.ConsoleCommand,
 		Nics:           new.Nics,
 		Os:             new.Os,
 	})
@@ -216,8 +216,8 @@ func (r *switchRepository) convertToInternal(ctx context.Context, sw *apiv2.Swit
 		Partition:          sw.Partition,
 		ReplaceMode:        replaceMode,
 		ManagementIP:       sw.ManagementIp,
-		ManagementUser:     sw.ManagementUser,
-		ConsoleCommand:     sw.ConsoleCommand,
+		ManagementUser:     pointer.SafeDeref(sw.ManagementUser),
+		ConsoleCommand:     pointer.SafeDeref(sw.ConsoleCommand),
 		MachineConnections: connections,
 		OS: metal.SwitchOS{
 			Vendor:           vendor,
@@ -264,8 +264,8 @@ func (r *switchRepository) convertToProto(ctx context.Context, sw *metal.Switch)
 		Partition:          sw.Partition,
 		ReplaceMode:        replaceMode,
 		ManagementIp:       sw.ManagementIP,
-		ManagementUser:     sw.ManagementUser,
-		ConsoleCommand:     sw.ConsoleCommand,
+		ManagementUser:     pointer.PointerOrNil(sw.ManagementUser),
+		ConsoleCommand:     pointer.PointerOrNil(sw.ConsoleCommand),
 		Nics:               nics,
 		MachineConnections: connections,
 		Os: &apiv2.SwitchOS{

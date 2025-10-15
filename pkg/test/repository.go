@@ -34,7 +34,7 @@ const (
 
 // TODO should we make all methods return/consume the teststore ?
 type testStore struct {
-	t *testing.T
+	t testing.TB
 	*repository.Store
 	ds            generic.Datastore
 	dbName        string
@@ -51,7 +51,7 @@ type testStore struct {
 	rc           *redis.Client
 }
 
-func (s *testStore) CleanNetworkTable(t *testing.T) {
+func (s *testStore) CleanNetworkTable(t testing.TB) {
 	_, err := r.DB(s.dbName).Table("network").Delete().RunWrite(s.queryExecutor)
 	require.NoError(t, err)
 }
@@ -78,7 +78,7 @@ func WithValkey(with bool) *testOptValkey {
 	}
 }
 
-func StartRepositoryWithCleanup(t *testing.T, log *slog.Logger, testOpts ...testOpt) (*testStore, func()) {
+func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...testOpt) (*testStore, func()) {
 	var (
 		withCockroach = false
 		withValkey    = false
@@ -239,7 +239,7 @@ func CreateMachinesWithAllocation(t *testing.T, repo *repository.Store, machines
 	return machineMap
 }
 
-func CreateMachines(t *testing.T, testStore *testStore, machines []*metal.Machine) map[string]*metal.Machine {
+func CreateMachines(t testing.TB, testStore *testStore, machines []*metal.Machine) map[string]*metal.Machine {
 	machineMap := map[string]*metal.Machine{}
 	for _, machine := range machines {
 		m, err := testStore.ds.Machine().Create(t.Context(), machine)
@@ -274,7 +274,7 @@ func CreateNetworks(t *testing.T, repo *repository.Store, nws []*adminv2.Network
 	return networkMap
 }
 
-func DeleteNetworks(t *testing.T, testStore *testStore) {
+func DeleteNetworks(t testing.TB, testStore *testStore) {
 	nsResp, err := testStore.ipam.ListNamespaces(t.Context(), connect.NewRequest(&ipamv1.ListNamespacesRequest{}))
 	require.NoError(t, err)
 
@@ -295,7 +295,7 @@ func DeleteNetworks(t *testing.T, testStore *testStore) {
 
 }
 
-func DeleteIPs(t *testing.T, testStore *testStore) {
+func DeleteIPs(t testing.TB, testStore *testStore) {
 	ips, err := testStore.ds.IP().List(t.Context())
 	require.NoError(t, err)
 
@@ -312,7 +312,7 @@ func DeleteIPs(t *testing.T, testStore *testStore) {
 	require.NoError(t, err)
 }
 
-func DeleteMachines(t *testing.T, testStore *testStore) {
+func DeleteMachines(t testing.TB, testStore *testStore) {
 	_, err := r.DB(testStore.dbName).Table("machine").Delete().RunWrite(testStore.queryExecutor)
 	require.NoError(t, err)
 }
@@ -402,28 +402,28 @@ func CreatePartitions(t *testing.T, repo *repository.Store, partitions []*adminv
 	return partitionMap
 }
 
-func CreateProjects(t *testing.T, repo *repository.Store, projects []*apiv2.ProjectServiceCreateRequest) {
+func CreateProjects(t testing.TB, repo *repository.Store, projects []*apiv2.ProjectServiceCreateRequest) {
 	for _, p := range projects {
 		_, err := repo.UnscopedProject().AdditionalMethods().CreateWithID(t.Context(), p, p.GetName())
 		require.NoError(t, err)
 	}
 }
 
-func CreateProjectMemberships(t *testing.T, testStore *testStore, project string, memberships []*repository.ProjectMemberCreateRequest) {
+func CreateProjectMemberships(t testing.TB, testStore *testStore, project string, memberships []*repository.ProjectMemberCreateRequest) {
 	for _, membership := range memberships {
 		_, err := testStore.Project(project).AdditionalMethods().Member().Create(t.Context(), membership)
 		require.NoError(t, err)
 	}
 }
 
-func CreateProjectInvites(t *testing.T, testStore *testStore, invites []*apiv2.ProjectInvite) {
+func CreateProjectInvites(t testing.TB, testStore *testStore, invites []*apiv2.ProjectInvite) {
 	for _, invite := range invites {
 		err := testStore.projectInviteStore.SetInvite(t.Context(), invite)
 		require.NoError(t, err)
 	}
 }
 
-func CreateTenants(t *testing.T, testStore *testStore, tenants []*apiv2.TenantServiceCreateRequest) {
+func CreateTenants(t testing.TB, testStore *testStore, tenants []*apiv2.TenantServiceCreateRequest) {
 	for _, tenant := range tenants {
 		tok, err := testStore.tokenService.CreateApiTokenWithoutPermissionCheck(t.Context(), tenant.GetName(), connect.NewRequest(&apiv2.TokenServiceCreateRequest{
 			Expires:   durationpb.New(time.Minute),
@@ -438,14 +438,14 @@ func CreateTenants(t *testing.T, testStore *testStore, tenants []*apiv2.TenantSe
 	}
 }
 
-func CreateTenantMemberships(t *testing.T, testStore *testStore, tenant string, memberships []*repository.TenantMemberCreateRequest) {
+func CreateTenantMemberships(t testing.TB, testStore *testStore, tenant string, memberships []*repository.TenantMemberCreateRequest) {
 	for _, membership := range memberships {
 		_, err := testStore.Tenant().AdditionalMethods().Member(tenant).Create(t.Context(), membership)
 		require.NoError(t, err)
 	}
 }
 
-func CreateTenantInvites(t *testing.T, testStore *testStore, invites []*apiv2.TenantInvite) {
+func CreateTenantInvites(t testing.TB, testStore *testStore, invites []*apiv2.TenantInvite) {
 	for _, invite := range invites {
 		err := testStore.tenantInviteStore.SetInvite(t.Context(), invite)
 		require.NoError(t, err)

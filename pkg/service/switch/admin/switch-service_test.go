@@ -245,6 +245,12 @@ func Test_switchServiceServer_Get(t *testing.T) {
 				log:  log,
 				repo: repo,
 			}
+
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
+
 			got, err := s.Get(ctx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("switchServiceServer.Get() error diff = %s", diff)
@@ -319,6 +325,11 @@ func Test_switchServiceServer_List(t *testing.T) {
 				log:  log,
 				repo: repo,
 			}
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
+
 			got, err := s.List(ctx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("switchServiceServer.List() error diff = %s", diff)
@@ -432,8 +443,8 @@ func Test_switchServiceServer_Update(t *testing.T) {
 					Partition:      "partition-a",
 					ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE,
 					ManagementIp:   "1.1.1.5",
-					ManagementUser: "metal",
-					ConsoleCommand: "ssh",
+					ManagementUser: pointer.Pointer("metal"),
+					ConsoleCommand: pointer.Pointer("ssh"),
 					Nics: []*apiv2.SwitchNic{
 						{
 							Name:       "Ethernet2",
@@ -485,6 +496,11 @@ func Test_switchServiceServer_Update(t *testing.T) {
 				log:  log,
 				repo: repo,
 			}
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
+
 			got, err := s.Update(ctx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("switchServiceServer.Update() error diff = %s", diff)
@@ -552,6 +568,11 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 				log:  log,
 				repo: repo,
 			}
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
+
 			got, err := s.Delete(ctx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("switchServiceServer.Delete() error diff = %s", diff)

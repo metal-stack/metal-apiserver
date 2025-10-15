@@ -29,8 +29,8 @@ var (
 			Partition:      "partition-a",
 			ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 			ManagementIp:   "1.1.1.1",
-			ManagementUser: "admin",
-			ConsoleCommand: "tty",
+			ManagementUser: pointer.Pointer("admin"),
+			ConsoleCommand: pointer.Pointer("tty"),
 			Os: &apiv2.SwitchOS{
 				Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
 				Version:          "ec202111",
@@ -75,11 +75,12 @@ func Test_switchServiceServer_Register(t *testing.T) {
 			name: "register new switch",
 			rq: &infrav2.SwitchServiceRegisterRequest{
 				Switch: &apiv2.Switch{
-					Id:          "sw2",
-					Rack:        nil,
-					Partition:   "partition-b",
-					ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
-					Nics:        []*apiv2.SwitchNic{},
+					Id:           "sw2",
+					Rack:         nil,
+					Partition:    "partition-b",
+					ManagementIp: "1.1.1.1",
+					ReplaceMode:  apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+					Nics:         []*apiv2.SwitchNic{},
 					Os: &apiv2.SwitchOS{
 						Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_CUMULUS,
 						Version:          "v5.9",
@@ -108,9 +109,13 @@ func Test_switchServiceServer_Register(t *testing.T) {
 			name: "register existing operational switch",
 			rq: &infrav2.SwitchServiceRegisterRequest{
 				Switch: &apiv2.Switch{
-					Id:          "sw1",
-					Description: "new description",
-					ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+					Id:             "sw1",
+					Description:    "new description",
+					Partition:      "partition-a",
+					ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+					ManagementIp:   "1.1.1.1",
+					ManagementUser: pointer.Pointer("admin"),
+					ConsoleCommand: pointer.Pointer("tty"),
 				},
 			},
 			want: &infrav2.SwitchServiceRegisterResponse{
@@ -122,8 +127,8 @@ func Test_switchServiceServer_Register(t *testing.T) {
 					Partition:      "partition-a",
 					ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 					ManagementIp:   "1.1.1.1",
-					ManagementUser: "admin",
-					ConsoleCommand: "tty",
+					ManagementUser: pointer.Pointer("admin"),
+					ConsoleCommand: pointer.Pointer("tty"),
 					Os: &apiv2.SwitchOS{
 						Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
 						Version:          "ec202111",
@@ -140,6 +145,12 @@ func Test_switchServiceServer_Register(t *testing.T) {
 				log:  log,
 				repo: repo,
 			}
+
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
+
 			got, err := s.Register(ctx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("switchServiceServer.Register() error diff = %s", diff)

@@ -28,6 +28,11 @@ func New(c Config) infrav2connect.SwitchServiceHandler {
 	}
 }
 
+// Get implements infrav2connect.SwitchServiceHandler.
+func (s *switchServiceServer) Get(context.Context, *connect.Request[infrav2.SwitchServiceGetRequest]) (*connect.Response[infrav2.SwitchServiceGetResponse], error) {
+	panic("unimplemented")
+}
+
 func (s *switchServiceServer) Register(ctx context.Context, rq *connect.Request[infrav2.SwitchServiceRegisterRequest]) (*connect.Response[infrav2.SwitchServiceRegisterResponse], error) {
 	sw, err := s.repo.Switch().AdditionalMethods().Register(ctx, rq.Msg)
 	if err != nil {

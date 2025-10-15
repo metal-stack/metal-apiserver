@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"buf.build/go/protovalidate"
 	"connectrpc.com/connect"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/google/go-cmp/cmp"
@@ -22,6 +23,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
+)
+
+var (
+	kubies = "00000000-0000-0000-0000-000000000000"
+	token1 = "00000000-0000-0000-0000-000000000000"
 )
 
 func Test_tokenService_CreateConsoleTokenWithoutPermissionCheck(t *testing.T) {
@@ -138,7 +144,7 @@ func Test_Create(t *testing.T) {
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "project token",
 				ProjectRoles: map[string]apiv2.ProjectRole{
-					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 				TenantRoles: map[string]apiv2.TenantRole{},
 			},
@@ -146,7 +152,7 @@ func Test_Create(t *testing.T) {
 				adminSubjects: []string{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested project: "kubies" is not allowed`,
+			wantErrMessage: `permission_denied: requested project: "00000000-0000-0000-0000-000000000000" is not allowed`,
 		},
 		{
 			name: "user and token with project access can create project token",
@@ -154,21 +160,21 @@ func Test_Create(t *testing.T) {
 				User:        "phippy",
 				Permissions: []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{
-					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 				TenantRoles: map[string]apiv2.TenantRole{},
 			},
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "project token",
 				ProjectRoles: map[string]apiv2.ProjectRole{
-					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 				TenantRoles: map[string]apiv2.TenantRole{},
 			},
 			state: state{
 				adminSubjects: []string{},
 				projectRoles: map[string]apiv2.ProjectRole{
-					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 			},
 			wantToken: &apiv2.Token{
@@ -176,7 +182,7 @@ func Test_Create(t *testing.T) {
 				Description: "project token",
 				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
 				ProjectRoles: map[string]apiv2.ProjectRole{
-					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 
 				TenantRoles: map[string]apiv2.TenantRole{},
@@ -188,14 +194,14 @@ func Test_Create(t *testing.T) {
 				User:        "phippy",
 				Permissions: []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{
-					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 				TenantRoles: map[string]apiv2.TenantRole{},
 			},
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "project token",
 				ProjectRoles: map[string]apiv2.ProjectRole{
-					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 				TenantRoles: map[string]apiv2.TenantRole{},
 			},
@@ -204,7 +210,7 @@ func Test_Create(t *testing.T) {
 				projectRoles:  map[string]apiv2.ProjectRole{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: outdated token: requested project: "kubies" is not allowed`,
+			wantErrMessage: `permission_denied: outdated token: requested project: "00000000-0000-0000-0000-000000000000" is not allowed`,
 		},
 		{
 			name: "project without but user with project access cannot create project token",
@@ -217,18 +223,18 @@ func Test_Create(t *testing.T) {
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "project token",
 				ProjectRoles: map[string]apiv2.ProjectRole{
-					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 				TenantRoles: map[string]apiv2.TenantRole{},
 			},
 			state: state{
 				adminSubjects: []string{},
 				projectRoles: map[string]apiv2.ProjectRole{
-					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested project: "kubies" is not allowed`,
+			wantErrMessage: `permission_denied: requested project: "00000000-0000-0000-0000-000000000000" is not allowed`,
 		},
 		{
 			name: "admin user and token can create new admin token",
@@ -414,6 +420,12 @@ func Test_Create(t *testing.T) {
 					ProjectRoles: tt.state.projectRoles,
 					TenantRoles:  tt.state.tenantRoles,
 				}, nil
+			}
+
+			if tt.wantErr == false {
+				// Execute proto based validation
+				err := protovalidate.Validate(tt.req)
+				require.NoError(t, err)
 			}
 
 			response, err := service.Create(ctx, connect.NewRequest(tt.req))
@@ -787,6 +799,12 @@ func Test_validateTokenCreate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.wantErr == false {
+				// Execute proto based validation
+				err := protovalidate.Validate(tt.req)
+				require.NoError(t, err)
+			}
+
 			err := validateTokenCreate(tt.token, tt.req, servicePermissions, tt.adminSubjects)
 			if err != nil && !tt.wantErr {
 				t.Errorf("validateTokenCreate() error = %v, wantErr %v", err, tt.wantErr)
@@ -824,7 +842,7 @@ func Test_Update(t *testing.T) {
 				TenantRoles:  map[string]apiv2.TenantRole{},
 			},
 			tokenToUpdate: &apiv2.Token{
-				Uuid:         "111",
+				Uuid:         token1,
 				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
@@ -832,14 +850,14 @@ func Test_Update(t *testing.T) {
 				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 			},
 			req: &apiv2.TokenServiceUpdateRequest{
-				Uuid:        "111",
+				Uuid:        token1,
 				Description: pointer.Pointer("update!"),
 			},
 			state: state{
 				adminSubjects: []string{},
 			},
 			wantToken: &apiv2.Token{
-				Uuid:        "111",
+				Uuid:        token1,
 				User:        "phippy",
 				Description: "update!",
 				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
@@ -854,16 +872,16 @@ func Test_Update(t *testing.T) {
 				TenantRoles:  map[string]apiv2.TenantRole{},
 			},
 			tokenToUpdate: &apiv2.Token{
-				Uuid:         "111",
+				Uuid:         token1,
 				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
 			},
 			req: &apiv2.TokenServiceUpdateRequest{
-				Uuid: "111",
+				Uuid: token1,
 				ProjectRoles: map[string]apiv2.ProjectRole{
-					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 				TenantRoles: map[string]apiv2.TenantRole{},
 			},
@@ -871,7 +889,7 @@ func Test_Update(t *testing.T) {
 				adminSubjects: []string{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested project: "kubies" is not allowed`,
+			wantErrMessage: `permission_denied: requested project: "00000000-0000-0000-0000-000000000000" is not allowed`,
 		},
 		{
 			name: "user and token with project access can update project token",
@@ -879,12 +897,12 @@ func Test_Update(t *testing.T) {
 				User:        "phippy",
 				Permissions: []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{
-					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 				TenantRoles: map[string]apiv2.TenantRole{},
 			},
 			tokenToUpdate: &apiv2.Token{
-				Uuid:         "111",
+				Uuid:         token1,
 				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
@@ -892,24 +910,24 @@ func Test_Update(t *testing.T) {
 				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 			},
 			req: &apiv2.TokenServiceUpdateRequest{
-				Uuid: "111",
+				Uuid: token1,
 				ProjectRoles: map[string]apiv2.ProjectRole{
-					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 				TenantRoles: map[string]apiv2.TenantRole{},
 			},
 			state: state{
 				adminSubjects: []string{},
 				projectRoles: map[string]apiv2.ProjectRole{
-					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 			},
 			wantToken: &apiv2.Token{
-				Uuid:      "111",
+				Uuid:      token1,
 				User:      "phippy",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				ProjectRoles: map[string]apiv2.ProjectRole{
-					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 				TenantRoles: map[string]apiv2.TenantRole{},
 			},
@@ -920,21 +938,21 @@ func Test_Update(t *testing.T) {
 				User:        "phippy",
 				Permissions: []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{
-					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 				TenantRoles: map[string]apiv2.TenantRole{},
 			},
 			tokenToUpdate: &apiv2.Token{
-				Uuid:         "111",
+				Uuid:         token1,
 				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
 			},
 			req: &apiv2.TokenServiceUpdateRequest{
-				Uuid: "111",
+				Uuid: token1,
 				ProjectRoles: map[string]apiv2.ProjectRole{
-					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 				TenantRoles: map[string]apiv2.TenantRole{},
 			},
@@ -943,7 +961,7 @@ func Test_Update(t *testing.T) {
 				projectRoles:  map[string]apiv2.ProjectRole{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: outdated token: requested project: "kubies" is not allowed`,
+			wantErrMessage: `permission_denied: outdated token: requested project: "00000000-0000-0000-0000-000000000000" is not allowed`,
 		},
 		{
 			name: "project without but user with project access cannot create project token",
@@ -954,27 +972,27 @@ func Test_Update(t *testing.T) {
 				TenantRoles:  map[string]apiv2.TenantRole{},
 			},
 			tokenToUpdate: &apiv2.Token{
-				Uuid:         "111",
+				Uuid:         token1,
 				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
 			},
 			req: &apiv2.TokenServiceUpdateRequest{
-				Uuid: "111",
+				Uuid: token1,
 				ProjectRoles: map[string]apiv2.ProjectRole{
-					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 				TenantRoles: map[string]apiv2.TenantRole{},
 			},
 			state: state{
 				adminSubjects: []string{},
 				projectRoles: map[string]apiv2.ProjectRole{
-					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested project: "kubies" is not allowed`,
+			wantErrMessage: `permission_denied: requested project: "00000000-0000-0000-0000-000000000000" is not allowed`,
 		},
 		{
 			name: "admin user and token can update admin token",
@@ -986,7 +1004,7 @@ func Test_Update(t *testing.T) {
 				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
 			},
 			tokenToUpdate: &apiv2.Token{
-				Uuid:         "111",
+				Uuid:         token1,
 				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
@@ -995,7 +1013,7 @@ func Test_Update(t *testing.T) {
 				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 			},
 			req: &apiv2.TokenServiceUpdateRequest{
-				Uuid:         "111",
+				Uuid:         token1,
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
 				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
@@ -1004,7 +1022,7 @@ func Test_Update(t *testing.T) {
 				adminSubjects: []string{"phippy"},
 			},
 			wantToken: &apiv2.Token{
-				Uuid:         "111",
+				Uuid:         token1,
 				User:         "phippy",
 				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				ProjectRoles: map[string]apiv2.ProjectRole{},
@@ -1022,7 +1040,7 @@ func Test_Update(t *testing.T) {
 				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
 			},
 			tokenToUpdate: &apiv2.Token{
-				Uuid:      "111",
+				Uuid:      token1,
 				User:      "phippy",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 			},
@@ -1046,12 +1064,12 @@ func Test_Update(t *testing.T) {
 				TenantRoles:  map[string]apiv2.TenantRole{},
 			},
 			tokenToUpdate: &apiv2.Token{
-				Uuid:      "111",
+				Uuid:      token1,
 				User:      "phippy",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 			},
 			req: &apiv2.TokenServiceUpdateRequest{
-				Uuid:         "111",
+				Uuid:         token1,
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles: map[string]apiv2.TenantRole{
 					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
@@ -1074,7 +1092,7 @@ func Test_Update(t *testing.T) {
 				},
 			},
 			tokenToUpdate: &apiv2.Token{
-				Uuid:         "111",
+				Uuid:         token1,
 				User:         "phippy",
 				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
@@ -1082,7 +1100,7 @@ func Test_Update(t *testing.T) {
 				TenantRoles:  map[string]apiv2.TenantRole{},
 			},
 			req: &apiv2.TokenServiceUpdateRequest{
-				Uuid:         "111",
+				Uuid:         token1,
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles: map[string]apiv2.TenantRole{
 					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
@@ -1095,7 +1113,7 @@ func Test_Update(t *testing.T) {
 				},
 			},
 			wantToken: &apiv2.Token{
-				Uuid:         "111",
+				Uuid:         token1,
 				User:         "phippy",
 				TokenType:    *apiv2.TokenType_TOKEN_TYPE_API.Enum(),
 				ProjectRoles: map[string]apiv2.ProjectRole{},
@@ -1115,12 +1133,12 @@ func Test_Update(t *testing.T) {
 				},
 			},
 			tokenToUpdate: &apiv2.Token{
-				Uuid:      "111",
+				Uuid:      token1,
 				User:      "phippy",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 			},
 			req: &apiv2.TokenServiceUpdateRequest{
-				Uuid:         "111",
+				Uuid:         token1,
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles: map[string]apiv2.TenantRole{
 					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
@@ -1141,12 +1159,12 @@ func Test_Update(t *testing.T) {
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 			},
 			tokenToUpdate: &apiv2.Token{
-				Uuid:      "111",
+				Uuid:      token1,
 				User:      "phippy",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 			},
 			req: &apiv2.TokenServiceUpdateRequest{
-				Uuid:         "111",
+				Uuid:         token1,
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles: map[string]apiv2.TenantRole{
 					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
@@ -1168,25 +1186,25 @@ func Test_Update(t *testing.T) {
 				User:        "phippy",
 				Permissions: []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{
-					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 			},
 			tokenToUpdate: &apiv2.Token{
-				Uuid:      "111",
+				Uuid:      token1,
 				User:      "phippy",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 			},
 			req: &apiv2.TokenServiceUpdateRequest{
 				Uuid: "222",
 				ProjectRoles: map[string]apiv2.ProjectRole{
-					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 				TenantRoles: map[string]apiv2.TenantRole{},
 			},
 			state: state{
 				adminSubjects: []string{},
 				projectRoles: map[string]apiv2.ProjectRole{
-					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 				tenantRoles: map[string]apiv2.TenantRole{},
 			},
@@ -1231,6 +1249,12 @@ func Test_Update(t *testing.T) {
 					ProjectRoles: tt.state.projectRoles,
 					TenantRoles:  tt.state.tenantRoles,
 				}, nil
+			}
+
+			if tt.wantErr == false {
+				// Execute proto based validation
+				err := protovalidate.Validate(tt.req)
+				require.NoError(t, err)
 			}
 
 			response, err := service.Update(ctx, connect.NewRequest(tt.req))
@@ -1280,13 +1304,13 @@ func Test_Refresh(t *testing.T) {
 			name: "can update bare token",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
-				Uuid:         "111",
+				Uuid:         token1,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
 			},
 			existingToken: &apiv2.Token{
-				Uuid:         "111",
+				Uuid:         token1,
 				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
@@ -1299,7 +1323,7 @@ func Test_Refresh(t *testing.T) {
 				adminSubjects: []string{},
 			},
 			wantToken: &apiv2.Token{
-				Uuid:         "111",
+				Uuid:         token1,
 				User:         "phippy",
 				Permissions:  nil,
 				ProjectRoles: map[string]apiv2.ProjectRole{},
@@ -1316,13 +1340,13 @@ func Test_Refresh(t *testing.T) {
 				User:        "phippy",
 				Permissions: []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{
-					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 			},
 			state: state{
 				adminSubjects: []string{},
 				projectRoles: map[string]apiv2.ProjectRole{
-					"kubies": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 				tenantRoles: map[string]apiv2.TenantRole{},
 			},
