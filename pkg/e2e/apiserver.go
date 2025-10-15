@@ -141,7 +141,6 @@ func createTenantTokens(t *testing.T, repo *repository.Store, tokenService token
 		require.NoError(t, err)
 
 		tenantTokens[tenant] = tcr.Msg.Secret
-
 	}
 
 	return tenantTokens
