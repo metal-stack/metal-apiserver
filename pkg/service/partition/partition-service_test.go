@@ -66,6 +66,10 @@ func Test_partitionServiceServer_Get(t *testing.T) {
 				log:  log,
 				repo: repo,
 			}
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
 			got, err := p.Get(ctx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
@@ -151,6 +155,10 @@ func Test_partitionServiceServer_List(t *testing.T) {
 			p := &partitionServiceServer{
 				log:  log,
 				repo: repo,
+			}
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
 			}
 			got, err := p.List(ctx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
