@@ -110,6 +110,6 @@ type (
 	}
 
 	Switch interface {
-		Repository[*switchRepository, *metal.Switch, *apiv2.Switch, *SwitchServiceCreateRequest, *adminv2.SwitchServiceUpdateRequest, *apiv2.SwitchQuery]
+		Repository[*switchRepository, *apiv2.Switch, *SwitchServiceCreateRequest, *adminv2.SwitchServiceUpdateRequest, *apiv2.SwitchQuery]
 	}
 )

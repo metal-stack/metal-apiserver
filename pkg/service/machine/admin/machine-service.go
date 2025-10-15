@@ -56,7 +56,7 @@ func (m *machineServiceServer) List(ctx context.Context, rq *connect.Request[adm
 			return nil, errorutil.InvalidArgument("no partition specified, but %d partitions available", len(partitions))
 		}
 		if len(partitions) == 1 {
-			partition = &partitions[0].ID
+			partition = &partitions[0].Id
 		}
 	}
 
