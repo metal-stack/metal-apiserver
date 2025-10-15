@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func StartAsynqServer(t *testing.T, log *slog.Logger, repository *repository.Store, redis *redis.Client) func() {
+func StartAsynqServer(t testing.TB, log *slog.Logger, repository *repository.Store, redis *redis.Client) func() {
 	asyncServer, asyncServerMux := asyncserver.New(log, repository, redis)
 	go func() {
 		log.Info("starting asynq server")

@@ -30,6 +30,10 @@ server:
 test:
 	go test ./... -race -coverpkg=./... -coverprofile=coverage.out -covermode=atomic $(GO_TEST_ARGS) -timeout=300s && go tool cover -func=coverage.out
 
+.PHONY: bench
+bench:
+	CGO_ENABLED=1 $(GO) test -bench ./... -run=- -benchmem -timeout 20m
+
 .PHONY: test-opa
 test-opa:
 	@$(MAKE) -C pkg/auth test
