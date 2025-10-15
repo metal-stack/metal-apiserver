@@ -30,6 +30,10 @@ server:
 test:
 	go test ./... -race -coverpkg=./... -coverprofile=coverage.out -covermode=atomic $(GO_TEST_ARGS) -timeout=300s && go tool cover -func=coverage.out
 
+.PHONY: bench
+bench:
+	CGO_ENABLED=1 go test -bench=. -run=^$$ ./... -benchmem -timeout 20m
+
 .PHONY: test-opa
 test-opa:
 	@$(MAKE) -C pkg/auth test
@@ -111,8 +115,7 @@ auditing-rm:
 
 
 .PHONY: mini-lab-push
-mini-lab-push:
-	make server
+mini-lab-push: server
 	docker build -f Dockerfile -t metalstack/metal-apiserver:latest .
 	kind --name metal-control-plane load docker-image metalstack/metal-apiserver:latest
 	kubectl --kubeconfig=$(MINI_LAB_KUBECONFIG) patch deployments.apps -n metal-control-plane metal-apiserver --patch='{"spec":{"template":{"spec":{"containers":[{"name": "apiserver","imagePullPolicy":"IfNotPresent","image":"metalstack/metal-apiserver:latest"}]}}}}'

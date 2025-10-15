@@ -72,6 +72,10 @@ func Test_sizeServiceServer_Get(t *testing.T) {
 				log:  log,
 				repo: repo,
 			}
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
 			got, err := s.Get(ctx, connect.NewRequest(tt.rq))
 
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
@@ -275,6 +279,10 @@ func Test_sizeServiceServer_List(t *testing.T) {
 			s := &sizeServiceServer{
 				log:  log,
 				repo: repo,
+			}
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
 			}
 			got, err := s.List(ctx, connect.NewRequest(tt.rq))
 

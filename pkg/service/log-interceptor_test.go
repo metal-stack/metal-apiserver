@@ -31,7 +31,7 @@ func Test_logInterceptor_AuditingCtx(t *testing.T) {
 		{
 			name: "log a request",
 			reqFn: func(ctx context.Context, c client.Client) error {
-				_, err := c.Apiv2().Health().Get(ctx, connect.NewRequest(&apiv2.HealthServiceGetRequest{}))
+				_, err := c.Apiv2().Health().Get(ctx, &apiv2.HealthServiceGetRequest{})
 				return err
 			},
 			level:       slog.LevelInfo,
@@ -42,10 +42,10 @@ func Test_logInterceptor_AuditingCtx(t *testing.T) {
 		{
 			name: "log debug",
 			reqFn: func(ctx context.Context, c client.Client) error {
-				_, err := c.Apiv2().IP().Create(ctx, connect.NewRequest(&apiv2.IPServiceCreateRequest{
+				_, err := c.Apiv2().IP().Create(ctx, &apiv2.IPServiceCreateRequest{
 					Project: "project-a",
 					Network: "network-b",
-				}))
+				})
 				return err
 			},
 			level:       slog.LevelDebug,

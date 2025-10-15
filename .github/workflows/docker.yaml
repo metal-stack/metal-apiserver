@@ -96,3 +96,37 @@ jobs:
           push: true
           sbom: true
           tags: ${{ steps.meta.outputs.tags }}
+
+  bench:
+    name: Benchmark
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Set up Go 1.25
+      uses: actions/setup-go@v6
+      with:
+        go-version: "1.25"
+        cache: false
+      id: go
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v5
+
+    - name: run benchmark
+      run: |
+        make bench | tee output.txt
+
+    - name: Download previous benchmark data
+      uses: actions/cache@v4
+      with:
+        path: ./cache
+        key: ${{ runner.os }}-benchmark
+
+    - name: Store benchmark result
+      uses: benchmark-action/github-action-benchmark@v1
+      with:
+        tool: 'go'
+        output-file-path: output.txt
+         # GitHub API token to make a commit comment
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        fail-on-alert: true

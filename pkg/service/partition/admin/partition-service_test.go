@@ -112,6 +112,10 @@ func Test_partitionServiceServer_Create(t *testing.T) {
 				log:  log,
 				repo: repo,
 			}
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.request)
+			}
 			got, err := p.Create(ctx, connect.NewRequest(tt.request))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
@@ -322,6 +326,10 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 				log:  log,
 				repo: repo,
 			}
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.request)
+			}
 			got, err := p.Update(ctx, connect.NewRequest(tt.request))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
@@ -417,6 +425,10 @@ func Test_partitionServiceServer_Delete(t *testing.T) {
 			p := &partitionServiceServer{
 				log:  log,
 				repo: repo,
+			}
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.request)
 			}
 			got, err := p.Delete(ctx, connect.NewRequest(tt.request))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
