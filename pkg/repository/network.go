@@ -510,18 +510,18 @@ func (r *networkRepository) getNetworkUsage(ctx context.Context, nw *metal.Netwo
 			if consumption.Ipv4 == nil {
 				consumption.Ipv4 = &apiv2.NetworkUsage{}
 			}
-			consumption.Ipv4.AvailableIps += u.AvailableIps
-			consumption.Ipv4.UsedIps += u.AcquiredIps
-			consumption.Ipv4.AvailablePrefixes += uint64(len(u.AvailablePrefixes))
-			consumption.Ipv4.UsedPrefixes += u.AcquiredPrefixes
+			consumption.Ipv4.AvailableIps += u.Msg.AvailableIps
+			consumption.Ipv4.UsedIps += u.Msg.AcquiredIps
+			consumption.Ipv4.AvailablePrefixes += uint64(len(u.Msg.AvailablePrefixes))
+			consumption.Ipv4.UsedPrefixes += u.Msg.AcquiredPrefixes
 		case metal.AddressFamilyIPv6:
 			if consumption.Ipv6 == nil {
 				consumption.Ipv6 = &apiv2.NetworkUsage{}
 			}
-			consumption.Ipv6.AvailableIps += u.AvailableIps
-			consumption.Ipv6.UsedIps += u.AcquiredIps
-			consumption.Ipv6.AvailablePrefixes += uint64(len(u.AvailablePrefixes))
-			consumption.Ipv6.UsedPrefixes += u.AcquiredPrefixes
+			consumption.Ipv6.AvailableIps += u.Msg.AvailableIps
+			consumption.Ipv6.UsedIps += u.Msg.AcquiredIps
+			consumption.Ipv6.AvailablePrefixes += uint64(len(u.Msg.AvailablePrefixes))
+			consumption.Ipv6.UsedPrefixes += u.Msg.AcquiredPrefixes
 		}
 
 	}
@@ -674,7 +674,7 @@ func (r *networkRepository) createChildPrefix(ctx context.Context, namespace *st
 			continue
 		}
 
-		pfx, _, err := metal.NewPrefixFromCIDR(resp.Prefix.Cidr)
+		pfx, _, err := metal.NewPrefixFromCIDR(resp.Msg.Prefix.Cidr)
 		if err != nil {
 			return nil, errorutil.NewInternal(err)
 		}

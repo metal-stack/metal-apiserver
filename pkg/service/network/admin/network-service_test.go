@@ -393,7 +393,7 @@ func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got),
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Network{}, "consumption", "id",
@@ -402,7 +402,7 @@ func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("networkServiceServer.Create() = %v, want %vņdiff: %s", pointer.SafeDeref(got), tt.want, diff)
+				t.Errorf("networkServiceServer.Create() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -983,7 +983,7 @@ func Test_networkServiceServer_CreateSuper(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got),
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Network{}, "consumption", "id", "vrf",
@@ -992,7 +992,7 @@ func Test_networkServiceServer_CreateSuper(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("networkServiceServer.Create() = %v, want %vņdiff: %s", pointer.SafeDeref(got), tt.want, diff)
+				t.Errorf("networkServiceServer.Create() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -1183,7 +1183,7 @@ func Test_networkServiceServer_CreateSuperNamespaced(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got),
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Network{}, "consumption", "id", "vrf",
@@ -1192,7 +1192,7 @@ func Test_networkServiceServer_CreateSuperNamespaced(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("networkServiceServer.Create() = %v, want %vņdiff: %s", pointer.SafeDeref(got), tt.want, diff)
+				t.Errorf("networkServiceServer.Create() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -1419,7 +1419,7 @@ func Test_networkServiceServer_CreateExternal(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got),
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Network{}, "consumption", "id", "vrf",
@@ -1428,7 +1428,7 @@ func Test_networkServiceServer_CreateExternal(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("networkServiceServer.Create() = %v, want %vņdiff: %s", pointer.SafeDeref(got), tt.want, diff)
+				t.Errorf("networkServiceServer.Create() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -1556,7 +1556,7 @@ func Test_networkServiceServer_CreateUnderlay(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got),
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Network{}, "consumption", "id", "vrf",
@@ -1565,7 +1565,7 @@ func Test_networkServiceServer_CreateUnderlay(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("networkServiceServer.Create() = %v, want %vņdiff: %s", pointer.SafeDeref(got), tt.want, diff)
+				t.Errorf("networkServiceServer.Create() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -1697,7 +1697,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got),
+				tt.want, got,
 
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
@@ -1707,7 +1707,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("networkServiceServer.Delete() = %v, want %vņdiff: %s", pointer.SafeDeref(got), tt.want, diff)
+				t.Errorf("networkServiceServer.Delete() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -2018,7 +2018,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got),
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Network{}, "consumption",
@@ -2027,7 +2027,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("networkServiceServer.List() = %v, want %vņdiff: %s", pointer.SafeDeref(got), tt.want, diff)
+				t.Errorf("networkServiceServer.List() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -2266,7 +2266,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got),
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Network{}, "consumption",
@@ -2275,7 +2275,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("networkServiceServer.Update() = %v, want %vņdiff: %s", pointer.SafeDeref(got), tt.want, diff)
+				t.Errorf("networkServiceServer.Update() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}

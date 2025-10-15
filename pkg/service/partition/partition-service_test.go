@@ -75,7 +75,7 @@ func Test_partitionServiceServer_Get(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got),
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.IP{}, "uuid",
@@ -165,7 +165,7 @@ func Test_partitionServiceServer_List(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got),
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.IP{}, "uuid",

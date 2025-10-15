@@ -154,7 +154,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 				t.Errorf("switchServiceServer.Register() error diff = %s", diff)
 				return
 			}
-			if diff := cmp.Diff(tt.want, pointer.SafeDeref(got),
+			if diff := cmp.Diff(tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",

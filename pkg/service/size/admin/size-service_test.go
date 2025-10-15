@@ -134,13 +134,13 @@ func Test_sizeServiceServer_Create(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got),
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("sizeServiceServer.Create() = %v, want %vņdiff: %s", pointer.SafeDeref(got), tt.want, diff)
+				t.Errorf("sizeServiceServer.Create() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 
 		})
@@ -317,13 +317,13 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got),
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("sizeServiceServer.Update() = %v, want %vņdiff: %s", pointer.SafeDeref(got), tt.want, diff)
+				t.Errorf("sizeServiceServer.Update() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 
 		})
@@ -427,13 +427,13 @@ func Test_sizeServiceServer_Delete(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got),
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("sizeServiceServer.Delete() = %v, want %vņdiff: %s", pointer.SafeDeref(got), tt.want, diff)
+				t.Errorf("sizeServiceServer.Delete() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 
 		})

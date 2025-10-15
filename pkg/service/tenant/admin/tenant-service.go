@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 
-	"connectrpc.com/connect"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -60,7 +59,7 @@ func (t *tenantServiceServer) Create(ctx context.Context, rq *adminv2.TenantServ
 		return nil, err
 	}
 
-	return &adminv2.TenantServiceCreateResponse{Tenant: converted}), nil
+	return &adminv2.TenantServiceCreateResponse{Tenant: converted}, nil
 }
 
 // List implements TenantService.

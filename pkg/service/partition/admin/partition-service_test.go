@@ -120,7 +120,7 @@ func Test_partitionServiceServer_Create(t *testing.T) {
 				t.Errorf("diff = %s", diff)
 			}
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got),
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Image{}, "meta", "expires_at",
@@ -334,7 +334,7 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 				t.Errorf("diff = %s", diff)
 			}
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got),
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Image{}, "expires_at",
@@ -434,7 +434,7 @@ func Test_partitionServiceServer_Delete(t *testing.T) {
 				t.Errorf("diff = %s", diff)
 			}
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got),
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Image{}, "meta", "expires_at",

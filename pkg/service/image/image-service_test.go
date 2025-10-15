@@ -85,7 +85,7 @@ func Test_imageServiceServer_Get(t *testing.T) {
 				t.Errorf("diff = %s", diff)
 			}
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got),
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Image{}, "expires_at",
@@ -267,7 +267,7 @@ func Test_imageServiceServer_List(t *testing.T) {
 				t.Errorf("diff = %s", diff)
 			}
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got),
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Image{}, "expires_at",
@@ -359,7 +359,7 @@ func Test_imageServiceServer_Latest(t *testing.T) {
 				t.Errorf("diff = %s", diff)
 			}
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got),
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Image{}, "expires_at",

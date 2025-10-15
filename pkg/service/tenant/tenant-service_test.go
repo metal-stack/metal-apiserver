@@ -164,7 +164,7 @@ func Test_tenantServiceServer_Get(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got),
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
@@ -299,7 +299,7 @@ func Test_tenantServiceServer_List(t *testing.T) {
 			})
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got),
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
@@ -400,7 +400,7 @@ func Test_tenantServiceServer_Create(t *testing.T) {
 			assert.NotEmpty(t, got.Tenant.Login)
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got),
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
@@ -544,7 +544,7 @@ func Test_tenantServiceServer_Update(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got),
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
@@ -664,7 +664,7 @@ func Test_tenantServiceServer_Delete(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got),
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
@@ -794,7 +794,7 @@ func Test_tenantServiceServer_MemberUpdate(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got),
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.TenantMember{}, "created_at",
@@ -1008,7 +1008,7 @@ func Test_tenantServiceServer_Invite(t *testing.T) {
 
 			if diff := cmp.Diff(
 				tt.want,
-				pointer.SafeDeref(got),
+				got,
 				protocmp.Transform(),
 			); diff != "" {
 				t.Errorf("diff: %s", diff)
@@ -1106,7 +1106,7 @@ func Test_tenantServiceServer_InviteGet(t *testing.T) {
 
 			if diff := cmp.Diff(
 				tt.want,
-				pointer.SafeDeref(got),
+				got,
 				protocmp.Transform(),
 			); diff != "" {
 				t.Errorf("diff: %s", diff)
@@ -1210,7 +1210,7 @@ func Test_tenantServiceServer_InvitesList(t *testing.T) {
 
 			if diff := cmp.Diff(
 				tt.want,
-				pointer.SafeDeref(got),
+				got,
 				protocmp.Transform(),
 			); diff != "" {
 				t.Errorf("diff: %s", diff)
@@ -1562,7 +1562,7 @@ func Test_tenantServiceServer_InviteFlow(t *testing.T) {
 					ExpiresAt:        &timestamppb.Timestamp{},
 				},
 			},
-			pointer.SafeDeref(got),
+			got,
 			protocmp.Transform(),
 			protocmp.IgnoreFields(
 				&apiv2.TenantInvite{}, "expires_at",
@@ -1605,7 +1605,7 @@ func Test_tenantServiceServer_InviteFlow(t *testing.T) {
 					},
 				},
 			},
-			pointer.SafeDeref(got),
+			got,
 			protocmp.Transform(),
 			protocmp.IgnoreFields(
 				&apiv2.TenantInvite{}, "expires_at",
@@ -1677,7 +1677,7 @@ func Test_tenantServiceServer_InviteFlow(t *testing.T) {
 					ExpiresAt:        &timestamppb.Timestamp{},
 				},
 			},
-			pointer.SafeDeref(got),
+			got,
 			protocmp.Transform(),
 			protocmp.IgnoreFields(
 				&apiv2.TenantInvite{}, "expires_at",
@@ -1721,7 +1721,7 @@ func Test_tenantServiceServer_InviteFlow(t *testing.T) {
 				Tenant:     "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
 				TenantName: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
 			},
-			pointer.SafeDeref(got),
+			got,
 			protocmp.Transform(),
 		); diff != "" {
 			t.Errorf("diff: %s", diff)

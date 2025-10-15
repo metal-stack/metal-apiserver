@@ -190,7 +190,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got),
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
@@ -354,7 +354,7 @@ func Test_projectServiceServer_List(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got),
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
@@ -452,7 +452,7 @@ func Test_projectServiceServer_Create(t *testing.T) {
 			assert.NotEmpty(t, got.Project.Uuid)
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got),
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
@@ -562,7 +562,7 @@ func Test_projectServiceServer_Update(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got),
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
@@ -711,7 +711,7 @@ func Test_projectServiceServer_Delete(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got),
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
@@ -895,7 +895,7 @@ func Test_projectServiceServer_MemberUpdate(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got),
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.ProjectMember{}, "created_at",
@@ -1106,7 +1106,7 @@ func Test_projectServiceServer_Invite(t *testing.T) {
 
 			if diff := cmp.Diff(
 				tt.want,
-				pointer.SafeDeref(got),
+				got,
 				protocmp.Transform(),
 			); diff != "" {
 				t.Errorf("diff: %s", diff)
@@ -1203,7 +1203,7 @@ func Test_projectServiceServer_InviteGet(t *testing.T) {
 
 			if diff := cmp.Diff(
 				tt.want,
-				pointer.SafeDeref(got),
+				got,
 				protocmp.Transform(),
 			); diff != "" {
 				t.Errorf("diff: %s", diff)
@@ -1306,7 +1306,7 @@ func Test_projectServiceServer_InvitesList(t *testing.T) {
 
 			if diff := cmp.Diff(
 				tt.want,
-				pointer.SafeDeref(got),
+				got,
 				protocmp.Transform(),
 			); diff != "" {
 				t.Errorf("diff: %s", diff)

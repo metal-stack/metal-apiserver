@@ -244,7 +244,7 @@ func Test_switchServiceServer_Get(t *testing.T) {
 				t.Errorf("switchServiceServer.Get() error diff = %s", diff)
 				return
 			}
-			if diff := cmp.Diff(tt.want, pointer.SafeDeref(got),
+			if diff := cmp.Diff(tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
@@ -323,7 +323,7 @@ func Test_switchServiceServer_List(t *testing.T) {
 				t.Errorf("switchServiceServer.List() error diff = %s", diff)
 				return
 			}
-			if diff := cmp.Diff(tt.want, pointer.SafeDeref(got),
+			if diff := cmp.Diff(tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
@@ -491,7 +491,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 				t.Errorf("switchServiceServer.Update() error diff = %s", diff)
 				return
 			}
-			if diff := cmp.Diff(tt.want, pointer.SafeDeref(got),
+			if diff := cmp.Diff(tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
@@ -563,7 +563,7 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 				t.Errorf("switchServiceServer.Delete() error diff = %s", diff)
 				return
 			}
-			if diff := cmp.Diff(tt.want, pointer.SafeDeref(got),
+			if diff := cmp.Diff(tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",

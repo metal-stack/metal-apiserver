@@ -249,7 +249,7 @@ func (r *ipRepository) allocateSpecificIP(ctx context.Context, parent *metal.Net
 			return "", "", err
 		}
 
-		return resp.Ip.Ip, prefix.String(), nil
+		return resp.Msg.Ip.Ip, prefix.String(), nil
 	}
 
 	return "", "", errorutil.InvalidArgument("specific ip %s not contained in any of the defined prefixes", specificIP)
@@ -273,7 +273,7 @@ func (r *ipRepository) allocateRandomIP(ctx context.Context, parent *metal.Netwo
 			return "", "", err
 		}
 
-		return resp.Ip.Ip, prefix.String(), nil
+		return resp.Msg.Ip.Ip, prefix.String(), nil
 	}
 
 	return "", "", errorutil.InvalidArgument("cannot allocate random free ip in ipam, no ips left in network:%s af:%s parent afs:%#v", parent.ID, addressfamily, parent.Prefixes.AddressFamilies())
