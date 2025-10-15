@@ -271,10 +271,10 @@ func handler[Req, Resp any]() interceptorTestFn {
 	return func(procedure string, interceptors []connect.Interceptor, test func(context.Context)) *connect.Handler {
 		return connect.NewUnaryHandler(
 			procedure,
-			func(ctx context.Context, r Req) (Resp, error) {
+			func(ctx context.Context, r *connect.Request[Req]) (*connect.Response[Resp], error) {
 				test(ctx)
 				var zero Resp
-				return zero, nil
+				return connect.NewResponse(&zero), nil
 			},
 			connect.WithInterceptors(interceptors...),
 		)
