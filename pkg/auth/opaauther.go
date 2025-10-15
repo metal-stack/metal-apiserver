@@ -342,7 +342,7 @@ func (o *opa) decide(ctx context.Context, methodName string, jwtTokenfunc func(s
 			adminRole = t.AdminRole
 		}
 
-		if t.TokenType == v2.TokenType_TOKEN_TYPE_CONSOLE {
+		if t.TokenType == v2.TokenType_TOKEN_TYPE_USER {
 			// as we do not store roles in the console token, we set the roles from the information in the masterdata-db
 			t.ProjectRoles = projectRoles
 			t.TenantRoles = tenantRoles
