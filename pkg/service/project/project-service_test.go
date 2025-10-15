@@ -24,6 +24,13 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+// FIXME add proto validation before each service call
+var (
+	p0  = "00000000-0000-0000-0000-000000000000"
+	p1  = "00000000-0000-0000-0000-000000000001"
+	p99 = "00000000-0000-0000-0000-000000000099"
+)
+
 func Test_projectServiceServer_Get(t *testing.T) {
 	t.Parallel()
 
@@ -40,7 +47,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 	})
 	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{
 		{
-			Name:        "john.doe@github",
+			Name:        p0,
 			Description: "a description",
 			AvatarUrl:   pointer.Pointer("http://test"),
 			Labels: &apiv2.Labels{
@@ -52,7 +59,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 		},
 	})
 
-	test.CreateProjectMemberships(t, testStore, "john.doe@github", []*repository.ProjectMemberCreateRequest{
+	test.CreateProjectMemberships(t, testStore, p0, []*repository.ProjectMemberCreateRequest{
 		{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
 		{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_EDITOR},
 	})
@@ -71,7 +78,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 		{
 			name: "get a project",
 			rq: &apiv2.ProjectServiceGetRequest{
-				Project: "john.doe@github",
+				Project: p0,
 			},
 			want: &apiv2.ProjectServiceGetResponse{
 				Project: &apiv2.Project{
@@ -82,9 +89,9 @@ func Test_projectServiceServer_Get(t *testing.T) {
 							},
 						},
 					},
-					Uuid:        "john.doe@github",
+					Uuid:        p0,
 					Tenant:      "john.doe@github",
-					Name:        "john.doe@github",
+					Name:        p0,
 					Description: "a description",
 					AvatarUrl:   pointer.Pointer("http://test"),
 				},
@@ -109,7 +116,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 		{
 			name: "get a project as guest member",
 			rq: &apiv2.ProjectServiceGetRequest{
-				Project: "john.doe@github",
+				Project: p0,
 			},
 			as: pointer.Pointer(apiv2.TenantRole_TENANT_ROLE_GUEST),
 			want: &apiv2.ProjectServiceGetResponse{
@@ -121,10 +128,10 @@ func Test_projectServiceServer_Get(t *testing.T) {
 							},
 						},
 					},
-					Name:        "john.doe@github",
+					Name:        p0,
 					Description: "a description",
 					AvatarUrl:   pointer.Pointer("http://test"),
-					Uuid:        "john.doe@github",
+					Uuid:        p0,
 					Tenant:      "john.doe@github",
 				},
 				ProjectMembers: []*apiv2.ProjectMember{
@@ -143,10 +150,10 @@ func Test_projectServiceServer_Get(t *testing.T) {
 		{
 			name: "get a project that does not exist",
 			rq: &apiv2.ProjectServiceGetRequest{
-				Project: "no.one@github",
+				Project: p99,
 			},
 			want:    nil,
-			wantErr: errorutil.NotFound("project with id:no.one@github not found sql: no rows in result set"),
+			wantErr: errorutil.NotFound("project with id:%s not found sql: no rows in result set", p99),
 		},
 	}
 	for _, tt := range tests {
@@ -169,12 +176,15 @@ func Test_projectServiceServer_Get(t *testing.T) {
 					"john.doe@github": as,
 				},
 				ProjectRoles: map[string]apiv2.ProjectRole{
-					"john.doe@github": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
+					p0: apiv2.ProjectRole_PROJECT_ROLE_OWNER,
 				},
 			})
 
 			reqCtx := token.ContextWithToken(t.Context(), tok)
-
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
 			got, err := u.Get(reqCtx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
@@ -210,12 +220,12 @@ func Test_projectServiceServer_List(t *testing.T) {
 		{Name: "will.smith@github"},
 	})
 	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{
-		{Name: "john.doe@github", Login: "john.doe@github"},
+		{Name: p0, Login: "john.doe@github"},
 		{Name: "will.smith@github", Login: "will.smith@github"},
 		{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
 	})
 
-	test.CreateProjectMemberships(t, testStore, "john.doe@github", []*repository.ProjectMemberCreateRequest{
+	test.CreateProjectMemberships(t, testStore, p0, []*repository.ProjectMemberCreateRequest{
 		{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
 	})
 	test.CreateProjectMemberships(t, testStore, "will.smith@github", []*repository.ProjectMemberCreateRequest{
@@ -238,14 +248,14 @@ func Test_projectServiceServer_List(t *testing.T) {
 				Projects: []*apiv2.Project{
 					{
 						Meta:   &apiv2.Meta{},
-						Name:   "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
-						Uuid:   "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
+						Name:   p0,
+						Uuid:   p0,
 						Tenant: "john.doe@github",
 					},
 					{
 						Meta:   &apiv2.Meta{},
-						Name:   "john.doe@github",
-						Uuid:   "john.doe@github",
+						Name:   "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
+						Uuid:   "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
 						Tenant: "john.doe@github",
 					},
 				},
@@ -255,14 +265,14 @@ func Test_projectServiceServer_List(t *testing.T) {
 		{
 			name: "list the projects filtered by id",
 			rq: &apiv2.ProjectServiceListRequest{
-				Id: pointer.Pointer("john.doe@github"),
+				Id: pointer.Pointer(p0),
 			},
 			want: &apiv2.ProjectServiceListResponse{
 				Projects: []*apiv2.Project{
 					{
 						Meta:   &apiv2.Meta{},
-						Name:   "john.doe@github",
-						Uuid:   "john.doe@github",
+						Name:   p0,
+						Uuid:   p0,
 						Tenant: "john.doe@github",
 					},
 				},
@@ -295,14 +305,14 @@ func Test_projectServiceServer_List(t *testing.T) {
 				Projects: []*apiv2.Project{
 					{
 						Meta:   &apiv2.Meta{},
-						Name:   "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
-						Uuid:   "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
+						Name:   p0,
+						Uuid:   p0,
 						Tenant: "john.doe@github",
 					},
 					{
 						Meta:   &apiv2.Meta{},
-						Name:   "john.doe@github",
-						Uuid:   "john.doe@github",
+						Name:   "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
+						Uuid:   "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
 						Tenant: "john.doe@github",
 					},
 				},
@@ -312,7 +322,7 @@ func Test_projectServiceServer_List(t *testing.T) {
 		{
 			name: "list the projects filtered by tenant 2",
 			rq: &apiv2.ProjectServiceListRequest{
-				Tenant: pointer.Pointer("non-existing"),
+				Tenant: pointer.Pointer(p99),
 			},
 			want:    &apiv2.ProjectServiceListResponse{},
 			wantErr: nil,
@@ -335,7 +345,10 @@ func Test_projectServiceServer_List(t *testing.T) {
 			})
 
 			reqCtx := token.ContextWithToken(t.Context(), tok)
-
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
 			got, err := u.List(reqCtx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
@@ -428,7 +441,10 @@ func Test_projectServiceServer_Create(t *testing.T) {
 			})
 
 			reqCtx := token.ContextWithToken(t.Context(), tok)
-
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
 			got, err := u.Create(reqCtx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
@@ -466,7 +482,7 @@ func Test_projectServiceServer_Update(t *testing.T) {
 	})
 
 	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{
-		Name:        "john.doe@github",
+		Name:        p0,
 		Description: "old desc",
 		AvatarUrl:   pointer.Pointer("http://old"),
 		Labels: &apiv2.Labels{
@@ -486,6 +502,8 @@ func Test_projectServiceServer_Update(t *testing.T) {
 		{
 			name: "update a project",
 			rq: &apiv2.ProjectServiceUpdateRequest{
+				// equals the ID, UUID
+				Project:     p0,
 				Name:        pointer.Pointer("new name"),
 				UpdateMeta:  &apiv2.UpdateMeta{},
 				Description: pointer.Pointer("new desc"),
@@ -497,10 +515,10 @@ func Test_projectServiceServer_Update(t *testing.T) {
 						},
 					},
 				},
-				Project: "john.doe@github",
 			},
 			want: &apiv2.ProjectServiceUpdateResponse{
 				Project: &apiv2.Project{
+					Uuid: p0,
 					Meta: &apiv2.Meta{
 						Labels: &apiv2.Labels{
 							Labels: map[string]string{
@@ -512,7 +530,6 @@ func Test_projectServiceServer_Update(t *testing.T) {
 					Name:        "new name",
 					Description: "new desc",
 					AvatarUrl:   pointer.Pointer("http://new"),
-					Uuid:        "john.doe@github",
 					Tenant:      "john.doe@github",
 				},
 			},
@@ -536,7 +553,10 @@ func Test_projectServiceServer_Update(t *testing.T) {
 			})
 
 			reqCtx := token.ContextWithToken(t.Context(), tok)
-
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
 			got, err := u.Update(reqCtx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
@@ -581,16 +601,16 @@ func Test_projectServiceServer_Delete(t *testing.T) {
 		{
 			name: "delete a project",
 			rq: &apiv2.ProjectServiceDeleteRequest{
-				Project: "john.doe@github",
+				Project: p0,
 			},
 			existingProjects: []*apiv2.ProjectServiceCreateRequest{
-				{Name: "john.doe@github", Login: "john.doe@github"},
+				{Name: p0, Login: "john.doe@github"},
 			},
 			want: &apiv2.ProjectServiceDeleteResponse{
 				Project: &apiv2.Project{
 					Meta:   &apiv2.Meta{},
-					Name:   "john.doe@github",
-					Uuid:   "john.doe@github",
+					Name:   p0,
+					Uuid:   p0,
 					Tenant: "john.doe@github",
 				},
 			},
@@ -599,26 +619,26 @@ func Test_projectServiceServer_Delete(t *testing.T) {
 		{
 			name: "delete non-existing project",
 			rq: &apiv2.ProjectServiceDeleteRequest{
-				Project: "project-a",
+				Project: p99,
 			},
 			existingProjects: []*apiv2.ProjectServiceCreateRequest{
 				{Name: "john.doe@github", Login: "john.doe@github"},
 			},
-			wantErr: errorutil.NotFound("project with id:project-a not found sql: no rows in result set"),
+			wantErr: errorutil.NotFound("project with id:%s not found sql: no rows in result set", p99),
 		},
 		{
 			name: "cannot delete project when machines are still present",
 			rq: &apiv2.ProjectServiceDeleteRequest{
-				Project: "john.doe@github",
+				Project: p0,
 			},
 			existingProjects: []*apiv2.ProjectServiceCreateRequest{
-				{Name: "john.doe@github", Login: "john.doe@github"},
+				{Name: p0, Login: "john.doe@github"},
 			},
 			existingMachines: []*metal.Machine{
 				{
 					Allocation: &metal.MachineAllocation{
 						UUID:    "1",
-						Project: "john.doe@github",
+						Project: p0,
 					},
 				},
 			},
@@ -627,29 +647,29 @@ func Test_projectServiceServer_Delete(t *testing.T) {
 		{
 			name: "cannot delete project when ips are still present",
 			rq: &apiv2.ProjectServiceDeleteRequest{
-				Project: "john.doe@github",
+				Project: p0,
 			},
 			existingProjects: []*apiv2.ProjectServiceCreateRequest{
-				{Name: "john.doe@github", Login: "john.doe@github"},
+				{Name: p0, Login: "john.doe@github"},
 			},
 			existingNetworks: []*adminv2.NetworkServiceCreateRequest{
 				{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.3.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: pointer.Pointer(uint32(11))},
 			},
 			existingIPs: []*apiv2.IPServiceCreateRequest{
-				{Name: pointer.Pointer("ip1"), Ip: pointer.Pointer("1.2.3.4"), Project: "john.doe@github", Network: "internet"},
+				{Name: pointer.Pointer("ip1"), Ip: pointer.Pointer("1.2.3.4"), Project: p0, Network: "internet"},
 			},
 			wantErr: errorutil.FailedPrecondition("there are still ips associated with this project, you need to delete them first"),
 		},
 		{
 			name: "cannot delete project when networks are still present",
 			rq: &apiv2.ProjectServiceDeleteRequest{
-				Project: "john.doe@github",
+				Project: p0,
 			},
 			existingProjects: []*apiv2.ProjectServiceCreateRequest{
-				{Name: "john.doe@github", Login: "john.doe@github"},
+				{Name: p0, Login: "john.doe@github"},
 			},
 			existingNetworks: []*adminv2.NetworkServiceCreateRequest{
-				{Id: pointer.Pointer("project-internet"), Project: pointer.Pointer("john.doe@github"), Prefixes: []string{"1.2.4.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: pointer.Pointer(uint32(12))},
+				{Id: pointer.Pointer("project-internet"), Project: pointer.Pointer(p0), Prefixes: []string{"1.2.4.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: pointer.Pointer(uint32(12))},
 			},
 			wantErr: errorutil.FailedPrecondition("there are still networks associated with this project, you need to delete them first"),
 		},
@@ -682,7 +702,10 @@ func Test_projectServiceServer_Delete(t *testing.T) {
 			})
 
 			reqCtx := token.ContextWithToken(t.Context(), tok)
-
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
 			got, err := u.Delete(reqCtx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
@@ -732,9 +755,9 @@ func Test_projectServiceServer_MemberUpdate(t *testing.T) {
 				{Name: "will.smith@github"},
 			},
 			existingProjects: []*apiv2.ProjectServiceCreateRequest{
-				{Name: "john.doe@github", Login: "john.doe@github"},
+				{Name: p0, Login: "john.doe@github"},
 				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
-				{Name: "will.smith@github", Login: "will.smith@github"},
+				{Name: p1, Login: "will.smith@github"},
 			},
 			existingProjectMembers: map[string][]*repository.ProjectMemberCreateRequest{
 				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
@@ -761,7 +784,7 @@ func Test_projectServiceServer_MemberUpdate(t *testing.T) {
 				{Name: "john.doe@github"},
 			},
 			existingProjects: []*apiv2.ProjectServiceCreateRequest{
-				{Name: "john.doe@github", Login: "john.doe@github"},
+				{Name: p0, Login: "john.doe@github"},
 				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
 			},
 			existingProjectMembers: map[string][]*repository.ProjectMemberCreateRequest{
@@ -783,8 +806,8 @@ func Test_projectServiceServer_MemberUpdate(t *testing.T) {
 				{Name: "will.smith@github"},
 			},
 			existingProjects: []*apiv2.ProjectServiceCreateRequest{
-				{Name: "john.doe@github", Login: "john.doe@github"},
-				{Name: "will.smith@github", Login: "will.smith@github"},
+				{Name: p0, Login: "john.doe@github"},
+				{Name: p1, Login: "will.smith@github"},
 				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
 			},
 			existingProjectMembers: map[string][]*repository.ProjectMemberCreateRequest{
@@ -811,8 +834,8 @@ func Test_projectServiceServer_MemberUpdate(t *testing.T) {
 				},
 			},
 			existingProjects: []*apiv2.ProjectServiceCreateRequest{
-				{Name: "john.doe@github", Login: "john.doe@github"},
-				{Name: "will.smith@github", Login: "will.smith@github"},
+				{Name: p0, Login: "john.doe@github"},
+				{Name: p1, Login: "will.smith@github"},
 				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
 			},
 			existingProjectMembers: map[string][]*repository.ProjectMemberCreateRequest{
@@ -863,7 +886,10 @@ func Test_projectServiceServer_MemberUpdate(t *testing.T) {
 			})
 
 			reqCtx := token.ContextWithToken(t.Context(), tok)
-
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
 			got, err := u.UpdateMember(reqCtx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
@@ -978,7 +1004,10 @@ func Test_projectServiceServer_MemberRemove(t *testing.T) {
 			})
 
 			reqCtx := token.ContextWithToken(t.Context(), tok)
-
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
 			_, err := u.RemoveMember(reqCtx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
@@ -1000,7 +1029,7 @@ func Test_projectServiceServer_Invite(t *testing.T) {
 		{Name: "john.doe@github"},
 	})
 	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{
-		{Name: "john.doe@github", Login: "john.doe@github"},
+		{Name: p0, Login: "john.doe@github"},
 		{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
 	})
 
@@ -1013,15 +1042,15 @@ func Test_projectServiceServer_Invite(t *testing.T) {
 		{
 			name: "create a project invite",
 			rq: &apiv2.ProjectServiceInviteRequest{
-				Project: "john.doe@github",
+				Project: p0,
 				Role:    apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 			},
 			want: &apiv2.ProjectServiceInviteResponse{
 				Invite: &apiv2.ProjectInvite{
-					Project:     "john.doe@github",
+					Project:     p0,
 					Role:        apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 					Joined:      false,
-					ProjectName: "john.doe@github",
+					ProjectName: p0,
 					Tenant:      "john.doe@github",
 					TenantName:  "john.doe@github",
 				},
@@ -1064,7 +1093,10 @@ func Test_projectServiceServer_Invite(t *testing.T) {
 			})
 
 			reqCtx := token.ContextWithToken(t.Context(), tok)
-
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
 			got, err := u.Invite(reqCtx, connect.NewRequest(tt.rq))
 			require.NoError(t, err)
 
@@ -1102,7 +1134,7 @@ func Test_projectServiceServer_InviteGet(t *testing.T) {
 			Role:        apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 			Joined:      false,
 			TenantName:  "john.doe@github",
-			Project:     "john.doe@github",
+			Project:     p0,
 			ProjectName: "john.doe@github",
 			ExpiresAt:   now,
 			JoinedAt:    nil,
@@ -1126,7 +1158,7 @@ func Test_projectServiceServer_InviteGet(t *testing.T) {
 					Role:        apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 					Joined:      false,
 					TenantName:  "john.doe@github",
-					Project:     "john.doe@github",
+					Project:     p0,
 					ProjectName: "john.doe@github",
 					Secret:      "abcdefghijklmnopqrstuvwxyz123456",
 					ExpiresAt:   now,
@@ -1161,6 +1193,10 @@ func Test_projectServiceServer_InviteGet(t *testing.T) {
 
 			reqCtx := token.ContextWithToken(t.Context(), tok)
 
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
 			got, err := u.InviteGet(reqCtx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
@@ -1195,7 +1231,7 @@ func Test_projectServiceServer_InvitesList(t *testing.T) {
 			Role:        apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 			Joined:      false,
 			TenantName:  "john.doe@github",
-			Project:     "john.doe@github",
+			Project:     p0,
 			ProjectName: "john.doe@github",
 			ExpiresAt:   now,
 			JoinedAt:    nil,
@@ -1206,7 +1242,7 @@ func Test_projectServiceServer_InvitesList(t *testing.T) {
 			Role:        apiv2.ProjectRole_PROJECT_ROLE_VIEWER,
 			Joined:      false,
 			TenantName:  "john.doe@github",
-			Project:     "project-1",
+			Project:     p1,
 			ProjectName: "project-1",
 			ExpiresAt:   now,
 			JoinedAt:    nil,
@@ -1222,7 +1258,7 @@ func Test_projectServiceServer_InvitesList(t *testing.T) {
 		{
 			name: "list invites",
 			rq: &apiv2.ProjectServiceInvitesListRequest{
-				Project: "project-1",
+				Project: p1,
 			},
 			want: &apiv2.ProjectServiceInvitesListResponse{
 				Invites: []*apiv2.ProjectInvite{
@@ -1232,7 +1268,7 @@ func Test_projectServiceServer_InvitesList(t *testing.T) {
 						Role:        apiv2.ProjectRole_PROJECT_ROLE_VIEWER,
 						Joined:      false,
 						TenantName:  "john.doe@github",
-						Project:     "project-1",
+						Project:     p1,
 						ProjectName: "project-1",
 						ExpiresAt:   now,
 						JoinedAt:    nil,
@@ -1259,6 +1295,10 @@ func Test_projectServiceServer_InvitesList(t *testing.T) {
 			})
 
 			reqCtx := token.ContextWithToken(t.Context(), tok)
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
 
 			got, err := u.InvitesList(reqCtx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
@@ -1294,7 +1334,7 @@ func Test_projectServiceServer_InviteDelete(t *testing.T) {
 			Role:        apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 			Joined:      false,
 			TenantName:  "john.doe@github",
-			Project:     "john.doe@github",
+			Project:     p1,
 			ProjectName: "john.doe@github",
 			ExpiresAt:   now,
 			JoinedAt:    nil,
@@ -1309,7 +1349,7 @@ func Test_projectServiceServer_InviteDelete(t *testing.T) {
 		{
 			name: "delete invite",
 			rq: &apiv2.ProjectServiceInviteDeleteRequest{
-				Project: "john.doe@github",
+				Project: p1,
 				Secret:  "abcdefghijklmnopqrstuvwxyz123456",
 			},
 			wantErr: nil,
@@ -1332,6 +1372,10 @@ func Test_projectServiceServer_InviteDelete(t *testing.T) {
 			})
 
 			reqCtx := token.ContextWithToken(t.Context(), tok)
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
 
 			_, err := u.InviteDelete(reqCtx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
@@ -1376,13 +1420,13 @@ func Test_projectServiceServer_InviteAccept(t *testing.T) {
 				{Name: "will.smith@github"},
 			},
 			existingProjects: []*apiv2.ProjectServiceCreateRequest{
-				{Name: "john.doe@github", Login: "john.doe@github"},
-				{Name: "will.smith@github", Login: "will.smith@github"},
+				{Name: p0, Login: "john.doe@github"},
+				{Name: p1, Login: "will.smith@github"},
 				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
 			},
 			existingProjectMembers: map[string][]*repository.ProjectMemberCreateRequest{
-				"john.doe@github":                      {{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER}},
-				"will.smith@github":                    {{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER}},
+				p0:                                     {{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER}},
+				p1:                                     {{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER}},
 				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER}},
 			},
 			existingInvites: []*apiv2.ProjectInvite{
@@ -1424,13 +1468,13 @@ func Test_projectServiceServer_InviteAccept(t *testing.T) {
 				{Name: "will.smith@github"},
 			},
 			existingProjects: []*apiv2.ProjectServiceCreateRequest{
-				{Name: "john.doe@github", Login: "john.doe@github"},
-				{Name: "will.smith@github", Login: "will.smith@github"},
+				{Name: p0, Login: "john.doe@github"},
+				{Name: p1, Login: "will.smith@github"},
 				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
 			},
 			existingProjectMembers: map[string][]*repository.ProjectMemberCreateRequest{
-				"john.doe@github":   {{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER}},
-				"will.smith@github": {{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER}},
+				p0: {{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER}},
+				p1: {{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER}},
 				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
 					{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
 					{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_EDITOR},
@@ -1460,15 +1504,15 @@ func Test_projectServiceServer_InviteAccept(t *testing.T) {
 				{Name: "will.smith@github"},
 			},
 			existingProjects: []*apiv2.ProjectServiceCreateRequest{
-				{Name: "will.smith@github", Login: "will.smith@github"},
+				{Name: p1, Login: "will.smith@github"},
 			},
 			existingProjectMembers: map[string][]*repository.ProjectMemberCreateRequest{
-				"will.smith@github": {{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER}},
+				p1: {{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER}},
 			},
 			existingInvites: []*apiv2.ProjectInvite{
 				{
 					Secret:      "abcdefghijklmnopqrstuvwxyz123456",
-					Project:     "will.smith@github",
+					Project:     p1,
 					Role:        apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 					Joined:      false,
 					ProjectName: "will.smith@github",
@@ -1512,7 +1556,10 @@ func Test_projectServiceServer_InviteAccept(t *testing.T) {
 			})
 
 			reqCtx := token.ContextWithToken(t.Context(), tok)
-
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
 			acceptResp, err := u.InviteAccept(reqCtx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
