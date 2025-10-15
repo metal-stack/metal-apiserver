@@ -34,8 +34,8 @@ var (
 				Partition:      "partition-a",
 				ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 				ManagementIp:   "1.1.1.1",
-				ManagementUser: "admin",
-				ConsoleCommand: "tty",
+				ManagementUser: pointer.Pointer("admin"),
+				ConsoleCommand: pointer.Pointer("tty"),
 				Nics: []*apiv2.SwitchNic{
 					{
 						Name:       "Ethernet0",
@@ -87,8 +87,8 @@ var (
 				Partition:      "partition-a",
 				ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 				ManagementIp:   "1.1.1.2",
-				ManagementUser: "root",
-				ConsoleCommand: "tty",
+				ManagementUser: pointer.Pointer("root"),
+				ConsoleCommand: pointer.Pointer("tty"),
 				Nics: []*apiv2.SwitchNic{
 					{
 						Name:       "swp1s0",
@@ -140,8 +140,8 @@ var (
 				Partition:      "partition-b",
 				ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE,
 				ManagementIp:   "1.1.1.3",
-				ManagementUser: "admin",
-				ConsoleCommand: "tty",
+				ManagementUser: pointer.Pointer("admin"),
+				ConsoleCommand: pointer.Pointer("tty"),
 				Nics: []*apiv2.SwitchNic{
 					{
 						Name:       "Ethernet0",

@@ -262,7 +262,7 @@ func CreateMachines(t testing.TB, testStore *testStore, machines []*metal.Machin
 	return machineMap
 }
 
-func CreateNetworks(t *testing.T, repo *repository.Store, nws []*adminv2.NetworkServiceCreateRequest) map[string]*apiv2.Network {
+func CreateNetworks(t testing.TB, repo *repository.Store, nws []*adminv2.NetworkServiceCreateRequest) map[string]*apiv2.Network {
 	networkMap := map[string]*apiv2.Network{}
 
 	for _, nw := range nws {
