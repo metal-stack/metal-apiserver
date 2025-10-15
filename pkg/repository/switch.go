@@ -88,6 +88,27 @@ func (r *switchRepository) ConnectMachineWithSwitches(m *metal.Machine) error {
 	panic("unimplemented")
 }
 
+func (r *switchRepository) GetSwitchStatus(ctx context.Context, switchID string) (*metal.SwitchStatus, error) {
+	status, err := r.s.ds.SwitchStatus().Get(ctx, switchID)
+	if err != nil && !errorutil.IsNotFound(err) {
+		return nil, err
+	}
+
+	if errorutil.IsNotFound(err) {
+		return &metal.SwitchStatus{
+			Base: metal.Base{
+				ID: switchID,
+			},
+		}, nil
+	}
+
+	return status, nil
+}
+
+func (r *switchRepository) SetSwitchStatus(ctx context.Context, status *metal.SwitchStatus) error {
+	return r.s.ds.SwitchStatus().Upsert(ctx, status)
+}
+
 func (r *switchRepository) get(ctx context.Context, id string) (*metal.Switch, error) {
 	sw, err := r.s.ds.Switch().Get(ctx, id)
 	if err != nil {
@@ -95,6 +116,49 @@ func (r *switchRepository) get(ctx context.Context, id string) (*metal.Switch, e
 	}
 
 	return sw, nil
+}
+
+func ToSwitchBGPPortState(state *apiv2.SwitchBGPPortState) (*metal.SwitchBGPPortState, error) {
+	if state == nil {
+		return nil, nil
+	}
+
+	bgpState, err := metal.ToBGPState(state.BgpState)
+	if err != nil {
+		return nil, err
+	}
+
+	bgpPortState := &metal.SwitchBGPPortState{
+		Neighbor:              state.Neighbor,
+		PeerGroup:             state.PeerGroup,
+		VrfName:               state.VrfName,
+		BgpState:              bgpState,
+		BgpTimerUpEstablished: uint64(state.BgpTimerUpEstablished.Seconds),
+		SentPrefixCounter:     state.SentPrefixCounter,
+		AcceptedPrefixCounter: state.AcceptedPrefixCounter,
+	}
+
+	return bgpPortState, nil
+}
+
+func ToSwitchPortState(state *apiv2.NicState) (*metal.NicState, error) {
+	if state == nil {
+		return nil, nil
+	}
+
+	desiredState, err := metal.ToSwitchPortStatus(state.Desired)
+	if err != nil {
+		return nil, err
+	}
+	actualState, err := metal.ToSwitchPortStatus(state.Actual)
+	if err != nil {
+		return nil, err
+	}
+
+	return &metal.NicState{
+		Desired: &desiredState,
+		Actual:  actualState,
+	}, nil
 }
 
 func (r *switchRepository) create(ctx context.Context, req *SwitchServiceCreateRequest) (*metal.Switch, error) {
@@ -629,41 +693,14 @@ func toMetalNics(switchNics []*apiv2.SwitchNic) (metal.Nics, error) {
 }
 
 func toMetalNic(switchNic *apiv2.SwitchNic) (*metal.Nic, error) {
-	var (
-		bgpPortState *metal.SwitchBGPPortState
-		nicState     *metal.NicState
-	)
-
-	if switchNic.BgpPortState != nil {
-		bgpState, err := metal.ToBGPState(switchNic.BgpPortState.BgpState)
-		if err != nil {
-			return nil, err
-		}
-
-		bgpPortState = &metal.SwitchBGPPortState{
-			Neighbor:              switchNic.BgpPortState.Neighbor,
-			PeerGroup:             switchNic.BgpPortState.PeerGroup,
-			VrfName:               switchNic.BgpPortState.VrfName,
-			BgpState:              bgpState,
-			BgpTimerUpEstablished: uint64(switchNic.BgpPortState.BgpTimerUpEstablished.Seconds),
-			SentPrefixCounter:     switchNic.BgpPortState.SentPrefixCounter,
-			AcceptedPrefixCounter: switchNic.BgpPortState.AcceptedPrefixCounter,
-		}
+	bgpPortState, err := ToSwitchBGPPortState(switchNic.BgpPortState)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert bgp port state: %w", err)
 	}
 
-	if switchNic.State != nil {
-		desiredState, err := metal.ToSwitchPortStatus(switchNic.State.Desired)
-		if err != nil {
-			return nil, err
-		}
-		actualState, err := metal.ToSwitchPortStatus(switchNic.State.Actual)
-		if err != nil {
-			return nil, err
-		}
-		nicState = &metal.NicState{
-			Desired: &desiredState,
-			Actual:  actualState,
-		}
+	nicState, err := ToSwitchPortState(switchNic.State)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert port state: %w", err)
 	}
 
 	return &metal.Nic{

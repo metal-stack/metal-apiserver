@@ -3,44 +3,57 @@ package metal
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/metal-stack/api/go/enum"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 )
 
-type Switch struct {
-	Base
-	RackID             string            `rethinkdb:"rackid"`
-	Partition          string            `rethinkdb:"partitionid"`
-	ReplaceMode        SwitchReplaceMode `rethinkdb:"mode"`
-	ManagementIP       string            `rethinkdb:"management_ip"`
-	ManagementUser     string            `rethinkdb:"management_user"`
-	ConsoleCommand     string            `rethinkdb:"console_command"`
-	OS                 SwitchOS          `rethinkdb:"os"`
-	Nics               Nics              `rethinkdb:"network_interfaces"`
-	MachineConnections ConnectionMap     `rethinkdb:"machineconnections"`
-}
+type (
+	Switch struct {
+		Base
+		RackID             string            `rethinkdb:"rackid"`
+		Partition          string            `rethinkdb:"partitionid"`
+		ReplaceMode        SwitchReplaceMode `rethinkdb:"mode"`
+		ManagementIP       string            `rethinkdb:"management_ip"`
+		ManagementUser     string            `rethinkdb:"management_user"`
+		ConsoleCommand     string            `rethinkdb:"console_command"`
+		OS                 SwitchOS          `rethinkdb:"os"`
+		Nics               Nics              `rethinkdb:"network_interfaces"`
+		MachineConnections ConnectionMap     `rethinkdb:"machineconnections"`
+	}
+	Switches []Switch
 
-type Switches []Switch
+	SwitchStatus struct {
+		Base
+		LastSync      *SwitchSync `rethinkdb:"last_sync" json:"last_sync" description:"last successful synchronization to the switch" optional:"true"`
+		LastSyncError *SwitchSync `rethinkdb:"last_sync_error" json:"last_sync_error" description:"last synchronization to the switch that was erroneous" optional:"true"`
+	}
 
-type Connection struct {
-	Nic       Nic    `rethinkdb:"nic"`
-	MachineID string `rethinkdb:"machineid"`
-}
+	SwitchSync struct {
+		Time     time.Time     `rethinkdb:"time" json:"time"`
+		Duration time.Duration `rethinkdb:"duration" json:"duration"`
+		Error    *string       `rethinkdb:"error" json:"error"`
+	}
 
-type Connections []Connection
+	Connection struct {
+		Nic       Nic    `rethinkdb:"nic"`
+		MachineID string `rethinkdb:"machineid"`
+	}
+	Connections []Connection
 
-// ConnectionMap maps machine ids to connections
-type ConnectionMap map[string]Connections
+	// ConnectionMap maps machine ids to connections
+	ConnectionMap map[string]Connections
 
-type SwitchOS struct {
-	Vendor           SwitchOSVendor `rethinkdb:"vendor"`
-	Version          string         `rethinkdb:"version"`
-	MetalCoreVersion string         `rethinkdb:"metal_core_version"`
-}
+	SwitchOS struct {
+		Vendor           SwitchOSVendor `rethinkdb:"vendor"`
+		Version          string         `rethinkdb:"version"`
+		MetalCoreVersion string         `rethinkdb:"metal_core_version"`
+	}
 
-type SwitchReplaceMode string
-type SwitchOSVendor string
+	SwitchReplaceMode string
+	SwitchOSVendor    string
+)
 
 const (
 	SwitchReplaceModeReplace     = SwitchReplaceMode("replace")

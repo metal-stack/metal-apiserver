@@ -154,3 +154,75 @@ func Test_switchServiceServer_Register(t *testing.T) {
 		})
 	}
 }
+
+func Test_switchServiceServer_Get(t *testing.T) {
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	ctx := t.Context()
+
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	defer closer()
+	repo := testStore.Store
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintln(w, "a image")
+	}))
+	defer ts.Close()
+
+	validURL := ts.URL
+
+	var (
+		partitions = []*adminv2.PartitionServiceCreateRequest{
+			{Partition: &apiv2.Partition{Id: "partition-a", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+			{Partition: &apiv2.Partition{Id: "partition-b", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+		}
+	)
+
+	test.CreatePartitions(t, repo, partitions)
+	test.CreateSwitches(t, repo, []*repository.SwitchServiceCreateRequest{sw1})
+
+	tests := []struct {
+		name    string
+		rq      *infrav2.SwitchServiceGetRequest
+		want    *infrav2.SwitchServiceGetResponse
+		wantErr error
+	}{
+		{
+			name: "get existing",
+			rq: &infrav2.SwitchServiceGetRequest{
+				Id: "sw1",
+			},
+			want: &infrav2.SwitchServiceGetResponse{
+				Switch: sw1.Switch,
+			},
+			wantErr: nil,
+		},
+		{
+			name: "get non-existing",
+			rq: &infrav2.SwitchServiceGetRequest{
+				Id: "sw4",
+			},
+			want:    nil,
+			wantErr: errorutil.NotFound("no switch with id \"sw4\" found"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &switchServiceServer{
+				log:  log,
+				repo: repo,
+			}
+			got, err := s.Get(ctx, connect.NewRequest(tt.rq))
+			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("switchServiceServer.Get() error diff = %s", diff)
+				return
+			}
+			if diff := cmp.Diff(tt.want, pointer.SafeDeref(got).Msg,
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				)); diff != "" {
+				t.Errorf("switchServiceServer.Get() diff = %s", diff)
+			}
+		})
+	}
+}

@@ -1,44 +1,42 @@
 package metal
 
-// Nic information.
-// This is used for machine nics and switch nics as backing store
-type Nic struct {
-	MacAddress   string              `rethinkdb:"macAddress"`
-	Name         string              `rethinkdb:"name"`
-	Identifier   string              `rethinkdb:"identifier"`
-	Vrf          string              `rethinkdb:"vrf"`
-	Neighbors    Nics                `rethinkdb:"neighbors"`
-	Hostname     string              `rethinkdb:"hostname"`
-	State        *NicState           `rethinkdb:"state"`
-	BGPPortState *SwitchBGPPortState `rethinkdb:"bgpPortState"`
-}
+import "github.com/google/go-cmp/cmp"
 
-// Nics is a list of nics.
-type Nics []Nic
+type (
+	Nic struct {
+		MacAddress   string              `rethinkdb:"macAddress"`
+		Name         string              `rethinkdb:"name"`
+		Identifier   string              `rethinkdb:"identifier"`
+		Vrf          string              `rethinkdb:"vrf"`
+		Neighbors    Nics                `rethinkdb:"neighbors"`
+		Hostname     string              `rethinkdb:"hostname"`
+		State        *NicState           `rethinkdb:"state"`
+		BGPPortState *SwitchBGPPortState `rethinkdb:"bgpPortState"`
+	}
 
-type NicMap map[string]*Nic
+	Nics []Nic
 
-// NicState represents the desired and actual state of a network interface
-// controller (NIC). The Desired field indicates the intended state of the
-// NIC, while Actual indicates its current operational state. The Desired
-// state will be removed when the actual state is equal to the desired state.
-type NicState struct {
-	Desired *SwitchPortStatus `rethinkdb:"desired"`
-	Actual  SwitchPortStatus  `rethinkdb:"actual"`
-}
+	NicMap map[string]*Nic
 
-type SwitchBGPPortState struct {
-	// FIXME add rethinkdb annotations, check against existing database entries
-	Neighbor              string
-	PeerGroup             string
-	VrfName               string
-	BgpState              BGPState
-	BgpTimerUpEstablished uint64
-	SentPrefixCounter     uint64
-	AcceptedPrefixCounter uint64
-}
+	NicState struct {
+		Desired *SwitchPortStatus `rethinkdb:"desired"`
+		Actual  SwitchPortStatus  `rethinkdb:"actual"`
+	}
 
-type BGPState string
+	SwitchBGPPortState struct {
+		// FIXME add rethinkdb annotations, check against existing database entries
+		Neighbor              string
+		PeerGroup             string
+		VrfName               string
+		BgpState              BGPState
+		BgpTimerUpEstablished uint64
+		SentPrefixCounter     uint64
+		AcceptedPrefixCounter uint64
+	}
+
+	BGPState         string
+	SwitchPortStatus string
+)
 
 const (
 	BGPStateIdle        = BGPState("idle")
@@ -49,19 +47,31 @@ const (
 	BGPStateEstablished = BGPState("established")
 )
 
-// SwitchPortStatus is a type alias for a string that represents the status of a switch port.
-// Valid values are defined as constants in this package.
-type SwitchPortStatus string
-
-// SwitchPortStatus defines the possible statuses for a switch port.
-// UNKNOWN indicates the status is not known.
-// UP indicates the port is up and operational.
-// DOWN indicates the port is down and not operational.
 const (
 	SwitchPortStatusUnknown SwitchPortStatus = "UNKNOWN"
 	SwitchPortStatusUp      SwitchPortStatus = "UP"
 	SwitchPortStatusDown    SwitchPortStatus = "DOWN"
 )
+
+func (s *NicState) SetState(status SwitchPortStatus) (*NicState, bool) {
+	if s == nil {
+		return &NicState{
+			Actual: status,
+		}, true
+	}
+
+	state := &NicState{
+		Actual:  status,
+		Desired: s.Desired,
+	}
+
+	if state.Desired != nil && status == *state.Desired {
+		state.Desired = nil
+	}
+
+	changed := cmp.Diff(s, state) != ""
+	return state, changed
+}
 
 func (nics Nics) MapByIdentifier() NicMap {
 	nicMap := make(NicMap)
