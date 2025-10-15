@@ -5,7 +5,6 @@ import (
 	"os"
 	"testing"
 
-	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -128,20 +127,20 @@ func Test_sizeServiceServer_Create(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := s.Create(ctx, connect.NewRequest(tt.rq))
+			got, err := s.Create(ctx, tt.rq)
 
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, pointer.SafeDeref(got),
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("sizeServiceServer.Create() = %v, want %vņdiff: %s", pointer.SafeDeref(got).Msg, tt.want, diff)
+				t.Errorf("sizeServiceServer.Create() = %v, want %vņdiff: %s", pointer.SafeDeref(got), tt.want, diff)
 			}
 
 		})
@@ -311,20 +310,20 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := s.Update(ctx, connect.NewRequest(tt.rq))
+			got, err := s.Update(ctx, tt.rq)
 
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, pointer.SafeDeref(got),
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("sizeServiceServer.Update() = %v, want %vņdiff: %s", pointer.SafeDeref(got).Msg, tt.want, diff)
+				t.Errorf("sizeServiceServer.Update() = %v, want %vņdiff: %s", pointer.SafeDeref(got), tt.want, diff)
 			}
 
 		})
@@ -421,20 +420,20 @@ func Test_sizeServiceServer_Delete(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := s.Delete(ctx, connect.NewRequest(tt.rq))
+			got, err := s.Delete(ctx, tt.rq)
 
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, pointer.SafeDeref(got),
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("sizeServiceServer.Delete() = %v, want %vņdiff: %s", pointer.SafeDeref(got).Msg, tt.want, diff)
+				t.Errorf("sizeServiceServer.Delete() = %v, want %vņdiff: %s", pointer.SafeDeref(got), tt.want, diff)
 			}
 
 		})

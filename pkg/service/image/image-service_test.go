@@ -8,7 +8,6 @@ import (
 	"os"
 	"testing"
 
-	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -81,12 +80,12 @@ func Test_imageServiceServer_Get(t *testing.T) {
 				test.Validate(t, tt.request)
 			}
 
-			got, err := i.Get(ctx, connect.NewRequest(tt.request))
+			got, err := i.Get(ctx, tt.request)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, pointer.SafeDeref(got),
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Image{}, "expires_at",
@@ -95,7 +94,7 @@ func Test_imageServiceServer_Get(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("imageServiceServer.Get() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
+				t.Errorf("imageServiceServer.Get() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -263,12 +262,12 @@ func Test_imageServiceServer_List(t *testing.T) {
 				test.Validate(t, tt.request)
 			}
 
-			got, err := i.List(ctx, connect.NewRequest(tt.request))
+			got, err := i.List(ctx, tt.request)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, pointer.SafeDeref(got),
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Image{}, "expires_at",
@@ -277,7 +276,7 @@ func Test_imageServiceServer_List(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("imageServiceServer.List() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
+				t.Errorf("imageServiceServer.List() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -355,12 +354,12 @@ func Test_imageServiceServer_Latest(t *testing.T) {
 				test.Validate(t, tt.request)
 			}
 
-			got, err := i.Latest(ctx, connect.NewRequest(tt.request))
+			got, err := i.Latest(ctx, tt.request)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, pointer.SafeDeref(got),
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Image{}, "expires_at",
@@ -369,7 +368,7 @@ func Test_imageServiceServer_Latest(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("imageServiceServer.Latest() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
+				t.Errorf("imageServiceServer.Latest() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}

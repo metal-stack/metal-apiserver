@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 
-	"connectrpc.com/connect"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -30,8 +29,8 @@ func New(c Config) adminv2connect.MachineServiceHandler {
 }
 
 // Get implements apiv2connect.MachineServiceHandler.
-func (m *machineServiceServer) Get(ctx context.Context, rq *connect.Request[adminv2.MachineServiceGetRequest]) (*connect.Response[adminv2.MachineServiceGetResponse], error) {
-	req := rq.Msg
+func (m *machineServiceServer) Get(ctx context.Context, rq *adminv2.MachineServiceGetRequest) (*adminv2.MachineServiceGetResponse, error) {
+	req := rq
 
 	resp, err := m.repo.UnscopedMachine().Get(ctx, req.Uuid)
 	if err != nil {
@@ -42,19 +41,19 @@ func (m *machineServiceServer) Get(ctx context.Context, rq *connect.Request[admi
 		return nil, errorutil.Convert(err)
 	}
 
-	return connect.NewResponse(&adminv2.MachineServiceGetResponse{
+	return &adminv2.MachineServiceGetResponse{
 		Machine: converted,
-	}), nil
+	}, nil
 }
 
 // List implements apiv2connect.MachineServiceHandler.
-func (m *machineServiceServer) List(ctx context.Context, rq *connect.Request[adminv2.MachineServiceListRequest]) (*connect.Response[adminv2.MachineServiceListResponse], error) {
+func (m *machineServiceServer) List(ctx context.Context, rq *adminv2.MachineServiceListRequest) (*adminv2.MachineServiceListResponse, error) {
 	partitions, err := m.repo.Partition().List(ctx, &apiv2.PartitionQuery{})
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	partition := rq.Msg.Partition
+	partition := rq.Partition
 	if partition == nil {
 		if len(partitions) > 1 {
 			return nil, errorutil.InvalidArgument("no partition specified, but %d partitions available", len(partitions))
@@ -64,7 +63,7 @@ func (m *machineServiceServer) List(ctx context.Context, rq *connect.Request[adm
 		}
 	}
 
-	q := rq.Msg.Query
+	q := rq.Query
 	q.Partition = partition
 
 	machines, err := m.repo.UnscopedMachine().List(ctx, q)
@@ -81,5 +80,5 @@ func (m *machineServiceServer) List(ctx context.Context, rq *connect.Request[adm
 		result = append(result, converted)
 	}
 
-	return connect.NewResponse(&adminv2.MachineServiceListResponse{Machines: result}), nil
+	return &adminv2.MachineServiceListResponse{Machines: result}, nil
 }

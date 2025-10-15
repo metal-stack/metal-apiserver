@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"connectrpc.com/connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/service/token"
@@ -150,19 +149,19 @@ func newTokenCmd() *cli.Command {
 				return fmt.Errorf("token subject cannot be empty")
 			}
 
-			resp, err := tokenService.CreateApiTokenWithoutPermissionCheck(ctx.Context, subject, connect.NewRequest(&apiv2.TokenServiceCreateRequest{
+			resp, err := tokenService.CreateApiTokenWithoutPermissionCheck(ctx.Context, subject, &apiv2.TokenServiceCreateRequest{
 				Description:  ctx.String(tokenDescriptionFlag.Name),
 				Expires:      durationpb.New(ctx.Duration(tokenExpirationFlag.Name)),
 				ProjectRoles: projectRoles,
 				TenantRoles:  tenantRoles,
 				AdminRole:    adminRole,
 				Permissions:  permissions,
-			}))
+			})
 			if err != nil {
 				return err
 			}
 
-			fmt.Println(resp.Msg.Secret)
+			fmt.Println(resp.Secret)
 
 			return nil
 		},

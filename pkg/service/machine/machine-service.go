@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 
-	"connectrpc.com/connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
@@ -29,13 +28,13 @@ func New(c Config) apiv2connect.MachineServiceHandler {
 }
 
 // Create implements apiv2connect.MachineServiceHandler.
-func (m *machineServiceServer) Create(context.Context, *connect.Request[apiv2.MachineServiceCreateRequest]) (*connect.Response[apiv2.MachineServiceCreateResponse], error) {
+func (m *machineServiceServer) Create(context.Context, *apiv2.MachineServiceCreateRequest) (*apiv2.MachineServiceCreateResponse, error) {
 	panic("unimplemented")
 }
 
 // Get implements apiv2connect.MachineServiceHandler.
-func (m *machineServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2.MachineServiceGetRequest]) (*connect.Response[apiv2.MachineServiceGetResponse], error) {
-	req := rq.Msg
+func (m *machineServiceServer) Get(ctx context.Context, rq *apiv2.MachineServiceGetRequest) (*apiv2.MachineServiceGetResponse, error) {
+	req := rq
 
 	resp, err := m.repo.Machine(req.Project).Get(ctx, req.Uuid)
 	if err != nil {
@@ -46,14 +45,14 @@ func (m *machineServiceServer) Get(ctx context.Context, rq *connect.Request[apiv
 		return nil, errorutil.Convert(err)
 	}
 
-	return connect.NewResponse(&apiv2.MachineServiceGetResponse{
+	return &apiv2.MachineServiceGetResponse{
 		Machine: converted,
-	}), nil
+	}, nil
 }
 
 // List implements apiv2connect.MachineServiceHandler.
-func (m *machineServiceServer) List(ctx context.Context, rq *connect.Request[apiv2.MachineServiceListRequest]) (*connect.Response[apiv2.MachineServiceListResponse], error) {
-	machines, err := m.repo.Machine(rq.Msg.Project).List(ctx, rq.Msg.Query)
+func (m *machineServiceServer) List(ctx context.Context, rq *apiv2.MachineServiceListRequest) (*apiv2.MachineServiceListResponse, error) {
+	machines, err := m.repo.Machine(rq.Project).List(ctx, rq.Query)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -67,12 +66,12 @@ func (m *machineServiceServer) List(ctx context.Context, rq *connect.Request[api
 		result = append(result, converted)
 	}
 
-	return connect.NewResponse(&apiv2.MachineServiceListResponse{Machines: result}), nil
+	return &apiv2.MachineServiceListResponse{Machines: result}, nil
 }
 
 // Update implements apiv2connect.MachineServiceHandler.
-func (m *machineServiceServer) Update(ctx context.Context, rq *connect.Request[apiv2.MachineServiceUpdateRequest]) (*connect.Response[apiv2.MachineServiceUpdateResponse], error) {
-	req := rq.Msg
+func (m *machineServiceServer) Update(ctx context.Context, rq *apiv2.MachineServiceUpdateRequest) (*apiv2.MachineServiceUpdateResponse, error) {
+	req := rq
 
 	ms, err := m.repo.Machine(req.Project).Update(ctx, req.Uuid, req)
 	if err != nil {
@@ -84,10 +83,10 @@ func (m *machineServiceServer) Update(ctx context.Context, rq *connect.Request[a
 		return nil, errorutil.Convert(err)
 	}
 
-	return connect.NewResponse(&apiv2.MachineServiceUpdateResponse{Machine: converted}), nil
+	return &apiv2.MachineServiceUpdateResponse{Machine: converted}, nil
 }
 
 // Delete implements apiv2connect.MachineServiceHandler.
-func (m *machineServiceServer) Delete(context.Context, *connect.Request[apiv2.MachineServiceDeleteRequest]) (*connect.Response[apiv2.MachineServiceDeleteResponse], error) {
+func (m *machineServiceServer) Delete(context.Context, *apiv2.MachineServiceDeleteRequest) (*apiv2.MachineServiceDeleteResponse, error) {
 	panic("unimplemented")
 }

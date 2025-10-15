@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"buf.build/go/protovalidate"
-	"connectrpc.com/connect"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/google/go-cmp/cmp"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -52,50 +51,50 @@ func Test_tokenService_CreateConsoleTokenWithoutPermissionCheck(t *testing.T) {
 	// verifying response
 
 	require.NotNil(t, got)
-	require.NotNil(t, got.Msg)
-	require.NotNil(t, got.Msg.GetToken())
+	require.NotNil(t, got)
+	require.NotNil(t, got.GetToken())
 
-	assert.NotEmpty(t, got.Msg.GetSecret())
-	assert.True(t, strings.HasPrefix(got.Msg.GetSecret(), "ey"), "not a valid jwt token") // jwt always starts with "ey" because it's b64 encoded JSON
-	claims, err := token.ParseJWTToken(got.Msg.GetSecret())
+	assert.NotEmpty(t, got.GetSecret())
+	assert.True(t, strings.HasPrefix(got.GetSecret(), "ey"), "not a valid jwt token") // jwt always starts with "ey" because it's b64 encoded JSON
+	claims, err := token.ParseJWTToken(got.GetSecret())
 	require.NoError(t, err, "token claims not parsable")
 	require.NotNil(t, claims)
 
-	assert.NotEmpty(t, got.Msg.GetToken().GetUuid())
-	assert.Equal(t, "test", got.Msg.GetToken().GetUser())
+	assert.NotEmpty(t, got.GetToken().GetUuid())
+	assert.Equal(t, "test", got.GetToken().GetUser())
 
 	// verifying keydb entry
-	err = tokenStore.Set(ctx, got.Msg.GetToken())
+	err = tokenStore.Set(ctx, got.GetToken())
 	require.NoError(t, err)
 
 	// listing tokens
 
-	tokenList, err := service.List(token.ContextWithToken(ctx, got.Msg.Token), &connect.Request[apiv2.TokenServiceListRequest]{})
+	tokenList, err := service.List(token.ContextWithToken(ctx, got.Token), &apiv2.TokenServiceListRequest{})
 	require.NoError(t, err)
 
 	require.NotNil(t, tokenList)
-	require.NotNil(t, tokenList.Msg)
+	require.NotNil(t, tokenList)
 
-	require.Len(t, tokenList.Msg.Tokens, 1)
+	require.Len(t, tokenList.Tokens, 1)
 
 	// Check still present
-	_, err = tokenStore.Get(ctx, got.Msg.GetToken().GetUser(), got.Msg.GetToken().GetUuid())
+	_, err = tokenStore.Get(ctx, got.GetToken().GetUser(), got.GetToken().GetUuid())
 	require.NoError(t, err)
 
 	// Check unpresent after revocation
-	err = tokenStore.Revoke(ctx, got.Msg.GetToken().GetUser(), got.Msg.GetToken().GetUuid())
+	err = tokenStore.Revoke(ctx, got.GetToken().GetUser(), got.GetToken().GetUuid())
 	require.NoError(t, err)
 
-	_, err = tokenStore.Get(ctx, got.Msg.GetToken().GetUser(), got.Msg.GetToken().GetUuid())
+	_, err = tokenStore.Get(ctx, got.GetToken().GetUser(), got.GetToken().GetUuid())
 	require.Error(t, err)
 
 	// List must now be empty
-	tokenList, err = service.List(token.ContextWithToken(ctx, got.Msg.Token), &connect.Request[apiv2.TokenServiceListRequest]{})
+	tokenList, err = service.List(token.ContextWithToken(ctx, got.Token), &apiv2.TokenServiceListRequest{})
 	require.NoError(t, err)
 
 	require.NotNil(t, tokenList)
-	require.NotNil(t, tokenList.Msg)
-	require.Empty(t, tokenList.Msg.Tokens)
+	require.NotNil(t, tokenList)
+	require.Empty(t, tokenList.Tokens)
 }
 
 func Test_Create(t *testing.T) {
@@ -428,7 +427,7 @@ func Test_Create(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			response, err := service.Create(ctx, connect.NewRequest(tt.req))
+			response, err := service.Create(ctx, tt.req)
 			switch {
 			case tt.wantErr && err != nil:
 				if dff := cmp.Diff(tt.wantErrMessage, err.Error()); dff != "" {
@@ -440,12 +439,12 @@ func Test_Create(t *testing.T) {
 				t.Fatalf("want response, got error %q", err)
 
 			default:
-				if response.Msg.Secret == "" {
+				if response.Secret == "" {
 					t.Error("response secret for token may not be empty")
 				}
 				require.NotNil(t, tt.wantToken, "token returned, nil expected")
 
-				got := response.Msg.Token
+				got := response.Token
 				assert.Equal(t, tt.wantToken.Description, got.Description, "description")
 				assert.Equal(t, tt.wantToken.User, got.User, "user id")
 				assert.Equal(t, tt.wantToken.TokenType, got.TokenType, "token type")
@@ -1257,7 +1256,7 @@ func Test_Update(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			response, err := service.Update(ctx, connect.NewRequest(tt.req))
+			response, err := service.Update(ctx, tt.req)
 			switch {
 			case tt.wantErr && err != nil:
 				if dff := cmp.Diff(tt.wantErrMessage, err.Error()); dff != "" {
@@ -1269,7 +1268,7 @@ func Test_Update(t *testing.T) {
 				t.Fatalf("want response, got error %q", err)
 
 			default:
-				got := response.Msg.Token
+				got := response.Token
 				assert.Equal(t, tt.wantToken.Uuid, got.Uuid, "uuid")
 				assert.Equal(t, tt.wantToken.Description, got.Description, "description")
 				assert.Equal(t, tt.wantToken.User, got.User, "user id")
@@ -1393,7 +1392,7 @@ func Test_Refresh(t *testing.T) {
 				}, nil
 			}
 
-			response, err := service.Refresh(ctx, connect.NewRequest(&apiv2.TokenServiceRefreshRequest{}))
+			response, err := service.Refresh(ctx, &apiv2.TokenServiceRefreshRequest{})
 			switch {
 			case tt.wantErr && err != nil:
 				if dff := cmp.Diff(tt.wantErrMessage, err.Error()); dff != "" {
@@ -1405,7 +1404,7 @@ func Test_Refresh(t *testing.T) {
 				t.Fatalf("want response, got error %q", err)
 
 			default:
-				got := response.Msg.Token
+				got := response.Token
 				assert.Equal(t, tt.wantToken.User, got.User, "userId")
 				assert.Equal(t, tt.wantToken.Description, got.Description, "description")
 				assert.Equal(t, tt.wantToken.TokenType, got.TokenType, "token type")

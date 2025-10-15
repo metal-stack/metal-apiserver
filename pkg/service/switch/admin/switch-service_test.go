@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -240,12 +239,12 @@ func Test_switchServiceServer_Get(t *testing.T) {
 				test.Validate(t, tt.rq)
 			}
 
-			got, err := s.Get(ctx, connect.NewRequest(tt.rq))
+			got, err := s.Get(ctx, tt.rq)
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("switchServiceServer.Get() error diff = %s", diff)
 				return
 			}
-			if diff := cmp.Diff(tt.want, pointer.SafeDeref(got).Msg,
+			if diff := cmp.Diff(tt.want, pointer.SafeDeref(got),
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
@@ -319,12 +318,12 @@ func Test_switchServiceServer_List(t *testing.T) {
 				test.Validate(t, tt.rq)
 			}
 
-			got, err := s.List(ctx, connect.NewRequest(tt.rq))
+			got, err := s.List(ctx, tt.rq)
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("switchServiceServer.List() error diff = %s", diff)
 				return
 			}
-			if diff := cmp.Diff(tt.want, pointer.SafeDeref(got).Msg,
+			if diff := cmp.Diff(tt.want, pointer.SafeDeref(got),
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
@@ -487,12 +486,12 @@ func Test_switchServiceServer_Update(t *testing.T) {
 				test.Validate(t, tt.rq)
 			}
 
-			got, err := s.Update(ctx, connect.NewRequest(tt.rq))
+			got, err := s.Update(ctx, tt.rq)
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("switchServiceServer.Update() error diff = %s", diff)
 				return
 			}
-			if diff := cmp.Diff(tt.want, pointer.SafeDeref(got).Msg,
+			if diff := cmp.Diff(tt.want, pointer.SafeDeref(got),
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
@@ -559,12 +558,12 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 				test.Validate(t, tt.rq)
 			}
 
-			got, err := s.Delete(ctx, connect.NewRequest(tt.rq))
+			got, err := s.Delete(ctx, tt.rq)
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("switchServiceServer.Delete() error diff = %s", diff)
 				return
 			}
-			if diff := cmp.Diff(tt.want, pointer.SafeDeref(got).Msg,
+			if diff := cmp.Diff(tt.want, pointer.SafeDeref(got),
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
@@ -573,9 +572,9 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 			}
 
 			if tt.wantErr == nil {
-				sw, err := s.Get(ctx, connect.NewRequest(&adminv2.SwitchServiceGetRequest{
+				sw, err := s.Get(ctx, &adminv2.SwitchServiceGetRequest{
 					Id: tt.rq.Id,
-				}))
+				})
 				require.True(t, errorutil.IsNotFound(err))
 				require.Nil(t, sw)
 			}

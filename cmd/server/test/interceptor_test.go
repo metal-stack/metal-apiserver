@@ -23,7 +23,7 @@ package test
 // 	t.Parallel()
 // 	tests := []struct {
 // 		name        string
-// 		svc         func(context.Context, *connect.Request[apiv1.TenantServiceInviteRequest]) (*connect.Response[apiv1.TenantServiceInviteResponse], error)
+// 		svc         func(context.Context, *apiv1.TenantServiceInviteRequest) (*apiv1.TenantServiceInviteResponse, error)
 // 		req         *apiv1.TenantServiceInviteRequest
 // 		wantCode    connect.Code
 // 		wantPath    *string // field path, from error details
@@ -95,7 +95,7 @@ package test
 // 				}
 // 			} else {
 // 				require.NoError(t, err)
-// 				assert.NotZero(t, got.Msg)
+// 				assert.NotZero(t, got)
 // 			}
 // 		})
 // 	}
@@ -110,10 +110,10 @@ package test
 // 	return srv
 // }
 
-// func createInvite(_ context.Context, req *connect.Request[apiv1.TenantServiceInviteRequest]) (*connect.Response[apiv1.TenantServiceInviteResponse], error) {
-// 	return connect.NewResponse(&apiv1.TenantServiceInviteResponse{Invite: &apiv1.TenantInvite{Secret: "geheim"}}), nil
+// func createInvite(_ context.Context, req *apiv1.TenantServiceInviteRequest) (*apiv1.TenantServiceInviteResponse, error) {
+// 	return &apiv1.TenantServiceInviteResponse{Invite: &apiv1.TenantInvite{Secret: "geheim"}}), nil
 // }
 
-// func createInviteWithError(_ context.Context, req *connect.Request[apiv1.TenantServiceInviteRequest]) (*connect.Response[apiv1.TenantServiceInviteResponse], error) {
+// func createInviteWithError(_ context.Context, req *apiv1.TenantServiceInviteRequest) (*apiv1.TenantServiceInviteResponse, error) {
 // 	return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("something internal was bad"))
 // }

@@ -504,7 +504,7 @@ func (r *networkRepository) getNetworkUsage(ctx context.Context, nw *metal.Netwo
 		if err != nil {
 			return nil, err
 		}
-		u := resp.Msg
+		u := resp
 		switch af {
 		case metal.AddressFamilyIPv4:
 			if consumption.Ipv4 == nil {
@@ -674,7 +674,7 @@ func (r *networkRepository) createChildPrefix(ctx context.Context, namespace *st
 			continue
 		}
 
-		pfx, _, err := metal.NewPrefixFromCIDR(resp.Msg.Prefix.Cidr)
+		pfx, _, err := metal.NewPrefixFromCIDR(resp.Prefix.Cidr)
 		if err != nil {
 			return nil, errorutil.NewInternal(err)
 		}

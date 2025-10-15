@@ -52,6 +52,6 @@ func startHTTPServer(tb testing.TB, h http.Handler) *httptest.Server {
 	return srv
 }
 
-func createToken(_ context.Context, req *connect.Request[apiv1.TokenServiceCreateRequest]) (*connect.Response[apiv1.TokenServiceCreateResponse], error) {
-	return connect.NewResponse(&apiv1.TokenServiceCreateResponse{Token: &apiv1.Token{Uuid: "abc"}}), nil
+func createToken(_ context.Context, req *apiv1.TokenServiceCreateRequest) (*apiv1.TokenServiceCreateResponse, error) {
+	return &apiv1.TokenServiceCreateResponse{Token: &apiv1.Token{Uuid: "abc"}}, nil
 }

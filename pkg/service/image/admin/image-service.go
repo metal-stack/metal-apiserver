@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 
-	"connectrpc.com/connect"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
@@ -29,8 +28,8 @@ func New(c Config) adminv2connect.ImageServiceHandler {
 }
 
 // Create implements adminv2connect.ImageServiceHandler.
-func (i *imageServiceServer) Create(ctx context.Context, rq *connect.Request[adminv2.ImageServiceCreateRequest]) (*connect.Response[adminv2.ImageServiceCreateResponse], error) {
-	image, err := i.repo.Image().Create(ctx, rq.Msg)
+func (i *imageServiceServer) Create(ctx context.Context, rq *adminv2.ImageServiceCreateRequest) (*adminv2.ImageServiceCreateResponse, error) {
+	image, err := i.repo.Image().Create(ctx, rq)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -40,12 +39,12 @@ func (i *imageServiceServer) Create(ctx context.Context, rq *connect.Request[adm
 		return nil, errorutil.Convert(err)
 	}
 
-	return connect.NewResponse(&adminv2.ImageServiceCreateResponse{Image: converted}), nil
+	return &adminv2.ImageServiceCreateResponse{Image: converted}, nil
 }
 
 // Delete implements adminv2connect.ImageServiceHandler.
-func (i *imageServiceServer) Delete(ctx context.Context, rq *connect.Request[adminv2.ImageServiceDeleteRequest]) (*connect.Response[adminv2.ImageServiceDeleteResponse], error) {
-	image, err := i.repo.Image().Delete(ctx, rq.Msg.Id)
+func (i *imageServiceServer) Delete(ctx context.Context, rq *adminv2.ImageServiceDeleteRequest) (*adminv2.ImageServiceDeleteResponse, error) {
+	image, err := i.repo.Image().Delete(ctx, rq.Id)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -55,12 +54,12 @@ func (i *imageServiceServer) Delete(ctx context.Context, rq *connect.Request[adm
 		return nil, errorutil.Convert(err)
 	}
 
-	return connect.NewResponse(&adminv2.ImageServiceDeleteResponse{Image: converted}), nil
+	return &adminv2.ImageServiceDeleteResponse{Image: converted}, nil
 }
 
 // Update implements adminv2connect.ImageServiceHandler.
-func (i *imageServiceServer) Update(ctx context.Context, rq *connect.Request[adminv2.ImageServiceUpdateRequest]) (*connect.Response[adminv2.ImageServiceUpdateResponse], error) {
-	image, err := i.repo.Image().Update(ctx, rq.Msg.Id, rq.Msg)
+func (i *imageServiceServer) Update(ctx context.Context, rq *adminv2.ImageServiceUpdateRequest) (*adminv2.ImageServiceUpdateResponse, error) {
+	image, err := i.repo.Image().Update(ctx, rq.Id, rq)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -70,10 +69,10 @@ func (i *imageServiceServer) Update(ctx context.Context, rq *connect.Request[adm
 		return nil, errorutil.Convert(err)
 	}
 
-	return connect.NewResponse(&adminv2.ImageServiceUpdateResponse{Image: converted}), nil
+	return &adminv2.ImageServiceUpdateResponse{Image: converted}, nil
 }
 
 // Usage implements adminv2connect.ImageServiceHandler.
-func (i *imageServiceServer) Usage(ctx context.Context, rq *connect.Request[adminv2.ImageServiceUsageRequest]) (*connect.Response[adminv2.ImageServiceUsageResponse], error) {
+func (i *imageServiceServer) Usage(ctx context.Context, rq *adminv2.ImageServiceUsageRequest) (*adminv2.ImageServiceUsageResponse, error) {
 	panic("unimplemented")
 }

@@ -7,7 +7,6 @@ import (
 	"sort"
 	"time"
 
-	"connectrpc.com/connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
@@ -47,14 +46,14 @@ func New(c Config) TenantService {
 	}
 }
 
-func (u *tenantServiceServer) List(ctx context.Context, rq *connect.Request[apiv2.TenantServiceListRequest]) (*connect.Response[apiv2.TenantServiceListResponse], error) {
+func (u *tenantServiceServer) List(ctx context.Context, rq *apiv2.TenantServiceListRequest) (*apiv2.TenantServiceListResponse, error) {
 	token, ok := token.TokenFromContext(ctx)
 	if !ok || token == nil {
 		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
 	var (
-		req    = rq.Msg
+		req    = rq
 		result []*apiv2.Tenant
 	)
 
@@ -76,12 +75,12 @@ func (u *tenantServiceServer) List(ctx context.Context, rq *connect.Request[apiv
 		result = append(result, tenant)
 	}
 
-	return connect.NewResponse(&apiv2.TenantServiceListResponse{Tenants: result}), nil
+	return &apiv2.TenantServiceListResponse{Tenants: result}, nil
 }
 
-func (u *tenantServiceServer) Create(ctx context.Context, rq *connect.Request[apiv2.TenantServiceCreateRequest]) (*connect.Response[apiv2.TenantServiceCreateResponse], error) {
+func (u *tenantServiceServer) Create(ctx context.Context, rq *apiv2.TenantServiceCreateRequest) (*apiv2.TenantServiceCreateResponse, error) {
 	var (
-		req   = rq.Msg
+		req   = rq
 		t, ok = token.TokenFromContext(ctx)
 	)
 
@@ -125,13 +124,13 @@ func (u *tenantServiceServer) Create(ctx context.Context, rq *connect.Request[ap
 		return nil, err // TODO: give more instructions what to do now!
 	}
 
-	return connect.NewResponse(&apiv2.TenantServiceCreateResponse{Tenant: converted}), nil
+	return &apiv2.TenantServiceCreateResponse{Tenant: converted}, nil
 }
 
-func (u *tenantServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2.TenantServiceGetRequest]) (*connect.Response[apiv2.TenantServiceGetResponse], error) {
+func (u *tenantServiceServer) Get(ctx context.Context, rq *apiv2.TenantServiceGetRequest) (*apiv2.TenantServiceGetResponse, error) {
 	var (
 		t, ok = token.TokenFromContext(ctx)
-		req   = rq.Msg
+		req   = rq
 	)
 	if !ok || t == nil {
 		return nil, errorutil.Unauthenticated("no token found in request")
@@ -153,7 +152,7 @@ func (u *tenantServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2
 	case apiv2.TenantRole_TENANT_ROLE_GUEST:
 		// guests only see a minimal subset of the tenant information, a guest is not part of the tenant!
 
-		return connect.NewResponse(&apiv2.TenantServiceGetResponse{Tenant: &apiv2.Tenant{
+		return &apiv2.TenantServiceGetResponse{Tenant: &apiv2.Tenant{
 			Login:       converted.Login,
 			Name:        converted.Name,
 			Email:       "",
@@ -164,7 +163,7 @@ func (u *tenantServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2
 				CreatedAt: converted.Meta.CreatedAt,
 				UpdatedAt: converted.Meta.UpdatedAt,
 			},
-		}, TenantMembers: nil}), nil
+		}, TenantMembers: nil}, nil
 	case apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED:
 		if msvc.IsAdminToken(t) {
 			break
@@ -198,11 +197,11 @@ func (u *tenantServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2
 		return tenantMembers[i].Id < tenantMembers[j].Id
 	})
 
-	return connect.NewResponse(&apiv2.TenantServiceGetResponse{Tenant: converted, TenantMembers: tenantMembers}), nil
+	return &apiv2.TenantServiceGetResponse{Tenant: converted, TenantMembers: tenantMembers}, nil
 }
 
-func (u *tenantServiceServer) Update(ctx context.Context, rq *connect.Request[apiv2.TenantServiceUpdateRequest]) (*connect.Response[apiv2.TenantServiceUpdateResponse], error) {
-	req := rq.Msg
+func (u *tenantServiceServer) Update(ctx context.Context, rq *apiv2.TenantServiceUpdateRequest) (*apiv2.TenantServiceUpdateResponse, error) {
+	req := rq
 
 	updated, err := u.repo.Tenant().Update(ctx, req.Login, req)
 	if err != nil {
@@ -214,12 +213,12 @@ func (u *tenantServiceServer) Update(ctx context.Context, rq *connect.Request[ap
 		return nil, errorutil.Convert(err)
 	}
 
-	return connect.NewResponse(&apiv2.TenantServiceUpdateResponse{Tenant: converted}), nil
+	return &apiv2.TenantServiceUpdateResponse{Tenant: converted}, nil
 }
 
-func (u *tenantServiceServer) Delete(ctx context.Context, rq *connect.Request[apiv2.TenantServiceDeleteRequest]) (*connect.Response[apiv2.TenantServiceDeleteResponse], error) {
+func (u *tenantServiceServer) Delete(ctx context.Context, rq *apiv2.TenantServiceDeleteRequest) (*apiv2.TenantServiceDeleteResponse, error) {
 	var (
-		req = rq.Msg
+		req = rq
 	)
 
 	deleted, err := u.repo.Tenant().Delete(ctx, req.Login)
@@ -232,13 +231,13 @@ func (u *tenantServiceServer) Delete(ctx context.Context, rq *connect.Request[ap
 		return nil, errorutil.Convert(err)
 	}
 
-	return connect.NewResponse(&apiv2.TenantServiceDeleteResponse{Tenant: converted}), nil
+	return &apiv2.TenantServiceDeleteResponse{Tenant: converted}, nil
 }
 
-func (u *tenantServiceServer) Invite(ctx context.Context, rq *connect.Request[apiv2.TenantServiceInviteRequest]) (*connect.Response[apiv2.TenantServiceInviteResponse], error) {
+func (u *tenantServiceServer) Invite(ctx context.Context, rq *apiv2.TenantServiceInviteRequest) (*apiv2.TenantServiceInviteResponse, error) {
 	var (
 		t, ok = token.TokenFromContext(ctx)
-		req   = rq.Msg
+		req   = rq
 	)
 	if !ok || t == nil {
 		return nil, errorutil.Unauthenticated("no token found in request")
@@ -286,13 +285,13 @@ func (u *tenantServiceServer) Invite(ctx context.Context, rq *connect.Request[ap
 		return nil, errorutil.NewInternal(err)
 	}
 
-	return connect.NewResponse(&apiv2.TenantServiceInviteResponse{Invite: invite}), nil
+	return &apiv2.TenantServiceInviteResponse{Invite: invite}, nil
 }
 
-func (u *tenantServiceServer) InviteAccept(ctx context.Context, rq *connect.Request[apiv2.TenantServiceInviteAcceptRequest]) (*connect.Response[apiv2.TenantServiceInviteAcceptResponse], error) {
+func (u *tenantServiceServer) InviteAccept(ctx context.Context, rq *apiv2.TenantServiceInviteAcceptRequest) (*apiv2.TenantServiceInviteAcceptResponse, error) {
 	var (
 		t, ok = token.TokenFromContext(ctx)
-		req   = rq.Msg
+		req   = rq
 	)
 
 	if !ok || t == nil {
@@ -340,12 +339,12 @@ func (u *tenantServiceServer) InviteAccept(ctx context.Context, rq *connect.Requ
 		return nil, err
 	}
 
-	return connect.NewResponse(&apiv2.TenantServiceInviteAcceptResponse{Tenant: inv.TargetTenant, TenantName: inv.TargetTenantName}), nil
+	return &apiv2.TenantServiceInviteAcceptResponse{Tenant: inv.TargetTenant, TenantName: inv.TargetTenantName}, nil
 }
 
-func (u *tenantServiceServer) InviteDelete(ctx context.Context, rq *connect.Request[apiv2.TenantServiceInviteDeleteRequest]) (*connect.Response[apiv2.TenantServiceInviteDeleteResponse], error) {
+func (u *tenantServiceServer) InviteDelete(ctx context.Context, rq *apiv2.TenantServiceInviteDeleteRequest) (*apiv2.TenantServiceInviteDeleteResponse, error) {
 	var (
-		req = rq.Msg
+		req = rq
 	)
 
 	err := u.inviteStore.DeleteInvite(ctx, &apiv2.TenantInvite{Secret: req.Secret, TargetTenant: req.Login})
@@ -355,12 +354,12 @@ func (u *tenantServiceServer) InviteDelete(ctx context.Context, rq *connect.Requ
 
 	u.log.Debug("tenant invite deleted")
 
-	return connect.NewResponse(&apiv2.TenantServiceInviteDeleteResponse{}), nil
+	return &apiv2.TenantServiceInviteDeleteResponse{}, nil
 }
 
-func (u *tenantServiceServer) InviteGet(ctx context.Context, rq *connect.Request[apiv2.TenantServiceInviteGetRequest]) (*connect.Response[apiv2.TenantServiceInviteGetResponse], error) {
+func (u *tenantServiceServer) InviteGet(ctx context.Context, rq *apiv2.TenantServiceInviteGetRequest) (*apiv2.TenantServiceInviteGetResponse, error) {
 	var (
-		req = rq.Msg
+		req = rq
 	)
 
 	inv, err := u.inviteStore.GetInvite(ctx, req.Secret)
@@ -371,12 +370,12 @@ func (u *tenantServiceServer) InviteGet(ctx context.Context, rq *connect.Request
 		return nil, errorutil.NewInternal(err)
 	}
 
-	return connect.NewResponse(&apiv2.TenantServiceInviteGetResponse{Invite: inv}), nil
+	return &apiv2.TenantServiceInviteGetResponse{Invite: inv}, nil
 }
 
-func (u *tenantServiceServer) InvitesList(ctx context.Context, rq *connect.Request[apiv2.TenantServiceInvitesListRequest]) (*connect.Response[apiv2.TenantServiceInvitesListResponse], error) {
+func (u *tenantServiceServer) InvitesList(ctx context.Context, rq *apiv2.TenantServiceInvitesListRequest) (*apiv2.TenantServiceInvitesListResponse, error) {
 	var (
-		req = rq.Msg
+		req = rq
 	)
 
 	invites, err := u.inviteStore.ListInvites(ctx, req.Login)
@@ -384,12 +383,12 @@ func (u *tenantServiceServer) InvitesList(ctx context.Context, rq *connect.Reque
 		return nil, errorutil.NewInternal(err)
 	}
 
-	return connect.NewResponse(&apiv2.TenantServiceInvitesListResponse{Invites: invites}), nil
+	return &apiv2.TenantServiceInvitesListResponse{Invites: invites}, nil
 }
 
-func (u *tenantServiceServer) RemoveMember(ctx context.Context, rq *connect.Request[apiv2.TenantServiceRemoveMemberRequest]) (*connect.Response[apiv2.TenantServiceRemoveMemberResponse], error) {
+func (u *tenantServiceServer) RemoveMember(ctx context.Context, rq *apiv2.TenantServiceRemoveMemberRequest) (*apiv2.TenantServiceRemoveMemberResponse, error) {
 	var (
-		req = rq.Msg
+		req = rq
 	)
 
 	_, err := u.repo.Tenant().AdditionalMethods().Member(req.Login).Delete(ctx, req.Member)
@@ -397,24 +396,24 @@ func (u *tenantServiceServer) RemoveMember(ctx context.Context, rq *connect.Requ
 		return nil, err
 	}
 
-	return connect.NewResponse(&apiv2.TenantServiceRemoveMemberResponse{}), nil
+	return &apiv2.TenantServiceRemoveMemberResponse{}, nil
 }
 
-func (u *tenantServiceServer) UpdateMember(ctx context.Context, rq *connect.Request[apiv2.TenantServiceUpdateMemberRequest]) (*connect.Response[apiv2.TenantServiceUpdateMemberResponse], error) {
+func (u *tenantServiceServer) UpdateMember(ctx context.Context, rq *apiv2.TenantServiceUpdateMemberRequest) (*apiv2.TenantServiceUpdateMemberResponse, error) {
 	var (
-		req = rq.Msg
+		req = rq
 	)
 
 	updatedMember, err := u.repo.Tenant().AdditionalMethods().Member(req.Login).Update(ctx, req.Member, &repository.TenantMemberUpdateRequest{
-		Role: rq.Msg.Role,
+		Role: rq.Role,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return connect.NewResponse(&apiv2.TenantServiceUpdateMemberResponse{TenantMember: &apiv2.TenantMember{
+	return &apiv2.TenantServiceUpdateMemberResponse{TenantMember: &apiv2.TenantMember{
 		Id:        req.Member,
 		Role:      req.Role,
 		CreatedAt: updatedMember.Meta.CreatedTime,
-	}}), nil
+	}}, nil
 }

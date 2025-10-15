@@ -90,15 +90,11 @@ func Test_filesystemServiceServer_Create(t *testing.T) {
 				log:  log,
 				repo: repo,
 			}
-<<<<<<< HEAD
-			got, err := f.Create(t.Context(), tt.rq)
-=======
 			if tt.wantErr == nil {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := f.Create(t.Context(), connect.NewRequest(tt.rq))
->>>>>>> 28fe4acd4dfbb76e47b191bf4d38dbb708177e43
+			got, err := f.Create(t.Context(), tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
@@ -199,15 +195,11 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 				log:  log,
 				repo: repo,
 			}
-<<<<<<< HEAD
-			got, err := f.Update(t.Context(), tt.rq)
-=======
 			if tt.wantErr == nil {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := f.Update(t.Context(), connect.NewRequest(tt.rq))
->>>>>>> 28fe4acd4dfbb76e47b191bf4d38dbb708177e43
+			got, err := f.Update(t.Context(), tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
@@ -328,15 +320,11 @@ func Test_filesystemServiceServer_Delete(t *testing.T) {
 				log:  log,
 				repo: repo,
 			}
-<<<<<<< HEAD
-			got, err := f.Delete(t.Context(), tt.rq)
-=======
 			if tt.wantErr == nil {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := f.Delete(t.Context(), connect.NewRequest(tt.rq))
->>>>>>> 28fe4acd4dfbb76e47b191bf4d38dbb708177e43
+			got, err := f.Delete(t.Context(), tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}

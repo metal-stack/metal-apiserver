@@ -42,8 +42,8 @@ func New(c Config) TenantService {
 }
 
 // Create implements TenantService.
-func (t *tenantServiceServer) Create(ctx context.Context, rq *connect.Request[adminv2.TenantServiceCreateRequest]) (*connect.Response[adminv2.TenantServiceCreateResponse], error) {
-	req := rq.Msg
+func (t *tenantServiceServer) Create(ctx context.Context, rq *adminv2.TenantServiceCreateRequest) (*adminv2.TenantServiceCreateResponse, error) {
+	req := rq
 
 	created, err := t.repo.Tenant().Create(ctx, &apiv2.TenantServiceCreateRequest{
 		Name:        req.Name,
@@ -60,10 +60,10 @@ func (t *tenantServiceServer) Create(ctx context.Context, rq *connect.Request[ad
 		return nil, err
 	}
 
-	return connect.NewResponse(&adminv2.TenantServiceCreateResponse{Tenant: converted}), nil
+	return &adminv2.TenantServiceCreateResponse{Tenant: converted}), nil
 }
 
 // List implements TenantService.
-func (t *tenantServiceServer) List(context.Context, *connect.Request[adminv2.TenantServiceListRequest]) (*connect.Response[adminv2.TenantServiceListResponse], error) {
+func (t *tenantServiceServer) List(context.Context, *adminv2.TenantServiceListRequest) (*adminv2.TenantServiceListResponse, error) {
 	panic("unimplemented")
 }

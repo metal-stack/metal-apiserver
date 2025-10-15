@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -185,13 +184,13 @@ func Test_projectServiceServer_Get(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := u.Get(reqCtx, connect.NewRequest(tt.rq))
+			got, err := u.Get(reqCtx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, pointer.SafeDeref(got),
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
@@ -200,7 +199,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 					&apiv2.ProjectMember{}, "created_at",
 				),
 			); diff != "" {
-				t.Errorf("%v, want %v diff: %s", got.Msg, tt.want, diff)
+				t.Errorf("%v, want %v diff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -349,19 +348,19 @@ func Test_projectServiceServer_List(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := u.List(reqCtx, connect.NewRequest(tt.rq))
+			got, err := u.List(reqCtx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, pointer.SafeDeref(got),
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("%v, want %v diff: %s", got.Msg, tt.want, diff)
+				t.Errorf("%v, want %v diff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -445,15 +444,15 @@ func Test_projectServiceServer_Create(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := u.Create(reqCtx, connect.NewRequest(tt.rq))
+			got, err := u.Create(reqCtx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
-			assert.NotEmpty(t, got.Msg.Project.Uuid)
+			assert.NotEmpty(t, got.Project.Uuid)
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, pointer.SafeDeref(got),
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
@@ -462,7 +461,7 @@ func Test_projectServiceServer_Create(t *testing.T) {
 					&apiv2.Project{}, "uuid",
 				),
 			); diff != "" {
-				t.Errorf("%v, want %v diff: %s", got.Msg, tt.want, diff)
+				t.Errorf("%v, want %v diff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -557,19 +556,19 @@ func Test_projectServiceServer_Update(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := u.Update(reqCtx, connect.NewRequest(tt.rq))
+			got, err := u.Update(reqCtx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, pointer.SafeDeref(got),
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("%v, want %v diff: %s", got.Msg, tt.want, diff)
+				t.Errorf("%v, want %v diff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -706,19 +705,19 @@ func Test_projectServiceServer_Delete(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := u.Delete(reqCtx, connect.NewRequest(tt.rq))
+			got, err := u.Delete(reqCtx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, pointer.SafeDeref(got),
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("%v, want %v diff: %s", got.Msg, tt.want, diff)
+				t.Errorf("%v, want %v diff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -890,19 +889,19 @@ func Test_projectServiceServer_MemberUpdate(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := u.UpdateMember(reqCtx, connect.NewRequest(tt.rq))
+			got, err := u.UpdateMember(reqCtx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, pointer.SafeDeref(got),
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.ProjectMember{}, "created_at",
 				),
 			); diff != "" {
-				t.Errorf("%v, want %v diff: %s", got.Msg, tt.want, diff)
+				t.Errorf("%v, want %v diff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -1008,7 +1007,7 @@ func Test_projectServiceServer_MemberRemove(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			_, err := u.RemoveMember(reqCtx, connect.NewRequest(tt.rq))
+			_, err := u.RemoveMember(reqCtx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
@@ -1097,17 +1096,17 @@ func Test_projectServiceServer_Invite(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := u.Invite(reqCtx, connect.NewRequest(tt.rq))
+			got, err := u.Invite(reqCtx, tt.rq)
 			require.NoError(t, err)
 
-			assert.Len(t, got.Msg.Invite.Secret, 32)
-			assert.WithinDuration(t, time.Now().Add(7*24*time.Hour), got.Msg.Invite.ExpiresAt.AsTime(), 1*time.Minute)
-			tt.want.Invite.Secret = got.Msg.Invite.GetSecret()
-			tt.want.Invite.ExpiresAt = got.Msg.Invite.GetExpiresAt()
+			assert.Len(t, got.Invite.Secret, 32)
+			assert.WithinDuration(t, time.Now().Add(7*24*time.Hour), got.Invite.ExpiresAt.AsTime(), 1*time.Minute)
+			tt.want.Invite.Secret = got.Invite.GetSecret()
+			tt.want.Invite.ExpiresAt = got.Invite.GetExpiresAt()
 
 			if diff := cmp.Diff(
 				tt.want,
-				pointer.SafeDeref(got).Msg,
+				pointer.SafeDeref(got),
 				protocmp.Transform(),
 			); diff != "" {
 				t.Errorf("diff: %s", diff)
@@ -1197,14 +1196,14 @@ func Test_projectServiceServer_InviteGet(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := u.InviteGet(reqCtx, connect.NewRequest(tt.rq))
+			got, err := u.InviteGet(reqCtx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
 				tt.want,
-				pointer.SafeDeref(got).Msg,
+				pointer.SafeDeref(got),
 				protocmp.Transform(),
 			); diff != "" {
 				t.Errorf("diff: %s", diff)
@@ -1300,14 +1299,14 @@ func Test_projectServiceServer_InvitesList(t *testing.T) {
 				test.Validate(t, tt.rq)
 			}
 
-			got, err := u.InvitesList(reqCtx, connect.NewRequest(tt.rq))
+			got, err := u.InvitesList(reqCtx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
 				tt.want,
-				pointer.SafeDeref(got).Msg,
+				pointer.SafeDeref(got),
 				protocmp.Transform(),
 			); diff != "" {
 				t.Errorf("diff: %s", diff)
@@ -1377,7 +1376,7 @@ func Test_projectServiceServer_InviteDelete(t *testing.T) {
 				test.Validate(t, tt.rq)
 			}
 
-			_, err := u.InviteDelete(reqCtx, connect.NewRequest(tt.rq))
+			_, err := u.InviteDelete(reqCtx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
@@ -1560,7 +1559,7 @@ func Test_projectServiceServer_InviteAccept(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			acceptResp, err := u.InviteAccept(reqCtx, connect.NewRequest(tt.rq))
+			acceptResp, err := u.InviteAccept(reqCtx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
@@ -1569,7 +1568,7 @@ func Test_projectServiceServer_InviteAccept(t *testing.T) {
 			}
 			if diff := cmp.Diff(
 				tt.want,
-				pointer.SafeDeref(acceptResp).Msg,
+				pointer.SafeDeref(acceptResp),
 				protocmp.Transform(),
 			); diff != "" {
 				t.Errorf("diff: %s", diff)
@@ -1581,21 +1580,21 @@ func Test_projectServiceServer_InviteAccept(t *testing.T) {
 			tok = testStore.GetToken("will.smith@github", &apiv2.TokenServiceCreateRequest{
 				Expires: durationpb.New(time.Hour),
 				ProjectRoles: map[string]apiv2.ProjectRole{
-					"will.smith@github":    apiv2.ProjectRole_PROJECT_ROLE_OWNER,
-					acceptResp.Msg.Project: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+					"will.smith@github": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
+					acceptResp.Project:  apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 			})
 
 			reqCtx = token.ContextWithToken(t.Context(), tok)
 
-			getResp, err := u.Get(reqCtx, connect.NewRequest(&apiv2.ProjectServiceGetRequest{
-				Project: acceptResp.Msg.Project,
-			}))
+			getResp, err := u.Get(reqCtx, &apiv2.ProjectServiceGetRequest{
+				Project: acceptResp.Project,
+			})
 			require.NoError(t, err)
 
 			if diff := cmp.Diff(
 				tt.wantMembers,
-				pointer.SafeDeref(getResp).Msg.ProjectMembers,
+				pointer.SafeDeref(getResp).ProjectMembers,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.ProjectMember{}, "created_at",

@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 
-	"connectrpc.com/connect"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
@@ -29,8 +28,8 @@ func New(c Config) adminv2connect.PartitionServiceHandler {
 }
 
 // Create implements adminv2connect.PartitionServiceHandler.
-func (p *partitionServiceServer) Create(ctx context.Context, rq *connect.Request[adminv2.PartitionServiceCreateRequest]) (*connect.Response[adminv2.PartitionServiceCreateResponse], error) {
-	image, err := p.repo.Partition().Create(ctx, rq.Msg)
+func (p *partitionServiceServer) Create(ctx context.Context, rq *adminv2.PartitionServiceCreateRequest) (*adminv2.PartitionServiceCreateResponse, error) {
+	image, err := p.repo.Partition().Create(ctx, rq)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -40,12 +39,12 @@ func (p *partitionServiceServer) Create(ctx context.Context, rq *connect.Request
 		return nil, errorutil.Convert(err)
 	}
 
-	return connect.NewResponse(&adminv2.PartitionServiceCreateResponse{Partition: converted}), nil
+	return &adminv2.PartitionServiceCreateResponse{Partition: converted}, nil
 }
 
 // Delete implements adminv2connect.PartitionServiceHandler.
-func (p *partitionServiceServer) Delete(ctx context.Context, rq *connect.Request[adminv2.PartitionServiceDeleteRequest]) (*connect.Response[adminv2.PartitionServiceDeleteResponse], error) {
-	partition, err := p.repo.Partition().Delete(ctx, rq.Msg.Id)
+func (p *partitionServiceServer) Delete(ctx context.Context, rq *adminv2.PartitionServiceDeleteRequest) (*adminv2.PartitionServiceDeleteResponse, error) {
+	partition, err := p.repo.Partition().Delete(ctx, rq.Id)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -53,12 +52,12 @@ func (p *partitionServiceServer) Delete(ctx context.Context, rq *connect.Request
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	return connect.NewResponse(&adminv2.PartitionServiceDeleteResponse{Partition: converted}), nil
+	return &adminv2.PartitionServiceDeleteResponse{Partition: converted}, nil
 }
 
 // Update implements adminv2connect.PartitionServiceHandler.
-func (p *partitionServiceServer) Update(ctx context.Context, rq *connect.Request[adminv2.PartitionServiceUpdateRequest]) (*connect.Response[adminv2.PartitionServiceUpdateResponse], error) {
-	partition, err := p.repo.Partition().Update(ctx, rq.Msg.Id, rq.Msg)
+func (p *partitionServiceServer) Update(ctx context.Context, rq *adminv2.PartitionServiceUpdateRequest) (*adminv2.PartitionServiceUpdateResponse, error) {
+	partition, err := p.repo.Partition().Update(ctx, rq.Id, rq)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -66,11 +65,11 @@ func (p *partitionServiceServer) Update(ctx context.Context, rq *connect.Request
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	return connect.NewResponse(&adminv2.PartitionServiceUpdateResponse{Partition: converted}), nil
+	return &adminv2.PartitionServiceUpdateResponse{Partition: converted}, nil
 }
 
 // Capacity implements adminv2connect.PartitionServiceHandler.
-func (p *partitionServiceServer) Capacity(ctx context.Context, rq *connect.Request[adminv2.PartitionServiceCapacityRequest]) (*connect.Response[adminv2.PartitionServiceCapacityResponse], error) {
+func (p *partitionServiceServer) Capacity(ctx context.Context, rq *adminv2.PartitionServiceCapacityRequest) (*adminv2.PartitionServiceCapacityResponse, error) {
 	// FIXME size reservations must be implemented to be able to calculate this
 	panic("unimplemented")
 }
