@@ -39,7 +39,3 @@ func (i *ipServiceServer) List(ctx context.Context, rq *connect.Request[adminv2.
 		Ips: ips,
 	}), nil
 }
-
-func (i *ipServiceServer) Issues(ctx context.Context, rq *connect.Request[adminv2.IPServiceIssuesRequest]) (*connect.Response[adminv2.IPServiceIssuesResponse], error) {
-	panic("unimplemented")
-}
