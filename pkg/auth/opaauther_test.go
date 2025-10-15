@@ -79,7 +79,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			method: "/metalstack.api.v2.MachineService/Get",
 			req:    v2.MachineServiceGetRequest{},
 			userJwtMutateFn: func(t *testing.T, _ string) string {
-				jwt, _, _ := token.NewJWT(v2.TokenType_TOKEN_TYPE_CONSOLE, "", defaultIssuer, 1*time.Hour, maliciousSigningKey)
+				jwt, _, _ := token.NewJWT(v2.TokenType_TOKEN_TYPE_USER, "", defaultIssuer, 1*time.Hour, maliciousSigningKey)
 				// require.NoError(t, err)
 				return jwt
 			},
@@ -393,7 +393,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			name:      "project list service has visibility self and console token",
 			subject:   "john.doe@github",
 			method:    "/metalstack.api.v2.ProjectService/List",
-			tokenType: v2.TokenType_TOKEN_TYPE_CONSOLE,
+			tokenType: v2.TokenType_TOKEN_TYPE_USER,
 			req:       v2.ProjectServiceListRequest{},
 			projectsAndTenants: &repository.ProjectsAndTenants{
 				TenantRoles: map[string]v2.TenantRole{
@@ -445,7 +445,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			subject:   "john.doe@github",
 			method:    "/metalstack.api.v2.ProjectService/Get",
 			req:       v2.ProjectServiceGetRequest{Project: "project-a"},
-			tokenType: v2.TokenType_TOKEN_TYPE_CONSOLE,
+			tokenType: v2.TokenType_TOKEN_TYPE_USER,
 			projectsAndTenants: &repository.ProjectsAndTenants{
 				ProjectRoles: map[string]v2.ProjectRole{
 					"project-a": v2.ProjectRole_PROJECT_ROLE_OWNER,

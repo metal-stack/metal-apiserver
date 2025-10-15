@@ -9,7 +9,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/modules/valkey"
 )
 
-func StartValkey(t *testing.T) (*redis.Client, func()) {
+func StartValkey(t testing.TB) (*redis.Client, func()) {
 	ctx := t.Context()
 	valkeyContainer, err := valkey.Run(ctx,
 		"valkey/valkey:8-alpine",
