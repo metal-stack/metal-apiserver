@@ -54,7 +54,7 @@ func (r *switchRepository) validateUpdate(ctx context.Context, req *adminv2.Swit
 	}
 
 	if req.Os != nil {
-		reqOSVendor, err := metal.ToSwitchOSVendor(req.Os.Vendor)
+		reqOSVendor, err := toSwitchOSVendor(req.Os.Vendor)
 		if err != nil {
 			errs = append(errs, err)
 		}

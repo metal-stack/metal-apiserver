@@ -644,7 +644,7 @@ func Test_isFirewallIP(t *testing.T) {
 	}
 }
 
-func TestToMetalNics(t *testing.T) {
+func Test_toMetalNics(t *testing.T) {
 	now := time.Now()
 
 	tests := []struct {
@@ -774,7 +774,7 @@ func TestToMetalNics(t *testing.T) {
 	}
 }
 
-func TestToMachineConnections(t *testing.T) {
+func Test_toMachineConnections(t *testing.T) {
 	tests := []struct {
 		name        string
 		connections []*apiv2.MachineConnection
@@ -894,6 +894,40 @@ func TestToMachineConnections(t *testing.T) {
 			}
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("ToMachineConnections() diff = %s", diff)
+			}
+		})
+	}
+}
+
+func Test_toReplaceMode(t *testing.T) {
+	tests := []struct {
+		name    string
+		mode    apiv2.SwitchReplaceMode
+		want    metal.SwitchReplaceMode
+		wantErr bool
+	}{
+		{
+			name:    "unspecified",
+			mode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_UNSPECIFIED,
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name:    "valid",
+			mode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+			want:    metal.SwitchReplaceModeOperational,
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := toReplaceMode(tt.mode)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ToReplaceMode() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("ToReplaceMode() = %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/metal-stack/api/go/enum"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
@@ -123,7 +124,7 @@ func (r *switchRepository) update(ctx context.Context, oldSwitch *metal.Switch, 
 		new.Description = *req.Description
 	}
 	if req.ReplaceMode != nil {
-		replaceMode, err := metal.ToReplaceMode(*req.ReplaceMode)
+		replaceMode, err := toReplaceMode(*req.ReplaceMode)
 		if err != nil {
 			return nil, err
 		}
@@ -146,7 +147,7 @@ func (r *switchRepository) update(ctx context.Context, oldSwitch *metal.Switch, 
 		new.Nics = updateNics(oldSwitch.Nics, nics)
 	}
 	if req.Os != nil {
-		vendor, err := metal.ToSwitchOSVendor(req.Os.Vendor)
+		vendor, err := toSwitchOSVendor(req.Os.Vendor)
 		if err != nil {
 			return nil, err
 		}
@@ -200,11 +201,11 @@ func (r *switchRepository) convertToInternal(ctx context.Context, sw *apiv2.Swit
 		return nil, err
 	}
 
-	replaceMode, err := metal.ToReplaceMode(sw.ReplaceMode)
+	replaceMode, err := toReplaceMode(sw.ReplaceMode)
 	if err != nil {
 		return nil, err
 	}
-	vendor, err := metal.ToSwitchOSVendor(sw.Os.Vendor)
+	vendor, err := toSwitchOSVendor(sw.Os.Vendor)
 	if err != nil {
 		return nil, err
 	}
@@ -251,11 +252,11 @@ func (r *switchRepository) convertToProto(ctx context.Context, sw *metal.Switch)
 		return nil, err
 	}
 
-	replaceMode, err := metal.FromReplaceMode(sw.ReplaceMode)
+	replaceMode, err := fromReplaceMode(sw.ReplaceMode)
 	if err != nil {
 		return nil, err
 	}
-	vendor, err := metal.FromSwitchOSVendor(sw.OS.Vendor)
+	vendor, err := fromSwitchOSVendor(sw.OS.Vendor)
 	if err != nil {
 		return nil, err
 	}
@@ -307,7 +308,7 @@ func (r *switchRepository) toSwitchNics(ctx context.Context, sw *metal.Switch) (
 	for _, nic := range sw.Nics {
 		var bgpPortState *apiv2.SwitchBGPPortState
 		if nic.BGPPortState != nil {
-			bgpState, err := metal.FromBGPState(nic.BGPPortState.BgpState)
+			bgpState, err := fromBGPState(nic.BGPPortState.BgpState)
 			if err != nil {
 				return nil, err
 			}
@@ -323,11 +324,11 @@ func (r *switchRepository) toSwitchNics(ctx context.Context, sw *metal.Switch) (
 			}
 		}
 
-		desiredState, err := metal.FromSwitchPortStatus(nic.State.Desired)
+		desiredState, err := fromSwitchPortStatus(nic.State.Desired)
 		if err != nil {
 			return nil, err
 		}
-		actualState, err := metal.FromSwitchPortStatus(&nic.State.Actual)
+		actualState, err := fromSwitchPortStatus(&nic.State.Actual)
 		if err != nil {
 			return nil, err
 		}
@@ -635,7 +636,7 @@ func toMetalNic(switchNic *apiv2.SwitchNic) (*metal.Nic, error) {
 	)
 
 	if switchNic.BgpPortState != nil {
-		bgpState, err := metal.ToBGPState(switchNic.BgpPortState.BgpState)
+		bgpState, err := toBGPState(switchNic.BgpPortState.BgpState)
 		if err != nil {
 			return nil, err
 		}
@@ -652,11 +653,11 @@ func toMetalNic(switchNic *apiv2.SwitchNic) (*metal.Nic, error) {
 	}
 
 	if switchNic.State != nil {
-		desiredState, err := metal.ToSwitchPortStatus(switchNic.State.Desired)
+		desiredState, err := toSwitchPortStatus(switchNic.State.Desired)
 		if err != nil {
 			return nil, err
 		}
-		actualState, err := metal.ToSwitchPortStatus(switchNic.State.Actual)
+		actualState, err := toSwitchPortStatus(switchNic.State.Actual)
 		if err != nil {
 			return nil, err
 		}
@@ -709,4 +710,72 @@ func toMachineConnections(connections []*apiv2.MachineConnection) (metal.Connect
 	}
 
 	return machineConnections, nil
+}
+
+func toReplaceMode(mode apiv2.SwitchReplaceMode) (metal.SwitchReplaceMode, error) {
+	strVal, err := enum.GetStringValue(mode)
+	if err != nil {
+		return metal.SwitchReplaceMode(""), err
+	}
+	return metal.SwitchReplaceMode(*strVal), nil
+}
+
+func fromReplaceMode(mode metal.SwitchReplaceMode) (apiv2.SwitchReplaceMode, error) {
+	apiv2ReplaceMode, err := enum.GetEnum[apiv2.SwitchReplaceMode](string(mode))
+	if err != nil {
+		return apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_UNSPECIFIED, fmt.Errorf("switch replace mode:%q is invalid", mode)
+	}
+	return apiv2ReplaceMode, nil
+}
+
+func toSwitchOSVendor(vendor apiv2.SwitchOSVendor) (metal.SwitchOSVendor, error) {
+	strVal, err := enum.GetStringValue(vendor)
+	if err != nil {
+		return metal.SwitchOSVendor(""), err
+	}
+	return metal.SwitchOSVendor(*strVal), nil
+}
+
+func fromSwitchOSVendor(vendor metal.SwitchOSVendor) (apiv2.SwitchOSVendor, error) {
+	apiv2Vendor, err := enum.GetEnum[apiv2.SwitchOSVendor](string(vendor))
+	if err != nil {
+		return apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_UNSPECIFIED, fmt.Errorf("switch os vendor: %q is invalid", vendor)
+	}
+	return apiv2Vendor, nil
+}
+
+func toSwitchPortStatus(status apiv2.SwitchPortStatus) (metal.SwitchPortStatus, error) {
+	strVal, err := enum.GetStringValue(status)
+	if err != nil {
+		return metal.SwitchPortStatus(""), err
+	}
+	return metal.SwitchPortStatus(strings.ToUpper(*strVal)), nil
+}
+
+func fromSwitchPortStatus(status *metal.SwitchPortStatus) (apiv2.SwitchPortStatus, error) {
+	if status == nil {
+		return apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNSPECIFIED, nil
+	}
+
+	apiv2Status, err := enum.GetEnum[apiv2.SwitchPortStatus](strings.ToLower(string(*status)))
+	if err != nil {
+		return apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNSPECIFIED, fmt.Errorf("switch port status: %q is invalid", *status)
+	}
+	return apiv2Status, nil
+}
+
+func toBGPState(state apiv2.BGPState) (metal.BGPState, error) {
+	strVal, err := enum.GetStringValue(state)
+	if err != nil {
+		return metal.BGPState(""), err
+	}
+	return metal.BGPState(*strVal), nil
+}
+
+func fromBGPState(state metal.BGPState) (apiv2.BGPState, error) {
+	apiv2State, err := enum.GetEnum[apiv2.BGPState](string(state))
+	if err != nil {
+		return apiv2.BGPState_BGP_STATE_UNSPECIFIED, fmt.Errorf("bgp state: %q is invalid", state)
+	}
+	return apiv2State, nil
 }
