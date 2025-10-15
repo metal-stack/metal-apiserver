@@ -81,7 +81,7 @@ func (t *tokenService) CreateConsoleTokenWithoutPermissionCheck(ctx context.Cont
 		return nil, errorutil.Internal("unable to fetch signing certificate: %w", err)
 	}
 
-	secret, token, err := tokenutil.NewJWT(apiv2.TokenType_TOKEN_TYPE_CONSOLE, subject, t.issuer, expires, privateKey)
+	secret, token, err := tokenutil.NewJWT(apiv2.TokenType_TOKEN_TYPE_USER, subject, t.issuer, expires, privateKey)
 	if err != nil {
 		return nil, errorutil.Internal("unable to create console token: %w", err)
 	}
