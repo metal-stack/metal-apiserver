@@ -12,6 +12,7 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/service"
+	"github.com/metal-stack/metal-apiserver/pkg/service/token"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -20,7 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func StartApiserver(t *testing.T, log *slog.Logger) (baseURL, adminToken string, closer func()) {
+func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string) (baseURL, adminToken string, tenantTokens map[string]string, closer func()) {
 	ctx := t.Context()
 
 	testStore, repocloser := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true), test.WithValkey(true))
@@ -46,12 +47,14 @@ func StartApiserver(t *testing.T, log *slog.Logger) (baseURL, adminToken string,
 			InviteClient:    testStore.GetRedisClient(),
 			AsyncClient:     testStore.GetRedisClient(),
 		},
-		MasterClient:     testStore.GetMasterdataClient(),
-		Datastore:        nil, // TODO: for healthcheck e2e tests this needs to be wired up
-		OIDCClientID:     "oidc-client-id",
-		OIDCClientSecret: "oidc-client-secret",
-		OIDCDiscoveryURL: discoveryURL,
-		Admins:           []string{providerTenant, subject},
+		MasterClient:                        testStore.GetMasterdataClient(),
+		Datastore:                           nil, // TODO: for healthcheck e2e tests this needs to be wired up
+		OIDCClientID:                        "oidc-client-id",
+		OIDCClientSecret:                    "oidc-client-secret",
+		OIDCDiscoveryURL:                    discoveryURL,
+		Admins:                              []string{providerTenant, subject},
+		MaxRequestsPerMinuteToken:           100,
+		MaxRequestsPerMinuteUnauthenticated: 100,
 	}
 
 	mux, err := service.New(log, c)
@@ -113,5 +116,32 @@ func StartApiserver(t *testing.T, log *slog.Logger) (baseURL, adminToken string,
 		server.Close()
 	}
 
-	return server.URL, resp.Msg.Secret, closer
+	tenantTokenSecrets := createTenantTokens(t, repo, testStore.GetTokenService(), additionalTenants...)
+
+	return server.URL, resp.Msg.Secret, tenantTokenSecrets, closer
+}
+
+func createTenantTokens(t testing.TB, repo *repository.Store, tokenService token.TokenService, tenants ...string) map[string]string {
+	ctx := t.Context()
+	tenantTokens := make(map[string]string)
+
+	for _, tenant := range tenants {
+		_, err := repo.Tenant().AdditionalMethods().CreateWithID(ctx, &apiv2.TenantServiceCreateRequest{
+			Name: tenant,
+		}, tenant, repository.NewTenantCreateOptWithCreator(tenant))
+		require.NoError(t, err)
+
+		_, err = repo.Tenant().AdditionalMethods().Member(tenant).Create(ctx, &repository.TenantMemberCreateRequest{
+			Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
+			MemberID: tenant,
+		})
+		require.NoError(t, err)
+
+		tcr, err := tokenService.CreateConsoleTokenWithoutPermissionCheck(ctx, tenant, nil)
+		require.NoError(t, err)
+
+		tenantTokens[tenant] = tcr.Msg.Secret
+	}
+
+	return tenantTokens
 }

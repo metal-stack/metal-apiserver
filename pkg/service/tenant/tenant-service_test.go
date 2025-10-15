@@ -285,6 +285,11 @@ func Test_tenantServiceServer_List(t *testing.T) {
 
 			reqCtx := token.ContextWithToken(t.Context(), tok)
 
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
+
 			got, err := u.List(reqCtx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
@@ -383,6 +388,11 @@ func Test_tenantServiceServer_Create(t *testing.T) {
 
 			reqCtx := token.ContextWithToken(t.Context(), tok)
 
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
+
 			got, err := u.Create(reqCtx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
@@ -475,7 +485,7 @@ func Test_tenantServiceServer_Update(t *testing.T) {
 				UpdateMeta:  &apiv2.UpdateMeta{},
 				Name:        pointer.Pointer("new name"),
 				Description: pointer.Pointer("new desc"),
-				Email:       pointer.Pointer("new mail"),
+				Email:       pointer.Pointer("new@mail.com"),
 				AvatarUrl:   pointer.Pointer("http://new"),
 				Labels: &apiv2.UpdateLabels{
 					Update: &apiv2.Labels{
@@ -497,7 +507,7 @@ func Test_tenantServiceServer_Update(t *testing.T) {
 						},
 					},
 					Name:        "new name",
-					Email:       "new mail",
+					Email:       "new@mail.com",
 					Description: "new desc",
 					AvatarUrl:   "http://new",
 					CreatedBy:   "john.doe@github",
@@ -523,6 +533,11 @@ func Test_tenantServiceServer_Update(t *testing.T) {
 			})
 
 			reqCtx := token.ContextWithToken(t.Context(), tok)
+
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
 
 			got, err := u.Update(reqCtx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
@@ -638,6 +653,11 @@ func Test_tenantServiceServer_Delete(t *testing.T) {
 			})
 
 			reqCtx := token.ContextWithToken(t.Context(), tok)
+
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
 
 			got, err := u.Delete(reqCtx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
@@ -764,6 +784,11 @@ func Test_tenantServiceServer_MemberUpdate(t *testing.T) {
 
 			reqCtx := token.ContextWithToken(t.Context(), tok)
 
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
+
 			got, err := u.UpdateMember(reqCtx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
@@ -881,6 +906,11 @@ func Test_tenantServiceServer_MemberRemove(t *testing.T) {
 
 			reqCtx := token.ContextWithToken(t.Context(), tok)
 
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
+
 			_, err := u.RemoveMember(reqCtx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
@@ -963,6 +993,11 @@ func Test_tenantServiceServer_Invite(t *testing.T) {
 			})
 
 			reqCtx := token.ContextWithToken(t.Context(), tok)
+
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
 
 			got, err := u.Invite(reqCtx, connect.NewRequest(tt.rq))
 			require.NoError(t, err)
@@ -1059,6 +1094,11 @@ func Test_tenantServiceServer_InviteGet(t *testing.T) {
 			})
 
 			reqCtx := token.ContextWithToken(t.Context(), tok)
+
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
 
 			got, err := u.InviteGet(reqCtx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
@@ -1159,6 +1199,11 @@ func Test_tenantServiceServer_InvitesList(t *testing.T) {
 
 			reqCtx := token.ContextWithToken(t.Context(), tok)
 
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
+
 			got, err := u.InvitesList(reqCtx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
@@ -1231,6 +1276,11 @@ func Test_tenantServiceServer_InviteDelete(t *testing.T) {
 			})
 
 			reqCtx := token.ContextWithToken(t.Context(), tok)
+
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
 
 			_, err := u.InviteDelete(reqCtx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
@@ -1397,6 +1447,11 @@ func Test_tenantServiceServer_InviteAccept(t *testing.T) {
 			})
 
 			reqCtx := token.ContextWithToken(t.Context(), tok)
+
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
 
 			acceptResp, err := u.InviteAccept(reqCtx, connect.NewRequest(tt.rq))
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
