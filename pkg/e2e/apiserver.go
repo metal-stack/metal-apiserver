@@ -21,7 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func StartApiserver(t *testing.T, log *slog.Logger, additionalTenants ...string) (baseURL, adminToken string, tenantTokens map[string]string, closer func()) {
+func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string) (baseURL, adminToken string, tenantTokens map[string]string, closer func()) {
 	ctx := t.Context()
 
 	testStore, repocloser := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true), test.WithValkey(true))
@@ -121,7 +121,7 @@ func StartApiserver(t *testing.T, log *slog.Logger, additionalTenants ...string)
 	return server.URL, resp.Msg.Secret, tenantTokenSecrets, closer
 }
 
-func createTenantTokens(t *testing.T, repo *repository.Store, tokenService token.TokenService, tenants ...string) map[string]string {
+func createTenantTokens(t testing.TB, repo *repository.Store, tokenService token.TokenService, tenants ...string) map[string]string {
 	ctx := t.Context()
 	tenantTokens := make(map[string]string)
 

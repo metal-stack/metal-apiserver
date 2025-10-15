@@ -18,7 +18,7 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 )
 
-func StartMasterdataWithCockroach(t *testing.T, log *slog.Logger) (mdc.Client, *grpc.ClientConn, func()) {
+func StartMasterdataWithCockroach(t testing.TB, log *slog.Logger) (mdc.Client, *grpc.ClientConn, func()) {
 	cr, err := testserver.NewTestServer()
 	require.NoError(t, err)
 
@@ -85,7 +85,7 @@ func StartMasterdataWithCockroach(t *testing.T, log *slog.Logger) (mdc.Client, *
 	return mc, conn, closer
 }
 
-func StartMasterdataInMemory(t *testing.T, log *slog.Logger) (mdc.Client, *grpc.ClientConn, func()) {
+func StartMasterdataInMemory(t testing.TB, log *slog.Logger) (mdc.Client, *grpc.ClientConn, func()) {
 	log = log.WithGroup("masterdata")
 
 	ps := datastore.NewMemory(log, &apiv1.Project{})
