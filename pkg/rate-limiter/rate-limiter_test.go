@@ -29,7 +29,7 @@ func Test_ratelimiter_CheckLimitTokenAccess(t *testing.T) {
 	}).LatestPrivate(ctx)
 	require.NoError(t, err)
 
-	_, tok, err := token.NewJWT(v1.TokenType_TOKEN_TYPE_CONSOLE, "userid", "issuer", 30*time.Minute, privateKey)
+	_, tok, err := token.NewJWT(v1.TokenType_TOKEN_TYPE_USER, "userid", "issuer", 30*time.Minute, privateKey)
 	require.NoError(t, err)
 
 	for i := 0; i <= 20; i++ {

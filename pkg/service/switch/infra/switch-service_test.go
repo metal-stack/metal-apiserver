@@ -29,8 +29,8 @@ var (
 			Partition:      "partition-a",
 			ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 			ManagementIp:   "1.1.1.1",
-			ManagementUser: "admin",
-			ConsoleCommand: "tty",
+			ManagementUser: pointer.Pointer("admin"),
+			ConsoleCommand: pointer.Pointer("tty"),
 			Os: &apiv2.SwitchOS{
 				Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
 				Version:          "ec202111",
@@ -120,8 +120,8 @@ func Test_switchServiceServer_Register(t *testing.T) {
 					Partition:      "partition-a",
 					ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 					ManagementIp:   "1.1.1.1",
-					ManagementUser: "admin",
-					ConsoleCommand: "tty",
+					ManagementUser: pointer.Pointer("admin"),
+					ConsoleCommand: pointer.Pointer("tty"),
 					Os: &apiv2.SwitchOS{
 						Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
 						Version:          "ec202111",
