@@ -32,7 +32,7 @@ test:
 
 .PHONY: bench
 bench:
-	CGO_ENABLED=1 go test -bench ./... -run=- -benchmem -timeout 20m
+	CGO_ENABLED=1 go test -bench=. -run=^$$ ./... -benchmem -timeout 20m
 
 .PHONY: test-opa
 test-opa:
