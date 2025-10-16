@@ -284,7 +284,7 @@ func (r *switchRepository) convertToInternal(ctx context.Context, sw *apiv2.Swit
 			Name:        sw.Id,
 			Description: sw.Description,
 		},
-		RackID:             pointer.SafeDeref(sw.Rack),
+		Rack:               pointer.SafeDeref(sw.Rack),
 		Partition:          sw.Partition,
 		ReplaceMode:        replaceMode,
 		ManagementIP:       sw.ManagementIp,
@@ -327,7 +327,7 @@ func (r *switchRepository) convertToProto(ctx context.Context, sw *metal.Switch)
 	return &apiv2.Switch{
 		Id:                 sw.ID,
 		Description:        sw.Description,
-		Rack:               pointer.PointerOrNil(sw.RackID),
+		Rack:               pointer.PointerOrNil(sw.Rack),
 		Partition:          sw.Partition,
 		ReplaceMode:        replaceMode,
 		ManagementIp:       sw.ManagementIP,
@@ -408,7 +408,7 @@ func (r *switchRepository) toSwitchNics(ctx context.Context, sw *metal.Switch) (
 					Project: pointer.Pointer(m.Allocation.Project),
 				},
 				Partition: pointer.Pointer(sw.Partition),
-				Rack:      pointer.Pointer(sw.RackID),
+				Rack:      pointer.Pointer(sw.Rack),
 			}))
 			if err != nil {
 				return nil, err

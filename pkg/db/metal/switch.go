@@ -12,7 +12,7 @@ import (
 type (
 	Switch struct {
 		Base
-		RackID             string            `rethinkdb:"rackid"`
+		Rack               string            `rethinkdb:"rackid"`
 		Partition          string            `rethinkdb:"partitionid"`
 		ReplaceMode        SwitchReplaceMode `rethinkdb:"mode"`
 		ManagementIP       string            `rethinkdb:"management_ip"`
@@ -26,14 +26,14 @@ type (
 
 	SwitchStatus struct {
 		Base
-		LastSync      *SwitchSync `rethinkdb:"last_sync" json:"last_sync" description:"last successful synchronization to the switch" optional:"true"`
-		LastSyncError *SwitchSync `rethinkdb:"last_sync_error" json:"last_sync_error" description:"last synchronization to the switch that was erroneous" optional:"true"`
+		LastSync      *SwitchSync `rethinkdb:"last_sync"`
+		LastSyncError *SwitchSync `rethinkdb:"last_sync_error"`
 	}
 
 	SwitchSync struct {
-		Time     time.Time     `rethinkdb:"time" json:"time"`
-		Duration time.Duration `rethinkdb:"duration" json:"duration"`
-		Error    *string       `rethinkdb:"error" json:"error"`
+		Time     time.Time     `rethinkdb:"time"`
+		Duration time.Duration `rethinkdb:"duration"`
+		Error    *string       `rethinkdb:"error"`
 	}
 
 	Connection struct {
