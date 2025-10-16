@@ -9,7 +9,6 @@ import (
 	"sort"
 	"time"
 
-	"connectrpc.com/connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
@@ -42,10 +41,9 @@ func New(c Config) apiv2connect.ProjectServiceHandler {
 	}
 }
 
-func (p *projectServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2.ProjectServiceGetRequest]) (*connect.Response[apiv2.ProjectServiceGetResponse], error) {
+func (p *projectServiceServer) Get(ctx context.Context, req *apiv2.ProjectServiceGetRequest) (*apiv2.ProjectServiceGetResponse, error) {
 	var (
 		t, ok                   = token.TokenFromContext(ctx)
-		req                     = rq.Msg
 		includeInheritedMembers bool
 	)
 	if !ok || t == nil {
@@ -131,17 +129,16 @@ func (p *projectServiceServer) Get(ctx context.Context, rq *connect.Request[apiv
 		return memberResult[i].Id < memberResult[j].Id
 	})
 
-	return connect.NewResponse(&apiv2.ProjectServiceGetResponse{Project: project, ProjectMembers: memberResult}), nil
+	return &apiv2.ProjectServiceGetResponse{Project: project, ProjectMembers: memberResult}, nil
 }
 
-func (p *projectServiceServer) List(ctx context.Context, rq *connect.Request[apiv2.ProjectServiceListRequest]) (*connect.Response[apiv2.ProjectServiceListResponse], error) {
+func (p *projectServiceServer) List(ctx context.Context, req *apiv2.ProjectServiceListRequest) (*apiv2.ProjectServiceListResponse, error) {
 	token, ok := token.TokenFromContext(ctx)
 	if !ok || token == nil {
 		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
 	var (
-		req    = rq.Msg
 		result []*apiv2.Project
 	)
 
@@ -170,13 +167,12 @@ func (p *projectServiceServer) List(ctx context.Context, rq *connect.Request[api
 		return result[i].Uuid < result[j].Uuid
 	})
 
-	return connect.NewResponse(&apiv2.ProjectServiceListResponse{Projects: result}), nil
+	return &apiv2.ProjectServiceListResponse{Projects: result}, nil
 }
 
-func (p *projectServiceServer) Create(ctx context.Context, rq *connect.Request[apiv2.ProjectServiceCreateRequest]) (*connect.Response[apiv2.ProjectServiceCreateResponse], error) {
+func (p *projectServiceServer) Create(ctx context.Context, req *apiv2.ProjectServiceCreateRequest) (*apiv2.ProjectServiceCreateResponse, error) {
 	var (
 		t, ok = token.TokenFromContext(ctx)
-		req   = rq.Msg
 	)
 
 	if !ok || t == nil {
@@ -196,13 +192,12 @@ func (p *projectServiceServer) Create(ctx context.Context, rq *connect.Request[a
 		return nil, err
 	}
 
-	return connect.NewResponse(&apiv2.ProjectServiceCreateResponse{Project: project}), nil
+	return &apiv2.ProjectServiceCreateResponse{Project: project}, nil
 }
 
-func (p *projectServiceServer) Delete(ctx context.Context, rq *connect.Request[apiv2.ProjectServiceDeleteRequest]) (*connect.Response[apiv2.ProjectServiceDeleteResponse], error) {
+func (p *projectServiceServer) Delete(ctx context.Context, req *apiv2.ProjectServiceDeleteRequest) (*apiv2.ProjectServiceDeleteResponse, error) {
 	var (
 		t, ok = token.TokenFromContext(ctx)
-		req   = rq.Msg
 	)
 
 	if !ok || t == nil {
@@ -214,25 +209,20 @@ func (p *projectServiceServer) Delete(ctx context.Context, rq *connect.Request[a
 		return nil, err
 	}
 
-	return connect.NewResponse(&apiv2.ProjectServiceDeleteResponse{Project: project}), nil
+	return &apiv2.ProjectServiceDeleteResponse{Project: project}, nil
 }
 
-func (p *projectServiceServer) Update(ctx context.Context, rq *connect.Request[apiv2.ProjectServiceUpdateRequest]) (*connect.Response[apiv2.ProjectServiceUpdateResponse], error) {
-	var (
-		req = rq.Msg
-	)
-
+func (p *projectServiceServer) Update(ctx context.Context, req *apiv2.ProjectServiceUpdateRequest) (*apiv2.ProjectServiceUpdateResponse, error) {
 	project, err := p.repo.Project(req.Project).Update(ctx, req.Project, req)
 	if err != nil {
 		return nil, err
 	}
 
-	return connect.NewResponse(&apiv2.ProjectServiceUpdateResponse{Project: project}), nil
+	return &apiv2.ProjectServiceUpdateResponse{Project: project}, nil
 }
 
-func (p *projectServiceServer) RemoveMember(ctx context.Context, rq *connect.Request[apiv2.ProjectServiceRemoveMemberRequest]) (*connect.Response[apiv2.ProjectServiceRemoveMemberResponse], error) {
+func (p *projectServiceServer) RemoveMember(ctx context.Context, req *apiv2.ProjectServiceRemoveMemberRequest) (*apiv2.ProjectServiceRemoveMemberResponse, error) {
 	var (
-		req   = rq.Msg
 		t, ok = token.TokenFromContext(ctx)
 	)
 
@@ -245,14 +235,10 @@ func (p *projectServiceServer) RemoveMember(ctx context.Context, rq *connect.Req
 		return nil, err
 	}
 
-	return connect.NewResponse(&apiv2.ProjectServiceRemoveMemberResponse{}), nil
+	return &apiv2.ProjectServiceRemoveMemberResponse{}, nil
 }
 
-func (p *projectServiceServer) UpdateMember(ctx context.Context, rq *connect.Request[apiv2.ProjectServiceUpdateMemberRequest]) (*connect.Response[apiv2.ProjectServiceUpdateMemberResponse], error) {
-	var (
-		req = rq.Msg
-	)
-
+func (p *projectServiceServer) UpdateMember(ctx context.Context, req *apiv2.ProjectServiceUpdateMemberRequest) (*apiv2.ProjectServiceUpdateMemberResponse, error) {
 	pm, err := p.repo.Project(req.Project).AdditionalMethods().Member().Update(ctx, req.Member, &repository.ProjectMemberUpdateRequest{
 		Role: req.Role,
 	})
@@ -282,21 +268,21 @@ func (p *projectServiceServer) UpdateMember(ctx context.Context, rq *connect.Req
 			return nil, err
 		}
 
-		return connect.NewResponse(&apiv2.ProjectServiceUpdateMemberResponse{
+		return &apiv2.ProjectServiceUpdateMemberResponse{
 			ProjectMember: &apiv2.ProjectMember{
 				Id:                  req.Member,
 				Role:                req.Role,
 				InheritedMembership: false,
 				CreatedAt:           membership.CreatedAt,
 			},
-		}), nil
+		}, nil
 	}
 
 	if err != nil {
 		return nil, err
 	}
 
-	return connect.NewResponse(&apiv2.ProjectServiceUpdateMemberResponse{ProjectMember: pm}), nil
+	return &apiv2.ProjectServiceUpdateMemberResponse{ProjectMember: pm}, nil
 }
 
 func (p *projectServiceServer) createProjectMembership(ctx context.Context, tenantID, projectID string, role apiv2.ProjectRole) (*apiv2.ProjectMember, error) {
@@ -315,11 +301,7 @@ func (p *projectServiceServer) createProjectMembership(ctx context.Context, tena
 	return created, nil
 }
 
-func (p *projectServiceServer) InviteGet(ctx context.Context, rq *connect.Request[apiv2.ProjectServiceInviteGetRequest]) (*connect.Response[apiv2.ProjectServiceInviteGetResponse], error) {
-	var (
-		req = rq.Msg
-	)
-
+func (p *projectServiceServer) InviteGet(ctx context.Context, req *apiv2.ProjectServiceInviteGetRequest) (*apiv2.ProjectServiceInviteGetResponse, error) {
 	inv, err := p.inviteStore.GetInvite(ctx, req.Secret)
 	if err != nil {
 		if errors.Is(err, invite.ErrInviteNotFound) {
@@ -328,14 +310,10 @@ func (p *projectServiceServer) InviteGet(ctx context.Context, rq *connect.Reques
 		return nil, errorutil.NewInternal(err)
 	}
 
-	return connect.NewResponse(&apiv2.ProjectServiceInviteGetResponse{Invite: inv}), nil
+	return &apiv2.ProjectServiceInviteGetResponse{Invite: inv}, nil
 }
 
-func (p *projectServiceServer) Invite(ctx context.Context, rq *connect.Request[apiv2.ProjectServiceInviteRequest]) (*connect.Response[apiv2.ProjectServiceInviteResponse], error) {
-	var (
-		req = rq.Msg
-	)
-
+func (p *projectServiceServer) Invite(ctx context.Context, req *apiv2.ProjectServiceInviteRequest) (*apiv2.ProjectServiceInviteResponse, error) {
 	project, err := p.repo.Project(req.Project).Get(ctx, req.Project)
 	if err != nil {
 		return nil, err
@@ -378,13 +356,12 @@ func (p *projectServiceServer) Invite(ctx context.Context, rq *connect.Request[a
 		return nil, errorutil.NewInternal(err)
 	}
 
-	return connect.NewResponse(&apiv2.ProjectServiceInviteResponse{Invite: invite}), nil
+	return &apiv2.ProjectServiceInviteResponse{Invite: invite}, nil
 }
 
-func (p *projectServiceServer) InviteAccept(ctx context.Context, rq *connect.Request[apiv2.ProjectServiceInviteAcceptRequest]) (*connect.Response[apiv2.ProjectServiceInviteAcceptResponse], error) {
+func (p *projectServiceServer) InviteAccept(ctx context.Context, req *apiv2.ProjectServiceInviteAcceptRequest) (*apiv2.ProjectServiceInviteAcceptResponse, error) {
 	var (
 		t, ok = token.TokenFromContext(ctx)
-		req   = rq.Msg
 	)
 
 	if !ok || t == nil {
@@ -437,30 +414,23 @@ func (p *projectServiceServer) InviteAccept(ctx context.Context, rq *connect.Req
 		return nil, err
 	}
 
-	return connect.NewResponse(&apiv2.ProjectServiceInviteAcceptResponse{Project: inv.Project, ProjectName: inv.ProjectName}), nil
+	return &apiv2.ProjectServiceInviteAcceptResponse{Project: inv.Project, ProjectName: inv.ProjectName}, nil
 }
 
-func (p *projectServiceServer) InviteDelete(ctx context.Context, rq *connect.Request[apiv2.ProjectServiceInviteDeleteRequest]) (*connect.Response[apiv2.ProjectServiceInviteDeleteResponse], error) {
-	var (
-		req = rq.Msg
-	)
-
+func (p *projectServiceServer) InviteDelete(ctx context.Context, req *apiv2.ProjectServiceInviteDeleteRequest) (*apiv2.ProjectServiceInviteDeleteResponse, error) {
 	err := p.inviteStore.DeleteInvite(ctx, &apiv2.ProjectInvite{Secret: req.Secret, Project: req.Project})
 	if err != nil {
 		return nil, errorutil.NewInternal(err)
 	}
 
-	return connect.NewResponse(&apiv2.ProjectServiceInviteDeleteResponse{}), nil
+	return &apiv2.ProjectServiceInviteDeleteResponse{}, nil
 }
 
-func (p *projectServiceServer) InvitesList(ctx context.Context, rq *connect.Request[apiv2.ProjectServiceInvitesListRequest]) (*connect.Response[apiv2.ProjectServiceInvitesListResponse], error) {
-	var (
-		req = rq.Msg
-	)
+func (p *projectServiceServer) InvitesList(ctx context.Context, req *apiv2.ProjectServiceInvitesListRequest) (*apiv2.ProjectServiceInvitesListResponse, error) {
 	invites, err := p.inviteStore.ListInvites(ctx, req.Project)
 	if err != nil {
 		return nil, errorutil.NewInternal(err)
 	}
 
-	return connect.NewResponse(&apiv2.ProjectServiceInvitesListResponse{Invites: invites}), nil
+	return &apiv2.ProjectServiceInvitesListResponse{Invites: invites}, nil
 }

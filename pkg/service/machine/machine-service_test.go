@@ -8,7 +8,6 @@ import (
 	"os"
 	"testing"
 
-	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -136,13 +135,13 @@ func Test_machineServiceServer_Get(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := m.Get(ctx, connect.NewRequest(tt.rq))
+			got, err := m.Get(ctx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Image{}, "expires_at",
@@ -154,7 +153,7 @@ func Test_machineServiceServer_Get(t *testing.T) {
 					&apiv2.MachineProvisioningEvent{}, "time",
 				),
 			); diff != "" {
-				t.Errorf("machineServiceServer.Get() = %v, want %v diff: %s", got.Msg, tt.want, diff)
+				t.Errorf("machineServiceServer.Get() = %v, want %v diff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -296,13 +295,13 @@ func Test_machineServiceServer_List(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := m.List(ctx, connect.NewRequest(tt.rq))
+			got, err := m.List(ctx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Image{}, "expires_at",
@@ -314,7 +313,7 @@ func Test_machineServiceServer_List(t *testing.T) {
 					&apiv2.MachineProvisioningEvent{}, "time",
 				),
 			); diff != "" {
-				t.Errorf("machineServiceServer.List() = %v, want %v diff: %s", got.Msg, tt.want, diff)
+				t.Errorf("machineServiceServer.List() = %v, want %v diff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -496,13 +495,13 @@ func Test_machineServiceServer_Update(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := m.Update(ctx, connect.NewRequest(tt.rq))
+			got, err := m.Update(ctx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Image{}, "expires_at",
@@ -514,7 +513,7 @@ func Test_machineServiceServer_Update(t *testing.T) {
 					&apiv2.MachineProvisioningEvent{}, "time",
 				),
 			); diff != "" {
-				t.Errorf("machineServiceServer.Update() = %v, want %v diff: %s", got.Msg, tt.want, diff)
+				t.Errorf("machineServiceServer.Update() = %v, want %v diff: %s", got, tt.want, diff)
 			}
 		})
 	}

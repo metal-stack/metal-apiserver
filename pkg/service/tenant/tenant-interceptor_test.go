@@ -47,7 +47,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 		{
 			name: "anonymous request against public endpoint",
 			reqFn: func(ctx context.Context, c client.Client) error {
-				_, err := c.Apiv2().Health().Get(ctx, connect.NewRequest(&apiv2.HealthServiceGetRequest{}))
+				_, err := c.Apiv2().Health().Get(ctx, &apiv2.HealthServiceGetRequest{})
 				return err
 			},
 			method:  "/metalstack.api.v2.HealthService/Get",
@@ -64,7 +64,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 		{
 			name: "request against public endpoint",
 			reqFn: func(ctx context.Context, c client.Client) error {
-				_, err := c.Apiv2().Health().Get(ctx, connect.NewRequest(&apiv2.HealthServiceGetRequest{}))
+				_, err := c.Apiv2().Health().Get(ctx, &apiv2.HealthServiceGetRequest{})
 				return err
 			},
 			token: &apiv2.Token{
@@ -93,7 +93,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 		{
 			name: "request without token against non-public endpoint",
 			reqFn: func(ctx context.Context, c client.Client) error {
-				_, err := c.Apiv2().IP().Create(ctx, connect.NewRequest(&apiv2.IPServiceCreateRequest{}))
+				_, err := c.Apiv2().IP().Create(ctx, &apiv2.IPServiceCreateRequest{})
 				return err
 			},
 			method:  "/metalstack.api.v2.IPService/Create",
@@ -103,7 +103,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 		{
 			name: "request against self scope method",
 			reqFn: func(ctx context.Context, c client.Client) error {
-				_, err := c.Apiv2().Project().List(ctx, connect.NewRequest(&apiv2.ProjectServiceListRequest{}))
+				_, err := c.Apiv2().Project().List(ctx, &apiv2.ProjectServiceListRequest{})
 				return err
 			},
 			token: &apiv2.Token{
@@ -130,9 +130,9 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 		{
 			name: "project request",
 			reqFn: func(ctx context.Context, c client.Client) error {
-				_, err := c.Apiv2().IP().Get(ctx, connect.NewRequest(&apiv2.IPServiceGetRequest{
+				_, err := c.Apiv2().IP().Get(ctx, &apiv2.IPServiceGetRequest{
 					Project: "a-project",
-				}))
+				})
 				return err
 			},
 			token: &apiv2.Token{
@@ -165,9 +165,9 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 		{
 			name: "tenant request",
 			reqFn: func(ctx context.Context, c client.Client) error {
-				_, err := c.Apiv2().Tenant().Get(ctx, connect.NewRequest(&apiv2.TenantServiceGetRequest{
+				_, err := c.Apiv2().Tenant().Get(ctx, &apiv2.TenantServiceGetRequest{
 					Login: "a-tenant",
-				}))
+				})
 				return err
 			},
 			token: &apiv2.Token{
@@ -193,7 +193,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 		{
 			name: "admin list tenant request",
 			reqFn: func(ctx context.Context, c client.Client) error {
-				_, err := c.Adminv2().Tenant().List(ctx, connect.NewRequest(&adminv2.TenantServiceListRequest{}))
+				_, err := c.Adminv2().Tenant().List(ctx, &adminv2.TenantServiceListRequest{})
 				return err
 			},
 			token: &apiv2.Token{

@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 
-	"connectrpc.com/connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
@@ -29,9 +28,8 @@ func New(c Config) apiv2connect.IPServiceHandler {
 	}
 }
 
-func (i *ipServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2.IPServiceGetRequest]) (*connect.Response[apiv2.IPServiceGetResponse], error) {
+func (i *ipServiceServer) Get(ctx context.Context, req *apiv2.IPServiceGetRequest) (*apiv2.IPServiceGetResponse, error) {
 	var (
-		req          = rq.Msg
 		namespacedIP = metal.CreateNamespacedIPAddress(req.Namespace, req.Ip)
 	)
 
@@ -40,56 +38,48 @@ func (i *ipServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2.IPS
 		return nil, errorutil.Convert(err)
 	}
 
-	return connect.NewResponse(&apiv2.IPServiceGetResponse{
+	return &apiv2.IPServiceGetResponse{
 		Ip: ip,
-	}), nil
+	}, nil
 }
 
 // List implements v1.IPServiceServer
-func (i *ipServiceServer) List(ctx context.Context, rq *connect.Request[apiv2.IPServiceListRequest]) (*connect.Response[apiv2.IPServiceListResponse], error) {
-	req := rq.Msg
-
+func (i *ipServiceServer) List(ctx context.Context, req *apiv2.IPServiceListRequest) (*apiv2.IPServiceListResponse, error) {
 	ips, err := i.repo.IP(req.Project).List(ctx, req.Query)
 	if err != nil {
 		return nil, err
 	}
 
-	return connect.NewResponse(&apiv2.IPServiceListResponse{
+	return &apiv2.IPServiceListResponse{
 		Ips: ips,
-	}), nil
+	}, nil
 }
 
 // Delete implements v1.IPServiceServer
-func (i *ipServiceServer) Delete(ctx context.Context, rq *connect.Request[apiv2.IPServiceDeleteRequest]) (*connect.Response[apiv2.IPServiceDeleteResponse], error) {
-	req := rq.Msg
-
+func (i *ipServiceServer) Delete(ctx context.Context, req *apiv2.IPServiceDeleteRequest) (*apiv2.IPServiceDeleteResponse, error) {
 	ip, err := i.repo.IP(req.Project).Delete(ctx, req.Ip)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	return connect.NewResponse(&apiv2.IPServiceDeleteResponse{Ip: ip}), nil
+	return &apiv2.IPServiceDeleteResponse{Ip: ip}, nil
 }
 
-func (i *ipServiceServer) Create(ctx context.Context, rq *connect.Request[apiv2.IPServiceCreateRequest]) (*connect.Response[apiv2.IPServiceCreateResponse], error) {
-	req := rq.Msg
-
+func (i *ipServiceServer) Create(ctx context.Context, req *apiv2.IPServiceCreateRequest) (*apiv2.IPServiceCreateResponse, error) {
 	ip, err := i.repo.IP(req.Project).Create(ctx, req)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	return connect.NewResponse(&apiv2.IPServiceCreateResponse{Ip: ip}), nil
+	return &apiv2.IPServiceCreateResponse{Ip: ip}, nil
 }
 
 // Static implements v1.IPServiceServer
-func (i *ipServiceServer) Update(ctx context.Context, rq *connect.Request[apiv2.IPServiceUpdateRequest]) (*connect.Response[apiv2.IPServiceUpdateResponse], error) {
-	req := rq.Msg
-
-	ip, err := i.repo.IP(req.Project).Update(ctx, req.Ip, rq.Msg)
+func (i *ipServiceServer) Update(ctx context.Context, req *apiv2.IPServiceUpdateRequest) (*apiv2.IPServiceUpdateResponse, error) {
+	ip, err := i.repo.IP(req.Project).Update(ctx, req.Ip, req)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	return connect.NewResponse(&apiv2.IPServiceUpdateResponse{Ip: ip}), nil
+	return &apiv2.IPServiceUpdateResponse{Ip: ip}, nil
 }

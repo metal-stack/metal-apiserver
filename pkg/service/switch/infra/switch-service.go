@@ -35,22 +35,22 @@ func New(c Config) infrav2connect.SwitchServiceHandler {
 	}
 }
 
-func (s *switchServiceServer) Get(ctx context.Context, rq *connect.Request[infrav2.SwitchServiceGetRequest]) (*connect.Response[infrav2.SwitchServiceGetResponse], error) {
+func (s *switchServiceServer) Get(context.Context, *infrav2.SwitchServiceGetRequest) (*infrav2.SwitchServiceGetResponse, error) {
 	sw, err := s.repo.Switch().Get(ctx, rq.Msg.Id)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	return connect.NewResponse(&infrav2.SwitchServiceGetResponse{Switch: sw}), nil
+	return &infrav2.SwitchServiceGetResponse{Switch: sw}, nil
 }
 
-func (s *switchServiceServer) Register(ctx context.Context, rq *connect.Request[infrav2.SwitchServiceRegisterRequest]) (*connect.Response[infrav2.SwitchServiceRegisterResponse], error) {
-	sw, err := s.repo.Switch().AdditionalMethods().Register(ctx, rq.Msg)
+func (s *switchServiceServer) Register(ctx context.Context, rq *infrav2.SwitchServiceRegisterRequest) (*infrav2.SwitchServiceRegisterResponse, error) {
+	sw, err := s.repo.Switch().AdditionalMethods().Register(ctx, rq)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	return connect.NewResponse(&infrav2.SwitchServiceRegisterResponse{Switch: sw}), nil
+	return &infrav2.SwitchServiceRegisterResponse{Switch: sw}, nil
 }
 
 func (s *switchServiceServer) Heartbeat(ctx context.Context, rq *connect.Request[infrav2.SwitchServiceHeartbeatRequest]) (*connect.Response[infrav2.SwitchServiceHeartbeatResponse], error) {

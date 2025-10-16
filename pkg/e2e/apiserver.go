@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"connectrpc.com/connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/service"
@@ -65,13 +64,13 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 	server := httptest.NewUnstartedServer(mux)
 	server.Start()
 
-	tok, err := testStore.GetTokenService().CreateApiTokenWithoutPermissionCheck(t.Context(), subject, connect.NewRequest(&apiv2.TokenServiceCreateRequest{
+	tok, err := testStore.GetTokenService().CreateApiTokenWithoutPermissionCheck(t.Context(), subject, &apiv2.TokenServiceCreateRequest{
 		Expires:   durationpb.New(time.Minute),
 		AdminRole: apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
-	}))
+	})
 	require.NoError(t, err)
 
-	reqCtx := tokencommon.ContextWithToken(t.Context(), tok.Msg.Token)
+	reqCtx := tokencommon.ContextWithToken(t.Context(), tok.Token)
 
 	err = repo.Tenant().AdditionalMethods().EnsureProviderTenant(reqCtx, providerTenant)
 	require.NoError(t, err)
@@ -97,7 +96,7 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 
 	require.NoError(t, err)
 
-	resp, err := testStore.GetTokenService().CreateApiTokenWithoutPermissionCheck(ctx, subject, connect.NewRequest(&apiv2.TokenServiceCreateRequest{
+	resp, err := testStore.GetTokenService().CreateApiTokenWithoutPermissionCheck(ctx, subject, &apiv2.TokenServiceCreateRequest{
 		Description:  "e2e admin token",
 		Expires:      durationpb.New(time.Hour),
 		ProjectRoles: nil,
@@ -108,7 +107,7 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 				Subject: "*",
 			},
 		},
-	}))
+	})
 	require.NoError(t, err)
 
 	closer = func() {
@@ -118,7 +117,7 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 
 	tenantTokenSecrets := createTenantTokens(t, repo, testStore.GetTokenService(), additionalTenants...)
 
-	return server.URL, resp.Msg.Secret, tenantTokenSecrets, closer
+	return server.URL, resp.Secret, tenantTokenSecrets, closer
 }
 
 func createTenantTokens(t testing.TB, repo *repository.Store, tokenService token.TokenService, tenants ...string) map[string]string {
@@ -140,7 +139,7 @@ func createTenantTokens(t testing.TB, repo *repository.Store, tokenService token
 		tcr, err := tokenService.CreateConsoleTokenWithoutPermissionCheck(ctx, tenant, nil)
 		require.NoError(t, err)
 
-		tenantTokens[tenant] = tcr.Msg.Secret
+		tenantTokens[tenant] = tcr.Secret
 	}
 
 	return tenantTokens

@@ -452,7 +452,7 @@ func (r *switchRepository) toSwitchNics(ctx context.Context, sw *metal.Switch) (
 			Mac:        nic.MacAddress,
 			Vrf:        pointer.PointerOrNil(nic.Vrf),
 			State: &apiv2.NicState{
-				Desired: &desiredState,
+				Desired: desiredState.Enum(),
 				Actual:  actualState,
 			},
 			BgpFilter:    filter,
