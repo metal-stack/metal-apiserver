@@ -55,7 +55,7 @@ func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServ
 
 	return r.s.Switch().Update(ctx, new.Id, &adminv2.SwitchServiceUpdateRequest{
 		Id: new.Id,
-		UpdateMeta: &apiv2.UpdateMeta{ // TODO: was not wired in?
+		UpdateMeta: &apiv2.UpdateMeta{
 			LockingStrategy: apiv2.OptimisticLockingStrategy_OPTIMISTIC_LOCKING_STRATEGY_SERVER,
 		},
 		Description:    pointer.PointerOrNil(new.Description),
