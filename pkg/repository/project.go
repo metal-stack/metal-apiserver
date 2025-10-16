@@ -279,7 +279,7 @@ func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId st
 		return nil, errorutil.Convert(err)
 	}
 
-	tenantResp, err := r.s.mdc.Tenant().FindParticipatingTenants(ctx, &mdcv1.FindParticipatingTenantsRequest{TenantId: userId, IncludeInherited: pointer.Pointer(true)})
+	tenantResp, err := r.s.Tenant().AdditionalMethods().FindParticipatingTenants(ctx, userId, true)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -317,19 +317,14 @@ func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId st
 		projectRoles[p.Meta.GetId()] = projectRole
 	}
 
-	for _, tenantWithAnnotations := range tenantResp.Tenants {
+	for _, tenantWithAnnotations := range tenantResp {
 		t := tenantWithAnnotations.Tenant
 
-		apit, err := r.s.Tenant().ConvertToProto(ctx, &tenantEntity{Tenant: t})
-		if err != nil {
-			return nil, err
+		if t.Login == userId {
+			defaultTenant = t
 		}
 
-		if t.Meta.Id == userId {
-			defaultTenant = apit
-		}
-
-		tenants = append(tenants, apit)
+		tenants = append(tenants, t)
 
 		var (
 			projectRole = projectRoleFromMap(tenantWithAnnotations.ProjectAnnotations)
@@ -340,7 +335,7 @@ func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId st
 			tenantRole = apiv2.TenantRole_TENANT_ROLE_GUEST
 		}
 
-		tenantRoles[t.Meta.GetId()] = tenantRole
+		tenantRoles[t.Login] = tenantRole
 	}
 
 	if defaultTenant == nil {

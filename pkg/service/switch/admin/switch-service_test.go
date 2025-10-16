@@ -24,158 +24,169 @@ import (
 
 var (
 	now = time.Now()
-	sw1 = &repository.SwitchServiceCreateRequest{
-		Switch: &apiv2.Switch{
-			Id:             "sw1",
-			Description:    "switch 01",
-			Rack:           pointer.Pointer("rack01"),
-			Partition:      "partition-a",
-			ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
-			ManagementIp:   "1.1.1.1",
-			ManagementUser: pointer.Pointer("admin"),
-			ConsoleCommand: pointer.Pointer("tty"),
-			Nics: []*apiv2.SwitchNic{
-				{
-					Name:       "Ethernet0",
-					Identifier: "Eth1/1",
-					Mac:        "11:11:11:11:11:11",
-					Vrf:        nil,
-					BgpFilter:  &apiv2.BGPFilter{},
-					State: &apiv2.NicState{
-						Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-						Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+	sw1 = func(generation uint64) *repository.SwitchServiceCreateRequest {
+		return &repository.SwitchServiceCreateRequest{
+			Switch: &apiv2.Switch{
+				Id:             "sw1",
+				Description:    "switch 01",
+				Meta:           &apiv2.Meta{Generation: generation},
+				Rack:           pointer.Pointer("rack01"),
+				Partition:      "partition-a",
+				ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+				ManagementIp:   "1.1.1.1",
+				ManagementUser: pointer.Pointer("admin"),
+				ConsoleCommand: pointer.Pointer("tty"),
+				Nics: []*apiv2.SwitchNic{
+					{
+						Name:       "Ethernet0",
+						Identifier: "Eth1/1",
+						Mac:        "11:11:11:11:11:11",
+						Vrf:        nil,
+						BgpFilter:  &apiv2.BGPFilter{},
+						State: &apiv2.NicState{
+							Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+						},
+					},
+					{
+						Name:       "Ethernet1",
+						Identifier: "Eth1/2",
+						Mac:        "22:22:22:22:22:22",
+						Vrf:        pointer.Pointer("Vrf200"),
+						State: &apiv2.NicState{
+							Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
+						},
+						BgpFilter: &apiv2.BGPFilter{},
+						BgpPortState: &apiv2.SwitchBGPPortState{
+							Neighbor:              "Ethernet2",
+							PeerGroup:             "external",
+							VrfName:               "Vrf200",
+							BgpState:              apiv2.BGPState_BGP_STATE_CONNECT,
+							BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Unix(), 0)),
+							SentPrefixCounter:     0,
+							AcceptedPrefixCounter: 0,
+						},
 					},
 				},
-				{
-					Name:       "Ethernet1",
-					Identifier: "Eth1/2",
-					Mac:        "22:22:22:22:22:22",
-					Vrf:        pointer.Pointer("Vrf200"),
-					State: &apiv2.NicState{
-						Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-						Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
-					},
-					BgpFilter: &apiv2.BGPFilter{},
-					BgpPortState: &apiv2.SwitchBGPPortState{
-						Neighbor:              "Ethernet2",
-						PeerGroup:             "external",
-						VrfName:               "Vrf200",
-						BgpState:              apiv2.BGPState_BGP_STATE_CONNECT,
-						BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Unix(), 0)),
-						SentPrefixCounter:     0,
-						AcceptedPrefixCounter: 0,
-					},
+				Os: &apiv2.SwitchOS{
+					Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+					Version:          "ec202111",
+					MetalCoreVersion: "v0.13.0",
 				},
 			},
-			Os: &apiv2.SwitchOS{
-				Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
-				Version:          "ec202111",
-				MetalCoreVersion: "v0.13.0",
-			},
-		},
+		}
 	}
-	sw2 = &repository.SwitchServiceCreateRequest{
-		Switch: &apiv2.Switch{
-			Id:             "sw2",
-			Description:    "switch 02",
-			Rack:           pointer.Pointer("rack01"),
-			Partition:      "partition-a",
-			ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
-			ManagementIp:   "1.1.1.2",
-			ManagementUser: pointer.Pointer("root"),
-			ConsoleCommand: pointer.Pointer("tty"),
-			Nics: []*apiv2.SwitchNic{
-				{
-					Name:       "swp1s0",
-					Identifier: "33:33:33:33:33:33",
-					Mac:        "33:33:33:33:33:33",
-					Vrf:        nil,
-					BgpFilter:  &apiv2.BGPFilter{},
-					State: &apiv2.NicState{
-						Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-						Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+	sw2 = func(generation uint64) *repository.SwitchServiceCreateRequest {
+		return &repository.SwitchServiceCreateRequest{
+			Switch: &apiv2.Switch{
+				Id:             "sw2",
+				Description:    "switch 02",
+				Meta:           &apiv2.Meta{Generation: generation},
+				Rack:           pointer.Pointer("rack01"),
+				Partition:      "partition-a",
+				ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+				ManagementIp:   "1.1.1.2",
+				ManagementUser: pointer.Pointer("root"),
+				ConsoleCommand: pointer.Pointer("tty"),
+				Nics: []*apiv2.SwitchNic{
+					{
+						Name:       "swp1s0",
+						Identifier: "33:33:33:33:33:33",
+						Mac:        "33:33:33:33:33:33",
+						Vrf:        nil,
+						BgpFilter:  &apiv2.BGPFilter{},
+						State: &apiv2.NicState{
+							Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+						},
+					},
+					{
+						Name:       "swp1s1",
+						Identifier: "44:44:44:44:44:44",
+						Mac:        "44:44:44:44:44:44",
+						Vrf:        pointer.Pointer("vrf200"),
+						State: &apiv2.NicState{
+							Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+						},
+						BgpFilter: &apiv2.BGPFilter{},
+						BgpPortState: &apiv2.SwitchBGPPortState{
+							Neighbor:              "Ethernet3",
+							PeerGroup:             "external",
+							VrfName:               "Vrf200",
+							BgpState:              apiv2.BGPState_BGP_STATE_ESTABLISHED,
+							BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Add(time.Minute).Unix(), 0)),
+							SentPrefixCounter:     100,
+							AcceptedPrefixCounter: 1,
+						},
 					},
 				},
-				{
-					Name:       "swp1s1",
-					Identifier: "44:44:44:44:44:44",
-					Mac:        "44:44:44:44:44:44",
-					Vrf:        pointer.Pointer("vrf200"),
-					State: &apiv2.NicState{
-						Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-						Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-					},
-					BgpFilter: &apiv2.BGPFilter{},
-					BgpPortState: &apiv2.SwitchBGPPortState{
-						Neighbor:              "Ethernet3",
-						PeerGroup:             "external",
-						VrfName:               "Vrf200",
-						BgpState:              apiv2.BGPState_BGP_STATE_ESTABLISHED,
-						BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Add(time.Minute).Unix(), 0)),
-						SentPrefixCounter:     100,
-						AcceptedPrefixCounter: 1,
-					},
+				Os: &apiv2.SwitchOS{
+					Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_CUMULUS,
+					Version:          "v5.9",
+					MetalCoreVersion: "v0.13.0",
 				},
 			},
-			Os: &apiv2.SwitchOS{
-				Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_CUMULUS,
-				Version:          "v5.9",
-				MetalCoreVersion: "v0.13.0",
-			},
-		},
+		}
 	}
-	sw3 = &repository.SwitchServiceCreateRequest{
-		Switch: &apiv2.Switch{
-			Id:             "sw3",
-			Description:    "switch 03",
-			Rack:           pointer.Pointer("rack02"),
-			Partition:      "partition-b",
-			ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE,
-			ManagementIp:   "1.1.1.3",
-			ManagementUser: pointer.Pointer("admin"),
-			ConsoleCommand: pointer.Pointer("tty"),
-			Nics: []*apiv2.SwitchNic{
-				{
-					Name:       "Ethernet0",
-					Identifier: "Eth1/1",
-					Mac:        "55:55:55:55:55:55",
-					Vrf:        nil,
-					BgpFilter:  &apiv2.BGPFilter{},
-					State: &apiv2.NicState{
-						Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-						Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+	sw3 = func(generation uint64) *repository.SwitchServiceCreateRequest {
+		return &repository.SwitchServiceCreateRequest{
+			Switch: &apiv2.Switch{
+				Id:             "sw3",
+				Description:    "switch 03",
+				Meta:           &apiv2.Meta{Generation: generation},
+				Rack:           pointer.Pointer("rack02"),
+				Partition:      "partition-b",
+				ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE,
+				ManagementIp:   "1.1.1.3",
+				ManagementUser: pointer.Pointer("admin"),
+				ConsoleCommand: pointer.Pointer("tty"),
+				Nics: []*apiv2.SwitchNic{
+					{
+						Name:       "Ethernet0",
+						Identifier: "Eth1/1",
+						Mac:        "55:55:55:55:55:55",
+						Vrf:        nil,
+						BgpFilter:  &apiv2.BGPFilter{},
+						State: &apiv2.NicState{
+							Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+						},
+					},
+					{
+						Name:       "Ethernet1",
+						Identifier: "Eth1/2",
+						Mac:        "66:66:66:66:66:66",
+						Vrf:        pointer.Pointer("Vrf300"),
+						State: &apiv2.NicState{
+							Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
+						},
+						BgpFilter: &apiv2.BGPFilter{},
+						BgpPortState: &apiv2.SwitchBGPPortState{
+							Neighbor:              "Ethernet2",
+							PeerGroup:             "external",
+							VrfName:               "Vrf300",
+							BgpState:              apiv2.BGPState_BGP_STATE_IDLE,
+							BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Unix(), 0)),
+							SentPrefixCounter:     0,
+							AcceptedPrefixCounter: 0,
+						},
 					},
 				},
-				{
-					Name:       "Ethernet1",
-					Identifier: "Eth1/2",
-					Mac:        "66:66:66:66:66:66",
-					Vrf:        pointer.Pointer("Vrf300"),
-					State: &apiv2.NicState{
-						Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-						Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
-					},
-					BgpFilter: &apiv2.BGPFilter{},
-					BgpPortState: &apiv2.SwitchBGPPortState{
-						Neighbor:              "Ethernet2",
-						PeerGroup:             "external",
-						VrfName:               "Vrf300",
-						BgpState:              apiv2.BGPState_BGP_STATE_IDLE,
-						BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Unix(), 0)),
-						SentPrefixCounter:     0,
-						AcceptedPrefixCounter: 0,
-					},
+				Os: &apiv2.SwitchOS{
+					Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+					Version:          "ec202211",
+					MetalCoreVersion: "v0.13.0",
 				},
 			},
-			Os: &apiv2.SwitchOS{
-				Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
-				Version:          "ec202211",
-				MetalCoreVersion: "v0.13.0",
-			},
-		},
+		}
 	}
 
-	switches = []*repository.SwitchServiceCreateRequest{sw1, sw2, sw3}
+	switches = func(generation uint64) []*repository.SwitchServiceCreateRequest {
+		return []*repository.SwitchServiceCreateRequest{sw1(generation), sw2(generation), sw3(generation)}
+	}
 )
 
 func Test_switchServiceServer_Get(t *testing.T) {
@@ -201,7 +212,7 @@ func Test_switchServiceServer_Get(t *testing.T) {
 	)
 
 	test.CreatePartitions(t, repo, partitions)
-	test.CreateSwitches(t, repo, switches)
+	test.CreateSwitches(t, repo, switches(0))
 
 	tests := []struct {
 		name    string
@@ -215,7 +226,7 @@ func Test_switchServiceServer_Get(t *testing.T) {
 				Id: "sw1",
 			},
 			want: &adminv2.SwitchServiceGetResponse{
-				Switch: sw1.Switch,
+				Switch: sw1(0).Switch,
 			},
 			wantErr: nil,
 		},
@@ -279,7 +290,7 @@ func Test_switchServiceServer_List(t *testing.T) {
 	)
 
 	test.CreatePartitions(t, repo, partitions)
-	test.CreateSwitches(t, repo, switches)
+	test.CreateSwitches(t, repo, switches(0))
 
 	tests := []struct {
 		name    string
@@ -291,7 +302,7 @@ func Test_switchServiceServer_List(t *testing.T) {
 			name: "get all",
 			rq:   &adminv2.SwitchServiceListRequest{},
 			want: &adminv2.SwitchServiceListResponse{
-				Switches: []*apiv2.Switch{sw1.Switch, sw2.Switch, sw3.Switch},
+				Switches: []*apiv2.Switch{sw1(0).Switch, sw2(0).Switch, sw3(0).Switch},
 			},
 			wantErr: nil,
 		},
@@ -303,7 +314,7 @@ func Test_switchServiceServer_List(t *testing.T) {
 				},
 			},
 			want: &adminv2.SwitchServiceListResponse{
-				Switches: []*apiv2.Switch{sw1.Switch, sw2.Switch},
+				Switches: []*apiv2.Switch{sw1(0).Switch, sw2(0).Switch},
 			},
 			wantErr: nil,
 		},
@@ -358,7 +369,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 	)
 
 	test.CreatePartitions(t, repo, partitions)
-	switchMap := test.CreateSwitches(t, repo, switches)
+	switchMap := test.CreateSwitches(t, repo, switches(0))
 
 	tests := []struct {
 		name    string
@@ -371,11 +382,11 @@ func Test_switchServiceServer_Update(t *testing.T) {
 			rq: &adminv2.SwitchServiceUpdateRequest{
 				Id: "sw3",
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(switchMap["sw3"].Changed),
+					UpdatedAt: switchMap["sw3"].Meta.UpdatedAt,
 				},
 			},
 			want: &adminv2.SwitchServiceUpdateResponse{
-				Switch: sw3.Switch,
+				Switch: sw3(1).Switch,
 			},
 			wantErr: nil,
 		},
@@ -384,7 +395,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 			rq: &adminv2.SwitchServiceUpdateRequest{
 				Id: "sw1",
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(switchMap["sw1"].Changed),
+					UpdatedAt: switchMap["sw1"].Meta.UpdatedAt,
 				},
 				Description:    pointer.Pointer("new description"),
 				ReplaceMode:    pointer.Pointer(apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE),
@@ -423,7 +434,10 @@ func Test_switchServiceServer_Update(t *testing.T) {
 			},
 			want: &adminv2.SwitchServiceUpdateResponse{
 				Switch: &apiv2.Switch{
-					Id:             "sw1",
+					Id: "sw1",
+					Meta: &apiv2.Meta{
+						Generation: 1,
+					},
 					Description:    "new description",
 					Rack:           pointer.Pointer("rack01"),
 					Partition:      "partition-a",
@@ -526,7 +540,7 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 	)
 
 	test.CreatePartitions(t, repo, partitions)
-	test.CreateSwitches(t, repo, switches)
+	test.CreateSwitches(t, repo, switches(0))
 
 	tests := []struct {
 		name    string
@@ -540,7 +554,7 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 				Id: "sw3",
 			},
 			want: &adminv2.SwitchServiceDeleteResponse{
-				Switch: sw3.Switch,
+				Switch: sw3(0).Switch,
 			},
 			wantErr: nil,
 		},

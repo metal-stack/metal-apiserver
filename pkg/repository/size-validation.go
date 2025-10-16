@@ -8,6 +8,7 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 )
 
@@ -64,9 +65,9 @@ func (r *sizeRepository) validateUpdate(ctx context.Context, req *adminv2.SizeSe
 }
 
 func (r *sizeRepository) validateDelete(ctx context.Context, req *metal.Size) error {
-	machines, err := r.s.UnscopedMachine().List(ctx, &apiv2.MachineQuery{
+	machines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
 		Size: &req.ID,
-	})
+	}))
 	if err != nil {
 		return err
 	}
