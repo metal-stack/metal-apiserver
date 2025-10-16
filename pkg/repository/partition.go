@@ -147,7 +147,7 @@ func (p *partitionRepository) matchScope(e *metal.Partition) bool {
 }
 
 // ConvertToInternal implements Partition.
-func (p *partitionRepository) convertToInternal(ctx context.Context, msg *apiv2.Partition) (*metal.Partition, error) {
+func (p *partitionRepository) convertToInternal(ctx context.Context, msg *apiv2.Partition, opts ...Option) (*metal.Partition, error) {
 	mgm := ""
 	if len(msg.MgmtServiceAddresses) > 0 {
 		// FIXME migrate metal model to slice as well
@@ -207,7 +207,7 @@ func (p *partitionRepository) convertToInternal(ctx context.Context, msg *apiv2.
 }
 
 // ConvertToProto implements Partition.
-func (p *partitionRepository) convertToProto(ctx context.Context, e *metal.Partition) (*apiv2.Partition, error) {
+func (p *partitionRepository) convertToProto(ctx context.Context, e *metal.Partition, opts ...Option) (*apiv2.Partition, error) {
 	var (
 		dnsServers []*apiv2.DNSServer
 		ntpServers []*apiv2.NTPServer

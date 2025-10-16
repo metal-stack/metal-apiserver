@@ -111,26 +111,30 @@ func (r *machineRepository) list(ctx context.Context, rq *apiv2.MachineQuery) ([
 	return machines, nil
 }
 
-func (r *machineRepository) convertToInternal(ctx context.Context, machine *apiv2.Machine) (*metal.Machine, error) {
+func (r *machineRepository) convertToInternal(ctx context.Context, machine *apiv2.Machine, opts ...Option) (*metal.Machine, error) {
 	panic("unimplemented")
 }
 
-func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine) (*apiv2.Machine, error) {
+func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine, opts ...Option) (*apiv2.Machine, error) {
 	var (
-		labels           *apiv2.Labels
-		allocationLabels *apiv2.Labels
-		bios             *apiv2.MachineBios
-		allocation       *apiv2.MachineAllocation
-		condition        *apiv2.MachineCondition
-		status           *apiv2.MachineStatus
-		size             *apiv2.Size
-		vpn              *apiv2.MachineVPN
-		dnsServers       []*apiv2.DNSServer
-		ntpServers       []*apiv2.NTPServer
-		firewallRules    *apiv2.FirewallRules
-		machineNetworks  []*apiv2.MachineNetwork
-		filesystemLayout *apiv2.FilesystemLayout
+		labels         *apiv2.Labels
+		bios           *apiv2.MachineBios
+		allocation     *apiv2.MachineAllocation
+		condition      *apiv2.MachineCondition
+		status         *apiv2.MachineStatus
+		size           *apiv2.Size
+		partition      *apiv2.Partition
+		err            error
+		withTransitive bool
 	)
+	for _, opt := range opts {
+		switch o := opt.(type) {
+		case *convertOptWithTransitive:
+			withTransitive = o.withTransitive
+		default:
+			errorutil.Internal("unsupported test option: %T", o)
+		}
+	}
 
 	if len(m.Tags) > 0 {
 		labels = &apiv2.Labels{
@@ -138,13 +142,25 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 		}
 	}
 
-	partition, err := r.s.Partition().Get(ctx, m.PartitionID)
-	if err != nil {
-		return nil, err
-	}
-	size, err = r.s.Size().Get(ctx, m.SizeID)
-	if err != nil {
-		return nil, err
+	if withTransitive {
+		partition, err = r.s.Partition().Get(ctx, m.PartitionID)
+		if err != nil {
+			return nil, err
+		}
+		size, err = r.s.Size().Get(ctx, m.SizeID)
+		if err != nil {
+			return nil, err
+		}
+		allocation, err = r.convertAllocationToProto(ctx, m)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		partition = &apiv2.Partition{Id: m.PartitionID}
+		size = &apiv2.Size{Id: m.SizeID}
+		if m.Allocation != nil {
+			allocation = &apiv2.MachineAllocation{Uuid: m.Allocation.UUID}
+		}
 	}
 
 	var (
@@ -206,143 +222,6 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 		Version: m.BIOS.Version,
 		Vendor:  m.BIOS.Vendor,
 		Date:    m.BIOS.Date,
-	}
-
-	if m.Allocation != nil {
-		alloc := m.Allocation
-
-		image, err := r.s.Image().Get(ctx, alloc.ImageID)
-		if err != nil {
-			return nil, err
-		}
-
-		if alloc.FilesystemLayout != nil {
-			filesystemLayout, err = r.s.FilesystemLayout().Get(ctx, alloc.FilesystemLayout.ID)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		if alloc.VPN != nil {
-			vpn = &apiv2.MachineVPN{
-				ControlPlaneAddress: alloc.VPN.ControlPlaneAddress,
-				AuthKey:             alloc.VPN.AuthKey,
-				Connected:           alloc.VPN.Connected,
-			}
-		}
-		for _, dns := range alloc.DNSServers {
-			dnsServers = append(dnsServers, &apiv2.DNSServer{
-				Ip: dns.IP,
-			})
-		}
-		for _, ntp := range alloc.NTPServers {
-			ntpServers = append(ntpServers, &apiv2.NTPServer{
-				Address: ntp.Address,
-			})
-		}
-		if alloc.FirewallRules != nil {
-			var (
-				egress  []*apiv2.FirewallEgressRule
-				ingress []*apiv2.FirewallIngressRule
-			)
-			for _, e := range alloc.FirewallRules.Egress {
-				protocol, err := enum.GetEnum[apiv2.IPProtocol](strings.ToLower(string(e.Protocol)))
-				if err != nil {
-					return nil, err
-				}
-				var ports []uint32
-				for _, p := range e.Ports {
-					ports = append(ports, uint32(p))
-				}
-				egress = append(egress, &apiv2.FirewallEgressRule{
-					Protocol: protocol,
-					Ports:    ports,
-					To:       e.To,
-					Comment:  e.Comment,
-				})
-			}
-			for _, i := range alloc.FirewallRules.Ingress {
-				protocol, err := enum.GetEnum[apiv2.IPProtocol](strings.ToLower(string(i.Protocol)))
-				if err != nil {
-					return nil, err
-				}
-				var ports []uint32
-				for _, p := range i.Ports {
-					ports = append(ports, uint32(p))
-				}
-				ingress = append(ingress, &apiv2.FirewallIngressRule{
-					Protocol: protocol,
-					Ports:    ports,
-					To:       i.To,
-					From:     i.From,
-					Comment:  i.Comment,
-				})
-			}
-			firewallRules = &apiv2.FirewallRules{
-				Egress:  egress,
-				Ingress: ingress,
-			}
-		}
-
-		for _, nw := range alloc.MachineNetworks {
-			metalNetwork, err := r.s.ds.Network().Get(ctx, nw.NetworkID)
-			if err != nil {
-				return nil, err
-			}
-			networkType, err := metal.FromNetworkType(*metalNetwork.NetworkType)
-			if err != nil {
-				return nil, err
-			}
-			natType, err := metal.FromNATType(*metalNetwork.NATType)
-			if err != nil {
-				return nil, err
-			}
-
-			machineNetworks = append(machineNetworks, &apiv2.MachineNetwork{
-				Network:             nw.NetworkID,
-				Ips:                 nw.IPs,
-				Prefixes:            nw.Prefixes,            // TODO would be better if we fetch from metalNetwork
-				DestinationPrefixes: nw.DestinationPrefixes, // TODO would be better if we fetch from metalNetwork
-				NetworkType:         networkType,
-				NatType:             natType,
-				Vrf:                 uint64(nw.Vrf),
-				Asn:                 nw.ASN,
-			})
-		}
-
-		allocationType, err := enum.GetEnum[apiv2.MachineAllocationType](strings.ToLower(string(alloc.Role)))
-		if err != nil {
-			return nil, err
-		}
-
-		if m.Allocation.Labels != nil {
-			allocationLabels = &apiv2.Labels{
-				Labels: m.Allocation.Labels,
-			}
-		}
-
-		allocation = &apiv2.MachineAllocation{
-			Uuid: alloc.UUID,
-			Meta: &apiv2.Meta{
-				CreatedAt: timestamppb.New(alloc.Created),
-				Labels:    allocationLabels,
-			},
-			Name:             alloc.Name,
-			Description:      alloc.Description,
-			CreatedBy:        alloc.Creator,
-			Project:          alloc.Project,
-			Image:            image,
-			FilesystemLayout: filesystemLayout,
-			Networks:         machineNetworks,
-			Hostname:         alloc.Hostname,
-			SshPublicKeys:    alloc.SSHPubKeys,
-			Userdata:         alloc.UserData,
-			AllocationType:   allocationType,
-			FirewallRules:    firewallRules,
-			DnsServer:        dnsServers,
-			NtpServer:        ntpServers,
-			Vpn:              vpn,
-		}
 	}
 
 	stateString, err := enum.GetEnum[apiv2.MachineState](strings.ToLower(string(m.State.Value)))
@@ -434,6 +313,157 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 	}
 
 	return result, nil
+}
+
+func (r *machineRepository) convertAllocationToProto(ctx context.Context, m *metal.Machine) (*apiv2.MachineAllocation, error) {
+	if m.Allocation == nil {
+		return nil, nil
+	}
+
+	var (
+		allocationLabels *apiv2.Labels
+		vpn              *apiv2.MachineVPN
+		dnsServers       []*apiv2.DNSServer
+		ntpServers       []*apiv2.NTPServer
+		firewallRules    *apiv2.FirewallRules
+		machineNetworks  []*apiv2.MachineNetwork
+		filesystemLayout *apiv2.FilesystemLayout
+	)
+
+	alloc := m.Allocation
+
+	image, err := r.s.Image().Get(ctx, alloc.ImageID)
+	if err != nil {
+		return nil, err
+	}
+
+	if alloc.FilesystemLayout != nil {
+		filesystemLayout, err = r.s.FilesystemLayout().Get(ctx, alloc.FilesystemLayout.ID)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if alloc.VPN != nil {
+		vpn = &apiv2.MachineVPN{
+			ControlPlaneAddress: alloc.VPN.ControlPlaneAddress,
+			AuthKey:             alloc.VPN.AuthKey,
+			Connected:           alloc.VPN.Connected,
+		}
+	}
+	for _, dns := range alloc.DNSServers {
+		dnsServers = append(dnsServers, &apiv2.DNSServer{
+			Ip: dns.IP,
+		})
+	}
+	for _, ntp := range alloc.NTPServers {
+		ntpServers = append(ntpServers, &apiv2.NTPServer{
+			Address: ntp.Address,
+		})
+	}
+	if alloc.FirewallRules != nil {
+		var (
+			egress  []*apiv2.FirewallEgressRule
+			ingress []*apiv2.FirewallIngressRule
+		)
+		for _, e := range alloc.FirewallRules.Egress {
+			protocol, err := enum.GetEnum[apiv2.IPProtocol](strings.ToLower(string(e.Protocol)))
+			if err != nil {
+				return nil, err
+			}
+			var ports []uint32
+			for _, p := range e.Ports {
+				ports = append(ports, uint32(p))
+			}
+			egress = append(egress, &apiv2.FirewallEgressRule{
+				Protocol: protocol,
+				Ports:    ports,
+				To:       e.To,
+				Comment:  e.Comment,
+			})
+		}
+		for _, i := range alloc.FirewallRules.Ingress {
+			protocol, err := enum.GetEnum[apiv2.IPProtocol](strings.ToLower(string(i.Protocol)))
+			if err != nil {
+				return nil, err
+			}
+			var ports []uint32
+			for _, p := range i.Ports {
+				ports = append(ports, uint32(p))
+			}
+			ingress = append(ingress, &apiv2.FirewallIngressRule{
+				Protocol: protocol,
+				Ports:    ports,
+				To:       i.To,
+				From:     i.From,
+				Comment:  i.Comment,
+			})
+		}
+		firewallRules = &apiv2.FirewallRules{
+			Egress:  egress,
+			Ingress: ingress,
+		}
+	}
+
+	for _, nw := range alloc.MachineNetworks {
+		metalNetwork, err := r.s.ds.Network().Get(ctx, nw.NetworkID)
+		if err != nil {
+			return nil, err
+		}
+		networkType, err := metal.FromNetworkType(*metalNetwork.NetworkType)
+		if err != nil {
+			return nil, err
+		}
+		natType, err := metal.FromNATType(*metalNetwork.NATType)
+		if err != nil {
+			return nil, err
+		}
+
+		machineNetworks = append(machineNetworks, &apiv2.MachineNetwork{
+			Network:             nw.NetworkID,
+			Ips:                 nw.IPs,
+			Prefixes:            nw.Prefixes,            // TODO would be better if we fetch from metalNetwork
+			DestinationPrefixes: nw.DestinationPrefixes, // TODO would be better if we fetch from metalNetwork
+			NetworkType:         networkType,
+			NatType:             natType,
+			Vrf:                 uint64(nw.Vrf),
+			Asn:                 nw.ASN,
+		})
+	}
+
+	allocationType, err := enum.GetEnum[apiv2.MachineAllocationType](strings.ToLower(string(alloc.Role)))
+	if err != nil {
+		return nil, err
+	}
+
+	if m.Allocation.Labels != nil {
+		allocationLabels = &apiv2.Labels{
+			Labels: m.Allocation.Labels,
+		}
+	}
+
+	return &apiv2.MachineAllocation{
+		Uuid: alloc.UUID,
+		Meta: &apiv2.Meta{
+			CreatedAt: timestamppb.New(alloc.Created),
+			Labels:    allocationLabels,
+		},
+		Name:             alloc.Name,
+		Description:      alloc.Description,
+		CreatedBy:        alloc.Creator,
+		Project:          alloc.Project,
+		Image:            image,
+		FilesystemLayout: filesystemLayout,
+		Networks:         machineNetworks,
+		Hostname:         alloc.Hostname,
+		SshPublicKeys:    alloc.SSHPubKeys,
+		Userdata:         alloc.UserData,
+		AllocationType:   allocationType,
+		FirewallRules:    firewallRules,
+		DnsServer:        dnsServers,
+		NtpServer:        ntpServers,
+		Vpn:              vpn,
+	}, nil
 }
 
 //---------------------------------------------------------------

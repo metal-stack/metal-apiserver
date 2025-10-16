@@ -10,12 +10,12 @@ import (
 
 type (
 	Repository[R Repo, M Message, C CreateMessage, U UpdateMessage, Q Query] interface {
-		Get(ctx context.Context, id string) (M, error)
+		Get(ctx context.Context, id string, opts ...Option) (M, error)
 		Create(ctx context.Context, c C) (M, error)
 		Update(ctx context.Context, id string, u U) (M, error)
 		Delete(ctx context.Context, id string) (M, error)
 		Find(ctx context.Context, query Q) (M, error)
-		List(ctx context.Context, query Q) ([]M, error)
+		List(ctx context.Context, query Q, opts ...Option) ([]M, error)
 		AdditionalMethods() R
 	}
 
@@ -34,11 +34,14 @@ type (
 		find(ctx context.Context, query Q) (E, error)
 		list(ctx context.Context, query Q) ([]E, error)
 
-		convertToInternal(ctx context.Context, msg M) (E, error)
-		convertToProto(ctx context.Context, e E) (M, error)
+		convertToInternal(ctx context.Context, msg M, opts ...Option) (E, error)
+		convertToProto(ctx context.Context, e E, opts ...Option) (M, error)
 
 		matchScope(e E) bool
 	}
+
+	// Option can be set to modify the behavior of funcs, e.g. WithoutReferencedEntities.
+	Option any
 
 	// Repo is the typed repository in order to expose public functions on the repository to the consumers.
 	Repo any

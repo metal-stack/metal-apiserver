@@ -70,7 +70,7 @@ func Test_machineServiceServer_Get(t *testing.T) {
 	}{
 		{
 			name: "get existing",
-			rq:   &adminv2.MachineServiceGetRequest{Uuid: m1},
+			rq:   &adminv2.MachineServiceGetRequest{Uuid: m1, Complete: true},
 			want: &adminv2.MachineServiceGetResponse{
 				Machine: &apiv2.Machine{
 					Uuid:      m1,
@@ -178,7 +178,7 @@ func Test_machineServiceServer_List(t *testing.T) {
 	}{
 		{
 			name: "List from p1",
-			rq:   &adminv2.MachineServiceListRequest{Query: &apiv2.MachineQuery{Allocation: &apiv2.MachineAllocationQuery{Project: pointer.Pointer(p1)}}},
+			rq:   &adminv2.MachineServiceListRequest{Query: &apiv2.MachineQuery{Allocation: &apiv2.MachineAllocationQuery{Project: pointer.Pointer(p1)}}, Complete: true},
 			want: &adminv2.MachineServiceListResponse{
 				Machines: []*apiv2.Machine{
 					{
@@ -216,7 +216,7 @@ func Test_machineServiceServer_List(t *testing.T) {
 		},
 		{
 			name: "list from p2",
-			rq:   &adminv2.MachineServiceListRequest{Query: &apiv2.MachineQuery{Uuid: pointer.Pointer(m4), Allocation: &apiv2.MachineAllocationQuery{Project: pointer.Pointer(p2)}}},
+			rq:   &adminv2.MachineServiceListRequest{Query: &apiv2.MachineQuery{Uuid: pointer.Pointer(m4), Allocation: &apiv2.MachineAllocationQuery{Project: pointer.Pointer(p2)}}, Complete: true},
 			want: &adminv2.MachineServiceListResponse{
 				Machines: []*apiv2.Machine{
 					{

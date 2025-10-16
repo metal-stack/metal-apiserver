@@ -60,7 +60,7 @@ func (m *machineServiceServer) List(ctx context.Context, rq *adminv2.MachineServ
 	q := rq.Query
 	q.Partition = partition
 
-	machines, err := m.repo.UnscopedMachine().List(ctx, q)
+	machines, err := m.repo.UnscopedMachine().List(ctx, q, repository.WithTransitive(rq.Complete))
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

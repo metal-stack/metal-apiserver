@@ -257,7 +257,7 @@ func (s *store[R, E, M, C, U, Q]) Find(ctx context.Context, query Q) (M, error) 
 	return converted, nil
 }
 
-func (s *store[R, E, M, C, U, Q]) Get(ctx context.Context, id string) (M, error) {
+func (s *store[R, E, M, C, U, Q]) Get(ctx context.Context, id string, opts ...Option) (M, error) {
 	var zero M
 
 	e, err := s.get(ctx, id)
@@ -270,7 +270,7 @@ func (s *store[R, E, M, C, U, Q]) Get(ctx context.Context, id string) (M, error)
 		return zero, errorutil.NotFound("%T with id %q not found", e, id)
 	}
 
-	converted, err := s.convertToProto(ctx, e)
+	converted, err := s.convertToProto(ctx, e, opts...)
 	if err != nil {
 		return zero, err
 	}
@@ -278,7 +278,7 @@ func (s *store[R, E, M, C, U, Q]) Get(ctx context.Context, id string) (M, error)
 	return converted, nil
 }
 
-func (s *store[R, E, M, C, U, Q]) List(ctx context.Context, query Q) ([]M, error) {
+func (s *store[R, E, M, C, U, Q]) List(ctx context.Context, query Q, opts ...Option) ([]M, error) {
 	es, err := s.list(ctx, query)
 	if err != nil {
 		return nil, err
@@ -286,7 +286,7 @@ func (s *store[R, E, M, C, U, Q]) List(ctx context.Context, query Q) ([]M, error
 
 	var res []M
 	for _, e := range es {
-		converted, err := s.convertToProto(ctx, e)
+		converted, err := s.convertToProto(ctx, e, opts...)
 		if err != nil {
 			return nil, err
 		}
@@ -353,4 +353,14 @@ func setUpdateMeta(u UpdateMessage, e Entity) error {
 	}
 
 	return nil
+}
+
+type convertOptWithTransitive struct {
+	withTransitive bool
+}
+
+func WithTransitive(withTransitive bool) *convertOptWithTransitive {
+	return &convertOptWithTransitive{
+		withTransitive: withTransitive,
+	}
 }

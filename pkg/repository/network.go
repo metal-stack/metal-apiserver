@@ -389,11 +389,11 @@ func (r *networkRepository) list(ctx context.Context, query *apiv2.NetworkQuery)
 
 	return nws, nil
 }
-func (r *networkRepository) convertToInternal(ctx context.Context, msg *apiv2.Network) (*metal.Network, error) {
+func (r *networkRepository) convertToInternal(ctx context.Context, msg *apiv2.Network, opts ...Option) (*metal.Network, error) {
 	panic("unimplemented")
 }
 
-func (r *networkRepository) convertToProto(ctx context.Context, e *metal.Network) (*apiv2.Network, error) {
+func (r *networkRepository) convertToProto(ctx context.Context, e *metal.Network, opts ...Option) (*apiv2.Network, error) {
 	var (
 		consumption *apiv2.NetworkConsumption
 		labels      *apiv2.Labels

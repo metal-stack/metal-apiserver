@@ -34,7 +34,7 @@ func (m *machineServiceServer) Create(context.Context, *apiv2.MachineServiceCrea
 
 // Get implements apiv2connect.MachineServiceHandler.
 func (m *machineServiceServer) Get(ctx context.Context, req *apiv2.MachineServiceGetRequest) (*apiv2.MachineServiceGetResponse, error) {
-	machine, err := m.repo.Machine(req.Project).Get(ctx, req.Uuid)
+	machine, err := m.repo.Machine(req.Project).Get(ctx, req.Uuid, repository.WithTransitive(req.Complete))
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -46,7 +46,7 @@ func (m *machineServiceServer) Get(ctx context.Context, req *apiv2.MachineServic
 
 // List implements apiv2connect.MachineServiceHandler.
 func (m *machineServiceServer) List(ctx context.Context, rq *apiv2.MachineServiceListRequest) (*apiv2.MachineServiceListResponse, error) {
-	machines, err := m.repo.Machine(rq.Project).List(ctx, rq.Query)
+	machines, err := m.repo.Machine(rq.Project).List(ctx, rq.Query, repository.WithTransitive(rq.Complete))
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

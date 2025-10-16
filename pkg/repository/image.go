@@ -195,7 +195,7 @@ func (r *imageRepository) list(ctx context.Context, rq *apiv2.ImageQuery) ([]*me
 	return r.SortImages(images), nil
 }
 
-func (r *imageRepository) convertToInternal(ctx context.Context, msg *apiv2.Image) (*metal.Image, error) {
+func (r *imageRepository) convertToInternal(ctx context.Context, msg *apiv2.Image, opts ...Option) (*metal.Image, error) {
 	features, err := metal.ImageFeaturesFrom(msg.Features)
 	if err != nil {
 		return nil, err
@@ -228,7 +228,7 @@ func (r *imageRepository) convertToInternal(ctx context.Context, msg *apiv2.Imag
 	}
 	return image, nil
 }
-func (r *imageRepository) convertToProto(ctx context.Context, in *metal.Image) (*apiv2.Image, error) {
+func (r *imageRepository) convertToProto(ctx context.Context, in *metal.Image, opts ...Option) (*apiv2.Image, error) {
 	var features []apiv2.ImageFeature
 	for feature := range in.Features {
 		switch feature {
