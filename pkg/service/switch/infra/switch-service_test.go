@@ -224,12 +224,12 @@ func Test_switchServiceServer_Get(t *testing.T) {
 				log:  log,
 				repo: repo,
 			}
-			got, err := s.Get(ctx, connect.NewRequest(tt.rq))
+			got, err := s.Get(ctx, tt.rq)
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("switchServiceServer.Get() error diff = %s", diff)
 				return
 			}
-			if diff := cmp.Diff(tt.want, pointer.SafeDeref(got).Msg,
+			if diff := cmp.Diff(tt.want, pointer.SafeDeref(got),
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",

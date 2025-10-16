@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"time"
 
-	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
@@ -35,8 +34,8 @@ func New(c Config) infrav2connect.SwitchServiceHandler {
 	}
 }
 
-func (s *switchServiceServer) Get(context.Context, *infrav2.SwitchServiceGetRequest) (*infrav2.SwitchServiceGetResponse, error) {
-	sw, err := s.repo.Switch().Get(ctx, rq.Msg.Id)
+func (s *switchServiceServer) Get(ctx context.Context, rq *infrav2.SwitchServiceGetRequest) (*infrav2.SwitchServiceGetResponse, error) {
+	sw, err := s.repo.Switch().Get(ctx, rq.Id)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -53,21 +52,19 @@ func (s *switchServiceServer) Register(ctx context.Context, rq *infrav2.SwitchSe
 	return &infrav2.SwitchServiceRegisterResponse{Switch: sw}, nil
 }
 
-func (s *switchServiceServer) Heartbeat(ctx context.Context, rq *connect.Request[infrav2.SwitchServiceHeartbeatRequest]) (*connect.Response[infrav2.SwitchServiceHeartbeatResponse], error) {
-	req := rq.Msg
-
-	status, err := s.repo.Switch().AdditionalMethods().GetSwitchStatus(ctx, req.Id)
+func (s *switchServiceServer) Heartbeat(ctx context.Context, rq *infrav2.SwitchServiceHeartbeatRequest) (*infrav2.SwitchServiceHeartbeatResponse, error) {
+	status, err := s.repo.Switch().AdditionalMethods().GetSwitchStatus(ctx, rq.Id)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
 	lastSync := &metal.SwitchSync{
 		Time:     time.Now(),
-		Duration: req.Duration.AsDuration(),
-		Error:    req.Error,
+		Duration: rq.Duration.AsDuration(),
+		Error:    rq.Error,
 	}
 
-	if req.Error == nil {
+	if rq.Error == nil {
 		status.LastSync = lastSync
 	} else {
 		status.LastSyncError = lastSync
@@ -78,15 +75,15 @@ func (s *switchServiceServer) Heartbeat(ctx context.Context, rq *connect.Request
 		return nil, errorutil.Convert(err)
 	}
 
-	sw, err := s.repo.Switch().Get(ctx, req.Id)
+	sw, err := s.repo.Switch().Get(ctx, rq.Id)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
 	var updated bool
-	if req.PortStates != nil {
+	if rq.PortStates != nil {
 		for i, nic := range sw.Nics {
-			reportedState, ok := req.PortStates[nic.Name]
+			reportedState, ok := rq.PortStates[nic.Name]
 			if !ok {
 				return nil, errorutil.Internal("failed to determine switch port state because port %s was not found on switch", nic.Name)
 			}
@@ -99,9 +96,9 @@ func (s *switchServiceServer) Heartbeat(ctx context.Context, rq *connect.Request
 		}
 	}
 
-	if req.BgpPortStates != nil {
+	if rq.BgpPortStates != nil {
 		for i, nic := range sw.Nics {
-			reportedState, ok := req.BgpPortStates[nic.Name]
+			reportedState, ok := rq.BgpPortStates[nic.Name]
 
 			switch {
 			case !ok && nic.BgpPortState == nil, cmp.Diff(reportedState, nic.BgpPortState, protocmp.Transform()) == "":
@@ -120,7 +117,7 @@ func (s *switchServiceServer) Heartbeat(ctx context.Context, rq *connect.Request
 			Id:   sw.Id,
 			Nics: sw.Nics,
 		}
-		_, err = s.repo.Switch().Update(ctx, req.Id, updateReq)
+		_, err = s.repo.Switch().Update(ctx, rq.Id, updateReq)
 		if err != nil {
 			return nil, err
 		}
@@ -140,5 +137,5 @@ func (s *switchServiceServer) Heartbeat(ctx context.Context, rq *connect.Request
 		},
 	}
 
-	return connect.NewResponse(res), nil
+	return res, nil
 }
