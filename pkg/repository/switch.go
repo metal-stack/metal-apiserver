@@ -76,7 +76,7 @@ func (r *switchRepository) Port(ctx context.Context, id, port string, status api
 	panic("unimplemented")
 }
 
-func (r *switchRepository) ConnectMachineWithSwitches(m *apiv2.Machine) error {
+func (r *switchRepository) ConnectMachineWithSwitches(m *apiv2.Machine) (rack, partition string, err error) {
 	panic("unimplemented")
 }
 

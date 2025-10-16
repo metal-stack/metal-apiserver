@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/avast/retry-go/v4"
 	"github.com/hibiken/asynq"
 	"github.com/metal-stack/api/go/enum"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -449,44 +450,44 @@ func (r *machineRepository) Register(ctx context.Context, req *infrav2.BootServi
 		return nil, errorutil.InvalidArgument("bios is nil")
 	}
 
-	m, err := r.s.ds.Machine().Get(ctx, req.Uuid)
+	m, err := r.s.UnscopedMachine().Get(ctx, req.Uuid)
 	if err != nil && !errorutil.IsNotFound(err) {
 		return nil, err
 	}
 
-	disks := []metal.BlockDevice{}
+	disks := []*apiv2.MachineBlockDevice{}
 	for i := range req.Hardware.Disks {
 		d := req.Hardware.Disks[i]
-		disks = append(disks, metal.BlockDevice{
+		disks = append(disks, &apiv2.MachineBlockDevice{
 			Name: d.Name,
 			Size: d.Size,
 		})
 	}
 
-	nics := metal.Nics{}
+	nics := []*apiv2.MachineNic{}
 	for i := range req.Hardware.Nics {
 		nic := req.Hardware.Nics[i]
-		neighs := metal.Nics{}
+		neighs := []*apiv2.MachineNic{}
 		for j := range nic.Neighbors {
 			neigh := nic.Neighbors[j]
-			neighs = append(neighs, metal.Nic{
-				Name:       neigh.Name,
-				MacAddress: neigh.Mac,
+			neighs = append(neighs, &apiv2.MachineNic{
+				Name: neigh.Name,
+				Mac:  neigh.Mac,
 				// Hostname:   neigh.Hostname, // FIXME do we really have hostname of the neighbor from the metal-hammer ?
 				Identifier: neigh.Identifier,
 			})
 		}
-		nics = append(nics, metal.Nic{
+		nics = append(nics, &apiv2.MachineNic{
 			Name:       nic.Name,
-			MacAddress: nic.Mac,
+			Mac:        nic.Mac,
 			Identifier: nic.Identifier,
 			Neighbors:  neighs,
 		})
 	}
 
-	cpus := []metal.MetalCPU{}
+	cpus := []*apiv2.MetalCPU{}
 	for _, cpu := range req.Hardware.Cpus {
-		cpus = append(cpus, metal.MetalCPU{
+		cpus = append(cpus, &apiv2.MetalCPU{
 			Vendor:  cpu.Vendor,
 			Model:   cpu.Model,
 			Cores:   cpu.Cores,
@@ -494,22 +495,23 @@ func (r *machineRepository) Register(ctx context.Context, req *infrav2.BootServi
 		})
 	}
 
-	gpus := []metal.MetalGPU{}
+	gpus := []*apiv2.MetalGPU{}
 	for _, gpu := range req.Hardware.Gpus {
-		gpus = append(gpus, metal.MetalGPU{
+		gpus = append(gpus, &apiv2.MetalGPU{
 			Vendor: gpu.Vendor,
 			Model:  gpu.Model,
 		})
 	}
 
-	machineHardware := metal.MachineHardware{
+	machineHardware := &apiv2.MachineHardware{
 		Memory:    req.Hardware.Memory,
 		Disks:     disks,
 		Nics:      nics,
-		MetalCPUs: cpus,
-		MetalGPUs: gpus,
+		Cpus: cpus,
+		Gpus: gpus,
 	}
 
+	hw, err := r.convertToInternal(ctx, machineHardware) // FIXME extract convertToMetalHardware from convertToInternal
 	size, err := r.s.Size().AdditionalMethods().FromHardware(ctx, machineHardware)
 	if err != nil {
 		size = &metal.Size{
@@ -569,12 +571,10 @@ func (r *machineRepository) Register(ctx context.Context, req *infrav2.BootServi
 
 	if m == nil {
 		// machine is not in the database, create it
-		m = &metal.Machine{
-			Base: metal.Base{
-				ID: req.Uuid,
-			},
+		m = &apiv2.Machine{
+			Uuid: req.Uuid,
 			Allocation: nil,
-			SizeID:     size.ID,
+			Size:     size.ID,
 			Hardware:   machineHardware,
 			BIOS: metal.BIOS{
 				Version: req.Bios.Version,
@@ -642,25 +642,30 @@ func (r *machineRepository) Register(ctx context.Context, req *infrav2.BootServi
 	}
 
 	// old := *m
-	// err = retry.Do(
-	// 	func() error {
-	// 		// RackID is set here
-	// 		err := b.ds.ConnectMachineWithSwitches(m)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 		return b.ds.UpdateMachine(&old, m)
-	// 	},
-	// 	retry.Attempts(10),
-	// 	retry.RetryIf(func(err error) bool {
-	// 		return metal.IsConflict(err)
-	// 	}),
-	// 	retry.DelayType(retry.CombineDelay(retry.BackOffDelay, retry.RandomDelay)),
-	// 	retry.LastErrorOnly(true),
-	// )
-	// if err != nil {
-	// 	return nil, err
-	// }
+	err = retry.Do(
+		func() error {
+			machine, err := r.convertToProto(ctx, m)
+			if err != nil {
+				return err
+			}
+			rack, partition, err := r.s.Switch().AdditionalMethods().ConnectMachineWithSwitches(machine)
+			if err != nil {
+				return err
+			}
+			m.PartitionID = partition
+			m.RackID = rack
+			return r.s.ds.Machine().Update(ctx, m)
+		},
+		retry.Attempts(10),
+		retry.RetryIf(func(err error) bool {
+			return errorutil.IsConflict(err)
+		}),
+		retry.DelayType(retry.CombineDelay(retry.BackOffDelay, retry.RandomDelay)),
+		retry.LastErrorOnly(true),
+	)
+	if err != nil {
+		return nil, err
+	}
 
 	return m, nil
 }
