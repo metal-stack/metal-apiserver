@@ -359,7 +359,7 @@ func (r *switchRepository) toSwitchNics(ctx context.Context, sw *metal.Switch) (
 			Mac:        nic.MacAddress,
 			Vrf:        pointer.PointerOrNil(nic.Vrf),
 			State: &apiv2.NicState{
-				Desired: desiredState,
+				Desired: desiredState.Enum(),
 				Actual:  actualState,
 			},
 			BgpFilter:    filter,
@@ -649,9 +649,13 @@ func toMetalNic(switchNic *apiv2.SwitchNic) (*metal.Nic, error) {
 	}
 
 	if switchNic.State != nil {
-		desiredState, err := metal.ToSwitchPortStatus(switchNic.State.Desired)
-		if err != nil {
-			return nil, err
+		var desiredState metal.SwitchPortStatus
+		if switchNic.State.Desired != nil {
+			var err error
+			desiredState, err = metal.ToSwitchPortStatus(*switchNic.State.Desired)
+			if err != nil {
+				return nil, err
+			}
 		}
 		actualState, err := metal.ToSwitchPortStatus(switchNic.State.Actual)
 		if err != nil {

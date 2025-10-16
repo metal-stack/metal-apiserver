@@ -43,7 +43,7 @@ var (
 						Vrf:        nil,
 						BgpFilter:  &apiv2.BGPFilter{},
 						State: &apiv2.NicState{
-							Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
 							Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 						},
 					},
@@ -53,7 +53,7 @@ var (
 						Mac:        "22:22:22:22:22:22",
 						Vrf:        pointer.Pointer("Vrf200"),
 						State: &apiv2.NicState{
-							Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
 							Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
 						},
 						BgpFilter: &apiv2.BGPFilter{},
@@ -96,7 +96,7 @@ var (
 						Vrf:        nil,
 						BgpFilter:  &apiv2.BGPFilter{},
 						State: &apiv2.NicState{
-							Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
 							Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 						},
 					},
@@ -106,7 +106,7 @@ var (
 						Mac:        "44:44:44:44:44:44",
 						Vrf:        pointer.Pointer("vrf200"),
 						State: &apiv2.NicState{
-							Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
 							Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 						},
 						BgpFilter: &apiv2.BGPFilter{},
@@ -149,7 +149,7 @@ var (
 						Vrf:        nil,
 						BgpFilter:  &apiv2.BGPFilter{},
 						State: &apiv2.NicState{
-							Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
 							Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 						},
 					},
@@ -159,7 +159,7 @@ var (
 						Mac:        "66:66:66:66:66:66",
 						Vrf:        pointer.Pointer("Vrf300"),
 						State: &apiv2.NicState{
-							Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
 							Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
 						},
 						BgpFilter: &apiv2.BGPFilter{},
@@ -409,7 +409,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 						Vrf:        pointer.Pointer("must not be updated"),
 						BgpFilter:  &apiv2.BGPFilter{},
 						State: &apiv2.NicState{
-							Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
 							Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 						},
 					},
@@ -419,7 +419,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 						Mac:        "aa:aa:aa:aa:aa:aa",
 						Vrf:        nil,
 						State: &apiv2.NicState{
-							Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
 							Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 						},
 						BgpFilter: &apiv2.BGPFilter{},
@@ -451,7 +451,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 							Mac:        "aa:aa:aa:aa:aa:aa",
 							Vrf:        nil,
 							State: &apiv2.NicState{
-								Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+								Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
 								Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 							},
 							BgpFilter: &apiv2.BGPFilter{},
@@ -463,7 +463,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 							Vrf:        nil,
 							BgpFilter:  &apiv2.BGPFilter{},
 							State: &apiv2.NicState{
-								Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+								Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
 								Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 							},
 						},
