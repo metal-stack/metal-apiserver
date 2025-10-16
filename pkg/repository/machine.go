@@ -132,7 +132,7 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 		case *convertOptWithTransitive:
 			withTransitive = o.withTransitive
 		default:
-			errorutil.Internal("unsupported test option: %T", o)
+			return nil, errorutil.Internal("unsupported test option: %T", o)
 		}
 	}
 

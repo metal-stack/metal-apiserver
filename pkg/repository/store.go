@@ -324,7 +324,7 @@ func (s *store[R, E, M, C, U, Q]) Update(ctx context.Context, id string, u U) (M
 		return zero, err
 	}
 
-	converted, err := s.convertToProto(ctx, e)
+	converted, err := s.convertToProto(ctx, e, WithTransitive(true))
 	if err != nil {
 		return zero, err
 	}
