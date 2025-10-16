@@ -7,7 +7,6 @@ import (
 	"connectrpc.com/connect"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
-	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 )
@@ -33,17 +32,13 @@ func (n *networkServiceServer) Get(ctx context.Context, rq *connect.Request[admi
 	req := rq.Msg
 
 	// Project is already checked in the tenant-interceptor, ipam must not be consulted
-	resp, err := n.repo.UnscopedNetwork().Get(ctx, req.Id)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-	converted, err := n.repo.UnscopedNetwork().ConvertToProto(ctx, resp)
+	nw, err := n.repo.UnscopedNetwork().Get(ctx, req.Id)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
 	return connect.NewResponse(&adminv2.NetworkServiceGetResponse{
-		Network: converted,
+		Network: nw,
 	}), nil
 }
 
@@ -51,17 +46,12 @@ func (n *networkServiceServer) Get(ctx context.Context, rq *connect.Request[admi
 func (n *networkServiceServer) Create(ctx context.Context, rq *connect.Request[adminv2.NetworkServiceCreateRequest]) (*connect.Response[adminv2.NetworkServiceCreateResponse], error) {
 	req := rq.Msg
 
-	created, err := n.repo.UnscopedNetwork().Create(ctx, req)
+	nw, err := n.repo.UnscopedNetwork().Create(ctx, req)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := n.repo.UnscopedNetwork().ConvertToProto(ctx, created)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	return connect.NewResponse(&adminv2.NetworkServiceCreateResponse{Network: converted}), nil
+	return connect.NewResponse(&adminv2.NetworkServiceCreateResponse{Network: nw}), nil
 }
 
 // Delete implements adminv2connect.NetworkServiceHandler.
@@ -73,34 +63,20 @@ func (n *networkServiceServer) Delete(ctx context.Context, rq *connect.Request[a
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := n.repo.UnscopedNetwork().ConvertToProto(ctx, nw)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	return connect.NewResponse(&adminv2.NetworkServiceDeleteResponse{Network: converted}), nil
+	return connect.NewResponse(&adminv2.NetworkServiceDeleteResponse{Network: nw}), nil
 }
 
 // List implements adminv2connect.NetworkServiceHandler.
 func (n *networkServiceServer) List(ctx context.Context, rq *connect.Request[adminv2.NetworkServiceListRequest]) (*connect.Response[adminv2.NetworkServiceListResponse], error) {
 	req := rq.Msg
 
-	resp, err := n.repo.UnscopedNetwork().List(ctx, req.Query)
+	nws, err := n.repo.UnscopedNetwork().List(ctx, req.Query)
 	if err != nil {
 		return nil, err
 	}
 
-	var res []*apiv2.Network
-	for _, nw := range resp {
-		converted, err := n.repo.UnscopedNetwork().ConvertToProto(ctx, nw)
-		if err != nil {
-			return nil, errorutil.Convert(err)
-		}
-		res = append(res, converted)
-	}
-
 	return connect.NewResponse(&adminv2.NetworkServiceListResponse{
-		Networks: res,
+		Networks: nws,
 	}), nil
 }
 
@@ -113,10 +89,5 @@ func (n *networkServiceServer) Update(ctx context.Context, rq *connect.Request[a
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := n.repo.UnscopedNetwork().ConvertToProto(ctx, nw)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	return connect.NewResponse(&adminv2.NetworkServiceUpdateResponse{Network: converted}), nil
+	return connect.NewResponse(&adminv2.NetworkServiceUpdateResponse{Network: nw}), nil
 }

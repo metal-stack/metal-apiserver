@@ -35,12 +35,7 @@ func (s *sizeServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2.S
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := s.repo.Size().ConvertToProto(ctx, size)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	return connect.NewResponse(&apiv2.SizeServiceGetResponse{Size: converted}), nil
+	return connect.NewResponse(&apiv2.SizeServiceGetResponse{Size: size}), nil
 }
 
 // List implements apiv2connect.SizeServiceHandler.
@@ -49,14 +44,6 @@ func (s *sizeServiceServer) List(ctx context.Context, rq *connect.Request[apiv2.
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	var result []*apiv2.Size
-	for _, size := range sizes {
-		converted, err := s.repo.Size().ConvertToProto(ctx, size)
-		if err != nil {
-			return nil, errorutil.Convert(err)
-		}
-		result = append(result, converted)
-	}
 
-	return connect.NewResponse(&apiv2.SizeServiceListResponse{Sizes: result}), nil
+	return connect.NewResponse(&apiv2.SizeServiceListResponse{Sizes: sizes}), nil
 }

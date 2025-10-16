@@ -225,7 +225,7 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 			request: &adminv2.PartitionServiceUpdateRequest{
 				Id: "partition-1",
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(partitionMap["partition-1"].Changed),
+					UpdatedAt: timestamppb.New(partitionMap["partition-1"].Meta.UpdatedAt.AsTime()),
 				},
 				BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
 			want: &adminv2.PartitionServiceUpdateResponse{
@@ -241,7 +241,7 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 			request: &adminv2.PartitionServiceUpdateRequest{
 				Id: "partition-2",
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(partitionMap["partition-2"].Changed),
+					UpdatedAt: timestamppb.New(partitionMap["partition-2"].Meta.UpdatedAt.AsTime()),
 				},
 				BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL + "/changed", KernelUrl: validURL}},
 			want: &adminv2.PartitionServiceUpdateResponse{
@@ -257,7 +257,7 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 			request: &adminv2.PartitionServiceUpdateRequest{
 				Id: "partition-3",
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(partitionMap["partition-3"].Changed),
+					UpdatedAt: timestamppb.New(partitionMap["partition-3"].Meta.UpdatedAt.AsTime()),
 				},
 				Labels:            &apiv2.UpdateLabels{Update: &apiv2.Labels{Labels: map[string]string{"color": "red"}}},
 				BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL + "/changed", KernelUrl: validURL}},

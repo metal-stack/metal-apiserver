@@ -14,7 +14,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/testing/protocmp"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func Test_sizeServiceServer_Create(t *testing.T) {
@@ -210,7 +209,7 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 			rq: &adminv2.SizeServiceUpdateRequest{
 				Id: "n1-medium-x86", Name: pointer.Pointer("n1-medium"), Description: pointer.Pointer("best for firewalls"),
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(sizeMap["n1-medium-x86"].Changed),
+					UpdatedAt: sizeMap["n1-medium-x86"].Meta.UpdatedAt,
 				},
 				Constraints: []*apiv2.SizeConstraint{
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
@@ -236,7 +235,7 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 			rq: &adminv2.SizeServiceUpdateRequest{
 				Id: "n2-medium-x86",
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(sizeMap["n2-medium-x86"].Changed),
+					UpdatedAt: sizeMap["n2-medium-x86"].Meta.UpdatedAt,
 				},
 				Constraints: []*apiv2.SizeConstraint{
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 6, Max: 12},
@@ -262,7 +261,7 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 			rq: &adminv2.SizeServiceUpdateRequest{
 				Id: "n3-medium-x86",
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(sizeMap["n3-medium-x86"].Changed),
+					UpdatedAt: sizeMap["n3-medium-x86"].Meta.UpdatedAt,
 				},
 				Labels: &apiv2.UpdateLabels{
 					Update: &apiv2.Labels{Labels: map[string]string{"purpose": "big worker"}},

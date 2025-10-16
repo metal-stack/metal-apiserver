@@ -35,12 +35,7 @@ func (i *imageServiceServer) Create(ctx context.Context, rq *connect.Request[adm
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := i.repo.Image().ConvertToProto(ctx, image)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	return connect.NewResponse(&adminv2.ImageServiceCreateResponse{Image: converted}), nil
+	return connect.NewResponse(&adminv2.ImageServiceCreateResponse{Image: image}), nil
 }
 
 // Delete implements adminv2connect.ImageServiceHandler.
@@ -50,12 +45,7 @@ func (i *imageServiceServer) Delete(ctx context.Context, rq *connect.Request[adm
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := i.repo.Image().ConvertToProto(ctx, image)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	return connect.NewResponse(&adminv2.ImageServiceDeleteResponse{Image: converted}), nil
+	return connect.NewResponse(&adminv2.ImageServiceDeleteResponse{Image: image}), nil
 }
 
 // Update implements adminv2connect.ImageServiceHandler.
@@ -65,12 +55,7 @@ func (i *imageServiceServer) Update(ctx context.Context, rq *connect.Request[adm
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := i.repo.Image().ConvertToProto(ctx, image)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	return connect.NewResponse(&adminv2.ImageServiceUpdateResponse{Image: converted}), nil
+	return connect.NewResponse(&adminv2.ImageServiceUpdateResponse{Image: image}), nil
 }
 
 // Usage implements adminv2connect.ImageServiceHandler.

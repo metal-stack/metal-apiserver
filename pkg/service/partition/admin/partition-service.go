@@ -30,17 +30,12 @@ func New(c Config) adminv2connect.PartitionServiceHandler {
 
 // Create implements adminv2connect.PartitionServiceHandler.
 func (p *partitionServiceServer) Create(ctx context.Context, rq *connect.Request[adminv2.PartitionServiceCreateRequest]) (*connect.Response[adminv2.PartitionServiceCreateResponse], error) {
-	image, err := p.repo.Partition().Create(ctx, rq.Msg)
+	partition, err := p.repo.Partition().Create(ctx, rq.Msg)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := p.repo.Partition().ConvertToProto(ctx, image)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	return connect.NewResponse(&adminv2.PartitionServiceCreateResponse{Partition: converted}), nil
+	return connect.NewResponse(&adminv2.PartitionServiceCreateResponse{Partition: partition}), nil
 }
 
 // Delete implements adminv2connect.PartitionServiceHandler.
@@ -49,11 +44,8 @@ func (p *partitionServiceServer) Delete(ctx context.Context, rq *connect.Request
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	converted, err := p.repo.Partition().ConvertToProto(ctx, partition)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-	return connect.NewResponse(&adminv2.PartitionServiceDeleteResponse{Partition: converted}), nil
+
+	return connect.NewResponse(&adminv2.PartitionServiceDeleteResponse{Partition: partition}), nil
 }
 
 // Update implements adminv2connect.PartitionServiceHandler.
@@ -62,11 +54,8 @@ func (p *partitionServiceServer) Update(ctx context.Context, rq *connect.Request
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	converted, err := p.repo.Partition().ConvertToProto(ctx, partition)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-	return connect.NewResponse(&adminv2.PartitionServiceUpdateResponse{Partition: converted}), nil
+
+	return connect.NewResponse(&adminv2.PartitionServiceUpdateResponse{Partition: partition}), nil
 }
 
 // Capacity implements adminv2connect.PartitionServiceHandler.

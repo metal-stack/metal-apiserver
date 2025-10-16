@@ -29,18 +29,13 @@ type SwitchServiceCreateRequest struct {
 	Switch *apiv2.Switch
 }
 
-func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServiceRegisterRequest) (*metal.Switch, error) {
-	sw, err := r.s.ds.Switch().Get(ctx, req.Switch.Id)
+func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServiceRegisterRequest) (*apiv2.Switch, error) {
+	sw, err := r.get(ctx, req.Switch.Id)
 	if err != nil && !errorutil.IsNotFound(err) {
 		return nil, err
 	}
 	if errorutil.IsNotFound(err) {
-		rq := &SwitchServiceCreateRequest{Switch: req.Switch}
-		err = r.validateCreate(ctx, rq)
-		if err != nil {
-			return nil, err
-		}
-		return r.create(ctx, rq)
+		return r.s.Switch().Create(ctx, &SwitchServiceCreateRequest{Switch: req.Switch})
 	}
 
 	new := req.Switch
@@ -54,11 +49,15 @@ func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServ
 		if err != nil {
 			return nil, err
 		}
+
 		return r.replace(ctx, old, new)
 	}
 
-	updateReq := &adminv2.SwitchServiceUpdateRequest{
-		Id:             new.Id,
+	return r.s.Switch().Update(ctx, new.Id, &adminv2.SwitchServiceUpdateRequest{
+		Id: new.Id,
+		UpdateMeta: &apiv2.UpdateMeta{
+			LockingStrategy: apiv2.OptimisticLockingStrategy_OPTIMISTIC_LOCKING_STRATEGY_SERVER,
+		},
 		Description:    pointer.PointerOrNil(new.Description),
 		ReplaceMode:    pointer.PointerOrNil(new.ReplaceMode),
 		ManagementIp:   pointer.PointerOrNil(new.ManagementIp),
@@ -66,25 +65,18 @@ func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServ
 		ConsoleCommand: new.ConsoleCommand,
 		Nics:           new.Nics,
 		Os:             new.Os,
-	}
-
-	err = r.validateUpdate(ctx, updateReq, sw)
-	if err != nil {
-		return nil, err
-	}
-
-	return r.update(ctx, sw, updateReq)
+	})
 }
 
-func (r *switchRepository) Migrate(ctx context.Context, oldSwitch, newSwitch string) (*metal.Switch, error) {
+func (r *switchRepository) Migrate(ctx context.Context, oldSwitch, newSwitch string) (*apiv2.Switch, error) {
 	panic("unimplemented")
 }
 
-func (r *switchRepository) Port(ctx context.Context, id, port string, status apiv2.SwitchPortStatus) (*metal.Switch, error) {
+func (r *switchRepository) Port(ctx context.Context, id, port string, status apiv2.SwitchPortStatus) (*apiv2.Switch, error) {
 	panic("unimplemented")
 }
 
-func (r *switchRepository) ConnectMachineWithSwitches(m *metal.Machine) error {
+func (r *switchRepository) ConnectMachineWithSwitches(m *apiv2.Machine) error {
 	panic("unimplemented")
 }
 
@@ -234,7 +226,7 @@ func (r *switchRepository) delete(ctx context.Context, sw *metal.Switch) error {
 	return r.s.ds.Switch().Delete(ctx, sw)
 }
 
-func (r *switchRepository) replace(ctx context.Context, oldSwitch, newSwitch *apiv2.Switch) (*metal.Switch, error) {
+func (r *switchRepository) replace(ctx context.Context, oldSwitch, newSwitch *apiv2.Switch) (*apiv2.Switch, error) {
 	panic("unimplemented")
 }
 
@@ -325,7 +317,12 @@ func (r *switchRepository) convertToProto(ctx context.Context, sw *metal.Switch)
 	}
 
 	return &apiv2.Switch{
-		Id:                 sw.ID,
+		Id: sw.ID,
+		Meta: &apiv2.Meta{
+			CreatedAt:  timestamppb.New(sw.Created),
+			UpdatedAt:  timestamppb.New(sw.Changed),
+			Generation: sw.Generation,
+		},
 		Description:        sw.Description,
 		Rack:               pointer.PointerOrNil(sw.Rack),
 		Partition:          sw.Partition,

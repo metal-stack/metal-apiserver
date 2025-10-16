@@ -70,7 +70,7 @@ func (r *ipRepository) create(ctx context.Context, req *apiv2.IPServiceCreateReq
 	// Ensure no duplicates
 	tags = tag.NewTagMap(tags).Slice()
 
-	nw, err := r.s.UnscopedNetwork().Get(ctx, req.Network) // TODO: maybe it would be useful to be able to pass this through from the validation or use a short-lived cache in the ip repo
+	nw, err := r.s.ds.Network().Get(ctx, req.Network) // TODO: maybe it would be useful to be able to pass this through from the validation or use a short-lived cache in the ip repo
 	if err != nil {
 		return nil, err
 	}

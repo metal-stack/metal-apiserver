@@ -4,28 +4,18 @@ import (
 	"context"
 	"time"
 
-	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 )
 
 type (
-	Repository[R Repo, E Entity, M Message, C CreateMessage, U UpdateMessage, Q Query] interface {
-		Get(ctx context.Context, id string) (E, error)
-
-		Create(ctx context.Context, c C) (E, error)
-
-		Update(ctx context.Context, id string, u U) (E, error)
-
-		Delete(ctx context.Context, id string) (E, error)
-
-		Find(ctx context.Context, query Q) (E, error)
-		List(ctx context.Context, query Q) ([]E, error)
-
-		ConvertToInternal(ctx context.Context, msg M) (E, error)
-		ConvertToProto(ctx context.Context, e E) (M, error)
-
+	Repository[R Repo, M Message, C CreateMessage, U UpdateMessage, Q Query] interface {
+		Get(ctx context.Context, id string) (M, error)
+		Create(ctx context.Context, c C) (M, error)
+		Update(ctx context.Context, id string, u U) (M, error)
+		Delete(ctx context.Context, id string) (M, error)
+		Find(ctx context.Context, query Q) (M, error)
+		List(ctx context.Context, query Q) ([]M, error)
 		AdditionalMethods() R
 	}
 
@@ -77,49 +67,49 @@ type (
 	}
 
 	IP interface {
-		Repository[*ipRepository, *metal.IP, *apiv2.IP, *apiv2.IPServiceCreateRequest, *apiv2.IPServiceUpdateRequest, *apiv2.IPQuery]
+		Repository[*ipRepository, *apiv2.IP, *apiv2.IPServiceCreateRequest, *apiv2.IPServiceUpdateRequest, *apiv2.IPQuery]
 	}
 	Machine interface {
-		Repository[*machineRepository, *metal.Machine, *apiv2.Machine, *apiv2.MachineServiceCreateRequest, *apiv2.MachineServiceUpdateRequest, *apiv2.MachineQuery]
+		Repository[*machineRepository, *apiv2.Machine, *apiv2.MachineServiceCreateRequest, *apiv2.MachineServiceUpdateRequest, *apiv2.MachineQuery]
 	}
 
 	Network interface {
-		Repository[*networkRepository, *metal.Network, *apiv2.Network, *adminv2.NetworkServiceCreateRequest, *adminv2.NetworkServiceUpdateRequest, *apiv2.NetworkQuery]
+		Repository[*networkRepository, *apiv2.Network, *adminv2.NetworkServiceCreateRequest, *adminv2.NetworkServiceUpdateRequest, *apiv2.NetworkQuery]
 	}
 
 	Project interface {
-		Repository[*projectRepository, *projectEntity, *apiv2.Project, *apiv2.ProjectServiceCreateRequest, *apiv2.ProjectServiceUpdateRequest, *apiv2.ProjectServiceListRequest]
+		Repository[*projectRepository, *apiv2.Project, *apiv2.ProjectServiceCreateRequest, *apiv2.ProjectServiceUpdateRequest, *apiv2.ProjectServiceListRequest]
 	}
 
 	ProjectMember interface {
-		Repository[*projectMemberRepository, *projectMemberEntity, *apiv2.ProjectMember, *ProjectMemberCreateRequest, *ProjectMemberUpdateRequest, *ProjectMemberQuery]
+		Repository[*projectMemberRepository, *apiv2.ProjectMember, *ProjectMemberCreateRequest, *ProjectMemberUpdateRequest, *ProjectMemberQuery]
 	}
 
 	Tenant interface {
-		Repository[*tenantRepository, *tenantEntity, *apiv2.Tenant, *apiv2.TenantServiceCreateRequest, *apiv2.TenantServiceUpdateRequest, *apiv2.TenantServiceListRequest]
+		Repository[*tenantRepository, *apiv2.Tenant, *apiv2.TenantServiceCreateRequest, *apiv2.TenantServiceUpdateRequest, *apiv2.TenantServiceListRequest]
 	}
 
 	TenantMember interface {
-		Repository[*tenantMemberRepository, *tenantMemberEntity, *apiv2.TenantMember, *TenantMemberCreateRequest, *TenantMemberUpdateRequest, *TenantMemberQuery]
+		Repository[*tenantMemberRepository, *apiv2.TenantMember, *TenantMemberCreateRequest, *TenantMemberUpdateRequest, *TenantMemberQuery]
 	}
 
 	FilesystemLayout interface {
-		Repository[*filesystemLayoutRepository, *metal.FilesystemLayout, *apiv2.FilesystemLayout, *adminv2.FilesystemServiceCreateRequest, *adminv2.FilesystemServiceUpdateRequest, *apiv2.FilesystemServiceListRequest]
+		Repository[*filesystemLayoutRepository, *apiv2.FilesystemLayout, *adminv2.FilesystemServiceCreateRequest, *adminv2.FilesystemServiceUpdateRequest, *apiv2.FilesystemServiceListRequest]
 	}
 
 	Size interface {
-		Repository[*sizeRepository, *metal.Size, *apiv2.Size, *adminv2.SizeServiceCreateRequest, *adminv2.SizeServiceUpdateRequest, *apiv2.SizeQuery]
+		Repository[*sizeRepository, *apiv2.Size, *adminv2.SizeServiceCreateRequest, *adminv2.SizeServiceUpdateRequest, *apiv2.SizeQuery]
 	}
 
 	Image interface {
-		Repository[*imageRepository, *metal.Image, *apiv2.Image, *adminv2.ImageServiceCreateRequest, *adminv2.ImageServiceUpdateRequest, *apiv2.ImageQuery]
+		Repository[*imageRepository, *apiv2.Image, *adminv2.ImageServiceCreateRequest, *adminv2.ImageServiceUpdateRequest, *apiv2.ImageQuery]
 	}
 
 	Partition interface {
-		Repository[*partitionRepository, *metal.Partition, *apiv2.Partition, *adminv2.PartitionServiceCreateRequest, *adminv2.PartitionServiceUpdateRequest, *apiv2.PartitionQuery]
+		Repository[*partitionRepository, *apiv2.Partition, *adminv2.PartitionServiceCreateRequest, *adminv2.PartitionServiceUpdateRequest, *apiv2.PartitionQuery]
 	}
 
 	Switch interface {
-		Repository[*switchRepository, *metal.Switch, *apiv2.Switch, *SwitchServiceCreateRequest, *adminv2.SwitchServiceUpdateRequest, *apiv2.SwitchQuery]
+		Repository[*switchRepository, *apiv2.Switch, *SwitchServiceCreateRequest, *adminv2.SwitchServiceUpdateRequest, *apiv2.SwitchQuery]
 	}
 )
