@@ -227,8 +227,11 @@ func (o *opa) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 		if o.authenticationQuery == nil {
 			return nil, fmt.Errorf("opa engine not initialized properly, forgot AuthzLoad ?")
 		}
-
-		t, err := o.decide(ctx, req.Spec().Procedure, req.Header().Get, req.Any())
+		callinfo, ok := connect.CallInfoForHandlerContext(ctx)
+		if !ok {
+			return nil, fmt.Errorf("no callinfo in handler context found")
+		}
+		t, err := o.decide(ctx, req.Spec().Procedure, callinfo.RequestHeader().Get, req.Any())
 		if err != nil {
 			return nil, err
 		}
