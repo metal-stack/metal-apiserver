@@ -46,14 +46,13 @@ func New(c Config) TenantService {
 	}
 }
 
-func (u *tenantServiceServer) List(ctx context.Context, rq *apiv2.TenantServiceListRequest) (*apiv2.TenantServiceListResponse, error) {
+func (u *tenantServiceServer) List(ctx context.Context, req *apiv2.TenantServiceListRequest) (*apiv2.TenantServiceListResponse, error) {
 	token, ok := token.TokenFromContext(ctx)
 	if !ok || token == nil {
 		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
 	var (
-		req    = rq
 		result []*apiv2.Tenant
 	)
 
@@ -78,9 +77,8 @@ func (u *tenantServiceServer) List(ctx context.Context, rq *apiv2.TenantServiceL
 	return &apiv2.TenantServiceListResponse{Tenants: result}, nil
 }
 
-func (u *tenantServiceServer) Create(ctx context.Context, rq *apiv2.TenantServiceCreateRequest) (*apiv2.TenantServiceCreateResponse, error) {
+func (u *tenantServiceServer) Create(ctx context.Context, req *apiv2.TenantServiceCreateRequest) (*apiv2.TenantServiceCreateResponse, error) {
 	var (
-		req   = rq
 		t, ok = token.TokenFromContext(ctx)
 	)
 
@@ -122,10 +120,9 @@ func (u *tenantServiceServer) Create(ctx context.Context, rq *apiv2.TenantServic
 	return &apiv2.TenantServiceCreateResponse{Tenant: tenant}, nil
 }
 
-func (u *tenantServiceServer) Get(ctx context.Context, rq *apiv2.TenantServiceGetRequest) (*apiv2.TenantServiceGetResponse, error) {
+func (u *tenantServiceServer) Get(ctx context.Context, req *apiv2.TenantServiceGetRequest) (*apiv2.TenantServiceGetResponse, error) {
 	var (
 		t, ok = token.TokenFromContext(ctx)
-		req   = rq
 	)
 	if !ok || t == nil {
 		return nil, errorutil.Unauthenticated("no token found in request")
@@ -190,9 +187,7 @@ func (u *tenantServiceServer) Get(ctx context.Context, rq *apiv2.TenantServiceGe
 	return &apiv2.TenantServiceGetResponse{Tenant: tenant, TenantMembers: tenantMembers}, nil
 }
 
-func (u *tenantServiceServer) Update(ctx context.Context, rq *apiv2.TenantServiceUpdateRequest) (*apiv2.TenantServiceUpdateResponse, error) {
-	req := rq
-
+func (u *tenantServiceServer) Update(ctx context.Context, req *apiv2.TenantServiceUpdateRequest) (*apiv2.TenantServiceUpdateResponse, error) {
 	tenant, err := u.repo.Tenant().Update(ctx, req.Login, req)
 	if err != nil {
 		return nil, err
@@ -201,11 +196,7 @@ func (u *tenantServiceServer) Update(ctx context.Context, rq *apiv2.TenantServic
 	return &apiv2.TenantServiceUpdateResponse{Tenant: tenant}, nil
 }
 
-func (u *tenantServiceServer) Delete(ctx context.Context, rq *apiv2.TenantServiceDeleteRequest) (*apiv2.TenantServiceDeleteResponse, error) {
-	var (
-		req = rq
-	)
-
+func (u *tenantServiceServer) Delete(ctx context.Context, req *apiv2.TenantServiceDeleteRequest) (*apiv2.TenantServiceDeleteResponse, error) {
 	tenant, err := u.repo.Tenant().Delete(ctx, req.Login)
 	if err != nil {
 		return nil, err
@@ -214,10 +205,9 @@ func (u *tenantServiceServer) Delete(ctx context.Context, rq *apiv2.TenantServic
 	return &apiv2.TenantServiceDeleteResponse{Tenant: tenant}, nil
 }
 
-func (u *tenantServiceServer) Invite(ctx context.Context, rq *apiv2.TenantServiceInviteRequest) (*apiv2.TenantServiceInviteResponse, error) {
+func (u *tenantServiceServer) Invite(ctx context.Context, req *apiv2.TenantServiceInviteRequest) (*apiv2.TenantServiceInviteResponse, error) {
 	var (
 		t, ok = token.TokenFromContext(ctx)
-		req   = rq
 	)
 	if !ok || t == nil {
 		return nil, errorutil.Unauthenticated("no token found in request")
@@ -268,10 +258,9 @@ func (u *tenantServiceServer) Invite(ctx context.Context, rq *apiv2.TenantServic
 	return &apiv2.TenantServiceInviteResponse{Invite: invite}, nil
 }
 
-func (u *tenantServiceServer) InviteAccept(ctx context.Context, rq *apiv2.TenantServiceInviteAcceptRequest) (*apiv2.TenantServiceInviteAcceptResponse, error) {
+func (u *tenantServiceServer) InviteAccept(ctx context.Context, req *apiv2.TenantServiceInviteAcceptRequest) (*apiv2.TenantServiceInviteAcceptResponse, error) {
 	var (
 		t, ok = token.TokenFromContext(ctx)
-		req   = rq
 	)
 
 	if !ok || t == nil {
@@ -322,11 +311,7 @@ func (u *tenantServiceServer) InviteAccept(ctx context.Context, rq *apiv2.Tenant
 	return &apiv2.TenantServiceInviteAcceptResponse{Tenant: inv.TargetTenant, TenantName: inv.TargetTenantName}, nil
 }
 
-func (u *tenantServiceServer) InviteDelete(ctx context.Context, rq *apiv2.TenantServiceInviteDeleteRequest) (*apiv2.TenantServiceInviteDeleteResponse, error) {
-	var (
-		req = rq
-	)
-
+func (u *tenantServiceServer) InviteDelete(ctx context.Context, req *apiv2.TenantServiceInviteDeleteRequest) (*apiv2.TenantServiceInviteDeleteResponse, error) {
 	err := u.inviteStore.DeleteInvite(ctx, &apiv2.TenantInvite{Secret: req.Secret, TargetTenant: req.Login})
 	if err != nil {
 		return nil, errorutil.NewInternal(err)
@@ -337,11 +322,7 @@ func (u *tenantServiceServer) InviteDelete(ctx context.Context, rq *apiv2.Tenant
 	return &apiv2.TenantServiceInviteDeleteResponse{}, nil
 }
 
-func (u *tenantServiceServer) InviteGet(ctx context.Context, rq *apiv2.TenantServiceInviteGetRequest) (*apiv2.TenantServiceInviteGetResponse, error) {
-	var (
-		req = rq
-	)
-
+func (u *tenantServiceServer) InviteGet(ctx context.Context, req *apiv2.TenantServiceInviteGetRequest) (*apiv2.TenantServiceInviteGetResponse, error) {
 	inv, err := u.inviteStore.GetInvite(ctx, req.Secret)
 	if err != nil {
 		if errors.Is(err, invite.ErrInviteNotFound) {
@@ -353,11 +334,7 @@ func (u *tenantServiceServer) InviteGet(ctx context.Context, rq *apiv2.TenantSer
 	return &apiv2.TenantServiceInviteGetResponse{Invite: inv}, nil
 }
 
-func (u *tenantServiceServer) InvitesList(ctx context.Context, rq *apiv2.TenantServiceInvitesListRequest) (*apiv2.TenantServiceInvitesListResponse, error) {
-	var (
-		req = rq
-	)
-
+func (u *tenantServiceServer) InvitesList(ctx context.Context, req *apiv2.TenantServiceInvitesListRequest) (*apiv2.TenantServiceInvitesListResponse, error) {
 	invites, err := u.inviteStore.ListInvites(ctx, req.Login)
 	if err != nil {
 		return nil, errorutil.NewInternal(err)
@@ -366,11 +343,7 @@ func (u *tenantServiceServer) InvitesList(ctx context.Context, rq *apiv2.TenantS
 	return &apiv2.TenantServiceInvitesListResponse{Invites: invites}, nil
 }
 
-func (u *tenantServiceServer) RemoveMember(ctx context.Context, rq *apiv2.TenantServiceRemoveMemberRequest) (*apiv2.TenantServiceRemoveMemberResponse, error) {
-	var (
-		req = rq
-	)
-
+func (u *tenantServiceServer) RemoveMember(ctx context.Context, req *apiv2.TenantServiceRemoveMemberRequest) (*apiv2.TenantServiceRemoveMemberResponse, error) {
 	_, err := u.repo.Tenant().AdditionalMethods().Member(req.Login).Delete(ctx, req.Member)
 	if err != nil {
 		return nil, err
@@ -379,13 +352,9 @@ func (u *tenantServiceServer) RemoveMember(ctx context.Context, rq *apiv2.Tenant
 	return &apiv2.TenantServiceRemoveMemberResponse{}, nil
 }
 
-func (u *tenantServiceServer) UpdateMember(ctx context.Context, rq *apiv2.TenantServiceUpdateMemberRequest) (*apiv2.TenantServiceUpdateMemberResponse, error) {
-	var (
-		req = rq
-	)
-
+func (u *tenantServiceServer) UpdateMember(ctx context.Context, req *apiv2.TenantServiceUpdateMemberRequest) (*apiv2.TenantServiceUpdateMemberResponse, error) {
 	updatedMember, err := u.repo.Tenant().AdditionalMethods().Member(req.Login).Update(ctx, req.Member, &repository.TenantMemberUpdateRequest{
-		Role: rq.Role,
+		Role: req.Role,
 	})
 	if err != nil {
 		return nil, err

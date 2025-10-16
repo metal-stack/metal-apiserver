@@ -33,9 +33,7 @@ func (m *machineServiceServer) Create(context.Context, *apiv2.MachineServiceCrea
 }
 
 // Get implements apiv2connect.MachineServiceHandler.
-func (m *machineServiceServer) Get(ctx context.Context, rq *apiv2.MachineServiceGetRequest) (*apiv2.MachineServiceGetResponse, error) {
-	req := rq
-
+func (m *machineServiceServer) Get(ctx context.Context, req *apiv2.MachineServiceGetRequest) (*apiv2.MachineServiceGetResponse, error) {
 	machine, err := m.repo.Machine(req.Project).Get(ctx, req.Uuid)
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -49,13 +47,14 @@ func (m *machineServiceServer) Get(ctx context.Context, rq *apiv2.MachineService
 // List implements apiv2connect.MachineServiceHandler.
 func (m *machineServiceServer) List(ctx context.Context, rq *apiv2.MachineServiceListRequest) (*apiv2.MachineServiceListResponse, error) {
 	machines, err := m.repo.Machine(rq.Project).List(ctx, rq.Query)
-	return &apiv2.MachineServiceListResponse{Machines: machines}, err
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+	return &apiv2.MachineServiceListResponse{Machines: machines}, nil
 }
 
 // Update implements apiv2connect.MachineServiceHandler.
-func (m *machineServiceServer) Update(ctx context.Context, rq *apiv2.MachineServiceUpdateRequest) (*apiv2.MachineServiceUpdateResponse, error) {
-	req := rq
-
+func (m *machineServiceServer) Update(ctx context.Context, req *apiv2.MachineServiceUpdateRequest) (*apiv2.MachineServiceUpdateResponse, error) {
 	machine, err := m.repo.Machine(req.Project).Update(ctx, req.Uuid, req)
 	if err != nil {
 		return nil, errorutil.Convert(err)

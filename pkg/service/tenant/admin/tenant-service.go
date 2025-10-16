@@ -41,9 +41,7 @@ func New(c Config) TenantService {
 }
 
 // Create implements TenantService.
-func (t *tenantServiceServer) Create(ctx context.Context, rq *adminv2.TenantServiceCreateRequest) (*adminv2.TenantServiceCreateResponse, error) {
-	req := rq
-
+func (t *tenantServiceServer) Create(ctx context.Context, req *adminv2.TenantServiceCreateRequest) (*adminv2.TenantServiceCreateResponse, error) {
 	tenant, err := t.repo.Tenant().Create(ctx, &apiv2.TenantServiceCreateRequest{
 		Name:        req.Name,
 		Description: req.Description,

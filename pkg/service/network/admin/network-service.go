@@ -27,9 +27,7 @@ func New(c Config) adminv2connect.NetworkServiceHandler {
 	}
 }
 
-func (n *networkServiceServer) Get(ctx context.Context, rq *adminv2.NetworkServiceGetRequest) (*adminv2.NetworkServiceGetResponse, error) {
-	req := rq
-
+func (n *networkServiceServer) Get(ctx context.Context, req *adminv2.NetworkServiceGetRequest) (*adminv2.NetworkServiceGetResponse, error) {
 	// Project is already checked in the tenant-interceptor, ipam must not be consulted
 	nw, err := n.repo.UnscopedNetwork().Get(ctx, req.Id)
 	if err != nil {
@@ -42,9 +40,7 @@ func (n *networkServiceServer) Get(ctx context.Context, rq *adminv2.NetworkServi
 }
 
 // Create implements adminv2connect.NetworkServiceHandler.
-func (n *networkServiceServer) Create(ctx context.Context, rq *adminv2.NetworkServiceCreateRequest) (*adminv2.NetworkServiceCreateResponse, error) {
-	req := rq
-
+func (n *networkServiceServer) Create(ctx context.Context, req *adminv2.NetworkServiceCreateRequest) (*adminv2.NetworkServiceCreateResponse, error) {
 	nw, err := n.repo.UnscopedNetwork().Create(ctx, req)
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -54,9 +50,7 @@ func (n *networkServiceServer) Create(ctx context.Context, rq *adminv2.NetworkSe
 }
 
 // Delete implements adminv2connect.NetworkServiceHandler.
-func (n *networkServiceServer) Delete(ctx context.Context, rq *adminv2.NetworkServiceDeleteRequest) (*adminv2.NetworkServiceDeleteResponse, error) {
-	req := rq
-
+func (n *networkServiceServer) Delete(ctx context.Context, req *adminv2.NetworkServiceDeleteRequest) (*adminv2.NetworkServiceDeleteResponse, error) {
 	nw, err := n.repo.UnscopedNetwork().Delete(ctx, req.Id)
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -66,9 +60,7 @@ func (n *networkServiceServer) Delete(ctx context.Context, rq *adminv2.NetworkSe
 }
 
 // List implements adminv2connect.NetworkServiceHandler.
-func (n *networkServiceServer) List(ctx context.Context, rq *adminv2.NetworkServiceListRequest) (*adminv2.NetworkServiceListResponse, error) {
-	req := rq
-
+func (n *networkServiceServer) List(ctx context.Context, req *adminv2.NetworkServiceListRequest) (*adminv2.NetworkServiceListResponse, error) {
 	nws, err := n.repo.UnscopedNetwork().List(ctx, req.Query)
 	if err != nil {
 		return nil, err
@@ -80,9 +72,7 @@ func (n *networkServiceServer) List(ctx context.Context, rq *adminv2.NetworkServ
 }
 
 // Update implements adminv2connect.NetworkServiceHandler.
-func (n *networkServiceServer) Update(ctx context.Context, rq *adminv2.NetworkServiceUpdateRequest) (*adminv2.NetworkServiceUpdateResponse, error) {
-	req := rq
-
+func (n *networkServiceServer) Update(ctx context.Context, req *adminv2.NetworkServiceUpdateRequest) (*adminv2.NetworkServiceUpdateResponse, error) {
 	nw, err := n.repo.UnscopedNetwork().Update(ctx, req.Id, req)
 	if err != nil {
 		return nil, errorutil.Convert(err)

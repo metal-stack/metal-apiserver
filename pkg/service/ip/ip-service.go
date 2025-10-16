@@ -44,9 +44,7 @@ func (i *ipServiceServer) Get(ctx context.Context, req *apiv2.IPServiceGetReques
 }
 
 // List implements v1.IPServiceServer
-func (i *ipServiceServer) List(ctx context.Context, rq *apiv2.IPServiceListRequest) (*apiv2.IPServiceListResponse, error) {
-	req := rq
-
+func (i *ipServiceServer) List(ctx context.Context, req *apiv2.IPServiceListRequest) (*apiv2.IPServiceListResponse, error) {
 	ips, err := i.repo.IP(req.Project).List(ctx, req.Query)
 	if err != nil {
 		return nil, err
@@ -58,9 +56,7 @@ func (i *ipServiceServer) List(ctx context.Context, rq *apiv2.IPServiceListReque
 }
 
 // Delete implements v1.IPServiceServer
-func (i *ipServiceServer) Delete(ctx context.Context, rq *apiv2.IPServiceDeleteRequest) (*apiv2.IPServiceDeleteResponse, error) {
-	req := rq
-
+func (i *ipServiceServer) Delete(ctx context.Context, req *apiv2.IPServiceDeleteRequest) (*apiv2.IPServiceDeleteResponse, error) {
 	ip, err := i.repo.IP(req.Project).Delete(ctx, req.Ip)
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -69,9 +65,7 @@ func (i *ipServiceServer) Delete(ctx context.Context, rq *apiv2.IPServiceDeleteR
 	return &apiv2.IPServiceDeleteResponse{Ip: ip}, nil
 }
 
-func (i *ipServiceServer) Create(ctx context.Context, rq *apiv2.IPServiceCreateRequest) (*apiv2.IPServiceCreateResponse, error) {
-	req := rq
-
+func (i *ipServiceServer) Create(ctx context.Context, req *apiv2.IPServiceCreateRequest) (*apiv2.IPServiceCreateResponse, error) {
 	ip, err := i.repo.IP(req.Project).Create(ctx, req)
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -81,10 +75,8 @@ func (i *ipServiceServer) Create(ctx context.Context, rq *apiv2.IPServiceCreateR
 }
 
 // Static implements v1.IPServiceServer
-func (i *ipServiceServer) Update(ctx context.Context, rq *apiv2.IPServiceUpdateRequest) (*apiv2.IPServiceUpdateResponse, error) {
-	req := rq
-
-	ip, err := i.repo.IP(req.Project).Update(ctx, req.Ip, rq)
+func (i *ipServiceServer) Update(ctx context.Context, req *apiv2.IPServiceUpdateRequest) (*apiv2.IPServiceUpdateResponse, error) {
+	ip, err := i.repo.IP(req.Project).Update(ctx, req.Ip, req)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

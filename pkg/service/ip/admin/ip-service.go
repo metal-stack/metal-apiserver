@@ -26,9 +26,7 @@ func New(c Config) adminv2connect.IPServiceHandler {
 	}
 }
 
-func (i *ipServiceServer) List(ctx context.Context, rq *adminv2.IPServiceListRequest) (*adminv2.IPServiceListResponse, error) {
-	req := rq
-
+func (i *ipServiceServer) List(ctx context.Context, req *adminv2.IPServiceListRequest) (*adminv2.IPServiceListResponse, error) {
 	ips, err := i.repo.UnscopedIP().List(ctx, req.Query)
 	if err != nil {
 		return nil, err
