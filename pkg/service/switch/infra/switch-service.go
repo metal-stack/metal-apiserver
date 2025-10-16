@@ -38,12 +38,7 @@ func (s *switchServiceServer) Register(ctx context.Context, rq *infrav2.SwitchSe
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := s.repo.Switch().ConvertToProto(ctx, sw)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	return &infrav2.SwitchServiceRegisterResponse{Switch: converted}, nil
+	return &infrav2.SwitchServiceRegisterResponse{Switch: sw}, nil
 }
 
 func (s *switchServiceServer) Heartbeat(ctx context.Context, rq *infrav2.SwitchServiceHeartbeatRequest) (*infrav2.SwitchServiceHeartbeatResponse, error) {

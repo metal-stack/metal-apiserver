@@ -564,7 +564,7 @@ func (r *networkRepository) allocateChildPrefixes(ctx context.Context, projectId
 
 	if parentNetworkId != nil {
 		r.s.log.Info("get network", "parent", *parentNetworkId)
-		p, err := r.s.UnscopedNetwork().Get(ctx, *parentNetworkId)
+		p, err := r.s.ds.Network().Get(ctx, *parentNetworkId)
 		if err != nil {
 			return nil, nil, errorutil.InvalidArgument("unable to find a super network with id:%s %w", *parentNetworkId, err)
 		}
@@ -581,10 +581,10 @@ func (r *networkRepository) allocateChildPrefixes(ctx context.Context, projectId
 		}
 		parent = p
 	} else {
-		p, err := r.s.UnscopedNetwork().Find(ctx, &apiv2.NetworkQuery{
+		p, err := r.s.ds.Network().Find(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{
 			Partition: partitionId,
 			Type:      apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
-		})
+		}))
 		if err != nil {
 			return nil, nil, errorutil.InvalidArgument("unable to find a private super in partition:%s %w", *partitionId, err)
 		}

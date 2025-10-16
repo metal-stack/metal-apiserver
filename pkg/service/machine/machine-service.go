@@ -36,54 +36,32 @@ func (m *machineServiceServer) Create(context.Context, *apiv2.MachineServiceCrea
 func (m *machineServiceServer) Get(ctx context.Context, rq *apiv2.MachineServiceGetRequest) (*apiv2.MachineServiceGetResponse, error) {
 	req := rq
 
-	resp, err := m.repo.Machine(req.Project).Get(ctx, req.Uuid)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-	converted, err := m.repo.Machine(req.Project).ConvertToProto(ctx, resp)
+	machine, err := m.repo.Machine(req.Project).Get(ctx, req.Uuid)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
 	return &apiv2.MachineServiceGetResponse{
-		Machine: converted,
+		Machine: machine,
 	}, nil
 }
 
 // List implements apiv2connect.MachineServiceHandler.
 func (m *machineServiceServer) List(ctx context.Context, rq *apiv2.MachineServiceListRequest) (*apiv2.MachineServiceListResponse, error) {
 	machines, err := m.repo.Machine(rq.Project).List(ctx, rq.Query)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-	var result []*apiv2.Machine
-
-	for _, machine := range machines {
-		converted, err := m.repo.UnscopedMachine().ConvertToProto(ctx, machine)
-		if err != nil {
-			return nil, errorutil.Convert(err)
-		}
-		result = append(result, converted)
-	}
-
-	return &apiv2.MachineServiceListResponse{Machines: result}, nil
+	return &apiv2.MachineServiceListResponse{Machines: machines}, err
 }
 
 // Update implements apiv2connect.MachineServiceHandler.
 func (m *machineServiceServer) Update(ctx context.Context, rq *apiv2.MachineServiceUpdateRequest) (*apiv2.MachineServiceUpdateResponse, error) {
 	req := rq
 
-	ms, err := m.repo.Machine(req.Project).Update(ctx, req.Uuid, req)
+	machine, err := m.repo.Machine(req.Project).Update(ctx, req.Uuid, req)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := m.repo.UnscopedMachine().ConvertToProto(ctx, ms)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	return &apiv2.MachineServiceUpdateResponse{Machine: converted}, nil
+	return &apiv2.MachineServiceUpdateResponse{Machine: machine}, nil
 }
 
 // Delete implements apiv2connect.MachineServiceHandler.

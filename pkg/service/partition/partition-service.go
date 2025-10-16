@@ -33,11 +33,7 @@ func (p *partitionServiceServer) Get(ctx context.Context, rq *apiv2.PartitionSer
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	converted, err := p.repo.Partition().ConvertToProto(ctx, partition)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-	return &apiv2.PartitionServiceGetResponse{Partition: converted}, nil
+	return &apiv2.PartitionServiceGetResponse{Partition: partition}, nil
 }
 
 // List implements apiv2connect.PartitionServiceHandler.
@@ -46,16 +42,5 @@ func (p *partitionServiceServer) List(ctx context.Context, rq *apiv2.PartitionSe
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	var result []*apiv2.Partition
-
-	for _, partition := range partitions {
-		converted, err := p.repo.Partition().ConvertToProto(ctx, partition)
-		if err != nil {
-			return nil, errorutil.Convert(err)
-		}
-		result = append(result, converted)
-	}
-
-	return &apiv2.PartitionServiceListResponse{Partitions: result}, nil
-
+	return &apiv2.PartitionServiceListResponse{Partitions: partitions}, nil
 }

@@ -90,6 +90,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 			want: &infrav2.SwitchServiceRegisterResponse{
 				Switch: &apiv2.Switch{
 					Id:           "sw2",
+					Meta:         &apiv2.Meta{Generation: 0},
 					Rack:         nil,
 					Partition:    "partition-b",
 					ManagementIp: "1.1.1.1",
@@ -121,6 +122,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 				Switch: &apiv2.Switch{
 					Id:             "sw1",
 					Description:    "new description",
+					Meta:           &apiv2.Meta{Generation: 1},
 					Rack:           pointer.Pointer("rack01"),
 					Partition:      "partition-a",
 					ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,

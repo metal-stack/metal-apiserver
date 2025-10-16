@@ -33,11 +33,7 @@ func (i *imageServiceServer) Get(ctx context.Context, rq *apiv2.ImageServiceGetR
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	converted, err := i.repo.Image().ConvertToProto(ctx, image)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-	return &apiv2.ImageServiceGetResponse{Image: converted}, nil
+	return &apiv2.ImageServiceGetResponse{Image: image}, nil
 }
 
 // List implements apiv2connect.ImageServiceHandler.
@@ -46,18 +42,8 @@ func (i *imageServiceServer) List(ctx context.Context, rq *apiv2.ImageServiceLis
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	var result []*apiv2.Image
 
-	sortedImages := i.repo.Image().AdditionalMethods().SortImages(images)
-	for _, image := range sortedImages {
-		converted, err := i.repo.Image().ConvertToProto(ctx, image)
-		if err != nil {
-			return nil, errorutil.Convert(err)
-		}
-		result = append(result, converted)
-	}
-
-	return &apiv2.ImageServiceListResponse{Images: result}, nil
+	return &apiv2.ImageServiceListResponse{Images: images}, nil
 }
 
 // Fixme, call if Get was called with "Latest:true"
@@ -67,14 +53,10 @@ func (i *imageServiceServer) Latest(ctx context.Context, rq *apiv2.ImageServiceL
 		return nil, errorutil.Convert(err)
 	}
 
-	latest, err := i.repo.Image().AdditionalMethods().GetMostRecentImageFor(rq.Os, images)
+	latest, err := i.repo.Image().AdditionalMethods().GetMostRecentImageFor(ctx, rq.Os, images)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := i.repo.Image().ConvertToProto(ctx, latest)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-	return &apiv2.ImageServiceLatestResponse{Image: converted}, nil
+	return &apiv2.ImageServiceLatestResponse{Image: latest}, nil
 }

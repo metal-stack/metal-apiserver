@@ -28,27 +28,18 @@ func New(c Config) apiv2connect.IPServiceHandler {
 	}
 }
 
-func (i *ipServiceServer) Get(ctx context.Context, rq *apiv2.IPServiceGetRequest) (*apiv2.IPServiceGetResponse, error) {
-	req := rq
-
+func (i *ipServiceServer) Get(ctx context.Context, req *apiv2.IPServiceGetRequest) (*apiv2.IPServiceGetResponse, error) {
 	var (
-		metalIP *metal.IP
-		err     error
+		namespacedIP = metal.CreateNamespacedIPAddress(req.Namespace, req.Ip)
 	)
 
-	ip := metal.CreateNamespacedIPAddress(req.Namespace, req.Ip)
-	metalIP, err = i.repo.IP(req.Project).Get(ctx, ip)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	converted, err := i.repo.IP(req.Project).ConvertToProto(ctx, metalIP)
+	ip, err := i.repo.IP(req.Project).Get(ctx, namespacedIP)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
 	return &apiv2.IPServiceGetResponse{
-		Ip: converted,
+		Ip: ip,
 	}, nil
 }
 
@@ -56,22 +47,13 @@ func (i *ipServiceServer) Get(ctx context.Context, rq *apiv2.IPServiceGetRequest
 func (i *ipServiceServer) List(ctx context.Context, rq *apiv2.IPServiceListRequest) (*apiv2.IPServiceListResponse, error) {
 	req := rq
 
-	resp, err := i.repo.IP(req.Project).List(ctx, req.Query)
+	ips, err := i.repo.IP(req.Project).List(ctx, req.Query)
 	if err != nil {
 		return nil, err
 	}
 
-	var res []*apiv2.IP
-	for _, ip := range resp {
-		converted, err := i.repo.IP(req.Project).ConvertToProto(ctx, ip)
-		if err != nil {
-			return nil, errorutil.Convert(err)
-		}
-		res = append(res, converted)
-	}
-
 	return &apiv2.IPServiceListResponse{
-		Ips: res,
+		Ips: ips,
 	}, nil
 }
 
@@ -84,28 +66,18 @@ func (i *ipServiceServer) Delete(ctx context.Context, rq *apiv2.IPServiceDeleteR
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := i.repo.IP(req.Project).ConvertToProto(ctx, ip)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	return &apiv2.IPServiceDeleteResponse{Ip: converted}, nil
+	return &apiv2.IPServiceDeleteResponse{Ip: ip}, nil
 }
 
 func (i *ipServiceServer) Create(ctx context.Context, rq *apiv2.IPServiceCreateRequest) (*apiv2.IPServiceCreateResponse, error) {
 	req := rq
 
-	created, err := i.repo.IP(req.Project).Create(ctx, req)
+	ip, err := i.repo.IP(req.Project).Create(ctx, req)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := i.repo.IP(req.Project).ConvertToProto(ctx, created)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	return &apiv2.IPServiceCreateResponse{Ip: converted}, nil
+	return &apiv2.IPServiceCreateResponse{Ip: ip}, nil
 }
 
 // Static implements v1.IPServiceServer
@@ -117,10 +89,5 @@ func (i *ipServiceServer) Update(ctx context.Context, rq *apiv2.IPServiceUpdateR
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := i.repo.IP(req.Project).ConvertToProto(ctx, ip)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	return &apiv2.IPServiceUpdateResponse{Ip: converted}, nil
+	return &apiv2.IPServiceUpdateResponse{Ip: ip}, nil
 }

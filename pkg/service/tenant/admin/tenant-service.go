@@ -44,7 +44,7 @@ func New(c Config) TenantService {
 func (t *tenantServiceServer) Create(ctx context.Context, rq *adminv2.TenantServiceCreateRequest) (*adminv2.TenantServiceCreateResponse, error) {
 	req := rq
 
-	created, err := t.repo.Tenant().Create(ctx, &apiv2.TenantServiceCreateRequest{
+	tenant, err := t.repo.Tenant().Create(ctx, &apiv2.TenantServiceCreateRequest{
 		Name:        req.Name,
 		Description: req.Description,
 		Email:       req.Email,
@@ -54,12 +54,7 @@ func (t *tenantServiceServer) Create(ctx context.Context, rq *adminv2.TenantServ
 		return nil, err
 	}
 
-	converted, err := t.repo.Tenant().ConvertToProto(ctx, created)
-	if err != nil {
-		return nil, err
-	}
-
-	return &adminv2.TenantServiceCreateResponse{Tenant: converted}, nil
+	return &adminv2.TenantServiceCreateResponse{Tenant: tenant}, nil
 }
 
 // List implements TenantService.

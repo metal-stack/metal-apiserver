@@ -34,12 +34,7 @@ func (f *filesystemServiceServer) Create(ctx context.Context, rq *adminv2.Filesy
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := f.repo.FilesystemLayout().ConvertToProto(ctx, fsl)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	return &adminv2.FilesystemServiceCreateResponse{FilesystemLayout: converted}, nil
+	return &adminv2.FilesystemServiceCreateResponse{FilesystemLayout: fsl}, nil
 }
 
 // Delete implements adminv2connect.FilesystemServiceHandler.
@@ -49,12 +44,7 @@ func (f *filesystemServiceServer) Delete(ctx context.Context, rq *adminv2.Filesy
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := f.repo.FilesystemLayout().ConvertToProto(ctx, fsl)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	return &adminv2.FilesystemServiceDeleteResponse{FilesystemLayout: converted}, nil
+	return &adminv2.FilesystemServiceDeleteResponse{FilesystemLayout: fsl}, nil
 }
 
 // Update implements adminv2connect.FilesystemServiceHandler.
@@ -64,10 +54,5 @@ func (f *filesystemServiceServer) Update(ctx context.Context, rq *adminv2.Filesy
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := f.repo.FilesystemLayout().ConvertToProto(ctx, fsl)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	return &adminv2.FilesystemServiceUpdateResponse{FilesystemLayout: converted}, nil
+	return &adminv2.FilesystemServiceUpdateResponse{FilesystemLayout: fsl}, nil
 }

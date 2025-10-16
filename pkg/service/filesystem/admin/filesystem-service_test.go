@@ -12,7 +12,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/testing/protocmp"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func Test_filesystemServiceServer_Create(t *testing.T) {
@@ -150,7 +149,7 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 			rq: &adminv2.FilesystemServiceUpdateRequest{
 				Id: "default",
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(fslMap["default"].Changed),
+					UpdatedAt: fslMap["default"].Meta.UpdatedAt,
 				},
 				Name:        pointer.Pointer("Default FSL"),
 				Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: pointer.Pointer("/"), Label: pointer.Pointer("root")}},

@@ -32,17 +32,13 @@ func New(c Config) adminv2connect.MachineServiceHandler {
 func (m *machineServiceServer) Get(ctx context.Context, rq *adminv2.MachineServiceGetRequest) (*adminv2.MachineServiceGetResponse, error) {
 	req := rq
 
-	resp, err := m.repo.UnscopedMachine().Get(ctx, req.Uuid)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-	converted, err := m.repo.UnscopedMachine().ConvertToProto(ctx, resp)
+	machine, err := m.repo.UnscopedMachine().Get(ctx, req.Uuid)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
 	return &adminv2.MachineServiceGetResponse{
-		Machine: converted,
+		Machine: machine,
 	}, nil
 }
 
@@ -59,7 +55,7 @@ func (m *machineServiceServer) List(ctx context.Context, rq *adminv2.MachineServ
 			return nil, errorutil.InvalidArgument("no partition specified, but %d partitions available", len(partitions))
 		}
 		if len(partitions) == 1 {
-			partition = &partitions[0].ID
+			partition = &partitions[0].Id
 		}
 	}
 
@@ -70,15 +66,6 @@ func (m *machineServiceServer) List(ctx context.Context, rq *adminv2.MachineServ
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	var result []*apiv2.Machine
 
-	for _, machine := range machines {
-		converted, err := m.repo.UnscopedMachine().ConvertToProto(ctx, machine)
-		if err != nil {
-			return nil, errorutil.Convert(err)
-		}
-		result = append(result, converted)
-	}
-
-	return &adminv2.MachineServiceListResponse{Machines: result}, nil
+	return &adminv2.MachineServiceListResponse{Machines: machines}, nil
 }

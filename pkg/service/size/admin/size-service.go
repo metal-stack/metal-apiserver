@@ -34,12 +34,7 @@ func (s *sizeServiceServer) Create(ctx context.Context, rq *adminv2.SizeServiceC
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := s.repo.Size().ConvertToProto(ctx, size)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	return &adminv2.SizeServiceCreateResponse{Size: converted}, nil
+	return &adminv2.SizeServiceCreateResponse{Size: size}, nil
 }
 
 // Update implements adminv2connect.SizeServiceHandler.
@@ -49,12 +44,7 @@ func (s *sizeServiceServer) Update(ctx context.Context, rq *adminv2.SizeServiceU
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := s.repo.Size().ConvertToProto(ctx, size)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	return &adminv2.SizeServiceUpdateResponse{Size: converted}, nil
+	return &adminv2.SizeServiceUpdateResponse{Size: size}, nil
 }
 
 // Delete implements adminv2connect.SizeServiceHandler.
@@ -63,9 +53,5 @@ func (s *sizeServiceServer) Delete(ctx context.Context, rq *adminv2.SizeServiceD
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	converted, err := s.repo.Size().ConvertToProto(ctx, size)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-	return &adminv2.SizeServiceDeleteResponse{Size: converted}, nil
+	return &adminv2.SizeServiceDeleteResponse{Size: size}, nil
 }

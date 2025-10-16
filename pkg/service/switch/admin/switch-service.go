@@ -36,12 +36,7 @@ func (s *switchServiceServer) Get(ctx context.Context, rq *adminv2.SwitchService
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := s.repo.Switch().ConvertToProto(ctx, sw)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	return &adminv2.SwitchServiceGetResponse{Switch: converted}, nil
+	return &adminv2.SwitchServiceGetResponse{Switch: sw}, nil
 }
 
 func (s *switchServiceServer) List(ctx context.Context, rq *adminv2.SwitchServiceListRequest) (*adminv2.SwitchServiceListResponse, error) {
@@ -50,20 +45,11 @@ func (s *switchServiceServer) List(ctx context.Context, rq *adminv2.SwitchServic
 		return nil, errorutil.Convert(err)
 	}
 
-	var res []*apiv2.Switch
-	for _, sw := range switches {
-		converted, err := s.repo.Switch().ConvertToProto(ctx, sw)
-		if err != nil {
-			return nil, errorutil.Convert(err)
-		}
-		res = append(res, converted)
-	}
-
-	slices.SortFunc(res, func(s1, s2 *apiv2.Switch) int {
+	slices.SortFunc(switches, func(s1, s2 *apiv2.Switch) int {
 		return strings.Compare(s1.Id, s2.Id)
 	})
 
-	return &adminv2.SwitchServiceListResponse{Switches: res}, nil
+	return &adminv2.SwitchServiceListResponse{Switches: switches}, nil
 }
 
 func (s *switchServiceServer) Update(ctx context.Context, rq *adminv2.SwitchServiceUpdateRequest) (*adminv2.SwitchServiceUpdateResponse, error) {
@@ -72,12 +58,7 @@ func (s *switchServiceServer) Update(ctx context.Context, rq *adminv2.SwitchServ
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := s.repo.Switch().ConvertToProto(ctx, sw)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	return &adminv2.SwitchServiceUpdateResponse{Switch: converted}, nil
+	return &adminv2.SwitchServiceUpdateResponse{Switch: sw}, nil
 }
 
 func (s *switchServiceServer) Delete(ctx context.Context, rq *adminv2.SwitchServiceDeleteRequest) (*adminv2.SwitchServiceDeleteResponse, error) {
@@ -86,12 +67,7 @@ func (s *switchServiceServer) Delete(ctx context.Context, rq *adminv2.SwitchServ
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := s.repo.Switch().ConvertToProto(ctx, sw)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	return &adminv2.SwitchServiceDeleteResponse{Switch: converted}, nil
+	return &adminv2.SwitchServiceDeleteResponse{Switch: sw}, nil
 }
 
 func (s *switchServiceServer) Migrate(ctx context.Context, rq *adminv2.SwitchServiceMigrateRequest) (*adminv2.SwitchServiceMigrateResponse, error) {
@@ -100,12 +76,7 @@ func (s *switchServiceServer) Migrate(ctx context.Context, rq *adminv2.SwitchSer
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := s.repo.Switch().ConvertToProto(ctx, sw)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	return &adminv2.SwitchServiceMigrateResponse{Switch: converted}, nil
+	return &adminv2.SwitchServiceMigrateResponse{Switch: sw}, nil
 }
 
 func (s *switchServiceServer) Port(ctx context.Context, rq *adminv2.SwitchServicePortRequest) (*adminv2.SwitchServicePortResponse, error) {
@@ -114,10 +85,5 @@ func (s *switchServiceServer) Port(ctx context.Context, rq *adminv2.SwitchServic
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := s.repo.Switch().ConvertToProto(ctx, sw)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	return &adminv2.SwitchServicePortResponse{Switch: converted}, nil
+	return &adminv2.SwitchServicePortResponse{Switch: sw}, nil
 }

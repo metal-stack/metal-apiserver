@@ -7,7 +7,6 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
-	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
@@ -46,17 +45,12 @@ func (n *networkServiceServer) Create(ctx context.Context, rq *apiv2.NetworkServ
 		Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD, // Non Admins can only create Child Networks
 	}
 
-	created, err := n.repo.Network(r.Project).Create(ctx, req)
+	nw, err := n.repo.Network(r.Project).Create(ctx, req)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := n.repo.Network(r.Project).ConvertToProto(ctx, created)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	return &apiv2.NetworkServiceCreateResponse{Network: converted}, nil
+	return &apiv2.NetworkServiceCreateResponse{Network: nw}, nil
 }
 
 // Delete implements apiv2connect.NetworkServiceHandler.
@@ -67,12 +61,8 @@ func (n *networkServiceServer) Delete(ctx context.Context, rq *apiv2.NetworkServ
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	converted, err := n.repo.Network(req.Project).ConvertToProto(ctx, nw)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
 
-	return &apiv2.NetworkServiceDeleteResponse{Network: converted}, nil
+	return &apiv2.NetworkServiceDeleteResponse{Network: nw}, nil
 }
 
 // Get implements apiv2connect.NetworkServiceHandler.
@@ -80,40 +70,24 @@ func (n *networkServiceServer) Get(ctx context.Context, rq *apiv2.NetworkService
 	req := rq
 
 	// Project is already checked in the tenant-interceptor, ipam must not be consulted
-	resp, err := n.repo.Network(req.Project).Get(ctx, req.Id)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-	converted, err := n.repo.Network(req.Project).ConvertToProto(ctx, resp)
+	nw, err := n.repo.Network(req.Project).Get(ctx, req.Id)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
 	return &apiv2.NetworkServiceGetResponse{
-		Network: converted,
+		Network: nw,
 	}, nil
 }
 
 // List implements apiv2connect.NetworkServiceHandler.
-func (n *networkServiceServer) List(ctx context.Context, rq *apiv2.NetworkServiceListRequest) (*apiv2.NetworkServiceListResponse, error) {
-
-	req := rq
-	resp, err := n.repo.Network(req.Project).List(ctx, req.Query)
+func (n *networkServiceServer) List(ctx context.Context, req *apiv2.NetworkServiceListRequest) (*apiv2.NetworkServiceListResponse, error) {
+	nw, err := n.repo.Network(req.Project).List(ctx, req.Query)
 	if err != nil {
 		return nil, err
 	}
-
-	var res []*apiv2.Network
-	for _, nw := range resp {
-		converted, err := n.repo.Network(req.Project).ConvertToProto(ctx, nw)
-		if err != nil {
-			return nil, errorutil.Convert(err)
-		}
-		res = append(res, converted)
-	}
-
 	return &apiv2.NetworkServiceListResponse{
-		Networks: res,
+		Networks: nw,
 	}, nil
 }
 
@@ -121,7 +95,7 @@ func (n *networkServiceServer) List(ctx context.Context, rq *apiv2.NetworkServic
 func (n *networkServiceServer) ListBaseNetworks(ctx context.Context, rq *apiv2.NetworkServiceListBaseNetworksRequest) (*apiv2.NetworkServiceListBaseNetworksResponse, error) {
 	req := rq
 
-	var networks []*metal.Network
+	var networks []*apiv2.Network
 
 	if req.Project != "" {
 		projectNetworks, err := n.repo.Network(req.Project).List(ctx, req.Query)
@@ -146,19 +120,14 @@ func (n *networkServiceServer) ListBaseNetworks(ctx context.Context, rq *apiv2.N
 	var res []*apiv2.Network
 	for _, nw := range networks {
 		// TODO convert to a equivalent reql query
-		switch pointer.SafeDeref(nw.NetworkType) {
-		case metal.NetworkTypeChildShared, metal.NetworkTypeExternal, metal.NetworkTypeSuper, metal.NetworkTypeSuperNamespaced:
-			converted, err := n.repo.UnscopedNetwork().ConvertToProto(ctx, nw)
-			if err != nil {
-				return nil, errorutil.Convert(err)
-			}
-
+		switch pointer.SafeDeref(nw.Type) {
+		case apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED, apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, apiv2.NetworkType_NETWORK_TYPE_SUPER, apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED:
 			// users should not see usage of global networks, only admins
-			if nw.ProjectID == "" {
-				converted.Consumption = nil
+			if pointer.SafeDeref(nw.Project) == "" {
+				nw.Consumption = nil
 			}
 
-			res = append(res, converted)
+			res = append(res, nw)
 		}
 	}
 
@@ -184,10 +153,6 @@ func (n *networkServiceServer) Update(ctx context.Context, rq *apiv2.NetworkServ
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	converted, err := n.repo.Network(req.Project).ConvertToProto(ctx, nw)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
 
-	return &apiv2.NetworkServiceUpdateResponse{Network: converted}, nil
+	return &apiv2.NetworkServiceUpdateResponse{Network: nw}, nil
 }

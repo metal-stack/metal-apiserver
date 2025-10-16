@@ -348,15 +348,13 @@ func (a *auth) ensureTenant(ctx context.Context, u *providerUser) error {
 		tenant = created
 	}
 
-	if tenant.Meta.Annotations[repository.TenantTagAvatarURL] != u.avatarUrl {
-		tenant.Meta.Annotations[repository.TenantTagAvatarURL] = u.avatarUrl
-
-		_, err := a.repo.Tenant().Update(ctx, tenant.Meta.Id, &apiv2.TenantServiceUpdateRequest{
+	if tenant.AvatarUrl != u.avatarUrl {
+		_, err := a.repo.Tenant().Update(ctx, tenant.Login, &apiv2.TenantServiceUpdateRequest{
 			Login:     u.login,
 			AvatarUrl: &u.avatarUrl,
 		})
 		if err != nil {
-			return fmt.Errorf("unable to update tenant:%s %w", u.login, err)
+			return fmt.Errorf("unable to update tenant %s: %w", u.login, err)
 		}
 	}
 
