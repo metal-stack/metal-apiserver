@@ -318,7 +318,7 @@ func createIpamClient(cli *cli.Context, log *slog.Logger) (ipamv1connect.IpamSer
 		if err != nil {
 			return err
 		}
-		log.Info("connected to ipam service", "version", version.Msg)
+		log.Info("connected to ipam service", "version", version)
 		return nil
 	})
 

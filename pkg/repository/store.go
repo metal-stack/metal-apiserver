@@ -184,7 +184,7 @@ func (s *Store) ProvisioningEvent() ProvisioningEvent {
 		s: s,
 	}
 
-	return &store[*provisioningEventRepository, *metal.ProvisioningEventContainer, *metal.ProvisioningEventContainer, *infrav2.EventServiceSendRequest, *EventServiceSendRequest, *ProvisioningEventQuery]{
+	return &store[*provisioningEventRepository, *metal.ProvisioningEventContainer, *apiv2.MachineProvisioningEvent, *infrav2.EventServiceSendRequest, *EventServiceSendRequest, *ProvisioningEventQuery]{
 		repository: repository,
 		typed:      repository,
 	}
@@ -201,27 +201,29 @@ func (s *Store) Switch() Switch {
 	}
 }
 
-func (s *store[R, E, M, C, U, Q]) ConvertToInternal(ctx context.Context, msg M) (E, error) {
-	return s.convertToInternal(ctx, msg)
-}
-
-func (s *store[R, E, M, C, U, Q]) ConvertToProto(ctx context.Context, e E) (M, error) {
-	return s.convertToProto(ctx, e)
-}
-
-func (s *store[R, E, M, C, U, Q]) Create(ctx context.Context, c C) (E, error) {
-	var zero E
+func (s *store[R, E, M, C, U, Q]) Create(ctx context.Context, c C) (M, error) {
+	var zero M
 
 	err := s.validateCreate(ctx, c)
 	if err != nil {
 		return zero, err
 	}
 
-	return s.create(ctx, c)
+	e, err := s.create(ctx, c)
+	if err != nil {
+		return zero, err
+	}
+
+	converted, err := s.convertToProto(ctx, e)
+	if err != nil {
+		return zero, err
+	}
+
+	return converted, nil
 }
 
-func (s *store[R, E, M, C, U, Q]) Delete(ctx context.Context, id string) (E, error) {
-	var zero E
+func (s *store[R, E, M, C, U, Q]) Delete(ctx context.Context, id string) (M, error) {
+	var zero M
 
 	e, err := s.get(ctx, id)
 	if err != nil {
@@ -243,15 +245,32 @@ func (s *store[R, E, M, C, U, Q]) Delete(ctx context.Context, id string) (E, err
 		return zero, err
 	}
 
-	return e, nil
+	converted, err := s.convertToProto(ctx, e)
+	if err != nil {
+		return zero, err
+	}
+
+	return converted, nil
 }
 
-func (s *store[R, E, M, C, U, Q]) Find(ctx context.Context, query Q) (E, error) {
-	return s.find(ctx, query)
+func (s *store[R, E, M, C, U, Q]) Find(ctx context.Context, query Q) (M, error) {
+	var zero M
+
+	e, err := s.find(ctx, query)
+	if err != nil {
+		return zero, err
+	}
+
+	converted, err := s.convertToProto(ctx, e)
+	if err != nil {
+		return zero, err
+	}
+
+	return converted, nil
 }
 
-func (s *store[R, E, M, C, U, Q]) Get(ctx context.Context, id string) (E, error) {
-	var zero E
+func (s *store[R, E, M, C, U, Q]) Get(ctx context.Context, id string) (M, error) {
+	var zero M
 
 	e, err := s.get(ctx, id)
 	if err != nil {
@@ -263,15 +282,35 @@ func (s *store[R, E, M, C, U, Q]) Get(ctx context.Context, id string) (E, error)
 		return zero, errorutil.NotFound("%T with id %q not found", e, id)
 	}
 
-	return e, nil
+	converted, err := s.convertToProto(ctx, e)
+	if err != nil {
+		return zero, err
+	}
+
+	return converted, nil
 }
 
-func (s *store[R, E, M, C, U, Q]) List(ctx context.Context, query Q) ([]E, error) {
-	return s.list(ctx, query)
+func (s *store[R, E, M, C, U, Q]) List(ctx context.Context, query Q) ([]M, error) {
+	es, err := s.list(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	var res []M
+	for _, e := range es {
+		converted, err := s.convertToProto(ctx, e)
+		if err != nil {
+			return nil, err
+		}
+
+		res = append(res, converted)
+	}
+
+	return res, nil
 }
 
-func (s *store[R, E, M, C, U, Q]) Update(ctx context.Context, id string, u U) (E, error) {
-	var zero E
+func (s *store[R, E, M, C, U, Q]) Update(ctx context.Context, id string, u U) (M, error) {
+	var zero M
 
 	e, err := s.get(ctx, id)
 	if err != nil {
@@ -292,7 +331,17 @@ func (s *store[R, E, M, C, U, Q]) Update(ctx context.Context, id string, u U) (E
 		return zero, err
 	}
 
-	return s.update(ctx, e, u)
+	e, err = s.update(ctx, e, u)
+	if err != nil {
+		return zero, err
+	}
+
+	converted, err := s.convertToProto(ctx, e)
+	if err != nil {
+		return zero, err
+	}
+
+	return converted, nil
 }
 
 func (s *store[R, E, M, C, U, Q]) AdditionalMethods() R {

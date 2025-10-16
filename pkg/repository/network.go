@@ -504,24 +504,24 @@ func (r *networkRepository) getNetworkUsage(ctx context.Context, nw *metal.Netwo
 		if err != nil {
 			return nil, err
 		}
-		u := resp.Msg
+		u := resp
 		switch af {
 		case metal.AddressFamilyIPv4:
 			if consumption.Ipv4 == nil {
 				consumption.Ipv4 = &apiv2.NetworkUsage{}
 			}
-			consumption.Ipv4.AvailableIps += u.AvailableIps
-			consumption.Ipv4.UsedIps += u.AcquiredIps
-			consumption.Ipv4.AvailablePrefixes += uint64(len(u.AvailablePrefixes))
-			consumption.Ipv4.UsedPrefixes += u.AcquiredPrefixes
+			consumption.Ipv4.AvailableIps += u.Msg.AvailableIps
+			consumption.Ipv4.UsedIps += u.Msg.AcquiredIps
+			consumption.Ipv4.AvailablePrefixes += uint64(len(u.Msg.AvailablePrefixes))
+			consumption.Ipv4.UsedPrefixes += u.Msg.AcquiredPrefixes
 		case metal.AddressFamilyIPv6:
 			if consumption.Ipv6 == nil {
 				consumption.Ipv6 = &apiv2.NetworkUsage{}
 			}
-			consumption.Ipv6.AvailableIps += u.AvailableIps
-			consumption.Ipv6.UsedIps += u.AcquiredIps
-			consumption.Ipv6.AvailablePrefixes += uint64(len(u.AvailablePrefixes))
-			consumption.Ipv6.UsedPrefixes += u.AcquiredPrefixes
+			consumption.Ipv6.AvailableIps += u.Msg.AvailableIps
+			consumption.Ipv6.UsedIps += u.Msg.AcquiredIps
+			consumption.Ipv6.AvailablePrefixes += uint64(len(u.Msg.AvailablePrefixes))
+			consumption.Ipv6.UsedPrefixes += u.Msg.AcquiredPrefixes
 		}
 
 	}
@@ -564,7 +564,7 @@ func (r *networkRepository) allocateChildPrefixes(ctx context.Context, projectId
 
 	if parentNetworkId != nil {
 		r.s.log.Info("get network", "parent", *parentNetworkId)
-		p, err := r.s.UnscopedNetwork().Get(ctx, *parentNetworkId)
+		p, err := r.s.ds.Network().Get(ctx, *parentNetworkId)
 		if err != nil {
 			return nil, nil, errorutil.InvalidArgument("unable to find a super network with id:%s %w", *parentNetworkId, err)
 		}
@@ -581,10 +581,10 @@ func (r *networkRepository) allocateChildPrefixes(ctx context.Context, projectId
 		}
 		parent = p
 	} else {
-		p, err := r.s.UnscopedNetwork().Find(ctx, &apiv2.NetworkQuery{
+		p, err := r.s.ds.Network().Find(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{
 			Partition: partitionId,
 			Type:      apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
-		})
+		}))
 		if err != nil {
 			return nil, nil, errorutil.InvalidArgument("unable to find a private super in partition:%s %w", *partitionId, err)
 		}

@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -87,13 +86,13 @@ func Test_networkServiceServer_Get(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := n.Get(ctx, connect.NewRequest(tt.rq))
+			got, err := n.Get(ctx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Network{}, "consumption",
@@ -102,7 +101,7 @@ func Test_networkServiceServer_Get(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("networkServiceServer.Get() = %v, want %vņdiff: %s", pointer.SafeDeref(got).Msg, tt.want, diff)
+				t.Errorf("networkServiceServer.Get() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -185,7 +184,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 			want: &apiv2.NetworkServiceListResponse{
 				Networks: []*apiv2.Network{
 					{
-						Id:            networkMap["p1-network-a"].ID,
+						Id:            networkMap["p1-network-a"].Id,
 						Meta:          &apiv2.Meta{},
 						Name:          pointer.Pointer("p1-network-a"),
 						ParentNetwork: pointer.Pointer("tenant-super-network"),
@@ -195,7 +194,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 						Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
 					},
 					{
-						Id:            networkMap["p1-network-b"].ID,
+						Id:            networkMap["p1-network-b"].Id,
 						Meta:          &apiv2.Meta{},
 						Name:          pointer.Pointer("p1-network-b"),
 						ParentNetwork: pointer.Pointer("tenant-super-network"),
@@ -225,13 +224,13 @@ func Test_networkServiceServer_List(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := n.List(ctx, connect.NewRequest(tt.rq))
+			got, err := n.List(ctx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Network{}, "consumption", "prefixes",
@@ -240,7 +239,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("networkServiceServer.List() = %v, want %vņdiff: %s", pointer.SafeDeref(got).Msg, tt.want, diff)
+				t.Errorf("networkServiceServer.List() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -340,7 +339,7 @@ func Test_networkServiceServer_ListBaseNetworks(t *testing.T) {
 			want: &apiv2.NetworkServiceListBaseNetworksResponse{
 				Networks: []*apiv2.Network{
 					{
-						Id:            sharedNetwork.ID,
+						Id:            sharedNetwork.Id,
 						Meta:          &apiv2.Meta{},
 						Name:          pointer.Pointer("Shared Storage Network"),
 						Project:       pointer.Pointer(p3),
@@ -381,13 +380,13 @@ func Test_networkServiceServer_ListBaseNetworks(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := n.ListBaseNetworks(ctx, connect.NewRequest(tt.rq))
+			got, err := n.ListBaseNetworks(ctx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Network{}, "consumption", "id",
@@ -396,7 +395,7 @@ func Test_networkServiceServer_ListBaseNetworks(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("networkServiceServer.ListBaseNetworks() = %v, want %vņdiff: %s", pointer.SafeDeref(got).Msg, tt.want, diff)
+				t.Errorf("networkServiceServer.ListBaseNetworks() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -464,15 +463,15 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{
 			name: "update name",
 			rq: &apiv2.NetworkServiceUpdateRequest{
-				Id: networkMap["p1-network-a"].ID,
+				Id: networkMap["p1-network-a"].Id,
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(networkMap["p1-network-a"].Changed),
+					UpdatedAt: timestamppb.New(networkMap["p1-network-a"].Meta.UpdatedAt.AsTime()),
 				},
 				Project: p1,
 				Name:    pointer.Pointer("P1 Updated Network")},
 			want: &apiv2.NetworkServiceUpdateResponse{
 				Network: &apiv2.Network{
-					Id:            networkMap["p1-network-a"].ID,
+					Id:            networkMap["p1-network-a"].Id,
 					Meta:          &apiv2.Meta{Generation: 1},
 					Name:          pointer.Pointer("P1 Updated Network"),
 					ParentNetwork: pointer.Pointer("tenant-super-network"),
@@ -488,15 +487,15 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{
 			name: "update description",
 			rq: &apiv2.NetworkServiceUpdateRequest{
-				Id: networkMap["p1-network-b"].ID,
+				Id: networkMap["p1-network-b"].Id,
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(networkMap["p1-network-b"].Changed),
+					UpdatedAt: timestamppb.New(networkMap["p1-network-b"].Meta.UpdatedAt.AsTime()),
 				},
 				Project:     p1,
 				Description: pointer.Pointer("P1 Description")},
 			want: &apiv2.NetworkServiceUpdateResponse{
 				Network: &apiv2.Network{
-					Id:            networkMap["p1-network-b"].ID,
+					Id:            networkMap["p1-network-b"].Id,
 					Meta:          &apiv2.Meta{Generation: 1},
 					Name:          pointer.Pointer("p1-network-b"),
 					Description:   pointer.Pointer("P1 Description"),
@@ -513,16 +512,16 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{
 			name: "update labels",
 			rq: &apiv2.NetworkServiceUpdateRequest{
-				Id: networkMap["p3-network-a"].ID,
+				Id: networkMap["p3-network-a"].Id,
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(networkMap["p3-network-a"].Changed),
+					UpdatedAt: timestamppb.New(networkMap["p3-network-a"].Meta.UpdatedAt.AsTime()),
 				},
 				Project: p3,
 				Labels:  &apiv2.UpdateLabels{Update: &apiv2.Labels{Labels: map[string]string{"size": "small"}}},
 			},
 			want: &apiv2.NetworkServiceUpdateResponse{
 				Network: &apiv2.Network{
-					Id: networkMap["p3-network-a"].ID,
+					Id: networkMap["p3-network-a"].Id,
 					Meta: &apiv2.Meta{
 						Labels:     &apiv2.Labels{Labels: map[string]string{"size": "small"}},
 						Generation: 1,
@@ -541,16 +540,16 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		{
 			name: "remove labels",
 			rq: &apiv2.NetworkServiceUpdateRequest{
-				Id: networkMap["p2-network-b"].ID,
+				Id: networkMap["p2-network-b"].Id,
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(networkMap["p2-network-b"].Changed),
+					UpdatedAt: timestamppb.New(networkMap["p2-network-b"].Meta.UpdatedAt.AsTime()),
 				},
 				Project: p2,
 				Labels:  &apiv2.UpdateLabels{Remove: []string{"a"}},
 			},
 			want: &apiv2.NetworkServiceUpdateResponse{
 				Network: &apiv2.Network{
-					Id: networkMap["p2-network-b"].ID,
+					Id: networkMap["p2-network-b"].Id,
 					Meta: &apiv2.Meta{
 						Labels:     &apiv2.Labels{},
 						Generation: 1,
@@ -574,9 +573,9 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		},
 		{
 			name:    "wrong project",
-			rq:      &apiv2.NetworkServiceUpdateRequest{Id: networkMap["p3-network-a"].ID, Project: "p4"},
+			rq:      &apiv2.NetworkServiceUpdateRequest{Id: networkMap["p3-network-a"].Id, Project: "p4"},
 			want:    nil,
-			wantErr: errorutil.NotFound("*metal.Network with id %q not found", networkMap["p3-network-a"].ID),
+			wantErr: errorutil.NotFound("*metal.Network with id %q not found", networkMap["p3-network-a"].Id),
 		},
 	}
 	for _, tt := range tests {
@@ -589,13 +588,13 @@ func Test_networkServiceServer_Update(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := n.Update(t.Context(), connect.NewRequest(tt.rq))
+			got, err := n.Update(t.Context(), tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Network{}, "consumption",
@@ -604,7 +603,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("networkServiceServer.Update() = %v, want %vņdiff: %s", pointer.SafeDeref(got).Msg, tt.want, diff)
+				t.Errorf("networkServiceServer.Update() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -861,13 +860,13 @@ func Test_networkServiceServer_Create(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := n.Create(ctx, connect.NewRequest(tt.rq))
+			got, err := n.Create(ctx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Network{}, "consumption", "id", "vrf",
@@ -876,7 +875,7 @@ func Test_networkServiceServer_Create(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("networkServiceServer.Create() = %v, want %vņdiff: %s", pointer.SafeDeref(got).Msg, tt.want, diff)
+				t.Errorf("networkServiceServer.Create() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -943,7 +942,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 			Allocation: &metal.MachineAllocation{
 				MachineNetworks: []*metal.MachineNetwork{
 					{
-						NetworkID: networkMap["p3-network-a"].ID,
+						NetworkID: networkMap["p3-network-a"].Id,
 					},
 				},
 			},
@@ -958,10 +957,10 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 	}{
 		{
 			name: "delete existing",
-			rq:   &apiv2.NetworkServiceDeleteRequest{Id: networkMap["p1-network-a"].ID, Project: p1},
+			rq:   &apiv2.NetworkServiceDeleteRequest{Id: networkMap["p1-network-a"].Id, Project: p1},
 			want: &apiv2.NetworkServiceDeleteResponse{
 				Network: &apiv2.Network{
-					Id:            networkMap["p1-network-a"].ID,
+					Id:            networkMap["p1-network-a"].Id,
 					Meta:          &apiv2.Meta{},
 					Name:          pointer.Pointer("p1-network-a"),
 					ParentNetwork: pointer.Pointer("tenant-super-network"),
@@ -976,19 +975,19 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 		},
 		{
 			name:    "project does not match",
-			rq:      &apiv2.NetworkServiceDeleteRequest{Id: networkMap["p1-network-b"].ID, Project: p2},
+			rq:      &apiv2.NetworkServiceDeleteRequest{Id: networkMap["p1-network-b"].Id, Project: p2},
 			want:    nil,
-			wantErr: errorutil.NotFound("*metal.Network with id %q not found", networkMap["p1-network-b"].ID),
+			wantErr: errorutil.NotFound("*metal.Network with id %q not found", networkMap["p1-network-b"].Id),
 		},
 		{
 			name:    "network does not exist anymore",
-			rq:      &apiv2.NetworkServiceDeleteRequest{Id: networkMap["p1-network-a"].ID, Project: "pa"},
+			rq:      &apiv2.NetworkServiceDeleteRequest{Id: networkMap["p1-network-a"].Id, Project: p1},
 			want:    nil,
-			wantErr: errorutil.NotFound(`no network with id %q found`, networkMap["p1-network-a"].ID),
+			wantErr: errorutil.NotFound(`no network with id %q found`, networkMap["p1-network-a"].Id),
 		},
 		{
 			name:    "network has machine allocation",
-			rq:      &apiv2.NetworkServiceDeleteRequest{Id: networkMap["p3-network-a"].ID, Project: p3},
+			rq:      &apiv2.NetworkServiceDeleteRequest{Id: networkMap["p3-network-a"].Id, Project: p3},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`cannot remove network with existing machine allocations`),
 		},
@@ -1003,12 +1002,12 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := n.Delete(ctx, connect.NewRequest(tt.rq))
+			got, err := n.Delete(ctx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Network{}, "consumption", "id", "vrf",
@@ -1017,7 +1016,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("networkServiceServer.Create() = %v, want %vņdiff: %s", pointer.SafeDeref(got).Msg, tt.want, diff)
+				t.Errorf("networkServiceServer.Create() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 
 			if tt.want == nil {

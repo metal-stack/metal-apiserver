@@ -4,8 +4,6 @@ import (
 	"context"
 	"log/slog"
 
-	"connectrpc.com/connect"
-
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
@@ -30,7 +28,7 @@ func New(config *Config) apiv2connect.UserServiceHandler {
 	}
 }
 
-func (u *userServiceServer) Get(ctx context.Context, _ *connect.Request[apiv2.UserServiceGetRequest]) (*connect.Response[apiv2.UserServiceGetResponse], error) {
+func (u *userServiceServer) Get(ctx context.Context, _ *apiv2.UserServiceGetRequest) (*apiv2.UserServiceGetResponse, error) {
 	var (
 		t, ok = token.TokenFromContext(ctx)
 	)
@@ -54,5 +52,5 @@ func (u *userServiceServer) Get(ctx context.Context, _ *connect.Request[apiv2.Us
 		DefaultTenant: projectsAndTenants.DefaultTenant,
 	}
 
-	return connect.NewResponse(&apiv2.UserServiceGetResponse{User: user}), nil
+	return &apiv2.UserServiceGetResponse{User: user}, nil
 }

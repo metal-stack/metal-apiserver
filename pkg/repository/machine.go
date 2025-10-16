@@ -139,20 +139,12 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 			Labels: tag.NewTagMap(m.Tags),
 		}
 	}
-	// Fetch Partition
-	partition, err := r.s.ds.Partition().Get(ctx, m.PartitionID)
+
+	partition, err := r.s.Partition().Get(ctx, m.PartitionID)
 	if err != nil {
 		return nil, err
 	}
-	apiv2Partition, err := r.s.Partition().ConvertToProto(ctx, partition)
-	if err != nil {
-		return nil, err
-	}
-	metalSize, err := r.s.Size().Get(ctx, m.SizeID)
-	if err != nil {
-		return nil, err
-	}
-	size, err = r.s.Size().ConvertToProto(ctx, metalSize)
+	size, err = r.s.Size().Get(ctx, m.SizeID)
 	if err != nil {
 		return nil, err
 	}
@@ -220,21 +212,14 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 
 	if m.Allocation != nil {
 		alloc := m.Allocation
-		image, err := r.s.ds.Image().Get(ctx, alloc.ImageID)
-		if err != nil {
-			return nil, err
-		}
-		apiv2Image, err := r.s.Image().ConvertToProto(ctx, image)
+
+		image, err := r.s.Image().Get(ctx, alloc.ImageID)
 		if err != nil {
 			return nil, err
 		}
 
 		if alloc.FilesystemLayout != nil {
-			fsl, err := r.s.ds.FilesystemLayout().Get(ctx, alloc.FilesystemLayout.ID)
-			if err != nil {
-				return nil, err
-			}
-			filesystemLayout, err = r.s.FilesystemLayout().ConvertToProto(ctx, fsl)
+			filesystemLayout, err = r.s.FilesystemLayout().Get(ctx, alloc.FilesystemLayout.ID)
 			if err != nil {
 				return nil, err
 			}
@@ -302,7 +287,7 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 		}
 
 		for _, nw := range alloc.MachineNetworks {
-			metalNetwork, err := r.s.UnscopedNetwork().Get(ctx, nw.NetworkID)
+			metalNetwork, err := r.s.ds.Network().Get(ctx, nw.NetworkID)
 			if err != nil {
 				return nil, err
 			}
@@ -348,7 +333,7 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 			Description:      alloc.Description,
 			CreatedBy:        alloc.Creator,
 			Project:          alloc.Project,
-			Image:            apiv2Image,
+			Image:            image,
 			FilesystemLayout: filesystemLayout,
 			Networks:         machineNetworks,
 			Hostname:         alloc.Hostname,
@@ -440,7 +425,7 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 			Labels:     labels,
 			Generation: m.Generation,
 		},
-		Partition:                apiv2Partition,
+		Partition:                partition,
 		Rack:                     m.RackID,
 		Size:                     size,
 		Hardware:                 hardware,

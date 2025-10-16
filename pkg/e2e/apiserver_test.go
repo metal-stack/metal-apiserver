@@ -5,7 +5,6 @@ import (
 	"os"
 	"testing"
 
-	"connectrpc.com/connect"
 	"github.com/metal-stack/api/go/client"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -28,7 +27,7 @@ func TestUnauthenticated(t *testing.T) {
 
 	ctx := t.Context()
 
-	images, err := apiClient.Apiv2().Image().List(ctx, connect.NewRequest(&apiv2.ImageServiceListRequest{}))
+	images, err := apiClient.Apiv2().Image().List(ctx, &apiv2.ImageServiceListRequest{})
 	require.Nil(t, images)
 	require.EqualError(t, err, "permission_denied: not allowed to call: /metalstack.api.v2.ImageService/List")
 }
@@ -49,7 +48,7 @@ func TestAuthenticated(t *testing.T) {
 
 	ctx := t.Context()
 
-	v, err := apiClient.Apiv2().Version().Get(ctx, connect.NewRequest(&apiv2.VersionServiceGetRequest{}))
+	v, err := apiClient.Apiv2().Version().Get(ctx, &apiv2.VersionServiceGetRequest{})
 	require.NoError(t, err)
 	require.NotNil(t, v)
 }
@@ -70,13 +69,13 @@ func TestListBaseNetworks(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := t.Context()
-	internet, err := adminClient.Adminv2().Network().Create(ctx, connect.NewRequest(&adminv2.NetworkServiceCreateRequest{
+	internet, err := adminClient.Adminv2().Network().Create(ctx, &adminv2.NetworkServiceCreateRequest{
 		Id:       pointer.Pointer("internet"),
 		Name:     pointer.Pointer("internet"),
 		Type:     apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
 		Prefixes: []string{"10.0.0.0/16"},
 		Vrf:      pointer.Pointer(uint32(42)),
-	}))
+	})
 	require.NoError(t, err)
 	require.NotNil(t, internet)
 
@@ -88,21 +87,21 @@ func TestListBaseNetworks(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	p1, err := userClient.Apiv2().Project().Create(ctx, connect.NewRequest(&apiv2.ProjectServiceCreateRequest{
+	p1, err := userClient.Apiv2().Project().Create(ctx, &apiv2.ProjectServiceCreateRequest{
 		Name:  "testproject-1",
 		Login: "user-a",
-	}))
+	})
 	require.NoError(t, err)
 	require.NotNil(t, p1)
 
-	pslr, err := userClient.Apiv2().Project().List(ctx, connect.NewRequest(&apiv2.ProjectServiceListRequest{}))
+	pslr, err := userClient.Apiv2().Project().List(ctx, &apiv2.ProjectServiceListRequest{})
 	require.NoError(t, err)
 	require.NotNil(t, pslr)
 
-	nslr, err := userClient.Apiv2().Network().ListBaseNetworks(ctx, connect.NewRequest(&apiv2.NetworkServiceListBaseNetworksRequest{
-		Project: p1.Msg.Project.Uuid,
-	}))
+	nslr, err := userClient.Apiv2().Network().ListBaseNetworks(ctx, &apiv2.NetworkServiceListBaseNetworksRequest{
+		Project: p1.Project.Uuid,
+	})
 	require.NoError(t, err)
 	require.NotNil(t, nslr)
-	require.Len(t, nslr.Msg.Networks, 1)
+	require.Len(t, nslr.Networks, 1)
 }

@@ -73,12 +73,12 @@ func (r *provisioningEventRepository) matchScope(_ *metal.ProvisioningEventConta
 }
 
 // ConvertToInternal implements ProvisioningEvent.
-func (r *provisioningEventRepository) convertToInternal(ctx context.Context, msg *metal.ProvisioningEventContainer) (*metal.ProvisioningEventContainer, error) {
+func (r *provisioningEventRepository) convertToInternal(ctx context.Context, msg *apiv2.MachineProvisioningEvent) (*metal.ProvisioningEventContainer, error) {
 	panic("unimplemented")
 }
 
 // ConvertToProto implements ProvisioningEvent.
-func (r *provisioningEventRepository) convertToProto(ctx context.Context, e *metal.ProvisioningEventContainer) (*metal.ProvisioningEventContainer, error) {
+func (r *provisioningEventRepository) convertToProto(ctx context.Context, e *metal.ProvisioningEventContainer) (*apiv2.MachineProvisioningEvent, error) {
 	panic("unimplemented")
 }
 

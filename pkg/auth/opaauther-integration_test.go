@@ -187,7 +187,7 @@ func createNewConsoleToken(t *testing.T, ctx context.Context, service tokenservi
 	resp, err := service.CreateConsoleTokenWithoutPermissionCheck(ctx, "test-user", nil)
 	require.NoError(t, err)
 
-	return resp.Msg.Secret
+	return resp.Secret
 }
 
 func expectTokenWorks(t *testing.T, ctx context.Context, opa *opa, bearer string) {

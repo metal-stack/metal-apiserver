@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 
-	"connectrpc.com/connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
@@ -29,34 +28,19 @@ func New(c Config) apiv2connect.PartitionServiceHandler {
 }
 
 // Get implements apiv2connect.PartitionServiceHandler.
-func (p *partitionServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2.PartitionServiceGetRequest]) (*connect.Response[apiv2.PartitionServiceGetResponse], error) {
-	partition, err := p.repo.Partition().Get(ctx, rq.Msg.Id)
+func (p *partitionServiceServer) Get(ctx context.Context, rq *apiv2.PartitionServiceGetRequest) (*apiv2.PartitionServiceGetResponse, error) {
+	partition, err := p.repo.Partition().Get(ctx, rq.Id)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	converted, err := p.repo.Partition().ConvertToProto(ctx, partition)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-	return connect.NewResponse(&apiv2.PartitionServiceGetResponse{Partition: converted}), nil
+	return &apiv2.PartitionServiceGetResponse{Partition: partition}, nil
 }
 
 // List implements apiv2connect.PartitionServiceHandler.
-func (p *partitionServiceServer) List(ctx context.Context, rq *connect.Request[apiv2.PartitionServiceListRequest]) (*connect.Response[apiv2.PartitionServiceListResponse], error) {
-	partitions, err := p.repo.Partition().List(ctx, rq.Msg.Query)
+func (p *partitionServiceServer) List(ctx context.Context, rq *apiv2.PartitionServiceListRequest) (*apiv2.PartitionServiceListResponse, error) {
+	partitions, err := p.repo.Partition().List(ctx, rq.Query)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	var result []*apiv2.Partition
-
-	for _, partition := range partitions {
-		converted, err := p.repo.Partition().ConvertToProto(ctx, partition)
-		if err != nil {
-			return nil, errorutil.Convert(err)
-		}
-		result = append(result, converted)
-	}
-
-	return connect.NewResponse(&apiv2.PartitionServiceListResponse{Partitions: result}), nil
-
+	return &apiv2.PartitionServiceListResponse{Partitions: partitions}, nil
 }

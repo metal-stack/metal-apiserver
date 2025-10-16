@@ -12,6 +12,7 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	goipam "github.com/metal-stack/go-ipam"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 )
@@ -107,7 +108,7 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 		parentNetwork *metal.Network
 	)
 	if req.ParentNetwork != nil {
-		parent, err := r.s.UnscopedNetwork().Get(ctx, *req.ParentNetwork)
+		parent, err := r.s.ds.Network().Get(ctx, *req.ParentNetwork)
 		if err != nil {
 			return errorutil.Convert(fmt.Errorf("unable to retrieve parent network: %w", err))
 		}
@@ -124,11 +125,11 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 	}
 
 	if req.Partition != nil {
-		parent, err := r.s.UnscopedNetwork().Find(ctx, &apiv2.NetworkQuery{
+		parent, err := r.s.ds.Network().Find(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{
 			Partition: req.Partition,
 			Project:   pointer.Pointer(""),
 			Type:      apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
-		})
+		}))
 		if err != nil {
 			return errorutil.InvalidArgument("unable to find a super in partition:%s %w", *req.Partition, err)
 		}
@@ -582,12 +583,13 @@ func (r *networkRepository) validateDelete(ctx context.Context, nw *metal.Networ
 		return errorutil.InvalidArgument("cannot remove network with existing child networks")
 	}
 
-	machines, err := r.s.UnscopedMachine().List(ctx, &apiv2.MachineQuery{
+	machines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
 		Network: &apiv2.MachineNetworkQuery{Networks: []string{nw.ID}},
-	})
+	}))
 	if err != nil {
 		return err
 	}
+
 	if len(machines) > 0 {
 		return errorutil.InvalidArgument("cannot remove network with existing machine allocations")
 	}

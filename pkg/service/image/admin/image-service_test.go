@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -83,12 +82,12 @@ func Test_imageServiceServer_Create(t *testing.T) {
 				test.Validate(t, tt.request)
 			}
 
-			got, err := i.Create(ctx, connect.NewRequest(tt.request))
+			got, err := i.Create(ctx, tt.request)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Image{}, "expires_at",
@@ -97,7 +96,7 @@ func Test_imageServiceServer_Create(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("imageServiceServer.Create() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
+				t.Errorf("imageServiceServer.Create() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -162,7 +161,7 @@ func Test_imageServiceServer_Update(t *testing.T) {
 			request: &adminv2.ImageServiceUpdateRequest{
 				Id: "debian-11.0.20231231",
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(imageMap["debian-11.0.20231231"].Changed),
+					UpdatedAt: timestamppb.New(imageMap["debian-11.0.20231231"].Meta.UpdatedAt.AsTime()),
 				},
 				Url: &validURL, Name: pointer.Pointer("NewName")},
 			want: &adminv2.ImageServiceUpdateResponse{
@@ -182,7 +181,7 @@ func Test_imageServiceServer_Update(t *testing.T) {
 			request: &adminv2.ImageServiceUpdateRequest{
 				Id: "debian-12.0.20241231",
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(imageMap["debian-12.0.20241231"].Changed),
+					UpdatedAt: timestamppb.New(imageMap["debian-12.0.20241231"].Meta.UpdatedAt.AsTime()),
 				},
 				Url: &validURL, Name: pointer.Pointer("NewName"),
 				Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL}},
@@ -203,7 +202,7 @@ func Test_imageServiceServer_Update(t *testing.T) {
 			request: &adminv2.ImageServiceUpdateRequest{
 				Id: "debian-13.0.20251231",
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(imageMap["debian-13.0.20251231"].Changed),
+					UpdatedAt: timestamppb.New(imageMap["debian-13.0.20251231"].Meta.UpdatedAt.AsTime()),
 				},
 				Url: &validURL, Name: pointer.Pointer("NewName"),
 				Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL},
@@ -233,13 +232,13 @@ func Test_imageServiceServer_Update(t *testing.T) {
 				test.Validate(t, tt.request)
 			}
 
-			got, err := i.Update(ctx, connect.NewRequest(tt.request))
+			got, err := i.Update(ctx, tt.request)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Image{}, "expires_at",
@@ -248,7 +247,7 @@ func Test_imageServiceServer_Update(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("imageServiceServer.Update() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
+				t.Errorf("imageServiceServer.Update() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -334,12 +333,12 @@ func Test_imageServiceServer_Delete(t *testing.T) {
 				test.Validate(t, tt.request)
 			}
 
-			got, err := i.Delete(ctx, connect.NewRequest(tt.request))
+			got, err := i.Delete(ctx, tt.request)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Image{}, "expires_at",
@@ -348,7 +347,7 @@ func Test_imageServiceServer_Delete(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("imageServiceServer.Delete() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
+				t.Errorf("imageServiceServer.Delete() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}

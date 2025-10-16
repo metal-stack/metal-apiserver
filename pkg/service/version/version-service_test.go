@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"testing"
 
-	"connectrpc.com/connect"
 	apiv1 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/v"
@@ -46,12 +45,12 @@ func Test_versionServiceServer_Get(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.req)
 			}
-			got, err := a.Get(tt.ctx, connect.NewRequest(tt.req))
+			got, err := a.Get(tt.ctx, tt.req)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("versionServiceServer.Get() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got.Msg, tt.want) {
+			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("versionServiceServer.Get() = %v, want %v", got, tt.want)
 			}
 		})

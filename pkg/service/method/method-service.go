@@ -4,7 +4,6 @@ import (
 	"context"
 	"strings"
 
-	"connectrpc.com/connect"
 	apiv1 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/api/go/permissions"
@@ -24,7 +23,7 @@ func New() apiv2connect.MethodServiceHandler {
 	}
 }
 
-func (m *methodServiceServer) List(ctx context.Context, _ *connect.Request[apiv1.MethodServiceListRequest]) (*connect.Response[apiv1.MethodServiceListResponse], error) {
+func (m *methodServiceServer) List(ctx context.Context, _ *apiv1.MethodServiceListRequest) (*apiv1.MethodServiceListResponse, error) {
 	token, ok := token.TokenFromContext(ctx)
 	if !ok || token == nil {
 		// only list public methods when there is no token
@@ -34,9 +33,9 @@ func (m *methodServiceServer) List(ctx context.Context, _ *connect.Request[apiv1
 			methods = append(methods, m)
 		}
 
-		return connect.NewResponse(&apiv1.MethodServiceListResponse{
+		return &apiv1.MethodServiceListResponse{
 			Methods: methods,
-		}), nil
+		}, nil
 	}
 
 	var (
@@ -54,21 +53,21 @@ func (m *methodServiceServer) List(ctx context.Context, _ *connect.Request[apiv1
 		}
 	}
 
-	return connect.NewResponse(&apiv1.MethodServiceListResponse{
+	return &apiv1.MethodServiceListResponse{
 		Methods: methods,
-	}), nil
+	}, nil
 }
 
-func (m *methodServiceServer) TokenScopedList(ctx context.Context, _ *connect.Request[apiv1.MethodServiceTokenScopedListRequest]) (*connect.Response[apiv1.MethodServiceTokenScopedListResponse], error) {
+func (m *methodServiceServer) TokenScopedList(ctx context.Context, _ *apiv1.MethodServiceTokenScopedListRequest) (*apiv1.MethodServiceTokenScopedListResponse, error) {
 	token, ok := token.TokenFromContext(ctx)
 	if !ok || token == nil {
 		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
-	return connect.NewResponse(&apiv1.MethodServiceTokenScopedListResponse{
+	return &apiv1.MethodServiceTokenScopedListResponse{
 		Permissions:  token.Permissions,
 		ProjectRoles: token.ProjectRoles,
 		TenantRoles:  token.TenantRoles,
 		AdminRole:    token.AdminRole,
-	}), nil
+	}, nil
 }

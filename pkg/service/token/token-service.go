@@ -8,7 +8,6 @@ import (
 	"slices"
 	"time"
 
-	"connectrpc.com/connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/api/go/permissions"
@@ -47,8 +46,8 @@ type tokenService struct {
 
 type TokenService interface {
 	apiv2connect.TokenServiceHandler
-	CreateConsoleTokenWithoutPermissionCheck(ctx context.Context, subject string, expiration *time.Duration) (*connect.Response[apiv2.TokenServiceCreateResponse], error)
-	CreateApiTokenWithoutPermissionCheck(ctx context.Context, subject string, rq *connect.Request[apiv2.TokenServiceCreateRequest]) (*connect.Response[apiv2.TokenServiceCreateResponse], error)
+	CreateConsoleTokenWithoutPermissionCheck(ctx context.Context, subject string, expiration *time.Duration) (*apiv2.TokenServiceCreateResponse, error)
+	CreateApiTokenWithoutPermissionCheck(ctx context.Context, subject string, rq *apiv2.TokenServiceCreateRequest) (*apiv2.TokenServiceCreateResponse, error)
 }
 
 func New(c Config) TokenService {
@@ -70,7 +69,7 @@ func New(c Config) TokenService {
 
 // CreateConsoleTokenWithoutPermissionCheck is only called from the auth service during login through console
 // No validation against requested roles and permissions is required and implemented here
-func (t *tokenService) CreateConsoleTokenWithoutPermissionCheck(ctx context.Context, subject string, expiration *time.Duration) (*connect.Response[apiv2.TokenServiceCreateResponse], error) {
+func (t *tokenService) CreateConsoleTokenWithoutPermissionCheck(ctx context.Context, subject string, expiration *time.Duration) (*apiv2.TokenServiceCreateResponse, error) {
 	expires := tokenutil.DefaultExpiration
 	if expiration != nil {
 		expires = *expiration
@@ -91,17 +90,15 @@ func (t *tokenService) CreateConsoleTokenWithoutPermissionCheck(ctx context.Cont
 		return nil, errorutil.NewInternal(err)
 	}
 
-	return connect.NewResponse(&apiv2.TokenServiceCreateResponse{
+	return &apiv2.TokenServiceCreateResponse{
 		Token:  token,
 		Secret: secret,
-	}), nil
+	}, nil
 }
 
 // CreateApiTokenWithoutPermissionCheck is only called from the api-server command line interface
 // No validation against requested roles and permissions is required and implemented here
-func (t *tokenService) CreateApiTokenWithoutPermissionCheck(ctx context.Context, subject string, rq *connect.Request[apiv2.TokenServiceCreateRequest]) (*connect.Response[apiv2.TokenServiceCreateResponse], error) {
-	req := rq.Msg
-
+func (t *tokenService) CreateApiTokenWithoutPermissionCheck(ctx context.Context, subject string, req *apiv2.TokenServiceCreateRequest) (*apiv2.TokenServiceCreateResponse, error) {
 	expires := tokenutil.DefaultExpiration
 	if req.Expires != nil {
 		expires = req.Expires.AsDuration()
@@ -128,20 +125,20 @@ func (t *tokenService) CreateApiTokenWithoutPermissionCheck(ctx context.Context,
 		return nil, errorutil.NewInternal(err)
 	}
 
-	return connect.NewResponse(&apiv2.TokenServiceCreateResponse{
+	return &apiv2.TokenServiceCreateResponse{
 		Token:  token,
 		Secret: secret,
-	}), nil
+	}, nil
 }
 
 // Get returns the token by a given uuid for the user who requests it.
-func (t *tokenService) Get(ctx context.Context, rq *connect.Request[apiv2.TokenServiceGetRequest]) (*connect.Response[apiv2.TokenServiceGetResponse], error) {
+func (t *tokenService) Get(ctx context.Context, rq *apiv2.TokenServiceGetRequest) (*apiv2.TokenServiceGetResponse, error) {
 	token, ok := tokenutil.TokenFromContext(ctx)
 	if !ok || token == nil {
 		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
-	res, err := t.tokens.Get(ctx, token.User, rq.Msg.Uuid)
+	res, err := t.tokens.Get(ctx, token.User, rq.Uuid)
 	if err != nil {
 		if errors.Is(err, tokenutil.ErrTokenNotFound) {
 			return nil, errorutil.NotFound("token not found")
@@ -149,16 +146,14 @@ func (t *tokenService) Get(ctx context.Context, rq *connect.Request[apiv2.TokenS
 		return nil, errorutil.NewInternal(err)
 	}
 
-	return connect.NewResponse(&apiv2.TokenServiceGetResponse{
+	return &apiv2.TokenServiceGetResponse{
 		Token: res,
-	}), nil
+	}, nil
 }
 
 // Update updates a given token of a user.
 // We need to prevent a user from elevating permissions here.
-func (t *tokenService) Update(ctx context.Context, rq *connect.Request[apiv2.TokenServiceUpdateRequest]) (*connect.Response[apiv2.TokenServiceUpdateResponse], error) {
-	req := rq.Msg
-
+func (t *tokenService) Update(ctx context.Context, req *apiv2.TokenServiceUpdateRequest) (*apiv2.TokenServiceUpdateResponse, error) {
 	token, ok := tokenutil.TokenFromContext(ctx)
 	if !ok || token == nil {
 		return nil, errorutil.Unauthenticated("no token found in request")
@@ -203,7 +198,7 @@ func (t *tokenService) Update(ctx context.Context, rq *connect.Request[apiv2.Tok
 
 	// now follows the update
 
-	tokenToUpdate, err := t.tokens.Get(ctx, token.User, rq.Msg.Uuid)
+	tokenToUpdate, err := t.tokens.Get(ctx, token.User, req.Uuid)
 	if err != nil {
 		if errors.Is(err, tokenutil.ErrTokenNotFound) {
 			return nil, errorutil.NotFound("token not found")
@@ -235,19 +230,18 @@ func (t *tokenService) Update(ctx context.Context, rq *connect.Request[apiv2.Tok
 		return nil, errorutil.NewInternal(err)
 	}
 
-	return connect.NewResponse(&apiv2.TokenServiceUpdateResponse{
+	return &apiv2.TokenServiceUpdateResponse{
 		Token: tokenToUpdate,
-	}), nil
+	}, nil
 }
 
 // Create is called by users to issue new API tokens. This can be done from console tokens but also from other API tokens which have the permission to call token create.
 // We need to prevent a user from elevating permissions here.
-func (t *tokenService) Create(ctx context.Context, rq *connect.Request[apiv2.TokenServiceCreateRequest]) (*connect.Response[apiv2.TokenServiceCreateResponse], error) {
+func (t *tokenService) Create(ctx context.Context, req *apiv2.TokenServiceCreateRequest) (*apiv2.TokenServiceCreateResponse, error) {
 	token, ok := tokenutil.TokenFromContext(ctx)
 	if !ok || token == nil {
 		return nil, errorutil.Unauthenticated("no token found in request")
 	}
-	req := rq.Msg
 
 	// we first validate token permission elevation for the token used in the token create request,
 	// which might be an API token with restricted permissions
@@ -305,11 +299,11 @@ func (t *tokenService) Create(ctx context.Context, rq *connect.Request[apiv2.Tok
 		Secret: secret,
 	}
 
-	return connect.NewResponse(resp), nil
+	return resp, nil
 }
 
 // List lists the tokens of a specific user.
-func (t *tokenService) List(ctx context.Context, _ *connect.Request[apiv2.TokenServiceListRequest]) (*connect.Response[apiv2.TokenServiceListResponse], error) {
+func (t *tokenService) List(ctx context.Context, _ *apiv2.TokenServiceListRequest) (*apiv2.TokenServiceListResponse, error) {
 	token, ok := tokenutil.TokenFromContext(ctx)
 	if !ok || token == nil {
 		return nil, errorutil.Unauthenticated("no token found in request")
@@ -320,27 +314,27 @@ func (t *tokenService) List(ctx context.Context, _ *connect.Request[apiv2.TokenS
 		return nil, errorutil.NewInternal(err)
 	}
 
-	return connect.NewResponse(&apiv2.TokenServiceListResponse{
+	return &apiv2.TokenServiceListResponse{
 		Tokens: tokens,
-	}), nil
+	}, nil
 }
 
 // Revoke revokes a token of a given user and token ID.
-func (t *tokenService) Revoke(ctx context.Context, rq *connect.Request[apiv2.TokenServiceRevokeRequest]) (*connect.Response[apiv2.TokenServiceRevokeResponse], error) {
+func (t *tokenService) Revoke(ctx context.Context, rq *apiv2.TokenServiceRevokeRequest) (*apiv2.TokenServiceRevokeResponse, error) {
 	token, ok := tokenutil.TokenFromContext(ctx)
 	if !ok || token == nil {
 		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
-	err := t.tokens.Revoke(ctx, token.User, rq.Msg.Uuid)
+	err := t.tokens.Revoke(ctx, token.User, rq.Uuid)
 	if err != nil {
 		return nil, errorutil.NewInternal(err)
 	}
 
-	return connect.NewResponse(&apiv2.TokenServiceRevokeResponse{}), nil
+	return &apiv2.TokenServiceRevokeResponse{}, nil
 }
 
-func (t *tokenService) Refresh(ctx context.Context, _ *connect.Request[apiv2.TokenServiceRefreshRequest]) (*connect.Response[apiv2.TokenServiceRefreshResponse], error) {
+func (t *tokenService) Refresh(ctx context.Context, _ *apiv2.TokenServiceRefreshRequest) (*apiv2.TokenServiceRefreshResponse, error) {
 	token, ok := tokenutil.TokenFromContext(ctx)
 	if !ok || token == nil {
 		return nil, errorutil.Unauthenticated("no token found in request")
@@ -415,10 +409,10 @@ func (t *tokenService) Refresh(ctx context.Context, _ *connect.Request[apiv2.Tok
 		return nil, errorutil.NewInternal(err)
 	}
 
-	return connect.NewResponse(&apiv2.TokenServiceRefreshResponse{
+	return &apiv2.TokenServiceRefreshResponse{
 		Token:  newToken,
 		Secret: secret,
-	}), nil
+	}, nil
 }
 
 func validateTokenCreate(currentToken *apiv2.Token, req *apiv2.TokenServiceCreateRequest, servicePermissions *permissions.ServicePermissions, adminIDs []string) error {

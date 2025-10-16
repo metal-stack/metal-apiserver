@@ -5,7 +5,6 @@ import (
 	"os"
 	"testing"
 
-	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -14,7 +13,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/testing/protocmp"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func Test_sizeServiceServer_Create(t *testing.T) {
@@ -128,20 +126,20 @@ func Test_sizeServiceServer_Create(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := s.Create(ctx, connect.NewRequest(tt.rq))
+			got, err := s.Create(ctx, tt.rq)
 
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("sizeServiceServer.Create() = %v, want %vņdiff: %s", pointer.SafeDeref(got).Msg, tt.want, diff)
+				t.Errorf("sizeServiceServer.Create() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 
 		})
@@ -210,7 +208,7 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 			rq: &adminv2.SizeServiceUpdateRequest{
 				Id: "n1-medium-x86", Name: pointer.Pointer("n1-medium"), Description: pointer.Pointer("best for firewalls"),
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(sizeMap["n1-medium-x86"].Changed),
+					UpdatedAt: sizeMap["n1-medium-x86"].Meta.UpdatedAt,
 				},
 				Constraints: []*apiv2.SizeConstraint{
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
@@ -236,7 +234,7 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 			rq: &adminv2.SizeServiceUpdateRequest{
 				Id: "n2-medium-x86",
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(sizeMap["n2-medium-x86"].Changed),
+					UpdatedAt: sizeMap["n2-medium-x86"].Meta.UpdatedAt,
 				},
 				Constraints: []*apiv2.SizeConstraint{
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 6, Max: 12},
@@ -262,7 +260,7 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 			rq: &adminv2.SizeServiceUpdateRequest{
 				Id: "n3-medium-x86",
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(sizeMap["n3-medium-x86"].Changed),
+					UpdatedAt: sizeMap["n3-medium-x86"].Meta.UpdatedAt,
 				},
 				Labels: &apiv2.UpdateLabels{
 					Update: &apiv2.Labels{Labels: map[string]string{"purpose": "big worker"}},
@@ -311,20 +309,20 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := s.Update(ctx, connect.NewRequest(tt.rq))
+			got, err := s.Update(ctx, tt.rq)
 
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("sizeServiceServer.Update() = %v, want %vņdiff: %s", pointer.SafeDeref(got).Msg, tt.want, diff)
+				t.Errorf("sizeServiceServer.Update() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 
 		})
@@ -421,20 +419,20 @@ func Test_sizeServiceServer_Delete(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := s.Delete(ctx, connect.NewRequest(tt.rq))
+			got, err := s.Delete(ctx, tt.rq)
 
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("sizeServiceServer.Delete() = %v, want %vņdiff: %s", pointer.SafeDeref(got).Msg, tt.want, diff)
+				t.Errorf("sizeServiceServer.Delete() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 
 		})

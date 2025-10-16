@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"connectrpc.com/connect"
 	apiv1 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
@@ -66,10 +65,10 @@ func New(c Config) (apiv2connect.HealthServiceHandler, error) {
 	return h, nil
 }
 
-func (h *healthServiceServer) Get(ctx context.Context, rq *connect.Request[apiv1.HealthServiceGetRequest]) (*connect.Response[apiv1.HealthServiceGetResponse], error) {
-	return connect.NewResponse(&apiv1.HealthServiceGetResponse{
+func (h *healthServiceServer) Get(ctx context.Context, rq *apiv1.HealthServiceGetRequest) (*apiv1.HealthServiceGetResponse, error) {
+	return &apiv1.HealthServiceGetResponse{
 		Health: h.current,
-	}), nil
+	}, nil
 }
 
 func (h *healthServiceServer) fetchStatuses(ctx context.Context, interval time.Duration) {

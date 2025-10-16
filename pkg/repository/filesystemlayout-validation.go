@@ -6,6 +6,7 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 )
 
@@ -63,14 +64,16 @@ func (r *filesystemLayoutRepository) validateUpdate(ctx context.Context, req *ad
 }
 
 func (r *filesystemLayoutRepository) validateDelete(ctx context.Context, fsl *metal.FilesystemLayout) error {
-	machines, err := r.s.UnscopedMachine().List(ctx, &apiv2.MachineQuery{
+	machines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
 		Allocation: &apiv2.MachineAllocationQuery{FilesystemLayout: &fsl.ID},
-	})
+	}))
 	if err != nil {
 		return err
 	}
+
 	if len(machines) > 0 {
 		return errorutil.InvalidArgument("cannot remove filesystemlayout with existing machine allocations")
 	}
+
 	return nil
 }

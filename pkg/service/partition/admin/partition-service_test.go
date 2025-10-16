@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -116,12 +115,12 @@ func Test_partitionServiceServer_Create(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.request)
 			}
-			got, err := p.Create(ctx, connect.NewRequest(tt.request))
+			got, err := p.Create(ctx, tt.request)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Image{}, "meta", "expires_at",
@@ -130,7 +129,7 @@ func Test_partitionServiceServer_Create(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("partitionServiceServer.Create() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
+				t.Errorf("partitionServiceServer.Create() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -225,7 +224,7 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 			request: &adminv2.PartitionServiceUpdateRequest{
 				Id: "partition-1",
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(partitionMap["partition-1"].Changed),
+					UpdatedAt: timestamppb.New(partitionMap["partition-1"].Meta.UpdatedAt.AsTime()),
 				},
 				BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
 			want: &adminv2.PartitionServiceUpdateResponse{
@@ -241,7 +240,7 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 			request: &adminv2.PartitionServiceUpdateRequest{
 				Id: "partition-2",
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(partitionMap["partition-2"].Changed),
+					UpdatedAt: timestamppb.New(partitionMap["partition-2"].Meta.UpdatedAt.AsTime()),
 				},
 				BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL + "/changed", KernelUrl: validURL}},
 			want: &adminv2.PartitionServiceUpdateResponse{
@@ -257,7 +256,7 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 			request: &adminv2.PartitionServiceUpdateRequest{
 				Id: "partition-3",
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(partitionMap["partition-3"].Changed),
+					UpdatedAt: timestamppb.New(partitionMap["partition-3"].Meta.UpdatedAt.AsTime()),
 				},
 				Labels:            &apiv2.UpdateLabels{Update: &apiv2.Labels{Labels: map[string]string{"color": "red"}}},
 				BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL + "/changed", KernelUrl: validURL}},
@@ -330,12 +329,12 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.request)
 			}
-			got, err := p.Update(ctx, connect.NewRequest(tt.request))
+			got, err := p.Update(ctx, tt.request)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Image{}, "expires_at",
@@ -344,7 +343,7 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("partitionServiceServer.Update() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
+				t.Errorf("partitionServiceServer.Update() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -430,12 +429,12 @@ func Test_partitionServiceServer_Delete(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.request)
 			}
-			got, err := p.Delete(ctx, connect.NewRequest(tt.request))
+			got, err := p.Delete(ctx, tt.request)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Image{}, "meta", "expires_at",
@@ -444,7 +443,7 @@ func Test_partitionServiceServer_Delete(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("partitionServiceServer.Delete() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
+				t.Errorf("partitionServiceServer.Delete() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}

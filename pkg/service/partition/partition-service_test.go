@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -70,13 +69,13 @@ func Test_partitionServiceServer_Get(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := p.Get(ctx, connect.NewRequest(tt.rq))
+			got, err := p.Get(ctx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.IP{}, "uuid",
@@ -85,7 +84,7 @@ func Test_partitionServiceServer_Get(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("partitionServiceServer.Get() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
+				t.Errorf("partitionServiceServer.Get() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -160,13 +159,13 @@ func Test_partitionServiceServer_List(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := p.List(ctx, connect.NewRequest(tt.rq))
+			got, err := p.List(ctx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.IP{}, "uuid",
@@ -175,7 +174,7 @@ func Test_partitionServiceServer_List(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("partitionServiceServer.List() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
+				t.Errorf("partitionServiceServer.List() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}

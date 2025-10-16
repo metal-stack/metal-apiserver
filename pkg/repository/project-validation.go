@@ -4,6 +4,7 @@ import (
 	"context"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 )
 
@@ -34,11 +35,11 @@ func (r *projectRepository) validateDelete(ctx context.Context, req *projectEnti
 		return errorutil.FailedPrecondition("there are still networks associated with this project, you need to delete them first")
 	}
 
-	ms, err := r.s.Machine(req.Meta.Id).List(ctx, &apiv2.MachineQuery{
+	ms, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
 		Allocation: &apiv2.MachineAllocationQuery{
 			Project: &req.Meta.Id,
 		},
-	})
+	}))
 	if err != nil {
 		return errorutil.Convert(err)
 	}

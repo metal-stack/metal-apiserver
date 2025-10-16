@@ -8,7 +8,6 @@ import (
 	"os"
 	"testing"
 
-	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -91,6 +90,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 			want: &infrav2.SwitchServiceRegisterResponse{
 				Switch: &apiv2.Switch{
 					Id:           "sw2",
+					Meta:         &apiv2.Meta{Generation: 0},
 					Rack:         nil,
 					Partition:    "partition-b",
 					ManagementIp: "1.1.1.1",
@@ -122,6 +122,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 				Switch: &apiv2.Switch{
 					Id:             "sw1",
 					Description:    "new description",
+					Meta:           &apiv2.Meta{Generation: 1},
 					Rack:           pointer.Pointer("rack01"),
 					Partition:      "partition-a",
 					ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
@@ -150,12 +151,12 @@ func Test_switchServiceServer_Register(t *testing.T) {
 				test.Validate(t, tt.rq)
 			}
 
-			got, err := s.Register(ctx, connect.NewRequest(tt.rq))
+			got, err := s.Register(ctx, tt.rq)
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("switchServiceServer.Register() error diff = %s", diff)
 				return
 			}
-			if diff := cmp.Diff(tt.want, pointer.SafeDeref(got).Msg,
+			if diff := cmp.Diff(tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",

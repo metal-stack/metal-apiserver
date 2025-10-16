@@ -28,6 +28,13 @@ type (
 		*mdcv1.Tenant
 	}
 
+	TenantWithMembershipAnnotations struct {
+		Tenant             *apiv2.Tenant
+		ProjectAnnotations map[string]string
+		TenantAnnotations  map[string]string
+		ProjectIds         []string
+	}
+
 	tenantRepository struct {
 		s *Store
 	}
@@ -41,7 +48,7 @@ func (t *tenantRepository) matchScope(e *tenantEntity) bool {
 }
 
 func (t *tenantRepository) create(ctx context.Context, rq *apiv2.TenantServiceCreateRequest) (*tenantEntity, error) {
-	return t.CreateWithID(ctx, rq, "")
+	return t.createWithID(ctx, rq, "")
 }
 
 type tenantCreateOpts interface {
@@ -56,7 +63,21 @@ func NewTenantCreateOptWithCreator(creator string) *tenantCreateOptWithCreator {
 	}
 }
 
-func (t *tenantRepository) CreateWithID(ctx context.Context, c *apiv2.TenantServiceCreateRequest, id string, opts ...tenantCreateOpts) (*tenantEntity, error) {
+func (t *tenantRepository) CreateWithID(ctx context.Context, c *apiv2.TenantServiceCreateRequest, id string, opts ...tenantCreateOpts) (*apiv2.Tenant, error) {
+	tenant, err := t.createWithID(ctx, c, id, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	converted, err := t.convertToProto(ctx, tenant)
+	if err != nil {
+		return nil, err
+	}
+
+	return converted, nil
+}
+
+func (t *tenantRepository) createWithID(ctx context.Context, c *apiv2.TenantServiceCreateRequest, id string, opts ...tenantCreateOpts) (*tenantEntity, error) {
 	var creator string
 
 	for _, opt := range opts {
@@ -266,7 +287,7 @@ func (t *tenantRepository) tenantMember(scope *TenantScope) TenantMember {
 	}
 }
 
-func (t *tenantRepository) ListTenantMembers(ctx context.Context, tenant string, includeInherited bool) ([]*mdcv1.TenantWithMembershipAnnotations, error) {
+func (t *tenantRepository) ListTenantMembers(ctx context.Context, tenant string, includeInherited bool) ([]*TenantWithMembershipAnnotations, error) {
 	resp, err := t.s.mdc.Tenant().ListTenantMembers(ctx, &mdcv1.ListTenantMembersRequest{
 		TenantId:         tenant,
 		IncludeInherited: pointer.Pointer(includeInherited),
@@ -275,10 +296,26 @@ func (t *tenantRepository) ListTenantMembers(ctx context.Context, tenant string,
 		return nil, errorutil.Convert(err)
 	}
 
-	return resp.Tenants, nil
+	var res []*TenantWithMembershipAnnotations
+
+	for _, tenant := range resp.Tenants {
+		converted, err := t.convertToProto(ctx, &tenantEntity{Tenant: tenant.Tenant})
+		if err != nil {
+			return nil, err
+		}
+
+		res = append(res, &TenantWithMembershipAnnotations{
+			Tenant:             converted,
+			ProjectAnnotations: tenant.ProjectAnnotations,
+			TenantAnnotations:  tenant.TenantAnnotations,
+			ProjectIds:         tenant.ProjectIds,
+		})
+	}
+
+	return res, nil
 }
 
-func (t *tenantRepository) FindParticipatingTenants(ctx context.Context, tenant string, includeInherited bool) ([]*mdcv1.TenantWithMembershipAnnotations, error) {
+func (t *tenantRepository) FindParticipatingTenants(ctx context.Context, tenant string, includeInherited bool) ([]*TenantWithMembershipAnnotations, error) {
 	resp, err := t.s.mdc.Tenant().FindParticipatingTenants(ctx, &mdcv1.FindParticipatingTenantsRequest{
 		TenantId:         tenant,
 		IncludeInherited: pointer.Pointer(includeInherited),
@@ -287,7 +324,23 @@ func (t *tenantRepository) FindParticipatingTenants(ctx context.Context, tenant 
 		return nil, errorutil.Convert(err)
 	}
 
-	return resp.Tenants, nil
+	var res []*TenantWithMembershipAnnotations
+
+	for _, tenant := range resp.Tenants {
+		converted, err := t.convertToProto(ctx, &tenantEntity{Tenant: tenant.Tenant})
+		if err != nil {
+			return nil, err
+		}
+
+		res = append(res, &TenantWithMembershipAnnotations{
+			Tenant:             converted,
+			ProjectAnnotations: tenant.ProjectAnnotations,
+			TenantAnnotations:  tenant.TenantAnnotations,
+			ProjectIds:         tenant.ProjectIds,
+		})
+	}
+
+	return res, nil
 }
 
 func TenantRoleFromMap(annotations map[string]string) apiv2.TenantRole {

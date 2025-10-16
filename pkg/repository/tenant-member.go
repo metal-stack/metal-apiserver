@@ -62,8 +62,11 @@ func (t *tenantMemberRepository) convertToInternal(ctx context.Context, msg *api
 }
 
 func (t *tenantMemberRepository) convertToProto(ctx context.Context, e *tenantMemberEntity) (*apiv2.TenantMember, error) {
-	// this is an internal interface, so no implementation here
-	panic("unimplemented")
+	return &apiv2.TenantMember{
+		Id:        e.TenantId,
+		Role:      TenantRoleFromMap(e.Meta.Annotations),
+		CreatedAt: e.Meta.CreatedTime,
+	}, nil
 }
 
 func (t *tenantMemberRepository) create(ctx context.Context, c *TenantMemberCreateRequest) (*tenantMemberEntity, error) {

@@ -88,7 +88,7 @@ func Test_getMostRecentImageFor(t *testing.T) {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 
-			got, err := is.GetMostRecentImageFor(tt.id, tt.images)
+			got, err := is.getMostRecentImageFor(tt.id, tt.images)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("getMostRecentImageFor() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -131,7 +131,7 @@ func Test_getMostRecentImageForFirewall(t *testing.T) {
 	for i := range tests {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := is.GetMostRecentImageFor(tt.id, tt.images)
+			got, err := is.getMostRecentImageFor(tt.id, tt.images)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("getMostRecentImageFor() error = %v, wantErr %v", err, tt.wantErr)
 				return

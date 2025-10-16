@@ -8,7 +8,6 @@ import (
 	"os"
 	"testing"
 
-	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -62,7 +61,7 @@ func Test_ipServiceServer_Get(t *testing.T) {
 
 	test.CreateIPs(t, repo, []*apiv2.IPServiceCreateRequest{
 		{Ip: pointer.Pointer("1.2.3.4"), Project: p1, Network: "internet"},
-		{Ip: pointer.Pointer("12.100.0.4"), Project: p1, Network: networks["private-1"].ID},
+		{Ip: pointer.Pointer("12.100.0.4"), Project: p1, Network: networks["private-1"].Id},
 	})
 
 	tests := []struct {
@@ -91,7 +90,7 @@ func Test_ipServiceServer_Get(t *testing.T) {
 		{
 			name:    "get namespaced existing",
 			rq:      &apiv2.IPServiceGetRequest{Ip: "12.100.0.4", Project: p1, Namespace: pointer.Pointer(p1)},
-			want:    &apiv2.IPServiceGetResponse{Ip: &apiv2.IP{Ip: "12.100.0.4", Project: p1, Namespace: pointer.Pointer(p1), Network: networks["private-1"].ID, Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{Generation: 0}}},
+			want:    &apiv2.IPServiceGetResponse{Ip: &apiv2.IP{Ip: "12.100.0.4", Project: p1, Namespace: pointer.Pointer(p1), Network: networks["private-1"].Id, Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{Generation: 0}}},
 			wantErr: nil,
 		},
 	}
@@ -105,13 +104,13 @@ func Test_ipServiceServer_Get(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := i.Get(ctx, connect.NewRequest(tt.rq))
+			got, err := i.Get(ctx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.IP{}, "uuid",
@@ -120,7 +119,7 @@ func Test_ipServiceServer_Get(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("ipServiceServer.Get() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
+				t.Errorf("ipServiceServer.Get() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -224,13 +223,13 @@ func Test_ipServiceServer_List(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := i.List(ctx, connect.NewRequest(tt.rq))
+			got, err := i.List(ctx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.IP{}, "uuid",
@@ -239,7 +238,7 @@ func Test_ipServiceServer_List(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("ipServiceServer.List() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
+				t.Errorf("ipServiceServer.List() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -307,7 +306,7 @@ func Test_ipServiceServer_Update(t *testing.T) {
 			rq: &apiv2.IPServiceUpdateRequest{
 				Ip: "1.2.3.4",
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(ipmap["1.2.3.4"].Changed),
+					UpdatedAt: ipmap["1.2.3.4"].Meta.UpdatedAt,
 				},
 				Project: p1,
 				Name:    pointer.Pointer("ip1-changed"),
@@ -327,7 +326,7 @@ func Test_ipServiceServer_Update(t *testing.T) {
 			rq: &apiv2.IPServiceUpdateRequest{
 				Ip: "1.2.3.5",
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(ipmap["1.2.3.5"].Changed),
+					UpdatedAt: ipmap["1.2.3.5"].Meta.UpdatedAt,
 				},
 				Project:     p1,
 				Description: pointer.Pointer("test was here"),
@@ -347,7 +346,7 @@ func Test_ipServiceServer_Update(t *testing.T) {
 			rq: &apiv2.IPServiceUpdateRequest{
 				Ip: "1.2.3.6",
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(ipmap["1.2.3.6"].Changed),
+					UpdatedAt: ipmap["1.2.3.6"].Meta.UpdatedAt,
 				},
 				Project: p1,
 				Type:    apiv2.IPType_IP_TYPE_STATIC.Enum(),
@@ -366,7 +365,7 @@ func Test_ipServiceServer_Update(t *testing.T) {
 			rq: &apiv2.IPServiceUpdateRequest{
 				Ip: "2001:db8::1",
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(ipmap["2001:db8::1"].Changed),
+					UpdatedAt: ipmap["2001:db8::1"].Meta.UpdatedAt,
 				},
 				Project: p2,
 				Labels:  &apiv2.UpdateLabels{Update: &apiv2.Labels{Labels: map[string]string{"color": "red", "purpose": "lb"}}},
@@ -386,7 +385,7 @@ func Test_ipServiceServer_Update(t *testing.T) {
 			rq: &apiv2.IPServiceUpdateRequest{
 				Ip: "2001:db8::2",
 				UpdateMeta: &apiv2.UpdateMeta{
-					UpdatedAt: timestamppb.New(ipmap["2001:db8::2"].Changed),
+					UpdatedAt: timestamppb.New(ipmap["2001:db8::2"].Meta.UpdatedAt.AsTime()),
 				},
 				Project: p2,
 				Labels:  &apiv2.UpdateLabels{Remove: []string{"color", "purpose"}}},
@@ -420,13 +419,13 @@ func Test_ipServiceServer_Update(t *testing.T) {
 				test.Validate(t, tt.rq)
 			}
 
-			got, err := i.Update(ctx, connect.NewRequest(tt.rq))
+			got, err := i.Update(ctx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.IP{}, "uuid",
@@ -435,7 +434,7 @@ func Test_ipServiceServer_Update(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("ipServiceServer.Update() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
+				t.Errorf("ipServiceServer.Update() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -524,13 +523,13 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := i.Delete(ctx, connect.NewRequest(tt.rq))
+			got, err := i.Delete(ctx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.IP{}, "uuid",
@@ -539,7 +538,7 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("ipServiceServer.Delete() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
+				t.Errorf("ipServiceServer.Delete() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -643,43 +642,43 @@ func Test_ipServiceServer_Create(t *testing.T) {
 		{
 			name: "create random ephemeral ipv6",
 			rq: &apiv2.IPServiceCreateRequest{
-				Network: networks["private-v6"].ID,
+				Network: networks["private-v6"].Id,
 				Project: p1,
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "2001:db8:1::1", Network: networks["private-v6"].ID, Project: p1, Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
+				Ip: &apiv2.IP{Ip: "2001:db8:1::1", Network: networks["private-v6"].Id, Project: p1, Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
 			},
 		},
 		{
 			name: "create specific ephemeral ipv6",
 			rq: &apiv2.IPServiceCreateRequest{
-				Network: networks["private-v6"].ID,
+				Network: networks["private-v6"].Id,
 				Project: p1,
 				Ip:      pointer.Pointer("2001:db8:1::99"),
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "2001:db8:1::99", Network: networks["private-v6"].ID, Project: p1, Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
+				Ip: &apiv2.IP{Ip: "2001:db8:1::99", Network: networks["private-v6"].Id, Project: p1, Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
 			},
 		},
 		{
 			name: "create random ephemeral ipv4 from a dualstack network",
 			rq: &apiv2.IPServiceCreateRequest{
-				Network: networks["private-dualstack"].ID,
+				Network: networks["private-dualstack"].Id,
 				Project: p1,
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "10.3.0.1", Network: networks["private-dualstack"].ID, Project: p1, Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
+				Ip: &apiv2.IP{Ip: "10.3.0.1", Network: networks["private-dualstack"].Id, Project: p1, Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
 			},
 		},
 		{
 			name: "create random ephemeral ipv6 from a dualstack network",
 			rq: &apiv2.IPServiceCreateRequest{
-				Network:       networks["private-dualstack"].ID,
+				Network:       networks["private-dualstack"].Id,
 				Project:       p1,
 				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(),
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "2001:db8:2::1", Network: networks["private-dualstack"].ID, Project: p1, Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
+				Ip: &apiv2.IP{Ip: "2001:db8:2::1", Network: networks["private-dualstack"].Id, Project: p1, Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
 			},
 		},
 		{
@@ -708,12 +707,12 @@ func Test_ipServiceServer_Create(t *testing.T) {
 		{
 			name: "create ip in a namespaced private",
 			rq: &apiv2.IPServiceCreateRequest{
-				Network: networks["private-namespaced-1"].ID,
+				Network: networks["private-namespaced-1"].Id,
 				Project: p1,
 				Type:    apiv2.IPType_IP_TYPE_STATIC.Enum(),
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "10.100.0.1", Network: networks["private-namespaced-1"].ID, Namespace: pointer.Pointer(p1), Project: p1, Type: apiv2.IPType_IP_TYPE_STATIC, Meta: &apiv2.Meta{}},
+				Ip: &apiv2.IP{Ip: "10.100.0.1", Network: networks["private-namespaced-1"].Id, Namespace: pointer.Pointer(p1), Project: p1, Type: apiv2.IPType_IP_TYPE_STATIC, Meta: &apiv2.Meta{}},
 			},
 		},
 		{
@@ -739,32 +738,32 @@ func Test_ipServiceServer_Create(t *testing.T) {
 		{
 			name: "allocate a random ip with unavailable addressfamily",
 			rq: &apiv2.IPServiceCreateRequest{
-				Network:       networks["private-v6"].ID,
+				Network:       networks["private-v6"].Id,
 				Project:       p1,
 				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4.Enum(),
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("there is no prefix for the given addressfamily:IPv4 present in network:%s [IPv6]", networks["private-v6"].ID),
+			wantErr: errorutil.InvalidArgument("there is no prefix for the given addressfamily:IPv4 present in network:%s [IPv6]", networks["private-v6"].Id),
 		},
 		{
 			name: "allocate a random ip with unavailable addressfamily",
 			rq: &apiv2.IPServiceCreateRequest{
-				Network:       networks["private-v4"].ID,
+				Network:       networks["private-v4"].Id,
 				Project:       p1,
 				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(),
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("there is no prefix for the given addressfamily:IPv6 present in network:%s [IPv4]", networks["private-v4"].ID),
+			wantErr: errorutil.InvalidArgument("there is no prefix for the given addressfamily:IPv6 present in network:%s [IPv4]", networks["private-v4"].Id),
 		},
 		{
 			name: "disallow creating an ip address in a project-scoped network that does not belong to the request project",
 			rq: &apiv2.IPServiceCreateRequest{
-				Network:       networks["private-namespaced-2"].ID,
+				Network:       networks["private-namespaced-2"].Id,
 				Project:       p1,
 				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(),
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("not allowed to create ip with project %s in network %s scoped to project %s", p1, networks["private-namespaced-2"].ID, p2),
+			wantErr: errorutil.InvalidArgument("not allowed to create ip with project 00000000-0000-0000-0000-000000000001 in network %s scoped to project 00000000-0000-0000-0000-000000000002", networks["private-namespaced-2"].Id),
 		},
 		{
 			name: "create ip in project-scoped external network",
@@ -799,14 +798,14 @@ func Test_ipServiceServer_Create(t *testing.T) {
 				test.Validate(t, tt.rq)
 			}
 			got, err := i.Create(
-				ctx, connect.NewRequest(tt.rq),
+				ctx, tt.rq,
 			)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.IP{}, "uuid",
@@ -815,7 +814,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("ipServiceServer.Create() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
+				t.Errorf("ipServiceServer.Create() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}

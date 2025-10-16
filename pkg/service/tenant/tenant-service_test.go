@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
@@ -159,13 +158,13 @@ func Test_tenantServiceServer_Get(t *testing.T) {
 
 			reqCtx := token.ContextWithToken(t.Context(), tok)
 
-			got, err := u.Get(reqCtx, connect.NewRequest(tt.rq))
+			got, err := u.Get(reqCtx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
@@ -174,7 +173,7 @@ func Test_tenantServiceServer_Get(t *testing.T) {
 					&apiv2.TenantMember{}, "created_at",
 				),
 			); diff != "" {
-				t.Errorf("%v, want %v diff: %s", got.Msg, tt.want, diff)
+				t.Errorf("%v, want %v diff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -290,23 +289,23 @@ func Test_tenantServiceServer_List(t *testing.T) {
 				test.Validate(t, tt.rq)
 			}
 
-			got, err := u.List(reqCtx, connect.NewRequest(tt.rq))
+			got, err := u.List(reqCtx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
-			sort.SliceStable(got.Msg.Tenants, func(i, j int) bool {
-				return got.Msg.Tenants[i].Login < got.Msg.Tenants[j].Login
+			sort.SliceStable(got.Tenants, func(i, j int) bool {
+				return got.Tenants[i].Login < got.Tenants[j].Login
 			})
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("%v, want %v diff: %s", got.Msg, tt.want, diff)
+				t.Errorf("%v, want %v diff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -393,15 +392,15 @@ func Test_tenantServiceServer_Create(t *testing.T) {
 				test.Validate(t, tt.rq)
 			}
 
-			got, err := u.Create(reqCtx, connect.NewRequest(tt.rq))
+			got, err := u.Create(reqCtx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
-			assert.NotEmpty(t, got.Msg.Tenant.Login)
+			assert.NotEmpty(t, got.Tenant.Login)
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
@@ -410,42 +409,42 @@ func Test_tenantServiceServer_Create(t *testing.T) {
 					&apiv2.Tenant{}, "login",
 				),
 			); diff != "" {
-				t.Errorf("%v, want %v diff: %s", got.Msg, tt.want, diff)
+				t.Errorf("%v, want %v diff: %s", got, tt.want, diff)
 			}
 
 			// to check whether the owner membership was created, we need to get the tenant as well
 			// as we do not request through opa auther, we also need to extend the token
 
-			tok.TenantRoles[got.Msg.Tenant.Login] = apiv2.TenantRole_TENANT_ROLE_OWNER
+			tok.TenantRoles[got.Tenant.Login] = apiv2.TenantRole_TENANT_ROLE_OWNER
 
 			reqCtx = token.ContextWithToken(t.Context(), tok)
 
-			getResp, err := u.Get(reqCtx, connect.NewRequest(&apiv2.TenantServiceGetRequest{
-				Login: got.Msg.Tenant.Login,
-			}))
+			getResp, err := u.Get(reqCtx, &apiv2.TenantServiceGetRequest{
+				Login: got.Tenant.Login,
+			})
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
-			tt.want.Tenant.Login = got.Msg.Tenant.Login
+			tt.want.Tenant.Login = got.Tenant.Login
 
 			if diff := cmp.Diff(
-				tt.want.Tenant, pointer.SafeDeref(getResp).Msg.Tenant,
+				tt.want.Tenant, pointer.SafeDeref(getResp).Tenant,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("%v, want %v diff: %s", getResp.Msg.Tenant, tt.want.Tenant, diff)
+				t.Errorf("%v, want %v diff: %s", getResp.Tenant, tt.want.Tenant, diff)
 			}
 			if diff := cmp.Diff(
-				tt.wantMembers, pointer.SafeDeref(getResp).Msg.TenantMembers,
+				tt.wantMembers, pointer.SafeDeref(getResp).TenantMembers,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.TenantMember{}, "created_at",
 				),
 			); diff != "" {
-				t.Errorf("%v, want %v diff: %s", getResp.Msg.TenantMembers, tt.wantMembers, diff)
+				t.Errorf("%v, want %v diff: %s", getResp.TenantMembers, tt.wantMembers, diff)
 			}
 		})
 	}
@@ -539,19 +538,19 @@ func Test_tenantServiceServer_Update(t *testing.T) {
 				test.Validate(t, tt.rq)
 			}
 
-			got, err := u.Update(reqCtx, connect.NewRequest(tt.rq))
+			got, err := u.Update(reqCtx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("%v, want %v diff: %s", got.Msg, tt.want, diff)
+				t.Errorf("%v, want %v diff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -659,19 +658,19 @@ func Test_tenantServiceServer_Delete(t *testing.T) {
 				test.Validate(t, tt.rq)
 			}
 
-			got, err := u.Delete(reqCtx, connect.NewRequest(tt.rq))
+			got, err := u.Delete(reqCtx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("%v, want %v diff: %s", got.Msg, tt.want, diff)
+				t.Errorf("%v, want %v diff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -789,19 +788,19 @@ func Test_tenantServiceServer_MemberUpdate(t *testing.T) {
 				test.Validate(t, tt.rq)
 			}
 
-			got, err := u.UpdateMember(reqCtx, connect.NewRequest(tt.rq))
+			got, err := u.UpdateMember(reqCtx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.TenantMember{}, "created_at",
 				),
 			); diff != "" {
-				t.Errorf("%v, want %v diff: %s", got.Msg, tt.want, diff)
+				t.Errorf("%v, want %v diff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -911,7 +910,7 @@ func Test_tenantServiceServer_MemberRemove(t *testing.T) {
 				test.Validate(t, tt.rq)
 			}
 
-			_, err := u.RemoveMember(reqCtx, connect.NewRequest(tt.rq))
+			_, err := u.RemoveMember(reqCtx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
@@ -999,17 +998,17 @@ func Test_tenantServiceServer_Invite(t *testing.T) {
 				test.Validate(t, tt.rq)
 			}
 
-			got, err := u.Invite(reqCtx, connect.NewRequest(tt.rq))
+			got, err := u.Invite(reqCtx, tt.rq)
 			require.NoError(t, err)
 
-			assert.Len(t, got.Msg.Invite.Secret, 32)
-			assert.WithinDuration(t, time.Now().Add(7*24*time.Hour), got.Msg.Invite.ExpiresAt.AsTime(), 1*time.Minute)
-			tt.want.Invite.Secret = got.Msg.Invite.GetSecret()
-			tt.want.Invite.ExpiresAt = got.Msg.Invite.GetExpiresAt()
+			assert.Len(t, got.Invite.Secret, 32)
+			assert.WithinDuration(t, time.Now().Add(7*24*time.Hour), got.Invite.ExpiresAt.AsTime(), 1*time.Minute)
+			tt.want.Invite.Secret = got.Invite.GetSecret()
+			tt.want.Invite.ExpiresAt = got.Invite.GetExpiresAt()
 
 			if diff := cmp.Diff(
 				tt.want,
-				pointer.SafeDeref(got).Msg,
+				got,
 				protocmp.Transform(),
 			); diff != "" {
 				t.Errorf("diff: %s", diff)
@@ -1100,14 +1099,14 @@ func Test_tenantServiceServer_InviteGet(t *testing.T) {
 				test.Validate(t, tt.rq)
 			}
 
-			got, err := u.InviteGet(reqCtx, connect.NewRequest(tt.rq))
+			got, err := u.InviteGet(reqCtx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
 				tt.want,
-				pointer.SafeDeref(got).Msg,
+				got,
 				protocmp.Transform(),
 			); diff != "" {
 				t.Errorf("diff: %s", diff)
@@ -1204,14 +1203,14 @@ func Test_tenantServiceServer_InvitesList(t *testing.T) {
 				test.Validate(t, tt.rq)
 			}
 
-			got, err := u.InvitesList(reqCtx, connect.NewRequest(tt.rq))
+			got, err := u.InvitesList(reqCtx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
 			if diff := cmp.Diff(
 				tt.want,
-				pointer.SafeDeref(got).Msg,
+				got,
 				protocmp.Transform(),
 			); diff != "" {
 				t.Errorf("diff: %s", diff)
@@ -1282,7 +1281,7 @@ func Test_tenantServiceServer_InviteDelete(t *testing.T) {
 				test.Validate(t, tt.rq)
 			}
 
-			_, err := u.InviteDelete(reqCtx, connect.NewRequest(tt.rq))
+			_, err := u.InviteDelete(reqCtx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
@@ -1453,7 +1452,7 @@ func Test_tenantServiceServer_InviteAccept(t *testing.T) {
 				test.Validate(t, tt.rq)
 			}
 
-			acceptResp, err := u.InviteAccept(reqCtx, connect.NewRequest(tt.rq))
+			acceptResp, err := u.InviteAccept(reqCtx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
@@ -1462,7 +1461,7 @@ func Test_tenantServiceServer_InviteAccept(t *testing.T) {
 			}
 			if diff := cmp.Diff(
 				tt.want,
-				pointer.SafeDeref(acceptResp).Msg,
+				pointer.SafeDeref(acceptResp),
 				protocmp.Transform(),
 			); diff != "" {
 				t.Errorf("diff: %s", diff)
@@ -1474,21 +1473,21 @@ func Test_tenantServiceServer_InviteAccept(t *testing.T) {
 			tok = testStore.GetToken("will.smith@github", &apiv2.TokenServiceCreateRequest{
 				Expires: durationpb.New(time.Hour),
 				TenantRoles: map[string]apiv2.TenantRole{
-					"will.smith@github":   apiv2.TenantRole_TENANT_ROLE_OWNER,
-					acceptResp.Msg.Tenant: apiv2.TenantRole_TENANT_ROLE_EDITOR,
+					"will.smith@github": apiv2.TenantRole_TENANT_ROLE_OWNER,
+					acceptResp.Tenant:   apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
 			})
 
 			reqCtx = token.ContextWithToken(t.Context(), tok)
 
-			getResp, err := u.Get(reqCtx, connect.NewRequest(&apiv2.TenantServiceGetRequest{
-				Login: acceptResp.Msg.Tenant,
-			}))
+			getResp, err := u.Get(reqCtx, &apiv2.TenantServiceGetRequest{
+				Login: acceptResp.Tenant,
+			})
 			require.NoError(t, err)
 
 			if diff := cmp.Diff(
 				tt.wantMembers,
-				pointer.SafeDeref(getResp).Msg.TenantMembers,
+				pointer.SafeDeref(getResp).TenantMembers,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.TenantMember{}, "created_at",
@@ -1539,16 +1538,16 @@ func Test_tenantServiceServer_InviteFlow(t *testing.T) {
 
 		reqCtx := token.ContextWithToken(t.Context(), tok)
 
-		got, err := u.Invite(reqCtx, connect.NewRequest(&apiv2.TenantServiceInviteRequest{
+		got, err := u.Invite(reqCtx, &apiv2.TenantServiceInviteRequest{
 			Login: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
 			Role:  apiv2.TenantRole_TENANT_ROLE_EDITOR,
-		}))
+		})
 		require.NoError(t, err)
 
-		assert.Len(t, got.Msg.Invite.Secret, 32)
-		assert.WithinDuration(t, time.Now().Add(7*24*time.Hour), got.Msg.Invite.ExpiresAt.AsTime(), 1*time.Minute)
+		assert.Len(t, got.Invite.Secret, 32)
+		assert.WithinDuration(t, time.Now().Add(7*24*time.Hour), got.Invite.ExpiresAt.AsTime(), 1*time.Minute)
 
-		inviteSecret = got.Msg.Invite.Secret
+		inviteSecret = got.Invite.Secret
 
 		if diff := cmp.Diff(
 			&apiv2.TenantServiceInviteResponse{
@@ -1563,7 +1562,7 @@ func Test_tenantServiceServer_InviteFlow(t *testing.T) {
 					ExpiresAt:        &timestamppb.Timestamp{},
 				},
 			},
-			pointer.SafeDeref(got).Msg,
+			got,
 			protocmp.Transform(),
 			protocmp.IgnoreFields(
 				&apiv2.TenantInvite{}, "expires_at",
@@ -1584,12 +1583,12 @@ func Test_tenantServiceServer_InviteFlow(t *testing.T) {
 
 		reqCtx := token.ContextWithToken(t.Context(), tok)
 
-		got, err := u.InvitesList(reqCtx, connect.NewRequest(&apiv2.TenantServiceInvitesListRequest{
+		got, err := u.InvitesList(reqCtx, &apiv2.TenantServiceInvitesListRequest{
 			Login: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
-		}))
+		})
 		require.NoError(t, err)
 
-		require.Len(t, got.Msg.Invites, 1)
+		require.Len(t, got.Invites, 1)
 
 		if diff := cmp.Diff(
 			&apiv2.TenantServiceInvitesListResponse{
@@ -1606,7 +1605,7 @@ func Test_tenantServiceServer_InviteFlow(t *testing.T) {
 					},
 				},
 			},
-			pointer.SafeDeref(got).Msg,
+			got,
 			protocmp.Transform(),
 			protocmp.IgnoreFields(
 				&apiv2.TenantInvite{}, "expires_at",
@@ -1615,9 +1614,9 @@ func Test_tenantServiceServer_InviteFlow(t *testing.T) {
 			t.Errorf("diff: %s", diff)
 		}
 
-		getResp, err := u.InviteGet(reqCtx, connect.NewRequest(&apiv2.TenantServiceInviteGetRequest{
+		getResp, err := u.InviteGet(reqCtx, &apiv2.TenantServiceInviteGetRequest{
 			Secret: inviteSecret,
-		}))
+		})
 		require.NoError(t, err)
 
 		if diff := cmp.Diff(
@@ -1633,7 +1632,7 @@ func Test_tenantServiceServer_InviteFlow(t *testing.T) {
 					ExpiresAt:        &timestamppb.Timestamp{},
 				},
 			},
-			pointer.SafeDeref(getResp).Msg,
+			pointer.SafeDeref(getResp),
 			protocmp.Transform(),
 			protocmp.IgnoreFields(
 				&apiv2.TenantInvite{}, "expires_at",
@@ -1654,16 +1653,16 @@ func Test_tenantServiceServer_InviteFlow(t *testing.T) {
 
 		reqCtx := token.ContextWithToken(t.Context(), tok)
 
-		got, err := u.Invite(reqCtx, connect.NewRequest(&apiv2.TenantServiceInviteRequest{
+		got, err := u.Invite(reqCtx, &apiv2.TenantServiceInviteRequest{
 			Login: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
 			Role:  apiv2.TenantRole_TENANT_ROLE_OWNER,
-		}))
+		})
 		require.NoError(t, err)
 
-		assert.Len(t, got.Msg.Invite.Secret, 32)
-		assert.WithinDuration(t, time.Now().Add(7*24*time.Hour), got.Msg.Invite.ExpiresAt.AsTime(), 1*time.Minute)
+		assert.Len(t, got.Invite.Secret, 32)
+		assert.WithinDuration(t, time.Now().Add(7*24*time.Hour), got.Invite.ExpiresAt.AsTime(), 1*time.Minute)
 
-		secondInviteSecret := got.Msg.Invite.Secret
+		secondInviteSecret := got.Invite.Secret
 
 		if diff := cmp.Diff(
 			&apiv2.TenantServiceInviteResponse{
@@ -1678,7 +1677,7 @@ func Test_tenantServiceServer_InviteFlow(t *testing.T) {
 					ExpiresAt:        &timestamppb.Timestamp{},
 				},
 			},
-			pointer.SafeDeref(got).Msg,
+			got,
 			protocmp.Transform(),
 			protocmp.IgnoreFields(
 				&apiv2.TenantInvite{}, "expires_at",
@@ -1687,15 +1686,15 @@ func Test_tenantServiceServer_InviteFlow(t *testing.T) {
 			t.Errorf("diff: %s", diff)
 		}
 
-		deleteResp, err := u.InviteDelete(reqCtx, connect.NewRequest(&apiv2.TenantServiceInviteDeleteRequest{
+		deleteResp, err := u.InviteDelete(reqCtx, &apiv2.TenantServiceInviteDeleteRequest{
 			Login:  "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
 			Secret: secondInviteSecret,
-		}))
+		})
 		require.NoError(t, err)
 
 		if diff := cmp.Diff(
 			&apiv2.TenantServiceInviteDeleteResponse{},
-			pointer.SafeDeref(deleteResp).Msg,
+			pointer.SafeDeref(deleteResp),
 			protocmp.Transform(),
 		); diff != "" {
 			t.Errorf("diff: %s", diff)
@@ -1712,9 +1711,9 @@ func Test_tenantServiceServer_InviteFlow(t *testing.T) {
 
 		reqCtx := token.ContextWithToken(t.Context(), tok)
 
-		got, err := u.InviteAccept(reqCtx, connect.NewRequest(&apiv2.TenantServiceInviteAcceptRequest{
+		got, err := u.InviteAccept(reqCtx, &apiv2.TenantServiceInviteAcceptRequest{
 			Secret: inviteSecret,
-		}))
+		})
 		require.NoError(t, err)
 
 		if diff := cmp.Diff(
@@ -1722,7 +1721,7 @@ func Test_tenantServiceServer_InviteFlow(t *testing.T) {
 				Tenant:     "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
 				TenantName: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
 			},
-			pointer.SafeDeref(got).Msg,
+			got,
 			protocmp.Transform(),
 		); diff != "" {
 			t.Errorf("diff: %s", diff)
@@ -1740,16 +1739,16 @@ func Test_tenantServiceServer_InviteFlow(t *testing.T) {
 
 		reqCtx := token.ContextWithToken(t.Context(), tok)
 
-		got, err := u.InvitesList(reqCtx, connect.NewRequest(&apiv2.TenantServiceInvitesListRequest{
+		got, err := u.InvitesList(reqCtx, &apiv2.TenantServiceInvitesListRequest{
 			Login: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
-		}))
+		})
 		require.NoError(t, err)
 
-		require.Empty(t, got.Msg.Invites)
+		require.Empty(t, got.Invites)
 
-		getResp, err := u.Get(reqCtx, connect.NewRequest(&apiv2.TenantServiceGetRequest{
+		getResp, err := u.Get(reqCtx, &apiv2.TenantServiceGetRequest{
 			Login: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
-		}))
+		})
 		require.NoError(t, err)
 
 		if diff := cmp.Diff(
@@ -1763,7 +1762,7 @@ func Test_tenantServiceServer_InviteFlow(t *testing.T) {
 					Role: apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
 			},
-			pointer.SafeDeref(getResp).Msg.TenantMembers,
+			pointer.SafeDeref(getResp).TenantMembers,
 			protocmp.Transform(),
 			protocmp.IgnoreFields(
 				&apiv2.TenantMember{}, "created_at",

@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 
-	"connectrpc.com/connect"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -30,56 +29,41 @@ func New(c Config) adminv2connect.MachineServiceHandler {
 }
 
 // Get implements apiv2connect.MachineServiceHandler.
-func (m *machineServiceServer) Get(ctx context.Context, rq *connect.Request[adminv2.MachineServiceGetRequest]) (*connect.Response[adminv2.MachineServiceGetResponse], error) {
-	req := rq.Msg
-
-	resp, err := m.repo.UnscopedMachine().Get(ctx, req.Uuid)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-	converted, err := m.repo.UnscopedMachine().ConvertToProto(ctx, resp)
+func (m *machineServiceServer) Get(ctx context.Context, req *adminv2.MachineServiceGetRequest) (*adminv2.MachineServiceGetResponse, error) {
+	machine, err := m.repo.UnscopedMachine().Get(ctx, req.Uuid)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	return connect.NewResponse(&adminv2.MachineServiceGetResponse{
-		Machine: converted,
-	}), nil
+	return &adminv2.MachineServiceGetResponse{
+		Machine: machine,
+	}, nil
 }
 
 // List implements apiv2connect.MachineServiceHandler.
-func (m *machineServiceServer) List(ctx context.Context, rq *connect.Request[adminv2.MachineServiceListRequest]) (*connect.Response[adminv2.MachineServiceListResponse], error) {
+func (m *machineServiceServer) List(ctx context.Context, rq *adminv2.MachineServiceListRequest) (*adminv2.MachineServiceListResponse, error) {
 	partitions, err := m.repo.Partition().List(ctx, &apiv2.PartitionQuery{})
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	partition := rq.Msg.Partition
+	partition := rq.Partition
 	if partition == nil {
 		if len(partitions) > 1 {
 			return nil, errorutil.InvalidArgument("no partition specified, but %d partitions available", len(partitions))
 		}
 		if len(partitions) == 1 {
-			partition = &partitions[0].ID
+			partition = &partitions[0].Id
 		}
 	}
 
-	q := rq.Msg.Query
+	q := rq.Query
 	q.Partition = partition
 
 	machines, err := m.repo.UnscopedMachine().List(ctx, q)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
-	var result []*apiv2.Machine
 
-	for _, machine := range machines {
-		converted, err := m.repo.UnscopedMachine().ConvertToProto(ctx, machine)
-		if err != nil {
-			return nil, errorutil.Convert(err)
-		}
-		result = append(result, converted)
-	}
-
-	return connect.NewResponse(&adminv2.MachineServiceListResponse{Machines: result}), nil
+	return &adminv2.MachineServiceListResponse{Machines: machines}, nil
 }
