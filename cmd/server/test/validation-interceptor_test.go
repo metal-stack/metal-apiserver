@@ -1,15 +1,16 @@
 package test
 
 import (
-	"context"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"connectrpc.com/connect"
 	"connectrpc.com/validate"
-	apiv1 "github.com/metal-stack/api/go/metalstack/api/v2"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
+	"github.com/metal-stack/metal-apiserver/pkg/service/token"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,14 +19,12 @@ func TestWithValidator(t *testing.T) {
 	interceptor := validate.NewInterceptor()
 
 	mux := http.NewServeMux()
-	mux.Handle(apiv2connect.TokenServiceCreateProcedure, connect.NewUnaryHandler(
-		apiv2connect.TokenServiceCreateProcedure,
-		createToken,
-		connect.WithInterceptors(interceptor),
-	))
+	mux.Handle(apiv2connect.NewTokenServiceHandler(token.New(token.Config{
+		Log: slog.Default(),
+	}), connect.WithInterceptors(interceptor)))
 	srv := startHTTPServer(t, mux)
 
-	req := connect.NewRequest(&apiv1.TokenServiceCreateRequest{
+	req := &apiv2.TokenServiceCreateRequest{
 		Description: `
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
@@ -36,7 +35,7 @@ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 `,
-	})
+	}
 	_, err := apiv2connect.NewTokenServiceClient(srv.Client(), srv.URL).Create(t.Context(), req)
 	require.Error(t, err)
 	require.EqualError(t, err, "invalid_argument: validation error:\n - description: must be shorter than 256 characters [string.is_description]")
@@ -50,8 +49,4 @@ func startHTTPServer(tb testing.TB, h http.Handler) *httptest.Server {
 	srv.Start()
 	tb.Cleanup(srv.Close)
 	return srv
-}
-
-func createToken(_ context.Context, req *connect.Request[apiv1.TokenServiceCreateRequest]) (*connect.Response[apiv1.TokenServiceCreateResponse], error) {
-	return connect.NewResponse(&apiv1.TokenServiceCreateResponse{Token: &apiv1.Token{Uuid: "abc"}}), nil
 }

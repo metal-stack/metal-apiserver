@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 
-	"connectrpc.com/connect"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
@@ -31,74 +30,63 @@ func New(c Config) apiv2connect.NetworkServiceHandler {
 }
 
 // Create implements apiv2connect.NetworkServiceHandler.
-func (n *networkServiceServer) Create(ctx context.Context, rq *connect.Request[apiv2.NetworkServiceCreateRequest]) (*connect.Response[apiv2.NetworkServiceCreateResponse], error) {
-	r := rq.Msg
-
+func (n *networkServiceServer) Create(ctx context.Context, rq *apiv2.NetworkServiceCreateRequest) (*apiv2.NetworkServiceCreateResponse, error) {
 	req := &adminv2.NetworkServiceCreateRequest{
-		Project:       &r.Project,
-		Name:          r.Name,
-		Description:   r.Description,
-		Partition:     r.Partition,
-		ParentNetwork: r.ParentNetwork,
-		Labels:        r.Labels,
-		Length:        r.Length,
-		AddressFamily: r.AddressFamily,
+		Project:       &rq.Project,
+		Name:          rq.Name,
+		Description:   rq.Description,
+		Partition:     rq.Partition,
+		ParentNetwork: rq.ParentNetwork,
+		Labels:        rq.Labels,
+		Length:        rq.Length,
+		AddressFamily: rq.AddressFamily,
 		Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD, // Non Admins can only create Child Networks
 	}
 
-	nw, err := n.repo.Network(r.Project).Create(ctx, req)
+	nw, err := n.repo.Network(rq.Project).Create(ctx, req)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	return connect.NewResponse(&apiv2.NetworkServiceCreateResponse{Network: nw}), nil
+	return &apiv2.NetworkServiceCreateResponse{Network: nw}, nil
 }
 
 // Delete implements apiv2connect.NetworkServiceHandler.
-func (n *networkServiceServer) Delete(ctx context.Context, rq *connect.Request[apiv2.NetworkServiceDeleteRequest]) (*connect.Response[apiv2.NetworkServiceDeleteResponse], error) {
-	req := rq.Msg
-
+func (n *networkServiceServer) Delete(ctx context.Context, req *apiv2.NetworkServiceDeleteRequest) (*apiv2.NetworkServiceDeleteResponse, error) {
 	nw, err := n.repo.Network(req.Project).Delete(ctx, req.Id)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	return connect.NewResponse(&apiv2.NetworkServiceDeleteResponse{Network: nw}), nil
+	return &apiv2.NetworkServiceDeleteResponse{Network: nw}, nil
 }
 
 // Get implements apiv2connect.NetworkServiceHandler.
-func (n *networkServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2.NetworkServiceGetRequest]) (*connect.Response[apiv2.NetworkServiceGetResponse], error) {
-	req := rq.Msg
-
+func (n *networkServiceServer) Get(ctx context.Context, req *apiv2.NetworkServiceGetRequest) (*apiv2.NetworkServiceGetResponse, error) {
 	// Project is already checked in the tenant-interceptor, ipam must not be consulted
 	nw, err := n.repo.Network(req.Project).Get(ctx, req.Id)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
 
-	return connect.NewResponse(&apiv2.NetworkServiceGetResponse{
+	return &apiv2.NetworkServiceGetResponse{
 		Network: nw,
-	}), nil
+	}, nil
 }
 
 // List implements apiv2connect.NetworkServiceHandler.
-func (n *networkServiceServer) List(ctx context.Context, rq *connect.Request[apiv2.NetworkServiceListRequest]) (*connect.Response[apiv2.NetworkServiceListResponse], error) {
-	req := rq.Msg
-
-	nws, err := n.repo.Network(req.Project).List(ctx, req.Query)
+func (n *networkServiceServer) List(ctx context.Context, req *apiv2.NetworkServiceListRequest) (*apiv2.NetworkServiceListResponse, error) {
+	nw, err := n.repo.Network(req.Project).List(ctx, req.Query)
 	if err != nil {
 		return nil, err
 	}
-
-	return connect.NewResponse(&apiv2.NetworkServiceListResponse{
-		Networks: nws,
-	}), nil
+	return &apiv2.NetworkServiceListResponse{
+		Networks: nw,
+	}, nil
 }
 
 // ListBaseNetworks implements apiv2connect.NetworkServiceHandler.
-func (n *networkServiceServer) ListBaseNetworks(ctx context.Context, rq *connect.Request[apiv2.NetworkServiceListBaseNetworksRequest]) (*connect.Response[apiv2.NetworkServiceListBaseNetworksResponse], error) {
-	req := rq.Msg
-
+func (n *networkServiceServer) ListBaseNetworks(ctx context.Context, req *apiv2.NetworkServiceListBaseNetworksRequest) (*apiv2.NetworkServiceListBaseNetworksResponse, error) {
 	var networks []*apiv2.Network
 
 	if req.Project != "" {
@@ -135,15 +123,13 @@ func (n *networkServiceServer) ListBaseNetworks(ctx context.Context, rq *connect
 		}
 	}
 
-	return connect.NewResponse(&apiv2.NetworkServiceListBaseNetworksResponse{
+	return &apiv2.NetworkServiceListBaseNetworksResponse{
 		Networks: res,
-	}), nil
+	}, nil
 }
 
 // Update implements apiv2connect.NetworkServiceHandler.
-func (n *networkServiceServer) Update(ctx context.Context, rq *connect.Request[apiv2.NetworkServiceUpdateRequest]) (*connect.Response[apiv2.NetworkServiceUpdateResponse], error) {
-	req := rq.Msg
-
+func (n *networkServiceServer) Update(ctx context.Context, req *apiv2.NetworkServiceUpdateRequest) (*apiv2.NetworkServiceUpdateResponse, error) {
 	nur := &adminv2.NetworkServiceUpdateRequest{
 		Id:          req.Id,
 		Name:        req.Name,
@@ -158,5 +144,5 @@ func (n *networkServiceServer) Update(ctx context.Context, rq *connect.Request[a
 		return nil, errorutil.Convert(err)
 	}
 
-	return connect.NewResponse(&apiv2.NetworkServiceUpdateResponse{Network: nw}), nil
+	return &apiv2.NetworkServiceUpdateResponse{Network: nw}, nil
 }

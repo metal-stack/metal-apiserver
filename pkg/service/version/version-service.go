@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 
-	"connectrpc.com/connect"
 	"github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/v"
@@ -23,14 +22,14 @@ func New(c Config) apiv2connect.VersionServiceHandler {
 	}
 }
 
-func (a *versionServiceServer) Get(ctx context.Context, rq *connect.Request[apiv2.VersionServiceGetRequest]) (*connect.Response[apiv2.VersionServiceGetResponse], error) {
+func (a *versionServiceServer) Get(ctx context.Context, rq *apiv2.VersionServiceGetRequest) (*apiv2.VersionServiceGetResponse, error) {
 	version := &apiv2.Version{
 		Version:   v.Version,
 		Revision:  v.Revision,
 		GitSha1:   v.GitSHA1,
 		BuildDate: v.BuildDate,
 	}
-	return connect.NewResponse(&apiv2.VersionServiceGetResponse{
+	return &apiv2.VersionServiceGetResponse{
 		Version: version,
-	}), nil
+	}, nil
 }

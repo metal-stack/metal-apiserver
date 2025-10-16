@@ -5,7 +5,6 @@ import (
 	"os"
 	"testing"
 
-	"connectrpc.com/connect"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
@@ -40,12 +39,12 @@ func Benchmark_ipServiceServer_Create(b *testing.B) {
 		repo: repo,
 	}
 	for b.Loop() {
-		got, err := i.Create(ctx, connect.NewRequest(&apiv2.IPServiceCreateRequest{
+		got, err := i.Create(ctx, &apiv2.IPServiceCreateRequest{
 			Network: "internet",
 			Project: "p1",
-		}))
+		})
 		require.NoError(b, err)
 		require.NotNil(b, got)
-		require.NotEmpty(b, got.Msg.Ip)
+		require.NotEmpty(b, got.Ip)
 	}
 }

@@ -290,7 +290,7 @@ func (a *auth) Callback(res http.ResponseWriter, req *http.Request) {
 	// 	return
 	// }
 	rawQuery := url.Values{
-		"token": []string{tcr.Msg.Secret},
+		"token": []string{tcr.Secret},
 	}.Encode()
 
 	redirectURL := &url.URL{

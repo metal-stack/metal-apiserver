@@ -194,9 +194,9 @@ func (t *testStore) GetTokenService() token.TokenService {
 }
 
 func (t *testStore) GetToken(subject string, cr *apiv2.TokenServiceCreateRequest) *apiv2.Token {
-	resp, err := t.tokenService.CreateApiTokenWithoutPermissionCheck(t.t.Context(), subject, connect.NewRequest(cr))
+	resp, err := t.tokenService.CreateApiTokenWithoutPermissionCheck(t.t.Context(), subject, cr)
 	require.NoError(t.t, err)
-	return resp.Msg.GetToken()
+	return resp.GetToken()
 }
 
 func CreateImages(t *testing.T, repo *repository.Store, images []*adminv2.ImageServiceCreateRequest) map[string]*apiv2.Image {
@@ -425,13 +425,13 @@ func CreateProjectInvites(t testing.TB, testStore *testStore, invites []*apiv2.P
 
 func CreateTenants(t testing.TB, testStore *testStore, tenants []*apiv2.TenantServiceCreateRequest) {
 	for _, tenant := range tenants {
-		tok, err := testStore.tokenService.CreateApiTokenWithoutPermissionCheck(t.Context(), tenant.GetName(), connect.NewRequest(&apiv2.TokenServiceCreateRequest{
+		tok, err := testStore.tokenService.CreateApiTokenWithoutPermissionCheck(t.Context(), tenant.GetName(), &apiv2.TokenServiceCreateRequest{
 			Expires:   durationpb.New(time.Minute),
 			AdminRole: apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
-		}))
+		})
 		require.NoError(t, err)
 
-		reqCtx := tokencommon.ContextWithToken(t.Context(), tok.Msg.Token)
+		reqCtx := tokencommon.ContextWithToken(t.Context(), tok.Token)
 
 		_, err = testStore.Tenant().AdditionalMethods().CreateWithID(reqCtx, tenant, tenant.Name)
 		require.NoError(t, err)

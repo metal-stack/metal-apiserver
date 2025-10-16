@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 
-	"connectrpc.com/connect"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -42,9 +41,7 @@ func New(c Config) TenantService {
 }
 
 // Create implements TenantService.
-func (t *tenantServiceServer) Create(ctx context.Context, rq *connect.Request[adminv2.TenantServiceCreateRequest]) (*connect.Response[adminv2.TenantServiceCreateResponse], error) {
-	req := rq.Msg
-
+func (t *tenantServiceServer) Create(ctx context.Context, req *adminv2.TenantServiceCreateRequest) (*adminv2.TenantServiceCreateResponse, error) {
 	tenant, err := t.repo.Tenant().Create(ctx, &apiv2.TenantServiceCreateRequest{
 		Name:        req.Name,
 		Description: req.Description,
@@ -55,10 +52,10 @@ func (t *tenantServiceServer) Create(ctx context.Context, rq *connect.Request[ad
 		return nil, err
 	}
 
-	return connect.NewResponse(&adminv2.TenantServiceCreateResponse{Tenant: tenant}), nil
+	return &adminv2.TenantServiceCreateResponse{Tenant: tenant}, nil
 }
 
 // List implements TenantService.
-func (t *tenantServiceServer) List(context.Context, *connect.Request[adminv2.TenantServiceListRequest]) (*connect.Response[adminv2.TenantServiceListResponse], error) {
+func (t *tenantServiceServer) List(context.Context, *adminv2.TenantServiceListRequest) (*adminv2.TenantServiceListResponse, error) {
 	panic("unimplemented")
 }

@@ -4,7 +4,6 @@ import (
 	"log/slog"
 	"testing"
 
-	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -94,18 +93,18 @@ func Test_filesystemServiceServer_Create(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := f.Create(t.Context(), connect.NewRequest(tt.rq))
+			got, err := f.Create(t.Context(), tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("imageServiceServer.Create() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
+				t.Errorf("imageServiceServer.Create() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -199,18 +198,18 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := f.Update(t.Context(), connect.NewRequest(tt.rq))
+			got, err := f.Update(t.Context(), tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("imageServiceServer.Create() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
+				t.Errorf("imageServiceServer.Create() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -324,18 +323,18 @@ func Test_filesystemServiceServer_Delete(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := f.Delete(t.Context(), connect.NewRequest(tt.rq))
+			got, err := f.Delete(t.Context(), tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 			if diff := cmp.Diff(
-				tt.want, pointer.SafeDeref(got).Msg,
+				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("imageServiceServer.Create() = %v, want %vņdiff: %s", got.Msg, tt.want, diff)
+				t.Errorf("imageServiceServer.Create() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}

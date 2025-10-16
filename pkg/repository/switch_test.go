@@ -676,7 +676,7 @@ func TestToMetalNics(t *testing.T) {
 			switchNics: []*apiv2.SwitchNic{
 				{
 					State: &apiv2.NicState{
-						Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNSPECIFIED,
+						Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNSPECIFIED.Enum(),
 					},
 				},
 			},
@@ -703,7 +703,7 @@ func TestToMetalNics(t *testing.T) {
 					Identifier: "Eth1/1",
 					Mac:        "11:11:11:11:11:11",
 					State: &apiv2.NicState{
-						Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+						Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
 						Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
 					},
 				},
@@ -713,7 +713,7 @@ func TestToMetalNics(t *testing.T) {
 					Mac:        "22:22:22:22:22:22",
 					Vrf:        pointer.Pointer("Vrf100"),
 					State: &apiv2.NicState{
-						Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+						Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
 						Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 					},
 					BgpPortState: &apiv2.SwitchBGPPortState{
