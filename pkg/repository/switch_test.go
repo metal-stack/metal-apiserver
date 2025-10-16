@@ -676,7 +676,7 @@ func TestToMetalNics(t *testing.T) {
 			switchNics: []*apiv2.SwitchNic{
 				{
 					State: &apiv2.NicState{
-						Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNSPECIFIED,
+						Desired: pointer.Pointer(apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNSPECIFIED),
 					},
 				},
 			},
@@ -703,7 +703,7 @@ func TestToMetalNics(t *testing.T) {
 					Identifier: "Eth1/1",
 					Mac:        "11:11:11:11:11:11",
 					State: &apiv2.NicState{
-						Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+						Desired: pointer.Pointer(apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP),
 						Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
 					},
 				},
@@ -713,7 +713,7 @@ func TestToMetalNics(t *testing.T) {
 					Mac:        "22:22:22:22:22:22",
 					Vrf:        pointer.Pointer("Vrf100"),
 					State: &apiv2.NicState{
-						Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+						Desired: pointer.Pointer(apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP),
 						Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 					},
 					BgpPortState: &apiv2.SwitchBGPPortState{
@@ -894,6 +894,98 @@ func TestToMachineConnections(t *testing.T) {
 			}
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("ToMachineConnections() diff = %s", diff)
+			}
+		})
+	}
+}
+
+func TestGetNewNicState(t *testing.T) {
+	tests := []struct {
+		name        string
+		current     *apiv2.NicState
+		status      apiv2.SwitchPortStatus
+		want        *apiv2.NicState
+		wantChanged bool
+	}{
+		{
+			name:    "current is nil",
+			current: nil,
+			status:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+			want: &apiv2.NicState{
+				Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+			},
+			wantChanged: true,
+		},
+		{
+			name: "state unchanged and matches desired",
+			current: &apiv2.NicState{
+				Desired: pointer.Pointer(apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP),
+				Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+			},
+			status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+			want: &apiv2.NicState{
+				Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+			},
+			wantChanged: true,
+		},
+		{
+			name: "state unchanged and does not match desired",
+			current: &apiv2.NicState{
+				Desired: pointer.Pointer(apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN),
+				Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+			},
+			status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+			want: &apiv2.NicState{
+				Desired: pointer.Pointer(apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN),
+				Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+			},
+			wantChanged: false,
+		},
+		{
+			name: "state changed and desired empty",
+			current: &apiv2.NicState{
+				Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+			},
+			status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNKNOWN,
+			want: &apiv2.NicState{
+				Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNKNOWN,
+			},
+			wantChanged: true,
+		},
+		{
+			name: "state changed and does not match desired",
+			current: &apiv2.NicState{
+				Desired: pointer.Pointer(apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP),
+				Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
+			},
+			status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNKNOWN,
+			want: &apiv2.NicState{
+				Desired: pointer.Pointer(apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP),
+				Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNKNOWN,
+			},
+			wantChanged: true,
+		},
+		{
+			name: "state changed and matches desired",
+			current: &apiv2.NicState{
+				Desired: pointer.Pointer(apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP),
+				Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
+			},
+			status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+			want: &apiv2.NicState{
+				Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+			},
+			wantChanged: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, gotChanged := GetNewNicState(tt.current, tt.status)
+			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
+				t.Errorf("GetNewNicState() diff = %v", diff)
+			}
+			if gotChanged != tt.wantChanged {
+				t.Errorf("GetNewNicState() changed = %v, want %v", gotChanged, tt.wantChanged)
 			}
 		})
 	}

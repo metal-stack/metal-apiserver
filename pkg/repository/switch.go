@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
@@ -18,6 +19,7 @@ import (
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/samber/lo"
 	"go4.org/netipx"
+	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -101,6 +103,26 @@ func (r *switchRepository) SetSwitchStatus(ctx context.Context, status *metal.Sw
 	return r.s.ds.SwitchStatus().Upsert(ctx, status)
 }
 
+func GetNewNicState(current *apiv2.NicState, status apiv2.SwitchPortStatus) (*apiv2.NicState, bool) {
+	if current == nil {
+		return &apiv2.NicState{
+			Actual: status,
+		}, true
+	}
+
+	state := &apiv2.NicState{
+		Desired: current.Desired,
+		Actual:  status,
+	}
+
+	if state.Desired != nil && status == *state.Desired {
+		state.Desired = nil
+	}
+
+	changed := cmp.Diff(current, state, protocmp.Transform()) != ""
+	return state, changed
+}
+
 func (r *switchRepository) get(ctx context.Context, id string) (*metal.Switch, error) {
 	sw, err := r.s.ds.Switch().Get(ctx, id)
 	if err != nil {
@@ -138,18 +160,25 @@ func ToSwitchPortState(state *apiv2.NicState) (*metal.NicState, error) {
 		return nil, nil
 	}
 
-	desiredState, err := metal.ToSwitchPortStatus(state.Desired)
-	if err != nil {
-		return nil, err
+	var (
+		desired, actual metal.SwitchPortStatus
+		err             error
+	)
+
+	if state.Desired != nil {
+		desired, err = metal.ToSwitchPortStatus(*state.Desired)
+		if err != nil {
+			return nil, err
+		}
 	}
-	actualState, err := metal.ToSwitchPortStatus(state.Actual)
+	actual, err = metal.ToSwitchPortStatus(state.Actual)
 	if err != nil {
 		return nil, err
 	}
 
 	return &metal.NicState{
-		Desired: &desiredState,
-		Actual:  actualState,
+		Desired: &desired,
+		Actual:  actual,
 	}, nil
 }
 
@@ -423,7 +452,7 @@ func (r *switchRepository) toSwitchNics(ctx context.Context, sw *metal.Switch) (
 			Mac:        nic.MacAddress,
 			Vrf:        pointer.PointerOrNil(nic.Vrf),
 			State: &apiv2.NicState{
-				Desired: desiredState,
+				Desired: &desiredState,
 				Actual:  actualState,
 			},
 			BgpFilter:    filter,

@@ -1,7 +1,5 @@
 package metal
 
-import "github.com/google/go-cmp/cmp"
-
 type (
 	Nic struct {
 		MacAddress   string              `rethinkdb:"macAddress"`
@@ -52,26 +50,6 @@ const (
 	SwitchPortStatusUp      SwitchPortStatus = "UP"
 	SwitchPortStatusDown    SwitchPortStatus = "DOWN"
 )
-
-func (s *NicState) SetState(status SwitchPortStatus) (*NicState, bool) {
-	if s == nil {
-		return &NicState{
-			Actual: status,
-		}, true
-	}
-
-	state := &NicState{
-		Actual:  status,
-		Desired: s.Desired,
-	}
-
-	if state.Desired != nil && status == *state.Desired {
-		state.Desired = nil
-	}
-
-	changed := cmp.Diff(s, state) != ""
-	return state, changed
-}
 
 func (nics Nics) MapByIdentifier() NicMap {
 	nicMap := make(NicMap)

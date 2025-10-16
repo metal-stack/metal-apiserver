@@ -13,6 +13,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -40,12 +41,7 @@ func (s *switchServiceServer) Get(ctx context.Context, rq *connect.Request[infra
 		return nil, errorutil.Convert(err)
 	}
 
-	converted, err := s.repo.Switch().ConvertToProto(ctx, sw)
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	return connect.NewResponse(&infrav2.SwitchServiceGetResponse{Switch: converted}), nil
+	return connect.NewResponse(&infrav2.SwitchServiceGetResponse{Switch: sw}), nil
 }
 
 func (s *switchServiceServer) Register(ctx context.Context, rq *connect.Request[infrav2.SwitchServiceRegisterRequest]) (*connect.Response[infrav2.SwitchServiceRegisterResponse], error) {
@@ -90,18 +86,12 @@ func (s *switchServiceServer) Heartbeat(ctx context.Context, rq *connect.Request
 	var updated bool
 	if req.PortStates != nil {
 		for i, nic := range sw.Nics {
-			reported, ok := req.PortStates[nic.Name]
+			reportedState, ok := req.PortStates[nic.Name]
 			if !ok {
 				return nil, errorutil.Internal("failed to determine switch port state because port %s was not found on switch", nic.Name)
 			}
 
-			state, err := metal.ToSwitchPortStatus(reported)
-			if err != nil {
-				return nil, errorutil.InvalidArgument("failed to interpret switch port state: %w", err)
-			}
-
-			// FIXME: check nil
-			newState, changed := nic.State.SetState(state)
+			newState, changed := repository.GetNewNicState(nic.State, reportedState)
 			if changed {
 				sw.Nics[i].State = newState
 				updated = true
@@ -111,35 +101,24 @@ func (s *switchServiceServer) Heartbeat(ctx context.Context, rq *connect.Request
 
 	if req.BgpPortStates != nil {
 		for i, nic := range sw.Nics {
-			reported, ok := req.BgpPortStates[nic.Name]
-			state, err := repository.ToSwitchBGPPortState(reported)
-			if err != nil {
-				return nil, errorutil.InvalidArgument("failed to convert bgp port state: %w", err)
-			}
+			reportedState, ok := req.BgpPortStates[nic.Name]
 
 			switch {
-			case !ok && nic.BGPPortState == nil, cmp.Diff(state, nic.BGPPortState) == "":
+			case !ok && nic.BgpPortState == nil, cmp.Diff(reportedState, nic.BgpPortState, protocmp.Transform()) == "":
 				continue
 			case !ok:
-				sw.Nics[i].BGPPortState = nil
+				sw.Nics[i].BgpPortState = nil
 			default:
-				sw.Nics[i].BGPPortState = state
+				sw.Nics[i].BgpPortState = reportedState
 			}
 			updated = true
 		}
 	}
 
 	if updated {
-		// FIXME: this is very expensive
-		// try to find a solution for updating only port states and bgp states without contructing the entire switch
-		newSwitch, err := s.repo.Switch().ConvertToProto(ctx, sw)
-		if err != nil {
-			return nil, err
-		}
-
 		updateReq := &adminv2.SwitchServiceUpdateRequest{
-			Id:   newSwitch.Id,
-			Nics: newSwitch.Nics,
+			Id:   sw.Id,
+			Nics: sw.Nics,
 		}
 		_, err = s.repo.Switch().Update(ctx, req.Id, updateReq)
 		if err != nil {
