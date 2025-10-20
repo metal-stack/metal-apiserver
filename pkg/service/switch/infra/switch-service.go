@@ -2,18 +2,18 @@ package infra
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/api/go/metalstack/infra/v2/infrav2connect"
-	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"google.golang.org/protobuf/testing/protocmp"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -58,9 +58,9 @@ func (s *switchServiceServer) Heartbeat(ctx context.Context, rq *infrav2.SwitchS
 		return nil, errorutil.Convert(err)
 	}
 
-	lastSync := &metal.SwitchSync{
-		Time:     time.Now(),
-		Duration: rq.Duration.AsDuration(),
+	lastSync := &infrav2.SwitchSync{
+		Time:     timestamppb.New(time.Now()),
+		Duration: rq.Duration,
 		Error:    rq.Error,
 	}
 
@@ -114,27 +114,25 @@ func (s *switchServiceServer) Heartbeat(ctx context.Context, rq *infrav2.SwitchS
 
 	if updated {
 		updateReq := &adminv2.SwitchServiceUpdateRequest{
-			Id:   sw.Id,
+			Id: sw.Id,
+			UpdateMeta: &apiv2.UpdateMeta{
+				UpdatedAt:       timestamppb.New(time.Now()),
+				LockingStrategy: apiv2.OptimisticLockingStrategy_OPTIMISTIC_LOCKING_STRATEGY_SERVER,
+			},
 			Nics: sw.Nics,
 		}
-		_, err = s.repo.Switch().Update(ctx, rq.Id, updateReq)
+		updatedSwitch, err := s.repo.Switch().Update(ctx, rq.Id, updateReq)
 		if err != nil {
 			return nil, err
 		}
+
+		fmt.Printf("%v\n%v\n", updateReq, updatedSwitch)
 	}
 
 	res := &infrav2.SwitchServiceHeartbeatResponse{
-		Id: status.ID,
-		LastSync: &infrav2.SwitchSync{
-			Time:     timestamppb.New(status.LastSync.Time),
-			Duration: durationpb.New(status.LastSync.Duration),
-			Error:    status.LastSync.Error,
-		},
-		LastSyncError: &infrav2.SwitchSync{
-			Time:     timestamppb.New(status.LastSyncError.Time),
-			Duration: durationpb.New(status.LastSyncError.Duration),
-			Error:    status.LastSyncError.Error,
-		},
+		Id:            status.ID,
+		LastSync:      status.LastSync,
+		LastSyncError: status.LastSyncError,
 	}
 
 	return res, nil

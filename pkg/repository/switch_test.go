@@ -1,12 +1,16 @@
 package repository
 
 import (
+	"context"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
@@ -77,7 +81,7 @@ func Test_updateNics(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := updateNics(tt.old, tt.new)
+			got := updateNicNames(tt.old, tt.new)
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("updateNics() diff = %s", diff)
 			}
@@ -986,6 +990,61 @@ func TestGetNewNicState(t *testing.T) {
 			}
 			if gotChanged != tt.wantChanged {
 				t.Errorf("GetNewNicState() changed = %v, want %v", gotChanged, tt.wantChanged)
+			}
+		})
+	}
+}
+
+func Test_toMetalSwitchSync(t *testing.T) {
+	type args struct {
+		sync *infrav2.SwitchSync
+	}
+	tests := []struct {
+		name string
+		args args
+		want *metal.SwitchSync
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := toMetalSwitchSync(tt.args.sync); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("toMetalSwitchSync() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_switchRepository_updateAllButNics(t *testing.T) {
+	type fields struct {
+		s *Store
+	}
+	type args struct {
+		ctx context.Context
+		sw  *metal.Switch
+		req *adminv2.SwitchServiceUpdateRequest
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    *metal.Switch
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &switchRepository{
+				s: tt.fields.s,
+			}
+			got, err := r.updateAllButNics(tt.args.ctx, tt.args.sw, tt.args.req)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("switchRepository.updateAllButNics() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("switchRepository.updateAllButNics() = %v, want %v", got, tt.want)
 			}
 		})
 	}
