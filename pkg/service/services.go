@@ -48,6 +48,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/service/tenant"
 	tenantadmin "github.com/metal-stack/metal-apiserver/pkg/service/tenant/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/token"
+	tokenadmin "github.com/metal-stack/metal-apiserver/pkg/service/token/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/version"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/auditing"
@@ -229,6 +230,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	adminMachineService := machineadmin.New(machineadmin.Config{Log: log, Repo: c.Repository})
 	adminNetworkService := networkadmin.New(networkadmin.Config{Log: log, Repo: c.Repository})
 	adminSwitchService := switchadmin.New(switchadmin.Config{Log: log, Repo: c.Repository})
+	adminTokenService := tokenadmin.New(tokenadmin.Config{Log: log, CertStore: certStore, TokenStore: tokenStore, Repo: c.Repository})
 	mux.Handle(adminv2connect.NewIPServiceHandler(adminIpService, adminInterceptors))
 	mux.Handle(adminv2connect.NewImageServiceHandler(adminImageService, adminInterceptors))
 	mux.Handle(adminv2connect.NewFilesystemServiceHandler(adminFilesystemService, adminInterceptors))
@@ -238,6 +240,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	mux.Handle(adminv2connect.NewNetworkServiceHandler(adminNetworkService, adminInterceptors))
 	mux.Handle(adminv2connect.NewSwitchServiceHandler(adminSwitchService, adminInterceptors))
 	mux.Handle(adminv2connect.NewMachineServiceHandler(adminMachineService, adminInterceptors))
+	mux.Handle(adminv2connect.NewTokenServiceHandler(adminTokenService, adminInterceptors))
 
 	// Infra services
 	infraSwitchService := switchinfra.New(switchinfra.Config{Log: log, Repo: c.Repository})
