@@ -29,8 +29,6 @@ type TenantService interface {
 	adminv2connect.TenantServiceHandler
 }
 
-// FIXME use repo where possible
-
 func New(c Config) TenantService {
 	return &tenantServiceServer{
 		log:         c.Log.WithGroup("adminTenantService"),
@@ -40,7 +38,6 @@ func New(c Config) TenantService {
 	}
 }
 
-// Create implements TenantService.
 func (t *tenantServiceServer) Create(ctx context.Context, req *adminv2.TenantServiceCreateRequest) (*adminv2.TenantServiceCreateResponse, error) {
 	tenant, err := t.repo.Tenant().Create(ctx, &apiv2.TenantServiceCreateRequest{
 		Name:        req.Name,
@@ -55,7 +52,14 @@ func (t *tenantServiceServer) Create(ctx context.Context, req *adminv2.TenantSer
 	return &adminv2.TenantServiceCreateResponse{Tenant: tenant}, nil
 }
 
-// List implements TenantService.
-func (t *tenantServiceServer) List(context.Context, *adminv2.TenantServiceListRequest) (*adminv2.TenantServiceListResponse, error) {
-	panic("unimplemented")
+func (t *tenantServiceServer) List(ctx context.Context, req *adminv2.TenantServiceListRequest) (*adminv2.TenantServiceListResponse, error) {
+	tenants, err := t.repo.Tenant().List(ctx, &apiv2.TenantServiceListRequest{
+		Id:   req.Login,
+		Name: req.Name,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &adminv2.TenantServiceListResponse{Tenants: tenants}, nil
 }
