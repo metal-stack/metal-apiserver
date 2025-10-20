@@ -573,6 +573,7 @@ func Test_opa_authorize_with_permissions_optional_subject(t *testing.T) {
 				},
 			},
 		},
+		// FIXME: add test that does "*" subject and ensures that no admin endpoint can be called or something like this
 		{
 			name:      "metal-image-cache-sync token works",
 			subject:   "metal-image-cache-sync@metal-stack.io",
