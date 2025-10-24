@@ -395,22 +395,22 @@ func newOpaAuthorizationRequest(method string, req any, token *v2.Token, methodP
 		}
 
 		input["permissions"] = permissions
-	}
-
-	if len(projectRoles) > 0 {
-		roles := map[string]string{}
-		for project, role := range projectRoles {
-			roles[project] = role.String()
+	} else {
+		if len(projectRoles) > 0 {
+			roles := map[string]string{}
+			for project, role := range projectRoles {
+				roles[project] = role.String()
+			}
+			input["project_roles"] = roles
 		}
-		input["project_roles"] = roles
-	}
 
-	if len(tenantRoles) > 0 {
-		roles := map[string]string{}
-		for tenant, role := range tenantRoles {
-			roles[tenant] = role.String()
+		if len(tenantRoles) > 0 {
+			roles := map[string]string{}
+			for tenant, role := range tenantRoles {
+				roles[tenant] = role.String()
+			}
+			input["tenant_roles"] = roles
 		}
-		input["tenant_roles"] = roles
 	}
 
 	if adminRole != nil {

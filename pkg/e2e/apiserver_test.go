@@ -130,7 +130,7 @@ func TestImageCacheServiceToken(t *testing.T) {
 			{
 				Subject: "metal-image-cache-sync",
 				Methods: []string{
-					//	"/metalstack.api.v2.ImageService/List",
+					"/metalstack.api.v2.ImageService/List",
 					"/metalstack.api.v2.PartitionService/List",
 					"/metalstack.api.v2.TokenService/Refresh",
 				},
@@ -150,7 +150,7 @@ func TestImageCacheServiceToken(t *testing.T) {
 
 	fmt.Println(tokenResp.Secret)
 
-	_, err = userClient.Apiv2().Image().Get(t.Context(), &apiv2.ImageServiceGetRequest{})
+	_, err = userClient.Apiv2().Image().List(t.Context(), &apiv2.ImageServiceListRequest{})
 	require.NoError(t, err)
 
 	_, err = userClient.Apiv2().Partition().List(t.Context(), &apiv2.PartitionServiceListRequest{})
