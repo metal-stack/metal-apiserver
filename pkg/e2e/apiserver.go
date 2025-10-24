@@ -136,7 +136,7 @@ func createTenantTokens(t testing.TB, repo *repository.Store, tokenService token
 		})
 		require.NoError(t, err)
 
-		tcr, err := tokenService.CreateConsoleTokenWithoutPermissionCheck(ctx, tenant, nil)
+		tcr, err := tokenService.CreateUserTokenWithoutPermissionCheck(ctx, tenant, nil)
 		require.NoError(t, err)
 
 		tenantTokens[tenant] = tcr.Secret

@@ -184,7 +184,7 @@ func Test_opa_cert_rotation(t *testing.T) {
 }
 
 func createNewConsoleToken(t *testing.T, ctx context.Context, service tokenservice.TokenService) string {
-	resp, err := service.CreateConsoleTokenWithoutPermissionCheck(ctx, "test-user", nil)
+	resp, err := service.CreateUserTokenWithoutPermissionCheck(ctx, "test-user", nil)
 	require.NoError(t, err)
 
 	return resp.Secret
