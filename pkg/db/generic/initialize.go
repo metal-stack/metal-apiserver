@@ -108,7 +108,10 @@ func Initialize(ctx context.Context, log *slog.Logger, opts r.ConnectOpts, dsOpt
 		return fmt.Errorf("unable to initialize event datastore: %w", err)
 	}
 	if err := ds.sw.initialize(ctx); err != nil {
-		return err
+		return fmt.Errorf("unable to initialize switch datastore: %w", err)
+	}
+	if err := ds.switchStatus.initialize(ctx); err != nil {
+		return fmt.Errorf("unable to initialize switch status datastore: %w", err)
 	}
 
 	ds.log.Info("waiting for tables to be ready")

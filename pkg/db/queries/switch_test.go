@@ -21,7 +21,7 @@ import (
 var (
 	sw1 = &metal.Switch{
 		Base:      metal.Base{ID: "sw1"},
-		RackID:    "rack01",
+		Rack:      "rack01",
 		Partition: "partition-a",
 		OS: metal.SwitchOS{
 			Vendor:  metal.SwitchOSVendorCumulus,
@@ -31,7 +31,7 @@ var (
 	}
 	sw2 = &metal.Switch{
 		Base:      metal.Base{ID: "sw2"},
-		RackID:    "rack01",
+		Rack:      "rack01",
 		Partition: "partition-b",
 		OS: metal.SwitchOS{
 			Vendor:  metal.SwitchOSVendorCumulus,
@@ -41,7 +41,7 @@ var (
 	}
 	sw3 = &metal.Switch{
 		Base:      metal.Base{ID: "sw3"},
-		RackID:    "rack02",
+		Rack:      "rack02",
 		Partition: "partition-a",
 		OS: metal.SwitchOS{
 			Vendor:  metal.SwitchOSVendorSonic,

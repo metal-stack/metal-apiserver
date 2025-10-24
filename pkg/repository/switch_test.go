@@ -6,12 +6,15 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/metal-stack/metal-lib/pkg/testcommon"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -77,7 +80,7 @@ func Test_updateNics(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := updateNics(tt.old, tt.new)
+			got := updateNicNames(tt.old, tt.new)
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("updateNics() diff = %s", diff)
 			}
@@ -894,6 +897,284 @@ func TestToMachineConnections(t *testing.T) {
 			}
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("ToMachineConnections() diff = %s", diff)
+			}
+		})
+	}
+}
+
+func TestGetNewNicState(t *testing.T) {
+	tests := []struct {
+		name        string
+		current     *apiv2.NicState
+		status      apiv2.SwitchPortStatus
+		want        *apiv2.NicState
+		wantChanged bool
+	}{
+		{
+			name:    "current is nil",
+			current: nil,
+			status:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+			want: &apiv2.NicState{
+				Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+			},
+			wantChanged: true,
+		},
+		{
+			name: "state unchanged and matches desired",
+			current: &apiv2.NicState{
+				Desired: pointer.Pointer(apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP),
+				Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+			},
+			status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+			want: &apiv2.NicState{
+				Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+			},
+			wantChanged: true,
+		},
+		{
+			name: "state unchanged and does not match desired",
+			current: &apiv2.NicState{
+				Desired: pointer.Pointer(apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN),
+				Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+			},
+			status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+			want: &apiv2.NicState{
+				Desired: pointer.Pointer(apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN),
+				Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+			},
+			wantChanged: false,
+		},
+		{
+			name: "state changed and desired empty",
+			current: &apiv2.NicState{
+				Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+			},
+			status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNKNOWN,
+			want: &apiv2.NicState{
+				Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNKNOWN,
+			},
+			wantChanged: true,
+		},
+		{
+			name: "state changed and does not match desired",
+			current: &apiv2.NicState{
+				Desired: pointer.Pointer(apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP),
+				Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
+			},
+			status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNKNOWN,
+			want: &apiv2.NicState{
+				Desired: pointer.Pointer(apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP),
+				Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNKNOWN,
+			},
+			wantChanged: true,
+		},
+		{
+			name: "state changed and matches desired",
+			current: &apiv2.NicState{
+				Desired: pointer.Pointer(apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP),
+				Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
+			},
+			status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+			want: &apiv2.NicState{
+				Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+			},
+			wantChanged: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, gotChanged := GetNewNicState(tt.current, tt.status)
+			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
+				t.Errorf("GetNewNicState() diff = %v", diff)
+			}
+			if gotChanged != tt.wantChanged {
+				t.Errorf("GetNewNicState() changed = %v, want %v", gotChanged, tt.wantChanged)
+			}
+		})
+	}
+}
+
+func Test_toMetalSwitchSync(t *testing.T) {
+	now := time.Now()
+	tests := []struct {
+		name string
+		sync *infrav2.SwitchSync
+		want *metal.SwitchSync
+	}{
+		{
+			name: "sync nil",
+			sync: nil,
+			want: nil,
+		},
+		{
+			name: "time nil",
+			sync: &infrav2.SwitchSync{
+				Duration: durationpb.New(time.Second),
+			},
+			want: &metal.SwitchSync{
+				Duration: time.Second,
+			},
+		},
+		{
+			name: "duration nil",
+			sync: &infrav2.SwitchSync{
+				Time: timestamppb.New(now),
+			},
+			want: &metal.SwitchSync{
+				Time: now,
+			},
+		},
+		{
+			name: "error occurred",
+			sync: &infrav2.SwitchSync{
+				Time:     timestamppb.New(now),
+				Duration: durationpb.New(2 * time.Second),
+				Error:    pointer.Pointer("fail"),
+			},
+			want: &metal.SwitchSync{
+				Time:     now,
+				Duration: 2 * time.Second,
+				Error:    pointer.Pointer("fail"),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := toMetalSwitchSync(tt.sync)
+			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
+				t.Errorf("toMetalSwitchSync() diff = %v", diff)
+			}
+		})
+	}
+}
+
+func Test_switchRepository_updateAllButNics(t *testing.T) {
+	tests := []struct {
+		name    string
+		sw      *metal.Switch
+		req     *adminv2.SwitchServiceUpdateRequest
+		want    *metal.Switch
+		wantErr bool
+	}{
+		{
+			name: "update everything",
+			sw: &metal.Switch{
+				Base: metal.Base{
+					ID: "sw1",
+				},
+				Rack:           "rack01",
+				Partition:      "partition-a",
+				ReplaceMode:    metal.SwitchReplaceModeOperational,
+				ManagementIP:   "1.1.1.1",
+				ManagementUser: "admin",
+				ConsoleCommand: "tty",
+				OS: metal.SwitchOS{
+					Vendor:           metal.SwitchOSVendorSonic,
+					Version:          "ec202211",
+					MetalCoreVersion: "v0.13.1",
+				},
+				Nics: metal.Nics{
+					{
+						MacAddress: "11:11:11:11:11:11",
+						Name:       "Ethernet0",
+						Identifier: "Eth1/1",
+						Vrf:        "Vrf100",
+						Hostname:   "sw1",
+					},
+				},
+				MachineConnections: metal.ConnectionMap{
+					"m1": metal.Connections{
+						{
+							Nic: metal.Nic{
+								MacAddress: "11:11:11:11:11:11",
+								Name:       "Ethernet0",
+								Identifier: "Eth1/1",
+								Vrf:        "Vrf100",
+								Hostname:   "sw1",
+							},
+							MachineID: "m1",
+						},
+					},
+				},
+			},
+			req: &adminv2.SwitchServiceUpdateRequest{
+				Id:             "sw1",
+				Description:    pointer.Pointer("new description"),
+				ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE.Enum(),
+				ManagementIp:   pointer.Pointer("1.2.3.4"),
+				ManagementUser: pointer.Pointer("metal"),
+				ConsoleCommand: pointer.Pointer("ssh"),
+				Nics: []*apiv2.SwitchNic{
+					{
+						Name:       "Ethernet2",
+						Identifier: "Eth1/1",
+						Mac:        "11:11:11:11:11:11",
+						State: &apiv2.NicState{
+							Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
+							Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
+						},
+						BgpFilter:    &apiv2.BGPFilter{},
+						BgpPortState: &apiv2.SwitchBGPPortState{},
+					},
+				},
+				Os: &apiv2.SwitchOS{
+					Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_CUMULUS,
+					Version:          "ec202105",
+					MetalCoreVersion: "v0.14.0",
+				},
+			},
+			want: &metal.Switch{
+				Base: metal.Base{
+					ID:          "sw1",
+					Description: "new description",
+				},
+				Rack:           "rack01",
+				Partition:      "partition-a",
+				ReplaceMode:    metal.SwitchReplaceModeReplace,
+				ManagementIP:   "1.2.3.4",
+				ManagementUser: "metal",
+				ConsoleCommand: "ssh",
+				OS: metal.SwitchOS{
+					Vendor:           metal.SwitchOSVendorCumulus,
+					Version:          "ec202105",
+					MetalCoreVersion: "v0.14.0",
+				},
+				Nics: metal.Nics{
+					{
+						MacAddress: "11:11:11:11:11:11",
+						Name:       "Ethernet0",
+						Identifier: "Eth1/1",
+						Vrf:        "Vrf100",
+						Hostname:   "sw1",
+					},
+				},
+				MachineConnections: metal.ConnectionMap{
+					"m1": metal.Connections{
+						{
+							Nic: metal.Nic{
+								MacAddress: "11:11:11:11:11:11",
+								Name:       "Ethernet0",
+								Identifier: "Eth1/1",
+								Vrf:        "Vrf100",
+								Hostname:   "sw1",
+							},
+							MachineID: "m1",
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := updateAllButNics(tt.sw, tt.req)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("switchRepository.updateAllButNics() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Errorf("switchRepository.updateAllButNics() diff = %v", diff)
 			}
 		})
 	}

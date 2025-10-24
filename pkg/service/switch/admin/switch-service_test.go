@@ -41,10 +41,19 @@ var (
 						Identifier: "Eth1/1",
 						Mac:        "11:11:11:11:11:11",
 						Vrf:        nil,
-						BgpFilter:  &apiv2.BGPFilter{},
 						State: &apiv2.NicState{
 							Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
 							Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+						},
+						BgpFilter: &apiv2.BGPFilter{},
+						BgpPortState: &apiv2.SwitchBGPPortState{
+							Neighbor:              "Ethernet1",
+							PeerGroup:             "external",
+							VrfName:               "Vrf200",
+							BgpState:              apiv2.BGPState_BGP_STATE_CONNECT,
+							BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Unix(), 0)),
+							SentPrefixCounter:     0,
+							AcceptedPrefixCounter: 0,
 						},
 					},
 					{
@@ -246,7 +255,6 @@ func Test_switchServiceServer_Get(t *testing.T) {
 			}
 
 			if tt.wantErr == nil {
-				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
 
@@ -325,7 +333,6 @@ func Test_switchServiceServer_List(t *testing.T) {
 				repo: repo,
 			}
 			if tt.wantErr == nil {
-				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
 
@@ -406,11 +413,19 @@ func Test_switchServiceServer_Update(t *testing.T) {
 						Name:       "Ethernet3",
 						Identifier: "Eth1/1",
 						Mac:        "11:11:11:11:11:11",
-						Vrf:        pointer.Pointer("must not be updated"),
+						Vrf:        pointer.Pointer("Vrf100"),
 						BgpFilter:  &apiv2.BGPFilter{},
 						State: &apiv2.NicState{
-							Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
-							Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+						},
+						BgpPortState: &apiv2.SwitchBGPPortState{
+							Neighbor:              "Ethernet1",
+							PeerGroup:             "external",
+							VrfName:               "Vrf200",
+							BgpState:              apiv2.BGPState_BGP_STATE_ESTABLISHED,
+							BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Unix(), 0)),
+							SentPrefixCounter:     0,
+							AcceptedPrefixCounter: 0,
 						},
 					},
 					{
@@ -418,11 +433,11 @@ func Test_switchServiceServer_Update(t *testing.T) {
 						Identifier: "Eth/1/3",
 						Mac:        "aa:aa:aa:aa:aa:aa",
 						Vrf:        nil,
+						BgpFilter:  &apiv2.BGPFilter{},
 						State: &apiv2.NicState{
 							Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
 							Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 						},
-						BgpFilter: &apiv2.BGPFilter{},
 					},
 				},
 				Os: &apiv2.SwitchOS{
@@ -460,11 +475,19 @@ func Test_switchServiceServer_Update(t *testing.T) {
 							Name:       "Ethernet3",
 							Identifier: "Eth1/1",
 							Mac:        "11:11:11:11:11:11",
-							Vrf:        nil,
+							Vrf:        pointer.Pointer("Vrf100"),
 							BgpFilter:  &apiv2.BGPFilter{},
 							State: &apiv2.NicState{
-								Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
-								Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							},
+							BgpPortState: &apiv2.SwitchBGPPortState{
+								Neighbor:              "Ethernet1",
+								PeerGroup:             "external",
+								VrfName:               "Vrf200",
+								BgpState:              apiv2.BGPState_BGP_STATE_ESTABLISHED,
+								BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Unix(), 0)),
+								SentPrefixCounter:     0,
+								AcceptedPrefixCounter: 0,
 							},
 						},
 					},
@@ -496,7 +519,6 @@ func Test_switchServiceServer_Update(t *testing.T) {
 				repo: repo,
 			}
 			if tt.wantErr == nil {
-				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
 
@@ -568,7 +590,6 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 				repo: repo,
 			}
 			if tt.wantErr == nil {
-				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
 

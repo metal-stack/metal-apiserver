@@ -47,6 +47,7 @@ type (
 		FilesystemLayout() Storage[*metal.FilesystemLayout]
 		Image() Storage[*metal.Image]
 		Switch() Storage[*metal.Switch]
+		SwitchStatus() Storage[*metal.SwitchStatus]
 		Event() Storage[*metal.ProvisioningEventContainer]
 
 		// sizeimageConstraint Storage[*metal.SizeImageConstraint]
