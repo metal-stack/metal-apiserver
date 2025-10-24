@@ -35,7 +35,7 @@ type (
 
 func (t *projectMemberEntity) SetChanged(time time.Time) {}
 
-func (t *projectMemberRepository) convertToInternal(ctx context.Context, msg *apiv2.ProjectMember) (*projectMemberEntity, error) {
+func (t *projectMemberRepository) convertToInternal(ctx context.Context, msg *apiv2.ProjectMember, opts ...Option) (*projectMemberEntity, error) {
 	return &projectMemberEntity{
 		ProjectMember: &mdcv1.ProjectMember{
 			Meta: &mdcv1.Meta{
@@ -48,7 +48,7 @@ func (t *projectMemberRepository) convertToInternal(ctx context.Context, msg *ap
 	}, nil
 }
 
-func (t *projectMemberRepository) convertToProto(ctx context.Context, e *projectMemberEntity) (*apiv2.ProjectMember, error) {
+func (t *projectMemberRepository) convertToProto(ctx context.Context, e *projectMemberEntity, opts ...Option) (*apiv2.ProjectMember, error) {
 	if e.Meta.Annotations == nil {
 		e.Meta.Annotations = map[string]string{}
 	}

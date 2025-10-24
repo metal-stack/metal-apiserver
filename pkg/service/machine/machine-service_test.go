@@ -67,7 +67,7 @@ func Test_machineServiceServer_Get(t *testing.T) {
 	// We need to create machines directly on the database because there is no MachineCreateRequest available and never will.
 	// Once the boot-service is available we can simulate a pxe booting machine the actually create a machine from the api level.
 	test.CreateMachines(t, testStore, []*metal.Machine{
-		{Base: metal.Base{ID: m1}, PartitionID: "partition-1", SizeID: "c1-large-x86", Allocation: &metal.MachineAllocation{Project: p1, ImageID: "debian-12"}},
+		{Base: metal.Base{ID: m1}, PartitionID: "partition-1", SizeID: "c1-large-x86", Allocation: &metal.MachineAllocation{Project: p1, ImageID: "debian-12", UUID: "alloc-uuid-1"}},
 	})
 
 	tests := []struct {
@@ -77,8 +77,8 @@ func Test_machineServiceServer_Get(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "get existing",
-			rq:   &apiv2.MachineServiceGetRequest{Uuid: m1, Project: p1},
+			name: "get existing complete",
+			rq:   &apiv2.MachineServiceGetRequest{Uuid: m1, Project: p1, Complete: true},
 			want: &apiv2.MachineServiceGetResponse{
 				Machine: &apiv2.Machine{
 					Uuid:      m1,
@@ -107,6 +107,33 @@ func Test_machineServiceServer_Get(t *testing.T) {
 							Description:    pointer.Pointer(""),
 							Name:           pointer.Pointer(""),
 						},
+						Uuid: "alloc-uuid-1",
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "get existing not complete",
+			rq:   &apiv2.MachineServiceGetRequest{Uuid: m1, Project: p1, Complete: false},
+			want: &apiv2.MachineServiceGetResponse{
+				Machine: &apiv2.Machine{
+					Uuid:      m1,
+					Meta:      &apiv2.Meta{},
+					Partition: &apiv2.Partition{Id: "partition-1"},
+					Bios:      &apiv2.MachineBios{},
+					Hardware:  &apiv2.MachineHardware{},
+					Size:      &apiv2.Size{Id: "c1-large-x86"},
+					RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
+						Events: []*apiv2.MachineProvisioningEvent{{Event: apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_ALIVE, Message: "machine created for test"}},
+					},
+					Status: &apiv2.MachineStatus{
+						Condition:  &apiv2.MachineCondition{},
+						LedState:   &apiv2.MachineChassisIdentifyLEDState{},
+						Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
+					},
+					Allocation: &apiv2.MachineAllocation{
+						Uuid: "alloc-uuid-1",
 					},
 				},
 			},
@@ -210,7 +237,7 @@ func Test_machineServiceServer_List(t *testing.T) {
 	}{
 		{
 			name: "List from p1",
-			rq:   &apiv2.MachineServiceListRequest{Project: p1},
+			rq:   &apiv2.MachineServiceListRequest{Project: p1, Complete: true},
 			want: &apiv2.MachineServiceListResponse{
 				Machines: []*apiv2.Machine{
 					{
@@ -248,7 +275,7 @@ func Test_machineServiceServer_List(t *testing.T) {
 		},
 		{
 			name: "list from p2",
-			rq:   &apiv2.MachineServiceListRequest{Project: p2, Query: &apiv2.MachineQuery{Uuid: pointer.Pointer(m4)}},
+			rq:   &apiv2.MachineServiceListRequest{Project: p2, Query: &apiv2.MachineQuery{Uuid: pointer.Pointer(m4)}, Complete: true},
 			want: &apiv2.MachineServiceListResponse{
 				Machines: []*apiv2.Machine{
 					{

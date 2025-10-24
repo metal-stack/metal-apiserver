@@ -30,7 +30,7 @@ func New(c Config) adminv2connect.MachineServiceHandler {
 
 // Get implements apiv2connect.MachineServiceHandler.
 func (m *machineServiceServer) Get(ctx context.Context, req *adminv2.MachineServiceGetRequest) (*adminv2.MachineServiceGetResponse, error) {
-	machine, err := m.repo.UnscopedMachine().Get(ctx, req.Uuid)
+	machine, err := m.repo.UnscopedMachine().Get(ctx, req.Uuid, repository.WithTransitive(req.Complete))
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -60,7 +60,7 @@ func (m *machineServiceServer) List(ctx context.Context, rq *adminv2.MachineServ
 	q := rq.Query
 	q.Partition = partition
 
-	machines, err := m.repo.UnscopedMachine().List(ctx, q)
+	machines, err := m.repo.UnscopedMachine().List(ctx, q, repository.WithTransitive(rq.Complete))
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

@@ -300,7 +300,7 @@ func (r *switchRepository) list(ctx context.Context, query *apiv2.SwitchQuery) (
 	return switches, err
 }
 
-func (r *switchRepository) convertToInternal(ctx context.Context, sw *apiv2.Switch) (*metal.Switch, error) {
+func (r *switchRepository) convertToInternal(ctx context.Context, sw *apiv2.Switch, opts ...Option) (*metal.Switch, error) {
 	if sw == nil {
 		return nil, nil
 	}
@@ -346,7 +346,7 @@ func (r *switchRepository) convertToInternal(ctx context.Context, sw *apiv2.Swit
 	}, nil
 }
 
-func (r *switchRepository) convertToProto(ctx context.Context, sw *metal.Switch) (*apiv2.Switch, error) {
+func (r *switchRepository) convertToProto(ctx context.Context, sw *metal.Switch, opts ...Option) (*apiv2.Switch, error) {
 	if sw == nil {
 		return nil, nil
 	}

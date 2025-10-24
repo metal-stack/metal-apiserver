@@ -109,7 +109,7 @@ func (r *sizeRepository) list(ctx context.Context, rq *apiv2.SizeQuery) ([]*meta
 	return sizes, nil
 }
 
-func (r *sizeRepository) convertToInternal(ctx context.Context, e *apiv2.Size) (*metal.Size, error) {
+func (r *sizeRepository) convertToInternal(ctx context.Context, e *apiv2.Size, opts ...Option) (*metal.Size, error) {
 	if e == nil {
 		return nil, nil
 	}
@@ -140,7 +140,7 @@ func (r *sizeRepository) convertToInternal(ctx context.Context, e *apiv2.Size) (
 	return size, nil
 }
 
-func (r *sizeRepository) convertToProto(ctx context.Context, e *metal.Size) (*apiv2.Size, error) {
+func (r *sizeRepository) convertToProto(ctx context.Context, e *metal.Size, opts ...Option) (*apiv2.Size, error) {
 	if e == nil {
 		return nil, nil
 	}

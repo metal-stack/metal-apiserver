@@ -214,7 +214,7 @@ func (r *filesystemLayoutRepository) list(ctx context.Context, rq *apiv2.Filesys
 	return fsls, nil
 }
 
-func (r *filesystemLayoutRepository) convertToInternal(ctx context.Context, f *apiv2.FilesystemLayout) (*metal.FilesystemLayout, error) {
+func (r *filesystemLayoutRepository) convertToInternal(ctx context.Context, f *apiv2.FilesystemLayout, opts ...Option) (*metal.FilesystemLayout, error) {
 	var (
 		fss = []metal.Filesystem{}
 		ds  = []metal.Disk{}
@@ -350,7 +350,7 @@ func (r *filesystemLayoutRepository) convertToInternal(ctx context.Context, f *a
 	return fl, nil
 
 }
-func (r *filesystemLayoutRepository) convertToProto(ctx context.Context, in *metal.FilesystemLayout) (*apiv2.FilesystemLayout, error) {
+func (r *filesystemLayoutRepository) convertToProto(ctx context.Context, in *metal.FilesystemLayout, opts ...Option) (*apiv2.FilesystemLayout, error) {
 	var filesystems []*apiv2.Filesystem
 	for _, fs := range in.Filesystems {
 		f, err := enum.GetEnum[apiv2.Format](string(fs.Format))

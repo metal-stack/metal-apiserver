@@ -56,12 +56,12 @@ func (t *tenantMemberRepository) checkIfMemberIsLastOwner(ctx context.Context, r
 	return len(members) < 2, nil
 }
 
-func (t *tenantMemberRepository) convertToInternal(ctx context.Context, msg *apiv2.TenantMember) (*tenantMemberEntity, error) {
+func (t *tenantMemberRepository) convertToInternal(ctx context.Context, msg *apiv2.TenantMember, opts ...Option) (*tenantMemberEntity, error) {
 	// this is an internal interface, so no implementation here
 	panic("unimplemented")
 }
 
-func (t *tenantMemberRepository) convertToProto(ctx context.Context, e *tenantMemberEntity) (*apiv2.TenantMember, error) {
+func (t *tenantMemberRepository) convertToProto(ctx context.Context, e *tenantMemberEntity, opts ...Option) (*apiv2.TenantMember, error) {
 	return &apiv2.TenantMember{
 		Id:        e.TenantId,
 		Role:      TenantRoleFromMap(e.Meta.Annotations),
