@@ -21,17 +21,6 @@ type (
 		Actual  SwitchPortStatus  `rethinkdb:"actual"`
 	}
 
-	SwitchBGPPortState struct {
-		// FIXME add rethinkdb annotations, check against existing database entries
-		Neighbor              string
-		PeerGroup             string
-		VrfName               string
-		BgpState              BGPState
-		BgpTimerUpEstablished uint64
-		SentPrefixCounter     uint64
-		AcceptedPrefixCounter uint64
-	}
-
 	BGPState         string
 	SwitchPortStatus string
 )

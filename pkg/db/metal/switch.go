@@ -30,6 +30,17 @@ type (
 		LastSyncError *SwitchSync `rethinkdb:"last_sync_error"`
 	}
 
+	SwitchBGPPortState struct {
+		// FIXME add rethinkdb annotations, check against existing database entries
+		Neighbor              string
+		PeerGroup             string
+		VrfName               string
+		BgpState              BGPState
+		BgpTimerUpEstablished uint64
+		SentPrefixCounter     uint64
+		AcceptedPrefixCounter uint64
+	}
+
 	SwitchSync struct {
 		Time     time.Time     `rethinkdb:"time"`
 		Duration time.Duration `rethinkdb:"duration"`
