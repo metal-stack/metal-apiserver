@@ -4,10 +4,13 @@ import (
 	"context"
 	"slices"
 	"strings"
+	"time"
 
+	"github.com/avast/retry-go/v4"
 	"github.com/hibiken/asynq"
 	"github.com/metal-stack/api/go/enum"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
@@ -434,6 +437,237 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 	}
 
 	return result, nil
+}
+
+func (r *machineRepository) Register(ctx context.Context, req *infrav2.BootServiceRegisterRequest) (*metal.Machine, error) {
+	if req.Uuid == "" {
+		return nil, errorutil.InvalidArgument("uuid is empty")
+	}
+	if req.Hardware == nil {
+		return nil, errorutil.InvalidArgument("hardware is nil")
+	}
+	if req.Bios == nil {
+		return nil, errorutil.InvalidArgument("bios is nil")
+	}
+
+	m, err := r.s.UnscopedMachine().Get(ctx, req.Uuid)
+	if err != nil && !errorutil.IsNotFound(err) {
+		return nil, err
+	}
+
+	disks := []*apiv2.MachineBlockDevice{}
+	for i := range req.Hardware.Disks {
+		d := req.Hardware.Disks[i]
+		disks = append(disks, &apiv2.MachineBlockDevice{
+			Name: d.Name,
+			Size: d.Size,
+		})
+	}
+
+	nics := []*apiv2.MachineNic{}
+	for i := range req.Hardware.Nics {
+		nic := req.Hardware.Nics[i]
+		neighs := []*apiv2.MachineNic{}
+		for j := range nic.Neighbors {
+			neigh := nic.Neighbors[j]
+			neighs = append(neighs, &apiv2.MachineNic{
+				Name: neigh.Name,
+				Mac:  neigh.Mac,
+				// Hostname:   neigh.Hostname, // FIXME do we really have hostname of the neighbor from the metal-hammer ?
+				Identifier: neigh.Identifier,
+			})
+		}
+		nics = append(nics, &apiv2.MachineNic{
+			Name:       nic.Name,
+			Mac:        nic.Mac,
+			Identifier: nic.Identifier,
+			Neighbors:  neighs,
+		})
+	}
+
+	cpus := []*apiv2.MetalCPU{}
+	for _, cpu := range req.Hardware.Cpus {
+		cpus = append(cpus, &apiv2.MetalCPU{
+			Vendor:  cpu.Vendor,
+			Model:   cpu.Model,
+			Cores:   cpu.Cores,
+			Threads: cpu.Threads,
+		})
+	}
+
+	gpus := []*apiv2.MetalGPU{}
+	for _, gpu := range req.Hardware.Gpus {
+		gpus = append(gpus, &apiv2.MetalGPU{
+			Vendor: gpu.Vendor,
+			Model:  gpu.Model,
+		})
+	}
+
+	machineHardware := &apiv2.MachineHardware{
+		Memory:    req.Hardware.Memory,
+		Disks:     disks,
+		Nics:      nics,
+		Cpus: cpus,
+		Gpus: gpus,
+	}
+
+	hw, err := r.convertToInternal(ctx, machineHardware) // FIXME extract convertToMetalHardware from convertToInternal
+	size, err := r.s.Size().AdditionalMethods().FromHardware(ctx, machineHardware)
+	if err != nil {
+		size = &metal.Size{
+			Base: metal.Base{
+				ID:   "unknown",
+				Name: "unknown",
+			},
+		}
+		r.s.log.Error("no size found for hardware, defaulting to unknown size", "hardware", machineHardware, "error", err)
+	}
+
+	var ipmi metal.IPMI
+	if req.Ipmi != nil {
+		i := req.Ipmi
+
+		ipmi = metal.IPMI{
+			Address:     i.Address,
+			MacAddress:  i.Mac,
+			User:        i.User,
+			Password:    i.Password,
+			Interface:   i.Interface,
+			BMCVersion:  i.BmcVersion,
+			PowerState:  i.PowerState,
+			LastUpdated: time.Now(),
+		}
+		if i.Fru != nil {
+			f := i.Fru
+			fru := metal.Fru{}
+			if f.ChassisPartNumber != nil {
+				fru.ChassisPartNumber = *f.ChassisPartNumber
+			}
+			if f.ChassisPartSerial != nil {
+				fru.ChassisPartSerial = *f.ChassisPartSerial
+			}
+			if f.BoardMfg != nil {
+				fru.BoardMfg = *f.BoardMfg
+			}
+			if f.BoardMfgSerial != nil {
+				fru.BoardMfgSerial = *f.BoardMfgSerial
+			}
+			if f.BoardPartNumber != nil {
+				fru.BoardPartNumber = *f.BoardPartNumber
+			}
+			if f.ProductManufacturer != nil {
+				fru.ProductManufacturer = *f.ProductManufacturer
+			}
+			if f.ProductPartNumber != nil {
+				fru.ProductPartNumber = *f.ProductPartNumber
+			}
+			if f.ProductSerial != nil {
+				fru.ProductSerial = *f.ProductSerial
+			}
+			ipmi.Fru = fru
+		}
+
+	}
+
+	if m == nil {
+		// machine is not in the database, create it
+		m = &apiv2.Machine{
+			Uuid: req.Uuid,
+			Allocation: nil,
+			Size:     size.ID,
+			Hardware:   machineHardware,
+			BIOS: metal.BIOS{
+				Version: req.Bios.Version,
+				Vendor:  req.Bios.Vendor,
+				Date:    req.Bios.Date,
+			},
+			State: metal.MachineState{
+				Value:              metal.AvailableState,
+				MetalHammerVersion: req.MetalHammerVersion,
+			},
+			LEDState: metal.ChassisIdentifyLEDState{
+				Value:       metal.LEDStateOff,
+				Description: "Machine registered",
+			},
+			Tags:        req.Tags,
+			IPMI:        ipmi,
+			PartitionID: req.Partition,
+		}
+
+		_, err := r.s.ds.Machine().Create(ctx, m)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// machine has already registered, update it
+		updatedMachine := *m
+
+		updatedMachine.SizeID = size.ID
+		updatedMachine.Hardware = machineHardware
+		updatedMachine.BIOS.Version = req.Bios.Version
+		updatedMachine.BIOS.Vendor = req.Bios.Vendor
+		updatedMachine.BIOS.Date = req.Bios.Date
+		updatedMachine.IPMI = ipmi
+		updatedMachine.State.MetalHammerVersion = req.MetalHammerVersion
+		updatedMachine.PartitionID = req.Partition
+
+		err = r.s.ds.Machine().Update(ctx, &updatedMachine)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// FIXME Event and Switch service missing or not implemented yet
+	ec, err := r.s.ds.Event().Find(ctx, nil)
+	if err != nil && !errorutil.IsNotFound(err) {
+		return nil, err
+	}
+	if ec == nil {
+		_, err = r.s.ds.Event().Create(ctx, &metal.ProvisioningEventContainer{
+			Base: metal.Base{
+				ID: m.ID,
+			},
+			Events: metal.ProvisioningEvents{
+				{
+					Event:   metal.ProvisioningEventAlive,
+					Time:    time.Now(),
+					Message: "machine registered",
+				},
+			},
+		},
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// old := *m
+	err = retry.Do(
+		func() error {
+			machine, err := r.convertToProto(ctx, m)
+			if err != nil {
+				return err
+			}
+			rack, partition, err := r.s.Switch().AdditionalMethods().ConnectMachineWithSwitches(machine)
+			if err != nil {
+				return err
+			}
+			m.PartitionID = partition
+			m.RackID = rack
+			return r.s.ds.Machine().Update(ctx, m)
+		},
+		retry.Attempts(10),
+		retry.RetryIf(func(err error) bool {
+			return errorutil.IsConflict(err)
+		}),
+		retry.DelayType(retry.CombineDelay(retry.BackOffDelay, retry.RandomDelay)),
+		retry.LastErrorOnly(true),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return m, nil
 }
 
 //---------------------------------------------------------------

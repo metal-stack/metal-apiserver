@@ -459,7 +459,7 @@ func (r *networkRepository) convertToProto(ctx context.Context, e *metal.Network
 		MinChildPrefixLength:     minChildPrefixLength,
 		Type:                     networkType,
 	}
-	consumption, err = r.getNetworkUsage(context.Background(), e)
+	consumption, err = r.getNetworkUsage(ctx, e)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

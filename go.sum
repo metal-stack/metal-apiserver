@@ -309,8 +309,8 @@ github.com/mattn/go-sqlite3 v1.14.22 h1:2gZY6PC6kBnID23Tichd1K+Z0oS6nE/XwU+Vz/5o
 github.com/mattn/go-sqlite3 v1.14.22/go.mod h1:Uh1q+B4BYcTPb+yiD3kU8Ct7aC0hY9fxUwlHK0RXw+Y=
 github.com/mdelapenya/tlscert v0.2.0 h1:7H81W6Z/4weDvZBNOfQte5GpIMo0lGYEeWbkGp5LJHI=
 github.com/mdelapenya/tlscert v0.2.0/go.mod h1:O4njj3ELLnJjGdkN7M/vIVCpZ+Cf0L6muqOG4tLSl8o=
-github.com/metal-stack/api v0.0.31 h1:ivgaqYuWFrGO4IZS/9ViwkuV1AzytZlji6zgDnANo+s=
-github.com/metal-stack/api v0.0.31/go.mod h1:LcJkrJPJRdLPFaeCiWy5tL0dJXU74kq+vFe5uc/Cm9U=
+github.com/metal-stack/api v0.0.32-0.20251016094028-e5f26018a255 h1:M1nxa7o1oK3t3J1XPUXX0RKqNb2J0MmvTLVIE/epCrc=
+github.com/metal-stack/api v0.0.32-0.20251016094028-e5f26018a255/go.mod h1:LcJkrJPJRdLPFaeCiWy5tL0dJXU74kq+vFe5uc/Cm9U=
 github.com/metal-stack/go-ipam v1.14.13 h1:/W5/MDBX5EU18xNDjlBvV6JjQ1Ot12dO2WxLvV6S8vc=
 github.com/metal-stack/go-ipam v1.14.13/go.mod h1:eif3UGUFP7CWJdrgLIOjhVM3G2K19GN8lhCgPVfvLDs=
 github.com/metal-stack/masterdata-api v0.13.0 h1:1AxnsiWiTMstjMsphZ0wMFT7aW3QQhAMumXnQ81PtHk=
@@ -500,8 +500,8 @@ go.opentelemetry.io/otel/sdk/metric v1.38.0 h1:aSH66iL0aZqo//xXzQLYozmWrXxyFkBJ6
 go.opentelemetry.io/otel/sdk/metric v1.38.0/go.mod h1:dg9PBnW9XdQ1Hd6ZnRz689CbtrUp0wMMs9iPcgT9EZA=
 go.opentelemetry.io/otel/trace v1.38.0 h1:Fxk5bKrDZJUH+AMyyIXGcFAPah0oRcT+LuNtJrmcNLE=
 go.opentelemetry.io/otel/trace v1.38.0/go.mod h1:j1P9ivuFsTceSWe1oY+EeW3sc+Pp42sO++GHkg4wwhs=
-go.opentelemetry.io/proto/otlp v1.7.1 h1:gTOMpGDb0WTBOP8JaO72iL3auEZhVmAQg4ipjOVAtj4=
-go.opentelemetry.io/proto/otlp v1.7.1/go.mod h1:b2rVh6rfI/s2pHWNlB7ILJcRALpcNDzKhACevjI+ZnE=
+go.opentelemetry.io/proto/otlp v1.8.0 h1:fRAZQDcAFHySxpJ1TwlA1cJ4tvcrw7nXl9xWWC8N5CE=
+go.opentelemetry.io/proto/otlp v1.8.0/go.mod h1:tIeYOeNBU4cvmPqpaji1P+KbB4Oloai8wN4rWzRrFF0=
 go.uber.org/goleak v1.3.0 h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=
 go.uber.org/goleak v1.3.0/go.mod h1:CoHD4mav9JJNrW/WLlf7HGZPjdw8EucARQHekz1X6bE=
 go.uber.org/multierr v1.11.0 h1:blXXJkSxSSfBVBlC76pxqeO+LN3aDfLQo+309xJstO0=

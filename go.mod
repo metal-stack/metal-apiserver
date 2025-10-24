@@ -13,6 +13,7 @@ require (
 	github.com/alicebob/miniredis/v2 v2.35.0
 	github.com/avast/retry-go/v4 v4.7.0
 	github.com/cockroachdb/cockroach-go/v2 v2.4.2
+	github.com/dustin/go-humanize v1.0.1
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
@@ -24,7 +25,7 @@ require (
 	github.com/klauspost/connect-compress/v2 v2.0.0
 	github.com/lestrrat-go/jwx/v2 v2.1.6
 	github.com/markbates/goth v1.82.0
-	github.com/metal-stack/api v0.0.31
+	github.com/metal-stack/api v0.0.32-0.20251016094028-e5f26018a255
 	github.com/metal-stack/go-ipam v1.14.13
 	github.com/metal-stack/masterdata-api v0.13.0
 	github.com/metal-stack/metal-lib v0.23.5
@@ -190,6 +191,7 @@ require (
 	go.opentelemetry.io/otel/metric v1.38.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.38.0 // indirect
 	go.opentelemetry.io/otel/trace v1.38.0 // indirect
+	go.opentelemetry.io/proto/otlp v1.8.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect

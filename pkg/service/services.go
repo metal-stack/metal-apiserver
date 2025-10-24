@@ -26,6 +26,7 @@ import (
 	ratelimiter "github.com/metal-stack/metal-apiserver/pkg/rate-limiter"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	authservice "github.com/metal-stack/metal-apiserver/pkg/service/auth"
+	"github.com/metal-stack/metal-apiserver/pkg/service/boot"
 	"github.com/metal-stack/metal-apiserver/pkg/service/filesystem"
 	filesystemadmin "github.com/metal-stack/metal-apiserver/pkg/service/filesystem/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/health"
@@ -121,7 +122,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	validationInterceptor := validate.NewInterceptor()
 
 	var (
-		logInteceptor        = newLogRequestInterceptor(log)
+		logInterceptor       = newLogRequestInterceptor(log)
 		tenantInterceptor    = tenant.NewInterceptor(log, c.MasterClient)
 		ratelimitInterceptor = ratelimiter.NewInterceptor(&ratelimiter.Config{
 			Log:                                 log,
@@ -131,9 +132,9 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 		})
 	)
 
-	allInterceptors := []connect.Interceptor{metricsInterceptor, logInteceptor, authz, ratelimitInterceptor, validationInterceptor, tenantInterceptor}
-	allAdminInterceptors := []connect.Interceptor{metricsInterceptor, logInteceptor, authz, validationInterceptor, tenantInterceptor}
-	allInfraInterceptors := []connect.Interceptor{metricsInterceptor, logInteceptor, authz, validationInterceptor}
+	allInterceptors := []connect.Interceptor{metricsInterceptor, logInterceptor, authz, ratelimitInterceptor, validationInterceptor, tenantInterceptor}
+	allAdminInterceptors := []connect.Interceptor{metricsInterceptor, logInterceptor, authz, validationInterceptor, tenantInterceptor}
+	allInfraInterceptors := []connect.Interceptor{metricsInterceptor, logInterceptor, authz, validationInterceptor}
 	if c.Auditing != nil {
 		servicePermissions := permissions.GetServicePermissions()
 		shouldAudit := func(fullMethod string) bool {
@@ -242,6 +243,9 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	mux.Handle(adminv2connect.NewMachineServiceHandler(adminMachineService, adminInterceptors))
 	mux.Handle(adminv2connect.NewTokenServiceHandler(adminTokenService, adminInterceptors))
 
+	// Infra services, we use adminInterceptors to prevent rate limiting
+	bootService := boot.New(boot.Config{Log: log, Repo: c.Repository})
+	mux.Handle(infrav2connect.NewBootServiceHandler(bootService, adminInterceptors))
 	// Infra services
 	infraSwitchService := switchinfra.New(switchinfra.Config{Log: log, Repo: c.Repository})
 	mux.Handle(infrav2connect.NewSwitchServiceHandler(infraSwitchService, infraInterceptors))

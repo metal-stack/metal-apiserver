@@ -6,6 +6,7 @@ import (
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 )
 
 type (
@@ -109,6 +110,9 @@ type (
 		Repository[*partitionRepository, *apiv2.Partition, *adminv2.PartitionServiceCreateRequest, *adminv2.PartitionServiceUpdateRequest, *apiv2.PartitionQuery]
 	}
 
+	ProvisioningEvent interface {
+		Repository[*provisioningEventRepository, *apiv2.MachineProvisioningEvent, *infrav2.EventServiceSendRequest, *EventServiceSendRequest, *ProvisioningEventQuery]
+	}
 	Switch interface {
 		Repository[*switchRepository, *apiv2.Switch, *SwitchServiceCreateRequest, *adminv2.SwitchServiceUpdateRequest, *apiv2.SwitchQuery]
 	}
