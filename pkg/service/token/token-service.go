@@ -46,7 +46,7 @@ type tokenService struct {
 
 type TokenService interface {
 	apiv2connect.TokenServiceHandler
-	CreateConsoleTokenWithoutPermissionCheck(ctx context.Context, subject string, expiration *time.Duration) (*apiv2.TokenServiceCreateResponse, error)
+	CreateUserTokenWithoutPermissionCheck(ctx context.Context, subject string, expiration *time.Duration) (*apiv2.TokenServiceCreateResponse, error)
 	CreateApiTokenWithoutPermissionCheck(ctx context.Context, subject string, rq *apiv2.TokenServiceCreateRequest) (*apiv2.TokenServiceCreateResponse, error)
 }
 
@@ -67,9 +67,9 @@ func New(c Config) TokenService {
 	}
 }
 
-// CreateConsoleTokenWithoutPermissionCheck is only called from the auth service during login through console
+// CreateUserTokenWithoutPermissionCheck is only called from the auth service during login through console
 // No validation against requested roles and permissions is required and implemented here
-func (t *tokenService) CreateConsoleTokenWithoutPermissionCheck(ctx context.Context, subject string, expiration *time.Duration) (*apiv2.TokenServiceCreateResponse, error) {
+func (t *tokenService) CreateUserTokenWithoutPermissionCheck(ctx context.Context, subject string, expiration *time.Duration) (*apiv2.TokenServiceCreateResponse, error) {
 	expires := tokenutil.DefaultExpiration
 	if expiration != nil {
 		expires = *expiration

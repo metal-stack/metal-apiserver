@@ -76,7 +76,6 @@ func StartRethink(t testing.TB, log *slog.Logger) (generic.Datastore, r.ConnectO
 	require.NoError(t, err)
 
 	return ds, connectOpts, closer
-
 }
 
 func databaseNameFromT(t testing.TB) string {

@@ -46,7 +46,7 @@ func Test_tokenService_CreateConsoleTokenWithoutPermissionCheck(t *testing.T) {
 		Issuer:     "http://test",
 	})
 
-	got, err := service.CreateConsoleTokenWithoutPermissionCheck(ctx, "test", pointer.Pointer(1*time.Minute))
+	got, err := service.CreateUserTokenWithoutPermissionCheck(ctx, "test", pointer.Pointer(1*time.Minute))
 	require.NoError(t, err)
 	// verifying response
 

@@ -17,15 +17,16 @@ type (
 		queryExecutor r.QueryExecutor
 		dbname        string
 
-		ip        *storage[*metal.IP]
-		machine   *storage[*metal.Machine]
-		event     *storage[*metal.ProvisioningEventContainer]
-		size      *storage[*metal.Size]
-		partition *storage[*metal.Partition]
-		network   *storage[*metal.Network]
-		fsl       *storage[*metal.FilesystemLayout]
-		image     *storage[*metal.Image]
-		sw        *storage[*metal.Switch]
+		ip           *storage[*metal.IP]
+		machine      *storage[*metal.Machine]
+		event        *storage[*metal.ProvisioningEventContainer]
+		size         *storage[*metal.Size]
+		partition    *storage[*metal.Partition]
+		network      *storage[*metal.Network]
+		fsl          *storage[*metal.FilesystemLayout]
+		image        *storage[*metal.Image]
+		sw           *storage[*metal.Switch]
+		switchStatus *storage[*metal.SwitchStatus]
 
 		asnPool *integerPool
 		vrfPool *integerPool
@@ -59,6 +60,7 @@ func New(log *slog.Logger, opts r.ConnectOpts, dsOpts ...dataStoreOption) (*data
 	ds.image = newStorage[*metal.Image](ds, "image")
 	ds.event = newStorage[*metal.ProvisioningEventContainer](ds, "event")
 	ds.sw = newStorage[*metal.Switch](ds, "switch")
+	ds.switchStatus = newStorage[*metal.SwitchStatus](ds, "switchstatus")
 
 	var (
 		vrfMin = uint(1)
@@ -131,6 +133,10 @@ func (ds *datastore) Image() Storage[*metal.Image] {
 
 func (ds *datastore) Switch() Storage[*metal.Switch] {
 	return ds.sw
+}
+
+func (ds *datastore) SwitchStatus() Storage[*metal.SwitchStatus] {
+	return ds.switchStatus
 }
 
 func (ds *datastore) Event() Storage[*metal.ProvisioningEventContainer] {
