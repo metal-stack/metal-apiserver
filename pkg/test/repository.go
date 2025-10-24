@@ -471,3 +471,52 @@ func CreateSwitches(t *testing.T, store *repository.Store, switches []*repositor
 	}
 	return switchMap
 }
+
+func CreateSwitchStatuses(t *testing.T, testStore *testStore, statuses []*repository.SwitchStatus) map[string]*metal.SwitchStatus {
+	statusMap := map[string]*metal.SwitchStatus{}
+	for _, status := range statuses {
+		metalStatus := &metal.SwitchStatus{
+			Base: metal.Base{
+				ID: status.ID,
+			},
+		}
+
+		var (
+			timestamp time.Time
+			duration  time.Duration
+		)
+
+		if sync := status.LastSync; sync != nil {
+			if sync.Time != nil {
+				timestamp = sync.Time.AsTime()
+			}
+			if sync.Duration != nil {
+				duration = sync.Duration.AsDuration()
+			}
+			metalStatus.LastSync = &metal.SwitchSync{
+				Time:     timestamp,
+				Duration: duration,
+				Error:    sync.Error,
+			}
+		}
+
+		if sync := status.LastSyncError; sync != nil {
+			if sync.Time != nil {
+				timestamp = sync.Time.AsTime()
+			}
+			if sync.Duration != nil {
+				duration = sync.Duration.AsDuration()
+			}
+			metalStatus.LastSyncError = &metal.SwitchSync{
+				Time:     timestamp,
+				Duration: duration,
+				Error:    sync.Error,
+			}
+		}
+
+		s, err := testStore.ds.SwitchStatus().Create(t.Context(), metalStatus)
+		require.NoError(t, err)
+		statusMap[s.ID] = s
+	}
+	return statusMap
+}
