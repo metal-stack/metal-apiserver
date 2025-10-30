@@ -2,8 +2,10 @@ package auth
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log/slog"
+	"net/http"
 
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/providers/openidConnect"
@@ -41,6 +43,12 @@ func OIDCHubProvider(c ProviderConfig) authOption {
 		)
 		if err != nil {
 			return fmt.Errorf("unable to initialize oidc provider: %w", err)
+		}
+		tlsConf := &tls.Config{
+			InsecureSkipVerify: true,
+		}
+		oidc.HTTPClient.Transport = &http.Transport{
+			TLSClientConfig: tlsConf,
 		}
 
 		oidc.SetName(p.Name())
