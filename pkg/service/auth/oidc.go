@@ -34,7 +34,13 @@ func OIDCHubProvider(c ProviderConfig) authOption {
 		}
 		scopes := []string{"openid", "email", "profile"}
 
-		oidc, err := openidConnect.New(
+		tlsConf := &tls.Config{
+			InsecureSkipVerify: true,
+		}
+
+		oidc, err := openidConnect.NewCustomisedHttpClient(
+			&http.Client{Transport: &http.Transport{TLSClientConfig: tlsConf}},
+			p.Name(),
 			c.ClientID,
 			c.ClientSecret,
 			a.ProviderCallbackURL(p.Name()),
@@ -44,16 +50,11 @@ func OIDCHubProvider(c ProviderConfig) authOption {
 		if err != nil {
 			return fmt.Errorf("unable to initialize oidc provider: %w", err)
 		}
-		tlsConf := &tls.Config{
-			InsecureSkipVerify: true,
-		}
-		oidc.HTTPClient.Transport = &http.Transport{
-			TLSClientConfig: tlsConf,
-		}
 
-		oidc.SetName(p.Name())
 		goth.UseProviders(oidc)
 		a.AddProviderBackend(p)
+
+		a.log.Info("configured oidc provider", "provider", p.Name())
 
 		return nil
 	}

@@ -49,6 +49,8 @@ require (
 	gopkg.in/rethinkdb/rethinkdb-go.v6 v6.2.2
 )
 
+replace github.com/markbates/goth => github.com/metal-stack/goth v0.0.0-20251106083918-e8152d793c22
+
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.10-20250912141014-52f32327d4b0.1 // indirect
 	cel.dev/expr v0.24.0 // indirect

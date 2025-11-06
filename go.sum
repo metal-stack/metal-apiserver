@@ -303,8 +303,6 @@ github.com/magiconair/properties v1.8.10/go.mod h1:Dhd985XPs7jluiymwWYZ0G4Z61jb3
 github.com/mailru/easyjson v0.0.0-20190614124828-94de47d64c63/go.mod h1:C1wdFJiN94OJF2b5HbByQZoLdCWB1Yqtg26g4irojpc=
 github.com/mailru/easyjson v0.0.0-20190626092158-b2ccc519800e/go.mod h1:C1wdFJiN94OJF2b5HbByQZoLdCWB1Yqtg26g4irojpc=
 github.com/mailru/easyjson v0.7.6/go.mod h1:xzfreul335JAWq5oZzymOObrkdz5UnU4kGfJJLY9Nlc=
-github.com/markbates/goth v1.82.0 h1:8j/c34AjBSTNzO7zTsOyP5IYCQCMBTRBHAbBt/PI0bQ=
-github.com/markbates/goth v1.82.0/go.mod h1:/DRlcq0pyqkKToyZjsL2KgiA1zbF1HIjE7u2uC79rUk=
 github.com/mattn/go-sqlite3 v1.14.22 h1:2gZY6PC6kBnID23Tichd1K+Z0oS6nE/XwU+Vz/5o4kU=
 github.com/mattn/go-sqlite3 v1.14.22/go.mod h1:Uh1q+B4BYcTPb+yiD3kU8Ct7aC0hY9fxUwlHK0RXw+Y=
 github.com/mdelapenya/tlscert v0.2.0 h1:7H81W6Z/4weDvZBNOfQte5GpIMo0lGYEeWbkGp5LJHI=
@@ -313,6 +311,8 @@ github.com/metal-stack/api v0.0.31 h1:ivgaqYuWFrGO4IZS/9ViwkuV1AzytZlji6zgDnANo+
 github.com/metal-stack/api v0.0.31/go.mod h1:LcJkrJPJRdLPFaeCiWy5tL0dJXU74kq+vFe5uc/Cm9U=
 github.com/metal-stack/go-ipam v1.14.13 h1:/W5/MDBX5EU18xNDjlBvV6JjQ1Ot12dO2WxLvV6S8vc=
 github.com/metal-stack/go-ipam v1.14.13/go.mod h1:eif3UGUFP7CWJdrgLIOjhVM3G2K19GN8lhCgPVfvLDs=
+github.com/metal-stack/goth v0.0.0-20251106083918-e8152d793c22 h1:IX/vQWM5LcI77jyWOrLDh8NsCRt9JODCEEes5xeDrj0=
+github.com/metal-stack/goth v0.0.0-20251106083918-e8152d793c22/go.mod h1:FNz3T5lydfi+ls1O3adXgN9Xmn4sn/SZE4t+Sswl+Uc=
 github.com/metal-stack/masterdata-api v0.13.0 h1:1AxnsiWiTMstjMsphZ0wMFT7aW3QQhAMumXnQ81PtHk=
 github.com/metal-stack/masterdata-api v0.13.0/go.mod h1:oOFiWkj5UuXSBj3LXT+sPOtHq78gUY07WWuVV4Ty98U=
 github.com/metal-stack/metal-lib v0.23.5 h1:ozrkB3DNr3Cqn8nkBvmzc/KKpYqC1j1mv2OVOj8i7Ac=
