@@ -40,7 +40,7 @@ func OIDCHubProvider(c ProviderConfig) authOption {
 
 		oidc, err := openidConnect.NewCustomisedHttpClient(
 			&http.Client{Transport: &http.Transport{TLSClientConfig: tlsConf}},
-			p.Name(),
+			"", //empty name results in "openid-connect" and custom name results with "-oidc" as prefix
 			c.ClientID,
 			c.ClientSecret,
 			a.ProviderCallbackURL(p.Name()),
@@ -61,7 +61,7 @@ func OIDCHubProvider(c ProviderConfig) authOption {
 }
 
 func (g *provider) Name() string {
-	return "oidc"
+	return "openid-connect"
 }
 
 func (g *provider) EndSessionRedirectURL() string {
