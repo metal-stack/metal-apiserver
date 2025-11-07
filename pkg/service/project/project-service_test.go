@@ -1681,7 +1681,7 @@ func Test_projectServiceServer_LeaveProject(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			_, err := u.Leave(reqCtx, tt.rq)
+			_, err := u.LeaveProject(reqCtx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}

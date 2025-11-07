@@ -436,7 +436,7 @@ func (p *projectServiceServer) InvitesList(ctx context.Context, req *apiv2.Proje
 }
 
 
-func (p *projectServiceServer) Leave(ctx context.Context, req *apiv2.ProjectServiceLeaveProjectRequest) (*apiv2.ProjectServiceLeaveProjectResponse, error) {
+func (p *projectServiceServer) LeaveProject(ctx context.Context, req *apiv2.ProjectServiceLeaveProjectRequest) (*apiv2.ProjectServiceLeaveProjectResponse, error) {
 	var (
 		t, ok = token.TokenFromContext(ctx)
 	)
