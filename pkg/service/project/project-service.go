@@ -434,3 +434,21 @@ func (p *projectServiceServer) InvitesList(ctx context.Context, req *apiv2.Proje
 
 	return &apiv2.ProjectServiceInvitesListResponse{Invites: invites}, nil
 }
+
+
+func (p *projectServiceServer) Leave(ctx context.Context, req *apiv2.ProjectServiceLeaveProjectRequest) (*apiv2.ProjectServiceLeaveProjectResponse, error) {
+	var (
+		t, ok = token.TokenFromContext(ctx)
+	)
+
+	if !ok || t == nil {
+		return nil, errorutil.Unauthenticated("no token found in request")
+	}
+
+	_, err := p.repo.Project(req.Project).AdditionalMethods().Member().Delete(ctx, t.User)
+	if err != nil {
+		return nil, err
+	}
+
+	return &apiv2.ProjectServiceLeaveProjectResponse{}, nil
+}
