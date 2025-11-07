@@ -1642,6 +1642,27 @@ func Test_projectServiceServer_LeaveProject(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		{
+			name: "john.doe@github has already left the project",
+			rq: &apiv2.ProjectServiceLeaveProjectRequest{
+				Project: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
+			},
+			existingTenants: []*apiv2.TenantServiceCreateRequest{
+				{Name: "john.doe@github"},
+				{Name: "will.smith@github"},
+			},
+			existingProjects: []*apiv2.ProjectServiceCreateRequest{
+				{Name: "john.doe@github", Login: "john.doe@github"},
+				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "will.smith@github"},
+				{Name: "will.smith@github", Login: "will.smith@github"},
+			},
+			existingProjectMembers: map[string][]*repository.ProjectMemberCreateRequest{
+				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
+					{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_VIEWER},
+				},
+			},
+			wantErr: errorutil.NotFound("john.doe@github is no longer part of the project"),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
