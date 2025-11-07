@@ -1661,7 +1661,7 @@ func Test_projectServiceServer_LeaveProject(t *testing.T) {
 					{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_VIEWER},
 				},
 			},
-			wantErr: errorutil.NotFound("john.doe@github is no longer part of the project"),
+			wantErr: errorutil.NotFound("tenant john.doe@github is not a member of project b950f4f5-d8b8-4252-aa02-ae08a1d2b044"),
 		},
 	}
 	for _, tt := range tests {
