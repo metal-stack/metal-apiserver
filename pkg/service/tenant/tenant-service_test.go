@@ -1772,3 +1772,93 @@ func Test_tenantServiceServer_InviteFlow(t *testing.T) {
 		}
 	})
 }
+
+func Test_tenantServiceServer_LeaveTenant(t *testing.T) {
+	t.Parallel()
+
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
+	defer closer()
+	repo := testStore.Store
+
+	tests := []struct {
+		name                  string
+		existingTenants       []*apiv2.TenantServiceCreateRequest
+		existingTenantMembers map[string][]*repository.TenantMemberCreateRequest
+		rq                    *apiv2.TenantServiceLeaveTenantRequest
+		wantErr               error
+	}{
+		{
+			name: "leave tenant",
+			rq: &apiv2.TenantServiceLeaveTenantRequest{
+				Login: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
+			},
+			existingTenants: []*apiv2.TenantServiceCreateRequest{
+				{Name: "john.doe@github"},
+				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044"},
+			},
+			existingTenantMembers: map[string][]*repository.TenantMemberCreateRequest{
+				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
+					{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_VIEWER},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "john.doe@github has already left the tenant",
+			rq: &apiv2.TenantServiceLeaveTenantRequest{
+				Login: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
+			},
+			existingTenants: []*apiv2.TenantServiceCreateRequest{
+				{Name: "john.doe@github"},
+				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044"},
+				{Name: "will.smith@github"},
+			},
+			existingTenantMembers: map[string][]*repository.TenantMemberCreateRequest{
+				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
+					{MemberID: "will.smith@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+				},
+			},
+			wantErr: errorutil.NotFound("tenant john.doe@github is not a member of tenant b950f4f5-d8b8-4252-aa02-ae08a1d2b044"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			u := &tenantServiceServer{
+				log:         log,
+				repo:        repo,
+				inviteStore: testStore.GetTenantInviteStore(),
+				tokenStore:  testStore.GetTokenStore(),
+			}
+
+			test.CreateTenants(t, testStore, tt.existingTenants)
+			if tt.existingTenantMembers != nil {
+				for tenant, members := range tt.existingTenantMembers {
+					test.CreateTenantMemberships(t, testStore, tenant, members)
+				}
+			}
+			defer func() {
+				testStore.DeleteTenants()
+			}()
+
+			tok := testStore.GetToken("john.doe@github", &apiv2.TokenServiceCreateRequest{
+				Expires: durationpb.New(time.Hour),
+				TenantRoles: map[string]apiv2.TenantRole{
+					"john.doe@github": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			})
+
+			reqCtx := token.ContextWithToken(t.Context(), tok)
+
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
+			_, err := u.LeaveTenant(reqCtx, tt.rq)
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("diff = %s", diff)
+			}
+		})
+	}
+}

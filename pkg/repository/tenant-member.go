@@ -111,7 +111,7 @@ func (t *tenantMemberRepository) find(ctx context.Context, query *TenantMemberQu
 
 	switch len(memberships) {
 	case 0:
-		return nil, errorutil.NotFound("tenant %s is not a member of tenant %s", t.scope.tenantID, *query.MemberId)
+		return nil, errorutil.NotFound("tenant %s is not a member of tenant %s", *query.MemberId, t.scope.tenantID)
 	case 1:
 		// noop
 	default:

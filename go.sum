@@ -315,6 +315,12 @@ github.com/metal-stack/api v0.0.32-0.20251107095029-2e22ca341958 h1:InMpNTRmlxYc
 github.com/metal-stack/api v0.0.32-0.20251107095029-2e22ca341958/go.mod h1:LcJkrJPJRdLPFaeCiWy5tL0dJXU74kq+vFe5uc/Cm9U=
 github.com/metal-stack/api v0.0.32-0.20251107102154-a2aa22ff900f h1:cxwU7AUssW1FAjAuLz7uRdmu5/8YDaFXuRhqnqk35RI=
 github.com/metal-stack/api v0.0.32-0.20251107102154-a2aa22ff900f/go.mod h1:LcJkrJPJRdLPFaeCiWy5tL0dJXU74kq+vFe5uc/Cm9U=
+github.com/metal-stack/api v0.0.32-0.20251107102556-792cccd14e2c h1:N7vza5FHJ32g0np+MVcdcuIY2xNpwmWuILmWNMLgimQ=
+github.com/metal-stack/api v0.0.32-0.20251107102556-792cccd14e2c/go.mod h1:LcJkrJPJRdLPFaeCiWy5tL0dJXU74kq+vFe5uc/Cm9U=
+github.com/metal-stack/api v0.0.32-0.20251107114843-7b88fe125b03 h1:j4mIe8ykY1lb8Gdz/srn98owZemAaToe3G3Yav8tHNg=
+github.com/metal-stack/api v0.0.32-0.20251107114843-7b88fe125b03/go.mod h1:LcJkrJPJRdLPFaeCiWy5tL0dJXU74kq+vFe5uc/Cm9U=
+github.com/metal-stack/api v0.0.32-0.20251107120125-126c8b46314d h1:74lQCXw5HJ2jhDzoN0cmjKELIwnwWHQh0oknEkmIl6s=
+github.com/metal-stack/api v0.0.32-0.20251107120125-126c8b46314d/go.mod h1:LcJkrJPJRdLPFaeCiWy5tL0dJXU74kq+vFe5uc/Cm9U=
 github.com/metal-stack/go-ipam v1.14.13 h1:/W5/MDBX5EU18xNDjlBvV6JjQ1Ot12dO2WxLvV6S8vc=
 github.com/metal-stack/go-ipam v1.14.13/go.mod h1:eif3UGUFP7CWJdrgLIOjhVM3G2K19GN8lhCgPVfvLDs=
 github.com/metal-stack/masterdata-api v0.13.0 h1:1AxnsiWiTMstjMsphZ0wMFT7aW3QQhAMumXnQ81PtHk=
