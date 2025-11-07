@@ -1773,7 +1773,7 @@ func Test_tenantServiceServer_InviteFlow(t *testing.T) {
 	})
 }
 
-func Test_tenantServiceServer_LeaveTenant(t *testing.T) {
+func Test_tenantServiceServer_Leave(t *testing.T) {
 	t.Parallel()
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
@@ -1786,12 +1786,12 @@ func Test_tenantServiceServer_LeaveTenant(t *testing.T) {
 		name                  string
 		existingTenants       []*apiv2.TenantServiceCreateRequest
 		existingTenantMembers map[string][]*repository.TenantMemberCreateRequest
-		rq                    *apiv2.TenantServiceLeaveTenantRequest
+		rq                    *apiv2.TenantServiceLeaveRequest
 		wantErr               error
 	}{
 		{
 			name: "leave tenant",
-			rq: &apiv2.TenantServiceLeaveTenantRequest{
+			rq: &apiv2.TenantServiceLeaveRequest{
 				Login: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
 			},
 			existingTenants: []*apiv2.TenantServiceCreateRequest{
@@ -1807,7 +1807,7 @@ func Test_tenantServiceServer_LeaveTenant(t *testing.T) {
 		},
 		{
 			name: "john.doe@github has already left the tenant",
-			rq: &apiv2.TenantServiceLeaveTenantRequest{
+			rq: &apiv2.TenantServiceLeaveRequest{
 				Login: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
 			},
 			existingTenants: []*apiv2.TenantServiceCreateRequest{
@@ -1855,7 +1855,7 @@ func Test_tenantServiceServer_LeaveTenant(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			_, err := u.LeaveTenant(reqCtx, tt.rq)
+			_, err := u.Leave(reqCtx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}

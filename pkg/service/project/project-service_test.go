@@ -1606,7 +1606,7 @@ func Test_projectServiceServer_InviteAccept(t *testing.T) {
 	}
 }
 
-func Test_projectServiceServer_LeaveProject(t *testing.T) {
+func Test_projectServiceServer_Leave(t *testing.T) {
 	t.Parallel()
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
@@ -1621,12 +1621,12 @@ func Test_projectServiceServer_LeaveProject(t *testing.T) {
 		existingTenantMembers  map[string][]*repository.TenantMemberCreateRequest
 		existingProjects       []*apiv2.ProjectServiceCreateRequest
 		existingProjectMembers map[string][]*repository.ProjectMemberCreateRequest
-		rq                     *apiv2.ProjectServiceLeaveProjectRequest
+		rq                     *apiv2.ProjectServiceLeaveRequest
 		wantErr                error
 	}{
 		{
 			name: "leave project",
-			rq: &apiv2.ProjectServiceLeaveProjectRequest{
+			rq: &apiv2.ProjectServiceLeaveRequest{
 				Project: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
 			},
 			existingTenants: []*apiv2.TenantServiceCreateRequest{
@@ -1644,7 +1644,7 @@ func Test_projectServiceServer_LeaveProject(t *testing.T) {
 		},
 		{
 			name: "john.doe@github has already left the project",
-			rq: &apiv2.ProjectServiceLeaveProjectRequest{
+			rq: &apiv2.ProjectServiceLeaveRequest{
 				Project: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
 			},
 			existingTenants: []*apiv2.TenantServiceCreateRequest{
@@ -1702,7 +1702,7 @@ func Test_projectServiceServer_LeaveProject(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			_, err := u.LeaveProject(reqCtx, tt.rq)
+			_, err := u.Leave(reqCtx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}

@@ -187,7 +187,7 @@ func (u *tenantServiceServer) Get(ctx context.Context, req *apiv2.TenantServiceG
 	return &apiv2.TenantServiceGetResponse{Tenant: tenant, TenantMembers: tenantMembers}, nil
 }
 
-func (u *tenantServiceServer) LeaveTenant(ctx context.Context, req *apiv2.TenantServiceLeaveTenantRequest) (*apiv2.TenantServiceLeaveTenantResponse, error) {
+func (u *tenantServiceServer) Leave(ctx context.Context, req *apiv2.TenantServiceLeaveRequest) (*apiv2.TenantServiceLeaveResponse, error) {
 	var (
 		t, ok = token.TokenFromContext(ctx)
 	)
@@ -201,7 +201,7 @@ func (u *tenantServiceServer) LeaveTenant(ctx context.Context, req *apiv2.Tenant
 		return nil, err
 	}
 
-	return &apiv2.TenantServiceLeaveTenantResponse{}, nil
+	return &apiv2.TenantServiceLeaveResponse{}, nil
 }
 
 func (u *tenantServiceServer) Update(ctx context.Context, req *apiv2.TenantServiceUpdateRequest) (*apiv2.TenantServiceUpdateResponse, error) {
