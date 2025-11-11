@@ -7,21 +7,17 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"slices"
 	"strings"
 	"time"
 
 	"connectrpc.com/connect"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	v2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	"github.com/metal-stack/api/go/permissions"
 	authentication "github.com/metal-stack/metal-apiserver/pkg/auth/authentication"
-	authorization "github.com/metal-stack/metal-apiserver/pkg/auth/authorization"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 
-	"github.com/metal-stack/metal-apiserver/pkg/service/method"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/cache"
 	"github.com/open-policy-agent/opa/v1/rego"
@@ -42,31 +38,20 @@ type (
 		CertCacheTime  *time.Duration
 		TokenStore     token.TokenStore
 		AllowedIssuers []string
-		AdminSubjects  []string
 		Repo           *repository.Store
 	}
 
 	// opa is a gRPC server authorizer using OPA as backend
 	opa struct {
-		authenticationQuery      *rego.PreparedEvalQuery
-		authorizationQuery       *rego.PreparedEvalQuery
-		log                      *slog.Logger
-		visibility               permissions.Visibility
-		servicePermissions       *permissions.ServicePermissions
-		certCache                *cache.Cache[any, *cacheReturn]
-		tokenStore               token.TokenStore
-		adminSubjects            []string
-		projectsAndTenantsGetter func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error)
+		authenticationQuery *rego.PreparedEvalQuery
+		log                 *slog.Logger
+		certCache           *cache.Cache[any, *cacheReturn]
+		tokenStore          token.TokenStore
 	}
 
 	cacheReturn struct {
 		raw string
 		set jwk.Set
-	}
-
-	authorizationDecision struct {
-		Allow  bool   `json:"allow"`
-		Reason string `json:"reason"`
 	}
 
 	authenticationDecision struct {
@@ -89,17 +74,11 @@ func (p *printHook) Print(ctx print.Context, msg string) error {
 // New creates an OPA authorizer
 func New(c Config) (*opa, error) {
 	var (
-		log                = c.Log.WithGroup("opa")
-		ctx                = context.Background()
-		servicePermissions = permissions.GetServicePermissions()
+		log = c.Log.WithGroup("opa")
+		ctx = context.Background()
 	)
 
 	authenticationQ, err := newAuthenticationQuery(ctx, log, c.AllowedIssuers)
-	if err != nil {
-		return nil, err
-	}
-
-	authorizationQ, err := newAuthorizationQuery(ctx, log, servicePermissions)
 	if err != nil {
 		return nil, err
 	}
@@ -123,13 +102,6 @@ func New(c Config) (*opa, error) {
 		}),
 		tokenStore:          c.TokenStore,
 		authenticationQuery: &authenticationQ,
-		authorizationQuery:  &authorizationQ,
-		visibility:          servicePermissions.Visibility,
-		servicePermissions:  servicePermissions,
-		adminSubjects:       c.AdminSubjects,
-		projectsAndTenantsGetter: func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
-			return c.Repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, userId)
-		},
 	}, nil
 }
 
@@ -163,14 +135,6 @@ func newOpaQuery(ctx context.Context, log *slog.Logger, fs embed.FS, query strin
 func newAuthenticationQuery(ctx context.Context, log *slog.Logger, allowedIssuers []string) (rego.PreparedEvalQuery, error) {
 	return newOpaQuery(ctx, log, authentication.Policies, "x = data.api.v1.metalstack.io.authentication.decision", map[string]any{
 		"allowed_issuers": allowedIssuers,
-	})
-}
-
-func newAuthorizationQuery(ctx context.Context, log *slog.Logger, servicePermissions *permissions.ServicePermissions) (rego.PreparedEvalQuery, error) {
-	return newOpaQuery(ctx, log, authorization.Policies, "x = data.api.v1.metalstack.io.authorization.decision", map[string]any{
-		"roles":      servicePermissions.Roles,
-		"methods":    servicePermissions.Methods,
-		"visibility": servicePermissions.Visibility,
 	})
 }
 
@@ -231,7 +195,7 @@ func (o *opa) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 		if !ok {
 			return nil, fmt.Errorf("no callinfo in handler context found")
 		}
-		t, err := o.decide(ctx, req.Spec().Procedure, callinfo.RequestHeader().Get, req.Any())
+		t, err := o.decide(ctx, req.Spec().Procedure, callinfo.RequestHeader().Get, req)
 		if err != nil {
 			return nil, err
 		}
@@ -272,11 +236,6 @@ func (o *opa) decide(ctx context.Context, methodName string, jwtTokenfunc func(s
 	var (
 		bearer         = jwtTokenfunc(authorizationHeader)
 		_, jwtToken, _ = strings.Cut(bearer, " ")
-		t              *v2.Token
-		projectRoles   map[string]v2.ProjectRole
-		tenantRoles    map[string]v2.TenantRole
-		permissions    map[string]*v2.MethodPermission
-		adminRole      *v2.AdminRole
 	)
 	jwtToken = strings.TrimSpace(jwtToken)
 
@@ -297,7 +256,7 @@ func (o *opa) decide(ctx context.Context, methodName string, jwtTokenfunc func(s
 			return nil, errorutil.Unauthenticated("token is invalid or has expired")
 		}
 
-		t, err = o.tokenStore.Get(ctx, decision.Subject, decision.JwtID)
+		t, err := o.tokenStore.Get(ctx, decision.Subject, decision.JwtID)
 		if err != nil {
 			if errors.Is(err, token.ErrTokenNotFound) {
 				return nil, errorutil.Unauthenticated("token was revoked")
@@ -305,119 +264,14 @@ func (o *opa) decide(ctx context.Context, methodName string, jwtTokenfunc func(s
 
 			return nil, errorutil.NewInternal(err)
 		}
-
-		if t.TokenType == v2.TokenType_TOKEN_TYPE_API {
-			projectRoles := t.ProjectRoles
-			tenantRoles := t.TenantRoles
-			permissions = method.PermissionsBySubject(t)
-			adminRole := t.AdminRole
-
-			o.log.Info("decision context", "method", methodName, "req", req, "token", t, "permission", permissions, "projectRoles", projectRoles, "tenantRoles", tenantRoles)
-
-			decision, err := o.authorize(ctx, newOpaAuthorizationRequest(methodName, req, t, permissions, projectRoles, tenantRoles, adminRole))
-			if err != nil {
-				return nil, errorutil.NewInternal(err)
-			}
-
-			if !decision.Allow {
-				if decision.Reason != "" {
-					return nil, errorutil.NewPermissionDenied(errors.New(decision.Reason))
-				}
-
-				return nil, errorutil.PermissionDenied("not allowed to call: %s", methodName)
-			}
-		}
-
-		// we fetch user permissions from the masterdata-api which is costly but our single source of truth
-		// this way we do not need to struggle updating all the permissions of tokens that were issued in the past
-		// if performance becomes an issue we need to reconsider this solution
-
-		pat, err := o.projectsAndTenantsGetter(ctx, t.User)
-		if err != nil {
-			return nil, errorutil.NewInternal(err)
-		}
-
-		projectRoles = pat.ProjectRoles
-		tenantRoles = pat.TenantRoles
-		o.log.Debug("decide", "adminsubjects", o.adminSubjects, "user", t.User)
-		if slices.Contains(o.adminSubjects, t.User) {
-			// we do not store admin roles in the masterdata-api, but we can use this from the static configuration passed to the api-server
-			adminRole = t.AdminRole
-		}
-
-		if t.TokenType == v2.TokenType_TOKEN_TYPE_USER {
-			// as we do not store roles in the console token, we set the roles from the information in the masterdata-db
-			t.ProjectRoles = projectRoles
-			t.TenantRoles = tenantRoles
-			t.AdminRole = adminRole
-			// consoletokens should never have permissions cause they are not stored in the masterdata-db
-			permissions = nil
-		}
-	}
-
-	o.log.Info("decision context", "method", methodName, "req", req, "token", t, "permission", permissions, "projectRoles", projectRoles, "tenantRoles", tenantRoles)
-
-	decision, err := o.authorize(ctx, newOpaAuthorizationRequest(methodName, req, t, permissions, projectRoles, tenantRoles, adminRole))
-	if err != nil {
-		return nil, errorutil.NewInternal(err)
-	}
-
-	if decision.Allow {
 		return t, nil
 	}
 
-	if decision.Reason != "" {
-		return nil, errorutil.NewPermissionDenied(errors.New(decision.Reason))
-	}
-
-	return nil, errorutil.PermissionDenied("not allowed to call: %s", methodName)
+	return nil, nil
 }
 
 func (o *opa) authenticate(ctx context.Context, input map[string]any) (authenticationDecision, error) {
 	return evalResult[authenticationDecision](ctx, o.log.WithGroup("authentication"), o.authenticationQuery, input)
-}
-
-func (o *opa) authorize(ctx context.Context, input map[string]any) (authorizationDecision, error) {
-	return evalResult[authorizationDecision](ctx, o.log.WithGroup("authorization"), o.authorizationQuery, input)
-}
-
-func newOpaAuthorizationRequest(method string, req any, token *v2.Token, methodPermissions map[string]*v2.MethodPermission, projectRoles map[string]v2.ProjectRole, tenantRoles map[string]v2.TenantRole, adminRole *v2.AdminRole) map[string]any {
-	input := map[string]any{
-		"method":  method,
-		"request": req,
-		"token":   token,
-	}
-
-	if len(methodPermissions) > 0 {
-		permissions := map[string][]string{}
-		for subject, methodPerms := range methodPermissions {
-			permissions[subject] = append(permissions[subject], methodPerms.Methods...)
-		}
-
-		input["permissions"] = permissions
-	}
-
-	if len(projectRoles) > 0 {
-		roles := map[string]string{}
-		for project, role := range projectRoles {
-			roles[project] = role.String()
-		}
-		input["project_roles"] = roles
-	}
-
-	if len(tenantRoles) > 0 {
-		roles := map[string]string{}
-		for tenant, role := range tenantRoles {
-			roles[tenant] = role.String()
-		}
-		input["tenant_roles"] = roles
-	}
-
-	if adminRole != nil {
-		input["admin_role"] = adminRole.String()
-	}
-
-	return input
 }
 
 func evalResult[R any](ctx context.Context, log *slog.Logger, query *rego.PreparedEvalQuery, input map[string]any) (R, error) {

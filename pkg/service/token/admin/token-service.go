@@ -64,3 +64,7 @@ func (t *tokenService) Revoke(ctx context.Context, req *adminv2.TokenServiceRevo
 
 	return &adminv2.TokenServiceRevokeResponse{}, nil
 }
+
+func (t *tokenService) Create(context.Context, *adminv2.TokenServiceCreateRequest) (*adminv2.TokenServiceCreateResponse, error) {
+	panic("unimplemented")
+}

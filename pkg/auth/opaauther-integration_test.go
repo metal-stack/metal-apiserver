@@ -11,8 +11,8 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	v1 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/api/go/request"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
-	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	tokenservice "github.com/metal-stack/metal-apiserver/pkg/service/token"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
@@ -54,8 +54,8 @@ func Test_opa_cert_rotation(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		o.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
-			return &repository.ProjectsAndTenants{
+		o.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*request.ProjectsAndTenants, error) {
+			return &request.ProjectsAndTenants{
 				ProjectRoles: map[string]v1.ProjectRole{
 					"test-project": v1.ProjectRole_PROJECT_ROLE_VIEWER,
 				},
