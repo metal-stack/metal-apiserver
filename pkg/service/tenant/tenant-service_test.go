@@ -1822,6 +1822,17 @@ func Test_tenantServiceServer_Leave(t *testing.T) {
 			},
 			wantErr: errorutil.NotFound("tenant john.doe@github is not a member of tenant b950f4f5-d8b8-4252-aa02-ae08a1d2b044"),
 		},
+		{
+			name: "john.doe@github wants to leave himself",
+			rq: &apiv2.TenantServiceLeaveRequest{
+				Login: "john.doe@github",
+			},
+			existingTenants: []*apiv2.TenantServiceCreateRequest{
+				{Name: "john.doe@github"},
+			},
+			existingTenantMembers: map[string][]*repository.TenantMemberCreateRequest{},
+			wantErr:               errorutil.NotFound("tenant john.doe@github is not a member of tenant john.doe@github"),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
