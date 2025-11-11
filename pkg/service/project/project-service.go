@@ -238,6 +238,23 @@ func (p *projectServiceServer) RemoveMember(ctx context.Context, req *apiv2.Proj
 	return &apiv2.ProjectServiceRemoveMemberResponse{}, nil
 }
 
+func (p *projectServiceServer) Leave(ctx context.Context, req *apiv2.ProjectServiceLeaveRequest) (*apiv2.ProjectServiceLeaveResponse, error) {
+	var (
+		t, ok = token.TokenFromContext(ctx)
+	)
+
+	if !ok || t == nil {
+		return nil, errorutil.Unauthenticated("no token found in request")
+	}
+
+	_, err := p.repo.Project(req.Project).AdditionalMethods().Member().Delete(ctx, t.User)
+	if err != nil {
+		return nil, err
+	}
+
+	return &apiv2.ProjectServiceLeaveResponse{}, nil
+}
+
 func (p *projectServiceServer) UpdateMember(ctx context.Context, req *apiv2.ProjectServiceUpdateMemberRequest) (*apiv2.ProjectServiceUpdateMemberResponse, error) {
 	pm, err := p.repo.Project(req.Project).AdditionalMethods().Member().Update(ctx, req.Member, &repository.ProjectMemberUpdateRequest{
 		Role: req.Role,
@@ -433,21 +450,4 @@ func (p *projectServiceServer) InvitesList(ctx context.Context, req *apiv2.Proje
 	}
 
 	return &apiv2.ProjectServiceInvitesListResponse{Invites: invites}, nil
-}
-
-func (p *projectServiceServer) Leave(ctx context.Context, req *apiv2.ProjectServiceLeaveRequest) (*apiv2.ProjectServiceLeaveResponse, error) {
-	var (
-		t, ok = token.TokenFromContext(ctx)
-	)
-
-	if !ok || t == nil {
-		return nil, errorutil.Unauthenticated("no token found in request")
-	}
-
-	_, err := p.repo.Project(req.Project).AdditionalMethods().Member().Delete(ctx, t.User)
-	if err != nil {
-		return nil, err
-	}
-
-	return &apiv2.ProjectServiceLeaveResponse{}, nil
 }
