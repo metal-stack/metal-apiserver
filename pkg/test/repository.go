@@ -407,7 +407,7 @@ func CreateProjects(t testing.TB, repo *repository.Store, projects []*apiv2.Proj
 	for _, p := range projects {
 		resp, err := repo.UnscopedProject().AdditionalMethods().CreateWithID(t.Context(), p, p.GetName())
 		require.NoError(t, err)
-		projectMap[p.Login] = resp.Project.Meta.Id
+		projectMap[p.Login] = resp.Meta.Id
 	}
 	return projectMap
 }
