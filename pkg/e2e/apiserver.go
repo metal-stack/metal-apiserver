@@ -102,11 +102,6 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 		ProjectRoles: nil,
 		TenantRoles:  nil,
 		AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
-		Permissions: []*apiv2.MethodPermission{
-			{
-				Subject: "*",
-			},
-		},
 	})
 	require.NoError(t, err)
 

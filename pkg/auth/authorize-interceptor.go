@@ -20,7 +20,8 @@ type (
 )
 
 func NewAuthorizeInterceptor(log *slog.Logger, repo *repository.Store) *authorizeInterceptor {
-	projectAndTenantCache := cache.New(1*time.Hour, func(ctx context.Context, id string) (*request.ProjectsAndTenants, error) {
+	// FIXME decide what is a proper cache timeout
+	projectAndTenantCache := cache.New(10*time.Millisecond, func(ctx context.Context, id string) (*request.ProjectsAndTenants, error) {
 		pat, err := repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, id)
 		if err != nil {
 			return nil, err

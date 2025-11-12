@@ -29,7 +29,7 @@ func TestUnauthenticated(t *testing.T) {
 
 	images, err := apiClient.Apiv2().Image().List(ctx, &apiv2.ImageServiceListRequest{})
 	require.Nil(t, images)
-	require.EqualError(t, err, "permission_denied: not allowed to call: /metalstack.api.v2.ImageService/List")
+	require.EqualError(t, err, "permission_denied: access to:\"/metalstack.api.v2.ImageService/List\" is not allowed because it is not part of the token permissions")
 }
 
 func TestAuthenticated(t *testing.T) {
@@ -54,7 +54,7 @@ func TestAuthenticated(t *testing.T) {
 }
 
 func TestListBaseNetworks(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	baseURL, adminToken, tenantTokenSecrets, closer := StartApiserver(t, log, "user-a")
 	defer closer()
 	require.NotNil(t, baseURL, adminToken)
