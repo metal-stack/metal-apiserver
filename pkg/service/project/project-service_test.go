@@ -1645,6 +1645,24 @@ func Test_projectServiceServer_Leave(t *testing.T) {
 			wantErr: nil,
 		},
 		{
+			name: "john.doe@github wants to leave project but is only owner",
+			rq: &apiv2.ProjectServiceLeaveRequest{
+				Project: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
+			},
+			existingTenants: []*apiv2.TenantServiceCreateRequest{
+				{Name: "john.doe@github"},
+			},
+			existingProjects: []*apiv2.ProjectServiceCreateRequest{
+				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
+			},
+			existingProjectMembers: map[string][]*repository.ProjectMemberCreateRequest{
+				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
+					{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
+				},
+			},
+			wantErr: errorutil.FailedPrecondition("cannot remove last owner of a project"),
+		},
+		{
 			name: "john.doe@github has already left the project",
 			rq: &apiv2.ProjectServiceLeaveRequest{
 				Project: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
@@ -1662,6 +1680,59 @@ func Test_projectServiceServer_Leave(t *testing.T) {
 				},
 			},
 			wantErr: errorutil.NotFound("tenant john.doe@github is not a member of project b950f4f5-d8b8-4252-aa02-ae08a1d2b044"),
+		},
+		{
+			name: "john.doe@github wants to leave project but is only indirect member",
+			rq: &apiv2.ProjectServiceLeaveRequest{
+				Project: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
+			},
+			existingTenants: []*apiv2.TenantServiceCreateRequest{
+				{Name: "john.doe@github"},
+				{Name: "will.smith@github"},
+				{Name: "3086f178-efd2-404c-9643-6493f8720be1"},
+			},
+			existingTenantMembers: map[string][]*repository.TenantMemberCreateRequest{
+				"3086f178-efd2-404c-9643-6493f8720be1": {
+					{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_EDITOR},
+				},
+			},
+			existingProjects: []*apiv2.ProjectServiceCreateRequest{
+				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "will.smith@github"},
+			},
+			existingProjectMembers: map[string][]*repository.ProjectMemberCreateRequest{
+				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
+					{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
+					{TenantId: "3086f178-efd2-404c-9643-6493f8720be1", Role: apiv2.ProjectRole_PROJECT_ROLE_VIEWER},
+				},
+			},
+			wantErr: errorutil.NotFound("tenant john.doe@github is not a member of project b950f4f5-d8b8-4252-aa02-ae08a1d2b044"),
+		},
+		{
+			name: "john.doe@github wants to leave project and is direct member as well as indirect member",
+			rq: &apiv2.ProjectServiceLeaveRequest{
+				Project: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
+			},
+			existingTenants: []*apiv2.TenantServiceCreateRequest{
+				{Name: "john.doe@github"},
+				{Name: "will.smith@github"},
+				{Name: "3086f178-efd2-404c-9643-6493f8720be1"},
+			},
+			existingTenantMembers: map[string][]*repository.TenantMemberCreateRequest{
+				"3086f178-efd2-404c-9643-6493f8720be1": {
+					{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_EDITOR},
+				},
+			},
+			existingProjects: []*apiv2.ProjectServiceCreateRequest{
+				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "will.smith@github"},
+			},
+			existingProjectMembers: map[string][]*repository.ProjectMemberCreateRequest{
+				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
+					{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
+					{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_VIEWER},
+					{TenantId: "3086f178-efd2-404c-9643-6493f8720be1", Role: apiv2.ProjectRole_PROJECT_ROLE_VIEWER},
+				},
+			},
+			wantErr: nil,
 		},
 	}
 	for _, tt := range tests {
