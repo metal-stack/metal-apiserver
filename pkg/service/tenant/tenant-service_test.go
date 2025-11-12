@@ -1796,10 +1796,12 @@ func Test_tenantServiceServer_Leave(t *testing.T) {
 			},
 			existingTenants: []*apiv2.TenantServiceCreateRequest{
 				{Name: "john.doe@github"},
+				{Name: "will.smith@github"},
 				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044"},
 			},
 			existingTenantMembers: map[string][]*repository.TenantMemberCreateRequest{
 				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
+					{MemberID: "will.smith@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 					{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_VIEWER},
 				},
 			},
@@ -1812,8 +1814,8 @@ func Test_tenantServiceServer_Leave(t *testing.T) {
 			},
 			existingTenants: []*apiv2.TenantServiceCreateRequest{
 				{Name: "john.doe@github"},
-				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044"},
 				{Name: "will.smith@github"},
+				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044"},
 			},
 			existingTenantMembers: map[string][]*repository.TenantMemberCreateRequest{
 				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {

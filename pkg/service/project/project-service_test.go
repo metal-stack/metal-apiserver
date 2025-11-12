@@ -1631,12 +1631,14 @@ func Test_projectServiceServer_Leave(t *testing.T) {
 			},
 			existingTenants: []*apiv2.TenantServiceCreateRequest{
 				{Name: "john.doe@github"},
+				{Name: "will.smith@github"},
 			},
 			existingProjects: []*apiv2.ProjectServiceCreateRequest{
-				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
+				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "will.smith@github"},
 			},
 			existingProjectMembers: map[string][]*repository.ProjectMemberCreateRequest{
 				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
+					{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
 					{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_VIEWER},
 				},
 			},
@@ -1652,13 +1654,11 @@ func Test_projectServiceServer_Leave(t *testing.T) {
 				{Name: "will.smith@github"},
 			},
 			existingProjects: []*apiv2.ProjectServiceCreateRequest{
-				{Name: "john.doe@github", Login: "john.doe@github"},
 				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "will.smith@github"},
-				{Name: "will.smith@github", Login: "will.smith@github"},
 			},
 			existingProjectMembers: map[string][]*repository.ProjectMemberCreateRequest{
 				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
-					{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_VIEWER},
+					{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
 				},
 			},
 			wantErr: errorutil.NotFound("tenant john.doe@github is not a member of project b950f4f5-d8b8-4252-aa02-ae08a1d2b044"),
