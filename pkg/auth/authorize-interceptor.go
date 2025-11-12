@@ -13,12 +13,13 @@ import (
 )
 
 type (
-	authInterceptor struct {
+	authorizeInterceptor struct {
+		log        *slog.Logger
 		authorizer request.Authorizer
 	}
 )
 
-func NewInterceptor(log *slog.Logger, repo *repository.Store) *authInterceptor {
+func NewAuthorizeInterceptor(log *slog.Logger, repo *repository.Store) *authorizeInterceptor {
 	projectAndTenantCache := cache.New(1*time.Hour, func(ctx context.Context, id string) (*request.ProjectsAndTenants, error) {
 		pat, err := repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, id)
 		if err != nil {
@@ -37,12 +38,13 @@ func NewInterceptor(log *slog.Logger, repo *repository.Store) *authInterceptor {
 		return projectAndTenantCache.Get(ctx, userId)
 	}
 
-	return &authInterceptor{
+	return &authorizeInterceptor{
+		log:        log,
 		authorizer: request.NewAuthorizer(log, patg),
 	}
 }
 
-func (a *authInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
+func (a *authorizeInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 	return connect.UnaryFunc(func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 		t, _ := token.TokenFromContext(ctx)
 
@@ -54,12 +56,12 @@ func (a *authInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 	})
 }
 
-func (a *authInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
+func (a *authorizeInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
 	return connect.StreamingClientFunc(func(ctx context.Context, spec connect.Spec) connect.StreamingClientConn {
 		return next(ctx, spec)
 	})
 }
-func (a *authInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
+func (a *authorizeInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
 	return connect.StreamingHandlerFunc(func(ctx context.Context, conn connect.StreamingHandlerConn) error {
 		return next(ctx, conn)
 	})

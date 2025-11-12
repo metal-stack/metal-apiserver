@@ -99,7 +99,6 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 		Log:            log,
 		CertStore:      certStore,
 		AllowedIssuers: []string{c.ServerHttpURL},
-		AdminSubjects:  c.Admins,
 		TokenStore:     tokenStore,
 		Repo:           c.Repository,
 	}
@@ -107,6 +106,8 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize authz interceptor: %w", err)
 	}
+
+	authorizeInterceptor := authpkg.NewAuthorizeInterceptor(log, c.Repository)
 
 	// metrics interceptor
 	exporter, err := prometheus.New()
@@ -131,9 +132,9 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 		})
 	)
 
-	allInterceptors := []connect.Interceptor{metricsInterceptor, logInteceptor, authz, ratelimitInterceptor, validationInterceptor, tenantInterceptor}
-	allAdminInterceptors := []connect.Interceptor{metricsInterceptor, logInteceptor, authz, validationInterceptor, tenantInterceptor}
-	allInfraInterceptors := []connect.Interceptor{metricsInterceptor, logInteceptor, authz, validationInterceptor}
+	allInterceptors := []connect.Interceptor{metricsInterceptor, logInteceptor, authz, authorizeInterceptor, ratelimitInterceptor, validationInterceptor, tenantInterceptor}
+	allAdminInterceptors := []connect.Interceptor{metricsInterceptor, logInteceptor, authz, authorizeInterceptor, validationInterceptor, tenantInterceptor}
+	allInfraInterceptors := []connect.Interceptor{metricsInterceptor, logInteceptor, authz, authorizeInterceptor, validationInterceptor}
 	if c.Auditing != nil {
 		servicePermissions := permissions.GetServicePermissions()
 		shouldAudit := func(fullMethod string) bool {

@@ -25,8 +25,6 @@ import (
 	"github.com/open-policy-agent/opa/v1/topdown/print"
 )
 
-// TODO check https://github.com/akshayjshah/connectauth for optimization
-
 const (
 	authorizationHeader = "authorization"
 )
@@ -173,7 +171,7 @@ func (s *recvWrapper) Receive(m any) error {
 	if err := s.StreamingHandlerConn.Receive(m); err != nil {
 		return err
 	}
-	_, err := s.o.decide(s.ctx, s.StreamingHandlerConn.Spec().Procedure, s.StreamingHandlerConn.RequestHeader().Get, m)
+	_, err := s.o.decide(s.ctx, s.StreamingHandlerConn.RequestHeader().Get)
 	if err != nil {
 		return err
 	}
@@ -195,7 +193,7 @@ func (o *opa) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 		if !ok {
 			return nil, fmt.Errorf("no callinfo in handler context found")
 		}
-		t, err := o.decide(ctx, req.Spec().Procedure, callinfo.RequestHeader().Get, req)
+		t, err := o.decide(ctx, callinfo.RequestHeader().Get)
 		if err != nil {
 			return nil, err
 		}
@@ -214,7 +212,7 @@ func (o *opa) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 	})
 }
 
-func (o *opa) decide(ctx context.Context, methodName string, jwtTokenfunc func(string) string, req any) (*v2.Token, error) {
+func (o *opa) decide(ctx context.Context, jwtTokenfunc func(string) string) (*v2.Token, error) {
 	// Allow all methods which have public visibility defined in the proto definition
 	// o.log.Debug("authorize", "method", methodName, "req", req, "visibility", o.visibility, "servicepermissions", *o.servicePermissions)
 
@@ -237,37 +235,38 @@ func (o *opa) decide(ctx context.Context, methodName string, jwtTokenfunc func(s
 		bearer         = jwtTokenfunc(authorizationHeader)
 		_, jwtToken, _ = strings.Cut(bearer, " ")
 	)
+
 	jwtToken = strings.TrimSpace(jwtToken)
-
-	if jwtToken != "" {
-		decision, err := o.authenticate(ctx, map[string]any{
-			"token": jwtToken,
-			"jwks":  jwks.raw,
-		})
-		if err != nil {
-			return nil, errorutil.NewInternal(err)
-		}
-
-		if !decision.Valid {
-			if decision.Reason != "" {
-				return nil, errorutil.NewUnauthenticated(errors.New(decision.Reason))
-			}
-
-			return nil, errorutil.Unauthenticated("token is invalid or has expired")
-		}
-
-		t, err := o.tokenStore.Get(ctx, decision.Subject, decision.JwtID)
-		if err != nil {
-			if errors.Is(err, token.ErrTokenNotFound) {
-				return nil, errorutil.Unauthenticated("token was revoked")
-			}
-
-			return nil, errorutil.NewInternal(err)
-		}
-		return t, nil
+	o.log.Debug("decide", "jwt", jwtToken)
+	if jwtToken == "" {
+		return nil, nil
 	}
 
-	return nil, nil
+	decision, err := o.authenticate(ctx, map[string]any{
+		"token": jwtToken,
+		"jwks":  jwks.raw,
+	})
+	if err != nil {
+		return nil, errorutil.NewInternal(err)
+	}
+
+	if !decision.Valid {
+		if decision.Reason != "" {
+			return nil, errorutil.NewUnauthenticated(errors.New(decision.Reason))
+		}
+
+		return nil, errorutil.Unauthenticated("token is invalid or has expired")
+	}
+
+	t, err := o.tokenStore.Get(ctx, decision.Subject, decision.JwtID)
+	if err != nil {
+		if errors.Is(err, token.ErrTokenNotFound) {
+			return nil, errorutil.Unauthenticated("token was revoked")
+		}
+
+		return nil, errorutil.NewInternal(err)
+	}
+	return t, nil
 }
 
 func (o *opa) authenticate(ctx context.Context, input map[string]any) (authenticationDecision, error) {

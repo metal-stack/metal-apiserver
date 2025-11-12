@@ -402,11 +402,14 @@ func CreatePartitions(t *testing.T, repo *repository.Store, partitions []*adminv
 	return partitionMap
 }
 
-func CreateProjects(t testing.TB, repo *repository.Store, projects []*apiv2.ProjectServiceCreateRequest) {
+func CreateProjects(t testing.TB, repo *repository.Store, projects []*apiv2.ProjectServiceCreateRequest) map[string]string {
+	projectMap := map[string]string{}
 	for _, p := range projects {
-		_, err := repo.UnscopedProject().AdditionalMethods().CreateWithID(t.Context(), p, p.GetName())
+		resp, err := repo.UnscopedProject().AdditionalMethods().CreateWithID(t.Context(), p, p.GetName())
 		require.NoError(t, err)
+		projectMap[p.Login] = resp.Project.Meta.Id
 	}
+	return projectMap
 }
 
 func CreateProjectMemberships(t testing.TB, testStore *testStore, project string, memberships []*repository.ProjectMemberCreateRequest) {
