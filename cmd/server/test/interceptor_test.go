@@ -12,8 +12,8 @@ package test
 
 // 	validatepb "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 
-// 	apiv1 "github.com/metal-stack-cloud/api/go/api/v1"
-// 	"github.com/metal-stack-cloud/api/go/api/v1/apiv1connect"
+// 	apiv2 "github.com/metal-stack-cloud/api/go/api/v1"
+// 	"github.com/metal-stack-cloud/api/go/api/v1/apiv2connect"
 // 	"github.com/metal-stack/metal-lib/pkg/pointer"
 // 	"github.com/stretchr/testify/assert"
 // 	"github.com/stretchr/testify/require"
@@ -23,8 +23,8 @@ package test
 // 	t.Parallel()
 // 	tests := []struct {
 // 		name        string
-// 		svc         func(context.Context, *apiv1.TenantServiceInviteRequest) (*apiv1.TenantServiceInviteResponse, error)
-// 		req         *apiv1.TenantServiceInviteRequest
+// 		svc         func(context.Context, *apiv2.TenantServiceInviteRequest) (*apiv2.TenantServiceInviteResponse, error)
+// 		req         *apiv2.TenantServiceInviteRequest
 // 		wantCode    connect.Code
 // 		wantPath    *string // field path, from error details
 // 		wantMessage *string // message from error details
@@ -32,15 +32,15 @@ package test
 // 		{
 // 			name: "valid",
 // 			svc:  createInvite,
-// 			req: &apiv1.TenantServiceInviteRequest{
+// 			req: &apiv2.TenantServiceInviteRequest{
 // 				Login: "some@example.com",
-// 				Role:  apiv1.TenantRole_TENANT_ROLE_GUEST,
+// 				Role:  apiv2.TenantRole_TENANT_ROLE_GUEST,
 // 			},
 // 		},
 // 		{
 // 			name: "invalid",
 // 			svc:  createInvite,
-// 			req: &apiv1.TenantServiceInviteRequest{
+// 			req: &apiv2.TenantServiceInviteRequest{
 // 				Login: "some@example.com",
 // 				Role:  7,
 // 			},
@@ -51,9 +51,9 @@ package test
 // 		{
 // 			name: "underlying_error",
 // 			svc:  createInviteWithError,
-// 			req: &apiv1.TenantServiceInviteRequest{
+// 			req: &apiv2.TenantServiceInviteRequest{
 // 				Login: "some@example.com",
-// 				Role:  apiv1.TenantRole_TENANT_ROLE_GUEST,
+// 				Role:  apiv2.TenantRole_TENANT_ROLE_GUEST,
 // 			},
 // 			wantCode: connect.CodeInternal,
 // 		},
@@ -67,14 +67,14 @@ package test
 // 			require.NoError(t, err)
 
 // 			mux := http.NewServeMux()
-// 			mux.Handle(apiv1connect.TenantServiceInviteProcedure, connect.NewUnaryHandler(
-// 				apiv1connect.TenantServiceInviteProcedure,
+// 			mux.Handle(apiv2connect.TenantServiceInviteProcedure, connect.NewUnaryHandler(
+// 				apiv2connect.TenantServiceInviteProcedure,
 // 				test.svc,
 // 				connect.WithInterceptors(validator),
 // 			))
 // 			srv := startHTTPServer(t, mux)
 
-// 			tenantService := apiv1connect.NewTenantServiceClient(srv.Client(), srv.URL)
+// 			tenantService := apiv2connect.NewTenantServiceClient(srv.Client(), srv.URL)
 // 			got, err := tenantService.Invite(context.Background(), connect.NewRequest(test.req))
 
 // 			if test.wantCode > 0 {
@@ -110,10 +110,10 @@ package test
 // 	return srv
 // }
 
-// func createInvite(_ context.Context, req *apiv1.TenantServiceInviteRequest) (*apiv1.TenantServiceInviteResponse, error) {
-// 	return &apiv1.TenantServiceInviteResponse{Invite: &apiv1.TenantInvite{Secret: "geheim"}}), nil
+// func createInvite(_ context.Context, req *apiv2.TenantServiceInviteRequest) (*apiv2.TenantServiceInviteResponse, error) {
+// 	return &apiv2.TenantServiceInviteResponse{Invite: &apiv2.TenantInvite{Secret: "geheim"}}), nil
 // }
 
-// func createInviteWithError(_ context.Context, req *apiv1.TenantServiceInviteRequest) (*apiv1.TenantServiceInviteResponse, error) {
+// func createInviteWithError(_ context.Context, req *apiv2.TenantServiceInviteRequest) (*apiv2.TenantServiceInviteResponse, error) {
 // 	return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("something internal was bad"))
 // }

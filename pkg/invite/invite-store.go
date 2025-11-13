@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	apiv1 "github.com/metal-stack/api/go/metalstack/api/v2"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/redis/go-redis/v9"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -30,16 +30,16 @@ var (
 )
 
 type ProjectInviteStore interface {
-	SetInvite(ctx context.Context, invite *apiv1.ProjectInvite) error
-	GetInvite(ctx context.Context, secret string) (*apiv1.ProjectInvite, error)
-	ListInvites(ctx context.Context, projectID string) ([]*apiv1.ProjectInvite, error)
-	DeleteInvite(ctx context.Context, invite *apiv1.ProjectInvite) error
+	SetInvite(ctx context.Context, invite *apiv2.ProjectInvite) error
+	GetInvite(ctx context.Context, secret string) (*apiv2.ProjectInvite, error)
+	ListInvites(ctx context.Context, projectID string) ([]*apiv2.ProjectInvite, error)
+	DeleteInvite(ctx context.Context, invite *apiv2.ProjectInvite) error
 }
 type TenantInviteStore interface {
-	SetInvite(ctx context.Context, invite *apiv1.TenantInvite) error
-	GetInvite(ctx context.Context, secret string) (*apiv1.TenantInvite, error)
-	ListInvites(ctx context.Context, login string) ([]*apiv1.TenantInvite, error)
-	DeleteInvite(ctx context.Context, invite *apiv1.TenantInvite) error
+	SetInvite(ctx context.Context, invite *apiv2.TenantInvite) error
+	GetInvite(ctx context.Context, secret string) (*apiv2.TenantInvite, error)
+	ListInvites(ctx context.Context, login string) ([]*apiv2.TenantInvite, error)
+	DeleteInvite(ctx context.Context, invite *apiv2.TenantInvite) error
 }
 
 type invite interface {
@@ -65,10 +65,10 @@ func NewTenantRedisStore(client *redis.Client) TenantInviteStore {
 	}
 }
 
-func projectkey(t *apiv1.ProjectInvite) string {
+func projectkey(t *apiv2.ProjectInvite) string {
 	return projectprefix + t.Project + separator + t.Secret
 }
-func tenantkey(t *apiv1.TenantInvite) string {
+func tenantkey(t *apiv2.TenantInvite) string {
 	return tenantprefix + t.TargetTenant + separator + t.Secret
 }
 
@@ -85,37 +85,37 @@ func matchTenant(tenantId string) string {
 
 // Project
 
-func (r *projectRedisStore) SetInvite(ctx context.Context, i *apiv1.ProjectInvite) error {
+func (r *projectRedisStore) SetInvite(ctx context.Context, i *apiv2.ProjectInvite) error {
 	return set(ctx, r.client, i, func() string { return projectkey(i) })
 }
 
-func (r *projectRedisStore) ListInvites(ctx context.Context, projectid string) ([]*apiv1.ProjectInvite, error) {
-	return list[*apiv1.ProjectInvite](ctx, r.client, matchProject(projectid))
+func (r *projectRedisStore) ListInvites(ctx context.Context, projectid string) ([]*apiv2.ProjectInvite, error) {
+	return list[*apiv2.ProjectInvite](ctx, r.client, matchProject(projectid))
 }
 
-func (r *projectRedisStore) DeleteInvite(ctx context.Context, i *apiv1.ProjectInvite) error {
+func (r *projectRedisStore) DeleteInvite(ctx context.Context, i *apiv2.ProjectInvite) error {
 	return delete(ctx, r.client, i, func() string { return projectkey(i) })
 }
 
-func (r *projectRedisStore) GetInvite(ctx context.Context, secret string) (*apiv1.ProjectInvite, error) {
-	return get[*apiv1.ProjectInvite](ctx, r.client, secret)
+func (r *projectRedisStore) GetInvite(ctx context.Context, secret string) (*apiv2.ProjectInvite, error) {
+	return get[*apiv2.ProjectInvite](ctx, r.client, secret)
 }
 
 // Tenant
 
-func (r *tenantRedisStore) DeleteInvite(ctx context.Context, i *apiv1.TenantInvite) error {
+func (r *tenantRedisStore) DeleteInvite(ctx context.Context, i *apiv2.TenantInvite) error {
 	return delete(ctx, r.client, i, func() string { return tenantkey(i) })
 }
 
-func (r *tenantRedisStore) GetInvite(ctx context.Context, secret string) (*apiv1.TenantInvite, error) {
-	return get[*apiv1.TenantInvite](ctx, r.client, secret)
+func (r *tenantRedisStore) GetInvite(ctx context.Context, secret string) (*apiv2.TenantInvite, error) {
+	return get[*apiv2.TenantInvite](ctx, r.client, secret)
 }
 
-func (r *tenantRedisStore) ListInvites(ctx context.Context, tenantID string) ([]*apiv1.TenantInvite, error) {
-	return list[*apiv1.TenantInvite](ctx, r.client, matchTenant(tenantID))
+func (r *tenantRedisStore) ListInvites(ctx context.Context, tenantID string) ([]*apiv2.TenantInvite, error) {
+	return list[*apiv2.TenantInvite](ctx, r.client, matchTenant(tenantID))
 }
 
-func (r *tenantRedisStore) SetInvite(ctx context.Context, invite *apiv1.TenantInvite) error {
+func (r *tenantRedisStore) SetInvite(ctx context.Context, invite *apiv2.TenantInvite) error {
 	return set(ctx, r.client, invite, func() string { return tenantkey(invite) })
 }
 

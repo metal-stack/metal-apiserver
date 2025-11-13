@@ -238,14 +238,14 @@ func Test_authorizeInterceptor_WrapUnary(t *testing.T) {
 		// 	wantErr:     errorutil.PermissionDenied("not allowed to call: /metalstack.admin.v2.TenantService/List"),
 		// },
 		// {
-		// 	name:        "admin editor accessed api/v1 methods tenant invite is allowed",
+		// 	name:        "admin editor accessed apiv2 methods tenant invite is allowed",
 		// 	subject:     "john.doe@github",
 		// 	method:      "/metalstack.api.v2.TenantService/Invite",
 		// 	req:         apiv2.TenantServiceInvitesListRequest{},
 		// 	permissions: []*apiv2.MethodPermission{},
 		// },
 		// {
-		// 	name:        "admin viewer accessed api/v1 methods tenant invite is allowed",
+		// 	name:        "admin viewer accessed apiv2 methods tenant invite is allowed",
 		// 	subject:     "john.doe@github",
 		// 	method:      "/metalstack.api.v2.TenantService/Invite",
 		// 	req:         apiv2.TenantServiceInvitesListRequest{},
@@ -253,7 +253,7 @@ func Test_authorizeInterceptor_WrapUnary(t *testing.T) {
 		// 	wantErr:     errorutil.PermissionDenied("not allowed to call: /metalstack.api.v2.TenantService/Invite"),
 		// },
 		// {
-		// 	name:        "admin editor can access api/v1 self methods",
+		// 	name:        "admin editor can access apiv2 self methods",
 		// 	subject:     "john.doe@github",
 		// 	method:      "/metalstack.api.v2.TenantService/InviteGet",
 		// 	req:         apiv2.TenantServiceInviteGetRequest{},

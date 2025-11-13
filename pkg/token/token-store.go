@@ -8,7 +8,7 @@ import (
 	"log/slog"
 	"time"
 
-	v1 "github.com/metal-stack/api/go/metalstack/api/v2"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -22,10 +22,10 @@ var (
 )
 
 type TokenStore interface {
-	Set(ctx context.Context, token *v1.Token) error
-	Get(ctx context.Context, userid, tokenid string) (*v1.Token, error)
-	List(ctx context.Context, userid string) ([]*v1.Token, error)
-	AdminList(ctx context.Context) ([]*v1.Token, error)
+	Set(ctx context.Context, token *apiv2.Token) error
+	Get(ctx context.Context, userid, tokenid string) (*apiv2.Token, error)
+	List(ctx context.Context, userid string) ([]*apiv2.Token, error)
+	AdminList(ctx context.Context) ([]*apiv2.Token, error)
 	Revoke(ctx context.Context, userid, tokenid string) error
 	Migrate(ctx context.Context, log *slog.Logger) error
 }
@@ -48,7 +48,7 @@ func NewRedisStore(client *redis.Client) TokenStore {
 	}
 }
 
-func (r *redisStore) Set(ctx context.Context, token *v1.Token) error {
+func (r *redisStore) Set(ctx context.Context, token *apiv2.Token) error {
 	encoded, err := json.Marshal(toInternal(token))
 	if err != nil {
 		return fmt.Errorf("unable to encode token: %w", err)
@@ -62,7 +62,7 @@ func (r *redisStore) Set(ctx context.Context, token *v1.Token) error {
 	return nil
 }
 
-func (r *redisStore) Get(ctx context.Context, userid, tokenid string) (*v1.Token, error) {
+func (r *redisStore) Get(ctx context.Context, userid, tokenid string) (*apiv2.Token, error) {
 	encoded, err := r.client.Get(ctx, key(userid, tokenid)).Result()
 	if err != nil {
 		return nil, err
@@ -77,9 +77,9 @@ func (r *redisStore) Get(ctx context.Context, userid, tokenid string) (*v1.Token
 	return toExternal(&t), nil
 }
 
-func (r *redisStore) List(ctx context.Context, userid string) ([]*v1.Token, error) {
+func (r *redisStore) List(ctx context.Context, userid string) ([]*apiv2.Token, error) {
 	var (
-		res  []*v1.Token
+		res  []*apiv2.Token
 		iter = r.client.Scan(ctx, 0, match(userid), 0).Iterator()
 	)
 
@@ -104,9 +104,9 @@ func (r *redisStore) List(ctx context.Context, userid string) ([]*v1.Token, erro
 	return res, nil
 }
 
-func (r *redisStore) AdminList(ctx context.Context) ([]*v1.Token, error) {
+func (r *redisStore) AdminList(ctx context.Context) ([]*apiv2.Token, error) {
 	var (
-		res  []*v1.Token
+		res  []*apiv2.Token
 		iter = r.client.Scan(ctx, 0, prefix+"*", 0).Iterator()
 	)
 

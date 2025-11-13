@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	apiv1 "github.com/metal-stack/api/go/metalstack/api/v2"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/api/go/permissions"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
@@ -23,7 +23,7 @@ func New() apiv2connect.MethodServiceHandler {
 	}
 }
 
-func (m *methodServiceServer) List(ctx context.Context, _ *apiv1.MethodServiceListRequest) (*apiv1.MethodServiceListResponse, error) {
+func (m *methodServiceServer) List(ctx context.Context, _ *apiv2.MethodServiceListRequest) (*apiv2.MethodServiceListResponse, error) {
 	token, ok := token.TokenFromContext(ctx)
 	if !ok || token == nil {
 		// only list public methods when there is no token
@@ -33,7 +33,7 @@ func (m *methodServiceServer) List(ctx context.Context, _ *apiv1.MethodServiceLi
 			methods = append(methods, m)
 		}
 
-		return &apiv1.MethodServiceListResponse{
+		return &apiv2.MethodServiceListResponse{
 			Methods: methods,
 		}, nil
 	}
@@ -53,18 +53,18 @@ func (m *methodServiceServer) List(ctx context.Context, _ *apiv1.MethodServiceLi
 		}
 	}
 
-	return &apiv1.MethodServiceListResponse{
+	return &apiv2.MethodServiceListResponse{
 		Methods: methods,
 	}, nil
 }
 
-func (m *methodServiceServer) TokenScopedList(ctx context.Context, _ *apiv1.MethodServiceTokenScopedListRequest) (*apiv1.MethodServiceTokenScopedListResponse, error) {
+func (m *methodServiceServer) TokenScopedList(ctx context.Context, _ *apiv2.MethodServiceTokenScopedListRequest) (*apiv2.MethodServiceTokenScopedListResponse, error) {
 	token, ok := token.TokenFromContext(ctx)
 	if !ok || token == nil {
 		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
-	return &apiv1.MethodServiceTokenScopedListResponse{
+	return &apiv2.MethodServiceTokenScopedListResponse{
 		Permissions:  token.Permissions,
 		ProjectRoles: token.ProjectRoles,
 		TenantRoles:  token.TenantRoles,

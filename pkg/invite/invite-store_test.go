@@ -7,7 +7,7 @@ import (
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/google/go-cmp/cmp"
-	apiv1 "github.com/metal-stack/api/go/metalstack/api/v2"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-lib/pkg/testcommon"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
@@ -59,10 +59,10 @@ func Test_ProjectInvite(t *testing.T) {
 		store = NewProjectRedisStore(redis.NewClient(&redis.Options{Addr: mr.Addr()}))
 		ctx   = t.Context()
 
-		i = &apiv1.ProjectInvite{
+		i = &apiv2.ProjectInvite{
 			Secret:      secret,
 			Project:     "foo",
-			Role:        apiv1.ProjectRole_PROJECT_ROLE_EDITOR,
+			Role:        apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 			Joined:      false,
 			ProjectName: "bar",
 			Tenant:      "tenant",
@@ -82,7 +82,7 @@ func Test_ProjectInvite(t *testing.T) {
 
 	gotList, err := store.ListInvites(ctx, i.Project)
 	require.NoError(t, err)
-	require.Equal(t, []*apiv1.ProjectInvite{i}, gotList)
+	require.Equal(t, []*apiv2.ProjectInvite{i}, gotList)
 
 	err = store.DeleteInvite(ctx, i)
 	require.NoError(t, err)
@@ -102,10 +102,10 @@ func Test_TenantInvite(t *testing.T) {
 		store = NewTenantRedisStore(redis.NewClient(&redis.Options{Addr: mr.Addr()}))
 		ctx   = t.Context()
 
-		i = &apiv1.TenantInvite{
+		i = &apiv2.TenantInvite{
 			Secret:           secret,
 			TargetTenant:     "target",
-			Role:             apiv1.TenantRole_TENANT_ROLE_EDITOR,
+			Role:             apiv2.TenantRole_TENANT_ROLE_EDITOR,
 			Joined:           false,
 			TargetTenantName: "target with name",
 			Tenant:           "tenant",
@@ -125,7 +125,7 @@ func Test_TenantInvite(t *testing.T) {
 
 	gotList, err := store.ListInvites(ctx, i.TargetTenant)
 	require.NoError(t, err)
-	require.Equal(t, []*apiv1.TenantInvite{i}, gotList)
+	require.Equal(t, []*apiv2.TenantInvite{i}, gotList)
 
 	err = store.DeleteInvite(ctx, i)
 	require.NoError(t, err)
