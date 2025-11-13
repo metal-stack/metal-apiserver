@@ -2,7 +2,6 @@ package request
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +11,7 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/api/go/metalstack/infra/v2/infrav2connect"
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/stretchr/testify/require"
 )
@@ -35,7 +35,7 @@ func Test_authorizer_allowed(t *testing.T) {
 			name:    "nil token, access to non public endpoint is not allowed",
 			token:   nil,
 			method:  "/metalstack.api.v2.PartitionService/List",
-			wantErr: errors.New("permission_denied: access to:\"/metalstack.api.v2.PartitionService/List\" is not allowed because it is not part of the token permissions"),
+			wantErr: errorutil.PermissionDenied("access to:\"/metalstack.api.v2.PartitionService/List\" is not allowed because it is not part of the token permissions"),
 		},
 		{
 			name: "one permission, api token",
@@ -70,7 +70,7 @@ func Test_authorizer_allowed(t *testing.T) {
 			},
 			method:  apiv2connect.IPServiceCreateProcedure,
 			subject: "project-a",
-			wantErr: errors.New("permission_denied: access to:\"/metalstack.api.v2.IPService/Create\" is not allowed because it is not part of the token permissions"),
+			wantErr: errorutil.PermissionDenied("access to:\"/metalstack.api.v2.IPService/Create\" is not allowed because it is not part of the token permissions"),
 		},
 		{
 			name: "one permission, api token, access not allowed, wrong project",
@@ -82,7 +82,7 @@ func Test_authorizer_allowed(t *testing.T) {
 			},
 			method:  apiv2connect.IPServiceGetProcedure,
 			subject: "project-b",
-			wantErr: errors.New("permission_denied: access to:\"/metalstack.api.v2.IPService/Get\" with subject:\"project-b\" is not allowed because it is not part of the token permissions, allowed subjects are:[\"project-a\"]"),
+			wantErr: errorutil.PermissionDenied("access to:\"/metalstack.api.v2.IPService/Get\" with subject:\"project-b\" is not allowed because it is not part of the token permissions, allowed subjects are:[\"project-a\"]"),
 		},
 		{
 			name: "admin editor access",
@@ -136,7 +136,7 @@ func Test_authorizer_allowed(t *testing.T) {
 					"project-b": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 			},
-			wantErr: errors.New(`permission_denied: access to:"/metalstack.api.v2.IPService/Get" is not allowed because it is not part of the token permissions`),
+			wantErr: errorutil.PermissionDenied(`access to:"/metalstack.api.v2.IPService/Get" is not allowed because it is not part of the token permissions`),
 		},
 	}
 	for _, tt := range tests {
@@ -200,7 +200,7 @@ func Test_authorizer_Allowed(t *testing.T) {
 				},
 			},
 			req:     connect.NewRequest(&apiv2.IPServiceGetRequest{Project: "project-a"}),
-			wantErr: errors.New("permission_denied: access to:\"/metalstack.api.v2.IPService/Get\" is not allowed because it is not part of the token permissions"),
+			wantErr: errorutil.PermissionDenied("access to:\"/metalstack.api.v2.IPService/Get\" is not allowed because it is not part of the token permissions"),
 		},
 		{
 			name: "one permission, api token, access not allowed",
@@ -211,7 +211,7 @@ func Test_authorizer_Allowed(t *testing.T) {
 				},
 			},
 			req:     connect.NewRequest(&apiv2.IPServiceGetRequest{Project: "project-b"}),
-			wantErr: errors.New("permission_denied: access to:\"/metalstack.api.v2.IPService/Get\" with subject:\"project-b\" is not allowed because it is not part of the token permissions"),
+			wantErr: errorutil.PermissionDenied("access to:\"/metalstack.api.v2.IPService/Get\" with subject:\"project-b\" is not allowed because it is not part of the token permissions, allowed subjects are:[\"project-a\"]"),
 		},
 	}
 	for _, tt := range tests {
