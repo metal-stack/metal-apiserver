@@ -156,7 +156,7 @@ func Test_authorizer_allowed(t *testing.T) {
 			if tt.wantErr != nil {
 				require.EqualError(t, gotErr, tt.wantErr.Error())
 			} else if gotErr != nil {
-				require.Empty(t, gotErr)
+				require.NoError(t, gotErr)
 			}
 		})
 	}
@@ -233,7 +233,7 @@ func Test_authorizer_Allowed(t *testing.T) {
 						if tt.wantErr != nil {
 							require.EqualError(t, gotErr, tt.wantErr.Error())
 						} else if gotErr != nil {
-							require.Empty(t, gotErr)
+							require.NoError(t, gotErr)
 						}
 						return next(ctx, req)
 					})
