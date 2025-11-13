@@ -34,6 +34,10 @@ func New(c Config) adminv2connect.TokenServiceHandler {
 	}
 }
 
+func (t *tokenService) Create(context.Context, *adminv2.TokenServiceCreateRequest) (*adminv2.TokenServiceCreateResponse, error) {
+	panic("unimplemented")
+}
+
 func (t *tokenService) List(ctx context.Context, req *adminv2.TokenServiceListRequest) (*adminv2.TokenServiceListResponse, error) {
 	var (
 		tokens []*apiv2.Token
