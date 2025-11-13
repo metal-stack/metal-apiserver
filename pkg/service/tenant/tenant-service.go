@@ -33,11 +33,6 @@ type tenantServiceServer struct {
 	tokenStore  token.TokenStore
 }
 
-// Leave implements TenantService.
-func (u *tenantServiceServer) Leave(context.Context, *apiv2.TenantServiceLeaveRequest) (*apiv2.TenantServiceLeaveResponse, error) {
-	panic("unimplemented")
-}
-
 type TenantService interface {
 	apiv2connect.TenantServiceHandler
 }
@@ -190,6 +185,23 @@ func (u *tenantServiceServer) Get(ctx context.Context, req *apiv2.TenantServiceG
 	})
 
 	return &apiv2.TenantServiceGetResponse{Tenant: tenant, TenantMembers: tenantMembers}, nil
+}
+
+func (u *tenantServiceServer) Leave(ctx context.Context, req *apiv2.TenantServiceLeaveRequest) (*apiv2.TenantServiceLeaveResponse, error) {
+	var (
+		t, ok = token.TokenFromContext(ctx)
+	)
+
+	if !ok || t == nil {
+		return nil, errorutil.Unauthenticated("no token found in request")
+	}
+
+	_, err := u.repo.Tenant().AdditionalMethods().Member(req.Login).Delete(ctx, t.User)
+	if err != nil {
+		return nil, err
+	}
+
+	return &apiv2.TenantServiceLeaveResponse{}, nil
 }
 
 func (u *tenantServiceServer) Update(ctx context.Context, req *apiv2.TenantServiceUpdateRequest) (*apiv2.TenantServiceUpdateResponse, error) {
