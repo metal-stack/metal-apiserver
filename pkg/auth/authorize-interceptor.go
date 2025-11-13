@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/metal-stack/api/go/request"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/request"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/cache"
 )
@@ -21,21 +21,15 @@ type (
 
 func NewAuthorizeInterceptor(log *slog.Logger, repo *repository.Store) *authorizeInterceptor {
 	// FIXME decide what is a proper cache timeout
-	projectAndTenantCache := cache.New(10*time.Millisecond, func(ctx context.Context, id string) (*request.ProjectsAndTenants, error) {
+	projectAndTenantCache := cache.New(10*time.Millisecond, func(ctx context.Context, id string) (*repository.ProjectsAndTenants, error) {
 		pat, err := repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, id)
 		if err != nil {
 			return nil, err
 		}
-		return &request.ProjectsAndTenants{
-			Projects:      pat.Projects,
-			Tenants:       pat.Tenants,
-			DefaultTenant: pat.DefaultTenant,
-			ProjectRoles:  pat.ProjectRoles,
-			TenantRoles:   pat.TenantRoles,
-		}, nil
+		return pat, nil
 	})
 
-	patg := func(ctx context.Context, userId string) (*request.ProjectsAndTenants, error) {
+	patg := func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
 		return projectAndTenantCache.Get(ctx, userId)
 	}
 

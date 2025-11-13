@@ -16,9 +16,9 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 	v2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	"github.com/metal-stack/api/go/request"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/metal-stack/metal-lib/pkg/testcommon"
@@ -63,7 +63,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 		userJwtMutateFn    func(t *testing.T, jwt string) string
 		expiration         *time.Duration
 		req                any
-		projectsAndTenants *request.ProjectsAndTenants
+		projectsAndTenants *repository.ProjectsAndTenants
 		tokenType          v2.TokenType
 		wantErr            error
 	}{
@@ -211,7 +211,7 @@ func Test_opa_authorize_with_permissions_optional_subject(t *testing.T) {
 		userJwtMutateFn    func(t *testing.T, jwt string) string
 		expiration         *time.Duration
 		req                any
-		projectsAndTenants *request.ProjectsAndTenants
+		projectsAndTenants *repository.ProjectsAndTenants
 		tokenType          v2.TokenType
 		wantErr            error
 	}{
@@ -220,7 +220,7 @@ func Test_opa_authorize_with_permissions_optional_subject(t *testing.T) {
 			subject:   "john.doe@github",
 			tokenType: v2.TokenType_TOKEN_TYPE_API,
 			req:       v2.ProjectServiceListRequest{},
-			projectsAndTenants: &request.ProjectsAndTenants{
+			projectsAndTenants: &repository.ProjectsAndTenants{
 				TenantRoles: map[string]v2.TenantRole{
 					"john.doe@github": v2.TenantRole_TENANT_ROLE_OWNER,
 				},

@@ -32,6 +32,11 @@ type projectServiceServer struct {
 	tokenStore  token.TokenStore
 }
 
+// Leave implements apiv2connect.ProjectServiceHandler.
+func (p *projectServiceServer) Leave(context.Context, *apiv2.ProjectServiceLeaveRequest) (*apiv2.ProjectServiceLeaveResponse, error) {
+	panic("unimplemented")
+}
+
 func New(c Config) apiv2connect.ProjectServiceHandler {
 	return &projectServiceServer{
 		log:         c.Log.WithGroup("projectService"),

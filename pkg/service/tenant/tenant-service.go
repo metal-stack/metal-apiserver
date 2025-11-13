@@ -33,6 +33,11 @@ type tenantServiceServer struct {
 	tokenStore  token.TokenStore
 }
 
+// Leave implements TenantService.
+func (u *tenantServiceServer) Leave(context.Context, *apiv2.TenantServiceLeaveRequest) (*apiv2.TenantServiceLeaveResponse, error) {
+	panic("unimplemented")
+}
+
 type TenantService interface {
 	apiv2connect.TenantServiceHandler
 }
