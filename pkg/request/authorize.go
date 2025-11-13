@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"maps"
 
 	"connectrpc.com/connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -94,7 +93,7 @@ func (a *authorizer) authorize(ctx context.Context, token *apiv2.Token, method s
 
 	if _, subjectAllowed := subjects[subject]; !subjectAllowed {
 		var a []string
-		for s := range maps.Keys(subjects) {
+		for s := range subjects {
 			a = append(a, s)
 		}
 		return connect.NewError(connect.CodePermissionDenied, fmt.Errorf("access to:%q with subject:%q is not allowed because it is not part of the token permissions, allowed subjects are:%q", method, subject, a))
