@@ -11,6 +11,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/metal-stack/api/go/client"
+	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
@@ -32,9 +33,13 @@ func Test_authorizeInterceptor_WrapUnary(t *testing.T) {
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{
 		{Name: "john.doe@github.com"},
+		{Name: "foo.bar@github.com"},
 	})
 	test.CreateTenantMemberships(t, testStore, "john.doe@github.com", []*repository.TenantMemberCreateRequest{
 		{MemberID: "john.doe@github.com", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+	})
+	test.CreateTenantMemberships(t, testStore, "foo.bar@github.com", []*repository.TenantMemberCreateRequest{
+		{MemberID: "foo.bar@github.com", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 	})
 	projectMap := test.CreateProjects(t, testStore.Store, []*apiv2.ProjectServiceCreateRequest{
 		{Login: "john.doe@github.com"},
@@ -208,20 +213,27 @@ func Test_authorizeInterceptor_WrapUnary(t *testing.T) {
 			},
 			wantErr: errorutil.PermissionDenied("access to:\"/metalstack.api.v2.MachineService/Create\" with subject:\"unknown project\" is not allowed because it is not part of the token permissions, allowed subjects are:%q", []string{projectMap["john.doe@github.com"]}),
 		},
+		{
+			name:    "admin api tenantlist is not allowed with MethodPermissions and wrong subject",
+			method:  "/metalstack.admin.v2.TenantService/List",
+			handler: handler[adminv2.TenantServiceListRequest, adminv2.TenantServiceListResponse](),
+			reqFn: func(ctx context.Context, c client.Client) error {
+				_, err := c.Adminv2().Tenant().List(ctx, &adminv2.TenantServiceListRequest{})
+				return err
+			},
+			token: &apiv2.Token{
+				User:      "john.doe@github.com",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "john.doe@github.com",
+						Methods: []string{"/metalstack.admin.v2.TenantService/List"},
+					},
+				},
+			},
+			wantErr: errorutil.PermissionDenied("access to:\"/metalstack.admin.v2.TenantService/List\" with subject:\"\" is not allowed because it is not part of the token permissions, allowed subjects are:[\"john.doe@github.com\"]"),
+		},
 
-		// {
-		// 	name:    "admin api tenantlist is not allowed with MethodPermissions",
-		// 	subject: "john.doe@github",
-		// 	method:  "/metalstack.admin.v2.TenantService/List",
-		// 	req:     adminv2.TenantServiceListRequest{},
-		// 	permissions: []*apiv2.MethodPermission{
-		// 		{
-		// 			Subject: "john.doe@github",
-		// 			Methods: []string{"/metalstack.admin.v2.TenantService/List"},
-		// 		},
-		// 	},
-		// 	wantErr: errorutil.PermissionDenied("not allowed to call: /metalstack.admin.v2.TenantService/List"),
-		// },
 		// {
 		// 	name:        "admin api tenantlist is allowed",
 		// 	subject:     "john.doe@github",
@@ -290,88 +302,91 @@ func Test_authorizeInterceptor_WrapUnary(t *testing.T) {
 		// 		"project-a": apiv2.ProjectRole_PROJECT_ROLE_VIEWER,
 		// 	},
 		// },
-		// {
-		// 	name:        "ip get not allowed, wrong project requested",
-		// 	subject:     "john.doe@github",
-		// 	method:      "/metalstack.api.v2.IPService/Get",
-		// 	req:         apiv2.IPServiceGetRequest{Project: "project-b"},
-		// 	permissions: []*apiv2.MethodPermission{},
-		// 	projectRoles: map[string]apiv2.ProjectRole{
-		// 		"project-a": apiv2.ProjectRole_PROJECT_ROLE_VIEWER,
-		// 	},
-		// 	wantErr: errorutil.PermissionDenied("not allowed to call: /metalstack.api.v2.IPService/Get"),
-		// },
-		// {
-		// 	name:        "ip create allowed for owner",
-		// 	subject:     "john.doe@github",
-		// 	method:      "/metalstack.api.v2.IPService/Create",
-		// 	req:         apiv2.IPServiceCreateRequest{Project: "project-a"},
-		// 	permissions: []*apiv2.MethodPermission{},
-		// 	projectsAndTenants: &request.ProjectsAndTenants{
-		// 		ProjectRoles: map[string]apiv2.ProjectRole{
-		// 			"project-a": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
-		// 		},
-		// 	},
-		// 	projectRoles: map[string]apiv2.ProjectRole{
-		// 		"project-a": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
-		// 	},
-		// },
-		// {
-		// 	name:        "ip create not allowed for viewer",
-		// 	subject:     "john.doe@github",
-		// 	method:      "/metalstack.api.v2.IPService/Create",
-		// 	req:         apiv2.IPServiceCreateRequest{Project: "project-a"},
-		// 	permissions: []*apiv2.MethodPermission{},
-		// 	projectRoles: map[string]apiv2.ProjectRole{
-		// 		"project-a": apiv2.ProjectRole_PROJECT_ROLE_VIEWER,
-		// 	},
-		// 	wantErr: errorutil.PermissionDenied("not allowed to call: /metalstack.api.v2.IPService/Create"),
-		// },
-		// {
-		// 	name:    "version service allowed without token because it is public visibility",
-		// 	subject: "",
-		// 	method:  "/metalstack.api.v2.VersionService/Get",
-		// 	req:     apiv2.VersionServiceGetRequest{},
-		// 	userJwtMutateFn: func(_ *testing.T, _ string) string {
-		// 		return ""
-		// 	},
-		// },
-		// {
-		// 	name:    "health service allowed without token because it is public visibility",
-		// 	subject: "",
-		// 	method:  "/metalstack.api.v2.HealthService/Get",
-		// 	req:     apiv2.HealthServiceGetRequest{},
-		// 	userJwtMutateFn: func(_ *testing.T, _ string) string {
-		// 		return ""
-		// 	},
-		// },
-		// {
-		// 	name:    "token service has visibility self",
-		// 	subject: "john.doe@github",
-		// 	method:  "/metalstack.api.v2.TokenService/Create",
-		// 	req:     apiv2.TokenServiceCreateRequest{},
-		// 	projectsAndTenants: &request.ProjectsAndTenants{
-		// 		TenantRoles: map[string]apiv2.TenantRole{
-		// 			"john.doe@github": apiv2.TenantRole_TENANT_ROLE_OWNER,
-		// 		},
-		// 	},
-		// 	tenantRoles: map[string]apiv2.TenantRole{
-		// 		"john.doe@github": apiv2.TenantRole_TENANT_ROLE_OWNER,
-		// 	},
-		// },
-		// {
-		// 	name:    "token service malformed token",
-		// 	subject: "john.doe@github",
-		// 	method:  "/metalstack.api.v2.TokenService/Create",
-		// 	req:     apiv2.TokenServiceCreateRequest{},
-		// 	userJwtMutateFn: func(_ *testing.T, jwt string) string {
-		// 		return jwt + "foo"
-		// 	},
-		// 	tenantRoles: map[string]apiv2.TenantRole{
-		// 		"john.doe@github": apiv2.TenantRole_TENANT_ROLE_OWNER,
-		// 	},
-		// 	wantErr: errorutil.Unauthenticated("invalid token"),
-		// },
+
+		{
+			name:    "ip get not allowed, wrong project requested",
+			method:  "/metalstack.api.v2.IPService/Get",
+			handler: handler[apiv2.IPServiceGetRequest, apiv2.IPServiceGetResponse](),
+			reqFn: func(ctx context.Context, c client.Client) error {
+				_, err := c.Apiv2().IP().Get(ctx, &apiv2.IPServiceGetRequest{Project: "unknown-project"})
+				return err
+			},
+			token: &apiv2.Token{
+				User:      "john.doe@github.com",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_USER,
+			},
+			wantErr: errorutil.PermissionDenied("access to:\"/metalstack.api.v2.IPService/Get\" with subject:\"unknown-project\" is not allowed because it is not part of the token permissions, allowed subjects are:%q", []string{projectMap["john.doe@github.com"]}),
+		},
+		{
+			name:    "ip create allowed for owner",
+			method:  "/metalstack.api.v2.IPService/Create",
+			handler: handler[apiv2.IPServiceCreateRequest, apiv2.IPServiceCreateResponse](),
+			reqFn: func(ctx context.Context, c client.Client) error {
+				_, err := c.Apiv2().IP().Create(ctx, &apiv2.IPServiceCreateRequest{Project: projectMap["john.doe@github.com"]})
+				return err
+			},
+			token: &apiv2.Token{
+				User:      "john.doe@github.com",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_USER,
+			},
+			wantErr: nil,
+		},
+		{
+			name:    "ip create not allowed for viewer",
+			method:  "/metalstack.api.v2.IPService/Create",
+			handler: handler[apiv2.IPServiceCreateRequest, apiv2.IPServiceCreateResponse](),
+			reqFn: func(ctx context.Context, c client.Client) error {
+				_, err := c.Apiv2().IP().Create(ctx, &apiv2.IPServiceCreateRequest{Project: projectMap["john.doe@github.com"]})
+				return err
+			},
+			token: &apiv2.Token{
+				User:      "foo.bar@github.com",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_USER,
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					projectMap["john.doe@github.com"]: apiv2.ProjectRole_PROJECT_ROLE_VIEWER,
+				},
+			},
+			wantErr: errorutil.PermissionDenied("access to:\"/metalstack.api.v2.IPService/Create\" is not allowed because it is not part of the token permissions"),
+		},
+		{
+			name:    "version service allowed without token because it is public visibility",
+			method:  "/metalstack.api.v2.VersionService/Get",
+			handler: handler[apiv2.VersionServiceGetRequest, apiv2.VersionServiceGetResponse](),
+			reqFn: func(ctx context.Context, c client.Client) error {
+				_, err := c.Apiv2().Version().Get(ctx, &apiv2.VersionServiceGetRequest{})
+				return err
+			},
+			token:   nil,
+			wantErr: nil,
+		},
+		{
+			name:    "health service allowed without token because it is public visibility",
+			method:  "/metalstack.api.v2.HealthService/Get",
+			handler: handler[apiv2.HealthServiceGetRequest, apiv2.HealthServiceGetResponse](),
+			reqFn: func(ctx context.Context, c client.Client) error {
+				_, err := c.Apiv2().Health().Get(ctx, &apiv2.HealthServiceGetRequest{})
+				return err
+			},
+			token:   nil,
+			wantErr: nil,
+		},
+		{
+			name:    "token service has visibility self",
+			method:  "/metalstack.api.v2.TokenService/Create",
+			handler: handler[apiv2.TokenServiceCreateRequest, apiv2.TokenServiceCreateResponse](),
+			reqFn: func(ctx context.Context, c client.Client) error {
+				_, err := c.Apiv2().Token().Create(ctx, &apiv2.TokenServiceCreateRequest{})
+				return err
+			},
+			token: &apiv2.Token{
+				User:      "john.doe@github.com",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_USER,
+				TenantRoles: map[string]apiv2.TenantRole{
+					"john.doe@github": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			wantErr: nil,
+		},
 		// {
 		// 	name:    "project list service has visibility self but wrong methodpermissions",
 		// 	subject: "john.doe@github",
@@ -390,18 +405,25 @@ func Test_authorizeInterceptor_WrapUnary(t *testing.T) {
 		// 	},
 		// 	wantErr: errorutil.PermissionDenied("not allowed to call: /metalstack.api.v2.ProjectService/List"),
 		// },
-		// {
-		// 	name:      "project list service has visibility self and console token",
-		// 	subject:   "john.doe@github",
-		// 	method:    "/metalstack.api.v2.ProjectService/List",
-		// 	tokenType: apiv2.TokenType_TOKEN_TYPE_USER,
-		// 	req:       apiv2.ProjectServiceListRequest{},
-		// 	projectsAndTenants: &request.ProjectsAndTenants{
-		// 		TenantRoles: map[string]apiv2.TenantRole{
-		// 			"john.doe@github": apiv2.TenantRole_TENANT_ROLE_OWNER,
-		// 		},
-		// 	},
-		// },
+
+		{
+			name:    "project list service has visibility self and console token",
+			method:  "/metalstack.api.v2.ProjectService/List",
+			handler: handler[apiv2.ProjectServiceListRequest, apiv2.ProjectServiceListResponse](),
+			reqFn: func(ctx context.Context, c client.Client) error {
+				_, err := c.Apiv2().Project().List(ctx, &apiv2.ProjectServiceListRequest{})
+				return err
+			},
+			token: &apiv2.Token{
+				User:      "john.doe@github.com",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_USER,
+				TenantRoles: map[string]apiv2.TenantRole{
+					"john.doe@github": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			wantErr: nil,
+		},
+
 		// {
 		// 	name:      "project list service has visibility self with api token and proper method permissions",
 		// 	subject:   "john.doe@github",
@@ -421,56 +443,84 @@ func Test_authorizeInterceptor_WrapUnary(t *testing.T) {
 		// 		},
 		// 	},
 		// },
-		// {
-		// 	name:    "project list service has visibility self but token has not permissions",
-		// 	subject: "john.doe@github",
-		// 	method:  "/metalstack.api.v2.ProjectService/List",
-		// 	req:     apiv2.ProjectServiceListRequest{},
-		// 	wantErr: errorutil.PermissionDenied("not allowed to call: /metalstack.api.v2.ProjectService/List"),
-		// },
-		// {
-		// 	name:    "project get service has not visibility self",
-		// 	subject: "john.doe@github",
-		// 	method:  "/metalstack.api.v2.ProjectService/Get",
-		// 	req:     apiv2.ProjectServiceGetRequest{Project: "a-project"},
-		// 	permissions: []*apiv2.MethodPermission{
-		// 		{
-		// 			Subject: "a-project",
-		// 			Methods: []string{"/metalstack.api.v2.IPService/List"},
-		// 		},
-		// 	},
-		// 	wantErr: errorutil.PermissionDenied("not allowed to call: /metalstack.api.v2.ProjectService/Get"),
-		// },
-		// {
-		// 	name:      "access project with console token",
-		// 	subject:   "john.doe@github",
-		// 	method:    "/metalstack.api.v2.ProjectService/Get",
-		// 	req:       apiv2.ProjectServiceGetRequest{Project: "project-a"},
-		// 	tokenType: apiv2.TokenType_TOKEN_TYPE_USER,
-		// 	projectsAndTenants: &request.ProjectsAndTenants{
-		// 		ProjectRoles: map[string]apiv2.ProjectRole{
-		// 			"project-a": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
-		// 		},
-		// 	},
-		// },
-		// {
-		// 	name:      "metal-image-cache-sync token works",
-		// 	subject:   "metal-image-cache-sync@metal-stack.io",
-		// 	method:    "/metalstack.api.v2.ImageService/List",
-		// 	req:       apiv2.ImageServiceListRequest{},
-		// 	tokenType: apiv2.TokenType_TOKEN_TYPE_API,
-		// 	permissions: []*apiv2.MethodPermission{
-		// 		{
-		// 			Subject: "a-project",
-		// 			Methods: []string{
-		// 				"/metalstack.api.v2.ImageService/List",
-		// 				"/metalstack.api.v2.PartitionService/List",
-		// 				"/metalstack.api.v2.TokenService/Refresh",
-		// 			},
-		// 		},
-		// 	},
-		// 	wantErr: nil,
-		// },
+
+		{
+			name:    "project list service has visibility self but token has not permissions",
+			method:  "/metalstack.api.v2.ProjectService/List",
+			handler: handler[apiv2.ProjectServiceListRequest, apiv2.ProjectServiceListResponse](),
+			reqFn: func(ctx context.Context, c client.Client) error {
+				_, err := c.Apiv2().Project().List(ctx, &apiv2.ProjectServiceListRequest{})
+				return err
+			},
+			token: &apiv2.Token{
+				User:      "john.doe@github.com",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+			},
+			wantErr: errorutil.PermissionDenied("access to:\"/metalstack.api.v2.ProjectService/List\" is not allowed because it is not part of the token permissions"),
+		},
+
+		{
+			name:    "project get service has not visibility self",
+			method:  "/metalstack.api.v2.ProjectService/Get",
+			handler: handler[apiv2.ProjectServiceGetRequest, apiv2.ProjectServiceGetResponse](),
+			reqFn: func(ctx context.Context, c client.Client) error {
+				_, err := c.Apiv2().Project().Get(ctx, &apiv2.ProjectServiceGetRequest{Project: "a-project"})
+				return err
+			},
+			token: &apiv2.Token{
+				User:      "john.doe@github.com",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "a-project",
+						Methods: []string{"/metalstack.api.v2.IPService/List"},
+					},
+				},
+			},
+			wantErr: errorutil.PermissionDenied("access to:\"/metalstack.api.v2.ProjectService/Get\" is not allowed because it is not part of the token permissions"),
+		},
+
+		{
+			name:    "access project with console token",
+			method:  "/metalstack.api.v2.ProjectService/Get",
+			handler: handler[apiv2.ProjectServiceGetRequest, apiv2.ProjectServiceGetResponse](),
+			reqFn: func(ctx context.Context, c client.Client) error {
+				_, err := c.Apiv2().Project().Get(ctx, &apiv2.ProjectServiceGetRequest{Project: projectMap["john.doe@github.com"]})
+				return err
+			},
+			token: &apiv2.Token{
+				User:      "john.doe@github.com",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_USER,
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					projectMap["john.doe@github.com"]: apiv2.ProjectRole_PROJECT_ROLE_OWNER,
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:    "metal-image-cache-sync token works",
+			method:  "/metalstack.api.v2.ImageService/List",
+			handler: handler[apiv2.ImageServiceListRequest, apiv2.ImageServiceListResponse](),
+			reqFn: func(ctx context.Context, c client.Client) error {
+				_, err := c.Apiv2().Image().List(ctx, &apiv2.ImageServiceListRequest{})
+				return err
+			},
+			token: &apiv2.Token{
+				User:      "metal-image-cache-sync",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "",
+						Methods: []string{
+							"/metalstack.api.v2.ImageService/List",
+							"/metalstack.api.v2.PartitionService/List",
+							"/metalstack.api.v2.TokenService/Refresh",
+						},
+					},
+				},
+			},
+			wantErr: nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
