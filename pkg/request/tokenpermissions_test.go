@@ -208,9 +208,32 @@ func Test_opa_getTokenPermissions(t *testing.T) {
 				"/metalstack.api.v2.TokenService/Update":                         {"*": true},
 				"/metalstack.api.v2.UserService/Get":                             {"*": true},
 				"/metalstack.api.v2.VersionService/Get":                          {"*": true},
-				"/metalstack.infra.v2.BMCService/UpdateBMCInfo":                  {"*": true},
+				"/metalstack.infra.v2.SwitchService/Get":                         {"*": true},
 			},
 			wantErr: nil,
+		},
+		{
+			name: "infra role editor",
+			token: &apiv2.Token{
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				InfraRole: apiv2.InfraRole_INFRA_ROLE_EDITOR.Enum(),
+			},
+			want: tokenPermissions{
+				"/metalstack.infra.v2.BMCService/UpdateBMCInfo": {"*": true},
+				"/metalstack.infra.v2.SwitchService/Get":        {"*": true},
+				"/metalstack.infra.v2.SwitchService/Heartbeat":  {"*": true},
+				"/metalstack.infra.v2.SwitchService/Register":   {"*": true},
+			},
+		},
+		{
+			name: "infra role viewer",
+			token: &apiv2.Token{
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				InfraRole: apiv2.InfraRole_INFRA_ROLE_VIEWER.Enum(),
+			},
+			want: tokenPermissions{
+				"/metalstack.infra.v2.SwitchService/Get": {"*": true},
+			},
 		},
 		{
 			name: "only permissions",

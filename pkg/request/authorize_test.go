@@ -105,6 +105,36 @@ func Test_authorizer_allowed(t *testing.T) {
 			wantErr: nil,
 		},
 		{
+			name: "infra editor access",
+			token: &apiv2.Token{
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				InfraRole: apiv2.InfraRole_INFRA_ROLE_EDITOR.Enum(),
+			},
+			method:  infrav2connect.SwitchServiceRegisterProcedure,
+			subject: "",
+			wantErr: nil,
+		},
+		{
+			name: "infra viewer access",
+			token: &apiv2.Token{
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				InfraRole: apiv2.InfraRole_INFRA_ROLE_VIEWER.Enum(),
+			},
+			method:  infrav2connect.SwitchServiceRegisterProcedure,
+			subject: "project-b",
+			wantErr: errorutil.PermissionDenied("access to:\"/metalstack.infra.v2.SwitchService/Register\" is not allowed because it is not part of the token permissions"),
+		},
+		{
+			name: "infra viewer access",
+			token: &apiv2.Token{
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				InfraRole: apiv2.InfraRole_INFRA_ROLE_VIEWER.Enum(),
+			},
+			method:  infrav2connect.SwitchServiceGetProcedure,
+			subject: "project-b",
+			wantErr: nil,
+		},
+		{
 			name: "user token, tenant owner with inherited project viewer",
 			token: &apiv2.Token{
 				TokenType: apiv2.TokenType_TOKEN_TYPE_USER,

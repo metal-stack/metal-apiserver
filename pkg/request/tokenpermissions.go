@@ -92,6 +92,16 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 		}
 	}
 
+	// Infra Roles
+	if token.InfraRole != nil {
+		for _, method := range servicePermissions.Roles.Infra[token.InfraRole.String()] {
+			if _, ok := tp[method]; !ok {
+				tp[method] = map[string]bool{}
+			}
+			tp[method][anySubject] = true
+		}
+	}
+
 	// Permission
 	for _, permission := range token.Permissions {
 		subject := permission.Subject
