@@ -2,55 +2,51 @@ package method
 
 import (
 	"context"
-	"strings"
+	"log/slog"
+	"time"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/api/go/permissions"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/request"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
+	"github.com/metal-stack/metal-lib/pkg/cache"
 )
 
 type methodServiceServer struct {
+	log                *slog.Logger
+	authorizer         request.Authorizer
 	servicePermissions *permissions.ServicePermissions
 }
 
-func New() apiv2connect.MethodServiceHandler {
-	servicePermissions := permissions.GetServicePermissions()
+func New(log *slog.Logger, repo *repository.Store) apiv2connect.MethodServiceHandler {
+	projectAndTenantCache := cache.New(10*time.Second, func(ctx context.Context, id string) (*repository.ProjectsAndTenants, error) {
+		pat, err := repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		return pat, nil
+	})
+
+	patg := func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
+		return projectAndTenantCache.Get(ctx, userId)
+	}
 
 	return &methodServiceServer{
-		servicePermissions: servicePermissions,
+		log:                log,
+		servicePermissions: permissions.GetServicePermissions(),
+		authorizer:         request.NewAuthorizer(log, patg),
 	}
 }
 
 func (m *methodServiceServer) List(ctx context.Context, _ *apiv2.MethodServiceListRequest) (*apiv2.MethodServiceListResponse, error) {
-	token, ok := token.TokenFromContext(ctx)
-	if !ok || token == nil {
-		// only list public methods when there is no token
+	token, _ := token.TokenFromContext(ctx)
 
-		var methods []string
-		for m := range m.servicePermissions.Visibility.Public {
-			methods = append(methods, m)
-		}
-
-		return &apiv2.MethodServiceListResponse{
-			Methods: methods,
-		}, nil
-	}
-
-	var (
-		methods      []string
-		isAdminToken = IsAdminToken(token)
-	)
-	for m := range m.servicePermissions.Methods {
-		if isAdminToken {
-			methods = append(methods, m)
-			continue
-		}
-
-		if strings.HasPrefix(m, "/metalstack.api.v2") { // TODO: add all methods that do not require admin permissions
-			methods = append(methods, m)
-		}
+	methods, err := m.authorizer.TokenMethods(ctx, token)
+	if err != nil {
+		return nil, err
 	}
 
 	return &apiv2.MethodServiceListResponse{

@@ -156,7 +156,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	adminInterceptors := connect.WithInterceptors(allAdminInterceptors...)
 	infraInterceptors := connect.WithInterceptors(allInfraInterceptors...)
 
-	methodService := method.New()
+	methodService := method.New(log, c.Repository)
 	tenantService := tenant.New(tenant.Config{
 		Log:         log,
 		Repo:        c.Repository,

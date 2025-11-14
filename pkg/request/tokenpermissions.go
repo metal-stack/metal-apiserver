@@ -3,6 +3,7 @@ package request
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/permissions"
@@ -20,6 +21,19 @@ type (
 )
 
 const anySubject = "*"
+
+func (a *authorizer) TokenMethods(ctx context.Context, token *apiv2.Token) ([]string, error) {
+	tp, err := a.getTokenPermissions(ctx, token)
+	if err != nil {
+		return nil, err
+	}
+	var methods []string
+	for method := range tp {
+		methods = append(methods, method)
+	}
+	slices.Sort(methods)
+	return methods, nil
+}
 
 func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token) (tokenPermissions, error) {
 	var (

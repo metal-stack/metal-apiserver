@@ -28,6 +28,8 @@ type (
 		// If the access is not allowed, a PermissionDenied Error is returned with a proper error message.
 		// req is only fully populated after a intercepter call.
 		Authorize(ctx context.Context, token *apiv2.Token, req connect.AnyRequest) error
+		// TokenMethods returns a slice of allowed methods based on the given token
+		TokenMethods(ctx context.Context, token *apiv2.Token) ([]string, error)
 	}
 )
 
