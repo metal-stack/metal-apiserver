@@ -167,8 +167,6 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 		}
 	}
 
-	// TODO infra roles not yet possible in a token
-
 	return tp, nil
 }
 
