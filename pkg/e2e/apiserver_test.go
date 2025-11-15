@@ -123,19 +123,22 @@ func TestImageCacheServiceToken(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	tokenResp, err := adminClient.Apiv2().Token().Create(t.Context(), &apiv2.TokenServiceCreateRequest{
-		Description: "metal-image-cache-sync token",
-		Permissions: []*apiv2.MethodPermission{
-			{
-				Subject: "",
-				Methods: []string{
-					"/metalstack.api.v2.ImageService/List",
-					"/metalstack.api.v2.PartitionService/List",
-					"/metalstack.api.v2.TokenService/Refresh",
+	tokenResp, err := adminClient.Adminv2().Token().Create(t.Context(), &adminv2.TokenServiceCreateRequest{
+		User: pointer.Pointer("metal-image-cache-sync"),
+		TokenCreateRequest: &apiv2.TokenServiceCreateRequest{
+			Description: "metal-image-cache-sync token",
+			Permissions: []*apiv2.MethodPermission{
+				{
+					Subject: "",
+					Methods: []string{
+						"/metalstack.api.v2.ImageService/List",
+						"/metalstack.api.v2.PartitionService/List",
+						"/metalstack.api.v2.TokenService/Refresh",
+					},
 				},
 			},
+			Expires: durationpb.New(10 * time.Minute),
 		},
-		Expires: durationpb.New(10 * time.Minute),
 	})
 	require.NoError(t, err)
 
