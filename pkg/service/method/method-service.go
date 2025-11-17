@@ -41,6 +41,8 @@ func New(log *slog.Logger, repo *repository.Store) apiv2connect.MethodServiceHan
 	}
 }
 
+// List return the effective list of methods accessible with the given token.
+// All methods can already be calculated on the client side.
 func (m *methodServiceServer) List(ctx context.Context, _ *apiv2.MethodServiceListRequest) (*apiv2.MethodServiceListResponse, error) {
 	token, _ := token.TokenFromContext(ctx)
 
