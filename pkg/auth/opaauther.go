@@ -69,8 +69,8 @@ func (p *printHook) Print(ctx print.Context, msg string) error {
 	return nil
 }
 
-// New creates an OPA authorizer
-func New(c Config) (*opa, error) {
+// NewAuthenticatorInterceptor creates an OPA authorizer
+func NewAuthenticatorInterceptor(c Config) (*opa, error) {
 	var (
 		log = c.Log.WithGroup("opa")
 		ctx = context.Background()
@@ -270,15 +270,9 @@ func (o *opa) decide(ctx context.Context, jwtTokenfunc func(string) string) (*v2
 }
 
 func (o *opa) authenticate(ctx context.Context, input map[string]any) (authenticationDecision, error) {
-	return evalResult[authenticationDecision](ctx, o.log.WithGroup("authentication"), o.authenticationQuery, input)
-}
+	var zero authenticationDecision
 
-func evalResult[R any](ctx context.Context, log *slog.Logger, query *rego.PreparedEvalQuery, input map[string]any) (R, error) {
-	log.Debug("rego query evaluation", "input", input)
-
-	var zero R
-
-	results, err := query.Eval(ctx, rego.EvalInput(input))
+	results, err := o.authenticationQuery.Eval(ctx, rego.EvalInput(input))
 	if err != nil {
 		return zero, fmt.Errorf("error evaluating rego result set: %w", err)
 	}
@@ -297,14 +291,14 @@ func evalResult[R any](ctx context.Context, log *slog.Logger, query *rego.Prepar
 		return zero, fmt.Errorf("unable to marshal json: %w", err)
 	}
 
-	var res R
+	var res authenticationDecision
 	err = json.Unmarshal(raw, &res)
 	if err != nil {
 		return zero, fmt.Errorf("unable to unmarshal json: %w", err)
 	}
 
 	// only for devel:
-	// log.Debug("made auth decision", "results", results)
+	// o.log.Debug("made auth decision", "results", results)
 
 	return res, nil
 }

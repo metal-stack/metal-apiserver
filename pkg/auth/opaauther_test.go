@@ -142,7 +142,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			err = tokenStore.Set(ctx, tok)
 			require.NoError(t, err)
 
-			o, err := New(Config{
+			o, err := NewAuthenticatorInterceptor(Config{
 				Log:            slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})),
 				CertStore:      certStore,
 				CertCacheTime:  pointer.Pointer(0 * time.Second),
@@ -279,7 +279,7 @@ func Test_opa_authorize_with_permissions_optional_subject(t *testing.T) {
 			err = tokenStore.Set(ctx, tok)
 			require.NoError(t, err)
 
-			o, err := New(Config{
+			o, err := NewAuthenticatorInterceptor(Config{
 				Log:            slog.Default(),
 				CertStore:      certStore,
 				CertCacheTime:  pointer.Pointer(0 * time.Second),

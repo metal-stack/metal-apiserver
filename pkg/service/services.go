@@ -102,7 +102,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 		TokenStore:     tokenStore,
 		Repo:           c.Repository,
 	}
-	authz, err := authpkg.New(authcfg)
+	authz, err := authpkg.NewAuthenticatorInterceptor(authcfg)
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize authz interceptor: %w", err)
 	}

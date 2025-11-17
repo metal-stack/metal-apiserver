@@ -43,7 +43,7 @@ func Test_opa_cert_rotation(t *testing.T) {
 	tokenStore := token.NewRedisStore(c)
 
 	opa := func() *opa {
-		o, err := New(Config{
+		o, err := NewAuthenticatorInterceptor(Config{
 			Log:            log,
 			CertStore:      certStore,
 			CertCacheTime:  pointer.Pointer(0 * time.Second),
