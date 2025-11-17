@@ -263,24 +263,6 @@ type ProjectsAndTenants struct {
 	TenantRoles   map[string]apiv2.TenantRole
 }
 
-type projectsAndTenantsKey struct{}
-
-// ContextWithToken stores the ProjectsAndTenants in the Context
-// Can later retrieved with TokenFromContext
-func ContextWithValue(ctx context.Context, pat *ProjectsAndTenants) context.Context {
-	return context.WithValue(ctx, projectsAndTenantsKey{}, pat)
-}
-
-// ValueFromContext retrieves the ProjectsAndTenants and ok from the context
-// if previously stored by calling ContextWithValue.
-func ValueFromContext(ctx context.Context) (*ProjectsAndTenants, bool) {
-	value := ctx.Value(projectsAndTenantsKey{})
-
-	pat, ok := value.(*ProjectsAndTenants)
-
-	return pat, ok
-}
-
 // GetProjectsAndTenants returns all projects and tenants that the user is participating in
 func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId string) (*ProjectsAndTenants, error) {
 	var (
