@@ -67,5 +67,6 @@ func (m *methodServiceServer) TokenScopedList(ctx context.Context, _ *apiv2.Meth
 		ProjectRoles: token.ProjectRoles,
 		TenantRoles:  token.TenantRoles,
 		AdminRole:    token.AdminRole,
+		InfraRole:    token.InfraRole,
 	}, nil
 }

@@ -24,7 +24,7 @@ require (
 	github.com/klauspost/connect-compress/v2 v2.1.0
 	github.com/lestrrat-go/jwx/v2 v2.1.6
 	github.com/markbates/goth v1.82.0
-	github.com/metal-stack/api v0.0.34-0.20251115070915-a6e5bec4c27e
+	github.com/metal-stack/api v0.0.34-0.20251117125849-f91964d7bc6e
 	github.com/metal-stack/go-ipam v1.14.13
 	github.com/metal-stack/masterdata-api v0.13.0
 	github.com/metal-stack/metal-lib v0.23.5

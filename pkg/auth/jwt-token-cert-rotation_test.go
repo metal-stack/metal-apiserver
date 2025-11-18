@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_opa_cert_rotation(t *testing.T) {
+func Test_jwt_cert_rotation(t *testing.T) {
 	oldMaxExpiration := token.MaxExpiration
 	oldDefaultExpiration := token.DefaultExpiration
 
