@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_opa_getTokenPermissions(t *testing.T) {
+func Test_getTokenPermissions(t *testing.T) {
 	tests := []struct {
 		name               string
 		token              *apiv2.Token
@@ -23,7 +23,7 @@ func Test_opa_getTokenPermissions(t *testing.T) {
 	}{
 		{
 			name:    "unknown admin role",
-			token:   &apiv2.Token{AdminRole: apiv2.AdminRole_ADMIN_ROLE_UNSPECIFIED.Enum()},
+			token:   &apiv2.Token{User: "admin", AdminRole: apiv2.AdminRole_ADMIN_ROLE_UNSPECIFIED.Enum()},
 			wantErr: errors.New("given admin role:ADMIN_ROLE_UNSPECIFIED is not valid"),
 		},
 		{
@@ -40,6 +40,7 @@ func Test_opa_getTokenPermissions(t *testing.T) {
 		{
 			name: "admin role editor",
 			token: &apiv2.Token{
+				User:      "admin",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				AdminRole: apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
 			},
@@ -152,6 +153,7 @@ func Test_opa_getTokenPermissions(t *testing.T) {
 		{
 			name: "admin role viewer",
 			token: &apiv2.Token{
+				User:      "admin",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				AdminRole: apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
 			},
@@ -215,6 +217,7 @@ func Test_opa_getTokenPermissions(t *testing.T) {
 		{
 			name: "infra role editor",
 			token: &apiv2.Token{
+				User:      "metal-core",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				InfraRole: apiv2.InfraRole_INFRA_ROLE_EDITOR.Enum(),
 			},
@@ -228,6 +231,7 @@ func Test_opa_getTokenPermissions(t *testing.T) {
 		{
 			name: "infra role viewer",
 			token: &apiv2.Token{
+				User:      "metal-core",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				InfraRole: apiv2.InfraRole_INFRA_ROLE_VIEWER.Enum(),
 			},
@@ -238,6 +242,7 @@ func Test_opa_getTokenPermissions(t *testing.T) {
 		{
 			name: "only permissions",
 			token: &apiv2.Token{
+				User:      "user-a",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{
 					{Subject: "a", Methods: []string{"/metalstack.api.v2.IPService/Create"}},
@@ -253,6 +258,7 @@ func Test_opa_getTokenPermissions(t *testing.T) {
 		{
 			name: "infra permissions",
 			token: &apiv2.Token{
+				User: "metal-core",
 				Permissions: []*apiv2.MethodPermission{
 					{Subject: "*", Methods: []string{infrav2connect.SwitchServiceRegisterProcedure}},
 				},
@@ -264,6 +270,7 @@ func Test_opa_getTokenPermissions(t *testing.T) {
 		{
 			name: "tenant roles, token type api",
 			token: &apiv2.Token{
+				User:      "user-b",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				TenantRoles: map[string]apiv2.TenantRole{
 					"a": apiv2.TenantRole_TENANT_ROLE_GUEST,
@@ -286,6 +293,7 @@ func Test_opa_getTokenPermissions(t *testing.T) {
 		{
 			name: "tenant roles, token type user",
 			token: &apiv2.Token{
+				User:      "user-b",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_USER,
 			},
 			projectsAndTenants: &repository.ProjectsAndTenants{
@@ -340,6 +348,7 @@ func Test_opa_getTokenPermissions(t *testing.T) {
 		{
 			name: "project roles, token type api",
 			token: &apiv2.Token{
+				User:      "user-c",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"a": apiv2.ProjectRole_PROJECT_ROLE_VIEWER,

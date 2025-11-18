@@ -40,6 +40,7 @@ func Test_authorizer_allowed(t *testing.T) {
 		{
 			name: "one permission, api token",
 			token: &apiv2.Token{
+				User:      "user-a",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{
 					{Subject: "project-a", Methods: []string{"/metalstack.api.v2.IPService/Get"}},
@@ -52,6 +53,7 @@ func Test_authorizer_allowed(t *testing.T) {
 		{
 			name: "one infra permission, api token",
 			token: &apiv2.Token{
+				User: "user-a",
 				Permissions: []*apiv2.MethodPermission{
 					{Subject: "*", Methods: []string{infrav2connect.SwitchServiceRegisterProcedure}},
 				},
@@ -63,6 +65,7 @@ func Test_authorizer_allowed(t *testing.T) {
 		{
 			name: "one permission, api token, access not allowed, wrong method",
 			token: &apiv2.Token{
+				User:      "user-a",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{
 					{Subject: "project-a", Methods: []string{"/metalstack.api.v2.IPService/Get"}},
@@ -75,6 +78,7 @@ func Test_authorizer_allowed(t *testing.T) {
 		{
 			name: "one permission, api token, access not allowed, wrong project",
 			token: &apiv2.Token{
+				User:      "user-a",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{
 					{Subject: "project-a", Methods: []string{"/metalstack.api.v2.IPService/Get"}},
@@ -87,6 +91,7 @@ func Test_authorizer_allowed(t *testing.T) {
 		{
 			name: "admin editor access",
 			token: &apiv2.Token{
+				User:      "admin",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				AdminRole: apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
 			},
@@ -97,6 +102,7 @@ func Test_authorizer_allowed(t *testing.T) {
 		{
 			name: "admin viewer access",
 			token: &apiv2.Token{
+				User:      "admin",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				AdminRole: apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
 			},
@@ -107,6 +113,7 @@ func Test_authorizer_allowed(t *testing.T) {
 		{
 			name: "infra editor access",
 			token: &apiv2.Token{
+				User:      "metal-core",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				InfraRole: apiv2.InfraRole_INFRA_ROLE_EDITOR.Enum(),
 			},
@@ -117,6 +124,7 @@ func Test_authorizer_allowed(t *testing.T) {
 		{
 			name: "infra viewer access",
 			token: &apiv2.Token{
+				User:      "metal-core",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				InfraRole: apiv2.InfraRole_INFRA_ROLE_VIEWER.Enum(),
 			},
@@ -127,6 +135,7 @@ func Test_authorizer_allowed(t *testing.T) {
 		{
 			name: "infra viewer access",
 			token: &apiv2.Token{
+				User:      "metal-core",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				InfraRole: apiv2.InfraRole_INFRA_ROLE_VIEWER.Enum(),
 			},
@@ -137,6 +146,7 @@ func Test_authorizer_allowed(t *testing.T) {
 		{
 			name: "user token, tenant owner with inherited project viewer",
 			token: &apiv2.Token{
+				User:      "user-b",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_USER,
 				TenantRoles: map[string]apiv2.TenantRole{
 					"tenant-a": apiv2.TenantRole_TENANT_ROLE_OWNER,
@@ -154,6 +164,7 @@ func Test_authorizer_allowed(t *testing.T) {
 		{
 			name: "api token, tenant owner with inherited project viewer",
 			token: &apiv2.Token{
+				User:      "user-b",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				TenantRoles: map[string]apiv2.TenantRole{
 					"tenant-a": apiv2.TenantRole_TENANT_ROLE_OWNER,
@@ -171,6 +182,7 @@ func Test_authorizer_allowed(t *testing.T) {
 		{
 			name: "api token, permissions to projects",
 			token: &apiv2.Token{
+				User:      "user-b",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{
 					{
@@ -191,6 +203,7 @@ func Test_authorizer_allowed(t *testing.T) {
 		{
 			name: "api token, permissions to projects",
 			token: &apiv2.Token{
+				User:      "user-b",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{
 					{
@@ -211,6 +224,7 @@ func Test_authorizer_allowed(t *testing.T) {
 		{
 			name: "api token, permissions to tenants",
 			token: &apiv2.Token{
+				User:      "user-b",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{
 					{
@@ -238,6 +252,7 @@ func Test_authorizer_allowed(t *testing.T) {
 		{
 			name: "api token, permissions to tenants",
 			token: &apiv2.Token{
+				User:      "user-b",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{
 					{
@@ -307,6 +322,7 @@ func Test_authorizer_Allowed(t *testing.T) {
 		{
 			name: "one permission, api token",
 			token: &apiv2.Token{
+				User:      "user-b",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{
 					{Subject: "project-a", Methods: []string{"/metalstack.api.v2.IPService/Get"}},
@@ -318,6 +334,7 @@ func Test_authorizer_Allowed(t *testing.T) {
 		{
 			name: "one permission, api token, access not allowed",
 			token: &apiv2.Token{
+				User:      "user-b",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{
 					{Subject: "project-a", Methods: []string{"/metalstack.api.v2.IPService/Create"}},
@@ -329,6 +346,7 @@ func Test_authorizer_Allowed(t *testing.T) {
 		{
 			name: "one permission, api token, access not allowed",
 			token: &apiv2.Token{
+				User:      "user-b",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{
 					{Subject: "project-a", Methods: []string{"/metalstack.api.v2.IPService/Get"}},
