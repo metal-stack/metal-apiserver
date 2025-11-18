@@ -20,6 +20,7 @@ func Benchmark_allow(b *testing.B) {
 
 	for b.Loop() {
 		token := &apiv2.Token{
+			User:      "user-a",
 			TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 			Permissions: []*apiv2.MethodPermission{
 				{Subject: "project-a", Methods: []string{"/metalstack.api.v2.IPService/Get"}},

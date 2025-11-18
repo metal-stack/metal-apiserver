@@ -435,6 +435,7 @@ func (t *tokenService) Refresh(ctx context.Context, _ *apiv2.TokenServiceRefresh
 	}, nil
 }
 
+// FIXME check if this logic can be refactored using the existing logic in tokenpermissions.go
 func validateTokenCreate(currentToken *apiv2.Token, req *apiv2.TokenServiceCreateRequest, servicePermissions *permissions.ServicePermissions, adminIDs []string) error {
 	var (
 		tokenPermissionsMap = method.PermissionsBySubject(currentToken)
