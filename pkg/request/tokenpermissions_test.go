@@ -499,6 +499,52 @@ func Test_opa_getTokenPermissions(t *testing.T) {
 				"/metalstack.api.v2.VersionService/Get":                          {"*": true},
 			},
 		},
+		{
+			name: "project roles with api token and permission",
+			token: &apiv2.Token{
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				User:      "user-a",
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "*",
+						Methods: []string{"/metalstack.api.v2.MachineService/Create"},
+					},
+				},
+			},
+			projectsAndTenants: &repository.ProjectsAndTenants{
+				Projects: []*apiv2.Project{
+					{Uuid: "a"},
+					{Uuid: "b"},
+				},
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"a": apiv2.ProjectRole_PROJECT_ROLE_VIEWER,
+				},
+			},
+			want: tokenPermissions{
+				"/metalstack.api.v2.MachineService/Create": {"a": true, "b": true},
+			},
+		},
+		{
+			name: "tenant roles with api token and permission",
+			token: &apiv2.Token{
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				User:      "user-a",
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "*",
+						Methods: []string{"/metalstack.api.v2.ProjectService/Create"},
+					},
+				},
+			},
+			projectsAndTenants: &repository.ProjectsAndTenants{
+				Tenants: []*apiv2.Tenant{
+					{Login: "user-a"},
+				},
+			},
+			want: tokenPermissions{
+				"/metalstack.api.v2.ProjectService/Create": {"user-a": true},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

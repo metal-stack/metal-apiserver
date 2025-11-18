@@ -168,6 +168,100 @@ func Test_authorizer_allowed(t *testing.T) {
 			},
 			wantErr: errorutil.PermissionDenied(`access to:"/metalstack.api.v2.IPService/Get" is not allowed because it is not part of the token permissions`),
 		},
+		{
+			name: "api token, permissions to projects",
+			token: &apiv2.Token{
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "*",
+						Methods: []string{"/metalstack.api.v2.MachineService/Create"},
+					},
+				},
+			},
+			method:  apiv2connect.MachineServiceCreateProcedure,
+			subject: "project-b",
+			projectsAndTenants: &repository.ProjectsAndTenants{
+				Projects: []*apiv2.Project{
+					{Uuid: "project-a"},
+				},
+			},
+			wantErr: errorutil.PermissionDenied(`access to:"/metalstack.api.v2.MachineService/Create" with subject:"project-b" is not allowed because it is not part of the token permissions, allowed subjects are:["project-a"]`),
+		},
+		{
+			name: "api token, permissions to projects",
+			token: &apiv2.Token{
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "*",
+						Methods: []string{"/metalstack.api.v2.MachineService/Create"},
+					},
+				},
+			},
+			method:  apiv2connect.MachineServiceCreateProcedure,
+			subject: "project-a",
+			projectsAndTenants: &repository.ProjectsAndTenants{
+				Projects: []*apiv2.Project{
+					{Uuid: "project-a"},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "api token, permissions to tenants",
+			token: &apiv2.Token{
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "*",
+						Methods: []string{"/metalstack.api.v2.MachineService/Create"},
+					},
+					{
+						Subject: "*",
+						Methods: []string{"/metalstack.api.v2.ProjectService/Create"},
+					},
+				},
+			},
+			method:  apiv2connect.ProjectServiceCreateProcedure,
+			subject: "tenant-b",
+			projectsAndTenants: &repository.ProjectsAndTenants{
+				Projects: []*apiv2.Project{
+					{Uuid: "project-a"},
+				},
+				Tenants: []*apiv2.Tenant{
+					{Login: "tenant-a"},
+				},
+			},
+			wantErr: errorutil.PermissionDenied(`access to:"/metalstack.api.v2.ProjectService/Create" with subject:"tenant-b" is not allowed because it is not part of the token permissions, allowed subjects are:["tenant-a"]`),
+		},
+		{
+			name: "api token, permissions to tenants",
+			token: &apiv2.Token{
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "*",
+						Methods: []string{"/metalstack.api.v2.MachineService/Create"},
+					},
+					{
+						Subject: "*",
+						Methods: []string{"/metalstack.api.v2.ProjectService/Create"},
+					},
+				},
+			},
+			method:  apiv2connect.ProjectServiceCreateProcedure,
+			subject: "tenant-a",
+			projectsAndTenants: &repository.ProjectsAndTenants{
+				Projects: []*apiv2.Project{
+					{Uuid: "project-a"},
+				},
+				Tenants: []*apiv2.Tenant{
+					{Login: "tenant-a"},
+				},
+			},
+			wantErr: nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

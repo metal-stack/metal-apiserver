@@ -42,7 +42,7 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 		servicePermissions = permissions.GetServicePermissions()
 	)
 
-	if token == nil {
+	if token == nil || token.User == "" {
 		for method := range servicePermissions.Visibility.Public {
 			if _, ok := tp[method]; !ok {
 				tp[method] = map[string]bool{}
@@ -52,11 +52,12 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 		return tp, nil
 	}
 
+	pat, err := a.projectsAndTenantsGetter(ctx, token.User)
+	if err != nil {
+		return nil, err
+	}
+
 	if token.TokenType == apiv2.TokenType_TOKEN_TYPE_USER {
-		pat, err := a.projectsAndTenantsGetter(ctx, token.User)
-		if err != nil {
-			return nil, err
-		}
 		// as we do not store roles in the user token, we set the roles from the information in the masterdata-db
 		token.ProjectRoles = pat.ProjectRoles
 		token.TenantRoles = pat.TenantRoles
@@ -146,6 +147,28 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 				tp[method] = map[string]bool{}
 			}
 			tp[method][subject] = true
+		}
+	}
+
+	// Now reduce "*" permissions of non admin users to allowed subjects
+	if token.AdminRole == nil {
+		for method, subject := range tp {
+			// only "*" subject is considered
+			if ok := subject[anySubject]; !ok {
+				continue
+			}
+			if servicePermissions.Visibility.Project[method] {
+				delete(tp[method], anySubject)
+				for _, project := range pat.Projects {
+					tp[method][project.Uuid] = true
+				}
+			}
+			if servicePermissions.Visibility.Tenant[method] {
+				delete(tp[method], anySubject)
+				for _, tenant := range pat.Tenants {
+					tp[method][tenant.Login] = true
+				}
+			}
 		}
 	}
 

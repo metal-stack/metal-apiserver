@@ -37,6 +37,7 @@ func Test_authorizeInterceptor_WrapUnary(t *testing.T) {
 		{Name: "john.doe@github.com"},
 		{Name: "foo.bar@github.com"},
 		{Name: "viewer@github.com"},
+		{Name: "metal-image-cache-sync"},
 	})
 	test.CreateTenantMemberships(t, testStore, "john.doe@github.com", []*repository.TenantMemberCreateRequest{
 		{MemberID: "john.doe@github.com", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
@@ -47,6 +48,9 @@ func Test_authorizeInterceptor_WrapUnary(t *testing.T) {
 	})
 	test.CreateTenantMemberships(t, testStore, "foo.bar@github.com", []*repository.TenantMemberCreateRequest{
 		{MemberID: "foo.bar@github.com", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+	})
+	test.CreateTenantMemberships(t, testStore, "metal-image-cache-sync", []*repository.TenantMemberCreateRequest{
+		{MemberID: "metal-image-cache-sync", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 	})
 	projectMap := test.CreateProjects(t, testStore.Store, []*apiv2.ProjectServiceCreateRequest{
 		{Login: "john.doe@github.com"},
@@ -538,7 +542,26 @@ func Test_authorizeInterceptor_WrapUnary(t *testing.T) {
 			},
 			wantErr: errorutil.PermissionDenied("access to:\"/metalstack.api.v2.ProjectService/Get\" is not allowed because it is not part of the token permissions"),
 		},
-
+		{
+			name:    "project with star permissions but not member of project in request",
+			method:  apiv2connect.ProjectServiceGetProcedure,
+			handler: handler[apiv2.ProjectServiceGetRequest, apiv2.ProjectServiceGetResponse](),
+			reqFn: func(ctx context.Context, c client.Client) error {
+				_, err := c.Apiv2().Project().Get(ctx, &apiv2.ProjectServiceGetRequest{Project: "a-project"})
+				return err
+			},
+			token: &apiv2.Token{
+				User:      "john.doe@github.com",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "*",
+						Methods: []string{"/metalstack.api.v2.ProjectService/Get"},
+					},
+				},
+			},
+			wantErr: errorutil.PermissionDenied("access to:\"/metalstack.api.v2.ProjectService/Get\" with subject:\"a-project\" is not allowed because it is not part of the token permissions, allowed subjects are:%q", []string{projectMap["john.doe@github.com"]}),
+		},
 		{
 			name:    "access project with console token",
 			method:  apiv2connect.ProjectServiceGetProcedure,

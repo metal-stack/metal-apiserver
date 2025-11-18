@@ -43,8 +43,6 @@ func NewInterceptor(log *slog.Logger, masterClient mdc.Client) *tenantIntercepto
 
 // TenantUnaryInterceptor will check if the request targets a project, if yes, checks if tenant of this project
 // already exists, if not an error is returned.
-// FIXME, it is not checked if the token owner is allowed to access the requested subject
-// should we instead create the tokenpermissions with allowed subjects ?
 func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 	return connect.UnaryFunc(func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 		var (
