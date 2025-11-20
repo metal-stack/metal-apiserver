@@ -3,6 +3,7 @@ package repository_test
 import (
 	"log/slog"
 	"os"
+	"sort"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -27,10 +28,14 @@ func Test_projectRepository_GetProjectsAndTenants(t *testing.T) {
 		{Name: "john.doe@github.com"},
 		{Name: "viewer@github.com"},
 		{Name: "guest@github.com"},
+		{Name: "ron@github.com"},
+		{Name: "maddy@github.com"},
 	})
 	test.CreateTenantMemberships(t, testStore, "john.doe@github.com", []*repository.TenantMemberCreateRequest{
 		{MemberID: "john.doe@github.com", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 		{MemberID: "viewer@github.com", Role: apiv2.TenantRole_TENANT_ROLE_VIEWER},
+		{MemberID: "ron@github.com", Role: apiv2.TenantRole_TENANT_ROLE_EDITOR},
+		{MemberID: "maddy@github.com", Role: apiv2.TenantRole_TENANT_ROLE_VIEWER},
 	})
 	test.CreateTenantMemberships(t, testStore, "viewer@github.com", []*repository.TenantMemberCreateRequest{
 		{MemberID: "viewer@github.com", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
@@ -38,11 +43,19 @@ func Test_projectRepository_GetProjectsAndTenants(t *testing.T) {
 	test.CreateTenantMemberships(t, testStore, "guest@github.com", []*repository.TenantMemberCreateRequest{
 		{MemberID: "guest@github.com", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 	})
+	test.CreateTenantMemberships(t, testStore, "ron@github.com", []*repository.TenantMemberCreateRequest{
+		{MemberID: "ron@github.com", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+	})
+	test.CreateTenantMemberships(t, testStore, "maddy@github.com", []*repository.TenantMemberCreateRequest{
+		{MemberID: "maddy@github.com", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+	})
 	projectMap := test.CreateProjects(t, testStore.Store, []*apiv2.ProjectServiceCreateRequest{
 		{Login: "john.doe@github.com"},
 	})
 	test.CreateProjectMemberships(t, testStore, projectMap["john.doe@github.com"], []*repository.ProjectMemberCreateRequest{
 		{TenantId: "guest@github.com", Role: apiv2.ProjectRole_PROJECT_ROLE_VIEWER},
+		{TenantId: "ron@github.com", Role: apiv2.ProjectRole_PROJECT_ROLE_VIEWER},
+		{TenantId: "maddy@github.com", Role: apiv2.ProjectRole_PROJECT_ROLE_EDITOR},
 	})
 
 	tests := []struct {
@@ -107,9 +120,46 @@ func Test_projectRepository_GetProjectsAndTenants(t *testing.T) {
 			},
 			wantErr: nil,
 		},
-		// TODO:
-		// every project has a project role
-		// tenant guest role is returned in tenantroles
+		{
+			name:   "higher tenant role overrules explicit project role",
+			userId: "ron@github.com",
+			want: &repository.ProjectsAndTenants{
+				Projects: []*apiv2.Project{{Uuid: projectMap["john.doe@github.com"], Tenant: "john.doe@github.com"}},
+				Tenants: []*apiv2.Tenant{
+					{Login: "john.doe@github.com", Name: "john.doe@github.com", CreatedBy: "john.doe@github.com"},
+					{Login: "ron@github.com", Name: "ron@github.com", CreatedBy: "ron@github.com"},
+				},
+				DefaultTenant: &apiv2.Tenant{Login: "ron@github.com", Name: "ron@github.com", CreatedBy: "ron@github.com"},
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					projectMap["john.doe@github.com"]: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"ron@github.com":      apiv2.TenantRole_TENANT_ROLE_OWNER,
+					"john.doe@github.com": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:   "higher project role overrules tenant role",
+			userId: "maddy@github.com",
+			want: &repository.ProjectsAndTenants{
+				Projects: []*apiv2.Project{{Uuid: projectMap["john.doe@github.com"], Tenant: "john.doe@github.com"}},
+				Tenants: []*apiv2.Tenant{
+					{Login: "john.doe@github.com", Name: "john.doe@github.com", CreatedBy: "john.doe@github.com"},
+					{Login: "maddy@github.com", Name: "maddy@github.com", CreatedBy: "maddy@github.com"},
+				},
+				DefaultTenant: &apiv2.Tenant{Login: "maddy@github.com", Name: "maddy@github.com", CreatedBy: "maddy@github.com"},
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					projectMap["john.doe@github.com"]: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"maddy@github.com":    apiv2.TenantRole_TENANT_ROLE_OWNER,
+					"john.doe@github.com": apiv2.TenantRole_TENANT_ROLE_VIEWER,
+				},
+			},
+			wantErr: nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -118,6 +168,10 @@ func Test_projectRepository_GetProjectsAndTenants(t *testing.T) {
 			if diff := cmp.Diff(tt.wantErr, gotErr, testcommon.ErrorStringComparer()); diff != "" {
 				t.Errorf("GetProjectsAndTenants() failed: %v", diff)
 			}
+
+			sort.SliceStable(got.Tenants, func(i, j int) bool {
+				return got.Tenants[i].Login < got.Tenants[j].Login
+			})
 
 			if diff := cmp.Diff(tt.want, got, protocmp.Transform(),
 				protocmp.IgnoreFields(
