@@ -15,7 +15,11 @@ func Benchmark_allow(b *testing.B) {
 		log: slog.Default(),
 	}
 	a.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
-		return &repository.ProjectsAndTenants{}, nil
+		return &repository.ProjectsAndTenants{
+			ProjectRoles: map[string]apiv2.ProjectRole{
+				"project-a": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+			},
+		}, nil
 	}
 
 	for b.Loop() {
