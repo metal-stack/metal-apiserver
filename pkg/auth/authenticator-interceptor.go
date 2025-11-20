@@ -69,7 +69,7 @@ func (p *printHook) Print(ctx print.Context, msg string) error {
 	return nil
 }
 
-// NewAuthenticatorInterceptor creates an OPA authorizer
+// NewAuthenticatorInterceptor creates an OPA authenticator
 func NewAuthenticatorInterceptor(c Config) (*opa, error) {
 	var (
 		log = c.Log.WithGroup("opa")
@@ -208,14 +208,11 @@ func (o *opa) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 			return nil, fmt.Errorf("unable to process request %w", err)
 		}
 
-		return resp, err
+		return resp, nil
 	})
 }
 
 func (o *opa) decide(ctx context.Context, jwtTokenfunc func(string) string) (*v2.Token, error) {
-	// Allow all methods which have public visibility defined in the proto definition
-	// o.log.Debug("authorize", "method", methodName, "req", req, "visibility", o.visibility, "servicepermissions", *o.servicePermissions)
-
 	jwks, err := o.certCache.Get(ctx, nil)
 	if err != nil {
 		return nil, err

@@ -250,6 +250,12 @@ func Test_getTokenPermissions(t *testing.T) {
 					{Subject: "b", Methods: []string{"/metalstack.api.v2.IPService/Delete"}},
 				},
 			},
+			projectsAndTenants: &repository.ProjectsAndTenants{
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"a": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+					"b": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
+				},
+			},
 			want: tokenPermissions{
 				"/metalstack.api.v2.IPService/Create": {"a": true},
 				"/metalstack.api.v2.IPService/Delete": {"a": true, "b": true},
@@ -272,6 +278,13 @@ func Test_getTokenPermissions(t *testing.T) {
 			token: &apiv2.Token{
 				User:      "user-b",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				TenantRoles: map[string]apiv2.TenantRole{
+					"a": apiv2.TenantRole_TENANT_ROLE_GUEST,
+					"b": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+					"c": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			projectsAndTenants: &repository.ProjectsAndTenants{
 				TenantRoles: map[string]apiv2.TenantRole{
 					"a": apiv2.TenantRole_TENANT_ROLE_GUEST,
 					"b": apiv2.TenantRole_TENANT_ROLE_EDITOR,
@@ -350,6 +363,13 @@ func Test_getTokenPermissions(t *testing.T) {
 			token: &apiv2.Token{
 				User:      "user-c",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"a": apiv2.ProjectRole_PROJECT_ROLE_VIEWER,
+					"b": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+					"c": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
+				},
+			},
+			projectsAndTenants: &repository.ProjectsAndTenants{
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"a": apiv2.ProjectRole_PROJECT_ROLE_VIEWER,
 					"b": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
@@ -527,10 +547,11 @@ func Test_getTokenPermissions(t *testing.T) {
 				},
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"a": apiv2.ProjectRole_PROJECT_ROLE_VIEWER,
+					"b": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 			},
 			want: tokenPermissions{
-				"/metalstack.api.v2.MachineService/Create": {"a": true, "b": true},
+				"/metalstack.api.v2.MachineService/Create": {"b": true},
 			},
 		},
 		{
@@ -549,9 +570,68 @@ func Test_getTokenPermissions(t *testing.T) {
 				Tenants: []*apiv2.Tenant{
 					{Login: "user-a"},
 				},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"user-a": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
 			},
 			want: tokenPermissions{
 				"/metalstack.api.v2.ProjectService/Create": {"user-a": true},
+			},
+		},
+		{
+			name: "tenant roles api tokens and permissions subject does not exist",
+			token: &apiv2.Token{
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				User:      "user-a",
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "foo",
+						Methods: []string{"/metalstack.api.v2.ProjectService/Create"},
+					},
+					{
+						Subject: "*",
+						Methods: []string{"/metalstack.api.v2.ProjectService/Create"},
+					},
+				},
+			},
+			projectsAndTenants: &repository.ProjectsAndTenants{
+				Tenants: []*apiv2.Tenant{
+					{Login: "user-a"},
+				},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"user-a": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
+			want: tokenPermissions{
+				"/metalstack.api.v2.ProjectService/Create": {"user-a": true},
+			},
+		},
+		{
+			name: "project roles api tokens and permissions subject does not exist",
+			token: &apiv2.Token{
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				User:      "user-a",
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "foo",
+						Methods: []string{"/metalstack.api.v2.MachineService/Create"},
+					},
+					{
+						Subject: "project-a",
+						Methods: []string{"/metalstack.api.v2.MachineService/Create"},
+					},
+				},
+			},
+			projectsAndTenants: &repository.ProjectsAndTenants{
+				Projects: []*apiv2.Project{
+					{Uuid: "project-a"},
+				},
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"project-a": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+			},
+			want: tokenPermissions{
+				"/metalstack.api.v2.MachineService/Create": {"project-a": true},
 			},
 		},
 	}
@@ -568,7 +648,7 @@ func Test_getTokenPermissions(t *testing.T) {
 			}
 
 			got, gotErr := a.getTokenPermissions(t.Context(), tt.token)
-			if diff := cmp.Diff(got, tt.want); diff != "" {
+			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 

@@ -96,6 +96,25 @@ func Test_authorizeInterceptor_WrapUnary(t *testing.T) {
 			method:  apiv2connect.MachineServiceGetProcedure,
 			handler: handler[apiv2.MachineServiceGetRequest, apiv2.MachineServiceGetResponse](),
 			reqFn: func(ctx context.Context, c client.Client) error {
+				_, err := c.Apiv2().Machine().Get(ctx, &apiv2.MachineServiceGetRequest{Project: projectMap["john.doe@github.com"]})
+				return err
+			},
+			token: &apiv2.Token{
+				User:      "john.doe@github.com",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "*",
+						Methods: []string{"/metalstack.api.v2.MachineService/Get"},
+					},
+				},
+			},
+		},
+		{
+			name:    "machine get fails with unknown project",
+			method:  apiv2connect.MachineServiceGetProcedure,
+			handler: handler[apiv2.MachineServiceGetRequest, apiv2.MachineServiceGetResponse](),
+			reqFn: func(ctx context.Context, c client.Client) error {
 				_, err := c.Apiv2().Machine().Get(ctx, &apiv2.MachineServiceGetRequest{Project: "john.doe-project"})
 				return err
 			},
@@ -109,9 +128,10 @@ func Test_authorizeInterceptor_WrapUnary(t *testing.T) {
 					},
 				},
 			},
+			wantErr: errorutil.PermissionDenied(`access to:"/metalstack.api.v2.MachineService/Get" with subject:"john.doe-project" is not allowed because it is not part of the token permissions, allowed subjects are:[]`),
 		},
 		{
-			name:    "machine gest not known with API token",
+			name:    "machine gest endpoint not known with API token",
 			method:  "/metalstack.api.v2.MachineService/Gest",
 			handler: handler[apiv2.MachineServiceGetRequest, apiv2.MachineServiceGetResponse](),
 			reqFn: func(ctx context.Context, c client.Client) error {
@@ -155,7 +175,7 @@ func Test_authorizeInterceptor_WrapUnary(t *testing.T) {
 			method:  apiv2connect.MachineServiceListProcedure,
 			handler: handler[apiv2.MachineServiceListRequest, apiv2.MachineServiceListResponse](),
 			reqFn: func(ctx context.Context, c client.Client) error {
-				_, err := c.Apiv2().Machine().List(ctx, &apiv2.MachineServiceListRequest{Project: "john.doe-project"})
+				_, err := c.Apiv2().Machine().List(ctx, &apiv2.MachineServiceListRequest{Project: projectMap["john.doe@github.com"]})
 				return err
 			},
 			token: &apiv2.Token{
@@ -163,7 +183,7 @@ func Test_authorizeInterceptor_WrapUnary(t *testing.T) {
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{
 					{
-						Subject: "john.doe-project",
+						Subject: projectMap["john.doe@github.com"],
 						Methods: []string{"/metalstack.api.v2.MachineService/List"},
 					},
 				},
@@ -175,7 +195,7 @@ func Test_authorizeInterceptor_WrapUnary(t *testing.T) {
 			method:  apiv2connect.MachineServiceCreateProcedure,
 			handler: handler[apiv2.MachineServiceCreateRequest, apiv2.MachineServiceCreateResponse](),
 			reqFn: func(ctx context.Context, c client.Client) error {
-				_, err := c.Apiv2().Machine().Create(ctx, &apiv2.MachineServiceCreateRequest{Project: "john.doe-project"})
+				_, err := c.Apiv2().Machine().Create(ctx, &apiv2.MachineServiceCreateRequest{Project: projectMap["john.doe@github.com"]})
 				return err
 			},
 			token: &apiv2.Token{
@@ -183,7 +203,7 @@ func Test_authorizeInterceptor_WrapUnary(t *testing.T) {
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{
 					{
-						Subject: "john.doe-project",
+						Subject: projectMap["john.doe@github.com"],
 						Methods: []string{
 							"/metalstack.api.v2.MachineService/Create",
 							"/metalstack.api.v2.MachineService/List",
@@ -248,6 +268,26 @@ func Test_authorizeInterceptor_WrapUnary(t *testing.T) {
 			wantErr: errorutil.PermissionDenied("access to:\"/metalstack.admin.v2.TenantService/List\" with subject:\"\" is not allowed because it is not part of the token permissions, allowed subjects are:[\"john.doe@github.com\"]"),
 		},
 		{
+			name:    "admin api tenantlist is allowed with MethodPermissions and * subject",
+			method:  adminv2connect.TenantServiceListProcedure,
+			handler: handler[adminv2.TenantServiceListRequest, adminv2.TenantServiceListResponse](),
+			reqFn: func(ctx context.Context, c client.Client) error {
+				_, err := c.Adminv2().Tenant().List(ctx, &adminv2.TenantServiceListRequest{})
+				return err
+			},
+			token: &apiv2.Token{
+				User:      "john.doe@github.com",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "*",
+						Methods: []string{"/metalstack.admin.v2.TenantService/List"},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
 			name:    "admin api tenantlist is allowed",
 			method:  adminv2connect.TenantServiceListProcedure,
 			handler: handler[adminv2.TenantServiceListRequest, adminv2.TenantServiceListResponse](),
@@ -293,7 +333,7 @@ func Test_authorizeInterceptor_WrapUnary(t *testing.T) {
 			wantErr: errorutil.PermissionDenied("access to:\"/metalstack.api.v2.TenantService/Invite\" is not allowed because it is not part of the token permissions"),
 		},
 		{
-			name:    "admin viewer can access self methods",
+			name:    "admin viewer can access tenant viewer methods",
 			method:  apiv2connect.TenantServiceGetProcedure,
 			handler: handler[apiv2.TenantServiceGetRequest, apiv2.TenantServiceGetResponse](),
 			reqFn: func(ctx context.Context, c client.Client) error {
@@ -306,6 +346,36 @@ func Test_authorizeInterceptor_WrapUnary(t *testing.T) {
 				AdminRole: apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
 			},
 			wantErr: nil,
+		},
+		{
+			name:    "admin viewer can access self methods",
+			method:  apiv2connect.TenantServiceListProcedure,
+			handler: handler[apiv2.TenantServiceListRequest, apiv2.TenantServiceListResponse](),
+			reqFn: func(ctx context.Context, c client.Client) error {
+				_, err := c.Apiv2().Tenant().List(ctx, &apiv2.TenantServiceListRequest{})
+				return err
+			},
+			token: &apiv2.Token{
+				User:      "john.doe@github.com",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				AdminRole: apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
+			},
+			wantErr: nil,
+		},
+		{
+			name:    "admin viewer can not access tenant editor methods",
+			method:  apiv2connect.TenantServiceUpdateProcedure,
+			handler: handler[apiv2.TenantServiceUpdateRequest, apiv2.TenantServiceUpdateResponse](),
+			reqFn: func(ctx context.Context, c client.Client) error {
+				_, err := c.Apiv2().Tenant().Update(ctx, &apiv2.TenantServiceUpdateRequest{})
+				return err
+			},
+			token: &apiv2.Token{
+				User:      "john.doe@github.com",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				AdminRole: apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
+			},
+			wantErr: errorutil.PermissionDenied("access to:\"/metalstack.api.v2.TenantService/Update\" is not allowed because it is not part of the token permissions"),
 		},
 		{
 			name:    "ip get allowed for owner",

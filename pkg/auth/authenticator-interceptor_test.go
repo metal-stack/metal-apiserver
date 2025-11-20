@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"fmt"
 	"log/slog"
 	"os"
 	"testing"
@@ -72,7 +71,6 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			req:  v2.MachineServiceGetRequest{},
 			userJwtMutateFn: func(t *testing.T, _ string) string {
 				jwt := generateJWT(t, "", defaultIssuer, maliciousSigningKey, time.Now().Add(time.Hour), time.Now(), time.Now())
-				fmt.Printf("JWT:%s", jwt)
 
 				require.NoError(t, err)
 				return jwt
@@ -80,16 +78,15 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			wantErr: errorutil.Unauthenticated("invalid token"),
 		},
 		{
-			name: "machine get not allowed, token used not before",
+			name: "machine get not allowed, token used before not before date",
 			req:  v2.MachineServiceGetRequest{},
 			userJwtMutateFn: func(t *testing.T, _ string) string {
 				jwt := generateJWT(t, "", defaultIssuer, key, time.Now().Add(time.Hour), time.Now(), time.Now().Add(time.Hour))
-				fmt.Printf("JWT:%s", jwt)
 
 				require.NoError(t, err)
 				return jwt
 			},
-			wantErr: errorutil.Unauthenticated("token has expired"),
+			wantErr: errorutil.Unauthenticated("token has expired"), // TODO: should clearly say "token used before not before date"
 		},
 		{
 			name:       "machine get not allowed, token already expired",
@@ -115,6 +112,29 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 				"john.doe@github": v2.TenantRole_TENANT_ROLE_OWNER,
 			},
 			wantErr: errorutil.Unauthenticated("invalid token"),
+		},
+		{
+			name:    "token service untrusted issuer",
+			subject: "john.doe@github",
+			req:     v2.TokenServiceCreateRequest{},
+			userJwtMutateFn: func(t *testing.T, _ string) string {
+				jwt := generateJWT(t, "", "unknown-issuer", key, time.Now().Add(time.Hour), time.Now(), time.Now())
+				require.NoError(t, err)
+				return jwt
+			},
+			tenantRoles: map[string]v2.TenantRole{
+				"john.doe@github": v2.TenantRole_TENANT_ROLE_OWNER,
+			},
+			wantErr: errorutil.Unauthenticated("invalid token issuer: unknown-issuer"),
+		},
+		{
+			name:    "token service allowed",
+			subject: "john.doe@github",
+			req:     v2.TokenServiceCreateRequest{},
+			tenantRoles: map[string]v2.TenantRole{
+				"john.doe@github": v2.TenantRole_TENANT_ROLE_OWNER,
+			},
+			wantErr: nil,
 		},
 	}
 
@@ -193,110 +213,4 @@ func generateJWT(t *testing.T, subject, issuer string, secret crypto.PrivateKey,
 		jwt = jwtWithClaims.Raw
 	}
 	return jwt
-}
-
-func Test_opa_authorize_with_permissions_optional_subject(t *testing.T) {
-	var (
-		certStore, key = prepare(t)
-		defaultIssuer  = "https://api-server"
-	)
-
-	tests := []struct {
-		name               string
-		subject            string
-		permissions        []*v2.MethodPermission
-		projectRoles       map[string]v2.ProjectRole
-		tenantRoles        map[string]v2.TenantRole
-		adminRole          *v2.AdminRole
-		userJwtMutateFn    func(t *testing.T, jwt string) string
-		expiration         *time.Duration
-		req                any
-		projectsAndTenants *repository.ProjectsAndTenants
-		tokenType          v2.TokenType
-		wantErr            error
-	}{
-		{
-			name:      "project list service has visibility self with api token and proper method permissions",
-			subject:   "john.doe@github",
-			tokenType: v2.TokenType_TOKEN_TYPE_API,
-			req:       v2.ProjectServiceListRequest{},
-			projectsAndTenants: &repository.ProjectsAndTenants{
-				TenantRoles: map[string]v2.TenantRole{
-					"john.doe@github": v2.TenantRole_TENANT_ROLE_OWNER,
-				},
-			},
-			permissions: []*v2.MethodPermission{
-				{
-					Subject: "*",
-					Methods: []string{"/metalstack.api.v2.ProjectService/List"},
-				},
-			},
-		},
-		{
-			name:      "metal-image-cache-sync token works",
-			subject:   "metal-image-cache-sync@metal-stack.io",
-			req:       v2.ImageServiceListRequest{},
-			tokenType: v2.TokenType_TOKEN_TYPE_API,
-			permissions: []*v2.MethodPermission{
-				{
-					// Subject: pointer.Pointer("a-project"),
-					Methods: []string{
-						"/metalstack.api.v2.ImageService/List",
-						"/metalstack.api.v2.PartitionService/List",
-						"/metalstack.api.v2.TokenService/Refresh",
-					},
-				},
-			},
-			wantErr: nil,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			s := miniredis.RunT(t)
-			defer s.Close()
-
-			ctx := t.Context()
-			tokenStore := token.NewRedisStore(redis.NewClient(&redis.Options{Addr: s.Addr()}))
-
-			exp := time.Hour
-			if tt.expiration != nil {
-				exp = *tt.expiration
-			}
-
-			jwt, tok, err := token.NewJWT(tt.tokenType, tt.subject, defaultIssuer, exp, key)
-			require.NoError(t, err)
-
-			if tt.userJwtMutateFn != nil {
-				jwt = tt.userJwtMutateFn(t, jwt)
-			}
-
-			tok.Permissions = tt.permissions
-			tok.ProjectRoles = tt.projectRoles
-			tok.TenantRoles = tt.tenantRoles
-			tok.AdminRole = tt.adminRole
-
-			err = tokenStore.Set(ctx, tok)
-			require.NoError(t, err)
-
-			o, err := NewAuthenticatorInterceptor(Config{
-				Log:            slog.Default(),
-				CertStore:      certStore,
-				CertCacheTime:  pointer.Pointer(0 * time.Second),
-				TokenStore:     tokenStore,
-				AllowedIssuers: []string{defaultIssuer},
-			})
-			require.NoError(t, err)
-
-			jwtTokenFunc := func(_ string) string {
-				return "Bearer " + jwt
-			}
-
-			_, err = o.decide(ctx, jwtTokenFunc)
-			if diff := cmp.Diff(tt.wantErr, err, testcommon.ErrorStringComparer()); diff != "" {
-				t.Error(err.Error())
-				t.Errorf("error diff (+got -want):\n %s", diff)
-			}
-		})
-	}
 }

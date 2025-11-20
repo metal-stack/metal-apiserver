@@ -38,7 +38,6 @@ func (a *authorizer) TokenMethods(ctx context.Context, token *apiv2.Token) ([]st
 func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token) (tokenPermissions, error) {
 	var (
 		tp                 = tokenPermissions{}
-		adminRole          *apiv2.AdminRole
 		servicePermissions = permissions.GetServicePermissions()
 	)
 
@@ -61,23 +60,21 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 		// as we do not store roles in the user token, we set the roles from the information in the masterdata-db
 		token.ProjectRoles = pat.ProjectRoles
 		token.TenantRoles = pat.TenantRoles
-		token.AdminRole = adminRole
+		// User token will never get admin roles from the database
+		token.AdminRole = nil
 		// user tokens should never have permissions cause they are not stored in the masterdata-db
 		token.Permissions = nil
 	}
 
 	// Admin Roles have precedence
 	if token.AdminRole != nil {
-		var allMethods []string
-		for method := range servicePermissions.Methods {
-			allMethods = append(allMethods, method)
-		}
 
 		switch *token.AdminRole {
 		case apiv2.AdminRole_ADMIN_ROLE_EDITOR:
-			for _, method := range allMethods {
+			for method := range servicePermissions.Methods {
 				tp[method] = map[string]bool{anySubject: true}
 			}
+
 			// Return here because all methods are allowed with all permissions
 			return tp, nil
 
@@ -152,23 +149,52 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 
 	// Now reduce "*" permissions of non admin users to allowed subjects
 	if token.AdminRole == nil {
-		for method, subject := range tp {
+		for method, subjects := range tp {
 			// only "*" subject is considered
-			if ok := subject[anySubject]; !ok {
+			if ok := subjects[anySubject]; !ok {
 				continue
 			}
 			if servicePermissions.Visibility.Project[method] {
 				delete(tp[method], anySubject)
-				for _, project := range pat.Projects {
-					tp[method][project.Uuid] = true
+				for project, role := range pat.ProjectRoles {
+					if slices.Contains(servicePermissions.Roles.Project[role.Enum().String()], method) {
+						tp[method][project] = true
+					}
 				}
 			}
 			if servicePermissions.Visibility.Tenant[method] {
 				delete(tp[method], anySubject)
-				for _, tenant := range pat.Tenants {
-					tp[method][tenant.Login] = true
+				for tenant, role := range pat.TenantRoles {
+					if slices.Contains(servicePermissions.Roles.Tenant[role.Enum().String()], method) {
+						tp[method][tenant] = true
+					}
 				}
 			}
+		}
+	}
+
+	for method, subjects := range tp {
+		switch {
+		case servicePermissions.Visibility.Project[method]:
+			for subject := range subjects {
+				if subject == anySubject || subject == "" {
+					continue
+				}
+				if _, ok := pat.ProjectRoles[subject]; !ok {
+					delete(subjects, subject)
+				}
+			}
+		case servicePermissions.Visibility.Tenant[method]:
+			for subject := range subjects {
+				if subject == anySubject || subject == "" {
+					continue
+				}
+				if _, ok := pat.TenantRoles[subject]; !ok {
+					delete(subjects, subject)
+				}
+			}
+		default:
+			// noop
 		}
 	}
 

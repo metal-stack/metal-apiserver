@@ -46,6 +46,11 @@ func Test_authorizer_allowed(t *testing.T) {
 					{Subject: "project-a", Methods: []string{"/metalstack.api.v2.IPService/Get"}},
 				},
 			},
+			projectsAndTenants: &repository.ProjectsAndTenants{
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"project-a": apiv2.ProjectRole_PROJECT_ROLE_VIEWER,
+				},
+			},
 			method:  apiv2connect.IPServiceGetProcedure,
 			subject: "project-a",
 			wantErr: nil,
@@ -82,6 +87,11 @@ func Test_authorizer_allowed(t *testing.T) {
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{
 					{Subject: "project-a", Methods: []string{"/metalstack.api.v2.IPService/Get"}},
+				},
+			},
+			projectsAndTenants: &repository.ProjectsAndTenants{
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"project-a": apiv2.ProjectRole_PROJECT_ROLE_VIEWER,
 				},
 			},
 			method:  apiv2connect.IPServiceGetProcedure,
@@ -180,7 +190,7 @@ func Test_authorizer_allowed(t *testing.T) {
 			wantErr: errorutil.PermissionDenied(`access to:"/metalstack.api.v2.IPService/Get" is not allowed because it is not part of the token permissions`),
 		},
 		{
-			name: "api token, permissions to projects",
+			name: "api token, permissions to projects failed",
 			token: &apiv2.Token{
 				User:      "user-b",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
@@ -196,6 +206,9 @@ func Test_authorizer_allowed(t *testing.T) {
 			projectsAndTenants: &repository.ProjectsAndTenants{
 				Projects: []*apiv2.Project{
 					{Uuid: "project-a"},
+				},
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"project-a": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 			},
 			wantErr: errorutil.PermissionDenied(`access to:"/metalstack.api.v2.MachineService/Create" with subject:"project-b" is not allowed because it is not part of the token permissions, allowed subjects are:["project-a"]`),
@@ -218,11 +231,14 @@ func Test_authorizer_allowed(t *testing.T) {
 				Projects: []*apiv2.Project{
 					{Uuid: "project-a"},
 				},
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"project-a": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
 			},
 			wantErr: nil,
 		},
 		{
-			name: "api token, permissions to tenants",
+			name: "api token, permissions to tenants failed",
 			token: &apiv2.Token{
 				User:      "user-b",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
@@ -245,6 +261,9 @@ func Test_authorizer_allowed(t *testing.T) {
 				},
 				Tenants: []*apiv2.Tenant{
 					{Login: "tenant-a"},
+				},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"tenant-a": apiv2.TenantRole_TENANT_ROLE_OWNER,
 				},
 			},
 			wantErr: errorutil.PermissionDenied(`access to:"/metalstack.api.v2.ProjectService/Create" with subject:"tenant-b" is not allowed because it is not part of the token permissions, allowed subjects are:["tenant-a"]`),
@@ -273,6 +292,9 @@ func Test_authorizer_allowed(t *testing.T) {
 				},
 				Tenants: []*apiv2.Tenant{
 					{Login: "tenant-a"},
+				},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"tenant-a": apiv2.TenantRole_TENANT_ROLE_OWNER,
 				},
 			},
 			wantErr: nil,
@@ -328,11 +350,16 @@ func Test_authorizer_Allowed(t *testing.T) {
 					{Subject: "project-a", Methods: []string{"/metalstack.api.v2.IPService/Get"}},
 				},
 			},
+			projectsAndTenants: &repository.ProjectsAndTenants{
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"project-a": apiv2.ProjectRole_PROJECT_ROLE_VIEWER,
+				},
+			},
 			req:     connect.NewRequest(&apiv2.IPServiceGetRequest{Project: "project-a"}),
 			wantErr: nil,
 		},
 		{
-			name: "one permission, api token, access not allowed",
+			name: "one permission, api token, access not allowed because this method is not allowed",
 			token: &apiv2.Token{
 				User:      "user-b",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
@@ -340,16 +367,26 @@ func Test_authorizer_Allowed(t *testing.T) {
 					{Subject: "project-a", Methods: []string{"/metalstack.api.v2.IPService/Create"}},
 				},
 			},
+			projectsAndTenants: &repository.ProjectsAndTenants{
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"project-a": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+			},
 			req:     connect.NewRequest(&apiv2.IPServiceGetRequest{Project: "project-a"}),
 			wantErr: errorutil.PermissionDenied("access to:\"/metalstack.api.v2.IPService/Get\" is not allowed because it is not part of the token permissions"),
 		},
 		{
-			name: "one permission, api token, access not allowed",
+			name: "one permission, api token, access not allowed because the subject is not allowed",
 			token: &apiv2.Token{
 				User:      "user-b",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{
 					{Subject: "project-a", Methods: []string{"/metalstack.api.v2.IPService/Get"}},
+				},
+			},
+			projectsAndTenants: &repository.ProjectsAndTenants{
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"project-a": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 			},
 			req:     connect.NewRequest(&apiv2.IPServiceGetRequest{Project: "project-b"}),
