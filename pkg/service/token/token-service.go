@@ -243,7 +243,7 @@ func (t *tokenService) Create(ctx context.Context, req *apiv2.TokenServiceCreate
 	if !ok || token == nil {
 		return nil, errorutil.Unauthenticated("no token found in request")
 	}
-	return t.CreateTokenForUser(ctx, &token.User, req)
+	return t.CreateTokenForUser(ctx, nil, req)
 }
 
 func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req *apiv2.TokenServiceCreateRequest) (*apiv2.TokenServiceCreateResponse, error) {
@@ -277,15 +277,16 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 
 	tokenUser := token.GetUser()
 
+	if !slices.Contains(t.adminSubjects, token.User) && user != nil {
+		return nil, errorutil.PermissionDenied("only admins can specify token user")
+	}
+
 	if slices.Contains(t.adminSubjects, token.User) {
 		fullUserToken.AdminRole = apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum()
-		if user != nil {
-			tokenUser = *user
-		}
-	} else {
-		if user != nil && token.GetUser() != *user {
-			return nil, errorutil.PermissionDenied("only admins can specify token user")
-		}
+	}
+
+	if user != nil {
+		tokenUser = *user
 	}
 
 	err = validateTokenCreate(fullUserToken, req, t.servicePermissions, t.adminSubjects)

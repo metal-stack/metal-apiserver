@@ -26,7 +26,7 @@ type (
 	Authorizer interface {
 		// Authorize checks if with the given token the request is allowed.
 		// If the access is not allowed, a PermissionDenied Error is returned with a proper error message.
-		// req is only fully populated after a intercepter call.
+		// req is only fully populated after a interceptor call.
 		Authorize(ctx context.Context, token *apiv2.Token, req connect.AnyRequest) error
 		// TokenMethods returns a slice of allowed methods based on the given token
 		TokenMethods(ctx context.Context, token *apiv2.Token) ([]string, error)
@@ -71,7 +71,7 @@ func (a *authorizer) Authorize(ctx context.Context, token *apiv2.Token, req conn
 }
 
 func (a *authorizer) authorize(ctx context.Context, token *apiv2.Token, method string, subject string) error {
-	a.log.Info("authorize", "token", token, "method", method, "subject", subject)
+	a.log.Debug("authorize", "token", token, "method", method, "subject", subject)
 
 	permissions, err := a.getTokenPermissions(ctx, token)
 	if err != nil {
@@ -88,17 +88,17 @@ func (a *authorizer) authorize(ctx context.Context, token *apiv2.Token, method s
 		return connect.NewError(connect.CodePermissionDenied, fmt.Errorf("access to:%q is not allowed because it is not part of the token permissions", method))
 	}
 
-	if _, allSubjectsAllowed := subjects["*"]; allSubjectsAllowed {
+	if _, allSubjectsAllowed := subjects[anySubject]; allSubjectsAllowed {
 		// This token contains permissions to access this method regardless of subject
 		return nil
 	}
 
 	if _, subjectAllowed := subjects[subject]; !subjectAllowed {
-		var a []string
+		var allowedSubjects []string
 		for s := range subjects {
-			a = append(a, s)
+			allowedSubjects = append(allowedSubjects, s)
 		}
-		return connect.NewError(connect.CodePermissionDenied, fmt.Errorf("access to:%q with subject:%q is not allowed because it is not part of the token permissions, allowed subjects are:%q", method, subject, a))
+		return connect.NewError(connect.CodePermissionDenied, fmt.Errorf("access to:%q with subject:%q is not allowed because it is not part of the token permissions, allowed subjects are:%q", method, subject, allowedSubjects))
 	}
 
 	return nil
