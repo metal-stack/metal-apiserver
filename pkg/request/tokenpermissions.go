@@ -10,14 +10,18 @@ import (
 )
 
 type (
+	// entry is a single value stored in a set
+	entry struct{}
+	// set emulates a slice with unique entries by using a map internally to achieve a O(1) access
+	set map[string]entry
 	// tokenPermission represents the unflattened permissions from a token.
 	// It maps the method to the allowed subjects per method.
 	// The subject will be set to "*" in case of admin roles.
 	// This works because a certain method can either be tenant or project scoped.
 	// Therefore a single subject is enough to decide
 	//
-	// eg. map[method]map[subject]
-	tokenPermissions map[string]map[string]bool
+	// eg. map[method]set[subject]
+	tokenPermissions map[string]set
 )
 
 const anySubject = "*"
@@ -44,9 +48,9 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 	if token == nil || token.User == "" {
 		for method := range servicePermissions.Visibility.Public {
 			if _, ok := tp[method]; !ok {
-				tp[method] = map[string]bool{}
+				tp[method] = set{}
 			}
-			tp[method][anySubject] = true
+			tp[method][anySubject] = entry{}
 		}
 		return tp, nil
 	}
@@ -72,7 +76,7 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 		switch *token.AdminRole {
 		case apiv2.AdminRole_ADMIN_ROLE_EDITOR:
 			for method := range servicePermissions.Methods {
-				tp[method] = map[string]bool{anySubject: true}
+				tp[method] = set{anySubject: entry{}}
 			}
 
 			// Return here because all methods are allowed with all permissions
@@ -95,7 +99,7 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 			adminViewerMethods = append(adminViewerMethods, selfMethods()...)
 
 			for _, method := range adminViewerMethods {
-				tp[method] = map[string]bool{anySubject: true}
+				tp[method] = set{anySubject: entry{}}
 			}
 			// Do not return here because it might be that some permissions are granted later
 
@@ -108,9 +112,9 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 	if token.InfraRole != nil {
 		for _, method := range servicePermissions.Roles.Infra[token.InfraRole.String()] {
 			if _, ok := tp[method]; !ok {
-				tp[method] = map[string]bool{}
+				tp[method] = set{}
 			}
-			tp[method][anySubject] = true
+			tp[method][anySubject] = entry{}
 		}
 	}
 
@@ -119,9 +123,9 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 		subject := permission.Subject
 		for _, method := range permission.Methods {
 			if _, ok := tp[method]; !ok {
-				tp[method] = map[string]bool{}
+				tp[method] = set{}
 			}
-			tp[method][subject] = true
+			tp[method][subject] = entry{}
 		}
 	}
 
@@ -130,9 +134,9 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 		tenantMethods := servicePermissions.Roles.Tenant[role.Enum().String()]
 		for _, method := range tenantMethods {
 			if _, ok := tp[method]; !ok {
-				tp[method] = map[string]bool{}
+				tp[method] = set{}
 			}
-			tp[method][subject] = true
+			tp[method][subject] = entry{}
 		}
 	}
 
@@ -141,9 +145,9 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 		projectMethods := servicePermissions.Roles.Project[role.Enum().String()]
 		for _, method := range projectMethods {
 			if _, ok := tp[method]; !ok {
-				tp[method] = map[string]bool{}
+				tp[method] = set{}
 			}
-			tp[method][subject] = true
+			tp[method][subject] = entry{}
 		}
 	}
 
@@ -151,14 +155,14 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 	if token.AdminRole == nil {
 		for method, subjects := range tp {
 			// only "*" subject is considered
-			if ok := subjects[anySubject]; !ok {
+			if _, ok := subjects[anySubject]; !ok {
 				continue
 			}
 			if servicePermissions.Visibility.Project[method] {
 				delete(tp[method], anySubject)
 				for project, role := range pat.ProjectRoles {
 					if slices.Contains(servicePermissions.Roles.Project[role.Enum().String()], method) {
-						tp[method][project] = true
+						tp[method][project] = entry{}
 					}
 				}
 			}
@@ -166,7 +170,7 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 				delete(tp[method], anySubject)
 				for tenant, role := range pat.TenantRoles {
 					if slices.Contains(servicePermissions.Roles.Tenant[role.Enum().String()], method) {
-						tp[method][tenant] = true
+						tp[method][tenant] = entry{}
 					}
 				}
 			}
@@ -202,17 +206,17 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 	if token.TokenType == apiv2.TokenType_TOKEN_TYPE_USER {
 		for method := range servicePermissions.Visibility.Public {
 			if _, ok := tp[method]; !ok {
-				tp[method] = map[string]bool{}
+				tp[method] = set{}
 			}
-			tp[method][anySubject] = true
+			tp[method][anySubject] = entry{}
 		}
 
 		for method := range servicePermissions.Visibility.Self {
 			if _, ok := tp[method]; !ok {
-				tp[method] = map[string]bool{}
+				tp[method] = set{}
 			}
 			// Subjects of self service must also be validated inside the service implementation
-			tp[method][anySubject] = true
+			tp[method][anySubject] = entry{}
 		}
 	}
 
