@@ -9,7 +9,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	v1 "github.com/metal-stack/api/go/metalstack/api/v2"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/service/method"
 )
 
@@ -36,7 +36,7 @@ func New(client *redis.Client) *ratelimiter {
 }
 
 // CheckLimitTokenAccess enforces maxRequestsPerMinute for the given token
-func (r *ratelimiter) CheckLimitTokenAccess(ctx context.Context, t *v1.Token, maxRequestsPerMinute int) (bool, error) {
+func (r *ratelimiter) CheckLimitTokenAccess(ctx context.Context, t *apiv2.Token, maxRequestsPerMinute int) (bool, error) {
 	if method.IsAdminToken(t) {
 		// admin tokens should not have a rate-limit (i.e. the accounting uses the api excessively to report usages)
 		return true, nil
@@ -81,7 +81,7 @@ func (r *ratelimiter) limit(ctx context.Context, k string, maxRequestsPerMinute 
 	return true, nil
 }
 
-func keyFromToken(t *v1.Token) string {
+func keyFromToken(t *apiv2.Token) string {
 	return prefix + t.User + separator + t.Uuid + separator + strconv.Itoa(time.Now().Minute())
 }
 

@@ -1,20 +1,20 @@
 package method
 
 import (
-	v1 "github.com/metal-stack/api/go/metalstack/api/v2"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/permissions"
 )
 
-func IsAdminToken(token *v1.Token) bool {
+func IsAdminToken(token *apiv2.Token) bool {
 	return token.AdminRole != nil
 }
 
-func PermissionsBySubject(token *v1.Token) map[string]*v1.MethodPermission {
-	res := map[string]*v1.MethodPermission{}
+func PermissionsBySubject(token *apiv2.Token) map[string]*apiv2.MethodPermission {
+	res := map[string]*apiv2.MethodPermission{}
 	for _, p := range token.Permissions {
 		perm, ok := res[p.Subject]
 		if !ok {
-			perm = &v1.MethodPermission{
+			perm = &apiv2.MethodPermission{
 				Subject: p.Subject,
 			}
 		}
@@ -26,13 +26,13 @@ func PermissionsBySubject(token *v1.Token) map[string]*v1.MethodPermission {
 	return res
 }
 
-func AllowedMethodsFromRoles(servicePermissions *permissions.ServicePermissions, token *v1.Token) map[string]*v1.MethodPermission {
-	perms := map[string]*v1.MethodPermission{}
+func AllowedMethodsFromRoles(servicePermissions *permissions.ServicePermissions, token *apiv2.Token) map[string]*apiv2.MethodPermission {
+	perms := map[string]*apiv2.MethodPermission{}
 
 	for projectID, role := range token.ProjectRoles {
 		perm, ok := perms[projectID]
 		if !ok {
-			perm = &v1.MethodPermission{
+			perm = &apiv2.MethodPermission{
 				Subject: projectID,
 			}
 		}
@@ -45,7 +45,7 @@ func AllowedMethodsFromRoles(servicePermissions *permissions.ServicePermissions,
 	for tenantID, role := range token.TenantRoles {
 		perm, ok := perms[tenantID]
 		if !ok {
-			perm = &v1.MethodPermission{
+			perm = &apiv2.MethodPermission{
 				Subject: tenantID,
 			}
 		}

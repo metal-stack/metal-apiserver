@@ -115,7 +115,7 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 				return nil, err
 			}
 
-			user.Tenant = "" // public methods do not operate on a tenant, therefore erase again
+			user.Tenant = "" // admin methods do not operate on a tenant, therefore erase again
 
 			return next(ctx, req)
 		}

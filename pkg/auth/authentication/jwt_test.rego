@@ -36,6 +36,7 @@ public := {"keys": [
 ]}
 
 allowed_issuers := ["cloud", "metal-apiserver"]
+
 now := time.now_ns()
 
 valid_jwt := io.jwt.encode_sign(

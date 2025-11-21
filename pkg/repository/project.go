@@ -274,6 +274,10 @@ func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId st
 		defaultTenant *apiv2.Tenant
 	)
 
+	if userId == "" {
+		return nil, errorutil.NotFound("userid is empty")
+	}
+
 	projectResp, err := r.s.mdc.Tenant().FindParticipatingProjects(ctx, &mdcv1.FindParticipatingProjectsRequest{TenantId: userId, IncludeInherited: pointer.Pointer(true)})
 	if err != nil {
 		return nil, errorutil.Convert(err)

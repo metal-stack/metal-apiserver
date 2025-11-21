@@ -99,14 +99,15 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 		Log:            log,
 		CertStore:      certStore,
 		AllowedIssuers: []string{c.ServerHttpURL},
-		AdminSubjects:  c.Admins,
 		TokenStore:     tokenStore,
 		Repo:           c.Repository,
 	}
-	authz, err := authpkg.New(authcfg)
+	authz, err := authpkg.NewAuthenticatorInterceptor(authcfg)
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize authz interceptor: %w", err)
 	}
+
+	authorizeInterceptor := authpkg.NewAuthorizeInterceptor(log, c.Repository)
 
 	// metrics interceptor
 	exporter, err := prometheus.New()
@@ -131,9 +132,9 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 		})
 	)
 
-	allInterceptors := []connect.Interceptor{metricsInterceptor, logInteceptor, authz, ratelimitInterceptor, validationInterceptor, tenantInterceptor}
-	allAdminInterceptors := []connect.Interceptor{metricsInterceptor, logInteceptor, authz, validationInterceptor, tenantInterceptor}
-	allInfraInterceptors := []connect.Interceptor{metricsInterceptor, logInteceptor, authz, validationInterceptor}
+	allInterceptors := []connect.Interceptor{metricsInterceptor, logInteceptor, authz, authorizeInterceptor, ratelimitInterceptor, validationInterceptor, tenantInterceptor}
+	allAdminInterceptors := []connect.Interceptor{metricsInterceptor, logInteceptor, authz, authorizeInterceptor, validationInterceptor, tenantInterceptor}
+	allInfraInterceptors := []connect.Interceptor{metricsInterceptor, logInteceptor, authz, authorizeInterceptor, validationInterceptor}
 	if c.Auditing != nil {
 		servicePermissions := permissions.GetServicePermissions()
 		shouldAudit := func(fullMethod string) bool {
@@ -155,7 +156,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	adminInterceptors := connect.WithInterceptors(allAdminInterceptors...)
 	infraInterceptors := connect.WithInterceptors(allInfraInterceptors...)
 
-	methodService := method.New()
+	methodService := method.New(log, c.Repository)
 	tenantService := tenant.New(tenant.Config{
 		Log:         log,
 		Repo:        c.Repository,
@@ -230,7 +231,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	adminMachineService := machineadmin.New(machineadmin.Config{Log: log, Repo: c.Repository})
 	adminNetworkService := networkadmin.New(networkadmin.Config{Log: log, Repo: c.Repository})
 	adminSwitchService := switchadmin.New(switchadmin.Config{Log: log, Repo: c.Repository})
-	adminTokenService := tokenadmin.New(tokenadmin.Config{Log: log, CertStore: certStore, TokenStore: tokenStore, Repo: c.Repository})
+	adminTokenService := tokenadmin.New(tokenadmin.Config{Log: log, CertStore: certStore, TokenStore: tokenStore, TokenService: tokenService})
 	mux.Handle(adminv2connect.NewIPServiceHandler(adminIpService, adminInterceptors))
 	mux.Handle(adminv2connect.NewImageServiceHandler(adminImageService, adminInterceptors))
 	mux.Handle(adminv2connect.NewFilesystemServiceHandler(adminFilesystemService, adminInterceptors))

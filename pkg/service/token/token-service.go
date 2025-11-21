@@ -48,6 +48,7 @@ type TokenService interface {
 	apiv2connect.TokenServiceHandler
 	CreateUserTokenWithoutPermissionCheck(ctx context.Context, subject string, expiration *time.Duration) (*apiv2.TokenServiceCreateResponse, error)
 	CreateApiTokenWithoutPermissionCheck(ctx context.Context, subject string, rq *apiv2.TokenServiceCreateRequest) (*apiv2.TokenServiceCreateResponse, error)
+	CreateTokenForUser(ctx context.Context, user *string, req *apiv2.TokenServiceCreateRequest) (*apiv2.TokenServiceCreateResponse, error)
 }
 
 func New(c Config) TokenService {
@@ -242,6 +243,14 @@ func (t *tokenService) Create(ctx context.Context, req *apiv2.TokenServiceCreate
 	if !ok || token == nil {
 		return nil, errorutil.Unauthenticated("no token found in request")
 	}
+	return t.CreateTokenForUser(ctx, nil, req)
+}
+
+func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req *apiv2.TokenServiceCreateRequest) (*apiv2.TokenServiceCreateResponse, error) {
+	token, ok := tokenutil.TokenFromContext(ctx)
+	if !ok || token == nil {
+		return nil, errorutil.Unauthenticated("no token found in request")
+	}
 
 	// we first validate token permission elevation for the token used in the token create request,
 	// which might be an API token with restricted permissions
@@ -265,9 +274,21 @@ func (t *tokenService) Create(ctx context.Context, req *apiv2.TokenServiceCreate
 		TenantRoles:  projectsAndTenants.TenantRoles,
 		AdminRole:    nil,
 	}
+
+	tokenUser := token.GetUser()
+
+	if !slices.Contains(t.adminSubjects, token.User) && user != nil {
+		return nil, errorutil.PermissionDenied("only admins can specify token user")
+	}
+
 	if slices.Contains(t.adminSubjects, token.User) {
 		fullUserToken.AdminRole = apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum()
 	}
+
+	if user != nil {
+		tokenUser = *user
+	}
+
 	err = validateTokenCreate(fullUserToken, req, t.servicePermissions, t.adminSubjects)
 	if err != nil {
 		return nil, errorutil.PermissionDenied("outdated token: %w", err)
@@ -278,7 +299,7 @@ func (t *tokenService) Create(ctx context.Context, req *apiv2.TokenServiceCreate
 		return nil, errorutil.NewInternal(err)
 	}
 
-	secret, token, err := tokenutil.NewJWT(apiv2.TokenType_TOKEN_TYPE_API, token.GetUser(), t.issuer, req.Expires.AsDuration(), privateKey)
+	secret, token, err := tokenutil.NewJWT(apiv2.TokenType_TOKEN_TYPE_API, tokenUser, t.issuer, req.Expires.AsDuration(), privateKey)
 	if err != nil {
 		return nil, errorutil.NewInternal(err)
 	}
@@ -415,6 +436,7 @@ func (t *tokenService) Refresh(ctx context.Context, _ *apiv2.TokenServiceRefresh
 	}, nil
 }
 
+// FIXME check if this logic can be refactored using the existing logic in tokenpermissions.go
 func validateTokenCreate(currentToken *apiv2.Token, req *apiv2.TokenServiceCreateRequest, servicePermissions *permissions.ServicePermissions, adminIDs []string) error {
 	var (
 		tokenPermissionsMap = method.PermissionsBySubject(currentToken)
