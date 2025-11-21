@@ -49,8 +49,6 @@ require (
 	gopkg.in/rethinkdb/rethinkdb-go.v6 v6.2.2
 )
 
-// replace github.com/metal-stack/api => ../api
-
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.10-20250912141014-52f32327d4b0.1 // indirect
 	cel.dev/expr v0.25.1 // indirect

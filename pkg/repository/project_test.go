@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-lib/pkg/testcommon"
@@ -160,6 +161,13 @@ func Test_projectRepository_GetProjectsAndTenants(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		{
+			name:   "unknown user",
+			userId: "bud@github.com",
+			want:   nil,
+			// FIXME this error should be a NotFound, but this would require a additional masterdata call
+			wantErr: errorutil.Internal("unable to find a default tenant for user: bud@github.com"),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -167,6 +175,10 @@ func Test_projectRepository_GetProjectsAndTenants(t *testing.T) {
 
 			if diff := cmp.Diff(tt.wantErr, gotErr, testcommon.ErrorStringComparer()); diff != "" {
 				t.Errorf("GetProjectsAndTenants() failed: %v", diff)
+			}
+
+			if tt.want == nil && got == nil {
+				return
 			}
 
 			sort.SliceStable(got.Tenants, func(i, j int) bool {
