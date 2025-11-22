@@ -4,10 +4,12 @@ import (
 	"context"
 	"crypto"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/lestrrat-go/jwx/v2/jwk"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -104,4 +106,40 @@ func TokenFromContext(ctx context.Context) (*apiv2.Token, bool) {
 	token, ok := value.(*apiv2.Token)
 
 	return token, ok
+}
+
+func Validate(ctx context.Context, tokenString string, set jwk.Set, allowedIssuers []string) (*Claims, error) {
+	claims := &Claims{}
+
+	var lastErr error
+
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (any, error) {
+		// Try each key in the set
+		for iter := set.Keys(ctx); iter.Next(ctx); {
+			key := iter.Pair().Value.(jwk.Key)
+
+			var rawKey any
+			if err := key.Raw(&rawKey); err != nil {
+				lastErr = err
+				continue
+			}
+
+			return rawKey, nil
+		}
+		return nil, fmt.Errorf("no suitable key found: %v", lastErr)
+	}, jwt.WithValidMethods([]string{jwt.SigningMethodES512.Alg()})) // TODO parse alg from token
+	if err != nil {
+		return nil, err
+	}
+
+	claims, ok := token.Claims.(*Claims)
+	if !ok {
+		return nil, fmt.Errorf("unknown claims type, cannot proceed")
+	}
+
+	if !slices.Contains(allowedIssuers, claims.Issuer) {
+		return nil, fmt.Errorf("invalid token issuer: %s", claims.Issuer)
+	}
+
+	return claims, nil
 }
