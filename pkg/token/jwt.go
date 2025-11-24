@@ -118,6 +118,10 @@ func Validate(ctx context.Context, tokenString string, set jwk.Set, allowedIssue
 		for iter := set.Keys(ctx); iter.Next(ctx); {
 			key := iter.Pair().Value.(jwk.Key)
 
+			if !isKeyValid(key) {
+				continue
+			}
+
 			var rawKey any
 			if err := key.Raw(&rawKey); err != nil {
 				lastErr = err
@@ -142,4 +146,14 @@ func Validate(ctx context.Context, tokenString string, set jwk.Set, allowedIssue
 	}
 
 	return claims, nil
+}
+
+func isKeyValid(key jwk.Key) bool {
+	// Check for expiration (custom claim, not standard)
+	if exp, ok := key.Get("exp"); ok {
+		if expTime, ok := exp.(float64); ok {
+			return time.Now().Unix() < int64(expTime)
+		}
+	}
+	return true // No expiration set, assume valid
 }
