@@ -39,6 +39,10 @@ func (a *authorizer) TokenMethods(ctx context.Context, token *apiv2.Token) ([]st
 	return methods, nil
 }
 
+func (a *authorizer) TokenPermissions(ctx context.Context, token *apiv2.Token) (tokenPermissions, error) {
+	return a.getTokenPermissions(ctx, token)
+}
+
 func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token) (tokenPermissions, error) {
 	var (
 		tp                 = tokenPermissions{}
