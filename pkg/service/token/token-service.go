@@ -10,7 +10,6 @@ import (
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
-	"github.com/metal-stack/api/go/permissions"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/request"
 
@@ -33,14 +32,14 @@ type Config struct {
 }
 
 type tokenService struct {
-	issuer             string
-	adminSubjects      []string
-	tokens             tokenutil.TokenStore
-	certs              certs.CertStore
-	log                *slog.Logger
-	servicePermissions *permissions.ServicePermissions
+	issuer        string
+	adminSubjects []string
+	tokens        tokenutil.TokenStore
+	certs         certs.CertStore
+	log           *slog.Logger
 
 	projectsAndTenantsGetter func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error)
+	authorizer               request.Authorizer
 }
 
 type TokenService interface {
@@ -51,19 +50,20 @@ type TokenService interface {
 }
 
 func New(c Config) TokenService {
-	servicePermissions := permissions.GetServicePermissions()
+	projectsAndTenantsGetter := func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
+		return c.Repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, userId)
+	}
+	log := c.Log.WithGroup("tokenService")
 
 	return &tokenService{
-		tokens:             c.TokenStore,
-		certs:              c.CertStore,
-		issuer:             c.Issuer,
-		log:                c.Log.WithGroup("tokenService"),
-		servicePermissions: servicePermissions,
-		adminSubjects:      c.AdminSubjects,
+		tokens:        c.TokenStore,
+		certs:         c.CertStore,
+		issuer:        c.Issuer,
+		log:           log,
+		adminSubjects: c.AdminSubjects,
 
-		projectsAndTenantsGetter: func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
-			return c.Repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, userId)
-		},
+		projectsAndTenantsGetter: projectsAndTenantsGetter,
+		authorizer:               request.NewAuthorizer(log, projectsAndTenantsGetter),
 	}
 }
 
@@ -119,6 +119,7 @@ func (t *tokenService) CreateApiTokenWithoutPermissionCheck(ctx context.Context,
 	token.ProjectRoles = req.ProjectRoles
 	token.TenantRoles = req.TenantRoles
 	token.AdminRole = req.AdminRole
+	token.InfraRole = req.InfraRole
 
 	err = t.tokens.Set(ctx, token)
 	if err != nil {
@@ -167,9 +168,10 @@ func (t *tokenService) Update(ctx context.Context, req *apiv2.TokenServiceUpdate
 		ProjectRoles: req.ProjectRoles,
 		TenantRoles:  req.TenantRoles,
 		AdminRole:    req.AdminRole,
+		InfraRole:    req.InfraRole,
 	}
 
-	err := t.validateCreate(ctx, token, createRequest)
+	err := t.validateTokenRequest(ctx, token, createRequest)
 	if err != nil {
 		return nil, errorutil.NewPermissionDenied(err)
 	}
@@ -187,11 +189,12 @@ func (t *tokenService) Update(ctx context.Context, req *apiv2.TokenServiceUpdate
 		ProjectRoles: projectsAndTenants.ProjectRoles,
 		TenantRoles:  projectsAndTenants.TenantRoles,
 		AdminRole:    nil,
+		InfraRole:    token.InfraRole,
 	}
 	if slices.Contains(t.adminSubjects, token.User) {
 		fullUserToken.AdminRole = apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum()
 	}
-	err = t.validateCreate(ctx, fullUserToken, createRequest)
+	err = t.validateTokenRequest(ctx, fullUserToken, createRequest)
 	if err != nil {
 		return nil, errorutil.PermissionDenied("outdated token: %w", err)
 	}
@@ -251,10 +254,14 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
+	if req.Expires.AsDuration() > tokenutil.MaxExpiration {
+		return nil, fmt.Errorf("requested expiration duration: %q exceeds max expiration: %q", req.Expires.AsDuration(), tokenutil.MaxExpiration)
+	}
+
 	// we first validate token permission elevation for the token used in the token create request,
 	// which might be an API token with restricted permissions
 
-	err := t.validateCreate(ctx, token, req)
+	err := t.validateTokenRequest(ctx, token, req)
 	if err != nil {
 		return nil, errorutil.NewPermissionDenied(err)
 	}
@@ -272,6 +279,7 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 		ProjectRoles: projectsAndTenants.ProjectRoles,
 		TenantRoles:  projectsAndTenants.TenantRoles,
 		AdminRole:    nil,
+		InfraRole:    token.InfraRole,
 	}
 
 	tokenUser := token.GetUser()
@@ -288,7 +296,7 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 		tokenUser = *user
 	}
 
-	err = t.validateCreate(ctx, fullUserToken, req)
+	err = t.validateTokenRequest(ctx, fullUserToken, req)
 	if err != nil {
 		return nil, errorutil.PermissionDenied("outdated token: %w", err)
 	}
@@ -308,6 +316,7 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 	token.ProjectRoles = req.ProjectRoles
 	token.TenantRoles = req.TenantRoles
 	token.AdminRole = req.AdminRole
+	token.InfraRole = req.InfraRole
 
 	err = t.tokens.Set(ctx, token)
 	if err != nil {
@@ -374,9 +383,10 @@ func (t *tokenService) Refresh(ctx context.Context, _ *apiv2.TokenServiceRefresh
 		ProjectRoles: oldtoken.ProjectRoles,
 		TenantRoles:  oldtoken.TenantRoles,
 		AdminRole:    oldtoken.AdminRole,
+		InfraRole:    oldtoken.InfraRole,
 	}
 
-	err = t.validateCreate(ctx, token, createRequest)
+	err = t.validateTokenRequest(ctx, token, createRequest)
 	if err != nil {
 		return nil, errorutil.NewPermissionDenied(err)
 	}
@@ -394,11 +404,12 @@ func (t *tokenService) Refresh(ctx context.Context, _ *apiv2.TokenServiceRefresh
 		ProjectRoles: projectsAndTenants.ProjectRoles,
 		TenantRoles:  projectsAndTenants.TenantRoles,
 		AdminRole:    nil,
+		InfraRole:    token.InfraRole,
 	}
 	if slices.Contains(t.adminSubjects, token.User) {
 		fullUserToken.AdminRole = apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum()
 	}
-	err = t.validateCreate(ctx, fullUserToken, createRequest)
+	err = t.validateTokenRequest(ctx, fullUserToken, createRequest)
 	if err != nil {
 		return nil, errorutil.PermissionDenied("outdated token: %w", err)
 	}
@@ -423,6 +434,7 @@ func (t *tokenService) Refresh(ctx context.Context, _ *apiv2.TokenServiceRefresh
 	newToken.ProjectRoles = oldtoken.ProjectRoles
 	newToken.TenantRoles = oldtoken.TenantRoles
 	newToken.AdminRole = oldtoken.AdminRole
+	newToken.InfraRole = oldtoken.InfraRole
 
 	err = t.tokens.Set(ctx, newToken)
 	if err != nil {
@@ -435,7 +447,7 @@ func (t *tokenService) Refresh(ctx context.Context, _ *apiv2.TokenServiceRefresh
 	}, nil
 }
 
-type TokenRequest interface {
+type tokenRequest interface {
 	GetPermissions() []*apiv2.MethodPermission
 	GetProjectRoles() map[string]apiv2.ProjectRole
 	GetTenantRoles() map[string]apiv2.TenantRole
@@ -443,21 +455,31 @@ type TokenRequest interface {
 	GetInfraRole() apiv2.InfraRole
 }
 
-func (t *tokenService) validateCreate(ctx context.Context, currentToken *apiv2.Token, req TokenRequest) error {
-	authorizer := request.NewAuthorizer(t.log, t.projectsAndTenantsGetter)
-
-	currentPermission, err := authorizer.TokenPermissions(ctx, currentToken)
+func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *apiv2.Token, req tokenRequest) error {
+	currentPermission, err := t.authorizer.TokenPermissions(ctx, currentToken)
 	if err != nil {
 		return err
 	}
 
-	requestedPermissions, err := authorizer.TokenPermissions(ctx, &apiv2.Token{
+	var (
+		adminRole *apiv2.AdminRole
+		infraRole *apiv2.InfraRole
+	)
+
+	if req.GetAdminRole() != apiv2.AdminRole_ADMIN_ROLE_UNSPECIFIED {
+		adminRole = req.GetAdminRole().Enum()
+	}
+	if req.GetInfraRole() != apiv2.InfraRole_INFRA_ROLE_UNSPECIFIED {
+		infraRole = req.GetInfraRole().Enum()
+	}
+
+	requestedPermissions, err := t.authorizer.TokenPermissions(ctx, &apiv2.Token{
 		User:         currentToken.User,
 		Permissions:  req.GetPermissions(),
 		ProjectRoles: req.GetProjectRoles(),
 		TenantRoles:  req.GetTenantRoles(),
-		AdminRole:    req.GetAdminRole().Enum(),
-		InfraRole:    req.GetInfraRole().Enum(),
+		AdminRole:    adminRole,
+		InfraRole:    infraRole,
 	})
 	if err != nil {
 		return err
@@ -466,18 +488,19 @@ func (t *tokenService) validateCreate(ctx context.Context, currentToken *apiv2.T
 	for method, subjects := range requestedPermissions {
 		currentSubjects, ok := currentPermission[method]
 		if !ok {
-			return fmt.Errorf("requested method %q is not allowed in your current token", method)
+			return errors.New("requested methods are not allowed with your current token")
 		}
 
-		if _, ok := subjects["*"]; ok {
+		if _, ok := currentSubjects["*"]; ok {
 			continue
 		}
 
 		for subject := range subjects {
 			if _, ok := currentSubjects[subject]; !ok {
-				return fmt.Errorf("requested subject %q on method %q is not allowed in your current token", subject, method)
+				return errors.New("requested subjects are not allowed with your current token")
 			}
 		}
 	}
+
 	return nil
 }

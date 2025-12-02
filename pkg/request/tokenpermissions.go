@@ -26,19 +26,6 @@ type (
 
 const anySubject = "*"
 
-func (a *authorizer) TokenMethods(ctx context.Context, token *apiv2.Token) ([]string, error) {
-	tp, err := a.getTokenPermissions(ctx, token)
-	if err != nil {
-		return nil, err
-	}
-	var methods []string
-	for method := range tp {
-		methods = append(methods, method)
-	}
-	slices.Sort(methods)
-	return methods, nil
-}
-
 func (a *authorizer) TokenPermissions(ctx context.Context, token *apiv2.Token) (tokenPermissions, error) {
 	return a.getTokenPermissions(ctx, token)
 }

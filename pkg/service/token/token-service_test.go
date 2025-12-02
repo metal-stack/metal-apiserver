@@ -3,7 +3,6 @@ package token
 import (
 	"context"
 	"log/slog"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -12,9 +11,9 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	"github.com/google/go-cmp/cmp"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	"github.com/metal-stack/api/go/permissions"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/request"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/redis/go-redis/v9"
@@ -151,7 +150,7 @@ func Test_Create(t *testing.T) {
 				adminSubjects: []string{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested project: "00000000-0000-0000-0000-000000000000" is not allowed`,
+			wantErrMessage: `permission_denied: requested methods are not allowed with your current token`,
 		},
 		{
 			name: "user and token with project access can create project token",
@@ -209,7 +208,7 @@ func Test_Create(t *testing.T) {
 				projectRoles:  map[string]apiv2.ProjectRole{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: outdated token: requested project: "00000000-0000-0000-0000-000000000000" is not allowed`,
+			wantErrMessage: `permission_denied: outdated token: requested methods are not allowed with your current token`,
 		},
 		{
 			name: "project without but user with project access cannot create project token",
@@ -233,7 +232,7 @@ func Test_Create(t *testing.T) {
 				},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested project: "00000000-0000-0000-0000-000000000000" is not allowed`,
+			wantErrMessage: `permission_denied: requested methods are not allowed with your current token`,
 		},
 		{
 			name: "admin user and token can create new admin token",
@@ -281,7 +280,7 @@ func Test_Create(t *testing.T) {
 				adminSubjects: []string{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: outdated token: requested admin role: "ADMIN_ROLE_EDITOR" is not allowed`,
+			wantErrMessage: `permission_denied: outdated token: requested methods are not allowed with your current token`,
 		},
 
 		{
@@ -303,7 +302,7 @@ func Test_Create(t *testing.T) {
 				adminSubjects: []string{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested tenant: "mascots" is not allowed`,
+			wantErrMessage: `permission_denied: requested methods are not allowed with your current token`,
 		},
 		{
 			name: "user and token with tenant access can create tenant token",
@@ -360,7 +359,7 @@ func Test_Create(t *testing.T) {
 				projectRoles:  map[string]apiv2.ProjectRole{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: outdated token: requested tenant: "mascots" is not allowed`,
+			wantErrMessage: `permission_denied: outdated token: requested methods are not allowed with your current token`,
 		},
 		{
 			name: "token without but user with tenant access cannot create tenant token",
@@ -384,7 +383,7 @@ func Test_Create(t *testing.T) {
 				},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested tenant: "mascots" is not allowed`,
+			wantErrMessage: `permission_denied: requested methods are not allowed with your current token`,
 		},
 	}
 
@@ -401,24 +400,21 @@ func Test_Create(t *testing.T) {
 				RedisClient: c,
 			})
 
-			rawService := New(Config{
-				Log:           slog.Default(),
-				TokenStore:    tokenStore,
-				CertStore:     certStore,
-				Issuer:        "http://test",
-				AdminSubjects: tt.state.adminSubjects,
-			})
-
-			service, ok := rawService.(*tokenService)
-			if !ok {
-				t.Fatalf("want new token service to be tokenService, got: %T", rawService)
-			}
-
-			service.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
+			projectsAndTenantsGetter := func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
 				return &repository.ProjectsAndTenants{
 					ProjectRoles: tt.state.projectRoles,
 					TenantRoles:  tt.state.tenantRoles,
 				}, nil
+			}
+			log := slog.Default()
+			service := tokenService{
+				log:                      log,
+				tokens:                   tokenStore,
+				certs:                    certStore,
+				issuer:                   "http://test",
+				adminSubjects:            tt.state.adminSubjects,
+				projectsAndTenantsGetter: projectsAndTenantsGetter,
+				authorizer:               request.NewAuthorizer(log, projectsAndTenantsGetter),
 			}
 
 			if tt.wantErr == false {
@@ -430,8 +426,8 @@ func Test_Create(t *testing.T) {
 			response, err := service.Create(ctx, tt.req)
 			switch {
 			case tt.wantErr && err != nil:
-				if dff := cmp.Diff(tt.wantErrMessage, err.Error()); dff != "" {
-					t.Fatal(dff)
+				if diff := cmp.Diff(tt.wantErrMessage, err.Error()); diff != "" {
+					t.Errorf("diff = %s", diff)
 				}
 			case tt.wantErr && err == nil:
 				t.Fatalf("want error %q, got response %q", tt.wantErrMessage, response)
@@ -528,24 +524,21 @@ func Test_CreateForUser(t *testing.T) {
 				RedisClient: c,
 			})
 
-			rawService := New(Config{
-				Log:           slog.Default(),
-				TokenStore:    tokenStore,
-				CertStore:     certStore,
-				Issuer:        "http://test",
-				AdminSubjects: tt.state.adminSubjects,
-			})
-
-			service, ok := rawService.(*tokenService)
-			if !ok {
-				t.Fatalf("want new token service to be tokenService, got: %T", rawService)
-			}
-
-			service.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
+			projectsAndTenantsGetter := func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
 				return &repository.ProjectsAndTenants{
 					ProjectRoles: tt.state.projectRoles,
 					TenantRoles:  tt.state.tenantRoles,
 				}, nil
+			}
+			log := slog.Default()
+			service := tokenService{
+				log:                      log,
+				tokens:                   tokenStore,
+				certs:                    certStore,
+				issuer:                   "http://test",
+				adminSubjects:            tt.state.adminSubjects,
+				projectsAndTenantsGetter: projectsAndTenantsGetter,
+				authorizer:               request.NewAuthorizer(log, projectsAndTenantsGetter),
 			}
 
 			if tt.wantErr == false {
@@ -585,7 +578,6 @@ func Test_CreateForUser(t *testing.T) {
 }
 
 func Test_validateTokenCreate(t *testing.T) {
-	servicePermissions := permissions.GetServicePermissions()
 	inOneHour := durationpb.New(time.Hour)
 	oneHundredDays := durationpb.New(100 * 24 * time.Hour)
 	tests := []struct {
@@ -920,7 +912,8 @@ func Test_validateTokenCreate(t *testing.T) {
 				AdminRole:   pointer.Pointer(apiv2.AdminRole_ADMIN_ROLE_EDITOR),
 				Expires:     inOneHour,
 			},
-			wantErr: false,
+			wantErr:        true,
+			wantErrMessage: "requested methods are not allowed with your current token",
 		},
 	}
 	for _, tt := range tests {
@@ -931,13 +924,30 @@ func Test_validateTokenCreate(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			err := validateTokenCreate(tt.token, tt.req, servicePermissions, tt.adminSubjects)
+			projectsAndTenantsGetter := func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
+				return &repository.ProjectsAndTenants{
+					ProjectRoles: nil,
+					TenantRoles:  nil,
+				}, nil
+			}
+			log := slog.Default()
+			service := tokenService{
+				log:                      log,
+				tokens:                   nil,
+				certs:                    nil,
+				issuer:                   "http://test",
+				adminSubjects:            tt.adminSubjects,
+				projectsAndTenantsGetter: projectsAndTenantsGetter,
+				authorizer:               request.NewAuthorizer(log, projectsAndTenantsGetter),
+			}
+
+			err := service.validateTokenRequest(t.Context(), tt.token, tt.req)
 			if err != nil && !tt.wantErr {
-				t.Errorf("validateTokenCreate() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("validateTokenRequest() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
 			if err != nil && tt.wantErrMessage != err.Error() {
-				t.Errorf("validateTokenCreate() error.Error = %s, wantErrMsg %s", err.Error(), tt.wantErrMessage)
+				t.Errorf("validateTokenRequest() error.Error = %s, wantErrMsg %s", err.Error(), tt.wantErrMessage)
 			}
 		})
 	}
@@ -1015,7 +1025,7 @@ func Test_Update(t *testing.T) {
 				adminSubjects: []string{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested project: "00000000-0000-0000-0000-000000000000" is not allowed`,
+			wantErrMessage: `permission_denied: requested methods are not allowed with your current token`,
 		},
 		{
 			name: "user and token with project access can update project token",
@@ -1087,7 +1097,7 @@ func Test_Update(t *testing.T) {
 				projectRoles:  map[string]apiv2.ProjectRole{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: outdated token: requested project: "00000000-0000-0000-0000-000000000000" is not allowed`,
+			wantErrMessage: `permission_denied: outdated token: requested methods are not allowed with your current token`,
 		},
 		{
 			name: "project without but user with project access cannot create project token",
@@ -1118,7 +1128,7 @@ func Test_Update(t *testing.T) {
 				},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested project: "00000000-0000-0000-0000-000000000000" is not allowed`,
+			wantErrMessage: `permission_denied: requested methods are not allowed with your current token`,
 		},
 		{
 			name: "admin user and token can update admin token",
@@ -1179,7 +1189,7 @@ func Test_Update(t *testing.T) {
 				adminSubjects: []string{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: outdated token: requested admin role: "ADMIN_ROLE_EDITOR" is not allowed`,
+			wantErrMessage: `permission_denied: outdated token: requested methods are not allowed with your current token`,
 		},
 		{
 			name: "user and token without tenant access cannot update tenant token",
@@ -1205,7 +1215,7 @@ func Test_Update(t *testing.T) {
 				adminSubjects: []string{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested tenant: "mascots" is not allowed`,
+			wantErrMessage: `permission_denied: requested methods are not allowed with your current token`,
 		},
 		{
 			name: "user and token with tenant access can update tenant token",
@@ -1275,7 +1285,7 @@ func Test_Update(t *testing.T) {
 				projectRoles:  map[string]apiv2.ProjectRole{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: outdated token: requested tenant: "mascots" is not allowed`,
+			wantErrMessage: `permission_denied: outdated token: requested methods are not allowed with your current token`,
 		},
 		{
 			name: "token without but user with tenant access cannot update tenant token",
@@ -1304,7 +1314,7 @@ func Test_Update(t *testing.T) {
 				},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested tenant: "mascots" is not allowed`,
+			wantErrMessage: `permission_denied: requested methods are not allowed with your current token`,
 		},
 		{
 			name: "token does not exist in database",
@@ -1357,24 +1367,21 @@ func Test_Update(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			rawService := New(Config{
-				Log:           slog.Default(),
-				TokenStore:    tokenStore,
-				CertStore:     certStore,
-				Issuer:        "http://test",
-				AdminSubjects: tt.state.adminSubjects,
-			})
-
-			service, ok := rawService.(*tokenService)
-			if !ok {
-				t.Fatalf("want new token service to be tokenService, got: %T", rawService)
-			}
-
-			service.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
+			projectsAndTenantsGetter := func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
 				return &repository.ProjectsAndTenants{
 					ProjectRoles: tt.state.projectRoles,
 					TenantRoles:  tt.state.tenantRoles,
 				}, nil
+			}
+			log := slog.Default()
+			service := tokenService{
+				log:                      log,
+				tokens:                   tokenStore,
+				certs:                    certStore,
+				issuer:                   "http://test",
+				adminSubjects:            tt.state.adminSubjects,
+				projectsAndTenantsGetter: projectsAndTenantsGetter,
+				authorizer:               request.NewAuthorizer(log, projectsAndTenantsGetter),
 			}
 
 			if tt.wantErr == false {
@@ -1499,24 +1506,21 @@ func Test_Refresh(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			rawService := New(Config{
-				Log:           slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})),
-				TokenStore:    tokenStore,
-				CertStore:     certStore,
-				Issuer:        "http://test",
-				AdminSubjects: tt.state.adminSubjects,
-			})
-
-			service, ok := rawService.(*tokenService)
-			if !ok {
-				t.Fatalf("want new token service to be tokenService, got: %T", rawService)
-			}
-
-			service.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
+			projectsAndTenantsGetter := func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
 				return &repository.ProjectsAndTenants{
 					ProjectRoles: tt.state.projectRoles,
 					TenantRoles:  tt.state.tenantRoles,
 				}, nil
+			}
+			log := slog.Default()
+			service := tokenService{
+				log:                      log,
+				tokens:                   tokenStore,
+				certs:                    certStore,
+				issuer:                   "http://test",
+				adminSubjects:            tt.state.adminSubjects,
+				projectsAndTenantsGetter: projectsAndTenantsGetter,
+				authorizer:               request.NewAuthorizer(log, projectsAndTenantsGetter),
 			}
 
 			response, err := service.Refresh(ctx, &apiv2.TokenServiceRefreshRequest{})
