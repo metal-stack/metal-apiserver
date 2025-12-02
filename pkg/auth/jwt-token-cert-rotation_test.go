@@ -10,9 +10,7 @@ import (
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/lestrrat-go/jwx/v2/jwk"
-	v1 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
-	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	tokenservice "github.com/metal-stack/metal-apiserver/pkg/service/token"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
@@ -20,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_opa_cert_rotation(t *testing.T) {
+func Test_jwt_cert_rotation(t *testing.T) {
 	oldMaxExpiration := token.MaxExpiration
 	oldDefaultExpiration := token.DefaultExpiration
 
@@ -45,7 +43,7 @@ func Test_opa_cert_rotation(t *testing.T) {
 	tokenStore := token.NewRedisStore(c)
 
 	opa := func() *opa {
-		o, err := New(Config{
+		o, err := NewAuthenticatorInterceptor(Config{
 			Log:            log,
 			CertStore:      certStore,
 			CertCacheTime:  pointer.Pointer(0 * time.Second),
@@ -53,14 +51,6 @@ func Test_opa_cert_rotation(t *testing.T) {
 			AllowedIssuers: []string{"integration"},
 		})
 		require.NoError(t, err)
-
-		o.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
-			return &repository.ProjectsAndTenants{
-				ProjectRoles: map[string]v1.ProjectRole{
-					"test-project": v1.ProjectRole_PROJECT_ROLE_VIEWER,
-				},
-			}, nil
-		}
 
 		return o
 	}()
@@ -206,9 +196,7 @@ func checkToken(ctx context.Context, opa *opa, bearer string) error {
 		return "Bearer " + bearer
 	}
 
-	_, err := opa.decide(ctx, "/metalstack.api.v2.IPService/Get", jwtTokenFunc, v1.IPServiceGetRequest{
-		Project: "test-project",
-	})
+	_, err := opa.decide(ctx, jwtTokenFunc)
 
 	return err
 }

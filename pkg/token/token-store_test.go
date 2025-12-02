@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
-	v1 "github.com/metal-stack/api/go/metalstack/api/v2"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
@@ -21,9 +21,9 @@ func TestRedisStore(t *testing.T) {
 
 	store := NewRedisStore(c)
 
-	johnDoeToken := &v1.Token{User: "john@doe.com", Uuid: "abc"}
-	willSmithToken := &v1.Token{User: "will@smith.com", Uuid: "def"}
-	frankZappaToken := &v1.Token{User: "frank@zappa.com", Uuid: "cde"}
+	johnDoeToken := &apiv2.Token{User: "john@doe.com", Uuid: "abc"}
+	willSmithToken := &apiv2.Token{User: "will@smith.com", Uuid: "def"}
+	frankZappaToken := &apiv2.Token{User: "frank@zappa.com", Uuid: "cde"}
 
 	err := store.Set(ctx, johnDoeToken)
 	require.NoError(t, err)
@@ -64,11 +64,11 @@ func TestRedisStoreSetAndGet(t *testing.T) {
 
 	now := time.Now()
 
-	inTok := &v1.Token{
+	inTok := &apiv2.Token{
 		Uuid:        "bd21fe60-047c-45aa-812d-adc44e098a38",
 		User:        "john@doe.com",
 		Description: "abc",
-		Permissions: []*v1.MethodPermission{
+		Permissions: []*apiv2.MethodPermission{
 			{
 				Subject: "a",
 				Methods: []string{"b", "c"},
@@ -76,16 +76,16 @@ func TestRedisStoreSetAndGet(t *testing.T) {
 		},
 		Expires:   timestamppb.New(now),
 		IssuedAt:  timestamppb.New(now),
-		TokenType: v1.TokenType_TOKEN_TYPE_API,
-		ProjectRoles: map[string]v1.ProjectRole{
-			"8aa3f4c1-52a8-4656-86bc-4006ec016af6": v1.ProjectRole_PROJECT_ROLE_OWNER,
+		TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+		ProjectRoles: map[string]apiv2.ProjectRole{
+			"8aa3f4c1-52a8-4656-86bc-4006ec016af6": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
 		},
-		TenantRoles: map[string]v1.TenantRole{
-			"foo@github": v1.TenantRole_TENANT_ROLE_OWNER,
-			"bar@github": v1.TenantRole_TENANT_ROLE_EDITOR,
-			"42@github":  v1.TenantRole_TENANT_ROLE_VIEWER,
+		TenantRoles: map[string]apiv2.TenantRole{
+			"foo@github": apiv2.TenantRole_TENANT_ROLE_OWNER,
+			"bar@github": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+			"42@github":  apiv2.TenantRole_TENANT_ROLE_VIEWER,
 		},
-		AdminRole: pointer.Pointer(v1.AdminRole_ADMIN_ROLE_VIEWER),
+		AdminRole: pointer.Pointer(apiv2.AdminRole_ADMIN_ROLE_VIEWER),
 	}
 
 	err := store.Set(ctx, inTok)

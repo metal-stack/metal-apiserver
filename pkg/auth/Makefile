@@ -24,14 +24,9 @@ _test:
 .PHONY: lint
 lint: fmt
 	@$(MAKE) _regal POLICIES_PATH=authentication
-	@$(MAKE) _regal POLICIES_PATH=authorization
 
 .PHONY: test
-test: fmt test-authentication test-authorization
-
-.PHONY: test-authorization
-test-authorization:
-	$(MAKE) _test POLICIES_PATH=authorization
+test: fmt test-authentication
 
 .PHONY: test-authentication
 test-authentication:

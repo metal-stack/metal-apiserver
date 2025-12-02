@@ -9,21 +9,22 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
-	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	ts "github.com/metal-stack/metal-apiserver/pkg/service/token"
 	tokenutil "github.com/metal-stack/metal-apiserver/pkg/token"
 )
 
 type Config struct {
-	Log        *slog.Logger
-	TokenStore tokenutil.TokenStore
-	CertStore  certs.CertStore
-	Repo       *repository.Store
+	Log          *slog.Logger
+	TokenStore   tokenutil.TokenStore
+	CertStore    certs.CertStore
+	TokenService ts.TokenService
 }
 
 type tokenService struct {
 	tokenstore tokenutil.TokenStore
 	certs      certs.CertStore
 	log        *slog.Logger
+	ts         ts.TokenService
 }
 
 func New(c Config) adminv2connect.TokenServiceHandler {
@@ -31,6 +32,7 @@ func New(c Config) adminv2connect.TokenServiceHandler {
 		log:        c.Log.WithGroup("adminTokenService"),
 		tokenstore: c.TokenStore,
 		certs:      c.CertStore,
+		ts:         c.TokenService,
 	}
 }
 
@@ -63,4 +65,17 @@ func (t *tokenService) Revoke(ctx context.Context, req *adminv2.TokenServiceRevo
 	}
 
 	return &adminv2.TokenServiceRevokeResponse{}, nil
+}
+
+func (t *tokenService) Create(ctx context.Context, req *adminv2.TokenServiceCreateRequest) (*adminv2.TokenServiceCreateResponse, error) {
+	resp, err := t.ts.CreateTokenForUser(ctx, req.User, req.TokenCreateRequest)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &adminv2.TokenServiceCreateResponse{
+		Token:  resp.Token,
+		Secret: resp.Secret,
+	}, nil
 }

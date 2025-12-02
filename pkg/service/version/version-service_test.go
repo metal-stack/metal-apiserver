@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	apiv1 "github.com/metal-stack/api/go/metalstack/api/v2"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/v"
 )
@@ -15,21 +15,21 @@ func Test_versionServiceServer_Get(t *testing.T) {
 	tests := []struct {
 		name     string
 		ctx      context.Context
-		req      *apiv1.VersionServiceGetRequest
+		req      *apiv2.VersionServiceGetRequest
 		log      *slog.Logger
 		revision string
 		version  string
-		want     *apiv1.VersionServiceGetResponse
+		want     *apiv2.VersionServiceGetResponse
 		wantErr  bool
 	}{
 		{
 			name:     "simple",
 			ctx:      t.Context(),
-			req:      &apiv1.VersionServiceGetRequest{},
+			req:      &apiv2.VersionServiceGetRequest{},
 			revision: "abc",
 			version:  "v0.0.1",
 			log:      slog.Default(),
-			want:     &apiv1.VersionServiceGetResponse{Version: &apiv1.Version{Version: "v0.0.1", Revision: "abc"}},
+			want:     &apiv2.VersionServiceGetResponse{Version: &apiv2.Version{Version: "v0.0.1", Revision: "abc"}},
 			wantErr:  false,
 		},
 	}

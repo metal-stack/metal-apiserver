@@ -8,7 +8,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	v1 "github.com/metal-stack/api/go/metalstack/api/v2"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -27,7 +27,7 @@ type (
 	tokenContextKey struct{}
 )
 
-func NewJWT(tokenType v1.TokenType, subject, issuer string, expires time.Duration, secret crypto.PrivateKey) (string, *v1.Token, error) {
+func NewJWT(tokenType apiv2.TokenType, subject, issuer string, expires time.Duration, secret crypto.PrivateKey) (string, *apiv2.Token, error) {
 	if expires == 0 {
 		expires = DefaultExpiration
 	}
@@ -63,7 +63,7 @@ func NewJWT(tokenType v1.TokenType, subject, issuer string, expires time.Duratio
 		return "", nil, fmt.Errorf("unable to sign ES512 JWT: %w", err)
 	}
 
-	token := &v1.Token{
+	token := &apiv2.Token{
 		Uuid:      claims.ID,
 		User:      subject,
 		Expires:   timestamppb.New(expiresAt),
@@ -92,16 +92,16 @@ func ParseJWTToken(token string) (*Claims, error) {
 
 // ContextWithToken stores the token in the Context
 // Can later retrieved with TokenFromContext
-func ContextWithToken(ctx context.Context, token *v1.Token) context.Context {
+func ContextWithToken(ctx context.Context, token *apiv2.Token) context.Context {
 	return context.WithValue(ctx, tokenContextKey{}, token)
 }
 
 // TokenFromContext retrieves the token and ok from the context
 // if previously stored by calling ContextWithToken.
-func TokenFromContext(ctx context.Context) (*v1.Token, bool) {
+func TokenFromContext(ctx context.Context) (*apiv2.Token, bool) {
 	value := ctx.Value(tokenContextKey{})
 
-	token, ok := value.(*v1.Token)
+	token, ok := value.(*apiv2.Token)
 
 	return token, ok
 }

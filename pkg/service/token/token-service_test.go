@@ -457,6 +457,133 @@ func Test_Create(t *testing.T) {
 	}
 }
 
+func Test_CreateForUser(t *testing.T) {
+	type state struct {
+		adminSubjects []string
+		projectRoles  map[string]apiv2.ProjectRole
+		tenantRoles   map[string]apiv2.TenantRole
+	}
+	tests := []struct {
+		name           string
+		sessionToken   *apiv2.Token
+		req            *apiv2.TokenServiceCreateRequest
+		user           *string
+		state          state
+		wantErr        bool
+		wantErrMessage string
+		wantToken      *apiv2.Token
+	}{
+		{
+			name: "phippy can create token for user foo",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "empty token",
+			},
+			user: pointer.Pointer("foo"),
+			state: state{
+				adminSubjects: []string{"phippy"},
+			},
+			wantToken: &apiv2.Token{
+				User:        "foo",
+				Description: "empty token",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
+			},
+		},
+		{
+			name: "bar can not create token for user foo",
+			sessionToken: &apiv2.Token{
+				User:         "bar",
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "empty token",
+			},
+			user: pointer.Pointer("foo"),
+			state: state{
+				adminSubjects: []string{"phippy"},
+			},
+			wantToken:      nil,
+			wantErr:        true,
+			wantErrMessage: "permission_denied: only admins can specify token user",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(token.ContextWithToken(t.Context(), tt.sessionToken))
+			defer cancel()
+
+			s := miniredis.RunT(t)
+			c := redis.NewClient(&redis.Options{Addr: s.Addr()})
+
+			tokenStore := token.NewRedisStore(c)
+			certStore := certs.NewRedisStore(&certs.Config{
+				RedisClient: c,
+			})
+
+			rawService := New(Config{
+				Log:           slog.Default(),
+				TokenStore:    tokenStore,
+				CertStore:     certStore,
+				Issuer:        "http://test",
+				AdminSubjects: tt.state.adminSubjects,
+			})
+
+			service, ok := rawService.(*tokenService)
+			if !ok {
+				t.Fatalf("want new token service to be tokenService, got: %T", rawService)
+			}
+
+			service.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
+				return &repository.ProjectsAndTenants{
+					ProjectRoles: tt.state.projectRoles,
+					TenantRoles:  tt.state.tenantRoles,
+				}, nil
+			}
+
+			if tt.wantErr == false {
+				// Execute proto based validation
+				err := protovalidate.Validate(tt.req)
+				require.NoError(t, err)
+			}
+
+			response, err := service.CreateTokenForUser(ctx, tt.user, tt.req)
+			switch {
+			case tt.wantErr && err != nil:
+				if dff := cmp.Diff(tt.wantErrMessage, err.Error()); dff != "" {
+					t.Fatal(dff)
+				}
+			case tt.wantErr && err == nil:
+				t.Fatalf("want error %q, got response %q", tt.wantErrMessage, response)
+			case err != nil:
+				t.Fatalf("want response, got error %q", err)
+
+			default:
+				if response.Secret == "" {
+					t.Error("response secret for token may not be empty")
+				}
+				require.NotNil(t, tt.wantToken, "token returned, nil expected")
+
+				got := response.Token
+				assert.Equal(t, tt.wantToken.Description, got.Description, "description")
+				assert.Equal(t, tt.wantToken.User, got.User, "user id")
+				assert.Equal(t, tt.wantToken.TokenType, got.TokenType, "token type")
+				assert.Equal(t, tt.wantToken.AdminRole, got.AdminRole, "admin role")
+				assert.Equal(t, tt.wantToken.Permissions, got.Permissions, "permissions")
+				assert.Equal(t, tt.wantToken.ProjectRoles, got.ProjectRoles, "project roles")
+				assert.Equal(t, tt.wantToken.TenantRoles, got.TenantRoles, "tenant roles")
+			}
+		})
+	}
+}
+
 func Test_validateTokenCreate(t *testing.T) {
 	servicePermissions := permissions.GetServicePermissions()
 	inOneHour := durationpb.New(time.Hour)

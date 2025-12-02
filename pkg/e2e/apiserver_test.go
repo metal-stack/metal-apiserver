@@ -4,12 +4,14 @@ import (
 	"log/slog"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/metal-stack/api/go/client"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 func TestUnauthenticated(t *testing.T) {
@@ -29,7 +31,7 @@ func TestUnauthenticated(t *testing.T) {
 
 	images, err := apiClient.Apiv2().Image().List(ctx, &apiv2.ImageServiceListRequest{})
 	require.Nil(t, images)
-	require.EqualError(t, err, "permission_denied: not allowed to call: /metalstack.api.v2.ImageService/List")
+	require.EqualError(t, err, "permission_denied: access to:\"/metalstack.api.v2.ImageService/List\" is not allowed because it is not part of the token permissions")
 }
 
 func TestAuthenticated(t *testing.T) {
@@ -54,7 +56,7 @@ func TestAuthenticated(t *testing.T) {
 }
 
 func TestListBaseNetworks(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	baseURL, adminToken, tenantTokenSecrets, closer := StartApiserver(t, log, "user-a")
 	defer closer()
 	require.NotNil(t, baseURL, adminToken)
@@ -104,4 +106,53 @@ func TestListBaseNetworks(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, nslr)
 	require.Len(t, nslr.Networks, 1)
+}
+
+func TestImageCacheServiceToken(t *testing.T) {
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	baseURL, adminToken, tenantTokenSecrets, closer := StartApiserver(t, log, "metal-image-cache-sync")
+	defer closer()
+	require.NotNil(t, baseURL, adminToken)
+	log.Info("token", "secret", tenantTokenSecrets["metal-image-cache-sync"])
+
+	adminClient, err := client.New(&client.DialConfig{
+		BaseURL:   baseURL,
+		Token:     adminToken,
+		UserAgent: "integration test admin",
+		Log:       log,
+	})
+	require.NoError(t, err)
+
+	tokenResp, err := adminClient.Adminv2().Token().Create(t.Context(), &adminv2.TokenServiceCreateRequest{
+		User: pointer.Pointer("metal-image-cache-sync"),
+		TokenCreateRequest: &apiv2.TokenServiceCreateRequest{
+			Description: "metal-image-cache-sync token",
+			Permissions: []*apiv2.MethodPermission{
+				{
+					Subject: "",
+					Methods: []string{
+						"/metalstack.api.v2.ImageService/List",
+						"/metalstack.api.v2.PartitionService/List",
+						"/metalstack.api.v2.TokenService/Refresh",
+					},
+				},
+			},
+			Expires: durationpb.New(10 * time.Minute),
+		},
+	})
+	require.NoError(t, err)
+
+	userClient, err := client.New(&client.DialConfig{
+		BaseURL:   baseURL,
+		Token:     tokenResp.Secret,
+		UserAgent: "metal-image-cache-sync user",
+		Log:       log,
+	})
+	require.NoError(t, err)
+
+	_, err = userClient.Apiv2().Image().List(t.Context(), &apiv2.ImageServiceListRequest{})
+	require.NoError(t, err)
+
+	_, err = userClient.Apiv2().Partition().List(t.Context(), &apiv2.PartitionServiceListRequest{})
+	require.NoError(t, err)
 }

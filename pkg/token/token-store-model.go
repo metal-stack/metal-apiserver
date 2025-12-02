@@ -3,7 +3,7 @@ package token
 import (
 	"time"
 
-	v1 "github.com/metal-stack/api/go/metalstack/api/v2"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -39,7 +39,7 @@ type methodPermission struct {
 	Methods []string `json:"methods,omitempty"`
 }
 
-func toInternal(t *v1.Token) *token {
+func toInternal(t *apiv2.Token) *token {
 	var permissions []methodPermission
 	for _, p := range t.Permissions {
 		permissions = append(permissions, methodPermission{
@@ -90,23 +90,23 @@ func toInternal(t *v1.Token) *token {
 	}
 }
 
-func toExternal(t *token) *v1.Token {
-	var permissions []*v1.MethodPermission
+func toExternal(t *token) *apiv2.Token {
+	var permissions []*apiv2.MethodPermission
 	for _, p := range t.Permissions {
-		permissions = append(permissions, &v1.MethodPermission{
+		permissions = append(permissions, &apiv2.MethodPermission{
 			Subject: p.Subject,
 			Methods: p.Methods,
 		})
 	}
 
 	var (
-		projectRoles = map[string]v1.ProjectRole{}
-		tenantRoles  = map[string]v1.TenantRole{}
+		projectRoles = map[string]apiv2.ProjectRole{}
+		tenantRoles  = map[string]apiv2.TenantRole{}
 
 		expires  *timestamppb.Timestamp
 		issuedAt *timestamppb.Timestamp
 
-		adminRole *v1.AdminRole
+		adminRole *apiv2.AdminRole
 	)
 
 	if t.Expires != nil {
@@ -117,24 +117,24 @@ func toExternal(t *token) *v1.Token {
 	}
 
 	for id, role := range t.ProjectRoles {
-		projectRoles[id] = v1.ProjectRole(v1.ProjectRole_value[role])
+		projectRoles[id] = apiv2.ProjectRole(apiv2.ProjectRole_value[role])
 	}
 	for id, role := range t.TenantRoles {
-		tenantRoles[id] = v1.TenantRole(v1.TenantRole_value[role])
+		tenantRoles[id] = apiv2.TenantRole(apiv2.TenantRole_value[role])
 	}
 
 	if t.AdminRole != nil {
-		adminRole = pointer.Pointer(v1.AdminRole(v1.AdminRole_value[*t.AdminRole]))
+		adminRole = pointer.Pointer(apiv2.AdminRole(apiv2.AdminRole_value[*t.AdminRole]))
 	}
 
-	return &v1.Token{
+	return &apiv2.Token{
 		Uuid:         t.Uuid,
 		User:         t.User,
 		Description:  t.Description,
 		Permissions:  permissions,
 		Expires:      expires,
 		IssuedAt:     issuedAt,
-		TokenType:    v1.TokenType(t.TokenType),
+		TokenType:    apiv2.TokenType(t.TokenType),
 		ProjectRoles: projectRoles,
 		TenantRoles:  tenantRoles,
 		AdminRole:    adminRole,

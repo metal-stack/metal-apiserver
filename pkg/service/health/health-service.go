@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	apiv1 "github.com/metal-stack/api/go/metalstack/api/v2"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	mdm "github.com/metal-stack/masterdata-api/pkg/client"
@@ -20,7 +20,7 @@ const (
 )
 
 type healthchecker interface {
-	Health(context.Context) *apiv1.HealthStatus
+	Health(context.Context) *apiv2.HealthStatus
 }
 
 type Config struct {
@@ -36,7 +36,7 @@ type healthServiceServer struct {
 	log *slog.Logger
 
 	checkers []healthchecker
-	current  *apiv1.Health
+	current  *apiv2.Health
 }
 
 func New(c Config) (apiv2connect.HealthServiceHandler, error) {
@@ -65,8 +65,8 @@ func New(c Config) (apiv2connect.HealthServiceHandler, error) {
 	return h, nil
 }
 
-func (h *healthServiceServer) Get(ctx context.Context, rq *apiv1.HealthServiceGetRequest) (*apiv1.HealthServiceGetResponse, error) {
-	return &apiv1.HealthServiceGetResponse{
+func (h *healthServiceServer) Get(ctx context.Context, rq *apiv2.HealthServiceGetRequest) (*apiv2.HealthServiceGetResponse, error) {
+	return &apiv2.HealthServiceGetResponse{
 		Health: h.current,
 	}, nil
 }
@@ -107,10 +107,10 @@ func (h *healthServiceServer) fetchStatuses(ctx context.Context, interval time.D
 
 func (h *healthServiceServer) updateStatuses(outerCtx context.Context) error {
 	var (
-		statuses        = &apiv1.Health{}
+		statuses        = &apiv2.Health{}
 		ctx, cancel     = context.WithTimeout(outerCtx, CheckerTimeout)
 		group, groupCtx = errgroup.WithContext(ctx)
-		resultChan      = make(chan *apiv1.HealthStatus)
+		resultChan      = make(chan *apiv2.HealthStatus)
 		once            sync.Once
 	)
 
@@ -159,16 +159,16 @@ func (h *healthServiceServer) updateStatuses(outerCtx context.Context) error {
 	return nil
 }
 
-func newHealthyServiceMap() *apiv1.Health {
-	h := &apiv1.Health{}
-	for i := range apiv1.Service_name {
+func newHealthyServiceMap() *apiv2.Health {
+	h := &apiv2.Health{}
+	for i := range apiv2.Service_name {
 		if i == 0 {
 			// skipping unspecified
 			continue
 		}
-		h.Services = append(h.Services, &apiv1.HealthStatus{
-			Name:    apiv1.Service(i),
-			Status:  apiv1.ServiceStatus_SERVICE_STATUS_HEALTHY,
+		h.Services = append(h.Services, &apiv2.HealthStatus{
+			Name:    apiv2.Service(i),
+			Status:  apiv2.ServiceStatus_SERVICE_STATUS_HEALTHY,
 			Message: "",
 		})
 	}
