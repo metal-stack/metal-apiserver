@@ -69,6 +69,12 @@ var (
 		Required: true,
 		EnvVars:  []string{"OIDC_END_SESSION_URL"},
 	}
+	oidcUniqueUserKeyFlag = &cli.StringFlag{
+		Name:    "oidc-unique-user-key",
+		Value:   "email", // make sure the oidc provider has unique email addresses, otherwise use "sub"
+		Usage:   "used to extract the unique user id from the oidc provider response raw data",
+		EnvVars: []string{"OIDC_UNIQUE_USER_KEY"},
+	}
 	logLevelFlag = &cli.StringFlag{
 		Name:  "log-level",
 		Value: "info",

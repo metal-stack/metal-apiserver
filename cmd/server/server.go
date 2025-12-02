@@ -30,7 +30,6 @@ func newServer(c service.Config) *server {
 }
 
 func (s *server) Run(ctx context.Context) error {
-
 	mux, err := service.New(s.log, s.c)
 	if err != nil {
 		return err

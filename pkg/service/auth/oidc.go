@@ -21,6 +21,7 @@ type ProviderConfig struct {
 	ClientSecret  string
 	DiscoveryURL  string
 	EndsessionURL string
+	UniqueUserKey *string
 }
 
 func OIDCHubProvider(c ProviderConfig) authOption {
@@ -69,10 +70,15 @@ func (g *provider) EndSessionRedirectURL() string {
 }
 
 func (g *provider) User(ctx context.Context, user goth.User) (*providerUser, error) {
+	key := "sub"
+	if g.pc.UniqueUserKey != nil {
+		key = *g.pc.UniqueUserKey
+	}
+
 	g.log.Info("user", "user", user)
-	sub, ok := user.RawData["sub"]
+	sub, ok := user.RawData[key]
 	if !ok {
-		return nil, fmt.Errorf("oidc raw data does not contain sub field")
+		return nil, fmt.Errorf("oidc raw data does not contain %q field", key)
 	}
 
 	login, ok := sub.(string)
