@@ -30,6 +30,7 @@ func New(c Config) adminv2connect.ProjectServiceHandler {
 func (p *projectServiceServer) List(ctx context.Context, req *adminv2.ProjectServiceListRequest) (*adminv2.ProjectServiceListResponse, error) {
 	projects, err := p.repo.UnscopedProject().List(ctx, &apiv2.ProjectServiceListRequest{
 		Tenant: req.Tenant,
+		Labels: req.Labels,
 	})
 
 	if err != nil {
