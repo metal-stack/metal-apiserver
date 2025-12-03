@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
-	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/lestrrat-go/jwx/v3/jwk"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	tokenservice "github.com/metal-stack/metal-apiserver/pkg/service/token"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
