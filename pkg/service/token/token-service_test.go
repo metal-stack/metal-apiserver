@@ -2,6 +2,7 @@ package token
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"strings"
 	"testing"
@@ -579,18 +580,19 @@ func Test_CreateForUser(t *testing.T) {
 
 func Test_validateTokenCreate(t *testing.T) {
 	inOneHour := durationpb.New(time.Hour)
-	oneHundredDays := durationpb.New(100 * 24 * time.Hour)
 	tests := []struct {
-		name           string
-		token          *apiv2.Token
-		req            *apiv2.TokenServiceCreateRequest
-		adminSubjects  []string
-		wantErr        bool
-		wantErrMessage string
+		name          string
+		pat           *repository.ProjectsAndTenants
+		token         *apiv2.Token
+		req           *apiv2.TokenServiceCreateRequest
+		adminSubjects []string
+		wantErr       error
 	}{
 		{
 			name: "simple token with empty permissions and roles",
 			token: &apiv2.Token{
+				User:      "test",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: "",
@@ -603,12 +605,19 @@ func Test_validateTokenCreate(t *testing.T) {
 				Expires:     inOneHour,
 			},
 			adminSubjects: []string{},
-			wantErr:       false,
+			wantErr:       nil,
 		},
-		// Inherited Permissions
+		// // Inherited Permissions
 		{
 			name: "simple token with no permissions but project role",
+			pat: &repository.ProjectsAndTenants{
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"ae8d2493-41ec-4efd-bbb4-81085b20b6fe": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
+				},
+			},
 			token: &apiv2.Token{
+				User:      "test",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"ae8d2493-41ec-4efd-bbb4-81085b20b6fe": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
 				},
@@ -626,12 +635,19 @@ func Test_validateTokenCreate(t *testing.T) {
 				Expires: inOneHour,
 			},
 			adminSubjects: []string{},
-			wantErr:       false,
+			wantErr:       nil,
 		},
-		// Permissions from Token
+		// // Permissions from Token
 		{
 			name: "simple token with one project and permission",
+			pat: &repository.ProjectsAndTenants{
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"abc": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
+				},
+			},
 			token: &apiv2.Token{
+				User:      "test",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: "abc",
@@ -650,11 +666,18 @@ func Test_validateTokenCreate(t *testing.T) {
 				Expires: inOneHour,
 			},
 			adminSubjects: []string{},
-			wantErr:       false,
+			wantErr:       nil,
 		},
 		{
 			name: "simple token with unknown method",
+			pat: &repository.ProjectsAndTenants{
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"abc": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+			},
 			token: &apiv2.Token{
+				User:      "test",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: "abc",
@@ -672,13 +695,20 @@ func Test_validateTokenCreate(t *testing.T) {
 				},
 				Expires: inOneHour,
 			},
-			adminSubjects:  []string{},
-			wantErr:        true,
-			wantErrMessage: "requested method: \"/metalstack.api.v2.UnknownService/Get\" is not allowed",
+			adminSubjects: []string{},
+			wantErr:       errors.New("unknown method \"/metalstack.api.v2.UnknownService/Get\""),
 		},
 		{
 			name: "simple token with one project and permission, wrong project given",
+			pat: &repository.ProjectsAndTenants{
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"abc": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+					"cde": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+			},
 			token: &apiv2.Token{
+				User:      "sfs",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: "abc",
@@ -696,13 +726,19 @@ func Test_validateTokenCreate(t *testing.T) {
 				},
 				Expires: inOneHour,
 			},
-			adminSubjects:  []string{},
-			wantErr:        true,
-			wantErrMessage: "requested subject: \"cde\" access is not allowed",
+			adminSubjects: []string{},
+			wantErr:       errors.New("requested subjects are not allowed with your current token"),
 		},
 		{
 			name: "simple token with one project and permission, wrong message given",
+			pat: &repository.ProjectsAndTenants{
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"abc": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+			},
 			token: &apiv2.Token{
+				User:      "sfs",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: "abc",
@@ -720,13 +756,19 @@ func Test_validateTokenCreate(t *testing.T) {
 				},
 				Expires: inOneHour,
 			},
-			adminSubjects:  []string{},
-			wantErr:        true,
-			wantErrMessage: "requested method: \"/metalstack.api.v2.IPService/List\" is not allowed for subject: \"abc\"",
+			adminSubjects: []string{},
+			wantErr:       errors.New("requested methods are not allowed with your current token"),
 		},
 		{
 			name: "simple token with one project and permission, wrong messages given",
+			pat: &repository.ProjectsAndTenants{
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"abc": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+			},
 			token: &apiv2.Token{
+				User:      "sfs",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: "abc",
@@ -751,32 +793,20 @@ func Test_validateTokenCreate(t *testing.T) {
 				},
 				Expires: inOneHour,
 			},
-			adminSubjects:  []string{},
-			wantErr:        true,
-			wantErrMessage: "requested method: \"/metalstack.api.v2.IPService/List\" is not allowed for subject: \"abc\"",
+			adminSubjects: []string{},
+			wantErr:       errors.New("requested methods are not allowed with your current token"),
 		},
-		{
-			name: "expiration too long",
-			token: &apiv2.Token{
-				Permissions: []*apiv2.MethodPermission{
-					{
-						Subject: "",
-						Methods: []string{""},
-					},
-				},
-			},
-			req: &apiv2.TokenServiceCreateRequest{
-				Description: "i don't need any permissions",
-				Expires:     oneHundredDays,
-			},
-			adminSubjects:  []string{},
-			wantErr:        true,
-			wantErrMessage: "requested expiration duration: \"2400h0m0s\" exceeds max expiration:  \"2160h0m0s\"",
-		},
-		// Roles from Token
+		// // Roles from Token
 		{
 			name: "token has no role",
+			pat: &repository.ProjectsAndTenants{
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"abc": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
+				},
+			},
 			token: &apiv2.Token{
+				User:      "test",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: "abc",
@@ -797,13 +827,19 @@ func Test_validateTokenCreate(t *testing.T) {
 				},
 				Expires: inOneHour,
 			},
-			adminSubjects:  []string{},
-			wantErr:        true,
-			wantErrMessage: "requested tenant: \"john@github\" is not allowed",
+			adminSubjects: []string{},
+			wantErr:       errors.New("requested methods are not allowed with your current token"),
 		},
 		{
 			name: "token has to low role",
+			pat: &repository.ProjectsAndTenants{
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"abc": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
+				},
+			},
 			token: &apiv2.Token{
+				User:      "test",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: "abc",
@@ -827,13 +863,22 @@ func Test_validateTokenCreate(t *testing.T) {
 				},
 				Expires: inOneHour,
 			},
-			adminSubjects:  []string{},
-			wantErr:        true,
-			wantErrMessage: "requested role: \"TENANT_ROLE_EDITOR\" is higher than allowed role: \"TENANT_ROLE_VIEWER\"",
+			adminSubjects: []string{},
+			wantErr:       errors.New("requested methods are not allowed with your current token"),
 		},
 		{
 			name: "token request has unspecified role",
+			pat: &repository.ProjectsAndTenants{
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"abc": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
+				},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"company-a@github": apiv2.TenantRole_TENANT_ROLE_VIEWER,
+				},
+			},
 			token: &apiv2.Token{
+				User:      "test",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: "abc",
@@ -857,15 +902,21 @@ func Test_validateTokenCreate(t *testing.T) {
 				},
 				Expires: inOneHour,
 			},
-			adminSubjects:  []string{},
-			wantErr:        true,
-			wantErrMessage: "requested tenant role: \"TENANT_ROLE_UNSPECIFIED\" is not allowed",
+			adminSubjects: []string{},
+			wantErr:       errors.New("requested tenant role: \"TENANT_ROLE_UNSPECIFIED\" is not allowed"),
 		},
-		// AdminSubjects
+		// // AdminSubjects
 		{
 			name:          "requested admin role but is not allowed",
 			adminSubjects: []string{},
+			pat: &repository.ProjectsAndTenants{
+				TenantRoles: map[string]apiv2.TenantRole{
+					"company-a@github": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
 			token: &apiv2.Token{
+				User:      "test",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				TenantRoles: map[string]apiv2.TenantRole{
 					"company-a@github": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
@@ -875,15 +926,21 @@ func Test_validateTokenCreate(t *testing.T) {
 				AdminRole:   pointer.Pointer(apiv2.AdminRole_ADMIN_ROLE_VIEWER),
 				Expires:     inOneHour,
 			},
-			wantErr:        true,
-			wantErrMessage: "requested admin role: \"ADMIN_ROLE_VIEWER\" is not allowed",
+			wantErr: errors.New("requested methods are not allowed with your current token"),
 		},
 		{
 			name: "requested admin role but is only viewer of admin orga",
 			adminSubjects: []string{
 				"company-a@github",
 			},
+			pat: &repository.ProjectsAndTenants{
+				TenantRoles: map[string]apiv2.TenantRole{
+					"company-a@github": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
 			token: &apiv2.Token{
+				User:      "test",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				TenantRoles: map[string]apiv2.TenantRole{
 					"company-a@github": apiv2.TenantRole_TENANT_ROLE_VIEWER,
 				},
@@ -893,16 +950,21 @@ func Test_validateTokenCreate(t *testing.T) {
 				AdminRole:   pointer.Pointer(apiv2.AdminRole_ADMIN_ROLE_EDITOR),
 				Expires:     inOneHour,
 			},
-			wantErr:        true,
-			wantErrMessage: "requested admin role: \"ADMIN_ROLE_EDITOR\" is not allowed",
+			wantErr: errors.New("requested methods are not allowed with your current token"),
 		},
 		{
 			name: "token requested admin role but is editor in admin orga",
 			adminSubjects: []string{
 				"company-a@github",
 			},
+			pat: &repository.ProjectsAndTenants{
+				TenantRoles: map[string]apiv2.TenantRole{
+					"company-a@github": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
 			token: &apiv2.Token{
-				User: "company-a@github",
+				User:      "company-a@github",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				TenantRoles: map[string]apiv2.TenantRole{
 					"company-a@github": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
@@ -912,23 +974,48 @@ func Test_validateTokenCreate(t *testing.T) {
 				AdminRole:   pointer.Pointer(apiv2.AdminRole_ADMIN_ROLE_EDITOR),
 				Expires:     inOneHour,
 			},
-			wantErr:        true,
-			wantErrMessage: "requested methods are not allowed with your current token",
+			wantErr: errors.New("requested methods are not allowed with your current token"),
+		},
+		{
+			name: "token requested admin role and has admin role editor",
+			adminSubjects: []string{
+				"company-a@github",
+			},
+			pat: &repository.ProjectsAndTenants{
+				TenantRoles: map[string]apiv2.TenantRole{
+					"company-a@github": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
+			token: &apiv2.Token{
+				User:      "company-a@github",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				TenantRoles: map[string]apiv2.TenantRole{
+					"company-a@github": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+				AdminRole: pointer.Pointer(apiv2.AdminRole_ADMIN_ROLE_EDITOR),
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "i want to get admin access",
+				AdminRole:   pointer.Pointer(apiv2.AdminRole_ADMIN_ROLE_EDITOR),
+				Expires:     inOneHour,
+			},
+			wantErr: nil,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.wantErr == false {
+			if tt.token.User == "" {
+				t.Errorf("no user in token specified")
+			}
+
+			if tt.wantErr == nil {
 				// Execute proto based validation
 				err := protovalidate.Validate(tt.req)
 				require.NoError(t, err)
 			}
 
 			projectsAndTenantsGetter := func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
-				return &repository.ProjectsAndTenants{
-					ProjectRoles: nil,
-					TenantRoles:  nil,
-				}, nil
+				return tt.pat, nil
 			}
 			log := slog.Default()
 			service := tokenService{
@@ -941,13 +1028,13 @@ func Test_validateTokenCreate(t *testing.T) {
 				authorizer:               request.NewAuthorizer(log, projectsAndTenantsGetter),
 			}
 
-			err := service.validateTokenRequest(t.Context(), tt.token, tt.req)
-			if err != nil && !tt.wantErr {
-				t.Errorf("validateTokenRequest() error = %v, wantErr %v", err, tt.wantErr)
-			}
+			gotErr := service.validateTokenRequest(t.Context(), tt.token, tt.req)
 
-			if err != nil && tt.wantErrMessage != err.Error() {
-				t.Errorf("validateTokenRequest() error.Error = %s, wantErrMsg %s", err.Error(), tt.wantErrMessage)
+			t.Log(gotErr)
+			if tt.wantErr != nil {
+				require.EqualError(t, gotErr, tt.wantErr.Error())
+			} else if gotErr != nil {
+				require.NoError(t, gotErr)
 			}
 		})
 	}

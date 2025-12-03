@@ -10,6 +10,7 @@ import (
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
+	"github.com/metal-stack/api/go/permissions"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/request"
 
@@ -163,15 +164,7 @@ func (t *tokenService) Update(ctx context.Context, req *apiv2.TokenServiceUpdate
 	// we first validate token permission elevation for the token used in the token update request,
 	// which might be an API token with restricted permissions
 
-	createRequest := &apiv2.TokenServiceCreateRequest{
-		Permissions:  req.Permissions,
-		ProjectRoles: req.ProjectRoles,
-		TenantRoles:  req.TenantRoles,
-		AdminRole:    req.AdminRole,
-		InfraRole:    req.InfraRole,
-	}
-
-	err := t.validateTokenRequest(ctx, token, createRequest)
+	err := t.validateTokenRequest(ctx, token, req)
 	if err != nil {
 		return nil, errorutil.NewPermissionDenied(err)
 	}
@@ -194,7 +187,7 @@ func (t *tokenService) Update(ctx context.Context, req *apiv2.TokenServiceUpdate
 	if slices.Contains(t.adminSubjects, token.User) {
 		fullUserToken.AdminRole = apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum()
 	}
-	err = t.validateTokenRequest(ctx, fullUserToken, createRequest)
+	err = t.validateTokenRequest(ctx, fullUserToken, req)
 	if err != nil {
 		return nil, errorutil.PermissionDenied("outdated token: %w", err)
 	}
@@ -471,6 +464,25 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 	}
 	if req.GetInfraRole() != apiv2.InfraRole_INFRA_ROLE_UNSPECIFIED {
 		infraRole = req.GetInfraRole().Enum()
+	}
+
+	for _, tr := range req.GetTenantRoles() {
+		if tr == apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED {
+			return fmt.Errorf("requested tenant role: %q is not allowed", tr)
+		}
+	}
+	for _, pr := range req.GetProjectRoles() {
+		if pr == apiv2.ProjectRole_PROJECT_ROLE_UNSPECIFIED {
+			return fmt.Errorf("requested project role: %q is not allowed", pr)
+		}
+	}
+	for _, permission := range req.GetPermissions() {
+		for _, method := range permission.Methods {
+			if _, found := permissions.GetServicePermissions().Methods[method]; !found {
+				return fmt.Errorf("unknown method %q", method)
+			}
+		}
+
 	}
 
 	requestedPermissions, err := t.authorizer.TokenPermissions(ctx, &apiv2.Token{
