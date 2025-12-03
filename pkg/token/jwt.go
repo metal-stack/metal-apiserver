@@ -3,6 +3,7 @@ package token
 import (
 	"context"
 	"crypto"
+	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -111,7 +112,7 @@ func TokenFromContext(ctx context.Context) (*apiv2.Token, bool) {
 func Validate(ctx context.Context, tokenString string, set jwk.Set, allowedIssuers []string) (*Claims, error) {
 	claims := &Claims{}
 
-	var lastErr error
+	var parseErrors []error
 
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (any, error) {
 		// Try each key in the set
@@ -124,13 +125,13 @@ func Validate(ctx context.Context, tokenString string, set jwk.Set, allowedIssue
 
 			var rawKey any
 			if err := key.Raw(&rawKey); err != nil {
-				lastErr = err
+				parseErrors = append(parseErrors, err)
 				continue
 			}
 
 			return rawKey, nil
 		}
-		return nil, fmt.Errorf("no suitable key found: %v", lastErr)
+		return nil, fmt.Errorf("no suitable key found: %v", errors.Join(parseErrors...))
 	}, jwt.WithValidMethods([]string{jwt.SigningMethodES512.Alg()})) // TODO parse alg from token
 	if err != nil {
 		return nil, err
@@ -138,7 +139,7 @@ func Validate(ctx context.Context, tokenString string, set jwk.Set, allowedIssue
 
 	claims, ok := token.Claims.(*Claims)
 	if !ok {
-		return nil, fmt.Errorf("unknown claims type, cannot proceed")
+		return nil, fmt.Errorf("unknown claims type %T, cannot proceed", token.Claims)
 	}
 
 	if !slices.Contains(allowedIssuers, claims.Issuer) {
@@ -155,5 +156,5 @@ func isKeyValid(key jwk.Key) bool {
 			return time.Now().Unix() < int64(expTime)
 		}
 	}
-	return true // No expiration set, assume valid
+	return false // No expiration set, assume invalid
 }
