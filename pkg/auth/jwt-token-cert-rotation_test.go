@@ -191,12 +191,6 @@ func expectTokenExpired(t *testing.T, ctx context.Context, auth *auth, bearer st
 	require.ErrorContains(t, err, "token has invalid claims: token is expired")
 }
 
-func expectTokenRevoked(t *testing.T, ctx context.Context, auth *auth, bearer string) {
-	err := checkToken(ctx, auth, bearer)
-	require.Error(t, err)
-	require.ErrorContains(t, err, "token was revoked")
-}
-
 func expectTokenNoPublicKeyForSignatureFound(t *testing.T, ctx context.Context, auth *auth, bearer string) {
 	err := checkToken(ctx, auth, bearer)
 	require.Error(t, err)
