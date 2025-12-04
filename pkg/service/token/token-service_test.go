@@ -607,7 +607,7 @@ func Test_validateTokenCreate(t *testing.T) {
 			adminSubjects: []string{},
 			wantErr:       nil,
 		},
-		// // Inherited Permissions
+		// Inherited Permissions
 		{
 			name: "simple token with no permissions but project role",
 			pat: &repository.ProjectsAndTenants{
