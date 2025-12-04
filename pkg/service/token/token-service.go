@@ -13,6 +13,7 @@ import (
 	"github.com/metal-stack/api/go/permissions"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/request"
+	"github.com/samber/lo"
 
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
@@ -497,10 +498,19 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 		return err
 	}
 
+	var (
+		methodRoles   = permissions.GetServicePermissions().MethodRoles
+		deniedRoles   []string
+		deniedMethods []string
+	)
+
 	for method, subjects := range requestedPermissions {
 		currentSubjects, ok := currentPermission[method]
 		if !ok {
-			return errors.New("requested methods are not allowed with your current token")
+			// return errors.New("requested methods are not allowed with your current token")
+
+			deniedRoles = append(deniedRoles, methodRoles[method]...)
+			deniedMethods = append(deniedMethods, method)
 		}
 
 		if _, ok := currentSubjects["*"]; ok {
@@ -518,6 +528,39 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 				return errors.New("requested subjects are not allowed with your current token")
 			}
 		}
+	}
+
+	deniedRoles = lo.Uniq(deniedRoles)
+	deniedRoles = lo.Filter(deniedRoles, func(role string, _ int) bool {
+		var (
+			roleIsAdminRole bool
+			roleIsInfraRole bool
+		)
+		roleInProjRoles := slices.ContainsFunc(lo.Values(req.GetProjectRoles()), func(projRole apiv2.ProjectRole) bool {
+			return role == projRole.String()
+		})
+		roleInTenantRoles := slices.ContainsFunc(lo.Values(req.GetTenantRoles()), func(tenantRole apiv2.TenantRole) bool {
+			return role == tenantRole.String()
+		})
+		if adminRole != nil {
+			roleIsAdminRole = role == adminRole.String()
+		}
+		if infraRole != nil {
+			roleIsInfraRole = role == infraRole.String()
+		}
+
+		return roleInProjRoles || roleInTenantRoles || roleIsAdminRole || roleIsInfraRole
+	})
+
+	deniedMethods = lo.Uniq(deniedMethods)
+	deniedMethods = lo.Filter(deniedMethods, func(method string, _ int) bool {
+		return slices.ContainsFunc(req.GetPermissions(), func(permission *apiv2.MethodPermission) bool {
+			return slices.Contains(permission.Methods, method)
+		})
+	})
+
+	if len(deniedRoles) > 0 || len(deniedMethods) > 0 {
+		return fmt.Errorf("requested roles %s or methods %s are not allowed", deniedRoles, deniedMethods)
 	}
 
 	return nil
