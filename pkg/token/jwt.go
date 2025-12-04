@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -146,9 +145,6 @@ func Validate(ctx context.Context, log *slog.Logger, tokenString string, set jwk
 			if errors.Is(err, jwt.ErrTokenSignatureInvalid) {
 				// If many public keys are present to verify jwt token signatures, many of them might be invalid.
 				// skip those which throw a token signature invalid error to be able to try the next one.
-				if strings.HasSuffix(tokenString, "foo") {
-					log.Debug("validate", "error", err)
-				}
 				continue
 			}
 			parseErrors = append(parseErrors, err)
