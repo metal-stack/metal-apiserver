@@ -506,6 +506,12 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 		if _, ok := currentSubjects["*"]; ok {
 			continue
 		}
+		// It is possible to request any subjects to be able to have a token
+		// which is able to make calls to projects which will be created in the future.
+		// The actually possible subjects are calculated at request time.
+		if _, ok := subjects["*"]; ok {
+			continue
+		}
 
 		for subject := range subjects {
 			if _, ok := currentSubjects[subject]; !ok {
