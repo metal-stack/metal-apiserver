@@ -10,7 +10,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/lestrrat-go/jwx/v3/jwk"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -116,15 +116,19 @@ func Validate(ctx context.Context, tokenString string, set jwk.Set, allowedIssue
 
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (any, error) {
 		// Try each key in the set
-		for iter := set.Keys(ctx); iter.Next(ctx); {
-			key := iter.Pair().Value.(jwk.Key)
+		for i := 0; i < set.Len(); i++ {
+			key, ok := set.Key(i)
+			if !ok {
+				parseErrors = append(parseErrors, fmt.Errorf("failed to get key at index %d", i))
+				continue
+			}
 
 			if !isKeyValid(key) {
 				continue
 			}
 
 			var rawKey any
-			if err := key.Raw(&rawKey); err != nil {
+			if err := jwk.Export(key, &rawKey); err != nil {
 				parseErrors = append(parseErrors, err)
 				continue
 			}
@@ -151,7 +155,8 @@ func Validate(ctx context.Context, tokenString string, set jwk.Set, allowedIssue
 
 func isKeyValid(key jwk.Key) bool {
 	// Check for expiration (custom claim, not standard)
-	if exp, ok := key.Get("exp"); ok {
+	var exp any
+	if err := key.Get("exp", &exp); err != nil {
 		if expTime, ok := exp.(float64); ok {
 			return time.Now().Unix() < int64(expTime)
 		}
