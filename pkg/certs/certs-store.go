@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/lestrrat-go/jwx/v3/jwk"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/redis/go-redis/v9"
 )
@@ -166,7 +166,7 @@ func (r *redisStore) PublicKeys(ctx context.Context) (jwk.Set, string, error) {
 			return nil, "", err
 		}
 
-		key, err := jwk.FromRaw(c.PublicKey)
+		key, err := jwk.Import(c.PublicKey)
 		if err != nil {
 			return nil, "", fmt.Errorf("failed to add public key: %w", err)
 		}

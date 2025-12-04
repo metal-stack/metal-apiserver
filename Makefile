@@ -14,7 +14,7 @@ else
   GO_TEST_ARGS=
 endif
 
-all: test-opa lint-opa test server
+all: test server
 
 .PHONY: server
 server:
@@ -33,20 +33,6 @@ test:
 .PHONY: bench
 bench:
 	CGO_ENABLED=1 go test -bench=. -run=^$$ ./... -benchmem -timeout 20m
-
-.PHONY: test-opa
-test-opa:
-	@$(MAKE) -C pkg/auth test
-
-.PHONY: lint-opa
-lint-opa:
-	cd pkg/auth && $(MAKE) lint
-
-.PHONY: opa-fmt
-opa-fmt:
-	docker pull openpolicyagent/opa:latest-static
-	docker run --rm -it --user $$(id -u):$$(id -g) -v $(PWD)/pkg/auth/authentication:/work openpolicyagent/opa:latest-static fmt --v1-compatible --rego-v1 -w /work
-	docker run --rm -it --user $$(id -u):$$(id -g) -v $(PWD)/pkg/auth/authorization:/work openpolicyagent/opa:latest-static fmt --v1-compatible --rego-v1 -w /work
 
 .PHONY: mocks
 mocks:

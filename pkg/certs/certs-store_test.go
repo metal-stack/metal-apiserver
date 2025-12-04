@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/alicebob/miniredis/v2"
-	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/lestrrat-go/jwx/v3/jwk"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
@@ -37,7 +37,7 @@ func Test_redisStore(t *testing.T) {
 	require.NotEmpty(t, rawSet)
 	require.Equal(t, 1, set.Len())
 
-	firstKey, err := jwk.FromRaw(privateKey)
+	firstKey, err := jwk.Import(privateKey)
 	require.NoError(t, err)
 
 	rotatedPrivateKey, err := store.LatestPrivate(ctx)
@@ -50,7 +50,7 @@ func Test_redisStore(t *testing.T) {
 	require.NotEmpty(t, rawSet)
 	require.Equal(t, 2, set.Len())
 
-	secondKey, err := jwk.FromRaw(rotatedPrivateKey)
+	secondKey, err := jwk.Import(rotatedPrivateKey)
 	require.NoError(t, err)
 	require.False(t, jwk.Equal(firstKey, secondKey))
 }

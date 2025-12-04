@@ -42,7 +42,7 @@ func prepare(t *testing.T) (certs.CertStore, *ecdsa.PrivateKey) {
 	return store, key
 }
 
-func Test_opa_authorize_with_permissions(t *testing.T) {
+func Test_authorize_with_permissions(t *testing.T) {
 	pk, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
 	require.NoError(t, err)
 	var (
@@ -75,7 +75,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 				require.NoError(t, err)
 				return jwt
 			},
-			wantErr: errorutil.Unauthenticated("invalid token"),
+			wantErr: errorutil.Unauthenticated("token is not valid, no suitable publickey to validate signature found"),
 		},
 		{
 			name: "machine get not allowed, token used before not before date",
@@ -86,7 +86,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 				require.NoError(t, err)
 				return jwt
 			},
-			wantErr: errorutil.Unauthenticated("token has expired"), // TODO: should clearly say "token used before not before date"
+			wantErr: errorutil.Unauthenticated("token has invalid claims: token is not valid yet"),
 		},
 		{
 			name:       "machine get not allowed, token already expired",
@@ -99,7 +99,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 					Methods: []string{"/metalstack.api.v2.IPService/Get"},
 				},
 			},
-			wantErr: errorutil.Unauthenticated("token has expired"),
+			wantErr: errorutil.Unauthenticated("token has invalid claims: token is expired"),
 		},
 		{
 			name:    "token service malformed token",
@@ -111,7 +111,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 			tenantRoles: map[string]v2.TenantRole{
 				"john.doe@github": v2.TenantRole_TENANT_ROLE_OWNER,
 			},
-			wantErr: errorutil.Unauthenticated("invalid token"),
+			wantErr: errorutil.Unauthenticated("token is not valid, no suitable publickey to validate signature found"),
 		},
 		{
 			name:    "token service untrusted issuer",
@@ -179,7 +179,7 @@ func Test_opa_authorize_with_permissions(t *testing.T) {
 				return "Bearer " + jwt
 			}
 
-			_, err = o.decide(ctx, jwtTokenFunc)
+			_, err = o.extractAndValidateJWTToken(ctx, jwtTokenFunc)
 			if diff := cmp.Diff(tt.wantErr, err, testcommon.ErrorStringComparer()); diff != "" {
 				t.Errorf("error diff (+got -want):\n %s", diff)
 			}
