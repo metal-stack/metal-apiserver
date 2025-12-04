@@ -75,7 +75,7 @@ func Test_authorize_with_permissions(t *testing.T) {
 				require.NoError(t, err)
 				return jwt
 			},
-			wantErr: errorutil.Unauthenticated("token signature is invalid: crypto/ecdsa: verification error"),
+			wantErr: errorutil.Unauthenticated("token is not valid, no suitable publickey to validate signature found"),
 		},
 		{
 			name: "machine get not allowed, token used before not before date",
@@ -111,7 +111,7 @@ func Test_authorize_with_permissions(t *testing.T) {
 			tenantRoles: map[string]v2.TenantRole{
 				"john.doe@github": v2.TenantRole_TENANT_ROLE_OWNER,
 			},
-			wantErr: errorutil.Unauthenticated("token signature is invalid: crypto/ecdsa: verification error"),
+			wantErr: errorutil.Unauthenticated("token is not valid, no suitable publickey to validate signature found"),
 		},
 		{
 			name:    "token service untrusted issuer",

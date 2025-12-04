@@ -5,7 +5,9 @@ import (
 	"crypto"
 	"errors"
 	"fmt"
+	"log/slog"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -38,6 +40,11 @@ func NewJWT(tokenType apiv2.TokenType, subject, issuer string, expires time.Dura
 		return "", nil, fmt.Errorf("expires: %q exceeds maximum: %q", expires, MaxExpiration)
 	}
 
+	id, err := uuid.NewV7()
+	if err != nil {
+		return "", nil, err
+	}
+
 	issuedAt := time.Now().UTC()
 	expiresAt := issuedAt.Add(expires)
 	claims := &Claims{
@@ -51,7 +58,7 @@ func NewJWT(tokenType apiv2.TokenType, subject, issuer string, expires time.Dura
 			NotBefore: jwt.NewNumericDate(issuedAt),
 
 			// ID is for your traceability, doesn't have to be UUID:
-			ID: uuid.New().String(),
+			ID: id.String(),
 
 			// put name/title/ID of whoever will be using this JWT here:
 			Subject: subject,
@@ -84,7 +91,8 @@ func ParseJWTToken(token string) (*Claims, error) {
 	}
 
 	claims := &Claims{}
-	_, _, err := new(jwt.Parser).ParseUnverified(string(token), claims)
+	parser := jwt.NewParser()
+	_, _, err := parser.ParseUnverified(string(token), claims)
 
 	if err != nil {
 		return nil, err
@@ -109,36 +117,62 @@ func TokenFromContext(ctx context.Context) (*apiv2.Token, bool) {
 	return token, ok
 }
 
-func Validate(ctx context.Context, tokenString string, set jwk.Set, allowedIssuers []string) (*Claims, error) {
-	claims := &Claims{}
+func Validate(ctx context.Context, log *slog.Logger, tokenString string, set jwk.Set, allowedIssuers []string) (*Claims, error) {
+	var (
+		claims      = &Claims{}
+		publicKey   crypto.PublicKey
+		parseErrors []error
+		token       *jwt.Token
+		keyFunc     = func(t *jwt.Token) (any, error) { return publicKey, nil }
+	)
 
-	var parseErrors []error
-
-	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (any, error) {
-		// Try each key in the set
-		for i := 0; i < set.Len(); i++ {
-			key, ok := set.Key(i)
-			if !ok {
-				parseErrors = append(parseErrors, fmt.Errorf("failed to get key at index %d", i))
-				continue
-			}
-
-			if !isKeyValid(key) {
-				continue
-			}
-
-			var rawKey any
-			if err := jwk.Export(key, &rawKey); err != nil {
-				parseErrors = append(parseErrors, err)
-				continue
-			}
-
-			return rawKey, nil
-		}
-		return nil, fmt.Errorf("no suitable key found: %v", errors.Join(parseErrors...))
-	}, jwt.WithValidMethods([]string{jwt.SigningMethodES512.Alg()})) // TODO parse alg from token
+	parser := jwt.NewParser()
+	t, _, err := parser.ParseUnverified(tokenString, claims)
 	if err != nil {
 		return nil, err
+	}
+	t.Method.Alg()
+
+	log.Debug("validate", "tokenstring", tokenString)
+	for i := range set.Len() {
+		key, ok := set.Key(i)
+		if !ok {
+			continue
+		}
+
+		err := jwk.Export(key, &publicKey)
+		if err != nil {
+			log.Error("unable to export publickey", "error", err)
+			continue
+		}
+
+		unvalidatedTok, err := jwt.ParseWithClaims(tokenString, claims, keyFunc, jwt.WithValidMethods([]string{t.Method.Alg()}))
+		if err != nil {
+			if errors.Is(err, jwt.ErrTokenSignatureInvalid) {
+				// If many public keys are present to verify jwt token signatures, many of them might be invalid.
+				// skip those which throw a token signature invalid error to be able to try the next one.
+				if strings.HasSuffix(tokenString, "foo") {
+					log.Debug("validate", "error", err)
+				}
+				continue
+			}
+			parseErrors = append(parseErrors, err)
+		}
+		if err == nil {
+			token = unvalidatedTok
+		}
+	}
+
+	if strings.HasSuffix(tokenString, "foo") {
+		log.Debug("validate", "token", token)
+	}
+
+	if len(parseErrors) > 0 {
+		return nil, errors.Join(parseErrors...)
+	}
+
+	if token == nil {
+		return nil, fmt.Errorf("token is not valid, no suitable publickey to validate signature found")
 	}
 
 	claims, ok := token.Claims.(*Claims)
@@ -151,15 +185,4 @@ func Validate(ctx context.Context, tokenString string, set jwk.Set, allowedIssue
 	}
 
 	return claims, nil
-}
-
-func isKeyValid(key jwk.Key) bool {
-	// Check for expiration (custom claim, not standard)
-	var exp any
-	if err := key.Get("exp", &exp); err != nil {
-		if expTime, ok := exp.(float64); ok {
-			return time.Now().Unix() < int64(expTime)
-		}
-	}
-	return false // No expiration set, assume invalid
 }

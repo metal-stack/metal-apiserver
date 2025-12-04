@@ -171,7 +171,7 @@ func (o *auth) extractAndValidateJWTToken(ctx context.Context, jwtTokenfunc func
 		return nil, nil
 	}
 
-	claim, err := token.Validate(ctx, jwtToken, jwks.set, o.allowedIssuer)
+	claim, err := token.Validate(ctx, o.log, jwtToken, jwks.set, o.allowedIssuer)
 	if err != nil {
 		return nil, errorutil.NewUnauthenticated(err)
 	}

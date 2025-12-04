@@ -137,8 +137,8 @@ func Test_jwt_cert_rotation(t *testing.T) {
 				at:   11 * time.Second,
 				task: func(t *testing.T) {
 					expectCertStore(t, ctx, certStore, 1)
-					expectTokenExpired(t, ctx, auth, token1)
-					expectTokenExpired(t, ctx, auth, token2)
+					expectTokenNoPublicKeyForSignatureFound(t, ctx, auth, token1)
+					expectTokenNoPublicKeyForSignatureFound(t, ctx, auth, token2)
 					expectTokenExpired(t, ctx, auth, token3)
 				},
 			},
@@ -147,9 +147,9 @@ func Test_jwt_cert_rotation(t *testing.T) {
 				at:   15 * time.Second,
 				task: func(t *testing.T) {
 					expectCertStore(t, ctx, certStore, 0)
-					expectTokenExpired(t, ctx, auth, token1)
-					expectTokenExpired(t, ctx, auth, token2)
-					expectTokenExpired(t, ctx, auth, token3)
+					expectTokenNoPublicKeyForSignatureFound(t, ctx, auth, token1)
+					expectTokenNoPublicKeyForSignatureFound(t, ctx, auth, token2)
+					expectTokenNoPublicKeyForSignatureFound(t, ctx, auth, token3)
 				},
 			},
 		}
@@ -189,6 +189,18 @@ func expectTokenExpired(t *testing.T, ctx context.Context, auth *auth, bearer st
 	err := checkToken(ctx, auth, bearer)
 	require.Error(t, err)
 	require.ErrorContains(t, err, "token has invalid claims: token is expired")
+}
+
+func expectTokenRevoked(t *testing.T, ctx context.Context, auth *auth, bearer string) {
+	err := checkToken(ctx, auth, bearer)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "token was revoked")
+}
+
+func expectTokenNoPublicKeyForSignatureFound(t *testing.T, ctx context.Context, auth *auth, bearer string) {
+	err := checkToken(ctx, auth, bearer)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "no suitable publickey to validate signature found")
 }
 
 func checkToken(ctx context.Context, auth *auth, bearer string) error {
