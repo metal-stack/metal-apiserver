@@ -127,11 +127,6 @@ func Validate(ctx context.Context, log *slog.Logger, tokenString string, set jwk
 	)
 
 	parser := jwt.NewParser()
-	t, _, err := parser.ParseUnverified(tokenString, claims)
-	if err != nil {
-		return nil, err
-	}
-	t.Method.Alg()
 
 	log.Debug("validate", "tokenstring", tokenString)
 	for i := range set.Len() {
@@ -146,7 +141,7 @@ func Validate(ctx context.Context, log *slog.Logger, tokenString string, set jwk
 			continue
 		}
 
-		unvalidatedTok, err := jwt.ParseWithClaims(tokenString, claims, keyFunc, jwt.WithValidMethods([]string{t.Method.Alg()}))
+		parsedToken, err := parser.ParseWithClaims(tokenString, claims, keyFunc)
 		if err != nil {
 			if errors.Is(err, jwt.ErrTokenSignatureInvalid) {
 				// If many public keys are present to verify jwt token signatures, many of them might be invalid.
@@ -159,12 +154,8 @@ func Validate(ctx context.Context, log *slog.Logger, tokenString string, set jwk
 			parseErrors = append(parseErrors, err)
 		}
 		if err == nil {
-			token = unvalidatedTok
+			token = parsedToken
 		}
-	}
-
-	if strings.HasSuffix(tokenString, "foo") {
-		log.Debug("validate", "token", token)
 	}
 
 	if len(parseErrors) > 0 {
@@ -173,11 +164,6 @@ func Validate(ctx context.Context, log *slog.Logger, tokenString string, set jwk
 
 	if token == nil {
 		return nil, fmt.Errorf("token is not valid, no suitable publickey to validate signature found")
-	}
-
-	claims, ok := token.Claims.(*Claims)
-	if !ok {
-		return nil, fmt.Errorf("unknown claims type %T, cannot proceed", token.Claims)
 	}
 
 	if !slices.Contains(allowedIssuers, claims.Issuer) {
