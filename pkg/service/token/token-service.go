@@ -13,7 +13,6 @@ import (
 	"github.com/metal-stack/api/go/permissions"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/request"
-	"github.com/samber/lo"
 
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
@@ -450,10 +449,10 @@ type tokenRequest interface {
 }
 
 func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *apiv2.Token, req tokenRequest) error {
-	currentPermission, err := t.authorizer.TokenPermissions(ctx, currentToken)
-	if err != nil {
-		return err
-	}
+	// currentPermission, err := t.authorizer.TokenPermissions(ctx, currentToken)
+	// if err != nil {
+	// 	return err
+	// }
 
 	var (
 		adminRole *apiv2.AdminRole
@@ -467,14 +466,14 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 		infraRole = req.GetInfraRole().Enum()
 	}
 
-	for _, tr := range req.GetTenantRoles() {
+	for tenant, tr := range req.GetTenantRoles() {
 		if tr == apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED {
-			return fmt.Errorf("requested tenant role: %q is not allowed", tr)
+			return fmt.Errorf("requested tenant role %q for tenant %s is not allowed", tr, tenant)
 		}
 	}
-	for _, pr := range req.GetProjectRoles() {
+	for proj, pr := range req.GetProjectRoles() {
 		if pr == apiv2.ProjectRole_PROJECT_ROLE_UNSPECIFIED {
-			return fmt.Errorf("requested project role: %q is not allowed", pr)
+			return fmt.Errorf("requested project role %q for project %s is not allowed", pr, proj)
 		}
 	}
 	for _, permission := range req.GetPermissions() {
@@ -486,82 +485,82 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 
 	}
 
-	requestedPermissions, err := t.authorizer.TokenPermissions(ctx, &apiv2.Token{
-		User:         currentToken.User,
-		Permissions:  req.GetPermissions(),
-		ProjectRoles: req.GetProjectRoles(),
-		TenantRoles:  req.GetTenantRoles(),
-		AdminRole:    adminRole,
-		InfraRole:    infraRole,
-	})
-	if err != nil {
-		return err
+	// requestedPermissions, err := t.authorizer.TokenPermissions(ctx, &apiv2.Token{
+	// 	User:         currentToken.User,
+	// 	Permissions:  req.GetPermissions(),
+	// 	ProjectRoles: req.GetProjectRoles(),
+	// 	TenantRoles:  req.GetTenantRoles(),
+	// 	AdminRole:    adminRole,
+	// 	InfraRole:    infraRole,
+	// })
+	// if err != nil {
+	// 	return err
+	// }
+
+	if !isAdminRoleAllowed(adminRole, currentToken.AdminRole) {
+		return fmt.Errorf("requested admin role %q is not allowed with your current token", adminRole)
 	}
 
-	var (
-		methodRoles   = permissions.GetServicePermissions().MethodRoles
-		deniedRoles   []string
-		deniedMethods []string
-	)
-
-	for method, subjects := range requestedPermissions {
-		currentSubjects, ok := currentPermission[method]
-		if !ok {
-			// return errors.New("requested methods are not allowed with your current token")
-
-			deniedRoles = append(deniedRoles, methodRoles[method]...)
-			deniedMethods = append(deniedMethods, method)
-		}
-
-		if _, ok := currentSubjects["*"]; ok {
-			continue
-		}
-		// It is possible to request any subjects to be able to have a token
-		// which is able to make calls to projects which will be created in the future.
-		// The actually possible subjects are calculated at request time.
-		if _, ok := subjects["*"]; ok {
-			continue
-		}
-
-		for subject := range subjects {
-			if _, ok := currentSubjects[subject]; !ok {
-				return errors.New("requested subjects are not allowed with your current token")
-			}
-		}
+	if !isInfraRoleAllowed(infraRole, currentToken.InfraRole) {
+		return fmt.Errorf("requested infra role %q is not allowed with your current token", infraRole)
 	}
 
-	deniedRoles = lo.Uniq(deniedRoles)
-	deniedRoles = lo.Filter(deniedRoles, func(role string, _ int) bool {
-		var (
-			roleIsAdminRole bool
-			roleIsInfraRole bool
-		)
-		roleInProjRoles := slices.ContainsFunc(lo.Values(req.GetProjectRoles()), func(projRole apiv2.ProjectRole) bool {
-			return role == projRole.String()
-		})
-		roleInTenantRoles := slices.ContainsFunc(lo.Values(req.GetTenantRoles()), func(tenantRole apiv2.TenantRole) bool {
-			return role == tenantRole.String()
-		})
-		if adminRole != nil {
-			roleIsAdminRole = role == adminRole.String()
-		}
-		if infraRole != nil {
-			roleIsInfraRole = role == infraRole.String()
-		}
-
-		return roleInProjRoles || roleInTenantRoles || roleIsAdminRole || roleIsInfraRole
-	})
-
-	deniedMethods = lo.Uniq(deniedMethods)
-	deniedMethods = lo.Filter(deniedMethods, func(method string, _ int) bool {
-		return slices.ContainsFunc(req.GetPermissions(), func(permission *apiv2.MethodPermission) bool {
-			return slices.Contains(permission.Methods, method)
-		})
-	})
-
-	if len(deniedRoles) > 0 || len(deniedMethods) > 0 {
-		return fmt.Errorf("requested roles %s or methods %s are not allowed", deniedRoles, deniedMethods)
+	deniedProjRoles := deniedProjectRoles(req.GetProjectRoles(), currentToken)
+	if len(deniedProjRoles) > 0 {
+		return fmt.Errorf("requested project roles %v are not allowed with you curret token", deniedProjRoles)
 	}
+
+	// TODO: collect all errors and return them joined
+
+	// CONTINUE: check that
+	// - each project or tenant scoped method that is requested is allowed for the project/tenant it was requested for
+	// - each admin or infra method is allowed by the current token
+	// - each tenant role requested is allowed for the tenant it was requested for
+	// - each subject requested is part of current token
 
 	return nil
+}
+
+func isAdminRoleAllowed(requestedRole, tokenRole *apiv2.AdminRole) bool {
+	if requestedRole == nil {
+		return true
+	}
+	if *requestedRole == apiv2.AdminRole_ADMIN_ROLE_UNSPECIFIED {
+		return false
+	}
+	if tokenRole == nil {
+		return false
+	}
+	return roleIsLowerOrEqual(requestedRole.String(), tokenRole.String(), permissions.GetServicePermissions().Roles.Admin)
+}
+
+func isInfraRoleAllowed(requestedRole, tokenRole *apiv2.InfraRole) bool {
+	if requestedRole == nil {
+		return true
+	}
+	if *requestedRole == apiv2.InfraRole_INFRA_ROLE_UNSPECIFIED {
+		return false
+	}
+	if tokenRole == nil {
+		return false
+	}
+	return roleIsLowerOrEqual(requestedRole.String(), tokenRole.String(), permissions.GetServicePermissions().Roles.Infra)
+}
+
+func deniedProjectRoles(requestedRoles map[string]apiv2.ProjectRole, token *apiv2.Token) map[string]apiv2.ProjectRole {
+	deniedRoles := make(map[string]apiv2.ProjectRole)
+	for proj, role := range requestedRoles {
+		tokenRole, ok := token.ProjectRoles[proj]
+		if !ok {
+			deniedRoles[proj] = role
+		}
+		if !roleIsLowerOrEqual(role.String(), tokenRole.String(), permissions.GetServicePermissions().Roles.Project) {
+			deniedRoles[proj] = role
+		}
+	}
+	return deniedRoles
+}
+
+func roleIsLowerOrEqual(requestedRole, tokenRole string, roleMethods map[string][]string) bool {
+	return len(roleMethods[requestedRole]) <= len(roleMethods[tokenRole])
 }
