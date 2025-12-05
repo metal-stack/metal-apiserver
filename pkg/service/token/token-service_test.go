@@ -637,7 +637,7 @@ func Test_validateTokenCreate(t *testing.T) {
 			adminSubjects: []string{},
 			wantErr:       nil,
 		},
-		// // Permissions from Token
+		// Permissions from Token
 		{
 			name: "simple token with one project and permission",
 			pat: &repository.ProjectsAndTenants{
@@ -796,7 +796,7 @@ func Test_validateTokenCreate(t *testing.T) {
 			adminSubjects: []string{},
 			wantErr:       errors.New("requested methods are not allowed with your current token"),
 		},
-		// // Roles from Token
+		// Roles from Token
 		{
 			name: "token has no role",
 			pat: &repository.ProjectsAndTenants{
@@ -905,7 +905,7 @@ func Test_validateTokenCreate(t *testing.T) {
 			adminSubjects: []string{},
 			wantErr:       errors.New("requested tenant role: \"TENANT_ROLE_UNSPECIFIED\" is not allowed"),
 		},
-		// // AdminSubjects
+		// AdminSubjects
 		{
 			name:          "requested admin role but is not allowed",
 			adminSubjects: []string{},

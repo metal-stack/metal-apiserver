@@ -449,7 +449,7 @@ type tokenRequest interface {
 }
 
 func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *apiv2.Token, req tokenRequest) error {
-	currentPermission, err := t.authorizer.TokenPermissions(ctx, currentToken)
+	currentPermissions, err := t.authorizer.TokenPermissions(ctx, currentToken)
 	if err != nil {
 		return err
 	}
@@ -498,7 +498,7 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 	}
 
 	for method, subjects := range requestedPermissions {
-		currentSubjects, ok := currentPermission[method]
+		currentSubjects, ok := currentPermissions[method]
 		if !ok {
 			return errors.New("requested methods are not allowed with your current token")
 		}
