@@ -503,13 +503,13 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 			return errors.New("requested methods are not allowed with your current token")
 		}
 
-		if _, ok := currentSubjects["*"]; ok {
+		if _, ok := currentSubjects[request.AnySubject]; ok {
 			continue
 		}
 		// It is possible to request any subjects to be able to have a token
 		// which is able to make calls to projects which will be created in the future.
 		// The actually possible subjects are calculated at request time.
-		if _, ok := subjects["*"]; ok {
+		if _, ok := subjects[request.AnySubject]; ok {
 			continue
 		}
 

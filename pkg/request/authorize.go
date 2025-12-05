@@ -88,7 +88,7 @@ func (a *authorizer) authorize(ctx context.Context, token *apiv2.Token, method s
 		return connect.NewError(connect.CodePermissionDenied, fmt.Errorf("access to:%q is not allowed because it is not part of the token permissions", method))
 	}
 
-	if _, allSubjectsAllowed := subjects[anySubject]; allSubjectsAllowed {
+	if _, allSubjectsAllowed := subjects[AnySubject]; allSubjectsAllowed {
 		// This token contains permissions to access this method regardless of subject
 		return nil
 	}
