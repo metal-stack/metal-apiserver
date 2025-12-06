@@ -1001,6 +1001,41 @@ func Test_validateTokenRequest(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		// Mixed role and permissions
+		{
+			name: "token has no role",
+			pat: &repository.ProjectsAndTenants{
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"ae8d2493-41ec-4efd-bbb4-81085b20b6fe": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
+				},
+			},
+			token: &apiv2.Token{
+				User:      "test",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"ae8d2493-41ec-4efd-bbb4-81085b20b6fe": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "i want to get a cluster",
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "ae8d2493-41ec-4efd-bbb4-81085b20b6fe",
+						Methods: []string{"/metalstack.api.v2.IPService/Get"},
+					},
+					{
+						Subject: "internet",
+						Methods: []string{"/metalstack.admin.v2.NetworkService/Create"},
+					},
+				},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"john@github": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+				Expires: inOneHour,
+			},
+			adminSubjects: []string{},
+			wantErr:       errors.New("requested roles: [TENANT_ROLE_OWNER] and methods: [/metalstack.admin.v2.NetworkService/Create] are not allowed with your current token"),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
