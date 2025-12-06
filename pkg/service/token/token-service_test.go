@@ -151,7 +151,7 @@ func Test_Create(t *testing.T) {
 				adminSubjects: []string{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested methods are not allowed with your current token`,
+			wantErrMessage: `permission_denied: requested roles: [PROJECT_ROLE_EDITOR] are not allowed with your current token`,
 		},
 		{
 			name: "user and token with project access can create project token",
@@ -209,7 +209,7 @@ func Test_Create(t *testing.T) {
 				projectRoles:  map[string]apiv2.ProjectRole{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: outdated token: requested methods are not allowed with your current token`,
+			wantErrMessage: `permission_denied: outdated token: requested roles: [PROJECT_ROLE_EDITOR] are not allowed with your current token`,
 		},
 		{
 			name: "project without but user with project access cannot create project token",
@@ -233,7 +233,7 @@ func Test_Create(t *testing.T) {
 				},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested methods are not allowed with your current token`,
+			wantErrMessage: `permission_denied: requested roles: [PROJECT_ROLE_EDITOR] are not allowed with your current token`,
 		},
 		{
 			name: "admin user and token can create new admin token",
@@ -281,7 +281,7 @@ func Test_Create(t *testing.T) {
 				adminSubjects: []string{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: outdated token: requested methods are not allowed with your current token`,
+			wantErrMessage: `permission_denied: outdated token: requested roles: [ADMIN_ROLE_EDITOR] are not allowed with your current token`,
 		},
 
 		{
@@ -303,7 +303,7 @@ func Test_Create(t *testing.T) {
 				adminSubjects: []string{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested methods are not allowed with your current token`,
+			wantErrMessage: `permission_denied: requested roles: [TENANT_ROLE_EDITOR] are not allowed with your current token`,
 		},
 		{
 			name: "user and token with tenant access can create tenant token",
@@ -360,7 +360,7 @@ func Test_Create(t *testing.T) {
 				projectRoles:  map[string]apiv2.ProjectRole{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: outdated token: requested methods are not allowed with your current token`,
+			wantErrMessage: `permission_denied: outdated token: requested roles: [TENANT_ROLE_EDITOR] are not allowed with your current token`,
 		},
 		{
 			name: "token without but user with tenant access cannot create tenant token",
@@ -384,7 +384,7 @@ func Test_Create(t *testing.T) {
 				},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested methods are not allowed with your current token`,
+			wantErrMessage: `permission_denied: requested roles: [TENANT_ROLE_EDITOR] are not allowed with your current token`,
 		},
 	}
 
@@ -1112,7 +1112,7 @@ func Test_Update(t *testing.T) {
 				adminSubjects: []string{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested methods are not allowed with your current token`,
+			wantErrMessage: `permission_denied: requested roles: [PROJECT_ROLE_EDITOR] are not allowed with your current token`,
 		},
 		{
 			name: "user and token with project access can update project token",
@@ -1184,7 +1184,7 @@ func Test_Update(t *testing.T) {
 				projectRoles:  map[string]apiv2.ProjectRole{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: outdated token: requested methods are not allowed with your current token`,
+			wantErrMessage: `permission_denied: outdated token: requested roles: [PROJECT_ROLE_EDITOR] are not allowed with your current token`,
 		},
 		{
 			name: "project without but user with project access cannot create project token",
@@ -1215,7 +1215,7 @@ func Test_Update(t *testing.T) {
 				},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested methods are not allowed with your current token`,
+			wantErrMessage: `permission_denied: requested roles: [PROJECT_ROLE_EDITOR] are not allowed with your current token`,
 		},
 		{
 			name: "admin user and token can update admin token",
@@ -1276,7 +1276,7 @@ func Test_Update(t *testing.T) {
 				adminSubjects: []string{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: outdated token: requested methods are not allowed with your current token`,
+			wantErrMessage: `permission_denied: outdated token: requested roles: [ADMIN_ROLE_EDITOR] are not allowed with your current token`,
 		},
 		{
 			name: "user and token without tenant access cannot update tenant token",
@@ -1302,7 +1302,7 @@ func Test_Update(t *testing.T) {
 				adminSubjects: []string{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested methods are not allowed with your current token`,
+			wantErrMessage: `permission_denied: requested roles: [TENANT_ROLE_EDITOR] are not allowed with your current token`,
 		},
 		{
 			name: "user and token with tenant access can update tenant token",
@@ -1372,7 +1372,7 @@ func Test_Update(t *testing.T) {
 				projectRoles:  map[string]apiv2.ProjectRole{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: outdated token: requested methods are not allowed with your current token`,
+			wantErrMessage: `permission_denied: outdated token: requested roles: [TENANT_ROLE_EDITOR] are not allowed with your current token`,
 		},
 		{
 			name: "token without but user with tenant access cannot update tenant token",
@@ -1401,7 +1401,7 @@ func Test_Update(t *testing.T) {
 				},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested methods are not allowed with your current token`,
+			wantErrMessage: `permission_denied: requested roles: [TENANT_ROLE_EDITOR] are not allowed with your current token`,
 		},
 		{
 			name: "token does not exist in database",
