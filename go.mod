@@ -12,7 +12,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/alicebob/miniredis/v2 v2.35.0
 	github.com/avast/retry-go/v4 v4.7.0
-	github.com/cockroachdb/cockroach-go/v2 v2.4.2
+	github.com/cockroachdb/cockroach-go/v2 v2.4.3
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
@@ -24,7 +24,7 @@ require (
 	github.com/klauspost/connect-compress/v2 v2.1.0
 	github.com/lestrrat-go/jwx/v2 v2.1.6
 	github.com/markbates/goth v1.82.0
-	github.com/metal-stack/api v0.0.35
+	github.com/metal-stack/api v0.0.36-0.20251204145649-7e54b95637f8
 	github.com/metal-stack/go-ipam v1.14.13
 	github.com/metal-stack/masterdata-api v0.13.0
 	github.com/metal-stack/metal-lib v0.23.5
@@ -32,7 +32,7 @@ require (
 	github.com/metal-stack/v v1.0.3
 	github.com/open-policy-agent/opa v1.10.1
 	github.com/prometheus/client_golang v1.23.2
-	github.com/redis/go-redis/v9 v9.17.0
+	github.com/redis/go-redis/v9 v9.17.2
 	github.com/rs/cors v1.11.1
 	github.com/samber/lo v1.52.0
 	github.com/stretchr/testify v1.11.1

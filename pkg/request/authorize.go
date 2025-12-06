@@ -28,8 +28,8 @@ type (
 		// If the access is not allowed, a PermissionDenied Error is returned with a proper error message.
 		// req is only fully populated after a interceptor call.
 		Authorize(ctx context.Context, token *apiv2.Token, req connect.AnyRequest) error
-		// TokenMethods returns a slice of allowed methods based on the given token
-		TokenMethods(ctx context.Context, token *apiv2.Token) ([]string, error)
+		// TokenPermissions returns the permissions based on the given token
+		TokenPermissions(ctx context.Context, token *apiv2.Token) (tokenPermissions, roleMethods, error)
 	}
 )
 
@@ -73,7 +73,7 @@ func (a *authorizer) Authorize(ctx context.Context, token *apiv2.Token, req conn
 func (a *authorizer) authorize(ctx context.Context, token *apiv2.Token, method string, subject string) error {
 	a.log.Debug("authorize", "token", token, "method", method, "subject", subject)
 
-	permissions, err := a.getTokenPermissions(ctx, token)
+	permissions, _, err := a.getTokenPermissions(ctx, token)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
@@ -88,7 +88,7 @@ func (a *authorizer) authorize(ctx context.Context, token *apiv2.Token, method s
 		return connect.NewError(connect.CodePermissionDenied, fmt.Errorf("access to:%q is not allowed because it is not part of the token permissions", method))
 	}
 
-	if _, allSubjectsAllowed := subjects[anySubject]; allSubjectsAllowed {
+	if _, allSubjectsAllowed := subjects[AnySubject]; allSubjectsAllowed {
 		// This token contains permissions to access this method regardless of subject
 		return nil
 	}
