@@ -649,7 +649,7 @@ func Test_getTokenPermissions(t *testing.T) {
 				return tt.projectsAndTenants, nil
 			}
 
-			got, gotErr := a.getTokenPermissions(t.Context(), tt.token)
+			got, _, gotErr := a.getTokenPermissions(t.Context(), tt.token)
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}

@@ -578,7 +578,7 @@ func Test_CreateForUser(t *testing.T) {
 	}
 }
 
-func Test_validateTokenCreate(t *testing.T) {
+func Test_validateTokenRequest(t *testing.T) {
 	inOneHour := durationpb.New(time.Hour)
 	tests := []struct {
 		name          string
@@ -727,7 +727,7 @@ func Test_validateTokenCreate(t *testing.T) {
 				Expires: inOneHour,
 			},
 			adminSubjects: []string{},
-			wantErr:       errors.New("requested subjects are not allowed with your current token"),
+			wantErr:       errors.New("requested subjects [cde] are not allowed with your current token"),
 		},
 		{
 			name: "simple token with one project and permission, wrong message given",
@@ -757,7 +757,7 @@ func Test_validateTokenCreate(t *testing.T) {
 				Expires: inOneHour,
 			},
 			adminSubjects: []string{},
-			wantErr:       errors.New("requested methods are not allowed with your current token"),
+			wantErr:       errors.New("requested methods: [/metalstack.api.v2.IPService/List] are not allowed with your current token"),
 		},
 		{
 			name: "simple token with one project and permission, wrong messages given",
@@ -794,7 +794,7 @@ func Test_validateTokenCreate(t *testing.T) {
 				Expires: inOneHour,
 			},
 			adminSubjects: []string{},
-			wantErr:       errors.New("requested methods are not allowed with your current token"),
+			wantErr:       errors.New("requested methods: [/metalstack.api.v2.IPService/List] are not allowed with your current token"),
 		},
 		// Roles from Token
 		{
@@ -828,7 +828,7 @@ func Test_validateTokenCreate(t *testing.T) {
 				Expires: inOneHour,
 			},
 			adminSubjects: []string{},
-			wantErr:       errors.New("requested methods are not allowed with your current token"),
+			wantErr:       errors.New("requested roles: [TENANT_ROLE_OWNER] are not allowed with your current token"),
 		},
 		{
 			name: "token has to low role",
@@ -864,7 +864,7 @@ func Test_validateTokenCreate(t *testing.T) {
 				Expires: inOneHour,
 			},
 			adminSubjects: []string{},
-			wantErr:       errors.New("requested methods are not allowed with your current token"),
+			wantErr:       errors.New("requested roles: [TENANT_ROLE_EDITOR] are not allowed with your current token"),
 		},
 		{
 			name: "token request has unspecified role",
@@ -926,7 +926,7 @@ func Test_validateTokenCreate(t *testing.T) {
 				AdminRole:   pointer.Pointer(apiv2.AdminRole_ADMIN_ROLE_VIEWER),
 				Expires:     inOneHour,
 			},
-			wantErr: errors.New("requested methods are not allowed with your current token"),
+			wantErr: errors.New("requested roles: [ADMIN_ROLE_VIEWER] are not allowed with your current token"),
 		},
 		{
 			name: "requested admin role but is only viewer of admin orga",
@@ -950,7 +950,7 @@ func Test_validateTokenCreate(t *testing.T) {
 				AdminRole:   pointer.Pointer(apiv2.AdminRole_ADMIN_ROLE_EDITOR),
 				Expires:     inOneHour,
 			},
-			wantErr: errors.New("requested methods are not allowed with your current token"),
+			wantErr: errors.New("requested roles: [ADMIN_ROLE_EDITOR] are not allowed with your current token"),
 		},
 		{
 			name: "token requested admin role but is editor in admin orga",
@@ -974,7 +974,7 @@ func Test_validateTokenCreate(t *testing.T) {
 				AdminRole:   pointer.Pointer(apiv2.AdminRole_ADMIN_ROLE_EDITOR),
 				Expires:     inOneHour,
 			},
-			wantErr: errors.New("requested methods are not allowed with your current token"),
+			wantErr: errors.New("requested roles: [ADMIN_ROLE_EDITOR] are not allowed with your current token"),
 		},
 		{
 			name: "token requested admin role and has admin role editor",

@@ -13,6 +13,7 @@ import (
 	"github.com/metal-stack/api/go/permissions"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/request"
+	"github.com/samber/lo"
 
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
@@ -449,33 +450,39 @@ type tokenRequest interface {
 }
 
 func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *apiv2.Token, req tokenRequest) error {
-	currentPermissions, err := t.authorizer.TokenPermissions(ctx, currentToken)
+	currentPermissions, _, err := t.authorizer.TokenPermissions(ctx, currentToken)
 	if err != nil {
 		return err
 	}
 
 	var (
-		adminRole *apiv2.AdminRole
-		infraRole *apiv2.InfraRole
+		adminRole      *apiv2.AdminRole
+		infraRole      *apiv2.InfraRole
+		requestedRoles []string
 	)
 
 	if req.GetAdminRole() != apiv2.AdminRole_ADMIN_ROLE_UNSPECIFIED {
 		adminRole = req.GetAdminRole().Enum()
+		requestedRoles = append(requestedRoles, adminRole.String())
 	}
 	if req.GetInfraRole() != apiv2.InfraRole_INFRA_ROLE_UNSPECIFIED {
 		infraRole = req.GetInfraRole().Enum()
+		requestedRoles = append(requestedRoles, infraRole.String())
 	}
 
 	for _, tr := range req.GetTenantRoles() {
 		if tr == apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED {
 			return fmt.Errorf("requested tenant role: %q is not allowed", tr)
 		}
+		requestedRoles = append(requestedRoles, tr.String())
 	}
 	for _, pr := range req.GetProjectRoles() {
 		if pr == apiv2.ProjectRole_PROJECT_ROLE_UNSPECIFIED {
 			return fmt.Errorf("requested project role: %q is not allowed", pr)
 		}
+		requestedRoles = append(requestedRoles, pr.String())
 	}
+
 	for _, permission := range req.GetPermissions() {
 		for _, method := range permission.Methods {
 			if _, found := permissions.GetServicePermissions().Methods[method]; !found {
@@ -485,7 +492,7 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 
 	}
 
-	requestedPermissions, err := t.authorizer.TokenPermissions(ctx, &apiv2.Token{
+	requestedPermissions, roleMethods, err := t.authorizer.TokenPermissions(ctx, &apiv2.Token{
 		User:         currentToken.User,
 		Permissions:  req.GetPermissions(),
 		ProjectRoles: req.GetProjectRoles(),
@@ -497,10 +504,18 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 		return err
 	}
 
+	var (
+		deniedMethods       []string
+		possiblyDeniedRoles []string
+		deniedRoles         []string
+		deniedSubjects      []string
+	)
+
+	// Compare requested permissions with permissions from the token
 	for method, subjects := range requestedPermissions {
 		currentSubjects, ok := currentPermissions[method]
 		if !ok {
-			return errors.New("requested methods are not allowed with your current token")
+			deniedMethods = append(deniedMethods, method)
 		}
 
 		if _, ok := currentSubjects[request.AnySubject]; ok {
@@ -515,9 +530,53 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 
 		for subject := range subjects {
 			if _, ok := currentSubjects[subject]; !ok {
-				return errors.New("requested subjects are not allowed with your current token")
+				deniedSubjects = append(deniedSubjects, subject)
+				// return errors.New("requested subjects are not allowed with your current token")
 			}
 		}
+	}
+
+	// Now calculate meaningful error messages
+	for _, method := range deniedMethods {
+		roles := permissions.GetServicePermissions().MethodRoles[method]
+		possiblyDeniedRoles = append(possiblyDeniedRoles, roles...)
+	}
+	possiblyDeniedRoles = lo.Uniq(possiblyDeniedRoles)
+
+	for _, possiblyDeniedRole := range possiblyDeniedRoles {
+		if slices.Contains(requestedRoles, possiblyDeniedRole) {
+			deniedRoles = append(deniedRoles, possiblyDeniedRole)
+		}
+	}
+
+	var deniedPermissionMethods []string
+	for _, deniedMethod := range lo.Uniq(deniedMethods) {
+		if !slices.Contains(roleMethods, deniedMethod) {
+			deniedPermissionMethods = append(deniedPermissionMethods, deniedMethod)
+		}
+	}
+
+	if len(deniedRoles) > 0 || len(deniedPermissionMethods) > 0 {
+		var (
+			rolesError   string
+			methodsError string
+			both         string
+		)
+		if len(deniedRoles) > 0 {
+			rolesError = fmt.Sprintf("roles: %s ", deniedRoles)
+		}
+		if len(deniedPermissionMethods) > 0 {
+			methodsError = fmt.Sprintf("methods: %s ", deniedPermissionMethods)
+		}
+		if len(deniedRoles) > 0 && len(deniedPermissionMethods) > 0 {
+			both = "and "
+		}
+
+		return fmt.Errorf("requested %s%s%sare not allowed with your current token", rolesError, both, methodsError)
+	}
+
+	if len(deniedSubjects) > 0 {
+		return fmt.Errorf("requested subjects %s are not allowed with your current token", deniedSubjects)
 	}
 
 	return nil
