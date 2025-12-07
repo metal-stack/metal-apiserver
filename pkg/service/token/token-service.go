@@ -450,6 +450,7 @@ type tokenRequest interface {
 }
 
 func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *apiv2.Token, req tokenRequest) error {
+	// Calculate the permission from the token in the request
 	currentPermissions, _, err := t.authorizer.TokenPermissions(ctx, currentToken)
 	if err != nil {
 		return err
@@ -461,6 +462,7 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 		requestedRoles []string
 	)
 
+	// Ensure no unspecified roles are requested.
 	if req.GetAdminRole() != apiv2.AdminRole_ADMIN_ROLE_UNSPECIFIED {
 		adminRole = req.GetAdminRole().Enum()
 		requestedRoles = append(requestedRoles, adminRole.String())
@@ -483,6 +485,7 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 		requestedRoles = append(requestedRoles, pr.String())
 	}
 
+	// Ensure no permissions pointing to unknown methods are requested
 	for _, permission := range req.GetPermissions() {
 		for _, method := range permission.Methods {
 			if _, found := permissions.GetServicePermissions().Methods[method]; !found {
@@ -492,6 +495,8 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 
 	}
 
+	// Calculate the permission from the token request (either create/update or refresh)
+	// and the methods which are coming from roles only.
 	requestedPermissions, roleMethods, err := t.authorizer.TokenPermissions(ctx, &apiv2.Token{
 		User:         currentToken.User,
 		Permissions:  req.GetPermissions(),
@@ -531,24 +536,26 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 		for subject := range subjects {
 			if _, ok := currentSubjects[subject]; !ok {
 				deniedSubjects = append(deniedSubjects, subject)
-				// return errors.New("requested subjects are not allowed with your current token")
 			}
 		}
 	}
 
-	// Now calculate meaningful error messages
+	// Now calculate meaningful error messages.
+	// First map the denied methods to roles which could access these methods.
 	for _, method := range deniedMethods {
 		roles := permissions.GetServicePermissions().MethodRoles[method]
 		possiblyDeniedRoles = append(possiblyDeniedRoles, roles...)
 	}
 	possiblyDeniedRoles = lo.Uniq(possiblyDeniedRoles)
 
+	// Then filter these roles by the requested roles
 	for _, possiblyDeniedRole := range possiblyDeniedRoles {
 		if slices.Contains(requestedRoles, possiblyDeniedRole) {
 			deniedRoles = append(deniedRoles, possiblyDeniedRole)
 		}
 	}
 
+	// Methods which are denied but not from a requested role are requested by permissions
 	var deniedPermissionMethods []string
 	for _, deniedMethod := range lo.Uniq(deniedMethods) {
 		if !slices.Contains(roleMethods, deniedMethod) {
@@ -556,6 +563,7 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 		}
 	}
 
+	// create a natural language error
 	if len(deniedRoles) > 0 || len(deniedPermissionMethods) > 0 {
 		var (
 			rolesError   string
