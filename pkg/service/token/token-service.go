@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"strings"
 	"time"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -510,10 +511,10 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 	}
 
 	var (
-		deniedMethods       []string
-		possiblyDeniedRoles []string
-		deniedRoles         []string
-		deniedSubjects      []string
+		deniedMethods          []string
+		possiblyDeniedRoles    []string
+		deniedRoles            []string
+		deniedSubjectsByMethod = map[string][]string{}
 	)
 
 	// Compare requested permissions with permissions from the token
@@ -535,7 +536,10 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 
 		for subject := range subjects {
 			if _, ok := currentSubjects[subject]; !ok {
-				deniedSubjects = append(deniedSubjects, subject)
+				if _, ok := deniedSubjectsByMethod[method]; !ok {
+					deniedSubjectsByMethod[method] = []string{}
+				}
+				deniedSubjectsByMethod[method] = append(deniedSubjectsByMethod[method], subject)
 			}
 		}
 	}
@@ -583,8 +587,12 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 		return fmt.Errorf("requested %s%s%sare not allowed with your current token", rolesError, both, methodsError)
 	}
 
-	if len(deniedSubjects) > 0 {
-		return fmt.Errorf("requested subjects %s are not allowed with your current token", deniedSubjects)
+	if len(deniedSubjectsByMethod) > 0 {
+		var errstrings []string
+		for method, subjects := range deniedSubjectsByMethod {
+			errstrings = append(errstrings, fmt.Sprintf("%s:%s", method, subjects))
+		}
+		return fmt.Errorf("requested subjects %s are not allowed with your current token", strings.Join(errstrings, ","))
 	}
 
 	return nil

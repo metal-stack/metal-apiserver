@@ -727,7 +727,7 @@ func Test_validateTokenRequest(t *testing.T) {
 				Expires: inOneHour,
 			},
 			adminSubjects: []string{},
-			wantErr:       errors.New("requested subjects [cde] are not allowed with your current token"),
+			wantErr:       errors.New("requested subjects /metalstack.api.v2.IPService/Get:[cde] are not allowed with your current token"),
 		},
 		{
 			name: "simple token with one project and permission, wrong message given",
