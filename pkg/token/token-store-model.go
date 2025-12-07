@@ -29,6 +29,8 @@ type token struct {
 	TenantRoles map[string]string `json:"tenant_roles,omitempty"`
 	// AdminRole defines the admin role of the token owner
 	AdminRole *string `json:"admin_role,omitempty"`
+	// InfraRole defines the infra role of the token owner
+	InfraRole *string `json:"infra_role,omitempty"`
 }
 
 type methodPermission struct {
@@ -56,6 +58,7 @@ func toInternal(t *apiv2.Token) *token {
 		issuedAt *time.Time
 
 		adminRole *string
+		infraRole *string
 	)
 
 	if t.Expires != nil {
@@ -76,6 +79,10 @@ func toInternal(t *apiv2.Token) *token {
 		adminRole = pointer.Pointer(t.AdminRole.String())
 	}
 
+	if t.InfraRole != nil {
+		infraRole = pointer.Pointer(t.InfraRole.String())
+	}
+
 	return &token{
 		Uuid:         t.Uuid,
 		User:         t.User,
@@ -87,6 +94,7 @@ func toInternal(t *apiv2.Token) *token {
 		ProjectRoles: projectRoles,
 		TenantRoles:  tenantRoles,
 		AdminRole:    adminRole,
+		InfraRole:    infraRole,
 	}
 }
 
@@ -107,6 +115,7 @@ func toExternal(t *token) *apiv2.Token {
 		issuedAt *timestamppb.Timestamp
 
 		adminRole *apiv2.AdminRole
+		infraRole *apiv2.InfraRole
 	)
 
 	if t.Expires != nil {
@@ -127,6 +136,10 @@ func toExternal(t *token) *apiv2.Token {
 		adminRole = pointer.Pointer(apiv2.AdminRole(apiv2.AdminRole_value[*t.AdminRole]))
 	}
 
+	if t.InfraRole != nil {
+		infraRole = pointer.Pointer(apiv2.InfraRole(apiv2.InfraRole_value[*t.InfraRole]))
+	}
+
 	return &apiv2.Token{
 		Uuid:         t.Uuid,
 		User:         t.User,
@@ -138,5 +151,6 @@ func toExternal(t *token) *apiv2.Token {
 		ProjectRoles: projectRoles,
 		TenantRoles:  tenantRoles,
 		AdminRole:    adminRole,
+		InfraRole:    infraRole,
 	}
 }
