@@ -47,7 +47,7 @@ func New(log *slog.Logger, repo *repository.Store) apiv2connect.MethodServiceHan
 func (m *methodServiceServer) List(ctx context.Context, _ *apiv2.MethodServiceListRequest) (*apiv2.MethodServiceListResponse, error) {
 	token, _ := token.TokenFromContext(ctx)
 
-	permissions, _, err := m.authorizer.TokenPermissions(ctx, token)
+	permissions, err := m.authorizer.TokenPermissions(ctx, token)
 	if err != nil {
 		return nil, err
 	}

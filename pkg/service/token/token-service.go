@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
-	"strings"
 	"time"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -14,7 +13,6 @@ import (
 	"github.com/metal-stack/api/go/permissions"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/request"
-	"github.com/samber/lo"
 
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
@@ -172,7 +170,7 @@ func (t *tokenService) Update(ctx context.Context, req *apiv2.TokenServiceUpdate
 	}
 
 	// now, we validate if the user is still permitted to update the token
-	// doing this check is not strictly necessary because the resulting token would fail in the opa auther when being compared
+	// doing this check is not strictly necessary because the resulting token would fail in the auther when being compared
 	// to the actual user permissions, but it's nicer for the user to already prevent token update immediately in this place
 
 	projectsAndTenants, err := t.projectsAndTenantsGetter(ctx, token.GetUser())
@@ -262,7 +260,7 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 	}
 
 	// now, we validate if the user is still permitted to create such a token
-	// doing this check is not strictly necessary because the resulting token would fail in the opa auther when being compared
+	// doing this check is not strictly necessary because the resulting token would fail in the auther when being compared
 	// to the actual user permissions, but it's nicer for the user to already prevent token creation immediately in this place
 
 	projectsAndTenants, err := t.projectsAndTenantsGetter(ctx, token.GetUser())
@@ -387,7 +385,7 @@ func (t *tokenService) Refresh(ctx context.Context, _ *apiv2.TokenServiceRefresh
 	}
 
 	// now, we validate if the user is still permitted to refresh the token
-	// doing this check is not strictly necessary because the resulting token would fail in the opa auther when being compared
+	// doing this check is not strictly necessary because the resulting token would fail in the auther when being compared
 	// to the actual user permissions, but it's nicer for the user to already prevent token update immediately in this place
 
 	projectsAndTenants, err := t.projectsAndTenantsGetter(ctx, token.GetUser())
@@ -452,38 +450,33 @@ type tokenRequest interface {
 
 func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *apiv2.Token, req tokenRequest) error {
 	// Calculate the permission from the token in the request
-	currentPermissions, _, err := t.authorizer.TokenPermissions(ctx, currentToken)
+	currentPermissions, err := t.authorizer.TokenPermissions(ctx, currentToken)
 	if err != nil {
 		return err
 	}
 
 	var (
-		adminRole      *apiv2.AdminRole
-		infraRole      *apiv2.InfraRole
-		requestedRoles []string
+		adminRole *apiv2.AdminRole
+		infraRole *apiv2.InfraRole
 	)
 
 	// Ensure no unspecified roles are requested.
 	if req.GetAdminRole() != apiv2.AdminRole_ADMIN_ROLE_UNSPECIFIED {
 		adminRole = req.GetAdminRole().Enum()
-		requestedRoles = append(requestedRoles, adminRole.String())
 	}
 	if req.GetInfraRole() != apiv2.InfraRole_INFRA_ROLE_UNSPECIFIED {
 		infraRole = req.GetInfraRole().Enum()
-		requestedRoles = append(requestedRoles, infraRole.String())
 	}
 
 	for _, tr := range req.GetTenantRoles() {
 		if tr == apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED {
 			return fmt.Errorf("requested tenant role: %q is not allowed", tr)
 		}
-		requestedRoles = append(requestedRoles, tr.String())
 	}
 	for _, pr := range req.GetProjectRoles() {
 		if pr == apiv2.ProjectRole_PROJECT_ROLE_UNSPECIFIED {
 			return fmt.Errorf("requested project role: %q is not allowed", pr)
 		}
-		requestedRoles = append(requestedRoles, pr.String())
 	}
 
 	// Ensure no permissions pointing to unknown methods are requested
@@ -493,12 +486,11 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 				return fmt.Errorf("unknown method %q", method)
 			}
 		}
-
 	}
 
 	// Calculate the permission from the token request (either create/update or refresh)
 	// and the methods which are coming from roles only.
-	requestedPermissions, roleMethods, err := t.authorizer.TokenPermissions(ctx, &apiv2.Token{
+	requestedPermissions, err := t.authorizer.TokenPermissions(ctx, &apiv2.Token{
 		User:         currentToken.User,
 		Permissions:  req.GetPermissions(),
 		ProjectRoles: req.GetProjectRoles(),
@@ -510,18 +502,25 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 		return err
 	}
 
-	var (
-		deniedMethods          []string
-		possiblyDeniedRoles    []string
-		deniedRoles            []string
-		deniedSubjectsByMethod = map[string][]string{}
-	)
+	// sort requestedPermissions by method
+	var methods []string
+	for method := range requestedPermissions {
+		methods = append(methods, method)
+	}
+	slices.Sort(methods)
 
-	// Compare requested permissions with permissions from the token
-	for method, subjects := range requestedPermissions {
+	for _, method := range methods {
+		subjects, ok := requestedPermissions[method]
+		if !ok {
+			continue
+		}
 		currentSubjects, ok := currentPermissions[method]
 		if !ok {
-			deniedMethods = append(deniedMethods, method)
+			errMsg := fmt.Sprintf("the following method %q is not allowed", method)
+			if len(subjects) > 0 {
+				errMsg += fmt.Sprintf(" on any of the requested subjects: %s", subjects)
+			}
+			return errors.New(errMsg)
 		}
 
 		if _, ok := currentSubjects[request.AnySubject]; ok {
@@ -536,63 +535,9 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 
 		for subject := range subjects {
 			if _, ok := currentSubjects[subject]; !ok {
-				if _, ok := deniedSubjectsByMethod[method]; !ok {
-					deniedSubjectsByMethod[method] = []string{}
-				}
-				deniedSubjectsByMethod[method] = append(deniedSubjectsByMethod[method], subject)
+				return fmt.Errorf("method %q is not allowed on subject %q with your current user permissions", method, subject)
 			}
 		}
-	}
-
-	// Now calculate meaningful error messages.
-	// First map the denied methods to roles which could access these methods.
-	for _, method := range deniedMethods {
-		roles := permissions.GetServicePermissions().MethodRoles[method]
-		possiblyDeniedRoles = append(possiblyDeniedRoles, roles...)
-	}
-	possiblyDeniedRoles = lo.Uniq(possiblyDeniedRoles)
-
-	// Then filter these roles by the requested roles
-	for _, possiblyDeniedRole := range possiblyDeniedRoles {
-		if slices.Contains(requestedRoles, possiblyDeniedRole) {
-			deniedRoles = append(deniedRoles, possiblyDeniedRole)
-		}
-	}
-
-	// Methods which are denied but not from a requested role are requested by permissions
-	var deniedPermissionMethods []string
-	for _, deniedMethod := range lo.Uniq(deniedMethods) {
-		if !slices.Contains(roleMethods, deniedMethod) {
-			deniedPermissionMethods = append(deniedPermissionMethods, deniedMethod)
-		}
-	}
-
-	// create a natural language error
-	if len(deniedRoles) > 0 || len(deniedPermissionMethods) > 0 {
-		var (
-			rolesError   string
-			methodsError string
-			both         string
-		)
-		if len(deniedRoles) > 0 {
-			rolesError = fmt.Sprintf("roles: %s ", deniedRoles)
-		}
-		if len(deniedPermissionMethods) > 0 {
-			methodsError = fmt.Sprintf("methods: %s ", deniedPermissionMethods)
-		}
-		if len(deniedRoles) > 0 && len(deniedPermissionMethods) > 0 {
-			both = "and "
-		}
-
-		return fmt.Errorf("requested %s%s%sare not allowed with your current user permissions", rolesError, both, methodsError)
-	}
-
-	if len(deniedSubjectsByMethod) > 0 {
-		var errstrings []string
-		for method, subjects := range deniedSubjectsByMethod {
-			errstrings = append(errstrings, fmt.Sprintf("%s:%s", method, subjects))
-		}
-		return fmt.Errorf("requested subjects %s are not allowed with your current user permissions", strings.Join(errstrings, ","))
 	}
 
 	return nil

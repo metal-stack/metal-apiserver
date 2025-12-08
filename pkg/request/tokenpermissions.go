@@ -22,20 +22,28 @@ type (
 	//
 	// eg. map[method]set[subject]
 	tokenPermissions map[string]set
-	// roleMethods is a slice of methods granted by roles and not permissions.
-	roleMethods []string
 )
+
+func (s set) String() string {
+	var keys []string
+	for k := range s {
+		keys = append(keys, k)
+	}
+	if len(keys) == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%s", keys)
+}
 
 const AnySubject = "*"
 
-func (a *authorizer) TokenPermissions(ctx context.Context, token *apiv2.Token) (tokenPermissions, roleMethods, error) {
+func (a *authorizer) TokenPermissions(ctx context.Context, token *apiv2.Token) (tokenPermissions, error) {
 	return a.getTokenPermissions(ctx, token)
 }
 
-func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token) (tokenPermissions, roleMethods, error) {
+func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token) (tokenPermissions, error) {
 	var (
 		tp                 = tokenPermissions{}
-		rm                 = roleMethods{}
 		servicePermissions = permissions.GetServicePermissions()
 	)
 
@@ -46,12 +54,12 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 			}
 			tp[method][AnySubject] = entry{}
 		}
-		return tp, rm, nil
+		return tp, nil
 	}
 
 	pat, err := a.projectsAndTenantsGetter(ctx, token.User)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	if token.TokenType == apiv2.TokenType_TOKEN_TYPE_USER {
@@ -71,11 +79,10 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 		case apiv2.AdminRole_ADMIN_ROLE_EDITOR:
 			for method := range servicePermissions.Methods {
 				tp[method] = set{AnySubject: entry{}}
-				rm = append(rm, method)
 			}
 
 			// Return here because all methods are allowed with all permissions
-			return tp, rm, nil
+			return tp, nil
 
 		case apiv2.AdminRole_ADMIN_ROLE_VIEWER:
 			var (
@@ -95,12 +102,11 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 
 			for _, method := range adminViewerMethods {
 				tp[method] = set{AnySubject: entry{}}
-				rm = append(rm, method)
 			}
 			// Do not return here because it might be that some permissions are granted later
 
 		default:
-			return nil, nil, fmt.Errorf("given admin role:%s is not valid", *token.AdminRole)
+			return nil, fmt.Errorf("given admin role:%s is not valid", *token.AdminRole)
 		}
 	}
 
@@ -110,7 +116,6 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 			if _, ok := tp[method]; !ok {
 				tp[method] = set{}
 			}
-			rm = append(rm, method)
 			tp[method][AnySubject] = entry{}
 		}
 	}
@@ -133,7 +138,6 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 			if _, ok := tp[method]; !ok {
 				tp[method] = set{}
 			}
-			rm = append(rm, method)
 			tp[method][subject] = entry{}
 		}
 	}
@@ -145,7 +149,6 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 			if _, ok := tp[method]; !ok {
 				tp[method] = set{}
 			}
-			rm = append(rm, method)
 			tp[method][subject] = entry{}
 		}
 	}
@@ -219,7 +222,7 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 		}
 	}
 
-	return tp, rm, nil
+	return tp, nil
 }
 
 func publicMethods() []string {

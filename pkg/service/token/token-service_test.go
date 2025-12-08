@@ -151,7 +151,7 @@ func Test_Create(t *testing.T) {
 				adminSubjects: []string{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested roles: [PROJECT_ROLE_EDITOR] are not allowed with your current user permissions`,
+			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.IPService/Create" is not allowed`,
 		},
 		{
 			name: "user and token with project access can create project token",
@@ -209,7 +209,7 @@ func Test_Create(t *testing.T) {
 				projectRoles:  map[string]apiv2.ProjectRole{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: outdated token: requested roles: [PROJECT_ROLE_EDITOR] are not allowed with your current user permissions`,
+			wantErrMessage: `permission_denied: outdated token: the following method "/metalstack.api.v2.IPService/Create" is not allowed`,
 		},
 		{
 			name: "project without but user with project access cannot create project token",
@@ -233,7 +233,7 @@ func Test_Create(t *testing.T) {
 				},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested roles: [PROJECT_ROLE_EDITOR] are not allowed with your current user permissions`,
+			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.IPService/Create" is not allowed on any of the requested subjects: [00000000-0000-0000-0000-000000000000]`,
 		},
 		{
 			name: "admin user and token can create new admin token",
@@ -281,7 +281,7 @@ func Test_Create(t *testing.T) {
 				adminSubjects: []string{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: outdated token: requested roles: [ADMIN_ROLE_EDITOR] are not allowed with your current user permissions`,
+			wantErrMessage: `permission_denied: outdated token: the following method "/grpc.reflection.v1.ServerReflection/ServerReflectionInfo" is not allowed on any of the requested subjects: [*]`,
 		},
 
 		{
@@ -303,7 +303,7 @@ func Test_Create(t *testing.T) {
 				adminSubjects: []string{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested roles: [TENANT_ROLE_EDITOR] are not allowed with your current user permissions`,
+			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.ProjectService/Create" is not allowed`,
 		},
 		{
 			name: "user and token with tenant access can create tenant token",
@@ -360,7 +360,7 @@ func Test_Create(t *testing.T) {
 				projectRoles:  map[string]apiv2.ProjectRole{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: outdated token: requested roles: [TENANT_ROLE_EDITOR] are not allowed with your current user permissions`,
+			wantErrMessage: `permission_denied: outdated token: the following method "/metalstack.api.v2.ProjectService/Create" is not allowed`,
 		},
 		{
 			name: "token without but user with tenant access cannot create tenant token",
@@ -384,7 +384,7 @@ func Test_Create(t *testing.T) {
 				},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested roles: [TENANT_ROLE_EDITOR] are not allowed with your current user permissions`,
+			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.ProjectService/Create" is not allowed on any of the requested subjects: [mascots]`,
 		},
 	}
 
@@ -727,7 +727,7 @@ func Test_validateTokenRequest(t *testing.T) {
 				Expires: inOneHour,
 			},
 			adminSubjects: []string{},
-			wantErr:       errors.New("requested subjects /metalstack.api.v2.IPService/Get:[cde] are not allowed with your current user permissions"),
+			wantErr:       errors.New("method \"/metalstack.api.v2.IPService/Get\" is not allowed on subject \"cde\" with your current user permissions"),
 		},
 		{
 			name: "simple token with one project and permission, wrong message given",
@@ -757,7 +757,7 @@ func Test_validateTokenRequest(t *testing.T) {
 				Expires: inOneHour,
 			},
 			adminSubjects: []string{},
-			wantErr:       errors.New("requested methods: [/metalstack.api.v2.IPService/List] are not allowed with your current user permissions"),
+			wantErr:       errors.New("the following method \"/metalstack.api.v2.IPService/List\" is not allowed on any of the requested subjects: [abc]"),
 		},
 		{
 			name: "simple token with one project and permission, wrong messages given",
@@ -794,7 +794,7 @@ func Test_validateTokenRequest(t *testing.T) {
 				Expires: inOneHour,
 			},
 			adminSubjects: []string{},
-			wantErr:       errors.New("requested methods: [/metalstack.api.v2.IPService/List] are not allowed with your current user permissions"),
+			wantErr:       errors.New("the following method \"/metalstack.api.v2.IPService/List\" is not allowed on any of the requested subjects: [abc]"),
 		},
 		// Roles from Token
 		{
@@ -828,7 +828,7 @@ func Test_validateTokenRequest(t *testing.T) {
 				Expires: inOneHour,
 			},
 			adminSubjects: []string{},
-			wantErr:       errors.New("requested roles: [TENANT_ROLE_OWNER] are not allowed with your current user permissions"),
+			wantErr:       errors.New("the following method \"/metalstack.api.v2.ProjectService/Create\" is not allowed"),
 		},
 		{
 			name: "token has to low role",
@@ -864,7 +864,7 @@ func Test_validateTokenRequest(t *testing.T) {
 				Expires: inOneHour,
 			},
 			adminSubjects: []string{},
-			wantErr:       errors.New("requested roles: [TENANT_ROLE_EDITOR] are not allowed with your current user permissions"),
+			wantErr:       errors.New("the following method \"/metalstack.api.v2.ProjectService/Create\" is not allowed"),
 		},
 		{
 			name: "token request has unspecified role",
@@ -926,7 +926,7 @@ func Test_validateTokenRequest(t *testing.T) {
 				AdminRole:   pointer.Pointer(apiv2.AdminRole_ADMIN_ROLE_VIEWER),
 				Expires:     inOneHour,
 			},
-			wantErr: errors.New("requested roles: [ADMIN_ROLE_VIEWER] are not allowed with your current user permissions"),
+			wantErr: errors.New("the following method \"/grpc.reflection.v1.ServerReflection/ServerReflectionInfo\" is not allowed on any of the requested subjects: [*]"),
 		},
 		{
 			name: "requested admin role but is only viewer of admin orga",
@@ -950,7 +950,7 @@ func Test_validateTokenRequest(t *testing.T) {
 				AdminRole:   pointer.Pointer(apiv2.AdminRole_ADMIN_ROLE_EDITOR),
 				Expires:     inOneHour,
 			},
-			wantErr: errors.New("requested roles: [ADMIN_ROLE_EDITOR] are not allowed with your current user permissions"),
+			wantErr: errors.New("the following method \"/grpc.reflection.v1.ServerReflection/ServerReflectionInfo\" is not allowed on any of the requested subjects: [*]"),
 		},
 		{
 			name: "token requested admin role but is editor in admin orga",
@@ -974,7 +974,7 @@ func Test_validateTokenRequest(t *testing.T) {
 				AdminRole:   pointer.Pointer(apiv2.AdminRole_ADMIN_ROLE_EDITOR),
 				Expires:     inOneHour,
 			},
-			wantErr: errors.New("requested roles: [ADMIN_ROLE_EDITOR] are not allowed with your current user permissions"),
+			wantErr: errors.New("the following method \"/grpc.reflection.v1.ServerReflection/ServerReflectionInfo\" is not allowed on any of the requested subjects: [*]"),
 		},
 		{
 			name: "token requested admin role and has admin role editor",
@@ -1034,7 +1034,7 @@ func Test_validateTokenRequest(t *testing.T) {
 				InfraRole:   apiv2.InfraRole_INFRA_ROLE_EDITOR.Enum(),
 				Expires:     inOneHour,
 			},
-			wantErr: errors.New("requested roles: [INFRA_ROLE_EDITOR] are not allowed with your current user permissions"),
+			wantErr: errors.New("the following method \"/metalstack.infra.v2.BMCService/UpdateBMCInfo\" is not allowed on any of the requested subjects: [*]"),
 		},
 		// Mixed role and permissions
 		{
@@ -1069,7 +1069,7 @@ func Test_validateTokenRequest(t *testing.T) {
 				Expires: inOneHour,
 			},
 			adminSubjects: []string{},
-			wantErr:       errors.New("requested roles: [TENANT_ROLE_OWNER] and methods: [/metalstack.admin.v2.NetworkService/Create] are not allowed with your current user permissions"),
+			wantErr:       errors.New("the following method \"/metalstack.admin.v2.NetworkService/Create\" is not allowed on any of the requested subjects: [internet]"),
 		},
 	}
 	for _, tt := range tests {
@@ -1182,7 +1182,7 @@ func Test_Update(t *testing.T) {
 				adminSubjects: []string{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested roles: [PROJECT_ROLE_EDITOR] are not allowed with your current user permissions`,
+			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.IPService/Create" is not allowed`,
 		},
 		{
 			name: "user and token with project access can update project token",
@@ -1254,7 +1254,7 @@ func Test_Update(t *testing.T) {
 				projectRoles:  map[string]apiv2.ProjectRole{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: outdated token: requested roles: [PROJECT_ROLE_EDITOR] are not allowed with your current user permissions`,
+			wantErrMessage: `permission_denied: outdated token: the following method "/metalstack.api.v2.IPService/Create" is not allowed`,
 		},
 		{
 			name: "project without but user with project access cannot create project token",
@@ -1285,7 +1285,7 @@ func Test_Update(t *testing.T) {
 				},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested roles: [PROJECT_ROLE_EDITOR] are not allowed with your current user permissions`,
+			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.IPService/Create" is not allowed on any of the requested subjects: [00000000-0000-0000-0000-000000000000]`,
 		},
 		{
 			name: "admin user and token can update admin token",
@@ -1346,7 +1346,7 @@ func Test_Update(t *testing.T) {
 				adminSubjects: []string{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: outdated token: requested roles: [ADMIN_ROLE_EDITOR] are not allowed with your current user permissions`,
+			wantErrMessage: `permission_denied: outdated token: the following method "/grpc.reflection.v1.ServerReflection/ServerReflectionInfo" is not allowed on any of the requested subjects: [*]`,
 		},
 		{
 			name: "user and token without tenant access cannot update tenant token",
@@ -1372,7 +1372,7 @@ func Test_Update(t *testing.T) {
 				adminSubjects: []string{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested roles: [TENANT_ROLE_EDITOR] are not allowed with your current user permissions`,
+			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.ProjectService/Create" is not allowed`,
 		},
 		{
 			name: "user and token with tenant access can update tenant token",
@@ -1442,7 +1442,7 @@ func Test_Update(t *testing.T) {
 				projectRoles:  map[string]apiv2.ProjectRole{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: outdated token: requested roles: [TENANT_ROLE_EDITOR] are not allowed with your current user permissions`,
+			wantErrMessage: `permission_denied: outdated token: the following method "/metalstack.api.v2.ProjectService/Create" is not allowed`,
 		},
 		{
 			name: "token without but user with tenant access cannot update tenant token",
@@ -1471,7 +1471,7 @@ func Test_Update(t *testing.T) {
 				},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: requested roles: [TENANT_ROLE_EDITOR] are not allowed with your current user permissions`,
+			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.ProjectService/Create" is not allowed on any of the requested subjects: [mascots]`,
 		},
 		{
 			name: "token does not exist in database",
