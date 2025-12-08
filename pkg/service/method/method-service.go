@@ -3,6 +3,7 @@ package method
 import (
 	"context"
 	"log/slog"
+	"slices"
 	"time"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -46,10 +47,16 @@ func New(log *slog.Logger, repo *repository.Store) apiv2connect.MethodServiceHan
 func (m *methodServiceServer) List(ctx context.Context, _ *apiv2.MethodServiceListRequest) (*apiv2.MethodServiceListResponse, error) {
 	token, _ := token.TokenFromContext(ctx)
 
-	methods, err := m.authorizer.TokenMethods(ctx, token)
+	permissions, err := m.authorizer.TokenPermissions(ctx, token)
 	if err != nil {
 		return nil, err
 	}
+
+	var methods []string
+	for method := range permissions {
+		methods = append(methods, method)
+	}
+	slices.Sort(methods)
 
 	return &apiv2.MethodServiceListResponse{
 		Methods: methods,
