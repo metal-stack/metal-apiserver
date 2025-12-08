@@ -1001,6 +1001,41 @@ func Test_validateTokenRequest(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		// Infra Roles
+		{
+			name: "admin editor requested infra editor",
+			adminSubjects: []string{
+				"company-admin@github",
+			},
+			token: &apiv2.Token{
+				User:      "company-admin@github",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				AdminRole: apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "metal-bmc token",
+				InfraRole:   apiv2.InfraRole_INFRA_ROLE_EDITOR.Enum(),
+				Expires:     inOneHour,
+			},
+			wantErr: nil,
+		},
+		{
+			name: "admin viewer requested infra editor",
+			adminSubjects: []string{
+				"company-admin@github",
+			},
+			token: &apiv2.Token{
+				User:      "company-admin@github",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				AdminRole: apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "metal-bmc token",
+				InfraRole:   apiv2.InfraRole_INFRA_ROLE_EDITOR.Enum(),
+				Expires:     inOneHour,
+			},
+			wantErr: errors.New("requested roles: [INFRA_ROLE_EDITOR] are not allowed with your current token"),
+		},
 		// Mixed role and permissions
 		{
 			name: "token has no role",
