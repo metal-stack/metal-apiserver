@@ -584,7 +584,7 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 			both = "and "
 		}
 
-		return fmt.Errorf("requested %s%s%sare not allowed with your current token", rolesError, both, methodsError)
+		return fmt.Errorf("requested %s%s%sare not allowed with your current user permissions", rolesError, both, methodsError)
 	}
 
 	if len(deniedSubjectsByMethod) > 0 {
@@ -592,7 +592,7 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 		for method, subjects := range deniedSubjectsByMethod {
 			errstrings = append(errstrings, fmt.Sprintf("%s:%s", method, subjects))
 		}
-		return fmt.Errorf("requested subjects %s are not allowed with your current token", strings.Join(errstrings, ","))
+		return fmt.Errorf("requested subjects %s are not allowed with your current user permissions", strings.Join(errstrings, ","))
 	}
 
 	return nil
