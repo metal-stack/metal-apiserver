@@ -189,7 +189,7 @@ func (t *tokenService) Update(ctx context.Context, req *apiv2.TokenServiceUpdate
 	}
 	err = t.validateTokenRequest(ctx, fullUserToken, req)
 	if err != nil {
-		return nil, errorutil.PermissionDenied("outdated token: %w", err)
+		return nil, errorutil.NewPermissionDenied(err)
 	}
 
 	// now follows the update
@@ -291,7 +291,7 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 
 	err = t.validateTokenRequest(ctx, fullUserToken, req)
 	if err != nil {
-		return nil, errorutil.PermissionDenied("outdated token: %w", err)
+		return nil, errorutil.NewPermissionDenied(err)
 	}
 
 	privateKey, err := t.certs.LatestPrivate(ctx)
@@ -404,7 +404,7 @@ func (t *tokenService) Refresh(ctx context.Context, _ *apiv2.TokenServiceRefresh
 	}
 	err = t.validateTokenRequest(ctx, fullUserToken, createRequest)
 	if err != nil {
-		return nil, errorutil.PermissionDenied("outdated token: %w", err)
+		return nil, errorutil.NewPermissionDenied(err)
 	}
 
 	// now follows the refresh, aka create a new token
