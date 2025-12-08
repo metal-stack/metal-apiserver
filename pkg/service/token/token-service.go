@@ -176,7 +176,7 @@ func (t *tokenService) Update(ctx context.Context, req *apiv2.TokenServiceUpdate
 	}
 
 	// now, we validate if the user is still permitted to update the token
-	// doing this check is not strictly necessary because the resulting token would fail in the opa auther when being compared
+	// doing this check is not strictly necessary because the resulting token would fail in the auther when being compared
 	// to the actual user permissions, but it's nicer for the user to already prevent token update immediately in this place
 
 	projectsAndTenants, err := t.projectsAndTenantsGetter(ctx, token.GetUser())
@@ -261,7 +261,7 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 	}
 
 	// now, we validate if the user is still permitted to create such a token
-	// doing this check is not strictly necessary because the resulting token would fail in the opa auther when being compared
+	// doing this check is not strictly necessary because the resulting token would fail in the auther when being compared
 	// to the actual user permissions, but it's nicer for the user to already prevent token creation immediately in this place
 
 	projectsAndTenants, err := t.projectsAndTenantsGetter(ctx, token.GetUser())
@@ -383,7 +383,7 @@ func (t *tokenService) Refresh(ctx context.Context, _ *apiv2.TokenServiceRefresh
 	}
 
 	// now, we validate if the user is still permitted to refresh the token
-	// doing this check is not strictly necessary because the resulting token would fail in the opa auther when being compared
+	// doing this check is not strictly necessary because the resulting token would fail in the auther when being compared
 	// to the actual user permissions, but it's nicer for the user to already prevent token update immediately in this place
 
 	projectsAndTenants, err := t.projectsAndTenantsGetter(ctx, token.GetUser())

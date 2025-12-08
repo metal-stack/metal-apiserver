@@ -413,7 +413,7 @@ func Test_tenantServiceServer_Create(t *testing.T) {
 			}
 
 			// to check whether the owner membership was created, we need to get the tenant as well
-			// as we do not request through opa auther, we also need to extend the token
+			// as we do not request through auther, we also need to extend the token
 
 			tok.TenantRoles[got.Tenant.Login] = apiv2.TenantRole_TENANT_ROLE_OWNER
 
