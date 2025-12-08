@@ -24,7 +24,7 @@ require (
 	github.com/klauspost/connect-compress/v2 v2.1.0
 	github.com/lestrrat-go/jwx/v3 v3.0.12
 	github.com/markbates/goth v1.82.0
-	github.com/metal-stack/api v0.0.36-0.20251204145649-7e54b95637f8
+	github.com/metal-stack/api v0.0.35
 	github.com/metal-stack/go-ipam v1.14.13
 	github.com/metal-stack/masterdata-api v0.13.0
 	github.com/metal-stack/metal-lib v0.23.5
@@ -41,8 +41,8 @@ require (
 	go.opentelemetry.io/otel/exporters/prometheus v0.60.0
 	go.opentelemetry.io/otel/sdk/metric v1.38.0
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba
-	golang.org/x/oauth2 v0.33.0
-	golang.org/x/sync v0.18.0
+	golang.org/x/oauth2 v0.34.0
+	golang.org/x/sync v0.19.0
 	google.golang.org/grpc v1.77.0
 	google.golang.org/protobuf v1.36.10
 	gopkg.in/rethinkdb/rethinkdb-go.v6 v6.2.2
@@ -183,7 +183,7 @@ require (
 	golang.org/x/crypto v0.45.0 // indirect
 	golang.org/x/exp v0.0.0-20251125195548-87e1e737ad39 // indirect
 	golang.org/x/net v0.47.0 // indirect
-	golang.org/x/sys v0.38.0 // indirect
+	golang.org/x/sys v0.39.0 // indirect
 	golang.org/x/text v0.31.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20251202230838-ff82c1b0f217 // indirect
