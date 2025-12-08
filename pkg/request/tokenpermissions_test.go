@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"slices"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -650,6 +651,65 @@ func Test_getTokenPermissions(t *testing.T) {
 			}
 
 			got, _, gotErr := a.getTokenPermissions(t.Context(), tt.token)
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Errorf("diff = %s", diff)
+			}
+
+			if tt.wantErr != nil {
+				require.EqualError(t, gotErr, tt.wantErr.Error())
+			} else {
+				require.NoError(t, gotErr)
+			}
+		})
+	}
+}
+
+func Test_getTokenPermissionsRoleMethods(t *testing.T) {
+	tests := []struct {
+		name               string
+		token              *apiv2.Token
+		projectsAndTenants *repository.ProjectsAndTenants
+		want               roleMethods
+		wantErr            error
+	}{
+		{
+			name: "infra role editor",
+			token: &apiv2.Token{
+				User:      "metal-core",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				InfraRole: apiv2.InfraRole_INFRA_ROLE_EDITOR.Enum(),
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "abc",
+						Methods: []string{
+							"/metalstack.api.v2.MachineService/Create",
+							"/metalstack.api.v2.IPService/Create",
+						},
+					},
+				},
+			},
+			want: roleMethods{
+				"/metalstack.infra.v2.BMCService/UpdateBMCInfo",
+				"/metalstack.infra.v2.SwitchService/Get",
+				"/metalstack.infra.v2.SwitchService/Heartbeat",
+				"/metalstack.infra.v2.SwitchService/Register",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := &authorizer{
+				log: slog.Default(),
+			}
+			a.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
+				if tt.projectsAndTenants == nil {
+					return &repository.ProjectsAndTenants{}, nil
+				}
+				return tt.projectsAndTenants, nil
+			}
+
+			_, got, gotErr := a.getTokenPermissions(t.Context(), tt.token)
+			slices.Sort(got)
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
