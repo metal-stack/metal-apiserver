@@ -2,16 +2,20 @@ package repository
 
 import (
 	"context"
+	"log/slog"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/hibiken/asynq"
 	"github.com/metal-stack/api/go/enum"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/fsm"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/metal-stack/metal-lib/pkg/tag"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -23,6 +27,63 @@ type (
 		scope *ProjectScope
 	}
 )
+
+func (r *machineRepository) SendEvent(ctx context.Context, log *slog.Logger, machineID string, event *infrav2.MachineProvisioningEvent) error {
+	if event == nil {
+		return errorutil.InvalidArgument("event for machine %s is nil", machineID)
+	}
+
+	m, err := r.find(ctx, &apiv2.MachineQuery{Uuid: &machineID})
+	if err != nil && !errorutil.IsNotFound(err) {
+		return err
+	}
+
+	// an event can actually create an empty machine. This enables us to also catch the very first PXE Booting event
+	// in a machine lifecycle
+	if m == nil {
+		_, err = r.create(ctx, &apiv2.MachineServiceCreateRequest{Uuid: &machineID})
+		if err != nil {
+			return err
+		}
+	}
+
+	ok := metal.AllProvisioningEventTypes[metal.ProvisioningEventType(event.Event)]
+	if !ok {
+		return errorutil.InvalidArgument("unknown provisioning event %q", event.Event)
+	}
+
+	ev := &metal.ProvisioningEvent{
+		Time:    time.Now(),
+		Event:   metal.ProvisioningEventType(event.Event),
+		Message: event.Message,
+	}
+
+	ec, err := r.s.ds.Event().Find(ctx, queries.EventFilter(machineID))
+	if err != nil && !errorutil.IsNotFound(err) {
+		return err
+	}
+
+	if ec == nil {
+		ec = &metal.ProvisioningEventContainer{
+			Base: metal.Base{
+				ID: machineID,
+			},
+			Liveliness: metal.MachineLivelinessAlive,
+		}
+	}
+
+	newEC, err := fsm.HandleProvisioningEvent(ctx, log, ec, ev)
+	if err != nil {
+		return err
+	}
+
+	if err = newEC.Validate(); err != nil {
+		return err
+	}
+	newEC.TrimEvents(100)
+
+	return nil
+}
 
 func (r *machineRepository) get(ctx context.Context, id string) (*metal.Machine, error) {
 	machine, err := r.s.ds.Machine().Get(ctx, id)
