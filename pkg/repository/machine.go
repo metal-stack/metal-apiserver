@@ -33,28 +33,28 @@ func (r *machineRepository) SendEvent(ctx context.Context, log *slog.Logger, mac
 		return errorutil.InvalidArgument("event for machine %s is nil", machineID)
 	}
 
-	m, err := r.find(ctx, &apiv2.MachineQuery{Uuid: &machineID})
+	_, err := r.find(ctx, &apiv2.MachineQuery{Uuid: &machineID})
 	if err != nil && !errorutil.IsNotFound(err) {
 		return err
 	}
 
 	// an event can actually create an empty machine. This enables us to also catch the very first PXE Booting event
 	// in a machine lifecycle
-	if m == nil {
+	if errorutil.IsNotFound(err) {
 		_, err = r.create(ctx, &apiv2.MachineServiceCreateRequest{Uuid: &machineID})
 		if err != nil {
 			return err
 		}
 	}
 
-	ok := metal.AllProvisioningEventTypes[metal.ProvisioningEventType(event.Event)]
-	if !ok {
-		return errorutil.InvalidArgument("unknown provisioning event %q", event.Event)
+	eventType, err := metal.ToProvisioningEventType(event.Event)
+	if err != nil {
+		return err
 	}
 
 	ev := &metal.ProvisioningEvent{
 		Time:    time.Now(),
-		Event:   metal.ProvisioningEventType(event.Event),
+		Event:   eventType,
 		Message: event.Message,
 	}
 
@@ -82,7 +82,7 @@ func (r *machineRepository) SendEvent(ctx context.Context, log *slog.Logger, mac
 	}
 	newEC.TrimEvents(100)
 
-	return nil
+	return r.s.ds.Event().Upsert(ctx, newEC)
 }
 
 func (r *machineRepository) get(ctx context.Context, id string) (*metal.Machine, error) {

@@ -22,7 +22,7 @@ type eventServiceServer struct {
 
 func New(c Config) infrav2connect.EventServiceHandler {
 	return &eventServiceServer{
-		log:  c.Log,
+		log:  c.Log.WithGroup("eventService"),
 		repo: c.Repo,
 	}
 }

@@ -3,6 +3,9 @@ package metal
 import (
 	"fmt"
 	"time"
+
+	"github.com/metal-stack/api/go/enum"
+	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 )
 
 type (
@@ -36,17 +39,17 @@ func (t ProvisioningEventType) String() string {
 }
 
 const (
-	ProvisioningEventAlive            ProvisioningEventType = "Alive"
-	ProvisioningEventCrashed          ProvisioningEventType = "Crashed"
-	ProvisioningEventPXEBooting       ProvisioningEventType = "PXE Booting"
-	ProvisioningEventPlannedReboot    ProvisioningEventType = "Planned Reboot"
-	ProvisioningEventPreparing        ProvisioningEventType = "Preparing"
-	ProvisioningEventRegistering      ProvisioningEventType = "Registering"
-	ProvisioningEventWaiting          ProvisioningEventType = "Waiting"
-	ProvisioningEventInstalling       ProvisioningEventType = "Installing"
-	ProvisioningEventBootingNewKernel ProvisioningEventType = "Booting New Kernel"
-	ProvisioningEventPhonedHome       ProvisioningEventType = "Phoned Home"
-	ProvisioningEventMachineReclaim   ProvisioningEventType = "Machine Reclaim"
+	ProvisioningEventAlive            = ProvisioningEventType("Alive")
+	ProvisioningEventCrashed          = ProvisioningEventType("Crashed")
+	ProvisioningEventPXEBooting       = ProvisioningEventType("PXE Booting")
+	ProvisioningEventPlannedReboot    = ProvisioningEventType("Planned Reboot")
+	ProvisioningEventPreparing        = ProvisioningEventType("Preparing")
+	ProvisioningEventRegistering      = ProvisioningEventType("Registering")
+	ProvisioningEventWaiting          = ProvisioningEventType("Waiting")
+	ProvisioningEventInstalling       = ProvisioningEventType("Installing")
+	ProvisioningEventBootingNewKernel = ProvisioningEventType("Booting New Kernel")
+	ProvisioningEventPhonedHome       = ProvisioningEventType("Phoned Home")
+	ProvisioningEventMachineReclaim   = ProvisioningEventType("Machine Reclaim")
 )
 
 var (
@@ -64,6 +67,22 @@ var (
 		ProvisioningEventMachineReclaim:   true,
 	}
 )
+
+func ToProvisioningEventType(t infrav2.ProvisioningEventType) (ProvisioningEventType, error) {
+	strVal, err := enum.GetStringValue(t)
+	if err != nil {
+		return ProvisioningEventType(""), err
+	}
+	return ProvisioningEventType(*strVal), nil
+}
+
+func FromProvisioningEventType(t ProvisioningEventType) (infrav2.ProvisioningEventType, error) {
+	infrav2Type, err := enum.GetEnum[infrav2.ProvisioningEventType](string(t))
+	if err != nil {
+		return infrav2.ProvisioningEventType_PROVISIONING_EVENT_TYPE_UNSPECIFIED, fmt.Errorf("provisioning event type %q is invalid", t)
+	}
+	return infrav2Type, nil
+}
 
 func (p *ProvisioningEventContainer) TrimEvents(maxCount int) {
 	if len(p.Events) > maxCount {
