@@ -128,7 +128,9 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		masterdataCloser func()
 	)
 	if withCockroach {
-		mdc, connection, masterdataCloser = StartMasterdataWithCockroach(t, log)
+		// FIXME this is just a test how long the overall tests will take in CI
+		// rename once postgres is really proven faster
+		mdc, connection, masterdataCloser = StartMasterdataWithPostgres(t, log)
 	} else {
 		mdc, connection, masterdataCloser = StartMasterdataInMemory(t, log)
 	}
