@@ -666,8 +666,14 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 			},
 			wantErr: nil,
 		},
-		// TODO:
-		// - add test to validate machine connections are empty
+		{
+			name: "cannot delete switch with machines connected",
+			rq: &adminv2.SwitchServiceDeleteRequest{
+				Id: "sw1",
+			},
+			want:    nil,
+			wantErr: errorutil.FailedPrecondition("cannot delete switch sw1 while it still has machines connected to it"),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -677,11 +683,10 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 			}
 			if tt.wantErr == nil {
 				test.Validate(t, tt.rq)
+				status, err := testStore.GetSwitchStatus(tt.rq.Id)
+				require.NoError(t, err)
+				require.NotNil(t, status)
 			}
-
-			status, err := testStore.GetSwitchStatus(tt.rq.Id)
-			require.NoError(t, err)
-			require.NotNil(t, status)
 
 			got, err := s.Delete(ctx, tt.rq)
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
