@@ -24,6 +24,23 @@ type (
 	}
 )
 
+func (r *machineRepository) SetMachineConnectedToVPN(ctx context.Context, id string, connected bool, ips []string) error {
+	m, err := r.get(ctx, id)
+	if err != nil {
+		return err
+	}
+	if m.Allocation == nil {
+		return errorutil.InvalidArgument("machine is not allocated")
+	}
+	if m.Allocation.VPN == nil {
+		return errorutil.InvalidArgument("machine is not configured for VPN")
+	}
+	m.Allocation.VPN.Connected = connected
+	m.Allocation.VPN.IPs = ips
+
+	return r.s.ds.Machine().Update(ctx, m)
+}
+
 func (r *machineRepository) get(ctx context.Context, id string) (*metal.Machine, error) {
 	machine, err := r.s.ds.Machine().Get(ctx, id)
 	if err != nil {
@@ -228,6 +245,7 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 				ControlPlaneAddress: alloc.VPN.ControlPlaneAddress,
 				AuthKey:             alloc.VPN.AuthKey,
 				Connected:           alloc.VPN.Connected,
+				Ips:                 alloc.VPN.IPs,
 			}
 		}
 		for _, dns := range alloc.DNSServers {
