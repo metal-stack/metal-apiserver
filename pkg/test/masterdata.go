@@ -13,10 +13,34 @@ import (
 	"github.com/metal-stack/masterdata-api/pkg/datastore"
 	"github.com/metal-stack/masterdata-api/pkg/service"
 	"github.com/stretchr/testify/require"
+	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
 )
+
+func StartMasterdataWithPostgres(t testing.TB, log *slog.Logger) (mdc.Client, *grpc.ClientConn, func()) {
+	ctx := context.Background()
+
+	postgres, err := postgres.Run(ctx,
+		"postgres:18-alpine",
+		postgres.WithPassword("password"),
+		postgres.BasicWaitStrategies(),
+	)
+	require.NoError(t, err)
+
+	connectionString, err := postgres.ConnectionString(ctx, "sslmode=disable")
+	require.NoError(t, err)
+
+	db, err := sqlx.Open("postgres", connectionString)
+	require.NoError(t, err)
+
+	closer := func() {
+		_ = postgres.Terminate(ctx)
+	}
+
+	return startMasterdataWithDB(t, log, closer, db)
+}
 
 func StartMasterdataWithCockroach(t testing.TB, log *slog.Logger) (mdc.Client, *grpc.ClientConn, func()) {
 	cr, err := testserver.NewTestServer()
@@ -24,6 +48,13 @@ func StartMasterdataWithCockroach(t testing.TB, log *slog.Logger) (mdc.Client, *
 
 	db, err := sqlx.Open("postgres", cr.PGURL().String())
 	require.NoError(t, err)
+	closer := func() {
+		cr.Stop()
+	}
+	return startMasterdataWithDB(t, log, closer, db)
+}
+
+func startMasterdataWithDB(t testing.TB, log *slog.Logger, dbcloser func(), db *sqlx.DB) (mdc.Client, *grpc.ClientConn, func()) {
 
 	log = log.WithGroup("masterdata")
 	ps := datastore.New(log, db, &apiv1.Project{})
@@ -31,7 +62,7 @@ func StartMasterdataWithCockroach(t testing.TB, log *slog.Logger) (mdc.Client, *
 	ts := datastore.New(log, db, &apiv1.Tenant{})
 	tms := datastore.New(log, db, &apiv1.TenantMember{})
 
-	err = datastore.InitTables(log, db,
+	err := datastore.InitTables(log, db,
 		&apiv1.Project{},
 		&apiv1.ProjectMember{},
 		&apiv1.Tenant{},
@@ -78,7 +109,7 @@ func StartMasterdataWithCockroach(t testing.TB, log *slog.Logger) (mdc.Client, *
 	mc := &memoryClient{conn: conn}
 
 	closer := func() {
-		cr.Stop()
+		dbcloser()
 		grpcServer.Stop()
 	}
 
