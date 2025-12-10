@@ -399,15 +399,13 @@ func Test_machineServiceServer_Update(t *testing.T) {
 				}},
 			want: &apiv2.MachineServiceUpdateResponse{
 				Machine: &apiv2.Machine{
-					Uuid:      m3,
-					Meta:      &apiv2.Meta{Generation: 1},
-					Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
-					Bios:      &apiv2.MachineBios{},
-					Hardware:  &apiv2.MachineHardware{},
-					Size:      &apiv2.Size{Id: "c1-medium-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4}}},
-					RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
-						Events: []*apiv2.MachineProvisioningEvent{{Event: apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_ALIVE, Message: "machine created for test"}},
-					},
+					Uuid:                     m3,
+					Meta:                     &apiv2.Meta{Generation: 1},
+					Partition:                &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
+					Bios:                     &apiv2.MachineBios{},
+					Hardware:                 &apiv2.MachineHardware{},
+					Size:                     &apiv2.Size{Id: "c1-medium-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4}}},
+					RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
 					Status: &apiv2.MachineStatus{
 						Condition:  &apiv2.MachineCondition{},
 						LedState:   &apiv2.MachineChassisIdentifyLEDState{},
@@ -445,15 +443,13 @@ func Test_machineServiceServer_Update(t *testing.T) {
 			},
 			want: &apiv2.MachineServiceUpdateResponse{
 				Machine: &apiv2.Machine{
-					Uuid:      m4,
-					Meta:      &apiv2.Meta{Generation: 1},
-					Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
-					Bios:      &apiv2.MachineBios{},
-					Hardware:  &apiv2.MachineHardware{},
-					Size:      &apiv2.Size{Id: "c1-medium-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4}}},
-					RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
-						Events: []*apiv2.MachineProvisioningEvent{{Event: apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_ALIVE, Message: "machine created for test"}},
-					},
+					Uuid:                     m4,
+					Meta:                     &apiv2.Meta{Generation: 1},
+					Partition:                &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
+					Bios:                     &apiv2.MachineBios{},
+					Hardware:                 &apiv2.MachineHardware{},
+					Size:                     &apiv2.Size{Id: "c1-medium-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4}}},
+					RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
 					Status: &apiv2.MachineStatus{
 						Condition:  &apiv2.MachineCondition{},
 						LedState:   &apiv2.MachineChassisIdentifyLEDState{},
