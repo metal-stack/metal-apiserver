@@ -389,7 +389,7 @@ func (r *switchRepository) convertToInternal(ctx context.Context, sw *apiv2.Swit
 		ManagementUser:     pointer.SafeDeref(sw.ManagementUser),
 		ConsoleCommand:     pointer.SafeDeref(sw.ConsoleCommand),
 		MachineConnections: connections,
-		OS: metal.SwitchOS{
+		OS: &metal.SwitchOS{
 			Vendor:           vendor,
 			Version:          sw.Os.Version,
 			MetalCoreVersion: sw.Os.MetalCoreVersion,
@@ -506,7 +506,7 @@ func updateAllButNics(sw *metal.Switch, req *adminv2.SwitchServiceUpdateRequest)
 		if err != nil {
 			return nil, err
 		}
-		sw.OS = metal.SwitchOS{
+		sw.OS = &metal.SwitchOS{
 			Vendor:           vendor,
 			Version:          req.Os.Version,
 			MetalCoreVersion: req.Os.MetalCoreVersion,

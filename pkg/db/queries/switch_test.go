@@ -23,7 +23,7 @@ var (
 		Base:      metal.Base{ID: "sw1"},
 		Rack:      "rack01",
 		Partition: "partition-a",
-		OS: metal.SwitchOS{
+		OS: &metal.SwitchOS{
 			Vendor:  metal.SwitchOSVendorCumulus,
 			Version: "5.9",
 		},
@@ -33,7 +33,7 @@ var (
 		Base:      metal.Base{ID: "sw2"},
 		Rack:      "rack01",
 		Partition: "partition-b",
-		OS: metal.SwitchOS{
+		OS: &metal.SwitchOS{
 			Vendor:  metal.SwitchOSVendorCumulus,
 			Version: "5.6",
 		},
@@ -43,7 +43,7 @@ var (
 		Base:      metal.Base{ID: "sw3"},
 		Rack:      "rack02",
 		Partition: "partition-a",
-		OS: metal.SwitchOS{
+		OS: &metal.SwitchOS{
 			Vendor:  metal.SwitchOSVendorSonic,
 			Version: "ec202111.11",
 		},

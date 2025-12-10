@@ -1068,7 +1068,7 @@ func Test_switchRepository_updateAllButNics(t *testing.T) {
 				ManagementIP:   "1.1.1.1",
 				ManagementUser: "admin",
 				ConsoleCommand: "tty",
-				OS: metal.SwitchOS{
+				OS: &metal.SwitchOS{
 					Vendor:           metal.SwitchOSVendorSonic,
 					Version:          "ec202211",
 					MetalCoreVersion: "v0.13.1",
@@ -1134,7 +1134,7 @@ func Test_switchRepository_updateAllButNics(t *testing.T) {
 				ManagementIP:   "1.2.3.4",
 				ManagementUser: "metal",
 				ConsoleCommand: "ssh",
-				OS: metal.SwitchOS{
+				OS: &metal.SwitchOS{
 					Vendor:           metal.SwitchOSVendorCumulus,
 					Version:          "ec202105",
 					MetalCoreVersion: "v0.14.0",
