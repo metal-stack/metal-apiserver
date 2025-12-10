@@ -101,7 +101,48 @@ func (r *switchRepository) Migrate(ctx context.Context, oldSwitch, newSwitch str
 }
 
 func (r *switchRepository) Port(ctx context.Context, id, port string, status apiv2.SwitchPortStatus) (*apiv2.Switch, error) {
-	panic("unimplemented")
+	metalStatus, err := metal.ToSwitchPortStatus(status)
+	if err != nil {
+		return nil, errorutil.InvalidArgument("failed to parse port status %q: %w", status, err)
+	}
+
+	if status != apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP && status != apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN {
+		return nil, errorutil.InvalidArgument("port status %q must be one of [%q, %q]", metalStatus, metal.SwitchPortStatusUp, metal.SwitchPortStatusDown)
+	}
+
+	sw, err := r.s.ds.Switch().Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	nic, found := lo.Find(sw.Nics, func(nic metal.Nic) bool {
+		return nic.Name == port
+	})
+	if !found {
+		return nil, errorutil.InvalidArgument("port %s does not exist on switch %s", port, id)
+	}
+
+	m, err := r.getConnectedMachineForNic(ctx, nic, sw.MachineConnections)
+	if err != nil {
+		return nil, err
+	}
+
+	if m == nil {
+		return nil, errorutil.FailedPrecondition("port %s is not connected to any machine", port)
+	}
+
+	nic.State.Desired = &metalStatus
+	err = r.s.ds.Switch().Update(ctx, sw)
+	if err != nil {
+		return nil, err
+	}
+
+	converted, err := r.convertToProto(ctx, sw)
+	if err != nil {
+		return nil, err
+	}
+
+	return converted, nil
 }
 
 func (r *switchRepository) ConnectMachineWithSwitches(m *apiv2.Machine) error {

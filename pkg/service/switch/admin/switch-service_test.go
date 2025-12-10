@@ -12,6 +12,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
@@ -35,6 +36,15 @@ var (
 				ManagementIp:   "1.1.1.1",
 				ManagementUser: pointer.Pointer("admin"),
 				ConsoleCommand: pointer.Pointer("tty"),
+				MachineConnections: []*apiv2.MachineConnection{
+					{
+						MachineId: "m1",
+						Nic: &apiv2.SwitchNic{
+							Name:       "Ethernet0",
+							Identifier: "Eth1/1",
+						},
+					},
+				},
 				Nics: []*apiv2.SwitchNic{
 					{
 						Name:       "Ethernet0",
@@ -612,6 +622,203 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 				})
 				require.True(t, errorutil.IsNotFound(err))
 				require.Nil(t, sw)
+			}
+		})
+	}
+}
+
+func Test_switchServiceServer_Port(t *testing.T) {
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	ctx := t.Context()
+
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	defer closer()
+	repo := testStore.Store
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintln(w, "a image")
+	}))
+	defer ts.Close()
+
+	validURL := ts.URL
+
+	var (
+		partitions = []*adminv2.PartitionServiceCreateRequest{
+			{Partition: &apiv2.Partition{Id: "partition-a", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+			{Partition: &apiv2.Partition{Id: "partition-b", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+		}
+	)
+
+	test.CreatePartitions(t, repo, partitions)
+	test.CreateMachines(t, testStore, []*metal.Machine{
+		{
+			Base: metal.Base{ID: "m1"},
+		},
+	})
+	test.CreateSwitches(t, repo, switches(0))
+
+	tests := []struct {
+		name    string
+		rq      *adminv2.SwitchServicePortRequest
+		want    *adminv2.SwitchServicePortResponse
+		wantErr error
+	}{
+		{
+			name:    "port status must be specified",
+			rq:      &adminv2.SwitchServicePortRequest{},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument("failed to parse port status \"SWITCH_PORT_STATUS_UNSPECIFIED\": unable to fetch stringvalue from SWITCH_PORT_STATUS_UNSPECIFIED"),
+		},
+		{
+			name: "port status UNKNOWN is invalid",
+			rq: &adminv2.SwitchServicePortRequest{
+				Status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNKNOWN,
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument("port status \"UNKNOWN\" must be one of [\"UP\", \"DOWN\"]"),
+		},
+		{
+			name: "switch does not exist",
+			rq: &adminv2.SwitchServicePortRequest{
+				Status:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+				Id:      "sw5",
+				NicName: "Ethernet0",
+			},
+			want:    nil,
+			wantErr: errorutil.NotFound("no switch with id \"sw5\" found"),
+		},
+		{
+			name: "port does not exist on switch",
+			rq: &adminv2.SwitchServicePortRequest{
+				Status:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+				Id:      "sw1",
+				NicName: "Ethernet100",
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument("port Ethernet100 does not exist on switch sw1"),
+		},
+		{
+			name: "nic is not connected to a machine",
+			rq: &adminv2.SwitchServicePortRequest{
+				Status:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+				Id:      "sw1",
+				NicName: "Ethernet1",
+			},
+			want:    nil,
+			wantErr: errorutil.FailedPrecondition("port Ethernet1 is not connected to any machine"),
+		},
+		{
+			name: "nic update successful",
+			rq: &adminv2.SwitchServicePortRequest{
+				Status:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
+				Id:      "sw1",
+				NicName: "Ethernet0",
+			},
+			want: &adminv2.SwitchServicePortResponse{
+				Switch: &apiv2.Switch{
+					Id:             "sw1",
+					Description:    "switch 01",
+					Meta:           &apiv2.Meta{Generation: 1},
+					Rack:           pointer.Pointer("rack01"),
+					Partition:      "partition-a",
+					ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+					ManagementIp:   "1.1.1.1",
+					ManagementUser: pointer.Pointer("admin"),
+					ConsoleCommand: pointer.Pointer("tty"),
+					MachineConnections: []*apiv2.MachineConnection{
+						{
+							MachineId: "m1",
+							Nic: &apiv2.SwitchNic{
+								Name:       "Ethernet0",
+								Identifier: "Eth1/1",
+								Mac:        "11:11:11:11:11:11",
+								Vrf:        nil,
+								State: &apiv2.NicState{
+									Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN.Enum(),
+									Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+								},
+								BgpFilter: &apiv2.BGPFilter{},
+								BgpPortState: &apiv2.SwitchBGPPortState{
+									Neighbor:              "Ethernet1",
+									PeerGroup:             "external",
+									VrfName:               "Vrf200",
+									BgpState:              apiv2.BGPState_BGP_STATE_CONNECT,
+									BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Unix(), 0)),
+									SentPrefixCounter:     0,
+									AcceptedPrefixCounter: 0,
+								},
+							},
+						},
+					},
+					Nics: []*apiv2.SwitchNic{
+						{
+							Name:       "Ethernet0",
+							Identifier: "Eth1/1",
+							Mac:        "11:11:11:11:11:11",
+							Vrf:        nil,
+							State: &apiv2.NicState{
+								Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN.Enum(),
+								Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							},
+							BgpFilter: &apiv2.BGPFilter{},
+							BgpPortState: &apiv2.SwitchBGPPortState{
+								Neighbor:              "Ethernet1",
+								PeerGroup:             "external",
+								VrfName:               "Vrf200",
+								BgpState:              apiv2.BGPState_BGP_STATE_CONNECT,
+								BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Unix(), 0)),
+								SentPrefixCounter:     0,
+								AcceptedPrefixCounter: 0,
+							},
+						},
+						{
+							Name:       "Ethernet1",
+							Identifier: "Eth1/2",
+							Mac:        "22:22:22:22:22:22",
+							Vrf:        pointer.Pointer("Vrf200"),
+							State: &apiv2.NicState{
+								Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
+								Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
+							},
+							BgpFilter: &apiv2.BGPFilter{},
+							BgpPortState: &apiv2.SwitchBGPPortState{
+								Neighbor:              "Ethernet2",
+								PeerGroup:             "external",
+								VrfName:               "Vrf200",
+								BgpState:              apiv2.BGPState_BGP_STATE_CONNECT,
+								BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Unix(), 0)),
+								SentPrefixCounter:     0,
+								AcceptedPrefixCounter: 0,
+							},
+						},
+					},
+					Os: &apiv2.SwitchOS{
+						Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+						Version:          "ec202111",
+						MetalCoreVersion: "v0.13.0",
+					},
+				},
+			},
+			wantErr: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &switchServiceServer{
+				log:  log,
+				repo: repo,
+			}
+			got, err := s.Port(ctx, tt.rq)
+			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("switchServiceServer.Port() error diff = %s", diff)
+				return
+			}
+			if diff := cmp.Diff(tt.want, got,
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				)); diff != "" {
+				t.Errorf("switchServiceServer.Port() diff = %s", diff)
 			}
 		})
 	}
