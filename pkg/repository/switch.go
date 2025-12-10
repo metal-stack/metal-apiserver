@@ -40,6 +40,10 @@ type (
 	}
 )
 
+func (s *SwitchStatus) GetID() string {
+	return s.ID
+}
+
 func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServiceRegisterRequest) (*apiv2.Switch, error) {
 	sw, err := r.get(ctx, req.Switch.Id)
 	if err != nil && !errorutil.IsNotFound(err) {
@@ -317,7 +321,14 @@ func (r *switchRepository) update(ctx context.Context, sw *metal.Switch, req *ad
 }
 
 func (r *switchRepository) delete(ctx context.Context, sw *metal.Switch) error {
-	// FIX: also delete switch status
+	status, err := r.s.ds.SwitchStatus().Get(ctx, sw.ID)
+	if err != nil && !errorutil.IsNotFound(err) {
+		return err
+	}
+	err = r.s.ds.SwitchStatus().Delete(ctx, status)
+	if err != nil {
+		return err
+	}
 	return r.s.ds.Switch().Delete(ctx, sw)
 }
 

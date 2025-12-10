@@ -523,3 +523,7 @@ func CreateSwitchStatuses(t *testing.T, testStore *testStore, statuses []*reposi
 	}
 	return statusMap
 }
+
+func (t *testStore) GetSwitchStatus(id string) (*metal.SwitchStatus, error) {
+	return t.ds.SwitchStatus().Get(t.t.Context(), id)
+}

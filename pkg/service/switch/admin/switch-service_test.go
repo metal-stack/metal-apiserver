@@ -12,6 +12,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
@@ -19,6 +20,7 @@ import (
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -216,6 +218,20 @@ var (
 				},
 			},
 		}
+	}
+
+	sw3Status = &repository.SwitchStatus{
+		ID: sw3(0).Switch.Id,
+		LastSync: &infrav2.SwitchSync{
+			Time:     timestamppb.New(now),
+			Duration: durationpb.New(time.Second),
+			Error:    nil,
+		},
+		LastSyncError: &infrav2.SwitchSync{
+			Time:     timestamppb.New(now.Add(-time.Minute)),
+			Duration: durationpb.New(time.Second * 2),
+			Error:    pointer.Pointer("fail"),
+		},
 	}
 
 	switches = func(generation uint64) []*repository.SwitchServiceCreateRequest {
@@ -632,6 +648,7 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 		},
 	})
 	test.CreateSwitches(t, repo, switches(0))
+	test.CreateSwitchStatuses(t, testStore, []*repository.SwitchStatus{sw3Status})
 
 	tests := []struct {
 		name    string
@@ -651,7 +668,6 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 		},
 		// TODO:
 		// - add test to validate machine connections are empty
-		// - check that switch status also got deleted once implemented
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -662,6 +678,10 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 			if tt.wantErr == nil {
 				test.Validate(t, tt.rq)
 			}
+
+			status, err := testStore.GetSwitchStatus(tt.rq.Id)
+			require.NoError(t, err)
+			require.NotNil(t, status)
 
 			got, err := s.Delete(ctx, tt.rq)
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
@@ -682,6 +702,10 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 				})
 				require.True(t, errorutil.IsNotFound(err))
 				require.Nil(t, sw)
+
+				status, err := testStore.GetSwitchStatus(tt.rq.Id)
+				require.True(t, errorutil.IsNotFound(err))
+				require.Nil(t, status)
 			}
 		})
 	}
