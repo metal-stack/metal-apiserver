@@ -42,6 +42,22 @@ var (
 						Nic: &apiv2.SwitchNic{
 							Name:       "Ethernet0",
 							Identifier: "Eth1/1",
+							Mac:        "11:11:11:11:11:11",
+							Vrf:        nil,
+							State: &apiv2.NicState{
+								Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
+								Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							},
+							BgpFilter: &apiv2.BGPFilter{},
+							BgpPortState: &apiv2.SwitchBGPPortState{
+								Neighbor:              "Ethernet1",
+								PeerGroup:             "external",
+								VrfName:               "Vrf200",
+								BgpState:              apiv2.BGPState_BGP_STATE_CONNECT,
+								BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Unix(), 0)),
+								SentPrefixCounter:     0,
+								AcceptedPrefixCounter: 0,
+							},
 						},
 					},
 				},
@@ -230,6 +246,11 @@ func Test_switchServiceServer_Get(t *testing.T) {
 	)
 
 	test.CreatePartitions(t, repo, partitions)
+	test.CreateMachines(t, testStore, []*metal.Machine{
+		{
+			Base: metal.Base{ID: "m1"},
+		},
+	})
 	test.CreateSwitches(t, repo, switches(0))
 
 	tests := []struct {
@@ -307,6 +328,11 @@ func Test_switchServiceServer_List(t *testing.T) {
 	)
 
 	test.CreatePartitions(t, repo, partitions)
+	test.CreateMachines(t, testStore, []*metal.Machine{
+		{
+			Base: metal.Base{ID: "m1"},
+		},
+	})
 	test.CreateSwitches(t, repo, switches(0))
 
 	tests := []struct {
@@ -385,6 +411,11 @@ func Test_switchServiceServer_Update(t *testing.T) {
 	)
 
 	test.CreatePartitions(t, repo, partitions)
+	test.CreateMachines(t, testStore, []*metal.Machine{
+		{
+			Base: metal.Base{ID: "m1"},
+		},
+	})
 	switchMap := test.CreateSwitches(t, repo, switches(0))
 
 	tests := []struct {
@@ -420,7 +451,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 				ConsoleCommand: pointer.Pointer("ssh"),
 				Nics: []*apiv2.SwitchNic{
 					{
-						Name:       "Ethernet3",
+						Name:       "Ethernet0",
 						Identifier: "Eth1/1",
 						Mac:        "11:11:11:11:11:11",
 						Vrf:        pointer.Pointer("Vrf100"),
@@ -468,21 +499,34 @@ func Test_switchServiceServer_Update(t *testing.T) {
 					ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE,
 					ManagementIp:   "1.1.1.5",
 					ManagementUser: pointer.Pointer("metal"),
+					MachineConnections: []*apiv2.MachineConnection{
+						{
+							MachineId: "m1",
+							Nic: &apiv2.SwitchNic{
+								Name:       "Ethernet0",
+								Identifier: "Eth1/1",
+								Mac:        "11:11:11:11:11:11",
+								Vrf:        pointer.Pointer("Vrf100"),
+								BgpFilter:  &apiv2.BGPFilter{},
+								State: &apiv2.NicState{
+									Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+								},
+								BgpPortState: &apiv2.SwitchBGPPortState{
+									Neighbor:              "Ethernet1",
+									PeerGroup:             "external",
+									VrfName:               "Vrf200",
+									BgpState:              apiv2.BGPState_BGP_STATE_ESTABLISHED,
+									BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Unix(), 0)),
+									SentPrefixCounter:     0,
+									AcceptedPrefixCounter: 0,
+								},
+							},
+						},
+					},
 					ConsoleCommand: pointer.Pointer("ssh"),
 					Nics: []*apiv2.SwitchNic{
 						{
-							Name:       "Ethernet2",
-							Identifier: "Eth/1/3",
-							Mac:        "aa:aa:aa:aa:aa:aa",
-							Vrf:        nil,
-							State: &apiv2.NicState{
-								Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
-								Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-							},
-							BgpFilter: &apiv2.BGPFilter{},
-						},
-						{
-							Name:       "Ethernet3",
+							Name:       "Ethernet0",
 							Identifier: "Eth1/1",
 							Mac:        "11:11:11:11:11:11",
 							Vrf:        pointer.Pointer("Vrf100"),
@@ -499,6 +543,17 @@ func Test_switchServiceServer_Update(t *testing.T) {
 								SentPrefixCounter:     0,
 								AcceptedPrefixCounter: 0,
 							},
+						},
+						{
+							Name:       "Ethernet2",
+							Identifier: "Eth/1/3",
+							Mac:        "aa:aa:aa:aa:aa:aa",
+							Vrf:        nil,
+							State: &apiv2.NicState{
+								Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
+								Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							},
+							BgpFilter: &apiv2.BGPFilter{},
 						},
 					},
 					Os: &apiv2.SwitchOS{
@@ -571,6 +626,11 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 	)
 
 	test.CreatePartitions(t, repo, partitions)
+	test.CreateMachines(t, testStore, []*metal.Machine{
+		{
+			Base: metal.Base{ID: "m1"},
+		},
+	})
 	test.CreateSwitches(t, repo, switches(0))
 
 	tests := []struct {
