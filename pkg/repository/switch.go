@@ -153,6 +153,25 @@ func (r *switchRepository) ConnectMachineWithSwitches(m *apiv2.Machine) error {
 	panic("unimplemented")
 }
 
+func (r *switchRepository) ForceDelete(ctx context.Context, switchID string) (*apiv2.Switch, error) {
+	sw, err := r.get(ctx, switchID)
+	if err != nil {
+		return nil, err
+	}
+
+	err = r.delete(ctx, sw)
+	if err != nil {
+		return nil, err
+	}
+
+	converted, err := r.convertToProto(ctx, sw)
+	if err != nil {
+		return nil, err
+	}
+
+	return converted, nil
+}
+
 func (r *switchRepository) GetSwitchStatus(ctx context.Context, switchID string) (*SwitchStatus, error) {
 	metalStatus, err := r.s.ds.SwitchStatus().Get(ctx, switchID)
 	if err != nil && !errorutil.IsNotFound(err) {

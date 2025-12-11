@@ -220,6 +220,20 @@ var (
 		}
 	}
 
+	sw1Status = &repository.SwitchStatus{
+		ID: sw1(0).Switch.Id,
+		LastSync: &infrav2.SwitchSync{
+			Time:     timestamppb.New(now),
+			Duration: durationpb.New(time.Second),
+			Error:    nil,
+		},
+		LastSyncError: &infrav2.SwitchSync{
+			Time:     timestamppb.New(now.Add(-time.Minute)),
+			Duration: durationpb.New(time.Second * 2),
+			Error:    pointer.Pointer("fail"),
+		},
+	}
+
 	sw3Status = &repository.SwitchStatus{
 		ID: sw3(0).Switch.Id,
 		LastSync: &infrav2.SwitchSync{
@@ -648,7 +662,7 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 		},
 	})
 	test.CreateSwitches(t, repo, switches(0))
-	test.CreateSwitchStatuses(t, testStore, []*repository.SwitchStatus{sw3Status})
+	test.CreateSwitchStatuses(t, testStore, []*repository.SwitchStatus{sw1Status, sw3Status})
 
 	tests := []struct {
 		name    string
@@ -673,6 +687,17 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 			},
 			want:    nil,
 			wantErr: errorutil.FailedPrecondition("cannot delete switch sw1 while it still has machines connected to it"),
+		},
+		{
+			name: "but with force you can",
+			rq: &adminv2.SwitchServiceDeleteRequest{
+				Id:    "sw1",
+				Force: true,
+			},
+			want: &adminv2.SwitchServiceDeleteResponse{
+				Switch: sw1(0).Switch,
+			},
+			wantErr: nil,
 		},
 	}
 	for _, tt := range tests {
