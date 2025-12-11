@@ -364,7 +364,7 @@ func cumulusPortByLineNumber(line int, allLines []int) string {
 func (s *Switch) getPhysicalMachineConnections(machine *Machine) Connections {
 	connections := make(Connections, 0)
 	for _, machineNic := range machine.Hardware.Nics {
-		neighMap := machineNic.Neighbors.FilterByHostname(s.Name).MapByIdentifier()
+		neighMap := machineNic.Neighbors.FilterByHostname(s.ID).MapByIdentifier()
 
 		for _, switchNic := range s.Nics {
 			if _, has := neighMap[switchNic.Identifier]; has {

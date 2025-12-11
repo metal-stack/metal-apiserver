@@ -45,6 +45,9 @@ const (
 func (nics Nics) MapByIdentifier() NicMap {
 	nicMap := make(NicMap)
 	for _, nic := range nics {
+		if nic.Identifier == "" {
+			continue
+		}
 		nicMap[nic.Identifier] = &nic
 	}
 	return nicMap
@@ -53,10 +56,14 @@ func (nics Nics) MapByIdentifier() NicMap {
 func (nics Nics) MapByName() NicMap {
 	nicMap := make(NicMap)
 	for _, nic := range nics {
-		nicMap[nic.Identifier] = &nic
+		if nic.Name == "" {
+			continue
+		}
+		nicMap[nic.Name] = &nic
 	}
 	return nicMap
 }
+
 func (nics Nics) FilterByHostname(hostname string) Nics {
 	if hostname == "" {
 		return nics

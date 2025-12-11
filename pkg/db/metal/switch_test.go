@@ -540,12 +540,13 @@ func TestSwitch_getPhysicalMachineConnection(t *testing.T) {
 			name: "machine is connected",
 			s: &Switch{
 				Base: Base{
-					Name: "leaf01",
+					ID: "leaf01",
 				},
 				Nics: Nics{
 					{
 						MacAddress: "aa:aa:aa:aa:aa:aa",
 						Name:       "Ethernet12",
+						Identifier: "Eth4",
 						Hostname:   "leaf01",
 					},
 				},
@@ -560,6 +561,7 @@ func TestSwitch_getPhysicalMachineConnection(t *testing.T) {
 							Neighbors: Nics{
 								{
 									MacAddress: "aa:aa:aa:aa:aa:aa",
+									Identifier: "Eth4",
 									Hostname:   "leaf01",
 								},
 							},
@@ -572,6 +574,7 @@ func TestSwitch_getPhysicalMachineConnection(t *testing.T) {
 					Nic: Nic{
 						MacAddress: "aa:aa:aa:aa:aa:aa",
 						Name:       "Ethernet12",
+						Identifier: "Eth4",
 						Hostname:   "leaf01",
 					},
 					MachineID: "m1",
@@ -582,12 +585,13 @@ func TestSwitch_getPhysicalMachineConnection(t *testing.T) {
 			name: "machine is not connected",
 			s: &Switch{
 				Base: Base{
-					Name: "leaf02",
+					ID: "leaf02",
 				},
 				Nics: Nics{
 					{
 						MacAddress: "aa:aa:aa:aa:aa:aa",
 						Name:       "Ethernet12",
+						Identifier: "Eth4",
 						Hostname:   "leaf02",
 					},
 				},
@@ -602,6 +606,7 @@ func TestSwitch_getPhysicalMachineConnection(t *testing.T) {
 							Neighbors: Nics{
 								{
 									MacAddress: "bb:bb:bb:bb:bb:bb",
+									Identifier: "Eth4",
 									Hostname:   "leaf01",
 								},
 							},
@@ -641,6 +646,7 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 					{
 						MacAddress: "aa:aa:aa:aa:aa:aa",
 						Name:       "Ethernet12",
+						Identifier: "Eth4",
 						Hostname:   "sw1",
 					},
 				},
@@ -650,6 +656,8 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 							Nic: Nic{
 								MacAddress: "aa:aa:aa:aa:aa:aa",
 								Name:       "Ethernet12",
+								Identifier: "Eth4",
+								Hostname:   "sw1",
 							},
 							MachineID: "m2",
 						},
@@ -667,6 +675,7 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 								{
 									MacAddress: "ee:ee:ee:ee:ee:ee",
 									Name:       "Ethernet12",
+									Identifier: "Eth4",
 									Hostname:   "sw2",
 								},
 							},
@@ -681,6 +690,8 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 						Nic: Nic{
 							MacAddress: "aa:aa:aa:aa:aa:aa",
 							Name:       "Ethernet12",
+							Identifier: "Eth4",
+							Hostname:   "sw1",
 						},
 						MachineID: "m2",
 					},
@@ -698,6 +709,7 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 					{
 						MacAddress: "aa:aa:aa:aa:aa:aa",
 						Name:       "Ethernet12",
+						Identifier: "Eth4",
 						Hostname:   "sw1",
 					},
 				},
@@ -707,6 +719,7 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 							Nic: Nic{
 								MacAddress: "aa:aa:aa:aa:aa:aa",
 								Name:       "Ethernet12",
+								Identifier: "Eth4",
 							},
 							MachineID: "m1",
 						},
@@ -736,6 +749,7 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 						Nic: Nic{
 							MacAddress: "aa:aa:aa:aa:aa:aa",
 							Name:       "Ethernet12",
+							Identifier: "Eth4",
 						},
 						MachineID: "m1",
 					},
@@ -753,6 +767,7 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 					{
 						MacAddress: "bb:bb:bb:bb:bb:bb",
 						Name:       "Ethernet16",
+						Identifier: "Eth5",
 					},
 				},
 				MachineConnections: ConnectionMap{
@@ -761,6 +776,7 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 							Nic: Nic{
 								MacAddress: "aa:aa:aa:aa:aa:aa",
 								Name:       "Ethernet12",
+								Identifier: "Eth4",
 							},
 							MachineID: "",
 						},
@@ -770,6 +786,7 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 							Nic: Nic{
 								MacAddress: "cc:cc:cc:cc:cc:cc",
 								Name:       "Ethernet20",
+								Identifier: "Eth6",
 							},
 							MachineID: "m2",
 						},
@@ -787,6 +804,7 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 								{
 									MacAddress: "bb:bb:bb:bb:bb:bb",
 									Name:       "Ethernet16",
+									Identifier: "Eth5",
 									Hostname:   "sw1",
 								},
 							},
@@ -801,6 +819,7 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 						Nic: Nic{
 							MacAddress: "bb:bb:bb:bb:bb:bb",
 							Name:       "Ethernet16",
+							Identifier: "Eth5",
 						},
 						MachineID: "m1",
 					},
@@ -810,6 +829,7 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 						Nic: Nic{
 							MacAddress: "cc:cc:cc:cc:cc:cc",
 							Name:       "Ethernet20",
+							Identifier: "Eth6",
 						},
 						MachineID: "m2",
 					},
