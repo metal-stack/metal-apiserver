@@ -40,6 +40,10 @@ type (
 	}
 )
 
+func (s *SwitchStatus) GetID() string {
+	return s.ID
+}
+
 func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServiceRegisterRequest) (*apiv2.Switch, error) {
 	sw, err := r.get(ctx, req.Switch.Id)
 	if err != nil && !errorutil.IsNotFound(err) {
@@ -101,11 +105,71 @@ func (r *switchRepository) Migrate(ctx context.Context, oldSwitch, newSwitch str
 }
 
 func (r *switchRepository) Port(ctx context.Context, id, port string, status apiv2.SwitchPortStatus) (*apiv2.Switch, error) {
-	panic("unimplemented")
+	metalStatus, err := metal.ToSwitchPortStatus(status)
+	if err != nil {
+		return nil, errorutil.InvalidArgument("failed to parse port status %q: %w", status, err)
+	}
+
+	if status != apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP && status != apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN {
+		return nil, errorutil.InvalidArgument("port status %q must be one of [%q, %q]", metalStatus, metal.SwitchPortStatusUp, metal.SwitchPortStatusDown)
+	}
+
+	sw, err := r.s.ds.Switch().Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	nic, found := lo.Find(sw.Nics, func(nic metal.Nic) bool {
+		return nic.Name == port
+	})
+	if !found {
+		return nil, errorutil.InvalidArgument("port %s does not exist on switch %s", port, id)
+	}
+
+	m, err := r.getConnectedMachineForNic(ctx, nic, sw.MachineConnections)
+	if err != nil {
+		return nil, err
+	}
+
+	if m == nil {
+		return nil, errorutil.FailedPrecondition("port %s is not connected to any machine", port)
+	}
+
+	nic.State.Desired = &metalStatus
+	err = r.s.ds.Switch().Update(ctx, sw)
+	if err != nil {
+		return nil, err
+	}
+
+	converted, err := r.convertToProto(ctx, sw)
+	if err != nil {
+		return nil, err
+	}
+
+	return converted, nil
 }
 
 func (r *switchRepository) ConnectMachineWithSwitches(m *apiv2.Machine) error {
 	panic("unimplemented")
+}
+
+func (r *switchRepository) ForceDelete(ctx context.Context, switchID string) (*apiv2.Switch, error) {
+	sw, err := r.get(ctx, switchID)
+	if err != nil {
+		return nil, err
+	}
+
+	err = r.delete(ctx, sw)
+	if err != nil {
+		return nil, err
+	}
+
+	converted, err := r.convertToProto(ctx, sw)
+	if err != nil {
+		return nil, err
+	}
+
+	return converted, nil
 }
 
 func (r *switchRepository) GetSwitchStatus(ctx context.Context, switchID string) (*SwitchStatus, error) {
@@ -276,7 +340,14 @@ func (r *switchRepository) update(ctx context.Context, sw *metal.Switch, req *ad
 }
 
 func (r *switchRepository) delete(ctx context.Context, sw *metal.Switch) error {
-	// FIX: also delete switch status
+	status, err := r.s.ds.SwitchStatus().Get(ctx, sw.ID)
+	if err != nil && !errorutil.IsNotFound(err) {
+		return err
+	}
+	err = r.s.ds.SwitchStatus().Delete(ctx, status)
+	if err != nil {
+		return err
+	}
 	return r.s.ds.Switch().Delete(ctx, sw)
 }
 
@@ -337,7 +408,7 @@ func (r *switchRepository) convertToInternal(ctx context.Context, sw *apiv2.Swit
 		ManagementUser:     pointer.SafeDeref(sw.ManagementUser),
 		ConsoleCommand:     pointer.SafeDeref(sw.ConsoleCommand),
 		MachineConnections: connections,
-		OS: metal.SwitchOS{
+		OS: &metal.SwitchOS{
 			Vendor:           vendor,
 			Version:          sw.Os.Version,
 			MetalCoreVersion: sw.Os.MetalCoreVersion,
@@ -454,7 +525,7 @@ func updateAllButNics(sw *metal.Switch, req *adminv2.SwitchServiceUpdateRequest)
 		if err != nil {
 			return nil, err
 		}
-		sw.OS = metal.SwitchOS{
+		sw.OS = &metal.SwitchOS{
 			Vendor:           vendor,
 			Version:          req.Os.Version,
 			MetalCoreVersion: req.Os.MetalCoreVersion,

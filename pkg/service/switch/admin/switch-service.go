@@ -62,6 +62,10 @@ func (s *switchServiceServer) Update(ctx context.Context, rq *adminv2.SwitchServ
 }
 
 func (s *switchServiceServer) Delete(ctx context.Context, rq *adminv2.SwitchServiceDeleteRequest) (*adminv2.SwitchServiceDeleteResponse, error) {
+	if rq.Force {
+		return s.forceDelete(ctx, rq.Id)
+	}
+
 	sw, err := s.repo.Switch().Delete(ctx, rq.Id)
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -86,4 +90,13 @@ func (s *switchServiceServer) Port(ctx context.Context, rq *adminv2.SwitchServic
 	}
 
 	return &adminv2.SwitchServicePortResponse{Switch: sw}, nil
+}
+
+func (s *switchServiceServer) forceDelete(ctx context.Context, id string) (*adminv2.SwitchServiceDeleteResponse, error) {
+	sw, err := s.repo.Switch().AdditionalMethods().ForceDelete(ctx, id)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
+	return &adminv2.SwitchServiceDeleteResponse{Switch: sw}, nil
 }
