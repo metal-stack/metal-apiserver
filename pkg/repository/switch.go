@@ -149,8 +149,151 @@ func (r *switchRepository) Port(ctx context.Context, id, port string, status api
 	return converted, nil
 }
 
-func (r *switchRepository) ConnectMachineWithSwitches(m *apiv2.Machine) error {
-	panic("unimplemented")
+func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *apiv2.Machine) error {
+	if m.Partition.Id == "" {
+		return errorutil.InvalidArgument("partition id of machine %s is empty", m.Uuid)
+	}
+
+	neighs := lo.Uniq(
+		lo.Flatten(
+			lo.Map(m.Hardware.Nics, func(nic *apiv2.MachineNic, _ int) []string {
+				return lo.Map(nic.Neighbors, func(neigh *apiv2.MachineNic, _ int) string {
+					return neigh.Hostname
+				})
+			}),
+		),
+	)
+
+	if len(neighs) != 2 {
+		return errorutil.FailedPrecondition("machine %s is not connected to exactly two switches, found connections to switches %v", m.Uuid, neighs)
+	}
+
+	metalMachine, err := r.s.ds.Machine().Get(ctx, m.Uuid)
+	if err != nil && !errorutil.IsNotFound(err) {
+		return err
+	}
+
+	oldNeighs := lo.Uniq(
+		lo.Flatten(
+			lo.Map(metalMachine.Hardware.Nics, func(nic metal.Nic, _ int) []string {
+				return lo.Map(nic.Neighbors, func(neigh metal.Nic, _ int) string {
+					return neigh.Hostname
+				})
+			}),
+		),
+	)
+
+	prev, _ := lo.Difference(oldNeighs, neighs)
+	for _, id := range prev {
+		s, err := r.get(ctx, id)
+		if err != nil {
+			return err
+		}
+
+		cons := s.MachineConnections
+		delete(cons, m.Uuid)
+
+		switchNics, err := r.toSwitchNics(ctx, s)
+		if err != nil {
+			return err
+		}
+
+		apiCons, err := convertMachineConnections(cons, switchNics)
+		if err != nil {
+			return err
+		}
+
+		_, err = r.update(ctx, s, &adminv2.SwitchServiceUpdateRequest{MachineConnections: apiCons})
+		if err != nil {
+			return err
+		}
+
+	}
+
+	s1, err := r.get(ctx, neighs[0])
+	if err != nil {
+		return err
+	}
+	s2, err := r.get(ctx, neighs[1])
+	if err != nil {
+		return err
+	}
+
+	cons1 := s1.MachineConnections[m.Uuid]
+	cons2 := s2.MachineConnections[m.Uuid]
+
+	// We detect the rack of a machine by connections to leaf switches
+	m.Rack = s1.Rack
+
+	byNicName, err := s2.MachineConnections.ByNicName()
+	if err != nil {
+		return err
+	}
+	// e.g. "swp1s0" -> "Ethernet0"
+	switchPortMapping, err := s1.MapPortNames(s2.OS.Vendor)
+	if err != nil {
+		return fmt.Errorf("could not create port mapping %w", err)
+	}
+
+	connectionMapError := fmt.Errorf("twin-switches do not have a connection map that is mirrored crosswise for machine %v, switch %v (connections: %v), switch %v (connections: %v)", m.Uuid, s1.ID, cons1, s2.ID, cons2)
+	if len(cons1) != len(cons2) {
+		return connectionMapError
+	}
+
+	if s1.Rack != s2.Rack {
+		return fmt.Errorf("connected switches of a machine must reside in the same rack, rack of switch %s: %s, rack of switch %s: %s, machine: %s", s1.Name, s1.Rack, s2.Name, s2.Rack, m.Uuid)
+	}
+
+	for _, con := range s1.MachineConnections[m.Uuid] {
+		// get the corresponding interface name for s2
+		name, ok := switchPortMapping[con.Nic.Name]
+		if !ok {
+			return fmt.Errorf("could not translate port name %s to equivalent port name of switch os %s", con.Nic.Name, s1.OS.Vendor)
+		}
+		// check if s2 contains nic of name corresponding to con.Nic.Name
+		if con2, has := byNicName[name]; has {
+			if name != con2.Nic.Name {
+				return connectionMapError
+			}
+		} else {
+			return connectionMapError
+		}
+	}
+
+	_, err = s1.ConnectMachine(metalMachine)
+	if err != nil {
+		return err
+	}
+
+	_, err = s2.ConnectMachine(metalMachine)
+	if err != nil {
+		return err
+	}
+
+	switchNics, err := r.toSwitchNics(ctx, s1)
+	if err != nil {
+		return err
+	}
+	apiCons, err := convertMachineConnections(s1.MachineConnections, switchNics)
+	if err != nil {
+		return err
+	}
+	_, err = r.update(ctx, s1, &adminv2.SwitchServiceUpdateRequest{MachineConnections: apiCons})
+	if err != nil {
+		return err
+	}
+
+	switchNics, err = r.toSwitchNics(ctx, s2)
+	if err != nil {
+		return err
+	}
+
+	_, err = r.update(ctx, s2, &adminv2.SwitchServiceUpdateRequest{Nics: switchNics})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (r *switchRepository) ForceDelete(ctx context.Context, switchID string) (*apiv2.Switch, error) {
@@ -324,7 +467,7 @@ func (r *switchRepository) update(ctx context.Context, sw *metal.Switch, req *ad
 	}
 
 	if len(req.Nics) > 0 {
-		nics, err := toMetalNics(req.Nics)
+		nics, err := toMetalNics(req.Nics, sw.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -376,7 +519,7 @@ func (r *switchRepository) convertToInternal(ctx context.Context, sw *apiv2.Swit
 		return nil, nil
 	}
 
-	nics, err := toMetalNics(sw.Nics)
+	nics, err := toMetalNics(sw.Nics, sw.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -390,7 +533,7 @@ func (r *switchRepository) convertToInternal(ctx context.Context, sw *apiv2.Swit
 		return nil, err
 	}
 
-	connections, err := toMachineConnections(sw.MachineConnections)
+	connections, err := toMachineConnections(sw.MachineConnections, sw.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -485,7 +628,7 @@ func (r *switchRepository) updateOnRegister(ctx context.Context, sw *metal.Switc
 	}
 
 	if len(req.Nics) > 0 {
-		nics, err := toMetalNics(req.Nics)
+		nics, err := toMetalNics(req.Nics, sw.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -519,6 +662,13 @@ func updateAllButNics(sw *metal.Switch, req *adminv2.SwitchServiceUpdateRequest)
 	}
 	if req.ConsoleCommand != nil {
 		sw.ConsoleCommand = *req.ConsoleCommand
+	}
+	if len(req.MachineConnections) > 0 {
+		cons, err := toMachineConnections(req.MachineConnections, sw.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to update machine connections: %w", err)
+		}
+		sw.MachineConnections = cons
 	}
 	if req.Os != nil {
 		vendor, err := metal.ToSwitchOSVendor(req.Os.Vendor)
@@ -862,7 +1012,7 @@ func isFirewallIP(ip string, machines []*metal.Machine) bool {
 	return false
 }
 
-func toMetalNics(switchNics []*apiv2.SwitchNic) (metal.Nics, error) {
+func toMetalNics(switchNics []*apiv2.SwitchNic, hostname string) (metal.Nics, error) {
 	var nics metal.Nics
 
 	for _, switchNic := range switchNics {
@@ -870,7 +1020,7 @@ func toMetalNics(switchNics []*apiv2.SwitchNic) (metal.Nics, error) {
 			continue
 		}
 
-		nic, err := toMetalNic(switchNic)
+		nic, err := toMetalNic(switchNic, hostname)
 		if err != nil {
 			return nil, err
 		}
@@ -881,7 +1031,7 @@ func toMetalNics(switchNics []*apiv2.SwitchNic) (metal.Nics, error) {
 	return nics, nil
 }
 
-func toMetalNic(switchNic *apiv2.SwitchNic) (*metal.Nic, error) {
+func toMetalNic(switchNic *apiv2.SwitchNic, hostname string) (*metal.Nic, error) {
 	bgpPortState, err := toSwitchBGPPortState(switchNic.BgpPortState)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert bgp port state: %w", err)
@@ -893,8 +1043,8 @@ func toMetalNic(switchNic *apiv2.SwitchNic) (*metal.Nic, error) {
 	}
 
 	return &metal.Nic{
-		// TODO: what about hostname and neighbors?
 		Name:         switchNic.Name,
+		Hostname:     hostname,
 		Identifier:   switchNic.Identifier,
 		MacAddress:   switchNic.Mac,
 		Vrf:          pointer.SafeDeref(switchNic.Vrf),
@@ -903,7 +1053,7 @@ func toMetalNic(switchNic *apiv2.SwitchNic) (*metal.Nic, error) {
 	}, nil
 }
 
-func toMachineConnections(connections []*apiv2.MachineConnection) (metal.ConnectionMap, error) {
+func toMachineConnections(connections []*apiv2.MachineConnection, hostname string) (metal.ConnectionMap, error) {
 	var (
 		machineConnections = make(metal.ConnectionMap)
 		connectedNics      []string
@@ -911,7 +1061,7 @@ func toMachineConnections(connections []*apiv2.MachineConnection) (metal.Connect
 	)
 
 	for _, con := range connections {
-		nic, err := toMetalNic(con.Nic)
+		nic, err := toMetalNic(con.Nic, hostname)
 		if err != nil {
 			return nil, err
 		}

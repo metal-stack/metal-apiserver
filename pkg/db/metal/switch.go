@@ -143,6 +143,19 @@ func FromBGPState(state BGPState) (apiv2.BGPState, error) {
 	return apiv2State, nil
 }
 
+func (c ConnectionMap) ByNicName() (map[string]Connection, error) {
+	res := make(map[string]Connection)
+	for _, cons := range c {
+		for _, con := range cons {
+			if _, has := res[con.Nic.Name]; has {
+				return nil, fmt.Errorf("switch port %s is connected to more than one machine", con.Nic.Name)
+			}
+			res[con.Nic.Name] = con
+		}
+	}
+	return res, nil
+}
+
 func (s *Switch) ConnectMachine(machine *Machine) (int, error) {
 	_, connectionExists := s.MachineConnections[machine.ID]
 	physicalConnections := s.getPhysicalMachineConnections(machine)

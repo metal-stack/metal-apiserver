@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -653,6 +654,7 @@ func TestToMetalNics(t *testing.T) {
 	tests := []struct {
 		name       string
 		switchNics []*apiv2.SwitchNic
+		hostname   string
 		want       metal.Nics
 		wantErr    bool
 	}{
@@ -765,7 +767,7 @@ func TestToMetalNics(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := toMetalNics(tt.switchNics)
+			got, err := toMetalNics(tt.switchNics, tt.hostname)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ToMetalNics() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -781,6 +783,7 @@ func TestToMachineConnections(t *testing.T) {
 	tests := []struct {
 		name        string
 		connections []*apiv2.MachineConnection
+		hostname    string
 		want        metal.ConnectionMap
 		wantErr     bool
 	}{
@@ -890,7 +893,7 @@ func TestToMachineConnections(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := toMachineConnections(tt.connections)
+			got, err := toMachineConnections(tt.connections, tt.hostname)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ToMachineConnections() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -1175,6 +1178,34 @@ func Test_switchRepository_updateAllButNics(t *testing.T) {
 			}
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("switchRepository.updateAllButNics() diff = %v", diff)
+			}
+		})
+	}
+}
+
+func Test_switchRepository_ConnectMachineWithSwitches(t *testing.T) {
+	type fields struct {
+		s *Store
+	}
+	type args struct {
+		ctx context.Context
+		m   *apiv2.Machine
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &switchRepository{
+				s: tt.fields.s,
+			}
+			if err := r.ConnectMachineWithSwitches(tt.args.ctx, tt.args.m); (err != nil) != tt.wantErr {
+				t.Errorf("switchRepository.ConnectMachineWithSwitches() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
