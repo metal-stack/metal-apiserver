@@ -68,6 +68,8 @@ func newServeCmd() *cli.Command {
 			oidcClientSecretFlag,
 			oidcDiscoveryUrlFlag,
 			oidcEndSessionUrlFlag,
+			oidcUniqueUserKeyFlag,
+			oidcTLSSkipVerifyFlag,
 		},
 		Action: func(ctx *cli.Context) error {
 			log, err := createLogger(ctx)
@@ -135,6 +137,8 @@ func newServeCmd() *cli.Command {
 				OIDCClientSecret:                    ctx.String(oidcClientSecretFlag.Name),
 				OIDCDiscoveryURL:                    ctx.String(oidcDiscoveryUrlFlag.Name),
 				OIDCEndSessionURL:                   ctx.String(oidcEndSessionUrlFlag.Name),
+				OIDCUniqueUserKey:                   ctx.String(oidcUniqueUserKeyFlag.Name),
+				OIDCTLSSkipVerify:                   ctx.Bool(oidcTLSSkipVerifyFlag.Name),
 				IsStageDev:                          strings.EqualFold(stage, stageDEV),
 			}
 
