@@ -26,6 +26,7 @@ import (
 	ratelimiter "github.com/metal-stack/metal-apiserver/pkg/rate-limiter"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	authservice "github.com/metal-stack/metal-apiserver/pkg/service/auth"
+	eventinfra "github.com/metal-stack/metal-apiserver/pkg/service/event/infra"
 	"github.com/metal-stack/metal-apiserver/pkg/service/filesystem"
 	filesystemadmin "github.com/metal-stack/metal-apiserver/pkg/service/filesystem/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/health"
@@ -248,7 +249,9 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 
 	// Infra services
 	infraSwitchService := switchinfra.New(switchinfra.Config{Log: log, Repo: c.Repository})
+	infraEventService := eventinfra.New(eventinfra.Config{Log: log, Repo: c.Repository})
 	mux.Handle(infrav2connect.NewSwitchServiceHandler(infraSwitchService, infraInterceptors))
+	mux.Handle(infrav2connect.NewEventServiceHandler(infraEventService, infraInterceptors))
 
 	allServiceNames := permissions.GetServices()
 	// Static HealthCheckers

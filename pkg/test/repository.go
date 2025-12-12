@@ -16,6 +16,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/service/token"
@@ -199,6 +200,12 @@ func (t *testStore) GetToken(subject string, cr *apiv2.TokenServiceCreateRequest
 	return resp.GetToken()
 }
 
+func (t *testStore) GetEventContainer(machineID string) *metal.ProvisioningEventContainer {
+	resp, err := t.ds.Event().Find(t.t.Context(), queries.EventFilter(machineID))
+	require.NoError(t.t, err)
+	return resp
+}
+
 func CreateImages(t *testing.T, repo *repository.Store, images []*adminv2.ImageServiceCreateRequest) map[string]*apiv2.Image {
 	imageMap := map[string]*apiv2.Image{}
 	for _, img := range images {
@@ -245,14 +252,8 @@ func CreateMachines(t testing.TB, testStore *testStore, machines []*metal.Machin
 		m, err := testStore.ds.Machine().Create(t.Context(), machine)
 		require.NoError(t, err)
 		event := &metal.ProvisioningEventContainer{
-			Base: metal.Base{ID: machine.ID},
-			Events: metal.ProvisioningEvents{
-				{
-					Time:    time.Now(),
-					Event:   metal.ProvisioningEventAlive,
-					Message: "machine created for test",
-				},
-			},
+			Base:       metal.Base{ID: machine.ID},
+			Events:     metal.ProvisioningEvents{},
 			Liveliness: metal.MachineLivelinessAlive,
 		}
 		_, err = testStore.ds.Event().Create(t.Context(), event)
