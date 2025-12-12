@@ -69,6 +69,7 @@ type (
 	IP interface {
 		Repository[*ipRepository, *apiv2.IP, *apiv2.IPServiceCreateRequest, *apiv2.IPServiceUpdateRequest, *apiv2.IPQuery]
 	}
+
 	Machine interface {
 		Repository[*machineRepository, *apiv2.Machine, *apiv2.MachineServiceCreateRequest, *apiv2.MachineServiceUpdateRequest, *apiv2.MachineQuery]
 	}

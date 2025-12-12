@@ -72,11 +72,14 @@ func (s *Store) UnscopedMachine() Machine {
 }
 
 func (s *Store) machine(scope *ProjectScope) Machine {
+	repository := &machineRepository{
+		s:     s,
+		scope: scope,
+	}
+
 	return &store[*machineRepository, *metal.Machine, *apiv2.Machine, *apiv2.MachineServiceCreateRequest, *apiv2.MachineServiceUpdateRequest, *apiv2.MachineQuery]{
-		repository: &machineRepository{
-			s:     s,
-			scope: scope,
-		},
+		repository: repository,
+		typed:      repository,
 	}
 }
 func (s *Store) Image() Image {
