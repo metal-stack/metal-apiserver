@@ -69,6 +69,18 @@ var (
 		Required: true,
 		EnvVars:  []string{"OIDC_END_SESSION_URL"},
 	}
+	oidcUniqueUserKeyFlag = &cli.StringFlag{
+		Name:    "oidc-unique-user-key",
+		Value:   "email", // make sure the oidc provider has unique email addresses, otherwise use "sub"
+		Usage:   "used to extract the unique user id from the oidc provider response raw data",
+		EnvVars: []string{"OIDC_UNIQUE_USER_KEY"},
+	}
+	oidcTLSSkipVerifyFlag = &cli.BoolFlag{
+		Name:    "oidc-tls-skip-verify",
+		Value:   true,
+		Usage:   "skip tls verification when talking to the oidc provider, set this to false in real production environments",
+		EnvVars: []string{"OIDC_TLS_SKIP_VERIFY"},
+	}
 	logLevelFlag = &cli.StringFlag{
 		Name:  "log-level",
 		Value: "info",
