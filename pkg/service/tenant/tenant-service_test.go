@@ -27,7 +27,7 @@ func Test_tenantServiceServer_Get(t *testing.T) {
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
+	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
 	repo := testStore.Store
 
@@ -184,7 +184,7 @@ func Test_tenantServiceServer_List(t *testing.T) {
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
+	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
 	repo := testStore.Store
 
@@ -316,7 +316,7 @@ func Test_tenantServiceServer_Create(t *testing.T) {
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
+	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
 	repo := testStore.Store
 
@@ -455,7 +455,7 @@ func Test_tenantServiceServer_Update(t *testing.T) {
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
+	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
 	repo := testStore.Store
 
@@ -561,7 +561,7 @@ func Test_tenantServiceServer_Delete(t *testing.T) {
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
+	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
 	repo := testStore.Store
 
@@ -681,7 +681,7 @@ func Test_tenantServiceServer_MemberUpdate(t *testing.T) {
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
+	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
 	repo := testStore.Store
 
@@ -811,7 +811,7 @@ func Test_tenantServiceServer_MemberRemove(t *testing.T) {
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
+	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
 	repo := testStore.Store
 
@@ -923,7 +923,7 @@ func Test_tenantServiceServer_Invite(t *testing.T) {
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
+	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
 	repo := testStore.Store
 
@@ -1022,7 +1022,7 @@ func Test_tenantServiceServer_InviteGet(t *testing.T) {
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
+	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
 	repo := testStore.Store
 
@@ -1120,7 +1120,7 @@ func Test_tenantServiceServer_InvitesList(t *testing.T) {
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
+	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
 	repo := testStore.Store
 
@@ -1224,7 +1224,7 @@ func Test_tenantServiceServer_InviteDelete(t *testing.T) {
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
+	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
 	repo := testStore.Store
 
@@ -1297,7 +1297,7 @@ func Test_tenantServiceServer_InviteAccept(t *testing.T) {
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
+	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
 	repo := testStore.Store
 
@@ -1504,7 +1504,7 @@ func Test_tenantServiceServer_InviteFlow(t *testing.T) {
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
+	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
 	repo := testStore.Store
 
@@ -1778,7 +1778,7 @@ func Test_tenantServiceServer_Leave(t *testing.T) {
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
+	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
 	repo := testStore.Store
 

@@ -6,7 +6,6 @@ import (
 	"net"
 	"testing"
 
-	"github.com/cockroachdb/cockroach-go/v2/testserver"
 	"github.com/jmoiron/sqlx"
 	apiv1 "github.com/metal-stack/masterdata-api/api/v1"
 	mdc "github.com/metal-stack/masterdata-api/pkg/client"
@@ -39,18 +38,6 @@ func StartMasterdataWithPostgres(t testing.TB, log *slog.Logger) (mdc.Client, *g
 		_ = postgres.Terminate(ctx)
 	}
 
-	return startMasterdataWithDB(t, log, closer, db)
-}
-
-func StartMasterdataWithCockroach(t testing.TB, log *slog.Logger) (mdc.Client, *grpc.ClientConn, func()) {
-	cr, err := testserver.NewTestServer()
-	require.NoError(t, err)
-
-	db, err := sqlx.Open("postgres", cr.PGURL().String())
-	require.NoError(t, err)
-	closer := func() {
-		cr.Stop()
-	}
 	return startMasterdataWithDB(t, log, closer, db)
 }
 
