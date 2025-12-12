@@ -145,6 +145,7 @@ func Test_getTokenPermissions(t *testing.T) {
 				"/metalstack.api.v2.UserService/Get":                             {"*": entry{}},
 				"/metalstack.api.v2.VersionService/Get":                          {"*": entry{}},
 				"/metalstack.infra.v2.BMCService/UpdateBMCInfo":                  {"*": entry{}},
+				"/metalstack.infra.v2.EventService/Send":                         {"*": entry{}},
 				"/metalstack.infra.v2.SwitchService/Get":                         {"*": entry{}},
 				"/metalstack.infra.v2.SwitchService/Heartbeat":                   {"*": entry{}},
 				"/metalstack.infra.v2.SwitchService/Register":                    {"*": entry{}},
@@ -225,9 +226,10 @@ func Test_getTokenPermissions(t *testing.T) {
 			},
 			want: tokenPermissions{
 				"/metalstack.infra.v2.BMCService/UpdateBMCInfo": {"*": entry{}},
-				"/metalstack.infra.v2.SwitchService/Get":        {"*": entry{}},
-				"/metalstack.infra.v2.SwitchService/Heartbeat":  {"*": entry{}},
-				"/metalstack.infra.v2.SwitchService/Register":   {"*": entry{}},
+				"/metalstack.infra.v2.EventService/Send":        {"*": entry{}},
+				"/metalstack.infra.v2.SwitchService/Get":       {"*": entry{}},
+				"/metalstack.infra.v2.SwitchService/Heartbeat": {"*": entry{}},
+				"/metalstack.infra.v2.SwitchService/Register":  {"*": entry{}},
 			},
 		},
 		{
