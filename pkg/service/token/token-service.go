@@ -12,12 +12,11 @@ import (
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/api/go/permissions"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/request"
 
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
-	"github.com/metal-stack/metal-apiserver/pkg/service/method"
 	tokenutil "github.com/metal-stack/metal-apiserver/pkg/token"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 )
 
 type Config struct {
@@ -34,14 +33,14 @@ type Config struct {
 }
 
 type tokenService struct {
-	issuer             string
-	adminSubjects      []string
-	tokens             tokenutil.TokenStore
-	certs              certs.CertStore
-	log                *slog.Logger
-	servicePermissions *permissions.ServicePermissions
+	issuer        string
+	adminSubjects []string
+	tokens        tokenutil.TokenStore
+	certs         certs.CertStore
+	log           *slog.Logger
 
 	projectsAndTenantsGetter func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error)
+	authorizer               request.Authorizer
 }
 
 type TokenService interface {
@@ -52,19 +51,20 @@ type TokenService interface {
 }
 
 func New(c Config) TokenService {
-	servicePermissions := permissions.GetServicePermissions()
+	projectsAndTenantsGetter := func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
+		return c.Repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, userId)
+	}
+	log := c.Log.WithGroup("tokenService")
 
 	return &tokenService{
-		tokens:             c.TokenStore,
-		certs:              c.CertStore,
-		issuer:             c.Issuer,
-		log:                c.Log.WithGroup("tokenService"),
-		servicePermissions: servicePermissions,
-		adminSubjects:      c.AdminSubjects,
+		tokens:        c.TokenStore,
+		certs:         c.CertStore,
+		issuer:        c.Issuer,
+		log:           log,
+		adminSubjects: c.AdminSubjects,
 
-		projectsAndTenantsGetter: func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
-			return c.Repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, userId)
-		},
+		projectsAndTenantsGetter: projectsAndTenantsGetter,
+		authorizer:               request.NewAuthorizer(log, projectsAndTenantsGetter),
 	}
 }
 
@@ -120,6 +120,7 @@ func (t *tokenService) CreateApiTokenWithoutPermissionCheck(ctx context.Context,
 	token.ProjectRoles = req.ProjectRoles
 	token.TenantRoles = req.TenantRoles
 	token.AdminRole = req.AdminRole
+	token.InfraRole = req.InfraRole
 
 	err = t.tokens.Set(ctx, token)
 	if err != nil {
@@ -163,20 +164,13 @@ func (t *tokenService) Update(ctx context.Context, req *apiv2.TokenServiceUpdate
 	// we first validate token permission elevation for the token used in the token update request,
 	// which might be an API token with restricted permissions
 
-	createRequest := &apiv2.TokenServiceCreateRequest{
-		Permissions:  req.Permissions,
-		ProjectRoles: req.ProjectRoles,
-		TenantRoles:  req.TenantRoles,
-		AdminRole:    req.AdminRole,
-	}
-
-	err := validateTokenCreate(token, createRequest, t.servicePermissions, t.adminSubjects)
+	err := t.validateTokenRequest(ctx, token, req)
 	if err != nil {
 		return nil, errorutil.NewPermissionDenied(err)
 	}
 
 	// now, we validate if the user is still permitted to update the token
-	// doing this check is not strictly necessary because the resulting token would fail in the opa auther when being compared
+	// doing this check is not strictly necessary because the resulting token would fail in the auther when being compared
 	// to the actual user permissions, but it's nicer for the user to already prevent token update immediately in this place
 
 	projectsAndTenants, err := t.projectsAndTenantsGetter(ctx, token.GetUser())
@@ -188,13 +182,14 @@ func (t *tokenService) Update(ctx context.Context, req *apiv2.TokenServiceUpdate
 		ProjectRoles: projectsAndTenants.ProjectRoles,
 		TenantRoles:  projectsAndTenants.TenantRoles,
 		AdminRole:    nil,
+		InfraRole:    token.InfraRole,
 	}
 	if slices.Contains(t.adminSubjects, token.User) {
 		fullUserToken.AdminRole = apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum()
 	}
-	err = validateTokenCreate(fullUserToken, createRequest, t.servicePermissions, t.adminSubjects)
+	err = t.validateTokenRequest(ctx, fullUserToken, req)
 	if err != nil {
-		return nil, errorutil.PermissionDenied("outdated token: %w", err)
+		return nil, errorutil.NewPermissionDenied(err)
 	}
 
 	// now follows the update
@@ -252,16 +247,20 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
+	if req.Expires.AsDuration() > tokenutil.MaxExpiration {
+		return nil, fmt.Errorf("requested expiration duration: %q exceeds max expiration: %q", req.Expires.AsDuration(), tokenutil.MaxExpiration)
+	}
+
 	// we first validate token permission elevation for the token used in the token create request,
 	// which might be an API token with restricted permissions
 
-	err := validateTokenCreate(token, req, t.servicePermissions, t.adminSubjects)
+	err := t.validateTokenRequest(ctx, token, req)
 	if err != nil {
 		return nil, errorutil.NewPermissionDenied(err)
 	}
 
 	// now, we validate if the user is still permitted to create such a token
-	// doing this check is not strictly necessary because the resulting token would fail in the opa auther when being compared
+	// doing this check is not strictly necessary because the resulting token would fail in the auther when being compared
 	// to the actual user permissions, but it's nicer for the user to already prevent token creation immediately in this place
 
 	projectsAndTenants, err := t.projectsAndTenantsGetter(ctx, token.GetUser())
@@ -273,6 +272,7 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 		ProjectRoles: projectsAndTenants.ProjectRoles,
 		TenantRoles:  projectsAndTenants.TenantRoles,
 		AdminRole:    nil,
+		InfraRole:    token.InfraRole,
 	}
 
 	tokenUser := token.GetUser()
@@ -289,9 +289,9 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 		tokenUser = *user
 	}
 
-	err = validateTokenCreate(fullUserToken, req, t.servicePermissions, t.adminSubjects)
+	err = t.validateTokenRequest(ctx, fullUserToken, req)
 	if err != nil {
-		return nil, errorutil.PermissionDenied("outdated token: %w", err)
+		return nil, errorutil.NewPermissionDenied(err)
 	}
 
 	privateKey, err := t.certs.LatestPrivate(ctx)
@@ -309,6 +309,7 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 	token.ProjectRoles = req.ProjectRoles
 	token.TenantRoles = req.TenantRoles
 	token.AdminRole = req.AdminRole
+	token.InfraRole = req.InfraRole
 
 	err = t.tokens.Set(ctx, token)
 	if err != nil {
@@ -375,15 +376,16 @@ func (t *tokenService) Refresh(ctx context.Context, _ *apiv2.TokenServiceRefresh
 		ProjectRoles: oldtoken.ProjectRoles,
 		TenantRoles:  oldtoken.TenantRoles,
 		AdminRole:    oldtoken.AdminRole,
+		InfraRole:    oldtoken.InfraRole,
 	}
 
-	err = validateTokenCreate(token, createRequest, t.servicePermissions, t.adminSubjects)
+	err = t.validateTokenRequest(ctx, token, createRequest)
 	if err != nil {
 		return nil, errorutil.NewPermissionDenied(err)
 	}
 
 	// now, we validate if the user is still permitted to refresh the token
-	// doing this check is not strictly necessary because the resulting token would fail in the opa auther when being compared
+	// doing this check is not strictly necessary because the resulting token would fail in the auther when being compared
 	// to the actual user permissions, but it's nicer for the user to already prevent token update immediately in this place
 
 	projectsAndTenants, err := t.projectsAndTenantsGetter(ctx, token.GetUser())
@@ -395,13 +397,14 @@ func (t *tokenService) Refresh(ctx context.Context, _ *apiv2.TokenServiceRefresh
 		ProjectRoles: projectsAndTenants.ProjectRoles,
 		TenantRoles:  projectsAndTenants.TenantRoles,
 		AdminRole:    nil,
+		InfraRole:    token.InfraRole,
 	}
 	if slices.Contains(t.adminSubjects, token.User) {
 		fullUserToken.AdminRole = apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum()
 	}
-	err = validateTokenCreate(fullUserToken, createRequest, t.servicePermissions, t.adminSubjects)
+	err = t.validateTokenRequest(ctx, fullUserToken, createRequest)
 	if err != nil {
-		return nil, errorutil.PermissionDenied("outdated token: %w", err)
+		return nil, errorutil.NewPermissionDenied(err)
 	}
 
 	// now follows the refresh, aka create a new token
@@ -424,6 +427,7 @@ func (t *tokenService) Refresh(ctx context.Context, _ *apiv2.TokenServiceRefresh
 	newToken.ProjectRoles = oldtoken.ProjectRoles
 	newToken.TenantRoles = oldtoken.TenantRoles
 	newToken.AdminRole = oldtoken.AdminRole
+	newToken.InfraRole = oldtoken.InfraRole
 
 	err = t.tokens.Set(ctx, newToken)
 	if err != nil {
@@ -436,134 +440,104 @@ func (t *tokenService) Refresh(ctx context.Context, _ *apiv2.TokenServiceRefresh
 	}, nil
 }
 
-// FIXME check if this logic can be refactored using the existing logic in tokenpermissions.go
-func validateTokenCreate(currentToken *apiv2.Token, req *apiv2.TokenServiceCreateRequest, servicePermissions *permissions.ServicePermissions, adminIDs []string) error {
-	var (
-		tokenPermissionsMap = method.PermissionsBySubject(currentToken)
-		tokenProjectRoles   = currentToken.ProjectRoles
-		tokenTenantRoles    = currentToken.TenantRoles
+type tokenRequest interface {
+	GetPermissions() []*apiv2.MethodPermission
+	GetProjectRoles() map[string]apiv2.ProjectRole
+	GetTenantRoles() map[string]apiv2.TenantRole
+	GetAdminRole() apiv2.AdminRole
+	GetInfraRole() apiv2.InfraRole
+}
 
-		requestedProjectRoles = req.ProjectRoles
-		requestedTenantRoles  = req.TenantRoles
-		requestedAdminRole    = req.AdminRole
-		requestedPermissions  = req.Permissions
+func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *apiv2.Token, req tokenRequest) error {
+	// Calculate the permission from the token in the request
+	currentPermissions, err := t.authorizer.TokenPermissions(ctx, currentToken)
+	if err != nil {
+		return err
+	}
+
+	var (
+		adminRole *apiv2.AdminRole
+		infraRole *apiv2.InfraRole
 	)
 
-	// First check all requested permissions are defined in servicePermissions
-
-	// if token permissions are empty fill them from token roles
-	// methods restrictions are inherited from the user role for every project
-	if len(tokenPermissionsMap) == 0 {
-		tokenPermissionsMap = method.AllowedMethodsFromRoles(servicePermissions, currentToken)
+	// Ensure no unspecified roles are requested.
+	if req.GetAdminRole() != apiv2.AdminRole_ADMIN_ROLE_UNSPECIFIED {
+		adminRole = req.GetAdminRole().Enum()
+	}
+	if req.GetInfraRole() != apiv2.InfraRole_INFRA_ROLE_UNSPECIFIED {
+		infraRole = req.GetInfraRole().Enum()
 	}
 
-	for _, reqSubjectPermission := range requestedPermissions {
-		reqSubjectID := reqSubjectPermission.Subject
-		if reqSubjectID == "*" {
-			continue
+	for _, tr := range req.GetTenantRoles() {
+		if tr == apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED {
+			return fmt.Errorf("requested tenant role: %q is not allowed", tr)
 		}
-
-		// If admin skip this checks
-		// FIXME is this correct
-		if slices.Contains(adminIDs, currentToken.User) && currentToken.AdminRole != nil {
-			continue
+	}
+	for _, pr := range req.GetProjectRoles() {
+		if pr == apiv2.ProjectRole_PROJECT_ROLE_UNSPECIFIED {
+			return fmt.Errorf("requested project role: %q is not allowed", pr)
 		}
+	}
 
-		// Check if the requested subject, e.g. project or organization can be accessed
-		tokenProjectPermissions, ok := tokenPermissionsMap[reqSubjectID]
-		if !ok {
-			return fmt.Errorf("requested subject: %q access is not allowed", reqSubjectID)
-		}
-
-		for _, reqMethod := range reqSubjectPermission.Methods {
-			// Check if the requested permissions are part of all available methods
-			if !servicePermissions.Methods[reqMethod] {
-				return fmt.Errorf("requested method: %q is not allowed", reqMethod)
-			}
-
-			// Check if the requested permissions are part of the token
-			if !slices.Contains(tokenProjectPermissions.Methods, reqMethod) {
-				return fmt.Errorf("requested method: %q is not allowed for subject: %q", reqMethod, reqSubjectID)
+	// Ensure no permissions pointing to unknown methods are requested
+	for _, permission := range req.GetPermissions() {
+		for _, method := range permission.Methods {
+			if _, found := permissions.GetServicePermissions().Methods[method]; !found {
+				return fmt.Errorf("unknown method %q", method)
 			}
 		}
 	}
 
-	// derive if a user has admin privileges in case he belongs to a certain id, which was preconfigured in the deployment
-	for _, subject := range adminIDs {
-		if currentToken.User != subject {
-			// we exclude invited members of an admin tenant
-			continue
-		}
+	// Calculate the permission from the token request (either create/update or refresh)
+	// and the methods which are coming from roles only.
+	requestedPermissions, err := t.authorizer.TokenPermissions(ctx, &apiv2.Token{
+		User:         currentToken.User,
+		Permissions:  req.GetPermissions(),
+		ProjectRoles: req.GetProjectRoles(),
+		TenantRoles:  req.GetTenantRoles(),
+		AdminRole:    adminRole,
+		InfraRole:    infraRole,
+	})
+	if err != nil {
+		return err
+	}
 
-		role, ok := currentToken.TenantRoles[subject]
+	// sort requestedPermissions by method
+	var methods []string
+	for method := range requestedPermissions {
+		methods = append(methods, method)
+	}
+	slices.Sort(methods)
+
+	for _, method := range methods {
+		subjects, ok := requestedPermissions[method]
 		if !ok {
 			continue
 		}
-
-		switch role {
-		case apiv2.TenantRole_TENANT_ROLE_EDITOR, apiv2.TenantRole_TENANT_ROLE_OWNER:
-			currentToken.AdminRole = pointer.Pointer(apiv2.AdminRole_ADMIN_ROLE_EDITOR)
-		case apiv2.TenantRole_TENANT_ROLE_VIEWER:
-			currentToken.AdminRole = pointer.Pointer(apiv2.AdminRole_ADMIN_ROLE_VIEWER)
-		case apiv2.TenantRole_TENANT_ROLE_GUEST, apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED:
-			// noop
-		default:
-			// noop
-		}
-	}
-
-	// Check if requested roles do not exceed existing roles
-
-	// first check if the requested role subject is part of the token subject
-	for reqProjectID, reqRole := range requestedProjectRoles {
-		if reqRole == apiv2.ProjectRole_PROJECT_ROLE_UNSPECIFIED {
-			return fmt.Errorf("requested project role: %q is not allowed", reqRole.String())
-		}
-
-		projectRole, ok := tokenProjectRoles[reqProjectID]
+		currentSubjects, ok := currentPermissions[method]
 		if !ok {
-			return fmt.Errorf("requested project: %q is not allowed", reqProjectID)
+			errMsg := fmt.Sprintf("the following method %q is not allowed", method)
+			if len(subjects) > 0 {
+				errMsg += fmt.Sprintf(" on any of the requested subjects: %s", subjects)
+			}
+			return errors.New(errMsg)
 		}
 
-		// OWNER has the lowest index
-		if reqRole < projectRole {
-			return fmt.Errorf("requested role: %q is higher than allowed role: %q", reqRole.String(), projectRole.String())
+		if _, ok := currentSubjects[request.AnySubject]; ok {
+			continue
 		}
-	}
-
-	for reqTenantID, reqRole := range requestedTenantRoles {
-		if reqRole == apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED {
-			return fmt.Errorf("requested tenant role: %q is not allowed", reqRole.String())
-		}
-
-		tenantRole, ok := tokenTenantRoles[reqTenantID]
-		if !ok {
-			return fmt.Errorf("requested tenant: %q is not allowed", reqTenantID)
+		// It is possible to request any subjects to be able to have a token
+		// which is able to make calls to projects which will be created in the future.
+		// The actually possible subjects are calculated at request time.
+		if _, ok := subjects[request.AnySubject]; ok {
+			continue
 		}
 
-		// OWNER has the lowest index
-		if reqRole < tenantRole {
-			return fmt.Errorf("requested role: %q is higher than allowed role: %q", reqRole.String(), tenantRole.String())
+		for subject := range subjects {
+			if _, ok := currentSubjects[subject]; !ok {
+				return fmt.Errorf("method %q is not allowed on subject %q with your current user permissions", method, subject)
+			}
 		}
-	}
-
-	if requestedAdminRole != nil {
-		if currentToken.AdminRole == nil {
-			return fmt.Errorf("requested admin role: %q is not allowed", requestedAdminRole.String())
-		}
-
-		if *requestedAdminRole == apiv2.AdminRole_ADMIN_ROLE_UNSPECIFIED {
-			return fmt.Errorf("requested admin role: %q is not allowed", requestedAdminRole.String())
-		}
-
-		if *requestedAdminRole < *currentToken.AdminRole {
-			return fmt.Errorf("requested admin role: %q is not allowed", requestedAdminRole.String())
-		}
-	}
-
-	// Validate Expire
-	if req.Expires.AsDuration() > tokenutil.MaxExpiration {
-		return fmt.Errorf("requested expiration duration: %q exceeds max expiration: %q", req.Expires.AsDuration(), tokenutil.MaxExpiration)
 	}
 
 	return nil

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
-	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/lestrrat-go/jwx/v3/jwk"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	tokenservice "github.com/metal-stack/metal-apiserver/pkg/service/token"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
@@ -42,7 +42,7 @@ func Test_jwt_cert_rotation(t *testing.T) {
 	})
 	tokenStore := token.NewRedisStore(c)
 
-	opa := func() *opa {
+	auth := func() *auth {
 		o, err := NewAuthenticatorInterceptor(Config{
 			Log:            log,
 			CertStore:      certStore,
@@ -87,7 +87,7 @@ func Test_jwt_cert_rotation(t *testing.T) {
 				task: func(t *testing.T) {
 					token1 = createNewConsoleToken(t, ctx, service)
 					expectCertStore(t, ctx, certStore, 1)
-					expectTokenWorks(t, ctx, opa, token1)
+					expectTokenWorks(t, ctx, auth, token1)
 				},
 			},
 			{
@@ -96,8 +96,8 @@ func Test_jwt_cert_rotation(t *testing.T) {
 				task: func(t *testing.T) {
 					token2 = createNewConsoleToken(t, ctx, service)
 					expectCertStore(t, ctx, certStore, 1)
-					expectTokenWorks(t, ctx, opa, token1)
-					expectTokenWorks(t, ctx, opa, token2)
+					expectTokenWorks(t, ctx, auth, token1)
+					expectTokenWorks(t, ctx, auth, token2)
 				},
 			},
 			{
@@ -106,9 +106,9 @@ func Test_jwt_cert_rotation(t *testing.T) {
 				task: func(t *testing.T) {
 					token3 = createNewConsoleToken(t, ctx, service)
 					expectCertStore(t, ctx, certStore, 2)
-					expectTokenWorks(t, ctx, opa, token1)
-					expectTokenWorks(t, ctx, opa, token2)
-					expectTokenWorks(t, ctx, opa, token3)
+					expectTokenWorks(t, ctx, auth, token1)
+					expectTokenWorks(t, ctx, auth, token2)
+					expectTokenWorks(t, ctx, auth, token3)
 				},
 			},
 			{
@@ -117,9 +117,9 @@ func Test_jwt_cert_rotation(t *testing.T) {
 				task: func(t *testing.T) {
 					token3 = createNewConsoleToken(t, ctx, service)
 					expectCertStore(t, ctx, certStore, 2)
-					expectTokenExpired(t, ctx, opa, token1)
-					expectTokenWorks(t, ctx, opa, token2)
-					expectTokenWorks(t, ctx, opa, token3)
+					expectTokenExpired(t, ctx, auth, token1)
+					expectTokenWorks(t, ctx, auth, token2)
+					expectTokenWorks(t, ctx, auth, token3)
 				},
 			},
 			{
@@ -127,9 +127,9 @@ func Test_jwt_cert_rotation(t *testing.T) {
 				at:   8 * time.Second,
 				task: func(t *testing.T) {
 					expectCertStore(t, ctx, certStore, 2)
-					expectTokenExpired(t, ctx, opa, token1)
-					expectTokenExpired(t, ctx, opa, token2)
-					expectTokenWorks(t, ctx, opa, token3)
+					expectTokenExpired(t, ctx, auth, token1)
+					expectTokenExpired(t, ctx, auth, token2)
+					expectTokenWorks(t, ctx, auth, token3)
 				},
 			},
 			{
@@ -137,9 +137,9 @@ func Test_jwt_cert_rotation(t *testing.T) {
 				at:   11 * time.Second,
 				task: func(t *testing.T) {
 					expectCertStore(t, ctx, certStore, 1)
-					expectTokenExpired(t, ctx, opa, token1)
-					expectTokenExpired(t, ctx, opa, token2)
-					expectTokenExpired(t, ctx, opa, token3)
+					expectTokenNoPublicKeyForSignatureFound(t, ctx, auth, token1)
+					expectTokenNoPublicKeyForSignatureFound(t, ctx, auth, token2)
+					expectTokenExpired(t, ctx, auth, token3)
 				},
 			},
 			{
@@ -147,9 +147,9 @@ func Test_jwt_cert_rotation(t *testing.T) {
 				at:   15 * time.Second,
 				task: func(t *testing.T) {
 					expectCertStore(t, ctx, certStore, 0)
-					expectTokenExpired(t, ctx, opa, token1)
-					expectTokenExpired(t, ctx, opa, token2)
-					expectTokenExpired(t, ctx, opa, token3)
+					expectTokenNoPublicKeyForSignatureFound(t, ctx, auth, token1)
+					expectTokenNoPublicKeyForSignatureFound(t, ctx, auth, token2)
+					expectTokenNoPublicKeyForSignatureFound(t, ctx, auth, token3)
 				},
 			},
 		}
@@ -180,23 +180,29 @@ func createNewConsoleToken(t *testing.T, ctx context.Context, service tokenservi
 	return resp.Secret
 }
 
-func expectTokenWorks(t *testing.T, ctx context.Context, opa *opa, bearer string) {
-	err := checkToken(ctx, opa, bearer)
+func expectTokenWorks(t *testing.T, ctx context.Context, auth *auth, bearer string) {
+	err := checkToken(ctx, auth, bearer)
 	require.NoError(t, err)
 }
 
-func expectTokenExpired(t *testing.T, ctx context.Context, opa *opa, bearer string) {
-	err := checkToken(ctx, opa, bearer)
+func expectTokenExpired(t *testing.T, ctx context.Context, auth *auth, bearer string) {
+	err := checkToken(ctx, auth, bearer)
 	require.Error(t, err)
-	require.ErrorContains(t, err, "unauthenticated: token has expired")
+	require.ErrorContains(t, err, "token has invalid claims: token is expired")
 }
 
-func checkToken(ctx context.Context, opa *opa, bearer string) error {
+func expectTokenNoPublicKeyForSignatureFound(t *testing.T, ctx context.Context, auth *auth, bearer string) {
+	err := checkToken(ctx, auth, bearer)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "no suitable publickey to validate signature found")
+}
+
+func checkToken(ctx context.Context, auth *auth, bearer string) error {
 	jwtTokenFunc := func(_ string) string {
 		return "Bearer " + bearer
 	}
 
-	_, err := opa.decide(ctx, jwtTokenFunc)
+	_, err := auth.extractAndValidateJWTToken(ctx, jwtTokenFunc)
 
 	return err
 }

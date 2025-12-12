@@ -23,7 +23,7 @@ import (
 func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string) (baseURL, adminToken string, tenantTokens map[string]string, closer func()) {
 	ctx := t.Context()
 
-	testStore, repocloser := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true), test.WithValkey(true))
+	testStore, repocloser := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true), test.WithValkey(true))
 	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

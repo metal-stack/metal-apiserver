@@ -26,6 +26,7 @@ import (
 	ratelimiter "github.com/metal-stack/metal-apiserver/pkg/rate-limiter"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	authservice "github.com/metal-stack/metal-apiserver/pkg/service/auth"
+	eventinfra "github.com/metal-stack/metal-apiserver/pkg/service/event/infra"
 	"github.com/metal-stack/metal-apiserver/pkg/service/filesystem"
 	filesystemadmin "github.com/metal-stack/metal-apiserver/pkg/service/filesystem/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/health"
@@ -41,6 +42,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/service/partition"
 	partitionadmin "github.com/metal-stack/metal-apiserver/pkg/service/partition/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/project"
+	projectadmin "github.com/metal-stack/metal-apiserver/pkg/service/project/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/size"
 	sizeadmin "github.com/metal-stack/metal-apiserver/pkg/service/size/admin"
 	switchadmin "github.com/metal-stack/metal-apiserver/pkg/service/switch/admin"
@@ -228,6 +230,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	adminImageService := imageadmin.New(imageadmin.Config{Log: log, Repo: c.Repository})
 	adminFilesystemService := filesystemadmin.New(filesystemadmin.Config{Log: log, Repo: c.Repository})
 	adminPartitionService := partitionadmin.New(partitionadmin.Config{Log: log, Repo: c.Repository})
+	adminProjectService := projectadmin.New(projectadmin.Config{Log: log, Repo: c.Repository})
 	adminSizeService := sizeadmin.New(sizeadmin.Config{Log: log, Repo: c.Repository})
 	adminMachineService := machineadmin.New(machineadmin.Config{Log: log, Repo: c.Repository})
 	adminNetworkService := networkadmin.New(networkadmin.Config{Log: log, Repo: c.Repository})
@@ -237,6 +240,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	mux.Handle(adminv2connect.NewImageServiceHandler(adminImageService, adminInterceptors))
 	mux.Handle(adminv2connect.NewFilesystemServiceHandler(adminFilesystemService, adminInterceptors))
 	mux.Handle(adminv2connect.NewPartitionServiceHandler(adminPartitionService, adminInterceptors))
+	mux.Handle(adminv2connect.NewProjectServiceHandler(adminProjectService, adminInterceptors))
 	mux.Handle(adminv2connect.NewSizeServiceHandler(adminSizeService, adminInterceptors))
 	mux.Handle(adminv2connect.NewTenantServiceHandler(adminTenantService, adminInterceptors))
 	mux.Handle(adminv2connect.NewNetworkServiceHandler(adminNetworkService, adminInterceptors))
@@ -246,7 +250,9 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 
 	// Infra services
 	infraSwitchService := switchinfra.New(switchinfra.Config{Log: log, Repo: c.Repository})
+	infraEventService := eventinfra.New(eventinfra.Config{Log: log, Repo: c.Repository})
 	mux.Handle(infrav2connect.NewSwitchServiceHandler(infraSwitchService, infraInterceptors))
+	mux.Handle(infrav2connect.NewEventServiceHandler(infraEventService, infraInterceptors))
 
 	allServiceNames := permissions.GetServices()
 	// Static HealthCheckers
