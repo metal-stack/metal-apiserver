@@ -59,7 +59,7 @@ func (s *testStore) CleanNetworkTable(t testing.TB) {
 
 type testOpt any
 
-type testOptCoackroach struct {
+type testOptPostgres struct {
 	with bool
 }
 
@@ -67,8 +67,8 @@ type testOptValkey struct {
 	with bool
 }
 
-func WithCockroach(with bool) *testOptCoackroach {
-	return &testOptCoackroach{
+func WithPostgres(with bool) *testOptPostgres {
+	return &testOptPostgres{
 		with: with,
 	}
 }
@@ -81,14 +81,14 @@ func WithValkey(with bool) *testOptValkey {
 
 func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...testOpt) (*testStore, func()) {
 	var (
-		withCockroach = false
-		withValkey    = false
+		withPostgres = false
+		withValkey   = false
 	)
 
 	for _, opt := range testOpts {
 		switch o := opt.(type) {
-		case *testOptCoackroach:
-			withCockroach = o.with
+		case *testOptPostgres:
+			withPostgres = o.with
 		case *testOptValkey:
 			withValkey = o.with
 		default:
@@ -128,8 +128,8 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		connection       *grpc.ClientConn
 		masterdataCloser func()
 	)
-	if withCockroach {
-		mdc, connection, masterdataCloser = StartMasterdataWithCockroach(t, log)
+	if withPostgres {
+		mdc, connection, masterdataCloser = StartMasterdataWithPostgres(t, log)
 	} else {
 		mdc, connection, masterdataCloser = StartMasterdataInMemory(t, log)
 	}
