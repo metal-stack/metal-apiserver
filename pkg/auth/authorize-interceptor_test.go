@@ -30,7 +30,7 @@ func Test_authorizeInterceptor_WrapUnary(t *testing.T) {
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(true))
+	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{

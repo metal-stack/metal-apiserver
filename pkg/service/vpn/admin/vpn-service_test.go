@@ -28,7 +28,7 @@ func Test_vpnService_Authkey(t *testing.T) {
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	testStore, repoCloser := test.StartRepositoryWithCleanup(t, log, test.WithCockroach(false))
+	testStore, repoCloser := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(false))
 	repo := testStore.Store
 
 	headscaleClient, endpoint, headscaleCloser := test.StartHeadscale(t)

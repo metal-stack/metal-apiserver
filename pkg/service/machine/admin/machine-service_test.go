@@ -73,15 +73,13 @@ func Test_machineServiceServer_Get(t *testing.T) {
 			rq:   &adminv2.MachineServiceGetRequest{Uuid: m1},
 			want: &adminv2.MachineServiceGetResponse{
 				Machine: &apiv2.Machine{
-					Uuid:      m1,
-					Meta:      &apiv2.Meta{Generation: 0},
-					Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
-					Bios:      &apiv2.MachineBios{},
-					Hardware:  &apiv2.MachineHardware{},
-					Size:      &apiv2.Size{Id: "c1-large-x86", Meta: &apiv2.Meta{}},
-					RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
-						Events: []*apiv2.MachineProvisioningEvent{{Event: apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_ALIVE, Message: "machine created for test"}},
-					},
+					Uuid:                     m1,
+					Meta:                     &apiv2.Meta{Generation: 0},
+					Partition:                &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
+					Bios:                     &apiv2.MachineBios{},
+					Hardware:                 &apiv2.MachineHardware{},
+					Size:                     &apiv2.Size{Id: "c1-large-x86", Meta: &apiv2.Meta{}},
+					RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
 					Status: &apiv2.MachineStatus{
 						Condition:  &apiv2.MachineCondition{},
 						LedState:   &apiv2.MachineChassisIdentifyLEDState{},
@@ -182,15 +180,13 @@ func Test_machineServiceServer_List(t *testing.T) {
 			want: &adminv2.MachineServiceListResponse{
 				Machines: []*apiv2.Machine{
 					{
-						Uuid:      m3,
-						Meta:      &apiv2.Meta{},
-						Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
-						Bios:      &apiv2.MachineBios{},
-						Hardware:  &apiv2.MachineHardware{},
-						Size:      &apiv2.Size{Id: "c1-large-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 8, Max: 8}}},
-						RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
-							Events: []*apiv2.MachineProvisioningEvent{{Event: apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_ALIVE, Message: "machine created for test"}},
-						},
+						Uuid:                     m3,
+						Meta:                     &apiv2.Meta{},
+						Partition:                &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
+						Bios:                     &apiv2.MachineBios{},
+						Hardware:                 &apiv2.MachineHardware{},
+						Size:                     &apiv2.Size{Id: "c1-large-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 8, Max: 8}}},
+						RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
 						Status: &apiv2.MachineStatus{
 							Condition:  &apiv2.MachineCondition{},
 							LedState:   &apiv2.MachineChassisIdentifyLEDState{},
@@ -220,15 +216,13 @@ func Test_machineServiceServer_List(t *testing.T) {
 			want: &adminv2.MachineServiceListResponse{
 				Machines: []*apiv2.Machine{
 					{
-						Uuid:      m4,
-						Meta:      &apiv2.Meta{},
-						Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
-						Bios:      &apiv2.MachineBios{},
-						Hardware:  &apiv2.MachineHardware{},
-						Size:      &apiv2.Size{Id: "c1-large-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 8, Max: 8}}},
-						RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
-							Events: []*apiv2.MachineProvisioningEvent{{Event: apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_ALIVE, Message: "machine created for test"}},
-						},
+						Uuid:                     m4,
+						Meta:                     &apiv2.Meta{},
+						Partition:                &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, Meta: &apiv2.Meta{}},
+						Bios:                     &apiv2.MachineBios{},
+						Hardware:                 &apiv2.MachineHardware{},
+						Size:                     &apiv2.Size{Id: "c1-large-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 8, Max: 8}}},
+						RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
 						Status: &apiv2.MachineStatus{
 							Condition:  &apiv2.MachineCondition{},
 							LedState:   &apiv2.MachineChassisIdentifyLEDState{},

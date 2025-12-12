@@ -12,7 +12,6 @@ require (
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/alicebob/miniredis/v2 v2.35.0
 	github.com/avast/retry-go/v4 v4.7.0
-	github.com/cockroachdb/cockroach-go/v2 v2.4.3
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/google/go-cmp v0.7.0
@@ -25,6 +24,7 @@ require (
 	github.com/juanfont/headscale v0.27.1
 	github.com/klauspost/connect-compress/v2 v2.1.0
 	github.com/lestrrat-go/jwx/v3 v3.0.12
+	github.com/looplab/fsm v1.0.3
 	github.com/markbates/goth v1.82.0
 	github.com/metal-stack/api v0.0.36-0.20251212082837-bc1a1e478232
 	github.com/metal-stack/go-ipam v1.14.13
@@ -38,6 +38,7 @@ require (
 	github.com/samber/lo v1.52.0
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.40.0
+	github.com/testcontainers/testcontainers-go/modules/postgres v0.38.0
 	github.com/testcontainers/testcontainers-go/modules/valkey v0.40.0
 	github.com/urfave/cli/v2 v2.27.7
 	go.opentelemetry.io/otel/exporters/prometheus v0.60.0
@@ -108,7 +109,6 @@ require (
 	github.com/go-openapi/swag/yamlutils v0.25.4 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
-	github.com/gofrs/flock v0.13.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v1.0.0 // indirect
@@ -196,7 +196,6 @@ require (
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.63.0 // indirect
 	go.opentelemetry.io/otel v1.38.0 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.38.0 // indirect
 	go.opentelemetry.io/otel/metric v1.38.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.38.0 // indirect
 	go.opentelemetry.io/otel/trace v1.38.0 // indirect
