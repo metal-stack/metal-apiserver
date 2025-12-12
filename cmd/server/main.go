@@ -75,6 +75,12 @@ var (
 		Usage:   "used to extract the unique user id from the oidc provider response raw data",
 		EnvVars: []string{"OIDC_UNIQUE_USER_KEY"},
 	}
+	oidcTLSSkipVerifyFlag = &cli.BoolFlag{
+		Name:    "oidc-tls-skip-verify",
+		Value:   true,
+		Usage:   "skip tls verification when talking to the oidc provider, set this to false in real production environments",
+		EnvVars: []string{"OIDC_TLS_SKIP_VERIFY"},
+	}
 	logLevelFlag = &cli.StringFlag{
 		Name:  "log-level",
 		Value: "info",

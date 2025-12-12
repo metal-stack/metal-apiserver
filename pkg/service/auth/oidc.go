@@ -22,6 +22,7 @@ type ProviderConfig struct {
 	DiscoveryURL  string
 	EndsessionURL string
 	UniqueUserKey *string
+	TLSSkipVerify bool
 }
 
 func OIDCHubProvider(c ProviderConfig) authOption {
@@ -36,7 +37,7 @@ func OIDCHubProvider(c ProviderConfig) authOption {
 		scopes := []string{"openid", "email", "profile"}
 
 		tlsConf := &tls.Config{
-			InsecureSkipVerify: true,
+			InsecureSkipVerify: c.TLSSkipVerify,
 		}
 
 		oidc, err := openidConnect.NewCustomisedHttpClient(
