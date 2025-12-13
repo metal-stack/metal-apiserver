@@ -23,7 +23,6 @@ var (
 )
 
 func Test_vpnService_Authkey(t *testing.T) {
-
 	t.Parallel()
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
@@ -94,6 +93,7 @@ func Test_vpnService_Authkey(t *testing.T) {
 
 func Test_vpnService_DeleteNode(t *testing.T) {
 	t.Skip()
+	t.Parallel()
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
@@ -156,6 +156,7 @@ func Test_vpnService_DeleteNode(t *testing.T) {
 }
 
 func Test_vpnService_CreateUser(t *testing.T) {
+	t.Parallel()
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
@@ -209,6 +210,7 @@ func Test_vpnService_CreateUser(t *testing.T) {
 }
 
 func Test_vpnService_UserExists(t *testing.T) {
+	t.Parallel()
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
