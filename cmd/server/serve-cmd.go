@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -12,7 +13,11 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	"github.com/avast/retry-go/v4"
 	compress "github.com/klauspost/connect-compress/v2"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"gopkg.in/rethinkdb/rethinkdb-go.v6"
+
+	headscalev1 "github.com/juanfont/headscale/gen/go/headscale/v1"
 
 	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
@@ -70,6 +75,10 @@ func newServeCmd() *cli.Command {
 			oidcEndSessionUrlFlag,
 			oidcUniqueUserKeyFlag,
 			oidcTLSSkipVerifyFlag,
+			headscaleAddressFlag,
+			headscaleControlplaneAddressFlag,
+			headscaleApikeyFlag,
+			headscaleEnabledFlag,
 		},
 		Action: func(ctx *cli.Context) error {
 			log, err := createLogger(ctx)
@@ -95,6 +104,11 @@ func newServeCmd() *cli.Command {
 			mc, err := createMasterdataClient(ctx, log)
 			if err != nil {
 				return fmt.Errorf("unable to create masterdata.client: %w", err)
+			}
+
+			hc, err := createHeadscaleClient(ctx, log)
+			if err != nil {
+				return err
 			}
 
 			connectOpts := rethinkdb.ConnectOpts{
@@ -140,6 +154,8 @@ func newServeCmd() *cli.Command {
 				OIDCUniqueUserKey:                   ctx.String(oidcUniqueUserKeyFlag.Name),
 				OIDCTLSSkipVerify:                   ctx.Bool(oidcTLSSkipVerifyFlag.Name),
 				IsStageDev:                          strings.EqualFold(stage, stageDEV),
+				HeadscaleControlplaneAddress:        ctx.String(headscaleControlplaneAddressFlag.Name),
+				HeadscaleClient:                     hc,
 			}
 
 			if providerTenant := ctx.String(ensureProviderTenantFlag.Name); providerTenant != "" {
@@ -333,4 +349,46 @@ func createIpamClient(cli *cli.Context, log *slog.Logger) (ipamv1connect.IpamSer
 
 	log.Info("ipam initialized")
 	return ipamService, nil
+}
+
+func createHeadscaleClient(cli *cli.Context, log *slog.Logger) (headscalev1.HeadscaleServiceClient, error) {
+	if !cli.Bool(headscaleEnabledFlag.Name) {
+		log.Info("headscale is not enabled, not configuring vpn services")
+		return nil, nil
+	}
+
+	apikey := cli.String(headscaleApikeyFlag.Name)
+	endpoint := cli.String(headscaleAddressFlag.Name)
+
+	grpcOptions := []grpc.DialOption{
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithPerRPCCredentials(tokenAuth{
+			token: apikey,
+		}),
+	}
+
+	conn, err := grpc.NewClient(endpoint, grpcOptions...)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create grpc client:%w", err)
+	}
+	client := headscalev1.NewHeadscaleServiceClient(conn)
+
+	return client, nil
+}
+
+type tokenAuth struct {
+	token string
+}
+
+func (t tokenAuth) GetRequestMetadata(
+	ctx context.Context,
+	_ ...string,
+) (map[string]string, error) {
+	return map[string]string{
+		"authorization": "Bearer " + t.token,
+	}, nil
+}
+
+func (tokenAuth) RequireTransportSecurity() bool {
+	return false
 }

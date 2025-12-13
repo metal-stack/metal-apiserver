@@ -24,17 +24,17 @@ import (
 const defaultExpiration = time.Hour
 
 type Config struct {
-	Log              *slog.Logger
-	Repo             *repository.Store
-	headscaleClient  headscalev1.HeadscaleServiceClient
-	headscaleAddress string
+	Log                          *slog.Logger
+	Repo                         *repository.Store
+	HeadscaleClient              headscalev1.HeadscaleServiceClient
+	HeadscaleControlplaneAddress string
 }
 
 type vpnService struct {
-	log              *slog.Logger
-	repo             *repository.Store
-	headscaleClient  headscalev1.HeadscaleServiceClient
-	headscaleAddress string
+	log                          *slog.Logger
+	repo                         *repository.Store
+	headscaleClient              headscalev1.HeadscaleServiceClient
+	headscaleControlplaneAddress string
 }
 type VPNService interface {
 	adminv2connect.VPNServiceHandler
@@ -48,10 +48,10 @@ type VPNService interface {
 
 func New(c Config) VPNService {
 	return &vpnService{
-		log:              c.Log,
-		repo:             c.Repo,
-		headscaleClient:  c.headscaleClient,
-		headscaleAddress: c.headscaleAddress,
+		log:                          c.Log,
+		repo:                         c.Repo,
+		headscaleClient:              c.HeadscaleClient,
+		headscaleControlplaneAddress: c.HeadscaleControlplaneAddress,
 	}
 }
 
@@ -86,13 +86,13 @@ func (v *vpnService) Authkey(ctx context.Context, req *adminv2.VPNServiceAuthkey
 	}
 
 	return &adminv2.VPNServiceAuthkeyResponse{
-		Address: v.headscaleAddress,
+		Address: v.headscaleControlplaneAddress,
 		Authkey: key.PreAuthKey.Key,
 	}, nil
 }
 
 func (v *vpnService) ControlPlaneAddress() string {
-	return v.headscaleAddress
+	return v.headscaleControlplaneAddress
 }
 
 func (v *vpnService) CreateUser(ctx context.Context, name string) (*headscalev1.User, error) {

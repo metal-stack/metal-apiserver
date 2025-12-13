@@ -70,10 +70,10 @@ func Test_vpnService_Authkey(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			v := &vpnService{
-				log:              log,
-				repo:             testStore.Store,
-				headscaleClient:  headscaleClient,
-				headscaleAddress: endpoint,
+				log:                          log,
+				repo:                         testStore.Store,
+				headscaleClient:              headscaleClient,
+				headscaleControlplaneAddress: endpoint,
 			}
 
 			got, gotErr := v.Authkey(t.Context(), tt.req)
@@ -136,9 +136,9 @@ func Test_vpnService_DeleteNode(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			v := &vpnService{
-				log:              log,
-				headscaleClient:  headscaleClient,
-				headscaleAddress: endpoint,
+				log:                          log,
+				headscaleClient:              headscaleClient,
+				headscaleControlplaneAddress: endpoint,
 			}
 
 			gotErr := v.DeleteNode(ctx, tt.machineID, tt.projectID)
