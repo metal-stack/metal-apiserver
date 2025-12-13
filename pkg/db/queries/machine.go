@@ -116,6 +116,12 @@ func MachineFilter(rq *apiv2.MachineQuery) func(q r.Term) r.Term {
 					})
 				}
 			}
+			// Only check if VPN is configured in this allocation
+			if alloc.Vpn != nil {
+				q = q.Filter(func(row r.Term) r.Term {
+					return row.Field("allocation").HasFields("vpn")
+				})
+			}
 		}
 
 		if rq.Network != nil {
