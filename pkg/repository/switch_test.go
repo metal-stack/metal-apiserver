@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -478,7 +477,7 @@ func Test_convertMachineConnections(t *testing.T) {
 					Identifier: "Eth1/1",
 				},
 			},
-			want: nil,
+			want: []*apiv2.MachineConnection{},
 		},
 		{
 			name: "convert connections",
@@ -554,18 +553,21 @@ func Test_convertMachineConnections(t *testing.T) {
 					{
 						MachineID: "machine01",
 						Nic: metal.Nic{
+							Name:       "Ethernet0",
 							Identifier: "Eth1/1",
 						},
 					},
 					{
-						MachineID: "machine02",
+						MachineID: "machine01",
 						Nic: metal.Nic{
+							Name:       "Ethernet1",
 							Identifier: "Eth1/2",
 						},
 					},
 					{
-						MachineID: "machine03",
+						MachineID: "machine01",
 						Nic: metal.Nic{
+							Name:       "Ethernet2",
 							Identifier: "Eth1/3",
 						},
 					},
@@ -577,7 +579,7 @@ func Test_convertMachineConnections(t *testing.T) {
 				},
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("nics [Eth1/2 Eth1/3] could not be found but are connected to machines"),
+			wantErr: errorutil.InvalidArgument("nics [Ethernet1 Ethernet2] could not be found but are connected to machines"),
 		},
 	}
 	for _, tt := range tests {
@@ -1178,34 +1180,6 @@ func Test_switchRepository_updateAllButNics(t *testing.T) {
 			}
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("switchRepository.updateAllButNics() diff = %v", diff)
-			}
-		})
-	}
-}
-
-func Test_switchRepository_ConnectMachineWithSwitches(t *testing.T) {
-	type fields struct {
-		s *Store
-	}
-	type args struct {
-		ctx context.Context
-		m   *apiv2.Machine
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := &switchRepository{
-				s: tt.fields.s,
-			}
-			if err := r.ConnectMachineWithSwitches(tt.args.ctx, tt.args.m); (err != nil) != tt.wantErr {
-				t.Errorf("switchRepository.ConnectMachineWithSwitches() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

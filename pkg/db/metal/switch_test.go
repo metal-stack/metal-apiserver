@@ -531,10 +531,11 @@ func Test_cumulusPortByLineNumber(t *testing.T) {
 
 func TestSwitch_getPhysicalMachineConnection(t *testing.T) {
 	tests := []struct {
-		name    string
-		s       *Switch
-		machine *Machine
-		want    Connections
+		name        string
+		s           *Switch
+		machineID   string
+		machineNics Nics
+		want        Connections
 	}{
 		{
 			name: "machine is connected",
@@ -551,20 +552,14 @@ func TestSwitch_getPhysicalMachineConnection(t *testing.T) {
 					},
 				},
 			},
-			machine: &Machine{
-				Base: Base{
-					ID: "m1",
-				},
-				Hardware: MachineHardware{
-					Nics: Nics{
+			machineID: "m1",
+			machineNics: Nics{
+				{
+					Neighbors: Nics{
 						{
-							Neighbors: Nics{
-								{
-									MacAddress: "aa:aa:aa:aa:aa:aa",
-									Identifier: "Eth4",
-									Hostname:   "leaf01",
-								},
-							},
+							MacAddress: "aa:aa:aa:aa:aa:aa",
+							Identifier: "Eth4",
+							Hostname:   "leaf01",
 						},
 					},
 				},
@@ -596,30 +591,25 @@ func TestSwitch_getPhysicalMachineConnection(t *testing.T) {
 					},
 				},
 			},
-			machine: &Machine{
-				Base: Base{
-					ID: "m1",
-				},
-				Hardware: MachineHardware{
-					Nics: Nics{
+			machineID: "m1",
+			machineNics: Nics{
+				{
+					Neighbors: Nics{
 						{
-							Neighbors: Nics{
-								{
-									MacAddress: "bb:bb:bb:bb:bb:bb",
-									Identifier: "Eth4",
-									Hostname:   "leaf01",
-								},
-							},
+							MacAddress: "bb:bb:bb:bb:bb:bb",
+							Identifier: "Eth4",
+							Hostname:   "leaf01",
 						},
 					},
 				},
 			},
+
 			want: Connections{},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := tt.s.getPhysicalMachineConnections(tt.machine)
+			got := tt.s.getPhysicalMachineConnections(tt.machineID, tt.machineNics)
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("Switch.getPhysicalMachineConnection() diff = %v", diff)
 			}
@@ -631,7 +621,8 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 	tests := []struct {
 		name            string
 		s               *Switch
-		machine         *Machine
+		machineID       string
+		machineNics     Nics
 		want            int
 		wantConnections ConnectionMap
 		wantErr         bool
@@ -664,21 +655,15 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 					},
 				},
 			},
-			machine: &Machine{
-				Base: Base{
-					ID: "m1",
-				},
-				Hardware: MachineHardware{
-					Nics: Nics{
+			machineID: "m1",
+			machineNics: Nics{
+				{
+					Neighbors: Nics{
 						{
-							Neighbors: Nics{
-								{
-									MacAddress: "ee:ee:ee:ee:ee:ee",
-									Name:       "Ethernet12",
-									Identifier: "Eth4",
-									Hostname:   "sw2",
-								},
-							},
+							MacAddress: "ee:ee:ee:ee:ee:ee",
+							Name:       "Ethernet12",
+							Identifier: "Eth4",
+							Hostname:   "sw2",
 						},
 					},
 				},
@@ -726,18 +711,12 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 					},
 				},
 			},
-			machine: &Machine{
-				Base: Base{
-					ID: "m1",
-				},
-				Hardware: MachineHardware{
-					Nics: Nics{
+			machineID: "m1",
+			machineNics: Nics{
+				{
+					Neighbors: Nics{
 						{
-							Neighbors: Nics{
-								{
-									Hostname: "sw2",
-								},
-							},
+							Hostname: "sw2",
 						},
 					},
 				},
@@ -793,21 +772,15 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 					},
 				},
 			},
-			machine: &Machine{
-				Base: Base{
-					ID: "m1",
-				},
-				Hardware: MachineHardware{
-					Nics: Nics{
+			machineID: "m1",
+			machineNics: Nics{
+				{
+					Neighbors: Nics{
 						{
-							Neighbors: Nics{
-								{
-									MacAddress: "bb:bb:bb:bb:bb:bb",
-									Name:       "Ethernet16",
-									Identifier: "Eth5",
-									Hostname:   "sw1",
-								},
-							},
+							MacAddress: "bb:bb:bb:bb:bb:bb",
+							Name:       "Ethernet16",
+							Identifier: "Eth5",
+							Hostname:   "sw1",
 						},
 					},
 				},
@@ -841,7 +814,7 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 	for i := range tests {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := tt.s.ConnectMachine(tt.machine)
+			got, err := tt.s.ConnectMachine(tt.machineID, tt.machineNics)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Switch.ConnectMachine() error = %v, wantErr %v", err, tt.wantErr)
 				return

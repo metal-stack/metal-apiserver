@@ -156,19 +156,19 @@ func (c ConnectionMap) ByNicName() (map[string]Connection, error) {
 	return res, nil
 }
 
-func (s *Switch) ConnectMachine(machine *Machine) (int, error) {
-	_, connectionExists := s.MachineConnections[machine.ID]
-	physicalConnections := s.getPhysicalMachineConnections(machine)
+func (s *Switch) ConnectMachine(machineID string, machineNics Nics) (int, error) {
+	_, connectionExists := s.MachineConnections[machineID]
+	physicalConnections := s.getPhysicalMachineConnections(machineID, machineNics)
 
 	if len(physicalConnections) < 1 {
 		if connectionExists {
-			return 0, fmt.Errorf("machine connection between machine %s and switch %s exists in the database but not physically; if you are attempting migrate the machine from one rack to another delete it first", machine.ID, s.ID)
+			return 0, fmt.Errorf("machine connection between machine %s and switch %s exists in the database but not physically; if you are attempting migrate the machine from one rack to another delete it first", machineID, s.ID)
 		}
 		return 0, nil
 	}
 
-	delete(s.MachineConnections, machine.ID)
-	s.MachineConnections[machine.ID] = append(s.MachineConnections[machine.ID], physicalConnections...)
+	delete(s.MachineConnections, machineID)
+	s.MachineConnections[machineID] = append(s.MachineConnections[machineID], physicalConnections...)
 	return len(physicalConnections), nil
 }
 
@@ -374,16 +374,16 @@ func cumulusPortByLineNumber(line int, allLines []int) string {
 	return fmt.Sprintf("swp%d", line/4+1)
 }
 
-func (s *Switch) getPhysicalMachineConnections(machine *Machine) Connections {
+func (s *Switch) getPhysicalMachineConnections(machineID string, machineNics Nics) Connections {
 	connections := make(Connections, 0)
-	for _, machineNic := range machine.Hardware.Nics {
+	for _, machineNic := range machineNics {
 		neighMap := machineNic.Neighbors.FilterByHostname(s.ID).MapByIdentifier()
 
 		for _, switchNic := range s.Nics {
 			if _, has := neighMap[switchNic.Identifier]; has {
 				connections = append(connections, Connection{
 					Nic:       switchNic,
-					MachineID: machine.ID,
+					MachineID: machineID,
 				})
 			}
 		}
