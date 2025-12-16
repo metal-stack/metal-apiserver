@@ -8,6 +8,7 @@ import (
 
 	"github.com/metal-stack/api/go/enum"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/samber/lo"
 )
 
 type (
@@ -190,11 +191,7 @@ func (s *Switch) TranslateNicMap(targetOS SwitchOSVendor) (NicMap, error) {
 		return nicMap, nil
 	}
 
-	ports := make([]string, 0)
-	for name := range nicMap {
-		ports = append(ports, name)
-	}
-
+	ports := lo.Keys(nicMap)
 	lines, err := getLinesFromPortNames(ports, s.OS.Vendor)
 	if err != nil {
 		return nil, err
@@ -221,11 +218,7 @@ func (s *Switch) MapPortNames(targetOS SwitchOSVendor) (map[string]string, error
 	nics := s.Nics.MapByName()
 	portNamesMap := make(map[string]string, len(s.Nics))
 
-	ports := make([]string, 0)
-	for name := range nics {
-		ports = append(ports, name)
-	}
-
+	ports := lo.Keys(nics)
 	lines, err := getLinesFromPortNames(ports, s.OS.Vendor)
 	if err != nil {
 		return nil, err
