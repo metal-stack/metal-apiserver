@@ -193,7 +193,7 @@ func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *ap
 		cons := s.MachineConnections
 		delete(cons, m.Uuid)
 
-		_, err = r.update(ctx, s, &adminv2.SwitchServiceUpdateRequest{})
+		err = r.s.ds.Switch().Update(ctx, s)
 		if err != nil {
 			return fmt.Errorf("failed to remove machine connection from switch %s: %w", id, err)
 		}
@@ -213,12 +213,33 @@ func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *ap
 	}
 	m.Rack = s1.Rack
 
+	var newMachineNics metal.Nics
+	for _, n := range m.Hardware.Nics {
+		newNic := metal.Nic{}
+		for _, neigh := range n.Neighbors {
+			newNic.Neighbors = append(newNic.Neighbors, metal.Nic{
+				Name:       neigh.Name,
+				Identifier: neigh.Identifier,
+				Hostname:   neigh.Hostname,
+			})
+		}
+		newMachineNics = append(newMachineNics, newNic)
+	}
+
+	_, err = s1.ConnectMachine(m.Uuid, newMachineNics)
+	if err != nil {
+		return fmt.Errorf("failed to update machine connections for switch %s: %w", s1.ID, err)
+	}
+	_, err = s2.ConnectMachine(m.Uuid, newMachineNics)
+	if err != nil {
+		return fmt.Errorf("failed to update machine connections for switch %s: %w", s2.ID, err)
+	}
+
 	cons1 := s1.MachineConnections[m.Uuid]
 	cons2 := s2.MachineConnections[m.Uuid]
 
-	connectionMapError := errorutil.FailedPrecondition("twin-switches do not have a connection map that is mirrored crosswise for machine %v, switch %v (connections: %v), switch %v (connections: %v)", m.Uuid, s1.ID, cons1, s2.ID, cons2)
 	if len(cons1) != len(cons2) {
-		return connectionMapError
+		return errorutil.FailedPrecondition("machine connections must be identical on both switches but machine %s has %d connections to switch %s and %d connections to switch %s", m.Uuid, len(cons1), s1.ID, len(cons2), s2.ID)
 	}
 
 	byNicName, err := s2.MachineConnections.ByNicName()
@@ -237,42 +258,16 @@ func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *ap
 		if !ok {
 			return fmt.Errorf("could not translate port name %s to equivalent port name of switch os %s", con.Nic.Name, s1.OS.Vendor)
 		}
-		if con2, has := byNicName[name]; has {
-			if name != con2.Nic.Name {
-				return connectionMapError
-			}
-		} else {
-			return connectionMapError
+		if _, has := byNicName[name]; !has {
+			return errorutil.FailedPrecondition("machine %s is connected to port %s on switch %s but not to the corresponding port %s of switch %s", m.Uuid, con.Nic.Name, s1.ID, name, s2.ID)
 		}
 	}
 
-	var newNics metal.Nics
-	for _, n := range m.Hardware.Nics {
-		newNic := metal.Nic{}
-		for _, neigh := range n.Neighbors {
-			newNic.Neighbors = append(newNic.Neighbors, metal.Nic{
-				Name:       neigh.Name,
-				Identifier: neigh.Identifier,
-				Hostname:   neigh.Hostname,
-			})
-		}
-		newNics = append(newNics, newNic)
-	}
-
-	_, err = s1.ConnectMachine(m.Uuid, newNics)
+	err = r.s.ds.Switch().Update(ctx, s1)
 	if err != nil {
 		return fmt.Errorf("failed to update machine connections for switch %s: %w", s1.ID, err)
 	}
-	_, err = r.update(ctx, s1, &adminv2.SwitchServiceUpdateRequest{})
-	if err != nil {
-		return fmt.Errorf("failed to update machine connections for switch %s: %w", s1.ID, err)
-	}
-
-	_, err = s2.ConnectMachine(m.Uuid, newNics)
-	if err != nil {
-		return fmt.Errorf("failed to update machine connections for switch %s: %w", s2.ID, err)
-	}
-	_, err = r.update(ctx, s2, &adminv2.SwitchServiceUpdateRequest{})
+	err = r.s.ds.Switch().Update(ctx, s2)
 	if err != nil {
 		return fmt.Errorf("failed to update machine connections for switch %s: %w", s2.ID, err)
 	}

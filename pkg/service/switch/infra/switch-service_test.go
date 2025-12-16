@@ -34,6 +34,7 @@ var (
 				Partition:   "partition-a",
 				ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 				Meta:        &apiv2.Meta{Generation: generation},
+				Rack:        pointer.Pointer("r01"),
 				Nics: []*apiv2.SwitchNic{
 					{
 						Name:       "Ethernet0",
@@ -79,6 +80,7 @@ var (
 				Partition:   "partition-a",
 				ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 				Meta:        &apiv2.Meta{Generation: generation},
+				Rack:        pointer.Pointer("r02"),
 				Nics: []*apiv2.SwitchNic{
 					{
 						Name:       "Ethernet0",
@@ -194,6 +196,13 @@ var (
 						Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 					},
 				},
+				{
+					Name:       "swp1s1",
+					Identifier: "bb:bb:bb:bb:bb:11",
+					State: &apiv2.NicState{
+						Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+					},
+				},
 			},
 			Os: &apiv2.SwitchOS{
 				Vendor: apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_CUMULUS,
@@ -210,6 +219,13 @@ var (
 				{
 					Name:       "Ethernet0",
 					Identifier: "Eth1/1",
+					State: &apiv2.NicState{
+						Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+					},
+				},
+				{
+					Name:       "Ethernet1",
+					Identifier: "Eth1/2",
 					State: &apiv2.NicState{
 						Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 					},
@@ -367,6 +383,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 					Description:    "new description",
 					Meta:           &apiv2.Meta{Generation: 1},
 					Partition:      "partition-a",
+					Rack:           pointer.Pointer("r01"),
 					ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 					ManagementIp:   "1.1.1.1",
 					ManagementUser: pointer.Pointer("admin"),
@@ -658,6 +675,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 				Partition:   "partition-a",
 				ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 				Meta:        &apiv2.Meta{Generation: 1},
+				Rack:        pointer.Pointer("r02"),
 				Nics: []*apiv2.SwitchNic{
 					{
 						Name:       "Ethernet0",
@@ -721,6 +739,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 				Partition:   "partition-a",
 				ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 				Meta:        &apiv2.Meta{Generation: 1},
+				Rack:        pointer.Pointer("r01"),
 				Nics: []*apiv2.SwitchNic{
 					{
 						Name:       "Ethernet0",
@@ -878,6 +897,118 @@ func Test_switchRepository_ConnectMachineWithSwitches(t *testing.T) {
 				},
 			},
 			wantErr: errorutil.FailedPrecondition("machine m1 is not connected to exactly two switches, found connections to switches [leaf01 leaf02 leaf01-1]"),
+		},
+		{
+			name: "switches are in different racks",
+			m: &apiv2.Machine{
+				Uuid: "m1",
+				Partition: &apiv2.Partition{
+					Id: "partition-a",
+				},
+				Hardware: &apiv2.MachineHardware{
+					Nics: []*apiv2.MachineNic{
+						{
+							Name: "lan0",
+							Neighbors: []*apiv2.MachineNic{
+								{
+									Name:       "Ethernet0",
+									Identifier: "Eth1/1",
+									Hostname:   "sw1",
+								},
+							},
+						},
+						{
+							Name: "lan1",
+							Neighbors: []*apiv2.MachineNic{
+								{
+									Name:       "Ethernet0",
+									Identifier: "Eth1/1",
+									Hostname:   "sw2",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: errorutil.FailedPrecondition("connected switches of a machine must reside in the same rack, rack of switch sw1: r01, rack of switch sw2: r02, machine: m1"),
+		},
+		{
+			name: "different number of connections per switch",
+			m: &apiv2.Machine{
+				Uuid: "m1",
+				Partition: &apiv2.Partition{
+					Id: "partition-a",
+				},
+				Hardware: &apiv2.MachineHardware{
+					Nics: []*apiv2.MachineNic{
+						{
+							Name: "lan0",
+							Neighbors: []*apiv2.MachineNic{
+								{
+									Name:       "Ethernet0",
+									Identifier: "Eth1/1",
+									Hostname:   "sw6",
+								},
+							},
+						},
+						{
+							Name: "lan1",
+							Neighbors: []*apiv2.MachineNic{
+								{
+									Name:       "Ethernet1",
+									Identifier: "Eth1/2",
+									Hostname:   "sw6",
+								},
+							},
+						},
+						{
+							Name: "lan2",
+							Neighbors: []*apiv2.MachineNic{
+								{
+									Name:       "swp1s0",
+									Identifier: "bb:bb:bb:bb:bb:bb",
+									Hostname:   "sw5",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: errorutil.FailedPrecondition("machine connections must be identical on both switches but machine m1 has 2 connections to switch sw6 and 1 connections to switch sw5"),
+		},
+		{
+			name: "switch ports the machine is connected to do not match",
+			m: &apiv2.Machine{
+				Uuid: "m1",
+				Partition: &apiv2.Partition{
+					Id: "partition-a",
+				},
+				Hardware: &apiv2.MachineHardware{
+					Nics: []*apiv2.MachineNic{
+						{
+							Name: "lan1",
+							Neighbors: []*apiv2.MachineNic{
+								{
+									Name:       "swp1s1",
+									Identifier: "bb:bb:bb:bb:bb:11",
+									Hostname:   "sw5",
+								},
+							},
+						},
+						{
+							Name: "lan0",
+							Neighbors: []*apiv2.MachineNic{
+								{
+									Name:       "Ethernet0",
+									Identifier: "Eth1/1",
+									Hostname:   "sw6",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: errorutil.FailedPrecondition("machine m1 is connected to port swp1s1 on switch sw5 but not to the corresponding port Ethernet1 of switch sw6"),
 		},
 		{
 			name: "machine is connected to different switches than before",
