@@ -193,48 +193,37 @@ func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *ap
 		cons := s.MachineConnections
 		delete(cons, m.Uuid)
 
-		switchNics, err := r.toSwitchNics(ctx, s)
+		_, err = r.update(ctx, s, &adminv2.SwitchServiceUpdateRequest{})
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to remove machine connection from switch %s: %w", id, err)
 		}
-
-		apiCons, err := convertMachineConnections(cons, switchNics)
-		if err != nil {
-			return err
-		}
-
-		_, err = r.update(ctx, s, &adminv2.SwitchServiceUpdateRequest{MachineConnections: apiCons})
-		if err != nil {
-			return err
-		}
-
 	}
 
 	s1, err := r.get(ctx, neighs[0])
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to add machine connections to switch %s: %w", neighs[0], err)
 	}
 	s2, err := r.get(ctx, neighs[1])
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to add machine connections to switch %s: %w", neighs[1], err)
 	}
 
 	if s1.Rack != s2.Rack {
-		return fmt.Errorf("connected switches of a machine must reside in the same rack, rack of switch %s: %s, rack of switch %s: %s, machine: %s", s1.Name, s1.Rack, s2.Name, s2.Rack, m.Uuid)
+		return errorutil.FailedPrecondition("connected switches of a machine must reside in the same rack, rack of switch %s: %s, rack of switch %s: %s, machine: %s", s1.Name, s1.Rack, s2.Name, s2.Rack, m.Uuid)
 	}
 	m.Rack = s1.Rack
 
 	cons1 := s1.MachineConnections[m.Uuid]
 	cons2 := s2.MachineConnections[m.Uuid]
 
-	connectionMapError := fmt.Errorf("twin-switches do not have a connection map that is mirrored crosswise for machine %v, switch %v (connections: %v), switch %v (connections: %v)", m.Uuid, s1.ID, cons1, s2.ID, cons2)
+	connectionMapError := errorutil.FailedPrecondition("twin-switches do not have a connection map that is mirrored crosswise for machine %v, switch %v (connections: %v), switch %v (connections: %v)", m.Uuid, s1.ID, cons1, s2.ID, cons2)
 	if len(cons1) != len(cons2) {
 		return connectionMapError
 	}
 
 	byNicName, err := s2.MachineConnections.ByNicName()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to map machine connections of swtich %s by nic names", s2.ID)
 	}
 
 	// e.g. "swp1s0" -> "Ethernet0"
@@ -272,36 +261,20 @@ func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *ap
 
 	_, err = s1.ConnectMachine(m.Uuid, newNics)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to update machine connections for switch %s: %w", s1.ID, err)
 	}
-	switchNics, err := r.toSwitchNics(ctx, s1)
+	_, err = r.update(ctx, s1, &adminv2.SwitchServiceUpdateRequest{})
 	if err != nil {
-		return err
-	}
-	apiCons, err := convertMachineConnections(s1.MachineConnections, switchNics)
-	if err != nil {
-		return err
-	}
-	_, err = r.update(ctx, s1, &adminv2.SwitchServiceUpdateRequest{MachineConnections: apiCons})
-	if err != nil {
-		return err
+		return fmt.Errorf("failed to update machine connections for switch %s: %w", s1.ID, err)
 	}
 
 	_, err = s2.ConnectMachine(m.Uuid, newNics)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to update machine connections for switch %s: %w", s2.ID, err)
 	}
-	switchNics, err = r.toSwitchNics(ctx, s2)
+	_, err = r.update(ctx, s2, &adminv2.SwitchServiceUpdateRequest{})
 	if err != nil {
-		return err
-	}
-	apiCons, err = convertMachineConnections(s2.MachineConnections, switchNics)
-	if err != nil {
-		return err
-	}
-	_, err = r.update(ctx, s2, &adminv2.SwitchServiceUpdateRequest{MachineConnections: apiCons})
-	if err != nil {
-		return err
+		return fmt.Errorf("failed to update machine connections for switch %s: %w", s2.ID, err)
 	}
 
 	return nil
@@ -472,6 +445,10 @@ func (r *switchRepository) create(ctx context.Context, req *SwitchServiceCreateR
 }
 
 func (r *switchRepository) update(ctx context.Context, sw *metal.Switch, req *adminv2.SwitchServiceUpdateRequest) (*metal.Switch, error) {
+	if req == nil {
+		return nil, errorutil.Internal("failed to update switch %s, request was empty", sw.ID)
+	}
+
 	updated, err := updateAllButNics(sw, req)
 	if err != nil {
 		return nil, err
@@ -674,14 +651,6 @@ func updateAllButNics(sw *metal.Switch, req *adminv2.SwitchServiceUpdateRequest)
 	}
 	if req.ConsoleCommand != nil {
 		sw.ConsoleCommand = *req.ConsoleCommand
-	}
-	// FIXME: what if I want to delete connections?
-	if len(req.MachineConnections) > 0 {
-		cons, err := toMachineConnections(req.MachineConnections, sw.ID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to update machine connections: %w", err)
-		}
-		sw.MachineConnections = cons
 	}
 	if req.Os != nil {
 		vendor, err := metal.ToSwitchOSVendor(req.Os.Vendor)
