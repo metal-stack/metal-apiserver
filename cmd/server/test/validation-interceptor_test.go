@@ -38,7 +38,7 @@ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 	}
 	_, err := apiv2connect.NewTokenServiceClient(srv.Client(), srv.URL).Create(t.Context(), req)
 	require.Error(t, err)
-	require.EqualError(t, err, "invalid_argument: validation error:\n - description: must be shorter than 256 characters [string.is_description]")
+	require.EqualError(t, err, "invalid_argument: validation error: description: must be shorter than 256 characters")
 	require.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
 }
 
