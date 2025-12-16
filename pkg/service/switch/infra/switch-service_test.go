@@ -34,20 +34,6 @@ var (
 				Partition:   "partition-a",
 				ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 				Meta:        &apiv2.Meta{Generation: generation},
-				MachineConnections: []*apiv2.MachineConnection{
-					{
-						MachineId: "m1",
-						Nic: &apiv2.SwitchNic{
-							Name:       "Ethernet0",
-							Identifier: "Eth1/1",
-							BgpFilter:  &apiv2.BGPFilter{},
-							State: &apiv2.NicState{
-								Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
-								Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
-							},
-						},
-					},
-				},
 				Nics: []*apiv2.SwitchNic{
 					{
 						Name:       "Ethernet0",
@@ -305,6 +291,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 	)
 
 	test.CreatePartitions(t, repo, partitions)
+	test.CreateMachines(t, testStore, []*metal.Machine{m1})
 	test.CreateSwitches(t, repo, switches(0))
 
 	tests := []struct {
@@ -317,7 +304,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 			name: "register new switch",
 			rq: &infrav2.SwitchServiceRegisterRequest{
 				Switch: &apiv2.Switch{
-					Id:           "sw3",
+					Id:           "sw50",
 					Rack:         nil,
 					Partition:    "partition-b",
 					ManagementIp: "1.1.1.1",
@@ -332,7 +319,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 			},
 			want: &infrav2.SwitchServiceRegisterResponse{
 				Switch: &apiv2.Switch{
-					Id:           "sw3",
+					Id:           "sw50",
 					Meta:         &apiv2.Meta{Generation: 0},
 					Rack:         nil,
 					Partition:    "partition-b",
@@ -474,6 +461,7 @@ func Test_switchServiceServer_Get(t *testing.T) {
 	)
 
 	test.CreatePartitions(t, repo, partitions)
+	test.CreateMachines(t, testStore, []*metal.Machine{m1})
 	test.CreateSwitches(t, repo, switches(0))
 
 	tests := []struct {
@@ -495,10 +483,10 @@ func Test_switchServiceServer_Get(t *testing.T) {
 		{
 			name: "get non-existing",
 			rq: &infrav2.SwitchServiceGetRequest{
-				Id: "sw4",
+				Id: "sw50",
 			},
 			want:    nil,
-			wantErr: errorutil.NotFound("no switch with id \"sw4\" found"),
+			wantErr: errorutil.NotFound("no switch with id \"sw50\" found"),
 		},
 	}
 	for _, tt := range tests {
@@ -733,19 +721,6 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 				Partition:   "partition-a",
 				ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 				Meta:        &apiv2.Meta{Generation: 1},
-				MachineConnections: []*apiv2.MachineConnection{
-					{
-						MachineId: "m1",
-						Nic: &apiv2.SwitchNic{
-							Name:       "Ethernet0",
-							Identifier: "Eth1/1",
-							BgpFilter:  &apiv2.BGPFilter{},
-							State: &apiv2.NicState{
-								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-							},
-						},
-					},
-				},
 				Nics: []*apiv2.SwitchNic{
 					{
 						Name:       "Ethernet0",
