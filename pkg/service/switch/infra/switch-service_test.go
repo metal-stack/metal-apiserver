@@ -426,6 +426,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		// TODO: test replace
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

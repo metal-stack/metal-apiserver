@@ -937,3 +937,67 @@ func Test_switchServiceServer_Port(t *testing.T) {
 		})
 	}
 }
+
+func Test_switchServiceServer_Migrate(t *testing.T) {
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	ctx := t.Context()
+
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	defer closer()
+	repo := testStore.Store
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintln(w, "a image")
+	}))
+	defer ts.Close()
+
+	validURL := ts.URL
+
+	var (
+		partitions = []*adminv2.PartitionServiceCreateRequest{
+			{Partition: &apiv2.Partition{Id: "partition-a", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+			{Partition: &apiv2.Partition{Id: "partition-b", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+		}
+	)
+
+	test.CreatePartitions(t, repo, partitions)
+	test.CreateMachines(t, testStore, []*metal.Machine{
+		{
+			Base: metal.Base{ID: "m1"},
+		},
+	})
+	test.CreateSwitches(t, repo, switches(0))
+
+	tests := []struct {
+		name    string
+		rq      *adminv2.SwitchServiceMigrateRequest
+		want    *adminv2.SwitchServiceMigrateResponse
+		wantErr error
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &switchServiceServer{
+				log:  log,
+				repo: repo,
+			}
+			if tt.wantErr == nil {
+				test.Validate(t, tt.rq)
+			}
+
+			got, err := s.Migrate(ctx, tt.rq)
+			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("switchServiceServer.Migrate() error diff = %s", diff)
+				return
+			}
+			if diff := cmp.Diff(tt.want, got,
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				)); diff != "" {
+				t.Errorf("switchServiceServer.Migrate() diff = %s", diff)
+			}
+		})
+	}
+}
