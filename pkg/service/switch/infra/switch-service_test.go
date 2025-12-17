@@ -123,6 +123,7 @@ var (
 		Switch: &apiv2.Switch{
 			Id:          "sw3",
 			Partition:   "partition-a",
+			Rack:        pointer.Pointer("r03"),
 			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 			MachineConnections: []*apiv2.MachineConnection{
 				{
@@ -155,6 +156,7 @@ var (
 		Switch: &apiv2.Switch{
 			Id:          "sw4",
 			Partition:   "partition-a",
+			Rack:        pointer.Pointer("r03"),
 			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 			MachineConnections: []*apiv2.MachineConnection{
 				{
@@ -187,6 +189,7 @@ var (
 		Switch: &apiv2.Switch{
 			Id:          "sw5",
 			Partition:   "partition-a",
+			Rack:        pointer.Pointer("r03"),
 			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 			Nics: []*apiv2.SwitchNic{
 				{
@@ -214,6 +217,7 @@ var (
 		Switch: &apiv2.Switch{
 			Id:          "sw6",
 			Partition:   "partition-a",
+			Rack:        pointer.Pointer("r03"),
 			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 			Nics: []*apiv2.SwitchNic{
 				{
@@ -226,6 +230,107 @@ var (
 				{
 					Name:       "Ethernet1",
 					Identifier: "Eth1/2",
+					State: &apiv2.NicState{
+						Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+					},
+				},
+			},
+			Os: &apiv2.SwitchOS{
+				Vendor: apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+			},
+		},
+	}
+
+	sw7 = &repository.SwitchServiceCreateRequest{
+		Switch: &apiv2.Switch{
+			Id:          "sw7",
+			Partition:   "partition-a",
+			Rack:        pointer.Pointer("r04"),
+			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE,
+			Nics: []*apiv2.SwitchNic{
+				{
+					Name:       "Ethernet0",
+					Identifier: "Eth1/1",
+					State: &apiv2.NicState{
+						Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+					},
+				},
+				{
+					Name:       "Ethernet1",
+					Identifier: "Eth1/2",
+					State: &apiv2.NicState{
+						Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+					},
+				},
+			},
+			Os: &apiv2.SwitchOS{
+				Vendor: apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+			},
+		},
+	}
+
+	sw8 = &repository.SwitchServiceCreateRequest{
+		Switch: &apiv2.Switch{
+			Id:          "sw8",
+			Partition:   "partition-a",
+			Rack:        pointer.Pointer("r05"),
+			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE,
+			MachineConnections: []*apiv2.MachineConnection{
+				{
+					MachineId: "m1",
+					Nic: &apiv2.SwitchNic{
+						Name:       "swp1s0",
+						Identifier: "aa:aa:aa:aa:aa:aa",
+						State: &apiv2.NicState{
+							Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+						},
+					},
+				},
+			},
+			Nics: []*apiv2.SwitchNic{
+				{
+					Name:       "swp1s0",
+					Identifier: "aa:aa:aa:aa:aa:aa",
+					State: &apiv2.NicState{
+						Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+					},
+				},
+				{
+					Name:       "swp1s1",
+					Identifier: "bb:bb:bb:bb:bb:bb",
+					State: &apiv2.NicState{
+						Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+					},
+				},
+			},
+			Os: &apiv2.SwitchOS{
+				Vendor: apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_CUMULUS,
+			},
+		},
+	}
+
+	sw9 = &repository.SwitchServiceCreateRequest{
+		Switch: &apiv2.Switch{
+			Id:          "sw9",
+			Partition:   "partition-a",
+			Rack:        pointer.Pointer("r05"),
+			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+			MachineConnections: []*apiv2.MachineConnection{
+				{
+					MachineId: "m1",
+					Nic: &apiv2.SwitchNic{
+						Name:       "Ethernet0",
+						Identifier: "Eth1/1",
+						State: &apiv2.NicState{
+							Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+						},
+					},
+				},
+			},
+			Nics: []*apiv2.SwitchNic{
+				{
+					Name:       "Ethernet0",
+					Identifier: "Eth1/1",
 					State: &apiv2.NicState{
 						Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 					},
@@ -252,7 +357,7 @@ var (
 	}
 
 	switches = func(generation uint64) []*repository.SwitchServiceCreateRequest {
-		return []*repository.SwitchServiceCreateRequest{sw1(generation), sw2(generation), sw3, sw4, sw5, sw6}
+		return []*repository.SwitchServiceCreateRequest{sw1(generation), sw2(generation), sw3, sw4, sw5, sw6, sw7, sw8, sw9}
 	}
 
 	m1 = &metal.Machine{
@@ -426,7 +531,161 @@ func Test_switchServiceServer_Register(t *testing.T) {
 			},
 			wantErr: nil,
 		},
-		// TODO: test replace
+		{
+			name: "try replace but no switches found in the rack",
+			rq: &infrav2.SwitchServiceRegisterRequest{
+				Switch: &apiv2.Switch{
+					Id:           "sw7",
+					Rack:         pointer.Pointer("r10"),
+					Partition:    "partition-a",
+					ManagementIp: "1.1.1.1",
+					ReplaceMode:  apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+					Os: &apiv2.SwitchOS{
+						Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+						Version:          "ec202211",
+						MetalCoreVersion: "v0.14.0",
+					},
+				},
+			},
+			want:    nil,
+			wantErr: errorutil.NotFound("failed to determine twin for switch sw7: could not find any switch in rack r10"),
+		},
+		{
+			name: "try replace but multiple potential twins exist",
+			rq: &infrav2.SwitchServiceRegisterRequest{
+				Switch: &apiv2.Switch{
+					Id:           "sw7",
+					Rack:         pointer.Pointer("r03"),
+					Partition:    "partition-a",
+					ManagementIp: "1.1.1.1",
+					ReplaceMode:  apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+					Os: &apiv2.SwitchOS{
+						Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+						Version:          "ec202211",
+						MetalCoreVersion: "v0.14.0",
+					},
+				},
+			},
+			want:    nil,
+			wantErr: errorutil.FailedPrecondition("failed to determine twin for switch sw7: found multiple twin switches for sw7 (sw3 and sw4)"),
+		},
+		{
+			name: "try replace but no twin switch found",
+			rq: &infrav2.SwitchServiceRegisterRequest{
+				Switch: &apiv2.Switch{
+					Id:           "sw7",
+					Rack:         pointer.Pointer("r04"),
+					Partition:    "partition-a",
+					ManagementIp: "1.1.1.1",
+					ReplaceMode:  apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+					Os: &apiv2.SwitchOS{
+						Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+						Version:          "ec202211",
+						MetalCoreVersion: "v0.14.0",
+					},
+				},
+			},
+			want:    nil,
+			wantErr: errorutil.NotFound("failed to determine twin for switch sw7: no twin found for switch sw7 in partition partition-a and rack r04"),
+		},
+		{
+			name: "successful replacement",
+			rq: &infrav2.SwitchServiceRegisterRequest{
+				Switch: &apiv2.Switch{
+					Id:           "sw8",
+					Partition:    "partition-a",
+					Rack:         pointer.Pointer("r05"),
+					ManagementIp: "1.1.1.1",
+					ReplaceMode:  apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+					MachineConnections: []*apiv2.MachineConnection{
+						{
+							MachineId: "m1",
+							Nic: &apiv2.SwitchNic{
+								Name:       "Ethernet0",
+								Identifier: "Eth1/1",
+								Mac:        "11:11:11:11:11:11",
+								State: &apiv2.NicState{
+									Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+								},
+							},
+						},
+					},
+					Nics: []*apiv2.SwitchNic{
+						{
+							Name:       "Ethernet0",
+							Identifier: "Eth1/1",
+							Mac:        "11:11:11:11:11:11",
+							State: &apiv2.NicState{
+								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							},
+						},
+						{
+							Name:       "Ethernet1",
+							Identifier: "Eth1/2",
+							Mac:        "22:22:22:22:22:22",
+							State: &apiv2.NicState{
+								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							},
+						},
+					},
+					Os: &apiv2.SwitchOS{
+						Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+						Version:          "ec202211",
+						MetalCoreVersion: "v0.13.0",
+					},
+				},
+			},
+			want: &infrav2.SwitchServiceRegisterResponse{
+				Switch: &apiv2.Switch{
+					Id:           "sw8",
+					Partition:    "partition-a",
+					Rack:         pointer.Pointer("r05"),
+					Meta:         &apiv2.Meta{Generation: 1},
+					ManagementIp: "1.1.1.1",
+					ReplaceMode:  apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+					MachineConnections: []*apiv2.MachineConnection{
+						{
+							MachineId: "m1",
+							Nic: &apiv2.SwitchNic{
+								Name:       "Ethernet0",
+								Identifier: "Eth1/1",
+								Mac:        "11:11:11:11:11:11",
+								BgpFilter:  &apiv2.BGPFilter{},
+								State: &apiv2.NicState{
+									Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+								},
+							},
+						},
+					},
+					Nics: []*apiv2.SwitchNic{
+						{
+							Name:       "Ethernet0",
+							Identifier: "Eth1/1",
+							Mac:        "11:11:11:11:11:11",
+							BgpFilter:  &apiv2.BGPFilter{},
+							State: &apiv2.NicState{
+								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							},
+						},
+						{
+							Name:       "Ethernet1",
+							Identifier: "Eth1/2",
+							Mac:        "22:22:22:22:22:22",
+							BgpFilter:  &apiv2.BGPFilter{},
+							State: &apiv2.NicState{
+								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							},
+						},
+					},
+					Os: &apiv2.SwitchOS{
+						Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+						Version:          "ec202211",
+						MetalCoreVersion: "v0.13.0",
+					},
+				},
+			},
+			wantErr: nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

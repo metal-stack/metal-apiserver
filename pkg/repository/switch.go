@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/netip"
 	"slices"
@@ -47,6 +46,10 @@ func (s *SwitchStatus) GetID() string {
 }
 
 func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServiceRegisterRequest) (*apiv2.Switch, error) {
+	if req == nil || req.Switch == nil {
+		return nil, errorutil.InvalidArgument("empty request")
+	}
+
 	sw, err := r.get(ctx, req.Switch.Id)
 	if err != nil && !errorutil.IsNotFound(err) {
 		return nil, err
@@ -541,7 +544,7 @@ func (r *switchRepository) replace(ctx context.Context, oldSwitch, newSwitch *ap
 	}
 	twin, err := r.findTwinSwitch(ctx, new)
 	if err != nil {
-		return nil, fmt.Errorf("failed to determine twin for switch %s, err: %w", newSwitch.Id, err)
+		return nil, fmt.Errorf("failed to determine twin for switch %s: %w", newSwitch.Id, err)
 	}
 	sw, err := adoptFromTwin(old, twin, new)
 	if err != nil {
@@ -556,6 +559,7 @@ func (r *switchRepository) replace(ctx context.Context, oldSwitch, newSwitch *ap
 		return nil, fmt.Errorf("failed to replace switch %s by %s: %w", oldSwitch.Id, newSwitch.Id, err)
 	}
 
+	sw.SetChanged(oldSwitch.Meta.UpdatedAt.AsTime())
 	err = r.s.ds.Switch().Update(ctx, sw)
 	if err != nil {
 		return nil, fmt.Errorf("failed to replace switch %s by %s: %w", oldSwitch.Id, newSwitch.Id, err)
@@ -594,6 +598,11 @@ func (r *switchRepository) convertToInternal(ctx context.Context, sw *apiv2.Swit
 	if err != nil {
 		return nil, err
 	}
+
+	if sw.Os == nil {
+		return nil, errorutil.InvalidArgument("switch os for switch %s is empty", sw.Id)
+	}
+
 	vendor, err := metal.ToSwitchOSVendor(sw.Os.Vendor)
 	if err != nil {
 		return nil, err
@@ -695,7 +704,7 @@ func (r *switchRepository) findTwinSwitch(ctx context.Context, newSwitch *metal.
 	}
 
 	if len(rackSwitches) == 0 {
-		return nil, errorutil.NotFound("could not find any switch in rack: %v", newSwitch.Rack)
+		return nil, errorutil.NotFound("could not find any switch in rack %v", newSwitch.Rack)
 	}
 
 	var twin *metal.Switch
@@ -710,12 +719,12 @@ func (r *switchRepository) findTwinSwitch(ctx context.Context, newSwitch *metal.
 		if twin == nil {
 			twin = sw
 		} else {
-			return nil, fmt.Errorf("found multiple twin switches for %v (%v and %v)", newSwitch.ID, twin.ID, sw.ID)
+			return nil, errorutil.FailedPrecondition("found multiple twin switches for %v (%v and %v)", newSwitch.ID, twin.ID, sw.ID)
 		}
 	}
 
 	if twin == nil {
-		return nil, errorutil.NotFound("no twin found for switch %s, partition: %v, rack: %v", newSwitch.ID, newSwitch.Partition, newSwitch.Rack)
+		return nil, errorutil.NotFound("no twin found for switch %s in partition %v and rack %v", newSwitch.ID, newSwitch.Partition, newSwitch.Rack)
 	}
 
 	return twin, nil
@@ -1210,19 +1219,17 @@ func toMetalSwitchSync(sync *infrav2.SwitchSync) *metal.SwitchSync {
 
 func adoptFromTwin(old, twin, new *metal.Switch) (*metal.Switch, error) {
 	if new.Partition != old.Partition {
-		return nil, fmt.Errorf("old and new switch belong to different partitions, old: %v, new: %v", old.Partition, new.Partition)
+		return nil, errorutil.FailedPrecondition("old and new switch belong to different partitions, old: %v, new: %v", old.Partition, new.Partition)
 	}
 	if new.Rack != old.Rack {
-		return nil, fmt.Errorf("old and new switch belong to different racks, old: %v, new: %v", old.Rack, new.Rack)
+		return nil, errorutil.FailedPrecondition("old and new switch belong to different racks, old: %v, new: %v", old.Rack, new.Rack)
 	}
 	if twin.ReplaceMode == metal.SwitchReplaceModeReplace {
-		return nil, errors.New("twin switch must not be in replace mode")
+		return nil, errorutil.FailedPrecondition("twin switch must not be in replace mode")
 	}
 	if len(twin.MachineConnections) == 0 {
-		// twin switch has no machine connections, switch may be used immediately, replace mode is unnecessary
-		s := *new
-		s.ReplaceMode = metal.SwitchReplaceModeOperational
-		return &s, nil
+		new.ReplaceMode = metal.SwitchReplaceModeOperational
+		return new, nil
 	}
 
 	return adoptConfiguration(twin, new)
@@ -1265,7 +1272,7 @@ func adoptNics(twin, newSwitch *metal.Switch) (metal.Nics, error) {
 	}
 
 	if len(missingNics) > 0 {
-		return nil, fmt.Errorf("new switch misses the nics %v - check the breakout configuration of the switch ports of switch %s", missingNics, newSwitch.Name)
+		return nil, errorutil.FailedPrecondition("new switch misses the nics %v - check the breakout configuration of the switch ports of switch %s", missingNics, newSwitch.Name)
 	}
 
 	for name, nic := range newNicMap {
@@ -1365,7 +1372,7 @@ func adjustMachineNics(nics metal.Nics, connections metal.Connections, nicMap me
 			if nicInConnections(neigh.Name, neigh.MacAddress, connections) {
 				n, ok := nicMap[neigh.Name]
 				if !ok {
-					return nil, fmt.Errorf("unable to find corresponding new neighbor nic")
+					return nil, fmt.Errorf("unable to find corresponding new neighbor nic for %s", neigh.Name)
 				}
 				newNeighbors = append(newNeighbors, *n)
 			} else {
