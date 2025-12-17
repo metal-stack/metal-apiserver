@@ -27,96 +27,92 @@ import (
 
 var (
 	now = time.Now()
-	sw1 = func(generation uint64) *repository.SwitchServiceCreateRequest {
-		return &repository.SwitchServiceCreateRequest{
-			Switch: &apiv2.Switch{
-				Id:          "sw1",
-				Partition:   "partition-a",
-				ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
-				Meta:        &apiv2.Meta{Generation: generation},
-				Rack:        pointer.Pointer("r01"),
-				Nics: []*apiv2.SwitchNic{
-					{
-						Name:       "Ethernet0",
-						Identifier: "Eth1/1",
-						BgpFilter:  &apiv2.BGPFilter{},
-						State: &apiv2.NicState{
-							Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
-							Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
-						},
-					},
-					{
-						Name:       "Ethernet1",
-						Identifier: "Eth1/2",
-						BgpFilter:  &apiv2.BGPFilter{},
-						State: &apiv2.NicState{
-							Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
-							Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
-						},
-						BgpPortState: &apiv2.SwitchBGPPortState{
-							Neighbor:              "Ethernet2",
-							PeerGroup:             "external",
-							VrfName:               "Vrf200",
-							BgpState:              apiv2.BGPState_BGP_STATE_CONNECT,
-							BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Unix(), 0)),
-							SentPrefixCounter:     0,
-							AcceptedPrefixCounter: 0,
-						},
+	sw1 = &repository.SwitchServiceCreateRequest{
+		Switch: &apiv2.Switch{
+			Id:          "sw1",
+			Meta:        &apiv2.Meta{},
+			Partition:   "partition-a",
+			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+			Rack:        pointer.Pointer("r01"),
+			Nics: []*apiv2.SwitchNic{
+				{
+					Name:       "Ethernet0",
+					Identifier: "Eth1/1",
+					BgpFilter:  &apiv2.BGPFilter{},
+					State: &apiv2.NicState{
+						Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
+						Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
 					},
 				},
-				Os: &apiv2.SwitchOS{
-					Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
-					Version:          "ec202111",
-					MetalCoreVersion: "v0.13.0",
+				{
+					Name:       "Ethernet1",
+					Identifier: "Eth1/2",
+					BgpFilter:  &apiv2.BGPFilter{},
+					State: &apiv2.NicState{
+						Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
+						Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
+					},
+					BgpPortState: &apiv2.SwitchBGPPortState{
+						Neighbor:              "Ethernet2",
+						PeerGroup:             "external",
+						VrfName:               "Vrf200",
+						BgpState:              apiv2.BGPState_BGP_STATE_CONNECT,
+						BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Unix(), 0)),
+						SentPrefixCounter:     0,
+						AcceptedPrefixCounter: 0,
+					},
 				},
 			},
-		}
+			Os: &apiv2.SwitchOS{
+				Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+				Version:          "ec202111",
+				MetalCoreVersion: "v0.13.0",
+			},
+		},
 	}
 
-	sw2 = func(generation uint64) *repository.SwitchServiceCreateRequest {
-		return &repository.SwitchServiceCreateRequest{
-			Switch: &apiv2.Switch{
-				Id:          "sw2",
-				Partition:   "partition-a",
-				ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
-				Meta:        &apiv2.Meta{Generation: generation},
-				Rack:        pointer.Pointer("r02"),
-				Nics: []*apiv2.SwitchNic{
-					{
-						Name:       "Ethernet0",
-						Identifier: "Eth1/1",
-						BgpFilter:  &apiv2.BGPFilter{},
-						State: &apiv2.NicState{
-							Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
-							Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
-						},
-					},
-					{
-						Name:       "Ethernet1",
-						Identifier: "Eth1/2",
-						BgpFilter:  &apiv2.BGPFilter{},
-						State: &apiv2.NicState{
-							Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
-							Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
-						},
-						BgpPortState: &apiv2.SwitchBGPPortState{
-							Neighbor:              "Ethernet2",
-							PeerGroup:             "external",
-							VrfName:               "Vrf200",
-							BgpState:              apiv2.BGPState_BGP_STATE_CONNECT,
-							BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Unix(), 0)),
-							SentPrefixCounter:     0,
-							AcceptedPrefixCounter: 0,
-						},
+	sw2 = &repository.SwitchServiceCreateRequest{
+		Switch: &apiv2.Switch{
+			Id:          "sw2",
+			Meta:        &apiv2.Meta{},
+			Partition:   "partition-a",
+			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+			Rack:        pointer.Pointer("r02"),
+			Nics: []*apiv2.SwitchNic{
+				{
+					Name:       "Ethernet0",
+					Identifier: "Eth1/1",
+					BgpFilter:  &apiv2.BGPFilter{},
+					State: &apiv2.NicState{
+						Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
+						Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
 					},
 				},
-				Os: &apiv2.SwitchOS{
-					Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
-					Version:          "ec202111",
-					MetalCoreVersion: "v0.13.0",
+				{
+					Name:       "Ethernet1",
+					Identifier: "Eth1/2",
+					BgpFilter:  &apiv2.BGPFilter{},
+					State: &apiv2.NicState{
+						Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
+						Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
+					},
+					BgpPortState: &apiv2.SwitchBGPPortState{
+						Neighbor:              "Ethernet2",
+						PeerGroup:             "external",
+						VrfName:               "Vrf200",
+						BgpState:              apiv2.BGPState_BGP_STATE_CONNECT,
+						BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Unix(), 0)),
+						SentPrefixCounter:     0,
+						AcceptedPrefixCounter: 0,
+					},
 				},
 			},
-		}
+			Os: &apiv2.SwitchOS{
+				Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+				Version:          "ec202111",
+				MetalCoreVersion: "v0.13.0",
+			},
+		},
 	}
 
 	sw3 = &repository.SwitchServiceCreateRequest{
@@ -127,7 +123,7 @@ var (
 			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 			MachineConnections: []*apiv2.MachineConnection{
 				{
-					MachineId: "m1",
+					MachineId: m1.ID,
 					Nic: &apiv2.SwitchNic{
 						Name:       "swp1s0",
 						Identifier: "aa:aa:aa:aa:aa:aa",
@@ -160,7 +156,7 @@ var (
 			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 			MachineConnections: []*apiv2.MachineConnection{
 				{
-					MachineId: "m1",
+					MachineId: m1.ID,
 					Nic: &apiv2.SwitchNic{
 						Name:       "Ethernet0",
 						Identifier: "Eth1/1",
@@ -277,7 +273,7 @@ var (
 			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE,
 			MachineConnections: []*apiv2.MachineConnection{
 				{
-					MachineId: "m1",
+					MachineId: m1.ID,
 					Nic: &apiv2.SwitchNic{
 						Name:       "swp1s0",
 						Identifier: "aa:aa:aa:aa:aa:aa",
@@ -317,7 +313,7 @@ var (
 			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 			MachineConnections: []*apiv2.MachineConnection{
 				{
-					MachineId: "m1",
+					MachineId: m1.ID,
 					Nic: &apiv2.SwitchNic{
 						Name:       "Ethernet0",
 						Identifier: "Eth1/1",
@@ -343,7 +339,7 @@ var (
 	}
 
 	sw1Status = &repository.SwitchStatus{
-		ID: sw1(0).Switch.Id,
+		ID: sw1.Switch.Id,
 		LastSync: &infrav2.SwitchSync{
 			Time:     timestamppb.New(now),
 			Duration: durationpb.New(time.Second),
@@ -356,9 +352,7 @@ var (
 		},
 	}
 
-	switches = func(generation uint64) []*repository.SwitchServiceCreateRequest {
-		return []*repository.SwitchServiceCreateRequest{sw1(generation), sw2(generation), sw3, sw4, sw5, sw6, sw7, sw8, sw9}
-	}
+	switches = []*repository.SwitchServiceCreateRequest{sw1, sw2, sw3, sw4, sw5, sw6, sw7, sw8, sw9}
 
 	m1 = &metal.Machine{
 		Base: metal.Base{ID: "m1"},
@@ -413,7 +407,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 
 	test.CreatePartitions(t, repo, partitions)
 	test.CreateMachines(t, testStore, []*metal.Machine{m1})
-	test.CreateSwitches(t, repo, switches(0))
+	test.CreateSwitches(t, repo, switches)
 
 	tests := []struct {
 		name    string
@@ -460,7 +454,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 			name: "register existing operational switch",
 			rq: &infrav2.SwitchServiceRegisterRequest{
 				Switch: &apiv2.Switch{
-					Id:             "sw1",
+					Id:             sw1.Switch.Id,
 					Description:    "new description",
 					Partition:      "partition-a",
 					ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
@@ -484,7 +478,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 			},
 			want: &infrav2.SwitchServiceRegisterResponse{
 				Switch: &apiv2.Switch{
-					Id:             "sw1",
+					Id:             sw1.Switch.Id,
 					Description:    "new description",
 					Meta:           &apiv2.Meta{Generation: 1},
 					Partition:      "partition-a",
@@ -535,7 +529,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 			name: "try replace but no switches found in the rack",
 			rq: &infrav2.SwitchServiceRegisterRequest{
 				Switch: &apiv2.Switch{
-					Id:           "sw7",
+					Id:           sw7.Switch.Id,
 					Rack:         pointer.Pointer("r10"),
 					Partition:    "partition-a",
 					ManagementIp: "1.1.1.1",
@@ -554,7 +548,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 			name: "try replace but multiple potential twins exist",
 			rq: &infrav2.SwitchServiceRegisterRequest{
 				Switch: &apiv2.Switch{
-					Id:           "sw7",
+					Id:           sw7.Switch.Id,
 					Rack:         pointer.Pointer("r03"),
 					Partition:    "partition-a",
 					ManagementIp: "1.1.1.1",
@@ -573,7 +567,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 			name: "try replace but no twin switch found",
 			rq: &infrav2.SwitchServiceRegisterRequest{
 				Switch: &apiv2.Switch{
-					Id:           "sw7",
+					Id:           sw7.Switch.Id,
 					Rack:         pointer.Pointer("r04"),
 					Partition:    "partition-a",
 					ManagementIp: "1.1.1.1",
@@ -592,14 +586,14 @@ func Test_switchServiceServer_Register(t *testing.T) {
 			name: "successful replacement",
 			rq: &infrav2.SwitchServiceRegisterRequest{
 				Switch: &apiv2.Switch{
-					Id:           "sw8",
+					Id:           sw8.Switch.Id,
 					Partition:    "partition-a",
 					Rack:         pointer.Pointer("r05"),
 					ManagementIp: "1.1.1.1",
 					ReplaceMode:  apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 					MachineConnections: []*apiv2.MachineConnection{
 						{
-							MachineId: "m1",
+							MachineId: m1.ID,
 							Nic: &apiv2.SwitchNic{
 								Name:       "Ethernet0",
 								Identifier: "Eth1/1",
@@ -637,7 +631,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 			},
 			want: &infrav2.SwitchServiceRegisterResponse{
 				Switch: &apiv2.Switch{
-					Id:           "sw8",
+					Id:           sw8.Switch.Id,
 					Partition:    "partition-a",
 					Rack:         pointer.Pointer("r05"),
 					Meta:         &apiv2.Meta{Generation: 1},
@@ -645,7 +639,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 					ReplaceMode:  apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 					MachineConnections: []*apiv2.MachineConnection{
 						{
-							MachineId: "m1",
+							MachineId: m1.ID,
 							Nic: &apiv2.SwitchNic{
 								Name:       "Ethernet0",
 								Identifier: "Eth1/1",
@@ -739,7 +733,7 @@ func Test_switchServiceServer_Get(t *testing.T) {
 
 	test.CreatePartitions(t, repo, partitions)
 	test.CreateMachines(t, testStore, []*metal.Machine{m1})
-	test.CreateSwitches(t, repo, switches(0))
+	test.CreateSwitches(t, repo, switches)
 
 	tests := []struct {
 		name    string
@@ -750,10 +744,10 @@ func Test_switchServiceServer_Get(t *testing.T) {
 		{
 			name: "get existing",
 			rq: &infrav2.SwitchServiceGetRequest{
-				Id: "sw1",
+				Id: sw1.Switch.Id,
 			},
 			want: &infrav2.SwitchServiceGetResponse{
-				Switch: sw1(0).Switch,
+				Switch: sw1.Switch,
 			},
 			wantErr: nil,
 		},
@@ -817,7 +811,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 
 	test.CreatePartitions(t, repo, partitions)
 	test.CreateMachines(t, testStore, []*metal.Machine{m1})
-	test.CreateSwitches(t, repo, switches(0))
+	test.CreateSwitches(t, repo, switches)
 	test.CreateSwitchStatuses(t, testStore, []*repository.SwitchStatus{sw1Status})
 
 	tests := []struct {
@@ -830,7 +824,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 		{
 			name: "switch status empty, no error, no change",
 			rq: &infrav2.SwitchServiceHeartbeatRequest{
-				Id:       sw2(0).Switch.Id,
+				Id:       sw2.Switch.Id,
 				Duration: durationpb.New(time.Second),
 				Error:    nil,
 				PortStates: map[string]apiv2.SwitchPortStatus{
@@ -850,20 +844,20 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 				},
 			},
 			want: &infrav2.SwitchServiceHeartbeatResponse{
-				Id: sw2(0).Switch.Id,
+				Id: sw2.Switch.Id,
 				LastSync: &infrav2.SwitchSync{
 					Duration: durationpb.New(time.Second),
 					Error:    nil,
 				},
 				LastSyncError: nil,
 			},
-			wantSwitch: sw2(0).Switch,
+			wantSwitch: sw2.Switch,
 			wantErr:    nil,
 		},
 		{
 			name: "switch status exists, error occurred, no change",
 			rq: &infrav2.SwitchServiceHeartbeatRequest{
-				Id:       sw1(0).Switch.Id,
+				Id:       sw1.Switch.Id,
 				Duration: durationpb.New(time.Second),
 				Error:    pointer.Pointer("sync failed"),
 				PortStates: map[string]apiv2.SwitchPortStatus{
@@ -883,7 +877,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 				},
 			},
 			want: &infrav2.SwitchServiceHeartbeatResponse{
-				Id: sw1(0).Switch.Id,
+				Id: sw1.Switch.Id,
 				LastSync: &infrav2.SwitchSync{
 					Time:     timestamppb.New(now),
 					Duration: durationpb.New(time.Second),
@@ -894,13 +888,13 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 					Error:    pointer.Pointer("sync failed"),
 				},
 			},
-			wantSwitch: sw1(0).Switch,
+			wantSwitch: sw1.Switch,
 			wantErr:    nil,
 		},
 		{
 			name: "error occurred, update anyway",
 			rq: &infrav2.SwitchServiceHeartbeatRequest{
-				Id:       sw2(0).Switch.Id,
+				Id:       sw2.Switch.Id,
 				Duration: durationpb.New(time.Second),
 				Error:    pointer.Pointer("failed to sync"),
 				PortStates: map[string]apiv2.SwitchPortStatus{
@@ -920,7 +914,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 				},
 			},
 			want: &infrav2.SwitchServiceHeartbeatResponse{
-				Id: sw2(0).Switch.Id,
+				Id: sw2.Switch.Id,
 				LastSync: &infrav2.SwitchSync{
 					Duration: durationpb.New(time.Second),
 					Error:    nil,
@@ -931,7 +925,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 				},
 			},
 			wantSwitch: &apiv2.Switch{
-				Id:          "sw2",
+				Id:          sw2.Switch.Id,
 				Partition:   "partition-a",
 				ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 				Meta:        &apiv2.Meta{Generation: 1},
@@ -975,7 +969,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 		{
 			name: "no error occurred",
 			rq: &infrav2.SwitchServiceHeartbeatRequest{
-				Id:       sw1(0).Switch.Id,
+				Id:       sw1.Switch.Id,
 				Duration: durationpb.New(2 * time.Second),
 				PortStates: map[string]apiv2.SwitchPortStatus{
 					"Ethernet0": apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -984,7 +978,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 				BgpPortStates: map[string]*apiv2.SwitchBGPPortState{},
 			},
 			want: &infrav2.SwitchServiceHeartbeatResponse{
-				Id: sw1(0).Switch.Id,
+				Id: sw1.Switch.Id,
 				LastSync: &infrav2.SwitchSync{
 					Duration: durationpb.New(2 * time.Second),
 					Error:    nil,
@@ -995,7 +989,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 				},
 			},
 			wantSwitch: &apiv2.Switch{
-				Id:          "sw1",
+				Id:          sw1.Switch.Id,
 				Partition:   "partition-a",
 				ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 				Meta:        &apiv2.Meta{Generation: 1},
@@ -1095,7 +1089,7 @@ func Test_switchRepository_ConnectMachineWithSwitches(t *testing.T) {
 
 	test.CreatePartitions(t, repo, partitions)
 	test.CreateMachines(t, testStore, []*metal.Machine{m1})
-	test.CreateSwitches(t, repo, switches(0))
+	test.CreateSwitches(t, repo, switches)
 
 	tests := []struct {
 		name         string
@@ -1304,18 +1298,18 @@ func Test_switchRepository_ConnectMachineWithSwitches(t *testing.T) {
 			},
 			wantSwitches: []*apiv2.Switch{
 				{
-					Id:                 "sw3",
+					Id:                 sw3.Switch.Id,
 					MachineConnections: []*apiv2.MachineConnection{},
 				},
 				{
-					Id:                 "sw4",
+					Id:                 sw4.Switch.Id,
 					MachineConnections: []*apiv2.MachineConnection{},
 				},
 				{
-					Id: "sw5",
+					Id: sw5.Switch.Id,
 					MachineConnections: []*apiv2.MachineConnection{
 						{
-							MachineId: "m1",
+							MachineId: m1.ID,
 							Nic: &apiv2.SwitchNic{
 								Name:       "swp1s0",
 								BgpFilter:  &apiv2.BGPFilter{},
@@ -1328,10 +1322,10 @@ func Test_switchRepository_ConnectMachineWithSwitches(t *testing.T) {
 					},
 				},
 				{
-					Id: "sw6",
+					Id: sw6.Switch.Id,
 					MachineConnections: []*apiv2.MachineConnection{
 						{
-							MachineId: "m1",
+							MachineId: m1.ID,
 							Nic: &apiv2.SwitchNic{
 								Name:       "Ethernet0",
 								BgpFilter:  &apiv2.BGPFilter{},
