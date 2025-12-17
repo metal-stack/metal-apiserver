@@ -219,6 +219,142 @@ var (
 			},
 		}
 	}
+	sw4 = &repository.SwitchServiceCreateRequest{
+		Switch: &apiv2.Switch{
+			Id:          "sw4",
+			Partition:   "partition-a",
+			Rack:        pointer.Pointer("r03"),
+			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+			MachineConnections: []*apiv2.MachineConnection{
+				{
+					MachineId: "m1",
+					Nic: &apiv2.SwitchNic{
+						Name:       "swp1s0",
+						Identifier: "aa:aa:aa:aa:aa:aa",
+						State: &apiv2.NicState{
+							Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+						},
+					},
+				},
+			},
+			Nics: []*apiv2.SwitchNic{
+				{
+					Name:       "swp1s0",
+					Identifier: "aa:aa:aa:aa:aa:aa",
+					State: &apiv2.NicState{
+						Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+					},
+				},
+			},
+			Os: &apiv2.SwitchOS{
+				Vendor: apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_CUMULUS,
+			},
+		},
+	}
+	sw401 = &repository.SwitchServiceCreateRequest{
+		Switch: &apiv2.Switch{
+			Id:          "sw4-1",
+			Partition:   "partition-a",
+			Rack:        pointer.Pointer("r04"),
+			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+			Nics: []*apiv2.SwitchNic{
+				{
+					Name:       "swp1s0",
+					Identifier: "aa:aa:aa:aa:aa:aa",
+					State: &apiv2.NicState{
+						Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+					},
+				},
+			},
+			Os: &apiv2.SwitchOS{
+				Vendor: apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_CUMULUS,
+			},
+		},
+	}
+	sw402 = &repository.SwitchServiceCreateRequest{
+		Switch: &apiv2.Switch{
+			Id:          "sw4-2",
+			Partition:   "partition-a",
+			Rack:        pointer.Pointer("r03"),
+			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+			MachineConnections: []*apiv2.MachineConnection{
+				{
+					MachineId: "m1",
+					Nic: &apiv2.SwitchNic{
+						Name:       "swp1s0",
+						Identifier: "aa:aa:aa:aa:aa:aa",
+						State: &apiv2.NicState{
+							Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+						},
+					},
+				},
+			},
+			Nics: []*apiv2.SwitchNic{
+				{
+					Name:       "swp1s0",
+					Identifier: "aa:aa:aa:aa:aa:aa",
+					State: &apiv2.NicState{
+						Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+					},
+				},
+			},
+			Os: &apiv2.SwitchOS{
+				Vendor: apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_CUMULUS,
+			},
+		},
+	}
+	sw5 = &repository.SwitchServiceCreateRequest{
+		Switch: &apiv2.Switch{
+			Id:          "sw5",
+			Partition:   "partition-a",
+			Rack:        pointer.Pointer("r03"),
+			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+			MachineConnections: []*apiv2.MachineConnection{
+				{
+					MachineId: "m1",
+					Nic: &apiv2.SwitchNic{
+						Name:       "Ethernet0",
+						Identifier: "Eth1/1",
+						State: &apiv2.NicState{
+							Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+						},
+					},
+				},
+			},
+			Nics: []*apiv2.SwitchNic{
+				{
+					Name:       "Ethernet0",
+					Identifier: "Eth1/1",
+					State: &apiv2.NicState{
+						Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+					},
+				},
+			},
+			Os: &apiv2.SwitchOS{
+				Vendor: apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+			},
+		},
+	}
+	sw501 = &repository.SwitchServiceCreateRequest{
+		Switch: &apiv2.Switch{
+			Id:          "sw5-1",
+			Partition:   "partition-a",
+			Rack:        pointer.Pointer("r03"),
+			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+			Nics: []*apiv2.SwitchNic{
+				{
+					Name:       "Ethernet0",
+					Identifier: "Eth1/1",
+					State: &apiv2.NicState{
+						Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+					},
+				},
+			},
+			Os: &apiv2.SwitchOS{
+				Vendor: apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+			},
+		},
+	}
 
 	sw1Status = &repository.SwitchStatus{
 		ID: sw1(0).Switch.Id,
@@ -249,7 +385,35 @@ var (
 	}
 
 	switches = func(generation uint64) []*repository.SwitchServiceCreateRequest {
-		return []*repository.SwitchServiceCreateRequest{sw1(generation), sw2(generation), sw3(generation)}
+		return []*repository.SwitchServiceCreateRequest{sw1(generation), sw2(generation), sw3(generation), sw4, sw5, sw401, sw402, sw501}
+	}
+
+	m1 = &metal.Machine{
+		Base: metal.Base{ID: "m1"},
+		Hardware: metal.MachineHardware{
+			Nics: metal.Nics{
+				{
+					Name: "lan0",
+					Neighbors: metal.Nics{
+						{
+							Name:       "swp1s0",
+							Identifier: "aa:aa:aa:aa:aa:aa",
+							Hostname:   "sw3",
+						},
+					},
+				},
+				{
+					Name: "lan1",
+					Neighbors: metal.Nics{
+						{
+							Name:       "Ethernet0",
+							Identifier: "Eth1/1",
+							Hostname:   "sw4",
+						},
+					},
+				},
+			},
+		},
 	}
 )
 
@@ -276,11 +440,7 @@ func Test_switchServiceServer_Get(t *testing.T) {
 	)
 
 	test.CreatePartitions(t, repo, partitions)
-	test.CreateMachines(t, testStore, []*metal.Machine{
-		{
-			Base: metal.Base{ID: "m1"},
-		},
-	})
+	test.CreateMachines(t, testStore, []*metal.Machine{m1})
 	test.CreateSwitches(t, repo, switches(0))
 
 	tests := []struct {
@@ -358,11 +518,7 @@ func Test_switchServiceServer_List(t *testing.T) {
 	)
 
 	test.CreatePartitions(t, repo, partitions)
-	test.CreateMachines(t, testStore, []*metal.Machine{
-		{
-			Base: metal.Base{ID: "m1"},
-		},
-	})
+	test.CreateMachines(t, testStore, []*metal.Machine{m1})
 	test.CreateSwitches(t, repo, switches(0))
 
 	tests := []struct {
@@ -441,11 +597,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 	)
 
 	test.CreatePartitions(t, repo, partitions)
-	test.CreateMachines(t, testStore, []*metal.Machine{
-		{
-			Base: metal.Base{ID: "m1"},
-		},
-	})
+	test.CreateMachines(t, testStore, []*metal.Machine{m1})
 	switchMap := test.CreateSwitches(t, repo, switches(0))
 
 	tests := []struct {
@@ -656,11 +808,7 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 	)
 
 	test.CreatePartitions(t, repo, partitions)
-	test.CreateMachines(t, testStore, []*metal.Machine{
-		{
-			Base: metal.Base{ID: "m1"},
-		},
-	})
+	test.CreateMachines(t, testStore, []*metal.Machine{m1})
 	test.CreateSwitches(t, repo, switches(0))
 	test.CreateSwitchStatuses(t, testStore, []*repository.SwitchStatus{sw1Status, sw3Status})
 
@@ -764,11 +912,7 @@ func Test_switchServiceServer_Port(t *testing.T) {
 	)
 
 	test.CreatePartitions(t, repo, partitions)
-	test.CreateMachines(t, testStore, []*metal.Machine{
-		{
-			Base: metal.Base{ID: "m1"},
-		},
-	})
+	test.CreateMachines(t, testStore, []*metal.Machine{m1})
 	test.CreateSwitches(t, repo, switches(0))
 
 	tests := []struct {
@@ -961,11 +1105,7 @@ func Test_switchServiceServer_Migrate(t *testing.T) {
 	)
 
 	test.CreatePartitions(t, repo, partitions)
-	test.CreateMachines(t, testStore, []*metal.Machine{
-		{
-			Base: metal.Base{ID: "m1"},
-		},
-	})
+	test.CreateMachines(t, testStore, []*metal.Machine{m1})
 	test.CreateSwitches(t, repo, switches(0))
 
 	tests := []struct {
@@ -974,7 +1114,67 @@ func Test_switchServiceServer_Migrate(t *testing.T) {
 		want    *adminv2.SwitchServiceMigrateResponse
 		wantErr error
 	}{
-		// TODO: Add test cases.
+		{
+			name: "cannot migrate from one rack to another",
+			rq: &adminv2.SwitchServiceMigrateRequest{
+				OldSwitch: sw4.Switch.Id,
+				NewSwitch: sw401.Switch.Id,
+			},
+			want:    nil,
+			wantErr: errorutil.FailedPrecondition("cannot migrate from switch %s in rack %s to switch %s in rack %s, switches must be in the same rack", sw4.Switch.Id, *sw4.Switch.Rack, sw401.Switch.Id, *sw401.Switch.Rack),
+		},
+		{
+			name: "cannot migrate to switch that already has connections",
+			rq: &adminv2.SwitchServiceMigrateRequest{
+				OldSwitch: sw4.Switch.Id,
+				NewSwitch: sw402.Switch.Id,
+			},
+			want:    nil,
+			wantErr: errorutil.FailedPrecondition("cannot migrate from switch %s to switch %s because the new switch already has machine connections", sw4.Switch.Id, sw402.Switch.Id),
+		},
+		{
+			name: "migrate successfully",
+			rq: &adminv2.SwitchServiceMigrateRequest{
+				OldSwitch: sw5.Switch.Id,
+				NewSwitch: sw501.Switch.Id,
+			},
+			want: &adminv2.SwitchServiceMigrateResponse{
+				Switch: &apiv2.Switch{
+					Id:          "sw5-1",
+					Partition:   "partition-a",
+					Rack:        pointer.Pointer("r03"),
+					ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+					Meta:        &apiv2.Meta{Generation: 1},
+					MachineConnections: []*apiv2.MachineConnection{
+						{
+							MachineId: "m1",
+							Nic: &apiv2.SwitchNic{
+								Name:       "Ethernet0",
+								Identifier: "Eth1/1",
+								BgpFilter:  &apiv2.BGPFilter{},
+								State: &apiv2.NicState{
+									Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+								},
+							},
+						},
+					},
+					Nics: []*apiv2.SwitchNic{
+						{
+							Name:       "Ethernet0",
+							Identifier: "Eth1/1",
+							BgpFilter:  &apiv2.BGPFilter{},
+							State: &apiv2.NicState{
+								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							},
+						},
+					},
+					Os: &apiv2.SwitchOS{
+						Vendor: apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+					},
+				},
+			},
+			wantErr: nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
