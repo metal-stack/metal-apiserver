@@ -54,6 +54,7 @@ import (
 	tenantadmin "github.com/metal-stack/metal-apiserver/pkg/service/tenant/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/token"
 	tokenadmin "github.com/metal-stack/metal-apiserver/pkg/service/token/admin"
+	"github.com/metal-stack/metal-apiserver/pkg/service/user"
 	"github.com/metal-stack/metal-apiserver/pkg/service/version"
 	vpnadmin "github.com/metal-stack/metal-apiserver/pkg/service/vpn/admin"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
@@ -173,6 +174,10 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 		InviteStore: tenantInviteStore,
 		TokenStore:  tokenStore,
 	})
+	userService := user.New(&user.Config{
+		Log:  log,
+		Repo: c.Repository,
+	})
 
 	adminTenantService := tenantadmin.New(tenantadmin.Config{
 		Log:         log,
@@ -229,6 +234,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	mux.Handle(apiv2connect.NewSizeServiceHandler(sizeService, interceptors))
 	mux.Handle(apiv2connect.NewProjectServiceHandler(projectService, interceptors))
 	mux.Handle(apiv2connect.NewTenantServiceHandler(tenantService, interceptors))
+	mux.Handle(apiv2connect.NewUserServiceHandler(userService, interceptors))
 	mux.Handle(apiv2connect.NewTokenServiceHandler(tokenService, interceptors))
 	mux.Handle(apiv2connect.NewVersionServiceHandler(versionService, interceptors))
 
