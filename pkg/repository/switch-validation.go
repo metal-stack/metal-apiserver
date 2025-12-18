@@ -8,7 +8,6 @@ import (
 	"sort"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
-	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/samber/lo"
@@ -68,7 +67,7 @@ func (r *switchRepository) validateUpdate(ctx context.Context, req *adminv2.Swit
 		errs = append(errs, err)
 	}
 
-	reqNics, err := toMetalNics(req.Nics)
+	reqNics, err := toMetalNics(req.Nics, req.Id)
 	if err != nil {
 		errs = append(errs, err)
 	}
@@ -85,17 +84,11 @@ func (r *switchRepository) validateUpdate(ctx context.Context, req *adminv2.Swit
 }
 
 func (r *switchRepository) validateDelete(ctx context.Context, sw *metal.Switch) error {
-	// FIX: allow force flag
-
 	if len(sw.MachineConnections) > 0 {
 		return errorutil.FailedPrecondition("cannot delete switch %s while it still has machines connected to it", sw.ID)
 	}
 
 	return nil
-}
-
-func (r *switchRepository) validateReplace(ctx context.Context, old, new *apiv2.Switch) error {
-	panic("unimplemented")
 }
 
 func checkDuplicateNics(nics metal.Nics) error {
