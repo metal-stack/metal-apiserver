@@ -42,7 +42,7 @@ type VPNService interface {
 	UserExists(context.Context, string) (*headscalev1.User, bool)
 	ControlPlaneAddress() string
 	NodesConnected(context.Context) ([]*headscalev1.Node, error)
-	DeleteNode(ctx context.Context, machineID, projectID string) error
+	DeleteNode(ctx context.Context, machineID, projectID string) (*headscalev1.Node, error)
 	EvaluateVPNConnected(ctx context.Context) error
 }
 
@@ -100,26 +100,29 @@ func (v *vpnService) CreateUser(ctx context.Context, name string) (*headscalev1.
 		Name: name,
 	})
 	// TODO check if this is still like this
-	if err != nil && !strings.Contains(err.Error(), headscaledb.ErrUserExists.Error()) {
-		return nil, fmt.Errorf("failed to create new VPN user: %w", err)
+	if err != nil {
+		if strings.Contains(err.Error(), headscaledb.ErrUserExists.Error()) || strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			return nil, errorutil.NewConflict(err)
+		}
+		return nil, err
 	}
 	return resp.User, nil
 }
 
-func (v *vpnService) DeleteNode(ctx context.Context, machineID string, projectID string) error {
+func (v *vpnService) DeleteNode(ctx context.Context, machineID string, projectID string) (*headscalev1.Node, error) {
 	machine, err := v.getNode(ctx, machineID, projectID)
-	if err != nil || machine == nil {
-		return err
+	if err != nil {
+		return nil, err
 	}
 
 	req := &headscalev1.DeleteNodeRequest{
 		NodeId: machine.Id,
 	}
 	if _, err := v.headscaleClient.DeleteNode(ctx, req); err != nil {
-		return fmt.Errorf("failed to delete machine: %w", err)
+		return nil, fmt.Errorf("failed to delete machine: %w", err)
 	}
 
-	return nil
+	return machine, nil
 }
 
 func (v *vpnService) NodesConnected(ctx context.Context) ([]*headscalev1.Node, error) {
@@ -159,13 +162,14 @@ func (v *vpnService) getNode(ctx context.Context, machineID, projectID string) (
 		return nil, fmt.Errorf("failed to list nodes: %w", err)
 	}
 
+	v.log.Debug("getNode", "nodes", resp.Nodes)
 	for _, m := range resp.Nodes {
 		if m.Name == machineID {
 			return m, nil
 		}
 	}
 
-	return nil, nil
+	return nil, errorutil.NotFound("node with id %s and project %s not found", machineID, projectID)
 }
 
 func (v *vpnService) EvaluateVPNConnected(ctx context.Context) error {

@@ -7,15 +7,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	v1 "github.com/juanfont/headscale/gen/go/headscale/v1"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var (
@@ -30,7 +33,7 @@ func Test_vpnService_Authkey(t *testing.T) {
 	testStore, repoCloser := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(false))
 	repo := testStore.Store
 
-	headscaleClient, endpoint, headscaleCloser := test.StartHeadscale(t)
+	headscaleClient, endpoint, _, headscaleCloser := test.StartHeadscale(t)
 
 	defer func() {
 		repoCloser()
@@ -92,12 +95,11 @@ func Test_vpnService_Authkey(t *testing.T) {
 }
 
 func Test_vpnService_DeleteNode(t *testing.T) {
-	t.Skip()
 	t.Parallel()
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
-	headscaleClient, endpoint, headscaleCloser := test.StartHeadscale(t)
+	headscaleClient, endpoint, controllerURL, headscaleCloser := test.StartHeadscale(t)
 
 	user, err := headscaleClient.CreateUser(ctx, &v1.CreateUserRequest{
 		Name: "p1",
@@ -105,16 +107,13 @@ func Test_vpnService_DeleteNode(t *testing.T) {
 	require.NoError(t, err)
 
 	key, err := headscaleClient.CreatePreAuthKey(ctx, &v1.CreatePreAuthKeyRequest{
-		User: user.User.Id,
+		User:       user.User.Id,
+		Ephemeral:  true,
+		Expiration: timestamppb.New(time.Now().Add(time.Minute)),
 	})
 	require.NoError(t, err)
-	spew.Dump(key)
 
-	node, err := headscaleClient.RegisterNode(ctx, &v1.RegisterNodeRequest{
-		User: "p1",
-		Key:  key.String(),
-	})
-	require.NoError(t, err)
+	test.ConnectVPNClient(t, "m1", controllerURL, key.PreAuthKey.Key)
 
 	defer func() {
 		headscaleCloser()
@@ -124,13 +123,28 @@ func Test_vpnService_DeleteNode(t *testing.T) {
 		name      string
 		machineID string
 		projectID string
-		wantErr   bool
+		want      *v1.Node
+		wantErr   error
 	}{
 		{
 			name:      "delete existing node",
-			machineID: node.Node.Name,
+			machineID: "m1",
 			projectID: "p1",
-			wantErr:   false,
+			want: &v1.Node{
+				Name:           "m1",
+				GivenName:      "m1",
+				RegisterMethod: v1.RegisterMethod_REGISTER_METHOD_AUTH_KEY,
+				User:           user.User,
+				Online:         true,
+			},
+			wantErr: nil,
+		},
+		{
+			name:      "delete non existing node",
+			machineID: "m-nonexisting",
+			projectID: "p1",
+			want:      nil,
+			wantErr:   errorutil.NotFound("node with id m-nonexisting and project p1 not found"),
 		},
 	}
 	for _, tt := range tests {
@@ -141,15 +155,20 @@ func Test_vpnService_DeleteNode(t *testing.T) {
 				headscaleControlplaneAddress: endpoint,
 			}
 
-			gotErr := v.DeleteNode(ctx, tt.machineID, tt.projectID)
-			if gotErr != nil {
-				if !tt.wantErr {
-					t.Errorf("DeleteNode() failed: %v", gotErr)
-				}
+			got, err := v.DeleteNode(ctx, tt.machineID, tt.projectID)
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("diff = %s", diff)
 				return
 			}
-			if tt.wantErr {
-				t.Fatal("DeleteNode() succeeded unexpectedly")
+			if diff := cmp.Diff(
+				tt.want, got,
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&v1.Node{}, "id", "created_at", "disco_key", "expiry", "ip_addresses", "last_seen", "machine_key", "node_key", "pre_auth_key",
+				),
+				cmpopts.IgnoreUnexported(),
+			); diff != "" {
+				t.Errorf("%v, want %v diff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -160,7 +179,7 @@ func Test_vpnService_CreateUser(t *testing.T) {
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
-	headscaleClient, _, headscaleCloser := test.StartHeadscale(t)
+	headscaleClient, _, _, headscaleCloser := test.StartHeadscale(t)
 	defer headscaleCloser()
 
 	_, err := headscaleClient.CreateUser(ctx, &v1.CreateUserRequest{
@@ -171,19 +190,19 @@ func Test_vpnService_CreateUser(t *testing.T) {
 	tests := []struct {
 		name     string
 		username string
-		want     *string
-		wantErr  bool
+		want     *v1.User
+		wantErr  error
 	}{
 		{
 			name:     "create new user",
 			username: "p2",
-			want:     pointer.Pointer("p2"),
+			want:     &v1.User{Name: "p2"},
 		},
 		{
 			name:     "create existing user",
 			username: "p1",
 			want:     nil,
-			wantErr:  true,
+			wantErr:  errorutil.Conflict("rpc error: code = Internal desc = failed to create user: creating user: constraint failed: UNIQUE constraint failed: users.name (2067)"),
 		},
 	}
 	for _, tt := range tests {
@@ -192,18 +211,20 @@ func Test_vpnService_CreateUser(t *testing.T) {
 				log:             log,
 				headscaleClient: headscaleClient,
 			}
-			got, gotErr := v.CreateUser(t.Context(), tt.username)
-			if gotErr != nil {
-				if !tt.wantErr {
-					t.Errorf("CreateUser() failed: %v", gotErr)
-				}
+			got, err := v.CreateUser(t.Context(), tt.username)
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("diff = %s", diff)
 				return
 			}
-			if tt.wantErr {
-				t.Fatal("CreateUser() succeeded unexpectedly")
-			}
-			if got.Name != *tt.want {
-				t.Errorf("CreateUser() got:%s want:%s", got.Name, *tt.want)
+			if diff := cmp.Diff(
+				tt.want, got,
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&v1.User{}, "id", "created_at",
+				),
+				cmpopts.IgnoreUnexported(),
+			); diff != "" {
+				t.Errorf("%v, want %v diff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -214,7 +235,7 @@ func Test_vpnService_UserExists(t *testing.T) {
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
-	headscaleClient, _, headscaleCloser := test.StartHeadscale(t)
+	headscaleClient, _, _, headscaleCloser := test.StartHeadscale(t)
 	defer headscaleCloser()
 
 	_, err := headscaleClient.CreateUser(ctx, &v1.CreateUserRequest{
@@ -225,13 +246,13 @@ func Test_vpnService_UserExists(t *testing.T) {
 	tests := []struct {
 		name     string
 		username string
-		want     *string
+		want     *v1.User
 		want2    bool
 	}{
 		{
 			name:     "get existing user",
 			username: "p1",
-			want:     pointer.Pointer("p1"),
+			want:     &v1.User{Name: "p1"},
 			want2:    true,
 		},
 		{
@@ -248,14 +269,19 @@ func Test_vpnService_UserExists(t *testing.T) {
 				headscaleClient: headscaleClient,
 			}
 			got, got2 := v.UserExists(context.Background(), tt.username)
-			if got2 != tt.want2 {
-				t.Errorf("UserExists() = %v, want %v", got2, tt.want2)
-			}
-			if !got2 {
+			if diff := cmp.Diff(got2, tt.want2); diff != "" {
+				t.Errorf("diff = %s", diff)
 				return
 			}
-			if got.Name != *tt.want {
-				t.Errorf("UserExists() got:%s want:%s", got.Name, *tt.want)
+			if diff := cmp.Diff(
+				tt.want, got,
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&v1.User{}, "id", "created_at",
+				),
+				cmpopts.IgnoreUnexported(),
+			); diff != "" {
+				t.Errorf("%v, want %v diff: %s", got, tt.want, diff)
 			}
 		})
 	}

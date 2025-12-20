@@ -9,6 +9,7 @@ import (
 	"time"
 
 	headscalev1 "github.com/juanfont/headscale/gen/go/headscale/v1"
+	"tailscale.com/tsnet"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,7 +24,7 @@ import (
 //go:embed headscale-config.yaml
 var headscaleConfig string
 
-func StartHeadscale(t testing.TB) (headscalev1.HeadscaleServiceClient, string, func()) {
+func StartHeadscale(t testing.TB) (headscalev1.HeadscaleServiceClient, string, string, func()) {
 	ctx := t.Context()
 
 	headscaleContainer, err := testcontainers.Run(
@@ -38,7 +39,7 @@ func StartHeadscale(t testing.TB) (headscalev1.HeadscaleServiceClient, string, f
 			"/tmp":                "rw",
 			"/var/lib/headscsale": "rw",
 		}),
-		testcontainers.WithExposedPorts("50443/tcp"),
+		testcontainers.WithExposedPorts("8080/tcp", "50443/tcp"),
 		testcontainers.WithWaitStrategy(wait.ForListeningPort("50443/tcp").WithStartupTimeout(time.Second*5)),
 		testcontainers.WithCmd("serve", "-c", "/config.yaml"),
 		testcontainers.WithLogger(tlog.TestLogger(t)),
@@ -58,6 +59,9 @@ func StartHeadscale(t testing.TB) (headscalev1.HeadscaleServiceClient, string, f
 	endpoint, err = headscaleContainer.PortEndpoint(ctx, "50443/tcp", "")
 	require.NoError(t, err)
 	t.Log(endpoint)
+	controllerURL, err := headscaleContainer.PortEndpoint(ctx, "8080/tcp", "http")
+	require.NoError(t, err)
+	t.Log(controllerURL)
 
 	grpcOptions := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -78,7 +82,22 @@ func StartHeadscale(t testing.TB) (headscalev1.HeadscaleServiceClient, string, f
 		_ = headscaleContainer.Terminate(ctx)
 	}
 
-	return client, endpoint, closer
+	return client, endpoint, controllerURL, closer
+}
+
+func ConnectVPNClient(t testing.TB, hostname, controllerURL, authkey string) {
+	s := &tsnet.Server{
+		Hostname:   hostname,
+		ControlURL: controllerURL,
+		AuthKey:    authkey,
+	}
+	lc, err := s.LocalClient()
+	require.NoError(t, err)
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		status, err := lc.Status(t.Context())
+		require.NoError(c, err)
+		require.True(c, status.Self.Online)
+	}, 10*time.Second, 50*time.Millisecond)
 }
 
 type tokenAuth struct {
