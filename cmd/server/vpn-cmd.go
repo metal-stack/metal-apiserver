@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	vpnadmin "github.com/metal-stack/metal-apiserver/pkg/service/vpn/admin"
 	"github.com/urfave/cli/v2"
@@ -32,7 +33,12 @@ func newVPNCmd() *cli.Command {
 						return fmt.Errorf("unable to create logger %w", err)
 					}
 
-					hc, err := createHeadscaleClient(ctx, log)
+					hc, err := headscale.NewClient(headscale.Config{
+						Log:      log,
+						Disabled: !ctx.Bool(headscaleEnabledFlag.Name),
+						Apikey:   ctx.String(headscaleApikeyFlag.Name),
+						Endpoint: ctx.String(headscaleAddressFlag.Name),
+					})
 					if err != nil {
 						return err
 					}

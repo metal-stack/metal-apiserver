@@ -4,11 +4,14 @@ import (
 	"context"
 	_ "embed"
 	"io"
+	"log/slog"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
 	headscalev1 "github.com/juanfont/headscale/gen/go/headscale/v1"
+	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"tailscale.com/tsnet"
 
 	"github.com/stretchr/testify/assert"
@@ -17,8 +20,6 @@ import (
 	"github.com/testcontainers/testcontainers-go/exec"
 	tlog "github.com/testcontainers/testcontainers-go/log"
 	"github.com/testcontainers/testcontainers-go/wait"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 //go:embed headscale-config.yaml
@@ -63,17 +64,12 @@ func StartHeadscale(t testing.TB) (headscalev1.HeadscaleServiceClient, string, s
 	require.NoError(t, err)
 	t.Log(controllerURL)
 
-	grpcOptions := []grpc.DialOption{
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithPerRPCCredentials(tokenAuth{
-			token: apikey,
-		}),
-	}
-
-	conn, err := grpc.NewClient(endpoint, grpcOptions...)
+	client, err := headscale.NewClient(headscale.Config{
+		Log:      slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{})),
+		Apikey:   apikey,
+		Endpoint: endpoint,
+	})
 	require.NoError(t, err)
-
-	client := headscalev1.NewHeadscaleServiceClient(conn)
 
 	_, err = client.Health(ctx, &headscalev1.HealthRequest{})
 	require.NoError(t, err)

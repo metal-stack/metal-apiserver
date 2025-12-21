@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -13,16 +12,13 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	"github.com/avast/retry-go/v4"
 	compress "github.com/klauspost/connect-compress/v2"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"gopkg.in/rethinkdb/rethinkdb-go.v6"
-
-	headscalev1 "github.com/juanfont/headscale/gen/go/headscale/v1"
 
 	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	mdm "github.com/metal-stack/masterdata-api/pkg/client"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/service"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
@@ -106,7 +102,12 @@ func newServeCmd() *cli.Command {
 				return fmt.Errorf("unable to create masterdata.client: %w", err)
 			}
 
-			hc, err := createHeadscaleClient(ctx, log)
+			hc, err := headscale.NewClient(headscale.Config{
+				Log:      log,
+				Disabled: !ctx.Bool(headscaleEnabledFlag.Name),
+				Apikey:   ctx.String(headscaleApikeyFlag.Name),
+				Endpoint: ctx.String(headscaleAddressFlag.Name),
+			})
 			if err != nil {
 				return err
 			}
@@ -349,46 +350,4 @@ func createIpamClient(cli *cli.Context, log *slog.Logger) (ipamv1connect.IpamSer
 
 	log.Info("ipam initialized")
 	return ipamService, nil
-}
-
-func createHeadscaleClient(cli *cli.Context, log *slog.Logger) (headscalev1.HeadscaleServiceClient, error) {
-	if !cli.Bool(headscaleEnabledFlag.Name) {
-		log.Info("headscale is not enabled, not configuring vpn services")
-		return nil, nil
-	}
-
-	apikey := cli.String(headscaleApikeyFlag.Name)
-	endpoint := cli.String(headscaleAddressFlag.Name)
-
-	grpcOptions := []grpc.DialOption{
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithPerRPCCredentials(tokenAuth{
-			token: apikey,
-		}),
-	}
-
-	conn, err := grpc.NewClient(endpoint, grpcOptions...)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create grpc client:%w", err)
-	}
-	client := headscalev1.NewHeadscaleServiceClient(conn)
-
-	return client, nil
-}
-
-type tokenAuth struct {
-	token string
-}
-
-func (t tokenAuth) GetRequestMetadata(
-	ctx context.Context,
-	_ ...string,
-) (map[string]string, error) {
-	return map[string]string{
-		"authorization": "Bearer " + t.token,
-	}, nil
-}
-
-func (tokenAuth) RequireTransportSecurity() bool {
-	return false
 }
