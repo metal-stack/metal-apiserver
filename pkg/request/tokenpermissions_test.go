@@ -82,6 +82,7 @@ func Test_getTokenPermissions(t *testing.T) {
 				"/metalstack.admin.v2.TokenService/List":                         {"*": {}},
 				"/metalstack.admin.v2.TokenService/Revoke":                       {"*": {}},
 				"/metalstack.admin.v2.VPNService/Authkey":                        {"*": {}},
+				"/metalstack.admin.v2.VPNService/ListNodes":                      {"*": {}},
 				"/metalstack.api.v2.FilesystemService/Get":                       {"*": {}},
 				"/metalstack.api.v2.FilesystemService/List":                      {"*": {}},
 				"/metalstack.api.v2.FilesystemService/Match":                     {"*": {}},
