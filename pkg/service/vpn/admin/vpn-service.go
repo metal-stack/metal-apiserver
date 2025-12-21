@@ -36,14 +36,20 @@ type vpnService struct {
 	headscaleClient              headscalev1.HeadscaleServiceClient
 	headscaleControlplaneAddress string
 }
+
 type VPNService interface {
 	adminv2connect.VPNServiceHandler
+	// CreateUser creates a user which maps to a metal project in headscale
 	CreateUser(context.Context, string) (*headscalev1.User, error)
-	UserExists(context.Context, string) (*headscalev1.User, bool)
-	ControlPlaneAddress() string
-	NodesConnected(context.Context) ([]*headscalev1.Node, error)
+	// DeleteNode deletes a node in headscale
 	DeleteNode(ctx context.Context, machineID, projectID string) (*headscalev1.Node, error)
-	EvaluateVPNConnected(ctx context.Context) error
+	// EvaluateVPNConnected iterates over all connected nodes and
+	// updates the machines with the online status in the vpn and their vpn ip adressess
+	// It returns the updated machines, machines which already have the correct
+	// online status and ip adressess are not touched
+	EvaluateVPNConnected(ctx context.Context) ([]*apiv2.Machine, error)
+	// ControlPlaneAddress returns the address of headscale where tailscale clients must connect to
+	ControlPlaneAddress() string
 }
 
 func New(c Config) VPNService {
@@ -61,7 +67,7 @@ func (v *vpnService) Authkey(ctx context.Context, req *adminv2.VPNServiceAuthkey
 		return nil, err
 	}
 
-	headscaleUser, ok := v.UserExists(ctx, req.Project)
+	headscaleUser, ok := v.userExists(ctx, req.Project)
 	if !ok {
 		user, err := v.CreateUser(ctx, req.Project)
 		if err != nil {
@@ -125,16 +131,32 @@ func (v *vpnService) DeleteNode(ctx context.Context, machineID string, projectID
 	return machine, nil
 }
 
-func (v *vpnService) NodesConnected(ctx context.Context) ([]*headscalev1.Node, error) {
-	resp, err := v.headscaleClient.ListNodes(ctx, &headscalev1.ListNodesRequest{})
-	if err != nil || resp == nil {
+// ListNodes implements [VPNService].
+func (v *vpnService) ListNodes(ctx context.Context, req *adminv2.VPNServiceListNodesRequest) (*adminv2.VPNServiceListNodesResponse, error) {
+	lnr := &headscalev1.ListNodesRequest{}
+	if req.User != nil {
+		lnr.User = *req.User
+	}
+	resp, err := v.headscaleClient.ListNodes(ctx, lnr)
+	if err != nil {
 		return nil, fmt.Errorf("failed to list machines: %w", err)
 	}
+	var vpnNodes []*apiv2.VPNNode
+	for _, node := range resp.Nodes {
+		vpnNodes = append(vpnNodes, &apiv2.VPNNode{
+			Id:          node.Id,
+			Name:        node.Name,
+			User:        &node.User.Name,
+			IpAddresses: node.IpAddresses,
+			LastSeen:    node.LastSeen,
+			Online:      node.Online,
+		})
+	}
 
-	return resp.Nodes, nil
+	return &adminv2.VPNServiceListNodesResponse{Nodes: vpnNodes}, nil
 }
 
-func (v *vpnService) UserExists(ctx context.Context, name string) (*headscalev1.User, bool) {
+func (v *vpnService) userExists(ctx context.Context, name string) (*headscalev1.User, bool) {
 	resp, err := v.headscaleClient.ListUsers(ctx, &headscalev1.ListUsersRequest{
 		Name: name,
 	})
@@ -172,7 +194,7 @@ func (v *vpnService) getNode(ctx context.Context, machineID, projectID string) (
 	return nil, errorutil.NotFound("node with id %s and project %s not found", machineID, projectID)
 }
 
-func (v *vpnService) EvaluateVPNConnected(ctx context.Context) error {
+func (v *vpnService) EvaluateVPNConnected(ctx context.Context) ([]*apiv2.Machine, error) {
 	ms, err := v.repo.UnscopedMachine().List(ctx, &apiv2.MachineQuery{
 		Allocation: &apiv2.MachineAllocationQuery{
 			// Return only allocation machines which have a vpn configured
@@ -180,30 +202,34 @@ func (v *vpnService) EvaluateVPNConnected(ctx context.Context) error {
 		},
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
 
-	headscaleNodes, err := v.NodesConnected(ctx)
+	listNodesResp, err := v.ListNodes(ctx, &adminv2.VPNServiceListNodesRequest{})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	var errs []error
+	v.log.Debug("evaluated vpn connected", "machines", ms, "nodes", listNodesResp.Nodes)
+
+	var (
+		errs            []error
+		updatedMachines []*apiv2.Machine
+	)
 	for _, m := range ms {
-		m := m
 		if m.Allocation == nil || m.Allocation.Vpn == nil {
 			continue
 		}
 
-		index := slices.IndexFunc(headscaleNodes, func(hm *headscalev1.Node) bool {
-			if hm.Name != m.Uuid {
+		index := slices.IndexFunc(listNodesResp.Nodes, func(node *apiv2.VPNNode) bool {
+			if node.Name != m.Uuid {
 				return false
 			}
 
-			if pointer.SafeDeref(hm.User).Name != m.Allocation.Project {
+			if pointer.SafeDeref(node.User) != m.Allocation.Project {
 				return false
 			}
 
@@ -214,27 +240,28 @@ func (v *vpnService) EvaluateVPNConnected(ctx context.Context) error {
 			continue
 		}
 
-		connected := headscaleNodes[index].Online
-		ips := headscaleNodes[index].IpAddresses
+		connected := listNodesResp.Nodes[index].Online
+		ips := listNodesResp.Nodes[index].IpAddresses
 
 		if m.Allocation.Vpn.Connected == connected && slices.Equal(m.Allocation.Vpn.Ips, ips) {
 			v.log.Info("not updating vpn because already up-to-date", "machine", m.Uuid, "connected", connected, "ips", ips)
 			continue
 		}
 
-		err = v.repo.UnscopedMachine().AdditionalMethods().SetMachineConnectedToVPN(ctx, m.Uuid, connected, ips)
+		updatedMachine, err := v.repo.UnscopedMachine().AdditionalMethods().SetMachineConnectedToVPN(ctx, m.Uuid, connected, ips)
 		if err != nil {
 			errs = append(errs, err)
 			v.log.Error("unable to update vpn connected state, continue anyway", "machine", m.Uuid, "error", err)
 			continue
 		}
 
+		updatedMachines = append(updatedMachines, updatedMachine)
 		v.log.Info("updated vpn connected state", "machine", m.Uuid, "connected", connected, "ips", ips)
 	}
 
 	if len(errs) > 0 {
-		return fmt.Errorf("errors occurred when evaluating machine vpn connections:%w", errors.Join(errs...))
+		return nil, fmt.Errorf("errors occurred when evaluating machine vpn connections:%w", errors.Join(errs...))
 	}
 
-	return nil
+	return updatedMachines, nil
 }

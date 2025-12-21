@@ -65,7 +65,8 @@ func newVPNCmd() *cli.Command {
 						HeadscaleClient: hc,
 					})
 
-					return vpnService.EvaluateVPNConnected(ctx.Context)
+					_, err = vpnService.EvaluateVPNConnected(ctx.Context)
+					return err
 				},
 			},
 		},
