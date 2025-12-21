@@ -1,7 +1,6 @@
 package test
 
 import (
-	"context"
 	_ "embed"
 	"io"
 	"log/slog"
@@ -94,21 +93,4 @@ func ConnectVPNClient(t testing.TB, hostname, controllerURL, authkey string) {
 		require.NoError(c, err)
 		require.True(c, status.Self.Online)
 	}, 10*time.Second, 50*time.Millisecond)
-}
-
-type tokenAuth struct {
-	token string
-}
-
-func (t tokenAuth) GetRequestMetadata(
-	ctx context.Context,
-	_ ...string,
-) (map[string]string, error) {
-	return map[string]string{
-		"authorization": "Bearer " + t.token,
-	}, nil
-}
-
-func (tokenAuth) RequireTransportSecurity() bool {
-	return false
 }
