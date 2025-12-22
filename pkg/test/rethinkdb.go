@@ -2,7 +2,6 @@ package test
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"strings"
 	"sync"
@@ -10,7 +9,6 @@ import (
 	"time"
 
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	tlog "github.com/testcontainers/testcontainers-go/log"
@@ -21,16 +19,15 @@ import (
 const rethinkDbImage = "rethinkdb:2.4.4-bookworm-slim"
 
 var (
-	connectOpts        r.ConnectOpts
-	rethinkDbEndpoint  string
-	closer             func()
-	mtx                sync.Mutex
-	rethinkdbContainer testcontainers.Container
+	rethinkDbConnectOpts r.ConnectOpts
+	rethinkDbEndpoint    string
+	rethinkDbCloser      func()
+	rethinkDbMtx         sync.Mutex
 )
 
 func StartRethink(t testing.TB, log *slog.Logger) (generic.Datastore, r.ConnectOpts, func()) {
-	mtx.Lock()
-	defer mtx.Unlock()
+	rethinkDbMtx.Lock()
+	defer rethinkDbMtx.Unlock()
 
 	if rethinkDbEndpoint == "" {
 		ctx := context.Background()
@@ -53,8 +50,7 @@ func StartRethink(t testing.TB, log *slog.Logger) (generic.Datastore, r.ConnectO
 		rethinkDbEndpoint, err = c.PortEndpoint(ctx, "28015/tcp", "")
 		require.NoError(t, err)
 
-		rethinkdbContainer = c
-		closer = func() {
+		rethinkDbCloser = func() {
 			// TODO: clean up database of this test
 
 			// we do not terminate the container here because it's very complex with a shared ds
@@ -62,7 +58,7 @@ func StartRethink(t testing.TB, log *slog.Logger) (generic.Datastore, r.ConnectO
 		}
 	}
 
-	connectOpts = r.ConnectOpts{
+	rethinkDbConnectOpts = r.ConnectOpts{
 		Address:  rethinkDbEndpoint,
 		Database: databaseNameFromT(t),
 		Username: "admin",
@@ -71,20 +67,13 @@ func StartRethink(t testing.TB, log *slog.Logger) (generic.Datastore, r.ConnectO
 		MaxOpen:  2000,
 	}
 
-	err := generic.Initialize(t.Context(), log, connectOpts, generic.AsnPoolRange(uint(1), uint(100)), generic.VrfPoolRange(uint(1), uint(100)))
-	assert.NoError(t, err)
-	if err != nil {
-		reader, err := rethinkdbContainer.Logs(t.Context())
-		require.NoError(t, err)
-		logs, err := io.ReadAll(reader)
-		require.NoError(t, err)
-		t.Log(string(logs))
-	}
-
-	ds, err := generic.New(log, connectOpts)
+	err := generic.Initialize(t.Context(), log, rethinkDbConnectOpts, generic.AsnPoolRange(uint(1), uint(100)), generic.VrfPoolRange(uint(1), uint(100)))
 	require.NoError(t, err)
 
-	return ds, connectOpts, closer
+	ds, err := generic.New(log, rethinkDbConnectOpts)
+	require.NoError(t, err)
+
+	return ds, rethinkDbConnectOpts, rethinkDbCloser
 }
 
 func databaseNameFromT(t testing.TB) string {
