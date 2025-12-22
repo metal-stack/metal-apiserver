@@ -500,7 +500,7 @@ func Test_vpnService_SetDefaultPolicy(t *testing.T) {
 			}
 			resp, err := v.headscaleClient.GetPolicy(t.Context(), &v1.GetPolicyRequest{})
 			require.NoError(t, err)
-			require.Equal(t, defaultPolicy, resp.Policy)
+			require.JSONEq(t, defaultPolicy, resp.Policy)
 		})
 	}
 }
