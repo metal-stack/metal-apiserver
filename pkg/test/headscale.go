@@ -53,15 +53,12 @@ func StartHeadscale(t testing.TB) (headscalev1.HeadscaleServiceClient, string, s
 	output, err := io.ReadAll(reader)
 	require.NoError(t, err)
 	apikey := strings.TrimSpace(string(output))
-	t.Logf("apikey:%q\n", apikey)
 	require.NoError(t, err)
 
-	endpoint, err = headscaleContainer.PortEndpoint(ctx, "50443/tcp", "")
+	endpoint, err := headscaleContainer.PortEndpoint(ctx, "50443/tcp", "")
 	require.NoError(t, err)
-	t.Log(endpoint)
 	controllerURL, err := headscaleContainer.PortEndpoint(ctx, "8080/tcp", "http")
 	require.NoError(t, err)
-	t.Log(controllerURL)
 
 	client, err := headscale.NewClient(headscale.Config{
 		Log:      slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{})),
