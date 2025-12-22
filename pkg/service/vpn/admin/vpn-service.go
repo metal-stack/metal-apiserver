@@ -50,6 +50,9 @@ type VPNService interface {
 	EvaluateVPNConnected(ctx context.Context) ([]*apiv2.Machine, error)
 	// ControlPlaneAddress returns the address of headscale where tailscale clients must connect to
 	ControlPlaneAddress() string
+	// SetDefaultPolicy stores a acl which allows communication between machines in the same project only
+	// Should be called on startup
+	SetDefaultPolicy() error
 }
 
 func New(c Config) VPNService {
@@ -264,4 +267,28 @@ func (v *vpnService) EvaluateVPNConnected(ctx context.Context) ([]*apiv2.Machine
 	}
 
 	return updatedMachines, nil
+}
+
+// This policy allows all users to access their own devices.
+// It is suitable for many use cases where you want to
+// allow users to access their own devices, but not other devices in the tailnet.
+const defaultPolicy = `{
+		"acls": [
+			{
+				"action": "accept",
+				"src": ["autogroup:member"],
+				"dst": ["autogroup:self:*"]
+			}
+		]
+	}`
+
+func (v *vpnService) SetDefaultPolicy() error {
+	resp, err := v.headscaleClient.SetPolicy(context.Background(), &headscalev1.SetPolicyRequest{
+		Policy: defaultPolicy,
+	})
+	if err != nil {
+		return err
+	}
+	v.log.Info("setdefaultpolicy", "policy stored", resp.Policy)
+	return nil
 }

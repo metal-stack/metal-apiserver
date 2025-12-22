@@ -78,6 +78,15 @@ log:
   # Output formatting for logs: text or json
   format: json
 
+## Policy
+# headscale supports Tailscale's ACL policies.
+# Please have a look to their KB to better
+# understand the concepts: https://tailscale.com/kb/1018/acls/
+policy:
+  # The mode can be "file" or "database" that defines
+  # where the ACL policies are stored and read from.
+  mode: database
+
 database:
   # Database type. Available options: sqlite, postgres
   # Please note that using Postgres is highly discouraged as it is only supported for legacy reasons.

@@ -464,3 +464,43 @@ func Test_vpnService_EvaluateVPNConnected(t *testing.T) {
 		})
 	}
 }
+
+func Test_vpnService_SetDefaultPolicy(t *testing.T) {
+	t.Parallel()
+
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	ctx := t.Context()
+	headscaleClient, _, _, headscaleCloser := test.StartHeadscale(t)
+	defer headscaleCloser()
+
+	_, err := headscaleClient.CreateUser(ctx, &v1.CreateUserRequest{
+		Name: p1,
+	})
+	require.NoError(t, err)
+
+	tests := []struct {
+		name    string
+		wantErr error
+	}{
+		{
+			name:    "set policy",
+			wantErr: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			v := &vpnService{
+				log:             log,
+				headscaleClient: headscaleClient,
+			}
+			err := v.SetDefaultPolicy()
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("diff = %s", diff)
+				return
+			}
+			resp, err := v.headscaleClient.GetPolicy(t.Context(), &v1.GetPolicyRequest{})
+			require.NoError(t, err)
+			require.Equal(t, defaultPolicy, resp.Policy)
+		})
+	}
+}
