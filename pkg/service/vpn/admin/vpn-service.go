@@ -10,7 +10,6 @@ import (
 	"time"
 
 	headscalev1 "github.com/juanfont/headscale/gen/go/headscale/v1"
-	headscaledb "github.com/juanfont/headscale/hscontrol/db"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
@@ -110,7 +109,9 @@ func (v *vpnService) CreateUser(ctx context.Context, name string) (*headscalev1.
 	})
 	// TODO check if this is still like this
 	if err != nil {
-		if strings.Contains(err.Error(), headscaledb.ErrUserExists.Error()) || strings.Contains(err.Error(), "UNIQUE constraint failed") {
+		// Importing the error from "github.com/juanfont/headscale/hscontrol/db" would pull
+		// the whole headscale dependencies and the resulting binary would be ~10Mb bigger
+		if strings.Contains(err.Error(), "user already exists") || strings.Contains(err.Error(), "UNIQUE constraint failed") {
 			return nil, errorutil.NewConflict(err)
 		}
 		return nil, err
