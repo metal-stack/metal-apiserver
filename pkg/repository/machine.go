@@ -2,11 +2,14 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"slices"
 	"strings"
 	"time"
 
+	"connectrpc.com/connect"
+	"github.com/avast/retry-go/v4"
 	"github.com/hibiken/asynq"
 	"github.com/metal-stack/api/go/enum"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -41,7 +44,7 @@ func (r *machineRepository) SendEvent(ctx context.Context, log *slog.Logger, mac
 	// an event can actually create an empty machine. This enables us to also catch the very first PXE Booting event
 	// in a machine lifecycle
 	if errorutil.IsNotFound(err) {
-		_, err = r.create(ctx, &apiv2.MachineServiceCreateRequest{Uuid: &machineID})
+		_, err := r.s.ds.Machine().Create(ctx, &metal.Machine{Base: metal.Base{ID: machineID}})
 		if err != nil {
 			return err
 		}
@@ -90,7 +93,6 @@ func (r *machineRepository) get(ctx context.Context, id string) (*metal.Machine,
 	if err != nil {
 		return nil, err
 	}
-
 	return machine, nil
 }
 
@@ -199,12 +201,14 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 		}
 	}
 
+	// For machines which are initially created there is no known partition yet
 	partition, err := r.s.Partition().Get(ctx, m.PartitionID)
-	if err != nil {
+	if err != nil && !errorutil.IsNotFound(err) {
 		return nil, err
 	}
+	// For machines which are initially created there is no known size yet
 	size, err = r.s.Size().Get(ctx, m.SizeID)
-	if err != nil {
+	if err != nil && !errorutil.IsNotFound(err) {
 		return nil, err
 	}
 
@@ -495,6 +499,334 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 	}
 
 	return result, nil
+}
+
+func (r *machineRepository) Register(ctx context.Context, req *infrav2.BootServiceRegisterRequest) (*metal.Machine, error) {
+	if req.Uuid == "" {
+		return nil, errorutil.InvalidArgument("uuid is empty")
+	}
+	if req.Hardware == nil {
+		return nil, errorutil.InvalidArgument("hardware is nil")
+	}
+	if req.Bios == nil {
+		return nil, errorutil.InvalidArgument("bios is nil")
+	}
+
+	m, err := r.s.ds.Machine().Get(ctx, req.Uuid)
+	if err != nil && !errorutil.IsNotFound(err) {
+		return nil, err
+	}
+	// TODO changed behavior compared to metal-api, create machine here if not already done during dhcp request
+	if m == nil {
+		m, err = r.s.ds.Machine().Create(ctx, &metal.Machine{Base: metal.Base{ID: req.Uuid}})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	disks := []metal.BlockDevice{}
+	for i := range req.Hardware.Disks {
+		d := req.Hardware.Disks[i]
+		disks = append(disks, metal.BlockDevice{
+			Name: d.Name,
+			Size: d.Size,
+		})
+	}
+
+	nics := metal.Nics{}
+	for _, nic := range req.Hardware.Nics {
+		neighs := metal.Nics{}
+		for _, neigh := range nic.Neighbors {
+			neighs = append(neighs, metal.Nic{
+				Name:       neigh.Name,
+				MacAddress: neigh.Mac,
+				Hostname:   neigh.Hostname, // FIXME do we really have hostname of the neighbor from the metal-hammer ?
+				Identifier: neigh.Identifier,
+			})
+		}
+		nics = append(nics, metal.Nic{
+			Name:       nic.Name,
+			MacAddress: nic.Mac,
+			Identifier: nic.Identifier,
+			Neighbors:  neighs,
+		})
+	}
+
+	cpus := []metal.MetalCPU{}
+	for _, cpu := range req.Hardware.Cpus {
+		cpus = append(cpus, metal.MetalCPU{
+			Vendor:  cpu.Vendor,
+			Model:   cpu.Model,
+			Cores:   cpu.Cores,
+			Threads: cpu.Threads,
+		})
+	}
+
+	gpus := []metal.MetalGPU{}
+	for _, gpu := range req.Hardware.Gpus {
+		gpus = append(gpus, metal.MetalGPU{
+			Vendor: gpu.Vendor,
+			Model:  gpu.Model,
+		})
+	}
+
+	machineHardware := metal.MachineHardware{
+		Memory:    req.Hardware.Memory,
+		Disks:     disks,
+		Nics:      nics,
+		MetalCPUs: cpus,
+		MetalGPUs: gpus,
+	}
+
+	size, err := r.s.Size().AdditionalMethods().FromHardware(ctx, machineHardware)
+	if err != nil {
+		size = &metal.Size{
+			Base: metal.Base{
+				ID:   "unknown",
+				Name: "unknown",
+			},
+		}
+		r.s.log.Error("no size found for hardware, defaulting to unknown size", "hardware", machineHardware, "error", err)
+	}
+
+	var ipmi metal.IPMI
+	if req.Ipmi != nil {
+		i := req.Ipmi
+
+		ipmi = metal.IPMI{
+			Address:     i.Address,
+			MacAddress:  i.Mac,
+			User:        i.User,
+			Password:    i.Password,
+			Interface:   i.Interface,
+			BMCVersion:  i.BmcVersion,
+			PowerState:  i.PowerState,
+			LastUpdated: time.Now(),
+		}
+		if i.Fru != nil {
+			f := i.Fru
+			fru := metal.Fru{}
+			if f.ChassisPartNumber != nil {
+				fru.ChassisPartNumber = *f.ChassisPartNumber
+			}
+			if f.ChassisPartSerial != nil {
+				fru.ChassisPartSerial = *f.ChassisPartSerial
+			}
+			if f.BoardMfg != nil {
+				fru.BoardMfg = *f.BoardMfg
+			}
+			if f.BoardMfgSerial != nil {
+				fru.BoardMfgSerial = *f.BoardMfgSerial
+			}
+			if f.BoardPartNumber != nil {
+				fru.BoardPartNumber = *f.BoardPartNumber
+			}
+			if f.ProductManufacturer != nil {
+				fru.ProductManufacturer = *f.ProductManufacturer
+			}
+			if f.ProductPartNumber != nil {
+				fru.ProductPartNumber = *f.ProductPartNumber
+			}
+			if f.ProductSerial != nil {
+				fru.ProductSerial = *f.ProductSerial
+			}
+			ipmi.Fru = fru
+		}
+
+	}
+
+	if m == nil {
+		// machine is not in the database, create it
+		m = &metal.Machine{
+			Base: metal.Base{
+				ID: req.Uuid,
+			},
+			Allocation: nil,
+			SizeID:     size.ID,
+			Hardware:   machineHardware,
+			BIOS: metal.BIOS{
+				Version: req.Bios.Version,
+				Vendor:  req.Bios.Vendor,
+				Date:    req.Bios.Date,
+			},
+			State: metal.MachineState{
+				Value:              metal.AvailableState,
+				MetalHammerVersion: req.MetalHammerVersion,
+			},
+			LEDState: metal.ChassisIdentifyLEDState{
+				Value:       metal.LEDStateOff,
+				Description: "Machine registered",
+			},
+			Tags:        req.Tags,
+			IPMI:        ipmi,
+			PartitionID: req.Partition,
+		}
+
+		_, err := r.s.ds.Machine().Create(ctx, m)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// machine has already registered, update it
+		updatedMachine := m
+
+		updatedMachine.SizeID = size.ID
+		updatedMachine.Hardware = machineHardware
+		updatedMachine.BIOS.Version = req.Bios.Version
+		updatedMachine.BIOS.Vendor = req.Bios.Vendor
+		updatedMachine.BIOS.Date = req.Bios.Date
+		updatedMachine.IPMI = ipmi
+		updatedMachine.State.MetalHammerVersion = req.MetalHammerVersion
+		updatedMachine.PartitionID = req.Partition
+
+		err = r.s.ds.Machine().Update(ctx, updatedMachine)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// FIXME Switch service missing or not implemented yet
+	ec, err := r.s.ds.Event().Find(ctx, queries.EventFilter(m.ID))
+	if err != nil && !errorutil.IsNotFound(err) {
+		return nil, err
+	}
+	if ec == nil {
+		_, err = r.s.ds.Event().Create(ctx, &metal.ProvisioningEventContainer{
+			Base: metal.Base{
+				ID: m.ID,
+			},
+			Events: metal.ProvisioningEvents{
+				{
+					Event:   metal.ProvisioningEventAlive,
+					Time:    time.Now(),
+					Message: "machine registered",
+				},
+			},
+		},
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	err = retry.Do(
+		func() error {
+			machine, err := r.convertToProto(ctx, m)
+			if err != nil {
+				return err
+			}
+			// FIXME we must return partition and rack from this call
+			// rack, partition, err := r.s.Switch().AdditionalMethods().ConnectMachineWithSwitches(machine)
+			err = r.s.Switch().AdditionalMethods().ConnectMachineWithSwitches(machine)
+			if err != nil {
+				return err
+			}
+			// m.PartitionID = partition
+			// m.RackID = rack
+			return r.s.ds.Machine().Update(ctx, m)
+		},
+		retry.Attempts(10),
+		retry.RetryIf(func(err error) bool {
+			return errorutil.IsConflict(err)
+		}),
+		retry.DelayType(retry.CombineDelay(retry.BackOffDelay, retry.RandomDelay)),
+		retry.LastErrorOnly(true),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return m, nil
+}
+
+func (r *machineRepository) Report(ctx context.Context, req *infrav2.BootServiceReportRequest) (*metal.Machine, error) {
+
+	m, err := r.s.ds.Machine().Get(ctx, req.Uuid)
+	if err != nil {
+		return nil, err
+	}
+	if m.Allocation == nil {
+		return nil, fmt.Errorf("the machine %q is not allocated", req.Uuid)
+	}
+
+	// FIXME implement success handling
+	// maybe it would be better to remove the success flag from the request and error out on the metal-hammer
+
+	// if req.BootInfo == nil {
+	// 	return nil, fmt.Errorf("the machine %q bootinfo is nil", req.Uuid)
+	// }
+
+	m.Allocation.ConsolePassword = req.ConsolePassword
+
+	err = r.s.ds.Machine().Update(ctx, m)
+	if err != nil {
+		return nil, err
+	}
+
+	vrf := ""
+	switch role := m.Allocation.Role; role {
+	case metal.RoleFirewall:
+		// firewalls are not enslaved into tenant vrfs
+		vrf = "default"
+	case metal.RoleMachine:
+		// TODO machineNetworks still are old-fashioned
+		for _, mn := range m.Allocation.MachineNetworks {
+			if mn.Private {
+				vrf = fmt.Sprintf("vrf%d", mn.Vrf)
+				break
+			}
+		}
+	default:
+		return nil, fmt.Errorf("unknown allocation role:%q found", role)
+	}
+	if vrf == "" {
+		return nil, fmt.Errorf("the machine %q could not be enslaved into the vrf because no vrf was found, error: %w", req.Uuid, err)
+	}
+
+	err = retry.Do(
+		func() error {
+			// FIXME missing method
+			// _, err := r.s.ds.SetVrfAtSwitches(m, vrf)
+			// return err
+			return nil
+		},
+		retry.Attempts(10),
+		retry.RetryIf(func(err error) bool {
+			return errorutil.IsConflict(err)
+		}),
+		retry.DelayType(retry.CombineDelay(retry.BackOffDelay, retry.RandomDelay)),
+		retry.LastErrorOnly(true),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("the machine %q could not be enslaved into the vrf %s, error: %w", req.Uuid, vrf, err)
+	}
+
+	r.setBootOrderDisk(m)
+
+	return m, nil
+}
+
+// FIXME metal-core needs to get a WaitForMachineEvent service which replaces our nsq based approach
+func (r *machineRepository) setBootOrderDisk(m *metal.Machine) {
+	// 	evt := metal.MachineEvent{
+	// 		Type: metal.COMMAND,
+	// 		Cmd: &metal.MachineExecCommand{
+	// 			Command:         metal.MachineDiskCmd,
+	// 			TargetMachineID: m.ID,
+	// 			IPMI:            &m.IPMI,
+	// 		},
+	// 	}
+
+	// b.log.Info("publish event", "event", evt, "command", *evt.Cmd)
+	// err := b.publisher.Publish(metal.TopicMachine.GetFQN(m.PartitionID), evt)
+	//
+	//	if err != nil {
+	//		b.log.Error("unable to send boot via hd, continue anyway", "error", err)
+	//	}
+}
+
+func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWaitRequest, srv *connect.ServerStream[infrav2.BootServiceWaitResponse]) error {
+	panic("unimplemented")
 }
 
 //---------------------------------------------------------------

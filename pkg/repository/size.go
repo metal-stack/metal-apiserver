@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -187,4 +188,25 @@ func (r *sizeRepository) sizeFilters(filter generic.EntityQuery) []generic.Entit
 	}
 
 	return qs
+}
+
+// FromHardware tries to find a size which matches the given hardware specs.
+func (r *sizeRepository) FromHardware(ctx context.Context, hw metal.MachineHardware) (*metal.Size, error) {
+	sz, err := r.s.ds.Size().List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if len(sz) < 1 {
+		// this should not happen, so we do not return a notfound
+		return nil, errors.New("no sizes found in database")
+	}
+	var sizes metal.Sizes
+	for _, s := range sz {
+		if len(s.Constraints) < 1 {
+			r.s.log.Error("missing constraints", "size", s)
+			continue
+		}
+		sizes = append(sizes, *s)
+	}
+	return sizes.FromHardware(hw)
 }

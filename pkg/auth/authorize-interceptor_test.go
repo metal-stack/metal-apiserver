@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/metal-stack/api/go/client"
@@ -19,8 +20,10 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
+	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 type interceptorTestFn func(string, []connect.Interceptor, func(context.Context)) *connect.Handler
@@ -37,7 +40,10 @@ func Test_authorizeInterceptor_WrapUnary(t *testing.T) {
 		{Name: "john.doe@github.com"},
 		{Name: "foo.bar@github.com"},
 		{Name: "viewer@github.com"},
+		{Name: "ansible"},
 		{Name: "metal-image-cache-sync"},
+		{Name: "metal-hammer"},
+		{Name: "pixiecore"},
 	})
 	test.CreateTenantMemberships(t, testStore, "john.doe@github.com", []*repository.TenantMemberCreateRequest{
 		{MemberID: "john.doe@github.com", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
@@ -51,6 +57,15 @@ func Test_authorizeInterceptor_WrapUnary(t *testing.T) {
 	})
 	test.CreateTenantMemberships(t, testStore, "metal-image-cache-sync", []*repository.TenantMemberCreateRequest{
 		{MemberID: "metal-image-cache-sync", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+	})
+	test.CreateTenantMemberships(t, testStore, "metal-hammer", []*repository.TenantMemberCreateRequest{
+		{MemberID: "metal-hammer", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+	})
+	test.CreateTenantMemberships(t, testStore, "pixiecore", []*repository.TenantMemberCreateRequest{
+		{MemberID: "pixiecore", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+	})
+	test.CreateTenantMemberships(t, testStore, "ansible", []*repository.TenantMemberCreateRequest{
+		{MemberID: "ansible", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 	})
 	projectMap := test.CreateProjects(t, testStore.Store, []*apiv2.ProjectServiceCreateRequest{
 		{Login: "john.doe@github.com"},
@@ -670,6 +685,125 @@ func Test_authorizeInterceptor_WrapUnary(t *testing.T) {
 						},
 					},
 				},
+			},
+			wantErr: nil,
+		},
+		// MachineRoles granted from pixie
+		{
+			name: "pixie creates a token for metal-hammer with admin rights",
+			token: &apiv2.Token{
+				User:      "pixiecore",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				AdminRole: apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			},
+			method:  apiv2connect.TokenServiceCreateProcedure,
+			handler: handler[apiv2.TokenServiceCreateRequest, apiv2.TokenServiceCreateResponse](),
+			reqFn: func(ctx context.Context, c client.Client) error {
+				_, err := c.Apiv2().Token().Create(ctx, &apiv2.TokenServiceCreateRequest{
+					Description: "i want to act as metal-hammer for machine de240964-ff9f-4e3d-95b2-8a96e43788f1",
+					MachineRoles: map[string]apiv2.MachineRole{
+						"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+					},
+					Expires: durationpb.New(time.Hour),
+				})
+				return err
+			},
+			wantErr: nil,
+		},
+		{
+			name: "pixie creates a token for metal-hammer with only enough rights",
+			token: &apiv2.Token{
+				User: "pixiecore",
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "*",
+						Methods: []string{"/metalstack.api.v2.TokenService/Create"},
+					},
+				},
+				MachineRoles: map[string]apiv2.MachineRole{
+					"*": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+			},
+			method:  apiv2connect.TokenServiceCreateProcedure,
+			handler: handler[apiv2.TokenServiceCreateRequest, apiv2.TokenServiceCreateResponse](),
+			reqFn: func(ctx context.Context, c client.Client) error {
+				_, err := c.Apiv2().Token().Create(ctx, &apiv2.TokenServiceCreateRequest{
+					Description: "i want to act as metal-hammer for machine de240964-ff9f-4e3d-95b2-8a96e43788f1",
+					MachineRoles: map[string]apiv2.MachineRole{
+						"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+					},
+					Expires: durationpb.New(time.Hour),
+				})
+				return err
+			},
+			wantErr: nil,
+		},
+		{
+			name: "pixie creates a token for metal-hammer with wrong subject rights",
+			token: &apiv2.Token{
+				User: "pixiecore",
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "non-existing-machine",
+						Methods: []string{"/metalstack.api.v2.TokenService/Create"},
+					},
+				},
+				MachineRoles: map[string]apiv2.MachineRole{
+					"*": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+			},
+			method:  apiv2connect.TokenServiceCreateProcedure,
+			handler: handler[apiv2.TokenServiceCreateRequest, apiv2.TokenServiceCreateResponse](),
+			reqFn: func(ctx context.Context, c client.Client) error {
+				_, err := c.Apiv2().Token().Create(ctx, &apiv2.TokenServiceCreateRequest{
+					Description: "i want to act as metal-hammer for machine de240964-ff9f-4e3d-95b2-8a96e43788f1",
+					MachineRoles: map[string]apiv2.MachineRole{
+						"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+					},
+					Expires: durationpb.New(time.Hour),
+				})
+				return err
+			},
+			wantErr: errorutil.PermissionDenied("access to:\"/metalstack.api.v2.TokenService/Create\" with subject:\"\" is not allowed because it is not part of the token permissions, allowed subjects are:[\"non-existing-machine\"]"),
+		},
+
+		// Infra Role
+		{
+			name: "ansible creates a token for pixie with only enough rights",
+			token: &apiv2.Token{
+				User: "ansible",
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "*",
+						Methods: []string{"/metalstack.admin.v2.TokenService/Create"},
+					},
+				},
+				MachineRoles: map[string]apiv2.MachineRole{
+					"*": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+				InfraRole: apiv2.InfraRole_INFRA_ROLE_EDITOR.Enum(),
+			},
+			method:  adminv2connect.TokenServiceCreateProcedure,
+			handler: handler[adminv2.TokenServiceCreateRequest, adminv2.TokenServiceCreateResponse](),
+			reqFn: func(ctx context.Context, c client.Client) error {
+				_, err := c.Adminv2().Token().Create(ctx, &adminv2.TokenServiceCreateRequest{
+					User: pointer.Pointer("pixiecore"),
+					TokenCreateRequest: &apiv2.TokenServiceCreateRequest{
+						Description: "i want to act as pixiecore",
+						Permissions: []*apiv2.MethodPermission{
+							{
+								Subject: "*",
+								Methods: []string{"/metalstack.api.v2.TokenService/Create"},
+							},
+						},
+						MachineRoles: map[string]apiv2.MachineRole{
+							"*": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+						},
+						InfraRole: apiv2.InfraRole_INFRA_ROLE_EDITOR.Enum(),
+						Expires:   durationpb.New(time.Hour),
+					},
+				})
+				return err
 			},
 			wantErr: nil,
 		},

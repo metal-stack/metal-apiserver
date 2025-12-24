@@ -105,7 +105,8 @@ func (r *switchRepository) Port(ctx context.Context, id, port string, status api
 }
 
 func (r *switchRepository) ConnectMachineWithSwitches(m *apiv2.Machine) error {
-	panic("unimplemented")
+	// FIXME is already implemented in https://github.com/metal-stack/metal-apiserver/pull/104
+	return nil
 }
 
 func (r *switchRepository) GetSwitchStatus(ctx context.Context, switchID string) (*SwitchStatus, error) {

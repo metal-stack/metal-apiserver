@@ -227,12 +227,13 @@ type MachineNetwork struct {
 	IPs                 []string `rethinkdb:"ips"`
 	DestinationPrefixes []string `rethinkdb:"destinationprefixes"`
 	Vrf                 uint     `rethinkdb:"vrf"`
-	PrivatePrimary      bool     `rethinkdb:"privateprimary"`
-	Private             bool     `rethinkdb:"private"`
-	ASN                 uint32   `rethinkdb:"asn"`
-	Nat                 bool     `rethinkdb:"nat"`
-	Underlay            bool     `rethinkdb:"underlay"`
-	Shared              bool     `rethinkdb:"shared"`
+	// FIXME convert to new types
+	PrivatePrimary bool   `rethinkdb:"privateprimary"`
+	Private        bool   `rethinkdb:"private"`
+	ASN            uint32 `rethinkdb:"asn"`
+	Nat            bool   `rethinkdb:"nat"`
+	Underlay       bool   `rethinkdb:"underlay"`
+	Shared         bool   `rethinkdb:"shared"`
 }
 
 // MachineHardware stores the data which is collected by our system on the hardware when it registers itself.
