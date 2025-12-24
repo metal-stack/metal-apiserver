@@ -188,7 +188,6 @@ func (v *vpnService) getNode(ctx context.Context, machineID, projectID string) (
 		return nil, fmt.Errorf("failed to list nodes: %w", err)
 	}
 
-	v.log.Debug("getNode", "nodes", resp.Nodes)
 	for _, m := range resp.Nodes {
 		if m.Name == machineID {
 			return m, nil
@@ -216,8 +215,6 @@ func (v *vpnService) EvaluateVPNConnected(ctx context.Context) ([]*apiv2.Machine
 	if err != nil {
 		return nil, err
 	}
-
-	v.log.Debug("evaluated vpn connected", "machines", ms, "nodes", listNodesResp.Nodes)
 
 	var (
 		errs            []error
