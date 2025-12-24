@@ -85,7 +85,7 @@ func (s *storage[E]) Find(ctx context.Context, queries ...EntityQuery) (E, error
 	for _, q := range queries {
 		query = q(query)
 	}
-	s.r.log.Debug("find", "table", s.table, "query", query.String())
+	s.r.log.Debug("find", "table", s.tableName, "query", query.String())
 
 	var zero E
 	res, err := query.Run(s.r.queryExecutor, r.RunOpts{Context: ctx})
@@ -127,7 +127,7 @@ func (s *storage[E]) List(ctx context.Context, queries ...EntityQuery) ([]E, err
 		query = q(query)
 	}
 
-	s.r.log.Debug("list", "table", s.table, "query", query.String())
+	s.r.log.Debug("list", "table", s.tableName, "query", query.String())
 
 	res, err := query.Run(s.r.queryExecutor, r.RunOpts{Context: ctx})
 	if err != nil {

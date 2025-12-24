@@ -26,6 +26,7 @@ import (
 	ratelimiter "github.com/metal-stack/metal-apiserver/pkg/rate-limiter"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	authservice "github.com/metal-stack/metal-apiserver/pkg/service/auth"
+	"github.com/metal-stack/metal-apiserver/pkg/service/boot"
 	eventinfra "github.com/metal-stack/metal-apiserver/pkg/service/event/infra"
 	"github.com/metal-stack/metal-apiserver/pkg/service/filesystem"
 	filesystemadmin "github.com/metal-stack/metal-apiserver/pkg/service/filesystem/admin"
@@ -83,6 +84,7 @@ type Config struct {
 	MaxRequestsPerMinuteToken           int
 	MaxRequestsPerMinuteUnauthenticated int
 	IsStageDev                          bool
+	BMCSuperuserPassword                string
 }
 
 type RedisConfig struct {
@@ -127,7 +129,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	validationInterceptor := validate.NewInterceptor()
 
 	var (
-		logInteceptor        = newLogRequestInterceptor(log)
+		logInterceptor       = newLogRequestInterceptor(log)
 		tenantInterceptor    = tenant.NewInterceptor(log, c.MasterClient)
 		ratelimitInterceptor = ratelimiter.NewInterceptor(&ratelimiter.Config{
 			Log:                                 log,
@@ -137,9 +139,9 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 		})
 	)
 
-	allInterceptors := []connect.Interceptor{metricsInterceptor, logInteceptor, authz, authorizeInterceptor, ratelimitInterceptor, validationInterceptor, tenantInterceptor}
-	allAdminInterceptors := []connect.Interceptor{metricsInterceptor, logInteceptor, authz, authorizeInterceptor, validationInterceptor, tenantInterceptor}
-	allInfraInterceptors := []connect.Interceptor{metricsInterceptor, logInteceptor, authz, authorizeInterceptor, validationInterceptor}
+	allInterceptors := []connect.Interceptor{metricsInterceptor, logInterceptor, authz, authorizeInterceptor, ratelimitInterceptor, validationInterceptor, tenantInterceptor}
+	allAdminInterceptors := []connect.Interceptor{metricsInterceptor, logInterceptor, authz, authorizeInterceptor, validationInterceptor, tenantInterceptor}
+	allInfraInterceptors := []connect.Interceptor{metricsInterceptor, logInterceptor, authz, authorizeInterceptor, validationInterceptor}
 	if c.Auditing != nil {
 		servicePermissions := permissions.GetServicePermissions()
 		shouldAudit := func(fullMethod string) bool {
@@ -255,7 +257,10 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	mux.Handle(adminv2connect.NewMachineServiceHandler(adminMachineService, adminInterceptors))
 	mux.Handle(adminv2connect.NewTokenServiceHandler(adminTokenService, adminInterceptors))
 
-	// Infra services
+	// Infra services, we use adminInterceptors to prevent rate limiting
+	bootService := boot.New(boot.Config{Log: log, Repo: c.Repository, BMCSuperuserPassword: c.BMCSuperuserPassword})
+	mux.Handle(infrav2connect.NewBootServiceHandler(bootService, adminInterceptors))
+
 	infraSwitchService := switchinfra.New(switchinfra.Config{Log: log, Repo: c.Repository})
 	infraEventService := eventinfra.New(eventinfra.Config{Log: log, Repo: c.Repository})
 	mux.Handle(infrav2connect.NewSwitchServiceHandler(infraSwitchService, infraInterceptors))
