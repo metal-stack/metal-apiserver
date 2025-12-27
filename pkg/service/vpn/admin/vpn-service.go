@@ -17,7 +17,6 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 )
 
 const defaultExpiration = time.Hour
@@ -63,7 +62,7 @@ func New(c Config) VPNService {
 	}
 }
 
-func (v *vpnService) Authkey(ctx context.Context, req *adminv2.VPNServiceAuthkeyRequest) (*adminv2.VPNServiceAuthkeyResponse, error) {
+func (v *vpnService) AuthKey(ctx context.Context, req *adminv2.VPNServiceAuthKeyRequest) (*adminv2.VPNServiceAuthKeyResponse, error) {
 	_, err := v.repo.Project(req.Project).Get(ctx, req.Project)
 	if err != nil {
 		return nil, err
@@ -93,9 +92,9 @@ func (v *vpnService) Authkey(ctx context.Context, req *adminv2.VPNServiceAuthkey
 		return nil, errorutil.Convert(err)
 	}
 
-	return &adminv2.VPNServiceAuthkeyResponse{
+	return &adminv2.VPNServiceAuthKeyResponse{
 		Address: v.headscaleControlplaneAddress,
-		Authkey: key.PreAuthKey.Key,
+		AuthKey: key.PreAuthKey.Key,
 	}, nil
 }
 
@@ -138,8 +137,8 @@ func (v *vpnService) DeleteNode(ctx context.Context, machineID string, projectID
 // ListNodes implements [VPNService].
 func (v *vpnService) ListNodes(ctx context.Context, req *adminv2.VPNServiceListNodesRequest) (*adminv2.VPNServiceListNodesResponse, error) {
 	lnr := &headscalev1.ListNodesRequest{}
-	if req.User != nil {
-		lnr.User = *req.User
+	if req.Project != nil {
+		lnr.User = *req.Project
 	}
 	resp, err := v.headscaleClient.ListNodes(ctx, lnr)
 	if err != nil {
@@ -150,7 +149,7 @@ func (v *vpnService) ListNodes(ctx context.Context, req *adminv2.VPNServiceListN
 		vpnNodes = append(vpnNodes, &apiv2.VPNNode{
 			Id:          node.Id,
 			Name:        node.Name,
-			User:        &node.User.Name,
+			Project:     node.User.Name,
 			IpAddresses: node.IpAddresses,
 			LastSeen:    node.LastSeen,
 			Online:      node.Online,
@@ -230,7 +229,7 @@ func (v *vpnService) EvaluateVPNConnected(ctx context.Context) ([]*apiv2.Machine
 				return false
 			}
 
-			if pointer.SafeDeref(node.User) != m.Allocation.Project {
+			if node.Project != m.Allocation.Project {
 				return false
 			}
 

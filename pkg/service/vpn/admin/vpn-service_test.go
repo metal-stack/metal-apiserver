@@ -15,10 +15,12 @@ import (
 	v1 "github.com/juanfont/headscale/gen/go/headscale/v1"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"tailscale.com/tsnet"
 
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -34,7 +36,7 @@ var (
 	p2 = "00000000-0000-0000-0000-000000000002"
 )
 
-func Test_vpnService_Authkey(t *testing.T) {
+func Test_vpnService_AuthKey(t *testing.T) {
 	t.Parallel()
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
@@ -61,19 +63,19 @@ func Test_vpnService_Authkey(t *testing.T) {
 	})
 	tests := []struct {
 		name    string
-		req     *adminv2.VPNServiceAuthkeyRequest
-		want    *adminv2.VPNServiceAuthkeyResponse
+		req     *adminv2.VPNServiceAuthKeyRequest
+		want    *adminv2.VPNServiceAuthKeyResponse
 		wantErr error
 	}{
 
 		{
 			name: "create a new authkey",
-			req: &adminv2.VPNServiceAuthkeyRequest{
+			req: &adminv2.VPNServiceAuthKeyRequest{
 				Project:   p0,
 				Ephemeral: false,
 				Expires:   durationpb.New(time.Hour),
 			},
-			want: &adminv2.VPNServiceAuthkeyResponse{
+			want: &adminv2.VPNServiceAuthKeyResponse{
 				Address: endpoint,
 			},
 		},
@@ -87,18 +89,18 @@ func Test_vpnService_Authkey(t *testing.T) {
 				headscaleControlplaneAddress: endpoint,
 			}
 
-			got, gotErr := v.Authkey(t.Context(), tt.req)
+			got, gotErr := v.AuthKey(t.Context(), tt.req)
 			if gotErr != nil {
 				if tt.wantErr == nil {
-					t.Errorf("Authkey() failed: %v", gotErr)
+					t.Errorf("AuthKey() failed: %v", gotErr)
 				}
 				return
 			}
 			if tt.wantErr != nil {
-				t.Fatal("Authkey() succeeded unexpectedly")
+				t.Fatal("AuthKey() succeeded unexpectedly")
 			}
 			require.Equal(t, tt.want.Address, got.Address)
-			require.Greater(t, len(got.Authkey), 10)
+			require.Greater(t, len(got.AuthKey), 10)
 		})
 	}
 }
@@ -122,7 +124,7 @@ func Test_vpnService_DeleteNode(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	test.ConnectVPNClient(t, m1, controllerURL, key.PreAuthKey.Key)
+	connectVPNClient(t, m1, controllerURL, key.PreAuthKey.Key)
 
 	defer func() {
 		headscaleCloser()
@@ -425,7 +427,7 @@ func Test_vpnService_EvaluateVPNConnected(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			for _, n := range tt.nodesToCreate {
-				test.ConnectVPNClient(t, n, controllerURL, key.PreAuthKey.Key)
+				connectVPNClient(t, n, controllerURL, key.PreAuthKey.Key)
 			}
 			test.CreateMachines(t, testStore, tt.machinesToCreate)
 
@@ -503,4 +505,19 @@ func Test_vpnService_SetDefaultPolicy(t *testing.T) {
 			require.JSONEq(t, defaultPolicy, resp.Policy)
 		})
 	}
+}
+
+func connectVPNClient(t testing.TB, hostname, controllerURL, authkey string) {
+	s := &tsnet.Server{
+		Hostname:   hostname,
+		ControlURL: controllerURL,
+		AuthKey:    authkey,
+	}
+	lc, err := s.LocalClient()
+	require.NoError(t, err)
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		status, err := lc.Status(t.Context())
+		require.NoError(c, err)
+		require.True(c, status.Self.Online)
+	}, 10*time.Second, 50*time.Millisecond)
 }
