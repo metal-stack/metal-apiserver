@@ -120,6 +120,17 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 		}
 	}
 
+	// Machine Roles
+	for subject, role := range token.MachineRoles {
+		machineMethods := servicePermissions.Roles.Machine[role.Enum().String()]
+		for _, method := range machineMethods {
+			if _, ok := tp[method]; !ok {
+				tp[method] = set{}
+			}
+			tp[method][subject] = entry{}
+		}
+	}
+
 	// Permission
 	for _, permission := range token.Permissions {
 		subject := permission.Subject
