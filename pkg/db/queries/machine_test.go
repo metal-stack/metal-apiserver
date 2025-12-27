@@ -50,7 +50,6 @@ var (
 			ConsolePassword: "",
 			Succeeded:       true,
 			Role:            metal.RoleMachine,
-			VPN:             &metal.MachineVPN{},
 			UUID:            "alloc-m1",
 			FirewallRules: &metal.FirewallRules{
 				Egress:  []metal.EgressRule{},
@@ -131,7 +130,7 @@ var (
 			ConsolePassword: "",
 			Succeeded:       true,
 			Role:            metal.RoleFirewall,
-			VPN:             &metal.MachineVPN{},
+			VPN:             &metal.MachineVPN{ControlPlaneAddress: "https://headscale.metal-stack.io", IPs: []string{}},
 			UUID:            "alloc-m2",
 			FirewallRules: &metal.FirewallRules{
 				Egress:  []metal.EgressRule{},
@@ -200,7 +199,6 @@ var (
 			ConsolePassword: "",
 			Succeeded:       false,
 			Role:            "",
-			VPN:             &metal.MachineVPN{},
 			UUID:            "",
 			FirewallRules: &metal.FirewallRules{
 				Egress:  []metal.EgressRule{},
@@ -387,6 +385,11 @@ func TestMachineFilter(t *testing.T) {
 			name: "by allocation labels",
 			rq:   &apiv2.MachineQuery{Allocation: &apiv2.MachineAllocationQuery{Labels: &apiv2.Labels{Labels: map[string]string{"color": "red"}}}},
 			want: []*metal.Machine{m1},
+		},
+		{
+			name: "by allocation vpn",
+			rq:   &apiv2.MachineQuery{Allocation: &apiv2.MachineAllocationQuery{Vpn: &apiv2.MachineVPN{}}},
+			want: []*metal.Machine{m2},
 		},
 		// Network Queries
 		{

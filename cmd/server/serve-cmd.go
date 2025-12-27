@@ -18,6 +18,7 @@ import (
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	mdm "github.com/metal-stack/masterdata-api/pkg/client"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/service"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
@@ -70,6 +71,10 @@ func newServeCmd() *cli.Command {
 			oidcEndSessionUrlFlag,
 			oidcUniqueUserKeyFlag,
 			oidcTLSSkipVerifyFlag,
+			headscaleAddressFlag,
+			headscaleControlplaneAddressFlag,
+			headscaleApikeyFlag,
+			headscaleEnabledFlag,
 		},
 		Action: func(ctx *cli.Context) error {
 			log, err := createLogger(ctx)
@@ -95,6 +100,16 @@ func newServeCmd() *cli.Command {
 			mc, err := createMasterdataClient(ctx, log)
 			if err != nil {
 				return fmt.Errorf("unable to create masterdata.client: %w", err)
+			}
+
+			hc, err := headscale.NewClient(headscale.Config{
+				Log:      log,
+				Disabled: !ctx.Bool(headscaleEnabledFlag.Name),
+				Apikey:   ctx.String(headscaleApikeyFlag.Name),
+				Endpoint: ctx.String(headscaleAddressFlag.Name),
+			})
+			if err != nil {
+				return err
 			}
 
 			connectOpts := rethinkdb.ConnectOpts{
@@ -140,6 +155,8 @@ func newServeCmd() *cli.Command {
 				OIDCUniqueUserKey:                   ctx.String(oidcUniqueUserKeyFlag.Name),
 				OIDCTLSSkipVerify:                   ctx.Bool(oidcTLSSkipVerifyFlag.Name),
 				IsStageDev:                          strings.EqualFold(stage, stageDEV),
+				HeadscaleControlplaneAddress:        ctx.String(headscaleControlplaneAddressFlag.Name),
+				HeadscaleClient:                     hc,
 			}
 
 			if providerTenant := ctx.String(ensureProviderTenantFlag.Name); providerTenant != "" {
