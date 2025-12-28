@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"runtime"
 	"strings"
-	"testing"
 
 	"connectrpc.com/connect"
 	"github.com/alicebob/miniredis/v2"
@@ -16,11 +15,11 @@ import (
 
 	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
+	ipamtest "github.com/metal-stack/go-ipam/pkg/test"
 	mdm "github.com/metal-stack/masterdata-api/pkg/client"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/service"
-	"github.com/metal-stack/metal-apiserver/pkg/test"
 
 	"github.com/metal-stack/metal-lib/auditing"
 	"github.com/metal-stack/v"
@@ -306,7 +305,8 @@ func createIpamClient(cli *cli.Context, log *slog.Logger) (ipamv1connect.IpamSer
 	log.Info("create ipam client", "stage", cli.String(stageFlag.Name))
 	if cli.String(stageFlag.Name) == stageDEV {
 		log.Warn("ipam grpc endpoint not configured, starting in memory ipam service")
-		ipam, _ := test.StartIpam(&testing.T{})
+		ipam, _ := ipamtest.NewTestServer(cli.Context, log)
+
 		return ipam, nil
 	}
 

@@ -28,11 +28,11 @@ server:
 
 .PHONY: test
 test:
-	go test ./... -race -coverpkg=./... -coverprofile=coverage.out -covermode=atomic $(GO_TEST_ARGS) -timeout=300s && go tool cover -func=coverage.out
+	go test ./... -tags export -race -coverpkg=./... -coverprofile=coverage.out -covermode=atomic $(GO_TEST_ARGS) -timeout=300s && go tool cover -func=coverage.out
 
 .PHONY: bench
 bench:
-	CGO_ENABLED=1 go test -bench=. -run=^$$ ./... -benchmem -timeout 20m
+	CGO_ENABLED=1 go test -bench=. -run=^$$ ./... -tags export -benchmem -timeout 20m
 
 .PHONY: mocks
 mocks:
