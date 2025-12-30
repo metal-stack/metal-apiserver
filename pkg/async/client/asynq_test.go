@@ -5,8 +5,11 @@ import (
 	"log/slog"
 	"reflect"
 	"testing"
+	"testing/synctest"
+	"time"
 
 	"github.com/alicebob/miniredis/v2"
+	"github.com/google/go-cmp/cmp"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
@@ -150,6 +153,59 @@ func TestClient_NewMachineDeleteTask(t *testing.T) {
 			if !reflect.DeepEqual(payload, tt.want) {
 				t.Errorf("Client.NewMachineDeleteTask() = %v, want %v", payload, tt.want)
 			}
+		})
+	}
+}
+
+func TestClient_NewMachineBMCCommandTask(t *testing.T) {
+	log := slog.Default()
+	r := miniredis.RunT(t)
+	rc := redis.NewClient(&redis.Options{Addr: r.Addr()})
+	c := New(log, rc)
+
+	cetPlusOne, err := time.LoadLocation("CET")
+	require.NoError(t, err)
+
+	type args struct {
+		uuid      string
+		partition string
+		command   string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    MachineBMCCommandPayload
+		wantErr bool
+	}{
+		{
+			name: "simple",
+			args: args{
+				uuid:      "machine-uuid",
+				partition: "p1",
+				command:   "boot-to-disk",
+			},
+			want: MachineBMCCommandPayload{
+				UUID:      "machine-uuid",
+				Partition: "p1",
+				Command:   "boot-to-disk",
+				IssuedAt:  time.Date(2000, 1, 1, 1, 0, 0, 0, cetPlusOne)},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				got, err := c.NewMachineBMCCommandTask(tt.args.uuid, tt.args.partition, tt.args.command)
+				if (err != nil) != tt.wantErr {
+					t.Errorf("Client.NewMachineBMCCommandTask() error = %v, wantErr %v", err, tt.wantErr)
+					return
+				}
+				var payload MachineBMCCommandPayload
+				err = json.Unmarshal(got.Payload, &payload)
+				require.NoError(t, err)
+				if diff := cmp.Diff(payload, tt.want); diff != "" {
+					t.Errorf("Client.NewMachineBMCCommandTask() diff = %s", diff)
+				}
+			})
 		})
 	}
 }

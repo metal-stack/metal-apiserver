@@ -76,36 +76,39 @@ func NewAuthenticatorInterceptor(c Config) (*auth, error) {
 }
 
 func (o *auth) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
-	return connect.StreamingClientFunc(func(ctx context.Context, spec connect.Spec) connect.StreamingClientConn {
+	return func(ctx context.Context, spec connect.Spec) connect.StreamingClientConn {
 		o.log.Warn("streamclient called", "procedure", spec.Procedure)
 		return next(ctx, spec)
-	})
+	}
 }
 
 // WrapStreamingHandler is a StreamServerInterceptor for the
 // server. Only one stream interceptor can be installed.
 // If you want to add extra functionality you might decorate this function.
 func (o *auth) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
-	return connect.StreamingHandlerFunc(func(ctx context.Context, conn connect.StreamingHandlerConn) error {
-		wrapper := &recvWrapper{
+	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
+		o.log.Debug("streaminghandler called")
+		wrapper := &wrapper{
 			StreamingHandlerConn: conn,
 			ctx:                  ctx,
 			o:                    o,
 		}
 		return next(ctx, wrapper)
-	})
+	}
 }
 
-type recvWrapper struct {
+type wrapper struct {
 	connect.StreamingHandlerConn
 	ctx context.Context
 	o   *auth
 }
 
-func (s *recvWrapper) Receive(m any) error {
+func (s *wrapper) Receive(m any) error {
+	// s.o.log.Debug("streaminghandler receive called", "message", m)
 	if err := s.StreamingHandlerConn.Receive(m); err != nil {
 		return err
 	}
+
 	_, err := s.o.extractAndValidateJWTToken(s.ctx, s.StreamingHandlerConn.RequestHeader().Get)
 	if err != nil {
 		return err
@@ -113,6 +116,17 @@ func (s *recvWrapper) Receive(m any) error {
 
 	return nil
 }
+
+// Enable only if response debugging is required
+//
+// func (s *wrapper) Send(m any) error {
+// 	s.o.log.Debug("streaminghandler send called", "message", m)
+// 	if err := s.StreamingHandlerConn.Send(m); err != nil {
+// 		return err
+// 	}
+
+// 	return nil
+// }
 
 // WrapUnary is a UnaryServerInterceptor for the
 // server. Only one unary interceptor can be installed.

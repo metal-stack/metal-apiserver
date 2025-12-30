@@ -44,12 +44,12 @@ func (a *authorizeInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFu
 }
 
 func (a *authorizeInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
-	return connect.StreamingClientFunc(func(ctx context.Context, spec connect.Spec) connect.StreamingClientConn {
+	return func(ctx context.Context, spec connect.Spec) connect.StreamingClientConn {
 		return next(ctx, spec)
-	})
+	}
 }
 func (a *authorizeInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
-	return connect.StreamingHandlerFunc(func(ctx context.Context, conn connect.StreamingHandlerConn) error {
+	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
 		return next(ctx, conn)
-	})
+	}
 }

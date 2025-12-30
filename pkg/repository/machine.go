@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -12,8 +13,10 @@ import (
 	"github.com/avast/retry-go/v4"
 	"github.com/hibiken/asynq"
 	"github.com/metal-stack/api/go/enum"
+	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
+	asyncclient "github.com/metal-stack/metal-apiserver/pkg/async/client"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
@@ -30,6 +33,30 @@ type (
 		scope *ProjectScope
 	}
 )
+
+func (r *machineRepository) Dhcp(ctx context.Context, req *infrav2.BootServiceDhcpRequest) (*infrav2.BootServiceDhcpResponse, error) {
+	err := r.SendEvent(ctx, r.s.log, req.Uuid, &infrav2.MachineProvisioningEvent{
+		Time:    timestamppb.Now(),
+		Event:   infrav2.ProvisioningEventType_PROVISIONING_EVENT_TYPE_PXE_BOOTING,
+		Message: "machine sent extended dhcp request",
+	})
+	if err != nil {
+		return nil, err
+	}
+	machine, err := r.get(ctx, req.Uuid)
+	if err != nil {
+		return nil, err
+	}
+
+	if machine.PartitionID == "" {
+		machine.PartitionID = req.Partition
+		err := r.s.ds.Machine().Update(ctx, machine)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &infrav2.BootServiceDhcpResponse{}, nil
+}
 
 func (r *machineRepository) SendEvent(ctx context.Context, log *slog.Logger, machineID string, event *infrav2.MachineProvisioningEvent) error {
 	if event == nil {
@@ -106,6 +133,7 @@ func (r *machineRepository) matchScope(machine *metal.Machine) bool {
 }
 
 func (r *machineRepository) create(ctx context.Context, req *apiv2.MachineServiceCreateRequest) (*metal.Machine, error) {
+	// TODO if allocation was created create a NewMachineAllocationTask to notify the machine
 	panic("unimplemented")
 }
 
@@ -182,7 +210,6 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 	var (
 		labels           *apiv2.Labels
 		allocationLabels *apiv2.Labels
-		bios             *apiv2.MachineBios
 		allocation       *apiv2.MachineAllocation
 		condition        *apiv2.MachineCondition
 		status           *apiv2.MachineStatus
@@ -265,12 +292,6 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 		Cpus:   cpus,
 		Gpus:   gpus,
 		Nics:   nics,
-	}
-
-	bios = &apiv2.MachineBios{
-		Version: m.BIOS.Version,
-		Vendor:  m.BIOS.Vendor,
-		Date:    m.BIOS.Date,
 	}
 
 	if m.Allocation != nil {
@@ -492,7 +513,6 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 		Rack:                     m.RackID,
 		Size:                     size,
 		Hardware:                 hardware,
-		Bios:                     bios,
 		Allocation:               allocation,
 		Status:                   status,
 		RecentProvisioningEvents: recentEvents,
@@ -590,49 +610,49 @@ func (r *machineRepository) Register(ctx context.Context, req *infrav2.BootServi
 	}
 
 	var ipmi metal.IPMI
-	if req.Ipmi != nil {
-		i := req.Ipmi
+	if req.Bmc != nil {
+		bmc := req.Bmc
 
 		ipmi = metal.IPMI{
-			Address:     i.Address,
-			MacAddress:  i.Mac,
-			User:        i.User,
-			Password:    i.Password,
-			Interface:   i.Interface,
-			BMCVersion:  i.BmcVersion,
-			PowerState:  i.PowerState,
+			Address:     bmc.Address,
+			MacAddress:  bmc.Mac,
+			User:        bmc.User,
+			Password:    bmc.Password,
+			Interface:   bmc.Interface,
+			BMCVersion:  bmc.Version,
+			PowerState:  bmc.PowerState,
 			LastUpdated: time.Now(),
 		}
-		if i.Fru != nil {
-			f := i.Fru
-			fru := metal.Fru{}
-			if f.ChassisPartNumber != nil {
-				fru.ChassisPartNumber = *f.ChassisPartNumber
-			}
-			if f.ChassisPartSerial != nil {
-				fru.ChassisPartSerial = *f.ChassisPartSerial
-			}
-			if f.BoardMfg != nil {
-				fru.BoardMfg = *f.BoardMfg
-			}
-			if f.BoardMfgSerial != nil {
-				fru.BoardMfgSerial = *f.BoardMfgSerial
-			}
-			if f.BoardPartNumber != nil {
-				fru.BoardPartNumber = *f.BoardPartNumber
-			}
-			if f.ProductManufacturer != nil {
-				fru.ProductManufacturer = *f.ProductManufacturer
-			}
-			if f.ProductPartNumber != nil {
-				fru.ProductPartNumber = *f.ProductPartNumber
-			}
-			if f.ProductSerial != nil {
-				fru.ProductSerial = *f.ProductSerial
-			}
-			ipmi.Fru = fru
-		}
+	}
 
+	if req.Fru != nil {
+		fru := metal.Fru{}
+		f := req.Fru
+		if f.ChassisPartNumber != nil {
+			fru.ChassisPartNumber = *f.ChassisPartNumber
+		}
+		if f.ChassisPartSerial != nil {
+			fru.ChassisPartSerial = *f.ChassisPartSerial
+		}
+		if f.BoardMfg != nil {
+			fru.BoardMfg = *f.BoardMfg
+		}
+		if f.BoardMfgSerial != nil {
+			fru.BoardMfgSerial = *f.BoardMfgSerial
+		}
+		if f.BoardPartNumber != nil {
+			fru.BoardPartNumber = *f.BoardPartNumber
+		}
+		if f.ProductManufacturer != nil {
+			fru.ProductManufacturer = *f.ProductManufacturer
+		}
+		if f.ProductPartNumber != nil {
+			fru.ProductPartNumber = *f.ProductPartNumber
+		}
+		if f.ProductSerial != nil {
+			fru.ProductSerial = *f.ProductSerial
+		}
+		ipmi.Fru = fru
 	}
 
 	if m == nil {
@@ -715,13 +735,12 @@ func (r *machineRepository) Register(ctx context.Context, req *infrav2.BootServi
 			if err != nil {
 				return err
 			}
-			// FIXME we must return partition and rack from this call
-			// rack, partition, err := r.s.Switch().AdditionalMethods().ConnectMachineWithSwitches(machine)
+			// FIXME we must return rack from this call
+			// rack, err := r.s.Switch().AdditionalMethods().ConnectMachineWithSwitches(machine)
 			err = r.s.Switch().AdditionalMethods().ConnectMachineWithSwitches(machine)
 			if err != nil {
 				return err
 			}
-			// m.PartitionID = partition
 			// m.RackID = rack
 			return r.s.ds.Machine().Update(ctx, m)
 		},
@@ -752,6 +771,7 @@ func (r *machineRepository) Report(ctx context.Context, req *infrav2.BootService
 	// FIXME implement success handling
 	// maybe it would be better to remove the success flag from the request and error out on the metal-hammer
 
+	// BootInfo was required for reinstall and will not be implemented with mep-4
 	// if req.BootInfo == nil {
 	// 	return nil, fmt.Errorf("the machine %q bootinfo is nil", req.Uuid)
 	// }
@@ -801,32 +821,413 @@ func (r *machineRepository) Report(ctx context.Context, req *infrav2.BootService
 		return nil, fmt.Errorf("the machine %q could not be enslaved into the vrf %s, error: %w", req.Uuid, vrf, err)
 	}
 
-	r.setBootOrderDisk(m)
+	err = r.MachineBMCCommand(ctx, m.ID, m.PartitionID, apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_BOOT_FROM_DISK)
+	if err != nil {
+		return nil, fmt.Errorf("unable to send machinecommand to trigger boot to disk %w", err)
+	}
 
 	return m, nil
 }
 
-// FIXME metal-core needs to get a WaitForMachineEvent service which replaces our nsq based approach
-func (r *machineRepository) setBootOrderDisk(m *metal.Machine) {
-	// 	evt := metal.MachineEvent{
-	// 		Type: metal.COMMAND,
-	// 		Cmd: &metal.MachineExecCommand{
-	// 			Command:         metal.MachineDiskCmd,
-	// 			TargetMachineID: m.ID,
-	// 			IPMI:            &m.IPMI,
-	// 		},
-	// 	}
+func (r *machineRepository) UpdateBMCInfo(ctx context.Context, req *infrav2.UpdateBMCInfoRequest) (*infrav2.UpdateBMCInfoResponse, error) {
+	if req.Partition == "" {
+		return nil, errorutil.InvalidArgument("partition id must not be empty")
+	}
 
-	// b.log.Info("publish event", "event", evt, "command", *evt.Cmd)
-	// err := b.publisher.Publish(metal.TopicMachine.GetFQN(m.PartitionID), evt)
-	//
-	//	if err != nil {
-	//		b.log.Error("unable to send boot via hd, continue anyway", "error", err)
-	//	}
+	partition, err := r.s.ds.Partition().Get(ctx, req.Partition)
+	if err != nil {
+		return nil, err
+	}
+
+	ms, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{Partition: &partition.ID}))
+	if err != nil {
+		return nil, err
+	}
+
+	known := make(map[string]string)
+	for _, m := range ms {
+		uuid := m.ID
+		if uuid == "" {
+			continue
+		}
+		known[uuid] = m.IPMI.Address
+	}
+	resp := &infrav2.UpdateBMCInfoResponse{
+		UpdatedMachines: []string{},
+		CreatedMachines: []string{},
+	}
+	// create empty machines for uuids that are not yet known to the metal-api
+	for uuid, report := range req.BmcReports {
+		if uuid == "" {
+			continue
+		}
+		if _, ok := known[uuid]; ok {
+			continue
+		}
+		m := &metal.Machine{
+			Base: metal.Base{
+				ID: uuid,
+			},
+			PartitionID: partition.ID,
+			IPMI: metal.IPMI{
+				Address:     report.Bmc.Address,
+				LastUpdated: time.Now(),
+			},
+		}
+		ledstate, err := metal.LEDStateFrom(report.LedState.Value)
+		if err == nil {
+			m.LEDState = metal.ChassisIdentifyLEDState{
+				Value: ledstate,
+			}
+		} else {
+			r.s.log.Error("unable to decode ledstate", "id", uuid, "ledstate", report.LedState.Value, "error", err)
+		}
+		_, err = r.s.ds.Machine().Create(ctx, m)
+		if err != nil {
+			r.s.log.Error("could not create machine", "id", uuid, "ipmi-ip", report.Bmc.Address, "m", m, "err", err)
+			continue
+		}
+		resp.CreatedMachines = append(resp.CreatedMachines, uuid)
+	}
+	// update machine ipmi data if ipmi ip changed
+	for _, machine := range ms {
+		uuid := machine.ID
+		if uuid == "" {
+			continue
+		}
+		// if oldmachine.uuid is not part of this update cycle skip it
+		report, ok := req.BmcReports[uuid]
+		if !ok {
+			continue
+		}
+
+		// TODO old code from metal-api not carried over
+		// Replace host part of ipmi address with the ip from the ipmicatcher
+		//
+		// hostAndPort := strings.Split(oldMachine.IPMI.Address, ":")
+		// if len(hostAndPort) == 2 {
+		// 	newMachine.IPMI.Address = report.BMCIp + ":" + hostAndPort[1]
+		// } else if len(hostAndPort) < 2 {
+		// 	newMachine.IPMI.Address = report.BMCIp + ":" + defaultIPMIPort
+		// } else {
+		// 	logger.Error("not updating ipmi, address is garbage", "id", uuid, "ip", report.BMCIp, "machine", newMachine, "address", newMachine.IPMI.Address)
+		// 	continue
+		// }
+
+		// machine was created by a PXE boot event and has no partition set.
+		if machine.PartitionID == "" {
+			machine.PartitionID = partition.ID
+		}
+
+		if machine.PartitionID != partition.ID {
+			r.s.log.Error("could not update machine because overlapping id found", "id", uuid, "machine", machine, "partition", req.Partition)
+			continue
+		}
+
+		// FRU
+		if report.Fru != nil {
+			fru := report.Fru
+			machine.IPMI.Fru.ChassisPartSerial = pointer.SafeDerefOrDefault(fru.ChassisPartSerial, machine.IPMI.Fru.ChassisPartSerial)
+			machine.IPMI.Fru.ChassisPartNumber = pointer.SafeDerefOrDefault(fru.ChassisPartNumber, machine.IPMI.Fru.ChassisPartNumber)
+			machine.IPMI.Fru.BoardMfg = pointer.SafeDerefOrDefault(fru.BoardMfg, machine.IPMI.Fru.BoardMfg)
+			machine.IPMI.Fru.BoardMfgSerial = pointer.SafeDerefOrDefault(fru.BoardMfgSerial, machine.IPMI.Fru.BoardMfgSerial)
+			machine.IPMI.Fru.BoardPartNumber = pointer.SafeDerefOrDefault(fru.BoardPartNumber, machine.IPMI.Fru.BoardPartNumber)
+			machine.IPMI.Fru.ProductManufacturer = pointer.SafeDerefOrDefault(fru.ProductManufacturer, machine.IPMI.Fru.ProductManufacturer)
+			machine.IPMI.Fru.ProductSerial = pointer.SafeDerefOrDefault(fru.ProductSerial, machine.IPMI.Fru.ProductSerial)
+			machine.IPMI.Fru.ProductPartNumber = pointer.SafeDerefOrDefault(fru.ProductPartNumber, machine.IPMI.Fru.ProductPartNumber)
+		}
+
+		if report.Bios != nil {
+			if report.Bios.Version != "" {
+				machine.BIOS.Version = report.Bios.Version
+			}
+			if report.Bios.Vendor != "" {
+				machine.BIOS.Vendor = report.Bios.Vendor
+			}
+			if report.Bios.Date != "" {
+				machine.BIOS.Date = report.Bios.Date
+			}
+		}
+
+		if report.Bmc != nil {
+			if report.Bmc.Version != "" {
+				machine.IPMI.BMCVersion = report.Bmc.Version
+			}
+			if report.Bmc.Address != "" {
+				machine.IPMI.Address = report.Bmc.Address
+			}
+			if report.Bmc.Interface != "" {
+				machine.IPMI.Interface = report.Bmc.Interface
+			}
+			if report.Bmc.Mac != "" {
+				machine.IPMI.MacAddress = report.Bmc.Mac
+			}
+			if report.Bmc.User != "" {
+				machine.IPMI.User = report.Bmc.User
+			}
+			if report.Bmc.Password != "" {
+				machine.IPMI.Password = report.Bmc.Password
+			}
+			if report.Bmc.PowerState != "" {
+				machine.IPMI.PowerState = report.Bmc.PowerState
+			}
+		}
+
+		if report.PowerMetric != nil {
+			machine.IPMI.PowerMetric = &metal.PowerMetric{
+				AverageConsumedWatts: report.PowerMetric.AverageConsumedWatts,
+				IntervalInMin:        report.PowerMetric.IntervalInMin,
+				MaxConsumedWatts:     report.PowerMetric.MaxConsumedWatts,
+				MinConsumedWatts:     report.PowerMetric.MinConsumedWatts,
+			}
+		}
+		var powerSupplies metal.PowerSupplies
+		for _, ps := range report.PowerSupplies {
+			powerSupplies = append(powerSupplies, metal.PowerSupply{
+				Status: metal.PowerSupplyStatus{
+					Health: ps.Health,
+					State:  ps.State,
+				},
+			})
+		}
+		machine.IPMI.PowerSupplies = powerSupplies
+
+		ledstate, err := metal.LEDStateFrom(report.LedState.Value)
+		if err == nil {
+			machine.LEDState = metal.ChassisIdentifyLEDState{
+				Value:       ledstate,
+				Description: machine.LEDState.Description,
+			}
+		} else {
+			r.s.log.Error("unable to decode ledstate", "id", uuid, "ledstate", report.LedState.Value, "error", err)
+		}
+		machine.IPMI.LastUpdated = time.Now()
+
+		err = r.s.ds.Machine().Update(ctx, machine)
+		if err != nil {
+			r.s.log.Error("could not update machine", "id", uuid, "ip", report.Bmc.Address, "machine", machine, "err", err)
+			continue
+		}
+		resp.UpdatedMachines = append(resp.UpdatedMachines, uuid)
+	}
+	return resp, nil
+}
+
+func (r *machineRepository) GetBMC(ctx context.Context, req *adminv2.MachineServiceGetBMCRequest) (*adminv2.MachineServiceGetBMCResponse, error) {
+	machine, err := r.s.ds.Machine().Get(ctx, req.Uuid)
+	if err != nil {
+		return nil, err
+	}
+
+	bmcReport := r.convertToBMCReport(machine)
+
+	return &adminv2.MachineServiceGetBMCResponse{
+		Uuid: req.Uuid,
+		Bmc:  bmcReport,
+	}, nil
+}
+
+func (r *machineRepository) ListBMC(ctx context.Context, req *adminv2.MachineServiceListBMCRequest) (*adminv2.MachineServiceListBMCResponse, error) {
+	machines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{Bmc: req.Query}))
+	if err != nil {
+		return nil, err
+	}
+
+	bmcReports := make(map[string]*apiv2.MachineBMCReport)
+	for _, machine := range machines {
+		bmcReports[machine.ID] = r.convertToBMCReport(machine)
+	}
+
+	return &adminv2.MachineServiceListBMCResponse{
+		BmcReports: bmcReports,
+	}, nil
+}
+
+func (r *machineRepository) convertToBMCReport(machine *metal.Machine) *apiv2.MachineBMCReport {
+	var (
+		bmc           *apiv2.MachineBMC
+		bios          *apiv2.MachineBios
+		fru           *apiv2.MachineFRU
+		powerMetric   *apiv2.MachinePowerMetric
+		powerSupplies = []*apiv2.MachinePowerSupply{}
+	)
+
+	for _, ps := range machine.IPMI.PowerSupplies {
+		powerSupplies = append(powerSupplies, &apiv2.MachinePowerSupply{
+			Health: ps.Status.Health,
+			State:  ps.Status.State,
+		})
+	}
+
+	if machine.IPMI.PowerMetric != nil {
+		powerMetric = &apiv2.MachinePowerMetric{
+			AverageConsumedWatts: machine.IPMI.PowerMetric.AverageConsumedWatts,
+			MaxConsumedWatts:     machine.IPMI.PowerMetric.MaxConsumedWatts,
+			MinConsumedWatts:     machine.IPMI.PowerMetric.MinConsumedWatts,
+			IntervalInMin:        machine.IPMI.PowerMetric.IntervalInMin,
+		}
+	}
+
+	fru = &apiv2.MachineFRU{
+		ChassisPartNumber:   &machine.IPMI.Fru.ChassisPartNumber,
+		ChassisPartSerial:   &machine.IPMI.Fru.ChassisPartSerial,
+		BoardMfg:            &machine.IPMI.Fru.BoardMfg,
+		BoardMfgSerial:      &machine.IPMI.Fru.BoardMfgSerial,
+		BoardPartNumber:     &machine.IPMI.Fru.BoardPartNumber,
+		ProductManufacturer: &machine.IPMI.Fru.ProductManufacturer,
+		ProductPartNumber:   &machine.IPMI.Fru.ProductPartNumber,
+		ProductSerial:       &machine.IPMI.Fru.ProductSerial,
+	}
+
+	bmc = &apiv2.MachineBMC{
+		Address:    machine.IPMI.Address,
+		Mac:        machine.IPMI.MacAddress,
+		User:       machine.IPMI.User,
+		Password:   machine.IPMI.Password,
+		Interface:  machine.IPMI.Interface,
+		Version:    machine.IPMI.BMCVersion,
+		PowerState: machine.IPMI.PowerState,
+	}
+
+	bios = &apiv2.MachineBios{
+		Version: machine.BIOS.Version,
+		Vendor:  machine.BIOS.Vendor,
+		Date:    machine.BIOS.Date,
+	}
+
+	bmcReport := &apiv2.MachineBMCReport{
+		Bmc:           bmc,
+		Bios:          bios,
+		Fru:           fru,
+		PowerMetric:   powerMetric,
+		PowerSupplies: powerSupplies,
+		LedState: &apiv2.MachineChassisIdentifyLEDState{
+			Value:       string(machine.LEDState.Value),
+			Description: machine.LEDState.Description,
+		},
+		UpdatedAt: timestamppb.New(machine.IPMI.LastUpdated),
+	}
+	return bmcReport
+}
+
+func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, partition string, command apiv2.MachineBMCCommand) error {
+	cmdString, err := enum.GetStringValue(apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_BOOT_FROM_DISK)
+	if err != nil {
+		return err
+	}
+	taskInfo, err := r.s.async.NewMachineBMCCommandTask(machineUUID, partition, *cmdString)
+	if err != nil {
+		return err
+	}
+	r.s.log.Debug("machinebmccommand", "taskinfo", taskInfo)
+	return nil
 }
 
 func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWaitRequest, srv *connect.ServerStream[infrav2.BootServiceWaitResponse]) error {
-	panic("unimplemented")
+	// FIXME completely untested
+	machineID := req.Uuid
+	r.s.log.Info("wait for allocation called by", "machineID", machineID)
+
+	m, err := r.s.ds.Machine().Get(ctx, machineID)
+	if err != nil {
+		return err
+	}
+
+	if m.Allocation != nil {
+		return nil
+	}
+
+	// machine is not yet allocated, so we set the waiting flag
+	m.Waiting = true
+	err = r.s.ds.Machine().Update(ctx, m)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			return
+		}
+		// TODO This is prone to fail with optlock, either retry or async task
+		m.Waiting = false
+		err = r.s.ds.Machine().Update(ctx, m)
+		if err != nil {
+			r.s.log.Error("unable to remove waiting flag from machine", "machineID", machineID, "error", err)
+		}
+	}()
+
+	allocationChan := r.s.async.MachineAllocationChannel(machineID)
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case msg, ok := <-allocationChan:
+		if !ok {
+			return errorutil.Internal("machine allocation channel is empty")
+		}
+		if msg.UUID != machineID {
+			return errorutil.Internal("machine %s does not match channel response %s", machineID, msg)
+		}
+		machine, err := r.s.UnscopedMachine().Get(ctx, machineID)
+		if err != nil {
+			return err
+		}
+		if m.Allocation == nil {
+			return errorutil.Internal("machine %s is not allocated", machineID)
+		}
+		err = srv.Send(&infrav2.BootServiceWaitResponse{
+			Allocation: machine.Allocation,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *machineRepository) WaitForBMCCommand(ctx context.Context, req *infrav2.WaitForBMCCommandRequest, stream *connect.ServerStream[infrav2.WaitForBMCCommandResponse]) error {
+	cmdChan := r.s.async.MachineBMCCommandsChannel(req.Partition)
+
+	r.s.async.MachineBMCCommandBeginReceive(req.Partition)
+	defer r.s.async.MachineBMCCommandEndReceive(req.Partition)
+
+	// Stream messages to client
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case msg, ok := <-cmdChan:
+			if !ok {
+				return nil
+			}
+
+			r.s.log.Info("waitformachineevent received", "message", *msg)
+
+			m, err := r.s.ds.Machine().Get(ctx, msg.UUID)
+			if err != nil {
+				return errorutil.Internal("unable to get machine for machinecommand %w", err)
+			}
+			cmd, err := enum.GetEnum[apiv2.MachineBMCCommand](msg.Command)
+			if err != nil {
+				return errorutil.Internal("unable to decode machinecommand %w", err)
+			}
+			ipmi := m.IPMI
+			resp := &infrav2.WaitForBMCCommandResponse{
+				BmcCommand: cmd,
+				MachineBmc: &apiv2.MachineBMC{
+					Address:  ipmi.Address,
+					User:     ipmi.User,
+					Password: ipmi.Password,
+				},
+			}
+
+			err = stream.Send(resp)
+			if err != nil {
+				return errorutil.Internal("unable to send response into stream %w", err)
+			}
+
+			r.s.log.Info("waitformachineevent sent to stream", "response", resp)
+		}
+	}
 }
 
 //---------------------------------------------------------------
@@ -840,6 +1241,48 @@ func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWa
 func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
 	// FIXME implement with machineDelete
 
+	return nil
+}
+
+// Is called if a machine bmc command was triggered
+func (r *Store) MachineBMCCommandHandleFn(ctx context.Context, t *asynq.Task) error {
+	var payload asyncclient.MachineBMCCommandPayload
+	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+		return fmt.Errorf("json.Unmarshal failed: %w %w", err, asynq.SkipRetry)
+	}
+
+	if !r.async.MachineBMCCommandHasReceiver(payload.Partition) {
+		r.log.Warn("machine bmc command has no active receivers here, rescheduling", "uuid", payload.UUID, "partition", payload.Partition, "command", payload.Command)
+		return fmt.Errorf("machine bmc command has no active receivers here")
+	}
+
+	r.log.Info("machine bmc command", "uuid", payload.UUID, "partition", payload.Partition, "command", payload.Command)
+
+	if time.Since(payload.IssuedAt) > 10*time.Minute { // TODO define max age or use hibeken functionality if present
+		r.log.Warn("machine bmc command is too old, skipping", "uuid", payload.UUID, "command", payload.Command, "issued at", payload.IssuedAt)
+		return nil
+	}
+
+	machineBMCCommands := r.async.MachineBMCCommandsChannel(payload.Partition)
+
+	machineBMCCommands <- &payload
+
+	r.log.Debug("machine bmc command sent to partition channel", "payload", payload)
+	return nil
+}
+
+func (r *Store) MachineAllocationHandleFn(ctx context.Context, t *asynq.Task) error {
+	var payload asyncclient.MachineAllocationPayload
+	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+		return fmt.Errorf("json.Unmarshal failed: %w %w", err, asynq.SkipRetry)
+	}
+	r.log.Info("machine allocation", "uuid", payload.UUID)
+
+	machineAllocations := r.async.MachineAllocationChannel(payload.UUID)
+
+	machineAllocations <- &payload
+
+	r.log.Debug("machine uuid sent to allocation channel", "payload", payload)
 	return nil
 }
 

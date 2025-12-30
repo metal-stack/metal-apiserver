@@ -117,12 +117,12 @@ var (
 
 	sw1Status = &repository.SwitchStatus{
 		ID: sw1(0).Switch.Id,
-		LastSync: &infrav2.SwitchSync{
+		LastSync: &apiv2.SwitchSync{
 			Time:     timestamppb.New(now),
 			Duration: durationpb.New(time.Second),
 			Error:    nil,
 		},
-		LastSyncError: &infrav2.SwitchSync{
+		LastSyncError: &apiv2.SwitchSync{
 			Time:     timestamppb.New(now.Add(-time.Minute)),
 			Duration: durationpb.New(time.Second * 2),
 			Error:    pointer.Pointer("fail"),
@@ -437,7 +437,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 			},
 			want: &infrav2.SwitchServiceHeartbeatResponse{
 				Id: sw2(0).Switch.Id,
-				LastSync: &infrav2.SwitchSync{
+				LastSync: &apiv2.SwitchSync{
 					Duration: durationpb.New(time.Second),
 					Error:    nil,
 				},
@@ -470,12 +470,12 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 			},
 			want: &infrav2.SwitchServiceHeartbeatResponse{
 				Id: sw1(0).Switch.Id,
-				LastSync: &infrav2.SwitchSync{
+				LastSync: &apiv2.SwitchSync{
 					Time:     timestamppb.New(now),
 					Duration: durationpb.New(time.Second),
 					Error:    nil,
 				},
-				LastSyncError: &infrav2.SwitchSync{
+				LastSyncError: &apiv2.SwitchSync{
 					Duration: durationpb.New(time.Second),
 					Error:    pointer.Pointer("sync failed"),
 				},
@@ -507,11 +507,11 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 			},
 			want: &infrav2.SwitchServiceHeartbeatResponse{
 				Id: sw2(0).Switch.Id,
-				LastSync: &infrav2.SwitchSync{
+				LastSync: &apiv2.SwitchSync{
 					Duration: durationpb.New(time.Second),
 					Error:    nil,
 				},
-				LastSyncError: &infrav2.SwitchSync{
+				LastSyncError: &apiv2.SwitchSync{
 					Duration: durationpb.New(time.Second),
 					Error:    pointer.Pointer("failed to sync"),
 				},
@@ -570,11 +570,11 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 			},
 			want: &infrav2.SwitchServiceHeartbeatResponse{
 				Id: sw1(0).Switch.Id,
-				LastSync: &infrav2.SwitchSync{
+				LastSync: &apiv2.SwitchSync{
 					Duration: durationpb.New(2 * time.Second),
 					Error:    nil,
 				},
-				LastSyncError: &infrav2.SwitchSync{
+				LastSyncError: &apiv2.SwitchSync{
 					Duration: durationpb.New(time.Second),
 					Error:    pointer.Pointer("sync failed"),
 				},
@@ -632,7 +632,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
-					&infrav2.SwitchSync{}, "time",
+					&apiv2.SwitchSync{}, "time",
 				),
 			); diff != "" {
 				t.Errorf("switchServiceServer.Heartbeat() diff = %v", diff)

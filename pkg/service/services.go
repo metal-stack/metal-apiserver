@@ -26,6 +26,7 @@ import (
 	ratelimiter "github.com/metal-stack/metal-apiserver/pkg/rate-limiter"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	authservice "github.com/metal-stack/metal-apiserver/pkg/service/auth"
+	"github.com/metal-stack/metal-apiserver/pkg/service/bmc"
 	"github.com/metal-stack/metal-apiserver/pkg/service/boot"
 	eventinfra "github.com/metal-stack/metal-apiserver/pkg/service/event/infra"
 	"github.com/metal-stack/metal-apiserver/pkg/service/filesystem"
@@ -258,8 +259,10 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	mux.Handle(adminv2connect.NewTokenServiceHandler(adminTokenService, adminInterceptors))
 
 	// Infra services, we use adminInterceptors to prevent rate limiting
+	bmcService := bmc.New(bmc.Config{Log: log, Repo: c.Repository})
 	bootService := boot.New(boot.Config{Log: log, Repo: c.Repository, BMCSuperuserPassword: c.BMCSuperuserPassword})
-	mux.Handle(infrav2connect.NewBootServiceHandler(bootService, adminInterceptors))
+	mux.Handle(infrav2connect.NewBMCServiceHandler(bmcService, infraInterceptors))
+	mux.Handle(infrav2connect.NewBootServiceHandler(bootService, infraInterceptors))
 
 	infraSwitchService := switchinfra.New(switchinfra.Config{Log: log, Repo: c.Repository})
 	infraEventService := eventinfra.New(eventinfra.Config{Log: log, Repo: c.Repository})

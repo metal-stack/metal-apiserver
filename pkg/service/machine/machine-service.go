@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 
+	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
@@ -66,4 +67,28 @@ func (m *machineServiceServer) Update(ctx context.Context, req *apiv2.MachineSer
 // Delete implements apiv2connect.MachineServiceHandler.
 func (m *machineServiceServer) Delete(context.Context, *apiv2.MachineServiceDeleteRequest) (*apiv2.MachineServiceDeleteResponse, error) {
 	panic("unimplemented")
+}
+
+func (m *machineServiceServer) BMCCommand(ctx context.Context, req *apiv2.MachineServiceBMCCommandRequest) (*apiv2.MachineServiceBMCCommandResponse, error) {
+	machine, err := m.repo.Machine(req.Project).Get(ctx, req.Uuid)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
+	err = m.repo.Machine(req.Project).AdditionalMethods().MachineBMCCommand(ctx, machine.Uuid, machine.Partition.Id, req.Command)
+	if err != nil {
+		return nil, err
+	}
+	return &apiv2.MachineServiceBMCCommandResponse{}, nil
+}
+
+func (m *machineServiceServer) GetBMC(ctx context.Context, req *apiv2.MachineServiceGetBMCRequest) (*apiv2.MachineServiceGetBMCResponse, error) {
+	resp, err := m.repo.Machine(req.Project).AdditionalMethods().GetBMC(ctx, &adminv2.MachineServiceGetBMCRequest{Uuid: req.Uuid})
+	if err != nil {
+		return nil, err
+	}
+	return &apiv2.MachineServiceGetBMCResponse{
+		Uuid: req.Uuid,
+		Bmc:  resp.Bmc,
+	}, nil
 }

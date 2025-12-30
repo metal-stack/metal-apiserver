@@ -120,7 +120,7 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 			return next(ctx, req)
 		}
 
-				if permissions.IsMachineScope(req) {
+		if permissions.IsMachineScope(req) {
 			i.log.Debug("tenant interceptor", "request-scope", "machine")
 
 			user := &security.User{
@@ -187,12 +187,12 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 }
 
 func (i *tenantInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
-	return connect.StreamingClientFunc(func(ctx context.Context, spec connect.Spec) connect.StreamingClientConn {
+	return func(ctx context.Context, spec connect.Spec) connect.StreamingClientConn {
 		return next(ctx, spec)
-	})
+	}
 }
 func (i *tenantInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
-	return connect.StreamingHandlerFunc(func(ctx context.Context, conn connect.StreamingHandlerConn) error {
+	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
 		return next(ctx, conn)
-	})
+	}
 }

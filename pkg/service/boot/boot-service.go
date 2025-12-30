@@ -8,7 +8,6 @@ import (
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/api/go/metalstack/infra/v2/infrav2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type Config struct {
@@ -50,16 +49,7 @@ func (b *bootServiceServer) Boot(ctx context.Context, req *infrav2.BootServiceBo
 
 func (b *bootServiceServer) Dhcp(ctx context.Context, req *infrav2.BootServiceDhcpRequest) (*infrav2.BootServiceDhcpResponse, error) {
 	b.log.Info("dhcp", "req", req)
-
-	err := b.repo.UnscopedMachine().AdditionalMethods().SendEvent(ctx, b.log, req.Uuid, &infrav2.MachineProvisioningEvent{
-		Time:    timestamppb.Now(),
-		Event:   infrav2.ProvisioningEventType_PROVISIONING_EVENT_TYPE_PXE_BOOTING,
-		Message: "machine sent extended dhcp request",
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &infrav2.BootServiceDhcpResponse{}, nil
+	return b.repo.UnscopedMachine().AdditionalMethods().Dhcp(ctx, req)
 }
 
 func (b *bootServiceServer) Register(ctx context.Context, req *infrav2.BootServiceRegisterRequest) (*infrav2.BootServiceRegisterResponse, error) {

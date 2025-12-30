@@ -49,13 +49,13 @@ func (i *logInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 }
 
 func (i *logInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
-	return connect.StreamingClientFunc(func(ctx context.Context, spec connect.Spec) connect.StreamingClientConn {
+	return func(ctx context.Context, spec connect.Spec) connect.StreamingClientConn {
 		return next(ctx, spec)
-	})
+	}
 }
 
 func (i *logInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
-	return connect.StreamingHandlerFunc(func(ctx context.Context, conn connect.StreamingHandlerConn) error {
+	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
 		return next(ctx, conn)
-	})
+	}
 }

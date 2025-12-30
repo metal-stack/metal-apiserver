@@ -188,6 +188,7 @@ func Test_bootServiceServer_Dhcp(t *testing.T) {
 			m, err := repo.UnscopedMachine().Get(ctx, tt.req.Uuid)
 			require.NoError(t, err)
 			require.NotNil(t, m)
+			require.Equal(t, tt.req.Partition, m.Partition.Id)
 			// TODO check for Lastevent being stored
 		})
 	}
@@ -286,6 +287,7 @@ func Test_bootServiceServer_Register(t *testing.T) {
 		req         *infrav2.BootServiceRegisterRequest
 		want        *infrav2.BootServiceRegisterResponse
 		wantMachine *apiv2.Machine
+		wantSwitch  *apiv2.Switch // FIXME once the missing ConnectMachineWithSwitches is implemented, test the switch also
 		wantErr     error
 	}{
 		{
@@ -315,7 +317,6 @@ func Test_bootServiceServer_Register(t *testing.T) {
 				Uuid: m99,
 				// Size:     &apiv2.Size{Id: "unknown"}, // FIXME should we return a unknown size ?
 				Hardware: &apiv2.MachineHardware{},
-				Bios:     &apiv2.MachineBios{},
 				Status:   &apiv2.MachineStatus{LedState: &apiv2.MachineChassisIdentifyLEDState{}, Condition: &apiv2.MachineCondition{}},
 				RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
 					Events: []*apiv2.MachineProvisioningEvent{
@@ -331,15 +332,15 @@ func Test_bootServiceServer_Register(t *testing.T) {
 				Uuid:     m1,
 				Hardware: &apiv2.MachineHardware{Memory: 1024, Cpus: []*apiv2.MetalCPU{{Cores: 4}}, Disks: []*apiv2.MachineBlockDevice{{Name: "/dev/sda", Size: 1024}}},
 				Bios:     &apiv2.MachineBios{Version: "v1.0.1", Vendor: "SMC"},
-				Ipmi: &apiv2.MachineIPMI{
+				Bmc: &apiv2.MachineBMC{
 					Address: "192.168.0.1", Mac: "00:00:00:00:00:01", User: "metal", Password: "secret", Interface: "eth0",
-					Fru: &apiv2.MachineFRU{
-						ChassisPartNumber: pointer.Pointer("123"), ChassisPartSerial: pointer.Pointer("234"),
-						BoardMfg: pointer.Pointer("bmfg"), BoardMfgSerial: pointer.Pointer("b123"), BoardPartNumber: pointer.Pointer("bpn"),
-						ProductManufacturer: pointer.Pointer("pmfg"), ProductPartNumber: pointer.Pointer("bpn"), ProductSerial: pointer.Pointer("p123"),
-					},
-					BmcVersion: "bmc123",
+					Version:    "bmc123",
 					PowerState: "ON",
+				},
+				Fru: &apiv2.MachineFRU{
+					ChassisPartNumber: pointer.Pointer("123"), ChassisPartSerial: pointer.Pointer("234"),
+					BoardMfg: pointer.Pointer("bmfg"), BoardMfgSerial: pointer.Pointer("b123"), BoardPartNumber: pointer.Pointer("bpn"),
+					ProductManufacturer: pointer.Pointer("pmfg"), ProductPartNumber: pointer.Pointer("bpn"), ProductSerial: pointer.Pointer("p123"),
 				},
 				MetalHammerVersion: "v1.0.1",
 				Partition:          "partition-1",
@@ -358,7 +359,6 @@ func Test_bootServiceServer_Register(t *testing.T) {
 					},
 				},
 				Hardware:  &apiv2.MachineHardware{Memory: 1024, Cpus: []*apiv2.MetalCPU{{Cores: 4}}, Disks: []*apiv2.MachineBlockDevice{{Name: "/dev/sda", Size: 1024}}},
-				Bios:      &apiv2.MachineBios{Version: "v1.0.1", Vendor: "SMC"},
 				Partition: &apiv2.Partition{Meta: &apiv2.Meta{}, Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
 				Status: &apiv2.MachineStatus{
 					LedState:           &apiv2.MachineChassisIdentifyLEDState{},

@@ -67,3 +67,24 @@ func (m *machineServiceServer) List(ctx context.Context, rq *adminv2.MachineServ
 
 	return &adminv2.MachineServiceListResponse{Machines: machines}, nil
 }
+
+func (m *machineServiceServer) BMCCommand(ctx context.Context, req *adminv2.MachineServiceBMCCommandRequest) (*adminv2.MachineServiceBMCCommandResponse, error) {
+	machine, err := m.repo.UnscopedMachine().Get(ctx, req.Uuid)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
+	err = m.repo.UnscopedMachine().AdditionalMethods().MachineBMCCommand(ctx, machine.Uuid, machine.Partition.Id, req.Command)
+	if err != nil {
+		return nil, err
+	}
+	return &adminv2.MachineServiceBMCCommandResponse{}, nil
+}
+
+func (m *machineServiceServer) GetBMC(ctx context.Context, req *adminv2.MachineServiceGetBMCRequest) (*adminv2.MachineServiceGetBMCResponse, error) {
+	return m.repo.UnscopedMachine().AdditionalMethods().GetBMC(ctx, req)
+}
+
+func (m *machineServiceServer) ListBMC(ctx context.Context, req *adminv2.MachineServiceListBMCRequest) (*adminv2.MachineServiceListBMCResponse, error) {
+	return m.repo.UnscopedMachine().AdditionalMethods().ListBMC(ctx, req)
+}

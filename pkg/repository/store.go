@@ -23,6 +23,7 @@ type (
 		mdc   mdm.Client
 		ipam  ipamv1connect.IpamServiceClient
 		async *asyncclient.Client
+		redis *redis.Client
 	}
 
 	store[R Repo, E Entity, M Message, C CreateMessage, U UpdateMessage, Q Query] struct {
@@ -38,6 +39,7 @@ func New(log *slog.Logger, mdc mdm.Client, ds generic.Datastore, ipam ipamv1conn
 		ipam:  ipam,
 		ds:    ds,
 		async: asyncclient.New(log, redis),
+		redis: redis,
 	}
 
 	return r, nil
