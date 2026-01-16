@@ -31,7 +31,7 @@ const (
 	BGPStateActive      = BGPState("active")
 	BGPStateOpenSent    = BGPState("open-sent")
 	BGPStateOpenConfirm = BGPState("open-confirm")
-	BGPStateEstablished = BGPState("established")
+	BGPStateEstablished = BGPState("Established")
 )
 
 const (

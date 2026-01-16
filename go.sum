@@ -341,8 +341,8 @@ github.com/mattn/go-sqlite3 v1.14.22 h1:2gZY6PC6kBnID23Tichd1K+Z0oS6nE/XwU+Vz/5o
 github.com/mattn/go-sqlite3 v1.14.22/go.mod h1:Uh1q+B4BYcTPb+yiD3kU8Ct7aC0hY9fxUwlHK0RXw+Y=
 github.com/mdelapenya/tlscert v0.2.0 h1:7H81W6Z/4weDvZBNOfQte5GpIMo0lGYEeWbkGp5LJHI=
 github.com/mdelapenya/tlscert v0.2.0/go.mod h1:O4njj3ELLnJjGdkN7M/vIVCpZ+Cf0L6muqOG4tLSl8o=
-github.com/metal-stack/api v0.0.39-0.20260115104857-db8003ee07aa h1:3a8aCpxB773NezxpGng2f2mj9lGalFGuliBwu82gvHw=
-github.com/metal-stack/api v0.0.39-0.20260115104857-db8003ee07aa/go.mod h1:vdBRx9vlAnSjyn7gEjD0M6JqQNFt/w+KRTzvZIl2ixQ=
+github.com/metal-stack/api v0.0.40-0.20260119070955-8b2e235057ef h1:rFp0/NdlPjSIe3Axa9q/ocomEqobhtVzl/Sv+/pCOTE=
+github.com/metal-stack/api v0.0.40-0.20260119070955-8b2e235057ef/go.mod h1:vdBRx9vlAnSjyn7gEjD0M6JqQNFt/w+KRTzvZIl2ixQ=
 github.com/metal-stack/go-ipam v1.14.14 h1:5qb2ZRqhenqi+jeuPkva9kroB44Q92vs/JhhNywwcI4=
 github.com/metal-stack/go-ipam v1.14.14/go.mod h1:lV1pA5vruYjzUCL4dF+lF5AAw5jZod9ZACvCCNyVdEU=
 github.com/metal-stack/goth v0.1.0 h1:sdadAH9QG+xAjLNKAJq8+esfXct6icTs58juoR4BKrQ=

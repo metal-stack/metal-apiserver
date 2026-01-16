@@ -992,14 +992,16 @@ func (r *machineRepository) UpdateBMCInfo(ctx context.Context, req *infrav2.Upda
 		}
 		machine.IPMI.PowerSupplies = powerSupplies
 
-		ledstate, err := metal.LEDStateFrom(report.LedState.Value)
-		if err == nil {
-			machine.LEDState = metal.ChassisIdentifyLEDState{
-				Value:       ledstate,
-				Description: machine.LEDState.Description,
+		if report.LedState != nil {
+			ledstate, err := metal.LEDStateFrom(report.LedState.Value)
+			if err == nil {
+				machine.LEDState = metal.ChassisIdentifyLEDState{
+					Value:       ledstate,
+					Description: machine.LEDState.Description,
+				}
+			} else {
+				r.s.log.Error("unable to decode ledstate", "id", uuid, "ledstate", report.LedState.Value, "error", err)
 			}
-		} else {
-			r.s.log.Error("unable to decode ledstate", "id", uuid, "ledstate", report.LedState.Value, "error", err)
 		}
 		machine.IPMI.LastUpdated = time.Now()
 

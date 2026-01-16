@@ -75,6 +75,17 @@ func (m *machineServiceServer) BMCCommand(ctx context.Context, req *apiv2.Machin
 		return nil, errorutil.Convert(err)
 	}
 
+	bmc, err := m.repo.Machine(req.Project).AdditionalMethods().GetBMC(ctx, &adminv2.MachineServiceGetBMCRequest{Uuid: req.Uuid})
+	if err != nil {
+		return nil, err
+	}
+	if bmc.Bmc == nil || bmc.Bmc.Bmc == nil {
+		return nil, errorutil.FailedPrecondition("machine %s does not have bmc details yet", req.Uuid)
+	}
+	if bmc.Bmc.Bmc.Address == "" || bmc.Bmc.Bmc.Password == "" || bmc.Bmc.Bmc.User == "" {
+		return nil, errorutil.FailedPrecondition("machine %s does not have bmc connections details yet", req.Uuid)
+	}
+
 	err = m.repo.Machine(req.Project).AdditionalMethods().MachineBMCCommand(ctx, machine.Uuid, machine.Partition.Id, req.Command)
 	if err != nil {
 		return nil, err
