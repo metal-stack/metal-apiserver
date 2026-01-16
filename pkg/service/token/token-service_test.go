@@ -236,6 +236,82 @@ func Test_Create(t *testing.T) {
 			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.IPService/Create" is not allowed on any of the requested subjects: [00000000-0000-0000-0000-000000000000]`,
 		},
 		{
+			name: "normal user which is listed in admin-subjects can create new admin editor token",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_USER,
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description:  "admin token",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			},
+			state: state{
+				adminSubjects: []string{"phippy"},
+			},
+			wantToken: &apiv2.Token{
+				User:         "phippy",
+				Description:  "admin token",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			},
+		},
+		{
+			name: "normal user which is listed in admin-subjects can create new admin viewer token",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_USER,
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description:  "admin token",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
+			},
+			state: state{
+				adminSubjects: []string{"phippy"},
+			},
+			wantToken: &apiv2.Token{
+				User:         "phippy",
+				Description:  "admin token",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
+			},
+		},
+		{
+			name: "normal user which is not listed in admin-subjects can not create new admin viewer token",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_USER,
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description:  "admin token",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
+			},
+			state: state{
+				adminSubjects: []string{"blippy"},
+			},
+			wantToken:      nil,
+			wantErr:        true,
+			wantErrMessage: `permission_denied: the following method "/metalstack.admin.v2.IPService/List" is not allowed on any of the requested subjects: [*]`,
+		},
+		{
 			name: "admin user and token can create new admin token",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
