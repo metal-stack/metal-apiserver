@@ -901,3 +901,37 @@ func TestConnectionMap_ByNicName(t *testing.T) {
 		})
 	}
 }
+
+func TestFromBGPState(t *testing.T) {
+	tests := []struct {
+		name    string
+		state   BGPState
+		want    apiv2.BGPState
+		wantErr bool
+	}{
+		{
+			name:    "invalid bgp state",
+			state:   "invalid",
+			want:    0,
+			wantErr: true,
+		},
+		{
+			name:    "bgp state established",
+			state:   "Established", // this is a string and not the enum value on purpose
+			want:    apiv2.BGPState_BGP_STATE_ESTABLISHED,
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := FromBGPState(tt.state)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("FromBGPState() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("FromBGPState() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

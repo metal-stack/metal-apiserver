@@ -28,12 +28,12 @@ type (
 )
 
 const (
-	BGPStateIdle        = BGPState("idle")
-	BGPStateConnect     = BGPState("connect")
-	BGPStateActive      = BGPState("active")
-	BGPStateOpenSent    = BGPState("open-sent")
-	BGPStateOpenConfirm = BGPState("open-confirm")
-	BGPStateEstablished = BGPState("established")
+	BGPStateIdle        = BGPState("Idle")
+	BGPStateConnect     = BGPState("Connect")
+	BGPStateActive      = BGPState("Active")
+	BGPStateOpenSent    = BGPState("Open-sent")
+	BGPStateOpenConfirm = BGPState("Open-confirm")
+	BGPStateEstablished = BGPState("Established")
 )
 
 const (
