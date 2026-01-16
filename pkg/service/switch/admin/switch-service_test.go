@@ -12,7 +12,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
@@ -366,12 +365,12 @@ var (
 
 	sw1Status = &repository.SwitchStatus{
 		ID: sw1.Switch.Id,
-		LastSync: &infrav2.SwitchSync{
+		LastSync: &apiv2.SwitchSync{
 			Time:     timestamppb.New(now),
 			Duration: durationpb.New(time.Second),
 			Error:    nil,
 		},
-		LastSyncError: &infrav2.SwitchSync{
+		LastSyncError: &apiv2.SwitchSync{
 			Time:     timestamppb.New(now.Add(-time.Minute)),
 			Duration: durationpb.New(time.Second * 2),
 			Error:    pointer.Pointer("fail"),
@@ -380,12 +379,12 @@ var (
 
 	sw3Status = &repository.SwitchStatus{
 		ID: sw3.Switch.Id,
-		LastSync: &infrav2.SwitchSync{
+		LastSync: &apiv2.SwitchSync{
 			Time:     timestamppb.New(now),
 			Duration: durationpb.New(time.Second),
 			Error:    nil,
 		},
-		LastSyncError: &infrav2.SwitchSync{
+		LastSyncError: &apiv2.SwitchSync{
 			Time:     timestamppb.New(now.Add(-time.Minute)),
 			Duration: durationpb.New(time.Second * 2),
 			Error:    pointer.Pointer("fail"),

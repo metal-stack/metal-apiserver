@@ -57,7 +57,7 @@ func (s *switchServiceServer) Heartbeat(ctx context.Context, rq *infrav2.SwitchS
 		return nil, errorutil.Convert(err)
 	}
 
-	lastSync := &infrav2.SwitchSync{
+	lastSync := &apiv2.SwitchSync{
 		Time:     timestamppb.New(time.Now()),
 		Duration: rq.Duration,
 		Error:    rq.Error,

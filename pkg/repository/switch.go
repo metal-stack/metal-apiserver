@@ -36,8 +36,8 @@ type (
 
 	SwitchStatus struct {
 		ID            string
-		LastSync      *infrav2.SwitchSync
-		LastSyncError *infrav2.SwitchSync
+		LastSync      *apiv2.SwitchSync
+		LastSyncError *apiv2.SwitchSync
 	}
 )
 
@@ -365,7 +365,7 @@ func (r *switchRepository) GetSwitchStatus(ctx context.Context, switchID string)
 	}
 
 	if metalStatus.LastSync != nil {
-		status.LastSync = &infrav2.SwitchSync{
+		status.LastSync = &apiv2.SwitchSync{
 			Time:     timestamppb.New(metalStatus.LastSync.Time),
 			Duration: durationpb.New(metalStatus.LastSync.Duration),
 			Error:    metalStatus.LastSync.Error,
@@ -373,7 +373,7 @@ func (r *switchRepository) GetSwitchStatus(ctx context.Context, switchID string)
 	}
 
 	if metalStatus.LastSyncError != nil {
-		status.LastSyncError = &infrav2.SwitchSync{
+		status.LastSyncError = &apiv2.SwitchSync{
 			Time:     timestamppb.New(metalStatus.LastSyncError.Time),
 			Duration: durationpb.New(metalStatus.LastSyncError.Duration),
 			Error:    metalStatus.LastSyncError.Error,
@@ -1193,7 +1193,7 @@ func toMachineConnections(connections []*apiv2.MachineConnection, hostname strin
 	return machineConnections, nil
 }
 
-func toMetalSwitchSync(sync *infrav2.SwitchSync) *metal.SwitchSync {
+func toMetalSwitchSync(sync *apiv2.SwitchSync) *metal.SwitchSync {
 	if sync == nil {
 		return nil
 	}
