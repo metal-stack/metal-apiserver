@@ -251,6 +251,14 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 		return nil, fmt.Errorf("requested expiration duration: %q exceeds max expiration: %q", req.Expires.AsDuration(), tokenutil.MaxExpiration)
 	}
 
+	if slices.Contains(t.adminSubjects, token.User) {
+		if token.AdminRole == nil || *token.AdminRole == apiv2.AdminRole_ADMIN_ROLE_UNSPECIFIED {
+			token.AdminRole = req.AdminRole
+			token.TokenType = apiv2.TokenType_TOKEN_TYPE_API
+		}
+		t.log.Debug("user is listed in adminsubjects", "new token.adminrole", token.AdminRole)
+	}
+
 	// we first validate token permission elevation for the token used in the token create request,
 	// which might be an API token with restricted permissions
 
