@@ -57,6 +57,9 @@ func (m *machineServiceServer) List(ctx context.Context, rq *adminv2.MachineServ
 		}
 	}
 
+	if rq.Query == nil {
+		rq.Query = &apiv2.MachineQuery{}
+	}
 	q := rq.Query
 	q.Partition = partition
 
