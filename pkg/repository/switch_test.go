@@ -8,7 +8,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
@@ -998,7 +997,7 @@ func Test_toMetalSwitchSync(t *testing.T) {
 	now := time.Now()
 	tests := []struct {
 		name string
-		sync *infrav2.SwitchSync
+		sync *apiv2.SwitchSync
 		want *metal.SwitchSync
 	}{
 		{
@@ -1008,7 +1007,7 @@ func Test_toMetalSwitchSync(t *testing.T) {
 		},
 		{
 			name: "time nil",
-			sync: &infrav2.SwitchSync{
+			sync: &apiv2.SwitchSync{
 				Duration: durationpb.New(time.Second),
 			},
 			want: &metal.SwitchSync{
@@ -1017,7 +1016,7 @@ func Test_toMetalSwitchSync(t *testing.T) {
 		},
 		{
 			name: "duration nil",
-			sync: &infrav2.SwitchSync{
+			sync: &apiv2.SwitchSync{
 				Time: timestamppb.New(now),
 			},
 			want: &metal.SwitchSync{
@@ -1026,7 +1025,7 @@ func Test_toMetalSwitchSync(t *testing.T) {
 		},
 		{
 			name: "error occurred",
-			sync: &infrav2.SwitchSync{
+			sync: &apiv2.SwitchSync{
 				Time:     timestamppb.New(now),
 				Duration: durationpb.New(2 * time.Second),
 				Error:    pointer.Pointer("fail"),
