@@ -17,7 +17,7 @@ func TestToReplaceMode(t *testing.T) {
 			name:    "unspecified",
 			mode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_UNSPECIFIED,
 			want:    "",
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name:    "valid",

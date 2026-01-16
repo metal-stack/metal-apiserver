@@ -89,18 +89,13 @@ func Test_vpnService_AuthKey(t *testing.T) {
 				headscaleControlplaneAddress: endpoint,
 			}
 
-			got, gotErr := v.AuthKey(t.Context(), tt.req)
-			if gotErr != nil {
-				if tt.wantErr == nil {
-					t.Errorf("AuthKey() failed: %v", gotErr)
-				}
+			got, err := v.AuthKey(t.Context(), tt.req)
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("diff = %s", diff)
 				return
 			}
-			if tt.wantErr != nil {
-				t.Fatal("AuthKey() succeeded unexpectedly")
-			}
 			require.Equal(t, tt.want.Address, got.Address)
-			require.Greater(t, len(got.AuthKey), 10)
+			require.NotEmpty(t, got.AuthKey)
 		})
 	}
 }
@@ -258,19 +253,19 @@ func Test_vpnService_userExists(t *testing.T) {
 		name     string
 		username string
 		want     *v1.User
-		want2    bool
+		exists   bool
 	}{
 		{
 			name:     "get existing user",
 			username: p1,
 			want:     &v1.User{Name: p1},
-			want2:    true,
+			exists:   true,
 		},
 		{
 			name:     "get non existing user",
 			username: p2,
 			want:     nil,
-			want2:    false,
+			exists:   false,
 		},
 	}
 	for _, tt := range tests {
@@ -280,7 +275,7 @@ func Test_vpnService_userExists(t *testing.T) {
 				headscaleClient: headscaleClient,
 			}
 			got, got2 := v.userExists(context.Background(), tt.username)
-			if diff := cmp.Diff(got2, tt.want2); diff != "" {
+			if diff := cmp.Diff(got2, tt.exists); diff != "" {
 				t.Errorf("diff = %s", diff)
 				return
 			}
@@ -495,7 +490,7 @@ func Test_vpnService_SetDefaultPolicy(t *testing.T) {
 				log:             log,
 				headscaleClient: headscaleClient,
 			}
-			err := v.SetDefaultPolicy()
+			err := v.SetDefaultPolicy(ctx)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 				return

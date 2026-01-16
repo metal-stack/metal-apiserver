@@ -10,6 +10,7 @@ import (
 	"time"
 
 	headscalev1 "github.com/juanfont/headscale/gen/go/headscale/v1"
+	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
@@ -50,12 +51,12 @@ type VPNService interface {
 	ControlPlaneAddress() string
 	// SetDefaultPolicy stores a acl which allows communication between machines in the same project only
 	// Should be called on startup
-	SetDefaultPolicy() error
+	SetDefaultPolicy(ctx context.Context) error
 }
 
 func New(c Config) VPNService {
 	return &vpnService{
-		log:                          c.Log,
+		log:                          c.Log.WithGroup("vpnService"),
 		repo:                         c.Repo,
 		headscaleClient:              c.HeadscaleClient,
 		headscaleControlplaneAddress: c.HeadscaleControlplaneAddress,
@@ -63,6 +64,8 @@ func New(c Config) VPNService {
 }
 
 func (v *vpnService) AuthKey(ctx context.Context, req *adminv2.VPNServiceAuthKeyRequest) (*adminv2.VPNServiceAuthKeyResponse, error) {
+	v.log.Debug("authkey", "req", req)
+
 	_, err := v.repo.Project(req.Project).Get(ctx, req.Project)
 	if err != nil {
 		return nil, err
@@ -103,6 +106,7 @@ func (v *vpnService) ControlPlaneAddress() string {
 }
 
 func (v *vpnService) CreateUser(ctx context.Context, name string) (*headscalev1.User, error) {
+	v.log.Debug("createUser", "name", name)
 	resp, err := v.headscaleClient.CreateUser(ctx, &headscalev1.CreateUserRequest{
 		Name: name,
 	})
@@ -119,6 +123,7 @@ func (v *vpnService) CreateUser(ctx context.Context, name string) (*headscalev1.
 }
 
 func (v *vpnService) DeleteNode(ctx context.Context, machineID string, projectID string) (*headscalev1.Node, error) {
+	v.log.Debug("deleteNode", "machine", machineID, "project", projectID)
 	machine, err := v.getNode(ctx, machineID, projectID)
 	if err != nil {
 		return nil, err
@@ -136,13 +141,14 @@ func (v *vpnService) DeleteNode(ctx context.Context, machineID string, projectID
 
 // ListNodes implements [VPNService].
 func (v *vpnService) ListNodes(ctx context.Context, req *adminv2.VPNServiceListNodesRequest) (*adminv2.VPNServiceListNodesResponse, error) {
+	v.log.Debug("listnodes", "req", req)
 	lnr := &headscalev1.ListNodesRequest{}
 	if req.Project != nil {
 		lnr.User = *req.Project
 	}
 	resp, err := v.headscaleClient.ListNodes(ctx, lnr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list machines: %w", err)
+		return nil, fmt.Errorf("failed to list nodes: %w", err)
 	}
 	var vpnNodes []*apiv2.VPNNode
 	for _, node := range resp.Nodes {
@@ -207,7 +213,7 @@ func (v *vpnService) EvaluateVPNConnected(ctx context.Context) ([]*apiv2.Machine
 		return nil, err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
 	defer cancel()
 
 	listNodesResp, err := v.ListNodes(ctx, &adminv2.VPNServiceListNodesRequest{})
@@ -224,7 +230,7 @@ func (v *vpnService) EvaluateVPNConnected(ctx context.Context) ([]*apiv2.Machine
 			continue
 		}
 
-		index := slices.IndexFunc(listNodesResp.Nodes, func(node *apiv2.VPNNode) bool {
+		node, ok := lo.Find(listNodesResp.Nodes, func(node *apiv2.VPNNode) bool {
 			if node.Name != m.Uuid {
 				return false
 			}
@@ -235,13 +241,12 @@ func (v *vpnService) EvaluateVPNConnected(ctx context.Context) ([]*apiv2.Machine
 
 			return true
 		})
-
-		if index < 0 {
+		if !ok {
 			continue
 		}
 
-		connected := listNodesResp.Nodes[index].Online
-		ips := listNodesResp.Nodes[index].IpAddresses
+		connected := node.Online
+		ips := node.IpAddresses
 
 		if m.Allocation.Vpn.Connected == connected && slices.Equal(m.Allocation.Vpn.Ips, ips) {
 			v.log.Info("not updating vpn because already up-to-date", "machine", m.Uuid, "connected", connected, "ips", ips)
@@ -279,8 +284,8 @@ const defaultPolicy = `{
 		]
 	}`
 
-func (v *vpnService) SetDefaultPolicy() error {
-	resp, err := v.headscaleClient.SetPolicy(context.Background(), &headscalev1.SetPolicyRequest{
+func (v *vpnService) SetDefaultPolicy(ctx context.Context) error {
+	resp, err := v.headscaleClient.SetPolicy(ctx, &headscalev1.SetPolicyRequest{
 		Policy: defaultPolicy,
 	})
 	if err != nil {
