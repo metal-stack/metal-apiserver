@@ -31,8 +31,8 @@ const (
 	BGPStateIdle        = BGPState("Idle")
 	BGPStateConnect     = BGPState("Connect")
 	BGPStateActive      = BGPState("Active")
-	BGPStateOpenSent    = BGPState("Open-sent")
-	BGPStateOpenConfirm = BGPState("Open-confirm")
+	BGPStateOpenSent    = BGPState("OpenSent")
+	BGPStateOpenConfirm = BGPState("OpenConfirm")
 	BGPStateEstablished = BGPState("Established")
 )
 
