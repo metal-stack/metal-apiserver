@@ -1521,7 +1521,7 @@ func Test_adoptNics(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "adopt vrf configuration, leaf underlay ports untouched, newSwitch might have additional ports",
+			name: "adopt vrf configuration, leave underlay ports untouched, newSwitch might have additional ports",
 			args: args{
 				twin: &metal.Switch{
 					OS: &metal.SwitchOS{Vendor: metal.SwitchOSVendorCumulus},
