@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -274,7 +273,7 @@ func Test_vpnService_userExists(t *testing.T) {
 				log:             log,
 				headscaleClient: headscaleClient,
 			}
-			got, got2 := v.userExists(context.Background(), tt.username)
+			got, got2 := v.getUser(t.Context(), tt.username)
 			if diff := cmp.Diff(got2, tt.exists); diff != "" {
 				t.Errorf("diff = %s", diff)
 				return

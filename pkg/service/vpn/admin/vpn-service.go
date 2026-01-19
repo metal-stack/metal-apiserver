@@ -71,7 +71,7 @@ func (v *vpnService) AuthKey(ctx context.Context, req *adminv2.VPNServiceAuthKey
 		return nil, err
 	}
 
-	headscaleUser, ok := v.userExists(ctx, req.Project)
+	headscaleUser, ok := v.getUser(ctx, req.Project)
 	if !ok {
 		user, err := v.CreateUser(ctx, req.Project)
 		if err != nil {
@@ -110,7 +110,6 @@ func (v *vpnService) CreateUser(ctx context.Context, name string) (*headscalev1.
 	resp, err := v.headscaleClient.CreateUser(ctx, &headscalev1.CreateUserRequest{
 		Name: name,
 	})
-	// TODO check if this is still like this
 	if err != nil {
 		// Importing the error from "github.com/juanfont/headscale/hscontrol/db" would pull
 		// the whole headscale dependencies and the resulting binary would be ~10Mb bigger
@@ -139,7 +138,6 @@ func (v *vpnService) DeleteNode(ctx context.Context, machineID string, projectID
 	return machine, nil
 }
 
-// ListNodes implements [VPNService].
 func (v *vpnService) ListNodes(ctx context.Context, req *adminv2.VPNServiceListNodesRequest) (*adminv2.VPNServiceListNodesResponse, error) {
 	v.log.Debug("listnodes", "req", req)
 	lnr := &headscalev1.ListNodesRequest{}
@@ -165,7 +163,7 @@ func (v *vpnService) ListNodes(ctx context.Context, req *adminv2.VPNServiceListN
 	return &adminv2.VPNServiceListNodesResponse{Nodes: vpnNodes}, nil
 }
 
-func (v *vpnService) userExists(ctx context.Context, name string) (*headscalev1.User, bool) {
+func (v *vpnService) getUser(ctx context.Context, name string) (*headscalev1.User, bool) {
 	resp, err := v.headscaleClient.ListUsers(ctx, &headscalev1.ListUsersRequest{
 		Name: name,
 	})
@@ -205,7 +203,7 @@ func (v *vpnService) getNode(ctx context.Context, machineID, projectID string) (
 func (v *vpnService) EvaluateVPNConnected(ctx context.Context) ([]*apiv2.Machine, error) {
 	ms, err := v.repo.UnscopedMachine().List(ctx, &apiv2.MachineQuery{
 		Allocation: &apiv2.MachineAllocationQuery{
-			// Return only allocation machines which have a vpn configured
+			// Return only allocated machines which have a vpn configured
 			Vpn: &apiv2.MachineVPN{},
 		},
 	})
@@ -231,15 +229,7 @@ func (v *vpnService) EvaluateVPNConnected(ctx context.Context) ([]*apiv2.Machine
 		}
 
 		node, ok := lo.Find(listNodesResp.Nodes, func(node *apiv2.VPNNode) bool {
-			if node.Name != m.Uuid {
-				return false
-			}
-
-			if node.Project != m.Allocation.Project {
-				return false
-			}
-
-			return true
+			return node.Name == m.Uuid && node.Project == m.Allocation.Project
 		})
 		if !ok {
 			continue
