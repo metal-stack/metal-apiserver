@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/netip"
 	"slices"
+	"sort"
 	"strings"
 	"time"
 
@@ -40,7 +41,15 @@ type (
 	}
 )
 
+func (s *SwitchStatus) GetID() string {
+	return s.ID
+}
+
 func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServiceRegisterRequest) (*apiv2.Switch, error) {
+	if req == nil || req.Switch == nil {
+		return nil, errorutil.InvalidArgument("empty request")
+	}
+
 	sw, err := r.get(ctx, req.Switch.Id)
 	if err != nil && !errorutil.IsNotFound(err) {
 		return nil, err
@@ -56,12 +65,17 @@ func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServ
 	}
 
 	if sw.ReplaceMode == metal.SwitchReplaceModeReplace {
-		err = r.validateReplace(ctx, old, new)
+		sw, err := r.replace(ctx, old, new)
 		if err != nil {
 			return nil, err
 		}
 
-		return r.replace(ctx, old, new)
+		converted, err := r.convertToProto(ctx, sw)
+		if err != nil {
+			return nil, err
+		}
+
+		return converted, nil
 	}
 
 	updateReq := &adminv2.SwitchServiceUpdateRequest{
@@ -97,15 +111,245 @@ func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServ
 }
 
 func (r *switchRepository) Migrate(ctx context.Context, oldSwitch, newSwitch string) (*apiv2.Switch, error) {
-	panic("unimplemented")
+	if oldSwitch == "" {
+		return nil, errorutil.InvalidArgument("old switch id cannot be empty")
+	}
+
+	if newSwitch == "" {
+		return nil, errorutil.InvalidArgument("new switch id cannot be empty")
+	}
+
+	old, err := r.get(ctx, oldSwitch)
+	if err != nil {
+		return nil, fmt.Errorf("failed to migrate switch %s to %s: %w", oldSwitch, newSwitch, err)
+	}
+
+	new, err := r.get(ctx, newSwitch)
+	if err != nil {
+		return nil, fmt.Errorf("failed to migrate switch %s to %s: %w", oldSwitch, newSwitch, err)
+	}
+
+	if old.Rack != new.Rack {
+		return nil, errorutil.FailedPrecondition("cannot migrate from switch %s in rack %s to switch %s in rack %s, switches must be in the same rack", oldSwitch, old.Rack, newSwitch, new.Rack)
+	}
+
+	if len(new.MachineConnections) > 0 {
+		return nil, errorutil.FailedPrecondition("cannot migrate from switch %s to switch %s because the new switch already has machine connections", oldSwitch, newSwitch)
+	}
+
+	sw, err := adoptConfiguration(old, new)
+	if err != nil {
+		return nil, fmt.Errorf("failed to migrate switch %s to %s: %w", oldSwitch, newSwitch, err)
+	}
+
+	err = r.migrateMachineConnections(ctx, old, sw)
+	if err != nil {
+		return nil, fmt.Errorf("failed to migrate switch %s to %s: %w", oldSwitch, newSwitch, err)
+	}
+
+	err = r.s.ds.Switch().Update(ctx, sw)
+	if err != nil {
+		return nil, err
+	}
+
+	converted, err := r.convertToProto(ctx, sw)
+	if err != nil {
+		return nil, err
+	}
+
+	return converted, nil
 }
 
 func (r *switchRepository) Port(ctx context.Context, id, port string, status apiv2.SwitchPortStatus) (*apiv2.Switch, error) {
-	panic("unimplemented")
+	metalStatus, err := metal.ToSwitchPortStatus(status)
+	if err != nil {
+		return nil, errorutil.InvalidArgument("failed to parse port status %q: %w", status, err)
+	}
+
+	if status != apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP && status != apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN {
+		return nil, errorutil.InvalidArgument("port status %q must be one of [%q, %q]", metalStatus, metal.SwitchPortStatusUp, metal.SwitchPortStatusDown)
+	}
+
+	sw, err := r.s.ds.Switch().Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	nic, found := lo.Find(sw.Nics, func(nic metal.Nic) bool {
+		return nic.Name == port
+	})
+	if !found {
+		return nil, errorutil.InvalidArgument("port %s does not exist on switch %s", port, id)
+	}
+
+	m, err := r.getConnectedMachineForNic(ctx, nic, sw.MachineConnections)
+	if err != nil {
+		return nil, err
+	}
+
+	if m == nil {
+		return nil, errorutil.FailedPrecondition("port %s is not connected to any machine", port)
+	}
+
+	nic.State.Desired = &metalStatus
+	err = r.s.ds.Switch().Update(ctx, sw)
+	if err != nil {
+		return nil, err
+	}
+
+	converted, err := r.convertToProto(ctx, sw)
+	if err != nil {
+		return nil, err
+	}
+
+	return converted, nil
 }
 
-func (r *switchRepository) ConnectMachineWithSwitches(m *apiv2.Machine) error {
-	panic("unimplemented")
+func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *apiv2.Machine) error {
+	if m.Partition == nil || m.Partition.Id == "" {
+		return errorutil.InvalidArgument("partition id of machine %s is empty", m.Uuid)
+	}
+
+	if m.Hardware == nil {
+		return errorutil.InvalidArgument("no hardware information for machine %s given", m.Uuid)
+	}
+
+	neighs := lo.Uniq(lo.Flatten(
+		lo.Map(m.Hardware.Nics, func(nic *apiv2.MachineNic, _ int) []string {
+			return lo.Map(nic.Neighbors, func(neigh *apiv2.MachineNic, _ int) string {
+				return neigh.Hostname
+			})
+		}),
+	))
+
+	if len(neighs) != 2 {
+		return errorutil.FailedPrecondition("machine %s is not connected to exactly two switches, found connections to switches %v", m.Uuid, neighs)
+	}
+
+	metalMachine, err := r.s.ds.Machine().Get(ctx, m.Uuid)
+	if err != nil && !errorutil.IsNotFound(err) {
+		return err
+	}
+
+	if metalMachine != nil {
+		oldNeighs := lo.Uniq(lo.Flatten(
+			lo.Map(metalMachine.Hardware.Nics, func(nic metal.Nic, _ int) []string {
+				return lo.Map(nic.Neighbors, func(neigh metal.Nic, _ int) string {
+					return neigh.Hostname
+				})
+			}),
+		))
+
+		prev, _ := lo.Difference(oldNeighs, neighs)
+		for _, id := range prev {
+			s, err := r.get(ctx, id)
+			if err != nil {
+				return fmt.Errorf("failed to remove machine connection from switch %s: %w", id, err)
+			}
+
+			cons := s.MachineConnections
+			delete(cons, m.Uuid)
+
+			err = r.s.ds.Switch().Update(ctx, s)
+			if err != nil {
+				return fmt.Errorf("failed to remove machine connection from switch %s: %w", id, err)
+			}
+		}
+	}
+
+	s1, err := r.get(ctx, neighs[0])
+	if err != nil {
+		return fmt.Errorf("failed to add machine connections to switch %s: %w", neighs[0], err)
+	}
+	s2, err := r.get(ctx, neighs[1])
+	if err != nil {
+		return fmt.Errorf("failed to add machine connections to switch %s: %w", neighs[1], err)
+	}
+
+	if s1.Rack != s2.Rack {
+		return errorutil.FailedPrecondition("connected switches of a machine must reside in the same rack, rack of switch %s: %s, rack of switch %s: %s, machine: %s", s1.Name, s1.Rack, s2.Name, s2.Rack, m.Uuid)
+	}
+	m.Rack = s1.Rack
+
+	var newMachineNics metal.Nics
+	for _, n := range m.Hardware.Nics {
+		newNic := metal.Nic{}
+		for _, neigh := range n.Neighbors {
+			newNic.Neighbors = append(newNic.Neighbors, metal.Nic{
+				Name:       neigh.Name,
+				Identifier: neigh.Identifier,
+				Hostname:   neigh.Hostname,
+			})
+		}
+		newMachineNics = append(newMachineNics, newNic)
+	}
+
+	_, err = s1.ConnectMachine(m.Uuid, newMachineNics)
+	if err != nil {
+		return fmt.Errorf("failed to update machine connections for switch %s: %w", s1.ID, err)
+	}
+	_, err = s2.ConnectMachine(m.Uuid, newMachineNics)
+	if err != nil {
+		return fmt.Errorf("failed to update machine connections for switch %s: %w", s2.ID, err)
+	}
+
+	cons1 := s1.MachineConnections[m.Uuid]
+	cons2 := s2.MachineConnections[m.Uuid]
+
+	if len(cons1) != len(cons2) {
+		return errorutil.FailedPrecondition("machine connections must be identical on both switches but machine %s has %d connections to switch %s and %d connections to switch %s", m.Uuid, len(cons1), s1.ID, len(cons2), s2.ID)
+	}
+
+	byNicName, err := s2.MachineConnections.ByNicName()
+	if err != nil {
+		return fmt.Errorf("failed to map machine connections of swtich %s by nic names", s2.ID)
+	}
+
+	// e.g. "swp1s0" -> "Ethernet0"
+	switchPortMapping, err := s1.MapPortNames(s2.OS.Vendor)
+	if err != nil {
+		return fmt.Errorf("could not create port mapping %w", err)
+	}
+
+	for _, con := range s1.MachineConnections[m.Uuid] {
+		name, ok := switchPortMapping[con.Nic.Name]
+		if !ok {
+			return fmt.Errorf("could not translate port name %s to equivalent port name of switch os %s", con.Nic.Name, s1.OS.Vendor)
+		}
+		if _, has := byNicName[name]; !has {
+			return errorutil.FailedPrecondition("machine %s is connected to port %s on switch %s but not to the corresponding port %s of switch %s", m.Uuid, con.Nic.Name, s1.ID, name, s2.ID)
+		}
+	}
+
+	err = r.s.ds.Switch().Update(ctx, s1)
+	if err != nil {
+		return fmt.Errorf("failed to update machine connections for switch %s: %w", s1.ID, err)
+	}
+	err = r.s.ds.Switch().Update(ctx, s2)
+	if err != nil {
+		return fmt.Errorf("failed to update machine connections for switch %s: %w", s2.ID, err)
+	}
+
+	return nil
+}
+
+func (r *switchRepository) ForceDelete(ctx context.Context, switchID string) (*apiv2.Switch, error) {
+	sw, err := r.get(ctx, switchID)
+	if err != nil {
+		return nil, err
+	}
+
+	err = r.delete(ctx, sw)
+	if err != nil {
+		return nil, err
+	}
+
+	converted, err := r.convertToProto(ctx, sw)
+	if err != nil {
+		return nil, err
+	}
+
+	return converted, nil
 }
 
 func (r *switchRepository) GetSwitchStatus(ctx context.Context, switchID string) (*SwitchStatus, error) {
@@ -254,13 +498,17 @@ func (r *switchRepository) create(ctx context.Context, req *SwitchServiceCreateR
 }
 
 func (r *switchRepository) update(ctx context.Context, sw *metal.Switch, req *adminv2.SwitchServiceUpdateRequest) (*metal.Switch, error) {
+	if req == nil {
+		return nil, errorutil.Internal("failed to update switch %s, request was empty", sw.ID)
+	}
+
 	updated, err := updateAllButNics(sw, req)
 	if err != nil {
 		return nil, err
 	}
 
 	if len(req.Nics) > 0 {
-		nics, err := toMetalNics(req.Nics)
+		nics, err := toMetalNics(req.Nics, sw.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -276,12 +524,50 @@ func (r *switchRepository) update(ctx context.Context, sw *metal.Switch, req *ad
 }
 
 func (r *switchRepository) delete(ctx context.Context, sw *metal.Switch) error {
-	// FIX: also delete switch status
+	status, err := r.s.ds.SwitchStatus().Get(ctx, sw.ID)
+	if err != nil && !errorutil.IsNotFound(err) {
+		return err
+	}
+	err = r.s.ds.SwitchStatus().Delete(ctx, status)
+	if err != nil {
+		return err
+	}
 	return r.s.ds.Switch().Delete(ctx, sw)
 }
 
-func (r *switchRepository) replace(ctx context.Context, oldSwitch, newSwitch *apiv2.Switch) (*apiv2.Switch, error) {
-	panic("unimplemented")
+func (r *switchRepository) replace(ctx context.Context, oldSwitch, newSwitch *apiv2.Switch) (*metal.Switch, error) {
+	old, err := r.convertToInternal(ctx, oldSwitch)
+	if err != nil {
+		return nil, fmt.Errorf("failed to replace switch %s by %s: %w", oldSwitch.Id, newSwitch.Id, err)
+	}
+	new, err := r.convertToInternal(ctx, newSwitch)
+	if err != nil {
+		return nil, fmt.Errorf("failed to replace switch %s by %s: %w", oldSwitch.Id, newSwitch.Id, err)
+	}
+	twin, err := r.findTwinSwitch(ctx, new)
+	if err != nil {
+		return nil, fmt.Errorf("failed to determine twin for switch %s: %w", newSwitch.Id, err)
+	}
+	sw, err := adoptFromTwin(old, twin, new)
+	if err != nil {
+		return nil, fmt.Errorf("failed to adopt configuration from twin for switch %s, err: %w", newSwitch.Id, err)
+	}
+	nicMap, err := sw.TranslateNicMap(old.OS.Vendor)
+	if err != nil {
+		return nil, fmt.Errorf("failed to replace switch %s by %s: %w", oldSwitch.Id, newSwitch.Id, err)
+	}
+	err = r.adjustMachineConnections(ctx, old.MachineConnections, nicMap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to replace switch %s by %s: %w", oldSwitch.Id, newSwitch.Id, err)
+	}
+
+	sw.SetChanged(oldSwitch.Meta.UpdatedAt.AsTime())
+	err = r.s.ds.Switch().Update(ctx, sw)
+	if err != nil {
+		return nil, fmt.Errorf("failed to replace switch %s by %s: %w", oldSwitch.Id, newSwitch.Id, err)
+	}
+
+	return sw, nil
 }
 
 func (r *switchRepository) find(ctx context.Context, query *apiv2.SwitchQuery) (*metal.Switch, error) {
@@ -305,7 +591,7 @@ func (r *switchRepository) convertToInternal(ctx context.Context, sw *apiv2.Swit
 		return nil, nil
 	}
 
-	nics, err := toMetalNics(sw.Nics)
+	nics, err := toMetalNics(sw.Nics, sw.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -314,12 +600,17 @@ func (r *switchRepository) convertToInternal(ctx context.Context, sw *apiv2.Swit
 	if err != nil {
 		return nil, err
 	}
+
+	if sw.Os == nil {
+		return nil, errorutil.InvalidArgument("switch os for switch %s is empty", sw.Id)
+	}
+
 	vendor, err := metal.ToSwitchOSVendor(sw.Os.Vendor)
 	if err != nil {
 		return nil, err
 	}
 
-	connections, err := toMachineConnections(sw.MachineConnections)
+	connections, err := toMachineConnections(sw.MachineConnections, sw.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -337,7 +628,7 @@ func (r *switchRepository) convertToInternal(ctx context.Context, sw *apiv2.Swit
 		ManagementUser:     pointer.SafeDeref(sw.ManagementUser),
 		ConsoleCommand:     pointer.SafeDeref(sw.ConsoleCommand),
 		MachineConnections: connections,
-		OS: metal.SwitchOS{
+		OS: &metal.SwitchOS{
 			Vendor:           vendor,
 			Version:          sw.Os.Version,
 			MetalCoreVersion: sw.Os.MetalCoreVersion,
@@ -351,7 +642,7 @@ func (r *switchRepository) convertToProto(ctx context.Context, sw *metal.Switch)
 		return nil, nil
 	}
 
-	nics, err := r.toSwitchNics(ctx, sw)
+	nics, err := r.convertToSwitchNics(ctx, sw)
 	if err != nil {
 		return nil, err
 	}
@@ -365,6 +656,7 @@ func (r *switchRepository) convertToProto(ctx context.Context, sw *metal.Switch)
 	if err != nil {
 		return nil, err
 	}
+
 	vendor, err := metal.FromSwitchOSVendor(sw.OS.Vendor)
 	if err != nil {
 		return nil, err
@@ -407,6 +699,39 @@ func (r *switchRepository) switchFilters(filter generic.EntityQuery) []generic.E
 	return qs
 }
 
+func (r *switchRepository) findTwinSwitch(ctx context.Context, newSwitch *metal.Switch) (*metal.Switch, error) {
+	rackSwitches, err := r.list(ctx, &apiv2.SwitchQuery{Rack: &newSwitch.Rack, Partition: &newSwitch.Partition})
+	if err != nil {
+		return nil, fmt.Errorf("failed to find twin switch for switch %s in rack %s", newSwitch.ID, newSwitch.Rack)
+	}
+
+	if len(rackSwitches) == 0 {
+		return nil, errorutil.NotFound("could not find any switch in rack %v", newSwitch.Rack)
+	}
+
+	var twin *metal.Switch
+	for i := range rackSwitches {
+		sw := rackSwitches[i]
+		if sw.ReplaceMode == metal.SwitchReplaceModeReplace || sw.ID == newSwitch.ID {
+			continue
+		}
+		if len(sw.MachineConnections) == 0 {
+			continue
+		}
+		if twin == nil {
+			twin = sw
+		} else {
+			return nil, errorutil.FailedPrecondition("found multiple twin switches for %v (%v and %v)", newSwitch.ID, twin.ID, sw.ID)
+		}
+	}
+
+	if twin == nil {
+		return nil, errorutil.NotFound("no twin found for switch %s in partition %v and rack %v", newSwitch.ID, newSwitch.Partition, newSwitch.Rack)
+	}
+
+	return twin, nil
+}
+
 func (r *switchRepository) updateOnRegister(ctx context.Context, sw *metal.Switch, req *adminv2.SwitchServiceUpdateRequest) (*metal.Switch, error) {
 	updated, err := updateAllButNics(sw, req)
 	if err != nil {
@@ -414,7 +739,7 @@ func (r *switchRepository) updateOnRegister(ctx context.Context, sw *metal.Switc
 	}
 
 	if len(req.Nics) > 0 {
-		nics, err := toMetalNics(req.Nics)
+		nics, err := toMetalNics(req.Nics, sw.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -454,7 +779,7 @@ func updateAllButNics(sw *metal.Switch, req *adminv2.SwitchServiceUpdateRequest)
 		if err != nil {
 			return nil, err
 		}
-		sw.OS = metal.SwitchOS{
+		sw.OS = &metal.SwitchOS{
 			Vendor:           vendor,
 			Version:          req.Os.Version,
 			MetalCoreVersion: req.Os.MetalCoreVersion,
@@ -464,7 +789,7 @@ func updateAllButNics(sw *metal.Switch, req *adminv2.SwitchServiceUpdateRequest)
 	return sw, nil
 }
 
-func (r *switchRepository) toSwitchNics(ctx context.Context, sw *metal.Switch) ([]*apiv2.SwitchNic, error) {
+func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Switch) ([]*apiv2.SwitchNic, error) {
 	var (
 		switchNics      []*apiv2.SwitchNic
 		projectMachines []*metal.Machine
@@ -497,6 +822,10 @@ func (r *switchRepository) toSwitchNics(ctx context.Context, sw *metal.Switch) (
 				SentPrefixCounter:     nic.BGPPortState.SentPrefixCounter,
 				AcceptedPrefixCounter: nic.BGPPortState.AcceptedPrefixCounter,
 			}
+		}
+
+		if nic.State == nil {
+			return nil, errorutil.InvalidArgument("nic state for port %s cannot be empty", nic.Name)
 		}
 
 		if nic.State.Desired != nil {
@@ -575,8 +904,8 @@ func (r *switchRepository) getConnectedMachineForNic(ctx context.Context, nic me
 
 func convertMachineConnections(machineConnections metal.ConnectionMap, nics []*apiv2.SwitchNic) ([]*apiv2.MachineConnection, error) {
 	var (
-		connections  []*apiv2.MachineConnection
-		notFoundNics []string
+		connections  = []*apiv2.MachineConnection{}
+		notFoundNics = []string{}
 	)
 
 	for _, cons := range machineConnections {
@@ -586,7 +915,7 @@ func convertMachineConnections(machineConnections metal.ConnectionMap, nics []*a
 			})
 
 			if !found {
-				notFoundNics = append(notFoundNics, con.Nic.Identifier)
+				notFoundNics = append(notFoundNics, con.Nic.Name)
 				continue
 			}
 			connections = append(connections, &apiv2.MachineConnection{
@@ -791,7 +1120,7 @@ func isFirewallIP(ip string, machines []*metal.Machine) bool {
 	return false
 }
 
-func toMetalNics(switchNics []*apiv2.SwitchNic) (metal.Nics, error) {
+func toMetalNics(switchNics []*apiv2.SwitchNic, hostname string) (metal.Nics, error) {
 	var nics metal.Nics
 
 	for _, switchNic := range switchNics {
@@ -799,7 +1128,7 @@ func toMetalNics(switchNics []*apiv2.SwitchNic) (metal.Nics, error) {
 			continue
 		}
 
-		nic, err := toMetalNic(switchNic)
+		nic, err := toMetalNic(switchNic, hostname)
 		if err != nil {
 			return nil, err
 		}
@@ -810,7 +1139,7 @@ func toMetalNics(switchNics []*apiv2.SwitchNic) (metal.Nics, error) {
 	return nics, nil
 }
 
-func toMetalNic(switchNic *apiv2.SwitchNic) (*metal.Nic, error) {
+func toMetalNic(switchNic *apiv2.SwitchNic, hostname string) (*metal.Nic, error) {
 	bgpPortState, err := toSwitchBGPPortState(switchNic.BgpPortState)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert bgp port state: %w", err)
@@ -822,8 +1151,8 @@ func toMetalNic(switchNic *apiv2.SwitchNic) (*metal.Nic, error) {
 	}
 
 	return &metal.Nic{
-		// TODO: what about hostname and neighbors?
 		Name:         switchNic.Name,
+		Hostname:     hostname,
 		Identifier:   switchNic.Identifier,
 		MacAddress:   switchNic.Mac,
 		Vrf:          pointer.SafeDeref(switchNic.Vrf),
@@ -832,7 +1161,7 @@ func toMetalNic(switchNic *apiv2.SwitchNic) (*metal.Nic, error) {
 	}, nil
 }
 
-func toMachineConnections(connections []*apiv2.MachineConnection) (metal.ConnectionMap, error) {
+func toMachineConnections(connections []*apiv2.MachineConnection, hostname string) (metal.ConnectionMap, error) {
 	var (
 		machineConnections = make(metal.ConnectionMap)
 		connectedNics      []string
@@ -840,7 +1169,7 @@ func toMachineConnections(connections []*apiv2.MachineConnection) (metal.Connect
 	)
 
 	for _, con := range connections {
-		nic, err := toMetalNic(con.Nic)
+		nic, err := toMetalNic(con.Nic, hostname)
 		if err != nil {
 			return nil, err
 		}
@@ -888,4 +1217,183 @@ func toMetalSwitchSync(sync *apiv2.SwitchSync) *metal.SwitchSync {
 		Duration: duration,
 		Error:    sync.Error,
 	}
+}
+
+func adoptFromTwin(old, twin, new *metal.Switch) (*metal.Switch, error) {
+	if new.Partition != old.Partition {
+		return nil, errorutil.FailedPrecondition("old and new switch belong to different partitions, old: %v, new: %v", old.Partition, new.Partition)
+	}
+	if new.Rack != old.Rack {
+		return nil, errorutil.FailedPrecondition("old and new switch belong to different racks, old: %v, new: %v", old.Rack, new.Rack)
+	}
+	if twin.ReplaceMode == metal.SwitchReplaceModeReplace {
+		return nil, errorutil.FailedPrecondition("twin switch must not be in replace mode")
+	}
+	if len(twin.MachineConnections) == 0 {
+		new.ReplaceMode = metal.SwitchReplaceModeOperational
+		return new, nil
+	}
+
+	return adoptConfiguration(twin, new)
+}
+
+func adoptConfiguration(existing, new *metal.Switch) (*metal.Switch, error) {
+	newNics, err := adoptNics(existing, new)
+	if err != nil {
+		return nil, fmt.Errorf("could not adopt existing nic configuration, err: %w", err)
+	}
+
+	newMachineConnections, err := adoptMachineConnections(existing, new)
+	if err != nil {
+		return nil, err
+	}
+
+	new.MachineConnections = newMachineConnections
+	new.Nics = newNics
+	new.ReplaceMode = metal.SwitchReplaceModeOperational
+
+	return new, nil
+}
+
+func adoptNics(twin, newSwitch *metal.Switch) (metal.Nics, error) {
+	var (
+		newNics     metal.Nics
+		missingNics []string
+	)
+
+	newNicMap, err := newSwitch.TranslateNicMap(twin.OS.Vendor)
+	if err != nil {
+		return nil, err
+	}
+	twinNicsByName := twin.Nics.MapByName()
+
+	for name := range twinNicsByName {
+		if _, ok := newNicMap[name]; !ok {
+			missingNics = append(missingNics, name)
+		}
+	}
+
+	if len(missingNics) > 0 {
+		return nil, errorutil.FailedPrecondition("new switch misses the nics %v - check the breakout configuration of the switch ports of switch %s", missingNics, newSwitch.Name)
+	}
+
+	for name, nic := range newNicMap {
+		if twinNic, ok := twinNicsByName[name]; ok {
+			nic.Vrf = twinNic.Vrf
+		}
+		newNics = append(newNics, *nic)
+	}
+
+	sort.SliceStable(newNics, func(i, j int) bool {
+		return newNics[i].Name < newNics[j].Name
+	})
+
+	return newNics, nil
+}
+
+func adoptMachineConnections(twin, newSwitch *metal.Switch) (metal.ConnectionMap, error) {
+	var (
+		newConnectionMap = metal.ConnectionMap{}
+		missingNics      []string
+	)
+
+	newNicMap, err := newSwitch.TranslateNicMap(twin.OS.Vendor)
+	if err != nil {
+		return nil, err
+	}
+
+	for mid, cons := range twin.MachineConnections {
+		var newConnections metal.Connections
+
+		for _, con := range cons {
+			if n, ok := newNicMap[con.Nic.Name]; ok {
+				newCon := con
+				newCon.Nic.Name = n.Name
+				newCon.Nic.Identifier = n.Identifier
+				newCon.Nic.MacAddress = n.MacAddress
+				newConnections = append(newConnections, newCon)
+			} else {
+				missingNics = append(missingNics, con.Nic.Name)
+			}
+		}
+
+		newConnectionMap[mid] = newConnections
+	}
+
+	if len(missingNics) > 0 {
+		return nil, errorutil.Internal("twin switch %s has machine connections with switch ports %v which are missing on the new switch %s", twin.ID, missingNics, newSwitch.ID)
+	}
+
+	return newConnectionMap, nil
+}
+
+func (r *switchRepository) migrateMachineConnections(ctx context.Context, old, new *metal.Switch) error {
+	nicMap, err := new.TranslateNicMap(old.OS.Vendor)
+	if err != nil {
+		return err
+	}
+
+	err = r.adjustMachineConnections(ctx, old.MachineConnections, nicMap)
+	if err != nil {
+		return err
+	}
+
+	old.MachineConnections = nil
+	return r.s.ds.Switch().Update(ctx, old)
+}
+
+func (r *switchRepository) adjustMachineConnections(ctx context.Context, oldConnections metal.ConnectionMap, nicMap metal.NicMap) error {
+	for mid, cons := range oldConnections {
+		m, err := r.s.ds.Machine().Get(ctx, mid)
+		if err != nil {
+			return err
+		}
+
+		newNics, err := adjustMachineNics(m.Hardware.Nics, cons, nicMap)
+		if err != nil {
+			return err
+		}
+
+		m.Hardware.Nics = newNics
+		err = r.s.ds.Machine().Update(ctx, m)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func adjustMachineNics(nics metal.Nics, connections metal.Connections, nicMap metal.NicMap) (metal.Nics, error) {
+	var newNics metal.Nics
+
+	for _, nic := range nics {
+		var newNeighbors metal.Nics
+
+		for _, neigh := range nic.Neighbors {
+			if nicInConnections(neigh.Name, neigh.MacAddress, connections) {
+				n, ok := nicMap[neigh.Name]
+				if !ok {
+					return nil, fmt.Errorf("unable to find corresponding new neighbor nic for %s", neigh.Name)
+				}
+				newNeighbors = append(newNeighbors, *n)
+			} else {
+				newNeighbors = append(newNeighbors, neigh)
+			}
+		}
+
+		nic.Neighbors = newNeighbors
+		newNics = append(newNics, nic)
+	}
+
+	return newNics, nil
+}
+
+func nicInConnections(name string, mac string, connections metal.Connections) bool {
+	for _, con := range connections {
+		if con.Nic.Name == name && con.Nic.MacAddress == mac {
+			return true
+		}
+	}
+	return false
 }

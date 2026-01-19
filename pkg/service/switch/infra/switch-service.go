@@ -2,7 +2,6 @@ package infra
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"time"
 
@@ -121,12 +120,10 @@ func (s *switchServiceServer) Heartbeat(ctx context.Context, rq *infrav2.SwitchS
 			},
 			Nics: sw.Nics,
 		}
-		updatedSwitch, err := s.repo.Switch().Update(ctx, rq.Id, updateReq)
+		_, err := s.repo.Switch().Update(ctx, rq.Id, updateReq)
 		if err != nil {
 			return nil, err
 		}
-
-		fmt.Printf("%v\n%v\n", updateReq, updatedSwitch)
 	}
 
 	res := &infrav2.SwitchServiceHeartbeatResponse{
