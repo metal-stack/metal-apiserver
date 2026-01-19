@@ -15,6 +15,7 @@ import (
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/stretchr/testify/require"
@@ -28,6 +29,65 @@ var (
 
 	p1 = "00000000-0000-0000-0000-000000000001"
 	p2 = "00000000-0000-0000-0000-000000000002"
+
+	partition1 = "partition-1"
+	partition2 = "partition-2"
+
+	sw1 = &repository.SwitchServiceCreateRequest{
+		Switch: &apiv2.Switch{
+			Id:          "sw1",
+			Partition:   partition1,
+			Rack:        pointer.Pointer("r01"),
+			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+			Nics: []*apiv2.SwitchNic{
+				{
+					Name:       "Ethernet0",
+					Identifier: "Eth1/1",
+					State: &apiv2.NicState{
+						Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+					},
+				},
+				{
+					Name:       "Ethernet1",
+					Identifier: "Eth1/2",
+					State: &apiv2.NicState{
+						Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+					},
+				},
+			},
+			Os: &apiv2.SwitchOS{
+				Vendor: apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+			},
+		},
+	}
+
+	sw2 = &repository.SwitchServiceCreateRequest{
+		Switch: &apiv2.Switch{
+			Id:          "sw2",
+			Partition:   partition1,
+			Rack:        pointer.Pointer("r01"),
+			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+			Nics: []*apiv2.SwitchNic{
+				{
+					Name:       "Ethernet0",
+					Identifier: "Eth1/1",
+					State: &apiv2.NicState{
+						Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+					},
+				},
+				{
+					Name:       "Ethernet1",
+					Identifier: "Eth1/2",
+					State: &apiv2.NicState{
+						Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+					},
+				},
+			},
+			Os: &apiv2.SwitchOS{
+				Vendor: apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+			},
+		},
+	}
 )
 
 func Test_bootServiceServer_Boot(t *testing.T) {
@@ -50,7 +110,7 @@ func Test_bootServiceServer_Boot(t *testing.T) {
 
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
 		{
-			Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL, Commandline: "console=ttyS1"}},
+			Partition: &apiv2.Partition{Id: partition1, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL, Commandline: "console=ttyS1"}},
 		},
 	})
 
@@ -62,7 +122,7 @@ func Test_bootServiceServer_Boot(t *testing.T) {
 	}{
 		{
 			name: "partition is present",
-			req:  &infrav2.BootServiceBootRequest{Mac: "00:00:00:00:00:01", Partition: "partition-1"},
+			req:  &infrav2.BootServiceBootRequest{Mac: "00:00:00:00:00:01", Partition: partition1},
 			want: &infrav2.BootServiceBootResponse{
 				Kernel:       validURL,
 				InitRamDisks: []string{validURL},
@@ -72,7 +132,7 @@ func Test_bootServiceServer_Boot(t *testing.T) {
 		},
 		{
 			name:    "partition is not present",
-			req:     &infrav2.BootServiceBootRequest{Mac: "00:00:00:00:00:01", Partition: "partition-2"},
+			req:     &infrav2.BootServiceBootRequest{Mac: "00:00:00:00:00:01", Partition: partition2},
 			want:    nil,
 			wantErr: errorutil.NotFound(`no partition with id "partition-2" found`),
 		},
@@ -123,7 +183,7 @@ func Test_bootServiceServer_Dhcp(t *testing.T) {
 	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
 		{
-			Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
+			Partition: &apiv2.Partition{Id: partition1, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
 		},
 	})
 	test.CreateSizes(t, repo, []*adminv2.SizeServiceCreateRequest{
@@ -137,31 +197,66 @@ func Test_bootServiceServer_Dhcp(t *testing.T) {
 
 	// We need to create machines directly on the database because there is no MachineCreateRequest available and never will.
 	test.CreateMachines(t, testStore, []*metal.Machine{
-		{Base: metal.Base{ID: m1}, PartitionID: "partition-1", SizeID: "c1-large-x86"},
+		{Base: metal.Base{ID: m1}, PartitionID: partition1, SizeID: "c1-large-x86"},
 	})
 
 	tests := []struct {
-		name    string
-		req     *infrav2.BootServiceDhcpRequest
-		want    *infrav2.BootServiceDhcpResponse
-		wantErr error
+		name        string
+		req         *infrav2.BootServiceDhcpRequest
+		want        *infrav2.BootServiceDhcpResponse
+		wantMachine *apiv2.Machine
+		wantErr     error
 	}{
 		{
 			name: "unknown machine pxe boots",
 			req: &infrav2.BootServiceDhcpRequest{
 				Uuid:      m0,
-				Partition: "partition-1",
+				Partition: partition1,
 			},
-			want:    &infrav2.BootServiceDhcpResponse{},
+			want: &infrav2.BootServiceDhcpResponse{},
+			wantMachine: &apiv2.Machine{
+				Uuid: m0,
+				Meta: &apiv2.Meta{Generation: 1},
+				Size: &apiv2.Size{Id: "unknown"},
+				Partition: &apiv2.Partition{
+					Id:                partition1,
+					Meta:              &apiv2.Meta{},
+					BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL},
+				},
+				Hardware: &apiv2.MachineHardware{},
+				Status:   &apiv2.MachineStatus{Condition: &apiv2.MachineCondition{}, LedState: &apiv2.MachineChassisIdentifyLEDState{}, Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE},
+				RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
+					Events: []*apiv2.MachineProvisioningEvent{
+						{Event: apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_PXE_BOOTING, Message: "machine sent extended dhcp request"},
+					},
+				},
+			},
 			wantErr: nil,
 		},
 		{
 			name: "existing machine pxe boots",
 			req: &infrav2.BootServiceDhcpRequest{
 				Uuid:      m1,
-				Partition: "partition-1",
+				Partition: partition1,
 			},
-			want:    &infrav2.BootServiceDhcpResponse{},
+			want: &infrav2.BootServiceDhcpResponse{},
+			wantMachine: &apiv2.Machine{
+				Uuid: m1,
+				Meta: &apiv2.Meta{}, // FIXME why no generation value here ?
+				Size: &apiv2.Size{Id: "c1-large-x86", Meta: &apiv2.Meta{}},
+				Partition: &apiv2.Partition{
+					Id:                partition1,
+					Meta:              &apiv2.Meta{},
+					BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL},
+				},
+				Hardware: &apiv2.MachineHardware{},
+				Status:   &apiv2.MachineStatus{Condition: &apiv2.MachineCondition{}, LedState: &apiv2.MachineChassisIdentifyLEDState{}, Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE},
+				RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
+					Events: []*apiv2.MachineProvisioningEvent{
+						{Event: apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_PXE_BOOTING, Message: "machine sent extended dhcp request"},
+					},
+				},
+			},
 			wantErr: nil,
 		},
 	}
@@ -183,13 +278,25 @@ func Test_bootServiceServer_Dhcp(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("bootServiceServer.Dhcp()  = %v, want %v", got, tt.want)
+				t.Errorf("bootServiceServer.Dhcp() diff = %s", diff)
 			}
-			m, err := repo.UnscopedMachine().Get(ctx, tt.req.Uuid)
+			gotMachine, err := repo.UnscopedMachine().Get(ctx, tt.req.Uuid)
 			require.NoError(t, err)
-			require.NotNil(t, m)
-			require.Equal(t, tt.req.Partition, m.Partition.Id)
-			// TODO check for Lastevent being stored
+			if diff := cmp.Diff(
+				tt.wantMachine, gotMachine,
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.MachineProvisioningEvent{}, "time",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.MachineRecentProvisioningEvents{}, "last_event_time",
+				),
+			); diff != "" {
+				t.Errorf("bootServiceServer.Dhcp() diff = %s", diff)
+			}
 		})
 	}
 }
@@ -261,7 +368,7 @@ func Test_bootServiceServer_Register(t *testing.T) {
 	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
 	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
 		{
-			Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
+			Partition: &apiv2.Partition{Id: partition1, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
 		},
 	})
 	test.CreateSizes(t, repo, []*adminv2.SizeServiceCreateRequest{
@@ -279,8 +386,10 @@ func Test_bootServiceServer_Register(t *testing.T) {
 
 	// We need to create machines directly on the database because there is no MachineCreateRequest available and never will.
 	test.CreateMachines(t, testStore, []*metal.Machine{
-		{Base: metal.Base{ID: m1}, PartitionID: "partition-1", SizeID: "c1-large-x86"},
+		{Base: metal.Base{ID: m1}, PartitionID: partition1, SizeID: "c1-large-x86"},
 	})
+
+	test.CreateSwitches(t, repo, []*repository.SwitchServiceCreateRequest{sw1, sw2})
 
 	tests := []struct {
 		name        string
@@ -310,14 +419,33 @@ func Test_bootServiceServer_Register(t *testing.T) {
 		},
 		{
 			name: "machine uuid is not known",
-			req:  &infrav2.BootServiceRegisterRequest{Uuid: m99, Hardware: &apiv2.MachineHardware{}, Bios: &apiv2.MachineBios{}},
-			want: &infrav2.BootServiceRegisterResponse{Uuid: m99, Size: "unknown"},
+			req: &infrav2.BootServiceRegisterRequest{
+				Uuid: m99,
+				Hardware: &apiv2.MachineHardware{Nics: []*apiv2.MachineNic{
+					{Name: "lan0", Neighbors: []*apiv2.MachineNic{{Name: "Ethernet0", Identifier: "Eth1/1", Hostname: "sw1"}}},
+					{Name: "lan1", Neighbors: []*apiv2.MachineNic{{Name: "Ethernet0", Identifier: "Eth1/1", Hostname: "sw2"}}},
+				}},
+				Bios:      &apiv2.MachineBios{},
+				Partition: partition1,
+			},
+			want: &infrav2.BootServiceRegisterResponse{Uuid: m99, Size: "unknown", Partition: partition1},
 			wantMachine: &apiv2.Machine{
 				Meta: &apiv2.Meta{Generation: 2},
 				Uuid: m99,
-				// Size:     &apiv2.Size{Id: "unknown"}, // FIXME should we return a unknown size ?
-				Hardware: &apiv2.MachineHardware{},
-				Status:   &apiv2.MachineStatus{LedState: &apiv2.MachineChassisIdentifyLEDState{}, Condition: &apiv2.MachineCondition{}},
+				Rack: "r01",
+				Size: &apiv2.Size{Id: "unknown"},
+				Hardware: &apiv2.MachineHardware{
+					Nics: []*apiv2.MachineNic{
+						{Name: "lan0", Neighbors: []*apiv2.MachineNic{{Name: "Ethernet0", Identifier: "Eth1/1", Hostname: "sw1"}}},
+						{Name: "lan1", Neighbors: []*apiv2.MachineNic{{Name: "Ethernet0", Identifier: "Eth1/1", Hostname: "sw2"}}},
+					},
+				},
+				Partition: &apiv2.Partition{
+					Id:                partition1,
+					Meta:              &apiv2.Meta{},
+					BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL},
+				},
+				Status: &apiv2.MachineStatus{LedState: &apiv2.MachineChassisIdentifyLEDState{}, Condition: &apiv2.MachineCondition{}},
 				RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
 					Events: []*apiv2.MachineProvisioningEvent{
 						{Event: apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_ALIVE, Message: "machine registered"},
@@ -329,9 +457,17 @@ func Test_bootServiceServer_Register(t *testing.T) {
 		{
 			name: "machine is known, size is detected",
 			req: &infrav2.BootServiceRegisterRequest{
-				Uuid:     m1,
-				Hardware: &apiv2.MachineHardware{Memory: 1024, Cpus: []*apiv2.MetalCPU{{Cores: 4}}, Disks: []*apiv2.MachineBlockDevice{{Name: "/dev/sda", Size: 1024}}},
-				Bios:     &apiv2.MachineBios{Version: "v1.0.1", Vendor: "SMC"},
+				Uuid: m1,
+				Hardware: &apiv2.MachineHardware{
+					Memory: 1024,
+					Cpus:   []*apiv2.MetalCPU{{Cores: 4}},
+					Disks:  []*apiv2.MachineBlockDevice{{Name: "/dev/sda", Size: 1024}},
+					Nics: []*apiv2.MachineNic{
+						{Name: "lan0", Neighbors: []*apiv2.MachineNic{{Name: "Ethernet1", Identifier: "Eth1/2", Hostname: "sw1"}}},
+						{Name: "lan1", Neighbors: []*apiv2.MachineNic{{Name: "Ethernet1", Identifier: "Eth1/2", Hostname: "sw2"}}},
+					},
+				},
+				Bios: &apiv2.MachineBios{Version: "v1.0.1", Vendor: "SMC"},
 				Bmc: &apiv2.MachineBMC{
 					Address: "192.168.0.1", Mac: "00:00:00:00:00:01", User: "metal", Password: "secret", Interface: "eth0",
 					Version:    "bmc123",
@@ -343,12 +479,13 @@ func Test_bootServiceServer_Register(t *testing.T) {
 					ProductManufacturer: pointer.Pointer("pmfg"), ProductPartNumber: pointer.Pointer("bpn"), ProductSerial: pointer.Pointer("p123"),
 				},
 				MetalHammerVersion: "v1.0.1",
-				Partition:          "partition-1",
+				Partition:          partition1,
 			},
-			want: &infrav2.BootServiceRegisterResponse{Uuid: m1, Size: "c1-large-x86", Partition: "partition-1"},
+			want: &infrav2.BootServiceRegisterResponse{Uuid: m1, Size: "c1-large-x86", Partition: partition1},
 			wantMachine: &apiv2.Machine{
 				Meta: &apiv2.Meta{Generation: 2},
 				Uuid: m1,
+				Rack: "r01",
 				Size: &apiv2.Size{
 					Meta: &apiv2.Meta{},
 					Id:   "c1-large-x86",
@@ -358,8 +495,20 @@ func Test_bootServiceServer_Register(t *testing.T) {
 						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 1024, Max: 1024},
 					},
 				},
-				Hardware:  &apiv2.MachineHardware{Memory: 1024, Cpus: []*apiv2.MetalCPU{{Cores: 4}}, Disks: []*apiv2.MachineBlockDevice{{Name: "/dev/sda", Size: 1024}}},
-				Partition: &apiv2.Partition{Meta: &apiv2.Meta{}, Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
+				Hardware: &apiv2.MachineHardware{
+					Memory: 1024,
+					Cpus:   []*apiv2.MetalCPU{{Cores: 4}},
+					Disks:  []*apiv2.MachineBlockDevice{{Name: "/dev/sda", Size: 1024}},
+					Nics: []*apiv2.MachineNic{
+						{Name: "lan0", Neighbors: []*apiv2.MachineNic{{Name: "Ethernet1", Identifier: "Eth1/2", Hostname: "sw1"}}},
+						{Name: "lan1", Neighbors: []*apiv2.MachineNic{{Name: "Ethernet1", Identifier: "Eth1/2", Hostname: "sw2"}}},
+					},
+				},
+				Partition: &apiv2.Partition{
+					Id:                partition1,
+					Meta:              &apiv2.Meta{},
+					BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL},
+				},
 				Status: &apiv2.MachineStatus{
 					LedState:           &apiv2.MachineChassisIdentifyLEDState{},
 					Condition:          &apiv2.MachineCondition{},

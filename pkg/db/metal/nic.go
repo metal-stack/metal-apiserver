@@ -1,5 +1,7 @@
 package metal
 
+import "github.com/samber/lo"
+
 type (
 	Nic struct {
 		MacAddress   string              `rethinkdb:"macAddress"`
@@ -26,11 +28,11 @@ type (
 )
 
 const (
-	BGPStateIdle        = BGPState("idle")
-	BGPStateConnect     = BGPState("connect")
-	BGPStateActive      = BGPState("active")
-	BGPStateOpenSent    = BGPState("open-sent")
-	BGPStateOpenConfirm = BGPState("open-confirm")
+	BGPStateIdle        = BGPState("Idle")
+	BGPStateConnect     = BGPState("Connect")
+	BGPStateActive      = BGPState("Active")
+	BGPStateOpenSent    = BGPState("OpenSent")
+	BGPStateOpenConfirm = BGPState("OpenConfirm")
 	BGPStateEstablished = BGPState("Established")
 )
 
@@ -43,7 +45,30 @@ const (
 func (nics Nics) MapByIdentifier() NicMap {
 	nicMap := make(NicMap)
 	for _, nic := range nics {
+		if nic.Identifier == "" {
+			continue
+		}
 		nicMap[nic.Identifier] = &nic
 	}
 	return nicMap
+}
+
+func (nics Nics) MapByName() NicMap {
+	nicMap := make(NicMap)
+	for _, nic := range nics {
+		if nic.Name == "" {
+			continue
+		}
+		nicMap[nic.Name] = &nic
+	}
+	return nicMap
+}
+
+func (nics Nics) FilterByHostname(hostname string) Nics {
+	if hostname == "" {
+		return nics
+	}
+	return lo.Filter(nics, func(nic Nic, _ int) bool {
+		return nic.Hostname == hostname
+	})
 }

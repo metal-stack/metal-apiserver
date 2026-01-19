@@ -109,7 +109,7 @@ func TestWaitForBMCCommandSync(t *testing.T) {
 	_, err = apiClient.Adminv2().Machine().BMCCommand(ctx,
 		&adminv2.MachineServiceBMCCommandRequest{
 			Uuid:    m0,
-			Command: apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_BOOT_FROM_DISK},
+			Command: apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_BOOT_FROM_PXE},
 	)
 	require.NoError(t, err)
 
@@ -118,7 +118,7 @@ func TestWaitForBMCCommandSync(t *testing.T) {
 		defer mu.RUnlock()
 		require.NotNil(c, waitResponses)
 		require.Len(c, waitResponses, 1)
-		require.Equal(c, apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_BOOT_FROM_DISK, waitResponses[0].BmcCommand)
+		require.Equal(c, apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_BOOT_FROM_PXE, waitResponses[0].BmcCommand)
 	}, 5*time.Second, 100*time.Millisecond)
 
 	// We need to cancel the context because otherwise the WaitForMachineEvent blocks the grpc http server from stopping

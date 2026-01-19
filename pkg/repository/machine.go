@@ -235,8 +235,11 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 	}
 	// For machines which are initially created there is no known size yet
 	size, err = r.s.Size().Get(ctx, m.SizeID)
-	if err != nil && !errorutil.IsNotFound(err) {
-		return nil, err
+	if err != nil {
+		if !errorutil.IsNotFound(err) {
+			return nil, err
+		}
+		size = &apiv2.Size{Id: "unknown"}
 	}
 
 	var (
@@ -273,6 +276,7 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 		var neighs []*apiv2.MachineNic
 		for _, neigh := range nic.Neighbors {
 			neighs = append(neighs, &apiv2.MachineNic{
+				Hostname:   neigh.Hostname,
 				Mac:        string(neigh.MacAddress),
 				Name:       neigh.Name,
 				Identifier: neigh.Identifier,
@@ -705,7 +709,6 @@ func (r *machineRepository) Register(ctx context.Context, req *infrav2.BootServi
 		}
 	}
 
-	// FIXME Switch service missing or not implemented yet
 	ec, err := r.s.ds.Event().Find(ctx, queries.EventFilter(m.ID))
 	if err != nil && !errorutil.IsNotFound(err) {
 		return nil, err
@@ -735,13 +738,11 @@ func (r *machineRepository) Register(ctx context.Context, req *infrav2.BootServi
 			if err != nil {
 				return err
 			}
-			// FIXME we must return rack from this call
-			// rack, err := r.s.Switch().AdditionalMethods().ConnectMachineWithSwitches(machine)
-			err = r.s.Switch().AdditionalMethods().ConnectMachineWithSwitches(machine)
+			err = r.s.Switch().AdditionalMethods().ConnectMachineWithSwitches(ctx, machine)
 			if err != nil {
 				return err
 			}
-			// m.RackID = rack
+			m.RackID = machine.Rack
 			return r.s.ds.Machine().Update(ctx, m)
 		},
 		retry.Attempts(10),
@@ -1113,7 +1114,7 @@ func (r *machineRepository) convertToBMCReport(machine *metal.Machine) *apiv2.Ma
 }
 
 func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, partition string, command apiv2.MachineBMCCommand) error {
-	cmdString, err := enum.GetStringValue(apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_BOOT_FROM_DISK)
+	cmdString, err := enum.GetStringValue(command)
 	if err != nil {
 		return err
 	}
@@ -1214,6 +1215,7 @@ func (r *machineRepository) WaitForBMCCommand(ctx context.Context, req *infrav2.
 			}
 			ipmi := m.IPMI
 			resp := &infrav2.WaitForBMCCommandResponse{
+				Uuid:       m.ID,
 				BmcCommand: cmd,
 				MachineBmc: &apiv2.MachineBMC{
 					Address:  ipmi.Address,
