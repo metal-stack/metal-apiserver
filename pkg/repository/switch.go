@@ -231,27 +231,29 @@ func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *ap
 		return err
 	}
 
-	oldNeighs := lo.Uniq(lo.Flatten(
-		lo.Map(metalMachine.Hardware.Nics, func(nic metal.Nic, _ int) []string {
-			return lo.Map(nic.Neighbors, func(neigh metal.Nic, _ int) string {
-				return neigh.Hostname
-			})
-		}),
-	))
+	if metalMachine != nil {
+		oldNeighs := lo.Uniq(lo.Flatten(
+			lo.Map(metalMachine.Hardware.Nics, func(nic metal.Nic, _ int) []string {
+				return lo.Map(nic.Neighbors, func(neigh metal.Nic, _ int) string {
+					return neigh.Hostname
+				})
+			}),
+		))
 
-	prev, _ := lo.Difference(oldNeighs, neighs)
-	for _, id := range prev {
-		s, err := r.get(ctx, id)
-		if err != nil {
-			return fmt.Errorf("failed to remove machine connection from switch %s: %w", id, err)
-		}
+		prev, _ := lo.Difference(oldNeighs, neighs)
+		for _, id := range prev {
+			s, err := r.get(ctx, id)
+			if err != nil {
+				return fmt.Errorf("failed to remove machine connection from switch %s: %w", id, err)
+			}
 
-		cons := s.MachineConnections
-		delete(cons, m.Uuid)
+			cons := s.MachineConnections
+			delete(cons, m.Uuid)
 
-		err = r.s.ds.Switch().Update(ctx, s)
-		if err != nil {
-			return fmt.Errorf("failed to remove machine connection from switch %s: %w", id, err)
+			err = r.s.ds.Switch().Update(ctx, s)
+			if err != nil {
+				return fmt.Errorf("failed to remove machine connection from switch %s: %w", id, err)
+			}
 		}
 	}
 
@@ -640,7 +642,7 @@ func (r *switchRepository) convertToProto(ctx context.Context, sw *metal.Switch)
 		return nil, nil
 	}
 
-	nics, err := r.toSwitchNics(ctx, sw)
+	nics, err := r.convertToSwitchNics(ctx, sw)
 	if err != nil {
 		return nil, err
 	}
@@ -787,7 +789,7 @@ func updateAllButNics(sw *metal.Switch, req *adminv2.SwitchServiceUpdateRequest)
 	return sw, nil
 }
 
-func (r *switchRepository) toSwitchNics(ctx context.Context, sw *metal.Switch) ([]*apiv2.SwitchNic, error) {
+func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Switch) ([]*apiv2.SwitchNic, error) {
 	var (
 		switchNics      []*apiv2.SwitchNic
 		projectMachines []*metal.Machine
