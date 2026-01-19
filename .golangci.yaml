@@ -6,6 +6,7 @@ run:
   concurrency: 4
   build-tags:
     - integration
+    - export
 
 linters:
   disable:

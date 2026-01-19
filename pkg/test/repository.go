@@ -1,3 +1,6 @@
+//go:build export
+// +build export
+
 package test
 
 import (
