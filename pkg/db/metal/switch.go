@@ -158,11 +158,10 @@ func (c ConnectionMap) ByNicName() (map[string]Connection, error) {
 }
 
 func (s *Switch) ConnectMachine(machineID string, machineNics Nics) (int, error) {
-	_, connectionExists := s.MachineConnections[machineID]
 	physicalConnections := s.getPhysicalMachineConnections(machineID, machineNics)
 
 	if len(physicalConnections) < 1 {
-		if connectionExists {
+		if _, exists := s.MachineConnections[machineID]; exists {
 			return 0, fmt.Errorf("machine connection between machine %s and switch %s exists in the database but not physically; if you are attempting migrate the machine from one rack to another delete it first", machineID, s.ID)
 		}
 		return 0, nil
@@ -367,6 +366,7 @@ func cumulusPortByLineNumber(line int, allLines []int) string {
 	return fmt.Sprintf("swp%d", line/4+1)
 }
 
+// getPhysicalMachineConnections correlates machine nic information with the nics on the switch to figure out physical connections
 func (s *Switch) getPhysicalMachineConnections(machineID string, machineNics Nics) Connections {
 	connections := make(Connections, 0)
 	for _, machineNic := range machineNics {
