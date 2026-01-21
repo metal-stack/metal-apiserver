@@ -127,7 +127,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	validationInterceptor := validate.NewInterceptor()
 
 	var (
-		logInteceptor        = newLogRequestInterceptor(log)
+		logInterceptor        = newLogRequestInterceptor(log)
 		tenantInterceptor    = tenant.NewInterceptor(log, c.MasterClient)
 		ratelimitInterceptor = ratelimiter.NewInterceptor(&ratelimiter.Config{
 			Log:                                 log,
@@ -137,9 +137,9 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 		})
 	)
 
-	allInterceptors := []connect.Interceptor{metricsInterceptor, logInteceptor, authz, authorizeInterceptor, ratelimitInterceptor, validationInterceptor, tenantInterceptor}
-	allAdminInterceptors := []connect.Interceptor{metricsInterceptor, logInteceptor, authz, authorizeInterceptor, validationInterceptor, tenantInterceptor}
-	allInfraInterceptors := []connect.Interceptor{metricsInterceptor, logInteceptor, authz, authorizeInterceptor, validationInterceptor}
+	allInterceptors := []connect.Interceptor{metricsInterceptor, logInterceptor, authz, authorizeInterceptor, ratelimitInterceptor, validationInterceptor, tenantInterceptor}
+	allAdminInterceptors := []connect.Interceptor{metricsInterceptor, logInterceptor, authz, authorizeInterceptor, validationInterceptor, tenantInterceptor}
+	allInfraInterceptors := []connect.Interceptor{metricsInterceptor, logInterceptor, authz, authorizeInterceptor, validationInterceptor}
 	if c.Auditing != nil {
 		servicePermissions := permissions.GetServicePermissions()
 		shouldAudit := func(fullMethod string) bool {

@@ -12,7 +12,7 @@ import (
 func StartValkey(t testing.TB) (*redis.Client, func()) {
 	ctx := t.Context()
 	valkeyContainer, err := valkey.Run(ctx,
-		"valkey/valkey:8-alpine",
+		"valkey/valkey:9-alpine",
 		valkey.WithSnapshotting(1000, 1000),
 		valkey.WithLogLevel(valkey.LogLevelVerbose),
 		testcontainers.WithTmpfs(map[string]string{"/data": "rw"}),

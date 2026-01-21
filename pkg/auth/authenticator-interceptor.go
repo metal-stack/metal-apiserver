@@ -76,33 +76,32 @@ func NewAuthenticatorInterceptor(c Config) (*auth, error) {
 }
 
 func (o *auth) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
-	return connect.StreamingClientFunc(func(ctx context.Context, spec connect.Spec) connect.StreamingClientConn {
-		o.log.Warn("streamclient called", "procedure", spec.Procedure)
+	return func(ctx context.Context, spec connect.Spec) connect.StreamingClientConn {
 		return next(ctx, spec)
-	})
+	}
 }
 
 // WrapStreamingHandler is a StreamServerInterceptor for the
 // server. Only one stream interceptor can be installed.
 // If you want to add extra functionality you might decorate this function.
 func (o *auth) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
-	return connect.StreamingHandlerFunc(func(ctx context.Context, conn connect.StreamingHandlerConn) error {
-		wrapper := &recvWrapper{
+	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
+		wrapper := &wrapper{
 			StreamingHandlerConn: conn,
 			ctx:                  ctx,
 			o:                    o,
 		}
 		return next(ctx, wrapper)
-	})
+	}
 }
 
-type recvWrapper struct {
+type wrapper struct {
 	connect.StreamingHandlerConn
 	ctx context.Context
 	o   *auth
 }
 
-func (s *recvWrapper) Receive(m any) error {
+func (s *wrapper) Receive(m any) error {
 	if err := s.StreamingHandlerConn.Receive(m); err != nil {
 		return err
 	}
@@ -119,7 +118,7 @@ func (s *recvWrapper) Receive(m any) error {
 // If you want to add extra functionality you might decorate this function.
 func (o *auth) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 	// Same as previous UnaryInterceptorFunc.
-	return connect.UnaryFunc(func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 		o.log.Debug("authz unary", "req", req)
 		callinfo, ok := connect.CallInfoForHandlerContext(ctx)
 		if !ok {
@@ -141,7 +140,7 @@ func (o *auth) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 		}
 
 		return resp, nil
-	})
+	}
 }
 
 func (o *auth) extractAndValidateJWTToken(ctx context.Context, jwtTokenfunc func(string) string) (*v2.Token, error) {
