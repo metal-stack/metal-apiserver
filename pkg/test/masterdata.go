@@ -12,6 +12,7 @@ import (
 	"github.com/metal-stack/masterdata-api/pkg/datastore"
 	"github.com/metal-stack/masterdata-api/pkg/service"
 	"github.com/stretchr/testify/require"
+	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -25,6 +26,8 @@ func StartMasterdataWithPostgres(t testing.TB, log *slog.Logger) (mdc.Client, *g
 		"postgres:18-alpine",
 		postgres.WithPassword("password"),
 		postgres.BasicWaitStrategies(),
+		testcontainers.WithTmpfs(map[string]string{"/var/lib/postgresql": "rw"}),
+		testcontainers.WithName(containerName(t)),
 	)
 	require.NoError(t, err)
 

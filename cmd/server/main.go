@@ -217,6 +217,32 @@ var (
 		Value: "metal-stack",
 		Usage: "ensures a provider tenant on startup (used for bootstrapping and technical tokens). can be disabled by setting to empty string.",
 	}
+	// Headscale
+	headscaleAddressFlag = &cli.StringFlag{
+		Name:    "headscale-addr",
+		Value:   "headscale:50443",
+		Usage:   "address of headscale grpc server endpoint",
+		EnvVars: []string{"HEADSCALE_ADDRESS"},
+	}
+	headscaleControlplaneAddressFlag = &cli.StringFlag{
+		Name:    "headscale-cp-addr",
+		Value:   "",
+		Usage:   "controlplane address of headscale server reachable from the nodes to join",
+		EnvVars: []string{"HEADSCALE_CONTROLPLANE_ADDRESS"},
+	}
+	headscaleApikeyFlag = &cli.StringFlag{
+		Name:    "headscale-api-key",
+		Value:   "",
+		Usage:   "initial api key to connect to the headscale grpc server",
+		EnvVars: []string{"HEADSCALE_API_KEY"},
+	}
+	headscaleEnabledFlag = &cli.BoolFlag{
+		Name:    "headscale-enabled",
+		Value:   false,
+		Usage:   "toggle if headscale should be enabled",
+		EnvVars: []string{"HEADSCALE_ENABLED"},
+	}
+	// End Headscale
 )
 
 func main() {
@@ -227,6 +253,7 @@ func main() {
 			newServeCmd(),
 			newTokenCmd(),
 			newDatastoreCmd(),
+			newVPNCmd(),
 		},
 	}
 

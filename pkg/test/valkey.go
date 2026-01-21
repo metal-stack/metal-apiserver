@@ -16,6 +16,7 @@ func StartValkey(t testing.TB) (*redis.Client, func()) {
 		valkey.WithSnapshotting(1000, 1000),
 		valkey.WithLogLevel(valkey.LogLevelVerbose),
 		testcontainers.WithTmpfs(map[string]string{"/data": "rw"}),
+		testcontainers.WithName(containerName(t)),
 	)
 	require.NoError(t, err)
 
