@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/stretchr/testify/require"
@@ -18,41 +19,38 @@ import (
 const rethinkDbImage = "rethinkdb:2.4.4-bookworm-slim"
 
 var (
-	connectOpts r.ConnectOpts
-	endpoint    string
-	closer      func()
-	mtx         sync.Mutex
+	rethinkDbConnectOpts r.ConnectOpts
+	rethinkDbEndpoint    string
+	rethinkDbCloser      func()
+	rethinkDbMtx         sync.Mutex
 )
 
 func StartRethink(t testing.TB, log *slog.Logger) (generic.Datastore, r.ConnectOpts, func()) {
-	mtx.Lock()
-	defer mtx.Unlock()
+	rethinkDbMtx.Lock()
+	defer rethinkDbMtx.Unlock()
 
-	if endpoint == "" {
+	if rethinkDbEndpoint == "" {
 		ctx := context.Background()
 
-		req := testcontainers.ContainerRequest{
-			Image:        rethinkDbImage,
-			ExposedPorts: []string{"8080/tcp", "28015/tcp"},
-			Env:          map[string]string{"RETHINKDB_PASSWORD": "rethink"},
-			Tmpfs:        map[string]string{"/data": "rw"},
-			WaitingFor: wait.ForAll(
-				wait.ForListeningPort("28015/tcp"),
+		c, err := testcontainers.Run(
+			ctx,
+			rethinkDbImage,
+			testcontainers.WithExposedPorts("8080/tcp", "28015/tcp"),
+			testcontainers.WithTmpfs(map[string]string{"/data": "rw"}),
+			testcontainers.WithWaitStrategy(
+				wait.ForListeningPort("28015/tcp").WithStartupTimeout(time.Second*5),
+				wait.ForExposedPort(),
 			),
-			Cmd: []string{"rethinkdb", "--bind", "all", "--directory", "/data", "--initial-password", "rethink", "--io-threads", "500"},
-		}
-
-		c, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-			ContainerRequest: req,
-			Started:          true,
-			Logger:           tlog.TestLogger(t),
-		})
+			testcontainers.WithEnv(map[string]string{"RETHINKDB_PASSWORD": "rethink"}),
+			testcontainers.WithCmd("rethinkdb", "--bind", "all", "--directory", "/data", "--initial-password", "rethink", "--io-threads", "500"),
+			testcontainers.WithLogger(tlog.TestLogger(t)),
+		)
 		require.NoError(t, err)
 
-		endpoint, err = c.PortEndpoint(ctx, "28015/tcp", "")
+		rethinkDbEndpoint, err = c.PortEndpoint(ctx, "28015/tcp", "")
 		require.NoError(t, err)
 
-		closer = func() {
+		rethinkDbCloser = func() {
 			// TODO: clean up database of this test
 
 			// we do not terminate the container here because it's very complex with a shared ds
@@ -60,8 +58,8 @@ func StartRethink(t testing.TB, log *slog.Logger) (generic.Datastore, r.ConnectO
 		}
 	}
 
-	connectOpts = r.ConnectOpts{
-		Address:  endpoint,
+	rethinkDbConnectOpts = r.ConnectOpts{
+		Address:  rethinkDbEndpoint,
 		Database: databaseNameFromT(t),
 		Username: "admin",
 		Password: "rethink",
@@ -69,13 +67,13 @@ func StartRethink(t testing.TB, log *slog.Logger) (generic.Datastore, r.ConnectO
 		MaxOpen:  2000,
 	}
 
-	err := generic.Initialize(t.Context(), log, connectOpts, generic.AsnPoolRange(uint(1), uint(100)), generic.VrfPoolRange(uint(1), uint(100)))
+	err := generic.Initialize(t.Context(), log, rethinkDbConnectOpts, generic.AsnPoolRange(uint(1), uint(100)), generic.VrfPoolRange(uint(1), uint(100)))
 	require.NoError(t, err)
 
-	ds, err := generic.New(log, connectOpts)
+	ds, err := generic.New(log, rethinkDbConnectOpts)
 	require.NoError(t, err)
 
-	return ds, connectOpts, closer
+	return ds, rethinkDbConnectOpts, rethinkDbCloser
 }
 
 func databaseNameFromT(t testing.TB) string {

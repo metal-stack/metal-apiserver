@@ -394,9 +394,10 @@ type BIOS struct {
 }
 
 type MachineVPN struct {
-	ControlPlaneAddress string `rethinkdb:"address"`
-	AuthKey             string `rethinkdb:"auth_key"`
-	Connected           bool   `rethinkdb:"connected"`
+	ControlPlaneAddress string   `rethinkdb:"address"`
+	AuthKey             string   `rethinkdb:"auth_key"`
+	Connected           bool     `rethinkdb:"connected"`
+	IPs                 []string `rethinkdb:"ips"`
 }
 
 // LEDState is the state of the LED of the Machine
