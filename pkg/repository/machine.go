@@ -58,6 +58,27 @@ func (r *machineRepository) Dhcp(ctx context.Context, req *infrav2.BootServiceDh
 	return &infrav2.BootServiceDhcpResponse{}, nil
 }
 
+func (r *machineRepository) SetMachineConnectedToVPN(ctx context.Context, id string, connected bool, ips []string) (*apiv2.Machine, error) {
+	m, err := r.get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if m.Allocation == nil {
+		return nil, errorutil.InvalidArgument("machine is not allocated")
+	}
+	if m.Allocation.VPN == nil {
+		return nil, errorutil.InvalidArgument("machine is not configured for VPN")
+	}
+	m.Allocation.VPN.Connected = connected
+	m.Allocation.VPN.IPs = ips
+
+	err = r.s.ds.Machine().Update(ctx, m)
+	if err != nil {
+		return nil, err
+	}
+	return r.convertToProto(ctx, m)
+}
+
 func (r *machineRepository) SendEvent(ctx context.Context, log *slog.Logger, machineID string, event *infrav2.MachineProvisioningEvent) error {
 	if event == nil {
 		return errorutil.InvalidArgument("event for machine %s is nil", machineID)
@@ -318,6 +339,7 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 				ControlPlaneAddress: alloc.VPN.ControlPlaneAddress,
 				AuthKey:             alloc.VPN.AuthKey,
 				Connected:           alloc.VPN.Connected,
+				Ips:                 alloc.VPN.IPs,
 			}
 		}
 		for _, dns := range alloc.DNSServers {

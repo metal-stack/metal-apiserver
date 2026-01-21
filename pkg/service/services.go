@@ -13,10 +13,13 @@ import (
 	"connectrpc.com/grpcreflect"
 	"connectrpc.com/otelconnect"
 	"connectrpc.com/validate"
+
+	headscalev1 "github.com/juanfont/headscale/gen/go/headscale/v1"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/api/go/metalstack/infra/v2/infrav2connect"
 	"github.com/metal-stack/api/go/permissions"
+
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	mdm "github.com/metal-stack/masterdata-api/pkg/client"
 	authpkg "github.com/metal-stack/metal-apiserver/pkg/auth"
@@ -55,6 +58,7 @@ import (
 	tokenadmin "github.com/metal-stack/metal-apiserver/pkg/service/token/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/user"
 	"github.com/metal-stack/metal-apiserver/pkg/service/version"
+	vpnadmin "github.com/metal-stack/metal-apiserver/pkg/service/vpn/admin"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/auditing"
 	"github.com/redis/go-redis/v9"
@@ -86,6 +90,8 @@ type Config struct {
 	MaxRequestsPerMinuteUnauthenticated int
 	IsStageDev                          bool
 	BMCSuperuserPassword                string
+	HeadscaleControlplaneAddress        string
+	HeadscaleClient                     headscalev1.HeadscaleServiceClient
 }
 
 type RedisConfig struct {
@@ -257,6 +263,15 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	mux.Handle(adminv2connect.NewSwitchServiceHandler(adminSwitchService, adminInterceptors))
 	mux.Handle(adminv2connect.NewMachineServiceHandler(adminMachineService, adminInterceptors))
 	mux.Handle(adminv2connect.NewTokenServiceHandler(adminTokenService, adminInterceptors))
+	if c.HeadscaleClient != nil {
+		adminVPNService := vpnadmin.New(vpnadmin.Config{
+			Log:                          log,
+			Repo:                         c.Repository,
+			HeadscaleClient:              c.HeadscaleClient,
+			HeadscaleControlplaneAddress: c.HeadscaleControlplaneAddress,
+		})
+		mux.Handle(adminv2connect.NewVPNServiceHandler(adminVPNService))
+	}
 
 	// Infra services, we use adminInterceptors to prevent rate limiting
 	bmcService := bmc.New(bmc.Config{Log: log, Repo: c.Repository})
