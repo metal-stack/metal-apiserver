@@ -31,6 +31,7 @@ func New(log *slog.Logger, store *repository.Store, redis *redis.Client) (*asynq
 	mux.HandleFunc(asyncclient.TypeIpDelete, store.IpDeleteHandleFn)
 	mux.HandleFunc(asyncclient.TypeNetworkDelete, store.NetworkDeleteHandleFn)
 	mux.HandleFunc(asyncclient.TypeMachineDelete, store.MachineDeleteHandleFn)
+	mux.HandleFunc(asyncclient.TypeMachineBMCCommand, store.MachineBMCCommandHandleFn)
 
 	// ...register other handlers...
 	return srv, mux

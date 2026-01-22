@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -15,6 +17,7 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/async/client"
 	"github.com/metal-stack/metal-apiserver/pkg/async/queue"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
@@ -1141,10 +1144,11 @@ func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, 
 		return err
 	}
 
-	err = queue.Push[queue.MachineBMCCommandPayload](ctx, r.s.log, r.s.redis, partition, queue.MachineBMCCommandPayload{UUID: machineUUID, Partition: partition, Command: *cmdString})
+	info, err := r.s.async.NewMachineBMCCommandTask(machineUUID, partition, *cmdString)
 	if err != nil {
 		return err
 	}
+	r.s.log.Debug("machine bmc command scheduled", "task", info)
 	return nil
 }
 
@@ -1212,7 +1216,7 @@ func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWa
 func (r *machineRepository) WaitForBMCCommand(ctx context.Context, req *infrav2.WaitForBMCCommandRequest, stream *connect.ServerStream[infrav2.WaitForBMCCommandResponse]) error {
 
 	// Stream messages to client
-	cmdChan := queue.Wait[queue.MachineBMCCommandPayload](ctx, r.s.log, r.s.redis, req.Partition)
+	cmdChan := queue.Wait[client.MachineBMCCommandPayload](ctx, r.s.log, r.s.redis, req.Partition)
 
 	for {
 		select {
@@ -1253,6 +1257,13 @@ func (r *machineRepository) WaitForBMCCommand(ctx context.Context, req *infrav2.
 		}
 	}
 }
+func (r *machineRepository) BMCCommandDone(ctx context.Context, req *infrav2.BMCCommandDoneRequest) (*infrav2.BMCCommandDoneResponse, error) {
+	err := queue.Push(ctx, r.s.log, r.s.redis, req.CommandId, &client.BMCCommandDonePayload{Error: req.Error})
+	if err != nil {
+		return nil, err
+	}
+	return &infrav2.BMCCommandDoneResponse{}, nil
+}
 
 //---------------------------------------------------------------
 // Write a function HandleXXXTask to handle the input task.
@@ -1266,6 +1277,28 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 	// FIXME implement with machineDelete
 
 	return nil
+}
+
+func (r *Store) MachineBMCCommandHandleFn(ctx context.Context, t *asynq.Task) error {
+	var payload client.MachineBMCCommandPayload
+	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+		return fmt.Errorf("json.Unmarshal failed: %w %w", err, asynq.SkipRetry)
+	}
+	r.log.Info("machine bmc command handler", "machine", payload.UUID)
+
+	if err := queue.Push(ctx, r.log, r.redis, payload.Partition, payload); err != nil {
+		return err
+	}
+
+	select {
+	case result := <-queue.Wait[client.BMCCommandDonePayload](ctx, r.log, r.redis, payload.CommandID):
+		if result.Error != nil {
+			return errors.New(*result.Error)
+		}
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func (r *machineRepository) scopedMachineFilters(filter generic.EntityQuery) []generic.EntityQuery {

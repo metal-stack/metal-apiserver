@@ -32,6 +32,9 @@ func (b *bmcServiceServer) UpdateBMCInfo(ctx context.Context, req *infrav2.Updat
 }
 
 func (b *bmcServiceServer) WaitForBMCCommand(ctx context.Context, req *infrav2.WaitForBMCCommandRequest, srv *connect.ServerStream[infrav2.WaitForBMCCommandResponse]) error {
-	b.log.Info("waitforbmccommand", "req", req)
 	return b.repo.UnscopedMachine().AdditionalMethods().WaitForBMCCommand(ctx, req, srv)
+}
+
+func (b *bmcServiceServer) BMCCommandDone(ctx context.Context, req *infrav2.BMCCommandDoneRequest) (*infrav2.BMCCommandDoneResponse, error) {
+	return b.repo.UnscopedMachine().AdditionalMethods().BMCCommandDone(ctx, req)
 }

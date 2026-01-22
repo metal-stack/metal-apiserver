@@ -10,18 +10,6 @@ import (
 )
 
 type (
-	MachineBMCCommandPayload struct {
-		// UUID of the machine where the command should be executed against
-		UUID string `json:"uuid,omitempty"`
-		// Partition where the machine resides
-		Partition string `json:"partition,omitempty"`
-		// The actual command
-		Command string `json:"command,omitempty"`
-		// Timestamp when this command was issued.
-		// Older machinecommands are dropped silently
-		// TODO define max command age
-		IssuedAt time.Time `json:"issued_at"`
-	}
 	MachineAllocationPayload struct {
 		// UUID of the machine which was allocated and trigger the machine installation
 		UUID string `json:"uuid,omitempty"`
