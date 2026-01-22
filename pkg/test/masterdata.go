@@ -27,6 +27,7 @@ func StartMasterdataWithPostgres(t testing.TB, log *slog.Logger) (mdc.Client, *g
 		postgres.WithPassword("password"),
 		postgres.BasicWaitStrategies(),
 		testcontainers.WithTmpfs(map[string]string{"/var/lib/postgresql": "rw"}),
+		testcontainers.WithName(containerName(t)),
 	)
 	require.NoError(t, err)
 

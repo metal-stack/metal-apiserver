@@ -42,6 +42,7 @@ func StartHeadscale(t testing.TB) (headscalev1.HeadscaleServiceClient, string, s
 		testcontainers.WithWaitStrategy(wait.ForListeningPort("50443/tcp").WithStartupTimeout(time.Second*5)),
 		testcontainers.WithCmd("serve", "-c", "/config.yaml"),
 		testcontainers.WithLogger(tlog.TestLogger(t)),
+		testcontainers.WithName(containerName(t)),
 	)
 	require.NoError(t, err)
 

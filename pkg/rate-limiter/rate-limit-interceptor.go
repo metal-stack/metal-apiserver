@@ -39,7 +39,7 @@ func NewInterceptor(c *Config) *ratelimitInterceptor {
 
 // WrapUnary will check if the rate limit for the given token is raised.
 func (i *ratelimitInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
-	return connect.UnaryFunc(func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 		var (
 			err   error
 			t, ok = token.TokenFromContext(ctx)
@@ -66,19 +66,19 @@ func (i *ratelimitInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFu
 		}
 
 		return next(ctx, req)
-	})
+	}
 }
 
 func (i *ratelimitInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
-	return connect.StreamingClientFunc(func(ctx context.Context, spec connect.Spec) connect.StreamingClientConn {
+	return func(ctx context.Context, spec connect.Spec) connect.StreamingClientConn {
 		return next(ctx, spec)
-	})
+	}
 }
 
 func (i *ratelimitInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
-	return connect.StreamingHandlerFunc(func(ctx context.Context, conn connect.StreamingHandlerConn) error {
+	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
 		return next(ctx, conn)
-	})
+	}
 }
 
 func extractClientIP(header http.Header) (string, bool) {

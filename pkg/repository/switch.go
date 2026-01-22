@@ -302,7 +302,7 @@ func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *ap
 
 	byNicName, err := s2.MachineConnections.ByNicName()
 	if err != nil {
-		return fmt.Errorf("failed to map machine connections of swtich %s by nic names", s2.ID)
+		return fmt.Errorf("failed to map machine connections of switch %s by nic names", s2.ID)
 	}
 
 	// e.g. "swp1s0" -> "Ethernet0"
