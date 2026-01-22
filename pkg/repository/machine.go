@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -16,7 +15,7 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
-	asyncclient "github.com/metal-stack/metal-apiserver/pkg/async/client"
+	"github.com/metal-stack/metal-apiserver/pkg/async/queue"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
@@ -154,7 +153,8 @@ func (r *machineRepository) matchScope(machine *metal.Machine) bool {
 }
 
 func (r *machineRepository) create(ctx context.Context, req *apiv2.MachineServiceCreateRequest) (*metal.Machine, error) {
-	// TODO if allocation was created create a NewMachineAllocationTask to notify the machine
+	// TODO if allocation was created, create a neue queue entry for the Wait endpoint like so:
+	// err := queue.Push(t.Context(), log, client, m, queue.MachineAllocationPayload{UUID: m})
 	panic("unimplemented")
 }
 
@@ -1140,11 +1140,11 @@ func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, 
 	if err != nil {
 		return err
 	}
-	taskInfo, err := r.s.async.NewMachineBMCCommandTask(machineUUID, partition, *cmdString)
+
+	err = queue.Push[queue.MachineBMCCommandPayload](ctx, r.s.log, r.s.redis, partition, queue.MachineBMCCommandPayload{UUID: machineUUID, Partition: partition, Command: *cmdString})
 	if err != nil {
 		return err
 	}
-	r.s.log.Debug("machinebmccommand", "taskinfo", taskInfo)
 	return nil
 }
 
@@ -1180,7 +1180,7 @@ func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWa
 		}
 	}()
 
-	allocationChan := r.s.async.MachineAllocationChannel(machineID)
+	allocationChan := queue.Wait[queue.MachineAllocationPayload](ctx, r.s.log, r.s.redis, machineID)
 
 	select {
 	case <-ctx.Done():
@@ -1210,12 +1210,10 @@ func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWa
 }
 
 func (r *machineRepository) WaitForBMCCommand(ctx context.Context, req *infrav2.WaitForBMCCommandRequest, stream *connect.ServerStream[infrav2.WaitForBMCCommandResponse]) error {
-	cmdChan := r.s.async.MachineBMCCommandsChannel(req.Partition)
-
-	r.s.async.MachineBMCCommandBeginReceive(req.Partition)
-	defer r.s.async.MachineBMCCommandEndReceive(req.Partition)
 
 	// Stream messages to client
+	cmdChan := queue.Wait[queue.MachineBMCCommandPayload](ctx, r.s.log, r.s.redis, req.Partition)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -1225,7 +1223,7 @@ func (r *machineRepository) WaitForBMCCommand(ctx context.Context, req *infrav2.
 				return nil
 			}
 
-			r.s.log.Info("waitformachineevent received", "message", *msg)
+			r.s.log.Info("waitformachineevent received", "message", msg)
 
 			m, err := r.s.ds.Machine().Get(ctx, msg.UUID)
 			if err != nil {
@@ -1267,48 +1265,6 @@ func (r *machineRepository) WaitForBMCCommand(ctx context.Context, req *infrav2.
 func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
 	// FIXME implement with machineDelete
 
-	return nil
-}
-
-// Is called if a machine bmc command was triggered
-func (r *Store) MachineBMCCommandHandleFn(ctx context.Context, t *asynq.Task) error {
-	var payload asyncclient.MachineBMCCommandPayload
-	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
-		return fmt.Errorf("json.Unmarshal failed: %w %w", err, asynq.SkipRetry)
-	}
-
-	if !r.async.MachineBMCCommandHasReceiver(payload.Partition) {
-		r.log.Warn("machine bmc command has no active receivers here, rescheduling", "uuid", payload.UUID, "partition", payload.Partition, "command", payload.Command)
-		return fmt.Errorf("machine bmc command has no active receivers here")
-	}
-
-	r.log.Info("machine bmc command", "uuid", payload.UUID, "partition", payload.Partition, "command", payload.Command)
-
-	if time.Since(payload.IssuedAt) > 10*time.Minute { // TODO define max age or use hibeken functionality if present
-		r.log.Warn("machine bmc command is too old, skipping", "uuid", payload.UUID, "command", payload.Command, "issued at", payload.IssuedAt)
-		return nil
-	}
-
-	machineBMCCommands := r.async.MachineBMCCommandsChannel(payload.Partition)
-
-	machineBMCCommands <- &payload
-
-	r.log.Debug("machine bmc command sent to partition channel", "payload", payload)
-	return nil
-}
-
-func (r *Store) MachineAllocationHandleFn(ctx context.Context, t *asynq.Task) error {
-	var payload asyncclient.MachineAllocationPayload
-	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
-		return fmt.Errorf("json.Unmarshal failed: %w %w", err, asynq.SkipRetry)
-	}
-	r.log.Info("machine allocation", "uuid", payload.UUID)
-
-	machineAllocations := r.async.MachineAllocationChannel(payload.UUID)
-
-	machineAllocations <- &payload
-
-	r.log.Debug("machine uuid sent to allocation channel", "payload", payload)
 	return nil
 }
 
