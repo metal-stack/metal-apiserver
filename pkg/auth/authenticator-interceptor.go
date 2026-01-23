@@ -77,7 +77,6 @@ func NewAuthenticatorInterceptor(c Config) (*auth, error) {
 
 func (o *auth) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
 	return func(ctx context.Context, spec connect.Spec) connect.StreamingClientConn {
-		o.log.Warn("streamclient called", "procedure", spec.Procedure)
 		return next(ctx, spec)
 	}
 }
@@ -87,7 +86,6 @@ func (o *auth) WrapStreamingClient(next connect.StreamingClientFunc) connect.Str
 // If you want to add extra functionality you might decorate this function.
 func (o *auth) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
 	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
-		o.log.Debug("streaminghandler called")
 		wrapper := &wrapper{
 			StreamingHandlerConn: conn,
 			ctx:                  ctx,
@@ -104,7 +102,6 @@ type wrapper struct {
 }
 
 func (s *wrapper) Receive(m any) error {
-	// s.o.log.Debug("streaminghandler receive called", "message", m)
 	if err := s.StreamingHandlerConn.Receive(m); err != nil {
 		return err
 	}
@@ -133,7 +130,7 @@ func (s *wrapper) Receive(m any) error {
 // If you want to add extra functionality you might decorate this function.
 func (o *auth) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 	// Same as previous UnaryInterceptorFunc.
-	return connect.UnaryFunc(func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 		o.log.Debug("authz unary", "req", req)
 		callinfo, ok := connect.CallInfoForHandlerContext(ctx)
 		if !ok {
@@ -155,7 +152,7 @@ func (o *auth) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 		}
 
 		return resp, nil
-	})
+	}
 }
 
 func (o *auth) extractAndValidateJWTToken(ctx context.Context, jwtTokenfunc func(string) string) (*v2.Token, error) {

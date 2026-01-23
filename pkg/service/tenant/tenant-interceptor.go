@@ -44,7 +44,7 @@ func NewInterceptor(log *slog.Logger, masterClient mdc.Client) *tenantIntercepto
 // TenantUnaryInterceptor will check if the request targets a project, if yes, checks if tenant of this project
 // already exists, if not an error is returned.
 func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
-	return connect.UnaryFunc(func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 		var (
 			tok, tokenInCtx = token.TokenFromContext(ctx)
 			user            = &security.User{
@@ -183,7 +183,7 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 		}
 
 		return nil, errorutil.Internal("unable to determine request scope: %q", req.Spec().Procedure)
-	})
+	}
 }
 
 func (i *tenantInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {

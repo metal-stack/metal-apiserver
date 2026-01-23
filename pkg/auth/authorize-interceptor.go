@@ -32,7 +32,7 @@ func NewAuthorizeInterceptor(log *slog.Logger, repo *repository.Store) *authoriz
 }
 
 func (a *authorizeInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
-	return connect.UnaryFunc(func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 		t, _ := token.TokenFromContext(ctx)
 
 		err := a.authorizer.Authorize(ctx, t, req)
@@ -40,7 +40,7 @@ func (a *authorizeInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFu
 			return nil, err
 		}
 		return next(ctx, req)
-	})
+	}
 }
 
 func (a *authorizeInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {

@@ -1110,7 +1110,7 @@ func Test_validateTokenRequest(t *testing.T) {
 				InfraRole:   apiv2.InfraRole_INFRA_ROLE_EDITOR.Enum(),
 				Expires:     inOneHour,
 			},
-			wantErr: errors.New("the following method \"/metalstack.infra.v2.BMCService/UpdateBMCInfo\" is not allowed on any of the requested subjects: [*]"),
+			wantErr: errors.New("the following method \"/metalstack.infra.v2.BMCService/BMCCommandDone\" is not allowed on any of the requested subjects: [*]"),
 		},
 		// Mixed role and permissions
 		{

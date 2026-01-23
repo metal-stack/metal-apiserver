@@ -151,6 +151,7 @@ func Test_getTokenPermissions(t *testing.T) {
 				"/metalstack.api.v2.TokenService/Update":                         {"*": {}},
 				"/metalstack.api.v2.UserService/Get":                             {"*": {}},
 				"/metalstack.api.v2.VersionService/Get":                          {"*": {}},
+				"/metalstack.infra.v2.BMCService/BMCCommandDone":                 {"*": {}},
 				"/metalstack.infra.v2.BMCService/UpdateBMCInfo":                  {"*": {}},
 				"/metalstack.infra.v2.BMCService/WaitForBMCCommand":              {"*": {}},
 				"/metalstack.infra.v2.BootService/Boot":                          {"*": {}},
@@ -243,6 +244,7 @@ func Test_getTokenPermissions(t *testing.T) {
 				InfraRole: apiv2.InfraRole_INFRA_ROLE_EDITOR.Enum(),
 			},
 			want: tokenPermissions{
+				"/metalstack.infra.v2.BMCService/BMCCommandDone":    {"*": {}},
 				"/metalstack.infra.v2.BMCService/UpdateBMCInfo":     {"*": {}},
 				"/metalstack.infra.v2.BMCService/WaitForBMCCommand": {"*": {}},
 				"/metalstack.infra.v2.BootService/Boot":             {"*": {}},

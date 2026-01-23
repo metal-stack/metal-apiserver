@@ -19,7 +19,7 @@ func newLogRequestInterceptor(log *slog.Logger) *logInterceptor {
 }
 
 func (i *logInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
-	return connect.UnaryFunc(func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 		var (
 			log   = i.log.With("procedure", req.Spec().Procedure)
 			debug = i.log.Enabled(ctx, slog.LevelDebug)
@@ -45,17 +45,37 @@ func (i *logInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 		}
 
 		return response, err
-	})
+	}
 }
 
 func (i *logInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
 	return func(ctx context.Context, spec connect.Spec) connect.StreamingClientConn {
+		i.log.Warn("streamclient called", "procedure", spec.Procedure)
 		return next(ctx, spec)
 	}
 }
 
 func (i *logInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
 	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
-		return next(ctx, conn)
+		wrapper := &wrapper{
+			StreamingHandlerConn: conn,
+			log:                  i.log,
+		}
+		return next(ctx, wrapper)
 	}
+}
+
+type wrapper struct {
+	connect.StreamingHandlerConn
+	log *slog.Logger
+}
+
+func (w *wrapper) Send(m any) error {
+	w.log.Debug("streaminghandler send called", "message", m)
+	return w.StreamingHandlerConn.Send(m)
+}
+
+func (w *wrapper) Receive(m any) error {
+	w.log.Debug("streaminghandler receive called", "message", m)
+	return w.StreamingHandlerConn.Receive(m)
 }

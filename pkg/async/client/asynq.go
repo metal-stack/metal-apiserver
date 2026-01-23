@@ -95,6 +95,9 @@ func (c *Client) NewIPDeleteTask(allocationUUID, ip, project string) (*asynq.Tas
 	}
 
 	taskId, err := taskID()
+	if err != nil {
+		return nil, err
+	}
 	opts := append(c.opts, asynq.TaskID(taskId))
 
 	task := asynq.NewTask(TypeIpDelete, payload, opts...)
@@ -112,6 +115,9 @@ func (c *Client) NewNetworkDeleteTask(uuid string) (*asynq.TaskInfo, error) {
 	}
 
 	taskId, err := taskID()
+	if err != nil {
+		return nil, err
+	}
 	opts := append(c.opts, asynq.TaskID(taskId))
 
 	task := asynq.NewTask(TypeNetworkDelete, payload, opts...)
@@ -129,6 +135,9 @@ func (c *Client) NewMachineDeleteTask(uuid, allocationUUID *string) (*asynq.Task
 	}
 
 	taskId, err := taskID()
+	if err != nil {
+		return nil, err
+	}
 	opts := append(c.opts, asynq.TaskID(taskId))
 
 	task := asynq.NewTask(TypeMachineDelete, payload, opts...)
@@ -161,7 +170,7 @@ func (c *Client) NewMachineBMCCommandTask(uuid, partition, command string) (*asy
 	return taskInfo, nil
 }
 
-// addTaskID generate a random taskID to ensure unique execution
+// taskID generate a random taskID to ensure unique execution
 // see: https://github.com/hibiken/asynq/wiki/Unique-Tasks
 func taskID() (string, error) {
 	taskId, err := uuid.NewV7()

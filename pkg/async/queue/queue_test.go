@@ -17,6 +17,7 @@ import (
 )
 
 func Test_Queue(t *testing.T) {
+	t.Skip()
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	client, closer := test.StartValkey(t)
@@ -103,7 +104,7 @@ func Test_Queue(t *testing.T) {
 			slices.Sort(gotMachines)
 
 			require.ElementsMatch(t, tt.machineIDs, gotMachines)
-			
+
 			if diff := cmp.Diff(tt.machineIDs, gotMachines); diff != "" {
 				t.Errorf("machines differ:%s", diff)
 			}

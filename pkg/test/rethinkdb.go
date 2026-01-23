@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -44,6 +45,7 @@ func StartRethink(t testing.TB, log *slog.Logger) (generic.Datastore, r.ConnectO
 			testcontainers.WithEnv(map[string]string{"RETHINKDB_PASSWORD": "rethink"}),
 			testcontainers.WithCmd("rethinkdb", "--bind", "all", "--directory", "/data", "--initial-password", "rethink", "--io-threads", "500"),
 			testcontainers.WithLogger(tlog.TestLogger(t)),
+			testcontainers.WithName(containerName(t)),
 		)
 		require.NoError(t, err)
 
@@ -78,4 +80,9 @@ func StartRethink(t testing.TB, log *slog.Logger) (generic.Datastore, r.ConnectO
 
 func databaseNameFromT(t testing.TB) string {
 	return strings.ReplaceAll(t.Name(), "/", "-")
+}
+
+func containerName(t testing.TB) string {
+	suffix, _, _ := strings.Cut(uuid.NewString(), "-")
+	return t.Name() + "-" + suffix
 }
