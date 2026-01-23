@@ -114,17 +114,6 @@ func (s *wrapper) Receive(m any) error {
 	return nil
 }
 
-// Enable only if response debugging is required
-//
-// func (s *wrapper) Send(m any) error {
-// 	s.o.log.Debug("streaminghandler send called", "message", m)
-// 	if err := s.StreamingHandlerConn.Send(m); err != nil {
-// 		return err
-// 	}
-
-// 	return nil
-// }
-
 // WrapUnary is a UnaryServerInterceptor for the
 // server. Only one unary interceptor can be installed.
 // If you want to add extra functionality you might decorate this function.

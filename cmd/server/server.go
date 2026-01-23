@@ -13,7 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
 
-	asyncserver "github.com/metal-stack/metal-apiserver/pkg/async/server"
+	taskserver "github.com/metal-stack/metal-apiserver/pkg/async/task/server"
 	"github.com/metal-stack/metal-apiserver/pkg/service"
 )
 
@@ -76,11 +76,10 @@ func (s *server) Run(ctx context.Context) error {
 		}
 	}()
 
-	asyncServer, asyncServerMux := asyncserver.New(s.log, s.c.Repository, s.c.RedisConfig.AsyncClient)
+	taskServer, taskServerMux := taskserver.NewServer(s.log, s.c.Repository, s.c.RedisConfig.AsyncClient)
 	go func() {
 		s.log.Info("starting asynq server")
-		err := asyncServer.Run(asyncServerMux)
-		if err != nil {
+		if err := taskServer.Run(taskServerMux); err != nil {
 			s.log.Error("unable to start asynq server", "error", err)
 			return
 		}
@@ -89,7 +88,7 @@ func (s *server) Run(ctx context.Context) error {
 	<-signals
 	ctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
-	asyncServer.Shutdown()
+	taskServer.Shutdown()
 	return apiServer.Shutdown(ctx)
 }
 

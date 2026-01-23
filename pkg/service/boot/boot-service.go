@@ -65,12 +65,12 @@ func (b *bootServiceServer) Register(ctx context.Context, req *infrav2.BootServi
 	}, nil
 }
 
-func (b *bootServiceServer) Report(ctx context.Context, req *infrav2.BootServiceReportRequest) (*infrav2.BootServiceReportResponse, error) {
-	_, err := b.repo.UnscopedMachine().AdditionalMethods().Report(ctx, req)
+func (b *bootServiceServer) InstallationSucceeded(ctx context.Context, req *infrav2.BootServiceInstallationSucceededRequest) (*infrav2.BootServiceInstallationSucceededResponse, error) {
+	_, err := b.repo.UnscopedMachine().AdditionalMethods().InstallationSucceeded(ctx, req)
 	if err != nil {
 		return nil, err
 	}
-	return &infrav2.BootServiceReportResponse{}, nil
+	return &infrav2.BootServiceInstallationSucceededResponse{}, nil
 }
 
 func (b *bootServiceServer) SuperUserPassword(ctx context.Context, req *infrav2.BootServiceSuperUserPasswordRequest) (*infrav2.BootServiceSuperUserPasswordResponse, error) {

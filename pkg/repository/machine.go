@@ -17,8 +17,7 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
-	"github.com/metal-stack/metal-apiserver/pkg/async/client"
-	"github.com/metal-stack/metal-apiserver/pkg/async/queue"
+	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
@@ -157,7 +156,7 @@ func (r *machineRepository) matchScope(machine *metal.Machine) bool {
 
 func (r *machineRepository) create(ctx context.Context, req *apiv2.MachineServiceCreateRequest) (*metal.Machine, error) {
 	// TODO if allocation was created, create a neue queue entry for the Wait endpoint like so:
-	// err := queue.Push(t.Context(), log, client, m, queue.MachineAllocationPayload{UUID: m})
+	// err := r.s.queue.PushMachineAllocation(ctx, m, task.MachineAllocationPayload{UUID: m})
 	panic("unimplemented")
 }
 
@@ -194,7 +193,7 @@ func (r *machineRepository) delete(ctx context.Context, m *metal.Machine) error 
 		uuid = nil
 		allocationUUID = &m.Allocation.UUID
 	}
-	info, err := r.s.async.NewMachineDeleteTask(uuid, allocationUUID)
+	info, err := r.s.task.NewMachineDeleteTask(uuid, allocationUUID)
 	if err != nil {
 		return err
 	}
@@ -404,9 +403,15 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 			if err != nil {
 				return nil, err
 			}
+			if metalNetwork.NetworkType == nil {
+				return nil, errorutil.InvalidArgument("networkTyp of network:%s is nil", nw.NetworkID)
+			}
 			networkType, err := metal.FromNetworkType(*metalNetwork.NetworkType)
 			if err != nil {
 				return nil, err
+			}
+			if metalNetwork.NATType == nil {
+				return nil, errorutil.InvalidArgument("nattype of network:%s is nil", nw.NetworkID)
 			}
 			natType, err := metal.FromNATType(*metalNetwork.NATType)
 			if err != nil {
@@ -784,7 +789,7 @@ func (r *machineRepository) Register(ctx context.Context, req *infrav2.BootServi
 	return m, nil
 }
 
-func (r *machineRepository) Report(ctx context.Context, req *infrav2.BootServiceReportRequest) (*metal.Machine, error) {
+func (r *machineRepository) InstallationSucceeded(ctx context.Context, req *infrav2.BootServiceInstallationSucceededRequest) (*metal.Machine, error) {
 
 	m, err := r.s.ds.Machine().Get(ctx, req.Uuid)
 	if err != nil {
@@ -793,14 +798,6 @@ func (r *machineRepository) Report(ctx context.Context, req *infrav2.BootService
 	if m.Allocation == nil {
 		return nil, fmt.Errorf("the machine %q is not allocated", req.Uuid)
 	}
-
-	// FIXME implement success handling
-	// maybe it would be better to remove the success flag from the request and error out on the metal-hammer
-
-	// BootInfo was required for reinstall and will not be implemented with mep-4
-	// if req.BootInfo == nil {
-	// 	return nil, fmt.Errorf("the machine %q bootinfo is nil", req.Uuid)
-	// }
 
 	m.Allocation.ConsolePassword = req.ConsolePassword
 
@@ -847,7 +844,7 @@ func (r *machineRepository) Report(ctx context.Context, req *infrav2.BootService
 		return nil, fmt.Errorf("the machine %q could not be enslaved into the vrf %s, error: %w", req.Uuid, vrf, err)
 	}
 
-	err = r.MachineBMCCommand(ctx, m.ID, m.PartitionID, apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_BOOT_FROM_DISK)
+	err = r.MachineBMCCommand(ctx, m.ID, m.PartitionID, apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_MACHINE_CREATED)
 	if err != nil {
 		return nil, fmt.Errorf("unable to send machinecommand to trigger boot to disk %w", err)
 	}
@@ -1144,7 +1141,7 @@ func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, 
 		return err
 	}
 
-	info, err := r.s.async.NewMachineBMCCommandTask(machineUUID, partition, *cmdString)
+	info, err := r.s.task.NewMachineBMCCommandTask(machineUUID, partition, *cmdString)
 	if err != nil {
 		return err
 	}
@@ -1184,7 +1181,7 @@ func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWa
 		}
 	}()
 
-	allocationChan := queue.Wait[queue.MachineAllocationPayload](ctx, r.s.log, r.s.redis, machineID)
+	allocationChan := r.s.queue.WaitMachineAllocation(ctx, machineID)
 
 	select {
 	case <-ctx.Done():
@@ -1216,7 +1213,7 @@ func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWa
 func (r *machineRepository) WaitForBMCCommand(ctx context.Context, req *infrav2.WaitForBMCCommandRequest, stream *connect.ServerStream[infrav2.WaitForBMCCommandResponse]) error {
 
 	// Stream messages to client
-	cmdChan := queue.Wait[client.MachineBMCCommandPayload](ctx, r.s.log, r.s.redis, req.Partition)
+	cmdChan := r.s.queue.WaitMachineCommand(ctx, req.Partition)
 
 	for {
 		select {
@@ -1241,6 +1238,7 @@ func (r *machineRepository) WaitForBMCCommand(ctx context.Context, req *infrav2.
 			resp := &infrav2.WaitForBMCCommandResponse{
 				Uuid:       m.ID,
 				BmcCommand: cmd,
+				CommandId:  msg.CommandID,
 				MachineBmc: &apiv2.MachineBMC{
 					Address:  ipmi.Address,
 					User:     ipmi.User,
@@ -1257,12 +1255,24 @@ func (r *machineRepository) WaitForBMCCommand(ctx context.Context, req *infrav2.
 		}
 	}
 }
+
 func (r *machineRepository) BMCCommandDone(ctx context.Context, req *infrav2.BMCCommandDoneRequest) (*infrav2.BMCCommandDoneResponse, error) {
-	err := queue.Push(ctx, r.s.log, r.s.redis, req.CommandId, &client.BMCCommandDonePayload{Error: req.Error})
+	err := r.s.queue.PushMachineCommandDone(ctx, req.CommandId, task.BMCCommandDonePayload{Error: req.Error})
 	if err != nil {
 		return nil, err
 	}
 	return &infrav2.BMCCommandDoneResponse{}, nil
+}
+func (r *machineRepository) GetConsolePassword(ctx context.Context, machineUUID string) (string, error) {
+	m, err := r.s.ds.Machine().Get(ctx, machineUUID)
+	if err != nil {
+		return "", err
+	}
+	if m.Allocation == nil {
+		return "", errorutil.FailedPrecondition("machine %s is not allocated", machineUUID)
+	}
+
+	return m.Allocation.ConsolePassword, nil
 }
 
 //---------------------------------------------------------------
@@ -1280,18 +1290,19 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 }
 
 func (r *Store) MachineBMCCommandHandleFn(ctx context.Context, t *asynq.Task) error {
-	var payload client.MachineBMCCommandPayload
+	var payload task.MachineBMCCommandPayload
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
 		return fmt.Errorf("json.Unmarshal failed: %w %w", err, asynq.SkipRetry)
 	}
 	r.log.Info("machine bmc command handler", "machine", payload.UUID)
 
-	if err := queue.Push(ctx, r.log, r.redis, payload.Partition, payload); err != nil {
+	if err := r.queue.PushMachineCommand(ctx, payload.Partition, payload); err != nil {
 		return err
 	}
 
 	select {
-	case result := <-queue.Wait[client.BMCCommandDonePayload](ctx, r.log, r.redis, payload.CommandID):
+	case result := <-r.queue.WaitMachineCommandDone(ctx, payload.CommandID):
+		r.log.Debug("machine bmc command handler done received", "result", result)
 		if result.Error != nil {
 			return errors.New(*result.Error)
 		}

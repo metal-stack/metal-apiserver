@@ -6,13 +6,14 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/alicebob/miniredis/v2"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
 	"github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	mdc "github.com/metal-stack/masterdata-api/pkg/client"
+	"github.com/metal-stack/metal-apiserver/pkg/async/queue"
+	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
@@ -24,6 +25,7 @@ import (
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
+	"github.com/valkey-io/valkey-go"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
@@ -100,13 +102,13 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 
 	var (
 		rc           *redis.Client
+		vc           valkey.Client
 		valkeyCloser func()
 	)
 	if withValkey {
-		rc, valkeyCloser = StartValkey(t)
+		rc, vc, valkeyCloser = StartValkey(t)
 	} else {
-		mr := miniredis.RunT(t)
-		rc = redis.NewClient(&redis.Options{Addr: mr.Addr()})
+		rc, vc, valkeyCloser = StartValkey(t, WithMiniRedis(true))
 	}
 
 	projectInviteStore := invite.NewProjectRedisStore(rc)
@@ -134,7 +136,12 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		mdc, connection, masterdataCloser = StartMasterdataInMemory(t, log)
 	}
 
-	repo, err := repository.New(log, mdc, ds, ipam, rc)
+	// Asynq hibeken uses redis-go
+	task := task.NewClient(log, rc)
+	// push pop queue must use valkey-go
+	queue := queue.New(log, vc)
+
+	repo, err := repository.New(log, mdc, ds, ipam, task, queue)
 	require.NoError(t, err)
 
 	asyncCloser := StartAsynqServer(t, log.WithGroup("asynq"), repo, rc)

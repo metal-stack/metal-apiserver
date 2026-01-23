@@ -4,12 +4,12 @@ import (
 	"log/slog"
 
 	"github.com/hibiken/asynq"
-	asyncclient "github.com/metal-stack/metal-apiserver/pkg/async/client"
+	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/redis/go-redis/v9"
 )
 
-func New(log *slog.Logger, store *repository.Store, redis *redis.Client) (*asynq.Server, *asynq.ServeMux) {
+func NewServer(log *slog.Logger, store *repository.Store, redis *redis.Client) (*asynq.Server, *asynq.ServeMux) {
 	srv := asynq.NewServerFromRedisClient(
 		redis,
 		asynq.Config{
@@ -28,10 +28,10 @@ func New(log *slog.Logger, store *repository.Store, redis *redis.Client) (*asynq
 	// mux maps a type to a handler
 
 	mux := asynq.NewServeMux()
-	mux.HandleFunc(asyncclient.TypeIpDelete, store.IpDeleteHandleFn)
-	mux.HandleFunc(asyncclient.TypeNetworkDelete, store.NetworkDeleteHandleFn)
-	mux.HandleFunc(asyncclient.TypeMachineDelete, store.MachineDeleteHandleFn)
-	mux.HandleFunc(asyncclient.TypeMachineBMCCommand, store.MachineBMCCommandHandleFn)
+	mux.HandleFunc(task.TypeIpDelete, store.IpDeleteHandleFn)
+	mux.HandleFunc(task.TypeNetworkDelete, store.NetworkDeleteHandleFn)
+	mux.HandleFunc(task.TypeMachineDelete, store.MachineDeleteHandleFn)
+	mux.HandleFunc(task.TypeMachineBMCCommand, store.MachineBMCCommandHandleFn)
 
 	// ...register other handlers...
 	return srv, mux

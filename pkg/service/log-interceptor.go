@@ -71,11 +71,13 @@ type wrapper struct {
 }
 
 func (w *wrapper) Send(m any) error {
-	w.log.Debug("streaminghandler send called", "message", m)
+	procedure := w.StreamingHandlerConn.Spec().Procedure
+	w.log.Debug("streaminghandler send called", "procedure", procedure, "message", m)
 	return w.StreamingHandlerConn.Send(m)
 }
 
 func (w *wrapper) Receive(m any) error {
-	w.log.Debug("streaminghandler receive called", "message", m)
+	procedure := w.StreamingHandlerConn.Spec().Procedure
+	w.log.Debug("streaminghandler receive called", "procedure", procedure, "message", m)
 	return w.StreamingHandlerConn.Receive(m)
 }

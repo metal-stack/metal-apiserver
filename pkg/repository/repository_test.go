@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/alicebob/miniredis/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/redis/go-redis/v9"
@@ -27,7 +28,9 @@ func TestGet(t *testing.T) {
 	ipam, closer := test.StartIpam(t)
 	defer closer()
 
-	repo, err := repository.New(log, nil, ds, ipam, rc)
+	task := task.NewClient(log, rc)
+
+	repo, err := repository.New(log, nil, ds, ipam, task, nil)
 	require.NoError(t, err)
 
 	ip, err := repo.IP("project1").Get(ctx, "asdf")
@@ -51,8 +54,9 @@ func TestIpUnscopedList(t *testing.T) {
 
 	ipam, closer := test.StartIpam(t)
 	defer closer()
+	task := task.NewClient(log, rc)
 
-	repo, err := repository.New(log, nil, ds, ipam, rc)
+	repo, err := repository.New(log, nil, ds, ipam, task, nil)
 	require.NoError(t, err)
 
 	ips, err := repo.UnscopedIP().List(ctx, nil)

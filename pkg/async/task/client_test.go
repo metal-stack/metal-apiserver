@@ -1,4 +1,4 @@
-package client
+package task
 
 import (
 	"encoding/json"
@@ -16,7 +16,7 @@ func TestClient_NewIPDeleteTask(t *testing.T) {
 	log := slog.Default()
 	r := miniredis.RunT(t)
 	rc := redis.NewClient(&redis.Options{Addr: r.Addr()})
-	c := New(log, rc)
+	c := NewClient(log, rc)
 
 	type args struct {
 		allocationUUID string
@@ -62,7 +62,7 @@ func TestClient_NewNetworkDeleteTask(t *testing.T) {
 	log := slog.Default()
 	r := miniredis.RunT(t)
 	rc := redis.NewClient(&redis.Options{Addr: r.Addr()})
-	c := New(log, rc)
+	c := NewClient(log, rc)
 
 	type args struct {
 		uuid string
@@ -102,7 +102,7 @@ func TestClient_NewMachineDeleteTask(t *testing.T) {
 	log := slog.Default()
 	r := miniredis.RunT(t)
 	rc := redis.NewClient(&redis.Options{Addr: r.Addr()})
-	c := New(log, rc)
+	c := NewClient(log, rc)
 
 	type args struct {
 		uuid           *string
@@ -152,4 +152,28 @@ func TestClient_NewMachineDeleteTask(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestClient_Informers(t *testing.T) {
+	log := slog.Default()
+	r := miniredis.RunT(t)
+	rc := redis.NewClient(&redis.Options{Addr: r.Addr()})
+	c := NewClient(log, rc)
+
+	task, err := c.NewMachineDeleteTask(pointer.Pointer("machine-uuid"), pointer.Pointer("allocation-uuid"))
+	require.NoError(t, err)
+
+	qs, err := c.GetQueues()
+	require.NoError(t, err)
+	require.NotEmpty(t, qs)
+
+	taskInfo, err := c.GetTaskInfo("default", task.ID)
+	require.NoError(t, err)
+	require.NotNil(t, taskInfo)
+
+	taskList, err := c.ListTasks("default", nil, nil)
+	require.NoError(t, err)
+	require.Len(t, taskList.Pending, 1)
+	require.Equal(t, taskInfo.ID, taskList.Pending[0].ID)
+
 }

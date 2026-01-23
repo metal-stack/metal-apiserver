@@ -80,10 +80,7 @@ func (m *machineServiceServer) BMCCommand(ctx context.Context, req *adminv2.Mach
 	if err != nil {
 		return nil, err
 	}
-	if bmc.Bmc == nil || bmc.Bmc.Bmc == nil {
-		return nil, errorutil.FailedPrecondition("machine %s does not have bmc details yet", req.Uuid)
-	}
-	if bmc.Bmc.Bmc.Address == "" || bmc.Bmc.Bmc.Password == "" || bmc.Bmc.Bmc.User == "" {
+	if bmc.Bmc == nil || bmc.Bmc.Bmc == nil || bmc.Bmc.Bmc.Address == "" || bmc.Bmc.Bmc.Password == "" || bmc.Bmc.Bmc.User == "" {
 		return nil, errorutil.FailedPrecondition("machine %s does not have bmc connections details yet", req.Uuid)
 	}
 
@@ -100,4 +97,16 @@ func (m *machineServiceServer) GetBMC(ctx context.Context, req *adminv2.MachineS
 
 func (m *machineServiceServer) ListBMC(ctx context.Context, req *adminv2.MachineServiceListBMCRequest) (*adminv2.MachineServiceListBMCResponse, error) {
 	return m.repo.UnscopedMachine().AdditionalMethods().ListBMC(ctx, req)
+}
+
+func (m *machineServiceServer) ConsolePassword(ctx context.Context, req *adminv2.MachineServiceConsolePasswordRequest) (*adminv2.MachineServiceConsolePasswordResponse, error) {
+	password, err := m.repo.UnscopedMachine().AdditionalMethods().GetConsolePassword(ctx, req.Uuid)
+	if err != nil {
+		return nil, err
+	}
+
+	return &adminv2.MachineServiceConsolePasswordResponse{
+		Uuid:     req.Uuid,
+		Password: password,
+	}, nil
 }

@@ -1,4 +1,4 @@
-package client
+package task
 
 import (
 	"encoding/json"
@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
+	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -61,14 +62,20 @@ type (
 		Error *string `json:"error,omitempty"`
 	}
 
+	MachineAllocationPayload struct {
+		// UUID of the machine which was allocated and trigger the machine installation
+		UUID string `json:"uuid,omitempty"`
+	}
+
 	Client struct {
-		client *asynq.Client
-		log    *slog.Logger
-		opts   []asynq.Option
+		log       *slog.Logger
+		client    *asynq.Client
+		inspector *asynq.Inspector
+		opts      []asynq.Option
 	}
 )
 
-func New(log *slog.Logger, redis *redis.Client, opts ...asynq.Option) *Client {
+func NewClient(log *slog.Logger, redis *redis.Client, opts ...asynq.Option) *Client {
 	client := asynq.NewClientFromRedisClient(redis)
 
 	// Set default opts
@@ -76,11 +83,84 @@ func New(log *slog.Logger, redis *redis.Client, opts ...asynq.Option) *Client {
 		opts = append([]asynq.Option{defaultAsynqRetries, defaultAsynqTimeout}, opts...)
 	}
 
+	inspector := asynq.NewInspectorFromRedisClient(redis)
+
 	return &Client{
-		log:    log,
-		client: client,
-		opts:   opts,
+		log:       log,
+		client:    client,
+		inspector: inspector,
+		opts:      opts,
 	}
+}
+
+func (c *Client) GetQueues() ([]string, error) {
+	return c.inspector.Queues()
+}
+
+func (c *Client) GetTaskInfo(queue, id string) (*asynq.TaskInfo, error) {
+	return c.inspector.GetTaskInfo(queue, id)
+}
+
+type TaskList struct {
+	Active      []*asynq.TaskInfo
+	Pending     []*asynq.TaskInfo
+	Aggregating []*asynq.TaskInfo
+	Scheduled   []*asynq.TaskInfo
+	Retry       []*asynq.TaskInfo
+	Archived    []*asynq.TaskInfo
+	Completed   []*asynq.TaskInfo
+}
+
+func (c *Client) ListTasks(queue string, count, page *uint32) (*TaskList, error) {
+	var opts []asynq.ListOption
+	if count == nil {
+		count = pointer.Pointer(uint32(100))
+	}
+	if page == nil {
+		page = pointer.Pointer(uint32(1))
+	}
+
+	if count != nil {
+		opts = append(opts, asynq.PageSize(int(*count)))
+	}
+	if page != nil {
+		opts = append(opts, asynq.Page(int(*page)))
+	}
+
+	active, err := c.inspector.ListActiveTasks(queue, opts...)
+	if err != nil {
+		return nil, err
+	}
+	pending, err := c.inspector.ListPendingTasks(queue)
+	if err != nil {
+		return nil, err
+	}
+	scheduled, err := c.inspector.ListScheduledTasks(queue)
+	if err != nil {
+		return nil, err
+	}
+	retry, err := c.inspector.ListRetryTasks(queue)
+	if err != nil {
+		return nil, err
+	}
+	archived, err := c.inspector.ListArchivedTasks(queue)
+	if err != nil {
+		return nil, err
+	}
+	completed, err := c.inspector.ListCompletedTasks(queue)
+	if err != nil {
+		return nil, err
+	}
+
+	tasks := &TaskList{
+		Active:    active,
+		Pending:   pending,
+		Scheduled: scheduled,
+		Retry:     retry,
+		Archived:  archived,
+		Completed: completed,
+	}
+	return tasks, nil
 }
 
 //----------------------------------------------
@@ -163,7 +243,7 @@ func (c *Client) NewMachineBMCCommandTask(uuid, partition, command string) (*asy
 	}
 
 	task := asynq.NewTask(TypeMachineBMCCommand, payload, asynq.TaskID(taskId), asynq.Timeout(time.Minute))
-	taskInfo, err := c.client.Enqueue(task)
+	taskInfo, err := c.client.Enqueue(task, asynq.Retention(30*24*time.Hour)) // Only with retention a task will be stored in completed tasks
 	if err != nil {
 		return nil, fmt.Errorf("unable to enqueue machine bmc command task:%w", err)
 	}

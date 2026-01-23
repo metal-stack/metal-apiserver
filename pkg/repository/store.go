@@ -4,7 +4,8 @@ import (
 	"context"
 	"log/slog"
 
-	asyncclient "github.com/metal-stack/metal-apiserver/pkg/async/client"
+	"github.com/metal-stack/metal-apiserver/pkg/async/queue"
+	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
@@ -13,7 +14,6 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	mdm "github.com/metal-stack/masterdata-api/pkg/client"
-	"github.com/redis/go-redis/v9"
 )
 
 type (
@@ -22,8 +22,8 @@ type (
 		ds    generic.Datastore
 		mdc   mdm.Client
 		ipam  ipamv1connect.IpamServiceClient
-		async *asyncclient.Client
-		redis *redis.Client
+		task  *task.Client
+		queue *queue.Queue
 	}
 
 	store[R Repo, E Entity, M Message, C CreateMessage, U UpdateMessage, Q Query] struct {
@@ -32,17 +32,21 @@ type (
 	}
 )
 
-func New(log *slog.Logger, mdc mdm.Client, ds generic.Datastore, ipam ipamv1connect.IpamServiceClient, redis *redis.Client) (*Store, error) {
+func New(log *slog.Logger, mdc mdm.Client, ds generic.Datastore, ipam ipamv1connect.IpamServiceClient, task *task.Client, queue *queue.Queue) (*Store, error) {
 	r := &Store{
 		log:   log,
 		mdc:   mdc,
 		ipam:  ipam,
 		ds:    ds,
-		async: asyncclient.New(log, redis),
-		redis: redis,
+		task:  task,
+		queue: queue,
 	}
 
 	return r, nil
+}
+
+func (s *Store) Task() *task.Client {
+	return s.task
 }
 
 func (s *Store) IP(project string) IP {

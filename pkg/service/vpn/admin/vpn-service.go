@@ -96,8 +96,11 @@ func (v *vpnService) AuthKey(ctx context.Context, req *adminv2.VPNServiceAuthKey
 	}
 
 	return &adminv2.VPNServiceAuthKeyResponse{
-		Address: v.headscaleControlplaneAddress,
-		AuthKey: key.PreAuthKey.Key,
+		Address:   v.headscaleControlplaneAddress,
+		AuthKey:   key.PreAuthKey.Key,
+		Ephemeral: key.PreAuthKey.Ephemeral,
+		ExpiresAt: key.PreAuthKey.Expiration,
+		CreatedAt: key.PreAuthKey.CreatedAt,
 	}, nil
 }
 

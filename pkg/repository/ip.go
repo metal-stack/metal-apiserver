@@ -12,7 +12,7 @@ import (
 	"github.com/hibiken/asynq"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	ipamapiv1 "github.com/metal-stack/go-ipam/api/v1"
-	asyncclient "github.com/metal-stack/metal-apiserver/pkg/async/client"
+	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
@@ -195,7 +195,7 @@ func (r *ipRepository) update(ctx context.Context, e *metal.IP, req *apiv2.IPSer
 }
 
 func (r *ipRepository) delete(ctx context.Context, e *metal.IP) error {
-	info, err := r.s.async.NewIPDeleteTask(e.AllocationUUID, e.IPAddress, e.ProjectID)
+	info, err := r.s.task.NewIPDeleteTask(e.AllocationUUID, e.IPAddress, e.ProjectID)
 	if err != nil {
 		return err
 	}
@@ -333,7 +333,7 @@ func (r *ipRepository) convertToProto(ctx context.Context, metalIP *metal.IP) (*
 
 func (r *Store) IpDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
 
-	var payload asyncclient.IPDeletePayload
+	var payload task.IPDeletePayload
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
 		return fmt.Errorf("json.Unmarshal failed: %w %w", err, asynq.SkipRetry)
 	}

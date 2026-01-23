@@ -19,6 +19,7 @@ import (
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/api/go/metalstack/infra/v2/infrav2connect"
 	"github.com/metal-stack/api/go/permissions"
+	"github.com/valkey-io/valkey-go"
 
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	mdm "github.com/metal-stack/masterdata-api/pkg/client"
@@ -52,6 +53,7 @@ import (
 	sizeadmin "github.com/metal-stack/metal-apiserver/pkg/service/size/admin"
 	switchadmin "github.com/metal-stack/metal-apiserver/pkg/service/switch/admin"
 	switchinfra "github.com/metal-stack/metal-apiserver/pkg/service/switch/infra"
+	taskadmin "github.com/metal-stack/metal-apiserver/pkg/service/task/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/tenant"
 	tenantadmin "github.com/metal-stack/metal-apiserver/pkg/service/tenant/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/token"
@@ -99,6 +101,7 @@ type RedisConfig struct {
 	RateLimitClient *redis.Client
 	InviteClient    *redis.Client
 	AsyncClient     *redis.Client
+	QueueClient     valkey.Client
 }
 
 func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
@@ -252,6 +255,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	adminNetworkService := networkadmin.New(networkadmin.Config{Log: log, Repo: c.Repository})
 	adminSwitchService := switchadmin.New(switchadmin.Config{Log: log, Repo: c.Repository})
 	adminTokenService := tokenadmin.New(tokenadmin.Config{Log: log, CertStore: certStore, TokenStore: tokenStore, TokenService: tokenService})
+	adminTaskService := taskadmin.New(taskadmin.Config{Log: log, Repo: c.Repository})
 	mux.Handle(adminv2connect.NewIPServiceHandler(adminIpService, adminInterceptors))
 	mux.Handle(adminv2connect.NewImageServiceHandler(adminImageService, adminInterceptors))
 	mux.Handle(adminv2connect.NewFilesystemServiceHandler(adminFilesystemService, adminInterceptors))
@@ -263,6 +267,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	mux.Handle(adminv2connect.NewSwitchServiceHandler(adminSwitchService, adminInterceptors))
 	mux.Handle(adminv2connect.NewMachineServiceHandler(adminMachineService, adminInterceptors))
 	mux.Handle(adminv2connect.NewTokenServiceHandler(adminTokenService, adminInterceptors))
+	mux.Handle(adminv2connect.NewTaskServiceHandler(adminTaskService, adminInterceptors))
 	if c.HeadscaleClient != nil {
 		adminVPNService := vpnadmin.New(vpnadmin.Config{
 			Log:                          log,

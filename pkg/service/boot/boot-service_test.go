@@ -561,3 +561,225 @@ func Test_bootServiceServer_Register(t *testing.T) {
 		})
 	}
 }
+
+func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
+	t.Parallel()
+
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	defer closer()
+	repo := testStore.Store
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintln(w, "a image")
+	}))
+
+	validURL := ts.URL
+	defer ts.Close()
+
+	ctx := t.Context()
+
+	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
+	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
+	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+		{
+			Partition: &apiv2.Partition{Id: partition1, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
+		},
+	})
+	test.CreateSizes(t, repo, []*adminv2.SizeServiceCreateRequest{
+		{
+			Size: &apiv2.Size{Id: "c1-large-x86", Constraints: []*apiv2.SizeConstraint{
+				{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
+				{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024, Max: 1024},
+				{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 1024, Max: 1024},
+			}},
+		},
+	})
+	test.CreateImages(t, repo, []*adminv2.ImageServiceCreateRequest{
+		{Image: &apiv2.Image{Id: "debian-12", Url: validURL, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}}},
+		{Image: &apiv2.Image{Id: "firewall-debian-13", Url: validURL, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL}}},
+	})
+
+	netmap := test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+		{
+			Id: pointer.Pointer("internet"), Name: pointer.Pointer("internet"),
+			Partition: &partition1, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
+			Prefixes: []string{"142.0.0.0/16"},
+			NatType:  apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE.Enum(),
+			Vrf:      pointer.Pointer(uint32(49)),
+		},
+		{
+			Id: pointer.Pointer("super"), Name: pointer.Pointer("super"),
+			Partition: &partition1, Type: apiv2.NetworkType_NETWORK_TYPE_SUPER,
+			Prefixes: []string{"10.0.0.0/16"}, DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(24))},
+			NatType: apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE.Enum(),
+		},
+		{Name: pointer.Pointer("private"), Project: pointer.Pointer(p1), Partition: &partition1, Type: apiv2.NetworkType_NETWORK_TYPE_CHILD, NatType: apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE.Enum()},
+	})
+
+	var privateNetwork *apiv2.Network
+	for _, nw := range netmap {
+		if *nw.Type == apiv2.NetworkType_NETWORK_TYPE_CHILD {
+			privateNetwork = nw
+		}
+	}
+
+	// We need to create machines directly on the database because there is no MachineCreateRequest available and never will.
+	test.CreateMachines(t, testStore, []*metal.Machine{
+		{
+			Base:        metal.Base{ID: m1},
+			PartitionID: partition1,
+			SizeID:      "c1-large-x86",
+			Allocation: &metal.MachineAllocation{
+				Role:    metal.RoleMachine,
+				Project: p1,
+				ImageID: "debian-12",
+				MachineNetworks: []*metal.MachineNetwork{
+					{NetworkID: privateNetwork.Id, Private: true, Vrf: 42},
+				}},
+		},
+		{
+			Base:        metal.Base{ID: m0},
+			PartitionID: partition1,
+			SizeID:      "c1-large-x86",
+			Allocation: &metal.MachineAllocation{
+				Role:    metal.RoleFirewall,
+				Project: p1,
+				ImageID: "firewall-debian-13",
+				MachineNetworks: []*metal.MachineNetwork{
+					{NetworkID: "internet", Vrf: 49},
+					{NetworkID: privateNetwork.Id, Private: true, Vrf: 42},
+				}},
+		},
+	})
+
+	test.CreateSwitches(t, repo, []*repository.SwitchServiceCreateRequest{sw1, sw2})
+
+	tests := []struct {
+		name        string
+		req         *infrav2.BootServiceInstallationSucceededRequest
+		want        *infrav2.BootServiceInstallationSucceededResponse
+		wantMachine *apiv2.Machine
+		wantErr     error
+	}{
+		{
+			name: "machine installation succeeded",
+			req:  &infrav2.BootServiceInstallationSucceededRequest{Uuid: m1, ConsolePassword: "password"},
+			want: &infrav2.BootServiceInstallationSucceededResponse{},
+			wantMachine: &apiv2.Machine{
+				Uuid:      m1,
+				Meta:      &apiv2.Meta{Generation: 1},
+				Partition: &apiv2.Partition{Id: partition1, Meta: &apiv2.Meta{}, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
+				Size: &apiv2.Size{Id: "c1-large-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024, Max: 1024},
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 1024, Max: 1024},
+				}},
+				Allocation: &apiv2.MachineAllocation{
+					Meta:           &apiv2.Meta{},
+					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+					Image: &apiv2.Image{
+						Id:             "debian-12",
+						Meta:           &apiv2.Meta{},
+						Url:            validURL,
+						Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE},
+						Name:           pointer.Pointer(""),
+						Description:    pointer.Pointer(""),
+						Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_PREVIEW,
+					},
+					Networks: []*apiv2.MachineNetwork{
+						{Network: privateNetwork.Id, NetworkType: apiv2.NetworkType_NETWORK_TYPE_CHILD, NatType: apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE, Vrf: uint64(42)},
+					},
+					Project: p1,
+				},
+				Hardware:                 &apiv2.MachineHardware{},
+				RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
+				Status:                   &apiv2.MachineStatus{Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE, Condition: &apiv2.MachineCondition{}, LedState: &apiv2.MachineChassisIdentifyLEDState{}},
+			},
+		},
+		{
+			name: "firewall installation succeeded",
+			req:  &infrav2.BootServiceInstallationSucceededRequest{Uuid: m0, ConsolePassword: "fw-password"},
+			want: &infrav2.BootServiceInstallationSucceededResponse{},
+			wantMachine: &apiv2.Machine{
+				Uuid:      m0,
+				Meta:      &apiv2.Meta{Generation: 1},
+				Partition: &apiv2.Partition{Id: partition1, Meta: &apiv2.Meta{}, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
+				Size: &apiv2.Size{Id: "c1-large-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024, Max: 1024},
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 1024, Max: 1024},
+				}},
+				Allocation: &apiv2.MachineAllocation{
+					Meta:           &apiv2.Meta{},
+					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
+					Image: &apiv2.Image{
+						Id:             "firewall-debian-13",
+						Meta:           &apiv2.Meta{},
+						Url:            validURL,
+						Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL},
+						Name:           pointer.Pointer(""),
+						Description:    pointer.Pointer(""),
+						Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_PREVIEW,
+					},
+					Networks: []*apiv2.MachineNetwork{
+						{Network: "internet", NetworkType: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, NatType: apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE, Vrf: uint64(49)},
+						{Network: privateNetwork.Id, NetworkType: apiv2.NetworkType_NETWORK_TYPE_CHILD, NatType: apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE, Vrf: uint64(42)},
+					},
+					Project: p1,
+				},
+				Hardware:                 &apiv2.MachineHardware{},
+				RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
+				Status:                   &apiv2.MachineStatus{Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE, Condition: &apiv2.MachineCondition{}, LedState: &apiv2.MachineChassisIdentifyLEDState{}},
+			},
+		},
+		// {
+		// 	name: "machine installation failed",
+		// },
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := &bootServiceServer{
+				log:  slog.Default(),
+				repo: repo,
+			}
+			got, err := b.InstallationSucceeded(ctx, tt.req)
+			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("bootServiceServer.InstallationSucceeded() error diff = %s", diff)
+			}
+			if diff := cmp.Diff(
+				tt.want, got,
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
+			); diff != "" {
+				t.Errorf("bootServiceServer.InstallationSucceeded()  = %v, want %v", got, tt.want)
+			}
+			if tt.wantMachine != nil {
+				m, err := repo.UnscopedMachine().Get(ctx, tt.req.Uuid)
+				require.NoError(t, err)
+				if diff := cmp.Diff(
+					tt.wantMachine, m,
+					protocmp.Transform(),
+					protocmp.IgnoreFields(
+						&apiv2.Meta{}, "created_at", "updated_at",
+					),
+					protocmp.IgnoreFields(
+						&apiv2.MachineProvisioningEvent{}, "time",
+					),
+					protocmp.IgnoreFields(
+						&apiv2.Image{}, "expires_at",
+					),
+				); diff != "" {
+					t.Errorf("bootServiceServer.InstallationSucceeded() diff =%s", diff)
+				}
+
+				consolePassword, err := repo.UnscopedMachine().AdditionalMethods().GetConsolePassword(ctx, tt.req.Uuid)
+				require.NoError(t, err)
+				require.Equal(t, tt.req.ConsolePassword, consolePassword)
+			}
+		})
+	}
+}
