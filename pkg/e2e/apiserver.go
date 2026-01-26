@@ -12,13 +12,10 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/service"
 	"github.com/metal-stack/metal-apiserver/pkg/service/token"
-
-	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
-	"google.golang.org/protobuf/types/known/durationpb"
-
 	"github.com/metal-stack/metal-apiserver/pkg/test"
-
+	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string) (baseURL, adminToken string, tenantTokens map[string]string, closer func()) {

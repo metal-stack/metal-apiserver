@@ -77,7 +77,7 @@ func Test_bmcServiceServer_UpdateBMCInfo(t *testing.T) {
 			name: "update bmc info for unknown machine, no values",
 			req: &infrav2.UpdateBMCInfoRequest{Partition: "partition-1", BmcReports: map[string]*apiv2.MachineBMCReport{
 				m0: {
-					Bmc:           &apiv2.MachineBMC{},
+					Bmc:           &apiv2.MachineBMC{Address: "192.168.0.1:623", Mac: "00:00:00:00:00:01"},
 					Bios:          &apiv2.MachineBios{},
 					Fru:           &apiv2.MachineFRU{},
 					PowerMetric:   &apiv2.MachinePowerMetric{},
@@ -88,7 +88,7 @@ func Test_bmcServiceServer_UpdateBMCInfo(t *testing.T) {
 			want: &adminv2.MachineServiceListBMCResponse{
 				BmcReports: map[string]*apiv2.MachineBMCReport{
 					m0: {
-						Bmc:  &apiv2.MachineBMC{},
+						Bmc:  &apiv2.MachineBMC{Address: "192.168.0.1:623", Mac: "00:00:00:00:00:01"},
 						Bios: &apiv2.MachineBios{},
 						Fru: &apiv2.MachineFRU{
 							ChassisPartNumber:   pointer.Pointer(""),
@@ -126,7 +126,7 @@ func Test_bmcServiceServer_UpdateBMCInfo(t *testing.T) {
 			name: "update bmc info for known machine, no values",
 			req: &infrav2.UpdateBMCInfoRequest{Partition: "partition-1", BmcReports: map[string]*apiv2.MachineBMCReport{
 				m1: {
-					Bmc:           &apiv2.MachineBMC{},
+					Bmc:           &apiv2.MachineBMC{Address: "192.168.0.1:623", Mac: "00:00:00:00:00:01"},
 					Bios:          &apiv2.MachineBios{},
 					Fru:           &apiv2.MachineFRU{},
 					PowerMetric:   &apiv2.MachinePowerMetric{},
@@ -137,7 +137,7 @@ func Test_bmcServiceServer_UpdateBMCInfo(t *testing.T) {
 			want: &adminv2.MachineServiceListBMCResponse{
 				BmcReports: map[string]*apiv2.MachineBMCReport{
 					m0: {
-						Bmc:  &apiv2.MachineBMC{},
+						Bmc:  &apiv2.MachineBMC{Address: "192.168.0.1:623", Mac: "00:00:00:00:00:01"},
 						Bios: &apiv2.MachineBios{},
 						Fru: &apiv2.MachineFRU{
 							ChassisPartNumber:   pointer.Pointer(""),
@@ -152,7 +152,7 @@ func Test_bmcServiceServer_UpdateBMCInfo(t *testing.T) {
 						PowerSupplies: []*apiv2.MachinePowerSupply{},
 						LedState:      &apiv2.MachineChassisIdentifyLEDState{Value: "LED-OFF"}},
 					m1: {
-						Bmc:  &apiv2.MachineBMC{},
+						Bmc:  &apiv2.MachineBMC{Address: "192.168.0.1:623", Mac: "00:00:00:00:00:01"},
 						Bios: &apiv2.MachineBios{},
 						Fru: &apiv2.MachineFRU{
 							ChassisPartNumber:   pointer.Pointer(""),
@@ -215,7 +215,7 @@ func Test_bmcServiceServer_UpdateBMCInfo(t *testing.T) {
 			want: &adminv2.MachineServiceListBMCResponse{
 				BmcReports: map[string]*apiv2.MachineBMCReport{
 					m0: {
-						Bmc:  &apiv2.MachineBMC{},
+						Bmc:  &apiv2.MachineBMC{Address: "192.168.0.1:623", Mac: "00:00:00:00:00:01"},
 						Bios: &apiv2.MachineBios{},
 						Fru: &apiv2.MachineFRU{
 							ChassisPartNumber:   pointer.Pointer(""),
@@ -275,6 +275,10 @@ func Test_bmcServiceServer_UpdateBMCInfo(t *testing.T) {
 			b := &bmcServiceServer{
 				log:  log,
 				repo: repo,
+			}
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.req)
 			}
 			_, err := b.UpdateBMCInfo(ctx, tt.req)
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {

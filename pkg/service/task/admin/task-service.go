@@ -7,7 +7,6 @@ import (
 	"github.com/hibiken/asynq"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
-	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -40,13 +39,21 @@ func (t *taskServiceServer) Get(_ context.Context, req *adminv2.TaskServiceGetRe
 	}, nil
 }
 
-func (t *taskServiceServer) ListTasks(_ context.Context, req *adminv2.TaskServiceListTasksRequest) (*adminv2.TaskServiceListTasksResponse, error) {
-	taskList, err := t.repo.Task().ListTasks(req.Queue, req.Count, req.Page)
+func (t *taskServiceServer) Delete(_ context.Context, req *adminv2.TaskServiceDeleteRequest) (*adminv2.TaskServiceDeleteResponse, error) {
+	err := t.repo.Task().DeleteTask(req.Queue, req.TaskId)
 	if err != nil {
 		return nil, err
 	}
-	return &adminv2.TaskServiceListTasksResponse{
-		TaskList: toTaskList(taskList),
+	return &adminv2.TaskServiceDeleteResponse{}, nil
+}
+
+func (t *taskServiceServer) List(_ context.Context, req *adminv2.TaskServiceListRequest) (*adminv2.TaskServiceListResponse, error) {
+	tasks, err := t.repo.Task().List(req.Queue, req.Count, req.Page)
+	if err != nil {
+		return nil, err
+	}
+	return &adminv2.TaskServiceListResponse{
+		Tasks: toProtos(tasks),
 	}, nil
 }
 
@@ -58,20 +65,6 @@ func (t *taskServiceServer) Queues(_ context.Context, req *adminv2.TaskServiceQu
 	return &adminv2.TaskServiceQueuesResponse{
 		Queues: queues,
 	}, nil
-}
-
-func toTaskList(tl *task.TaskList) *adminv2.TaskList {
-	taskList := &adminv2.TaskList{
-		Active:      toProtos(tl.Active),
-		Aggregating: toProtos(tl.Aggregating),
-		Archived:    toProtos(tl.Archived),
-		Completed:   toProtos(tl.Completed),
-		Pending:     toProtos(tl.Pending),
-		Retry:       toProtos(tl.Retry),
-		Scheduled:   toProtos(tl.Scheduled),
-	}
-
-	return taskList
 }
 
 func toProtos(ts []*asynq.TaskInfo) []*adminv2.TaskInfo {

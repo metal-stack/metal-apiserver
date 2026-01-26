@@ -376,10 +376,11 @@ func Test_machineServiceServer_BMCCommand(t *testing.T) {
 			}
 
 			if tt.want != nil {
-				task, err := m.repo.Task().GetTaskInfo("default", tt.rq.Uuid+":machine-bmc-command")
+				tasks, err := m.repo.Task().List(nil, nil, nil)
 				require.NoError(t, err)
-				require.Equal(t, asynq.TaskStatePending, task.State)
-				require.Contains(t, string(task.Payload), "boot-from-disk")
+				require.Len(t, tasks, 1)
+				require.Equal(t, asynq.TaskStatePending, tasks[0].State)
+				require.Contains(t, string(tasks[0].Payload), "boot-from-disk")
 			}
 		})
 	}

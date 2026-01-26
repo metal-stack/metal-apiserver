@@ -494,7 +494,7 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 		lastEventTime = timestamppb.New(*event.LastEventTime)
 	}
 	if event.LastErrorEvent != nil {
-		eventType, err := enum.GetEnum[apiv2.MachineProvisioningEventType](event.LastErrorEvent.Message)
+		eventType, err := enum.GetEnum[apiv2.MachineProvisioningEventType](event.LastErrorEvent.Event.String())
 		if err != nil {
 			return nil, err
 		}
@@ -502,10 +502,11 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 			Time:  timestamppb.New(event.LastErrorEvent.Time),
 			Event: eventType,
 		}
-		state, err = enum.GetEnum[apiv2.MachineProvisioningEventState](strings.ToLower(string(event.LastErrorEvent.Event)))
-		if err != nil {
-			return nil, err
-		}
+		// FIXME
+		// state, err = enum.GetEnum[apiv2.MachineProvisioningEventState](strings.ToLower(string(event.LastErrorEvent.Event)))
+		// if err != nil {
+		// 	return nil, err
+		// }
 	}
 
 	for _, e := range event.Events {
@@ -828,10 +829,8 @@ func (r *machineRepository) InstallationSucceeded(ctx context.Context, req *infr
 
 	err = retry.Do(
 		func() error {
-			// FIXME missing method
-			// _, err := r.s.ds.SetVrfAtSwitches(m, vrf)
-			// return err
-			return nil
+			_, err := r.s.Switch().AdditionalMethods().SetVrfAtSwitches(ctx, m, vrf)
+			return err
 		},
 		retry.Attempts(10),
 		retry.RetryIf(func(err error) bool {
@@ -895,6 +894,7 @@ func (r *machineRepository) UpdateBMCInfo(ctx context.Context, req *infrav2.Upda
 			IPMI: metal.IPMI{
 				Address:     report.Bmc.Address,
 				LastUpdated: time.Now(),
+				MacAddress:  report.Bmc.Mac,
 			},
 		}
 		ledstate, err := metal.LEDStateFrom(report.LedState.Value)
@@ -1304,6 +1304,9 @@ func (r *Store) MachineBMCCommandHandleFn(ctx context.Context, t *asynq.Task) er
 	case result := <-r.queue.WaitMachineCommandDone(ctx, payload.CommandID):
 		r.log.Debug("machine bmc command handler done received", "result", result)
 		if result.Error != nil {
+			if _, writeErr := t.ResultWriter().Write([]byte(*result.Error)); writeErr != nil {
+				r.log.Warn("machine bmc command handler could not command execution error to task result", "error", writeErr)
+			}
 			return errors.New(*result.Error)
 		}
 		return nil

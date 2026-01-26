@@ -26,7 +26,7 @@ var (
 
 func TestWaitForBMCCommandSync(t *testing.T) {
 	// TODO test more scenarios with more receivers
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	baseURL, adminToken, _, closer := StartApiserver(t, log)
 	defer closer()
 	require.NotNil(t, baseURL, adminToken)
@@ -57,7 +57,7 @@ func TestWaitForBMCCommandSync(t *testing.T) {
 	require.NoError(t, err)
 	_, err = apiClient.Infrav2().BMC().UpdateBMCInfo(ctx, &infrav2.UpdateBMCInfoRequest{Partition: p.Partition.Id, BmcReports: map[string]*apiv2.MachineBMCReport{
 		m0: {
-			Bmc: &apiv2.MachineBMC{Address: "192.168.0.1", User: "metal", Password: "secret", Mac: "00:00:00:00:00:01"},
+			Bmc: &apiv2.MachineBMC{Address: "192.168.0.1:623", User: "metal", Password: "secret", Mac: "00:00:00:00:00:01"},
 		},
 	}})
 	require.NoError(t, err)
@@ -124,9 +124,10 @@ func TestWaitForBMCCommandSync(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	taskInfo, err := apiClient.Adminv2().Task().Get(ctx, &adminv2.TaskServiceGetRequest{Queue: "default", TaskId: m0 + ":machine-bmc-command"})
+	tasks, err := apiClient.Adminv2().Task().List(ctx, &adminv2.TaskServiceListRequest{})
 	require.NoError(t, err)
-	require.Equal(t, adminv2.TaskState_TASK_STATE_PENDING, taskInfo.Task.State)
+	require.Len(t, tasks.Tasks, 1)
+	require.Equal(t, adminv2.TaskState_TASK_STATE_PENDING, tasks.Tasks[0].State)
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		mu.RLock()
@@ -136,13 +137,10 @@ func TestWaitForBMCCommandSync(t *testing.T) {
 		require.Equal(c, apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_BOOT_FROM_PXE, waitResponses[0].BmcCommand)
 	}, 5*time.Second, 100*time.Millisecond)
 
-	taskInfo, err = apiClient.Adminv2().Task().Get(ctx, &adminv2.TaskServiceGetRequest{Queue: "default", TaskId: m0 + ":machine-bmc-command"})
+	tasks, err = apiClient.Adminv2().Task().List(ctx, &adminv2.TaskServiceListRequest{})
 	require.NoError(t, err)
-	require.Equal(t, adminv2.TaskState_TASK_STATE_COMPLETED, taskInfo.Task.State)
-
-	taskList, err := apiClient.Adminv2().Task().ListTasks(ctx, &adminv2.TaskServiceListTasksRequest{Queue: "default"})
-	require.NoError(t, err)
-	require.Len(t, taskList.TaskList.Completed, 1)
+	require.Len(t, tasks.Tasks, 1)
+	require.Equal(t, adminv2.TaskState_TASK_STATE_COMPLETED, tasks.Tasks[0].State)
 
 	// We need to cancel the context because otherwise the WaitForMachineEvent blocks the grpc http server from stopping
 	cancel()
@@ -181,7 +179,7 @@ func TestWaitForBMCCommandAsync(t *testing.T) {
 	require.NoError(t, err)
 	_, err = apiClient.Infrav2().BMC().UpdateBMCInfo(ctx, &infrav2.UpdateBMCInfoRequest{Partition: p.Partition.Id, BmcReports: map[string]*apiv2.MachineBMCReport{
 		m0: {
-			Bmc: &apiv2.MachineBMC{Address: "192.168.0.1", User: "metal", Password: "secret", Mac: "00:00:00:00:00:01"},
+			Bmc: &apiv2.MachineBMC{Address: "192.168.0.1:623", User: "metal", Password: "secret", Mac: "00:00:00:00:00:01"},
 		},
 	}})
 	require.NoError(t, err)

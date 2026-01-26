@@ -1,4 +1,4 @@
-package task
+package task_test
 
 import (
 	"encoding/json"
@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/alicebob/miniredis/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
@@ -16,7 +17,7 @@ func TestClient_NewIPDeleteTask(t *testing.T) {
 	log := slog.Default()
 	r := miniredis.RunT(t)
 	rc := redis.NewClient(&redis.Options{Addr: r.Addr()})
-	c := NewClient(log, rc)
+	c := task.NewClient(log, rc)
 
 	type args struct {
 		allocationUUID string
@@ -36,7 +37,7 @@ func TestClient_NewIPDeleteTask(t *testing.T) {
 				ip:             "1.2.3.4",
 				project:        "project-a",
 			},
-			want:    IPDeletePayload{AllocationUUID: "a-uuid", IP: "1.2.3.4", Project: "project-a"},
+			want:    task.IPDeletePayload{AllocationUUID: "a-uuid", IP: "1.2.3.4", Project: "project-a"},
 			wantErr: false,
 		},
 	}
@@ -48,7 +49,7 @@ func TestClient_NewIPDeleteTask(t *testing.T) {
 				t.Errorf("Client.NewIPDeleteTask() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			var payload IPDeletePayload
+			var payload task.IPDeletePayload
 			err = json.Unmarshal(got.Payload, &payload)
 			require.NoError(t, err)
 			if !reflect.DeepEqual(payload, tt.want) {
@@ -62,7 +63,7 @@ func TestClient_NewNetworkDeleteTask(t *testing.T) {
 	log := slog.Default()
 	r := miniredis.RunT(t)
 	rc := redis.NewClient(&redis.Options{Addr: r.Addr()})
-	c := NewClient(log, rc)
+	c := task.NewClient(log, rc)
 
 	type args struct {
 		uuid string
@@ -70,7 +71,7 @@ func TestClient_NewNetworkDeleteTask(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    NetworkDeletePayload
+		want    task.NetworkDeletePayload
 		wantErr bool
 	}{
 		{
@@ -78,7 +79,7 @@ func TestClient_NewNetworkDeleteTask(t *testing.T) {
 			args: args{
 				uuid: "network-uuid",
 			},
-			want: NetworkDeletePayload{UUID: "network-uuid"},
+			want: task.NetworkDeletePayload{UUID: "network-uuid"},
 		},
 	}
 	for _, tt := range tests {
@@ -88,7 +89,7 @@ func TestClient_NewNetworkDeleteTask(t *testing.T) {
 				t.Errorf("Client.NewNetworkDeleteTask() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			var payload NetworkDeletePayload
+			var payload task.NetworkDeletePayload
 			err = json.Unmarshal(got.Payload, &payload)
 			require.NoError(t, err)
 			if !reflect.DeepEqual(payload, tt.want) {
@@ -102,7 +103,7 @@ func TestClient_NewMachineDeleteTask(t *testing.T) {
 	log := slog.Default()
 	r := miniredis.RunT(t)
 	rc := redis.NewClient(&redis.Options{Addr: r.Addr()})
-	c := NewClient(log, rc)
+	c := task.NewClient(log, rc)
 
 	type args struct {
 		uuid           *string
@@ -111,7 +112,7 @@ func TestClient_NewMachineDeleteTask(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    MachineDeletePayload
+		want    task.MachineDeletePayload
 		wantErr bool
 	}{
 		{
@@ -119,14 +120,14 @@ func TestClient_NewMachineDeleteTask(t *testing.T) {
 			args: args{
 				uuid: pointer.Pointer("machine-uuid"),
 			},
-			want: MachineDeletePayload{UUID: pointer.Pointer("machine-uuid")},
+			want: task.MachineDeletePayload{UUID: pointer.Pointer("machine-uuid")},
 		},
 		{
 			name: "simple with allocation uuid",
 			args: args{
 				allocationUUID: pointer.Pointer("allocation-uuid"),
 			},
-			want: MachineDeletePayload{AllocationUUID: pointer.Pointer("allocation-uuid")},
+			want: task.MachineDeletePayload{AllocationUUID: pointer.Pointer("allocation-uuid")},
 		},
 		{
 			name: "simple with allocation and machine uuid",
@@ -134,7 +135,7 @@ func TestClient_NewMachineDeleteTask(t *testing.T) {
 				uuid:           pointer.Pointer("machine-uuid"),
 				allocationUUID: pointer.Pointer("allocation-uuid"),
 			},
-			want: MachineDeletePayload{UUID: pointer.Pointer("machine-uuid"), AllocationUUID: pointer.Pointer("allocation-uuid")},
+			want: task.MachineDeletePayload{UUID: pointer.Pointer("machine-uuid"), AllocationUUID: pointer.Pointer("allocation-uuid")},
 		},
 	}
 	for _, tt := range tests {
@@ -144,7 +145,7 @@ func TestClient_NewMachineDeleteTask(t *testing.T) {
 				t.Errorf("Client.NewMachineDeleteTask() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			var payload MachineDeletePayload
+			var payload task.MachineDeletePayload
 			err = json.Unmarshal(got.Payload, &payload)
 			require.NoError(t, err)
 			if !reflect.DeepEqual(payload, tt.want) {
@@ -158,7 +159,7 @@ func TestClient_Informers(t *testing.T) {
 	log := slog.Default()
 	r := miniredis.RunT(t)
 	rc := redis.NewClient(&redis.Options{Addr: r.Addr()})
-	c := NewClient(log, rc)
+	c := task.NewClient(log, rc)
 
 	task, err := c.NewMachineDeleteTask(pointer.Pointer("machine-uuid"), pointer.Pointer("allocation-uuid"))
 	require.NoError(t, err)
@@ -171,9 +172,9 @@ func TestClient_Informers(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, taskInfo)
 
-	taskList, err := c.ListTasks("default", nil, nil)
+	taskList, err := c.List(nil, nil, nil)
 	require.NoError(t, err)
-	require.Len(t, taskList.Pending, 1)
-	require.Equal(t, taskInfo.ID, taskList.Pending[0].ID)
+	require.Len(t, taskList, 1)
+	require.Equal(t, taskInfo.ID, taskList[0].ID)
 
 }

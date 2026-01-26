@@ -217,11 +217,11 @@ var (
 		Value: "metal-stack",
 		Usage: "ensures a provider tenant on startup (used for bootstrapping and technical tokens). can be disabled by setting to empty string.",
 	}
-	bmcSuperuserPasswordFilePath = &cli.PathFlag{
-		Name:     "bmc-superuser-pwd-file",
-		FilePath: "",
-		Usage:    "the path to the BMC superuser password file",
-		EnvVars:  []string{"BMC_SUPER_USER_FILE_PATH"},
+	bmcSuperuserPasswordFlag = &cli.StringFlag{
+		Name:    "bmc-superuser-pwd",
+		Value:   "",
+		Usage:   "the BMC superuser password",
+		EnvVars: []string{"BMC_SUPER_USER_PASSWORD"},
 	}
 	// Headscale
 	headscaleAddressFlag = &cli.StringFlag{

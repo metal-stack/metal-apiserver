@@ -2,6 +2,7 @@ package task
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -50,10 +51,6 @@ type (
 		Partition string `json:"partition,omitempty"`
 		// The actual command
 		Command string `json:"command,omitempty"`
-		// Timestamp when this command was issued.
-		// Older machinecommands are dropped silently
-		// TODO define max command age
-		IssuedAt time.Time `json:"issued_at"`
 		// CommandID identifies this command unique
 		CommandID string `json:"command_id"`
 	}
@@ -101,17 +98,31 @@ func (c *Client) GetTaskInfo(queue, id string) (*asynq.TaskInfo, error) {
 	return c.inspector.GetTaskInfo(queue, id)
 }
 
-type TaskList struct {
-	Active      []*asynq.TaskInfo
-	Pending     []*asynq.TaskInfo
-	Aggregating []*asynq.TaskInfo
-	Scheduled   []*asynq.TaskInfo
-	Retry       []*asynq.TaskInfo
-	Archived    []*asynq.TaskInfo
-	Completed   []*asynq.TaskInfo
+func (c *Client) DeleteTask(queue, id string) error {
+	return c.inspector.DeleteTask(queue, id)
 }
 
-func (c *Client) ListTasks(queue string, count, page *uint32) (*TaskList, error) {
+func (c *Client) List(queue *string, count, page *uint32) ([]*asynq.TaskInfo, error) {
+	if queue != nil {
+		return c.list(*queue, count, page)
+	}
+
+	queues, err := c.GetQueues()
+	if err != nil {
+		return nil, err
+	}
+	var tasks []*asynq.TaskInfo
+	for _, queue := range queues {
+		ts, err := c.list(queue, count, page)
+		if err != nil {
+			return nil, err
+		}
+		tasks = append(tasks, ts...)
+	}
+	return tasks, nil
+}
+
+func (c *Client) list(queue string, count, page *uint32) ([]*asynq.TaskInfo, error) {
 	var opts []asynq.ListOption
 	if count == nil {
 		count = pointer.Pointer(uint32(100))
@@ -127,39 +138,37 @@ func (c *Client) ListTasks(queue string, count, page *uint32) (*TaskList, error)
 		opts = append(opts, asynq.Page(int(*page)))
 	}
 
+	var tasks []*asynq.TaskInfo
 	active, err := c.inspector.ListActiveTasks(queue, opts...)
 	if err != nil {
 		return nil, err
 	}
+	tasks = append(tasks, active...)
 	pending, err := c.inspector.ListPendingTasks(queue)
 	if err != nil {
 		return nil, err
 	}
+	tasks = append(tasks, pending...)
 	scheduled, err := c.inspector.ListScheduledTasks(queue)
 	if err != nil {
 		return nil, err
 	}
+	tasks = append(tasks, scheduled...)
 	retry, err := c.inspector.ListRetryTasks(queue)
 	if err != nil {
 		return nil, err
 	}
+	tasks = append(tasks, retry...)
 	archived, err := c.inspector.ListArchivedTasks(queue)
 	if err != nil {
 		return nil, err
 	}
+	tasks = append(tasks, archived...)
 	completed, err := c.inspector.ListCompletedTasks(queue)
 	if err != nil {
 		return nil, err
 	}
-
-	tasks := &TaskList{
-		Active:    active,
-		Pending:   pending,
-		Scheduled: scheduled,
-		Retry:     retry,
-		Archived:  archived,
-		Completed: completed,
-	}
+	tasks = append(tasks, completed...)
 	return tasks, nil
 }
 
@@ -228,23 +237,37 @@ func (c *Client) NewMachineDeleteTask(uuid, allocationUUID *string) (*asynq.Task
 	return taskInfo, nil
 }
 
-func (c *Client) NewMachineBMCCommandTask(uuid, partition, command string) (*asynq.TaskInfo, error) {
-	taskId := uuid + ":machine-bmc-command"
+func (c *Client) NewMachineBMCCommandTask(machineUuid, partition, command string) (*asynq.TaskInfo, error) {
+	taskId, err := taskID()
+	if err != nil {
+		return nil, err
+	}
 
+	commandId := machineUuid + ":machine-bmc-command:" + command
 	payload, err := json.Marshal(MachineBMCCommandPayload{
-		UUID:      uuid,
+		UUID:      machineUuid,
 		Partition: partition,
 		Command:   command,
-		IssuedAt:  time.Now(),
-		CommandID: taskId,
+		CommandID: commandId,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("unable to marshal machine bmc command payload:%w", err)
 	}
 
-	task := asynq.NewTask(TypeMachineBMCCommand, payload, asynq.TaskID(taskId), asynq.Timeout(time.Minute))
-	taskInfo, err := c.client.Enqueue(task, asynq.Retention(30*24*time.Hour)) // Only with retention a task will be stored in completed tasks
-	if err != nil {
+	task := asynq.NewTask(
+		TypeMachineBMCCommand,
+		payload,
+		asynq.TaskID(taskId),
+		asynq.Timeout(time.Minute),
+		asynq.MaxRetry(0),
+		asynq.Retention(30*24*time.Hour), // Only with retention a task will be stored in completed tasks
+	)
+	taskInfo, err := c.client.Enqueue(task, asynq.Unique(time.Minute))
+
+	switch {
+	case errors.Is(err, asynq.ErrDuplicateTask):
+		return nil, fmt.Errorf("machine bmc command is still in progress for machine %s %w", machineUuid, err)
+	case err != nil:
 		return nil, fmt.Errorf("unable to enqueue machine bmc command task:%w", err)
 	}
 	return taskInfo, nil

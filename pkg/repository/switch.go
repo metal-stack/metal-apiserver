@@ -205,6 +205,42 @@ func (r *switchRepository) Port(ctx context.Context, id, port string, status api
 	return converted, nil
 }
 
+func (r *switchRepository) SearchSwitchesConnectedToMachine(ctx context.Context, m *metal.Machine) ([]*metal.Switch, error) {
+	var switches []*metal.Switch
+
+	rackSwitches, err := r.s.ds.Switch().List(ctx, queries.SwitchFilter(&apiv2.SwitchQuery{Rack: &m.RackID}))
+	if err != nil {
+		return nil, err
+	}
+
+	for _, sw := range rackSwitches {
+		if _, has := sw.MachineConnections[m.ID]; has {
+			switches = append(switches, sw)
+		}
+	}
+
+	return switches, nil
+}
+
+func (r *switchRepository) SetVrfAtSwitches(ctx context.Context, m *metal.Machine, vrf string) ([]*metal.Switch, error) {
+	var switches []*metal.Switch
+
+	connectedSwitches, err := r.SearchSwitchesConnectedToMachine(ctx, m)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, sw := range connectedSwitches {
+		sw.SetVrfOfMachine(m, vrf)
+		err := r.s.ds.Switch().Update(ctx, sw)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return switches, nil
+}
+
 func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *apiv2.Machine) error {
 	if m.Partition == nil || m.Partition.Id == "" {
 		return errorutil.InvalidArgument("partition id of machine %s is empty", m.Uuid)

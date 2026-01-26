@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
 	"runtime"
 	"strings"
 	"testing"
@@ -75,7 +74,7 @@ func newServeCmd() *cli.Command {
 			oidcEndSessionUrlFlag,
 			oidcUniqueUserKeyFlag,
 			oidcTLSSkipVerifyFlag,
-			bmcSuperuserPasswordFilePath,
+			bmcSuperuserPasswordFlag,
 			headscaleAddressFlag,
 			headscaleControlplaneAddressFlag,
 			headscaleApikeyFlag,
@@ -141,13 +140,6 @@ func newServeCmd() *cli.Command {
 				return fmt.Errorf("unable to create repository: %w", err)
 			}
 
-			var bmcSuperuserPassword string
-			if path := ctx.Path(bmcSuperuserPasswordFilePath.Name); path != "" {
-				if raw, err := os.ReadFile(path); err == nil {
-					bmcSuperuserPassword = strings.TrimSpace(string(raw))
-				}
-			}
-
 			stage := ctx.String(stageFlag.Name)
 			c := service.Config{
 				HttpServerEndpoint:                  ctx.String(httpServerEndpointFlag.Name),
@@ -172,7 +164,7 @@ func newServeCmd() *cli.Command {
 				OIDCUniqueUserKey:                   ctx.String(oidcUniqueUserKeyFlag.Name),
 				OIDCTLSSkipVerify:                   ctx.Bool(oidcTLSSkipVerifyFlag.Name),
 				IsStageDev:                          strings.EqualFold(stage, stageDEV),
-				BMCSuperuserPassword:                bmcSuperuserPassword,
+				BMCSuperuserPassword:                ctx.String(bmcSuperuserPasswordFlag.Name),
 				HeadscaleControlplaneAddress:        ctx.String(headscaleControlplaneAddressFlag.Name),
 				HeadscaleClient:                     hc,
 			}

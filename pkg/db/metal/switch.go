@@ -2,6 +2,7 @@ package metal
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -24,7 +25,6 @@ type (
 		Nics               Nics              `rethinkdb:"network_interfaces"`
 		MachineConnections ConnectionMap     `rethinkdb:"machineconnections"`
 	}
-	Switches []Switch
 
 	SwitchStatus struct {
 		Base
@@ -170,6 +170,31 @@ func (s *Switch) ConnectMachine(machineID string, machineNics Nics) (int, error)
 	delete(s.MachineConnections, machineID)
 	s.MachineConnections[machineID] = append(s.MachineConnections[machineID], physicalConnections...)
 	return len(physicalConnections), nil
+}
+
+func (s *Switch) SetVrfOfMachine(m *Machine, vrf string) {
+	affected := map[string]bool{}
+	for _, c := range s.MachineConnections[m.ID] {
+		affected[c.Nic.Identifier] = true
+	}
+
+	if len(affected) == 0 {
+		return
+	}
+
+	nics := Nics{}
+	for k, old := range s.Nics.MapByIdentifier() {
+		e := old
+		if _, ok := affected[k]; ok {
+			e.Vrf = vrf
+		}
+		nics = append(nics, *e)
+	}
+
+	slices.SortFunc(nics, func(a, b Nic) int {
+		return strings.Compare(a.Identifier, b.Identifier)
+	})
+	s.Nics = nics
 }
 
 // TranslateNicMap creates a NicMap where the keys are translated to the naming convention of the target OS

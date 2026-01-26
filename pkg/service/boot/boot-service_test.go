@@ -36,6 +36,7 @@ var (
 	sw1 = &repository.SwitchServiceCreateRequest{
 		Switch: &apiv2.Switch{
 			Id:          "sw1",
+			Meta:        &apiv2.Meta{},
 			Partition:   partition1,
 			Rack:        pointer.Pointer("r01"),
 			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
@@ -64,6 +65,7 @@ var (
 	sw2 = &repository.SwitchServiceCreateRequest{
 		Switch: &apiv2.Switch{
 			Id:          "sw2",
+			Meta:        &apiv2.Meta{},
 			Partition:   partition1,
 			Rack:        pointer.Pointer("r01"),
 			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
@@ -143,6 +145,10 @@ func Test_bootServiceServer_Boot(t *testing.T) {
 				log:                  log,
 				repo:                 repo,
 				bmcSuperuserPassword: "",
+			}
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.req)
 			}
 			got, err := b.Boot(ctx, tt.req)
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
@@ -267,6 +273,10 @@ func Test_bootServiceServer_Dhcp(t *testing.T) {
 				repo:                 repo,
 				bmcSuperuserPassword: "",
 			}
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.req)
+			}
 			got, err := b.Dhcp(ctx, tt.req)
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("bootServiceServer.Dhcp() error diff = %s", diff)
@@ -328,6 +338,10 @@ func Test_bootServiceServer_SuperUserPassword(t *testing.T) {
 			b := &bootServiceServer{
 				log:                  slog.Default(),
 				bmcSuperuserPassword: tt.password,
+			}
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.req)
 			}
 			got, err := b.SuperUserPassword(context.Background(), tt.req)
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
@@ -392,12 +406,12 @@ func Test_bootServiceServer_Register(t *testing.T) {
 	test.CreateSwitches(t, repo, []*repository.SwitchServiceCreateRequest{sw1, sw2})
 
 	tests := []struct {
-		name        string
-		req         *infrav2.BootServiceRegisterRequest
-		want        *infrav2.BootServiceRegisterResponse
-		wantMachine *apiv2.Machine
-		wantSwitch  *apiv2.Switch // FIXME once the missing ConnectMachineWithSwitches is implemented, test the switch also
-		wantErr     error
+		name         string
+		req          *infrav2.BootServiceRegisterRequest
+		want         *infrav2.BootServiceRegisterResponse
+		wantMachine  *apiv2.Machine
+		wantSwitches []*apiv2.Switch
+		wantErr      error
 	}{
 		{
 			name:    "machine id is empty",
@@ -422,8 +436,8 @@ func Test_bootServiceServer_Register(t *testing.T) {
 			req: &infrav2.BootServiceRegisterRequest{
 				Uuid: m99,
 				Hardware: &apiv2.MachineHardware{Nics: []*apiv2.MachineNic{
-					{Name: "lan0", Neighbors: []*apiv2.MachineNic{{Name: "Ethernet0", Identifier: "Eth1/1", Hostname: "sw1"}}},
-					{Name: "lan1", Neighbors: []*apiv2.MachineNic{{Name: "Ethernet0", Identifier: "Eth1/1", Hostname: "sw2"}}},
+					{Name: "lan0", Mac: "00:00:00:00:00:01", Neighbors: []*apiv2.MachineNic{{Name: "Ethernet0", Mac: "00:00:00:00:00:03", Identifier: "Eth1/1", Hostname: "sw1"}}},
+					{Name: "lan1", Mac: "00:00:00:00:00:02", Neighbors: []*apiv2.MachineNic{{Name: "Ethernet0", Mac: "00:00:00:00:00:04", Identifier: "Eth1/1", Hostname: "sw2"}}},
 				}},
 				Bios:      &apiv2.MachineBios{},
 				Partition: partition1,
@@ -436,8 +450,8 @@ func Test_bootServiceServer_Register(t *testing.T) {
 				Size: &apiv2.Size{Id: "unknown"},
 				Hardware: &apiv2.MachineHardware{
 					Nics: []*apiv2.MachineNic{
-						{Name: "lan0", Neighbors: []*apiv2.MachineNic{{Name: "Ethernet0", Identifier: "Eth1/1", Hostname: "sw1"}}},
-						{Name: "lan1", Neighbors: []*apiv2.MachineNic{{Name: "Ethernet0", Identifier: "Eth1/1", Hostname: "sw2"}}},
+						{Name: "lan0", Mac: "00:00:00:00:00:01", Neighbors: []*apiv2.MachineNic{{Name: "Ethernet0", Mac: "00:00:00:00:00:03", Identifier: "Eth1/1", Hostname: "sw1"}}},
+						{Name: "lan1", Mac: "00:00:00:00:00:02", Neighbors: []*apiv2.MachineNic{{Name: "Ethernet0", Mac: "00:00:00:00:00:04", Identifier: "Eth1/1", Hostname: "sw2"}}},
 					},
 				},
 				Partition: &apiv2.Partition{
@@ -452,6 +466,74 @@ func Test_bootServiceServer_Register(t *testing.T) {
 					},
 				},
 			},
+			wantSwitches: []*apiv2.Switch{
+				{
+					Id:          "sw1",
+					Meta:        &apiv2.Meta{Generation: uint64(1)},
+					Partition:   partition1,
+					Rack:        pointer.Pointer("r01"),
+					ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+					MachineConnections: []*apiv2.MachineConnection{
+						{MachineId: m99, Nic: &apiv2.SwitchNic{
+							Name: "Ethernet0", Identifier: "Eth1/1", BgpFilter: &apiv2.BGPFilter{}, State: &apiv2.NicState{Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP},
+						}},
+					},
+					Nics: []*apiv2.SwitchNic{
+						{
+							Name:       "Ethernet0",
+							BgpFilter:  &apiv2.BGPFilter{},
+							Identifier: "Eth1/1",
+							State: &apiv2.NicState{
+								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							},
+						},
+						{
+							Name:       "Ethernet1",
+							BgpFilter:  &apiv2.BGPFilter{},
+							Identifier: "Eth1/2",
+							State: &apiv2.NicState{
+								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							},
+						},
+					},
+					Os: &apiv2.SwitchOS{
+						Vendor: apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+					},
+				},
+				{
+					Id:          "sw2",
+					Meta:        &apiv2.Meta{Generation: uint64(1)},
+					Partition:   partition1,
+					Rack:        pointer.Pointer("r01"),
+					ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+					MachineConnections: []*apiv2.MachineConnection{
+						{MachineId: m99, Nic: &apiv2.SwitchNic{
+							Name: "Ethernet0", Identifier: "Eth1/1", BgpFilter: &apiv2.BGPFilter{}, State: &apiv2.NicState{Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP},
+						}},
+					},
+					Nics: []*apiv2.SwitchNic{
+						{
+							Name:       "Ethernet0",
+							BgpFilter:  &apiv2.BGPFilter{},
+							Identifier: "Eth1/1",
+							State: &apiv2.NicState{
+								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							},
+						},
+						{
+							Name:       "Ethernet1",
+							BgpFilter:  &apiv2.BGPFilter{},
+							Identifier: "Eth1/2",
+							State: &apiv2.NicState{
+								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							},
+						},
+					},
+					Os: &apiv2.SwitchOS{
+						Vendor: apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+					},
+				},
+			},
 			wantErr: nil,
 		},
 		{
@@ -463,13 +545,13 @@ func Test_bootServiceServer_Register(t *testing.T) {
 					Cpus:   []*apiv2.MetalCPU{{Cores: 4}},
 					Disks:  []*apiv2.MachineBlockDevice{{Name: "/dev/sda", Size: 1024}},
 					Nics: []*apiv2.MachineNic{
-						{Name: "lan0", Neighbors: []*apiv2.MachineNic{{Name: "Ethernet1", Identifier: "Eth1/2", Hostname: "sw1"}}},
-						{Name: "lan1", Neighbors: []*apiv2.MachineNic{{Name: "Ethernet1", Identifier: "Eth1/2", Hostname: "sw2"}}},
+						{Name: "lan0", Mac: "00:00:00:00:00:01", Neighbors: []*apiv2.MachineNic{{Name: "Ethernet1", Mac: "00:00:00:00:00:03", Identifier: "Eth1/2", Hostname: "sw1"}}},
+						{Name: "lan1", Mac: "00:00:00:00:00:02", Neighbors: []*apiv2.MachineNic{{Name: "Ethernet1", Mac: "00:00:00:00:00:04", Identifier: "Eth1/2", Hostname: "sw2"}}},
 					},
 				},
 				Bios: &apiv2.MachineBios{Version: "v1.0.1", Vendor: "SMC"},
 				Bmc: &apiv2.MachineBMC{
-					Address: "192.168.0.1", Mac: "00:00:00:00:00:01", User: "metal", Password: "secret", Interface: "eth0",
+					Address: "192.168.0.1:623", Mac: "00:00:00:00:00:01", User: "metal", Password: "secret", Interface: "eth0",
 					Version:    "bmc123",
 					PowerState: "ON",
 				},
@@ -500,8 +582,8 @@ func Test_bootServiceServer_Register(t *testing.T) {
 					Cpus:   []*apiv2.MetalCPU{{Cores: 4}},
 					Disks:  []*apiv2.MachineBlockDevice{{Name: "/dev/sda", Size: 1024}},
 					Nics: []*apiv2.MachineNic{
-						{Name: "lan0", Neighbors: []*apiv2.MachineNic{{Name: "Ethernet1", Identifier: "Eth1/2", Hostname: "sw1"}}},
-						{Name: "lan1", Neighbors: []*apiv2.MachineNic{{Name: "Ethernet1", Identifier: "Eth1/2", Hostname: "sw2"}}},
+						{Name: "lan0", Mac: "00:00:00:00:00:01", Neighbors: []*apiv2.MachineNic{{Name: "Ethernet1", Mac: "00:00:00:00:00:03", Identifier: "Eth1/2", Hostname: "sw1"}}},
+						{Name: "lan1", Mac: "00:00:00:00:00:02", Neighbors: []*apiv2.MachineNic{{Name: "Ethernet1", Mac: "00:00:00:00:00:04", Identifier: "Eth1/2", Hostname: "sw2"}}},
 					},
 				},
 				Partition: &apiv2.Partition{
@@ -520,7 +602,74 @@ func Test_bootServiceServer_Register(t *testing.T) {
 						// {Event: apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_ALIVE, Message: "machine registered"}, // FIXME this event is not present ?
 					},
 				},
-			}, wantErr: nil,
+			},
+			wantSwitches: []*apiv2.Switch{
+				{
+					Id:          "sw1",
+					Meta:        &apiv2.Meta{Generation: 2},
+					Partition:   partition1,
+					Rack:        pointer.Pointer("r01"),
+					ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+					MachineConnections: []*apiv2.MachineConnection{
+						{MachineId: m1, Nic: &apiv2.SwitchNic{Name: "Ethernet1", Identifier: "Eth1/2", BgpFilter: &apiv2.BGPFilter{}, State: &apiv2.NicState{Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP}}},
+						{MachineId: m99, Nic: &apiv2.SwitchNic{Name: "Ethernet0", Identifier: "Eth1/1", BgpFilter: &apiv2.BGPFilter{}, State: &apiv2.NicState{Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP}}},
+					},
+					Nics: []*apiv2.SwitchNic{
+						{
+							Name:       "Ethernet0",
+							BgpFilter:  &apiv2.BGPFilter{},
+							Identifier: "Eth1/1",
+							State: &apiv2.NicState{
+								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							},
+						},
+						{
+							Name:       "Ethernet1",
+							BgpFilter:  &apiv2.BGPFilter{},
+							Identifier: "Eth1/2",
+							State: &apiv2.NicState{
+								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							},
+						},
+					},
+					Os: &apiv2.SwitchOS{
+						Vendor: apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+					},
+				},
+				{
+					Id:          "sw2",
+					Meta:        &apiv2.Meta{Generation: 2},
+					Partition:   partition1,
+					Rack:        pointer.Pointer("r01"),
+					ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+					MachineConnections: []*apiv2.MachineConnection{
+						{MachineId: m1, Nic: &apiv2.SwitchNic{Name: "Ethernet1", Identifier: "Eth1/2", BgpFilter: &apiv2.BGPFilter{}, State: &apiv2.NicState{Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP}}},
+						{MachineId: m99, Nic: &apiv2.SwitchNic{Name: "Ethernet0", Identifier: "Eth1/1", BgpFilter: &apiv2.BGPFilter{}, State: &apiv2.NicState{Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP}}},
+					},
+					Nics: []*apiv2.SwitchNic{
+						{
+							Name:       "Ethernet0",
+							BgpFilter:  &apiv2.BGPFilter{},
+							Identifier: "Eth1/1",
+							State: &apiv2.NicState{
+								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							},
+						},
+						{
+							Name:       "Ethernet1",
+							BgpFilter:  &apiv2.BGPFilter{},
+							Identifier: "Eth1/2",
+							State: &apiv2.NicState{
+								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							},
+						},
+					},
+					Os: &apiv2.SwitchOS{
+						Vendor: apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+					},
+				},
+			},
+			wantErr: nil,
 		},
 	}
 	for _, tt := range tests {
@@ -528,6 +677,10 @@ func Test_bootServiceServer_Register(t *testing.T) {
 			b := &bootServiceServer{
 				log:  slog.Default(),
 				repo: repo,
+			}
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.req)
 			}
 			got, err := b.Register(ctx, tt.req)
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
@@ -558,11 +711,25 @@ func Test_bootServiceServer_Register(t *testing.T) {
 					t.Errorf("bootServiceServer.Register() diff =%s", diff)
 				}
 			}
+			if len(tt.wantSwitches) > 0 {
+				sws, err := repo.Switch().List(ctx, &apiv2.SwitchQuery{Partition: &partition1})
+				require.NoError(t, err)
+				if diff := cmp.Diff(
+					tt.wantSwitches, sws,
+					protocmp.Transform(),
+					protocmp.IgnoreFields(
+						&apiv2.Meta{}, "created_at", "updated_at",
+					),
+				); diff != "" {
+					t.Errorf("bootServiceServer.Register() switches diff =%s", diff)
+				}
+			}
 		})
 	}
 }
 
 func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
+	// TODO this test is only completely useful if the register call is also done before to have the machine connections in the switch.
 	t.Parallel()
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
@@ -630,6 +797,7 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 		{
 			Base:        metal.Base{ID: m1},
 			PartitionID: partition1,
+			RackID:      "r01",
 			SizeID:      "c1-large-x86",
 			Allocation: &metal.MachineAllocation{
 				Role:    metal.RoleMachine,
@@ -642,6 +810,7 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 		{
 			Base:        metal.Base{ID: m0},
 			PartitionID: partition1,
+			RackID:      "r01",
 			SizeID:      "c1-large-x86",
 			Allocation: &metal.MachineAllocation{
 				Role:    metal.RoleFirewall,
@@ -657,11 +826,12 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 	test.CreateSwitches(t, repo, []*repository.SwitchServiceCreateRequest{sw1, sw2})
 
 	tests := []struct {
-		name        string
-		req         *infrav2.BootServiceInstallationSucceededRequest
-		want        *infrav2.BootServiceInstallationSucceededResponse
-		wantMachine *apiv2.Machine
-		wantErr     error
+		name         string
+		req          *infrav2.BootServiceInstallationSucceededRequest
+		want         *infrav2.BootServiceInstallationSucceededResponse
+		wantMachine  *apiv2.Machine
+		wantSwitches []*apiv2.Switch
+		wantErr      error
 	}{
 		{
 			name: "machine installation succeeded",
@@ -671,6 +841,7 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 				Uuid:      m1,
 				Meta:      &apiv2.Meta{Generation: 1},
 				Partition: &apiv2.Partition{Id: partition1, Meta: &apiv2.Meta{}, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
+				Rack:      "r01",
 				Size: &apiv2.Size{Id: "c1-large-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024, Max: 1024},
@@ -697,6 +868,64 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 				RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
 				Status:                   &apiv2.MachineStatus{Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE, Condition: &apiv2.MachineCondition{}, LedState: &apiv2.MachineChassisIdentifyLEDState{}},
 			},
+			wantSwitches: []*apiv2.Switch{
+				{
+					Id:          "sw1",
+					Meta:        &apiv2.Meta{},
+					Partition:   partition1,
+					Rack:        pointer.Pointer("r01"),
+					ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+					Nics: []*apiv2.SwitchNic{
+						{
+							Name:       "Ethernet0",
+							BgpFilter:  &apiv2.BGPFilter{},
+							Identifier: "Eth1/1",
+							State: &apiv2.NicState{
+								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							},
+						},
+						{
+							Name:       "Ethernet1",
+							BgpFilter:  &apiv2.BGPFilter{},
+							Identifier: "Eth1/2",
+							State: &apiv2.NicState{
+								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							},
+						},
+					},
+					Os: &apiv2.SwitchOS{
+						Vendor: apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+					},
+				},
+				{
+					Id:          "sw2",
+					Meta:        &apiv2.Meta{},
+					Partition:   partition1,
+					Rack:        pointer.Pointer("r01"),
+					ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+					Nics: []*apiv2.SwitchNic{
+						{
+							Name:       "Ethernet0",
+							BgpFilter:  &apiv2.BGPFilter{},
+							Identifier: "Eth1/1",
+							State: &apiv2.NicState{
+								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							},
+						},
+						{
+							Name:       "Ethernet1",
+							BgpFilter:  &apiv2.BGPFilter{},
+							Identifier: "Eth1/2",
+							State: &apiv2.NicState{
+								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							},
+						},
+					},
+					Os: &apiv2.SwitchOS{
+						Vendor: apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+					},
+				},
+			},
 		},
 		{
 			name: "firewall installation succeeded",
@@ -706,6 +935,7 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 				Uuid:      m0,
 				Meta:      &apiv2.Meta{Generation: 1},
 				Partition: &apiv2.Partition{Id: partition1, Meta: &apiv2.Meta{}, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
+				Rack:      "r01",
 				Size: &apiv2.Size{Id: "c1-large-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024, Max: 1024},
@@ -733,6 +963,64 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 				RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
 				Status:                   &apiv2.MachineStatus{Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE, Condition: &apiv2.MachineCondition{}, LedState: &apiv2.MachineChassisIdentifyLEDState{}},
 			},
+			wantSwitches: []*apiv2.Switch{
+				{
+					Id:          "sw1",
+					Meta:        &apiv2.Meta{},
+					Partition:   partition1,
+					Rack:        pointer.Pointer("r01"),
+					ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+					Nics: []*apiv2.SwitchNic{
+						{
+							Name:       "Ethernet0",
+							BgpFilter:  &apiv2.BGPFilter{},
+							Identifier: "Eth1/1",
+							State: &apiv2.NicState{
+								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							},
+						},
+						{
+							Name:       "Ethernet1",
+							BgpFilter:  &apiv2.BGPFilter{},
+							Identifier: "Eth1/2",
+							State: &apiv2.NicState{
+								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							},
+						},
+					},
+					Os: &apiv2.SwitchOS{
+						Vendor: apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+					},
+				},
+				{
+					Id:          "sw2",
+					Meta:        &apiv2.Meta{},
+					Partition:   partition1,
+					Rack:        pointer.Pointer("r01"),
+					ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+					Nics: []*apiv2.SwitchNic{
+						{
+							Name:       "Ethernet0",
+							BgpFilter:  &apiv2.BGPFilter{},
+							Identifier: "Eth1/1",
+							State: &apiv2.NicState{
+								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							},
+						},
+						{
+							Name:       "Ethernet1",
+							BgpFilter:  &apiv2.BGPFilter{},
+							Identifier: "Eth1/2",
+							State: &apiv2.NicState{
+								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							},
+						},
+					},
+					Os: &apiv2.SwitchOS{
+						Vendor: apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+					},
+				},
+			},
 		},
 		// {
 		// 	name: "machine installation failed",
@@ -743,6 +1031,10 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 			b := &bootServiceServer{
 				log:  slog.Default(),
 				repo: repo,
+			}
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.req)
 			}
 			got, err := b.InstallationSucceeded(ctx, tt.req)
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
@@ -779,6 +1071,19 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 				consolePassword, err := repo.UnscopedMachine().AdditionalMethods().GetConsolePassword(ctx, tt.req.Uuid)
 				require.NoError(t, err)
 				require.Equal(t, tt.req.ConsolePassword, consolePassword)
+			}
+			if len(tt.wantSwitches) > 0 {
+				sws, err := repo.Switch().List(ctx, &apiv2.SwitchQuery{Partition: &partition1})
+				require.NoError(t, err)
+				if diff := cmp.Diff(
+					tt.wantSwitches, sws,
+					protocmp.Transform(),
+					protocmp.IgnoreFields(
+						&apiv2.Meta{}, "created_at", "updated_at",
+					),
+				); diff != "" {
+					t.Errorf("bootServiceServer.InstallationSucceeded() switches diff =%s", diff)
+				}
 			}
 		})
 	}
