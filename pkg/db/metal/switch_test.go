@@ -935,3 +935,87 @@ func TestFromBGPState(t *testing.T) {
 		})
 	}
 }
+
+func TestSwitch_SetVrfOfMachine(t *testing.T) {
+	tests := []struct {
+		name     string
+		s        *Switch
+		m        *Machine
+		vrf      string
+		wantNics Nics
+	}{
+		{
+			name: "switch is not connected to machine, nothing to do",
+			s: &Switch{
+				Nics: Nics{
+					{
+						Identifier: "Eth1/1",
+						Vrf:        "vrf200",
+					},
+				},
+				MachineConnections: ConnectionMap{
+					"m2": {},
+				},
+			},
+			m: &Machine{
+				Base: Base{
+					ID: "m1",
+				},
+			},
+			vrf: "vrf100",
+			wantNics: Nics{
+				{
+					Identifier: "Eth1/1",
+					Vrf:        "vrf200",
+				},
+			},
+		},
+		{
+			name: "set vrf on connected nic",
+			s: &Switch{
+				Nics: Nics{
+					{
+						Identifier: "Eth1/1",
+						Vrf:        "vrf200",
+					},
+					{
+						Identifier: "Eth1/2",
+						Vrf:        "vrf300",
+					},
+				},
+				MachineConnections: ConnectionMap{
+					"m1": {
+						{
+							Nic:       Nic{Identifier: "Eth1/2"},
+							MachineID: "m1",
+						},
+					},
+				},
+			},
+			m: &Machine{
+				Base: Base{
+					ID: "m1",
+				},
+			},
+			vrf: "vrf100",
+			wantNics: Nics{
+				{
+					Identifier: "Eth1/1",
+					Vrf:        "vrf200",
+				},
+				{
+					Identifier: "Eth1/2",
+					Vrf:        "vrf100",
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.s.SetVrfOfMachine(tt.m, tt.vrf)
+			if diff := cmp.Diff(tt.wantNics, tt.s.Nics); diff != "" {
+				t.Errorf("Switch.SetVrfOfMachine() diff = %s", diff)
+			}
+		})
+	}
+}
