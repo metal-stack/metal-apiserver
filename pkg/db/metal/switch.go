@@ -2,6 +2,7 @@ package metal
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -189,6 +190,10 @@ func (s *Switch) SetVrfOfMachine(m *Machine, vrf string) {
 		}
 		nics = append(nics, *e)
 	}
+
+	slices.SortFunc(nics, func(a, b Nic) int {
+		return strings.Compare(a.Identifier, b.Identifier)
+	})
 	s.Nics = nics
 }
 
