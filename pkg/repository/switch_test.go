@@ -489,10 +489,21 @@ func Test_convertMachineConnections(t *testing.T) {
 						},
 					},
 				},
+				"machine02": metal.Connections{
+					{
+						MachineID: "machine02",
+						Nic: metal.Nic{
+							Identifier: "Eth1/2",
+						},
+					},
+				},
 			},
 			nics: []*apiv2.SwitchNic{
 				{
 					Identifier: "Eth1/1",
+				},
+				{
+					Identifier: "Eth1/2",
 				},
 			},
 			want: []*apiv2.MachineConnection{
@@ -500,6 +511,12 @@ func Test_convertMachineConnections(t *testing.T) {
 					MachineId: "machine01",
 					Nic: &apiv2.SwitchNic{
 						Identifier: "Eth1/1",
+					},
+				},
+				{
+					MachineId: "machine02",
+					Nic: &apiv2.SwitchNic{
+						Identifier: "Eth1/2",
 					},
 				},
 			},
