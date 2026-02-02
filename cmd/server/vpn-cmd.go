@@ -60,7 +60,12 @@ func newVPNCmd() *cli.Command {
 						return fmt.Errorf("unable to create datastore: %w", err)
 					}
 
-					repo, err := repository.New(log, nil, ds, nil, nil, nil)
+					config := repository.Config{
+						Log:       log,
+						Datastore: ds,
+					}
+
+					repo, err := repository.New(config)
 					if err != nil {
 						return fmt.Errorf("unable to create repository: %w", err)
 					}

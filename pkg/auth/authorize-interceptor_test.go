@@ -739,6 +739,38 @@ func Test_authorizeInterceptor_WrapUnary(t *testing.T) {
 			wantErr: nil,
 		},
 		{
+			name: "pixie creates a token for metal-hammer with only admin token create rights",
+			token: &apiv2.Token{
+				User: "pixiecore",
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "*",
+						Methods: []string{"/metalstack.admin.v2.TokenService/Create"},
+					},
+				},
+				MachineRoles: map[string]apiv2.MachineRole{
+					"*": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+			},
+			method:  adminv2connect.TokenServiceCreateProcedure,
+			handler: handler[adminv2.TokenServiceCreateRequest, adminv2.TokenServiceCreateResponse](),
+			reqFn: func(ctx context.Context, c client.Client) error {
+				_, err := c.Adminv2().Token().Create(ctx, &adminv2.TokenServiceCreateRequest{
+					User: pointer.Pointer("metal-hammer"),
+					TokenCreateRequest: &apiv2.TokenServiceCreateRequest{
+						Description: "i want to act as metal-hammer for machine de240964-ff9f-4e3d-95b2-8a96e43788f1",
+						MachineRoles: map[string]apiv2.MachineRole{
+							"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+						},
+						Expires: durationpb.New(time.Hour),
+					},
+				})
+				return err
+			},
+			wantErr: nil,
+		},
+
+		{
 			name: "pixie creates a token for metal-hammer with wrong subject rights",
 			token: &apiv2.Token{
 				User: "pixiecore",

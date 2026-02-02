@@ -30,7 +30,14 @@ func TestGet(t *testing.T) {
 
 	task := task.NewClient(log, rc)
 
-	repo, err := repository.New(log, nil, ds, ipam, task, nil)
+	config := repository.Config{
+		Log:       log,
+		Datastore: ds,
+		Ipam:      ipam,
+		Task:      task,
+	}
+
+	repo, err := repository.New(config)
 	require.NoError(t, err)
 
 	ip, err := repo.IP("project1").Get(ctx, "asdf")
@@ -56,7 +63,14 @@ func TestIpUnscopedList(t *testing.T) {
 	defer closer()
 	task := task.NewClient(log, rc)
 
-	repo, err := repository.New(log, nil, ds, ipam, task, nil)
+	config := repository.Config{
+		Log:       log,
+		Datastore: ds,
+		Ipam:      ipam,
+		Task:      task,
+	}
+
+	repo, err := repository.New(config)
 	require.NoError(t, err)
 
 	ips, err := repo.UnscopedIP().List(ctx, nil)

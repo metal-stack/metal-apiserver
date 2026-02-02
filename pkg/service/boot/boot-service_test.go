@@ -223,7 +223,7 @@ func Test_bootServiceServer_Dhcp(t *testing.T) {
 			wantMachine: &apiv2.Machine{
 				Uuid: m0,
 				Meta: &apiv2.Meta{Generation: 1},
-				Size: &apiv2.Size{Id: "unknown"},
+				Size: &apiv2.Size{Id: "unknown", Name: pointer.Pointer("unknown")},
 				Partition: &apiv2.Partition{
 					Id:                partition1,
 					Meta:              &apiv2.Meta{},
@@ -447,7 +447,7 @@ func Test_bootServiceServer_Register(t *testing.T) {
 				Meta: &apiv2.Meta{Generation: 2},
 				Uuid: m99,
 				Rack: "r01",
-				Size: &apiv2.Size{Id: "unknown"},
+				Size: &apiv2.Size{Id: "unknown", Name: pointer.Pointer("unknown")},
 				Hardware: &apiv2.MachineHardware{
 					Nics: []*apiv2.MachineNic{
 						{Name: "lan0", Mac: "00:00:00:00:00:01", Neighbors: []*apiv2.MachineNic{{Name: "Ethernet0", Mac: "00:00:00:00:00:03", Identifier: "Eth1/1", Hostname: "sw1"}}},
@@ -598,9 +598,7 @@ func Test_bootServiceServer_Register(t *testing.T) {
 					MetalHammerVersion: "v1.0.1",
 				},
 				RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
-					Events: []*apiv2.MachineProvisioningEvent{
-						// {Event: apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_ALIVE, Message: "machine registered"}, // FIXME this event is not present ?
-					},
+					Events: []*apiv2.MachineProvisioningEvent{},
 				},
 			},
 			wantSwitches: []*apiv2.Switch{
@@ -611,8 +609,8 @@ func Test_bootServiceServer_Register(t *testing.T) {
 					Rack:        pointer.Pointer("r01"),
 					ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 					MachineConnections: []*apiv2.MachineConnection{
-						{MachineId: m1, Nic: &apiv2.SwitchNic{Name: "Ethernet1", Identifier: "Eth1/2", BgpFilter: &apiv2.BGPFilter{}, State: &apiv2.NicState{Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP}}},
 						{MachineId: m99, Nic: &apiv2.SwitchNic{Name: "Ethernet0", Identifier: "Eth1/1", BgpFilter: &apiv2.BGPFilter{}, State: &apiv2.NicState{Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP}}},
+						{MachineId: m1, Nic: &apiv2.SwitchNic{Name: "Ethernet1", Identifier: "Eth1/2", BgpFilter: &apiv2.BGPFilter{}, State: &apiv2.NicState{Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP}}},
 					},
 					Nics: []*apiv2.SwitchNic{
 						{
@@ -643,8 +641,8 @@ func Test_bootServiceServer_Register(t *testing.T) {
 					Rack:        pointer.Pointer("r01"),
 					ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 					MachineConnections: []*apiv2.MachineConnection{
-						{MachineId: m1, Nic: &apiv2.SwitchNic{Name: "Ethernet1", Identifier: "Eth1/2", BgpFilter: &apiv2.BGPFilter{}, State: &apiv2.NicState{Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP}}},
 						{MachineId: m99, Nic: &apiv2.SwitchNic{Name: "Ethernet0", Identifier: "Eth1/1", BgpFilter: &apiv2.BGPFilter{}, State: &apiv2.NicState{Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP}}},
+						{MachineId: m1, Nic: &apiv2.SwitchNic{Name: "Ethernet1", Identifier: "Eth1/2", BgpFilter: &apiv2.BGPFilter{}, State: &apiv2.NicState{Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP}}},
 					},
 					Nics: []*apiv2.SwitchNic{
 						{
@@ -1022,6 +1020,7 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 				},
 			},
 		},
+		// TODO write this test which shows that the switch ports do not get connected to the tenant vrf
 		// {
 		// 	name: "machine installation failed",
 		// },

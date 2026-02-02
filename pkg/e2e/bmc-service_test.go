@@ -67,7 +67,8 @@ func TestWaitForBMCCommandSync(t *testing.T) {
 		waitResponses []*infrav2.WaitForBMCCommandResponse
 		mu            sync.RWMutex
 	)
-	go func() {
+
+	metalBmcSimulation := func() {
 		// We simulate metal-bmc watching for machine events
 		stream, err := apiClient.Infrav2().BMC().WaitForBMCCommand(ctx, &infrav2.WaitForBMCCommandRequest{Partition: p.Partition.Id})
 		if err != nil {
@@ -88,30 +89,10 @@ func TestWaitForBMCCommandSync(t *testing.T) {
 			waitResponses = append(waitResponses, resp)
 			mu.Unlock()
 		}
-	}()
-
-	go func() {
-		// We simulate a second metal-bmc watching for machine events
-		stream, err := apiClient.Infrav2().BMC().WaitForBMCCommand(ctx, &infrav2.WaitForBMCCommandRequest{Partition: p.Partition.Id})
-		if err != nil {
-			return
-		}
-		defer func() {
-			_ = stream.Close()
-		}()
-
-		for stream.Receive() {
-			mu.Lock()
-			resp := stream.Msg()
-			time.Sleep(100 * time.Millisecond) // Ensure task is in pending for a while
-			_, err := apiClient.Infrav2().BMC().BMCCommandDone(ctx, &infrav2.BMCCommandDoneRequest{CommandId: resp.CommandId})
-			if err != nil {
-				log.Error("error sending done response", "error", err)
-			}
-			waitResponses = append(waitResponses, resp)
-			mu.Unlock()
-		}
-	}()
+	}
+	// Start two instances of metal-bmc waiting for machine bmc commands
+	go metalBmcSimulation()
+	go metalBmcSimulation()
 
 	// Give subscription time to establish
 	time.Sleep(100 * time.Millisecond)

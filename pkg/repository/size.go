@@ -20,6 +20,15 @@ type (
 	}
 )
 
+func (r *sizeRepository) unknownSize() *apiv2.Size {
+	s := metal.UnknownSize()
+
+	return &apiv2.Size{
+		Id:   s.ID,
+		Name: &s.Name,
+	}
+}
+
 func (r *sizeRepository) get(ctx context.Context, id string) (*metal.Size, error) {
 	size, err := r.s.ds.Size().Get(ctx, id)
 	if err != nil {
