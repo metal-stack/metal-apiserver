@@ -14,10 +14,12 @@ import (
 )
 
 func TestClient_NewIPDeleteTask(t *testing.T) {
-	log := slog.Default()
-	r := miniredis.RunT(t)
-	rc := redis.NewClient(&redis.Options{Addr: r.Addr()})
-	c := task.NewClient(log, rc)
+	var (
+		log = slog.Default()
+		r   = miniredis.RunT(t)
+		rc  = redis.NewClient(&redis.Options{Addr: r.Addr()})
+		c   = task.NewClient(log, rc)
+	)
 
 	type args struct {
 		allocationUUID string
@@ -60,10 +62,12 @@ func TestClient_NewIPDeleteTask(t *testing.T) {
 }
 
 func TestClient_NewNetworkDeleteTask(t *testing.T) {
-	log := slog.Default()
-	r := miniredis.RunT(t)
-	rc := redis.NewClient(&redis.Options{Addr: r.Addr()})
-	c := task.NewClient(log, rc)
+	var (
+		log = slog.Default()
+		r   = miniredis.RunT(t)
+		rc  = redis.NewClient(&redis.Options{Addr: r.Addr()})
+		c   = task.NewClient(log, rc)
+	)
 
 	type args struct {
 		uuid string
@@ -100,10 +104,12 @@ func TestClient_NewNetworkDeleteTask(t *testing.T) {
 }
 
 func TestClient_NewMachineDeleteTask(t *testing.T) {
-	log := slog.Default()
-	r := miniredis.RunT(t)
-	rc := redis.NewClient(&redis.Options{Addr: r.Addr()})
-	c := task.NewClient(log, rc)
+	var (
+		log = slog.Default()
+		r   = miniredis.RunT(t)
+		rc  = redis.NewClient(&redis.Options{Addr: r.Addr()})
+		c   = task.NewClient(log, rc)
+	)
 
 	type args struct {
 		uuid           *string
@@ -156,10 +162,12 @@ func TestClient_NewMachineDeleteTask(t *testing.T) {
 }
 
 func TestClient_Informers(t *testing.T) {
-	log := slog.Default()
-	r := miniredis.RunT(t)
-	rc := redis.NewClient(&redis.Options{Addr: r.Addr()})
-	c := task.NewClient(log, rc)
+	var (
+		log = slog.Default()
+		r   = miniredis.RunT(t)
+		rc  = redis.NewClient(&redis.Options{Addr: r.Addr()})
+		c   = task.NewClient(log, rc)
+	)
 
 	task, err := c.NewMachineDeleteTask(pointer.Pointer("machine-uuid"), pointer.Pointer("allocation-uuid"))
 	require.NoError(t, err)

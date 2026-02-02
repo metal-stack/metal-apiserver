@@ -33,6 +33,7 @@ type (
 		IP             string `json:"ip,omitempty"`
 		Project        string `json:"project,omitempty"`
 	}
+
 	NetworkDeletePayload struct {
 		UUID string `json:"uuid,omitempty"`
 	}
@@ -123,7 +124,6 @@ func (c *Client) List(queue *string, count, page *uint32) ([]*asynq.TaskInfo, er
 }
 
 func (c *Client) list(queue string, count, page *uint32) ([]*asynq.TaskInfo, error) {
-	var opts []asynq.ListOption
 	if count == nil {
 		count = pointer.Pointer(uint32(100))
 	}
@@ -131,12 +131,7 @@ func (c *Client) list(queue string, count, page *uint32) ([]*asynq.TaskInfo, err
 		page = pointer.Pointer(uint32(1))
 	}
 
-	if count != nil {
-		opts = append(opts, asynq.PageSize(int(*count)))
-	}
-	if page != nil {
-		opts = append(opts, asynq.Page(int(*page)))
-	}
+	opts := []asynq.ListOption{asynq.PageSize(int(*count)), asynq.Page(int(*page))}
 
 	var tasks []*asynq.TaskInfo
 	active, err := c.inspector.ListActiveTasks(queue, opts...)

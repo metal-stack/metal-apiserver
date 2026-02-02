@@ -141,7 +141,16 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 	// push pop queue must use valkey-go
 	queue := queue.New(log, vc)
 
-	repo, err := repository.New(log, mdc, ds, ipam, task, queue)
+	config := repository.Config{
+		Log:              log,
+		MasterdataClient: mdc,
+		Datastore:        ds,
+		Ipam:             ipam,
+		Task:             task,
+		Queue:            queue,
+	}
+
+	repo, err := repository.New(config)
 	require.NoError(t, err)
 
 	asyncCloser := StartAsynqServer(t, log.WithGroup("asynq"), repo, rc)

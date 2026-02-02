@@ -965,6 +965,16 @@ func convertMachineConnections(machineConnections metal.ConnectionMap, nics []*a
 		return nil, errorutil.InvalidArgument("nics %v could not be found but are connected to machines", notFoundNics)
 	}
 
+	slices.SortStableFunc(connections, func(a, b *apiv2.MachineConnection) int {
+		if a == nil || a.Nic == nil {
+			return 1
+		}
+		if b == nil || b.Nic == nil {
+			return -1
+		}
+		return strings.Compare(a.Nic.Name, b.Nic.Name)
+	})
+
 	return connections, nil
 }
 

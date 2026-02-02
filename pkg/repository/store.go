@@ -26,20 +26,29 @@ type (
 		queue *queue.Queue
 	}
 
+	Config struct {
+		Log              *slog.Logger
+		Datastore        generic.Datastore
+		MasterdataClient mdm.Client
+		Ipam             ipamv1connect.IpamServiceClient
+		Task             *task.Client
+		Queue            *queue.Queue
+	}
+
 	store[R Repo, E Entity, M Message, C CreateMessage, U UpdateMessage, Q Query] struct {
 		typed R
 		repository[E, M, C, U, Q]
 	}
 )
 
-func New(log *slog.Logger, mdc mdm.Client, ds generic.Datastore, ipam ipamv1connect.IpamServiceClient, task *task.Client, queue *queue.Queue) (*Store, error) {
+func New(c Config) (*Store, error) {
 	r := &Store{
-		log:   log,
-		mdc:   mdc,
-		ipam:  ipam,
-		ds:    ds,
-		task:  task,
-		queue: queue,
+		log:   c.Log,
+		mdc:   c.MasterdataClient,
+		ipam:  c.Ipam,
+		ds:    c.Datastore,
+		task:  c.Task,
+		queue: c.Queue,
 	}
 
 	return r, nil

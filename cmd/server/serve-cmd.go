@@ -130,12 +130,21 @@ func newServeCmd() *cli.Command {
 				return fmt.Errorf("unable to create datastore: %w", err)
 			}
 
-			// Asynq hibeken
-			task := task.NewClient(log, redisConfig.AsyncClient)
-			// push pop queue
-			queue := queue.New(log, redisConfig.QueueClient)
+			var (
+				task  = task.NewClient(log, redisConfig.AsyncClient)
+				queue = queue.New(log, redisConfig.QueueClient)
 
-			repo, err := repository.New(log, mc, ds, ipam, task, queue)
+				config = repository.Config{
+					Log:              log,
+					MasterdataClient: mc,
+					Datastore:        ds,
+					Ipam:             ipam,
+					Task:             task,
+					Queue:            queue,
+				}
+			)
+
+			repo, err := repository.New(config)
 			if err != nil {
 				return fmt.Errorf("unable to create repository: %w", err)
 			}

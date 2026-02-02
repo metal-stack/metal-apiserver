@@ -611,8 +611,8 @@ func Test_bootServiceServer_Register(t *testing.T) {
 					Rack:        pointer.Pointer("r01"),
 					ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 					MachineConnections: []*apiv2.MachineConnection{
-						{MachineId: m1, Nic: &apiv2.SwitchNic{Name: "Ethernet1", Identifier: "Eth1/2", BgpFilter: &apiv2.BGPFilter{}, State: &apiv2.NicState{Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP}}},
 						{MachineId: m99, Nic: &apiv2.SwitchNic{Name: "Ethernet0", Identifier: "Eth1/1", BgpFilter: &apiv2.BGPFilter{}, State: &apiv2.NicState{Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP}}},
+						{MachineId: m1, Nic: &apiv2.SwitchNic{Name: "Ethernet1", Identifier: "Eth1/2", BgpFilter: &apiv2.BGPFilter{}, State: &apiv2.NicState{Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP}}},
 					},
 					Nics: []*apiv2.SwitchNic{
 						{
@@ -643,8 +643,8 @@ func Test_bootServiceServer_Register(t *testing.T) {
 					Rack:        pointer.Pointer("r01"),
 					ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 					MachineConnections: []*apiv2.MachineConnection{
-						{MachineId: m1, Nic: &apiv2.SwitchNic{Name: "Ethernet1", Identifier: "Eth1/2", BgpFilter: &apiv2.BGPFilter{}, State: &apiv2.NicState{Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP}}},
 						{MachineId: m99, Nic: &apiv2.SwitchNic{Name: "Ethernet0", Identifier: "Eth1/1", BgpFilter: &apiv2.BGPFilter{}, State: &apiv2.NicState{Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP}}},
+						{MachineId: m1, Nic: &apiv2.SwitchNic{Name: "Ethernet1", Identifier: "Eth1/2", BgpFilter: &apiv2.BGPFilter{}, State: &apiv2.NicState{Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP}}},
 					},
 					Nics: []*apiv2.SwitchNic{
 						{

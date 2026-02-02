@@ -53,7 +53,7 @@ func (q *Queue) WaitMachineAllocation(ctx context.Context, machineId string) <-c
 	return Wait[task.MachineAllocationPayload](ctx, q.log, q.client, machineId)
 }
 
-// Push allows adding an value to the queue which will then be delivered to the waiters.
+// Push allows adding a value to the queue which will then be delivered to the waiters.
 // messages will only be received by one waiter which waits for the given queueName.
 func Push(ctx context.Context, log *slog.Logger, client valkeygo.Client, queueName string, value any) error {
 	encoded, err := json.Marshal(value)
@@ -68,7 +68,7 @@ func Push(ctx context.Context, log *slog.Logger, client valkeygo.Client, queueNa
 	return nil
 }
 
-// Wait receives values from the queue with the given queueName, every values in the queue not already consumed will be returned.
+// Wait receives values from the queue with the given queueName, every value in the queue not already consumed will be returned.
 // when the context is done, the channel gets closed.
 func Wait[E any](ctx context.Context, log *slog.Logger, client valkeygo.Client, queueName string) <-chan E {
 	var (
@@ -99,7 +99,7 @@ func Wait[E any](ctx context.Context, log *slog.Logger, client valkeygo.Client, 
 
 			log.Debug("wait received", "results", results)
 			if len(results) != 2 {
-				log.Error("nox exactly 2 elements in results, continue")
+				log.Error("expected exactly 2 elements in results, continue")
 				continue
 			}
 
