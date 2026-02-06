@@ -17,9 +17,24 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+func Test_partitionUpdateWithDatacenter(t *testing.T) {
+	t.Parallel()
+
+	dc := test.NewDatacenter(t, &test.DatacenterConfig{Partitions: pointer.Pointer(uint(2))})
+	defer dc.Close()
+
+	dc.Assert(&test.Asserters{
+		Partition: func(t testing.TB, partition *apiv2.Partition) {
+			require.Equal(t, "bla", partition.Description)
+		},
+	})
+
+}
 
 func Test_partitionServiceServer_Create(t *testing.T) {
 	t.Parallel()
