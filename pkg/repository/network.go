@@ -46,7 +46,9 @@ func (r *networkRepository) matchScope(nw *metal.Network) bool {
 }
 
 func (r *networkRepository) delete(ctx context.Context, nw *metal.Network) error {
-	info, err := r.s.task.NewNetworkDeleteTask(nw.ID)
+	info, err := r.s.task.NewTask(&task.NetworkDeletePayload{
+		UUID: nw.ID,
+	})
 	if err != nil {
 		return err
 	}

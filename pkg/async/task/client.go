@@ -9,17 +9,15 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/redis/go-redis/v9"
 )
 
-// A list of task types.
 const (
-	TypeIpDelete          = "ip:delete"
-	TypeNetworkDelete     = "network:delete"
-	TypeMachineDelete     = "machine:delete"
-	TypeMachineBMCCommand = "machine:bmc-command"
-	TypeMachineAllocation = "machine:allocation"
+	TypeIpDelete          TaskType = "ip:delete"
+	TypeNetworkDelete     TaskType = "network:delete"
+	TypeMachineDelete     TaskType = "machine:delete"
+	TypeMachineBMCCommand TaskType = "machine:bmc-command"
+	TypeMachineAllocation TaskType = "machine:allocation"
 )
 
 var (
@@ -28,6 +26,8 @@ var (
 )
 
 type (
+	TaskType string
+
 	IPDeletePayload struct {
 		AllocationUUID string `json:"allocation_uuid,omitempty"`
 		IP             string `json:"ip,omitempty"`
@@ -71,6 +71,8 @@ type (
 		inspector *asynq.Inspector
 		opts      []asynq.Option
 	}
+
+	taskListFn func(queue string, opts ...asynq.ListOption) ([]*asynq.TaskInfo, error)
 )
 
 func NewClient(log *slog.Logger, redis *redis.Client, opts ...asynq.Option) *Client {
@@ -81,12 +83,10 @@ func NewClient(log *slog.Logger, redis *redis.Client, opts ...asynq.Option) *Cli
 		opts = []asynq.Option{defaultAsynqRetries, defaultAsynqTimeout}
 	}
 
-	inspector := asynq.NewInspectorFromRedisClient(redis)
-
 	return &Client{
 		log:       log,
 		client:    client,
-		inspector: inspector,
+		inspector: asynq.NewInspectorFromRedisClient(redis),
 		opts:      opts,
 	}
 }
@@ -103,68 +103,73 @@ func (c *Client) DeleteTask(queue, id string) error {
 	return c.inspector.DeleteTask(queue, id)
 }
 
-func (c *Client) List(queue *string, count, page *uint32) ([]*asynq.TaskInfo, error) {
+func (c *Client) List(queue *string) ([]*asynq.TaskInfo, error) {
 	if queue != nil {
-		return c.list(*queue, count, page)
+		return c.listQueueTasks(*queue)
 	}
 
 	queues, err := c.GetQueues()
 	if err != nil {
 		return nil, err
 	}
+
 	var tasks []*asynq.TaskInfo
+
 	for _, q := range queues {
-		ts, err := c.list(q, count, page)
+		ts, err := c.listQueueTasks(q)
 		if err != nil {
 			return nil, err
 		}
+
 		tasks = append(tasks, ts...)
 	}
+
 	return tasks, nil
 }
 
-func (c *Client) list(queue string, count, page *uint32) ([]*asynq.TaskInfo, error) {
-	if count == nil {
-		count = pointer.Pointer(uint32(100))
-	}
-	if page == nil {
-		page = pointer.Pointer(uint32(1))
+func (c *Client) listQueueTasks(queue string) ([]*asynq.TaskInfo, error) {
+	var all []*asynq.TaskInfo
+
+	for _, listFn := range []taskListFn{
+		c.inspector.ListActiveTasks,
+		c.inspector.ListPendingTasks,
+		c.inspector.ListRetryTasks,
+		c.inspector.ListArchivedTasks,
+		c.inspector.ListCompletedTasks,
+	} {
+		res, err := listAll(queue, listFn)
+		if err != nil {
+			return nil, err
+		}
+
+		all = append(all, res...)
 	}
 
-	opts := []asynq.ListOption{asynq.PageSize(int(*count)), asynq.Page(int(*page))}
+	return all, nil
+}
 
-	var tasks []*asynq.TaskInfo
-	active, err := c.inspector.ListActiveTasks(queue, opts...)
-	if err != nil {
-		return nil, err
+func listAll(queue string, callFn taskListFn) ([]*asynq.TaskInfo, error) {
+	var (
+		size = 1000
+		page = 0
+		all  []*asynq.TaskInfo
+	)
+
+	for {
+		res, err := callFn(queue, asynq.PageSize(size), asynq.Page(page))
+		if err != nil {
+			return nil, fmt.Errorf("unable to list tasks in queue %q: %w", queue, err)
+		}
+
+		all = append(all, res...)
+		page++
+
+		if len(res) >= size {
+			continue
+		}
+
+		return all, nil
 	}
-	tasks = append(tasks, active...)
-	pending, err := c.inspector.ListPendingTasks(queue)
-	if err != nil {
-		return nil, err
-	}
-	tasks = append(tasks, pending...)
-	scheduled, err := c.inspector.ListScheduledTasks(queue)
-	if err != nil {
-		return nil, err
-	}
-	tasks = append(tasks, scheduled...)
-	retry, err := c.inspector.ListRetryTasks(queue)
-	if err != nil {
-		return nil, err
-	}
-	tasks = append(tasks, retry...)
-	archived, err := c.inspector.ListArchivedTasks(queue)
-	if err != nil {
-		return nil, err
-	}
-	tasks = append(tasks, archived...)
-	completed, err := c.inspector.ListCompletedTasks(queue)
-	if err != nil {
-		return nil, err
-	}
-	tasks = append(tasks, completed...)
-	return tasks, nil
 }
 
 //----------------------------------------------
@@ -172,99 +177,46 @@ func (c *Client) list(queue string, count, page *uint32) ([]*asynq.TaskInfo, err
 // A task consists of a type and a payload.
 //----------------------------------------------
 
-func (c *Client) NewIPDeleteTask(allocationUUID, ip, project string) (*asynq.TaskInfo, error) {
-	payload, err := json.Marshal(IPDeletePayload{AllocationUUID: allocationUUID, IP: ip, Project: project})
+func (c *Client) NewTask(payload any, additionalOpts ...asynq.Option) (*asynq.TaskInfo, error) {
+	var taskType TaskType
+
+	switch payload.(type) {
+	case *IPDeletePayload:
+		taskType = TypeIpDelete
+	case *NetworkDeletePayload:
+		taskType = TypeNetworkDelete
+	case *MachineDeletePayload:
+		taskType = TypeMachineDelete
+	case *MachineBMCCommandPayload:
+		taskType = TypeMachineBMCCommand
+	default:
+		return nil, fmt.Errorf("no task for payload of type %T", payload)
+	}
+
+	encoded, err := json.Marshal(payload)
 	if err != nil {
-		return nil, fmt.Errorf("unable to marshal ip delete payload:%w", err)
+		return nil, fmt.Errorf("unable to marshal task payload: %w", err)
 	}
 
 	taskId, err := taskID()
 	if err != nil {
 		return nil, err
 	}
-	opts := append(c.opts, asynq.TaskID(taskId))
 
-	task := asynq.NewTask(TypeIpDelete, payload, opts...)
-	taskInfo, err := c.client.Enqueue(task)
-	if err != nil {
-		return nil, fmt.Errorf("unable to enqueue ip delete task:%w", err)
-	}
-	return taskInfo, nil
-}
-
-func (c *Client) NewNetworkDeleteTask(uuid string) (*asynq.TaskInfo, error) {
-	payload, err := json.Marshal(NetworkDeletePayload{UUID: uuid})
-	if err != nil {
-		return nil, fmt.Errorf("unable to marshal network delete payload:%w", err)
-	}
-
-	taskId, err := taskID()
-	if err != nil {
-		return nil, err
-	}
-	opts := append(c.opts, asynq.TaskID(taskId))
-
-	task := asynq.NewTask(TypeNetworkDelete, payload, opts...)
-	taskInfo, err := c.client.Enqueue(task)
-	if err != nil {
-		return nil, fmt.Errorf("unable to enqueue network delete task:%w", err)
-	}
-	return taskInfo, nil
-}
-
-func (c *Client) NewMachineDeleteTask(uuid, allocationUUID *string) (*asynq.TaskInfo, error) {
-	payload, err := json.Marshal(MachineDeletePayload{UUID: uuid, AllocationUUID: allocationUUID})
-	if err != nil {
-		return nil, fmt.Errorf("unable to marshal machine delete payload:%w", err)
-	}
-
-	taskId, err := taskID()
-	if err != nil {
-		return nil, err
-	}
-	opts := append(c.opts, asynq.TaskID(taskId))
-
-	task := asynq.NewTask(TypeMachineDelete, payload, opts...)
-	taskInfo, err := c.client.Enqueue(task)
-	if err != nil {
-		return nil, fmt.Errorf("unable to enqueue machine delete task:%w", err)
-	}
-	return taskInfo, nil
-}
-
-func (c *Client) NewMachineBMCCommandTask(machineUuid, partition, command string) (*asynq.TaskInfo, error) {
-	taskId, err := taskID()
-	if err != nil {
-		return nil, err
-	}
-
-	commandId := machineUuid + ":machine-bmc-command:" + command
-	payload, err := json.Marshal(MachineBMCCommandPayload{
-		UUID:      machineUuid,
-		Partition: partition,
-		Command:   command,
-		CommandID: commandId,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("unable to marshal machine bmc command payload:%w", err)
-	}
-
-	task := asynq.NewTask(
-		TypeMachineBMCCommand,
-		payload,
-		asynq.TaskID(taskId),
-		asynq.Timeout(time.Minute),
-		asynq.MaxRetry(0),
-		asynq.Retention(30*24*time.Hour), // Only with retention a task will be stored in completed tasks
+	var (
+		opts = append(c.opts, asynq.TaskID(taskId))
+		task = asynq.NewTask(string(taskType), encoded, append(opts, additionalOpts...)...)
 	)
-	taskInfo, err := c.client.Enqueue(task, asynq.Unique(time.Minute))
+
+	taskInfo, err := c.client.Enqueue(task)
 
 	switch {
 	case errors.Is(err, asynq.ErrDuplicateTask):
-		return nil, fmt.Errorf("machine bmc command is still in progress for machine %s %w", machineUuid, err)
+		return nil, fmt.Errorf("a task is already enqueued: %w", err)
 	case err != nil:
-		return nil, fmt.Errorf("unable to enqueue machine bmc command task:%w", err)
+		return nil, fmt.Errorf("unable to enqueue task: %w", err)
 	}
+
 	return taskInfo, nil
 }
 
@@ -273,7 +225,8 @@ func (c *Client) NewMachineBMCCommandTask(machineUuid, partition, command string
 func taskID() (string, error) {
 	taskId, err := uuid.NewV7()
 	if err != nil {
-		return "", fmt.Errorf("unable to generate a unique task id:%w", err)
+		return "", fmt.Errorf("unable to generate a unique task id: %w", err)
 	}
+
 	return taskId.String(), nil
 }
