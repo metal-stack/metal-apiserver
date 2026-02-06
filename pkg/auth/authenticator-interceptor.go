@@ -105,6 +105,7 @@ func (s *wrapper) Receive(m any) error {
 	if err := s.StreamingHandlerConn.Receive(m); err != nil {
 		return err
 	}
+
 	_, err := s.o.extractAndValidateJWTToken(s.ctx, s.StreamingHandlerConn.RequestHeader().Get)
 	if err != nil {
 		return err

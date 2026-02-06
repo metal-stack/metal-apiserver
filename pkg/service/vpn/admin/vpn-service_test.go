@@ -381,7 +381,6 @@ func Test_vpnService_EvaluateVPNConnected(t *testing.T) {
 						Ips:                 []string{"100.64.0.1", "fd7a:115c:a1e0::1"},
 					},
 				},
-				Bios:     &apiv2.MachineBios{},
 				Hardware: &apiv2.MachineHardware{},
 			}},
 			wantErr: nil,
@@ -412,7 +411,6 @@ func Test_vpnService_EvaluateVPNConnected(t *testing.T) {
 						Ips:                 []string{"100.64.0.1", "fd7a:115c:a1e0::1"}, // TODO not sure why the same ip ?
 					},
 				},
-				Bios:     &apiv2.MachineBios{},
 				Hardware: &apiv2.MachineHardware{},
 			}},
 			wantErr: nil,

@@ -12,11 +12,14 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	"github.com/avast/retry-go/v4"
 	compress "github.com/klauspost/connect-compress/v2"
+	"github.com/valkey-io/valkey-go"
 	"gopkg.in/rethinkdb/rethinkdb-go.v6"
 
 	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	mdm "github.com/metal-stack/masterdata-api/pkg/client"
+	"github.com/metal-stack/metal-apiserver/pkg/async/queue"
+	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
@@ -71,6 +74,7 @@ func newServeCmd() *cli.Command {
 			oidcEndSessionUrlFlag,
 			oidcUniqueUserKeyFlag,
 			oidcTLSSkipVerifyFlag,
+			bmcSuperuserPasswordFlag,
 			headscaleAddressFlag,
 			headscaleControlplaneAddressFlag,
 			headscaleApikeyFlag,
@@ -126,7 +130,21 @@ func newServeCmd() *cli.Command {
 				return fmt.Errorf("unable to create datastore: %w", err)
 			}
 
-			repo, err := repository.New(log, mc, ds, ipam, redisConfig.AsyncClient)
+			var (
+				task  = task.NewClient(log, redisConfig.AsyncClient)
+				queue = queue.New(log, redisConfig.QueueClient)
+
+				config = repository.Config{
+					Log:              log,
+					MasterdataClient: mc,
+					Datastore:        ds,
+					Ipam:             ipam,
+					Task:             task,
+					Queue:            queue,
+				}
+			)
+
+			repo, err := repository.New(config)
 			if err != nil {
 				return fmt.Errorf("unable to create repository: %w", err)
 			}
@@ -155,6 +173,7 @@ func newServeCmd() *cli.Command {
 				OIDCUniqueUserKey:                   ctx.String(oidcUniqueUserKeyFlag.Name),
 				OIDCTLSSkipVerify:                   ctx.Bool(oidcTLSSkipVerifyFlag.Name),
 				IsStageDev:                          strings.EqualFold(stage, stageDEV),
+				BMCSuperuserPassword:                ctx.String(bmcSuperuserPasswordFlag.Name),
 				HeadscaleControlplaneAddress:        ctx.String(headscaleControlplaneAddressFlag.Name),
 				HeadscaleClient:                     hc,
 			}
@@ -246,19 +265,19 @@ const (
 
 func createRedisClients(cli *cli.Context, logger *slog.Logger) (*service.RedisConfig, error) {
 
-	token, err := createRedisClient(cli, logger, redisDatabaseTokens)
+	token, _, err := createRedisClient(cli, logger, redisDatabaseTokens)
 	if err != nil {
 		return nil, err
 	}
-	rate, err := createRedisClient(cli, logger, redisDatabaseRateLimiting)
+	rate, _, err := createRedisClient(cli, logger, redisDatabaseRateLimiting)
 	if err != nil {
 		return nil, err
 	}
-	invite, err := createRedisClient(cli, logger, redisDatabaseInvites)
+	invite, _, err := createRedisClient(cli, logger, redisDatabaseInvites)
 	if err != nil {
 		return nil, err
 	}
-	async, err := createRedisClient(cli, logger, redisDatabaseAsync)
+	async, queue, err := createRedisClient(cli, logger, redisDatabaseAsync)
 	if err != nil {
 		return nil, err
 	}
@@ -267,10 +286,11 @@ func createRedisClients(cli *cli.Context, logger *slog.Logger) (*service.RedisCo
 		RateLimitClient: rate,
 		InviteClient:    invite,
 		AsyncClient:     async,
+		QueueClient:     queue,
 	}, nil
 }
 
-func createRedisClient(cli *cli.Context, logger *slog.Logger, dbName RedisDatabase) (*redis.Client, error) {
+func createRedisClient(cli *cli.Context, logger *slog.Logger, dbName RedisDatabase) (*redis.Client, valkey.Client, error) {
 	db := 0
 	switch dbName {
 	case redisDatabaseTokens:
@@ -282,7 +302,7 @@ func createRedisClient(cli *cli.Context, logger *slog.Logger, dbName RedisDataba
 	case redisDatabaseAsync:
 		db = 3
 	default:
-		return nil, fmt.Errorf("invalid db name: %s", dbName)
+		return nil, nil, fmt.Errorf("invalid db name: %s", dbName)
 	}
 
 	address := cli.String(redisAddrFlag.Name)
@@ -308,14 +328,28 @@ func createRedisClient(cli *cli.Context, logger *slog.Logger, dbName RedisDataba
 	})
 	pong, err := client.Ping(cli.Context).Result()
 	if err != nil {
-		return nil, fmt.Errorf("unable to create redis client: %w", err)
+		return nil, nil, fmt.Errorf("unable to create redis client: %w", err)
 	}
 
 	if strings.ToLower(pong) != "pong" {
-		return nil, fmt.Errorf("unable to create redis client, did not get PONG result: %q", pong)
+		return nil, nil, fmt.Errorf("unable to create redis client, did not get PONG result: %q", pong)
 	}
 
-	return client, nil
+	valkeyClient, err := valkey.NewClient(valkey.ClientOption{
+		InitAddress: []string{address},
+		AuthCredentialsFn: func(acc valkey.AuthCredentialsContext) (valkey.AuthCredentials, error) {
+			return valkey.AuthCredentials{
+				Password: password,
+			}, nil
+		},
+		SelectDB:   db,
+		ClientName: "metal-apiserver",
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to create valkey client: %w", err)
+	}
+
+	return client, valkeyClient, nil
 }
 
 func createIpamClient(cli *cli.Context, log *slog.Logger) (ipamv1connect.IpamServiceClient, error) {

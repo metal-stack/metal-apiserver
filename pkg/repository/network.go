@@ -14,7 +14,7 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
-	asyncclient "github.com/metal-stack/metal-apiserver/pkg/async/client"
+	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
@@ -46,7 +46,7 @@ func (r *networkRepository) matchScope(nw *metal.Network) bool {
 }
 
 func (r *networkRepository) delete(ctx context.Context, nw *metal.Network) error {
-	info, err := r.s.async.NewNetworkDeleteTask(nw.ID)
+	info, err := r.s.task.NewNetworkDeleteTask(nw.ID)
 	if err != nil {
 		return err
 	}
@@ -60,7 +60,7 @@ func (r *networkRepository) delete(ctx context.Context, nw *metal.Network) error
 // Async deletion must be scheduled by async.NewNetworkDeleteTask
 func (r *Store) NetworkDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
 
-	var payload asyncclient.NetworkDeletePayload
+	var payload task.NetworkDeletePayload
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
 		return fmt.Errorf("json.Unmarshal failed: %w %w", err, asynq.SkipRetry)
 	}

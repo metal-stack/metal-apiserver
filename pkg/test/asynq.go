@@ -4,14 +4,14 @@ import (
 	"log/slog"
 	"testing"
 
-	asyncserver "github.com/metal-stack/metal-apiserver/pkg/async/server"
+	taskserver "github.com/metal-stack/metal-apiserver/pkg/async/task/server"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 )
 
 func StartAsynqServer(t testing.TB, log *slog.Logger, repository *repository.Store, redis *redis.Client) func() {
-	asyncServer, asyncServerMux := asyncserver.New(log, repository, redis)
+	asyncServer, asyncServerMux := taskserver.NewServer(log, repository, redis)
 	go func() {
 		log.Info("starting asynq server")
 		err := asyncServer.Run(asyncServerMux)

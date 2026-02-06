@@ -15,7 +15,7 @@ func Test_newServeCmd(t *testing.T) {
 	args := []string{"-h"}
 
 	cmd := newServeCmd()
-	require.Len(t, cmd.Flags, 41)
+	require.Len(t, cmd.Flags, 42)
 
 	app.Commands = []*cli.Command{cmd}
 	err := app.Run(args)

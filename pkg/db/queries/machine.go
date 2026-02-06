@@ -260,29 +260,29 @@ func MachineFilter(rq *apiv2.MachineQuery) func(q r.Term) r.Term {
 			})
 		}
 
-		if rq.Ipmi != nil {
-			ipmi := rq.Ipmi
-			if ipmi.Address != nil {
+		if rq.Bmc != nil {
+			bmc := rq.Bmc
+			if bmc.Address != nil {
 				q = q.Filter(func(row r.Term) r.Term {
-					return row.Field("ipmi").Field("address").Eq(*ipmi.Address)
+					return row.Field("ipmi").Field("address").Eq(*bmc.Address)
 				})
 			}
 
-			if ipmi.Mac != nil {
+			if bmc.Mac != nil {
 				q = q.Filter(func(row r.Term) r.Term {
-					return row.Field("ipmi").Field("mac").Eq(*ipmi.Mac)
+					return row.Field("ipmi").Field("mac").Eq(*bmc.Mac)
 				})
 			}
 
-			if ipmi.User != nil {
+			if bmc.User != nil {
 				q = q.Filter(func(row r.Term) r.Term {
-					return row.Field("ipmi").Field("user").Eq(*ipmi.User)
+					return row.Field("ipmi").Field("user").Eq(*bmc.User)
 				})
 			}
 
-			if ipmi.Interface != nil {
+			if bmc.Interface != nil {
 				q = q.Filter(func(row r.Term) r.Term {
-					return row.Field("ipmi").Field("interface").Eq(*ipmi.Interface)
+					return row.Field("ipmi").Field("interface").Eq(*bmc.Interface)
 				})
 			}
 		}

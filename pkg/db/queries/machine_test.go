@@ -472,22 +472,22 @@ func TestMachineFilter(t *testing.T) {
 		// IPMI Queries
 		{
 			name: "by ipmi address",
-			rq:   &apiv2.MachineQuery{Ipmi: &apiv2.MachineIPMIQuery{Address: pointer.Pointer("192.168.0.1")}},
+			rq:   &apiv2.MachineQuery{Bmc: &apiv2.MachineBMCQuery{Address: pointer.Pointer("192.168.0.1")}},
 			want: []*metal.Machine{m3},
 		},
 		{
 			name: "by ipmi mac",
-			rq:   &apiv2.MachineQuery{Ipmi: &apiv2.MachineIPMIQuery{Mac: pointer.Pointer("ee:ff")}},
+			rq:   &apiv2.MachineQuery{Bmc: &apiv2.MachineBMCQuery{Mac: pointer.Pointer("ee:ff")}},
 			want: []*metal.Machine{m3},
 		},
 		{
 			name: "by ipmi user",
-			rq:   &apiv2.MachineQuery{Ipmi: &apiv2.MachineIPMIQuery{User: pointer.Pointer("admin")}},
+			rq:   &apiv2.MachineQuery{Bmc: &apiv2.MachineBMCQuery{User: pointer.Pointer("admin")}},
 			want: []*metal.Machine{m3},
 		},
 		{
 			name: "by ipmi interface",
-			rq:   &apiv2.MachineQuery{Ipmi: &apiv2.MachineIPMIQuery{Interface: pointer.Pointer("eth1")}},
+			rq:   &apiv2.MachineQuery{Bmc: &apiv2.MachineBMCQuery{Interface: pointer.Pointer("eth1")}},
 			want: []*metal.Machine{m3},
 		},
 

@@ -217,6 +217,12 @@ var (
 		Value: "metal-stack",
 		Usage: "ensures a provider tenant on startup (used for bootstrapping and technical tokens). can be disabled by setting to empty string.",
 	}
+	bmcSuperuserPasswordFlag = &cli.StringFlag{
+		Name:    "bmc-superuser-pwd",
+		Value:   "",
+		Usage:   "the BMC superuser password",
+		EnvVars: []string{"BMC_SUPER_USER_PASSWORD"},
+	}
 	// Headscale
 	headscaleAddressFlag = &cli.StringFlag{
 		Name:    "headscale-addr",

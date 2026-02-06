@@ -75,7 +75,7 @@ func newTokenCmd() *cli.Command {
 				return fmt.Errorf("unable to create logger %w", err)
 			}
 
-			tokenRedisClient, err := createRedisClient(ctx, log, redisDatabaseTokens)
+			tokenRedisClient, _, err := createRedisClient(ctx, log, redisDatabaseTokens)
 			if err != nil {
 				return err
 			}

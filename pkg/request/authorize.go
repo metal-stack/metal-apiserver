@@ -67,6 +67,15 @@ func (a *authorizer) Authorize(ctx context.Context, token *apiv2.Token, req conn
 		}
 	}
 
+	if permissions.IsMachineScope(req) {
+		machineId, ok := permissions.GetMachineIdFromRequest(req)
+		if ok {
+			subject = machineId
+		} else {
+			return connect.NewError(connect.CodeInvalidArgument, errors.New("no machine uuid found in machine scoped request"))
+		}
+	}
+
 	return a.authorize(ctx, token, method, subject)
 }
 
