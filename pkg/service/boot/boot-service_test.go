@@ -595,9 +595,7 @@ func Test_bootServiceServer_Register(t *testing.T) {
 					MetalHammerVersion: "v1.0.1",
 				},
 				RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
-					Events: []*apiv2.MachineProvisioningEvent{
-						// {Event: apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_ALIVE, Message: "machine registered"}, // FIXME this event is not present ?
-					},
+					Events: []*apiv2.MachineProvisioningEvent{},
 				},
 			},
 			wantSwitches: []*apiv2.Switch{
