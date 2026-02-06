@@ -195,7 +195,11 @@ func (r *ipRepository) update(ctx context.Context, e *metal.IP, req *apiv2.IPSer
 }
 
 func (r *ipRepository) delete(ctx context.Context, e *metal.IP) error {
-	info, err := r.s.task.NewIPDeleteTask(e.AllocationUUID, e.IPAddress, e.ProjectID)
+	info, err := r.s.task.NewTask(&task.IPDeletePayload{
+		AllocationUUID: e.AllocationUUID,
+		IP:             e.IPAddress,
+		Project:        e.ProjectID,
+	})
 	if err != nil {
 		return err
 	}

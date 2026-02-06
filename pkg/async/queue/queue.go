@@ -55,16 +55,19 @@ func (q *Queue) WaitMachineAllocation(ctx context.Context, machineId string) <-c
 
 // Push allows adding a value to the queue which will then be delivered to the waiters.
 // messages will only be received by one waiter which waits for the given queueName.
-func Push(ctx context.Context, log *slog.Logger, client valkeygo.Client, queueName string, value any) error {
+func Push[E any](ctx context.Context, log *slog.Logger, client valkeygo.Client, queueName string, value E) error {
 	encoded, err := json.Marshal(value)
 	if err != nil {
 		return err
 	}
+
 	err = client.Do(ctx, client.B().Rpush().Key(queueName).Element(string(encoded)).Build()).Error()
 	if err != nil {
-		return fmt.Errorf("push to queue %s with error %w", queueName, err)
+		return fmt.Errorf("error pushing to queue %q: %w", queueName, err)
 	}
-	log.Debug("pushed", "queueName", queueName, "value", encoded)
+
+	log.Debug("pushed to queue", "queue-name", queueName, "value", encoded)
+
 	return nil
 }
 

@@ -48,7 +48,7 @@ func (t *taskServiceServer) Delete(_ context.Context, req *adminv2.TaskServiceDe
 }
 
 func (t *taskServiceServer) List(_ context.Context, req *adminv2.TaskServiceListRequest) (*adminv2.TaskServiceListResponse, error) {
-	tasks, err := t.repo.Task().List(req.Queue, req.Count, req.Page)
+	tasks, err := t.repo.Task().List(req.Queue)
 	if err != nil {
 		return nil, err
 	}

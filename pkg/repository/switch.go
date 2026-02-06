@@ -975,6 +975,10 @@ func convertMachineConnections(machineConnections metal.ConnectionMap, nics []*a
 		return strings.Compare(a.Nic.Name, b.Nic.Name)
 	})
 
+	slices.SortStableFunc(connections, func(a, b *apiv2.MachineConnection) int {
+		return strings.Compare(a.MachineId, b.MachineId)
+	})
+
 	return connections, nil
 }
 

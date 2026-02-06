@@ -109,7 +109,6 @@ func Test_Queue(t *testing.T) {
 			if diff := cmp.Diff(tt.machineIDs, gotMachines); diff != "" {
 				t.Errorf("machines differ:%s", diff)
 			}
-
 		})
 	}
 }

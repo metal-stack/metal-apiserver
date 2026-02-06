@@ -376,7 +376,7 @@ func Test_machineServiceServer_BMCCommand(t *testing.T) {
 			}
 
 			if tt.want != nil {
-				tasks, err := m.repo.Task().List(nil, nil, nil)
+				tasks, err := m.repo.Task().List(nil)
 				require.NoError(t, err)
 				require.Len(t, tasks, 1)
 				require.Equal(t, asynq.TaskStatePending, tasks[0].State)
