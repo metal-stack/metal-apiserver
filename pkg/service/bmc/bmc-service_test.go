@@ -35,7 +35,6 @@ func Test_bmcServiceServer_UpdateBMCInfo(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -47,18 +46,18 @@ func Test_bmcServiceServer_UpdateBMCInfo(t *testing.T) {
 	ctx := t.Context()
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
-	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{{Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
+	test.CreatePartitions(t, testStore, []*adminv2.PartitionServiceCreateRequest{
 		{
 			Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
 		},
 	})
-	test.CreateSizes(t, repo, []*adminv2.SizeServiceCreateRequest{
+	test.CreateSizes(t, testStore, []*adminv2.SizeServiceCreateRequest{
 		{
 			Size: &apiv2.Size{Id: "c1-large-x86"},
 		},
 	})
-	test.CreateImages(t, repo, []*adminv2.ImageServiceCreateRequest{
+	test.CreateImages(t, testStore, []*adminv2.ImageServiceCreateRequest{
 		{Image: &apiv2.Image{Id: "debian-12", Url: validURL, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}}},
 	})
 
@@ -274,7 +273,7 @@ func Test_bmcServiceServer_UpdateBMCInfo(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			b := &bmcServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				// Execute proto based validation
@@ -284,7 +283,7 @@ func Test_bmcServiceServer_UpdateBMCInfo(t *testing.T) {
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("bmcServiceServer.UpdateBMCInfo() error diff = %s", diff)
 			}
-			got, err := repo.UnscopedMachine().AdditionalMethods().ListBMC(ctx, &adminv2.MachineServiceListBMCRequest{})
+			got, err := testStore.UnscopedMachine().AdditionalMethods().ListBMC(ctx, &adminv2.MachineServiceListBMCRequest{})
 			require.NoError(t, err)
 
 			if diff := cmp.Diff(

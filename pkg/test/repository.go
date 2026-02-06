@@ -222,40 +222,40 @@ func (t *testStore) GetEventContainer(machineID string) *metal.ProvisioningEvent
 	return resp
 }
 
-func CreateImages(t *testing.T, repo *repository.Store, images []*adminv2.ImageServiceCreateRequest) map[string]*apiv2.Image {
+func CreateImages(t *testing.T, testStore *testStore, images []*adminv2.ImageServiceCreateRequest) map[string]*apiv2.Image {
 	imageMap := map[string]*apiv2.Image{}
 	for _, img := range images {
-		i, err := repo.Image().Create(t.Context(), img)
+		i, err := testStore.Image().Create(t.Context(), img)
 		require.NoError(t, err)
 		imageMap[i.Id] = i
 	}
 	return imageMap
 }
 
-func CreateFilesystemLayouts(t *testing.T, repo *repository.Store, fsls []*adminv2.FilesystemServiceCreateRequest) map[string]*apiv2.FilesystemLayout {
+func CreateFilesystemLayouts(t *testing.T, testStore *testStore, fsls []*adminv2.FilesystemServiceCreateRequest) map[string]*apiv2.FilesystemLayout {
 	fslMap := map[string]*apiv2.FilesystemLayout{}
 	for _, fsl := range fsls {
-		fsl, err := repo.FilesystemLayout().Create(t.Context(), fsl)
+		fsl, err := testStore.FilesystemLayout().Create(t.Context(), fsl)
 		require.NoError(t, err)
 		fslMap[fsl.Id] = fsl
 	}
 	return fslMap
 }
 
-func CreateIPs(t *testing.T, repo *repository.Store, ips []*apiv2.IPServiceCreateRequest) map[string]*apiv2.IP {
+func CreateIPs(t *testing.T, testStore *testStore, ips []*apiv2.IPServiceCreateRequest) map[string]*apiv2.IP {
 	ipMap := map[string]*apiv2.IP{}
 	for _, ip := range ips {
-		i, err := repo.UnscopedIP().Create(t.Context(), ip)
+		i, err := testStore.UnscopedIP().Create(t.Context(), ip)
 		require.NoError(t, err)
 		ipMap[i.Ip] = i
 	}
 	return ipMap
 }
 
-func CreateMachinesWithAllocation(t *testing.T, repo *repository.Store, machines []*apiv2.MachineServiceCreateRequest) map[string]*apiv2.Machine {
+func CreateMachinesWithAllocation(t *testing.T, testStore *testStore, machines []*apiv2.MachineServiceCreateRequest) map[string]*apiv2.Machine {
 	machineMap := map[string]*apiv2.Machine{}
 	for _, machine := range machines {
-		m, err := repo.UnscopedMachine().Create(t.Context(), machine)
+		m, err := testStore.UnscopedMachine().Create(t.Context(), machine)
 		require.NoError(t, err)
 		machineMap[m.Uuid] = m
 	}
@@ -279,11 +279,11 @@ func CreateMachines(t testing.TB, testStore *testStore, machines []*metal.Machin
 	return machineMap
 }
 
-func CreateNetworks(t testing.TB, repo *repository.Store, nws []*adminv2.NetworkServiceCreateRequest) map[string]*apiv2.Network {
+func CreateNetworks(t testing.TB, testStore *testStore, nws []*adminv2.NetworkServiceCreateRequest) map[string]*apiv2.Network {
 	networkMap := map[string]*apiv2.Network{}
 
 	for _, nw := range nws {
-		resp, err := repo.UnscopedNetwork().Create(t.Context(), nw)
+		resp, err := testStore.UnscopedNetwork().Create(t.Context(), nw)
 		require.NoError(t, err)
 		networkMap[resp.Id] = resp
 	}
@@ -384,7 +384,7 @@ func (t *testStore) DeleteProjectInvites() {
 	}
 }
 
-func AllocateNetworks(t *testing.T, repo *repository.Store, nws []*apiv2.NetworkServiceCreateRequest) map[string]*apiv2.Network {
+func AllocateNetworks(t *testing.T, testStore *testStore, nws []*apiv2.NetworkServiceCreateRequest) map[string]*apiv2.Network {
 	networkMap := map[string]*apiv2.Network{}
 
 	for _, nw := range nws {
@@ -400,7 +400,7 @@ func AllocateNetworks(t *testing.T, repo *repository.Store, nws []*apiv2.Network
 			Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD, // Non Admins can only create Child Networks
 		}
 
-		resp, err := repo.UnscopedNetwork().Create(t.Context(), req)
+		resp, err := testStore.UnscopedNetwork().Create(t.Context(), req)
 		require.NoError(t, err)
 
 		networkMap[*resp.Name] = resp
@@ -409,20 +409,20 @@ func AllocateNetworks(t *testing.T, repo *repository.Store, nws []*apiv2.Network
 	return networkMap
 }
 
-func CreatePartitions(t *testing.T, repo *repository.Store, partitions []*adminv2.PartitionServiceCreateRequest) map[string]*apiv2.Partition {
+func CreatePartitions(t *testing.T, testStore *testStore, partitions []*adminv2.PartitionServiceCreateRequest) map[string]*apiv2.Partition {
 	partitionMap := map[string]*apiv2.Partition{}
 	for _, partition := range partitions {
-		p, err := repo.Partition().Create(t.Context(), partition)
+		p, err := testStore.Partition().Create(t.Context(), partition)
 		require.NoError(t, err)
 		partitionMap[p.Id] = p
 	}
 	return partitionMap
 }
 
-func CreateProjects(t testing.TB, repo *repository.Store, projects []*apiv2.ProjectServiceCreateRequest) map[string]string {
+func CreateProjects(t testing.TB, testStore *testStore, projects []*apiv2.ProjectServiceCreateRequest) map[string]string {
 	projectMap := map[string]string{}
 	for _, p := range projects {
-		resp, err := repo.UnscopedProject().AdditionalMethods().CreateWithID(t.Context(), p, p.GetName())
+		resp, err := testStore.UnscopedProject().AdditionalMethods().CreateWithID(t.Context(), p, p.GetName())
 		require.NoError(t, err)
 		projectMap[p.Login] = resp.Meta.Id
 	}
@@ -472,20 +472,20 @@ func CreateTenantInvites(t testing.TB, testStore *testStore, invites []*apiv2.Te
 	}
 }
 
-func CreateSizes(t *testing.T, repo *repository.Store, sizes []*adminv2.SizeServiceCreateRequest) map[string]*apiv2.Size {
+func CreateSizes(t *testing.T, testStore *testStore, sizes []*adminv2.SizeServiceCreateRequest) map[string]*apiv2.Size {
 	sizeMap := map[string]*apiv2.Size{}
 	for _, size := range sizes {
-		s, err := repo.Size().Create(t.Context(), size)
+		s, err := testStore.Size().Create(t.Context(), size)
 		require.NoError(t, err)
 		sizeMap[s.Id] = s
 	}
 	return sizeMap
 }
 
-func CreateSwitches(t *testing.T, store *repository.Store, switches []*repository.SwitchServiceCreateRequest) map[string]*apiv2.Switch {
+func CreateSwitches(t *testing.T, testStore *testStore, switches []*repository.SwitchServiceCreateRequest) map[string]*apiv2.Switch {
 	switchMap := map[string]*apiv2.Switch{}
 	for _, sw := range switches {
-		s, err := store.Switch().Create(t.Context(), sw)
+		s, err := testStore.Switch().Create(t.Context(), sw)
 		require.NoError(t, err)
 		switchMap[s.Id] = s
 	}

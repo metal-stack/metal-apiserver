@@ -389,7 +389,6 @@ func Test_switchServiceServer_Register(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -405,9 +404,9 @@ func Test_switchServiceServer_Register(t *testing.T) {
 		}
 	)
 
-	test.CreatePartitions(t, repo, partitions)
+	test.CreatePartitions(t, testStore, partitions)
 	test.CreateMachines(t, testStore, []*metal.Machine{m1})
-	test.CreateSwitches(t, repo, switches)
+	test.CreateSwitches(t, testStore, switches)
 
 	tests := []struct {
 		name    string
@@ -685,7 +684,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &switchServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 
 			if tt.wantErr == nil {
@@ -715,7 +714,6 @@ func Test_switchServiceServer_Get(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -731,9 +729,9 @@ func Test_switchServiceServer_Get(t *testing.T) {
 		}
 	)
 
-	test.CreatePartitions(t, repo, partitions)
+	test.CreatePartitions(t, testStore, partitions)
 	test.CreateMachines(t, testStore, []*metal.Machine{m1})
-	test.CreateSwitches(t, repo, switches)
+	test.CreateSwitches(t, testStore, switches)
 
 	tests := []struct {
 		name    string
@@ -764,7 +762,7 @@ func Test_switchServiceServer_Get(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &switchServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 
 			if tt.wantErr == nil {
@@ -793,7 +791,6 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -809,9 +806,9 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 		}
 	)
 
-	test.CreatePartitions(t, repo, partitions)
+	test.CreatePartitions(t, testStore, partitions)
 	test.CreateMachines(t, testStore, []*metal.Machine{m1})
-	test.CreateSwitches(t, repo, switches)
+	test.CreateSwitches(t, testStore, switches)
 	test.CreateSwitchStatuses(t, testStore, []*repository.SwitchStatus{sw1Status})
 
 	tests := []struct {
@@ -1026,7 +1023,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &switchServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 
 			if tt.wantErr == nil {
@@ -1048,7 +1045,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 				t.Errorf("switchServiceServer.Heartbeat() diff = %v", diff)
 			}
 
-			sw, err := repo.Switch().Get(ctx, got.Id)
+			sw, err := testStore.Switch().Get(ctx, got.Id)
 			require.NoError(t, err)
 
 			if diff := cmp.Diff(
@@ -1071,7 +1068,6 @@ func Test_switchRepository_ConnectMachineWithSwitches(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -1087,9 +1083,9 @@ func Test_switchRepository_ConnectMachineWithSwitches(t *testing.T) {
 		}
 	)
 
-	test.CreatePartitions(t, repo, partitions)
+	test.CreatePartitions(t, testStore, partitions)
 	test.CreateMachines(t, testStore, []*metal.Machine{m1})
-	test.CreateSwitches(t, repo, switches)
+	test.CreateSwitches(t, testStore, switches)
 
 	tests := []struct {
 		name         string
@@ -1344,7 +1340,7 @@ func Test_switchRepository_ConnectMachineWithSwitches(t *testing.T) {
 	for _, tt := range tests {
 		s := &switchServiceServer{
 			log:  log,
-			repo: repo,
+			repo: testStore.Store,
 		}
 
 		t.Run(tt.name, func(t *testing.T) {

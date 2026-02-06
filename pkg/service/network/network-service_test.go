@@ -39,13 +39,12 @@ func Test_networkServiceServer_Get(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ctx := t.Context()
 
 	test.CreateTenants(t, testStore, tenants)
-	test.CreateProjects(t, repo, projects)
-	test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+	test.CreateProjects(t, testStore, projects)
+	test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
 		{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.3.0/24"}, Vrf: pointer.Pointer(uint32(9)), Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL},
 	})
 
@@ -80,7 +79,7 @@ func Test_networkServiceServer_Get(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			n := &networkServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				// Execute proto based validation
@@ -114,7 +113,6 @@ func Test_networkServiceServer_List(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ctx := t.Context()
 
@@ -126,11 +124,11 @@ func Test_networkServiceServer_List(t *testing.T) {
 	validURL := ts.URL
 
 	test.CreateTenants(t, testStore, tenants)
-	test.CreateProjects(t, repo, projects)
-	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+	test.CreateProjects(t, testStore, projects)
+	test.CreatePartitions(t, testStore, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 	})
-	test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+	test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
 		{
 			Id:                       pointer.Pointer("tenant-super-network"),
 			Prefixes:                 []string{"10.100.0.0/14"},
@@ -154,7 +152,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 		},
 	})
 
-	networkMap := test.AllocateNetworks(t, repo, []*apiv2.NetworkServiceCreateRequest{
+	networkMap := test.AllocateNetworks(t, testStore, []*apiv2.NetworkServiceCreateRequest{
 		{Name: pointer.Pointer("p1-network-a"), Project: p1, Partition: pointer.Pointer("partition-one")},
 		{Name: pointer.Pointer("p1-network-b"), Project: p1, Partition: pointer.Pointer("partition-one")},
 		{Name: pointer.Pointer("p2-network-a"), Project: p2, Partition: pointer.Pointer("partition-one")},
@@ -218,7 +216,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			n := &networkServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				// Execute proto based validation
@@ -252,7 +250,6 @@ func Test_networkServiceServer_ListBaseNetworks(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -264,12 +261,12 @@ func Test_networkServiceServer_ListBaseNetworks(t *testing.T) {
 	ctx := t.Context()
 
 	test.CreateTenants(t, testStore, tenants)
-	test.CreateProjects(t, repo, projects)
-	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+	test.CreateProjects(t, testStore, projects)
+	test.CreatePartitions(t, testStore, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 	})
 
-	test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+	test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
 		{
 			Id:                       pointer.Pointer("tenant-super-network"),
 			Prefixes:                 []string{"10.100.0.0/14"},
@@ -299,7 +296,7 @@ func Test_networkServiceServer_ListBaseNetworks(t *testing.T) {
 		},
 	})
 
-	sharedNetwork, err := repo.UnscopedNetwork().Find(ctx, &apiv2.NetworkQuery{Name: pointer.Pointer("Shared Storage Network")})
+	sharedNetwork, err := testStore.UnscopedNetwork().Find(ctx, &apiv2.NetworkQuery{Name: pointer.Pointer("Shared Storage Network")})
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -374,7 +371,7 @@ func Test_networkServiceServer_ListBaseNetworks(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			n := &networkServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				// Execute proto based validation
@@ -408,7 +405,6 @@ func Test_networkServiceServer_Update(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -418,11 +414,11 @@ func Test_networkServiceServer_Update(t *testing.T) {
 	validURL := ts.URL
 
 	test.CreateTenants(t, testStore, tenants)
-	test.CreateProjects(t, repo, projects)
-	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+	test.CreateProjects(t, testStore, projects)
+	test.CreatePartitions(t, testStore, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 	})
-	test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+	test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
 		{
 			Id:                       pointer.Pointer("tenant-super-network"),
 			Prefixes:                 []string{"10.100.0.0/14"},
@@ -446,7 +442,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		},
 	})
 
-	networkMap := test.AllocateNetworks(t, repo, []*apiv2.NetworkServiceCreateRequest{
+	networkMap := test.AllocateNetworks(t, testStore, []*apiv2.NetworkServiceCreateRequest{
 		{Name: pointer.Pointer("p1-network-a"), Project: p1, Partition: pointer.Pointer("partition-one")},
 		{Name: pointer.Pointer("p1-network-b"), Project: p1, Partition: pointer.Pointer("partition-one")},
 		{Name: pointer.Pointer("p2-network-a"), Project: p2, Partition: pointer.Pointer("partition-one")},
@@ -582,7 +578,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			n := &networkServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				// Execute proto based validation
@@ -616,7 +612,6 @@ func Test_networkServiceServer_Create(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -628,16 +623,16 @@ func Test_networkServiceServer_Create(t *testing.T) {
 	ctx := t.Context()
 
 	test.CreateTenants(t, testStore, tenants)
-	test.CreateProjects(t, repo, projects)
+	test.CreateProjects(t, testStore, projects)
 
-	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+	test.CreatePartitions(t, testStore, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 		{Partition: &apiv2.Partition{Id: "partition-two", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 		{Partition: &apiv2.Partition{Id: "partition-three", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 		{Partition: &apiv2.Partition{Id: "partition-four", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 	})
 
-	test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+	test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
 		{
 			Id:                       pointer.Pointer("tenant-super-network"),
 			Prefixes:                 []string{"10.100.0.0/14"},
@@ -854,7 +849,7 @@ func Test_networkServiceServer_Create(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			n := &networkServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				// Execute proto based validation
@@ -888,7 +883,6 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ctx := t.Context()
 
@@ -900,11 +894,11 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 	validURL := ts.URL
 
 	test.CreateTenants(t, testStore, tenants)
-	test.CreateProjects(t, repo, projects)
-	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+	test.CreateProjects(t, testStore, projects)
+	test.CreatePartitions(t, testStore, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 	})
-	test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+	test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
 		{
 			Id:                       pointer.Pointer("tenant-super-network"),
 			Prefixes:                 []string{"10.100.0.0/14"},
@@ -928,7 +922,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 		},
 	})
 
-	networkMap := test.AllocateNetworks(t, repo, []*apiv2.NetworkServiceCreateRequest{
+	networkMap := test.AllocateNetworks(t, testStore, []*apiv2.NetworkServiceCreateRequest{
 		{Name: pointer.Pointer("p1-network-a"), Project: p1, Partition: pointer.Pointer("partition-one")},
 		{Name: pointer.Pointer("p1-network-b"), Project: p1, Partition: pointer.Pointer("partition-one")},
 		{Name: pointer.Pointer("p2-network-a"), Project: p2, Partition: pointer.Pointer("partition-one")},
@@ -996,7 +990,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			n := &networkServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				// Execute proto based validation
@@ -1023,7 +1017,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 				return
 			}
 			assert.EventuallyWithT(t, func(collect *assert.CollectT) {
-				_, err := repo.UnscopedNetwork().Get(ctx, tt.rq.Id)
+				_, err := testStore.UnscopedNetwork().Get(ctx, tt.rq.Id)
 				t.Logf("check for network:%q being deleted:%v", tt.rq.Id, err)
 				assert.True(collect, errorutil.IsNotFound(err))
 			}, 5*time.Second, 100*time.Millisecond)

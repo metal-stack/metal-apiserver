@@ -32,13 +32,12 @@ func Test_ipServiceServer_Get(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ctx := t.Context()
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
-	createdNetworks := test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{{Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
+	createdNetworks := test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
 		{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.3.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: pointer.Pointer(uint32(11))},
 		{
 			Id:                       pointer.Pointer("tenant-super-namespaced"),
@@ -49,7 +48,7 @@ func Test_ipServiceServer_Get(t *testing.T) {
 		},
 	})
 
-	allocatedNetworks := test.AllocateNetworks(t, repo, []*apiv2.NetworkServiceCreateRequest{
+	allocatedNetworks := test.AllocateNetworks(t, testStore, []*apiv2.NetworkServiceCreateRequest{
 		{
 			Name:          pointer.Pointer("private-1"),
 			Project:       p1,
@@ -59,7 +58,7 @@ func Test_ipServiceServer_Get(t *testing.T) {
 
 	networks := lo.Assign(createdNetworks, allocatedNetworks)
 
-	test.CreateIPs(t, repo, []*apiv2.IPServiceCreateRequest{
+	test.CreateIPs(t, testStore, []*apiv2.IPServiceCreateRequest{
 		{Ip: pointer.Pointer("1.2.3.4"), Project: p1, Network: "internet"},
 		{Ip: pointer.Pointer("12.100.0.4"), Project: p1, Network: networks["private-1"].Id},
 	})
@@ -98,7 +97,7 @@ func Test_ipServiceServer_Get(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &ipServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				// Execute proto based validation
@@ -132,7 +131,6 @@ func Test_ipServiceServer_List(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -144,8 +142,8 @@ func Test_ipServiceServer_List(t *testing.T) {
 	ctx := t.Context()
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: p0, Login: "t1"}, {Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
-	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{{Name: p0, Login: "t1"}, {Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
+	test.CreatePartitions(t, testStore, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 		{Partition: &apiv2.Partition{Id: "partition-two", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 	})
@@ -171,8 +169,8 @@ func Test_ipServiceServer_List(t *testing.T) {
 		{Name: pointer.Pointer("ip5"), Ip: pointer.Pointer("2.3.4.5"), Project: p2, Network: "n3"},
 	}
 
-	test.CreateNetworks(t, repo, nws)
-	test.CreateIPs(t, repo, ips)
+	test.CreateNetworks(t, testStore, nws)
+	test.CreateIPs(t, testStore, ips)
 
 	tests := []struct {
 		name    string
@@ -217,7 +215,7 @@ func Test_ipServiceServer_List(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &ipServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				// Execute proto based validation
@@ -251,7 +249,6 @@ func Test_ipServiceServer_Update(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -263,8 +260,8 @@ func Test_ipServiceServer_Update(t *testing.T) {
 	ctx := t.Context()
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: p0, Login: "t1"}, {Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
-	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{{Name: p0, Login: "t1"}, {Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
+	test.CreatePartitions(t, testStore, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 		{Partition: &apiv2.Partition{Id: "partition-two", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 	})
@@ -292,8 +289,8 @@ func Test_ipServiceServer_Update(t *testing.T) {
 		{Name: pointer.Pointer("ip7"), Ip: pointer.Pointer("2001:db8::2"), Project: p2, Network: "internetv6", Labels: &apiv2.Labels{Labels: map[string]string{"color": "red"}}},
 	}
 
-	test.CreateNetworks(t, repo, nws)
-	ipmap := test.CreateIPs(t, repo, ips)
+	test.CreateNetworks(t, testStore, nws)
+	ipmap := test.CreateIPs(t, testStore, ips)
 
 	tests := []struct {
 		name    string
@@ -411,7 +408,7 @@ func Test_ipServiceServer_Update(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &ipServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 
 			if tt.wantErr == nil {
@@ -447,7 +444,6 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -459,8 +455,8 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 	ctx := t.Context()
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: p0, Login: "t1"}, {Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
-	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{{Name: p0, Login: "t1"}, {Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
+	test.CreatePartitions(t, testStore, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 		{Partition: &apiv2.Partition{Id: "partition-two", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 	})
@@ -486,8 +482,8 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 		{Name: pointer.Pointer("ip5"), Ip: pointer.Pointer("2.3.4.5"), Project: p2, Network: "n3"},
 	}
 
-	test.CreateNetworks(t, repo, nws)
-	test.CreateIPs(t, repo, ips)
+	test.CreateNetworks(t, testStore, nws)
+	test.CreateIPs(t, testStore, ips)
 
 	tests := []struct {
 		name    string
@@ -517,7 +513,7 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &ipServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				// Execute proto based validation
@@ -551,7 +547,6 @@ func Test_ipServiceServer_Create(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -563,8 +558,8 @@ func Test_ipServiceServer_Create(t *testing.T) {
 	ctx := t.Context()
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: p0, Login: "t1"}, {Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
-	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{{Name: p0, Login: "t1"}, {Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
+	test.CreatePartitions(t, testStore, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 		{Partition: &apiv2.Partition{Id: "partition-two", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 		{Partition: &apiv2.Partition{Id: "partition-three", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
@@ -619,9 +614,9 @@ func Test_ipServiceServer_Create(t *testing.T) {
 		},
 	}
 
-	test.CreateNetworks(t, repo, nws)
-	networks := test.AllocateNetworks(t, repo, childNetworks)
-	test.CreateIPs(t, repo, ips)
+	test.CreateNetworks(t, testStore, nws)
+	networks := test.AllocateNetworks(t, testStore, childNetworks)
+	test.CreateIPs(t, testStore, ips)
 
 	tests := []struct {
 		name    string
@@ -791,7 +786,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &ipServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				// Execute proto based validation

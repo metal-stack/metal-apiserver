@@ -21,7 +21,6 @@ func Test_sizeServiceServer_Get(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ctx := t.Context()
 
@@ -36,7 +35,7 @@ func Test_sizeServiceServer_Get(t *testing.T) {
 		}},
 	}
 
-	test.CreateSizes(t, repo, sizes)
+	test.CreateSizes(t, testStore, sizes)
 
 	tests := []struct {
 		name    string
@@ -69,7 +68,7 @@ func Test_sizeServiceServer_Get(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &sizeServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				// Execute proto based validation
@@ -102,7 +101,6 @@ func Test_sizeServiceServer_List(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ctx := t.Context()
 
@@ -144,7 +142,7 @@ func Test_sizeServiceServer_List(t *testing.T) {
 		},
 	}
 
-	test.CreateSizes(t, repo, sizes)
+	test.CreateSizes(t, testStore, sizes)
 
 	tests := []struct {
 		name    string
@@ -277,7 +275,7 @@ func Test_sizeServiceServer_List(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &sizeServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				// Execute proto based validation

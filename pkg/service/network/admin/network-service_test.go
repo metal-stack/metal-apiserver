@@ -37,7 +37,6 @@ func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -49,9 +48,9 @@ func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 	ctx := t.Context()
 
 	test.CreateTenants(t, testStore, tenants)
-	test.CreateProjects(t, repo, projects)
+	test.CreateProjects(t, testStore, projects)
 
-	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+	test.CreatePartitions(t, testStore, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 	})
 
@@ -76,7 +75,7 @@ func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 		{
 			name: "create a private network, super network created before",
 			preparefn: func(t *testing.T) {
-				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+				test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
 					{
 						Id:                       pointer.Pointer("tenant-super-network"),
 						Prefixes:                 []string{"10.100.0.0/14"},
@@ -109,7 +108,7 @@ func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 		{
 			name: "create a private network, super network created before, parent network id not given",
 			preparefn: func(t *testing.T) {
-				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+				test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
 					{
 						Id:                       pointer.Pointer("tenant-super-network"),
 						Prefixes:                 []string{"10.100.0.0/14"},
@@ -142,7 +141,7 @@ func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 		{
 			name: "create a private network, super namespaced network created before parent network id given",
 			preparefn: func(t *testing.T) {
-				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+				test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
 					{
 						Id:                       pointer.Pointer("tenant-super-network-namespaced"),
 						Prefixes:                 []string{"10.100.0.0/14"},
@@ -174,7 +173,7 @@ func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 		{
 			name: "create child network from super network with vrf",
 			preparefn: func(t *testing.T) {
-				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+				test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
 					{
 						Id:                       pointer.Pointer("tenant-super-with-vrf"),
 						Prefixes:                 []string{"10.100.0.0/14"},
@@ -206,7 +205,7 @@ func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 		{
 			name: "create child network from super network with partition and inherit partition",
 			preparefn: func(t *testing.T) {
-				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+				test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
 					{
 						Id:                       pointer.Pointer("tenant-super-with-partition"),
 						Prefixes:                 []string{"10.100.0.0/14"},
@@ -240,7 +239,7 @@ func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 		{
 			name: "create child network from super network with destination prefixes",
 			preparefn: func(t *testing.T) {
-				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+				test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
 					{
 						Id:                       pointer.Pointer("tenant-super-with-dst-prefixes"),
 						Prefixes:                 []string{"10.100.0.0/14"},
@@ -274,7 +273,7 @@ func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 		{
 			name: "create child network from project scoped super network",
 			preparefn: func(t *testing.T) {
-				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+				test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
 					{
 						Id:                       pointer.Pointer("project-scoped-tenant-super"),
 						Prefixes:                 []string{"10.100.0.0/14"},
@@ -309,7 +308,7 @@ func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 		{
 			name: "create child network with invalid project from project scoped super network",
 			preparefn: func(t *testing.T) {
-				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+				test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
 					{
 						Id:                       pointer.Pointer("project-scoped-tenant-super"),
 						Prefixes:                 []string{"10.100.0.0/14"},
@@ -333,7 +332,7 @@ func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 		{
 			name: "create child network from namespaced super network",
 			preparefn: func(t *testing.T) {
-				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+				test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
 					{
 						Id:                       pointer.Pointer("project-scoped-tenant-super"),
 						Prefixes:                 []string{"12.100.0.0/14"},
@@ -372,7 +371,7 @@ func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			n := &networkServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 
 			defer func() {
@@ -415,7 +414,6 @@ func Test_networkServiceServer_CreateChildNetworksFromSuperNameSpaced(t *testing
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -427,9 +425,9 @@ func Test_networkServiceServer_CreateChildNetworksFromSuperNameSpaced(t *testing
 	ctx := t.Context()
 
 	test.CreateTenants(t, testStore, tenants)
-	test.CreateProjects(t, repo, projects)
+	test.CreateProjects(t, testStore, projects)
 
-	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+	test.CreatePartitions(t, testStore, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 	})
 
@@ -443,7 +441,7 @@ func Test_networkServiceServer_CreateChildNetworksFromSuperNameSpaced(t *testing
 		{
 			name: "create one child network from namespaced super network",
 			preparefn: func(t *testing.T) {
-				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+				test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
 					{
 						Id:                       pointer.Pointer("project-scoped-tenant-super"),
 						Prefixes:                 []string{"12.100.0.0/16"},
@@ -483,7 +481,7 @@ func Test_networkServiceServer_CreateChildNetworksFromSuperNameSpaced(t *testing
 		{
 			name: "create two child network from namespaced super network",
 			preparefn: func(t *testing.T) {
-				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+				test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
 					{
 						Id:                       pointer.Pointer("tenant-super-namespaced-1"),
 						Prefixes:                 []string{"13.100.0.0/14"},
@@ -541,7 +539,7 @@ func Test_networkServiceServer_CreateChildNetworksFromSuperNameSpaced(t *testing
 		{
 			name: "create four child networks in different projects from namespaced super network",
 			preparefn: func(t *testing.T) {
-				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+				test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
 					{
 						Id:                       pointer.Pointer("tenant-super-namespaced-1"),
 						Prefixes:                 []string{"14.100.0.0/14"},
@@ -640,7 +638,7 @@ func Test_networkServiceServer_CreateChildNetworksFromSuperNameSpaced(t *testing
 		t.Run(tt.name, func(t *testing.T) {
 			n := &networkServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 
 			defer func() {
@@ -695,7 +693,6 @@ func Test_networkServiceServer_CreateSuper(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -707,9 +704,9 @@ func Test_networkServiceServer_CreateSuper(t *testing.T) {
 	ctx := t.Context()
 
 	test.CreateTenants(t, testStore, tenants)
-	test.CreateProjects(t, repo, projects)
+	test.CreateProjects(t, testStore, projects)
 
-	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+	test.CreatePartitions(t, testStore, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 		{Partition: &apiv2.Partition{Id: "partition-two", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 	})
@@ -736,7 +733,7 @@ func Test_networkServiceServer_CreateSuper(t *testing.T) {
 		{
 			name: "create a super network in partition where already a super exists",
 			preparefn: func(t *testing.T) {
-				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+				test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
 					{
 						Id:                       pointer.Pointer("tenant-super-network"),
 						Prefixes:                 []string{"10.100.0.0/14"},
@@ -759,7 +756,7 @@ func Test_networkServiceServer_CreateSuper(t *testing.T) {
 		{
 			name: "create a super network in second partition where already a super exists in first partition",
 			preparefn: func(t *testing.T) {
-				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+				test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
 					{
 						Id:                       pointer.Pointer("tenant-super-network"),
 						Prefixes:                 []string{"10.100.0.0/14"},
@@ -928,7 +925,7 @@ func Test_networkServiceServer_CreateSuper(t *testing.T) {
 		{
 			name: "create a second super network without partition",
 			preparefn: func(t *testing.T) {
-				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+				test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
 					{
 						Id:                       pointer.Pointer("tenant-super-network"),
 						Prefixes:                 []string{"10.100.0.0/14"},
@@ -962,7 +959,7 @@ func Test_networkServiceServer_CreateSuper(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			n := &networkServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 
 			defer func() {
@@ -1005,7 +1002,6 @@ func Test_networkServiceServer_CreateSuperNamespaced(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -1017,9 +1013,9 @@ func Test_networkServiceServer_CreateSuperNamespaced(t *testing.T) {
 	ctx := t.Context()
 
 	test.CreateTenants(t, testStore, tenants)
-	test.CreateProjects(t, repo, projects)
+	test.CreateProjects(t, testStore, projects)
 
-	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+	test.CreatePartitions(t, testStore, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 		{Partition: &apiv2.Partition{Id: "partition-two", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 	})
@@ -1162,7 +1158,7 @@ func Test_networkServiceServer_CreateSuperNamespaced(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			n := &networkServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 
 			defer func() {
@@ -1205,7 +1201,6 @@ func Test_networkServiceServer_CreateExternal(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -1217,9 +1212,9 @@ func Test_networkServiceServer_CreateExternal(t *testing.T) {
 	ctx := t.Context()
 
 	test.CreateTenants(t, testStore, tenants)
-	test.CreateProjects(t, repo, projects)
+	test.CreateProjects(t, testStore, projects)
 
-	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+	test.CreatePartitions(t, testStore, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 		{Partition: &apiv2.Partition{Id: "partition-two", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 	})
@@ -1234,7 +1229,7 @@ func Test_networkServiceServer_CreateExternal(t *testing.T) {
 		{
 			name: "internet already exists",
 			preparefn: func(t *testing.T) {
-				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+				test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
 					{
 						Id:       pointer.Pointer("internet"),
 						Prefixes: []string{"10.0.0.0/24"},
@@ -1255,7 +1250,7 @@ func Test_networkServiceServer_CreateExternal(t *testing.T) {
 		{
 			name: "internet-2 overlaps internet",
 			preparefn: func(t *testing.T) {
-				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+				test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
 					{
 						Id:       pointer.Pointer("some-network"),
 						Prefixes: []string{"1.2.3.0/24"},
@@ -1398,7 +1393,7 @@ func Test_networkServiceServer_CreateExternal(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			n := &networkServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 
 			defer func() {
@@ -1441,7 +1436,6 @@ func Test_networkServiceServer_CreateUnderlay(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -1453,9 +1447,9 @@ func Test_networkServiceServer_CreateUnderlay(t *testing.T) {
 	ctx := t.Context()
 
 	test.CreateTenants(t, testStore, tenants)
-	test.CreateProjects(t, repo, projects)
+	test.CreateProjects(t, testStore, projects)
 
-	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+	test.CreatePartitions(t, testStore, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 		{Partition: &apiv2.Partition{Id: "partition-two", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 	})
@@ -1470,7 +1464,7 @@ func Test_networkServiceServer_CreateUnderlay(t *testing.T) {
 		{
 			name: "underlay already exists",
 			preparefn: func(t *testing.T) {
-				test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+				test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
 					{
 						Id:        pointer.Pointer("underlay"),
 						Prefixes:  []string{"10.0.0.0/24"},
@@ -1535,7 +1529,7 @@ func Test_networkServiceServer_CreateUnderlay(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			n := &networkServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 
 			defer func() {
@@ -1578,7 +1572,6 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -1590,16 +1583,16 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 	ctx := t.Context()
 
 	test.CreateTenants(t, testStore, tenants)
-	test.CreateProjects(t, repo, projects)
+	test.CreateProjects(t, testStore, projects)
 
-	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+	test.CreatePartitions(t, testStore, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 		{Partition: &apiv2.Partition{Id: "partition-two", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 		{Partition: &apiv2.Partition{Id: "partition-three", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 		{Partition: &apiv2.Partition{Id: "partition-four", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 	})
 
-	test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+	test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
 		{
 			Id:                       pointer.Pointer("tenant-super-network"),
 			Prefixes:                 []string{"10.100.0.0/14"},
@@ -1629,12 +1622,12 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 			Type:      apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
 		},
 	})
-	networkMap := test.AllocateNetworks(t, repo, []*apiv2.NetworkServiceCreateRequest{
+	networkMap := test.AllocateNetworks(t, testStore, []*apiv2.NetworkServiceCreateRequest{
 		{Name: pointer.Pointer("tenant-1"), Project: p1, Partition: pointer.Pointer("partition-one")},
 		{Name: pointer.Pointer("tenant-2"), Project: p1, Partition: pointer.Pointer("partition-one")},
 	})
 
-	test.CreateIPs(t, repo, []*apiv2.IPServiceCreateRequest{
+	test.CreateIPs(t, testStore, []*apiv2.IPServiceCreateRequest{
 		{Network: networkMap["tenant-1"].Id, Project: p1, Name: pointer.Pointer("ip-1")},
 	})
 
@@ -1685,7 +1678,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			n := &networkServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				// Execute proto based validation
@@ -1720,7 +1713,6 @@ func Test_networkServiceServer_List(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -1732,16 +1724,16 @@ func Test_networkServiceServer_List(t *testing.T) {
 	ctx := t.Context()
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}, {Name: "t0"}})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}, {Name: p3, Login: "t1"}, {Name: p0, Login: "t0"}})
+	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{{Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}, {Name: p3, Login: "t1"}, {Name: p0, Login: "t0"}})
 
-	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+	test.CreatePartitions(t, testStore, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 		{Partition: &apiv2.Partition{Id: "partition-two", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 		{Partition: &apiv2.Partition{Id: "partition-three", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 		{Partition: &apiv2.Partition{Id: "partition-four", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 	})
 
-	test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+	test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
 		{
 			Id:                       pointer.Pointer("tenant-super-network"),
 			Prefixes:                 []string{"10.100.0.0/14"},
@@ -1778,12 +1770,12 @@ func Test_networkServiceServer_List(t *testing.T) {
 			Type:                apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
 		},
 	})
-	networkMap := test.AllocateNetworks(t, repo, []*apiv2.NetworkServiceCreateRequest{
+	networkMap := test.AllocateNetworks(t, testStore, []*apiv2.NetworkServiceCreateRequest{
 		{Name: pointer.Pointer("tenant-1"), Project: p1, Partition: pointer.Pointer("partition-one")},
 		{Name: pointer.Pointer("tenant-2"), Project: p1, Partition: pointer.Pointer("partition-one"), Labels: &apiv2.Labels{Labels: map[string]string{"size": "small", "color": "blue"}}},
 	})
 
-	test.CreateIPs(t, repo, []*apiv2.IPServiceCreateRequest{
+	test.CreateIPs(t, testStore, []*apiv2.IPServiceCreateRequest{
 		{Network: networkMap["tenant-1"].Id, Project: p1, Name: pointer.Pointer("ip-1")},
 	})
 
@@ -2006,7 +1998,7 @@ func Test_networkServiceServer_List(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			n := &networkServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				// Execute proto based validation
@@ -2040,7 +2032,6 @@ func Test_networkServiceServer_Update(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -2052,16 +2043,16 @@ func Test_networkServiceServer_Update(t *testing.T) {
 	ctx := t.Context()
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}, {Name: "t0"}})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}, {Name: p3, Login: "t1"}, {Name: p0, Login: "t0"}})
+	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{{Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}, {Name: p3, Login: "t1"}, {Name: p0, Login: "t0"}})
 
-	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+	test.CreatePartitions(t, testStore, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-one", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 		{Partition: &apiv2.Partition{Id: "partition-two", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 		{Partition: &apiv2.Partition{Id: "partition-three", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 		{Partition: &apiv2.Partition{Id: "partition-four", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 	})
 
-	createdNetworks := test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+	createdNetworks := test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
 		{
 			Id:                       pointer.Pointer("tenant-super-network"),
 			Prefixes:                 []string{"10.100.0.0/14"},
@@ -2099,14 +2090,14 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		},
 	})
 
-	allocatedNetworks := test.AllocateNetworks(t, repo, []*apiv2.NetworkServiceCreateRequest{
+	allocatedNetworks := test.AllocateNetworks(t, testStore, []*apiv2.NetworkServiceCreateRequest{
 		{Name: pointer.Pointer("tenant-1"), Project: p1, Partition: pointer.Pointer("partition-one")},
 		{Name: pointer.Pointer("tenant-2"), Project: p1, Partition: pointer.Pointer("partition-one"), Labels: &apiv2.Labels{Labels: map[string]string{"size": "small", "color": "blue"}}},
 	})
 
 	networkMap := lo.Assign(createdNetworks, allocatedNetworks)
 
-	test.CreateIPs(t, repo, []*apiv2.IPServiceCreateRequest{{
+	test.CreateIPs(t, testStore, []*apiv2.IPServiceCreateRequest{{
 		Network: "internet",
 		Project: p1,
 		Name:    pointer.Pointer("my internet ip"),
@@ -2254,7 +2245,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			n := &networkServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				// Execute proto based validation

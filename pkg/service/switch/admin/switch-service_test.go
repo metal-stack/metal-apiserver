@@ -428,7 +428,6 @@ func Test_switchServiceServer_Get(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -444,9 +443,9 @@ func Test_switchServiceServer_Get(t *testing.T) {
 		}
 	)
 
-	test.CreatePartitions(t, repo, partitions)
+	test.CreatePartitions(t, testStore, partitions)
 	test.CreateMachines(t, testStore, []*metal.Machine{m1})
-	test.CreateSwitches(t, repo, switches)
+	test.CreateSwitches(t, testStore, switches)
 
 	tests := []struct {
 		name    string
@@ -477,7 +476,7 @@ func Test_switchServiceServer_Get(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &switchServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 
 			if tt.wantErr == nil {
@@ -506,7 +505,6 @@ func Test_switchServiceServer_List(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -522,9 +520,9 @@ func Test_switchServiceServer_List(t *testing.T) {
 		}
 	)
 
-	test.CreatePartitions(t, repo, partitions)
+	test.CreatePartitions(t, testStore, partitions)
 	test.CreateMachines(t, testStore, []*metal.Machine{m1})
-	test.CreateSwitches(t, repo, switches)
+	test.CreateSwitches(t, testStore, switches)
 
 	tests := []struct {
 		name    string
@@ -557,7 +555,7 @@ func Test_switchServiceServer_List(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &switchServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				test.Validate(t, tt.rq)
@@ -585,7 +583,6 @@ func Test_switchServiceServer_Update(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -601,9 +598,9 @@ func Test_switchServiceServer_Update(t *testing.T) {
 		}
 	)
 
-	test.CreatePartitions(t, repo, partitions)
+	test.CreatePartitions(t, testStore, partitions)
 	test.CreateMachines(t, testStore, []*metal.Machine{m1})
-	switchMap := test.CreateSwitches(t, repo, switches)
+	switchMap := test.CreateSwitches(t, testStore, switches)
 
 	tests := []struct {
 		name    string
@@ -816,7 +813,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &switchServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				test.Validate(t, tt.rq)
@@ -844,7 +841,6 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -860,9 +856,9 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 		}
 	)
 
-	test.CreatePartitions(t, repo, partitions)
+	test.CreatePartitions(t, testStore, partitions)
 	test.CreateMachines(t, testStore, []*metal.Machine{m1})
-	test.CreateSwitches(t, repo, switches)
+	test.CreateSwitches(t, testStore, switches)
 	test.CreateSwitchStatuses(t, testStore, []*repository.SwitchStatus{sw1Status, sw3Status})
 
 	tests := []struct {
@@ -905,7 +901,7 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &switchServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				test.Validate(t, tt.rq)
@@ -948,7 +944,6 @@ func Test_switchServiceServer_Port(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -964,9 +959,9 @@ func Test_switchServiceServer_Port(t *testing.T) {
 		}
 	)
 
-	test.CreatePartitions(t, repo, partitions)
+	test.CreatePartitions(t, testStore, partitions)
 	test.CreateMachines(t, testStore, []*metal.Machine{m1})
-	test.CreateSwitches(t, repo, switches)
+	test.CreateSwitches(t, testStore, switches)
 
 	tests := []struct {
 		name    string
@@ -1117,7 +1112,7 @@ func Test_switchServiceServer_Port(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &switchServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 			got, err := s.Port(ctx, tt.rq)
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
@@ -1141,7 +1136,6 @@ func Test_switchServiceServer_Migrate(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -1157,9 +1151,9 @@ func Test_switchServiceServer_Migrate(t *testing.T) {
 		}
 	)
 
-	test.CreatePartitions(t, repo, partitions)
+	test.CreatePartitions(t, testStore, partitions)
 	test.CreateMachines(t, testStore, []*metal.Machine{m1})
-	test.CreateSwitches(t, repo, switches)
+	test.CreateSwitches(t, testStore, switches)
 
 	tests := []struct {
 		name    string
@@ -1233,7 +1227,7 @@ func Test_switchServiceServer_Migrate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &switchServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				test.Validate(t, tt.rq)

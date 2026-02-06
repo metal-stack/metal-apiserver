@@ -99,7 +99,6 @@ func Test_bootServiceServer_Boot(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -110,7 +109,7 @@ func Test_bootServiceServer_Boot(t *testing.T) {
 
 	ctx := t.Context()
 
-	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+	test.CreatePartitions(t, testStore, []*adminv2.PartitionServiceCreateRequest{
 		{
 			Partition: &apiv2.Partition{Id: partition1, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL, Commandline: "console=ttyS1"}},
 		},
@@ -143,7 +142,7 @@ func Test_bootServiceServer_Boot(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			b := &bootServiceServer{
 				log:                  log,
-				repo:                 repo,
+				repo:                 testStore.Store,
 				bmcSuperuserPassword: "",
 			}
 			if tt.wantErr == nil {
@@ -174,7 +173,6 @@ func Test_bootServiceServer_Dhcp(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -186,18 +184,18 @@ func Test_bootServiceServer_Dhcp(t *testing.T) {
 	ctx := t.Context()
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
-	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{{Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
+	test.CreatePartitions(t, testStore, []*adminv2.PartitionServiceCreateRequest{
 		{
 			Partition: &apiv2.Partition{Id: partition1, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
 		},
 	})
-	test.CreateSizes(t, repo, []*adminv2.SizeServiceCreateRequest{
+	test.CreateSizes(t, testStore, []*adminv2.SizeServiceCreateRequest{
 		{
 			Size: &apiv2.Size{Id: "c1-large-x86"},
 		},
 	})
-	test.CreateImages(t, repo, []*adminv2.ImageServiceCreateRequest{
+	test.CreateImages(t, testStore, []*adminv2.ImageServiceCreateRequest{
 		{Image: &apiv2.Image{Id: "debian-12", Url: validURL, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}}},
 	})
 
@@ -270,7 +268,7 @@ func Test_bootServiceServer_Dhcp(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			b := &bootServiceServer{
 				log:                  log,
-				repo:                 repo,
+				repo:                 testStore.Store,
 				bmcSuperuserPassword: "",
 			}
 			if tt.wantErr == nil {
@@ -290,7 +288,7 @@ func Test_bootServiceServer_Dhcp(t *testing.T) {
 			); diff != "" {
 				t.Errorf("bootServiceServer.Dhcp() diff = %s", diff)
 			}
-			gotMachine, err := repo.UnscopedMachine().Get(ctx, tt.req.Uuid)
+			gotMachine, err := testStore.UnscopedMachine().Get(ctx, tt.req.Uuid)
 			require.NoError(t, err)
 			if diff := cmp.Diff(
 				tt.wantMachine, gotMachine,
@@ -367,7 +365,6 @@ func Test_bootServiceServer_Register(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -379,13 +376,13 @@ func Test_bootServiceServer_Register(t *testing.T) {
 	ctx := t.Context()
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
-	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{{Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
+	test.CreatePartitions(t, testStore, []*adminv2.PartitionServiceCreateRequest{
 		{
 			Partition: &apiv2.Partition{Id: partition1, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
 		},
 	})
-	test.CreateSizes(t, repo, []*adminv2.SizeServiceCreateRequest{
+	test.CreateSizes(t, testStore, []*adminv2.SizeServiceCreateRequest{
 		{
 			Size: &apiv2.Size{Id: "c1-large-x86", Constraints: []*apiv2.SizeConstraint{
 				{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
@@ -394,7 +391,7 @@ func Test_bootServiceServer_Register(t *testing.T) {
 			}},
 		},
 	})
-	test.CreateImages(t, repo, []*adminv2.ImageServiceCreateRequest{
+	test.CreateImages(t, testStore, []*adminv2.ImageServiceCreateRequest{
 		{Image: &apiv2.Image{Id: "debian-12", Url: validURL, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}}},
 	})
 
@@ -403,7 +400,7 @@ func Test_bootServiceServer_Register(t *testing.T) {
 		{Base: metal.Base{ID: m1}, PartitionID: partition1, SizeID: "c1-large-x86"},
 	})
 
-	test.CreateSwitches(t, repo, []*repository.SwitchServiceCreateRequest{sw1, sw2})
+	test.CreateSwitches(t, testStore, []*repository.SwitchServiceCreateRequest{sw1, sw2})
 
 	tests := []struct {
 		name         string
@@ -676,7 +673,7 @@ func Test_bootServiceServer_Register(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			b := &bootServiceServer{
 				log:  slog.Default(),
-				repo: repo,
+				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				// Execute proto based validation
@@ -696,7 +693,7 @@ func Test_bootServiceServer_Register(t *testing.T) {
 				t.Errorf("bootServiceServer.Register()  = %v, want %v", got, tt.want)
 			}
 			if tt.wantMachine != nil {
-				m, err := repo.UnscopedMachine().Get(ctx, tt.req.Uuid)
+				m, err := testStore.UnscopedMachine().Get(ctx, tt.req.Uuid)
 				require.NoError(t, err)
 				if diff := cmp.Diff(
 					tt.wantMachine, m,
@@ -712,7 +709,7 @@ func Test_bootServiceServer_Register(t *testing.T) {
 				}
 			}
 			if len(tt.wantSwitches) > 0 {
-				sws, err := repo.Switch().List(ctx, &apiv2.SwitchQuery{Partition: &partition1})
+				sws, err := testStore.Switch().List(ctx, &apiv2.SwitchQuery{Partition: &partition1})
 				require.NoError(t, err)
 				if diff := cmp.Diff(
 					tt.wantSwitches, sws,
@@ -736,7 +733,6 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -748,13 +744,13 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 	ctx := t.Context()
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
-	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{{Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
+	test.CreatePartitions(t, testStore, []*adminv2.PartitionServiceCreateRequest{
 		{
 			Partition: &apiv2.Partition{Id: partition1, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
 		},
 	})
-	test.CreateSizes(t, repo, []*adminv2.SizeServiceCreateRequest{
+	test.CreateSizes(t, testStore, []*adminv2.SizeServiceCreateRequest{
 		{
 			Size: &apiv2.Size{Id: "c1-large-x86", Constraints: []*apiv2.SizeConstraint{
 				{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
@@ -763,12 +759,12 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 			}},
 		},
 	})
-	test.CreateImages(t, repo, []*adminv2.ImageServiceCreateRequest{
+	test.CreateImages(t, testStore, []*adminv2.ImageServiceCreateRequest{
 		{Image: &apiv2.Image{Id: "debian-12", Url: validURL, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}}},
 		{Image: &apiv2.Image{Id: "firewall-debian-13", Url: validURL, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL}}},
 	})
 
-	netmap := test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+	netmap := test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
 		{
 			Id: pointer.Pointer("internet"), Name: pointer.Pointer("internet"),
 			Partition: &partition1, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
@@ -823,7 +819,7 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 		},
 	})
 
-	test.CreateSwitches(t, repo, []*repository.SwitchServiceCreateRequest{sw1, sw2})
+	test.CreateSwitches(t, testStore, []*repository.SwitchServiceCreateRequest{sw1, sw2})
 
 	tests := []struct {
 		name         string
@@ -1030,7 +1026,7 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			b := &bootServiceServer{
 				log:  slog.Default(),
-				repo: repo,
+				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				// Execute proto based validation
@@ -1050,7 +1046,7 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 				t.Errorf("bootServiceServer.InstallationSucceeded()  = %v, want %v", got, tt.want)
 			}
 			if tt.wantMachine != nil {
-				m, err := repo.UnscopedMachine().Get(ctx, tt.req.Uuid)
+				m, err := testStore.UnscopedMachine().Get(ctx, tt.req.Uuid)
 				require.NoError(t, err)
 				if diff := cmp.Diff(
 					tt.wantMachine, m,
@@ -1068,12 +1064,12 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 					t.Errorf("bootServiceServer.InstallationSucceeded() diff =%s", diff)
 				}
 
-				consolePassword, err := repo.UnscopedMachine().AdditionalMethods().GetConsolePassword(ctx, tt.req.Uuid)
+				consolePassword, err := testStore.UnscopedMachine().AdditionalMethods().GetConsolePassword(ctx, tt.req.Uuid)
 				require.NoError(t, err)
 				require.Equal(t, tt.req.ConsolePassword, consolePassword)
 			}
 			if len(tt.wantSwitches) > 0 {
-				sws, err := repo.Switch().List(ctx, &apiv2.SwitchQuery{Partition: &partition1})
+				sws, err := testStore.Switch().List(ctx, &apiv2.SwitchQuery{Partition: &partition1})
 				require.NoError(t, err)
 				if diff := cmp.Diff(
 					tt.wantSwitches, sws,

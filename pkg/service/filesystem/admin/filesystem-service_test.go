@@ -21,7 +21,6 @@ func Test_filesystemServiceServer_Create(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	tests := []struct {
 		name    string
@@ -87,7 +86,7 @@ func Test_filesystemServiceServer_Create(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			f := &filesystemServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				// Execute proto based validation
@@ -117,9 +116,8 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
-	fslMap := test.CreateFilesystemLayouts(t, repo, []*adminv2.FilesystemServiceCreateRequest{
+	fslMap := test.CreateFilesystemLayouts(t, testStore, []*adminv2.FilesystemServiceCreateRequest{
 		{
 			FilesystemLayout: &apiv2.FilesystemLayout{
 				Id:          "default",
@@ -192,7 +190,7 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			f := &filesystemServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				// Execute proto based validation
@@ -221,9 +219,8 @@ func Test_filesystemServiceServer_Delete(t *testing.T) {
 	log := slog.Default()
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
-	test.CreateFilesystemLayouts(t, repo, []*adminv2.FilesystemServiceCreateRequest{
+	test.CreateFilesystemLayouts(t, testStore, []*adminv2.FilesystemServiceCreateRequest{
 		{
 			FilesystemLayout: &apiv2.FilesystemLayout{
 				Id:          "default",
@@ -317,7 +314,7 @@ func Test_filesystemServiceServer_Delete(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			f := &filesystemServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				// Execute proto based validation

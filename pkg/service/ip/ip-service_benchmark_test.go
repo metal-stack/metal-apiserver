@@ -17,13 +17,12 @@ func Benchmark_ipServiceServer_Create(b *testing.B) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(b, log)
 	defer closer()
-	repo := testStore.Store
 
 	ctx := b.Context()
 
 	test.CreateTenants(b, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
-	test.CreateProjects(b, repo, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
-	test.CreateNetworks(b, repo, []*adminv2.NetworkServiceCreateRequest{
+	test.CreateProjects(b, testStore, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
+	test.CreateNetworks(b, testStore, []*adminv2.NetworkServiceCreateRequest{
 		{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.3.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: pointer.Pointer(uint32(11))},
 		{
 			Id:                       pointer.Pointer("tenant-super-namespaced"),
@@ -36,7 +35,7 @@ func Benchmark_ipServiceServer_Create(b *testing.B) {
 
 	i := &ipServiceServer{
 		log:  log,
-		repo: repo,
+		repo: testStore.Store,
 	}
 	for b.Loop() {
 		got, err := i.Create(ctx, &apiv2.IPServiceCreateRequest{

@@ -23,8 +23,6 @@ func Test_projectRepository_GetProjectsAndTenants(t *testing.T) {
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
 
-	repo := testStore.Store
-
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{
 		{Name: "john.doe@github.com"},
 		{Name: "viewer@github.com"},
@@ -50,7 +48,7 @@ func Test_projectRepository_GetProjectsAndTenants(t *testing.T) {
 	test.CreateTenantMemberships(t, testStore, "maddy@github.com", []*repository.TenantMemberCreateRequest{
 		{MemberID: "maddy@github.com", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 	})
-	projectMap := test.CreateProjects(t, testStore.Store, []*apiv2.ProjectServiceCreateRequest{
+	projectMap := test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{
 		{Login: "john.doe@github.com"},
 	})
 	test.CreateProjectMemberships(t, testStore, projectMap["john.doe@github.com"], []*repository.ProjectMemberCreateRequest{
@@ -171,7 +169,7 @@ func Test_projectRepository_GetProjectsAndTenants(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, gotErr := repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(t.Context(), tt.userId)
+			got, gotErr := testStore.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(t.Context(), tt.userId)
 
 			if diff := cmp.Diff(tt.wantErr, gotErr, testcommon.ErrorStringComparer()); diff != "" {
 				t.Errorf("GetProjectsAndTenants() failed: %v", diff)
