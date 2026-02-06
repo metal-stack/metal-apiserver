@@ -185,15 +185,19 @@ func (r *machineRepository) update(ctx context.Context, m *metal.Machine, req *a
 
 func (r *machineRepository) delete(ctx context.Context, m *metal.Machine) error {
 	var (
-		uuid           *string
+		uuid           = &m.ID
 		allocationUUID *string
 	)
-	uuid = &m.ID
+
 	if m.Allocation != nil {
 		uuid = nil
 		allocationUUID = &m.Allocation.UUID
 	}
-	info, err := r.s.task.NewMachineDeleteTask(uuid, allocationUUID)
+
+	info, err := r.s.task.NewTask(&task.MachineDeletePayload{
+		UUID:           uuid,
+		AllocationUUID: allocationUUID,
+	})
 	if err != nil {
 		return err
 	}
@@ -1100,7 +1104,19 @@ func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, 
 		return err
 	}
 
-	info, err := r.s.task.NewMachineBMCCommandTask(machineUUID, partition, *cmdString)
+	cmd := *cmdString
+	commandId := machineUUID + ":machine-bmc-command:" + cmd
+
+	info, err := r.s.task.NewTask(&task.MachineBMCCommandPayload{
+		UUID:      machineUUID,
+		Partition: partition,
+		Command:   cmd,
+		CommandID: commandId,
+	},
+		asynq.Timeout(time.Minute),
+		asynq.MaxRetry(0),
+		asynq.Retention(30*24*time.Hour), // Only with retention a task will be stored in completed tasks
+	)
 	if err != nil {
 		return err
 	}

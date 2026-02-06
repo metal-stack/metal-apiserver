@@ -13,7 +13,6 @@ func NewServer(log *slog.Logger, store *repository.Store, redis *redis.Client) (
 	srv := asynq.NewServerFromRedisClient(
 		redis,
 		asynq.Config{
-			// Specify how many concurrent workers to use
 			Concurrency: 10,
 			// Optionally specify multiple queues with different priority.
 			// Queues: map[string]int{
@@ -21,17 +20,16 @@ func NewServer(log *slog.Logger, store *repository.Store, redis *redis.Client) (
 			// 	"default":  3,
 			// 	"low":      1,
 			// },
-			// See the godoc for other configuration options
 		},
 	)
 
 	// mux maps a type to a handler
 
 	mux := asynq.NewServeMux()
-	mux.HandleFunc(task.TypeIpDelete, store.IpDeleteHandleFn)
-	mux.HandleFunc(task.TypeNetworkDelete, store.NetworkDeleteHandleFn)
-	mux.HandleFunc(task.TypeMachineDelete, store.MachineDeleteHandleFn)
-	mux.HandleFunc(task.TypeMachineBMCCommand, store.MachineBMCCommandHandleFn)
+	mux.HandleFunc(string(task.TypeIpDelete), store.IpDeleteHandleFn)
+	mux.HandleFunc(string(task.TypeNetworkDelete), store.NetworkDeleteHandleFn)
+	mux.HandleFunc(string(task.TypeMachineDelete), store.MachineDeleteHandleFn)
+	mux.HandleFunc(string(task.TypeMachineBMCCommand), store.MachineBMCCommandHandleFn)
 
 	// ...register other handlers...
 	return srv, mux

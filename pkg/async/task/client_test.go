@@ -45,8 +45,11 @@ func TestClient_NewIPDeleteTask(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
-			got, err := c.NewIPDeleteTask(tt.args.allocationUUID, tt.args.ip, tt.args.project)
+			got, err := c.NewTask(&task.IPDeletePayload{
+				AllocationUUID: tt.args.allocationUUID,
+				IP:             tt.args.ip,
+				Project:        tt.args.project,
+			})
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Client.NewIPDeleteTask() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -88,7 +91,9 @@ func TestClient_NewNetworkDeleteTask(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := c.NewNetworkDeleteTask(tt.args.uuid)
+			got, err := c.NewTask(&task.NetworkDeletePayload{
+				UUID: tt.args.uuid,
+			})
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Client.NewNetworkDeleteTask() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -146,7 +151,10 @@ func TestClient_NewMachineDeleteTask(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := c.NewMachineDeleteTask(tt.args.uuid, tt.args.allocationUUID)
+			got, err := c.NewTask(&task.MachineDeletePayload{
+				UUID:           tt.args.uuid,
+				AllocationUUID: tt.args.allocationUUID,
+			})
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Client.NewMachineDeleteTask() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -169,7 +177,10 @@ func TestClient_Informers(t *testing.T) {
 		c   = task.NewClient(log, rc)
 	)
 
-	task, err := c.NewMachineDeleteTask(pointer.Pointer("machine-uuid"), pointer.Pointer("allocation-uuid"))
+	task, err := c.NewTask(&task.MachineDeletePayload{
+		UUID:           pointer.Pointer("machine-uuid"),
+		AllocationUUID: pointer.Pointer("allocation-uuid"),
+	})
 	require.NoError(t, err)
 
 	qs, err := c.GetQueues()
@@ -180,7 +191,7 @@ func TestClient_Informers(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, taskInfo)
 
-	taskList, err := c.List(nil, nil, nil)
+	taskList, err := c.List(nil)
 	require.NoError(t, err)
 	require.Len(t, taskList, 1)
 	require.Equal(t, taskInfo.ID, taskList[0].ID)
