@@ -26,7 +26,6 @@ func Test_imageServiceServer_Create(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ctx := t.Context()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -74,7 +73,7 @@ func Test_imageServiceServer_Create(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &imageServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 
 			if tt.wantErr == nil {
@@ -109,7 +108,6 @@ func Test_imageServiceServer_Update(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ctx := t.Context()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -126,7 +124,7 @@ func Test_imageServiceServer_Update(t *testing.T) {
 
 	defer ts.Close()
 
-	imageMap := test.CreateImages(t, repo, []*adminv2.ImageServiceCreateRequest{
+	imageMap := test.CreateImages(t, testStore, []*adminv2.ImageServiceCreateRequest{
 		{
 			Image: &apiv2.Image{Id: "debian-11.0.20231231", Url: validURL, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
 		},
@@ -224,7 +222,7 @@ func Test_imageServiceServer_Update(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &imageServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 
 			if tt.wantErr == nil {
@@ -260,7 +258,6 @@ func Test_imageServiceServer_Delete(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ctx := t.Context()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -269,7 +266,7 @@ func Test_imageServiceServer_Delete(t *testing.T) {
 	url := ts.URL
 	defer ts.Close()
 
-	test.CreateImages(t, repo, []*adminv2.ImageServiceCreateRequest{
+	test.CreateImages(t, testStore, []*adminv2.ImageServiceCreateRequest{
 		{
 			Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
 		},
@@ -325,7 +322,7 @@ func Test_imageServiceServer_Delete(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &imageServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 
 			if tt.wantErr == nil {

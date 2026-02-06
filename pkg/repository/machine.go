@@ -1091,7 +1091,6 @@ func (r *machineRepository) convertToBMCReport(machine *metal.Machine) *apiv2.Ma
 		},
 		UpdatedAt: timestamppb.New(machine.IPMI.LastUpdated),
 	}
-
 	return bmcReport
 }
 
@@ -1223,7 +1222,6 @@ func (r *machineRepository) BMCCommandDone(ctx context.Context, req *infrav2.BMC
 	}
 	return &infrav2.BMCCommandDoneResponse{}, nil
 }
-
 func (r *machineRepository) GetConsolePassword(ctx context.Context, machineUUID string) (string, error) {
 	m, err := r.s.ds.Machine().Get(ctx, machineUUID)
 	if err != nil {

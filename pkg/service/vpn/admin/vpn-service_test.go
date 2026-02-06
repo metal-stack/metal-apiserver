@@ -41,7 +41,6 @@ func Test_vpnService_AuthKey(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, repoCloser := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(false))
-	repo := testStore.Store
 
 	headscaleClient, endpoint, _, headscaleCloser := test.StartHeadscale(t)
 
@@ -53,7 +52,7 @@ func Test_vpnService_AuthKey(t *testing.T) {
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{
 		{Name: "john.doe@github"},
 	})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{
+	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{
 		{
 			Name:        p0,
 			Description: "a description",
@@ -299,7 +298,6 @@ func Test_vpnService_EvaluateVPNConnected(t *testing.T) {
 	ctx := t.Context()
 
 	testStore, repocloser := test.StartRepositoryWithCleanup(t, log)
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")
@@ -323,18 +321,18 @@ func Test_vpnService_EvaluateVPNConnected(t *testing.T) {
 	require.NoError(t, err)
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
-	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{{Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
+	test.CreatePartitions(t, testStore, []*adminv2.PartitionServiceCreateRequest{
 		{
 			Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
 		},
 	})
-	test.CreateSizes(t, repo, []*adminv2.SizeServiceCreateRequest{
+	test.CreateSizes(t, testStore, []*adminv2.SizeServiceCreateRequest{
 		{
 			Size: &apiv2.Size{Id: "c1-large-x86"},
 		},
 	})
-	test.CreateImages(t, repo, []*adminv2.ImageServiceCreateRequest{
+	test.CreateImages(t, testStore, []*adminv2.ImageServiceCreateRequest{
 		{Image: &apiv2.Image{Id: "debian-12", Url: validURL, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}}},
 	})
 

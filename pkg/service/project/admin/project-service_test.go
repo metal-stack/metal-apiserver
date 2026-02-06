@@ -29,13 +29,12 @@ func Test_projectServiceServer_List(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
-	repo := testStore.Store
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{
 		{Name: "john.doe@github"},
 		{Name: "jane.roe@github"},
 	})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{
+	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{
 		{Name: p0, Login: "john.doe@github"},
 		{Name: "jane.roe@github", Login: "jane.roe@github"},
 		{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
@@ -129,7 +128,7 @@ func Test_projectServiceServer_List(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			u := &projectServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 			role := apiv2.AdminRole_ADMIN_ROLE_EDITOR
 			tok := testStore.GetToken("john.doe@github", &apiv2.TokenServiceCreateRequest{

@@ -37,14 +37,13 @@ func Test_projectServiceServer_Get(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
-	repo := testStore.Store
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{
 		{Name: "john.doe@github"},
 		{Name: "will.smith@github"},  // direct project membership
 		{Name: "tina.turner@github"}, // inherited project membership
 	})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{
+	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{
 		{
 			Name:        p0,
 			Description: "a description",
@@ -159,7 +158,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			u := &projectServiceServer{
 				log:         log,
-				repo:        repo,
+				repo:        testStore.Store,
 				inviteStore: testStore.GetProjectInviteStore(),
 				tokenStore:  testStore.GetTokenStore(),
 			}
@@ -212,13 +211,12 @@ func Test_projectServiceServer_List(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
-	repo := testStore.Store
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{
 		{Name: "john.doe@github"},
 		{Name: "will.smith@github"},
 	})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{
+	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{
 		{Name: p0, Login: "john.doe@github"},
 		{Name: "will.smith@github", Login: "will.smith@github"},
 		{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
@@ -331,7 +329,7 @@ func Test_projectServiceServer_List(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			u := &projectServiceServer{
 				log:         log,
-				repo:        repo,
+				repo:        testStore.Store,
 				inviteStore: testStore.GetProjectInviteStore(),
 				tokenStore:  testStore.GetTokenStore(),
 			}
@@ -373,7 +371,6 @@ func Test_projectServiceServer_Create(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
-	repo := testStore.Store
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{
 		{Name: "john.doe@github"},
@@ -427,7 +424,7 @@ func Test_projectServiceServer_Create(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			u := &projectServiceServer{
 				log:         log,
-				repo:        repo,
+				repo:        testStore.Store,
 				inviteStore: testStore.GetProjectInviteStore(),
 				tokenStore:  testStore.GetTokenStore(),
 			}
@@ -474,13 +471,12 @@ func Test_projectServiceServer_Update(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
-	repo := testStore.Store
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{
 		{Name: "john.doe@github"},
 	})
 
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{{
+	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{{
 		Name:        p0,
 		Description: "old desc",
 		AvatarUrl:   pointer.Pointer("http://old"),
@@ -539,7 +535,7 @@ func Test_projectServiceServer_Update(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			u := &projectServiceServer{
 				log:         log,
-				repo:        repo,
+				repo:        testStore.Store,
 				inviteStore: testStore.GetProjectInviteStore(),
 				tokenStore:  testStore.GetTokenStore(),
 			}
@@ -581,7 +577,6 @@ func Test_projectServiceServer_Delete(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
-	repo := testStore.Store
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{
 		{Name: "john.doe@github"},
@@ -677,14 +672,14 @@ func Test_projectServiceServer_Delete(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			u := &projectServiceServer{
 				log:         log,
-				repo:        repo,
+				repo:        testStore.Store,
 				inviteStore: testStore.GetProjectInviteStore(),
 				tokenStore:  testStore.GetTokenStore(),
 			}
 
-			test.CreateProjects(t, repo, tt.existingProjects)
-			test.CreateNetworks(t, repo, tt.existingNetworks)
-			test.CreateIPs(t, repo, tt.existingIPs)
+			test.CreateProjects(t, testStore, tt.existingProjects)
+			test.CreateNetworks(t, testStore, tt.existingNetworks)
+			test.CreateIPs(t, testStore, tt.existingIPs)
 			test.CreateMachines(t, testStore, tt.existingMachines)
 			defer func() {
 				test.DeleteMachines(t, testStore)
@@ -730,7 +725,6 @@ func Test_projectServiceServer_MemberUpdate(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
-	repo := testStore.Store
 
 	tests := []struct {
 		name                   string
@@ -855,7 +849,7 @@ func Test_projectServiceServer_MemberUpdate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			u := &projectServiceServer{
 				log:         log,
-				repo:        repo,
+				repo:        testStore.Store,
 				inviteStore: testStore.GetProjectInviteStore(),
 				tokenStore:  testStore.GetTokenStore(),
 			}
@@ -866,7 +860,7 @@ func Test_projectServiceServer_MemberUpdate(t *testing.T) {
 					test.CreateTenantMemberships(t, testStore, tenant, members)
 				}
 			}
-			test.CreateProjects(t, repo, tt.existingProjects)
+			test.CreateProjects(t, testStore, tt.existingProjects)
 			if tt.existingProjectMembers != nil {
 				for project, members := range tt.existingProjectMembers {
 					test.CreateProjectMemberships(t, testStore, project, members)
@@ -914,7 +908,6 @@ func Test_projectServiceServer_MemberRemove(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
-	repo := testStore.Store
 
 	tests := []struct {
 		name                   string
@@ -973,7 +966,7 @@ func Test_projectServiceServer_MemberRemove(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			u := &projectServiceServer{
 				log:         log,
-				repo:        repo,
+				repo:        testStore.Store,
 				inviteStore: testStore.GetProjectInviteStore(),
 				tokenStore:  testStore.GetTokenStore(),
 			}
@@ -984,7 +977,7 @@ func Test_projectServiceServer_MemberRemove(t *testing.T) {
 					test.CreateTenantMemberships(t, testStore, tenant, members)
 				}
 			}
-			test.CreateProjects(t, repo, tt.existingProjects)
+			test.CreateProjects(t, testStore, tt.existingProjects)
 			if tt.existingProjectMembers != nil {
 				for project, members := range tt.existingProjectMembers {
 					test.CreateProjectMemberships(t, testStore, project, members)
@@ -1022,12 +1015,11 @@ func Test_projectServiceServer_Invite(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
-	repo := testStore.Store
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{
 		{Name: "john.doe@github"},
 	})
-	test.CreateProjects(t, repo, []*apiv2.ProjectServiceCreateRequest{
+	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{
 		{Name: p0, Login: "john.doe@github"},
 		{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
 	})
@@ -1079,7 +1071,7 @@ func Test_projectServiceServer_Invite(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			u := &projectServiceServer{
 				log:         log,
-				repo:        repo,
+				repo:        testStore.Store,
 				inviteStore: testStore.GetProjectInviteStore(),
 				tokenStore:  testStore.GetTokenStore(),
 			}
@@ -1122,7 +1114,6 @@ func Test_projectServiceServer_InviteGet(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
-	repo := testStore.Store
 
 	now := timestamppb.Now()
 
@@ -1178,7 +1169,7 @@ func Test_projectServiceServer_InviteGet(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			u := &projectServiceServer{
 				log:         log,
-				repo:        repo,
+				repo:        testStore.Store,
 				inviteStore: testStore.GetProjectInviteStore(),
 				tokenStore:  testStore.GetTokenStore(),
 			}
@@ -1219,7 +1210,6 @@ func Test_projectServiceServer_InvitesList(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
-	repo := testStore.Store
 
 	now := timestamppb.Now()
 
@@ -1281,7 +1271,7 @@ func Test_projectServiceServer_InvitesList(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			u := &projectServiceServer{
 				log:         log,
-				repo:        repo,
+				repo:        testStore.Store,
 				inviteStore: testStore.GetProjectInviteStore(),
 				tokenStore:  testStore.GetTokenStore(),
 			}
@@ -1322,7 +1312,6 @@ func Test_projectServiceServer_InviteDelete(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
-	repo := testStore.Store
 
 	now := timestamppb.Now()
 
@@ -1358,7 +1347,7 @@ func Test_projectServiceServer_InviteDelete(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			u := &projectServiceServer{
 				log:         log,
-				repo:        repo,
+				repo:        testStore.Store,
 				inviteStore: testStore.GetProjectInviteStore(),
 				tokenStore:  testStore.GetTokenStore(),
 			}
@@ -1394,7 +1383,6 @@ func Test_projectServiceServer_InviteAccept(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
-	repo := testStore.Store
 
 	anHour := timestamppb.New(time.Now().Add(time.Hour))
 
@@ -1528,13 +1516,13 @@ func Test_projectServiceServer_InviteAccept(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			u := &projectServiceServer{
 				log:         log,
-				repo:        repo,
+				repo:        testStore.Store,
 				inviteStore: testStore.GetProjectInviteStore(),
 				tokenStore:  testStore.GetTokenStore(),
 			}
 
 			test.CreateTenants(t, testStore, tt.existingTenants)
-			test.CreateProjects(t, repo, tt.existingProjects)
+			test.CreateProjects(t, testStore, tt.existingProjects)
 			if tt.existingProjectMembers != nil {
 				for project, members := range tt.existingProjectMembers {
 					test.CreateProjectMemberships(t, testStore, project, members)
@@ -1613,7 +1601,6 @@ func Test_projectServiceServer_Leave(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
-	repo := testStore.Store
 
 	tests := []struct {
 		name                   string
@@ -1739,7 +1726,7 @@ func Test_projectServiceServer_Leave(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			u := &projectServiceServer{
 				log:         log,
-				repo:        repo,
+				repo:        testStore.Store,
 				inviteStore: testStore.GetProjectInviteStore(),
 				tokenStore:  testStore.GetTokenStore(),
 			}
@@ -1750,7 +1737,7 @@ func Test_projectServiceServer_Leave(t *testing.T) {
 					test.CreateTenantMemberships(t, testStore, tenant, members)
 				}
 			}
-			test.CreateProjects(t, repo, tt.existingProjects)
+			test.CreateProjects(t, testStore, tt.existingProjects)
 			if tt.existingProjectMembers != nil {
 				for project, members := range tt.existingProjectMembers {
 					test.CreateProjectMemberships(t, testStore, project, members)

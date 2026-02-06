@@ -298,9 +298,6 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 				Subject: "pixiecore@metal-stack.dev",
 			},
 		},
-
-
-
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -315,7 +312,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 			)
 
 			test.CreateTenants(t, testStore, tt.existingTenants)
-			test.CreateProjects(t, testStore.Store, tt.existingProjects)
+			test.CreateProjects(t, testStore, tt.existingProjects)
 
 			defer func() {
 				testStore.DeleteProjects()

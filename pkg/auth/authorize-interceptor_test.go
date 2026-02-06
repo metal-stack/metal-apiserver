@@ -67,7 +67,7 @@ func Test_authorizeInterceptor_WrapUnary(t *testing.T) {
 	test.CreateTenantMemberships(t, testStore, "ansible", []*repository.TenantMemberCreateRequest{
 		{MemberID: "ansible", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 	})
-	projectMap := test.CreateProjects(t, testStore.Store, []*apiv2.ProjectServiceCreateRequest{
+	projectMap := test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{
 		{Login: "john.doe@github.com"},
 	})
 	test.CreateProjectMemberships(t, testStore, projectMap["john.doe@github.com"], []*repository.ProjectMemberCreateRequest{

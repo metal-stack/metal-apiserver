@@ -22,7 +22,6 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 	ctx := t.Context()
 
 	testStore, repocloser := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true), test.WithValkey(true))
-	repo := testStore.Store
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "{}")
@@ -35,7 +34,7 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 
 	c := service.Config{
 		Log:           log,
-		Repository:    repo,
+		Repository:    testStore.Store,
 		ServerHttpURL: "https://test.io",
 		RedisConfig: &service.RedisConfig{
 			// Take the same redis db for all
@@ -68,24 +67,24 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 
 	reqCtx := tokencommon.ContextWithToken(t.Context(), tok.Token)
 
-	err = repo.Tenant().AdditionalMethods().EnsureProviderTenant(reqCtx, providerTenant)
+	err = testStore.Tenant().AdditionalMethods().EnsureProviderTenant(reqCtx, providerTenant)
 	require.NoError(t, err)
 
-	err = repo.UnscopedProject().AdditionalMethods().EnsureProviderProject(ctx, providerTenant)
+	err = testStore.UnscopedProject().AdditionalMethods().EnsureProviderProject(ctx, providerTenant)
 	require.NoError(t, err)
 
-	tenant, err := repo.Tenant().AdditionalMethods().CreateWithID(reqCtx, &apiv2.TenantServiceCreateRequest{
+	tenant, err := testStore.Tenant().AdditionalMethods().CreateWithID(reqCtx, &apiv2.TenantServiceCreateRequest{
 		Name: subject,
 	}, subject)
 	require.NoError(t, err)
 
-	_, err = repo.Tenant().AdditionalMethods().Member(tenant.Login).Create(reqCtx, &repository.TenantMemberCreateRequest{
+	_, err = testStore.Tenant().AdditionalMethods().Member(tenant.Login).Create(reqCtx, &repository.TenantMemberCreateRequest{
 		MemberID: subject,
 		Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
 	})
 	require.NoError(t, err)
 
-	_, err = repo.Tenant().AdditionalMethods().Member(providerTenant).Create(ctx, &repository.TenantMemberCreateRequest{
+	_, err = testStore.Tenant().AdditionalMethods().Member(providerTenant).Create(ctx, &repository.TenantMemberCreateRequest{
 		MemberID: tenant.Login,
 		Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
 	})
@@ -106,7 +105,7 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 		server.Close()
 	}
 
-	tenantTokenSecrets := createTenantTokens(t, repo, testStore.GetTokenService(), additionalTenants...)
+	tenantTokenSecrets := createTenantTokens(t, testStore.Store, testStore.GetTokenService(), additionalTenants...)
 
 	return server.URL, resp.Secret, tenantTokenSecrets, closer
 }

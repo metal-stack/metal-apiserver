@@ -22,7 +22,6 @@ func Test_sizeServiceServer_Create(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ctx := t.Context()
 
@@ -37,7 +36,7 @@ func Test_sizeServiceServer_Create(t *testing.T) {
 		}},
 	}
 
-	test.CreateSizes(t, repo, sizes)
+	test.CreateSizes(t, testStore, sizes)
 
 	tests := []struct {
 		name    string
@@ -120,7 +119,7 @@ func Test_sizeServiceServer_Create(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &sizeServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				// Execute proto based validation
@@ -153,7 +152,6 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ctx := t.Context()
 
@@ -195,7 +193,7 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 		},
 	}
 
-	sizeMap := test.CreateSizes(t, repo, sizes)
+	sizeMap := test.CreateSizes(t, testStore, sizes)
 
 	tests := []struct {
 		name    string
@@ -303,7 +301,7 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &sizeServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				// Execute proto based validation
@@ -336,7 +334,6 @@ func Test_sizeServiceServer_Delete(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ctx := t.Context()
 
@@ -363,7 +360,7 @@ func Test_sizeServiceServer_Delete(t *testing.T) {
 		},
 	}
 
-	test.CreateSizes(t, repo, sizes)
+	test.CreateSizes(t, testStore, sizes)
 	test.CreateMachines(t, testStore, []*metal.Machine{
 		{
 			Base: metal.Base{ID: "m1"}, PartitionID: "partition-one",
@@ -413,7 +410,7 @@ func Test_sizeServiceServer_Delete(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &sizeServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				// Execute proto based validation

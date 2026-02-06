@@ -23,7 +23,6 @@ func Test_eventServiceServer_Send(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ctx := t.Context()
 	now := time.Now()
@@ -80,7 +79,7 @@ func Test_eventServiceServer_Send(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &eventServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 
 			if tt.wantErr == nil {

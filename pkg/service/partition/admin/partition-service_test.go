@@ -28,7 +28,6 @@ func Test_partitionServiceServer_Create(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ctx := t.Context()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -109,7 +108,7 @@ func Test_partitionServiceServer_Create(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &partitionServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				// Execute proto based validation
@@ -142,7 +141,6 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ctx := t.Context()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -158,7 +156,7 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 	invalidURL := ts.URL + "/invalid"
 	defer ts.Close()
 
-	partitionMap := test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+	partitionMap := test.CreatePartitions(t, testStore, []*adminv2.PartitionServiceCreateRequest{
 		{
 			Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
 		},
@@ -323,7 +321,7 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &partitionServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				// Execute proto based validation
@@ -356,7 +354,6 @@ func Test_partitionServiceServer_Delete(t *testing.T) {
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
-	repo := testStore.Store
 
 	ctx := t.Context()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -366,13 +363,13 @@ func Test_partitionServiceServer_Delete(t *testing.T) {
 	validURL := ts.URL
 	defer ts.Close()
 
-	test.CreatePartitions(t, repo, []*adminv2.PartitionServiceCreateRequest{
+	test.CreatePartitions(t, testStore, []*adminv2.PartitionServiceCreateRequest{
 		{Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 		{Partition: &apiv2.Partition{Id: "partition-2", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 		{Partition: &apiv2.Partition{Id: "partition-3", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 	})
 
-	test.CreateNetworks(t, repo, []*adminv2.NetworkServiceCreateRequest{
+	test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
 		{
 			Id:                       pointer.Pointer("tenant-super-network"),
 			Prefixes:                 []string{"10.100.0.0/14"},
@@ -423,7 +420,7 @@ func Test_partitionServiceServer_Delete(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &partitionServiceServer{
 				log:  log,
-				repo: repo,
+				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				// Execute proto based validation
