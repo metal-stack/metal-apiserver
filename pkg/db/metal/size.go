@@ -188,7 +188,6 @@ func (c *Constraint) Validate() error {
 	return nil
 }
 
-
 // FromHardware searches a Size for given hardware specs. It will search
 // for a size where the constraints matches the given hardware.
 func (sz Sizes) FromHardware(hardware MachineHardware) (*Size, error) {
@@ -333,4 +332,13 @@ func capacityOf[V any](identifier string, vs []V, countFn func(v V) (model strin
 	}
 
 	return sum, matched
+}
+
+func UnknownSize() *Size {
+	return &Size{
+		Base: Base{
+			ID:   "unknown",
+			Name: "unknown",
+		},
+	}
 }

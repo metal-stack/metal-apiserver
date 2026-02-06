@@ -78,7 +78,7 @@ func NewClient(log *slog.Logger, redis *redis.Client, opts ...asynq.Option) *Cli
 
 	// Set default opts
 	if len(opts) == 0 {
-		opts = append([]asynq.Option{defaultAsynqRetries, defaultAsynqTimeout}, opts...)
+		opts = []asynq.Option{defaultAsynqRetries, defaultAsynqTimeout}
 	}
 
 	inspector := asynq.NewInspectorFromRedisClient(redis)
@@ -113,8 +113,8 @@ func (c *Client) List(queue *string, count, page *uint32) ([]*asynq.TaskInfo, er
 		return nil, err
 	}
 	var tasks []*asynq.TaskInfo
-	for _, queue := range queues {
-		ts, err := c.list(queue, count, page)
+	for _, q := range queues {
+		ts, err := c.list(q, count, page)
 		if err != nil {
 			return nil, err
 		}

@@ -129,17 +129,15 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		mdc              mdc.Client
 		connection       *grpc.ClientConn
 		masterdataCloser func()
+
+		task  = task.NewClient(log, rc)
+		queue = queue.New(log, vc)
 	)
 	if withPostgres {
 		mdc, connection, masterdataCloser = StartMasterdataWithPostgres(t, log)
 	} else {
 		mdc, connection, masterdataCloser = StartMasterdataInMemory(t, log)
 	}
-
-	// Asynq hibeken uses redis-go
-	task := task.NewClient(log, rc)
-	// push pop queue must use valkey-go
-	queue := queue.New(log, vc)
 
 	config := repository.Config{
 		Log:              log,
