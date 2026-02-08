@@ -184,6 +184,27 @@ func (s *Store) Size() Size {
 		typed:      repository,
 	}
 }
+func (s *Store) SizeReservation(project string) SizeReservation {
+	return s.sizeReservation(&ProjectScope{
+		projectID: project,
+	})
+}
+
+func (s *Store) UnscopedSizeReservation() SizeReservation {
+	return s.sizeReservation(nil)
+}
+
+func (s *Store) sizeReservation(scope *ProjectScope) SizeReservation {
+	repository := &sizeReservationRepository{
+		s:     s,
+		scope: scope,
+	}
+
+	return &store[*sizeReservationRepository, *metal.SizeReservation, *apiv2.SizeReservation, *adminv2.SizeReservationServiceCreateRequest, *adminv2.SizeReservationServiceUpdateRequest, *apiv2.SizeReservationQuery]{
+		repository: repository,
+		typed:      repository,
+	}
+}
 
 func (s *Store) Partition() Partition {
 	repository := &partitionRepository{

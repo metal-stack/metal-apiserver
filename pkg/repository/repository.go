@@ -102,6 +102,10 @@ type (
 		Repository[*sizeRepository, *apiv2.Size, *adminv2.SizeServiceCreateRequest, *adminv2.SizeServiceUpdateRequest, *apiv2.SizeQuery]
 	}
 
+	SizeReservation interface {
+		Repository[*sizeReservationRepository, *apiv2.SizeReservation, *adminv2.SizeReservationServiceCreateRequest, *adminv2.SizeReservationServiceUpdateRequest, *apiv2.SizeReservationQuery]
+	}
+
 	Image interface {
 		Repository[*imageRepository, *apiv2.Image, *adminv2.ImageServiceCreateRequest, *adminv2.ImageServiceUpdateRequest, *apiv2.ImageQuery]
 	}
