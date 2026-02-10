@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -20,12 +21,12 @@ type (
 )
 
 func (r *sizeReservationRepository) get(ctx context.Context, id string) (*metal.SizeReservation, error) {
-	size, err := r.s.ds.SizeReservation().Get(ctx, id)
+	sizeReservation, err := r.s.ds.SizeReservation().Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	return size, nil
+	return sizeReservation, nil
 }
 
 func (r *sizeReservationRepository) matchScope(sizeReservation *metal.SizeReservation) bool {
@@ -40,12 +41,12 @@ func (r *sizeReservationRepository) create(ctx context.Context, req *adminv2.Siz
 	if req.SizeReservation == nil {
 		return nil, nil
 	}
-	size, err := r.convertToInternal(ctx, req.SizeReservation)
+	sizeReservation, err := r.convertToInternal(ctx, req.SizeReservation)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := r.s.ds.SizeReservation().Create(ctx, size)
+	resp, err := r.s.ds.SizeReservation().Create(ctx, sizeReservation)
 	if err != nil {
 		return nil, err
 	}
@@ -88,21 +89,21 @@ func (r *sizeReservationRepository) delete(ctx context.Context, e *metal.SizeRes
 }
 
 func (r *sizeReservationRepository) find(ctx context.Context, rq *apiv2.SizeReservationQuery) (*metal.SizeReservation, error) {
-	size, err := r.s.ds.SizeReservation().Find(ctx, r.sizeReservationFilters(queries.SizeReservationFilter(rq))...)
+	sizeReservation, err := r.s.ds.SizeReservation().Find(ctx, r.sizeReservationFilters(queries.SizeReservationFilter(rq))...)
 	if err != nil {
 		return nil, err
 	}
 
-	return size, nil
+	return sizeReservation, nil
 }
 
 func (r *sizeReservationRepository) list(ctx context.Context, rq *apiv2.SizeReservationQuery) ([]*metal.SizeReservation, error) {
-	sizes, err := r.s.ds.SizeReservation().List(ctx, r.sizeReservationFilters(queries.SizeReservationFilter(rq))...)
+	sizeReservations, err := r.s.ds.SizeReservation().List(ctx, r.sizeReservationFilters(queries.SizeReservationFilter(rq))...)
 	if err != nil {
 		return nil, err
 	}
 
-	return sizes, nil
+	return sizeReservations, nil
 }
 
 func (r *sizeReservationRepository) convertToInternal(ctx context.Context, e *apiv2.SizeReservation) (*metal.SizeReservation, error) {
@@ -114,7 +115,7 @@ func (r *sizeReservationRepository) convertToInternal(ctx context.Context, e *ap
 		labels = e.Meta.Labels.Labels
 	}
 
-	size := &metal.SizeReservation{
+	sizeReservation := &metal.SizeReservation{
 		Base: metal.Base{
 			ID:          e.Id,
 			Name:        e.Name,
@@ -127,12 +128,12 @@ func (r *sizeReservationRepository) convertToInternal(ctx context.Context, e *ap
 		PartitionIDs: e.Partitions,
 	}
 
-	return size, nil
+	return sizeReservation, nil
 }
 
 func (r *sizeReservationRepository) convertToProto(ctx context.Context, e *metal.SizeReservation) (*apiv2.SizeReservation, error) {
 	if e == nil {
-		return nil, nil
+		return nil, errors.New("sizeReservation is nil")
 	}
 
 	var (
@@ -145,7 +146,7 @@ func (r *sizeReservationRepository) convertToProto(ctx context.Context, e *metal
 		}
 	}
 
-	size := &apiv2.SizeReservation{
+	sizeReservation := &apiv2.SizeReservation{
 		Id:          e.ID,
 		Name:        e.Name,
 		Description: e.Description,
@@ -161,7 +162,7 @@ func (r *sizeReservationRepository) convertToProto(ctx context.Context, e *metal
 		},
 	}
 
-	return size, nil
+	return sizeReservation, nil
 }
 
 func (r *sizeReservationRepository) sizeReservationFilters(filter generic.EntityQuery) []generic.EntityQuery {

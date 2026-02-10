@@ -10,11 +10,11 @@ import (
 // SizeReservation defines a reservation of a size for machine allocations
 type SizeReservation struct {
 	Base
-	SizeID       string            `rethinkdb:"sizeid" json:"sizeid"`
-	Amount       int               `rethinkdb:"amount" json:"amount"`
-	ProjectID    string            `rethinkdb:"projectid" json:"projectid"`
-	PartitionIDs []string          `rethinkdb:"partitionids" json:"partitionids"`
-	Labels       map[string]string `rethinkdb:"labels" json:"labels"`
+	SizeID       string            `rethinkdb:"sizeid"`
+	Amount       int               `rethinkdb:"amount"`
+	ProjectID    string            `rethinkdb:"projectid"`
+	PartitionIDs []string          `rethinkdb:"partitionids"`
+	Labels       map[string]string `rethinkdb:"labels"`
 }
 
 type SizeReservations []SizeReservation
@@ -47,6 +47,7 @@ func (rs *SizeReservations) ForPartition(partitionID string) SizeReservations {
 
 	return result
 }
+
 func (rs *SizeReservations) Validate(sizes SizeMap, partitions PartitionMap, projects map[string]*mdmv1.Project) error {
 	if rs == nil {
 		return nil

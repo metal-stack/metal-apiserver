@@ -84,7 +84,7 @@ func Test_sizeReservationServiceServer_Create(t *testing.T) {
 				},
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("size must exist before creating a size reservation"),
+			wantErr: errorutil.InvalidArgument(`size must exist before creating a size reservation: not_found: no size with id "" found`),
 		},
 		{
 			name: "Create with errors, partitions empty",
@@ -111,7 +111,7 @@ func Test_sizeReservationServiceServer_Create(t *testing.T) {
 				},
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("partition must exist before creating a size reservation"),
+			wantErr: errorutil.InvalidArgument(`partition must exist before creating a size reservation: not_found: no partition with id "partition-0" found`),
 		},
 		{
 			name: "Create with errors, partition does not exist",
@@ -124,7 +124,7 @@ func Test_sizeReservationServiceServer_Create(t *testing.T) {
 				},
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("project must exist before creating a size reservation"),
+			wantErr: errorutil.InvalidArgument(`project must exist before creating a size reservation: rpc error: code = NotFound desc = get of project with id `),
 		},
 		{
 			name: "Create with errors, id specified",
@@ -279,7 +279,7 @@ func Test_sizeReservationServiceServer_Update(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "Update with errors",
+			name: "Update with errors, partition does not exist",
 			req: &adminv2.SizeReservationServiceUpdateRequest{
 				Id:          sizeReservationMap["sz-n1"].Id,
 				Name:        pointer.Pointer("size-reservation-n1-medium"),
@@ -289,7 +289,20 @@ func Test_sizeReservationServiceServer_Update(t *testing.T) {
 				UpdateMeta:  &apiv2.UpdateMeta{UpdatedAt: sizeReservationMap["sz-n1"].Meta.UpdatedAt},
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("partition must exist before creating a size reservation"),
+			wantErr: errorutil.InvalidArgument(`partition must exist before creating a size reservation: not_found: no partition with id "partition-3" found`),
+		},
+		{
+			name: "Update with errors, null amount",
+			req: &adminv2.SizeReservationServiceUpdateRequest{
+				Id:          sizeReservationMap["sz-n1"].Id,
+				Name:        pointer.Pointer("size-reservation-n1-medium"),
+				Partitions:  []string{partition1},
+				Amount:      pointer.Pointer(int32(0)),
+				Description: pointer.Pointer("N1 Reservation for project-1 in partition-1 and partition-2"),
+				UpdateMeta:  &apiv2.UpdateMeta{UpdatedAt: sizeReservationMap["sz-n1"].Meta.UpdatedAt},
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument("amount must be a positive integer"),
 		},
 	}
 	for _, tt := range tests {
