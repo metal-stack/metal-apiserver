@@ -140,7 +140,8 @@ func (dc *Datacenter) createPartitions(count *uint) {
 		id := fmt.Sprintf("partition-%d", i)
 		partitions = append(partitions, &adminv2.PartitionServiceCreateRequest{
 			Partition: &apiv2.Partition{
-				Id: id,
+				Id:          id,
+				Description: id,
 				BootConfiguration: &apiv2.PartitionBootConfiguration{
 					ImageUrl:  validURL,
 					KernelUrl: validURL,
@@ -235,8 +236,8 @@ func (dc *Datacenter) createIPsAndNetworks() {
 	for partition := range dc.Partitions {
 		for _, project := range dc.Projects {
 			allocatedNetworks := AllocateNetworks(dc.t, dc.testStore, []*apiv2.NetworkServiceCreateRequest{
-				{Name: pointer.Pointer(project + "-network-a-" + partition), Project: project, Partition: &partition},
-				{Name: pointer.Pointer(project + "-network-b-" + partition), Project: project, Partition: &partition},
+				{Name: pointer.Pointer(project + "-network-a-" + partition), Description: pointer.Pointer(project + "-network-a-" + partition), Project: project, Partition: &partition},
+				{Name: pointer.Pointer(project + "-network-b-" + partition), Description: pointer.Pointer(project + "-network-b-" + partition), Project: project, Partition: &partition},
 			})
 			maps.Copy(dc.Networks, allocatedNetworks)
 		}

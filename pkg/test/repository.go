@@ -483,6 +483,16 @@ func CreateSizes(t testing.TB, testStore *testStore, sizes []*adminv2.SizeServic
 	return sizeMap
 }
 
+func CreateSizeReservations(t *testing.T, testStore *testStore, sizeReservations []*adminv2.SizeReservationServiceCreateRequest) map[string]*apiv2.SizeReservation {
+	sizeReservationMap := map[string]*apiv2.SizeReservation{}
+	for _, sr := range sizeReservations {
+		s, err := testStore.UnscopedSizeReservation().Create(t.Context(), sr)
+		require.NoError(t, err)
+		sizeReservationMap[s.Name] = s
+	}
+	return sizeReservationMap
+}
+
 func CreateSwitches(t testing.TB, testStore *testStore, switches []*repository.SwitchServiceCreateRequest) map[string]*apiv2.Switch {
 	switchMap := map[string]*apiv2.Switch{}
 	for _, sw := range switches {

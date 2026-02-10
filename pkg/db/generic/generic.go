@@ -42,6 +42,7 @@ type (
 		IP() Storage[*metal.IP]
 		Machine() Storage[*metal.Machine]
 		Size() Storage[*metal.Size]
+		SizeReservation() Storage[*metal.SizeReservation]
 		Partition() Storage[*metal.Partition]
 		Network() Storage[*metal.Network]
 		FilesystemLayout() Storage[*metal.FilesystemLayout]

@@ -75,6 +75,16 @@ func (r *sizeRepository) validateDelete(ctx context.Context, req *metal.Size) er
 		return errorutil.InvalidArgument("cannot remove size with existing machines of this size")
 	}
 
+	sizeReservations, err := r.s.ds.SizeReservation().List(ctx, queries.SizeReservationFilter(&apiv2.SizeReservationQuery{
+		Size: &req.ID,
+	}))
+	if err != nil {
+		return err
+	}
+	if len(sizeReservations) > 0 {
+		return errorutil.InvalidArgument("cannot remove size with existing size reservations of this size")
+	}
+
 	return nil
 }
 
