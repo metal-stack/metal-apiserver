@@ -23,6 +23,9 @@ type Size struct {
 // Sizes is a list of sizes.
 type Sizes []Size
 
+// SizeMap is an indexed map of sizes.
+type SizeMap map[string]Size
+
 // ConstraintType ...
 type ConstraintType string
 
