@@ -1,7 +1,10 @@
 package admin
 
 import (
+	"fmt"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 
@@ -13,6 +16,11 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/testing/protocmp"
+)
+
+var (
+	partition1 = "partition-1"
+	p1         = "00000000-0000-0000-0000-000000000001"
 )
 
 func Test_sizeServiceServer_Create(t *testing.T) {
@@ -337,12 +345,33 @@ func Test_sizeServiceServer_Delete(t *testing.T) {
 
 	ctx := t.Context()
 
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintln(w, "a image")
+	}))
+
+	validURL := ts.URL
+	defer ts.Close()
+
+	test.CreatePartitions(t, testStore, []*adminv2.PartitionServiceCreateRequest{
+		{Partition: &apiv2.Partition{Id: partition1, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+	})
+
 	sizes := []*adminv2.SizeServiceCreateRequest{
 		{
 			Size: &apiv2.Size{
 				Id: "n1-medium-x86", Name: pointer.Pointer("n1-medium-x86"),
 				Constraints: []*apiv2.SizeConstraint{
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 10 * 1024 * 1024, Max: 10 * 1024 * 1024},
+				},
+			},
+		},
+		{
+			Size: &apiv2.Size{
+				Id: "n2-medium-x86", Name: pointer.Pointer("n2-medium-x86"),
+				Constraints: []*apiv2.SizeConstraint{
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 8, Max: 8},
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 10 * 1024 * 1024, Max: 10 * 1024 * 1024},
 				},
@@ -373,6 +402,20 @@ func Test_sizeServiceServer_Delete(t *testing.T) {
 		},
 	})
 
+	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
+	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{{Name: p1, Login: "t1"}})
+	sizeReservations := []*adminv2.SizeReservationServiceCreateRequest{
+		{SizeReservation: &apiv2.SizeReservation{
+			Name:        "sz-n2",
+			Description: "N2 Reservation for project-1 in partition-1",
+			Project:     p1,
+			Size:        "n2-medium-x86",
+			Partitions:  []string{partition1},
+			Amount:      2,
+		}},
+	}
+	test.CreateSizeReservations(t, testStore, sizeReservations)
+
 	tests := []struct {
 		name    string
 		rq      *adminv2.SizeServiceDeleteRequest
@@ -387,6 +430,12 @@ func Test_sizeServiceServer_Delete(t *testing.T) {
 		},
 		{
 			name:    "delete existing with attached machines",
+			rq:      &adminv2.SizeServiceDeleteRequest{Id: "n2-medium-x86"},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument(`cannot remove size with existing size reservations of this size`),
+		},
+		{
+			name:    "delete existing with size reservation",
 			rq:      &adminv2.SizeServiceDeleteRequest{Id: "c1-large-x86"},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`cannot remove size with existing machines of this size`),

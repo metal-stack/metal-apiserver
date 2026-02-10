@@ -48,6 +48,16 @@ func (r *projectRepository) validateDelete(ctx context.Context, req *projectEnti
 		return errorutil.FailedPrecondition("there are still machines associated with this project, you need to delete them first")
 	}
 
+	sizeReservations, err := r.s.ds.SizeReservation().List(ctx, queries.SizeReservationFilter(&apiv2.SizeReservationQuery{
+		Project: &req.Meta.Id,
+	}))
+	if err != nil {
+		return err
+	}
+	if len(sizeReservations) > 0 {
+		return errorutil.InvalidArgument("cannot remove project with existing size reservations of this project")
+	}
+
 	// TODO: ensure project tokens are revoked / cleaned up
 
 	return nil

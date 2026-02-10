@@ -84,6 +84,14 @@ func (p *partitionRepository) validateDelete(ctx context.Context, req *metal.Par
 
 	errs = validate(errs, len(nwsresp) == 0, "there are still networks in %q", req.ID)
 
+	sizeReservations, err := p.s.ds.SizeReservation().List(ctx, queries.SizeReservationFilter(&apiv2.SizeReservationQuery{
+		Partition: &req.ID,
+	}))
+	if err != nil {
+		return err
+	}
+	errs = validate(errs, len(sizeReservations) == 0, "there are still size reservations in %q", req.ID)
+
 	if err := errors.Join(errs...); err != nil {
 		return errorutil.InvalidArgument("%w", err)
 	}
