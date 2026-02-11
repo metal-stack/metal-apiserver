@@ -41,7 +41,7 @@ func HandleProvisioningEvent(ctx context.Context, log *slog.Logger, ec *metal.Pr
 		return container, nil
 	}
 
-	if errors.As(err, &fsm.InvalidEventError{}) {
+	if _, ok := errors.AsType[fsm.InvalidEventError](err); ok {
 		if event.Message == "" {
 			event.Message = fmt.Sprintf("[unexpectedly received in %s]", strings.ToLower(f.Current()))
 		} else {
