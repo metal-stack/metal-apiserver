@@ -21,8 +21,8 @@ func (i *issueNoEventContainer) Spec() *spec {
 	}
 }
 
-func (i *issueNoEventContainer) Evaluate(m metal.Machine, ec metal.ProvisioningEventContainer, c *Config) bool {
-	return ec.Base.ID == ""
+func (i *issueNoEventContainer) Evaluate(m *metal.Machine, ec *metal.ProvisioningEventContainer, c *Config) bool {
+	return ec.ID == ""
 }
 
 func (i *issueNoEventContainer) Details() string {

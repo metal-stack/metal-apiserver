@@ -25,7 +25,7 @@ func (i *issueNonDistinctBMCIP) Spec() *spec {
 	}
 }
 
-func (i *issueNonDistinctBMCIP) Evaluate(m metal.Machine, ec metal.ProvisioningEventContainer, c *Config) bool {
+func (i *issueNonDistinctBMCIP) Evaluate(m *metal.Machine, ec *metal.ProvisioningEventContainer, c *Config) bool {
 	if m.IPMI.Address == "" {
 		return false
 	}

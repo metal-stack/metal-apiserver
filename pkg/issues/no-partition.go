@@ -19,7 +19,7 @@ func (i *issueNoPartition) Spec() *spec {
 	}
 }
 
-func (i *issueNoPartition) Evaluate(m metal.Machine, ec metal.ProvisioningEventContainer, c *Config) bool {
+func (i *issueNoPartition) Evaluate(m *metal.Machine, ec *metal.ProvisioningEventContainer, c *Config) bool {
 	return m.PartitionID == ""
 }
 

@@ -22,7 +22,7 @@ func (i *issueFailedMachineReclaim) Spec() *spec {
 	}
 }
 
-func (i *issueFailedMachineReclaim) Evaluate(m metal.Machine, ec metal.ProvisioningEventContainer, c *Config) bool {
+func (i *issueFailedMachineReclaim) Evaluate(m *metal.Machine, ec *metal.ProvisioningEventContainer, c *Config) bool {
 	if ec.FailedMachineReclaim {
 		return true
 	}

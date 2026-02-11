@@ -12,6 +12,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/issues"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
+	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -251,13 +252,8 @@ func (p *partitionRepository) convertToProto(ctx context.Context, e *metal.Parti
 }
 
 func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.PartitionServiceCapacityRequest) (*adminv2.PartitionServiceCapacityResponse, error) {
-	response := &adminv2.PartitionServiceCapacityResponse{}
-
 	var (
-		ps    = []*metal.Partition{}
-		ms    = []*metal.Machine{}
-		allMs = []*metal.Machine{}
-
+		ps  = []*metal.Partition{}
 		pcs = map[string]*adminv2.PartitionCapacity{}
 
 		machineQuery    = &apiv2.MachineQuery{}
@@ -291,7 +287,7 @@ func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.Partitio
 	}
 
 	// if filtered on partition get all without more filters for issues evaluation
-	allMs, err = p.s.ds.Machine().List(ctx, queries.MachineFilter(allMachineQuery))
+	allMs, err := p.s.ds.Machine().List(ctx, queries.MachineFilter(allMachineQuery))
 	if err != nil {
 		return nil, err
 	}
@@ -324,8 +320,8 @@ func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.Partitio
 		partitionsById         = make(map[string]*metal.Partition)
 		ecsById                = make(map[string]*metal.ProvisioningEventContainer)
 		sizesByID              = make(map[string]*metal.Size)
-		sizeReservationsBySize = make(map[string]*metal.SizeReservations)
-		machinesByProject      = make(map[string]*metal.Machine)
+		sizeReservationsBySize = make(map[string][]*metal.SizeReservation)
+		machinesByProject      = make(map[string][]*metal.Machine)
 	)
 	for _, p := range ps {
 		partitionsById[p.ID] = p
@@ -343,7 +339,7 @@ func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.Partitio
 		if m.Allocation == nil {
 			continue
 		}
-		machinesByProject[m.Allocation.Project] = m
+		machinesByProject[m.Allocation.Project] = append(machinesByProject[m.Allocation.Project], m)
 	}
 
 	for _, m := range ms {
@@ -362,8 +358,8 @@ func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.Partitio
 		pc, ok := pcs[m.PartitionID]
 		if !ok {
 			pc = &adminv2.PartitionCapacity{
-				Partition:        p.ID,
-				ServerCapacities: []*adminv2.ServerCapacity{},
+				Partition:             p.ID,
+				MachineSizeCapacities: []*adminv2.MachineSizeCapacity{},
 			}
 		}
 		pcs[m.PartitionID] = pc
@@ -373,8 +369,8 @@ func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.Partitio
 			size = metal.UnknownSize()
 		}
 
-		var cap *adminv2.ServerCapacity
-		for _, sc := range pc.ServerCapacities {
+		var cap *adminv2.MachineSizeCapacity
+		for _, sc := range pc.MachineSizeCapacities {
 			if sc.Size == size.ID {
 				cap = sc
 				break
@@ -382,10 +378,10 @@ func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.Partitio
 		}
 
 		if cap == nil {
-			cap = &adminv2.ServerCapacity{
+			cap = &adminv2.MachineSizeCapacity{
 				Size: size.ID,
 			}
-			pc.ServerCapacities = append(pc.ServerCapacities, cap)
+			pc.MachineSizeCapacities = append(pc.MachineSizeCapacities, cap)
 		}
 
 		cap.Total++
@@ -421,7 +417,7 @@ func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.Partitio
 
 	res := []*adminv2.PartitionCapacity{}
 	for _, pc := range pcs {
-		for _, cap := range pc.ServerCapacities {
+		for _, cap := range pc.MachineSizeCapacities {
 			size := sizesByID[cap.Size]
 
 			rvs, ok := sizeReservationsBySize[size.ID]
@@ -429,27 +425,30 @@ func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.Partitio
 				continue
 			}
 
-			for _, reservation := range rvs.ForPartition(pc.Partition) {
-				usedReservations := min(len(machinesByProject[reservation.ProjectID].WithSize(size.ID).WithPartition(pc.Partition)), reservation.Amount)
+			for _, reservation := range metal.SizeReservationsForPartition(rvs, pc.Partition) {
+				machinesWithSizeAndPartition := lo.Filter(machinesByProject[reservation.ProjectID], func(m *metal.Machine, _ int) bool {
+					return m.SizeID == size.ID && m.PartitionID == pc.Partition
+				})
+				usedReservations := min(len(machinesWithSizeAndPartition), reservation.Amount)
 
 				cap.Reservations += int64(reservation.Amount)
-				cap.UsedReservations += usedReservations
+				cap.UsedReservations += int64(usedReservations)
 
 				if rq.Project != nil && *rq.Project == reservation.ProjectID {
 					continue
 				}
 
-				cap.Free -= reservation.Amount - usedReservations
+				cap.Free -= int64(reservation.Amount - usedReservations)
 				cap.Free = max(cap.Free, 0)
 			}
 		}
 
-		for _, cap := range pc.ServerCapacities {
+		for _, cap := range pc.MachineSizeCapacities {
 			cap.RemainingReservations = cap.Reservations - cap.UsedReservations
 		}
 
 		res = append(res, pc)
 	}
 
-	return response, nil
+	return &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: res}, nil
 }

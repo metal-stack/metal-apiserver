@@ -30,7 +30,7 @@ func (i *issueLastEventError) Spec() *spec {
 	}
 }
 
-func (i *issueLastEventError) Evaluate(m metal.Machine, ec metal.ProvisioningEventContainer, c *Config) bool {
+func (i *issueLastEventError) Evaluate(m *metal.Machine, ec *metal.ProvisioningEventContainer, c *Config) bool {
 	if c.LastErrorThreshold == 0 {
 		return false
 	}

@@ -22,7 +22,7 @@ func (i *issueCrashLoop) Spec() *spec {
 	}
 }
 
-func (i *issueCrashLoop) Evaluate(m metal.Machine, ec metal.ProvisioningEventContainer, c *Config) bool {
+func (i *issueCrashLoop) Evaluate(m *metal.Machine, ec *metal.ProvisioningEventContainer, c *Config) bool {
 	if ec.CrashLoop {
 		if pointer.FirstOrZero(ec.Events).Event == metal.ProvisioningEventWaiting {
 			// Machine which are waiting are not considered to have issues

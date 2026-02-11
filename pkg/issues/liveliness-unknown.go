@@ -19,7 +19,7 @@ func (i *issueLivelinessUnknown) Spec() *spec {
 	}
 }
 
-func (i *issueLivelinessUnknown) Evaluate(m metal.Machine, ec metal.ProvisioningEventContainer, c *Config) bool {
+func (i *issueLivelinessUnknown) Evaluate(m *metal.Machine, ec *metal.ProvisioningEventContainer, c *Config) bool {
 	return ec.Liveliness == metal.MachineLivelinessUnknown
 }
 

@@ -19,7 +19,7 @@ func (i *issueLivelinessNotAvailable) Spec() *spec {
 	}
 }
 
-func (i *issueLivelinessNotAvailable) Evaluate(m metal.Machine, ec metal.ProvisioningEventContainer, c *Config) bool {
+func (i *issueLivelinessNotAvailable) Evaluate(m *metal.Machine, ec *metal.ProvisioningEventContainer, c *Config) bool {
 	allowed := map[metal.MachineLiveliness]bool{
 		metal.MachineLivelinessAlive:   true,
 		metal.MachineLivelinessDead:    true,

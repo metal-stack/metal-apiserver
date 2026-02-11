@@ -13,9 +13,9 @@ import (
 func TestReservations_ForPartition(t *testing.T) {
 	tests := []struct {
 		name        string
-		rs          *SizeReservations
+		rs          []*SizeReservation
 		partitionID string
-		want        SizeReservations
+		want        []*SizeReservation
 	}{
 		{
 			name:        "nil",
@@ -25,7 +25,7 @@ func TestReservations_ForPartition(t *testing.T) {
 		},
 		{
 			name: "correctly filtered",
-			rs: &SizeReservations{
+			rs: []*SizeReservation{
 				{
 					PartitionIDs: []string{"a", "b"},
 				},
@@ -37,7 +37,7 @@ func TestReservations_ForPartition(t *testing.T) {
 				},
 			},
 			partitionID: "a",
-			want: SizeReservations{
+			want: []*SizeReservation{
 				{
 					PartitionIDs: []string{"a", "b"},
 				},
@@ -49,7 +49,7 @@ func TestReservations_ForPartition(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.rs.ForPartition(tt.partitionID); !reflect.DeepEqual(got, tt.want) {
+			if got := SizeReservationsForPartition(tt.rs, tt.partitionID); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Reservations.ForPartition() = %v, want %v", got, tt.want)
 			}
 		})
@@ -59,10 +59,10 @@ func TestReservations_ForPartition(t *testing.T) {
 func TestReservations_Validate(t *testing.T) {
 	tests := []struct {
 		name       string
-		sizes      SizeMap
-		partitions PartitionMap
+		sizes      map[string]*Size
+		partitions map[string]*Partition
 		projects   map[string]*mdmv1.Project
-		rs         *SizeReservations
+		rs         []*SizeReservation
 		wantErr    error
 	}{
 		{
@@ -75,10 +75,10 @@ func TestReservations_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid amount",
-			sizes: SizeMap{
-				"c1": Size{},
+			sizes: map[string]*Size{
+				"c1": &Size{},
 			},
-			partitions: PartitionMap{
+			partitions: map[string]*Partition{
 				"a": &Partition{},
 				"b": &Partition{},
 				"c": &Partition{},
@@ -88,7 +88,7 @@ func TestReservations_Validate(t *testing.T) {
 				"2": {},
 				"3": {},
 			},
-			rs: &SizeReservations{
+			rs: []*SizeReservation{
 				{
 					SizeID:       "c1",
 					Amount:       -3,
@@ -100,10 +100,10 @@ func TestReservations_Validate(t *testing.T) {
 		},
 		{
 			name: "size does not exist",
-			sizes: SizeMap{
-				"c1": Size{},
+			sizes: map[string]*Size{
+				"c1": &Size{},
 			},
-			partitions: PartitionMap{
+			partitions: map[string]*Partition{
 				"a": &Partition{},
 				"b": &Partition{},
 				"c": &Partition{},
@@ -113,7 +113,7 @@ func TestReservations_Validate(t *testing.T) {
 				"2": {},
 				"3": {},
 			},
-			rs: &SizeReservations{
+			rs: []*SizeReservation{
 				{
 					SizeID:       "c2",
 					Amount:       3,
@@ -125,10 +125,10 @@ func TestReservations_Validate(t *testing.T) {
 		},
 		{
 			name: "no partitions referenced",
-			sizes: SizeMap{
-				"c1": Size{},
+			sizes: map[string]*Size{
+				"c1": &Size{},
 			},
-			partitions: PartitionMap{
+			partitions: map[string]*Partition{
 				"a": &Partition{},
 				"b": &Partition{},
 				"c": &Partition{},
@@ -138,7 +138,7 @@ func TestReservations_Validate(t *testing.T) {
 				"2": {},
 				"3": {},
 			},
-			rs: &SizeReservations{
+			rs: []*SizeReservation{
 				{
 					SizeID:    "c1",
 					Amount:    3,
@@ -149,10 +149,10 @@ func TestReservations_Validate(t *testing.T) {
 		},
 		{
 			name: "partition does not exist",
-			sizes: SizeMap{
-				"c1": Size{},
+			sizes: map[string]*Size{
+				"c1": &Size{},
 			},
-			partitions: PartitionMap{
+			partitions: map[string]*Partition{
 				"a": &Partition{},
 				"b": &Partition{},
 				"c": &Partition{},
@@ -162,7 +162,7 @@ func TestReservations_Validate(t *testing.T) {
 				"2": {},
 				"3": {},
 			},
-			rs: &SizeReservations{
+			rs: []*SizeReservation{
 				{
 					SizeID:       "c1",
 					Amount:       3,
@@ -174,10 +174,10 @@ func TestReservations_Validate(t *testing.T) {
 		},
 		{
 			name: "partition duplicates",
-			sizes: SizeMap{
-				"c1": Size{},
+			sizes: map[string]*Size{
+				"c1": &Size{},
 			},
-			partitions: PartitionMap{
+			partitions: map[string]*Partition{
 				"a": &Partition{},
 				"b": &Partition{},
 				"c": &Partition{},
@@ -187,7 +187,7 @@ func TestReservations_Validate(t *testing.T) {
 				"2": {},
 				"3": {},
 			},
-			rs: &SizeReservations{
+			rs: []*SizeReservation{
 				{
 					SizeID:       "c1",
 					Amount:       3,
@@ -199,10 +199,10 @@ func TestReservations_Validate(t *testing.T) {
 		},
 		{
 			name: "no project referenced",
-			sizes: SizeMap{
-				"c1": Size{},
+			sizes: map[string]*Size{
+				"c1": &Size{},
 			},
-			partitions: PartitionMap{
+			partitions: map[string]*Partition{
 				"a": &Partition{},
 				"b": &Partition{},
 				"c": &Partition{},
@@ -212,7 +212,7 @@ func TestReservations_Validate(t *testing.T) {
 				"2": {},
 				"3": {},
 			},
-			rs: &SizeReservations{
+			rs: []*SizeReservation{
 				{
 					SizeID:       "c1",
 					Amount:       3,
@@ -223,10 +223,10 @@ func TestReservations_Validate(t *testing.T) {
 		},
 		{
 			name: "project does not exist",
-			sizes: SizeMap{
-				"c1": Size{},
+			sizes: map[string]*Size{
+				"c1": &Size{},
 			},
-			partitions: PartitionMap{
+			partitions: map[string]*Partition{
 				"a": &Partition{},
 				"b": &Partition{},
 				"c": &Partition{},
@@ -236,7 +236,7 @@ func TestReservations_Validate(t *testing.T) {
 				"2": {},
 				"3": {},
 			},
-			rs: &SizeReservations{
+			rs: []*SizeReservation{
 				{
 					SizeID:       "c1",
 					Amount:       3,
@@ -248,10 +248,10 @@ func TestReservations_Validate(t *testing.T) {
 		},
 		{
 			name: "valid reservation",
-			sizes: SizeMap{
-				"c1": Size{},
+			sizes: map[string]*Size{
+				"c1": &Size{},
 			},
-			partitions: PartitionMap{
+			partitions: map[string]*Partition{
 				"a": &Partition{},
 				"b": &Partition{},
 				"c": &Partition{},
@@ -261,7 +261,7 @@ func TestReservations_Validate(t *testing.T) {
 				"2": {},
 				"3": {},
 			},
-			rs: &SizeReservations{
+			rs: []*SizeReservation{
 				{
 					SizeID:       "c1",
 					Amount:       3,
@@ -273,7 +273,7 @@ func TestReservations_Validate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.rs.Validate(tt.sizes, tt.partitions, tt.projects)
+			err := Validate(tt.rs, tt.sizes, tt.partitions, tt.projects)
 			if diff := cmp.Diff(tt.wantErr, err, testcommon.ErrorStringComparer()); diff != "" {
 				t.Errorf("error diff (-want +got):\n%s", diff)
 			}

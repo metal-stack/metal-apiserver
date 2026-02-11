@@ -21,7 +21,7 @@ func (i *issueBMCInfoOutdated) Details() string {
 	return i.details
 }
 
-func (i *issueBMCInfoOutdated) Evaluate(m metal.Machine, ec metal.ProvisioningEventContainer, c *Config) bool {
+func (i *issueBMCInfoOutdated) Evaluate(m *metal.Machine, ec *metal.ProvisioningEventContainer, c *Config) bool {
 	if m.IPMI.LastUpdated.IsZero() {
 		i.details = "machine ipmi has never been set"
 		return true

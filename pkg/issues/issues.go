@@ -11,10 +11,10 @@ type (
 	// Config contains configuration parameters for finding machine issues
 	Config struct {
 		// Machines are the machines to evaluate issues for
-		Machines metal.Machines
+		Machines []*metal.Machine
 		// EventContainers are the event containers of the machines to evaluate issues for
 		// if not provided the machines will have a no-event-container issue
-		EventContainers metal.ProvisioningEventContainers
+		EventContainers []*metal.ProvisioningEventContainer
 		// Severity filters issues for the given severity
 		Severity Severity
 		// Only includes only the given issue types
@@ -56,7 +56,7 @@ type (
 	issue interface {
 		// Evaluate decides whether a given machine has the machine issue.
 		// the third argument contains additional information that may be required for the issue evaluation
-		Evaluate(m metal.Machine, ec metal.ProvisioningEventContainer, c *Config) bool
+		Evaluate(m *metal.Machine, ec *metal.ProvisioningEventContainer, c *Config) bool
 		// Spec returns the issue spec of this issue.
 		Spec() *spec
 		// Details returns additional information on the issue after the evaluation.
@@ -104,11 +104,9 @@ func Find(c *Config) (MachineIssuesMap, error) {
 
 	res := MachineIssuesMap{}
 
-	ecs := c.EventContainers.ByID()
+	ecs := metal.ProvisioningEventsByID(c.EventContainers)
 
 	for _, m := range c.Machines {
-		m := m
-
 		ec, ok := ecs[m.ID]
 		if !ok {
 			if c.includeIssue(TypeNoEventContainer) {
@@ -180,11 +178,11 @@ func (c *Config) includeIssue(t Type) bool {
 	return true
 }
 
-func (mim MachineIssuesMap) add(m metal.Machine, issue Issue) {
+func (mim MachineIssuesMap) add(m *metal.Machine, issue Issue) {
 	machineWithIssues, ok := mim[m.ID]
 	if !ok {
 		machineWithIssues = &MachineWithIssues{
-			Machine: &m,
+			Machine: m,
 		}
 	}
 	machineWithIssues.Issues = append(machineWithIssues.Issues, issue)

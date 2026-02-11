@@ -17,17 +17,11 @@ type BootConfiguration struct {
 	CommandLine string `rethinkdb:"commandline"`
 }
 
-// Partitions is a list of partitions.
-type Partitions []*Partition
-
-// PartitionMap is an indexed map of partitions
-type PartitionMap map[string]*Partition
-
-// ByID creates an indexed map of partitions where the id is the index.
-func (sz Partitions) ByID() PartitionMap {
-	res := make(PartitionMap)
-	for i, s := range sz {
-		res[s.ID] = sz[i]
+// PartitionsByID creates an indexed map of partitions where the id is the index.
+func PartitionsByID(partitions []*Partition) map[string]*Partition {
+	res := make(map[string]*Partition)
+	for i, s := range partitions {
+		res[s.ID] = partitions[i]
 	}
 	return res
 }

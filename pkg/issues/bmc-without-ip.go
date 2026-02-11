@@ -19,7 +19,7 @@ func (i *issueBMCWithoutIP) Spec() *spec {
 	}
 }
 
-func (i *issueBMCWithoutIP) Evaluate(m metal.Machine, ec metal.ProvisioningEventContainer, c *Config) bool {
+func (i *issueBMCWithoutIP) Evaluate(m *metal.Machine, ec *metal.ProvisioningEventContainer, c *Config) bool {
 	return m.IPMI.Address == ""
 }
 

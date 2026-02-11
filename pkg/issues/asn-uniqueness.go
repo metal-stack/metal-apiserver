@@ -27,11 +27,11 @@ func (i *issueASNUniqueness) Spec() *spec {
 	}
 }
 
-func (i *issueASNUniqueness) Evaluate(m metal.Machine, ec metal.ProvisioningEventContainer, c *Config) bool {
+func (i *issueASNUniqueness) Evaluate(m *metal.Machine, ec *metal.ProvisioningEventContainer, c *Config) bool {
 	var (
-		machineASNs  = map[uint32]metal.Machines{}
+		machineASNs  = make(map[uint32][]*metal.Machine)
 		overlaps     []string
-		isNoFirewall = func(m metal.Machine) bool {
+		isNoFirewall = func(m *metal.Machine) bool {
 			return m.Allocation == nil || m.Allocation.Role != metal.RoleFirewall
 		}
 	)

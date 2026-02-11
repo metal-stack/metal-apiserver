@@ -17,28 +17,26 @@ type SizeReservation struct {
 	Labels       map[string]string `rethinkdb:"labels"`
 }
 
-type SizeReservations []*SizeReservation
-
-func (rs *SizeReservations) BySize() map[string]SizeReservations {
-	res := map[string]SizeReservations{}
+func SizeReservationsBySize(rs []*SizeReservation) map[string][]*SizeReservation {
+	res := make(map[string][]*SizeReservation)
 	if rs == nil {
 		return res
 	}
 
-	for _, rv := range *rs {
+	for _, rv := range rs {
 		res[rv.SizeID] = append(res[rv.SizeID], rv)
 	}
 
 	return res
 }
 
-func (rs *SizeReservations) ForPartition(partitionID string) SizeReservations {
+func SizeReservationsForPartition(rs []*SizeReservation, partitionID string) []*SizeReservation {
 	if rs == nil {
 		return nil
 	}
 
-	var result SizeReservations
-	for _, r := range *rs {
+	var result []*SizeReservation
+	for _, r := range rs {
 		if slices.Contains(r.PartitionIDs, partitionID) {
 			result = append(result, r)
 		}
@@ -47,12 +45,12 @@ func (rs *SizeReservations) ForPartition(partitionID string) SizeReservations {
 	return result
 }
 
-func (rs *SizeReservations) Validate(sizes SizeMap, partitions PartitionMap, projects map[string]*mdmv1.Project) error {
+func Validate(rs []*SizeReservation, sizes map[string]*Size, partitions map[string]*Partition, projects map[string]*mdmv1.Project) error {
 	if rs == nil {
 		return nil
 	}
 
-	for _, r := range *rs {
+	for _, r := range rs {
 		err := r.Validate(sizes, partitions, projects)
 		if err != nil {
 			return err
@@ -62,7 +60,7 @@ func (rs *SizeReservations) Validate(sizes SizeMap, partitions PartitionMap, pro
 	return nil
 }
 
-func (r *SizeReservation) Validate(sizes SizeMap, partitions PartitionMap, projects map[string]*mdmv1.Project) error {
+func (r *SizeReservation) Validate(sizes map[string]*Size, partitions map[string]*Partition, projects map[string]*mdmv1.Project) error {
 	if r.Amount <= 0 {
 		return fmt.Errorf("amount must be a positive integer")
 	}
