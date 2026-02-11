@@ -8,6 +8,7 @@ import (
 	"connectrpc.com/connect"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
 	"github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
@@ -274,6 +275,20 @@ func CreateMachines(t testing.TB, testStore *testStore, machines []*metal.Machin
 		machineMap[m.ID] = m
 	}
 	return machineMap
+}
+
+func DhcpMachines(t testing.TB, testStore *testStore, bootRequests []*infrav2.BootServiceDhcpRequest) {
+	for _, req := range bootRequests {
+		_, err := testStore.UnscopedMachine().AdditionalMethods().Dhcp(t.Context(), req)
+		require.NoError(t, err)
+	}
+}
+
+func RegisterMachines(t testing.TB, testStore *testStore, registerRequests []*infrav2.BootServiceRegisterRequest) {
+	for _, req := range registerRequests {
+		_, err := testStore.UnscopedMachine().AdditionalMethods().Register(t.Context(), req)
+		require.NoError(t, err)
+	}
 }
 
 func CreateNetworks(t testing.TB, testStore *testStore, nws []*adminv2.NetworkServiceCreateRequest) map[string]*apiv2.Network {

@@ -253,8 +253,8 @@ func (p *partitionRepository) convertToProto(ctx context.Context, e *metal.Parti
 
 func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.PartitionServiceCapacityRequest) (*adminv2.PartitionServiceCapacityResponse, error) {
 	var (
-		ps  = []*metal.Partition{}
-		pcs = map[string]*adminv2.PartitionCapacity{}
+		ps  []*metal.Partition
+		pcs = make(map[string]*adminv2.PartitionCapacity)
 
 		machineQuery    = &apiv2.MachineQuery{}
 		allMachineQuery = &apiv2.MachineQuery{}
@@ -343,7 +343,6 @@ func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.Partitio
 	}
 
 	for _, m := range ms {
-		m := m
 
 		ec, ok := ecsById[m.ID]
 		if !ok {
@@ -415,10 +414,13 @@ func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.Partitio
 		}
 	}
 
-	res := []*adminv2.PartitionCapacity{}
+	var res []*adminv2.PartitionCapacity
 	for _, pc := range pcs {
 		for _, cap := range pc.MachineSizeCapacities {
-			size := sizesByID[cap.Size]
+			size, ok := sizesByID[cap.Size]
+			if !ok {
+				continue
+			}
 
 			rvs, ok := sizeReservationsBySize[size.ID]
 			if !ok {
