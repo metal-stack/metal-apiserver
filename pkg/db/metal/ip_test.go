@@ -5,7 +5,6 @@ import (
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 )
 
 func TestIP_GetIPAddress(t *testing.T) {
@@ -27,7 +26,7 @@ func TestIP_GetIPAddress(t *testing.T) {
 			name: "with namespaced",
 			ip: metal.IP{
 				IPAddress: "aa-bb-cc-1.2.3.4",
-				Namespace: pointer.Pointer("aa-bb-cc"),
+				Namespace: new("aa-bb-cc"),
 			},
 			want:    "1.2.3.4",
 			wantErr: false,
@@ -36,7 +35,7 @@ func TestIP_GetIPAddress(t *testing.T) {
 			name: "with namespaced",
 			ip: metal.IP{
 				IPAddress: "aa-bb-cc-1.2.3.4",
-				Namespace: pointer.Pointer("aa-bb-cc-dd"),
+				Namespace: new("aa-bb-cc-dd"),
 			},
 			want:    "",
 			wantErr: true,
@@ -71,7 +70,7 @@ func TestCreateNamespacedIPAddress(t *testing.T) {
 		},
 		{
 			name:      "with namespace",
-			namespace: pointer.Pointer("aa-bb-cc"),
+			namespace: new("aa-bb-cc"),
 			ip:        "1.2.3.4",
 			want:      "aa-bb-cc-1.2.3.4",
 		},

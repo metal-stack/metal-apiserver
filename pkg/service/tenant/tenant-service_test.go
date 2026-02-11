@@ -33,9 +33,9 @@ func Test_tenantServiceServer_Get(t *testing.T) {
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{
 		{
 			Name:        "john.doe@github",
-			Email:       pointer.Pointer("john.doe@github.com"),
-			Description: pointer.Pointer("a description"),
-			AvatarUrl:   pointer.Pointer("http://test"),
+			Email:       new("john.doe@github.com"),
+			Description: new("a description"),
+			AvatarUrl:   new("http://test"),
 			Labels: &apiv2.Labels{
 				Labels: map[string]string{
 					"a": "b",
@@ -113,7 +113,7 @@ func Test_tenantServiceServer_Get(t *testing.T) {
 			rq: &apiv2.TenantServiceGetRequest{
 				Login: "john.doe@github",
 			},
-			as: pointer.Pointer(apiv2.TenantRole_TENANT_ROLE_GUEST),
+			as: new(apiv2.TenantRole_TENANT_ROLE_GUEST),
 			want: &apiv2.TenantServiceGetResponse{
 				Tenant: &apiv2.Tenant{
 					Meta:        &apiv2.Meta{},
@@ -232,7 +232,7 @@ func Test_tenantServiceServer_List(t *testing.T) {
 		{
 			name: "list the tenants filtered by id",
 			rq: &apiv2.TenantServiceListRequest{
-				Id: pointer.Pointer("john.doe@github"),
+				Id: new("john.doe@github"),
 			},
 			want: &apiv2.TenantServiceListResponse{
 				Tenants: []*apiv2.Tenant{
@@ -249,7 +249,7 @@ func Test_tenantServiceServer_List(t *testing.T) {
 		{
 			name: "list the tenants filtered by name",
 			rq: &apiv2.TenantServiceListRequest{
-				Name: pointer.Pointer("b950f4f5-d8b8-4252-aa02-ae08a1d2b044"),
+				Name: new("b950f4f5-d8b8-4252-aa02-ae08a1d2b044"),
 			},
 			want: &apiv2.TenantServiceListResponse{
 				Tenants: []*apiv2.Tenant{
@@ -330,9 +330,9 @@ func Test_tenantServiceServer_Create(t *testing.T) {
 			name: "create a tenant",
 			rq: &apiv2.TenantServiceCreateRequest{
 				Name:        "My New Org Tenant",
-				Description: pointer.Pointer("tenant desc"),
-				Email:       pointer.Pointer("tenant@github"),
-				AvatarUrl:   pointer.Pointer("http://test"),
+				Description: new("tenant desc"),
+				Email:       new("tenant@github"),
+				AvatarUrl:   new("http://test"),
 				Labels: &apiv2.Labels{
 					Labels: map[string]string{
 						"a": "b",
@@ -457,9 +457,9 @@ func Test_tenantServiceServer_Update(t *testing.T) {
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{
 		Name:        "john.doe@github",
-		Description: pointer.Pointer("old desc"),
-		Email:       pointer.Pointer("old mail"),
-		AvatarUrl:   pointer.Pointer("http://old"),
+		Description: new("old desc"),
+		Email:       new("old mail"),
+		AvatarUrl:   new("http://old"),
 		Labels: &apiv2.Labels{
 			Labels: map[string]string{
 				"a": "b",
@@ -478,10 +478,10 @@ func Test_tenantServiceServer_Update(t *testing.T) {
 			rq: &apiv2.TenantServiceUpdateRequest{
 				Login:       "john.doe@github",
 				UpdateMeta:  &apiv2.UpdateMeta{},
-				Name:        pointer.Pointer("new name"),
-				Description: pointer.Pointer("new desc"),
-				Email:       pointer.Pointer("new@mail.com"),
-				AvatarUrl:   pointer.Pointer("http://new"),
+				Name:        new("new name"),
+				Description: new("new desc"),
+				Email:       new("new@mail.com"),
+				AvatarUrl:   new("http://new"),
 				Labels: &apiv2.UpdateLabels{
 					Update: &apiv2.Labels{
 						Labels: map[string]string{

@@ -9,7 +9,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/service/token"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/urfave/cli/v2"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
@@ -137,12 +136,13 @@ func newTokenCmd() *cli.Command {
 
 			var adminRole *apiv2.AdminRole
 			if roleString := ctx.String(tokenAdminRoleFlag.Name); roleString != "" {
-				role, ok := apiv2.AdminRole_value[roleString]
+				// FIXME new linter complains that role is never used
+				role, ok := apiv2.AdminRole_value[roleString] // nolint:staticcheck
 				if !ok {
 					return fmt.Errorf("unknown role: %s", roleString)
 				}
 
-				adminRole = pointer.Pointer(apiv2.AdminRole(role))
+				adminRole = new(apiv2.AdminRole(role))
 			}
 			subject := ctx.String(tokenSubjectFlag.Name)
 			if subject == "" {

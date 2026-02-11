@@ -13,7 +13,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 )
 
 var (
@@ -33,8 +32,8 @@ var (
 		Shared:                     true,
 		Labels:                     map[string]string{"color": "red", "size": "small"},
 		AdditionalAnnouncableCIDRs: []string{"10.240.0.0/12"},
-		NetworkType:                pointer.Pointer(metal.NetworkTypeExternal),
-		NATType:                    pointer.Pointer(metal.NATTypeIPv4Masquerade),
+		NetworkType:                new(metal.NetworkTypeExternal),
+		NATType:                    new(metal.NATTypeIPv4Masquerade),
 	}
 	n2 = &metal.Network{
 		Base:                       metal.Base{ID: "n2", Name: "n2", Description: "Network 2"},
@@ -52,8 +51,8 @@ var (
 		Shared:                     false,
 		Labels:                     map[string]string{"color": "green", "size": "medium"},
 		AdditionalAnnouncableCIDRs: []string{"10.241.0.0/12"},
-		NetworkType:                pointer.Pointer(metal.NetworkTypeChild),
-		NATType:                    pointer.Pointer(metal.NATTypeNone),
+		NetworkType:                new(metal.NetworkTypeChild),
+		NATType:                    new(metal.NATTypeNone),
 	}
 	n3 = &metal.Network{
 		Base:                       metal.Base{ID: "n3", Name: "n3", Description: "Network 3"},
@@ -63,7 +62,7 @@ var (
 		MinChildPrefixLength:       metal.ChildPrefixLength{metal.AddressFamilyIPv6: 56, metal.AddressFamilyIPv4: 14},
 		PartitionID:                "partition-3",
 		ProjectID:                  "p3",
-		Namespace:                  pointer.Pointer("p3"),
+		Namespace:                  new("p3"),
 		ParentNetworkID:            "parent-network-3",
 		Vrf:                        uint(44),
 		PrivateSuper:               false,
@@ -72,8 +71,8 @@ var (
 		Shared:                     false,
 		Labels:                     map[string]string{"color": "blue", "size": "large"},
 		AdditionalAnnouncableCIDRs: []string{"10.241.0.0/12"},
-		NetworkType:                pointer.Pointer(metal.NetworkTypeExternal),
-		NATType:                    pointer.Pointer(metal.NATTypeNone),
+		NetworkType:                new(metal.NetworkTypeExternal),
+		NATType:                    new(metal.NATTypeNone),
 	}
 	networks = []*metal.Network{n1, n2, n3}
 )
@@ -154,7 +153,7 @@ func TestNetworkFilter(t *testing.T) {
 		},
 		{
 			name: "by vrf",
-			rq:   &apiv2.NetworkQuery{Vrf: pointer.Pointer(uint32(n1.Vrf))},
+			rq:   &apiv2.NetworkQuery{Vrf: new(uint32(n1.Vrf))},
 			want: []*metal.Network{n1},
 		},
 		{
@@ -191,7 +190,7 @@ func TestNetworkFilter(t *testing.T) {
 			name: "by addressfamily 3, with no result",
 			rq: &apiv2.NetworkQuery{
 				AddressFamily: apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_V6.Enum(),
-				Id:            pointer.Pointer("n1"),
+				Id:            new("n1"),
 			},
 			want: nil,
 		},

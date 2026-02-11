@@ -10,7 +10,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -33,9 +32,9 @@ func Test_filesystemServiceServer_Create(t *testing.T) {
 			rq: &adminv2.FilesystemServiceCreateRequest{
 				FilesystemLayout: &apiv2.FilesystemLayout{
 					Id:          "default",
-					Name:        pointer.Pointer("Default FSL"),
-					Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: pointer.Pointer("/"), Label: pointer.Pointer("root")}},
-					Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
+					Name:        new("Default FSL"),
+					Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: new("/"), Label: new("root")}},
+					Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: new("1"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
 					Constraints: &apiv2.FilesystemLayoutConstraints{
 						Sizes: []string{"c1-large-x86"},
 						Images: map[string]string{
@@ -48,10 +47,10 @@ func Test_filesystemServiceServer_Create(t *testing.T) {
 				FilesystemLayout: &apiv2.FilesystemLayout{
 					Id:          "default",
 					Meta:        &apiv2.Meta{Generation: 0},
-					Name:        pointer.Pointer("Default FSL"),
-					Description: pointer.Pointer(""),
-					Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: pointer.Pointer("/"), Label: pointer.Pointer("root")}},
-					Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
+					Name:        new("Default FSL"),
+					Description: new(""),
+					Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: new("/"), Label: new("root")}},
+					Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: new("1"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
 					Constraints: &apiv2.FilesystemLayoutConstraints{
 						Sizes: []string{"c1-large-x86"},
 						Images: map[string]string{
@@ -67,9 +66,9 @@ func Test_filesystemServiceServer_Create(t *testing.T) {
 			rq: &adminv2.FilesystemServiceCreateRequest{
 				FilesystemLayout: &apiv2.FilesystemLayout{
 					Id:          "default",
-					Name:        pointer.Pointer("Default FSL"),
-					Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: pointer.Pointer("/"), Label: pointer.Pointer("root")}},
-					Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
+					Name:        new("Default FSL"),
+					Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: new("/"), Label: new("root")}},
+					Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: new("1"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
 					Constraints: &apiv2.FilesystemLayoutConstraints{
 						Sizes: []string{"c1-large-x86"},
 						Images: map[string]string{
@@ -121,9 +120,9 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 		{
 			FilesystemLayout: &apiv2.FilesystemLayout{
 				Id:          "default",
-				Name:        pointer.Pointer("Default FSL"),
-				Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: pointer.Pointer("/"), Label: pointer.Pointer("root")}},
-				Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
+				Name:        new("Default FSL"),
+				Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: new("/"), Label: new("root")}},
+				Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: new("1"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
 				Constraints: &apiv2.FilesystemLayoutConstraints{
 					Sizes: []string{"c1-large-x86"},
 					Images: map[string]string{
@@ -149,9 +148,9 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 				UpdateMeta: &apiv2.UpdateMeta{
 					UpdatedAt: fslMap["default"].Meta.UpdatedAt,
 				},
-				Name:        pointer.Pointer("Default FSL"),
-				Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: pointer.Pointer("/"), Label: pointer.Pointer("root")}},
-				Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
+				Name:        new("Default FSL"),
+				Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: new("/"), Label: new("root")}},
+				Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: new("1"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
 				Constraints: &apiv2.FilesystemLayoutConstraints{
 					Sizes: []string{"c1-large-x86"},
 					Images: map[string]string{
@@ -164,10 +163,10 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 				FilesystemLayout: &apiv2.FilesystemLayout{
 					Id:          "default",
 					Meta:        &apiv2.Meta{Generation: 1},
-					Name:        pointer.Pointer("Default FSL"),
-					Description: pointer.Pointer(""),
-					Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: pointer.Pointer("/"), Label: pointer.Pointer("root")}},
-					Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
+					Name:        new("Default FSL"),
+					Description: new(""),
+					Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: new("/"), Label: new("root")}},
+					Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: new("1"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
 					Constraints: &apiv2.FilesystemLayoutConstraints{
 						Sizes: []string{"c1-large-x86"},
 						Images: map[string]string{
@@ -224,9 +223,9 @@ func Test_filesystemServiceServer_Delete(t *testing.T) {
 		{
 			FilesystemLayout: &apiv2.FilesystemLayout{
 				Id:          "default",
-				Name:        pointer.Pointer("Default FSL"),
-				Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: pointer.Pointer("/"), Label: pointer.Pointer("root")}},
-				Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
+				Name:        new("Default FSL"),
+				Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: new("/"), Label: new("root")}},
+				Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: new("1"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
 				Constraints: &apiv2.FilesystemLayoutConstraints{
 					Sizes: []string{"c1-large-x86"},
 					Images: map[string]string{
@@ -238,9 +237,9 @@ func Test_filesystemServiceServer_Delete(t *testing.T) {
 		{
 			FilesystemLayout: &apiv2.FilesystemLayout{
 				Id:          "m1-large",
-				Name:        pointer.Pointer("Default FSL"),
-				Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: pointer.Pointer("/"), Label: pointer.Pointer("root")}},
-				Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1")}}}},
+				Name:        new("Default FSL"),
+				Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: new("/"), Label: new("root")}},
+				Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: new("1")}}}},
 				Constraints: &apiv2.FilesystemLayoutConstraints{
 					Sizes: []string{"m1-large-x86"},
 					Images: map[string]string{
@@ -277,10 +276,10 @@ func Test_filesystemServiceServer_Delete(t *testing.T) {
 				FilesystemLayout: &apiv2.FilesystemLayout{
 					Id:          "default",
 					Meta:        &apiv2.Meta{Generation: 0},
-					Name:        pointer.Pointer("Default FSL"),
-					Description: pointer.Pointer(""),
-					Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: pointer.Pointer("/"), Label: pointer.Pointer("root")}},
-					Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: pointer.Pointer("1"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
+					Name:        new("Default FSL"),
+					Description: new(""),
+					Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: new("/"), Label: new("root")}},
+					Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: new("1"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
 					Constraints: &apiv2.FilesystemLayoutConstraints{
 						Sizes: []string{"c1-large-x86"},
 						Images: map[string]string{

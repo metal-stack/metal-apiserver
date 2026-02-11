@@ -10,7 +10,6 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 
 	"github.com/metal-stack/metal-apiserver/pkg/e2e"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/stretchr/testify/require"
 )
 
@@ -42,12 +41,12 @@ func Benchmark_e2e_ipService_Create(b *testing.B) {
 	require.NoError(b, err)
 
 	_, err = apiClient.Adminv2().Network().Create(ctx, &adminv2.NetworkServiceCreateRequest{
-		Id:                  pointer.Pointer("internet"),
-		Name:                pointer.Pointer("internet"),
+		Id:                  new("internet"),
+		Name:                new("internet"),
 		Prefixes:            []string{"10.1.0.0/16"},
 		DestinationPrefixes: []string{"0.0.0.0/0"},
 		Type:                apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
-		Vrf:                 pointer.Pointer(uint32(42)),
+		Vrf:                 new(uint32(42)),
 	})
 	require.NoError(b, err)
 

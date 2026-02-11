@@ -101,7 +101,7 @@ func (n *networkServiceServer) ListBaseNetworks(ctx context.Context, req *apiv2.
 		req.Query = &apiv2.NetworkQuery{}
 	}
 	baseNetworksQuery := req.Query
-	baseNetworksQuery.Project = pointer.Pointer("")
+	baseNetworksQuery.Project = new("")
 
 	baseNetworks, err := n.repo.UnscopedNetwork().List(ctx, baseNetworksQuery)
 	if err != nil {

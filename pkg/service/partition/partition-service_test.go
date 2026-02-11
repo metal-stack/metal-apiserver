@@ -12,7 +12,6 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -123,7 +122,7 @@ func Test_partitionServiceServer_List(t *testing.T) {
 	}{
 		{
 			name: "list one existing",
-			rq:   &apiv2.PartitionServiceListRequest{Query: &apiv2.PartitionQuery{Id: pointer.Pointer("partition-1")}},
+			rq:   &apiv2.PartitionServiceListRequest{Query: &apiv2.PartitionQuery{Id: new("partition-1")}},
 			want: &apiv2.PartitionServiceListResponse{Partitions: []*apiv2.Partition{
 				{Id: "partition-1", Meta: &apiv2.Meta{}, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
 			},
@@ -142,7 +141,7 @@ func Test_partitionServiceServer_List(t *testing.T) {
 		},
 		{
 			name:    "list non existing",
-			rq:      &apiv2.PartitionServiceListRequest{Query: &apiv2.PartitionQuery{Id: pointer.Pointer("partition-3")}},
+			rq:      &apiv2.PartitionServiceListRequest{Query: &apiv2.PartitionQuery{Id: new("partition-3")}},
 			want:    &apiv2.PartitionServiceListResponse{},
 			wantErr: nil,
 		},

@@ -34,7 +34,6 @@ func Test_versionServiceServer_Get(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			v.Revision = tt.revision
 			v.Version = tt.version
