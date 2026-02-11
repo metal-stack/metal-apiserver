@@ -13,7 +13,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
@@ -86,7 +85,7 @@ func Test_projectServiceServer_List(t *testing.T) {
 		{
 			name: "list the projects filtered by tenant 1",
 			rq: &adminv2.ProjectServiceListRequest{
-				Tenant: pointer.Pointer("john.doe@github"),
+				Tenant: new("john.doe@github"),
 			},
 			want: &adminv2.ProjectServiceListResponse{
 				Projects: []*apiv2.Project{
@@ -109,7 +108,7 @@ func Test_projectServiceServer_List(t *testing.T) {
 		{
 			name: "list the projects filtered by tenant 2",
 			rq: &adminv2.ProjectServiceListRequest{
-				Tenant: pointer.Pointer("jane.roe@github"),
+				Tenant: new("jane.roe@github"),
 			},
 			want: &adminv2.ProjectServiceListResponse{
 				Projects: []*apiv2.Project{

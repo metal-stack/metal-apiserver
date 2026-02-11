@@ -58,9 +58,8 @@ func (i *ratelimitInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFu
 		}
 
 		if err != nil {
-			var ratelimiterError *errRatelimitReached
-			if errors.As(err, &ratelimiterError) {
-				return nil, errorutil.NewResourceExhausted(err)
+			if ratelimiterError, ok := errors.AsType[*errRatelimitReached](err); ok {
+				return nil, errorutil.NewResourceExhausted(ratelimiterError)
 			}
 			return nil, errorutil.NewInternal(err)
 		}

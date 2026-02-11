@@ -16,7 +16,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -31,12 +30,12 @@ var (
 			Id:             "sw1",
 			Meta:           &apiv2.Meta{},
 			Description:    "switch 01",
-			Rack:           pointer.Pointer("rack01"),
+			Rack:           new("rack01"),
 			Partition:      "partition-a",
 			ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 			ManagementIp:   "1.1.1.1",
-			ManagementUser: pointer.Pointer("admin"),
-			ConsoleCommand: pointer.Pointer("tty"),
+			ManagementUser: new("admin"),
+			ConsoleCommand: new("tty"),
 			MachineConnections: []*apiv2.MachineConnection{
 				{
 					MachineId: m1.ID,
@@ -87,7 +86,7 @@ var (
 					Name:       "Ethernet1",
 					Identifier: "Eth1/2",
 					Mac:        "22:22:22:22:22:22",
-					Vrf:        pointer.Pointer("Vrf200"),
+					Vrf:        new("Vrf200"),
 					State: &apiv2.NicState{
 						Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
 						Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
@@ -116,12 +115,12 @@ var (
 			Id:             "sw2",
 			Meta:           &apiv2.Meta{},
 			Description:    "switch 02",
-			Rack:           pointer.Pointer("rack01"),
+			Rack:           new("rack01"),
 			Partition:      "partition-a",
 			ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 			ManagementIp:   "1.1.1.2",
-			ManagementUser: pointer.Pointer("root"),
-			ConsoleCommand: pointer.Pointer("tty"),
+			ManagementUser: new("root"),
+			ConsoleCommand: new("tty"),
 			Nics: []*apiv2.SwitchNic{
 				{
 					Name:       "swp1s0",
@@ -138,7 +137,7 @@ var (
 					Name:       "swp1s1",
 					Identifier: "44:44:44:44:44:44",
 					Mac:        "44:44:44:44:44:44",
-					Vrf:        pointer.Pointer("vrf200"),
+					Vrf:        new("vrf200"),
 					State: &apiv2.NicState{
 						Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
 						Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -167,12 +166,12 @@ var (
 			Id:             "sw3",
 			Meta:           &apiv2.Meta{},
 			Description:    "switch 03",
-			Rack:           pointer.Pointer("rack02"),
+			Rack:           new("rack02"),
 			Partition:      "partition-b",
 			ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE,
 			ManagementIp:   "1.1.1.3",
-			ManagementUser: pointer.Pointer("admin"),
-			ConsoleCommand: pointer.Pointer("tty"),
+			ManagementUser: new("admin"),
+			ConsoleCommand: new("tty"),
 			Nics: []*apiv2.SwitchNic{
 				{
 					Name:       "Ethernet0",
@@ -189,7 +188,7 @@ var (
 					Name:       "Ethernet1",
 					Identifier: "Eth1/2",
 					Mac:        "66:66:66:66:66:66",
-					Vrf:        pointer.Pointer("Vrf300"),
+					Vrf:        new("Vrf300"),
 					State: &apiv2.NicState{
 						Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
 						Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
@@ -218,7 +217,7 @@ var (
 			Id:          "sw4",
 			Meta:        &apiv2.Meta{},
 			Partition:   "partition-a",
-			Rack:        pointer.Pointer("r03"),
+			Rack:        new("r03"),
 			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 			MachineConnections: []*apiv2.MachineConnection{
 				{
@@ -253,7 +252,7 @@ var (
 			Id:          "sw4-1",
 			Meta:        &apiv2.Meta{},
 			Partition:   "partition-a",
-			Rack:        pointer.Pointer("r04"),
+			Rack:        new("r04"),
 			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 			Nics: []*apiv2.SwitchNic{
 				{
@@ -275,7 +274,7 @@ var (
 			Id:          "sw4-2",
 			Meta:        &apiv2.Meta{},
 			Partition:   "partition-a",
-			Rack:        pointer.Pointer("r03"),
+			Rack:        new("r03"),
 			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 			MachineConnections: []*apiv2.MachineConnection{
 				{
@@ -310,7 +309,7 @@ var (
 			Id:          "sw5",
 			Meta:        &apiv2.Meta{},
 			Partition:   "partition-a",
-			Rack:        pointer.Pointer("r03"),
+			Rack:        new("r03"),
 			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 			MachineConnections: []*apiv2.MachineConnection{
 				{
@@ -345,7 +344,7 @@ var (
 			Id:          "sw5-1",
 			Meta:        &apiv2.Meta{},
 			Partition:   "partition-a",
-			Rack:        pointer.Pointer("r03"),
+			Rack:        new("r03"),
 			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 			Nics: []*apiv2.SwitchNic{
 				{
@@ -373,7 +372,7 @@ var (
 		LastSyncError: &apiv2.SwitchSync{
 			Time:     timestamppb.New(now.Add(-time.Minute)),
 			Duration: durationpb.New(time.Second * 2),
-			Error:    pointer.Pointer("fail"),
+			Error:    new("fail"),
 		},
 	}
 
@@ -387,7 +386,7 @@ var (
 		LastSyncError: &apiv2.SwitchSync{
 			Time:     timestamppb.New(now.Add(-time.Minute)),
 			Duration: durationpb.New(time.Second * 2),
-			Error:    pointer.Pointer("fail"),
+			Error:    new("fail"),
 		},
 	}
 
@@ -542,7 +541,7 @@ func Test_switchServiceServer_List(t *testing.T) {
 			name: "list by rack",
 			rq: &adminv2.SwitchServiceListRequest{
 				Query: &apiv2.SwitchQuery{
-					Rack: pointer.Pointer("rack01"),
+					Rack: new("rack01"),
 				},
 			},
 			want: &adminv2.SwitchServiceListResponse{
@@ -621,12 +620,12 @@ func Test_switchServiceServer_Update(t *testing.T) {
 					Id:             sw3.Switch.Id,
 					Meta:           &apiv2.Meta{Generation: 1},
 					Description:    "switch 03",
-					Rack:           pointer.Pointer("rack02"),
+					Rack:           new("rack02"),
 					Partition:      "partition-b",
 					ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE,
 					ManagementIp:   "1.1.1.3",
-					ManagementUser: pointer.Pointer("admin"),
-					ConsoleCommand: pointer.Pointer("tty"),
+					ManagementUser: new("admin"),
+					ConsoleCommand: new("tty"),
 					Nics: []*apiv2.SwitchNic{
 						{
 							Name:       "Ethernet0",
@@ -643,7 +642,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 							Name:       "Ethernet1",
 							Identifier: "Eth1/2",
 							Mac:        "66:66:66:66:66:66",
-							Vrf:        pointer.Pointer("Vrf300"),
+							Vrf:        new("Vrf300"),
 							State: &apiv2.NicState{
 								Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
 								Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
@@ -676,17 +675,17 @@ func Test_switchServiceServer_Update(t *testing.T) {
 				UpdateMeta: &apiv2.UpdateMeta{
 					UpdatedAt: switchMap["sw1"].Meta.UpdatedAt,
 				},
-				Description:    pointer.Pointer("new description"),
-				ReplaceMode:    pointer.Pointer(apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE),
-				ManagementIp:   pointer.Pointer("1.1.1.5"),
-				ManagementUser: pointer.Pointer("metal"),
-				ConsoleCommand: pointer.Pointer("ssh"),
+				Description:    new("new description"),
+				ReplaceMode:    new(apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE),
+				ManagementIp:   new("1.1.1.5"),
+				ManagementUser: new("metal"),
+				ConsoleCommand: new("ssh"),
 				Nics: []*apiv2.SwitchNic{
 					{
 						Name:       "Ethernet0",
 						Identifier: "Eth1/1",
 						Mac:        "11:11:11:11:11:11",
-						Vrf:        pointer.Pointer("Vrf100"),
+						Vrf:        new("Vrf100"),
 						BgpFilter:  &apiv2.BGPFilter{},
 						State: &apiv2.NicState{
 							Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -726,11 +725,11 @@ func Test_switchServiceServer_Update(t *testing.T) {
 						Generation: 1,
 					},
 					Description:    "new description",
-					Rack:           pointer.Pointer("rack01"),
+					Rack:           new("rack01"),
 					Partition:      "partition-a",
 					ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE,
 					ManagementIp:   "1.1.1.5",
-					ManagementUser: pointer.Pointer("metal"),
+					ManagementUser: new("metal"),
 					MachineConnections: []*apiv2.MachineConnection{
 						{
 							MachineId: m1.ID,
@@ -738,7 +737,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 								Name:       "Ethernet0",
 								Identifier: "Eth1/1",
 								Mac:        "11:11:11:11:11:11",
-								Vrf:        pointer.Pointer("Vrf100"),
+								Vrf:        new("Vrf100"),
 								BgpFilter:  &apiv2.BGPFilter{},
 								State: &apiv2.NicState{
 									Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -755,13 +754,13 @@ func Test_switchServiceServer_Update(t *testing.T) {
 							},
 						},
 					},
-					ConsoleCommand: pointer.Pointer("ssh"),
+					ConsoleCommand: new("ssh"),
 					Nics: []*apiv2.SwitchNic{
 						{
 							Name:       "Ethernet0",
 							Identifier: "Eth1/1",
 							Mac:        "11:11:11:11:11:11",
-							Vrf:        pointer.Pointer("Vrf100"),
+							Vrf:        new("Vrf100"),
 							BgpFilter:  &apiv2.BGPFilter{},
 							State: &apiv2.NicState{
 								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -1025,12 +1024,12 @@ func Test_switchServiceServer_Port(t *testing.T) {
 					Id:             sw1.Switch.Id,
 					Description:    "switch 01",
 					Meta:           &apiv2.Meta{Generation: 1},
-					Rack:           pointer.Pointer("rack01"),
+					Rack:           new("rack01"),
 					Partition:      "partition-a",
 					ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 					ManagementIp:   "1.1.1.1",
-					ManagementUser: pointer.Pointer("admin"),
-					ConsoleCommand: pointer.Pointer("tty"),
+					ManagementUser: new("admin"),
+					ConsoleCommand: new("tty"),
 					MachineConnections: []*apiv2.MachineConnection{
 						{
 							MachineId: m1.ID,
@@ -1081,7 +1080,7 @@ func Test_switchServiceServer_Port(t *testing.T) {
 							Name:       "Ethernet1",
 							Identifier: "Eth1/2",
 							Mac:        "22:22:22:22:22:22",
-							Vrf:        pointer.Pointer("Vrf200"),
+							Vrf:        new("Vrf200"),
 							State: &apiv2.NicState{
 								Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
 								Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
@@ -1189,7 +1188,7 @@ func Test_switchServiceServer_Migrate(t *testing.T) {
 				Switch: &apiv2.Switch{
 					Id:          sw501.Switch.Id,
 					Partition:   "partition-a",
-					Rack:        pointer.Pointer("r03"),
+					Rack:        new("r03"),
 					ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 					Meta:        &apiv2.Meta{Generation: 1},
 					MachineConnections: []*apiv2.MachineConnection{

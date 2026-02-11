@@ -22,7 +22,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/service/token"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 	"github.com/valkey-io/valkey-go"
@@ -295,7 +294,7 @@ func DeleteNetworks(t testing.TB, testStore *testStore) {
 
 	for _, ns := range nsResp.Msg.Namespace {
 		resp, err := testStore.ipam.ListPrefixes(t.Context(), connect.NewRequest(&ipamv1.ListPrefixesRequest{
-			Namespace: pointer.Pointer(ns),
+			Namespace: new(ns),
 		}))
 		require.NoError(t, err)
 
