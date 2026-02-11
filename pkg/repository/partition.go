@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"regexp"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
@@ -9,6 +10,8 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/issues"
+	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -245,4 +248,208 @@ func (p *partitionRepository) convertToProto(ctx context.Context, e *metal.Parti
 		NtpServer: ntpServers,
 	}
 	return partition, nil
+}
+
+func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.PartitionServiceCapacityRequest) (*adminv2.PartitionServiceCapacityResponse, error) {
+	response := &adminv2.PartitionServiceCapacityResponse{}
+
+	var (
+		ps    = []*metal.Partition{}
+		ms    = []*metal.Machine{}
+		allMs = []*metal.Machine{}
+
+		pcs = map[string]*adminv2.PartitionCapacity{}
+
+		machineQuery    = &apiv2.MachineQuery{}
+		allMachineQuery = &apiv2.MachineQuery{}
+	)
+
+	if rq != nil && rq.Id != nil {
+		p, err := p.s.ds.Partition().Get(ctx, *rq.Id)
+		if err != nil {
+			return nil, err
+		}
+		ps = append(ps, p)
+
+		machineQuery.Partition = rq.Id
+		allMachineQuery.Partition = rq.Id
+	} else {
+		var err error
+		ps, err = p.s.ds.Partition().List(ctx, queries.PartitionFilter(&apiv2.PartitionQuery{}))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if rq != nil && rq.Size != nil {
+		machineQuery.Size = rq.Size
+	}
+
+	ms, err := p.s.ds.Machine().List(ctx, queries.MachineFilter(machineQuery))
+	if err != nil {
+		return nil, err
+	}
+
+	// if filtered on partition get all without more filters for issues evaluation
+	allMs, err = p.s.ds.Machine().List(ctx, queries.MachineFilter(allMachineQuery))
+	if err != nil {
+		return nil, err
+	}
+
+	ecs, err := p.s.ds.Event().List(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("unable to fetch provisioning event containers: %w", err)
+	}
+
+	sizes, err := p.s.ds.Size().List(ctx, queries.SizeFilter(&apiv2.SizeQuery{}))
+	if err != nil {
+		return nil, fmt.Errorf("unable to list sizes: %w", err)
+	}
+
+	sizeReservations, err := p.s.ds.SizeReservation().List(ctx, queries.SizeReservationFilter(&apiv2.SizeReservationQuery{}))
+	if err != nil {
+		return nil, fmt.Errorf("unable to list size reservations: %w", err)
+	}
+
+	machinesWithIssues, err := issues.Find(&issues.Config{
+		Machines:        allMs,
+		EventContainers: ecs,
+		Omit:            []issues.Type{issues.TypeLastEventError},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("unable to calculate machine issues: %w", err)
+	}
+
+	var (
+		partitionsById         = make(map[string]*metal.Partition)
+		ecsById                = make(map[string]*metal.ProvisioningEventContainer)
+		sizesByID              = make(map[string]*metal.Size)
+		sizeReservationsBySize = make(map[string]*metal.SizeReservations)
+		machinesByProject      = make(map[string]*metal.Machine)
+	)
+	for _, p := range ps {
+		partitionsById[p.ID] = p
+	}
+	for _, ec := range ecs {
+		ecsById[ec.ID] = ec
+	}
+	for _, s := range sizes {
+		sizesByID[s.ID] = s
+	}
+	for _, sr := range sizeReservations {
+		sizeReservationsBySize[sr.SizeID] = append(sizeReservationsBySize[sr.SizeID], sr)
+	}
+	for _, m := range ms {
+		if m.Allocation == nil {
+			continue
+		}
+		machinesByProject[m.Allocation.Project] = m
+	}
+
+	for _, m := range ms {
+		m := m
+
+		ec, ok := ecsById[m.ID]
+		if !ok {
+			continue
+		}
+
+		p, ok := partitionsById[m.PartitionID]
+		if !ok {
+			continue
+		}
+
+		pc, ok := pcs[m.PartitionID]
+		if !ok {
+			pc = &adminv2.PartitionCapacity{
+				Partition:        p.ID,
+				ServerCapacities: []*adminv2.ServerCapacity{},
+			}
+		}
+		pcs[m.PartitionID] = pc
+
+		size, ok := sizesByID[m.SizeID]
+		if !ok {
+			size = metal.UnknownSize()
+		}
+
+		var cap *adminv2.ServerCapacity
+		for _, sc := range pc.ServerCapacities {
+			if sc.Size == size.ID {
+				cap = sc
+				break
+			}
+		}
+
+		if cap == nil {
+			cap = &adminv2.ServerCapacity{
+				Size: size.ID,
+			}
+			pc.ServerCapacities = append(pc.ServerCapacities, cap)
+		}
+
+		cap.Total++
+
+		if _, ok := machinesWithIssues[m.ID]; ok {
+			cap.Faulty++
+			cap.FaultyMachines = append(cap.FaultyMachines, m.ID)
+		}
+
+		// allocation dependent counts
+		switch {
+		case m.Allocation != nil:
+			cap.Allocated++
+		case m.Waiting && !m.PreAllocated && m.State.Value == metal.AvailableState && ec.Liveliness == metal.MachineLivelinessAlive:
+			// the free and allocatable machine counts consider the same aspects as the query for electing the machine candidate!
+			cap.Allocatable++
+			cap.Free++
+		default:
+			cap.Unavailable++
+		}
+
+		// provisioning state dependent counts
+		switch pointer.FirstOrZero(ec.Events).Event { //nolint:exhaustive
+		case metal.ProvisioningEventPhonedHome:
+			cap.PhonedHome++
+		case metal.ProvisioningEventWaiting:
+			cap.Waiting++
+		default:
+			cap.Other++
+			cap.OtherMachines = append(cap.OtherMachines, m.ID)
+		}
+	}
+
+	res := []*adminv2.PartitionCapacity{}
+	for _, pc := range pcs {
+		for _, cap := range pc.ServerCapacities {
+			size := sizesByID[cap.Size]
+
+			rvs, ok := sizeReservationsBySize[size.ID]
+			if !ok {
+				continue
+			}
+
+			for _, reservation := range rvs.ForPartition(pc.Partition) {
+				usedReservations := min(len(machinesByProject[reservation.ProjectID].WithSize(size.ID).WithPartition(pc.Partition)), reservation.Amount)
+
+				cap.Reservations += int64(reservation.Amount)
+				cap.UsedReservations += usedReservations
+
+				if rq.Project != nil && *rq.Project == reservation.ProjectID {
+					continue
+				}
+
+				cap.Free -= reservation.Amount - usedReservations
+				cap.Free = max(cap.Free, 0)
+			}
+		}
+
+		for _, cap := range pc.ServerCapacities {
+			cap.RemainingReservations = cap.Reservations - cap.UsedReservations
+		}
+
+		res = append(res, pc)
+	}
+
+	return response, nil
 }

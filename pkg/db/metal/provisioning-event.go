@@ -28,6 +28,7 @@ type (
 		FailedMachineReclaim bool               `rethinkdb:"failed_machine_reclaim"`
 	}
 
+	// ProvisioningEventContainers is a list of machine provisioning event containers.
 	ProvisioningEventContainers []ProvisioningEventContainer
 
 	// ProvisioningEventContainerMap is an indexed map of machine event containers.
@@ -36,6 +37,15 @@ type (
 
 func (t ProvisioningEventType) String() string {
 	return string(t)
+}
+
+// ByID creates a map of event provisioning containers with the id as the index.
+func (p ProvisioningEventContainers) ByID() ProvisioningEventContainerMap {
+	res := make(ProvisioningEventContainerMap)
+	for i, f := range p {
+		res[f.ID] = p[i]
+	}
+	return res
 }
 
 const (
@@ -88,14 +98,6 @@ func (p *ProvisioningEventContainer) TrimEvents(maxCount int) {
 	if len(p.Events) > maxCount {
 		p.Events = p.Events[:maxCount]
 	}
-}
-
-func (p ProvisioningEventContainers) ByID() ProvisioningEventContainerMap {
-	res := make(ProvisioningEventContainerMap)
-	for i, f := range p {
-		res[f.ID] = p[i]
-	}
-	return res
 }
 
 func (c *ProvisioningEventContainer) Validate() error {

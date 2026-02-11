@@ -79,9 +79,9 @@ func TestReservations_Validate(t *testing.T) {
 				"c1": Size{},
 			},
 			partitions: PartitionMap{
-				"a": Partition{},
-				"b": Partition{},
-				"c": Partition{},
+				"a": &Partition{},
+				"b": &Partition{},
+				"c": &Partition{},
 			},
 			projects: map[string]*mdmv1.Project{
 				"1": {},
@@ -104,9 +104,9 @@ func TestReservations_Validate(t *testing.T) {
 				"c1": Size{},
 			},
 			partitions: PartitionMap{
-				"a": Partition{},
-				"b": Partition{},
-				"c": Partition{},
+				"a": &Partition{},
+				"b": &Partition{},
+				"c": &Partition{},
 			},
 			projects: map[string]*mdmv1.Project{
 				"1": {},
@@ -129,9 +129,9 @@ func TestReservations_Validate(t *testing.T) {
 				"c1": Size{},
 			},
 			partitions: PartitionMap{
-				"a": Partition{},
-				"b": Partition{},
-				"c": Partition{},
+				"a": &Partition{},
+				"b": &Partition{},
+				"c": &Partition{},
 			},
 			projects: map[string]*mdmv1.Project{
 				"1": {},
@@ -153,9 +153,9 @@ func TestReservations_Validate(t *testing.T) {
 				"c1": Size{},
 			},
 			partitions: PartitionMap{
-				"a": Partition{},
-				"b": Partition{},
-				"c": Partition{},
+				"a": &Partition{},
+				"b": &Partition{},
+				"c": &Partition{},
 			},
 			projects: map[string]*mdmv1.Project{
 				"1": {},
@@ -178,9 +178,9 @@ func TestReservations_Validate(t *testing.T) {
 				"c1": Size{},
 			},
 			partitions: PartitionMap{
-				"a": Partition{},
-				"b": Partition{},
-				"c": Partition{},
+				"a": &Partition{},
+				"b": &Partition{},
+				"c": &Partition{},
 			},
 			projects: map[string]*mdmv1.Project{
 				"1": {},
@@ -203,9 +203,9 @@ func TestReservations_Validate(t *testing.T) {
 				"c1": Size{},
 			},
 			partitions: PartitionMap{
-				"a": Partition{},
-				"b": Partition{},
-				"c": Partition{},
+				"a": &Partition{},
+				"b": &Partition{},
+				"c": &Partition{},
 			},
 			projects: map[string]*mdmv1.Project{
 				"1": {},
@@ -227,9 +227,9 @@ func TestReservations_Validate(t *testing.T) {
 				"c1": Size{},
 			},
 			partitions: PartitionMap{
-				"a": Partition{},
-				"b": Partition{},
-				"c": Partition{},
+				"a": &Partition{},
+				"b": &Partition{},
+				"c": &Partition{},
 			},
 			projects: map[string]*mdmv1.Project{
 				"1": {},
@@ -252,9 +252,9 @@ func TestReservations_Validate(t *testing.T) {
 				"c1": Size{},
 			},
 			partitions: PartitionMap{
-				"a": Partition{},
-				"b": Partition{},
-				"c": Partition{},
+				"a": &Partition{},
+				"b": &Partition{},
+				"c": &Partition{},
 			},
 			projects: map[string]*mdmv1.Project{
 				"1": {},

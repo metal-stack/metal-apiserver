@@ -26,6 +26,9 @@ type Machine struct {
 	BIOS         BIOS                    `rethinkdb:"bios"`
 }
 
+// Machines is a slice of Machine
+type Machines []Machine
+
 // A MachineAllocation stores the data which are only present for allocated machines.
 type MachineAllocation struct {
 	Creator     string    `rethinkdb:"creator"`

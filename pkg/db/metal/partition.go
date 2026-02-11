@@ -18,10 +18,10 @@ type BootConfiguration struct {
 }
 
 // Partitions is a list of partitions.
-type Partitions []Partition
+type Partitions []*Partition
 
 // PartitionMap is an indexed map of partitions
-type PartitionMap map[string]Partition
+type PartitionMap map[string]*Partition
 
 // ByID creates an indexed map of partitions where the id is the index.
 func (sz Partitions) ByID() PartitionMap {

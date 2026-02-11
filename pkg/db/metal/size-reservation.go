@@ -17,7 +17,7 @@ type SizeReservation struct {
 	Labels       map[string]string `rethinkdb:"labels"`
 }
 
-type SizeReservations []SizeReservation
+type SizeReservations []*SizeReservation
 
 func (rs *SizeReservations) BySize() map[string]SizeReservations {
 	res := map[string]SizeReservations{}
@@ -39,7 +39,6 @@ func (rs *SizeReservations) ForPartition(partitionID string) SizeReservations {
 
 	var result SizeReservations
 	for _, r := range *rs {
-		r := r
 		if slices.Contains(r.PartitionIDs, partitionID) {
 			result = append(result, r)
 		}
