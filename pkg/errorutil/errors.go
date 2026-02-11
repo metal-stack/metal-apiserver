@@ -16,8 +16,7 @@ import (
 // if there are multiple errors wrapped this function only cares about the first found error in the error tree.
 func Convert(err error) *connect.Error {
 	// Ipam or other connect errors
-	var connectErr *connect.Error
-	if errors.As(err, &connectErr) {
+	if connectErr, ok := errors.AsType[*connect.Error](err); ok {
 		// when the connect error is wrapped deeper a tree, connect.Error() calls the string function on
 		// the error and adds things like "internal: ..."
 		// so we replace the wrapped error message with the direct message

@@ -8,7 +8,6 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,12 +22,12 @@ func Benchmark_ipServiceServer_Create(b *testing.B) {
 	test.CreateTenants(b, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
 	test.CreateProjects(b, testStore, []*apiv2.ProjectServiceCreateRequest{{Name: "p1", Login: "t1"}, {Name: "p2", Login: "t1"}})
 	test.CreateNetworks(b, testStore, []*adminv2.NetworkServiceCreateRequest{
-		{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.3.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: pointer.Pointer(uint32(11))},
+		{Id: new("internet"), Prefixes: []string{"1.2.3.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: new(uint32(11))},
 		{
-			Id:                       pointer.Pointer("tenant-super-namespaced"),
+			Id:                       new("tenant-super-namespaced"),
 			Prefixes:                 []string{"12.100.0.0/16"},
 			DestinationPrefixes:      []string{"1.2.3.0/24"},
-			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: new(uint32(22))},
 			Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED,
 		},
 	})

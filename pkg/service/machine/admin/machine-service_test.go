@@ -15,7 +15,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 )
@@ -175,7 +174,7 @@ func Test_machineServiceServer_List(t *testing.T) {
 	}{
 		{
 			name: "List from p1",
-			rq:   &adminv2.MachineServiceListRequest{Query: &apiv2.MachineQuery{Allocation: &apiv2.MachineAllocationQuery{Project: pointer.Pointer(p1)}}},
+			rq:   &adminv2.MachineServiceListRequest{Query: &apiv2.MachineQuery{Allocation: &apiv2.MachineAllocationQuery{Project: new(p1)}}},
 			want: &adminv2.MachineServiceListResponse{
 				Machines: []*apiv2.Machine{
 					{
@@ -199,8 +198,8 @@ func Test_machineServiceServer_List(t *testing.T) {
 								Url:            validURL,
 								Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE},
 								Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_PREVIEW,
-								Description:    pointer.Pointer(""),
-								Name:           pointer.Pointer(""),
+								Description:    new(""),
+								Name:           new(""),
 							},
 						},
 					},
@@ -210,7 +209,7 @@ func Test_machineServiceServer_List(t *testing.T) {
 		},
 		{
 			name: "list from p2",
-			rq:   &adminv2.MachineServiceListRequest{Query: &apiv2.MachineQuery{Uuid: pointer.Pointer(m4), Allocation: &apiv2.MachineAllocationQuery{Project: pointer.Pointer(p2)}}},
+			rq:   &adminv2.MachineServiceListRequest{Query: &apiv2.MachineQuery{Uuid: new(m4), Allocation: &apiv2.MachineAllocationQuery{Project: new(p2)}}},
 			want: &adminv2.MachineServiceListResponse{
 				Machines: []*apiv2.Machine{
 					{
@@ -234,8 +233,8 @@ func Test_machineServiceServer_List(t *testing.T) {
 								Url:            validURL,
 								Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE},
 								Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_PREVIEW,
-								Description:    pointer.Pointer(""),
-								Name:           pointer.Pointer(""),
+								Description:    new(""),
+								Name:           new(""),
 							},
 						},
 					},

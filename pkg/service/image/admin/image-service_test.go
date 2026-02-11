@@ -14,7 +14,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -60,8 +59,8 @@ func Test_imageServiceServer_Create(t *testing.T) {
 					Id:             "debian-12.0.20241231",
 					Meta:           &apiv2.Meta{Generation: 0},
 					Url:            url,
-					Name:           pointer.Pointer(""),
-					Description:    pointer.Pointer(""),
+					Name:           new(""),
+					Description:    new(""),
 					Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE},
 					Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_PREVIEW,
 				},
@@ -161,14 +160,14 @@ func Test_imageServiceServer_Update(t *testing.T) {
 				UpdateMeta: &apiv2.UpdateMeta{
 					UpdatedAt: timestamppb.New(imageMap["debian-11.0.20231231"].Meta.UpdatedAt.AsTime()),
 				},
-				Url: &validURL, Name: pointer.Pointer("NewName")},
+				Url: &validURL, Name: new("NewName")},
 			want: &adminv2.ImageServiceUpdateResponse{
 				Image: &apiv2.Image{
 					Id:             "debian-11.0.20231231",
 					Meta:           &apiv2.Meta{Generation: 1},
 					Url:            validURL,
-					Name:           pointer.Pointer("NewName"),
-					Description:    pointer.Pointer(""),
+					Name:           new("NewName"),
+					Description:    new(""),
 					Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE},
 					Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_PREVIEW,
 				},
@@ -181,15 +180,15 @@ func Test_imageServiceServer_Update(t *testing.T) {
 				UpdateMeta: &apiv2.UpdateMeta{
 					UpdatedAt: timestamppb.New(imageMap["debian-12.0.20241231"].Meta.UpdatedAt.AsTime()),
 				},
-				Url: &validURL, Name: pointer.Pointer("NewName"),
+				Url: &validURL, Name: new("NewName"),
 				Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL}},
 			want: &adminv2.ImageServiceUpdateResponse{
 				Image: &apiv2.Image{
 					Id:             "debian-12.0.20241231",
 					Meta:           &apiv2.Meta{Generation: 1},
 					Url:            validURL,
-					Name:           pointer.Pointer("NewName"),
-					Description:    pointer.Pointer(""),
+					Name:           new("NewName"),
+					Description:    new(""),
 					Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL},
 					Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_PREVIEW,
 				},
@@ -202,7 +201,7 @@ func Test_imageServiceServer_Update(t *testing.T) {
 				UpdateMeta: &apiv2.UpdateMeta{
 					UpdatedAt: timestamppb.New(imageMap["debian-13.0.20251231"].Meta.UpdatedAt.AsTime()),
 				},
-				Url: &validURL, Name: pointer.Pointer("NewName"),
+				Url: &validURL, Name: new("NewName"),
 				Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL},
 				Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED},
 			want: &adminv2.ImageServiceUpdateResponse{
@@ -210,8 +209,8 @@ func Test_imageServiceServer_Update(t *testing.T) {
 					Id:             "debian-13.0.20251231",
 					Meta:           &apiv2.Meta{Generation: 1},
 					Url:            validURL,
-					Name:           pointer.Pointer("NewName"),
-					Description:    pointer.Pointer(""),
+					Name:           new("NewName"),
+					Description:    new(""),
 					Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL},
 					Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED,
 				},
@@ -304,8 +303,8 @@ func Test_imageServiceServer_Delete(t *testing.T) {
 					Id:             "debian-12.0.20241231",
 					Meta:           &apiv2.Meta{Generation: 0},
 					Url:            url,
-					Name:           pointer.Pointer(""),
-					Description:    pointer.Pointer(""),
+					Name:           new(""),
+					Description:    new(""),
 					Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE},
 					Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_PREVIEW,
 				},

@@ -9,7 +9,6 @@ import (
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/metal-stack/metal-lib/pkg/tag"
 )
 
@@ -51,8 +50,7 @@ func (t *tenantRepository) create(ctx context.Context, rq *apiv2.TenantServiceCr
 	return t.createWithID(ctx, rq, "")
 }
 
-type tenantCreateOpts interface {
-}
+type tenantCreateOpts any
 type tenantCreateOptWithCreator struct {
 	creator string
 }
@@ -290,7 +288,7 @@ func (t *tenantRepository) tenantMember(scope *TenantScope) TenantMember {
 func (t *tenantRepository) ListTenantMembers(ctx context.Context, tenant string, includeInherited bool) ([]*TenantWithMembershipAnnotations, error) {
 	resp, err := t.s.mdc.Tenant().ListTenantMembers(ctx, &mdcv1.ListTenantMembersRequest{
 		TenantId:         tenant,
-		IncludeInherited: pointer.Pointer(includeInherited),
+		IncludeInherited: new(includeInherited),
 	})
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -318,7 +316,7 @@ func (t *tenantRepository) ListTenantMembers(ctx context.Context, tenant string,
 func (t *tenantRepository) FindParticipatingTenants(ctx context.Context, tenant string, includeInherited bool) ([]*TenantWithMembershipAnnotations, error) {
 	resp, err := t.s.mdc.Tenant().FindParticipatingTenants(ctx, &mdcv1.FindParticipatingTenantsRequest{
 		TenantId:         tenant,
-		IncludeInherited: pointer.Pointer(includeInherited),
+		IncludeInherited: new(includeInherited),
 	})
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -365,7 +363,7 @@ func (t *tenantRepository) EnsureProviderTenant(ctx context.Context, providerTen
 	if err != nil && errorutil.IsNotFound(err) {
 		_, err := t.CreateWithID(ctx, &apiv2.TenantServiceCreateRequest{
 			Name:        providerTenantID,
-			Description: pointer.Pointer("initial provider tenant for metal-stack"),
+			Description: new("initial provider tenant for metal-stack"),
 		}, providerTenantID)
 		if err != nil {
 			return errorutil.Convert(fmt.Errorf("unable to create tenant:%s %w", providerTenantID, err))

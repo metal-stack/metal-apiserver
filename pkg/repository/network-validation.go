@@ -127,7 +127,7 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 	if req.Partition != nil {
 		parent, err := r.s.ds.Network().Find(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{
 			Partition: req.Partition,
-			Project:   pointer.Pointer(""),
+			Project:   new(""),
 			Type:      apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
 		}))
 		if err != nil {
@@ -189,7 +189,7 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 		}
 	}
 
-	if err := r.validatePrefixesAndAddressFamilies(parentNetwork.Prefixes, nil, parentLength, pointer.Pointer(metal.NetworkTypeChild)); err != nil {
+	if err := r.validatePrefixesAndAddressFamilies(parentNetwork.Prefixes, nil, parentLength, new(metal.NetworkTypeChild)); err != nil {
 		return errorutil.Convert(err)
 	}
 
@@ -247,11 +247,11 @@ func (r *networkRepository) validateCreateNetworkTypeSuper(ctx context.Context, 
 		return errorutil.NewInvalidArgument(err)
 	}
 
-	if err := r.validatePrefixesAndAddressFamilies(prefixes, nil, defaultChildPrefixLength, pointer.Pointer(metal.NetworkTypeSuper)); err != nil {
+	if err := r.validatePrefixesAndAddressFamilies(prefixes, nil, defaultChildPrefixLength, new(metal.NetworkTypeSuper)); err != nil {
 		return errorutil.NewInvalidArgument(err)
 	}
 
-	if err := r.validateAdditionalAnnouncableCIDRs(req.AdditionalAnnouncableCidrs, pointer.Pointer(metal.NetworkTypeSuper)); err != nil {
+	if err := r.validateAdditionalAnnouncableCIDRs(req.AdditionalAnnouncableCidrs, new(metal.NetworkTypeSuper)); err != nil {
 		return errorutil.NewInvalidArgument(err)
 
 	}
@@ -302,7 +302,7 @@ func (r *networkRepository) validateCreateNetworkTypeExternal(ctx context.Contex
 		return errorutil.NewInvalidArgument(err)
 	}
 
-	if err := r.validatePrefixesAndAddressFamilies(prefixes, destinationprefixes.AddressFamilies(), nil, pointer.Pointer(metal.NetworkTypeExternal)); err != nil {
+	if err := r.validatePrefixesAndAddressFamilies(prefixes, destinationprefixes.AddressFamilies(), nil, new(metal.NetworkTypeExternal)); err != nil {
 		return errorutil.NewInvalidArgument(err)
 	}
 
@@ -562,7 +562,7 @@ func (r *networkRepository) validateUpdate(ctx context.Context, req *adminv2.Net
 
 func (r *networkRepository) arePrefixesEmpty(ctx context.Context, prefixes metal.Prefixes) error {
 	for _, prefixToCheck := range prefixes {
-		ips, err := r.s.UnscopedIP().List(ctx, &apiv2.IPQuery{ParentPrefixCidr: pointer.Pointer(prefixToCheck.String())})
+		ips, err := r.s.UnscopedIP().List(ctx, &apiv2.IPQuery{ParentPrefixCidr: new(prefixToCheck.String())})
 		if err != nil {
 			return errorutil.Convert(err)
 		}

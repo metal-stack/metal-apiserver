@@ -17,7 +17,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 )
@@ -38,7 +37,7 @@ var (
 			Id:          "sw1",
 			Meta:        &apiv2.Meta{},
 			Partition:   partition1,
-			Rack:        pointer.Pointer("r01"),
+			Rack:        new("r01"),
 			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 			Nics: []*apiv2.SwitchNic{
 				{
@@ -67,7 +66,7 @@ var (
 			Id:          "sw2",
 			Meta:        &apiv2.Meta{},
 			Partition:   partition1,
-			Rack:        pointer.Pointer("r01"),
+			Rack:        new("r01"),
 			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 			Nics: []*apiv2.SwitchNic{
 				{
@@ -127,7 +126,7 @@ func Test_bootServiceServer_Boot(t *testing.T) {
 			want: &infrav2.BootServiceBootResponse{
 				Kernel:       validURL,
 				InitRamDisks: []string{validURL},
-				Cmdline:      pointer.Pointer("console=ttyS1"),
+				Cmdline:      new("console=ttyS1"),
 			},
 			wantErr: nil,
 		},
@@ -221,7 +220,7 @@ func Test_bootServiceServer_Dhcp(t *testing.T) {
 			wantMachine: &apiv2.Machine{
 				Uuid: m0,
 				Meta: &apiv2.Meta{Generation: 1},
-				Size: &apiv2.Size{Id: "unknown", Name: pointer.Pointer("unknown")},
+				Size: &apiv2.Size{Id: "unknown", Name: new("unknown")},
 				Partition: &apiv2.Partition{
 					Id:                partition1,
 					Meta:              &apiv2.Meta{},
@@ -444,7 +443,7 @@ func Test_bootServiceServer_Register(t *testing.T) {
 				Meta: &apiv2.Meta{Generation: 2},
 				Uuid: m99,
 				Rack: "r01",
-				Size: &apiv2.Size{Id: "unknown", Name: pointer.Pointer("unknown")},
+				Size: &apiv2.Size{Id: "unknown", Name: new("unknown")},
 				Hardware: &apiv2.MachineHardware{
 					Nics: []*apiv2.MachineNic{
 						{Name: "lan0", Mac: "00:00:00:00:00:01", Neighbors: []*apiv2.MachineNic{{Name: "Ethernet0", Mac: "00:00:00:00:00:03", Identifier: "Eth1/1", Hostname: "sw1"}}},
@@ -468,7 +467,7 @@ func Test_bootServiceServer_Register(t *testing.T) {
 					Id:          "sw1",
 					Meta:        &apiv2.Meta{Generation: uint64(1)},
 					Partition:   partition1,
-					Rack:        pointer.Pointer("r01"),
+					Rack:        new("r01"),
 					ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 					MachineConnections: []*apiv2.MachineConnection{
 						{MachineId: m99, Nic: &apiv2.SwitchNic{
@@ -501,7 +500,7 @@ func Test_bootServiceServer_Register(t *testing.T) {
 					Id:          "sw2",
 					Meta:        &apiv2.Meta{Generation: uint64(1)},
 					Partition:   partition1,
-					Rack:        pointer.Pointer("r01"),
+					Rack:        new("r01"),
 					ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 					MachineConnections: []*apiv2.MachineConnection{
 						{MachineId: m99, Nic: &apiv2.SwitchNic{
@@ -553,9 +552,9 @@ func Test_bootServiceServer_Register(t *testing.T) {
 					PowerState: "ON",
 				},
 				Fru: &apiv2.MachineFRU{
-					ChassisPartNumber: pointer.Pointer("123"), ChassisPartSerial: pointer.Pointer("234"),
-					BoardMfg: pointer.Pointer("bmfg"), BoardMfgSerial: pointer.Pointer("b123"), BoardPartNumber: pointer.Pointer("bpn"),
-					ProductManufacturer: pointer.Pointer("pmfg"), ProductPartNumber: pointer.Pointer("bpn"), ProductSerial: pointer.Pointer("p123"),
+					ChassisPartNumber: new("123"), ChassisPartSerial: new("234"),
+					BoardMfg: new("bmfg"), BoardMfgSerial: new("b123"), BoardPartNumber: new("bpn"),
+					ProductManufacturer: new("pmfg"), ProductPartNumber: new("bpn"), ProductSerial: new("p123"),
 				},
 				MetalHammerVersion: "v1.0.1",
 				Partition:          partition1,
@@ -603,7 +602,7 @@ func Test_bootServiceServer_Register(t *testing.T) {
 					Id:          "sw1",
 					Meta:        &apiv2.Meta{Generation: 2},
 					Partition:   partition1,
-					Rack:        pointer.Pointer("r01"),
+					Rack:        new("r01"),
 					ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 					MachineConnections: []*apiv2.MachineConnection{
 						{MachineId: m1, Nic: &apiv2.SwitchNic{Name: "Ethernet1", Identifier: "Eth1/2", BgpFilter: &apiv2.BGPFilter{}, State: &apiv2.NicState{Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP}}},
@@ -635,7 +634,7 @@ func Test_bootServiceServer_Register(t *testing.T) {
 					Id:          "sw2",
 					Meta:        &apiv2.Meta{Generation: 2},
 					Partition:   partition1,
-					Rack:        pointer.Pointer("r01"),
+					Rack:        new("r01"),
 					ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 					MachineConnections: []*apiv2.MachineConnection{
 						{MachineId: m1, Nic: &apiv2.SwitchNic{Name: "Ethernet1", Identifier: "Eth1/2", BgpFilter: &apiv2.BGPFilter{}, State: &apiv2.NicState{Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP}}},
@@ -764,19 +763,19 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 
 	netmap := test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
 		{
-			Id: pointer.Pointer("internet"), Name: pointer.Pointer("internet"),
+			Id: new("internet"), Name: new("internet"),
 			Partition: &partition1, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
 			Prefixes: []string{"142.0.0.0/16"},
 			NatType:  apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE.Enum(),
-			Vrf:      pointer.Pointer(uint32(49)),
+			Vrf:      new(uint32(49)),
 		},
 		{
-			Id: pointer.Pointer("super"), Name: pointer.Pointer("super"),
+			Id: new("super"), Name: new("super"),
 			Partition: &partition1, Type: apiv2.NetworkType_NETWORK_TYPE_SUPER,
-			Prefixes: []string{"10.0.0.0/16"}, DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(24))},
+			Prefixes: []string{"10.0.0.0/16"}, DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: new(uint32(24))},
 			NatType: apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE.Enum(),
 		},
-		{Name: pointer.Pointer("private"), Project: pointer.Pointer(p1), Partition: &partition1, Type: apiv2.NetworkType_NETWORK_TYPE_CHILD, NatType: apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE.Enum()},
+		{Name: new("private"), Project: new(p1), Partition: &partition1, Type: apiv2.NetworkType_NETWORK_TYPE_CHILD, NatType: apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE.Enum()},
 	})
 
 	var privateNetwork *apiv2.Network
@@ -849,8 +848,8 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 						Meta:           &apiv2.Meta{},
 						Url:            validURL,
 						Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE},
-						Name:           pointer.Pointer(""),
-						Description:    pointer.Pointer(""),
+						Name:           new(""),
+						Description:    new(""),
 						Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_PREVIEW,
 					},
 					Networks: []*apiv2.MachineNetwork{
@@ -867,7 +866,7 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 					Id:          "sw1",
 					Meta:        &apiv2.Meta{},
 					Partition:   partition1,
-					Rack:        pointer.Pointer("r01"),
+					Rack:        new("r01"),
 					ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 					Nics: []*apiv2.SwitchNic{
 						{
@@ -895,7 +894,7 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 					Id:          "sw2",
 					Meta:        &apiv2.Meta{},
 					Partition:   partition1,
-					Rack:        pointer.Pointer("r01"),
+					Rack:        new("r01"),
 					ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 					Nics: []*apiv2.SwitchNic{
 						{
@@ -943,8 +942,8 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 						Meta:           &apiv2.Meta{},
 						Url:            validURL,
 						Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL},
-						Name:           pointer.Pointer(""),
-						Description:    pointer.Pointer(""),
+						Name:           new(""),
+						Description:    new(""),
 						Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_PREVIEW,
 					},
 					Networks: []*apiv2.MachineNetwork{
@@ -962,7 +961,7 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 					Id:          "sw1",
 					Meta:        &apiv2.Meta{},
 					Partition:   partition1,
-					Rack:        pointer.Pointer("r01"),
+					Rack:        new("r01"),
 					ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 					Nics: []*apiv2.SwitchNic{
 						{
@@ -990,7 +989,7 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 					Id:          "sw2",
 					Meta:        &apiv2.Meta{},
 					Partition:   partition1,
-					Rack:        pointer.Pointer("r01"),
+					Rack:        new("r01"),
 					ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 					Nics: []*apiv2.SwitchNic{
 						{

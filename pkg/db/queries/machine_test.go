@@ -15,7 +15,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/stretchr/testify/require"
 )
 
@@ -332,12 +331,12 @@ func TestMachineFilter(t *testing.T) {
 		},
 		{
 			name: "by size",
-			rq:   &apiv2.MachineQuery{Size: pointer.Pointer("n1-medium")},
+			rq:   &apiv2.MachineQuery{Size: new("n1-medium")},
 			want: []*metal.Machine{m2},
 		},
 		{
 			name: "by rack",
-			rq:   &apiv2.MachineQuery{Rack: pointer.Pointer("rack-2")},
+			rq:   &apiv2.MachineQuery{Rack: new("rack-2")},
 			want: []*metal.Machine{m2},
 		},
 		{
@@ -348,17 +347,17 @@ func TestMachineFilter(t *testing.T) {
 		// Allocation Queries
 		{
 			name: "by allocation name",
-			rq:   &apiv2.MachineQuery{Allocation: &apiv2.MachineAllocationQuery{Name: pointer.Pointer("shoot-worker-1")}},
+			rq:   &apiv2.MachineQuery{Allocation: &apiv2.MachineAllocationQuery{Name: new("shoot-worker-1")}},
 			want: []*metal.Machine{m1},
 		},
 		{
 			name: "by allocation hostname",
-			rq:   &apiv2.MachineQuery{Allocation: &apiv2.MachineAllocationQuery{Hostname: pointer.Pointer("shoot-worker-1")}},
+			rq:   &apiv2.MachineQuery{Allocation: &apiv2.MachineAllocationQuery{Hostname: new("shoot-worker-1")}},
 			want: []*metal.Machine{m1},
 		},
 		{
 			name: "by allocation project",
-			rq:   &apiv2.MachineQuery{Allocation: &apiv2.MachineAllocationQuery{Project: pointer.Pointer("p1")}},
+			rq:   &apiv2.MachineQuery{Allocation: &apiv2.MachineAllocationQuery{Project: new("p1")}},
 			want: []*metal.Machine{m1},
 		},
 		{
@@ -373,12 +372,12 @@ func TestMachineFilter(t *testing.T) {
 		},
 		{
 			name: "by allocation image",
-			rq:   &apiv2.MachineQuery{Allocation: &apiv2.MachineAllocationQuery{Image: pointer.Pointer("debian-12")}},
+			rq:   &apiv2.MachineQuery{Allocation: &apiv2.MachineAllocationQuery{Image: new("debian-12")}},
 			want: []*metal.Machine{m1},
 		},
 		{
 			name: "by allocation fsl",
-			rq:   &apiv2.MachineQuery{Allocation: &apiv2.MachineAllocationQuery{FilesystemLayout: pointer.Pointer("n1-medium-fsl")}},
+			rq:   &apiv2.MachineQuery{Allocation: &apiv2.MachineAllocationQuery{FilesystemLayout: new("n1-medium-fsl")}},
 			want: []*metal.Machine{m2},
 		},
 		{
@@ -426,12 +425,12 @@ func TestMachineFilter(t *testing.T) {
 		// Hardware Queries
 		{
 			name: "by hardware memory",
-			rq:   &apiv2.MachineQuery{Hardware: &apiv2.MachineHardwareQuery{Memory: pointer.Pointer(uint64(2048))}},
+			rq:   &apiv2.MachineQuery{Hardware: &apiv2.MachineHardwareQuery{Memory: new(uint64(2048))}},
 			want: []*metal.Machine{m3},
 		},
 		{
 			name: "by hardware cpus",
-			rq:   &apiv2.MachineQuery{Hardware: &apiv2.MachineHardwareQuery{CpuCores: pointer.Pointer(uint32(10))}},
+			rq:   &apiv2.MachineQuery{Hardware: &apiv2.MachineHardwareQuery{CpuCores: new(uint32(10))}},
 			want: []*metal.Machine{m3},
 		},
 
@@ -472,64 +471,64 @@ func TestMachineFilter(t *testing.T) {
 		// IPMI Queries
 		{
 			name: "by ipmi address",
-			rq:   &apiv2.MachineQuery{Bmc: &apiv2.MachineBMCQuery{Address: pointer.Pointer("192.168.0.1")}},
+			rq:   &apiv2.MachineQuery{Bmc: &apiv2.MachineBMCQuery{Address: new("192.168.0.1")}},
 			want: []*metal.Machine{m3},
 		},
 		{
 			name: "by ipmi mac",
-			rq:   &apiv2.MachineQuery{Bmc: &apiv2.MachineBMCQuery{Mac: pointer.Pointer("ee:ff")}},
+			rq:   &apiv2.MachineQuery{Bmc: &apiv2.MachineBMCQuery{Mac: new("ee:ff")}},
 			want: []*metal.Machine{m3},
 		},
 		{
 			name: "by ipmi user",
-			rq:   &apiv2.MachineQuery{Bmc: &apiv2.MachineBMCQuery{User: pointer.Pointer("admin")}},
+			rq:   &apiv2.MachineQuery{Bmc: &apiv2.MachineBMCQuery{User: new("admin")}},
 			want: []*metal.Machine{m3},
 		},
 		{
 			name: "by ipmi interface",
-			rq:   &apiv2.MachineQuery{Bmc: &apiv2.MachineBMCQuery{Interface: pointer.Pointer("eth1")}},
+			rq:   &apiv2.MachineQuery{Bmc: &apiv2.MachineBMCQuery{Interface: new("eth1")}},
 			want: []*metal.Machine{m3},
 		},
 
 		// FRU Queries
 		{
 			name: "by fru chassispartnumber",
-			rq:   &apiv2.MachineQuery{Fru: &apiv2.MachineFRUQuery{ChassisPartNumber: pointer.Pointer("chass-1")}},
+			rq:   &apiv2.MachineQuery{Fru: &apiv2.MachineFRUQuery{ChassisPartNumber: new("chass-1")}},
 			want: []*metal.Machine{m3},
 		},
 		{
 			name: "by fru chassispartserial",
-			rq:   &apiv2.MachineQuery{Fru: &apiv2.MachineFRUQuery{ChassisPartSerial: pointer.Pointer("chass-serial-1")}},
+			rq:   &apiv2.MachineQuery{Fru: &apiv2.MachineFRUQuery{ChassisPartSerial: new("chass-serial-1")}},
 			want: []*metal.Machine{m3},
 		},
 		{
 			name: "by fru boardmfg",
-			rq:   &apiv2.MachineQuery{Fru: &apiv2.MachineFRUQuery{BoardMfg: pointer.Pointer("board-mfg-1")}},
+			rq:   &apiv2.MachineQuery{Fru: &apiv2.MachineFRUQuery{BoardMfg: new("board-mfg-1")}},
 			want: []*metal.Machine{m3},
 		},
 		{
 			name: "by fru boardserial",
-			rq:   &apiv2.MachineQuery{Fru: &apiv2.MachineFRUQuery{BoardSerial: pointer.Pointer("board-serial-1")}},
+			rq:   &apiv2.MachineQuery{Fru: &apiv2.MachineFRUQuery{BoardSerial: new("board-serial-1")}},
 			want: []*metal.Machine{m3},
 		},
 		{
 			name: "by fru boardpartnumber",
-			rq:   &apiv2.MachineQuery{Fru: &apiv2.MachineFRUQuery{BoardPartNumber: pointer.Pointer("board-1")}},
+			rq:   &apiv2.MachineQuery{Fru: &apiv2.MachineFRUQuery{BoardPartNumber: new("board-1")}},
 			want: []*metal.Machine{m3},
 		},
 		{
 			name: "by fru productmanufacturer",
-			rq:   &apiv2.MachineQuery{Fru: &apiv2.MachineFRUQuery{ProductManufacturer: pointer.Pointer("vendor-a")}},
+			rq:   &apiv2.MachineQuery{Fru: &apiv2.MachineFRUQuery{ProductManufacturer: new("vendor-a")}},
 			want: []*metal.Machine{m3},
 		},
 		{
 			name: "by fru productpartnumber",
-			rq:   &apiv2.MachineQuery{Fru: &apiv2.MachineFRUQuery{ProductPartNumber: pointer.Pointer("vendor-a-1")}},
+			rq:   &apiv2.MachineQuery{Fru: &apiv2.MachineFRUQuery{ProductPartNumber: new("vendor-a-1")}},
 			want: []*metal.Machine{m3},
 		},
 		{
 			name: "by fru productserial",
-			rq:   &apiv2.MachineQuery{Fru: &apiv2.MachineFRUQuery{ProductSerial: pointer.Pointer("vendor-serial-1")}},
+			rq:   &apiv2.MachineQuery{Fru: &apiv2.MachineFRUQuery{ProductSerial: new("vendor-serial-1")}},
 			want: []*metal.Machine{m3},
 		},
 	}

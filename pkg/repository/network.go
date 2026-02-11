@@ -478,9 +478,9 @@ func (r *networkRepository) toProtoChildPrefixLength(childPrefixLength metal.Chi
 		}
 		switch af {
 		case metal.AddressFamilyIPv4:
-			result.Ipv4 = pointer.Pointer(uint32(length))
+			result.Ipv4 = new(uint32(length))
 		case metal.AddressFamilyIPv6:
-			result.Ipv6 = pointer.Pointer(uint32(length))
+			result.Ipv6 = new(uint32(length))
 		default:
 			return nil, errorutil.InvalidArgument("unknown addressfamily %s", af)
 		}

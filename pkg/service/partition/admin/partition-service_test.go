@@ -16,7 +16,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -283,7 +282,7 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 				UpdateMeta: &apiv2.UpdateMeta{
 					UpdatedAt: timestamppb.New(time.Date(2002, 2, 12, 12, 0, 0, 0, time.UTC)),
 				},
-				Description: pointer.Pointer(""),
+				Description: new(""),
 			},
 			wantErr: errorutil.Conflict(`cannot update partition (partition-4): the entity was already modified, please retry`),
 		},
@@ -294,7 +293,7 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 				UpdateMeta: &apiv2.UpdateMeta{
 					UpdatedAt: timestamppb.New(time.Now().Add(10 * time.Minute)),
 				},
-				Description: pointer.Pointer(""),
+				Description: new(""),
 			},
 			wantErr: errorutil.Conflict(`cannot update partition (partition-4): the entity was already modified, please retry`),
 		},
@@ -303,7 +302,7 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 			request: &adminv2.PartitionServiceUpdateRequest{
 				Id:          "partition-4",
 				UpdateMeta:  nil,
-				Description: pointer.Pointer(""),
+				Description: new(""),
 			},
 			wantErr: errorutil.InvalidArgument(`update meta must be set`),
 		},
@@ -314,7 +313,7 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 				UpdateMeta: &apiv2.UpdateMeta{
 					LockingStrategy: apiv2.OptimisticLockingStrategy_OPTIMISTIC_LOCKING_STRATEGY_SERVER,
 				},
-				Description: pointer.Pointer(""),
+				Description: new(""),
 			},
 			wantErr: nil,
 			want: &adminv2.PartitionServiceUpdateResponse{
@@ -382,11 +381,11 @@ func Test_partitionServiceServer_Delete(t *testing.T) {
 
 	test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
 		{
-			Id:                       pointer.Pointer("tenant-super-network"),
+			Id:                       new("tenant-super-network"),
 			Prefixes:                 []string{"10.100.0.0/14"},
-			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: new(uint32(22))},
 			Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
-			Partition:                pointer.Pointer(partition2),
+			Partition:                new(partition2),
 		},
 	})
 
@@ -399,7 +398,7 @@ func Test_partitionServiceServer_Delete(t *testing.T) {
 
 	sizes := []*adminv2.SizeServiceCreateRequest{
 		{Size: &apiv2.Size{
-			Id: "n1-medium-x86", Name: pointer.Pointer("n1-medium-x86"),
+			Id: "n1-medium-x86", Name: new("n1-medium-x86"),
 			Constraints: []*apiv2.SizeConstraint{
 				{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
 				{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
