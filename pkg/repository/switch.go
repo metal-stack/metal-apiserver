@@ -884,10 +884,10 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 		if m != nil && m.Allocation != nil {
 			projectMachines, err = r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
 				Allocation: &apiv2.MachineAllocationQuery{
-					Project: pointer.Pointer(m.Allocation.Project),
+					Project: new(m.Allocation.Project),
 				},
-				Partition: pointer.Pointer(sw.Partition),
-				Rack:      pointer.Pointer(sw.Rack),
+				Partition: new(sw.Partition),
+				Rack:      new(sw.Rack),
 			}))
 			if err != nil {
 				return nil, err

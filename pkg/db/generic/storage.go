@@ -258,7 +258,7 @@ func (s storage[E]) setGeneration(generation uint64, e E) error {
 }
 
 func (s storage[E]) setTimeField(fieldName string, desiredTime time.Time, e E) error {
-	return s.setField(fieldName, reflect.TypeOf(time.Time{}).Kind(), desiredTime, e)
+	return s.setField(fieldName, reflect.TypeFor[time.Time]().Kind(), desiredTime, e)
 }
 
 func (s storage[E]) setUint64Field(fieldName string, desired uint64, e E) error {

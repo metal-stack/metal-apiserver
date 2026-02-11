@@ -139,6 +139,30 @@ var (
 		Required: true,
 		Usage:    "rethinkdb password to connect",
 	}
+	asnPoolRangeMinFlag = &cli.UintFlag{
+		Name:    "asnpool-range-min",
+		Value:   1,
+		Usage:   "asn pool range min, this can not be changed after initial deployment",
+		EnvVars: []string{"ASN_POOL_RANGE_MIN"},
+	}
+	asnPoolRangeMaxFlag = &cli.UintFlag{
+		Name:    "asnpool-range-max",
+		Value:   131072,
+		Usage:   "asn pool range max, this can not be changed after initial deployment",
+		EnvVars: []string{"ASN_POOL_RANGE_MAX"},
+	}
+	vrfPoolRangeMinFlag = &cli.UintFlag{
+		Name:    "vrfpool-range-min",
+		Value:   1,
+		Usage:   "vrf pool range min, this can not be changed after initial deployment",
+		EnvVars: []string{"VRF_POOL_RANGE_MIN"},
+	}
+	vrfPoolRangeMaxFlag = &cli.UintFlag{
+		Name:    "vrfpool-range-max",
+		Value:   131072,
+		Usage:   "vrf pool range max, this can not be changed after initial deployment",
+		EnvVars: []string{"VRF_POOL_RANGE_MAX"},
+	}
 	auditingTimescaleEnabledFlag = &cli.BoolFlag{
 		Name:  "auditing-timescaledb-enabled",
 		Value: false,

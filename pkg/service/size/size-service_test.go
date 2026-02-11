@@ -10,7 +10,6 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -26,7 +25,7 @@ func Test_sizeServiceServer_Get(t *testing.T) {
 
 	sizes := []*adminv2.SizeServiceCreateRequest{
 		{Size: &apiv2.Size{
-			Id: "n1-medium-x86", Name: pointer.Pointer("n1-medium-x86"),
+			Id: "n1-medium-x86", Name: new("n1-medium-x86"),
 			Constraints: []*apiv2.SizeConstraint{
 				{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
 				{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
@@ -53,7 +52,7 @@ func Test_sizeServiceServer_Get(t *testing.T) {
 			name: "get existing",
 			rq:   &apiv2.SizeServiceGetRequest{Id: "n1-medium-x86"},
 			want: &apiv2.SizeServiceGetResponse{Size: &apiv2.Size{
-				Id: "n1-medium-x86", Name: pointer.Pointer("n1-medium-x86"),
+				Id: "n1-medium-x86", Name: new("n1-medium-x86"),
 				Meta: &apiv2.Meta{},
 				Constraints: []*apiv2.SizeConstraint{
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
@@ -107,7 +106,7 @@ func Test_sizeServiceServer_List(t *testing.T) {
 	sizes := []*adminv2.SizeServiceCreateRequest{
 		{
 			Size: &apiv2.Size{
-				Id: "n1-medium-x86", Name: pointer.Pointer("n1-medium-x86"), Description: pointer.Pointer("firewall"),
+				Id: "n1-medium-x86", Name: new("n1-medium-x86"), Description: new("firewall"),
 				Constraints: []*apiv2.SizeConstraint{
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
@@ -117,7 +116,7 @@ func Test_sizeServiceServer_List(t *testing.T) {
 		},
 		{
 			Size: &apiv2.Size{
-				Id: "n2-medium-x86", Name: pointer.Pointer("n2-medium-x86"), Description: pointer.Pointer("worker"),
+				Id: "n2-medium-x86", Name: new("n2-medium-x86"), Description: new("worker"),
 				Constraints: []*apiv2.SizeConstraint{
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 8, Max: 8},
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
@@ -127,7 +126,7 @@ func Test_sizeServiceServer_List(t *testing.T) {
 		},
 		{
 			Size: &apiv2.Size{
-				Id: "n3-medium-x86", Name: pointer.Pointer("n3-medium-x86"), Description: pointer.Pointer("big worker"),
+				Id: "n3-medium-x86", Name: new("n3-medium-x86"), Description: new("big worker"),
 				Meta: &apiv2.Meta{
 					Labels: &apiv2.Labels{
 						Labels: map[string]string{"purpose": "worker"},
@@ -152,17 +151,17 @@ func Test_sizeServiceServer_List(t *testing.T) {
 	}{
 		{
 			name:    "list non existing",
-			rq:      &apiv2.SizeServiceListRequest{Query: &apiv2.SizeQuery{Id: pointer.Pointer("non-existing")}},
+			rq:      &apiv2.SizeServiceListRequest{Query: &apiv2.SizeQuery{Id: new("non-existing")}},
 			want:    &apiv2.SizeServiceListResponse{},
 			wantErr: nil,
 		},
 		{
 			name: "list one existing",
-			rq:   &apiv2.SizeServiceListRequest{Query: &apiv2.SizeQuery{Id: pointer.Pointer("n1-medium-x86")}},
+			rq:   &apiv2.SizeServiceListRequest{Query: &apiv2.SizeQuery{Id: new("n1-medium-x86")}},
 			want: &apiv2.SizeServiceListResponse{
 				Sizes: []*apiv2.Size{
 					{
-						Id: "n1-medium-x86", Name: pointer.Pointer("n1-medium-x86"), Description: pointer.Pointer("firewall"),
+						Id: "n1-medium-x86", Name: new("n1-medium-x86"), Description: new("firewall"),
 						Meta: &apiv2.Meta{},
 						Constraints: []*apiv2.SizeConstraint{
 							{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
@@ -176,11 +175,11 @@ func Test_sizeServiceServer_List(t *testing.T) {
 		},
 		{
 			name: "list by name",
-			rq:   &apiv2.SizeServiceListRequest{Query: &apiv2.SizeQuery{Name: pointer.Pointer("n1-medium-x86")}},
+			rq:   &apiv2.SizeServiceListRequest{Query: &apiv2.SizeQuery{Name: new("n1-medium-x86")}},
 			want: &apiv2.SizeServiceListResponse{
 				Sizes: []*apiv2.Size{
 					{
-						Id: "n1-medium-x86", Name: pointer.Pointer("n1-medium-x86"), Description: pointer.Pointer("firewall"),
+						Id: "n1-medium-x86", Name: new("n1-medium-x86"), Description: new("firewall"),
 						Meta: &apiv2.Meta{},
 						Constraints: []*apiv2.SizeConstraint{
 							{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
@@ -194,11 +193,11 @@ func Test_sizeServiceServer_List(t *testing.T) {
 		},
 		{
 			name: "list by description",
-			rq:   &apiv2.SizeServiceListRequest{Query: &apiv2.SizeQuery{Description: pointer.Pointer("worker")}},
+			rq:   &apiv2.SizeServiceListRequest{Query: &apiv2.SizeQuery{Description: new("worker")}},
 			want: &apiv2.SizeServiceListResponse{
 				Sizes: []*apiv2.Size{
 					{
-						Id: "n2-medium-x86", Name: pointer.Pointer("n2-medium-x86"), Description: pointer.Pointer("worker"),
+						Id: "n2-medium-x86", Name: new("n2-medium-x86"), Description: new("worker"),
 						Meta: &apiv2.Meta{},
 						Constraints: []*apiv2.SizeConstraint{
 							{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 8, Max: 8},
@@ -216,7 +215,7 @@ func Test_sizeServiceServer_List(t *testing.T) {
 			want: &apiv2.SizeServiceListResponse{
 				Sizes: []*apiv2.Size{
 					{
-						Id: "n3-medium-x86", Name: pointer.Pointer("n3-medium-x86"), Description: pointer.Pointer("big worker"),
+						Id: "n3-medium-x86", Name: new("n3-medium-x86"), Description: new("big worker"),
 						Meta: &apiv2.Meta{
 							Labels: &apiv2.Labels{
 								Labels: map[string]string{"purpose": "worker"},
@@ -237,7 +236,7 @@ func Test_sizeServiceServer_List(t *testing.T) {
 			want: &apiv2.SizeServiceListResponse{
 				Sizes: []*apiv2.Size{
 					{
-						Id: "n1-medium-x86", Name: pointer.Pointer("n1-medium-x86"), Description: pointer.Pointer("firewall"),
+						Id: "n1-medium-x86", Name: new("n1-medium-x86"), Description: new("firewall"),
 						Meta: &apiv2.Meta{},
 						Constraints: []*apiv2.SizeConstraint{
 							{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
@@ -246,7 +245,7 @@ func Test_sizeServiceServer_List(t *testing.T) {
 						},
 					},
 					{
-						Id: "n2-medium-x86", Name: pointer.Pointer("n2-medium-x86"), Description: pointer.Pointer("worker"),
+						Id: "n2-medium-x86", Name: new("n2-medium-x86"), Description: new("worker"),
 						Meta: &apiv2.Meta{},
 						Constraints: []*apiv2.SizeConstraint{
 							{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 8, Max: 8},
@@ -255,7 +254,7 @@ func Test_sizeServiceServer_List(t *testing.T) {
 						},
 					},
 					{
-						Id: "n3-medium-x86", Name: pointer.Pointer("n3-medium-x86"), Description: pointer.Pointer("big worker"),
+						Id: "n3-medium-x86", Name: new("n3-medium-x86"), Description: new("big worker"),
 						Meta: &apiv2.Meta{
 							Labels: &apiv2.Labels{
 								Labels: map[string]string{"purpose": "worker"},

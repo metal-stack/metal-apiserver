@@ -47,7 +47,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 		{
 			Name:        p0,
 			Description: "a description",
-			AvatarUrl:   pointer.Pointer("http://test"),
+			AvatarUrl:   new("http://test"),
 			Labels: &apiv2.Labels{
 				Labels: map[string]string{
 					"a": "b",
@@ -91,7 +91,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 					Tenant:      "john.doe@github",
 					Name:        p0,
 					Description: "a description",
-					AvatarUrl:   pointer.Pointer("http://test"),
+					AvatarUrl:   new("http://test"),
 				},
 				ProjectMembers: []*apiv2.ProjectMember{
 					{
@@ -116,7 +116,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 			rq: &apiv2.ProjectServiceGetRequest{
 				Project: p0,
 			},
-			as: pointer.Pointer(apiv2.TenantRole_TENANT_ROLE_GUEST),
+			as: new(apiv2.TenantRole_TENANT_ROLE_GUEST),
 			want: &apiv2.ProjectServiceGetResponse{
 				Project: &apiv2.Project{
 					Meta: &apiv2.Meta{
@@ -128,7 +128,7 @@ func Test_projectServiceServer_Get(t *testing.T) {
 					},
 					Name:        p0,
 					Description: "a description",
-					AvatarUrl:   pointer.Pointer("http://test"),
+					AvatarUrl:   new("http://test"),
 					Uuid:        p0,
 					Tenant:      "john.doe@github",
 				},
@@ -262,7 +262,7 @@ func Test_projectServiceServer_List(t *testing.T) {
 		{
 			name: "list the projects filtered by id",
 			rq: &apiv2.ProjectServiceListRequest{
-				Id: pointer.Pointer(p0),
+				Id: new(p0),
 			},
 			want: &apiv2.ProjectServiceListResponse{
 				Projects: []*apiv2.Project{
@@ -279,7 +279,7 @@ func Test_projectServiceServer_List(t *testing.T) {
 		{
 			name: "list the projects filtered by name",
 			rq: &apiv2.ProjectServiceListRequest{
-				Name: pointer.Pointer("b950f4f5-d8b8-4252-aa02-ae08a1d2b044"),
+				Name: new("b950f4f5-d8b8-4252-aa02-ae08a1d2b044"),
 			},
 			want: &apiv2.ProjectServiceListResponse{
 				Projects: []*apiv2.Project{
@@ -296,7 +296,7 @@ func Test_projectServiceServer_List(t *testing.T) {
 		{
 			name: "list the projects filtered by tenant 1",
 			rq: &apiv2.ProjectServiceListRequest{
-				Tenant: pointer.Pointer("john.doe@github"),
+				Tenant: new("john.doe@github"),
 			},
 			want: &apiv2.ProjectServiceListResponse{
 				Projects: []*apiv2.Project{
@@ -319,7 +319,7 @@ func Test_projectServiceServer_List(t *testing.T) {
 		{
 			name: "list the projects filtered by tenant 2",
 			rq: &apiv2.ProjectServiceListRequest{
-				Tenant: pointer.Pointer(p99),
+				Tenant: new(p99),
 			},
 			want:    &apiv2.ProjectServiceListResponse{},
 			wantErr: nil,
@@ -388,7 +388,7 @@ func Test_projectServiceServer_Create(t *testing.T) {
 			rq: &apiv2.ProjectServiceCreateRequest{
 				Name:        "My New Org Project",
 				Description: "project desc",
-				AvatarUrl:   pointer.Pointer("http://test"),
+				AvatarUrl:   new("http://test"),
 				Labels: &apiv2.Labels{
 					Labels: map[string]string{
 						"a": "b",
@@ -408,7 +408,7 @@ func Test_projectServiceServer_Create(t *testing.T) {
 					Name:        "My New Org Project",
 					Description: "project desc",
 					Tenant:      "john.doe@github",
-					AvatarUrl:   pointer.Pointer("http://test"),
+					AvatarUrl:   new("http://test"),
 				},
 			},
 			wantMembers: []*apiv2.ProjectMember{
@@ -479,7 +479,7 @@ func Test_projectServiceServer_Update(t *testing.T) {
 	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{{
 		Name:        p0,
 		Description: "old desc",
-		AvatarUrl:   pointer.Pointer("http://old"),
+		AvatarUrl:   new("http://old"),
 		Labels: &apiv2.Labels{
 			Labels: map[string]string{
 				"a": "b",
@@ -499,10 +499,10 @@ func Test_projectServiceServer_Update(t *testing.T) {
 			rq: &apiv2.ProjectServiceUpdateRequest{
 				// equals the ID, UUID
 				Project:     p0,
-				Name:        pointer.Pointer("new name"),
+				Name:        new("new name"),
 				UpdateMeta:  &apiv2.UpdateMeta{},
-				Description: pointer.Pointer("new desc"),
-				AvatarUrl:   pointer.Pointer("http://new"),
+				Description: new("new desc"),
+				AvatarUrl:   new("http://new"),
 				Labels: &apiv2.UpdateLabels{
 					Update: &apiv2.Labels{
 						Labels: map[string]string{
@@ -524,7 +524,7 @@ func Test_projectServiceServer_Update(t *testing.T) {
 					},
 					Name:        "new name",
 					Description: "new desc",
-					AvatarUrl:   pointer.Pointer("http://new"),
+					AvatarUrl:   new("http://new"),
 					Tenant:      "john.doe@github",
 				},
 			},
@@ -647,10 +647,10 @@ func Test_projectServiceServer_Delete(t *testing.T) {
 				{Name: p0, Login: "john.doe@github"},
 			},
 			existingNetworks: []*adminv2.NetworkServiceCreateRequest{
-				{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.3.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: pointer.Pointer(uint32(11))},
+				{Id: new("internet"), Prefixes: []string{"1.2.3.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: new(uint32(11))},
 			},
 			existingIPs: []*apiv2.IPServiceCreateRequest{
-				{Name: pointer.Pointer("ip1"), Ip: pointer.Pointer("1.2.3.4"), Project: p0, Network: "internet"},
+				{Name: new("ip1"), Ip: new("1.2.3.4"), Project: p0, Network: "internet"},
 			},
 			wantErr: errorutil.FailedPrecondition("there are still ips associated with this project, you need to delete them first"),
 		},
@@ -663,7 +663,7 @@ func Test_projectServiceServer_Delete(t *testing.T) {
 				{Name: p0, Login: "john.doe@github"},
 			},
 			existingNetworks: []*adminv2.NetworkServiceCreateRequest{
-				{Id: pointer.Pointer("project-internet"), Project: pointer.Pointer(p0), Prefixes: []string{"1.2.4.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: pointer.Pointer(uint32(12))},
+				{Id: new("project-internet"), Project: new(p0), Prefixes: []string{"1.2.4.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: new(uint32(12))},
 			},
 			wantErr: errorutil.FailedPrecondition("there are still networks associated with this project, you need to delete them first"),
 		},

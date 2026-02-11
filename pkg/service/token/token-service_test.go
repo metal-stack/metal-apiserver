@@ -16,7 +16,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/request"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -46,7 +45,7 @@ func Test_tokenService_CreateConsoleTokenWithoutPermissionCheck(t *testing.T) {
 		Issuer:     "http://test",
 	})
 
-	got, err := service.CreateUserTokenWithoutPermissionCheck(ctx, "test", pointer.Pointer(1*time.Minute))
+	got, err := service.CreateUserTokenWithoutPermissionCheck(ctx, "test", new(1*time.Minute))
 	require.NoError(t, err)
 	// verifying response
 
@@ -557,7 +556,7 @@ func Test_CreateForUser(t *testing.T) {
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "empty token",
 			},
-			user: pointer.Pointer("foo"),
+			user: new("foo"),
 			state: state{
 				adminSubjects: []string{"phippy"},
 			},
@@ -578,7 +577,7 @@ func Test_CreateForUser(t *testing.T) {
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "empty token",
 			},
-			user: pointer.Pointer("foo"),
+			user: new("foo"),
 			state: state{
 				adminSubjects: []string{"phippy"},
 			},
@@ -999,7 +998,7 @@ func Test_validateTokenRequest(t *testing.T) {
 			},
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "i want to get admin access",
-				AdminRole:   pointer.Pointer(apiv2.AdminRole_ADMIN_ROLE_VIEWER),
+				AdminRole:   new(apiv2.AdminRole_ADMIN_ROLE_VIEWER),
 				Expires:     inOneHour,
 			},
 			wantErr: errors.New("the following method \"/grpc.reflection.v1.ServerReflection/ServerReflectionInfo\" is not allowed on any of the requested subjects: [*]"),
@@ -1023,7 +1022,7 @@ func Test_validateTokenRequest(t *testing.T) {
 			},
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "i want to get admin access",
-				AdminRole:   pointer.Pointer(apiv2.AdminRole_ADMIN_ROLE_EDITOR),
+				AdminRole:   new(apiv2.AdminRole_ADMIN_ROLE_EDITOR),
 				Expires:     inOneHour,
 			},
 			wantErr: errors.New("the following method \"/grpc.reflection.v1.ServerReflection/ServerReflectionInfo\" is not allowed on any of the requested subjects: [*]"),
@@ -1047,7 +1046,7 @@ func Test_validateTokenRequest(t *testing.T) {
 			},
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "i want to get admin access",
-				AdminRole:   pointer.Pointer(apiv2.AdminRole_ADMIN_ROLE_EDITOR),
+				AdminRole:   new(apiv2.AdminRole_ADMIN_ROLE_EDITOR),
 				Expires:     inOneHour,
 			},
 			wantErr: errors.New("the following method \"/grpc.reflection.v1.ServerReflection/ServerReflectionInfo\" is not allowed on any of the requested subjects: [*]"),
@@ -1068,11 +1067,11 @@ func Test_validateTokenRequest(t *testing.T) {
 				TenantRoles: map[string]apiv2.TenantRole{
 					"company-a@github": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
-				AdminRole: pointer.Pointer(apiv2.AdminRole_ADMIN_ROLE_EDITOR),
+				AdminRole: new(apiv2.AdminRole_ADMIN_ROLE_EDITOR),
 			},
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "i want to get admin access",
-				AdminRole:   pointer.Pointer(apiv2.AdminRole_ADMIN_ROLE_EDITOR),
+				AdminRole:   new(apiv2.AdminRole_ADMIN_ROLE_EDITOR),
 				Expires:     inOneHour,
 			},
 			wantErr: nil,
@@ -1220,7 +1219,7 @@ func Test_Update(t *testing.T) {
 			},
 			req: &apiv2.TokenServiceUpdateRequest{
 				Uuid:        token1,
-				Description: pointer.Pointer("update!"),
+				Description: new("update!"),
 			},
 			state: state{
 				adminSubjects: []string{},

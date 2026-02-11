@@ -7,7 +7,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 )
 
 func TestPrefixes_OfFamily(t *testing.T) {
@@ -448,17 +447,17 @@ func TestIsSuperNetwork(t *testing.T) {
 	}{
 		{
 			name: "super",
-			nt:   pointer.Pointer(metal.NetworkTypeSuper),
+			nt:   new(metal.NetworkTypeSuper),
 			want: true,
 		},
 		{
 			name: "super namespaced",
-			nt:   pointer.Pointer(metal.NetworkTypeSuperNamespaced),
+			nt:   new(metal.NetworkTypeSuperNamespaced),
 			want: true,
 		},
 		{
 			name: "underlay",
-			nt:   pointer.Pointer(metal.NetworkTypeUnderlay),
+			nt:   new(metal.NetworkTypeUnderlay),
 			want: false,
 		},
 		{
@@ -483,17 +482,17 @@ func TestIsChildNetwork(t *testing.T) {
 	}{
 		{
 			name: "child",
-			nt:   pointer.Pointer(metal.NetworkTypeChild),
+			nt:   new(metal.NetworkTypeChild),
 			want: true,
 		},
 		{
 			name: "child shared",
-			nt:   pointer.Pointer(metal.NetworkTypeChildShared),
+			nt:   new(metal.NetworkTypeChildShared),
 			want: true,
 		},
 		{
 			name: "underlay",
-			nt:   pointer.Pointer(metal.NetworkTypeUnderlay),
+			nt:   new(metal.NetworkTypeUnderlay),
 			want: false,
 		},
 		{
@@ -530,8 +529,8 @@ func TestToChildPrefixLength(t *testing.T) {
 		{
 			name: "ipv4 and ipv6 are properly mapped",
 			cpl: &apiv2.ChildPrefixLength{
-				Ipv4: pointer.Pointer(uint32(28)),
-				Ipv6: pointer.Pointer(uint32(56)),
+				Ipv4: new(uint32(28)),
+				Ipv6: new(uint32(56)),
 			},
 			want: metal.ChildPrefixLength{
 				metal.AddressFamilyIPv4: 28,
