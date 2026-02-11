@@ -1,6 +1,7 @@
 package issues
 
 import (
+	"slices"
 	"sort"
 	"time"
 
@@ -136,7 +137,6 @@ func Find(c *Config) (MachineIssuesMap, error) {
 
 func (mis MachineIssues) Get(id string) *MachineWithIssues {
 	for _, m := range mis {
-		m := m
 
 		if m.Machine == nil {
 			continue
@@ -160,19 +160,12 @@ func (c *Config) includeIssue(t Type) bool {
 		return false
 	}
 
-	for _, o := range c.Omit {
-		if t == o {
-			return false
-		}
+	if slices.Contains(c.Omit, t) {
+		return false
 	}
 
 	if len(c.Only) > 0 {
-		for _, o := range c.Only {
-			if t == o {
-				return true
-			}
-		}
-		return false
+		return slices.Contains(c.Only, t)
 	}
 
 	return true
