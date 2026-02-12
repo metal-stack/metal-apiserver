@@ -15,19 +15,22 @@ const (
 
 var (
 	httpServerEndpointFlag = &cli.StringFlag{
-		Name:  "http-server-endpoint",
-		Value: "localhost:8081",
-		Usage: "http server bind address",
+		Name:    "http-server-endpoint",
+		Value:   "localhost:8081",
+		Usage:   "http server bind address",
+		EnvVars: []string{"HTTP_SERVER_ENDPOINT"},
 	}
 	metricServerEndpointFlag = &cli.StringFlag{
-		Name:  "metric-server-endpoint",
-		Value: "localhost:2112",
-		Usage: "metric server endpoint",
+		Name:    "metric-server-endpoint",
+		Value:   "localhost:2112",
+		Usage:   "metric server endpoint",
+		EnvVars: []string{"METRIC_SERVER_ENDPOINT"},
 	}
 	serverHttpUrlFlag = &cli.StringFlag{
-		Name:  "server-http-url",
-		Value: "http://localhost:8081",
-		Usage: "the url on which the http server is reachable from the outside",
+		Name:    "server-http-url",
+		Value:   "http://localhost:8081",
+		Usage:   "the url on which the http server is reachable from the outside",
+		EnvVars: []string{"SERVER_HTTP_URL"},
 	}
 	sessionSecretFlag = &cli.StringFlag{
 		Name:     "session-secret",
@@ -82,19 +85,22 @@ var (
 		EnvVars: []string{"OIDC_TLS_SKIP_VERIFY"},
 	}
 	logLevelFlag = &cli.StringFlag{
-		Name:  "log-level",
-		Value: "info",
-		Usage: "log-level can be one of error|warn|info|debug",
+		Name:    "log-level",
+		Value:   "info",
+		Usage:   "log-level can be one of error|warn|info|debug",
+		EnvVars: []string{"LOG_LEVEL"},
 	}
 	masterdataApiHostnameFlag = &cli.StringFlag{
-		Name:  "masterdata-api-hostname",
-		Value: "localhost",
-		Usage: "masterdata-api hostname",
+		Name:    "masterdata-api-hostname",
+		Value:   "localhost",
+		Usage:   "masterdata-api hostname",
+		EnvVars: []string{"MASTERDATA_API_HOSTNAME"},
 	}
 	masterdataApiPortFlag = &cli.UintFlag{
-		Name:  "masterdata-api-port",
-		Value: 50051,
-		Usage: "masterdata-api port",
+		Name:    "masterdata-api-port",
+		Value:   50051,
+		Usage:   "masterdata-api port",
+		EnvVars: []string{"MASTERDATA_API_PORT"},
 	}
 	masterdataApiHmacFlag = &cli.StringFlag{
 		Name:    "masterdata-api-hmac",
@@ -103,41 +109,48 @@ var (
 		EnvVars: []string{"MASTERDATA_API_HMAC"},
 	}
 	masterdataApiCAPathFlag = &cli.StringFlag{
-		Name:  "masterdata-api-ca-path",
-		Value: "certs/ca.pem",
-		Usage: "masterdata-api CA path",
+		Name:    "masterdata-api-ca-path",
+		Value:   "certs/ca.pem",
+		Usage:   "masterdata-api CA path",
+		EnvVars: []string{"MASTERDATA_API_CA_PATH"},
 	}
 	masterdataApiCertPathFlag = &cli.StringFlag{
-		Name:  "masterdata-api-cert-path",
-		Value: "certs/client.pem",
-		Usage: "masterdata-api certificate path",
+		Name:    "masterdata-api-cert-path",
+		Value:   "certs/client.pem",
+		Usage:   "masterdata-api certificate path",
+		EnvVars: []string{"MASTERDATA_API_CERT_PATH"},
 	}
 	masterdataApiCertKeyPathFlag = &cli.StringFlag{
-		Name:  "masterdata-api-cert-key-path",
-		Value: "certs/client-key.pem",
-		Usage: "masterdata-api certificate key path",
+		Name:    "masterdata-api-cert-key-path",
+		Value:   "certs/client-key.pem",
+		Usage:   "masterdata-api certificate key path",
+		EnvVars: []string{"MASTERDATA_API_CERT_KEY_PATH"},
 	}
 	rethinkdbAddressesFlag = &cli.StringSliceFlag{
 		Name:     "rethinkdb-addresses",
 		Value:    &cli.StringSlice{},
 		Required: true,
 		Usage:    "rethinkdb addresses without http prefix",
+		EnvVars:  []string{"RETHINKDB_ADDRESSES"},
 	}
 	rethinkdbDBNameFlag = &cli.StringFlag{
-		Name:  "rethinkdb-dbname",
-		Value: "metalapi",
-		Usage: "rethinkdb database name",
+		Name:    "rethinkdb-dbname",
+		Value:   "metalapi",
+		Usage:   "rethinkdb database name",
+		EnvVars: []string{"RETHINKDB_DBNAME"},
 	}
 	rethinkdbUserFlag = &cli.StringFlag{
-		Name:  "rethinkdb-user",
-		Value: "admin",
-		Usage: "rethinkdb username to connect",
+		Name:    "rethinkdb-user",
+		Value:   "admin",
+		Usage:   "rethinkdb username to connect",
+		EnvVars: []string{"RETHINKDB_USER"},
 	}
 	rethinkdbPasswordFlag = &cli.StringFlag{
 		Name:     "rethinkdb-password",
 		Value:    "",
 		Required: true,
 		Usage:    "rethinkdb password to connect",
+		EnvVars:  []string{"RETHINKDB_PASSWORD"},
 	}
 	asnPoolRangeMinFlag = &cli.UintFlag{
 		Name:    "asnpool-range-min",
@@ -164,39 +177,46 @@ var (
 		EnvVars: []string{"VRF_POOL_RANGE_MAX"},
 	}
 	auditingTimescaleEnabledFlag = &cli.BoolFlag{
-		Name:  "auditing-timescaledb-enabled",
-		Value: false,
-		Usage: "enable timescaledb auditing",
+		Name:    "auditing-timescaledb-enabled",
+		Value:   false,
+		Usage:   "enable timescaledb auditing",
+		EnvVars: []string{"AUDITING_TIMESCALEDB_ENABLED"},
 	}
 	auditingTimescaleHostFlag = &cli.StringFlag{
-		Name:  "auditing-timescaledb-host",
-		Value: "",
-		Usage: "timescaledb auditing database host",
+		Name:    "auditing-timescaledb-host",
+		Value:   "",
+		Usage:   "timescaledb auditing database host",
+		EnvVars: []string{"AUDITING_TIMESCALEDB_HOST"},
 	}
 	auditingTimescalePortFlag = &cli.StringFlag{
-		Name:  "auditing-timescaledb-port",
-		Value: "5432",
-		Usage: "timescaledb auditing database port",
+		Name:    "auditing-timescaledb-port",
+		Value:   "5432",
+		Usage:   "timescaledb auditing database port",
+		EnvVars: []string{"AUDITING_TIMESCALEDB_PORT"},
 	}
 	auditingTimescaleDbFlag = &cli.StringFlag{
-		Name:  "auditing-timescaledb-db",
-		Value: "auditing",
-		Usage: "timescaledb auditing database",
+		Name:    "auditing-timescaledb-db",
+		Value:   "auditing",
+		Usage:   "timescaledb auditing database",
+		EnvVars: []string{"AUDITING_TIMESCALEDB_DB"},
 	}
 	auditingTimescaleUserFlag = &cli.StringFlag{
-		Name:  "auditing-timescaledb-user",
-		Value: "postgres",
-		Usage: "timescaledb auditing database user",
+		Name:    "auditing-timescaledb-user",
+		Value:   "postgres",
+		Usage:   "timescaledb auditing database user",
+		EnvVars: []string{"AUDITING_TIMESCALEDB_USER"},
 	}
 	auditingTimescalePasswordFlag = &cli.StringFlag{
-		Name:  "auditing-timescaledb-password",
-		Value: "",
-		Usage: "timescaledb auditing database password",
+		Name:    "auditing-timescaledb-password",
+		Value:   "",
+		Usage:   "timescaledb auditing database password",
+		EnvVars: []string{"AUDITING_TIMESCALEDB_PASSWORD"},
 	}
 	auditingTimescaleRetentionFlag = &cli.StringFlag{
-		Name:  "auditing-timescaledb-retention",
-		Value: "14 days",
-		Usage: "timescaledb auditing database retention",
+		Name:    "auditing-timescaledb-retention",
+		Value:   "14 days",
+		Usage:   "timescaledb auditing database retention",
+		EnvVars: []string{"AUDITING_TIMESCALEDB_RETENTION"},
 	}
 	stageFlag = &cli.StringFlag{
 		Name:    "stage",
@@ -217,29 +237,34 @@ var (
 		EnvVars: []string{"REDIS_PASSWORD"},
 	}
 	adminsFlag = &cli.StringSliceFlag{
-		Name:  "admin-subjects",
-		Value: cli.NewStringSlice("metal-stack-ops@github"),
-		Usage: "the user subjects that are considered as administrators when creating api tokens to gain extended api access permissions",
+		Name:    "admin-subjects",
+		Value:   cli.NewStringSlice("metal-stack-ops@github"),
+		Usage:   "the user subjects that are considered as administrators when creating api tokens to gain extended api access permissions",
+		EnvVars: []string{"ADMIN_SUBJECTS"},
 	}
 	maxRequestsPerMinuteFlag = &cli.IntFlag{
-		Name:  "max-requests-per-minute",
-		Value: 100,
-		Usage: "the maximum requests per minute per api token",
+		Name:    "max-requests-per-minute",
+		Value:   100,
+		Usage:   "the maximum requests per minute per api token",
+		EnvVars: []string{"MAX_REQUESTS_PER_MINUTE"},
 	}
 	maxRequestsPerMinuteUnauthenticatedFlag = &cli.IntFlag{
-		Name:  "max-unauthenticated-requests-per-minute",
-		Value: 20,
-		Usage: "the maximum requests per minute for unauthenticated api access",
+		Name:    "max-unauthenticated-requests-per-minute",
+		Value:   20,
+		Usage:   "the maximum requests per minute for unauthenticated api access",
+		EnvVars: []string{"MAX_UNAUTHENTICATED_PER_MINUTE"},
 	}
 	ipamGrpcEndpointFlag = &cli.StringFlag{
-		Name:  "ipam-grpc-endpoind",
-		Value: "http://ipam:9090",
-		Usage: "the ipam grpc server endpoint",
+		Name:    "ipam-grpc-endpoint",
+		Value:   "http://ipam:9090",
+		Usage:   "the ipam grpc server endpoint",
+		EnvVars: []string{"IPAM_GRPC_ENDPOINT"},
 	}
 	ensureProviderTenantFlag = &cli.StringFlag{
-		Name:  "ensure-provider-tenant",
-		Value: "metal-stack",
-		Usage: "ensures a provider tenant on startup (used for bootstrapping and technical tokens). can be disabled by setting to empty string.",
+		Name:    "ensure-provider-tenant",
+		Value:   "metal-stack",
+		Usage:   "ensures a provider tenant on startup (used for bootstrapping and technical tokens). can be disabled by setting to empty string.",
+		EnvVars: []string{"ENSURE_PROVIDER_TENANT"},
 	}
 	bmcSuperuserPasswordFlag = &cli.StringFlag{
 		Name:    "bmc-superuser-pwd",
