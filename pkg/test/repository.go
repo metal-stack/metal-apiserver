@@ -220,7 +220,7 @@ func (t *testStore) GetEventContainer(machineID string) *metal.ProvisioningEvent
 	return resp
 }
 
-func CreateImages(t *testing.T, testStore *testStore, images []*adminv2.ImageServiceCreateRequest) map[string]*apiv2.Image {
+func CreateImages(t testing.TB, testStore *testStore, images []*adminv2.ImageServiceCreateRequest) map[string]*apiv2.Image {
 	imageMap := map[string]*apiv2.Image{}
 	for _, img := range images {
 		i, err := testStore.Image().Create(t.Context(), img)
@@ -230,7 +230,7 @@ func CreateImages(t *testing.T, testStore *testStore, images []*adminv2.ImageSer
 	return imageMap
 }
 
-func CreateFilesystemLayouts(t *testing.T, testStore *testStore, fsls []*adminv2.FilesystemServiceCreateRequest) map[string]*apiv2.FilesystemLayout {
+func CreateFilesystemLayouts(t testing.TB, testStore *testStore, fsls []*adminv2.FilesystemServiceCreateRequest) map[string]*apiv2.FilesystemLayout {
 	fslMap := map[string]*apiv2.FilesystemLayout{}
 	for _, fsl := range fsls {
 		fsl, err := testStore.FilesystemLayout().Create(t.Context(), fsl)
@@ -240,7 +240,7 @@ func CreateFilesystemLayouts(t *testing.T, testStore *testStore, fsls []*adminv2
 	return fslMap
 }
 
-func CreateIPs(t *testing.T, testStore *testStore, ips []*apiv2.IPServiceCreateRequest) map[string]*apiv2.IP {
+func CreateIPs(t testing.TB, testStore *testStore, ips []*apiv2.IPServiceCreateRequest) map[string]*apiv2.IP {
 	ipMap := map[string]*apiv2.IP{}
 	for _, ip := range ips {
 		i, err := testStore.UnscopedIP().Create(t.Context(), ip)
@@ -250,7 +250,7 @@ func CreateIPs(t *testing.T, testStore *testStore, ips []*apiv2.IPServiceCreateR
 	return ipMap
 }
 
-func CreateMachinesWithAllocation(t *testing.T, testStore *testStore, machines []*apiv2.MachineServiceCreateRequest) map[string]*apiv2.Machine {
+func CreateMachinesWithAllocation(t testing.TB, testStore *testStore, machines []*apiv2.MachineServiceCreateRequest) map[string]*apiv2.Machine {
 	machineMap := map[string]*apiv2.Machine{}
 	for _, machine := range machines {
 		m, err := testStore.UnscopedMachine().Create(t.Context(), machine)
@@ -396,7 +396,7 @@ func (t *testStore) DeleteProjectInvites() {
 	}
 }
 
-func AllocateNetworks(t *testing.T, testStore *testStore, nws []*apiv2.NetworkServiceCreateRequest) map[string]*apiv2.Network {
+func AllocateNetworks(t testing.TB, testStore *testStore, nws []*apiv2.NetworkServiceCreateRequest) map[string]*apiv2.Network {
 	networkMap := map[string]*apiv2.Network{}
 
 	for _, nw := range nws {
@@ -421,7 +421,7 @@ func AllocateNetworks(t *testing.T, testStore *testStore, nws []*apiv2.NetworkSe
 	return networkMap
 }
 
-func CreatePartitions(t *testing.T, testStore *testStore, partitions []*adminv2.PartitionServiceCreateRequest) map[string]*apiv2.Partition {
+func CreatePartitions(t testing.TB, testStore *testStore, partitions []*adminv2.PartitionServiceCreateRequest) map[string]*apiv2.Partition {
 	partitionMap := map[string]*apiv2.Partition{}
 	for _, partition := range partitions {
 		p, err := testStore.Partition().Create(t.Context(), partition)
@@ -484,7 +484,7 @@ func CreateTenantInvites(t testing.TB, testStore *testStore, invites []*apiv2.Te
 	}
 }
 
-func CreateSizes(t *testing.T, testStore *testStore, sizes []*adminv2.SizeServiceCreateRequest) map[string]*apiv2.Size {
+func CreateSizes(t testing.TB, testStore *testStore, sizes []*adminv2.SizeServiceCreateRequest) map[string]*apiv2.Size {
 	sizeMap := map[string]*apiv2.Size{}
 	for _, size := range sizes {
 		s, err := testStore.Size().Create(t.Context(), size)
@@ -494,7 +494,7 @@ func CreateSizes(t *testing.T, testStore *testStore, sizes []*adminv2.SizeServic
 	return sizeMap
 }
 
-func CreateSizeReservations(t *testing.T, testStore *testStore, sizeReservations []*adminv2.SizeReservationServiceCreateRequest) map[string]*apiv2.SizeReservation {
+func CreateSizeReservations(t testing.TB, testStore *testStore, sizeReservations []*adminv2.SizeReservationServiceCreateRequest) map[string]*apiv2.SizeReservation {
 	sizeReservationMap := map[string]*apiv2.SizeReservation{}
 	for _, sr := range sizeReservations {
 		s, err := testStore.UnscopedSizeReservation().Create(t.Context(), sr)
@@ -504,7 +504,7 @@ func CreateSizeReservations(t *testing.T, testStore *testStore, sizeReservations
 	return sizeReservationMap
 }
 
-func CreateSwitches(t *testing.T, testStore *testStore, switches []*repository.SwitchServiceCreateRequest) map[string]*apiv2.Switch {
+func CreateSwitches(t testing.TB, testStore *testStore, switches []*repository.SwitchServiceCreateRequest) map[string]*apiv2.Switch {
 	switchMap := map[string]*apiv2.Switch{}
 	for _, sw := range switches {
 		s, err := testStore.Switch().Create(t.Context(), sw)
@@ -514,7 +514,7 @@ func CreateSwitches(t *testing.T, testStore *testStore, switches []*repository.S
 	return switchMap
 }
 
-func CreateSwitchStatuses(t *testing.T, testStore *testStore, statuses []*repository.SwitchStatus) map[string]*metal.SwitchStatus {
+func CreateSwitchStatuses(t testing.TB, testStore *testStore, statuses []*repository.SwitchStatus) map[string]*metal.SwitchStatus {
 	statusMap := map[string]*metal.SwitchStatus{}
 	for _, status := range statuses {
 		metalStatus := &metal.SwitchStatus{

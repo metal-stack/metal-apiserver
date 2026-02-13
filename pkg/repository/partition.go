@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"fmt"
-	"regexp"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -16,31 +15,10 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-const (
-	dnsName string = `^([a-zA-Z0-9_]{1}[a-zA-Z0-9_-]{0,62}){1}(\.[a-zA-Z0-9_]{1}[a-zA-Z0-9_-]{0,62})*[\._]?$`
-)
-
-var (
-	regexDNSName = regexp.MustCompile(dnsName)
-)
-
 type partitionRepository struct {
 	s *Store
 }
 
-// ValidateUpdate implements Partition.
-func (p *partitionRepository) validateUpdate(ctx context.Context, req *adminv2.PartitionServiceUpdateRequest, _ *metal.Partition) error {
-	partition := &apiv2.Partition{
-		Id:                   req.Id,
-		BootConfiguration:    req.BootConfiguration,
-		DnsServer:            req.DnsServer,
-		NtpServer:            req.NtpServer,
-		MgmtServiceAddresses: req.MgmtServiceAddresses,
-	}
-	return validatePartition(ctx, partition)
-}
-
-// Create implements Partition.
 func (p *partitionRepository) create(ctx context.Context, c *adminv2.PartitionServiceCreateRequest) (*metal.Partition, error) {
 	partition, err := p.convertToInternal(ctx, c.Partition)
 	if err != nil {
@@ -55,7 +33,6 @@ func (p *partitionRepository) create(ctx context.Context, c *adminv2.PartitionSe
 	return resp, nil
 }
 
-// Delete implements Partition.
 func (p *partitionRepository) delete(ctx context.Context, e *metal.Partition) error {
 	err := p.s.ds.Partition().Delete(ctx, e)
 	if err != nil {
@@ -65,7 +42,6 @@ func (p *partitionRepository) delete(ctx context.Context, e *metal.Partition) er
 	return nil
 }
 
-// Get implements Partition.
 func (p *partitionRepository) get(ctx context.Context, id string) (*metal.Partition, error) {
 	partition, err := p.s.ds.Partition().Get(ctx, id)
 	if err != nil {
@@ -75,7 +51,6 @@ func (p *partitionRepository) get(ctx context.Context, id string) (*metal.Partit
 	return partition, nil
 }
 
-// Update implements Partition.
 func (p *partitionRepository) update(ctx context.Context, e *metal.Partition, req *adminv2.PartitionServiceUpdateRequest) (*metal.Partition, error) {
 	if req.BootConfiguration != nil {
 		e.BootConfiguration = metal.BootConfiguration{
@@ -126,7 +101,6 @@ func (p *partitionRepository) update(ctx context.Context, e *metal.Partition, re
 	return e, nil
 }
 
-// Find implements Partition.
 func (p *partitionRepository) find(ctx context.Context, query *apiv2.PartitionQuery) (*metal.Partition, error) {
 	partition, err := p.s.ds.Partition().Find(ctx, queries.PartitionFilter(query))
 	if err != nil {
@@ -135,7 +109,6 @@ func (p *partitionRepository) find(ctx context.Context, query *apiv2.PartitionQu
 	return partition, nil
 }
 
-// List implements Partition.
 func (p *partitionRepository) list(ctx context.Context, query *apiv2.PartitionQuery) ([]*metal.Partition, error) {
 	partitions, err := p.s.ds.Partition().List(ctx, queries.PartitionFilter(query))
 	if err != nil {
@@ -144,13 +117,11 @@ func (p *partitionRepository) list(ctx context.Context, query *apiv2.PartitionQu
 	return partitions, nil
 }
 
-// MatchScope implements Partition.
 func (p *partitionRepository) matchScope(e *metal.Partition) bool {
 	// Not Project Scoped
 	return true
 }
 
-// ConvertToInternal implements Partition.
 func (p *partitionRepository) convertToInternal(ctx context.Context, msg *apiv2.Partition) (*metal.Partition, error) {
 	mgm := ""
 	if len(msg.MgmtServiceAddresses) > 0 {
@@ -210,7 +181,6 @@ func (p *partitionRepository) convertToInternal(ctx context.Context, msg *apiv2.
 	return partition, nil
 }
 
-// ConvertToProto implements Partition.
 func (p *partitionRepository) convertToProto(ctx context.Context, e *metal.Partition) (*apiv2.Partition, error) {
 	var (
 		dnsServers []*apiv2.DNSServer
@@ -369,6 +339,10 @@ func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.Partitio
 		}
 
 		var cap *adminv2.MachineSizeCapacity
+		// TODO would be better, but then slice is returned
+		// caps := lo.Filter(pc.MachineSizeCapacities, func(mc *adminv2.MachineSizeCapacity, _ int) bool {
+		// 	return mc.Size == size.ID
+		// })
 		for _, sc := range pc.MachineSizeCapacities {
 			if sc.Size == size.ID {
 				cap = sc
