@@ -7,6 +7,7 @@ import (
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-lib/pkg/tag"
 )
 
 // IPType is the type of an ip.
@@ -20,6 +21,13 @@ const (
 	Ephemeral IPType = "ephemeral"
 	// Static IPs will not be cleaned up and can be re-used for machines, networks within a project
 	Static IPType = "static"
+
+	// ScopeEmpty IPs are not bound to a project, machine or cluster
+	ScopeEmpty IPScope = ""
+	// ScopeProject IPs can be assigned to machines or used by cluster services
+	ScopeProject IPScope = "project"
+	// ScopeMachine IPs are bound to the usage directly at machines
+	ScopeMachine IPScope = "machine"
 )
 
 // IP of a machine/firewall.
@@ -122,4 +130,17 @@ func IPsByProject(ips []*IP) IPsMap {
 		ipMap[ip.ProjectID] = append(ipMap[ip.ProjectID], ip)
 	}
 	return ipMap
+}
+
+// GetScope determines the scope of an ip address
+func (ip *IP) GetScope() IPScope {
+	if ip.ProjectID == "" {
+		return ScopeEmpty
+	}
+	for _, t := range ip.Tags {
+		if strings.HasPrefix(t, tag.MachineID) {
+			return ScopeMachine
+		}
+	}
+	return ScopeProject
 }
