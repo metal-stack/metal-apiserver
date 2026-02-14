@@ -44,13 +44,13 @@ type (
 	}
 )
 
-func NewDatacenter(t testing.TB, spec *scenarios.DatacenterSpec) *Datacenter {
+func NewDatacenter(t testing.TB) *Datacenter {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	testStore, closer := StartRepositoryWithCleanup(t, log, WithPostgres(true))
 
 	dc := &Datacenter{
-		TestStore:  testStore,
 		t:          t,
+		TestStore:  testStore,
 		Projects:   make(map[string]string),
 		Partitions: []*Partition{},
 		Sizes:      make(map[string]*apiv2.Size),
@@ -62,15 +62,17 @@ func NewDatacenter(t testing.TB, spec *scenarios.DatacenterSpec) *Datacenter {
 	}
 
 	dc.closers = append(dc.closers, closer)
+	return dc
+}
 
+func (dc *Datacenter) Configure(spec *scenarios.DatacenterSpec) {
 	dc.createPartitions(spec)
 	dc.createTenantsAndMembers(spec)
 	dc.createImages(spec)
 	dc.createSizes(spec)
+	dc.createSizeReservations(spec)
 	dc.createNetworks(spec)
 	dc.createIPs(spec)
-
-	return dc
 }
 
 func (dc *Datacenter) Dump(t testing.TB) {

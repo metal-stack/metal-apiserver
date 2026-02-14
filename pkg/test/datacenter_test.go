@@ -10,7 +10,8 @@ import (
 func Test_partitionUpdateWithDatacenter(t *testing.T) {
 	t.Parallel()
 
-	dc := test.NewDatacenter(t, scenarios.DefaultDatacenter)
+	dc := test.NewDatacenter(t)
+	dc.Configure(scenarios.DefaultDatacenter)
 	defer dc.Close()
 
 	// TODO make these asserters useful
