@@ -13,11 +13,10 @@ import (
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
-	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
+	"github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -496,152 +495,10 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 	t.Parallel()
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
-	defer closer()
-
 	ctx := t.Context()
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = fmt.Fprintln(w, "a image")
-	}))
 
-	validURL := ts.URL
-	defer ts.Close()
-
-	test.CreatePartitions(t, testStore, []*adminv2.PartitionServiceCreateRequest{
-		{Partition: &apiv2.Partition{Id: partition1, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
-		{Partition: &apiv2.Partition{Id: partition2, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
-		{Partition: &apiv2.Partition{Id: partition3, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
-		{Partition: &apiv2.Partition{Id: partition4, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
-	})
-
-	test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
-		{
-			Id:                       new("tenant-super-network"),
-			Prefixes:                 []string{"10.100.0.0/14"},
-			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: new(uint32(22))},
-			Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
-			Partition:                new(partition2),
-		},
-	})
-
-	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
-	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{{Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
-
-	sizes := []*adminv2.SizeServiceCreateRequest{
-		{
-			Size: &apiv2.Size{
-				Id: "n1-medium-x86", Name: new("n1-medium-x86"),
-				Constraints: []*apiv2.SizeConstraint{
-					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 2, Max: 2},
-					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024, Max: 1024},
-					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 1024, Max: 1024},
-				},
-			},
-		},
-		{
-			Size: &apiv2.Size{
-				Id: "c1-large-x86",
-				Constraints: []*apiv2.SizeConstraint{
-					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
-					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024, Max: 1024},
-					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 1024, Max: 1024},
-				},
-			},
-		},
-	}
-	sizeReservations := []*adminv2.SizeReservationServiceCreateRequest{
-		{SizeReservation: &apiv2.SizeReservation{
-			Name:        "sz-n1",
-			Description: "N1 Reservation for project-1 in partition-4",
-			Project:     p1,
-			Size:        "n1-medium-x86",
-			Partitions:  []string{partition4},
-			Amount:      2,
-		}},
-	}
-	test.CreateSizes(t, testStore, sizes)
-	test.CreateSizeReservations(t, testStore, sizeReservations)
-
-	sw1 := &repository.SwitchServiceCreateRequest{
-		Switch: &apiv2.Switch{
-			Id:          "sw1",
-			Meta:        &apiv2.Meta{},
-			Partition:   partition1,
-			Rack:        new("r01"),
-			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
-			Nics: []*apiv2.SwitchNic{
-				{
-					Name:       "Ethernet0",
-					Identifier: "Eth1/1",
-					State: &apiv2.NicState{
-						Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-					},
-				},
-				{
-					Name:       "Ethernet1",
-					Identifier: "Eth1/2",
-					State: &apiv2.NicState{
-						Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-					},
-				},
-			},
-			Os: &apiv2.SwitchOS{
-				Vendor: apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
-			},
-		},
-	}
-
-	sw2 := &repository.SwitchServiceCreateRequest{
-		Switch: &apiv2.Switch{
-			Id:          "sw2",
-			Meta:        &apiv2.Meta{},
-			Partition:   partition1,
-			Rack:        new("r01"),
-			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
-			Nics: []*apiv2.SwitchNic{
-				{
-					Name:       "Ethernet0",
-					Identifier: "Eth1/1",
-					State: &apiv2.NicState{
-						Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-					},
-				},
-				{
-					Name:       "Ethernet1",
-					Identifier: "Eth1/2",
-					State: &apiv2.NicState{
-						Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-					},
-				},
-			},
-			Os: &apiv2.SwitchOS{
-				Vendor: apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
-			},
-		},
-	}
-
-	test.CreateSwitches(t, testStore, []*repository.SwitchServiceCreateRequest{sw1, sw2})
-
-	test.DhcpMachines(t, testStore, []*infrav2.BootServiceDhcpRequest{
-		{Uuid: m1, Partition: partition1},
-	})
-	test.RegisterMachines(t, testStore, []*infrav2.BootServiceRegisterRequest{
-		{
-			Uuid:      m1,
-			Partition: partition1,
-			Hardware: &apiv2.MachineHardware{
-				Memory: 1024,
-				Cpus:   []*apiv2.MetalCPU{{Cores: 4}},
-				Disks:  []*apiv2.MachineBlockDevice{{Name: "/dev/sda", Size: 1024}},
-				Nics: []*apiv2.MachineNic{
-					{Name: "lan0", Mac: "00:00:00:00:00:01", Neighbors: []*apiv2.MachineNic{{Name: "Ethernet0", Mac: "00:00:00:00:00:03", Identifier: "Eth1/1", Hostname: "sw1"}}},
-					{Name: "lan1", Mac: "00:00:00:00:00:02", Neighbors: []*apiv2.MachineNic{{Name: "Ethernet0", Mac: "00:00:00:00:00:04", Identifier: "Eth1/1", Hostname: "sw2"}}},
-				},
-			},
-			Bios: &apiv2.MachineBios{},
-		},
-	})
+	dc := test.NewDatacenter(t, scenarios.DefaultDatacenter)
+	defer dc.Close()
 
 	tests := []struct {
 		name    string
@@ -667,7 +524,7 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &partitionServiceServer{
 				log:  log,
-				repo: testStore.Store,
+				repo: dc.TestStore.Store,
 			}
 			if tt.wantErr == nil {
 				// Execute proto based validation

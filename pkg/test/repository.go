@@ -43,6 +43,7 @@ type testStore struct {
 	dbName        string
 	queryExecutor *r.Session
 	ipam          apiv1connect.IpamServiceClient
+	ipamcloser    func()
 
 	projectInviteStore invite.ProjectInviteStore
 	tenantInviteStore  invite.TenantInviteStore
@@ -52,11 +53,6 @@ type testStore struct {
 	tokenService token.TokenService
 	mdc          mdc.Client
 	rc           *redis.Client
-}
-
-func (s *testStore) CleanNetworkTable(t testing.TB) {
-	_, err := r.DB(s.dbName).Table("network").Delete().RunWrite(s.queryExecutor)
-	require.NoError(t, err)
 }
 
 type testOpt any
@@ -175,6 +171,7 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		dbName:             opts.Database,
 		queryExecutor:      session,
 		ipam:               ipam,
+		ipamcloser:         ipamCloser,
 		projectInviteStore: projectInviteStore,
 		tenantInviteStore:  tenantInviteStore,
 		tokenStore:         tokenStore,
@@ -182,6 +179,35 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		mdc:                mdc,
 		rc:                 rc,
 	}, closer
+}
+
+func (s *testStore) CleanNetworkTable(t testing.TB) {
+	_, err := r.DB(s.dbName).Table("network").Delete().RunWrite(s.queryExecutor)
+	require.NoError(t, err)
+}
+
+func (s *testStore) CleanUp(t testing.TB) {
+	tlr, err := s.mdc.Tenant().Find(t.Context(), &mdcv1.TenantFindRequest{})
+	require.NoError(t, err)
+	for _, tenant := range tlr.Tenants {
+		plr, err := s.mdc.Project().Find(t.Context(), &mdcv1.ProjectFindRequest{TenantId: &tenant.Meta.Id})
+		require.NoError(t, err)
+		for _, project := range plr.Projects {
+			_, err := s.mdc.Project().Delete(t.Context(), &mdcv1.ProjectDeleteRequest{Id: project.Meta.Id})
+			require.NoError(t, err)
+		}
+		_, err = s.mdc.Tenant().Delete(t.Context(), &mdcv1.TenantDeleteRequest{Id: tenant.Meta.Id})
+		require.NoError(t, err)
+	}
+
+	ipam, ipamcloser := StartIpam(t)
+	s.ipam = ipam
+	s.ipamcloser = ipamcloser
+
+	// TODO valkey
+
+	_, err = r.DBDrop(s.dbName).RunWrite(s.queryExecutor)
+	require.NoError(t, err)
 }
 
 func (t *testStore) GetProjectInviteStore() invite.ProjectInviteStore {
@@ -455,7 +481,8 @@ func CreateProjectInvites(t testing.TB, testStore *testStore, invites []*apiv2.P
 	}
 }
 
-func CreateTenants(t testing.TB, testStore *testStore, tenants []*apiv2.TenantServiceCreateRequest) {
+func CreateTenants(t testing.TB, testStore *testStore, tenants []*apiv2.TenantServiceCreateRequest) []string {
+	var tenantList []string
 	for _, tenant := range tenants {
 		tok, err := testStore.tokenService.CreateApiTokenWithoutPermissionCheck(t.Context(), tenant.GetName(), &apiv2.TokenServiceCreateRequest{
 			Expires:   durationpb.New(time.Minute),
@@ -467,7 +494,9 @@ func CreateTenants(t testing.TB, testStore *testStore, tenants []*apiv2.TenantSe
 
 		_, err = testStore.Tenant().AdditionalMethods().CreateWithID(reqCtx, tenant, tenant.Name)
 		require.NoError(t, err)
+		tenantList = append(tenantList, tenant.Name)
 	}
+	return tenantList
 }
 
 func CreateTenantMemberships(t testing.TB, testStore *testStore, tenant string, memberships []*repository.TenantMemberCreateRequest) {
