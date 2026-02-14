@@ -7,23 +7,22 @@ import (
 )
 
 type (
+	MachineWithLiveliness[T, U any] struct {
+		Liveliness T
+		Machine    U
+	}
+
 	DatacenterSpec struct {
+		Partitions        []string
 		Tenants           []string
 		ProjectsPerTenant int
-		Partitions        map[string]Partition
 		Images            map[string]apiv2.ImageFeature
 		Sizes             []*apiv2.Size
 		SizeReservations  []*adminv2.SizeReservationServiceCreateRequest
 		Networks          []*adminv2.NetworkServiceCreateRequest
 		IPs               []*apiv2.IPServiceCreateRequest
-	}
-
-	Partition struct {
-		Racks map[string]Rack
-	}
-
-	Rack struct {
-		Switches []*apiv2.Switch
-		Machines []*metal.Machine
+		Switches          []*apiv2.Switch
+		Machines          []*MachineWithLiveliness[metal.MachineLiveliness, *metal.Machine]
+		ReservedMachines  []string // TODO
 	}
 )

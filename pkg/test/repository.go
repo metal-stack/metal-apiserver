@@ -182,31 +182,29 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 }
 
 func (s *testStore) CleanNetworkTable(t testing.TB) {
-	_, err := r.DB(s.dbName).Table("network").Delete().RunWrite(s.queryExecutor)
+	s.CleanTable(t, "network")
+}
+
+func (s *testStore) CleanTable(t testing.TB, tableName string) {
+	_, err := r.DB(s.dbName).Table(tableName).Delete().RunWrite(s.queryExecutor)
 	require.NoError(t, err)
 }
 
 func (s *testStore) CleanUp(t testing.TB) {
-	tlr, err := s.mdc.Tenant().Find(t.Context(), &mdcv1.TenantFindRequest{})
-	require.NoError(t, err)
-	for _, tenant := range tlr.Tenants {
-		plr, err := s.mdc.Project().Find(t.Context(), &mdcv1.ProjectFindRequest{TenantId: &tenant.Meta.Id})
-		require.NoError(t, err)
-		for _, project := range plr.Projects {
-			_, err := s.mdc.Project().Delete(t.Context(), &mdcv1.ProjectDeleteRequest{Id: project.Meta.Id})
-			require.NoError(t, err)
-		}
-		_, err = s.mdc.Tenant().Delete(t.Context(), &mdcv1.TenantDeleteRequest{Id: tenant.Meta.Id})
-		require.NoError(t, err)
-	}
 
-	ipam, ipamcloser := StartIpam(t)
-	s.ipam = ipam
-	s.ipamcloser = ipamcloser
+	s.DeleteProjects()
+	s.DeleteTenants()
+	DeleteIPs(t, s)
+	DeleteNetworks(t, s)
+	DeleteMachines(t, s)
 
 	// TODO valkey
 
-	_, err = r.DBDrop(s.dbName).RunWrite(s.queryExecutor)
+	_, err := r.DBDrop(s.dbName).RunWrite(s.queryExecutor)
+	require.NoError(t, err)
+	err = generic.Initialize(t.Context(), slog.Default(), rethinkDbConnectOpts, generic.AsnPoolRange(uint(1), uint(100)), generic.VrfPoolRange(uint(1), uint(100)))
+
+	// _, err = r.DB(s.dbName).TableList().ForEach().Delete().RunWrite(s.queryExecutor)
 	require.NoError(t, err)
 }
 

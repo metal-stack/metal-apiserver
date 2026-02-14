@@ -22,7 +22,7 @@ type (
 	Datacenter struct {
 		Tenants    []string
 		Projects   map[string]string
-		Partitions []*Partition
+		Partitions map[string]*apiv2.Partition
 		Sizes      map[string]*apiv2.Size
 		Networks   map[string]*apiv2.Network
 		IPs        map[string]*apiv2.IP
@@ -34,25 +34,17 @@ type (
 		t         testing.TB
 		closers   []func()
 	}
-	Partition struct {
-		Name  string
-		Racks []*Rack
-	}
-
-	Rack struct {
-		Name string
-	}
 )
 
-func NewDatacenter(t testing.TB, spec *scenarios.DatacenterSpec) *Datacenter {
+func NewDatacenter(t testing.TB) *Datacenter {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	testStore, closer := StartRepositoryWithCleanup(t, log, WithPostgres(true))
 
 	dc := &Datacenter{
-		TestStore:  testStore,
 		t:          t,
+		TestStore:  testStore,
 		Projects:   make(map[string]string),
-		Partitions: []*Partition{},
+		Partitions: make(map[string]*apiv2.Partition),
 		Sizes:      make(map[string]*apiv2.Size),
 		Networks:   make(map[string]*apiv2.Network),
 		IPs:        make(map[string]*apiv2.IP),
@@ -62,15 +54,19 @@ func NewDatacenter(t testing.TB, spec *scenarios.DatacenterSpec) *Datacenter {
 	}
 
 	dc.closers = append(dc.closers, closer)
+	return dc
+}
 
+func (dc *Datacenter) Configure(spec *scenarios.DatacenterSpec) {
 	dc.createPartitions(spec)
 	dc.createTenantsAndMembers(spec)
 	dc.createImages(spec)
 	dc.createSizes(spec)
+	dc.createSizeReservations(spec)
 	dc.createNetworks(spec)
 	dc.createIPs(spec)
-
-	return dc
+	dc.createSwitches(spec)
+	dc.createMachines(spec)
 }
 
 func (dc *Datacenter) Dump(t testing.TB) {
@@ -98,10 +94,9 @@ func (dc *Datacenter) createPartitions(spec *scenarios.DatacenterSpec) {
 
 	validURL := ts.URL
 
-	count := 1
-	for p, partition := range spec.Partitions {
-		id := fmt.Sprintf("partition-%d", count)
-		req := &apiv2.Partition{
+	var req []*adminv2.PartitionServiceCreateRequest
+	for _, id := range spec.Partitions {
+		p := &apiv2.Partition{
 			Id:          id,
 			Description: id,
 			BootConfiguration: &apiv2.PartitionBootConfiguration{
@@ -109,20 +104,9 @@ func (dc *Datacenter) createPartitions(spec *scenarios.DatacenterSpec) {
 				KernelUrl: validURL,
 			},
 		}
-		part := &Partition{
-			Name: p,
-		}
-
-		CreatePartitions(dc.t, dc.TestStore, []*adminv2.PartitionServiceCreateRequest{{Partition: req}})
-		for r, rack := range partition.Racks {
-			part.Racks = append(part.Racks, &Rack{Name: r})
-			dc.createSwitches(rack)
-			dc.createMachines(rack)
-		}
-
-		dc.Partitions = append(dc.Partitions, part)
+		req = append(req, &adminv2.PartitionServiceCreateRequest{Partition: p})
 	}
-
+	dc.Partitions = CreatePartitions(dc.t, dc.TestStore, req)
 }
 
 func (dc *Datacenter) createTenantsAndMembers(spec *scenarios.DatacenterSpec) {
@@ -201,24 +185,35 @@ func (dc *Datacenter) createIPs(spec *scenarios.DatacenterSpec) {
 	maps.Copy(dc.IPs, ips)
 }
 
-func (dc *Datacenter) createMachines(rack scenarios.Rack) {
-	for _, machine := range rack.Machines {
-		m, err := dc.TestStore.ds.Machine().Create(dc.t.Context(), machine)
+func (dc *Datacenter) createMachines(spec *scenarios.DatacenterSpec) {
+	for _, pair := range spec.Machines {
+		m, err := dc.TestStore.ds.Machine().Create(dc.t.Context(), pair.Machine)
 		require.NoError(dc.t, err)
-		event := &metal.ProvisioningEventContainer{
-			Base:       metal.Base{ID: machine.ID},
-			Events:     metal.ProvisioningEvents{},
-			Liveliness: metal.MachineLivelinessAlive,
+
+		var events []*metal.ProvisioningEventContainer
+		ec := &metal.ProvisioningEventContainer{Base: metal.Base{ID: m.ID}, Liveliness: pair.Liveliness}
+		if m.Waiting {
+			ec.Events = append(ec.Events, metal.ProvisioningEvent{
+				Event: metal.ProvisioningEventWaiting,
+			})
 		}
-		_, err = dc.TestStore.ds.Event().Create(dc.t.Context(), event)
-		require.NoError(dc.t, err)
+		if m.Allocation != nil {
+			ec.Events = append(ec.Events, metal.ProvisioningEvent{
+				Event: metal.ProvisioningEventPhonedHome,
+			})
+		}
+		events = append(events, ec)
+		for _, e := range events {
+			_, err := dc.TestStore.ds.Event().Create(dc.t.Context(), e)
+			require.NoError(dc.t, err)
+		}
 
 		dc.Machines[m.ID] = m
 	}
 }
 
-func (dc *Datacenter) createSwitches(rack scenarios.Rack) {
-	for _, sw := range rack.Switches {
+func (dc *Datacenter) createSwitches(spec *scenarios.DatacenterSpec) {
+	for _, sw := range spec.Switches {
 		switches := CreateSwitches(dc.t, dc.TestStore, []*repository.SwitchServiceCreateRequest{{Switch: sw}})
 		for _, s := range switches {
 			dc.Switches[s.Id] = s
@@ -238,7 +233,7 @@ func (dc *Datacenter) Assert(asserters *Asserters) {
 		for _, partition := range dc.Partitions {
 			require.NotNil(dc.t, asserters.Partition)
 
-			resp, err := dc.TestStore.Partition().Get(dc.t.Context(), partition.Name)
+			resp, err := dc.TestStore.Partition().Get(dc.t.Context(), partition.Id)
 			require.NoError(dc.t, err)
 			asserters.Partition(dc.t, resp)
 		}

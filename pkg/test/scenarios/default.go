@@ -7,12 +7,20 @@ import (
 )
 
 const (
-	m1 = "00000000-0000-0000-0000-000000000001"
+	Machine1 = "00000000-0000-0000-0000-000000000001"
+	Machine2 = "00000000-0000-0000-0000-000000000002"
+
+	Partition1 = "partition-1"
+
+	Tenant1         = "john.doe"
+	Project1Suffix  = "project-0"
+	Tenant1Project1 = Tenant1 + "-" + Project1Suffix
 )
 
 var (
 	DefaultDatacenter = &DatacenterSpec{
-		Tenants:           []string{"john.doe"},
+		Partitions:        []string{Partition1},
+		Tenants:           []string{Tenant1},
 		ProjectsPerTenant: 1,
 		Images: map[string]apiv2.ImageFeature{
 			"debian-13.0.20260131":         apiv2.ImageFeature_IMAGE_FEATURE_MACHINE,
@@ -42,25 +50,14 @@ var (
 				SizeReservation: &apiv2.SizeReservation{
 					Name:        "sz-n1",
 					Description: "N1 Reservation for project-1 in partition-4",
-					Project:     "john.doe-project-0",
+					Project:     Tenant1Project1,
 					Size:        "n1-medium-x86",
-					Partitions:  []string{"partition-1"},
+					Partitions:  []string{Partition1},
 					Amount:      2,
 				},
 			},
 		},
-		Partitions: map[string]Partition{
-			"partition-1": {
-				Racks: map[string]Rack{
-					"rack-1": {
-						Machines: []*metal.Machine{
-							{Base: metal.Base{ID: m1}, PartitionID: "partition-1", SizeID: "c1-large-x86"},
-						},
-						Switches: switchPairFunc("partition-1", "rack-1", 2),
-					},
-				},
-			},
-		},
+
 		Networks: []*adminv2.NetworkServiceCreateRequest{
 			{
 				Id: new("internet"), Prefixes: []string{"1.2.3.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: new(uint32(11)),
@@ -76,8 +73,12 @@ var (
 		IPs: []*apiv2.IPServiceCreateRequest{
 			{
 				Network: "internet",
-				Project: "john.doe-project-0",
+				Project: Tenant1Project1,
 			},
+		},
+		Switches: SwitchPairFunc(Partition1, "rack-1", 2),
+		Machines: []*MachineWithLiveliness[metal.MachineLiveliness, *metal.Machine]{
+			MachineFunc(Machine1, Partition1, "c1-large-x86", Tenant1Project1, metal.MachineLivelinessAlive),
 		},
 	}
 )

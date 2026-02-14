@@ -2,12 +2,14 @@ package scenarios
 
 import (
 	"fmt"
+	"time"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 )
 
 var (
-	switchPairFunc = func(partition, rack string, ports int) []*apiv2.Switch {
+	SwitchPairFunc = func(partition, rack string, ports int) []*apiv2.Switch {
 		return []*apiv2.Switch{
 			{
 				Id:          fmt.Sprintf("sw1-%s-%s", partition, rack),
@@ -46,5 +48,30 @@ var (
 			})
 		}
 		return nics
+	}
+
+	MachineFunc = func(id, partition, size, project string, liveliness metal.MachineLiveliness) *MachineWithLiveliness[metal.MachineLiveliness, *metal.Machine] {
+		m := &metal.Machine{
+			Base:        metal.Base{ID: id},
+			PartitionID: partition,
+			SizeID:      size,
+			IPMI: metal.IPMI{ // required for healthy machine state
+				Address:     "1.2.3." + id,
+				MacAddress:  "aa:bb:0" + id,
+				LastUpdated: time.Now().Add(-1 * time.Minute),
+			},
+			State: metal.MachineState{
+				Value: metal.AvailableState,
+			},
+		}
+		if project != "" {
+			m.Allocation = &metal.MachineAllocation{
+				Project: project,
+			}
+		}
+		return &MachineWithLiveliness[metal.MachineLiveliness, *metal.Machine]{
+			Liveliness: liveliness,
+			Machine:    m,
+		}
 	}
 )

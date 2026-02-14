@@ -29,8 +29,6 @@ var (
 
 	p1 = "00000000-0000-0000-0000-000000000001"
 	p2 = "00000000-0000-0000-0000-000000000002"
-
-	m1 = "00000000-0000-0000-0000-000000000001"
 )
 
 func Test_partitionServiceServer_Create(t *testing.T) {
@@ -497,23 +495,50 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
-	dc := test.NewDatacenter(t, scenarios.DefaultDatacenter)
+	dc := test.NewDatacenter(t)
 	defer dc.Close()
 
 	tests := []struct {
 		name    string
 		request *adminv2.PartitionServiceCapacityRequest
+		before  func()
+		after   func(testing.TB)
 		want    *adminv2.PartitionServiceCapacityResponse
 		wantErr error
 	}{
 		{
-			name:    "one newly booted machine",
+			name:    "one allocated machine",
 			request: &adminv2.PartitionServiceCapacityRequest{Id: &partition1},
+			before:  func() { dc.Configure(scenarios.DefaultDatacenter) },
+			after:   dc.CleanUp,
 			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
 				{
 					Partition: partition1,
 					MachineSizeCapacities: []*adminv2.MachineSizeCapacity{
-						{Size: "c1-large-x86", Total: 1, Other: 1, OtherMachines: []string{m1}, Unavailable: 1, Faulty: 1, FaultyMachines: []string{m1}},
+						{Size: "c1-large-x86", PhonedHome: 1, Allocated: 1, Total: 1},
+					},
+				},
+			}},
+			wantErr: nil,
+		},
+		{
+			name:    "two allocated machine",
+			request: &adminv2.PartitionServiceCapacityRequest{Id: &partition1},
+			before: func() {
+				twoMachinesInDatacenter := scenarios.DefaultDatacenter
+				twoMachinesInDatacenter.Machines = []*scenarios.MachineWithLiveliness[metal.MachineLiveliness, *metal.Machine]{
+					scenarios.MachineFunc(scenarios.Machine1, scenarios.Partition1, "c1-large-x86", scenarios.Tenant1Project1, metal.MachineLivelinessAlive),
+					scenarios.MachineFunc(scenarios.Machine2, scenarios.Partition1, "c1-large-x86", scenarios.Tenant1Project1, metal.MachineLivelinessAlive),
+				}
+
+				dc.Configure(scenarios.DefaultDatacenter)
+			},
+			after: dc.CleanUp,
+			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
+				{
+					Partition: partition1,
+					MachineSizeCapacities: []*adminv2.MachineSizeCapacity{
+						{Size: "c1-large-x86", PhonedHome: 2, Allocated: 2, Total: 2},
 					},
 				},
 			}},
@@ -522,6 +547,8 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			tt.before()
+			defer tt.after(t)
 			p := &partitionServiceServer{
 				log:  log,
 				repo: dc.TestStore.Store,
