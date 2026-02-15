@@ -209,13 +209,13 @@ func (r *sizeRepository) FromHardware(ctx context.Context, hw metal.MachineHardw
 		// this should not happen, so we do not return a notfound
 		return nil, errors.New("no sizes found in database")
 	}
-	var sizes metal.Sizes
+	var sizes []*metal.Size
 	for _, s := range sz {
 		if len(s.Constraints) < 1 {
 			r.s.log.Error("missing constraints", "size", s)
 			continue
 		}
-		sizes = append(sizes, *s)
+		sizes = append(sizes, s)
 	}
-	return sizes.FromHardware(hw)
+	return metal.SizeFromHardware(sizes, hw)
 }

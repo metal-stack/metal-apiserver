@@ -269,59 +269,6 @@ const (
 	MachineResurrectAfter    time.Duration     = time.Hour
 )
 
-// func capacityOf[V any](identifier string, vs []V, countFn func(v V) (model string, count uint64)) (uint64, []V) {
-// 	var (
-// 		sum     uint64
-// 		matched []V
-// 	)
-
-// 	for _, v := range vs {
-// 		model, count := countFn(v)
-
-// 		if identifier != "" {
-// 			matches, err := filepath.Match(identifier, model)
-// 			if err != nil {
-// 				// illegal identifiers are already prevented by size validation
-// 				continue
-// 			}
-
-// 			if !matches {
-// 				continue
-// 			}
-// 		}
-
-// 		sum += count
-// 		matched = append(matched, v)
-// 	}
-
-// 	return sum, matched
-// }
-
-// func exhaustiveMatch[V comparable](cs []Constraint, vs []V, countFn func(v V) (model string, count uint64)) bool {
-// 	unmatched := slices.Clone(vs)
-
-// 	for _, c := range cs {
-// 		capacity, matched := capacityOf(c.Identifier, vs, countFn)
-
-// 		match := c.inRange(capacity)
-// 		if !match {
-// 			continue
-// 		}
-
-// 		unmatched, _ = lo.Difference(unmatched, matched)
-// 	}
-
-// 	return len(unmatched) == 0
-// }
-
-// // ReadableSpec returns a human readable string for the hardware.
-// func (hw *MachineHardware) ReadableSpec() string {
-// 	diskCapacity, _ := capacityOf("*", hw.Disks, countDisk)
-// 	cpus, _ := capacityOf("*", hw.MetalCPUs, countCPU)
-// 	gpus, _ := capacityOf("*", hw.MetalGPUs, countGPU)
-// 	return fmt.Sprintf("CPUs: %d, Memory: %s, Storage: %s, GPUs: %d", cpus, humanize.Bytes(hw.Memory), humanize.Bytes(diskCapacity), gpus)
-// }
-
 // BlockDevice information.
 type BlockDevice struct {
 	Name string `rethinkdb:"name"`

@@ -134,11 +134,7 @@ func (r *sizeRepository) validateSizesNotOverlapping(ctx context.Context, size *
 		return err
 	}
 
-	var ss metal.Sizes
-	for _, s := range sizes {
-		ss = append(ss, *s)
-	}
-	overlapping := metalSize.Overlaps(ss)
+	overlapping := metalSize.Overlaps(sizes)
 	if overlapping != nil {
 		return errorutil.Conflict("given size %s overlaps with existing sizes", overlapping.ID)
 	}

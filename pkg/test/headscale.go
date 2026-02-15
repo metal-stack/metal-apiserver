@@ -28,7 +28,7 @@ func StartHeadscale(t testing.TB) (headscalev1.HeadscaleServiceClient, string, s
 
 	headscaleContainer, err := testcontainers.Run(
 		ctx,
-		"ghcr.io/juanfont/headscale:v0.27.1",
+		"ghcr.io/juanfont/headscale:v0.28.0",
 		testcontainers.WithFiles(testcontainers.ContainerFile{
 			Reader:            strings.NewReader(headscaleConfig),
 			ContainerFilePath: "/config.yaml",

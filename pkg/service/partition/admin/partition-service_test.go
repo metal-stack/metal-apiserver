@@ -16,6 +16,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
+	"github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -28,6 +29,8 @@ var (
 
 	p1 = "00000000-0000-0000-0000-000000000001"
 	p2 = "00000000-0000-0000-0000-000000000002"
+
+	m1 = "00000000-0000-0000-0000-000000000001"
 )
 
 func Test_partitionServiceServer_Create(t *testing.T) {
@@ -483,6 +486,66 @@ func Test_partitionServiceServer_Delete(t *testing.T) {
 				),
 			); diff != "" {
 				t.Errorf("partitionServiceServer.Delete() = %v, want %vņdiff: %s", got, tt.want, diff)
+			}
+		})
+	}
+}
+
+func Test_partitionServiceServer_Capacity(t *testing.T) {
+	t.Parallel()
+
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	ctx := t.Context()
+
+	dc := test.NewDatacenter(t)
+	dc.Configure(scenarios.DefaultDatacenter)
+	defer dc.Close()
+
+	tests := []struct {
+		name    string
+		request *adminv2.PartitionServiceCapacityRequest
+		want    *adminv2.PartitionServiceCapacityResponse
+		wantErr error
+	}{
+		{
+			name:    "one newly booted machine",
+			request: &adminv2.PartitionServiceCapacityRequest{Id: &partition1},
+			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
+				{
+					Partition: partition1,
+					MachineSizeCapacities: []*adminv2.MachineSizeCapacity{
+						{Size: "c1-large-x86", Total: 1, Other: 1, OtherMachines: []string{m1}, Unavailable: 1, Faulty: 1, FaultyMachines: []string{m1}},
+					},
+				},
+			}},
+			wantErr: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &partitionServiceServer{
+				log:  log,
+				repo: dc.TestStore.Store,
+			}
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.request)
+			}
+			got, err := p.Capacity(ctx, tt.request)
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("diff = %s", diff)
+			}
+			if diff := cmp.Diff(
+				tt.want, got,
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Image{}, "meta", "expires_at",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
+			); diff != "" {
+				t.Errorf("partitionServiceServer.Capacity() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}

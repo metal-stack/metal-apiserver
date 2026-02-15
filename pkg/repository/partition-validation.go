@@ -5,12 +5,21 @@ import (
 	"errors"
 	"net"
 	"net/netip"
+	"regexp"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+)
+
+const (
+	dnsName string = `^([a-zA-Z0-9_]{1}[a-zA-Z0-9_-]{0,62}){1}(\.[a-zA-Z0-9_]{1}[a-zA-Z0-9_-]{0,62})*[\._]?$`
+)
+
+var (
+	regexDNSName = regexp.MustCompile(dnsName)
 )
 
 func validatePartition(ctx context.Context, partition *apiv2.Partition) error {
@@ -97,4 +106,16 @@ func (p *partitionRepository) validateDelete(ctx context.Context, req *metal.Par
 	}
 
 	return nil
+}
+
+// ValidateUpdate implements Partition.
+func (p *partitionRepository) validateUpdate(ctx context.Context, req *adminv2.PartitionServiceUpdateRequest, _ *metal.Partition) error {
+	partition := &apiv2.Partition{
+		Id:                   req.Id,
+		BootConfiguration:    req.BootConfiguration,
+		DnsServer:            req.DnsServer,
+		NtpServer:            req.NtpServer,
+		MgmtServiceAddresses: req.MgmtServiceAddresses,
+	}
+	return validatePartition(ctx, partition)
 }

@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	microSize = Size{
+	microSize = &Size{
 		Base: Base{
 			ID: "micro",
 		},
@@ -31,7 +31,7 @@ var (
 			},
 		},
 	}
-	tinySize = Size{
+	tinySize = &Size{
 		Base: Base{
 			ID: "tiny",
 		},
@@ -145,7 +145,7 @@ func TestSizes_Overlaps(t *testing.T) {
 	tests := []struct {
 		name  string
 		sz    Size
-		sizes Sizes
+		sizes []*Size
 		want  *Size
 	}{
 		{
@@ -172,9 +172,9 @@ func TestSizes_Overlaps(t *testing.T) {
 					},
 				},
 			},
-			sizes: Sizes{
+			sizes: []*Size{
 				tinySize,
-				Size{
+				&Size{
 					Base: Base{
 						ID: "large",
 					},
@@ -223,7 +223,7 @@ func TestSizes_Overlaps(t *testing.T) {
 					},
 				},
 			},
-			sizes: Sizes{
+			sizes: []*Size{
 				{
 					Base: Base{
 						ID: "micro",
@@ -268,7 +268,7 @@ func TestSizes_Overlaps(t *testing.T) {
 						},
 					},
 				},
-				Size{
+				&Size{
 					Base: Base{
 						ID: "large",
 					},
@@ -291,7 +291,7 @@ func TestSizes_Overlaps(t *testing.T) {
 					},
 				},
 			},
-			want: &microSize,
+			want: microSize,
 		},
 		{
 			name: "add incomplete size",
@@ -307,10 +307,10 @@ func TestSizes_Overlaps(t *testing.T) {
 					},
 				},
 			},
-			sizes: Sizes{
+			sizes: []*Size{
 				microSize,
 				tinySize,
-				Size{
+				&Size{
 					Base: Base{
 						ID: "large",
 					},
@@ -350,8 +350,8 @@ func TestSizes_Overlaps(t *testing.T) {
 					},
 				},
 			},
-			sizes: Sizes{
-				Size{
+			sizes: []*Size{
+				&Size{
 					Base: Base{
 						ID: "micro",
 					},
