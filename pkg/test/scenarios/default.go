@@ -9,16 +9,24 @@ import (
 const (
 	Machine1 = "00000000-0000-0000-0000-000000000001"
 	Machine2 = "00000000-0000-0000-0000-000000000002"
+	Machine3 = "00000000-0000-0000-0000-000000000003"
+	Machine4 = "00000000-0000-0000-0000-000000000004"
+	Machine5 = "00000000-0000-0000-0000-000000000005"
 
 	Partition1 = "partition-1"
+	Partition2 = "partition-2"
 
-	Tenant1         = "john.doe"
-	Project1Suffix  = "project-0"
-	Tenant1Project1 = Tenant1 + "-" + Project1Suffix
+	SizeN1Medium = "n1-medium-x86"
+	SizeC1Large  = "c1-large-x86"
+
+	Tenant1 = "john.doe"
+	// Project UUIDs are generated be counting the first digit for every tenant, last digit for every project of this tenant
+	Tenant1Project1 = "10000000-0000-0000-0000-000000000001"
+	Tenant1Project2 = "10000000-0000-0000-0000-000000000002"
 )
 
 var (
-	DefaultDatacenter = &DatacenterSpec{
+	DefaultDatacenter = DatacenterSpec{
 		Partitions:        []string{Partition1},
 		Tenants:           []string{Tenant1},
 		ProjectsPerTenant: 1,
@@ -29,7 +37,7 @@ var (
 		},
 		Sizes: []*apiv2.Size{
 			{
-				Id: "n1-medium-x86", Name: new("n1-medium-x86"),
+				Id: SizeN1Medium, Name: new(SizeN1Medium),
 				Constraints: []*apiv2.SizeConstraint{
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 2, Max: 2},
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024, Max: 1024},
@@ -37,7 +45,7 @@ var (
 				},
 			},
 			{
-				Id: "c1-large-x86",
+				Id: SizeC1Large,
 				Constraints: []*apiv2.SizeConstraint{
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024, Max: 1024},
@@ -51,9 +59,9 @@ var (
 					Name:        "sz-n1",
 					Description: "N1 Reservation for project-1 in partition-4",
 					Project:     Tenant1Project1,
-					Size:        "n1-medium-x86",
+					Size:        SizeN1Medium,
 					Partitions:  []string{Partition1},
-					Amount:      2,
+					Amount:      1,
 				},
 			},
 		},
@@ -78,7 +86,7 @@ var (
 		},
 		Switches: SwitchPairFunc(Partition1, "rack-1", 2),
 		Machines: []*MachineWithLiveliness[metal.MachineLiveliness, *metal.Machine]{
-			MachineFunc(Machine1, Partition1, "c1-large-x86", Tenant1Project1, metal.MachineLivelinessAlive),
+			MachineFunc(Machine1, Partition1, SizeC1Large, Tenant1Project1, metal.MachineLivelinessAlive),
 		},
 	}
 )

@@ -181,31 +181,28 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 	}, closer
 }
 
-func (s *testStore) CleanNetworkTable(t testing.TB) {
-	s.CleanTable(t, "network")
-}
-
-func (s *testStore) CleanTable(t testing.TB, tableName string) {
-	_, err := r.DB(s.dbName).Table(tableName).Delete().RunWrite(s.queryExecutor)
-	require.NoError(t, err)
-}
-
 func (s *testStore) CleanUp(t testing.TB) {
 
 	s.DeleteProjects()
 	s.DeleteTenants()
 	DeleteIPs(t, s)
 	DeleteNetworks(t, s)
-	DeleteMachines(t, s)
 
 	// TODO valkey
 
-	_, err := r.DBDrop(s.dbName).RunWrite(s.queryExecutor)
-	require.NoError(t, err)
-	err = generic.Initialize(t.Context(), slog.Default(), rethinkDbConnectOpts, generic.AsnPoolRange(uint(1), uint(100)), generic.VrfPoolRange(uint(1), uint(100)))
+	tables := s.ds.GetTableNames()
 
-	// _, err = r.DB(s.dbName).TableList().ForEach().Delete().RunWrite(s.queryExecutor)
-	require.NoError(t, err)
+	for _, tableName := range tables {
+		_, err := r.DB(databaseNameFromT(t)).Table(tableName).Delete().RunWrite(s.queryExecutor, r.RunOpts{Context: t.Context()})
+		require.NoError(t, err)
+	}
+
+	for i := range 99 {
+		err := s.ds.AsnPool().ReleaseUniqueInteger(t.Context(), uint(i+1))
+		require.NoError(t, err)
+		err = s.ds.VrfPool().ReleaseUniqueInteger(t.Context(), uint(i+1))
+		require.NoError(t, err)
+	}
 }
 
 func (t *testStore) GetProjectInviteStore() invite.ProjectInviteStore {

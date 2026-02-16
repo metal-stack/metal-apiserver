@@ -115,17 +115,19 @@ func (dc *Datacenter) createTenantsAndMembers(spec *scenarios.DatacenterSpec) {
 		tenantMemberCreateReq []*repository.TenantMemberCreateRequest
 		projectCreateReq      []*apiv2.ProjectServiceCreateRequest
 	)
-	for _, tenant := range spec.Tenants {
+
+	// TODO only works for 9 tenants with 9 projects
+	const uuidtmpl = "%d0000000-0000-0000-0000-00000000000%d"
+	for ti, tenant := range spec.Tenants {
 		tenantCreateReq = append(tenantCreateReq, &apiv2.TenantServiceCreateRequest{
 			Name: tenant,
 		})
-		for i := range spec.ProjectsPerTenant {
+		for pi := range spec.ProjectsPerTenant {
 			projectCreateReq = append(projectCreateReq, &apiv2.ProjectServiceCreateRequest{
-				Name:  fmt.Sprintf("%s-project-%d", tenant, i),
+				Name:  fmt.Sprintf(uuidtmpl, ti+1, pi+1),
 				Login: tenant,
 			})
 		}
-
 	}
 
 	dc.Tenants = CreateTenants(dc.t, dc.TestStore, tenantCreateReq)

@@ -502,20 +502,21 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 		name    string
 		request *adminv2.PartitionServiceCapacityRequest
 		before  func()
-		after   func(testing.TB)
 		want    *adminv2.PartitionServiceCapacityResponse
 		wantErr error
 	}{
 		{
 			name:    "one allocated machine",
 			request: &adminv2.PartitionServiceCapacityRequest{Id: &partition1},
-			before:  func() { dc.Configure(scenarios.DefaultDatacenter) },
-			after:   dc.CleanUp,
+			before: func() {
+				dc.CleanUp(t)
+				dc.Configure(&scenarios.DefaultDatacenter)
+			},
 			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
 				{
 					Partition: partition1,
 					MachineSizeCapacities: []*adminv2.MachineSizeCapacity{
-						{Size: "c1-large-x86", PhonedHome: 1, Allocated: 1, Total: 1},
+						{Size: scenarios.SizeC1Large, PhonedHome: 1, Allocated: 1, Total: 1},
 					},
 				},
 			}},
@@ -525,20 +526,444 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 			name:    "two allocated machine",
 			request: &adminv2.PartitionServiceCapacityRequest{Id: &partition1},
 			before: func() {
-				twoMachinesInDatacenter := scenarios.DefaultDatacenter
-				twoMachinesInDatacenter.Machines = []*scenarios.MachineWithLiveliness[metal.MachineLiveliness, *metal.Machine]{
-					scenarios.MachineFunc(scenarios.Machine1, scenarios.Partition1, "c1-large-x86", scenarios.Tenant1Project1, metal.MachineLivelinessAlive),
-					scenarios.MachineFunc(scenarios.Machine2, scenarios.Partition1, "c1-large-x86", scenarios.Tenant1Project1, metal.MachineLivelinessAlive),
+				dc.CleanUp(t)
+				testDC := scenarios.DefaultDatacenter
+				testDC.Machines = []*scenarios.MachineWithLiveliness[metal.MachineLiveliness, *metal.Machine]{
+					scenarios.MachineFunc(scenarios.Machine1, scenarios.Partition1, scenarios.SizeC1Large, scenarios.Tenant1Project1, metal.MachineLivelinessAlive),
+					scenarios.MachineFunc(scenarios.Machine2, scenarios.Partition1, scenarios.SizeC1Large, scenarios.Tenant1Project1, metal.MachineLivelinessAlive),
 				}
 
-				dc.Configure(scenarios.DefaultDatacenter)
+				dc.Configure(&testDC)
 			},
-			after: dc.CleanUp,
 			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
 				{
 					Partition: partition1,
 					MachineSizeCapacities: []*adminv2.MachineSizeCapacity{
-						{Size: "c1-large-x86", PhonedHome: 2, Allocated: 2, Total: 2},
+						{Size: scenarios.SizeC1Large, PhonedHome: 2, Allocated: 2, Total: 2},
+					},
+				},
+			}},
+			wantErr: nil,
+		},
+		{
+			name:    "one faulty, allocated machine",
+			request: &adminv2.PartitionServiceCapacityRequest{Id: &partition1},
+			before: func() {
+				dc.CleanUp(t)
+				testDatacenter := scenarios.DefaultDatacenter
+				testDatacenter.Machines[0].Machine.IPMI.Address = ""
+
+				dc.Configure(&testDatacenter)
+			},
+			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
+				{
+					Partition: partition1,
+					MachineSizeCapacities: []*adminv2.MachineSizeCapacity{
+						{Size: scenarios.SizeC1Large, PhonedHome: 1, Allocated: 1, Total: 1, Faulty: 1, FaultyMachines: []string{scenarios.Machine1}},
+					},
+				},
+			}},
+			wantErr: nil,
+		},
+		{
+			name: "filter considers all machines",
+			request: &adminv2.PartitionServiceCapacityRequest{
+				Id:   &partition1,
+				Size: new(scenarios.SizeC1Large),
+			},
+			before: func() {
+				dc.CleanUp(t)
+				testDC := scenarios.DefaultDatacenter
+				testDC.Machines = []*scenarios.MachineWithLiveliness[metal.MachineLiveliness, *metal.Machine]{
+					scenarios.MachineFunc(scenarios.Machine1, scenarios.Partition1, scenarios.SizeC1Large, scenarios.Tenant1Project1, metal.MachineLivelinessDead),
+					scenarios.MachineFunc(scenarios.Machine2, scenarios.Partition1, scenarios.SizeC1Large, scenarios.Tenant1Project1, metal.MachineLivelinessAlive),
+					scenarios.MachineFunc(scenarios.Machine3, scenarios.Partition1, scenarios.SizeC1Large, scenarios.Tenant1Project1, metal.MachineLivelinessAlive),
+					scenarios.MachineFunc(scenarios.Machine4, scenarios.Partition1, scenarios.SizeN1Medium, scenarios.Tenant1Project1, metal.MachineLivelinessAlive),
+					scenarios.MachineFunc(scenarios.Machine5, scenarios.Partition2, scenarios.SizeC1Large, scenarios.Tenant1Project1, metal.MachineLivelinessAlive),
+				}
+
+				dc.Configure(&testDC)
+			},
+			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
+				{
+					Partition: partition1,
+					MachineSizeCapacities: []*adminv2.MachineSizeCapacity{
+						{Size: scenarios.SizeC1Large, PhonedHome: 3, Allocated: 3, Total: 3, Faulty: 1, FaultyMachines: []string{scenarios.Machine1}},
+					},
+				},
+			}},
+			wantErr: nil,
+		},
+		{
+			name:    "non filter considers all machines",
+			request: &adminv2.PartitionServiceCapacityRequest{},
+			before: func() {
+				dc.CleanUp(t)
+				testDC := scenarios.DefaultDatacenter
+				testDC.Partitions = []string{scenarios.Partition1, scenarios.Partition2}
+				testDC.Machines = []*scenarios.MachineWithLiveliness[metal.MachineLiveliness, *metal.Machine]{
+					scenarios.MachineFunc(scenarios.Machine1, scenarios.Partition1, scenarios.SizeC1Large, scenarios.Tenant1Project1, metal.MachineLivelinessDead),
+					scenarios.MachineFunc(scenarios.Machine2, scenarios.Partition1, scenarios.SizeC1Large, scenarios.Tenant1Project1, metal.MachineLivelinessAlive),
+					scenarios.MachineFunc(scenarios.Machine3, scenarios.Partition1, scenarios.SizeC1Large, scenarios.Tenant1Project1, metal.MachineLivelinessAlive),
+					scenarios.MachineFunc(scenarios.Machine4, scenarios.Partition1, scenarios.SizeN1Medium, scenarios.Tenant1Project1, metal.MachineLivelinessAlive),
+					scenarios.MachineFunc(scenarios.Machine5, scenarios.Partition2, scenarios.SizeC1Large, scenarios.Tenant1Project1, metal.MachineLivelinessAlive),
+				}
+				testDC.Machines[3].Machine.IPMI.Address = ""
+				testDC.SizeReservations = []*adminv2.SizeReservationServiceCreateRequest{}
+
+				dc.Configure(&testDC)
+			},
+			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
+				{
+					Partition: partition1,
+					MachineSizeCapacities: []*adminv2.MachineSizeCapacity{
+						{Size: scenarios.SizeC1Large, PhonedHome: 3, Allocated: 3, Total: 3, Faulty: 1, FaultyMachines: []string{scenarios.Machine1}},
+						{Size: scenarios.SizeN1Medium, PhonedHome: 1, Allocated: 1, Total: 1, Faulty: 1, FaultyMachines: []string{scenarios.Machine4}},
+					},
+				},
+				{
+					Partition: partition2,
+					MachineSizeCapacities: []*adminv2.MachineSizeCapacity{
+						{Size: scenarios.SizeC1Large, PhonedHome: 1, Allocated: 1, Total: 1, Faulty: 0},
+					},
+				}},
+			},
+			wantErr: nil,
+		},
+		{
+			name:    "one waiting machine",
+			request: &adminv2.PartitionServiceCapacityRequest{Id: &partition1},
+			before: func() {
+				dc.CleanUp(t)
+				testDC := scenarios.DefaultDatacenter
+				testDC.Machines = []*scenarios.MachineWithLiveliness[metal.MachineLiveliness, *metal.Machine]{
+					scenarios.MachineFunc(scenarios.Machine1, scenarios.Partition1, scenarios.SizeC1Large, "", metal.MachineLivelinessAlive),
+				}
+				testDC.Machines[0].Machine.Waiting = true
+				dc.Configure(&testDC)
+			},
+			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
+				{
+					Partition: partition1,
+					MachineSizeCapacities: []*adminv2.MachineSizeCapacity{
+						{Size: scenarios.SizeC1Large, Waiting: 1, Free: 1, Total: 1, Allocatable: 1},
+					},
+				},
+			}},
+			wantErr: nil,
+		},
+		{
+			name:    "one dead machine",
+			request: &adminv2.PartitionServiceCapacityRequest{Id: &partition1},
+			before: func() {
+				dc.CleanUp(t)
+				testDC := scenarios.DefaultDatacenter
+				testDC.Machines = []*scenarios.MachineWithLiveliness[metal.MachineLiveliness, *metal.Machine]{
+					scenarios.MachineFunc(scenarios.Machine1, scenarios.Partition1, scenarios.SizeC1Large, "", metal.MachineLivelinessDead),
+				}
+				testDC.Machines[0].Machine.Waiting = true
+				dc.Configure(&testDC)
+			},
+			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
+				{
+					Partition: partition1,
+					MachineSizeCapacities: []*adminv2.MachineSizeCapacity{
+						{Size: scenarios.SizeC1Large, Waiting: 1, Faulty: 1, Total: 1, Unavailable: 1, FaultyMachines: []string{scenarios.Machine1}},
+					},
+				},
+			}},
+			wantErr: nil,
+		},
+		{
+			name:    "one waiting, one allocated machine",
+			request: &adminv2.PartitionServiceCapacityRequest{Id: &partition1},
+			before: func() {
+				dc.CleanUp(t)
+				testDC := scenarios.DefaultDatacenter
+				testDC.Machines = []*scenarios.MachineWithLiveliness[metal.MachineLiveliness, *metal.Machine]{
+					scenarios.MachineFunc(scenarios.Machine1, scenarios.Partition1, scenarios.SizeC1Large, "", metal.MachineLivelinessAlive),
+					scenarios.MachineFunc(scenarios.Machine2, scenarios.Partition1, scenarios.SizeC1Large, scenarios.Tenant1Project1, metal.MachineLivelinessAlive),
+				}
+				testDC.Machines[0].Machine.Waiting = true
+				dc.Configure(&testDC)
+			},
+			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
+				{
+					Partition: partition1,
+					MachineSizeCapacities: []*adminv2.MachineSizeCapacity{
+						{Size: scenarios.SizeC1Large, Waiting: 1, Allocated: 1, Total: 2, PhonedHome: 1, Free: 1, Allocatable: 1},
+					},
+				},
+			}},
+			wantErr: nil,
+		},
+		{
+			name:    "one free machine",
+			request: &adminv2.PartitionServiceCapacityRequest{Id: &partition1},
+			before: func() {
+				dc.CleanUp(t)
+				testDC := scenarios.DefaultDatacenter
+				testDC.Machines = []*scenarios.MachineWithLiveliness[metal.MachineLiveliness, *metal.Machine]{
+					scenarios.MachineFunc(scenarios.Machine1, scenarios.Partition1, scenarios.SizeC1Large, "", metal.MachineLivelinessAlive),
+				}
+				testDC.Machines[0].Machine.Waiting = true
+				testDC.Machines[0].Machine.State.Value = metal.AvailableState
+				dc.Configure(&testDC)
+			},
+			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
+				{
+					Partition: partition1,
+					MachineSizeCapacities: []*adminv2.MachineSizeCapacity{
+						{Size: scenarios.SizeC1Large, Waiting: 1, Total: 1, Free: 1, Allocatable: 1},
+					},
+				},
+			}},
+			wantErr: nil,
+		},
+		{
+			name:    "one machine rebooting",
+			request: &adminv2.PartitionServiceCapacityRequest{Id: &partition1},
+			before: func() {
+				dc.CleanUp(t)
+				testDC := scenarios.DefaultDatacenter
+				testDC.Machines = []*scenarios.MachineWithLiveliness[metal.MachineLiveliness, *metal.Machine]{
+					scenarios.MachineFunc(scenarios.Machine1, scenarios.Partition1, scenarios.SizeC1Large, "", metal.MachineLivelinessAlive),
+				}
+				testDC.Machines[0].Machine.Waiting = false
+				dc.Configure(&testDC)
+			},
+			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
+				{
+					Partition: partition1,
+					MachineSizeCapacities: []*adminv2.MachineSizeCapacity{
+						{Size: scenarios.SizeC1Large, Total: 1, Other: 1, Unavailable: 1, OtherMachines: []string{scenarios.Machine1}},
+					},
+				},
+			}},
+			wantErr: nil,
+		},
+		{
+			name:    "reserved machine does not count as free",
+			request: &adminv2.PartitionServiceCapacityRequest{Id: &partition1},
+			before: func() {
+				dc.CleanUp(t)
+				testDC := scenarios.DefaultDatacenter
+				testDC.Machines = []*scenarios.MachineWithLiveliness[metal.MachineLiveliness, *metal.Machine]{
+					scenarios.MachineFunc(scenarios.Machine1, scenarios.Partition1, scenarios.SizeN1Medium, "", metal.MachineLivelinessAlive),
+				}
+				testDC.Machines[0].Machine.Waiting = true
+				dc.Configure(&testDC)
+			},
+			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
+				{
+					Partition: partition1,
+					MachineSizeCapacities: []*adminv2.MachineSizeCapacity{
+						{Size: scenarios.SizeN1Medium, Total: 1, Waiting: 1, Free: 0, Allocatable: 1, Reservations: 1, UsedReservations: 0, RemainingReservations: 1},
+					},
+				},
+			}},
+			wantErr: nil,
+		},
+		{
+			name:    "overbooked partition, free count capped at 0",
+			request: &adminv2.PartitionServiceCapacityRequest{Id: &partition1},
+			before: func() {
+				dc.CleanUp(t)
+				testDC := scenarios.DefaultDatacenter
+				testDC.ProjectsPerTenant = 2
+				testDC.Machines = []*scenarios.MachineWithLiveliness[metal.MachineLiveliness, *metal.Machine]{
+					scenarios.MachineFunc(scenarios.Machine1, scenarios.Partition1, scenarios.SizeN1Medium, "", metal.MachineLivelinessAlive),
+				}
+				testDC.Machines[0].Machine.Waiting = true
+				testDC.SizeReservations = []*adminv2.SizeReservationServiceCreateRequest{
+					{
+						SizeReservation: &apiv2.SizeReservation{
+							Name:        "sz-n1-p1",
+							Description: "N1 Reservation for project-1 in partition-1",
+							Project:     scenarios.Tenant1Project1,
+							Size:        scenarios.SizeN1Medium,
+							Partitions:  []string{scenarios.Partition1},
+							Amount:      1,
+						},
+					},
+					{
+						SizeReservation: &apiv2.SizeReservation{
+							Name:        "sz-n1-p2",
+							Description: "N1 Reservation for project-2 in partition-1",
+							Project:     scenarios.Tenant1Project2,
+							Size:        scenarios.SizeN1Medium,
+							Partitions:  []string{scenarios.Partition1},
+							Amount:      2,
+						},
+					},
+				}
+				dc.Configure(&testDC)
+			},
+			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
+				{
+					Partition: partition1,
+					MachineSizeCapacities: []*adminv2.MachineSizeCapacity{
+						{Size: scenarios.SizeN1Medium, Total: 1, Waiting: 1, Free: 0, Allocatable: 1, Reservations: 3, UsedReservations: 0, RemainingReservations: 3},
+					},
+				},
+			}},
+			wantErr: nil,
+		},
+		{
+			name:    "reservations already used up (edge)",
+			request: &adminv2.PartitionServiceCapacityRequest{Id: &partition1},
+			before: func() {
+				dc.CleanUp(t)
+				testDC := scenarios.DefaultDatacenter
+				testDC.Machines = []*scenarios.MachineWithLiveliness[metal.MachineLiveliness, *metal.Machine]{
+					scenarios.MachineFunc(scenarios.Machine1, scenarios.Partition1, scenarios.SizeN1Medium, scenarios.Tenant1Project1, metal.MachineLivelinessAlive),
+					scenarios.MachineFunc(scenarios.Machine2, scenarios.Partition1, scenarios.SizeN1Medium, scenarios.Tenant1Project1, metal.MachineLivelinessAlive),
+					scenarios.MachineFunc(scenarios.Machine3, scenarios.Partition1, scenarios.SizeN1Medium, "", metal.MachineLivelinessAlive),
+				}
+				testDC.Machines[2].Machine.Waiting = true
+				testDC.SizeReservations = []*adminv2.SizeReservationServiceCreateRequest{
+					{
+						SizeReservation: &apiv2.SizeReservation{
+							Name:        "sz-n1-p1",
+							Description: "N1 Reservation for project-1 in partition-1",
+							Project:     scenarios.Tenant1Project1,
+							Size:        scenarios.SizeN1Medium,
+							Partitions:  []string{scenarios.Partition1},
+							Amount:      2,
+						},
+					},
+				}
+				dc.Configure(&testDC)
+			},
+			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
+				{
+					Partition: partition1,
+					MachineSizeCapacities: []*adminv2.MachineSizeCapacity{
+						{Size: scenarios.SizeN1Medium, Total: 3, Waiting: 1, Free: 1, Allocatable: 1, Allocated: 2, Reservations: 2, UsedReservations: 2, PhonedHome: 2},
+					},
+				},
+			}},
+			wantErr: nil,
+		},
+		{
+			name:    "reservations already used up",
+			request: &adminv2.PartitionServiceCapacityRequest{Id: &partition1},
+			before: func() {
+				dc.CleanUp(t)
+				testDC := scenarios.DefaultDatacenter
+				testDC.Machines = []*scenarios.MachineWithLiveliness[metal.MachineLiveliness, *metal.Machine]{
+					scenarios.MachineFunc(scenarios.Machine1, scenarios.Partition1, scenarios.SizeN1Medium, scenarios.Tenant1Project1, metal.MachineLivelinessAlive),
+					scenarios.MachineFunc(scenarios.Machine2, scenarios.Partition1, scenarios.SizeN1Medium, scenarios.Tenant1Project1, metal.MachineLivelinessAlive),
+					scenarios.MachineFunc(scenarios.Machine3, scenarios.Partition1, scenarios.SizeN1Medium, "", metal.MachineLivelinessAlive),
+				}
+				testDC.Machines[2].Machine.Waiting = true
+				testDC.SizeReservations = []*adminv2.SizeReservationServiceCreateRequest{
+					{
+						SizeReservation: &apiv2.SizeReservation{
+							Name:        "sz-n1-p1",
+							Description: "N1 Reservation for project-1 in partition-1",
+							Project:     scenarios.Tenant1Project1,
+							Size:        scenarios.SizeN1Medium,
+							Partitions:  []string{scenarios.Partition1},
+							Amount:      1,
+						},
+					},
+				}
+				dc.Configure(&testDC)
+			},
+			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
+				{
+					Partition: partition1,
+					MachineSizeCapacities: []*adminv2.MachineSizeCapacity{
+						{Size: scenarios.SizeN1Medium, Total: 3, Waiting: 1, Free: 1, Allocatable: 1, Allocated: 2, Reservations: 1, UsedReservations: 1, PhonedHome: 2},
+					},
+				},
+			}},
+			wantErr: nil,
+		},
+		{
+			name:    "other partition size reservation has no influence",
+			request: &adminv2.PartitionServiceCapacityRequest{Id: &partition1},
+			before: func() {
+				dc.CleanUp(t)
+				testDC := scenarios.DefaultDatacenter
+				testDC.Partitions = []string{scenarios.Partition1, scenarios.Partition2}
+				testDC.Machines = []*scenarios.MachineWithLiveliness[metal.MachineLiveliness, *metal.Machine]{
+					scenarios.MachineFunc(scenarios.Machine1, scenarios.Partition1, scenarios.SizeN1Medium, scenarios.Tenant1Project1, metal.MachineLivelinessAlive),
+					scenarios.MachineFunc(scenarios.Machine2, scenarios.Partition1, scenarios.SizeN1Medium, scenarios.Tenant1Project1, metal.MachineLivelinessAlive),
+					scenarios.MachineFunc(scenarios.Machine3, scenarios.Partition1, scenarios.SizeN1Medium, "", metal.MachineLivelinessAlive),
+				}
+				testDC.Machines[2].Machine.Waiting = true
+				testDC.SizeReservations = []*adminv2.SizeReservationServiceCreateRequest{
+					{
+						SizeReservation: &apiv2.SizeReservation{
+							Name:        "sz-n1-p1",
+							Description: "N1 Reservation for project-1 in partition-1",
+							Project:     scenarios.Tenant1Project1,
+							Size:        scenarios.SizeN1Medium,
+							Partitions:  []string{scenarios.Partition1},
+							Amount:      2,
+						},
+					},
+					{
+						SizeReservation: &apiv2.SizeReservation{
+							Name:        "sz-n1-p1",
+							Description: "N1 Reservation for project-1 in partition-2",
+							Project:     scenarios.Tenant1Project1,
+							Size:        scenarios.SizeN1Medium,
+							Partitions:  []string{scenarios.Partition2},
+							Amount:      2,
+						},
+					},
+				}
+				dc.Configure(&testDC)
+			},
+			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
+				{
+					Partition: partition1,
+					MachineSizeCapacities: []*adminv2.MachineSizeCapacity{
+						{Size: scenarios.SizeN1Medium, Total: 3, Waiting: 1, Free: 1, Allocatable: 1, Allocated: 2, Reservations: 2, UsedReservations: 2, PhonedHome: 2},
+					},
+				},
+			}},
+			wantErr: nil,
+		},
+		{
+			name: "evaluate capacity for specific project",
+			request: &adminv2.PartitionServiceCapacityRequest{
+				Id:      &partition1,
+				Project: new(scenarios.Tenant1Project1),
+			},
+			before: func() {
+				dc.CleanUp(t)
+				testDC := scenarios.DefaultDatacenter
+				testDC.Partitions = []string{scenarios.Partition1, scenarios.Partition2}
+				testDC.Machines = []*scenarios.MachineWithLiveliness[metal.MachineLiveliness, *metal.Machine]{
+					scenarios.MachineFunc(scenarios.Machine1, scenarios.Partition1, scenarios.SizeN1Medium, scenarios.Tenant1Project1, metal.MachineLivelinessAlive),
+					scenarios.MachineFunc(scenarios.Machine2, scenarios.Partition1, scenarios.SizeN1Medium, "", metal.MachineLivelinessAlive),
+					scenarios.MachineFunc(scenarios.Machine3, scenarios.Partition1, scenarios.SizeN1Medium, "", metal.MachineLivelinessAlive),
+				}
+				testDC.Machines[1].Machine.Waiting = true
+				testDC.Machines[2].Machine.Waiting = true
+				testDC.SizeReservations = []*adminv2.SizeReservationServiceCreateRequest{
+					{
+						SizeReservation: &apiv2.SizeReservation{
+							Name:        "sz-n1-p1",
+							Description: "N1 Reservation for project-1 in partition-1",
+							Project:     scenarios.Tenant1Project1,
+							Size:        scenarios.SizeN1Medium,
+							Partitions:  []string{scenarios.Partition1},
+							Amount:      3,
+						},
+					},
+				}
+				dc.Configure(&testDC)
+			},
+			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
+				{
+					Partition: partition1,
+					MachineSizeCapacities: []*adminv2.MachineSizeCapacity{
+						{Size: scenarios.SizeN1Medium, Total: 3, Waiting: 2, Free: 2, Allocatable: 2, Allocated: 1, Reservations: 3, UsedReservations: 1, RemainingReservations: 2, PhonedHome: 1},
 					},
 				},
 			}},
@@ -548,13 +973,11 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.before()
-			defer tt.after(t)
 			p := &partitionServiceServer{
 				log:  log,
 				repo: dc.TestStore.Store,
 			}
 			if tt.wantErr == nil {
-				// Execute proto based validation
 				test.Validate(t, tt.request)
 			}
 			got, err := p.Capacity(ctx, tt.request)
@@ -564,9 +987,6 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 			if diff := cmp.Diff(
 				tt.want, got,
 				protocmp.Transform(),
-				protocmp.IgnoreFields(
-					&apiv2.Image{}, "meta", "expires_at",
-				),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),

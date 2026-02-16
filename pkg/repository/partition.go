@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -319,7 +320,7 @@ func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.Partitio
 			continue
 		}
 
-		p, ok := partitionsById[m.PartitionID]
+		part, ok := partitionsById[m.PartitionID]
 		if !ok {
 			continue
 		}
@@ -327,7 +328,7 @@ func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.Partitio
 		pc, ok := pcs[m.PartitionID]
 		if !ok {
 			pc = &adminv2.PartitionCapacity{
-				Partition:             p.ID,
+				Partition:             part.ID,
 				MachineSizeCapacities: []*adminv2.MachineSizeCapacity{},
 			}
 		}
@@ -375,6 +376,8 @@ func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.Partitio
 		default:
 			cap.Unavailable++
 		}
+
+		p.s.log.Info("machine", "m", m, "event", ec)
 
 		// provisioning state dependent counts
 		switch pointer.FirstOrZero(ec.Events).Event { //nolint:exhaustive
@@ -425,6 +428,11 @@ func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.Partitio
 
 		res = append(res, pc)
 	}
+
+	// Prevent flaky tests
+	sort.SliceStable(res, func(i, j int) bool {
+		return res[i].Partition < res[j].Partition
+	})
 
 	return &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: res}, nil
 }

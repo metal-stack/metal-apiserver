@@ -20,6 +20,7 @@ type storage[E Entity] struct {
 
 // newStorage creates a new Storage which uses the given database abstraction.
 func newStorage[E Entity](re *datastore, tableName string) *storage[E] {
+	re.tableNames = append(re.tableNames, tableName)
 	return &storage[E]{
 		r:         re,
 		table:     r.DB(re.dbname).Table(tableName),

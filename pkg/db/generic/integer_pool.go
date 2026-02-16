@@ -50,6 +50,7 @@ type integerinfo struct {
 }
 
 func newIntegerPool(d *datastore, poolType integerPoolType, tableName string, min, max uint) *integerPool {
+	d.tableNames = append(d.tableNames, tableName)
 	return &integerPool{
 		r:         d,
 		poolType:  poolType,
