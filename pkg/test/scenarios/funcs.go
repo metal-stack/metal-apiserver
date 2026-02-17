@@ -6,6 +6,7 @@ import (
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/samber/lo"
 )
 
 var (
@@ -51,13 +52,14 @@ var (
 	}
 
 	MachineFunc = func(id, partition, size, project string, liveliness metal.MachineLiveliness) *MachineWithLiveliness[metal.MachineLiveliness, *metal.Machine] {
+		machineNumber := lo.Substring(id, -1, 1)
 		m := &metal.Machine{
 			Base:        metal.Base{ID: id},
 			PartitionID: partition,
 			SizeID:      size,
 			IPMI: metal.IPMI{ // required for healthy machine state
-				Address:     "1.2.3." + id,
-				MacAddress:  "aa:bb:0" + id,
+				Address:     fmt.Sprintf("1.2.3.%s:623", machineNumber),
+				MacAddress:  "aa:bb:0" + machineNumber,
 				LastUpdated: time.Now().Add(-1 * time.Minute),
 			},
 			State: metal.MachineState{

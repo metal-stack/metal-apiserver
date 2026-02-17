@@ -510,7 +510,7 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 			request: &adminv2.PartitionServiceCapacityRequest{Id: &partition1},
 			before: func() {
 				dc.CleanUp(t)
-				dc.Configure(&scenarios.DefaultDatacenter)
+				dc.Create(&scenarios.DefaultDatacenter)
 			},
 			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
 				{
@@ -533,7 +533,7 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 					scenarios.MachineFunc(scenarios.Machine2, scenarios.Partition1, scenarios.SizeC1Large, scenarios.Tenant1Project1, metal.MachineLivelinessAlive),
 				}
 
-				dc.Configure(&testDC)
+				dc.Create(&testDC)
 			},
 			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
 				{
@@ -550,10 +550,10 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 			request: &adminv2.PartitionServiceCapacityRequest{Id: &partition1},
 			before: func() {
 				dc.CleanUp(t)
-				testDatacenter := scenarios.DefaultDatacenter
-				testDatacenter.Machines[0].Machine.IPMI.Address = ""
+				testDC := scenarios.DefaultDatacenter
+				testDC.Machines[0].Machine.IPMI.Address = ""
 
-				dc.Configure(&testDatacenter)
+				dc.Create(&testDC)
 			},
 			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
 				{
@@ -578,11 +578,11 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 					scenarios.MachineFunc(scenarios.Machine1, scenarios.Partition1, scenarios.SizeC1Large, scenarios.Tenant1Project1, metal.MachineLivelinessDead),
 					scenarios.MachineFunc(scenarios.Machine2, scenarios.Partition1, scenarios.SizeC1Large, scenarios.Tenant1Project1, metal.MachineLivelinessAlive),
 					scenarios.MachineFunc(scenarios.Machine3, scenarios.Partition1, scenarios.SizeC1Large, scenarios.Tenant1Project1, metal.MachineLivelinessAlive),
-					scenarios.MachineFunc(scenarios.Machine4, scenarios.Partition1, scenarios.SizeN1Medium, scenarios.Tenant1Project1, metal.MachineLivelinessAlive),
+					scenarios.MachineFunc(scenarios.Machine4, scenarios.Partition1, scenarios.SizeN1Medium, scenarios.Tenant1Project1, metal.MachineLivelinessDead),
 					scenarios.MachineFunc(scenarios.Machine5, scenarios.Partition2, scenarios.SizeC1Large, scenarios.Tenant1Project1, metal.MachineLivelinessAlive),
 				}
 
-				dc.Configure(&testDC)
+				dc.Create(&testDC)
 			},
 			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
 				{
@@ -611,7 +611,7 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 				testDC.Machines[3].Machine.IPMI.Address = ""
 				testDC.SizeReservations = []*adminv2.SizeReservationServiceCreateRequest{}
 
-				dc.Configure(&testDC)
+				dc.Create(&testDC)
 			},
 			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
 				{
@@ -640,7 +640,7 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 					scenarios.MachineFunc(scenarios.Machine1, scenarios.Partition1, scenarios.SizeC1Large, "", metal.MachineLivelinessAlive),
 				}
 				testDC.Machines[0].Machine.Waiting = true
-				dc.Configure(&testDC)
+				dc.Create(&testDC)
 			},
 			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
 				{
@@ -662,7 +662,7 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 					scenarios.MachineFunc(scenarios.Machine1, scenarios.Partition1, scenarios.SizeC1Large, "", metal.MachineLivelinessDead),
 				}
 				testDC.Machines[0].Machine.Waiting = true
-				dc.Configure(&testDC)
+				dc.Create(&testDC)
 			},
 			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
 				{
@@ -685,7 +685,7 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 					scenarios.MachineFunc(scenarios.Machine2, scenarios.Partition1, scenarios.SizeC1Large, scenarios.Tenant1Project1, metal.MachineLivelinessAlive),
 				}
 				testDC.Machines[0].Machine.Waiting = true
-				dc.Configure(&testDC)
+				dc.Create(&testDC)
 			},
 			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
 				{
@@ -708,7 +708,7 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 				}
 				testDC.Machines[0].Machine.Waiting = true
 				testDC.Machines[0].Machine.State.Value = metal.AvailableState
-				dc.Configure(&testDC)
+				dc.Create(&testDC)
 			},
 			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
 				{
@@ -730,7 +730,7 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 					scenarios.MachineFunc(scenarios.Machine1, scenarios.Partition1, scenarios.SizeC1Large, "", metal.MachineLivelinessAlive),
 				}
 				testDC.Machines[0].Machine.Waiting = false
-				dc.Configure(&testDC)
+				dc.Create(&testDC)
 			},
 			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
 				{
@@ -752,7 +752,7 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 					scenarios.MachineFunc(scenarios.Machine1, scenarios.Partition1, scenarios.SizeN1Medium, "", metal.MachineLivelinessAlive),
 				}
 				testDC.Machines[0].Machine.Waiting = true
-				dc.Configure(&testDC)
+				dc.Create(&testDC)
 			},
 			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
 				{
@@ -797,7 +797,7 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 						},
 					},
 				}
-				dc.Configure(&testDC)
+				dc.Create(&testDC)
 			},
 			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
 				{
@@ -833,7 +833,7 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 						},
 					},
 				}
-				dc.Configure(&testDC)
+				dc.Create(&testDC)
 			},
 			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
 				{
@@ -869,7 +869,7 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 						},
 					},
 				}
-				dc.Configure(&testDC)
+				dc.Create(&testDC)
 			},
 			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
 				{
@@ -916,7 +916,7 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 						},
 					},
 				}
-				dc.Configure(&testDC)
+				dc.Create(&testDC)
 			},
 			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
 				{
@@ -957,7 +957,7 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 						},
 					},
 				}
-				dc.Configure(&testDC)
+				dc.Create(&testDC)
 			},
 			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
 				{

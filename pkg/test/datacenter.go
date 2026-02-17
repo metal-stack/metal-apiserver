@@ -14,6 +14,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.yaml.in/yaml/v3"
 )
@@ -57,7 +58,7 @@ func NewDatacenter(t testing.TB) *Datacenter {
 	return dc
 }
 
-func (dc *Datacenter) Configure(spec *scenarios.DatacenterSpec) {
+func (dc *Datacenter) Create(spec *scenarios.DatacenterSpec) {
 	dc.createPartitions(spec)
 	dc.createTenantsAndMembers(spec)
 	dc.createImages(spec)
@@ -115,6 +116,9 @@ func (dc *Datacenter) createTenantsAndMembers(spec *scenarios.DatacenterSpec) {
 		tenantMemberCreateReq []*repository.TenantMemberCreateRequest
 		projectCreateReq      []*apiv2.ProjectServiceCreateRequest
 	)
+
+	assert.LessOrEqual(dc.t, len(tenantCreateReq), 9)
+	assert.LessOrEqual(dc.t, len(projectCreateReq), 9)
 
 	// TODO only works for 9 tenants with 9 projects
 	const uuidtmpl = "%d0000000-0000-0000-0000-00000000000%d"

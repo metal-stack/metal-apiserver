@@ -252,12 +252,15 @@ func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.Partitio
 		machineQuery.Size = rq.Size
 	}
 
+	// TODO maybe faster to use lo.filter on allMachines
 	ms, err := p.s.ds.Machine().List(ctx, queries.MachineFilter(machineQuery))
 	if err != nil {
 		return nil, err
 	}
 
 	// if filtered on partition get all without more filters for issues evaluation
+	// to identify issues in requested machines, all machines are still required
+	// for example to find machines with duplicate bmc addresses.
 	allMs, err := p.s.ds.Machine().List(ctx, queries.MachineFilter(allMachineQuery))
 	if err != nil {
 		return nil, err
@@ -339,19 +342,10 @@ func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.Partitio
 			size = metal.UnknownSize()
 		}
 
-		var cap *adminv2.MachineSizeCapacity
-		// TODO would be better, but then slice is returned
-		// caps := lo.Filter(pc.MachineSizeCapacities, func(mc *adminv2.MachineSizeCapacity, _ int) bool {
-		// 	return mc.Size == size.ID
-		// })
-		for _, sc := range pc.MachineSizeCapacities {
-			if sc.Size == size.ID {
-				cap = sc
-				break
-			}
-		}
-
-		if cap == nil {
+		cap, ok := lo.Find(pc.MachineSizeCapacities, func(mc *adminv2.MachineSizeCapacity) bool {
+			return mc.Size == size.ID
+		})
+		if !ok {
 			cap = &adminv2.MachineSizeCapacity{
 				Size: size.ID,
 			}
@@ -376,8 +370,6 @@ func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.Partitio
 		default:
 			cap.Unavailable++
 		}
-
-		p.s.log.Info("machine", "m", m, "event", ec)
 
 		// provisioning state dependent counts
 		switch pointer.FirstOrZero(ec.Events).Event { //nolint:exhaustive
