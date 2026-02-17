@@ -224,11 +224,10 @@ func (p *partitionRepository) convertToProto(ctx context.Context, e *metal.Parti
 
 func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.PartitionServiceCapacityRequest) (*adminv2.PartitionServiceCapacityResponse, error) {
 	var (
-		ps  []*metal.Partition
-		pcs = make(map[string]*adminv2.PartitionCapacity)
-
-		machineQuery    = &apiv2.MachineQuery{}
-		allMachineQuery = &apiv2.MachineQuery{}
+		ms           []*metal.Machine
+		ps           []*metal.Partition
+		pcs          = make(map[string]*adminv2.PartitionCapacity)
+		machineQuery = &apiv2.MachineQuery{}
 	)
 
 	if rq != nil && rq.Id != nil {
@@ -239,7 +238,6 @@ func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.Partitio
 		ps = append(ps, p)
 
 		machineQuery.Partition = rq.Id
-		allMachineQuery.Partition = rq.Id
 	} else {
 		var err error
 		ps, err = p.s.ds.Partition().List(ctx, queries.PartitionFilter(&apiv2.PartitionQuery{}))
@@ -248,22 +246,25 @@ func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.Partitio
 		}
 	}
 
-	if rq != nil && rq.Size != nil {
-		machineQuery.Size = rq.Size
-	}
-
-	// TODO maybe faster to use lo.filter on allMachines
-	ms, err := p.s.ds.Machine().List(ctx, queries.MachineFilter(machineQuery))
-	if err != nil {
-		return nil, err
-	}
-
 	// if filtered on partition get all without more filters for issues evaluation
-	// to identify issues in requested machines, all machines are still required
-	// for example to find machines with duplicate bmc addresses.
-	allMs, err := p.s.ds.Machine().List(ctx, queries.MachineFilter(allMachineQuery))
+	// to identify issues in requested machines, all machines are required.
+	// One example is to find machines with duplicate bmc addresses.
+	allMs, err := p.s.ds.Machine().List(ctx, queries.MachineFilter(machineQuery))
 	if err != nil {
 		return nil, err
+	}
+
+	if rq != nil && rq.Size != nil {
+		// Ensure size exists
+		resp, err := p.s.ds.Size().Get(ctx, *rq.Size)
+		if err != nil {
+			return nil, err
+		}
+		ms = lo.Filter(allMs, func(ms *metal.Machine, _ int) bool {
+			return ms.SizeID == resp.ID
+		})
+	} else {
+		ms = allMs
 	}
 
 	ecs, err := p.s.ds.Event().List(ctx, nil)
