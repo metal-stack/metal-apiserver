@@ -15,7 +15,7 @@ func (i *issueBMCWithoutMAC) Spec() *spec {
 		Type:        TypeBMCWithoutMAC,
 		Severity:    SeverityMajor,
 		Description: "BMC has no mac address",
-		RefURL:      "https://docs.metal-stack.io/stable/installation/troubleshoot/#bmc-without-mac",
+		RefURL:      "https://metal-stack.io/docs/troubleshooting/#bmc-without-mac",
 	}
 }
 

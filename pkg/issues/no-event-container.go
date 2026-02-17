@@ -17,7 +17,7 @@ func (i *issueNoEventContainer) Spec() *spec {
 		Type:        TypeNoEventContainer,
 		Severity:    SeverityMajor,
 		Description: "machine has no event container",
-		RefURL:      "https://docs.metal-stack.io/stable/installation/troubleshoot/#no-event-container",
+		RefURL:      "https://metal-stack.io/docs/troubleshooting/#no-event-container",
 	}
 }
 

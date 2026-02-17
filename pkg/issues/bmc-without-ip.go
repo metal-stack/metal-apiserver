@@ -15,7 +15,7 @@ func (i *issueBMCWithoutIP) Spec() *spec {
 		Type:        TypeBMCWithoutIP,
 		Severity:    SeverityMajor,
 		Description: "BMC has no ip address",
-		RefURL:      "https://docs.metal-stack.io/stable/installation/troubleshoot/#bmc-without-ip",
+		RefURL:      "https://metal-stack.io/docs/troubleshooting/#bmc-without-ip",
 	}
 }
 

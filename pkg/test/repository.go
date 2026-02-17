@@ -65,12 +65,14 @@ type testOptValkey struct {
 	with bool
 }
 
+// WithPostgres if set to true a postgres database container is started, defaults to false.
 func WithPostgres(with bool) *testOptPostgres {
 	return &testOptPostgres{
 		with: with,
 	}
 }
 
+// WithValkey if set to true a valkey database container is started, defaults to false.
 func WithValkey(with bool) *testOptValkey {
 	return &testOptValkey{
 		with: with,

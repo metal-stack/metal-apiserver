@@ -15,7 +15,7 @@ func (i *issueLivelinessUnknown) Spec() *spec {
 		Type:        TypeLivelinessUnknown,
 		Severity:    SeverityMajor,
 		Description: "the machine is not sending LLDP alive messages anymore",
-		RefURL:      "https://docs.metal-stack.io/stable/installation/troubleshoot/#liveliness-unknown",
+		RefURL:      "https://metal-stack.io/docs/troubleshooting/#liveliness-unknown",
 	}
 }
 

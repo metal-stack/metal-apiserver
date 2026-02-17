@@ -42,6 +42,6 @@ func (*issueBMCInfoOutdated) Spec() *spec {
 		Type:        TypeBMCInfoOutdated,
 		Severity:    SeverityMajor,
 		Description: "BMC has not been updated from either metal-hammer or metal-bmc",
-		RefURL:      "https://docs.metal-stack.io/stable/installation/troubleshoot/#bmc-info-outdated",
+		RefURL:      "https://metal-stack.io/docs/troubleshooting/#bmc-info-outdated",
 	}
 }

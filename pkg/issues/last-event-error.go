@@ -26,7 +26,7 @@ func (i *issueLastEventError) Spec() *spec {
 		Type:        TypeLastEventError,
 		Severity:    SeverityMinor,
 		Description: "the machine had an error during the provisioning lifecycle",
-		RefURL:      "https://docs.metal-stack.io/stable/installation/troubleshoot/#last-event-error",
+		RefURL:      "https://metal-stack.io/docs/troubleshooting/#last-event-error",
 	}
 }
 

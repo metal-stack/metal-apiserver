@@ -6,7 +6,6 @@ import (
 	"maps"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
@@ -37,9 +36,8 @@ type (
 	}
 )
 
-func NewDatacenter(t testing.TB) *Datacenter {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	testStore, closer := StartRepositoryWithCleanup(t, log, WithPostgres(true))
+func NewDatacenter(t testing.TB, log *slog.Logger, testOpts ...testOpt) *Datacenter {
+	testStore, closer := StartRepositoryWithCleanup(t, log, testOpts...)
 
 	dc := &Datacenter{
 		t:          t,

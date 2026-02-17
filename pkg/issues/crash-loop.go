@@ -18,7 +18,7 @@ func (i *issueCrashLoop) Spec() *spec {
 		Type:        TypeCrashLoop,
 		Severity:    SeverityMajor,
 		Description: "machine is in a provisioning crash loop (⭕)",
-		RefURL:      "https://docs.metal-stack.io/stable/installation/troubleshoot/#crashloop",
+		RefURL:      "https://metal-stack.io/docs/troubleshooting/#crashloop",
 	}
 }
 

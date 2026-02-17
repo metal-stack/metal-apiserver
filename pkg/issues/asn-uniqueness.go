@@ -23,7 +23,7 @@ func (i *issueASNUniqueness) Spec() *spec {
 		Type:        TypeASNUniqueness,
 		Severity:    SeverityMinor,
 		Description: "The ASN is not unique (only impact on firewalls)",
-		RefURL:      "https://docs.metal-stack.io/stable/installation/troubleshoot/#asn-not-unique",
+		RefURL:      "https://metal-stack.io/docs/troubleshooting/#asn-not-unique",
 	}
 }
 

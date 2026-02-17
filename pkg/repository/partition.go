@@ -282,6 +282,9 @@ func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.Partitio
 		return nil, fmt.Errorf("unable to list size reservations: %w", err)
 	}
 
+	// Last event error is a minor issue that describes an unexpected transition in the provisioning cycle.
+	// This happens quite often and you do not want to show these machines as unhealthy.
+	// see https://metal-stack.io/docs/troubleshooting#last-event-error
 	machinesWithIssues, err := issues.Find(&issues.Config{
 		Machines:        allMs,
 		EventContainers: ecs,

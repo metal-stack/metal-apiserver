@@ -18,7 +18,7 @@ func (i *issueFailedMachineReclaim) Spec() *spec {
 		Type:        TypeFailedMachineReclaim,
 		Severity:    SeverityCritical,
 		Description: "machine phones home but not allocated",
-		RefURL:      "https://docs.metal-stack.io/stable/installation/troubleshoot/#failed-machine-reclaim",
+		RefURL:      "https://metal-stack.io/docs/troubleshooting/#failed-machine-reclaim",
 	}
 }
 

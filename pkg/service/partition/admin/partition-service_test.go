@@ -495,7 +495,7 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
-	dc := test.NewDatacenter(t)
+	dc := test.NewDatacenter(t, log)
 	defer dc.Close()
 
 	tests := []struct {

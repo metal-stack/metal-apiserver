@@ -15,7 +15,7 @@ func (i *issueNoPartition) Spec() *spec {
 		Type:        TypeNoPartition,
 		Severity:    SeverityMajor,
 		Description: "machine with no partition",
-		RefURL:      "https://docs.metal-stack.io/stable/installation/troubleshoot/#no-partition",
+		RefURL:      "https://metal-stack.io/docs/troubleshooting/#no-partition",
 	}
 }
 

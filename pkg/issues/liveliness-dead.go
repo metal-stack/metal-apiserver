@@ -15,7 +15,7 @@ func (i *issueLivelinessDead) Spec() *spec {
 		Type:        TypeLivelinessDead,
 		Severity:    SeverityMajor,
 		Description: "the machine is not sending events anymore",
-		RefURL:      "https://docs.metal-stack.io/stable/installation/troubleshoot/#liveliness-dead",
+		RefURL:      "https://metal-stack.io/docs/troubleshooting/#liveliness-dead",
 	}
 }
 
