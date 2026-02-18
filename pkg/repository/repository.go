@@ -117,4 +117,8 @@ type (
 	Switch interface {
 		Repository[*switchRepository, *apiv2.Switch, *SwitchServiceCreateRequest, *adminv2.SwitchServiceUpdateRequest, *apiv2.SwitchQuery]
 	}
+
+	Component interface {
+		Repository[*componentRepository, *adminv2.Component, *adminv2.Component, *ComponentServiceUpdateRequest, *adminv2.ComponentQuery]
+	}
 )

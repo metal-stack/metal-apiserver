@@ -308,7 +308,7 @@ func Test_Create(t *testing.T) {
 			},
 			wantToken:      nil,
 			wantErr:        true,
-			wantErrMessage: `permission_denied: the following method "/metalstack.admin.v2.IPService/List" is not allowed on any of the requested subjects: [*]`,
+			wantErrMessage: `permission_denied: the following method "/metalstack.admin.v2.ComponentService/List" is not allowed on any of the requested subjects: [*]`,
 		},
 		{
 			name: "admin user and token can create new admin token",

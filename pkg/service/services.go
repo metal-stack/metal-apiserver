@@ -32,6 +32,8 @@ import (
 	authservice "github.com/metal-stack/metal-apiserver/pkg/service/auth"
 	"github.com/metal-stack/metal-apiserver/pkg/service/bmc"
 	"github.com/metal-stack/metal-apiserver/pkg/service/boot"
+	componentadmin "github.com/metal-stack/metal-apiserver/pkg/service/component/admin"
+	componentinfra "github.com/metal-stack/metal-apiserver/pkg/service/component/infra"
 	eventinfra "github.com/metal-stack/metal-apiserver/pkg/service/event/infra"
 	"github.com/metal-stack/metal-apiserver/pkg/service/filesystem"
 	filesystemadmin "github.com/metal-stack/metal-apiserver/pkg/service/filesystem/admin"
@@ -56,6 +58,7 @@ import (
 	switchadmin "github.com/metal-stack/metal-apiserver/pkg/service/switch/admin"
 	switchinfra "github.com/metal-stack/metal-apiserver/pkg/service/switch/infra"
 	taskadmin "github.com/metal-stack/metal-apiserver/pkg/service/task/admin"
+
 	"github.com/metal-stack/metal-apiserver/pkg/service/tenant"
 	tenantadmin "github.com/metal-stack/metal-apiserver/pkg/service/tenant/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/token"
@@ -104,6 +107,7 @@ type RedisConfig struct {
 	InviteClient    *redis.Client
 	AsyncClient     *redis.Client
 	QueueClient     valkey.Client
+	ComponentClient valkey.Client
 }
 
 func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
@@ -261,6 +265,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	adminSwitchService := switchadmin.New(switchadmin.Config{Log: log, Repo: c.Repository})
 	adminTokenService := tokenadmin.New(tokenadmin.Config{Log: log, CertStore: certStore, TokenStore: tokenStore, TokenService: tokenService})
 	adminTaskService := taskadmin.New(taskadmin.Config{Log: log, Repo: c.Repository})
+	adminComponentService := componentadmin.New(componentadmin.Config{Log: log, Repo: c.Repository})
 	mux.Handle(adminv2connect.NewIPServiceHandler(adminIpService, adminInterceptors))
 	mux.Handle(adminv2connect.NewImageServiceHandler(adminImageService, adminInterceptors))
 	mux.Handle(adminv2connect.NewFilesystemServiceHandler(adminFilesystemService, adminInterceptors))
@@ -274,6 +279,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	mux.Handle(adminv2connect.NewMachineServiceHandler(adminMachineService, adminInterceptors))
 	mux.Handle(adminv2connect.NewTokenServiceHandler(adminTokenService, adminInterceptors))
 	mux.Handle(adminv2connect.NewTaskServiceHandler(adminTaskService, adminInterceptors))
+	mux.Handle(adminv2connect.NewComponentServiceHandler(adminComponentService, adminInterceptors))
 	if c.HeadscaleClient != nil {
 		adminVPNService := vpnadmin.New(vpnadmin.Config{
 			Log:                          log,
@@ -292,8 +298,10 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 
 	infraSwitchService := switchinfra.New(switchinfra.Config{Log: log, Repo: c.Repository})
 	infraEventService := eventinfra.New(eventinfra.Config{Log: log, Repo: c.Repository})
+	infraComponentService := componentinfra.New(componentinfra.Config{Log: log, Repo: c.Repository})
 	mux.Handle(infrav2connect.NewSwitchServiceHandler(infraSwitchService, infraInterceptors))
 	mux.Handle(infrav2connect.NewEventServiceHandler(infraEventService, infraInterceptors))
+	mux.Handle(infrav2connect.NewComponentServiceHandler(infraComponentService, infraInterceptors))
 
 	allServiceNames := permissions.GetServices()
 	// Static HealthCheckers
