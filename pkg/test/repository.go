@@ -8,6 +8,7 @@ import (
 	"connectrpc.com/connect"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
 	"github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
@@ -42,6 +43,7 @@ type testStore struct {
 	dbName        string
 	queryExecutor *r.Session
 	ipam          apiv1connect.IpamServiceClient
+	ipamcloser    func()
 
 	projectInviteStore invite.ProjectInviteStore
 	tenantInviteStore  invite.TenantInviteStore
@@ -51,11 +53,6 @@ type testStore struct {
 	tokenService token.TokenService
 	mdc          mdc.Client
 	rc           *redis.Client
-}
-
-func (s *testStore) CleanNetworkTable(t testing.TB) {
-	_, err := r.DB(s.dbName).Table("network").Delete().RunWrite(s.queryExecutor)
-	require.NoError(t, err)
 }
 
 type testOpt any
@@ -76,24 +73,28 @@ type testOptContainer struct {
 	with bool
 }
 
+// WithPostgres if set to true a postgres database container is started, defaults to false.
 func WithPostgres(with bool) *testOptPostgres {
 	return &testOptPostgres{
 		with: with,
 	}
 }
 
+// WithValkey if set to true a valkey database container is started, defaults to false.
 func WithValkey(with bool) *testOptValkey {
 	return &testOptValkey{
 		with: with,
 	}
 }
 
+// WithRethink if set to true a rethink database container is started, defaults to false.
 func WithRethink(with bool) *testOptRethink {
 	return &testOptRethink{
 		with: with,
 	}
 }
 
+// WithContainers if set to false, no database containers are started, defaults to true.
 func WithContainers(with bool) *testOptContainer {
 	return &testOptContainer{
 		with: with,
@@ -216,6 +217,7 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		dbName:             opts.Database,
 		queryExecutor:      session,
 		ipam:               ipam,
+		ipamcloser:         ipamCloser,
 		projectInviteStore: projectInviteStore,
 		tenantInviteStore:  tenantInviteStore,
 		tokenStore:         tokenStore,
@@ -223,6 +225,30 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		mdc:                mdc,
 		rc:                 rc,
 	}, closer
+}
+
+func (s *testStore) CleanUp(t testing.TB) {
+
+	s.DeleteProjects()
+	s.DeleteTenants()
+	DeleteIPs(t, s)
+	DeleteNetworks(t, s)
+
+	// TODO valkey
+
+	tables := s.ds.GetTableNames()
+
+	for _, tableName := range tables {
+		_, err := r.DB(databaseNameFromT(t)).Table(tableName).Delete().RunWrite(s.queryExecutor, r.RunOpts{Context: t.Context()})
+		require.NoError(t, err)
+	}
+
+	for i := range 99 {
+		err := s.ds.AsnPool().ReleaseUniqueInteger(t.Context(), uint(i+1))
+		require.NoError(t, err)
+		err = s.ds.VrfPool().ReleaseUniqueInteger(t.Context(), uint(i+1))
+		require.NoError(t, err)
+	}
 }
 
 func (t *testStore) GetProjectInviteStore() invite.ProjectInviteStore {
@@ -261,7 +287,7 @@ func (t *testStore) GetEventContainer(machineID string) *metal.ProvisioningEvent
 	return resp
 }
 
-func CreateImages(t *testing.T, testStore *testStore, images []*adminv2.ImageServiceCreateRequest) map[string]*apiv2.Image {
+func CreateImages(t testing.TB, testStore *testStore, images []*adminv2.ImageServiceCreateRequest) map[string]*apiv2.Image {
 	imageMap := map[string]*apiv2.Image{}
 	for _, img := range images {
 		i, err := testStore.Image().Create(t.Context(), img)
@@ -271,7 +297,7 @@ func CreateImages(t *testing.T, testStore *testStore, images []*adminv2.ImageSer
 	return imageMap
 }
 
-func CreateFilesystemLayouts(t *testing.T, testStore *testStore, fsls []*adminv2.FilesystemServiceCreateRequest) map[string]*apiv2.FilesystemLayout {
+func CreateFilesystemLayouts(t testing.TB, testStore *testStore, fsls []*adminv2.FilesystemServiceCreateRequest) map[string]*apiv2.FilesystemLayout {
 	fslMap := map[string]*apiv2.FilesystemLayout{}
 	for _, fsl := range fsls {
 		fsl, err := testStore.FilesystemLayout().Create(t.Context(), fsl)
@@ -281,7 +307,7 @@ func CreateFilesystemLayouts(t *testing.T, testStore *testStore, fsls []*adminv2
 	return fslMap
 }
 
-func CreateIPs(t *testing.T, testStore *testStore, ips []*apiv2.IPServiceCreateRequest) map[string]*apiv2.IP {
+func CreateIPs(t testing.TB, testStore *testStore, ips []*apiv2.IPServiceCreateRequest) map[string]*apiv2.IP {
 	ipMap := map[string]*apiv2.IP{}
 	for _, ip := range ips {
 		i, err := testStore.UnscopedIP().Create(t.Context(), ip)
@@ -291,7 +317,7 @@ func CreateIPs(t *testing.T, testStore *testStore, ips []*apiv2.IPServiceCreateR
 	return ipMap
 }
 
-func CreateMachinesWithAllocation(t *testing.T, testStore *testStore, machines []*apiv2.MachineServiceCreateRequest) map[string]*apiv2.Machine {
+func CreateMachinesWithAllocation(t testing.TB, testStore *testStore, machines []*apiv2.MachineServiceCreateRequest) map[string]*apiv2.Machine {
 	machineMap := map[string]*apiv2.Machine{}
 	for _, machine := range machines {
 		m, err := testStore.UnscopedMachine().Create(t.Context(), machine)
@@ -316,6 +342,20 @@ func CreateMachines(t testing.TB, testStore *testStore, machines []*metal.Machin
 		machineMap[m.ID] = m
 	}
 	return machineMap
+}
+
+func DhcpMachines(t testing.TB, testStore *testStore, bootRequests []*infrav2.BootServiceDhcpRequest) {
+	for _, req := range bootRequests {
+		_, err := testStore.UnscopedMachine().AdditionalMethods().Dhcp(t.Context(), req)
+		require.NoError(t, err)
+	}
+}
+
+func RegisterMachines(t testing.TB, testStore *testStore, registerRequests []*infrav2.BootServiceRegisterRequest) {
+	for _, req := range registerRequests {
+		_, err := testStore.UnscopedMachine().AdditionalMethods().Register(t.Context(), req)
+		require.NoError(t, err)
+	}
 }
 
 func CreateNetworks(t testing.TB, testStore *testStore, nws []*adminv2.NetworkServiceCreateRequest) map[string]*apiv2.Network {
@@ -423,7 +463,7 @@ func (t *testStore) DeleteProjectInvites() {
 	}
 }
 
-func AllocateNetworks(t *testing.T, testStore *testStore, nws []*apiv2.NetworkServiceCreateRequest) map[string]*apiv2.Network {
+func AllocateNetworks(t testing.TB, testStore *testStore, nws []*apiv2.NetworkServiceCreateRequest) map[string]*apiv2.Network {
 	networkMap := map[string]*apiv2.Network{}
 
 	for _, nw := range nws {
@@ -448,7 +488,7 @@ func AllocateNetworks(t *testing.T, testStore *testStore, nws []*apiv2.NetworkSe
 	return networkMap
 }
 
-func CreatePartitions(t *testing.T, testStore *testStore, partitions []*adminv2.PartitionServiceCreateRequest) map[string]*apiv2.Partition {
+func CreatePartitions(t testing.TB, testStore *testStore, partitions []*adminv2.PartitionServiceCreateRequest) map[string]*apiv2.Partition {
 	partitionMap := map[string]*apiv2.Partition{}
 	for _, partition := range partitions {
 		p, err := testStore.Partition().Create(t.Context(), partition)
@@ -482,7 +522,8 @@ func CreateProjectInvites(t testing.TB, testStore *testStore, invites []*apiv2.P
 	}
 }
 
-func CreateTenants(t testing.TB, testStore *testStore, tenants []*apiv2.TenantServiceCreateRequest) {
+func CreateTenants(t testing.TB, testStore *testStore, tenants []*apiv2.TenantServiceCreateRequest) []string {
+	var tenantList []string
 	for _, tenant := range tenants {
 		tok, err := testStore.tokenService.CreateApiTokenWithoutPermissionCheck(t.Context(), tenant.GetName(), &apiv2.TokenServiceCreateRequest{
 			Expires:   durationpb.New(time.Minute),
@@ -494,7 +535,9 @@ func CreateTenants(t testing.TB, testStore *testStore, tenants []*apiv2.TenantSe
 
 		_, err = testStore.Tenant().AdditionalMethods().CreateWithID(reqCtx, tenant, tenant.Name)
 		require.NoError(t, err)
+		tenantList = append(tenantList, tenant.Name)
 	}
+	return tenantList
 }
 
 func CreateTenantMemberships(t testing.TB, testStore *testStore, tenant string, memberships []*repository.TenantMemberCreateRequest) {
@@ -511,7 +554,7 @@ func CreateTenantInvites(t testing.TB, testStore *testStore, invites []*apiv2.Te
 	}
 }
 
-func CreateSizes(t *testing.T, testStore *testStore, sizes []*adminv2.SizeServiceCreateRequest) map[string]*apiv2.Size {
+func CreateSizes(t testing.TB, testStore *testStore, sizes []*adminv2.SizeServiceCreateRequest) map[string]*apiv2.Size {
 	sizeMap := map[string]*apiv2.Size{}
 	for _, size := range sizes {
 		s, err := testStore.Size().Create(t.Context(), size)
@@ -521,7 +564,7 @@ func CreateSizes(t *testing.T, testStore *testStore, sizes []*adminv2.SizeServic
 	return sizeMap
 }
 
-func CreateSizeReservations(t *testing.T, testStore *testStore, sizeReservations []*adminv2.SizeReservationServiceCreateRequest) map[string]*apiv2.SizeReservation {
+func CreateSizeReservations(t testing.TB, testStore *testStore, sizeReservations []*adminv2.SizeReservationServiceCreateRequest) map[string]*apiv2.SizeReservation {
 	sizeReservationMap := map[string]*apiv2.SizeReservation{}
 	for _, sr := range sizeReservations {
 		s, err := testStore.UnscopedSizeReservation().Create(t.Context(), sr)
@@ -531,7 +574,7 @@ func CreateSizeReservations(t *testing.T, testStore *testStore, sizeReservations
 	return sizeReservationMap
 }
 
-func CreateSwitches(t *testing.T, testStore *testStore, switches []*repository.SwitchServiceCreateRequest) map[string]*apiv2.Switch {
+func CreateSwitches(t testing.TB, testStore *testStore, switches []*repository.SwitchServiceCreateRequest) map[string]*apiv2.Switch {
 	switchMap := map[string]*apiv2.Switch{}
 	for _, sw := range switches {
 		s, err := testStore.Switch().Create(t.Context(), sw)
@@ -541,7 +584,7 @@ func CreateSwitches(t *testing.T, testStore *testStore, switches []*repository.S
 	return switchMap
 }
 
-func CreateSwitchStatuses(t *testing.T, testStore *testStore, statuses []*repository.SwitchStatus) map[string]*metal.SwitchStatus {
+func CreateSwitchStatuses(t testing.TB, testStore *testStore, statuses []*repository.SwitchStatus) map[string]*metal.SwitchStatus {
 	statusMap := map[string]*metal.SwitchStatus{}
 	for _, status := range statuses {
 		metalStatus := &metal.SwitchStatus{

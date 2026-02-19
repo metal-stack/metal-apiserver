@@ -20,12 +20,6 @@ type Size struct {
 	Labels      map[string]string `rethinkdb:"labels"`
 }
 
-// Sizes is a list of sizes.
-type Sizes []Size
-
-// SizeMap is an indexed map of sizes.
-type SizeMap map[string]Size
-
 // ConstraintType ...
 type ConstraintType string
 
@@ -86,13 +80,13 @@ func ToConstraint(c *apiv2.SizeConstraint) (*Constraint, error) {
 }
 
 // Overlaps returns nil if Size does not overlap with any other size, otherwise returns overlapping Size
-func (s *Size) Overlaps(ss Sizes) *Size {
+func (s *Size) Overlaps(ss []*Size) *Size {
 	for _, so := range ss {
 		if s.ID == so.ID {
 			continue
 		}
-		if s.overlaps(&so) {
-			return &so
+		if s.overlaps(so) {
+			return so
 		}
 	}
 	return nil
@@ -193,13 +187,13 @@ func (c *Constraint) Validate() error {
 
 // FromHardware searches a Size for given hardware specs. It will search
 // for a size where the constraints matches the given hardware.
-func (sz Sizes) FromHardware(hardware MachineHardware) (*Size, error) {
+func SizeFromHardware(sizes []*Size, hardware MachineHardware) (*Size, error) {
 	var (
-		matchedSizes []Size
+		matchedSizes []*Size
 	)
 
 nextsize:
-	for _, s := range sz {
+	for _, s := range sizes {
 		for _, c := range s.Constraints {
 			if !c.matches(hardware) {
 				continue nextsize
@@ -219,7 +213,7 @@ nextsize:
 	case 0:
 		return nil, errorutil.NotFound("no size found for hardware (%s)", hardware.ReadableSpec())
 	case 1:
-		return &matchedSizes[0], nil
+		return matchedSizes[0], nil
 	default:
 		return nil, fmt.Errorf("%d sizes found for hardware (%s)", len(matchedSizes), hardware.ReadableSpec())
 	}

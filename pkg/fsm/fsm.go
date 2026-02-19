@@ -52,7 +52,7 @@ func HandleProvisioningEvent(ctx context.Context, log *slog.Logger, ec *metal.Pr
 		container.Liveliness = metal.MachineLivelinessAlive
 		container.LastErrorEvent = event
 
-		switch e := event.Event; e { //nolint:exhaustive
+		switch e := event.Event; e {
 		case metal.ProvisioningEventPXEBooting, metal.ProvisioningEventPreparing:
 			container.CrashLoop = true
 			container.Events = append([]metal.ProvisioningEvent{*event}, container.Events...)

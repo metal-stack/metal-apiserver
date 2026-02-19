@@ -364,7 +364,7 @@ func (t *tenantRepository) EnsureProviderTenant(ctx context.Context, providerTen
 		_, err := t.CreateWithID(ctx, &apiv2.TenantServiceCreateRequest{
 			Name:        providerTenantID,
 			Description: new("initial provider tenant for metal-stack"),
-		}, providerTenantID)
+		}, providerTenantID, NewTenantCreateOptWithCreator(providerTenantID))
 		if err != nil {
 			return errorutil.Convert(fmt.Errorf("unable to create tenant:%s %w", providerTenantID, err))
 		}
