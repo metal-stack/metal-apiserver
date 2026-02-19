@@ -31,6 +31,8 @@ type (
 
 		asnPool *integerPool
 		vrfPool *integerPool
+
+		tableNames []string
 	}
 )
 
@@ -156,4 +158,8 @@ func (ds *datastore) AsnPool() *integerPool {
 
 func (ds *datastore) VrfPool() *integerPool {
 	return ds.vrfPool
+}
+
+func (ds *datastore) GetTableNames() []string {
+	return ds.tableNames
 }

@@ -58,5 +58,7 @@ type (
 		VrfPool() *integerPool
 
 		Version(ctx context.Context) (string, error)
+
+		GetTableNames() []string
 	}
 )
