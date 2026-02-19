@@ -15,13 +15,6 @@ func Test_partitionUpdateWithDatacenter(t *testing.T) {
 	dc.Create(&scenarios.DefaultDatacenter)
 	defer dc.Close()
 
-	// TODO make these asserters useful
-	// dc.Assert(&test.Asserters{
-	// 	Partition: func(t testing.TB, partition *apiv2.Partition) {
-	// 		assert.Equal(t, "bla", partition.Description)
-	// 	},
-	// })
-
-	dc.Dump(t)
-	dc.CleanUp(t)
+	dc.Dump()
+	dc.CleanUp()
 }

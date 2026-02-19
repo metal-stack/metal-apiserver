@@ -7,9 +7,9 @@ import (
 )
 
 type (
-	MachineWithLiveliness[T, U any] struct {
-		Liveliness T
-		Machine    U
+	MachineWithLiveliness struct {
+		Liveliness metal.MachineLiveliness
+		Machine    *metal.Machine
 	}
 
 	DatacenterSpec struct {
@@ -22,7 +22,7 @@ type (
 		Networks          []*adminv2.NetworkServiceCreateRequest
 		IPs               []*apiv2.IPServiceCreateRequest
 		Switches          []*apiv2.Switch
-		Machines          []*MachineWithLiveliness[metal.MachineLiveliness, *metal.Machine]
+		Machines          []*MachineWithLiveliness
 		ReservedMachines  []string // TODO
 	}
 )

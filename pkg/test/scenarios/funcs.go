@@ -51,7 +51,7 @@ var (
 		return nics
 	}
 
-	MachineFunc = func(id, partition, size, project string, liveliness metal.MachineLiveliness) *MachineWithLiveliness[metal.MachineLiveliness, *metal.Machine] {
+	MachineFunc = func(id, partition, size, project string, liveliness metal.MachineLiveliness) *MachineWithLiveliness {
 		machineNumber := lo.Substring(id, -1, 1)
 		m := &metal.Machine{
 			Base:        metal.Base{ID: id},
@@ -71,7 +71,7 @@ var (
 				Project: project,
 			}
 		}
-		return &MachineWithLiveliness[metal.MachineLiveliness, *metal.Machine]{
+		return &MachineWithLiveliness{
 			Liveliness: liveliness,
 			Machine:    m,
 		}

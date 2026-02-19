@@ -137,7 +137,7 @@ func newTokenCmd() *cli.Command {
 			var adminRole *apiv2.AdminRole
 			if roleString := ctx.String(tokenAdminRoleFlag.Name); roleString != "" {
 				// FIXME new linter complains that role is never used
-				role, ok := apiv2.AdminRole_value[roleString] // nolint:staticcheck
+				role, ok := apiv2.AdminRole_value[roleString]
 				if !ok {
 					return fmt.Errorf("unknown role: %s", roleString)
 				}

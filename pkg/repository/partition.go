@@ -295,24 +295,23 @@ func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.Partitio
 	}
 
 	var (
-		partitionsById         = make(map[string]*metal.Partition)
+		partitionsById         = metal.PartitionsByID(ps)
 		ecsById                = make(map[string]*metal.ProvisioningEventContainer)
 		sizesByID              = make(map[string]*metal.Size)
-		sizeReservationsBySize = make(map[string][]*metal.SizeReservation)
+		sizeReservationsBySize = metal.SizeReservationsBySize(sizeReservations)
 		machinesByProject      = make(map[string][]*metal.Machine)
 	)
-	for _, p := range ps {
-		partitionsById[p.ID] = p
-	}
+
+	// TODO future improvement implement metal.EventContainersById
 	for _, ec := range ecs {
 		ecsById[ec.ID] = ec
 	}
+
+	// TODO future improvement implement metal.SizesById
 	for _, s := range sizes {
 		sizesByID[s.ID] = s
 	}
-	for _, sr := range sizeReservations {
-		sizeReservationsBySize[sr.SizeID] = append(sizeReservationsBySize[sr.SizeID], sr)
-	}
+
 	for _, m := range ms {
 		if m.Allocation == nil {
 			continue
@@ -376,7 +375,7 @@ func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.Partitio
 		}
 
 		// provisioning state dependent counts
-		switch pointer.FirstOrZero(ec.Events).Event { //nolint:exhaustive
+		switch pointer.FirstOrZero(ec.Events).Event {
 		case metal.ProvisioningEventPhonedHome:
 			cap.PhonedHome++
 		case metal.ProvisioningEventWaiting:

@@ -68,9 +68,9 @@ func (dc *Datacenter) Create(spec *scenarios.DatacenterSpec) {
 	dc.createMachines(spec)
 }
 
-func (dc *Datacenter) Dump(t testing.TB) {
+func (dc *Datacenter) Dump() {
 	y, err := yaml.Marshal(dc)
-	require.NoError(t, err)
+	require.NoError(dc.t, err)
 
 	fmt.Println(string(y))
 }
@@ -81,8 +81,8 @@ func (dc *Datacenter) Close() {
 	}
 }
 
-func (dc *Datacenter) CleanUp(t testing.TB) {
-	dc.TestStore.CleanUp(t)
+func (dc *Datacenter) CleanUp() {
+	dc.TestStore.CleanUp(dc.t)
 }
 
 func (dc *Datacenter) createPartitions(spec *scenarios.DatacenterSpec) {
@@ -133,8 +133,7 @@ func (dc *Datacenter) createTenantsAndMembers(spec *scenarios.DatacenterSpec) {
 	}
 
 	dc.Tenants = CreateTenants(dc.t, dc.TestStore, tenantCreateReq)
-	projects := CreateProjects(dc.t, dc.TestStore, projectCreateReq)
-	maps.Copy(dc.Projects, projects)
+	dc.Projects = CreateProjects(dc.t, dc.TestStore, projectCreateReq)
 
 	for _, tenant := range spec.Tenants {
 		tenantMemberCreateReq = append(tenantMemberCreateReq, &repository.TenantMemberCreateRequest{
@@ -223,24 +222,4 @@ func (dc *Datacenter) createSwitches(spec *scenarios.DatacenterSpec) {
 			dc.Switches[s.Id] = s
 		}
 	}
-}
-
-type Asserters struct {
-	Partition func(t testing.TB, partition *apiv2.Partition)
-}
-
-func (dc *Datacenter) Assert(asserters *Asserters) {
-	require.NotNil(dc.t, asserters)
-
-	if asserters.Partition != nil {
-
-		for _, partition := range dc.Partitions {
-			require.NotNil(dc.t, asserters.Partition)
-
-			resp, err := dc.TestStore.Partition().Get(dc.t.Context(), partition.Id)
-			require.NoError(dc.t, err)
-			asserters.Partition(dc.t, resp)
-		}
-
-	} // else compare if partition did not change
 }
