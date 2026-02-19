@@ -118,7 +118,7 @@ func (s *Store) Component() Component {
 		s: s,
 	}
 
-	return &store[*componentRepository, *ComponentEntity, *adminv2.Component, *adminv2.Component, *ComponentServiceUpdateRequest, *adminv2.ComponentQuery]{
+	return &store[*componentRepository, *ComponentEntity, *apiv2.Component, *ComponentServiceCreateRequest, *ComponentServiceUpdateRequest, *apiv2.ComponentQuery]{
 		repository: repository,
 		typed:      repository,
 	}

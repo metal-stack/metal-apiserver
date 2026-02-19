@@ -4,6 +4,7 @@ import (
 	"log"
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/urfave/cli/v2"
 )
@@ -298,6 +299,12 @@ var (
 		EnvVars: []string{"HEADSCALE_ENABLED"},
 	}
 	// End Headscale
+	componentExpirationFlag = &cli.DurationFlag{
+		Name:    "component-expiration",
+		Value:   24 * time.Hour,
+		Usage:   "defines after which inactive component entries are removed",
+		EnvVars: []string{"COMPONENT_EXPIRATION"},
+	}
 )
 
 func main() {

@@ -99,6 +99,7 @@ type Config struct {
 	BMCSuperuserPassword                string
 	HeadscaleControlplaneAddress        string
 	HeadscaleClient                     headscalev1.HeadscaleServiceClient
+	ComponentExpiration                 time.Duration
 }
 
 type RedisConfig struct {
@@ -298,7 +299,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 
 	infraSwitchService := switchinfra.New(switchinfra.Config{Log: log, Repo: c.Repository})
 	infraEventService := eventinfra.New(eventinfra.Config{Log: log, Repo: c.Repository})
-	infraComponentService := componentinfra.New(componentinfra.Config{Log: log, Repo: c.Repository})
+	infraComponentService := componentinfra.New(componentinfra.Config{Log: log, Repo: c.Repository, Expiration: c.ComponentExpiration})
 	mux.Handle(infrav2connect.NewSwitchServiceHandler(infraSwitchService, infraInterceptors))
 	mux.Handle(infrav2connect.NewEventServiceHandler(infraEventService, infraInterceptors))
 	mux.Handle(infrav2connect.NewComponentServiceHandler(infraComponentService, infraInterceptors))

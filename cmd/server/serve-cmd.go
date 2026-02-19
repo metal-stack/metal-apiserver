@@ -177,6 +177,7 @@ func newServeCmd() *cli.Command {
 				BMCSuperuserPassword:                ctx.String(bmcSuperuserPasswordFlag.Name),
 				HeadscaleControlplaneAddress:        ctx.String(headscaleControlplaneAddressFlag.Name),
 				HeadscaleClient:                     hc,
+				ComponentExpiration:                 ctx.Duration(componentExpirationFlag.Name),
 			}
 
 			if providerTenant := ctx.String(ensureProviderTenantFlag.Name); providerTenant != "" {

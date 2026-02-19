@@ -119,6 +119,6 @@ type (
 	}
 
 	Component interface {
-		Repository[*componentRepository, *adminv2.Component, *adminv2.Component, *ComponentServiceUpdateRequest, *adminv2.ComponentQuery]
+		Repository[*componentRepository, *apiv2.Component, *ComponentServiceCreateRequest, *ComponentServiceUpdateRequest, *apiv2.ComponentQuery]
 	}
 )

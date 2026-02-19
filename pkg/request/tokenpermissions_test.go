@@ -47,6 +47,8 @@ func Test_getTokenPermissions(t *testing.T) {
 			want: tokenPermissions{
 				"/grpc.reflection.v1.ServerReflection/ServerReflectionInfo":      {"*": {}},
 				"/grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo": {"*": {}},
+				"/metalstack.admin.v2.ComponentService/Delete":                   {"*": {}},
+				"/metalstack.admin.v2.ComponentService/Get":                      {"*": {}},
 				"/metalstack.admin.v2.ComponentService/List":                     {"*": {}},
 				"/metalstack.admin.v2.FilesystemService/Create":                  {"*": {}},
 				"/metalstack.admin.v2.FilesystemService/Delete":                  {"*": {}},
@@ -190,6 +192,7 @@ func Test_getTokenPermissions(t *testing.T) {
 			want: tokenPermissions{
 				"/grpc.reflection.v1.ServerReflection/ServerReflectionInfo":      {"*": {}},
 				"/grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo": {"*": {}},
+				"/metalstack.admin.v2.ComponentService/Get":                      {"*": {}},
 				"/metalstack.admin.v2.ComponentService/List":                     {"*": {}},
 				"/metalstack.admin.v2.IPService/List":                            {"*": {}},
 				"/metalstack.admin.v2.ImageService/Usage":                        {"*": {}},

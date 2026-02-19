@@ -10,8 +10,8 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -29,16 +29,16 @@ func Test_componentServiceServer_List(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		pings   []*adminv2.Component
+		pings   []*apiv2.Component
 		req     *adminv2.ComponentServiceListRequest
 		want    *adminv2.ComponentServiceListResponse
 		wantErr error
 	}{
 		{
 			name: "simple, only one component",
-			pings: []*adminv2.Component{
+			pings: []*apiv2.Component{
 				{
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_BMC,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_BMC,
 					Identifier: "management-server-01",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.5.2"},
@@ -46,9 +46,9 @@ func Test_componentServiceServer_List(t *testing.T) {
 			},
 			req: &adminv2.ComponentServiceListRequest{},
 			want: &adminv2.ComponentServiceListResponse{
-				Components: []*adminv2.Component{
+				Components: []*apiv2.Component{
 					{
-						Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_BMC,
+						Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_BMC,
 						Identifier: "management-server-01",
 						Version:    &apiv2.Version{Version: "v0.5.2"},
 						Interval:   durationpb.New(time.Minute),
@@ -58,17 +58,17 @@ func Test_componentServiceServer_List(t *testing.T) {
 		},
 		{
 			name: "simple, same component two pings within expiration, latest wins",
-			pings: []*adminv2.Component{
+			pings: []*apiv2.Component{
 				{
 					Uuid:       "700a2150-b51c-43be-b3e6-d944ed216a2c",
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_BMC,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_BMC,
 					Identifier: "management-server-01",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.5.2"},
 				},
 				{
 					Uuid:       "1aaccc66-441f-4914-a088-b61b478200b5",
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_BMC,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_BMC,
 					Identifier: "management-server-01",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.5.2"},
@@ -76,10 +76,10 @@ func Test_componentServiceServer_List(t *testing.T) {
 			},
 			req: &adminv2.ComponentServiceListRequest{},
 			want: &adminv2.ComponentServiceListResponse{
-				Components: []*adminv2.Component{
+				Components: []*apiv2.Component{
 					{
 						Uuid:       "1aaccc66-441f-4914-a088-b61b478200b5",
-						Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_BMC,
+						Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_BMC,
 						Identifier: "management-server-01",
 						Version:    &apiv2.Version{Version: "v0.5.2"},
 						Interval:   durationpb.New(time.Minute),
@@ -89,33 +89,33 @@ func Test_componentServiceServer_List(t *testing.T) {
 		},
 		{
 			name: "more different components",
-			pings: []*adminv2.Component{
+			pings: []*apiv2.Component{
 				{
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_BMC,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_BMC,
 					Identifier: "management-server-01",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.5.2"},
 				},
 				{
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_CONSOLE,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_CONSOLE,
 					Identifier: "control-plane",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.1.2"},
 				},
 				{
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_CORE,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_CORE,
 					Identifier: "switch-01",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.4.0"},
 				},
 				{
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_IMAGE_CACHE_SYNC,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_IMAGE_CACHE_SYNC,
 					Identifier: "management-server-01",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.0.2"},
 				},
 				{
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_METRICS_EXPORTER,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_METRICS_EXPORTER,
 					Identifier: "control-plane",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.0.1"},
@@ -123,33 +123,33 @@ func Test_componentServiceServer_List(t *testing.T) {
 			},
 			req: &adminv2.ComponentServiceListRequest{},
 			want: &adminv2.ComponentServiceListResponse{
-				Components: []*adminv2.Component{
+				Components: []*apiv2.Component{
 					{
-						Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_BMC,
+						Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_BMC,
 						Identifier: "management-server-01",
 						Version:    &apiv2.Version{Version: "v0.5.2"},
 						Interval:   durationpb.New(time.Minute),
 					},
 					{
-						Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_CONSOLE,
+						Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_CONSOLE,
 						Identifier: "control-plane",
 						Interval:   durationpb.New(time.Minute),
 						Version:    &apiv2.Version{Version: "v0.1.2"},
 					},
 					{
-						Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_CORE,
+						Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_CORE,
 						Identifier: "switch-01",
 						Interval:   durationpb.New(time.Minute),
 						Version:    &apiv2.Version{Version: "v0.4.0"},
 					},
 					{
-						Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_IMAGE_CACHE_SYNC,
+						Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_IMAGE_CACHE_SYNC,
 						Identifier: "management-server-01",
 						Interval:   durationpb.New(time.Minute),
 						Version:    &apiv2.Version{Version: "v0.0.2"},
 					},
 					{
-						Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_METRICS_EXPORTER,
+						Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_METRICS_EXPORTER,
 						Identifier: "control-plane",
 						Interval:   durationpb.New(time.Minute),
 						Version:    &apiv2.Version{Version: "v0.0.1"},
@@ -159,43 +159,43 @@ func Test_componentServiceServer_List(t *testing.T) {
 		},
 		{
 			name: "query for type",
-			pings: []*adminv2.Component{
+			pings: []*apiv2.Component{
 				{
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_BMC,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_BMC,
 					Identifier: "management-server-01",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.5.2"},
 				},
 				{
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_CONSOLE,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_CONSOLE,
 					Identifier: "control-plane",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.1.2"},
 				},
 				{
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_CORE,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_CORE,
 					Identifier: "switch-01",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.4.0"},
 				},
 				{
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_IMAGE_CACHE_SYNC,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_IMAGE_CACHE_SYNC,
 					Identifier: "management-server-01",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.0.2"},
 				},
 				{
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_METRICS_EXPORTER,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_METRICS_EXPORTER,
 					Identifier: "control-plane",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.0.1"},
 				},
 			},
-			req: &adminv2.ComponentServiceListRequest{Query: &adminv2.ComponentQuery{Type: infrav2.ComponentType_COMPONENT_TYPE_METAL_CONSOLE.Enum()}},
+			req: &adminv2.ComponentServiceListRequest{Query: &apiv2.ComponentQuery{Type: apiv2.ComponentType_COMPONENT_TYPE_METAL_CONSOLE.Enum()}},
 			want: &adminv2.ComponentServiceListResponse{
-				Components: []*adminv2.Component{
+				Components: []*apiv2.Component{
 					{
-						Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_CONSOLE,
+						Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_CONSOLE,
 						Identifier: "control-plane",
 						Interval:   durationpb.New(time.Minute),
 						Version:    &apiv2.Version{Version: "v0.1.2"},
@@ -205,49 +205,49 @@ func Test_componentServiceServer_List(t *testing.T) {
 		},
 		{
 			name: "query for identifier",
-			pings: []*adminv2.Component{
+			pings: []*apiv2.Component{
 				{
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_BMC,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_BMC,
 					Identifier: "management-server-01",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.5.2"},
 				},
 				{
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_CONSOLE,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_CONSOLE,
 					Identifier: "control-plane",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.1.2"},
 				},
 				{
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_CORE,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_CORE,
 					Identifier: "switch-01",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.4.0"},
 				},
 				{
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_IMAGE_CACHE_SYNC,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_IMAGE_CACHE_SYNC,
 					Identifier: "management-server-01",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.0.2"},
 				},
 				{
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_METRICS_EXPORTER,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_METRICS_EXPORTER,
 					Identifier: "control-plane",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.0.1"},
 				},
 			},
-			req: &adminv2.ComponentServiceListRequest{Query: &adminv2.ComponentQuery{Identifier: new("control-plane")}},
+			req: &adminv2.ComponentServiceListRequest{Query: &apiv2.ComponentQuery{Identifier: new("control-plane")}},
 			want: &adminv2.ComponentServiceListResponse{
-				Components: []*adminv2.Component{
+				Components: []*apiv2.Component{
 					{
-						Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_CONSOLE,
+						Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_CONSOLE,
 						Identifier: "control-plane",
 						Interval:   durationpb.New(time.Minute),
 						Version:    &apiv2.Version{Version: "v0.1.2"},
 					},
 					{
-						Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_METRICS_EXPORTER,
+						Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_METRICS_EXPORTER,
 						Identifier: "control-plane",
 						Interval:   durationpb.New(time.Minute),
 						Version:    &apiv2.Version{Version: "v0.0.1"},
@@ -257,49 +257,49 @@ func Test_componentServiceServer_List(t *testing.T) {
 		},
 		{
 			name: "query for uuid",
-			pings: []*adminv2.Component{
+			pings: []*apiv2.Component{
 				{
 					Uuid:       "4fda7ab5-7d26-41e5-83b3-51f349ab9877",
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_BMC,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_BMC,
 					Identifier: "management-server-01",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.5.2"},
 				},
 				{
 					Uuid:       "5fda7ab5-7d26-41e5-83b3-51f349ab9877",
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_CONSOLE,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_CONSOLE,
 					Identifier: "control-plane",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.1.2"},
 				},
 				{
 					Uuid:       "7fda7ab5-7d26-41e5-83b3-51f349ab9877",
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_CORE,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_CORE,
 					Identifier: "switch-01",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.4.0"},
 				},
 				{
 					Uuid:       "6fda7ab5-7d26-41e5-83b3-51f349ab9877",
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_IMAGE_CACHE_SYNC,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_IMAGE_CACHE_SYNC,
 					Identifier: "management-server-01",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.0.2"},
 				},
 				{
 					Uuid:       "8fda7ab5-7d26-41e5-83b3-51f349ab9877",
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_METRICS_EXPORTER,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_METRICS_EXPORTER,
 					Identifier: "control-plane",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.0.1"},
 				},
 			},
-			req: &adminv2.ComponentServiceListRequest{Query: &adminv2.ComponentQuery{Uuid: new("6fda7ab5-7d26-41e5-83b3-51f349ab9877")}},
+			req: &adminv2.ComponentServiceListRequest{Query: &apiv2.ComponentQuery{Uuid: new("6fda7ab5-7d26-41e5-83b3-51f349ab9877")}},
 			want: &adminv2.ComponentServiceListResponse{
-				Components: []*adminv2.Component{
+				Components: []*apiv2.Component{
 					{
 						Uuid:       "6fda7ab5-7d26-41e5-83b3-51f349ab9877",
-						Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_IMAGE_CACHE_SYNC,
+						Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_IMAGE_CACHE_SYNC,
 						Identifier: "management-server-01",
 						Interval:   durationpb.New(time.Minute),
 						Version:    &apiv2.Version{Version: "v0.0.2"},
@@ -315,7 +315,7 @@ func Test_componentServiceServer_List(t *testing.T) {
 				repo: testStore.Store,
 			}
 			for _, ping := range tt.pings {
-				_, err := testStore.Store.Component().Create(ctx, ping)
+				_, err := testStore.Store.Component().Create(ctx, &repository.ComponentServiceCreateRequest{Component: ping, Expiration: time.Minute})
 				require.NoError(t, err)
 			}
 			if tt.wantErr == nil {
@@ -350,17 +350,17 @@ func Test_componentServiceServer_Get(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		pings   []*adminv2.Component
+		pings   []*apiv2.Component
 		req     *adminv2.ComponentServiceGetRequest
 		want    *adminv2.ComponentServiceGetResponse
 		wantErr error
 	}{
 		{
 			name: "simple, only one component",
-			pings: []*adminv2.Component{
+			pings: []*apiv2.Component{
 				{
 					Uuid:       "8fda7ab5-7d26-41e5-83b3-51f349ab9877",
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_BMC,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_BMC,
 					Identifier: "management-server-01",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.5.2"},
@@ -368,9 +368,9 @@ func Test_componentServiceServer_Get(t *testing.T) {
 			},
 			req: &adminv2.ComponentServiceGetRequest{Uuid: "8fda7ab5-7d26-41e5-83b3-51f349ab9877"},
 			want: &adminv2.ComponentServiceGetResponse{
-				Component: &adminv2.Component{
+				Component: &apiv2.Component{
 					Uuid:       "8fda7ab5-7d26-41e5-83b3-51f349ab9877",
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_BMC,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_BMC,
 					Identifier: "management-server-01",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.5.2"},
@@ -379,10 +379,10 @@ func Test_componentServiceServer_Get(t *testing.T) {
 		},
 		{
 			name: "not found component",
-			pings: []*adminv2.Component{
+			pings: []*apiv2.Component{
 				{
 					Uuid:       "8fda7ab5-7d26-41e5-83b3-51f349ab9877",
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_BMC,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_BMC,
 					Identifier: "management-server-01",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.5.2"},
@@ -394,38 +394,38 @@ func Test_componentServiceServer_Get(t *testing.T) {
 		},
 		{
 			name: "more different components",
-			pings: []*adminv2.Component{
+			pings: []*apiv2.Component{
 				{
 					Uuid:       "8fda7ab5-7d26-41e5-83b3-51f349ab9877",
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_BMC,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_BMC,
 					Identifier: "management-server-01",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.5.2"},
 				},
 				{
 					Uuid:       "7fda7ab5-7d26-41e5-83b3-51f349ab9877",
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_CONSOLE,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_CONSOLE,
 					Identifier: "control-plane",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.1.2"},
 				},
 				{
 					Uuid:       "6fda7ab5-7d26-41e5-83b3-51f349ab9877",
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_CORE,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_CORE,
 					Identifier: "switch-01",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.4.0"},
 				},
 				{
 					Uuid:       "5fda7ab5-7d26-41e5-83b3-51f349ab9877",
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_IMAGE_CACHE_SYNC,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_IMAGE_CACHE_SYNC,
 					Identifier: "management-server-01",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.0.2"},
 				},
 				{
 					Uuid:       "4fda7ab5-7d26-41e5-83b3-51f349ab9877",
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_METRICS_EXPORTER,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_METRICS_EXPORTER,
 					Identifier: "control-plane",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.0.1"},
@@ -433,9 +433,9 @@ func Test_componentServiceServer_Get(t *testing.T) {
 			},
 			req: &adminv2.ComponentServiceGetRequest{Uuid: "4fda7ab5-7d26-41e5-83b3-51f349ab9877"},
 			want: &adminv2.ComponentServiceGetResponse{
-				Component: &adminv2.Component{
+				Component: &apiv2.Component{
 					Uuid:       "4fda7ab5-7d26-41e5-83b3-51f349ab9877",
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_METRICS_EXPORTER,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_METRICS_EXPORTER,
 					Identifier: "control-plane",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.0.1"},
@@ -450,7 +450,7 @@ func Test_componentServiceServer_Get(t *testing.T) {
 				repo: testStore.Store,
 			}
 			for _, ping := range tt.pings {
-				_, err := testStore.Store.Component().Create(ctx, ping)
+				_, err := testStore.Store.Component().Create(ctx, &repository.ComponentServiceCreateRequest{Component: ping, Expiration: time.Minute})
 				require.NoError(t, err)
 			}
 			if tt.wantErr == nil {
@@ -485,7 +485,7 @@ func Test_componentServiceServer_Delete(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		pings   []*adminv2.Component
+		pings   []*apiv2.Component
 		req     *adminv2.ComponentServiceDeleteRequest
 		want    *adminv2.ComponentServiceListResponse
 		wantErr error
@@ -493,17 +493,17 @@ func Test_componentServiceServer_Delete(t *testing.T) {
 
 		{
 			name: "not found",
-			pings: []*adminv2.Component{
+			pings: []*apiv2.Component{
 				{
 					Uuid:       "5fda7ab5-7d26-41e5-83b3-51f349ab9877",
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_IMAGE_CACHE_SYNC,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_IMAGE_CACHE_SYNC,
 					Identifier: "management-server-01",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.0.2"},
 				},
 				{
 					Uuid:       "4fda7ab5-7d26-41e5-83b3-51f349ab9877",
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_METRICS_EXPORTER,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_METRICS_EXPORTER,
 					Identifier: "control-plane",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.0.1"},
@@ -511,17 +511,17 @@ func Test_componentServiceServer_Delete(t *testing.T) {
 			},
 			req: &adminv2.ComponentServiceDeleteRequest{Uuid: "2aaccc66-441f-4914-a088-b61b478200b5"},
 			want: &adminv2.ComponentServiceListResponse{
-				Components: []*adminv2.Component{
+				Components: []*apiv2.Component{
 					{
 						Uuid:       "5fda7ab5-7d26-41e5-83b3-51f349ab9877",
-						Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_IMAGE_CACHE_SYNC,
+						Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_IMAGE_CACHE_SYNC,
 						Identifier: "management-server-01",
 						Interval:   durationpb.New(time.Minute),
 						Version:    &apiv2.Version{Version: "v0.0.2"},
 					},
 					{
 						Uuid:       "4fda7ab5-7d26-41e5-83b3-51f349ab9877",
-						Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_METRICS_EXPORTER,
+						Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_METRICS_EXPORTER,
 						Identifier: "control-plane",
 						Interval:   durationpb.New(time.Minute),
 						Version:    &apiv2.Version{Version: "v0.0.1"},
@@ -532,17 +532,17 @@ func Test_componentServiceServer_Delete(t *testing.T) {
 		},
 		{
 			name: "simple, only one component",
-			pings: []*adminv2.Component{
+			pings: []*apiv2.Component{
 				{
 					Uuid:       "5fda7ab5-7d26-41e5-83b3-51f349ab9877",
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_IMAGE_CACHE_SYNC,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_IMAGE_CACHE_SYNC,
 					Identifier: "management-server-01",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.0.2"},
 				},
 				{
 					Uuid:       "4fda7ab5-7d26-41e5-83b3-51f349ab9877",
-					Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_METRICS_EXPORTER,
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_METRICS_EXPORTER,
 					Identifier: "control-plane",
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.0.1"},
@@ -550,10 +550,10 @@ func Test_componentServiceServer_Delete(t *testing.T) {
 			},
 			req: &adminv2.ComponentServiceDeleteRequest{Uuid: "5fda7ab5-7d26-41e5-83b3-51f349ab9877"},
 			want: &adminv2.ComponentServiceListResponse{
-				Components: []*adminv2.Component{
+				Components: []*apiv2.Component{
 					{
 						Uuid:       "4fda7ab5-7d26-41e5-83b3-51f349ab9877",
-						Type:       infrav2.ComponentType_COMPONENT_TYPE_METAL_METRICS_EXPORTER,
+						Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_METRICS_EXPORTER,
 						Identifier: "control-plane",
 						Interval:   durationpb.New(time.Minute),
 						Version:    &apiv2.Version{Version: "v0.0.1"},
@@ -569,7 +569,7 @@ func Test_componentServiceServer_Delete(t *testing.T) {
 				repo: testStore.Store,
 			}
 			for _, ping := range tt.pings {
-				_, err := testStore.Store.Component().Create(ctx, ping)
+				_, err := testStore.Store.Component().Create(ctx, &repository.ComponentServiceCreateRequest{Component: ping, Expiration: time.Minute})
 				require.NoError(t, err)
 			}
 			if tt.wantErr == nil {

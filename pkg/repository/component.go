@@ -6,20 +6,24 @@ import (
 	"sort"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/metal-stack/api/go/enum"
-	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 )
 
 const (
-	prefix            = "component"
-	defaultExpiration = time.Hour
+	componentPrefix = "component:"
 )
 
 type (
 	ComponentEntity struct {
-		*adminv2.Component
+		*apiv2.Component
+	}
+
+	ComponentServiceCreateRequest struct {
+		*apiv2.Component
+		Expiration time.Duration
 	}
 
 	ComponentServiceUpdateRequest struct {
@@ -37,19 +41,22 @@ func (*ComponentServiceUpdateRequest) GetUpdateMeta() *apiv2.UpdateMeta {
 func (e *ComponentEntity) SetChanged(time time.Time) {
 }
 
-func (c *componentRepository) key(rq *adminv2.Component) (string, error) {
+func id(typeString, identifier string) string {
+	return uuid.NewSHA1(uuid.NameSpaceOID, []byte(typeString+":"+identifier)).String()
+}
+
+func (c *componentRepository) key(rq *apiv2.Component) (string, error) {
 	typeAsString, err := enum.GetStringValue(rq.Type)
 	if err != nil {
 		return "", err
 	}
 
-	key := prefix + ":" + *typeAsString + ":" + rq.Identifier
+	key := componentPrefix + ":" + *typeAsString + ":" + id(*typeAsString, rq.Identifier)
 	return key, nil
 }
 
 func (c *componentRepository) get(ctx context.Context, id string) (*ComponentEntity, error) {
-
-	keys, err := c.s.component.Do(ctx, c.s.component.B().Keys().Pattern(prefix+"*").Build()).AsStrSlice()
+	keys, err := c.s.component.Do(ctx, c.s.component.B().Keys().Pattern(componentPrefix+"*").Build()).AsStrSlice()
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +68,7 @@ func (c *componentRepository) get(ctx context.Context, id string) (*ComponentEnt
 			return nil, err
 		}
 
-		var component adminv2.Component
+		var component apiv2.Component
 		err = json.Unmarshal(value, &component)
 		if err != nil {
 			return nil, err
@@ -78,35 +85,32 @@ func (c *componentRepository) get(ctx context.Context, id string) (*ComponentEnt
 	return result, nil
 }
 
-func (c *componentRepository) validateCreate(ctx context.Context, rq *adminv2.Component) error {
+func (c *componentRepository) validateCreate(ctx context.Context, rq *ComponentServiceCreateRequest) error {
 	return nil
 }
-func (c *componentRepository) create(ctx context.Context, rq *adminv2.Component) (*ComponentEntity, error) {
+
+func (c *componentRepository) create(ctx context.Context, rq *ComponentServiceCreateRequest) (*ComponentEntity, error) {
 	payload, err := json.Marshal(rq)
 	if err != nil {
 		return nil, err
 	}
 
-	key, err := c.key(rq)
+	key, err := c.key(rq.Component)
 	if err != nil {
 		return nil, err
 	}
 
-	ex := defaultExpiration
-	if rq.Interval != nil {
-		ex = rq.Interval.AsDuration()
-	}
-
-	err = c.s.component.Do(ctx, c.s.component.B().Set().Key(key).Value(string(payload)).Ex(ex).Build()).Error()
+	err = c.s.component.Do(ctx, c.s.component.B().Set().Key(key).Value(string(payload)).Ex(rq.Expiration).Build()).Error()
 	if err != nil {
 		return nil, err
 	}
-	return &ComponentEntity{Component: rq}, err
+	return &ComponentEntity{Component: rq.Component}, err
 }
 
 func (c *componentRepository) validateUpdate(ctx context.Context, rq *ComponentServiceUpdateRequest, old *ComponentEntity) error {
 	panic("unimplemented")
 }
+
 func (c *componentRepository) update(ctx context.Context, e *ComponentEntity, msg *ComponentServiceUpdateRequest) (*ComponentEntity, error) {
 	panic("unimplemented")
 }
@@ -114,6 +118,7 @@ func (c *componentRepository) update(ctx context.Context, e *ComponentEntity, ms
 func (c *componentRepository) validateDelete(ctx context.Context, e *ComponentEntity) error {
 	return nil
 }
+
 func (c *componentRepository) delete(ctx context.Context, e *ComponentEntity) error {
 	resp, err := c.get(ctx, e.Uuid)
 	if err != nil {
@@ -128,12 +133,13 @@ func (c *componentRepository) delete(ctx context.Context, e *ComponentEntity) er
 	return c.s.component.Do(ctx, c.s.component.B().Del().Key(key).Build()).Error()
 }
 
-func (c *componentRepository) find(ctx context.Context, query *adminv2.ComponentQuery) (*ComponentEntity, error) {
+func (c *componentRepository) find(ctx context.Context, query *apiv2.ComponentQuery) (*ComponentEntity, error) {
 	panic("unimplemented")
 }
-func (c *componentRepository) list(ctx context.Context, query *adminv2.ComponentQuery) ([]*ComponentEntity, error) {
+
+func (c *componentRepository) list(ctx context.Context, query *apiv2.ComponentQuery) ([]*ComponentEntity, error) {
 	// TODO valkey-json would be a perfect fit: https://github.com/valkey-io/valkey-json
-	keys, err := c.s.component.Do(ctx, c.s.component.B().Keys().Pattern(prefix+"*").Build()).AsStrSlice()
+	keys, err := c.s.component.Do(ctx, c.s.component.B().Keys().Pattern(componentPrefix+"*").Build()).AsStrSlice()
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +151,7 @@ func (c *componentRepository) list(ctx context.Context, query *adminv2.Component
 			return nil, err
 		}
 
-		var component adminv2.Component
+		var component apiv2.Component
 		err = json.Unmarshal(value, &component)
 		if err != nil {
 			return nil, err
@@ -174,10 +180,11 @@ func (c *componentRepository) list(ctx context.Context, query *adminv2.Component
 	return result, nil
 }
 
-func (c *componentRepository) convertToInternal(ctx context.Context, msg *adminv2.Component) (*ComponentEntity, error) {
+func (c *componentRepository) convertToInternal(ctx context.Context, msg *apiv2.Component) (*ComponentEntity, error) {
 	panic("unimplemented")
 }
-func (c *componentRepository) convertToProto(ctx context.Context, e *ComponentEntity) (*adminv2.Component, error) {
+
+func (c *componentRepository) convertToProto(ctx context.Context, e *ComponentEntity) (*apiv2.Component, error) {
 	return e.Component, nil
 }
 
