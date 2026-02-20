@@ -302,7 +302,7 @@ var (
 	componentExpirationFlag = &cli.DurationFlag{
 		Name:    "component-expiration",
 		Value:   24 * time.Hour,
-		Usage:   "defines after which inactive component entries are removed",
+		Usage:   "duration after which inactive component entries are removed",
 		EnvVars: []string{"COMPONENT_EXPIRATION"},
 	}
 )
