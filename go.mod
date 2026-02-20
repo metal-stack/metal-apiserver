@@ -3,7 +3,7 @@ module github.com/metal-stack/metal-apiserver
 go 1.26
 
 require (
-	buf.build/go/protovalidate v1.1.2
+	buf.build/go/protovalidate v1.1.3
 	connectrpc.com/connect v1.19.1
 	connectrpc.com/grpchealth v1.4.0
 	connectrpc.com/grpcreflect v1.3.0
@@ -26,7 +26,7 @@ require (
 	github.com/lestrrat-go/jwx/v3 v3.0.13
 	github.com/looplab/fsm v1.0.3
 	github.com/markbates/goth v1.82.0
-	github.com/metal-stack/api v0.0.49
+	github.com/metal-stack/api v0.0.50
 	github.com/metal-stack/go-ipam v1.14.14
 	github.com/metal-stack/masterdata-api v0.13.0
 	github.com/metal-stack/metal-lib v0.23.5

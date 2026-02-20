@@ -141,6 +141,7 @@ func newServeCmd() *cli.Command {
 					Ipam:             ipam,
 					Task:             task,
 					Queue:            queue,
+					Component:        redisConfig.ComponentClient,
 				}
 			)
 
@@ -176,6 +177,7 @@ func newServeCmd() *cli.Command {
 				BMCSuperuserPassword:                ctx.String(bmcSuperuserPasswordFlag.Name),
 				HeadscaleControlplaneAddress:        ctx.String(headscaleControlplaneAddressFlag.Name),
 				HeadscaleClient:                     hc,
+				ComponentExpiration:                 ctx.Duration(componentExpirationFlag.Name),
 			}
 
 			if providerTenant := ctx.String(ensureProviderTenantFlag.Name); providerTenant != "" {
@@ -261,6 +263,7 @@ const (
 	redisDatabaseRateLimiting RedisDatabase = "rate-limiter"
 	redisDatabaseInvites      RedisDatabase = "invite"
 	redisDatabaseAsync        RedisDatabase = "async"
+	redisDatabaseComponent    RedisDatabase = "component"
 )
 
 func createRedisClients(cli *cli.Context, logger *slog.Logger) (*service.RedisConfig, error) {
@@ -281,12 +284,17 @@ func createRedisClients(cli *cli.Context, logger *slog.Logger) (*service.RedisCo
 	if err != nil {
 		return nil, err
 	}
+	_, component, err := createRedisClient(cli, logger, redisDatabaseComponent)
+	if err != nil {
+		return nil, err
+	}
 	return &service.RedisConfig{
 		TokenClient:     token,
 		RateLimitClient: rate,
 		InviteClient:    invite,
 		AsyncClient:     async,
 		QueueClient:     queue,
+		ComponentClient: component,
 	}, nil
 }
 
@@ -301,18 +309,14 @@ func createRedisClient(cli *cli.Context, logger *slog.Logger, dbName RedisDataba
 		db = 2
 	case redisDatabaseAsync:
 		db = 3
+	case redisDatabaseComponent:
+		db = 4
 	default:
 		return nil, nil, fmt.Errorf("invalid db name: %s", dbName)
 	}
 
 	address := cli.String(redisAddrFlag.Name)
 	password := cli.String(redisPasswordFlag.Name)
-
-	// If we see performance Issues we can try this client
-	// client, err := rueidis.NewClient(rueidis.ClientOption{InitAddress: c.RedisAddresses})
-	// if err != nil {
-	// 	return nil, err
-	// }
 
 	if address == "" {
 		logger.Warn("no redis address given, start in-memory redis database")

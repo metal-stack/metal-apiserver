@@ -65,6 +65,14 @@ type testOptValkey struct {
 	with bool
 }
 
+type testOptRethink struct {
+	with bool
+}
+
+type testOptContainer struct {
+	with bool
+}
+
 // WithPostgres if set to true a postgres database container is started, defaults to false.
 func WithPostgres(with bool) *testOptPostgres {
 	return &testOptPostgres{
@@ -79,10 +87,26 @@ func WithValkey(with bool) *testOptValkey {
 	}
 }
 
+// WithRethink if set to true a rethink database container is started, defaults to false.
+func WithRethink(with bool) *testOptRethink {
+	return &testOptRethink{
+		with: with,
+	}
+}
+
+// WithContainers if set to false, no database containers are started, defaults to true.
+func WithContainers(with bool) *testOptContainer {
+	return &testOptContainer{
+		with: with,
+	}
+}
+
 func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...testOpt) (*testStore, func()) {
 	var (
-		withPostgres = false
-		withValkey   = false
+		withPostgres   = false
+		withValkey     = false
+		withRethink    = true
+		withContainers = true
 	)
 
 	for _, opt := range testOpts {
@@ -91,18 +115,38 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 			withPostgres = o.with
 		case *testOptValkey:
 			withValkey = o.with
+		case *testOptRethink:
+			withRethink = o.with
+		case *testOptContainer:
+			withContainers = o.with
 		default:
 			t.Errorf("unsupported test option: %T", o)
 		}
 	}
 
-	ds, opts, rethinkCloser := StartRethink(t, log)
+	if !withContainers {
+		withPostgres = false
+		withRethink = false
+		withValkey = false
+	}
 
 	var (
-		rc           *redis.Client
-		vc           valkey.Client
-		valkeyCloser func()
+		rc            *redis.Client
+		vc            valkey.Client
+		valkeyCloser  func()
+		ds            generic.Datastore
+		opts          r.ConnectOpts
+		rethinkCloser func()
+		session       *r.Session
 	)
+
+	if withRethink {
+		ds, opts, rethinkCloser = StartRethink(t, log)
+		var err error
+		session, err = r.Connect(opts)
+		require.NoError(t, err)
+	}
+
 	if withValkey {
 		rc, vc, valkeyCloser = StartValkey(t)
 	} else {
@@ -144,6 +188,7 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		Ipam:             ipam,
 		Task:             task,
 		Queue:            queue,
+		Component:        vc, // Use same valkey instance as queue for tests
 	}
 
 	repo, err := repository.New(config)
@@ -153,7 +198,9 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 
 	closer := func() {
 		_ = connection.Close()
-		rethinkCloser()
+		if withRethink {
+			rethinkCloser()
+		}
 		ipamCloser()
 		masterdataCloser()
 		asyncCloser()
@@ -162,9 +209,6 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 			valkeyCloser()
 		}
 	}
-
-	session, err := r.Connect(opts)
-	require.NoError(t, err)
 
 	return &testStore{
 		t:                  t,
