@@ -19,6 +19,7 @@ type (
 		Images            map[string]apiv2.ImageFeature
 		Sizes             []*apiv2.Size
 		SizeReservations  []*adminv2.SizeReservationServiceCreateRequest
+		FilesystemLayouts []*adminv2.FilesystemServiceCreateRequest
 		Networks          []*adminv2.NetworkServiceCreateRequest
 		IPs               []*apiv2.IPServiceCreateRequest
 		Switches          []*apiv2.Switch

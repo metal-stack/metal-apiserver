@@ -14,6 +14,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
+	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -495,6 +496,381 @@ func Test_machineServiceServer_Update(t *testing.T) {
 				),
 			); diff != "" {
 				t.Errorf("machineServiceServer.Update() = %v, want %v diff: %s", got, tt.want, diff)
+			}
+		})
+	}
+}
+
+func Test_machineServiceServer_ValidateCreate(t *testing.T) {
+	t.Parallel()
+
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	ctx := t.Context()
+
+	dc := test.NewDatacenter(t, log)
+	dc.Create(&sc.DefaultDatacenter)
+	defer dc.Close()
+
+	tests := []struct {
+		name    string
+		req     *apiv2.MachineServiceCreateRequest
+		before  func() *sc.DatacenterSpec
+		want    *apiv2.MachineServiceCreateResponse
+		wantErr error
+	}{
+		{
+			name:    "no project given",
+			req:     &apiv2.MachineServiceCreateRequest{},
+			want:    nil,
+			wantErr: errorutil.NotFound("get of project with id "),
+		},
+		{
+			name:    "project does not exist",
+			req:     &apiv2.MachineServiceCreateRequest{Project: "abc"},
+			want:    nil,
+			wantErr: errorutil.NotFound("get of project with id abc"),
+		},
+		{
+			name:    "partition does not exist",
+			req:     &apiv2.MachineServiceCreateRequest{Project: sc.Tenant1Project1, Partition: "non-existing-partition"},
+			want:    nil,
+			wantErr: errorutil.NotFound(`no partition with id "non-existing-partition" found`),
+		},
+		{
+			name:    "size does not exist",
+			req:     &apiv2.MachineServiceCreateRequest{Project: sc.Tenant1Project1, Partition: sc.Partition1, Size: "unknown-size"},
+			want:    nil,
+			wantErr: errorutil.NotFound(`no size with id "unknown-size" found`),
+		},
+		// UUID is specified
+		{
+			name: "uuid is specified, but partition is given",
+			req: &apiv2.MachineServiceCreateRequest{
+				Uuid:      new(sc.Machine1),
+				Project:   sc.Tenant1Project1,
+				Partition: sc.Partition1,
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument("when machine id is given, a partition must not be specified"),
+		},
+		{
+			name: "uuid is specified, but size is given",
+			req: &apiv2.MachineServiceCreateRequest{
+				Uuid:    new(sc.Machine1),
+				Project: sc.Tenant1Project1,
+				Size:    sc.SizeC1Large,
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument("when machine id is given, a size must not be specified"),
+		},
+		{
+			name: "uuid is specified, but machine is allocated",
+			req: &apiv2.MachineServiceCreateRequest{
+				Uuid:    new(sc.Machine1),
+				Project: sc.Tenant1Project1,
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument("machine 00000000-0000-0000-0000-000000000001 is already allocated"),
+		},
+		{
+			name: "uuid is specified, but machine is locked",
+			req: &apiv2.MachineServiceCreateRequest{
+				Uuid:    new(sc.Machine2),
+				Project: sc.Tenant1Project1,
+			},
+			before: func() *sc.DatacenterSpec {
+				testDC := sc.DefaultDatacenter
+				testDC.Machines = []*sc.MachineWithLiveliness{
+					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, "", metal.MachineLivelinessAlive),
+				}
+				testDC.Machines[0].Machine.State.Value = metal.LockedState
+				return &testDC
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument("machine 00000000-0000-0000-0000-000000000002 is LOCKED"),
+		},
+		{
+			name: "uuid is specified, but machine is reserved",
+			req: &apiv2.MachineServiceCreateRequest{
+				Uuid:    new(sc.Machine2),
+				Project: sc.Tenant1Project1,
+			},
+			before: func() *sc.DatacenterSpec {
+				testDC := sc.DefaultDatacenter
+				testDC.Machines = []*sc.MachineWithLiveliness{
+					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, "", metal.MachineLivelinessAlive),
+				}
+				testDC.Machines[0].Machine.State.Value = metal.ReservedState
+				return &testDC
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument("machine 00000000-0000-0000-0000-000000000002 is RESERVED"),
+		},
+		{
+			name: "uuid is specified, but machine is not waiting",
+			req: &apiv2.MachineServiceCreateRequest{
+				Uuid:    new(sc.Machine2),
+				Project: sc.Tenant1Project1,
+			},
+			before: func() *sc.DatacenterSpec {
+				testDC := sc.DefaultDatacenter
+				testDC.Machines = []*sc.MachineWithLiveliness{
+					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, "", metal.MachineLivelinessAlive),
+				}
+				testDC.Machines[0].Machine.Waiting = false
+				return &testDC
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument("machine 00000000-0000-0000-0000-000000000002 is not waiting"),
+		},
+		// UUID is not specified
+		{
+			name: "partition is not present",
+			req: &apiv2.MachineServiceCreateRequest{
+				Project:   sc.Tenant1Project1,
+				Partition: sc.Partition2,
+			},
+			want:    nil,
+			wantErr: errorutil.NotFound(`no partition with id "partition-2" found`),
+		},
+		{
+			name: "size is not present",
+			req: &apiv2.MachineServiceCreateRequest{
+				Project:   sc.Tenant1Project1,
+				Partition: sc.Partition1,
+				Size:      "unknown-size",
+			},
+			want:    nil,
+			wantErr: errorutil.NotFound(`no size with id "unknown-size" found`),
+		},
+		{
+			name: "image is not present",
+			req: &apiv2.MachineServiceCreateRequest{
+				Project:   sc.Tenant1Project1,
+				Partition: sc.Partition1,
+				Size:      sc.SizeC1Large,
+				Image:     "unknown-11",
+			},
+			want:    nil,
+			wantErr: errorutil.NotFound(`no image for os:unknown version:11.0.0 found`),
+		},
+		{
+			name: "fsl is given but does not exists",
+			req: &apiv2.MachineServiceCreateRequest{
+				Project:          sc.Tenant1Project1,
+				Partition:        sc.Partition1,
+				Size:             sc.SizeC1Large,
+				FilesystemLayout: new("debian-fsl"),
+				Image:            "debian-13",
+			},
+			want:    nil,
+			wantErr: errorutil.NotFound(`no filesystemlayout with id "debian-fsl" found`),
+		},
+		{
+			name: "uuid and fsl is given but does not match hardware",
+			req: &apiv2.MachineServiceCreateRequest{
+				Uuid:             new(sc.Machine1),
+				Project:          sc.Tenant1Project1,
+				FilesystemLayout: new("debian-13"),
+				Image:            "debian-13",
+			},
+			before: func() *sc.DatacenterSpec {
+				testDC := sc.DefaultDatacenter
+				testDC.Machines = []*sc.MachineWithLiveliness{
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeN1Medium, "", metal.MachineLivelinessAlive),
+				}
+				testDC.Machines[0].Machine.Waiting = true
+				testDC.Machines[0].Machine.Hardware = metal.MachineHardware{
+					Disks: []metal.BlockDevice{
+						{Name: "/dev/sdb"},
+					},
+				}
+				testDC.FilesystemLayouts = []*adminv2.FilesystemServiceCreateRequest{
+					{
+						FilesystemLayout: &apiv2.FilesystemLayout{
+							Id: "debian-13",
+							Constraints: &apiv2.FilesystemLayoutConstraints{
+								Sizes: []string{sc.SizeN1Medium},
+								Images: map[string]string{
+									"debian": ">= 12.0",
+								},
+							},
+							Disks: []*apiv2.Disk{
+								{
+									Device: "/dev/sda",
+								},
+							},
+						},
+					},
+				}
+
+				return &testDC
+			},
+			want:    nil,
+			wantErr: errorutil.Internal(`device:/dev/sda does not exist on given hardware`), // TODO InvalidArgument
+		},
+		{
+			name: "no fsl is given and no matching one found",
+			req: &apiv2.MachineServiceCreateRequest{
+				Project:   sc.Tenant1Project1,
+				Partition: sc.Partition1,
+				Size:      sc.SizeC1Large,
+				Image:     "debian-11",
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument(`could not find a matching filesystemLayout for size:c1-large-x86 and image:debian-11.0.20241220`),
+		},
+		{
+			name: "no fsl is given but present, but no match for image and size",
+			req: &apiv2.MachineServiceCreateRequest{
+				Project:   sc.Tenant1Project1,
+				Partition: sc.Partition1,
+				Size:      sc.SizeC1Large,
+				Image:     "debian-11",
+			},
+			before: func() *sc.DatacenterSpec {
+				return &sc.DefaultDatacenter
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument(`could not find a matching filesystemLayout for size:c1-large-x86 and image:debian-11.0.20241220`),
+		},
+		// Wrong Allocation Types
+		{
+			name: "allocation type wrong",
+			req: &apiv2.MachineServiceCreateRequest{
+				Project:        sc.Tenant1Project1,
+				Partition:      sc.Partition1,
+				Size:           sc.SizeC1Large,
+				Image:          "debian-13",
+				AllocationType: 0,
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument(`given allocationtype MACHINE_ALLOCATION_TYPE_UNSPECIFIED is not supported`),
+		},
+		{
+			name: "machine with firewall rules",
+			req: &apiv2.MachineServiceCreateRequest{
+				Project:        sc.Tenant1Project1,
+				Partition:      sc.Partition1,
+				Size:           sc.SizeC1Large,
+				Image:          "debian-13",
+				AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+				FirewallSpec:   &apiv2.FirewallSpec{},
+			},
+			before: func() *sc.DatacenterSpec {
+				return &sc.DefaultDatacenter
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument(`firewall rules can only be specified on firewalls`),
+		},
+		// Networks
+		{
+			name: "machine with no networks",
+			req: &apiv2.MachineServiceCreateRequest{
+				Project:        sc.Tenant1Project1,
+				Partition:      sc.Partition1,
+				Size:           sc.SizeC1Large,
+				Image:          "debian-13",
+				AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+			},
+			before: func() *sc.DatacenterSpec {
+				return &sc.DefaultDatacenter
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument(`networks must not be empty`),
+		},
+		{
+			name: "machine with unknown networks",
+			req: &apiv2.MachineServiceCreateRequest{
+				Project:        sc.Tenant1Project1,
+				Partition:      sc.Partition1,
+				Size:           sc.SizeC1Large,
+				Image:          "debian-13",
+				AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+				Networks: []*apiv2.MachineAllocationNetwork{
+					{Network: "no-internet"},
+				},
+			},
+			before: func() *sc.DatacenterSpec {
+				return &sc.DefaultDatacenter
+			},
+			want:    nil,
+			wantErr: errorutil.NotFound(`no network with id "no-internet" found`),
+		},
+		// {
+		// 	name: "machine with private networks",
+		// 	req: &apiv2.MachineServiceCreateRequest{
+		// 		Project:        sc.Tenant1Project1,
+		// 		Partition:      sc.Partition1,
+		// 		Size:           sc.SizeC1Large,
+		// 		Image:          "debian-13",
+		// 		AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+		// 		Networks: []*apiv2.MachineAllocationNetwork{
+		// 			{Network: sc.NetworkInternet},
+		// 		},
+		// 	},
+		// 	before: func() *sc.DatacenterSpec {
+		// 		dc.CleanUp()
+		// 		testDC := sc.DefaultDatacenter
+		// 		testDC.FilesystemLayouts = []*adminv2.FilesystemServiceCreateRequest{
+		// 			{
+		// 				FilesystemLayout: &apiv2.FilesystemLayout{
+		// 					Id: "debian",
+		// 					Constraints: &apiv2.FilesystemLayoutConstraints{
+		// 						Sizes: []string{sc.SizeC1Large},
+		// 						Images: map[string]string{
+		// 							"debian": ">= 12.0",
+		// 						},
+		// 					},
+		// 				},
+		// 			},
+		// 		}
+		// 		dc.Create(&testDC)
+
+		// 		n, err := dc.TestStore.Store.Network(sc.Tenant1Project1).Create(ctx, &adminv2.NetworkServiceCreateRequest{
+		// 			Name:      new("project network"),
+		// 			Project:   new(sc.Tenant1Project1),
+		// 			Partition: new(sc.Partition1),
+		// 			Type:      apiv2.NetworkType_NETWORK_TYPE_CHILD,
+		// 		})
+		// 		require.NoError(t, err)
+		// 		req.Networks = append(req.Networks, &apiv2.MachineAllocationNetwork{
+		// 			Network: n.Id,
+		// 		})
+
+		// 		return nil
+		// 	},
+		// 	want:    nil,
+		// 	wantErr: errorutil.NotFound(`no network with id "no-internet" found`),
+		// },
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.before != nil {
+				dc.CleanUp()
+				dc.Create(tt.before())
+			}
+
+			m := &machineServiceServer{
+				log:  log,
+				repo: dc.TestStore.Store,
+			}
+			if tt.wantErr == nil {
+				test.Validate(t, tt.req)
+			}
+			got, err := m.Create(ctx, tt.req)
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("diff = %s", diff)
+			}
+
+			if diff := cmp.Diff(
+				tt.want, got,
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
+			); diff != "" {
+				t.Errorf("machineServiceServer.Create() = %v, want %v diff: %s", got, tt.want, diff)
 			}
 		})
 	}

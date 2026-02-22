@@ -16,38 +16,43 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 	}
 
 	var (
-		partition *apiv2.Partition
-		size      *apiv2.Size
-		machine   *apiv2.Machine
+		partitionId string
+		size        *apiv2.Size
+		machine     *metal.Machine
 	)
 
 	if req.Uuid != nil {
 		if req.Partition != "" {
-			return errorutil.InvalidArgument("when no machine id is given, a partition must be specified")
+			return errorutil.InvalidArgument("when machine id is given, a partition must not be specified")
 		}
 		if req.Size != "" {
-			return errorutil.InvalidArgument("when no machine id is given, a size must be specified")
+			return errorutil.InvalidArgument("when machine id is given, a size must not be specified")
 		}
-		m, err := r.s.UnscopedMachine().Get(ctx, *req.Uuid)
+		m, err := r.s.ds.Machine().Get(ctx, *req.Uuid)
 		if err != nil {
 			return err
 		}
 		if m.Allocation != nil {
-			return errorutil.InvalidArgument("machine %s is already allocated", req.Uuid)
+			return errorutil.InvalidArgument("machine %s is already allocated", *req.Uuid)
+		}
+		switch m.State.Value {
+		case metal.LockedState, metal.ReservedState:
+			return errorutil.InvalidArgument("machine %s is %s", *req.Uuid, m.State.Value)
+		case metal.AvailableState:
+			// Noop
+		}
+		if !m.Waiting {
+			return errorutil.InvalidArgument("machine %s is not waiting", *req.Uuid)
 		}
 
-		// TODO check if machine is waiting
-		// TODO check if machine is locked or reserved
-
 		machine = m
-
-		partition = m.Partition
+		partitionId = m.PartitionID
 	} else {
 		p, err := r.s.Partition().Get(ctx, req.Partition)
 		if err != nil {
 			return err
 		}
-		partition = p
+		partitionId = p.Id
 		s, err := r.s.Size().Get(ctx, req.Size)
 		if err != nil {
 			return err
@@ -55,19 +60,37 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 		size = s
 	}
 
-	image, err := r.s.Image().Get(ctx, req.Image)
+	images, err := r.s.Image().List(ctx, &apiv2.ImageQuery{})
+	if err != nil {
+		return err
+	}
+	image, err := r.s.Image().AdditionalMethods().GetMostRecentImageFor(ctx, req.Image, images)
 	if err != nil {
 		return err
 	}
 
 	if req.FilesystemLayout != nil {
-		fsl, err := r.s.FilesystemLayout().Get(ctx, *req.FilesystemLayout)
+		fsl, err := r.s.ds.FilesystemLayout().Get(ctx, *req.FilesystemLayout)
 		if err != nil {
 			return err
 		}
-		// Check if given fsl matches size and image
-	} else {
-		// fetch all fsl and search for a match
+		if machine != nil {
+			// TODO this check must be done once a machine was selected
+			if err := fsl.Matches(machine.Hardware); err != nil {
+				return err
+			}
+		}
+	}
+	if req.FilesystemLayout == nil {
+		var fsls metal.FilesystemLayouts
+		fsls, err := r.s.ds.FilesystemLayout().List(ctx, nil)
+		if err != nil {
+			return err
+		}
+		_, err = fsls.From(size.Id, image.Id)
+		if err != nil {
+			return err
+		}
 	}
 
 	switch req.AllocationType {
@@ -80,7 +103,7 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 			return errorutil.InvalidArgument("given image %s is not allowed for machines", image.Id)
 		}
 		if req.FirewallSpec != nil {
-			return errorutil.InvalidArgument("firewall rules can only be specified on firewalls", image.Id)
+			return errorutil.InvalidArgument("firewall rules can only be specified on firewalls")
 		}
 	default:
 		return errorutil.InvalidArgument("given allocationtype %s is not supported", req.AllocationType)
@@ -92,6 +115,7 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 
 	var networks []string
 	for _, nw := range req.Networks {
+		// TODO external network is required
 		n, err := r.s.UnscopedNetwork().Get(ctx, nw.Network)
 		if err != nil {
 			return err
@@ -100,7 +124,7 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 			return errorutil.InvalidArgument("given network %s is project scoped but not part of project %s", nw.Network, req.Project)
 		}
 
-		if n.Partition != nil && partition != nil && *n.Partition != partition.Id {
+		if n.Partition != nil && *n.Partition != partitionId {
 			return errorutil.InvalidArgument("network %q must be located in the partition where the machine is going to be placed", n.Id)
 		}
 
