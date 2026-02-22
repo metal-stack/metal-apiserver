@@ -13,7 +13,6 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/samber/lo"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -38,29 +37,29 @@ func Test_ipServiceServer_Get(t *testing.T) {
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
 	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{{Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
 	createdNetworks := test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
-		{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.3.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: pointer.Pointer(uint32(11))},
+		{Id: new("internet"), Prefixes: []string{"1.2.3.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: new(uint32(11))},
 		{
-			Id:                       pointer.Pointer("tenant-super-namespaced"),
+			Id:                       new("tenant-super-namespaced"),
 			Prefixes:                 []string{"12.100.0.0/16"},
 			DestinationPrefixes:      []string{"1.2.3.0/24"},
-			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: new(uint32(22))},
 			Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED,
 		},
 	})
 
 	allocatedNetworks := test.AllocateNetworks(t, testStore, []*apiv2.NetworkServiceCreateRequest{
 		{
-			Name:          pointer.Pointer("private-1"),
+			Name:          new("private-1"),
 			Project:       p1,
-			ParentNetwork: pointer.Pointer("tenant-super-namespaced"),
+			ParentNetwork: new("tenant-super-namespaced"),
 		},
 	})
 
 	networks := lo.Assign(createdNetworks, allocatedNetworks)
 
 	test.CreateIPs(t, testStore, []*apiv2.IPServiceCreateRequest{
-		{Ip: pointer.Pointer("1.2.3.4"), Project: p1, Network: "internet"},
-		{Ip: pointer.Pointer("12.100.0.4"), Project: p1, Network: networks["private-1"].Id},
+		{Ip: new("1.2.3.4"), Project: p1, Network: "internet"},
+		{Ip: new("12.100.0.4"), Project: p1, Network: networks["private-1"].Id},
 	})
 
 	tests := []struct {
@@ -88,8 +87,8 @@ func Test_ipServiceServer_Get(t *testing.T) {
 		},
 		{
 			name:    "get namespaced existing",
-			rq:      &apiv2.IPServiceGetRequest{Ip: "12.100.0.4", Project: p1, Namespace: pointer.Pointer(p1)},
-			want:    &apiv2.IPServiceGetResponse{Ip: &apiv2.IP{Ip: "12.100.0.4", Project: p1, Namespace: pointer.Pointer(p1), Network: networks["private-1"].Id, Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{Generation: 0}}},
+			rq:      &apiv2.IPServiceGetRequest{Ip: "12.100.0.4", Project: p1, Namespace: new(p1)},
+			want:    &apiv2.IPServiceGetResponse{Ip: &apiv2.IP{Ip: "12.100.0.4", Project: p1, Namespace: new(p1), Network: networks["private-1"].Id, Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{Generation: 0}}},
 			wantErr: nil,
 		},
 	}
@@ -149,24 +148,24 @@ func Test_ipServiceServer_List(t *testing.T) {
 	})
 
 	nws := []*adminv2.NetworkServiceCreateRequest{
-		{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.3.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: pointer.Pointer(uint32(11))},
-		{Id: pointer.Pointer("internetv6"), Prefixes: []string{"2001:db8::/96"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: pointer.Pointer(uint32(12))},
-		{Id: pointer.Pointer("n3"), Prefixes: []string{"2.3.4.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: pointer.Pointer(uint32(13))},
+		{Id: new("internet"), Prefixes: []string{"1.2.3.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: new(uint32(11))},
+		{Id: new("internetv6"), Prefixes: []string{"2001:db8::/96"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: new(uint32(12))},
+		{Id: new("n3"), Prefixes: []string{"2.3.4.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: new(uint32(13))},
 		{
-			Id:                       pointer.Pointer("tenant-super-network"),
+			Id:                       new("tenant-super-network"),
 			Prefixes:                 []string{"10.100.0.0/14"},
-			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: new(uint32(22))},
 			Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
-			Partition:                pointer.Pointer("partition-one"),
+			Partition:                new("partition-one"),
 		},
 	}
 
 	ips := []*apiv2.IPServiceCreateRequest{
-		{Name: pointer.Pointer("ip1"), Ip: pointer.Pointer("1.2.3.4"), Project: p1, Network: "internet"},
-		{Name: pointer.Pointer("ip2"), Ip: pointer.Pointer("1.2.3.5"), Project: p1, Network: "internet"},
-		{Name: pointer.Pointer("ip3"), Ip: pointer.Pointer("1.2.3.6"), Project: p1, Network: "internet"},
-		{Name: pointer.Pointer("ip4"), Ip: pointer.Pointer("2001:db8::1"), Project: p2, Network: "internetv6"},
-		{Name: pointer.Pointer("ip5"), Ip: pointer.Pointer("2.3.4.5"), Project: p2, Network: "n3"},
+		{Name: new("ip1"), Ip: new("1.2.3.4"), Project: p1, Network: "internet"},
+		{Name: new("ip2"), Ip: new("1.2.3.5"), Project: p1, Network: "internet"},
+		{Name: new("ip3"), Ip: new("1.2.3.6"), Project: p1, Network: "internet"},
+		{Name: new("ip4"), Ip: new("2001:db8::1"), Project: p2, Network: "internetv6"},
+		{Name: new("ip5"), Ip: new("2.3.4.5"), Project: p2, Network: "n3"},
 	}
 
 	test.CreateNetworks(t, testStore, nws)
@@ -180,7 +179,7 @@ func Test_ipServiceServer_List(t *testing.T) {
 	}{
 		{
 			name: "get by ip",
-			rq:   &apiv2.IPServiceListRequest{Project: p1, Query: &apiv2.IPQuery{Ip: pointer.Pointer("1.2.3.4"), Project: pointer.Pointer(p1)}},
+			rq:   &apiv2.IPServiceListRequest{Project: p1, Query: &apiv2.IPQuery{Ip: new("1.2.3.4"), Project: new(p1)}},
 			want: &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{{Name: "ip1", Ip: "1.2.3.4", Project: p1, Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}}}},
 		},
 		{
@@ -194,7 +193,7 @@ func Test_ipServiceServer_List(t *testing.T) {
 		},
 		{
 			name: "get by project",
-			rq:   &apiv2.IPServiceListRequest{Project: p1, Query: &apiv2.IPQuery{Project: pointer.Pointer(p1)}},
+			rq:   &apiv2.IPServiceListRequest{Project: p1, Query: &apiv2.IPQuery{Project: new(p1)}},
 			want: &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{
 				{Name: "ip1", Ip: "1.2.3.4", Project: p1, Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
 				{Name: "ip2", Ip: "1.2.3.5", Project: p1, Network: "internet", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
@@ -202,12 +201,12 @@ func Test_ipServiceServer_List(t *testing.T) {
 		},
 		{
 			name: "get by addressfamily",
-			rq:   &apiv2.IPServiceListRequest{Project: p2, Query: &apiv2.IPQuery{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(), Project: pointer.Pointer(p2)}},
+			rq:   &apiv2.IPServiceListRequest{Project: p2, Query: &apiv2.IPQuery{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(), Project: new(p2)}},
 			want: &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{{Name: "ip4", Ip: "2001:db8::1", Project: p2, Network: "internetv6", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}}}},
 		},
 		{
 			name: "get by parent prefix cidr",
-			rq:   &apiv2.IPServiceListRequest{Project: p2, Query: &apiv2.IPQuery{ParentPrefixCidr: pointer.Pointer("2.3.4.0/24"), Project: pointer.Pointer(p2)}},
+			rq:   &apiv2.IPServiceListRequest{Project: p2, Query: &apiv2.IPQuery{ParentPrefixCidr: new("2.3.4.0/24"), Project: new(p2)}},
 			want: &apiv2.IPServiceListResponse{Ips: []*apiv2.IP{{Name: "ip5", Ip: "2.3.4.5", Project: p2, Network: "n3", Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}}}},
 		},
 	}
@@ -267,26 +266,26 @@ func Test_ipServiceServer_Update(t *testing.T) {
 	})
 
 	nws := []*adminv2.NetworkServiceCreateRequest{
-		{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.3.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: pointer.Pointer(uint32(11))},
-		{Id: pointer.Pointer("internetv6"), Prefixes: []string{"2001:db8::/96"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: pointer.Pointer(uint32(12))},
-		{Id: pointer.Pointer("n3"), Prefixes: []string{"2.3.4.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: pointer.Pointer(uint32(13))},
+		{Id: new("internet"), Prefixes: []string{"1.2.3.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: new(uint32(11))},
+		{Id: new("internetv6"), Prefixes: []string{"2001:db8::/96"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: new(uint32(12))},
+		{Id: new("n3"), Prefixes: []string{"2.3.4.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: new(uint32(13))},
 		{
-			Id:                       pointer.Pointer("tenant-super-network"),
+			Id:                       new("tenant-super-network"),
 			Prefixes:                 []string{"10.100.0.0/14"},
-			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: new(uint32(22))},
 			Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
-			Partition:                pointer.Pointer("partition-one"),
+			Partition:                new("partition-one"),
 		},
 	}
 
 	ips := []*apiv2.IPServiceCreateRequest{
-		{Name: pointer.Pointer("ip1"), Ip: pointer.Pointer("1.2.3.4"), Project: p1, Network: "internet"},
-		{Name: pointer.Pointer("ip2"), Ip: pointer.Pointer("1.2.3.5"), Project: p1, Network: "internet"},
-		{Name: pointer.Pointer("ip3"), Ip: pointer.Pointer("1.2.3.6"), Project: p1, Network: "internet"},
-		{Name: pointer.Pointer("ip4"), Ip: pointer.Pointer("2001:db8::1"), Project: p2, Network: "internetv6", Labels: &apiv2.Labels{Labels: map[string]string{"color": "red"}}},
-		{Name: pointer.Pointer("ip5"), Ip: pointer.Pointer("2.3.4.5"), Project: p2, Network: "n3"},
-		{Name: pointer.Pointer("ip6"), Ip: pointer.Pointer("2.3.4.6"), Project: p2, Network: "n3", Type: apiv2.IPType_IP_TYPE_STATIC.Enum()},
-		{Name: pointer.Pointer("ip7"), Ip: pointer.Pointer("2001:db8::2"), Project: p2, Network: "internetv6", Labels: &apiv2.Labels{Labels: map[string]string{"color": "red"}}},
+		{Name: new("ip1"), Ip: new("1.2.3.4"), Project: p1, Network: "internet"},
+		{Name: new("ip2"), Ip: new("1.2.3.5"), Project: p1, Network: "internet"},
+		{Name: new("ip3"), Ip: new("1.2.3.6"), Project: p1, Network: "internet"},
+		{Name: new("ip4"), Ip: new("2001:db8::1"), Project: p2, Network: "internetv6", Labels: &apiv2.Labels{Labels: map[string]string{"color": "red"}}},
+		{Name: new("ip5"), Ip: new("2.3.4.5"), Project: p2, Network: "n3"},
+		{Name: new("ip6"), Ip: new("2.3.4.6"), Project: p2, Network: "n3", Type: apiv2.IPType_IP_TYPE_STATIC.Enum()},
+		{Name: new("ip7"), Ip: new("2001:db8::2"), Project: p2, Network: "internetv6", Labels: &apiv2.Labels{Labels: map[string]string{"color": "red"}}},
 	}
 
 	test.CreateNetworks(t, testStore, nws)
@@ -306,7 +305,7 @@ func Test_ipServiceServer_Update(t *testing.T) {
 					UpdatedAt: ipmap["1.2.3.4"].Meta.UpdatedAt,
 				},
 				Project: p1,
-				Name:    pointer.Pointer("ip1-changed"),
+				Name:    new("ip1-changed"),
 			},
 			want: &apiv2.IPServiceUpdateResponse{
 				Ip: &apiv2.IP{
@@ -326,7 +325,7 @@ func Test_ipServiceServer_Update(t *testing.T) {
 					UpdatedAt: ipmap["1.2.3.5"].Meta.UpdatedAt,
 				},
 				Project:     p1,
-				Description: pointer.Pointer("test was here"),
+				Description: new("test was here"),
 			},
 			want: &apiv2.IPServiceUpdateResponse{Ip: &apiv2.IP{
 				Name:        "ip2",
@@ -462,24 +461,24 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 	})
 
 	nws := []*adminv2.NetworkServiceCreateRequest{
-		{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.3.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: pointer.Pointer(uint32(11))},
-		{Id: pointer.Pointer("internetv6"), Prefixes: []string{"2001:db8::/96"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: pointer.Pointer(uint32(12))},
-		{Id: pointer.Pointer("n3"), Prefixes: []string{"2.3.4.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: pointer.Pointer(uint32(13))},
+		{Id: new("internet"), Prefixes: []string{"1.2.3.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: new(uint32(11))},
+		{Id: new("internetv6"), Prefixes: []string{"2001:db8::/96"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: new(uint32(12))},
+		{Id: new("n3"), Prefixes: []string{"2.3.4.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: new(uint32(13))},
 		{
-			Id:                       pointer.Pointer("tenant-super-network"),
+			Id:                       new("tenant-super-network"),
 			Prefixes:                 []string{"10.100.0.0/14"},
-			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))},
+			DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: new(uint32(22))},
 			Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
-			Partition:                pointer.Pointer("partition-one"),
+			Partition:                new("partition-one"),
 		},
 	}
 
 	ips := []*apiv2.IPServiceCreateRequest{
-		{Name: pointer.Pointer("ip1"), Ip: pointer.Pointer("1.2.3.4"), Project: p1, Network: "internet"},
-		{Name: pointer.Pointer("ip2"), Ip: pointer.Pointer("1.2.3.5"), Project: p1, Network: "internet"},
-		{Name: pointer.Pointer("ip3"), Ip: pointer.Pointer("1.2.3.6"), Project: p1, Network: "internet", Machine: pointer.Pointer("abc")},
-		{Name: pointer.Pointer("ip4"), Ip: pointer.Pointer("2001:db8::1"), Project: p2, Network: "internetv6", Labels: &apiv2.Labels{Labels: map[string]string{"color": "red"}}},
-		{Name: pointer.Pointer("ip5"), Ip: pointer.Pointer("2.3.4.5"), Project: p2, Network: "n3"},
+		{Name: new("ip1"), Ip: new("1.2.3.4"), Project: p1, Network: "internet"},
+		{Name: new("ip2"), Ip: new("1.2.3.5"), Project: p1, Network: "internet"},
+		{Name: new("ip3"), Ip: new("1.2.3.6"), Project: p1, Network: "internet", Machine: new("abc")},
+		{Name: new("ip4"), Ip: new("2001:db8::1"), Project: p2, Network: "internetv6", Labels: &apiv2.Labels{Labels: map[string]string{"color": "red"}}},
+		{Name: new("ip5"), Ip: new("2.3.4.5"), Project: p2, Network: "n3"},
 	}
 
 	test.CreateNetworks(t, testStore, nws)
@@ -566,51 +565,51 @@ func Test_ipServiceServer_Create(t *testing.T) {
 	})
 
 	nws := []*adminv2.NetworkServiceCreateRequest{
-		{Id: pointer.Pointer("internet"), Prefixes: []string{"1.2.3.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: pointer.Pointer(uint32(11))},
-		{Id: pointer.Pointer("internetv6"), Prefixes: []string{"2001:db8::/96"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: pointer.Pointer(uint32(12))},
+		{Id: new("internet"), Prefixes: []string{"1.2.3.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: new(uint32(11))},
+		{Id: new("internetv6"), Prefixes: []string{"2001:db8::/96"}, Type: apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, Vrf: new(uint32(12))},
 		{
-			Id:        pointer.Pointer("external-with-project"),
-			Project:   pointer.Pointer(p1),
+			Id:        new("external-with-project"),
+			Project:   new(p1),
 			Prefixes:  []string{"192.168.3.0/24"},
 			Type:      apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
-			Vrf:       pointer.Pointer(uint32(45)),
-			Partition: pointer.Pointer("partition-three"),
+			Vrf:       new(uint32(45)),
+			Partition: new("partition-three"),
 		},
-		{Id: pointer.Pointer("tenant-network"), Partition: pointer.Pointer("partition-one"), Prefixes: []string{"10.2.0.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_SUPER, DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(28))}},
-		{Id: pointer.Pointer("tenant-network-v6"), Partition: pointer.Pointer("partition-two"), Prefixes: []string{"2001:db8:1::/64"}, Type: apiv2.NetworkType_NETWORK_TYPE_SUPER, DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv6: pointer.Pointer(uint32(80))}},
-		{Id: pointer.Pointer("tenant-network-dualstack"), Partition: pointer.Pointer("partition-three"), Prefixes: []string{"10.3.0.0/24", "2001:db8:2::/64"}, Type: apiv2.NetworkType_NETWORK_TYPE_SUPER, DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(28)), Ipv6: pointer.Pointer(uint32(80))}},
-		{Id: pointer.Pointer("tenant-super-network-namespaced"), Prefixes: []string{"10.100.0.0/14"}, DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: pointer.Pointer(uint32(22))}, Type: apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED},
+		{Id: new("tenant-network"), Partition: new("partition-one"), Prefixes: []string{"10.2.0.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_SUPER, DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: new(uint32(28))}},
+		{Id: new("tenant-network-v6"), Partition: new("partition-two"), Prefixes: []string{"2001:db8:1::/64"}, Type: apiv2.NetworkType_NETWORK_TYPE_SUPER, DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv6: new(uint32(80))}},
+		{Id: new("tenant-network-dualstack"), Partition: new("partition-three"), Prefixes: []string{"10.3.0.0/24", "2001:db8:2::/64"}, Type: apiv2.NetworkType_NETWORK_TYPE_SUPER, DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: new(uint32(28)), Ipv6: new(uint32(80))}},
+		{Id: new("tenant-super-network-namespaced"), Prefixes: []string{"10.100.0.0/14"}, DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: new(uint32(22))}, Type: apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED},
 	}
 	ips := []*apiv2.IPServiceCreateRequest{
-		{Name: pointer.Pointer("ip1"), Ip: pointer.Pointer("1.2.3.4"), Project: p1, Network: "internet"},
-		{Name: pointer.Pointer("ip2"), Ip: pointer.Pointer("1.2.3.5"), Project: p1, Network: "internet"},
-		{Name: pointer.Pointer("ip3"), Ip: pointer.Pointer("1.2.3.6"), Project: p1, Network: "internet"},
+		{Name: new("ip1"), Ip: new("1.2.3.4"), Project: p1, Network: "internet"},
+		{Name: new("ip2"), Ip: new("1.2.3.5"), Project: p1, Network: "internet"},
+		{Name: new("ip3"), Ip: new("1.2.3.6"), Project: p1, Network: "internet"},
 	}
 	childNetworks := []*apiv2.NetworkServiceCreateRequest{
 		{
-			Name:          pointer.Pointer("private-v4"),
+			Name:          new("private-v4"),
 			Project:       p1,
-			ParentNetwork: pointer.Pointer("tenant-network"),
+			ParentNetwork: new("tenant-network"),
 		},
 		{
-			Name:          pointer.Pointer("private-v6"),
+			Name:          new("private-v6"),
 			Project:       p1,
-			ParentNetwork: pointer.Pointer("tenant-network-v6"),
+			ParentNetwork: new("tenant-network-v6"),
 		},
 		{
-			Name:          pointer.Pointer("private-dualstack"),
+			Name:          new("private-dualstack"),
 			Project:       p1,
-			ParentNetwork: pointer.Pointer("tenant-network-dualstack"),
+			ParentNetwork: new("tenant-network-dualstack"),
 		},
 		{
-			Name:          pointer.Pointer("private-namespaced-1"),
+			Name:          new("private-namespaced-1"),
 			Project:       p1,
-			ParentNetwork: pointer.Pointer("tenant-super-network-namespaced"),
+			ParentNetwork: new("tenant-super-network-namespaced"),
 		},
 		{
-			Name:          pointer.Pointer("private-namespaced-2"),
+			Name:          new("private-namespaced-2"),
 			Project:       p2,
-			ParentNetwork: pointer.Pointer("tenant-super-network-namespaced"),
+			ParentNetwork: new("tenant-super-network-namespaced"),
 		},
 	}
 
@@ -649,7 +648,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			rq: &apiv2.IPServiceCreateRequest{
 				Network: networks["private-v6"].Id,
 				Project: p1,
-				Ip:      pointer.Pointer("2001:db8:1::99"),
+				Ip:      new("2001:db8:1::99"),
 			},
 			want: &apiv2.IPServiceCreateResponse{
 				Ip: &apiv2.IP{Ip: "2001:db8:1::99", Network: networks["private-v6"].Id, Project: p1, Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
@@ -681,7 +680,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			rq: &apiv2.IPServiceCreateRequest{
 				Network: "internet",
 				Project: p1,
-				Ip:      pointer.Pointer("1.2.3.99"),
+				Ip:      new("1.2.3.99"),
 			},
 			want: &apiv2.IPServiceCreateResponse{
 				Ip: &apiv2.IP{Ip: "1.2.3.99", Network: "internet", Project: p1, Type: apiv2.IPType_IP_TYPE_EPHEMERAL, Meta: &apiv2.Meta{}},
@@ -692,7 +691,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			rq: &apiv2.IPServiceCreateRequest{
 				Network: "internet",
 				Project: p1,
-				Ip:      pointer.Pointer("1.2.3.100"),
+				Ip:      new("1.2.3.100"),
 				Type:    apiv2.IPType_IP_TYPE_STATIC.Enum(),
 			},
 			want: &apiv2.IPServiceCreateResponse{
@@ -707,7 +706,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 				Type:    apiv2.IPType_IP_TYPE_STATIC.Enum(),
 			},
 			want: &apiv2.IPServiceCreateResponse{
-				Ip: &apiv2.IP{Ip: "10.100.0.1", Network: networks["private-namespaced-1"].Id, Namespace: pointer.Pointer(p1), Project: p1, Type: apiv2.IPType_IP_TYPE_STATIC, Meta: &apiv2.Meta{}},
+				Ip: &apiv2.IP{Ip: "10.100.0.1", Network: networks["private-namespaced-1"].Id, Namespace: new(p1), Project: p1, Type: apiv2.IPType_IP_TYPE_STATIC, Meta: &apiv2.Meta{}},
 			},
 		},
 		{
@@ -715,7 +714,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			rq: &apiv2.IPServiceCreateRequest{
 				Network: "internet",
 				Project: p1,
-				Ip:      pointer.Pointer("1.2.3.1"),
+				Ip:      new("1.2.3.1"),
 			},
 			want:    nil,
 			wantErr: errorutil.Conflict("AlreadyAllocatedError: given ip:1.2.3.1 is already allocated"),
@@ -725,7 +724,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			rq: &apiv2.IPServiceCreateRequest{
 				Network: "internet",
 				Project: p1,
-				Ip:      pointer.Pointer("1.3.0.1"),
+				Ip:      new("1.3.0.1"),
 			},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument("specific ip 1.3.0.1 not contained in any of the defined prefixes"),

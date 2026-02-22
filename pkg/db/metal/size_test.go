@@ -6,11 +6,10 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 )
 
 var (
-	microSize = Size{
+	microSize = &Size{
 		Base: Base{
 			ID: "micro",
 		},
@@ -32,7 +31,7 @@ var (
 			},
 		},
 	}
-	tinySize = Size{
+	tinySize = &Size{
 		Base: Base{
 			ID: "tiny",
 		},
@@ -66,22 +65,22 @@ func TestFromConstraint(t *testing.T) {
 		{
 			name: "core constraint",
 			c:    Constraint{Type: CoreConstraint, Min: 1, Max: 1, Identifier: "Intel"},
-			want: &apiv2.SizeConstraint{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 1, Max: 1, Identifier: pointer.Pointer("Intel")},
+			want: &apiv2.SizeConstraint{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 1, Max: 1, Identifier: new("Intel")},
 		},
 		{
 			name: "memory constraint",
 			c:    Constraint{Type: MemoryConstraint, Min: 1, Max: 1, Identifier: "Samsung"},
-			want: &apiv2.SizeConstraint{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1, Max: 1, Identifier: pointer.Pointer("Samsung")},
+			want: &apiv2.SizeConstraint{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1, Max: 1, Identifier: new("Samsung")},
 		},
 		{
 			name: "gpu constraint",
 			c:    Constraint{Type: GPUConstraint, Min: 1, Max: 1, Identifier: "NVidia"},
-			want: &apiv2.SizeConstraint{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_GPU, Min: 1, Max: 1, Identifier: pointer.Pointer("NVidia")},
+			want: &apiv2.SizeConstraint{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_GPU, Min: 1, Max: 1, Identifier: new("NVidia")},
 		},
 		{
 			name: "Storage constraint",
 			c:    Constraint{Type: StorageConstraint, Min: 1, Max: 1, Identifier: "Kingston"},
-			want: &apiv2.SizeConstraint{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 1, Max: 1, Identifier: pointer.Pointer("Kingston")},
+			want: &apiv2.SizeConstraint{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 1, Max: 1, Identifier: new("Kingston")},
 		},
 	}
 	for _, tt := range tests {
@@ -107,24 +106,24 @@ func TestToConstraint(t *testing.T) {
 	}{
 		{
 			name:    "core constraint",
-			c:       &apiv2.SizeConstraint{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 1, Max: 1, Identifier: pointer.Pointer("Intel")},
+			c:       &apiv2.SizeConstraint{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 1, Max: 1, Identifier: new("Intel")},
 			want:    &Constraint{Type: CoreConstraint, Min: 1, Max: 1, Identifier: "Intel"},
 			wantErr: false,
 		},
 
 		{
 			name: "memory constraint",
-			c:    &apiv2.SizeConstraint{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1, Max: 1, Identifier: pointer.Pointer("Samsung")},
+			c:    &apiv2.SizeConstraint{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1, Max: 1, Identifier: new("Samsung")},
 			want: &Constraint{Type: MemoryConstraint, Min: 1, Max: 1, Identifier: "Samsung"},
 		},
 		{
 			name: "gpu constraint",
-			c:    &apiv2.SizeConstraint{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_GPU, Min: 1, Max: 1, Identifier: pointer.Pointer("NVidia")},
+			c:    &apiv2.SizeConstraint{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_GPU, Min: 1, Max: 1, Identifier: new("NVidia")},
 			want: &Constraint{Type: GPUConstraint, Min: 1, Max: 1, Identifier: "NVidia"},
 		},
 		{
 			name: "Storage constraint",
-			c:    &apiv2.SizeConstraint{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 1, Max: 1, Identifier: pointer.Pointer("Kingston")},
+			c:    &apiv2.SizeConstraint{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 1, Max: 1, Identifier: new("Kingston")},
 			want: &Constraint{Type: StorageConstraint, Min: 1, Max: 1, Identifier: "Kingston"},
 		},
 	}
@@ -146,7 +145,7 @@ func TestSizes_Overlaps(t *testing.T) {
 	tests := []struct {
 		name  string
 		sz    Size
-		sizes Sizes
+		sizes []*Size
 		want  *Size
 	}{
 		{
@@ -173,9 +172,9 @@ func TestSizes_Overlaps(t *testing.T) {
 					},
 				},
 			},
-			sizes: Sizes{
+			sizes: []*Size{
 				tinySize,
-				Size{
+				&Size{
 					Base: Base{
 						ID: "large",
 					},
@@ -224,7 +223,7 @@ func TestSizes_Overlaps(t *testing.T) {
 					},
 				},
 			},
-			sizes: Sizes{
+			sizes: []*Size{
 				{
 					Base: Base{
 						ID: "micro",
@@ -269,7 +268,7 @@ func TestSizes_Overlaps(t *testing.T) {
 						},
 					},
 				},
-				Size{
+				&Size{
 					Base: Base{
 						ID: "large",
 					},
@@ -292,7 +291,7 @@ func TestSizes_Overlaps(t *testing.T) {
 					},
 				},
 			},
-			want: &microSize,
+			want: microSize,
 		},
 		{
 			name: "add incomplete size",
@@ -308,10 +307,10 @@ func TestSizes_Overlaps(t *testing.T) {
 					},
 				},
 			},
-			sizes: Sizes{
+			sizes: []*Size{
 				microSize,
 				tinySize,
-				Size{
+				&Size{
 					Base: Base{
 						ID: "large",
 					},
@@ -351,8 +350,8 @@ func TestSizes_Overlaps(t *testing.T) {
 					},
 				},
 			},
-			sizes: Sizes{
-				Size{
+			sizes: []*Size{
+				&Size{
 					Base: Base{
 						ID: "micro",
 					},

@@ -9,7 +9,6 @@ import (
 	"github.com/metal-stack/api/go/client"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
@@ -72,11 +71,11 @@ func TestListBaseNetworks(t *testing.T) {
 
 	ctx := t.Context()
 	internet, err := adminClient.Adminv2().Network().Create(ctx, &adminv2.NetworkServiceCreateRequest{
-		Id:       pointer.Pointer("internet"),
-		Name:     pointer.Pointer("internet"),
+		Id:       new("internet"),
+		Name:     new("internet"),
 		Type:     apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
 		Prefixes: []string{"10.0.0.0/16"},
-		Vrf:      pointer.Pointer(uint32(42)),
+		Vrf:      new(uint32(42)),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, internet)
@@ -124,7 +123,7 @@ func TestImageCacheServiceToken(t *testing.T) {
 	require.NoError(t, err)
 
 	tokenResp, err := adminClient.Adminv2().Token().Create(t.Context(), &adminv2.TokenServiceCreateRequest{
-		User: pointer.Pointer("metal-image-cache-sync"),
+		User: new("metal-image-cache-sync"),
 		TokenCreateRequest: &apiv2.TokenServiceCreateRequest{
 			Description: "metal-image-cache-sync token",
 			Permissions: []*apiv2.MethodPermission{

@@ -8,7 +8,6 @@ import (
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 )
@@ -129,24 +128,24 @@ func TestClient_NewMachineDeleteTask(t *testing.T) {
 		{
 			name: "simple with machine uuid",
 			args: args{
-				uuid: pointer.Pointer("machine-uuid"),
+				uuid: new("machine-uuid"),
 			},
-			want: task.MachineDeletePayload{UUID: pointer.Pointer("machine-uuid")},
+			want: task.MachineDeletePayload{UUID: new("machine-uuid")},
 		},
 		{
 			name: "simple with allocation uuid",
 			args: args{
-				allocationUUID: pointer.Pointer("allocation-uuid"),
+				allocationUUID: new("allocation-uuid"),
 			},
-			want: task.MachineDeletePayload{AllocationUUID: pointer.Pointer("allocation-uuid")},
+			want: task.MachineDeletePayload{AllocationUUID: new("allocation-uuid")},
 		},
 		{
 			name: "simple with allocation and machine uuid",
 			args: args{
-				uuid:           pointer.Pointer("machine-uuid"),
-				allocationUUID: pointer.Pointer("allocation-uuid"),
+				uuid:           new("machine-uuid"),
+				allocationUUID: new("allocation-uuid"),
 			},
-			want: task.MachineDeletePayload{UUID: pointer.Pointer("machine-uuid"), AllocationUUID: pointer.Pointer("allocation-uuid")},
+			want: task.MachineDeletePayload{UUID: new("machine-uuid"), AllocationUUID: new("allocation-uuid")},
 		},
 	}
 	for _, tt := range tests {
@@ -178,8 +177,8 @@ func TestClient_Informers(t *testing.T) {
 	)
 
 	task, err := c.NewTask(&task.MachineDeletePayload{
-		UUID:           pointer.Pointer("machine-uuid"),
-		AllocationUUID: pointer.Pointer("allocation-uuid"),
+		UUID:           new("machine-uuid"),
+		AllocationUUID: new("allocation-uuid"),
 	})
 	require.NoError(t, err)
 

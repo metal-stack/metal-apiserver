@@ -14,7 +14,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/stretchr/testify/require"
 )
 
@@ -81,21 +80,21 @@ func TestSwitchFilter(t *testing.T) {
 		{
 			name: "query by id",
 			rq: &apiv2.SwitchQuery{
-				Id: pointer.Pointer("sw1"),
+				Id: new("sw1"),
 			},
 			want: []*metal.Switch{sw1},
 		},
 		{
 			name: "query by partition",
 			rq: &apiv2.SwitchQuery{
-				Partition: pointer.Pointer("partition-a"),
+				Partition: new("partition-a"),
 			},
 			want: []*metal.Switch{sw1, sw3},
 		},
 		{
 			name: "query by rack",
 			rq: &apiv2.SwitchQuery{
-				Rack: pointer.Pointer("rack01"),
+				Rack: new("rack01"),
 			},
 			want: []*metal.Switch{sw1, sw2},
 		},
@@ -103,7 +102,7 @@ func TestSwitchFilter(t *testing.T) {
 			name: "query by os vendor",
 			rq: &apiv2.SwitchQuery{
 				Os: &apiv2.SwitchOSQuery{
-					Vendor: pointer.Pointer(apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC),
+					Vendor: new(apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC),
 				},
 			},
 			want: []*metal.Switch{sw3},
@@ -112,7 +111,7 @@ func TestSwitchFilter(t *testing.T) {
 			name: "query by os version",
 			rq: &apiv2.SwitchQuery{
 				Os: &apiv2.SwitchOSQuery{
-					Version: pointer.Pointer("5.6"),
+					Version: new("5.6"),
 				},
 			},
 			want: []*metal.Switch{sw2},

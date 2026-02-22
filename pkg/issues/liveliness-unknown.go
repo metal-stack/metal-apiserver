@@ -1,0 +1,28 @@
+package issues
+
+import "github.com/metal-stack/metal-apiserver/pkg/db/metal"
+
+const (
+	TypeLivelinessUnknown Type = "liveliness-unknown"
+)
+
+type (
+	issueLivelinessUnknown struct{}
+)
+
+func (i *issueLivelinessUnknown) Spec() *spec {
+	return &spec{
+		Type:        TypeLivelinessUnknown,
+		Severity:    SeverityMajor,
+		Description: "the machine is not sending LLDP alive messages anymore",
+		RefURL:      "https://metal-stack.io/docs/troubleshooting/#liveliness-unknown",
+	}
+}
+
+func (i *issueLivelinessUnknown) Evaluate(m *metal.Machine, ec *metal.ProvisioningEventContainer, c *Config) bool {
+	return ec.Liveliness == metal.MachineLivelinessUnknown
+}
+
+func (i *issueLivelinessUnknown) Details() string {
+	return ""
+}

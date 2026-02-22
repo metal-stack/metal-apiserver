@@ -14,7 +14,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -35,7 +34,7 @@ func Test_sizeServiceServer_Create(t *testing.T) {
 
 	sizes := []*adminv2.SizeServiceCreateRequest{
 		{Size: &apiv2.Size{
-			Id: "n1-medium-x86", Name: pointer.Pointer("n1-medium-x86"),
+			Id: "n1-medium-x86", Name: new("n1-medium-x86"),
 			Constraints: []*apiv2.SizeConstraint{
 				{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
 				{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
@@ -56,7 +55,7 @@ func Test_sizeServiceServer_Create(t *testing.T) {
 			name: "create a c1-large",
 			rq: &adminv2.SizeServiceCreateRequest{
 				Size: &apiv2.Size{
-					Id: "c1-large-x86", Name: pointer.Pointer("c1-large"),
+					Id: "c1-large-x86", Name: new("c1-large"),
 					Constraints: []*apiv2.SizeConstraint{
 						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 12, Max: 12},
 						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
@@ -66,7 +65,7 @@ func Test_sizeServiceServer_Create(t *testing.T) {
 			},
 			want: &adminv2.SizeServiceCreateResponse{
 				Size: &apiv2.Size{
-					Id: "c1-large-x86", Name: pointer.Pointer("c1-large"),
+					Id: "c1-large-x86", Name: new("c1-large"),
 					Meta: &apiv2.Meta{},
 					Constraints: []*apiv2.SizeConstraint{
 						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 12, Max: 12},
@@ -81,7 +80,7 @@ func Test_sizeServiceServer_Create(t *testing.T) {
 			name: "create a malformed c1-large",
 			rq: &adminv2.SizeServiceCreateRequest{
 				Size: &apiv2.Size{
-					Id: "c1-large-x86", Name: pointer.Pointer("c1-large"),
+					Id: "c1-large-x86", Name: new("c1-large"),
 					Constraints: []*apiv2.SizeConstraint{
 						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 14, Max: 10},
 						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
@@ -96,7 +95,7 @@ func Test_sizeServiceServer_Create(t *testing.T) {
 			name: "create a size already exists",
 			rq: &adminv2.SizeServiceCreateRequest{
 				Size: &apiv2.Size{
-					Id: "n1-medium-x86", Name: pointer.Pointer("n1-medium-x86"),
+					Id: "n1-medium-x86", Name: new("n1-medium-x86"),
 					Constraints: []*apiv2.SizeConstraint{
 						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
 						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
@@ -111,7 +110,7 @@ func Test_sizeServiceServer_Create(t *testing.T) {
 			name: "create a size which overlaps existing",
 			rq: &adminv2.SizeServiceCreateRequest{
 				Size: &apiv2.Size{
-					Id: "n2-medium-x86", Name: pointer.Pointer("n2-medium-x86"),
+					Id: "n2-medium-x86", Name: new("n2-medium-x86"),
 					Constraints: []*apiv2.SizeConstraint{
 						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
 						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
@@ -166,7 +165,7 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 	sizes := []*adminv2.SizeServiceCreateRequest{
 		{
 			Size: &apiv2.Size{
-				Id: "n1-medium-x86", Name: pointer.Pointer("n1-medium-x86"),
+				Id: "n1-medium-x86", Name: new("n1-medium-x86"),
 				Constraints: []*apiv2.SizeConstraint{
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
@@ -176,7 +175,7 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 		},
 		{
 			Size: &apiv2.Size{
-				Id: "n2-medium-x86", Name: pointer.Pointer("n2-medium-x86"),
+				Id: "n2-medium-x86", Name: new("n2-medium-x86"),
 				Constraints: []*apiv2.SizeConstraint{
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 8, Max: 8},
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
@@ -186,7 +185,7 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 		},
 		{
 			Size: &apiv2.Size{
-				Id: "n3-medium-x86", Name: pointer.Pointer("n3-medium-x86"),
+				Id: "n3-medium-x86", Name: new("n3-medium-x86"),
 				Meta: &apiv2.Meta{
 					Labels: &apiv2.Labels{
 						Labels: map[string]string{"purpose": "worker", "location": "munich", "architecture": "x86"},
@@ -212,7 +211,7 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 		{
 			name: "update n1-medium name and description",
 			rq: &adminv2.SizeServiceUpdateRequest{
-				Id: "n1-medium-x86", Name: pointer.Pointer("n1-medium"), Description: pointer.Pointer("best for firewalls"),
+				Id: "n1-medium-x86", Name: new("n1-medium"), Description: new("best for firewalls"),
 				UpdateMeta: &apiv2.UpdateMeta{
 					UpdatedAt: sizeMap["n1-medium-x86"].Meta.UpdatedAt,
 				},
@@ -224,7 +223,7 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 			},
 			want: &adminv2.SizeServiceUpdateResponse{
 				Size: &apiv2.Size{
-					Id: "n1-medium-x86", Name: pointer.Pointer("n1-medium"), Description: pointer.Pointer("best for firewalls"),
+					Id: "n1-medium-x86", Name: new("n1-medium"), Description: new("best for firewalls"),
 					Meta: &apiv2.Meta{Generation: 1},
 					Constraints: []*apiv2.SizeConstraint{
 						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
@@ -250,7 +249,7 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 			},
 			want: &adminv2.SizeServiceUpdateResponse{
 				Size: &apiv2.Size{
-					Id: "n2-medium-x86", Name: pointer.Pointer("n2-medium-x86"),
+					Id: "n2-medium-x86", Name: new("n2-medium-x86"),
 					Meta: &apiv2.Meta{Generation: 1},
 					Constraints: []*apiv2.SizeConstraint{
 						{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 6, Max: 12},
@@ -275,7 +274,7 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 			},
 			want: &adminv2.SizeServiceUpdateResponse{
 				Size: &apiv2.Size{
-					Id: "n3-medium-x86", Name: pointer.Pointer("n3-medium-x86"),
+					Id: "n3-medium-x86", Name: new("n3-medium-x86"),
 					Meta: &apiv2.Meta{
 						Labels: &apiv2.Labels{
 							Labels: map[string]string{"purpose": "big worker", "architecture": "x86"},
@@ -359,7 +358,7 @@ func Test_sizeServiceServer_Delete(t *testing.T) {
 	sizes := []*adminv2.SizeServiceCreateRequest{
 		{
 			Size: &apiv2.Size{
-				Id: "n1-medium-x86", Name: pointer.Pointer("n1-medium-x86"),
+				Id: "n1-medium-x86", Name: new("n1-medium-x86"),
 				Constraints: []*apiv2.SizeConstraint{
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
@@ -369,7 +368,7 @@ func Test_sizeServiceServer_Delete(t *testing.T) {
 		},
 		{
 			Size: &apiv2.Size{
-				Id: "n2-medium-x86", Name: pointer.Pointer("n2-medium-x86"),
+				Id: "n2-medium-x86", Name: new("n2-medium-x86"),
 				Constraints: []*apiv2.SizeConstraint{
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 8, Max: 8},
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
@@ -379,7 +378,7 @@ func Test_sizeServiceServer_Delete(t *testing.T) {
 		},
 		{
 			Size: &apiv2.Size{
-				Id: "c1-large-x86", Name: pointer.Pointer("c1-large-x86"),
+				Id: "c1-large-x86", Name: new("c1-large-x86"),
 				Constraints: []*apiv2.SizeConstraint{
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 12, Max: 12},
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
@@ -444,7 +443,7 @@ func Test_sizeServiceServer_Delete(t *testing.T) {
 			name: "delete n1-medium",
 			rq:   &adminv2.SizeServiceDeleteRequest{Id: "n1-medium-x86"},
 			want: &adminv2.SizeServiceDeleteResponse{Size: &apiv2.Size{
-				Id: "n1-medium-x86", Name: pointer.Pointer("n1-medium-x86"),
+				Id: "n1-medium-x86", Name: new("n1-medium-x86"),
 				Meta: &apiv2.Meta{},
 				Constraints: []*apiv2.SizeConstraint{
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},

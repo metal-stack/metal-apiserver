@@ -406,7 +406,7 @@ func (r *filesystemLayoutRepository) convertToProto(ctx context.Context, in *met
 			Devices:       r.Devices,
 			Level:         level,
 			CreateOptions: r.CreateOptions,
-			Spares:        int32(r.Spares), // nolint:gosec
+			Spares:        int32(r.Spares),
 		})
 	}
 

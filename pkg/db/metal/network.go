@@ -8,7 +8,6 @@ import (
 
 	"github.com/metal-stack/api/go/enum"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 )
 
 type (
@@ -184,9 +183,9 @@ func ToAddressFamilyFromNetwork(af apiv2.NetworkAddressFamily) (*AddressFamily, 
 	case apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_DUAL_STACK:
 		return nil, nil
 	case apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_V4:
-		return pointer.Pointer(AddressFamilyIPv4), nil
+		return new(AddressFamilyIPv4), nil
 	case apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_V6:
-		return pointer.Pointer(AddressFamilyIPv6), nil
+		return new(AddressFamilyIPv6), nil
 	default:
 		return nil, fmt.Errorf("given addressfamily %q is invalid", af)
 	}

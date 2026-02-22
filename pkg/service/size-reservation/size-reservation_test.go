@@ -13,7 +13,6 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -43,7 +42,7 @@ func Test_sizeReservationServiceServer_Get(t *testing.T) {
 
 	sizes := []*adminv2.SizeServiceCreateRequest{
 		{Size: &apiv2.Size{
-			Id: "n1-medium-x86", Name: pointer.Pointer("n1-medium-x86"),
+			Id: "n1-medium-x86", Name: new("n1-medium-x86"),
 			Constraints: []*apiv2.SizeConstraint{
 				{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
 				{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
@@ -159,7 +158,7 @@ func Test_sizeReservationServiceServer_List(t *testing.T) {
 
 	sizes := []*adminv2.SizeServiceCreateRequest{
 		{Size: &apiv2.Size{
-			Id: "n1-medium-x86", Name: pointer.Pointer("n1-medium-x86"),
+			Id: "n1-medium-x86", Name: new("n1-medium-x86"),
 			Constraints: []*apiv2.SizeConstraint{
 				{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
 				{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
@@ -167,7 +166,7 @@ func Test_sizeReservationServiceServer_List(t *testing.T) {
 			},
 		}},
 		{Size: &apiv2.Size{
-			Id: "n2-medium-x86", Name: pointer.Pointer("n2-medium-x86"),
+			Id: "n2-medium-x86", Name: new("n2-medium-x86"),
 			Constraints: []*apiv2.SizeConstraint{
 				{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 8, Max: 8},
 				{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
@@ -270,7 +269,7 @@ func Test_sizeReservationServiceServer_List(t *testing.T) {
 			req: &apiv2.SizeReservationServiceListRequest{
 				Project: p2,
 				Query: &apiv2.SizeReservationQuery{
-					Size: pointer.Pointer("n2-medium-x86"),
+					Size: new("n2-medium-x86"),
 				},
 			},
 			want: &apiv2.SizeReservationServiceListResponse{

@@ -7,7 +7,6 @@ import (
 	"github.com/lestrrat-go/jwx/v3/jwk"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 )
@@ -18,7 +17,7 @@ func Test_redisStore(t *testing.T) {
 		s     = miniredis.RunT(t)
 		c     = redis.NewClient(&redis.Options{Addr: s.Addr()})
 		store = certs.NewRedisStore(&certs.Config{
-			RenewCertBeforeExpiration: pointer.Pointer(4 * token.MaxExpiration),
+			RenewCertBeforeExpiration: new(4 * token.MaxExpiration),
 			RedisClient:               c,
 		})
 	)

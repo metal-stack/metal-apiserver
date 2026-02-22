@@ -4,7 +4,6 @@ import (
 	"time"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -65,10 +64,10 @@ func toInternal(t *apiv2.Token) *token {
 	)
 
 	if t.Expires != nil {
-		expires = pointer.Pointer(t.Expires.AsTime())
+		expires = new(t.Expires.AsTime())
 	}
 	if t.IssuedAt != nil {
-		issuedAt = pointer.Pointer(t.IssuedAt.AsTime())
+		issuedAt = new(t.IssuedAt.AsTime())
 	}
 
 	for id, role := range t.ProjectRoles {
@@ -79,11 +78,11 @@ func toInternal(t *apiv2.Token) *token {
 	}
 
 	if t.AdminRole != nil {
-		adminRole = pointer.Pointer(t.AdminRole.String())
+		adminRole = new(t.AdminRole.String())
 	}
 
 	if t.InfraRole != nil {
-		infraRole = pointer.Pointer(t.InfraRole.String())
+		infraRole = new(t.InfraRole.String())
 	}
 
 	for id, role := range t.MachineRoles {
@@ -142,11 +141,11 @@ func toExternal(t *token) *apiv2.Token {
 	}
 
 	if t.AdminRole != nil {
-		adminRole = pointer.Pointer(apiv2.AdminRole(apiv2.AdminRole_value[*t.AdminRole]))
+		adminRole = new(apiv2.AdminRole(apiv2.AdminRole_value[*t.AdminRole]))
 	}
 
 	if t.InfraRole != nil {
-		infraRole = pointer.Pointer(apiv2.InfraRole(apiv2.InfraRole_value[*t.InfraRole]))
+		infraRole = new(apiv2.InfraRole(apiv2.InfraRole_value[*t.InfraRole]))
 	}
 
 	for id, role := range t.MachineRoles {

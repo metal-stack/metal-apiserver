@@ -12,7 +12,6 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 
 	"github.com/metal-stack/api/go/client"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
@@ -78,7 +77,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 			existingTenants: []*apiv2.TenantServiceCreateRequest{
 				{
 					Name:  "john@github",
-					Email: pointer.Pointer("mail@john"),
+					Email: new("mail@john"),
 				},
 			},
 			wantUser: &security.User{
@@ -116,7 +115,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 			existingTenants: []*apiv2.TenantServiceCreateRequest{
 				{
 					Name:  "user@github",
-					Email: pointer.Pointer("mail@user"),
+					Email: new("mail@user"),
 				},
 			},
 			wantUser: &security.User{
@@ -144,7 +143,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 			existingTenants: []*apiv2.TenantServiceCreateRequest{
 				{
 					Name:  "t1",
-					Email: pointer.Pointer("mail@t1"),
+					Email: new("mail@t1"),
 				},
 			},
 			existingProjects: []*apiv2.ProjectServiceCreateRequest{
@@ -179,7 +178,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 			existingTenants: []*apiv2.TenantServiceCreateRequest{
 				{
 					Name:  "a-tenant",
-					Email: pointer.Pointer("mail@tenant-a"),
+					Email: new("mail@tenant-a"),
 				},
 			},
 			wantUser: &security.User{
@@ -205,7 +204,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 			existingTenants: []*apiv2.TenantServiceCreateRequest{
 				{
 					Name:  "user@github",
-					Email: pointer.Pointer("mail@github"),
+					Email: new("mail@github"),
 				},
 			},
 			wantUser: &security.User{
@@ -234,7 +233,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 			existingTenants: []*apiv2.TenantServiceCreateRequest{
 				{
 					Name:  "user@github",
-					Email: pointer.Pointer("mail@github"),
+					Email: new("mail@github"),
 				},
 			},
 			wantUser: &security.User{
@@ -259,7 +258,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 			existingTenants: []*apiv2.TenantServiceCreateRequest{
 				{
 					Name:  "user@github",
-					Email: pointer.Pointer("mail@github"),
+					Email: new("mail@github"),
 				},
 			},
 			wantUser: &security.User{
@@ -287,7 +286,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 			existingTenants: []*apiv2.TenantServiceCreateRequest{
 				{
 					Name:  "user@github",
-					Email: pointer.Pointer("mail@github"),
+					Email: new("mail@github"),
 				},
 			},
 			wantUser: &security.User{

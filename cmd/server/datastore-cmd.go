@@ -31,6 +31,10 @@ func newDatastoreCmd() *cli.Command {
 			rethinkdbDBNameFlag,
 			rethinkdbPasswordFlag,
 			rethinkdbUserFlag,
+			asnPoolRangeMinFlag,
+			asnPoolRangeMaxFlag,
+			vrfPoolRangeMinFlag,
+			vrfPoolRangeMaxFlag,
 			logLevelFlag,
 		},
 		Subcommands: []*cli.Command{
@@ -43,14 +47,20 @@ func newDatastoreCmd() *cli.Command {
 						return fmt.Errorf("unable to create logger %w", err)
 					}
 
-					err = generic.Initialize(ctx.Context, log.WithGroup("datastore"), rethinkdb.ConnectOpts{
-						Addresses: ctx.StringSlice(rethinkdbAddressesFlag.Name),
-						Database:  ctx.String(rethinkdbDBNameFlag.Name),
-						Username:  ctx.String(rethinkdbUserFlag.Name),
-						Password:  ctx.String(rethinkdbPasswordFlag.Name),
-						MaxIdle:   10,
-						MaxOpen:   20,
-					})
+					err = generic.Initialize(
+						ctx.Context,
+						log.WithGroup("datastore"),
+						rethinkdb.ConnectOpts{
+							Addresses: ctx.StringSlice(rethinkdbAddressesFlag.Name),
+							Database:  ctx.String(rethinkdbDBNameFlag.Name),
+							Username:  ctx.String(rethinkdbUserFlag.Name),
+							Password:  ctx.String(rethinkdbPasswordFlag.Name),
+							MaxIdle:   10,
+							MaxOpen:   20,
+						},
+						generic.AsnPoolRange(ctx.Uint(asnPoolRangeMinFlag.Name), ctx.Uint(asnPoolRangeMaxFlag.Name)),
+						generic.VrfPoolRange(ctx.Uint(vrfPoolRangeMinFlag.Name), ctx.Uint(vrfPoolRangeMaxFlag.Name)),
+					)
 					if err != nil {
 						return fmt.Errorf("unable to initialize datastore: %w", err)
 					}

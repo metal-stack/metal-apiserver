@@ -13,7 +13,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	tokenservice "github.com/metal-stack/metal-apiserver/pkg/service/token"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 )
@@ -46,7 +45,7 @@ func Test_jwt_cert_rotation(t *testing.T) {
 		o, err := NewAuthenticatorInterceptor(Config{
 			Log:            log,
 			CertStore:      certStore,
-			CertCacheTime:  pointer.Pointer(0 * time.Second),
+			CertCacheTime:  new(0 * time.Second),
 			TokenStore:     tokenStore,
 			AllowedIssuers: []string{"integration"},
 		})

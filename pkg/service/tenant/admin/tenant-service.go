@@ -44,6 +44,15 @@ func (t *tenantServiceServer) Create(ctx context.Context, req *adminv2.TenantSer
 		Description: req.Description,
 		Email:       req.Email,
 		AvatarUrl:   req.AvatarUrl,
+		Labels:      req.Labels,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = t.repo.Tenant().AdditionalMethods().Member(tenant.Login).Create(ctx, &repository.TenantMemberCreateRequest{
+		MemberID: tenant.Login,
+		Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
 	})
 	if err != nil {
 		return nil, err

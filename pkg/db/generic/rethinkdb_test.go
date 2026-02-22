@@ -10,7 +10,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/stretchr/testify/require"
 )
 
@@ -28,7 +27,7 @@ func TestGenericCRUD(t *testing.T) {
 	require.Error(t, err)
 	require.EqualError(t, err, errorutil.NotFound("no ip with id \"1.2.3.4\" found").Error())
 
-	created, err := ds.IP().Create(ctx, &metal.IP{IPAddress: "1.2.3.4", ProjectID: "p1", Namespace: pointer.Pointer("n1"), AllocationUUID: "uuid-1"})
+	created, err := ds.IP().Create(ctx, &metal.IP{IPAddress: "1.2.3.4", ProjectID: "p1", Namespace: new("n1"), AllocationUUID: "uuid-1"})
 	require.NoError(t, err)
 	require.NotNil(t, created)
 	require.Equal(t, "1.2.3.4", created.IPAddress)
@@ -46,7 +45,7 @@ func TestGenericCRUD(t *testing.T) {
 	require.NotNil(t, updated.Changed)
 
 	// Find by IP and Namespace
-	found, err := ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Ip: pointer.Pointer("1.2.3.4"), Namespace: pointer.Pointer("n1")}))
+	found, err := ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Ip: new("1.2.3.4"), Namespace: new("n1")}))
 	require.NoError(t, err)
 	require.NotNil(t, found)
 	require.NotNil(t, found.Namespace)
@@ -54,7 +53,7 @@ func TestGenericCRUD(t *testing.T) {
 	require.Equal(t, "n1", *found.Namespace)
 
 	// Find by IP, AllocationUUID and Namespace
-	found2, err := ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Ip: pointer.Pointer("1.2.3.4"), Namespace: pointer.Pointer("n1")}))
+	found2, err := ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Ip: new("1.2.3.4"), Namespace: new("n1")}))
 	require.NoError(t, err)
 	require.NotNil(t, found2)
 	require.NotNil(t, found2.Namespace)
@@ -86,7 +85,7 @@ func TestGenericCRUD(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "m1", m1.ID)
 
-	m1, err = ds.Machine().Find(ctx, queries.MachineFilter(&apiv2.MachineQuery{Uuid: pointer.Pointer("m1")}))
+	m1, err = ds.Machine().Find(ctx, queries.MachineFilter(&apiv2.MachineQuery{Uuid: new("m1")}))
 	require.NotNil(t, m1)
 	require.NoError(t, err)
 	require.Equal(t, "m1", m1.ID)
@@ -128,27 +127,27 @@ func TestFindAndListGeneric(t *testing.T) {
 	require.Equal(t, "p1", created2.ProjectID)
 	require.NotNil(t, created2.Created)
 
-	found, err := ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Ip: pointer.Pointer("1.2.3.4"), Project: pointer.Pointer("p1")}))
+	found, err := ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Ip: new("1.2.3.4"), Project: new("p1")}))
 	require.NoError(t, err)
 	require.NotNil(t, found)
 	require.Equal(t, "1.2.3.4", found.IPAddress)
 
-	notfound, err := ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Ip: pointer.Pointer("1.2.3.5")}))
+	notfound, err := ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Ip: new("1.2.3.5")}))
 	require.Nil(t, notfound)
 	require.Error(t, err)
 	require.EqualError(t, err, errorutil.NotFound("no ip found").Error())
 
-	moreThanOneFound, err := ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Project: pointer.Pointer("p1")}))
+	moreThanOneFound, err := ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Project: new("p1")}))
 	require.Nil(t, moreThanOneFound)
 	require.Error(t, err)
 	require.EqualError(t, err, "more than one ip exists")
 
-	listOnlyOne, err := ds.IP().List(ctx, queries.IpFilter(&apiv2.IPQuery{Ip: pointer.Pointer("1.2.3.4"), Project: pointer.Pointer("p1")}))
+	listOnlyOne, err := ds.IP().List(ctx, queries.IpFilter(&apiv2.IPQuery{Ip: new("1.2.3.4"), Project: new("p1")}))
 	require.NoError(t, err)
 	require.NotNil(t, listOnlyOne)
 	require.Len(t, listOnlyOne, 1)
 
-	listBoth, err := ds.IP().List(ctx, queries.IpFilter(&apiv2.IPQuery{Project: pointer.Pointer("p1")}))
+	listBoth, err := ds.IP().List(ctx, queries.IpFilter(&apiv2.IPQuery{Project: new("p1")}))
 	require.NoError(t, err)
 	require.NotNil(t, listBoth)
 	require.Len(t, listBoth, 2)

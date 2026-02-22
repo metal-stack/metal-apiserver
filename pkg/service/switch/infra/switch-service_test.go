@@ -17,7 +17,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/metal-stack/metal-lib/pkg/testcommon"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -33,7 +32,7 @@ var (
 			Meta:        &apiv2.Meta{},
 			Partition:   "partition-a",
 			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
-			Rack:        pointer.Pointer("r01"),
+			Rack:        new("r01"),
 			Nics: []*apiv2.SwitchNic{
 				{
 					Name:       "Ethernet0",
@@ -77,7 +76,7 @@ var (
 			Meta:        &apiv2.Meta{},
 			Partition:   "partition-a",
 			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
-			Rack:        pointer.Pointer("r02"),
+			Rack:        new("r02"),
 			Nics: []*apiv2.SwitchNic{
 				{
 					Name:       "Ethernet0",
@@ -119,7 +118,7 @@ var (
 		Switch: &apiv2.Switch{
 			Id:          "sw3",
 			Partition:   "partition-a",
-			Rack:        pointer.Pointer("r03"),
+			Rack:        new("r03"),
 			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 			MachineConnections: []*apiv2.MachineConnection{
 				{
@@ -152,7 +151,7 @@ var (
 		Switch: &apiv2.Switch{
 			Id:          "sw4",
 			Partition:   "partition-a",
-			Rack:        pointer.Pointer("r03"),
+			Rack:        new("r03"),
 			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 			MachineConnections: []*apiv2.MachineConnection{
 				{
@@ -185,7 +184,7 @@ var (
 		Switch: &apiv2.Switch{
 			Id:          "sw5",
 			Partition:   "partition-a",
-			Rack:        pointer.Pointer("r03"),
+			Rack:        new("r03"),
 			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 			Nics: []*apiv2.SwitchNic{
 				{
@@ -213,7 +212,7 @@ var (
 		Switch: &apiv2.Switch{
 			Id:          "sw6",
 			Partition:   "partition-a",
-			Rack:        pointer.Pointer("r03"),
+			Rack:        new("r03"),
 			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 			Nics: []*apiv2.SwitchNic{
 				{
@@ -241,7 +240,7 @@ var (
 		Switch: &apiv2.Switch{
 			Id:          "sw7",
 			Partition:   "partition-a",
-			Rack:        pointer.Pointer("r04"),
+			Rack:        new("r04"),
 			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE,
 			Nics: []*apiv2.SwitchNic{
 				{
@@ -269,7 +268,7 @@ var (
 		Switch: &apiv2.Switch{
 			Id:          "sw8",
 			Partition:   "partition-a",
-			Rack:        pointer.Pointer("r05"),
+			Rack:        new("r05"),
 			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE,
 			MachineConnections: []*apiv2.MachineConnection{
 				{
@@ -309,7 +308,7 @@ var (
 		Switch: &apiv2.Switch{
 			Id:          "sw9",
 			Partition:   "partition-a",
-			Rack:        pointer.Pointer("r05"),
+			Rack:        new("r05"),
 			ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 			MachineConnections: []*apiv2.MachineConnection{
 				{
@@ -348,7 +347,7 @@ var (
 		LastSyncError: &apiv2.SwitchSync{
 			Time:     timestamppb.New(now.Add(-time.Minute)),
 			Duration: durationpb.New(time.Second * 2),
-			Error:    pointer.Pointer("fail"),
+			Error:    new("fail"),
 		},
 	}
 
@@ -458,8 +457,8 @@ func Test_switchServiceServer_Register(t *testing.T) {
 					Partition:      "partition-a",
 					ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 					ManagementIp:   "1.1.1.1",
-					ManagementUser: pointer.Pointer("admin"),
-					ConsoleCommand: pointer.Pointer("tty"),
+					ManagementUser: new("admin"),
+					ConsoleCommand: new("tty"),
 					Nics: []*apiv2.SwitchNic{
 						{
 							Name:       "Ethernet0",
@@ -470,7 +469,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 							Name:       "Ethernet2",
 							Identifier: "Eth1/2",
 							Mac:        "22:22:22:22:22:22",
-							Vrf:        pointer.Pointer("must not be updated"),
+							Vrf:        new("must not be updated"),
 						},
 					},
 				},
@@ -481,11 +480,11 @@ func Test_switchServiceServer_Register(t *testing.T) {
 					Description:    "new description",
 					Meta:           &apiv2.Meta{Generation: 1},
 					Partition:      "partition-a",
-					Rack:           pointer.Pointer("r01"),
+					Rack:           new("r01"),
 					ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 					ManagementIp:   "1.1.1.1",
-					ManagementUser: pointer.Pointer("admin"),
-					ConsoleCommand: pointer.Pointer("tty"),
+					ManagementUser: new("admin"),
+					ConsoleCommand: new("tty"),
 					Nics: []*apiv2.SwitchNic{
 						{
 							Name:       "Ethernet0",
@@ -529,7 +528,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 			rq: &infrav2.SwitchServiceRegisterRequest{
 				Switch: &apiv2.Switch{
 					Id:           sw7.Switch.Id,
-					Rack:         pointer.Pointer("r10"),
+					Rack:         new("r10"),
 					Partition:    "partition-a",
 					ManagementIp: "1.1.1.1",
 					ReplaceMode:  apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
@@ -548,7 +547,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 			rq: &infrav2.SwitchServiceRegisterRequest{
 				Switch: &apiv2.Switch{
 					Id:           sw7.Switch.Id,
-					Rack:         pointer.Pointer("r03"),
+					Rack:         new("r03"),
 					Partition:    "partition-a",
 					ManagementIp: "1.1.1.1",
 					ReplaceMode:  apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
@@ -567,7 +566,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 			rq: &infrav2.SwitchServiceRegisterRequest{
 				Switch: &apiv2.Switch{
 					Id:           sw7.Switch.Id,
-					Rack:         pointer.Pointer("r04"),
+					Rack:         new("r04"),
 					Partition:    "partition-a",
 					ManagementIp: "1.1.1.1",
 					ReplaceMode:  apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
@@ -587,7 +586,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 				Switch: &apiv2.Switch{
 					Id:           sw8.Switch.Id,
 					Partition:    "partition-a",
-					Rack:         pointer.Pointer("r05"),
+					Rack:         new("r05"),
 					ManagementIp: "1.1.1.1",
 					ReplaceMode:  apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 					MachineConnections: []*apiv2.MachineConnection{
@@ -632,7 +631,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 				Switch: &apiv2.Switch{
 					Id:           sw8.Switch.Id,
 					Partition:    "partition-a",
-					Rack:         pointer.Pointer("r05"),
+					Rack:         new("r05"),
 					Meta:         &apiv2.Meta{Generation: 1},
 					ManagementIp: "1.1.1.1",
 					ReplaceMode:  apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
@@ -856,7 +855,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 			rq: &infrav2.SwitchServiceHeartbeatRequest{
 				Id:       sw1.Switch.Id,
 				Duration: durationpb.New(time.Second),
-				Error:    pointer.Pointer("sync failed"),
+				Error:    new("sync failed"),
 				PortStates: map[string]apiv2.SwitchPortStatus{
 					"Ethernet0": apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
 					"Ethernet1": apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
@@ -882,7 +881,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 				},
 				LastSyncError: &apiv2.SwitchSync{
 					Duration: durationpb.New(time.Second),
-					Error:    pointer.Pointer("sync failed"),
+					Error:    new("sync failed"),
 				},
 			},
 			wantSwitch: sw1.Switch,
@@ -893,7 +892,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 			rq: &infrav2.SwitchServiceHeartbeatRequest{
 				Id:       sw2.Switch.Id,
 				Duration: durationpb.New(time.Second),
-				Error:    pointer.Pointer("failed to sync"),
+				Error:    new("failed to sync"),
 				PortStates: map[string]apiv2.SwitchPortStatus{
 					"Ethernet0": apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 					"Ethernet1": apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
@@ -918,7 +917,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 				},
 				LastSyncError: &apiv2.SwitchSync{
 					Duration: durationpb.New(time.Second),
-					Error:    pointer.Pointer("failed to sync"),
+					Error:    new("failed to sync"),
 				},
 			},
 			wantSwitch: &apiv2.Switch{
@@ -926,7 +925,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 				Partition:   "partition-a",
 				ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 				Meta:        &apiv2.Meta{Generation: 1},
-				Rack:        pointer.Pointer("r02"),
+				Rack:        new("r02"),
 				Nics: []*apiv2.SwitchNic{
 					{
 						Name:       "Ethernet0",
@@ -982,7 +981,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 				},
 				LastSyncError: &apiv2.SwitchSync{
 					Duration: durationpb.New(time.Second),
-					Error:    pointer.Pointer("sync failed"),
+					Error:    new("sync failed"),
 				},
 			},
 			wantSwitch: &apiv2.Switch{
@@ -990,7 +989,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 				Partition:   "partition-a",
 				ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 				Meta:        &apiv2.Meta{Generation: 1},
-				Rack:        pointer.Pointer("r01"),
+				Rack:        new("r01"),
 				Nics: []*apiv2.SwitchNic{
 					{
 						Name:       "Ethernet0",

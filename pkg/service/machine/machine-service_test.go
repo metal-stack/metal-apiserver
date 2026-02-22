@@ -14,7 +14,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -100,8 +99,8 @@ func Test_machineServiceServer_Get(t *testing.T) {
 							Url:            validURL,
 							Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE},
 							Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_PREVIEW,
-							Description:    pointer.Pointer(""),
-							Name:           pointer.Pointer(""),
+							Description:    new(""),
+							Name:           new(""),
 						},
 					},
 				},
@@ -229,8 +228,8 @@ func Test_machineServiceServer_List(t *testing.T) {
 								Url:            validURL,
 								Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE},
 								Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_PREVIEW,
-								Description:    pointer.Pointer(""),
-								Name:           pointer.Pointer(""),
+								Description:    new(""),
+								Name:           new(""),
 							},
 						},
 					},
@@ -240,7 +239,7 @@ func Test_machineServiceServer_List(t *testing.T) {
 		},
 		{
 			name: "list from p2",
-			rq:   &apiv2.MachineServiceListRequest{Project: p2, Query: &apiv2.MachineQuery{Uuid: pointer.Pointer(m4)}},
+			rq:   &apiv2.MachineServiceListRequest{Project: p2, Query: &apiv2.MachineQuery{Uuid: new(m4)}},
 			want: &apiv2.MachineServiceListResponse{
 				Machines: []*apiv2.Machine{
 					{
@@ -264,8 +263,8 @@ func Test_machineServiceServer_List(t *testing.T) {
 								Url:            validURL,
 								Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE},
 								Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_PREVIEW,
-								Description:    pointer.Pointer(""),
-								Name:           pointer.Pointer(""),
+								Description:    new(""),
+								Name:           new(""),
 							},
 						},
 					},
@@ -416,8 +415,8 @@ func Test_machineServiceServer_Update(t *testing.T) {
 							Url:            validURL,
 							Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE},
 							Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_PREVIEW,
-							Description:    pointer.Pointer(""),
-							Name:           pointer.Pointer(""),
+							Description:    new(""),
+							Name:           new(""),
 						},
 					},
 				},
@@ -431,7 +430,7 @@ func Test_machineServiceServer_Update(t *testing.T) {
 				UpdateMeta: &apiv2.UpdateMeta{
 					UpdatedAt: timestamppb.New(machineMap[m4].Changed),
 				},
-				Description:   pointer.Pointer("my-beloved-machine"),
+				Description:   new("my-beloved-machine"),
 				SshPublicKeys: []string{"key-2", "key-3"},
 			},
 			want: &apiv2.MachineServiceUpdateResponse{
@@ -458,8 +457,8 @@ func Test_machineServiceServer_Update(t *testing.T) {
 							Url:            validURL,
 							Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE},
 							Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_PREVIEW,
-							Description:    pointer.Pointer(""),
-							Name:           pointer.Pointer(""),
+							Description:    new(""),
+							Name:           new(""),
 						},
 					},
 				},

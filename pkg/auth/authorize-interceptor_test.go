@@ -20,7 +20,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -756,7 +755,7 @@ func Test_authorizeInterceptor_WrapUnary(t *testing.T) {
 			handler: handler[adminv2.TokenServiceCreateRequest, adminv2.TokenServiceCreateResponse](),
 			reqFn: func(ctx context.Context, c client.Client) error {
 				_, err := c.Adminv2().Token().Create(ctx, &adminv2.TokenServiceCreateRequest{
-					User: pointer.Pointer("metal-hammer"),
+					User: new("metal-hammer"),
 					TokenCreateRequest: &apiv2.TokenServiceCreateRequest{
 						Description: "i want to act as metal-hammer for machine de240964-ff9f-4e3d-95b2-8a96e43788f1",
 						MachineRoles: map[string]apiv2.MachineRole{
@@ -819,7 +818,7 @@ func Test_authorizeInterceptor_WrapUnary(t *testing.T) {
 			handler: handler[adminv2.TokenServiceCreateRequest, adminv2.TokenServiceCreateResponse](),
 			reqFn: func(ctx context.Context, c client.Client) error {
 				_, err := c.Adminv2().Token().Create(ctx, &adminv2.TokenServiceCreateRequest{
-					User: pointer.Pointer("pixiecore"),
+					User: new("pixiecore"),
 					TokenCreateRequest: &apiv2.TokenServiceCreateRequest{
 						Description: "i want to act as pixiecore",
 						Permissions: []*apiv2.MethodPermission{

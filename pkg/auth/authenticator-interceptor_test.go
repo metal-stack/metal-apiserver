@@ -19,7 +19,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/metal-stack/metal-lib/pkg/testcommon"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
@@ -165,7 +164,7 @@ func Test_authorize_with_permissions(t *testing.T) {
 			o, err := NewAuthenticatorInterceptor(Config{
 				Log:            slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})),
 				CertStore:      certStore,
-				CertCacheTime:  pointer.Pointer(0 * time.Second),
+				CertCacheTime:  new(0 * time.Second),
 				TokenStore:     tokenStore,
 				AllowedIssuers: []string{defaultIssuer},
 			})

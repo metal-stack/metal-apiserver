@@ -133,7 +133,6 @@ func (h *healthServiceServer) updateStatuses(outerCtx context.Context) error {
 	finished := make(chan bool)
 	go func() {
 		for r := range resultChan {
-			r := r
 			statuses.Services = append(statuses.Services, r)
 		}
 

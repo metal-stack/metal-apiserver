@@ -9,6 +9,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/valkey-io/valkey-go"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -18,12 +19,13 @@ import (
 
 type (
 	Store struct {
-		log   *slog.Logger
-		ds    generic.Datastore
-		mdc   mdm.Client
-		ipam  ipamv1connect.IpamServiceClient
-		task  *task.Client
-		queue *queue.Queue
+		log       *slog.Logger
+		ds        generic.Datastore
+		mdc       mdm.Client
+		ipam      ipamv1connect.IpamServiceClient
+		task      *task.Client
+		queue     *queue.Queue
+		component valkey.Client
 	}
 
 	Config struct {
@@ -33,6 +35,7 @@ type (
 		Ipam             ipamv1connect.IpamServiceClient
 		Task             *task.Client
 		Queue            *queue.Queue
+		Component        valkey.Client
 	}
 
 	store[R Repo, E Entity, M Message, C CreateMessage, U UpdateMessage, Q Query] struct {
@@ -43,12 +46,13 @@ type (
 
 func New(c Config) (*Store, error) {
 	r := &Store{
-		log:   c.Log,
-		mdc:   c.MasterdataClient,
-		ipam:  c.Ipam,
-		ds:    c.Datastore,
-		task:  c.Task,
-		queue: c.Queue,
+		log:       c.Log,
+		mdc:       c.MasterdataClient,
+		ipam:      c.Ipam,
+		ds:        c.Datastore,
+		task:      c.Task,
+		queue:     c.Queue,
+		component: c.Component,
 	}
 
 	return r, nil
@@ -97,12 +101,24 @@ func (s *Store) machine(scope *ProjectScope) Machine {
 		typed:      repository,
 	}
 }
+
 func (s *Store) Image() Image {
 	repository := &imageRepository{
 		s: s,
 	}
 
 	return &store[*imageRepository, *metal.Image, *apiv2.Image, *adminv2.ImageServiceCreateRequest, *adminv2.ImageServiceUpdateRequest, *apiv2.ImageQuery]{
+		repository: repository,
+		typed:      repository,
+	}
+}
+
+func (s *Store) Component() Component {
+	repository := &componentRepository{
+		s: s,
+	}
+
+	return &store[*componentRepository, *ComponentEntity, *apiv2.Component, *ComponentServiceCreateRequest, *ComponentServiceUpdateRequest, *apiv2.ComponentQuery]{
 		repository: repository,
 		typed:      repository,
 	}

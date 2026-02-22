@@ -96,7 +96,7 @@ func (u *tenantServiceServer) Create(ctx context.Context, req *apiv2.TenantServi
 	}
 
 	if pointer.SafeDeref(req.Email) == "" && ownTenant.Email != "" {
-		req.Email = pointer.Pointer(ownTenant.Email)
+		req.Email = new(ownTenant.Email)
 
 		if pointer.SafeDeref(req.Email) == "" {
 			return nil, errorutil.FailedPrecondition("email is required")

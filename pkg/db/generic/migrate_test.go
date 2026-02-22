@@ -3,8 +3,6 @@ package generic
 import (
 	"reflect"
 	"testing"
-
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 )
 
 func TestMigrations_Between(t *testing.T) {
@@ -102,7 +100,7 @@ func TestMigrations_Between(t *testing.T) {
 				},
 			},
 			current: 0,
-			target:  pointer.Pointer(2),
+			target:  new(2),
 			want: []Migration{
 				{
 					Name:    "migration 1",
@@ -132,7 +130,7 @@ func TestMigrations_Between(t *testing.T) {
 				},
 			},
 			current: 0,
-			target:  pointer.Pointer(3),
+			target:  new(3),
 			want:    nil,
 			wantErr: true,
 		},

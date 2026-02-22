@@ -27,7 +27,7 @@ func Test_newDataCmd(t *testing.T) {
 	args := []string{"-h"}
 
 	cmd := newDatastoreCmd()
-	require.Len(t, cmd.Flags, 5)
+	require.Len(t, cmd.Flags, 9)
 
 	app.Commands = []*cli.Command{cmd}
 	err := app.Run(args)

@@ -13,7 +13,6 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -43,7 +42,7 @@ func Test_sizeReservationServiceServer_Create(t *testing.T) {
 
 	sizes := []*adminv2.SizeServiceCreateRequest{
 		{Size: &apiv2.Size{
-			Id: "n1-medium-x86", Name: pointer.Pointer("n1-medium-x86"),
+			Id: "n1-medium-x86", Name: new("n1-medium-x86"),
 			Constraints: []*apiv2.SizeConstraint{
 				{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
 				{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
@@ -216,7 +215,7 @@ func Test_sizeReservationServiceServer_Update(t *testing.T) {
 
 	sizes := []*adminv2.SizeServiceCreateRequest{
 		{Size: &apiv2.Size{
-			Id: "n1-medium-x86", Name: pointer.Pointer("n1-medium-x86"),
+			Id: "n1-medium-x86", Name: new("n1-medium-x86"),
 			Constraints: []*apiv2.SizeConstraint{
 				{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
 				{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
@@ -258,10 +257,10 @@ func Test_sizeReservationServiceServer_Update(t *testing.T) {
 			name: "Update without errors",
 			req: &adminv2.SizeReservationServiceUpdateRequest{
 				Id:          sizeReservationMap["sz-n1"].Id,
-				Name:        pointer.Pointer("size-reservation-n1-medium"),
+				Name:        new("size-reservation-n1-medium"),
 				Partitions:  []string{partition1, partition2},
-				Amount:      pointer.Pointer(int32(3)),
-				Description: pointer.Pointer("N1 Reservation for project-1 in partition-1 and partition-2"),
+				Amount:      new(int32(3)),
+				Description: new("N1 Reservation for project-1 in partition-1 and partition-2"),
 				UpdateMeta:  &apiv2.UpdateMeta{UpdatedAt: sizeReservationMap["sz-n1"].Meta.UpdatedAt},
 			},
 			want: &adminv2.SizeReservationServiceUpdateResponse{
@@ -282,10 +281,10 @@ func Test_sizeReservationServiceServer_Update(t *testing.T) {
 			name: "Update with errors, partition does not exist",
 			req: &adminv2.SizeReservationServiceUpdateRequest{
 				Id:          sizeReservationMap["sz-n1"].Id,
-				Name:        pointer.Pointer("size-reservation-n1-medium"),
+				Name:        new("size-reservation-n1-medium"),
 				Partitions:  []string{partition1, "partition-3"},
-				Amount:      pointer.Pointer(int32(3)),
-				Description: pointer.Pointer("N1 Reservation for project-1 in partition-1 and partition-2"),
+				Amount:      new(int32(3)),
+				Description: new("N1 Reservation for project-1 in partition-1 and partition-2"),
 				UpdateMeta:  &apiv2.UpdateMeta{UpdatedAt: sizeReservationMap["sz-n1"].Meta.UpdatedAt},
 			},
 			want:    nil,
@@ -295,10 +294,10 @@ func Test_sizeReservationServiceServer_Update(t *testing.T) {
 			name: "Update with errors, null amount",
 			req: &adminv2.SizeReservationServiceUpdateRequest{
 				Id:          sizeReservationMap["sz-n1"].Id,
-				Name:        pointer.Pointer("size-reservation-n1-medium"),
+				Name:        new("size-reservation-n1-medium"),
 				Partitions:  []string{partition1},
-				Amount:      pointer.Pointer(int32(0)),
-				Description: pointer.Pointer("N1 Reservation for project-1 in partition-1 and partition-2"),
+				Amount:      new(int32(0)),
+				Description: new("N1 Reservation for project-1 in partition-1 and partition-2"),
 				UpdateMeta:  &apiv2.UpdateMeta{UpdatedAt: sizeReservationMap["sz-n1"].Meta.UpdatedAt},
 			},
 			want:    nil,
@@ -354,7 +353,7 @@ func Test_sizeReservationServiceServer_Delete(t *testing.T) {
 
 	sizes := []*adminv2.SizeServiceCreateRequest{
 		{Size: &apiv2.Size{
-			Id: "n1-medium-x86", Name: pointer.Pointer("n1-medium-x86"),
+			Id: "n1-medium-x86", Name: new("n1-medium-x86"),
 			Constraints: []*apiv2.SizeConstraint{
 				{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
 				{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
@@ -469,7 +468,7 @@ func Test_sizeReservationServiceServer_List(t *testing.T) {
 
 	sizes := []*adminv2.SizeServiceCreateRequest{
 		{Size: &apiv2.Size{
-			Id: "n1-medium-x86", Name: pointer.Pointer("n1-medium-x86"),
+			Id: "n1-medium-x86", Name: new("n1-medium-x86"),
 			Constraints: []*apiv2.SizeConstraint{
 				{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
 				{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
@@ -477,7 +476,7 @@ func Test_sizeReservationServiceServer_List(t *testing.T) {
 			},
 		}},
 		{Size: &apiv2.Size{
-			Id: "n2-medium-x86", Name: pointer.Pointer("n2-medium-x86"),
+			Id: "n2-medium-x86", Name: new("n2-medium-x86"),
 			Constraints: []*apiv2.SizeConstraint{
 				{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 8, Max: 8},
 				{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
@@ -577,7 +576,7 @@ func Test_sizeReservationServiceServer_List(t *testing.T) {
 			name: "List size n2",
 			req: &adminv2.SizeReservationServiceListRequest{
 				Query: &apiv2.SizeReservationQuery{
-					Size: pointer.Pointer("n2-medium-x86"),
+					Size: new("n2-medium-x86"),
 				},
 			},
 			want: &adminv2.SizeReservationServiceListResponse{

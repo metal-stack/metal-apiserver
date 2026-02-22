@@ -6,7 +6,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 )
 
 func Test_sizeRepository_validateSizeConstraints(t *testing.T) {
@@ -56,13 +55,13 @@ func Test_sizeRepository_validateSizeConstraints(t *testing.T) {
 					Type:       apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_GPU,
 					Min:        1,
 					Max:        1,
-					Identifier: pointer.Pointer("A100*"),
+					Identifier: new("A100*"),
 				},
 				{
 					Type:       apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_GPU,
 					Min:        2,
 					Max:        2,
-					Identifier: pointer.Pointer("H100*"),
+					Identifier: new("H100*"),
 				},
 			},
 			wantErr: nil,
@@ -74,13 +73,13 @@ func Test_sizeRepository_validateSizeConstraints(t *testing.T) {
 					Type:       apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES,
 					Min:        1,
 					Max:        1,
-					Identifier: pointer.Pointer("Intel Xeon Silver"),
+					Identifier: new("Intel Xeon Silver"),
 				},
 				{
 					Type:       apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES,
 					Min:        2,
 					Max:        2,
-					Identifier: pointer.Pointer("Intel Xeon Gold"),
+					Identifier: new("Intel Xeon Gold"),
 				},
 			},
 			wantErr: errors.New("constraint at index 1 is invalid: type duplicates are not allowed for type \"SIZE_CONSTRAINT_TYPE_CORES\""),
@@ -101,7 +100,7 @@ func Test_sizeRepository_validateSizeConstraints(t *testing.T) {
 			constraints: []*apiv2.SizeConstraint{
 				{
 					Type:       apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE,
-					Identifier: pointer.Pointer("]["),
+					Identifier: new("]["),
 					Min:        2,
 					Max:        8,
 				},
@@ -113,7 +112,7 @@ func Test_sizeRepository_validateSizeConstraints(t *testing.T) {
 			constraints: []*apiv2.SizeConstraint{
 				{
 					Type:       apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY,
-					Identifier: pointer.Pointer("Kingston"),
+					Identifier: new("Kingston"),
 					Min:        2,
 					Max:        8,
 				},

@@ -10,7 +10,6 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/metal-stack/metal-lib/pkg/testcommon"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -734,7 +733,7 @@ func TestToMetalNics(t *testing.T) {
 					Name:       "Ethernet1",
 					Identifier: "Eth1/2",
 					Mac:        "22:22:22:22:22:22",
-					Vrf:        pointer.Pointer("Vrf100"),
+					Vrf:        new("Vrf100"),
 					State: &apiv2.NicState{
 						Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
 						Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -756,7 +755,7 @@ func TestToMetalNics(t *testing.T) {
 					Name:       "Ethernet0",
 					Identifier: "Eth1/1",
 					State: &metal.NicState{
-						Desired: pointer.Pointer(metal.SwitchPortStatusUp),
+						Desired: new(metal.SwitchPortStatusUp),
 						Actual:  metal.SwitchPortStatusDown,
 					},
 				},
@@ -766,7 +765,7 @@ func TestToMetalNics(t *testing.T) {
 					Identifier: "Eth1/2",
 					Vrf:        "Vrf100",
 					State: &metal.NicState{
-						Desired: pointer.Pointer(metal.SwitchPortStatusUp),
+						Desired: new(metal.SwitchPortStatusUp),
 						Actual:  metal.SwitchPortStatusUp,
 					},
 					BGPPortState: &metal.SwitchBGPPortState{
@@ -943,7 +942,7 @@ func TestGetNewNicState(t *testing.T) {
 		{
 			name: "state unchanged and matches desired",
 			current: &apiv2.NicState{
-				Desired: pointer.Pointer(apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP),
+				Desired: new(apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP),
 				Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 			},
 			status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -955,12 +954,12 @@ func TestGetNewNicState(t *testing.T) {
 		{
 			name: "state unchanged and does not match desired",
 			current: &apiv2.NicState{
-				Desired: pointer.Pointer(apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN),
+				Desired: new(apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN),
 				Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 			},
 			status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 			want: &apiv2.NicState{
-				Desired: pointer.Pointer(apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN),
+				Desired: new(apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN),
 				Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 			},
 			wantChanged: false,
@@ -979,12 +978,12 @@ func TestGetNewNicState(t *testing.T) {
 		{
 			name: "state changed and does not match desired",
 			current: &apiv2.NicState{
-				Desired: pointer.Pointer(apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP),
+				Desired: new(apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP),
 				Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
 			},
 			status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNKNOWN,
 			want: &apiv2.NicState{
-				Desired: pointer.Pointer(apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP),
+				Desired: new(apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP),
 				Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNKNOWN,
 			},
 			wantChanged: true,
@@ -992,7 +991,7 @@ func TestGetNewNicState(t *testing.T) {
 		{
 			name: "state changed and matches desired",
 			current: &apiv2.NicState{
-				Desired: pointer.Pointer(apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP),
+				Desired: new(apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP),
 				Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
 			},
 			status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -1050,12 +1049,12 @@ func Test_toMetalSwitchSync(t *testing.T) {
 			sync: &apiv2.SwitchSync{
 				Time:     timestamppb.New(now),
 				Duration: durationpb.New(2 * time.Second),
-				Error:    pointer.Pointer("fail"),
+				Error:    new("fail"),
 			},
 			want: &metal.SwitchSync{
 				Time:     now,
 				Duration: 2 * time.Second,
-				Error:    pointer.Pointer("fail"),
+				Error:    new("fail"),
 			},
 		},
 	}
@@ -1120,11 +1119,11 @@ func Test_switchRepository_updateAllButNics(t *testing.T) {
 			},
 			req: &adminv2.SwitchServiceUpdateRequest{
 				Id:             "sw1",
-				Description:    pointer.Pointer("new description"),
+				Description:    new("new description"),
 				ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE.Enum(),
-				ManagementIp:   pointer.Pointer("1.2.3.4"),
-				ManagementUser: pointer.Pointer("metal"),
-				ConsoleCommand: pointer.Pointer("ssh"),
+				ManagementIp:   new("1.2.3.4"),
+				ManagementUser: new("metal"),
+				ConsoleCommand: new("ssh"),
 				Nics: []*apiv2.SwitchNic{
 					{
 						Name:       "Ethernet2",
