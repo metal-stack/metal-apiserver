@@ -79,6 +79,7 @@ func newServeCmd() *cli.Command {
 			headscaleControlplaneAddressFlag,
 			headscaleApikeyFlag,
 			headscaleEnabledFlag,
+			componentExpirationFlag,
 		},
 		Action: func(ctx *cli.Context) error {
 			log, err := createLogger(ctx)
