@@ -30,6 +30,7 @@ type (
 )
 
 func (r *ipRepository) get(ctx context.Context, id string) (*metal.IP, error) {
+	r.s.log.Info("ip get", "id", id)
 	ip, err := r.s.ds.IP().Get(ctx, id)
 	if err != nil {
 		return nil, err
@@ -156,7 +157,7 @@ func (r *ipRepository) create(ctx context.Context, req *apiv2.IPServiceCreateReq
 		return nil, err
 	}
 
-	r.s.log.Info("created ip in metal-db", "ip", ipAddress, "network", nw.ID, "type", ipType)
+	r.s.log.Info("created ip in metal-db", "ip", ipAddress, "network", nw.ID, "type", ipType, "namespace", nw.Namespace)
 
 	return resp, nil
 }

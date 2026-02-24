@@ -157,7 +157,17 @@ func (r *machineRepository) matchScope(machine *metal.Machine) bool {
 func (r *machineRepository) create(ctx context.Context, req *apiv2.MachineServiceCreateRequest) (*metal.Machine, error) {
 	// TODO if allocation was created, create a new queue entry for the Wait endpoint like so:
 	// err := r.s.queue.PushMachineAllocation(ctx, m, task.MachineAllocationPayload{UUID: m})
-	panic("unimplemented")
+	machine := &metal.Machine{
+		Base: metal.Base{
+			Name: req.Name,
+		},
+		Allocation: &metal.MachineAllocation{
+			Name:    req.Name,
+			ImageID: req.Image,
+		},
+	}
+
+	return machine, nil
 }
 
 func (r *machineRepository) update(ctx context.Context, m *metal.Machine, req *apiv2.MachineServiceUpdateRequest) (*metal.Machine, error) {

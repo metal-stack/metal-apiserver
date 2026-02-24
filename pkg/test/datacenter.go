@@ -3,7 +3,6 @@ package test
 import (
 	"fmt"
 	"log/slog"
-	"maps"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -202,8 +201,11 @@ func (dc *Datacenter) createNetworks(spec *scenarios.DatacenterSpec) {
 }
 
 func (dc *Datacenter) createIPs(spec *scenarios.DatacenterSpec) {
-	ips := CreateIPs(dc.t, dc.TestStore, spec.IPs)
-	maps.Copy(dc.IPs, ips)
+	for _, ip := range spec.IPs {
+		i, err := dc.TestStore.UnscopedIP().Create(dc.t.Context(), ip)
+		require.NoError(dc.t, err)
+		dc.IPs[i.Name] = i
+	}
 }
 
 func (dc *Datacenter) createMachines(spec *scenarios.DatacenterSpec) {

@@ -15,6 +15,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -805,6 +806,50 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 			wantErr: errorutil.NotFound(`no network with id "no-internet" found`),
 		},
 		{
+			name: "machine with private network in wrong partition",
+			req:  nil, // set below
+			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
+				testDC := sc.DefaultDatacenter
+				testDC.Partitions = []string{sc.Partition1, sc.Partition2}
+				testDC.ProjectsPerTenant = 2
+				testDC.FilesystemLayouts = []*adminv2.FilesystemServiceCreateRequest{
+					{
+						FilesystemLayout: &apiv2.FilesystemLayout{
+							Id: "debian",
+							Constraints: &apiv2.FilesystemLayoutConstraints{
+								Sizes: []string{sc.SizeC1Large},
+								Images: map[string]string{
+									"debian": ">= 12.0",
+								},
+							},
+						},
+					},
+				}
+				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
+					Name:      new("project network"),
+					Project:   new(sc.Tenant1Project1),
+					Partition: new(sc.Partition1),
+					Type:      apiv2.NetworkType_NETWORK_TYPE_CHILD,
+				})
+				dc.Create(&testDC)
+
+				projectNetworkId := dc.Networks["project network"].Id
+				req := &apiv2.MachineServiceCreateRequest{
+					Project:        sc.Tenant1Project1,
+					Partition:      sc.Partition2,
+					Size:           sc.SizeC1Large,
+					Image:          "debian-13",
+					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+					Networks: []*apiv2.MachineAllocationNetwork{
+						{Network: sc.NetworkInternet},
+						{Network: projectNetworkId},
+					},
+				}
+				return req, errorutil.InvalidArgument(`network %q must be located in the partition where the machine is going to be placed`, projectNetworkId)
+			},
+			want: nil,
+		},
+		{
 			name: "machine with private network in wrong network",
 			req:  nil, // set below
 			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
@@ -846,6 +891,211 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 				return req, errorutil.InvalidArgument(`given network %s is project scoped but not part of project %s`, projectNetworkId, sc.Tenant1Project2)
 			},
 			want: nil,
+		},
+		{
+			name: "machine with private network with noautoacquire set to false but no ips specified",
+			req:  nil, // set below
+			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
+				testDC := sc.DefaultDatacenter
+				testDC.ProjectsPerTenant = 2
+				testDC.FilesystemLayouts = []*adminv2.FilesystemServiceCreateRequest{
+					{
+						FilesystemLayout: &apiv2.FilesystemLayout{
+							Id: "debian",
+							Constraints: &apiv2.FilesystemLayoutConstraints{
+								Sizes: []string{sc.SizeC1Large},
+								Images: map[string]string{
+									"debian": ">= 12.0",
+								},
+							},
+						},
+					},
+				}
+				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
+					Name:      new("project network"),
+					Project:   new(sc.Tenant1Project1),
+					Partition: new(sc.Partition1),
+					Type:      apiv2.NetworkType_NETWORK_TYPE_CHILD,
+				})
+				dc.Create(&testDC)
+
+				projectNetworkId := dc.Networks["project network"].Id
+				req := &apiv2.MachineServiceCreateRequest{
+					Project:        sc.Tenant1Project1,
+					Partition:      sc.Partition1,
+					Size:           sc.SizeC1Large,
+					Image:          "debian-13",
+					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+					Networks: []*apiv2.MachineAllocationNetwork{
+						{Network: sc.NetworkInternet},
+						{Network: projectNetworkId, NoAutoAcquireIp: new(false)},
+					},
+				}
+				return req, errorutil.InvalidArgument(`the network %s has no auto ip acquisition, but no suitable IPs were provided, which would lead into a machine having no ip address`, projectNetworkId)
+			},
+			want: nil,
+		},
+		{
+			name: "machine with private network with noautoacquire set to false but ips are not known",
+			req:  nil, // set below
+			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
+				testDC := sc.DefaultDatacenter
+				testDC.ProjectsPerTenant = 2
+				testDC.FilesystemLayouts = []*adminv2.FilesystemServiceCreateRequest{
+					{
+						FilesystemLayout: &apiv2.FilesystemLayout{
+							Id: "debian",
+							Constraints: &apiv2.FilesystemLayoutConstraints{
+								Sizes: []string{sc.SizeC1Large},
+								Images: map[string]string{
+									"debian": ">= 12.0",
+								},
+							},
+						},
+					},
+				}
+				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
+					Name:      new("project network"),
+					Project:   new(sc.Tenant1Project1),
+					Partition: new(sc.Partition1),
+					Type:      apiv2.NetworkType_NETWORK_TYPE_CHILD,
+				})
+				dc.Create(&testDC)
+
+				projectNetworkId := dc.Networks["project network"].Id
+				req := &apiv2.MachineServiceCreateRequest{
+					Project:        sc.Tenant1Project1,
+					Partition:      sc.Partition1,
+					Size:           sc.SizeC1Large,
+					Image:          "debian-13",
+					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+					Networks: []*apiv2.MachineAllocationNetwork{
+						{Network: sc.NetworkInternet},
+						{Network: projectNetworkId, NoAutoAcquireIp: new(false)},
+					},
+					Ips: []*apiv2.MachineAllocationIp{
+						{Ip: "1.2.3.4"},
+					},
+				}
+				return req, errorutil.NotFound(`no ip with id "1.2.3.4" found`)
+			},
+			want: nil,
+		},
+		{
+			name: "machine with private network with noautoacquire set to false but ips are from different network",
+			req:  nil, // set below
+			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
+				testDC := sc.DefaultDatacenter
+				testDC.ProjectsPerTenant = 2
+				testDC.FilesystemLayouts = []*adminv2.FilesystemServiceCreateRequest{
+					{
+						FilesystemLayout: &apiv2.FilesystemLayout{
+							Id: "debian",
+							Constraints: &apiv2.FilesystemLayoutConstraints{
+								Sizes: []string{sc.SizeC1Large},
+								Images: map[string]string{
+									"debian": ">= 12.0",
+								},
+							},
+						},
+					},
+				}
+				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
+					Name:      new("project network"),
+					Project:   new(sc.Tenant1Project1),
+					Partition: new(sc.Partition1),
+					Type:      apiv2.NetworkType_NETWORK_TYPE_CHILD,
+				})
+				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
+					Name:      new("2nd project network"),
+					Project:   new(sc.Tenant1Project1),
+					Partition: new(sc.Partition1),
+					Type:      apiv2.NetworkType_NETWORK_TYPE_CHILD,
+				})
+				dc.Create(&testDC)
+
+				ipcr, err := dc.TestStore.UnscopedIP().Create(t.Context(), &apiv2.IPServiceCreateRequest{
+					Network: dc.Networks["2nd project network"].Id,
+					Project: sc.Tenant1Project1,
+					Name:    new("ip-project-2"),
+				})
+				require.NoError(t, err)
+
+				projectNetworkId := dc.Networks["project network"].Id
+				req := &apiv2.MachineServiceCreateRequest{
+					Project:        sc.Tenant1Project1,
+					Partition:      sc.Partition1,
+					Size:           sc.SizeC1Large,
+					Image:          "debian-13",
+					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+					Networks: []*apiv2.MachineAllocationNetwork{
+						{Network: sc.NetworkInternet},
+						{Network: projectNetworkId, NoAutoAcquireIp: new(false)},
+					},
+					Ips: []*apiv2.MachineAllocationIp{
+						{Ip: ipcr.Ip},
+					},
+				}
+				return req, errorutil.InvalidArgument(`given ip %s is not in any of the given networks, which is required`, ipcr.Ip)
+			},
+			want: nil,
+		},
+		{
+			name: "machine with private namespaced network",
+			req:  nil, // set below
+			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
+				testDC := sc.DefaultDatacenter
+				testDC.ProjectsPerTenant = 2
+				testDC.FilesystemLayouts = []*adminv2.FilesystemServiceCreateRequest{
+					{
+						FilesystemLayout: &apiv2.FilesystemLayout{
+							Id: "debian",
+							Constraints: &apiv2.FilesystemLayoutConstraints{
+								Sizes: []string{sc.SizeC1Large},
+								Images: map[string]string{
+									"debian": ">= 12.0",
+								},
+							},
+						},
+					},
+				}
+				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
+					Name:          new("project namespaced network"),
+					ParentNetwork: new(sc.NetworkTenantSuperNamespaced),
+					Project:       new(sc.Tenant1Project1),
+					Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD,
+				})
+				dc.Create(&testDC)
+
+				ipcr, err := dc.TestStore.UnscopedIP().Create(t.Context(), &apiv2.IPServiceCreateRequest{
+					Network: dc.Networks["project namespaced network"].Id,
+					Project: sc.Tenant1Project1,
+					Name:    new("ip-in-namespaced-project"),
+				})
+				require.NoError(t, err)
+
+				projectNetworkId := dc.Networks["project namespaced network"].Id
+				req := &apiv2.MachineServiceCreateRequest{
+					Name:           "testmachine",
+					Project:        sc.Tenant1Project1,
+					Partition:      sc.Partition1,
+					Size:           sc.SizeC1Large,
+					Image:          "debian-13",
+					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+					Networks: []*apiv2.MachineAllocationNetwork{
+						{Network: sc.NetworkInternet},
+						{Network: projectNetworkId, NoAutoAcquireIp: new(false)},
+					},
+					Ips: []*apiv2.MachineAllocationIp{
+						{Ip: ipcr.Ip, Namespace: ipcr.Namespace},
+					}}
+				return req, nil
+			},
+			want: &apiv2.MachineServiceCreateResponse{
+				Machine: &apiv2.Machine{Allocation: &apiv2.MachineAllocation{
+					Name: "testmachine",
+				}},
+			},
 		},
 	}
 	for _, tt := range tests {

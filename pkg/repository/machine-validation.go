@@ -138,21 +138,19 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 	}
 
 	for _, ip := range req.Ips {
-		// TODO namespaced ips
-		i, err := r.s.IP(req.Project).Get(ctx, ip)
+		namespacedIP := metal.CreateNamespacedIPAddress(ip.Namespace, ip.Ip)
+		metalIP, err := r.s.ds.IP().Get(ctx, namespacedIP)
 		if err != nil {
 			return err
 		}
-		if !slices.Contains(networks, i.Network) {
-			return errorutil.InvalidArgument("given ip %s is not in any of the given networks, which is required", i.Ip)
+		if !slices.Contains(networks, metalIP.NetworkID) {
+			return errorutil.InvalidArgument("given ip %s is not in any of the given networks, which is required", metalIP.IPAddress)
 		}
-		metalIP, err := r.s.ds.IP().Get(ctx, i.Ip)
-		if err != nil {
-			return err
-		}
+
+		// TODO explain this condition
 		scope := metalIP.GetScope()
 		if scope != metal.ScopeMachine && scope != metal.ScopeProject {
-			return errorutil.InvalidArgument("given ip %s is not available for direct attachment to machine because it is already in use", i.Ip)
+			return errorutil.InvalidArgument("given ip %s is not available for direct attachment to machine because it is already in use", metalIP.IPAddress)
 		}
 
 	}
