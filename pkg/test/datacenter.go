@@ -190,8 +190,15 @@ func (dc *Datacenter) createFilesystemLayouts(spec *scenarios.DatacenterSpec) {
 }
 
 func (dc *Datacenter) createNetworks(spec *scenarios.DatacenterSpec) {
-	networks := CreateNetworks(dc.t, dc.TestStore, spec.Networks)
-	maps.Copy(dc.Networks, networks)
+	for _, nw := range spec.Networks {
+		resp, err := dc.TestStore.UnscopedNetwork().Create(dc.t.Context(), nw)
+		require.NoError(dc.t, err)
+		if resp.Name != nil {
+			dc.Networks[*resp.Name] = resp
+		} else {
+			dc.Networks[resp.Id] = resp
+		}
+	}
 }
 
 func (dc *Datacenter) createIPs(spec *scenarios.DatacenterSpec) {

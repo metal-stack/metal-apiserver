@@ -512,11 +512,12 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 	defer dc.Close()
 
 	tests := []struct {
-		name    string
-		req     *apiv2.MachineServiceCreateRequest
-		before  func() *sc.DatacenterSpec
-		want    *apiv2.MachineServiceCreateResponse
-		wantErr error
+		name                         string
+		req                          *apiv2.MachineServiceCreateRequest
+		createDatacenterFn           func() *sc.DatacenterSpec
+		createDatacenterAndRequestFn func() *apiv2.MachineServiceCreateRequest
+		want                         *apiv2.MachineServiceCreateResponse
+		wantErr                      error
 	}{
 		{
 			name:    "no project given",
@@ -578,7 +579,7 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 				Uuid:    new(sc.Machine2),
 				Project: sc.Tenant1Project1,
 			},
-			before: func() *sc.DatacenterSpec {
+			createDatacenterFn: func() *sc.DatacenterSpec {
 				testDC := sc.DefaultDatacenter
 				testDC.Machines = []*sc.MachineWithLiveliness{
 					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, "", metal.MachineLivelinessAlive),
@@ -595,7 +596,7 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 				Uuid:    new(sc.Machine2),
 				Project: sc.Tenant1Project1,
 			},
-			before: func() *sc.DatacenterSpec {
+			createDatacenterFn: func() *sc.DatacenterSpec {
 				testDC := sc.DefaultDatacenter
 				testDC.Machines = []*sc.MachineWithLiveliness{
 					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, "", metal.MachineLivelinessAlive),
@@ -612,7 +613,7 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 				Uuid:    new(sc.Machine2),
 				Project: sc.Tenant1Project1,
 			},
-			before: func() *sc.DatacenterSpec {
+			createDatacenterFn: func() *sc.DatacenterSpec {
 				testDC := sc.DefaultDatacenter
 				testDC.Machines = []*sc.MachineWithLiveliness{
 					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, "", metal.MachineLivelinessAlive),
@@ -674,7 +675,7 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 				FilesystemLayout: new("debian-13"),
 				Image:            "debian-13",
 			},
-			before: func() *sc.DatacenterSpec {
+			createDatacenterFn: func() *sc.DatacenterSpec {
 				testDC := sc.DefaultDatacenter
 				testDC.Machines = []*sc.MachineWithLiveliness{
 					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeN1Medium, "", metal.MachineLivelinessAlive),
@@ -728,7 +729,7 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 				Size:      sc.SizeC1Large,
 				Image:     "debian-11",
 			},
-			before: func() *sc.DatacenterSpec {
+			createDatacenterFn: func() *sc.DatacenterSpec {
 				return &sc.DefaultDatacenter
 			},
 			want:    nil,
@@ -757,7 +758,7 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 				AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
 				FirewallSpec:   &apiv2.FirewallSpec{},
 			},
-			before: func() *sc.DatacenterSpec {
+			createDatacenterFn: func() *sc.DatacenterSpec {
 				return &sc.DefaultDatacenter
 			},
 			want:    nil,
@@ -773,7 +774,7 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 				Image:          "debian-13",
 				AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
 			},
-			before: func() *sc.DatacenterSpec {
+			createDatacenterFn: func() *sc.DatacenterSpec {
 				return &sc.DefaultDatacenter
 			},
 			want:    nil,
@@ -791,64 +792,67 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 					{Network: "no-internet"},
 				},
 			},
-			before: func() *sc.DatacenterSpec {
+			createDatacenterFn: func() *sc.DatacenterSpec {
 				return &sc.DefaultDatacenter
 			},
 			want:    nil,
 			wantErr: errorutil.NotFound(`no network with id "no-internet" found`),
 		},
-		// {
-		// 	name: "machine with private networks",
-		// 	req: &apiv2.MachineServiceCreateRequest{
-		// 		Project:        sc.Tenant1Project1,
-		// 		Partition:      sc.Partition1,
-		// 		Size:           sc.SizeC1Large,
-		// 		Image:          "debian-13",
-		// 		AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
-		// 		Networks: []*apiv2.MachineAllocationNetwork{
-		// 			{Network: sc.NetworkInternet},
-		// 		},
-		// 	},
-		// 	before: func() *sc.DatacenterSpec {
-		// 		dc.CleanUp()
-		// 		testDC := sc.DefaultDatacenter
-		// 		testDC.FilesystemLayouts = []*adminv2.FilesystemServiceCreateRequest{
-		// 			{
-		// 				FilesystemLayout: &apiv2.FilesystemLayout{
-		// 					Id: "debian",
-		// 					Constraints: &apiv2.FilesystemLayoutConstraints{
-		// 						Sizes: []string{sc.SizeC1Large},
-		// 						Images: map[string]string{
-		// 							"debian": ">= 12.0",
-		// 						},
-		// 					},
-		// 				},
-		// 			},
-		// 		}
-		// 		dc.Create(&testDC)
+		{
+			name: "machine with private network in wrong network",
+			req:  nil, // set below
+			createDatacenterAndRequestFn: func() *apiv2.MachineServiceCreateRequest {
+				testDC := sc.DefaultDatacenter
+				testDC.ProjectsPerTenant = 2
+				testDC.FilesystemLayouts = []*adminv2.FilesystemServiceCreateRequest{
+					{
+						FilesystemLayout: &apiv2.FilesystemLayout{
+							Id: "debian",
+							Constraints: &apiv2.FilesystemLayoutConstraints{
+								Sizes: []string{sc.SizeC1Large},
+								Images: map[string]string{
+									"debian": ">= 12.0",
+								},
+							},
+						},
+					},
+				}
+				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
+					Name:      new("project network"),
+					Project:   new(sc.Tenant1Project1),
+					Partition: new(sc.Partition1),
+					Type:      apiv2.NetworkType_NETWORK_TYPE_CHILD,
+				})
+				dc.Create(&testDC)
 
-		// 		n, err := dc.TestStore.Store.Network(sc.Tenant1Project1).Create(ctx, &adminv2.NetworkServiceCreateRequest{
-		// 			Name:      new("project network"),
-		// 			Project:   new(sc.Tenant1Project1),
-		// 			Partition: new(sc.Partition1),
-		// 			Type:      apiv2.NetworkType_NETWORK_TYPE_CHILD,
-		// 		})
-		// 		require.NoError(t, err)
-		// 		req.Networks = append(req.Networks, &apiv2.MachineAllocationNetwork{
-		// 			Network: n.Id,
-		// 		})
+				projectNetworkId := dc.Networks["project network"].Id
+				req := &apiv2.MachineServiceCreateRequest{
+					Project:        sc.Tenant1Project2,
+					Partition:      sc.Partition1,
+					Size:           sc.SizeC1Large,
+					Image:          "debian-13",
+					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+					Networks: []*apiv2.MachineAllocationNetwork{
+						{Network: sc.NetworkInternet},
+						{Network: projectNetworkId},
+					},
+				}
+				return req
+			},
 
-		// 		return nil
-		// 	},
-		// 	want:    nil,
-		// 	wantErr: errorutil.NotFound(`no network with id "no-internet" found`),
-		// },
+			want:    nil,
+			wantErr: errorutil.NotFound(`no network with id "no-internet" found`),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.before != nil {
+			if tt.createDatacenterFn != nil {
 				dc.CleanUp()
-				dc.Create(tt.before())
+				dc.Create(tt.createDatacenterFn())
+			}
+			if tt.createDatacenterAndRequestFn != nil {
+				dc.CleanUp()
+				tt.req = tt.createDatacenterAndRequestFn()
 			}
 
 			m := &machineServiceServer{
