@@ -512,12 +512,18 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 	defer dc.Close()
 
 	tests := []struct {
-		name                         string
-		req                          *apiv2.MachineServiceCreateRequest
-		createDatacenterFn           func() *sc.DatacenterSpec
-		createDatacenterAndRequestFn func() *apiv2.MachineServiceCreateRequest
-		want                         *apiv2.MachineServiceCreateResponse
-		wantErr                      error
+		name string
+		req  *apiv2.MachineServiceCreateRequest
+		// this func only defines the datacenter spec
+		// must not be defined together with the createRequestFn
+		createDatacenterFn func() *sc.DatacenterSpec
+		// when this func is defined, the datacenter must be created inside
+		// with the request and the expected error if any.
+		// This is handy if entities with random uuids must be created as precondition
+		// and also must be part of the request and the error message
+		createRequestFn func() (*apiv2.MachineServiceCreateRequest, error)
+		want            *apiv2.MachineServiceCreateResponse
+		wantErr         error
 	}{
 		{
 			name:    "no project given",
@@ -801,7 +807,7 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 		{
 			name: "machine with private network in wrong network",
 			req:  nil, // set below
-			createDatacenterAndRequestFn: func() *apiv2.MachineServiceCreateRequest {
+			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
 				testDC := sc.DefaultDatacenter
 				testDC.ProjectsPerTenant = 2
 				testDC.FilesystemLayouts = []*adminv2.FilesystemServiceCreateRequest{
@@ -837,22 +843,25 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 						{Network: projectNetworkId},
 					},
 				}
-				return req
+				return req, errorutil.InvalidArgument(`given network %s is project scoped but not part of project %s`, projectNetworkId, sc.Tenant1Project2)
 			},
-
-			want:    nil,
-			wantErr: errorutil.NotFound(`no network with id "no-internet" found`),
+			want: nil,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.createDatacenterFn != nil && tt.createRequestFn != nil {
+				t.Errorf("it is not possible to define createDatacenterFn and createRequestFn")
+			}
 			if tt.createDatacenterFn != nil {
 				dc.CleanUp()
 				dc.Create(tt.createDatacenterFn())
 			}
-			if tt.createDatacenterAndRequestFn != nil {
+			if tt.createRequestFn != nil {
 				dc.CleanUp()
-				tt.req = tt.createDatacenterAndRequestFn()
+				req, err := tt.createRequestFn()
+				tt.req = req
+				tt.wantErr = err
 			}
 
 			m := &machineServiceServer{
