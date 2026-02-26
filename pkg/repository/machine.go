@@ -155,16 +155,22 @@ func (r *machineRepository) matchScope(machine *metal.Machine) bool {
 }
 
 func (r *machineRepository) create(ctx context.Context, req *apiv2.MachineServiceCreateRequest) (*metal.Machine, error) {
-	// TODO if allocation was created, create a new queue entry for the Wait endpoint like so:
-	// err := r.s.queue.PushMachineAllocation(ctx, m, task.MachineAllocationPayload{UUID: m})
-	machine := &metal.Machine{
-		Base: metal.Base{
-			Name: req.Name,
-		},
-		Allocation: &metal.MachineAllocation{
-			Name:    req.Name,
-			ImageID: req.Image,
-		},
+
+	spec, err := r.createMachineAllocationSpec(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	machine, err := r.allocateMachine(ctx, spec)
+	if err != nil {
+		return nil, err
+	}
+
+	// if allocation was created, create a new queue entry for the Wait endpoint like so:
+	err = r.s.queue.PushMachineAllocation(ctx, machine.ID, task.MachineAllocationPayload{UUID: machine.Allocation.UUID})
+	if err != nil {
+		// TODO how to roll back what was already allocated
+		return nil, err
 	}
 
 	return machine, nil

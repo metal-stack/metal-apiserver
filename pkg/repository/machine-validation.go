@@ -113,6 +113,8 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 		return errorutil.InvalidArgument("networks must not be empty")
 	}
 
+	// TODO validate firewallRules
+
 	var networks []string
 	for _, nw := range req.Networks {
 		// TODO external network is required
@@ -143,6 +145,7 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 		if err != nil {
 			return err
 		}
+		// TODO Ip.Project == project
 		if !slices.Contains(networks, metalIP.NetworkID) {
 			return errorutil.InvalidArgument("given ip %s is not in any of the given networks, which is required", metalIP.IPAddress)
 		}
