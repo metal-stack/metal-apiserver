@@ -98,6 +98,9 @@ func Initialize(ctx context.Context, log *slog.Logger, opts r.ConnectOpts, dsOpt
 	if err := ds.sizeReservation.initialize(ctx); err != nil {
 		return fmt.Errorf("unable to initialize size reservation datastore: %w", err)
 	}
+	if err := ds.sizeImageConstraint.initialize(ctx); err != nil {
+		return fmt.Errorf("unable to initialize size image constraint datastore: %w", err)
+	}
 	if err := ds.network.initialize(ctx); err != nil {
 		return fmt.Errorf("unable to initialize network datastore: %w", err)
 	}

@@ -52,6 +52,8 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/service/project"
 	projectadmin "github.com/metal-stack/metal-apiserver/pkg/service/project/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/size"
+	sizeimageconstraint "github.com/metal-stack/metal-apiserver/pkg/service/size-image-constraint"
+	sizeimageconstraintadmin "github.com/metal-stack/metal-apiserver/pkg/service/size-image-constraint/admin"
 	sizereservation "github.com/metal-stack/metal-apiserver/pkg/service/size-reservation"
 	sizereservationadmin "github.com/metal-stack/metal-apiserver/pkg/service/size-reservation/admin"
 	sizeadmin "github.com/metal-stack/metal-apiserver/pkg/service/size/admin"
@@ -212,6 +214,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	partitionService := partition.New(partition.Config{Log: log, Repo: c.Repository})
 	sizeService := size.New(size.Config{Log: log, Repo: c.Repository})
 	sizeReservationService := sizereservation.New(sizereservation.Config{Log: log, Repo: c.Repository})
+	sizeImageConstraintService := sizeimageconstraint.New(sizeimageconstraint.Config{Log: log, Repo: c.Repository})
 	imageService := image.New(image.Config{Log: log, Repo: c.Repository})
 	tokenService := token.New(token.Config{
 		Log:           log,
@@ -247,6 +250,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	mux.Handle(apiv2connect.NewPartitionServiceHandler(partitionService, interceptors))
 	mux.Handle(apiv2connect.NewSizeServiceHandler(sizeService, interceptors))
 	mux.Handle(apiv2connect.NewSizeReservationServiceHandler(sizeReservationService, interceptors))
+	mux.Handle(apiv2connect.NewSizeImageConstraintServiceHandler(sizeImageConstraintService, interceptors))
 	mux.Handle(apiv2connect.NewProjectServiceHandler(projectService, interceptors))
 	mux.Handle(apiv2connect.NewTenantServiceHandler(tenantService, interceptors))
 	mux.Handle(apiv2connect.NewUserServiceHandler(userService, interceptors))
@@ -261,6 +265,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	adminProjectService := projectadmin.New(projectadmin.Config{Log: log, Repo: c.Repository})
 	adminSizeService := sizeadmin.New(sizeadmin.Config{Log: log, Repo: c.Repository})
 	adminSizeReservationService := sizereservationadmin.New(sizereservationadmin.Config{Log: log, Repo: c.Repository})
+	adminSizeImageConstraintService := sizeimageconstraintadmin.New(sizeimageconstraintadmin.Config{Log: log, Repo: c.Repository})
 	adminMachineService := machineadmin.New(machineadmin.Config{Log: log, Repo: c.Repository})
 	adminNetworkService := networkadmin.New(networkadmin.Config{Log: log, Repo: c.Repository})
 	adminSwitchService := switchadmin.New(switchadmin.Config{Log: log, Repo: c.Repository})
@@ -274,6 +279,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	mux.Handle(adminv2connect.NewProjectServiceHandler(adminProjectService, adminInterceptors))
 	mux.Handle(adminv2connect.NewSizeServiceHandler(adminSizeService, adminInterceptors))
 	mux.Handle(adminv2connect.NewSizeReservationServiceHandler(adminSizeReservationService, adminInterceptors))
+	mux.Handle(adminv2connect.NewSizeImageConstraintServiceHandler(adminSizeImageConstraintService, adminInterceptors))
 	mux.Handle(adminv2connect.NewTenantServiceHandler(adminTenantService, adminInterceptors))
 	mux.Handle(adminv2connect.NewNetworkServiceHandler(adminNetworkService, adminInterceptors))
 	mux.Handle(adminv2connect.NewSwitchServiceHandler(adminSwitchService, adminInterceptors))

@@ -64,6 +64,7 @@ func (dc *Datacenter) Create(spec *scenarios.DatacenterSpec) {
 	dc.createSizes(spec)
 	dc.createSizeReservations(spec)
 	dc.createFilesystemLayouts(spec)
+	dc.createSizeImageConstraints(spec)
 	dc.createNetworks(spec)
 	dc.createIPs(spec)
 	dc.createSwitches(spec)
@@ -186,6 +187,10 @@ func (dc *Datacenter) createFilesystemLayouts(spec *scenarios.DatacenterSpec) {
 		require.NoError(dc.t, err)
 		dc.FilesystemLayouts[f.Id] = f
 	}
+}
+
+func (dc *Datacenter) createSizeImageConstraints(spec *scenarios.DatacenterSpec) {
+	CreateSizeImageConstraints(dc.t, dc.TestStore, spec.SizeImageConstraints)
 }
 
 func (dc *Datacenter) createNetworks(spec *scenarios.DatacenterSpec) {
