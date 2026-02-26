@@ -200,6 +200,18 @@ func (s *Store) Size() Size {
 		typed:      repository,
 	}
 }
+
+func (s *Store) SizeImageConstraint() SizeImageConstraint {
+	repository := &sizeImageConstraintRepository{
+		s: s,
+	}
+
+	return &store[*sizeImageConstraintRepository, *metal.SizeImageConstraint, *apiv2.SizeImageConstraint, *adminv2.SizeImageConstraintServiceCreateRequest, *adminv2.SizeImageConstraintServiceUpdateRequest, *apiv2.SizeImageConstraintQuery]{
+		repository: repository,
+		typed:      repository,
+	}
+}
+
 func (s *Store) SizeReservation(project string) SizeReservation {
 	return s.sizeReservation(&ProjectScope{
 		projectID: project,
