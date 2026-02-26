@@ -119,6 +119,7 @@ func Test_methodServiceServer_List(t *testing.T) {
 					"/metalstack.api.v2.ProjectService/InviteGet",
 					"/metalstack.api.v2.ProjectService/Leave",
 					"/metalstack.api.v2.ProjectService/List",
+					"/metalstack.api.v2.SizeImageConstraintService/Try",
 					"/metalstack.api.v2.SizeReservationService/Get",
 					"/metalstack.api.v2.SizeReservationService/List",
 					"/metalstack.api.v2.SizeService/Get",

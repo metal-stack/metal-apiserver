@@ -564,6 +564,16 @@ func CreateSizes(t testing.TB, testStore *testStore, sizes []*adminv2.SizeServic
 	return sizeMap
 }
 
+func CreateSizeImageConstraints(t testing.TB, testStore *testStore, sizeImageConstraints []*adminv2.SizeImageConstraintServiceCreateRequest) map[string]*apiv2.SizeImageConstraint {
+	sizeImageConstraintMap := map[string]*apiv2.SizeImageConstraint{}
+	for _, sic := range sizeImageConstraints {
+		s, err := testStore.SizeImageConstraint().Create(t.Context(), sic)
+		require.NoError(t, err)
+		sizeImageConstraintMap[s.Size] = s
+	}
+	return sizeImageConstraintMap
+}
+
 func CreateSizeReservations(t testing.TB, testStore *testStore, sizeReservations []*adminv2.SizeReservationServiceCreateRequest) map[string]*apiv2.SizeReservation {
 	sizeReservationMap := map[string]*apiv2.SizeReservation{}
 	for _, sr := range sizeReservations {

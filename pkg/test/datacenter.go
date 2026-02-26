@@ -62,6 +62,7 @@ func (dc *Datacenter) Create(spec *scenarios.DatacenterSpec) {
 	dc.createImages(spec)
 	dc.createSizes(spec)
 	dc.createSizeReservations(spec)
+	dc.createSizeImageConstraints(spec)
 	dc.createNetworks(spec)
 	dc.createIPs(spec)
 	dc.createSwitches(spec)
@@ -176,6 +177,10 @@ func (dc *Datacenter) createSizes(spec *scenarios.DatacenterSpec) {
 
 func (dc *Datacenter) createSizeReservations(spec *scenarios.DatacenterSpec) {
 	CreateSizeReservations(dc.t, dc.TestStore, spec.SizeReservations)
+}
+
+func (dc *Datacenter) createSizeImageConstraints(spec *scenarios.DatacenterSpec) {
+	CreateSizeImageConstraints(dc.t, dc.TestStore, spec.SizeImageConstraints)
 }
 
 func (dc *Datacenter) createNetworks(spec *scenarios.DatacenterSpec) {
