@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
+	"math"
+	"math/rand/v2"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -47,6 +49,20 @@ type machineAllocationSpec struct {
 	NTPServers         metal.NTPServers
 }
 
+func (s machineAllocationSpec) noautoNetworkN() int {
+	result := 0
+	for _, n := range s.Networks {
+		if n.NoAutoAcquireIp != nil && *n.NoAutoAcquireIp {
+			result++
+		}
+	}
+	return result
+}
+
+func (s machineAllocationSpec) autoNetworkN() int {
+	return len(s.Networks) - s.noautoNetworkN()
+}
+
 // allocationNetwork is intermediate struct to create machine networks from regular networks during machine allocation
 type allocationNetwork struct {
 	network *metal.Network
@@ -55,6 +71,9 @@ type allocationNetwork struct {
 
 	networkType metal.NetworkType
 }
+
+// allocationNetworkMap is a map of allocationNetworks with the network id as the key
+type allocationNetworkMap map[string]*allocationNetwork
 
 func (r *machineRepository) createMachineAllocationSpec(ctx context.Context, req *apiv2.MachineServiceCreateRequest) (*machineAllocationSpec, error) {
 	var uuid string
@@ -261,8 +280,6 @@ func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAl
 
 	// Check if more machine would be allocated than project quota permits
 	if p.GetProject() != nil && p.GetProject().GetQuotas() != nil && p.GetProject().GetQuotas().GetMachine() != nil {
-		mq := p.GetProject().GetQuotas().GetMachine()
-		maxMachines := mq.Max
 		actualMachines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
 			Allocation: &apiv2.MachineAllocationQuery{
 				Project: &spec.ProjectID,
@@ -273,8 +290,9 @@ func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAl
 		if err != nil {
 			return nil, err
 		}
-		if maxMachines != nil && len(actualMachines) >= int(*maxMachines) {
-			return nil, fmt.Errorf("project quota for machines reached max:%d", *maxMachines)
+		mq := p.GetProject().GetQuotas().GetMachine()
+		if mq.Max != nil && len(actualMachines) >= int(*mq.Max) {
+			return nil, fmt.Errorf("project quota for machines reached max:%d", *mq.Max)
 		}
 	}
 
@@ -402,26 +420,23 @@ func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAl
 
 }
 
-func (r *machineRepository) validateAllocationSpec(allocationSpec *machineAllocationSpec) error {
-	if allocationSpec.ProjectID == "" {
+func (r *machineRepository) validateAllocationSpec(spec *machineAllocationSpec) error {
+	if spec.ProjectID == "" {
 		return errors.New("project id must be specified")
 	}
 
-	if allocationSpec.Creator == "" {
+	if spec.Creator == "" {
 		return errors.New("creator should be specified")
 	}
 
-	if !metal.AllRoles[allocationSpec.Role] {
-		return fmt.Errorf("role does not exist: %s", allocationSpec.Role)
+	switch spec.Role {
+	case metal.RoleFirewall, metal.RoleMachine:
+		// All good
+	default:
+		return fmt.Errorf("given role %s is not supported", spec.Role)
 	}
 
-	for _, ip := range allocationSpec.IPs {
-		if net.ParseIP(ip) == nil {
-			return fmt.Errorf("%q is not a valid IP address", ip)
-		}
-	}
-
-	for _, pubKey := range allocationSpec.SSHPubKeys {
+	for _, pubKey := range spec.SSHPubKeys {
 		_, _, _, _, err := ssh.ParseAuthorizedKey([]byte(pubKey))
 		if err != nil {
 			return fmt.Errorf("invalid public SSH key: %s error:%w", pubKey, err)
@@ -429,13 +444,13 @@ func (r *machineRepository) validateAllocationSpec(allocationSpec *machineAlloca
 	}
 
 	// A firewall must have either IP or Network with auto IP acquire specified.
-	if allocationSpec.Role == metal.RoleFirewall {
-		if len(allocationSpec.IPs) == 0 && allocationSpec.autoNetworkN() == 0 {
+	if spec.Role == metal.RoleFirewall {
+		if len(spec.IPs) == 0 && spec.autoNetworkN() == 0 {
 			return errors.New("when no ip is given at least one auto acquire network must be specified")
 		}
 	}
 
-	if noautoNetN := allocationSpec.noautoNetworkN(); noautoNetN > len(allocationSpec.IPs) {
+	if noautoNetN := spec.noautoNetworkN(); noautoNetN > len(spec.IPs) {
 		return errors.New("missing ip(s) for network(s) without automatic ip allocation")
 	}
 
@@ -443,15 +458,15 @@ func (r *machineRepository) validateAllocationSpec(allocationSpec *machineAlloca
 }
 
 func (r *machineRepository) isSizeAndImageCompatible(ctx context.Context, size *metal.Size, image *metal.Image) error {
-	sic, err := r.s.ds.FindSizeImageConstraint(size.ID)
-	if err != nil && !metal.IsNotFound(err) {
+	sic, err := r.s.ds.SizeImageConstraint().Get(ctx, size.ID)
+	if err != nil {
 		return err
 	}
 	if sic == nil {
 		return nil
 	}
 
-	return sic.Matches(size, image)
+	return sic.Matches(*size, *image)
 }
 
 func (r *machineRepository) findMachineCandidate(ctx context.Context, spec *machineAllocationSpec) (*metal.Machine, error) {
@@ -461,7 +476,7 @@ func (r *machineRepository) findMachineCandidate(ctx context.Context, spec *mach
 	)
 	if spec.Machine == nil {
 		// requesting allocation of an arbitrary ready machine in partition with given size
-		machine, err = findWaitingMachine(ctx, ds, spec)
+		machine, err = r.findWaitingMachine(ctx, spec)
 		if err != nil {
 			return nil, err
 		}
@@ -472,31 +487,278 @@ func (r *machineRepository) findMachineCandidate(ctx context.Context, spec *mach
 			return nil, errors.New("machine is already allocated")
 		}
 		if spec.PartitionID != "" && machine.PartitionID != spec.PartitionID {
-			return nil, fmt.Errorf("machine %q is not in the requested partition: %s", machine.ID, allocationSpec.PartitionID)
+			return nil, fmt.Errorf("machine %q is not in the requested partition: %s", machine.ID, spec.PartitionID)
 		}
 
 		if spec.Size != nil && machine.SizeID != spec.Size.ID {
-			return nil, fmt.Errorf("machine %q does not have the requested size: %s", machine.ID, allocationSpec.Size.ID)
+			return nil, fmt.Errorf("machine %q does not have the requested size: %s", machine.ID, spec.Size.ID)
 		}
 	}
 	return machine, err
 }
 
 func (r *machineRepository) findWaitingMachine(ctx context.Context, spec *machineAllocationSpec) (*metal.Machine, error) {
-	size, err := ds.FindSize(spec.Size.ID)
+	size, err := r.s.ds.Size().Get(ctx, spec.Size.ID)
 	if err != nil {
 		return nil, fmt.Errorf("size cannot be found: %w", err)
 	}
-	partition, err := ds.FindPartition(spec.PartitionID)
+	partition, err := r.s.ds.Partition().Get(ctx, spec.PartitionID)
 	if err != nil {
 		return nil, fmt.Errorf("partition cannot be found: %w", err)
 	}
 
-	machine, err := ds.FindWaitingMachine(ctx, spec.ProjectID, partition.ID, *size, spec.PlacementTags, spec.Role)
+	machine, err := r.FindWaitingMachine(ctx, spec.ProjectID, partition.ID, *size, spec.PlacementTags, spec.Role)
 	if err != nil {
 		return nil, err
 	}
 	return machine, nil
+}
+
+// FindWaitingMachine returns an available, not allocated, waiting and alive machine of given size within the given partition.
+// TODO: the algorithm can be optimized / shortened by using a rethinkdb join command and then using .Sample(1)
+// but current implementation should have a slightly better readability.
+func (r *machineRepository) FindWaitingMachine(ctx context.Context, projectid, partitionid string, size metal.Size, placementTags []string, role metal.Role) (*metal.Machine, error) {
+	// q := *rs.machineTable()
+	// q = q.Filter(map[string]any{
+	// 	"allocation":  nil,
+	// 	"partitionid": partitionid,
+	// 	"sizeid":      size.ID,
+	// 	"state": map[string]string{
+	// 		"value": string(metal.AvailableState),
+	// 	},
+	// 	"waiting":      true,
+	// 	"preallocated": false,
+	// })
+
+	if err := rs.sharedMutex.lock(ctx, partitionid, 10*time.Second); err != nil {
+		return nil, fmt.Errorf("too many parallel machine allocations taking place, try again later")
+	}
+	defer rs.sharedMutex.unlock(ctx, partitionid)
+
+	candidates, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
+		Partition:    &partitionid,
+		Size:         &size.ID,
+		State:        apiv2.MachineState_MACHINE_STATE_AVAILABLE.Enum(),
+		Waiting:      new(true),
+		Preallocated: new(false),
+		Allocation:   nil,
+	}))
+
+	ecs, err := r.s.ds.Event().List(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	ecMap := metal.ProvisioningEventsByID(ecs)
+
+	var available []*metal.Machine
+	for _, m := range candidates {
+		ec, ok := ecMap[m.ID]
+		if !ok {
+			r.s.log.Error("cannot find machine provisioning event container", "machine", m, "error", err)
+			// fall through, so the rest of the machines is getting evaluated
+			continue
+		}
+		if ec.Liveliness != metal.MachineLivelinessAlive {
+			continue
+		}
+		available = append(available, m)
+	}
+
+	if len(available) == 0 {
+		return nil, errors.New("no machine available")
+	}
+
+	partitionMachines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{Partition: &partitionid, Size: &size.ID}))
+	if err != nil {
+		return nil, err
+	}
+
+	reservations, err := r.s.ds.SizeReservation().List(ctx, queries.SizeReservationFilter(&apiv2.SizeReservationQuery{Partition: &partitionid, Size: &size.ID}))
+	if err != nil {
+		return nil, err
+	}
+
+	var (
+		machinesByProject map[string][]*metal.Machine
+		projectMachines   []*metal.Machine
+	)
+	for _, m := range partitionMachines {
+		if m.Allocation == nil {
+			continue
+		}
+		machinesByProject[m.Allocation.Project] = append(machinesByProject[m.Allocation.Project], m)
+		if m.Allocation.Project == projectid && m.Allocation.Role == role {
+			projectMachines = append(projectMachines, m)
+		}
+	}
+
+	ok := r.checkSizeReservations(available, projectid, machinesByProject, reservations)
+	if !ok {
+		return nil, errors.New("no machine available")
+	}
+
+	spreadCandidates := r.spreadAcrossRacks(available, projectMachines, placementTags)
+	if len(spreadCandidates) == 0 {
+		return nil, errors.New("no machine available")
+	}
+
+	machine := spreadCandidates[randomIndex(len(spreadCandidates))]
+	machine.PreAllocated = true
+
+	err = r.s.ds.Machine().Update(ctx, machine)
+	if err != nil {
+		return nil, err
+	}
+
+	return machine, nil
+}
+
+func (r *machineRepository) spreadAcrossRacks(allMachines, projectMachines []*metal.Machine, tags []string) []*metal.Machine {
+	var (
+		allRacks = groupByRack(allMachines)
+
+		projectRacks                = groupByRack(projectMachines)
+		leastOccupiedByProjectRacks = electRacks(allRacks, projectRacks)
+
+		taggedMachines           = groupByTags(projectMachines).filter(tags...).getMachines()
+		taggedRacks              = groupByRack(taggedMachines)
+		leastOccupiedByTagsRacks = electRacks(allRacks, taggedRacks)
+
+		intersection = intersect(leastOccupiedByTagsRacks, leastOccupiedByProjectRacks)
+	)
+
+	if c := allRacks.filter(intersection...).getMachines(); len(c) > 0 {
+		return c
+	}
+
+	return allRacks.filter(leastOccupiedByTagsRacks...).getMachines() // tags have precedence over project
+}
+
+type groupedMachines map[string][]*metal.Machine
+
+func groupByRack(machines []*metal.Machine) groupedMachines {
+	racks := make(groupedMachines)
+
+	for _, m := range machines {
+		racks[m.RackID] = append(racks[m.RackID], m)
+	}
+
+	return racks
+}
+
+func (g groupedMachines) getMachines() []*metal.Machine {
+	machines := make([]*metal.Machine, 0)
+
+	for id := range g {
+		machines = append(machines, g[id]...)
+	}
+
+	return machines
+}
+
+func (g groupedMachines) filter(keys ...string) groupedMachines {
+	result := make(groupedMachines)
+
+	for i := range keys {
+		ms, ok := g[keys[i]]
+		if ok {
+			result[keys[i]] = ms
+		}
+	}
+
+	return result
+}
+
+// electRacks returns the least occupied racks from all racks
+func electRacks(allRacks, occupiedRacks groupedMachines) []string {
+	winners := make([]string, 0)
+	min := math.MaxInt
+
+	for id := range allRacks {
+		if _, ok := occupiedRacks[id]; ok {
+			continue
+		}
+		occupiedRacks[id] = nil
+	}
+
+	for id := range occupiedRacks {
+		if _, ok := allRacks[id]; !ok {
+			continue
+		}
+
+		switch {
+		case len(occupiedRacks[id]) < min:
+			min = len(occupiedRacks[id])
+			winners = []string{id}
+		case len(occupiedRacks[id]) == min:
+			winners = append(winners, id)
+		}
+	}
+
+	return winners
+}
+
+func groupByTags(machines []*metal.Machine) groupedMachines {
+	groups := make(groupedMachines)
+
+	for _, m := range machines {
+		for j := range m.Tags {
+			ms := groups[m.Tags[j]]
+			groups[m.Tags[j]] = append(ms, m)
+		}
+	}
+
+	return groups
+}
+
+func randomIndex(max int) int {
+	if max <= 0 {
+		return 0
+	}
+	// golangci-lint has an issue with math/rand/v2
+	// here it provides sufficient randomness though because it's not used for cryptographic purposes
+	return rand.N(max) //nolint:gosec
+}
+
+func intersect[T comparable](a, b []T) []T {
+	c := make([]T, 0)
+
+	for i := range a {
+		if slices.Contains(b, a[i]) {
+			c = append(c, a[i])
+		}
+	}
+
+	return c
+}
+
+// checkSizeReservations returns true when an allocation is possible and
+// false when size reservations prevent the allocation for the given project in the given partition
+func (r *machineRepository) checkSizeReservations(available []*metal.Machine, projectid string, machinesByProject map[string][]*metal.Machine, reservations []*metal.SizeReservation) bool {
+	if len(reservations) == 0 {
+		return true
+	}
+
+	var (
+		amount = 0
+	)
+
+	for _, r := range reservations {
+		// sum up the amount of reservations
+		amount += r.Amount
+
+		alreadyAllocated := len(machinesByProject[r.ProjectID])
+
+		if projectid == r.ProjectID && alreadyAllocated < r.Amount {
+			// allow allocation for the project when it has a reservation and there are still allocations left
+			return true
+		}
+
+		// subtract already used up reservations of the project
+		amount = max(amount-alreadyAllocated, 0)
+	}
+
+	return amount < len(available)
 }
 
 // makeNetworks creates network entities and ip addresses as specified in the allocation network map.
@@ -515,7 +777,7 @@ func (r *machineRepository) makeNetworks(ctx context.Context, spec *machineAlloc
 	}
 
 	// the metal-networker expects to have the same unique ASN on all networks of this machine
-	asn, err := acquireASN(ds)
+	asn, err := r.acquireASN(ctx)
 	if err != nil {
 		return err
 	}
@@ -527,26 +789,25 @@ func (r *machineRepository) makeNetworks(ctx context.Context, spec *machineAlloc
 }
 
 func (r *machineRepository) gatherNetworks(ctx context.Context, spec *machineAllocationSpec) (allocationNetworkMap, error) {
-	partition, err := ds.FindPartition(spec.PartitionID)
+	privateSuperNetworks, err := r.s.ds.Network().List(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{Type: apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(), Partition: &spec.PartitionID}))
 	if err != nil {
-		return nil, fmt.Errorf("partition cannot be found: %w", err)
+		return nil, fmt.Errorf("partition %s has no super network: %w", spec.PartitionID, err)
 	}
 
-	var privateSuperNetworks metal.Networks
-	boolTrue := true
-	err = ds.SearchNetworks(&datastore.NetworkSearchQuery{PrivateSuper: &boolTrue}, &privateSuperNetworks)
+	privateSuperNamespacedNetworks, err := r.s.ds.Network().List(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{Type: apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED.Enum()}))
 	if err != nil {
-		return nil, fmt.Errorf("partition has no private super network: %w", err)
+		return nil, fmt.Errorf("error gettiting super namespaced network: %w", err)
 	}
+	superNetworks := append(privateSuperNetworks, privateSuperNamespacedNetworks...)
 
-	specNetworks, err := gatherNetworksFromSpec(ds, spec, partition, privateSuperNetworks)
+	specNetworks, err := r.gatherNetworksFromSpec(ctx, spec, spec.PartitionID, superNetworks)
 	if err != nil {
 		return nil, err
 	}
 
 	var underlayNetwork *allocationNetwork
 	if spec.Role == metal.RoleFirewall {
-		underlayNetwork, err = gatherUnderlayNetwork(ds, partition)
+		underlayNetwork, err = r.gatherUnderlayNetwork(ctx, spec.PartitionID)
 		if err != nil {
 			return nil, err
 		}
@@ -561,17 +822,17 @@ func (r *machineRepository) gatherNetworks(ctx context.Context, spec *machineAll
 	return result, nil
 }
 
-func (r *machineRepository) gatherNetworksFromSpec(ctx context.Context, spec *machineAllocationSpec, partition *metal.Partition, privateSuperNetworks metal.Networks) (allocationNetworkMap, error) {
+func (r *machineRepository) gatherNetworksFromSpec(ctx context.Context, spec *machineAllocationSpec, partitionId string, superNetworks []*metal.Network) (allocationNetworkMap, error) {
 	var partitionPrivateSuperNetwork *metal.Network
-	for i := range privateSuperNetworks {
-		psn := privateSuperNetworks[i]
-		if partition.ID == psn.PartitionID {
-			partitionPrivateSuperNetwork = &psn
+	for i := range superNetworks {
+		psn := superNetworks[i]
+		if partitionId == psn.PartitionID {
+			partitionPrivateSuperNetwork = psn
 			break
 		}
 	}
 	if partitionPrivateSuperNetwork == nil {
-		return nil, fmt.Errorf("partition %s does not have a private super network", partition.ID)
+		return nil, fmt.Errorf("partition %s does not have a private super network", partitionId)
 	}
 
 	// what do we have to prevent:
@@ -596,7 +857,7 @@ func (r *machineRepository) gatherNetworksFromSpec(ctx context.Context, spec *ma
 			auto = *networkSpec.NoAutoAcquireIp
 		}
 
-		network, err := ds.FindNetworkByID(networkSpec.Network)
+		network, err := r.s.ds.Network().Get(ctx, networkSpec.Network)
 		if err != nil {
 			return nil, err
 		}
@@ -667,8 +928,8 @@ func (r *machineRepository) gatherNetworksFromSpec(ctx context.Context, spec *ma
 		return nil, errors.New("the given private network does not belong to the project, which is not allowed")
 	}
 
-	for _, ipString := range spec.IPs {
-		ip, err := ds.FindIPByID(ipString)
+	for _, allocationIP := range spec.IPs {
+		ip, err := r.s.ds.IP().Get(ctx, metal.CreateNamespacedIPAddress(allocationIP.Namespace, allocationIP.Ip))
 		if err != nil {
 			return nil, err
 		}
@@ -685,7 +946,7 @@ func (r *machineRepository) gatherNetworksFromSpec(ctx context.Context, spec *ma
 		}
 
 		network.auto = false
-		network.ips = append(network.ips, *ip)
+		network.ips = append(network.ips, ip)
 	}
 
 	for _, privateNetwork := range privateNetworks {
@@ -713,7 +974,7 @@ func (r *machineRepository) gatherUnderlayNetwork(ctx context.Context, partition
 	return &allocationNetwork{
 		network:     underlay,
 		auto:        true,
-		networkType: metal.Underlay,
+		networkType: metal.NetworkTypeUnderlay,
 	}, nil
 }
 
@@ -750,11 +1011,9 @@ func (r *machineRepository) makeMachineNetwork(ctx context.Context, spec *machin
 	// from the makeNetworks call, a lot of ips might be set in this network
 	// add a machine tag to all of them
 	var ipAddresses []string
-	for i := range n.ips {
-		ip := n.ips[i]
-		newIP := ip
-		newIP.AddMachineId(spec.UUID)
-		err := r.s.ds.IP().Update(ctx, newIP)
+	for _, ip := range n.ips {
+		ip.AddMachineId(spec.UUID)
+		err := r.s.ds.IP().Update(ctx, ip)
 		if err != nil {
 			return nil, err
 		}

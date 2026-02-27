@@ -62,6 +62,18 @@ func MachineFilter(rq *apiv2.MachineQuery) func(q r.Term) r.Term {
 			}
 		}
 
+		if rq.Waiting != nil {
+			q = q.Filter(func(row r.Term) r.Term {
+				return row.Field("waiting").Eq(*rq.Waiting)
+			})
+		}
+
+		if rq.Preallocated != nil {
+			q = q.Filter(func(row r.Term) r.Term {
+				return row.Field("preallocated").Eq(*rq.Preallocated)
+			})
+		}
+
 		if rq.Allocation != nil {
 			alloc := rq.Allocation
 			if alloc.Project != nil {

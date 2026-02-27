@@ -10,7 +10,7 @@ require (
 	connectrpc.com/otelconnect v0.9.0
 	connectrpc.com/validate v0.6.0
 	github.com/Masterminds/semver/v3 v3.4.0
-	github.com/alicebob/miniredis/v2 v2.36.1
+	github.com/alicebob/miniredis/v2 v2.37.0
 	github.com/avast/retry-go/v4 v4.7.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/golang-jwt/jwt/v5 v5.3.1
@@ -26,7 +26,7 @@ require (
 	github.com/lestrrat-go/jwx/v3 v3.0.13
 	github.com/looplab/fsm v1.0.3
 	github.com/markbates/goth v1.82.0
-	github.com/metal-stack/api v0.0.52
+	github.com/metal-stack/api v0.0.53-0.20260227085857-e9141337ed77
 	github.com/metal-stack/go-ipam v1.14.14
 	github.com/metal-stack/masterdata-api v0.13.0
 	github.com/metal-stack/metal-lib v0.24.0
