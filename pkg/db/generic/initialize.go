@@ -83,41 +83,10 @@ func Initialize(ctx context.Context, log *slog.Logger, opts r.ConnectOpts, dsOpt
 		return fmt.Errorf("cannot create migration table: %w", err)
 	}
 
-	if err := ds.ip.initialize(ctx); err != nil {
-		return fmt.Errorf("unable to initialize ip datastore: %w", err)
-	}
-	if err := ds.machine.initialize(ctx); err != nil {
-		return fmt.Errorf("unable to initialize machine datastore: %w", err)
-	}
-	if err := ds.partition.initialize(ctx); err != nil {
-		return fmt.Errorf("unable to initialize partition datastore: %w", err)
-	}
-	if err := ds.size.initialize(ctx); err != nil {
-		return fmt.Errorf("unable to initialize size datastore: %w", err)
-	}
-	if err := ds.sizeReservation.initialize(ctx); err != nil {
-		return fmt.Errorf("unable to initialize size reservation datastore: %w", err)
-	}
-	if err := ds.sizeImageConstraint.initialize(ctx); err != nil {
-		return fmt.Errorf("unable to initialize size image constraint datastore: %w", err)
-	}
-	if err := ds.network.initialize(ctx); err != nil {
-		return fmt.Errorf("unable to initialize network datastore: %w", err)
-	}
-	if err := ds.fsl.initialize(ctx); err != nil {
-		return fmt.Errorf("unable to initialize fsl datastore: %w", err)
-	}
-	if err := ds.image.initialize(ctx); err != nil {
-		return fmt.Errorf("unable to initialize image datastore: %w", err)
-	}
-	if err := ds.event.initialize(ctx); err != nil {
-		return fmt.Errorf("unable to initialize event datastore: %w", err)
-	}
-	if err := ds.sw.initialize(ctx); err != nil {
-		return fmt.Errorf("unable to initialize switch datastore: %w", err)
-	}
-	if err := ds.switchStatus.initialize(ctx); err != nil {
-		return fmt.Errorf("unable to initialize switch status datastore: %w", err)
+	for _, tableName := range ds.tableNames {
+		if err := ds.createTable(ctx, tableName); err != nil {
+			return fmt.Errorf("cannot create %s table: %w", tableName, err)
+		}
 	}
 
 	ds.log.Info("waiting for tables to be ready")
