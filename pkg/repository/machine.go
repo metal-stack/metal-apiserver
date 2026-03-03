@@ -161,8 +161,12 @@ func (r *machineRepository) create(ctx context.Context, req *apiv2.MachineServic
 		return nil, err
 	}
 
-	machine, err := r.allocateMachine(ctx, spec)
+	machine, rollbackMachine, err := r.allocateMachine(ctx, spec)
 	if err != nil {
+		return nil, err
+	}
+	if rollbackMachine != nil {
+		// FIXME create a task which cleans it up
 		return nil, err
 	}
 

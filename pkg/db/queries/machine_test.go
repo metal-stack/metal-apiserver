@@ -269,7 +269,15 @@ var (
 		},
 		BIOS: metal.BIOS{},
 	}
-	machines = []*metal.Machine{m1, m2, m3}
+	m4 = &metal.Machine{
+		Base:         metal.Base{ID: "m3", Name: "m3"},
+		PartitionID:  "partition-1",
+		SizeID:       "c1-xlarge",
+		State:        metal.MachineState{Value: metal.AvailableState},
+		Waiting:      true,
+		PreAllocated: true,
+	}
+	machines = []*metal.Machine{m1, m2, m3, m4}
 )
 
 func TestMachineFilter(t *testing.T) {
@@ -530,6 +538,26 @@ func TestMachineFilter(t *testing.T) {
 			name: "by fru productserial",
 			rq:   &apiv2.MachineQuery{Fru: &apiv2.MachineFRUQuery{ProductSerial: new("vendor-serial-1")}},
 			want: []*metal.Machine{m3},
+		},
+		// Machines without allocation, query from machine-create
+		{
+			name: "find a waiting machine not allocated nor preallocate and available",
+			rq: &apiv2.MachineQuery{
+				Partition:    new("partition-1"),
+				Size:         new("c1-xlarge"),
+				State:        apiv2.MachineState_MACHINE_STATE_AVAILABLE.Enum(),
+				Waiting:      new(true),
+				Preallocated: new(false),
+				NotAllocated: new(true),
+			},
+			want: []*metal.Machine{m4},
+		},
+		{
+			name: "find a not allocated machine",
+			rq: &apiv2.MachineQuery{
+				NotAllocated: new(true),
+			},
+			want: []*metal.Machine{m4},
 		},
 	}
 	for _, tt := range tests {

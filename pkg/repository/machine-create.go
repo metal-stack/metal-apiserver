@@ -69,7 +69,7 @@ type allocationNetwork struct {
 	ips     []*metal.IP
 	auto    bool
 
-	networkType metal.NetworkType
+	networkType *metal.NetworkType
 }
 
 // allocationNetworkMap is a map of allocationNetworks with the network id as the key
@@ -264,18 +264,18 @@ func (r *machineRepository) createMachineAllocationSpec(ctx context.Context, req
 
 }
 
-func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAllocationSpec) (*metal.Machine, error) {
+func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAllocationSpec) (allocatedMachine *metal.Machine, rollbackMachine *metal.Machine, err error) {
 	if err := r.validateAllocationSpec(spec); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if err := r.isSizeAndImageCompatible(ctx, spec.Size, spec.Image); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	p, err := r.s.mdc.Project().Get(ctx, &v1.ProjectGetRequest{Id: spec.ProjectID})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Check if more machine would be allocated than project quota permits
@@ -288,11 +288,11 @@ func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAl
 			},
 		}))
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		mq := p.GetProject().GetQuotas().GetMachine()
 		if mq.Max != nil && len(actualMachines) >= int(*mq.Max) {
-			return nil, fmt.Errorf("project quota for machines reached max:%d", *mq.Max)
+			return nil, nil, fmt.Errorf("project quota for machines reached max:%d", *mq.Max)
 		}
 	}
 
@@ -301,22 +301,22 @@ func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAl
 		var fsls metal.FilesystemLayouts
 		fsls, err := r.s.ds.FilesystemLayout().List(ctx, nil)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		_, err = fsls.From(spec.Size.ID, spec.Image.ID)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	} else {
 		fsl, err = r.s.ds.FilesystemLayout().Get(ctx, *spec.FilesystemLayoutID)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
 	machineCandidate, err := r.findMachineCandidate(ctx, spec)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var firewallRules *metal.FirewallRules
@@ -375,28 +375,35 @@ func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAl
 	// 	return err
 	// }
 
+	rollbackMachine = &metal.Machine{
+		Base: metal.Base{
+			ID: spec.UUID,
+		},
+		Allocation: alloc,
+	}
+
 	err = fsl.Matches(machineCandidate.Hardware)
 	if err != nil {
-		return nil, rollbackOnError(fmt.Errorf("unable to check for fsl match:%w", err))
+		return nil, rollbackMachine, fmt.Errorf("unable to check for fsl match:%w", err)
 	}
 	alloc.FilesystemLayout = fsl
 
 	networks, err := r.gatherNetworks(ctx, spec)
 	if err != nil {
-		return nil, rollbackOnError(fmt.Errorf("unable to gather networks:%w", err))
+		return nil, rollbackMachine, fmt.Errorf("unable to gather networks:%w", err)
 	}
 	err = r.makeNetworks(ctx, spec, networks, alloc)
 	if err != nil {
-		return nil, rollbackOnError(fmt.Errorf("unable to make networks:%w", err))
+		return nil, rollbackMachine, fmt.Errorf("unable to make networks:%w", err)
 	}
 
 	// refetch the machine to catch possible updates after dealing with the network...
 	machine, err := r.s.ds.Machine().Get(ctx, machineCandidate.ID)
 	if err != nil {
-		return nil, rollbackOnError(fmt.Errorf("unable to find machine:%w", err))
+		return nil, rollbackMachine, fmt.Errorf("unable to find machine:%w", err)
 	}
 	if machine.Allocation != nil {
-		return nil, rollbackOnError(fmt.Errorf("machine %q already allocated", machine.ID))
+		return nil, rollbackMachine, fmt.Errorf("machine %q already allocated", machine.ID)
 	}
 
 	machine.Allocation = alloc
@@ -405,7 +412,7 @@ func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAl
 
 	err = r.s.ds.Machine().Update(ctx, machine)
 	if err != nil {
-		return nil, rollbackOnError(fmt.Errorf("error when allocating machine %q, %w", machine.ID, err))
+		return nil, rollbackMachine, fmt.Errorf("error when allocating machine %q, %w", machine.ID, err)
 	}
 
 	// TODO: can be removed after metal-core refactoring
@@ -416,7 +423,7 @@ func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAl
 	// 	logger.Debug("published machine allocation event", "topic", metal.TopicAllocation.Name, "machineID", machine.ID)
 	// }
 
-	return machine, nil
+	return machine, nil, nil
 
 }
 
@@ -530,10 +537,11 @@ func (r *machineRepository) FindWaitingMachine(ctx context.Context, projectid, p
 	// 	"preallocated": false,
 	// })
 
-	if err := rs.sharedMutex.lock(ctx, partitionid, 10*time.Second); err != nil {
-		return nil, fmt.Errorf("too many parallel machine allocations taking place, try again later")
-	}
-	defer rs.sharedMutex.unlock(ctx, partitionid)
+	// FIXME implement shared Mutex
+	// if err := rs.sharedMutex.lock(ctx, partitionid, 10*time.Second); err != nil {
+	// 	return nil, fmt.Errorf("too many parallel machine allocations taking place, try again later")
+	// }
+	// defer rs.sharedMutex.unlock(ctx, partitionid)
 
 	candidates, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
 		Partition:    &partitionid,
@@ -541,7 +549,7 @@ func (r *machineRepository) FindWaitingMachine(ctx context.Context, projectid, p
 		State:        apiv2.MachineState_MACHINE_STATE_AVAILABLE.Enum(),
 		Waiting:      new(true),
 		Preallocated: new(false),
-		Allocation:   nil,
+		NotAllocated: new(true),
 	}))
 
 	ecs, err := r.s.ds.Event().List(ctx, nil)
@@ -862,18 +870,20 @@ func (r *machineRepository) gatherNetworksFromSpec(ctx context.Context, spec *ma
 			return nil, err
 		}
 
-		if network.Underlay {
-			return nil, fmt.Errorf("underlay networks are not allowed to be set explicitly: %s", network.ID)
-		}
-		if network.PrivateSuper {
-			return nil, fmt.Errorf("private super networks are not allowed to be set explicitly: %s", network.ID)
+		if network.NetworkType != nil {
+			if *network.NetworkType == metal.NetworkTypeUnderlay {
+				return nil, fmt.Errorf("underlay networks are not allowed to be set explicitly: %s", network.ID)
+			}
+			if *network.NetworkType == metal.NetworkTypeSuper {
+				return nil, fmt.Errorf("super networks are not allowed to be set explicitly: %s", network.ID)
+			}
 		}
 
 		n := &allocationNetwork{
 			network:     network,
 			auto:        auto,
 			ips:         []*metal.IP{},
-			networkType: metal.External,
+			networkType: network.NetworkType,
 		}
 
 		for _, privateSuperNetwork := range privateSuperNetworks {
@@ -1020,6 +1030,21 @@ func (r *machineRepository) makeMachineNetwork(ctx context.Context, spec *machin
 		ipAddresses = append(ipAddresses, ip.IPAddress)
 	}
 
+	nat := false
+	if n.network.NATType != nil && *n.network.NATType == metal.NATTypeIPv4Masquerade {
+		nat = true
+	}
+	underlay := false
+	if n.networkType != nil {
+		switch *n.networkType {
+		case metal.NetworkTypeChild:
+		case metal.NetworkTypeChildShared:
+		case metal.NetworkTypeExternal:
+		case metal.NetworkTypeUnderlay:
+			underlay = true
+		}
+	}
+
 	machineNetwork := metal.MachineNetwork{
 		NetworkID:           n.network.ID,
 		Prefixes:            n.network.Prefixes.String(),
@@ -1028,9 +1053,12 @@ func (r *machineRepository) makeMachineNetwork(ctx context.Context, spec *machin
 		PrivatePrimary:      n.networkType.PrivatePrimary,
 		Private:             n.networkType.Private,
 		Shared:              n.networkType.Shared,
-		Underlay:            n.networkType.Underlay,
-		Nat:                 n.network.Nat,
+		Underlay:            underlay,
+		Nat:                 nat,
 		Vrf:                 n.network.Vrf,
+		// New network properties
+		NetworkType: n.network.NetworkType,
+		NATType:     n.network.NATType,
 	}
 
 	return &machineNetwork, nil

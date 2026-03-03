@@ -235,6 +235,10 @@ type MachineNetwork struct {
 	Nat            bool   `rethinkdb:"nat"`
 	Underlay       bool   `rethinkdb:"underlay"`
 	Shared         bool   `rethinkdb:"shared"`
+
+	// New network properties, keep the old for backward compatibility
+	NetworkType *NetworkType `rethinkdb:"networktype"`
+	NATType     *NATType     `rethinkdb:"nattype"`
 }
 
 // MachineHardware stores the data which is collected by our system on the hardware when it registers itself.
