@@ -92,6 +92,25 @@ func (s *switchServiceServer) Port(ctx context.Context, rq *adminv2.SwitchServic
 	return &adminv2.SwitchServicePortResponse{Switch: sw}, nil
 }
 
+func (s *switchServiceServer) ConnectedMachines(ctx context.Context, rq *adminv2.SwitchServiceConnectedMachinesRequest) (*adminv2.SwitchServiceConnectedMachinesResponse, error) {
+	machines, err := s.repo.Machine("").List(ctx, rq.MachineQuery)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
+	switches, err := s.repo.Switch().List(ctx, rq.Query)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
+	switchesWithConnectedMachines, err := s.repo.Switch().AdditionalMethods().GetSwitchesWithConnectedMachines(ctx, rq.MachineQuery, switches, machines)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
+	return &adminv2.SwitchServiceConnectedMachinesResponse{SwitchesWithMachines: switchesWithConnectedMachines}, nil
+}
+
 func (s *switchServiceServer) forceDelete(ctx context.Context, id string) (*adminv2.SwitchServiceDeleteResponse, error) {
 	sw, err := s.repo.Switch().AdditionalMethods().ForceDelete(ctx, id)
 	if err != nil {
