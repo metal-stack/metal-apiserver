@@ -240,12 +240,6 @@ func (s *storage[E]) Upsert(ctx context.Context, e E) error {
 	return nil
 }
 
-// initialize initializes the database storage, it should be called before serving the metal-api
-// in order to ensure that tables, pools, permissions are properly initialized
-func (s *storage[E]) initialize(ctx context.Context) error {
-	return s.r.createTable(ctx, s.tableName)
-}
-
 func (s storage[E]) setCreated(time time.Time, e E) error {
 	return s.setTimeField("Created", time, e)
 }
