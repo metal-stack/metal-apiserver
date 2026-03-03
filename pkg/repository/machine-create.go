@@ -984,7 +984,7 @@ func (r *machineRepository) gatherUnderlayNetwork(ctx context.Context, partition
 	return &allocationNetwork{
 		network:     underlay,
 		auto:        true,
-		networkType: metal.NetworkTypeUnderlay,
+		networkType: new(metal.NetworkTypeUnderlay),
 	}, nil
 }
 
