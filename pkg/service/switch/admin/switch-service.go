@@ -93,7 +93,7 @@ func (s *switchServiceServer) Port(ctx context.Context, rq *adminv2.SwitchServic
 }
 
 func (s *switchServiceServer) ConnectedMachines(ctx context.Context, rq *adminv2.SwitchServiceConnectedMachinesRequest) (*adminv2.SwitchServiceConnectedMachinesResponse, error) {
-	machines, err := s.repo.Machine("").List(ctx, rq.MachineQuery)
+	machines, err := s.repo.UnscopedMachine().List(ctx, rq.MachineQuery)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
