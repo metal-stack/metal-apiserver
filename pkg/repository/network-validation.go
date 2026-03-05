@@ -72,6 +72,7 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 	// if partition is not nil, a super in this partition must be present and is used
 	// if partition is nil, a superNamespaces must be present and is used
 	// project is mandatory
+	// FIXME only one child-shared per project
 	// parent network id is optional, if not given, exactly one private super must be found before
 	// nat is optional
 	// shared is optional
@@ -146,6 +147,21 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 	}
 	if parentNetwork.ProjectID != "" && (parentNetwork.ProjectID != *req.Project) {
 		return errorutil.InvalidArgument("super network %s is project scoped, requested child project:%s does not match", parentNetwork.ID, *req.Project)
+	}
+
+	// TODO add test
+	if req.Type == apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED {
+		sharedChildNetworksOfProject, err := r.s.ds.Network().List(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{
+			Project: req.Project,
+			Type:    apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED.Enum(),
+		}))
+		if err != nil {
+			return err
+		}
+		if len(sharedChildNetworksOfProject) > 0 {
+			return errorutil.InvalidArgument("only one child shared network per project is allowed")
+		}
+
 	}
 
 	parentLength := parentNetwork.DefaultChildPrefixLength
