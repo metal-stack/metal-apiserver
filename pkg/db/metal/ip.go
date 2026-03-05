@@ -7,6 +7,7 @@ import (
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/tags"
 	"github.com/metal-stack/metal-lib/pkg/tag"
 )
 
@@ -17,6 +18,8 @@ type IPType string
 type IPScope string
 
 const (
+	// TagIPSeparator is the separator character for key and values in IP-Tags
+	TagIPSeparator = "="
 	// Ephemeral IPs will be cleaned up automatically on machine, network, project deletion
 	Ephemeral IPType = "ephemeral"
 	// Static IPs will not be cleaned up and can be re-used for machines, networks within a project
@@ -143,4 +146,33 @@ func (ip *IP) GetScope() IPScope {
 		}
 	}
 	return ScopeProject
+}
+
+func (ip *IP) HasMachineId(id string) bool {
+	t := tags.New(ip.Tags)
+	return t.Has(IpTag(tag.MachineID, id))
+}
+
+func (ip *IP) GetMachineIds() []string {
+	ts := tags.New(ip.Tags)
+	return ts.Values(tag.MachineID + TagIPSeparator)
+}
+
+func (ip *IP) AddMachineId(id string) {
+	ts := tags.New(ip.Tags)
+	t := IpTag(tag.MachineID, id)
+	ts.Remove(tag.MachineID)
+	ts.Add(t)
+	ip.Tags = ts.Unique()
+}
+
+func (ip *IP) RemoveMachineId(id string) {
+	ts := tags.New(ip.Tags)
+	t := IpTag(tag.MachineID, id)
+	ts.Remove(t)
+	ip.Tags = ts.Unique()
+}
+
+func IpTag(key, value string) string {
+	return fmt.Sprintf("%s%s%s", key, TagIPSeparator, value)
 }
