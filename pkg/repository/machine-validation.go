@@ -115,6 +115,10 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 
 	// TODO validate firewallRules
 
+	// TODO validate exactly one child or one child_shared (this is the case if this is the storage firewall and node) network for machines and firewalls
+	// TODO validate zero or more child shared networks for firewalls
+	// TODO validate at least one external network for firewalls
+
 	var networks []string
 	for _, nw := range req.Networks {
 		// TODO external network is required
