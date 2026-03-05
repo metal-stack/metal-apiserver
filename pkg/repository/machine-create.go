@@ -797,12 +797,16 @@ func (r *machineRepository) makeNetworks(ctx context.Context, spec *machineAlloc
 }
 
 func (r *machineRepository) gatherNetworks(ctx context.Context, spec *machineAllocationSpec) (allocationNetworkMap, error) {
-	privateSuperNetworks, err := r.s.ds.Network().List(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{Type: apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(), Partition: &spec.PartitionID}))
+	privateSuperNetworks, err := r.s.ds.Network().List(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{
+		Type: apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(), Partition: &spec.PartitionID,
+	}))
 	if err != nil {
 		return nil, fmt.Errorf("partition %s has no super network: %w", spec.PartitionID, err)
 	}
 
-	privateSuperNamespacedNetworks, err := r.s.ds.Network().List(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{Type: apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED.Enum()}))
+	privateSuperNamespacedNetworks, err := r.s.ds.Network().List(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{
+		Type: apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED.Enum(),
+	}))
 	if err != nil {
 		return nil, fmt.Errorf("error gettiting super namespaced network: %w", err)
 	}
@@ -886,8 +890,8 @@ func (r *machineRepository) gatherNetworksFromSpec(ctx context.Context, spec *ma
 			networkType: network.NetworkType,
 		}
 
-		for _, privateSuperNetwork := range privateSuperNetworks {
-			if network.ParentNetworkID != privateSuperNetwork.ID {
+		for _, superNetwork := range superNetworks {
+			if network.ParentNetworkID != superNetwork.ID {
 				continue
 			}
 			if network.Shared {
