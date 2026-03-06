@@ -549,6 +549,9 @@ func (r *machineRepository) FindWaitingMachine(ctx context.Context, projectid, p
 		Preallocated: new(false),
 		NotAllocated: new(true),
 	}))
+	if err != nil {
+		return nil, err
+	}
 
 	ecs, err := r.s.ds.Event().List(ctx, nil)
 	if err != nil {
@@ -585,7 +588,7 @@ func (r *machineRepository) FindWaitingMachine(ctx context.Context, projectid, p
 	}
 
 	var (
-		machinesByProject map[string][]*metal.Machine
+		machinesByProject = make(map[string][]*metal.Machine)
 		projectMachines   []*metal.Machine
 	)
 	for _, m := range partitionMachines {
