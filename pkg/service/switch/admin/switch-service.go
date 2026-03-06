@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"slices"
 	"strings"
@@ -106,7 +105,7 @@ func (s *switchServiceServer) ConnectedMachines(ctx context.Context, rq *adminv2
 
 	switchesWithConnectedMachines, err := s.repo.Switch().AdditionalMethods().GetSwitchesWithConnectedMachines(ctx, rq.MachineQuery, switches, machines)
 	if err != nil {
-		return nil, errorutil.Convert(fmt.Errorf("failed to get switches with connected machines: %w", err))
+		return nil, errorutil.Internal("failed to get switches with connected machines: %w", err)
 	}
 
 	return &adminv2.SwitchServiceConnectedMachinesResponse{SwitchesWithMachines: switchesWithConnectedMachines}, nil
