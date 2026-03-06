@@ -364,6 +364,109 @@ func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		{
+			name: "create child shared network from super network",
+			preparefn: func(t *testing.T) {
+				test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
+					{
+						Id:                       new("tenant-super-with-dst-prefixes"),
+						Prefixes:                 []string{"10.100.0.0/14"},
+						DestinationPrefixes:      []string{"1.2.3.0/24"},
+						DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: new(uint32(22))},
+						Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
+						Vrf:                      new(uint32(52)),
+					},
+				})
+			},
+			rq: &adminv2.NetworkServiceCreateRequest{
+				Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED,
+				Name:          new("shared-storage-1"),
+				Project:       new(p1),
+				ParentNetwork: new("tenant-super-with-dst-prefixes"),
+			},
+			want: &adminv2.NetworkServiceCreateResponse{
+				Network: &apiv2.Network{
+					Meta:                &apiv2.Meta{},
+					Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED.Enum(),
+					Name:                new("shared-storage-1"),
+					Project:             new(p1),
+					ParentNetwork:       new("tenant-super-with-dst-prefixes"),
+					Prefixes:            []string{"10.100.0.0/22"},
+					DestinationPrefixes: []string{"1.2.3.0/24"},
+					Vrf:                 new(uint32(52)),
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "create two child shared networks in the same project from super network must fail",
+			preparefn: func(t *testing.T) {
+				test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
+					{
+						Id:                       new("tenant-super-with-dst-prefixes"),
+						Prefixes:                 []string{"10.100.0.0/14"},
+						DestinationPrefixes:      []string{"1.2.3.0/24"},
+						DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: new(uint32(22))},
+						Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
+						Vrf:                      new(uint32(53)),
+					},
+					{
+						Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED,
+						Name:          new("shared-storage-1"),
+						Project:       new(p1),
+						ParentNetwork: new("tenant-super-with-dst-prefixes"),
+					},
+				})
+			},
+			rq: &adminv2.NetworkServiceCreateRequest{
+				Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED,
+				Name:          new("shared-storage-2"),
+				Project:       new(p1),
+				ParentNetwork: new("tenant-super-with-dst-prefixes"),
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument("only one child shared network per project is allowed"),
+		},
+		{
+			name: "create two child shared networks in the different projects from super network must succeed",
+			preparefn: func(t *testing.T) {
+				test.CreateNetworks(t, testStore, []*adminv2.NetworkServiceCreateRequest{
+					{
+						Id:                       new("tenant-super-with-dst-prefixes"),
+						Prefixes:                 []string{"10.100.0.0/14"},
+						DestinationPrefixes:      []string{"1.2.3.0/24"},
+						DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: new(uint32(22))},
+						Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
+						Vrf:                      new(uint32(54)),
+					},
+					{
+						Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED,
+						Name:          new("shared-storage-1"),
+						Project:       new(p1),
+						ParentNetwork: new("tenant-super-with-dst-prefixes"),
+					},
+				})
+			},
+			rq: &adminv2.NetworkServiceCreateRequest{
+				Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED,
+				Name:          new("shared-storage-2"),
+				Project:       new(p2),
+				ParentNetwork: new("tenant-super-with-dst-prefixes"),
+			},
+			want: &adminv2.NetworkServiceCreateResponse{
+				Network: &apiv2.Network{
+					Meta:                &apiv2.Meta{},
+					Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED.Enum(),
+					Name:                new("shared-storage-2"),
+					Project:             new(p2),
+					ParentNetwork:       new("tenant-super-with-dst-prefixes"),
+					Prefixes:            []string{"10.100.4.0/22"},
+					DestinationPrefixes: []string{"1.2.3.0/24"},
+					Vrf:                 new(uint32(54)),
+				},
+			},
+			wantErr: nil,
+		},
 	}
 
 	for _, tt := range tests {
