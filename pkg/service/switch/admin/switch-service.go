@@ -96,12 +96,12 @@ func (s *switchServiceServer) Port(ctx context.Context, rq *adminv2.SwitchServic
 func (s *switchServiceServer) ConnectedMachines(ctx context.Context, rq *adminv2.SwitchServiceConnectedMachinesRequest) (*adminv2.SwitchServiceConnectedMachinesResponse, error) {
 	machines, err := s.repo.UnscopedMachine().List(ctx, rq.MachineQuery)
 	if err != nil {
-		return nil, errorutil.Convert(fmt.Errorf("failed to list machines: %w", err))
+		return nil, errorutil.Internal("failed to list machines: %w", err)
 	}
 
 	switches, err := s.repo.Switch().List(ctx, rq.Query)
 	if err != nil {
-		return nil, errorutil.Convert(fmt.Errorf("failed to list switches: %w", err))
+		return nil, errorutil.Internal("failed to list switches: %w", err)
 	}
 
 	switchesWithConnectedMachines, err := s.repo.Switch().AdditionalMethods().GetSwitchesWithConnectedMachines(ctx, rq.MachineQuery, switches, machines)
