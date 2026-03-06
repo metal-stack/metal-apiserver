@@ -148,6 +148,19 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 		return errorutil.InvalidArgument("super network %s is project scoped, requested child project:%s does not match", parentNetwork.ID, *req.Project)
 	}
 
+	if req.Type == apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED {
+		childSharedNetworksOfProject, err := r.s.ds.Network().List(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{
+			Project: req.Project,
+			Type:    apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED.Enum(),
+		}))
+		if err != nil {
+			return err
+		}
+		if len(childSharedNetworksOfProject) > 0 {
+			return errorutil.InvalidArgument("only one child shared network per project is allowed")
+		}
+	}
+
 	parentLength := parentNetwork.DefaultChildPrefixLength
 	if req.Length != nil && (req.Length.Ipv4 != nil || req.Length.Ipv6 != nil) {
 		cpl := metal.ToChildPrefixLength(req.Length)
