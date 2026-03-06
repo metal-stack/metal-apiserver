@@ -67,8 +67,8 @@ func (dc *Datacenter) Create(spec *scenarios.DatacenterSpec) {
 	dc.createSizeImageConstraints(spec)
 	dc.createNetworks(spec)
 	dc.createIPs(spec)
-	dc.createSwitches(spec)
 	dc.createMachines(spec)
+	dc.createSwitches(spec)
 }
 
 func (dc *Datacenter) Dump() {
