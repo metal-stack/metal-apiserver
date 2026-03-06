@@ -205,6 +205,78 @@ func (r *switchRepository) Port(ctx context.Context, id, port string, status api
 	return converted, nil
 }
 
+func (r *switchRepository) GetSwitchesWithConnectedMachines(ctx context.Context, query *apiv2.MachineQuery, switches []*apiv2.Switch, machines []*apiv2.Machine) ([]*apiv2.SwitchWithMachines, error) {
+	var (
+		switchesWithMachines []*apiv2.SwitchWithMachines
+	)
+
+	metalMachines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(query))
+	if err != nil {
+		return nil, err
+	}
+
+	for _, sw := range switches {
+		var (
+			id          = sw.Id
+			partition   = sw.Partition
+			rack        = pointer.SafeDeref(sw.Rack)
+			connections []*apiv2.SwitchNicWithMachine
+		)
+
+		for _, con := range sw.MachineConnections {
+			if con == nil {
+				continue
+			}
+
+			machine, found := lo.Find(machines, func(m *apiv2.Machine) bool {
+				return m.Uuid == con.MachineId
+			})
+			if !found {
+				continue
+			}
+
+			metalMachine, found := lo.Find(metalMachines, func(m *metal.Machine) bool {
+				return m.ID == con.MachineId
+			})
+			if !found {
+				continue
+			}
+
+			fru := &apiv2.MachineFRU{
+				ChassisPartNumber:   &metalMachine.IPMI.Fru.ChassisPartNumber,
+				ChassisPartSerial:   &metalMachine.IPMI.Fru.ChassisPartSerial,
+				BoardMfg:            &metalMachine.IPMI.Fru.BoardMfg,
+				BoardMfgSerial:      &metalMachine.IPMI.Fru.BoardMfgSerial,
+				BoardPartNumber:     &metalMachine.IPMI.Fru.BoardPartNumber,
+				ProductManufacturer: &metalMachine.IPMI.Fru.ProductManufacturer,
+				ProductPartNumber:   &metalMachine.IPMI.Fru.ProductPartNumber,
+				ProductSerial:       &metalMachine.IPMI.Fru.ProductSerial,
+			}
+
+			nicWithMachine := &apiv2.SwitchNicWithMachine{
+				Nic:     con.Nic,
+				Machine: machine,
+				Fru:     fru,
+			}
+			connections = append(connections, nicWithMachine)
+		}
+
+		switchWithMachine := &apiv2.SwitchWithMachines{
+			Id:          id,
+			Partition:   partition,
+			Rack:        rack,
+			Connections: connections,
+		}
+		switchesWithMachines = append(switchesWithMachines, switchWithMachine)
+	}
+
+	switchesWithMachines = lo.Filter(switchesWithMachines, func(swm *apiv2.SwitchWithMachines, _ int) bool {
+		return len(swm.Connections) > 0
+	})
+
+	return switchesWithMachines, nil
+}
+
 func (r *switchRepository) SearchSwitchesConnectedToMachine(ctx context.Context, m *metal.Machine) ([]*metal.Switch, error) {
 	var switches []*metal.Switch
 
