@@ -270,12 +270,31 @@ var (
 		BIOS: metal.BIOS{},
 	}
 	m4 = &metal.Machine{
-		Base:         metal.Base{ID: "m3", Name: "m3"},
+
+		// Partition:    new("partition-1"),
+		// 	Size:         new("c1-xlarge"),
+		// 	State:        apiv2.MachineState_MACHINE_STATE_AVAILABLE.Enum(),
+		// 	Waiting:      new(true),
+		// 	Preallocated: new(false),
+		// 	NotAllocated: new(true),
+
+		Base:         metal.Base{ID: "m4", Name: "m4"},
 		PartitionID:  "partition-1",
 		SizeID:       "c1-xlarge",
 		State:        metal.MachineState{Value: metal.AvailableState},
 		Waiting:      true,
-		PreAllocated: true,
+		PreAllocated: false,
+		Hardware: metal.MachineHardware{
+			Memory:    0,
+			Nics:      metal.Nics{},
+			Disks:     []metal.BlockDevice{},
+			MetalCPUs: []metal.MetalCPU{},
+			MetalGPUs: []metal.MetalGPU{},
+		},
+		Tags: []string{},
+		IPMI: metal.IPMI{
+			PowerSupplies: metal.PowerSupplies{},
+		},
 	}
 	machines = []*metal.Machine{m1, m2, m3, m4}
 )
@@ -304,7 +323,7 @@ func TestMachineFilter(t *testing.T) {
 		{
 			name: "empty request returns unfiltered",
 			rq:   nil,
-			want: []*metal.Machine{m1, m2, m3},
+			want: []*metal.Machine{m1, m2, m3, m4},
 		},
 		{
 			name: "by id",

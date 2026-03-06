@@ -273,6 +273,10 @@ func MachineFilter(rq *apiv2.MachineQuery) func(q r.Term) r.Term {
 			if err != nil {
 				return q
 			}
+			// TODO metal.AvailableState == "", apiv2 == "available"
+			if *rq.State == apiv2.MachineState_MACHINE_STATE_AVAILABLE {
+				stateString = new("")
+			}
 			q = q.Filter(func(row r.Term) r.Term {
 				return row.Field("state").Field("value").Eq(strings.ToUpper(*stateString))
 			})

@@ -68,8 +68,6 @@ type allocationNetwork struct {
 	network *metal.Network
 	ips     []*metal.IP
 	auto    bool
-
-	networkType *metal.NetworkType
 }
 
 // allocationNetworkMap is a map of allocationNetworks with the network id as the key
@@ -884,25 +882,14 @@ func (r *machineRepository) gatherNetworksFromSpec(ctx context.Context, spec *ma
 		}
 
 		n := &allocationNetwork{
-			network:     network,
-			auto:        auto,
-			ips:         []*metal.IP{},
-			networkType: network.NetworkType,
+			network: network,
+			auto:    auto,
+			ips:     []*metal.IP{},
 		}
 
 		for _, superNetwork := range superNetworks {
 			if network.ParentNetworkID != superNetwork.ID {
 				continue
-			}
-			if network.Shared {
-				n.networkType = metal.PrivateSecondaryShared
-				privateSharedNetworks = append(privateSharedNetworks, n)
-			} else {
-				if primaryPrivateNetwork != nil {
-					return nil, errors.New("multiple private networks are specified but there must be only one primary private network that must not be shared")
-				}
-				n.networkType = metal.PrivatePrimaryUnshared
-				primaryPrivateNetwork = n
 			}
 			privateNetworks = append(privateNetworks, n)
 		}
@@ -931,7 +918,6 @@ func (r *machineRepository) gatherNetworksFromSpec(ctx context.Context, spec *ma
 		}
 
 		primaryPrivateNetwork = privateSharedNetworks[0]
-		primaryPrivateNetwork.networkType = metal.PrivatePrimaryShared
 	}
 
 	if spec.Role == metal.RoleMachine && len(privateNetworks) > 1 {
@@ -986,9 +972,8 @@ func (r *machineRepository) gatherUnderlayNetwork(ctx context.Context, partition
 	}
 
 	return &allocationNetwork{
-		network:     underlay,
-		auto:        true,
-		networkType: new(metal.NetworkTypeUnderlay),
+		network: underlay,
+		auto:    true,
 	}, nil
 }
 
@@ -998,7 +983,7 @@ func (r *machineRepository) makeMachineNetwork(ctx context.Context, spec *machin
 			return nil, fmt.Errorf("given network %s does not have prefixes configured", n.network.ID)
 		}
 		for _, af := range n.network.Prefixes.AddressFamilies() {
-			ipAddress, ipParentCidr, err := r.s.IP(spec.ProjectID).AdditionalMethods().allocateRandomIP(ctx, n.network, af)
+			ipAddress, ipParentCidr, err := r.s.IP(spec.ProjectID).AdditionalMethods().allocateRandomIP(ctx, n.network, &af)
 			if err != nil {
 				return nil, fmt.Errorf("unable to allocate an ip in network: %s %w", n.network.ID, err)
 			}
@@ -1034,32 +1019,20 @@ func (r *machineRepository) makeMachineNetwork(ctx context.Context, spec *machin
 		ipAddresses = append(ipAddresses, ip.IPAddress)
 	}
 
-	nat := false
-	if n.network.NATType != nil && *n.network.NATType == metal.NATTypeIPv4Masquerade {
-		nat = true
-	}
-	underlay := false
-	if n.networkType != nil {
-		switch *n.networkType {
-		case metal.NetworkTypeChild:
-		case metal.NetworkTypeChildShared:
-		case metal.NetworkTypeExternal:
-		case metal.NetworkTypeUnderlay:
-			underlay = true
-		}
-	}
-
 	machineNetwork := metal.MachineNetwork{
 		NetworkID:           n.network.ID,
 		Prefixes:            n.network.Prefixes.String(),
 		IPs:                 ipAddresses,
 		DestinationPrefixes: n.network.DestinationPrefixes.String(),
-		PrivatePrimary:      n.networkType.PrivatePrimary,
-		Private:             n.networkType.Private,
-		Shared:              n.networkType.Shared,
-		Underlay:            underlay,
-		Nat:                 nat,
-		Vrf:                 n.network.Vrf,
+		// We do not carry over these old parameters,
+		// the new networker must figure out all aspekts from the v2 networktype
+		//
+		// PrivatePrimary:      n.networkType.PrivatePrimary,
+		// Private:             n.networkType.Private,
+		// Shared:              n.networkType.Shared,
+		// Underlay: underlay,
+		// Nat: nat,
+		Vrf: n.network.Vrf,
 		// New network properties
 		NetworkType: n.network.NetworkType,
 		NATType:     n.network.NATType,
