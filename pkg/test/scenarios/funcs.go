@@ -10,26 +10,30 @@ import (
 )
 
 var (
-	SwitchPairFunc = func(partition, rack string, ports int) []*apiv2.Switch {
+	SwitchPairFunc = func(partition, rack string, ports int, machines ...string) []*apiv2.Switch {
+		nics, cons := switchNicsFunc(ports, machines)
+
 		return []*apiv2.Switch{
 			{
-				Id:          fmt.Sprintf("sw1-%s-%s", partition, rack),
-				Meta:        &apiv2.Meta{},
-				Partition:   partition,
-				Rack:        new(rack),
-				ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
-				Nics:        switchNicsFunc(ports),
+				Id:                 fmt.Sprintf("sw1-%s-%s", partition, rack),
+				Meta:               &apiv2.Meta{},
+				Partition:          partition,
+				Rack:               new(rack),
+				ReplaceMode:        apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+				Nics:               nics,
+				MachineConnections: cons,
 				Os: &apiv2.SwitchOS{
 					Vendor: apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
 				},
 			},
 			{
-				Id:          fmt.Sprintf("sw2-%s-%s", partition, rack),
-				Meta:        &apiv2.Meta{},
-				Partition:   partition,
-				Rack:        new(rack),
-				ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
-				Nics:        switchNicsFunc(ports),
+				Id:                 fmt.Sprintf("sw2-%s-%s", partition, rack),
+				Meta:               &apiv2.Meta{},
+				Partition:          partition,
+				Rack:               new(rack),
+				ReplaceMode:        apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+				Nics:               nics,
+				MachineConnections: cons,
 				Os: &apiv2.SwitchOS{
 					Vendor: apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
 				},
@@ -37,18 +41,28 @@ var (
 		}
 	}
 
-	switchNicsFunc = func(ports int) []*apiv2.SwitchNic {
-		var nics []*apiv2.SwitchNic
+	switchNicsFunc = func(ports int, machines []string) ([]*apiv2.SwitchNic, []*apiv2.MachineConnection) {
+		var (
+			nics []*apiv2.SwitchNic
+			cons []*apiv2.MachineConnection
+		)
 		for i := range ports {
-			nics = append(nics, &apiv2.SwitchNic{
+			nic := &apiv2.SwitchNic{
 				Name:       fmt.Sprintf("Ethernet%d", i),
 				Identifier: fmt.Sprintf("Eth%d/%d", i+1, i+1), // TODO configure breakout
 				State: &apiv2.NicState{
 					Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 				},
-			})
+			}
+			nics = append(nics, nic)
+			if i < len(machines) {
+				cons = append(cons, &apiv2.MachineConnection{
+					MachineId: machines[i],
+					Nic:       nic,
+				})
+			}
 		}
-		return nics
+		return nics, cons
 	}
 
 	MachineFunc = func(id, partition, size, project string, liveliness metal.MachineLiveliness) *MachineWithLiveliness {
@@ -61,6 +75,9 @@ var (
 				Address:     fmt.Sprintf("1.2.3.%s:623", machineNumber),
 				MacAddress:  "aa:bb:0" + machineNumber,
 				LastUpdated: time.Now().Add(-1 * time.Minute),
+				Fru: metal.Fru{
+					ProductSerial: "PS" + machineNumber,
+				},
 			},
 			State: metal.MachineState{
 				Value: metal.AvailableState,
