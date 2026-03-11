@@ -23,6 +23,10 @@ const (
 	// Project UUIDs are generated be counting the first digit for every tenant, last digit for every project of this tenant
 	Tenant1Project1 = "10000000-0000-0000-0000-000000000001"
 	Tenant1Project2 = "10000000-0000-0000-0000-000000000002"
+
+	ImageDebian13    = "debian-13.0.20260131"
+	ImageDebian12    = "debian-12.0.20251220"
+	ImageFirewall3_0 = "firewall-ubuntu-3.0.20260201"
 )
 
 var (
@@ -91,7 +95,7 @@ var (
 		},
 		Switches: SwitchPairFunc(Partition1, "rack-1", 2),
 		Machines: []*MachineWithLiveliness{
-			MachineFunc(Machine1, Partition1, SizeC1Large, Tenant1Project1, metal.MachineLivelinessAlive),
+			MachineFunc(Machine1, Partition1, SizeC1Large, Tenant1Project1, ImageDebian13, metal.MachineLivelinessAlive),
 		},
 	}
 )

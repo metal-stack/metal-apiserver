@@ -1,6 +1,7 @@
 package test
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -8,6 +9,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
@@ -16,6 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.yaml.in/yaml/v3"
+	"google.golang.org/protobuf/testing/protocmp"
 )
 
 type (
@@ -28,7 +32,7 @@ type (
 		IPs        map[string]*apiv2.IP
 		Images     map[string]*apiv2.Image
 		Switches   map[string]*apiv2.Switch
-		Machines   map[string]*metal.Machine
+		Machines   map[string]*apiv2.Machine
 
 		TestStore *testStore
 		t         testing.TB
@@ -49,7 +53,7 @@ func NewDatacenter(t testing.TB, log *slog.Logger, testOpts ...testOpt) *Datacen
 		IPs:        make(map[string]*apiv2.IP),
 		Images:     make(map[string]*apiv2.Image),
 		Switches:   make(map[string]*apiv2.Switch),
-		Machines:   make(map[string]*metal.Machine),
+		Machines:   make(map[string]*apiv2.Machine),
 	}
 
 	dc.closers = append(dc.closers, closer)
@@ -216,7 +220,10 @@ func (dc *Datacenter) createMachines(spec *scenarios.DatacenterSpec) {
 			require.NoError(dc.t, err)
 		}
 
-		dc.Machines[m.ID] = m
+		machine, err := dc.TestStore.UnscopedMachine().Get(dc.t.Context(), m.ID)
+		require.NoError(dc.t, err)
+
+		dc.Machines[m.ID] = machine
 	}
 }
 
@@ -227,4 +234,40 @@ func (dc *Datacenter) createSwitches(spec *scenarios.DatacenterSpec) {
 			dc.Switches[s.Id] = s
 		}
 	}
+}
+
+// Assert tests whether all changes applied to a Datacenter were intended.
+//
+// Usage:
+//
+// After calling Create on a Datacenter create a copy of it by calling Copy.
+// Run the functions you are testing.
+// Call Assert and pass the copy of the Datacenter, the original (possibly modified) Datacenter, and a modify function.
+// The modify function contains all changes that you expect to have been applied by the functions you are testing.
+// Assert will apply the modify function and fail if the Datacenters differ after that.
+func Assert(prev, current *Datacenter, modify func(*Datacenter)) error {
+	if modify != nil {
+		modify(prev)
+	}
+	diff := cmp.Diff(prev, current, protocmp.Transform(), cmpopts.IgnoreFields(
+		Datacenter{}, "TestStore", "t", "closers",
+	))
+	if diff != "" {
+		return fmt.Errorf("datacenters differ: %s", diff)
+	}
+	return nil
+}
+
+// Copy deep copies all entities of dc into a new Datacenter.
+func Copy(dc *Datacenter) (*Datacenter, error) {
+	var copy Datacenter
+	bytes, err := json.Marshal(dc)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(bytes, &copy)
+	if err != nil {
+		return nil, err
+	}
+	return &copy, nil
 }

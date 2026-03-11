@@ -65,7 +65,7 @@ var (
 		return nics, cons
 	}
 
-	MachineFunc = func(id, partition, size, project string, liveliness metal.MachineLiveliness) *MachineWithLiveliness {
+	MachineFunc = func(id, partition, size, project, image string, liveliness metal.MachineLiveliness) *MachineWithLiveliness {
 		machineNumber := lo.Substring(id, -1, 1)
 		m := &metal.Machine{
 			Base:        metal.Base{ID: id},
@@ -83,9 +83,10 @@ var (
 				Value: metal.AvailableState,
 			},
 		}
-		if project != "" {
+		if project != "" && image != "" {
 			m.Allocation = &metal.MachineAllocation{
 				Project: project,
+				ImageID: image,
 			}
 		}
 		return &MachineWithLiveliness{

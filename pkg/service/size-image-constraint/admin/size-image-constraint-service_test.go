@@ -19,6 +19,7 @@ func Test_sizeImageConstraintServiceServer_Create(t *testing.T) {
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
 
 	tests := []struct {
 		name    string
@@ -82,6 +83,8 @@ func Test_sizeImageConstraintServiceServer_Delete(t *testing.T) {
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
+
 	dc.Create(&sc.DatacenterSpec{
 		Sizes:  sc.DefaultDatacenter.Sizes,
 		Images: sc.DefaultDatacenter.Images,
@@ -161,6 +164,8 @@ func Test_sizeImageConstraintServiceServer_Get(t *testing.T) {
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
+
 	dc.Create(&sc.DatacenterSpec{
 		Sizes:  sc.DefaultDatacenter.Sizes,
 		Images: sc.DefaultDatacenter.Images,
@@ -240,6 +245,8 @@ func Test_sizeImageConstraintServiceServer_Update(t *testing.T) {
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
+
 	dc.Create(&sc.DatacenterSpec{
 		Sizes:  sc.DefaultDatacenter.Sizes,
 		Images: sc.DefaultDatacenter.Images,
@@ -340,6 +347,8 @@ func Test_sizeImageConstraintServiceServer_List(t *testing.T) {
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
+
 	dc.Create(&sc.DatacenterSpec{
 		Sizes:  sc.DefaultDatacenter.Sizes,
 		Images: sc.DefaultDatacenter.Images,
