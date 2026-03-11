@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/netip"
 	"slices"
+	"strings"
 	"time"
 )
 
@@ -112,113 +113,113 @@ const (
 	ProtocolUDP Protocol = "UDP"
 )
 
-// func ProtocolFromString(s string) (Protocol, error) {
-// 	switch strings.ToLower(s) {
-// 	case "tcp":
-// 		return ProtocolTCP, nil
-// 	case "udp":
-// 		return ProtocolUDP, nil
-// 	default:
-// 		return Protocol(""), fmt.Errorf("no such protocol: %s", s)
-// 	}
-// }
+func ProtocolFromString(s string) (Protocol, error) {
+	switch strings.ToLower(s) {
+	case "tcp":
+		return ProtocolTCP, nil
+	case "udp":
+		return ProtocolUDP, nil
+	default:
+		return Protocol(""), fmt.Errorf("no such protocol: %s", s)
+	}
+}
 
-// func (r EgressRule) Validate() error {
-// 	switch r.Protocol {
-// 	case ProtocolTCP, ProtocolUDP:
-// 		// ok
-// 	default:
-// 		return fmt.Errorf("egress rule has invalid protocol: %s", r.Protocol)
-// 	}
+func (r EgressRule) Validate() error {
+	switch r.Protocol {
+	case ProtocolTCP, ProtocolUDP:
+		// ok
+	default:
+		return fmt.Errorf("egress rule has invalid protocol: %s", r.Protocol)
+	}
 
-// 	if err := validateComment(r.Comment); err != nil {
-// 		return fmt.Errorf("egress rule with error:%w", err)
-// 	}
-// 	if err := validatePorts(r.Ports); err != nil {
-// 		return fmt.Errorf("egress rule with error:%w", err)
-// 	}
+	if err := validateComment(r.Comment); err != nil {
+		return fmt.Errorf("egress rule with error:%w", err)
+	}
+	if err := validatePorts(r.Ports); err != nil {
+		return fmt.Errorf("egress rule with error:%w", err)
+	}
 
-// 	if err := validateCIDRs(r.To); err != nil {
-// 		return fmt.Errorf("egress rule with error:%w", err)
-// 	}
+	if err := validateCIDRs(r.To); err != nil {
+		return fmt.Errorf("egress rule with error:%w", err)
+	}
 
-// 	return nil
-// }
+	return nil
+}
 
-// func (r IngressRule) Validate() error {
-// 	switch r.Protocol {
-// 	case ProtocolTCP, ProtocolUDP:
-// 		// ok
-// 	default:
-// 		return fmt.Errorf("ingress rule has invalid protocol: %s", r.Protocol)
-// 	}
-// 	if err := validateComment(r.Comment); err != nil {
-// 		return fmt.Errorf("ingress rule with error:%w", err)
-// 	}
+func (r IngressRule) Validate() error {
+	switch r.Protocol {
+	case ProtocolTCP, ProtocolUDP:
+		// ok
+	default:
+		return fmt.Errorf("ingress rule has invalid protocol: %s", r.Protocol)
+	}
+	if err := validateComment(r.Comment); err != nil {
+		return fmt.Errorf("ingress rule with error:%w", err)
+	}
 
-// 	if err := validatePorts(r.Ports); err != nil {
-// 		return fmt.Errorf("ingress rule with error:%w", err)
-// 	}
-// 	if err := validateCIDRs(r.To); err != nil {
-// 		return fmt.Errorf("ingress rule with error:%w", err)
-// 	}
-// 	if err := validateCIDRs(r.From); err != nil {
-// 		return fmt.Errorf("ingress rule with error:%w", err)
-// 	}
-// 	if err := validateCIDRs(slices.Concat(r.From, r.To)); err != nil {
-// 		return fmt.Errorf("ingress rule with error:%w", err)
-// 	}
+	if err := validatePorts(r.Ports); err != nil {
+		return fmt.Errorf("ingress rule with error:%w", err)
+	}
+	if err := validateCIDRs(r.To); err != nil {
+		return fmt.Errorf("ingress rule with error:%w", err)
+	}
+	if err := validateCIDRs(r.From); err != nil {
+		return fmt.Errorf("ingress rule with error:%w", err)
+	}
+	if err := validateCIDRs(slices.Concat(r.From, r.To)); err != nil {
+		return fmt.Errorf("ingress rule with error:%w", err)
+	}
 
-// 	return nil
-// }
+	return nil
+}
 
-// const (
-// 	allowedCharacters = "abcdefghijklmnopqrstuvwxyz_- "
-// 	maxCommentLength  = 100
-// )
+const (
+	allowedCharacters = "abcdefghijklmnopqrstuvwxyz_- "
+	maxCommentLength  = 100
+)
 
-// func validateComment(comment string) error {
-// 	for _, c := range comment {
-// 		if !strings.Contains(allowedCharacters, strings.ToLower(string(c))) {
-// 			return fmt.Errorf("illegal character in comment found, only: %q allowed", allowedCharacters)
-// 		}
-// 	}
-// 	if len(comment) > maxCommentLength {
-// 		return fmt.Errorf("comments can not exceed %d characters", maxCommentLength)
-// 	}
-// 	return nil
-// }
+func validateComment(comment string) error {
+	for _, c := range comment {
+		if !strings.Contains(allowedCharacters, strings.ToLower(string(c))) {
+			return fmt.Errorf("illegal character %q in comment found, only: %q allowed", c, allowedCharacters)
+		}
+	}
+	if len(comment) > maxCommentLength {
+		return fmt.Errorf("comments can not exceed %d characters", maxCommentLength)
+	}
+	return nil
+}
 
-// func validatePorts(ports []int) error {
-// 	for _, port := range ports {
-// 		if port < 0 || port > 65535 {
-// 			return fmt.Errorf("port is out of range")
-// 		}
-// 	}
+func validatePorts(ports []int) error {
+	for _, port := range ports {
+		if port < 0 || port > 65535 {
+			return fmt.Errorf("port %d is out of range", port)
+		}
+	}
 
-// 	return nil
-// }
+	return nil
+}
 
-// func validateCIDRs(cidrs []string) error {
-// 	var af AddressFamily
-// 	for _, cidr := range cidrs {
-// 		p, err := netip.ParsePrefix(cidr)
-// 		if err != nil {
-// 			return fmt.Errorf("invalid cidr: %w", err)
-// 		}
-// 		var newaf AddressFamily
-// 		if p.Addr().Is4() {
-// 			newaf = AddressFamilyIPv4
-// 		} else if p.Addr().Is6() {
-// 			newaf = AddressFamilyIPv6
-// 		}
-// 		if af != "" && af != newaf {
-// 			return fmt.Errorf("mixed address family in one rule is not supported:%v", cidrs)
-// 		}
-// 		af = newaf
-// 	}
-// 	return nil
-// }
+func validateCIDRs(cidrs []string) error {
+	var af AddressFamily
+	for _, cidr := range cidrs {
+		p, err := netip.ParsePrefix(cidr)
+		if err != nil {
+			return fmt.Errorf("invalid cidr: %w", err)
+		}
+		var newaf AddressFamily
+		if p.Addr().Is4() {
+			newaf = AddressFamilyIPv4
+		} else if p.Addr().Is6() {
+			newaf = AddressFamilyIPv6
+		}
+		if af != "" && af != newaf {
+			return fmt.Errorf("mixed address family in one rule is not supported:%v", cidrs)
+		}
+		af = newaf
+	}
+	return nil
+}
 
 // MachineNetwork stores the Network details of the machine
 type MachineNetwork struct {
@@ -234,6 +235,10 @@ type MachineNetwork struct {
 	Nat            bool   `rethinkdb:"nat"`
 	Underlay       bool   `rethinkdb:"underlay"`
 	Shared         bool   `rethinkdb:"shared"`
+
+	// New network properties, keep the old for backward compatibility
+	NetworkType *NetworkType `rethinkdb:"networktype"`
+	NATType     *NATType     `rethinkdb:"nattype"`
 }
 
 // MachineHardware stores the data which is collected by our system on the hardware when it registers itself.

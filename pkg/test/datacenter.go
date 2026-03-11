@@ -3,7 +3,6 @@ package test
 import (
 	"fmt"
 	"log/slog"
-	"maps"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -20,15 +19,16 @@ import (
 
 type (
 	Datacenter struct {
-		Tenants    []string
-		Projects   map[string]string
-		Partitions map[string]*apiv2.Partition
-		Sizes      map[string]*apiv2.Size
-		Networks   map[string]*apiv2.Network
-		IPs        map[string]*apiv2.IP
-		Images     map[string]*apiv2.Image
-		Switches   map[string]*apiv2.Switch
-		Machines   map[string]*metal.Machine
+		Tenants           []string
+		Projects          map[string]string
+		Partitions        map[string]*apiv2.Partition
+		Sizes             map[string]*apiv2.Size
+		FilesystemLayouts map[string]*apiv2.FilesystemLayout
+		Networks          map[string]*apiv2.Network
+		IPs               map[string]*apiv2.IP
+		Images            map[string]*apiv2.Image
+		Switches          map[string]*apiv2.Switch
+		Machines          map[string]*metal.Machine
 
 		TestStore *testStore
 		t         testing.TB
@@ -40,16 +40,17 @@ func NewDatacenter(t testing.TB, log *slog.Logger, testOpts ...testOpt) *Datacen
 	testStore, closer := StartRepositoryWithCleanup(t, log, testOpts...)
 
 	dc := &Datacenter{
-		t:          t,
-		TestStore:  testStore,
-		Projects:   make(map[string]string),
-		Partitions: make(map[string]*apiv2.Partition),
-		Sizes:      make(map[string]*apiv2.Size),
-		Networks:   make(map[string]*apiv2.Network),
-		IPs:        make(map[string]*apiv2.IP),
-		Images:     make(map[string]*apiv2.Image),
-		Switches:   make(map[string]*apiv2.Switch),
-		Machines:   make(map[string]*metal.Machine),
+		t:                 t,
+		TestStore:         testStore,
+		Projects:          make(map[string]string),
+		Partitions:        make(map[string]*apiv2.Partition),
+		Sizes:             make(map[string]*apiv2.Size),
+		FilesystemLayouts: make(map[string]*apiv2.FilesystemLayout),
+		Networks:          make(map[string]*apiv2.Network),
+		IPs:               make(map[string]*apiv2.IP),
+		Images:            make(map[string]*apiv2.Image),
+		Switches:          make(map[string]*apiv2.Switch),
+		Machines:          make(map[string]*metal.Machine),
 	}
 
 	dc.closers = append(dc.closers, closer)
@@ -62,6 +63,7 @@ func (dc *Datacenter) Create(spec *scenarios.DatacenterSpec) {
 	dc.createImages(spec)
 	dc.createSizes(spec)
 	dc.createSizeReservations(spec)
+	dc.createFilesystemLayouts(spec)
 	dc.createSizeImageConstraints(spec)
 	dc.createNetworks(spec)
 	dc.createIPs(spec)
@@ -179,18 +181,36 @@ func (dc *Datacenter) createSizeReservations(spec *scenarios.DatacenterSpec) {
 	CreateSizeReservations(dc.t, dc.TestStore, spec.SizeReservations)
 }
 
+func (dc *Datacenter) createFilesystemLayouts(spec *scenarios.DatacenterSpec) {
+	for _, fsl := range spec.FilesystemLayouts {
+		f, err := dc.TestStore.FilesystemLayout().Create(dc.t.Context(), fsl)
+		require.NoError(dc.t, err)
+		dc.FilesystemLayouts[f.Id] = f
+	}
+}
+
 func (dc *Datacenter) createSizeImageConstraints(spec *scenarios.DatacenterSpec) {
 	CreateSizeImageConstraints(dc.t, dc.TestStore, spec.SizeImageConstraints)
 }
 
 func (dc *Datacenter) createNetworks(spec *scenarios.DatacenterSpec) {
-	networks := CreateNetworks(dc.t, dc.TestStore, spec.Networks)
-	maps.Copy(dc.Networks, networks)
+	for _, nw := range spec.Networks {
+		resp, err := dc.TestStore.UnscopedNetwork().Create(dc.t.Context(), nw)
+		require.NoError(dc.t, err)
+		if resp.Name != nil {
+			dc.Networks[*resp.Name] = resp
+		} else {
+			dc.Networks[resp.Id] = resp
+		}
+	}
 }
 
 func (dc *Datacenter) createIPs(spec *scenarios.DatacenterSpec) {
-	ips := CreateIPs(dc.t, dc.TestStore, spec.IPs)
-	maps.Copy(dc.IPs, ips)
+	for _, ip := range spec.IPs {
+		i, err := dc.TestStore.UnscopedIP().Create(dc.t.Context(), ip)
+		require.NoError(dc.t, err)
+		dc.IPs[i.Name] = i
+	}
 }
 
 func (dc *Datacenter) createMachines(spec *scenarios.DatacenterSpec) {

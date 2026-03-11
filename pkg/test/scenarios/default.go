@@ -23,6 +23,10 @@ const (
 	// Project UUIDs are generated be counting the first digit for every tenant, last digit for every project of this tenant
 	Tenant1Project1 = "10000000-0000-0000-0000-000000000001"
 	Tenant1Project2 = "10000000-0000-0000-0000-000000000002"
+
+	NetworkInternet              = "internet"
+	NetworkTenantSuperNamespaced = "tenant-super-namespaced"
+	NetworkTenantSuperPartition1 = "tenant-super-partition-1"
 )
 
 var (
@@ -33,7 +37,21 @@ var (
 		Images: map[string]apiv2.ImageFeature{
 			"debian-13.0.20260131":         apiv2.ImageFeature_IMAGE_FEATURE_MACHINE,
 			"debian-12.0.20251220":         apiv2.ImageFeature_IMAGE_FEATURE_MACHINE,
+			"debian-11.0.20241220":         apiv2.ImageFeature_IMAGE_FEATURE_MACHINE,
 			"firewall-ubuntu-3.0.20260201": apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL,
+		},
+		FilesystemLayouts: []*adminv2.FilesystemServiceCreateRequest{
+			{
+				FilesystemLayout: &apiv2.FilesystemLayout{
+					Id: "debian",
+					Constraints: &apiv2.FilesystemLayoutConstraints{
+						Sizes: []string{SizeC1Large},
+						Images: map[string]string{
+							"debian": ">= 12.0",
+						},
+					},
+				},
+			},
 		},
 		Sizes: []*apiv2.Size{
 			{
@@ -70,17 +88,25 @@ var (
 
 		Networks: []*adminv2.NetworkServiceCreateRequest{
 			{
-				Id:       new("internet"),
+				Id:       new(NetworkInternet),
 				Prefixes: []string{"1.2.3.0/24"},
 				Type:     apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
 				Vrf:      new(uint32(11)),
 			},
 			{
-				Id:                       new("tenant-super-namespaced"),
+				Id:                       new(NetworkTenantSuperNamespaced),
 				Prefixes:                 []string{"12.100.0.0/16"},
 				DestinationPrefixes:      []string{"1.2.3.0/24"},
 				DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: new(uint32(22))},
 				Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED,
+			},
+			{
+				Id:                       new(NetworkTenantSuperPartition1),
+				Partition:                new(Partition1),
+				Prefixes:                 []string{"12.110.0.0/16"},
+				DestinationPrefixes:      []string{"1.2.3.0/24"},
+				DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: new(uint32(22))},
+				Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
 			},
 		},
 		IPs: []*apiv2.IPServiceCreateRequest{
