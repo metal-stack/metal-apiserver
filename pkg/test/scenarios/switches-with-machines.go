@@ -47,11 +47,11 @@ var (
 			SwitchPairFunc(SwmPartition2, SwmRack2, 2, SwmMachine4, SwmMachine5),
 		),
 		Machines: []*MachineWithLiveliness{
-			MachineFunc(SwmMachine1, SwmPartition1, SwmSize, "", metal.MachineLivelinessAlive),
-			MachineFunc(SwmMachine2, SwmPartition1, SwmSize, "", metal.MachineLivelinessAlive),
-			MachineFunc(SwmMachine3, SwmPartition2, SwmSize, "", metal.MachineLivelinessAlive),
-			MachineFunc(SwmMachine4, SwmPartition2, SwmSize, "", metal.MachineLivelinessAlive),
-			MachineFunc(SwmMachine5, SwmPartition2, SwmSize, "", metal.MachineLivelinessAlive),
+			MachineFunc(SwmMachine1, SwmPartition1, SwmSize, "", "", metal.MachineLivelinessAlive),
+			MachineFunc(SwmMachine2, SwmPartition1, SwmSize, "", "", metal.MachineLivelinessAlive),
+			MachineFunc(SwmMachine3, SwmPartition2, SwmSize, "", "", metal.MachineLivelinessAlive),
+			MachineFunc(SwmMachine4, SwmPartition2, SwmSize, "", "", metal.MachineLivelinessAlive),
+			MachineFunc(SwmMachine5, SwmPartition2, SwmSize, "", "", metal.MachineLivelinessAlive),
 		},
 	}
 )

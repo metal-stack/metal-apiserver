@@ -1257,20 +1257,17 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 
 	dc := test.NewDatacenter(t, log)
 	defer dc.Close()
+	dc.Create(&sc.SwitchesWithMachinesDatacenter)
 
 	tests := []struct {
-		name   string
-		rq     *adminv2.SwitchServiceConnectedMachinesRequest
-		before func() *sc.DatacenterSpec
-		want   *adminv2.SwitchServiceConnectedMachinesResponse
+		name string
+		rq   *adminv2.SwitchServiceConnectedMachinesRequest
+		want *adminv2.SwitchServiceConnectedMachinesResponse
 	}{
 		// TODO: order of lists is weird. should we sort here or in the client?
 		{
 			name: "get all",
 			rq:   &adminv2.SwitchServiceConnectedMachinesRequest{},
-			before: func() *sc.DatacenterSpec {
-				return &sc.SwitchesWithMachinesDatacenter
-			},
 			want: &adminv2.SwitchServiceConnectedMachinesResponse{
 				SwitchesWithMachines: []*apiv2.SwitchWithMachines{
 					{
@@ -1287,9 +1284,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 									},
 								},
-								Machine: &apiv2.Machine{
-									Uuid: sc.Machine3,
-								},
+								Machine: dc.Machines[sc.SwmMachine3],
 								Fru: &apiv2.MachineFRU{
 									ChassisPartNumber:   new(string),
 									ChassisPartSerial:   new(string),
@@ -1317,9 +1312,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 									},
 								},
-								Machine: &apiv2.Machine{
-									Uuid: sc.Machine4,
-								},
+								Machine: dc.Machines[sc.SwmMachine4],
 								Fru: &apiv2.MachineFRU{
 									ChassisPartNumber:   new(string),
 									ChassisPartSerial:   new(string),
@@ -1340,9 +1333,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 									},
 								},
-								Machine: &apiv2.Machine{
-									Uuid: sc.Machine5,
-								},
+								Machine: dc.Machines[sc.SwmMachine5],
 								Fru: &apiv2.MachineFRU{
 									ChassisPartNumber:   new(string),
 									ChassisPartSerial:   new(string),
@@ -1370,9 +1361,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 									},
 								},
-								Machine: &apiv2.Machine{
-									Uuid: sc.Machine1,
-								},
+								Machine: dc.Machines[sc.SwmMachine1],
 								Fru: &apiv2.MachineFRU{
 									ChassisPartNumber:   new(string),
 									ChassisPartSerial:   new(string),
@@ -1400,9 +1389,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 									},
 								},
-								Machine: &apiv2.Machine{
-									Uuid: sc.Machine3,
-								},
+								Machine: dc.Machines[sc.SwmMachine3],
 								Fru: &apiv2.MachineFRU{
 									ChassisPartNumber:   new(string),
 									ChassisPartSerial:   new(string),
@@ -1430,9 +1417,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 									},
 								},
-								Machine: &apiv2.Machine{
-									Uuid: sc.Machine2,
-								},
+								Machine: dc.Machines[sc.SwmMachine2],
 								Fru: &apiv2.MachineFRU{
 									ChassisPartNumber:   new(string),
 									ChassisPartSerial:   new(string),
@@ -1460,9 +1445,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 									},
 								},
-								Machine: &apiv2.Machine{
-									Uuid: sc.Machine4,
-								},
+								Machine: dc.Machines[sc.SwmMachine4],
 								Fru: &apiv2.MachineFRU{
 									ChassisPartNumber:   new(string),
 									ChassisPartSerial:   new(string),
@@ -1483,9 +1466,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 									},
 								},
-								Machine: &apiv2.Machine{
-									Uuid: sc.Machine5,
-								},
+								Machine: dc.Machines[sc.SwmMachine5],
 								Fru: &apiv2.MachineFRU{
 									ChassisPartNumber:   new(string),
 									ChassisPartSerial:   new(string),
@@ -1513,9 +1494,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 									},
 								},
-								Machine: &apiv2.Machine{
-									Uuid: sc.Machine2,
-								},
+								Machine: dc.Machines[sc.SwmMachine2],
 								Fru: &apiv2.MachineFRU{
 									ChassisPartNumber:   new(string),
 									ChassisPartSerial:   new(string),
@@ -1543,9 +1522,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 									},
 								},
-								Machine: &apiv2.Machine{
-									Uuid: sc.Machine1,
-								},
+								Machine: dc.Machines[sc.SwmMachine1],
 								Fru: &apiv2.MachineFRU{
 									ChassisPartNumber:   new(string),
 									ChassisPartSerial:   new(string),
@@ -1569,9 +1546,6 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 					Id: new(fmt.Sprintf("sw2-%s-%s", sc.SwmPartition1, sc.SwmRack1)),
 				},
 			},
-			before: func() *sc.DatacenterSpec {
-				return &sc.SwitchesWithMachinesDatacenter
-			},
 			want: &adminv2.SwitchServiceConnectedMachinesResponse{
 				SwitchesWithMachines: []*apiv2.SwitchWithMachines{
 					{
@@ -1588,9 +1562,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 									},
 								},
-								Machine: &apiv2.Machine{
-									Uuid: sc.Machine1,
-								},
+								Machine: dc.Machines[sc.SwmMachine1],
 								Fru: &apiv2.MachineFRU{
 									ChassisPartNumber:   new(string),
 									ChassisPartSerial:   new(string),
@@ -1614,9 +1586,6 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 					Uuid: new(sc.Machine5),
 				},
 			},
-			before: func() *sc.DatacenterSpec {
-				return &sc.SwitchesWithMachinesDatacenter
-			},
 			want: &adminv2.SwitchServiceConnectedMachinesResponse{
 				SwitchesWithMachines: []*apiv2.SwitchWithMachines{
 					{
@@ -1633,9 +1602,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 									},
 								},
-								Machine: &apiv2.Machine{
-									Uuid: sc.Machine5,
-								},
+								Machine: dc.Machines[sc.SwmMachine5],
 								Fru: &apiv2.MachineFRU{
 									ChassisPartNumber:   new(string),
 									ChassisPartSerial:   new(string),
@@ -1663,9 +1630,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 									},
 								},
-								Machine: &apiv2.Machine{
-									Uuid: sc.Machine5,
-								},
+								Machine: dc.Machines[sc.SwmMachine5],
 								Fru: &apiv2.MachineFRU{
 									ChassisPartNumber:   new(string),
 									ChassisPartSerial:   new(string),
@@ -1690,9 +1655,6 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 				},
 				MachineQuery: &apiv2.MachineQuery{},
 			},
-			before: func() *sc.DatacenterSpec {
-				return &sc.SwitchesWithMachinesDatacenter
-			},
 			want: &adminv2.SwitchServiceConnectedMachinesResponse{
 				SwitchesWithMachines: []*apiv2.SwitchWithMachines{
 					{
@@ -1709,9 +1671,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 									},
 								},
-								Machine: &apiv2.Machine{
-									Uuid: sc.Machine1,
-								},
+								Machine: dc.Machines[sc.SwmMachine1],
 								Fru: &apiv2.MachineFRU{
 									ChassisPartNumber:   new(string),
 									ChassisPartSerial:   new(string),
@@ -1739,9 +1699,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 									},
 								},
-								Machine: &apiv2.Machine{
-									Uuid: sc.Machine2,
-								},
+								Machine: dc.Machines[sc.SwmMachine2],
 								Fru: &apiv2.MachineFRU{
 									ChassisPartNumber:   new(string),
 									ChassisPartSerial:   new(string),
@@ -1769,9 +1727,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 									},
 								},
-								Machine: &apiv2.Machine{
-									Uuid: sc.Machine1,
-								},
+								Machine: dc.Machines[sc.SwmMachine1],
 								Fru: &apiv2.MachineFRU{
 									ChassisPartNumber:   new(string),
 									ChassisPartSerial:   new(string),
@@ -1799,9 +1755,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 									},
 								},
-								Machine: &apiv2.Machine{
-									Uuid: sc.Machine2,
-								},
+								Machine: dc.Machines[sc.SwmMachine2],
 								Fru: &apiv2.MachineFRU{
 									ChassisPartNumber:   new(string),
 									ChassisPartSerial:   new(string),
@@ -1821,8 +1775,6 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			dc.CleanUp()
-			dc.Create(tt.before())
 			s := &switchServiceServer{
 				log:  log,
 				repo: dc.TestStore.Store,
@@ -1830,9 +1782,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 			got, err := s.ConnectedMachines(ctx, tt.rq)
 			require.NoError(t, err)
 
-			if diff := cmp.Diff(tt.want, got, protocmp.Transform(), protocmp.IgnoreFields(
-				&apiv2.Machine{}, "partition", "hardware", "size", "status", "allocation", "meta", "rack", "recent_provisioning_events",
-			)); diff != "" {
+			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
 				t.Errorf("switchServiceServer.ConnectedMachines() diff = %s", diff)
 			}
 		})

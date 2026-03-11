@@ -527,8 +527,8 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 			before: func() *sc.DatacenterSpec {
 				testDC := sc.DefaultDatacenter
 				testDC.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, metal.MachineLivelinessAlive),
-					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessAlive),
 				}
 
 				return &testDC
@@ -571,11 +571,11 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 			before: func() *sc.DatacenterSpec {
 				testDC := sc.DefaultDatacenter
 				testDC.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, metal.MachineLivelinessDead),
-					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, metal.MachineLivelinessAlive),
-					sc.MachineFunc(sc.Machine3, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, metal.MachineLivelinessAlive),
-					sc.MachineFunc(sc.Machine4, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, metal.MachineLivelinessDead),
-					sc.MachineFunc(sc.Machine5, sc.Partition2, sc.SizeC1Large, sc.Tenant1Project1, metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessDead),
+					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine3, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine4, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, sc.ImageFirewall3_0, metal.MachineLivelinessDead),
+					sc.MachineFunc(sc.Machine5, sc.Partition2, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessAlive),
 				}
 
 				return &testDC
@@ -597,11 +597,11 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 				testDC := sc.DefaultDatacenter
 				testDC.Partitions = []string{sc.Partition1, sc.Partition2}
 				testDC.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, metal.MachineLivelinessDead),
-					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, metal.MachineLivelinessAlive),
-					sc.MachineFunc(sc.Machine3, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, metal.MachineLivelinessAlive),
-					sc.MachineFunc(sc.Machine4, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, metal.MachineLivelinessAlive),
-					sc.MachineFunc(sc.Machine5, sc.Partition2, sc.SizeC1Large, sc.Tenant1Project1, metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessDead),
+					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine3, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine4, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, sc.ImageFirewall3_0, metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine5, sc.Partition2, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessAlive),
 				}
 				testDC.Machines[3].Machine.IPMI.Address = ""
 				testDC.SizeReservations = []*adminv2.SizeReservationServiceCreateRequest{}
@@ -631,7 +631,7 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 			before: func() *sc.DatacenterSpec {
 				testDC := sc.DefaultDatacenter
 				testDC.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, "", metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive),
 				}
 				testDC.Machines[0].Machine.Waiting = true
 				return &testDC
@@ -652,7 +652,7 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 			before: func() *sc.DatacenterSpec {
 				testDC := sc.DefaultDatacenter
 				testDC.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, "", metal.MachineLivelinessDead),
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, "", "", metal.MachineLivelinessDead),
 				}
 				testDC.Machines[0].Machine.Waiting = true
 				return &testDC
@@ -673,8 +673,8 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 			before: func() *sc.DatacenterSpec {
 				testDC := sc.DefaultDatacenter
 				testDC.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, "", metal.MachineLivelinessAlive),
-					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessAlive),
 				}
 				testDC.Machines[0].Machine.Waiting = true
 				return &testDC
@@ -695,7 +695,7 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 			before: func() *sc.DatacenterSpec {
 				testDC := sc.DefaultDatacenter
 				testDC.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, "", metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive),
 				}
 				testDC.Machines[0].Machine.Waiting = true
 				testDC.Machines[0].Machine.State.Value = metal.AvailableState
@@ -717,7 +717,7 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 			before: func() *sc.DatacenterSpec {
 				testDC := sc.DefaultDatacenter
 				testDC.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, "", metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive),
 				}
 				testDC.Machines[0].Machine.Waiting = false
 				return &testDC
@@ -738,7 +738,7 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 			before: func() *sc.DatacenterSpec {
 				testDC := sc.DefaultDatacenter
 				testDC.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeN1Medium, "", metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeN1Medium, "", "", metal.MachineLivelinessAlive),
 				}
 				testDC.Machines[0].Machine.Waiting = true
 				return &testDC
@@ -760,7 +760,7 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 				testDC := sc.DefaultDatacenter
 				testDC.ProjectsPerTenant = 2
 				testDC.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeN1Medium, "", metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeN1Medium, "", "", metal.MachineLivelinessAlive),
 				}
 				testDC.Machines[0].Machine.Waiting = true
 				testDC.SizeReservations = []*adminv2.SizeReservationServiceCreateRequest{
@@ -803,9 +803,9 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 			before: func() *sc.DatacenterSpec {
 				testDC := sc.DefaultDatacenter
 				testDC.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, metal.MachineLivelinessAlive),
-					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, metal.MachineLivelinessAlive),
-					sc.MachineFunc(sc.Machine3, sc.Partition1, sc.SizeN1Medium, "", metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, sc.ImageFirewall3_0, metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, sc.ImageFirewall3_0, metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine3, sc.Partition1, sc.SizeN1Medium, "", "", metal.MachineLivelinessAlive),
 				}
 				testDC.Machines[2].Machine.Waiting = true
 				testDC.SizeReservations = []*adminv2.SizeReservationServiceCreateRequest{
@@ -838,9 +838,9 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 			before: func() *sc.DatacenterSpec {
 				testDC := sc.DefaultDatacenter
 				testDC.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, metal.MachineLivelinessAlive),
-					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, metal.MachineLivelinessAlive),
-					sc.MachineFunc(sc.Machine3, sc.Partition1, sc.SizeN1Medium, "", metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, sc.ImageFirewall3_0, metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, sc.ImageFirewall3_0, metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine3, sc.Partition1, sc.SizeN1Medium, "", "", metal.MachineLivelinessAlive),
 				}
 				testDC.Machines[2].Machine.Waiting = true
 				testDC.SizeReservations = []*adminv2.SizeReservationServiceCreateRequest{
@@ -874,9 +874,9 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 				testDC := sc.DefaultDatacenter
 				testDC.Partitions = []string{sc.Partition1, sc.Partition2}
 				testDC.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, metal.MachineLivelinessAlive),
-					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, metal.MachineLivelinessAlive),
-					sc.MachineFunc(sc.Machine3, sc.Partition1, sc.SizeN1Medium, "", metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, sc.ImageFirewall3_0, metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, sc.ImageFirewall3_0, metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine3, sc.Partition1, sc.SizeN1Medium, "", "", metal.MachineLivelinessAlive),
 				}
 				testDC.Machines[2].Machine.Waiting = true
 				testDC.SizeReservations = []*adminv2.SizeReservationServiceCreateRequest{
@@ -923,9 +923,9 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 				testDC := sc.DefaultDatacenter
 				testDC.Partitions = []string{sc.Partition1, sc.Partition2}
 				testDC.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, metal.MachineLivelinessAlive),
-					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, "", metal.MachineLivelinessAlive),
-					sc.MachineFunc(sc.Machine3, sc.Partition1, sc.SizeN1Medium, "", metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, sc.ImageFirewall3_0, metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, "", "", metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine3, sc.Partition1, sc.SizeN1Medium, "", "", metal.MachineLivelinessAlive),
 				}
 				testDC.Machines[1].Machine.Waiting = true
 				testDC.Machines[2].Machine.Waiting = true

@@ -8,6 +8,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
 )
 
+// TODO: is this test still needed?
 func Test_partitionUpdateWithDatacenter(t *testing.T) {
 	t.Parallel()
 

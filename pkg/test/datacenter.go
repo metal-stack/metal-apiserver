@@ -28,7 +28,7 @@ type (
 		IPs        map[string]*apiv2.IP
 		Images     map[string]*apiv2.Image
 		Switches   map[string]*apiv2.Switch
-		Machines   map[string]*metal.Machine
+		Machines   map[string]*apiv2.Machine
 
 		TestStore *testStore
 		t         testing.TB
@@ -49,7 +49,7 @@ func NewDatacenter(t testing.TB, log *slog.Logger, testOpts ...testOpt) *Datacen
 		IPs:        make(map[string]*apiv2.IP),
 		Images:     make(map[string]*apiv2.Image),
 		Switches:   make(map[string]*apiv2.Switch),
-		Machines:   make(map[string]*metal.Machine),
+		Machines:   make(map[string]*apiv2.Machine),
 	}
 
 	dc.closers = append(dc.closers, closer)
@@ -216,7 +216,10 @@ func (dc *Datacenter) createMachines(spec *scenarios.DatacenterSpec) {
 			require.NoError(dc.t, err)
 		}
 
-		dc.Machines[m.ID] = m
+		machine, err := dc.TestStore.UnscopedMachine().Get(dc.t.Context(), m.ID)
+		require.NoError(dc.t, err)
+
+		dc.Machines[m.ID] = machine
 	}
 }
 
