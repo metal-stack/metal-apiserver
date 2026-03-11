@@ -270,14 +270,6 @@ var (
 		BIOS: metal.BIOS{},
 	}
 	m4 = &metal.Machine{
-
-		// Partition:    new("partition-1"),
-		// 	Size:         new("c1-xlarge"),
-		// 	State:        apiv2.MachineState_MACHINE_STATE_AVAILABLE.Enum(),
-		// 	Waiting:      new(true),
-		// 	Preallocated: new(false),
-		// 	NotAllocated: new(true),
-
 		Base:         metal.Base{ID: "m4", Name: "m4"},
 		PartitionID:  "partition-1",
 		SizeID:       "c1-xlarge",

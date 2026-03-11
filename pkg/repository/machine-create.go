@@ -1022,6 +1022,7 @@ func (r *machineRepository) makeMachineNetwork(ctx context.Context, spec *machin
 		ipAddresses = append(ipAddresses, ip.IPAddress)
 	}
 
+	// FIXME we should return the apiv2.MachineNetwork
 	machineNetwork := metal.MachineNetwork{
 		NetworkID:           n.network.ID,
 		Prefixes:            n.network.Prefixes.String(),

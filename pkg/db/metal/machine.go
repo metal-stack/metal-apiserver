@@ -181,7 +181,7 @@ const (
 func validateComment(comment string) error {
 	for _, c := range comment {
 		if !strings.Contains(allowedCharacters, strings.ToLower(string(c))) {
-			return fmt.Errorf("illegal character in comment found, only: %q allowed", allowedCharacters)
+			return fmt.Errorf("illegal character %q in comment found, only: %q allowed", c, allowedCharacters)
 		}
 	}
 	if len(comment) > maxCommentLength {
@@ -193,7 +193,7 @@ func validateComment(comment string) error {
 func validatePorts(ports []int) error {
 	for _, port := range ports {
 		if port < 0 || port > 65535 {
-			return fmt.Errorf("port is out of range")
+			return fmt.Errorf("port %d is out of range", port)
 		}
 	}
 
