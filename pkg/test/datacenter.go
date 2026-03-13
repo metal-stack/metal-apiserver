@@ -1,10 +1,9 @@
 package test
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
 	"log/slog"
-	"maps"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -16,10 +15,12 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.yaml.in/yaml/v3"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type (
@@ -65,12 +66,26 @@ func (dc *Datacenter) Create(spec *scenarios.DatacenterSpec) {
 	dc.createTenantsAndMembers(spec)
 	dc.createImages(spec)
 	dc.createSizes(spec)
-	dc.createSizeReservations(spec)
-	dc.createSizeImageConstraints(spec)
-	dc.createNetworks(spec)
-	dc.createIPs(spec)
+	CreateSizeReservations(dc.t, dc.TestStore, spec.SizeReservations)
+	CreateSizeImageConstraints(dc.t, dc.TestStore, spec.SizeImageConstraints)
+	CreateNetworks(dc.t, dc.TestStore, spec.Networks)
+	CreateIPs(dc.t, dc.TestStore, spec.IPs)
 	dc.createMachines(spec)
 	dc.createSwitches(spec)
+
+	// this is done after creating all entities because some entities affect other entities upon creation and we want to start of with a consistent state between database and datacenter
+	entities, err := getCurrentEntities(dc.t.Context(), dc.TestStore)
+	require.NoError(dc.t, err)
+
+	dc.Tenants = entities.Tenants
+	dc.Projects = entities.Projects
+	dc.Partitions = entities.Partitions
+	dc.Sizes = entities.Sizes
+	dc.Networks = entities.Networks
+	dc.IPs = entities.IPs
+	dc.Images = entities.Images
+	dc.Switches = entities.Switches
+	dc.Machines = entities.Machines
 }
 
 func (dc *Datacenter) Dump() {
@@ -110,7 +125,7 @@ func (dc *Datacenter) createPartitions(spec *scenarios.DatacenterSpec) {
 		}
 		req = append(req, &adminv2.PartitionServiceCreateRequest{Partition: p})
 	}
-	dc.Partitions = CreatePartitions(dc.t, dc.TestStore, req)
+	CreatePartitions(dc.t, dc.TestStore, req)
 }
 
 func (dc *Datacenter) createTenantsAndMembers(spec *scenarios.DatacenterSpec) {
@@ -137,8 +152,8 @@ func (dc *Datacenter) createTenantsAndMembers(spec *scenarios.DatacenterSpec) {
 		}
 	}
 
-	dc.Tenants = CreateTenants(dc.t, dc.TestStore, tenantCreateReq)
-	dc.Projects = CreateProjects(dc.t, dc.TestStore, projectCreateReq)
+	CreateTenants(dc.t, dc.TestStore, tenantCreateReq)
+	CreateProjects(dc.t, dc.TestStore, projectCreateReq)
 
 	for _, tenant := range spec.Tenants {
 		tenantMemberCreateReq = append(tenantMemberCreateReq, &repository.TenantMemberCreateRequest{
@@ -146,7 +161,6 @@ func (dc *Datacenter) createTenantsAndMembers(spec *scenarios.DatacenterSpec) {
 		})
 		CreateTenantMemberships(dc.t, dc.TestStore, tenant, tenantMemberCreateReq)
 	}
-
 }
 
 func (dc *Datacenter) createImages(spec *scenarios.DatacenterSpec) {
@@ -165,7 +179,7 @@ func (dc *Datacenter) createImages(spec *scenarios.DatacenterSpec) {
 			},
 		})
 	}
-	dc.Images = CreateImages(dc.t, dc.TestStore, req)
+	CreateImages(dc.t, dc.TestStore, req)
 }
 
 func (dc *Datacenter) createSizes(spec *scenarios.DatacenterSpec) {
@@ -175,26 +189,7 @@ func (dc *Datacenter) createSizes(spec *scenarios.DatacenterSpec) {
 			Size: size,
 		})
 	}
-
-	dc.Sizes = CreateSizes(dc.t, dc.TestStore, req)
-}
-
-func (dc *Datacenter) createSizeReservations(spec *scenarios.DatacenterSpec) {
-	CreateSizeReservations(dc.t, dc.TestStore, spec.SizeReservations)
-}
-
-func (dc *Datacenter) createSizeImageConstraints(spec *scenarios.DatacenterSpec) {
-	CreateSizeImageConstraints(dc.t, dc.TestStore, spec.SizeImageConstraints)
-}
-
-func (dc *Datacenter) createNetworks(spec *scenarios.DatacenterSpec) {
-	networks := CreateNetworks(dc.t, dc.TestStore, spec.Networks)
-	maps.Copy(dc.Networks, networks)
-}
-
-func (dc *Datacenter) createIPs(spec *scenarios.DatacenterSpec) {
-	ips := CreateIPs(dc.t, dc.TestStore, spec.IPs)
-	maps.Copy(dc.IPs, ips)
+	CreateSizes(dc.t, dc.TestStore, req)
 }
 
 func (dc *Datacenter) createMachines(spec *scenarios.DatacenterSpec) {
@@ -219,21 +214,91 @@ func (dc *Datacenter) createMachines(spec *scenarios.DatacenterSpec) {
 			_, err := dc.TestStore.ds.Event().Create(dc.t.Context(), e)
 			require.NoError(dc.t, err)
 		}
-
-		machine, err := dc.TestStore.UnscopedMachine().Get(dc.t.Context(), m.ID)
-		require.NoError(dc.t, err)
-
-		dc.Machines[m.ID] = machine
 	}
 }
 
 func (dc *Datacenter) createSwitches(spec *scenarios.DatacenterSpec) {
-	for _, sw := range spec.Switches {
-		switches := CreateSwitches(dc.t, dc.TestStore, []*repository.SwitchServiceCreateRequest{{Switch: sw}})
-		for _, s := range switches {
-			dc.Switches[s.Id] = s
-		}
+	reqs := lo.Map(spec.Switches, func(sw *apiv2.Switch, _ int) *repository.SwitchServiceCreateRequest {
+		return &repository.SwitchServiceCreateRequest{Switch: sw}
+	})
+	CreateSwitches(dc.t, dc.TestStore, reqs)
+}
+
+func getCurrentEntities(ctx context.Context, store *testStore) (*Datacenter, error) {
+	current := &Datacenter{}
+
+	tenants, err := store.Tenant().List(ctx, &apiv2.TenantServiceListRequest{})
+	if err != nil {
+		return nil, err
 	}
+	current.Tenants = lo.Map(tenants, func(t *apiv2.Tenant, _ int) string {
+		return t.Login
+	})
+	projects, err := store.UnscopedProject().List(ctx, &apiv2.ProjectServiceListRequest{})
+	if err != nil {
+		return nil, err
+	}
+	current.Projects = map[string]string{}
+	for _, p := range projects {
+		current.Projects[p.Tenant] = p.Uuid
+	}
+	partitions, err := store.Partition().List(ctx, &apiv2.PartitionQuery{})
+	if err != nil {
+		return nil, err
+	}
+	current.Partitions = map[string]*apiv2.Partition{}
+	for _, p := range partitions {
+		current.Partitions[p.Id] = p
+	}
+	sizes, err := store.Size().List(ctx, &apiv2.SizeQuery{})
+	if err != nil {
+		return nil, err
+	}
+	current.Sizes = map[string]*apiv2.Size{}
+	for _, s := range sizes {
+		current.Sizes[s.Id] = s
+	}
+	networks, err := store.UnscopedNetwork().List(ctx, &apiv2.NetworkQuery{})
+	if err != nil {
+		return nil, err
+	}
+	current.Networks = map[string]*apiv2.Network{}
+	for _, n := range networks {
+		current.Networks[n.Id] = n
+	}
+	ips, err := store.UnscopedIP().List(ctx, &apiv2.IPQuery{})
+	if err != nil {
+		return nil, err
+	}
+	current.IPs = map[string]*apiv2.IP{}
+	for _, ip := range ips {
+		current.IPs[ip.Ip] = ip
+	}
+	images, err := store.Image().List(ctx, &apiv2.ImageQuery{})
+	if err != nil {
+		return nil, err
+	}
+	current.Images = map[string]*apiv2.Image{}
+	for _, i := range images {
+		current.Images[i.Id] = i
+	}
+	switches, err := store.Switch().List(ctx, &apiv2.SwitchQuery{})
+	if err != nil {
+		return nil, err
+	}
+	current.Switches = map[string]*apiv2.Switch{}
+	for _, sw := range switches {
+		current.Switches[sw.Id] = sw
+	}
+	machines, err := store.UnscopedMachine().List(ctx, &apiv2.MachineQuery{})
+	if err != nil {
+		return nil, err
+	}
+	current.Machines = map[string]*apiv2.Machine{}
+	for _, m := range machines {
+		current.Machines[m.Uuid] = m
+	}
+	return current, nil
 }
 
 // Assert tests whether all changes applied to a Datacenter were intended.
@@ -245,29 +310,48 @@ func (dc *Datacenter) createSwitches(spec *scenarios.DatacenterSpec) {
 // Call Assert and pass the copy of the Datacenter, the original (possibly modified) Datacenter, and a modify function.
 // The modify function contains all changes that you expect to have been applied by the functions you are testing.
 // Assert will apply the modify function and fail if the Datacenters differ after that.
-func Assert(prev, current *Datacenter, modify func(*Datacenter)) error {
-	if modify != nil {
-		modify(prev)
+func (dc *Datacenter) Assert(modify func(*Datacenter)) error {
+	// FIXME: allow passing ignored fields as options
+	current, err := getCurrentEntities(dc.t.Context(), dc.TestStore)
+	if err != nil {
+		return err
 	}
-	diff := cmp.Diff(prev, current, protocmp.Transform(), cmpopts.IgnoreFields(
-		Datacenter{}, "TestStore", "t", "closers",
-	))
+
+	if modify != nil {
+		modify(dc)
+	}
+
+	diff := cmp.Diff(dc, current, protocmp.Transform(),
+		cmpopts.IgnoreFields(
+			Datacenter{}, "TestStore", "t", "closers",
+		),
+		protocmp.IgnoreFields(
+			&apiv2.Partition{}, "meta",
+		),
+		protocmp.IgnoreFields(
+			&apiv2.Size{}, "meta",
+		),
+		protocmp.IgnoreFields(
+			&apiv2.Network{}, "meta",
+		),
+		protocmp.IgnoreFields(
+			&apiv2.IP{}, "meta",
+		),
+		protocmp.IgnoreFields(
+			&apiv2.Image{}, "meta",
+		),
+		protocmp.IgnoreFields(
+			&timestamppb.Timestamp{}, "nanos",
+		),
+		protocmp.IgnoreFields(
+			&apiv2.Switch{}, "meta",
+		),
+		protocmp.IgnoreFields(
+			&apiv2.Machine{}, "meta",
+		),
+	)
 	if diff != "" {
 		return fmt.Errorf("datacenters differ: %s", diff)
 	}
 	return nil
-}
-
-// Copy deep copies all entities of dc into a new Datacenter.
-func Copy(dc *Datacenter) (*Datacenter, error) {
-	var copy Datacenter
-	bytes, err := json.Marshal(dc)
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal(bytes, &copy)
-	if err != nil {
-		return nil, err
-	}
-	return &copy, nil
 }
