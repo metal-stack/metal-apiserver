@@ -112,14 +112,7 @@ jobs:
           merge-multiple: true
           path: coverage-parts/
 
-      - name: Install gocovmerge
-        run: go install github.com/wadey/gocovmerge@latest
-
-      - name: Merge coverage profiles
-        run: |
-          gocovmerge coverage-parts/*.out > coverage.out
-
-      - name: Upload merged coverage to Codecov
+      - name: Run Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
