@@ -51,15 +51,22 @@ jobs:
             packages: ./pkg/service/machine/... ./pkg/service/switch/...
           - package-group: partition-vpn
             packages: ./pkg/service/partition/... ./pkg/service/vpn/...
+          - package-group: image-size
+            packages: ./pkg/service/iamge/... ./pkg/service/size/...
+          - package-group: e2e
+            packages: ./pkg/e2e
           - package-group: rest
             # Catch-all: everything not covered above, including cmd/ and top-level pkg/
             packages: >-
               $(go list ./... |
+                grep -v 'metal-apiserver/pkg/service/e2e' |
                 grep -v 'metal-apiserver/pkg/service/ip' |
+                grep -v 'metal-apiserver/pkg/service/image' |
                 grep -v 'metal-apiserver/pkg/service/network' |
                 grep -v 'metal-apiserver/pkg/service/project' |
                 grep -v 'metal-apiserver/pkg/service/tenant' |
                 grep -v 'metal-apiserver/pkg/service/machine' |
+                grep -v 'metal-apiserver/pkg/service/size' |
                 grep -v 'metal-apiserver/pkg/service/switch' |
                 grep -v 'metal-apiserver/pkg/service/partition' |
                 grep -v 'metal-apiserver/pkg/service/vpn' |
