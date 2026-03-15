@@ -83,7 +83,7 @@ jobs:
             ${{ matrix.packages }}
 
       - name: Upload partial coverage artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-${{ matrix.package-group }}
           path: coverage-${{ matrix.package-group }}.out
@@ -105,7 +105,7 @@ jobs:
           cache: false
 
       - name: Download all coverage artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: coverage-*
           merge-multiple: true
