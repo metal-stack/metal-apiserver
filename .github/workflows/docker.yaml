@@ -83,12 +83,47 @@ jobs:
             -coverprofile=coverage-${{ matrix.package-group }}.out \
             ${{ matrix.packages }}
 
-      - name: Upload coverage to Codecov
+      - name: Upload partial coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.package-group }}
+          path: coverage-${{ matrix.package-group }}.out
+          retention-days: 1
+
+  coverage:
+    name: Merge Coverage & Upload
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Go 1.26
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+          check-latest: true
+          cache: false
+
+      - name: Download all coverage artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-*
+          merge-multiple: true
+          path: coverage-parts/
+
+      - name: Install gocovmerge
+        run: go install github.com/wadey/gocovmerge@latest
+
+      - name: Merge coverage profiles
+        run: |
+          gocovmerge coverage-parts/*.out > coverage.out
+
+      - name: Upload merged coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: coverage-${{ matrix.package-group }}.out
-          flags: ${{ matrix.package-group }}
+          files: coverage-*.out
           verbose: true
 
   build:
