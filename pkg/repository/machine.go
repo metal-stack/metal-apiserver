@@ -463,8 +463,8 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 			Userdata:         alloc.UserData,
 			AllocationType:   allocationType,
 			FirewallRules:    firewallRules,
-			DnsServer:        dnsServers,
-			NtpServer:        ntpServers,
+			DnsServers:       dnsServers,
+			NtpServers:       ntpServers,
 			Vpn:              vpn,
 		}
 	}
