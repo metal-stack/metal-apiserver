@@ -58,7 +58,7 @@ func Test_sizeImageConstraintServiceServer_Create(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &sizeImageConstraintServiceServer{
 				log:  log,
-				repo: dc.TestStore.Store,
+				repo: dc.GetTestStore().Store,
 			}
 			got, err := s.Create(t.Context(), tt.req)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
@@ -140,7 +140,7 @@ func Test_sizeImageConstraintServiceServer_Delete(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &sizeImageConstraintServiceServer{
 				log:  log,
-				repo: dc.TestStore.Store,
+				repo: dc.GetTestStore().Store,
 			}
 			got, err := s.Delete(t.Context(), tt.req)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
@@ -221,7 +221,7 @@ func Test_sizeImageConstraintServiceServer_Get(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &sizeImageConstraintServiceServer{
 				log:  log,
-				repo: dc.TestStore.Store,
+				repo: dc.GetTestStore().Store,
 			}
 			got, err := s.Get(t.Context(), tt.req)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
@@ -323,7 +323,7 @@ func Test_sizeImageConstraintServiceServer_Update(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &sizeImageConstraintServiceServer{
 				log:  log,
-				repo: dc.TestStore.Store,
+				repo: dc.GetTestStore().Store,
 			}
 			got, err := s.Update(t.Context(), tt.req)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
@@ -450,7 +450,7 @@ func Test_sizeImageConstraintServiceServer_List(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &sizeImageConstraintServiceServer{
 				log:  log,
-				repo: dc.TestStore.Store,
+				repo: dc.GetTestStore().Store,
 			}
 			got, err := s.List(t.Context(), tt.req)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {

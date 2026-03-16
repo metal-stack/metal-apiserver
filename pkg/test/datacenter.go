@@ -21,24 +21,34 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.yaml.in/yaml/v3"
 	"google.golang.org/protobuf/testing/protocmp"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type (
 	Datacenter struct {
-		Tenants    []string
-		Projects   map[string][]string
-		Partitions map[string]*apiv2.Partition
-		Sizes      map[string]*apiv2.Size
-		Networks   map[string]*apiv2.Network
-		IPs        map[string]*apiv2.IP
-		Images     map[string]*apiv2.Image
-		Switches   map[string]*apiv2.Switch
-		Machines   map[string]*apiv2.Machine
+		tenants    []string
+		projects   map[string][]string
+		partitions map[string]*apiv2.Partition
+		sizes      map[string]*apiv2.Size
+		networks   map[string]*apiv2.Network
+		ips        map[string]*apiv2.IP
+		images     map[string]*apiv2.Image
+		switches   map[string]*apiv2.Switch
+		machines   map[string]*apiv2.Machine
 
-		TestStore *testStore
+		testStore *testStore
 		t         testing.TB
 		closers   []func()
+	}
+
+	AssertionMods struct {
+		Projects   func(projects map[string][]string)
+		Partitions func(partitions map[string]*apiv2.Partition)
+		Sizes      func(sizes map[string]*apiv2.Size)
+		Networks   func(networks map[string]*apiv2.Network)
+		IPs        func(ips map[string]*apiv2.IP)
+		Images     func(images map[string]*apiv2.Image)
+		Switches   func(switches map[string]*apiv2.Switch)
+		Machines   func(machines map[string]*apiv2.Machine)
 	}
 )
 
@@ -47,19 +57,23 @@ func NewDatacenter(t testing.TB, log *slog.Logger, testOpts ...testOpt) *Datacen
 
 	dc := &Datacenter{
 		t:          t,
-		TestStore:  testStore,
-		Projects:   make(map[string][]string),
-		Partitions: make(map[string]*apiv2.Partition),
-		Sizes:      make(map[string]*apiv2.Size),
-		Networks:   make(map[string]*apiv2.Network),
-		IPs:        make(map[string]*apiv2.IP),
-		Images:     make(map[string]*apiv2.Image),
-		Switches:   make(map[string]*apiv2.Switch),
-		Machines:   make(map[string]*apiv2.Machine),
+		testStore:  testStore,
+		projects:   make(map[string][]string),
+		partitions: make(map[string]*apiv2.Partition),
+		sizes:      make(map[string]*apiv2.Size),
+		networks:   make(map[string]*apiv2.Network),
+		ips:        make(map[string]*apiv2.IP),
+		images:     make(map[string]*apiv2.Image),
+		switches:   make(map[string]*apiv2.Switch),
+		machines:   make(map[string]*apiv2.Machine),
 	}
 
 	dc.closers = append(dc.closers, closer)
 	return dc
+}
+
+func (dc *Datacenter) GetTestStore() *testStore {
+	return dc.testStore
 }
 
 func (dc *Datacenter) Create(spec *scenarios.DatacenterSpec) {
@@ -67,26 +81,26 @@ func (dc *Datacenter) Create(spec *scenarios.DatacenterSpec) {
 	dc.createTenantsAndMembers(spec)
 	dc.createImages(spec)
 	dc.createSizes(spec)
-	CreateSizeReservations(dc.t, dc.TestStore, spec.SizeReservations)
-	CreateSizeImageConstraints(dc.t, dc.TestStore, spec.SizeImageConstraints)
-	CreateNetworks(dc.t, dc.TestStore, spec.Networks)
-	CreateIPs(dc.t, dc.TestStore, spec.IPs)
+	CreateSizeReservations(dc.t, dc.testStore, spec.SizeReservations)
+	CreateSizeImageConstraints(dc.t, dc.testStore, spec.SizeImageConstraints)
+	CreateNetworks(dc.t, dc.testStore, spec.Networks)
+	CreateIPs(dc.t, dc.testStore, spec.IPs)
 	dc.createMachines(spec)
 	dc.createSwitchesAndStatuses(spec)
 
 	// this is done after creating all entities because some entities affect other entities upon creation and we want to start of with a consistent state between database and datacenter
-	entities, err := getCurrentEntities(dc.t.Context(), dc.TestStore)
+	entities, err := getCurrentEntities(dc.t.Context(), dc.testStore)
 	require.NoError(dc.t, err)
 
-	dc.Tenants = entities.Tenants
-	dc.Projects = entities.Projects
-	dc.Partitions = entities.Partitions
-	dc.Sizes = entities.Sizes
-	dc.Networks = entities.Networks
-	dc.IPs = entities.IPs
-	dc.Images = entities.Images
-	dc.Switches = entities.Switches
-	dc.Machines = entities.Machines
+	dc.tenants = entities.tenants
+	dc.projects = entities.projects
+	dc.partitions = entities.partitions
+	dc.sizes = entities.sizes
+	dc.networks = entities.networks
+	dc.ips = entities.ips
+	dc.images = entities.images
+	dc.switches = entities.switches
+	dc.machines = entities.machines
 }
 
 func (dc *Datacenter) Dump() {
@@ -102,8 +116,8 @@ func (dc *Datacenter) Close() {
 	}
 }
 
-func (dc *Datacenter) CleanUp() {
-	dc.TestStore.CleanUp(dc.t)
+func (dc *Datacenter) Cleanup() {
+	dc.testStore.CleanUp(dc.t)
 }
 
 func (dc *Datacenter) createPartitions(spec *scenarios.DatacenterSpec) {
@@ -126,7 +140,7 @@ func (dc *Datacenter) createPartitions(spec *scenarios.DatacenterSpec) {
 		}
 		req = append(req, &adminv2.PartitionServiceCreateRequest{Partition: p})
 	}
-	CreatePartitions(dc.t, dc.TestStore, req)
+	CreatePartitions(dc.t, dc.testStore, req)
 }
 
 func (dc *Datacenter) createTenantsAndMembers(spec *scenarios.DatacenterSpec) {
@@ -153,14 +167,14 @@ func (dc *Datacenter) createTenantsAndMembers(spec *scenarios.DatacenterSpec) {
 		}
 	}
 
-	CreateTenants(dc.t, dc.TestStore, tenantCreateReq)
-	CreateProjects(dc.t, dc.TestStore, projectCreateReq)
+	CreateTenants(dc.t, dc.testStore, tenantCreateReq)
+	CreateProjects(dc.t, dc.testStore, projectCreateReq)
 
 	for _, tenant := range spec.Tenants {
 		tenantMemberCreateReq = append(tenantMemberCreateReq, &repository.TenantMemberCreateRequest{
 			MemberID: tenant, Role: apiv2.TenantRole_TENANT_ROLE_OWNER,
 		})
-		CreateTenantMemberships(dc.t, dc.TestStore, tenant, tenantMemberCreateReq)
+		CreateTenantMemberships(dc.t, dc.testStore, tenant, tenantMemberCreateReq)
 	}
 }
 
@@ -180,7 +194,7 @@ func (dc *Datacenter) createImages(spec *scenarios.DatacenterSpec) {
 			},
 		})
 	}
-	CreateImages(dc.t, dc.TestStore, req)
+	CreateImages(dc.t, dc.testStore, req)
 }
 
 func (dc *Datacenter) createSizes(spec *scenarios.DatacenterSpec) {
@@ -190,12 +204,12 @@ func (dc *Datacenter) createSizes(spec *scenarios.DatacenterSpec) {
 			Size: size,
 		})
 	}
-	CreateSizes(dc.t, dc.TestStore, req)
+	CreateSizes(dc.t, dc.testStore, req)
 }
 
 func (dc *Datacenter) createMachines(spec *scenarios.DatacenterSpec) {
 	for _, pair := range spec.Machines {
-		m, err := dc.TestStore.ds.Machine().Create(dc.t.Context(), pair.Machine)
+		m, err := dc.testStore.ds.Machine().Create(dc.t.Context(), pair.Machine)
 		require.NoError(dc.t, err)
 
 		var events []*metal.ProvisioningEventContainer
@@ -212,7 +226,7 @@ func (dc *Datacenter) createMachines(spec *scenarios.DatacenterSpec) {
 		}
 		events = append(events, ec)
 		for _, e := range events {
-			_, err := dc.TestStore.ds.Event().Create(dc.t.Context(), e)
+			_, err := dc.testStore.ds.Event().Create(dc.t.Context(), e)
 			require.NoError(dc.t, err)
 		}
 	}
@@ -222,14 +236,14 @@ func (dc *Datacenter) createSwitchesAndStatuses(spec *scenarios.DatacenterSpec) 
 	reqs := lo.Map(spec.Switches, func(sw *apiv2.Switch, _ int) *repository.SwitchServiceCreateRequest {
 		return &repository.SwitchServiceCreateRequest{Switch: sw}
 	})
-	CreateSwitches(dc.t, dc.TestStore, reqs)
+	CreateSwitches(dc.t, dc.testStore, reqs)
 
 	statuses := lo.Map(spec.Switches, func(sw *apiv2.Switch, _ int) *repository.SwitchStatus {
 		return &repository.SwitchStatus{
 			ID: sw.Id,
 		}
 	})
-	CreateSwitchStatuses(dc.t, dc.TestStore, statuses)
+	CreateSwitchStatuses(dc.t, dc.testStore, statuses)
 }
 
 func getCurrentEntities(ctx context.Context, store *testStore) (*Datacenter, error) {
@@ -239,73 +253,73 @@ func getCurrentEntities(ctx context.Context, store *testStore) (*Datacenter, err
 	if err != nil {
 		return nil, err
 	}
-	current.Tenants = lo.Map(tenants, func(t *apiv2.Tenant, _ int) string {
+	current.tenants = lo.Map(tenants, func(t *apiv2.Tenant, _ int) string {
 		return t.Login
 	})
 	projects, err := store.UnscopedProject().List(ctx, &apiv2.ProjectServiceListRequest{})
 	if err != nil {
 		return nil, err
 	}
-	current.Projects = map[string][]string{}
+	current.projects = map[string][]string{}
 	for _, p := range projects {
-		current.Projects[p.Tenant] = append(current.Projects[p.Tenant], p.Uuid)
-		slices.Sort(current.Projects[p.Tenant])
+		current.projects[p.Tenant] = append(current.projects[p.Tenant], p.Uuid)
+		slices.Sort(current.projects[p.Tenant])
 	}
 	partitions, err := store.Partition().List(ctx, &apiv2.PartitionQuery{})
 	if err != nil {
 		return nil, err
 	}
-	current.Partitions = map[string]*apiv2.Partition{}
+	current.partitions = map[string]*apiv2.Partition{}
 	for _, p := range partitions {
-		current.Partitions[p.Id] = p
+		current.partitions[p.Id] = p
 	}
 	sizes, err := store.Size().List(ctx, &apiv2.SizeQuery{})
 	if err != nil {
 		return nil, err
 	}
-	current.Sizes = map[string]*apiv2.Size{}
+	current.sizes = map[string]*apiv2.Size{}
 	for _, s := range sizes {
-		current.Sizes[s.Id] = s
+		current.sizes[s.Id] = s
 	}
 	networks, err := store.UnscopedNetwork().List(ctx, &apiv2.NetworkQuery{})
 	if err != nil {
 		return nil, err
 	}
-	current.Networks = map[string]*apiv2.Network{}
+	current.networks = map[string]*apiv2.Network{}
 	for _, n := range networks {
-		current.Networks[n.Id] = n
+		current.networks[n.Id] = n
 	}
 	ips, err := store.UnscopedIP().List(ctx, &apiv2.IPQuery{})
 	if err != nil {
 		return nil, err
 	}
-	current.IPs = map[string]*apiv2.IP{}
+	current.ips = map[string]*apiv2.IP{}
 	for _, ip := range ips {
-		current.IPs[ip.Ip] = ip
+		current.ips[ip.Ip] = ip
 	}
 	images, err := store.Image().List(ctx, &apiv2.ImageQuery{})
 	if err != nil {
 		return nil, err
 	}
-	current.Images = map[string]*apiv2.Image{}
+	current.images = map[string]*apiv2.Image{}
 	for _, i := range images {
-		current.Images[i.Id] = i
+		current.images[i.Id] = i
 	}
 	switches, err := store.Switch().List(ctx, &apiv2.SwitchQuery{})
 	if err != nil {
 		return nil, err
 	}
-	current.Switches = map[string]*apiv2.Switch{}
+	current.switches = map[string]*apiv2.Switch{}
 	for _, sw := range switches {
-		current.Switches[sw.Id] = sw
+		current.switches[sw.Id] = sw
 	}
 	machines, err := store.UnscopedMachine().List(ctx, &apiv2.MachineQuery{})
 	if err != nil {
 		return nil, err
 	}
-	current.Machines = map[string]*apiv2.Machine{}
+	current.machines = map[string]*apiv2.Machine{}
 	for _, m := range machines {
-		current.Machines[m.Uuid] = m
+		current.machines[m.Uuid] = m
 	}
 	return current, nil
 }
@@ -319,44 +333,50 @@ func getCurrentEntities(ctx context.Context, store *testStore) (*Datacenter, err
 // Call Assert and pass the copy of the Datacenter, the original (possibly modified) Datacenter, and a modify function.
 // The modify function contains all changes that you expect to have been applied by the functions you are testing.
 // Assert will apply the modify function and fail if the Datacenters differ after that.
-func (dc *Datacenter) Assert(modify func(*Datacenter), opts ...cmp.Option) error {
-	current, err := getCurrentEntities(dc.t.Context(), dc.TestStore)
+func (dc *Datacenter) Assert(mods *AssertionMods, opts ...cmp.Option) error {
+	if mods != nil {
+		// TODO: pass deep copies to these mod fns!
+		// this prevents tamparing original creation records
+
+		if mods.Projects != nil {
+			mods.Projects(dc.projects)
+		}
+		if mods.Partitions != nil {
+			mods.Partitions(dc.partitions)
+		}
+		if mods.Sizes != nil {
+			mods.Sizes(dc.sizes)
+		}
+		if mods.Networks != nil {
+			mods.Networks(dc.networks)
+		}
+		if mods.IPs != nil {
+			mods.IPs(dc.ips)
+		}
+		if mods.Images != nil {
+			mods.Images(dc.images)
+		}
+		if mods.Switches != nil {
+			mods.Switches(dc.switches)
+		}
+		if mods.Machines != nil {
+			mods.Machines(dc.machines)
+		}
+	}
+
+	current, err := getCurrentEntities(dc.t.Context(), dc.testStore)
 	if err != nil {
 		return err
 	}
 
-	if modify != nil {
-		modify(dc)
-	}
-
 	options := slices.Concat(opts, []cmp.Option{
 		protocmp.Transform(),
+		cmp.AllowUnexported(Datacenter{}),
 		cmpopts.IgnoreFields(
-			Datacenter{}, "TestStore", "t", "closers",
+			Datacenter{}, "testStore", "t", "closers",
 		),
 		protocmp.IgnoreFields(
-			&apiv2.Partition{}, "meta",
-		),
-		protocmp.IgnoreFields(
-			&apiv2.Size{}, "meta",
-		),
-		protocmp.IgnoreFields(
-			&apiv2.Network{}, "meta",
-		),
-		protocmp.IgnoreFields(
-			&apiv2.IP{}, "meta",
-		),
-		protocmp.IgnoreFields(
-			&apiv2.Image{}, "meta",
-		),
-		protocmp.IgnoreFields(
-			&timestamppb.Timestamp{}, "nanos",
-		),
-		protocmp.IgnoreFields(
-			&apiv2.Switch{}, "meta",
-		),
-		protocmp.IgnoreFields(
-			&apiv2.Machine{}, "meta",
+			&apiv2.Meta{}, "generation", "updated_at", "created_at",
 		),
 	})
 
