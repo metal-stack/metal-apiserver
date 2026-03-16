@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -26,7 +27,7 @@ import (
 type (
 	Datacenter struct {
 		Tenants    []string
-		Projects   map[string]string
+		Projects   map[string][]string
 		Partitions map[string]*apiv2.Partition
 		Sizes      map[string]*apiv2.Size
 		Networks   map[string]*apiv2.Network
@@ -47,7 +48,7 @@ func NewDatacenter(t testing.TB, log *slog.Logger, testOpts ...testOpt) *Datacen
 	dc := &Datacenter{
 		t:          t,
 		TestStore:  testStore,
-		Projects:   make(map[string]string),
+		Projects:   make(map[string][]string),
 		Partitions: make(map[string]*apiv2.Partition),
 		Sizes:      make(map[string]*apiv2.Size),
 		Networks:   make(map[string]*apiv2.Network),
@@ -71,7 +72,7 @@ func (dc *Datacenter) Create(spec *scenarios.DatacenterSpec) {
 	CreateNetworks(dc.t, dc.TestStore, spec.Networks)
 	CreateIPs(dc.t, dc.TestStore, spec.IPs)
 	dc.createMachines(spec)
-	dc.createSwitches(spec)
+	dc.createSwitchesAndStatuses(spec)
 
 	// this is done after creating all entities because some entities affect other entities upon creation and we want to start of with a consistent state between database and datacenter
 	entities, err := getCurrentEntities(dc.t.Context(), dc.TestStore)
@@ -217,11 +218,18 @@ func (dc *Datacenter) createMachines(spec *scenarios.DatacenterSpec) {
 	}
 }
 
-func (dc *Datacenter) createSwitches(spec *scenarios.DatacenterSpec) {
+func (dc *Datacenter) createSwitchesAndStatuses(spec *scenarios.DatacenterSpec) {
 	reqs := lo.Map(spec.Switches, func(sw *apiv2.Switch, _ int) *repository.SwitchServiceCreateRequest {
 		return &repository.SwitchServiceCreateRequest{Switch: sw}
 	})
 	CreateSwitches(dc.t, dc.TestStore, reqs)
+
+	statuses := lo.Map(spec.Switches, func(sw *apiv2.Switch, _ int) *repository.SwitchStatus {
+		return &repository.SwitchStatus{
+			ID: sw.Id,
+		}
+	})
+	CreateSwitchStatuses(dc.t, dc.TestStore, statuses)
 }
 
 func getCurrentEntities(ctx context.Context, store *testStore) (*Datacenter, error) {
@@ -238,9 +246,9 @@ func getCurrentEntities(ctx context.Context, store *testStore) (*Datacenter, err
 	if err != nil {
 		return nil, err
 	}
-	current.Projects = map[string]string{}
+	current.Projects = map[string][]string{}
 	for _, p := range projects {
-		current.Projects[p.Tenant] = p.Uuid
+		current.Projects[p.Tenant] = append(current.Projects[p.Tenant], p.Uuid)
 	}
 	partitions, err := store.Partition().List(ctx, &apiv2.PartitionQuery{})
 	if err != nil {
@@ -310,8 +318,7 @@ func getCurrentEntities(ctx context.Context, store *testStore) (*Datacenter, err
 // Call Assert and pass the copy of the Datacenter, the original (possibly modified) Datacenter, and a modify function.
 // The modify function contains all changes that you expect to have been applied by the functions you are testing.
 // Assert will apply the modify function and fail if the Datacenters differ after that.
-func (dc *Datacenter) Assert(modify func(*Datacenter)) error {
-	// FIXME: allow passing ignored fields as options
+func (dc *Datacenter) Assert(modify func(*Datacenter), opts ...cmp.Option) error {
 	current, err := getCurrentEntities(dc.t.Context(), dc.TestStore)
 	if err != nil {
 		return err
@@ -321,7 +328,8 @@ func (dc *Datacenter) Assert(modify func(*Datacenter)) error {
 		modify(dc)
 	}
 
-	diff := cmp.Diff(dc, current, protocmp.Transform(),
+	options := slices.Concat(opts, []cmp.Option{
+		protocmp.Transform(),
 		cmpopts.IgnoreFields(
 			Datacenter{}, "TestStore", "t", "closers",
 		),
@@ -349,7 +357,9 @@ func (dc *Datacenter) Assert(modify func(*Datacenter)) error {
 		protocmp.IgnoreFields(
 			&apiv2.Machine{}, "meta",
 		),
-	)
+	})
+
+	diff := cmp.Diff(dc, current, options...)
 	if diff != "" {
 		return fmt.Errorf("datacenters differ: %s", diff)
 	}

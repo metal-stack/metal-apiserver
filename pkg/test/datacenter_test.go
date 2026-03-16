@@ -14,6 +14,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/testing/protocmp"
 )
 
 func TestAssert(t *testing.T) {
@@ -110,7 +111,7 @@ func TestAssert(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "new entity added and correct modifications applied",
+			name: "new entities added and correct modifications applied",
 			spec: &sc.DefaultDatacenter,
 			before: func() {
 				ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -180,12 +181,7 @@ func TestAssert(t *testing.T) {
 				require.NoError(t, err)
 			},
 			modify: func(d *test.Datacenter) {
-				ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					_, _ = fmt.Fprintln(w, "a image")
-				}))
-				defer ts.Close()
-
-				d.Projects["john.doe"] = "20000000-0000-0000-0000-000000000001"
+				d.Projects["john.doe"] = append(d.Projects["john.doe"], "20000000-0000-0000-0000-000000000001")
 				d.Partitions["partition-2"] = &apiv2.Partition{
 					Id:                "partition-2",
 					BootConfiguration: &apiv2.PartitionBootConfiguration{},
@@ -220,7 +216,6 @@ func TestAssert(t *testing.T) {
 				}
 				d.Images["debian-11.0"] = &apiv2.Image{
 					Id:       "debian-11.0",
-					Url:      ts.URL,
 					Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE},
 				}
 				d.Switches["sw3"] = &apiv2.Switch{
@@ -233,9 +228,28 @@ func TestAssert(t *testing.T) {
 			},
 			wantErr: false,
 		},
-		// TODO:
-		// - entity deleted and no modification applied
-		// - entity deleted and correct modificaion applied
+		{
+			name: "entity deleted, but no modification applied",
+			spec: &sc.DefaultDatacenter,
+			before: func() {
+				_, err := dc.TestStore.Switch().AdditionalMethods().ForceDelete(ctx, "sw1-partition-1-rack-1")
+				require.NoError(t, err)
+			},
+			modify:  nil,
+			wantErr: true,
+		},
+		{
+			name: "entities deleted and correct modifications applied",
+			spec: &sc.DefaultDatacenter,
+			before: func() {
+				_, err := dc.TestStore.Switch().AdditionalMethods().ForceDelete(ctx, "sw1-partition-1-rack-1")
+				require.NoError(t, err)
+			},
+			modify: func(d *test.Datacenter) {
+				delete(dc.Switches, "sw1-partition-1-rack-1")
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -243,7 +257,14 @@ func TestAssert(t *testing.T) {
 			dc.Create(tt.spec)
 			tt.before()
 
-			if err := dc.Assert(tt.modify); (err != nil) != tt.wantErr {
+			if err := dc.Assert(tt.modify,
+				protocmp.IgnoreFields(
+					&apiv2.IP{}, "uuid",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.Image{}, "classification", "description", "expires_at", "name", "url",
+				),
+			); (err != nil) != tt.wantErr {
 				t.Errorf("Assert() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
