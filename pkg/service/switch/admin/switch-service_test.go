@@ -836,63 +836,54 @@ func Test_switchServiceServer_Update(t *testing.T) {
 }
 
 func Test_switchServiceServer_Delete(t *testing.T) {
+	t.Parallel()
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
-	defer closer()
-
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = fmt.Fprintln(w, "a image")
-	}))
-	defer ts.Close()
-
-	validURL := ts.URL
-
-	var (
-		partitions = []*adminv2.PartitionServiceCreateRequest{
-			{Partition: &apiv2.Partition{Id: "partition-a", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
-			{Partition: &apiv2.Partition{Id: "partition-b", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
-		}
-	)
-
-	test.CreatePartitions(t, testStore, partitions)
-	test.CreateMachines(t, testStore, []*metal.Machine{m1})
-	test.CreateSwitches(t, testStore, switches)
-	test.CreateSwitchStatuses(t, testStore, []*repository.SwitchStatus{sw1Status, sw3Status})
+	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
+	dc.Create(&sc.SwitchesWithMachinesDatacenter)
 
 	tests := []struct {
 		name    string
 		rq      *adminv2.SwitchServiceDeleteRequest
 		want    *adminv2.SwitchServiceDeleteResponse
+		modify  func(*test.Datacenter)
 		wantErr error
 	}{
 		{
 			name: "delete switch",
 			rq: &adminv2.SwitchServiceDeleteRequest{
-				Id: sw3.Switch.Id,
+				Id: fmt.Sprintf("sw1-%s-%s", sc.SwmPartition1, sc.SwmRack3),
 			},
 			want: &adminv2.SwitchServiceDeleteResponse{
-				Switch: sw3.Switch,
+				Switch: dc.Switches[fmt.Sprintf("sw1-%s-%s", sc.SwmPartition1, sc.SwmRack3)],
+			},
+			modify: func(d *test.Datacenter) {
+				delete(d.Switches, fmt.Sprintf("sw1-%s-%s", sc.SwmPartition1, sc.SwmRack3))
 			},
 			wantErr: nil,
 		},
 		{
 			name: "cannot delete switch with machines connected",
 			rq: &adminv2.SwitchServiceDeleteRequest{
-				Id: sw1.Switch.Id,
+				Id: fmt.Sprintf("sw1-%s-%s", sc.SwmPartition1, sc.SwmRack2),
 			},
 			want:    nil,
-			wantErr: errorutil.FailedPrecondition("cannot delete switch sw1 while it still has machines connected to it"),
+			wantErr: errorutil.FailedPrecondition("cannot delete switch %s while it still has machines connected to it", fmt.Sprintf("sw1-%s-%s", sc.SwmPartition1, sc.SwmRack2)),
 		},
 		{
 			name: "but with force you can",
 			rq: &adminv2.SwitchServiceDeleteRequest{
-				Id:    sw1.Switch.Id,
+				Id:    fmt.Sprintf("sw1-%s-%s", sc.SwmPartition1, sc.SwmRack2),
 				Force: true,
 			},
 			want: &adminv2.SwitchServiceDeleteResponse{
-				Switch: sw1.Switch,
+				Switch: dc.Switches[fmt.Sprintf("sw1-%s-%s", sc.SwmPartition1, sc.SwmRack2)],
+			},
+			modify: func(d *test.Datacenter) {
+				delete(d.Switches, fmt.Sprintf("sw1-%s-%s", sc.SwmPartition1, sc.SwmRack2))
 			},
 			wantErr: nil,
 		},
@@ -901,11 +892,11 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &switchServiceServer{
 				log:  log,
-				repo: testStore.Store,
+				repo: dc.TestStore.Store,
 			}
 			if tt.wantErr == nil {
 				test.Validate(t, tt.rq)
-				status, err := testStore.GetSwitchStatus(tt.rq.Id)
+				status, err := dc.TestStore.GetSwitchStatus(tt.rq.Id)
 				require.NoError(t, err)
 				require.NotNil(t, status)
 			}
@@ -924,13 +915,10 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 			}
 
 			if tt.wantErr == nil {
-				sw, err := s.Get(ctx, &adminv2.SwitchServiceGetRequest{
-					Id: tt.rq.Id,
-				})
-				require.True(t, errorutil.IsNotFound(err))
-				require.Nil(t, sw)
+				err := dc.Assert(tt.modify)
+				require.NoError(t, err)
 
-				status, err := testStore.GetSwitchStatus(tt.rq.Id)
+				status, err := dc.TestStore.GetSwitchStatus(tt.rq.Id)
 				require.True(t, errorutil.IsNotFound(err))
 				require.Nil(t, status)
 			}

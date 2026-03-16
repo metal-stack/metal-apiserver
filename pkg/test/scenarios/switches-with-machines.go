@@ -16,6 +16,7 @@ const (
 
 	SwmRack1 = "rack-1"
 	SwmRack2 = "rack-2"
+	SwmRack3 = "rack-3"
 
 	SwmMachine1 = "00000000-0000-0000-0000-000000000001"
 	SwmMachine2 = "00000000-0000-0000-0000-000000000002"
@@ -45,6 +46,7 @@ var (
 			SwitchPairFunc(SwmPartition1, SwmRack2, 2, SwmMachine2),
 			SwitchPairFunc(SwmPartition2, SwmRack1, 2, SwmMachine3),
 			SwitchPairFunc(SwmPartition2, SwmRack2, 2, SwmMachine4, SwmMachine5),
+			SwitchPairFunc(SwmPartition1, SwmRack3, 2),
 		),
 		Machines: []*MachineWithLiveliness{
 			MachineFunc(SwmMachine1, SwmPartition1, SwmSize, "", "", metal.MachineLivelinessAlive),
