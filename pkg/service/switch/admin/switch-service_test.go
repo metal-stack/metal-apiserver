@@ -20,7 +20,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -360,34 +359,6 @@ var (
 			Os: &apiv2.SwitchOS{
 				Vendor: apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
 			},
-		},
-	}
-
-	sw1Status = &repository.SwitchStatus{
-		ID: sw1.Switch.Id,
-		LastSync: &apiv2.SwitchSync{
-			Time:     timestamppb.New(now),
-			Duration: durationpb.New(time.Second),
-			Error:    nil,
-		},
-		LastSyncError: &apiv2.SwitchSync{
-			Time:     timestamppb.New(now.Add(-time.Minute)),
-			Duration: durationpb.New(time.Second * 2),
-			Error:    new("fail"),
-		},
-	}
-
-	sw3Status = &repository.SwitchStatus{
-		ID: sw3.Switch.Id,
-		LastSync: &apiv2.SwitchSync{
-			Time:     timestamppb.New(now),
-			Duration: durationpb.New(time.Second),
-			Error:    nil,
-		},
-		LastSyncError: &apiv2.SwitchSync{
-			Time:     timestamppb.New(now.Add(-time.Minute)),
-			Duration: durationpb.New(time.Second * 2),
-			Error:    new("fail"),
 		},
 	}
 
