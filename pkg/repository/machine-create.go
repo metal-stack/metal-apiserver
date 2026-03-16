@@ -204,17 +204,17 @@ func (r *machineRepository) createMachineAllocationSpec(ctx context.Context, req
 		dnsServers = partition.DNSServers
 		ntpServers = partition.NTPServers
 	)
-	if len(req.DnsServer) != 0 {
+	if len(req.DnsServers) != 0 {
 		dnsServers = metal.DNSServers{}
-		for _, s := range req.DnsServer {
+		for _, s := range req.DnsServers {
 			dnsServers = append(dnsServers, metal.DNSServer{
 				IP: s.Ip,
 			})
 		}
 	}
-	if len(req.NtpServer) != 0 {
+	if len(req.NtpServers) != 0 {
 		ntpServers = []metal.NTPServer{}
-		for _, s := range req.NtpServer {
+		for _, s := range req.NtpServers {
 			ntpServers = append(ntpServers, metal.NTPServer{
 				Address: s.Address,
 			})

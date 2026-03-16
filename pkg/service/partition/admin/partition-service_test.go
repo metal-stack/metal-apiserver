@@ -75,7 +75,7 @@ func Test_partitionServiceServer_Create(t *testing.T) {
 			name: "dnsserver is malformed",
 			request: &adminv2.PartitionServiceCreateRequest{Partition: &apiv2.Partition{
 				Id:                partition1,
-				DnsServer:         []*apiv2.DNSServer{{Ip: "1.2.3.4.5"}},
+				DnsServers:        []*apiv2.DNSServer{{Ip: "1.2.3.4.5"}},
 				BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`dnsserver ip is not valid:ParseAddr("1.2.3.4.5"): IPv4 address too long`),
@@ -84,7 +84,7 @@ func Test_partitionServiceServer_Create(t *testing.T) {
 			name: "too many dnsserver",
 			request: &adminv2.PartitionServiceCreateRequest{Partition: &apiv2.Partition{
 				Id:                partition1,
-				DnsServer:         []*apiv2.DNSServer{{Ip: "1.2.3.4"}, {Ip: "1.2.3.5"}, {Ip: "1.2.3.6"}, {Ip: "1.2.3.7"}},
+				DnsServers:        []*apiv2.DNSServer{{Ip: "1.2.3.4"}, {Ip: "1.2.3.5"}, {Ip: "1.2.3.6"}, {Ip: "1.2.3.7"}},
 				BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`not more than 3 dnsservers must be specified`),
@@ -93,8 +93,8 @@ func Test_partitionServiceServer_Create(t *testing.T) {
 			name: "ntpserver is malformed",
 			request: &adminv2.PartitionServiceCreateRequest{Partition: &apiv2.Partition{
 				Id:                partition1,
-				DnsServer:         []*apiv2.DNSServer{{Ip: "1.2.3.4"}},
-				NtpServer:         []*apiv2.NTPServer{{Address: "1:3"}},
+				DnsServers:        []*apiv2.DNSServer{{Ip: "1.2.3.4"}},
+				NtpServers:        []*apiv2.NTPServer{{Address: "1:3"}},
 				BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`dns name: 1:3 for ntp server not correct`),
@@ -203,7 +203,7 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 			name: "dnsserver is malformed",
 			request: &adminv2.PartitionServiceUpdateRequest{
 				Id:                partition1,
-				DnsServer:         []*apiv2.DNSServer{{Ip: "1.2.3.4.5"}},
+				DnsServers:        []*apiv2.DNSServer{{Ip: "1.2.3.4.5"}},
 				BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`dnsserver ip is not valid:ParseAddr("1.2.3.4.5"): IPv4 address too long`),
@@ -212,7 +212,7 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 			name: "too many dnsserver",
 			request: &adminv2.PartitionServiceUpdateRequest{
 				Id:                partition1,
-				DnsServer:         []*apiv2.DNSServer{{Ip: "1.2.3.4"}, {Ip: "1.2.3.5"}, {Ip: "1.2.3.6"}, {Ip: "1.2.3.7"}},
+				DnsServers:        []*apiv2.DNSServer{{Ip: "1.2.3.4"}, {Ip: "1.2.3.5"}, {Ip: "1.2.3.6"}, {Ip: "1.2.3.7"}},
 				BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`not more than 3 dnsservers must be specified`),
@@ -221,8 +221,8 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 			name: "ntpserver is malformed",
 			request: &adminv2.PartitionServiceUpdateRequest{
 				Id:                partition1,
-				DnsServer:         []*apiv2.DNSServer{{Ip: "1.2.3.4"}},
-				NtpServer:         []*apiv2.NTPServer{{Address: "1:3"}},
+				DnsServers:        []*apiv2.DNSServer{{Ip: "1.2.3.4"}},
+				NtpServers:        []*apiv2.NTPServer{{Address: "1:3"}},
 				BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument(`dns name: 1:3 for ntp server not correct`),
