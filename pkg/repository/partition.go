@@ -64,10 +64,10 @@ func (p *partitionRepository) update(ctx context.Context, e *metal.Partition, re
 	if req.Description != nil {
 		e.Description = *req.Description
 	}
-	if req.DnsServer != nil {
-		servers := make(metal.DNSServers, 0, len(req.DnsServer))
+	if req.DnsServers != nil {
+		servers := make(metal.DNSServers, 0, len(req.DnsServers))
 
-		for _, s := range req.DnsServer {
+		for _, s := range req.DnsServers {
 			servers = append(servers, metal.DNSServer{
 				IP: s.GetIp(),
 			})
@@ -75,10 +75,10 @@ func (p *partitionRepository) update(ctx context.Context, e *metal.Partition, re
 
 		e.DNSServers = servers
 	}
-	if req.NtpServer != nil {
-		servers := make(metal.NTPServers, 0, len(req.NtpServer))
+	if req.NtpServers != nil {
+		servers := make(metal.NTPServers, 0, len(req.NtpServers))
 
-		for _, s := range req.NtpServer {
+		for _, s := range req.NtpServers {
 			servers = append(servers, metal.NTPServer{
 				Address: s.GetAddress(),
 			})
@@ -138,12 +138,12 @@ func (p *partitionRepository) convertToInternal(ctx context.Context, msg *apiv2.
 		dnsServers metal.DNSServers
 		ntpServers metal.NTPServers
 	)
-	for _, dnsServer := range msg.DnsServer {
+	for _, dnsServer := range msg.DnsServers {
 		dnsServers = append(dnsServers, metal.DNSServer{
 			IP: dnsServer.Ip,
 		})
 	}
-	for _, ntpServer := range msg.NtpServer {
+	for _, ntpServer := range msg.NtpServers {
 		ntpServers = append(ntpServers, metal.NTPServer{
 			Address: ntpServer.Address,
 		})
@@ -216,8 +216,8 @@ func (p *partitionRepository) convertToProto(ctx context.Context, e *metal.Parti
 			KernelUrl:   e.BootConfiguration.KernelURL,
 			Commandline: e.BootConfiguration.CommandLine,
 		},
-		DnsServer: dnsServers,
-		NtpServer: ntpServers,
+		DnsServers: dnsServers,
+		NtpServers: ntpServers,
 	}
 	return partition, nil
 }
