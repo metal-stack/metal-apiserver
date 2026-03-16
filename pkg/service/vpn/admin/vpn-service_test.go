@@ -428,7 +428,6 @@ func Test_vpnService_EvaluateVPNConnected(t *testing.T) {
 			}
 
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
-
 				got, err := v.EvaluateVPNConnected(ctx)
 				if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 					c.Errorf("diff = %s", diff)
@@ -456,8 +455,7 @@ func Test_vpnService_EvaluateVPNConnected(t *testing.T) {
 				); diff != "" {
 					c.Errorf("%v, want %v diff: %s", got, tt.want, diff)
 				}
-
-			}, 30*time.Second, 1000*time.Millisecond)
+			}, 30*time.Second, 1*time.Second)
 		})
 	}
 }
