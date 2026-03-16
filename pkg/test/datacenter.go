@@ -249,6 +249,7 @@ func getCurrentEntities(ctx context.Context, store *testStore) (*Datacenter, err
 	current.Projects = map[string][]string{}
 	for _, p := range projects {
 		current.Projects[p.Tenant] = append(current.Projects[p.Tenant], p.Uuid)
+		slices.Sort(current.Projects[p.Tenant])
 	}
 	partitions, err := store.Partition().List(ctx, &apiv2.PartitionQuery{})
 	if err != nil {
