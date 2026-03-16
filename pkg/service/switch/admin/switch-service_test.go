@@ -1230,32 +1230,9 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 			want: &adminv2.SwitchServiceConnectedMachinesResponse{
 				SwitchesWithMachines: []*apiv2.SwitchWithMachines{
 					{
-						Id:        fmt.Sprintf("sw1-%s-%s", sc.SwmPartition2, sc.SwmRack1),
-						Partition: sc.SwmPartition2,
-						Rack:      sc.SwmRack1,
-						Connections: []*apiv2.SwitchNicWithMachine{
-							{
-								Nic: &apiv2.SwitchNic{
-									Name:       "Ethernet0",
-									Identifier: "Eth1/1",
-									BgpFilter:  &apiv2.BGPFilter{},
-									State: &apiv2.NicState{
-										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-									},
-								},
-								Machine: dc.Machines[sc.SwmMachine3],
-								Fru: &apiv2.MachineFRU{
-									ChassisPartNumber:   new(string),
-									ChassisPartSerial:   new(string),
-									BoardMfg:            new(string),
-									BoardMfgSerial:      new(string),
-									BoardPartNumber:     new(string),
-									ProductManufacturer: new(string),
-									ProductPartNumber:   new(string),
-									ProductSerial:       new("PS3"),
-								},
-							},
-						},
+						Id:        fmt.Sprintf("sw1-%s-%s", sc.SwmPartition1, sc.SwmRack3),
+						Partition: sc.SwmPartition1,
+						Rack:      sc.SwmRack3,
 					},
 					{
 						Id:        fmt.Sprintf("sw2-%s-%s", sc.SwmPartition2, sc.SwmRack2),
@@ -1391,6 +1368,34 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 						},
 					},
 					{
+						Id:        fmt.Sprintf("sw1-%s-%s", sc.SwmPartition2, sc.SwmRack1),
+						Partition: sc.SwmPartition2,
+						Rack:      sc.SwmRack1,
+						Connections: []*apiv2.SwitchNicWithMachine{
+							{
+								Nic: &apiv2.SwitchNic{
+									Name:       "Ethernet0",
+									Identifier: "Eth1/1",
+									BgpFilter:  &apiv2.BGPFilter{},
+									State: &apiv2.NicState{
+										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+									},
+								},
+								Machine: dc.Machines[sc.SwmMachine3],
+								Fru: &apiv2.MachineFRU{
+									ChassisPartNumber:   new(string),
+									ChassisPartSerial:   new(string),
+									BoardMfg:            new(string),
+									BoardMfgSerial:      new(string),
+									BoardPartNumber:     new(string),
+									ProductManufacturer: new(string),
+									ProductPartNumber:   new(string),
+									ProductSerial:       new("PS3"),
+								},
+							},
+						},
+					},
+					{
 						Id:        fmt.Sprintf("sw1-%s-%s", sc.SwmPartition2, sc.SwmRack2),
 						Partition: sc.SwmPartition2,
 						Rack:      sc.SwmRack2,
@@ -1438,6 +1443,11 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 								},
 							},
 						},
+					},
+					{
+						Id:        fmt.Sprintf("sw2-%s-%s", sc.SwmPartition1, sc.SwmRack3),
+						Partition: sc.SwmPartition1,
+						Rack:      sc.SwmRack3,
 					},
 					{
 						Id:        fmt.Sprintf("sw2-%s-%s", sc.SwmPartition1, sc.SwmRack2),
@@ -1617,6 +1627,11 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 			want: &adminv2.SwitchServiceConnectedMachinesResponse{
 				SwitchesWithMachines: []*apiv2.SwitchWithMachines{
 					{
+						Id:        fmt.Sprintf("sw1-%s-%s", sc.SwmPartition1, sc.SwmRack3),
+						Partition: sc.SwmPartition1,
+						Rack:      sc.SwmRack3,
+					},
+					{
 						Id:        fmt.Sprintf("sw1-%s-%s", sc.SwmPartition1, sc.SwmRack1),
 						Partition: sc.SwmPartition1,
 						Rack:      sc.SwmRack1,
@@ -1671,6 +1686,11 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 								},
 							},
 						},
+					},
+					{
+						Id:        fmt.Sprintf("sw2-%s-%s", sc.SwmPartition1, sc.SwmRack3),
+						Partition: sc.SwmPartition1,
+						Rack:      sc.SwmRack3,
 					},
 					{
 						Id:        fmt.Sprintf("sw2-%s-%s", sc.SwmPartition1, sc.SwmRack1),
