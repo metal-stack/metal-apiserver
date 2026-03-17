@@ -17,7 +17,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func Test_sizeServiceServer_Get(t *testing.T) {
+func Test_auditServiceServer_Get(t *testing.T) {
 	t.Parallel()
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
@@ -188,7 +188,7 @@ func Test_sizeServiceServer_Get(t *testing.T) {
 	}
 }
 
-func Test_sizeServiceServer_List(t *testing.T) {
+func Test_auditServiceServer_List(t *testing.T) {
 	t.Parallel()
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
