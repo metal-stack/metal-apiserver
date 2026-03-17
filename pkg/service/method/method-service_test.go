@@ -95,6 +95,8 @@ func Test_methodServiceServer_List(t *testing.T) {
 				Methods: []string{
 					"/grpc.reflection.v1.ServerReflection/ServerReflectionInfo",
 					"/grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo",
+					"/metalstack.api.v2.AuditService/Get",
+					"/metalstack.api.v2.AuditService/List",
 					"/metalstack.api.v2.FilesystemService/Get",
 					"/metalstack.api.v2.FilesystemService/List",
 					"/metalstack.api.v2.FilesystemService/Match",

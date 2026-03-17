@@ -177,6 +177,14 @@ var (
 		Usage:   "vrf pool range max, this can not be changed after initial deployment",
 		EnvVars: []string{"VRF_POOL_RANGE_MAX"},
 	}
+
+	auditingSearchBackendFlag = &cli.StringFlag{
+		Name:    "auditing-search-backend",
+		Value:   "",
+		Usage:   "the audit backend used for searches, defaults to timescaledb",
+		EnvVars: []string{"AUDITING_SEARCH_BACKEND"},
+	}
+
 	auditingTimescaleEnabledFlag = &cli.BoolFlag{
 		Name:    "auditing-timescaledb-enabled",
 		Value:   false,
@@ -219,6 +227,56 @@ var (
 		Usage:   "timescaledb auditing database retention",
 		EnvVars: []string{"AUDITING_TIMESCALEDB_RETENTION"},
 	}
+
+	auditingSplunkEnabledFlag = &cli.BoolFlag{
+		Name:    "auditing-splunk-enabled",
+		Value:   false,
+		Usage:   "enable splunk auditing",
+		EnvVars: []string{"AUDITING_SPLUNK_ENABLED"},
+	}
+	auditingSplunkEndpointFlag = &cli.StringFlag{
+		Name:    "auditing-splunk-endpoint",
+		Value:   "",
+		Usage:   "splunk auditing endpoint",
+		EnvVars: []string{"AUDITING_SPLUNK_ENDPOINT"},
+	}
+	auditingSplunkHostFlag = &cli.StringFlag{
+		Name:    "auditing-splunk-host",
+		Value:   "",
+		Usage:   "splunk auditing host",
+		EnvVars: []string{"AUDITING_SPLUNK_HOST"},
+	}
+	auditingSplunkSourceFlag = &cli.StringFlag{
+		Name:    "auditing-splunk-source",
+		Value:   "",
+		Usage:   "splunk auditing source",
+		EnvVars: []string{"AUDITING_SPLUNK_SOURCE"},
+	}
+	auditingSplunkSourceTypeFlag = &cli.StringFlag{
+		Name:    "auditing-splunk-source-type",
+		Value:   "",
+		Usage:   "splunk auditing source type",
+		EnvVars: []string{"AUDITING_SPLUNK_SOURCE_TYPE"},
+	}
+	auditingSplunkHecTokenFlag = &cli.StringFlag{
+		Name:    "auditing-splunk-hec-token",
+		Value:   "",
+		Usage:   "splunk auditing hec token",
+		EnvVars: []string{"AUDITING_SPLUNK_HEC_TOKEN"},
+	}
+	auditingSplunkIndexFlag = &cli.StringFlag{
+		Name:    "auditing-splunk-index",
+		Value:   "",
+		Usage:   "splunk auditing index",
+		EnvVars: []string{"AUDITING_SPLUNK_INDEX"},
+	}
+	auditingSplunkCaFlag = &cli.StringFlag{
+		Name:    "auditing-splunk-ca",
+		Value:   "14 days",
+		Usage:   "splunk auditing ca path",
+		EnvVars: []string{"AUDITING_SPLUNK_CA"},
+	}
+
 	stageFlag = &cli.StringFlag{
 		Name:    "stage",
 		Value:   stagePROD,

@@ -191,8 +191,7 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		Component:        vc, // Use same valkey instance as queue for tests
 	}
 
-	repo, err := repository.New(config)
-	require.NoError(t, err)
+	repo := repository.New(config)
 
 	asyncCloser := StartAsynqServer(t, log.WithGroup("asynq"), repo, rc)
 

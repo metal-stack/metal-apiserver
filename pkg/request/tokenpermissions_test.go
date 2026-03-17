@@ -13,6 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TODO: These tests are weird? Why is it necessary to repeat everything that's already defined in the API? This is why we have codegen.
+
 func Test_getTokenPermissions(t *testing.T) {
 	tests := []struct {
 		name               string
@@ -47,6 +49,8 @@ func Test_getTokenPermissions(t *testing.T) {
 			want: tokenPermissions{
 				"/grpc.reflection.v1.ServerReflection/ServerReflectionInfo":      {"*": {}},
 				"/grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo": {"*": {}},
+				"/metalstack.admin.v2.AuditService/Get":                          {"*": {}},
+				"/metalstack.admin.v2.AuditService/List":                         {"*": {}},
 				"/metalstack.admin.v2.ComponentService/Delete":                   {"*": {}},
 				"/metalstack.admin.v2.ComponentService/Get":                      {"*": {}},
 				"/metalstack.admin.v2.ComponentService/List":                     {"*": {}},
@@ -104,6 +108,8 @@ func Test_getTokenPermissions(t *testing.T) {
 				"/metalstack.admin.v2.TokenService/Revoke":                       {"*": {}},
 				"/metalstack.admin.v2.VPNService/AuthKey":                        {"*": {}},
 				"/metalstack.admin.v2.VPNService/ListNodes":                      {"*": {}},
+				"/metalstack.api.v2.AuditService/Get":                            {"*": {}},
+				"/metalstack.api.v2.AuditService/List":                           {"*": {}},
 				"/metalstack.api.v2.FilesystemService/Get":                       {"*": {}},
 				"/metalstack.api.v2.FilesystemService/List":                      {"*": {}},
 				"/metalstack.api.v2.FilesystemService/Match":                     {"*": {}},
@@ -199,6 +205,8 @@ func Test_getTokenPermissions(t *testing.T) {
 			want: tokenPermissions{
 				"/grpc.reflection.v1.ServerReflection/ServerReflectionInfo":      {"*": {}},
 				"/grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo": {"*": {}},
+				"/metalstack.admin.v2.AuditService/Get":                          {"*": {}},
+				"/metalstack.admin.v2.AuditService/List":                         {"*": {}},
 				"/metalstack.admin.v2.ComponentService/Get":                      {"*": {}},
 				"/metalstack.admin.v2.ComponentService/List":                     {"*": {}},
 				"/metalstack.admin.v2.IPService/List":                            {"*": {}},
@@ -354,6 +362,8 @@ func Test_getTokenPermissions(t *testing.T) {
 				},
 			},
 			want: tokenPermissions{
+				"/metalstack.api.v2.AuditService/Get":           {"c": {}},
+				"/metalstack.api.v2.AuditService/List":          {"c": {}},
 				"/metalstack.api.v2.ProjectService/Create":      {"b": {}, "c": {}},
 				"/metalstack.api.v2.TenantService/Get":          {"b": {}, "a": {}, "c": {}},
 				"/metalstack.api.v2.TenantService/Update":       {"b": {}, "c": {}},
@@ -381,6 +391,8 @@ func Test_getTokenPermissions(t *testing.T) {
 			want: tokenPermissions{
 				"/grpc.reflection.v1.ServerReflection/ServerReflectionInfo":      {"*": {}},
 				"/grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo": {"*": {}},
+				"/metalstack.api.v2.AuditService/Get":                            {"c": {}},
+				"/metalstack.api.v2.AuditService/List":                           {"c": {}},
 				"/metalstack.api.v2.FilesystemService/Get":                       {"*": {}},
 				"/metalstack.api.v2.FilesystemService/List":                      {"*": {}},
 				"/metalstack.api.v2.FilesystemService/Match":                     {"*": {}},

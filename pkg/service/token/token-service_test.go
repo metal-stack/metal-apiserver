@@ -308,7 +308,7 @@ func Test_Create(t *testing.T) {
 			},
 			wantToken:      nil,
 			wantErr:        true,
-			wantErrMessage: `permission_denied: the following method "/metalstack.admin.v2.ComponentService/Get" is not allowed on any of the requested subjects: [*]`,
+			wantErrMessage: `permission_denied: the following method "/metalstack.admin.v2.AuditService/Get" is not allowed on any of the requested subjects: [*]`,
 		},
 		{
 			name: "admin user and token can create new admin token",
@@ -903,7 +903,7 @@ func Test_validateTokenRequest(t *testing.T) {
 				Expires: inOneHour,
 			},
 			adminSubjects: []string{},
-			wantErr:       errors.New("the following method \"/metalstack.api.v2.ProjectService/Create\" is not allowed"),
+			wantErr:       errors.New("the following method \"/metalstack.api.v2.AuditService/Get\" is not allowed"),
 		},
 		{
 			name: "token has to low role",

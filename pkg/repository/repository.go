@@ -125,4 +125,7 @@ type (
 	Component interface {
 		Repository[*componentRepository, *apiv2.Component, *ComponentServiceCreateRequest, *ComponentServiceUpdateRequest, *apiv2.ComponentQuery]
 	}
+	Audit interface {
+		Repository[*auditRepository, *apiv2.AuditTrace, any, *auditEntity, *apiv2.AuditQuery]
+	}
 )

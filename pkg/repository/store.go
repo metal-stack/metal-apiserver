@@ -9,6 +9,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-lib/auditing"
 	"github.com/valkey-io/valkey-go"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
@@ -44,8 +45,8 @@ type (
 	}
 )
 
-func New(c Config) (*Store, error) {
-	r := &Store{
+func New(c Config) *Store {
+	return &Store{
 		log:       c.Log,
 		mdc:       c.MasterdataClient,
 		ipam:      c.Ipam,
@@ -54,8 +55,6 @@ func New(c Config) (*Store, error) {
 		queue:     c.Queue,
 		component: c.Component,
 	}
-
-	return r, nil
 }
 
 func (s *Store) Task() *task.Client {
@@ -251,6 +250,28 @@ func (s *Store) Switch() Switch {
 	}
 
 	return &store[*switchRepository, *metal.Switch, *apiv2.Switch, *SwitchServiceCreateRequest, *adminv2.SwitchServiceUpdateRequest, *apiv2.SwitchQuery]{
+		repository: repository,
+		typed:      repository,
+	}
+}
+
+func (s *Store) Audit(c auditing.Auditing, tenant string) Audit {
+	return s.audit(c, &TenantScope{
+		tenantID: tenant,
+	})
+}
+
+func (s *Store) UnscopedAudit(c auditing.Auditing) Audit {
+	return s.audit(c, nil)
+}
+
+func (s *Store) audit(c auditing.Auditing, scope *TenantScope) Audit {
+	repository := &auditRepository{
+		c:     c,
+		scope: scope,
+	}
+
+	return &store[*auditRepository, *auditEntity, *apiv2.AuditTrace, any, *auditEntity, *apiv2.AuditQuery]{
 		repository: repository,
 		typed:      repository,
 	}
