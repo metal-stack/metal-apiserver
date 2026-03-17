@@ -25,15 +25,16 @@ import (
 
 type (
 	Datacenter struct {
-		tenants    []string
-		projects   map[string][]string
-		partitions map[string]*apiv2.Partition
-		sizes      map[string]*apiv2.Size
-		networks   map[string]*apiv2.Network
-		ips        map[string]*apiv2.IP
-		images     map[string]*apiv2.Image
-		switches   map[string]*apiv2.Switch
-		machines   map[string]*apiv2.Machine
+		tenants        []string
+		projects       map[string][]string
+		partitions     map[string]*apiv2.Partition
+		sizes          map[string]*apiv2.Size
+		networks       map[string]*apiv2.Network
+		ips            map[string]*apiv2.IP
+		images         map[string]*apiv2.Image
+		switches       map[string]*apiv2.Switch
+		switchStatuses map[string]*metal.SwitchStatus
+		machines       map[string]*apiv2.Machine
 
 		testStore *testStore
 		t         testing.TB
@@ -41,15 +42,16 @@ type (
 	}
 
 	AssertionMods struct {
-		Tenants    func(tenants []string)
-		Projects   func(projects map[string][]string)
-		Partitions func(partitions map[string]*apiv2.Partition)
-		Sizes      func(sizes map[string]*apiv2.Size)
-		Networks   func(networks map[string]*apiv2.Network)
-		IPs        func(ips map[string]*apiv2.IP)
-		Images     func(images map[string]*apiv2.Image)
-		Switches   func(switches map[string]*apiv2.Switch)
-		Machines   func(machines map[string]*apiv2.Machine)
+		Tenants        func(tenants []string)
+		Projects       func(projects map[string][]string)
+		Partitions     func(partitions map[string]*apiv2.Partition)
+		Sizes          func(sizes map[string]*apiv2.Size)
+		Networks       func(networks map[string]*apiv2.Network)
+		IPs            func(ips map[string]*apiv2.IP)
+		Images         func(images map[string]*apiv2.Image)
+		Switches       func(switches map[string]*apiv2.Switch)
+		SwitchStatuses func(switchStatuses map[string]*metal.SwitchStatus)
+		Machines       func(machines map[string]*apiv2.Machine)
 	}
 )
 
@@ -57,16 +59,17 @@ func NewDatacenter(t testing.TB, log *slog.Logger, testOpts ...testOpt) *Datacen
 	testStore, closer := StartRepositoryWithCleanup(t, log, testOpts...)
 
 	dc := &Datacenter{
-		t:          t,
-		testStore:  testStore,
-		projects:   make(map[string][]string),
-		partitions: make(map[string]*apiv2.Partition),
-		sizes:      make(map[string]*apiv2.Size),
-		networks:   make(map[string]*apiv2.Network),
-		ips:        make(map[string]*apiv2.IP),
-		images:     make(map[string]*apiv2.Image),
-		switches:   make(map[string]*apiv2.Switch),
-		machines:   make(map[string]*apiv2.Machine),
+		t:              t,
+		testStore:      testStore,
+		projects:       make(map[string][]string),
+		partitions:     make(map[string]*apiv2.Partition),
+		sizes:          make(map[string]*apiv2.Size),
+		networks:       make(map[string]*apiv2.Network),
+		ips:            make(map[string]*apiv2.IP),
+		images:         make(map[string]*apiv2.Image),
+		switches:       make(map[string]*apiv2.Switch),
+		switchStatuses: make(map[string]*metal.SwitchStatus),
+		machines:       make(map[string]*apiv2.Machine),
 	}
 
 	dc.closers = append(dc.closers, closer)
@@ -101,6 +104,7 @@ func (dc *Datacenter) Create(spec *scenarios.DatacenterSpec) {
 	dc.ips = entities.ips
 	dc.images = entities.images
 	dc.switches = entities.switches
+	dc.switchStatuses = entities.switchStatuses
 	dc.machines = entities.machines
 }
 
@@ -155,6 +159,9 @@ func (dc *Datacenter) Assert(mods *AssertionMods, opts ...cmp.Option) error {
 		}
 		if mods.Switches != nil {
 			mods.Switches(copied.switches)
+		}
+		if mods.SwitchStatuses != nil {
+			mods.SwitchStatuses(copied.switchStatuses)
 		}
 		if mods.Machines != nil {
 			mods.Machines(copied.machines)
@@ -341,6 +348,9 @@ func (dc *Datacenter) copyEntities() (*Datacenter, error) {
 	if copied.switches, err = deepCopy(dc.switches); err != nil {
 		return nil, err
 	}
+	if copied.switchStatuses, err = deepCopy(dc.switchStatuses); err != nil {
+		return nil, err
+	}
 	if copied.machines, err = deepCopy(dc.machines); err != nil {
 		return nil, err
 	}
@@ -425,8 +435,15 @@ func getCurrentEntities(ctx context.Context, store *testStore) (*Datacenter, err
 		return nil, err
 	}
 	current.switches = map[string]*apiv2.Switch{}
+	current.switchStatuses = map[string]*metal.SwitchStatus{}
 	for _, sw := range switches {
 		current.switches[sw.Id] = sw
+
+		status, err := store.GetSwitchStatus(sw.Id)
+		if err != nil {
+			return nil, err
+		}
+		current.switchStatuses[sw.Id] = status
 	}
 	machines, err := store.UnscopedMachine().List(ctx, &apiv2.MachineQuery{})
 	if err != nil {

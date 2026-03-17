@@ -837,6 +837,9 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 					Switches: func(switches map[string]*apiv2.Switch) {
 						delete(switches, fmt.Sprintf("sw1-%s-%s", sc.SwmPartition1, sc.SwmRack3))
 					},
+					SwitchStatuses: func(switchStatuses map[string]*metal.SwitchStatus) {
+						delete(switchStatuses, fmt.Sprintf("sw1-%s-%s", sc.SwmPartition1, sc.SwmRack3))
+					},
 				}
 			},
 			wantErr: nil,
@@ -867,6 +870,9 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 					Switches: func(switches map[string]*apiv2.Switch) {
 						delete(switches, fmt.Sprintf("sw1-%s-%s", sc.SwmPartition1, sc.SwmRack2))
 					},
+					SwitchStatuses: func(switchStatuses map[string]*metal.SwitchStatus) {
+						delete(switchStatuses, fmt.Sprintf("sw1-%s-%s", sc.SwmPartition1, sc.SwmRack2))
+					},
 				}
 			},
 			wantErr: nil,
@@ -883,9 +889,6 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 			}
 			if tt.wantErr == nil {
 				test.Validate(t, tt.rq)
-				status, err := dc.GetTestStore().GetSwitchStatus(tt.rq.Id)
-				require.NoError(t, err)
-				require.NotNil(t, status)
 			}
 
 			var want *adminv2.SwitchServiceDeleteResponse
@@ -912,14 +915,6 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 			}
 			err = dc.Assert(mods)
 			require.NoError(t, err)
-
-			if want == nil {
-				return
-			}
-
-			status, err := dc.GetTestStore().GetSwitchStatus(tt.rq.Id)
-			require.True(t, errorutil.IsNotFound(err))
-			require.Nil(t, status)
 		})
 	}
 }
