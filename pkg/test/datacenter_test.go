@@ -187,6 +187,11 @@ func TestAssert(t *testing.T) {
 				})
 				require.NoError(t, err)
 
+				err = dc.GetTestStore().Switch().AdditionalMethods().SetSwitchStatus(ctx, &repository.SwitchStatus{
+					ID: sw.Id,
+				})
+				require.NoError(t, err)
+
 				return &test.AssertionMods{
 					Projects: func(projects map[string][]string) {
 						projects["john.doe"] = append(projects["john.doe"], p.Meta.Id)
@@ -213,6 +218,13 @@ func TestAssert(t *testing.T) {
 					},
 					Switches: func(switches map[string]*apiv2.Switch) {
 						switches[sw.Id] = sw
+					},
+					SwitchStatuses: func(switchStatuses map[string]*metal.SwitchStatus) {
+						switchStatuses[sw.Id] = &metal.SwitchStatus{
+							Base: metal.Base{
+								ID: sw.Id,
+							},
+						}
 					},
 				}
 			},

@@ -108,8 +108,44 @@ func (dc *Datacenter) Create(spec *scenarios.DatacenterSpec) {
 	dc.machines = entities.machines
 }
 
+func (dc *Datacenter) GetTenants() []string {
+	return dc.tenants
+}
+
+func (dc *Datacenter) GetProjects() map[string][]string {
+	return dc.projects
+}
+
+func (dc *Datacenter) GetPartitions() map[string]*apiv2.Partition {
+	return dc.partitions
+}
+
+func (dc *Datacenter) GetSizes() map[string]*apiv2.Size {
+	return dc.sizes
+}
+
+func (dc *Datacenter) GetNetworks() map[string]*apiv2.Network {
+	return dc.networks
+}
+
+func (dc *Datacenter) GetIPs() map[string]*apiv2.IP {
+	return dc.ips
+}
+
+func (dc *Datacenter) GetImages() map[string]*apiv2.Image {
+	return dc.images
+}
+
 func (dc *Datacenter) GetSwitches() map[string]*apiv2.Switch {
 	return dc.switches
+}
+
+func (dc *Datacenter) GetSwitchStatuses() map[string]*metal.SwitchStatus {
+	return dc.switchStatuses
+}
+
+func (dc *Datacenter) GetMachines() map[string]*apiv2.Machine {
+	return dc.machines
 }
 
 func (dc *Datacenter) Close() {
@@ -178,6 +214,9 @@ func (dc *Datacenter) Assert(mods *AssertionMods, opts ...cmp.Option) error {
 		cmp.AllowUnexported(Datacenter{}),
 		cmpopts.IgnoreFields(
 			Datacenter{}, "testStore", "t", "closers",
+		),
+		cmpopts.IgnoreFields(
+			metal.Base{}, "Created", "Changed", "Generation",
 		),
 		protocmp.IgnoreFields(
 			&apiv2.Meta{}, "generation", "updated_at", "created_at",
