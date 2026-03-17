@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -19,7 +20,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.yaml.in/yaml/v3"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -41,6 +41,7 @@ type (
 	}
 
 	AssertionMods struct {
+		Tenants    func(tenants []string)
 		Projects   func(projects map[string][]string)
 		Partitions func(partitions map[string]*apiv2.Partition)
 		Sizes      func(sizes map[string]*apiv2.Size)
@@ -103,13 +104,6 @@ func (dc *Datacenter) Create(spec *scenarios.DatacenterSpec) {
 	dc.machines = entities.machines
 }
 
-func (dc *Datacenter) Dump() {
-	y, err := yaml.Marshal(dc)
-	require.NoError(dc.t, err)
-
-	fmt.Println(string(y))
-}
-
 func (dc *Datacenter) Close() {
 	for _, close := range dc.closers {
 		close()
@@ -118,6 +112,72 @@ func (dc *Datacenter) Close() {
 
 func (dc *Datacenter) Cleanup() {
 	dc.testStore.CleanUp(dc.t)
+}
+
+// Assert tests whether all changes applied to a Datacenter were intended.
+//
+// Usage:
+//
+// After calling Create on a Datacenter create a copy of it by calling Copy.
+// Run the functions you are testing.
+// Call Assert and pass the copy of the Datacenter, the original (possibly modified) Datacenter, and a modify function.
+// The modify function contains all changes that you expect to have been applied by the functions you are testing.
+// Assert will apply the modify function and fail if the Datacenters differ after that.
+func (dc *Datacenter) Assert(mods *AssertionMods, opts ...cmp.Option) error {
+	copied, err := dc.copyEntities()
+	require.NoError(dc.t, err)
+
+	if mods != nil {
+		if mods.Tenants != nil {
+			mods.Tenants(copied.tenants)
+		}
+		if mods.Projects != nil {
+			mods.Projects(copied.projects)
+		}
+		if mods.Partitions != nil {
+			mods.Partitions(copied.partitions)
+		}
+		if mods.Sizes != nil {
+			mods.Sizes(copied.sizes)
+		}
+		if mods.Networks != nil {
+			mods.Networks(copied.networks)
+		}
+		if mods.IPs != nil {
+			mods.IPs(copied.ips)
+		}
+		if mods.Images != nil {
+			mods.Images(copied.images)
+		}
+		if mods.Switches != nil {
+			mods.Switches(copied.switches)
+		}
+		if mods.Machines != nil {
+			mods.Machines(copied.machines)
+		}
+	}
+
+	current, err := getCurrentEntities(dc.t.Context(), dc.testStore)
+	if err != nil {
+		return err
+	}
+
+	options := slices.Concat(opts, []cmp.Option{
+		protocmp.Transform(),
+		cmp.AllowUnexported(Datacenter{}),
+		cmpopts.IgnoreFields(
+			Datacenter{}, "testStore", "t", "closers",
+		),
+		protocmp.IgnoreFields(
+			&apiv2.Meta{}, "generation", "updated_at", "created_at",
+		),
+	})
+
+	diff := cmp.Diff(copied, current, options...)
+	if diff != "" {
+		return fmt.Errorf("datacenters differ: %s", diff)
+	}
+	return nil
 }
 
 func (dc *Datacenter) createPartitions(spec *scenarios.DatacenterSpec) {
@@ -246,6 +306,57 @@ func (dc *Datacenter) createSwitchesAndStatuses(spec *scenarios.DatacenterSpec) 
 	CreateSwitchStatuses(dc.t, dc.testStore, statuses)
 }
 
+func (dc *Datacenter) copyEntities() (*Datacenter, error) {
+	var (
+		copied = &Datacenter{
+			tenants:  []string{},
+			projects: map[string][]string{},
+		}
+		err error
+	)
+
+	copied.tenants = append([]string{}, dc.tenants...)
+	for tenant, projects := range dc.projects {
+		copied.projects[tenant] = append([]string{}, projects...)
+	}
+	if copied.partitions, err = deepCopy(dc.partitions); err != nil {
+		return nil, err
+	}
+	if copied.sizes, err = deepCopy(dc.sizes); err != nil {
+		return nil, err
+	}
+	if copied.networks, err = deepCopy(dc.networks); err != nil {
+		return nil, err
+	}
+	if copied.ips, err = deepCopy(dc.ips); err != nil {
+		return nil, err
+	}
+	if copied.images, err = deepCopy(dc.images); err != nil {
+		return nil, err
+	}
+	if copied.switches, err = deepCopy(dc.switches); err != nil {
+		return nil, err
+	}
+	if copied.machines, err = deepCopy(dc.machines); err != nil {
+		return nil, err
+	}
+
+	return copied, nil
+}
+
+func deepCopy[T any](in T) (T, error) {
+	var out T
+	bytes, err := json.Marshal(in)
+	if err != nil {
+		return out, err
+	}
+	err = json.Unmarshal(bytes, &out)
+	if err != nil {
+		return out, err
+	}
+	return out, nil
+}
+
 func getCurrentEntities(ctx context.Context, store *testStore) (*Datacenter, error) {
 	current := &Datacenter{}
 
@@ -322,67 +433,4 @@ func getCurrentEntities(ctx context.Context, store *testStore) (*Datacenter, err
 		current.machines[m.Uuid] = m
 	}
 	return current, nil
-}
-
-// Assert tests whether all changes applied to a Datacenter were intended.
-//
-// Usage:
-//
-// After calling Create on a Datacenter create a copy of it by calling Copy.
-// Run the functions you are testing.
-// Call Assert and pass the copy of the Datacenter, the original (possibly modified) Datacenter, and a modify function.
-// The modify function contains all changes that you expect to have been applied by the functions you are testing.
-// Assert will apply the modify function and fail if the Datacenters differ after that.
-func (dc *Datacenter) Assert(mods *AssertionMods, opts ...cmp.Option) error {
-	if mods != nil {
-		// TODO: pass deep copies to these mod fns!
-		// this prevents tamparing original creation records
-
-		if mods.Projects != nil {
-			mods.Projects(dc.projects)
-		}
-		if mods.Partitions != nil {
-			mods.Partitions(dc.partitions)
-		}
-		if mods.Sizes != nil {
-			mods.Sizes(dc.sizes)
-		}
-		if mods.Networks != nil {
-			mods.Networks(dc.networks)
-		}
-		if mods.IPs != nil {
-			mods.IPs(dc.ips)
-		}
-		if mods.Images != nil {
-			mods.Images(dc.images)
-		}
-		if mods.Switches != nil {
-			mods.Switches(dc.switches)
-		}
-		if mods.Machines != nil {
-			mods.Machines(dc.machines)
-		}
-	}
-
-	current, err := getCurrentEntities(dc.t.Context(), dc.testStore)
-	if err != nil {
-		return err
-	}
-
-	options := slices.Concat(opts, []cmp.Option{
-		protocmp.Transform(),
-		cmp.AllowUnexported(Datacenter{}),
-		cmpopts.IgnoreFields(
-			Datacenter{}, "testStore", "t", "closers",
-		),
-		protocmp.IgnoreFields(
-			&apiv2.Meta{}, "generation", "updated_at", "created_at",
-		),
-	})
-
-	diff := cmp.Diff(dc, current, options...)
-	if diff != "" {
-		return fmt.Errorf("datacenters differ: %s", diff)
-	}
-	return nil
 }

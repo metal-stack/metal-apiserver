@@ -8,11 +8,13 @@ import (
 	"os"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
+	"github.com/metal-stack/metal-lib/pkg/testcommon"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 )
@@ -226,7 +228,7 @@ func TestAssert(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "entities deleted and correct modifications applied",
+			name: "entity deleted and correct modifications applied",
 			spec: &sc.DefaultDatacenter,
 			mods: func() *test.AssertionMods {
 				_, err := dc.GetTestStore().Switch().AdditionalMethods().ForceDelete(ctx, "sw1-partition-1-rack-1")
@@ -252,15 +254,28 @@ func TestAssert(t *testing.T) {
 				mods = tt.mods()
 			}
 
-			if err := dc.Assert(mods,
+			err1 := dc.Assert(mods,
 				protocmp.IgnoreFields(
 					&apiv2.IP{}, "uuid",
 				),
 				protocmp.IgnoreFields(
 					&apiv2.Image{}, "classification", "description", "expires_at", "name", "url",
 				),
-			); (err != nil) != tt.wantErr {
-				t.Errorf("Assert() error = %v, wantErr %v", err, tt.wantErr)
+			)
+			if (err1 != nil) != tt.wantErr {
+				t.Errorf("Assert() error = %v, wantErr %v", err1, tt.wantErr)
+			}
+
+			err2 := dc.Assert(mods,
+				protocmp.IgnoreFields(
+					&apiv2.IP{}, "uuid",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.Image{}, "classification", "description", "expires_at", "name", "url",
+				),
+			)
+			if diff := cmp.Diff(err1, err2, testcommon.ErrorStringComparer()); diff != "" {
+				t.Errorf("Assert() is not idempotent; err1 = %s, err2 = %s", err1, err2)
 			}
 		})
 	}
