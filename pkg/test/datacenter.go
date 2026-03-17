@@ -104,6 +104,10 @@ func (dc *Datacenter) Create(spec *scenarios.DatacenterSpec) {
 	dc.machines = entities.machines
 }
 
+func (dc *Datacenter) GetSwitches() map[string]*apiv2.Switch {
+	return dc.switches
+}
+
 func (dc *Datacenter) Close() {
 	for _, close := range dc.closers {
 		close()
