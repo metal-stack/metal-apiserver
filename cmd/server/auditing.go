@@ -19,12 +19,14 @@ func createAuditingClient(cli *cli.Context, log *slog.Logger) (searchBackend aud
 	const (
 		auditingBackendTimescaleDB = "timescaledb"
 		auditingBackendSplunk      = "splunk"
-
-		splunkAsyncBackoff = 1 * time.Second
-		splunkAsyncRetry   = 3
 	)
 
 	var (
+		auditingCfg = auditing.Config{
+			Log:       log,
+			Component: repository.AuditingComponent,
+		}
+
 		timescaledbEnabled = cli.Bool(auditingTimescaleEnabledFlag.Name)
 		splunkEnabled      = cli.Bool(auditingSplunkEnabledFlag.Name)
 
@@ -35,92 +37,34 @@ func createAuditingClient(cli *cli.Context, log *slog.Logger) (searchBackend aud
 		return nil, nil, nil
 	}
 
-	auditingCfg := auditing.Config{
-		Log:       log,
-		Component: repository.AuditingComponent,
-	}
-
 	if timescaledbEnabled {
-		backend, err := auditing.NewTimescaleDB(auditingCfg, auditing.TimescaleDbConfig{
-			Host:      cli.String(auditingTimescaleHostFlag.Name),
-			Port:      cli.String(auditingTimescalePortFlag.Name),
-			DB:        cli.String(auditingTimescaleDbFlag.Name),
-			User:      cli.String(auditingTimescaleUserFlag.Name),
-			Password:  cli.String(auditingTimescalePasswordFlag.Name),
-			Retention: cli.String(auditingTimescaleRetentionFlag.Name),
-		})
+		backend, err := newTimescaledbBackend(cli, auditingCfg)
 		if err != nil {
 			return nil, nil, fmt.Errorf("unable to initialize timescaledb audit backend: %w", err)
 		}
 
 		backends = append(backends, backend)
 
+		log.Info("configured timescaledb audit backend")
+
 		if cli.String(auditingSearchBackendFlag.Name) == auditingBackendTimescaleDB {
-			log.Info("configured timescaledb audit backend as search backend")
+			log.Info("using timescaledb audit backend as search backend")
 			searchBackend = backend
-		} else {
-			log.Info("configured timescaledb audit backend")
 		}
 	}
 
 	if splunkEnabled {
-		host := cli.String(auditingSplunkHostFlag.Name)
-		if host == "" {
-			host, err = os.Hostname()
-			if err != nil {
-				return nil, nil, err
-			}
-		}
-
-		source := cli.App.Name
-		if s := cli.String(auditingSplunkSourceFlag.Name); s != "" {
-			source = s
-		}
-
-		splunkConfig := auditing.SplunkConfig{
-			Endpoint:   cli.String(auditingSplunkEndpointFlag.Name),
-			HECToken:   cli.String(auditingSplunkHecTokenFlag.Name),
-			SourceType: cli.String(auditingSplunkSourceTypeFlag.Name),
-			Index:      cli.String(auditingSplunkIndexFlag.Name),
-			Host:       host,
-		}
-
-		if caPath := cli.String(auditingSplunkCaFlag.Name); caPath != "" {
-			caCert, err := os.ReadFile(caPath)
-			if err != nil {
-				return nil, nil, fmt.Errorf("unable to read ca cert: %w", err)
-			}
-
-			caCertPool := x509.NewCertPool()
-			caCertPool.AppendCertsFromPEM(caCert)
-			splunkConfig.TlsConfig = &tls.Config{
-				RootCAs:    caCertPool,
-				MinVersion: tls.VersionTLS12,
-			}
-		}
-
-		splunkBackend, err := auditing.NewSplunk(auditing.Config{
-			Component: source,
-			Log:       log,
-		}, splunkConfig)
+		backend, err := newSplunkBackend(cli, auditingCfg)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("unable to initialize splunk audit backend: %w", err)
 		}
 
-		asyncSplunkBackend, err := auditing.NewAsync(splunkBackend, log, auditing.AsyncConfig{
-			AsyncRetry:   splunkAsyncRetry,
-			AsyncBackoff: new(splunkAsyncBackoff),
-		})
-		if err != nil {
-			return nil, nil, err
-		}
+		backends = append(backends, backend)
 
-		backends = append(backends, asyncSplunkBackend)
+		log.Info("configured splunk audit backend")
 
 		if searchBackend == nil && cli.String(auditingSearchBackendFlag.Name) == auditingBackendSplunk {
 			return nil, nil, fmt.Errorf("splunk is not supported as a search backend")
-		} else {
-			log.Info("configured splunk audit backend")
 		}
 	}
 
@@ -132,4 +76,70 @@ func createAuditingClient(cli *cli.Context, log *slog.Logger) (searchBackend aud
 	}
 
 	return
+}
+
+func newTimescaledbBackend(cli *cli.Context, auditingCfg auditing.Config) (searchBackend auditing.Auditing, err error) {
+	return auditing.NewTimescaleDB(auditingCfg, auditing.TimescaleDbConfig{
+		Host:      cli.String(auditingTimescaleHostFlag.Name),
+		Port:      cli.String(auditingTimescalePortFlag.Name),
+		DB:        cli.String(auditingTimescaleDbFlag.Name),
+		User:      cli.String(auditingTimescaleUserFlag.Name),
+		Password:  cli.String(auditingTimescalePasswordFlag.Name),
+		Retention: cli.String(auditingTimescaleRetentionFlag.Name),
+	})
+}
+
+func newSplunkBackend(cli *cli.Context, auditingCfg auditing.Config) (searchBackend auditing.Auditing, err error) {
+	const (
+		splunkAsyncBackoff = 1 * time.Second
+		splunkAsyncRetry   = 3
+	)
+
+	host := cli.String(auditingSplunkHostFlag.Name)
+	if host == "" {
+		host, err = os.Hostname()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	source := cli.App.Name
+	if s := cli.String(auditingSplunkSourceFlag.Name); s != "" {
+		source = s
+	}
+
+	splunkConfig := auditing.SplunkConfig{
+		Endpoint:   cli.String(auditingSplunkEndpointFlag.Name),
+		HECToken:   cli.String(auditingSplunkHecTokenFlag.Name),
+		SourceType: cli.String(auditingSplunkSourceTypeFlag.Name),
+		Index:      cli.String(auditingSplunkIndexFlag.Name),
+		Host:       host,
+	}
+
+	if caPath := cli.String(auditingSplunkCaFlag.Name); caPath != "" {
+		caCert, err := os.ReadFile(caPath)
+		if err != nil {
+			return nil, fmt.Errorf("unable to read ca cert: %w", err)
+		}
+
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(caCert)
+		splunkConfig.TlsConfig = &tls.Config{
+			RootCAs:    caCertPool,
+			MinVersion: tls.VersionTLS12,
+		}
+	}
+
+	splunkBackend, err := auditing.NewSplunk(auditing.Config{
+		Component: source,
+		Log:       auditingCfg.Log,
+	}, splunkConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return auditing.NewAsync(splunkBackend, auditingCfg.Log, auditing.AsyncConfig{
+		AsyncRetry:   splunkAsyncRetry,
+		AsyncBackoff: new(splunkAsyncBackoff),
+	})
 }
