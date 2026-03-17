@@ -37,20 +37,20 @@ func validatePartition(ctx context.Context, partition *apiv2.Partition) error {
 		}
 	}
 
-	if len(partition.DnsServer) > 3 {
+	if len(partition.DnsServers) > 3 {
 		return errorutil.InvalidArgument("not more than 3 dnsservers must be specified")
 	}
-	for _, dns := range partition.DnsServer {
+	for _, dns := range partition.DnsServers {
 		_, err := netip.ParseAddr(dns.Ip)
 		if err != nil {
 			return errorutil.InvalidArgument("dnsserver ip is not valid:%w", err)
 		}
 	}
 
-	if len(partition.NtpServer) > 5 {
+	if len(partition.NtpServers) > 5 {
 		return errorutil.InvalidArgument("not more than 5 ntpservers must be specified")
 	}
-	for _, ntp := range partition.NtpServer {
+	for _, ntp := range partition.NtpServers {
 		if net.ParseIP(ntp.Address) != nil {
 			_, err := netip.ParseAddr(ntp.Address)
 			if err != nil {
@@ -113,8 +113,8 @@ func (p *partitionRepository) validateUpdate(ctx context.Context, req *adminv2.P
 	partition := &apiv2.Partition{
 		Id:                   req.Id,
 		BootConfiguration:    req.BootConfiguration,
-		DnsServer:            req.DnsServer,
-		NtpServer:            req.NtpServer,
+		DnsServers:           req.DnsServers,
+		NtpServers:           req.NtpServers,
 		MgmtServiceAddresses: req.MgmtServiceAddresses,
 	}
 	return validatePartition(ctx, partition)
