@@ -58,7 +58,7 @@ func Test_sizeImageConstraintServiceServer_Try(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &sizeImageConstraintServiceServer{
 				log:  log,
-				repo: dc.TestStore.Store,
+				repo: dc.GetTestStore().Store,
 			}
 			_, err := s.Try(t.Context(), tt.req)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
