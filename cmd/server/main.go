@@ -272,7 +272,7 @@ var (
 	}
 	auditingSplunkCaFlag = &cli.StringFlag{
 		Name:    "auditing-splunk-ca",
-		Value:   "14 days",
+		Value:   "",
 		Usage:   "splunk auditing ca path",
 		EnvVars: []string{"AUDITING_SPLUNK_CA"},
 	}
