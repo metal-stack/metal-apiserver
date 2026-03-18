@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sort"
 	"testing"
 	"time"
 
@@ -819,26 +820,26 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 		name    string
 		rq      *adminv2.SwitchServiceDeleteRequest
 		want    func() *adminv2.SwitchServiceDeleteResponse
-		mods    func() *test.AssertionMods
+		mods    func() *test.Asserters
 		wantErr error
 	}{
 		{
 			name: "delete switch",
 			rq: &adminv2.SwitchServiceDeleteRequest{
-				Id: fmt.Sprintf("sw1-%s-%s", sc.SwmPartition1, sc.SwmRack3),
+				Id: sc.SwmP01Rack03Switch1,
 			},
 			want: func() *adminv2.SwitchServiceDeleteResponse {
 				return &adminv2.SwitchServiceDeleteResponse{
-					Switch: dc.GetSwitches()[fmt.Sprintf("sw1-%s-%s", sc.SwmPartition1, sc.SwmRack3)],
+					Switch: dc.GetSwitches()[sc.SwmP01Rack03Switch1],
 				}
 			},
-			mods: func() *test.AssertionMods {
-				return &test.AssertionMods{
+			mods: func() *test.Asserters {
+				return &test.Asserters{
 					Switches: func(switches map[string]*apiv2.Switch) {
-						delete(switches, fmt.Sprintf("sw1-%s-%s", sc.SwmPartition1, sc.SwmRack3))
+						delete(switches, sc.SwmP01Rack03Switch1)
 					},
 					SwitchStatuses: func(switchStatuses map[string]*metal.SwitchStatus) {
-						delete(switchStatuses, fmt.Sprintf("sw1-%s-%s", sc.SwmPartition1, sc.SwmRack3))
+						delete(switchStatuses, sc.SwmP01Rack03Switch1)
 					},
 				}
 			},
@@ -847,31 +848,31 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 		{
 			name: "cannot delete switch with machines connected",
 			rq: &adminv2.SwitchServiceDeleteRequest{
-				Id: fmt.Sprintf("sw1-%s-%s", sc.SwmPartition1, sc.SwmRack2),
+				Id: sc.SwmP01Rack02Switch1,
 			},
 			want: func() *adminv2.SwitchServiceDeleteResponse {
 				return nil
 			},
-			wantErr: errorutil.FailedPrecondition("cannot delete switch %s while it still has machines connected to it", fmt.Sprintf("sw1-%s-%s", sc.SwmPartition1, sc.SwmRack2)),
+			wantErr: errorutil.FailedPrecondition("cannot delete switch %s while it still has machines connected to it", sc.SwmP01Rack02Switch1),
 		},
 		{
 			name: "but with force you can",
 			rq: &adminv2.SwitchServiceDeleteRequest{
-				Id:    fmt.Sprintf("sw1-%s-%s", sc.SwmPartition1, sc.SwmRack2),
+				Id:    sc.SwmP01Rack02Switch1,
 				Force: true,
 			},
 			want: func() *adminv2.SwitchServiceDeleteResponse {
 				return &adminv2.SwitchServiceDeleteResponse{
-					Switch: dc.GetSwitches()[fmt.Sprintf("sw1-%s-%s", sc.SwmPartition1, sc.SwmRack2)],
+					Switch: dc.GetSwitches()[sc.SwmP01Rack02Switch1],
 				}
 			},
-			mods: func() *test.AssertionMods {
-				return &test.AssertionMods{
+			mods: func() *test.Asserters {
+				return &test.Asserters{
 					Switches: func(switches map[string]*apiv2.Switch) {
-						delete(switches, fmt.Sprintf("sw1-%s-%s", sc.SwmPartition1, sc.SwmRack2))
+						delete(switches, sc.SwmP01Rack02Switch1)
 					},
 					SwitchStatuses: func(switchStatuses map[string]*metal.SwitchStatus) {
-						delete(switchStatuses, fmt.Sprintf("sw1-%s-%s", sc.SwmPartition1, sc.SwmRack2))
+						delete(switchStatuses, sc.SwmP01Rack02Switch1)
 					},
 				}
 			},
@@ -909,7 +910,7 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 				t.Errorf("switchServiceServer.Delete() diff = %s", diff)
 			}
 
-			var mods *test.AssertionMods
+			var mods *test.Asserters
 			if tt.mods != nil {
 				mods = tt.mods()
 			}
@@ -1252,12 +1253,185 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 			want: &adminv2.SwitchServiceConnectedMachinesResponse{
 				SwitchesWithMachines: []*apiv2.SwitchWithMachines{
 					{
-						Id:        fmt.Sprintf("sw1-%s-%s", sc.SwmPartition1, sc.SwmRack3),
+						Id:        sc.SwmP01Rack01Switch1,
+						Partition: sc.SwmPartition1,
+						Rack:      sc.SwmRack1,
+						Connections: []*apiv2.SwitchNicWithMachine{
+							{
+								Nic: &apiv2.SwitchNic{
+									Name:       "Ethernet0",
+									Identifier: "Eth1/1",
+									BgpFilter:  &apiv2.BGPFilter{},
+									State: &apiv2.NicState{
+										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+									},
+								},
+								Machine: dc.GetMachines()[sc.SwmMachine1],
+								Fru: &apiv2.MachineFRU{
+									ChassisPartNumber:   new(string),
+									ChassisPartSerial:   new(string),
+									BoardMfg:            new(string),
+									BoardMfgSerial:      new(string),
+									BoardPartNumber:     new(string),
+									ProductManufacturer: new(string),
+									ProductPartNumber:   new(string),
+									ProductSerial:       new("PS1"),
+								},
+							},
+						},
+					},
+					{
+						Id:        sc.SwmP01Rack01Switch2,
+						Partition: sc.SwmPartition1,
+						Rack:      sc.SwmRack1,
+						Connections: []*apiv2.SwitchNicWithMachine{
+							{
+								Nic: &apiv2.SwitchNic{
+									Name:       "Ethernet0",
+									Identifier: "Eth1/1",
+									BgpFilter:  &apiv2.BGPFilter{},
+									State: &apiv2.NicState{
+										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+									},
+								},
+								Machine: dc.GetMachines()[sc.SwmMachine1],
+								Fru: &apiv2.MachineFRU{
+									ChassisPartNumber:   new(string),
+									ChassisPartSerial:   new(string),
+									BoardMfg:            new(string),
+									BoardMfgSerial:      new(string),
+									BoardPartNumber:     new(string),
+									ProductManufacturer: new(string),
+									ProductPartNumber:   new(string),
+									ProductSerial:       new("PS1"),
+								},
+							},
+						},
+					},
+					{
+						Id:        sc.SwmP01Rack02Switch1,
+						Partition: sc.SwmPartition1,
+						Rack:      sc.SwmRack2,
+						Connections: []*apiv2.SwitchNicWithMachine{
+							{
+								Nic: &apiv2.SwitchNic{
+									Name:       "Ethernet0",
+									Identifier: "Eth1/1",
+									BgpFilter:  &apiv2.BGPFilter{},
+									State: &apiv2.NicState{
+										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+									},
+								},
+								Machine: dc.GetMachines()[sc.SwmMachine2],
+								Fru: &apiv2.MachineFRU{
+									ChassisPartNumber:   new(string),
+									ChassisPartSerial:   new(string),
+									BoardMfg:            new(string),
+									BoardMfgSerial:      new(string),
+									BoardPartNumber:     new(string),
+									ProductManufacturer: new(string),
+									ProductPartNumber:   new(string),
+									ProductSerial:       new("PS2"),
+								},
+							},
+						},
+					},
+					{
+						Id:        sc.SwmP01Rack02Switch2,
+						Partition: sc.SwmPartition1,
+						Rack:      sc.SwmRack2,
+						Connections: []*apiv2.SwitchNicWithMachine{
+							{
+								Nic: &apiv2.SwitchNic{
+									Name:       "Ethernet0",
+									Identifier: "Eth1/1",
+									BgpFilter:  &apiv2.BGPFilter{},
+									State: &apiv2.NicState{
+										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+									},
+								},
+								Machine: dc.GetMachines()[sc.SwmMachine2],
+								Fru: &apiv2.MachineFRU{
+									ChassisPartNumber:   new(string),
+									ChassisPartSerial:   new(string),
+									BoardMfg:            new(string),
+									BoardMfgSerial:      new(string),
+									BoardPartNumber:     new(string),
+									ProductManufacturer: new(string),
+									ProductPartNumber:   new(string),
+									ProductSerial:       new("PS2"),
+								},
+							},
+						},
+					},
+					{
+						Id:        sc.SwmP01Rack03Switch1,
 						Partition: sc.SwmPartition1,
 						Rack:      sc.SwmRack3,
 					},
 					{
-						Id:        fmt.Sprintf("sw2-%s-%s", sc.SwmPartition2, sc.SwmRack2),
+						Id:        sc.SwmP01Rack03Switch2,
+						Partition: sc.SwmPartition1,
+						Rack:      sc.SwmRack3,
+					},
+					{
+						Id:        sc.SwmP02Rack01Switch1,
+						Partition: sc.SwmPartition2,
+						Rack:      sc.SwmRack1,
+						Connections: []*apiv2.SwitchNicWithMachine{
+							{
+								Nic: &apiv2.SwitchNic{
+									Name:       "Ethernet0",
+									Identifier: "Eth1/1",
+									BgpFilter:  &apiv2.BGPFilter{},
+									State: &apiv2.NicState{
+										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+									},
+								},
+								Machine: dc.GetMachines()[sc.SwmMachine3],
+								Fru: &apiv2.MachineFRU{
+									ChassisPartNumber:   new(string),
+									ChassisPartSerial:   new(string),
+									BoardMfg:            new(string),
+									BoardMfgSerial:      new(string),
+									BoardPartNumber:     new(string),
+									ProductManufacturer: new(string),
+									ProductPartNumber:   new(string),
+									ProductSerial:       new("PS3"),
+								},
+							},
+						},
+					},
+					{
+						Id:        sc.SwmP02Rack01Switch2,
+						Partition: sc.SwmPartition2,
+						Rack:      sc.SwmRack1,
+						Connections: []*apiv2.SwitchNicWithMachine{
+							{
+								Nic: &apiv2.SwitchNic{
+									Name:       "Ethernet0",
+									Identifier: "Eth1/1",
+									BgpFilter:  &apiv2.BGPFilter{},
+									State: &apiv2.NicState{
+										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+									},
+								},
+								Machine: dc.GetMachines()[sc.SwmMachine3],
+								Fru: &apiv2.MachineFRU{
+									ChassisPartNumber:   new(string),
+									ChassisPartSerial:   new(string),
+									BoardMfg:            new(string),
+									BoardMfgSerial:      new(string),
+									BoardPartNumber:     new(string),
+									ProductManufacturer: new(string),
+									ProductPartNumber:   new(string),
+									ProductSerial:       new("PS3"),
+								},
+							},
+						},
+					},
+					{
+						Id:        sc.SwmP02Rack02Switch1,
 						Partition: sc.SwmPartition2,
 						Rack:      sc.SwmRack2,
 						Connections: []*apiv2.SwitchNicWithMachine{
@@ -1306,119 +1480,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 						},
 					},
 					{
-						Id:        fmt.Sprintf("sw1-%s-%s", sc.SwmPartition1, sc.SwmRack1),
-						Partition: sc.SwmPartition1,
-						Rack:      sc.SwmRack1,
-						Connections: []*apiv2.SwitchNicWithMachine{
-							{
-								Nic: &apiv2.SwitchNic{
-									Name:       "Ethernet0",
-									Identifier: "Eth1/1",
-									BgpFilter:  &apiv2.BGPFilter{},
-									State: &apiv2.NicState{
-										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-									},
-								},
-								Machine: dc.GetMachines()[sc.SwmMachine1],
-								Fru: &apiv2.MachineFRU{
-									ChassisPartNumber:   new(string),
-									ChassisPartSerial:   new(string),
-									BoardMfg:            new(string),
-									BoardMfgSerial:      new(string),
-									BoardPartNumber:     new(string),
-									ProductManufacturer: new(string),
-									ProductPartNumber:   new(string),
-									ProductSerial:       new("PS1"),
-								},
-							},
-						},
-					},
-					{
-						Id:        fmt.Sprintf("sw2-%s-%s", sc.SwmPartition2, sc.SwmRack1),
-						Partition: sc.SwmPartition2,
-						Rack:      sc.SwmRack1,
-						Connections: []*apiv2.SwitchNicWithMachine{
-							{
-								Nic: &apiv2.SwitchNic{
-									Name:       "Ethernet0",
-									Identifier: "Eth1/1",
-									BgpFilter:  &apiv2.BGPFilter{},
-									State: &apiv2.NicState{
-										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-									},
-								},
-								Machine: dc.GetMachines()[sc.SwmMachine3],
-								Fru: &apiv2.MachineFRU{
-									ChassisPartNumber:   new(string),
-									ChassisPartSerial:   new(string),
-									BoardMfg:            new(string),
-									BoardMfgSerial:      new(string),
-									BoardPartNumber:     new(string),
-									ProductManufacturer: new(string),
-									ProductPartNumber:   new(string),
-									ProductSerial:       new("PS3"),
-								},
-							},
-						},
-					},
-					{
-						Id:        fmt.Sprintf("sw1-%s-%s", sc.SwmPartition1, sc.SwmRack2),
-						Partition: sc.SwmPartition1,
-						Rack:      sc.SwmRack2,
-						Connections: []*apiv2.SwitchNicWithMachine{
-							{
-								Nic: &apiv2.SwitchNic{
-									Name:       "Ethernet0",
-									Identifier: "Eth1/1",
-									BgpFilter:  &apiv2.BGPFilter{},
-									State: &apiv2.NicState{
-										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-									},
-								},
-								Machine: dc.GetMachines()[sc.SwmMachine2],
-								Fru: &apiv2.MachineFRU{
-									ChassisPartNumber:   new(string),
-									ChassisPartSerial:   new(string),
-									BoardMfg:            new(string),
-									BoardMfgSerial:      new(string),
-									BoardPartNumber:     new(string),
-									ProductManufacturer: new(string),
-									ProductPartNumber:   new(string),
-									ProductSerial:       new("PS2"),
-								},
-							},
-						},
-					},
-					{
-						Id:        fmt.Sprintf("sw1-%s-%s", sc.SwmPartition2, sc.SwmRack1),
-						Partition: sc.SwmPartition2,
-						Rack:      sc.SwmRack1,
-						Connections: []*apiv2.SwitchNicWithMachine{
-							{
-								Nic: &apiv2.SwitchNic{
-									Name:       "Ethernet0",
-									Identifier: "Eth1/1",
-									BgpFilter:  &apiv2.BGPFilter{},
-									State: &apiv2.NicState{
-										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-									},
-								},
-								Machine: dc.GetMachines()[sc.SwmMachine3],
-								Fru: &apiv2.MachineFRU{
-									ChassisPartNumber:   new(string),
-									ChassisPartSerial:   new(string),
-									BoardMfg:            new(string),
-									BoardMfgSerial:      new(string),
-									BoardPartNumber:     new(string),
-									ProductManufacturer: new(string),
-									ProductPartNumber:   new(string),
-									ProductSerial:       new("PS3"),
-								},
-							},
-						},
-					},
-					{
-						Id:        fmt.Sprintf("sw1-%s-%s", sc.SwmPartition2, sc.SwmRack2),
+						Id:        sc.SwmP02Rack02Switch2,
 						Partition: sc.SwmPartition2,
 						Rack:      sc.SwmRack2,
 						Connections: []*apiv2.SwitchNicWithMachine{
@@ -1462,67 +1524,6 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 									ProductManufacturer: new(string),
 									ProductPartNumber:   new(string),
 									ProductSerial:       new("PS5"),
-								},
-							},
-						},
-					},
-					{
-						Id:        fmt.Sprintf("sw2-%s-%s", sc.SwmPartition1, sc.SwmRack3),
-						Partition: sc.SwmPartition1,
-						Rack:      sc.SwmRack3,
-					},
-					{
-						Id:        fmt.Sprintf("sw2-%s-%s", sc.SwmPartition1, sc.SwmRack2),
-						Partition: sc.SwmPartition1,
-						Rack:      sc.SwmRack2,
-						Connections: []*apiv2.SwitchNicWithMachine{
-							{
-								Nic: &apiv2.SwitchNic{
-									Name:       "Ethernet0",
-									Identifier: "Eth1/1",
-									BgpFilter:  &apiv2.BGPFilter{},
-									State: &apiv2.NicState{
-										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-									},
-								},
-								Machine: dc.GetMachines()[sc.SwmMachine2],
-								Fru: &apiv2.MachineFRU{
-									ChassisPartNumber:   new(string),
-									ChassisPartSerial:   new(string),
-									BoardMfg:            new(string),
-									BoardMfgSerial:      new(string),
-									BoardPartNumber:     new(string),
-									ProductManufacturer: new(string),
-									ProductPartNumber:   new(string),
-									ProductSerial:       new("PS2"),
-								},
-							},
-						},
-					},
-					{
-						Id:        fmt.Sprintf("sw2-%s-%s", sc.SwmPartition1, sc.SwmRack1),
-						Partition: sc.SwmPartition1,
-						Rack:      sc.SwmRack1,
-						Connections: []*apiv2.SwitchNicWithMachine{
-							{
-								Nic: &apiv2.SwitchNic{
-									Name:       "Ethernet0",
-									Identifier: "Eth1/1",
-									BgpFilter:  &apiv2.BGPFilter{},
-									State: &apiv2.NicState{
-										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-									},
-								},
-								Machine: dc.GetMachines()[sc.SwmMachine1],
-								Fru: &apiv2.MachineFRU{
-									ChassisPartNumber:   new(string),
-									ChassisPartSerial:   new(string),
-									BoardMfg:            new(string),
-									BoardMfgSerial:      new(string),
-									BoardPartNumber:     new(string),
-									ProductManufacturer: new(string),
-									ProductPartNumber:   new(string),
-									ProductSerial:       new("PS1"),
 								},
 							},
 						},
@@ -1534,13 +1535,13 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 			name: "query by switch id",
 			rq: &adminv2.SwitchServiceConnectedMachinesRequest{
 				Query: &apiv2.SwitchQuery{
-					Id: new(fmt.Sprintf("sw2-%s-%s", sc.SwmPartition1, sc.SwmRack1)),
+					Id: new(sc.SwmP01Rack01Switch2),
 				},
 			},
 			want: &adminv2.SwitchServiceConnectedMachinesResponse{
 				SwitchesWithMachines: []*apiv2.SwitchWithMachines{
 					{
-						Id:        fmt.Sprintf("sw2-%s-%s", sc.SwmPartition1, sc.SwmRack1),
+						Id:        sc.SwmP01Rack01Switch2,
 						Partition: sc.SwmPartition1,
 						Rack:      sc.SwmRack1,
 						Connections: []*apiv2.SwitchNicWithMachine{
@@ -1580,7 +1581,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 			want: &adminv2.SwitchServiceConnectedMachinesResponse{
 				SwitchesWithMachines: []*apiv2.SwitchWithMachines{
 					{
-						Id:        fmt.Sprintf("sw2-%s-%s", sc.SwmPartition2, sc.SwmRack2),
+						Id:        sc.SwmP02Rack02Switch1,
 						Partition: sc.SwmPartition2,
 						Rack:      sc.SwmRack2,
 						Connections: []*apiv2.SwitchNicWithMachine{
@@ -1608,7 +1609,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 						},
 					},
 					{
-						Id:        fmt.Sprintf("sw1-%s-%s", sc.SwmPartition2, sc.SwmRack2),
+						Id:        sc.SwmP02Rack02Switch2,
 						Partition: sc.SwmPartition2,
 						Rack:      sc.SwmRack2,
 						Connections: []*apiv2.SwitchNicWithMachine{
@@ -1649,12 +1650,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 			want: &adminv2.SwitchServiceConnectedMachinesResponse{
 				SwitchesWithMachines: []*apiv2.SwitchWithMachines{
 					{
-						Id:        fmt.Sprintf("sw1-%s-%s", sc.SwmPartition1, sc.SwmRack3),
-						Partition: sc.SwmPartition1,
-						Rack:      sc.SwmRack3,
-					},
-					{
-						Id:        fmt.Sprintf("sw1-%s-%s", sc.SwmPartition1, sc.SwmRack1),
+						Id:        sc.SwmP01Rack01Switch1,
 						Partition: sc.SwmPartition1,
 						Rack:      sc.SwmRack1,
 						Connections: []*apiv2.SwitchNicWithMachine{
@@ -1682,40 +1678,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 						},
 					},
 					{
-						Id:        fmt.Sprintf("sw1-%s-%s", sc.SwmPartition1, sc.SwmRack2),
-						Partition: sc.SwmPartition1,
-						Rack:      sc.SwmRack2,
-						Connections: []*apiv2.SwitchNicWithMachine{
-							{
-								Nic: &apiv2.SwitchNic{
-									Name:       "Ethernet0",
-									Identifier: "Eth1/1",
-									BgpFilter:  &apiv2.BGPFilter{},
-									State: &apiv2.NicState{
-										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-									},
-								},
-								Machine: dc.GetMachines()[sc.SwmMachine2],
-								Fru: &apiv2.MachineFRU{
-									ChassisPartNumber:   new(string),
-									ChassisPartSerial:   new(string),
-									BoardMfg:            new(string),
-									BoardMfgSerial:      new(string),
-									BoardPartNumber:     new(string),
-									ProductManufacturer: new(string),
-									ProductPartNumber:   new(string),
-									ProductSerial:       new("PS2"),
-								},
-							},
-						},
-					},
-					{
-						Id:        fmt.Sprintf("sw2-%s-%s", sc.SwmPartition1, sc.SwmRack3),
-						Partition: sc.SwmPartition1,
-						Rack:      sc.SwmRack3,
-					},
-					{
-						Id:        fmt.Sprintf("sw2-%s-%s", sc.SwmPartition1, sc.SwmRack1),
+						Id:        sc.SwmP01Rack01Switch2,
 						Partition: sc.SwmPartition1,
 						Rack:      sc.SwmRack1,
 						Connections: []*apiv2.SwitchNicWithMachine{
@@ -1743,7 +1706,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 						},
 					},
 					{
-						Id:        fmt.Sprintf("sw2-%s-%s", sc.SwmPartition1, sc.SwmRack2),
+						Id:        sc.SwmP01Rack02Switch1,
 						Partition: sc.SwmPartition1,
 						Rack:      sc.SwmRack2,
 						Connections: []*apiv2.SwitchNicWithMachine{
@@ -1769,6 +1732,44 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 								},
 							},
 						},
+					},
+					{
+						Id:        sc.SwmP01Rack02Switch2,
+						Partition: sc.SwmPartition1,
+						Rack:      sc.SwmRack2,
+						Connections: []*apiv2.SwitchNicWithMachine{
+							{
+								Nic: &apiv2.SwitchNic{
+									Name:       "Ethernet0",
+									Identifier: "Eth1/1",
+									BgpFilter:  &apiv2.BGPFilter{},
+									State: &apiv2.NicState{
+										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+									},
+								},
+								Machine: dc.GetMachines()[sc.SwmMachine2],
+								Fru: &apiv2.MachineFRU{
+									ChassisPartNumber:   new(string),
+									ChassisPartSerial:   new(string),
+									BoardMfg:            new(string),
+									BoardMfgSerial:      new(string),
+									BoardPartNumber:     new(string),
+									ProductManufacturer: new(string),
+									ProductPartNumber:   new(string),
+									ProductSerial:       new("PS2"),
+								},
+							},
+						},
+					},
+					{
+						Id:        sc.SwmP01Rack03Switch1,
+						Partition: sc.SwmPartition1,
+						Rack:      sc.SwmRack3,
+					},
+					{
+						Id:        sc.SwmP01Rack03Switch2,
+						Partition: sc.SwmPartition1,
+						Rack:      sc.SwmRack3,
 					},
 				},
 			},
@@ -1782,6 +1783,10 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 			}
 			got, err := s.ConnectedMachines(ctx, tt.rq)
 			require.NoError(t, err)
+
+			sort.SliceStable(got.SwitchesWithMachines, func(i, j int) bool {
+				return got.SwitchesWithMachines[i].Id < got.SwitchesWithMachines[j].Id
+			})
 
 			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
 				t.Errorf("switchServiceServer.ConnectedMachines() diff = %s", diff)

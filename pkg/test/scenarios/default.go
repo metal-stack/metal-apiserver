@@ -13,6 +13,9 @@ const (
 	Machine4 = "00000000-0000-0000-0000-000000000004"
 	Machine5 = "00000000-0000-0000-0000-000000000005"
 
+	Switch1 = "p01-r01leaf01"
+	Switch2 = "p01-r01leaf02"
+
 	Partition1 = "partition-1"
 	Partition2 = "partition-2"
 
@@ -93,7 +96,7 @@ var (
 				Project: Tenant1Project1,
 			},
 		},
-		Switches: SwitchPairFunc(Partition1, "rack-1", 2),
+		Switches: SwitchPairFunc([2]string{Switch1, Switch2}, Partition1, "rack-1", 2),
 		Machines: []*MachineWithLiveliness{
 			MachineFunc(Machine1, Partition1, SizeC1Large, Tenant1Project1, ImageDebian13, metal.MachineLivelinessAlive),
 		},

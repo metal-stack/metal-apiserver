@@ -23,6 +23,17 @@ const (
 	SwmMachine3 = "00000000-0000-0000-0000-000000000003"
 	SwmMachine4 = "00000000-0000-0000-0000-000000000004"
 	SwmMachine5 = "00000000-0000-0000-0000-000000000005"
+
+	SwmP01Rack01Switch1 = "p01-r01leaf01"
+	SwmP01Rack01Switch2 = "p01-r01leaf02"
+	SwmP01Rack02Switch1 = "p01-r02leaf01"
+	SwmP01Rack02Switch2 = "p01-r02leaf02"
+	SwmP01Rack03Switch1 = "p01-r03leaf01"
+	SwmP01Rack03Switch2 = "p01-r03leaf02"
+	SwmP02Rack01Switch1 = "p02-r01leaf01"
+	SwmP02Rack01Switch2 = "p02-r01leaf02"
+	SwmP02Rack02Switch1 = "p02-r02leaf01"
+	SwmP02Rack02Switch2 = "p02-r02leaf02"
 )
 
 var (
@@ -42,11 +53,11 @@ var (
 			},
 		},
 		Switches: slices.Concat(
-			SwitchPairFunc(SwmPartition1, SwmRack1, 2, SwmMachine1),
-			SwitchPairFunc(SwmPartition1, SwmRack2, 2, SwmMachine2),
-			SwitchPairFunc(SwmPartition2, SwmRack1, 2, SwmMachine3),
-			SwitchPairFunc(SwmPartition2, SwmRack2, 2, SwmMachine4, SwmMachine5),
-			SwitchPairFunc(SwmPartition1, SwmRack3, 2),
+			SwitchPairFunc([2]string{SwmP01Rack01Switch1, SwmP01Rack01Switch2}, SwmPartition1, SwmRack1, 2, SwmMachine1),
+			SwitchPairFunc([2]string{SwmP01Rack02Switch1, SwmP01Rack02Switch2}, SwmPartition1, SwmRack2, 2, SwmMachine2),
+			SwitchPairFunc([2]string{SwmP01Rack03Switch1, SwmP01Rack03Switch2}, SwmPartition1, SwmRack3, 2),
+			SwitchPairFunc([2]string{SwmP02Rack01Switch1, SwmP02Rack01Switch2}, SwmPartition2, SwmRack1, 2, SwmMachine3),
+			SwitchPairFunc([2]string{SwmP02Rack02Switch1, SwmP02Rack02Switch2}, SwmPartition2, SwmRack2, 2, SwmMachine4, SwmMachine5),
 		),
 		Machines: []*MachineWithLiveliness{
 			MachineFunc(SwmMachine1, SwmPartition1, SwmSize, "", "", metal.MachineLivelinessAlive),

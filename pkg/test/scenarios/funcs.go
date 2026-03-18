@@ -10,12 +10,12 @@ import (
 )
 
 var (
-	SwitchPairFunc = func(partition, rack string, ports int, machines ...string) []*apiv2.Switch {
+	SwitchPairFunc = func(ids [2]string, partition, rack string, ports int, machines ...string) []*apiv2.Switch {
 		nics, cons := switchNicsFunc(ports, machines)
 
 		return []*apiv2.Switch{
 			{
-				Id:                 fmt.Sprintf("sw1-%s-%s", partition, rack),
+				Id:                 ids[0],
 				Meta:               &apiv2.Meta{},
 				Partition:          partition,
 				Rack:               new(rack),
@@ -27,7 +27,7 @@ var (
 				},
 			},
 			{
-				Id:                 fmt.Sprintf("sw2-%s-%s", partition, rack),
+				Id:                 ids[1],
 				Meta:               &apiv2.Meta{},
 				Partition:          partition,
 				Rack:               new(rack),

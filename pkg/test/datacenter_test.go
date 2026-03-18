@@ -32,7 +32,7 @@ func TestAssert(t *testing.T) {
 	tests := []struct {
 		name    string
 		spec    *sc.DatacenterSpec
-		mods    func() *test.AssertionMods
+		mods    func() *test.Asserters
 		wantErr bool
 	}{
 		{
@@ -43,7 +43,7 @@ func TestAssert(t *testing.T) {
 		{
 			name: "no modification, but datacenters differ",
 			spec: &sc.DefaultDatacenter,
-			mods: func() *test.AssertionMods {
+			mods: func() *test.Asserters {
 				_, err := dc.GetTestStore().Partition().Update(ctx, sc.Partition1, &adminv2.PartitionServiceUpdateRequest{
 					Id:          sc.Partition1,
 					Description: new("changed"),
@@ -60,7 +60,7 @@ func TestAssert(t *testing.T) {
 		{
 			name: "apply correct modification",
 			spec: &sc.DefaultDatacenter,
-			mods: func() *test.AssertionMods {
+			mods: func() *test.Asserters {
 				_, err := dc.GetTestStore().Partition().Update(ctx, sc.Partition1, &adminv2.PartitionServiceUpdateRequest{
 					Id:          sc.Partition1,
 					Description: new("changed"),
@@ -70,7 +70,7 @@ func TestAssert(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				return &test.AssertionMods{
+				return &test.Asserters{
 					Partitions: func(partitions map[string]*apiv2.Partition) {
 						partitions[sc.Partition1].Description = "changed"
 					},
@@ -84,7 +84,7 @@ func TestAssert(t *testing.T) {
 		{
 			name: "apply wrong modification",
 			spec: &sc.DefaultDatacenter,
-			mods: func() *test.AssertionMods {
+			mods: func() *test.Asserters {
 				_, err := dc.GetTestStore().Partition().Update(ctx, sc.Partition1, &adminv2.PartitionServiceUpdateRequest{
 					Id:          sc.Partition1,
 					Description: new("changed"),
@@ -94,7 +94,7 @@ func TestAssert(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				return &test.AssertionMods{
+				return &test.Asserters{
 					Sizes: func(sizes map[string]*apiv2.Size) {
 						sizes[sc.SizeC1Large].Description = new("falsely changed")
 					},
@@ -105,7 +105,7 @@ func TestAssert(t *testing.T) {
 		{
 			name: "new entity added, but no modify passed",
 			spec: &sc.DefaultDatacenter,
-			mods: func() *test.AssertionMods {
+			mods: func() *test.Asserters {
 				_, err := dc.GetTestStore().Partition().Create(ctx, &adminv2.PartitionServiceCreateRequest{
 					Partition: &apiv2.Partition{
 						Id: "partition-2",
@@ -120,7 +120,7 @@ func TestAssert(t *testing.T) {
 		{
 			name: "new entities added and correct modifications applied",
 			spec: &sc.DefaultDatacenter,
-			mods: func() *test.AssertionMods {
+			mods: func() *test.Asserters {
 				ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					_, _ = fmt.Fprintln(w, "a image")
 				}))
@@ -192,7 +192,7 @@ func TestAssert(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				return &test.AssertionMods{
+				return &test.Asserters{
 					Projects: func(projects map[string][]string) {
 						projects["john.doe"] = append(projects["john.doe"], p.Meta.Id)
 					},
@@ -233,7 +233,7 @@ func TestAssert(t *testing.T) {
 		{
 			name: "entity deleted, but no modification applied",
 			spec: &sc.DefaultDatacenter,
-			mods: func() *test.AssertionMods {
+			mods: func() *test.Asserters {
 				_, err := dc.GetTestStore().Switch().AdditionalMethods().ForceDelete(ctx, "sw1-partition-1-rack-1")
 				require.NoError(t, err)
 				return nil
@@ -243,11 +243,11 @@ func TestAssert(t *testing.T) {
 		{
 			name: "entity deleted and correct modifications applied",
 			spec: &sc.DefaultDatacenter,
-			mods: func() *test.AssertionMods {
+			mods: func() *test.Asserters {
 				_, err := dc.GetTestStore().Switch().AdditionalMethods().ForceDelete(ctx, "sw1-partition-1-rack-1")
 				require.NoError(t, err)
 
-				return &test.AssertionMods{
+				return &test.Asserters{
 					Switches: func(switches map[string]*apiv2.Switch) {
 						delete(switches, "sw1-partition-1-rack-1")
 					},
@@ -265,7 +265,7 @@ func TestAssert(t *testing.T) {
 
 			dc.Create(tt.spec)
 
-			var mods *test.AssertionMods
+			var mods *test.Asserters
 			if tt.mods != nil {
 				mods = tt.mods()
 			}

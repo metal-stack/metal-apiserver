@@ -41,7 +41,7 @@ type (
 		closers   []func()
 	}
 
-	AssertionMods struct {
+	Asserters struct {
 		Tenants        func(tenants []string)
 		Projects       func(projects map[string][]string)
 		Partitions     func(partitions map[string]*apiv2.Partition)
@@ -167,7 +167,7 @@ func (dc *Datacenter) Cleanup() {
 // Call Assert and pass the copy of the Datacenter, the original (possibly modified) Datacenter, and a modify function.
 // The modify function contains all changes that you expect to have been applied by the functions you are testing.
 // Assert will apply the modify function and fail if the Datacenters differ after that.
-func (dc *Datacenter) Assert(mods *AssertionMods, opts ...cmp.Option) error {
+func (dc *Datacenter) Assert(mods *Asserters, opts ...cmp.Option) error {
 	copied, err := dc.copyEntities()
 	require.NoError(dc.t, err)
 
