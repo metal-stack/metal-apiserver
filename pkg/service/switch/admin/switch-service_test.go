@@ -6,7 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"sort"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -1784,8 +1785,8 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 			got, err := s.ConnectedMachines(ctx, tt.rq)
 			require.NoError(t, err)
 
-			sort.SliceStable(got.SwitchesWithMachines, func(i, j int) bool {
-				return got.SwitchesWithMachines[i].Id < got.SwitchesWithMachines[j].Id
+			slices.SortStableFunc(got.SwitchesWithMachines, func(swm1, swm2 *apiv2.SwitchWithMachines) int {
+				return strings.Compare(swm1.Id, swm2.Id)
 			})
 
 			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {

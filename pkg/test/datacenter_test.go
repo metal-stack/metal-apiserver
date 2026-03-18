@@ -193,8 +193,13 @@ func TestAssert(t *testing.T) {
 				require.NoError(t, err)
 
 				return &test.Asserters{
-					Projects: func(projects map[string][]string) {
-						projects["john.doe"] = append(projects["john.doe"], p.Meta.Id)
+					Projects: func(projects map[string][]*apiv2.Project) {
+						projects["john.doe"] = append(projects["john.doe"], &apiv2.Project{
+							Uuid:   p.Meta.Id,
+							Meta:   &apiv2.Meta{},
+							Tenant: p.TenantId,
+							Name:   p.Name,
+						})
 					},
 					Partitions: func(partitions map[string]*apiv2.Partition) {
 						partitions["partition-2"] = &apiv2.Partition{
@@ -234,7 +239,7 @@ func TestAssert(t *testing.T) {
 			name: "entity deleted, but no modification applied",
 			spec: &sc.DefaultDatacenter,
 			mods: func() *test.Asserters {
-				_, err := dc.GetTestStore().Switch().AdditionalMethods().ForceDelete(ctx, "sw1-partition-1-rack-1")
+				_, err := dc.GetTestStore().Switch().AdditionalMethods().ForceDelete(ctx, sc.SwmP01Rack01Switch1)
 				require.NoError(t, err)
 				return nil
 			},
@@ -244,15 +249,15 @@ func TestAssert(t *testing.T) {
 			name: "entity deleted and correct modifications applied",
 			spec: &sc.DefaultDatacenter,
 			mods: func() *test.Asserters {
-				_, err := dc.GetTestStore().Switch().AdditionalMethods().ForceDelete(ctx, "sw1-partition-1-rack-1")
+				_, err := dc.GetTestStore().Switch().AdditionalMethods().ForceDelete(ctx, sc.SwmP01Rack01Switch1)
 				require.NoError(t, err)
 
 				return &test.Asserters{
 					Switches: func(switches map[string]*apiv2.Switch) {
-						delete(switches, "sw1-partition-1-rack-1")
+						delete(switches, sc.SwmP01Rack01Switch1)
 					},
 					SwitchStatuses: func(switchStatuses map[string]*metal.SwitchStatus) {
-						delete(switchStatuses, "sw1-partition-1-rack-1")
+						delete(switchStatuses, sc.SwmP01Rack01Switch1)
 					},
 				}
 			},

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -25,8 +26,8 @@ import (
 
 type (
 	Datacenter struct {
-		tenants        []string
-		projects       map[string][]string
+		tenants        map[string]*apiv2.Tenant
+		projects       map[string][]*apiv2.Project
 		partitions     map[string]*apiv2.Partition
 		sizes          map[string]*apiv2.Size
 		networks       map[string]*apiv2.Network
@@ -42,8 +43,8 @@ type (
 	}
 
 	Asserters struct {
-		Tenants        func(tenants []string)
-		Projects       func(projects map[string][]string)
+		Tenants        func(tenants map[string]*apiv2.Tenant)
+		Projects       func(projects map[string][]*apiv2.Project)
 		Partitions     func(partitions map[string]*apiv2.Partition)
 		Sizes          func(sizes map[string]*apiv2.Size)
 		Networks       func(networks map[string]*apiv2.Network)
@@ -61,7 +62,8 @@ func NewDatacenter(t testing.TB, log *slog.Logger, testOpts ...testOpt) *Datacen
 	dc := &Datacenter{
 		t:              t,
 		testStore:      testStore,
-		projects:       make(map[string][]string),
+		tenants:        make(map[string]*apiv2.Tenant),
+		projects:       make(map[string][]*apiv2.Project),
 		partitions:     make(map[string]*apiv2.Partition),
 		sizes:          make(map[string]*apiv2.Size),
 		networks:       make(map[string]*apiv2.Network),
@@ -108,11 +110,11 @@ func (dc *Datacenter) Create(spec *scenarios.DatacenterSpec) {
 	dc.machines = entities.machines
 }
 
-func (dc *Datacenter) GetTenants() []string {
+func (dc *Datacenter) GetTenants() map[string]*apiv2.Tenant {
 	return dc.tenants
 }
 
-func (dc *Datacenter) GetProjects() map[string][]string {
+func (dc *Datacenter) GetProjects() map[string][]*apiv2.Project {
 	return dc.projects
 }
 
@@ -358,16 +360,15 @@ func (dc *Datacenter) createSwitchesAndStatuses(spec *scenarios.DatacenterSpec) 
 
 func (dc *Datacenter) copyEntities() (*Datacenter, error) {
 	var (
-		copied = &Datacenter{
-			tenants:  []string{},
-			projects: map[string][]string{},
-		}
-		err error
+		copied = &Datacenter{}
+		err    error
 	)
 
-	copied.tenants = append([]string{}, dc.tenants...)
-	for tenant, projects := range dc.projects {
-		copied.projects[tenant] = append([]string{}, projects...)
+	if copied.tenants, err = deepCopy(dc.tenants); err != nil {
+		return nil, err
+	}
+	if copied.projects, err = deepCopy(dc.projects); err != nil {
+		return nil, err
 	}
 	if copied.partitions, err = deepCopy(dc.partitions); err != nil {
 		return nil, err
@@ -417,17 +418,20 @@ func getCurrentEntities(ctx context.Context, store *testStore) (*Datacenter, err
 	if err != nil {
 		return nil, err
 	}
-	current.tenants = lo.Map(tenants, func(t *apiv2.Tenant, _ int) string {
-		return t.Login
-	})
+	current.tenants = map[string]*apiv2.Tenant{}
+	for _, t := range tenants {
+		current.tenants[t.Login] = t
+	}
 	projects, err := store.UnscopedProject().List(ctx, &apiv2.ProjectServiceListRequest{})
 	if err != nil {
 		return nil, err
 	}
-	current.projects = map[string][]string{}
+	current.projects = map[string][]*apiv2.Project{}
 	for _, p := range projects {
-		current.projects[p.Tenant] = append(current.projects[p.Tenant], p.Uuid)
-		slices.Sort(current.projects[p.Tenant])
+		current.projects[p.Tenant] = append(current.projects[p.Tenant], p)
+		slices.SortStableFunc(current.projects[p.Tenant], func(p1, p2 *apiv2.Project) int {
+			return strings.Compare(p1.Uuid, p2.Uuid)
+		})
 	}
 	partitions, err := store.Partition().List(ctx, &apiv2.PartitionQuery{})
 	if err != nil {

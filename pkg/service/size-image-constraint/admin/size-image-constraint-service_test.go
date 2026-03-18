@@ -3,6 +3,8 @@ package admin
 import (
 	"log/slog"
 	"os"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -329,6 +331,13 @@ func Test_sizeImageConstraintServiceServer_Update(t *testing.T) {
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
+
+			if got != nil {
+				slices.SortFunc(got.SizeImageConstraint.ImageConstraints, func(c1, c2 *apiv2.ImageConstraint) int {
+					return strings.Compare(c1.Image, c2.Image)
+				})
+			}
+
 			if diff := cmp.Diff(
 				tt.want, got,
 				protocmp.Transform(),
