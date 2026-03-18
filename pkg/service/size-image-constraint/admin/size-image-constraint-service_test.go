@@ -3,6 +3,8 @@ package admin
 import (
 	"log/slog"
 	"os"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -19,6 +21,7 @@ func Test_sizeImageConstraintServiceServer_Create(t *testing.T) {
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
 
 	tests := []struct {
 		name    string
@@ -57,7 +60,7 @@ func Test_sizeImageConstraintServiceServer_Create(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &sizeImageConstraintServiceServer{
 				log:  log,
-				repo: dc.TestStore.Store,
+				repo: dc.GetTestStore().Store,
 			}
 			got, err := s.Create(t.Context(), tt.req)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
@@ -82,6 +85,8 @@ func Test_sizeImageConstraintServiceServer_Delete(t *testing.T) {
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
+
 	dc.Create(&sc.DatacenterSpec{
 		Sizes:  sc.DefaultDatacenter.Sizes,
 		Images: sc.DefaultDatacenter.Images,
@@ -137,7 +142,7 @@ func Test_sizeImageConstraintServiceServer_Delete(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &sizeImageConstraintServiceServer{
 				log:  log,
-				repo: dc.TestStore.Store,
+				repo: dc.GetTestStore().Store,
 			}
 			got, err := s.Delete(t.Context(), tt.req)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
@@ -161,6 +166,8 @@ func Test_sizeImageConstraintServiceServer_Get(t *testing.T) {
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
+
 	dc.Create(&sc.DatacenterSpec{
 		Sizes:  sc.DefaultDatacenter.Sizes,
 		Images: sc.DefaultDatacenter.Images,
@@ -216,7 +223,7 @@ func Test_sizeImageConstraintServiceServer_Get(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &sizeImageConstraintServiceServer{
 				log:  log,
-				repo: dc.TestStore.Store,
+				repo: dc.GetTestStore().Store,
 			}
 			got, err := s.Get(t.Context(), tt.req)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
@@ -240,6 +247,8 @@ func Test_sizeImageConstraintServiceServer_Update(t *testing.T) {
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
+
 	dc.Create(&sc.DatacenterSpec{
 		Sizes:  sc.DefaultDatacenter.Sizes,
 		Images: sc.DefaultDatacenter.Images,
@@ -316,12 +325,19 @@ func Test_sizeImageConstraintServiceServer_Update(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &sizeImageConstraintServiceServer{
 				log:  log,
-				repo: dc.TestStore.Store,
+				repo: dc.GetTestStore().Store,
 			}
 			got, err := s.Update(t.Context(), tt.req)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
+
+			if got != nil {
+				slices.SortFunc(got.SizeImageConstraint.ImageConstraints, func(c1, c2 *apiv2.ImageConstraint) int {
+					return strings.Compare(c1.Image, c2.Image)
+				})
+			}
+
 			if diff := cmp.Diff(
 				tt.want, got,
 				protocmp.Transform(),
@@ -340,6 +356,8 @@ func Test_sizeImageConstraintServiceServer_List(t *testing.T) {
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
+
 	dc.Create(&sc.DatacenterSpec{
 		Sizes:  sc.DefaultDatacenter.Sizes,
 		Images: sc.DefaultDatacenter.Images,
@@ -441,7 +459,7 @@ func Test_sizeImageConstraintServiceServer_List(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &sizeImageConstraintServiceServer{
 				log:  log,
-				repo: dc.TestStore.Store,
+				repo: dc.GetTestStore().Store,
 			}
 			got, err := s.List(t.Context(), tt.req)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {

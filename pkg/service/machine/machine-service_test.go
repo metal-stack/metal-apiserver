@@ -589,7 +589,7 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 			createDatacenterFn: func() *sc.DatacenterSpec {
 				testDC := sc.DefaultDatacenter
 				testDC.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, "", metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, "", "", metal.MachineLivelinessAlive),
 				}
 				testDC.Machines[0].Machine.State.Value = metal.LockedState
 				return &testDC
@@ -606,7 +606,7 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 			createDatacenterFn: func() *sc.DatacenterSpec {
 				testDC := sc.DefaultDatacenter
 				testDC.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, "", metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, "", "", metal.MachineLivelinessAlive),
 				}
 				testDC.Machines[0].Machine.State.Value = metal.ReservedState
 				return &testDC
@@ -623,7 +623,7 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 			createDatacenterFn: func() *sc.DatacenterSpec {
 				testDC := sc.DefaultDatacenter
 				testDC.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, "", metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, "", "", metal.MachineLivelinessAlive),
 				}
 				testDC.Machines[0].Machine.Waiting = false
 				return &testDC
@@ -685,7 +685,7 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 			createDatacenterFn: func() *sc.DatacenterSpec {
 				testDC := sc.DefaultDatacenter
 				testDC.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeN1Medium, "", metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeN1Medium, "", "", metal.MachineLivelinessAlive),
 				}
 				testDC.Machines[0].Machine.Waiting = true
 				testDC.Machines[0].Machine.Hardware = metal.MachineHardware{
@@ -833,7 +833,7 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 				})
 				dc.Create(&testDC)
 
-				projectNetworkId := dc.Networks["project network"].Id
+				projectNetworkId := dc.GetNetworks()["project network"].Id
 				req := &apiv2.MachineServiceCreateRequest{
 					Project:        sc.Tenant1Project1,
 					Partition:      sc.Partition2,
@@ -876,7 +876,7 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 				})
 				dc.Create(&testDC)
 
-				projectNetworkId := dc.Networks["project network"].Id
+				projectNetworkId := dc.GetNetworks()["project network"].Id
 				req := &apiv2.MachineServiceCreateRequest{
 					Project:        sc.Tenant1Project2,
 					Partition:      sc.Partition1,
@@ -919,7 +919,7 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 				})
 				dc.Create(&testDC)
 
-				projectNetworkId := dc.Networks["project network"].Id
+				projectNetworkId := dc.GetNetworks()["project network"].Id
 				req := &apiv2.MachineServiceCreateRequest{
 					Project:        sc.Tenant1Project1,
 					Partition:      sc.Partition1,
@@ -962,7 +962,7 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 				})
 				dc.Create(&testDC)
 
-				projectNetworkId := dc.Networks["project network"].Id
+				projectNetworkId := dc.GetNetworks()["project network"].Id
 				req := &apiv2.MachineServiceCreateRequest{
 					Project:        sc.Tenant1Project1,
 					Partition:      sc.Partition1,
@@ -1014,14 +1014,14 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 				})
 				dc.Create(&testDC)
 
-				ipcr, err := dc.TestStore.UnscopedIP().Create(t.Context(), &apiv2.IPServiceCreateRequest{
-					Network: dc.Networks["2nd project network"].Id,
+				ipcr, err := dc.GetTestStore().UnscopedIP().Create(t.Context(), &apiv2.IPServiceCreateRequest{
+					Network: dc.GetNetworks()["2nd project network"].Id,
 					Project: sc.Tenant1Project1,
 					Name:    new("ip-project-2"),
 				})
 				require.NoError(t, err)
 
-				projectNetworkId := dc.Networks["project network"].Id
+				projectNetworkId := dc.GetNetworks()["project network"].Id
 				req := &apiv2.MachineServiceCreateRequest{
 					Project:        sc.Tenant1Project1,
 					Partition:      sc.Partition1,
@@ -1067,14 +1067,14 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 				})
 				dc.Create(&testDC)
 
-				ipcr, err := dc.TestStore.UnscopedIP().Create(t.Context(), &apiv2.IPServiceCreateRequest{
-					Network: dc.Networks["project namespaced network"].Id,
+				ipcr, err := dc.GetTestStore().UnscopedIP().Create(t.Context(), &apiv2.IPServiceCreateRequest{
+					Network: dc.GetNetworks()["project namespaced network"].Id,
 					Project: sc.Tenant1Project1,
 					Name:    new("ip-in-namespaced-project"),
 				})
 				require.NoError(t, err)
 
-				projectNetworkId := dc.Networks["project namespaced network"].Id
+				projectNetworkId := dc.GetNetworks()["project namespaced network"].Id
 				req := &apiv2.MachineServiceCreateRequest{
 					Name:           "testmachine",
 					Project:        sc.Tenant1Project1,
@@ -1104,11 +1104,11 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 				t.Errorf("it is not possible to define createDatacenterFn and createRequestFn")
 			}
 			if tt.createDatacenterFn != nil {
-				dc.CleanUp()
+				dc.Cleanup()
 				dc.Create(tt.createDatacenterFn())
 			}
 			if tt.createRequestFn != nil {
-				dc.CleanUp()
+				dc.Cleanup()
 				req, err := tt.createRequestFn()
 				tt.req = req
 				tt.wantErr = err
@@ -1116,7 +1116,7 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 
 			m := &machineServiceServer{
 				log:  log,
-				repo: dc.TestStore.Store,
+				repo: dc.GetTestStore().Store,
 			}
 			if tt.wantErr == nil {
 				test.Validate(t, tt.req)
