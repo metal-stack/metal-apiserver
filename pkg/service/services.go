@@ -15,43 +15,54 @@ import (
 	"connectrpc.com/validate"
 
 	headscalev1 "github.com/juanfont/headscale/gen/go/headscale/v1"
+	"github.com/metal-stack/api/go/permissions"
+	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
+	"github.com/metal-stack/metal-lib/auditing"
+	"github.com/redis/go-redis/v9"
+	"github.com/valkey-io/valkey-go"
+	"go.opentelemetry.io/otel/exporters/prometheus"
+	"go.opentelemetry.io/otel/sdk/metric"
+
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/api/go/metalstack/infra/v2/infrav2connect"
-	"github.com/metal-stack/api/go/permissions"
-	"github.com/valkey-io/valkey-go"
 
-	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	mdm "github.com/metal-stack/masterdata-api/pkg/client"
 	authpkg "github.com/metal-stack/metal-apiserver/pkg/auth"
+	ratelimiter "github.com/metal-stack/metal-apiserver/pkg/rate-limiter"
+
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
-	ratelimiter "github.com/metal-stack/metal-apiserver/pkg/rate-limiter"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
-	authservice "github.com/metal-stack/metal-apiserver/pkg/service/auth"
 	"github.com/metal-stack/metal-apiserver/pkg/service/bmc"
 	"github.com/metal-stack/metal-apiserver/pkg/service/boot"
+	"github.com/metal-stack/metal-apiserver/pkg/service/filesystem"
+	"github.com/metal-stack/metal-apiserver/pkg/service/health"
+	"github.com/metal-stack/metal-apiserver/pkg/service/image"
+	"github.com/metal-stack/metal-apiserver/pkg/service/ip"
+	"github.com/metal-stack/metal-apiserver/pkg/service/machine"
+	"github.com/metal-stack/metal-apiserver/pkg/service/method"
+	"github.com/metal-stack/metal-apiserver/pkg/service/network"
+	"github.com/metal-stack/metal-apiserver/pkg/service/partition"
+	"github.com/metal-stack/metal-apiserver/pkg/service/project"
+	"github.com/metal-stack/metal-apiserver/pkg/service/size"
+	"github.com/metal-stack/metal-apiserver/pkg/service/tenant"
+	"github.com/metal-stack/metal-apiserver/pkg/service/token"
+	"github.com/metal-stack/metal-apiserver/pkg/service/user"
+	"github.com/metal-stack/metal-apiserver/pkg/service/version"
+
+	authservice "github.com/metal-stack/metal-apiserver/pkg/service/auth"
 	componentadmin "github.com/metal-stack/metal-apiserver/pkg/service/component/admin"
 	componentinfra "github.com/metal-stack/metal-apiserver/pkg/service/component/infra"
 	eventinfra "github.com/metal-stack/metal-apiserver/pkg/service/event/infra"
-	"github.com/metal-stack/metal-apiserver/pkg/service/filesystem"
 	filesystemadmin "github.com/metal-stack/metal-apiserver/pkg/service/filesystem/admin"
-	"github.com/metal-stack/metal-apiserver/pkg/service/health"
-	"github.com/metal-stack/metal-apiserver/pkg/service/image"
 	imageadmin "github.com/metal-stack/metal-apiserver/pkg/service/image/admin"
-	"github.com/metal-stack/metal-apiserver/pkg/service/ip"
 	ipadmin "github.com/metal-stack/metal-apiserver/pkg/service/ip/admin"
-	"github.com/metal-stack/metal-apiserver/pkg/service/machine"
 	machineadmin "github.com/metal-stack/metal-apiserver/pkg/service/machine/admin"
-	"github.com/metal-stack/metal-apiserver/pkg/service/method"
-	"github.com/metal-stack/metal-apiserver/pkg/service/network"
 	networkadmin "github.com/metal-stack/metal-apiserver/pkg/service/network/admin"
-	"github.com/metal-stack/metal-apiserver/pkg/service/partition"
 	partitionadmin "github.com/metal-stack/metal-apiserver/pkg/service/partition/admin"
-	"github.com/metal-stack/metal-apiserver/pkg/service/project"
 	projectadmin "github.com/metal-stack/metal-apiserver/pkg/service/project/admin"
-	"github.com/metal-stack/metal-apiserver/pkg/service/size"
 	sizeimageconstraint "github.com/metal-stack/metal-apiserver/pkg/service/size-image-constraint"
 	sizeimageconstraintadmin "github.com/metal-stack/metal-apiserver/pkg/service/size-image-constraint/admin"
 	sizereservation "github.com/metal-stack/metal-apiserver/pkg/service/size-reservation"
@@ -60,19 +71,10 @@ import (
 	switchadmin "github.com/metal-stack/metal-apiserver/pkg/service/switch/admin"
 	switchinfra "github.com/metal-stack/metal-apiserver/pkg/service/switch/infra"
 	taskadmin "github.com/metal-stack/metal-apiserver/pkg/service/task/admin"
-
-	"github.com/metal-stack/metal-apiserver/pkg/service/tenant"
 	tenantadmin "github.com/metal-stack/metal-apiserver/pkg/service/tenant/admin"
-	"github.com/metal-stack/metal-apiserver/pkg/service/token"
 	tokenadmin "github.com/metal-stack/metal-apiserver/pkg/service/token/admin"
-	"github.com/metal-stack/metal-apiserver/pkg/service/user"
-	"github.com/metal-stack/metal-apiserver/pkg/service/version"
 	vpnadmin "github.com/metal-stack/metal-apiserver/pkg/service/vpn/admin"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
-	"github.com/metal-stack/metal-lib/auditing"
-	"github.com/redis/go-redis/v9"
-	"go.opentelemetry.io/otel/exporters/prometheus"
-	"go.opentelemetry.io/otel/sdk/metric"
 )
 
 type Config struct {
@@ -114,38 +116,42 @@ type RedisConfig struct {
 }
 
 func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
-	tokenStore := tokencommon.NewRedisStore(c.RedisConfig.TokenClient)
-	certStore := certs.NewRedisStore(&certs.Config{
-		RedisClient: c.RedisConfig.TokenClient,
-	})
-	projectInviteStore := invite.NewProjectRedisStore(c.RedisConfig.InviteClient)
-	tenantInviteStore := invite.NewTenantRedisStore(c.RedisConfig.InviteClient)
+	var (
+		tokenStore = tokencommon.NewRedisStore(c.RedisConfig.TokenClient)
+		certStore  = certs.NewRedisStore(&certs.Config{
+			RedisClient: c.RedisConfig.TokenClient,
+		})
+		projectInviteStore = invite.NewProjectRedisStore(c.RedisConfig.InviteClient)
+		tenantInviteStore  = invite.NewTenantRedisStore(c.RedisConfig.InviteClient)
+	)
 
-	authcfg := authpkg.Config{
+	authz, err := authpkg.NewAuthenticatorInterceptor(authpkg.Config{
 		Log:            log,
 		CertStore:      certStore,
 		AllowedIssuers: []string{c.ServerHttpURL},
 		TokenStore:     tokenStore,
 		Repo:           c.Repository,
-	}
-	authz, err := authpkg.NewAuthenticatorInterceptor(authcfg)
+	})
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize authz interceptor: %w", err)
 	}
 
-	authorizeInterceptor := authpkg.NewAuthorizeInterceptor(log, c.Repository)
+	var (
+		authorizeInterceptor  = authpkg.NewAuthorizeInterceptor(log, c.Repository)
+		validationInterceptor = validate.NewInterceptor()
+	)
 
 	// metrics interceptor
 	exporter, err := prometheus.New()
 	if err != nil {
 		return nil, err
 	}
+
 	provider := metric.NewMeterProvider(metric.WithReader(exporter))
 	metricsInterceptor, err := otelconnect.NewInterceptor(otelconnect.WithMeterProvider(provider))
 	if err != nil {
 		return nil, err
 	}
-	validationInterceptor := validate.NewInterceptor()
 
 	var (
 		logInterceptor       = newLogRequestInterceptor(log)
@@ -156,11 +162,12 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 			MaxRequestsPerMinuteToken:           c.MaxRequestsPerMinuteToken,
 			MaxRequestsPerMinuteUnauthenticated: c.MaxRequestsPerMinuteUnauthenticated,
 		})
+
+		allInterceptors      = []connect.Interceptor{metricsInterceptor, logInterceptor, authz, authorizeInterceptor, ratelimitInterceptor, validationInterceptor, tenantInterceptor}
+		allAdminInterceptors = []connect.Interceptor{metricsInterceptor, logInterceptor, authz, authorizeInterceptor, validationInterceptor, tenantInterceptor}
+		allInfraInterceptors = []connect.Interceptor{metricsInterceptor, logInterceptor, authz, authorizeInterceptor, validationInterceptor}
 	)
 
-	allInterceptors := []connect.Interceptor{metricsInterceptor, logInterceptor, authz, authorizeInterceptor, ratelimitInterceptor, validationInterceptor, tenantInterceptor}
-	allAdminInterceptors := []connect.Interceptor{metricsInterceptor, logInterceptor, authz, authorizeInterceptor, validationInterceptor, tenantInterceptor}
-	allInfraInterceptors := []connect.Interceptor{metricsInterceptor, logInterceptor, authz, authorizeInterceptor, validationInterceptor}
 	if c.Auditing != nil {
 		servicePermissions := permissions.GetServicePermissions()
 		shouldAudit := func(fullMethod string) bool {
@@ -178,53 +185,51 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 		allInterceptors = append(allInterceptors, auditInterceptor)
 		allAdminInterceptors = append(allAdminInterceptors, auditInterceptor)
 	}
-	interceptors := connect.WithInterceptors(allInterceptors...)
-	adminInterceptors := connect.WithInterceptors(allAdminInterceptors...)
-	infraInterceptors := connect.WithInterceptors(allInfraInterceptors...)
 
-	methodService := method.New(log, c.Repository)
-	tenantService := tenant.New(tenant.Config{
-		Log:         log,
-		Repo:        c.Repository,
-		InviteStore: tenantInviteStore,
-		TokenStore:  tokenStore,
-	})
-	userService := user.New(&user.Config{
-		Log:  log,
-		Repo: c.Repository,
-	})
+	var (
+		interceptors      = connect.WithInterceptors(allInterceptors...)
+		adminInterceptors = connect.WithInterceptors(allAdminInterceptors...)
+		infraInterceptors = connect.WithInterceptors(allInfraInterceptors...)
+	)
 
-	adminTenantService := tenantadmin.New(tenantadmin.Config{
-		Log:         log,
-		Repo:        c.Repository,
-		InviteStore: tenantInviteStore,
-		TokenStore:  tokenStore,
-	})
-	projectService := project.New(project.Config{
-		Log:         log,
-		InviteStore: projectInviteStore,
-		Repo:        c.Repository,
-		TokenStore:  tokenStore,
-	})
+	var (
+		filesystemService = filesystem.New(filesystem.Config{Log: log, Repo: c.Repository})
+		imageService      = image.New(image.Config{Log: log, Repo: c.Repository})
+		ipService         = ip.New(ip.Config{Log: log, Repo: c.Repository})
+		machineService    = machine.New(machine.Config{Log: log, Repo: c.Repository})
+		methodService     = method.New(log, c.Repository)
+		networkService    = network.New(network.Config{Log: log, Repo: c.Repository})
+		partitionService  = partition.New(partition.Config{Log: log, Repo: c.Repository})
+		projectService    = project.New(project.Config{
+			Log:         log,
+			InviteStore: projectInviteStore,
+			Repo:        c.Repository,
+			TokenStore:  tokenStore,
+		})
+		sizeImageConstraintService = sizeimageconstraint.New(sizeimageconstraint.Config{Log: log, Repo: c.Repository})
+		sizeReservationService     = sizereservation.New(sizereservation.Config{Log: log, Repo: c.Repository})
+		sizeService                = size.New(size.Config{Log: log, Repo: c.Repository})
+		tenantService              = tenant.New(tenant.Config{
+			Log:         log,
+			Repo:        c.Repository,
+			InviteStore: tenantInviteStore,
+			TokenStore:  tokenStore,
+		})
+		tokenService = token.New(token.Config{
+			Log:           log,
+			CertStore:     certStore,
+			TokenStore:    tokenStore,
+			Repo:          c.Repository,
+			Issuer:        c.ServerHttpURL,
+			AdminSubjects: c.Admins,
+		})
+		userService = user.New(&user.Config{
+			Log:  log,
+			Repo: c.Repository,
+		})
+		versionService = version.New(version.Config{Log: log})
+	)
 
-	ipService := ip.New(ip.Config{Log: log, Repo: c.Repository})
-	machineService := machine.New(machine.Config{Log: log, Repo: c.Repository})
-	networkService := network.New(network.Config{Log: log, Repo: c.Repository})
-	filesystemService := filesystem.New(filesystem.Config{Log: log, Repo: c.Repository})
-	partitionService := partition.New(partition.Config{Log: log, Repo: c.Repository})
-	sizeService := size.New(size.Config{Log: log, Repo: c.Repository})
-	sizeReservationService := sizereservation.New(sizereservation.Config{Log: log, Repo: c.Repository})
-	sizeImageConstraintService := sizeimageconstraint.New(sizeimageconstraint.Config{Log: log, Repo: c.Repository})
-	imageService := image.New(image.Config{Log: log, Repo: c.Repository})
-	tokenService := token.New(token.Config{
-		Log:           log,
-		CertStore:     certStore,
-		TokenStore:    tokenStore,
-		Repo:          c.Repository,
-		Issuer:        c.ServerHttpURL,
-		AdminSubjects: c.Admins,
-	})
-	versionService := version.New(version.Config{Log: log})
 	healthService, err := health.New(health.Config{
 		Ctx:                 context.Background(),
 		Log:                 log,
@@ -248,45 +253,55 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	mux.Handle(apiv2connect.NewMethodServiceHandler(methodService, interceptors))
 	mux.Handle(apiv2connect.NewNetworkServiceHandler(networkService, interceptors))
 	mux.Handle(apiv2connect.NewPartitionServiceHandler(partitionService, interceptors))
-	mux.Handle(apiv2connect.NewSizeServiceHandler(sizeService, interceptors))
-	mux.Handle(apiv2connect.NewSizeReservationServiceHandler(sizeReservationService, interceptors))
-	mux.Handle(apiv2connect.NewSizeImageConstraintServiceHandler(sizeImageConstraintService, interceptors))
 	mux.Handle(apiv2connect.NewProjectServiceHandler(projectService, interceptors))
+	mux.Handle(apiv2connect.NewSizeImageConstraintServiceHandler(sizeImageConstraintService, interceptors))
+	mux.Handle(apiv2connect.NewSizeReservationServiceHandler(sizeReservationService, interceptors))
+	mux.Handle(apiv2connect.NewSizeServiceHandler(sizeService, interceptors))
 	mux.Handle(apiv2connect.NewTenantServiceHandler(tenantService, interceptors))
-	mux.Handle(apiv2connect.NewUserServiceHandler(userService, interceptors))
 	mux.Handle(apiv2connect.NewTokenServiceHandler(tokenService, interceptors))
+	mux.Handle(apiv2connect.NewUserServiceHandler(userService, interceptors))
 	mux.Handle(apiv2connect.NewVersionServiceHandler(versionService, interceptors))
 
 	// Admin services
-	adminIpService := ipadmin.New(ipadmin.Config{Log: log, Repo: c.Repository})
-	adminImageService := imageadmin.New(imageadmin.Config{Log: log, Repo: c.Repository})
-	adminFilesystemService := filesystemadmin.New(filesystemadmin.Config{Log: log, Repo: c.Repository})
-	adminPartitionService := partitionadmin.New(partitionadmin.Config{Log: log, Repo: c.Repository})
-	adminProjectService := projectadmin.New(projectadmin.Config{Log: log, Repo: c.Repository})
-	adminSizeService := sizeadmin.New(sizeadmin.Config{Log: log, Repo: c.Repository})
-	adminSizeReservationService := sizereservationadmin.New(sizereservationadmin.Config{Log: log, Repo: c.Repository})
-	adminSizeImageConstraintService := sizeimageconstraintadmin.New(sizeimageconstraintadmin.Config{Log: log, Repo: c.Repository})
-	adminMachineService := machineadmin.New(machineadmin.Config{Log: log, Repo: c.Repository})
-	adminNetworkService := networkadmin.New(networkadmin.Config{Log: log, Repo: c.Repository})
-	adminSwitchService := switchadmin.New(switchadmin.Config{Log: log, Repo: c.Repository})
-	adminTokenService := tokenadmin.New(tokenadmin.Config{Log: log, CertStore: certStore, TokenStore: tokenStore, TokenService: tokenService})
-	adminTaskService := taskadmin.New(taskadmin.Config{Log: log, Repo: c.Repository})
-	adminComponentService := componentadmin.New(componentadmin.Config{Log: log, Repo: c.Repository})
-	mux.Handle(adminv2connect.NewIPServiceHandler(adminIpService, adminInterceptors))
-	mux.Handle(adminv2connect.NewImageServiceHandler(adminImageService, adminInterceptors))
+	var (
+		adminComponentService           = componentadmin.New(componentadmin.Config{Log: log, Repo: c.Repository})
+		adminFilesystemService          = filesystemadmin.New(filesystemadmin.Config{Log: log, Repo: c.Repository})
+		adminImageService               = imageadmin.New(imageadmin.Config{Log: log, Repo: c.Repository})
+		adminIpService                  = ipadmin.New(ipadmin.Config{Log: log, Repo: c.Repository})
+		adminMachineService             = machineadmin.New(machineadmin.Config{Log: log, Repo: c.Repository})
+		adminNetworkService             = networkadmin.New(networkadmin.Config{Log: log, Repo: c.Repository})
+		adminPartitionService           = partitionadmin.New(partitionadmin.Config{Log: log, Repo: c.Repository})
+		adminProjectService             = projectadmin.New(projectadmin.Config{Log: log, Repo: c.Repository})
+		adminSizeImageConstraintService = sizeimageconstraintadmin.New(sizeimageconstraintadmin.Config{Log: log, Repo: c.Repository})
+		adminSizeReservationService     = sizereservationadmin.New(sizereservationadmin.Config{Log: log, Repo: c.Repository})
+		adminSizeService                = sizeadmin.New(sizeadmin.Config{Log: log, Repo: c.Repository})
+		adminSwitchService              = switchadmin.New(switchadmin.Config{Log: log, Repo: c.Repository})
+		adminTaskService                = taskadmin.New(taskadmin.Config{Log: log, Repo: c.Repository})
+		adminTenantService              = tenantadmin.New(tenantadmin.Config{
+			Log:         log,
+			Repo:        c.Repository,
+			InviteStore: tenantInviteStore,
+			TokenStore:  tokenStore,
+		})
+		adminTokenService = tokenadmin.New(tokenadmin.Config{Log: log, CertStore: certStore, TokenStore: tokenStore, TokenService: tokenService})
+	)
+
+	mux.Handle(adminv2connect.NewComponentServiceHandler(adminComponentService, adminInterceptors))
 	mux.Handle(adminv2connect.NewFilesystemServiceHandler(adminFilesystemService, adminInterceptors))
+	mux.Handle(adminv2connect.NewImageServiceHandler(adminImageService, adminInterceptors))
+	mux.Handle(adminv2connect.NewIPServiceHandler(adminIpService, adminInterceptors))
+	mux.Handle(adminv2connect.NewMachineServiceHandler(adminMachineService, adminInterceptors))
+	mux.Handle(adminv2connect.NewNetworkServiceHandler(adminNetworkService, adminInterceptors))
 	mux.Handle(adminv2connect.NewPartitionServiceHandler(adminPartitionService, adminInterceptors))
 	mux.Handle(adminv2connect.NewProjectServiceHandler(adminProjectService, adminInterceptors))
-	mux.Handle(adminv2connect.NewSizeServiceHandler(adminSizeService, adminInterceptors))
-	mux.Handle(adminv2connect.NewSizeReservationServiceHandler(adminSizeReservationService, adminInterceptors))
 	mux.Handle(adminv2connect.NewSizeImageConstraintServiceHandler(adminSizeImageConstraintService, adminInterceptors))
-	mux.Handle(adminv2connect.NewTenantServiceHandler(adminTenantService, adminInterceptors))
-	mux.Handle(adminv2connect.NewNetworkServiceHandler(adminNetworkService, adminInterceptors))
+	mux.Handle(adminv2connect.NewSizeReservationServiceHandler(adminSizeReservationService, adminInterceptors))
+	mux.Handle(adminv2connect.NewSizeServiceHandler(adminSizeService, adminInterceptors))
 	mux.Handle(adminv2connect.NewSwitchServiceHandler(adminSwitchService, adminInterceptors))
-	mux.Handle(adminv2connect.NewMachineServiceHandler(adminMachineService, adminInterceptors))
-	mux.Handle(adminv2connect.NewTokenServiceHandler(adminTokenService, adminInterceptors))
 	mux.Handle(adminv2connect.NewTaskServiceHandler(adminTaskService, adminInterceptors))
-	mux.Handle(adminv2connect.NewComponentServiceHandler(adminComponentService, adminInterceptors))
+	mux.Handle(adminv2connect.NewTenantServiceHandler(adminTenantService, adminInterceptors))
+	mux.Handle(adminv2connect.NewTokenServiceHandler(adminTokenService, adminInterceptors))
+
 	if c.HeadscaleClient != nil {
 		adminVPNService := vpnadmin.New(vpnadmin.Config{
 			Log:                          log,
@@ -298,25 +313,29 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	}
 
 	// Infra services, we use adminInterceptors to prevent rate limiting
-	bmcService := bmc.New(bmc.Config{Log: log, Repo: c.Repository})
-	bootService := boot.New(boot.Config{Log: log, Repo: c.Repository, BMCSuperuserPassword: c.BMCSuperuserPassword})
+	var (
+		bmcService            = bmc.New(bmc.Config{Log: log, Repo: c.Repository})
+		bootService           = boot.New(boot.Config{Log: log, Repo: c.Repository, BMCSuperuserPassword: c.BMCSuperuserPassword})
+		infraComponentService = componentinfra.New(componentinfra.Config{Log: log, Repo: c.Repository, Expiration: c.ComponentExpiration})
+		infraEventService     = eventinfra.New(eventinfra.Config{Log: log, Repo: c.Repository})
+		infraSwitchService    = switchinfra.New(switchinfra.Config{Log: log, Repo: c.Repository})
+	)
+
 	mux.Handle(infrav2connect.NewBMCServiceHandler(bmcService, infraInterceptors))
 	mux.Handle(infrav2connect.NewBootServiceHandler(bootService, infraInterceptors))
-
-	infraSwitchService := switchinfra.New(switchinfra.Config{Log: log, Repo: c.Repository})
-	infraEventService := eventinfra.New(eventinfra.Config{Log: log, Repo: c.Repository})
-	infraComponentService := componentinfra.New(componentinfra.Config{Log: log, Repo: c.Repository, Expiration: c.ComponentExpiration})
-	mux.Handle(infrav2connect.NewSwitchServiceHandler(infraSwitchService, infraInterceptors))
-	mux.Handle(infrav2connect.NewEventServiceHandler(infraEventService, infraInterceptors))
 	mux.Handle(infrav2connect.NewComponentServiceHandler(infraComponentService, infraInterceptors))
+	mux.Handle(infrav2connect.NewEventServiceHandler(infraEventService, infraInterceptors))
+	mux.Handle(infrav2connect.NewSwitchServiceHandler(infraSwitchService, infraInterceptors))
 
-	allServiceNames := permissions.GetServices()
+	var (
+		allServiceNames = permissions.GetServices()
+		checker         = grpchealth.NewStaticChecker(allServiceNames...)
+		reflector       = grpcreflect.NewStaticReflector(allServiceNames...)
+	)
+
 	// Static HealthCheckers
-	checker := grpchealth.NewStaticChecker(allServiceNames...)
 	mux.Handle(grpchealth.NewHandler(checker))
-
 	// enable remote service listing by enabling reflection
-	reflector := grpcreflect.NewStaticReflector(allServiceNames...)
 	mux.Handle(grpcreflect.NewHandlerV1(reflector))
 	mux.Handle(grpcreflect.NewHandlerV1Alpha(reflector))
 
@@ -329,6 +348,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	// Add all authentication handlers in one go
 	mux.Handle(authHandlerPath, authHandler)
 	// END OIDC Login Authentication
+
 	return mux, nil
 }
 

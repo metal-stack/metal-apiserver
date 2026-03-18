@@ -270,9 +270,11 @@ func (r *switchRepository) GetSwitchesWithConnectedMachines(ctx context.Context,
 		switchesWithMachines = append(switchesWithMachines, switchWithMachine)
 	}
 
-	switchesWithMachines = lo.Filter(switchesWithMachines, func(swm *apiv2.SwitchWithMachines, _ int) bool {
-		return len(swm.Connections) > 0
-	})
+	if query != nil && query.Uuid != nil {
+		switchesWithMachines = lo.Filter(switchesWithMachines, func(swm *apiv2.SwitchWithMachines, _ int) bool {
+			return len(swm.Connections) > 0
+		})
+	}
 
 	return switchesWithMachines, nil
 }
