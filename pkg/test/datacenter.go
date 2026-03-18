@@ -160,15 +160,17 @@ func (dc *Datacenter) Cleanup() {
 	dc.testStore.CleanUp(dc.t)
 }
 
-// Assert tests whether all changes applied to a Datacenter were intended.
+// Assert tests whether all of the intended changes (and no others) were applied to the database.
 //
 // Usage:
 //
-// After calling Create on a Datacenter create a copy of it by calling Copy.
+// Define modifier functions that express what changes you expect the functions you are testing to apply to the database.
 // Run the functions you are testing.
-// Call Assert and pass the copy of the Datacenter, the original (possibly modified) Datacenter, and a modify function.
-// The modify function contains all changes that you expect to have been applied by the functions you are testing.
-// Assert will apply the modify function and fail if the Datacenters differ after that.
+// Call dc.Assert(mods) with the modifiers you defined.
+// Assert will fetch all current entities from the database and apply the modifications to the current datacenter.
+// If the results differ Assert will return an error containing the diff.
+// A `-` in the diff indicates a field that was expected but is not present in the database.
+// A `+` in the diff indicates a field that was unexpectedly present in the database.
 func (dc *Datacenter) Assert(mods *Asserters, opts ...cmp.Option) error {
 	copied, err := dc.copyEntities()
 	require.NoError(dc.t, err)
