@@ -443,12 +443,6 @@ func Test_vpnService_EvaluateVPNConnected(t *testing.T) {
 				protocmp.IgnoreFields(
 					&apiv2.Image{}, "classification", "description", "expires_at", "features", "id", "meta", "name", "url",
 				),
-				protocmp.IgnoreFields(
-					&apiv2.MachineBios{},
-				),
-				protocmp.IgnoreFields(
-					&apiv2.MachineHardware{},
-				),
 				cmpopts.IgnoreUnexported(),
 			); diff != "" {
 				t.Errorf("%v, want %v diff: %s", got, tt.want, diff)
