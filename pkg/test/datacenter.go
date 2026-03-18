@@ -87,10 +87,10 @@ func (dc *Datacenter) Create(spec *scenarios.DatacenterSpec) {
 	dc.createTenantsAndMembers(spec)
 	dc.createImages(spec)
 	dc.createSizes(spec)
-	CreateSizeReservations(dc.t, dc.testStore, spec.SizeReservations)
-	CreateSizeImageConstraints(dc.t, dc.testStore, spec.SizeImageConstraints)
-	CreateNetworks(dc.t, dc.testStore, spec.Networks)
-	CreateIPs(dc.t, dc.testStore, spec.IPs)
+	dc.createSizeReservations(spec)
+	dc.createSizeImageConstraints(spec)
+	dc.createNetworks(spec)
+	dc.createIPs(spec)
 	dc.createMachines(spec)
 	dc.createSwitchesAndStatuses(spec)
 
@@ -319,6 +319,22 @@ func (dc *Datacenter) createSizes(spec *scenarios.DatacenterSpec) {
 		})
 	}
 	CreateSizes(dc.t, dc.testStore, req)
+}
+
+func (dc *Datacenter) createSizeReservations(spec *scenarios.DatacenterSpec) {
+	CreateSizeReservations(dc.t, dc.testStore, spec.SizeReservations)
+}
+
+func (dc *Datacenter) createSizeImageConstraints(spec *scenarios.DatacenterSpec) {
+	CreateSizeImageConstraints(dc.t, dc.testStore, spec.SizeImageConstraints)
+}
+
+func (dc *Datacenter) createNetworks(spec *scenarios.DatacenterSpec) {
+	CreateNetworks(dc.t, dc.testStore, spec.Networks)
+}
+
+func (dc *Datacenter) createIPs(spec *scenarios.DatacenterSpec) {
+	CreateIPs(dc.t, dc.testStore, spec.IPs)
 }
 
 func (dc *Datacenter) createMachines(spec *scenarios.DatacenterSpec) {
