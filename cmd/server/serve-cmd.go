@@ -51,6 +51,7 @@ func newServeCmd() *cli.Command {
 			rethinkdbDBNameFlag,
 			rethinkdbPasswordFlag,
 			rethinkdbUserFlag,
+			auditingSearchBackendFlag,
 			auditingTimescaleEnabledFlag,
 			auditingTimescaleHostFlag,
 			auditingTimescalePortFlag,
