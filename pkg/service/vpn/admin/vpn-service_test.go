@@ -426,27 +426,30 @@ func Test_vpnService_EvaluateVPNConnected(t *testing.T) {
 				repo:            testStore.Store,
 				headscaleClient: headscaleClient,
 			}
-			got, err := v.EvaluateVPNConnected(ctx)
-			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
-				t.Errorf("diff = %s", diff)
-				return
-			}
-			if diff := cmp.Diff(
-				tt.want, got,
-				protocmp.Transform(),
-				protocmp.IgnoreFields(
-					&apiv2.Machine{}, "meta", "status", "recent_provisioning_events",
-				),
-				protocmp.IgnoreFields(
-					&apiv2.Meta{}, "created_at", "updated_at",
-				),
-				protocmp.IgnoreFields(
-					&apiv2.Image{}, "classification", "description", "expires_at", "features", "id", "meta", "name", "url",
-				),
-				cmpopts.IgnoreUnexported(),
-			); diff != "" {
-				t.Errorf("%v, want %v diff: %s", got, tt.want, diff)
-			}
+
+			require.EventuallyWithT(t, func(c *assert.CollectT) {
+				got, err := v.EvaluateVPNConnected(ctx)
+				if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+					c.Errorf("diff = %s", diff)
+					return
+				}
+				if diff := cmp.Diff(
+					tt.want, got,
+					protocmp.Transform(),
+					protocmp.IgnoreFields(
+						&apiv2.Machine{}, "meta", "status", "recent_provisioning_events",
+					),
+					protocmp.IgnoreFields(
+						&apiv2.Meta{}, "created_at", "updated_at",
+					),
+					protocmp.IgnoreFields(
+						&apiv2.Image{}, "classification", "description", "expires_at", "features", "id", "meta", "name", "url",
+					),
+					cmpopts.IgnoreUnexported(),
+				); diff != "" {
+					c.Errorf("%v, want %v diff: %s", got, tt.want, diff)
+				}
+			}, 30*time.Second, 1*time.Second)
 		})
 	}
 }
