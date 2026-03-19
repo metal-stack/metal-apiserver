@@ -262,6 +262,17 @@ func (r *machineRepository) createMachineAllocationSpec(ctx context.Context, req
 
 }
 
+/* TODO remove after impl.
+   // PrivatePrimaryUnshared is a network which is for machines which is private
+   PrivatePrimaryUnshared = "privateprimaryunshared" => CHILD
+   // PrivatePrimaryShared is a network which is for machines which is private and shared for other networks
+   // This is the case for firewalls and nodes in storage clusters
+   PrivatePrimaryShared = "privateprimaryshared" => CHILD_SHARED
+   // PrivateSecondaryShared is a network which is for machines which is consumed from a other shared network
+   // This is the case for firewall in other clusters which consume the storage
+   PrivateSecondaryShared = "privatesecondaryshared" => CHILD_SHARED if machine/firewall project != network project
+*/
+
 func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAllocationSpec) (allocatedMachine *metal.Machine, rollbackMachine *metal.Machine, err error) {
 	if err := r.validateAllocationSpec(spec); err != nil {
 		return nil, nil, err
