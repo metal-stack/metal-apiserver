@@ -163,7 +163,7 @@ func Test_auditServiceServer_Get(t *testing.T) {
 
 			s := &auditServiceServer{
 				log:  log,
-				repo: repository.New(repository.Config{Log: log}),
+				repo: repository.New(repository.Config{Log: log, Auditing: c}),
 				c:    c,
 			}
 
@@ -297,7 +297,7 @@ func Test_auditServiceServer_List(t *testing.T) {
 
 			s := &auditServiceServer{
 				log:  log,
-				repo: repository.New(repository.Config{Log: log}),
+				repo: repository.New(repository.Config{Log: log, Auditing: c}),
 				c:    c,
 			}
 

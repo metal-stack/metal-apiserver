@@ -88,7 +88,7 @@ func Test_auditServiceServer_Get(t *testing.T) {
 
 			s := &auditServiceServer{
 				log:  log,
-				repo: repository.New(repository.Config{Log: log}).UnscopedAudit(c),
+				repo: repository.New(repository.Config{Log: log, Auditing: c}).UnscopedAudit(),
 			}
 
 			if tt.wantErr == nil {
@@ -232,7 +232,7 @@ func Test_auditServiceServer_List(t *testing.T) {
 
 			s := &auditServiceServer{
 				log:  log,
-				repo: repository.New(repository.Config{Log: log}).UnscopedAudit(c),
+				repo: repository.New(repository.Config{Log: log, Auditing: c}).UnscopedAudit(),
 			}
 
 			if tt.wantErr == nil {

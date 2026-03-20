@@ -27,6 +27,7 @@ type (
 		task      *task.Client
 		queue     *queue.Queue
 		component valkey.Client
+		auditing  auditing.Auditing
 	}
 
 	Config struct {
@@ -37,6 +38,7 @@ type (
 		Task             *task.Client
 		Queue            *queue.Queue
 		Component        valkey.Client
+		Auditing         auditing.Auditing
 	}
 
 	store[R Repo, E Entity, M Message, C CreateMessage, U UpdateMessage, Q Query] struct {
@@ -54,6 +56,7 @@ func New(c Config) *Store {
 		task:      c.Task,
 		queue:     c.Queue,
 		component: c.Component,
+		auditing:  c.Auditing,
 	}
 }
 
@@ -255,19 +258,19 @@ func (s *Store) Switch() Switch {
 	}
 }
 
-func (s *Store) Audit(c auditing.Auditing, tenant string) Audit {
-	return s.audit(c, &TenantScope{
+func (s *Store) Audit(tenant string) Audit {
+	return s.audit(&TenantScope{
 		tenantID: tenant,
 	})
 }
 
-func (s *Store) UnscopedAudit(c auditing.Auditing) Audit {
-	return s.audit(c, nil)
+func (s *Store) UnscopedAudit() Audit {
+	return s.audit(nil)
 }
 
-func (s *Store) audit(c auditing.Auditing, scope *TenantScope) Audit {
+func (s *Store) audit(scope *TenantScope) Audit {
 	repository := &auditRepository{
-		c:     c,
+		c:     s.auditing,
 		scope: scope,
 	}
 

@@ -31,7 +31,7 @@ func New(c Config) adminv2connect.AuditServiceHandler {
 	return &auditServiceServer{
 		log:      c.Log.WithGroup("adminAuditService"),
 		disabled: c.AuditClient == nil,
-		repo:     c.Repo.UnscopedAudit(c.AuditClient),
+		repo:     c.Repo.UnscopedAudit(),
 	}
 }
 

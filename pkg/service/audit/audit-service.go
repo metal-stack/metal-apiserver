@@ -46,7 +46,7 @@ func (a *auditServiceServer) Get(ctx context.Context, rq *apiv2.AuditServiceGetR
 		phase = *rq.Phase
 	}
 
-	traces, err := a.repo.Audit(a.c, rq.Login).List(ctx, &apiv2.AuditQuery{
+	traces, err := a.repo.Audit(rq.Login).List(ctx, &apiv2.AuditQuery{
 		Uuid:  &rq.Uuid,
 		Phase: &phase,
 	})
@@ -69,7 +69,7 @@ func (a *auditServiceServer) List(ctx context.Context, rq *apiv2.AuditServiceLis
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("the audit backend is currently disabled"))
 	}
 
-	traces, err := a.repo.Audit(a.c, rq.Login).List(ctx, rq.Query)
+	traces, err := a.repo.Audit(rq.Login).List(ctx, rq.Query)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

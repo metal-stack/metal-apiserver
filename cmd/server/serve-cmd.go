@@ -150,6 +150,7 @@ func newServeCmd() *cli.Command {
 					Task:             task,
 					Queue:            queue,
 					Component:        redisConfig.ComponentClient,
+					Auditing:         auditSearchBackend,
 				})
 				stage = ctx.String(stageFlag.Name)
 			)
