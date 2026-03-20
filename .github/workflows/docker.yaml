@@ -36,8 +36,7 @@ jobs:
   tests:
     name: All tests succeeded
     runs-on: ubuntu-latest
-    needs: 
-      - test
+    needs: [test]
     if: always()
     steps:
       - name: Check all matrix jobs passed
@@ -45,7 +44,7 @@ jobs:
         run: exit 1
 
   test:
-    name: ${{ matrix.package-group }}
+    name: Test ${{ matrix.package-group }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -65,20 +64,20 @@ jobs:
             packages: ./pkg/service/image/... ./pkg/service/size/...
           - package-group: e2e
             packages: ./pkg/e2e
-          - package-group: rest
+          - package-group: other
             # Catch-all: everything not covered above, including cmd/ and top-level pkg/
             packages: >-
               $(go list ./... |
                 grep -v 'metal-apiserver/pkg/service/e2e' |
-                grep -v 'metal-apiserver/pkg/service/ip' |
                 grep -v 'metal-apiserver/pkg/service/image' |
-                grep -v 'metal-apiserver/pkg/service/network' |
-                grep -v 'metal-apiserver/pkg/service/project' |
-                grep -v 'metal-apiserver/pkg/service/tenant' |
+                grep -v 'metal-apiserver/pkg/service/ip' |
                 grep -v 'metal-apiserver/pkg/service/machine' |
+                grep -v 'metal-apiserver/pkg/service/network' |
+                grep -v 'metal-apiserver/pkg/service/partition' |
+                grep -v 'metal-apiserver/pkg/service/project' |
                 grep -v 'metal-apiserver/pkg/service/size' |
                 grep -v 'metal-apiserver/pkg/service/switch' |
-                grep -v 'metal-apiserver/pkg/service/partition' |
+                grep -v 'metal-apiserver/pkg/service/tenant' |
                 grep -v 'metal-apiserver/pkg/service/vpn' |
                 tr '\n' ' ')
 
