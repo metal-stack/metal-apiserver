@@ -60,19 +60,12 @@ func newVPNCmd() *cli.Command {
 						return fmt.Errorf("unable to create datastore: %w", err)
 					}
 
-					config := repository.Config{
-						Log:       log,
-						Datastore: ds,
-					}
-
-					repo, err := repository.New(config)
-					if err != nil {
-						return fmt.Errorf("unable to create repository: %w", err)
-					}
-
 					vpnService := vpnadmin.New(vpnadmin.Config{
-						Log:             log,
-						Repo:            repo,
+						Log: log,
+						Repo: repository.New(repository.Config{
+							Log:       log,
+							Datastore: ds,
+						}),
 						HeadscaleClient: hc,
 					})
 
