@@ -33,9 +33,14 @@ jobs:
       - name: Lint Go
         uses: golangci/golangci-lint-action@v9
 
+  tests:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: 
+      - test
 
   test:
-    name: Run Tests (${{ matrix.package-group }})
+    name: ${{ matrix.package-group }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
