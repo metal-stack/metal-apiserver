@@ -14,7 +14,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-// might return (nil, nil) if auditing is disabled!
+// might return (nil, nil, nil) if auditing is disabled!
 func createAuditingClient(cli *cli.Context, log *slog.Logger) (searchBackend auditing.Auditing, backends []auditing.Auditing, err error) {
 	const (
 		auditingBackendTimescaleDB = "timescaledb"

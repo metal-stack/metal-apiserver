@@ -13,8 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TODO: These tests are weird? Why is it necessary to repeat everything that's already defined in the API? This is why we have codegen.
-
 func Test_getTokenPermissions(t *testing.T) {
 	tests := []struct {
 		name               string
