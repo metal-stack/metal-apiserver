@@ -40,8 +40,12 @@ jobs:
     if: always()
     steps:
       - name: Check all matrix jobs passed
-        if: ${{ contains(needs.*.result, 'FAIL') }}
-        run: exit 1
+        run: |
+          if [[ ${{ needs.test.result }} == "success" ]]; then
+            exit 0
+          else
+            exit 1
+          fi
 
   test:
     name: Test ${{ matrix.package-group }}
