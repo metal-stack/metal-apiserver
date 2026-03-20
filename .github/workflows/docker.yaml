@@ -39,13 +39,12 @@ jobs:
     needs: [test]
     if: always()
     steps:
-      - name: Check all matrix jobs passed
-        run: |
-          if [[ ${{ needs.test.result }} == "success" ]]; then
-            exit 0
-          else
-            exit 1
-          fi
+      - name: Matrix jobs passed
+        if: ${{ contains(needs.test.result, 'success') }}
+        run: exit 0
+      - name: Fail if matrix jobs did not succeed 
+        if: ${{ !contains(needs.test.result, 'success') }}
+        run: exit 1
 
   test:
     name: Test ${{ matrix.package-group }}
@@ -72,7 +71,7 @@ jobs:
             # Catch-all: everything not covered above, including cmd/ and top-level pkg/
             packages: >-
               $(go list ./... |
-                grep -v 'metal-apiserver/pkg/service/e2e' |
+                grep -v 'metal-apiserver/pkg/e2e' |
                 grep -v 'metal-apiserver/pkg/service/image' |
                 grep -v 'metal-apiserver/pkg/service/ip' |
                 grep -v 'metal-apiserver/pkg/service/machine' |
