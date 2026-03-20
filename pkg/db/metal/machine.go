@@ -237,6 +237,7 @@ type MachineNetwork struct {
 	Shared         bool   `rethinkdb:"shared"`
 
 	// New network properties, keep the old for backward compatibility
+	ProjectID   string       `rethinkdb:"projectid" json:"projectid"`
 	NetworkType *NetworkType `rethinkdb:"networktype"`
 	NATType     *NATType     `rethinkdb:"nattype"`
 }

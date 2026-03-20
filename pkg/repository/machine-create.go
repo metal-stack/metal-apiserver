@@ -1049,6 +1049,7 @@ func (r *machineRepository) makeMachineNetwork(ctx context.Context, spec *machin
 		// Nat: nat,
 		Vrf: n.network.Vrf,
 		// New network properties
+		ProjectID:   n.network.ProjectID,
 		NetworkType: n.network.NetworkType,
 		NATType:     n.network.NATType,
 	}
