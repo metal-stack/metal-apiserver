@@ -30,7 +30,7 @@ func Test_getTokenPermissions(t *testing.T) {
 			name:  "empty token",
 			token: nil,
 			want: tokenPermissions{
-				"/grpc.reflection.v1.Serv erReflection/ServerReflectionInfo":     {"*": {}},
+				"/grpc.reflection.v1.ServerReflection/ServerReflectionInfo":      {"*": {}},
 				"/grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo": {"*": {}},
 				"/metalstack.api.v2.HealthService/Get":                           {"*": {}},
 				"/metalstack.api.v2.MethodService/List":                          {"*": {}},
