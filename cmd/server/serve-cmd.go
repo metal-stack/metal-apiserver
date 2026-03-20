@@ -26,7 +26,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/service"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 
-	"github.com/metal-stack/metal-lib/auditing"
 	"github.com/metal-stack/v"
 	"github.com/redis/go-redis/v9"
 	"github.com/urfave/cli/v2"
@@ -52,6 +51,7 @@ func newServeCmd() *cli.Command {
 			rethinkdbDBNameFlag,
 			rethinkdbPasswordFlag,
 			rethinkdbUserFlag,
+			auditingSearchBackendFlag,
 			auditingTimescaleEnabledFlag,
 			auditingTimescaleHostFlag,
 			auditingTimescalePortFlag,
@@ -59,6 +59,14 @@ func newServeCmd() *cli.Command {
 			auditingTimescaleUserFlag,
 			auditingTimescalePasswordFlag,
 			auditingTimescaleRetentionFlag,
+			auditingSplunkEnabledFlag,
+			auditingSplunkEndpointFlag,
+			auditingSplunkHecTokenFlag,
+			auditingSplunkHostFlag,
+			auditingSplunkIndexFlag,
+			auditingSplunkSourceFlag,
+			auditingSplunkSourceTypeFlag,
+			auditingSplunkCaFlag,
 			stageFlag,
 			redisAddrFlag,
 			redisPasswordFlag,
@@ -87,7 +95,7 @@ func newServeCmd() *cli.Command {
 				return fmt.Errorf("unable to create logger %w", err)
 			}
 
-			audit, err := createAuditingClient(ctx, log)
+			auditSearchBackend, auditBackends, err := createAuditingClient(ctx, log)
 			if err != nil {
 				return fmt.Errorf("unable to create auditing client: %w", err)
 			}
@@ -134,8 +142,7 @@ func newServeCmd() *cli.Command {
 			var (
 				task  = task.NewClient(log, redisConfig.AsyncClient)
 				queue = queue.New(log, redisConfig.QueueClient)
-
-				config = repository.Config{
+				repo  = repository.New(repository.Config{
 					Log:              log,
 					MasterdataClient: mc,
 					Datastore:        ds,
@@ -143,15 +150,11 @@ func newServeCmd() *cli.Command {
 					Task:             task,
 					Queue:            queue,
 					Component:        redisConfig.ComponentClient,
-				}
+					Auditing:         auditSearchBackend,
+				})
+				stage = ctx.String(stageFlag.Name)
 			)
 
-			repo, err := repository.New(config)
-			if err != nil {
-				return fmt.Errorf("unable to create repository: %w", err)
-			}
-
-			stage := ctx.String(stageFlag.Name)
 			c := service.Config{
 				HttpServerEndpoint:                  ctx.String(httpServerEndpointFlag.Name),
 				MetricsServerEndpoint:               ctx.String(metricServerEndpointFlag.Name),
@@ -162,7 +165,8 @@ func newServeCmd() *cli.Command {
 				IpamClient:                          ipam,
 				ServerHttpURL:                       ctx.String(serverHttpUrlFlag.Name),
 				FrontEndUrl:                         ctx.String(frontEndUrlFlag.Name),
-				Auditing:                            audit,
+				AuditSearchBackend:                  auditSearchBackend,
+				AuditBackends:                       auditBackends,
 				Stage:                               stage,
 				RedisConfig:                         redisConfig,
 				Admins:                              ctx.StringSlice(adminsFlag.Name),
@@ -231,30 +235,6 @@ func createMasterdataClient(cli *cli.Context, log *slog.Logger) (mdm.Client, err
 	log.Info("masterdata client initialized")
 
 	return client, nil
-}
-
-// createAuditingClient creates a new auditing client
-// Can return nil,nil if auditing is disabled!
-func createAuditingClient(cli *cli.Context, log *slog.Logger) (auditing.Auditing, error) {
-	const auditingComponent = "metal-stack.io"
-
-	auditingEnabled := cli.Bool(auditingTimescaleEnabledFlag.Name)
-	if !auditingEnabled {
-		return nil, nil
-	}
-
-	auditingCfg := auditing.Config{
-		Log:       log,
-		Component: auditingComponent,
-	}
-	return auditing.NewTimescaleDB(auditingCfg, auditing.TimescaleDbConfig{
-		Host:      cli.String(auditingTimescaleHostFlag.Name),
-		Port:      cli.String(auditingTimescalePortFlag.Name),
-		DB:        cli.String(auditingTimescaleDbFlag.Name),
-		User:      cli.String(auditingTimescaleUserFlag.Name),
-		Password:  cli.String(auditingTimescalePasswordFlag.Name),
-		Retention: cli.String(auditingTimescaleRetentionFlag.Name),
-	})
 }
 
 type RedisDatabase string

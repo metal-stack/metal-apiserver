@@ -23,6 +23,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/service/token"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
+	"github.com/metal-stack/metal-lib/auditing"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 	"github.com/valkey-io/valkey-go"
@@ -158,6 +159,12 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 	tokenStore := tokencommon.NewRedisStore(rc)
 	certStore := certs.NewRedisStore(&certs.Config{RedisClient: rc})
 
+	auditingBackend, err := auditing.NewMemory(auditing.Config{
+		Component: repository.AuditingComponent,
+		Log:       log,
+	}, auditing.MemoryConfig{})
+	require.NoError(t, err)
+
 	tokenService := token.New(token.Config{
 		Log:        log,
 		TokenStore: tokenStore,
@@ -189,10 +196,10 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		Task:             task,
 		Queue:            queue,
 		Component:        vc, // Use same valkey instance as queue for tests
+		Auditing:         auditingBackend,
 	}
 
-	repo, err := repository.New(config)
-	require.NoError(t, err)
+	repo := repository.New(config)
 
 	asyncCloser := StartAsynqServer(t, log.WithGroup("asynq"), repo, rc)
 
