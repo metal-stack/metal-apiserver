@@ -32,13 +32,13 @@ const (
 )
 
 type Config struct {
-	TokenService token.TokenService
-	Repo         *repository.Store
-	Auditing     auditing.Auditing
-	Log          *slog.Logger
-	CallbackUrl  string // will replace `"{" + providerKey + ""}"` with the actual provider name
-	FrontEndUrl  *url.URL
-	CookieMaxAge time.Duration
+	TokenService  token.TokenService
+	Repo          *repository.Store
+	AuditBackends []auditing.Auditing
+	Log           *slog.Logger
+	CallbackUrl   string // will replace `"{" + providerKey + ""}"` with the actual provider name
+	FrontEndUrl   *url.URL
+	CookieMaxAge  time.Duration
 }
 
 type providerUser struct {
@@ -58,7 +58,7 @@ type providerBackend interface {
 type auth struct {
 	providerBackends map[string]providerBackend
 	tokenService     token.TokenService
-	audit            auditing.Auditing
+	auditBackends    []auditing.Auditing
 	log              *slog.Logger
 	frontEndUrl      *url.URL
 	callbackUrl      string
@@ -71,7 +71,7 @@ func New(c Config, options ...authOption) (*auth, error) {
 	a := &auth{
 		log:              c.Log,
 		tokenService:     c.TokenService,
-		audit:            c.Auditing,
+		auditBackends:    c.AuditBackends,
 		providerBackends: map[string]providerBackend{},
 		frontEndUrl:      c.FrontEndUrl,
 		callbackUrl:      c.CallbackUrl,
@@ -310,8 +310,8 @@ func (a *auth) Callback(res http.ResponseWriter, req *http.Request) {
 		redirectURL.RawQuery = rawQuery
 	}
 
-	if a.audit != nil {
-		err = a.audit.Index(auditing.Entry{
+	for _, backend := range a.auditBackends {
+		err = backend.Index(auditing.Entry{
 			Component:    "auth",
 			Type:         "login",
 			User:         u.login,

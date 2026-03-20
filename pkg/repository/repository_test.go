@@ -37,8 +37,7 @@ func TestGet(t *testing.T) {
 		Task:      task,
 	}
 
-	repo, err := repository.New(config)
-	require.NoError(t, err)
+	repo := repository.New(config)
 
 	ip, err := repo.IP("project1").Get(ctx, "asdf")
 	require.Error(t, err)
@@ -70,8 +69,7 @@ func TestIpUnscopedList(t *testing.T) {
 		Task:      task,
 	}
 
-	repo, err := repository.New(config)
-	require.NoError(t, err)
+	repo := repository.New(config)
 
 	ips, err := repo.UnscopedIP().List(ctx, nil)
 	require.NoError(t, err)

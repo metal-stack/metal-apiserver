@@ -16,12 +16,10 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  test:
-    name: Run Tests
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
-
     steps:
-
       - name: Checkout
         uses: actions/checkout@v6
 
@@ -35,14 +33,110 @@ jobs:
       - name: Lint Go
         uses: golangci/golangci-lint-action@v9
 
-      - name: Build
+  tests:
+    name: All tests succeeded
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: always()
+    steps:
+      - name: Matrix jobs passed
+        if: ${{ contains(needs.test.result, 'success') }}
+        run: exit 0
+      - name: Fail if matrix jobs did not succeed 
+        if: ${{ !contains(needs.test.result, 'success') }}
+        run: exit 1
+
+  test:
+    name: Test ${{ matrix.package-group }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Each entry runs tests for a subset of packages.
+          # Adjust the 'packages' globs to match your actual pkg/ layout.
+          - package-group: ip-network
+            packages: ./pkg/service/ip/... ./pkg/service/network/...
+          - package-group: project-tenant
+            packages: ./pkg/service/project/... ./pkg/service/tenant/...
+          - package-group: machine-switch
+            packages: ./pkg/service/machine/... ./pkg/service/switch/...
+          - package-group: partition-vpn
+            packages: ./pkg/service/partition/... ./pkg/service/vpn/...
+          - package-group: image-size
+            packages: ./pkg/service/image/... ./pkg/service/size/...
+          - package-group: e2e
+            packages: ./pkg/e2e
+          - package-group: other
+            # Catch-all: everything not covered above, including cmd/ and top-level pkg/
+            packages: >-
+              $(go list ./... |
+                grep -v 'metal-apiserver/pkg/e2e' |
+                grep -v 'metal-apiserver/pkg/service/image' |
+                grep -v 'metal-apiserver/pkg/service/ip' |
+                grep -v 'metal-apiserver/pkg/service/machine' |
+                grep -v 'metal-apiserver/pkg/service/network' |
+                grep -v 'metal-apiserver/pkg/service/partition' |
+                grep -v 'metal-apiserver/pkg/service/project' |
+                grep -v 'metal-apiserver/pkg/service/size' |
+                grep -v 'metal-apiserver/pkg/service/switch' |
+                grep -v 'metal-apiserver/pkg/service/tenant' |
+                grep -v 'metal-apiserver/pkg/service/vpn' |
+                tr '\n' ' ')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Go 1.26
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+          check-latest: true
+          cache: true
+
+      - name: Run tests with coverage
         run: |
-          make
-      - name: Upload code coverage
+          go test -race -covermode=atomic \
+            -coverpkg=./... \
+            -coverprofile=coverage-${{ matrix.package-group }}.out \
+            ${{ matrix.packages }}
+
+      - name: Upload partial coverage artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-${{ matrix.package-group }}
+          path: coverage-${{ matrix.package-group }}.out
+          retention-days: 1
+
+  coverage:
+    name: Merge Coverage & Upload
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Go 1.26
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+          check-latest: true
+          cache: false
+
+      - name: Download all coverage artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: coverage-*
+          merge-multiple: true
+          path: coverage-parts/
+
+      - name: Run Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          verbose: true # optional (default = false)
+          files: coverage-*.out
+          verbose: true
 
   build:
     name: Docker Build

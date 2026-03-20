@@ -35,6 +35,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/service/audit"
 	"github.com/metal-stack/metal-apiserver/pkg/service/bmc"
 	"github.com/metal-stack/metal-apiserver/pkg/service/boot"
 	"github.com/metal-stack/metal-apiserver/pkg/service/filesystem"
@@ -52,6 +53,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/service/user"
 	"github.com/metal-stack/metal-apiserver/pkg/service/version"
 
+	auditadmin "github.com/metal-stack/metal-apiserver/pkg/service/audit/admin"
 	authservice "github.com/metal-stack/metal-apiserver/pkg/service/auth"
 	componentadmin "github.com/metal-stack/metal-apiserver/pkg/service/component/admin"
 	componentinfra "github.com/metal-stack/metal-apiserver/pkg/service/component/infra"
@@ -93,7 +95,8 @@ type Config struct {
 	Repository                          *repository.Store
 	MasterClient                        mdm.Client
 	IpamClient                          ipamv1connect.IpamServiceClient
-	Auditing                            auditing.Auditing
+	AuditSearchBackend                  auditing.Auditing
+	AuditBackends                       []auditing.Auditing
 	Stage                               string
 	RedisConfig                         *RedisConfig
 	Admins                              []string
@@ -168,7 +171,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 		allInfraInterceptors = []connect.Interceptor{metricsInterceptor, logInterceptor, authz, authorizeInterceptor, validationInterceptor}
 	)
 
-	if c.Auditing != nil {
+	if len(c.AuditBackends) > 0 {
 		servicePermissions := permissions.GetServicePermissions()
 		shouldAudit := func(fullMethod string) bool {
 			shouldAudit, ok := servicePermissions.Auditable[fullMethod]
@@ -178,12 +181,16 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 			}
 			return shouldAudit
 		}
-		auditInterceptor, err := auditing.NewConnectInterceptor(c.Auditing, log, shouldAudit)
-		if err != nil {
-			return nil, fmt.Errorf("unable to create auditing interceptor: %w", err)
+
+		for _, backend := range c.AuditBackends {
+			auditInterceptor, err := auditing.NewConnectInterceptor(backend, log, shouldAudit)
+			if err != nil {
+				return nil, fmt.Errorf("unable to create auditing interceptor: %w", err)
+			}
+
+			allInterceptors = append(allInterceptors, auditInterceptor)
+			allAdminInterceptors = append(allAdminInterceptors, auditInterceptor)
 		}
-		allInterceptors = append(allInterceptors, auditInterceptor)
-		allAdminInterceptors = append(allAdminInterceptors, auditInterceptor)
 	}
 
 	var (
@@ -193,6 +200,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	)
 
 	var (
+		auditService      = audit.New(audit.Config{Log: log, Repo: c.Repository, AuditClient: c.AuditSearchBackend})
 		filesystemService = filesystem.New(filesystem.Config{Log: log, Repo: c.Repository})
 		imageService      = image.New(image.Config{Log: log, Repo: c.Repository})
 		ipService         = ip.New(ip.Config{Log: log, Repo: c.Repository})
@@ -245,6 +253,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	mux := http.NewServeMux()
 
 	// Register the services
+	mux.Handle(apiv2connect.NewAuditServiceHandler(auditService, interceptors))
 	mux.Handle(apiv2connect.NewFilesystemServiceHandler(filesystemService, interceptors))
 	mux.Handle(apiv2connect.NewHealthServiceHandler(healthService, interceptors))
 	mux.Handle(apiv2connect.NewImageServiceHandler(imageService, interceptors))
@@ -264,6 +273,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 
 	// Admin services
 	var (
+		adminAuditService               = auditadmin.New(auditadmin.Config{Log: log, Repo: c.Repository, AuditClient: c.AuditSearchBackend})
 		adminComponentService           = componentadmin.New(componentadmin.Config{Log: log, Repo: c.Repository})
 		adminFilesystemService          = filesystemadmin.New(filesystemadmin.Config{Log: log, Repo: c.Repository})
 		adminImageService               = imageadmin.New(imageadmin.Config{Log: log, Repo: c.Repository})
@@ -286,6 +296,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 		adminTokenService = tokenadmin.New(tokenadmin.Config{Log: log, CertStore: certStore, TokenStore: tokenStore, TokenService: tokenService})
 	)
 
+	mux.Handle(adminv2connect.NewAuditServiceHandler(adminAuditService, adminInterceptors))
 	mux.Handle(adminv2connect.NewComponentServiceHandler(adminComponentService, adminInterceptors))
 	mux.Handle(adminv2connect.NewFilesystemServiceHandler(adminFilesystemService, adminInterceptors))
 	mux.Handle(adminv2connect.NewImageServiceHandler(adminImageService, adminInterceptors))
@@ -359,12 +370,12 @@ func oidcAuthHandler(log *slog.Logger, tokenService token.TokenService, c Config
 	}
 
 	auth, err := authservice.New(authservice.Config{
-		Log:          log,
-		TokenService: tokenService,
-		Repo:         c.Repository,
-		Auditing:     c.Auditing,
-		FrontEndUrl:  frontendURL,
-		CallbackUrl:  c.ServerHttpURL + "/auth/{provider}/callback",
+		Log:           log,
+		TokenService:  tokenService,
+		Repo:          c.Repository,
+		AuditBackends: c.AuditBackends,
+		FrontEndUrl:   frontendURL,
+		CallbackUrl:   c.ServerHttpURL + "/auth/{provider}/callback",
 	})
 	if err != nil {
 		return "", nil, err
