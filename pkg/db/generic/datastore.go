@@ -33,6 +33,8 @@ type (
 		asnPool *integerPool
 		vrfPool *integerPool
 
+		sharedMutex *sharedMutex
+
 		tableNames []string
 	}
 )
@@ -69,10 +71,11 @@ func New(log *slog.Logger, opts r.ConnectOpts, dsOpts ...dataStoreOption) (*data
 	ds.switchStatus = newStorage[*metal.SwitchStatus](ds, "switchstatus")
 
 	var (
-		vrfMin = uint(1)
-		vrfMax = uint(131072)
-		asnMin = uint(1)
-		asnMax = uint(131072)
+		vrfMin  = uint(1)
+		vrfMax  = uint(131072)
+		asnMin  = uint(1)
+		asnMax  = uint(131072)
+		mtxOpts []mutexOpt
 	)
 
 	for _, opt := range dsOpts {
@@ -83,6 +86,8 @@ func New(log *slog.Logger, opts r.ConnectOpts, dsOpts ...dataStoreOption) (*data
 		case *asnPoolRange:
 			asnMin = o.min
 			asnMax = o.max
+		case *mutexOptCheckInterval:
+			mtxOpts = append(mtxOpts, o)
 		default:
 			return nil, fmt.Errorf("unknown datastore opt: %T", opt)
 		}
@@ -90,6 +95,11 @@ func New(log *slog.Logger, opts r.ConnectOpts, dsOpts ...dataStoreOption) (*data
 
 	ds.asnPool = newIntegerPool(ds, asnIntegerPool, "asnpool", asnMin, asnMax)
 	ds.vrfPool = newIntegerPool(ds, vrfIntegerPool, "integerpool", vrfMin, vrfMax)
+
+	ds.sharedMutex, err = newSharedMutex(context.Background(), log, session, mtxOpts...)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create shared mutex: %w", err)
+	}
 
 	return ds, nil
 }
@@ -108,6 +118,14 @@ func (ds *datastore) Version(ctx context.Context) (string, error) {
 	}
 
 	return version, nil
+}
+
+func (ds *datastore) Lock(ctx context.Context, key string, opts ...lockOpt) error {
+	return ds.sharedMutex.lock(ctx, key, opts...)
+}
+
+func (ds *datastore) Unlock(ctx context.Context, key string, opts ...lockOpt) {
+	ds.sharedMutex.unlock(ctx, key)
 }
 
 func (ds *datastore) IP() Storage[*metal.IP] {

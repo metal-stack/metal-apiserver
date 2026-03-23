@@ -83,6 +83,11 @@ func Initialize(ctx context.Context, log *slog.Logger, opts r.ConnectOpts, dsOpt
 		return fmt.Errorf("cannot create migration table: %w", err)
 	}
 
+	err = ds.createTable(ctx, sharedMutexTableName)
+	if err != nil {
+		return fmt.Errorf("cannot create shared mutex table: %w", err)
+	}
+
 	for _, tableName := range ds.tableNames {
 		if err := ds.createTable(ctx, tableName); err != nil {
 			return fmt.Errorf("cannot create %s table: %w", tableName, err)
