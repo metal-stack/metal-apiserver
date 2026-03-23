@@ -546,11 +546,10 @@ func (r *machineRepository) FindWaitingMachine(ctx context.Context, projectid, p
 	// 	"preallocated": false,
 	// })
 
-	// FIXME implement shared Mutex
-	// if err := rs.sharedMutex.lock(ctx, partitionid, 10*time.Second); err != nil {
-	// 	return nil, fmt.Errorf("too many parallel machine allocations taking place, try again later")
-	// }
-	// defer rs.sharedMutex.unlock(ctx, partitionid)
+	if err := r.s.ds.Lock(ctx, partitionid, 10*time.Second); err != nil {
+		return nil, fmt.Errorf("too many parallel machine allocations taking place, try again later")
+	}
+	defer r.s.ds.Unlock(ctx, partitionid)
 
 	candidates, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
 		Partition:    &partitionid,
