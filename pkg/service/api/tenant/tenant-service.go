@@ -12,7 +12,7 @@ import (
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
-	msvc "github.com/metal-stack/metal-apiserver/pkg/service/method"
+	msvc "github.com/metal-stack/metal-apiserver/pkg/service/api/method"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
