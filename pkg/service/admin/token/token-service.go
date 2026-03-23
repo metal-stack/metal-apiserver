@@ -9,7 +9,7 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
-	ts "github.com/metal-stack/metal-apiserver/pkg/service/token"
+	ts "github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 	tokenutil "github.com/metal-stack/metal-apiserver/pkg/token"
 )
 

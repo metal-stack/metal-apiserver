@@ -10,7 +10,7 @@ import (
 	"connectrpc.com/validate"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
-	"github.com/metal-stack/metal-apiserver/pkg/service/token"
+	"github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 	"github.com/stretchr/testify/require"
 )
 

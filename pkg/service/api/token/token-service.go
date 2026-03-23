@@ -45,6 +45,7 @@ type tokenService struct {
 
 type TokenService interface {
 	apiv2connect.TokenServiceHandler
+	// TODO: move this to pkg/token, we do not want cross-service dependencies anymore
 	CreateUserTokenWithoutPermissionCheck(ctx context.Context, subject string, expiration *time.Duration) (*apiv2.TokenServiceCreateResponse, error)
 	CreateApiTokenWithoutPermissionCheck(ctx context.Context, subject string, rq *apiv2.TokenServiceCreateRequest) (*apiv2.TokenServiceCreateResponse, error)
 	CreateTokenForUser(ctx context.Context, user *string, req *apiv2.TokenServiceCreateRequest) (*apiv2.TokenServiceCreateResponse, error)
