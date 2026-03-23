@@ -58,6 +58,9 @@ type (
 		AsnPool() *integerPool
 		VrfPool() *integerPool
 
+		Lock(ctx context.Context, key string, opts ...lockOpt) error
+		Unlock(ctx context.Context, key string, opts ...lockOpt)
+
 		Version(ctx context.Context) (string, error)
 
 		GetTableNames() []string
