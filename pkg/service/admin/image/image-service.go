@@ -6,6 +6,7 @@ import (
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 )
@@ -59,5 +60,43 @@ func (i *imageServiceServer) Update(ctx context.Context, rq *adminv2.ImageServic
 
 // Usage implements adminv2connect.ImageServiceHandler.
 func (i *imageServiceServer) Usage(ctx context.Context, rq *adminv2.ImageServiceUsageRequest) (*adminv2.ImageServiceUsageResponse, error) {
-	panic("unimplemented")
+	machineQuery := &apiv2.MachineQuery{}
+
+	if rq.Query != nil {
+		machineQuery.Allocation = &apiv2.MachineAllocationQuery{
+			Image: rq.Query.Id,
+		}
+	}
+
+	machines, err := i.repo.UnscopedMachine().List(ctx, machineQuery)
+	if err != nil {
+		return nil, err
+	}
+
+	machinesByImage := map[string][]string{}
+	for _, m := range machines {
+		if m.Allocation == nil || m.Allocation.Image == nil {
+			continue
+		}
+
+		machinesByImage[m.Allocation.Image.Id] = append(machinesByImage[m.Allocation.Image.Id], m.Uuid)
+	}
+
+	images, err := i.repo.Image().List(ctx, rq.Query)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
+	var usage []*apiv2.ImageUsage
+
+	for _, img := range images {
+		usage = append(usage, &apiv2.ImageUsage{
+			Image:  img,
+			UsedBy: machinesByImage[img.Id],
+		})
+	}
+
+	return &adminv2.ImageServiceUsageResponse{
+		ImageUsage: usage,
+	}, nil
 }
