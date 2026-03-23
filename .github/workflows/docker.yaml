@@ -74,14 +74,22 @@ jobs:
             packages: >-
               $(go list ./... |
                 grep -v 'metal-apiserver/pkg/e2e' |
-                grep -v 'metal-apiserver/pkg/service/{api,admin}/image' |
-                grep -v 'metal-apiserver/pkg/service/{api,admin}/ip' |
-                grep -v 'metal-apiserver/pkg/service/{api,admin}/machine' |
-                grep -v 'metal-apiserver/pkg/service/{api,admin}/network' |
-                grep -v 'metal-apiserver/pkg/service/{api,admin}/partition' |
-                grep -v 'metal-apiserver/pkg/service/{api,admin}/project' |
-                grep -v 'metal-apiserver/pkg/service/{api,admin}/size' |
-                grep -v 'metal-apiserver/pkg/service/{api,admin}/tenant' |
+                grep -v 'metal-apiserver/pkg/service/api/image' |
+                grep -v 'metal-apiserver/pkg/service/api/ip' |
+                grep -v 'metal-apiserver/pkg/service/api/machine' |
+                grep -v 'metal-apiserver/pkg/service/api/network' |
+                grep -v 'metal-apiserver/pkg/service/api/partition' |
+                grep -v 'metal-apiserver/pkg/service/api/project' |
+                grep -v 'metal-apiserver/pkg/service/api/size' |
+                grep -v 'metal-apiserver/pkg/service/api/tenant' |
+                grep -v 'metal-apiserver/pkg/service/admin/image' |
+                grep -v 'metal-apiserver/pkg/service/admin/ip' |
+                grep -v 'metal-apiserver/pkg/service/admin/machine' |
+                grep -v 'metal-apiserver/pkg/service/admin/network' |
+                grep -v 'metal-apiserver/pkg/service/admin/partition' |
+                grep -v 'metal-apiserver/pkg/service/admin/project' |
+                grep -v 'metal-apiserver/pkg/service/admin/size' |
+                grep -v 'metal-apiserver/pkg/service/admin/tenant' |
                 grep -v 'metal-apiserver/pkg/service/admin/switch' |
                 grep -v 'metal-apiserver/pkg/service/admin/vpn' |
                 grep -v 'metal-apiserver/pkg/service/infra' |
