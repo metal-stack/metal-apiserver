@@ -5,6 +5,7 @@ import (
 	"github.com/metal-stack/api/go/permissions"
 )
 
+// TODO: move to pkg/token
 func IsAdminToken(token *apiv2.Token) bool {
 	return token.AdminRole != nil
 }
