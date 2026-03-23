@@ -6,7 +6,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
-	vpnadmin "github.com/metal-stack/metal-apiserver/pkg/service/vpn/admin"
+	vpnadmin "github.com/metal-stack/metal-apiserver/pkg/service/admin/vpn"
 	"github.com/urfave/cli/v2"
 	"gopkg.in/rethinkdb/rethinkdb-go.v6"
 )

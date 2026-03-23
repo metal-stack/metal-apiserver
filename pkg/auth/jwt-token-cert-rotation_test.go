@@ -11,7 +11,7 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	"github.com/lestrrat-go/jwx/v3/jwk"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
-	tokenservice "github.com/metal-stack/metal-apiserver/pkg/service/token"
+	tokenservice "github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"

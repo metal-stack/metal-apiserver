@@ -13,7 +13,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 
-	"github.com/metal-stack/metal-apiserver/pkg/service/method"
+	"github.com/metal-stack/metal-apiserver/pkg/service/api/method"
 	"github.com/stretchr/testify/require"
 
 	"github.com/metal-stack/metal-apiserver/pkg/test"

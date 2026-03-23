@@ -42,7 +42,7 @@ jobs:
       - name: Matrix jobs passed
         if: ${{ contains(needs.test.result, 'success') }}
         run: exit 0
-      - name: Fail if matrix jobs did not succeed 
+      - name: Fail if matrix jobs did not succeed
         if: ${{ !contains(needs.test.result, 'success') }}
         run: exit 1
 
@@ -56,15 +56,17 @@ jobs:
           # Each entry runs tests for a subset of packages.
           # Adjust the 'packages' globs to match your actual pkg/ layout.
           - package-group: ip-network
-            packages: ./pkg/service/ip/... ./pkg/service/network/...
+            packages: ./pkg/service/{api,admin}/ip/...  ./pkg/service/{api,admin}/network/...
           - package-group: project-tenant
-            packages: ./pkg/service/project/... ./pkg/service/tenant/...
+            packages: ./pkg/service/{api,admin}/project/... ./pkg/service/{api,admin}/tenant/...
           - package-group: machine-switch
-            packages: ./pkg/service/machine/... ./pkg/service/switch/...
+            packages: ./pkg/service/{api,admin}/machine/... ./pkg/service/admin/switch/...
           - package-group: partition-vpn
-            packages: ./pkg/service/partition/... ./pkg/service/vpn/...
+            packages: ./pkg/service/{api,admin}/partition/... ./pkg/service/admin/vpn/...
           - package-group: image-size
-            packages: ./pkg/service/image/... ./pkg/service/size/...
+            packages: ./pkg/service/{api,admin}/image/... ./pkg/service/{api,admin}/size/...
+          - package-group: infra
+            packages: ./pkg/service/infra/...
           - package-group: e2e
             packages: ./pkg/e2e
           - package-group: other
@@ -72,16 +74,25 @@ jobs:
             packages: >-
               $(go list ./... |
                 grep -v 'metal-apiserver/pkg/e2e' |
-                grep -v 'metal-apiserver/pkg/service/image' |
-                grep -v 'metal-apiserver/pkg/service/ip' |
-                grep -v 'metal-apiserver/pkg/service/machine' |
-                grep -v 'metal-apiserver/pkg/service/network' |
-                grep -v 'metal-apiserver/pkg/service/partition' |
-                grep -v 'metal-apiserver/pkg/service/project' |
-                grep -v 'metal-apiserver/pkg/service/size' |
-                grep -v 'metal-apiserver/pkg/service/switch' |
-                grep -v 'metal-apiserver/pkg/service/tenant' |
-                grep -v 'metal-apiserver/pkg/service/vpn' |
+                grep -v 'metal-apiserver/pkg/service/api/image' |
+                grep -v 'metal-apiserver/pkg/service/api/ip' |
+                grep -v 'metal-apiserver/pkg/service/api/machine' |
+                grep -v 'metal-apiserver/pkg/service/api/network' |
+                grep -v 'metal-apiserver/pkg/service/api/partition' |
+                grep -v 'metal-apiserver/pkg/service/api/project' |
+                grep -v 'metal-apiserver/pkg/service/api/size' |
+                grep -v 'metal-apiserver/pkg/service/api/tenant' |
+                grep -v 'metal-apiserver/pkg/service/admin/image' |
+                grep -v 'metal-apiserver/pkg/service/admin/ip' |
+                grep -v 'metal-apiserver/pkg/service/admin/machine' |
+                grep -v 'metal-apiserver/pkg/service/admin/network' |
+                grep -v 'metal-apiserver/pkg/service/admin/partition' |
+                grep -v 'metal-apiserver/pkg/service/admin/project' |
+                grep -v 'metal-apiserver/pkg/service/admin/size' |
+                grep -v 'metal-apiserver/pkg/service/admin/tenant' |
+                grep -v 'metal-apiserver/pkg/service/admin/switch' |
+                grep -v 'metal-apiserver/pkg/service/admin/vpn' |
+                grep -v 'metal-apiserver/pkg/service/infra' |
                 tr '\n' ' ')
 
     steps:
