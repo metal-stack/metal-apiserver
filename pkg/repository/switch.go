@@ -772,9 +772,27 @@ func (r *switchRepository) convertToProto(ctx context.Context, sw *metal.Switch)
 		return nil, err
 	}
 
+	var (
+		lastSync      *apiv2.SwitchSync
+		lastErrorSync *apiv2.SwitchSync
+	)
+
 	status, err := r.s.ds.SwitchStatus().Get(ctx, sw.ID)
-	if err != nil {
+	if err != nil && !errorutil.IsNotFound(err) {
 		return nil, err
+	}
+
+	if status != nil {
+		lastSync = &apiv2.SwitchSync{
+			Time:     timestamppb.New(pointer.SafeDeref(status.LastSync).Time),
+			Duration: durationpb.New(pointer.SafeDeref(status.LastSync).Duration),
+			Error:    pointer.SafeDeref(status.LastSync).Error,
+		}
+		lastErrorSync = &apiv2.SwitchSync{
+			Time:     timestamppb.New(pointer.SafeDeref(status.LastSyncError).Time),
+			Duration: durationpb.New(pointer.SafeDeref(status.LastSyncError).Duration),
+			Error:    pointer.SafeDeref(status.LastSyncError).Error,
+		}
 	}
 
 	return &apiv2.Switch{
@@ -798,16 +816,8 @@ func (r *switchRepository) convertToProto(ctx context.Context, sw *metal.Switch)
 			Version:          sw.OS.Version,
 			MetalCoreVersion: sw.OS.MetalCoreVersion,
 		},
-		LastSync: &apiv2.SwitchSync{
-			Time:     timestamppb.New(status.LastSync.Time),
-			Duration: durationpb.New(status.LastSync.Duration),
-			Error:    status.LastSync.Error,
-		},
-		LastSyncError: &apiv2.SwitchSync{
-			Time:     timestamppb.New(status.LastSyncError.Time),
-			Duration: durationpb.New(status.LastSyncError.Duration),
-			Error:    status.LastSyncError.Error,
-		},
+		LastSync:      lastSync,
+		LastSyncError: lastErrorSync,
 	}, nil
 }
 

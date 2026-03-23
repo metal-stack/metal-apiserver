@@ -239,7 +239,7 @@ func TestAssert(t *testing.T) {
 			name: "entity deleted, but no modification applied",
 			spec: &sc.DefaultDatacenter,
 			mods: func() *test.Asserters {
-				_, err := dc.GetTestStore().Switch().AdditionalMethods().ForceDelete(ctx, sc.SwmP01Rack01Switch1)
+				_, err := dc.GetTestStore().Switch().AdditionalMethods().ForceDelete(ctx, sc.P01Rack01Switch1)
 				require.NoError(t, err)
 				return nil
 			},
@@ -249,15 +249,15 @@ func TestAssert(t *testing.T) {
 			name: "entity deleted and correct modifications applied",
 			spec: &sc.DefaultDatacenter,
 			mods: func() *test.Asserters {
-				_, err := dc.GetTestStore().Switch().AdditionalMethods().ForceDelete(ctx, sc.SwmP01Rack01Switch1)
+				_, err := dc.GetTestStore().Switch().AdditionalMethods().ForceDelete(ctx, sc.P01Rack01Switch1)
 				require.NoError(t, err)
 
 				return &test.Asserters{
 					Switches: func(switches map[string]*apiv2.Switch) {
-						delete(switches, sc.SwmP01Rack01Switch1)
+						delete(switches, sc.P01Rack01Switch1)
 					},
 					SwitchStatuses: func(switchStatuses map[string]*metal.SwitchStatus) {
-						delete(switchStatuses, sc.SwmP01Rack01Switch1)
+						delete(switchStatuses, sc.P01Rack01Switch1)
 					},
 				}
 			},

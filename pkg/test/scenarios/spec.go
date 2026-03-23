@@ -6,6 +6,63 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 )
 
+const (
+	Tenant1 = "john.doe"
+	// Project UUIDs are generated be counting the first digit for every tenant, last digit for every project of this tenant
+	Tenant1Project1 = "10000000-0000-0000-0000-000000000001"
+	Tenant1Project2 = "10000000-0000-0000-0000-000000000002"
+
+	ImageDebian13    = "debian-13.0.20260131"
+	ImageDebian12    = "debian-12.0.20251220"
+	ImageFirewall3_0 = "firewall-ubuntu-3.0.20260201"
+
+	SizeN1Medium = "n1-medium-x86"
+	SizeC1Large  = "c1-large-x86"
+
+	Partition1 = "partition-1"
+	Partition2 = "partition-2"
+
+	P01Rack01 = "p01-rack01"
+	P01Rack02 = "p01-rack02"
+	P01Rack03 = "p01-rack03"
+	P02Rack01 = "p02-rack01"
+	P02Rack02 = "p02-rack02"
+
+	Machine1 = "00000000-0000-0000-0000-000000000001"
+	Machine2 = "00000000-0000-0000-0000-000000000002"
+	Machine3 = "00000000-0000-0000-0000-000000000003"
+	Machine4 = "00000000-0000-0000-0000-000000000004"
+	Machine5 = "00000000-0000-0000-0000-000000000005"
+
+	P01Rack01Switch1 = "p01-r01leaf01"
+	P01Rack01Switch2 = "p01-r01leaf02"
+	P01Rack02Switch1 = "p01-r02leaf01"
+	P01Rack02Switch2 = "p01-r02leaf02"
+	P01Rack03Switch1 = "p01-r03leaf01"
+	P01Rack03Switch2 = "p01-r03leaf02"
+	P02Rack01Switch1 = "p02-r01leaf01"
+	P02Rack01Switch2 = "p02-r01leaf02"
+	P02Rack02Switch1 = "p02-r02leaf01"
+	P02Rack02Switch2 = "p02-r02leaf02"
+)
+
+var (
+	SwitchOSSonic2021 = &apiv2.SwitchOS{
+		Vendor:  apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+		Version: "2021",
+	}
+
+	SwitchOSSonic2022 = &apiv2.SwitchOS{
+		Vendor:  apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+		Version: "2022",
+	}
+
+	SwitchOSCumulus = &apiv2.SwitchOS{
+		Vendor:  apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_CUMULUS,
+		Version: "v9.0.0",
+	}
+)
+
 type (
 	MachineWithLiveliness struct {
 		Liveliness metal.MachineLiveliness
