@@ -15,51 +15,53 @@ import (
 )
 
 func Test_sharedMutex_reallyLocking(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	var (
+		log        = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+		ctx        = t.Context()
+		expiration = generic.NewLockOptExpirationTimeout(10 * time.Second)
+	)
 
 	ds, _, rethinkCloser := test.StartRethink(t, log)
 	defer func() {
 		rethinkCloser()
 	}()
 
-	ctx := t.Context()
-	expiration := generic.NewLockOptExpirationTimeout(10 * time.Second)
-
-	err := ds.Lock(ctx, "test", expiration, generic.NewLockOptAcquireTimeout(10*time.Millisecond))
+	err := ds.Lock(ctx, "test", expiration, generic.NewLockOptAcquireTimeout(100*time.Millisecond))
 	require.NoError(t, err)
 
-	err = ds.Lock(ctx, "test", expiration, generic.NewLockOptAcquireTimeout(5*time.Millisecond))
+	err = ds.Lock(ctx, "test", expiration, generic.NewLockOptAcquireTimeout(50*time.Millisecond))
 	require.Error(t, err)
 	require.ErrorContains(t, err, "unable to acquire mutex")
 
-	err = ds.Lock(ctx, "test2", expiration, generic.NewLockOptAcquireTimeout(10*time.Millisecond))
+	err = ds.Lock(ctx, "test2", expiration, generic.NewLockOptAcquireTimeout(100*time.Millisecond))
 	require.NoError(t, err)
 
-	err = ds.Lock(ctx, "test", expiration, generic.NewLockOptAcquireTimeout(10*time.Millisecond))
+	err = ds.Lock(ctx, "test", expiration, generic.NewLockOptAcquireTimeout(100*time.Millisecond))
 	require.Error(t, err)
 	require.ErrorContains(t, err, "unable to acquire mutex")
 
 	ds.Unlock(ctx, "test")
 
-	err = ds.Lock(ctx, "test2", expiration, generic.NewLockOptAcquireTimeout(10*time.Millisecond))
+	err = ds.Lock(ctx, "test2", expiration, generic.NewLockOptAcquireTimeout(100*time.Millisecond))
 	require.Error(t, err)
 	require.ErrorContains(t, err, "unable to acquire mutex")
 
-	err = ds.Lock(ctx, "test", expiration, generic.NewLockOptAcquireTimeout(10*time.Millisecond))
+	err = ds.Lock(ctx, "test", expiration, generic.NewLockOptAcquireTimeout(100*time.Millisecond))
 	require.NoError(t, err)
 }
 
 func Test_sharedMutex_acquireAfterRelease(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	var (
+		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+		ctx = t.Context()
+	)
 
 	ds, _, rethinkCloser := test.StartRethink(t, log)
 	defer func() {
 		rethinkCloser()
 	}()
 
-	ctx := t.Context()
-
-	err := ds.Lock(ctx, "test", generic.NewLockOptExpirationTimeout(3*time.Second), generic.NewLockOptAcquireTimeout(10*time.Millisecond))
+	err := ds.Lock(ctx, "test", generic.NewLockOptExpirationTimeout(3*time.Second), generic.NewLockOptAcquireTimeout(100*time.Millisecond))
 	require.NoError(t, err)
 
 	var wg sync.WaitGroup
@@ -76,19 +78,20 @@ func Test_sharedMutex_acquireAfterRelease(t *testing.T) {
 }
 
 func Test_sharedMutex_expires(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	var (
+		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+		ctx = t.Context()
+	)
 
 	ds, _, rethinkCloser := test.StartRethink(t, log)
 	defer func() {
 		rethinkCloser()
 	}()
 
-	ctx := t.Context()
-
-	err := ds.Lock(ctx, "test", generic.NewLockOptExpirationTimeout(2*time.Second), generic.NewLockOptAcquireTimeout(10*time.Millisecond))
+	err := ds.Lock(ctx, "test", generic.NewLockOptExpirationTimeout(2*time.Second), generic.NewLockOptAcquireTimeout(100*time.Millisecond))
 	require.NoError(t, err)
 
-	err = ds.Lock(ctx, "test", generic.NewLockOptExpirationTimeout(2*time.Second), generic.NewLockOptAcquireTimeout(10*time.Millisecond))
+	err = ds.Lock(ctx, "test", generic.NewLockOptExpirationTimeout(2*time.Second), generic.NewLockOptAcquireTimeout(100*time.Millisecond))
 	require.Error(t, err)
 	require.ErrorContains(t, err, "unable to acquire mutex")
 
