@@ -100,6 +100,10 @@ func ParseJWTToken(token string) (*Claims, error) {
 	return claims, nil
 }
 
+func IsAdminToken(token *apiv2.Token) bool {
+	return token.AdminRole != nil
+}
+
 // ContextWithToken stores the token in the Context
 // Can later retrieved with TokenFromContext
 func ContextWithToken(ctx context.Context, token *apiv2.Token) context.Context {

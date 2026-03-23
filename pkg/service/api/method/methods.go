@@ -5,11 +5,6 @@ import (
 	"github.com/metal-stack/api/go/permissions"
 )
 
-// TODO: move to pkg/token
-func IsAdminToken(token *apiv2.Token) bool {
-	return token.AdminRole != nil
-}
-
 func PermissionsBySubject(token *apiv2.Token) map[string]*apiv2.MethodPermission {
 	res := map[string]*apiv2.MethodPermission{}
 	for _, p := range token.Permissions {
