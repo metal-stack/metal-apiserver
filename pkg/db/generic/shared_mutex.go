@@ -9,24 +9,6 @@ import (
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
 
-// sharedMutex constructs a mutex using the rethinkdb to guarantee atomic operations.
-// this can be helpful because in RethinkDB there are no transactions but sometimes you want
-// to prevent concurrency issues over multiple metal-api replicas.
-// the performance of this is remarkably worse than running code without this mutex, so
-// only make use of this when it really makes sense.
-type sharedMutex struct {
-	session       r.QueryExecutor
-	table         r.Term
-	checkinterval time.Duration
-	log           *slog.Logger
-}
-
-type sharedMutexDoc struct {
-	ID        string    `rethinkdb:"id"`
-	LockedAt  time.Time `rethinkdb:"locked_at"`
-	ExpiresAt time.Time `rethinkdb:"expires_at"`
-}
-
 const (
 	sharedMutexTableName = "sharedmutex"
 
@@ -40,11 +22,41 @@ const (
 	defaultSharedMutexExpirationTimeout = 10 * time.Second
 )
 
-type mutexOpt any
+type (
+	// sharedMutex constructs a mutex using the rethinkdb to guarantee atomic operations.
+	// this can be helpful because in RethinkDB there are no transactions but sometimes you want
+	// to prevent concurrency issues over multiple metal-api replicas.
+	// the performance of this is remarkably worse than running code without this mutex, so
+	// only make use of this when it really makes sense.
+	sharedMutex struct {
+		session       r.QueryExecutor
+		table         r.Term
+		checkinterval time.Duration
+		log           *slog.Logger
+	}
 
-type mutexOptCheckInterval struct {
-	timeout time.Duration
-}
+	sharedMutexDoc struct {
+		ID        string    `rethinkdb:"id"`
+		LockedAt  time.Time `rethinkdb:"locked_at"`
+		ExpiresAt time.Time `rethinkdb:"expires_at"`
+	}
+
+	mutexOpt any
+
+	mutexOptCheckInterval struct {
+		timeout time.Duration
+	}
+
+	lockOpt any
+
+	lockOptAcquireTimeout struct {
+		timeout time.Duration
+	}
+
+	lockOptExpirationTimeout struct {
+		expiration time.Duration
+	}
+)
 
 func NewMutexOptCheckInterval(t time.Duration) *mutexOptCheckInterval {
 	return &mutexOptCheckInterval{timeout: t}
@@ -72,16 +84,6 @@ func newSharedMutex(ctx context.Context, log *slog.Logger, session r.QueryExecut
 	go m.expireloop(ctx)
 
 	return m, nil
-}
-
-type lockOpt any
-
-type lockOptAcquireTimeout struct {
-	timeout time.Duration
-}
-
-type lockOptExpirationTimeout struct {
-	expiration time.Duration
 }
 
 func NewLockOptAcquireTimeout(t time.Duration) *lockOptAcquireTimeout {
