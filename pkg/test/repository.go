@@ -234,7 +234,7 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 	}, closer
 }
 
-func (s *testStore) CleanUp(t testing.TB) {
+func (s *testStore) Cleanup(t testing.TB) {
 
 	s.DeleteProjects()
 	s.DeleteTenants()
@@ -258,6 +258,10 @@ func (s *testStore) CleanUp(t testing.TB) {
 	}
 }
 
+func (t *testStore) GetDatastore() generic.Datastore {
+	return t.ds
+}
+
 func (t *testStore) GetProjectInviteStore() invite.ProjectInviteStore {
 	return t.projectInviteStore
 }
@@ -272,6 +276,10 @@ func (t *testStore) GetTokenStore() tokencommon.TokenStore {
 
 func (t *testStore) GetMasterdataClient() mdc.Client {
 	return t.mdc
+}
+
+func (t *testStore) GetIpamClient() apiv1connect.IpamServiceClient {
+	return t.ipam
 }
 
 func (t *testStore) GetRedisClient() *redis.Client {

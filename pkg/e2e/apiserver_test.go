@@ -9,6 +9,7 @@ import (
 	"github.com/metal-stack/api/go/client"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
@@ -154,4 +155,31 @@ func TestImageCacheServiceToken(t *testing.T) {
 
 	_, err = userClient.Apiv2().Partition().List(t.Context(), &apiv2.PartitionServiceListRequest{})
 	require.NoError(t, err)
+}
+
+func TestHealthGet(t *testing.T) {
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	baseURL, adminToken, tenantTokenSecrets, closer := StartApiserver(t, log, "user-a")
+	defer closer()
+	require.NotNil(t, baseURL, adminToken)
+	log.Info("token", "secret", tenantTokenSecrets["user-a"])
+
+	anonymousClient, err := client.New(&client.DialConfig{
+		BaseURL:   baseURL,
+		UserAgent: "integration test admin",
+		Log:       log,
+	})
+	require.NoError(t, err)
+
+	ctx := t.Context()
+	health, err := anonymousClient.Apiv2().Health().Get(ctx, &apiv2.HealthServiceGetRequest{})
+	require.NoError(t, err)
+	require.NotNil(t, health)
+	require.NotNil(t, health.Health)
+
+	assert.Len(t, health.Health.Services, 3)
+
+	for _, svc := range health.Health.Services {
+		assert.Equal(t, apiv2.ServiceStatus_SERVICE_STATUS_HEALTHY, svc.Status)
+	}
 }

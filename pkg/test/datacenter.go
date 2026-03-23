@@ -161,7 +161,7 @@ func (dc *Datacenter) Close() {
 }
 
 func (dc *Datacenter) Cleanup() {
-	dc.testStore.CleanUp(dc.t)
+	dc.testStore.Cleanup(dc.t)
 }
 
 // Assert tests whether all of the intended changes (and no others) were applied to the database.
