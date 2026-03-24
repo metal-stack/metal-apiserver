@@ -177,7 +177,7 @@ func TestHealthGet(t *testing.T) {
 	require.NotNil(t, health)
 	require.NotNil(t, health.Health)
 
-	assert.Len(t, health.Health.Services, 4)
+	assert.Len(t, health.Health.Services, 6)
 
 	for _, svc := range health.Health.Services {
 		assert.Equal(t, apiv2.ServiceStatus_SERVICE_STATUS_HEALTHY, svc.Status)

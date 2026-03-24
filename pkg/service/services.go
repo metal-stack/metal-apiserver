@@ -179,6 +179,8 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 		Redis:              c.RedisConfig.ComponentClient,
 		ServerHttpURL:      c.ServerHttpURL,
 		Admins:             c.Admins,
+		AuditBackends:      c.AuditBackends,
+		HeadscaleClient:    c.HeadscaleClient,
 	})
 	if err != nil {
 		return nil, err

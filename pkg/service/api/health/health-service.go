@@ -7,11 +7,14 @@ import (
 	"sync"
 	"time"
 
+	headscalev1 "github.com/juanfont/headscale/gen/go/headscale/v1"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	mdm "github.com/metal-stack/masterdata-api/pkg/client"
+	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-lib/auditing"
 	valkeygo "github.com/valkey-io/valkey-go"
 	"golang.org/x/sync/errgroup"
 )
@@ -31,6 +34,9 @@ type Config struct {
 	Ipam                ipamv1connect.IpamServiceClient
 	Redis               valkeygo.Client
 	Masterdata          mdm.Client
+	Headscale           headscalev1.HeadscaleServiceClient
+	TaskClient          *task.Client
+	AuditBackends       []auditing.Auditing
 	Datastore           generic.Datastore
 }
 
@@ -42,7 +48,10 @@ type healthServiceServer struct {
 }
 
 func New(c Config) (apiv2connect.HealthServiceHandler, error) {
-	var checkers []healthchecker
+	var (
+		log      = c.Log.WithGroup("healthService")
+		checkers []healthchecker
+	)
 
 	if c.Ipam != nil {
 		checkers = append(checkers, &ipamHealthChecker{ipam: c.Ipam})
@@ -56,9 +65,18 @@ func New(c Config) (apiv2connect.HealthServiceHandler, error) {
 	if c.Redis != nil {
 		checkers = append(checkers, &redisHealthChecker{redis: c.Redis})
 	}
+	if c.Headscale != nil {
+		checkers = append(checkers, &vpnHealthChecker{client: c.Headscale})
+	}
+	if len(c.AuditBackends) > 0 {
+		checkers = append(checkers, &auditHealthChecker{backends: c.AuditBackends, log: log.WithGroup("audit")})
+	}
+	if c.TaskClient != nil {
+		checkers = append(checkers, &tasksHealthChecker{tasks: c.TaskClient})
+	}
 
 	h := &healthServiceServer{
-		log: c.Log.WithGroup("healthService"),
+		log: log,
 		// initializing status with healthy at the start
 		// --> at the beginning we always assume healthy state
 		current:  newHealthyServiceMap(),

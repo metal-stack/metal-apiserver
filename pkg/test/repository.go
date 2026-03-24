@@ -55,6 +55,7 @@ type testStore struct {
 	mdc          mdc.Client
 	rc           *redis.Client
 	vc           valkey.Client
+	audit        auditing.Auditing
 }
 
 type testOpt any
@@ -233,11 +234,11 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		mdc:                mdc,
 		rc:                 rc,
 		vc:                 vc,
+		audit:              auditingBackend,
 	}, closer
 }
 
 func (s *testStore) Cleanup(t testing.TB) {
-
 	s.DeleteProjects()
 	s.DeleteTenants()
 	DeleteIPs(t, s)
@@ -290,6 +291,10 @@ func (t *testStore) GetRedisClient() *redis.Client {
 
 func (t *testStore) GetValkeyClient() valkey.Client {
 	return t.vc
+}
+
+func (t *testStore) GetAuditBackend() auditing.Auditing {
+	return t.audit
 }
 
 func (t *testStore) GetTokenService() token.TokenService {
