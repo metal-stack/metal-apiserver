@@ -58,7 +58,6 @@ type (
 		rc           *redis.Client
 		vc           valkey.Client
 		hc           headscalev1.HeadscaleServiceClient
-		hcAddress    string
 		audit        auditing.Auditing
 	}
 
