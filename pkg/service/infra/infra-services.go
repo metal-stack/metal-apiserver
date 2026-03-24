@@ -27,7 +27,6 @@ type Config struct {
 
 func InfraServices(cfg Config) {
 
-	// Infra services, we use adminInterceptors to prevent rate limiting
 	var (
 		bmcService            = bmc.New(bmc.Config{Log: cfg.Log, Repo: cfg.Repository})
 		bootService           = boot.New(boot.Config{Log: cfg.Log, Repo: cfg.Repository, BMCSuperuserPassword: cfg.BMCSuperuserPassword})

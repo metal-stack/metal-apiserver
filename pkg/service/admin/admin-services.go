@@ -9,12 +9,12 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
-	"github.com/metal-stack/metal-apiserver/pkg/token"
+	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/auditing"
 
 	headscalev1 "github.com/juanfont/headscale/gen/go/headscale/v1"
 
-	apitoken "github.com/metal-stack/metal-apiserver/pkg/service/api/token"
+	"github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 
 	auditadmin "github.com/metal-stack/metal-apiserver/pkg/service/admin/audit"
 	componentadmin "github.com/metal-stack/metal-apiserver/pkg/service/admin/component"
@@ -41,8 +41,8 @@ type Config struct {
 	Mux                          *http.ServeMux
 	Interceptors                 connect.Option
 	InviteStore                  invite.TenantInviteStore
-	TokenStore                   token.TokenStore
-	TokenService                 apitoken.TokenService
+	TokenStore                   tokencommon.TokenStore
+	TokenService                 token.TokenService
 	CertStore                    certs.CertStore
 	HeadscaleClient              headscalev1.HeadscaleServiceClient
 	HeadscaleControlplaneAddress string
