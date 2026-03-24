@@ -14,6 +14,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-lib/auditing"
+	"github.com/valkey-io/valkey-go"
 
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/audit"
@@ -51,6 +52,7 @@ type Config struct {
 	TokenStore         tokencommon.TokenStore
 	CertStore          certs.CertStore
 	AuditSearchBackend auditing.Auditing
+	Redis              valkey.Client
 
 	ServerHttpURL string
 	Admins        []string
@@ -104,6 +106,7 @@ func ApiServices(cfg Config) (token.TokenService, error) {
 		Ipam:                cfg.IpamClient,
 		Masterdata:          cfg.MasterClient,
 		Datastore:           cfg.Datastore,
+		Redis:               cfg.Redis,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize health service %w", err)

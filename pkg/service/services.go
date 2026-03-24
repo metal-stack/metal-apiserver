@@ -176,6 +176,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 		TokenStore:         tokenStore,
 		CertStore:          certStore,
 		AuditSearchBackend: c.AuditSearchBackend,
+		Redis:              c.RedisConfig.ComponentClient,
 		ServerHttpURL:      c.ServerHttpURL,
 		Admins:             c.Admins,
 	})
