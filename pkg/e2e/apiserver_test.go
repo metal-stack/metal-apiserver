@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/metal-stack/api/go/client"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -171,15 +172,33 @@ func TestHealthGet(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	ctx := t.Context()
-	health, err := anonymousClient.Apiv2().Health().Get(ctx, &apiv2.HealthServiceGetRequest{})
-	require.NoError(t, err)
-	require.NotNil(t, health)
-	require.NotNil(t, health.Health)
+	var (
+		ctx    = t.Context()
+		health *apiv2.HealthServiceGetResponse
+	)
 
-	assert.Len(t, health.Health.Services, 6)
+	assert.Eventually(t, func() bool {
+		health, err = anonymousClient.Apiv2().Health().Get(ctx, &apiv2.HealthServiceGetRequest{})
+		require.NoError(t, err)
+		require.NotNil(t, health)
+		require.NotNil(t, health.Health)
+
+		spew.Dump(health.Health)
+
+		// initial check needs to succeed and populate message fields as initial state is that all services are returned healthy
+		for _, svc := range health.Health.Services {
+			if svc.Message == "" {
+				return false
+			}
+		}
+
+		return true
+	}, 10*time.Second, 1*time.Second)
+
+	assert.Len(t, health.Health.Services, 7)
 
 	for _, svc := range health.Health.Services {
 		assert.Equal(t, apiv2.ServiceStatus_SERVICE_STATUS_HEALTHY, svc.Status)
+		assert.NotEmpty(t, svc.Message, svc.Name)
 	}
 }

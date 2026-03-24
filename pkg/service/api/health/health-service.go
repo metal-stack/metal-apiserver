@@ -2,6 +2,7 @@ package health
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sort"
 	"sync"
@@ -145,10 +146,9 @@ func (h *healthServiceServer) updateStatuses(outerCtx context.Context) error {
 			continue
 		}
 
-		checker := checker
-
 		group.Go(func() error {
 			resultChan <- checker.Health(groupCtx)
+			h.log.Debug("received health from", "checker", fmt.Sprintf("%T", checker))
 			return nil
 		})
 	}

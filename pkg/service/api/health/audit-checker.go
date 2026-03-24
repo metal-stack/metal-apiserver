@@ -41,7 +41,11 @@ func (h *auditHealthChecker) Health(ctx context.Context) *apiv2.HealthStatus {
 			status = apiv2.ServiceStatus_SERVICE_STATUS_UNHEALTHY
 		}
 
-		message = res.Message
+		if res.Message == "" {
+			message = "all audit backends healthy"
+		} else {
+			message = res.Message
+		}
 	}
 
 	return &apiv2.HealthStatus{
