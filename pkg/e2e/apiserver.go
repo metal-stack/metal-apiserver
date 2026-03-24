@@ -42,6 +42,8 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 			RateLimitClient: testStore.GetRedisClient(),
 			InviteClient:    testStore.GetRedisClient(),
 			AsyncClient:     testStore.GetRedisClient(),
+			QueueClient:     testStore.GetValkeyClient(),
+			ComponentClient: testStore.GetValkeyClient(),
 		},
 		MasterClient:                        testStore.GetMasterdataClient(),
 		Datastore:                           testStore.GetDatastore(),

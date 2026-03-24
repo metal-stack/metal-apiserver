@@ -54,6 +54,7 @@ type testStore struct {
 	tokenService token.TokenService
 	mdc          mdc.Client
 	rc           *redis.Client
+	vc           valkey.Client
 }
 
 type testOpt any
@@ -231,6 +232,7 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		tokenService:       tokenService,
 		mdc:                mdc,
 		rc:                 rc,
+		vc:                 vc,
 	}, closer
 }
 
@@ -284,6 +286,10 @@ func (t *testStore) GetIpamClient() apiv1connect.IpamServiceClient {
 
 func (t *testStore) GetRedisClient() *redis.Client {
 	return t.rc
+}
+
+func (t *testStore) GetValkeyClient() valkey.Client {
+	return t.vc
 }
 
 func (t *testStore) GetTokenService() token.TokenService {
