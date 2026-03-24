@@ -12,6 +12,7 @@ import (
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	mdm "github.com/metal-stack/masterdata-api/pkg/client"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	valkeygo "github.com/valkey-io/valkey-go"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -28,6 +29,7 @@ type Config struct {
 	Ctx                 context.Context
 	HealthcheckInterval time.Duration
 	Ipam                ipamv1connect.IpamServiceClient
+	Redis               valkeygo.Client
 	Masterdata          mdm.Client
 	Datastore           generic.Datastore
 }
@@ -50,6 +52,9 @@ func New(c Config) (apiv2connect.HealthServiceHandler, error) {
 	}
 	if c.Datastore != nil {
 		checkers = append(checkers, &rethinkdbHealthChecker{ds: c.Datastore})
+	}
+	if c.Redis != nil {
+		checkers = append(checkers, &redisHealthChecker{redis: c.Redis})
 	}
 
 	h := &healthServiceServer{
