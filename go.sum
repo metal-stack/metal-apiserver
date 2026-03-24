@@ -460,8 +460,8 @@ github.com/metal-stack/goth v0.1.0 h1:sdadAH9QG+xAjLNKAJq8+esfXct6icTs58juoR4BKr
 github.com/metal-stack/goth v0.1.0/go.mod h1:FNz3T5lydfi+ls1O3adXgN9Xmn4sn/SZE4t+Sswl+Uc=
 github.com/metal-stack/masterdata-api v0.13.0 h1:1AxnsiWiTMstjMsphZ0wMFT7aW3QQhAMumXnQ81PtHk=
 github.com/metal-stack/masterdata-api v0.13.0/go.mod h1:oOFiWkj5UuXSBj3LXT+sPOtHq78gUY07WWuVV4Ty98U=
-github.com/metal-stack/metal-lib v0.24.0 h1:wvQQPWIXcA2tP+I6zAHUNdtVLLJfQnnV9yG2SoqUkz4=
-github.com/metal-stack/metal-lib v0.24.0/go.mod h1:oITaqj/BtB9vDKM66jCXkeA+4D0eTZElgIKal5vtiNY=
+github.com/metal-stack/metal-lib v0.24.1 h1:hpXEGkIQVQW7FyLCfe2F24Ww/Q/sNBWJ3hfY57OUZMM=
+github.com/metal-stack/metal-lib v0.24.1/go.mod h1:4ZJ7nlZJBngMskA2NhMHrNEHayw3a6xfUtP6xCjOjC0=
 github.com/metal-stack/security v0.9.6 h1:q+JbfFis/G2IuyKky2btmDmO0Y2GQ47p7lmzOi80kMY=
 github.com/metal-stack/security v0.9.6/go.mod h1:HBwf4y3E4VLJPG6vNW1ynlrym46cENDtzIoN9c7uxFI=
 github.com/metal-stack/v v1.0.3 h1:Sh2oBlnxrCUD+mVpzfC8HiqL045YWkxs0gpTvkjppqs=
