@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/metal-stack/api/go/client"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -182,8 +181,6 @@ func TestHealthGet(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, health)
 		require.NotNil(t, health.Health)
-
-		spew.Dump(health.Health)
 
 		// initial check needs to succeed and populate message fields as initial state is that all services are returned healthy
 		for _, svc := range health.Health.Services {
