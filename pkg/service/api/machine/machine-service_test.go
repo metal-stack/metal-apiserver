@@ -928,7 +928,7 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
 					Networks: []*apiv2.MachineAllocationNetwork{
 						{Network: sc.NetworkInternet},
-						{Network: projectNetworkId, NoAutoAcquireIp: new(false)},
+						{Network: projectNetworkId, NoAutoAcquireIp: false},
 					},
 				}
 				return req, errorutil.InvalidArgument(`the network %s has no auto ip acquisition, but no suitable IPs were provided, which would lead into a machine having no ip address`, projectNetworkId)
@@ -971,7 +971,7 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
 					Networks: []*apiv2.MachineAllocationNetwork{
 						{Network: sc.NetworkInternet},
-						{Network: projectNetworkId, NoAutoAcquireIp: new(false)},
+						{Network: projectNetworkId, NoAutoAcquireIp: false},
 					},
 					Ips: []*apiv2.MachineAllocationIp{
 						{Ip: "1.2.3.4"},
@@ -1030,7 +1030,7 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
 					Networks: []*apiv2.MachineAllocationNetwork{
 						{Network: sc.NetworkInternet},
-						{Network: projectNetworkId, NoAutoAcquireIp: new(false)},
+						{Network: projectNetworkId, NoAutoAcquireIp: false},
 					},
 					Ips: []*apiv2.MachineAllocationIp{
 						{Ip: ipcr.Ip},
@@ -1084,7 +1084,7 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
 					Networks: []*apiv2.MachineAllocationNetwork{
 						{Network: sc.NetworkInternet},
-						{Network: projectNetworkId, NoAutoAcquireIp: new(false)},
+						{Network: projectNetworkId, NoAutoAcquireIp: false},
 					},
 					Ips: []*apiv2.MachineAllocationIp{
 						{Ip: ipcr.Ip, Namespace: ipcr.Namespace},

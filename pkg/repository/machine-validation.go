@@ -136,10 +136,8 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 			return errorutil.InvalidArgument("network %q must be located in the partition where the machine is going to be placed", n.Id)
 		}
 
-		if n.Type != nil && *n.Type == apiv2.NetworkType_NETWORK_TYPE_CHILD {
-			if nw.NoAutoAcquireIp != nil && !*nw.NoAutoAcquireIp && len(req.Ips) == 0 {
-				return errorutil.InvalidArgument("the network %s has no auto ip acquisition, but no suitable IPs were provided, which would lead into a machine having no ip address", n.Id)
-			}
+		if !nw.NoAutoAcquireIp && len(req.Ips) == 0 {
+			return errorutil.InvalidArgument("the network %s has no auto ip acquisition, but no suitable IPs were provided, which would lead into a machine having no ip address", n.Id)
 		}
 
 		networks = append(networks, nw.Network)

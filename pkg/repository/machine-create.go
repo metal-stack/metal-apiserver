@@ -52,7 +52,7 @@ type machineAllocationSpec struct {
 func (s machineAllocationSpec) noautoNetworkN() int {
 	result := 0
 	for _, n := range s.Networks {
-		if n.NoAutoAcquireIp != nil && *n.NoAutoAcquireIp {
+		if n.NoAutoAcquireIp {
 			result++
 		}
 	}
@@ -875,11 +875,7 @@ func (r *machineRepository) gatherNetworksFromSpec(ctx context.Context, spec *ma
 	)
 
 	for _, networkSpec := range spec.Networks {
-		auto := true
-		if networkSpec.NoAutoAcquireIp != nil {
-			auto = *networkSpec.NoAutoAcquireIp
-		}
-
+		auto := networkSpec.NoAutoAcquireIp
 		network, err := r.s.ds.Network().Get(ctx, networkSpec.Network)
 		if err != nil {
 			return nil, err
