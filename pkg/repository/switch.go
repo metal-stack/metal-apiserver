@@ -772,6 +772,29 @@ func (r *switchRepository) convertToProto(ctx context.Context, sw *metal.Switch)
 		return nil, err
 	}
 
+	var (
+		lastSync      *apiv2.SwitchSync
+		lastErrorSync *apiv2.SwitchSync
+	)
+
+	status, err := r.s.ds.SwitchStatus().Get(ctx, sw.ID)
+	if err != nil && !errorutil.IsNotFound(err) {
+		return nil, err
+	}
+
+	if status != nil {
+		lastSync = &apiv2.SwitchSync{
+			Time:     timestamppb.New(pointer.SafeDeref(status.LastSync).Time),
+			Duration: durationpb.New(pointer.SafeDeref(status.LastSync).Duration),
+			Error:    pointer.SafeDeref(status.LastSync).Error,
+		}
+		lastErrorSync = &apiv2.SwitchSync{
+			Time:     timestamppb.New(pointer.SafeDeref(status.LastSyncError).Time),
+			Duration: durationpb.New(pointer.SafeDeref(status.LastSyncError).Duration),
+			Error:    pointer.SafeDeref(status.LastSyncError).Error,
+		}
+	}
+
 	return &apiv2.Switch{
 		Id: sw.ID,
 		Meta: &apiv2.Meta{
@@ -793,6 +816,8 @@ func (r *switchRepository) convertToProto(ctx context.Context, sw *metal.Switch)
 			Version:          sw.OS.Version,
 			MetalCoreVersion: sw.OS.MetalCoreVersion,
 		},
+		LastSync:      lastSync,
+		LastSyncError: lastErrorSync,
 	}, nil
 }
 
@@ -973,9 +998,14 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 			return nil, err
 		}
 
+		identifier := nic.Identifier
+		if identifier == "" {
+			identifier = nic.MacAddress
+		}
+
 		switchNics = append(switchNics, &apiv2.SwitchNic{
 			Name:       nic.Name,
-			Identifier: nic.Identifier,
+			Identifier: identifier,
 			Mac:        nic.MacAddress,
 			Vrf:        pointer.PointerOrNil(nic.Vrf),
 			State: &apiv2.NicState{
@@ -1021,7 +1051,7 @@ func convertMachineConnections(machineConnections metal.ConnectionMap, nics []*a
 	for _, cons := range machineConnections {
 		for _, con := range cons {
 			nic, found := lo.Find(nics, func(n *apiv2.SwitchNic) bool {
-				return n.Identifier == con.Nic.Identifier
+				return n.Name == con.Nic.Name
 			})
 
 			if !found {
