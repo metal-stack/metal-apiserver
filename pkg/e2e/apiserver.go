@@ -14,6 +14,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
+	"github.com/metal-stack/metal-lib/auditing"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
@@ -21,7 +22,7 @@ import (
 func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string) (baseURL, adminToken string, tenantTokens map[string]string, closer func()) {
 	ctx := t.Context()
 
-	testStore, repocloser := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true), test.WithValkey(true))
+	testStore, repocloser := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true), test.WithValkey(true), test.WithHeadscale(true))
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "{}")
@@ -31,6 +32,7 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 
 	subject := "e2e-tests"
 	providerTenant := "metal-stack"
+	hc := testStore.GetHeadscaleClient()
 
 	c := service.Config{
 		Log:           log,
@@ -45,6 +47,9 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 			QueueClient:     testStore.GetValkeyClient(),
 			ComponentClient: testStore.GetValkeyClient(),
 		},
+
+		AuditBackends:                       []auditing.Auditing{testStore.GetAuditBackend()},
+		AuditSearchBackend:                  testStore.GetAuditBackend(),
 		MasterClient:                        testStore.GetMasterdataClient(),
 		Datastore:                           testStore.GetDatastore(),
 		IpamClient:                          testStore.GetIpamClient(),
@@ -54,6 +59,7 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 		Admins:                              []string{providerTenant, subject},
 		MaxRequestsPerMinuteToken:           100,
 		MaxRequestsPerMinuteUnauthenticated: 100,
+		HeadscaleClient:                     hc,
 	}
 
 	mux, err := service.New(log, c)

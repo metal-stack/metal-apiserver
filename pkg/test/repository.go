@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	headscalev1 "github.com/juanfont/headscale/gen/go/headscale/v1"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
@@ -37,43 +38,47 @@ const (
 )
 
 // TODO should we make all methods return/consume the teststore ?
-type testStore struct {
-	t testing.TB
-	*repository.Store
-	ds            generic.Datastore
-	dbName        string
-	queryExecutor *r.Session
-	ipam          apiv1connect.IpamServiceClient
-	ipamcloser    func()
+type (
+	testStore struct {
+		t testing.TB
+		*repository.Store
+		ds            generic.Datastore
+		dbName        string
+		queryExecutor *r.Session
+		ipam          apiv1connect.IpamServiceClient
+		ipamcloser    func()
 
-	projectInviteStore invite.ProjectInviteStore
-	tenantInviteStore  invite.TenantInviteStore
-	tokenStore         tokencommon.TokenStore
+		projectInviteStore invite.ProjectInviteStore
+		tenantInviteStore  invite.TenantInviteStore
+		tokenStore         tokencommon.TokenStore
 
-	// only use this when you are very certain about it!!
-	tokenService token.TokenService
-	mdc          mdc.Client
-	rc           *redis.Client
-	vc           valkey.Client
-}
+		// only use this when you are very certain about it!!
+		tokenService token.TokenService
+		mdc          mdc.Client
+		rc           *redis.Client
+		vc           valkey.Client
+		hc           headscalev1.HeadscaleServiceClient
+		audit        auditing.Auditing
+	}
 
-type testOpt any
+	testOpt any
 
-type testOptPostgres struct {
-	with bool
-}
-
-type testOptValkey struct {
-	with bool
-}
-
-type testOptRethink struct {
-	with bool
-}
-
-type testOptContainer struct {
-	with bool
-}
+	testOptPostgres struct {
+		with bool
+	}
+	testOptValkey struct {
+		with bool
+	}
+	testOptRethink struct {
+		with bool
+	}
+	testOptHeadscale struct {
+		with bool
+	}
+	testOptContainer struct {
+		with bool
+	}
+)
 
 // WithPostgres if set to true a postgres database container is started, defaults to false.
 func WithPostgres(with bool) *testOptPostgres {
@@ -96,6 +101,13 @@ func WithRethink(with bool) *testOptRethink {
 	}
 }
 
+// WithRethink if set to true a rethink database container is started, defaults to false.
+func WithHeadscale(with bool) *testOptHeadscale {
+	return &testOptHeadscale{
+		with: with,
+	}
+}
+
 // WithContainers if set to false, no database containers are started, defaults to true.
 func WithContainers(with bool) *testOptContainer {
 	return &testOptContainer{
@@ -108,6 +120,7 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		withPostgres   = false
 		withValkey     = false
 		withRethink    = true
+		withHeadscale  = false
 		withContainers = true
 	)
 
@@ -119,6 +132,8 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 			withValkey = o.with
 		case *testOptRethink:
 			withRethink = o.with
+		case *testOptHeadscale:
+			withHeadscale = o.with
 		case *testOptContainer:
 			withContainers = o.with
 		default:
@@ -133,13 +148,15 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 	}
 
 	var (
-		rc            *redis.Client
-		vc            valkey.Client
-		valkeyCloser  func()
-		ds            generic.Datastore
-		opts          r.ConnectOpts
-		rethinkCloser func()
-		session       *r.Session
+		rc              *redis.Client
+		vc              valkey.Client
+		hc              headscalev1.HeadscaleServiceClient
+		valkeyCloser    func()
+		ds              generic.Datastore
+		opts            r.ConnectOpts
+		rethinkCloser   func()
+		headscaleCloser func()
+		session         *r.Session
 	)
 
 	if withRethink {
@@ -153,6 +170,10 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		rc, vc, valkeyCloser = StartValkey(t)
 	} else {
 		rc, vc, valkeyCloser = StartValkey(t, WithMiniRedis(true))
+	}
+
+	if withHeadscale {
+		hc, _, _, headscaleCloser = StartHeadscale(t)
 	}
 
 	projectInviteStore := invite.NewProjectRedisStore(rc)
@@ -216,6 +237,9 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		if valkeyCloser != nil {
 			valkeyCloser()
 		}
+		if headscaleCloser != nil {
+			headscaleCloser()
+		}
 	}
 
 	return &testStore{
@@ -233,11 +257,12 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		mdc:                mdc,
 		rc:                 rc,
 		vc:                 vc,
+		audit:              auditingBackend,
+		hc:                 hc,
 	}, closer
 }
 
 func (s *testStore) Cleanup(t testing.TB) {
-
 	s.DeleteProjects()
 	s.DeleteTenants()
 	DeleteIPs(t, s)
@@ -290,6 +315,14 @@ func (t *testStore) GetRedisClient() *redis.Client {
 
 func (t *testStore) GetValkeyClient() valkey.Client {
 	return t.vc
+}
+
+func (t *testStore) GetHeadscaleClient() headscalev1.HeadscaleServiceClient {
+	return t.hc
+}
+
+func (t *testStore) GetAuditBackend() auditing.Auditing {
+	return t.audit
 }
 
 func (t *testStore) GetTokenService() token.TokenService {

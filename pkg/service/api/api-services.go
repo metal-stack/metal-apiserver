@@ -35,6 +35,8 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/user"
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/version"
 
+	headscalev1 "github.com/juanfont/headscale/gen/go/headscale/v1"
+
 	mdm "github.com/metal-stack/masterdata-api/pkg/client"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
 )
@@ -53,13 +55,14 @@ type Config struct {
 	CertStore          certs.CertStore
 	AuditSearchBackend auditing.Auditing
 	Redis              valkey.Client
+	AuditBackends      []auditing.Auditing
+	HeadscaleClient    headscalev1.HeadscaleServiceClient
 
 	ServerHttpURL string
 	Admins        []string
 }
 
 func ApiServices(cfg Config) (token.TokenService, error) {
-
 	var (
 		auditService      = audit.New(audit.Config{Log: cfg.Log, Repo: cfg.Repository, AuditClient: cfg.AuditSearchBackend})
 		filesystemService = filesystem.New(filesystem.Config{Log: cfg.Log, Repo: cfg.Repository})
@@ -107,6 +110,9 @@ func ApiServices(cfg Config) (token.TokenService, error) {
 		Masterdata:          cfg.MasterClient,
 		Datastore:           cfg.Datastore,
 		Redis:               cfg.Redis,
+		Headscale:           cfg.HeadscaleClient,
+		AuditBackends:       cfg.AuditBackends,
+		TaskClient:          cfg.Repository.Task(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize health service %w", err)

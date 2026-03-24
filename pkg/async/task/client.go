@@ -56,6 +56,10 @@ func (c *Client) DeleteTask(queue, id string) error {
 	return c.inspector.DeleteTask(queue, id)
 }
 
+func (c *Client) Ping() error {
+	return c.client.Ping()
+}
+
 func (c *Client) List(queue *string) ([]*asynq.TaskInfo, error) {
 	if queue != nil {
 		return c.listQueueTasks(*queue)
