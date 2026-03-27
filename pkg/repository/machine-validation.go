@@ -8,6 +8,7 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"golang.org/x/crypto/ssh"
 )
 
 func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.MachineServiceCreateRequest) error {
@@ -29,6 +30,7 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 		if req.Size != "" {
 			return errorutil.InvalidArgument("when machine id is given, a size must not be specified")
 		}
+
 		m, err := r.s.ds.Machine().Get(ctx, *req.Uuid)
 		if err != nil {
 			return err
@@ -161,6 +163,14 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 		}
 
 	}
+
+	for _, pubKey := range req.SshPublicKeys {
+		_, _, _, _, err := ssh.ParseAuthorizedKey([]byte(pubKey))
+		if err != nil {
+			return errorutil.InvalidArgument("invalid public SSH key: %s error:%w", pubKey, err)
+		}
+	}
+
 	return nil
 }
 

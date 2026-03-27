@@ -253,6 +253,76 @@ func (r *machineRepository) convertToInternal(ctx context.Context, machine *apiv
 	panic("unimplemented")
 }
 
+func (r *machineRepository) ConvertFirewallRulesToInternal(ctx context.Context, firewallRules *apiv2.FirewallRules) (*metal.FirewallRules, error) {
+	var (
+		fwrules = &metal.FirewallRules{
+			Egress:  []metal.EgressRule{},
+			Ingress: []metal.IngressRule{},
+		}
+	)
+
+	for _, ruleSpec := range firewallRules.Egress {
+		protocolLowerCase, err := enum.GetStringValue(ruleSpec.Protocol)
+		if err != nil {
+			return nil, err
+		}
+		protocol, err := metal.ProtocolFromString(*protocolLowerCase)
+		if err != nil {
+			return nil, err
+		}
+
+		var ports []int
+		for _, p := range ruleSpec.Ports {
+			ports = append(ports, int(p))
+		}
+
+		rule := metal.EgressRule{
+			Protocol: protocol,
+			Ports:    ports,
+			To:       ruleSpec.To,
+			Comment:  ruleSpec.Comment,
+		}
+
+		if err := rule.Validate(); err != nil {
+			return nil, err
+		}
+
+		fwrules.Egress = append(fwrules.Egress, rule)
+	}
+
+	for _, ruleSpec := range firewallRules.Ingress {
+		protocolLowerCase, err := enum.GetStringValue(ruleSpec.Protocol)
+		if err != nil {
+			return nil, err
+		}
+		protocol, err := metal.ProtocolFromString(*protocolLowerCase)
+		if err != nil {
+			return nil, err
+		}
+
+		var ports []int
+		for _, p := range ruleSpec.Ports {
+			ports = append(ports, int(p))
+		}
+
+		rule := metal.IngressRule{
+			Protocol: protocol,
+			Ports:    ports,
+			To:       ruleSpec.To,
+			From:     ruleSpec.From,
+			Comment:  ruleSpec.Comment,
+		}
+
+		if err := rule.Validate(); err != nil {
+			return nil, err
+		}
+
+		fwrules.Ingress = append(fwrules.Ingress, rule)
+	}
+
+	return fwrules, nil
+}
+
 func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine) (*apiv2.Machine, error) {
 	var (
 		labels           *apiv2.Labels
