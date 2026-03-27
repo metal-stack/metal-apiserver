@@ -115,15 +115,23 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 		return errorutil.InvalidArgument("given allocationtype %s is not supported", req.AllocationType)
 	}
 
-	if len(req.Networks) == 0 {
-		return errorutil.InvalidArgument("networks must not be empty")
-	}
+	// what do we have to prevent:
+	// - user wants to place his machine in a network that does not belong to the project in which the machine is being placed
+	// - user wants a machine with a private network that is not in the partition of the machine
+	// - user specifies no private network
+	// - user specifies multiple, unshared private networks
+	// - user specifies a shared private network in addition to an unshared one for a machine
+	// - user specifies administrative networks, i.e. underlay or privatesuper networks
+	// - user's private network is specified with noauto but no specific IPs are given: this would yield a machine with no ip address
 
-	// TODO validate exactly one child or one child_shared (this is the case if this is the storage firewall and node) network for machines and firewalls
-	// TODO validate zero or more child shared networks for firewalls
-	// TODO validate at least one external network for firewalls
-
-	var networks []string
+	var (
+		networks                = map[string]bool{}
+		childNetworkCount       int
+		childSharedNetworkCount int
+		externalNetworkCount    int
+		underlayNetworkCount    int
+		superNetworkCount       int
+	)
 	for _, nw := range req.Networks {
 		// TODO external network is required
 		n, err := r.s.UnscopedNetwork().Get(ctx, nw.Network)
@@ -140,6 +148,28 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 
 		if !nw.NoAutoAcquireIp && len(nw.Ips) == 0 {
 			return errorutil.InvalidArgument("the network %s has no auto ip acquisition, but no suitable IPs were provided, which would lead into a machine having no ip address", n.Id)
+		}
+
+		if n.Type != nil {
+			if *n.Type == apiv2.NetworkType_NETWORK_TYPE_CHILD {
+				childNetworkCount++
+			}
+
+			if *n.Type == apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED {
+				childSharedNetworkCount++
+			}
+
+			if *n.Type == apiv2.NetworkType_NETWORK_TYPE_EXTERNAL {
+				externalNetworkCount++
+			}
+
+			if *n.Type == apiv2.NetworkType_NETWORK_TYPE_UNDERLAY {
+				underlayNetworkCount++
+			}
+
+			if *n.Type == apiv2.NetworkType_NETWORK_TYPE_SUPER || *n.Type == apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED {
+				superNetworkCount++
+			}
 		}
 
 		for _, ip := range nw.Ips {
@@ -164,7 +194,35 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 			}
 		}
 
-		networks = append(networks, nw.Network)
+		networks[n.Id] = true
+	}
+
+	if len(req.Networks) == 0 {
+		return errorutil.InvalidArgument("networks must not be empty")
+	}
+
+	if len(networks) != len(req.Networks) {
+		return errorutil.InvalidArgument("given network ids are not unique")
+	}
+
+	if underlayNetworkCount > 0 {
+		return errorutil.InvalidArgument("firewalls must be allocated in a underlay but this must not be specified")
+	}
+
+	if superNetworkCount > 0 {
+		return errorutil.InvalidArgument("super networks can not be specified as allocation networks")
+	}
+
+	if externalNetworkCount < 1 && req.AllocationType == apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL {
+		return errorutil.InvalidArgument("firewalls must be allocated in at least one external network")
+	}
+
+	if (childNetworkCount+childSharedNetworkCount != 1) && req.AllocationType == apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE {
+		return errorutil.InvalidArgument("machines must be allocated in exactly one child or child_shared network")
+	}
+
+	if childSharedNetworkCount > 1 {
+		return errorutil.InvalidArgument("machines or firewalls must not be allocated in more than one child_shared network")
 	}
 
 	for _, pubKey := range req.SshPublicKeys {

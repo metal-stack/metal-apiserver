@@ -295,7 +295,7 @@ func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAl
 	}
 	alloc.FilesystemLayout = fsl
 
-	networks, err := r.gatherNetworks(ctx, spec)
+	networks, err := r.convertToMetalAllocationNetwork(ctx, spec)
 	if err != nil {
 		return nil, rollbackMachine, fmt.Errorf("unable to gather networks:%w", err)
 	}
@@ -615,54 +615,37 @@ func (r *machineRepository) checkSizeReservations(available []*metal.Machine, pr
 	return amount < len(available)
 }
 
-// makeNetworks creates network entities and ip addresses as specified in the allocation network map.
-// created networks are added to the machine allocation directly after their creation. This way, the rollback mechanism
-// is enabled to clean up networks that were already created.
-func (r *machineRepository) makeNetworks(ctx context.Context, spec *machineAllocationSpec, networks []*allocationNetwork, alloc *metal.MachineAllocation) error {
-	for _, n := range networks {
-		if n == nil || n.network == nil {
-			continue
-		}
-		machineNetwork, err := r.makeMachineNetwork(ctx, spec, n)
+func (r *machineRepository) convertToMetalAllocationNetwork(ctx context.Context, spec *machineAllocationSpec) ([]*allocationNetwork, error) {
+	var (
+		specNetworks []*allocationNetwork
+	)
+
+	for _, networkSpec := range spec.Networks {
+		auto := networkSpec.NoAutoAcquireIp
+		network, err := r.s.ds.Network().Get(ctx, networkSpec.Network)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		alloc.MachineNetworks = append(alloc.MachineNetworks, machineNetwork)
+
+		n := &allocationNetwork{
+			network: network,
+			auto:    auto,
+			ips:     []*metal.IP{},
+		}
+
+		for _, allocationIP := range networkSpec.Ips {
+			ip, err := r.s.ds.IP().Get(ctx, metal.CreateNamespacedIPAddress(network.Namespace, allocationIP))
+			if err != nil {
+				return nil, err
+			}
+			n.auto = false
+			n.ips = append(n.ips, ip)
+		}
+
+		specNetworks = append(specNetworks, n)
 	}
 
-	// the metal-networker expects to have the same unique ASN on all networks of this machine
-	asn, err := r.acquireASN(ctx)
-	if err != nil {
-		return err
-	}
-	for _, n := range alloc.MachineNetworks {
-		n.ASN = *asn
-	}
-
-	return nil
-}
-
-func (r *machineRepository) gatherNetworks(ctx context.Context, spec *machineAllocationSpec) ([]*allocationNetwork, error) {
-	privateSuperNetworks, err := r.s.ds.Network().List(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{
-		Type: apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(), Partition: &spec.PartitionID,
-	}))
-	if err != nil {
-		return nil, fmt.Errorf("partition %s has no super network: %w", spec.PartitionID, err)
-	}
-
-	privateSuperNamespacedNetworks, err := r.s.ds.Network().List(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{
-		Type: apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED.Enum(),
-	}))
-	if err != nil {
-		return nil, fmt.Errorf("error gettiting super namespaced network: %w", err)
-	}
-	superNetworks := append(privateSuperNetworks, privateSuperNamespacedNetworks...)
-
-	specNetworks, err := r.gatherNetworksFromSpec(ctx, spec, spec.PartitionID, superNetworks)
-	if err != nil {
-		return nil, err
-	}
-
+	// Add underlay to firewall
 	if spec.Role == metal.RoleFirewall {
 		underlay, err := r.s.ds.Network().Find(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{
 			Partition: &spec.PartitionID,
@@ -681,138 +664,47 @@ func (r *machineRepository) gatherNetworks(ctx context.Context, spec *machineAll
 	return specNetworks, nil
 }
 
-// FIXME this is the complicated part which needs to be reviewed
-
-func (r *machineRepository) gatherNetworksFromSpec(ctx context.Context, spec *machineAllocationSpec, partitionId string, superNetworks []*metal.Network) ([]*allocationNetwork, error) {
-	var partitionPrivateSuperNetwork *metal.Network
-	for i := range superNetworks {
-		psn := superNetworks[i]
-		if partitionId == psn.PartitionID {
-			partitionPrivateSuperNetwork = psn
-			break
+// makeNetworks creates network entities and ip addresses as specified in the allocation network map.
+// created networks are added to the machine allocation directly after their creation. This way, the rollback mechanism
+// is enabled to clean up networks that were already created.
+func (r *machineRepository) makeNetworks(ctx context.Context, spec *machineAllocationSpec, networks []*allocationNetwork, alloc *metal.MachineAllocation) error {
+	// the metal-networker expects to have the same unique ASN on all networks of this machine
+	asn, err := r.acquireASN(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range networks {
+		if n == nil || n.network == nil {
+			continue
 		}
-	}
-	if partitionPrivateSuperNetwork == nil {
-		return nil, fmt.Errorf("partition %s does not have a private super network", partitionId)
-	}
-
-	// what do we have to prevent:
-	// - user wants to place his machine in a network that does not belong to the project in which the machine is being placed
-	// - user wants a machine with a private network that is not in the partition of the machine
-	// - user specifies no private network
-	// - user specifies multiple, unshared private networks
-	// - user specifies a shared private network in addition to an unshared one for a machine
-	// - user specifies administrative networks, i.e. underlay or privatesuper networks
-	// - user's private network is specified with noauto but no specific IPs are given: this would yield a machine with no ip address
-
-	var (
-		specNetworks          []*allocationNetwork
-		primaryPrivateNetwork *allocationNetwork
-		privateNetworks       []*allocationNetwork
-		privateSharedNetworks []*allocationNetwork
-	)
-
-	for _, networkSpec := range spec.Networks {
-		auto := networkSpec.NoAutoAcquireIp
-		network, err := r.s.ds.Network().Get(ctx, networkSpec.Network)
+		machineNetwork, err := r.makeMachineNetwork(ctx, spec, n, *asn)
 		if err != nil {
-			return nil, err
+			return err
 		}
-
-		if network.NetworkType != nil {
-			if *network.NetworkType == metal.NetworkTypeUnderlay {
-				return nil, fmt.Errorf("underlay networks are not allowed to be set explicitly: %s", network.ID)
-			}
-			if *network.NetworkType == metal.NetworkTypeSuper {
-				return nil, fmt.Errorf("super networks are not allowed to be set explicitly: %s", network.ID)
-			}
-		}
-
-		n := &allocationNetwork{
-			network: network,
-			auto:    auto,
-			ips:     []*metal.IP{},
-		}
-
-		for _, allocationIP := range networkSpec.Ips {
-			ip, err := r.s.ds.IP().Get(ctx, metal.CreateNamespacedIPAddress(network.Namespace, allocationIP))
-			if err != nil {
-				return nil, err
-			}
-			n.auto = false
-			n.ips = append(n.ips, ip)
-		}
-
-		for _, superNetwork := range superNetworks {
-			if network.ParentNetworkID != superNetwork.ID {
-				continue
-			}
-			privateNetworks = append(privateNetworks, n)
-		}
-
-		specNetworks = append(specNetworks, n)
+		alloc.MachineNetworks = append(alloc.MachineNetworks, machineNetwork)
 	}
 
-	if len(specNetworks) != len(spec.Networks) {
-		return nil, errors.New("given network ids are not unique")
-	}
-
-	if len(privateNetworks) == 0 {
-		return nil, errors.New("no private network given")
-	}
-
-	// if there is no unshared private network we try to determine a shared one as primary
-	if primaryPrivateNetwork == nil {
-		// this means that this is a machine of a shared private network
-		// this is an exception where the primary private network is a shared one.
-		// it must be the only private network
-		if len(privateSharedNetworks) == 0 {
-			return nil, errors.New("no private shared network found that could be used as primary private network")
-		}
-		if len(privateSharedNetworks) > 1 {
-			return nil, errors.New("machines and firewalls are not allowed to be placed into multiple private, shared networks (firewall needs an unshared private network and machines may only reside in one private network)")
-		}
-
-		primaryPrivateNetwork = privateSharedNetworks[0]
-	}
-
-	if spec.Role == metal.RoleMachine && len(privateNetworks) > 1 {
-		return nil, errors.New("machines are not allowed to be placed into multiple private networks")
-	}
-
-	if primaryPrivateNetwork.network.ProjectID != spec.ProjectID {
-		return nil, errors.New("the given private network does not belong to the project, which is not allowed")
-	}
-
-	for _, privateNetwork := range privateNetworks {
-		if privateNetwork.network.PartitionID != partitionPrivateSuperNetwork.PartitionID {
-			return nil, fmt.Errorf("private network %q must be located in the partition where the machine is going to be placed", privateNetwork.network.ID)
-		}
-
-		if !privateNetwork.auto && len(privateNetwork.ips) == 0 {
-			return nil, fmt.Errorf("the private network %q has no auto ip acquisition, but no suitable IPs were provided, which would lead into a machine having no ip address", privateNetwork.network.ID)
-		}
-	}
-
-	return specNetworks, nil
+	return nil
 }
 
-func (r *machineRepository) makeMachineNetwork(ctx context.Context, spec *machineAllocationSpec, n *allocationNetwork) (*metal.MachineNetwork, error) {
-	if n.auto {
-		if len(n.network.Prefixes) == 0 {
-			return nil, fmt.Errorf("given network %s does not have prefixes configured", n.network.ID)
+// FIXME this is the complicated part which needs to be reviewed
+
+func (r *machineRepository) makeMachineNetwork(ctx context.Context, spec *machineAllocationSpec, network *allocationNetwork, asn uint32) (*metal.MachineNetwork, error) {
+	if network.auto {
+		if len(network.network.Prefixes) == 0 {
+			return nil, fmt.Errorf("given network %s does not have prefixes configured", network.network.ID)
 		}
-		for _, af := range n.network.Prefixes.AddressFamilies() {
-			ipAddress, ipParentCidr, err := r.s.IP(spec.ProjectID).AdditionalMethods().allocateRandomIP(ctx, n.network, &af)
+		for _, af := range network.network.Prefixes.AddressFamilies() {
+			ipAddress, ipParentCidr, err := r.s.IP(spec.ProjectID).AdditionalMethods().allocateRandomIP(ctx, network.network, &af)
 			if err != nil {
-				return nil, fmt.Errorf("unable to allocate an ip in network: %s %w", n.network.ID, err)
+				return nil, fmt.Errorf("unable to allocate an ip in network: %s %w", network.network.ID, err)
 			}
 			ip := &metal.IP{
 				IPAddress:        ipAddress,
 				ParentPrefixCidr: ipParentCidr,
 				Name:             spec.Name,
 				Description:      "autoassigned",
-				NetworkID:        n.network.ID,
+				NetworkID:        network.network.ID,
 				Type:             metal.Ephemeral,
 				ProjectID:        spec.ProjectID,
 			}
@@ -823,14 +715,14 @@ func (r *machineRepository) makeMachineNetwork(ctx context.Context, spec *machin
 			if err != nil {
 				return nil, err
 			}
-			n.ips = append(n.ips, ip)
+			network.ips = append(network.ips, ip)
 		}
 	}
 
 	// from the makeNetworks call, a lot of ips might be set in this network
 	// add a machine tag to all of them
 	var ipAddresses []string
-	for _, ip := range n.ips {
+	for _, ip := range network.ips {
 		ip.AddMachineId(spec.UUID)
 		err := r.s.ds.IP().Update(ctx, ip)
 		if err != nil {
@@ -841,10 +733,10 @@ func (r *machineRepository) makeMachineNetwork(ctx context.Context, spec *machin
 
 	// FIXME we should return the apiv2.MachineNetwork
 	machineNetwork := metal.MachineNetwork{
-		NetworkID:           n.network.ID,
-		Prefixes:            n.network.Prefixes.String(),
+		NetworkID:           network.network.ID,
+		Prefixes:            network.network.Prefixes.String(),
 		IPs:                 ipAddresses,
-		DestinationPrefixes: n.network.DestinationPrefixes.String(),
+		DestinationPrefixes: network.network.DestinationPrefixes.String(),
 		// We do not carry over these old parameters,
 		// the new networker must figure out all aspekts from the v2 networktype
 		//
@@ -853,11 +745,12 @@ func (r *machineRepository) makeMachineNetwork(ctx context.Context, spec *machin
 		// Shared:              n.networkType.Shared,
 		// Underlay: underlay,
 		// Nat: nat,
-		Vrf: n.network.Vrf,
+		Vrf: network.network.Vrf,
+		ASN: asn,
 		// New network properties
-		ProjectID:   n.network.ProjectID,
-		NetworkType: n.network.NetworkType,
-		NATType:     n.network.NATType,
+		ProjectID:   network.network.ProjectID,
+		NetworkType: network.network.NetworkType,
+		NATType:     network.network.NATType,
 	}
 
 	return &machineNetwork, nil
