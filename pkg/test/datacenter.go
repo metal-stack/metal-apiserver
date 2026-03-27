@@ -134,6 +134,16 @@ func (dc *Datacenter) GetNetworks() map[string]*apiv2.Network {
 	return dc.networks
 }
 
+func (dc *Datacenter) GetNetworkByName(name string) *apiv2.Network {
+
+	for _, n := range dc.networks {
+		if n.Name != nil && *n.Name == name {
+			return n
+		}
+	}
+	return nil
+}
+
 func (dc *Datacenter) GetIPs() map[string]*apiv2.IP {
 	return dc.ips
 }
