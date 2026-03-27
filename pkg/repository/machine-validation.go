@@ -138,30 +138,33 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 			return errorutil.InvalidArgument("network %q must be located in the partition where the machine is going to be placed", n.Id)
 		}
 
-		if !nw.NoAutoAcquireIp && len(req.Ips) == 0 {
+		if !nw.NoAutoAcquireIp && len(nw.Ips) == 0 {
 			return errorutil.InvalidArgument("the network %s has no auto ip acquisition, but no suitable IPs were provided, which would lead into a machine having no ip address", n.Id)
 		}
 
+		for _, ip := range nw.Ips {
+			namespacedIP := metal.CreateNamespacedIPAddress(n.Namespace, ip)
+			metalIP, err := r.s.ds.IP().Get(ctx, namespacedIP)
+			if err != nil {
+				return err
+			}
+
+			if n.Id != metalIP.NetworkID {
+				return errorutil.InvalidArgument("given ip %s is not in any of the given networks, which is required", metalIP.IPAddress)
+			}
+
+			if metalIP.ProjectID != req.Project {
+				return errorutil.InvalidArgument("given ip %s is not in the allocation project", metalIP.IPAddress)
+			}
+
+			// TODO explain this condition
+			scope := metalIP.GetScope()
+			if scope != metal.ScopeMachine && scope != metal.ScopeProject {
+				return errorutil.InvalidArgument("given ip %s is not available for direct attachment to machine because it is already in use", metalIP.IPAddress)
+			}
+		}
+
 		networks = append(networks, nw.Network)
-	}
-
-	for _, ip := range req.Ips {
-		namespacedIP := metal.CreateNamespacedIPAddress(ip.Namespace, ip.Ip)
-		metalIP, err := r.s.ds.IP().Get(ctx, namespacedIP)
-		if err != nil {
-			return err
-		}
-		// TODO Ip.Project == project
-		if !slices.Contains(networks, metalIP.NetworkID) {
-			return errorutil.InvalidArgument("given ip %s is not in any of the given networks, which is required", metalIP.IPAddress)
-		}
-
-		// TODO explain this condition
-		scope := metalIP.GetScope()
-		if scope != metal.ScopeMachine && scope != metal.ScopeProject {
-			return errorutil.InvalidArgument("given ip %s is not available for direct attachment to machine because it is already in use", metalIP.IPAddress)
-		}
-
 	}
 
 	for _, pubKey := range req.SshPublicKeys {

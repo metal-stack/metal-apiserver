@@ -39,7 +39,6 @@ type machineAllocationSpec struct {
 	UserData           string
 	Tags               []string
 	Networks           []*apiv2.MachineAllocationNetwork
-	IPs                []*apiv2.MachineAllocationIp
 	Role               metal.Role
 	VPN                *metal.MachineVPN
 	PlacementTags      []string
@@ -54,9 +53,6 @@ type allocationNetwork struct {
 	ips     []*metal.IP
 	auto    bool
 }
-
-// allocationNetworkMap is a map of allocationNetworks with the network id as the key
-type allocationNetworkMap map[string]*allocationNetwork
 
 func (r *machineRepository) createMachineAllocationSpec(ctx context.Context, req *apiv2.MachineServiceCreateRequest) (*machineAllocationSpec, error) {
 	var (
@@ -166,7 +162,6 @@ func (r *machineRepository) createMachineAllocationSpec(ctx context.Context, req
 		UserData:           userdata,
 		Tags:               tags,
 		Networks:           req.Networks,
-		IPs:                req.Ips,
 		Role:               role,
 		FilesystemLayoutID: req.FilesystemLayout,
 		PlacementTags:      req.PlacementTags,
@@ -623,7 +618,7 @@ func (r *machineRepository) checkSizeReservations(available []*metal.Machine, pr
 // makeNetworks creates network entities and ip addresses as specified in the allocation network map.
 // created networks are added to the machine allocation directly after their creation. This way, the rollback mechanism
 // is enabled to clean up networks that were already created.
-func (r *machineRepository) makeNetworks(ctx context.Context, spec *machineAllocationSpec, networks allocationNetworkMap, alloc *metal.MachineAllocation) error {
+func (r *machineRepository) makeNetworks(ctx context.Context, spec *machineAllocationSpec, networks []*allocationNetwork, alloc *metal.MachineAllocation) error {
 	for _, n := range networks {
 		if n == nil || n.network == nil {
 			continue
@@ -647,7 +642,7 @@ func (r *machineRepository) makeNetworks(ctx context.Context, spec *machineAlloc
 	return nil
 }
 
-func (r *machineRepository) gatherNetworks(ctx context.Context, spec *machineAllocationSpec) (allocationNetworkMap, error) {
+func (r *machineRepository) gatherNetworks(ctx context.Context, spec *machineAllocationSpec) ([]*allocationNetwork, error) {
 	privateSuperNetworks, err := r.s.ds.Network().List(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{
 		Type: apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(), Partition: &spec.PartitionID,
 	}))
@@ -677,10 +672,10 @@ func (r *machineRepository) gatherNetworks(ctx context.Context, spec *machineAll
 			return nil, err
 		}
 
-		specNetworks[underlay.ID] = &allocationNetwork{
+		specNetworks = append(specNetworks, &allocationNetwork{
 			network: underlay,
 			auto:    true, // FIXME why is this always set to true ?
-		}
+		})
 	}
 
 	return specNetworks, nil
@@ -688,7 +683,7 @@ func (r *machineRepository) gatherNetworks(ctx context.Context, spec *machineAll
 
 // FIXME this is the complicated part which needs to be reviewed
 
-func (r *machineRepository) gatherNetworksFromSpec(ctx context.Context, spec *machineAllocationSpec, partitionId string, superNetworks []*metal.Network) (allocationNetworkMap, error) {
+func (r *machineRepository) gatherNetworksFromSpec(ctx context.Context, spec *machineAllocationSpec, partitionId string, superNetworks []*metal.Network) ([]*allocationNetwork, error) {
 	var partitionPrivateSuperNetwork *metal.Network
 	for i := range superNetworks {
 		psn := superNetworks[i]
@@ -711,7 +706,7 @@ func (r *machineRepository) gatherNetworksFromSpec(ctx context.Context, spec *ma
 	// - user's private network is specified with noauto but no specific IPs are given: this would yield a machine with no ip address
 
 	var (
-		specNetworks          = make(map[string]*allocationNetwork)
+		specNetworks          []*allocationNetwork
 		primaryPrivateNetwork *allocationNetwork
 		privateNetworks       []*allocationNetwork
 		privateSharedNetworks []*allocationNetwork
@@ -739,6 +734,15 @@ func (r *machineRepository) gatherNetworksFromSpec(ctx context.Context, spec *ma
 			ips:     []*metal.IP{},
 		}
 
+		for _, allocationIP := range networkSpec.Ips {
+			ip, err := r.s.ds.IP().Get(ctx, metal.CreateNamespacedIPAddress(network.Namespace, allocationIP))
+			if err != nil {
+				return nil, err
+			}
+			n.auto = false
+			n.ips = append(n.ips, ip)
+		}
+
 		for _, superNetwork := range superNetworks {
 			if network.ParentNetworkID != superNetwork.ID {
 				continue
@@ -746,7 +750,7 @@ func (r *machineRepository) gatherNetworksFromSpec(ctx context.Context, spec *ma
 			privateNetworks = append(privateNetworks, n)
 		}
 
-		specNetworks[network.ID] = n
+		specNetworks = append(specNetworks, n)
 	}
 
 	if len(specNetworks) != len(spec.Networks) {
@@ -778,27 +782,6 @@ func (r *machineRepository) gatherNetworksFromSpec(ctx context.Context, spec *ma
 
 	if primaryPrivateNetwork.network.ProjectID != spec.ProjectID {
 		return nil, errors.New("the given private network does not belong to the project, which is not allowed")
-	}
-
-	for _, allocationIP := range spec.IPs {
-		ip, err := r.s.ds.IP().Get(ctx, metal.CreateNamespacedIPAddress(allocationIP.Namespace, allocationIP.Ip))
-		if err != nil {
-			return nil, err
-		}
-		if ip.ProjectID != spec.ProjectID {
-			return nil, fmt.Errorf("given ip %q with project id %q does not belong to the project of this allocation: %s", ip.IPAddress, ip.ProjectID, spec.ProjectID)
-		}
-		network, ok := specNetworks[ip.NetworkID]
-		if !ok {
-			return nil, fmt.Errorf("given ip %q is not in any of the given networks, which is required", ip.IPAddress)
-		}
-		s := ip.GetScope()
-		if s != metal.ScopeMachine && s != metal.ScopeProject {
-			return nil, fmt.Errorf("given ip %q is not available for direct attachment to machine because it is already in use", ip.IPAddress)
-		}
-
-		network.auto = false
-		network.ips = append(network.ips, ip)
 	}
 
 	for _, privateNetwork := range privateNetworks {

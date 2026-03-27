@@ -971,10 +971,7 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
 					Networks: []*apiv2.MachineAllocationNetwork{
 						{Network: sc.NetworkInternet},
-						{Network: projectNetworkId, NoAutoAcquireIp: false},
-					},
-					Ips: []*apiv2.MachineAllocationIp{
-						{Ip: "1.2.3.4"},
+						{Network: projectNetworkId, NoAutoAcquireIp: false, Ips: []string{"1.2.3.4"}},
 					},
 				}
 				return req, errorutil.NotFound(`no ip with id "1.2.3.4" found`)
@@ -1030,10 +1027,7 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
 					Networks: []*apiv2.MachineAllocationNetwork{
 						{Network: sc.NetworkInternet},
-						{Network: projectNetworkId, NoAutoAcquireIp: false},
-					},
-					Ips: []*apiv2.MachineAllocationIp{
-						{Ip: ipcr.Ip},
+						{Network: projectNetworkId, NoAutoAcquireIp: false, Ips: []string{ipcr.Ip}},
 					},
 				}
 				return req, errorutil.InvalidArgument(`given ip %s is not in any of the given networks, which is required`, ipcr.Ip)
@@ -1084,11 +1078,9 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
 					Networks: []*apiv2.MachineAllocationNetwork{
 						{Network: sc.NetworkInternet},
-						{Network: projectNetworkId, NoAutoAcquireIp: false},
+						{Network: projectNetworkId, NoAutoAcquireIp: false, Ips: []string{ipcr.Ip}},
 					},
-					Ips: []*apiv2.MachineAllocationIp{
-						{Ip: ipcr.Ip, Namespace: ipcr.Namespace},
-					}}
+				}
 				return req, nil
 			},
 			want: &apiv2.MachineServiceCreateResponse{
