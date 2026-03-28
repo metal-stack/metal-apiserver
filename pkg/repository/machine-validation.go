@@ -21,6 +21,7 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 
 	// TODO add Test, requires adoption in datacenter.go to create projects with quota
 	// also add quota check for ipaddresses
+	// Maybe check quotas in a interceptor ?
 	quotas, err := r.s.Project(req.Project).AdditionalMethods().GetQuotas(ctx, project.Uuid)
 	if err != nil {
 		return err

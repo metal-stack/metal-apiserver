@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
@@ -313,7 +314,7 @@ func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAl
 
 func (r *machineRepository) isSizeAndImageCompatible(ctx context.Context, size *metal.Size, image *metal.Image) error {
 	sic, err := r.s.ds.SizeImageConstraint().Get(ctx, size.ID)
-	if err != nil {
+	if err != nil && !errorutil.IsNotFound(err) {
 		return err
 	}
 	if sic == nil {
@@ -355,8 +356,8 @@ func (r *machineRepository) findMachineCandidate(ctx context.Context, spec *mach
 // TODO: the algorithm can be optimized / shortened by using a rethinkdb join command and then using .Sample(1)
 // but current implementation should have a slightly better readability.
 func (r *machineRepository) findWaitingMachine(ctx context.Context, spec *machineAllocationSpec) (*metal.Machine, error) {
-	if err := r.s.ds.Lock(ctx, spec.PartitionID, 10*time.Second); err != nil {
-		return nil, fmt.Errorf("too many parallel machine allocations taking place, try again later")
+	if err := r.s.ds.Lock(ctx, spec.PartitionID, generic.NewLockOptExpirationTimeout(10*time.Second)); err != nil {
+		return nil, fmt.Errorf("too many parallel machine allocations taking place, try again later:%w", err)
 	}
 	defer r.s.ds.Unlock(ctx, spec.PartitionID)
 
