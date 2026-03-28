@@ -16,7 +16,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
-func Test_machineServiceServer_ValidateCreate(t *testing.T) {
+func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 	t.Parallel()
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
@@ -658,61 +658,127 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 			},
 			want: nil,
 		},
-		{
-			name: "machine with private namespaced network",
-			req:  nil, // set below
-			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
-				testDC := sc.DefaultDatacenter
-				testDC.ProjectsPerTenant = 2
-				testDC.FilesystemLayouts = []*adminv2.FilesystemServiceCreateRequest{
-					{
-						FilesystemLayout: &apiv2.FilesystemLayout{
-							Id: "debian",
-							Constraints: &apiv2.FilesystemLayoutConstraints{
-								Sizes: []string{sc.SizeC1Large},
-								Images: map[string]string{
-									"debian": ">= 12.0",
-								},
-							},
-						},
-					},
-				}
-				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
-					Name:          new("project namespaced network"),
-					ParentNetwork: new(sc.NetworkTenantSuperNamespaced),
-					Project:       new(sc.Tenant1Project1),
-					Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD,
-				})
-				dc.Create(&testDC)
+		// {
+		// 	name: "machine with private namespaced network",
+		// 	req:  nil, // set below
+		// 	createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
+		// 		testDC := sc.DefaultDatacenter
+		// 		testDC.ProjectsPerTenant = 2
+		// 		testDC.FilesystemLayouts = []*adminv2.FilesystemServiceCreateRequest{
+		// 			{
+		// 				FilesystemLayout: &apiv2.FilesystemLayout{
+		// 					Id: "debian",
+		// 					Constraints: &apiv2.FilesystemLayoutConstraints{
+		// 						Sizes: []string{sc.SizeC1Large},
+		// 						Images: map[string]string{
+		// 							"debian": ">= 12.0",
+		// 						},
+		// 					},
+		// 				},
+		// 			},
+		// 		}
+		// 		testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
+		// 			Name:          new("project namespaced network"),
+		// 			ParentNetwork: new(sc.NetworkTenantSuperNamespaced),
+		// 			Project:       new(sc.Tenant1Project1),
+		// 			Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD,
+		// 		})
+		// 		dc.Create(&testDC)
 
-				ipcr, err := dc.GetTestStore().UnscopedIP().Create(t.Context(), &apiv2.IPServiceCreateRequest{
-					Network: dc.GetNetworkByName("project namespaced network").Id,
-					Project: sc.Tenant1Project1,
-					Name:    new("ip-in-namespaced-project"),
-				})
-				require.NoError(t, err)
+		// 		ipcr, err := dc.GetTestStore().UnscopedIP().Create(t.Context(), &apiv2.IPServiceCreateRequest{
+		// 			Network: dc.GetNetworkByName("project namespaced network").Id,
+		// 			Project: sc.Tenant1Project1,
+		// 			Name:    new("ip-in-namespaced-project"),
+		// 		})
+		// 		require.NoError(t, err)
 
-				projectNetworkId := dc.GetNetworkByName("project namespaced network").Id
-				req := &apiv2.MachineServiceCreateRequest{
-					Name:           "testmachine",
-					Project:        sc.Tenant1Project1,
-					Partition:      sc.Partition1,
-					Size:           sc.SizeC1Large,
-					Image:          "debian-13",
-					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
-					Networks: []*apiv2.MachineAllocationNetwork{
-						{Network: sc.NetworkInternet},
-						{Network: projectNetworkId, NoAutoAcquireIp: false, Ips: []string{ipcr.Ip}},
-					},
-				}
-				return req, nil
-			},
-			want: &apiv2.MachineServiceCreateResponse{
-				Machine: &apiv2.Machine{Allocation: &apiv2.MachineAllocation{
-					Name: "testmachine",
-				}},
-			},
-		},
+		// 		projectNetworkId := dc.GetNetworkByName("project namespaced network").Id
+		// 		req := &apiv2.MachineServiceCreateRequest{
+		// 			Name:           "testmachine",
+		// 			Project:        sc.Tenant1Project1,
+		// 			Partition:      sc.Partition1,
+		// 			Size:           sc.SizeC1Large,
+		// 			Image:          "debian-13",
+		// 			AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+		// 			Networks: []*apiv2.MachineAllocationNetwork{
+		// 				{Network: sc.NetworkInternet},
+		// 				{Network: projectNetworkId, NoAutoAcquireIp: false, Ips: []string{ipcr.Ip}},
+		// 			},
+		// 		}
+		// 		return req, nil
+		// 	},
+		// 	want: &apiv2.MachineServiceCreateResponse{
+		// 		Machine: &apiv2.Machine{Allocation: &apiv2.MachineAllocation{
+		// 			Name: "testmachine",
+		// 		}},
+		// 	},
+		// },
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.createDatacenterFn != nil && tt.createRequestFn != nil {
+				t.Errorf("it is not possible to define createDatacenterFn and createRequestFn")
+			}
+			if tt.createDatacenterFn != nil {
+				dc.Cleanup()
+				dc.Create(tt.createDatacenterFn())
+			}
+			if tt.createRequestFn != nil {
+				dc.Cleanup()
+				req, err := tt.createRequestFn()
+				tt.req = req
+				tt.wantErr = err
+			}
+
+			m := &machineServiceServer{
+				log:  log,
+				repo: dc.GetTestStore().Store,
+			}
+			if tt.wantErr == nil {
+				test.Validate(t, tt.req)
+			}
+			got, err := m.Create(ctx, tt.req)
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("diff = %s", diff)
+			}
+
+			if diff := cmp.Diff(
+				tt.want, got,
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
+			); diff != "" {
+				t.Errorf("machineServiceServer.Create() = %v, want %v diff: %s", got, tt.want, diff)
+			}
+		})
+	}
+}
+
+func Test_machineServiceServer_ValidateCreateFirewall(t *testing.T) {
+	t.Parallel()
+
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	ctx := t.Context()
+
+	dc := test.NewDatacenter(t, log)
+	dc.Create(&sc.DefaultDatacenter)
+	defer dc.Close()
+
+	tests := []struct {
+		name string
+		req  *apiv2.MachineServiceCreateRequest
+		// this func only defines the datacenter spec
+		// must not be defined together with the createRequestFn
+		createDatacenterFn func() *sc.DatacenterSpec
+		// when this func is defined, the datacenter must be created inside
+		// with the request and the expected error if any.
+		// This is handy if entities with random uuids must be created as precondition
+		// and also must be part of the request and the error message
+		createRequestFn func() (*apiv2.MachineServiceCreateRequest, error)
+		want            *apiv2.MachineServiceCreateResponse
+		wantErr         error
+	}{
 
 		{
 			name: "firewall without external network",
@@ -751,11 +817,56 @@ func Test_machineServiceServer_ValidateCreate(t *testing.T) {
 					Image:          sc.ImageFirewall3_0,
 					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
 					Networks: []*apiv2.MachineAllocationNetwork{
-						{Network: sc.NetworkInternet},
+						// {Network: sc.NetworkInternet},
 						{Network: projectNetworkId},
 					},
 				}
 				return req, errorutil.InvalidArgument(`firewalls must be allocated in at least one external network`)
+			},
+			want: nil,
+		},
+		{
+			name: "firewall with underlay specified",
+			req:  nil, // set below
+			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
+				testDC := sc.DefaultDatacenter
+				testDC.ProjectsPerTenant = 2
+				testDC.FilesystemLayouts = []*adminv2.FilesystemServiceCreateRequest{
+					{
+						FilesystemLayout: &apiv2.FilesystemLayout{
+							Id: "firewall",
+							Constraints: &apiv2.FilesystemLayoutConstraints{
+								Sizes: []string{sc.SizeC1Large},
+								Images: map[string]string{
+									"debian":          ">= 12.0",
+									"firewall-ubuntu": ">= 3.0",
+								},
+							},
+						},
+					},
+				}
+				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
+					Name:      new("project network"),
+					Project:   new(sc.Tenant1Project1),
+					Partition: new(sc.Partition1),
+					Type:      apiv2.NetworkType_NETWORK_TYPE_CHILD,
+				})
+				dc.Create(&testDC)
+
+				projectNetworkId := dc.GetNetworkByName("project network").Id
+				req := &apiv2.MachineServiceCreateRequest{
+					Name:           "testfirewall",
+					Project:        sc.Tenant1Project1,
+					Partition:      sc.Partition1,
+					Size:           sc.SizeC1Large,
+					Image:          sc.ImageFirewall3_0,
+					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
+					Networks: []*apiv2.MachineAllocationNetwork{
+						{Network: sc.NetworkUnderlayPartition1},
+						{Network: projectNetworkId},
+					},
+				}
+				return req, errorutil.InvalidArgument(`firewalls must be allocated in a underlay but this must not be specified`)
 			},
 			want: nil,
 		},

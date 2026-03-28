@@ -28,6 +28,7 @@ const (
 	Tenant1Project2 = "10000000-0000-0000-0000-000000000002"
 
 	NetworkInternet              = "internet"
+	NetworkUnderlayPartition1    = "underlay-partition-1"
 	NetworkTenantSuperNamespaced = "tenant-super-namespaced"
 	NetworkTenantSuperPartition1 = "tenant-super-partition-1"
 
@@ -100,6 +101,12 @@ var (
 				Prefixes: []string{"1.2.3.0/24"},
 				Type:     apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
 				Vrf:      new(uint32(11)),
+			},
+			{
+				Id:        new(NetworkUnderlayPartition1),
+				Prefixes:  []string{"10.253.0.0/16"},
+				Type:      apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
+				Partition: new(Partition1),
 			},
 			{
 				Id:                       new(NetworkTenantSuperNamespaced),
