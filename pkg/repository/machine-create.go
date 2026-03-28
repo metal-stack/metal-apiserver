@@ -13,7 +13,6 @@ import (
 
 	"github.com/google/uuid"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	v1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
@@ -188,29 +187,6 @@ func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAl
 		return nil, nil, err
 	}
 
-	p, err := r.s.mdc.Project().Get(ctx, &v1.ProjectGetRequest{Id: spec.ProjectID})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// Check if more machine would be allocated than project quota permits
-	if p.GetProject() != nil && p.GetProject().GetQuotas() != nil && p.GetProject().GetQuotas().GetMachine() != nil {
-		actualMachines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
-			Allocation: &apiv2.MachineAllocationQuery{
-				Project: &spec.ProjectID,
-				// TODO in metal-api this was set to FirewallRole ?
-				AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE.Enum(),
-			},
-		}))
-		if err != nil {
-			return nil, nil, err
-		}
-		mq := p.GetProject().GetQuotas().GetMachine()
-		if mq.Max != nil && len(actualMachines) >= int(*mq.Max) {
-			return nil, nil, fmt.Errorf("project quota for machines reached max:%d", *mq.Max)
-		}
-	}
-
 	var fsl *metal.FilesystemLayout
 	if spec.FilesystemLayoutID == nil {
 		var fsls metal.FilesystemLayouts
@@ -282,6 +258,7 @@ func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAl
 	// 	return err
 	// }
 
+	// FIXME not only the machine must be rolled back, the autoallocated ipaddresses as well.
 	rollbackMachine = &metal.Machine{
 		Base: metal.Base{
 			ID: spec.UUID,

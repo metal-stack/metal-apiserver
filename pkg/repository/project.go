@@ -402,3 +402,11 @@ func (r *projectRepository) EnsureProviderProject(ctx context.Context, providerT
 
 	return ensureMembership(project.Meta.Id)
 }
+
+func (r *projectRepository) GetQuotas(ctx context.Context, projectID string) (*mdcv1.QuotaSet, error) {
+	p, err := r.s.mdc.Project().Get(ctx, &mdcv1.ProjectGetRequest{Id: projectID})
+	if err != nil {
+		return nil, err
+	}
+	return p.Project.Quotas, nil
+}

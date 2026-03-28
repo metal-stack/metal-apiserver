@@ -7,6 +7,7 @@ import (
 	"github.com/metal-stack/api/go/enum"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"golang.org/x/crypto/ssh"
 )
@@ -16,6 +17,31 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 	project, err := r.s.Project(req.Project).Get(ctx, req.Project)
 	if err != nil {
 		return err
+	}
+
+	// TODO add Test, requires adoption in datacenter.go to create projects with quota
+	// also add quota check for ipaddresses
+	quotas, err := r.s.Project(req.Project).AdditionalMethods().GetQuotas(ctx, project.Uuid)
+	if err != nil {
+		return err
+	}
+
+	// Check if more machine would be allocated than project quota permits
+	if quotas != nil && quotas.GetMachine() != nil {
+		actualMachines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
+			Allocation: &apiv2.MachineAllocationQuery{
+				Project: &req.Project,
+				// TODO in metal-api this was set to FirewallRole ?
+				AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE.Enum(),
+			},
+		}))
+		if err != nil {
+			return err
+		}
+		mq := quotas.GetMachine()
+		if mq.Max != nil && len(actualMachines) >= int(*mq.Max) {
+			return errorutil.FailedPrecondition("project quota for machines reached max:%d", *mq.Max)
+		}
 	}
 
 	var (
