@@ -61,6 +61,17 @@ var (
 					},
 				},
 			},
+			{
+				FilesystemLayout: &apiv2.FilesystemLayout{
+					Id: "firewall",
+					Constraints: &apiv2.FilesystemLayoutConstraints{
+						Sizes: []string{SizeC1Large},
+						Images: map[string]string{
+							"firewall-ubuntu": ">= 3.0",
+						},
+					},
+				},
+			},
 		},
 		Sizes: []*apiv2.Size{
 			{

@@ -12,6 +12,7 @@ import (
 )
 
 func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.MachineServiceCreateRequest) error {
+	r.s.log.Debug("validate create", "req", req)
 	project, err := r.s.Project(req.Project).Get(ctx, req.Project)
 	if err != nil {
 		return err
@@ -102,7 +103,7 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 			return errorutil.InvalidArgument("given image %s is not allowed for firewalls", image.Id)
 		}
 		if err := validateFirewallSpec(req.FirewallSpec); err != nil {
-			return err
+			return errorutil.NewInvalidArgument(err)
 		}
 	case apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE:
 		if !slices.Contains(image.Features, apiv2.ImageFeature_IMAGE_FEATURE_MACHINE) {
@@ -133,13 +134,14 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 		superNetworkCount       int
 	)
 	for _, nw := range req.Networks {
-		// TODO external network is required
 		n, err := r.s.UnscopedNetwork().Get(ctx, nw.Network)
 		if err != nil {
 			return err
 		}
 		if n.Project != nil && project.Uuid != *n.Project {
-			return errorutil.InvalidArgument("given network %s is project scoped but not part of project %s", nw.Network, req.Project)
+			if n.Type != nil && *n.Type != apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED {
+				return errorutil.InvalidArgument("given network %s is project scoped but not part of project %s", nw.Network, req.Project)
+			}
 		}
 
 		if n.Partition != nil && *n.Partition != partitionId {
@@ -180,7 +182,7 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 			}
 
 			if n.Id != metalIP.NetworkID {
-				return errorutil.InvalidArgument("given ip %s is not in any of the given networks, which is required", metalIP.IPAddress)
+				return errorutil.InvalidArgument("given ip %s is not in the given network %s, which is required", n.Id, metalIP.IPAddress)
 			}
 
 			if metalIP.ProjectID != req.Project {

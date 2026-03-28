@@ -270,6 +270,18 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 			wantErr: errorutil.InvalidArgument(`given allocationtype MACHINE_ALLOCATION_TYPE_UNSPECIFIED is not supported`),
 		},
 		{
+			name: "image type wrong",
+			req: &apiv2.MachineServiceCreateRequest{
+				Project:        sc.Tenant1Project1,
+				Partition:      sc.Partition1,
+				Size:           sc.SizeC1Large,
+				Image:          sc.ImageFirewall3_0,
+				AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument(`given image %s is not allowed for machines`, sc.ImageFirewall3_0),
+		},
+		{
 			name: "machine with firewall rules",
 			req: &apiv2.MachineServiceCreateRequest{
 				Project:        sc.Tenant1Project1,
@@ -472,7 +484,6 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 			},
 			want: nil,
 		},
-
 		{
 			name: "machine with private network in wrong network",
 			req:  nil, // set below
@@ -513,6 +524,46 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 					},
 				}
 				return req, errorutil.InvalidArgument(`given network %s is project scoped but not part of project %s`, projectNetworkId, sc.Tenant1Project2)
+			},
+			want: nil,
+		},
+		{
+			name: "machine with two child (shared) networks",
+			req:  nil, // set below
+			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
+				testDC := sc.DefaultDatacenter
+				testDC.ProjectsPerTenant = 2
+				testDC.Networks = append(testDC.Networks,
+					&adminv2.NetworkServiceCreateRequest{
+						Name:      new("project network"),
+						Project:   new(sc.Tenant1Project2),
+						Partition: new(sc.Partition1),
+						Type:      apiv2.NetworkType_NETWORK_TYPE_CHILD,
+					},
+					&adminv2.NetworkServiceCreateRequest{
+						Name:      new("project shared network 1"),
+						Project:   new(sc.Tenant1Project1),
+						Partition: new(sc.Partition1),
+						Type:      apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED,
+					},
+				)
+				dc.Create(&testDC)
+
+				projectNetworkId := dc.GetNetworkByName("project network").Id
+				projectSharedNetworkId1 := dc.GetNetworkByName("project shared network 1").Id
+				req := &apiv2.MachineServiceCreateRequest{
+					Project:        sc.Tenant1Project2,
+					Partition:      sc.Partition1,
+					Size:           sc.SizeC1Large,
+					Image:          "debian-13",
+					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+					Networks: []*apiv2.MachineAllocationNetwork{
+						{Network: sc.NetworkInternet},
+						{Network: projectNetworkId},
+						{Network: projectSharedNetworkId1},
+					},
+				}
+				return req, errorutil.InvalidArgument(`machines must be allocated in exactly one child or child_shared network`)
 			},
 			want: nil,
 		},
@@ -654,7 +705,44 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 						{Network: projectNetworkId, NoAutoAcquireIp: false, Ips: []string{ipcr.Ip}},
 					},
 				}
-				return req, errorutil.InvalidArgument(`given ip %s is not in any of the given networks, which is required`, ipcr.Ip)
+				return req, errorutil.InvalidArgument(`given ip %s is not in the given network %s, which is required`, projectNetworkId, ipcr.Ip)
+			},
+			want: nil,
+		},
+		{
+			name: "machine with private network with noautoacquire set to false but ips are from different project",
+			req:  nil, // set below
+			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
+				testDC := sc.DefaultDatacenter
+				testDC.ProjectsPerTenant = 2
+				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
+					Name:      new("project network"),
+					Project:   new(sc.Tenant1Project1),
+					Partition: new(sc.Partition1),
+					Type:      apiv2.NetworkType_NETWORK_TYPE_CHILD,
+				})
+				dc.Create(&testDC)
+
+				ipcr, err := dc.GetTestStore().UnscopedIP().Create(t.Context(), &apiv2.IPServiceCreateRequest{
+					Network: sc.NetworkInternet,
+					Project: sc.Tenant1Project2,
+					Name:    new("ip-project-2"),
+				})
+				require.NoError(t, err)
+
+				projectNetworkId := dc.GetNetworkByName("project network").Id
+				req := &apiv2.MachineServiceCreateRequest{
+					Project:        sc.Tenant1Project1,
+					Partition:      sc.Partition1,
+					Size:           sc.SizeC1Large,
+					Image:          sc.ImageDebian13,
+					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+					Networks: []*apiv2.MachineAllocationNetwork{
+						{Network: sc.NetworkInternet, NoAutoAcquireIp: false, Ips: []string{ipcr.Ip}},
+						{Network: projectNetworkId},
+					},
+				}
+				return req, errorutil.InvalidArgument(`given ip %s is not in the allocation project`, ipcr.Ip)
 			},
 			want: nil,
 		},
@@ -780,27 +868,47 @@ func Test_machineServiceServer_ValidateCreateFirewall(t *testing.T) {
 		want            *apiv2.MachineServiceCreateResponse
 		wantErr         error
 	}{
-
+		{
+			name: "image type wrong",
+			req: &apiv2.MachineServiceCreateRequest{
+				Project:        sc.Tenant1Project1,
+				Partition:      sc.Partition1,
+				Size:           sc.SizeC1Large,
+				Image:          sc.ImageDebian12,
+				AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument(`given image %s is not allowed for firewalls`, sc.ImageDebian12),
+		},
+		{
+			name: "firewall spec not valid",
+			req: &apiv2.MachineServiceCreateRequest{
+				Project:        sc.Tenant1Project1,
+				Partition:      sc.Partition1,
+				Size:           sc.SizeC1Large,
+				Image:          sc.ImageFirewall3_0,
+				AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
+				FirewallSpec: &apiv2.FirewallSpec{
+					FirewallRules: &apiv2.FirewallRules{
+						Egress: []*apiv2.FirewallEgressRule{
+							{
+								Protocol: apiv2.IPProtocol_IP_PROTOCOL_TCP,
+								Ports:    []uint32{80, 443},
+								To:       []string{"0.0.0.0.0/0"},
+							},
+						},
+					},
+				},
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument(`egress rule with error:invalid cidr: netip.ParsePrefix("0.0.0.0.0/0"): ParseAddr("0.0.0.0.0"): IPv4 address too long`),
+		},
 		{
 			name: "firewall without external network",
 			req:  nil, // set below
 			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
 				testDC := sc.DefaultDatacenter
 				testDC.ProjectsPerTenant = 2
-				testDC.FilesystemLayouts = []*adminv2.FilesystemServiceCreateRequest{
-					{
-						FilesystemLayout: &apiv2.FilesystemLayout{
-							Id: "firewall",
-							Constraints: &apiv2.FilesystemLayoutConstraints{
-								Sizes: []string{sc.SizeC1Large},
-								Images: map[string]string{
-									"debian":          ">= 12.0",
-									"firewall-ubuntu": ">= 3.0",
-								},
-							},
-						},
-					},
-				}
 				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
 					Name:      new("project network"),
 					Project:   new(sc.Tenant1Project1),
@@ -832,20 +940,6 @@ func Test_machineServiceServer_ValidateCreateFirewall(t *testing.T) {
 			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
 				testDC := sc.DefaultDatacenter
 				testDC.ProjectsPerTenant = 2
-				testDC.FilesystemLayouts = []*adminv2.FilesystemServiceCreateRequest{
-					{
-						FilesystemLayout: &apiv2.FilesystemLayout{
-							Id: "firewall",
-							Constraints: &apiv2.FilesystemLayoutConstraints{
-								Sizes: []string{sc.SizeC1Large},
-								Images: map[string]string{
-									"debian":          ">= 12.0",
-									"firewall-ubuntu": ">= 3.0",
-								},
-							},
-						},
-					},
-				}
 				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
 					Name:      new("project network"),
 					Project:   new(sc.Tenant1Project1),
@@ -868,6 +962,54 @@ func Test_machineServiceServer_ValidateCreateFirewall(t *testing.T) {
 					},
 				}
 				return req, errorutil.InvalidArgument(`firewalls must be allocated in a underlay but this must not be specified`)
+			},
+			want: nil,
+		},
+		{
+			name: "firewall with two child shared networks",
+			req:  nil, // set below
+			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
+				testDC := sc.DefaultDatacenter
+				testDC.ProjectsPerTenant = 2
+				testDC.Networks = append(testDC.Networks,
+					&adminv2.NetworkServiceCreateRequest{
+						Name:      new("project network"),
+						Project:   new(sc.Tenant1Project2),
+						Partition: new(sc.Partition1),
+						Type:      apiv2.NetworkType_NETWORK_TYPE_CHILD,
+					},
+					&adminv2.NetworkServiceCreateRequest{
+						Name:      new("project shared network 1"),
+						Project:   new(sc.Tenant1Project1),
+						Partition: new(sc.Partition1),
+						Type:      apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED,
+					},
+					&adminv2.NetworkServiceCreateRequest{
+						Name:      new("project shared network 2"),
+						Project:   new(sc.Tenant1Project2),
+						Partition: new(sc.Partition1),
+						Type:      apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED,
+					},
+				)
+				dc.Create(&testDC)
+
+				projectNetworkId := dc.GetNetworkByName("project network").Id
+				projectSharedNetworkId1 := dc.GetNetworkByName("project shared network 1").Id
+				projectSharedNetworkId2 := dc.GetNetworkByName("project shared network 2").Id
+				req := &apiv2.MachineServiceCreateRequest{
+					Project:        sc.Tenant1Project2,
+					Partition:      sc.Partition1,
+					Size:           sc.SizeC1Large,
+					Image:          sc.ImageFirewall3_0,
+					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
+					Networks: []*apiv2.MachineAllocationNetwork{
+						{Network: sc.NetworkInternet},
+						{Network: projectNetworkId},
+						{Network: projectSharedNetworkId1},
+						{Network: projectSharedNetworkId2},
+					},
+				}
+				return req, errorutil.InvalidArgument(`machines or firewalls must not be allocated in more than one child_shared network`)
 			},
 			want: nil,
 		},
