@@ -658,6 +658,7 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 			},
 			want: nil,
 		},
+		// FIXME this test passes validation and fails actually because machine create is not yet implemented
 		// {
 		// 	name: "machine with private namespaced network",
 		// 	req:  nil, // set below
