@@ -505,7 +505,7 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 				return nil, err
 			}
 			if metalNetwork.NATType == nil {
-				return nil, errorutil.Internal("nat type of network:%s is nil", nw.NetworkID)
+				metalNetwork.NATType = new(metal.NATTypeNone)
 			}
 			natType, err := metal.FromNATType(*metalNetwork.NATType)
 			if err != nil {

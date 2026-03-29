@@ -164,6 +164,10 @@ func (dc *Datacenter) GetMachines() map[string]*apiv2.Machine {
 	return dc.machines
 }
 
+func (dc *Datacenter) GetFilesystemLayouts() map[string]*apiv2.FilesystemLayout {
+	return dc.filesystemLayouts
+}
+
 func (dc *Datacenter) Close() {
 	for _, close := range dc.closers {
 		close()

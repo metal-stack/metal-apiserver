@@ -8,6 +8,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
@@ -16,7 +17,6 @@ import (
 )
 
 func Test_machineServiceServer_CreateMachine(t *testing.T) {
-	t.Skip()
 	t.Parallel()
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
@@ -57,6 +57,23 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 					Project:       new(sc.Tenant1Project1),
 					Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD,
 				})
+				testDC.Machines = append(testDC.Machines, &sc.MachineWithLiveliness{
+					Machine: &metal.Machine{
+						Base:        metal.Base{ID: sc.Machine5},
+						PartitionID: sc.Partition1,
+						SizeID:      sc.SizeC1Large,
+						Waiting:     true,
+						Hardware: metal.MachineHardware{
+							Disks: []metal.BlockDevice{
+								{
+									Name: "/dev/sda",
+									Size: 1024 * 1024 * 1024,
+								},
+							},
+						},
+					},
+					Liveliness: metal.MachineLivelinessAlive,
+				})
 				dc.Create(&testDC)
 
 				projectNetworkId := dc.GetNetworkByName("project namespaced network").Id
@@ -74,9 +91,45 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 				return req, nil
 			},
 			want: &apiv2.MachineServiceCreateResponse{
-				Machine: &apiv2.Machine{Allocation: &apiv2.MachineAllocation{
-					Name: "testmachine",
-				}},
+				Machine: &apiv2.Machine{
+					Meta:      &apiv2.Meta{Generation: 2},
+					Size:      dc.GetSizes()[sc.SizeC1Large],
+					Partition: dc.GetPartitions()[sc.Partition1],
+					Status: &apiv2.MachineStatus{
+						Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
+						Condition:  &apiv2.MachineCondition{},
+						LedState:   &apiv2.MachineChassisIdentifyLEDState{},
+					},
+					Uuid: sc.Machine5,
+					Hardware: &apiv2.MachineHardware{
+						Disks: []*apiv2.MachineBlockDevice{
+							{
+								Name: "/dev/sda",
+								Size: 1024 * 1024 * 1024,
+							},
+						},
+					},
+					RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
+						Events: []*apiv2.MachineProvisioningEvent{
+							{Event: apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_WAITING},
+						},
+					},
+					Allocation: &apiv2.MachineAllocation{
+						Meta:     &apiv2.Meta{},
+						Name:     "testmachine",
+						Hostname: "metal", // Because it was not set during create
+						Image:    dc.GetImages()[sc.ImageDebian12],
+						Networks: []*apiv2.MachineNetwork{
+							{
+								// Network: dc.GetNetworkByName("project namespaced network").Id,
+							},
+						},
+						FilesystemLayout: dc.GetFilesystemLayouts()["debian"],
+						AllocationType:   apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+						CreatedBy:        "unit-test-user",
+						Project:          sc.Tenant1Project1,
+					},
+				},
 			},
 		},
 	}
@@ -113,6 +166,18 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.MachineAllocation{}, "uuid", "networks", // FIXME networks are most important
+				),
+				protocmp.IgnoreFields(
+					&apiv2.Image{}, "expires_at", "url",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.PartitionBootConfiguration{}, "image_url", "kernel_url",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.MachineProvisioningEvent{}, "time",
 				),
 			); diff != "" {
 				t.Errorf("machineServiceServer.Create() = %v, want %v diff: %s", got, tt.want, diff)

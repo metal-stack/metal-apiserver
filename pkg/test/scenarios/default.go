@@ -59,6 +59,17 @@ var (
 							"debian": ">= 12.0",
 						},
 					},
+					Disks: []*apiv2.Disk{
+						{
+							Device: "/dev/sda",
+							Partitions: []*apiv2.DiskPartition{
+								{
+									Number: 0,
+									Size:   1024,
+								},
+							},
+						},
+					},
 				},
 			},
 			{

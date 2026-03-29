@@ -195,7 +195,7 @@ func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAl
 		if err != nil {
 			return nil, nil, err
 		}
-		_, err = fsls.From(spec.Size.ID, spec.Image.ID)
+		fsl, err = fsls.From(spec.Size.ID, spec.Image.ID)
 		if err != nil {
 			return nil, nil, err
 		}
