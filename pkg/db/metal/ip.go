@@ -7,6 +7,8 @@ import (
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/tags"
+	"github.com/metal-stack/metal-lib/pkg/tag"
 )
 
 // IPType is the type of an ip.
@@ -16,10 +18,19 @@ type IPType string
 type IPScope string
 
 const (
+	// TagIPSeparator is the separator character for key and values in IP-Tags
+	TagIPSeparator = "="
 	// Ephemeral IPs will be cleaned up automatically on machine, network, project deletion
 	Ephemeral IPType = "ephemeral"
 	// Static IPs will not be cleaned up and can be re-used for machines, networks within a project
 	Static IPType = "static"
+
+	// ScopeEmpty IPs are not bound to a project, machine or cluster
+	ScopeEmpty IPScope = ""
+	// ScopeProject IPs can be assigned to machines or used by cluster services
+	ScopeProject IPScope = "project"
+	// ScopeMachine IPs are bound to the usage directly at machines
+	ScopeMachine IPScope = "machine"
 )
 
 // IP of a machine/firewall.
@@ -122,4 +133,46 @@ func IPsByProject(ips []*IP) IPsMap {
 		ipMap[ip.ProjectID] = append(ipMap[ip.ProjectID], ip)
 	}
 	return ipMap
+}
+
+// GetScope determines the scope of an ip address
+func (ip *IP) GetScope() IPScope {
+	if ip.ProjectID == "" {
+		return ScopeEmpty
+	}
+	for _, t := range ip.Tags {
+		if strings.HasPrefix(t, tag.MachineID) {
+			return ScopeMachine
+		}
+	}
+	return ScopeProject
+}
+
+func (ip *IP) HasMachineId(id string) bool {
+	t := tags.New(ip.Tags)
+	return t.Has(IpTag(tag.MachineID, id))
+}
+
+func (ip *IP) GetMachineIds() []string {
+	ts := tags.New(ip.Tags)
+	return ts.Values(tag.MachineID + TagIPSeparator)
+}
+
+func (ip *IP) AddMachineId(id string) {
+	ts := tags.New(ip.Tags)
+	t := IpTag(tag.MachineID, id)
+	ts.Remove(tag.MachineID)
+	ts.Add(t)
+	ip.Tags = ts.Unique()
+}
+
+func (ip *IP) RemoveMachineId(id string) {
+	ts := tags.New(ip.Tags)
+	t := IpTag(tag.MachineID, id)
+	ts.Remove(t)
+	ip.Tags = ts.Unique()
+}
+
+func IpTag(key, value string) string {
+	return fmt.Sprintf("%s%s%s", key, TagIPSeparator, value)
 }

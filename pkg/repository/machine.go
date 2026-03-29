@@ -155,9 +155,29 @@ func (r *machineRepository) matchScope(machine *metal.Machine) bool {
 }
 
 func (r *machineRepository) create(ctx context.Context, req *apiv2.MachineServiceCreateRequest) (*metal.Machine, error) {
-	// TODO if allocation was created, create a new queue entry for the Wait endpoint like so:
-	// err := r.s.queue.PushMachineAllocation(ctx, m, task.MachineAllocationPayload{UUID: m})
-	panic("unimplemented")
+
+	spec, err := r.createMachineAllocationSpec(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	machine, rollbackMachine, err := r.allocateMachine(ctx, spec)
+	if err != nil {
+		return nil, err
+	}
+	if rollbackMachine != nil {
+		// FIXME create a task which cleans it up
+		return nil, err
+	}
+
+	// if allocation was created, create a new queue entry for the Wait endpoint like so:
+	err = r.s.queue.PushMachineAllocation(ctx, machine.ID, task.MachineAllocationPayload{UUID: machine.Allocation.UUID})
+	if err != nil {
+		// TODO how to roll back what was already allocated
+		return nil, err
+	}
+
+	return machine, nil
 }
 
 func (r *machineRepository) update(ctx context.Context, m *metal.Machine, req *apiv2.MachineServiceUpdateRequest) (*metal.Machine, error) {
@@ -231,6 +251,76 @@ func (r *machineRepository) list(ctx context.Context, rq *apiv2.MachineQuery) ([
 
 func (r *machineRepository) convertToInternal(ctx context.Context, machine *apiv2.Machine) (*metal.Machine, error) {
 	panic("unimplemented")
+}
+
+func (r *machineRepository) ConvertFirewallRulesToInternal(ctx context.Context, firewallRules *apiv2.FirewallRules) (*metal.FirewallRules, error) {
+	var (
+		fwrules = &metal.FirewallRules{
+			Egress:  []metal.EgressRule{},
+			Ingress: []metal.IngressRule{},
+		}
+	)
+
+	for _, ruleSpec := range firewallRules.Egress {
+		protocolLowerCase, err := enum.GetStringValue(ruleSpec.Protocol)
+		if err != nil {
+			return nil, err
+		}
+		protocol, err := metal.ProtocolFromString(*protocolLowerCase)
+		if err != nil {
+			return nil, err
+		}
+
+		var ports []int
+		for _, p := range ruleSpec.Ports {
+			ports = append(ports, int(p))
+		}
+
+		rule := metal.EgressRule{
+			Protocol: protocol,
+			Ports:    ports,
+			To:       ruleSpec.To,
+			Comment:  ruleSpec.Comment,
+		}
+
+		if err := rule.Validate(); err != nil {
+			return nil, err
+		}
+
+		fwrules.Egress = append(fwrules.Egress, rule)
+	}
+
+	for _, ruleSpec := range firewallRules.Ingress {
+		protocolLowerCase, err := enum.GetStringValue(ruleSpec.Protocol)
+		if err != nil {
+			return nil, err
+		}
+		protocol, err := metal.ProtocolFromString(*protocolLowerCase)
+		if err != nil {
+			return nil, err
+		}
+
+		var ports []int
+		for _, p := range ruleSpec.Ports {
+			ports = append(ports, int(p))
+		}
+
+		rule := metal.IngressRule{
+			Protocol: protocol,
+			Ports:    ports,
+			To:       ruleSpec.To,
+			From:     ruleSpec.From,
+			Comment:  ruleSpec.Comment,
+		}
+
+		if err := rule.Validate(); err != nil {
+			return nil, err
+		}
+
+		fwrules.Ingress = append(fwrules.Ingress, rule)
+	}
+
+	return fwrules, nil
 }
 
 func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine) (*apiv2.Machine, error) {
@@ -415,7 +505,7 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 				return nil, err
 			}
 			if metalNetwork.NATType == nil {
-				return nil, errorutil.Internal("nat type of network:%s is nil", nw.NetworkID)
+				metalNetwork.NATType = new(metal.NATTypeNone)
 			}
 			natType, err := metal.FromNATType(*metalNetwork.NATType)
 			if err != nil {

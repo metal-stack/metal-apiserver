@@ -69,6 +69,8 @@ const (
 	AddressFamilyIPv4 = AddressFamily("IPv4")
 	// AddressFamilyIPv6 identifies IPv6
 	AddressFamilyIPv6 = AddressFamily("IPv6")
+	// AddressFamilyDualStack identifies DualStack
+	AddressFamilyDualStack = AddressFamily("dual-stack")
 
 	// NetworkType
 	// NetworkTypeExternal identifies a network where ips can be allocated from different projects
@@ -191,6 +193,21 @@ func ToAddressFamilyFromNetwork(af apiv2.NetworkAddressFamily) (*AddressFamily, 
 	}
 }
 
+// FromAddressFamilyOfNetwork returns the apiv2 address family of the corresponding metal address family.
+// Attention: this function might return nil for network family dual stack!!
+func FromAddressFamilyOfNetwork(af AddressFamily) (*apiv2.NetworkAddressFamily, error) {
+	switch af {
+	case AddressFamilyIPv4:
+		return apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_V4.Enum(), nil
+	case AddressFamilyIPv6:
+		return apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_V6.Enum(), nil
+	case AddressFamilyDualStack:
+		return apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_DUAL_STACK.Enum(), nil
+	default:
+		return apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_UNSPECIFIED.Enum(), fmt.Errorf("given addressfamily %q is invalid", af)
+	}
+}
+
 func ToChildPrefixLength(cpl *apiv2.ChildPrefixLength) ChildPrefixLength {
 	if cpl == nil {
 		return nil
@@ -248,8 +265,8 @@ func (p Prefixes) OfFamily(af AddressFamily) Prefixes {
 
 // AddressFamilies returns the addressfamilies of given prefixes.
 // be aware that malformed prefixes are just skipped, so do not use this for validation or something.
-func (p Prefixes) AddressFamilies() AddressFamilies {
-	var afs AddressFamilies
+func (p Prefixes) AddressFamilies() []AddressFamily {
+	var afs []AddressFamily
 
 	for _, prefix := range p {
 		pfx, err := netip.ParsePrefix(prefix.String())
