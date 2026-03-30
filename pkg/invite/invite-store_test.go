@@ -8,7 +8,7 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	"github.com/google/go-cmp/cmp"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	"github.com/metal-stack/metal-lib/pkg/testcommon"
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -42,7 +42,7 @@ func Test_validateInviteSecret(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := validateInviteSecret(tt.s)
-			if diff := cmp.Diff(tt.wantErr, err, testcommon.ErrorStringComparer()); diff != "" {
+			if diff := cmp.Diff(tt.wantErr, err, errorutil.ErrorStringComparer()); diff != "" {
 				t.Errorf("error diff (+got -want):\n %s", diff)
 			}
 		})

@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	mdmv1 "github.com/metal-stack/masterdata-api/api/v1"
-	"github.com/metal-stack/metal-lib/pkg/testcommon"
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 )
 
 func TestReservations_ForPartition(t *testing.T) {
@@ -274,7 +274,7 @@ func TestReservations_Validate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := Validate(tt.rs, tt.sizes, tt.partitions, tt.projects)
-			if diff := cmp.Diff(tt.wantErr, err, testcommon.ErrorStringComparer()); diff != "" {
+			if diff := cmp.Diff(tt.wantErr, err, errorutil.ErrorStringComparer()); diff != "" {
 				t.Errorf("error diff (-want +got):\n%s", diff)
 			}
 		})

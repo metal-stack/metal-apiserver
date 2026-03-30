@@ -11,7 +11,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
-	"github.com/metal-stack/metal-lib/pkg/testcommon"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -171,7 +170,7 @@ func Test_projectRepository_GetProjectsAndTenants(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, gotErr := testStore.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(t.Context(), tt.userId)
 
-			if diff := cmp.Diff(tt.wantErr, gotErr, testcommon.ErrorStringComparer()); diff != "" {
+			if diff := cmp.Diff(tt.wantErr, gotErr, errorutil.ErrorStringComparer()); diff != "" {
 				t.Errorf("GetProjectsAndTenants() failed: %v", diff)
 			}
 

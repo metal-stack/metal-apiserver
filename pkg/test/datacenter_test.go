@@ -12,10 +12,10 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
-	"github.com/metal-stack/metal-lib/pkg/testcommon"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 )
@@ -295,7 +295,7 @@ func TestAssert(t *testing.T) {
 					&apiv2.Image{}, "classification", "description", "expires_at", "name", "url",
 				),
 			)
-			if diff := cmp.Diff(err1, err2, testcommon.ErrorStringComparer()); diff != "" {
+			if diff := cmp.Diff(err1, err2, errorutil.ErrorStringComparer()); diff != "" {
 				t.Errorf("Assert() is not idempotent; err1 = %s, err2 = %s", err1, err2)
 			}
 		})

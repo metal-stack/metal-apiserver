@@ -17,7 +17,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
-	"github.com/metal-stack/metal-lib/pkg/testcommon"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -1344,7 +1343,7 @@ func Test_switchRepository_ConnectMachineWithSwitches(t *testing.T) {
 
 		t.Run(tt.name, func(t *testing.T) {
 			err := s.repo.Switch().AdditionalMethods().ConnectMachineWithSwitches(ctx, tt.m)
-			if diff := cmp.Diff(tt.wantErr, err, testcommon.ErrorStringComparer()); diff != "" {
+			if diff := cmp.Diff(tt.wantErr, err, errorutil.ErrorStringComparer()); diff != "" {
 				t.Errorf("switchRepository.ConnectMachineWithSwitches() error diff = %s", diff)
 				return
 			}
