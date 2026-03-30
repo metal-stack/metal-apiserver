@@ -9,7 +9,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
-	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"google.golang.org/protobuf/testing/protocmp"
 )
@@ -29,28 +29,28 @@ func Test_projectRepository_GetProjectsAndTenants(t *testing.T) {
 		{Name: "ron@github.com"},
 		{Name: "maddy@github.com"},
 	})
-	test.CreateTenantMemberships(t, testStore, "john.doe@github.com", []*repository.TenantMemberCreateRequest{
+	test.CreateTenantMemberships(t, testStore, "john.doe@github.com", []*api.TenantMemberCreateRequest{
 		{MemberID: "john.doe@github.com", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 		{MemberID: "viewer@github.com", Role: apiv2.TenantRole_TENANT_ROLE_VIEWER},
 		{MemberID: "ron@github.com", Role: apiv2.TenantRole_TENANT_ROLE_EDITOR},
 		{MemberID: "maddy@github.com", Role: apiv2.TenantRole_TENANT_ROLE_VIEWER},
 	})
-	test.CreateTenantMemberships(t, testStore, "viewer@github.com", []*repository.TenantMemberCreateRequest{
+	test.CreateTenantMemberships(t, testStore, "viewer@github.com", []*api.TenantMemberCreateRequest{
 		{MemberID: "viewer@github.com", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 	})
-	test.CreateTenantMemberships(t, testStore, "guest@github.com", []*repository.TenantMemberCreateRequest{
+	test.CreateTenantMemberships(t, testStore, "guest@github.com", []*api.TenantMemberCreateRequest{
 		{MemberID: "guest@github.com", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 	})
-	test.CreateTenantMemberships(t, testStore, "ron@github.com", []*repository.TenantMemberCreateRequest{
+	test.CreateTenantMemberships(t, testStore, "ron@github.com", []*api.TenantMemberCreateRequest{
 		{MemberID: "ron@github.com", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 	})
-	test.CreateTenantMemberships(t, testStore, "maddy@github.com", []*repository.TenantMemberCreateRequest{
+	test.CreateTenantMemberships(t, testStore, "maddy@github.com", []*api.TenantMemberCreateRequest{
 		{MemberID: "maddy@github.com", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 	})
 	projectMap := test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{
 		{Login: "john.doe@github.com"},
 	})
-	test.CreateProjectMemberships(t, testStore, projectMap["john.doe@github.com"], []*repository.ProjectMemberCreateRequest{
+	test.CreateProjectMemberships(t, testStore, projectMap["john.doe@github.com"], []*api.ProjectMemberCreateRequest{
 		{TenantId: "guest@github.com", Role: apiv2.ProjectRole_PROJECT_ROLE_VIEWER},
 		{TenantId: "ron@github.com", Role: apiv2.ProjectRole_PROJECT_ROLE_VIEWER},
 		{TenantId: "maddy@github.com", Role: apiv2.ProjectRole_PROJECT_ROLE_EDITOR},
@@ -59,13 +59,13 @@ func Test_projectRepository_GetProjectsAndTenants(t *testing.T) {
 	tests := []struct {
 		name    string
 		userId  string
-		want    *repository.ProjectsAndTenants
+		want    *api.ProjectsAndTenants
 		wantErr error
 	}{
 		{
 			name:   "simple",
 			userId: "john.doe@github.com",
-			want: &repository.ProjectsAndTenants{
+			want: &api.ProjectsAndTenants{
 				Projects:      []*apiv2.Project{{Uuid: projectMap["john.doe@github.com"], Tenant: "john.doe@github.com"}},
 				Tenants:       []*apiv2.Tenant{{Login: "john.doe@github.com", Name: "john.doe@github.com", CreatedBy: "john.doe@github.com"}},
 				DefaultTenant: &apiv2.Tenant{Login: "john.doe@github.com", Name: "john.doe@github.com", CreatedBy: "john.doe@github.com"},
@@ -81,7 +81,7 @@ func Test_projectRepository_GetProjectsAndTenants(t *testing.T) {
 		{
 			name:   "not simple",
 			userId: "viewer@github.com",
-			want: &repository.ProjectsAndTenants{
+			want: &api.ProjectsAndTenants{
 				Projects: []*apiv2.Project{{Uuid: projectMap["john.doe@github.com"], Tenant: "john.doe@github.com"}},
 				Tenants: []*apiv2.Tenant{
 					{Login: "john.doe@github.com", Name: "john.doe@github.com", CreatedBy: "john.doe@github.com"},
@@ -101,7 +101,7 @@ func Test_projectRepository_GetProjectsAndTenants(t *testing.T) {
 		{
 			name:   "even more complicated",
 			userId: "guest@github.com",
-			want: &repository.ProjectsAndTenants{
+			want: &api.ProjectsAndTenants{
 				Projects: []*apiv2.Project{{Uuid: projectMap["john.doe@github.com"], Tenant: "john.doe@github.com"}},
 				Tenants: []*apiv2.Tenant{
 					{Login: "guest@github.com", Name: "guest@github.com", CreatedBy: "guest@github.com"},
@@ -121,7 +121,7 @@ func Test_projectRepository_GetProjectsAndTenants(t *testing.T) {
 		{
 			name:   "higher tenant role overrules explicit project role",
 			userId: "ron@github.com",
-			want: &repository.ProjectsAndTenants{
+			want: &api.ProjectsAndTenants{
 				Projects: []*apiv2.Project{{Uuid: projectMap["john.doe@github.com"], Tenant: "john.doe@github.com"}},
 				Tenants: []*apiv2.Tenant{
 					{Login: "john.doe@github.com", Name: "john.doe@github.com", CreatedBy: "john.doe@github.com"},
@@ -141,7 +141,7 @@ func Test_projectRepository_GetProjectsAndTenants(t *testing.T) {
 		{
 			name:   "higher project role overrules tenant role",
 			userId: "maddy@github.com",
-			want: &repository.ProjectsAndTenants{
+			want: &api.ProjectsAndTenants{
 				Projects: []*apiv2.Project{{Uuid: projectMap["john.doe@github.com"], Tenant: "john.doe@github.com"}},
 				Tenants: []*apiv2.Tenant{
 					{Login: "john.doe@github.com", Name: "john.doe@github.com", CreatedBy: "john.doe@github.com"},

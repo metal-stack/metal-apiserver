@@ -10,10 +10,11 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/samber/lo"
 )
 
-func (r *switchRepository) validateCreate(ctx context.Context, req *SwitchServiceCreateRequest) error {
+func (r *switchRepository) validateCreate(ctx context.Context, req *api.SwitchServiceCreateRequest) error {
 	var errs []error
 
 	_, err := r.s.ds.Partition().Get(ctx, req.Switch.Partition)

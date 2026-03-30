@@ -13,7 +13,6 @@ import (
 	v2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
-	"github.com/metal-stack/metal-apiserver/pkg/repository"
 
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/cache"
@@ -30,7 +29,6 @@ type (
 		CertCacheTime  *time.Duration
 		TokenStore     token.TokenStore
 		AllowedIssuers []string
-		Repo           *repository.Store
 	}
 
 	// auth is a gRPC server authorizer

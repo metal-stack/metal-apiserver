@@ -11,7 +11,7 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
-	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
@@ -52,11 +52,11 @@ func Test_tenantServiceServer_Get(t *testing.T) {
 		},
 	})
 
-	test.CreateTenantMemberships(t, testStore, "john.doe@github", []*repository.TenantMemberCreateRequest{
+	test.CreateTenantMemberships(t, testStore, "john.doe@github", []*api.TenantMemberCreateRequest{
 		{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 		{MemberID: "will.smith@github", Role: apiv2.TenantRole_TENANT_ROLE_EDITOR},
 	})
-	test.CreateProjectMemberships(t, testStore, "project-a", []*repository.ProjectMemberCreateRequest{
+	test.CreateProjectMemberships(t, testStore, "project-a", []*api.ProjectMemberCreateRequest{
 		{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
 		{TenantId: "tina.turner@github", Role: apiv2.ProjectRole_PROJECT_ROLE_VIEWER},
 	})
@@ -192,13 +192,13 @@ func Test_tenantServiceServer_List(t *testing.T) {
 		{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044"},
 	})
 
-	test.CreateTenantMemberships(t, testStore, "john.doe@github", []*repository.TenantMemberCreateRequest{
+	test.CreateTenantMemberships(t, testStore, "john.doe@github", []*api.TenantMemberCreateRequest{
 		{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 	})
-	test.CreateTenantMemberships(t, testStore, "will.smith@github", []*repository.TenantMemberCreateRequest{
+	test.CreateTenantMemberships(t, testStore, "will.smith@github", []*api.TenantMemberCreateRequest{
 		{MemberID: "will.smith@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 	})
-	test.CreateTenantMemberships(t, testStore, "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", []*repository.TenantMemberCreateRequest{
+	test.CreateTenantMemberships(t, testStore, "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", []*api.TenantMemberCreateRequest{
 		{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 	})
 
@@ -683,7 +683,7 @@ func Test_tenantServiceServer_MemberUpdate(t *testing.T) {
 		name                  string
 		rq                    *apiv2.TenantServiceUpdateMemberRequest
 		existingTenants       []*apiv2.TenantServiceCreateRequest
-		existingTenantMembers map[string][]*repository.TenantMemberCreateRequest
+		existingTenantMembers map[string][]*api.TenantMemberCreateRequest
 		want                  *apiv2.TenantServiceUpdateMemberResponse
 		wantErr               error
 	}{
@@ -699,7 +699,7 @@ func Test_tenantServiceServer_MemberUpdate(t *testing.T) {
 				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044"},
 				{Name: "will.smith@github"},
 			},
-			existingTenantMembers: map[string][]*repository.TenantMemberCreateRequest{
+			existingTenantMembers: map[string][]*api.TenantMemberCreateRequest{
 				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
 					{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 					{MemberID: "will.smith@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
@@ -723,7 +723,7 @@ func Test_tenantServiceServer_MemberUpdate(t *testing.T) {
 			existingTenants: []*apiv2.TenantServiceCreateRequest{
 				{Name: "john.doe@github"},
 			},
-			existingTenantMembers: map[string][]*repository.TenantMemberCreateRequest{
+			existingTenantMembers: map[string][]*api.TenantMemberCreateRequest{
 				"john.doe@github": {
 					{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 				},
@@ -741,7 +741,7 @@ func Test_tenantServiceServer_MemberUpdate(t *testing.T) {
 				{Name: "john.doe@github"},
 				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044"},
 			},
-			existingTenantMembers: map[string][]*repository.TenantMemberCreateRequest{
+			existingTenantMembers: map[string][]*api.TenantMemberCreateRequest{
 				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
 					{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 				},
@@ -811,7 +811,7 @@ func Test_tenantServiceServer_MemberRemove(t *testing.T) {
 	tests := []struct {
 		name                  string
 		existingTenants       []*apiv2.TenantServiceCreateRequest
-		existingTenantMembers map[string][]*repository.TenantMemberCreateRequest
+		existingTenantMembers map[string][]*api.TenantMemberCreateRequest
 		rq                    *apiv2.TenantServiceRemoveMemberRequest
 		wantErr               error
 	}{
@@ -826,7 +826,7 @@ func Test_tenantServiceServer_MemberRemove(t *testing.T) {
 				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044"},
 				{Name: "will.smith@github"},
 			},
-			existingTenantMembers: map[string][]*repository.TenantMemberCreateRequest{
+			existingTenantMembers: map[string][]*api.TenantMemberCreateRequest{
 				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
 					{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 					{MemberID: "will.smith@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
@@ -844,7 +844,7 @@ func Test_tenantServiceServer_MemberRemove(t *testing.T) {
 				{Name: "john.doe@github"},
 				{Name: "will.smith@github"},
 			},
-			existingTenantMembers: map[string][]*repository.TenantMemberCreateRequest{
+			existingTenantMembers: map[string][]*api.TenantMemberCreateRequest{
 				"john.doe@github": {
 					{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 					{MemberID: "will.smith@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
@@ -862,7 +862,7 @@ func Test_tenantServiceServer_MemberRemove(t *testing.T) {
 				{Name: "john.doe@github"},
 				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044"},
 			},
-			existingTenantMembers: map[string][]*repository.TenantMemberCreateRequest{
+			existingTenantMembers: map[string][]*api.TenantMemberCreateRequest{
 				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
 					{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 				},
@@ -1295,7 +1295,7 @@ func Test_tenantServiceServer_InviteAccept(t *testing.T) {
 		name                  string
 		existingInvites       []*apiv2.TenantInvite
 		existingTenants       []*apiv2.TenantServiceCreateRequest
-		existingTenantMembers map[string][]*repository.TenantMemberCreateRequest
+		existingTenantMembers map[string][]*api.TenantMemberCreateRequest
 		rq                    *apiv2.TenantServiceInviteAcceptRequest
 		want                  *apiv2.TenantServiceInviteAcceptResponse
 		wantMembers           []*apiv2.TenantMember
@@ -1311,7 +1311,7 @@ func Test_tenantServiceServer_InviteAccept(t *testing.T) {
 				{Name: "will.smith@github"},
 				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044"},
 			},
-			existingTenantMembers: map[string][]*repository.TenantMemberCreateRequest{
+			existingTenantMembers: map[string][]*api.TenantMemberCreateRequest{
 				"john.doe@github":                      {{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER}},
 				"will.smith@github":                    {{MemberID: "will.smith@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER}},
 				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER}},
@@ -1355,7 +1355,7 @@ func Test_tenantServiceServer_InviteAccept(t *testing.T) {
 				{Name: "will.smith@github"},
 				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044"},
 			},
-			existingTenantMembers: map[string][]*repository.TenantMemberCreateRequest{
+			existingTenantMembers: map[string][]*api.TenantMemberCreateRequest{
 				"john.doe@github":   {{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER}},
 				"will.smith@github": {{MemberID: "will.smith@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER}},
 				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
@@ -1386,7 +1386,7 @@ func Test_tenantServiceServer_InviteAccept(t *testing.T) {
 			existingTenants: []*apiv2.TenantServiceCreateRequest{
 				{Name: "will.smith@github"},
 			},
-			existingTenantMembers: map[string][]*repository.TenantMemberCreateRequest{
+			existingTenantMembers: map[string][]*api.TenantMemberCreateRequest{
 				"will.smith@github": {{MemberID: "will.smith@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER}},
 			},
 			existingInvites: []*apiv2.TenantInvite{
@@ -1501,7 +1501,7 @@ func Test_tenantServiceServer_InviteFlow(t *testing.T) {
 		{Name: "will.smith@github"},
 	})
 
-	test.CreateTenantMemberships(t, testStore, "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", []*repository.TenantMemberCreateRequest{
+	test.CreateTenantMemberships(t, testStore, "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", []*api.TenantMemberCreateRequest{
 		{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 	})
 
@@ -1771,7 +1771,7 @@ func Test_tenantServiceServer_Leave(t *testing.T) {
 	tests := []struct {
 		name                  string
 		existingTenants       []*apiv2.TenantServiceCreateRequest
-		existingTenantMembers map[string][]*repository.TenantMemberCreateRequest
+		existingTenantMembers map[string][]*api.TenantMemberCreateRequest
 		rq                    *apiv2.TenantServiceLeaveRequest
 		wantErr               error
 	}{
@@ -1785,7 +1785,7 @@ func Test_tenantServiceServer_Leave(t *testing.T) {
 				{Name: "will.smith@github"},
 				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044"},
 			},
-			existingTenantMembers: map[string][]*repository.TenantMemberCreateRequest{
+			existingTenantMembers: map[string][]*api.TenantMemberCreateRequest{
 				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
 					{MemberID: "will.smith@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 					{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_VIEWER},
@@ -1803,7 +1803,7 @@ func Test_tenantServiceServer_Leave(t *testing.T) {
 				{Name: "will.smith@github"},
 				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044"},
 			},
-			existingTenantMembers: map[string][]*repository.TenantMemberCreateRequest{
+			existingTenantMembers: map[string][]*api.TenantMemberCreateRequest{
 				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
 					{MemberID: "will.smith@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 				},
@@ -1818,7 +1818,7 @@ func Test_tenantServiceServer_Leave(t *testing.T) {
 			existingTenants: []*apiv2.TenantServiceCreateRequest{
 				{Name: "john.doe@github"},
 			},
-			existingTenantMembers: map[string][]*repository.TenantMemberCreateRequest{},
+			existingTenantMembers: map[string][]*api.TenantMemberCreateRequest{},
 			wantErr:               errorutil.NotFound("tenant john.doe@github is not a member of tenant john.doe@github"),
 		},
 	}

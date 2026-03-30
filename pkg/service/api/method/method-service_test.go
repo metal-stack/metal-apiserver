@@ -10,7 +10,7 @@ import (
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
-	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/method"
@@ -32,20 +32,20 @@ func Test_methodServiceServer_List(t *testing.T) {
 		{Name: "foo.bar@github.com"},
 		{Name: "viewer@github.com"},
 	})
-	test.CreateTenantMemberships(t, testStore, "john.doe@github.com", []*repository.TenantMemberCreateRequest{
+	test.CreateTenantMemberships(t, testStore, "john.doe@github.com", []*api.TenantMemberCreateRequest{
 		{MemberID: "john.doe@github.com", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 		{MemberID: "viewer@github.com", Role: apiv2.TenantRole_TENANT_ROLE_VIEWER},
 	})
-	test.CreateTenantMemberships(t, testStore, "viewer@github.com", []*repository.TenantMemberCreateRequest{
+	test.CreateTenantMemberships(t, testStore, "viewer@github.com", []*api.TenantMemberCreateRequest{
 		{MemberID: "viewer@github.com", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 	})
-	test.CreateTenantMemberships(t, testStore, "foo.bar@github.com", []*repository.TenantMemberCreateRequest{
+	test.CreateTenantMemberships(t, testStore, "foo.bar@github.com", []*api.TenantMemberCreateRequest{
 		{MemberID: "foo.bar@github.com", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 	})
 	projectMap := test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{
 		{Login: "john.doe@github.com"},
 	})
-	test.CreateProjectMemberships(t, testStore, projectMap["john.doe@github.com"], []*repository.ProjectMemberCreateRequest{
+	test.CreateProjectMemberships(t, testStore, projectMap["john.doe@github.com"], []*api.ProjectMemberCreateRequest{
 		{TenantId: "foo.bar@github.com", Role: apiv2.ProjectRole_PROJECT_ROLE_VIEWER},
 	})
 

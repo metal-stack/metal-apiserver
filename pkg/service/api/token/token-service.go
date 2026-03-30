@@ -12,6 +12,7 @@ import (
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/api/go/permissions"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/request"
 
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
@@ -39,7 +40,7 @@ type tokenService struct {
 	certs         certs.CertStore
 	log           *slog.Logger
 
-	projectsAndTenantsGetter func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error)
+	projectsAndTenantsGetter func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error)
 	authorizer               request.Authorizer
 }
 
@@ -52,7 +53,7 @@ type TokenService interface {
 }
 
 func New(c Config) TokenService {
-	projectsAndTenantsGetter := func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
+	projectsAndTenantsGetter := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
 		return c.Repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, userId)
 	}
 	log := c.Log.WithGroup("tokenService")

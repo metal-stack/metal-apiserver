@@ -9,17 +9,17 @@ import (
 	"connectrpc.com/connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/permissions"
-	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 )
 
 type (
 
 	// helper to be able to test user token content fetched from the database
-	projectsAndTenantsGetter func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error)
+	projectsAndTenantsGetter func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error)
 
 	authorizer struct {
 		log                      *slog.Logger
-		projectsAndTenantsGetter func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error)
+		projectsAndTenantsGetter func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error)
 	}
 
 	// Authorizer provides methods to authorize requests with a given token

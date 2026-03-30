@@ -9,6 +9,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-lib/auditing"
 	"github.com/valkey-io/valkey-go"
 
@@ -120,7 +121,7 @@ func (s *Store) Component() Component {
 		s: s,
 	}
 
-	return &store[*componentRepository, *ComponentEntity, *apiv2.Component, *ComponentServiceCreateRequest, *ComponentServiceUpdateRequest, *apiv2.ComponentQuery]{
+	return &store[*componentRepository, *componentEntity, *apiv2.Component, *api.ComponentServiceCreateRequest, *api.ComponentServiceUpdateRequest, *apiv2.ComponentQuery]{
 		repository: repository,
 		typed:      repository,
 	}
@@ -252,7 +253,7 @@ func (s *Store) Switch() Switch {
 		s: s,
 	}
 
-	return &store[*switchRepository, *metal.Switch, *apiv2.Switch, *SwitchServiceCreateRequest, *adminv2.SwitchServiceUpdateRequest, *apiv2.SwitchQuery]{
+	return &store[*switchRepository, *metal.Switch, *apiv2.Switch, *api.SwitchServiceCreateRequest, *adminv2.SwitchServiceUpdateRequest, *apiv2.SwitchQuery]{
 		repository: repository,
 		typed:      repository,
 	}

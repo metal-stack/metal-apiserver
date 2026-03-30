@@ -10,6 +10,7 @@ import (
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/service"
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
@@ -87,13 +88,13 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 	}, subject)
 	require.NoError(t, err)
 
-	_, err = testStore.Tenant().AdditionalMethods().Member(tenant.Login).Create(reqCtx, &repository.TenantMemberCreateRequest{
+	_, err = testStore.Tenant().AdditionalMethods().Member(tenant.Login).Create(reqCtx, &api.TenantMemberCreateRequest{
 		MemberID: subject,
 		Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
 	})
 	require.NoError(t, err)
 
-	_, err = testStore.Tenant().AdditionalMethods().Member(providerTenant).Create(ctx, &repository.TenantMemberCreateRequest{
+	_, err = testStore.Tenant().AdditionalMethods().Member(providerTenant).Create(ctx, &api.TenantMemberCreateRequest{
 		MemberID: tenant.Login,
 		Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
 	})
@@ -129,7 +130,7 @@ func createTenantTokens(t testing.TB, repo *repository.Store, tokenService token
 		}, tenant, repository.NewTenantCreateOptWithCreator(tenant))
 		require.NoError(t, err)
 
-		_, err = repo.Tenant().AdditionalMethods().Member(tenant).Create(ctx, &repository.TenantMemberCreateRequest{
+		_, err = repo.Tenant().AdditionalMethods().Member(tenant).Create(ctx, &api.TenantMemberCreateRequest{
 			Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
 			MemberID: tenant,
 		})
