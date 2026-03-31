@@ -40,7 +40,7 @@ type tokenService struct {
 	certs         certs.CertStore
 	log           *slog.Logger
 
-	projectsAndTenantsGetter func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error)
+	projectsAndTenantsGetter api.ProjectsAndTenantsGetter
 	authorizer               request.Authorizer
 }
 
