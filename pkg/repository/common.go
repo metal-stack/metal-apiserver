@@ -129,11 +129,3 @@ func notFoundOrInternal(err error) error {
 
 	return errorutil.NewInternal(err)
 }
-
-func failedPreconditionOrInternal(err error) error {
-	if errorutil.IsNotFound(err) {
-		return errorutil.NewFailedPrecondition(err)
-	}
-
-	return errorutil.NewInternal(err)
-}

@@ -7,6 +7,7 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	v1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 )
 
 func (r *sizeReservationRepository) validateCreate(ctx context.Context, req *adminv2.SizeReservationServiceCreateRequest) error {
@@ -25,7 +26,7 @@ func (r *sizeReservationRepository) validateCreate(ctx context.Context, req *adm
 	}
 
 	if _, err := r.s.ds.Size().Get(ctx, sr.Size); err != nil {
-		return failedPreconditionOrInternal(fmt.Errorf("size must exist before creating a size reservation: %w", err))
+		return errorutil.FailedPrecondition("size must exist before creating a size reservation: %w", err)
 	}
 
 	if len(sr.Partitions) == 0 {
@@ -34,12 +35,12 @@ func (r *sizeReservationRepository) validateCreate(ctx context.Context, req *adm
 
 	for _, partition := range sr.Partitions {
 		if _, err := r.s.ds.Partition().Get(ctx, partition); err != nil {
-			return failedPreconditionOrInternal(fmt.Errorf("partition must exist before creating a size reservation: %w", err))
+			return errorutil.FailedPrecondition("partition must exist before creating a size reservation: %w", err)
 		}
 	}
 
 	if _, err := r.s.mdc.Project().Get(ctx, &v1.ProjectGetRequest{Id: sr.Project}); err != nil {
-		return failedPreconditionOrInternal(fmt.Errorf("project must exist before creating a size reservation: %w", err))
+		return errorutil.FailedPrecondition("project must exist before creating a size reservation: %w", err)
 	}
 
 	return nil
@@ -52,7 +53,7 @@ func (r *sizeReservationRepository) validateUpdate(ctx context.Context, req *adm
 
 	for _, partition := range req.Partitions {
 		if _, err := r.s.ds.Partition().Get(ctx, partition); err != nil {
-			return failedPreconditionOrInternal(fmt.Errorf("partition must exist before creating a size reservation: %w", err))
+			return errorutil.FailedPrecondition("partition must exist before creating a size reservation: %w", err)
 		}
 	}
 

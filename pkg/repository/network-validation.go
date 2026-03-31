@@ -28,13 +28,13 @@ func (r *networkRepository) validateCreate(ctx context.Context, req *adminv2.Net
 
 	if req.Project != nil {
 		if _, err := r.s.UnscopedProject().Get(ctx, *req.Project); err != nil {
-			return failedPreconditionOrInternal(fmt.Errorf("project must exist before creating network: %w", err))
+			return errorutil.FailedPrecondition("project must exist before creating network: %w", err)
 		}
 	}
 
 	if req.Partition != nil {
 		if _, err := r.s.Partition().Get(ctx, *req.Partition); err != nil {
-			return failedPreconditionOrInternal(fmt.Errorf("partition must exist before creating network: %w", err))
+			return errorutil.FailedPrecondition("partition must exist before creating network: %w", err)
 		}
 	}
 
@@ -112,7 +112,7 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 	if req.ParentNetwork != nil {
 		parent, err := r.s.ds.Network().Get(ctx, *req.ParentNetwork)
 		if err != nil {
-			return failedPreconditionOrInternal(fmt.Errorf("unable to retrieve parent network: %w", err))
+			return errorutil.FailedPrecondition("unable to retrieve parent network: %w", err)
 		}
 
 		if !metal.IsSuperNetwork(parent.NetworkType) {
@@ -133,7 +133,7 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 			Type:      apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
 		}))
 		if err != nil {
-			return failedPreconditionOrInternal(fmt.Errorf("unable to find a super in partition %q: %w", *req.Partition, err))
+			return errorutil.FailedPrecondition("unable to find a super in partition %q: %w", *req.Partition, err)
 		}
 
 		parentNetwork = parent
