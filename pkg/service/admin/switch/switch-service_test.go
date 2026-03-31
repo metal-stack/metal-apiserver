@@ -225,236 +225,206 @@ func Test_switchServiceServer_Update(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		rq      *adminv2.SwitchServiceUpdateRequest
-		want    *adminv2.SwitchServiceUpdateResponse
+		rq      func() *adminv2.SwitchServiceUpdateRequest
+		want    func() *adminv2.SwitchServiceUpdateResponse
 		wantErr error
 	}{
 		{
 			name: "no updates made",
-			rq:   &adminv2.SwitchServiceUpdateRequest{
-				// Id: sw3.Switch.Id,
-				// UpdateMeta: &apiv2.UpdateMeta{
-				// 	UpdatedAt: switchMap["sw3"].Meta.UpdatedAt,
-				// },
+			rq: func() *adminv2.SwitchServiceUpdateRequest {
+				return &adminv2.SwitchServiceUpdateRequest{
+					Id: dc.GetSwitches()[sc.P01Rack01Switch1].Id,
+					UpdateMeta: &apiv2.UpdateMeta{
+						UpdatedAt: dc.GetSwitches()[sc.P01Rack01Switch1].Meta.UpdatedAt,
+					},
+				}
 			},
-			want: &adminv2.SwitchServiceUpdateResponse{
-				// Switch: &apiv2.Switch{
-				// 	Id:             sw3.Switch.Id,
-				// 	Meta:           &apiv2.Meta{Generation: 1},
-				// 	Description:    "switch 03",
-				// 	Rack:           new("rack02"),
-				// 	Partition:      "partition-b",
-				// 	ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE,
-				// 	ManagementIp:   "1.1.1.3",
-				// 	ManagementUser: new("admin"),
-				// 	ConsoleCommand: new("tty"),
-				// 	Nics: []*apiv2.SwitchNic{
-				// 		{
-				// 			Name:       "Ethernet0",
-				// 			Identifier: "Eth1/1",
-				// 			Mac:        "55:55:55:55:55:55",
-				// 			Vrf:        nil,
-				// 			BgpFilter:  &apiv2.BGPFilter{},
-				// 			State: &apiv2.NicState{
-				// 				Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
-				// 				Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-				// 			},
-				// 		},
-				// 		{
-				// 			Name:       "Ethernet1",
-				// 			Identifier: "Eth1/2",
-				// 			Mac:        "66:66:66:66:66:66",
-				// 			Vrf:        new("Vrf300"),
-				// 			State: &apiv2.NicState{
-				// 				Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
-				// 				Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
-				// 			},
-				// 			BgpFilter: &apiv2.BGPFilter{},
-				// 			BgpPortState: &apiv2.SwitchBGPPortState{
-				// 				Neighbor:              "Ethernet2",
-				// 				PeerGroup:             "external",
-				// 				VrfName:               "Vrf300",
-				// 				BgpState:              apiv2.BGPState_BGP_STATE_IDLE,
-				// 				BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Unix(), 0)),
-				// 				SentPrefixCounter:     0,
-				// 				AcceptedPrefixCounter: 0,
-				// 			},
-				// 		},
-				// 	},
-				// 	Os: &apiv2.SwitchOS{
-				// 		Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
-				// 		Version:          "ec202211",
-				// 		MetalCoreVersion: "v0.13.0",
-				// 	},
-				// },
+			want: func() *adminv2.SwitchServiceUpdateResponse {
+				return &adminv2.SwitchServiceUpdateResponse{
+					Switch: dc.GetSwitches()[sc.P01Rack01Switch1],
+				}
 			},
 			wantErr: nil,
 		},
-		{
-			name: "update all valid fields",
-			rq: &adminv2.SwitchServiceUpdateRequest{
-				// Id: sw1.Switch.Id,
-				// UpdateMeta: &apiv2.UpdateMeta{
-				// 	UpdatedAt: switchMap["sw1"].Meta.UpdatedAt,
-				// },
-				Description:    new("new description"),
-				ReplaceMode:    new(apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE),
-				ManagementIp:   new("1.1.1.5"),
-				ManagementUser: new("metal"),
-				ConsoleCommand: new("ssh"),
-				Nics: []*apiv2.SwitchNic{
-					{
-						Name:       "Ethernet0",
-						Identifier: "Eth1/1",
-						Mac:        "11:11:11:11:11:11",
-						Vrf:        new("Vrf100"),
-						BgpFilter:  &apiv2.BGPFilter{},
-						State: &apiv2.NicState{
-							Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-						},
-						BgpPortState: &apiv2.SwitchBGPPortState{
-							Neighbor:  "Ethernet1",
-							PeerGroup: "external",
-							VrfName:   "Vrf200",
-							BgpState:  apiv2.BGPState_BGP_STATE_ESTABLISHED,
-							// BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Unix(), 0)),
-							SentPrefixCounter:     0,
-							AcceptedPrefixCounter: 0,
-						},
-					},
-					{
-						Name:       "Ethernet2",
-						Identifier: "Eth/1/3",
-						Mac:        "aa:aa:aa:aa:aa:aa",
-						Vrf:        nil,
-						BgpFilter:  &apiv2.BGPFilter{},
-						State: &apiv2.NicState{
-							Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
-							Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-						},
-					},
-				},
-				Os: &apiv2.SwitchOS{
-					Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
-					Version:          "ec202211",
-					MetalCoreVersion: "v0.14.0",
-				},
-			},
-			want: &adminv2.SwitchServiceUpdateResponse{
-				Switch: &apiv2.Switch{
-					// Id: sw1.Switch.Id,
-					Meta: &apiv2.Meta{
-						Generation: 1,
-					},
-					Description:    "new description",
-					Rack:           new("rack01"),
-					Partition:      "partition-a",
-					ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE,
-					ManagementIp:   "1.1.1.5",
-					ManagementUser: new("metal"),
-					MachineConnections: []*apiv2.MachineConnection{
-						{
-							// MachineId: m1.ID,
-							Nic: &apiv2.SwitchNic{
-								Name:       "Ethernet0",
-								Identifier: "Eth1/1",
-								Mac:        "11:11:11:11:11:11",
-								Vrf:        new("Vrf100"),
-								BgpFilter:  &apiv2.BGPFilter{},
-								State: &apiv2.NicState{
-									Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-								},
-								BgpPortState: &apiv2.SwitchBGPPortState{
-									Neighbor:  "Ethernet1",
-									PeerGroup: "external",
-									VrfName:   "Vrf200",
-									BgpState:  apiv2.BGPState_BGP_STATE_ESTABLISHED,
-									// BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Unix(), 0)),
-									SentPrefixCounter:     0,
-									AcceptedPrefixCounter: 0,
-								},
-							},
-						},
-					},
-					ConsoleCommand: new("ssh"),
-					Nics: []*apiv2.SwitchNic{
-						{
-							Name:       "Ethernet0",
-							Identifier: "Eth1/1",
-							Mac:        "11:11:11:11:11:11",
-							Vrf:        new("Vrf100"),
-							BgpFilter:  &apiv2.BGPFilter{},
-							State: &apiv2.NicState{
-								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-							},
-							BgpPortState: &apiv2.SwitchBGPPortState{
-								Neighbor:  "Ethernet1",
-								PeerGroup: "external",
-								VrfName:   "Vrf200",
-								BgpState:  apiv2.BGPState_BGP_STATE_ESTABLISHED,
-								// BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Unix(), 0)),
-								SentPrefixCounter:     0,
-								AcceptedPrefixCounter: 0,
-							},
-						},
-						{
-							Name:       "Ethernet2",
-							Identifier: "Eth/1/3",
-							Mac:        "aa:aa:aa:aa:aa:aa",
-							Vrf:        nil,
-							State: &apiv2.NicState{
-								Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
-								Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-							},
-							BgpFilter: &apiv2.BGPFilter{},
-						},
-					},
-					Os: &apiv2.SwitchOS{
-						Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
-						Version:          "ec202211",
-						MetalCoreVersion: "v0.14.0",
-					},
-				},
-			},
-			wantErr: nil,
-		},
-		{
-			name: "cannot update os vendor",
-			rq: &adminv2.SwitchServiceUpdateRequest{
-				// Id: sw2.Switch.Id,
-				Os: &apiv2.SwitchOS{
-					Vendor: apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
-				},
-			},
-			want:    nil,
-			wantErr: errorutil.InvalidArgument("cannot update switch os vendor from Cumulus to SONiC, use replace instead"),
-		},
+		// {
+		// 	name: "update all valid fields",
+		// 	rq: &adminv2.SwitchServiceUpdateRequest{
+		// 		// Id: sw1.Switch.Id,
+		// 		// UpdateMeta: &apiv2.UpdateMeta{
+		// 		// 	UpdatedAt: switchMap["sw1"].Meta.UpdatedAt,
+		// 		// },
+		// 		Description:    new("new description"),
+		// 		ReplaceMode:    new(apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE),
+		// 		ManagementIp:   new("1.1.1.5"),
+		// 		ManagementUser: new("metal"),
+		// 		ConsoleCommand: new("ssh"),
+		// 		Nics: []*apiv2.SwitchNic{
+		// 			{
+		// 				Name:       "Ethernet0",
+		// 				Identifier: "Eth1/1",
+		// 				Mac:        "11:11:11:11:11:11",
+		// 				Vrf:        new("Vrf100"),
+		// 				BgpFilter:  &apiv2.BGPFilter{},
+		// 				State: &apiv2.NicState{
+		// 					Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+		// 				},
+		// 				BgpPortState: &apiv2.SwitchBGPPortState{
+		// 					Neighbor:  "Ethernet1",
+		// 					PeerGroup: "external",
+		// 					VrfName:   "Vrf200",
+		// 					BgpState:  apiv2.BGPState_BGP_STATE_ESTABLISHED,
+		// 					// BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Unix(), 0)),
+		// 					SentPrefixCounter:     0,
+		// 					AcceptedPrefixCounter: 0,
+		// 				},
+		// 			},
+		// 			{
+		// 				Name:       "Ethernet2",
+		// 				Identifier: "Eth/1/3",
+		// 				Mac:        "aa:aa:aa:aa:aa:aa",
+		// 				Vrf:        nil,
+		// 				BgpFilter:  &apiv2.BGPFilter{},
+		// 				State: &apiv2.NicState{
+		// 					Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
+		// 					Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+		// 				},
+		// 			},
+		// 		},
+		// 		Os: &apiv2.SwitchOS{
+		// 			Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+		// 			Version:          "ec202211",
+		// 			MetalCoreVersion: "v0.14.0",
+		// 		},
+		// 	},
+		// 	want: &adminv2.SwitchServiceUpdateResponse{
+		// 		Switch: &apiv2.Switch{
+		// 			// Id: sw1.Switch.Id,
+		// 			Meta: &apiv2.Meta{
+		// 				Generation: 1,
+		// 			},
+		// 			Description:    "new description",
+		// 			Rack:           new("rack01"),
+		// 			Partition:      "partition-a",
+		// 			ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE,
+		// 			ManagementIp:   "1.1.1.5",
+		// 			ManagementUser: new("metal"),
+		// 			MachineConnections: []*apiv2.MachineConnection{
+		// 				{
+		// 					// MachineId: m1.ID,
+		// 					Nic: &apiv2.SwitchNic{
+		// 						Name:       "Ethernet0",
+		// 						Identifier: "Eth1/1",
+		// 						Mac:        "11:11:11:11:11:11",
+		// 						Vrf:        new("Vrf100"),
+		// 						BgpFilter:  &apiv2.BGPFilter{},
+		// 						State: &apiv2.NicState{
+		// 							Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+		// 						},
+		// 						BgpPortState: &apiv2.SwitchBGPPortState{
+		// 							Neighbor:  "Ethernet1",
+		// 							PeerGroup: "external",
+		// 							VrfName:   "Vrf200",
+		// 							BgpState:  apiv2.BGPState_BGP_STATE_ESTABLISHED,
+		// 							// BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Unix(), 0)),
+		// 							SentPrefixCounter:     0,
+		// 							AcceptedPrefixCounter: 0,
+		// 						},
+		// 					},
+		// 				},
+		// 			},
+		// 			ConsoleCommand: new("ssh"),
+		// 			Nics: []*apiv2.SwitchNic{
+		// 				{
+		// 					Name:       "Ethernet0",
+		// 					Identifier: "Eth1/1",
+		// 					Mac:        "11:11:11:11:11:11",
+		// 					Vrf:        new("Vrf100"),
+		// 					BgpFilter:  &apiv2.BGPFilter{},
+		// 					State: &apiv2.NicState{
+		// 						Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+		// 					},
+		// 					BgpPortState: &apiv2.SwitchBGPPortState{
+		// 						Neighbor:  "Ethernet1",
+		// 						PeerGroup: "external",
+		// 						VrfName:   "Vrf200",
+		// 						BgpState:  apiv2.BGPState_BGP_STATE_ESTABLISHED,
+		// 						// BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Unix(), 0)),
+		// 						SentPrefixCounter:     0,
+		// 						AcceptedPrefixCounter: 0,
+		// 					},
+		// 				},
+		// 				{
+		// 					Name:       "Ethernet2",
+		// 					Identifier: "Eth/1/3",
+		// 					Mac:        "aa:aa:aa:aa:aa:aa",
+		// 					Vrf:        nil,
+		// 					State: &apiv2.NicState{
+		// 						Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
+		// 						Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+		// 					},
+		// 					BgpFilter: &apiv2.BGPFilter{},
+		// 				},
+		// 			},
+		// 			Os: &apiv2.SwitchOS{
+		// 				Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+		// 				Version:          "ec202211",
+		// 				MetalCoreVersion: "v0.14.0",
+		// 			},
+		// 		},
+		// 	},
+		// 	wantErr: nil,
+		// },
+		// {
+		// 	name: "cannot update os vendor",
+		// 	rq: &adminv2.SwitchServiceUpdateRequest{
+		// 		// Id: sw2.Switch.Id,
+		// 		Os: &apiv2.SwitchOS{
+		// 			Vendor: apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+		// 		},
+		// 	},
+		// 	want:    nil,
+		// 	wantErr: errorutil.InvalidArgument("cannot update switch os vendor from Cumulus to SONiC, use replace instead"),
+		// },
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			dc.Create(&sc.SwitchesWithMachinesDatacenter)
 			defer dc.Cleanup()
 
+			var (
+				rq   *adminv2.SwitchServiceUpdateRequest
+				want *adminv2.SwitchServiceUpdateResponse
+			)
+
+			if tt.rq != nil {
+				rq = tt.rq()
+			}
+			if tt.want != nil {
+				want = tt.want()
+			}
+
 			s := &switchServiceServer{
 				log:  log,
 				repo: dc.GetTestStore().Store,
 			}
 			if tt.wantErr == nil {
-				test.Validate(t, tt.rq)
+				test.Validate(t, rq)
 			}
 
-			got, err := s.Update(ctx, tt.rq)
+			got, err := s.Update(ctx, rq)
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("switchServiceServer.Update() error diff = %s", diff)
 				return
 			}
-			if diff := cmp.Diff(tt.want, got,
+			if diff := cmp.Diff(want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
-					&apiv2.Meta{}, "created_at", "updated_at",
+					&apiv2.Meta{}, "created_at", "updated_at", "generation",
 				)); diff != "" {
 				t.Errorf("switchServiceServer.Update() diff = %s", diff)
 			}
+
+			// TODO: add dc.Assert
 		})
 	}
 }

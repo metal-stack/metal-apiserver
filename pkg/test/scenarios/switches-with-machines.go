@@ -29,7 +29,7 @@ var (
 			SwitchFunc(P01Rack02Switch2, Partition1, P01Rack02, []string{"Ethernet0"}, SwitchOSSonic2021, Machine2),
 
 			SwitchFunc(P01Rack03Switch1, Partition1, P01Rack03, []string{"Ethernet0"}, SwitchOSSonic2022),
-			SwitchFunc(P01Rack03Switch2, Partition1, P01Rack03, []string{"Ethernet0"}, SwitchOSCumulus),
+			SwitchFunc(P01Rack03Switch2, Partition1, P01Rack03, []string{"swp1"}, SwitchOSCumulus),
 
 			SwitchFunc(P02Rack01Switch1, Partition2, P02Rack01, []string{"Ethernet0"}, SwitchOSSonic2021, Machine3),
 			SwitchFunc(P02Rack01Switch2, Partition2, P02Rack01, []string{"Ethernet0"}, SwitchOSSonic2021, Machine3),
