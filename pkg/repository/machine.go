@@ -521,7 +521,7 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 				NatType:             natType,
 				Vrf:                 uint64(nw.Vrf),
 				Asn:                 nw.ASN,
-				Project:             &nw.ProjectID,
+				Project:             pointer.PointerOrNil(nw.ProjectID),
 			})
 		}
 

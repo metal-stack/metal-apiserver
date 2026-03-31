@@ -316,7 +316,7 @@ func Test_machineServiceServer_CreateFirewall(t *testing.T) {
 									NetworkType:         apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
 									NatType:             apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE,
 									Vrf:                 uint64(*dc.GetNetworks()[sc.NetworkInternet].Vrf),
-									Project:             new(""), // TODO why not nil
+									Project:             nil,
 									Asn:                 uint32(4210000020),
 								},
 								{
@@ -338,7 +338,7 @@ func Test_machineServiceServer_CreateFirewall(t *testing.T) {
 									NetworkType:         apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
 									NatType:             apiv2.NATType_NAT_TYPE_NONE,
 									Vrf:                 uint64(0),
-									Project:             new(""),
+									Project:             nil,
 									Asn:                 uint32(4210000020),
 								},
 							},
