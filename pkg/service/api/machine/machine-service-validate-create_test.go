@@ -54,13 +54,13 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 		},
 		{
 			name:    "partition does not exist",
-			req:     &apiv2.MachineServiceCreateRequest{Project: sc.Tenant1Project1, Partition: "non-existing-partition"},
+			req:     &apiv2.MachineServiceCreateRequest{Project: sc.Tenant1Project1, Partition: new("non-existing-partition"), Image: sc.ImageDebian12},
 			want:    nil,
 			wantErr: errorutil.NotFound(`no partition with id "non-existing-partition" found`),
 		},
 		{
 			name:    "size does not exist",
-			req:     &apiv2.MachineServiceCreateRequest{Project: sc.Tenant1Project1, Partition: sc.Partition1, Size: "unknown-size"},
+			req:     &apiv2.MachineServiceCreateRequest{Project: sc.Tenant1Project1, Partition: new(sc.Partition1), Size: new("unknown-size"), Image: sc.ImageDebian12},
 			want:    nil,
 			wantErr: errorutil.NotFound(`no size with id "unknown-size" found`),
 		},
@@ -70,7 +70,7 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 			req: &apiv2.MachineServiceCreateRequest{
 				Uuid:      new(sc.Machine1),
 				Project:   sc.Tenant1Project1,
-				Partition: sc.Partition1,
+				Partition: new(sc.Partition1),
 			},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument("when machine id is given, a partition must not be specified"),
@@ -80,7 +80,7 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 			req: &apiv2.MachineServiceCreateRequest{
 				Uuid:    new(sc.Machine1),
 				Project: sc.Tenant1Project1,
-				Size:    sc.SizeC1Large,
+				Size:    new(sc.SizeC1Large),
 			},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument("when machine id is given, a size must not be specified"),
@@ -150,7 +150,8 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 			name: "partition is not present",
 			req: &apiv2.MachineServiceCreateRequest{
 				Project:   sc.Tenant1Project1,
-				Partition: sc.Partition2,
+				Partition: new(sc.Partition2),
+				Image:     sc.ImageDebian12,
 			},
 			want:    nil,
 			wantErr: errorutil.NotFound(`no partition with id "partition-2" found`),
@@ -159,8 +160,9 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 			name: "size is not present",
 			req: &apiv2.MachineServiceCreateRequest{
 				Project:   sc.Tenant1Project1,
-				Partition: sc.Partition1,
-				Size:      "unknown-size",
+				Partition: new(sc.Partition1),
+				Image:     sc.ImageDebian12,
+				Size:      new("unknown-size"),
 			},
 			want:    nil,
 			wantErr: errorutil.NotFound(`no size with id "unknown-size" found`),
@@ -169,8 +171,8 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 			name: "image is not present",
 			req: &apiv2.MachineServiceCreateRequest{
 				Project:   sc.Tenant1Project1,
-				Partition: sc.Partition1,
-				Size:      sc.SizeC1Large,
+				Partition: new(sc.Partition1),
+				Size:      new(sc.SizeC1Large),
 				Image:     "unknown-11",
 			},
 			want:    nil,
@@ -180,8 +182,8 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 			name: "fsl is given but does not exists",
 			req: &apiv2.MachineServiceCreateRequest{
 				Project:          sc.Tenant1Project1,
-				Partition:        sc.Partition1,
-				Size:             sc.SizeC1Large,
+				Partition:        new(sc.Partition1),
+				Size:             new(sc.SizeC1Large),
 				FilesystemLayout: new("debian-fsl"),
 				Image:            "debian-13",
 			},
@@ -235,8 +237,8 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 			name: "no fsl is given and no matching one found",
 			req: &apiv2.MachineServiceCreateRequest{
 				Project:   sc.Tenant1Project1,
-				Partition: sc.Partition1,
-				Size:      sc.SizeC1Large,
+				Partition: new(sc.Partition1),
+				Size:      new(sc.SizeC1Large),
 				Image:     "debian-11",
 			},
 			want:    nil,
@@ -246,8 +248,8 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 			name: "no fsl is given but present, but no match for image and size",
 			req: &apiv2.MachineServiceCreateRequest{
 				Project:   sc.Tenant1Project1,
-				Partition: sc.Partition1,
-				Size:      sc.SizeC1Large,
+				Partition: new(sc.Partition1),
+				Size:      new(sc.SizeC1Large),
 				Image:     "debian-11",
 			},
 			createDatacenterFn: func() *sc.DatacenterSpec {
@@ -261,8 +263,8 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 			name: "allocation type wrong",
 			req: &apiv2.MachineServiceCreateRequest{
 				Project:        sc.Tenant1Project1,
-				Partition:      sc.Partition1,
-				Size:           sc.SizeC1Large,
+				Partition:      new(sc.Partition1),
+				Size:           new(sc.SizeC1Large),
 				Image:          "debian-13",
 				AllocationType: 0,
 			},
@@ -273,8 +275,8 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 			name: "image type wrong",
 			req: &apiv2.MachineServiceCreateRequest{
 				Project:        sc.Tenant1Project1,
-				Partition:      sc.Partition1,
-				Size:           sc.SizeC1Large,
+				Partition:      new(sc.Partition1),
+				Size:           new(sc.SizeC1Large),
 				Image:          sc.ImageFirewall3_0,
 				AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
 			},
@@ -285,8 +287,8 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 			name: "machine with firewall rules",
 			req: &apiv2.MachineServiceCreateRequest{
 				Project:        sc.Tenant1Project1,
-				Partition:      sc.Partition1,
-				Size:           sc.SizeC1Large,
+				Partition:      new(sc.Partition1),
+				Size:           new(sc.SizeC1Large),
 				Image:          "debian-13",
 				AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
 				FirewallSpec:   &apiv2.FirewallSpec{},
@@ -302,8 +304,8 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 			name: "machine with no networks",
 			req: &apiv2.MachineServiceCreateRequest{
 				Project:        sc.Tenant1Project1,
-				Partition:      sc.Partition1,
-				Size:           sc.SizeC1Large,
+				Partition:      new(sc.Partition1),
+				Size:           new(sc.SizeC1Large),
 				Image:          "debian-13",
 				AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
 			},
@@ -317,8 +319,8 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 			name: "machine with unknown networks",
 			req: &apiv2.MachineServiceCreateRequest{
 				Project:        sc.Tenant1Project1,
-				Partition:      sc.Partition1,
-				Size:           sc.SizeC1Large,
+				Partition:      new(sc.Partition1),
+				Size:           new(sc.SizeC1Large),
 				Image:          "debian-13",
 				AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
 				Networks: []*apiv2.MachineAllocationNetwork{
@@ -335,8 +337,8 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 			name: "machine with duplicate networks",
 			req: &apiv2.MachineServiceCreateRequest{
 				Project:        sc.Tenant1Project1,
-				Partition:      sc.Partition1,
-				Size:           sc.SizeC1Large,
+				Partition:      new(sc.Partition1),
+				Size:           new(sc.SizeC1Large),
 				Image:          "debian-13",
 				AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
 				Networks: []*apiv2.MachineAllocationNetwork{
@@ -381,8 +383,8 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 				projectNetworkId := dc.GetNetworkByName("project network").Id
 				req := &apiv2.MachineServiceCreateRequest{
 					Project:        sc.Tenant1Project1,
-					Partition:      sc.Partition2,
-					Size:           sc.SizeC1Large,
+					Partition:      new(sc.Partition2),
+					Size:           new(sc.SizeC1Large),
 					Image:          "debian-13",
 					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
 					Networks: []*apiv2.MachineAllocationNetwork{
@@ -418,8 +420,8 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 
 				req := &apiv2.MachineServiceCreateRequest{
 					Project:        sc.Tenant1Project1,
-					Partition:      sc.Partition1,
-					Size:           sc.SizeC1Large,
+					Partition:      new(sc.Partition1),
+					Size:           new(sc.SizeC1Large),
 					Image:          "debian-13",
 					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
 					Networks: []*apiv2.MachineAllocationNetwork{
@@ -470,8 +472,8 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 				projectNetwork2Id := dc.GetNetworkByName("project network 2").Id
 				req := &apiv2.MachineServiceCreateRequest{
 					Project:        sc.Tenant1Project1,
-					Partition:      sc.Partition1,
-					Size:           sc.SizeC1Large,
+					Partition:      new(sc.Partition1),
+					Size:           new(sc.SizeC1Large),
 					Image:          "debian-13",
 					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
 					Networks: []*apiv2.MachineAllocationNetwork{
@@ -514,8 +516,8 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 				projectNetworkId := dc.GetNetworkByName("project network").Id
 				req := &apiv2.MachineServiceCreateRequest{
 					Project:        sc.Tenant1Project2,
-					Partition:      sc.Partition1,
-					Size:           sc.SizeC1Large,
+					Partition:      new(sc.Partition1),
+					Size:           new(sc.SizeC1Large),
 					Image:          "debian-13",
 					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
 					Networks: []*apiv2.MachineAllocationNetwork{
@@ -553,8 +555,8 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 				projectSharedNetworkId1 := dc.GetNetworkByName("project shared network 1").Id
 				req := &apiv2.MachineServiceCreateRequest{
 					Project:        sc.Tenant1Project2,
-					Partition:      sc.Partition1,
-					Size:           sc.SizeC1Large,
+					Partition:      new(sc.Partition1),
+					Size:           new(sc.SizeC1Large),
 					Image:          "debian-13",
 					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
 					Networks: []*apiv2.MachineAllocationNetwork{
@@ -597,8 +599,8 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 				projectNetworkId := dc.GetNetworkByName("project network").Id
 				req := &apiv2.MachineServiceCreateRequest{
 					Project:        sc.Tenant1Project1,
-					Partition:      sc.Partition1,
-					Size:           sc.SizeC1Large,
+					Partition:      new(sc.Partition1),
+					Size:           new(sc.SizeC1Large),
 					Image:          "debian-13",
 					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
 					Networks: []*apiv2.MachineAllocationNetwork{
@@ -640,8 +642,8 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 				projectNetworkId := dc.GetNetworkByName("project network").Id
 				req := &apiv2.MachineServiceCreateRequest{
 					Project:        sc.Tenant1Project1,
-					Partition:      sc.Partition1,
-					Size:           sc.SizeC1Large,
+					Partition:      new(sc.Partition1),
+					Size:           new(sc.SizeC1Large),
 					Image:          "debian-13",
 					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
 					Networks: []*apiv2.MachineAllocationNetwork{
@@ -696,8 +698,8 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 				projectNetworkId := dc.GetNetworkByName("project network").Id
 				req := &apiv2.MachineServiceCreateRequest{
 					Project:        sc.Tenant1Project1,
-					Partition:      sc.Partition1,
-					Size:           sc.SizeC1Large,
+					Partition:      new(sc.Partition1),
+					Size:           new(sc.SizeC1Large),
 					Image:          "debian-13",
 					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
 					Networks: []*apiv2.MachineAllocationNetwork{
@@ -733,8 +735,8 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 				projectNetworkId := dc.GetNetworkByName("project network").Id
 				req := &apiv2.MachineServiceCreateRequest{
 					Project:        sc.Tenant1Project1,
-					Partition:      sc.Partition1,
-					Size:           sc.SizeC1Large,
+					Partition:      new(sc.Partition1),
+					Size:           new(sc.SizeC1Large),
 					Image:          sc.ImageDebian13,
 					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
 					Networks: []*apiv2.MachineAllocationNetwork{
@@ -816,8 +818,8 @@ func Test_machineServiceServer_ValidateCreateFirewall(t *testing.T) {
 			name: "image type wrong",
 			req: &apiv2.MachineServiceCreateRequest{
 				Project:        sc.Tenant1Project1,
-				Partition:      sc.Partition1,
-				Size:           sc.SizeC1Large,
+				Partition:      new(sc.Partition1),
+				Size:           new(sc.SizeC1Large),
 				Image:          sc.ImageDebian12,
 				AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
 			},
@@ -828,8 +830,8 @@ func Test_machineServiceServer_ValidateCreateFirewall(t *testing.T) {
 			name: "firewall spec not valid",
 			req: &apiv2.MachineServiceCreateRequest{
 				Project:        sc.Tenant1Project1,
-				Partition:      sc.Partition1,
-				Size:           sc.SizeC1Large,
+				Partition:      new(sc.Partition1),
+				Size:           new(sc.SizeC1Large),
 				Image:          sc.ImageFirewall3_0,
 				AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
 				FirewallSpec: &apiv2.FirewallSpec{
@@ -865,8 +867,8 @@ func Test_machineServiceServer_ValidateCreateFirewall(t *testing.T) {
 				req := &apiv2.MachineServiceCreateRequest{
 					Name:           "testfirewall",
 					Project:        sc.Tenant1Project1,
-					Partition:      sc.Partition1,
-					Size:           sc.SizeC1Large,
+					Partition:      new(sc.Partition1),
+					Size:           new(sc.SizeC1Large),
 					Image:          sc.ImageFirewall3_0,
 					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
 					Networks: []*apiv2.MachineAllocationNetwork{
@@ -896,8 +898,8 @@ func Test_machineServiceServer_ValidateCreateFirewall(t *testing.T) {
 				req := &apiv2.MachineServiceCreateRequest{
 					Name:           "testfirewall",
 					Project:        sc.Tenant1Project1,
-					Partition:      sc.Partition1,
-					Size:           sc.SizeC1Large,
+					Partition:      new(sc.Partition1),
+					Size:           new(sc.SizeC1Large),
 					Image:          sc.ImageFirewall3_0,
 					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
 					Networks: []*apiv2.MachineAllocationNetwork{
@@ -942,8 +944,8 @@ func Test_machineServiceServer_ValidateCreateFirewall(t *testing.T) {
 				projectSharedNetworkId2 := dc.GetNetworkByName("project shared network 2").Id
 				req := &apiv2.MachineServiceCreateRequest{
 					Project:        sc.Tenant1Project2,
-					Partition:      sc.Partition1,
-					Size:           sc.SizeC1Large,
+					Partition:      new(sc.Partition1),
+					Size:           new(sc.SizeC1Large),
 					Image:          sc.ImageFirewall3_0,
 					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
 					Networks: []*apiv2.MachineAllocationNetwork{

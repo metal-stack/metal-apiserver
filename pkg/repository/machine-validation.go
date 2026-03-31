@@ -9,6 +9,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -46,16 +47,16 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 	}
 
 	var (
-		partitionId string
-		size        *apiv2.Size
+		partitionId = pointer.SafeDeref(req.Partition)
+		sizeId      = pointer.SafeDeref(req.Size)
 		machine     *metal.Machine
 	)
 
 	if req.Uuid != nil {
-		if req.Partition != "" {
+		if req.Partition != nil {
 			return errorutil.InvalidArgument("when machine id is given, a partition must not be specified")
 		}
-		if req.Size != "" {
+		if req.Size != nil {
 			return errorutil.InvalidArgument("when machine id is given, a size must not be specified")
 		}
 
@@ -78,17 +79,15 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 
 		machine = m
 		partitionId = m.PartitionID
-	} else {
-		p, err := r.s.Partition().Get(ctx, req.Partition)
-		if err != nil {
-			return err
-		}
-		partitionId = p.Id
-		s, err := r.s.Size().Get(ctx, req.Size)
-		if err != nil {
-			return err
-		}
-		size = s
+		sizeId = m.SizeID
+	}
+
+	if _, err := r.s.ds.Partition().Get(ctx, partitionId); err != nil {
+		return err
+	}
+
+	if _, err := r.s.ds.Size().Get(ctx, sizeId); err != nil {
+		return err
 	}
 
 	images, err := r.s.Image().List(ctx, &apiv2.ImageQuery{})
@@ -118,7 +117,7 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 		if err != nil {
 			return err
 		}
-		_, err = fsls.From(size.Id, image.Id)
+		_, err = fsls.From(sizeId, image.Id)
 		if err != nil {
 			return err
 		}

@@ -63,8 +63,8 @@ func (r *machineRepository) createMachineAllocationSpec(ctx context.Context, req
 		userdata    = pointer.SafeDeref(req.Userdata)
 		creator     string
 
-		partitionID = req.Partition
-		sizeID      = req.Size
+		partitionID = pointer.SafeDeref(req.Partition)
+		sizeID      = pointer.SafeDeref(req.Size)
 	)
 
 	// figure out creator
