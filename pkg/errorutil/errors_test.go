@@ -7,7 +7,6 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
-	"github.com/metal-stack/metal-lib/pkg/testcommon"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
@@ -193,7 +192,7 @@ func TestWrappedInternal(t *testing.T) {
 	for i := range tests {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
-			if diff := cmp.Diff(tt.wantErr, tt.err, testcommon.ErrorStringComparer()); diff != "" {
+			if diff := cmp.Diff(tt.wantErr, tt.err, ErrorStringComparer()); diff != "" {
 				t.Errorf("wrapping() %v", diff)
 			}
 		})
@@ -250,7 +249,7 @@ func TestConvert(t *testing.T) {
 	for i := range tests {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
-			if diff := cmp.Diff(tt.wantErr, Convert(tt.err), testcommon.ErrorStringComparer()); diff != "" {
+			if diff := cmp.Diff(tt.wantErr, Convert(tt.err), ErrorStringComparer()); diff != "" {
 				t.Errorf("wrapping() %v", diff)
 			}
 		})

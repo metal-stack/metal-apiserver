@@ -93,7 +93,7 @@ func (r *ipRepository) create(ctx context.Context, req *apiv2.IPServiceCreateReq
 
 	// FIXME: move validation to ip validation
 
-	var af *metal.AddressFamily
+	var af metal.AddressFamily
 	if req.AddressFamily != nil {
 		convertedAf, err := metal.ToAddressFamily(*req.AddressFamily)
 		if err != nil {
@@ -106,7 +106,7 @@ func (r *ipRepository) create(ctx context.Context, req *apiv2.IPServiceCreateReq
 		if req.Ip != nil {
 			return nil, errorutil.InvalidArgument("it is not possible to specify specificIP and addressfamily")
 		}
-		af = &convertedAf
+		af = convertedAf
 	}
 
 	var (
@@ -259,17 +259,14 @@ func (r *ipRepository) allocateSpecificIP(ctx context.Context, parent *metal.Net
 	return "", "", errorutil.InvalidArgument("specific ip %s not contained in any of the defined prefixes", specificIP)
 }
 
-func (r *ipRepository) allocateRandomIP(ctx context.Context, parent *metal.Network, af *metal.AddressFamily) (ipAddress, parentPrefixCidr string, err error) {
-	addressfamily := metal.AddressFamilyIPv4
-	if af != nil {
-		addressfamily = *af
-	} else if len(parent.Prefixes.AddressFamilies()) == 1 {
-		addressfamily = parent.Prefixes.AddressFamilies()[0]
-	}
-
-	r.s.log.Debug("allocateRandomIP from", "network", parent.ID, "addressfamily", addressfamily)
-	for _, prefix := range parent.Prefixes.OfFamily(addressfamily) {
-		resp, err := r.s.ipam.AcquireIP(ctx, connect.NewRequest(&ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String(), Namespace: parent.Namespace}))
+func (r *ipRepository) allocateRandomIP(ctx context.Context, network *metal.Network, af metal.AddressFamily) (ipAddress, parentPrefixCidr string, err error) {
+	r.s.log.Debug("allocateRandomIP from", "network", network)
+	for _, prefix := range network.Prefixes.OfFamily(af) {
+		ipar := &ipamapiv1.AcquireIPRequest{
+			PrefixCidr: prefix.String(),
+			Namespace:  network.Namespace,
+		}
+		resp, err := r.s.ipam.AcquireIP(ctx, connect.NewRequest(ipar))
 		if err != nil {
 			if errorutil.IsNotFound(err) {
 				continue
@@ -280,7 +277,7 @@ func (r *ipRepository) allocateRandomIP(ctx context.Context, parent *metal.Netwo
 		return resp.Msg.Ip.Ip, prefix.String(), nil
 	}
 
-	return "", "", errorutil.InvalidArgument("cannot allocate random free ip in ipam, no ips left in network:%s af:%s parent afs:%#v", parent.ID, addressfamily, parent.Prefixes.AddressFamilies())
+	return "", "", errorutil.InvalidArgument("cannot allocate random free ip in ipam, no ips left in network:%s af:%s parent afs:%#v", network.ID, af, network.Prefixes.AddressFamilies())
 }
 
 func (r *ipRepository) convertToInternal(ctx context.Context, ip *apiv2.IP) (*metal.IP, error) {

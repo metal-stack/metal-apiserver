@@ -214,6 +214,11 @@ func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAl
 	// as some fields in the allocation spec are optional, they will now be clearly defined by the machine candidate
 	spec.UUID = machineCandidate.ID
 
+	allocationUUID, err := uuid.NewV7()
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to create allocation uuid %w", err)
+	}
+
 	alloc := &metal.MachineAllocation{
 		Creator:         spec.Creator,
 		Created:         time.Now(),
@@ -228,7 +233,7 @@ func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAl
 		Role:            spec.Role,
 		VPN:             spec.VPN,
 		FirewallRules:   spec.FirewallRules,
-		UUID:            uuid.New().String(),
+		UUID:            allocationUUID.String(),
 		DNSServers:      spec.DNSServers,
 		NTPServers:      spec.NTPServers,
 	}
@@ -599,7 +604,7 @@ func (r *machineRepository) convertToMetalAllocationNetwork(ctx context.Context,
 	)
 
 	for _, networkSpec := range spec.Networks {
-		auto := networkSpec.NoAutoAcquireIp
+		auto := !networkSpec.NoAutoAcquireIp
 		network, err := r.s.ds.Network().Get(ctx, networkSpec.Network)
 		if err != nil {
 			return nil, err
@@ -673,7 +678,7 @@ func (r *machineRepository) makeMachineNetwork(ctx context.Context, spec *machin
 			return nil, fmt.Errorf("given network %s does not have prefixes configured", network.network.ID)
 		}
 		for _, af := range network.network.Prefixes.AddressFamilies() {
-			ipAddress, ipParentCidr, err := r.s.IP(spec.ProjectID).AdditionalMethods().allocateRandomIP(ctx, network.network, &af)
+			ipAddress, ipParentCidr, err := r.s.IP(spec.ProjectID).AdditionalMethods().allocateRandomIP(ctx, network.network, af)
 			if err != nil {
 				return nil, fmt.Errorf("unable to allocate an ip in network: %s %w", network.network.ID, err)
 			}
