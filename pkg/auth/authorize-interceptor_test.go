@@ -842,8 +842,10 @@ func Test_authorizeInterceptor_WrapUnary(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var (
-				authorizeinterceptor = NewAuthorizeInterceptor(log, testStore.Store)
-				called               = false
+				authorizeinterceptor = NewAuthorizeInterceptor(log, func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
+					return testStore.Store.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, userId)
+				})
+				called = false
 
 				interceptors = []connect.Interceptor{
 					&tokenInjector{token: tt.token},
