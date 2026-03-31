@@ -122,6 +122,7 @@ var (
 				Id:       new(NetworkInternet),
 				Prefixes: []string{"1.2.3.0/24"},
 				Type:     apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
+				NatType:  apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE.Enum(),
 				Vrf:      new(uint32(11)),
 			},
 			{

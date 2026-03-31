@@ -746,62 +746,6 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 			},
 			want: nil,
 		},
-		// FIXME this test passes validation and fails actually because machine create is not yet implemented
-		// {
-		// 	name: "machine with private namespaced network",
-		// 	req:  nil, // set below
-		// 	createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
-		// 		testDC := sc.DefaultDatacenter
-		// 		testDC.ProjectsPerTenant = 2
-		// 		testDC.FilesystemLayouts = []*adminv2.FilesystemServiceCreateRequest{
-		// 			{
-		// 				FilesystemLayout: &apiv2.FilesystemLayout{
-		// 					Id: "debian",
-		// 					Constraints: &apiv2.FilesystemLayoutConstraints{
-		// 						Sizes: []string{sc.SizeC1Large},
-		// 						Images: map[string]string{
-		// 							"debian": ">= 12.0",
-		// 						},
-		// 					},
-		// 				},
-		// 			},
-		// 		}
-		// 		testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
-		// 			Name:          new("project namespaced network"),
-		// 			ParentNetwork: new(sc.NetworkTenantSuperNamespaced),
-		// 			Project:       new(sc.Tenant1Project1),
-		// 			Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD,
-		// 		})
-		// 		dc.Create(&testDC)
-
-		// 		ipcr, err := dc.GetTestStore().UnscopedIP().Create(t.Context(), &apiv2.IPServiceCreateRequest{
-		// 			Network: dc.GetNetworkByName("project namespaced network").Id,
-		// 			Project: sc.Tenant1Project1,
-		// 			Name:    new("ip-in-namespaced-project"),
-		// 		})
-		// 		require.NoError(t, err)
-
-		// 		projectNetworkId := dc.GetNetworkByName("project namespaced network").Id
-		// 		req := &apiv2.MachineServiceCreateRequest{
-		// 			Name:           "testmachine",
-		// 			Project:        sc.Tenant1Project1,
-		// 			Partition:      sc.Partition1,
-		// 			Size:           sc.SizeC1Large,
-		// 			Image:          "debian-13",
-		// 			AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
-		// 			Networks: []*apiv2.MachineAllocationNetwork{
-		// 				{Network: sc.NetworkInternet},
-		// 				{Network: projectNetworkId, NoAutoAcquireIp: false, Ips: []string{ipcr.Ip}},
-		// 			},
-		// 		}
-		// 		return req, nil
-		// 	},
-		// 	want: &apiv2.MachineServiceCreateResponse{
-		// 		Machine: &apiv2.Machine{Allocation: &apiv2.MachineAllocation{
-		// 			Name: "testmachine",
-		// 		}},
-		// 	},
-		// },
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
