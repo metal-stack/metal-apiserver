@@ -16,7 +16,7 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
-	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
 	"github.com/samber/lo"
@@ -27,7 +27,7 @@ import (
 
 var (
 	now = time.Now()
-	sw1 = &repository.SwitchServiceCreateRequest{
+	sw1 = &api.SwitchServiceCreateRequest{
 		Switch: &apiv2.Switch{
 			Id:             "sw1",
 			Meta:           &apiv2.Meta{},
@@ -112,7 +112,7 @@ var (
 			},
 		},
 	}
-	sw2 = &repository.SwitchServiceCreateRequest{
+	sw2 = &api.SwitchServiceCreateRequest{
 		Switch: &apiv2.Switch{
 			Id:             "sw2",
 			Meta:           &apiv2.Meta{},
@@ -163,7 +163,7 @@ var (
 			},
 		},
 	}
-	sw3 = &repository.SwitchServiceCreateRequest{
+	sw3 = &api.SwitchServiceCreateRequest{
 		Switch: &apiv2.Switch{
 			Id:             "sw3",
 			Meta:           &apiv2.Meta{},
@@ -214,7 +214,7 @@ var (
 			},
 		},
 	}
-	sw4 = &repository.SwitchServiceCreateRequest{
+	sw4 = &api.SwitchServiceCreateRequest{
 		Switch: &apiv2.Switch{
 			Id:          "sw4",
 			Meta:        &apiv2.Meta{},
@@ -249,7 +249,7 @@ var (
 			},
 		},
 	}
-	sw401 = &repository.SwitchServiceCreateRequest{
+	sw401 = &api.SwitchServiceCreateRequest{
 		Switch: &apiv2.Switch{
 			Id:          "sw4-1",
 			Meta:        &apiv2.Meta{},
@@ -271,7 +271,7 @@ var (
 			},
 		},
 	}
-	sw402 = &repository.SwitchServiceCreateRequest{
+	sw402 = &api.SwitchServiceCreateRequest{
 		Switch: &apiv2.Switch{
 			Id:          "sw4-2",
 			Meta:        &apiv2.Meta{},
@@ -306,7 +306,7 @@ var (
 			},
 		},
 	}
-	sw5 = &repository.SwitchServiceCreateRequest{
+	sw5 = &api.SwitchServiceCreateRequest{
 		Switch: &apiv2.Switch{
 			Id:          "sw5",
 			Meta:        &apiv2.Meta{},
@@ -341,7 +341,7 @@ var (
 			},
 		},
 	}
-	sw501 = &repository.SwitchServiceCreateRequest{
+	sw501 = &api.SwitchServiceCreateRequest{
 		Switch: &apiv2.Switch{
 			Id:          "sw5-1",
 			Meta:        &apiv2.Meta{},
@@ -364,7 +364,7 @@ var (
 		},
 	}
 
-	switches = []*repository.SwitchServiceCreateRequest{sw1, sw2, sw3, sw4, sw401, sw402, sw5, sw501}
+	switches = []*api.SwitchServiceCreateRequest{sw1, sw2, sw3, sw4, sw401, sw402, sw5, sw501}
 
 	m1 = &metal.Machine{
 		Base: metal.Base{ID: "m1"},
@@ -507,7 +507,7 @@ func Test_switchServiceServer_List(t *testing.T) {
 			name: "get all",
 			rq:   &adminv2.SwitchServiceListRequest{},
 			want: &adminv2.SwitchServiceListResponse{
-				Switches: lo.Map(switches, func(rq *repository.SwitchServiceCreateRequest, _ int) *apiv2.Switch { return rq.Switch }),
+				Switches: lo.Map(switches, func(rq *api.SwitchServiceCreateRequest, _ int) *apiv2.Switch { return rq.Switch }),
 			},
 			wantErr: nil,
 		},

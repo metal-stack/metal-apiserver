@@ -11,6 +11,7 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-lib/auditing"
 	"github.com/stretchr/testify/require"
@@ -41,7 +42,7 @@ func Test_auditServiceServer_Get(t *testing.T) {
 			name: "get existing defaults to request phase",
 			entries: []auditing.Entry{
 				{
-					Component:    repository.AuditingComponent,
+					Component:    api.AuditingComponent,
 					RequestId:    "99d84f08-85f3-4d4e-881c-29c2c9e1ba58",
 					Type:         auditing.EntryTypeGRPC,
 					Timestamp:    now,
@@ -77,7 +78,7 @@ func Test_auditServiceServer_Get(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c, err := auditing.NewMemory(auditing.Config{
-				Component: repository.AuditingComponent,
+				Component: api.AuditingComponent,
 				Log:       log,
 			}, auditing.MemoryConfig{})
 			require.NoError(t, err)
@@ -129,7 +130,7 @@ func Test_auditServiceServer_List(t *testing.T) {
 			name: "list",
 			entries: []auditing.Entry{
 				{
-					Component:    repository.AuditingComponent,
+					Component:    api.AuditingComponent,
 					RequestId:    "99d84f08-85f3-4d4e-881c-29c2c9e1ba58",
 					Type:         auditing.EntryTypeGRPC,
 					Timestamp:    now,
@@ -145,7 +146,7 @@ func Test_auditServiceServer_List(t *testing.T) {
 					Error:        nil,
 				},
 				{
-					Component:    repository.AuditingComponent,
+					Component:    api.AuditingComponent,
 					RequestId:    "99d84f08-85f3-4d4e-881c-29c2c9e1ba58",
 					Type:         auditing.EntryTypeGRPC,
 					Timestamp:    now,
@@ -161,7 +162,7 @@ func Test_auditServiceServer_List(t *testing.T) {
 					Error:        nil,
 				},
 				{
-					Component:    repository.AuditingComponent,
+					Component:    api.AuditingComponent,
 					RequestId:    "c7c60cc9-e47d-4c7a-bd2d-b65dd4f0a59c",
 					Type:         auditing.EntryTypeGRPC,
 					Timestamp:    now,
@@ -221,7 +222,7 @@ func Test_auditServiceServer_List(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c, err := auditing.NewMemory(auditing.Config{
-				Component: repository.AuditingComponent,
+				Component: api.AuditingComponent,
 				Log:       log,
 			}, auditing.MemoryConfig{})
 			require.NoError(t, err)

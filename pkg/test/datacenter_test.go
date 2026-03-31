@@ -13,7 +13,7 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
-	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
 	"github.com/stretchr/testify/require"
@@ -176,7 +176,7 @@ func TestAssert(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				sw, err := dc.GetTestStore().Switch().Create(ctx, &repository.SwitchServiceCreateRequest{
+				sw, err := dc.GetTestStore().Switch().Create(ctx, &api.SwitchServiceCreateRequest{
 					Switch: &apiv2.Switch{
 						Id:        "sw3",
 						Partition: "partition-2",
@@ -187,7 +187,7 @@ func TestAssert(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				err = dc.GetTestStore().Switch().AdditionalMethods().SetSwitchStatus(ctx, &repository.SwitchStatus{
+				err = dc.GetTestStore().Switch().AdditionalMethods().SetSwitchStatus(ctx, &api.SwitchStatus{
 					ID: sw.Id,
 				})
 				require.NoError(t, err)

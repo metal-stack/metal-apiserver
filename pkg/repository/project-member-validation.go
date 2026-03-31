@@ -5,13 +5,14 @@ import (
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 )
 
-func (t *projectMemberRepository) validateCreate(ctx context.Context, req *ProjectMemberCreateRequest) error {
+func (t *projectMemberRepository) validateCreate(ctx context.Context, req *api.ProjectMemberCreateRequest) error {
 	return nil
 }
 
-func (t *projectMemberRepository) validateUpdate(ctx context.Context, req *ProjectMemberUpdateRequest, membership *projectMemberEntity) error {
+func (t *projectMemberRepository) validateUpdate(ctx context.Context, req *api.ProjectMemberUpdateRequest, membership *projectMemberEntity) error {
 	// TODO: currently the API defines that only owners can update members so there is no possibility to elevate permissions
 	// probably, we should still check that no elevation of permissions is possible in case we later change the API
 

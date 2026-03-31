@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/stretchr/testify/require"
 )
 
@@ -14,8 +14,8 @@ func Benchmark_allow(b *testing.B) {
 	a := &authorizer{
 		log: slog.Default(),
 	}
-	a.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
-		return &repository.ProjectsAndTenants{
+	a.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
+		return &api.ProjectsAndTenants{
 			ProjectRoles: map[string]apiv2.ProjectRole{
 				"project-a": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 			},

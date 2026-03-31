@@ -7,6 +7,7 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 )
 
 type (
@@ -18,19 +19,6 @@ type (
 	projectMemberEntity struct {
 		*mdcv1.ProjectMember
 	}
-
-	ProjectMemberCreateRequest struct {
-		TenantId string
-		Role     apiv2.ProjectRole
-	}
-	ProjectMemberUpdateRequest struct {
-		Role apiv2.ProjectRole
-		Meta apiv2.Meta
-	}
-	ProjectMemberQuery struct {
-		TenantId    *string
-		Annotations map[string]string
-	}
 )
 
 func (t *projectMemberEntity) SetChanged(time time.Time) {}
@@ -41,7 +29,7 @@ func (t *projectMemberRepository) convertToInternal(ctx context.Context, msg *ap
 			Meta: &mdcv1.Meta{
 				Id: msg.Id,
 				Annotations: map[string]string{
-					ProjectRoleAnnotation: msg.Role.String(),
+					api.ProjectRoleAnnotation: msg.Role.String(),
 				},
 			},
 		},
@@ -60,12 +48,12 @@ func (t *projectMemberRepository) convertToProto(ctx context.Context, e *project
 	}, nil
 }
 
-func (t *projectMemberRepository) create(ctx context.Context, c *ProjectMemberCreateRequest) (*projectMemberEntity, error) {
+func (t *projectMemberRepository) create(ctx context.Context, c *api.ProjectMemberCreateRequest) (*projectMemberEntity, error) {
 	resp, err := t.s.mdc.ProjectMember().Create(ctx, &mdcv1.ProjectMemberCreateRequest{
 		ProjectMember: &mdcv1.ProjectMember{
 			Meta: &mdcv1.Meta{
 				Annotations: map[string]string{
-					ProjectRoleAnnotation: c.Role.String(),
+					api.ProjectRoleAnnotation: c.Role.String(),
 				},
 			},
 			TenantId:  c.TenantId,
@@ -92,7 +80,7 @@ func (t *projectMemberRepository) delete(ctx context.Context, e *projectMemberEn
 	return nil
 }
 
-func (t *projectMemberRepository) find(ctx context.Context, query *ProjectMemberQuery) (*projectMemberEntity, error) {
+func (t *projectMemberRepository) find(ctx context.Context, query *api.ProjectMemberQuery) (*projectMemberEntity, error) {
 	if query.TenantId == nil {
 		return nil, errorutil.InvalidArgument("tenant id must be specified")
 	}
@@ -115,7 +103,7 @@ func (t *projectMemberRepository) find(ctx context.Context, query *ProjectMember
 }
 
 func (t *projectMemberRepository) get(ctx context.Context, id string) (*projectMemberEntity, error) {
-	member, err := t.find(ctx, &ProjectMemberQuery{
+	member, err := t.find(ctx, &api.ProjectMemberQuery{
 		TenantId: &id,
 	})
 	if err != nil {
@@ -125,7 +113,7 @@ func (t *projectMemberRepository) get(ctx context.Context, id string) (*projectM
 	return member, nil
 }
 
-func (t *projectMemberRepository) list(ctx context.Context, query *ProjectMemberQuery) ([]*projectMemberEntity, error) {
+func (t *projectMemberRepository) list(ctx context.Context, query *api.ProjectMemberQuery) ([]*projectMemberEntity, error) {
 	resp, err := t.s.mdc.ProjectMember().Find(ctx, &mdcv1.ProjectMemberFindRequest{
 		ProjectId:   &t.scope.projectID,
 		TenantId:    query.TenantId,
@@ -151,9 +139,9 @@ func (t *projectMemberRepository) matchScope(e *projectMemberEntity) bool {
 	return t.scope.projectID == e.ProjectId
 }
 
-func (t *projectMemberRepository) update(ctx context.Context, member *projectMemberEntity, msg *ProjectMemberUpdateRequest) (*projectMemberEntity, error) {
+func (t *projectMemberRepository) update(ctx context.Context, member *projectMemberEntity, msg *api.ProjectMemberUpdateRequest) (*projectMemberEntity, error) {
 	if msg.Role != apiv2.ProjectRole_PROJECT_ROLE_UNSPECIFIED {
-		member.Meta.Annotations[ProjectRoleAnnotation] = msg.Role.String()
+		member.Meta.Annotations[api.ProjectRoleAnnotation] = msg.Role.String()
 	}
 
 	resp, err := t.s.mdc.ProjectMember().Update(ctx, &mdcv1.ProjectMemberUpdateRequest{
@@ -167,14 +155,14 @@ func (t *projectMemberRepository) update(ctx context.Context, member *projectMem
 }
 
 func (t *projectMemberRepository) checkIfMemberIsLastOwner(ctx context.Context, membership *projectMemberEntity) (bool, error) {
-	isOwner := membership.Meta.Annotations[ProjectRoleAnnotation] == apiv2.ProjectRole_PROJECT_ROLE_OWNER.String()
+	isOwner := membership.Meta.Annotations[api.ProjectRoleAnnotation] == apiv2.ProjectRole_PROJECT_ROLE_OWNER.String()
 	if !isOwner {
 		return false, nil
 	}
 
-	memberships, err := t.list(ctx, &ProjectMemberQuery{
+	memberships, err := t.list(ctx, &api.ProjectMemberQuery{
 		Annotations: map[string]string{
-			ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_OWNER.String(),
+			api.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_OWNER.String(),
 		},
 	})
 	if err != nil {

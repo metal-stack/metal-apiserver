@@ -9,6 +9,7 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 )
 
@@ -50,7 +51,7 @@ func (t *tenantServiceServer) Create(ctx context.Context, req *adminv2.TenantSer
 		return nil, err
 	}
 
-	_, err = t.repo.Tenant().AdditionalMethods().Member(tenant.Login).Create(ctx, &repository.TenantMemberCreateRequest{
+	_, err = t.repo.Tenant().AdditionalMethods().Member(tenant.Login).Create(ctx, &api.TenantMemberCreateRequest{
 		MemberID: tenant.Login,
 		Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
 	})
