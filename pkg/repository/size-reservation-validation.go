@@ -2,44 +2,44 @@ package repository
 
 import (
 	"context"
+	"fmt"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	v1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 )
 
 func (r *sizeReservationRepository) validateCreate(ctx context.Context, req *adminv2.SizeReservationServiceCreateRequest) error {
 	if req.SizeReservation == nil {
-		return errorutil.InvalidArgument("sizereservation is nil")
+		return fmt.Errorf("sizereservation is nil")
 	}
 
 	sr := req.SizeReservation
 
 	if sr.Id != "" {
-		return errorutil.InvalidArgument("id must not be defined")
+		return fmt.Errorf("id must not be defined")
 	}
 
 	if sr.Amount <= 0 {
-		return errorutil.InvalidArgument("amount must be a positive integer")
+		return fmt.Errorf("amount must be a positive integer")
 	}
 
 	if _, err := r.s.ds.Size().Get(ctx, sr.Size); err != nil {
-		return errorutil.InvalidArgument("size must exist before creating a size reservation: %w", err)
+		return failedPreconditionOrInternal(fmt.Errorf("size must exist before creating a size reservation: %w", err))
 	}
 
 	if len(sr.Partitions) == 0 {
-		return errorutil.InvalidArgument("at least one partition id must be specified")
+		return fmt.Errorf("at least one partition id must be specified")
 	}
 
 	for _, partition := range sr.Partitions {
 		if _, err := r.s.ds.Partition().Get(ctx, partition); err != nil {
-			return errorutil.InvalidArgument("partition must exist before creating a size reservation: %w", err)
+			return failedPreconditionOrInternal(fmt.Errorf("partition must exist before creating a size reservation: %w", err))
 		}
 	}
 
 	if _, err := r.s.mdc.Project().Get(ctx, &v1.ProjectGetRequest{Id: sr.Project}); err != nil {
-		return errorutil.InvalidArgument("project must exist before creating a size reservation: %w", err)
+		return failedPreconditionOrInternal(fmt.Errorf("project must exist before creating a size reservation: %w", err))
 	}
 
 	return nil
@@ -47,13 +47,15 @@ func (r *sizeReservationRepository) validateCreate(ctx context.Context, req *adm
 
 func (r *sizeReservationRepository) validateUpdate(ctx context.Context, req *adminv2.SizeReservationServiceUpdateRequest, _ *metal.SizeReservation) error {
 	if req.Amount != nil && *req.Amount <= 0 {
-		return errorutil.InvalidArgument("amount must be a positive integer")
+		return fmt.Errorf("amount must be a positive integer")
 	}
+
 	for _, partition := range req.Partitions {
 		if _, err := r.s.ds.Partition().Get(ctx, partition); err != nil {
-			return errorutil.InvalidArgument("partition must exist before creating a size reservation: %w", err)
+			return failedPreconditionOrInternal(fmt.Errorf("partition must exist before creating a size reservation: %w", err))
 		}
 	}
+
 	return nil
 }
 func (r *sizeReservationRepository) validateDelete(ctx context.Context, req *metal.SizeReservation) error {

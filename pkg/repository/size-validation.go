@@ -21,13 +21,14 @@ func (r *sizeRepository) validateCreate(ctx context.Context, req *adminv2.SizeSe
 	if err != nil {
 		errs = append(errs, err)
 	}
+
 	err = r.validateSizesNotOverlapping(ctx, req.Size)
 	if err != nil {
 		errs = append(errs, err)
 	}
 
 	if len(errs) > 0 {
-		return errorutil.NewInvalidArgument(errors.Join(errs...))
+		return errors.Join(errs...)
 	}
 
 	return nil
@@ -58,7 +59,7 @@ func (r *sizeRepository) validateUpdate(ctx context.Context, req *adminv2.SizeSe
 	}
 
 	if len(errs) > 0 {
-		return errorutil.NewInvalidArgument(errors.Join(errs...))
+		return errors.Join(errs...)
 	}
 
 	return nil
@@ -69,20 +70,22 @@ func (r *sizeRepository) validateDelete(ctx context.Context, req *metal.Size) er
 		Size: &req.ID,
 	}))
 	if err != nil {
-		return err
+		return errorutil.NewInternal(err)
 	}
+
 	if len(machines) > 0 {
-		return errorutil.InvalidArgument("cannot remove size with existing machines of this size")
+		return errorutil.FailedPrecondition("cannot remove size with existing machines of this size")
 	}
 
 	sizeReservations, err := r.s.ds.SizeReservation().List(ctx, queries.SizeReservationFilter(&apiv2.SizeReservationQuery{
 		Size: &req.ID,
 	}))
 	if err != nil {
-		return err
+		return errorutil.NewInternal(err)
 	}
+
 	if len(sizeReservations) > 0 {
-		return errorutil.InvalidArgument("cannot remove size with existing size reservations of this size")
+		return errorutil.FailedPrecondition("cannot remove size with existing size reservations of this size")
 	}
 
 	return nil
@@ -127,8 +130,9 @@ func (r *sizeRepository) validateSizeConstraints(constraints []*apiv2.SizeConstr
 func (r *sizeRepository) validateSizesNotOverlapping(ctx context.Context, size *apiv2.Size) error {
 	sizes, err := r.s.ds.Size().List(ctx)
 	if err != nil {
-		return err
+		return errorutil.NewInternal(err)
 	}
+
 	metalSize, err := r.convertToInternal(ctx, size)
 	if err != nil {
 		return err
@@ -136,7 +140,8 @@ func (r *sizeRepository) validateSizesNotOverlapping(ctx context.Context, size *
 
 	overlapping := metalSize.Overlaps(sizes)
 	if overlapping != nil {
-		return errorutil.Conflict("given size %s overlaps with existing sizes", overlapping.ID)
+		return fmt.Errorf("given size %s overlaps with existing sizes", overlapping.ID)
 	}
+
 	return nil
 }

@@ -118,5 +118,22 @@ func updateLabelsOnMap(rq *apiv2.UpdateLabels, existingLabels map[string]string)
 
 func checkAlreadyExists[E generic.Entity](ctx context.Context, s generic.Storage[E], id string) bool {
 	_, err := s.Get(ctx, id)
+
 	return !errorutil.IsNotFound(err)
+}
+
+func notFoundOrInternal(err error) error {
+	if errorutil.IsNotFound(err) {
+		return err
+	}
+
+	return errorutil.NewInternal(err)
+}
+
+func failedPreconditionOrInternal(err error) error {
+	if errorutil.IsNotFound(err) {
+		return errorutil.NewFailedPrecondition(err)
+	}
+
+	return errorutil.NewInternal(err)
 }

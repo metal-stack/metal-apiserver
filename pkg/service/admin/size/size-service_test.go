@@ -119,7 +119,7 @@ func Test_sizeServiceServer_Create(t *testing.T) {
 				},
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("already_exists: given size n1-medium-x86 overlaps with existing sizes"),
+			wantErr: errorutil.InvalidArgument("given size n1-medium-x86 overlaps with existing sizes"),
 		},
 	}
 	for _, tt := range tests {
@@ -301,7 +301,7 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 				},
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("already_exists: given size n1-medium-x86 overlaps with existing sizes"),
+			wantErr: errorutil.InvalidArgument("given size n1-medium-x86 overlaps with existing sizes"),
 		},
 	}
 	for _, tt := range tests {
@@ -431,13 +431,13 @@ func Test_sizeServiceServer_Delete(t *testing.T) {
 			name:    "delete existing with attached machines",
 			rq:      &adminv2.SizeServiceDeleteRequest{Id: "n2-medium-x86"},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument(`cannot remove size with existing size reservations of this size`),
+			wantErr: errorutil.FailedPrecondition(`cannot remove size with existing size reservations of this size`),
 		},
 		{
 			name:    "delete existing with size reservation",
 			rq:      &adminv2.SizeServiceDeleteRequest{Id: "c1-large-x86"},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument(`cannot remove size with existing machines of this size`),
+			wantErr: errorutil.FailedPrecondition(`cannot remove size with existing machines of this size`),
 		},
 		{
 			name: "delete n1-medium",

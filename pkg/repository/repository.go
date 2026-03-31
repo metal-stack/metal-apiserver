@@ -23,12 +23,20 @@ type (
 	repository[E Entity, M Message, C CreateMessage, U UpdateMessage, Q Query] interface {
 		get(ctx context.Context, id string) (E, error)
 
+		// validateCreate validates the creation request for the entity.
+		// every error returned will be wrapped into an InvalidArgument connect error except another connect error is returned.
 		validateCreate(ctx context.Context, create C) error
 		create(ctx context.Context, c C) (E, error)
 
+		// validateUpdate validates the update of the passed entity.
+		// the passed entity was retrieved from the backend so it does not need to be checked if it exists or not.
+		// every error returned will be wrapped into an InvalidArgument connect error except another connect error is returned.
 		validateUpdate(ctx context.Context, msg U, old E) error
 		update(ctx context.Context, e E, msg U) (E, error)
 
+		// validateDelete validates the deletion of the passed entity.
+		// the passed entity was retrieved from the backend so it does not need to be checked if it exists or not.
+		// every error returned will be wrapped into an InvalidArgument connect error except another connect error is returned.
 		validateDelete(ctx context.Context, e E) error
 		delete(ctx context.Context, e E) error
 
