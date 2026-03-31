@@ -582,6 +582,203 @@ func Test_machineServiceServer_CreateFirewall(t *testing.T) {
 				}
 			},
 		},
+
+		{
+			name: "firewall with internet, private network, firewallrules, dnsservers and ntpservers and user tags",
+			req:  nil, // set below
+			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
+				testDC := sc.DefaultDatacenter
+				testDC.ProjectsPerTenant = 2
+				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
+					Name:          new("project namespaced network"),
+					ParentNetwork: new(sc.NetworkTenantSuperPartition1),
+					Project:       new(sc.Tenant1Project1),
+					Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD,
+				})
+				testDC.Machines = append(testDC.Machines, &sc.MachineWithLiveliness{
+					Machine: &metal.Machine{
+						Base:        metal.Base{ID: sc.Machine5},
+						PartitionID: sc.Partition1,
+						SizeID:      sc.SizeC1Large,
+						Waiting:     true,
+						Hardware: metal.MachineHardware{
+							Disks: []metal.BlockDevice{
+								{
+									Name: "/dev/sda",
+									Size: 1024 * 1024 * 1024,
+								},
+							},
+						},
+					},
+					Liveliness: metal.MachineLivelinessAlive,
+				})
+				dc.Create(&testDC)
+
+				projectNetworkId := dc.GetNetworkByName("project namespaced network").Id
+				req := &apiv2.MachineServiceCreateRequest{
+					Name:           "testfirewall",
+					Project:        sc.Tenant1Project1,
+					Partition:      new(sc.Partition1),
+					Size:           new(sc.SizeC1Large),
+					Image:          sc.ImageFirewall3_0,
+					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
+					Networks: []*apiv2.MachineAllocationNetwork{
+						{Network: sc.NetworkInternet},
+						{Network: projectNetworkId},
+					},
+					FirewallSpec: &apiv2.FirewallSpec{
+						FirewallRules: &apiv2.FirewallRules{
+							Egress: []*apiv2.FirewallEgressRule{
+								{
+									Protocol: apiv2.IPProtocol_IP_PROTOCOL_TCP,
+									Ports:    []uint32{80, 443},
+									To:       []string{"0.0.0.0/0"},
+									Comment:  "outgoing http",
+								},
+								{
+									Protocol: apiv2.IPProtocol_IP_PROTOCOL_UDP,
+									Ports:    []uint32{53},
+									To:       []string{"0.0.0.0/0"},
+									Comment:  "outgoing dns",
+								},
+							},
+							Ingress: []*apiv2.FirewallIngressRule{
+								{
+									Protocol: apiv2.IPProtocol_IP_PROTOCOL_TCP,
+									Ports:    []uint32{443},
+									From:     []string{"0.0.0.0/0"},
+									Comment:  "incoming web traffic",
+								},
+							},
+						},
+					},
+					DnsServers: []*apiv2.DNSServer{
+						{Ip: "1.1.1.1"},
+					},
+					NtpServers: []*apiv2.NTPServer{
+						{Address: "ntp0.ntp.org"},
+					},
+					Labels: &apiv2.Labels{
+						Labels: map[string]string{
+							"organization": "webserver-team",
+						},
+					},
+					PlacementTags: []string{"rack01"},
+				}
+				return req, nil
+			},
+			want: func(dc *test.Datacenter) *apiv2.MachineServiceCreateResponse {
+				return &apiv2.MachineServiceCreateResponse{
+					Machine: &apiv2.Machine{
+						Meta: &apiv2.Meta{
+							Generation: 2,
+							// FIXME discuss if we should put user labels into the allocation.meta ?
+							Labels: &apiv2.Labels{
+								Labels: map[string]string{
+									"organization": "webserver-team",
+								},
+							},
+						},
+						Size:      dc.GetSizes()[sc.SizeC1Large],
+						Partition: dc.GetPartitions()[sc.Partition1],
+						Status: &apiv2.MachineStatus{
+							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
+							Condition:  &apiv2.MachineCondition{},
+							LedState:   &apiv2.MachineChassisIdentifyLEDState{},
+						},
+						Uuid: sc.Machine5,
+						Hardware: &apiv2.MachineHardware{
+							Disks: []*apiv2.MachineBlockDevice{
+								{
+									Name: "/dev/sda",
+									Size: 1024 * 1024 * 1024,
+								},
+							},
+						},
+						RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
+							Events: []*apiv2.MachineProvisioningEvent{
+								{Event: apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_WAITING},
+							},
+						},
+						Allocation: &apiv2.MachineAllocation{
+							Meta:     &apiv2.Meta{},
+							Name:     "testfirewall",
+							Hostname: "metal", // Because it was not set during create
+							Image:    dc.GetImages()[sc.ImageFirewall3_0],
+							Networks: []*apiv2.MachineNetwork{
+								{
+									Network:             sc.NetworkInternet,
+									Prefixes:            dc.GetNetworks()[sc.NetworkInternet].Prefixes,
+									DestinationPrefixes: dc.GetNetworks()[sc.NetworkInternet].DestinationPrefixes,
+									Ips:                 []string{"1.2.3.2"},
+									NetworkType:         apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
+									NatType:             apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE,
+									Vrf:                 uint64(*dc.GetNetworks()[sc.NetworkInternet].Vrf),
+									Project:             nil,
+									Asn:                 uint32(4210000020),
+								},
+								{
+									Network:             dc.GetNetworkByName("project namespaced network").Id,
+									Prefixes:            dc.GetNetworkByName("project namespaced network").Prefixes,
+									DestinationPrefixes: dc.GetNetworkByName("project namespaced network").DestinationPrefixes,
+									Ips:                 []string{"12.110.0.1"},
+									NetworkType:         apiv2.NetworkType_NETWORK_TYPE_CHILD,
+									NatType:             apiv2.NATType_NAT_TYPE_NONE,
+									Vrf:                 uint64(*dc.GetNetworkByName("project namespaced network").Vrf),
+									Project:             new(sc.Tenant1Project1),
+									Asn:                 uint32(4210000020),
+								},
+								{
+									Network:             sc.NetworkUnderlayPartition1,
+									Prefixes:            dc.GetNetworks()[sc.NetworkUnderlayPartition1].Prefixes,
+									DestinationPrefixes: dc.GetNetworks()[sc.NetworkUnderlayPartition1].DestinationPrefixes,
+									Ips:                 []string{"10.253.0.1"},
+									NetworkType:         apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
+									NatType:             apiv2.NATType_NAT_TYPE_NONE,
+									Vrf:                 uint64(0),
+									Project:             nil,
+									Asn:                 uint32(4210000020),
+								},
+							},
+							FilesystemLayout: dc.GetFilesystemLayouts()["firewall"],
+							AllocationType:   apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
+							CreatedBy:        "unit-test-user",
+							Project:          sc.Tenant1Project1,
+							DnsServers: []*apiv2.DNSServer{
+								{Ip: "1.1.1.1"},
+							},
+							NtpServers: []*apiv2.NTPServer{
+								{Address: "ntp0.ntp.org"},
+							},
+							FirewallRules: &apiv2.FirewallRules{
+								Egress: []*apiv2.FirewallEgressRule{
+									{
+										Protocol: apiv2.IPProtocol_IP_PROTOCOL_TCP,
+										Ports:    []uint32{80, 443},
+										To:       []string{"0.0.0.0/0"},
+										Comment:  "outgoing http",
+									},
+									{
+										Protocol: apiv2.IPProtocol_IP_PROTOCOL_UDP,
+										Ports:    []uint32{53},
+										To:       []string{"0.0.0.0/0"},
+										Comment:  "outgoing dns",
+									},
+								},
+								Ingress: []*apiv2.FirewallIngressRule{
+									{
+										Protocol: apiv2.IPProtocol_IP_PROTOCOL_TCP,
+										Ports:    []uint32{443},
+										From:     []string{"0.0.0.0/0"},
+										Comment:  "incoming web traffic",
+									},
+								},
+							},
+						},
+					},
+				}
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

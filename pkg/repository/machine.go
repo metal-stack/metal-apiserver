@@ -161,14 +161,13 @@ func (r *machineRepository) create(ctx context.Context, req *apiv2.MachineServic
 		return nil, err
 	}
 
-	machine, rollbackMachine, err := r.allocateMachine(ctx, spec)
+	machine, err := r.allocateMachine(ctx, spec)
 	if err != nil {
 		return nil, err
 	}
-	if rollbackMachine != nil {
-		// FIXME create a task which cleans it up
-		return nil, err
-	}
+
+	// FIXME not only the machine must be rolled back, the autoallocated ipaddresses as well.
+	// FIXME migrate the whole mechanism of allocating to a task and roll back there on error
 
 	// if allocation was created, create a new queue entry for the Wait endpoint like so:
 	err = r.s.queue.PushMachineAllocation(ctx, machine.ID, task.MachineAllocationPayload{UUID: machine.Allocation.UUID})

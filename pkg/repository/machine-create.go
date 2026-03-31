@@ -183,9 +183,9 @@ func (r *machineRepository) createMachineAllocationSpec(ctx context.Context, req
    PrivateSecondaryShared = "privatesecondaryshared" => CHILD_SHARED if machine/firewall project != network project
 */
 
-func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAllocationSpec) (allocatedMachine *metal.Machine, rollbackMachine *metal.Machine, err error) {
+func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAllocationSpec) (allocatedMachine *metal.Machine, err error) {
 	if err := r.isSizeAndImageCompatible(ctx, spec.Size, spec.Image); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	var fsl *metal.FilesystemLayout
@@ -193,22 +193,22 @@ func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAl
 		var fsls metal.FilesystemLayouts
 		fsls, err := r.s.ds.FilesystemLayout().List(ctx, nil)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		fsl, err = fsls.From(spec.Size.ID, spec.Image.ID)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 	} else {
 		fsl, err = r.s.ds.FilesystemLayout().Get(ctx, *spec.FilesystemLayoutID)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 	}
 
 	machineCandidate, err := r.findMachineCandidate(ctx, spec)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// as some fields in the allocation spec are optional, they will now be clearly defined by the machine candidate
@@ -216,7 +216,7 @@ func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAl
 
 	allocationUUID, err := uuid.NewV7()
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to create allocation uuid %w", err)
+		return nil, fmt.Errorf("unable to create allocation uuid %w", err)
 	}
 
 	alloc := &metal.MachineAllocation{
@@ -238,62 +238,28 @@ func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAl
 		NTPServers:      spec.NTPServers,
 	}
 
-	// TODO this must be done in a rollbackTask maybe triggered from the caller
-	// rollbackOnError := func(err error) error {
-	// 	if err != nil {
-	// 		cleanupMachine := &metal.Machine{
-	// 			Base: metal.Base{
-	// 				ID: spec.UUID,
-	// 			},
-	// 			Allocation: alloc,
-	// 		}
-	// 		rollbackError := actor.machineNetworkReleaser(cleanupMachine)
-	// 		if rollbackError != nil {
-	// 			logger.Error("cannot call async machine cleanup", "error", rollbackError)
-	// 		}
-	// 		old := *machineCandidate
-	// 		machineCandidate.Allocation = nil
-	// 		machineCandidate.Tags = nil
-	// 		machineCandidate.PreAllocated = false
-
-	// 		rollbackError = ds.UpdateMachine(&old, machineCandidate)
-	// 		if rollbackError != nil {
-	// 			logger.Error("cannot update machinecandidate to reset allocation", "error", rollbackError)
-	// 		}
-	// 	}
-	// 	return err
-	// }
-
-	// FIXME not only the machine must be rolled back, the autoallocated ipaddresses as well.
-	rollbackMachine = &metal.Machine{
-		Base: metal.Base{
-			ID: spec.UUID,
-		},
-		Allocation: alloc,
-	}
-
 	err = fsl.Matches(machineCandidate.Hardware)
 	if err != nil {
-		return nil, rollbackMachine, fmt.Errorf("unable to check for fsl match:%w", err)
+		return nil, fmt.Errorf("unable to check for fsl match:%w", err)
 	}
 	alloc.FilesystemLayout = fsl
 
 	networks, err := r.convertToMetalAllocationNetwork(ctx, spec)
 	if err != nil {
-		return nil, rollbackMachine, fmt.Errorf("unable to gather networks:%w", err)
+		return nil, fmt.Errorf("unable to gather networks:%w", err)
 	}
 	err = r.makeNetworks(ctx, spec, networks, alloc)
 	if err != nil {
-		return nil, rollbackMachine, fmt.Errorf("unable to make networks:%w", err)
+		return nil, fmt.Errorf("unable to make networks:%w", err)
 	}
 
 	// refetch the machine to catch possible updates after dealing with the network...
 	machine, err := r.s.ds.Machine().Get(ctx, machineCandidate.ID)
 	if err != nil {
-		return nil, rollbackMachine, fmt.Errorf("unable to find machine:%w", err)
+		return nil, fmt.Errorf("unable to find machine:%w", err)
 	}
 	if machine.Allocation != nil {
-		return nil, rollbackMachine, fmt.Errorf("machine %q already allocated", machine.ID)
+		return nil, fmt.Errorf("machine %q already allocated", machine.ID)
 	}
 
 	machine.Allocation = alloc
@@ -302,19 +268,10 @@ func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAl
 
 	err = r.s.ds.Machine().Update(ctx, machine)
 	if err != nil {
-		return nil, rollbackMachine, fmt.Errorf("error when allocating machine %q, %w", machine.ID, err)
+		return nil, fmt.Errorf("error when allocating machine %q, %w", machine.ID, err)
 	}
 
-	// TODO: can be removed after metal-core refactoring
-	// err = publisher.Publish(metal.TopicAllocation.Name, &metal.AllocationEvent{MachineID: machine.ID})
-	// if err != nil {
-	// 	logger.Error("failed to publish machine allocation event, fallback should trigger on metal-hammer", "topic", metal.TopicAllocation.Name, "machineID", machine.ID, "error", err)
-	// } else {
-	// 	logger.Debug("published machine allocation event", "topic", metal.TopicAllocation.Name, "machineID", machine.ID)
-	// }
-
-	return machine, nil, nil
-
+	return machine, nil
 }
 
 func (r *machineRepository) isSizeAndImageCompatible(ctx context.Context, size *metal.Size, image *metal.Image) error {
