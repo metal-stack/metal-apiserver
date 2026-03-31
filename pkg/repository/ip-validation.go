@@ -20,14 +20,9 @@ func (r *ipRepository) validateCreate(ctx context.Context, req *apiv2.IPServiceC
 	return errors.Join(errs...)
 }
 
-func (r *ipRepository) validateUpdate(ctx context.Context, req *apiv2.IPServiceUpdateRequest, _ *metal.IP) error {
-	old, err := r.find(ctx, &apiv2.IPQuery{Ip: &req.Ip, Project: &req.Project})
-	if err != nil {
-		return notFoundOrInternal(err)
-	}
-
+func (r *ipRepository) validateUpdate(ctx context.Context, req *apiv2.IPServiceUpdateRequest, ip *metal.IP) error {
 	if req.Type != nil {
-		if old.Type == metal.Static && *req.Type != apiv2.IPType_IP_TYPE_STATIC {
+		if ip.Type == metal.Static && *req.Type != apiv2.IPType_IP_TYPE_STATIC {
 			return fmt.Errorf("cannot change type of ip address from static to ephemeral")
 		}
 	}
@@ -35,20 +30,15 @@ func (r *ipRepository) validateUpdate(ctx context.Context, req *apiv2.IPServiceU
 	return nil
 }
 
-func (r *ipRepository) validateDelete(ctx context.Context, req *metal.IP) error {
+func (r *ipRepository) validateDelete(ctx context.Context, ip *metal.IP) error {
 	var errs []error
 
-	errs = validate(errs, req.IPAddress != "", "ipaddress is empty")
-	errs = validate(errs, req.AllocationUUID != "", "allocationUUID is empty")
-	errs = validate(errs, req.ProjectID != "", "projectId is empty")
+	errs = validate(errs, ip.IPAddress != "", "ipaddress is empty")
+	errs = validate(errs, ip.AllocationUUID != "", "allocationUUID is empty")
+	errs = validate(errs, ip.ProjectID != "", "projectId is empty")
 
 	if len(errs) > 0 {
 		return errors.Join(errs...)
-	}
-
-	ip, err := r.find(ctx, &apiv2.IPQuery{Ip: &req.IPAddress, Uuid: &req.AllocationUUID, Project: &req.ProjectID})
-	if err != nil {
-		return notFoundOrInternal(err)
 	}
 
 	for _, t := range ip.Tags {

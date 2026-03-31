@@ -121,11 +121,3 @@ func checkAlreadyExists[E generic.Entity](ctx context.Context, s generic.Storage
 
 	return !errorutil.IsNotFound(err)
 }
-
-func notFoundOrInternal(err error) error {
-	if errorutil.IsNotFound(err) {
-		return err
-	}
-
-	return errorutil.NewInternal(err)
-}
