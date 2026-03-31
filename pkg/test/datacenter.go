@@ -16,7 +16,7 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
@@ -278,7 +278,7 @@ func (dc *Datacenter) createPartitions(spec *scenarios.DatacenterSpec) {
 func (dc *Datacenter) createTenantsAndMembers(spec *scenarios.DatacenterSpec) {
 	var (
 		tenantCreateReq       []*apiv2.TenantServiceCreateRequest
-		tenantMemberCreateReq []*repository.TenantMemberCreateRequest
+		tenantMemberCreateReq []*api.TenantMemberCreateRequest
 		projectCreateReq      []*apiv2.ProjectServiceCreateRequest
 	)
 
@@ -303,7 +303,7 @@ func (dc *Datacenter) createTenantsAndMembers(spec *scenarios.DatacenterSpec) {
 	CreateProjects(dc.t, dc.testStore, projectCreateReq)
 
 	for _, tenant := range spec.Tenants {
-		tenantMemberCreateReq = append(tenantMemberCreateReq, &repository.TenantMemberCreateRequest{
+		tenantMemberCreateReq = append(tenantMemberCreateReq, &api.TenantMemberCreateRequest{
 			MemberID: tenant, Role: apiv2.TenantRole_TENANT_ROLE_OWNER,
 		})
 		CreateTenantMemberships(dc.t, dc.testStore, tenant, tenantMemberCreateReq)
@@ -389,13 +389,13 @@ func (dc *Datacenter) createMachines(spec *scenarios.DatacenterSpec) {
 }
 
 func (dc *Datacenter) createSwitchesAndStatuses(spec *scenarios.DatacenterSpec) {
-	reqs := lo.Map(spec.Switches, func(sw *apiv2.Switch, _ int) *repository.SwitchServiceCreateRequest {
-		return &repository.SwitchServiceCreateRequest{Switch: sw}
+	reqs := lo.Map(spec.Switches, func(sw *apiv2.Switch, _ int) *api.SwitchServiceCreateRequest {
+		return &api.SwitchServiceCreateRequest{Switch: sw}
 	})
 	CreateSwitches(dc.t, dc.testStore, reqs)
 
-	statuses := lo.Map(spec.Switches, func(sw *apiv2.Switch, _ int) *repository.SwitchStatus {
-		return &repository.SwitchStatus{
+	statuses := lo.Map(spec.Switches, func(sw *apiv2.Switch, _ int) *api.SwitchStatus {
+		return &api.SwitchStatus{
 			ID: sw.Id,
 		}
 	})

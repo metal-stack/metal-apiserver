@@ -6,6 +6,7 @@ import (
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 )
 
 type (
@@ -83,7 +84,7 @@ type (
 	}
 
 	ProjectMember interface {
-		Repository[*projectMemberRepository, *apiv2.ProjectMember, *ProjectMemberCreateRequest, *ProjectMemberUpdateRequest, *ProjectMemberQuery]
+		Repository[*projectMemberRepository, *apiv2.ProjectMember, *api.ProjectMemberCreateRequest, *api.ProjectMemberUpdateRequest, *api.ProjectMemberQuery]
 	}
 
 	Tenant interface {
@@ -91,7 +92,7 @@ type (
 	}
 
 	TenantMember interface {
-		Repository[*tenantMemberRepository, *apiv2.TenantMember, *TenantMemberCreateRequest, *TenantMemberUpdateRequest, *TenantMemberQuery]
+		Repository[*tenantMemberRepository, *apiv2.TenantMember, *api.TenantMemberCreateRequest, *api.TenantMemberUpdateRequest, *api.TenantMemberQuery]
 	}
 
 	FilesystemLayout interface {
@@ -119,11 +120,11 @@ type (
 	}
 
 	Switch interface {
-		Repository[*switchRepository, *apiv2.Switch, *SwitchServiceCreateRequest, *adminv2.SwitchServiceUpdateRequest, *apiv2.SwitchQuery]
+		Repository[*switchRepository, *apiv2.Switch, *api.SwitchServiceCreateRequest, *adminv2.SwitchServiceUpdateRequest, *apiv2.SwitchQuery]
 	}
 
 	Component interface {
-		Repository[*componentRepository, *apiv2.Component, *ComponentServiceCreateRequest, *ComponentServiceUpdateRequest, *apiv2.ComponentQuery]
+		Repository[*componentRepository, *apiv2.Component, *api.ComponentServiceCreateRequest, *api.ComponentServiceUpdateRequest, *apiv2.ComponentQuery]
 	}
 	Audit interface {
 		Repository[*auditRepository, *apiv2.AuditTrace, any, *auditEntity, *apiv2.AuditQuery]

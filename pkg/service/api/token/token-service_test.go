@@ -13,7 +13,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
-	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/request"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/redis/go-redis/v9"
@@ -476,8 +476,8 @@ func Test_Create(t *testing.T) {
 				RedisClient: c,
 			})
 
-			projectsAndTenantsGetter := func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
-				return &repository.ProjectsAndTenants{
+			projectsAndTenantsGetter := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
+				return &api.ProjectsAndTenants{
 					ProjectRoles: tt.state.projectRoles,
 					TenantRoles:  tt.state.tenantRoles,
 				}, nil
@@ -600,8 +600,8 @@ func Test_CreateForUser(t *testing.T) {
 				RedisClient: c,
 			})
 
-			projectsAndTenantsGetter := func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
-				return &repository.ProjectsAndTenants{
+			projectsAndTenantsGetter := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
+				return &api.ProjectsAndTenants{
 					ProjectRoles: tt.state.projectRoles,
 					TenantRoles:  tt.state.tenantRoles,
 				}, nil
@@ -657,7 +657,7 @@ func Test_validateTokenRequest(t *testing.T) {
 	inOneHour := durationpb.New(time.Hour)
 	tests := []struct {
 		name          string
-		pat           *repository.ProjectsAndTenants
+		pat           *api.ProjectsAndTenants
 		token         *apiv2.Token
 		req           *apiv2.TokenServiceCreateRequest
 		adminSubjects []string
@@ -685,7 +685,7 @@ func Test_validateTokenRequest(t *testing.T) {
 		// Inherited Permissions
 		{
 			name: "simple token with no permissions but project role",
-			pat: &repository.ProjectsAndTenants{
+			pat: &api.ProjectsAndTenants{
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"ae8d2493-41ec-4efd-bbb4-81085b20b6fe": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
 				},
@@ -715,7 +715,7 @@ func Test_validateTokenRequest(t *testing.T) {
 		// Permissions from Token
 		{
 			name: "simple token with one project and permission",
-			pat: &repository.ProjectsAndTenants{
+			pat: &api.ProjectsAndTenants{
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"abc": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
 				},
@@ -745,7 +745,7 @@ func Test_validateTokenRequest(t *testing.T) {
 		},
 		{
 			name: "simple token with unknown method",
-			pat: &repository.ProjectsAndTenants{
+			pat: &api.ProjectsAndTenants{
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"abc": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
@@ -775,7 +775,7 @@ func Test_validateTokenRequest(t *testing.T) {
 		},
 		{
 			name: "simple token with one project and permission, wrong project given",
-			pat: &repository.ProjectsAndTenants{
+			pat: &api.ProjectsAndTenants{
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"abc": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 					"cde": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
@@ -806,7 +806,7 @@ func Test_validateTokenRequest(t *testing.T) {
 		},
 		{
 			name: "simple token with one project and permission, wrong message given",
-			pat: &repository.ProjectsAndTenants{
+			pat: &api.ProjectsAndTenants{
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"abc": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
@@ -836,7 +836,7 @@ func Test_validateTokenRequest(t *testing.T) {
 		},
 		{
 			name: "simple token with one project and permission, wrong messages given",
-			pat: &repository.ProjectsAndTenants{
+			pat: &api.ProjectsAndTenants{
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"abc": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
@@ -874,7 +874,7 @@ func Test_validateTokenRequest(t *testing.T) {
 		// Roles from Token
 		{
 			name: "token has no role",
-			pat: &repository.ProjectsAndTenants{
+			pat: &api.ProjectsAndTenants{
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"abc": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
 				},
@@ -907,7 +907,7 @@ func Test_validateTokenRequest(t *testing.T) {
 		},
 		{
 			name: "token has to low role",
-			pat: &repository.ProjectsAndTenants{
+			pat: &api.ProjectsAndTenants{
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"abc": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
 				},
@@ -943,7 +943,7 @@ func Test_validateTokenRequest(t *testing.T) {
 		},
 		{
 			name: "token request has unspecified role",
-			pat: &repository.ProjectsAndTenants{
+			pat: &api.ProjectsAndTenants{
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"abc": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
 				},
@@ -984,7 +984,7 @@ func Test_validateTokenRequest(t *testing.T) {
 		{
 			name:          "requested admin role but is not allowed",
 			adminSubjects: []string{},
-			pat: &repository.ProjectsAndTenants{
+			pat: &api.ProjectsAndTenants{
 				TenantRoles: map[string]apiv2.TenantRole{
 					"company-a@github": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
@@ -1008,7 +1008,7 @@ func Test_validateTokenRequest(t *testing.T) {
 			adminSubjects: []string{
 				"company-a@github",
 			},
-			pat: &repository.ProjectsAndTenants{
+			pat: &api.ProjectsAndTenants{
 				TenantRoles: map[string]apiv2.TenantRole{
 					"company-a@github": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
@@ -1032,7 +1032,7 @@ func Test_validateTokenRequest(t *testing.T) {
 			adminSubjects: []string{
 				"company-a@github",
 			},
-			pat: &repository.ProjectsAndTenants{
+			pat: &api.ProjectsAndTenants{
 				TenantRoles: map[string]apiv2.TenantRole{
 					"company-a@github": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
@@ -1056,7 +1056,7 @@ func Test_validateTokenRequest(t *testing.T) {
 			adminSubjects: []string{
 				"company-a@github",
 			},
-			pat: &repository.ProjectsAndTenants{
+			pat: &api.ProjectsAndTenants{
 				TenantRoles: map[string]apiv2.TenantRole{
 					"company-a@github": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
@@ -1114,7 +1114,7 @@ func Test_validateTokenRequest(t *testing.T) {
 		// Mixed role and permissions
 		{
 			name: "token has no role",
-			pat: &repository.ProjectsAndTenants{
+			pat: &api.ProjectsAndTenants{
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"ae8d2493-41ec-4efd-bbb4-81085b20b6fe": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
 				},
@@ -1159,7 +1159,7 @@ func Test_validateTokenRequest(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			projectsAndTenantsGetter := func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
+			projectsAndTenantsGetter := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
 				return tt.pat, nil
 			}
 			log := slog.Default()
@@ -1599,8 +1599,8 @@ func Test_Update(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			projectsAndTenantsGetter := func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
-				return &repository.ProjectsAndTenants{
+			projectsAndTenantsGetter := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
+				return &api.ProjectsAndTenants{
 					ProjectRoles: tt.state.projectRoles,
 					TenantRoles:  tt.state.tenantRoles,
 				}, nil
@@ -1738,8 +1738,8 @@ func Test_Refresh(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			projectsAndTenantsGetter := func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
-				return &repository.ProjectsAndTenants{
+			projectsAndTenantsGetter := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
+				return &api.ProjectsAndTenants{
 					ProjectRoles: tt.state.projectRoles,
 					TenantRoles:  tt.state.tenantRoles,
 				}, nil

@@ -11,6 +11,7 @@ import (
 	"github.com/metal-stack/api/go/metalstack/infra/v2/infrav2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -60,7 +61,7 @@ func (c *componentServiceServer) Ping(ctx context.Context, req *infrav2.Componen
 		Token:      t,
 	}
 
-	_, err = c.repo.Component().Create(ctx, &repository.ComponentServiceCreateRequest{Component: component, Expiration: c.expiration})
+	_, err = c.repo.Component().Create(ctx, &api.ComponentServiceCreateRequest{Component: component, Expiration: c.expiration})
 	if err != nil {
 		return nil, err
 	}

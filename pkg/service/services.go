@@ -95,7 +95,6 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 		CertStore:      certStore,
 		AllowedIssuers: []string{c.ServerHttpURL},
 		TokenStore:     tokenStore,
-		Repo:           c.Repository,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize authz interceptor: %w", err)

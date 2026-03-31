@@ -14,6 +14,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -58,7 +59,7 @@ func (p *projectServiceServer) Get(ctx context.Context, req *apiv2.ProjectServic
 	// TODO: maybe we should shadow some fields of the project when a tenant guest accesses this endpoint
 	// e.g. project annotations should not be completely visible?
 
-	projectMembers, err := p.repo.Project(req.Project).AdditionalMethods().Member().List(ctx, &repository.ProjectMemberQuery{})
+	projectMembers, err := p.repo.Project(req.Project).AdditionalMethods().Member().List(ctx, &api.ProjectMemberQuery{})
 	if err != nil {
 		return nil, err
 	}
@@ -184,7 +185,7 @@ func (p *projectServiceServer) Create(ctx context.Context, req *apiv2.ProjectSer
 		return nil, err
 	}
 
-	_, err = p.repo.Project(project.Uuid).AdditionalMethods().Member().Create(ctx, &repository.ProjectMemberCreateRequest{
+	_, err = p.repo.Project(project.Uuid).AdditionalMethods().Member().Create(ctx, &api.ProjectMemberCreateRequest{
 		TenantId: req.Login,
 		Role:     apiv2.ProjectRole_PROJECT_ROLE_OWNER,
 	})
@@ -256,7 +257,7 @@ func (p *projectServiceServer) Leave(ctx context.Context, req *apiv2.ProjectServ
 }
 
 func (p *projectServiceServer) UpdateMember(ctx context.Context, req *apiv2.ProjectServiceUpdateMemberRequest) (*apiv2.ProjectServiceUpdateMemberResponse, error) {
-	pm, err := p.repo.Project(req.Project).AdditionalMethods().Member().Update(ctx, req.Member, &repository.ProjectMemberUpdateRequest{
+	pm, err := p.repo.Project(req.Project).AdditionalMethods().Member().Update(ctx, req.Member, &api.ProjectMemberUpdateRequest{
 		Role: req.Role,
 	})
 
@@ -272,7 +273,7 @@ func (p *projectServiceServer) UpdateMember(ctx context.Context, req *apiv2.Proj
 			return nil, err
 		}
 
-		if !slices.ContainsFunc(partiTenants, func(t *repository.TenantWithMembershipAnnotations) bool {
+		if !slices.ContainsFunc(partiTenants, func(t *api.TenantWithMembershipAnnotations) bool {
 			return t.Tenant.Login == projectGuest.Tenant
 		}) {
 			return nil, errorutil.InvalidArgument("tenant is not part of the project's tenants")
@@ -307,7 +308,7 @@ func (p *projectServiceServer) createProjectMembership(ctx context.Context, tena
 		role = apiv2.ProjectRole_PROJECT_ROLE_VIEWER
 	}
 
-	created, err := p.repo.Project(projectID).AdditionalMethods().Member().Create(ctx, &repository.ProjectMemberCreateRequest{
+	created, err := p.repo.Project(projectID).AdditionalMethods().Member().Create(ctx, &api.ProjectMemberCreateRequest{
 		TenantId: tenantID,
 		Role:     role,
 	})
@@ -407,7 +408,7 @@ func (p *projectServiceServer) InviteAccept(ctx context.Context, req *apiv2.Proj
 		return nil, errorutil.InvalidArgument("an owner cannot accept invitations to own projects")
 	}
 
-	memberships, err := p.repo.Project(inv.Project).AdditionalMethods().Member().List(ctx, &repository.ProjectMemberQuery{
+	memberships, err := p.repo.Project(inv.Project).AdditionalMethods().Member().List(ctx, &api.ProjectMemberQuery{
 		TenantId: &invitee.Login,
 	})
 	if err != nil {
@@ -423,7 +424,7 @@ func (p *projectServiceServer) InviteAccept(ctx context.Context, req *apiv2.Proj
 		return nil, errorutil.NewInternal(err)
 	}
 
-	_, err = p.repo.Project(inv.Project).AdditionalMethods().Member().Create(ctx, &repository.ProjectMemberCreateRequest{
+	_, err = p.repo.Project(inv.Project).AdditionalMethods().Member().Create(ctx, &api.ProjectMemberCreateRequest{
 		Role:     inv.Role,
 		TenantId: invitee.Login,
 	})

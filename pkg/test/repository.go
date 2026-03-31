@@ -22,6 +22,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/auditing"
@@ -182,7 +183,7 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 	certStore := certs.NewRedisStore(&certs.Config{RedisClient: rc})
 
 	auditingBackend, err := auditing.NewMemory(auditing.Config{
-		Component: repository.AuditingComponent,
+		Component: api.AuditingComponent,
 		Log:       log,
 	}, auditing.MemoryConfig{})
 	require.NoError(t, err)
@@ -562,7 +563,7 @@ func CreateProjects(t testing.TB, testStore *testStore, projects []*apiv2.Projec
 	return projectMap
 }
 
-func CreateProjectMemberships(t testing.TB, testStore *testStore, project string, memberships []*repository.ProjectMemberCreateRequest) {
+func CreateProjectMemberships(t testing.TB, testStore *testStore, project string, memberships []*api.ProjectMemberCreateRequest) {
 	for _, membership := range memberships {
 		_, err := testStore.Project(project).AdditionalMethods().Member().Create(t.Context(), membership)
 		require.NoError(t, err)
@@ -594,7 +595,7 @@ func CreateTenants(t testing.TB, testStore *testStore, tenants []*apiv2.TenantSe
 	return tenantList
 }
 
-func CreateTenantMemberships(t testing.TB, testStore *testStore, tenant string, memberships []*repository.TenantMemberCreateRequest) {
+func CreateTenantMemberships(t testing.TB, testStore *testStore, tenant string, memberships []*api.TenantMemberCreateRequest) {
 	for _, membership := range memberships {
 		_, err := testStore.Tenant().AdditionalMethods().Member(tenant).Create(t.Context(), membership)
 		require.NoError(t, err)
@@ -638,7 +639,7 @@ func CreateSizeReservations(t testing.TB, testStore *testStore, sizeReservations
 	return sizeReservationMap
 }
 
-func CreateSwitches(t testing.TB, testStore *testStore, switches []*repository.SwitchServiceCreateRequest) map[string]*apiv2.Switch {
+func CreateSwitches(t testing.TB, testStore *testStore, switches []*api.SwitchServiceCreateRequest) map[string]*apiv2.Switch {
 	switchMap := map[string]*apiv2.Switch{}
 	for _, sw := range switches {
 		s, err := testStore.Switch().Create(t.Context(), sw)
@@ -648,7 +649,7 @@ func CreateSwitches(t testing.TB, testStore *testStore, switches []*repository.S
 	return switchMap
 }
 
-func CreateSwitchStatuses(t testing.TB, testStore *testStore, statuses []*repository.SwitchStatus) map[string]*metal.SwitchStatus {
+func CreateSwitchStatuses(t testing.TB, testStore *testStore, statuses []*api.SwitchStatus) map[string]*metal.SwitchStatus {
 	statusMap := map[string]*metal.SwitchStatus{}
 	for _, status := range statuses {
 		metalStatus := &metal.SwitchStatus{

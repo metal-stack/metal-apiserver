@@ -12,7 +12,7 @@ import (
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/api/go/metalstack/infra/v2/infrav2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
-	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/stretchr/testify/require"
 )
 
@@ -20,7 +20,7 @@ func Test_authorizer_allowed(t *testing.T) {
 	tests := []struct {
 		name               string
 		token              *apiv2.Token
-		projectsAndTenants *repository.ProjectsAndTenants
+		projectsAndTenants *api.ProjectsAndTenants
 		method             string
 		subject            string
 		wantErr            error
@@ -46,7 +46,7 @@ func Test_authorizer_allowed(t *testing.T) {
 					{Subject: "project-a", Methods: []string{"/metalstack.api.v2.IPService/Get"}},
 				},
 			},
-			projectsAndTenants: &repository.ProjectsAndTenants{
+			projectsAndTenants: &api.ProjectsAndTenants{
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"project-a": apiv2.ProjectRole_PROJECT_ROLE_VIEWER,
 				},
@@ -89,7 +89,7 @@ func Test_authorizer_allowed(t *testing.T) {
 					{Subject: "project-a", Methods: []string{"/metalstack.api.v2.IPService/Get"}},
 				},
 			},
-			projectsAndTenants: &repository.ProjectsAndTenants{
+			projectsAndTenants: &api.ProjectsAndTenants{
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"project-a": apiv2.ProjectRole_PROJECT_ROLE_VIEWER,
 				},
@@ -164,7 +164,7 @@ func Test_authorizer_allowed(t *testing.T) {
 			},
 			method:  apiv2connect.IPServiceGetProcedure,
 			subject: "project-b",
-			projectsAndTenants: &repository.ProjectsAndTenants{
+			projectsAndTenants: &api.ProjectsAndTenants{
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"project-b": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
@@ -182,7 +182,7 @@ func Test_authorizer_allowed(t *testing.T) {
 			},
 			method:  apiv2connect.IPServiceGetProcedure,
 			subject: "project-b",
-			projectsAndTenants: &repository.ProjectsAndTenants{
+			projectsAndTenants: &api.ProjectsAndTenants{
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"project-b": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
@@ -203,7 +203,7 @@ func Test_authorizer_allowed(t *testing.T) {
 			},
 			method:  apiv2connect.MachineServiceCreateProcedure,
 			subject: "project-b",
-			projectsAndTenants: &repository.ProjectsAndTenants{
+			projectsAndTenants: &api.ProjectsAndTenants{
 				Projects: []*apiv2.Project{
 					{Uuid: "project-a"},
 				},
@@ -227,7 +227,7 @@ func Test_authorizer_allowed(t *testing.T) {
 			},
 			method:  apiv2connect.MachineServiceCreateProcedure,
 			subject: "project-a",
-			projectsAndTenants: &repository.ProjectsAndTenants{
+			projectsAndTenants: &api.ProjectsAndTenants{
 				Projects: []*apiv2.Project{
 					{Uuid: "project-a"},
 				},
@@ -255,7 +255,7 @@ func Test_authorizer_allowed(t *testing.T) {
 			},
 			method:  apiv2connect.ProjectServiceCreateProcedure,
 			subject: "tenant-b",
-			projectsAndTenants: &repository.ProjectsAndTenants{
+			projectsAndTenants: &api.ProjectsAndTenants{
 				Projects: []*apiv2.Project{
 					{Uuid: "project-a"},
 				},
@@ -286,7 +286,7 @@ func Test_authorizer_allowed(t *testing.T) {
 			},
 			method:  apiv2connect.ProjectServiceCreateProcedure,
 			subject: "tenant-a",
-			projectsAndTenants: &repository.ProjectsAndTenants{
+			projectsAndTenants: &api.ProjectsAndTenants{
 				Projects: []*apiv2.Project{
 					{Uuid: "project-a"},
 				},
@@ -305,9 +305,9 @@ func Test_authorizer_allowed(t *testing.T) {
 			a := &authorizer{
 				log: slog.Default(),
 			}
-			a.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
+			a.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
 				if tt.projectsAndTenants == nil {
-					return &repository.ProjectsAndTenants{}, nil
+					return &api.ProjectsAndTenants{}, nil
 				}
 				return tt.projectsAndTenants, nil
 			}
@@ -335,7 +335,7 @@ func Test_authorizer_Allowed(t *testing.T) {
 	tests := []struct {
 		name               string
 		token              *apiv2.Token
-		projectsAndTenants *repository.ProjectsAndTenants
+		projectsAndTenants *api.ProjectsAndTenants
 		adminSubjects      []string
 		req                *connect.Request[apiv2.IPServiceGetRequest]
 		callFn             func()
@@ -350,7 +350,7 @@ func Test_authorizer_Allowed(t *testing.T) {
 					{Subject: "project-a", Methods: []string{"/metalstack.api.v2.IPService/Get"}},
 				},
 			},
-			projectsAndTenants: &repository.ProjectsAndTenants{
+			projectsAndTenants: &api.ProjectsAndTenants{
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"project-a": apiv2.ProjectRole_PROJECT_ROLE_VIEWER,
 				},
@@ -367,7 +367,7 @@ func Test_authorizer_Allowed(t *testing.T) {
 					{Subject: "project-a", Methods: []string{"/metalstack.api.v2.IPService/Create"}},
 				},
 			},
-			projectsAndTenants: &repository.ProjectsAndTenants{
+			projectsAndTenants: &api.ProjectsAndTenants{
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"project-a": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
@@ -384,7 +384,7 @@ func Test_authorizer_Allowed(t *testing.T) {
 					{Subject: "project-a", Methods: []string{"/metalstack.api.v2.IPService/Get"}},
 				},
 			},
-			projectsAndTenants: &repository.ProjectsAndTenants{
+			projectsAndTenants: &api.ProjectsAndTenants{
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"project-a": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
@@ -398,9 +398,9 @@ func Test_authorizer_Allowed(t *testing.T) {
 			a := &authorizer{
 				log: slog.Default(),
 			}
-			a.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
+			a.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
 				if tt.projectsAndTenants == nil {
-					return &repository.ProjectsAndTenants{}, nil
+					return &api.ProjectsAndTenants{}, nil
 				}
 				return tt.projectsAndTenants, nil
 			}

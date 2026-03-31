@@ -7,6 +7,7 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 )
 
 type (
@@ -18,25 +19,9 @@ type (
 		s     *Store
 		scope *TenantScope
 	}
-
-	TenantMemberCreateRequest struct {
-		MemberID string
-		Role     apiv2.TenantRole
-	}
-	TenantMemberUpdateRequest struct {
-		Role apiv2.TenantRole
-	}
-	TenantMemberQuery struct {
-		MemberId    *string
-		Annotations map[string]string
-	}
 )
 
 func (t *tenantMemberEntity) SetChanged(time time.Time) {}
-
-func (*TenantMemberUpdateRequest) GetUpdateMeta() *apiv2.UpdateMeta {
-	return &apiv2.UpdateMeta{}
-}
 
 func (t *tenantMemberRepository) checkIfMemberIsLastOwner(ctx context.Context, req *tenantMemberEntity) (bool, error) {
 	isOwner := TenantRoleFromMap(req.Meta.Annotations) == apiv2.TenantRole_TENANT_ROLE_OWNER
@@ -44,9 +29,9 @@ func (t *tenantMemberRepository) checkIfMemberIsLastOwner(ctx context.Context, r
 		return false, nil
 	}
 
-	members, err := t.list(ctx, &TenantMemberQuery{
+	members, err := t.list(ctx, &api.TenantMemberQuery{
 		Annotations: map[string]string{
-			TenantRoleAnnotation: apiv2.TenantRole_TENANT_ROLE_OWNER.String(),
+			api.TenantRoleAnnotation: apiv2.TenantRole_TENANT_ROLE_OWNER.String(),
 		},
 	})
 	if err != nil {
@@ -69,12 +54,12 @@ func (t *tenantMemberRepository) convertToProto(ctx context.Context, e *tenantMe
 	}, nil
 }
 
-func (t *tenantMemberRepository) create(ctx context.Context, c *TenantMemberCreateRequest) (*tenantMemberEntity, error) {
+func (t *tenantMemberRepository) create(ctx context.Context, c *api.TenantMemberCreateRequest) (*tenantMemberEntity, error) {
 	resp, err := t.s.mdc.TenantMember().Create(ctx, &mdcv1.TenantMemberCreateRequest{
 		TenantMember: &mdcv1.TenantMember{
 			Meta: &mdcv1.Meta{
 				Annotations: map[string]string{
-					TenantRoleAnnotation: c.Role.String(),
+					api.TenantRoleAnnotation: c.Role.String(),
 				},
 			},
 			MemberId: c.MemberID,
@@ -99,7 +84,7 @@ func (t *tenantMemberRepository) delete(ctx context.Context, e *tenantMemberEnti
 	return nil
 }
 
-func (t *tenantMemberRepository) find(ctx context.Context, query *TenantMemberQuery) (*tenantMemberEntity, error) {
+func (t *tenantMemberRepository) find(ctx context.Context, query *api.TenantMemberQuery) (*tenantMemberEntity, error) {
 	if query.MemberId == nil {
 		return nil, errorutil.InvalidArgument("member id must be specified")
 	}
@@ -122,7 +107,7 @@ func (t *tenantMemberRepository) find(ctx context.Context, query *TenantMemberQu
 }
 
 func (t *tenantMemberRepository) get(ctx context.Context, id string) (*tenantMemberEntity, error) {
-	member, err := t.find(ctx, &TenantMemberQuery{
+	member, err := t.find(ctx, &api.TenantMemberQuery{
 		MemberId: &id,
 	})
 	if err != nil {
@@ -132,7 +117,7 @@ func (t *tenantMemberRepository) get(ctx context.Context, id string) (*tenantMem
 	return member, nil
 }
 
-func (t *tenantMemberRepository) list(ctx context.Context, query *TenantMemberQuery) ([]*tenantMemberEntity, error) {
+func (t *tenantMemberRepository) list(ctx context.Context, query *api.TenantMemberQuery) ([]*tenantMemberEntity, error) {
 	resp, err := t.s.mdc.TenantMember().Find(ctx, &mdcv1.TenantMemberFindRequest{
 		TenantId:    &t.scope.tenantID,
 		MemberId:    query.MemberId,
@@ -158,9 +143,9 @@ func (t *tenantMemberRepository) matchScope(e *tenantMemberEntity) bool {
 	return t.scope.tenantID == e.TenantId
 }
 
-func (t *tenantMemberRepository) update(ctx context.Context, member *tenantMemberEntity, msg *TenantMemberUpdateRequest) (*tenantMemberEntity, error) {
+func (t *tenantMemberRepository) update(ctx context.Context, member *tenantMemberEntity, msg *api.TenantMemberUpdateRequest) (*tenantMemberEntity, error) {
 	if msg.Role != apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED {
-		member.Meta.Annotations[TenantRoleAnnotation] = msg.Role.String()
+		member.Meta.Annotations[api.TenantRoleAnnotation] = msg.Role.String()
 	}
 
 	resp, err := t.s.mdc.TenantMember().Update(ctx, &mdcv1.TenantMemberUpdateRequest{

@@ -15,7 +15,7 @@ import (
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
-	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -32,7 +32,7 @@ var (
 	partition1 = "partition-1"
 	partition2 = "partition-2"
 
-	sw1 = &repository.SwitchServiceCreateRequest{
+	sw1 = &api.SwitchServiceCreateRequest{
 		Switch: &apiv2.Switch{
 			Id:          "sw1",
 			Meta:        &apiv2.Meta{},
@@ -61,7 +61,7 @@ var (
 		},
 	}
 
-	sw2 = &repository.SwitchServiceCreateRequest{
+	sw2 = &api.SwitchServiceCreateRequest{
 		Switch: &apiv2.Switch{
 			Id:          "sw2",
 			Meta:        &apiv2.Meta{},
@@ -399,7 +399,7 @@ func Test_bootServiceServer_Register(t *testing.T) {
 		{Base: metal.Base{ID: m1}, PartitionID: partition1, SizeID: "c1-large-x86"},
 	})
 
-	test.CreateSwitches(t, testStore, []*repository.SwitchServiceCreateRequest{sw1, sw2})
+	test.CreateSwitches(t, testStore, []*api.SwitchServiceCreateRequest{sw1, sw2})
 
 	tests := []struct {
 		name         string
@@ -816,7 +816,7 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 		},
 	})
 
-	test.CreateSwitches(t, testStore, []*repository.SwitchServiceCreateRequest{sw1, sw2})
+	test.CreateSwitches(t, testStore, []*api.SwitchServiceCreateRequest{sw1, sw2})
 
 	tests := []struct {
 		name         string
