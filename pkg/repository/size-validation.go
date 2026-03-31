@@ -88,6 +88,17 @@ func (r *sizeRepository) validateDelete(ctx context.Context, req *metal.Size) er
 		return errorutil.FailedPrecondition("cannot remove size with existing size reservations of this size")
 	}
 
+	sizeImageConstraints, err := r.s.ds.SizeImageConstraint().List(ctx, queries.SizeImageConstraintFilter(&apiv2.SizeImageConstraintQuery{
+		Size: &req.ID,
+	}))
+	if err != nil {
+		return errorutil.NewInternal(err)
+	}
+
+	if len(sizeImageConstraints) > 0 {
+		return errorutil.FailedPrecondition("cannot remove size with existing size image constraints of this size")
+	}
+
 	return nil
 }
 

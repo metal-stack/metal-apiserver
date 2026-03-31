@@ -386,6 +386,16 @@ func Test_sizeServiceServer_Delete(t *testing.T) {
 				},
 			},
 		},
+		{
+			Size: &apiv2.Size{
+				Id: "c1-xlarge-x86", Name: new("c1-xlarge-x86"),
+				Constraints: []*apiv2.SizeConstraint{
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 24, Max: 24},
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024 * 1024, Max: 1024 * 1024},
+					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 10 * 1024 * 1024, Max: 10 * 1024 * 1024},
+				},
+			},
+		},
 	}
 
 	test.CreateSizes(t, testStore, sizes)
@@ -415,6 +425,20 @@ func Test_sizeServiceServer_Delete(t *testing.T) {
 	}
 	test.CreateSizeReservations(t, testStore, sizeReservations)
 
+	test.CreateSizeImageConstraints(t, testStore, []*adminv2.SizeImageConstraintServiceCreateRequest{
+		{
+			Size: "c1-xlarge-x86",
+			ImageConstraints: []*apiv2.ImageConstraint{
+				{
+					Image:       "ubuntu",
+					SemverMatch: "> 24.04",
+				},
+			},
+			Name:        new("constraint"),
+			Description: new("this is a constraint"),
+		},
+	})
+
 	tests := []struct {
 		name    string
 		rq      *adminv2.SizeServiceDeleteRequest
@@ -438,6 +462,12 @@ func Test_sizeServiceServer_Delete(t *testing.T) {
 			rq:      &adminv2.SizeServiceDeleteRequest{Id: "c1-large-x86"},
 			want:    nil,
 			wantErr: errorutil.FailedPrecondition(`cannot remove size with existing machines of this size`),
+		},
+		{
+			name:    "delete existing with size image constraint",
+			rq:      &adminv2.SizeServiceDeleteRequest{Id: "c1-xlarge-x86"},
+			want:    nil,
+			wantErr: errorutil.FailedPrecondition(`cannot remove size with existing size image constraints of this size`),
 		},
 		{
 			name: "delete n1-medium",

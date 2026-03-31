@@ -17,7 +17,8 @@ func (r *sizeImageConstraintRepository) validateCreate(ctx context.Context, req 
 		return err
 	}
 
-	err = r.Validate(ctx, sic)
+	// TODO: move validation code here?
+	err = sic.Validate()
 	if err != nil {
 		return err
 	}
@@ -34,13 +35,14 @@ func (r *sizeImageConstraintRepository) validateUpdate(ctx context.Context, req 
 		return err
 	}
 
-	err = r.Validate(ctx, sic)
+	err = sic.Validate()
 	if err != nil {
 		return err
 	}
 
 	return nil
 }
+
 func (r *sizeImageConstraintRepository) validateDelete(ctx context.Context, req *metal.SizeImageConstraint) error {
 	return nil
 }
