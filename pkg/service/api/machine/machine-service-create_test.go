@@ -31,6 +31,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 	dc := test.NewDatacenter(t, log)
 	dc.Create(&sc.DefaultDatacenter)
 	defer dc.Close()
+
 	tests := []struct {
 		name string
 		req  *apiv2.MachineServiceCreateRequest
@@ -121,11 +122,101 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 						Image:    dc.GetImages()[sc.ImageDebian12],
 						Networks: []*apiv2.MachineNetwork{
 							{
+								// FIXME this is important part of the test
 								// Network: dc.GetNetworkByName("project namespaced network").Id,
 							},
 						},
 						FilesystemLayout: dc.GetFilesystemLayouts()["debian"],
 						AllocationType:   apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+						CreatedBy:        "unit-test-user",
+						Project:          sc.Tenant1Project1,
+					},
+				},
+			},
+		},
+		{
+			name: "firewall with internet and private network",
+			req:  nil, // set below
+			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
+				testDC := sc.DefaultDatacenter
+				testDC.ProjectsPerTenant = 2
+				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
+					Name:          new("project namespaced network"),
+					ParentNetwork: new(sc.NetworkTenantSuperPartition1),
+					Project:       new(sc.Tenant1Project1),
+					Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD,
+				})
+				testDC.Machines = append(testDC.Machines, &sc.MachineWithLiveliness{
+					Machine: &metal.Machine{
+						Base:        metal.Base{ID: sc.Machine5},
+						PartitionID: sc.Partition1,
+						SizeID:      sc.SizeC1Large,
+						Waiting:     true,
+						Hardware: metal.MachineHardware{
+							Disks: []metal.BlockDevice{
+								{
+									Name: "/dev/sda",
+									Size: 1024 * 1024 * 1024,
+								},
+							},
+						},
+					},
+					Liveliness: metal.MachineLivelinessAlive,
+				})
+				dc.Create(&testDC)
+
+				projectNetworkId := dc.GetNetworkByName("project namespaced network").Id
+				req := &apiv2.MachineServiceCreateRequest{
+					Name:           "testfirewall",
+					Project:        sc.Tenant1Project1,
+					Partition:      sc.Partition1,
+					Size:           sc.SizeC1Large,
+					Image:          sc.ImageFirewall3_0,
+					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
+					Networks: []*apiv2.MachineAllocationNetwork{
+						{Network: sc.NetworkInternet},
+						{Network: projectNetworkId},
+					},
+				}
+				return req, nil
+			},
+			want: &apiv2.MachineServiceCreateResponse{
+				Machine: &apiv2.Machine{
+					Meta:      &apiv2.Meta{Generation: 2},
+					Size:      dc.GetSizes()[sc.SizeC1Large],
+					Partition: dc.GetPartitions()[sc.Partition1],
+					Status: &apiv2.MachineStatus{
+						Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
+						Condition:  &apiv2.MachineCondition{},
+						LedState:   &apiv2.MachineChassisIdentifyLEDState{},
+					},
+					Uuid: sc.Machine5,
+					Hardware: &apiv2.MachineHardware{
+						Disks: []*apiv2.MachineBlockDevice{
+							{
+								Name: "/dev/sda",
+								Size: 1024 * 1024 * 1024,
+							},
+						},
+					},
+					RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
+						Events: []*apiv2.MachineProvisioningEvent{
+							{Event: apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_WAITING},
+						},
+					},
+					Allocation: &apiv2.MachineAllocation{
+						Meta:     &apiv2.Meta{},
+						Name:     "testfirewall",
+						Hostname: "metal", // Because it was not set during create
+						Image:    dc.GetImages()[sc.ImageFirewall3_0],
+						Networks: []*apiv2.MachineNetwork{
+							{
+								// FIXME this is important part of the test
+								// Network: dc.GetNetworkByName("project namespaced network").Id,
+							},
+						},
+						FilesystemLayout: dc.GetFilesystemLayouts()["firewall"],
+						AllocationType:   apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
 						CreatedBy:        "unit-test-user",
 						Project:          sc.Tenant1Project1,
 					},

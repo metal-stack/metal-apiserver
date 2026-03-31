@@ -262,11 +262,7 @@ func (r *ipRepository) allocateSpecificIP(ctx context.Context, parent *metal.Net
 func (r *ipRepository) allocateRandomIP(ctx context.Context, network *metal.Network, af metal.AddressFamily) (ipAddress, parentPrefixCidr string, err error) {
 	r.s.log.Debug("allocateRandomIP from", "network", network)
 	for _, prefix := range network.Prefixes.OfFamily(af) {
-		ipar := &ipamapiv1.AcquireIPRequest{
-			PrefixCidr: prefix.String(),
-			Namespace:  network.Namespace,
-		}
-		resp, err := r.s.ipam.AcquireIP(ctx, connect.NewRequest(ipar))
+		resp, err := r.s.ipam.AcquireIP(ctx, connect.NewRequest(&ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String(), Namespace: network.Namespace}))
 		if err != nil {
 			if errorutil.IsNotFound(err) {
 				continue
