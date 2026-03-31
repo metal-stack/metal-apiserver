@@ -13,13 +13,9 @@ import (
 )
 
 type (
-
-	// helper to be able to test user token content fetched from the database
-	projectsAndTenantsGetter func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error)
-
 	authorizer struct {
 		log                      *slog.Logger
-		projectsAndTenantsGetter func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error)
+		projectsAndTenantsGetter api.ProjectsAndTenantsGetter
 	}
 
 	// Authorizer provides methods to authorize requests with a given token
@@ -33,7 +29,7 @@ type (
 	}
 )
 
-func NewAuthorizer(log *slog.Logger, patg projectsAndTenantsGetter) Authorizer {
+func NewAuthorizer(log *slog.Logger, patg api.ProjectsAndTenantsGetter) Authorizer {
 	return &authorizer{
 		log:                      log,
 		projectsAndTenantsGetter: patg,

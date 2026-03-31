@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -30,6 +31,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	repoapi "github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/service/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/api"
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/tenant"
@@ -101,7 +103,12 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	}
 
 	var (
-		authorizeInterceptor  = authpkg.NewAuthorizeInterceptor(log, c.Repository)
+		// We fetch projects and tenants on every request, if this hurts performance we can
+		// put the result into the context, and reuse the result in subsequent queries
+		// or we introduce a cache with a short timeout.
+		authorizeInterceptor = authpkg.NewAuthorizeInterceptor(log, func(ctx context.Context, userId string) (*repoapi.ProjectsAndTenants, error) {
+			return c.Repository.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, userId)
+		})
 		validationInterceptor = validate.NewInterceptor()
 	)
 

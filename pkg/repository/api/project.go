@@ -1,6 +1,10 @@
 package api
 
-import apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+import (
+	"context"
+
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+)
 
 const (
 	ProjectRoleAnnotation = "metal-stack.io/project-role"
@@ -29,6 +33,8 @@ type (
 		ProjectRoles  map[string]apiv2.ProjectRole
 		TenantRoles   map[string]apiv2.TenantRole
 	}
+
+	ProjectsAndTenantsGetter func(ctx context.Context, userId string) (*ProjectsAndTenants, error)
 )
 
 func (*ProjectMemberUpdateRequest) GetUpdateMeta() *apiv2.UpdateMeta {
