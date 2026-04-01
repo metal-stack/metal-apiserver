@@ -78,7 +78,7 @@ func Test_filesystemServiceServer_Create(t *testing.T) {
 				},
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("given imageconstraint:>=12.04 is not valid, missing space between op and version? invalid semantic version"),
+			wantErr: errorutil.InvalidArgument("given imageconstraint:>=12.04 is not valid (missing space between op and version?): invalid semantic version"),
 		},
 	}
 	for _, tt := range tests {
@@ -306,7 +306,7 @@ func Test_filesystemServiceServer_Delete(t *testing.T) {
 			name:    "remove with existing machine allocation",
 			rq:      &adminv2.FilesystemServiceDeleteRequest{Id: "m1-large"},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument(`cannot remove filesystemlayout with existing machine allocations`),
+			wantErr: errorutil.FailedPrecondition(`cannot remove filesystemlayout with existing machine allocations`),
 		},
 	}
 	for _, tt := range tests {
