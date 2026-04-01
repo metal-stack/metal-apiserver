@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/netip"
 	"regexp"
@@ -25,40 +26,42 @@ var (
 func validatePartition(ctx context.Context, partition *apiv2.Partition) error {
 	//FIXME use validate helper
 	if partition.Id == "" {
-		return errorutil.InvalidArgument("partition id must not be empty")
+		return fmt.Errorf("partition id must not be empty")
 	}
 
 	if partition.BootConfiguration != nil {
 		if err := checkIfUrlExists(ctx, "partition imageurl of", partition.Id, partition.BootConfiguration.ImageUrl); err != nil {
-			return errorutil.NewInvalidArgument(err)
+			return err
 		}
 		if err := checkIfUrlExists(ctx, "partition kernelurl of", partition.Id, partition.BootConfiguration.KernelUrl); err != nil {
-			return errorutil.NewInvalidArgument(err)
+			return err
 		}
 	}
 
 	if len(partition.DnsServers) > 3 {
-		return errorutil.InvalidArgument("not more than 3 dnsservers must be specified")
+		return fmt.Errorf("not more than 3 dnsservers must be specified")
 	}
+
 	for _, dns := range partition.DnsServers {
 		_, err := netip.ParseAddr(dns.Ip)
 		if err != nil {
-			return errorutil.InvalidArgument("dnsserver ip is not valid:%w", err)
+			return fmt.Errorf("dnsserver ip is not valid:%w", err)
 		}
 	}
 
 	if len(partition.NtpServers) > 5 {
-		return errorutil.InvalidArgument("not more than 5 ntpservers must be specified")
+		return fmt.Errorf("not more than 5 ntpservers must be specified")
 	}
+
 	for _, ntp := range partition.NtpServers {
 		if net.ParseIP(ntp.Address) != nil {
 			_, err := netip.ParseAddr(ntp.Address)
 			if err != nil {
-				return errorutil.InvalidArgument("ip: %s for ntp server not correct err: %w", ntp.Address, err)
+				return fmt.Errorf("ip: %s for ntp server not correct err: %w", ntp.Address, err)
 			}
 		} else {
 			if !regexDNSName.MatchString(ntp.Address) {
-				return errorutil.InvalidArgument("dns name: %s for ntp server not correct", ntp.Address)
+				return fmt.Errorf("dns name: %s for ntp server not correct", ntp.Address)
 			}
 		}
 	}
@@ -77,19 +80,15 @@ func (p *partitionRepository) validateDelete(ctx context.Context, req *metal.Par
 
 	ms, err := p.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{Partition: &req.ID}))
 	if err != nil {
-		return err
+		return errorutil.NewInternal(err)
 	}
-
-	p.s.log.Info("machines in partition", "partition", req.ID, "machines", ms)
 
 	errs = validate(errs, len(ms) == 0, "there are still machines in %q", req.ID)
 
 	nwsresp, err := p.s.ds.Network().List(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{Partition: &req.ID}))
 	if err != nil {
-		return err
+		return errorutil.NewInternal(err)
 	}
-
-	p.s.log.Info("networks in partition", "partition", req.ID, "networks", nwsresp)
 
 	errs = validate(errs, len(nwsresp) == 0, "there are still networks in %q", req.ID)
 
@@ -97,12 +96,13 @@ func (p *partitionRepository) validateDelete(ctx context.Context, req *metal.Par
 		Partition: &req.ID,
 	}))
 	if err != nil {
-		return err
+		return errorutil.NewInternal(err)
 	}
+
 	errs = validate(errs, len(sizeReservations) == 0, "there are still size reservations in %q", req.ID)
 
 	if err := errors.Join(errs...); err != nil {
-		return errorutil.InvalidArgument("%w", err)
+		return err
 	}
 
 	return nil

@@ -19,7 +19,7 @@ func (r *projectRepository) validateUpdate(ctx context.Context, req *apiv2.Proje
 func (r *projectRepository) validateDelete(ctx context.Context, req *projectEntity) error {
 	ips, err := r.s.IP(req.Meta.Id).List(ctx, &apiv2.IPQuery{Project: &req.Meta.Id})
 	if err != nil {
-		return errorutil.Convert(err)
+		return errorutil.NewInternal(err)
 	}
 
 	if len(ips) > 0 {
@@ -28,7 +28,7 @@ func (r *projectRepository) validateDelete(ctx context.Context, req *projectEnti
 
 	networks, err := r.s.Network(req.Meta.Id).List(ctx, &apiv2.NetworkQuery{Project: &req.Meta.Id})
 	if err != nil {
-		return errorutil.Convert(err)
+		return errorutil.NewInternal(err)
 	}
 
 	if len(networks) > 0 {
@@ -41,7 +41,7 @@ func (r *projectRepository) validateDelete(ctx context.Context, req *projectEnti
 		},
 	}))
 	if err != nil {
-		return errorutil.Convert(err)
+		return errorutil.NewInternal(err)
 	}
 
 	if len(ms) > 0 {
@@ -52,10 +52,10 @@ func (r *projectRepository) validateDelete(ctx context.Context, req *projectEnti
 		Project: &req.Meta.Id,
 	}))
 	if err != nil {
-		return err
+		return errorutil.NewInternal(err)
 	}
 	if len(sizeReservations) > 0 {
-		return errorutil.InvalidArgument("cannot remove project with existing size reservations of this project")
+		return errorutil.FailedPrecondition("cannot remove project with existing size reservations of this project")
 	}
 
 	// TODO: ensure project tokens are revoked / cleaned up

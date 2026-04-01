@@ -171,6 +171,15 @@ func IsPermissionDenied(err error) bool {
 	return connectErr.Code() == connect.CodePermissionDenied
 }
 
+// WrapConnectErr wraps the error into a connect error in case it is no connect error yet.
+func WrapConnectErr(c connect.Code, underlying error) *connect.Error {
+	if connectErr, ok := errors.AsType[*connect.Error](underlying); ok {
+		return connectErr
+	}
+
+	return connect.NewError(c, underlying)
+}
+
 func ConnectErrorComparer() cmp.Option {
 	return cmp.Comparer(func(x, y *connect.Error) bool {
 		if x == nil && y == nil {

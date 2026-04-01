@@ -19,13 +19,13 @@ func (r *switchRepository) validateCreate(ctx context.Context, req *api.SwitchSe
 
 	_, err := r.s.ds.Partition().Get(ctx, req.Switch.Partition)
 	if err != nil {
-		errs = append(errs, err)
+		errs = append(errs, errorutil.NewInternal(err))
 	}
 
 	sw, err := r.convertToInternal(ctx, req.Switch)
 	if err != nil {
 		errs = append(errs, err)
-		return errorutil.NewInvalidArgument(errors.Join(errs...))
+		return errors.Join(errs...)
 	}
 
 	err = checkDuplicateNics(sw.Nics)
@@ -34,7 +34,7 @@ func (r *switchRepository) validateCreate(ctx context.Context, req *api.SwitchSe
 	}
 
 	if len(errs) > 0 {
-		return errorutil.NewInvalidArgument(errors.Join(errs...))
+		return errors.Join(errs...)
 	}
 
 	return nil
@@ -45,12 +45,12 @@ func (r *switchRepository) validateUpdate(ctx context.Context, req *adminv2.Swit
 
 	sw, err := r.s.ds.Switch().Get(ctx, req.Id)
 	if err != nil {
-		return errorutil.Convert(err)
+		return errorutil.NewInternal(err)
 	}
 
 	_, err = r.s.ds.Partition().Get(ctx, sw.Partition)
 	if err != nil {
-		errs = append(errs, err)
+		errs = append(errs, errorutil.NewInternal(err))
 	}
 
 	if req.Os != nil {
@@ -78,7 +78,7 @@ func (r *switchRepository) validateUpdate(ctx context.Context, req *adminv2.Swit
 	}
 
 	if len(errs) > 0 {
-		return errorutil.NewInvalidArgument(errors.Join(errs...))
+		return errors.Join(errs...)
 	}
 
 	return nil

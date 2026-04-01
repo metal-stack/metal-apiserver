@@ -982,7 +982,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 			name:    "network has machine allocation",
 			rq:      &apiv2.NetworkServiceDeleteRequest{Id: networkMap["p3-network-a"].Id, Project: p3},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument(`cannot remove network with existing machine allocations`),
+			wantErr: errorutil.FailedPrecondition(`cannot remove network with existing machine allocations`),
 		},
 	}
 	for _, tt := range tests {

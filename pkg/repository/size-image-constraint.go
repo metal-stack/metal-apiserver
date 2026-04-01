@@ -190,9 +190,6 @@ func (r sizeImageConstraintRepository) Try(ctx context.Context, req *apiv2.SizeI
 	if err != nil {
 		return errorutil.NewInvalidArgument(err)
 	}
-	return nil
-}
 
-func (r sizeImageConstraintRepository) Validate(ctx context.Context, sic *metal.SizeImageConstraint) error {
-	return sic.Validate()
+	return nil
 }

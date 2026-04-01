@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 
+	"connectrpc.com/connect"
 	"github.com/metal-stack/metal-apiserver/pkg/async/queue"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
@@ -286,7 +287,7 @@ func (s *store[R, E, M, C, U, Q]) Create(ctx context.Context, c C) (M, error) {
 
 	err := s.validateCreate(ctx, c)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.WrapConnectErr(connect.CodeInvalidArgument, err)
 	}
 
 	e, err := s.create(ctx, c)
@@ -317,7 +318,7 @@ func (s *store[R, E, M, C, U, Q]) Delete(ctx context.Context, id string) (M, err
 
 	err = s.validateDelete(ctx, e)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.WrapConnectErr(connect.CodeInvalidArgument, err)
 	}
 
 	err = s.delete(ctx, e)
@@ -404,7 +405,7 @@ func (s *store[R, E, M, C, U, Q]) Update(ctx context.Context, id string, u U) (M
 
 	err = s.validateUpdate(ctx, u, e)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.WrapConnectErr(connect.CodeInvalidArgument, err)
 	}
 
 	if err = setUpdateMeta(u, e); err != nil {

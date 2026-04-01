@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
@@ -19,14 +20,14 @@ func (t *tenantRepository) validateDelete(ctx context.Context, e *tenantEntity) 
 	}
 
 	if tok.User == e.Meta.Id {
-		return errorutil.InvalidArgument("the personal tenant (default-tenant) cannot be deleted")
+		return fmt.Errorf("the personal tenant (default-tenant) cannot be deleted")
 	}
 
 	projects, err := t.s.UnscopedProject().List(ctx, &apiv2.ProjectServiceListRequest{
 		Tenant: &e.Meta.Id,
 	})
 	if err != nil {
-		return errorutil.Convert(err)
+		return errorutil.NewInternal(err)
 	}
 
 	if len(projects) > 0 {

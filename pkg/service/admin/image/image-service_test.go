@@ -317,7 +317,7 @@ func Test_imageServiceServer_Delete(t *testing.T) {
 			name:    "delete image with existing allocated machine",
 			request: &adminv2.ImageServiceDeleteRequest{Id: "debian-11.0.20221231"},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument(`cannot remove image with existing machine allocations`),
+			wantErr: errorutil.FailedPrecondition(`cannot remove image with existing machine allocations`),
 		},
 	}
 	for _, tt := range tests {

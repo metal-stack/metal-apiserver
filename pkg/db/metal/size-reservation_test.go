@@ -76,12 +76,12 @@ func TestReservations_Validate(t *testing.T) {
 		{
 			name: "invalid amount",
 			sizes: map[string]*Size{
-				"c1": &Size{},
+				"c1": {},
 			},
 			partitions: map[string]*Partition{
-				"a": &Partition{},
-				"b": &Partition{},
-				"c": &Partition{},
+				"a": {},
+				"b": {},
+				"c": {},
 			},
 			projects: map[string]*mdmv1.Project{
 				"1": {},
@@ -101,12 +101,12 @@ func TestReservations_Validate(t *testing.T) {
 		{
 			name: "size does not exist",
 			sizes: map[string]*Size{
-				"c1": &Size{},
+				"c1": {},
 			},
 			partitions: map[string]*Partition{
-				"a": &Partition{},
-				"b": &Partition{},
-				"c": &Partition{},
+				"a": {},
+				"b": {},
+				"c": {},
 			},
 			projects: map[string]*mdmv1.Project{
 				"1": {},
@@ -126,12 +126,12 @@ func TestReservations_Validate(t *testing.T) {
 		{
 			name: "no partitions referenced",
 			sizes: map[string]*Size{
-				"c1": &Size{},
+				"c1": {},
 			},
 			partitions: map[string]*Partition{
-				"a": &Partition{},
-				"b": &Partition{},
-				"c": &Partition{},
+				"a": {},
+				"b": {},
+				"c": {},
 			},
 			projects: map[string]*mdmv1.Project{
 				"1": {},
@@ -150,12 +150,12 @@ func TestReservations_Validate(t *testing.T) {
 		{
 			name: "partition does not exist",
 			sizes: map[string]*Size{
-				"c1": &Size{},
+				"c1": {},
 			},
 			partitions: map[string]*Partition{
-				"a": &Partition{},
-				"b": &Partition{},
-				"c": &Partition{},
+				"a": {},
+				"b": {},
+				"c": {},
 			},
 			projects: map[string]*mdmv1.Project{
 				"1": {},
@@ -175,12 +175,12 @@ func TestReservations_Validate(t *testing.T) {
 		{
 			name: "partition duplicates",
 			sizes: map[string]*Size{
-				"c1": &Size{},
+				"c1": {},
 			},
 			partitions: map[string]*Partition{
-				"a": &Partition{},
-				"b": &Partition{},
-				"c": &Partition{},
+				"a": {},
+				"b": {},
+				"c": {},
 			},
 			projects: map[string]*mdmv1.Project{
 				"1": {},
@@ -200,12 +200,12 @@ func TestReservations_Validate(t *testing.T) {
 		{
 			name: "no project referenced",
 			sizes: map[string]*Size{
-				"c1": &Size{},
+				"c1": {},
 			},
 			partitions: map[string]*Partition{
-				"a": &Partition{},
-				"b": &Partition{},
-				"c": &Partition{},
+				"a": {},
+				"b": {},
+				"c": {},
 			},
 			projects: map[string]*mdmv1.Project{
 				"1": {},
@@ -224,12 +224,12 @@ func TestReservations_Validate(t *testing.T) {
 		{
 			name: "project does not exist",
 			sizes: map[string]*Size{
-				"c1": &Size{},
+				"c1": {},
 			},
 			partitions: map[string]*Partition{
-				"a": &Partition{},
-				"b": &Partition{},
-				"c": &Partition{},
+				"a": {},
+				"b": {},
+				"c": {},
 			},
 			projects: map[string]*mdmv1.Project{
 				"1": {},
@@ -249,12 +249,12 @@ func TestReservations_Validate(t *testing.T) {
 		{
 			name: "valid reservation",
 			sizes: map[string]*Size{
-				"c1": &Size{},
+				"c1": {},
 			},
 			partitions: map[string]*Partition{
-				"a": &Partition{},
-				"b": &Partition{},
-				"c": &Partition{},
+				"a": {},
+				"b": {},
+				"c": {},
 			},
 			projects: map[string]*mdmv1.Project{
 				"1": {},
