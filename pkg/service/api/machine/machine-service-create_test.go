@@ -94,7 +94,14 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 			want: func(dc *test.Datacenter) *apiv2.MachineServiceCreateResponse {
 				return &apiv2.MachineServiceCreateResponse{
 					Machine: &apiv2.Machine{
-						Meta:      &apiv2.Meta{Generation: 2},
+						Meta: &apiv2.Meta{
+							Generation: 2,
+							Labels: &apiv2.Labels{
+								Labels: map[string]string{
+									"machine.metal-stack.io/network.primary.asn": "4210000020",
+								},
+							},
+						},
 						Size:      dc.GetSizes()[sc.SizeC1Large],
 						Partition: dc.GetPartitions()[sc.Partition1],
 						Status: &apiv2.MachineStatus{
@@ -117,7 +124,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 							},
 						},
 						Allocation: &apiv2.MachineAllocation{
-							Meta:     &apiv2.Meta{},
+							Meta:     &apiv2.Meta{Labels: &apiv2.Labels{}},
 							Name:     "testmachine",
 							Hostname: "metal", // Because it was not set during create
 							Image:    dc.GetImages()[sc.ImageDebian12],
@@ -199,7 +206,14 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 			want: func(dc *test.Datacenter) *apiv2.MachineServiceCreateResponse {
 				return &apiv2.MachineServiceCreateResponse{
 					Machine: &apiv2.Machine{
-						Meta:      &apiv2.Meta{Generation: 2},
+						Meta: &apiv2.Meta{
+							Generation: 2,
+							Labels: &apiv2.Labels{
+								Labels: map[string]string{
+									"machine.metal-stack.io/network.primary.asn": "4210000020",
+								},
+							},
+						},
 						Size:      dc.GetSizes()[sc.SizeC1Large],
 						Partition: dc.GetPartitions()[sc.Partition1],
 						Status: &apiv2.MachineStatus{
@@ -222,7 +236,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 							},
 						},
 						Allocation: &apiv2.MachineAllocation{
-							Meta:     &apiv2.Meta{},
+							Meta:     &apiv2.Meta{Labels: &apiv2.Labels{}},
 							Name:     "testmachine-with-internet-ip",
 							Hostname: "metal", // Because it was not set during create
 							Image:    dc.GetImages()[sc.ImageDebian12],
@@ -275,6 +289,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 					Machine: &metal.Machine{
 						Base:        metal.Base{ID: sc.Machine5},
 						PartitionID: sc.Partition1,
+						RackID:      "rack01",
 						SizeID:      sc.SizeC1Large,
 						Waiting:     true,
 						Hardware: metal.MachineHardware{
@@ -314,9 +329,18 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 			want: func(dc *test.Datacenter) *apiv2.MachineServiceCreateResponse {
 				return &apiv2.MachineServiceCreateResponse{
 					Machine: &apiv2.Machine{
-						Meta:      &apiv2.Meta{Generation: 1},
+						Meta: &apiv2.Meta{
+							Generation: 1,
+							Labels: &apiv2.Labels{
+								Labels: map[string]string{
+									"machine.metal-stack.io/network.primary.asn": "4210000020",
+									"machine.metal-stack.io/rack":                "rack01",
+								},
+							},
+						},
 						Size:      dc.GetSizes()[sc.SizeC1Large],
 						Partition: dc.GetPartitions()[sc.Partition1],
+						Rack:      "rack01",
 						Status: &apiv2.MachineStatus{
 							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
 							Condition:  &apiv2.MachineCondition{},
@@ -337,7 +361,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 							},
 						},
 						Allocation: &apiv2.MachineAllocation{
-							Meta:     &apiv2.Meta{},
+							Meta:     &apiv2.Meta{Labels: &apiv2.Labels{}},
 							Name:     "testmachine-with-internet-ip",
 							Hostname: "metal", // Because it was not set during create
 							Image:    dc.GetImages()[sc.ImageDebian12],
@@ -511,7 +535,14 @@ func Test_machineServiceServer_CreateFirewall(t *testing.T) {
 			want: func(dc *test.Datacenter) *apiv2.MachineServiceCreateResponse {
 				return &apiv2.MachineServiceCreateResponse{
 					Machine: &apiv2.Machine{
-						Meta:      &apiv2.Meta{Generation: 2},
+						Meta: &apiv2.Meta{
+							Generation: 2,
+							Labels: &apiv2.Labels{
+								Labels: map[string]string{
+									"machine.metal-stack.io/network.primary.asn": "4210000020",
+								},
+							},
+						},
 						Size:      dc.GetSizes()[sc.SizeC1Large],
 						Partition: dc.GetPartitions()[sc.Partition1],
 						Status: &apiv2.MachineStatus{
@@ -534,7 +565,7 @@ func Test_machineServiceServer_CreateFirewall(t *testing.T) {
 							},
 						},
 						Allocation: &apiv2.MachineAllocation{
-							Meta:     &apiv2.Meta{},
+							Meta:     &apiv2.Meta{Labels: &apiv2.Labels{}},
 							Name:     "testfirewall",
 							Hostname: "metal", // Because it was not set during create
 							Image:    dc.GetImages()[sc.ImageFirewall3_0],
@@ -672,10 +703,9 @@ func Test_machineServiceServer_CreateFirewall(t *testing.T) {
 					Machine: &apiv2.Machine{
 						Meta: &apiv2.Meta{
 							Generation: 2,
-							// FIXME discuss if we should put user labels into the allocation.meta ?
 							Labels: &apiv2.Labels{
 								Labels: map[string]string{
-									"organization": "webserver-team",
+									"machine.metal-stack.io/network.primary.asn": "4210000020",
 								},
 							},
 						},
@@ -701,7 +731,13 @@ func Test_machineServiceServer_CreateFirewall(t *testing.T) {
 							},
 						},
 						Allocation: &apiv2.MachineAllocation{
-							Meta:     &apiv2.Meta{},
+							Meta: &apiv2.Meta{
+								Labels: &apiv2.Labels{
+									Labels: map[string]string{
+										"organization": "webserver-team",
+									},
+								},
+							},
 							Name:     "testfirewall",
 							Hostname: "metal", // Because it was not set during create
 							Image:    dc.GetImages()[sc.ImageFirewall3_0],

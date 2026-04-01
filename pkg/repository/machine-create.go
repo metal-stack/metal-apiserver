@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"math/rand/v2"
 	"slices"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,31 +20,21 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/metal-stack/metal-lib/pkg/tag"
+	"github.com/samber/lo"
 )
 
 // machineAllocationSpec is a specification for a machine allocation
+// FIXME this is weird
 type machineAllocationSpec struct {
-	Creator            string
-	UUID               string
-	Name               string
-	Description        string
-	Hostname           string
-	ProjectID          string
-	PartitionID        string
-	Machine            *metal.Machine
-	Size               *metal.Size
-	Image              *metal.Image
-	FilesystemLayoutID *string
-	SSHPubKeys         []string
-	UserData           string
-	Tags               []string
-	Networks           []*apiv2.MachineAllocationNetwork
-	Role               metal.Role
-	VPN                *metal.MachineVPN
-	PlacementTags      []string
-	FirewallRules      *metal.FirewallRules
-	DNSServers         metal.DNSServers
-	NTPServers         metal.NTPServers
+	UUID        string
+	PartitionID string
+	allocation  metal.MachineAllocation
+	Machine     *metal.Machine
+	Size        *metal.Size
+	Image       *metal.Image
+	// Tags          []string
+	Networks      []*apiv2.MachineAllocationNetwork
+	PlacementTags []string
 }
 
 // allocationNetwork is intermediate struct to create machine networks from regular networks during machine allocation
@@ -65,6 +55,11 @@ func (r *machineRepository) createMachineAllocationSpec(ctx context.Context, req
 
 		partitionID = pointer.SafeDeref(req.Partition)
 		sizeID      = pointer.SafeDeref(req.Size)
+
+		fwrules *metal.FirewallRules
+		role    = metal.RoleMachine
+
+		m *metal.Machine
 	)
 
 	// figure out creator
@@ -77,35 +72,32 @@ func (r *machineRepository) createMachineAllocationSpec(ctx context.Context, req
 		return nil, errorutil.FailedPrecondition("unable to get user from context")
 	}
 
-	image, err := r.s.ds.Image().Get(ctx, req.Image)
-	if err != nil {
-		return nil, err
-	}
-
-	var (
-		fwrules *metal.FirewallRules
-		role    = metal.RoleMachine
-	)
-
 	if req.AllocationType == apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL {
 		role = metal.RoleFirewall
 		if req.FirewallSpec != nil && req.FirewallSpec.FirewallRules != nil {
-			fwrules, err = r.s.UnscopedMachine().AdditionalMethods().ConvertFirewallRulesToInternal(ctx, req.FirewallSpec.FirewallRules)
+			fwr, err := r.s.UnscopedMachine().AdditionalMethods().ConvertFirewallRulesToInternal(ctx, req.FirewallSpec.FirewallRules)
 			if err != nil {
 				return nil, err
 			}
+			fwrules = fwr
 		}
 	}
 
-	var m *metal.Machine
 	// Allocation of a specific machine is requested, therefore size and partition are not given, fetch them
 	if uuid != "" {
-		m, err = r.s.ds.Machine().Get(ctx, uuid)
+		possibleMachine, err := r.s.ds.Machine().Get(ctx, uuid)
 		if err != nil {
 			return nil, fmt.Errorf("uuid given but no machine found with uuid:%s err:%w", uuid, err)
 		}
+
+		m = possibleMachine
 		sizeID = m.SizeID
 		partitionID = m.PartitionID
+	}
+
+	image, err := r.s.ds.Image().Get(ctx, req.Image)
+	if err != nil {
+		return nil, err
 	}
 
 	size, err := r.s.ds.Size().Get(ctx, sizeID)
@@ -122,6 +114,7 @@ func (r *machineRepository) createMachineAllocationSpec(ctx context.Context, req
 		dnsServers = partition.DNSServers
 		ntpServers = partition.NTPServers
 	)
+
 	// DNS and NTP Servers from request have precedence
 	if len(req.DnsServers) != 0 {
 		dnsServers = metal.DNSServers{}
@@ -140,34 +133,37 @@ func (r *machineRepository) createMachineAllocationSpec(ctx context.Context, req
 		}
 	}
 
-	var tags []string
+	var (
+		labels = make(map[string]string)
+	)
+
 	if req.Labels != nil {
-		for k, v := range req.Labels.Labels {
-			tags = append(tags, fmt.Sprintf("%s=%s", k, v))
-		}
+		maps.Copy(labels, req.Labels.Labels)
 	}
 
 	return &machineAllocationSpec{
-		Creator:            creator,
-		UUID:               uuid,
-		Name:               name,
-		Description:        description,
-		Hostname:           hostname,
-		ProjectID:          req.Project,
-		PartitionID:        partitionID,
-		Machine:            m,
-		Size:               size,
-		Image:              image,
-		SSHPubKeys:         req.SshPublicKeys,
-		UserData:           userdata,
-		Tags:               tags,
-		Networks:           req.Networks,
-		Role:               role,
-		FilesystemLayoutID: req.FilesystemLayout,
-		PlacementTags:      req.PlacementTags,
-		FirewallRules:      fwrules,
-		DNSServers:         dnsServers,
-		NTPServers:         ntpServers,
+		allocation: metal.MachineAllocation{
+			Creator:            creator,
+			UUID:               uuid,
+			Name:               name,
+			Description:        description,
+			Hostname:           hostname,
+			Project:            req.Project,
+			SSHPubKeys:         req.SshPublicKeys,
+			UserData:           userdata,
+			Role:               role,
+			FirewallRules:      fwrules,
+			DNSServers:         dnsServers,
+			NTPServers:         ntpServers,
+			Labels:             labels,
+			FilesystemLayoutID: pointer.SafeDeref(req.FilesystemLayout),
+		},
+		PartitionID:   partitionID,
+		Machine:       m,
+		Size:          size,
+		Image:         image,
+		Networks:      req.Networks,
+		PlacementTags: req.PlacementTags,
 	}, nil
 
 }
@@ -189,7 +185,7 @@ func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAl
 	}
 
 	var fsl *metal.FilesystemLayout
-	if spec.FilesystemLayoutID == nil {
+	if spec.allocation.FilesystemLayoutID == "" {
 		var fsls metal.FilesystemLayouts
 		fsls, err := r.s.ds.FilesystemLayout().List(ctx, nil)
 		if err != nil {
@@ -200,7 +196,7 @@ func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAl
 			return nil, err
 		}
 	} else {
-		fsl, err = r.s.ds.FilesystemLayout().Get(ctx, *spec.FilesystemLayoutID)
+		fsl, err = r.s.ds.FilesystemLayout().Get(ctx, spec.allocation.FilesystemLayoutID)
 		if err != nil {
 			return nil, err
 		}
@@ -220,22 +216,23 @@ func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAl
 	}
 
 	alloc := &metal.MachineAllocation{
-		Creator:         spec.Creator,
-		Created:         time.Now(),
-		Name:            spec.Name,
-		Description:     spec.Description,
-		Hostname:        spec.Hostname,
-		Project:         spec.ProjectID,
-		ImageID:         spec.Image.ID,
-		UserData:        spec.UserData,
-		SSHPubKeys:      spec.SSHPubKeys,
-		MachineNetworks: []*metal.MachineNetwork{},
-		Role:            spec.Role,
-		VPN:             spec.VPN,
-		FirewallRules:   spec.FirewallRules,
 		UUID:            allocationUUID.String(),
-		DNSServers:      spec.DNSServers,
-		NTPServers:      spec.NTPServers,
+		Created:         time.Now(),
+		Creator:         spec.allocation.Creator,
+		Name:            spec.allocation.Name,
+		Description:     spec.allocation.Description,
+		Hostname:        spec.allocation.Hostname,
+		Project:         spec.allocation.Project,
+		ImageID:         spec.Image.ID,
+		UserData:        spec.allocation.UserData,
+		SSHPubKeys:      spec.allocation.SSHPubKeys,
+		MachineNetworks: []*metal.MachineNetwork{},
+		Role:            spec.allocation.Role,
+		VPN:             spec.allocation.VPN,
+		FirewallRules:   spec.allocation.FirewallRules,
+		DNSServers:      spec.allocation.DNSServers,
+		NTPServers:      spec.allocation.NTPServers,
+		Labels:          spec.allocation.Labels,
 	}
 
 	err = fsl.Matches(machineCandidate.Hardware)
@@ -263,7 +260,7 @@ func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAl
 	}
 
 	machine.Allocation = alloc
-	machine.Tags = r.makeMachineTags(machine, spec.Tags)
+	machine.Tags = r.makeMachineTags(machine)
 	machine.PreAllocated = false
 
 	err = r.s.ds.Machine().Update(ctx, machine)
@@ -381,12 +378,12 @@ func (r *machineRepository) findWaitingMachine(ctx context.Context, spec *machin
 			continue
 		}
 		machinesByProject[m.Allocation.Project] = append(machinesByProject[m.Allocation.Project], m)
-		if m.Allocation.Project == spec.ProjectID && m.Allocation.Role == spec.Role {
+		if m.Allocation.Project == spec.allocation.Project && m.Allocation.Role == spec.allocation.Role {
 			projectMachines = append(projectMachines, m)
 		}
 	}
 
-	ok := r.checkSizeReservations(available, spec.ProjectID, machinesByProject, reservations)
+	ok := r.checkSizeReservations(available, spec.allocation.Project, machinesByProject, reservations)
 	if !ok {
 		return nil, errors.New("no machine available")
 	}
@@ -586,7 +583,7 @@ func (r *machineRepository) convertToMetalAllocationNetwork(ctx context.Context,
 	}
 
 	// Add underlay to firewall
-	if spec.Role == metal.RoleFirewall {
+	if spec.allocation.Role == metal.RoleFirewall {
 		underlay, err := r.s.ds.Network().Find(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{
 			Partition: &spec.PartitionID,
 			Type:      apiv2.NetworkType_NETWORK_TYPE_UNDERLAY.Enum(),
@@ -635,18 +632,18 @@ func (r *machineRepository) makeMachineNetwork(ctx context.Context, spec *machin
 			return nil, fmt.Errorf("given network %s does not have prefixes configured", network.network.ID)
 		}
 		for _, af := range network.network.Prefixes.AddressFamilies() {
-			ipAddress, ipParentCidr, err := r.s.IP(spec.ProjectID).AdditionalMethods().allocateRandomIP(ctx, network.network, af)
+			ipAddress, ipParentCidr, err := r.s.IP(spec.allocation.Project).AdditionalMethods().allocateRandomIP(ctx, network.network, af)
 			if err != nil {
 				return nil, fmt.Errorf("unable to allocate an ip in network: %s %w", network.network.ID, err)
 			}
 			ip := &metal.IP{
 				IPAddress:        ipAddress,
 				ParentPrefixCidr: ipParentCidr,
-				Name:             spec.Name,
+				Name:             spec.allocation.Name,
 				Description:      "autoassigned",
 				NetworkID:        network.network.ID,
 				Type:             metal.Ephemeral,
-				ProjectID:        spec.ProjectID,
+				ProjectID:        spec.allocation.Project,
 			}
 			// FIXME ugly implementation
 			ip.AddMachineId(spec.UUID)
@@ -696,71 +693,38 @@ func (r *machineRepository) makeMachineNetwork(ctx context.Context, spec *machin
 	return &machineNetwork, nil
 }
 
-// makeMachineTags constructs the tags of the machine.
-// following tags are added in the following precedence (from lowest to highest in case of duplication):
-// - user given tags (from allocation spec)
-// - system tags (immutable information from the metal-api that are useful for the end user, e.g. machine rack and chassis)
-func (r *machineRepository) makeMachineTags(m *metal.Machine, userTags []string) []string {
-	labels := make(map[string]string)
+// FIXME review machine and allocation labels
 
-	// as user labels are given as an array, we need to figure out if label-like tags were provided.
-	// otherwise the user could provide confusing information like:
-	// - machine.metal-stack.io/chassis=123
-	// - machine.metal-stack.io/chassis=789
-	userLabels := make(map[string]string)
-	actualUserTags := []string{}
-	for _, tag := range userTags {
-		if strings.Contains(tag, "=") {
-			parts := strings.SplitN(tag, "=", 2)
-			userLabels[parts[0]] = parts[1]
-		} else {
-			actualUserTags = append(actualUserTags, tag)
+// makeMachineTags constructs the tags of the machine.
+// - system tags (immutable information from the metal-api that are useful for the end user, e.g. machine rack and chassis)
+func (r *machineRepository) makeMachineTags(m *metal.Machine) []string {
+	var (
+		labels = make(map[string]string)
+		tags   []string
+	)
+	for _, n := range m.Allocation.MachineNetworks {
+		if n.ASN != 0 {
+			labels[tag.MachineNetworkPrimaryASN] = strconv.FormatInt(int64(n.ASN), 10)
+			break
 		}
 	}
-	for k, v := range userLabels {
-		labels[k] = v
+
+	if m.RackID != "" {
+		labels[tag.MachineRack] = m.RackID
 	}
 
-	for k, v := range r.makeMachineSystemLabels(m) {
-		labels[k] = v
+	if m.IPMI.Fru.ChassisPartSerial != "" {
+		labels[tag.MachineChassis] = m.IPMI.Fru.ChassisPartSerial
 	}
 
-	tags := actualUserTags
+	// TODO add more hardware related info
+	// TODO add building for metro setups
+
 	for k, v := range labels {
 		tags = append(tags, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	return uniqueTags(tags)
-}
+	tags = lo.Uniq(tags)
 
-func (r *machineRepository) makeMachineSystemLabels(m *metal.Machine) map[string]string {
-	labels := make(map[string]string)
-	for _, n := range m.Allocation.MachineNetworks {
-		if n.Private {
-			if n.ASN != 0 {
-				labels[tag.MachineNetworkPrimaryASN] = strconv.FormatInt(int64(n.ASN), 10)
-				break
-			}
-		}
-	}
-	if m.RackID != "" {
-		labels[tag.MachineRack] = m.RackID
-	}
-	if m.IPMI.Fru.ChassisPartSerial != "" {
-		labels[tag.MachineChassis] = m.IPMI.Fru.ChassisPartSerial
-	}
-	return labels
-}
-
-// uniqueTags the last added tags will be kept!
-func uniqueTags(tags []string) []string {
-	tagSet := make(map[string]bool)
-	for _, t := range tags {
-		tagSet[t] = true
-	}
-	uniqueTags := []string{}
-	for k := range tagSet {
-		uniqueTags = append(uniqueTags, k)
-	}
-	return uniqueTags
+	return tags
 }
