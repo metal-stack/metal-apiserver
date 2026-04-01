@@ -214,7 +214,7 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 				return &testDC
 			},
 			want:    nil,
-			wantErr: errorutil.Internal(`device:/dev/sda does not exist on given hardware`), // TODO InvalidArgument
+			wantErr: errorutil.InvalidArgument(`device:/dev/sda does not exist on given hardware`), // TODO InvalidArgument
 		},
 		{
 			name: "no fsl is given and no matching one found",

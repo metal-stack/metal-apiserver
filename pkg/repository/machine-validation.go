@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"slices"
 
 	"github.com/metal-stack/api/go/enum"
@@ -54,10 +55,10 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 
 	if req.Uuid != nil {
 		if req.Partition != nil {
-			return errorutil.InvalidArgument("when machine id is given, a partition must not be specified")
+			return fmt.Errorf("when machine id is given, a partition must not be specified")
 		}
 		if req.Size != nil {
-			return errorutil.InvalidArgument("when machine id is given, a size must not be specified")
+			return fmt.Errorf("when machine id is given, a size must not be specified")
 		}
 
 		m, err := r.s.ds.Machine().Get(ctx, *req.Uuid)
@@ -65,17 +66,17 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 			return err
 		}
 		if m.Allocation != nil {
-			return errorutil.InvalidArgument("machine %s is already allocated", *req.Uuid)
+			return fmt.Errorf("machine %s is already allocated", *req.Uuid)
 		}
 		switch m.State.Value {
 		case metal.LockedState:
-			return errorutil.InvalidArgument("machine %s is %s", *req.Uuid, m.State.Value)
+			return fmt.Errorf("machine %s is %s", *req.Uuid, m.State.Value)
 		case metal.AvailableState, metal.ReservedState:
 			// machines which are reserved can be allocated by specifying the uuid,
 			// but they will not be considered for random allocation
 		}
 		if !m.Waiting {
-			return errorutil.InvalidArgument("machine %s is not waiting", *req.Uuid)
+			return fmt.Errorf("machine %s is not waiting", *req.Uuid)
 		}
 
 		machine = m
@@ -127,20 +128,20 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 	switch req.AllocationType {
 	case apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL:
 		if !slices.Contains(image.Features, apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL) {
-			return errorutil.InvalidArgument("given image %s is not allowed for firewalls", image.Id)
+			return fmt.Errorf("given image %s is not allowed for firewalls", image.Id)
 		}
 		if err := validateFirewallSpec(req.FirewallSpec); err != nil {
-			return errorutil.NewInvalidArgument(err)
+			return err
 		}
 	case apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE:
 		if !slices.Contains(image.Features, apiv2.ImageFeature_IMAGE_FEATURE_MACHINE) {
-			return errorutil.InvalidArgument("given image %s is not allowed for machines", image.Id)
+			return fmt.Errorf("given image %s is not allowed for machines", image.Id)
 		}
 		if req.FirewallSpec != nil {
-			return errorutil.InvalidArgument("firewall rules can only be specified on firewalls")
+			return fmt.Errorf("firewall rules can only be specified on firewalls")
 		}
 	default:
-		return errorutil.InvalidArgument("given allocationtype %s is not supported", req.AllocationType)
+		return fmt.Errorf("given allocationtype %s is not supported", req.AllocationType)
 	}
 
 	// what do we have to prevent:
@@ -167,16 +168,16 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 		}
 		if n.Project != nil && project.Uuid != *n.Project {
 			if n.Type != nil && *n.Type != apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED {
-				return errorutil.InvalidArgument("given network %s is project scoped but not part of project %s", nw.Network, req.Project)
+				return fmt.Errorf("given network %s is project scoped but not part of project %s", nw.Network, req.Project)
 			}
 		}
 
 		if n.Partition != nil && *n.Partition != partitionId {
-			return errorutil.InvalidArgument("network %q must be located in the partition where the machine is going to be placed", n.Id)
+			return fmt.Errorf("network %q must be located in the partition where the machine is going to be placed", n.Id)
 		}
 
 		if nw.NoAutoAcquireIp && len(nw.Ips) == 0 {
-			return errorutil.InvalidArgument("the network %s has no auto ip acquisition, but no suitable IPs were provided, which would lead into a machine having no ip address", n.Id)
+			return fmt.Errorf("the network %s has no auto ip acquisition, but no suitable IPs were provided, which would lead into a machine having no ip address", n.Id)
 		}
 
 		if n.Type != nil {
@@ -209,17 +210,17 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 			}
 
 			if n.Id != metalIP.NetworkID {
-				return errorutil.InvalidArgument("given ip %s is not in the given network %s, which is required", n.Id, metalIP.IPAddress)
+				return fmt.Errorf("given ip %s is not in the given network %s, which is required", n.Id, metalIP.IPAddress)
 			}
 
 			if metalIP.ProjectID != req.Project {
-				return errorutil.InvalidArgument("given ip %s is not in the allocation project", metalIP.IPAddress)
+				return fmt.Errorf("given ip %s is not in the allocation project", metalIP.IPAddress)
 			}
 
 			// TODO explain this condition
 			scope := metalIP.GetScope()
 			if scope != metal.ScopeMachine && scope != metal.ScopeProject {
-				return errorutil.InvalidArgument("given ip %s is not available for direct attachment to machine because it is already in use", metalIP.IPAddress)
+				return fmt.Errorf("given ip %s is not available for direct attachment to machine because it is already in use", metalIP.IPAddress)
 			}
 		}
 
@@ -227,37 +228,37 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 	}
 
 	if len(req.Networks) == 0 {
-		return errorutil.InvalidArgument("networks must not be empty")
+		return fmt.Errorf("networks must not be empty")
 	}
 
 	if len(networks) != len(req.Networks) {
-		return errorutil.InvalidArgument("given network ids are not unique")
+		return fmt.Errorf("given network ids are not unique")
 	}
 
 	if underlayNetworkCount > 0 {
-		return errorutil.InvalidArgument("firewalls must be allocated in a underlay but this must not be specified")
+		return fmt.Errorf("firewalls must be allocated in a underlay but this must not be specified")
 	}
 
 	if superNetworkCount > 0 {
-		return errorutil.InvalidArgument("super networks can not be specified as allocation networks")
+		return fmt.Errorf("super networks can not be specified as allocation networks")
 	}
 
 	if externalNetworkCount < 1 && req.AllocationType == apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL {
-		return errorutil.InvalidArgument("firewalls must be allocated in at least one external network")
+		return fmt.Errorf("firewalls must be allocated in at least one external network")
 	}
 
 	if (childNetworkCount+childSharedNetworkCount != 1) && req.AllocationType == apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE {
-		return errorutil.InvalidArgument("machines must be allocated in exactly one child or child_shared network")
+		return fmt.Errorf("machines must be allocated in exactly one child or child_shared network")
 	}
 
 	if childSharedNetworkCount > 1 {
-		return errorutil.InvalidArgument("machines or firewalls must not be allocated in more than one child_shared network")
+		return fmt.Errorf("machines or firewalls must not be allocated in more than one child_shared network")
 	}
 
 	for _, pubKey := range req.SshPublicKeys {
 		_, _, _, _, err := ssh.ParseAuthorizedKey([]byte(pubKey))
 		if err != nil {
-			return errorutil.InvalidArgument("invalid public SSH key: %s error:%w", pubKey, err)
+			return fmt.Errorf("invalid public SSH key: %s error:%w", pubKey, err)
 		}
 	}
 
