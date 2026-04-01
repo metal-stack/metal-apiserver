@@ -68,10 +68,11 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 			return errorutil.InvalidArgument("machine %s is already allocated", *req.Uuid)
 		}
 		switch m.State.Value {
-		case metal.LockedState, metal.ReservedState:
+		case metal.LockedState:
 			return errorutil.InvalidArgument("machine %s is %s", *req.Uuid, m.State.Value)
-		case metal.AvailableState:
-			// Noop
+		case metal.AvailableState, metal.ReservedState:
+			// machines which are reserved can be allocated by specifying the uuid,
+			// but they will not be considered for random allocation
 		}
 		if !m.Waiting {
 			return errorutil.InvalidArgument("machine %s is not waiting", *req.Uuid)

@@ -112,23 +112,6 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 			wantErr: errorutil.InvalidArgument("machine 00000000-0000-0000-0000-000000000002 is LOCKED"),
 		},
 		{
-			name: "uuid is specified, but machine is reserved",
-			req: &apiv2.MachineServiceCreateRequest{
-				Uuid:    new(sc.Machine2),
-				Project: sc.Tenant1Project1,
-			},
-			createDatacenterFn: func() *sc.DatacenterSpec {
-				testDC := sc.DefaultDatacenter
-				testDC.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, "", "", metal.MachineLivelinessAlive),
-				}
-				testDC.Machines[0].Machine.State.Value = metal.ReservedState
-				return &testDC
-			},
-			want:    nil,
-			wantErr: errorutil.InvalidArgument("machine 00000000-0000-0000-0000-000000000002 is RESERVED"),
-		},
-		{
 			name: "uuid is specified, but machine is not waiting",
 			req: &apiv2.MachineServiceCreateRequest{
 				Uuid:    new(sc.Machine2),
