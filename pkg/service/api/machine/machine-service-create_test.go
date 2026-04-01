@@ -274,7 +274,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 			},
 		},
 		{
-			name: "machine with specific uuid with private network and reserved ip from internet",
+			name: "machine with specific uuid with private network and reserved ip from internet and specific fsl",
 			req:  nil, // set below
 			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
 				testDC := sc.DefaultDatacenter
@@ -300,6 +300,11 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 								},
 							},
 						},
+						IPMI: metal.IPMI{
+							Fru: metal.Fru{
+								ChassisPartSerial: "chassis-123",
+							},
+						},
 					},
 					Liveliness: metal.MachineLivelinessAlive,
 				})
@@ -323,6 +328,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 						{Network: projectNetworkId},
 						{Network: sc.NetworkInternet, NoAutoAcquireIp: true, Ips: []string{"1.2.3.42"}},
 					},
+					FilesystemLayout: new("debian"),
 				}
 				return req, nil
 			},
@@ -333,6 +339,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 							Generation: 1,
 							Labels: &apiv2.Labels{
 								Labels: map[string]string{
+									"machine.metal-stack.io/chassis":             "chassis-123",
 									"machine.metal-stack.io/network.primary.asn": "4210000020",
 									"machine.metal-stack.io/rack":                "rack01",
 								},
