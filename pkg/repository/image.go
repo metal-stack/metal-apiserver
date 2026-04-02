@@ -150,6 +150,7 @@ func (r *imageRepository) convertToInternal(ctx context.Context, msg *apiv2.Imag
 	}
 	return image, nil
 }
+
 func (r *imageRepository) convertToProto(ctx context.Context, in *metal.Image) (*apiv2.Image, error) {
 	var features []apiv2.ImageFeature
 	for feature := range in.Features {
@@ -199,13 +200,15 @@ func (r *imageRepository) convertToProto(ctx context.Context, in *metal.Image) (
 // If version is not fully specified, e.g. ubuntu-19.10 or ubuntu-19.10
 // then the most recent ubuntu image (ubuntu-19.10.20200407) is returned
 // If patch is specified e.g. ubuntu-20.04.20200502 then this exact image is searched.
-func (r *imageRepository) GetMostRecentImageFor(ctx context.Context, id string) (*apiv2.Image, error) {
-	metalImages, err := r.s.ds.Image().List(ctx, queries.ImageFilter(&apiv2.ImageQuery{}))
+func (r *imageRepository) GetMostRecentImageFor(ctx context.Context, rq *apiv2.ImageServiceLatestRequest) (*apiv2.Image, error) {
+	images, err := r.list(ctx, &apiv2.ImageQuery{
+		Classification: rq.Classification,
+	})
 	if err != nil {
-		return nil, err
+		return nil, errorutil.Convert(err)
 	}
 
-	internalLatest, err := r.getMostRecentImageFor(id, metalImages)
+	internalLatest, err := r.getMostRecentImageFor(rq.Os, images)
 	if err != nil {
 		return nil, err
 	}

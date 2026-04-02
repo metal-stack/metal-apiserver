@@ -155,13 +155,7 @@ func (r *machineRepository) matchScope(machine *metal.Machine) bool {
 }
 
 func (r *machineRepository) create(ctx context.Context, req *apiv2.MachineServiceCreateRequest) (*metal.Machine, error) {
-
-	spec, err := r.createMachineAllocationSpec(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-
-	machine, err := r.allocateMachine(ctx, spec)
+	machine, err := r.allocateMachine(ctx, req)
 	if err != nil {
 		return nil, err
 	}

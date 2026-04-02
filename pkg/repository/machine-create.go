@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
 	"strconv"
 	"time"
 
@@ -15,24 +14,11 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
+	metalcommon "github.com/metal-stack/metal-lib/pkg/metal"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/metal-stack/metal-lib/pkg/tag"
 	"github.com/samber/lo"
 )
-
-// machineAllocationSpec is a specification for a machine allocation
-// FIXME this is weird
-type machineAllocationSpec struct {
-	UUID        string
-	PartitionID string
-	allocation  metal.MachineAllocation
-	Machine     *metal.Machine
-	Size        *metal.Size
-	Image       *metal.Image
-	// Tags          []string
-	Networks      []*apiv2.MachineAllocationNetwork
-	PlacementTags []string
-}
 
 // allocationNetwork is intermediate struct to create machine networks from regular networks during machine allocation
 type allocationNetwork struct {
@@ -41,24 +27,18 @@ type allocationNetwork struct {
 	auto    bool
 }
 
-func (r *machineRepository) createMachineAllocationSpec(ctx context.Context, req *apiv2.MachineServiceCreateRequest) (*machineAllocationSpec, error) {
+func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.MachineServiceCreateRequest) (allocatedMachine *metal.Machine, err error) {
 	var (
-		uuid        = pointer.SafeDeref(req.Uuid)
-		name        = req.Name
-		description = pointer.SafeDeref(req.Description)
-		hostname    = pointer.SafeDerefOrDefault(req.Hostname, "metal")
-		userdata    = pointer.SafeDeref(req.Userdata)
-		creator     string
-
-		partitionID = pointer.SafeDeref(req.Partition)
+		fsl         *metal.FilesystemLayout
 		sizeID      = pointer.SafeDeref(req.Size)
-
-		fwrules *metal.FirewallRules
-		role    = metal.RoleMachine
-
-		m *metal.Machine
+		partitionID = pointer.SafeDeref(req.Partition)
+		imageID     = req.Image
+		creator     string
+		machine     *metal.Machine
+		role        = metal.RoleMachine
+		fwrules     *metal.FirewallRules
+		vpn         *metal.MachineVPN
 	)
-
 	// figure out creator
 	token, ok := token.TokenFromContext(ctx)
 	if ok {
@@ -67,6 +47,52 @@ func (r *machineRepository) createMachineAllocationSpec(ctx context.Context, req
 		// TODO can we ensure we get a token with the correct user if called from mcm ?
 		// Or is it sufficient if the cluster creator is set correct.
 		return nil, errorutil.Unauthenticated("unable to get user from context")
+	}
+
+	// Allocation of a specific machine is requested, therefore size and partition are not given, fetch them
+	if req.Uuid != nil {
+		possibleMachine, err := r.s.ds.Machine().Get(ctx, *req.Uuid)
+		if err != nil {
+			return nil, err
+		}
+
+		machine = possibleMachine
+		sizeID = machine.SizeID
+		partitionID = machine.PartitionID
+	}
+
+	// FIXME if image is given full-qualified classification filter is not applied
+
+	_, imageVersion, err := metalcommon.GetOsAndSemverFromImage(req.Image)
+	if err != nil {
+		return nil, err
+	}
+	if imageVersion.Patch() == 0 {
+		image, err := r.s.Image().AdditionalMethods().GetMostRecentImageFor(ctx, &apiv2.ImageServiceLatestRequest{
+			Os:             req.Image,
+			Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED.Enum(),
+		})
+		if err != nil {
+			return nil, err
+		}
+		imageID = image.Id
+	}
+
+	if req.FilesystemLayout == nil {
+		var fsls metal.FilesystemLayouts
+		fsls, err := r.s.ds.FilesystemLayout().List(ctx, nil)
+		if err != nil {
+			return nil, err
+		}
+		fsl, err = fsls.From(sizeID, imageID)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		fsl, err = r.s.ds.FilesystemLayout().Get(ctx, *req.FilesystemLayout)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if req.AllocationType == apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL {
@@ -78,28 +104,9 @@ func (r *machineRepository) createMachineAllocationSpec(ctx context.Context, req
 			}
 			fwrules = fwr
 		}
-	}
 
-	// Allocation of a specific machine is requested, therefore size and partition are not given, fetch them
-	if uuid != "" {
-		possibleMachine, err := r.s.ds.Machine().Get(ctx, uuid)
-		if err != nil {
-			return nil, err
-		}
-
-		m = possibleMachine
-		sizeID = m.SizeID
-		partitionID = m.PartitionID
-	}
-
-	image, err := r.s.ds.Image().Get(ctx, req.Image)
-	if err != nil {
-		return nil, err
-	}
-
-	size, err := r.s.ds.Size().Get(ctx, sizeID)
-	if err != nil {
-		return nil, err
+		// FIXME implement VPN authkey generation by calling the vpn-service
+		vpn = &metal.MachineVPN{}
 	}
 
 	partition, err := r.s.ds.Partition().Get(ctx, partitionID)
@@ -130,78 +137,13 @@ func (r *machineRepository) createMachineAllocationSpec(ctx context.Context, req
 		}
 	}
 
-	var (
-		labels = make(map[string]string)
-	)
-
-	if req.Labels != nil {
-		maps.Copy(labels, req.Labels.Labels)
-	}
-
-	return &machineAllocationSpec{
-		allocation: metal.MachineAllocation{
-			Creator:            creator,
-			UUID:               uuid,
-			Name:               name,
-			Description:        description,
-			Hostname:           hostname,
-			Project:            req.Project,
-			SSHPubKeys:         req.SshPublicKeys,
-			UserData:           userdata,
-			Role:               role,
-			FirewallRules:      fwrules,
-			DNSServers:         dnsServers,
-			NTPServers:         ntpServers,
-			Labels:             labels,
-			FilesystemLayoutID: pointer.SafeDeref(req.FilesystemLayout),
-		},
-		PartitionID:   partitionID,
-		Machine:       m,
-		Size:          size,
-		Image:         image,
-		Networks:      req.Networks,
-		PlacementTags: req.PlacementTags,
-	}, nil
-
-}
-
-/* TODO remove after impl.
-   // PrivatePrimaryUnshared is a network which is for machines which is private
-   PrivatePrimaryUnshared = "privateprimaryunshared" => CHILD
-   // PrivatePrimaryShared is a network which is for machines which is private and shared for other networks
-   // This is the case for firewalls and nodes in storage clusters
-   PrivatePrimaryShared = "privateprimaryshared" => CHILD_SHARED
-   // PrivateSecondaryShared is a network which is for machines which is consumed from a other shared network
-   // This is the case for firewall in other clusters which consume the storage
-   PrivateSecondaryShared = "privatesecondaryshared" => CHILD_SHARED if machine/firewall project != network project
-*/
-
-func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAllocationSpec) (allocatedMachine *metal.Machine, err error) {
-	var fsl *metal.FilesystemLayout
-	if spec.allocation.FilesystemLayoutID == "" {
-		var fsls metal.FilesystemLayouts
-		fsls, err := r.s.ds.FilesystemLayout().List(ctx, nil)
+	if req.Uuid == nil {
+		machineCandidate, err := r.findWaitingMachine(ctx, partitionID, req.Project, sizeID, req.PlacementTags, role)
 		if err != nil {
 			return nil, err
 		}
-		fsl, err = fsls.From(spec.Size.ID, spec.Image.ID)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		fsl, err = r.s.ds.FilesystemLayout().Get(ctx, spec.allocation.FilesystemLayoutID)
-		if err != nil {
-			return nil, err
-		}
+		machine = machineCandidate
 	}
-
-	machineCandidate, err := r.findMachineCandidate(ctx, spec)
-	if err != nil {
-		return nil, err
-	}
-
-	// as some fields in the allocation spec are optional, they will now be clearly defined by the machine candidate
-	spec.UUID = machineCandidate.ID
 
 	allocationUUID, err := uuid.NewV7()
 	if err != nil {
@@ -211,40 +153,43 @@ func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAl
 	alloc := &metal.MachineAllocation{
 		UUID:            allocationUUID.String(),
 		Created:         time.Now(),
-		Creator:         spec.allocation.Creator,
-		Name:            spec.allocation.Name,
-		Description:     spec.allocation.Description,
-		Hostname:        spec.allocation.Hostname,
-		Project:         spec.allocation.Project,
-		ImageID:         spec.Image.ID,
-		UserData:        spec.allocation.UserData,
-		SSHPubKeys:      spec.allocation.SSHPubKeys,
+		Creator:         creator,
+		Name:            req.Name,
+		Description:     pointer.SafeDeref(req.Description),
+		Hostname:        pointer.SafeDerefOrDefault(req.Hostname, "metal"),
+		Project:         req.Project,
+		ImageID:         imageID,
+		UserData:        pointer.SafeDeref(req.Userdata),
+		SSHPubKeys:      req.SshPublicKeys,
 		MachineNetworks: []*metal.MachineNetwork{},
-		Role:            spec.allocation.Role,
-		VPN:             spec.allocation.VPN,
-		FirewallRules:   spec.allocation.FirewallRules,
-		DNSServers:      spec.allocation.DNSServers,
-		NTPServers:      spec.allocation.NTPServers,
-		Labels:          spec.allocation.Labels,
+		Role:            role,
+		VPN:             vpn,
+		FirewallRules:   fwrules,
+		DNSServers:      dnsServers,
+		NTPServers:      ntpServers,
 	}
 
-	err = fsl.Matches(machineCandidate.Hardware)
+	if req.Labels != nil && req.Labels.Labels != nil {
+		alloc.Labels = req.Labels.Labels
+	}
+
+	err = fsl.Matches(machine.Hardware)
 	if err != nil {
 		return nil, fmt.Errorf("unable to check for fsl match:%w", err)
 	}
 	alloc.FilesystemLayout = fsl
 
-	networks, err := r.convertToMetalAllocationNetwork(ctx, spec)
+	networks, err := r.convertToMetalAllocationNetwork(ctx, req.Networks, partitionID, role)
 	if err != nil {
 		return nil, fmt.Errorf("unable to gather networks:%w", err)
 	}
-	err = r.makeNetworks(ctx, spec, networks, alloc)
+	err = r.makeNetworks(ctx, machine.ID, req.Project, req.Name, networks, alloc)
 	if err != nil {
 		return nil, fmt.Errorf("unable to make networks:%w", err)
 	}
 
 	// refetch the machine to catch possible updates after dealing with the network...
-	machine, err := r.s.ds.Machine().Get(ctx, machineCandidate.ID)
+	machine, err = r.s.ds.Machine().Get(ctx, machine.ID)
 	if err != nil {
 		return nil, fmt.Errorf("unable to find machine:%w", err)
 	}
@@ -264,35 +209,16 @@ func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAl
 	return machine, nil
 }
 
-func (r *machineRepository) findMachineCandidate(ctx context.Context, spec *machineAllocationSpec) (*metal.Machine, error) {
-	// TODO remove and do in findWaitingMachine
-	var (
-		err     error
-		machine *metal.Machine
-	)
-	if spec.Machine == nil {
-		// requesting allocation of an arbitrary ready machine in partition with given size
-		machine, err = r.findWaitingMachine(ctx, spec)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		// requesting allocation of a specific, existing machine
-		machine = spec.Machine
-	}
-	return machine, err
-}
-
 // FindWaitingMachine returns an available, not allocated, waiting and alive machine of given size within the given partition.
-func (r *machineRepository) findWaitingMachine(ctx context.Context, spec *machineAllocationSpec) (*metal.Machine, error) {
-	if err := r.s.ds.Lock(ctx, spec.PartitionID, generic.NewLockOptExpirationTimeout(10*time.Second)); err != nil {
+func (r *machineRepository) findWaitingMachine(ctx context.Context, partition, project, size string, placementTags []string, role metal.Role) (*metal.Machine, error) {
+	if err := r.s.ds.Lock(ctx, partition, generic.NewLockOptExpirationTimeout(10*time.Second)); err != nil {
 		return nil, fmt.Errorf("too many parallel machine allocations taking place, try again later:%w", err)
 	}
-	defer r.s.ds.Unlock(ctx, spec.PartitionID)
+	defer r.s.ds.Unlock(ctx, partition)
 
 	candidates, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
-		Partition:    &spec.PartitionID,
-		Size:         &spec.Size.ID,
+		Partition:    &partition,
+		Size:         &size,
 		State:        apiv2.MachineState_MACHINE_STATE_AVAILABLE.Enum(), // Machines which are locked or reserved are not considered
 		Waiting:      new(true),
 		Preallocated: new(false),
@@ -327,14 +253,9 @@ func (r *machineRepository) findWaitingMachine(ctx context.Context, spec *machin
 	}
 
 	partitionMachines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
-		Partition: &spec.PartitionID,
-		Size:      &spec.Size.ID,
+		Partition: &partition,
+		Size:      &size,
 	}))
-	if err != nil {
-		return nil, err
-	}
-
-	reservations, err := r.s.ds.SizeReservation().List(ctx, queries.SizeReservationFilter(&apiv2.SizeReservationQuery{Partition: &spec.PartitionID, Size: &spec.Size.ID}))
 	if err != nil {
 		return nil, err
 	}
@@ -348,17 +269,22 @@ func (r *machineRepository) findWaitingMachine(ctx context.Context, spec *machin
 			continue
 		}
 		machinesByProject[m.Allocation.Project] = append(machinesByProject[m.Allocation.Project], m)
-		if m.Allocation.Project == spec.allocation.Project && m.Allocation.Role == spec.allocation.Role {
+		if m.Allocation.Project == project && m.Allocation.Role == role {
 			projectMachines = append(projectMachines, m)
 		}
 	}
 
-	ok := r.checkSizeReservations(available, spec.allocation.Project, machinesByProject, reservations)
+	reservations, err := r.s.ds.SizeReservation().List(ctx, queries.SizeReservationFilter(&apiv2.SizeReservationQuery{Partition: &partition, Size: &size}))
+	if err != nil {
+		return nil, err
+	}
+
+	ok := r.checkSizeReservations(available, project, machinesByProject, reservations)
 	if !ok {
 		return nil, errors.New("no machine available")
 	}
 
-	desiredMachine, err := r.selectMachine(available, projectMachines, spec.PlacementTags)
+	desiredMachine, err := r.selectMachine(available, projectMachines, placementTags)
 	if err != nil {
 		return nil, err
 	}
@@ -403,12 +329,12 @@ func (r *machineRepository) checkSizeReservations(available []*metal.Machine, pr
 	return amount < len(available)
 }
 
-func (r *machineRepository) convertToMetalAllocationNetwork(ctx context.Context, spec *machineAllocationSpec) ([]*allocationNetwork, error) {
+func (r *machineRepository) convertToMetalAllocationNetwork(ctx context.Context, networks []*apiv2.MachineAllocationNetwork, partition string, role metal.Role) ([]*allocationNetwork, error) {
 	var (
 		specNetworks []*allocationNetwork
 	)
 
-	for _, networkSpec := range spec.Networks {
+	for _, networkSpec := range networks {
 		auto := len(networkSpec.Ips) == 0
 		network, err := r.s.ds.Network().Get(ctx, networkSpec.Network)
 		if err != nil {
@@ -434,9 +360,9 @@ func (r *machineRepository) convertToMetalAllocationNetwork(ctx context.Context,
 	}
 
 	// Add underlay to firewall
-	if spec.allocation.Role == metal.RoleFirewall {
+	if role == metal.RoleFirewall {
 		underlay, err := r.s.ds.Network().Find(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{
-			Partition: &spec.PartitionID,
+			Partition: &partition,
 			Type:      apiv2.NetworkType_NETWORK_TYPE_UNDERLAY.Enum(),
 		}))
 		if err != nil {
@@ -455,7 +381,7 @@ func (r *machineRepository) convertToMetalAllocationNetwork(ctx context.Context,
 // makeNetworks creates network entities and ip addresses as specified in the allocation network map.
 // created networks are added to the machine allocation directly after their creation. This way, the rollback mechanism
 // is enabled to clean up networks that were already created.
-func (r *machineRepository) makeNetworks(ctx context.Context, spec *machineAllocationSpec, networks []*allocationNetwork, alloc *metal.MachineAllocation) error {
+func (r *machineRepository) makeNetworks(ctx context.Context, machineUUID, project, name string, networks []*allocationNetwork, alloc *metal.MachineAllocation) error {
 	// the metal-networker expects to have the same unique ASN on all networks of this machine
 	asn, err := r.acquireASN(ctx)
 	if err != nil {
@@ -465,7 +391,7 @@ func (r *machineRepository) makeNetworks(ctx context.Context, spec *machineAlloc
 		if n == nil || n.network == nil {
 			continue
 		}
-		machineNetwork, err := r.makeMachineNetwork(ctx, spec, n, *asn)
+		machineNetwork, err := r.makeMachineNetwork(ctx, machineUUID, project, name, n, *asn)
 		if err != nil {
 			return err
 		}
@@ -477,27 +403,27 @@ func (r *machineRepository) makeNetworks(ctx context.Context, spec *machineAlloc
 
 // FIXME this is the complicated part which needs to be reviewed
 
-func (r *machineRepository) makeMachineNetwork(ctx context.Context, spec *machineAllocationSpec, network *allocationNetwork, asn uint32) (*metal.MachineNetwork, error) {
+func (r *machineRepository) makeMachineNetwork(ctx context.Context, machineUUID, project, name string, network *allocationNetwork, asn uint32) (*metal.MachineNetwork, error) {
 	if network.auto {
 		if len(network.network.Prefixes) == 0 {
 			return nil, fmt.Errorf("given network %s does not have prefixes configured", network.network.ID)
 		}
 		for _, af := range network.network.Prefixes.AddressFamilies() {
-			ipAddress, ipParentCidr, err := r.s.IP(spec.allocation.Project).AdditionalMethods().allocateRandomIP(ctx, network.network, af)
+			ipAddress, ipParentCidr, err := r.s.IP(project).AdditionalMethods().allocateRandomIP(ctx, network.network, af)
 			if err != nil {
 				return nil, fmt.Errorf("unable to allocate an ip in network: %s %w", network.network.ID, err)
 			}
 			ip := &metal.IP{
 				IPAddress:        ipAddress,
 				ParentPrefixCidr: ipParentCidr,
-				Name:             spec.allocation.Name,
+				Name:             name,
 				Description:      "autoassigned",
 				NetworkID:        network.network.ID,
 				Type:             metal.Ephemeral,
-				ProjectID:        spec.allocation.Project,
+				ProjectID:        project,
 			}
 			// FIXME ugly implementation
-			ip.AddMachineId(spec.UUID)
+			ip.AddMachineId(machineUUID)
 
 			_, err = r.s.ds.IP().Create(ctx, ip)
 			if err != nil {
@@ -511,7 +437,7 @@ func (r *machineRepository) makeMachineNetwork(ctx context.Context, spec *machin
 	// add a machine tag to all of them
 	var ipAddresses []string
 	for _, ip := range network.ips {
-		ip.AddMachineId(spec.UUID)
+		ip.AddMachineId(machineUUID)
 		err := r.s.ds.IP().Update(ctx, ip)
 		if err != nil {
 			return nil, err

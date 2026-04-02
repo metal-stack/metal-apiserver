@@ -77,7 +77,7 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 		return err
 	}
 
-	image, err := r.s.Image().AdditionalMethods().GetMostRecentImageFor(ctx, req.Image)
+	image, err := r.s.Image().AdditionalMethods().GetMostRecentImageFor(ctx, &apiv2.ImageServiceLatestRequest{Os: req.Image})
 	if err != nil {
 		return err
 	}

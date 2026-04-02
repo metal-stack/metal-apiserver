@@ -126,7 +126,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 							},
 						},
 						Allocation: &apiv2.MachineAllocation{
-							Meta:     &apiv2.Meta{Labels: &apiv2.Labels{}},
+							Meta:     &apiv2.Meta{},
 							Name:     "testmachine",
 							Hostname: "metal", // Because it was not set during create
 							Image:    dc.GetImages()[sc.ImageDebian12],
@@ -238,7 +238,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 							},
 						},
 						Allocation: &apiv2.MachineAllocation{
-							Meta:     &apiv2.Meta{Labels: &apiv2.Labels{}},
+							Meta:     &apiv2.Meta{},
 							Name:     "testmachine-with-internet-ip",
 							Hostname: "metal", // Because it was not set during create
 							Image:    dc.GetImages()[sc.ImageDebian12],
@@ -370,7 +370,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 							},
 						},
 						Allocation: &apiv2.MachineAllocation{
-							Meta:     &apiv2.Meta{Labels: &apiv2.Labels{}},
+							Meta:     &apiv2.Meta{},
 							Name:     "testmachine-with-internet-ip",
 							Hostname: "metal", // Because it was not set during create
 							Image:    dc.GetImages()[sc.ImageDebian12],
@@ -579,7 +579,7 @@ func Test_machineServiceServer_CreateFirewall(t *testing.T) {
 							},
 						},
 						Allocation: &apiv2.MachineAllocation{
-							Meta:     &apiv2.Meta{Labels: &apiv2.Labels{}},
+							Meta:     &apiv2.Meta{},
 							Name:     "testfirewall",
 							Hostname: "metal", // Because it was not set during create
 							Image:    dc.GetImages()[sc.ImageFirewall3_0],
@@ -622,6 +622,7 @@ func Test_machineServiceServer_CreateFirewall(t *testing.T) {
 							AllocationType:   apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
 							CreatedBy:        "unit-test-user",
 							Project:          sc.Tenant1Project1,
+							Vpn:              &apiv2.MachineVPN{},
 						},
 					},
 				}
@@ -824,6 +825,7 @@ func Test_machineServiceServer_CreateFirewall(t *testing.T) {
 									},
 								},
 							},
+							Vpn: &apiv2.MachineVPN{},
 						},
 					},
 				}
