@@ -69,13 +69,13 @@ func (r *machineRepository) createMachineAllocationSpec(ctx context.Context, req
 	} else {
 		// TODO can we ensure we get a token with the correct user if called from mcm ?
 		// Or is it sufficient if the cluster creator is set correct.
-		return nil, errorutil.FailedPrecondition("unable to get user from context")
+		return nil, errorutil.Unauthenticated("unable to get user from context")
 	}
 
 	if req.AllocationType == apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL {
 		role = metal.RoleFirewall
 		if req.FirewallSpec != nil && req.FirewallSpec.FirewallRules != nil {
-			fwr, err := r.s.UnscopedMachine().AdditionalMethods().ConvertFirewallRulesToInternal(ctx, req.FirewallSpec.FirewallRules)
+			fwr, err := r.convertFirewallRulesToInternal(req.FirewallSpec.FirewallRules)
 			if err != nil {
 				return nil, err
 			}
@@ -180,10 +180,6 @@ func (r *machineRepository) createMachineAllocationSpec(ctx context.Context, req
 */
 
 func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAllocationSpec) (allocatedMachine *metal.Machine, err error) {
-	if err := r.isSizeAndImageCompatible(ctx, spec.Size, spec.Image); err != nil {
-		return nil, err
-	}
-
 	var fsl *metal.FilesystemLayout
 	if spec.allocation.FilesystemLayoutID == "" {
 		var fsls metal.FilesystemLayouts
@@ -271,19 +267,8 @@ func (r *machineRepository) allocateMachine(ctx context.Context, spec *machineAl
 	return machine, nil
 }
 
-func (r *machineRepository) isSizeAndImageCompatible(ctx context.Context, size *metal.Size, image *metal.Image) error {
-	sic, err := r.s.ds.SizeImageConstraint().Get(ctx, size.ID)
-	if err != nil && !errorutil.IsNotFound(err) {
-		return err
-	}
-	if sic == nil {
-		return nil
-	}
-
-	return sic.Matches(*size, *image)
-}
-
 func (r *machineRepository) findMachineCandidate(ctx context.Context, spec *machineAllocationSpec) (*metal.Machine, error) {
+	// TODO remove and do in findWaitingMachine
 	var (
 		err     error
 		machine *metal.Machine
@@ -297,23 +282,11 @@ func (r *machineRepository) findMachineCandidate(ctx context.Context, spec *mach
 	} else {
 		// requesting allocation of a specific, existing machine
 		machine = spec.Machine
-		if machine.Allocation != nil {
-			return nil, errors.New("machine is already allocated")
-		}
-		if spec.PartitionID != "" && machine.PartitionID != spec.PartitionID {
-			return nil, fmt.Errorf("machine %q is not in the requested partition: %s", machine.ID, spec.PartitionID)
-		}
-
-		if spec.Size != nil && machine.SizeID != spec.Size.ID {
-			return nil, fmt.Errorf("machine %q does not have the requested size: %s", machine.ID, spec.Size.ID)
-		}
 	}
 	return machine, err
 }
 
 // FindWaitingMachine returns an available, not allocated, waiting and alive machine of given size within the given partition.
-// TODO: the algorithm can be optimized / shortened by using a rethinkdb join command and then using .Sample(1)
-// but current implementation should have a slightly better readability.
 func (r *machineRepository) findWaitingMachine(ctx context.Context, spec *machineAllocationSpec) (*metal.Machine, error) {
 	if err := r.s.ds.Lock(ctx, spec.PartitionID, generic.NewLockOptExpirationTimeout(10*time.Second)); err != nil {
 		return nil, fmt.Errorf("too many parallel machine allocations taking place, try again later:%w", err)

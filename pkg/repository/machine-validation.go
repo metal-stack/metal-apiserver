@@ -8,7 +8,6 @@ import (
 	"github.com/metal-stack/api/go/enum"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"golang.org/x/crypto/ssh"
@@ -19,32 +18,6 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 	project, err := r.s.Project(req.Project).Get(ctx, req.Project)
 	if err != nil {
 		return err
-	}
-
-	// TODO add Test, requires adoption in datacenter.go to create projects with quota
-	// also add quota check for ipaddresses
-	// Maybe check quotas in a interceptor ?
-	quotas, err := r.s.Project(req.Project).AdditionalMethods().GetQuotas(ctx, project.Uuid)
-	if err != nil {
-		return err
-	}
-
-	// Check if more machine would be allocated than project quota permits
-	if quotas != nil && quotas.GetMachine() != nil {
-		actualMachines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
-			Allocation: &apiv2.MachineAllocationQuery{
-				Project: &req.Project,
-				// TODO in metal-api this was set to FirewallRole ?
-				AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE.Enum(),
-			},
-		}))
-		if err != nil {
-			return err
-		}
-		mq := quotas.GetMachine()
-		if mq.Max != nil && len(actualMachines) >= int(*mq.Max) {
-			return errorutil.FailedPrecondition("project quota for machines reached max:%d", *mq.Max)
-		}
 	}
 
 	var (
@@ -99,6 +72,12 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 	image, err := r.s.Image().AdditionalMethods().GetMostRecentImageFor(ctx, req.Image, images)
 	if err != nil {
 		return err
+	}
+
+	if err := r.s.SizeImageConstraint().AdditionalMethods().Try(ctx, &apiv2.SizeImageConstraintServiceTryRequest{Size: sizeId, Image: image.Id}); err != nil {
+		if !errorutil.IsNotFound(err) {
+			return err
+		}
 	}
 
 	if req.FilesystemLayout != nil {
@@ -236,7 +215,7 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 	}
 
 	if underlayNetworkCount > 0 {
-		return fmt.Errorf("firewalls must be allocated in a underlay but this must not be specified")
+		return fmt.Errorf("underlays cannot be specified in a machine allocation request (this is done automatically for firewalls)")
 	}
 
 	if superNetworkCount > 0 {
@@ -249,6 +228,10 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 
 	if (childNetworkCount+childSharedNetworkCount != 1) && req.AllocationType == apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE {
 		return fmt.Errorf("machines must be allocated in exactly one child or child_shared network")
+	}
+
+	if (childNetworkCount+childSharedNetworkCount < 1) && req.AllocationType == apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL {
+		return fmt.Errorf("firewalls must have at least one child or child_shared network")
 	}
 
 	if childSharedNetworkCount > 1 {

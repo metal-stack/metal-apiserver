@@ -214,7 +214,7 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 				return &testDC
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument(`device:/dev/sda does not exist on given hardware`), // TODO InvalidArgument
+			wantErr: errorutil.InvalidArgument(`device:/dev/sda does not exist on given hardware`),
 		},
 		{
 			name: "no fsl is given and no matching one found",
@@ -470,7 +470,7 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 			want: nil,
 		},
 		{
-			name: "machine with private network in wrong network",
+			name: "machine with private network in wrong project network",
 			req:  nil, // set below
 			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
 				testDC := sc.DefaultDatacenter
@@ -890,7 +890,29 @@ func Test_machineServiceServer_ValidateCreateFirewall(t *testing.T) {
 						{Network: projectNetworkId},
 					},
 				}
-				return req, errorutil.InvalidArgument(`firewalls must be allocated in a underlay but this must not be specified`)
+				return req, errorutil.InvalidArgument(`underlays cannot be specified in a machine allocation request (this is done automatically for firewalls)`)
+			},
+			want: nil,
+		},
+		{
+			name: "firewall with no child shared networks",
+			req:  nil, // set below
+			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
+				testDC := sc.DefaultDatacenter
+				testDC.ProjectsPerTenant = 2
+				dc.Create(&testDC)
+
+				req := &apiv2.MachineServiceCreateRequest{
+					Project:        sc.Tenant1Project2,
+					Partition:      new(sc.Partition1),
+					Size:           new(sc.SizeC1Large),
+					Image:          sc.ImageFirewall3_0,
+					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
+					Networks: []*apiv2.MachineAllocationNetwork{
+						{Network: sc.NetworkInternet},
+					},
+				}
+				return req, errorutil.InvalidArgument(`firewalls must have at least one child or child_shared network`)
 			},
 			want: nil,
 		},

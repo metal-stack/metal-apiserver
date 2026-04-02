@@ -252,7 +252,7 @@ func (r *machineRepository) convertToInternal(ctx context.Context, machine *apiv
 	panic("unimplemented")
 }
 
-func (r *machineRepository) ConvertFirewallRulesToInternal(ctx context.Context, firewallRules *apiv2.FirewallRules) (*metal.FirewallRules, error) {
+func (r *machineRepository) convertFirewallRulesToInternal(firewallRules *apiv2.FirewallRules) (*metal.FirewallRules, error) {
 	var (
 		fwrules = &metal.FirewallRules{
 			Egress:  []metal.EgressRule{},
