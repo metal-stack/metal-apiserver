@@ -39,9 +39,9 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 		vpn         *metal.MachineVPN
 	)
 	// figure out creator
-	token, ok := token.TokenFromContext(ctx)
+	tok, ok := token.TokenFromContext(ctx)
 	if ok {
-		creator = token.User
+		creator = tok.User
 	} else {
 		// TODO can we ensure we get a token with the correct user if called from mcm ?
 		// Or is it sufficient if the cluster creator is set correct.
@@ -119,28 +119,27 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 
 	// DNS and NTP Servers from request have precedence
 	if len(req.DnsServers) != 0 {
-		dnsServers = metal.DNSServers{}
-		for _, s := range req.DnsServers {
-			dnsServers = append(dnsServers, metal.DNSServer{
-				IP: s.Ip,
-			})
-		}
+		dnsServers = appendDNSServers(dnsServers, req.DnsServers)
 	}
 	if len(req.NtpServers) != 0 {
-		ntpServers = []metal.NTPServer{}
-		for _, s := range req.NtpServers {
-			ntpServers = append(ntpServers, metal.NTPServer{
-				Address: s.Address,
-			})
-		}
+		ntpServers = appendNTPServers(ntpServers, req.NtpServers)
 	}
 
 	if req.Uuid == nil {
+		if err := r.s.ds.Lock(ctx, partitionID, generic.NewLockOptExpirationTimeout(10*time.Second)); err != nil {
+			return nil, fmt.Errorf("too many parallel machine allocations taking place, try again later:%w", err)
+		}
+		defer r.s.ds.Unlock(ctx, partitionID)
+
 		machineCandidate, err := r.findWaitingMachine(ctx, partitionID, req.Project, sizeID, req.PlacementTags, role)
 		if err != nil {
 			return nil, err
 		}
 		machine = machineCandidate
+	}
+
+	if machine == nil {
+		return nil, fmt.Errorf("no machine found")
 	}
 
 	allocationUUID, err := uuid.NewV7()
@@ -209,11 +208,6 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 
 // FindWaitingMachine returns an available, not allocated, waiting and alive machine of given size within the given partition.
 func (r *machineRepository) findWaitingMachine(ctx context.Context, partition, project, size string, placementTags []string, role metal.Role) (*metal.Machine, error) {
-	if err := r.s.ds.Lock(ctx, partition, generic.NewLockOptExpirationTimeout(10*time.Second)); err != nil {
-		return nil, fmt.Errorf("too many parallel machine allocations taking place, try again later:%w", err)
-	}
-	defer r.s.ds.Unlock(ctx, partition)
-
 	candidates, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
 		Partition:    &partition,
 		Size:         &size,
@@ -494,4 +488,26 @@ func (r *machineRepository) makeMachineTags(m *metal.Machine) []string {
 	tags = lo.Uniq(tags)
 
 	return tags
+}
+
+func appendDNSServers(current metal.DNSServers, requestDNSServers []*apiv2.DNSServer) metal.DNSServers {
+	if len(requestDNSServers) == 0 {
+		return current
+	}
+	result := make(metal.DNSServers, 0, len(requestDNSServers))
+	for _, s := range requestDNSServers {
+		result = append(result, metal.DNSServer{IP: s.Ip})
+	}
+	return result
+}
+
+func appendNTPServers(current []metal.NTPServer, requestNTPServers []*apiv2.NTPServer) []metal.NTPServer {
+	if len(requestNTPServers) == 0 {
+		return current
+	}
+	result := make([]metal.NTPServer, 0, len(requestNTPServers))
+	for _, s := range requestNTPServers {
+		result = append(result, metal.NTPServer{Address: s.Address})
+	}
+	return result
 }

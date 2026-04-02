@@ -160,20 +160,7 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 		}
 
 		if n.Type != nil {
-			switch nt := *n.Type; nt {
-			case apiv2.NetworkType_NETWORK_TYPE_CHILD:
-				networkTypeCount[nt]++
-			case apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED:
-				networkTypeCount[nt]++
-			case apiv2.NetworkType_NETWORK_TYPE_EXTERNAL:
-				networkTypeCount[nt]++
-			case apiv2.NetworkType_NETWORK_TYPE_UNDERLAY:
-				networkTypeCount[nt]++
-			case apiv2.NetworkType_NETWORK_TYPE_SUPER, apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED:
-				networkTypeCount[nt]++
-			case apiv2.NetworkType_NETWORK_TYPE_UNSPECIFIED:
-				return fmt.Errorf("unknown network type %s", nt)
-			}
+			networkTypeCount[*n.Type]++
 		}
 
 		for _, ip := range nw.Ips {
@@ -217,7 +204,7 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 		return fmt.Errorf("super networks can not be specified as allocation networks")
 	}
 
-	if networkTypeCount[apiv2.NetworkType_NETWORK_TYPE_EXTERNAL] < 1 && req.AllocationType == apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL {
+	if networkTypeCount[apiv2.NetworkType_NETWORK_TYPE_EXTERNAL] == 0 && req.AllocationType == apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL {
 		return fmt.Errorf("firewalls must be allocated in at least one external network")
 	}
 
@@ -249,11 +236,7 @@ func (r *machineRepository) validateFirewallSpec(firewallSpec *apiv2.FirewallSpe
 	}
 
 	_, err := r.convertFirewallRulesToInternal(firewallSpec.FirewallRules)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func (r *machineRepository) validateUpdate(ctx context.Context, req *apiv2.MachineServiceUpdateRequest, _ *metal.Machine) error {
