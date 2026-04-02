@@ -297,16 +297,19 @@ func Test_imageServiceServer_Latest(t *testing.T) {
 
 	test.CreateImages(t, testStore, []*adminv2.ImageServiceCreateRequest{
 		{
-			Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
+			Image: &apiv2.Image{Id: "debian-12.0.20241231", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}, Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED},
 		},
 		{
-			Image: &apiv2.Image{Id: "debian-12.0.20250101", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
+			Image: &apiv2.Image{Id: "debian-12.0.20250101", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}, Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED},
 		},
 		{
-			Image: &apiv2.Image{Id: "debian-11.0.20250101", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
+			Image: &apiv2.Image{Id: "debian-11.0.20250101", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}, Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED},
 		},
 		{
-			Image: &apiv2.Image{Id: "debian-12.0.20250201", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}},
+			Image: &apiv2.Image{Id: "debian-12.0.20250201", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}, Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED},
+		},
+		{
+			Image: &apiv2.Image{Id: "debian-12.0.20300101", Url: url, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}, Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_PREVIEW},
 		},
 	})
 
@@ -321,7 +324,37 @@ func Test_imageServiceServer_Latest(t *testing.T) {
 			request: &apiv2.ImageServiceLatestRequest{Os: "debian-12"},
 			want: &apiv2.ImageServiceLatestResponse{
 				Image: &apiv2.Image{
+					Id:             "debian-12.0.20300101",
+					Meta:           &apiv2.Meta{Generation: 0},
+					Url:            url,
+					Name:           new(""),
+					Description:    new(""),
+					Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE},
+					Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_PREVIEW,
+				},
+			},
+		},
+		{
+			name:    "list latest supported debian",
+			request: &apiv2.ImageServiceLatestRequest{Os: "debian-12", Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED.Enum()},
+			want: &apiv2.ImageServiceLatestResponse{
+				Image: &apiv2.Image{
 					Id:             "debian-12.0.20250201",
+					Meta:           &apiv2.Meta{Generation: 0},
+					Url:            url,
+					Name:           new(""),
+					Description:    new(""),
+					Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE},
+					Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED,
+				},
+			},
+		},
+		{
+			name:    "list latest preview debian",
+			request: &apiv2.ImageServiceLatestRequest{Os: "debian-12", Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_PREVIEW.Enum()},
+			want: &apiv2.ImageServiceLatestResponse{
+				Image: &apiv2.Image{
+					Id:             "debian-12.0.20300101",
 					Meta:           &apiv2.Meta{Generation: 0},
 					Url:            url,
 					Name:           new(""),
