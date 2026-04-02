@@ -1,6 +1,7 @@
 package machine
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"testing"
@@ -12,6 +13,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
+	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 )
@@ -20,15 +22,21 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 	t.Parallel()
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	ctx := t.Context()
+
+	// Add token to be able to get the user from the context
+	testToken := apiv2.Token{
+		User:      "unit-test-user",
+		AdminRole: apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+	}
 
 	dc := test.NewDatacenter(t, log)
 	dc.Create(&sc.DefaultDatacenter)
 	defer dc.Close()
 
 	tests := []struct {
-		name string
-		req  *apiv2.MachineServiceCreateRequest
+		name  string
+		req   *apiv2.MachineServiceCreateRequest
+		ctxFn func() context.Context
 		// this func only defines the datacenter spec
 		// must not be defined together with the createRequestFn
 		createDatacenterFn func() *sc.DatacenterSpec
@@ -40,6 +48,13 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 		want            *apiv2.MachineServiceCreateResponse
 		wantErr         error
 	}{
+		{
+			name:    "no token given",
+			req:     &apiv2.MachineServiceCreateRequest{},
+			ctxFn:   func() context.Context { return context.Background() },
+			want:    nil,
+			wantErr: errorutil.Unauthenticated("unable to get user from context"),
+		},
 		{
 			name:    "no project given",
 			req:     &apiv2.MachineServiceCreateRequest{},
@@ -65,6 +80,22 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 			wantErr: errorutil.NotFound(`no size with id "unknown-size" found`),
 		},
 		// UUID is specified
+		{
+			name: "uuid is specified, but user is not admin",
+			req: &apiv2.MachineServiceCreateRequest{
+				Uuid:      new(sc.Machine1),
+				Project:   sc.Tenant1Project1,
+				Partition: new(sc.Partition1),
+			},
+			ctxFn: func() context.Context {
+				testToken := apiv2.Token{
+					User: "unit-test-user",
+				}
+				return token.ContextWithToken(context.Background(), &testToken)
+			},
+			want:    nil,
+			wantErr: errorutil.Unauthenticated("only admins can create machines with a specific uuid"),
+		},
 		{
 			name: "uuid is specified, but partition is given",
 			req: &apiv2.MachineServiceCreateRequest{
@@ -755,6 +786,12 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 			if tt.wantErr == nil {
 				test.Validate(t, tt.req)
 			}
+
+			ctx := token.ContextWithToken(t.Context(), &testToken)
+			if tt.ctxFn != nil {
+				ctx = tt.ctxFn()
+			}
+
 			got, err := m.Create(ctx, tt.req)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
@@ -778,6 +815,12 @@ func Test_machineServiceServer_ValidateCreateFirewall(t *testing.T) {
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
+	// Add token to be able to get the user from the context
+	testToken := apiv2.Token{
+		User:      "unit-test-user",
+		AdminRole: apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+	}
+	ctx = token.ContextWithToken(ctx, &testToken)
 
 	dc := test.NewDatacenter(t, log)
 	dc.Create(&sc.DefaultDatacenter)

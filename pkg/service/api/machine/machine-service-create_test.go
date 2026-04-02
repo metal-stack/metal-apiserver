@@ -25,7 +25,8 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 
 	// Add token to be able to get the user from the context
 	testToken := apiv2.Token{
-		User: "unit-test-user",
+		User:      "unit-test-user",
+		AdminRole: apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
 	}
 	ctx = token.ContextWithToken(ctx, &testToken)
 
@@ -476,7 +477,8 @@ func Test_machineServiceServer_CreateFirewall(t *testing.T) {
 
 	// Add token to be able to get the user from the context
 	testToken := apiv2.Token{
-		User: "unit-test-user",
+		User:      "unit-test-user",
+		AdminRole: apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
 	}
 	ctx = token.ContextWithToken(ctx, &testToken)
 

@@ -8,12 +8,21 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"golang.org/x/crypto/ssh"
 )
 
 func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.MachineServiceCreateRequest) error {
 	r.s.log.Debug("validate create", "req", req)
+
+	token, ok := token.TokenFromContext(ctx)
+	if !ok {
+		// TODO can we ensure we get a token with the correct user if called from mcm ?
+		// Or is it sufficient if the cluster creator is set correct.
+		return errorutil.Unauthenticated("unable to get user from context")
+	}
+
 	project, err := r.s.Project(req.Project).Get(ctx, req.Project)
 	if err != nil {
 		return err
@@ -26,6 +35,10 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 	)
 
 	if req.Uuid != nil {
+		if token.AdminRole == nil || *token.AdminRole != apiv2.AdminRole_ADMIN_ROLE_EDITOR {
+			return errorutil.Unauthenticated("only admins can create machines with a specific uuid")
+		}
+
 		if req.Partition != nil {
 			return fmt.Errorf("when machine id is given, a partition must not be specified")
 		}
@@ -128,12 +141,8 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 	// - user's private network is specified with noauto but no specific IPs are given: this would yield a machine with no ip address
 
 	var (
-		networks                = map[string]bool{}
-		childNetworkCount       int
-		childSharedNetworkCount int
-		externalNetworkCount    int
-		underlayNetworkCount    int
-		superNetworkCount       int
+		networks         = map[string]bool{}
+		networkTypeCount = make(map[apiv2.NetworkType]int)
 	)
 	for _, nw := range req.Networks {
 		n, err := r.s.UnscopedNetwork().Get(ctx, nw.Network)
@@ -155,24 +164,19 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 		}
 
 		if n.Type != nil {
-			if *n.Type == apiv2.NetworkType_NETWORK_TYPE_CHILD {
-				childNetworkCount++
-			}
-
-			if *n.Type == apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED {
-				childSharedNetworkCount++
-			}
-
-			if *n.Type == apiv2.NetworkType_NETWORK_TYPE_EXTERNAL {
-				externalNetworkCount++
-			}
-
-			if *n.Type == apiv2.NetworkType_NETWORK_TYPE_UNDERLAY {
-				underlayNetworkCount++
-			}
-
-			if *n.Type == apiv2.NetworkType_NETWORK_TYPE_SUPER || *n.Type == apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED {
-				superNetworkCount++
+			switch nt := *n.Type; nt {
+			case apiv2.NetworkType_NETWORK_TYPE_CHILD:
+				networkTypeCount[nt]++
+			case apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED:
+				networkTypeCount[nt]++
+			case apiv2.NetworkType_NETWORK_TYPE_EXTERNAL:
+				networkTypeCount[nt]++
+			case apiv2.NetworkType_NETWORK_TYPE_UNDERLAY:
+				networkTypeCount[nt]++
+			case apiv2.NetworkType_NETWORK_TYPE_SUPER, apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED:
+				networkTypeCount[nt]++
+			case apiv2.NetworkType_NETWORK_TYPE_UNSPECIFIED:
+				return fmt.Errorf("unknown network type %s", nt)
 			}
 		}
 
@@ -209,27 +213,27 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 		return fmt.Errorf("given network ids are not unique")
 	}
 
-	if underlayNetworkCount > 0 {
+	if networkTypeCount[apiv2.NetworkType_NETWORK_TYPE_UNDERLAY] > 0 {
 		return fmt.Errorf("underlays cannot be specified in a machine allocation request (this is done automatically for firewalls)")
 	}
 
-	if superNetworkCount > 0 {
+	if (networkTypeCount[apiv2.NetworkType_NETWORK_TYPE_SUPER] + networkTypeCount[apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED]) > 0 {
 		return fmt.Errorf("super networks can not be specified as allocation networks")
 	}
 
-	if externalNetworkCount < 1 && req.AllocationType == apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL {
+	if networkTypeCount[apiv2.NetworkType_NETWORK_TYPE_EXTERNAL] < 1 && req.AllocationType == apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL {
 		return fmt.Errorf("firewalls must be allocated in at least one external network")
 	}
 
-	if (childNetworkCount+childSharedNetworkCount != 1) && req.AllocationType == apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE {
+	if (networkTypeCount[apiv2.NetworkType_NETWORK_TYPE_CHILD]+networkTypeCount[apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED] != 1) && req.AllocationType == apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE {
 		return fmt.Errorf("machines must be allocated in exactly one child or child_shared network")
 	}
 
-	if (childNetworkCount+childSharedNetworkCount < 1) && req.AllocationType == apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL {
+	if (networkTypeCount[apiv2.NetworkType_NETWORK_TYPE_CHILD]+networkTypeCount[apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED] < 1) && req.AllocationType == apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL {
 		return fmt.Errorf("firewalls must have at least one child or child_shared network")
 	}
 
-	if childSharedNetworkCount > 1 {
+	if networkTypeCount[apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED] > 1 {
 		return fmt.Errorf("machines or firewalls must not be allocated in more than one child_shared network")
 	}
 
