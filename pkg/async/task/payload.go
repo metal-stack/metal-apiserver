@@ -1,11 +1,14 @@
 package task
 
+import apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+
 const (
 	TypeIpDelete          TaskType = "ip:delete"
 	TypeNetworkDelete     TaskType = "network:delete"
 	TypeMachineDelete     TaskType = "machine:delete"
 	TypeMachineBMCCommand TaskType = "machine:bmc-command"
 	TypeMachineAllocation TaskType = "machine:allocation"
+	TypeMachineCreate     TaskType = "machine:create"
 )
 
 type (
@@ -51,6 +54,14 @@ type (
 		// UUID of the machine which was allocated and trigger the machine installation
 		UUID string `json:"uuid,omitempty"`
 	}
+
+	// MachineCreatePayload is used to create a transaction to allocate a machine
+	MachineCreatePayload struct {
+		// UUID of this create request to get notified when this machine create task was finished
+		UUID string `json:"uuid,omitempty"`
+		// Request to create a machine
+		Request *apiv2.MachineServiceCreateRequest `json:"request,omitempty"`
+	}
 )
 
 func (p *IPDeletePayload) Type() TaskType {
@@ -67,4 +78,8 @@ func (p *MachineDeletePayload) Type() TaskType {
 
 func (p *MachineBMCCommandPayload) Type() TaskType {
 	return TypeMachineBMCCommand
+}
+
+func (p *MachineCreatePayload) Type() TaskType {
+	return TypeMachineCreate
 }

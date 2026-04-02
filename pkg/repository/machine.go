@@ -1354,6 +1354,18 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 	return nil
 }
 
+func (r *Store) MachineCreateHandleFn(ctx context.Context, t *asynq.Task) error {
+	var payload task.MachineCreatePayload
+	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+		return fmt.Errorf("json.Unmarshal failed: %w %w", err, asynq.SkipRetry)
+	}
+	r.log.Info("machine create handler", "allocation type", payload.Request.AllocationType)
+
+	// TODO implement transaction
+
+	return nil
+}
+
 func (r *Store) MachineBMCCommandHandleFn(ctx context.Context, t *asynq.Task) error {
 	var payload task.MachineBMCCommandPayload
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {

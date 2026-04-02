@@ -30,6 +30,7 @@ func NewServer(log *slog.Logger, store *repository.Store, redis *redis.Client) (
 	mux.HandleFunc(string(task.TypeNetworkDelete), store.NetworkDeleteHandleFn)
 	mux.HandleFunc(string(task.TypeMachineDelete), store.MachineDeleteHandleFn)
 	mux.HandleFunc(string(task.TypeMachineBMCCommand), store.MachineBMCCommandHandleFn)
+	mux.HandleFunc(string(task.TypeMachineCreate), store.MachineCreateHandleFn)
 
 	// ...register other handlers...
 	return srv, mux
