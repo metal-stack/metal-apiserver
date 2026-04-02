@@ -136,6 +136,11 @@ func IPsByProject(ips []*IP) IPsMap {
 }
 
 // GetScope determines the scope of an ip address
+// This is important during machine creation.
+// If a machine creation gets a ip passed which was already allocated for another machine,
+// it must not be used for another machine network
+// Ips will get a tag with the machine id if it is one of the machine network main ips
+// Ips will get a tag with the project id if it is acquired for other purposes like service type loadbalancers
 func (ip *IP) GetScope() IPScope {
 	if ip.ProjectID == "" {
 		return ScopeEmpty

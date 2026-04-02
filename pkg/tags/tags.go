@@ -4,6 +4,8 @@ import (
 	"slices"
 	"sort"
 	"strings"
+
+	"github.com/samber/lo"
 )
 
 // Tags holds tags.
@@ -68,14 +70,7 @@ func (t *Tags) Values(prefix string) []string {
 
 // Unique returns the distinct tag values as sorted slice.
 func (t *Tags) Unique() []string {
-	tagSet := make(map[string]bool)
-	for _, t := range t.tags {
-		tagSet[t] = true
-	}
-	uniqueTags := []string{}
-	for k := range tagSet {
-		uniqueTags = append(uniqueTags, k)
-	}
-	sort.Strings(uniqueTags)
-	return uniqueTags
+	unique := lo.Uniq(t.tags)
+	sort.Strings(unique)
+	return unique
 }

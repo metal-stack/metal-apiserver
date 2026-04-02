@@ -24,7 +24,6 @@ import (
 type allocationNetwork struct {
 	network *metal.Network
 	ips     []*metal.IP
-	auto    bool
 }
 
 func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.MachineServiceCreateRequest) (allocatedMachine *metal.Machine, err error) {
@@ -334,7 +333,6 @@ func (r *machineRepository) convertToMetalAllocationNetwork(ctx context.Context,
 	)
 
 	for _, networkSpec := range networks {
-		auto := len(networkSpec.Ips) == 0
 		network, err := r.s.ds.Network().Get(ctx, networkSpec.Network)
 		if err != nil {
 			return nil, err
@@ -342,7 +340,6 @@ func (r *machineRepository) convertToMetalAllocationNetwork(ctx context.Context,
 
 		n := &allocationNetwork{
 			network: network,
-			auto:    auto,
 			ips:     []*metal.IP{},
 		}
 
@@ -351,7 +348,6 @@ func (r *machineRepository) convertToMetalAllocationNetwork(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-			n.auto = false
 			n.ips = append(n.ips, ip)
 		}
 
@@ -370,7 +366,6 @@ func (r *machineRepository) convertToMetalAllocationNetwork(ctx context.Context,
 
 		specNetworks = append(specNetworks, &allocationNetwork{
 			network: underlay,
-			auto:    true, // FIXME why is this always set to true ?
 		})
 	}
 
@@ -403,7 +398,7 @@ func (r *machineRepository) makeNetworks(ctx context.Context, machineUUID, proje
 // FIXME this is the complicated part which needs to be reviewed
 
 func (r *machineRepository) makeMachineNetwork(ctx context.Context, machineUUID, project, name string, network *allocationNetwork, asn uint32) (*metal.MachineNetwork, error) {
-	if network.auto {
+	if len(network.ips) == 0 {
 		if len(network.network.Prefixes) == 0 {
 			return nil, fmt.Errorf("given network %s does not have prefixes configured", network.network.ID)
 		}
@@ -421,9 +416,6 @@ func (r *machineRepository) makeMachineNetwork(ctx context.Context, machineUUID,
 				Type:             metal.Ephemeral,
 				ProjectID:        project,
 			}
-			// FIXME ugly implementation
-			ip.AddMachineId(machineUUID)
-
 			_, err = r.s.ds.IP().Create(ctx, ip)
 			if err != nil {
 				return nil, err
@@ -444,7 +436,6 @@ func (r *machineRepository) makeMachineNetwork(ctx context.Context, machineUUID,
 		ipAddresses = append(ipAddresses, ip.IPAddress)
 	}
 
-	// FIXME we should return the apiv2.MachineNetwork
 	machineNetwork := metal.MachineNetwork{
 		NetworkID:           network.network.ID,
 		Prefixes:            network.network.Prefixes.String(),

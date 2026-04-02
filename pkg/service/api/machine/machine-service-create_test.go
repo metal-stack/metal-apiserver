@@ -17,6 +17,15 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
+// TODO:
+// - convert to datacenter asserters
+// - assert acquired ips have proper tags
+// - assert firewalls have vpn
+// - write e2e tests
+// - allocate 100 machines in parallel
+// - try parallel allocation with error injection
+// - convert impl to asynq task
+
 func Test_machineServiceServer_CreateMachine(t *testing.T) {
 	t.Parallel()
 
