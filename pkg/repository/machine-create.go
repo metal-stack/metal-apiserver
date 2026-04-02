@@ -61,8 +61,7 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 		partitionID = machine.PartitionID
 	}
 
-	// FIXME if image is given full-qualified classification filter is not applied
-
+	// if image is given full-qualified classification filter is not applied
 	_, imageVersion, err := metalcommon.GetOsAndSemverFromImage(req.Image)
 	if err != nil {
 		return nil, err
