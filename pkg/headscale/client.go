@@ -19,18 +19,12 @@ type (
 
 	Config struct {
 		Log      *slog.Logger
-		Disabled bool
 		Apikey   string
 		Endpoint string
 	}
 )
 
 func NewClient(cfg Config) (*Client, error) {
-	if cfg.Disabled {
-		cfg.Log.Info("headscale is not enabled, not configuring vpn services")
-		return nil, nil
-	}
-
 	grpcOptions := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithPerRPCCredentials(tokenAuth{

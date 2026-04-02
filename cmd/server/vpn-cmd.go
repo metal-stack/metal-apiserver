@@ -40,17 +40,18 @@ func newVPNCmd() *cli.Command {
 						return fmt.Errorf("unable to create logger %w", err)
 					}
 
+					if !ctx.Bool(headscaleEnabledFlag.Name) {
+						log.Info("headscale is disabled, not checking for connected machines")
+						return nil
+					}
+
 					hc, err := headscale.NewClient(headscale.Config{
 						Log:      log,
-						Disabled: !ctx.Bool(headscaleEnabledFlag.Name),
 						Apikey:   ctx.String(headscaleApikeyFlag.Name),
 						Endpoint: ctx.String(headscaleAddressFlag.Name),
 					})
 					if err != nil {
 						return err
-					}
-					if hc == nil || !ctx.Bool(headscaleEnabledFlag.Name) {
-						log.Info("headscale is disabled, not checking for connected machines")
 					}
 
 					connectOpts := rethinkdb.ConnectOpts{
