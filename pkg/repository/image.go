@@ -199,19 +199,13 @@ func (r *imageRepository) convertToProto(ctx context.Context, in *metal.Image) (
 // If version is not fully specified, e.g. ubuntu-19.10 or ubuntu-19.10
 // then the most recent ubuntu image (ubuntu-19.10.20200407) is returned
 // If patch is specified e.g. ubuntu-20.04.20200502 then this exact image is searched.
-func (r *imageRepository) GetMostRecentImageFor(ctx context.Context, id string, images []*apiv2.Image) (*apiv2.Image, error) {
-	var internalImages []*metal.Image
-
-	for _, img := range images {
-		i, err := r.convertToInternal(ctx, img)
-		if err != nil {
-			return nil, err
-		}
-
-		internalImages = append(internalImages, i)
+func (r *imageRepository) GetMostRecentImageFor(ctx context.Context, id string) (*apiv2.Image, error) {
+	metalImages, err := r.s.ds.Image().List(ctx, queries.ImageFilter(&apiv2.ImageQuery{}))
+	if err != nil {
+		return nil, err
 	}
 
-	internalLatest, err := r.getMostRecentImageFor(id, internalImages)
+	internalLatest, err := r.getMostRecentImageFor(id, metalImages)
 	if err != nil {
 		return nil, err
 	}

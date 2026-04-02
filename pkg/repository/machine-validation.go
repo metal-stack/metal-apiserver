@@ -65,11 +65,7 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 		return err
 	}
 
-	images, err := r.s.Image().List(ctx, &apiv2.ImageQuery{})
-	if err != nil {
-		return err
-	}
-	image, err := r.s.Image().AdditionalMethods().GetMostRecentImageFor(ctx, req.Image, images)
+	image, err := r.s.Image().AdditionalMethods().GetMostRecentImageFor(ctx, req.Image)
 	if err != nil {
 		return err
 	}

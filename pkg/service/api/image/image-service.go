@@ -48,12 +48,7 @@ func (i *imageServiceServer) List(ctx context.Context, rq *apiv2.ImageServiceLis
 
 // Fixme, call if Get was called with "Latest:true"
 func (i *imageServiceServer) Latest(ctx context.Context, rq *apiv2.ImageServiceLatestRequest) (*apiv2.ImageServiceLatestResponse, error) {
-	images, err := i.repo.Image().List(ctx, &apiv2.ImageQuery{})
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	latest, err := i.repo.Image().AdditionalMethods().GetMostRecentImageFor(ctx, rq.Os, images)
+	latest, err := i.repo.Image().AdditionalMethods().GetMostRecentImageFor(ctx, rq.Os)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

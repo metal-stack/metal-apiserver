@@ -13,6 +13,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -429,13 +430,17 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 			if tt.wantErr == nil {
 				test.Validate(t, tt.req)
 			}
-			got, err := m.Create(ctx, tt.req)
+			resp, err := m.Create(ctx, tt.req)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
-			network := dc.GetNetworkByName("project namespaced network")
-			t.Log(network)
+			// Really fetch the machine to ensure nothing was missed during response creation
+			ms, err := dc.GetTestStore().Store.UnscopedMachine().Get(ctx, resp.Machine.Uuid)
+			require.NoError(t, err)
+			got := &apiv2.MachineServiceCreateResponse{
+				Machine: ms,
+			}
 
 			want := tt.want(dc)
 			if diff := cmp.Diff(
@@ -846,9 +851,16 @@ func Test_machineServiceServer_CreateFirewall(t *testing.T) {
 			if tt.wantErr == nil {
 				test.Validate(t, tt.req)
 			}
-			got, err := m.Create(ctx, tt.req)
+			resp, err := m.Create(ctx, tt.req)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
+			}
+
+			// Really fetch the machine to ensure nothing was missed during response creation
+			ms, err := dc.GetTestStore().Store.UnscopedMachine().Get(ctx, resp.Machine.Uuid)
+			require.NoError(t, err)
+			got := &apiv2.MachineServiceCreateResponse{
+				Machine: ms,
 			}
 
 			want := tt.want(dc)
