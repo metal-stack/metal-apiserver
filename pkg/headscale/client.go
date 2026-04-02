@@ -11,14 +11,21 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-type Config struct {
-	Log      *slog.Logger
-	Disabled bool
-	Apikey   string
-	Endpoint string
-}
+type (
+	Client struct {
+		headscalev1.HeadscaleServiceClient
+		endpoint string
+	}
 
-func NewClient(cfg Config) (headscalev1.HeadscaleServiceClient, error) {
+	Config struct {
+		Log      *slog.Logger
+		Disabled bool
+		Apikey   string
+		Endpoint string
+	}
+)
+
+func NewClient(cfg Config) (*Client, error) {
 	if cfg.Disabled {
 		cfg.Log.Info("headscale is not enabled, not configuring vpn services")
 		return nil, nil
@@ -35,9 +42,15 @@ func NewClient(cfg Config) (headscalev1.HeadscaleServiceClient, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to create grpc client:%w", err)
 	}
-	client := headscalev1.NewHeadscaleServiceClient(conn)
 
-	return client, nil
+	return &Client{
+		HeadscaleServiceClient: headscalev1.NewHeadscaleServiceClient(conn),
+		endpoint:               cfg.Endpoint,
+	}, nil
+}
+
+func (h Client) Endpoint() string {
+	return h.endpoint
 }
 
 type tokenAuth struct {

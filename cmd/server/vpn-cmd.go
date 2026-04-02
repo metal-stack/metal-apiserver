@@ -6,7 +6,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
-	vpnadmin "github.com/metal-stack/metal-apiserver/pkg/service/admin/vpn"
 	"github.com/urfave/cli/v2"
 	"gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
@@ -60,16 +59,13 @@ func newVPNCmd() *cli.Command {
 						return fmt.Errorf("unable to create datastore: %w", err)
 					}
 
-					vpnService := vpnadmin.New(vpnadmin.Config{
-						Log: log,
-						Repo: repository.New(repository.Config{
-							Log:       log,
-							Datastore: ds,
-						}),
+					repo := repository.New(repository.Config{
+						Log:             log,
+						Datastore:       ds,
 						HeadscaleClient: hc,
 					})
 
-					_, err = vpnService.EvaluateVPNConnected(ctx.Context)
+					_, err = repo.UnscopedVPN().EvaluateVPNConnected(ctx.Context)
 					return err
 				},
 			},

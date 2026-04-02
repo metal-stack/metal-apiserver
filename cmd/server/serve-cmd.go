@@ -151,6 +151,7 @@ func newServeCmd() *cli.Command {
 					Queue:            queue,
 					Component:        redisConfig.ComponentClient,
 					Auditing:         auditSearchBackend,
+					HeadscaleClient:  hc,
 				})
 				stage = ctx.String(stageFlag.Name)
 			)
