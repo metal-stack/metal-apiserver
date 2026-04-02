@@ -5,9 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"math"
-	"math/rand/v2"
-	"slices"
 	"strconv"
 	"time"
 
@@ -87,7 +84,7 @@ func (r *machineRepository) createMachineAllocationSpec(ctx context.Context, req
 	if uuid != "" {
 		possibleMachine, err := r.s.ds.Machine().Get(ctx, uuid)
 		if err != nil {
-			return nil, fmt.Errorf("uuid given but no machine found with uuid:%s err:%w", uuid, err)
+			return nil, err
 		}
 
 		m = possibleMachine
@@ -102,12 +99,12 @@ func (r *machineRepository) createMachineAllocationSpec(ctx context.Context, req
 
 	size, err := r.s.ds.Size().Get(ctx, sizeID)
 	if err != nil {
-		return nil, fmt.Errorf("size:%s not found err:%w", sizeID, err)
+		return nil, err
 	}
 
 	partition, err := r.s.ds.Partition().Get(ctx, partitionID)
 	if err != nil {
-		return nil, fmt.Errorf("partition:%s not found err:%w", partitionID, err)
+		return nil, err
 	}
 
 	var (
@@ -361,12 +358,12 @@ func (r *machineRepository) findWaitingMachine(ctx context.Context, spec *machin
 		return nil, errors.New("no machine available")
 	}
 
-	spreadCandidates := r.spreadAcrossRacks(available, projectMachines, spec.PlacementTags)
-	if len(spreadCandidates) == 0 {
-		return nil, errors.New("no machine available")
+	desiredMachine, err := r.selectMachine(available, projectMachines, spec.PlacementTags)
+	if err != nil {
+		return nil, err
 	}
 
-	machine := spreadCandidates[randomIndex(len(spreadCandidates))]
+	machine := desiredMachine
 	machine.PreAllocated = true
 
 	err = r.s.ds.Machine().Update(ctx, machine)
@@ -375,125 +372,6 @@ func (r *machineRepository) findWaitingMachine(ctx context.Context, spec *machin
 	}
 
 	return machine, nil
-}
-
-func (r *machineRepository) spreadAcrossRacks(allMachines, projectMachines []*metal.Machine, tags []string) []*metal.Machine {
-	var (
-		allRacks = groupByRack(allMachines)
-
-		projectRacks                = groupByRack(projectMachines)
-		leastOccupiedByProjectRacks = electRacks(allRacks, projectRacks)
-
-		taggedMachines           = groupByTags(projectMachines).filter(tags...).getMachines()
-		taggedRacks              = groupByRack(taggedMachines)
-		leastOccupiedByTagsRacks = electRacks(allRacks, taggedRacks)
-
-		intersection = intersect(leastOccupiedByTagsRacks, leastOccupiedByProjectRacks)
-	)
-
-	if c := allRacks.filter(intersection...).getMachines(); len(c) > 0 {
-		return c
-	}
-
-	return allRacks.filter(leastOccupiedByTagsRacks...).getMachines() // tags have precedence over project
-}
-
-type groupedMachines map[string][]*metal.Machine
-
-func groupByRack(machines []*metal.Machine) groupedMachines {
-	racks := make(groupedMachines)
-
-	for _, m := range machines {
-		racks[m.RackID] = append(racks[m.RackID], m)
-	}
-
-	return racks
-}
-
-func (g groupedMachines) getMachines() []*metal.Machine {
-	machines := make([]*metal.Machine, 0)
-
-	for id := range g {
-		machines = append(machines, g[id]...)
-	}
-
-	return machines
-}
-
-func (g groupedMachines) filter(keys ...string) groupedMachines {
-	result := make(groupedMachines)
-
-	for i := range keys {
-		ms, ok := g[keys[i]]
-		if ok {
-			result[keys[i]] = ms
-		}
-	}
-
-	return result
-}
-
-// electRacks returns the least occupied racks from all racks
-func electRacks(allRacks, occupiedRacks groupedMachines) []string {
-	winners := make([]string, 0)
-	min := math.MaxInt
-
-	for id := range allRacks {
-		if _, ok := occupiedRacks[id]; ok {
-			continue
-		}
-		occupiedRacks[id] = nil
-	}
-
-	for id := range occupiedRacks {
-		if _, ok := allRacks[id]; !ok {
-			continue
-		}
-
-		switch {
-		case len(occupiedRacks[id]) < min:
-			min = len(occupiedRacks[id])
-			winners = []string{id}
-		case len(occupiedRacks[id]) == min:
-			winners = append(winners, id)
-		}
-	}
-
-	return winners
-}
-
-func groupByTags(machines []*metal.Machine) groupedMachines {
-	groups := make(groupedMachines)
-
-	for _, m := range machines {
-		for j := range m.Tags {
-			ms := groups[m.Tags[j]]
-			groups[m.Tags[j]] = append(ms, m)
-		}
-	}
-
-	return groups
-}
-
-func randomIndex(max int) int {
-	if max <= 0 {
-		return 0
-	}
-	// golangci-lint has an issue with math/rand/v2
-	// here it provides sufficient randomness though because it's not used for cryptographic purposes
-	return rand.N(max) //nolint:gosec
-}
-
-func intersect[T comparable](a, b []T) []T {
-	c := make([]T, 0)
-
-	for i := range a {
-		if slices.Contains(b, a[i]) {
-			c = append(c, a[i])
-		}
-	}
-
-	return c
 }
 
 // checkSizeReservations returns true when an allocation is possible and
