@@ -30,7 +30,7 @@ func New(c Config) apiv2connect.FilesystemServiceHandler {
 func (f *filesystemServiceServer) Get(ctx context.Context, req *apiv2.FilesystemServiceGetRequest) (*apiv2.FilesystemServiceGetResponse, error) {
 	fsl, err := f.repo.FilesystemLayout().Get(ctx, req.Id)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	return &apiv2.FilesystemServiceGetResponse{
@@ -41,7 +41,7 @@ func (f *filesystemServiceServer) Get(ctx context.Context, req *apiv2.Filesystem
 func (f *filesystemServiceServer) List(ctx context.Context, req *apiv2.FilesystemServiceListRequest) (*apiv2.FilesystemServiceListResponse, error) {
 	fsls, err := f.repo.FilesystemLayout().List(ctx, req)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 	return &apiv2.FilesystemServiceListResponse{
 		FilesystemLayouts: fsls,

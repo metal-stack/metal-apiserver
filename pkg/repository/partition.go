@@ -186,28 +186,30 @@ func (p *partitionRepository) convertToProto(ctx context.Context, e *metal.Parti
 	var (
 		dnsServers []*apiv2.DNSServer
 		ntpServers []*apiv2.NTPServer
+		meta       = &apiv2.Meta{
+			CreatedAt:  timestamppb.New(e.Created),
+			UpdatedAt:  timestamppb.New(e.Changed),
+			Generation: e.Generation,
+		}
 	)
+
 	for _, dnsServer := range e.DNSServers {
 		dnsServers = append(dnsServers, &apiv2.DNSServer{
 			Ip: dnsServer.IP,
 		})
 	}
+
 	for _, ntpServer := range e.NTPServers {
 		ntpServers = append(ntpServers, &apiv2.NTPServer{
 			Address: ntpServer.Address,
 		})
 	}
 
-	meta := &apiv2.Meta{
-		CreatedAt:  timestamppb.New(e.Created),
-		UpdatedAt:  timestamppb.New(e.Changed),
-		Generation: e.Generation,
-	}
 	if e.Labels != nil {
 		meta.Labels = &apiv2.Labels{Labels: e.Labels}
 	}
 
-	partition := &apiv2.Partition{
+	return &apiv2.Partition{
 		Id:          e.ID,
 		Description: e.Description,
 		Meta:        meta,
@@ -218,8 +220,7 @@ func (p *partitionRepository) convertToProto(ctx context.Context, e *metal.Parti
 		},
 		DnsServers: dnsServers,
 		NtpServers: ntpServers,
-	}
-	return partition, nil
+	}, nil
 }
 
 func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.PartitionServiceCapacityRequest) (*adminv2.PartitionServiceCapacityResponse, error) {
