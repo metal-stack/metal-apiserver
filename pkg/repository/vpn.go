@@ -154,24 +154,6 @@ func (v *vpn) GetUser(ctx context.Context, name string) (*headscalev1.User, bool
 	return headscaleUser, true
 }
 
-func (v *vpn) getNode(ctx context.Context, machineID, projectID string) (machine *headscalev1.Node, err error) {
-	req := &headscalev1.ListNodesRequest{
-		User: projectID,
-	}
-	resp, err := v.c.ListNodes(ctx, req)
-	if err != nil || resp == nil {
-		return nil, fmt.Errorf("failed to list nodes: %w", err)
-	}
-
-	for _, m := range resp.Nodes {
-		if m.Name == machineID {
-			return m, nil
-		}
-	}
-
-	return nil, errorutil.NotFound("node with id %s and project %s not found", machineID, projectID)
-}
-
 func (v *vpn) ControlPlaneAddress() string {
 	return v.c.Endpoint()
 }
@@ -201,4 +183,22 @@ func (v *vpn) SetDefaultPolicy(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (v *vpn) getNode(ctx context.Context, machineID, projectID string) (machine *headscalev1.Node, err error) {
+	req := &headscalev1.ListNodesRequest{
+		User: projectID,
+	}
+	resp, err := v.c.ListNodes(ctx, req)
+	if err != nil || resp == nil {
+		return nil, fmt.Errorf("failed to list nodes: %w", err)
+	}
+
+	for _, m := range resp.Nodes {
+		if m.Name == machineID {
+			return m, nil
+		}
+	}
+
+	return nil, errorutil.NotFound("node with id %s and project %s not found", machineID, projectID)
 }
