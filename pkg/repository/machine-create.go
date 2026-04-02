@@ -531,7 +531,7 @@ func (r *machineRepository) convertToMetalAllocationNetwork(ctx context.Context,
 	)
 
 	for _, networkSpec := range spec.Networks {
-		auto := !networkSpec.NoAutoAcquireIp
+		auto := len(networkSpec.Ips) == 0
 		network, err := r.s.ds.Network().Get(ctx, networkSpec.Network)
 		if err != nil {
 			return nil, err

@@ -584,49 +584,6 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 			want: nil,
 		},
 		{
-			name: "machine with private network with noautoacquire set to false but no ips specified",
-			req:  nil, // set below
-			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
-				testDC := sc.DefaultDatacenter
-				testDC.ProjectsPerTenant = 2
-				testDC.FilesystemLayouts = []*adminv2.FilesystemServiceCreateRequest{
-					{
-						FilesystemLayout: &apiv2.FilesystemLayout{
-							Id: "debian",
-							Constraints: &apiv2.FilesystemLayoutConstraints{
-								Sizes: []string{sc.SizeC1Large},
-								Images: map[string]string{
-									"debian": ">= 12.0",
-								},
-							},
-						},
-					},
-				}
-				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
-					Name:      new("project network"),
-					Project:   new(sc.Tenant1Project1),
-					Partition: new(sc.Partition1),
-					Type:      apiv2.NetworkType_NETWORK_TYPE_CHILD,
-				})
-				dc.Create(&testDC)
-
-				projectNetworkId := dc.GetNetworkByName("project network").Id
-				req := &apiv2.MachineServiceCreateRequest{
-					Project:        sc.Tenant1Project1,
-					Partition:      new(sc.Partition1),
-					Size:           new(sc.SizeC1Large),
-					Image:          "debian-13",
-					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
-					Networks: []*apiv2.MachineAllocationNetwork{
-						{Network: sc.NetworkInternet},
-						{Network: projectNetworkId, NoAutoAcquireIp: true},
-					},
-				}
-				return req, errorutil.InvalidArgument(`the network %s has no auto ip acquisition, but no suitable IPs were provided, which would lead into a machine having no ip address`, projectNetworkId)
-			},
-			want: nil,
-		},
-		{
 			name: "machine with private network with noautoacquire set to false but ips are not known",
 			req:  nil, // set below
 			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
@@ -662,7 +619,7 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
 					Networks: []*apiv2.MachineAllocationNetwork{
 						{Network: sc.NetworkInternet},
-						{Network: projectNetworkId, NoAutoAcquireIp: false, Ips: []string{"1.2.3.4"}},
+						{Network: projectNetworkId, Ips: []string{"1.2.3.4"}},
 					},
 				}
 				return req, errorutil.NotFound(`no ip with id "1.2.3.4" found`)
@@ -718,7 +675,7 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
 					Networks: []*apiv2.MachineAllocationNetwork{
 						{Network: sc.NetworkInternet},
-						{Network: projectNetworkId, NoAutoAcquireIp: false, Ips: []string{ipcr.Ip}},
+						{Network: projectNetworkId, Ips: []string{ipcr.Ip}},
 					},
 				}
 				return req, errorutil.InvalidArgument(`given ip %s is not in the given network %s, which is required`, projectNetworkId, ipcr.Ip)
@@ -754,7 +711,7 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 					Image:          sc.ImageDebian13,
 					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
 					Networks: []*apiv2.MachineAllocationNetwork{
-						{Network: sc.NetworkInternet, NoAutoAcquireIp: false, Ips: []string{ipcr.Ip}},
+						{Network: sc.NetworkInternet, Ips: []string{ipcr.Ip}},
 						{Network: projectNetworkId},
 					},
 				}

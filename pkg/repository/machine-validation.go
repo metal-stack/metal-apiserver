@@ -159,10 +159,6 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 			return fmt.Errorf("network %q must be located in the partition where the machine is going to be placed", n.Id)
 		}
 
-		if nw.NoAutoAcquireIp && len(nw.Ips) == 0 {
-			return fmt.Errorf("the network %s has no auto ip acquisition, but no suitable IPs were provided, which would lead into a machine having no ip address", n.Id)
-		}
-
 		if n.Type != nil {
 			switch nt := *n.Type; nt {
 			case apiv2.NetworkType_NETWORK_TYPE_CHILD:

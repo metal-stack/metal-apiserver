@@ -200,7 +200,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
 					Networks: []*apiv2.MachineAllocationNetwork{
 						{Network: projectNetworkId},
-						{Network: sc.NetworkInternet, NoAutoAcquireIp: true, Ips: []string{"1.2.3.42"}},
+						{Network: sc.NetworkInternet, Ips: []string{"1.2.3.42"}},
 					},
 				}
 				return req, nil
@@ -328,7 +328,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
 					Networks: []*apiv2.MachineAllocationNetwork{
 						{Network: projectNetworkId},
-						{Network: sc.NetworkInternet, NoAutoAcquireIp: true, Ips: []string{"1.2.3.42"}},
+						{Network: sc.NetworkInternet, Ips: []string{"1.2.3.42"}},
 					},
 					FilesystemLayout: new("debian"),
 				}
