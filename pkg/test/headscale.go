@@ -11,6 +11,7 @@ import (
 
 	headscalev1 "github.com/juanfont/headscale/gen/go/headscale/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/headscale"
+	"tailscale.com/tsnet"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,7 +24,7 @@ import (
 //go:embed headscale-config.yaml
 var headscaleConfig string
 
-func StartHeadscale(t testing.TB) (headscalev1.HeadscaleServiceClient, string, string, func()) {
+func StartHeadscale(t testing.TB) (*headscale.Client, string, func()) {
 	ctx := t.Context()
 
 	headscaleContainer, err := testcontainers.Run(
@@ -74,5 +75,20 @@ func StartHeadscale(t testing.TB) (headscalev1.HeadscaleServiceClient, string, s
 		_ = headscaleContainer.Terminate(ctx)
 	}
 
-	return client, endpoint, controllerURL, closer
+	return client, controllerURL, closer
+}
+
+func ConnectVPNClient(t testing.TB, hostname, controllerURL, authkey string) {
+	s := &tsnet.Server{
+		Hostname:   hostname,
+		ControlURL: controllerURL,
+		AuthKey:    authkey,
+	}
+	lc, err := s.LocalClient()
+	require.NoError(t, err)
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		status, err := lc.Status(t.Context())
+		require.NoError(c, err)
+		require.True(c, status.Self.Online)
+	}, 10*time.Second, 50*time.Millisecond)
 }
