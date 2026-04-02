@@ -2,9 +2,7 @@ package repository
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"slices"
 	"strings"
 	"time"
 
@@ -12,7 +10,6 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/headscale"
-	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	headscalev1 "github.com/juanfont/headscale/gen/go/headscale/v1"
@@ -204,65 +201,4 @@ func (v *vpn) SetDefaultPolicy(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-func (v *vpn) EvaluateVPNConnected(ctx context.Context) ([]*apiv2.Machine, error) {
-	ms, err := v.s.UnscopedMachine().List(ctx, &apiv2.MachineQuery{
-		Allocation: &apiv2.MachineAllocationQuery{
-			// Return only allocated machines which have a vpn configured
-			Vpn: &apiv2.MachineVPN{},
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
-	defer cancel()
-
-	listNodesResp, err := v.ListNodes(ctx, &adminv2.VPNServiceListNodesRequest{})
-	if err != nil {
-		return nil, err
-	}
-
-	var (
-		errs            []error
-		updatedMachines []*apiv2.Machine
-	)
-	for _, m := range ms {
-		if m.Allocation == nil || m.Allocation.Vpn == nil {
-			continue
-		}
-
-		node, ok := lo.Find(listNodesResp.Nodes, func(node *apiv2.VPNNode) bool {
-			return node.Name == m.Uuid && node.Project == m.Allocation.Project
-		})
-		if !ok {
-			continue
-		}
-
-		connected := node.Online
-		ips := node.IpAddresses
-
-		if m.Allocation.Vpn.Connected == connected && slices.Equal(m.Allocation.Vpn.Ips, ips) {
-			v.s.log.Info("not updating vpn because already up-to-date", "machine", m.Uuid, "connected", connected, "ips", ips)
-			continue
-		}
-
-		updatedMachine, err := v.s.UnscopedMachine().AdditionalMethods().SetMachineConnectedToVPN(ctx, m.Uuid, connected, ips)
-		if err != nil {
-			errs = append(errs, err)
-			v.s.log.Error("unable to update vpn connected state, continue anyway", "machine", m.Uuid, "error", err)
-			continue
-		}
-
-		updatedMachines = append(updatedMachines, updatedMachine)
-		v.s.log.Info("updated vpn connected state", "machine", m.Uuid, "connected", connected, "ips", ips)
-	}
-
-	if len(errs) > 0 {
-		return nil, fmt.Errorf("errors occurred when evaluating machine vpn connections:%w", errors.Join(errs...))
-	}
-
-	return updatedMachines, nil
 }
