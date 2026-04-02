@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/metal-stack/api/go/enum"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
@@ -105,7 +104,7 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 		if !slices.Contains(image.Features, apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL) {
 			return fmt.Errorf("given image %s is not allowed for firewalls", image.Id)
 		}
-		if err := validateFirewallSpec(req.FirewallSpec); err != nil {
+		if err := r.validateFirewallSpec(req.FirewallSpec); err != nil {
 			return err
 		}
 	case apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE:
@@ -125,7 +124,7 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 	// - user specifies no private network
 	// - user specifies multiple, unshared private networks
 	// - user specifies a shared private network in addition to an unshared one for a machine
-	// - user specifies administrative networks, i.e. underlay or privatesuper networks
+	// - user specifies administrative networks, i.e. underlay or super networks
 	// - user's private network is specified with noauto but no specific IPs are given: this would yield a machine with no ip address
 
 	var (
@@ -244,64 +243,14 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 	return nil
 }
 
-func validateFirewallSpec(firewallSpec *apiv2.FirewallSpec) error {
+func (r *machineRepository) validateFirewallSpec(firewallSpec *apiv2.FirewallSpec) error {
 	if firewallSpec == nil || firewallSpec.FirewallRules == nil {
 		return nil
 	}
 
-	for _, rule := range firewallSpec.FirewallRules.Egress {
-		protoString, err := enum.GetStringValue(rule.Protocol)
-		if err != nil {
-			return err
-		}
-		protocol, err := metal.ProtocolFromString(*protoString)
-		if err != nil {
-			return err
-		}
-
-		var ports []int
-		for _, port := range rule.Ports {
-			ports = append(ports, int(port))
-		}
-
-		metalEgress := metal.EgressRule{
-			Protocol: protocol,
-			Ports:    ports,
-			To:       rule.To,
-			Comment:  rule.Comment,
-		}
-		err = metalEgress.Validate()
-		if err != nil {
-			return err
-		}
-	}
-
-	for _, rule := range firewallSpec.FirewallRules.Ingress {
-		protoString, err := enum.GetStringValue(rule.Protocol)
-		if err != nil {
-			return err
-		}
-		protocol, err := metal.ProtocolFromString(*protoString)
-		if err != nil {
-			return err
-		}
-
-		var ports []int
-		for _, port := range rule.Ports {
-			ports = append(ports, int(port))
-		}
-
-		metalIngress := metal.IngressRule{
-			Protocol: protocol,
-			Ports:    ports,
-			To:       rule.To,
-			From:     rule.From,
-			Comment:  rule.Comment,
-		}
-		err = metalIngress.Validate()
-		if err != nil {
-			return err
-		}
+	_, err := r.convertFirewallRulesToInternal(firewallSpec.FirewallRules)
+	if err != nil {
+		return err
 	}
 
 	return nil

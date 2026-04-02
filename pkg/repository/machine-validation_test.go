@@ -135,7 +135,8 @@ func Test_validateFirewallSpec(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateFirewallSpec(tt.firewallSpec)
+			r := &machineRepository{}
+			err := r.validateFirewallSpec(tt.firewallSpec)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			}
