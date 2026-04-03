@@ -13,13 +13,14 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
+	"github.com/metal-stack/metal-lib/pkg/tag"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
 // TODO:
 // - convert to datacenter asserters
-// - assert acquired ips have proper tags
+// - [x] assert acquired ips have proper tags
 // - assert firewalls have vpn
 // - [x] test with reservations
 // - [x] test with size-image-constraints
@@ -560,6 +561,20 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 				Machine: ms,
 			}
 
+			for _, nw := range ms.Allocation.Networks {
+				// Actually not possible to detect if this machine network is namespaced
+				// requires to fetch the network
+				apinw, err := dc.GetTestStore().Store.UnscopedNetwork().Get(ctx, nw.Network)
+				require.NoError(t, err)
+				for _, ip := range nw.Ips {
+					apiip, err := dc.GetTestStore().Store.IP(ms.Allocation.Project).Get(ctx, metal.CreateNamespacedIPAddress(apinw.Namespace, ip))
+					require.NoError(t, err)
+					machineID, ok := apiip.Meta.Labels.Labels[tag.MachineID]
+					require.True(t, ok)
+					require.Equal(t, ms.Uuid, machineID)
+				}
+			}
+
 			want := tt.want(dc)
 			if diff := cmp.Diff(
 				want, got,
@@ -982,6 +997,20 @@ func Test_machineServiceServer_CreateFirewall(t *testing.T) {
 			require.NoError(t, err)
 			got := &apiv2.MachineServiceCreateResponse{
 				Machine: ms,
+			}
+
+			for _, nw := range ms.Allocation.Networks {
+				// Actually not possible to detect if this machine network is namespaced
+				// requires to fetch the network
+				apinw, err := dc.GetTestStore().Store.UnscopedNetwork().Get(ctx, nw.Network)
+				require.NoError(t, err)
+				for _, ip := range nw.Ips {
+					apiip, err := dc.GetTestStore().Store.IP(ms.Allocation.Project).Get(ctx, metal.CreateNamespacedIPAddress(apinw.Namespace, ip))
+					require.NoError(t, err)
+					machineID, ok := apiip.Meta.Labels.Labels[tag.MachineID]
+					require.True(t, ok)
+					require.Equal(t, ms.Uuid, machineID)
+				}
 			}
 
 			want := tt.want(dc)
