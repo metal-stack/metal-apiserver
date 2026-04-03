@@ -584,7 +584,7 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 			want: nil,
 		},
 		{
-			name: "machine with private network with noautoacquire set to false but ips are not known",
+			name: "machine with private network with unknown ips",
 			req:  nil, // set below
 			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
 				testDC := sc.DefaultDatacenter
@@ -627,7 +627,7 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 			want: nil,
 		},
 		{
-			name: "machine with private network with noautoacquire set to false but ips are from different network",
+			name: "machine with private network with ips from different network",
 			req:  nil, // set below
 			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
 				testDC := sc.DefaultDatacenter
@@ -683,7 +683,7 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 			want: nil,
 		},
 		{
-			name: "machine with private network with noautoacquire set to false but ips are from different project",
+			name: "machine with private network with ips from different project",
 			req:  nil, // set below
 			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
 				testDC := sc.DefaultDatacenter
@@ -716,6 +716,85 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 					},
 				}
 				return req, errorutil.InvalidArgument(`given ip %s is not in the allocation project`, ipcr.Ip)
+			},
+			want: nil,
+		},
+		{
+			name: "machine with private network and size-imageconstraints",
+			req:  nil, // set below
+			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
+				testDC := sc.DefaultDatacenter
+				testDC.ProjectsPerTenant = 2
+				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
+					Name:      new("project network"),
+					Project:   new(sc.Tenant1Project1),
+					Partition: new(sc.Partition1),
+					Type:      apiv2.NetworkType_NETWORK_TYPE_CHILD,
+				})
+				testDC.SizeImageConstraints = append(testDC.SizeImageConstraints, &adminv2.SizeImageConstraintServiceCreateRequest{
+					Name: new("c1-large-not-with-debian13"),
+					Size: sc.SizeC1Large,
+					ImageConstraints: []*apiv2.ImageConstraint{
+						{
+							Image:       "debian",
+							SemverMatch: "<= 12.0",
+						},
+					},
+				})
+				dc.Create(&testDC)
+
+				projectNetworkId := dc.GetNetworkByName("project network").Id
+				req := &apiv2.MachineServiceCreateRequest{
+					Project:        sc.Tenant1Project1,
+					Partition:      new(sc.Partition1),
+					Size:           new(sc.SizeC1Large),
+					Image:          sc.ImageDebian13,
+					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+					Networks: []*apiv2.MachineAllocationNetwork{
+						{Network: sc.NetworkInternet},
+						{Network: projectNetworkId},
+					},
+				}
+				return req, errorutil.InvalidArgument(`given size:c1-large-x86 with image:debian-13.0.20260131 does violate image constraint:debian <=12.0`)
+			},
+			want: nil,
+		},
+		{
+			name: "machine with private network and reservations",
+			req:  nil, // set below
+			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
+				testDC := sc.DefaultDatacenter
+				testDC.ProjectsPerTenant = 2
+				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
+					Name:      new("project network"),
+					Project:   new(sc.Tenant1Project1),
+					Partition: new(sc.Partition1),
+					Type:      apiv2.NetworkType_NETWORK_TYPE_CHILD,
+				})
+				testDC.SizeReservations = append(testDC.SizeReservations, &adminv2.SizeReservationServiceCreateRequest{
+					SizeReservation: &apiv2.SizeReservation{
+						Name:       "reserve 10 c1-large in partition one for tenant1 project2",
+						Project:    sc.Tenant1Project2,
+						Size:       sc.SizeC1Large,
+						Partitions: []string{sc.Partition1},
+						Amount:     10,
+					},
+				})
+				dc.Create(&testDC)
+
+				projectNetworkId := dc.GetNetworkByName("project network").Id
+				req := &apiv2.MachineServiceCreateRequest{
+					Project:        sc.Tenant1Project1,
+					Partition:      new(sc.Partition1),
+					Size:           new(sc.SizeC1Large),
+					Image:          sc.ImageDebian13,
+					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+					Networks: []*apiv2.MachineAllocationNetwork{
+						{Network: sc.NetworkInternet},
+						{Network: projectNetworkId},
+					},
+				}
+				return req, errorutil.Internal("no machine available") // FIXME this error should not be internal, validation must be done in the validation
 			},
 			want: nil,
 		},

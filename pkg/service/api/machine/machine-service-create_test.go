@@ -21,10 +21,10 @@ import (
 // - convert to datacenter asserters
 // - assert acquired ips have proper tags
 // - assert firewalls have vpn
-// - test with reservations
-// - test with size-image-constraints
+// - [x] test with reservations
+// - [x] test with size-image-constraints
 // - write e2e tests
-// - allocate 100 machines in parallel
+// - [x] allocate 100 machines in parallel
 // - try parallel allocation with error injection
 // - convert impl to asynq task
 
