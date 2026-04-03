@@ -40,7 +40,9 @@ func TestMachineCreateIntegration(t *testing.T) {
 		Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD,
 	})
 
-	machineCount := 100
+	machineCount := 30
+	racks := 5
+	machinesPerRack := machineCount / racks
 	allMachineUUIDs := map[string]bool{}
 
 	for i := range machineCount {
@@ -49,7 +51,7 @@ func TestMachineCreateIntegration(t *testing.T) {
 		machineID := id.String()
 		allMachineUUIDs[machineID] = true
 
-		rackId := i % 5
+		rackId := i % racks
 
 		testDC.Machines = append(testDC.Machines, &sc.MachineWithLiveliness{
 			Machine: &metal.Machine{
@@ -75,12 +77,6 @@ func TestMachineCreateIntegration(t *testing.T) {
 	dc.Create(&testDC)
 	projectNetworkId := dc.GetNetworkByName("project-network").Id
 
-	type teststruct struct {
-		name    string
-		req     *apiv2.MachineServiceCreateRequest
-		want    func(dc *test.Datacenter) *apiv2.MachineServiceCreateResponse
-		wantErr error
-	}
 	m := &machineServiceServer{
 		log:  log,
 		repo: dc.GetTestStore().Store,
@@ -112,19 +108,26 @@ func TestMachineCreateIntegration(t *testing.T) {
 	require.NoError(t, err)
 
 	// ensure rack spreading
-	rackMap := map[string]int{}
+	var rackMap = make(map[string]int)
 	for _, machine := range machines {
 		if machine.Allocation != nil {
 			delete(allMachineUUIDs, machine.Uuid)
 		}
-		rackMap[machine.Rack]++
+		if machine.Rack == "" {
+			continue
+		}
+		if _, ok := rackMap[machine.Rack]; !ok {
+			rackMap[machine.Rack] = 1
+		} else {
+			rackMap[machine.Rack]++
+		}
 	}
-	require.Len(t, rackMap, 6) // Why 6 ?
+	require.Len(t, rackMap, racks)
 	for rack, count := range rackMap {
-		require.InDelta(t, count, 19, 21, "rack is not equally loaded", rack)
+		require.InDelta(t, machinesPerRack, count, 1, "rack %s is not equally loaded", rack)
 	}
 
-	require.Len(t, allMachineUUIDs, 0, "not all machines allocated")
+	require.Empty(t, allMachineUUIDs, "not all machines allocated")
 
 	// Ensure all same vrf, but different asns
 	var (
