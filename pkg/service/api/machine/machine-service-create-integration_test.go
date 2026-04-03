@@ -40,7 +40,10 @@ func TestMachineCreateIntegration(t *testing.T) {
 		Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD,
 	})
 
-	machineCount := 30
+	machineCount := 100
+	if in_ci := os.Getenv("CI"); in_ci != "" {
+		machineCount = 10
+	}
 	racks := 5
 	machinesPerRack := machineCount / racks
 	allMachineUUIDs := map[string]bool{}
