@@ -126,11 +126,6 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 	}
 
 	if req.Uuid == nil {
-		if err := r.s.ds.Lock(ctx, partitionID, generic.NewLockOptExpirationTimeout(10*time.Second)); err != nil {
-			return nil, fmt.Errorf("too many parallel machine allocations taking place, try again later:%w", err)
-		}
-		defer r.s.ds.Unlock(ctx, partitionID)
-
 		machineCandidate, err := r.findWaitingMachine(ctx, partitionID, req.Project, sizeID, req.PlacementTags, role)
 		if err != nil {
 			return nil, err
@@ -208,6 +203,11 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 
 // FindWaitingMachine returns an available, not allocated, waiting and alive machine of given size within the given partition.
 func (r *machineRepository) findWaitingMachine(ctx context.Context, partition, project, size string, placementTags []string, role metal.Role) (*metal.Machine, error) {
+	if err := r.s.ds.Lock(ctx, partition, generic.NewLockOptExpirationTimeout(10*time.Second)); err != nil {
+		return nil, fmt.Errorf("too many parallel machine allocations taking place, try again later:%w", err)
+	}
+	defer r.s.ds.Unlock(ctx, partition)
+
 	candidates, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
 		Partition:    &partition,
 		Size:         &size,
@@ -270,7 +270,8 @@ func (r *machineRepository) findWaitingMachine(ctx context.Context, partition, p
 	if err != nil {
 		return nil, err
 	}
-
+	// TODO the whole size reservation check belongs to validation and should ideally be exposed in size-reservation.go like so:
+	// r.s.ds.SizeReservation().Check(QueryBy: project,partition,size)
 	ok := r.checkSizeReservations(available, project, machinesByProject, reservations)
 	if !ok {
 		return nil, errors.New("no machine available")
