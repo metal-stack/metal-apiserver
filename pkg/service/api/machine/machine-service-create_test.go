@@ -648,7 +648,7 @@ func Test_machineServiceServer_CreateFirewall(t *testing.T) {
 					Machine: &metal.Machine{
 						Base:        metal.Base{ID: sc.Machine5},
 						PartitionID: sc.Partition1,
-						SizeID:      sc.SizeC1Large,
+						SizeID:      sc.SizeN1Medium,
 						Waiting:     true,
 						Hardware: metal.MachineHardware{
 							Disks: []metal.BlockDevice{
@@ -668,7 +668,7 @@ func Test_machineServiceServer_CreateFirewall(t *testing.T) {
 					Name:           "testfirewall",
 					Project:        sc.Tenant1Project1,
 					Partition:      new(sc.Partition1),
-					Size:           new(sc.SizeC1Large),
+					Size:           new(sc.SizeN1Medium),
 					Image:          sc.ImageFirewall3_0,
 					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
 					Networks: []*apiv2.MachineAllocationNetwork{
@@ -689,7 +689,7 @@ func Test_machineServiceServer_CreateFirewall(t *testing.T) {
 								},
 							},
 						},
-						Size:      dc.GetSizes()[sc.SizeC1Large],
+						Size:      dc.GetSizes()[sc.SizeN1Medium],
 						Partition: dc.GetPartitions()[sc.Partition1],
 						Status: &apiv2.MachineStatus{
 							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
@@ -777,7 +777,7 @@ func Test_machineServiceServer_CreateFirewall(t *testing.T) {
 					Machine: &metal.Machine{
 						Base:        metal.Base{ID: sc.Machine5},
 						PartitionID: sc.Partition1,
-						SizeID:      sc.SizeC1Large,
+						SizeID:      sc.SizeN1Medium,
 						Waiting:     true,
 						Hardware: metal.MachineHardware{
 							Disks: []metal.BlockDevice{
@@ -797,7 +797,7 @@ func Test_machineServiceServer_CreateFirewall(t *testing.T) {
 					Name:           "testfirewall",
 					Project:        sc.Tenant1Project1,
 					Partition:      new(sc.Partition1),
-					Size:           new(sc.SizeC1Large),
+					Size:           new(sc.SizeN1Medium),
 					Image:          sc.ImageFirewall3_0,
 					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
 					Networks: []*apiv2.MachineAllocationNetwork{
@@ -856,7 +856,7 @@ func Test_machineServiceServer_CreateFirewall(t *testing.T) {
 								},
 							},
 						},
-						Size:      dc.GetSizes()[sc.SizeC1Large],
+						Size:      dc.GetSizes()[sc.SizeN1Medium],
 						Partition: dc.GetPartitions()[sc.Partition1],
 						Status: &apiv2.MachineStatus{
 							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,

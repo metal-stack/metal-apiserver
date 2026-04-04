@@ -290,7 +290,7 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 			req: &apiv2.MachineServiceCreateRequest{
 				Project:        sc.Tenant1Project1,
 				Partition:      new(sc.Partition1),
-				Size:           new(sc.SizeC1Large),
+				Size:           new(sc.SizeN1Medium),
 				Image:          sc.ImageFirewall3_0,
 				AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
 			},
@@ -881,7 +881,7 @@ func Test_machineServiceServer_ValidateCreateFirewall(t *testing.T) {
 			req: &apiv2.MachineServiceCreateRequest{
 				Project:        sc.Tenant1Project1,
 				Partition:      new(sc.Partition1),
-				Size:           new(sc.SizeC1Large),
+				Size:           new(sc.SizeN1Medium),
 				Image:          sc.ImageDebian12,
 				AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
 			},
@@ -893,7 +893,7 @@ func Test_machineServiceServer_ValidateCreateFirewall(t *testing.T) {
 			req: &apiv2.MachineServiceCreateRequest{
 				Project:        sc.Tenant1Project1,
 				Partition:      new(sc.Partition1),
-				Size:           new(sc.SizeC1Large),
+				Size:           new(sc.SizeN1Medium),
 				Image:          sc.ImageFirewall3_0,
 				AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
 				FirewallSpec: &apiv2.FirewallSpec{
@@ -930,7 +930,7 @@ func Test_machineServiceServer_ValidateCreateFirewall(t *testing.T) {
 					Name:           "testfirewall",
 					Project:        sc.Tenant1Project1,
 					Partition:      new(sc.Partition1),
-					Size:           new(sc.SizeC1Large),
+					Size:           new(sc.SizeN1Medium),
 					Image:          sc.ImageFirewall3_0,
 					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
 					Networks: []*apiv2.MachineAllocationNetwork{
@@ -961,7 +961,7 @@ func Test_machineServiceServer_ValidateCreateFirewall(t *testing.T) {
 					Name:           "testfirewall",
 					Project:        sc.Tenant1Project1,
 					Partition:      new(sc.Partition1),
-					Size:           new(sc.SizeC1Large),
+					Size:           new(sc.SizeN1Medium),
 					Image:          sc.ImageFirewall3_0,
 					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
 					Networks: []*apiv2.MachineAllocationNetwork{
@@ -984,7 +984,7 @@ func Test_machineServiceServer_ValidateCreateFirewall(t *testing.T) {
 				req := &apiv2.MachineServiceCreateRequest{
 					Project:        sc.Tenant1Project2,
 					Partition:      new(sc.Partition1),
-					Size:           new(sc.SizeC1Large),
+					Size:           new(sc.SizeN1Medium),
 					Image:          sc.ImageFirewall3_0,
 					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
 					Networks: []*apiv2.MachineAllocationNetwork{
@@ -1029,7 +1029,7 @@ func Test_machineServiceServer_ValidateCreateFirewall(t *testing.T) {
 				req := &apiv2.MachineServiceCreateRequest{
 					Project:        sc.Tenant1Project2,
 					Partition:      new(sc.Partition1),
-					Size:           new(sc.SizeC1Large),
+					Size:           new(sc.SizeN1Medium),
 					Image:          sc.ImageFirewall3_0,
 					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
 					Networks: []*apiv2.MachineAllocationNetwork{

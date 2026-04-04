@@ -40,13 +40,18 @@ func TestMachineCreateIntegration(t *testing.T) {
 		Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD,
 	})
 
-	machineCount := 100
+	var (
+		machineCount     = 50
+		firewallCount    = 10
+		racks            = 5
+		allMachineUUIDs  = map[string]bool{}
+		allFirewallUUIDs = map[string]bool{}
+	)
 	if in_ci := os.Getenv("CI"); in_ci != "" {
 		machineCount = 10
+		firewallCount = 2
 	}
-	racks := 5
-	machinesPerRack := machineCount / racks
-	allMachineUUIDs := map[string]bool{}
+	machinesPerRack := (machineCount + firewallCount) / racks
 
 	for i := range machineCount {
 		id, err := uuid.NewV7()
@@ -74,7 +79,33 @@ func TestMachineCreateIntegration(t *testing.T) {
 			},
 			Liveliness: metal.MachineLivelinessAlive,
 		})
+	}
+	for i := range firewallCount {
+		id, err := uuid.NewV7()
+		require.NoError(t, err)
+		machineID := id.String()
+		allFirewallUUIDs[machineID] = true
 
+		rackId := i % racks
+
+		testDC.Machines = append(testDC.Machines, &sc.MachineWithLiveliness{
+			Machine: &metal.Machine{
+				Base:        metal.Base{ID: machineID},
+				PartitionID: sc.Partition1,
+				RackID:      fmt.Sprintf("rack-%d", rackId),
+				SizeID:      sc.SizeN1Medium,
+				Waiting:     true,
+				Hardware: metal.MachineHardware{
+					Disks: []metal.BlockDevice{
+						{
+							Name: "/dev/sda",
+							Size: 1024 * 1024 * 1024,
+						},
+					},
+				},
+			},
+			Liveliness: metal.MachineLivelinessAlive,
+		})
 	}
 
 	dc.Create(&testDC)
@@ -88,7 +119,6 @@ func TestMachineCreateIntegration(t *testing.T) {
 	var wg sync.WaitGroup
 	for range machineCount {
 		wg.Go(func() {
-
 			req := &apiv2.MachineServiceCreateRequest{
 				Name:           "testmachine",
 				Project:        sc.Tenant1Project1,
@@ -105,6 +135,27 @@ func TestMachineCreateIntegration(t *testing.T) {
 			require.NotNil(t, resp)
 		})
 	}
+
+	for range firewallCount {
+		wg.Go(func() {
+			req := &apiv2.MachineServiceCreateRequest{
+				Name:           "testmachine",
+				Project:        sc.Tenant1Project1,
+				Partition:      new(sc.Partition1),
+				Size:           new(sc.SizeN1Medium),
+				Image:          sc.ImageFirewall3_0,
+				AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
+				Networks: []*apiv2.MachineAllocationNetwork{
+					{Network: sc.NetworkInternet},
+					{Network: projectNetworkId},
+				},
+			}
+			resp, err := m.Create(ctx, req)
+			require.NoError(t, err)
+			require.NotNil(t, resp)
+		})
+	}
+
 	wg.Wait()
 
 	machines, err := dc.GetTestStore().Store.Machine(sc.Tenant1Project1).List(ctx, &apiv2.MachineQuery{})
@@ -114,7 +165,12 @@ func TestMachineCreateIntegration(t *testing.T) {
 	var rackMap = make(map[string]int)
 	for _, machine := range machines {
 		if machine.Allocation != nil {
-			delete(allMachineUUIDs, machine.Uuid)
+			switch machine.Allocation.AllocationType {
+			case apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE:
+				delete(allMachineUUIDs, machine.Uuid)
+			case apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL:
+				delete(allFirewallUUIDs, machine.Uuid)
+			}
 		}
 		if machine.Rack == "" {
 			continue
@@ -127,7 +183,7 @@ func TestMachineCreateIntegration(t *testing.T) {
 	}
 	require.Len(t, rackMap, racks)
 	for rack, count := range rackMap {
-		require.InDelta(t, machinesPerRack, count, 1, "rack %s is not equally loaded", rack)
+		require.InDelta(t, machinesPerRack, count, 1, "rack %s is not equally loaded: %s", rack, rackMap)
 	}
 
 	require.Empty(t, allMachineUUIDs, "not all machines allocated")
@@ -148,8 +204,8 @@ func TestMachineCreateIntegration(t *testing.T) {
 			vrfs = append(vrfs, network.Vrf)
 		}
 	}
-	require.Len(t, lo.Uniq(asns), machineCount)
-	require.Len(t, lo.Uniq(vrfs), 1)
+	require.Len(t, lo.Uniq(asns), (machineCount + firewallCount))
+	require.Len(t, lo.Uniq(vrfs), 2) // one for the private network and one for the internet on the firewall
 
 	// TODO Add firewalls
 }

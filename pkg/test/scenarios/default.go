@@ -54,7 +54,7 @@ var (
 				FilesystemLayout: &apiv2.FilesystemLayout{
 					Id: "debian",
 					Constraints: &apiv2.FilesystemLayoutConstraints{
-						Sizes: []string{SizeC1Large},
+						Sizes: []string{SizeC1Large, SizeN1Medium},
 						Images: map[string]string{
 							"debian": ">= 12.0",
 						},
@@ -76,7 +76,7 @@ var (
 				FilesystemLayout: &apiv2.FilesystemLayout{
 					Id: "firewall",
 					Constraints: &apiv2.FilesystemLayoutConstraints{
-						Sizes: []string{SizeC1Large},
+						Sizes: []string{SizeN1Medium},
 						Images: map[string]string{
 							"firewall-ubuntu": ">= 3.0",
 						},
