@@ -15,6 +15,7 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -220,12 +221,14 @@ func TestMachineCreate(t *testing.T) {
 
 	var (
 		machineWaitResponse *infrav2.BootServiceWaitResponse
+		waiterror           error
 	)
 	machineWaitSimulation := func() {
 		stream, err := apiClient.Infrav2().Boot().Wait(ctx, &infrav2.BootServiceWaitRequest{
 			Uuid: m0,
 		})
 		if err != nil {
+			waiterror = err
 			return
 		}
 		defer func() {
@@ -233,13 +236,13 @@ func TestMachineCreate(t *testing.T) {
 		}()
 		for stream.Receive() {
 			machineWaitResponse = stream.Msg()
-			log.Info("machine wait stopped", "allocation", machineWaitResponse)
+			t.Logf("machine wait stopped %v", machineWaitResponse)
 			return
 		}
 	}
 
 	go machineWaitSimulation()
-	time.Sleep(5 * time.Second)
+	time.Sleep(1 * time.Second)
 
 	// Create a child network
 	projectNetwork, err := apiClient.Apiv2().Network().Create(ctx, &apiv2.NetworkServiceCreateRequest{
@@ -263,8 +266,13 @@ func TestMachineCreate(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// FIXME this is not yet true
-	// require.NotNil(t, machineWaitResponse)
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		require.NoError(c, waiterror)
+		require.NotNil(c, machineWaitResponse)
+		require.NotNil(c, machineWaitResponse.Allocation)
+		require.Equal(c, "e2e-test", machineWaitResponse.Allocation.Hostname)
+		require.Len(c, machineWaitResponse.Allocation.Networks, 1)
+	}, 5*time.Second, 100*time.Millisecond)
 
 	// We need to cancel the context because otherwise the Wait blocks the grpc http server from stopping
 	cancel()

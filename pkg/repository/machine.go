@@ -1213,16 +1213,25 @@ func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWa
 	machineID := req.Uuid
 	r.s.log.Info("wait for allocation called by", "machineID", machineID)
 
-	m, err := r.s.ds.Machine().Get(ctx, machineID)
+	machine, err := r.s.UnscopedMachine().Get(ctx, machineID)
 	if err != nil {
 		return err
 	}
 
-	if m.Allocation != nil {
-		return nil
+	if machine.Allocation != nil {
+		r.s.log.Info("send existing allocation to machine", "allocation", machine.Allocation)
+		err = srv.Send(&infrav2.BootServiceWaitResponse{
+			Allocation: machine.Allocation,
+		})
+		if err != nil {
+			return err
+		}
 	}
 
-	// machine is not yet allocated, so we set the waiting flag
+	m, err := r.s.ds.Machine().Get(ctx, machineID)
+	if err != nil {
+		return err
+	}
 	m.Waiting = true
 	err = r.s.ds.Machine().Update(ctx, m)
 	if err != nil {
@@ -1242,31 +1251,27 @@ func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWa
 
 	allocationChan := r.s.queue.WaitMachineAllocation(ctx, machineID)
 
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case msg, ok := <-allocationChan:
-		if !ok {
-			return errorutil.Internal("machine allocation channel is empty")
-		}
-		if msg.UUID != machineID {
-			return errorutil.Internal("machine %s does not match channel response %s", machineID, msg)
-		}
-		machine, err := r.s.UnscopedMachine().Get(ctx, machineID)
-		if err != nil {
-			return err
-		}
-		if m.Allocation == nil {
-			return errorutil.Internal("machine %s is not allocated", machineID)
-		}
-		err = srv.Send(&infrav2.BootServiceWaitResponse{
-			Allocation: machine.Allocation,
-		})
-		if err != nil {
-			return err
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-allocationChan:
+			machine, err := r.s.UnscopedMachine().Get(ctx, machineID)
+			if err != nil {
+				return err
+			}
+			if machine.Allocation == nil {
+				return errorutil.Internal("machine %s is not allocated", machineID)
+			}
+			r.s.log.Info("send allocation to machine", "allocation", machine.Allocation)
+			err = srv.Send(&infrav2.BootServiceWaitResponse{
+				Allocation: machine.Allocation,
+			})
+			if err != nil {
+				return err
+			}
 		}
 	}
-	return nil
 }
 
 func (r *machineRepository) WaitForBMCCommand(ctx context.Context, req *infrav2.WaitForBMCCommandRequest, stream *connect.ServerStream[infrav2.WaitForBMCCommandResponse]) error {
