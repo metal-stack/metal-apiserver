@@ -525,6 +525,122 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "machine with specific uuid, user data and labels",
+			req:  nil,
+			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
+				testDC := sc.DefaultDatacenter
+				testDC.ProjectsPerTenant = 2
+				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
+					Name:          new("child network with user data"),
+					ParentNetwork: new(sc.NetworkTenantSuperPartition1),
+					Project:       new(sc.Tenant1Project1),
+					Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD,
+				})
+				testDC.Machines = append(testDC.Machines, &sc.MachineWithLiveliness{
+					Machine: &metal.Machine{
+						Base:        metal.Base{ID: sc.Machine5},
+						PartitionID: sc.Partition1,
+						SizeID:      sc.SizeC1Large,
+						Waiting:     true,
+						Hardware: metal.MachineHardware{
+							Disks: []metal.BlockDevice{
+								{
+									Name: "/dev/sda",
+									Size: 1024 * 1024 * 1024,
+								},
+							},
+						},
+					},
+					Liveliness: metal.MachineLivelinessAlive,
+				})
+				dc.Create(&testDC)
+
+				projectNetworkId := dc.GetNetworkByName("child network with user data").Id
+				req := &apiv2.MachineServiceCreateRequest{
+					Name:           "testmachine-uuid-userdata",
+					Project:        sc.Tenant1Project1,
+					Uuid:           new(sc.Machine5),
+					Image:          sc.ImageDebian12,
+					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+					Networks: []*apiv2.MachineAllocationNetwork{
+						{Network: projectNetworkId},
+					},
+					Userdata: new("echo hello from userdata"),
+					Labels: &apiv2.Labels{
+						Labels: map[string]string{
+							"test-label": "test-value",
+						},
+					},
+				}
+				return req, nil
+			},
+			want: func(dc *test.Datacenter) *apiv2.MachineServiceCreateResponse {
+				return &apiv2.MachineServiceCreateResponse{
+					Machine: &apiv2.Machine{
+						Meta: &apiv2.Meta{
+							Generation: 1,
+							Labels: &apiv2.Labels{
+								Labels: map[string]string{
+									"machine.metal-stack.io/network.primary.asn": "4210000020",
+								},
+							},
+						},
+						Size:      dc.GetSizes()[sc.SizeC1Large],
+						Partition: dc.GetPartitions()[sc.Partition1],
+						Status: &apiv2.MachineStatus{
+							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
+							Condition:  &apiv2.MachineCondition{},
+							LedState:   &apiv2.MachineChassisIdentifyLEDState{},
+						},
+						Uuid: sc.Machine5,
+						Hardware: &apiv2.MachineHardware{
+							Disks: []*apiv2.MachineBlockDevice{
+								{
+									Name: "/dev/sda",
+									Size: 1024 * 1024 * 1024,
+								},
+							},
+						},
+						RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
+							Events: []*apiv2.MachineProvisioningEvent{
+								{Event: apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_WAITING},
+							},
+						},
+						Allocation: &apiv2.MachineAllocation{
+							Meta: &apiv2.Meta{
+								Labels: &apiv2.Labels{
+									Labels: map[string]string{
+										"test-label": "test-value",
+									},
+								},
+							},
+							Name:     "testmachine-uuid-userdata",
+							Hostname: "metal",
+							Image:    dc.GetImages()[sc.ImageDebian12],
+							Networks: []*apiv2.MachineNetwork{
+								{
+									Network:             dc.GetNetworkByName("child network with user data").Id,
+									Prefixes:            dc.GetNetworkByName("child network with user data").Prefixes,
+									DestinationPrefixes: dc.GetNetworkByName("child network with user data").DestinationPrefixes,
+									Ips:                 []string{"12.110.0.1"},
+									NetworkType:         apiv2.NetworkType_NETWORK_TYPE_CHILD,
+									NatType:             apiv2.NATType_NAT_TYPE_NONE,
+									Vrf:                 uint64(*dc.GetNetworkByName("child network with user data").Vrf),
+									Project:             new(sc.Tenant1Project1),
+									Asn:                 uint32(4210000020),
+								},
+							},
+							FilesystemLayout: dc.GetFilesystemLayouts()["debian"],
+							AllocationType:   apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+							CreatedBy:        "unit-test-user",
+							Project:          sc.Tenant1Project1,
+							Userdata:         "echo hello from userdata",
+						},
+					},
+				}
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
