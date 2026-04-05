@@ -1209,7 +1209,6 @@ func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, 
 }
 
 func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWaitRequest, srv *connect.ServerStream[infrav2.BootServiceWaitResponse]) error {
-	// FIXME completely untested
 	machineID := req.Uuid
 	r.s.log.Info("wait for allocation called by", "machineID", machineID)
 
@@ -1227,13 +1226,7 @@ func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWa
 			return err
 		}
 	}
-
-	m, err := r.s.ds.Machine().Get(ctx, machineID)
-	if err != nil {
-		return err
-	}
-	m.Waiting = true
-	err = r.s.ds.Machine().Update(ctx, m)
+	err = r.setMachineWaitingFlag(ctx, machineID, true)
 	if err != nil {
 		return err
 	}
@@ -1242,8 +1235,7 @@ func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWa
 			return
 		}
 		// TODO This is prone to fail with optlock, either retry or async task
-		m.Waiting = false
-		err = r.s.ds.Machine().Update(ctx, m)
+		err = r.setMachineWaitingFlag(ctx, machineID, false)
 		if err != nil {
 			r.s.log.Error("unable to remove waiting flag from machine", "machineID", machineID, "error", err)
 		}
@@ -1337,6 +1329,16 @@ func (r *machineRepository) GetConsolePassword(ctx context.Context, machineUUID 
 	}
 
 	return m.Allocation.ConsolePassword, nil
+}
+
+func (r *machineRepository) setMachineWaitingFlag(ctx context.Context, machineUUID string, waiting bool) error {
+	m, err := r.s.ds.Machine().Get(ctx, machineUUID)
+	if err != nil {
+		return err
+	}
+	m.Waiting = waiting
+	err = r.s.ds.Machine().Update(ctx, m)
+	return err
 }
 
 //---------------------------------------------------------------
