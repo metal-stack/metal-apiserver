@@ -9,8 +9,8 @@ import (
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
+	"github.com/metal-stack/metal-apiserver/pkg/tags"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
-	"github.com/metal-stack/metal-lib/pkg/tag"
 )
 
 type (
@@ -93,7 +93,7 @@ func (t *tenantRepository) createWithID(ctx context.Context, c *apiv2.TenantServ
 
 	var labels []string
 	if c.Labels != nil && len(c.Labels.Labels) > 0 {
-		labels = tag.TagMap(c.Labels.Labels).Slice()
+		labels = tags.ToTags(c.Labels.Labels)
 	}
 
 	tenant := &mdcv1.Tenant{
@@ -209,7 +209,7 @@ func (t *tenantRepository) convertToInternal(ctx context.Context, tenant *apiv2.
 
 	var labels []string
 	if tenant.Meta != nil && tenant.Meta.Labels != nil && len(tenant.Meta.Labels.Labels) > 0 {
-		labels = tag.TagMap(tenant.Meta.Labels.Labels).Slice()
+		labels = tags.ToTags(tenant.Meta.Labels.Labels)
 	}
 
 	return &tenantEntity{Tenant: &mdcv1.Tenant{
@@ -228,7 +228,7 @@ func (t *tenantRepository) convertToProto(ctx context.Context, tenant *tenantEnt
 	var labels *apiv2.Labels
 	if tenant.Meta != nil && tenant.Meta.Labels != nil && len(tenant.Meta.Labels) > 0 {
 		labels = &apiv2.Labels{
-			Labels: tag.NewTagMap(tenant.Meta.Labels),
+			Labels: tags.ToLabels(tenant.Meta.Labels),
 		}
 	}
 

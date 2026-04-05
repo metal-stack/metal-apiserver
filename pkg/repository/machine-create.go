@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/api/go/tag"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
@@ -16,7 +17,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	metalcommon "github.com/metal-stack/metal-lib/pkg/metal"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
-	"github.com/metal-stack/metal-lib/pkg/tag"
 	"github.com/samber/lo"
 )
 
@@ -190,8 +190,8 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 	}
 
 	machine.Allocation = alloc
-	machine.Tags = r.makeMachineTags(machine)
 	machine.PreAllocated = false
+	r.addMachineTagsAndLabels(machine)
 
 	err = r.s.ds.Machine().Update(ctx, machine)
 	if err != nil {
@@ -459,7 +459,7 @@ func (r *machineRepository) makeMachineNetwork(ctx context.Context, machineUUID,
 
 // makeMachineTags constructs the tags of the machine.
 // - system tags (immutable information from the metal-api that are useful for the end user, e.g. machine rack and chassis)
-func (r *machineRepository) makeMachineTags(m *metal.Machine) []string {
+func (r *machineRepository) addMachineTagsAndLabels(m *metal.Machine) {
 	var (
 		labels = make(map[string]string)
 		tags   []string
@@ -487,8 +487,7 @@ func (r *machineRepository) makeMachineTags(m *metal.Machine) []string {
 	}
 
 	tags = lo.Uniq(tags)
-
-	return tags
+	m.Tags = tags
 }
 
 func appendDNSServers(current metal.DNSServers, requestDNSServers []*apiv2.DNSServer) metal.DNSServers {

@@ -8,7 +8,7 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/tags"
-	"github.com/metal-stack/metal-lib/pkg/tag"
+	"github.com/metal-stack/api/go/tag"
 )
 
 // IPType is the type of an ip.

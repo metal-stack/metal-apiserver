@@ -11,14 +11,16 @@ import (
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/api/go/tag"
 	ipamapiv1 "github.com/metal-stack/go-ipam/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/tags"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
-	"github.com/metal-stack/metal-lib/pkg/tag"
+	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -59,16 +61,16 @@ func (r *ipRepository) create(ctx context.Context, req *apiv2.IPServiceCreateReq
 		description = *req.Description
 	}
 
-	var tags []string
+	var iptags []string
 	if req.Labels != nil {
-		tags = tag.TagMap(req.Labels.Labels).Slice()
+		iptags = tags.ToTags(req.Labels.Labels)
 	}
 
 	if req.Machine != nil {
-		tags = append(tags, tag.New(tag.MachineID, *req.Machine))
+		iptags = append(iptags, fmt.Sprintf("%s=%s", tag.MachineID, *req.Machine))
 	}
 	// Ensure no duplicates
-	tags = tag.NewTagMap(tags).Slice()
+	iptags = lo.Uniq(iptags)
 
 	nw, err := r.s.ds.Network().Get(ctx, req.Network) // TODO: maybe it would be useful to be able to pass this through from the validation or use a short-lived cache in the ip repo
 	if err != nil {
@@ -148,7 +150,7 @@ func (r *ipRepository) create(ctx context.Context, req *apiv2.IPServiceCreateReq
 		NetworkID:        nw.ID,
 		ProjectID:        req.Project,
 		Type:             ipType,
-		Tags:             tags,
+		Tags:             iptags,
 	}
 
 	resp, err := r.s.ds.IP().Create(ctx, ip)
@@ -292,7 +294,7 @@ func (r *ipRepository) convertToProto(ctx context.Context, metalIP *metal.IP) (*
 	var labels *apiv2.Labels
 	if len(metalIP.Tags) > 0 {
 		labels = &apiv2.Labels{
-			Labels: tag.NewTagMap(metalIP.Tags),
+			Labels: tags.ToLabels(metalIP.Tags),
 		}
 	}
 

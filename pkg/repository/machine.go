@@ -23,8 +23,8 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/fsm"
+	"github.com/metal-stack/metal-apiserver/pkg/tags"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
-	"github.com/metal-stack/metal-lib/pkg/tag"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -334,7 +334,7 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 
 	if len(m.Tags) > 0 {
 		labels = &apiv2.Labels{
-			Labels: tag.NewTagMap(m.Tags),
+			Labels: tags.ToLabels(m.Tags),
 		}
 	}
 

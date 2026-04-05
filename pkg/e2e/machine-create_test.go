@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -222,6 +223,7 @@ func TestMachineCreate(t *testing.T) {
 	var (
 		machineWaitResponse *infrav2.BootServiceWaitResponse
 		waiterror           error
+		mu                  sync.Mutex
 	)
 	machineWaitSimulation := func() {
 		stream, err := apiClient.Infrav2().Boot().Wait(ctx, &infrav2.BootServiceWaitRequest{
@@ -235,6 +237,8 @@ func TestMachineCreate(t *testing.T) {
 			_ = stream.Close()
 		}()
 		for stream.Receive() {
+			mu.Lock()
+			defer mu.Unlock()
 			machineWaitResponse = stream.Msg()
 			t.Logf("machine wait stopped %v", machineWaitResponse)
 			return
