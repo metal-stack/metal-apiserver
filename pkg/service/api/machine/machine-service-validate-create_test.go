@@ -746,6 +746,7 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 					Project: sc.Tenant1Project1,
 					Name:    new("ip-2"),
 				})
+				require.NoError(t, err)
 
 				req := &apiv2.MachineServiceCreateRequest{
 					Project:        sc.Tenant1Project1,
@@ -757,7 +758,7 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 						{Network: projectNetworkId},
 					},
 				}
-				return req, errorutil.InvalidArgument(`no free ips in network 019d61a3-addf-7c4e-b984-18fd592dd5b7`)
+				return req, errorutil.InvalidArgument(`no free ips in network %s`, projectNetworkId)
 			},
 			want: nil,
 		},
