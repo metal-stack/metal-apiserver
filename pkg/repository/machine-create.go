@@ -198,8 +198,8 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 	err = r.s.ds.Machine().Update(ctx, machine)
 	if err != nil {
 		// Now we have to free all allocated ips
-		r.releaseAllocatedIPs(ctx, allocatedIPs)
-		return nil, fmt.Errorf("error when allocating machine %q, %w", machine.ID, err)
+		releaseIpErr := r.releaseAllocatedIPs(ctx, allocatedIPs)
+		return nil, fmt.Errorf("error when allocating machine %q, %w released ips with error:%s", machine.ID, err, releaseIpErr.Error())
 	}
 
 	return machine, nil
