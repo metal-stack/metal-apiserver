@@ -720,6 +720,48 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 			want: nil,
 		},
 		{
+			name: "machine with private network with no ips left",
+			req:  nil, // set below
+			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
+				testDC := sc.DefaultDatacenter
+				testDC.ProjectsPerTenant = 2
+				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
+					Name:      new("project network"),
+					Project:   new(sc.Tenant1Project1),
+					Partition: new(sc.Partition1),
+					Type:      apiv2.NetworkType_NETWORK_TYPE_CHILD,
+					Length:    &apiv2.ChildPrefixLength{Ipv4: new(uint32(30))},
+				})
+				dc.Create(&testDC)
+				projectNetworkId := dc.GetNetworkByName("project network").Id
+
+				_, err := dc.GetTestStore().UnscopedIP().Create(t.Context(), &apiv2.IPServiceCreateRequest{
+					Network: projectNetworkId,
+					Project: sc.Tenant1Project1,
+					Name:    new("ip-1"),
+				})
+				require.NoError(t, err)
+				_, err = dc.GetTestStore().UnscopedIP().Create(t.Context(), &apiv2.IPServiceCreateRequest{
+					Network: projectNetworkId,
+					Project: sc.Tenant1Project1,
+					Name:    new("ip-2"),
+				})
+
+				req := &apiv2.MachineServiceCreateRequest{
+					Project:        sc.Tenant1Project1,
+					Partition:      new(sc.Partition1),
+					Size:           new(sc.SizeC1Large),
+					Image:          sc.ImageDebian13,
+					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+					Networks: []*apiv2.MachineAllocationNetwork{
+						{Network: projectNetworkId},
+					},
+				}
+				return req, errorutil.InvalidArgument(`no free ips in network 019d61a3-addf-7c4e-b984-18fd592dd5b7`)
+			},
+			want: nil,
+		},
+		{
 			name: "machine with private network and size-imageconstraints",
 			req:  nil, // set below
 			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
@@ -970,6 +1012,54 @@ func Test_machineServiceServer_ValidateCreateFirewall(t *testing.T) {
 					},
 				}
 				return req, errorutil.InvalidArgument(`underlays cannot be specified in a machine allocation request (this is done automatically for firewalls)`)
+			},
+			want: nil,
+		},
+		{
+			name: "firewall but underlay does not have ips available anymore",
+			req:  nil, // set below
+			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
+				testDC := sc.DefaultDatacenter
+				testDC.ProjectsPerTenant = 2
+				testDC.Partitions = append(testDC.Partitions, "partition-2")
+				testDC.Networks = append(testDC.Networks,
+					&adminv2.NetworkServiceCreateRequest{
+						Id:                       new("tenant-super-partition-2"),
+						Partition:                new("partition-2"),
+						Prefixes:                 []string{"19.110.0.0/16"},
+						DestinationPrefixes:      []string{"1.2.3.0/24"},
+						DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: new(uint32(22))},
+						Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
+					},
+					&adminv2.NetworkServiceCreateRequest{
+						Id:        new("underlay-partition-2"),
+						Prefixes:  []string{"10.251.0.0/31"},
+						Type:      apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
+						Partition: new("partition-2"),
+					},
+					&adminv2.NetworkServiceCreateRequest{
+						Name:      new("project network"),
+						Project:   new(sc.Tenant1Project1),
+						Partition: new("partition-2"),
+						Type:      apiv2.NetworkType_NETWORK_TYPE_CHILD,
+					},
+				)
+				dc.Create(&testDC)
+
+				projectNetworkId := dc.GetNetworkByName("project network").Id
+				req := &apiv2.MachineServiceCreateRequest{
+					Name:           "testfirewall",
+					Project:        sc.Tenant1Project1,
+					Partition:      new("partition-2"),
+					Size:           new(sc.SizeN1Medium),
+					Image:          sc.ImageFirewall3_0,
+					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
+					Networks: []*apiv2.MachineAllocationNetwork{
+						{Network: sc.NetworkInternet},
+						{Network: projectNetworkId},
+					},
+				}
+				return req, errorutil.InvalidArgument(`no free ips in network underlay-partition-2`)
 			},
 			want: nil,
 		},

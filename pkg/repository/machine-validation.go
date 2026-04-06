@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"slices"
 
+	"connectrpc.com/connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
@@ -120,6 +123,17 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 		if err := r.validateFirewallSpec(req.FirewallSpec); err != nil {
 			return err
 		}
+		underlay, err := r.s.ds.Network().Find(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{
+			Partition: &partitionId,
+			Type:      apiv2.NetworkType_NETWORK_TYPE_UNDERLAY.Enum(),
+		}))
+		if err != nil {
+			return err
+		}
+		if err := r.ipsAvailable(ctx, underlay.ID); err != nil {
+			return err
+		}
+
 	case apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE:
 		if !slices.Contains(image.Features, apiv2.ImageFeature_IMAGE_FEATURE_MACHINE) {
 			return fmt.Errorf("given image %s is not allowed for machines", image.Id)
@@ -161,6 +175,12 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 
 		if n.Type != nil {
 			networkTypeCount[*n.Type]++
+		}
+
+		if len(nw.Ips) == 0 {
+			if err := r.ipsAvailable(ctx, nw.Network); err != nil {
+				return err
+			}
 		}
 
 		for _, ip := range nw.Ips {
@@ -227,6 +247,30 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 		}
 	}
 
+	return nil
+}
+
+func (r *machineRepository) ipsAvailable(ctx context.Context, network string) error {
+	metalnetwork, err := r.s.ds.Network().Get(ctx, network)
+	if err != nil {
+		return err
+	}
+
+	var availableIps uint64
+	for _, pfx := range metalnetwork.Prefixes {
+		usage, err := r.s.ipam.PrefixUsage(ctx, connect.NewRequest(&ipamv1.PrefixUsageRequest{
+			Cidr:      pfx.String(),
+			Namespace: metalnetwork.Namespace,
+		}))
+		if err != nil {
+			return fmt.Errorf("unable to get network usage of: %s and prefixes:%s %w", network, pfx.String(), err)
+		}
+		availableIps += (usage.Msg.AvailableIps - usage.Msg.AcquiredIps)
+	}
+	r.s.log.Debug("ipsavailable", "network", network, "available", availableIps)
+	if availableIps < 1 {
+		return fmt.Errorf("no free ips in network %s", network)
+	}
 	return nil
 }
 
