@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/tag"
+	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
@@ -175,10 +176,11 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 	if err != nil {
 		return nil, fmt.Errorf("unable to gather networks:%w", err)
 	}
-	err = r.makeNetworks(ctx, machine.ID, req.Project, req.Name, networks, alloc)
+	machineNetworks, allocatedIPs, err := r.makeNetworks(ctx, machine.ID, req.Project, req.Name, networks, alloc)
 	if err != nil {
 		return nil, fmt.Errorf("unable to make networks:%w", err)
 	}
+	alloc.MachineNetworks = append(alloc.MachineNetworks, machineNetworks...)
 
 	// refetch the machine to catch possible updates after dealing with the network...
 	machine, err = r.s.ds.Machine().Get(ctx, machine.ID)
@@ -195,10 +197,27 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 
 	err = r.s.ds.Machine().Update(ctx, machine)
 	if err != nil {
+		// Now we have to free all allocated ips
+		r.releaseAllocatedIPs(ctx, allocatedIPs)
 		return nil, fmt.Errorf("error when allocating machine %q, %w", machine.ID, err)
 	}
 
 	return machine, nil
+}
+
+func (r *machineRepository) releaseAllocatedIPs(ctx context.Context, allocatedIPs []*metal.IP) error {
+	for _, ip := range allocatedIPs {
+		info, err := r.s.task.NewTask(&task.IPDeletePayload{
+			AllocationUUID: ip.AllocationUUID,
+			IP:             ip.IPAddress,
+			Project:        ip.ProjectID,
+		})
+		if err != nil {
+			return err
+		}
+		r.s.log.Info("ip delete queued", "info", info)
+	}
+	return nil
 }
 
 // FindWaitingMachine returns an available, not allocated, waiting and alive machine of given size within the given partition.
@@ -370,37 +389,44 @@ func (r *machineRepository) convertToMetalAllocationNetwork(ctx context.Context,
 // makeNetworks creates network entities and ip addresses as specified in the allocation network map.
 // created networks are added to the machine allocation directly after their creation. This way, the rollback mechanism
 // is enabled to clean up networks that were already created.
-func (r *machineRepository) makeNetworks(ctx context.Context, machineUUID, project, name string, networks []*allocationNetwork, alloc *metal.MachineAllocation) error {
+func (r *machineRepository) makeNetworks(ctx context.Context, machineUUID, project, name string, networks []*allocationNetwork, alloc *metal.MachineAllocation) ([]*metal.MachineNetwork, []*metal.IP, error) {
 	// the metal-networker expects to have the same unique ASN on all networks of this machine
 	asn, err := r.acquireASN(ctx)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
+	var (
+		machineNetworks []*metal.MachineNetwork
+		allocatedIPs    []*metal.IP
+	)
 	for _, n := range networks {
 		if n == nil || n.network == nil {
 			continue
 		}
-		machineNetwork, err := r.makeMachineNetwork(ctx, machineUUID, project, name, n, *asn)
+		machineNetwork, allocIPs, err := r.makeMachineNetwork(ctx, machineUUID, project, name, n, *asn)
 		if err != nil {
-			return err
+			return nil, nil, err
 		}
-		alloc.MachineNetworks = append(alloc.MachineNetworks, machineNetwork)
+		machineNetworks = append(machineNetworks, machineNetwork)
+		allocatedIPs = append(allocatedIPs, allocIPs...)
 	}
 
-	return nil
+	return machineNetworks, allocatedIPs, nil
 }
 
 // FIXME this is the complicated part which needs to be reviewed
 
-func (r *machineRepository) makeMachineNetwork(ctx context.Context, machineUUID, project, name string, network *allocationNetwork, asn uint32) (*metal.MachineNetwork, error) {
+func (r *machineRepository) makeMachineNetwork(ctx context.Context, machineUUID, project, name string, network *allocationNetwork, asn uint32) (*metal.MachineNetwork, []*metal.IP, error) {
+	var allocatedIPs []*metal.IP
+
 	if len(network.ips) == 0 {
 		if len(network.network.Prefixes) == 0 {
-			return nil, fmt.Errorf("given network %s does not have prefixes configured", network.network.ID)
+			return nil, nil, fmt.Errorf("given network %s does not have prefixes configured", network.network.ID)
 		}
 		for _, af := range network.network.Prefixes.AddressFamilies() {
 			ipAddress, ipParentCidr, err := r.s.IP(project).AdditionalMethods().allocateRandomIP(ctx, network.network, af)
 			if err != nil {
-				return nil, fmt.Errorf("unable to allocate an ip in network: %s %w", network.network.ID, err)
+				return nil, nil, fmt.Errorf("unable to allocate an ip in network: %s %w", network.network.ID, err)
 			}
 			ip := &metal.IP{
 				IPAddress:        ipAddress,
@@ -413,9 +439,10 @@ func (r *machineRepository) makeMachineNetwork(ctx context.Context, machineUUID,
 			}
 			_, err = r.s.ds.IP().Create(ctx, ip)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			network.ips = append(network.ips, ip)
+			allocatedIPs = append(allocatedIPs, ip)
 		}
 	}
 
@@ -426,7 +453,7 @@ func (r *machineRepository) makeMachineNetwork(ctx context.Context, machineUUID,
 		ip.AddMachineId(machineUUID)
 		err := r.s.ds.IP().Update(ctx, ip)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		ipAddresses = append(ipAddresses, ip.IPAddress)
 	}
@@ -452,7 +479,7 @@ func (r *machineRepository) makeMachineNetwork(ctx context.Context, machineUUID,
 		NATType:     network.network.NATType,
 	}
 
-	return &machineNetwork, nil
+	return &machineNetwork, allocatedIPs, nil
 }
 
 // FIXME review machine and allocation labels
