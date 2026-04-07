@@ -171,10 +171,11 @@ func (r *sizeRepository) convertToProto(ctx context.Context, e *metal.Size) (*ap
 		if err != nil {
 			return nil, err
 		}
+
 		constraints = append(constraints, apiv2Constraint)
 	}
 
-	size := &apiv2.Size{
+	return &apiv2.Size{
 		Id:          e.ID,
 		Name:        pointer.PointerOrNil(e.Name),
 		Description: pointer.PointerOrNil(e.Description),
@@ -185,9 +186,7 @@ func (r *sizeRepository) convertToProto(ctx context.Context, e *metal.Size) (*ap
 			UpdatedAt:  timestamppb.New(e.Changed),
 			Generation: e.Generation,
 		},
-	}
-
-	return size, nil
+	}, nil
 }
 
 func (r *sizeRepository) sizeFilters(filter generic.EntityQuery) []generic.EntityQuery {

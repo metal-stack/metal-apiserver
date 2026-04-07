@@ -358,11 +358,13 @@ func (r *filesystemLayoutRepository) convertToInternal(ctx context.Context, f *a
 }
 func (r *filesystemLayoutRepository) convertToProto(ctx context.Context, in *metal.FilesystemLayout) (*apiv2.FilesystemLayout, error) {
 	var filesystems []*apiv2.Filesystem
+
 	for _, fs := range in.Filesystems {
 		f, err := enum.GetEnum[apiv2.Format](string(fs.Format))
 		if err != nil {
 			return nil, err
 		}
+
 		filesystems = append(filesystems, &apiv2.Filesystem{
 			Device: fs.Device,
 			Format: f,
@@ -370,11 +372,15 @@ func (r *filesystemLayoutRepository) convertToProto(ctx context.Context, in *met
 			Path:   fs.Path,
 		})
 	}
+
 	var disks []*apiv2.Disk
+
 	for _, d := range in.Disks {
 		var partitions []*apiv2.DiskPartition
+
 		for _, p := range d.Partitions {
 			var gpt *apiv2.GPTType
+
 			if p.GPTType != nil {
 				gptParsed, err := enum.GetEnum[apiv2.GPTType](string(*p.GPTType))
 				if err != nil {
@@ -390,6 +396,7 @@ func (r *filesystemLayoutRepository) convertToProto(ctx context.Context, in *met
 				GptType: gpt,
 			})
 		}
+
 		disks = append(disks, &apiv2.Disk{
 			Device:     d.Device,
 			Partitions: partitions,
@@ -397,8 +404,10 @@ func (r *filesystemLayoutRepository) convertToProto(ctx context.Context, in *met
 	}
 
 	var raid []*apiv2.Raid
+
 	for _, r := range in.Raid {
 		var level apiv2.RaidLevel
+
 		switch r.Level {
 		case metal.RaidLevel0:
 			level = apiv2.RaidLevel_RAID_LEVEL_0
@@ -407,6 +416,7 @@ func (r *filesystemLayoutRepository) convertToProto(ctx context.Context, in *met
 		default:
 			return nil, fmt.Errorf("unknown raid level:%s", r.Level)
 		}
+
 		raid = append(raid, &apiv2.Raid{
 			ArrayName:     r.ArrayName,
 			Devices:       r.Devices,
@@ -417,6 +427,7 @@ func (r *filesystemLayoutRepository) convertToProto(ctx context.Context, in *met
 	}
 
 	var volumegroups []*apiv2.VolumeGroup
+
 	for _, vg := range in.VolumeGroups {
 		volumegroups = append(volumegroups, &apiv2.VolumeGroup{
 			Name:    vg.Name,
@@ -426,11 +437,13 @@ func (r *filesystemLayoutRepository) convertToProto(ctx context.Context, in *met
 	}
 
 	var logicalvolumes []*apiv2.LogicalVolume
+
 	for _, lv := range in.LogicalVolumes {
 		lvmType, err := enum.GetEnum[apiv2.LVMType](string(lv.LVMType))
 		if err != nil {
 			return nil, err
 		}
+
 		logicalvolumes = append(logicalvolumes, &apiv2.LogicalVolume{
 			Name:        lv.Name,
 			VolumeGroup: lv.VolumeGroup,
@@ -439,20 +452,13 @@ func (r *filesystemLayoutRepository) convertToProto(ctx context.Context, in *met
 		})
 	}
 
-	constraints := &apiv2.FilesystemLayoutConstraints{
-		Sizes:  in.Constraints.Sizes,
-		Images: in.Constraints.Images,
-	}
-
-	meta := &apiv2.Meta{
-		CreatedAt:  timestamppb.New(in.Created),
-		UpdatedAt:  timestamppb.New(in.Changed),
-		Generation: in.Generation,
-	}
-
-	fsl := &apiv2.FilesystemLayout{
-		Id:             in.ID,
-		Meta:           meta,
+	return &apiv2.FilesystemLayout{
+		Id: in.ID,
+		Meta: &apiv2.Meta{
+			CreatedAt:  timestamppb.New(in.Created),
+			UpdatedAt:  timestamppb.New(in.Changed),
+			Generation: in.Generation,
+		},
 		Name:           &in.Name,
 		Description:    &in.Description,
 		Filesystems:    filesystems,
@@ -460,8 +466,9 @@ func (r *filesystemLayoutRepository) convertToProto(ctx context.Context, in *met
 		Raid:           raid,
 		VolumeGroups:   volumegroups,
 		LogicalVolumes: logicalvolumes,
-		Constraints:    constraints,
-	}
-
-	return fsl, nil
+		Constraints: &apiv2.FilesystemLayoutConstraints{
+			Sizes:  in.Constraints.Sizes,
+			Images: in.Constraints.Images,
+		},
+	}, nil
 }

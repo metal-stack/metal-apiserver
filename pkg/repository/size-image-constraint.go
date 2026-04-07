@@ -139,6 +139,7 @@ func (r *sizeImageConstraintRepository) convertToProto(ctx context.Context, e *m
 	}
 
 	var imageConstraints []*apiv2.ImageConstraint
+
 	for image, semverMatch := range e.Images {
 		imageConstraints = append(imageConstraints, &apiv2.ImageConstraint{
 			Image:       image,
@@ -146,7 +147,7 @@ func (r *sizeImageConstraintRepository) convertToProto(ctx context.Context, e *m
 		})
 	}
 
-	sizeImageConstraint := &apiv2.SizeImageConstraint{
+	return &apiv2.SizeImageConstraint{
 		Size:        e.ID,
 		Name:        &e.Name,
 		Description: &e.Description,
@@ -156,9 +157,7 @@ func (r *sizeImageConstraintRepository) convertToProto(ctx context.Context, e *m
 			Generation: e.Generation,
 		},
 		ImageConstraints: imageConstraints,
-	}
-
-	return sizeImageConstraint, nil
+	}, nil
 }
 
 func (r *sizeImageConstraintRepository) sizeImageConstraintFilters(filter generic.EntityQuery) []generic.EntityQuery {

@@ -28,8 +28,6 @@ func New(c Config) infrav2connect.EventServiceHandler {
 }
 
 func (s *eventServiceServer) Send(ctx context.Context, rq *infrav2.EventServiceSendRequest) (*infrav2.EventServiceSendResponse, error) {
-	s.log.Debug("send", "event", rq)
-
 	var (
 		processed uint64
 		failed    []string
