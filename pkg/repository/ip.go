@@ -284,6 +284,7 @@ func (r *ipRepository) convertToInternal(ctx context.Context, ip *apiv2.IP) (*me
 
 func (r *ipRepository) convertToProto(ctx context.Context, metalIP *metal.IP) (*apiv2.IP, error) {
 	t := apiv2.IPType_IP_TYPE_UNSPECIFIED
+
 	switch metalIP.Type {
 	case metal.Ephemeral:
 		t = apiv2.IPType_IP_TYPE_EPHEMERAL
@@ -292,6 +293,7 @@ func (r *ipRepository) convertToProto(ctx context.Context, metalIP *metal.IP) (*
 	}
 
 	var labels *apiv2.Labels
+
 	if len(metalIP.Tags) > 0 {
 		labels = &apiv2.Labels{
 			Labels: tags.ToLabels(metalIP.Tags),
@@ -303,7 +305,7 @@ func (r *ipRepository) convertToProto(ctx context.Context, metalIP *metal.IP) (*
 		return nil, err
 	}
 
-	ip := &apiv2.IP{
+	return &apiv2.IP{
 		Ip:          ipaddress,
 		Uuid:        metalIP.AllocationUUID,
 		Name:        metalIP.Name,
@@ -318,8 +320,7 @@ func (r *ipRepository) convertToProto(ctx context.Context, metalIP *metal.IP) (*
 			UpdatedAt:  timestamppb.New(metalIP.Changed),
 			Generation: metalIP.Generation,
 		},
-	}
-	return ip, nil
+	}, nil
 }
 
 //---------------------------------------------------------------

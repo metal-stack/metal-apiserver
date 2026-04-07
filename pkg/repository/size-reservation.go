@@ -133,7 +133,7 @@ func (r *sizeReservationRepository) convertToInternal(ctx context.Context, e *ap
 
 func (r *sizeReservationRepository) convertToProto(ctx context.Context, e *metal.SizeReservation) (*apiv2.SizeReservation, error) {
 	if e == nil {
-		return nil, errors.New("sizeReservation is nil")
+		return nil, errors.New("size reservation is nil")
 	}
 
 	var (
@@ -146,7 +146,7 @@ func (r *sizeReservationRepository) convertToProto(ctx context.Context, e *metal
 		}
 	}
 
-	sizeReservation := &apiv2.SizeReservation{
+	return &apiv2.SizeReservation{
 		Id:          e.ID,
 		Name:        e.Name,
 		Description: e.Description,
@@ -160,9 +160,7 @@ func (r *sizeReservationRepository) convertToProto(ctx context.Context, e *metal
 			UpdatedAt:  timestamppb.New(e.Changed),
 			Generation: e.Generation,
 		},
-	}
-
-	return sizeReservation, nil
+	}, nil
 }
 
 func (r *sizeReservationRepository) sizeReservationFilters(filter generic.EntityQuery) []generic.EntityQuery {

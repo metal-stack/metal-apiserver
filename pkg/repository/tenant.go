@@ -226,6 +226,7 @@ func (t *tenantRepository) convertToInternal(ctx context.Context, tenant *apiv2.
 
 func (t *tenantRepository) convertToProto(ctx context.Context, tenant *tenantEntity) (*apiv2.Tenant, error) {
 	var labels *apiv2.Labels
+
 	if tenant.Meta != nil && tenant.Meta.Labels != nil && len(tenant.Meta.Labels) > 0 {
 		labels = &apiv2.Labels{
 			Labels: tags.ToLabels(tenant.Meta.Labels),

@@ -397,7 +397,6 @@ func (r *networkRepository) convertToInternal(ctx context.Context, msg *apiv2.Ne
 
 func (r *networkRepository) convertToProto(ctx context.Context, e *metal.Network) (*apiv2.Network, error) {
 	var (
-		consumption *apiv2.NetworkConsumption
 		labels      *apiv2.Labels
 		networkType *apiv2.NetworkType
 		natType     *apiv2.NATType
@@ -418,6 +417,7 @@ func (r *networkRepository) convertToProto(ctx context.Context, e *metal.Network
 		if err != nil {
 			return nil, err
 		}
+
 		natType = &nt
 	}
 
@@ -426,6 +426,7 @@ func (r *networkRepository) convertToProto(ctx context.Context, e *metal.Network
 		if err != nil {
 			return nil, err
 		}
+
 		networkType = &nwt
 	}
 
@@ -461,11 +462,11 @@ func (r *networkRepository) convertToProto(ctx context.Context, e *metal.Network
 		MinChildPrefixLength:     minChildPrefixLength,
 		Type:                     networkType,
 	}
-	consumption, err = r.getNetworkUsage(ctx, e)
+
+	nw.Consumption, err = r.getNetworkUsage(ctx, e)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
-	nw.Consumption = consumption
 
 	return nw, nil
 }

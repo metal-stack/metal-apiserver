@@ -153,6 +153,7 @@ func (r *imageRepository) convertToInternal(ctx context.Context, msg *apiv2.Imag
 
 func (r *imageRepository) convertToProto(ctx context.Context, in *metal.Image) (*apiv2.Image, error) {
 	var features []apiv2.ImageFeature
+
 	for feature := range in.Features {
 		switch feature {
 		case metal.ImageFeatureMachine:
@@ -160,10 +161,12 @@ func (r *imageRepository) convertToProto(ctx context.Context, in *metal.Image) (
 		case metal.ImageFeatureFirewall:
 			features = append(features, apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL)
 		default:
-			return nil, fmt.Errorf("invalid image feature:%s", feature)
+			return nil, fmt.Errorf("invalid image feature: %s", feature)
 		}
 	}
+
 	var classification apiv2.ImageClassification
+
 	switch in.Classification {
 	case metal.ClassificationDeprecated:
 		classification = apiv2.ImageClassification_IMAGE_CLASSIFICATION_DEPRECATED
@@ -172,7 +175,7 @@ func (r *imageRepository) convertToProto(ctx context.Context, in *metal.Image) (
 	case metal.ClassificationSupported:
 		classification = apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED
 	default:
-		return nil, fmt.Errorf("invalid image classification:%s", classification)
+		return nil, fmt.Errorf("invalid image classification: %s", classification)
 	}
 
 	return &apiv2.Image{
