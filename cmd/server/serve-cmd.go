@@ -115,14 +115,21 @@ func newServeCmd() *cli.Command {
 				return fmt.Errorf("unable to create masterdata.client: %w", err)
 			}
 
-			hc, err := headscale.NewClient(headscale.Config{
-				Log:      log,
-				Disabled: !ctx.Bool(headscaleEnabledFlag.Name),
-				Apikey:   ctx.String(headscaleApikeyFlag.Name),
-				Endpoint: ctx.String(headscaleAddressFlag.Name),
-			})
-			if err != nil {
-				return err
+			var hc *headscale.Client
+
+			if ctx.Bool(headscaleEnabledFlag.Name) {
+				hc, err = headscale.NewClient(headscale.Config{
+					Log:      log,
+					Apikey:   ctx.String(headscaleApikeyFlag.Name),
+					Endpoint: ctx.String(headscaleAddressFlag.Name),
+				})
+				if err != nil {
+					return err
+				}
+
+				log.Info("headscale enabled")
+			} else {
+				log.Info("headscale is not enabled, not configuring vpn services")
 			}
 
 			connectOpts := rethinkdb.ConnectOpts{
@@ -151,9 +158,17 @@ func newServeCmd() *cli.Command {
 					Queue:            queue,
 					Component:        redisConfig.ComponentClient,
 					Auditing:         auditSearchBackend,
+					HeadscaleClient:  hc,
 				})
 				stage = ctx.String(stageFlag.Name)
 			)
+
+			if ctx.Bool(headscaleEnabledFlag.Name) {
+				err = repo.UnscopedVPN().SetDefaultPolicy(ctx.Context)
+				if err != nil {
+					return fmt.Errorf("unable to ensure headscale default policy: %w", err)
+				}
+			}
 
 			c := service.Config{
 				HttpServerEndpoint:                  ctx.String(httpServerEndpointFlag.Name),

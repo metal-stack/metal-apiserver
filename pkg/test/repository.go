@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	headscalev1 "github.com/juanfont/headscale/gen/go/headscale/v1"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
@@ -20,6 +19,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
+	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
@@ -54,12 +54,14 @@ type (
 		tokenStore         tokencommon.TokenStore
 
 		// only use this when you are very certain about it!!
-		tokenService token.TokenService
-		mdc          mdc.Client
-		rc           *redis.Client
-		vc           valkey.Client
-		hc           headscalev1.HeadscaleServiceClient
-		audit        auditing.Auditing
+		tokenService           token.TokenService
+		mdc                    mdc.Client
+		rc                     *redis.Client
+		vc                     valkey.Client
+		hc                     *headscale.Client
+		headscaleControllerURL string
+
+		audit auditing.Auditing
 	}
 
 	testOpt any
@@ -149,15 +151,16 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 	}
 
 	var (
-		rc              *redis.Client
-		vc              valkey.Client
-		hc              headscalev1.HeadscaleServiceClient
-		valkeyCloser    func()
-		ds              generic.Datastore
-		opts            r.ConnectOpts
-		rethinkCloser   func()
-		headscaleCloser func()
-		session         *r.Session
+		rc                     *redis.Client
+		vc                     valkey.Client
+		hc                     *headscale.Client
+		headscaleControllerURL string
+		valkeyCloser           func()
+		ds                     generic.Datastore
+		opts                   r.ConnectOpts
+		rethinkCloser          func()
+		headscaleCloser        func()
+		session                *r.Session
 	)
 
 	if withRethink {
@@ -174,7 +177,7 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 	}
 
 	if withHeadscale {
-		hc, _, _, headscaleCloser = StartHeadscale(t)
+		hc, headscaleControllerURL, headscaleCloser = StartHeadscale(t)
 	}
 
 	projectInviteStore := invite.NewProjectRedisStore(rc)
@@ -220,6 +223,7 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		Queue:            queue,
 		Component:        vc, // Use same valkey instance as queue for tests
 		Auditing:         auditingBackend,
+		HeadscaleClient:  hc,
 	}
 
 	repo := repository.New(config)
@@ -244,22 +248,23 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 	}
 
 	return &testStore{
-		t:                  t,
-		Store:              repo,
-		ds:                 ds,
-		dbName:             opts.Database,
-		queryExecutor:      session,
-		ipam:               ipam,
-		ipamcloser:         ipamCloser,
-		projectInviteStore: projectInviteStore,
-		tenantInviteStore:  tenantInviteStore,
-		tokenStore:         tokenStore,
-		tokenService:       tokenService,
-		mdc:                mdc,
-		rc:                 rc,
-		vc:                 vc,
-		audit:              auditingBackend,
-		hc:                 hc,
+		t:                      t,
+		Store:                  repo,
+		ds:                     ds,
+		dbName:                 opts.Database,
+		queryExecutor:          session,
+		ipam:                   ipam,
+		ipamcloser:             ipamCloser,
+		projectInviteStore:     projectInviteStore,
+		tenantInviteStore:      tenantInviteStore,
+		tokenStore:             tokenStore,
+		tokenService:           tokenService,
+		mdc:                    mdc,
+		rc:                     rc,
+		vc:                     vc,
+		audit:                  auditingBackend,
+		hc:                     hc,
+		headscaleControllerURL: headscaleControllerURL,
 	}, closer
 }
 
@@ -318,8 +323,12 @@ func (t *testStore) GetValkeyClient() valkey.Client {
 	return t.vc
 }
 
-func (t *testStore) GetHeadscaleClient() headscalev1.HeadscaleServiceClient {
+func (t *testStore) GetHeadscaleClient() *headscale.Client {
 	return t.hc
+}
+
+func (t *testStore) GetHeadscaleControllerURL() string {
+	return t.headscaleControllerURL
 }
 
 func (t *testStore) GetAuditBackend() auditing.Auditing {

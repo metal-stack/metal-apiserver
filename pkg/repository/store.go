@@ -11,6 +11,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-lib/auditing"
 	"github.com/valkey-io/valkey-go"
@@ -23,14 +24,15 @@ import (
 
 type (
 	Store struct {
-		log       *slog.Logger
-		ds        generic.Datastore
-		mdc       mdm.Client
-		ipam      ipamv1connect.IpamServiceClient
-		task      *task.Client
-		queue     *queue.Queue
-		component valkey.Client
-		auditing  auditing.Auditing
+		log             *slog.Logger
+		ds              generic.Datastore
+		mdc             mdm.Client
+		ipam            ipamv1connect.IpamServiceClient
+		task            *task.Client
+		queue           *queue.Queue
+		component       valkey.Client
+		auditing        auditing.Auditing
+		headscaleClient *headscale.Client
 	}
 
 	Config struct {
@@ -42,6 +44,7 @@ type (
 		Queue            *queue.Queue
 		Component        valkey.Client
 		Auditing         auditing.Auditing
+		HeadscaleClient  *headscale.Client
 	}
 
 	store[R Repo, E Entity, M Message, C CreateMessage, U UpdateMessage, Q Query] struct {
@@ -52,14 +55,15 @@ type (
 
 func New(c Config) *Store {
 	return &Store{
-		log:       c.Log,
-		mdc:       c.MasterdataClient,
-		ipam:      c.Ipam,
-		ds:        c.Datastore,
-		task:      c.Task,
-		queue:     c.Queue,
-		component: c.Component,
-		auditing:  c.Auditing,
+		log:             c.Log,
+		mdc:             c.MasterdataClient,
+		ipam:            c.Ipam,
+		ds:              c.Datastore,
+		task:            c.Task,
+		queue:           c.Queue,
+		component:       c.Component,
+		auditing:        c.Auditing,
+		headscaleClient: c.HeadscaleClient,
 	}
 }
 
@@ -280,6 +284,24 @@ func (s *Store) audit(scope *TenantScope) Audit {
 	return &store[*auditRepository, *auditEntity, *apiv2.AuditTrace, any, *auditEntity, *apiv2.AuditQuery]{
 		repository: repository,
 		typed:      repository,
+	}
+}
+
+func (s *Store) VPN(project string) *vpn {
+	return &vpn{
+		s: s,
+		scope: &ProjectScope{
+			projectID: project,
+		},
+		c: s.headscaleClient,
+	}
+}
+
+func (s *Store) UnscopedVPN() *vpn {
+	return &vpn{
+		s:     s,
+		scope: nil,
+		c:     s.headscaleClient,
 	}
 }
 

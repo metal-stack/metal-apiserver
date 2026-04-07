@@ -12,8 +12,6 @@ import (
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/auditing"
 
-	headscalev1 "github.com/juanfont/headscale/gen/go/headscale/v1"
-
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 
 	auditadmin "github.com/metal-stack/metal-apiserver/pkg/service/admin/audit"
@@ -36,17 +34,15 @@ import (
 )
 
 type Config struct {
-	Log                          *slog.Logger
-	Repository                   *repository.Store
-	Mux                          *http.ServeMux
-	Interceptors                 connect.Option
-	InviteStore                  invite.TenantInviteStore
-	TokenStore                   tokencommon.TokenStore
-	TokenService                 token.TokenService
-	CertStore                    certs.CertStore
-	HeadscaleClient              headscalev1.HeadscaleServiceClient
-	HeadscaleControlplaneAddress string
-	AuditSearchBackend           auditing.Auditing
+	Log                *slog.Logger
+	Repository         *repository.Store
+	Mux                *http.ServeMux
+	Interceptors       connect.Option
+	InviteStore        invite.TenantInviteStore
+	TokenStore         tokencommon.TokenStore
+	TokenService       token.TokenService
+	CertStore          certs.CertStore
+	AuditSearchBackend auditing.Auditing
 }
 
 func AdminServices(cfg Config) {
@@ -73,6 +69,10 @@ func AdminServices(cfg Config) {
 			TokenStore:  cfg.TokenStore,
 		})
 		adminTokenService = tokenadmin.New(tokenadmin.Config{Log: cfg.Log, CertStore: cfg.CertStore, TokenStore: cfg.TokenStore, TokenService: cfg.TokenService})
+		adminVPNService   = vpnadmin.New(vpnadmin.Config{
+			Log:  cfg.Log,
+			Repo: cfg.Repository,
+		})
 	)
 
 	cfg.Mux.Handle(adminv2connect.NewAuditServiceHandler(adminAuditService, cfg.Interceptors))
@@ -91,14 +91,5 @@ func AdminServices(cfg Config) {
 	cfg.Mux.Handle(adminv2connect.NewTaskServiceHandler(adminTaskService, cfg.Interceptors))
 	cfg.Mux.Handle(adminv2connect.NewTenantServiceHandler(adminTenantService, cfg.Interceptors))
 	cfg.Mux.Handle(adminv2connect.NewTokenServiceHandler(adminTokenService, cfg.Interceptors))
-
-	if cfg.HeadscaleClient != nil {
-		adminVPNService := vpnadmin.New(vpnadmin.Config{
-			Log:                          cfg.Log,
-			Repo:                         cfg.Repository,
-			HeadscaleClient:              cfg.HeadscaleClient,
-			HeadscaleControlplaneAddress: cfg.HeadscaleControlplaneAddress,
-		})
-		cfg.Mux.Handle(adminv2connect.NewVPNServiceHandler(adminVPNService))
-	}
+	cfg.Mux.Handle(adminv2connect.NewVPNServiceHandler(adminVPNService))
 }
