@@ -382,6 +382,7 @@ var (
 )
 
 func Test_switchServiceServer_Register(t *testing.T) {
+	t.Parallel()
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
@@ -707,6 +708,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 }
 
 func Test_switchServiceServer_Get(t *testing.T) {
+	t.Parallel()
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
@@ -784,6 +786,7 @@ func Test_switchServiceServer_Get(t *testing.T) {
 }
 
 func Test_switchServiceServer_Heartbeat(t *testing.T) {
+	t.Parallel()
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
@@ -1061,6 +1064,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 
 // added this test here because using testStore inside the repository package creates an import cycle
 func Test_switchRepository_ConnectMachineWithSwitches(t *testing.T) {
+	t.Parallel()
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
