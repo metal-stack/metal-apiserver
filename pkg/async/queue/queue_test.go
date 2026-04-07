@@ -18,6 +18,7 @@ import (
 )
 
 func Test_Queue(t *testing.T) {
+	t.Parallel()
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	_, client, closer := test.StartValkey(t)

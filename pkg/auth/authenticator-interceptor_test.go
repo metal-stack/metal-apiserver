@@ -41,6 +41,7 @@ func prepare(t *testing.T) (certs.CertStore, *ecdsa.PrivateKey) {
 }
 
 func Test_authorize_with_permissions(t *testing.T) {
+	t.Parallel()
 	pk, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
 	require.NoError(t, err)
 	var (

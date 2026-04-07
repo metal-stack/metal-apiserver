@@ -18,6 +18,7 @@ import (
 )
 
 func Test_jwt_cert_rotation(t *testing.T) {
+	t.Parallel()
 	oldMaxExpiration := token.MaxExpiration
 	oldDefaultExpiration := token.DefaultExpiration
 

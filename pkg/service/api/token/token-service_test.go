@@ -29,6 +29,7 @@ var (
 )
 
 func Test_tokenService_CreateConsoleTokenWithoutPermissionCheck(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	s := miniredis.RunT(t)
 	c := redis.NewClient(&redis.Options{Addr: s.Addr()})
@@ -97,6 +98,7 @@ func Test_tokenService_CreateConsoleTokenWithoutPermissionCheck(t *testing.T) {
 }
 
 func Test_Create(t *testing.T) {
+	t.Parallel()
 	type state struct {
 		adminSubjects []string
 		projectRoles  map[string]apiv2.ProjectRole
@@ -530,6 +532,7 @@ func Test_Create(t *testing.T) {
 }
 
 func Test_CreateForUser(t *testing.T) {
+	t.Parallel()
 	type state struct {
 		adminSubjects []string
 		projectRoles  map[string]apiv2.ProjectRole
@@ -654,6 +657,7 @@ func Test_CreateForUser(t *testing.T) {
 }
 
 func Test_validateTokenRequest(t *testing.T) {
+	t.Parallel()
 	inOneHour := durationpb.New(time.Hour)
 	tests := []struct {
 		name          string
@@ -1186,6 +1190,7 @@ func Test_validateTokenRequest(t *testing.T) {
 }
 
 func Test_Update(t *testing.T) {
+	t.Parallel()
 	type state struct {
 		adminSubjects []string
 		projectRoles  map[string]apiv2.ProjectRole
@@ -1649,6 +1654,7 @@ func Test_Update(t *testing.T) {
 }
 
 func Test_Refresh(t *testing.T) {
+	t.Parallel()
 	iat := time.Now()
 	exp := iat.Add(time.Hour)
 	type state struct {

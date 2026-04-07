@@ -10,6 +10,7 @@ import (
 )
 
 func Test_sharedMutex_stop(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(t.Context())
 
 	done := make(chan bool)

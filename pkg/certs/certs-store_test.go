@@ -12,6 +12,7 @@ import (
 )
 
 func Test_redisStore(t *testing.T) {
+	t.Parallel()
 	var (
 		ctx   = t.Context()
 		s     = miniredis.RunT(t)

@@ -29,6 +29,7 @@ var (
 )
 
 func Test_machineServiceServer_Get(t *testing.T) {
+	t.Parallel()
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
@@ -127,6 +128,7 @@ func Test_machineServiceServer_Get(t *testing.T) {
 }
 
 func Test_machineServiceServer_List(t *testing.T) {
+	t.Parallel()
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)
@@ -278,6 +280,7 @@ func Test_machineServiceServer_List(t *testing.T) {
 }
 
 func Test_machineServiceServer_BMCCommand(t *testing.T) {
+	t.Parallel()
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	testStore, closer := test.StartRepositoryWithCleanup(t, log)

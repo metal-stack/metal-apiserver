@@ -15,6 +15,7 @@ import (
 )
 
 func Test_sharedMutex_reallyLocking(t *testing.T) {
+	t.Parallel()
 	var (
 		log        = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 		ctx        = t.Context()
@@ -51,6 +52,7 @@ func Test_sharedMutex_reallyLocking(t *testing.T) {
 }
 
 func Test_sharedMutex_acquireAfterRelease(t *testing.T) {
+	t.Parallel()
 	var (
 		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 		ctx = t.Context()
@@ -78,6 +80,7 @@ func Test_sharedMutex_acquireAfterRelease(t *testing.T) {
 }
 
 func Test_sharedMutex_expires(t *testing.T) {
+	t.Parallel()
 	var (
 		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 		ctx = t.Context()

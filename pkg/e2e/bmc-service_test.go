@@ -25,6 +25,7 @@ var (
 )
 
 func TestWaitForBMCCommandSync(t *testing.T) {
+	t.Parallel()
 	// TODO test more scenarios with more receivers
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	baseURL, adminToken, _, closer := StartApiserver(t, log)
@@ -128,6 +129,7 @@ func TestWaitForBMCCommandSync(t *testing.T) {
 }
 
 func TestWaitForBMCCommandAsync(t *testing.T) {
+	t.Parallel()
 	// TODO test more scenarios with more receivers
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	baseURL, adminToken, _, closer := StartApiserver(t, log)
