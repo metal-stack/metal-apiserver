@@ -213,6 +213,7 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 }
 
 func (r *machineRepository) rollback(ctx context.Context, machineId string, allocatedIPs []*metal.IP) {
+	// TODO: release ASN
 	for _, ip := range allocatedIPs {
 		if ip.Type == metal.Ephemeral {
 			info, err := r.s.task.NewTask(&task.IPDeletePayload{
@@ -243,6 +244,15 @@ func (r *machineRepository) rollback(ctx context.Context, machineId string, allo
 	if err != nil {
 		r.s.log.Error("unable to get machine", "error", err)
 	}
+
+	for _, nw := range metalMachine.Allocation.MachineNetworks {
+		if nw.ASN > ASNBase {
+			err = r.releaseASN(ctx, nw.ASN)
+			r.s.log.Error("unable to release asn", "error", err)
+			break
+		}
+	}
+
 	metalMachine.PreAllocated = false
 	metalMachine.Allocation = nil
 	err = r.s.ds.Machine().Update(ctx, metalMachine)
