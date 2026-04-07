@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/tag"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
@@ -19,6 +20,7 @@ import (
 	metalcommon "github.com/metal-stack/metal-lib/pkg/metal"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/samber/lo"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 // allocationNetwork is intermediate struct to create machine networks from regular networks during machine allocation
@@ -104,8 +106,26 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 			fwrules = fwr
 		}
 
-		// FIXME implement VPN authkey generation by calling the vpn-service
-		vpn = &metal.MachineVPN{}
+		if r.s.UnscopedVPN().Enabled() {
+			if _, err := r.s.VPN(req.Project).CreateUser(ctx, req.Project); err != nil {
+				if !errorutil.IsConflict(err) {
+					return nil, fmt.Errorf("unable to create vpn user for project: %w", err)
+				}
+			}
+
+			key, err := r.s.VPN(req.Project).CreateAuthKey(ctx, &adminv2.VPNServiceAuthKeyRequest{
+				Project:   req.Project,
+				Ephemeral: false,
+				Expires:   durationpb.New(2 * time.Hour),
+			})
+			if err != nil {
+				return nil, fmt.Errorf("unable to create vpn authkey: %w", err)
+			}
+			vpn = &metal.MachineVPN{
+				AuthKey:             key.AuthKey,
+				ControlPlaneAddress: key.Address,
+			}
+		}
 	}
 
 	partition, err := r.s.ds.Partition().Get(ctx, partitionID)
