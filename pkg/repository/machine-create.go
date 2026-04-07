@@ -134,6 +134,15 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 		machine = machineCandidate
 	}
 
+	var allocatedIPs []*metal.IP
+	defer func() {
+		// TODO not sure if rollback is even better to be called from outside, but then a rollbackstruck is required
+		if err == nil {
+			return
+		}
+		r.rollback(ctx, machine.ID, allocatedIPs)
+	}()
+
 	if machine == nil {
 		return nil, fmt.Errorf("no machine found")
 	}
@@ -176,7 +185,7 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 	if err != nil {
 		return nil, fmt.Errorf("unable to gather networks:%w", err)
 	}
-	machineNetworks, allocatedIPs, err := r.makeNetworks(ctx, machine.ID, req.Project, req.Name, networks, alloc)
+	machineNetworks, allocatedIPs, err := r.makeNetworks(ctx, machine.ID, req.Project, req.Name, networks)
 	if err != nil {
 		return nil, fmt.Errorf("unable to make networks:%w", err)
 	}
@@ -197,27 +206,49 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 
 	err = r.s.ds.Machine().Update(ctx, machine)
 	if err != nil {
-		// Now we have to free all allocated ips
-		releaseIpErr := r.releaseAllocatedIPs(ctx, allocatedIPs)
-		return nil, fmt.Errorf("error when allocating machine %q, %w released ips with error:%s", machine.ID, err, releaseIpErr.Error())
+		return nil, fmt.Errorf("error when allocating machine %q, %w", machine.ID, err)
 	}
 
 	return machine, nil
 }
 
-func (r *machineRepository) releaseAllocatedIPs(ctx context.Context, allocatedIPs []*metal.IP) error {
+func (r *machineRepository) rollback(ctx context.Context, machineId string, allocatedIPs []*metal.IP) {
 	for _, ip := range allocatedIPs {
-		info, err := r.s.task.NewTask(&task.IPDeletePayload{
-			AllocationUUID: ip.AllocationUUID,
-			IP:             ip.IPAddress,
-			Project:        ip.ProjectID,
-		})
-		if err != nil {
-			return err
+		if ip.Type == metal.Ephemeral {
+			info, err := r.s.task.NewTask(&task.IPDeletePayload{
+				AllocationUUID: ip.AllocationUUID,
+				IP:             ip.IPAddress,
+				Project:        ip.ProjectID,
+			})
+			if err != nil {
+				r.s.log.Error("unable to start task to delete ip", "error", err)
+				continue
+			}
+			r.s.log.Info("ip delete queued", "info", info)
+		} else {
+			metalIP, err := r.s.ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Uuid: &ip.AllocationUUID}))
+			if err != nil {
+				r.s.log.Error("unable to get ip", "error", err)
+				continue
+			}
+			metalIP.RemoveMachineId(machineId)
+			err = r.s.ds.IP().Update(ctx, metalIP)
+			if err != nil {
+				r.s.log.Error("unable to remove machine tag from ip", "error", err)
+				continue
+			}
 		}
-		r.s.log.Info("ip delete queued", "info", info)
 	}
-	return nil
+	metalMachine, err := r.s.ds.Machine().Get(ctx, machineId)
+	if err != nil {
+		r.s.log.Error("unable to get machine", "error", err)
+	}
+	metalMachine.PreAllocated = false
+	metalMachine.Allocation = nil
+	err = r.s.ds.Machine().Update(ctx, metalMachine)
+	if err != nil {
+		r.s.log.Error("unable to remove preallocated flag and allocation from machine", "error", err)
+	}
 }
 
 // FindWaitingMachine returns an available, not allocated, waiting and alive machine of given size within the given partition.
@@ -389,7 +420,7 @@ func (r *machineRepository) convertToMetalAllocationNetwork(ctx context.Context,
 // makeNetworks creates network entities and ip addresses as specified in the allocation network map.
 // created networks are added to the machine allocation directly after their creation. This way, the rollback mechanism
 // is enabled to clean up networks that were already created.
-func (r *machineRepository) makeNetworks(ctx context.Context, machineUUID, project, name string, networks []*allocationNetwork, alloc *metal.MachineAllocation) ([]*metal.MachineNetwork, []*metal.IP, error) {
+func (r *machineRepository) makeNetworks(ctx context.Context, machineUUID, project, name string, networks []*allocationNetwork) ([]*metal.MachineNetwork, []*metal.IP, error) {
 	// the metal-networker expects to have the same unique ASN on all networks of this machine
 	asn, err := r.acquireASN(ctx)
 	if err != nil {
@@ -442,7 +473,6 @@ func (r *machineRepository) makeMachineNetwork(ctx context.Context, machineUUID,
 				return nil, nil, err
 			}
 			network.ips = append(network.ips, ip)
-			allocatedIPs = append(allocatedIPs, ip)
 		}
 	}
 
@@ -456,6 +486,8 @@ func (r *machineRepository) makeMachineNetwork(ctx context.Context, machineUUID,
 			return nil, nil, err
 		}
 		ipAddresses = append(ipAddresses, ip.IPAddress)
+		// collect all ips, delete only the ephemeral, remove machine tag from static
+		allocatedIPs = append(allocatedIPs, ip)
 	}
 
 	machineNetwork := metal.MachineNetwork{
