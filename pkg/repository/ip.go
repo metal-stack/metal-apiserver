@@ -95,7 +95,7 @@ func (r *ipRepository) create(ctx context.Context, req *apiv2.IPServiceCreateReq
 
 	// FIXME: move validation to ip validation
 
-	var af metal.AddressFamily
+	var af = metal.AddressFamilyIPv4
 	if req.AddressFamily != nil {
 		convertedAf, err := metal.ToAddressFamily(*req.AddressFamily)
 		if err != nil {
@@ -109,6 +109,11 @@ func (r *ipRepository) create(ctx context.Context, req *apiv2.IPServiceCreateReq
 			return nil, errorutil.InvalidArgument("it is not possible to specify specificIP and addressfamily")
 		}
 		af = convertedAf
+	} else {
+		availableAfs := nw.Prefixes.AddressFamilies()
+		if !slices.Contains(availableAfs, af) {
+			af = metal.AddressFamilyIPv6
+		}
 	}
 
 	var (
