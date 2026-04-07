@@ -155,11 +155,13 @@ func (r *machineRepository) matchScope(machine *metal.Machine) bool {
 }
 
 func (r *machineRepository) create(ctx context.Context, req *apiv2.MachineServiceCreateRequest) (*metal.Machine, error) {
-	machine, err := r.allocateMachine(ctx, req)
+	result, err := r.allocateMachine(ctx, req)
 	if err != nil {
+		r.rollback(ctx, result.rollbackEntities)
 		return nil, err
 	}
 
+	machine := result.machine
 	// FIXME not only the machine must be rolled back, the autoallocated ipaddresses as well.
 	// FIXME migrate the whole mechanism of allocating to a task and roll back there on error
 

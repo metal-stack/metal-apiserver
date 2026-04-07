@@ -23,13 +23,25 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
-// allocationNetwork is intermediate struct to create machine networks from regular networks during machine allocation
-type allocationNetwork struct {
-	network *metal.Network
-	ips     []*metal.IP
-}
+type (
+	// allocationNetwork is intermediate struct to create machine networks from regular networks during machine allocation
+	allocationNetwork struct {
+		network *metal.Network
+		ips     []*metal.IP
+	}
 
-func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.MachineServiceCreateRequest) (allocatedMachine *metal.Machine, err error) {
+	allocationResult struct {
+		machine          *metal.Machine
+		rollbackEntities *rollbackEntities
+	}
+
+	rollbackEntities struct {
+		machineId    string
+		allocatedIPs []*metal.IP
+	}
+)
+
+func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.MachineServiceCreateRequest) (result *allocationResult, err error) {
 	var (
 		fsl         *metal.FilesystemLayout
 		sizeID      = pointer.SafeDeref(req.Size)
@@ -154,22 +166,19 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 		machine = machineCandidate
 	}
 
-	var allocatedIPs []*metal.IP
-	defer func() {
-		// TODO not sure if rollback is even better to be called from outside, but then a rollbackstruck is required
-		if err == nil {
-			return
-		}
-		r.rollback(ctx, machine.ID, allocatedIPs)
-	}()
-
 	if machine == nil {
 		return nil, fmt.Errorf("no machine found")
 	}
 
+	result = &allocationResult{
+		rollbackEntities: &rollbackEntities{
+			machineId: machine.ID,
+		},
+	}
+
 	allocationUUID, err := uuid.NewV7()
 	if err != nil {
-		return nil, fmt.Errorf("unable to create allocation uuid %w", err)
+		return result, fmt.Errorf("unable to create allocation uuid %w", err)
 	}
 
 	alloc := &metal.MachineAllocation{
@@ -197,27 +206,28 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 
 	err = fsl.Matches(machine.Hardware)
 	if err != nil {
-		return nil, fmt.Errorf("unable to check for fsl match:%w", err)
+		return result, fmt.Errorf("unable to check for fsl match:%w", err)
 	}
 	alloc.FilesystemLayout = fsl
 
 	networks, err := r.convertToMetalAllocationNetwork(ctx, req.Networks, partitionID, role)
 	if err != nil {
-		return nil, fmt.Errorf("unable to gather networks:%w", err)
+		return result, fmt.Errorf("unable to gather networks:%w", err)
 	}
 	machineNetworks, allocatedIPs, err := r.makeNetworks(ctx, machine.ID, req.Project, req.Name, networks)
 	if err != nil {
-		return nil, fmt.Errorf("unable to make networks:%w", err)
+		return result, fmt.Errorf("unable to make networks:%w", err)
 	}
+	result.rollbackEntities.allocatedIPs = allocatedIPs
 	alloc.MachineNetworks = append(alloc.MachineNetworks, machineNetworks...)
 
 	// refetch the machine to catch possible updates after dealing with the network...
 	machine, err = r.s.ds.Machine().Get(ctx, machine.ID)
 	if err != nil {
-		return nil, fmt.Errorf("unable to find machine:%w", err)
+		return result, fmt.Errorf("unable to find machine:%w", err)
 	}
 	if machine.Allocation != nil {
-		return nil, fmt.Errorf("machine %q already allocated", machine.ID)
+		return result, fmt.Errorf("machine %q already allocated", machine.ID)
 	}
 
 	machine.Allocation = alloc
@@ -226,15 +236,19 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 
 	err = r.s.ds.Machine().Update(ctx, machine)
 	if err != nil {
-		return nil, fmt.Errorf("error when allocating machine %q, %w", machine.ID, err)
+		return result, fmt.Errorf("error when allocating machine %q, %w", machine.ID, err)
 	}
+	result.machine = machine
 
-	return machine, nil
+	return result, nil
 }
 
-func (r *machineRepository) rollback(ctx context.Context, machineId string, allocatedIPs []*metal.IP) {
-	// TODO: release ASN
-	for _, ip := range allocatedIPs {
+func (r *machineRepository) rollback(ctx context.Context, rollbackEntities *rollbackEntities) {
+	if rollbackEntities == nil {
+		return
+	}
+
+	for _, ip := range rollbackEntities.allocatedIPs {
 		if ip.Type == metal.Ephemeral {
 			info, err := r.s.task.NewTask(&task.IPDeletePayload{
 				AllocationUUID: ip.AllocationUUID,
@@ -252,7 +266,7 @@ func (r *machineRepository) rollback(ctx context.Context, machineId string, allo
 				r.s.log.Error("unable to get ip", "error", err)
 				continue
 			}
-			metalIP.RemoveMachineId(machineId)
+			metalIP.RemoveMachineId(rollbackEntities.machineId)
 			err = r.s.ds.IP().Update(ctx, metalIP)
 			if err != nil {
 				r.s.log.Error("unable to remove machine tag from ip", "error", err)
@@ -260,7 +274,7 @@ func (r *machineRepository) rollback(ctx context.Context, machineId string, allo
 			}
 		}
 	}
-	metalMachine, err := r.s.ds.Machine().Get(ctx, machineId)
+	metalMachine, err := r.s.ds.Machine().Get(ctx, rollbackEntities.machineId)
 	if err != nil {
 		r.s.log.Error("unable to get machine", "error", err)
 	}
