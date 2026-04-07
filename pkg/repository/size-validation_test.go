@@ -9,7 +9,6 @@ import (
 )
 
 func Test_sizeRepository_validateSizeConstraints(t *testing.T) {
-
 	tests := []struct {
 		name        string
 		constraints []*apiv2.SizeConstraint

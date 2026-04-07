@@ -193,17 +193,15 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	}
 
 	admin.AdminServices(admin.Config{
-		Log:                          log,
-		Repository:                   c.Repository,
-		Mux:                          mux,
-		Interceptors:                 adminInterceptors,
-		InviteStore:                  tenantInviteStore,
-		TokenStore:                   tokenStore,
-		TokenService:                 tokenService,
-		CertStore:                    certStore,
-		HeadscaleClient:              c.HeadscaleClient,
-		HeadscaleControlplaneAddress: c.HeadscaleControlplaneAddress,
-		AuditSearchBackend:           c.AuditSearchBackend,
+		Log:                log,
+		Repository:         c.Repository,
+		Mux:                mux,
+		Interceptors:       adminInterceptors,
+		InviteStore:        tenantInviteStore,
+		TokenStore:         tokenStore,
+		TokenService:       tokenService,
+		CertStore:          certStore,
+		AuditSearchBackend: c.AuditSearchBackend,
 	})
 
 	infra.InfraServices(infra.Config{
