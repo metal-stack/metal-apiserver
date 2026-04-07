@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"tailscale.com/tsnet"
 )
 
 var (
@@ -145,7 +146,7 @@ func Test_evaluateVPNConnected(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			for _, n := range tt.nodesToCreate {
-				test.ConnectVPNClient(t, n, testStore.GetHeadscaleControllerURL(), key.AuthKey)
+				connectVPNClient(t, n, testStore.GetHeadscaleControllerURL(), key.AuthKey)
 			}
 
 			test.CreateMachines(t, testStore, tt.machinesToCreate)
@@ -175,4 +176,19 @@ func Test_evaluateVPNConnected(t *testing.T) {
 			}, 30*time.Second, 1*time.Second)
 		})
 	}
+}
+
+func connectVPNClient(t testing.TB, hostname, controllerURL, authkey string) {
+	s := &tsnet.Server{
+		Hostname:   hostname,
+		ControlURL: controllerURL,
+		AuthKey:    authkey,
+	}
+	lc, err := s.LocalClient()
+	require.NoError(t, err)
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		status, err := lc.Status(t.Context())
+		require.NoError(c, err)
+		require.True(c, status.Self.Online)
+	}, 10*time.Second, 50*time.Millisecond)
 }

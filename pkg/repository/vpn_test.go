@@ -14,9 +14,11 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"tailscale.com/tsnet"
 )
 
 var (
@@ -45,7 +47,7 @@ func Test_vpnService_DeleteNode(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	test.ConnectVPNClient(t, m1, testStore.GetHeadscaleControllerURL(), key.AuthKey)
+	connectVPNClient(t, m1, testStore.GetHeadscaleControllerURL(), key.AuthKey)
 
 	tests := []struct {
 		name      string
@@ -256,4 +258,19 @@ func Test_vpnService_SetDefaultPolicy(t *testing.T) {
 			require.JSONEq(t, repository.HeadscaleDefaultPolicy, resp.Policy)
 		})
 	}
+}
+
+func connectVPNClient(t testing.TB, hostname, controllerURL, authkey string) {
+	s := &tsnet.Server{
+		Hostname:   hostname,
+		ControlURL: controllerURL,
+		AuthKey:    authkey,
+	}
+	lc, err := s.LocalClient()
+	require.NoError(t, err)
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		status, err := lc.Status(t.Context())
+		require.NoError(c, err)
+		require.True(c, status.Self.Online)
+	}, 10*time.Second, 50*time.Millisecond)
 }
