@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -213,10 +214,11 @@ func (r *projectRepository) convertToInternal(ctx context.Context, p *apiv2.Proj
 
 func (r *projectRepository) convertToProto(ctx context.Context, p *projectEntity) (*apiv2.Project, error) {
 	if p.Meta == nil {
-		return nil, errorutil.Internal("project meta is nil")
+		return nil, errors.New("project meta is nil")
 	}
 
 	var labels *apiv2.Labels
+
 	if p.Meta != nil && p.Meta.Labels != nil && len(p.Meta.Labels) > 0 {
 		labels = &apiv2.Labels{
 			Labels: tag.NewTagMap(p.Meta.Labels),
@@ -235,7 +237,6 @@ func (r *projectRepository) convertToProto(ctx context.Context, p *projectEntity
 		},
 		AvatarUrl: pointer.PointerOrNil(p.Meta.Annotations[avatarURLAnnotation]),
 	}, nil
-
 }
 
 func projectRoleFromMap(annotations map[string]string) apiv2.ProjectRole {

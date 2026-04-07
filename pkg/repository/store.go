@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"connectrpc.com/connect"
@@ -292,12 +293,12 @@ func (s *store[R, E, M, C, U, Q]) Create(ctx context.Context, c C) (M, error) {
 
 	e, err := s.create(ctx, c)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.Convert(err)
 	}
 
 	converted, err := s.convertToProto(ctx, e)
 	if err != nil {
-		return zero, err
+		return zero, protoConversionError(err)
 	}
 
 	return converted, nil
@@ -308,7 +309,7 @@ func (s *store[R, E, M, C, U, Q]) Delete(ctx context.Context, id string) (M, err
 
 	e, err := s.get(ctx, id)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.Convert(err)
 	}
 
 	ok := s.matchScope(e)
@@ -323,12 +324,12 @@ func (s *store[R, E, M, C, U, Q]) Delete(ctx context.Context, id string) (M, err
 
 	err = s.delete(ctx, e)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.Convert(err)
 	}
 
 	converted, err := s.convertToProto(ctx, e)
 	if err != nil {
-		return zero, err
+		return zero, protoConversionError(err)
 	}
 
 	return converted, nil
@@ -339,12 +340,12 @@ func (s *store[R, E, M, C, U, Q]) Find(ctx context.Context, query Q) (M, error) 
 
 	e, err := s.find(ctx, query)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.Convert(err)
 	}
 
 	converted, err := s.convertToProto(ctx, e)
 	if err != nil {
-		return zero, err
+		return zero, protoConversionError(err)
 	}
 
 	return converted, nil
@@ -355,7 +356,7 @@ func (s *store[R, E, M, C, U, Q]) Get(ctx context.Context, id string) (M, error)
 
 	e, err := s.get(ctx, id)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.Convert(err)
 	}
 
 	ok := s.matchScope(e)
@@ -365,7 +366,7 @@ func (s *store[R, E, M, C, U, Q]) Get(ctx context.Context, id string) (M, error)
 
 	converted, err := s.convertToProto(ctx, e)
 	if err != nil {
-		return zero, err
+		return zero, protoConversionError(err)
 	}
 
 	return converted, nil
@@ -374,14 +375,15 @@ func (s *store[R, E, M, C, U, Q]) Get(ctx context.Context, id string) (M, error)
 func (s *store[R, E, M, C, U, Q]) List(ctx context.Context, query Q) ([]M, error) {
 	es, err := s.list(ctx, query)
 	if err != nil {
-		return nil, err
+		return nil, errorutil.Convert(err)
 	}
 
 	var res []M
+
 	for _, e := range es {
 		converted, err := s.convertToProto(ctx, e)
 		if err != nil {
-			return nil, err
+			return nil, protoConversionError(err)
 		}
 
 		res = append(res, converted)
@@ -395,7 +397,7 @@ func (s *store[R, E, M, C, U, Q]) Update(ctx context.Context, id string, u U) (M
 
 	e, err := s.get(ctx, id)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.Convert(err)
 	}
 
 	ok := s.matchScope(e)
@@ -414,12 +416,12 @@ func (s *store[R, E, M, C, U, Q]) Update(ctx context.Context, id string, u U) (M
 
 	e, err = s.update(ctx, e, u)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.Convert(err)
 	}
 
 	converted, err := s.convertToProto(ctx, e)
 	if err != nil {
-		return zero, err
+		return zero, protoConversionError(err)
 	}
 
 	return converted, nil
@@ -446,4 +448,8 @@ func setUpdateMeta(u UpdateMessage, e Entity) error {
 	}
 
 	return nil
+}
+
+func protoConversionError(err error) error {
+	return errorutil.WrapConnectErr(connect.CodeInternal, fmt.Errorf("error during proto conversion: %w", err))
 }

@@ -34,6 +34,7 @@ func (t *taskServiceServer) Get(_ context.Context, req *adminv2.TaskServiceGetRe
 	if err != nil {
 		return nil, err
 	}
+
 	return &adminv2.TaskServiceGetResponse{
 		Task: toProto(taskInfo),
 	}, nil
@@ -44,6 +45,7 @@ func (t *taskServiceServer) Delete(_ context.Context, req *adminv2.TaskServiceDe
 	if err != nil {
 		return nil, err
 	}
+
 	return &adminv2.TaskServiceDeleteResponse{}, nil
 }
 
@@ -52,6 +54,7 @@ func (t *taskServiceServer) List(_ context.Context, req *adminv2.TaskServiceList
 	if err != nil {
 		return nil, err
 	}
+
 	return &adminv2.TaskServiceListResponse{
 		Tasks: toProtos(tasks),
 	}, nil
@@ -62,6 +65,7 @@ func (t *taskServiceServer) Queues(_ context.Context, req *adminv2.TaskServiceQu
 	if err != nil {
 		return nil, err
 	}
+
 	return &adminv2.TaskServiceQueuesResponse{
 		Queues: queues,
 	}, nil
@@ -69,9 +73,11 @@ func (t *taskServiceServer) Queues(_ context.Context, req *adminv2.TaskServiceQu
 
 func toProtos(ts []*asynq.TaskInfo) []*adminv2.TaskInfo {
 	var tasks []*adminv2.TaskInfo
+
 	for _, t := range ts {
 		tasks = append(tasks, toProto(t))
 	}
+
 	return tasks
 }
 
