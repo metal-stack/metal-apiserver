@@ -60,6 +60,13 @@ func TestMachineCreate_Rollback(t *testing.T) {
 		},
 		Liveliness: metal.MachineLivelinessAlive,
 	})
+	testDC.IPs = append(testDC.IPs, &apiv2.IPServiceCreateRequest{
+		Network: sc.NetworkInternet,
+		Project: sc.Tenant1Project1,
+		Name:    new("my internet service"),
+		Type:    apiv2.IPType_IP_TYPE_STATIC.Enum(),
+		Ip:      new("1.2.3.42"),
+	})
 
 	dc.Create(&testDC)
 	projectNetworkId := dc.GetNetworkByName("project-network").Id
@@ -76,6 +83,7 @@ func TestMachineCreate_Rollback(t *testing.T) {
 		Image:          sc.ImageDebian12,
 		AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
 		Networks: []*apiv2.MachineAllocationNetwork{
+			{Network: sc.NetworkInternet, Ips: []string{"1.2.3.42"}},
 			{Network: projectNetworkId},
 		},
 	}

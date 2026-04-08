@@ -236,15 +236,16 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 	machine.PreAllocated = false
 	r.addMachineTagsAndLabels(machine)
 
-	if injectedErrorString := ctx.Value(InjectRethinkDbError("true")); injectedErrorString != nil {
-		return result, fmt.Errorf("injected error:%s", injectedErrorString)
-	}
-
 	err = r.s.ds.Machine().Update(ctx, machine)
 	if err != nil {
 		return result, fmt.Errorf("error when allocating machine %q, %w", machine.ID, err)
 	}
 	result.machine = machine
+
+	// This is only triggered by tests to simulate error conditions and trigger a rollback
+	if injectedErrorString := ctx.Value(InjectRethinkDbError("true")); injectedErrorString != nil {
+		return result, fmt.Errorf("injected error:%s", injectedErrorString)
+	}
 
 	return result, nil
 }
