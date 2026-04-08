@@ -15,6 +15,8 @@ import (
 	"github.com/valkey-io/valkey-go"
 	"gopkg.in/rethinkdb/rethinkdb-go.v6"
 
+	headscalev1 "github.com/juanfont/headscale/gen/go/headscale/v1"
+
 	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	mdm "github.com/metal-stack/masterdata-api/pkg/client"
@@ -115,7 +117,10 @@ func newServeCmd() *cli.Command {
 				return fmt.Errorf("unable to create masterdata.client: %w", err)
 			}
 
-			var hc *headscale.Client
+			var (
+				hc                 *headscale.Client
+				headscaleApiClient headscalev1.HeadscaleServiceClient
+			)
 
 			if ctx.Bool(headscaleEnabledFlag.Name) {
 				hc, err = headscale.NewClient(headscale.Config{
@@ -126,6 +131,7 @@ func newServeCmd() *cli.Command {
 				if err != nil {
 					return err
 				}
+				headscaleApiClient = hc.HeadscaleServiceClient
 
 				log.Info("headscale enabled")
 			} else {
@@ -196,7 +202,7 @@ func newServeCmd() *cli.Command {
 				IsStageDev:                          strings.EqualFold(stage, stageDEV),
 				BMCSuperuserPassword:                ctx.String(bmcSuperuserPasswordFlag.Name),
 				HeadscaleControlplaneAddress:        ctx.String(headscaleControlplaneAddressFlag.Name),
-				HeadscaleClient:                     hc,
+				HeadscaleClient:                     headscaleApiClient,
 				ComponentExpiration:                 ctx.Duration(componentExpirationFlag.Name),
 			}
 
