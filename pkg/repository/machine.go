@@ -168,7 +168,6 @@ func (r *machineRepository) create(ctx context.Context, req *apiv2.MachineServic
 	// if allocation was created, create a new queue entry for the Wait endpoint like so:
 	err = r.s.queue.PushMachineAllocation(ctx, machine.ID, task.MachineAllocationPayload{UUID: machine.Allocation.UUID})
 	if err != nil {
-		// TODO how to roll back what was already allocated
 		return nil, err
 	}
 

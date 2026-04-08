@@ -553,6 +553,12 @@ func (r *machineRepository) makeMachineNetwork(ctx context.Context, machineUUID,
 		allocatedIPs = append(allocatedIPs, ip)
 	}
 
+	var isPrivateNetwork bool
+	if network.network.NetworkType != nil &&
+		*network.network.NetworkType == metal.NetworkTypeChild ||
+		*network.network.NetworkType == metal.NetworkTypeChildShared {
+		isPrivateNetwork = true
+	}
 	machineNetwork := metal.MachineNetwork{
 		NetworkID:           network.network.ID,
 		Prefixes:            network.network.Prefixes.String(),
@@ -562,7 +568,10 @@ func (r *machineRepository) makeMachineNetwork(ctx context.Context, machineUUID,
 		// the new networker must figure out all aspekts from the v2 networktype
 		//
 		// PrivatePrimary:      n.networkType.PrivatePrimary,
-		// Private:             n.networkType.Private,
+
+		// FIXME: this is set to make the old metal-api able to detect figure out the vrf,
+		// can be removed once metal-api is no longer used for machine creation
+		Private: isPrivateNetwork,
 		// Shared:              n.networkType.Shared,
 		// Underlay: underlay,
 		// Nat: nat,
