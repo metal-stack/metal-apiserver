@@ -41,7 +41,7 @@ type (
 	}
 )
 
-func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.MachineServiceCreateRequest) (result *allocationResult, err error) {
+func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.MachineServiceCreateRequest) (*allocationResult, error) {
 	var (
 		fsl         *metal.FilesystemLayout
 		sizeID      = pointer.SafeDeref(req.Size)
@@ -52,7 +52,11 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 		role        = metal.RoleMachine
 		fwrules     *metal.FirewallRules
 		vpn         *metal.MachineVPN
+		result      = &allocationResult{
+			rollbackEntities: &rollbackEntities{},
+		}
 	)
+
 	// figure out creator
 	tok, ok := token.TokenFromContext(ctx)
 	if ok {
@@ -60,14 +64,14 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 	} else {
 		// TODO can we ensure we get a token with the correct user if called from mcm ?
 		// Or is it sufficient if the cluster creator is set correct.
-		return nil, errorutil.Unauthenticated("unable to get user from context")
+		return result, errorutil.Unauthenticated("unable to get user from context")
 	}
 
 	// Allocation of a specific machine is requested, therefore size and partition are not given, fetch them
 	if req.Uuid != nil {
 		possibleMachine, err := r.s.ds.Machine().Get(ctx, *req.Uuid)
 		if err != nil {
-			return nil, err
+			return result, err
 		}
 
 		machine = possibleMachine
@@ -78,7 +82,7 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 	// if image is given full-qualified classification filter is not applied
 	_, imageVersion, err := metalcommon.GetOsAndSemverFromImage(req.Image)
 	if err != nil {
-		return nil, err
+		return result, err
 	}
 	if imageVersion.Patch() == 0 {
 		image, err := r.s.Image().AdditionalMethods().GetMostRecentImageFor(ctx, &apiv2.ImageServiceLatestRequest{
@@ -86,7 +90,7 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 			Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED.Enum(),
 		})
 		if err != nil {
-			return nil, err
+			return result, err
 		}
 		imageID = image.Id
 	}
@@ -95,16 +99,16 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 		var fsls metal.FilesystemLayouts
 		fsls, err := r.s.ds.FilesystemLayout().List(ctx, nil)
 		if err != nil {
-			return nil, err
+			return result, err
 		}
 		fsl, err = fsls.From(sizeID, imageID)
 		if err != nil {
-			return nil, err
+			return result, err
 		}
 	} else {
 		fsl, err = r.s.ds.FilesystemLayout().Get(ctx, *req.FilesystemLayout)
 		if err != nil {
-			return nil, err
+			return result, err
 		}
 	}
 
@@ -113,7 +117,7 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 		if req.FirewallSpec != nil && req.FirewallSpec.FirewallRules != nil {
 			fwr, err := r.convertFirewallRulesToInternal(req.FirewallSpec.FirewallRules)
 			if err != nil {
-				return nil, err
+				return result, err
 			}
 			fwrules = fwr
 		}
@@ -131,7 +135,7 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 				Expires:   durationpb.New(2 * time.Hour),
 			})
 			if err != nil {
-				return nil, fmt.Errorf("unable to create vpn authkey: %w", err)
+				return result, fmt.Errorf("unable to create vpn authkey: %w", err)
 			}
 			vpn = &metal.MachineVPN{
 				AuthKey:             key.AuthKey,
@@ -142,7 +146,7 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 
 	partition, err := r.s.ds.Partition().Get(ctx, partitionID)
 	if err != nil {
-		return nil, err
+		return result, err
 	}
 
 	var (
@@ -161,20 +165,16 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 	if req.Uuid == nil {
 		machineCandidate, err := r.findWaitingMachine(ctx, partitionID, req.Project, sizeID, req.PlacementTags, role)
 		if err != nil {
-			return nil, err
+			return result, err
 		}
 		machine = machineCandidate
 	}
 
 	if machine == nil {
-		return nil, fmt.Errorf("no machine found")
+		return result, fmt.Errorf("no machine found")
 	}
 
-	result = &allocationResult{
-		rollbackEntities: &rollbackEntities{
-			machineId: machine.ID,
-		},
-	}
+	result.rollbackEntities.machineId = machine.ID
 
 	allocationUUID, err := uuid.NewV7()
 	if err != nil {
@@ -266,6 +266,11 @@ func (r *machineRepository) rollback(ctx context.Context, rollbackEntities *roll
 				r.s.log.Error("unable to get ip", "error", err)
 				continue
 			}
+
+			if metalIP == nil {
+				return
+			}
+
 			metalIP.RemoveMachineId(rollbackEntities.machineId)
 			err = r.s.ds.IP().Update(ctx, metalIP)
 			if err != nil {
@@ -276,7 +281,14 @@ func (r *machineRepository) rollback(ctx context.Context, rollbackEntities *roll
 	}
 	metalMachine, err := r.s.ds.Machine().Get(ctx, rollbackEntities.machineId)
 	if err != nil {
+		if errorutil.IsNotFound(err) {
+			return
+		}
 		r.s.log.Error("unable to get machine", "error", err)
+	}
+
+	if metalMachine.Allocation == nil {
+		return
 	}
 
 	for _, nw := range metalMachine.Allocation.MachineNetworks {

@@ -157,13 +157,13 @@ func (r *machineRepository) matchScope(machine *metal.Machine) bool {
 func (r *machineRepository) create(ctx context.Context, req *apiv2.MachineServiceCreateRequest) (*metal.Machine, error) {
 	result, err := r.allocateMachine(ctx, req)
 	if err != nil {
+		// FIXME not only the machine must be rolled back, the autoallocated ipaddresses as well.
+		// FIXME migrate the whole mechanism of allocating to a task and roll back there on error
 		r.rollback(ctx, result.rollbackEntities)
 		return nil, err
 	}
 
 	machine := result.machine
-	// FIXME not only the machine must be rolled back, the autoallocated ipaddresses as well.
-	// FIXME migrate the whole mechanism of allocating to a task and roll back there on error
 
 	// if allocation was created, create a new queue entry for the Wait endpoint like so:
 	err = r.s.queue.PushMachineAllocation(ctx, machine.ID, task.MachineAllocationPayload{UUID: machine.Allocation.UUID})
