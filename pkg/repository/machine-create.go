@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"strconv"
 	"time"
 
@@ -40,6 +39,8 @@ type (
 		machineId    string
 		allocatedIPs []*metal.IP
 	}
+
+	InjectRethinkDbError string
 )
 
 func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.MachineServiceCreateRequest) (*allocationResult, error) {
@@ -235,8 +236,8 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 	machine.PreAllocated = false
 	r.addMachineTagsAndLabels(machine)
 
-	if os.Getenv("_INJECT_RETHINKDB_ERROR") == "true" {
-		return result, errors.New("injected rethinkdb error")
+	if injectedErrorString := ctx.Value(InjectRethinkDbError("true")); injectedErrorString != nil {
+		return result, fmt.Errorf("injected error:%s", injectedErrorString)
 	}
 
 	err = r.s.ds.Machine().Update(ctx, machine)

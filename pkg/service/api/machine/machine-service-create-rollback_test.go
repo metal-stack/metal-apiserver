@@ -1,6 +1,7 @@
 package machine
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"testing"
@@ -10,6 +11,8 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
@@ -84,11 +87,11 @@ func TestMachineCreate_Rollback(t *testing.T) {
 	require.NoError(t, err)
 
 	// Inject failing rethinkdb right before storing the machine with the allocation
-	err = os.Setenv("_INJECT_RETHINKDB_ERROR", "true")
+	ctx = context.WithValue(ctx, repository.InjectRethinkDbError("true"), "rethinkdb error injected")
 	require.NoError(t, err)
 
 	resp, err := m.Create(ctx, req)
-	require.Error(t, err, "injected rethinkdb error")
+	require.EqualError(t, err, errorutil.Internal("injected error:rethinkdb error injected").Error())
 	require.Nil(t, resp)
 
 	machines, err := dc.GetTestStore().Store.Machine(sc.Tenant1Project1).List(ctx, &apiv2.MachineQuery{})

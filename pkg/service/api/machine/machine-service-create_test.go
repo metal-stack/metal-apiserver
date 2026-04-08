@@ -1105,6 +1105,7 @@ func Test_machineServiceServer_CreateFirewallWithoutVPN(t *testing.T) {
 			resp, err := m.Create(ctx, tt.req)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
+				return
 			}
 
 			// Really fetch the machine to ensure nothing was missed during response creation
