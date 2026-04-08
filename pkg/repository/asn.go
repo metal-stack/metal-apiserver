@@ -24,7 +24,7 @@ func (r *machineRepository) acquireASN(ctx context.Context) (*uint32, error) {
 	if err != nil {
 		return nil, err
 	}
-	asn := ASNBase + uint32(i) // nolint:gosec
+	asn := ASNBase + uint32(i)
 	if asn > ASNMax {
 		return nil, fmt.Errorf("unable to calculate asn, got a asn larger than ASNMax: %d > %d", asn, ASNMax)
 	}

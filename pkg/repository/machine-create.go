@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"time"
 
@@ -233,6 +234,10 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 	machine.Allocation = alloc
 	machine.PreAllocated = false
 	r.addMachineTagsAndLabels(machine)
+
+	if os.Getenv("_INJECT_RETHINKDB_ERROR") == "true" {
+		return result, errors.New("injected rethinkdb error")
+	}
 
 	err = r.s.ds.Machine().Update(ctx, machine)
 	if err != nil {
