@@ -20,8 +20,8 @@ import (
 
 // TODO:
 // - convert to datacenter asserters
-// - try parallel allocation with error injection
 // - convert impl to asynq task
+// - [x] allocation with error injection
 // - [x] assert acquired ips have proper tags
 // - [x] assert firewalls have vpn
 // - [x] test with reservations

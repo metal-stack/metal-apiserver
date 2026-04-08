@@ -569,7 +569,7 @@ func (r *machineRepository) makeMachineNetwork(ctx context.Context, machineUUID,
 		//
 		// PrivatePrimary:      n.networkType.PrivatePrimary,
 
-		// FIXME: this is set to make the old metal-api able to detect figure out the vrf,
+		// FIXME: this is set to make the old metal-api able to figure out the vrf,
 		// can be removed once metal-api is no longer used for machine creation
 		Private: isPrivateNetwork,
 		// Shared:              n.networkType.Shared,
