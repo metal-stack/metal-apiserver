@@ -102,6 +102,7 @@ func Test_sizeImageConstraintServiceServer_Delete(t *testing.T) {
 			},
 		},
 	})
+
 	tests := []struct {
 		name    string
 		req     *adminv2.SizeImageConstraintServiceDeleteRequest

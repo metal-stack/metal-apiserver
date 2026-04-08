@@ -23,7 +23,7 @@ import (
 //go:embed headscale-config.yaml
 var headscaleConfig string
 
-func StartHeadscale(t testing.TB) (headscalev1.HeadscaleServiceClient, string, string, func()) {
+func StartHeadscale(t testing.TB) (*headscale.Client, string, func()) {
 	ctx := t.Context()
 
 	headscaleContainer, err := testcontainers.Run(
@@ -74,5 +74,5 @@ func StartHeadscale(t testing.TB) (headscalev1.HeadscaleServiceClient, string, s
 		_ = headscaleContainer.Terminate(ctx)
 	}
 
-	return client, endpoint, controllerURL, closer
+	return client, controllerURL, closer
 }

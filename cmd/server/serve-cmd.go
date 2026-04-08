@@ -15,6 +15,8 @@ import (
 	"github.com/valkey-io/valkey-go"
 	"gopkg.in/rethinkdb/rethinkdb-go.v6"
 
+	headscalev1 "github.com/juanfont/headscale/gen/go/headscale/v1"
+
 	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	mdm "github.com/metal-stack/masterdata-api/pkg/client"
@@ -115,14 +117,25 @@ func newServeCmd() *cli.Command {
 				return fmt.Errorf("unable to create masterdata.client: %w", err)
 			}
 
-			hc, err := headscale.NewClient(headscale.Config{
-				Log:      log,
-				Disabled: !ctx.Bool(headscaleEnabledFlag.Name),
-				Apikey:   ctx.String(headscaleApikeyFlag.Name),
-				Endpoint: ctx.String(headscaleAddressFlag.Name),
-			})
-			if err != nil {
-				return err
+			var (
+				hc                 *headscale.Client
+				headscaleApiClient headscalev1.HeadscaleServiceClient
+			)
+
+			if ctx.Bool(headscaleEnabledFlag.Name) {
+				hc, err = headscale.NewClient(headscale.Config{
+					Log:      log,
+					Apikey:   ctx.String(headscaleApikeyFlag.Name),
+					Endpoint: ctx.String(headscaleAddressFlag.Name),
+				})
+				if err != nil {
+					return err
+				}
+				headscaleApiClient = hc.HeadscaleServiceClient
+
+				log.Info("headscale enabled")
+			} else {
+				log.Info("headscale is not enabled, not configuring vpn services")
 			}
 
 			connectOpts := rethinkdb.ConnectOpts{
@@ -151,9 +164,17 @@ func newServeCmd() *cli.Command {
 					Queue:            queue,
 					Component:        redisConfig.ComponentClient,
 					Auditing:         auditSearchBackend,
+					HeadscaleClient:  hc,
 				})
 				stage = ctx.String(stageFlag.Name)
 			)
+
+			if ctx.Bool(headscaleEnabledFlag.Name) {
+				err = repo.UnscopedVPN().SetDefaultPolicy(ctx.Context)
+				if err != nil {
+					return fmt.Errorf("unable to ensure headscale default policy: %w", err)
+				}
+			}
 
 			c := service.Config{
 				HttpServerEndpoint:                  ctx.String(httpServerEndpointFlag.Name),
@@ -181,7 +202,7 @@ func newServeCmd() *cli.Command {
 				IsStageDev:                          strings.EqualFold(stage, stageDEV),
 				BMCSuperuserPassword:                ctx.String(bmcSuperuserPasswordFlag.Name),
 				HeadscaleControlplaneAddress:        ctx.String(headscaleControlplaneAddressFlag.Name),
-				HeadscaleClient:                     hc,
+				HeadscaleClient:                     headscaleApiClient,
 				ComponentExpiration:                 ctx.Duration(componentExpirationFlag.Name),
 			}
 

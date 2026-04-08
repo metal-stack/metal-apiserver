@@ -10,10 +10,12 @@ import (
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/service"
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
+	"github.com/metal-stack/metal-lib/auditing"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
@@ -21,7 +23,7 @@ import (
 func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string) (baseURL, adminToken string, tenantTokens map[string]string, closer func()) {
 	ctx := t.Context()
 
-	testStore, repocloser := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true), test.WithValkey(true))
+	testStore, repocloser := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true), test.WithValkey(true), test.WithHeadscale(true))
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "{}")
@@ -31,6 +33,7 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 
 	subject := "e2e-tests"
 	providerTenant := "metal-stack"
+	hc := testStore.GetHeadscaleClient()
 
 	c := service.Config{
 		Log:           log,
@@ -42,15 +45,22 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 			RateLimitClient: testStore.GetRedisClient(),
 			InviteClient:    testStore.GetRedisClient(),
 			AsyncClient:     testStore.GetRedisClient(),
+			QueueClient:     testStore.GetValkeyClient(),
+			ComponentClient: testStore.GetValkeyClient(),
 		},
+
+		AuditBackends:                       []auditing.Auditing{testStore.GetAuditBackend()},
+		AuditSearchBackend:                  testStore.GetAuditBackend(),
 		MasterClient:                        testStore.GetMasterdataClient(),
-		Datastore:                           nil, // TODO: for healthcheck e2e tests this needs to be wired up
+		Datastore:                           testStore.GetDatastore(),
+		IpamClient:                          testStore.GetIpamClient(),
 		OIDCClientID:                        "oidc-client-id",
 		OIDCClientSecret:                    "oidc-client-secret",
 		OIDCDiscoveryURL:                    discoveryURL,
 		Admins:                              []string{providerTenant, subject},
 		MaxRequestsPerMinuteToken:           100,
 		MaxRequestsPerMinuteUnauthenticated: 100,
+		HeadscaleClient:                     hc,
 	}
 
 	mux, err := service.New(log, c)
@@ -78,13 +88,13 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 	}, subject)
 	require.NoError(t, err)
 
-	_, err = testStore.Tenant().AdditionalMethods().Member(tenant.Login).Create(reqCtx, &repository.TenantMemberCreateRequest{
+	_, err = testStore.Tenant().AdditionalMethods().Member(tenant.Login).Create(reqCtx, &api.TenantMemberCreateRequest{
 		MemberID: subject,
 		Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
 	})
 	require.NoError(t, err)
 
-	_, err = testStore.Tenant().AdditionalMethods().Member(providerTenant).Create(ctx, &repository.TenantMemberCreateRequest{
+	_, err = testStore.Tenant().AdditionalMethods().Member(providerTenant).Create(ctx, &api.TenantMemberCreateRequest{
 		MemberID: tenant.Login,
 		Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
 	})
@@ -120,7 +130,7 @@ func createTenantTokens(t testing.TB, repo *repository.Store, tokenService token
 		}, tenant, repository.NewTenantCreateOptWithCreator(tenant))
 		require.NoError(t, err)
 
-		_, err = repo.Tenant().AdditionalMethods().Member(tenant).Create(ctx, &repository.TenantMemberCreateRequest{
+		_, err = repo.Tenant().AdditionalMethods().Member(tenant).Create(ctx, &api.TenantMemberCreateRequest{
 			Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
 			MemberID: tenant,
 		})

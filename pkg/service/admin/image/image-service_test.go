@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -14,6 +15,8 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
+	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -314,7 +317,7 @@ func Test_imageServiceServer_Delete(t *testing.T) {
 			name:    "delete image with existing allocated machine",
 			request: &adminv2.ImageServiceDeleteRequest{Id: "debian-11.0.20221231"},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument(`cannot remove image with existing machine allocations`),
+			wantErr: errorutil.FailedPrecondition(`cannot remove image with existing machine allocations`),
 		},
 	}
 	for _, tt := range tests {
@@ -344,6 +347,72 @@ func Test_imageServiceServer_Delete(t *testing.T) {
 				),
 			); diff != "" {
 				t.Errorf("imageServiceServer.Delete() = %v, want %vņdiff: %s", got, tt.want, diff)
+			}
+		})
+	}
+}
+
+func Test_imageServiceServer_Usage(t *testing.T) {
+	t.Parallel()
+
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	ctx := t.Context()
+
+	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
+	dc.Create(&sc.DefaultDatacenter)
+
+	tests := []struct {
+		name string
+		rq   *adminv2.ImageServiceUsageRequest
+		want *adminv2.ImageServiceUsageResponse
+	}{
+		{
+			name: "get usage without any filters",
+			rq:   &adminv2.ImageServiceUsageRequest{},
+			want: &adminv2.ImageServiceUsageResponse{
+				ImageUsage: []*apiv2.ImageUsage{
+					{
+						Image:  dc.GetImages()[sc.ImageDebian13],
+						UsedBy: []string{sc.Machine1},
+					},
+					{
+						Image: dc.GetImages()[sc.ImageDebian12],
+					},
+					{
+						Image: dc.GetImages()[sc.ImageFirewall3_0],
+					},
+				},
+			},
+		},
+		{
+			name: "get usage with id filter",
+			rq: &adminv2.ImageServiceUsageRequest{
+				Query: &apiv2.ImageQuery{
+					Id: new(sc.ImageDebian13),
+				},
+			},
+			want: &adminv2.ImageServiceUsageResponse{
+				ImageUsage: []*apiv2.ImageUsage{
+					{
+						Image:  dc.GetImages()[sc.ImageDebian13],
+						UsedBy: []string{sc.Machine1},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &imageServiceServer{
+				log:  log,
+				repo: dc.GetTestStore().Store,
+			}
+			got, err := s.Usage(ctx, tt.rq)
+			require.NoError(t, err)
+
+			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
+				t.Errorf("diff = %s", diff)
 			}
 		})
 	}

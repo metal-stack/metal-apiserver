@@ -1743,13 +1743,13 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 			name:    "network has ips",
 			rq:      &adminv2.NetworkServiceDeleteRequest{Id: networkMap["tenant-1"].Id},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument(`there are still 1 ips present in prefix: 10.100.0.0/22`),
+			wantErr: errorutil.FailedPrecondition(`there are still 1 ips present in prefix: 10.100.0.0/22`),
 		},
 		{
 			name:    "super network has child",
 			rq:      &adminv2.NetworkServiceDeleteRequest{Id: "tenant-super-network"},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument(`cannot remove network with existing child networks`),
+			wantErr: errorutil.FailedPrecondition(`cannot remove network with existing child networks`),
 		},
 		{
 			name:    "not existing",
@@ -2257,7 +2257,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 				Prefixes: []string{"20.0.0.0/24"},
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument(`there are still 1 ips present in prefix: 30.0.0.0/24`),
+			wantErr: errorutil.FailedPrecondition(`there are still 1 ips present in prefix: 30.0.0.0/24`),
 		},
 		{
 			name: "add label to tenant network",

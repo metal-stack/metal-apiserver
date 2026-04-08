@@ -11,7 +11,7 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
-	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -315,7 +315,7 @@ func Test_componentServiceServer_List(t *testing.T) {
 				repo: testStore.Store,
 			}
 			for _, ping := range tt.pings {
-				_, err := testStore.Store.Component().Create(ctx, &repository.ComponentServiceCreateRequest{Component: ping, Expiration: time.Minute})
+				_, err := testStore.Store.Component().Create(ctx, &api.ComponentServiceCreateRequest{Component: ping, Expiration: time.Minute})
 				require.NoError(t, err)
 			}
 			if tt.wantErr == nil {
@@ -450,7 +450,7 @@ func Test_componentServiceServer_Get(t *testing.T) {
 				repo: testStore.Store,
 			}
 			for _, ping := range tt.pings {
-				_, err := testStore.Store.Component().Create(ctx, &repository.ComponentServiceCreateRequest{Component: ping, Expiration: time.Minute})
+				_, err := testStore.Store.Component().Create(ctx, &api.ComponentServiceCreateRequest{Component: ping, Expiration: time.Minute})
 				require.NoError(t, err)
 			}
 			if tt.wantErr == nil {
@@ -569,7 +569,7 @@ func Test_componentServiceServer_Delete(t *testing.T) {
 				repo: testStore.Store,
 			}
 			for _, ping := range tt.pings {
-				_, err := testStore.Store.Component().Create(ctx, &repository.ComponentServiceCreateRequest{Component: ping, Expiration: time.Minute})
+				_, err := testStore.Store.Component().Create(ctx, &api.ComponentServiceCreateRequest{Component: ping, Expiration: time.Minute})
 				require.NoError(t, err)
 			}
 			if tt.wantErr == nil {

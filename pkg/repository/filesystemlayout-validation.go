@@ -13,12 +13,13 @@ import (
 func (r *filesystemLayoutRepository) validateCreate(ctx context.Context, req *adminv2.FilesystemServiceCreateRequest) error {
 	fsl, err := r.convertToInternal(ctx, req.FilesystemLayout)
 	if err != nil {
-		return errorutil.Convert(err)
+		return err
 	}
 
+	// TODO: move validation code here?
 	err = fsl.Validate()
 	if err != nil {
-		return errorutil.Convert(err)
+		return err
 	}
 
 	return nil
@@ -39,25 +40,28 @@ func (r *filesystemLayoutRepository) validateUpdate(ctx context.Context, req *ad
 
 	fsl, err := r.convertToInternal(ctx, filesystemLayout)
 	if err != nil {
-		return errorutil.Convert(err)
+		return err
 	}
 
 	var allFsls metal.FilesystemLayouts
+
 	fsls, err := r.list(ctx, &apiv2.FilesystemServiceListRequest{})
 	if err != nil {
-		return errorutil.Convert(err)
+		return errorutil.NewInternal(err)
 	}
+
 	allFsls = append(allFsls, fsls...)
 
 	allFsls = append(allFsls, fsl)
+
 	err = allFsls.Validate()
 	if err != nil {
-		return errorutil.Convert(err)
+		return err
 	}
 
 	err = fsl.Validate()
 	if err != nil {
-		return errorutil.Convert(err)
+		return err
 	}
 
 	return nil
@@ -68,11 +72,11 @@ func (r *filesystemLayoutRepository) validateDelete(ctx context.Context, fsl *me
 		Allocation: &apiv2.MachineAllocationQuery{FilesystemLayout: &fsl.ID},
 	}))
 	if err != nil {
-		return err
+		return errorutil.NewInternal(err)
 	}
 
 	if len(machines) > 0 {
-		return errorutil.InvalidArgument("cannot remove filesystemlayout with existing machine allocations")
+		return errorutil.FailedPrecondition("cannot remove filesystemlayout with existing machine allocations")
 	}
 
 	return nil

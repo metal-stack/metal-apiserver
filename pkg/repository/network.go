@@ -61,7 +61,6 @@ func (r *networkRepository) delete(ctx context.Context, nw *metal.Network) error
 // NetworkDeleteHandleFn is called async to ensure all dependent entities are deleted
 // Async deletion must be scheduled by async.NewNetworkDeleteTask
 func (r *Store) NetworkDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
-
 	var payload task.NetworkDeletePayload
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
 		return fmt.Errorf("json.Unmarshal failed: %w %w", err, asynq.SkipRetry)
@@ -205,7 +204,7 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 	case apiv2.NetworkType_NETWORK_TYPE_UNSPECIFIED:
 		fallthrough
 	default:
-		return nil, errorutil.InvalidArgument("given networktype:%s is invalid", req.Type)
+		return nil, fmt.Errorf("given networktype:%s is invalid", req.Type)
 	}
 
 	if req.NatType != nil && req.NatType == apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE.Enum() {
@@ -274,6 +273,7 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 			return nil, err
 		}
 	}
+
 	return resp, nil
 }
 
@@ -397,7 +397,6 @@ func (r *networkRepository) convertToInternal(ctx context.Context, msg *apiv2.Ne
 
 func (r *networkRepository) convertToProto(ctx context.Context, e *metal.Network) (*apiv2.Network, error) {
 	var (
-		consumption *apiv2.NetworkConsumption
 		labels      *apiv2.Labels
 		networkType *apiv2.NetworkType
 		natType     *apiv2.NATType
@@ -418,6 +417,7 @@ func (r *networkRepository) convertToProto(ctx context.Context, e *metal.Network
 		if err != nil {
 			return nil, err
 		}
+
 		natType = &nt
 	}
 
@@ -426,6 +426,7 @@ func (r *networkRepository) convertToProto(ctx context.Context, e *metal.Network
 		if err != nil {
 			return nil, err
 		}
+
 		networkType = &nwt
 	}
 
@@ -461,11 +462,11 @@ func (r *networkRepository) convertToProto(ctx context.Context, e *metal.Network
 		MinChildPrefixLength:     minChildPrefixLength,
 		Type:                     networkType,
 	}
-	consumption, err = r.getNetworkUsage(ctx, e)
+
+	nw.Consumption, err = r.getNetworkUsage(ctx, e)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
-	nw.Consumption = consumption
 
 	return nw, nil
 }
@@ -482,7 +483,7 @@ func (r *networkRepository) toProtoChildPrefixLength(childPrefixLength metal.Chi
 		case metal.AddressFamilyIPv6:
 			result.Ipv6 = new(uint32(length))
 		default:
-			return nil, errorutil.InvalidArgument("unknown addressfamily %s", af)
+			return nil, fmt.Errorf("unknown addressfamily %s", af)
 		}
 	}
 	return result, nil
@@ -566,30 +567,35 @@ func (r *networkRepository) allocateChildPrefixes(ctx context.Context, projectId
 
 	if parentNetworkId != nil {
 		r.s.log.Info("get network", "parent", *parentNetworkId)
+
 		p, err := r.s.ds.Network().Get(ctx, *parentNetworkId)
 		if err != nil {
-			return nil, nil, errorutil.InvalidArgument("unable to find a super network with id:%s %w", *parentNetworkId, err)
+			return nil, nil, errorutil.FailedPrecondition("unable to find a super network with id:%s %w", *parentNetworkId, err)
 		}
 		if p.NetworkType == nil {
-			return nil, nil, errorutil.InvalidArgument("parent network with id:%s does not have a networktype set", *parentNetworkId)
+			return nil, nil, fmt.Errorf("parent network with id:%s does not have a networktype set", *parentNetworkId)
 		}
+
 		switch *p.NetworkType {
 		case metal.NetworkTypeSuper:
 			// all good
 		case metal.NetworkTypeSuperNamespaced:
 			namespace = projectId
 		default:
-			return nil, nil, errorutil.InvalidArgument("parent network with id:%s is not a valid super network but has type:%s", *parentNetworkId, *p.NetworkType)
+			return nil, nil, fmt.Errorf("parent network with id:%s is not a valid super network but has type:%s", *parentNetworkId, *p.NetworkType)
 		}
+
 		parent = p
+
 	} else {
 		p, err := r.s.ds.Network().Find(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{
 			Partition: partitionId,
 			Type:      apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
 		}))
 		if err != nil {
-			return nil, nil, errorutil.InvalidArgument("unable to find a private super in partition:%s %w", *partitionId, err)
+			return nil, nil, errorutil.FailedPrecondition("unable to find a private super in partition:%s %w", *partitionId, err)
 		}
+
 		parent = p
 	}
 
@@ -605,14 +611,15 @@ func (r *networkRepository) allocateChildPrefixes(ctx context.Context, projectId
 
 	metalAddressFamily, err := metal.ToAddressFamilyFromNetwork(*af)
 	if err != nil {
-		return nil, nil, errorutil.InvalidArgument("%w", err)
+		return nil, nil, err
 	}
 
 	if metalAddressFamily != nil {
 		bits, ok := parentLength[*metalAddressFamily]
 		if !ok {
-			return nil, nil, errorutil.InvalidArgument("addressfamily %s specified, but no childprefixlength for this addressfamily", *af)
+			return nil, nil, fmt.Errorf("addressfamily %s specified, but no childprefixlength for this addressfamily", *af)
 		}
+
 		parentLength = metal.ChildPrefixLength{
 			*metalAddressFamily: bits,
 		}
@@ -621,7 +628,7 @@ func (r *networkRepository) allocateChildPrefixes(ctx context.Context, projectId
 	for af, l := range parentLength {
 		childPrefix, err := r.createChildPrefix(ctx, namespace, parent.Prefixes, af, l)
 		if err != nil {
-			return nil, nil, errorutil.InvalidArgument("error creating child network in parent %s:%w", parent.ID, err)
+			return nil, nil, fmt.Errorf("error creating child network in parent %s:%w", parent.ID, err)
 		}
 		prefixes = append(prefixes, *childPrefix)
 	}

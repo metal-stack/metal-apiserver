@@ -9,7 +9,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/infra/v2/infrav2connect"
-	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/stretchr/testify/require"
 )
 
@@ -17,7 +17,7 @@ func Test_getTokenPermissions(t *testing.T) {
 	tests := []struct {
 		name               string
 		token              *apiv2.Token
-		projectsAndTenants *repository.ProjectsAndTenants
+		projectsAndTenants *api.ProjectsAndTenants
 		want               tokenPermissions
 		wantErr            error
 	}{
@@ -318,7 +318,7 @@ func Test_getTokenPermissions(t *testing.T) {
 					{Subject: "b", Methods: []string{"/metalstack.api.v2.IPService/Delete"}},
 				},
 			},
-			projectsAndTenants: &repository.ProjectsAndTenants{
+			projectsAndTenants: &api.ProjectsAndTenants{
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"a": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 					"b": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
@@ -352,7 +352,7 @@ func Test_getTokenPermissions(t *testing.T) {
 					"c": apiv2.TenantRole_TENANT_ROLE_OWNER,
 				},
 			},
-			projectsAndTenants: &repository.ProjectsAndTenants{
+			projectsAndTenants: &api.ProjectsAndTenants{
 				TenantRoles: map[string]apiv2.TenantRole{
 					"a": apiv2.TenantRole_TENANT_ROLE_GUEST,
 					"b": apiv2.TenantRole_TENANT_ROLE_EDITOR,
@@ -379,7 +379,7 @@ func Test_getTokenPermissions(t *testing.T) {
 				User:      "user-b",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_USER,
 			},
-			projectsAndTenants: &repository.ProjectsAndTenants{
+			projectsAndTenants: &api.ProjectsAndTenants{
 				TenantRoles: map[string]apiv2.TenantRole{
 					"a": apiv2.TenantRole_TENANT_ROLE_GUEST,
 					"b": apiv2.TenantRole_TENANT_ROLE_EDITOR,
@@ -442,7 +442,7 @@ func Test_getTokenPermissions(t *testing.T) {
 					"c": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
 				},
 			},
-			projectsAndTenants: &repository.ProjectsAndTenants{
+			projectsAndTenants: &api.ProjectsAndTenants{
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"a": apiv2.ProjectRole_PROJECT_ROLE_VIEWER,
 					"b": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
@@ -487,7 +487,7 @@ func Test_getTokenPermissions(t *testing.T) {
 				TokenType: apiv2.TokenType_TOKEN_TYPE_USER,
 				User:      "user-a",
 			},
-			projectsAndTenants: &repository.ProjectsAndTenants{
+			projectsAndTenants: &api.ProjectsAndTenants{
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"a": apiv2.ProjectRole_PROJECT_ROLE_VIEWER,
 					"b": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
@@ -563,7 +563,7 @@ func Test_getTokenPermissions(t *testing.T) {
 				TokenType: apiv2.TokenType_TOKEN_TYPE_USER,
 				User:      "user-a",
 			},
-			projectsAndTenants: &repository.ProjectsAndTenants{
+			projectsAndTenants: &api.ProjectsAndTenants{
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"a": apiv2.ProjectRole_PROJECT_ROLE_VIEWER,
 				},
@@ -625,7 +625,7 @@ func Test_getTokenPermissions(t *testing.T) {
 					},
 				},
 			},
-			projectsAndTenants: &repository.ProjectsAndTenants{
+			projectsAndTenants: &api.ProjectsAndTenants{
 				Projects: []*apiv2.Project{
 					{Uuid: "a"},
 					{Uuid: "b"},
@@ -651,7 +651,7 @@ func Test_getTokenPermissions(t *testing.T) {
 					},
 				},
 			},
-			projectsAndTenants: &repository.ProjectsAndTenants{
+			projectsAndTenants: &api.ProjectsAndTenants{
 				Tenants: []*apiv2.Tenant{
 					{Login: "user-a"},
 				},
@@ -679,7 +679,7 @@ func Test_getTokenPermissions(t *testing.T) {
 					},
 				},
 			},
-			projectsAndTenants: &repository.ProjectsAndTenants{
+			projectsAndTenants: &api.ProjectsAndTenants{
 				Tenants: []*apiv2.Tenant{
 					{Login: "user-a"},
 				},
@@ -707,7 +707,7 @@ func Test_getTokenPermissions(t *testing.T) {
 					},
 				},
 			},
-			projectsAndTenants: &repository.ProjectsAndTenants{
+			projectsAndTenants: &api.ProjectsAndTenants{
 				Projects: []*apiv2.Project{
 					{Uuid: "project-a"},
 				},
@@ -725,9 +725,9 @@ func Test_getTokenPermissions(t *testing.T) {
 			a := &authorizer{
 				log: slog.Default(),
 			}
-			a.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
+			a.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
 				if tt.projectsAndTenants == nil {
-					return &repository.ProjectsAndTenants{}, nil
+					return &api.ProjectsAndTenants{}, nil
 				}
 				return tt.projectsAndTenants, nil
 			}

@@ -17,6 +17,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/samber/lo"
 	"go4.org/netipx"
@@ -29,21 +30,7 @@ type (
 	switchRepository struct {
 		s *Store
 	}
-
-	SwitchServiceCreateRequest struct {
-		Switch *apiv2.Switch
-	}
-
-	SwitchStatus struct {
-		ID            string
-		LastSync      *apiv2.SwitchSync
-		LastSyncError *apiv2.SwitchSync
-	}
 )
-
-func (s *SwitchStatus) GetID() string {
-	return s.ID
-}
 
 func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServiceRegisterRequest) (*apiv2.Switch, error) {
 	if req == nil || req.Switch == nil {
@@ -55,7 +42,7 @@ func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServ
 		return nil, err
 	}
 	if errorutil.IsNotFound(err) {
-		return r.s.Switch().Create(ctx, &SwitchServiceCreateRequest{Switch: req.Switch})
+		return r.s.Switch().Create(ctx, &api.SwitchServiceCreateRequest{Switch: req.Switch})
 	}
 
 	new := req.Switch
@@ -462,13 +449,13 @@ func (r *switchRepository) ForceDelete(ctx context.Context, switchID string) (*a
 	return converted, nil
 }
 
-func (r *switchRepository) GetSwitchStatus(ctx context.Context, switchID string) (*SwitchStatus, error) {
+func (r *switchRepository) GetSwitchStatus(ctx context.Context, switchID string) (*api.SwitchStatus, error) {
 	metalStatus, err := r.s.ds.SwitchStatus().Get(ctx, switchID)
 	if err != nil && !errorutil.IsNotFound(err) {
 		return nil, err
 	}
 
-	status := &SwitchStatus{
+	status := &api.SwitchStatus{
 		ID: switchID,
 	}
 
@@ -495,7 +482,7 @@ func (r *switchRepository) GetSwitchStatus(ctx context.Context, switchID string)
 	return status, nil
 }
 
-func (r *switchRepository) SetSwitchStatus(ctx context.Context, status *SwitchStatus) error {
+func (r *switchRepository) SetSwitchStatus(ctx context.Context, status *api.SwitchStatus) error {
 	metalStatus := &metal.SwitchStatus{
 		Base: metal.Base{
 			ID: status.ID,
@@ -588,7 +575,7 @@ func toSwitchPortState(state *apiv2.NicState) (*metal.NicState, error) {
 	}, nil
 }
 
-func (r *switchRepository) create(ctx context.Context, req *SwitchServiceCreateRequest) (*metal.Switch, error) {
+func (r *switchRepository) create(ctx context.Context, req *api.SwitchServiceCreateRequest) (*metal.Switch, error) {
 	if req.Switch == nil {
 		return nil, nil
 	}

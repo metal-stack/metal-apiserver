@@ -9,7 +9,6 @@ import (
 	"connectrpc.com/connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
-	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-lib/auditing"
 )
@@ -51,7 +50,7 @@ func (a *auditServiceServer) Get(ctx context.Context, rq *apiv2.AuditServiceGetR
 		Phase: &phase,
 	})
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	switch len(traces) {
@@ -71,7 +70,7 @@ func (a *auditServiceServer) List(ctx context.Context, rq *apiv2.AuditServiceLis
 
 	traces, err := a.repo.Audit(rq.Login).List(ctx, rq.Query)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	return &apiv2.AuditServiceListResponse{Traces: traces}, nil

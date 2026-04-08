@@ -2,13 +2,17 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
+	"connectrpc.com/connect"
 	"github.com/metal-stack/metal-apiserver/pkg/async/queue"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/headscale"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-lib/auditing"
 	"github.com/valkey-io/valkey-go"
 
@@ -20,14 +24,15 @@ import (
 
 type (
 	Store struct {
-		log       *slog.Logger
-		ds        generic.Datastore
-		mdc       mdm.Client
-		ipam      ipamv1connect.IpamServiceClient
-		task      *task.Client
-		queue     *queue.Queue
-		component valkey.Client
-		auditing  auditing.Auditing
+		log             *slog.Logger
+		ds              generic.Datastore
+		mdc             mdm.Client
+		ipam            ipamv1connect.IpamServiceClient
+		task            *task.Client
+		queue           *queue.Queue
+		component       valkey.Client
+		auditing        auditing.Auditing
+		headscaleClient *headscale.Client
 	}
 
 	Config struct {
@@ -39,6 +44,7 @@ type (
 		Queue            *queue.Queue
 		Component        valkey.Client
 		Auditing         auditing.Auditing
+		HeadscaleClient  *headscale.Client
 	}
 
 	store[R Repo, E Entity, M Message, C CreateMessage, U UpdateMessage, Q Query] struct {
@@ -49,14 +55,15 @@ type (
 
 func New(c Config) *Store {
 	return &Store{
-		log:       c.Log,
-		mdc:       c.MasterdataClient,
-		ipam:      c.Ipam,
-		ds:        c.Datastore,
-		task:      c.Task,
-		queue:     c.Queue,
-		component: c.Component,
-		auditing:  c.Auditing,
+		log:             c.Log,
+		mdc:             c.MasterdataClient,
+		ipam:            c.Ipam,
+		ds:              c.Datastore,
+		task:            c.Task,
+		queue:           c.Queue,
+		component:       c.Component,
+		auditing:        c.Auditing,
+		headscaleClient: c.HeadscaleClient,
 	}
 }
 
@@ -120,7 +127,7 @@ func (s *Store) Component() Component {
 		s: s,
 	}
 
-	return &store[*componentRepository, *ComponentEntity, *apiv2.Component, *ComponentServiceCreateRequest, *ComponentServiceUpdateRequest, *apiv2.ComponentQuery]{
+	return &store[*componentRepository, *componentEntity, *apiv2.Component, *api.ComponentServiceCreateRequest, *api.ComponentServiceUpdateRequest, *apiv2.ComponentQuery]{
 		repository: repository,
 		typed:      repository,
 	}
@@ -252,7 +259,7 @@ func (s *Store) Switch() Switch {
 		s: s,
 	}
 
-	return &store[*switchRepository, *metal.Switch, *apiv2.Switch, *SwitchServiceCreateRequest, *adminv2.SwitchServiceUpdateRequest, *apiv2.SwitchQuery]{
+	return &store[*switchRepository, *metal.Switch, *apiv2.Switch, *api.SwitchServiceCreateRequest, *adminv2.SwitchServiceUpdateRequest, *apiv2.SwitchQuery]{
 		repository: repository,
 		typed:      repository,
 	}
@@ -280,22 +287,40 @@ func (s *Store) audit(scope *TenantScope) Audit {
 	}
 }
 
+func (s *Store) VPN(project string) *vpn {
+	return &vpn{
+		s: s,
+		scope: &ProjectScope{
+			projectID: project,
+		},
+		c: s.headscaleClient,
+	}
+}
+
+func (s *Store) UnscopedVPN() *vpn {
+	return &vpn{
+		s:     s,
+		scope: nil,
+		c:     s.headscaleClient,
+	}
+}
+
 func (s *store[R, E, M, C, U, Q]) Create(ctx context.Context, c C) (M, error) {
 	var zero M
 
 	err := s.validateCreate(ctx, c)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.WrapConnectErr(connect.CodeInvalidArgument, err)
 	}
 
 	e, err := s.create(ctx, c)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.Convert(err)
 	}
 
 	converted, err := s.convertToProto(ctx, e)
 	if err != nil {
-		return zero, err
+		return zero, protoConversionError(err)
 	}
 
 	return converted, nil
@@ -306,7 +331,7 @@ func (s *store[R, E, M, C, U, Q]) Delete(ctx context.Context, id string) (M, err
 
 	e, err := s.get(ctx, id)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.Convert(err)
 	}
 
 	ok := s.matchScope(e)
@@ -316,17 +341,17 @@ func (s *store[R, E, M, C, U, Q]) Delete(ctx context.Context, id string) (M, err
 
 	err = s.validateDelete(ctx, e)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.WrapConnectErr(connect.CodeInvalidArgument, err)
 	}
 
 	err = s.delete(ctx, e)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.Convert(err)
 	}
 
 	converted, err := s.convertToProto(ctx, e)
 	if err != nil {
-		return zero, err
+		return zero, protoConversionError(err)
 	}
 
 	return converted, nil
@@ -337,12 +362,12 @@ func (s *store[R, E, M, C, U, Q]) Find(ctx context.Context, query Q) (M, error) 
 
 	e, err := s.find(ctx, query)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.Convert(err)
 	}
 
 	converted, err := s.convertToProto(ctx, e)
 	if err != nil {
-		return zero, err
+		return zero, protoConversionError(err)
 	}
 
 	return converted, nil
@@ -353,7 +378,7 @@ func (s *store[R, E, M, C, U, Q]) Get(ctx context.Context, id string) (M, error)
 
 	e, err := s.get(ctx, id)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.Convert(err)
 	}
 
 	ok := s.matchScope(e)
@@ -363,7 +388,7 @@ func (s *store[R, E, M, C, U, Q]) Get(ctx context.Context, id string) (M, error)
 
 	converted, err := s.convertToProto(ctx, e)
 	if err != nil {
-		return zero, err
+		return zero, protoConversionError(err)
 	}
 
 	return converted, nil
@@ -372,14 +397,15 @@ func (s *store[R, E, M, C, U, Q]) Get(ctx context.Context, id string) (M, error)
 func (s *store[R, E, M, C, U, Q]) List(ctx context.Context, query Q) ([]M, error) {
 	es, err := s.list(ctx, query)
 	if err != nil {
-		return nil, err
+		return nil, errorutil.Convert(err)
 	}
 
 	var res []M
+
 	for _, e := range es {
 		converted, err := s.convertToProto(ctx, e)
 		if err != nil {
-			return nil, err
+			return nil, protoConversionError(err)
 		}
 
 		res = append(res, converted)
@@ -393,7 +419,7 @@ func (s *store[R, E, M, C, U, Q]) Update(ctx context.Context, id string, u U) (M
 
 	e, err := s.get(ctx, id)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.Convert(err)
 	}
 
 	ok := s.matchScope(e)
@@ -403,7 +429,7 @@ func (s *store[R, E, M, C, U, Q]) Update(ctx context.Context, id string, u U) (M
 
 	err = s.validateUpdate(ctx, u, e)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.WrapConnectErr(connect.CodeInvalidArgument, err)
 	}
 
 	if err = setUpdateMeta(u, e); err != nil {
@@ -412,12 +438,12 @@ func (s *store[R, E, M, C, U, Q]) Update(ctx context.Context, id string, u U) (M
 
 	e, err = s.update(ctx, e, u)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.Convert(err)
 	}
 
 	converted, err := s.convertToProto(ctx, e)
 	if err != nil {
-		return zero, err
+		return zero, protoConversionError(err)
 	}
 
 	return converted, nil
@@ -444,4 +470,8 @@ func setUpdateMeta(u UpdateMessage, e Entity) error {
 	}
 
 	return nil
+}
+
+func protoConversionError(err error) error {
+	return errorutil.WrapConnectErr(connect.CodeInternal, fmt.Errorf("error during proto conversion: %w", err))
 }

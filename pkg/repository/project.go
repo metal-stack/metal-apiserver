@@ -2,19 +2,20 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/metal-stack/metal-lib/pkg/tag"
 )
 
 const (
-	ProjectRoleAnnotation = "metal-stack.io/project-role"
-	avatarURLAnnotation   = "avatarUrl"
+	avatarURLAnnotation = "avatarUrl"
 )
 
 type (
@@ -46,14 +47,10 @@ func (r *projectRepository) projectMember(scope *ProjectScope) ProjectMember {
 		scope: scope,
 	}
 
-	return &store[*projectMemberRepository, *projectMemberEntity, *apiv2.ProjectMember, *ProjectMemberCreateRequest, *ProjectMemberUpdateRequest, *ProjectMemberQuery]{
+	return &store[*projectMemberRepository, *projectMemberEntity, *apiv2.ProjectMember, *api.ProjectMemberCreateRequest, *api.ProjectMemberUpdateRequest, *api.ProjectMemberQuery]{
 		typed:      repository,
 		repository: repository,
 	}
-}
-
-func (*ProjectMemberUpdateRequest) GetUpdateMeta() *apiv2.UpdateMeta {
-	return &apiv2.UpdateMeta{}
 }
 
 func (r *projectRepository) get(ctx context.Context, id string) (*projectEntity, error) {
@@ -217,10 +214,11 @@ func (r *projectRepository) convertToInternal(ctx context.Context, p *apiv2.Proj
 
 func (r *projectRepository) convertToProto(ctx context.Context, p *projectEntity) (*apiv2.Project, error) {
 	if p.Meta == nil {
-		return nil, errorutil.Internal("project meta is nil")
+		return nil, errors.New("project meta is nil")
 	}
 
 	var labels *apiv2.Labels
+
 	if p.Meta != nil && p.Meta.Labels != nil && len(p.Meta.Labels) > 0 {
 		labels = &apiv2.Labels{
 			Labels: tag.NewTagMap(p.Meta.Labels),
@@ -239,7 +237,6 @@ func (r *projectRepository) convertToProto(ctx context.Context, p *projectEntity
 		},
 		AvatarUrl: pointer.PointerOrNil(p.Meta.Annotations[avatarURLAnnotation]),
 	}, nil
-
 }
 
 func projectRoleFromMap(annotations map[string]string) apiv2.ProjectRole {
@@ -248,23 +245,15 @@ func projectRoleFromMap(annotations map[string]string) apiv2.ProjectRole {
 	}
 
 	var (
-		annotation  = annotations[ProjectRoleAnnotation]
+		annotation  = annotations[api.ProjectRoleAnnotation]
 		projectRole = apiv2.ProjectRole(apiv2.ProjectRole_value[annotation])
 	)
 
 	return projectRole
 }
 
-type ProjectsAndTenants struct {
-	Projects      []*apiv2.Project
-	Tenants       []*apiv2.Tenant
-	DefaultTenant *apiv2.Tenant
-	ProjectRoles  map[string]apiv2.ProjectRole
-	TenantRoles   map[string]apiv2.TenantRole
-}
-
 // GetProjectsAndTenants returns all projects and tenants that the user is participating in
-func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId string) (*ProjectsAndTenants, error) {
+func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
 	var (
 		projectRoles = map[string]apiv2.ProjectRole{}
 		projects     []*apiv2.Project
@@ -346,7 +335,7 @@ func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId st
 		return nil, errorutil.Internal("unable to find a default tenant for user: %s", userId)
 	}
 
-	return &ProjectsAndTenants{
+	return &api.ProjectsAndTenants{
 		Tenants:       tenants,
 		Projects:      projects,
 		DefaultTenant: defaultTenant,
@@ -369,7 +358,7 @@ func (r *projectRepository) EnsureProviderProject(ctx context.Context, providerT
 			ProjectMember: &mdcv1.ProjectMember{
 				Meta: &mdcv1.Meta{
 					Annotations: map[string]string{
-						ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_OWNER.String(),
+						api.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_OWNER.String(),
 					},
 				},
 				ProjectId: projectId,

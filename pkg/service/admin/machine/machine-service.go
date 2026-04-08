@@ -32,7 +32,7 @@ func New(c Config) adminv2connect.MachineServiceHandler {
 func (m *machineServiceServer) Get(ctx context.Context, req *adminv2.MachineServiceGetRequest) (*adminv2.MachineServiceGetResponse, error) {
 	machine, err := m.repo.UnscopedMachine().Get(ctx, req.Uuid)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	return &adminv2.MachineServiceGetResponse{
@@ -44,7 +44,7 @@ func (m *machineServiceServer) Get(ctx context.Context, req *adminv2.MachineServ
 func (m *machineServiceServer) List(ctx context.Context, rq *adminv2.MachineServiceListRequest) (*adminv2.MachineServiceListResponse, error) {
 	partitions, err := m.repo.Partition().List(ctx, &apiv2.PartitionQuery{})
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	partition := rq.Partition
@@ -65,7 +65,7 @@ func (m *machineServiceServer) List(ctx context.Context, rq *adminv2.MachineServ
 
 	machines, err := m.repo.UnscopedMachine().List(ctx, q)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	return &adminv2.MachineServiceListResponse{Machines: machines}, nil
@@ -74,12 +74,14 @@ func (m *machineServiceServer) List(ctx context.Context, rq *adminv2.MachineServ
 func (m *machineServiceServer) BMCCommand(ctx context.Context, req *adminv2.MachineServiceBMCCommandRequest) (*adminv2.MachineServiceBMCCommandResponse, error) {
 	machine, err := m.repo.UnscopedMachine().Get(ctx, req.Uuid)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
+
 	resp, err := m.repo.UnscopedMachine().AdditionalMethods().GetBMC(ctx, &adminv2.MachineServiceGetBMCRequest{Uuid: req.Uuid})
 	if err != nil {
 		return nil, err
 	}
+
 	if resp.Bmc == nil || resp.Bmc.Bmc == nil {
 		return nil, errorutil.FailedPrecondition("machine %s does not have bmc details yet", req.Uuid)
 	}
@@ -91,6 +93,7 @@ func (m *machineServiceServer) BMCCommand(ctx context.Context, req *adminv2.Mach
 	if err != nil {
 		return nil, err
 	}
+
 	return &adminv2.MachineServiceBMCCommandResponse{}, nil
 }
 

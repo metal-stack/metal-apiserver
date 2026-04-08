@@ -22,6 +22,7 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 
 	"github.com/metal-stack/metal-lib/auditing"
@@ -367,7 +368,7 @@ func (a *auth) ensureTenant(ctx context.Context, u *providerUser) error {
 		return err
 	}
 
-	_, err = a.repo.Tenant().AdditionalMethods().Member(u.login).Create(ctx, &repository.TenantMemberCreateRequest{
+	_, err = a.repo.Tenant().AdditionalMethods().Member(u.login).Create(ctx, &api.TenantMemberCreateRequest{
 		Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
 		MemberID: u.login,
 	})

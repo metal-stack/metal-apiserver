@@ -11,6 +11,7 @@ import (
 	"github.com/metal-stack/api/go/permissions"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/request"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/cache"
@@ -23,7 +24,7 @@ type methodServiceServer struct {
 }
 
 func New(log *slog.Logger, repo *repository.Store) apiv2connect.MethodServiceHandler {
-	projectAndTenantCache := cache.New(10*time.Second, func(ctx context.Context, id string) (*repository.ProjectsAndTenants, error) {
+	projectAndTenantCache := cache.New(10*time.Second, func(ctx context.Context, id string) (*api.ProjectsAndTenants, error) {
 		pat, err := repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, id)
 		if err != nil {
 			return nil, err
@@ -31,7 +32,7 @@ func New(log *slog.Logger, repo *repository.Store) apiv2connect.MethodServiceHan
 		return pat, nil
 	})
 
-	patg := func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
+	patg := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
 		return projectAndTenantCache.Get(ctx, userId)
 	}
 

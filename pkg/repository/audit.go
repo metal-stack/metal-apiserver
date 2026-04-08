@@ -9,6 +9,7 @@ import (
 
 	"connectrpc.com/connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-lib/auditing"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -17,7 +18,6 @@ import (
 const (
 	auditingListLimit       = int64(200)
 	auditingTimeWindowDelta = 8 * time.Hour
-	AuditingComponent       = "metal-stack.io"
 )
 
 type (
@@ -63,7 +63,7 @@ func (a *auditRepository) list(ctx context.Context, query *apiv2.AuditQuery) ([]
 
 	filter := auditing.EntryFilter{
 		Body:       pointer.SafeDeref(query.Body),
-		Component:  AuditingComponent,
+		Component:  api.AuditingComponent,
 		From:       from,
 		Limit:      limit,
 		Path:       pointer.SafeDeref(query.Method),

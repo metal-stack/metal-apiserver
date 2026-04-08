@@ -23,84 +23,6 @@ type imageRepository struct {
 	s *Store
 }
 
-func (r *imageRepository) validateCreate(ctx context.Context, req *adminv2.ImageServiceCreateRequest) error {
-	// FIXME use validate helper
-	image := req.Image
-	if image.Id == "" {
-		return errorutil.InvalidArgument("image id must not be empty")
-	}
-	if image.Url == "" {
-		return errorutil.InvalidArgument("image url must not be empty")
-	}
-	if err := checkIfUrlExists(ctx, "image", image.Id, image.Url); err != nil {
-		return errorutil.NewInvalidArgument(err)
-	}
-	if len(image.Features) == 0 {
-		return errorutil.InvalidArgument("image features must not be empty")
-	}
-	if _, err := metal.ImageFeaturesFrom(image.Features); err != nil {
-		return errorutil.NewInvalidArgument(err)
-	}
-	if _, err := metal.VersionClassificationFrom(image.Classification); err != nil {
-		return errorutil.NewInvalidArgument(err)
-	}
-	if _, _, err := metalcommon.GetOsAndSemverFromImage(image.Id); err != nil {
-		return errorutil.NewInvalidArgument(err)
-	}
-	if image.ExpiresAt != nil && !image.ExpiresAt.AsTime().IsZero() {
-		if image.ExpiresAt.AsTime().Before(time.Now()) {
-			return errorutil.InvalidArgument("image expiresAt must be in the future")
-		}
-	}
-	// FIXME implement: https://github.com/metal-stack/metal-api/issues/92
-	return nil
-}
-
-func (r *imageRepository) validateUpdate(ctx context.Context, req *adminv2.ImageServiceUpdateRequest, _ *metal.Image) error {
-	// FIXME use validate helper
-	if req.Id == "" {
-		return errorutil.InvalidArgument("image id must not be empty")
-	}
-	if req.Url != nil {
-		if err := checkIfUrlExists(ctx, "image", req.Id, *req.Url); err != nil {
-			return errorutil.NewInvalidArgument(err)
-		}
-	}
-	if len(req.Features) >= 0 {
-		if _, err := metal.ImageFeaturesFrom(req.Features); err != nil {
-			return errorutil.NewInvalidArgument(err)
-		}
-	}
-	if _, err := metal.VersionClassificationFrom(req.Classification); err != nil {
-		return errorutil.NewInvalidArgument(err)
-	}
-	if _, _, err := metalcommon.GetOsAndSemverFromImage(req.Id); err != nil {
-		return errorutil.NewInvalidArgument(err)
-	}
-	if req.ExpiresAt != nil && !req.ExpiresAt.AsTime().IsZero() {
-		if req.ExpiresAt.AsTime().Before(time.Now()) {
-			return errorutil.InvalidArgument("image expiresAt must be in the future")
-		}
-	}
-
-	return nil
-}
-
-func (r *imageRepository) validateDelete(ctx context.Context, img *metal.Image) error {
-	machines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
-		Allocation: &apiv2.MachineAllocationQuery{Image: &img.ID},
-	}))
-	if err != nil {
-		return err
-	}
-
-	if len(machines) > 0 {
-		return errorutil.InvalidArgument("cannot remove image with existing machine allocations")
-	}
-
-	return nil
-}
-
 func (r *imageRepository) get(ctx context.Context, id string) (*metal.Image, error) {
 	fsl, err := r.s.ds.Image().Get(ctx, id)
 	if err != nil {
@@ -228,8 +150,10 @@ func (r *imageRepository) convertToInternal(ctx context.Context, msg *apiv2.Imag
 	}
 	return image, nil
 }
+
 func (r *imageRepository) convertToProto(ctx context.Context, in *metal.Image) (*apiv2.Image, error) {
 	var features []apiv2.ImageFeature
+
 	for feature := range in.Features {
 		switch feature {
 		case metal.ImageFeatureMachine:
@@ -237,10 +161,12 @@ func (r *imageRepository) convertToProto(ctx context.Context, in *metal.Image) (
 		case metal.ImageFeatureFirewall:
 			features = append(features, apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL)
 		default:
-			return nil, fmt.Errorf("invalid image feature:%s", feature)
+			return nil, fmt.Errorf("invalid image feature: %s", feature)
 		}
 	}
+
 	var classification apiv2.ImageClassification
+
 	switch in.Classification {
 	case metal.ClassificationDeprecated:
 		classification = apiv2.ImageClassification_IMAGE_CLASSIFICATION_DEPRECATED
@@ -249,10 +175,10 @@ func (r *imageRepository) convertToProto(ctx context.Context, in *metal.Image) (
 	case metal.ClassificationSupported:
 		classification = apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED
 	default:
-		return nil, fmt.Errorf("invalid image classification:%s", classification)
+		return nil, fmt.Errorf("invalid image classification: %s", classification)
 	}
 
-	image := &apiv2.Image{
+	return &apiv2.Image{
 		Id:          in.ID,
 		Name:        &in.Name,
 		Description: &in.Description,
@@ -265,8 +191,7 @@ func (r *imageRepository) convertToProto(ctx context.Context, in *metal.Image) (
 		Features:       features,
 		Classification: classification,
 		ExpiresAt:      timestamppb.New(in.ExpirationDate),
-	}
-	return image, nil
+	}, nil
 }
 
 // GetMostRecentImageFor
@@ -278,19 +203,15 @@ func (r *imageRepository) convertToProto(ctx context.Context, in *metal.Image) (
 // If version is not fully specified, e.g. ubuntu-19.10 or ubuntu-19.10
 // then the most recent ubuntu image (ubuntu-19.10.20200407) is returned
 // If patch is specified e.g. ubuntu-20.04.20200502 then this exact image is searched.
-func (r *imageRepository) GetMostRecentImageFor(ctx context.Context, id string, images []*apiv2.Image) (*apiv2.Image, error) {
-	var internalImages []*metal.Image
-
-	for _, img := range images {
-		i, err := r.convertToInternal(ctx, img)
-		if err != nil {
-			return nil, err
-		}
-
-		internalImages = append(internalImages, i)
+func (r *imageRepository) GetMostRecentImageFor(ctx context.Context, rq *apiv2.ImageServiceLatestRequest) (*apiv2.Image, error) {
+	images, err := r.list(ctx, &apiv2.ImageQuery{
+		Classification: rq.Classification,
+	})
+	if err != nil {
+		return nil, errorutil.Convert(err)
 	}
 
-	internalLatest, err := r.getMostRecentImageFor(id, internalImages)
+	internalLatest, err := r.getMostRecentImageFor(rq.Os, images)
 	if err != nil {
 		return nil, err
 	}
@@ -320,7 +241,9 @@ func (r *imageRepository) getMostRecentImageFor(id string, images []*metal.Image
 	}
 
 	var latestImage *metal.Image
+
 	sortedImages := r.SortImages(images)
+
 	for i := range sortedImages {
 		image := sortedImages[i]
 		if os != image.OS {
@@ -335,9 +258,11 @@ func (r *imageRepository) getMostRecentImageFor(id string, images []*metal.Image
 			break
 		}
 	}
+
 	if latestImage != nil {
 		return latestImage, nil
 	}
+
 	return nil, errorutil.NotFound("no image for os:%s version:%s found", os, sv)
 }
 

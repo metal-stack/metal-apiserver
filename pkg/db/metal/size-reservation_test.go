@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	mdmv1 "github.com/metal-stack/masterdata-api/api/v1"
-	"github.com/metal-stack/metal-lib/pkg/testcommon"
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 )
 
 func TestReservations_ForPartition(t *testing.T) {
@@ -76,12 +76,12 @@ func TestReservations_Validate(t *testing.T) {
 		{
 			name: "invalid amount",
 			sizes: map[string]*Size{
-				"c1": &Size{},
+				"c1": {},
 			},
 			partitions: map[string]*Partition{
-				"a": &Partition{},
-				"b": &Partition{},
-				"c": &Partition{},
+				"a": {},
+				"b": {},
+				"c": {},
 			},
 			projects: map[string]*mdmv1.Project{
 				"1": {},
@@ -101,12 +101,12 @@ func TestReservations_Validate(t *testing.T) {
 		{
 			name: "size does not exist",
 			sizes: map[string]*Size{
-				"c1": &Size{},
+				"c1": {},
 			},
 			partitions: map[string]*Partition{
-				"a": &Partition{},
-				"b": &Partition{},
-				"c": &Partition{},
+				"a": {},
+				"b": {},
+				"c": {},
 			},
 			projects: map[string]*mdmv1.Project{
 				"1": {},
@@ -126,12 +126,12 @@ func TestReservations_Validate(t *testing.T) {
 		{
 			name: "no partitions referenced",
 			sizes: map[string]*Size{
-				"c1": &Size{},
+				"c1": {},
 			},
 			partitions: map[string]*Partition{
-				"a": &Partition{},
-				"b": &Partition{},
-				"c": &Partition{},
+				"a": {},
+				"b": {},
+				"c": {},
 			},
 			projects: map[string]*mdmv1.Project{
 				"1": {},
@@ -150,12 +150,12 @@ func TestReservations_Validate(t *testing.T) {
 		{
 			name: "partition does not exist",
 			sizes: map[string]*Size{
-				"c1": &Size{},
+				"c1": {},
 			},
 			partitions: map[string]*Partition{
-				"a": &Partition{},
-				"b": &Partition{},
-				"c": &Partition{},
+				"a": {},
+				"b": {},
+				"c": {},
 			},
 			projects: map[string]*mdmv1.Project{
 				"1": {},
@@ -175,12 +175,12 @@ func TestReservations_Validate(t *testing.T) {
 		{
 			name: "partition duplicates",
 			sizes: map[string]*Size{
-				"c1": &Size{},
+				"c1": {},
 			},
 			partitions: map[string]*Partition{
-				"a": &Partition{},
-				"b": &Partition{},
-				"c": &Partition{},
+				"a": {},
+				"b": {},
+				"c": {},
 			},
 			projects: map[string]*mdmv1.Project{
 				"1": {},
@@ -200,12 +200,12 @@ func TestReservations_Validate(t *testing.T) {
 		{
 			name: "no project referenced",
 			sizes: map[string]*Size{
-				"c1": &Size{},
+				"c1": {},
 			},
 			partitions: map[string]*Partition{
-				"a": &Partition{},
-				"b": &Partition{},
-				"c": &Partition{},
+				"a": {},
+				"b": {},
+				"c": {},
 			},
 			projects: map[string]*mdmv1.Project{
 				"1": {},
@@ -224,12 +224,12 @@ func TestReservations_Validate(t *testing.T) {
 		{
 			name: "project does not exist",
 			sizes: map[string]*Size{
-				"c1": &Size{},
+				"c1": {},
 			},
 			partitions: map[string]*Partition{
-				"a": &Partition{},
-				"b": &Partition{},
-				"c": &Partition{},
+				"a": {},
+				"b": {},
+				"c": {},
 			},
 			projects: map[string]*mdmv1.Project{
 				"1": {},
@@ -249,12 +249,12 @@ func TestReservations_Validate(t *testing.T) {
 		{
 			name: "valid reservation",
 			sizes: map[string]*Size{
-				"c1": &Size{},
+				"c1": {},
 			},
 			partitions: map[string]*Partition{
-				"a": &Partition{},
-				"b": &Partition{},
-				"c": &Partition{},
+				"a": {},
+				"b": {},
+				"c": {},
 			},
 			projects: map[string]*mdmv1.Project{
 				"1": {},
@@ -274,7 +274,7 @@ func TestReservations_Validate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := Validate(tt.rs, tt.sizes, tt.partitions, tt.projects)
-			if diff := cmp.Diff(tt.wantErr, err, testcommon.ErrorStringComparer()); diff != "" {
+			if diff := cmp.Diff(tt.wantErr, err, errorutil.ErrorStringComparer()); diff != "" {
 				t.Errorf("error diff (-want +got):\n%s", diff)
 			}
 		})

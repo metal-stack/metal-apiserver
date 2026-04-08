@@ -19,8 +19,10 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
+	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/auditing"
@@ -37,42 +39,49 @@ const (
 )
 
 // TODO should we make all methods return/consume the teststore ?
-type testStore struct {
-	t testing.TB
-	*repository.Store
-	ds            generic.Datastore
-	dbName        string
-	queryExecutor *r.Session
-	ipam          apiv1connect.IpamServiceClient
-	ipamcloser    func()
+type (
+	testStore struct {
+		t testing.TB
+		*repository.Store
+		ds            generic.Datastore
+		dbName        string
+		queryExecutor *r.Session
+		ipam          apiv1connect.IpamServiceClient
+		ipamcloser    func()
 
-	projectInviteStore invite.ProjectInviteStore
-	tenantInviteStore  invite.TenantInviteStore
-	tokenStore         tokencommon.TokenStore
+		projectInviteStore invite.ProjectInviteStore
+		tenantInviteStore  invite.TenantInviteStore
+		tokenStore         tokencommon.TokenStore
 
-	// only use this when you are very certain about it!!
-	tokenService token.TokenService
-	mdc          mdc.Client
-	rc           *redis.Client
-}
+		// only use this when you are very certain about it!!
+		tokenService           token.TokenService
+		mdc                    mdc.Client
+		rc                     *redis.Client
+		vc                     valkey.Client
+		hc                     *headscale.Client
+		headscaleControllerURL string
 
-type testOpt any
+		audit auditing.Auditing
+	}
 
-type testOptPostgres struct {
-	with bool
-}
+	testOpt any
 
-type testOptValkey struct {
-	with bool
-}
-
-type testOptRethink struct {
-	with bool
-}
-
-type testOptContainer struct {
-	with bool
-}
+	testOptPostgres struct {
+		with bool
+	}
+	testOptValkey struct {
+		with bool
+	}
+	testOptRethink struct {
+		with bool
+	}
+	testOptHeadscale struct {
+		with bool
+	}
+	testOptContainer struct {
+		with bool
+	}
+)
 
 // WithPostgres if set to true a postgres database container is started, defaults to false.
 func WithPostgres(with bool) *testOptPostgres {
@@ -95,6 +104,13 @@ func WithRethink(with bool) *testOptRethink {
 	}
 }
 
+// WithRethink if set to true a rethink database container is started, defaults to false.
+func WithHeadscale(with bool) *testOptHeadscale {
+	return &testOptHeadscale{
+		with: with,
+	}
+}
+
 // WithContainers if set to false, no database containers are started, defaults to true.
 func WithContainers(with bool) *testOptContainer {
 	return &testOptContainer{
@@ -107,6 +123,7 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		withPostgres   = false
 		withValkey     = false
 		withRethink    = true
+		withHeadscale  = false
 		withContainers = true
 	)
 
@@ -118,6 +135,8 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 			withValkey = o.with
 		case *testOptRethink:
 			withRethink = o.with
+		case *testOptHeadscale:
+			withHeadscale = o.with
 		case *testOptContainer:
 			withContainers = o.with
 		default:
@@ -132,13 +151,16 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 	}
 
 	var (
-		rc            *redis.Client
-		vc            valkey.Client
-		valkeyCloser  func()
-		ds            generic.Datastore
-		opts          r.ConnectOpts
-		rethinkCloser func()
-		session       *r.Session
+		rc                     *redis.Client
+		vc                     valkey.Client
+		hc                     *headscale.Client
+		headscaleControllerURL string
+		valkeyCloser           func()
+		ds                     generic.Datastore
+		opts                   r.ConnectOpts
+		rethinkCloser          func()
+		headscaleCloser        func()
+		session                *r.Session
 	)
 
 	if withRethink {
@@ -154,13 +176,17 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		rc, vc, valkeyCloser = StartValkey(t, WithMiniRedis(true))
 	}
 
+	if withHeadscale {
+		hc, headscaleControllerURL, headscaleCloser = StartHeadscale(t)
+	}
+
 	projectInviteStore := invite.NewProjectRedisStore(rc)
 	tenantInviteStore := invite.NewTenantRedisStore(rc)
 	tokenStore := tokencommon.NewRedisStore(rc)
 	certStore := certs.NewRedisStore(&certs.Config{RedisClient: rc})
 
 	auditingBackend, err := auditing.NewMemory(auditing.Config{
-		Component: repository.AuditingComponent,
+		Component: api.AuditingComponent,
 		Log:       log,
 	}, auditing.MemoryConfig{})
 	require.NoError(t, err)
@@ -197,6 +223,7 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		Queue:            queue,
 		Component:        vc, // Use same valkey instance as queue for tests
 		Auditing:         auditingBackend,
+		HeadscaleClient:  hc,
 	}
 
 	repo := repository.New(config)
@@ -215,27 +242,33 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		if valkeyCloser != nil {
 			valkeyCloser()
 		}
+		if headscaleCloser != nil {
+			headscaleCloser()
+		}
 	}
 
 	return &testStore{
-		t:                  t,
-		Store:              repo,
-		ds:                 ds,
-		dbName:             opts.Database,
-		queryExecutor:      session,
-		ipam:               ipam,
-		ipamcloser:         ipamCloser,
-		projectInviteStore: projectInviteStore,
-		tenantInviteStore:  tenantInviteStore,
-		tokenStore:         tokenStore,
-		tokenService:       tokenService,
-		mdc:                mdc,
-		rc:                 rc,
+		t:                      t,
+		Store:                  repo,
+		ds:                     ds,
+		dbName:                 opts.Database,
+		queryExecutor:          session,
+		ipam:                   ipam,
+		ipamcloser:             ipamCloser,
+		projectInviteStore:     projectInviteStore,
+		tenantInviteStore:      tenantInviteStore,
+		tokenStore:             tokenStore,
+		tokenService:           tokenService,
+		mdc:                    mdc,
+		rc:                     rc,
+		vc:                     vc,
+		audit:                  auditingBackend,
+		hc:                     hc,
+		headscaleControllerURL: headscaleControllerURL,
 	}, closer
 }
 
-func (s *testStore) CleanUp(t testing.TB) {
-
+func (s *testStore) Cleanup(t testing.TB) {
 	s.DeleteProjects()
 	s.DeleteTenants()
 	DeleteIPs(t, s)
@@ -258,6 +291,10 @@ func (s *testStore) CleanUp(t testing.TB) {
 	}
 }
 
+func (t *testStore) GetDatastore() generic.Datastore {
+	return t.ds
+}
+
 func (t *testStore) GetProjectInviteStore() invite.ProjectInviteStore {
 	return t.projectInviteStore
 }
@@ -274,8 +311,28 @@ func (t *testStore) GetMasterdataClient() mdc.Client {
 	return t.mdc
 }
 
+func (t *testStore) GetIpamClient() apiv1connect.IpamServiceClient {
+	return t.ipam
+}
+
 func (t *testStore) GetRedisClient() *redis.Client {
 	return t.rc
+}
+
+func (t *testStore) GetValkeyClient() valkey.Client {
+	return t.vc
+}
+
+func (t *testStore) GetHeadscaleClient() *headscale.Client {
+	return t.hc
+}
+
+func (t *testStore) GetHeadscaleControllerURL() string {
+	return t.headscaleControllerURL
+}
+
+func (t *testStore) GetAuditBackend() auditing.Auditing {
+	return t.audit
 }
 
 func (t *testStore) GetTokenService() token.TokenService {
@@ -515,7 +572,7 @@ func CreateProjects(t testing.TB, testStore *testStore, projects []*apiv2.Projec
 	return projectMap
 }
 
-func CreateProjectMemberships(t testing.TB, testStore *testStore, project string, memberships []*repository.ProjectMemberCreateRequest) {
+func CreateProjectMemberships(t testing.TB, testStore *testStore, project string, memberships []*api.ProjectMemberCreateRequest) {
 	for _, membership := range memberships {
 		_, err := testStore.Project(project).AdditionalMethods().Member().Create(t.Context(), membership)
 		require.NoError(t, err)
@@ -547,7 +604,7 @@ func CreateTenants(t testing.TB, testStore *testStore, tenants []*apiv2.TenantSe
 	return tenantList
 }
 
-func CreateTenantMemberships(t testing.TB, testStore *testStore, tenant string, memberships []*repository.TenantMemberCreateRequest) {
+func CreateTenantMemberships(t testing.TB, testStore *testStore, tenant string, memberships []*api.TenantMemberCreateRequest) {
 	for _, membership := range memberships {
 		_, err := testStore.Tenant().AdditionalMethods().Member(tenant).Create(t.Context(), membership)
 		require.NoError(t, err)
@@ -591,7 +648,7 @@ func CreateSizeReservations(t testing.TB, testStore *testStore, sizeReservations
 	return sizeReservationMap
 }
 
-func CreateSwitches(t testing.TB, testStore *testStore, switches []*repository.SwitchServiceCreateRequest) map[string]*apiv2.Switch {
+func CreateSwitches(t testing.TB, testStore *testStore, switches []*api.SwitchServiceCreateRequest) map[string]*apiv2.Switch {
 	switchMap := map[string]*apiv2.Switch{}
 	for _, sw := range switches {
 		s, err := testStore.Switch().Create(t.Context(), sw)
@@ -601,7 +658,7 @@ func CreateSwitches(t testing.TB, testStore *testStore, switches []*repository.S
 	return switchMap
 }
 
-func CreateSwitchStatuses(t testing.TB, testStore *testStore, statuses []*repository.SwitchStatus) map[string]*metal.SwitchStatus {
+func CreateSwitchStatuses(t testing.TB, testStore *testStore, statuses []*api.SwitchStatus) map[string]*metal.SwitchStatus {
 	statusMap := map[string]*metal.SwitchStatus{}
 	for _, status := range statuses {
 		metalStatus := &metal.SwitchStatus{

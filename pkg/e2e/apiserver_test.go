@@ -9,11 +9,13 @@ import (
 	"github.com/metal-stack/api/go/client"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 func TestUnauthenticated(t *testing.T) {
+	t.Parallel()
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	baseURL, adminToken, _, closer := StartApiserver(t, log)
 	defer closer()
@@ -34,6 +36,7 @@ func TestUnauthenticated(t *testing.T) {
 }
 
 func TestAuthenticated(t *testing.T) {
+	t.Parallel()
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	baseURL, adminToken, _, closer := StartApiserver(t, log)
 	defer closer()
@@ -55,6 +58,7 @@ func TestAuthenticated(t *testing.T) {
 }
 
 func TestListBaseNetworks(t *testing.T) {
+	t.Parallel()
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	baseURL, adminToken, tenantTokenSecrets, closer := StartApiserver(t, log, "user-a")
 	defer closer()
@@ -108,6 +112,7 @@ func TestListBaseNetworks(t *testing.T) {
 }
 
 func TestImageCacheServiceToken(t *testing.T) {
+	t.Parallel()
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	baseURL, adminToken, tenantTokenSecrets, closer := StartApiserver(t, log, "metal-image-cache-sync")
 	defer closer()
@@ -154,4 +159,48 @@ func TestImageCacheServiceToken(t *testing.T) {
 
 	_, err = userClient.Apiv2().Partition().List(t.Context(), &apiv2.PartitionServiceListRequest{})
 	require.NoError(t, err)
+}
+
+func TestHealthGet(t *testing.T) {
+	t.Parallel()
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	baseURL, adminToken, tenantTokenSecrets, closer := StartApiserver(t, log, "user-a")
+	defer closer()
+	require.NotNil(t, baseURL, adminToken)
+	log.Info("token", "secret", tenantTokenSecrets["user-a"])
+
+	anonymousClient, err := client.New(&client.DialConfig{
+		BaseURL:   baseURL,
+		UserAgent: "integration test admin",
+		Log:       log,
+	})
+	require.NoError(t, err)
+
+	var (
+		ctx    = t.Context()
+		health *apiv2.HealthServiceGetResponse
+	)
+
+	assert.Eventually(t, func() bool {
+		health, err = anonymousClient.Apiv2().Health().Get(ctx, &apiv2.HealthServiceGetRequest{})
+		require.NoError(t, err)
+		require.NotNil(t, health)
+		require.NotNil(t, health.Health)
+
+		// initial check needs to succeed and populate message fields as initial state is that all services are returned healthy
+		for _, svc := range health.Health.Services {
+			if svc.Message == "" {
+				return false
+			}
+		}
+
+		return true
+	}, 10*time.Second, 1*time.Second)
+
+	assert.Len(t, health.Health.Services, 7)
+
+	for _, svc := range health.Health.Services {
+		assert.Equal(t, apiv2.ServiceStatus_SERVICE_STATUS_HEALTHY, svc.Status)
+		assert.NotEmpty(t, svc.Message, svc.Name)
+	}
 }

@@ -5,7 +5,7 @@ import (
 	"log/slog"
 
 	"connectrpc.com/connect"
-	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/request"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 )
@@ -17,14 +17,7 @@ type (
 	}
 )
 
-func NewAuthorizeInterceptor(log *slog.Logger, repo *repository.Store) *authorizeInterceptor {
-	// We fetch projects and tenants on every request, if this hurts performance we can
-	// put the result into the context, and reuse the result in subsequent queries
-	// or we introduce a cache with a short timeout.
-	patg := func(ctx context.Context, userId string) (*repository.ProjectsAndTenants, error) {
-		return repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, userId)
-	}
-
+func NewAuthorizeInterceptor(log *slog.Logger, patg api.ProjectsAndTenantsGetter) *authorizeInterceptor {
 	return &authorizeInterceptor{
 		log:        log,
 		authorizer: request.NewAuthorizer(log, patg),

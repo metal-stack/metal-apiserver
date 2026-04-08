@@ -20,6 +20,7 @@ import (
 )
 
 func Test_MigrationChildPrefixLength(t *testing.T) {
+	t.Parallel()
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	type tmpPartition struct {

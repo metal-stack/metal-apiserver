@@ -10,6 +10,7 @@ import (
 	"github.com/metal-stack/api/go/enum"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 )
 
 const (
@@ -17,16 +18,8 @@ const (
 )
 
 type (
-	ComponentEntity struct {
+	componentEntity struct {
 		*apiv2.Component
-	}
-
-	ComponentServiceCreateRequest struct {
-		*apiv2.Component
-		Expiration time.Duration
-	}
-
-	ComponentServiceUpdateRequest struct {
 	}
 
 	componentRepository struct {
@@ -34,11 +27,7 @@ type (
 	}
 )
 
-func (*ComponentServiceUpdateRequest) GetUpdateMeta() *apiv2.UpdateMeta {
-	return &apiv2.UpdateMeta{}
-}
-
-func (e *ComponentEntity) SetChanged(time time.Time) {
+func (e *componentEntity) SetChanged(time time.Time) {
 }
 
 func id(typeString, identifier string) string {
@@ -55,13 +44,13 @@ func (c *componentRepository) key(rq *apiv2.Component) (string, error) {
 	return key, nil
 }
 
-func (c *componentRepository) get(ctx context.Context, id string) (*ComponentEntity, error) {
+func (c *componentRepository) get(ctx context.Context, id string) (*componentEntity, error) {
 	keys, err := c.s.component.Do(ctx, c.s.component.B().Keys().Pattern(componentPrefix+"*").Build()).AsStrSlice()
 	if err != nil {
 		return nil, err
 	}
 
-	var result *ComponentEntity
+	var result *componentEntity
 	for _, key := range keys {
 		value, err := c.s.component.Do(ctx, c.s.component.B().Get().Key(key).Build()).AsBytes()
 		if err != nil {
@@ -75,7 +64,7 @@ func (c *componentRepository) get(ctx context.Context, id string) (*ComponentEnt
 		}
 
 		if component.Uuid == id {
-			result = &ComponentEntity{Component: &component}
+			result = &componentEntity{Component: &component}
 			break
 		}
 	}
@@ -85,11 +74,11 @@ func (c *componentRepository) get(ctx context.Context, id string) (*ComponentEnt
 	return result, nil
 }
 
-func (c *componentRepository) validateCreate(ctx context.Context, rq *ComponentServiceCreateRequest) error {
+func (c *componentRepository) validateCreate(ctx context.Context, rq *api.ComponentServiceCreateRequest) error {
 	return nil
 }
 
-func (c *componentRepository) create(ctx context.Context, rq *ComponentServiceCreateRequest) (*ComponentEntity, error) {
+func (c *componentRepository) create(ctx context.Context, rq *api.ComponentServiceCreateRequest) (*componentEntity, error) {
 	payload, err := json.Marshal(rq)
 	if err != nil {
 		return nil, err
@@ -104,22 +93,22 @@ func (c *componentRepository) create(ctx context.Context, rq *ComponentServiceCr
 	if err != nil {
 		return nil, err
 	}
-	return &ComponentEntity{Component: rq.Component}, err
+	return &componentEntity{Component: rq.Component}, err
 }
 
-func (c *componentRepository) validateUpdate(ctx context.Context, rq *ComponentServiceUpdateRequest, old *ComponentEntity) error {
+func (c *componentRepository) validateUpdate(ctx context.Context, rq *api.ComponentServiceUpdateRequest, old *componentEntity) error {
 	panic("unimplemented")
 }
 
-func (c *componentRepository) update(ctx context.Context, e *ComponentEntity, msg *ComponentServiceUpdateRequest) (*ComponentEntity, error) {
+func (c *componentRepository) update(ctx context.Context, e *componentEntity, msg *api.ComponentServiceUpdateRequest) (*componentEntity, error) {
 	panic("unimplemented")
 }
 
-func (c *componentRepository) validateDelete(ctx context.Context, e *ComponentEntity) error {
+func (c *componentRepository) validateDelete(ctx context.Context, e *componentEntity) error {
 	return nil
 }
 
-func (c *componentRepository) delete(ctx context.Context, e *ComponentEntity) error {
+func (c *componentRepository) delete(ctx context.Context, e *componentEntity) error {
 	resp, err := c.get(ctx, e.Uuid)
 	if err != nil {
 		return err
@@ -133,18 +122,18 @@ func (c *componentRepository) delete(ctx context.Context, e *ComponentEntity) er
 	return c.s.component.Do(ctx, c.s.component.B().Del().Key(key).Build()).Error()
 }
 
-func (c *componentRepository) find(ctx context.Context, query *apiv2.ComponentQuery) (*ComponentEntity, error) {
+func (c *componentRepository) find(ctx context.Context, query *apiv2.ComponentQuery) (*componentEntity, error) {
 	panic("unimplemented")
 }
 
-func (c *componentRepository) list(ctx context.Context, query *apiv2.ComponentQuery) ([]*ComponentEntity, error) {
+func (c *componentRepository) list(ctx context.Context, query *apiv2.ComponentQuery) ([]*componentEntity, error) {
 	// TODO valkey-json would be a perfect fit: https://github.com/valkey-io/valkey-json
 	keys, err := c.s.component.Do(ctx, c.s.component.B().Keys().Pattern(componentPrefix+"*").Build()).AsStrSlice()
 	if err != nil {
 		return nil, err
 	}
 
-	var result []*ComponentEntity
+	var result []*componentEntity
 	for _, key := range keys {
 		value, err := c.s.component.Do(ctx, c.s.component.B().Get().Key(key).Build()).AsBytes()
 		if err != nil {
@@ -169,7 +158,7 @@ func (c *componentRepository) list(ctx context.Context, query *apiv2.ComponentQu
 			}
 		}
 
-		e := &ComponentEntity{Component: &component}
+		e := &componentEntity{Component: &component}
 		result = append(result, e)
 	}
 
@@ -180,14 +169,14 @@ func (c *componentRepository) list(ctx context.Context, query *apiv2.ComponentQu
 	return result, nil
 }
 
-func (c *componentRepository) convertToInternal(ctx context.Context, msg *apiv2.Component) (*ComponentEntity, error) {
+func (c *componentRepository) convertToInternal(ctx context.Context, msg *apiv2.Component) (*componentEntity, error) {
 	panic("unimplemented")
 }
 
-func (c *componentRepository) convertToProto(ctx context.Context, e *ComponentEntity) (*apiv2.Component, error) {
+func (c *componentRepository) convertToProto(ctx context.Context, e *componentEntity) (*apiv2.Component, error) {
 	return e.Component, nil
 }
 
-func (c *componentRepository) matchScope(e *ComponentEntity) bool {
+func (c *componentRepository) matchScope(e *componentEntity) bool {
 	return true
 }

@@ -12,7 +12,7 @@ import (
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
-	msvc "github.com/metal-stack/metal-apiserver/pkg/service/api/method"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -109,7 +109,7 @@ func (u *tenantServiceServer) Create(ctx context.Context, req *apiv2.TenantServi
 	}
 
 	// make tenant owner and member of its own tenant
-	_, err = u.repo.Tenant().AdditionalMethods().Member(tenant.Login).Create(ctx, &repository.TenantMemberCreateRequest{
+	_, err = u.repo.Tenant().AdditionalMethods().Member(tenant.Login).Create(ctx, &api.TenantMemberCreateRequest{
 		MemberID: t.GetUser(),
 		Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
 	})
@@ -152,7 +152,7 @@ func (u *tenantServiceServer) Get(ctx context.Context, req *apiv2.TenantServiceG
 			},
 		}, TenantMembers: nil}, nil
 	case apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED:
-		if msvc.IsAdminToken(t) {
+		if token.IsAdminToken(t) {
 			break
 		}
 		fallthrough
@@ -301,7 +301,7 @@ func (u *tenantServiceServer) InviteAccept(ctx context.Context, req *apiv2.Tenan
 		return nil, errorutil.InvalidArgument("an owner cannot accept invitations to own tenants")
 	}
 
-	memberships, err := u.repo.Tenant().AdditionalMethods().Member(inv.TargetTenant).List(ctx, &repository.TenantMemberQuery{
+	memberships, err := u.repo.Tenant().AdditionalMethods().Member(inv.TargetTenant).List(ctx, &api.TenantMemberQuery{
 		MemberId: &invitee.Login,
 	})
 	if err != nil {
@@ -317,7 +317,7 @@ func (u *tenantServiceServer) InviteAccept(ctx context.Context, req *apiv2.Tenan
 		return nil, errorutil.NewInternal(err)
 	}
 
-	_, err = u.repo.Tenant().AdditionalMethods().Member(inv.TargetTenant).Create(ctx, &repository.TenantMemberCreateRequest{
+	_, err = u.repo.Tenant().AdditionalMethods().Member(inv.TargetTenant).Create(ctx, &api.TenantMemberCreateRequest{
 		MemberID: invitee.Login,
 		Role:     inv.Role,
 	})
@@ -370,7 +370,7 @@ func (u *tenantServiceServer) RemoveMember(ctx context.Context, req *apiv2.Tenan
 }
 
 func (u *tenantServiceServer) UpdateMember(ctx context.Context, req *apiv2.TenantServiceUpdateMemberRequest) (*apiv2.TenantServiceUpdateMemberResponse, error) {
-	updatedMember, err := u.repo.Tenant().AdditionalMethods().Member(req.Login).Update(ctx, req.Member, &repository.TenantMemberUpdateRequest{
+	updatedMember, err := u.repo.Tenant().AdditionalMethods().Member(req.Login).Update(ctx, req.Member, &api.TenantMemberUpdateRequest{
 		Role: req.Role,
 	})
 	if err != nil {

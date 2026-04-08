@@ -11,6 +11,7 @@ import (
 )
 
 func Test_AcquireAndReleaseUniqueInteger(t *testing.T) {
+	t.Parallel()
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ds, _, close := test.StartRethink(t, log)
 	defer func() {

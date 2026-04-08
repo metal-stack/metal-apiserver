@@ -12,9 +12,9 @@ var (
 		Tenants:           []string{Tenant1},
 		ProjectsPerTenant: 1,
 		Images: map[string]apiv2.ImageFeature{
-			"debian-13.0.20260131":         apiv2.ImageFeature_IMAGE_FEATURE_MACHINE,
-			"debian-12.0.20251220":         apiv2.ImageFeature_IMAGE_FEATURE_MACHINE,
-			"firewall-ubuntu-3.0.20260201": apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL,
+			ImageDebian13:    apiv2.ImageFeature_IMAGE_FEATURE_MACHINE,
+			ImageDebian12:    apiv2.ImageFeature_IMAGE_FEATURE_MACHINE,
+			ImageFirewall3_0: apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL,
 		},
 		Sizes: []*apiv2.Size{
 			{

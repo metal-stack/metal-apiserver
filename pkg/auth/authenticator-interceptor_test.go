@@ -17,9 +17,8 @@ import (
 	v2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
-	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
-	"github.com/metal-stack/metal-lib/pkg/testcommon"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 )
@@ -61,7 +60,7 @@ func Test_authorize_with_permissions(t *testing.T) {
 		userJwtMutateFn    func(t *testing.T, jwt string) string
 		expiration         *time.Duration
 		req                any
-		projectsAndTenants *repository.ProjectsAndTenants
+		projectsAndTenants *api.ProjectsAndTenants
 		tokenType          v2.TokenType
 		wantErr            error
 	}{
@@ -179,7 +178,7 @@ func Test_authorize_with_permissions(t *testing.T) {
 			}
 
 			_, err = o.extractAndValidateJWTToken(ctx, jwtTokenFunc)
-			if diff := cmp.Diff(tt.wantErr, err, testcommon.ErrorStringComparer()); diff != "" {
+			if diff := cmp.Diff(tt.wantErr, err, errorutil.ErrorStringComparer()); diff != "" {
 				t.Errorf("error diff (+got -want):\n %s", diff)
 			}
 		})

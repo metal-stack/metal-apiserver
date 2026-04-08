@@ -64,6 +64,7 @@ func startMasterdataWithDB(t testing.TB, log *slog.Logger, dbcloser func(), db *
 	projectMemberService := service.NewProjectMemberService(log, ps, pms, ts)
 	tenantService := service.NewTenantService(db, log, ts, tms)
 	tenantMemberService := service.NewTenantMemberService(log, ts, tms)
+	versionService := service.NewVersionService()
 
 	grpcServer := grpc.NewServer()
 
@@ -71,6 +72,7 @@ func startMasterdataWithDB(t testing.TB, log *slog.Logger, dbcloser func(), db *
 	apiv1.RegisterProjectMemberServiceServer(grpcServer, projectMemberService)
 	apiv1.RegisterTenantServiceServer(grpcServer, tenantService)
 	apiv1.RegisterTenantMemberServiceServer(grpcServer, tenantMemberService)
+	apiv1.RegisterVersionServiceServer(grpcServer, versionService)
 
 	var (
 		buffer = 101024 * 1024
@@ -117,6 +119,7 @@ func StartMasterdataInMemory(t testing.TB, log *slog.Logger) (mdc.Client, *grpc.
 	projectService := service.NewProjectService(log, ps, pms, ts)
 	projectMemberService := service.NewProjectMemberService(log, ps, pms, ts)
 	tenantService := service.NewTenantService(nil, log, ts, tms)
+	versionService := service.NewVersionService()
 
 	tenantMemberService := service.NewTenantMemberService(log, ts, tms)
 
@@ -126,6 +129,7 @@ func StartMasterdataInMemory(t testing.TB, log *slog.Logger) (mdc.Client, *grpc.
 	apiv1.RegisterProjectMemberServiceServer(grpcServer, projectMemberService)
 	apiv1.RegisterTenantServiceServer(grpcServer, tenantService)
 	apiv1.RegisterTenantMemberServiceServer(grpcServer, tenantMemberService)
+	apiv1.RegisterVersionServiceServer(grpcServer, versionService)
 
 	var (
 		buffer = 101024 * 1024

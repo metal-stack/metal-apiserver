@@ -15,9 +15,8 @@ import (
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
-	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
-	"github.com/metal-stack/metal-lib/pkg/testcommon"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -26,7 +25,7 @@ import (
 
 var (
 	now = time.Now()
-	sw1 = &repository.SwitchServiceCreateRequest{
+	sw1 = &api.SwitchServiceCreateRequest{
 		Switch: &apiv2.Switch{
 			Id:          "sw1",
 			Meta:        &apiv2.Meta{},
@@ -70,7 +69,7 @@ var (
 		},
 	}
 
-	sw2 = &repository.SwitchServiceCreateRequest{
+	sw2 = &api.SwitchServiceCreateRequest{
 		Switch: &apiv2.Switch{
 			Id:          "sw2",
 			Meta:        &apiv2.Meta{},
@@ -114,7 +113,7 @@ var (
 		},
 	}
 
-	sw3 = &repository.SwitchServiceCreateRequest{
+	sw3 = &api.SwitchServiceCreateRequest{
 		Switch: &apiv2.Switch{
 			Id:          "sw3",
 			Partition:   "partition-a",
@@ -147,7 +146,7 @@ var (
 		},
 	}
 
-	sw4 = &repository.SwitchServiceCreateRequest{
+	sw4 = &api.SwitchServiceCreateRequest{
 		Switch: &apiv2.Switch{
 			Id:          "sw4",
 			Partition:   "partition-a",
@@ -180,7 +179,7 @@ var (
 		},
 	}
 
-	sw5 = &repository.SwitchServiceCreateRequest{
+	sw5 = &api.SwitchServiceCreateRequest{
 		Switch: &apiv2.Switch{
 			Id:          "sw5",
 			Partition:   "partition-a",
@@ -208,7 +207,7 @@ var (
 		},
 	}
 
-	sw6 = &repository.SwitchServiceCreateRequest{
+	sw6 = &api.SwitchServiceCreateRequest{
 		Switch: &apiv2.Switch{
 			Id:          "sw6",
 			Partition:   "partition-a",
@@ -236,7 +235,7 @@ var (
 		},
 	}
 
-	sw7 = &repository.SwitchServiceCreateRequest{
+	sw7 = &api.SwitchServiceCreateRequest{
 		Switch: &apiv2.Switch{
 			Id:          "sw7",
 			Partition:   "partition-a",
@@ -264,7 +263,7 @@ var (
 		},
 	}
 
-	sw8 = &repository.SwitchServiceCreateRequest{
+	sw8 = &api.SwitchServiceCreateRequest{
 		Switch: &apiv2.Switch{
 			Id:          "sw8",
 			Partition:   "partition-a",
@@ -304,7 +303,7 @@ var (
 		},
 	}
 
-	sw9 = &repository.SwitchServiceCreateRequest{
+	sw9 = &api.SwitchServiceCreateRequest{
 		Switch: &apiv2.Switch{
 			Id:          "sw9",
 			Partition:   "partition-a",
@@ -337,7 +336,7 @@ var (
 		},
 	}
 
-	sw1Status = &repository.SwitchStatus{
+	sw1Status = &api.SwitchStatus{
 		ID: sw1.Switch.Id,
 		LastSync: &apiv2.SwitchSync{
 			Time:     timestamppb.New(now),
@@ -351,7 +350,7 @@ var (
 		},
 	}
 
-	switches = []*repository.SwitchServiceCreateRequest{sw1, sw2, sw3, sw4, sw5, sw6, sw7, sw8, sw9}
+	switches = []*api.SwitchServiceCreateRequest{sw1, sw2, sw3, sw4, sw5, sw6, sw7, sw8, sw9}
 
 	m1 = &metal.Machine{
 		Base: metal.Base{ID: "m1"},
@@ -383,6 +382,7 @@ var (
 )
 
 func Test_switchServiceServer_Register(t *testing.T) {
+	t.Parallel()
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
@@ -708,6 +708,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 }
 
 func Test_switchServiceServer_Get(t *testing.T) {
+	t.Parallel()
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
@@ -785,6 +786,7 @@ func Test_switchServiceServer_Get(t *testing.T) {
 }
 
 func Test_switchServiceServer_Heartbeat(t *testing.T) {
+	t.Parallel()
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
@@ -808,7 +810,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 	test.CreatePartitions(t, testStore, partitions)
 	test.CreateMachines(t, testStore, []*metal.Machine{m1})
 	test.CreateSwitches(t, testStore, switches)
-	test.CreateSwitchStatuses(t, testStore, []*repository.SwitchStatus{sw1Status})
+	test.CreateSwitchStatuses(t, testStore, []*api.SwitchStatus{sw1Status})
 
 	tests := []struct {
 		name       string
@@ -1062,6 +1064,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 
 // added this test here because using testStore inside the repository package creates an import cycle
 func Test_switchRepository_ConnectMachineWithSwitches(t *testing.T) {
+	t.Parallel()
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
@@ -1344,7 +1347,7 @@ func Test_switchRepository_ConnectMachineWithSwitches(t *testing.T) {
 
 		t.Run(tt.name, func(t *testing.T) {
 			err := s.repo.Switch().AdditionalMethods().ConnectMachineWithSwitches(ctx, tt.m)
-			if diff := cmp.Diff(tt.wantErr, err, testcommon.ErrorStringComparer()); diff != "" {
+			if diff := cmp.Diff(tt.wantErr, err, errorutil.ErrorStringComparer()); diff != "" {
 				t.Errorf("switchRepository.ConnectMachineWithSwitches() error diff = %s", diff)
 				return
 			}

@@ -12,7 +12,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
-	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
@@ -57,11 +57,11 @@ func Test_projectServiceServer_Get(t *testing.T) {
 		},
 	})
 
-	test.CreateProjectMemberships(t, testStore, p0, []*repository.ProjectMemberCreateRequest{
+	test.CreateProjectMemberships(t, testStore, p0, []*api.ProjectMemberCreateRequest{
 		{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
 		{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_EDITOR},
 	})
-	test.CreateTenantMemberships(t, testStore, "john.doe@github", []*repository.TenantMemberCreateRequest{
+	test.CreateTenantMemberships(t, testStore, "john.doe@github", []*api.TenantMemberCreateRequest{
 		{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 		{MemberID: "tina.turner@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 	})
@@ -222,13 +222,13 @@ func Test_projectServiceServer_List(t *testing.T) {
 		{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
 	})
 
-	test.CreateProjectMemberships(t, testStore, p0, []*repository.ProjectMemberCreateRequest{
+	test.CreateProjectMemberships(t, testStore, p0, []*api.ProjectMemberCreateRequest{
 		{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
 	})
-	test.CreateProjectMemberships(t, testStore, "will.smith@github", []*repository.ProjectMemberCreateRequest{
+	test.CreateProjectMemberships(t, testStore, "will.smith@github", []*api.ProjectMemberCreateRequest{
 		{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
 	})
-	test.CreateProjectMemberships(t, testStore, "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", []*repository.ProjectMemberCreateRequest{
+	test.CreateProjectMemberships(t, testStore, "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", []*api.ProjectMemberCreateRequest{
 		{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_EDITOR},
 	})
 
@@ -730,9 +730,9 @@ func Test_projectServiceServer_MemberUpdate(t *testing.T) {
 		name                   string
 		rq                     *apiv2.ProjectServiceUpdateMemberRequest
 		existingTenants        []*apiv2.TenantServiceCreateRequest
-		existingTenantMembers  map[string][]*repository.TenantMemberCreateRequest
+		existingTenantMembers  map[string][]*api.TenantMemberCreateRequest
 		existingProjects       []*apiv2.ProjectServiceCreateRequest
-		existingProjectMembers map[string][]*repository.ProjectMemberCreateRequest
+		existingProjectMembers map[string][]*api.ProjectMemberCreateRequest
 		want                   *apiv2.ProjectServiceUpdateMemberResponse
 		wantErr                error
 	}{
@@ -752,7 +752,7 @@ func Test_projectServiceServer_MemberUpdate(t *testing.T) {
 				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
 				{Name: p1, Login: "will.smith@github"},
 			},
-			existingProjectMembers: map[string][]*repository.ProjectMemberCreateRequest{
+			existingProjectMembers: map[string][]*api.ProjectMemberCreateRequest{
 				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
 					{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
 					{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
@@ -780,7 +780,7 @@ func Test_projectServiceServer_MemberUpdate(t *testing.T) {
 				{Name: p0, Login: "john.doe@github"},
 				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
 			},
-			existingProjectMembers: map[string][]*repository.ProjectMemberCreateRequest{
+			existingProjectMembers: map[string][]*api.ProjectMemberCreateRequest{
 				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
 					{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
 				},
@@ -803,7 +803,7 @@ func Test_projectServiceServer_MemberUpdate(t *testing.T) {
 				{Name: p1, Login: "will.smith@github"},
 				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
 			},
-			existingProjectMembers: map[string][]*repository.ProjectMemberCreateRequest{
+			existingProjectMembers: map[string][]*api.ProjectMemberCreateRequest{
 				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
 					{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
 				},
@@ -821,7 +821,7 @@ func Test_projectServiceServer_MemberUpdate(t *testing.T) {
 				{Name: "john.doe@github"},
 				{Name: "will.smith@github"},
 			},
-			existingTenantMembers: map[string][]*repository.TenantMemberCreateRequest{
+			existingTenantMembers: map[string][]*api.TenantMemberCreateRequest{
 				"john.doe@github": {
 					{MemberID: "will.smith@github", Role: apiv2.TenantRole_TENANT_ROLE_EDITOR},
 				},
@@ -831,7 +831,7 @@ func Test_projectServiceServer_MemberUpdate(t *testing.T) {
 				{Name: p1, Login: "will.smith@github"},
 				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
 			},
-			existingProjectMembers: map[string][]*repository.ProjectMemberCreateRequest{
+			existingProjectMembers: map[string][]*api.ProjectMemberCreateRequest{
 				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
 					{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
 				},
@@ -912,9 +912,9 @@ func Test_projectServiceServer_MemberRemove(t *testing.T) {
 	tests := []struct {
 		name                   string
 		existingTenants        []*apiv2.TenantServiceCreateRequest
-		existingTenantMembers  map[string][]*repository.TenantMemberCreateRequest
+		existingTenantMembers  map[string][]*api.TenantMemberCreateRequest
 		existingProjects       []*apiv2.ProjectServiceCreateRequest
-		existingProjectMembers map[string][]*repository.ProjectMemberCreateRequest
+		existingProjectMembers map[string][]*api.ProjectMemberCreateRequest
 		rq                     *apiv2.ProjectServiceRemoveMemberRequest
 		wantErr                error
 	}{
@@ -933,7 +933,7 @@ func Test_projectServiceServer_MemberRemove(t *testing.T) {
 				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
 				{Name: "will.smith@github", Login: "will.smith@github"},
 			},
-			existingProjectMembers: map[string][]*repository.ProjectMemberCreateRequest{
+			existingProjectMembers: map[string][]*api.ProjectMemberCreateRequest{
 				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
 					{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
 					{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
@@ -954,7 +954,7 @@ func Test_projectServiceServer_MemberRemove(t *testing.T) {
 				{Name: "john.doe@github", Login: "john.doe@github"},
 				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
 			},
-			existingProjectMembers: map[string][]*repository.ProjectMemberCreateRequest{
+			existingProjectMembers: map[string][]*api.ProjectMemberCreateRequest{
 				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
 					{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
 				},
@@ -1391,7 +1391,7 @@ func Test_projectServiceServer_InviteAccept(t *testing.T) {
 		existingInvites        []*apiv2.ProjectInvite
 		existingTenants        []*apiv2.TenantServiceCreateRequest
 		existingProjects       []*apiv2.ProjectServiceCreateRequest
-		existingProjectMembers map[string][]*repository.ProjectMemberCreateRequest
+		existingProjectMembers map[string][]*api.ProjectMemberCreateRequest
 		rq                     *apiv2.ProjectServiceInviteAcceptRequest
 		want                   *apiv2.ProjectServiceInviteAcceptResponse
 		wantMembers            []*apiv2.ProjectMember
@@ -1411,7 +1411,7 @@ func Test_projectServiceServer_InviteAccept(t *testing.T) {
 				{Name: p1, Login: "will.smith@github"},
 				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
 			},
-			existingProjectMembers: map[string][]*repository.ProjectMemberCreateRequest{
+			existingProjectMembers: map[string][]*api.ProjectMemberCreateRequest{
 				p0:                                     {{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER}},
 				p1:                                     {{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER}},
 				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER}},
@@ -1459,7 +1459,7 @@ func Test_projectServiceServer_InviteAccept(t *testing.T) {
 				{Name: p1, Login: "will.smith@github"},
 				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
 			},
-			existingProjectMembers: map[string][]*repository.ProjectMemberCreateRequest{
+			existingProjectMembers: map[string][]*api.ProjectMemberCreateRequest{
 				p0: {{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER}},
 				p1: {{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER}},
 				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
@@ -1493,7 +1493,7 @@ func Test_projectServiceServer_InviteAccept(t *testing.T) {
 			existingProjects: []*apiv2.ProjectServiceCreateRequest{
 				{Name: p1, Login: "will.smith@github"},
 			},
-			existingProjectMembers: map[string][]*repository.ProjectMemberCreateRequest{
+			existingProjectMembers: map[string][]*api.ProjectMemberCreateRequest{
 				p1: {{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER}},
 			},
 			existingInvites: []*apiv2.ProjectInvite{
@@ -1605,9 +1605,9 @@ func Test_projectServiceServer_Leave(t *testing.T) {
 	tests := []struct {
 		name                   string
 		existingTenants        []*apiv2.TenantServiceCreateRequest
-		existingTenantMembers  map[string][]*repository.TenantMemberCreateRequest
+		existingTenantMembers  map[string][]*api.TenantMemberCreateRequest
 		existingProjects       []*apiv2.ProjectServiceCreateRequest
-		existingProjectMembers map[string][]*repository.ProjectMemberCreateRequest
+		existingProjectMembers map[string][]*api.ProjectMemberCreateRequest
 		rq                     *apiv2.ProjectServiceLeaveRequest
 		wantErr                error
 	}{
@@ -1623,7 +1623,7 @@ func Test_projectServiceServer_Leave(t *testing.T) {
 			existingProjects: []*apiv2.ProjectServiceCreateRequest{
 				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "will.smith@github"},
 			},
-			existingProjectMembers: map[string][]*repository.ProjectMemberCreateRequest{
+			existingProjectMembers: map[string][]*api.ProjectMemberCreateRequest{
 				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
 					{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
 					{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_VIEWER},
@@ -1642,7 +1642,7 @@ func Test_projectServiceServer_Leave(t *testing.T) {
 			existingProjects: []*apiv2.ProjectServiceCreateRequest{
 				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
 			},
-			existingProjectMembers: map[string][]*repository.ProjectMemberCreateRequest{
+			existingProjectMembers: map[string][]*api.ProjectMemberCreateRequest{
 				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
 					{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
 				},
@@ -1661,7 +1661,7 @@ func Test_projectServiceServer_Leave(t *testing.T) {
 			existingProjects: []*apiv2.ProjectServiceCreateRequest{
 				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "will.smith@github"},
 			},
-			existingProjectMembers: map[string][]*repository.ProjectMemberCreateRequest{
+			existingProjectMembers: map[string][]*api.ProjectMemberCreateRequest{
 				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
 					{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
 				},
@@ -1678,7 +1678,7 @@ func Test_projectServiceServer_Leave(t *testing.T) {
 				{Name: "will.smith@github"},
 				{Name: "3086f178-efd2-404c-9643-6493f8720be1"},
 			},
-			existingTenantMembers: map[string][]*repository.TenantMemberCreateRequest{
+			existingTenantMembers: map[string][]*api.TenantMemberCreateRequest{
 				"3086f178-efd2-404c-9643-6493f8720be1": {
 					{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_EDITOR},
 				},
@@ -1686,7 +1686,7 @@ func Test_projectServiceServer_Leave(t *testing.T) {
 			existingProjects: []*apiv2.ProjectServiceCreateRequest{
 				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "will.smith@github"},
 			},
-			existingProjectMembers: map[string][]*repository.ProjectMemberCreateRequest{
+			existingProjectMembers: map[string][]*api.ProjectMemberCreateRequest{
 				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
 					{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
 					{TenantId: "3086f178-efd2-404c-9643-6493f8720be1", Role: apiv2.ProjectRole_PROJECT_ROLE_VIEWER},
@@ -1704,7 +1704,7 @@ func Test_projectServiceServer_Leave(t *testing.T) {
 				{Name: "will.smith@github"},
 				{Name: "3086f178-efd2-404c-9643-6493f8720be1"},
 			},
-			existingTenantMembers: map[string][]*repository.TenantMemberCreateRequest{
+			existingTenantMembers: map[string][]*api.TenantMemberCreateRequest{
 				"3086f178-efd2-404c-9643-6493f8720be1": {
 					{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_EDITOR},
 				},
@@ -1712,7 +1712,7 @@ func Test_projectServiceServer_Leave(t *testing.T) {
 			existingProjects: []*apiv2.ProjectServiceCreateRequest{
 				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "will.smith@github"},
 			},
-			existingProjectMembers: map[string][]*repository.ProjectMemberCreateRequest{
+			existingProjectMembers: map[string][]*api.ProjectMemberCreateRequest{
 				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
 					{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
 					{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_VIEWER},

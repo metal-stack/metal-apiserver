@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-lib/auditing"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/urfave/cli/v2"
@@ -24,7 +24,7 @@ func createAuditingClient(cli *cli.Context, log *slog.Logger) (searchBackend aud
 	var (
 		auditingCfg = auditing.Config{
 			Log:       log,
-			Component: repository.AuditingComponent,
+			Component: api.AuditingComponent,
 		}
 
 		timescaledbEnabled = cli.Bool(auditingTimescaleEnabledFlag.Name)

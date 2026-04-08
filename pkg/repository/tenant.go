@@ -8,30 +8,14 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/tag"
-)
-
-const (
-	// TODO: Migrate to common fields introduced in https://github.com/metal-stack/masterdata-api/pull/127
-	TenantTagEmail     = "metal-stack.io/email"
-	TenantTagAvatarURL = "metal-stack.io/avatarurl"
-	TenantTagCreator   = "metal-stack.io/creator"
-
-	// TODO: Use scoped memberships: https://github.com/metal-stack/masterdata-api/issues/130
-	TenantRoleAnnotation = "metal-stack.io/tenant-role"
 )
 
 type (
 	tenantEntity struct {
 		*mdcv1.Tenant
-	}
-
-	TenantWithMembershipAnnotations struct {
-		Tenant             *apiv2.Tenant
-		ProjectAnnotations map[string]string
-		TenantAnnotations  map[string]string
-		ProjectIds         []string
 	}
 
 	tenantRepository struct {
@@ -97,14 +81,14 @@ func (t *tenantRepository) createWithID(ctx context.Context, c *apiv2.TenantServ
 	}
 
 	ann := map[string]string{
-		TenantTagCreator: creator,
+		api.TenantTagCreator: creator,
 	}
 
 	if c.Email != nil {
-		ann[TenantTagEmail] = *c.Email
+		ann[api.TenantTagEmail] = *c.Email
 	}
 	if c.AvatarUrl != nil {
-		ann[TenantTagAvatarURL] = *c.AvatarUrl
+		ann[api.TenantTagAvatarURL] = *c.AvatarUrl
 	}
 
 	var labels []string
@@ -198,10 +182,10 @@ func (t *tenantRepository) update(ctx context.Context, tenant *tenantEntity, rq 
 	}
 
 	if rq.Email != nil {
-		ann[TenantTagEmail] = *rq.Email
+		ann[api.TenantTagEmail] = *rq.Email
 	}
 	if rq.AvatarUrl != nil {
-		ann[TenantTagAvatarURL] = *rq.AvatarUrl
+		ann[api.TenantTagAvatarURL] = *rq.AvatarUrl
 	}
 
 	if rq.Labels != nil {
@@ -218,9 +202,9 @@ func (t *tenantRepository) update(ctx context.Context, tenant *tenantEntity, rq 
 
 func (t *tenantRepository) convertToInternal(ctx context.Context, tenant *apiv2.Tenant) (*tenantEntity, error) {
 	ann := map[string]string{
-		TenantTagEmail:     tenant.Email,
-		TenantTagAvatarURL: tenant.AvatarUrl,
-		TenantTagCreator:   tenant.CreatedBy,
+		api.TenantTagEmail:     tenant.Email,
+		api.TenantTagAvatarURL: tenant.AvatarUrl,
+		api.TenantTagCreator:   tenant.CreatedBy,
 	}
 
 	var labels []string
@@ -242,6 +226,7 @@ func (t *tenantRepository) convertToInternal(ctx context.Context, tenant *apiv2.
 
 func (t *tenantRepository) convertToProto(ctx context.Context, tenant *tenantEntity) (*apiv2.Tenant, error) {
 	var labels *apiv2.Labels
+
 	if tenant.Meta != nil && tenant.Meta.Labels != nil && len(tenant.Meta.Labels) > 0 {
 		labels = &apiv2.Labels{
 			Labels: tag.NewTagMap(tenant.Meta.Labels),
@@ -252,9 +237,9 @@ func (t *tenantRepository) convertToProto(ctx context.Context, tenant *tenantEnt
 		Login:       tenant.Meta.Id,
 		Name:        tenant.Name,
 		Description: tenant.Description,
-		Email:       tenant.Meta.Annotations[TenantTagEmail],
-		AvatarUrl:   tenant.Meta.Annotations[TenantTagAvatarURL],
-		CreatedBy:   tenant.Meta.Annotations[TenantTagCreator],
+		Email:       tenant.Meta.Annotations[api.TenantTagEmail],
+		AvatarUrl:   tenant.Meta.Annotations[api.TenantTagAvatarURL],
+		CreatedBy:   tenant.Meta.Annotations[api.TenantTagCreator],
 		Meta: &apiv2.Meta{
 			CreatedAt: tenant.Meta.CreatedTime,
 			UpdatedAt: tenant.Meta.UpdatedTime,
@@ -279,13 +264,13 @@ func (t *tenantRepository) tenantMember(scope *TenantScope) TenantMember {
 		scope: scope,
 	}
 
-	return &store[*tenantMemberRepository, *tenantMemberEntity, *apiv2.TenantMember, *TenantMemberCreateRequest, *TenantMemberUpdateRequest, *TenantMemberQuery]{
+	return &store[*tenantMemberRepository, *tenantMemberEntity, *apiv2.TenantMember, *api.TenantMemberCreateRequest, *api.TenantMemberUpdateRequest, *api.TenantMemberQuery]{
 		repository: repository,
 		typed:      repository,
 	}
 }
 
-func (t *tenantRepository) ListTenantMembers(ctx context.Context, tenant string, includeInherited bool) ([]*TenantWithMembershipAnnotations, error) {
+func (t *tenantRepository) ListTenantMembers(ctx context.Context, tenant string, includeInherited bool) ([]*api.TenantWithMembershipAnnotations, error) {
 	resp, err := t.s.mdc.Tenant().ListTenantMembers(ctx, &mdcv1.ListTenantMembersRequest{
 		TenantId:         tenant,
 		IncludeInherited: new(includeInherited),
@@ -294,7 +279,7 @@ func (t *tenantRepository) ListTenantMembers(ctx context.Context, tenant string,
 		return nil, errorutil.Convert(err)
 	}
 
-	var res []*TenantWithMembershipAnnotations
+	var res []*api.TenantWithMembershipAnnotations
 
 	for _, tenant := range resp.Tenants {
 		converted, err := t.convertToProto(ctx, &tenantEntity{Tenant: tenant.Tenant})
@@ -302,7 +287,7 @@ func (t *tenantRepository) ListTenantMembers(ctx context.Context, tenant string,
 			return nil, err
 		}
 
-		res = append(res, &TenantWithMembershipAnnotations{
+		res = append(res, &api.TenantWithMembershipAnnotations{
 			Tenant:             converted,
 			ProjectAnnotations: tenant.ProjectAnnotations,
 			TenantAnnotations:  tenant.TenantAnnotations,
@@ -313,7 +298,7 @@ func (t *tenantRepository) ListTenantMembers(ctx context.Context, tenant string,
 	return res, nil
 }
 
-func (t *tenantRepository) FindParticipatingTenants(ctx context.Context, tenant string, includeInherited bool) ([]*TenantWithMembershipAnnotations, error) {
+func (t *tenantRepository) FindParticipatingTenants(ctx context.Context, tenant string, includeInherited bool) ([]*api.TenantWithMembershipAnnotations, error) {
 	resp, err := t.s.mdc.Tenant().FindParticipatingTenants(ctx, &mdcv1.FindParticipatingTenantsRequest{
 		TenantId:         tenant,
 		IncludeInherited: new(includeInherited),
@@ -322,7 +307,7 @@ func (t *tenantRepository) FindParticipatingTenants(ctx context.Context, tenant 
 		return nil, errorutil.Convert(err)
 	}
 
-	var res []*TenantWithMembershipAnnotations
+	var res []*api.TenantWithMembershipAnnotations
 
 	for _, tenant := range resp.Tenants {
 		converted, err := t.convertToProto(ctx, &tenantEntity{Tenant: tenant.Tenant})
@@ -330,7 +315,7 @@ func (t *tenantRepository) FindParticipatingTenants(ctx context.Context, tenant 
 			return nil, err
 		}
 
-		res = append(res, &TenantWithMembershipAnnotations{
+		res = append(res, &api.TenantWithMembershipAnnotations{
 			Tenant:             converted,
 			ProjectAnnotations: tenant.ProjectAnnotations,
 			TenantAnnotations:  tenant.TenantAnnotations,
@@ -347,7 +332,7 @@ func TenantRoleFromMap(annotations map[string]string) apiv2.TenantRole {
 	}
 
 	var (
-		annotation = annotations[TenantRoleAnnotation]
+		annotation = annotations[api.TenantRoleAnnotation]
 		tenantRole = apiv2.TenantRole(apiv2.TenantRole_value[annotation])
 	)
 
@@ -379,7 +364,7 @@ func (t *tenantRepository) EnsureProviderTenant(ctx context.Context, providerTen
 		return errorutil.Convert(err)
 	}
 
-	_, err = t.Member(providerTenantID).Create(ctx, &TenantMemberCreateRequest{
+	_, err = t.Member(providerTenantID).Create(ctx, &api.TenantMemberCreateRequest{
 		MemberID: providerTenantID,
 		Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
 	})
