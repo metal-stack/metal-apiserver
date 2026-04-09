@@ -52,6 +52,20 @@ func updateLabelsOnSlice(rq *apiv2.UpdateLabels, existingTags []string) []string
 	// as soon as a user touches a pure label though, it will be transformed into the map format because
 	// the current api definition does not allow pure labels
 
+	if rq.RemoveAll {
+		var newTags []string
+
+		if rq.Update != nil && rq.Update.Labels != nil {
+			for k, v := range rq.Update.Labels {
+				newTags = append(newTags, fmt.Sprintf("%s=%s", k, v))
+			}
+		}
+
+		slices.Sort(newTags)
+
+		return newTags
+	}
+
 	var (
 		pureLabels []string
 		tagMap     = map[string]string{}
@@ -71,7 +85,7 @@ func updateLabelsOnSlice(rq *apiv2.UpdateLabels, existingTags []string) []string
 		pureLabels = slices.DeleteFunc(pureLabels, func(l string) bool { return l == remove })
 	}
 
-	if rq.Update != nil {
+	if rq.Update != nil && rq.Update.Labels != nil {
 		for k, v := range rq.Update.Labels {
 			if slices.Contains(pureLabels, k) {
 				pureLabels = slices.DeleteFunc(pureLabels, func(l string) bool { return l == k })
@@ -85,6 +99,7 @@ func updateLabelsOnSlice(rq *apiv2.UpdateLabels, existingTags []string) []string
 	for k, v := range tagMap {
 		newTags = append(newTags, fmt.Sprintf("%s=%s", k, v))
 	}
+
 	newTags = append(newTags, pureLabels...)
 
 	slices.Sort(newTags)
@@ -93,6 +108,16 @@ func updateLabelsOnSlice(rq *apiv2.UpdateLabels, existingTags []string) []string
 }
 
 func updateLabelsOnMap(rq *apiv2.UpdateLabels, existingLabels map[string]string) map[string]string {
+	if rq.RemoveAll {
+		result := make(map[string]string)
+
+		if rq.Update != nil && rq.Update.Labels != nil {
+			maps.Copy(result, rq.Update.Labels)
+		}
+
+		return result
+	}
+
 	var result map[string]string
 
 	if existingLabels != nil {
@@ -104,7 +129,7 @@ func updateLabelsOnMap(rq *apiv2.UpdateLabels, existingLabels map[string]string)
 		delete(result, remove)
 	}
 
-	if rq.Update != nil {
+	if rq.Update != nil && rq.Update.Labels != nil {
 		for k, v := range rq.Update.Labels {
 			if result == nil {
 				result = make(map[string]string)
