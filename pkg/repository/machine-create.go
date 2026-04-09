@@ -379,6 +379,8 @@ func (r *machineRepository) findWaitingMachine(ctx context.Context, partition, p
 		}
 	}
 
+	// This validation must be inside the partition lock
+	// to prevent overshooting machines if many allocations happen at the same time
 	reservations, err := r.s.ds.SizeReservation().List(ctx, queries.SizeReservationFilter(&apiv2.SizeReservationQuery{Partition: &partition, Size: &size}))
 	if err != nil {
 		return nil, err
