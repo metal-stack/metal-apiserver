@@ -62,6 +62,24 @@ func MachineFilter(rq *apiv2.MachineQuery) func(q r.Term) r.Term {
 			}
 		}
 
+		if rq.Waiting != nil {
+			q = q.Filter(func(row r.Term) r.Term {
+				return row.Field("waiting").Eq(*rq.Waiting)
+			})
+		}
+
+		if rq.Preallocated != nil {
+			q = q.Filter(func(row r.Term) r.Term {
+				return row.Field("preallocated").Eq(*rq.Preallocated)
+			})
+		}
+
+		if rq.NotAllocated != nil && *rq.NotAllocated {
+			q = q.Filter(func(row r.Term) r.Term {
+				return row.Field("allocation").Eq(nil)
+			})
+		}
+
 		if rq.Allocation != nil {
 			alloc := rq.Allocation
 			if alloc.Project != nil {
@@ -254,6 +272,10 @@ func MachineFilter(rq *apiv2.MachineQuery) func(q r.Term) r.Term {
 			stateString, err := enum.GetStringValue(rq.State)
 			if err != nil {
 				return q
+			}
+			// TODO metal.AvailableState == "", apiv2 == "available"
+			if *rq.State == apiv2.MachineState_MACHINE_STATE_AVAILABLE {
+				stateString = new("")
 			}
 			q = q.Filter(func(row r.Term) r.Term {
 				return row.Field("state").Field("value").Eq(strings.ToUpper(*stateString))

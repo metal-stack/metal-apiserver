@@ -23,8 +23,8 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/fsm"
+	"github.com/metal-stack/metal-apiserver/pkg/tags"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
-	"github.com/metal-stack/metal-lib/pkg/tag"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -155,9 +155,23 @@ func (r *machineRepository) matchScope(machine *metal.Machine) bool {
 }
 
 func (r *machineRepository) create(ctx context.Context, req *apiv2.MachineServiceCreateRequest) (*metal.Machine, error) {
-	// TODO if allocation was created, create a new queue entry for the Wait endpoint like so:
-	// err := r.s.queue.PushMachineAllocation(ctx, m, task.MachineAllocationPayload{UUID: m})
-	panic("unimplemented")
+	result, err := r.allocateMachine(ctx, req)
+	if err != nil {
+		// FIXME not only the machine must be rolled back, the autoallocated ipaddresses as well.
+		// FIXME migrate the whole mechanism of allocating to a task and roll back there on error
+		r.rollback(ctx, result.rollbackEntities)
+		return nil, err
+	}
+
+	machine := result.machine
+
+	// if allocation was created, create a new queue entry for the Wait endpoint like so:
+	err = r.s.queue.PushMachineAllocation(ctx, machine.ID, task.MachineAllocationPayload{UUID: machine.Allocation.UUID})
+	if err != nil {
+		return nil, err
+	}
+
+	return machine, nil
 }
 
 func (r *machineRepository) update(ctx context.Context, m *metal.Machine, req *apiv2.MachineServiceUpdateRequest) (*metal.Machine, error) {
@@ -233,6 +247,76 @@ func (r *machineRepository) convertToInternal(ctx context.Context, machine *apiv
 	panic("unimplemented")
 }
 
+func (r *machineRepository) convertFirewallRulesToInternal(firewallRules *apiv2.FirewallRules) (*metal.FirewallRules, error) {
+	var (
+		fwrules = &metal.FirewallRules{
+			Egress:  []metal.EgressRule{},
+			Ingress: []metal.IngressRule{},
+		}
+	)
+
+	for _, ruleSpec := range firewallRules.Egress {
+		protocolLowerCase, err := enum.GetStringValue(ruleSpec.Protocol)
+		if err != nil {
+			return nil, err
+		}
+		protocol, err := metal.ProtocolFromString(*protocolLowerCase)
+		if err != nil {
+			return nil, err
+		}
+
+		var ports []int
+		for _, p := range ruleSpec.Ports {
+			ports = append(ports, int(p))
+		}
+
+		rule := metal.EgressRule{
+			Protocol: protocol,
+			Ports:    ports,
+			To:       ruleSpec.To,
+			Comment:  ruleSpec.Comment,
+		}
+
+		if err := rule.Validate(); err != nil {
+			return nil, err
+		}
+
+		fwrules.Egress = append(fwrules.Egress, rule)
+	}
+
+	for _, ruleSpec := range firewallRules.Ingress {
+		protocolLowerCase, err := enum.GetStringValue(ruleSpec.Protocol)
+		if err != nil {
+			return nil, err
+		}
+		protocol, err := metal.ProtocolFromString(*protocolLowerCase)
+		if err != nil {
+			return nil, err
+		}
+
+		var ports []int
+		for _, p := range ruleSpec.Ports {
+			ports = append(ports, int(p))
+		}
+
+		rule := metal.IngressRule{
+			Protocol: protocol,
+			Ports:    ports,
+			To:       ruleSpec.To,
+			From:     ruleSpec.From,
+			Comment:  ruleSpec.Comment,
+		}
+
+		if err := rule.Validate(); err != nil {
+			return nil, err
+		}
+
+		fwrules.Ingress = append(fwrules.Ingress, rule)
+	}
+
+	return fwrules, nil
+}
+
 func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine) (*apiv2.Machine, error) {
 	var (
 		labels           *apiv2.Labels
@@ -251,7 +335,7 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 
 	if len(m.Tags) > 0 {
 		labels = &apiv2.Labels{
-			Labels: tag.NewTagMap(m.Tags),
+			Labels: tags.ToLabels(m.Tags),
 		}
 	}
 
@@ -415,7 +499,7 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 				return nil, err
 			}
 			if metalNetwork.NATType == nil {
-				return nil, errorutil.Internal("nat type of network:%s is nil", nw.NetworkID)
+				metalNetwork.NATType = new(metal.NATTypeNone)
 			}
 			natType, err := metal.FromNATType(*metalNetwork.NATType)
 			if err != nil {
@@ -431,6 +515,7 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 				NatType:             natType,
 				Vrf:                 uint64(nw.Vrf),
 				Asn:                 nw.ASN,
+				Project:             pointer.PointerOrNil(nw.ProjectID),
 			})
 		}
 
@@ -1125,22 +1210,24 @@ func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, 
 }
 
 func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWaitRequest, srv *connect.ServerStream[infrav2.BootServiceWaitResponse]) error {
-	// FIXME completely untested
 	machineID := req.Uuid
 	r.s.log.Info("wait for allocation called by", "machineID", machineID)
 
-	m, err := r.s.ds.Machine().Get(ctx, machineID)
+	machine, err := r.s.UnscopedMachine().Get(ctx, machineID)
 	if err != nil {
 		return err
 	}
 
-	if m.Allocation != nil {
-		return nil
+	if machine.Allocation != nil {
+		r.s.log.Info("send existing allocation to machine", "allocation", machine.Allocation)
+		err = srv.Send(&infrav2.BootServiceWaitResponse{
+			Allocation: machine.Allocation,
+		})
+		if err != nil {
+			return err
+		}
 	}
-
-	// machine is not yet allocated, so we set the waiting flag
-	m.Waiting = true
-	err = r.s.ds.Machine().Update(ctx, m)
+	err = r.setMachineWaitingFlag(ctx, machineID, true)
 	if err != nil {
 		return err
 	}
@@ -1149,8 +1236,7 @@ func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWa
 			return
 		}
 		// TODO This is prone to fail with optlock, either retry or async task
-		m.Waiting = false
-		err = r.s.ds.Machine().Update(ctx, m)
+		err = r.setMachineWaitingFlag(ctx, machineID, false)
 		if err != nil {
 			r.s.log.Error("unable to remove waiting flag from machine", "machineID", machineID, "error", err)
 		}
@@ -1158,31 +1244,27 @@ func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWa
 
 	allocationChan := r.s.queue.WaitMachineAllocation(ctx, machineID)
 
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case msg, ok := <-allocationChan:
-		if !ok {
-			return errorutil.Internal("machine allocation channel is empty")
-		}
-		if msg.UUID != machineID {
-			return errorutil.Internal("machine %s does not match channel response %s", machineID, msg)
-		}
-		machine, err := r.s.UnscopedMachine().Get(ctx, machineID)
-		if err != nil {
-			return err
-		}
-		if m.Allocation == nil {
-			return errorutil.Internal("machine %s is not allocated", machineID)
-		}
-		err = srv.Send(&infrav2.BootServiceWaitResponse{
-			Allocation: machine.Allocation,
-		})
-		if err != nil {
-			return err
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-allocationChan:
+			machine, err := r.s.UnscopedMachine().Get(ctx, machineID)
+			if err != nil {
+				return err
+			}
+			if machine.Allocation == nil {
+				return errorutil.Internal("machine %s is not allocated", machineID)
+			}
+			r.s.log.Info("send allocation to machine", "allocation", machine.Allocation)
+			err = srv.Send(&infrav2.BootServiceWaitResponse{
+				Allocation: machine.Allocation,
+			})
+			if err != nil {
+				return err
+			}
 		}
 	}
-	return nil
 }
 
 func (r *machineRepository) WaitForBMCCommand(ctx context.Context, req *infrav2.WaitForBMCCommandRequest, stream *connect.ServerStream[infrav2.WaitForBMCCommandResponse]) error {
@@ -1248,6 +1330,16 @@ func (r *machineRepository) GetConsolePassword(ctx context.Context, machineUUID 
 	}
 
 	return m.Allocation.ConsolePassword, nil
+}
+
+func (r *machineRepository) setMachineWaitingFlag(ctx context.Context, machineUUID string, waiting bool) error {
+	m, err := r.s.ds.Machine().Get(ctx, machineUUID)
+	if err != nil {
+		return err
+	}
+	m.Waiting = waiting
+	err = r.s.ds.Machine().Update(ctx, m)
+	return err
 }
 
 //---------------------------------------------------------------

@@ -10,8 +10,8 @@ import (
 	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
+	"github.com/metal-stack/metal-apiserver/pkg/tags"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
-	"github.com/metal-stack/metal-lib/pkg/tag"
 )
 
 const (
@@ -89,7 +89,7 @@ func (r *projectRepository) CreateWithID(ctx context.Context, e *apiv2.ProjectSe
 
 	var labels []string
 	if e.Labels != nil && len(e.Labels.Labels) > 0 {
-		labels = tag.TagMap(e.Labels.Labels).Slice()
+		labels = tags.ToTags(e.Labels.Labels)
 	}
 
 	resp, err := r.s.mdc.Project().Create(ctx, &mdcv1.ProjectCreateRequest{Project: &mdcv1.Project{
@@ -188,7 +188,7 @@ func (r *projectRepository) list(ctx context.Context, query *apiv2.ProjectServic
 func (r *projectRepository) convertToInternal(ctx context.Context, p *apiv2.Project) (*projectEntity, error) {
 	var labels []string
 	if p.Meta != nil && p.Meta.Labels != nil && len(p.Meta.Labels.Labels) > 0 {
-		labels = tag.TagMap(p.Meta.Labels.Labels).Slice()
+		labels = tags.ToTags(p.Meta.Labels.Labels)
 	}
 
 	meta := &mdcv1.Meta{
@@ -221,7 +221,7 @@ func (r *projectRepository) convertToProto(ctx context.Context, p *projectEntity
 
 	if p.Meta != nil && p.Meta.Labels != nil && len(p.Meta.Labels) > 0 {
 		labels = &apiv2.Labels{
-			Labels: tag.NewTagMap(p.Meta.Labels),
+			Labels: tags.ToLabels(p.Meta.Labels),
 		}
 	}
 
@@ -390,4 +390,12 @@ func (r *projectRepository) EnsureProviderProject(ctx context.Context, providerT
 	}
 
 	return ensureMembership(project.Meta.Id)
+}
+
+func (r *projectRepository) GetQuotas(ctx context.Context, projectID string) (*mdcv1.QuotaSet, error) {
+	p, err := r.s.mdc.Project().Get(ctx, &mdcv1.ProjectGetRequest{Id: projectID})
+	if err != nil {
+		return nil, err
+	}
+	return p.Project.Quotas, nil
 }
