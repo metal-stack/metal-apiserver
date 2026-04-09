@@ -15,8 +15,6 @@ import (
 	"github.com/valkey-io/valkey-go"
 	"gopkg.in/rethinkdb/rethinkdb-go.v6"
 
-	headscalev1 "github.com/juanfont/headscale/gen/go/headscale/v1"
-
 	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	mdm "github.com/metal-stack/masterdata-api/pkg/client"
@@ -118,8 +116,7 @@ func newServeCmd() *cli.Command {
 			}
 
 			var (
-				hc                 *headscale.Client
-				headscaleApiClient headscalev1.HeadscaleServiceClient
+				hc *headscale.Client
 			)
 
 			if ctx.Bool(headscaleEnabledFlag.Name) {
@@ -131,7 +128,6 @@ func newServeCmd() *cli.Command {
 				if err != nil {
 					return err
 				}
-				headscaleApiClient = hc.HeadscaleServiceClient
 
 				log.Info("headscale enabled")
 			} else {
@@ -202,7 +198,7 @@ func newServeCmd() *cli.Command {
 				IsStageDev:                          strings.EqualFold(stage, stageDEV),
 				BMCSuperuserPassword:                ctx.String(bmcSuperuserPasswordFlag.Name),
 				HeadscaleControlplaneAddress:        ctx.String(headscaleControlplaneAddressFlag.Name),
-				HeadscaleClient:                     headscaleApiClient,
+				HeadscaleClient:                     hc,
 				ComponentExpiration:                 ctx.Duration(componentExpirationFlag.Name),
 			}
 
