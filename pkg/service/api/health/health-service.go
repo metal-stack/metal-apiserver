@@ -15,7 +15,7 @@ import (
 	mdm "github.com/metal-stack/masterdata-api/pkg/client"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
-	"github.com/metal-stack/metal-lib/auditing"
+	auditingapi "github.com/metal-stack/metal-lib/auditing/api"
 	valkeygo "github.com/valkey-io/valkey-go"
 	"golang.org/x/sync/errgroup"
 )
@@ -37,7 +37,7 @@ type Config struct {
 	Masterdata          mdm.Client
 	Headscale           headscalev1.HeadscaleServiceClient
 	TaskClient          *task.Client
-	AuditBackends       []auditing.Auditing
+	AuditBackends       []auditingapi.Auditing
 	Datastore           generic.Datastore
 }
 

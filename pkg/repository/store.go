@@ -13,7 +13,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
-	"github.com/metal-stack/metal-lib/auditing"
+	auditingapi "github.com/metal-stack/metal-lib/auditing/api"
 	"github.com/valkey-io/valkey-go"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
@@ -31,7 +31,7 @@ type (
 		task            *task.Client
 		queue           *queue.Queue
 		component       valkey.Client
-		auditing        auditing.Auditing
+		auditing        auditingapi.Auditing
 		headscaleClient *headscale.Client
 	}
 
@@ -43,7 +43,7 @@ type (
 		Task             *task.Client
 		Queue            *queue.Queue
 		Component        valkey.Client
-		Auditing         auditing.Auditing
+		Auditing         auditingapi.Auditing
 		HeadscaleClient  *headscale.Client
 	}
 

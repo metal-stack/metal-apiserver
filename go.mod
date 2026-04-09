@@ -29,8 +29,7 @@ require (
 	github.com/metal-stack/api v0.0.61-0.20260405124454-435d2a4913bc
 	github.com/metal-stack/go-ipam v1.14.14
 	github.com/metal-stack/masterdata-api v0.13.0
-	github.com/metal-stack/metal-lib v0.24.1
-	github.com/metal-stack/security v0.9.6
+	github.com/metal-stack/metal-lib v0.24.2-0.20260409055941-97958d452e0f
 	github.com/metal-stack/v v1.0.3
 	github.com/prometheus/client_golang v1.23.2
 	github.com/redis/go-redis/v9 v9.18.0
@@ -104,9 +103,6 @@ require (
 	github.com/docker/go-connections v0.6.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/ebitengine/purego v0.10.0 // indirect
-	github.com/emicklei/go-restful-openapi/v2 v2.12.0 // indirect
-	github.com/emicklei/go-restful/v3 v3.13.0 // indirect
-	github.com/erraggy/oastools v1.53.1 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
 	github.com/gaissmai/bart v0.26.1 // indirect
@@ -117,19 +113,13 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-openapi/errors v0.22.7 // indirect
-	github.com/go-openapi/jsonpointer v0.22.5 // indirect
-	github.com/go-openapi/jsonreference v0.21.5 // indirect
 	github.com/go-openapi/runtime v0.29.3 // indirect
-	github.com/go-openapi/spec v0.22.4 // indirect
 	github.com/go-openapi/strfmt v0.26.1 // indirect
 	github.com/go-openapi/swag/conv v0.25.5 // indirect
 	github.com/go-openapi/swag/fileutils v0.25.5 // indirect
-	github.com/go-openapi/swag/jsonname v0.25.5 // indirect
 	github.com/go-openapi/swag/jsonutils v0.25.5 // indirect
-	github.com/go-openapi/swag/loading v0.25.5 // indirect
 	github.com/go-openapi/swag/stringutils v0.25.5 // indirect
 	github.com/go-openapi/swag/typeutils v0.25.5 // indirect
-	github.com/go-openapi/swag/yamlutils v0.25.5 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/goccy/go-json v0.10.6 // indirect
 	github.com/godbus/dbus/v5 v5.2.2 // indirect
@@ -163,6 +153,7 @@ require (
 	github.com/mdelapenya/tlscert v0.2.0 // indirect
 	github.com/mdlayher/netlink v1.10.0 // indirect
 	github.com/mdlayher/socket v0.6.0 // indirect
+	github.com/metal-stack/security v0.9.6 // indirect
 	github.com/minio/minlz v1.1.0 // indirect
 	github.com/mitchellh/go-ps v1.0.0 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
@@ -229,8 +220,6 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.1 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
-	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	go.yaml.in/yaml/v4 v4.0.0-rc.4 // indirect
 	go4.org/mem v0.0.0-20240501181205-ae6ca9944745 // indirect
 	golang.org/x/exp v0.0.0-20260312153236-7ab1446f8b90 // indirect
 	golang.org/x/net v0.52.0 // indirect

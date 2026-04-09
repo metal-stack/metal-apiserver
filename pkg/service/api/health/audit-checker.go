@@ -5,13 +5,13 @@ import (
 	"log/slog"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	"github.com/metal-stack/metal-lib/auditing"
+	auditingapi "github.com/metal-stack/metal-lib/auditing/api"
 	"github.com/metal-stack/metal-lib/pkg/healthstatus"
 )
 
 type auditHealthChecker struct {
 	log      *slog.Logger
-	backends []auditing.Auditing
+	backends []auditingapi.Auditing
 }
 
 func (h *auditHealthChecker) Health(ctx context.Context) *apiv2.HealthStatus {

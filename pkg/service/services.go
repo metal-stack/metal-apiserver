@@ -17,7 +17,8 @@ import (
 	headscalev1 "github.com/juanfont/headscale/gen/go/headscale/v1"
 	"github.com/metal-stack/api/go/permissions"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
-	"github.com/metal-stack/metal-lib/auditing"
+	auditingapi "github.com/metal-stack/metal-lib/auditing/api"
+	auditinggrpc "github.com/metal-stack/metal-lib/auditing/grpc"
 	"github.com/redis/go-redis/v9"
 	"github.com/valkey-io/valkey-go"
 	"go.opentelemetry.io/otel/exporters/prometheus"
@@ -59,8 +60,8 @@ type Config struct {
 	Repository                          *repository.Store
 	MasterClient                        mdm.Client
 	IpamClient                          ipamv1connect.IpamServiceClient
-	AuditSearchBackend                  auditing.Auditing
-	AuditBackends                       []auditing.Auditing
+	AuditSearchBackend                  auditingapi.Auditing
+	AuditBackends                       []auditingapi.Auditing
 	Stage                               string
 	RedisConfig                         *RedisConfig
 	Admins                              []string
@@ -151,7 +152,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 		}
 
 		for _, backend := range c.AuditBackends {
-			auditInterceptor, err := auditing.NewConnectInterceptor(backend, log, shouldAudit)
+			auditInterceptor, err := auditinggrpc.NewConnectInterceptor(backend, log, shouldAudit)
 			if err != nil {
 				return nil, fmt.Errorf("unable to create auditing interceptor: %w", err)
 			}

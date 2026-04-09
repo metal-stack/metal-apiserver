@@ -10,19 +10,19 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
-	"github.com/metal-stack/metal-lib/auditing"
+	auditingapi "github.com/metal-stack/metal-lib/auditing/api"
 )
 
 type Config struct {
 	Log         *slog.Logger
-	AuditClient auditing.Auditing
+	AuditClient auditingapi.Auditing
 	Repo        *repository.Store
 }
 
 type auditServiceServer struct {
 	log      *slog.Logger
 	disabled bool
-	c        auditing.Auditing
+	c        auditingapi.Auditing
 	repo     *repository.Store
 }
 

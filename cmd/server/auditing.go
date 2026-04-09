@@ -10,19 +10,22 @@ import (
 
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-lib/auditing"
+	auditingapi "github.com/metal-stack/metal-lib/auditing/api"
+	auditingsplunk "github.com/metal-stack/metal-lib/auditing/splunk"
+	auditingtimescaledb "github.com/metal-stack/metal-lib/auditing/timescaledb"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/urfave/cli/v2"
 )
 
 // might return (nil, nil, nil) if auditing is disabled!
-func createAuditingClient(cli *cli.Context, log *slog.Logger) (searchBackend auditing.Auditing, backends []auditing.Auditing, err error) {
+func createAuditingClient(cli *cli.Context, log *slog.Logger) (searchBackend auditingapi.Auditing, backends []auditingapi.Auditing, err error) {
 	const (
 		auditingBackendTimescaleDB = "timescaledb"
 		auditingBackendSplunk      = "splunk"
 	)
 
 	var (
-		auditingCfg = auditing.Config{
+		auditingCfg = auditingapi.Config{
 			Log:       log,
 			Component: api.AuditingComponent,
 		}
@@ -78,8 +81,8 @@ func createAuditingClient(cli *cli.Context, log *slog.Logger) (searchBackend aud
 	return
 }
 
-func newTimescaledbBackend(cli *cli.Context, auditingCfg auditing.Config) (searchBackend auditing.Auditing, err error) {
-	return auditing.NewTimescaleDB(auditingCfg, auditing.TimescaleDbConfig{
+func newTimescaledbBackend(cli *cli.Context, auditingCfg auditingapi.Config) (searchBackend auditingapi.Auditing, err error) {
+	return auditingtimescaledb.NewTimescaleDB(auditingCfg, auditingtimescaledb.TimescaleDbConfig{
 		Host:      cli.String(auditingTimescaleHostFlag.Name),
 		Port:      cli.String(auditingTimescalePortFlag.Name),
 		DB:        cli.String(auditingTimescaleDbFlag.Name),
@@ -89,7 +92,7 @@ func newTimescaledbBackend(cli *cli.Context, auditingCfg auditing.Config) (searc
 	})
 }
 
-func newSplunkBackend(cli *cli.Context, auditingCfg auditing.Config) (searchBackend auditing.Auditing, err error) {
+func newSplunkBackend(cli *cli.Context, auditingCfg auditingapi.Config) (searchBackend auditingapi.Auditing, err error) {
 	const (
 		splunkAsyncBackoff = 1 * time.Second
 		splunkAsyncRetry   = 3
@@ -108,7 +111,7 @@ func newSplunkBackend(cli *cli.Context, auditingCfg auditing.Config) (searchBack
 		source = s
 	}
 
-	splunkConfig := auditing.SplunkConfig{
+	splunkConfig := auditingsplunk.SplunkConfig{
 		Endpoint:   cli.String(auditingSplunkEndpointFlag.Name),
 		HECToken:   cli.String(auditingSplunkHecTokenFlag.Name),
 		SourceType: cli.String(auditingSplunkSourceTypeFlag.Name),
@@ -130,7 +133,7 @@ func newSplunkBackend(cli *cli.Context, auditingCfg auditing.Config) (searchBack
 		}
 	}
 
-	splunkBackend, err := auditing.NewSplunk(auditing.Config{
+	splunkBackend, err := auditingsplunk.NewSplunk(auditingapi.Config{
 		Component: source,
 		Log:       auditingCfg.Log,
 	}, splunkConfig)

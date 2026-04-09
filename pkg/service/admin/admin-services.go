@@ -10,7 +10,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
-	"github.com/metal-stack/metal-lib/auditing"
+	auditingapi "github.com/metal-stack/metal-lib/auditing/api"
 
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 
@@ -42,7 +42,7 @@ type Config struct {
 	TokenStore         tokencommon.TokenStore
 	TokenService       token.TokenService
 	CertStore          certs.CertStore
-	AuditSearchBackend auditing.Auditing
+	AuditSearchBackend auditingapi.Auditing
 }
 
 func AdminServices(cfg Config) {

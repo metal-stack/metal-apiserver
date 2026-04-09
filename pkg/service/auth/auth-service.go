@@ -25,7 +25,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 
-	"github.com/metal-stack/metal-lib/auditing"
+	auditingapi "github.com/metal-stack/metal-lib/auditing/api"
 )
 
 const (
@@ -35,7 +35,7 @@ const (
 type Config struct {
 	TokenService  token.TokenService
 	Repo          *repository.Store
-	AuditBackends []auditing.Auditing
+	AuditBackends []auditingapi.Auditing
 	Log           *slog.Logger
 	CallbackUrl   string // will replace `"{" + providerKey + ""}"` with the actual provider name
 	FrontEndUrl   *url.URL
@@ -59,7 +59,7 @@ type providerBackend interface {
 type auth struct {
 	providerBackends map[string]providerBackend
 	tokenService     token.TokenService
-	auditBackends    []auditing.Auditing
+	auditBackends    []auditingapi.Auditing
 	log              *slog.Logger
 	frontEndUrl      *url.URL
 	callbackUrl      string
@@ -312,7 +312,7 @@ func (a *auth) Callback(res http.ResponseWriter, req *http.Request) {
 	}
 
 	for _, backend := range a.auditBackends {
-		err = backend.Index(auditing.Entry{
+		err = backend.Index(auditingapi.Entry{
 			Component:    "auth",
 			Type:         "login",
 			User:         u.login,

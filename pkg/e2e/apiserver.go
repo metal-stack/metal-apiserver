@@ -15,7 +15,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
-	"github.com/metal-stack/metal-lib/auditing"
+	auditingapi "github.com/metal-stack/metal-lib/auditing/api"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
@@ -49,7 +49,7 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 			ComponentClient: testStore.GetValkeyClient(),
 		},
 
-		AuditBackends:                       []auditing.Auditing{testStore.GetAuditBackend()},
+		AuditBackends:                       []auditingapi.Auditing{testStore.GetAuditBackend()},
 		AuditSearchBackend:                  testStore.GetAuditBackend(),
 		MasterClient:                        testStore.GetMasterdataClient(),
 		Datastore:                           testStore.GetDatastore(),
