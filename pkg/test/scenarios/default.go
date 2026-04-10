@@ -6,32 +6,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 )
 
-const (
-	Machine1 = "00000000-0000-0000-0000-000000000001"
-	Machine2 = "00000000-0000-0000-0000-000000000002"
-	Machine3 = "00000000-0000-0000-0000-000000000003"
-	Machine4 = "00000000-0000-0000-0000-000000000004"
-	Machine5 = "00000000-0000-0000-0000-000000000005"
-
-	Switch1 = "p01-r01leaf01"
-	Switch2 = "p01-r01leaf02"
-
-	Partition1 = "partition-1"
-	Partition2 = "partition-2"
-
-	SizeN1Medium = "n1-medium-x86"
-	SizeC1Large  = "c1-large-x86"
-
-	Tenant1 = "john.doe"
-	// Project UUIDs are generated be counting the first digit for every tenant, last digit for every project of this tenant
-	Tenant1Project1 = "10000000-0000-0000-0000-000000000001"
-	Tenant1Project2 = "10000000-0000-0000-0000-000000000002"
-
-	ImageDebian13    = "debian-13.0.20260131"
-	ImageDebian12    = "debian-12.0.20251220"
-	ImageFirewall3_0 = "firewall-ubuntu-3.0.20260201"
-)
-
 var (
 	DefaultDatacenter = DatacenterSpec{
 		Partitions:        []string{Partition1},
@@ -96,7 +70,10 @@ var (
 				Project: Tenant1Project1,
 			},
 		},
-		Switches: SwitchPairFunc([2]string{Switch1, Switch2}, Partition1, "rack-1", 2),
+		Switches: []*apiv2.Switch{
+			SwitchFunc(P01Rack01Switch1, Partition1, P01Rack01, []string{"Ethernet0"}, SwitchOSSonic2021),
+			SwitchFunc(P01Rack01Switch2, Partition1, P01Rack01, []string{"Ethernet0"}, SwitchOSSonic2021),
+		},
 		Machines: []*MachineWithLiveliness{
 			MachineFunc(Machine1, Partition1, SizeC1Large, Tenant1Project1, ImageDebian13, metal.MachineLivelinessAlive),
 		},
