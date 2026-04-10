@@ -18,7 +18,8 @@ var (
 
 		for i, p := range ports {
 			nic := &apiv2.SwitchNic{
-				Name: p,
+				Name:       p,
+				Identifier: p,
 				State: &apiv2.NicState{
 					Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 				},

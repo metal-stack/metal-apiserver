@@ -915,8 +915,8 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 	var (
 		switchNics      []*apiv2.SwitchNic
 		projectMachines []*metal.Machine
-		desiredStatus   *apiv2.SwitchPortStatus
 	)
+
 	networks, err := r.s.ds.Network().List(ctx)
 	if err != nil {
 		return nil, err
@@ -928,7 +928,11 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 	}
 
 	for _, nic := range sw.Nics {
-		var bgpPortState *apiv2.SwitchBGPPortState
+		var (
+			bgpPortState  *apiv2.SwitchBGPPortState
+			desiredStatus *apiv2.SwitchPortStatus
+		)
+
 		if nic.BGPPortState != nil {
 			bgpState, err := metal.FromBGPState(nic.BGPPortState.BgpState)
 			if err != nil {

@@ -606,146 +606,94 @@ func Test_switchServiceServer_Port(t *testing.T) {
 	defer dc.Close()
 
 	tests := []struct {
-		name    string
-		rq      *adminv2.SwitchServicePortRequest
-		want    *adminv2.SwitchServicePortResponse
-		wantErr error
+		name     string
+		reqFunc  func() *adminv2.SwitchServicePortRequest
+		wantFunc func() *adminv2.SwitchServicePortResponse
+		mods     func() *test.Asserters
+		wantErr  error
 	}{
 		{
-			name:    "port status must be specified",
-			rq:      &adminv2.SwitchServicePortRequest{},
-			want:    nil,
-			wantErr: errorutil.InvalidArgument("failed to parse port status \"SWITCH_PORT_STATUS_UNSPECIFIED\": unable to fetch stringvalue from SWITCH_PORT_STATUS_UNSPECIFIED"),
+			name: "port status must be specified",
+			reqFunc: func() *adminv2.SwitchServicePortRequest {
+				return &adminv2.SwitchServicePortRequest{}
+			},
+			wantFunc: nil,
+			wantErr:  errorutil.InvalidArgument("failed to parse port status \"SWITCH_PORT_STATUS_UNSPECIFIED\": unable to fetch stringvalue from SWITCH_PORT_STATUS_UNSPECIFIED"),
 		},
 		{
 			name: "port status UNKNOWN is invalid",
-			rq: &adminv2.SwitchServicePortRequest{
-				Status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNKNOWN,
+			reqFunc: func() *adminv2.SwitchServicePortRequest {
+				return &adminv2.SwitchServicePortRequest{
+					Status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNKNOWN,
+				}
 			},
-			want:    nil,
-			wantErr: errorutil.InvalidArgument("port status \"UNKNOWN\" must be one of [\"UP\", \"DOWN\"]"),
+			wantFunc: nil,
+			wantErr:  errorutil.InvalidArgument("port status \"UNKNOWN\" must be one of [\"UP\", \"DOWN\"]"),
 		},
 		{
 			name: "switch does not exist",
-			rq: &adminv2.SwitchServicePortRequest{
-				Status:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-				Id:      "sw10",
-				NicName: "Ethernet0",
+			reqFunc: func() *adminv2.SwitchServicePortRequest {
+				return &adminv2.SwitchServicePortRequest{
+					Status:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+					Id:      "sw10",
+					NicName: "Ethernet0",
+				}
 			},
-			want:    nil,
-			wantErr: errorutil.NotFound("no switch with id \"sw10\" found"),
+			wantFunc: nil,
+			wantErr:  errorutil.NotFound("no switch with id \"sw10\" found"),
 		},
 		{
 			name: "port does not exist on switch",
-			rq: &adminv2.SwitchServicePortRequest{
-				Status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-				// Id:      sw1.Switch.Id,
-				NicName: "Ethernet100",
+			reqFunc: func() *adminv2.SwitchServicePortRequest {
+				return &adminv2.SwitchServicePortRequest{
+					Status:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+					Id:      sc.P01Rack01Switch1,
+					NicName: "swp1",
+				}
 			},
-			want:    nil,
-			wantErr: errorutil.InvalidArgument("port Ethernet100 does not exist on switch sw1"),
+			wantFunc: nil,
+			wantErr:  errorutil.InvalidArgument("port swp1 does not exist on switch %s", sc.P01Rack01Switch1),
 		},
 		{
 			name: "nic is not connected to a machine",
-			rq: &adminv2.SwitchServicePortRequest{
-				Status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-				// Id:      sw1.Switch.Id,
-				NicName: "Ethernet1",
+			reqFunc: func() *adminv2.SwitchServicePortRequest {
+				return &adminv2.SwitchServicePortRequest{
+					Status:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+					Id:      sc.P01Rack01Switch1,
+					NicName: "Ethernet1",
+				}
 			},
-			want:    nil,
-			wantErr: errorutil.FailedPrecondition("port Ethernet1 is not connected to any machine"),
+			wantFunc: nil,
+			wantErr:  errorutil.FailedPrecondition("port Ethernet1 is not connected to any machine"),
 		},
 		{
 			name: "nic update successful",
-			rq: &adminv2.SwitchServicePortRequest{
-				Status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
-				// Id:      sw1.Switch.Id,
-				NicName: "Ethernet0",
+			reqFunc: func() *adminv2.SwitchServicePortRequest {
+				return &adminv2.SwitchServicePortRequest{
+					Status:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
+					Id:      sc.P01Rack01Switch1,
+					NicName: "Ethernet0",
+				}
 			},
-			want: &adminv2.SwitchServicePortResponse{
-				Switch: &apiv2.Switch{
-					// Id:             sw1.Switch.Id,
-					Description:    "switch 01",
-					Meta:           &apiv2.Meta{Generation: 1},
-					Rack:           new("rack01"),
-					Partition:      "partition-a",
-					ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
-					ManagementIp:   "1.1.1.1",
-					ManagementUser: new("admin"),
-					ConsoleCommand: new("tty"),
-					MachineConnections: []*apiv2.MachineConnection{
-						{
-							// MachineId: m1.ID,
-							Nic: &apiv2.SwitchNic{
-								Name:       "Ethernet0",
-								Identifier: "Eth1/1",
-								Mac:        "11:11:11:11:11:11",
-								Vrf:        nil,
-								State: &apiv2.NicState{
-									Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN.Enum(),
-									Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-								},
-								BgpFilter: &apiv2.BGPFilter{},
-								BgpPortState: &apiv2.SwitchBGPPortState{
-									Neighbor:  "Ethernet1",
-									PeerGroup: "external",
-									VrfName:   "Vrf200",
-									BgpState:  apiv2.BGPState_BGP_STATE_CONNECT,
-									// BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Unix(), 0)),
-									SentPrefixCounter:     0,
-									AcceptedPrefixCounter: 0,
-								},
-							},
-						},
+			wantFunc: func() *adminv2.SwitchServicePortResponse {
+				sw := dc.GetSwitches()[sc.P01Rack01Switch1]
+				sw.Nics[0].State.Desired = apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN.Enum()
+				return &adminv2.SwitchServicePortResponse{
+					Switch: sw,
+				}
+			},
+			mods: func() *test.Asserters {
+				return &test.Asserters{
+					Switches: func(switches map[string]*apiv2.Switch) {
+						sw := switches[sc.P01Rack01Switch1]
+						sw.Nics[0].State.Desired = apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN.Enum()
+						con, found := lo.Find(sw.MachineConnections, func(c *apiv2.MachineConnection) bool {
+							return c.Nic.Name == "Ethernet0"
+						})
+						require.True(t, found)
+						con.Nic.State.Desired = apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN.Enum()
 					},
-					Nics: []*apiv2.SwitchNic{
-						{
-							Name:       "Ethernet0",
-							Identifier: "Eth1/1",
-							Mac:        "11:11:11:11:11:11",
-							Vrf:        nil,
-							State: &apiv2.NicState{
-								Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN.Enum(),
-								Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-							},
-							BgpFilter: &apiv2.BGPFilter{},
-							BgpPortState: &apiv2.SwitchBGPPortState{
-								Neighbor:  "Ethernet1",
-								PeerGroup: "external",
-								VrfName:   "Vrf200",
-								BgpState:  apiv2.BGPState_BGP_STATE_CONNECT,
-								// BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Unix(), 0)),
-								SentPrefixCounter:     0,
-								AcceptedPrefixCounter: 0,
-							},
-						},
-						{
-							Name:       "Ethernet1",
-							Identifier: "Eth1/2",
-							Mac:        "22:22:22:22:22:22",
-							Vrf:        new("Vrf200"),
-							State: &apiv2.NicState{
-								Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
-								Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
-							},
-							BgpFilter: &apiv2.BGPFilter{},
-							BgpPortState: &apiv2.SwitchBGPPortState{
-								Neighbor:  "Ethernet2",
-								PeerGroup: "external",
-								VrfName:   "Vrf200",
-								BgpState:  apiv2.BGPState_BGP_STATE_CONNECT,
-								// BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Unix(), 0)),
-								SentPrefixCounter:     0,
-								AcceptedPrefixCounter: 0,
-							},
-						},
-					},
-					Os: &apiv2.SwitchOS{
-						Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
-						Version:          "ec202111",
-						MetalCoreVersion: "v0.13.0",
-					},
-				},
+				}
 			},
 			wantErr: nil,
 		},
@@ -755,26 +703,46 @@ func Test_switchServiceServer_Port(t *testing.T) {
 			dc.Create(&sc.SwitchesWithMachinesDatacenter)
 			defer dc.Cleanup()
 
+			var (
+				snapshot = dc.Snapshot()
+				want     *adminv2.SwitchServicePortResponse
+				req      *adminv2.SwitchServicePortRequest
+			)
+
+			if tt.reqFunc != nil {
+				req = tt.reqFunc()
+			}
+			if tt.wantFunc != nil {
+				want = tt.wantFunc()
+			}
+
 			s := &switchServiceServer{
 				log:  log,
 				repo: dc.GetTestStore().Store,
 			}
 			if tt.wantErr == nil {
-				test.Validate(t, tt.rq)
+				test.Validate(t, req)
 			}
 
-			got, err := s.Port(ctx, tt.rq)
+			got, err := s.Port(ctx, req)
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("switchServiceServer.Port() error diff = %s", diff)
 				return
 			}
-			if diff := cmp.Diff(tt.want, got,
+			if diff := cmp.Diff(want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
-					&apiv2.Meta{}, "created_at", "updated_at",
+					&apiv2.Meta{}, "created_at", "updated_at", "generation",
 				)); diff != "" {
 				t.Errorf("switchServiceServer.Port() diff = %s", diff)
 			}
+
+			var mods *test.Asserters
+			if tt.mods != nil {
+				mods = tt.mods()
+			}
+			err = dc.Assert(snapshot, mods)
+			require.NoError(t, err)
 		})
 	}
 }

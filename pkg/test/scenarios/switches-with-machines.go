@@ -22,8 +22,8 @@ var (
 			},
 		},
 		Switches: []*apiv2.Switch{
-			SwitchFunc(P01Rack01Switch1, Partition1, P01Rack01, []string{"Ethernet0"}, SwitchOSSonic2021, Machine1),
-			SwitchFunc(P01Rack01Switch2, Partition1, P01Rack01, []string{"Ethernet0"}, SwitchOSSonic2021, Machine1),
+			SwitchFunc(P01Rack01Switch1, Partition1, P01Rack01, []string{"Ethernet0", "Ethernet1"}, SwitchOSSonic2021, Machine1),
+			SwitchFunc(P01Rack01Switch2, Partition1, P01Rack01, []string{"Ethernet0", "Ethernet1"}, SwitchOSSonic2021, Machine1),
 
 			SwitchFunc(P01Rack02Switch1, Partition1, P01Rack02, []string{"Ethernet0"}, SwitchOSSonic2021, Machine2),
 			SwitchFunc(P01Rack02Switch2, Partition1, P01Rack02, []string{"Ethernet0"}, SwitchOSSonic2021, Machine2),
