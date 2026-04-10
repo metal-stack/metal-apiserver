@@ -1,4 +1,4 @@
-package test_test
+package test
 
 import (
 	"fmt"
@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
@@ -14,10 +15,11 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
-	"github.com/metal-stack/metal-apiserver/pkg/test"
 	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestAssert(t *testing.T) {
@@ -26,13 +28,13 @@ func TestAssert(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
-	dc := test.NewDatacenter(t, log)
+	dc := NewDatacenter(t, log)
 	defer dc.Close()
 
 	tests := []struct {
 		name    string
 		spec    *sc.DatacenterSpec
-		mods    func() *test.Asserters
+		mods    func() *Asserters
 		wantErr bool
 	}{
 		{
@@ -43,7 +45,7 @@ func TestAssert(t *testing.T) {
 		{
 			name: "no modification, but datacenters differ",
 			spec: &sc.DefaultDatacenter,
-			mods: func() *test.Asserters {
+			mods: func() *Asserters {
 				_, err := dc.GetTestStore().Partition().Update(ctx, sc.Partition1, &adminv2.PartitionServiceUpdateRequest{
 					Id:          sc.Partition1,
 					Description: new("changed"),
@@ -60,7 +62,7 @@ func TestAssert(t *testing.T) {
 		{
 			name: "apply correct modification",
 			spec: &sc.DefaultDatacenter,
-			mods: func() *test.Asserters {
+			mods: func() *Asserters {
 				_, err := dc.GetTestStore().Partition().Update(ctx, sc.Partition1, &adminv2.PartitionServiceUpdateRequest{
 					Id:          sc.Partition1,
 					Description: new("changed"),
@@ -70,7 +72,7 @@ func TestAssert(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				return &test.Asserters{
+				return &Asserters{
 					Partitions: func(partitions map[string]*apiv2.Partition) {
 						partitions[sc.Partition1].Description = "changed"
 					},
@@ -84,7 +86,7 @@ func TestAssert(t *testing.T) {
 		{
 			name: "apply wrong modification",
 			spec: &sc.DefaultDatacenter,
-			mods: func() *test.Asserters {
+			mods: func() *Asserters {
 				_, err := dc.GetTestStore().Partition().Update(ctx, sc.Partition1, &adminv2.PartitionServiceUpdateRequest{
 					Id:          sc.Partition1,
 					Description: new("changed"),
@@ -94,7 +96,7 @@ func TestAssert(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				return &test.Asserters{
+				return &Asserters{
 					Sizes: func(sizes map[string]*apiv2.Size) {
 						sizes[sc.SizeC1Large].Description = new("falsely changed")
 					},
@@ -105,7 +107,7 @@ func TestAssert(t *testing.T) {
 		{
 			name: "new entity added, but no modify passed",
 			spec: &sc.DefaultDatacenter,
-			mods: func() *test.Asserters {
+			mods: func() *Asserters {
 				_, err := dc.GetTestStore().Partition().Create(ctx, &adminv2.PartitionServiceCreateRequest{
 					Partition: &apiv2.Partition{
 						Id: "partition-2",
@@ -120,7 +122,7 @@ func TestAssert(t *testing.T) {
 		{
 			name: "new entities added and correct modifications applied",
 			spec: &sc.DefaultDatacenter,
-			mods: func() *test.Asserters {
+			mods: func() *Asserters {
 				ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					_, _ = fmt.Fprintln(w, "a image")
 				}))
@@ -186,13 +188,21 @@ func TestAssert(t *testing.T) {
 					},
 				})
 				require.NoError(t, err)
+				sync := &apiv2.SwitchSync{
+					Duration: &durationpb.Duration{},
+					Time:     &timestamppb.Timestamp{},
+				}
+				sw.LastSync = sync
+				sw.LastSyncError = sync
 
 				err = dc.GetTestStore().Switch().AdditionalMethods().SetSwitchStatus(ctx, &api.SwitchStatus{
-					ID: sw.Id,
+					ID:            sw.Id,
+					LastSync:      sync,
+					LastSyncError: sync,
 				})
 				require.NoError(t, err)
 
-				return &test.Asserters{
+				return &Asserters{
 					Projects: func(projects map[string][]*apiv2.Project) {
 						projects["john.doe"] = append(projects["john.doe"], &apiv2.Project{
 							Uuid:   p.Meta.Id,
@@ -229,6 +239,12 @@ func TestAssert(t *testing.T) {
 							Base: metal.Base{
 								ID: sw.Id,
 							},
+							LastSync: &metal.SwitchSync{
+								Time: time.Unix(0, 0),
+							},
+							LastSyncError: &metal.SwitchSync{
+								Time: time.Unix(0, 0),
+							},
 						}
 					},
 				}
@@ -238,7 +254,7 @@ func TestAssert(t *testing.T) {
 		{
 			name: "entity deleted, but no modification applied",
 			spec: &sc.DefaultDatacenter,
-			mods: func() *test.Asserters {
+			mods: func() *Asserters {
 				_, err := dc.GetTestStore().Switch().AdditionalMethods().ForceDelete(ctx, sc.P01Rack01Switch1)
 				require.NoError(t, err)
 				return nil
@@ -248,11 +264,11 @@ func TestAssert(t *testing.T) {
 		{
 			name: "entity deleted and correct modifications applied",
 			spec: &sc.DefaultDatacenter,
-			mods: func() *test.Asserters {
+			mods: func() *Asserters {
 				_, err := dc.GetTestStore().Switch().AdditionalMethods().ForceDelete(ctx, sc.P01Rack01Switch1)
 				require.NoError(t, err)
 
-				return &test.Asserters{
+				return &Asserters{
 					Switches: func(switches map[string]*apiv2.Switch) {
 						delete(switches, sc.P01Rack01Switch1)
 					},
@@ -266,16 +282,17 @@ func TestAssert(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			dc.Create(tt.spec)
 			defer dc.Cleanup()
 
-			dc.Create(tt.spec)
+			snapshot := dc.Snapshot()
 
-			var mods *test.Asserters
+			var mods *Asserters
 			if tt.mods != nil {
 				mods = tt.mods()
 			}
 
-			err1 := dc.Assert(mods,
+			err1 := dc.Assert(snapshot, mods,
 				protocmp.IgnoreFields(
 					&apiv2.IP{}, "uuid",
 				),
@@ -287,7 +304,7 @@ func TestAssert(t *testing.T) {
 				t.Errorf("Assert() error = %v, wantErr %v", err1, tt.wantErr)
 			}
 
-			err2 := dc.Assert(mods,
+			err2 := dc.Assert(snapshot, mods,
 				protocmp.IgnoreFields(
 					&apiv2.IP{}, "uuid",
 				),
@@ -297,6 +314,139 @@ func TestAssert(t *testing.T) {
 			)
 			if diff := cmp.Diff(err1, err2, errorutil.ErrorStringComparer()); diff != "" {
 				t.Errorf("Assert() is not idempotent; err1 = %s, err2 = %s", err1, err2)
+			}
+		})
+	}
+}
+
+func Test_entities_deepCopy(t *testing.T) {
+	tests := []struct {
+		name string
+		e    *entities
+		want *entities
+	}{
+		{
+			name: "copy all entities",
+			e: &entities{
+				tenants: map[string]*apiv2.Tenant{
+					"tenant": {
+						Login: "tenant",
+					},
+				},
+				projects: map[string][]*apiv2.Project{
+					"tenant": {
+						{
+							Name: "project",
+						},
+					},
+				},
+				partitions: map[string]*apiv2.Partition{
+					"partition": {
+						Id: "partition",
+					},
+				},
+				sizes: map[string]*apiv2.Size{
+					"size": {
+						Id: "size",
+					},
+				},
+				networks: map[string]*apiv2.Network{
+					"network": {
+						Id: "network",
+					},
+				},
+				ips: map[string]*apiv2.IP{
+					"ip": {
+						Ip: "1.1.1.1",
+					},
+				},
+				images: map[string]*apiv2.Image{
+					"image": {
+						Id: "image",
+					},
+				},
+				switches: map[string]*apiv2.Switch{
+					"switch": {
+						Id: "switch",
+					},
+				},
+				switchStatuses: map[string]*metal.SwitchStatus{
+					"switch": {
+						Base: metal.Base{
+							ID: "switch",
+						},
+					},
+				},
+				machines: map[string]*apiv2.Machine{
+					"machine": {
+						Uuid: "machine",
+					},
+				},
+			},
+			want: &entities{
+				tenants: map[string]*apiv2.Tenant{
+					"tenant": {
+						Login: "tenant",
+					},
+				},
+				projects: map[string][]*apiv2.Project{
+					"tenant": {
+						{
+							Name: "project",
+						},
+					},
+				},
+				partitions: map[string]*apiv2.Partition{
+					"partition": {
+						Id: "partition",
+					},
+				},
+				sizes: map[string]*apiv2.Size{
+					"size": {
+						Id: "size",
+					},
+				},
+				networks: map[string]*apiv2.Network{
+					"network": {
+						Id: "network",
+					},
+				},
+				ips: map[string]*apiv2.IP{
+					"ip": {
+						Ip: "1.1.1.1",
+					},
+				},
+				images: map[string]*apiv2.Image{
+					"image": {
+						Id: "image",
+					},
+				},
+				switches: map[string]*apiv2.Switch{
+					"switch": {
+						Id: "switch",
+					},
+				},
+				switchStatuses: map[string]*metal.SwitchStatus{
+					"switch": {
+						Base: metal.Base{
+							ID: "switch",
+						},
+					},
+				},
+				machines: map[string]*apiv2.Machine{
+					"machine": {
+						Uuid: "machine",
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.e.deepCopy()
+			require.NoError(t, err)
+			if diff := cmp.Diff(tt.want, got, cmp.AllowUnexported(entities{}), protocmp.Transform()); diff != "" {
+				t.Errorf("entities.deepCopy() diff = %s", diff)
 			}
 		})
 	}

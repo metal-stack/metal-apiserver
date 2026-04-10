@@ -232,6 +232,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 		name    string
 		rq      func() *adminv2.SwitchServiceUpdateRequest
 		want    func() *adminv2.SwitchServiceUpdateResponse
+		mods    func() *test.Asserters
 		wantErr error
 	}{
 		{
@@ -354,6 +355,58 @@ func Test_switchServiceServer_Update(t *testing.T) {
 					Switch: sw,
 				}
 			},
+			mods: func() *test.Asserters {
+				return &test.Asserters{
+					Switches: func(switches map[string]*apiv2.Switch) {
+						sw := switches[sc.P01Rack01Switch1]
+						nic1 := &apiv2.SwitchNic{
+							Name:       "Ethernet0",
+							Identifier: "Eth1/1",
+							Mac:        "11:11:11:11:11:11",
+							Vrf:        new("Vrf100"),
+							BgpFilter:  &apiv2.BGPFilter{},
+							State: &apiv2.NicState{
+								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							},
+							BgpPortState: &apiv2.SwitchBGPPortState{
+								Neighbor:              "Ethernet1",
+								PeerGroup:             "external",
+								VrfName:               "Vrf200",
+								BgpState:              apiv2.BGPState_BGP_STATE_ESTABLISHED,
+								BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Unix(), 0)),
+								SentPrefixCounter:     0,
+								AcceptedPrefixCounter: 0,
+							},
+						}
+						nic2 := &apiv2.SwitchNic{
+							Name:       "Ethernet2",
+							Identifier: "Eth/1/3",
+							Mac:        "aa:aa:aa:aa:aa:aa",
+							Vrf:        nil,
+							BgpFilter:  &apiv2.BGPFilter{},
+							State: &apiv2.NicState{
+								Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
+								Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							},
+						}
+						sw.Description = "new description"
+						sw.ReplaceMode = apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE
+						sw.ManagementIp = "1.1.1.5"
+						sw.ManagementUser = new("metal")
+						sw.ConsoleCommand = new("ssh")
+						sw.Nics = []*apiv2.SwitchNic{nic1, nic2}
+						sw.MachineConnections = []*apiv2.MachineConnection{
+							{
+								MachineId: sc.Machine1,
+								Nic:       nic1,
+							},
+						}
+						sw.Os.Version = "ec202211"
+						sw.Os.MetalCoreVersion = "v0.14.0"
+						switches[sc.P01Rack01Switch1] = sw
+					},
+				}
+			},
 			wantErr: nil,
 		},
 		{
@@ -379,8 +432,9 @@ func Test_switchServiceServer_Update(t *testing.T) {
 			defer dc.Cleanup()
 
 			var (
-				rq   *adminv2.SwitchServiceUpdateRequest
-				want *adminv2.SwitchServiceUpdateResponse
+				rq       *adminv2.SwitchServiceUpdateRequest
+				want     *adminv2.SwitchServiceUpdateResponse
+				snapshot = dc.Snapshot()
 			)
 
 			if tt.rq != nil {
@@ -411,7 +465,12 @@ func Test_switchServiceServer_Update(t *testing.T) {
 				t.Errorf("switchServiceServer.Update() diff = %s", diff)
 			}
 
-			// TODO: add dc.Assert
+			var mods *test.Asserters
+			if tt.mods != nil {
+				mods = tt.mods()
+			}
+			err = dc.Assert(snapshot, mods)
+			require.NoError(t, err)
 		})
 	}
 }
@@ -438,8 +497,11 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 				Id: sc.P01Rack03Switch1,
 			},
 			want: func() *adminv2.SwitchServiceDeleteResponse {
+				sw := dc.GetSwitches()[sc.P01Rack03Switch1]
+				sw.LastSync = nil
+				sw.LastSyncError = nil
 				return &adminv2.SwitchServiceDeleteResponse{
-					Switch: dc.GetSwitches()[sc.P01Rack03Switch1],
+					Switch: sw,
 				}
 			},
 			mods: func() *test.Asserters {
@@ -471,8 +533,11 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 				Force: true,
 			},
 			want: func() *adminv2.SwitchServiceDeleteResponse {
+				sw := dc.GetSwitches()[sc.P01Rack02Switch1]
+				sw.LastSync = nil
+				sw.LastSyncError = nil
 				return &adminv2.SwitchServiceDeleteResponse{
-					Switch: dc.GetSwitches()[sc.P01Rack02Switch1],
+					Switch: sw,
 				}
 			},
 			mods: func() *test.Asserters {
@@ -492,6 +557,8 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			dc.Create(&sc.SwitchesWithMachinesDatacenter)
 			defer dc.Cleanup()
+
+			snapshot := dc.Snapshot()
 
 			s := &switchServiceServer{
 				log:  log,
@@ -523,7 +590,7 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 			if tt.mods != nil {
 				mods = tt.mods()
 			}
-			err = dc.Assert(mods)
+			err = dc.Assert(snapshot, mods)
 			require.NoError(t, err)
 		})
 	}
