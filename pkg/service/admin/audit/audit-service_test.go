@@ -13,7 +13,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
-	auditingapi "github.com/metal-stack/metal-lib/auditing/api"
+	"github.com/metal-stack/metal-lib/auditing"
 	auditingmemory "github.com/metal-stack/metal-lib/auditing/memory"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -29,7 +29,7 @@ func Test_auditServiceServer_Get(t *testing.T) {
 	tests := []struct {
 		name    string
 		rq      *adminv2.AuditServiceGetRequest
-		entries []auditingapi.Entry
+		entries []auditing.Entry
 		want    *adminv2.AuditServiceGetResponse
 		wantErr error
 	}{
@@ -41,17 +41,17 @@ func Test_auditServiceServer_Get(t *testing.T) {
 		},
 		{
 			name: "get existing defaults to request phase",
-			entries: []auditingapi.Entry{
+			entries: []auditing.Entry{
 				{
 					Component:    api.AuditingComponent,
 					RequestId:    "99d84f08-85f3-4d4e-881c-29c2c9e1ba58",
-					Type:         auditingapi.EntryTypeGRPC,
+					Type:         auditing.EntryTypeGRPC,
 					Timestamp:    now,
 					User:         "foo",
 					Tenant:       "a-tenant",
 					Project:      "b",
-					Detail:       auditingapi.EntryDetailGRPCUnary,
-					Phase:        auditingapi.EntryPhaseRequest,
+					Detail:       auditing.EntryDetailGRPCUnary,
+					Phase:        auditing.EntryPhaseRequest,
 					Path:         "/a/path/",
 					ForwardedFor: "1.2.3.4",
 					RemoteAddr:   "2.3.4.5",
@@ -78,7 +78,7 @@ func Test_auditServiceServer_Get(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := auditingmemory.NewMemory(auditingapi.Config{
+			c, err := auditingmemory.NewMemory(auditing.Config{
 				Component: api.AuditingComponent,
 				Log:       log,
 			}, auditingmemory.MemoryConfig{})
@@ -123,23 +123,23 @@ func Test_auditServiceServer_List(t *testing.T) {
 	tests := []struct {
 		name    string
 		rq      *adminv2.AuditServiceListRequest
-		entries []auditingapi.Entry
+		entries []auditing.Entry
 		want    *adminv2.AuditServiceListResponse
 		wantErr error
 	}{
 		{
 			name: "list",
-			entries: []auditingapi.Entry{
+			entries: []auditing.Entry{
 				{
 					Component:    api.AuditingComponent,
 					RequestId:    "99d84f08-85f3-4d4e-881c-29c2c9e1ba58",
-					Type:         auditingapi.EntryTypeGRPC,
+					Type:         auditing.EntryTypeGRPC,
 					Timestamp:    now,
 					User:         "foo",
 					Tenant:       "a-tenant",
 					Project:      "b",
-					Detail:       auditingapi.EntryDetailGRPCUnary,
-					Phase:        auditingapi.EntryPhaseRequest,
+					Detail:       auditing.EntryDetailGRPCUnary,
+					Phase:        auditing.EntryPhaseRequest,
 					Path:         "/a/path/",
 					ForwardedFor: "1.2.3.4",
 					RemoteAddr:   "2.3.4.5",
@@ -149,13 +149,13 @@ func Test_auditServiceServer_List(t *testing.T) {
 				{
 					Component:    api.AuditingComponent,
 					RequestId:    "99d84f08-85f3-4d4e-881c-29c2c9e1ba58",
-					Type:         auditingapi.EntryTypeGRPC,
+					Type:         auditing.EntryTypeGRPC,
 					Timestamp:    now,
 					User:         "foo",
 					Tenant:       "a-tenant",
 					Project:      "b",
-					Detail:       auditingapi.EntryDetailGRPCUnary,
-					Phase:        auditingapi.EntryPhaseResponse,
+					Detail:       auditing.EntryDetailGRPCUnary,
+					Phase:        auditing.EntryPhaseResponse,
 					Path:         "/a/path/",
 					ForwardedFor: "1.2.3.4",
 					RemoteAddr:   "2.3.4.5",
@@ -165,13 +165,13 @@ func Test_auditServiceServer_List(t *testing.T) {
 				{
 					Component:    api.AuditingComponent,
 					RequestId:    "c7c60cc9-e47d-4c7a-bd2d-b65dd4f0a59c",
-					Type:         auditingapi.EntryTypeGRPC,
+					Type:         auditing.EntryTypeGRPC,
 					Timestamp:    now,
 					User:         "foo",
 					Tenant:       "another-tenant",
 					Project:      "b",
-					Detail:       auditingapi.EntryDetailGRPCUnary,
-					Phase:        auditingapi.EntryPhaseResponse,
+					Detail:       auditing.EntryDetailGRPCUnary,
+					Phase:        auditing.EntryPhaseResponse,
 					Path:         "/a/path/",
 					ForwardedFor: "1.2.3.4",
 					RemoteAddr:   "2.3.4.5",
@@ -222,7 +222,7 @@ func Test_auditServiceServer_List(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := auditingmemory.NewMemory(auditingapi.Config{
+			c, err := auditingmemory.NewMemory(auditing.Config{
 				Component: api.AuditingComponent,
 				Log:       log,
 			}, auditingmemory.MemoryConfig{})

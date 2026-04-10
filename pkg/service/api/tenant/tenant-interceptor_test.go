@@ -17,7 +17,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 
-	auditingapi "github.com/metal-stack/metal-lib/auditing/api"
+	"github.com/metal-stack/metal-lib/auditing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -41,7 +41,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 		token            *apiv2.Token
 		existingProjects []*apiv2.ProjectServiceCreateRequest
 		existingTenants  []*apiv2.TenantServiceCreateRequest
-		wantUser         *auditingapi.User
+		wantUser         *auditing.User
 		wantErr          string
 	}{
 		{
@@ -52,7 +52,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 			},
 			method:  "/metalstack.api.v2.HealthService/Get",
 			handler: handler[apiv2.HealthServiceGetRequest, apiv2.HealthServiceGetResponse](),
-			wantUser: &auditingapi.User{
+			wantUser: &auditing.User{
 				EMail:   "",
 				Name:    "",
 				Groups:  []string{},
@@ -80,7 +80,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 					Email: new("mail@john"),
 				},
 			},
-			wantUser: &auditingapi.User{
+			wantUser: &auditing.User{
 				EMail:   "mail@john",
 				Name:    "",
 				Groups:  []string{},
@@ -118,7 +118,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 					Email: new("mail@user"),
 				},
 			},
-			wantUser: &auditingapi.User{
+			wantUser: &auditing.User{
 				EMail:   "mail@user",
 				Name:    "",
 				Groups:  []string{},
@@ -152,7 +152,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 					Login: "t1",
 				},
 			},
-			wantUser: &auditingapi.User{
+			wantUser: &auditing.User{
 				EMail:   "mail@t1",
 				Name:    "",
 				Groups:  []string{},
@@ -181,7 +181,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 					Email: new("mail@tenant-a"),
 				},
 			},
-			wantUser: &auditingapi.User{
+			wantUser: &auditing.User{
 				EMail:   "mail@tenant-a",
 				Name:    "",
 				Groups:  []string{},
@@ -207,7 +207,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 					Email: new("mail@github"),
 				},
 			},
-			wantUser: &auditingapi.User{
+			wantUser: &auditing.User{
 				EMail:   "mail@github",
 				Name:    "",
 				Groups:  []string{},
@@ -236,7 +236,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 					Email: new("mail@github"),
 				},
 			},
-			wantUser: &auditingapi.User{
+			wantUser: &auditing.User{
 				EMail:   "",
 				Name:    "7c042d8c-2ee1-4c71-b4e9-82953fb9bd94@metal-stack.dev",
 				Tenant:  "",
@@ -261,7 +261,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 					Email: new("mail@github"),
 				},
 			},
-			wantUser: &auditingapi.User{
+			wantUser: &auditing.User{
 				EMail:   "",
 				Name:    "pixiecore@metal-stack.dev",
 				Tenant:  "",
@@ -289,7 +289,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 					Email: new("mail@github"),
 				},
 			},
-			wantUser: &auditingapi.User{
+			wantUser: &auditing.User{
 				EMail:   "",
 				Name:    "pixiecore@metal-stack.dev",
 				Tenant:  "",
@@ -322,7 +322,7 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 			mux.Handle(tt.method, tt.handler(tt.method, interceptors, func(ctx context.Context) {
 				called = true
 
-				user := auditingapi.GetUserFromContext(ctx)
+				user := auditing.GetUserFromContext(ctx)
 				assert.Equal(t, tt.wantUser, user)
 			}))
 

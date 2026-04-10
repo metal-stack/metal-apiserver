@@ -16,7 +16,7 @@ import (
 	"github.com/metal-stack/metal-lib/pkg/cache"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 
-	auditingapi "github.com/metal-stack/metal-lib/auditing/api"
+	"github.com/metal-stack/metal-lib/auditing"
 )
 
 type (
@@ -47,7 +47,7 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 		var (
 			tok, tokenInCtx = token.TokenFromContext(ctx)
-			user            = &auditingapi.User{
+			user            = &auditing.User{
 				EMail:   "",
 				Name:    "",
 				Tenant:  "",
@@ -69,7 +69,7 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 				user.EMail = tgr.Tenant.Meta.Annotations[api.TenantTagEmail]
 
 				// update the context with the user information BEFORE calling next
-				ctx = auditingapi.PutUserInContext(ctx, user)
+				ctx = auditing.PutUserInContext(ctx, user)
 
 				return nil
 			}
@@ -86,7 +86,7 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 
 				user.Tenant = "" // public methods do not operate on a tenant, therefore erase again
 			} else {
-				ctx = auditingapi.PutUserInContext(ctx, user)
+				ctx = auditing.PutUserInContext(ctx, user)
 			}
 
 			return next(ctx, req)
@@ -123,7 +123,7 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 		if permissions.IsMachineScope(req) {
 			i.log.Debug("tenant interceptor", "request-scope", "machine")
 
-			user := &auditingapi.User{
+			user := &auditing.User{
 				Name: tok.User,
 			}
 
@@ -133,7 +133,7 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 			}
 
 			// machine methods do not operate on a tenant, therefore create the security user from the machine id
-			ctx = auditingapi.PutUserInContext(ctx, user)
+			ctx = auditing.PutUserInContext(ctx, user)
 
 			return next(ctx, req)
 		}
@@ -142,7 +142,7 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 			i.log.Debug("tenant interceptor", "request-scope", "infra")
 
 			// infra methods do not operate on a tenant, therefore create the security user from the token id
-			ctx = auditingapi.PutUserInContext(ctx, &auditingapi.User{
+			ctx = auditing.PutUserInContext(ctx, &auditing.User{
 				Name:    tok.User,
 				Subject: tok.User,
 			})

@@ -29,7 +29,7 @@ require (
 	github.com/metal-stack/api v0.0.61-0.20260405124454-435d2a4913bc
 	github.com/metal-stack/go-ipam v1.14.14
 	github.com/metal-stack/masterdata-api v0.13.0
-	github.com/metal-stack/metal-lib v0.24.2-0.20260409055941-97958d452e0f
+	github.com/metal-stack/metal-lib v0.24.2-0.20260410151028-dd1d6bfb17dc
 	github.com/metal-stack/v v1.0.3
 	github.com/prometheus/client_golang v1.23.2
 	github.com/redis/go-redis/v9 v9.18.0

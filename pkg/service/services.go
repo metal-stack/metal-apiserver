@@ -17,7 +17,7 @@ import (
 	headscalev1 "github.com/juanfont/headscale/gen/go/headscale/v1"
 	"github.com/metal-stack/api/go/permissions"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
-	auditingapi "github.com/metal-stack/metal-lib/auditing/api"
+	"github.com/metal-stack/metal-lib/auditing"
 	auditinggrpc "github.com/metal-stack/metal-lib/auditing/grpc"
 	"github.com/redis/go-redis/v9"
 	"github.com/valkey-io/valkey-go"
@@ -60,8 +60,8 @@ type Config struct {
 	Repository                          *repository.Store
 	MasterClient                        mdm.Client
 	IpamClient                          ipamv1connect.IpamServiceClient
-	AuditSearchBackend                  auditingapi.Auditing
-	AuditBackends                       []auditingapi.Auditing
+	AuditSearchBackend                  auditing.Auditing
+	AuditBackends                       []auditing.Auditing
 	Stage                               string
 	RedisConfig                         *RedisConfig
 	Admins                              []string

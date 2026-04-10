@@ -25,7 +25,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
-	auditingapi "github.com/metal-stack/metal-lib/auditing/api"
+	"github.com/metal-stack/metal-lib/auditing"
 	auditingmemory "github.com/metal-stack/metal-lib/auditing/memory"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
@@ -62,7 +62,7 @@ type (
 		hc                     *headscale.Client
 		headscaleControllerURL string
 
-		audit auditingapi.Auditing
+		audit auditing.Auditing
 	}
 
 	testOpt any
@@ -186,7 +186,7 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 	tokenStore := tokencommon.NewRedisStore(rc)
 	certStore := certs.NewRedisStore(&certs.Config{RedisClient: rc})
 
-	auditingBackend, err := auditingmemory.NewMemory(auditingapi.Config{
+	auditingBackend, err := auditingmemory.NewMemory(auditing.Config{
 		Component: api.AuditingComponent,
 		Log:       log,
 	}, auditingmemory.MemoryConfig{})
@@ -332,7 +332,7 @@ func (t *testStore) GetHeadscaleControllerURL() string {
 	return t.headscaleControllerURL
 }
 
-func (t *testStore) GetAuditBackend() auditingapi.Auditing {
+func (t *testStore) GetAuditBackend() auditing.Auditing {
 	return t.audit
 }
 

@@ -10,7 +10,7 @@ import (
 	"connectrpc.com/connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
-	auditingapi "github.com/metal-stack/metal-lib/auditing/api"
+	"github.com/metal-stack/metal-lib/auditing"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -22,11 +22,11 @@ const (
 
 type (
 	auditEntity struct {
-		auditingapi.Entry
+		auditing.Entry
 	}
 
 	auditRepository struct {
-		c     auditingapi.Auditing
+		c     auditing.Auditing
 		scope *TenantScope
 	}
 )
@@ -61,7 +61,7 @@ func (a *auditRepository) list(ctx context.Context, query *apiv2.AuditQuery) ([]
 		code = new(int(*query.ResultCode))
 	}
 
-	filter := auditingapi.EntryFilter{
+	filter := auditing.EntryFilter{
 		Body:       pointer.SafeDeref(query.Body),
 		Component:  api.AuditingComponent,
 		From:       from,
@@ -92,8 +92,8 @@ func (a *auditRepository) list(ctx context.Context, query *apiv2.AuditQuery) ([]
 	var result []*auditEntity
 	for _, e := range entries {
 		switch e.Phase {
-		case auditingapi.EntryPhaseRequest, auditingapi.EntryPhaseResponse:
-		case auditingapi.EntryPhaseClosed, auditingapi.EntryPhaseError, auditingapi.EntryPhaseOpened, auditingapi.EntryPhaseSingle:
+		case auditing.EntryPhaseRequest, auditing.EntryPhaseResponse:
+		case auditing.EntryPhaseClosed, auditing.EntryPhaseError, auditing.EntryPhaseOpened, auditing.EntryPhaseSingle:
 			continue
 		default:
 			continue
@@ -163,7 +163,7 @@ func (a *auditRepository) convertToProto(ctx context.Context, e *auditEntity) (*
 	parsedBody := string(rawPayload)
 
 	var resultCode *int32
-	if e.Phase == auditingapi.EntryPhaseResponse && e.StatusCode != nil {
+	if e.Phase == auditing.EntryPhaseResponse && e.StatusCode != nil {
 		resultCode = new(int32(*e.StatusCode))
 	}
 
@@ -187,26 +187,26 @@ func (auditEntity) GetUpdateMeta() *apiv2.UpdateMeta {
 	return &apiv2.UpdateMeta{}
 }
 
-func convertToInternalPhase(phase apiv2.AuditPhase) auditingapi.EntryPhase {
+func convertToInternalPhase(phase apiv2.AuditPhase) auditing.EntryPhase {
 	switch phase {
 	case apiv2.AuditPhase_AUDIT_PHASE_REQUEST:
-		return auditingapi.EntryPhaseRequest
+		return auditing.EntryPhaseRequest
 	case apiv2.AuditPhase_AUDIT_PHASE_RESPONSE:
-		return auditingapi.EntryPhaseResponse
+		return auditing.EntryPhaseResponse
 	case apiv2.AuditPhase_AUDIT_PHASE_UNSPECIFIED:
 		fallthrough
 	default:
-		return auditingapi.EntryPhase("")
+		return auditing.EntryPhase("")
 	}
 }
 
-func convertToExternalPhase(phase auditingapi.EntryPhase) apiv2.AuditPhase {
+func convertToExternalPhase(phase auditing.EntryPhase) apiv2.AuditPhase {
 	switch phase {
-	case auditingapi.EntryPhaseRequest:
+	case auditing.EntryPhaseRequest:
 		return apiv2.AuditPhase_AUDIT_PHASE_REQUEST
-	case auditingapi.EntryPhaseResponse:
+	case auditing.EntryPhaseResponse:
 		return apiv2.AuditPhase_AUDIT_PHASE_RESPONSE
-	case auditingapi.EntryPhaseClosed, auditingapi.EntryPhaseError, auditingapi.EntryPhaseSingle, auditingapi.EntryPhaseOpened:
+	case auditing.EntryPhaseClosed, auditing.EntryPhaseError, auditing.EntryPhaseSingle, auditing.EntryPhaseOpened:
 		fallthrough
 	default:
 		return apiv2.AuditPhase_AUDIT_PHASE_UNSPECIFIED

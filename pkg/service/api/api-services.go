@@ -13,7 +13,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
-	auditingapi "github.com/metal-stack/metal-lib/auditing/api"
+	"github.com/metal-stack/metal-lib/auditing"
 	"github.com/valkey-io/valkey-go"
 
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
@@ -53,9 +53,9 @@ type Config struct {
 	TenantInviteStore  invite.TenantInviteStore
 	TokenStore         tokencommon.TokenStore
 	CertStore          certs.CertStore
-	AuditSearchBackend auditingapi.Auditing
+	AuditSearchBackend auditing.Auditing
 	Redis              valkey.Client
-	AuditBackends      []auditingapi.Auditing
+	AuditBackends      []auditing.Auditing
 	HeadscaleClient    headscalev1.HeadscaleServiceClient
 
 	ServerHttpURL string
