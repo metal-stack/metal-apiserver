@@ -757,69 +757,128 @@ func Test_switchServiceServer_Migrate(t *testing.T) {
 	defer dc.Close()
 
 	tests := []struct {
-		name    string
-		rq      *adminv2.SwitchServiceMigrateRequest
-		want    *adminv2.SwitchServiceMigrateResponse
-		wantErr error
+		name     string
+		reqFunc  func() *adminv2.SwitchServiceMigrateRequest
+		wantFunc func() *adminv2.SwitchServiceMigrateResponse
+		mods     func() *test.Asserters
+		wantErr  error
 	}{
 		{
 			name: "cannot migrate from one rack to another",
-			rq:   &adminv2.SwitchServiceMigrateRequest{
-				// OldSwitch: sw4.Switch.Id,
-				// NewSwitch: sw401.Switch.Id,
+			reqFunc: func() *adminv2.SwitchServiceMigrateRequest {
+				return &adminv2.SwitchServiceMigrateRequest{
+					OldSwitch: sc.P01Rack01Switch1,
+					NewSwitch: sc.P01Rack02Switch1,
+				}
 			},
-			want: nil,
-			// wantErr: errorutil.FailedPrecondition("cannot migrate from switch %s in rack %s to switch %s in rack %s, switches must be in the same rack", sw4.Switch.Id, *sw4.Switch.Rack, sw401.Switch.Id, *sw401.Switch.Rack),
+			wantFunc: nil,
+			wantErr:  errorutil.FailedPrecondition("cannot migrate from switch %s in rack %s to switch %s in rack %s, switches must be in the same rack", sc.P01Rack01Switch1, sc.P01Rack01, sc.P01Rack02Switch1, sc.P01Rack02),
 		},
 		{
 			name: "cannot migrate to switch that already has connections",
-			rq:   &adminv2.SwitchServiceMigrateRequest{
-				// OldSwitch: sw4.Switch.Id,
-				// NewSwitch: sw402.Switch.Id,
+			reqFunc: func() *adminv2.SwitchServiceMigrateRequest {
+				return &adminv2.SwitchServiceMigrateRequest{
+					OldSwitch: sc.P02Rack02Switch2,
+					NewSwitch: sc.P02Rack02Switch2_1,
+				}
 			},
-			want: nil,
-			// wantErr: errorutil.FailedPrecondition("cannot migrate from switch %s to switch %s because the new switch already has machine connections", sw4.Switch.Id, sw402.Switch.Id),
+			wantFunc: nil,
+			wantErr:  errorutil.FailedPrecondition("cannot migrate from switch %s to switch %s because the new switch already has machine connections", sc.P02Rack02Switch2, sc.P02Rack02Switch2_1),
 		},
 		{
-			name: "migrate successfully",
-			rq:   &adminv2.SwitchServiceMigrateRequest{
-				// OldSwitch: sw5.Switch.Id,
-				// NewSwitch: sw501.Switch.Id,
+			name: "migrate from cumulus to sonic",
+			reqFunc: func() *adminv2.SwitchServiceMigrateRequest {
+				return &adminv2.SwitchServiceMigrateRequest{
+					OldSwitch: sc.P01Rack02Switch1,
+					NewSwitch: sc.P01Rack02Switch1_1,
+				}
 			},
-			want: &adminv2.SwitchServiceMigrateResponse{
-				Switch: &apiv2.Switch{
-					// Id:          sw501.Switch.Id,
-					Partition:   "partition-a",
-					Rack:        new("r03"),
-					ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
-					Meta:        &apiv2.Meta{Generation: 1},
-					MachineConnections: []*apiv2.MachineConnection{
-						{
-							// MachineId: m1.ID,
-							Nic: &apiv2.SwitchNic{
-								Name:       "Ethernet0",
-								Identifier: "Eth1/1",
-								BgpFilter:  &apiv2.BGPFilter{},
-								State: &apiv2.NicState{
-									Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-								},
+			wantFunc: func() *adminv2.SwitchServiceMigrateResponse {
+				sw := dc.GetSwitches()[sc.P01Rack02Switch1_1]
+				nic, found := lo.Find(sw.Nics, func(n *apiv2.SwitchNic) bool {
+					return n.Name == "Ethernet0"
+				})
+				require.True(t, found)
+				sw.MachineConnections = []*apiv2.MachineConnection{
+					{
+						MachineId: sc.Machine2,
+						Nic:       nic,
+					},
+				}
+				sw.ReplaceMode = apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL
+
+				return &adminv2.SwitchServiceMigrateResponse{
+					Switch: sw,
+				}
+			},
+			mods: func() *test.Asserters {
+				return &test.Asserters{
+					Switches: func(switches map[string]*apiv2.Switch) {
+						sw1 := switches[sc.P01Rack02Switch1]
+						sw2 := switches[sc.P01Rack02Switch1_1]
+						sw1.MachineConnections = []*apiv2.MachineConnection{}
+						nic, found := lo.Find(sw2.Nics, func(n *apiv2.SwitchNic) bool {
+							return n.Name == "Ethernet0"
+						})
+						require.True(t, found)
+						sw2.MachineConnections = []*apiv2.MachineConnection{
+							{
+								MachineId: sc.Machine2,
+								Nic:       nic,
 							},
-						},
+						}
+						sw2.ReplaceMode = apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL
 					},
-					Nics: []*apiv2.SwitchNic{
-						{
-							Name:       "Ethernet0",
-							Identifier: "Eth1/1",
-							BgpFilter:  &apiv2.BGPFilter{},
-							State: &apiv2.NicState{
-								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+				}
+			},
+			wantErr: nil,
+		},
+		{
+			name: "migrate from sonic to cumulus",
+			reqFunc: func() *adminv2.SwitchServiceMigrateRequest {
+				return &adminv2.SwitchServiceMigrateRequest{
+					OldSwitch: sc.P02Rack01Switch2,
+					NewSwitch: sc.P02Rack01Switch2_1,
+				}
+			},
+			wantFunc: func() *adminv2.SwitchServiceMigrateResponse {
+
+				sw := dc.GetSwitches()[sc.P02Rack01Switch2_1]
+				nic, found := lo.Find(sw.Nics, func(n *apiv2.SwitchNic) bool {
+					return n.Name == "swp1s0"
+				})
+				require.True(t, found)
+				sw.MachineConnections = []*apiv2.MachineConnection{
+					{
+						MachineId: sc.Machine3,
+						Nic:       nic,
+					},
+				}
+				sw.ReplaceMode = apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL
+
+				return &adminv2.SwitchServiceMigrateResponse{
+					Switch: sw,
+				}
+			},
+			mods: func() *test.Asserters {
+				return &test.Asserters{
+					Switches: func(switches map[string]*apiv2.Switch) {
+						sw1 := switches[sc.P02Rack01Switch2]
+						sw2 := switches[sc.P02Rack01Switch2_1]
+						nic, found := lo.Find(sw2.Nics, func(n *apiv2.SwitchNic) bool {
+							return n.Name == "swp1s0"
+						})
+						require.True(t, found)
+						sw1.MachineConnections = []*apiv2.MachineConnection{}
+						sw2.MachineConnections = []*apiv2.MachineConnection{
+							{
+								MachineId: sc.Machine3,
+								Nic:       nic,
 							},
-						},
+						}
+						sw2.ReplaceMode = apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL
 					},
-					Os: &apiv2.SwitchOS{
-						Vendor: apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
-					},
-				},
+				}
 			},
 			wantErr: nil,
 		},
@@ -829,26 +888,46 @@ func Test_switchServiceServer_Migrate(t *testing.T) {
 			dc.Create(&sc.SwitchesWithMachinesDatacenter)
 			defer dc.Cleanup()
 
+			var (
+				snapshot = dc.Snapshot()
+				want     *adminv2.SwitchServiceMigrateResponse
+				req      *adminv2.SwitchServiceMigrateRequest
+			)
+
+			if tt.reqFunc != nil {
+				req = tt.reqFunc()
+			}
+			if tt.wantFunc != nil {
+				want = tt.wantFunc()
+			}
+
 			s := &switchServiceServer{
 				log:  log,
 				repo: dc.GetTestStore().Store,
 			}
 			if tt.wantErr == nil {
-				test.Validate(t, tt.rq)
+				test.Validate(t, req)
 			}
 
-			got, err := s.Migrate(ctx, tt.rq)
+			got, err := s.Migrate(ctx, req)
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("switchServiceServer.Migrate() error diff = %s", diff)
 				return
 			}
-			if diff := cmp.Diff(tt.want, got,
+			if diff := cmp.Diff(want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
-					&apiv2.Meta{}, "created_at", "updated_at",
+					&apiv2.Meta{}, "created_at", "updated_at", "generation",
 				)); diff != "" {
 				t.Errorf("switchServiceServer.Migrate() diff = %s", diff)
 			}
+
+			var mods *test.Asserters
+			if tt.mods != nil {
+				mods = tt.mods()
+			}
+			err = dc.Assert(snapshot, mods)
+			require.NoError(t, err)
 		})
 	}
 }
