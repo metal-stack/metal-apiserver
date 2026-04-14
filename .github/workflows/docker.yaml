@@ -136,7 +136,7 @@ jobs:
           verbose: true
 
   build:
-    uses: metal-stack/actions-common/.github/workflows/go-build.yaml@main
+    uses: metal-stack/actions-common/.github/workflows/go-build.yaml@626efc6a4f3c6c8d3f2491eb37cf9f8e345a939c
     secrets: inherit
     with:
       build-command: make server
