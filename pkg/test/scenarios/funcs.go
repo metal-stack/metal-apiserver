@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	SwitchFunc = func(id, partition, rack string, ports []string, os *apiv2.SwitchOS, machines ...string) *apiv2.Switch {
+	SwitchFunc = func(id, partition, rack string, ports []string, os *apiv2.SwitchOS, replaceMode apiv2.SwitchReplaceMode, machines ...string) *apiv2.Switch {
 		var (
 			nics []*apiv2.SwitchNic
 			cons []*apiv2.MachineConnection
@@ -39,6 +39,7 @@ var (
 			Partition:          partition,
 			Nics:               nics,
 			Os:                 os,
+			ReplaceMode:        replaceMode,
 			MachineConnections: cons,
 		}
 	}

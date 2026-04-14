@@ -25,8 +25,10 @@ const (
 	P01Rack01 = "p01-rack01"
 	P01Rack02 = "p01-rack02"
 	P01Rack03 = "p01-rack03"
+	P01Rack04 = "p01-rack04"
 	P02Rack01 = "p02-rack01"
 	P02Rack02 = "p02-rack02"
+	P02Rack03 = "p02-rack03"
 
 	Machine1 = "00000000-0000-0000-0000-000000000001"
 	Machine2 = "00000000-0000-0000-0000-000000000002"
@@ -34,20 +36,25 @@ const (
 	Machine4 = "00000000-0000-0000-0000-000000000004"
 	Machine5 = "00000000-0000-0000-0000-000000000005"
 	Machine6 = "00000000-0000-0000-0000-000000000006"
+	Machine7 = "00000000-0000-0000-0000-000000000007"
 
 	P01Rack01Switch1   = "p01-r01leaf01"
 	P01Rack01Switch2   = "p01-r01leaf02"
+	P01Rack01Switch2_1 = "p01-r01leaf02-1"
 	P01Rack02Switch1   = "p01-r02leaf01"
 	P01Rack02Switch1_1 = "p01-r02leaf01-1"
 	P01Rack02Switch2   = "p01-r02leaf02"
 	P01Rack03Switch1   = "p01-r03leaf01"
 	P01Rack03Switch2   = "p01-r03leaf02"
+	P01Rack04Switch1   = "p01-r04leaf01"
 	P02Rack01Switch1   = "p02-r01leaf01"
 	P02Rack01Switch2   = "p02-r01leaf02"
 	P02Rack01Switch2_1 = "p02-r01leaf02-1"
 	P02Rack02Switch1   = "p02-r02leaf01"
 	P02Rack02Switch2   = "p02-r02leaf02"
 	P02Rack02Switch2_1 = "p02-r02leaf02-1"
+	P02Rack03Switch1   = "p02-r03leaf01"
+	P02Rack03Switch2   = "p02-r03leaf02"
 )
 
 var (

@@ -71,8 +71,8 @@ var (
 			},
 		},
 		Switches: []*apiv2.Switch{
-			SwitchFunc(P01Rack01Switch1, Partition1, P01Rack01, []string{"Ethernet0"}, SwitchOSSonic2021),
-			SwitchFunc(P01Rack01Switch2, Partition1, P01Rack01, []string{"Ethernet0"}, SwitchOSSonic2021),
+			SwitchFunc(P01Rack01Switch1, Partition1, P01Rack01, []string{"Ethernet0"}, SwitchOSSonic2021, apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL),
+			SwitchFunc(P01Rack01Switch2, Partition1, P01Rack01, []string{"Ethernet0"}, SwitchOSSonic2021, apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL),
 		},
 		Machines: []*MachineWithLiveliness{
 			MachineFunc(Machine1, Partition1, SizeC1Large, Tenant1Project1, ImageDebian13, metal.MachineLivelinessAlive),

@@ -19,6 +19,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
@@ -708,5 +709,16 @@ func CreateSwitchStatuses(t testing.TB, testStore *testStore, statuses []*api.Sw
 }
 
 func (t *testStore) GetSwitchStatus(id string) (*metal.SwitchStatus, error) {
-	return t.ds.SwitchStatus().Get(t.t.Context(), id)
+	status, err := t.ds.SwitchStatus().Get(t.t.Context(), id)
+	if err != nil && !errorutil.IsNotFound(err) {
+		return nil, err
+	}
+	if status == nil {
+		status = &metal.SwitchStatus{
+			Base: metal.Base{
+				ID: id,
+			},
+		}
+	}
+	return status, nil
 }

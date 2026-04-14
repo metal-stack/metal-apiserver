@@ -22,23 +22,29 @@ var (
 			},
 		},
 		Switches: []*apiv2.Switch{
-			SwitchFunc(P01Rack01Switch1, Partition1, P01Rack01, []string{"Ethernet0", "Ethernet1"}, SwitchOSSonic2021, Machine1),
-			SwitchFunc(P01Rack01Switch2, Partition1, P01Rack01, []string{"Ethernet0", "Ethernet1"}, SwitchOSSonic2021, Machine1),
+			SwitchFunc(P01Rack01Switch1, Partition1, P01Rack01, []string{"Ethernet0", "Ethernet1"}, SwitchOSSonic2021, apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL, Machine1),
+			SwitchFunc(P01Rack01Switch2, Partition1, P01Rack01, []string{"Ethernet0", "Ethernet1"}, SwitchOSSonic2021, apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL, Machine1),
+			SwitchFunc(P01Rack01Switch2_1, Partition1, P01Rack01, []string{"Ethernet0", "Ethernet1"}, SwitchOSSonic2021, apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE),
 
-			SwitchFunc(P01Rack02Switch1, Partition1, P01Rack02, []string{"swp1s0", "swp1s1"}, SwitchOSCumulus, Machine2),
-			SwitchFunc(P01Rack02Switch1_1, Partition1, P01Rack02, []string{"Ethernet0", "Ethernet1"}, SwitchOSSonic2021),
-			SwitchFunc(P01Rack02Switch2, Partition1, P01Rack02, []string{"Ethernet0", "Ethernet1"}, SwitchOSSonic2021, Machine2),
+			SwitchFunc(P01Rack02Switch1, Partition1, P01Rack02, []string{"swp1s0", "swp1s1"}, SwitchOSCumulus, apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL, Machine2),
+			SwitchFunc(P01Rack02Switch1_1, Partition1, P01Rack02, []string{"Ethernet0", "Ethernet1"}, SwitchOSSonic2021, apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL),
+			SwitchFunc(P01Rack02Switch2, Partition1, P01Rack02, []string{"Ethernet0", "Ethernet1"}, SwitchOSSonic2021, apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL, Machine2),
 
-			SwitchFunc(P01Rack03Switch1, Partition1, P01Rack03, []string{"Ethernet0", "Ethernet1"}, SwitchOSSonic2022),
-			SwitchFunc(P01Rack03Switch2, Partition1, P01Rack03, []string{"swp1s0", "swp1s1"}, SwitchOSCumulus),
+			SwitchFunc(P01Rack03Switch1, Partition1, P01Rack03, []string{"Ethernet0", "Ethernet1"}, SwitchOSSonic2022, apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL),
+			SwitchFunc(P01Rack03Switch2, Partition1, P01Rack03, []string{"swp1s0", "swp1s1"}, SwitchOSCumulus, apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL),
 
-			SwitchFunc(P02Rack01Switch1, Partition2, P02Rack01, []string{"Ethernet0", "Ethernet1"}, SwitchOSSonic2021, Machine3),
-			SwitchFunc(P02Rack01Switch2, Partition2, P02Rack01, []string{"Ethernet0", "Ethernet1"}, SwitchOSSonic2021, Machine3),
-			SwitchFunc(P02Rack01Switch2_1, Partition2, P02Rack01, []string{"swp1s0", "swp1s1"}, SwitchOSCumulus),
+			SwitchFunc(P01Rack04Switch1, Partition1, P01Rack04, []string{"Ethernet0"}, SwitchOSSonic2021, apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE),
 
-			SwitchFunc(P02Rack02Switch1, Partition2, P02Rack02, []string{"Ethernet0", "Ethernet1"}, SwitchOSSonic2021, Machine4, Machine5),
-			SwitchFunc(P02Rack02Switch2, Partition2, P02Rack02, []string{"Ethernet0", "Ethernet1"}, SwitchOSSonic2021, Machine4, Machine5),
-			SwitchFunc(P02Rack02Switch2_1, Partition2, P02Rack02, []string{"Ethernet0", "Ethernet1"}, SwitchOSSonic2021, Machine6),
+			SwitchFunc(P02Rack01Switch1, Partition2, P02Rack01, []string{"Ethernet0", "Ethernet1"}, SwitchOSSonic2021, apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL, Machine3),
+			SwitchFunc(P02Rack01Switch2, Partition2, P02Rack01, []string{"Ethernet0", "Ethernet1"}, SwitchOSSonic2021, apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL, Machine3),
+			SwitchFunc(P02Rack01Switch2_1, Partition2, P02Rack01, []string{"swp1s0", "swp1s1"}, SwitchOSCumulus, apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL),
+
+			SwitchFunc(P02Rack02Switch1, Partition2, P02Rack02, []string{"Ethernet0", "Ethernet1"}, SwitchOSSonic2021, apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL, Machine4, Machine5),
+			SwitchFunc(P02Rack02Switch2, Partition2, P02Rack02, []string{"Ethernet0", "Ethernet1"}, SwitchOSSonic2021, apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL, Machine4, Machine5),
+			SwitchFunc(P02Rack02Switch2_1, Partition2, P02Rack02, []string{"Ethernet0", "Ethernet1"}, SwitchOSSonic2021, apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL, Machine6),
+
+			SwitchFunc(P02Rack03Switch1, Partition2, P02Rack03, []string{"Ethernet0", "Ethernet1"}, SwitchOSSonic2021, apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL, Machine7),
+			SwitchFunc(P02Rack03Switch2, Partition2, P02Rack03, []string{"swp1s0", "swp1s1"}, SwitchOSSonic2021, apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE, Machine7),
 		},
 		Machines: []*MachineWithLiveliness{
 			MachineFunc(Machine1, Partition1, SizeC1Large, "", "", metal.MachineLivelinessAlive),
@@ -47,6 +53,7 @@ var (
 			MachineFunc(Machine4, Partition2, SizeC1Large, "", "", metal.MachineLivelinessAlive),
 			MachineFunc(Machine5, Partition2, SizeC1Large, "", "", metal.MachineLivelinessAlive),
 			MachineFunc(Machine6, Partition2, SizeC1Large, "", "", metal.MachineLivelinessAlive),
+			MachineFunc(Machine7, Partition2, SizeC1Large, "", "", metal.MachineLivelinessAlive),
 		},
 	}
 )
