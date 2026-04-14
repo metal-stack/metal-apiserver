@@ -17,21 +17,7 @@ env:
 
 jobs:
   lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Set up Go 1.26
-        uses: actions/setup-go@v6
-        with:
-          go-version: '1.26'
-          check-latest: true
-          cache: false
-
-      - name: Lint Go
-        uses: golangci/golangci-lint-action@v9
+    uses: metal-stack/actions-common/.github/workflows/go-lint.yaml@main
 
   tests:
     name: All tests succeeded
