@@ -463,67 +463,70 @@ func Test_switchServiceServer_Register(t *testing.T) {
 	}
 }
 
-// func Test_switchServiceServer_Get(t *testing.T) {
-// 	t.Parallel()
+func Test_switchServiceServer_Get(t *testing.T) {
+	t.Parallel()
 
-// 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-// 	ctx := t.Context()
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	ctx := t.Context()
 
-// 	dc := test.NewDatacenter(t, log)
-// 	defer dc.Close()
-// 	dc.Create(&sc.SwitchesWithMachinesDatacenter)
+	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
+	dc.Create(&sc.SwitchesWithMachinesDatacenter)
+	snapshot := dc.Snapshot()
 
-// 	tests := []struct {
-// 		name    string
-// 		rq      *infrav2.SwitchServiceGetRequest
-// 		want    *infrav2.SwitchServiceGetResponse
-// 		wantErr error
-// 	}{
-// 		{
-// 			name: "get existing",
-// 			rq: &infrav2.SwitchServiceGetRequest{
-// 				Id: sw1.Switch.Id,
-// 			},
-// 			want: &infrav2.SwitchServiceGetResponse{
-// 				Switch: sw1.Switch,
-// 			},
-// 			wantErr: nil,
-// 		},
-// 		{
-// 			name: "get non-existing",
-// 			rq: &infrav2.SwitchServiceGetRequest{
-// 				Id: "sw50",
-// 			},
-// 			want:    nil,
-// 			wantErr: errorutil.NotFound("no switch with id \"sw50\" found"),
-// 		},
-// 	}
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			s := &switchServiceServer{
-// 				log:  log,
-// 				repo: testStore.Store,
-// 			}
+	tests := []struct {
+		name    string
+		rq      *infrav2.SwitchServiceGetRequest
+		want    *infrav2.SwitchServiceGetResponse
+		wantErr error
+	}{
+		{
+			name: "get existing",
+			rq: &infrav2.SwitchServiceGetRequest{
+				Id: sc.P01Rack01Switch1,
+			},
+			want: &infrav2.SwitchServiceGetResponse{
+				Switch: dc.GetSwitches()[sc.P01Rack01Switch1],
+			},
+			wantErr: nil,
+		},
+		{
+			name: "get non-existing",
+			rq: &infrav2.SwitchServiceGetRequest{
+				Id: "sw50",
+			},
+			want:    nil,
+			wantErr: errorutil.NotFound("no switch with id \"sw50\" found"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &switchServiceServer{
+				log:  log,
+				repo: dc.GetTestStore().Store,
+			}
 
-// 			if tt.wantErr == nil {
-// 				test.Validate(t, tt.rq)
-// 			}
+			if tt.wantErr == nil {
+				test.Validate(t, tt.rq)
+			}
 
-// 			got, err := s.Get(ctx, tt.rq)
-// 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
-// 				t.Errorf("switchServiceServer.Get() error diff = %s", diff)
-// 				return
-// 			}
-// 			if diff := cmp.Diff(tt.want, got,
-// 				protocmp.Transform(),
-// 				protocmp.IgnoreFields(
-// 					&apiv2.Meta{}, "created_at", "updated_at",
-// 				)); diff != "" {
-// 				t.Errorf("switchServiceServer.Get() diff = %s", diff)
-// 			}
-// 		})
-// 	}
-// }
+			got, err := s.Get(ctx, tt.rq)
+			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("switchServiceServer.Get() error diff = %s", diff)
+				return
+			}
+			if diff := cmp.Diff(tt.want, got,
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				)); diff != "" {
+				t.Errorf("switchServiceServer.Get() diff = %s", diff)
+			}
+			err = dc.Assert(snapshot, nil)
+			require.NoError(t, err)
+		})
+	}
+}
 
 // func Test_switchServiceServer_Heartbeat(t *testing.T) {
 // 	t.Parallel()
