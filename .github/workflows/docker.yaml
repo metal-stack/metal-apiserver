@@ -11,10 +11,6 @@ on:
     branches:
       - main
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-
 jobs:
   lint:
     uses: metal-stack/actions-common/.github/workflows/go-lint.yaml@main
