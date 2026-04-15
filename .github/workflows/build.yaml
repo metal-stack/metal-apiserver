@@ -1,5 +1,5 @@
 ---
-name: Docker Build Action
+name: Build Action
 on:
   pull_request:
     branches:
@@ -12,12 +12,15 @@ on:
       - main
 
 jobs:
-  build:
-    uses: metal-stack/actions-common/.github/workflows/go-build.yaml@main
+  go-build:
+    uses: metal-stack/actions-common/.github/workflows/go-build.yaml@v1
     secrets: inherit
     with:
       test: false
       build-command: make server
+
+  draft:
+    uses: metal-stack/actions-common/.github/workflows/release-drafter.yaml@v1
 
   tests:
     name: All tests succeeded
