@@ -16,6 +16,11 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+const (
+	// maybe we need to make this configurable?
+	audience = "metal-stack"
+)
+
 var (
 	DefaultExpiration = time.Hour * 8
 	MaxExpiration     = 365 * 24 * time.Hour
@@ -52,6 +57,8 @@ func NewJWT(tokenType apiv2.TokenType, subject, issuer string, expires time.Dura
 		// see the semantics of the registered claims here:
 		//   https://en.wikipedia.org/wiki/JSON_Web_Token#Standard_fields
 		RegisteredClaims: jwt.RegisteredClaims{
+			Audience: jwt.ClaimStrings{audience},
+
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
 			IssuedAt:  jwt.NewNumericDate(issuedAt),
 			NotBefore: jwt.NewNumericDate(issuedAt),
