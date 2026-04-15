@@ -12,8 +12,12 @@ on:
       - main
 
 jobs:
-  lint:
-    uses: metal-stack/actions-common/.github/workflows/go-lint.yaml@main
+  build:
+    uses: metal-stack/actions-common/.github/workflows/go-build.yaml@main
+    secrets: inherit
+    with:
+      test: false
+      build-command: make server
 
   tests:
     name: All tests succeeded
@@ -130,12 +134,6 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage-*.out
           verbose: true
-
-  build:
-    uses: metal-stack/actions-common/.github/workflows/go-build.yaml@5c49c5eb25c48a1a4abdeb3008d1b325b09633e3
-    secrets: inherit
-    with:
-      build-command: make server
 
   bench:
     name: Benchmark
