@@ -12,6 +12,7 @@ import (
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
 	"github.com/samber/lo"
@@ -606,8 +607,6 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 							VrfName:               "Vrf200",
 							BgpState:              apiv2.BGPState_BGP_STATE_CONNECT,
 							BgpTimerUpEstablished: &timestamppb.Timestamp{},
-							SentPrefixCounter:     0,
-							AcceptedPrefixCounter: 0,
 						}
 						sw.MachineConnections[0].Nic.State.Actual = apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN
 					},
@@ -621,173 +620,206 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 			},
 			wantErr: nil,
 		},
-		// {
-		// 	name: "switch status exists, error occurred, no change",
-		// 	rq: &infrav2.SwitchServiceHeartbeatRequest{
-		// 		Id:       sw1.Switch.Id,
-		// 		Duration: durationpb.New(time.Second),
-		// 		Error:    new("sync failed"),
-		// 		PortStates: map[string]apiv2.SwitchPortStatus{
-		// 			"Ethernet0": apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
-		// 			"Ethernet1": apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
-		// 		},
-		// 		BgpPortStates: map[string]*apiv2.SwitchBGPPortState{
-		// 			"Ethernet1": {
-		// 				Neighbor:              "Ethernet2",
-		// 				PeerGroup:             "external",
-		// 				VrfName:               "Vrf200",
-		// 				BgpState:              apiv2.BGPState_BGP_STATE_CONNECT,
-		// 				BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Unix(), 0)),
-		// 				SentPrefixCounter:     0,
-		// 				AcceptedPrefixCounter: 0,
-		// 			},
-		// 		},
-		// 	},
-		// 	want: &infrav2.SwitchServiceHeartbeatResponse{
-		// 		Id: sw1.Switch.Id,
-		// 		LastSync: &apiv2.SwitchSync{
-		// 			Time:     timestamppb.New(now),
-		// 			Duration: durationpb.New(time.Second),
-		// 			Error:    nil,
-		// 		},
-		// 		LastSyncError: &apiv2.SwitchSync{
-		// 			Duration: durationpb.New(time.Second),
-		// 			Error:    new("sync failed"),
-		// 		},
-		// 	},
-		// 	wantSwitch: sw1.Switch,
-		// 	wantErr:    nil,
-		// },
-		// {
-		// 	name: "error occurred, update anyway",
-		// 	rq: &infrav2.SwitchServiceHeartbeatRequest{
-		// 		Id:       sw2.Switch.Id,
-		// 		Duration: durationpb.New(time.Second),
-		// 		Error:    new("failed to sync"),
-		// 		PortStates: map[string]apiv2.SwitchPortStatus{
-		// 			"Ethernet0": apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-		// 			"Ethernet1": apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
-		// 		},
-		// 		BgpPortStates: map[string]*apiv2.SwitchBGPPortState{
-		// 			"Ethernet1": {
-		// 				Neighbor:              "Ethernet2",
-		// 				PeerGroup:             "external",
-		// 				VrfName:               "Vrf200",
-		// 				BgpState:              apiv2.BGPState_BGP_STATE_ESTABLISHED,
-		// 				BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Unix(), 0)),
-		// 				SentPrefixCounter:     0,
-		// 				AcceptedPrefixCounter: 0,
-		// 			},
-		// 		},
-		// 	},
-		// 	want: &infrav2.SwitchServiceHeartbeatResponse{
-		// 		Id: sw2.Switch.Id,
-		// 		LastSync: &apiv2.SwitchSync{
-		// 			Duration: durationpb.New(time.Second),
-		// 			Error:    nil,
-		// 		},
-		// 		LastSyncError: &apiv2.SwitchSync{
-		// 			Duration: durationpb.New(time.Second),
-		// 			Error:    new("failed to sync"),
-		// 		},
-		// 	},
-		// 	wantSwitch: &apiv2.Switch{
-		// 		Id:          sw2.Switch.Id,
-		// 		Partition:   "partition-a",
-		// 		ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
-		// 		Meta:        &apiv2.Meta{Generation: 1},
-		// 		Rack:        new("r02"),
-		// 		Nics: []*apiv2.SwitchNic{
-		// 			{
-		// 				Name:       "Ethernet0",
-		// 				Identifier: "Eth1/1",
-		// 				BgpFilter:  &apiv2.BGPFilter{},
-		// 				State: &apiv2.NicState{
-		// 					Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-		// 				},
-		// 			},
-		// 			{
-		// 				Name:       "Ethernet1",
-		// 				Identifier: "Eth1/2",
-		// 				BgpFilter:  &apiv2.BGPFilter{},
-		// 				State: &apiv2.NicState{
-		// 					Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
-		// 					Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
-		// 				},
-		// 				BgpPortState: &apiv2.SwitchBGPPortState{
-		// 					Neighbor:              "Ethernet2",
-		// 					PeerGroup:             "external",
-		// 					VrfName:               "Vrf200",
-		// 					BgpState:              apiv2.BGPState_BGP_STATE_ESTABLISHED,
-		// 					BgpTimerUpEstablished: timestamppb.New(time.Unix(now.Unix(), 0)),
-		// 					SentPrefixCounter:     0,
-		// 					AcceptedPrefixCounter: 0,
-		// 				},
-		// 			},
-		// 		},
-		// 		Os: &apiv2.SwitchOS{
-		// 			Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
-		// 			Version:          "ec202111",
-		// 			MetalCoreVersion: "v0.13.0",
-		// 		},
-		// 	},
-		// 	wantErr: nil,
-		// },
-		// {
-		// 	name: "no error occurred",
-		// 	rq: &infrav2.SwitchServiceHeartbeatRequest{
-		// 		Id:       sw1.Switch.Id,
-		// 		Duration: durationpb.New(2 * time.Second),
-		// 		PortStates: map[string]apiv2.SwitchPortStatus{
-		// 			"Ethernet0": apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-		// 			"Ethernet1": apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNKNOWN,
-		// 		},
-		// 		BgpPortStates: map[string]*apiv2.SwitchBGPPortState{},
-		// 	},
-		// 	want: &infrav2.SwitchServiceHeartbeatResponse{
-		// 		Id: sw1.Switch.Id,
-		// 		LastSync: &apiv2.SwitchSync{
-		// 			Duration: durationpb.New(2 * time.Second),
-		// 			Error:    nil,
-		// 		},
-		// 		LastSyncError: &apiv2.SwitchSync{
-		// 			Duration: durationpb.New(time.Second),
-		// 			Error:    new("sync failed"),
-		// 		},
-		// 	},
-		// 	wantSwitch: &apiv2.Switch{
-		// 		Id:          sw1.Switch.Id,
-		// 		Partition:   "partition-a",
-		// 		ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
-		// 		Meta:        &apiv2.Meta{Generation: 1},
-		// 		Rack:        new("r01"),
-		// 		Nics: []*apiv2.SwitchNic{
-		// 			{
-		// 				Name:       "Ethernet0",
-		// 				Identifier: "Eth1/1",
-		// 				BgpFilter:  &apiv2.BGPFilter{},
-		// 				State: &apiv2.NicState{
-		// 					Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-		// 				},
-		// 			},
-		// 			{
-		// 				Name:       "Ethernet1",
-		// 				Identifier: "Eth1/2",
-		// 				BgpFilter:  &apiv2.BGPFilter{},
-		// 				State: &apiv2.NicState{
-		// 					Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
-		// 					Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNKNOWN,
-		// 				},
-		// 			},
-		// 		},
-		// 		Os: &apiv2.SwitchOS{
-		// 			Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
-		// 			Version:          "ec202111",
-		// 			MetalCoreVersion: "v0.13.0",
-		// 		},
-		// 	},
-		// 	wantErr: nil,
-		// },
+		{
+			name: "switch status exists, error occurred, no change",
+			rq: func() *infrav2.SwitchServiceHeartbeatRequest {
+				err := dc.GetTestStore().Store.Switch().AdditionalMethods().SetSwitchStatus(ctx, &api.SwitchStatus{
+					ID: sc.P01Rack01Switch1,
+					LastSync: &apiv2.SwitchSync{
+						Duration: &durationpb.Duration{},
+					},
+					LastSyncError: &apiv2.SwitchSync{
+						Error: new("previous error"),
+					},
+				})
+				require.NoError(t, err)
+
+				return &infrav2.SwitchServiceHeartbeatRequest{
+					Id:       sc.P01Rack01Switch1,
+					Duration: durationpb.New(time.Second),
+					Error:    new("sync failed"),
+				}
+			},
+			want: func() *infrav2.SwitchServiceHeartbeatResponse {
+				return &infrav2.SwitchServiceHeartbeatResponse{
+					Id: sc.P01Rack01Switch1,
+					LastSync: &apiv2.SwitchSync{
+						Duration: &durationpb.Duration{},
+					},
+					LastSyncError: &apiv2.SwitchSync{
+						Duration: durationpb.New(time.Second),
+						Error:    new("sync failed"),
+					},
+				}
+			},
+			mods: func() *test.Asserters {
+				return &test.Asserters{
+					Switches: func(switches map[string]*apiv2.Switch) {
+						sw := switches[sc.P01Rack01Switch1]
+						sw.LastSync = &apiv2.SwitchSync{
+							Duration: &durationpb.Duration{},
+						}
+						sw.LastSyncError = &apiv2.SwitchSync{
+							Duration: durationpb.New(time.Second),
+							Error:    new("sync failed"),
+						}
+					},
+					SwitchStatuses: func(switchStatuses map[string]*metal.SwitchStatus) {
+						switchStatuses[sc.P01Rack01Switch1] = &metal.SwitchStatus{
+							Base:     metal.Base{ID: sc.P01Rack01Switch1},
+							LastSync: &metal.SwitchSync{},
+							LastSyncError: &metal.SwitchSync{
+								Duration: time.Second,
+								Error:    new("sync failed"),
+							},
+						}
+					},
+				}
+			},
+			wantErr: nil,
+		},
+		{
+			name: "error occurred, update anyway",
+			rq: func() *infrav2.SwitchServiceHeartbeatRequest {
+				err := dc.GetTestStore().Switch().AdditionalMethods().SetSwitchStatus(ctx, &api.SwitchStatus{
+					ID: sc.P02Rack01Switch2,
+					LastSync: &apiv2.SwitchSync{
+						Duration: durationpb.New(time.Second),
+					},
+				})
+				require.NoError(t, err)
+
+				return &infrav2.SwitchServiceHeartbeatRequest{
+					Id:       sc.P02Rack01Switch2,
+					Duration: durationpb.New(time.Second),
+					Error:    new("failed to sync"),
+					PortStates: map[string]apiv2.SwitchPortStatus{
+						"Ethernet0": apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+						"Ethernet1": apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
+					},
+					BgpPortStates: map[string]*apiv2.SwitchBGPPortState{
+						"Ethernet1": {
+							Neighbor:              "Ethernet2",
+							PeerGroup:             "external",
+							VrfName:               "Vrf200",
+							BgpState:              apiv2.BGPState_BGP_STATE_ESTABLISHED,
+							BgpTimerUpEstablished: &timestamppb.Timestamp{},
+						},
+					},
+				}
+			},
+			want: func() *infrav2.SwitchServiceHeartbeatResponse {
+				return &infrav2.SwitchServiceHeartbeatResponse{
+					Id: sc.P02Rack01Switch2,
+					LastSync: &apiv2.SwitchSync{
+						Duration: durationpb.New(time.Second),
+					},
+					LastSyncError: &apiv2.SwitchSync{
+						Duration: durationpb.New(time.Second),
+						Error:    new("failed to sync"),
+					},
+				}
+			},
+			mods: func() *test.Asserters {
+				return &test.Asserters{
+					Switches: func(switches map[string]*apiv2.Switch) {
+						sw := switches[sc.P02Rack01Switch2]
+						sw.LastSync = &apiv2.SwitchSync{
+							Duration: durationpb.New(time.Second),
+						}
+						sw.LastSyncError = &apiv2.SwitchSync{
+							Duration: durationpb.New(time.Second),
+							Error:    new("failed to sync"),
+						}
+						sw.Nics[1].BgpPortState = &apiv2.SwitchBGPPortState{
+							Neighbor:              "Ethernet2",
+							PeerGroup:             "external",
+							VrfName:               "Vrf200",
+							BgpState:              apiv2.BGPState_BGP_STATE_ESTABLISHED,
+							BgpTimerUpEstablished: &timestamppb.Timestamp{},
+						}
+						sw.Nics[1].State.Actual = apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN
+					},
+					SwitchStatuses: func(switchStatuses map[string]*metal.SwitchStatus) {
+						switchStatuses[sc.P02Rack01Switch2] = &metal.SwitchStatus{
+							Base: metal.Base{ID: sc.P02Rack01Switch2},
+							LastSync: &metal.SwitchSync{
+								Duration: time.Second,
+							},
+							LastSyncError: &metal.SwitchSync{
+								Duration: time.Second,
+								Error:    new("failed to sync"),
+							},
+						}
+					},
+				}
+			},
+			wantErr: nil,
+		},
+		{
+			name: "no error occurred",
+			rq: func() *infrav2.SwitchServiceHeartbeatRequest {
+				err := dc.GetTestStore().Switch().AdditionalMethods().SetSwitchStatus(ctx, &api.SwitchStatus{
+					ID:       sc.P01Rack02Switch1,
+					LastSync: &apiv2.SwitchSync{},
+					LastSyncError: &apiv2.SwitchSync{
+						Duration: durationpb.New(time.Second),
+						Error:    new("sync failed"),
+					},
+				})
+				require.NoError(t, err)
+
+				return &infrav2.SwitchServiceHeartbeatRequest{
+					Id:       sc.P01Rack02Switch1,
+					Duration: durationpb.New(2 * time.Second),
+					PortStates: map[string]apiv2.SwitchPortStatus{
+						"swp1s0": apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+						"swp1s1": apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNKNOWN,
+					},
+					BgpPortStates: map[string]*apiv2.SwitchBGPPortState{},
+				}
+			},
+			want: func() *infrav2.SwitchServiceHeartbeatResponse {
+				return &infrav2.SwitchServiceHeartbeatResponse{
+					Id: sc.P01Rack02Switch1,
+					LastSync: &apiv2.SwitchSync{
+						Duration: durationpb.New(2 * time.Second),
+					},
+					LastSyncError: &apiv2.SwitchSync{
+						Duration: durationpb.New(time.Second),
+						Error:    new("sync failed"),
+					},
+				}
+			},
+			mods: func() *test.Asserters {
+				return &test.Asserters{
+					Switches: func(switches map[string]*apiv2.Switch) {
+						sw := switches[sc.P01Rack02Switch1]
+						sw.Nics[1].State.Actual = apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNKNOWN
+						sw.LastSync = &apiv2.SwitchSync{
+							Duration: durationpb.New(2 * time.Second),
+						}
+						sw.LastSyncError = &apiv2.SwitchSync{
+							Duration: durationpb.New(time.Second),
+							Error:    new("sync failed"),
+						}
+					},
+					SwitchStatuses: func(switchStatuses map[string]*metal.SwitchStatus) {
+						switchStatuses[sc.P01Rack02Switch1] = &metal.SwitchStatus{
+							Base: metal.Base{ID: sc.P01Rack02Switch1},
+							LastSync: &metal.SwitchSync{
+								Duration: 2 * time.Second,
+							},
+							LastSyncError: &metal.SwitchSync{
+								Duration: time.Second,
+								Error:    new("sync failed"),
+							},
+						}
+					},
+				}
+			},
+			wantErr: nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

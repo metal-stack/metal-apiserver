@@ -97,7 +97,7 @@ func (dc *Datacenter) Create(spec *scenarios.DatacenterSpec) {
 	dc.createNetworks(spec)
 	dc.createIPs(spec)
 	dc.createMachines(spec)
-	dc.createSwitchesAndStatuses(spec)
+	dc.createSwitches(spec)
 
 	// this is done after creating all currentEntities because some currentEntities affect other currentEntities upon creation and we want to start of with a consistent state between database and datacenter
 	currentEntities, err := getCurrentEntities(dc.t.Context(), dc.testStore)
@@ -372,18 +372,11 @@ func (dc *Datacenter) createMachines(spec *scenarios.DatacenterSpec) {
 	}
 }
 
-func (dc *Datacenter) createSwitchesAndStatuses(spec *scenarios.DatacenterSpec) {
+func (dc *Datacenter) createSwitches(spec *scenarios.DatacenterSpec) {
 	reqs := lo.Map(spec.Switches, func(sw *apiv2.Switch, _ int) *api.SwitchServiceCreateRequest {
 		return &api.SwitchServiceCreateRequest{Switch: sw}
 	})
 	CreateSwitches(dc.t, dc.testStore, reqs)
-
-	// statuses := lo.Map(spec.Switches, func(sw *apiv2.Switch, _ int) *api.SwitchStatus {
-	// 	return &api.SwitchStatus{
-	// 		ID: sw.Id,
-	// 	}
-	// })
-	// CreateSwitchStatuses(dc.t, dc.testStore, statuses)
 }
 
 func (e *entities) deepCopy() (*entities, error) {
