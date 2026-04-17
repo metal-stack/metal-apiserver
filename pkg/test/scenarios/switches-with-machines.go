@@ -54,7 +54,7 @@ var (
 			MachineFunc(Machine5, Partition2, SizeC1Large, "", "", metal.MachineLivelinessAlive),
 			MachineFunc(Machine6, Partition2, SizeC1Large, "", "", metal.MachineLivelinessAlive),
 			MachineFunc(Machine7, Partition2, SizeC1Large, "", "", metal.MachineLivelinessAlive),
-			MachineFunc(Machine8, Partition2, SizeC1Large, "", "", metal.MachineLivelinessAlive),
+			// MachineFunc(Machine8, Partition2, SizeC1Large, "", "", metal.MachineLivelinessAlive),
 		},
 	}
 )

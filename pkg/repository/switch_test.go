@@ -471,7 +471,7 @@ func Test_convertMachineConnections(t *testing.T) {
 			},
 			nics: []*apiv2.SwitchNic{
 				{
-					Identifier: "Eth1/1",
+					Name: "Ethernet0",
 				},
 			},
 			want: []*apiv2.MachineConnection{},
@@ -483,7 +483,7 @@ func Test_convertMachineConnections(t *testing.T) {
 					{
 						MachineID: "machine01",
 						Nic: metal.Nic{
-							Identifier: "Eth1/1",
+							Name: "Ethernet0",
 						},
 					},
 				},
@@ -491,30 +491,30 @@ func Test_convertMachineConnections(t *testing.T) {
 					{
 						MachineID: "machine02",
 						Nic: metal.Nic{
-							Identifier: "Eth1/2",
+							Name: "Ethernet1",
 						},
 					},
 				},
 			},
 			nics: []*apiv2.SwitchNic{
 				{
-					Identifier: "Eth1/1",
+					Name: "Ethernet0",
 				},
 				{
-					Identifier: "Eth1/2",
+					Name: "Ethernet1",
 				},
 			},
 			want: []*apiv2.MachineConnection{
 				{
 					MachineId: "machine01",
 					Nic: &apiv2.SwitchNic{
-						Identifier: "Eth1/1",
+						Name: "Ethernet0",
 					},
 				},
 				{
 					MachineId: "machine02",
 					Nic: &apiv2.SwitchNic{
-						Identifier: "Eth1/2",
+						Name: "Ethernet1",
 					},
 				},
 			},
@@ -526,36 +526,36 @@ func Test_convertMachineConnections(t *testing.T) {
 					{
 						MachineID: "machine01",
 						Nic: metal.Nic{
-							Identifier: "Eth1/1",
+							Name: "Ethernet0",
 						},
 					},
 					{
 						MachineID: "machine01",
 						Nic: metal.Nic{
-							Identifier: "Eth1/2",
+							Name: "Ethernet1",
 						},
 					},
 				},
 			},
 			nics: []*apiv2.SwitchNic{
 				{
-					Identifier: "Eth1/1",
+					Name: "Ethernet0",
 				},
 				{
-					Identifier: "Eth1/2",
+					Name: "Ethernet1",
 				},
 			},
 			want: []*apiv2.MachineConnection{
 				{
 					MachineId: "machine01",
 					Nic: &apiv2.SwitchNic{
-						Identifier: "Eth1/1",
+						Name: "Ethernet0",
 					},
 				},
 				{
 					MachineId: "machine01",
 					Nic: &apiv2.SwitchNic{
-						Identifier: "Eth1/2",
+						Name: "Ethernet1",
 					},
 				},
 			},
@@ -567,29 +567,26 @@ func Test_convertMachineConnections(t *testing.T) {
 					{
 						MachineID: "machine01",
 						Nic: metal.Nic{
-							Name:       "Ethernet0",
-							Identifier: "Eth1/1",
+							Name: "Ethernet0",
 						},
 					},
 					{
 						MachineID: "machine01",
 						Nic: metal.Nic{
-							Name:       "Ethernet1",
-							Identifier: "Eth1/2",
+							Name: "Ethernet1",
 						},
 					},
 					{
 						MachineID: "machine01",
 						Nic: metal.Nic{
-							Name:       "Ethernet2",
-							Identifier: "Eth1/3",
+							Name: "Ethernet2",
 						},
 					},
 				},
 			},
 			nics: []*apiv2.SwitchNic{
 				{
-					Identifier: "Eth1/1",
+					Name: "Ethernet0",
 				},
 			},
 			want:    nil,
