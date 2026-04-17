@@ -325,7 +325,7 @@ func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *ap
 
 	metalMachine, err := r.s.ds.Machine().Get(ctx, m.Uuid)
 	if err != nil && !errorutil.IsNotFound(err) {
-		return err
+		return errorutil.Internal("failed to connect machine with switches: %w", err)
 	}
 
 	if metalMachine != nil {
