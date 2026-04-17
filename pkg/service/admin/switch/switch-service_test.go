@@ -436,7 +436,6 @@ func Test_switchServiceServer_Update(t *testing.T) {
 			want:    nil,
 			wantErr: errorutil.InvalidArgument("cannot update switch os vendor from Cumulus to SONiC, use replace instead"),
 		},
-		// TODO: more validation tests
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
