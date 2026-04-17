@@ -378,12 +378,12 @@ func (dc *Datacenter) createSwitchesAndStatuses(spec *scenarios.DatacenterSpec) 
 	})
 	CreateSwitches(dc.t, dc.testStore, reqs)
 
-	statuses := lo.Map(spec.Switches, func(sw *apiv2.Switch, _ int) *api.SwitchStatus {
-		return &api.SwitchStatus{
-			ID: sw.Id,
-		}
-	})
-	CreateSwitchStatuses(dc.t, dc.testStore, statuses)
+	// statuses := lo.Map(spec.Switches, func(sw *apiv2.Switch, _ int) *api.SwitchStatus {
+	// 	return &api.SwitchStatus{
+	// 		ID: sw.Id,
+	// 	}
+	// })
+	// CreateSwitchStatuses(dc.t, dc.testStore, statuses)
 }
 
 func (e *entities) deepCopy() (*entities, error) {

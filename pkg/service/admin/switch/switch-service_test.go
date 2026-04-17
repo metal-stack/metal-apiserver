@@ -119,7 +119,11 @@ func Test_switchServiceServer_List(t *testing.T) {
 			},
 			wantFunc: func() *adminv2.SwitchServiceListResponse {
 				return &adminv2.SwitchServiceListResponse{
-					Switches: []*apiv2.Switch{dc.GetSwitches()[sc.P01Rack01Switch1], dc.GetSwitches()[sc.P01Rack01Switch2]},
+					Switches: []*apiv2.Switch{
+						dc.GetSwitches()[sc.P01Rack01Switch1],
+						dc.GetSwitches()[sc.P01Rack01Switch2],
+						dc.GetSwitches()[sc.P01Rack01Switch2_1],
+					},
 				}
 			},
 		},
@@ -148,8 +152,12 @@ func Test_switchServiceServer_List(t *testing.T) {
 					Switches: []*apiv2.Switch{
 						dc.GetSwitches()[sc.P02Rack01Switch1],
 						dc.GetSwitches()[sc.P02Rack01Switch2],
+						dc.GetSwitches()[sc.P02Rack01Switch2_1],
 						dc.GetSwitches()[sc.P02Rack02Switch1],
 						dc.GetSwitches()[sc.P02Rack02Switch2],
+						dc.GetSwitches()[sc.P02Rack02Switch2_1],
+						dc.GetSwitches()[sc.P02Rack03Switch1],
+						dc.GetSwitches()[sc.P02Rack03Switch2],
 					},
 				}
 			},
@@ -166,7 +174,10 @@ func Test_switchServiceServer_List(t *testing.T) {
 			wantFunc: func() *adminv2.SwitchServiceListResponse {
 				return &adminv2.SwitchServiceListResponse{
 					Switches: []*apiv2.Switch{
+						dc.GetSwitches()[sc.P01Rack02Switch1],
 						dc.GetSwitches()[sc.P01Rack03Switch2],
+						dc.GetSwitches()[sc.P02Rack01Switch2_1],
+						dc.GetSwitches()[sc.P02Rack03Switch2],
 					},
 				}
 			},
@@ -239,7 +250,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 			name: "no updates made",
 			rq: func() *adminv2.SwitchServiceUpdateRequest {
 				return &adminv2.SwitchServiceUpdateRequest{
-					Id: dc.GetSwitches()[sc.P01Rack01Switch1].Id,
+					Id: sc.P01Rack01Switch1,
 					UpdateMeta: &apiv2.UpdateMeta{
 						UpdatedAt: dc.GetSwitches()[sc.P01Rack01Switch1].Meta.UpdatedAt,
 					},
@@ -256,7 +267,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 			name: "update all valid fields",
 			rq: func() *adminv2.SwitchServiceUpdateRequest {
 				return &adminv2.SwitchServiceUpdateRequest{
-					Id: dc.GetSwitches()[sc.P01Rack01Switch1].Id,
+					Id: sc.P01Rack01Switch1,
 					UpdateMeta: &apiv2.UpdateMeta{
 						UpdatedAt: dc.GetSwitches()[sc.P01Rack01Switch1].Meta.UpdatedAt,
 					},
@@ -268,7 +279,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 					Nics: []*apiv2.SwitchNic{
 						{
 							Name:       "Ethernet0",
-							Identifier: "Eth1/1",
+							Identifier: "Ethernet0",
 							Mac:        "11:11:11:11:11:11",
 							Vrf:        new("Vrf100"),
 							BgpFilter:  &apiv2.BGPFilter{},
@@ -287,7 +298,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 						},
 						{
 							Name:       "Ethernet2",
-							Identifier: "Eth/1/3",
+							Identifier: "Ethernet2",
 							Mac:        "aa:aa:aa:aa:aa:aa",
 							Vrf:        nil,
 							BgpFilter:  &apiv2.BGPFilter{},
@@ -308,7 +319,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 				sw := dc.GetSwitches()[sc.P01Rack01Switch1]
 				nic1 := &apiv2.SwitchNic{
 					Name:       "Ethernet0",
-					Identifier: "Eth1/1",
+					Identifier: "Ethernet0",
 					Mac:        "11:11:11:11:11:11",
 					Vrf:        new("Vrf100"),
 					BgpFilter:  &apiv2.BGPFilter{},
@@ -327,7 +338,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 				}
 				nic2 := &apiv2.SwitchNic{
 					Name:       "Ethernet2",
-					Identifier: "Eth/1/3",
+					Identifier: "Ethernet2",
 					Mac:        "aa:aa:aa:aa:aa:aa",
 					Vrf:        nil,
 					BgpFilter:  &apiv2.BGPFilter{},
@@ -361,7 +372,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 						sw := switches[sc.P01Rack01Switch1]
 						nic1 := &apiv2.SwitchNic{
 							Name:       "Ethernet0",
-							Identifier: "Eth1/1",
+							Identifier: "Ethernet0",
 							Mac:        "11:11:11:11:11:11",
 							Vrf:        new("Vrf100"),
 							BgpFilter:  &apiv2.BGPFilter{},
@@ -380,7 +391,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 						}
 						nic2 := &apiv2.SwitchNic{
 							Name:       "Ethernet2",
-							Identifier: "Eth/1/3",
+							Identifier: "Ethernet2",
 							Mac:        "aa:aa:aa:aa:aa:aa",
 							Vrf:        nil,
 							BgpFilter:  &apiv2.BGPFilter{},
@@ -425,6 +436,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 			want:    nil,
 			wantErr: errorutil.InvalidArgument("cannot update switch os vendor from Cumulus to SONiC, use replace instead"),
 		},
+		// TODO: more validation tests
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -947,7 +959,6 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 		rq   *adminv2.SwitchServiceConnectedMachinesRequest
 		want *adminv2.SwitchServiceConnectedMachinesResponse
 	}{
-		// TODO: order of lists is weird. should we sort here or in the client?
 		{
 			name: "get all",
 			rq:   &adminv2.SwitchServiceConnectedMachinesRequest{},
@@ -961,7 +972,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 							{
 								Nic: &apiv2.SwitchNic{
 									Name:       "Ethernet0",
-									Identifier: "Eth1/1",
+									Identifier: "Ethernet0",
 									BgpFilter:  &apiv2.BGPFilter{},
 									State: &apiv2.NicState{
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -989,7 +1000,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 							{
 								Nic: &apiv2.SwitchNic{
 									Name:       "Ethernet0",
-									Identifier: "Eth1/1",
+									Identifier: "Ethernet0",
 									BgpFilter:  &apiv2.BGPFilter{},
 									State: &apiv2.NicState{
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -1010,14 +1021,19 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 						},
 					},
 					{
+						Id:        sc.P01Rack01Switch2_1,
+						Partition: sc.Partition1,
+						Rack:      sc.P01Rack01,
+					},
+					{
 						Id:        sc.P01Rack02Switch1,
 						Partition: sc.Partition1,
 						Rack:      sc.P01Rack02,
 						Connections: []*apiv2.SwitchNicWithMachine{
 							{
 								Nic: &apiv2.SwitchNic{
-									Name:       "Ethernet0",
-									Identifier: "Eth1/1",
+									Name:       "swp1s0",
+									Identifier: "swp1s0",
 									BgpFilter:  &apiv2.BGPFilter{},
 									State: &apiv2.NicState{
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -1038,6 +1054,11 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 						},
 					},
 					{
+						Id:        sc.P01Rack02Switch1_1,
+						Partition: sc.Partition1,
+						Rack:      sc.P01Rack02,
+					},
+					{
 						Id:        sc.P01Rack02Switch2,
 						Partition: sc.Partition1,
 						Rack:      sc.P01Rack02,
@@ -1045,7 +1066,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 							{
 								Nic: &apiv2.SwitchNic{
 									Name:       "Ethernet0",
-									Identifier: "Eth1/1",
+									Identifier: "Ethernet0",
 									BgpFilter:  &apiv2.BGPFilter{},
 									State: &apiv2.NicState{
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -1076,14 +1097,19 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 						Rack:      sc.P01Rack03,
 					},
 					{
+						Id:        sc.P01Rack04Switch1,
+						Partition: sc.Partition1,
+						Rack:      sc.P01Rack04,
+					},
+					{
 						Id:        sc.P02Rack01Switch1,
 						Partition: sc.Partition2,
-						Rack:      sc.P01Rack01,
+						Rack:      sc.P02Rack01,
 						Connections: []*apiv2.SwitchNicWithMachine{
 							{
 								Nic: &apiv2.SwitchNic{
 									Name:       "Ethernet0",
-									Identifier: "Eth1/1",
+									Identifier: "Ethernet0",
 									BgpFilter:  &apiv2.BGPFilter{},
 									State: &apiv2.NicState{
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -1106,12 +1132,12 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 					{
 						Id:        sc.P02Rack01Switch2,
 						Partition: sc.Partition2,
-						Rack:      sc.P01Rack01,
+						Rack:      sc.P02Rack01,
 						Connections: []*apiv2.SwitchNicWithMachine{
 							{
 								Nic: &apiv2.SwitchNic{
 									Name:       "Ethernet0",
-									Identifier: "Eth1/1",
+									Identifier: "Ethernet0",
 									BgpFilter:  &apiv2.BGPFilter{},
 									State: &apiv2.NicState{
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -1132,14 +1158,19 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 						},
 					},
 					{
+						Id:        sc.P02Rack01Switch2_1,
+						Partition: sc.Partition2,
+						Rack:      sc.P02Rack01,
+					},
+					{
 						Id:        sc.P02Rack02Switch1,
 						Partition: sc.Partition2,
-						Rack:      sc.P01Rack02,
+						Rack:      sc.P02Rack02,
 						Connections: []*apiv2.SwitchNicWithMachine{
 							{
 								Nic: &apiv2.SwitchNic{
 									Name:       "Ethernet0",
-									Identifier: "Eth1/1",
+									Identifier: "Ethernet0",
 									BgpFilter:  &apiv2.BGPFilter{},
 									State: &apiv2.NicState{
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -1160,7 +1191,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 							{
 								Nic: &apiv2.SwitchNic{
 									Name:       "Ethernet1",
-									Identifier: "Eth2/2",
+									Identifier: "Ethernet1",
 									BgpFilter:  &apiv2.BGPFilter{},
 									State: &apiv2.NicState{
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -1183,12 +1214,12 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 					{
 						Id:        sc.P02Rack02Switch2,
 						Partition: sc.Partition2,
-						Rack:      sc.P01Rack02,
+						Rack:      sc.P02Rack02,
 						Connections: []*apiv2.SwitchNicWithMachine{
 							{
 								Nic: &apiv2.SwitchNic{
 									Name:       "Ethernet0",
-									Identifier: "Eth1/1",
+									Identifier: "Ethernet0",
 									BgpFilter:  &apiv2.BGPFilter{},
 									State: &apiv2.NicState{
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -1209,7 +1240,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 							{
 								Nic: &apiv2.SwitchNic{
 									Name:       "Ethernet1",
-									Identifier: "Eth2/2",
+									Identifier: "Ethernet1",
 									BgpFilter:  &apiv2.BGPFilter{},
 									State: &apiv2.NicState{
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -1225,6 +1256,90 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 									ProductManufacturer: new(string),
 									ProductPartNumber:   new(string),
 									ProductSerial:       new("PS5"),
+								},
+							},
+						},
+					},
+					{
+						Id:        sc.P02Rack02Switch2_1,
+						Partition: sc.Partition2,
+						Rack:      sc.P02Rack02,
+						Connections: []*apiv2.SwitchNicWithMachine{
+							{
+								Nic: &apiv2.SwitchNic{
+									Name:       "Ethernet0",
+									Identifier: "Ethernet0",
+									BgpFilter:  &apiv2.BGPFilter{},
+									State: &apiv2.NicState{
+										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+									},
+								},
+								Machine: dc.GetMachines()[sc.Machine6],
+								Fru: &apiv2.MachineFRU{
+									ChassisPartNumber:   new(string),
+									ChassisPartSerial:   new(string),
+									BoardMfg:            new(string),
+									BoardMfgSerial:      new(string),
+									BoardPartNumber:     new(string),
+									ProductManufacturer: new(string),
+									ProductPartNumber:   new(string),
+									ProductSerial:       new("PS6"),
+								},
+							},
+						},
+					},
+					{
+						Id:        sc.P02Rack03Switch1,
+						Partition: sc.Partition2,
+						Rack:      sc.P02Rack03,
+						Connections: []*apiv2.SwitchNicWithMachine{
+							{
+								Nic: &apiv2.SwitchNic{
+									Name:       "Ethernet0",
+									Identifier: "Ethernet0",
+									BgpFilter:  &apiv2.BGPFilter{},
+									State: &apiv2.NicState{
+										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+									},
+								},
+								Machine: dc.GetMachines()[sc.Machine7],
+								Fru: &apiv2.MachineFRU{
+									ChassisPartNumber:   new(string),
+									ChassisPartSerial:   new(string),
+									BoardMfg:            new(string),
+									BoardMfgSerial:      new(string),
+									BoardPartNumber:     new(string),
+									ProductManufacturer: new(string),
+									ProductPartNumber:   new(string),
+									ProductSerial:       new("PS7"),
+								},
+							},
+						},
+					},
+					{
+						Id:        sc.P02Rack03Switch2,
+						Partition: sc.Partition2,
+						Rack:      sc.P02Rack03,
+						Connections: []*apiv2.SwitchNicWithMachine{
+							{
+								Nic: &apiv2.SwitchNic{
+									Name:       "swp1s0",
+									Identifier: "swp1s0",
+									BgpFilter:  &apiv2.BGPFilter{},
+									State: &apiv2.NicState{
+										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+									},
+								},
+								Machine: dc.GetMachines()[sc.Machine7],
+								Fru: &apiv2.MachineFRU{
+									ChassisPartNumber:   new(string),
+									ChassisPartSerial:   new(string),
+									BoardMfg:            new(string),
+									BoardMfgSerial:      new(string),
+									BoardPartNumber:     new(string),
+									ProductManufacturer: new(string),
+									ProductPartNumber:   new(string),
+									ProductSerial:       new("PS7"),
 								},
 							},
 						},
@@ -1249,7 +1364,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 							{
 								Nic: &apiv2.SwitchNic{
 									Name:       "Ethernet0",
-									Identifier: "Eth1/1",
+									Identifier: "Ethernet0",
 									BgpFilter:  &apiv2.BGPFilter{},
 									State: &apiv2.NicState{
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -1284,12 +1399,12 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 					{
 						Id:        sc.P02Rack02Switch1,
 						Partition: sc.Partition2,
-						Rack:      sc.P01Rack02,
+						Rack:      sc.P02Rack02,
 						Connections: []*apiv2.SwitchNicWithMachine{
 							{
 								Nic: &apiv2.SwitchNic{
 									Name:       "Ethernet1",
-									Identifier: "Eth2/2",
+									Identifier: "Ethernet1",
 									BgpFilter:  &apiv2.BGPFilter{},
 									State: &apiv2.NicState{
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -1312,12 +1427,12 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 					{
 						Id:        sc.P02Rack02Switch2,
 						Partition: sc.Partition2,
-						Rack:      sc.P01Rack02,
+						Rack:      sc.P02Rack02,
 						Connections: []*apiv2.SwitchNicWithMachine{
 							{
 								Nic: &apiv2.SwitchNic{
 									Name:       "Ethernet1",
-									Identifier: "Eth2/2",
+									Identifier: "Ethernet1",
 									BgpFilter:  &apiv2.BGPFilter{},
 									State: &apiv2.NicState{
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -1358,7 +1473,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 							{
 								Nic: &apiv2.SwitchNic{
 									Name:       "Ethernet0",
-									Identifier: "Eth1/1",
+									Identifier: "Ethernet0",
 									BgpFilter:  &apiv2.BGPFilter{},
 									State: &apiv2.NicState{
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -1386,7 +1501,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 							{
 								Nic: &apiv2.SwitchNic{
 									Name:       "Ethernet0",
-									Identifier: "Eth1/1",
+									Identifier: "Ethernet0",
 									BgpFilter:  &apiv2.BGPFilter{},
 									State: &apiv2.NicState{
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -1407,14 +1522,19 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 						},
 					},
 					{
+						Id:        sc.P01Rack01Switch2_1,
+						Partition: sc.Partition1,
+						Rack:      sc.P01Rack01,
+					},
+					{
 						Id:        sc.P01Rack02Switch1,
 						Partition: sc.Partition1,
 						Rack:      sc.P01Rack02,
 						Connections: []*apiv2.SwitchNicWithMachine{
 							{
 								Nic: &apiv2.SwitchNic{
-									Name:       "Ethernet0",
-									Identifier: "Eth1/1",
+									Name:       "swp1s0",
+									Identifier: "swp1s0",
 									BgpFilter:  &apiv2.BGPFilter{},
 									State: &apiv2.NicState{
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -1435,6 +1555,11 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 						},
 					},
 					{
+						Id:        sc.P01Rack02Switch1_1,
+						Partition: sc.Partition1,
+						Rack:      sc.P01Rack02,
+					},
+					{
 						Id:        sc.P01Rack02Switch2,
 						Partition: sc.Partition1,
 						Rack:      sc.P01Rack02,
@@ -1442,7 +1567,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 							{
 								Nic: &apiv2.SwitchNic{
 									Name:       "Ethernet0",
-									Identifier: "Eth1/1",
+									Identifier: "Ethernet0",
 									BgpFilter:  &apiv2.BGPFilter{},
 									State: &apiv2.NicState{
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -1471,6 +1596,11 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 						Id:        sc.P01Rack03Switch2,
 						Partition: sc.Partition1,
 						Rack:      sc.P01Rack03,
+					},
+					{
+						Id:        sc.P01Rack04Switch1,
+						Partition: sc.Partition1,
+						Rack:      sc.P01Rack04,
 					},
 				},
 			},

@@ -44,7 +44,7 @@ var (
 			SwitchFunc(P02Rack02Switch2_1, Partition2, P02Rack02, []string{"Ethernet0", "Ethernet1"}, SwitchOSSonic2021, apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL, Machine6),
 
 			SwitchFunc(P02Rack03Switch1, Partition2, P02Rack03, []string{"Ethernet0", "Ethernet1"}, SwitchOSSonic2021, apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL, Machine7),
-			SwitchFunc(P02Rack03Switch2, Partition2, P02Rack03, []string{"swp1s0", "swp1s1"}, SwitchOSSonic2021, apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE, Machine7),
+			SwitchFunc(P02Rack03Switch2, Partition2, P02Rack03, []string{"swp1s0", "swp1s1"}, SwitchOSCumulus, apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE, Machine7),
 		},
 		Machines: []*MachineWithLiveliness{
 			MachineFunc(Machine1, Partition1, SizeC1Large, "", "", metal.MachineLivelinessAlive),

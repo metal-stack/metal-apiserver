@@ -1187,12 +1187,12 @@ func Test_switchRepository_updateAllButNics(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := updateAllButNics(tt.sw, tt.req)
+			err := updateAllButNics(tt.sw, tt.req)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("switchRepository.updateAllButNics() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if diff := cmp.Diff(tt.want, got); diff != "" {
+			if diff := cmp.Diff(tt.want, tt.sw); diff != "" {
 				t.Errorf("switchRepository.updateAllButNics() diff = %v", diff)
 			}
 		})

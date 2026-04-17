@@ -599,17 +599,17 @@ func (r *switchRepository) update(ctx context.Context, sw *metal.Switch, req *ad
 		return nil, errorutil.Internal("failed to update switch %s, request was empty", sw.ID)
 	}
 
-	updated, err := updateAllButNics(sw, req)
+	err := updateAllButNics(sw, req)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(req.Nics) > 0 {
+	if req.Nics != nil {
 		nics, err := toMetalNics(req.Nics, sw.ID)
 		if err != nil {
 			return nil, err
 		}
-		updated.Nics = nics
+		sw.Nics = nics
 	}
 
 	err = r.s.ds.Switch().Update(ctx, sw)
@@ -625,9 +625,11 @@ func (r *switchRepository) delete(ctx context.Context, sw *metal.Switch) error {
 	if err != nil && !errorutil.IsNotFound(err) {
 		return err
 	}
-	err = r.s.ds.SwitchStatus().Delete(ctx, status)
-	if err != nil {
-		return err
+	if status != nil {
+		err = r.s.ds.SwitchStatus().Delete(ctx, status)
+		if err != nil {
+			return err
+		}
 	}
 	return r.s.ds.Switch().Delete(ctx, sw)
 }
@@ -855,7 +857,7 @@ func (r *switchRepository) findTwinSwitch(ctx context.Context, newSwitch *metal.
 }
 
 func (r *switchRepository) updateOnRegister(ctx context.Context, sw *metal.Switch, req *adminv2.SwitchServiceUpdateRequest) (*metal.Switch, error) {
-	updated, err := updateAllButNics(sw, req)
+	err := updateAllButNics(sw, req)
 	if err != nil {
 		return nil, err
 	}
@@ -865,7 +867,7 @@ func (r *switchRepository) updateOnRegister(ctx context.Context, sw *metal.Switc
 		if err != nil {
 			return nil, err
 		}
-		updated.Nics = updateNicNames(sw.Nics, nics)
+		sw.Nics = updateNicNames(sw.Nics, nics)
 	}
 
 	err = r.s.ds.Switch().Update(ctx, sw)
@@ -876,14 +878,14 @@ func (r *switchRepository) updateOnRegister(ctx context.Context, sw *metal.Switc
 	return sw, nil
 }
 
-func updateAllButNics(sw *metal.Switch, req *adminv2.SwitchServiceUpdateRequest) (*metal.Switch, error) {
+func updateAllButNics(sw *metal.Switch, req *adminv2.SwitchServiceUpdateRequest) error {
 	if req.Description != nil {
 		sw.Description = *req.Description
 	}
 	if req.ReplaceMode != nil {
 		replaceMode, err := metal.ToReplaceMode(*req.ReplaceMode)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		sw.ReplaceMode = replaceMode
 	}
@@ -899,7 +901,7 @@ func updateAllButNics(sw *metal.Switch, req *adminv2.SwitchServiceUpdateRequest)
 	if req.Os != nil {
 		vendor, err := metal.ToSwitchOSVendor(req.Os.Vendor)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		sw.OS = &metal.SwitchOS{
 			Vendor:           vendor,
@@ -908,7 +910,7 @@ func updateAllButNics(sw *metal.Switch, req *adminv2.SwitchServiceUpdateRequest)
 		}
 	}
 
-	return sw, nil
+	return nil
 }
 
 func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Switch) ([]*apiv2.SwitchNic, error) {
