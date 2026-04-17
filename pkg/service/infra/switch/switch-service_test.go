@@ -3,6 +3,8 @@ package infra
 import (
 	"log/slog"
 	"os"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -883,287 +885,389 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 }
 
 // added this test here because using testStore inside the repository package creates an import cycle
-// func Test_switchRepository_ConnectMachineWithSwitches(t *testing.T) {
-// 	t.Parallel()
+func Test_switchRepository_ConnectMachineWithSwitches(t *testing.T) {
+	t.Parallel()
 
-// 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-// 	ctx := t.Context()
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	ctx := t.Context()
 
-// 	dc := test.NewDatacenter(t, log)
-// 	defer dc.Close()
-// 	dc.Create(&sc.SwitchesWithMachinesDatacenter)
+	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
 
-// 	tests := []struct {
-// 		name         string
-// 		m            *apiv2.Machine
-// 		wantSwitches []*apiv2.Switch
-// 		wantErr      error
-// 	}{
-// 		{
-// 			name: "partition id not given",
-// 			m: &apiv2.Machine{
-// 				Uuid: "m1",
-// 			},
-// 			wantErr: errorutil.InvalidArgument("partition id of machine m1 is empty"),
-// 		},
-// 		{
-// 			name: "no hardware given",
-// 			m: &apiv2.Machine{
-// 				Uuid: "m1",
-// 				Partition: &apiv2.Partition{
-// 					Id: "partition-a",
-// 				},
-// 			},
-// 			wantErr: errorutil.InvalidArgument("no hardware information for machine m1 given"),
-// 		},
-// 		{
-// 			name: "machine is not connected",
-// 			m: &apiv2.Machine{
-// 				Uuid: "m1",
-// 				Partition: &apiv2.Partition{
-// 					Id: "partition-a",
-// 				},
-// 				Hardware: &apiv2.MachineHardware{
-// 					Nics: []*apiv2.MachineNic{
-// 						{
-// 							Neighbors: []*apiv2.MachineNic{},
-// 						},
-// 					},
-// 				},
-// 			},
-// 			wantErr: errorutil.FailedPrecondition("machine m1 is not connected to exactly two switches, found connections to switches []"),
-// 		},
-// 		{
-// 			name: "machine is connected to three switches",
-// 			m: &apiv2.Machine{
-// 				Uuid: "m1",
-// 				Partition: &apiv2.Partition{
-// 					Id: "partition-a",
-// 				},
-// 				Hardware: &apiv2.MachineHardware{
-// 					Nics: []*apiv2.MachineNic{
-// 						{
-// 							Neighbors: []*apiv2.MachineNic{
-// 								{Hostname: "leaf01"},
-// 								{Hostname: "leaf02"},
-// 								{Hostname: "leaf01-1"},
-// 							},
-// 						},
-// 					},
-// 				},
-// 			},
-// 			wantErr: errorutil.FailedPrecondition("machine m1 is not connected to exactly two switches, found connections to switches [leaf01 leaf02 leaf01-1]"),
-// 		},
-// 		{
-// 			name: "switches are in different racks",
-// 			m: &apiv2.Machine{
-// 				Uuid: "m1",
-// 				Partition: &apiv2.Partition{
-// 					Id: "partition-a",
-// 				},
-// 				Hardware: &apiv2.MachineHardware{
-// 					Nics: []*apiv2.MachineNic{
-// 						{
-// 							Name: "lan0",
-// 							Neighbors: []*apiv2.MachineNic{
-// 								{
-// 									Name:       "Ethernet0",
-// 									Identifier: "Eth1/1",
-// 									Hostname:   "sw1",
-// 								},
-// 							},
-// 						},
-// 						{
-// 							Name: "lan1",
-// 							Neighbors: []*apiv2.MachineNic{
-// 								{
-// 									Name:       "Ethernet0",
-// 									Identifier: "Eth1/1",
-// 									Hostname:   "sw2",
-// 								},
-// 							},
-// 						},
-// 					},
-// 				},
-// 			},
-// 			wantErr: errorutil.FailedPrecondition("connected switches of a machine must reside in the same rack, rack of switch sw1: r01, rack of switch sw2: r02, machine: m1"),
-// 		},
-// 		{
-// 			name: "different number of connections per switch",
-// 			m: &apiv2.Machine{
-// 				Uuid: "m1",
-// 				Partition: &apiv2.Partition{
-// 					Id: "partition-a",
-// 				},
-// 				Hardware: &apiv2.MachineHardware{
-// 					Nics: []*apiv2.MachineNic{
-// 						{
-// 							Name: "lan0",
-// 							Neighbors: []*apiv2.MachineNic{
-// 								{
-// 									Name:       "Ethernet0",
-// 									Identifier: "Eth1/1",
-// 									Hostname:   "sw6",
-// 								},
-// 							},
-// 						},
-// 						{
-// 							Name: "lan1",
-// 							Neighbors: []*apiv2.MachineNic{
-// 								{
-// 									Name:       "Ethernet1",
-// 									Identifier: "Eth1/2",
-// 									Hostname:   "sw6",
-// 								},
-// 							},
-// 						},
-// 						{
-// 							Name: "lan2",
-// 							Neighbors: []*apiv2.MachineNic{
-// 								{
-// 									Name:       "swp1s0",
-// 									Identifier: "bb:bb:bb:bb:bb:bb",
-// 									Hostname:   "sw5",
-// 								},
-// 							},
-// 						},
-// 					},
-// 				},
-// 			},
-// 			wantErr: errorutil.FailedPrecondition("machine connections must be identical on both switches but machine m1 has 2 connections to switch sw6 and 1 connections to switch sw5"),
-// 		},
-// 		{
-// 			name: "switch ports the machine is connected to do not match",
-// 			m: &apiv2.Machine{
-// 				Uuid: "m1",
-// 				Partition: &apiv2.Partition{
-// 					Id: "partition-a",
-// 				},
-// 				Hardware: &apiv2.MachineHardware{
-// 					Nics: []*apiv2.MachineNic{
-// 						{
-// 							Name: "lan1",
-// 							Neighbors: []*apiv2.MachineNic{
-// 								{
-// 									Name:       "swp1s1",
-// 									Identifier: "bb:bb:bb:bb:bb:11",
-// 									Hostname:   "sw5",
-// 								},
-// 							},
-// 						},
-// 						{
-// 							Name: "lan0",
-// 							Neighbors: []*apiv2.MachineNic{
-// 								{
-// 									Name:       "Ethernet0",
-// 									Identifier: "Eth1/1",
-// 									Hostname:   "sw6",
-// 								},
-// 							},
-// 						},
-// 					},
-// 				},
-// 			},
-// 			wantErr: errorutil.FailedPrecondition("machine m1 is connected to port swp1s1 on switch sw5 but not to the corresponding port Ethernet1 of switch sw6"),
-// 		},
-// 		{
-// 			name: "machine is connected to different switches than before",
-// 			m: &apiv2.Machine{
-// 				Uuid: "m1",
-// 				Partition: &apiv2.Partition{
-// 					Id: "partition-a",
-// 				},
-// 				Hardware: &apiv2.MachineHardware{
-// 					Nics: []*apiv2.MachineNic{
-// 						{
-// 							Name: "lan0",
-// 							Neighbors: []*apiv2.MachineNic{
-// 								{
-// 									Name:       "Ethernet0",
-// 									Identifier: "Eth1/1",
-// 									Hostname:   "sw6",
-// 								},
-// 							},
-// 						},
-// 						{
-// 							Name: "lan1",
-// 							Neighbors: []*apiv2.MachineNic{
-// 								{
-// 									Name:       "swp1s0",
-// 									Identifier: "bb:bb:bb:bb:bb:bb",
-// 									Hostname:   "sw5",
-// 								},
-// 							},
-// 						},
-// 					},
-// 				},
-// 			},
-// 			wantSwitches: []*apiv2.Switch{
-// 				{
-// 					Id:                 sw3.Switch.Id,
-// 					MachineConnections: []*apiv2.MachineConnection{},
-// 				},
-// 				{
-// 					Id:                 sw4.Switch.Id,
-// 					MachineConnections: []*apiv2.MachineConnection{},
-// 				},
-// 				{
-// 					Id: sw5.Switch.Id,
-// 					MachineConnections: []*apiv2.MachineConnection{
-// 						{
-// 							MachineId: m1.ID,
-// 							Nic: &apiv2.SwitchNic{
-// 								Name:       "swp1s0",
-// 								BgpFilter:  &apiv2.BGPFilter{},
-// 								Identifier: "bb:bb:bb:bb:bb:bb",
-// 								State: &apiv2.NicState{
-// 									Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-// 								},
-// 							},
-// 						},
-// 					},
-// 				},
-// 				{
-// 					Id: sw6.Switch.Id,
-// 					MachineConnections: []*apiv2.MachineConnection{
-// 						{
-// 							MachineId: m1.ID,
-// 							Nic: &apiv2.SwitchNic{
-// 								Name:       "Ethernet0",
-// 								BgpFilter:  &apiv2.BGPFilter{},
-// 								Identifier: "Eth1/1",
-// 								State: &apiv2.NicState{
-// 									Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-// 								},
-// 							},
-// 						},
-// 					},
-// 				},
-// 			},
-// 			wantErr: nil,
-// 		},
-// 	}
-// 	for _, tt := range tests {
-// 		s := &switchServiceServer{
-// 			log:  log,
-// 			repo: testStore.Store,
-// 		}
+	tests := []struct {
+		name    string
+		m       func() *apiv2.Machine
+		mods    func() *test.Asserters
+		wantErr error
+	}{
+		{
+			name: "partition id not given",
+			m: func() *apiv2.Machine {
+				return &apiv2.Machine{
+					Uuid: "m1",
+				}
+			},
+			wantErr: errorutil.InvalidArgument("partition id of machine m1 is empty"),
+		},
+		{
+			name: "no hardware given",
+			m: func() *apiv2.Machine {
+				return &apiv2.Machine{
+					Uuid: "m1",
+					Partition: &apiv2.Partition{
+						Id: "partition-a",
+					},
+				}
+			},
+			wantErr: errorutil.InvalidArgument("no hardware information for machine m1 given"),
+		},
+		{
+			name: "machine is not connected",
+			m: func() *apiv2.Machine {
+				return &apiv2.Machine{
+					Uuid: "m1",
+					Partition: &apiv2.Partition{
+						Id: "partition-a",
+					},
+					Hardware: &apiv2.MachineHardware{
+						Nics: []*apiv2.MachineNic{
+							{
+								Neighbors: []*apiv2.MachineNic{},
+							},
+						},
+					},
+				}
+			},
+			wantErr: errorutil.FailedPrecondition("machine m1 is not connected to exactly two switches, found connections to switches []"),
+		},
+		{
+			name: "machine is connected to three switches",
+			m: func() *apiv2.Machine {
+				return &apiv2.Machine{
+					Uuid: "m1",
+					Partition: &apiv2.Partition{
+						Id: "partition-a",
+					},
+					Hardware: &apiv2.MachineHardware{
+						Nics: []*apiv2.MachineNic{
+							{
+								Neighbors: []*apiv2.MachineNic{
+									{Hostname: "leaf01"},
+									{Hostname: "leaf02"},
+									{Hostname: "leaf01-1"},
+								},
+							},
+						},
+					},
+				}
+			},
+			wantErr: errorutil.FailedPrecondition("machine m1 is not connected to exactly two switches, found connections to switches [leaf01 leaf02 leaf01-1]"),
+		},
+		{
+			name: "switches are in different racks",
+			m: func() *apiv2.Machine {
+				return &apiv2.Machine{
+					Uuid: "m1",
+					Partition: &apiv2.Partition{
+						Id: sc.Partition1,
+					},
+					Hardware: &apiv2.MachineHardware{
+						Nics: []*apiv2.MachineNic{
+							{
+								Name: "lan0",
+								Neighbors: []*apiv2.MachineNic{
+									{
+										Name:       "Ethernet0",
+										Identifier: "Ethernet0",
+										Hostname:   sc.P01Rack01Switch1,
+									},
+								},
+							},
+							{
+								Name: "lan1",
+								Neighbors: []*apiv2.MachineNic{
+									{
+										Name:       "Ethernet0",
+										Identifier: "Ethernet0",
+										Hostname:   sc.P01Rack02Switch2,
+									},
+								},
+							},
+						},
+					},
+				}
+			},
+			wantErr: errorutil.FailedPrecondition("connected switches of a machine must reside in the same rack, rack of switch %s: %s, rack of switch %s: %s, machine: m1", sc.P01Rack01Switch1, sc.P01Rack01, sc.P01Rack02Switch2, sc.P01Rack02),
+		},
+		{
+			name: "different number of connections per switch",
+			m: func() *apiv2.Machine {
+				return &apiv2.Machine{
+					Uuid: "m1",
+					Partition: &apiv2.Partition{
+						Id: sc.Partition1,
+					},
+					Hardware: &apiv2.MachineHardware{
+						Nics: []*apiv2.MachineNic{
+							{
+								Name: "lan0",
+								Neighbors: []*apiv2.MachineNic{
+									{
+										Name:       "Ethernet0",
+										Identifier: "Ethernet1",
+										Hostname:   sc.P01Rack01Switch1,
+									},
+								},
+							},
+							{
+								Name: "lan1",
+								Neighbors: []*apiv2.MachineNic{
+									{
+										Name:       "Ethernet1",
+										Identifier: "Ethernet1",
+										Hostname:   sc.P01Rack01Switch1,
+									},
+								},
+							},
+							{
+								Name: "lan2",
+								Neighbors: []*apiv2.MachineNic{
+									{
+										Name:       "Ethernet0",
+										Identifier: "Ethernet0",
+										Hostname:   sc.P01Rack01Switch2,
+									},
+								},
+							},
+						},
+					},
+				}
+			},
+			wantErr: errorutil.FailedPrecondition("machine connections must be identical on both switches but machine m1 has 2 connections to switch %s and 1 connections to switch %s", sc.P01Rack01Switch1, sc.P01Rack01Switch2),
+		},
+		{
+			name: "switch ports the machine is connected to do not match",
+			m: func() *apiv2.Machine {
+				return &apiv2.Machine{
+					Uuid: sc.Machine2,
+					Partition: &apiv2.Partition{
+						Id: sc.Partition1,
+					},
+					Hardware: &apiv2.MachineHardware{
+						Nics: []*apiv2.MachineNic{
+							{
+								Name: "lan1",
+								Neighbors: []*apiv2.MachineNic{
+									{
+										Name:       "swp1s1",
+										Identifier: "swp1s1",
+										Hostname:   sc.P01Rack02Switch1,
+									},
+								},
+							},
+							{
+								Name: "lan0",
+								Neighbors: []*apiv2.MachineNic{
+									{
+										Name:       "Ethernet0",
+										Identifier: "Ethernet0",
+										Hostname:   sc.P01Rack02Switch2,
+									},
+								},
+							},
+						},
+					},
+				}
+			},
+			wantErr: errorutil.FailedPrecondition("machine %s is connected to port swp1s1 on switch %s but not to the corresponding port Ethernet1 of switch %s", sc.Machine2, sc.P01Rack02Switch1, sc.P01Rack02Switch2),
+		},
+		{
+			name: "machine is connected to different switches than before",
+			m: func() *apiv2.Machine {
+				return &apiv2.Machine{
+					Uuid: sc.Machine1,
+					Partition: &apiv2.Partition{
+						Id: sc.Partition1,
+					},
+					Hardware: &apiv2.MachineHardware{
+						Nics: []*apiv2.MachineNic{
+							{
+								Name: "lan0",
+								Neighbors: []*apiv2.MachineNic{
+									{
+										Name:       "swp1s1",
+										Identifier: "swp1s1",
+										Hostname:   sc.P01Rack02Switch1,
+									},
+								},
+							},
+							{
+								Name: "lan1",
+								Neighbors: []*apiv2.MachineNic{
+									{
+										Name:       "Ethernet1",
+										Identifier: "Ethernet1",
+										Hostname:   sc.P01Rack02Switch2,
+									},
+								},
+							},
+						},
+					},
+				}
+			},
+			mods: func() *test.Asserters {
+				return &test.Asserters{
+					Switches: func(switches map[string]*apiv2.Switch) {
+						sw := switches[sc.P01Rack02Switch1]
+						sw.MachineConnections = append(sw.MachineConnections, &apiv2.MachineConnection{
+							MachineId: sc.Machine1,
+							Nic:       sw.Nics[1],
+						})
+						slices.SortFunc(sw.MachineConnections, func(a, b *apiv2.MachineConnection) int {
+							return strings.Compare(a.MachineId, b.MachineId)
+						})
+						sw = switches[sc.P01Rack02Switch2]
+						sw.MachineConnections = append(sw.MachineConnections, &apiv2.MachineConnection{
+							MachineId: sc.Machine1,
+							Nic:       sw.Nics[1],
+						})
+						slices.SortFunc(sw.MachineConnections, func(a, b *apiv2.MachineConnection) int {
+							return strings.Compare(a.MachineId, b.MachineId)
+						})
+					},
+				}
+			},
+			wantErr: nil,
+		},
+		{
+			name: "machine connections don't change",
+			m: func() *apiv2.Machine {
+				return &apiv2.Machine{
+					Uuid: sc.Machine1,
+					Partition: &apiv2.Partition{
+						Id: sc.Partition1,
+					},
+					Hardware: &apiv2.MachineHardware{
+						Nics: []*apiv2.MachineNic{
+							{
+								Name: "lan0",
+								Neighbors: []*apiv2.MachineNic{
+									{
+										Name:       "Ethernet0",
+										Identifier: "Ethernet0",
+										Hostname:   sc.P01Rack01Switch1,
+									},
+								},
+							},
+							{
+								Name: "lan1",
+								Neighbors: []*apiv2.MachineNic{
+									{
+										Name:       "Ethernet0",
+										Identifier: "Ethernet0",
+										Hostname:   sc.P01Rack01Switch2,
+									},
+								},
+							},
+						},
+					},
+				}
+			},
+			wantErr: nil,
+		},
+		{
+			name: "connect new machine",
+			m: func() *apiv2.Machine {
+				return &apiv2.Machine{
+					Uuid: sc.Machine8,
+					Partition: &apiv2.Partition{
+						Id: sc.Partition1,
+					},
+					Hardware: &apiv2.MachineHardware{
+						Nics: []*apiv2.MachineNic{
+							{
+								Name: "lan0",
+								Neighbors: []*apiv2.MachineNic{
+									{
+										Name:       "Ethernet1",
+										Identifier: "Ethernet1",
+										Hostname:   sc.P01Rack01Switch1,
+									},
+								},
+							},
+							{
+								Name: "lan1",
+								Neighbors: []*apiv2.MachineNic{
+									{
+										Name:       "Ethernet1",
+										Identifier: "Ethernet1",
+										Hostname:   sc.P01Rack01Switch2,
+									},
+								},
+							},
+						},
+					},
+				}
+			},
+			mods: func() *test.Asserters {
+				return &test.Asserters{
+					Switches: func(switches map[string]*apiv2.Switch) {
+						sw := switches[sc.P01Rack01Switch1]
+						sw.MachineConnections = append(sw.MachineConnections, &apiv2.MachineConnection{
+							MachineId: sc.Machine8,
+							Nic:       sw.Nics[1],
+						})
+						sw = switches[sc.P01Rack01Switch2]
+						sw.MachineConnections = append(sw.MachineConnections, &apiv2.MachineConnection{
+							MachineId: sc.Machine8,
+							Nic:       sw.Nics[1],
+						})
+					},
+				}
+			},
+			wantErr: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dc.Create(&sc.SwitchesWithMachinesDatacenter)
+			defer dc.Cleanup()
 
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			err := s.repo.Switch().AdditionalMethods().ConnectMachineWithSwitches(ctx, tt.m)
-// 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ErrorStringComparer()); diff != "" {
-// 				t.Errorf("switchRepository.ConnectMachineWithSwitches() error diff = %s", diff)
-// 				return
-// 			}
+			var (
+				m        *apiv2.Machine
+				snapshot = dc.Snapshot()
+			)
 
-// 			for _, wantSwitch := range tt.wantSwitches {
-// 				gotSwitch, err := s.repo.Switch().Get(ctx, wantSwitch.Id)
-// 				require.NoError(t, err)
+			if tt.m != nil {
+				m = tt.m()
+			}
 
-// 				if diff := cmp.Diff(wantSwitch.MachineConnections, gotSwitch.MachineConnections, protocmp.Transform()); diff != "" {
-// 					t.Errorf("switchRepository.ConnectMachineWithSwitches() diff = %s", diff)
-// 				}
-// 			}
-// 		})
-// 	}
-// }
+			s := &switchServiceServer{
+				repo: dc.GetTestStore().Store,
+			}
+
+			err := s.repo.Switch().AdditionalMethods().ConnectMachineWithSwitches(ctx, m)
+			if diff := cmp.Diff(tt.wantErr, err, errorutil.ErrorStringComparer()); diff != "" {
+				t.Errorf("switchRepository.ConnectMachineWithSwitches() error diff = %s", diff)
+				return
+			}
+
+			var mods *test.Asserters
+			if tt.mods != nil {
+				mods = tt.mods()
+			}
+			err = dc.Assert(snapshot, mods,
+				cmpopts.IgnoreFields(
+					metal.SwitchSync{}, "Time",
+				),
+				protocmp.IgnoreFields(
+					&timestamppb.Timestamp{}, "seconds", "nanos",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.SwitchSync{}, "time",
+				),
+			)
+			require.NoError(t, err)
+		})
+	}
+}
