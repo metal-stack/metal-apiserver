@@ -520,20 +520,24 @@ func (r *machineRepository) makeMachineNetwork(ctx context.Context, machineUUID,
 			return nil, nil, fmt.Errorf("given network %s does not have prefixes configured", network.network.ID)
 		}
 		for _, af := range network.network.Prefixes.AddressFamilies() {
-			ipAddress, ipParentCidr, err := r.s.IP(project).AdditionalMethods().allocateRandomIP(ctx, network.network, af)
+			apiaf, err := metal.FromAddressFamily(af)
 			if err != nil {
-				return nil, nil, fmt.Errorf("unable to allocate an ip in network: %s %w", network.network.ID, err)
+				return nil, nil, err
 			}
-			ip := &metal.IP{
-				IPAddress:        ipAddress,
-				ParentPrefixCidr: ipParentCidr,
-				Name:             name,
-				Description:      "autoassigned",
-				NetworkID:        network.network.ID,
-				Type:             metal.Ephemeral,
-				ProjectID:        project,
+
+			apiip, err := r.s.IP(project).Create(ctx, &apiv2.IPServiceCreateRequest{
+				Network:       network.network.ID,
+				Project:       project,
+				Name:          &name,
+				Description:   new("autoassigned"),
+				Type:          apiv2.IPType_IP_TYPE_EPHEMERAL.Enum(),
+				AddressFamily: apiaf,
+			})
+			if err != nil {
+				return nil, nil, err
 			}
-			_, err = r.s.ds.IP().Create(ctx, ip)
+
+			ip, err := r.s.IP(project).AdditionalMethods().convertToInternal(ctx, apiip)
 			if err != nil {
 				return nil, nil, err
 			}

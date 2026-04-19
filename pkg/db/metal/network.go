@@ -178,6 +178,19 @@ func ToAddressFamily(af apiv2.IPAddressFamily) (AddressFamily, error) {
 	}
 }
 
+// FromAddressFamily returns the apiv2 address family of the corresponding metal address family.
+// Attention: this function might return nil for ip family dual stack!!
+func FromAddressFamily(af AddressFamily) (*apiv2.IPAddressFamily, error) {
+	switch af {
+	case AddressFamilyIPv4:
+		return apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4.Enum(), nil
+	case AddressFamilyIPv6:
+		return apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(), nil
+	default:
+		return apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_UNSPECIFIED.Enum(), fmt.Errorf("given addressfamily %q is invalid", af)
+	}
+}
+
 // ToAddressFamilyFromNetwork returns the metal address family of the corresponding apiv2 address family.
 // Attention: this function might return nil for network family dual stack!!
 func ToAddressFamilyFromNetwork(af apiv2.NetworkAddressFamily) (*AddressFamily, error) {
