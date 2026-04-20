@@ -1,5 +1,5 @@
 ---
-name: Docker Build Action
+name: Build Action
 on:
   pull_request:
     branches:
@@ -11,27 +11,16 @@ on:
     branches:
       - main
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-
 jobs:
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
+  go-build:
+    uses: metal-stack/actions-common/.github/workflows/go-build.yaml@v1
+    secrets: inherit
+    with:
+      test: false
+      build-command: make server
 
-      - name: Set up Go 1.26
-        uses: actions/setup-go@v6
-        with:
-          go-version: '1.26'
-          check-latest: true
-          cache: false
-
-      - name: Lint Go
-        uses: golangci/golangci-lint-action@v9
+  draft:
+    uses: metal-stack/actions-common/.github/workflows/release-drafter.yaml@v1
 
   tests:
     name: All tests succeeded
@@ -148,50 +137,6 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage-*.out
           verbose: true
-
-  build:
-    name: Docker Build
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Log in to the container registry
-        uses: docker/login-action@v4
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Set up Go 1.26
-        uses: actions/setup-go@v6
-        with:
-          go-version: '1.26'
-          check-latest: true
-          cache: false
-
-      - name: Docker meta
-        id: meta
-        uses: docker/metadata-action@v6
-        with:
-          images: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-
-      - name: Build
-        run: |
-          make server
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      - name: Build and push image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          push: true
-          sbom: true
-          tags: ${{ steps.meta.outputs.tags }}
 
   bench:
     name: Benchmark

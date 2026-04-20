@@ -8,13 +8,13 @@ import (
 	"sync"
 	"time"
 
-	headscalev1 "github.com/juanfont/headscale/gen/go/headscale/v1"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	mdm "github.com/metal-stack/masterdata-api/pkg/client"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-lib/auditing"
 	valkeygo "github.com/valkey-io/valkey-go"
 	"golang.org/x/sync/errgroup"
@@ -35,7 +35,7 @@ type Config struct {
 	Ipam                ipamv1connect.IpamServiceClient
 	Redis               valkeygo.Client
 	Masterdata          mdm.Client
-	Headscale           headscalev1.HeadscaleServiceClient
+	Headscale           *headscale.Client
 	TaskClient          *task.Client
 	AuditBackends       []auditing.Auditing
 	Datastore           generic.Datastore
