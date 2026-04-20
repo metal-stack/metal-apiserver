@@ -837,7 +837,7 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 						{Network: projectNetworkId},
 					},
 				}
-				return req, errorutil.Internal("no machine available") // FIXME this error should not be internal, validation must be done in the validation
+				return req, errorutil.ResourceExhausted("no machine candidates available") // FIXME this error should not be internal, validation must be done in the validation
 			},
 			want: nil,
 		},

@@ -83,8 +83,7 @@ func (r *ipRepository) create(ctx context.Context, req *apiv2.IPServiceCreateReq
 	}
 
 	// for private, unshared networks the project id must be the same
-	// for external networks the project id is not checked
-	// if !nw.Shared && nw.ParentNetwork != "" && p.Meta.Id != nw.ProjectID {
+	// for external and underlay networks the project id is not checked
 	if nw.ProjectID != req.Project {
 		switch *nw.NetworkType {
 		case metal.NetworkTypeChildShared, metal.NetworkTypeExternal, metal.NetworkTypeUnderlay:

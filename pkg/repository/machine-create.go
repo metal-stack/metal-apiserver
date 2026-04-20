@@ -332,7 +332,12 @@ func (r *machineRepository) findWaitingMachine(ctx context.Context, partition, p
 	if err != nil {
 		return nil, err
 	}
+	if len(candidates) == 0 {
+		return nil, errors.New("no machine candidate available")
+	}
 
+	// TODO check with a waiting and crashing metal-hammer if the machine does not stay in waiting for longer
+	// If this is the case we can remove the whole provisioningEvent fetching and evaluating
 	ecs, err := r.s.ds.Event().List(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -352,44 +357,28 @@ func (r *machineRepository) findWaitingMachine(ctx context.Context, partition, p
 		}
 		available = append(available, m)
 	}
-
 	if len(available) == 0 {
 		return nil, errors.New("no machine available")
 	}
 
-	partitionMachines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
+	allocationType := apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE.Enum()
+	if role == metal.RoleFirewall {
+		allocationType = apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL.Enum()
+	}
+	projectMachines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
 		Partition: &partition,
 		Size:      &size,
+		Allocation: &apiv2.MachineAllocationQuery{
+			Project:        &project,
+			AllocationType: allocationType,
+		},
 	}))
 	if err != nil {
 		return nil, err
 	}
 
-	var (
-		machinesByProject = make(map[string][]*metal.Machine)
-		projectMachines   []*metal.Machine
-	)
-	for _, m := range partitionMachines {
-		if m.Allocation == nil {
-			continue
-		}
-		machinesByProject[m.Allocation.Project] = append(machinesByProject[m.Allocation.Project], m)
-		if m.Allocation.Project == project && m.Allocation.Role == role {
-			projectMachines = append(projectMachines, m)
-		}
-	}
-
-	// This validation must be inside the partition lock
-	// to prevent overshooting machines if many allocations happen at the same time
-	reservations, err := r.s.ds.SizeReservation().List(ctx, queries.SizeReservationFilter(&apiv2.SizeReservationQuery{Partition: &partition, Size: &size}))
-	if err != nil {
-		return nil, err
-	}
-	// TODO the whole size reservation check belongs to validation and should ideally be exposed in size-reservation.go like so:
-	// r.s.ds.SizeReservation().Check(QueryBy: project,partition,size)
-	ok := r.checkSizeReservations(available, project, machinesByProject, reservations)
-	if !ok {
-		return nil, errors.New("no machine available")
+	if err := r.s.UnscopedSizeReservation().AdditionalMethods().check(ctx, partition, project, size); err != nil {
+		return nil, errorutil.NewResourceExhausted(err)
 	}
 
 	desiredMachine, err := r.selectMachine(available, projectMachines, placementTags)
@@ -406,35 +395,6 @@ func (r *machineRepository) findWaitingMachine(ctx context.Context, partition, p
 	}
 
 	return machine, nil
-}
-
-// checkSizeReservations returns true when an allocation is possible and
-// false when size reservations prevent the allocation for the given project in the given partition
-func (r *machineRepository) checkSizeReservations(available []*metal.Machine, projectid string, machinesByProject map[string][]*metal.Machine, reservations []*metal.SizeReservation) bool {
-	if len(reservations) == 0 {
-		return true
-	}
-
-	var (
-		amount = 0
-	)
-
-	for _, r := range reservations {
-		// sum up the amount of reservations
-		amount += r.Amount
-
-		alreadyAllocated := len(machinesByProject[r.ProjectID])
-
-		if projectid == r.ProjectID && alreadyAllocated < r.Amount {
-			// allow allocation for the project when it has a reservation and there are still allocations left
-			return true
-		}
-
-		// subtract already used up reservations of the project
-		amount = max(amount-alreadyAllocated, 0)
-	}
-
-	return amount < len(available)
 }
 
 func (r *machineRepository) convertToMetalAllocationNetwork(ctx context.Context, networks []*apiv2.MachineAllocationNetwork, partition string, role metal.Role) ([]*allocationNetwork, error) {
@@ -525,7 +485,7 @@ func (r *machineRepository) makeMachineNetwork(ctx context.Context, machineUUID,
 				return nil, nil, err
 			}
 
-			apiip, err := r.s.IP(project).Create(ctx, &apiv2.IPServiceCreateRequest{
+			ip, err := r.s.IP(project).AdditionalMethods().create(ctx, &apiv2.IPServiceCreateRequest{
 				Network:       network.network.ID,
 				Project:       project,
 				Name:          &name,
@@ -537,10 +497,6 @@ func (r *machineRepository) makeMachineNetwork(ctx context.Context, machineUUID,
 				return nil, nil, err
 			}
 
-			ip, err := r.s.IP(project).AdditionalMethods().convertToInternal(ctx, apiip)
-			if err != nil {
-				return nil, nil, err
-			}
 			network.ips = append(network.ips, ip)
 		}
 	}
