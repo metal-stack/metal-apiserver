@@ -82,7 +82,7 @@ type RedisConfig struct {
 	ComponentClient valkey.Client
 }
 
-func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
+func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error) {
 	var (
 		tokenStore = tokencommon.NewRedisStore(c.RedisConfig.TokenClient)
 		certStore  = certs.NewRedisStore(&certs.Config{
@@ -169,7 +169,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 
 	mux := http.NewServeMux()
 
-	tokenService, err := api.ApiServices(api.Config{
+	tokenService, err := api.ApiServices(ctx, api.Config{
 		Log:                log,
 		Repository:         c.Repository,
 		Datastore:          c.Datastore,

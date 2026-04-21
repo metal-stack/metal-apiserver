@@ -46,6 +46,8 @@ type healthServiceServer struct {
 
 	checkers []healthchecker
 	current  *apiv2.Health
+
+	mu sync.RWMutex
 }
 
 func New(c Config) (apiv2connect.HealthServiceHandler, error) {
@@ -90,6 +92,8 @@ func New(c Config) (apiv2connect.HealthServiceHandler, error) {
 }
 
 func (h *healthServiceServer) Get(ctx context.Context, rq *apiv2.HealthServiceGetRequest) (*apiv2.HealthServiceGetResponse, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	return &apiv2.HealthServiceGetResponse{
 		Health: h.current,
 	}, nil
@@ -174,6 +178,8 @@ func (h *healthServiceServer) updateStatuses(outerCtx context.Context) error {
 		return statuses.Services[i].Name < statuses.Services[j].Name
 	})
 
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	h.current = statuses
 
 	h.log.Info("health statuses checked successfully")
