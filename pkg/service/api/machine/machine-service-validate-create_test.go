@@ -823,6 +823,10 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 						Amount:     10,
 					},
 				})
+				testDC.Machines = []*sc.MachineWithLiveliness{
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive),
+					// sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive),
+				}
 				dc.Create(&testDC)
 
 				projectNetworkId := dc.GetNetworkByName("project network").Id
@@ -837,7 +841,7 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 						{Network: projectNetworkId},
 					},
 				}
-				return req, errorutil.ResourceExhausted("no machine candidates available") // FIXME this error should not be internal, validation must be done in the validation
+				return req, errorutil.ResourceExhausted("no machine available")
 			},
 			want: nil,
 		},

@@ -178,11 +178,14 @@ func (r *sizeReservationRepository) check(ctx context.Context, partition, projec
 
 	reservations, err := r.list(ctx, &apiv2.SizeReservationQuery{
 		Partition: &partition,
-		Project:   &project,
 		Size:      &size,
 	})
 	if err != nil {
 		return err
+	}
+	if len(reservations) == 0 {
+		r.s.log.Debug("check, no reservations")
+		return nil
 	}
 
 	candidates, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
@@ -241,6 +244,7 @@ func (r *sizeReservationRepository) check(ctx context.Context, partition, projec
 		machinesByProject[m.Allocation.Project] = append(machinesByProject[m.Allocation.Project], m)
 	}
 
+	r.s.log.Debug("check", "available", len(available), "project", project, "machinesbyproject", machinesByProject, "reservations", reservations)
 	ok := r.checkSizeReservations(available, project, machinesByProject, reservations)
 	if ok {
 		return nil
@@ -250,16 +254,7 @@ func (r *sizeReservationRepository) check(ctx context.Context, partition, projec
 
 // checkSizeReservations returns true when an allocation is possible and
 // false when size reservations prevent the allocation for the given project in the given partition
-// FIXME only machine of project are considered, therefor only machines of the project must be passed
 func (r *sizeReservationRepository) checkSizeReservations(available []*metal.Machine, projectid string, machinesByProject map[string][]*metal.Machine, reservations []*metal.SizeReservation) bool {
-	if len(reservations) == 0 {
-		return true
-	}
-
-	if len(available) == 0 {
-		return false
-	}
-
 	var (
 		amount = 0
 	)

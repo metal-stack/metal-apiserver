@@ -82,6 +82,7 @@ var (
 			State: metal.MachineState{
 				Value: metal.AvailableState,
 			},
+			Waiting: true,
 		}
 		if project != "" && image != "" {
 			m.Allocation = &metal.MachineAllocation{
