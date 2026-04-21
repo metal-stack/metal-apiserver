@@ -134,7 +134,7 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 			createDatacenterFn: func() *sc.DatacenterSpec {
 				testDC := sc.DefaultDatacenter
 				testDC.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, "", "", metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, "", "", metal.MachineLivelinessAlive, false),
 				}
 				testDC.Machines[0].Machine.State.Value = metal.LockedState
 				return &testDC
@@ -151,7 +151,7 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 			createDatacenterFn: func() *sc.DatacenterSpec {
 				testDC := sc.DefaultDatacenter
 				testDC.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, "", "", metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, "", "", metal.MachineLivelinessAlive, false),
 				}
 				testDC.Machines[0].Machine.Waiting = false
 				return &testDC
@@ -215,7 +215,7 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 			createDatacenterFn: func() *sc.DatacenterSpec {
 				testDC := sc.DefaultDatacenter
 				testDC.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeN1Medium, "", "", metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeN1Medium, "", "", metal.MachineLivelinessAlive, false),
 				}
 				testDC.Machines[0].Machine.Waiting = true
 				testDC.Machines[0].Machine.Hardware = metal.MachineHardware{
@@ -824,7 +824,7 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 					},
 				})
 				testDC.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive, true),
 					// sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive),
 				}
 				dc.Create(&testDC)

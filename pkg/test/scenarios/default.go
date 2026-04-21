@@ -155,7 +155,7 @@ var (
 		},
 		Switches: SwitchPairFunc([2]string{Switch1, Switch2}, Partition1, "rack-1", 2),
 		Machines: []*MachineWithLiveliness{
-			MachineFunc(Machine1, Partition1, SizeC1Large, Tenant1Project1, ImageDebian13, metal.MachineLivelinessAlive),
+			MachineFunc(Machine1, Partition1, SizeC1Large, Tenant1Project1, ImageDebian13, metal.MachineLivelinessAlive, false),
 		},
 	}
 )
