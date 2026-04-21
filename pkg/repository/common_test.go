@@ -121,6 +121,28 @@ func Test_updateLabelsOnSlice(t *testing.T) {
 			existingTags: []string{"foo", "bar"},
 			want:         []string{"bar=1", "foo="},
 		},
+		{
+			name: "remove all and just set to given labels",
+			rq: &apiv2.UpdateLabels{
+				Update: &apiv2.Labels{
+					Labels: map[string]string{
+						"foo": "",
+						"bar": "1",
+					},
+				},
+				RemoveAll: true,
+			},
+			existingTags: []string{"a", "b", "c"},
+			want:         []string{"bar=1", "foo="},
+		},
+		{
+			name: "just remove all",
+			rq: &apiv2.UpdateLabels{
+				RemoveAll: true,
+			},
+			existingTags: []string{"a", "b", "c"},
+			want:         nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -229,6 +251,39 @@ func Test_updateLabelsOnMap(t *testing.T) {
 				"1":   "2",
 				"foo": "",
 			},
+		},
+		{
+			name: "remove all and just set to given labels",
+			rq: &apiv2.UpdateLabels{
+				Update: &apiv2.Labels{
+					Labels: map[string]string{
+						"a": "",
+						"b": "",
+						"c": "d",
+					},
+				},
+				RemoveAll: true,
+			},
+			existingTags: map[string]string{
+				"1":   "2",
+				"foo": "",
+			},
+			want: map[string]string{
+				"a": "",
+				"b": "",
+				"c": "d",
+			},
+		},
+		{
+			name: "just remove all",
+			rq: &apiv2.UpdateLabels{
+				RemoveAll: true,
+			},
+			existingTags: map[string]string{
+				"1":   "2",
+				"foo": "",
+			},
+			want: map[string]string{},
 		},
 	}
 	for _, tt := range tests {
