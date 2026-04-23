@@ -3,6 +3,7 @@ package machine
 import (
 	"log/slog"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -14,6 +15,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 )
@@ -1151,6 +1153,9 @@ func Test_machineServiceServer_CreateFirewallWithoutVPN(t *testing.T) {
 			); diff != "" {
 				t.Errorf("machineServiceServer.Create() = %v, want %v diff: %s", got, want, diff)
 			}
+
+			assert.Empty(t, got.Machine.Allocation.Vpn.AuthKey)
+			assert.Empty(t, got.Machine.Allocation.Vpn.ControlPlaneAddress)
 		})
 	}
 }
@@ -1395,6 +1400,9 @@ func Test_machineServiceServer_CreateFirewallWithVPN(t *testing.T) {
 			); diff != "" {
 				t.Errorf("machineServiceServer.Create() = %v, want %v diff: %s", got, want, diff)
 			}
+
+			assert.True(t, strings.HasPrefix(got.Machine.Allocation.Vpn.AuthKey, "hskey-auth-"))
+			assert.True(t, strings.HasPrefix(got.Machine.Allocation.Vpn.ControlPlaneAddress, "localhost:"))
 		})
 	}
 }
