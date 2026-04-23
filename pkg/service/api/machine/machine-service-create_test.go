@@ -1397,12 +1397,9 @@ func Test_machineServiceServer_CreateFirewallWithVPN(t *testing.T) {
 			); diff != "" {
 				t.Errorf("machineServiceServer.Create() = %v, want %v diff: %s", got, want, diff)
 			}
-<<<<<<< HEAD
-=======
 
 			assert.True(t, strings.HasPrefix(got.Machine.Allocation.Vpn.AuthKey, "hskey-auth-"))
 			assert.True(t, strings.HasPrefix(got.Machine.Allocation.Vpn.ControlPlaneAddress, "localhost:"))
->>>>>>> c7324a5cf0033b91919d035571e592462cc4e89b
 		})
 	}
 }

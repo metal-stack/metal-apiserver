@@ -176,10 +176,6 @@ func ToAddressFamily(af apiv2.IPAddressFamily) (AddressFamily, error) {
 }
 
 // FromAddressFamily returns the apiv2 address family of the corresponding metal address family.
-<<<<<<< HEAD
-// Attention: this function might return nil for ip family dual stack!!
-=======
->>>>>>> c7324a5cf0033b91919d035571e592462cc4e89b
 func FromAddressFamily(af AddressFamily) (*apiv2.IPAddressFamily, error) {
 	switch af {
 	case AddressFamilyIPv4:
@@ -207,10 +203,6 @@ func ToAddressFamilyFromNetwork(af apiv2.NetworkAddressFamily) (*AddressFamily, 
 }
 
 // FromAddressFamilyOfNetwork returns the apiv2 address family of the corresponding metal address family.
-<<<<<<< HEAD
-// Attention: this function might return nil for network family dual stack!!
-=======
->>>>>>> c7324a5cf0033b91919d035571e592462cc4e89b
 func FromAddressFamilyOfNetwork(af AddressFamily) (*apiv2.NetworkAddressFamily, error) {
 	switch af {
 	case AddressFamilyIPv4:
