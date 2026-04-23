@@ -157,7 +157,10 @@ func (r *machineRepository) matchScope(machine *metal.Machine) bool {
 func (r *machineRepository) create(ctx context.Context, req *apiv2.MachineServiceCreateRequest) (*metal.Machine, error) {
 	result, err := r.allocateMachine(ctx, req)
 	if err != nil {
+<<<<<<< HEAD
 		// FIXME not only the machine must be rolled back, the autoallocated ipaddresses as well.
+=======
+>>>>>>> c7324a5cf0033b91919d035571e592462cc4e89b
 		// FIXME migrate the whole mechanism of allocating to a task and roll back there on error
 		r.rollback(ctx, result.rollbackEntities)
 		return nil, err
@@ -165,7 +168,10 @@ func (r *machineRepository) create(ctx context.Context, req *apiv2.MachineServic
 
 	machine := result.machine
 
+<<<<<<< HEAD
 	// if allocation was created, create a new queue entry for the Wait endpoint like so:
+=======
+>>>>>>> c7324a5cf0033b91919d035571e592462cc4e89b
 	err = r.s.queue.PushMachineAllocation(ctx, machine.ID, task.MachineAllocationPayload{UUID: machine.Allocation.UUID})
 	if err != nil {
 		return nil, err
@@ -495,7 +501,14 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 			if err != nil {
 				return nil, err
 			}
+<<<<<<< HEAD
 			natType, err := metal.FromNATType(metalNetwork.NATType)
+=======
+			if metalNetwork.NATType == nil {
+				metalNetwork.NATType = new(metal.NATTypeNone)
+			}
+			natType, err := metal.FromNATType(*metalNetwork.NATType)
+>>>>>>> c7324a5cf0033b91919d035571e592462cc4e89b
 			if err != nil {
 				return nil, err
 			}
@@ -1213,7 +1226,11 @@ func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWa
 	}
 
 	if machine.Allocation != nil {
+<<<<<<< HEAD
 		r.s.log.Info("send existing allocation to machine", "allocation", machine.Allocation)
+=======
+		r.s.log.Debug("send existing allocation to machine", "allocation", machine.Allocation)
+>>>>>>> c7324a5cf0033b91919d035571e592462cc4e89b
 		err = srv.Send(&infrav2.BootServiceWaitResponse{
 			Allocation: machine.Allocation,
 		})
@@ -1250,7 +1267,7 @@ func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWa
 			if machine.Allocation == nil {
 				return errorutil.Internal("machine %s is not allocated", machineID)
 			}
-			r.s.log.Info("send allocation to machine", "allocation", machine.Allocation)
+			r.s.log.Debug("send allocation to machine", "allocation", machine.Allocation)
 			err = srv.Send(&infrav2.BootServiceWaitResponse{
 				Allocation: machine.Allocation,
 			})

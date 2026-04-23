@@ -21,8 +21,11 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 
 	token, ok := token.TokenFromContext(ctx)
 	if !ok {
+<<<<<<< HEAD
 		// TODO can we ensure we get a token with the correct user if called from mcm ?
 		// Or is it sufficient if the cluster creator is set correct.
+=======
+>>>>>>> c7324a5cf0033b91919d035571e592462cc4e89b
 		return errorutil.Unauthenticated("unable to get user from context")
 	}
 
@@ -175,6 +178,10 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 
 		networkTypeCount[n.Type]++
 
+		if len(n.Prefixes) == 0 {
+			return fmt.Errorf("network %q does not have any prefixes", n.Id)
+		}
+
 		if len(nw.Ips) == 0 {
 			if err := r.ipsAvailable(ctx, nw.Network); err != nil {
 				return err
@@ -196,9 +203,11 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 				return fmt.Errorf("given ip %s is not in the allocation project", metalIP.IPAddress)
 			}
 
-			// TODO explain this condition
 			scope := metalIP.GetScope()
-			if scope != metal.ScopeMachine && scope != metal.ScopeProject {
+			// Ensure that this ip is not already directly attached to another machine
+			// TODO should we also ensure that this ip is not already used for a service type loadbalancer
+			// TODO we also need to support anycast external ips in the metal only case.
+			if scope == metal.ScopeMachine {
 				return fmt.Errorf("given ip %s is not available for direct attachment to machine because it is already in use", metalIP.IPAddress)
 			}
 		}

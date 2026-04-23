@@ -64,8 +64,6 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 	if ok {
 		creator = tok.User
 	} else {
-		// TODO can we ensure we get a token with the correct user if called from mcm ?
-		// Or is it sufficient if the cluster creator is set correct.
 		return result, errorutil.Unauthenticated("unable to get user from context")
 	}
 
@@ -158,10 +156,10 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 
 	// DNS and NTP Servers from request have precedence
 	if len(req.DnsServers) != 0 {
-		dnsServers = appendDNSServers(dnsServers, req.DnsServers)
+		dnsServers = convertDNSServers(req.DnsServers)
 	}
 	if len(req.NtpServers) != 0 {
-		ntpServers = appendNTPServers(ntpServers, req.NtpServers)
+		ntpServers = convertNTPServers(req.NtpServers)
 	}
 
 	if req.Uuid == nil {
@@ -212,12 +210,13 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 	}
 	alloc.FilesystemLayout = fsl
 
-	networks, err := r.convertToMetalAllocationNetwork(ctx, req.Networks, partitionID, role)
+	networks, err := r.convertToMetalAllocationNetworks(ctx, req.Networks, partitionID, role)
 	if err != nil {
 		return result, fmt.Errorf("unable to gather networks:%w", err)
 	}
 	machineNetworks, allocatedIPs, err := r.makeNetworks(ctx, machine.ID, req.Project, req.Name, networks)
 	if err != nil {
+		// TODO the rollbackEntities should try to contain the ips here as well
 		return result, fmt.Errorf("unable to make networks:%w", err)
 	}
 	result.rollbackEntities.allocatedIPs = allocatedIPs
@@ -377,7 +376,7 @@ func (r *machineRepository) findWaitingMachine(ctx context.Context, partition, p
 		return nil, err
 	}
 
-	if err := r.s.UnscopedSizeReservation().AdditionalMethods().check(ctx, partition, project, size); err != nil {
+	if err := r.s.UnscopedSizeReservation().AdditionalMethods().check(ctx, candidates, partition, project, size); err != nil {
 		return nil, errorutil.NewResourceExhausted(err)
 	}
 
@@ -397,7 +396,7 @@ func (r *machineRepository) findWaitingMachine(ctx context.Context, partition, p
 	return machine, nil
 }
 
-func (r *machineRepository) convertToMetalAllocationNetwork(ctx context.Context, networks []*apiv2.MachineAllocationNetwork, partition string, role metal.Role) ([]*allocationNetwork, error) {
+func (r *machineRepository) convertToMetalAllocationNetworks(ctx context.Context, networks []*apiv2.MachineAllocationNetwork, partition string, role metal.Role) ([]*allocationNetwork, error) {
 	var (
 		specNetworks []*allocationNetwork
 	)
@@ -470,15 +469,10 @@ func (r *machineRepository) makeNetworks(ctx context.Context, machineUUID, proje
 	return machineNetworks, allocatedIPs, nil
 }
 
-// FIXME this is the complicated part which needs to be reviewed
-
 func (r *machineRepository) makeMachineNetwork(ctx context.Context, machineUUID, project, name string, network *allocationNetwork, asn uint32) (*metal.MachineNetwork, []*metal.IP, error) {
 	var allocatedIPs []*metal.IP
 
 	if len(network.ips) == 0 {
-		if len(network.network.Prefixes) == 0 {
-			return nil, nil, fmt.Errorf("given network %s does not have prefixes configured", network.network.ID)
-		}
 		for _, af := range network.network.Prefixes.AddressFamilies() {
 			apiaf, err := metal.FromAddressFamily(af)
 			if err != nil {
@@ -511,7 +505,6 @@ func (r *machineRepository) makeMachineNetwork(ctx context.Context, machineUUID,
 			return nil, nil, err
 		}
 		ipAddresses = append(ipAddresses, ip.IPAddress)
-		// collect all ips, delete only the ephemeral, remove machine tag from static
 		allocatedIPs = append(allocatedIPs, ip)
 	}
 
@@ -526,7 +519,6 @@ func (r *machineRepository) makeMachineNetwork(ctx context.Context, machineUUID,
 		IPs:                 ipAddresses,
 		DestinationPrefixes: network.network.DestinationPrefixes.String(),
 		// We do not carry over these old parameters,
-		// the new networker must figure out all aspekts from the v2 networktype
 		//
 		// PrivatePrimary:      n.networkType.PrivatePrimary,
 
@@ -582,10 +574,7 @@ func (r *machineRepository) addMachineTagsAndLabels(m *metal.Machine) {
 	m.Tags = tags
 }
 
-func appendDNSServers(current metal.DNSServers, requestDNSServers []*apiv2.DNSServer) metal.DNSServers {
-	if len(requestDNSServers) == 0 {
-		return current
-	}
+func convertDNSServers(requestDNSServers []*apiv2.DNSServer) metal.DNSServers {
 	result := make(metal.DNSServers, 0, len(requestDNSServers))
 	for _, s := range requestDNSServers {
 		result = append(result, metal.DNSServer{IP: s.Ip})
@@ -593,10 +582,7 @@ func appendDNSServers(current metal.DNSServers, requestDNSServers []*apiv2.DNSSe
 	return result
 }
 
-func appendNTPServers(current []metal.NTPServer, requestNTPServers []*apiv2.NTPServer) []metal.NTPServer {
-	if len(requestNTPServers) == 0 {
-		return current
-	}
+func convertNTPServers(requestNTPServers []*apiv2.NTPServer) []metal.NTPServer {
 	result := make([]metal.NTPServer, 0, len(requestNTPServers))
 	for _, s := range requestNTPServers {
 		result = append(result, metal.NTPServer{Address: s.Address})
