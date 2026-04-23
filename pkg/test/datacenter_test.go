@@ -152,13 +152,11 @@ func TestAssert(t *testing.T) {
 				require.NoError(t, err)
 
 				nw, err := dc.GetTestStore().UnscopedNetwork().Create(ctx, &adminv2.NetworkServiceCreateRequest{
-					Id:      new("network-2"),
-					Type:    apiv2.NetworkType_NETWORK_TYPE_SUPER,
-					Project: new("20000000-0000-0000-0000-000000000001"),
-					DefaultChildPrefixLength: &apiv2.ChildPrefixLength{
-						Ipv4: new(uint32(32)),
-					},
+					Id:       new("network-2"),
+					Type:     apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
+					Project:  new("20000000-0000-0000-0000-000000000001"),
 					Prefixes: []string{"1.1.1.0/24"},
+					Vrf:      new(uint32(43)),
 				})
 				require.NoError(t, err)
 

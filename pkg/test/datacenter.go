@@ -33,29 +33,31 @@ type (
 	}
 
 	entities struct {
-		tenants        map[string]*apiv2.Tenant
-		projects       map[string][]*apiv2.Project
-		partitions     map[string]*apiv2.Partition
-		sizes          map[string]*apiv2.Size
-		networks       map[string]*apiv2.Network
-		ips            map[string]*apiv2.IP
-		images         map[string]*apiv2.Image
-		switches       map[string]*apiv2.Switch
-		switchStatuses map[string]*metal.SwitchStatus
-		machines       map[string]*apiv2.Machine
+		tenants           map[string]*apiv2.Tenant
+		projects          map[string][]*apiv2.Project
+		partitions        map[string]*apiv2.Partition
+		filesystemLayouts map[string]*apiv2.FilesystemLayout
+		sizes             map[string]*apiv2.Size
+		networks          map[string]*apiv2.Network
+		ips               map[string]*apiv2.IP
+		images            map[string]*apiv2.Image
+		switches          map[string]*apiv2.Switch
+		switchStatuses    map[string]*metal.SwitchStatus
+		machines          map[string]*apiv2.Machine
 	}
 
 	Asserters struct {
-		Tenants        func(tenants map[string]*apiv2.Tenant)
-		Projects       func(projects map[string][]*apiv2.Project)
-		Partitions     func(partitions map[string]*apiv2.Partition)
-		Sizes          func(sizes map[string]*apiv2.Size)
-		Networks       func(networks map[string]*apiv2.Network)
-		IPs            func(ips map[string]*apiv2.IP)
-		Images         func(images map[string]*apiv2.Image)
-		Switches       func(switches map[string]*apiv2.Switch)
-		SwitchStatuses func(switchStatuses map[string]*metal.SwitchStatus)
-		Machines       func(machines map[string]*apiv2.Machine)
+		Tenants           func(tenants map[string]*apiv2.Tenant)
+		Projects          func(projects map[string][]*apiv2.Project)
+		Partitions        func(partitions map[string]*apiv2.Partition)
+		Sizes             func(sizes map[string]*apiv2.Size)
+		FilesystemLayouts func(filesystemLayouts map[string]*apiv2.FilesystemLayout)
+		Networks          func(networks map[string]*apiv2.Network)
+		IPs               func(ips map[string]*apiv2.IP)
+		Images            func(images map[string]*apiv2.Image)
+		Switches          func(switches map[string]*apiv2.Switch)
+		SwitchStatuses    func(switchStatuses map[string]*metal.SwitchStatus)
+		Machines          func(machines map[string]*apiv2.Machine)
 	}
 )
 
@@ -93,6 +95,7 @@ func (dc *Datacenter) Create(spec *scenarios.DatacenterSpec) {
 	dc.createImages(spec)
 	dc.createSizes(spec)
 	dc.createSizeReservations(spec)
+	dc.createFilesystemLayouts(spec)
 	dc.createSizeImageConstraints(spec)
 	dc.createNetworks(spec)
 	dc.createIPs(spec)
@@ -143,6 +146,16 @@ func (dc *Datacenter) GetNetworks() map[string]*apiv2.Network {
 	return dc.entities.networks
 }
 
+func (dc *Datacenter) GetNetworkByName(name string) *apiv2.Network {
+
+	for _, n := range dc.entities.networks {
+		if n.Name != nil && *n.Name == name {
+			return n
+		}
+	}
+	return nil
+}
+
 func (dc *Datacenter) GetIPs() map[string]*apiv2.IP {
 	return dc.entities.ips
 }
@@ -161,6 +174,10 @@ func (dc *Datacenter) GetSwitchStatuses() map[string]*metal.SwitchStatus {
 
 func (dc *Datacenter) GetMachines() map[string]*apiv2.Machine {
 	return dc.entities.machines
+}
+
+func (dc *Datacenter) GetFilesystemLayouts() map[string]*apiv2.FilesystemLayout {
+	return dc.entities.filesystemLayouts
 }
 
 func (dc *Datacenter) Close() {
@@ -312,9 +329,10 @@ func (dc *Datacenter) createImages(spec *scenarios.DatacenterSpec) {
 	for name, feature := range spec.Images {
 		req = append(req, &adminv2.ImageServiceCreateRequest{
 			Image: &apiv2.Image{
-				Id:       name,
-				Url:      ts.URL,
-				Features: []apiv2.ImageFeature{feature},
+				Id:             name,
+				Url:            ts.URL,
+				Features:       []apiv2.ImageFeature{feature},
+				Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED,
 			},
 		})
 	}
@@ -333,6 +351,14 @@ func (dc *Datacenter) createSizes(spec *scenarios.DatacenterSpec) {
 
 func (dc *Datacenter) createSizeReservations(spec *scenarios.DatacenterSpec) {
 	CreateSizeReservations(dc.t, dc.testStore, spec.SizeReservations)
+}
+
+func (dc *Datacenter) createFilesystemLayouts(spec *scenarios.DatacenterSpec) {
+	for _, fsl := range spec.FilesystemLayouts {
+		f, err := dc.GetTestStore().FilesystemLayout().Create(dc.t.Context(), fsl)
+		require.NoError(dc.t, err)
+		dc.entities.filesystemLayouts[f.Id] = f
+	}
 }
 
 func (dc *Datacenter) createSizeImageConstraints(spec *scenarios.DatacenterSpec) {

@@ -47,14 +47,14 @@ var (
 			SwitchFunc(P02Rack03Switch2, Partition2, P02Rack03, []string{"swp1s0", "swp1s1"}, SwitchOSCumulus, apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE, Machine7),
 		},
 		Machines: []*MachineWithLiveliness{
-			MachineFunc(Machine1, Partition1, SizeC1Large, "", "", metal.MachineLivelinessAlive),
-			MachineFunc(Machine2, Partition1, SizeC1Large, "", "", metal.MachineLivelinessAlive),
-			MachineFunc(Machine3, Partition2, SizeC1Large, "", "", metal.MachineLivelinessAlive),
-			MachineFunc(Machine4, Partition2, SizeC1Large, "", "", metal.MachineLivelinessAlive),
-			MachineFunc(Machine5, Partition2, SizeC1Large, "", "", metal.MachineLivelinessAlive),
-			MachineFunc(Machine6, Partition2, SizeC1Large, "", "", metal.MachineLivelinessAlive),
-			MachineFunc(Machine7, Partition2, SizeC1Large, "", "", metal.MachineLivelinessAlive),
-			MachineFunc(Machine8, Partition2, SizeC1Large, "", "", metal.MachineLivelinessAlive),
+			MachineFunc(Machine1, Partition1, SizeC1Large, "", "", metal.MachineLivelinessAlive, false),
+			MachineFunc(Machine2, Partition1, SizeC1Large, "", "", metal.MachineLivelinessAlive, false),
+			MachineFunc(Machine3, Partition2, SizeC1Large, "", "", metal.MachineLivelinessAlive, false),
+			MachineFunc(Machine4, Partition2, SizeC1Large, "", "", metal.MachineLivelinessAlive, false),
+			MachineFunc(Machine5, Partition2, SizeC1Large, "", "", metal.MachineLivelinessAlive, false),
+			MachineFunc(Machine6, Partition2, SizeC1Large, "", "", metal.MachineLivelinessAlive, false),
+			MachineFunc(Machine7, Partition2, SizeC1Large, "", "", metal.MachineLivelinessAlive, false),
+			MachineFunc(Machine8, Partition2, SizeC1Large, "", "", metal.MachineLivelinessAlive, false),
 		},
 	}
 )

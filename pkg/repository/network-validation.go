@@ -73,6 +73,7 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 	// if partition is not nil, a super in this partition must be present and is used
 	// if partition is nil, a superNamespaces must be present and is used
 	// project is mandatory
+	// only one child-shared per project
 	// parent network id is optional, if not given, exactly one private super must be found before
 	// nat is optional
 	// shared is optional

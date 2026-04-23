@@ -1,6 +1,7 @@
 package ip
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
+	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/samber/lo"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -554,7 +556,10 @@ func Test_ipServiceServer_Create(t *testing.T) {
 
 	validURL := ts.URL
 
-	ctx := t.Context()
+	testToken := apiv2.Token{
+		User:      "unit-test-user",
+		AdminRole: apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
+	}
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
 	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{{Name: p0, Login: "t1"}, {Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
@@ -575,6 +580,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			Vrf:       new(uint32(45)),
 			Partition: new("partition-three"),
 		},
+		{Id: new("underlay"), Prefixes: []string{"4.5.6.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_UNDERLAY, Partition: new("partition-three")},
 		{Id: new("tenant-network"), Partition: new("partition-one"), Prefixes: []string{"10.2.0.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_SUPER, DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: new(uint32(28))}},
 		{Id: new("tenant-network-v6"), Partition: new("partition-two"), Prefixes: []string{"2001:db8:1::/64"}, Type: apiv2.NetworkType_NETWORK_TYPE_SUPER, DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv6: new(uint32(80))}},
 		{Id: new("tenant-network-dualstack"), Partition: new("partition-three"), Prefixes: []string{"10.3.0.0/24", "2001:db8:2::/64"}, Type: apiv2.NetworkType_NETWORK_TYPE_SUPER, DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: new(uint32(28)), Ipv6: new(uint32(80))}},
@@ -620,6 +626,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 	tests := []struct {
 		name    string
 		rq      *apiv2.IPServiceCreateRequest
+		ctxFn   func() context.Context
 		want    *apiv2.IPServiceCreateResponse
 		wantErr error
 	}{
@@ -780,6 +787,34 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			want:    nil,
 			wantErr: errorutil.InvalidArgument("not allowed to create ip with project %s in network external-with-project scoped to project %s", p2, p1),
 		},
+		{
+			name: "create ip from underlay network",
+			rq: &apiv2.IPServiceCreateRequest{
+				Network: "underlay",
+				Project: p2,
+				Type:    apiv2.IPType_IP_TYPE_STATIC.Enum(),
+			},
+			want:    nil,
+			wantErr: errorutil.PermissionDenied("only admin editors can allocate ips from an underlay network"),
+		},
+		{
+			name: "create ip from underlay network as admin editor",
+			rq: &apiv2.IPServiceCreateRequest{
+				Network: "underlay",
+				Project: p2,
+				Type:    apiv2.IPType_IP_TYPE_STATIC.Enum(),
+			},
+			ctxFn: func() context.Context {
+				return token.ContextWithToken(t.Context(), &apiv2.Token{
+					User:      "unit-test-admin",
+					AdminRole: apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+				})
+			},
+			want: &apiv2.IPServiceCreateResponse{
+				Ip: &apiv2.IP{Ip: "4.5.6.1", Network: "underlay", Project: p2, Type: apiv2.IPType_IP_TYPE_STATIC, Meta: &apiv2.Meta{}},
+			},
+			wantErr: nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -791,6 +826,12 @@ func Test_ipServiceServer_Create(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
+
+			ctx := token.ContextWithToken(t.Context(), &testToken)
+			if tt.ctxFn != nil {
+				ctx = tt.ctxFn()
+			}
+
 			got, err := i.Create(
 				ctx, tt.rq,
 			)

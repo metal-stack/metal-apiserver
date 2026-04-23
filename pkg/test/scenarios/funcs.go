@@ -44,7 +44,7 @@ var (
 		}
 	}
 
-	MachineFunc = func(id, partition, size, project, image string, liveliness metal.MachineLiveliness) *MachineWithLiveliness {
+	MachineFunc = func(id, partition, size, project, image string, liveliness metal.MachineLiveliness, waiting bool) *MachineWithLiveliness {
 		machineNumber := lo.Substring(id, -1, 1)
 		m := &metal.Machine{
 			Base:        metal.Base{ID: id},
@@ -61,6 +61,7 @@ var (
 			State: metal.MachineState{
 				Value: metal.AvailableState,
 			},
+			Waiting: waiting,
 		}
 		if project != "" && image != "" {
 			m.Allocation = &metal.MachineAllocation{

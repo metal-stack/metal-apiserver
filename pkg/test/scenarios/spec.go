@@ -14,6 +14,7 @@ const (
 
 	ImageDebian13    = "debian-13.0.20260131"
 	ImageDebian12    = "debian-12.0.20251220"
+	ImageDebian11    = "debian-11.0.20241220"
 	ImageFirewall3_0 = "firewall-ubuntu-3.0.20260201"
 
 	SizeN1Medium = "n1-medium-x86"
@@ -21,6 +22,11 @@ const (
 
 	Partition1 = "partition-1"
 	Partition2 = "partition-2"
+
+	NetworkInternet              = "internet"
+	NetworkUnderlayPartition1    = "underlay-partition-1"
+	NetworkTenantSuperNamespaced = "tenant-super-namespaced"
+	NetworkTenantSuperPartition1 = "tenant-super-partition-1"
 
 	P01Rack01 = "p01-rack01"
 	P01Rack02 = "p01-rack02"
@@ -86,6 +92,7 @@ type (
 		Tenants              []string
 		ProjectsPerTenant    int
 		Images               map[string]apiv2.ImageFeature
+		FilesystemLayouts    []*adminv2.FilesystemServiceCreateRequest
 		Sizes                []*apiv2.Size
 		SizeReservations     []*adminv2.SizeReservationServiceCreateRequest
 		SizeImageConstraints []*adminv2.SizeImageConstraintServiceCreateRequest
