@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/netip"
 	"slices"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
@@ -82,11 +83,10 @@ func (r *ipRepository) create(ctx context.Context, req *apiv2.IPServiceCreateReq
 	}
 
 	// for private, unshared networks the project id must be the same
-	// for external networks the project id is not checked
-	// if !nw.Shared && nw.ParentNetwork != "" && p.Meta.Id != nw.ProjectID {
+	// for external and underlay networks the project id is not checked
 	if nw.ProjectID != req.Project {
 		switch *nw.NetworkType {
-		case metal.NetworkTypeChildShared, metal.NetworkTypeExternal:
+		case metal.NetworkTypeChildShared, metal.NetworkTypeExternal, metal.NetworkTypeUnderlay:
 			// this is fine
 		default:
 			return nil, errorutil.InvalidArgument("can not allocate ip for project %q because network belongs to %q and the network is of type:%s", req.Project, nw.ProjectID, *nw.NetworkType)
@@ -284,7 +284,67 @@ func (r *ipRepository) allocateRandomIP(ctx context.Context, network *metal.Netw
 }
 
 func (r *ipRepository) convertToInternal(ctx context.Context, ip *apiv2.IP) (*metal.IP, error) {
-	panic("unimplemented")
+	var t metal.IPType
+	switch ip.Type {
+	case apiv2.IPType_IP_TYPE_EPHEMERAL:
+		t = metal.Ephemeral
+	case apiv2.IPType_IP_TYPE_STATIC:
+		t = metal.Static
+	case apiv2.IPType_IP_TYPE_UNSPECIFIED:
+		return nil, fmt.Errorf("unknown ip type:%T", ip.Type)
+	}
+
+	var (
+		created          time.Time
+		updated          time.Time
+		generation       uint64
+		metalTags        []string
+		parentPrefixCidr string
+	)
+
+	if ip.Meta != nil {
+		created = ip.Meta.CreatedAt.AsTime()
+		updated = ip.Meta.UpdatedAt.AsTime()
+		generation = ip.Meta.Generation
+
+		if ip.Meta.Labels != nil {
+			metalTags = tags.ToTags(ip.Meta.Labels.Labels)
+		}
+	}
+
+	nw, err := r.s.ds.Network().Get(ctx, ip.Network)
+	if err != nil {
+		return nil, err
+	}
+	parsedIP, err := netip.ParseAddr(ip.Ip)
+	if err != nil {
+		return nil, err
+	}
+	for _, p := range nw.Prefixes {
+		parsedPrefix, err := netip.ParsePrefix(p.String())
+		if err != nil {
+			return nil, err
+		}
+		if parsedPrefix.Contains(parsedIP) {
+			parentPrefixCidr = parsedPrefix.String()
+		}
+	}
+
+	return &metal.IP{
+		IPAddress:        ip.Ip,
+		AllocationUUID:   ip.Uuid,
+		Name:             ip.Name,
+		Description:      ip.Description,
+		Namespace:        ip.Namespace,
+		NetworkID:        ip.Network,
+		ProjectID:        ip.Project,
+		ParentPrefixCidr: parentPrefixCidr,
+		Tags:             metalTags,
+		Type:             t,
+		Created:          created,
+		Changed:          updated,
+		Generation:       generation,
+	}, nil
 }
 
 func (r *ipRepository) convertToProto(ctx context.Context, metalIP *metal.IP) (*apiv2.IP, error) {

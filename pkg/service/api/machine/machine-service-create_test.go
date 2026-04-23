@@ -20,7 +20,7 @@ import (
 
 // TODO:
 // - convert to datacenter asserters
-// - convert impl to asynq task
+// - convert impl or rollback to asynq task
 // - [x] allocation with error injection
 // - [x] assert acquired ips have proper tags
 // - [x] assert firewalls have vpn

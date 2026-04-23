@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -170,4 +171,108 @@ func (r *sizeReservationRepository) sizeReservationFilters(filter generic.Entity
 	}
 
 	return qs
+}
+
+func (r *sizeReservationRepository) check(ctx context.Context, partition, project, size string) error {
+	r.s.log.Debug("check", "partition", partition, "project", project, "size", size)
+
+	reservations, err := r.list(ctx, &apiv2.SizeReservationQuery{
+		Partition: &partition,
+		Size:      &size,
+	})
+	if err != nil {
+		return err
+	}
+	if len(reservations) == 0 {
+		r.s.log.Debug("check, no reservations")
+		return nil
+	}
+
+	candidates, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
+		Partition:    &partition,
+		Size:         &size,
+		State:        apiv2.MachineState_MACHINE_STATE_AVAILABLE.Enum(), // Machines which are locked or reserved are not considered
+		Waiting:      new(true),
+		Preallocated: new(false),
+		NotAllocated: new(true),
+	}))
+	if err != nil {
+		return err
+	}
+	if len(candidates) == 0 {
+		return fmt.Errorf("no machine candidates available")
+	}
+
+	// FIXME is this required, as we only select machines which are in waiting ?
+	ecs, err := r.s.ds.Event().List(ctx, nil)
+	if err != nil {
+		return err
+	}
+	ecMap := metal.ProvisioningEventsByID(ecs)
+
+	var available []*metal.Machine
+	for _, m := range candidates {
+		ec, ok := ecMap[m.ID]
+		if !ok {
+			r.s.log.Error("cannot find machine provisioning event container", "machine", m, "error", err)
+			// fall through, so the rest of the machines is getting evaluated
+			continue
+		}
+		if ec.Liveliness != metal.MachineLivelinessAlive {
+			continue
+		}
+		available = append(available, m)
+	}
+	if len(available) == 0 {
+		return fmt.Errorf("no alive machine available")
+	}
+
+	partitionMachines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
+		Partition: &partition,
+		Size:      &size,
+	}))
+	if err != nil {
+		return err
+	}
+	var (
+		machinesByProject = make(map[string][]*metal.Machine)
+	)
+	for _, m := range partitionMachines {
+		if m.Allocation == nil {
+			continue
+		}
+		machinesByProject[m.Allocation.Project] = append(machinesByProject[m.Allocation.Project], m)
+	}
+
+	r.s.log.Debug("check", "available", len(available), "project", project, "machinesbyproject", machinesByProject, "reservations", reservations)
+	ok := r.checkSizeReservations(available, project, machinesByProject, reservations)
+	if ok {
+		return nil
+	}
+	return fmt.Errorf("no machine available")
+}
+
+// checkSizeReservations returns true when an allocation is possible and
+// false when size reservations prevent the allocation for the given project in the given partition
+func (r *sizeReservationRepository) checkSizeReservations(available []*metal.Machine, projectid string, machinesByProject map[string][]*metal.Machine, reservations []*metal.SizeReservation) bool {
+	var (
+		amount = 0
+	)
+
+	for _, r := range reservations {
+		// sum up the amount of reservations
+		amount += r.Amount
+
+		alreadyAllocated := len(machinesByProject[r.ProjectID])
+
+		if projectid == r.ProjectID && alreadyAllocated < r.Amount {
+			// allow allocation for the project when it has a reservation and there are still allocations left
+			return true
+		}
+
+		// subtract already used up reservations of the project
+		amount = max(amount-alreadyAllocated, 0)
+	}
+
+	return amount < len(available)
 }

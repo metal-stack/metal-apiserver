@@ -112,7 +112,7 @@ func MachineFilter(rq *apiv2.MachineQuery) func(q r.Term) r.Term {
 					return q
 				}
 				q = q.Filter(func(row r.Term) r.Term {
-					return row.Field("allocation").Field("role").Eq(roleString)
+					return row.Field("allocation").Field("role").Eq(*roleString)
 				})
 			}
 

@@ -51,8 +51,6 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 				EMail:   "",
 				Name:    "",
 				Tenant:  "",
-				Groups:  []string{},
-				Issuer:  "",
 				Subject: pointer.SafeDeref(tok).User,
 			}
 
