@@ -111,6 +111,7 @@ func (dc *Datacenter) Create(spec *scenarios.DatacenterSpec) {
 	e.projects = currentEntities.projects
 	e.partitions = currentEntities.partitions
 	e.sizes = currentEntities.sizes
+	e.filesystemLayouts = currentEntities.filesystemLayouts
 	e.networks = currentEntities.networks
 	e.ips = currentEntities.ips
 	e.images = currentEntities.images
