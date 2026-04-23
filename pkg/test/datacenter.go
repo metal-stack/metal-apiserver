@@ -356,9 +356,8 @@ func (dc *Datacenter) createSizeReservations(spec *scenarios.DatacenterSpec) {
 
 func (dc *Datacenter) createFilesystemLayouts(spec *scenarios.DatacenterSpec) {
 	for _, fsl := range spec.FilesystemLayouts {
-		f, err := dc.GetTestStore().FilesystemLayout().Create(dc.t.Context(), fsl)
+		_, err := dc.GetTestStore().FilesystemLayout().Create(dc.t.Context(), fsl)
 		require.NoError(dc.t, err)
-		dc.entities.filesystemLayouts[f.Id] = f
 	}
 }
 
