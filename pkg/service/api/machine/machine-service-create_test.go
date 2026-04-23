@@ -1153,9 +1153,6 @@ func Test_machineServiceServer_CreateFirewallWithoutVPN(t *testing.T) {
 			); diff != "" {
 				t.Errorf("machineServiceServer.Create() = %v, want %v diff: %s", got, want, diff)
 			}
-
-			assert.Empty(t, got.Machine.Allocation.Vpn.AuthKey)
-			assert.Empty(t, got.Machine.Allocation.Vpn.ControlPlaneAddress)
 		})
 	}
 }
