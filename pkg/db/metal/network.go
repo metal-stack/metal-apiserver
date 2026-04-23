@@ -24,8 +24,8 @@ type (
 		Vrf                        uint              `rethinkdb:"vrf"`
 		Labels                     map[string]string `rethinkdb:"labels"`
 		AdditionalAnnouncableCIDRs []string          `rethinkdb:"additionalannouncablecidrs" description:"list of cidrs which are added to the route maps per tenant private network, these are typically pod- and service cidrs, can only be set in a supernetwork"`
-		NetworkType                *NetworkType      `rethinkdb:"networktype"`
-		NATType                    *NATType          `rethinkdb:"nattype"`
+		NetworkType                NetworkType       `rethinkdb:"networktype"`
+		NATType                    NATType           `rethinkdb:"nattype"`
 		// PrivateSuper if set identifies this Network as a Super Network for private networks
 		//
 		// Deprecated: use SuperNetworkType instead
@@ -95,21 +95,15 @@ const (
 	NATTypeIPv4Masquerade = NATType("ipv4-masq")
 )
 
-func IsSuperNetwork(nt *NetworkType) bool {
-	if nt == nil {
-		return false
-	}
-	if *nt == NetworkTypeSuper || *nt == NetworkTypeSuperNamespaced {
+func IsSuperNetwork(nt NetworkType) bool {
+	if nt == NetworkTypeSuper || nt == NetworkTypeSuperNamespaced {
 		return true
 	}
 	return false
 }
 
-func IsChildNetwork(nt *NetworkType) bool {
-	if nt == nil {
-		return false
-	}
-	if *nt == NetworkTypeChild || *nt == NetworkTypeChildShared {
+func IsChildNetwork(nt NetworkType) bool {
+	if nt == NetworkTypeChild || nt == NetworkTypeChildShared {
 		return true
 	}
 	return false
@@ -158,6 +152,9 @@ func ToNATType(nt apiv2.NATType) (NATType, error) {
 }
 
 func FromNATType(nt NATType) (apiv2.NATType, error) {
+	if string(nt) == "" {
+		return apiv2.NATType_NAT_TYPE_NONE, nil
+	}
 	apiv2NatType, err := enum.GetEnum[apiv2.NATType](string(nt))
 	if err != nil {
 		return apiv2.NATType_NAT_TYPE_UNSPECIFIED, fmt.Errorf("given nat type %q is invalid", nt)

@@ -516,9 +516,8 @@ func (r *machineRepository) makeMachineNetwork(ctx context.Context, machineUUID,
 	}
 
 	var isPrivateNetwork bool
-	if network.network.NetworkType != nil &&
-		*network.network.NetworkType == metal.NetworkTypeChild ||
-		*network.network.NetworkType == metal.NetworkTypeChildShared {
+	if network.network.NetworkType == metal.NetworkTypeChild ||
+		network.network.NetworkType == metal.NetworkTypeChildShared {
 		isPrivateNetwork = true
 	}
 	machineNetwork := metal.MachineNetwork{

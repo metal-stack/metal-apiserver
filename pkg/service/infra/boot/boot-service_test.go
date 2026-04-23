@@ -780,7 +780,7 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 
 	var privateNetwork *apiv2.Network
 	for _, nw := range netmap {
-		if *nw.Type == apiv2.NetworkType_NETWORK_TYPE_CHILD {
+		if nw.Type == apiv2.NetworkType_NETWORK_TYPE_CHILD {
 			privateNetwork = nw
 		}
 	}
