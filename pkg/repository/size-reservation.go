@@ -187,29 +187,6 @@ func (r *sizeReservationRepository) check(ctx context.Context, candidates []*met
 		r.s.log.Debug("check, no reservations")
 		return nil
 	}
-	// FIXME is this required, as we only select machines which are in waiting ?
-	ecs, err := r.s.ds.Event().List(ctx, nil)
-	if err != nil {
-		return err
-	}
-	ecMap := metal.ProvisioningEventsByID(ecs)
-
-	var available []*metal.Machine
-	for _, m := range candidates {
-		ec, ok := ecMap[m.ID]
-		if !ok {
-			r.s.log.Error("cannot find machine provisioning event container", "machine", m, "error", err)
-			// fall through, so the rest of the machines is getting evaluated
-			continue
-		}
-		if ec.Liveliness != metal.MachineLivelinessAlive {
-			continue
-		}
-		available = append(available, m)
-	}
-	if len(available) == 0 {
-		return fmt.Errorf("no alive machine available")
-	}
 
 	partitionMachines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
 		Partition: &partition,
@@ -228,8 +205,8 @@ func (r *sizeReservationRepository) check(ctx context.Context, candidates []*met
 		machinesByProject[m.Allocation.Project] = append(machinesByProject[m.Allocation.Project], m)
 	}
 
-	r.s.log.Debug("check", "available", len(available), "project", project, "machinesbyproject", machinesByProject, "reservations", reservations)
-	ok := r.checkSizeReservations(available, project, machinesByProject, reservations)
+	r.s.log.Debug("check", "candidates", len(candidates), "project", project, "machinesbyproject", machinesByProject, "reservations", reservations)
+	ok := r.checkSizeReservations(candidates, project, machinesByProject, reservations)
 	if ok {
 		return nil
 	}
