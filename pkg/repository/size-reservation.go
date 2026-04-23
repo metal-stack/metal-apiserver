@@ -173,7 +173,7 @@ func (r *sizeReservationRepository) sizeReservationFilters(filter generic.Entity
 	return qs
 }
 
-func (r *sizeReservationRepository) check(ctx context.Context, partition, project, size string) error {
+func (r *sizeReservationRepository) check(ctx context.Context, candidates []*metal.Machine, partition, project, size string) error {
 	r.s.log.Debug("check", "partition", partition, "project", project, "size", size)
 
 	reservations, err := r.list(ctx, &apiv2.SizeReservationQuery{
@@ -187,22 +187,6 @@ func (r *sizeReservationRepository) check(ctx context.Context, partition, projec
 		r.s.log.Debug("check, no reservations")
 		return nil
 	}
-
-	candidates, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
-		Partition:    &partition,
-		Size:         &size,
-		State:        apiv2.MachineState_MACHINE_STATE_AVAILABLE.Enum(), // Machines which are locked or reserved are not considered
-		Waiting:      new(true),
-		Preallocated: new(false),
-		NotAllocated: new(true),
-	}))
-	if err != nil {
-		return err
-	}
-	if len(candidates) == 0 {
-		return fmt.Errorf("no machine candidates available")
-	}
-
 	// FIXME is this required, as we only select machines which are in waiting ?
 	ecs, err := r.s.ds.Event().List(ctx, nil)
 	if err != nil {

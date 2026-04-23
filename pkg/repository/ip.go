@@ -95,7 +95,7 @@ func (r *ipRepository) create(ctx context.Context, req *apiv2.IPServiceCreateReq
 
 	// FIXME: move validation to ip validation
 
-	var af = metal.AddressFamilyIPv4
+	af := metal.AddressFamilyIPv4
 	if req.AddressFamily != nil {
 		convertedAf, err := metal.ToAddressFamily(*req.AddressFamily)
 		if err != nil {
