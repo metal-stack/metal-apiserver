@@ -149,7 +149,6 @@ func (dc *Datacenter) GetNetworks() map[string]*apiv2.Network {
 }
 
 func (dc *Datacenter) GetNetworkByName(name string) *apiv2.Network {
-
 	for _, n := range dc.entities.networks {
 		if n.Name != nil && *n.Name == name {
 			return n
@@ -219,6 +218,9 @@ func (dc *Datacenter) Assert(snapshot *entities, mods *Asserters, opts ...cmp.Op
 		}
 		if mods.Sizes != nil {
 			mods.Sizes(copied.sizes)
+		}
+		if mods.FilesystemLayouts != nil {
+			mods.FilesystemLayouts(copied.filesystemLayouts)
 		}
 		if mods.Networks != nil {
 			mods.Networks(copied.networks)
@@ -424,6 +426,9 @@ func (e *entities) deepCopy() (*entities, error) {
 	if copied.sizes, err = deepCopy(e.sizes); err != nil {
 		return nil, err
 	}
+	if copied.filesystemLayouts, err = deepCopy(e.filesystemLayouts); err != nil {
+		return nil, err
+	}
 	if copied.networks, err = deepCopy(e.networks); err != nil {
 		return nil, err
 	}
@@ -496,6 +501,14 @@ func getCurrentEntities(ctx context.Context, store *testStore) (*entities, error
 	e.sizes = map[string]*apiv2.Size{}
 	for _, s := range sizes {
 		e.sizes[s.Id] = s
+	}
+	fsls, err := store.FilesystemLayout().List(ctx, &apiv2.FilesystemServiceListRequest{})
+	if err != nil {
+		return nil, err
+	}
+	e.filesystemLayouts = map[string]*apiv2.FilesystemLayout{}
+	for _, fsl := range fsls {
+		e.filesystemLayouts[fsl.Id] = fsl
 	}
 	networks, err := store.UnscopedNetwork().List(ctx, &apiv2.NetworkQuery{})
 	if err != nil {
