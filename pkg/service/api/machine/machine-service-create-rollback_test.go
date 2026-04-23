@@ -96,7 +96,6 @@ func TestMachineCreate_Rollback(t *testing.T) {
 
 	// Inject failing rethinkdb right before storing the machine with the allocation
 	ctx = context.WithValue(ctx, repository.InjectRethinkDbError("true"), "rethinkdb error injected")
-	require.NoError(t, err)
 
 	resp, err := m.Create(ctx, req)
 	require.EqualError(t, err, errorutil.Internal("injected error:rethinkdb error injected").Error())

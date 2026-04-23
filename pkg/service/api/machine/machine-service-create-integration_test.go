@@ -47,7 +47,7 @@ func TestMachineCreateIntegration(t *testing.T) {
 		allMachineUUIDs  = map[string]bool{}
 		allFirewallUUIDs = map[string]bool{}
 	)
-	if in_ci := os.Getenv("CI"); in_ci != "" {
+	if inCi := os.Getenv("CI"); inCi != "" {
 		machineCount = 10
 		firewallCount = 2
 	}
@@ -187,6 +187,7 @@ func TestMachineCreateIntegration(t *testing.T) {
 	}
 
 	require.Empty(t, allMachineUUIDs, "not all machines allocated")
+	require.Empty(t, allFirewallUUIDs, "not all firewalls allocated")
 
 	// Ensure all same vrf, but different asns
 	var (
@@ -206,6 +207,4 @@ func TestMachineCreateIntegration(t *testing.T) {
 	}
 	require.Len(t, lo.Uniq(asns), (machineCount + firewallCount))
 	require.Len(t, lo.Uniq(vrfs), 2) // one for the private network and one for the internet on the firewall
-
-	// TODO Add firewalls
 }
