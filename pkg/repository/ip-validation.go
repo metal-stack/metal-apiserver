@@ -7,8 +7,10 @@ import (
 	"strings"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/api/go/tag"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-lib/pkg/tag"
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/token"
 )
 
 func (r *ipRepository) validateCreate(ctx context.Context, req *apiv2.IPServiceCreateRequest) error {
@@ -16,6 +18,30 @@ func (r *ipRepository) validateCreate(ctx context.Context, req *apiv2.IPServiceC
 
 	errs = validate(errs, req.Project != "", "project should not be empty")
 	errs = validate(errs, req.Network != "", "network should not be empty")
+
+	nw, err := r.s.ds.Network().Get(ctx, req.Network)
+	if err != nil {
+		return err
+	}
+
+	errs = validate(errs, nw.NetworkType != nil, "networktype must not be empty")
+
+	switch nt := *nw.NetworkType; nt {
+	case metal.NetworkTypeChild, metal.NetworkTypeChildShared, metal.NetworkTypeExternal:
+		// all fine
+	case metal.NetworkTypeUnderlay:
+		// Only admins
+		tok, ok := token.TokenFromContext(ctx)
+
+		if !ok || tok == nil {
+			return errorutil.Unauthenticated("no token found in request")
+		}
+		if tok.AdminRole == nil || *tok.AdminRole != apiv2.AdminRole_ADMIN_ROLE_EDITOR {
+			return errorutil.PermissionDenied("only admin editors can allocate ips from an underlay network")
+		}
+	default:
+		return errorutil.PermissionDenied("given networktype %q is not allowed", nt)
+	}
 
 	return errors.Join(errs...)
 }

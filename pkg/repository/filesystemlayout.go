@@ -84,7 +84,7 @@ func (r *filesystemLayoutRepository) update(ctx context.Context, e *metal.Filesy
 			parts := []metal.DiskPartition{}
 			for _, p := range disk.Partitions {
 				part := metal.DiskPartition{
-					Number: uint8(p.Number), // nolint:gosec
+					Number: uint8(p.Number),
 					Size:   p.Size,
 					Label:  p.Label,
 				}
@@ -252,7 +252,7 @@ func (r *filesystemLayoutRepository) convertToInternal(ctx context.Context, f *a
 		parts := []metal.DiskPartition{}
 		for _, p := range disk.Partitions {
 			part := metal.DiskPartition{
-				Number: uint8(p.Number), // nolint:gosec
+				Number: uint8(p.Number),
 				Size:   p.Size,
 				Label:  p.Label,
 			}

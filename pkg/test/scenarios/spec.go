@@ -17,6 +17,7 @@ type (
 		Tenants              []string
 		ProjectsPerTenant    int
 		Images               map[string]apiv2.ImageFeature
+		FilesystemLayouts    []*adminv2.FilesystemServiceCreateRequest
 		Sizes                []*apiv2.Size
 		SizeReservations     []*adminv2.SizeReservationServiceCreateRequest
 		SizeImageConstraints []*adminv2.SizeImageConstraintServiceCreateRequest

@@ -29,8 +29,14 @@ func New(c Config) apiv2connect.MachineServiceHandler {
 }
 
 // Create implements apiv2connect.MachineServiceHandler.
-func (m *machineServiceServer) Create(context.Context, *apiv2.MachineServiceCreateRequest) (*apiv2.MachineServiceCreateResponse, error) {
-	panic("unimplemented")
+func (m *machineServiceServer) Create(ctx context.Context, req *apiv2.MachineServiceCreateRequest) (*apiv2.MachineServiceCreateResponse, error) {
+	machine, err := m.repo.Machine(req.Project).Create(ctx, req)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+	return &apiv2.MachineServiceCreateResponse{
+		Machine: machine,
+	}, nil
 }
 
 // Get implements apiv2connect.MachineServiceHandler.

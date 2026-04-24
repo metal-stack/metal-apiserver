@@ -1,0 +1,1405 @@
+package machine
+
+import (
+	"log/slog"
+	"os"
+	"strings"
+	"testing"
+
+	"github.com/google/go-cmp/cmp"
+	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/api/go/tag"
+	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/test"
+	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
+	"github.com/metal-stack/metal-apiserver/pkg/token"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/testing/protocmp"
+)
+
+// TODO:
+// - convert to datacenter asserters
+// - convert impl or rollback to asynq task
+// - [x] allocation with error injection
+// - [x] assert acquired ips have proper tags
+// - [x] assert firewalls have vpn
+// - [x] test with reservations
+// - [x] test with size-image-constraints
+// - [x] write e2e tests
+// - [x] allocate 100 machines in parallel
+// - [x] try parallel allocation
+
+func Test_machineServiceServer_CreateMachine(t *testing.T) {
+	t.Parallel()
+
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	ctx := t.Context()
+
+	// Add token to be able to get the user from the context
+	testToken := apiv2.Token{
+		User:      "unit-test-user",
+		AdminRole: apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+	}
+	ctx = token.ContextWithToken(ctx, &testToken)
+
+	dc := test.NewDatacenter(t, log)
+	dc.Create(&sc.DefaultDatacenter)
+	defer dc.Close()
+
+	tests := []struct {
+		name string
+		req  *apiv2.MachineServiceCreateRequest
+		// this func only defines the datacenter spec
+		// must not be defined together with the createRequestFn
+		createDatacenterFn func() *sc.DatacenterSpec
+		// when this func is defined, the datacenter must be created inside
+		// with the request and the expected error if any.
+		// This is handy if entities with random uuids must be created as precondition
+		// and also must be part of the request and the error message
+		createRequestFn func() (*apiv2.MachineServiceCreateRequest, error)
+		want            func(dc *test.Datacenter) *apiv2.MachineServiceCreateResponse
+		wantErr         error
+	}{
+		{
+			name: "machine with private network",
+			req:  nil, // set below
+			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
+				testDC := sc.DefaultDatacenter
+				testDC.ProjectsPerTenant = 2
+				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
+					Name:          new("project namespaced network"),
+					ParentNetwork: new(sc.NetworkTenantSuperPartition1),
+					Project:       new(sc.Tenant1Project1),
+					Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD,
+				})
+				testDC.Machines = append(testDC.Machines, &sc.MachineWithLiveliness{
+					Machine: &metal.Machine{
+						Base:        metal.Base{ID: sc.Machine5},
+						PartitionID: sc.Partition1,
+						SizeID:      sc.SizeC1Large,
+						Waiting:     true,
+						Hardware: metal.MachineHardware{
+							Disks: []metal.BlockDevice{
+								{
+									Name: "/dev/sda",
+									Size: 1024 * 1024 * 1024,
+								},
+							},
+						},
+					},
+					Liveliness: metal.MachineLivelinessAlive,
+				})
+				dc.Create(&testDC)
+
+				projectNetworkId := dc.GetNetworkByName("project namespaced network").Id
+				req := &apiv2.MachineServiceCreateRequest{
+					Name:           "testmachine",
+					Project:        sc.Tenant1Project1,
+					Partition:      new(sc.Partition1),
+					Size:           new(sc.SizeC1Large),
+					Image:          sc.ImageDebian12,
+					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+					Networks: []*apiv2.MachineAllocationNetwork{
+						{Network: projectNetworkId},
+					},
+				}
+				return req, nil
+			},
+			want: func(dc *test.Datacenter) *apiv2.MachineServiceCreateResponse {
+				return &apiv2.MachineServiceCreateResponse{
+					Machine: &apiv2.Machine{
+						Meta: &apiv2.Meta{
+							Generation: 2,
+							Labels: &apiv2.Labels{
+								Labels: map[string]string{
+									"machine.metal-stack.io/network.primary.asn": "4210000020",
+								},
+							},
+						},
+						Size:      dc.GetSizes()[sc.SizeC1Large],
+						Partition: dc.GetPartitions()[sc.Partition1],
+						Status: &apiv2.MachineStatus{
+							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
+							Condition:  &apiv2.MachineCondition{},
+							LedState:   &apiv2.MachineChassisIdentifyLEDState{},
+						},
+						Uuid: sc.Machine5,
+						Hardware: &apiv2.MachineHardware{
+							Disks: []*apiv2.MachineBlockDevice{
+								{
+									Name: "/dev/sda",
+									Size: 1024 * 1024 * 1024,
+								},
+							},
+						},
+						RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
+							Events: []*apiv2.MachineProvisioningEvent{
+								{Event: apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_WAITING},
+							},
+						},
+						Allocation: &apiv2.MachineAllocation{
+							Meta:     &apiv2.Meta{},
+							Name:     "testmachine",
+							Hostname: "metal", // Because it was not set during create
+							Image:    dc.GetImages()[sc.ImageDebian12],
+							Networks: []*apiv2.MachineNetwork{
+								{
+									Network:             dc.GetNetworkByName("project namespaced network").Id,
+									Prefixes:            dc.GetNetworkByName("project namespaced network").Prefixes,
+									DestinationPrefixes: dc.GetNetworkByName("project namespaced network").DestinationPrefixes,
+									Ips:                 []string{"12.110.0.1"},
+									NetworkType:         apiv2.NetworkType_NETWORK_TYPE_CHILD,
+									NatType:             apiv2.NATType_NAT_TYPE_NONE,
+									Vrf:                 uint64(*dc.GetNetworkByName("project namespaced network").Vrf),
+									Project:             new(sc.Tenant1Project1),
+									Asn:                 uint32(4210000020),
+								},
+							},
+							FilesystemLayout: dc.GetFilesystemLayouts()["debian"],
+							AllocationType:   apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+							CreatedBy:        "unit-test-user",
+							Project:          sc.Tenant1Project1,
+						},
+					},
+				}
+			},
+		},
+		{
+			name: "machine with private network and image in short form",
+			req:  nil, // set below
+			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
+				testDC := sc.DefaultDatacenter
+				testDC.ProjectsPerTenant = 2
+				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
+					Name:          new("project namespaced network"),
+					ParentNetwork: new(sc.NetworkTenantSuperPartition1),
+					Project:       new(sc.Tenant1Project1),
+					Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD,
+				})
+				testDC.Machines = append(testDC.Machines, &sc.MachineWithLiveliness{
+					Machine: &metal.Machine{
+						Base:        metal.Base{ID: sc.Machine5},
+						PartitionID: sc.Partition1,
+						SizeID:      sc.SizeC1Large,
+						Waiting:     true,
+						Hardware: metal.MachineHardware{
+							Disks: []metal.BlockDevice{
+								{
+									Name: "/dev/sda",
+									Size: 1024 * 1024 * 1024,
+								},
+							},
+						},
+					},
+					Liveliness: metal.MachineLivelinessAlive,
+				})
+				dc.Create(&testDC)
+
+				projectNetworkId := dc.GetNetworkByName("project namespaced network").Id
+				req := &apiv2.MachineServiceCreateRequest{
+					Name:           "testmachine",
+					Hostname:       new("testmachine.debian13"),
+					Project:        sc.Tenant1Project1,
+					Partition:      new(sc.Partition1),
+					Size:           new(sc.SizeC1Large),
+					Image:          "debian-13.0",
+					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+					Networks: []*apiv2.MachineAllocationNetwork{
+						{Network: projectNetworkId},
+					},
+				}
+				return req, nil
+			},
+			want: func(dc *test.Datacenter) *apiv2.MachineServiceCreateResponse {
+				return &apiv2.MachineServiceCreateResponse{
+					Machine: &apiv2.Machine{
+						Meta: &apiv2.Meta{
+							Generation: 2,
+							Labels: &apiv2.Labels{
+								Labels: map[string]string{
+									"machine.metal-stack.io/network.primary.asn": "4210000020",
+								},
+							},
+						},
+						Size:      dc.GetSizes()[sc.SizeC1Large],
+						Partition: dc.GetPartitions()[sc.Partition1],
+						Status: &apiv2.MachineStatus{
+							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
+							Condition:  &apiv2.MachineCondition{},
+							LedState:   &apiv2.MachineChassisIdentifyLEDState{},
+						},
+						Uuid: sc.Machine5,
+						Hardware: &apiv2.MachineHardware{
+							Disks: []*apiv2.MachineBlockDevice{
+								{
+									Name: "/dev/sda",
+									Size: 1024 * 1024 * 1024,
+								},
+							},
+						},
+						RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
+							Events: []*apiv2.MachineProvisioningEvent{
+								{Event: apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_WAITING},
+							},
+						},
+						Allocation: &apiv2.MachineAllocation{
+							Meta:     &apiv2.Meta{},
+							Name:     "testmachine",
+							Hostname: "testmachine.debian13",
+							Image:    dc.GetImages()[sc.ImageDebian13],
+							Networks: []*apiv2.MachineNetwork{
+								{
+									Network:             dc.GetNetworkByName("project namespaced network").Id,
+									Prefixes:            dc.GetNetworkByName("project namespaced network").Prefixes,
+									DestinationPrefixes: dc.GetNetworkByName("project namespaced network").DestinationPrefixes,
+									Ips:                 []string{"12.110.0.1"},
+									NetworkType:         apiv2.NetworkType_NETWORK_TYPE_CHILD,
+									NatType:             apiv2.NATType_NAT_TYPE_NONE,
+									Vrf:                 uint64(*dc.GetNetworkByName("project namespaced network").Vrf),
+									Project:             new(sc.Tenant1Project1),
+									Asn:                 uint32(4210000020),
+								},
+							},
+							FilesystemLayout: dc.GetFilesystemLayouts()["debian"],
+							AllocationType:   apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+							CreatedBy:        "unit-test-user",
+							Project:          sc.Tenant1Project1,
+						},
+					},
+				}
+			},
+		},
+
+		{
+			name: "machine with private network and reserved ip from internet",
+			req:  nil, // set below
+			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
+				testDC := sc.DefaultDatacenter
+				testDC.ProjectsPerTenant = 2
+				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
+					Name:          new("project namespaced network"),
+					ParentNetwork: new(sc.NetworkTenantSuperPartition1),
+					Project:       new(sc.Tenant1Project1),
+					Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD,
+				})
+				testDC.Machines = append(testDC.Machines, &sc.MachineWithLiveliness{
+					Machine: &metal.Machine{
+						Base:        metal.Base{ID: sc.Machine5},
+						PartitionID: sc.Partition1,
+						SizeID:      sc.SizeC1Large,
+						Waiting:     true,
+						Hardware: metal.MachineHardware{
+							Disks: []metal.BlockDevice{
+								{
+									Name: "/dev/sda",
+									Size: 1024 * 1024 * 1024,
+								},
+							},
+						},
+					},
+					Liveliness: metal.MachineLivelinessAlive,
+				})
+				testDC.IPs = append(testDC.IPs, &apiv2.IPServiceCreateRequest{
+					Network: sc.NetworkInternet,
+					Project: sc.Tenant1Project1,
+					Name:    new("my internet service"),
+					Type:    apiv2.IPType_IP_TYPE_STATIC.Enum(),
+					Ip:      new("1.2.3.42"),
+				})
+				dc.Create(&testDC)
+
+				projectNetworkId := dc.GetNetworkByName("project namespaced network").Id
+				req := &apiv2.MachineServiceCreateRequest{
+					Name:           "testmachine-with-internet-ip",
+					Project:        sc.Tenant1Project1,
+					Partition:      new(sc.Partition1),
+					Size:           new(sc.SizeC1Large),
+					Image:          sc.ImageDebian12,
+					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+					Networks: []*apiv2.MachineAllocationNetwork{
+						{Network: projectNetworkId},
+						{Network: sc.NetworkInternet, Ips: []string{"1.2.3.42"}},
+					},
+				}
+				return req, nil
+			},
+			want: func(dc *test.Datacenter) *apiv2.MachineServiceCreateResponse {
+				return &apiv2.MachineServiceCreateResponse{
+					Machine: &apiv2.Machine{
+						Meta: &apiv2.Meta{
+							Generation: 2,
+							Labels: &apiv2.Labels{
+								Labels: map[string]string{
+									"machine.metal-stack.io/network.primary.asn": "4210000020",
+								},
+							},
+						},
+						Size:      dc.GetSizes()[sc.SizeC1Large],
+						Partition: dc.GetPartitions()[sc.Partition1],
+						Status: &apiv2.MachineStatus{
+							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
+							Condition:  &apiv2.MachineCondition{},
+							LedState:   &apiv2.MachineChassisIdentifyLEDState{},
+						},
+						Uuid: sc.Machine5,
+						Hardware: &apiv2.MachineHardware{
+							Disks: []*apiv2.MachineBlockDevice{
+								{
+									Name: "/dev/sda",
+									Size: 1024 * 1024 * 1024,
+								},
+							},
+						},
+						RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
+							Events: []*apiv2.MachineProvisioningEvent{
+								{Event: apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_WAITING},
+							},
+						},
+						Allocation: &apiv2.MachineAllocation{
+							Meta:     &apiv2.Meta{},
+							Name:     "testmachine-with-internet-ip",
+							Hostname: "metal", // Because it was not set during create
+							Image:    dc.GetImages()[sc.ImageDebian12],
+							Networks: []*apiv2.MachineNetwork{
+								{
+									Network:             dc.GetNetworkByName("project namespaced network").Id,
+									Prefixes:            dc.GetNetworkByName("project namespaced network").Prefixes,
+									DestinationPrefixes: dc.GetNetworkByName("project namespaced network").DestinationPrefixes,
+									Ips:                 []string{"12.110.0.1"},
+									NetworkType:         apiv2.NetworkType_NETWORK_TYPE_CHILD,
+									NatType:             apiv2.NATType_NAT_TYPE_NONE,
+									Vrf:                 uint64(*dc.GetNetworkByName("project namespaced network").Vrf),
+									Project:             new(sc.Tenant1Project1),
+									Asn:                 uint32(4210000020),
+								},
+								{
+									Network:             sc.NetworkInternet,
+									Prefixes:            dc.GetNetworks()[sc.NetworkInternet].Prefixes,
+									DestinationPrefixes: dc.GetNetworks()[sc.NetworkInternet].DestinationPrefixes,
+									Ips:                 []string{"1.2.3.42"},
+									NetworkType:         apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
+									NatType:             apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE,
+									Vrf:                 uint64(*dc.GetNetworks()[sc.NetworkInternet].Vrf),
+									Project:             nil,
+									Asn:                 uint32(4210000020),
+								},
+							},
+							FilesystemLayout: dc.GetFilesystemLayouts()["debian"],
+							AllocationType:   apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+							CreatedBy:        "unit-test-user",
+							Project:          sc.Tenant1Project1,
+						},
+					},
+				}
+			},
+		},
+		{
+			name: "machine with specific uuid with private network and reserved ip from internet and specific fsl",
+			req:  nil, // set below
+			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
+				testDC := sc.DefaultDatacenter
+				testDC.ProjectsPerTenant = 2
+				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
+					Name:          new("project namespaced network"),
+					ParentNetwork: new(sc.NetworkTenantSuperPartition1),
+					Project:       new(sc.Tenant1Project1),
+					Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD,
+				})
+				testDC.Machines = append(testDC.Machines, &sc.MachineWithLiveliness{
+					Machine: &metal.Machine{
+						Base:        metal.Base{ID: sc.Machine5},
+						PartitionID: sc.Partition1,
+						RackID:      "rack01",
+						SizeID:      sc.SizeC1Large,
+						Waiting:     true,
+						Hardware: metal.MachineHardware{
+							Disks: []metal.BlockDevice{
+								{
+									Name: "/dev/sda",
+									Size: 1024 * 1024 * 1024,
+								},
+							},
+						},
+						IPMI: metal.IPMI{
+							Fru: metal.Fru{
+								ChassisPartSerial: "chassis-123",
+							},
+						},
+					},
+					Liveliness: metal.MachineLivelinessAlive,
+				})
+				testDC.IPs = append(testDC.IPs, &apiv2.IPServiceCreateRequest{
+					Network: sc.NetworkInternet,
+					Project: sc.Tenant1Project1,
+					Name:    new("my internet service"),
+					Type:    apiv2.IPType_IP_TYPE_STATIC.Enum(),
+					Ip:      new("1.2.3.42"),
+				})
+				dc.Create(&testDC)
+
+				projectNetworkId := dc.GetNetworkByName("project namespaced network").Id
+				req := &apiv2.MachineServiceCreateRequest{
+					Name:           "testmachine-with-internet-ip",
+					Project:        sc.Tenant1Project1,
+					Uuid:           new(sc.Machine5),
+					Image:          sc.ImageDebian12,
+					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+					Networks: []*apiv2.MachineAllocationNetwork{
+						{Network: projectNetworkId},
+						{Network: sc.NetworkInternet, Ips: []string{"1.2.3.42"}},
+					},
+					FilesystemLayout: new("debian"),
+				}
+				return req, nil
+			},
+			want: func(dc *test.Datacenter) *apiv2.MachineServiceCreateResponse {
+				return &apiv2.MachineServiceCreateResponse{
+					Machine: &apiv2.Machine{
+						Meta: &apiv2.Meta{
+							Generation: 1,
+							Labels: &apiv2.Labels{
+								Labels: map[string]string{
+									"machine.metal-stack.io/chassis":             "chassis-123",
+									"machine.metal-stack.io/network.primary.asn": "4210000020",
+									"machine.metal-stack.io/rack":                "rack01",
+								},
+							},
+						},
+						Size:      dc.GetSizes()[sc.SizeC1Large],
+						Partition: dc.GetPartitions()[sc.Partition1],
+						Rack:      "rack01",
+						Status: &apiv2.MachineStatus{
+							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
+							Condition:  &apiv2.MachineCondition{},
+							LedState:   &apiv2.MachineChassisIdentifyLEDState{},
+						},
+						Uuid: sc.Machine5,
+						Hardware: &apiv2.MachineHardware{
+							Disks: []*apiv2.MachineBlockDevice{
+								{
+									Name: "/dev/sda",
+									Size: 1024 * 1024 * 1024,
+								},
+							},
+						},
+						RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
+							Events: []*apiv2.MachineProvisioningEvent{
+								{Event: apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_WAITING},
+							},
+						},
+						Allocation: &apiv2.MachineAllocation{
+							Meta:     &apiv2.Meta{},
+							Name:     "testmachine-with-internet-ip",
+							Hostname: "metal", // Because it was not set during create
+							Image:    dc.GetImages()[sc.ImageDebian12],
+							Networks: []*apiv2.MachineNetwork{
+								{
+									Network:             dc.GetNetworkByName("project namespaced network").Id,
+									Prefixes:            dc.GetNetworkByName("project namespaced network").Prefixes,
+									DestinationPrefixes: dc.GetNetworkByName("project namespaced network").DestinationPrefixes,
+									Ips:                 []string{"12.110.0.1"},
+									NetworkType:         apiv2.NetworkType_NETWORK_TYPE_CHILD,
+									NatType:             apiv2.NATType_NAT_TYPE_NONE,
+									Vrf:                 uint64(*dc.GetNetworkByName("project namespaced network").Vrf),
+									Project:             new(sc.Tenant1Project1),
+									Asn:                 uint32(4210000020),
+								},
+								{
+									Network:             sc.NetworkInternet,
+									Prefixes:            dc.GetNetworks()[sc.NetworkInternet].Prefixes,
+									DestinationPrefixes: dc.GetNetworks()[sc.NetworkInternet].DestinationPrefixes,
+									Ips:                 []string{"1.2.3.42"},
+									NetworkType:         apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
+									NatType:             apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE,
+									Vrf:                 uint64(*dc.GetNetworks()[sc.NetworkInternet].Vrf),
+									Project:             nil,
+									Asn:                 uint32(4210000020),
+								},
+							},
+							FilesystemLayout: dc.GetFilesystemLayouts()["debian"],
+							AllocationType:   apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+							CreatedBy:        "unit-test-user",
+							Project:          sc.Tenant1Project1,
+						},
+					},
+				}
+			},
+		},
+		{
+			name: "machine with specific uuid, user data and labels",
+			req:  nil,
+			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
+				testDC := sc.DefaultDatacenter
+				testDC.ProjectsPerTenant = 2
+				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
+					Name:          new("child network with user data"),
+					ParentNetwork: new(sc.NetworkTenantSuperPartition1),
+					Project:       new(sc.Tenant1Project1),
+					Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD,
+				})
+				testDC.Machines = append(testDC.Machines, &sc.MachineWithLiveliness{
+					Machine: &metal.Machine{
+						Base:        metal.Base{ID: sc.Machine5},
+						PartitionID: sc.Partition1,
+						SizeID:      sc.SizeC1Large,
+						Waiting:     true,
+						Hardware: metal.MachineHardware{
+							Disks: []metal.BlockDevice{
+								{
+									Name: "/dev/sda",
+									Size: 1024 * 1024 * 1024,
+								},
+							},
+						},
+					},
+					Liveliness: metal.MachineLivelinessAlive,
+				})
+				dc.Create(&testDC)
+
+				projectNetworkId := dc.GetNetworkByName("child network with user data").Id
+				req := &apiv2.MachineServiceCreateRequest{
+					Name:           "testmachine-uuid-userdata",
+					Project:        sc.Tenant1Project1,
+					Uuid:           new(sc.Machine5),
+					Image:          sc.ImageDebian12,
+					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+					Networks: []*apiv2.MachineAllocationNetwork{
+						{Network: projectNetworkId},
+					},
+					Userdata: new("echo hello from userdata"),
+					Labels: &apiv2.Labels{
+						Labels: map[string]string{
+							"test-label": "test-value",
+						},
+					},
+				}
+				return req, nil
+			},
+			want: func(dc *test.Datacenter) *apiv2.MachineServiceCreateResponse {
+				return &apiv2.MachineServiceCreateResponse{
+					Machine: &apiv2.Machine{
+						Meta: &apiv2.Meta{
+							Generation: 1,
+							Labels: &apiv2.Labels{
+								Labels: map[string]string{
+									"machine.metal-stack.io/network.primary.asn": "4210000020",
+								},
+							},
+						},
+						Size:      dc.GetSizes()[sc.SizeC1Large],
+						Partition: dc.GetPartitions()[sc.Partition1],
+						Status: &apiv2.MachineStatus{
+							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
+							Condition:  &apiv2.MachineCondition{},
+							LedState:   &apiv2.MachineChassisIdentifyLEDState{},
+						},
+						Uuid: sc.Machine5,
+						Hardware: &apiv2.MachineHardware{
+							Disks: []*apiv2.MachineBlockDevice{
+								{
+									Name: "/dev/sda",
+									Size: 1024 * 1024 * 1024,
+								},
+							},
+						},
+						RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
+							Events: []*apiv2.MachineProvisioningEvent{
+								{Event: apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_WAITING},
+							},
+						},
+						Allocation: &apiv2.MachineAllocation{
+							Meta: &apiv2.Meta{
+								Labels: &apiv2.Labels{
+									Labels: map[string]string{
+										"test-label": "test-value",
+									},
+								},
+							},
+							Name:     "testmachine-uuid-userdata",
+							Hostname: "metal",
+							Image:    dc.GetImages()[sc.ImageDebian12],
+							Networks: []*apiv2.MachineNetwork{
+								{
+									Network:             dc.GetNetworkByName("child network with user data").Id,
+									Prefixes:            dc.GetNetworkByName("child network with user data").Prefixes,
+									DestinationPrefixes: dc.GetNetworkByName("child network with user data").DestinationPrefixes,
+									Ips:                 []string{"12.110.0.1"},
+									NetworkType:         apiv2.NetworkType_NETWORK_TYPE_CHILD,
+									NatType:             apiv2.NATType_NAT_TYPE_NONE,
+									Vrf:                 uint64(*dc.GetNetworkByName("child network with user data").Vrf),
+									Project:             new(sc.Tenant1Project1),
+									Asn:                 uint32(4210000020),
+								},
+							},
+							FilesystemLayout: dc.GetFilesystemLayouts()["debian"],
+							AllocationType:   apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+							CreatedBy:        "unit-test-user",
+							Project:          sc.Tenant1Project1,
+							Userdata:         "echo hello from userdata",
+						},
+					},
+				}
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.createDatacenterFn != nil && tt.createRequestFn != nil {
+				t.Errorf("it is not possible to define createDatacenterFn and createRequestFn")
+			}
+			if tt.createDatacenterFn != nil {
+				dc.Cleanup()
+				dc.Create(tt.createDatacenterFn())
+			}
+			if tt.createRequestFn != nil {
+				dc.Cleanup()
+				req, err := tt.createRequestFn()
+				tt.req = req
+				tt.wantErr = err
+			}
+
+			m := &machineServiceServer{
+				log:  log,
+				repo: dc.GetTestStore().Store,
+			}
+			if tt.wantErr == nil {
+				test.Validate(t, tt.req)
+			}
+			resp, err := m.Create(ctx, tt.req)
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("diff = %s", diff)
+			}
+
+			// Really fetch the machine to ensure nothing was missed during response creation
+			ms, err := dc.GetTestStore().Store.UnscopedMachine().Get(ctx, resp.Machine.Uuid)
+			require.NoError(t, err)
+			got := &apiv2.MachineServiceCreateResponse{
+				Machine: ms,
+			}
+
+			for _, nw := range ms.Allocation.Networks {
+				// Actually not possible to detect if this machine network is namespaced
+				// requires to fetch the network
+				apinw, err := dc.GetTestStore().Store.UnscopedNetwork().Get(ctx, nw.Network)
+				require.NoError(t, err)
+				for _, ip := range nw.Ips {
+					apiip, err := dc.GetTestStore().Store.IP(ms.Allocation.Project).Get(ctx, metal.CreateNamespacedIPAddress(apinw.Namespace, ip))
+					require.NoError(t, err)
+					machineID, ok := apiip.Meta.Labels.Labels[tag.MachineID]
+					require.True(t, ok)
+					require.Equal(t, ms.Uuid, machineID)
+				}
+			}
+
+			want := tt.want(dc)
+			if diff := cmp.Diff(
+				want, got,
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.MachineAllocation{}, "uuid",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.Image{}, "expires_at", "url",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.PartitionBootConfiguration{}, "image_url", "kernel_url",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.MachineProvisioningEvent{}, "time",
+				),
+			); diff != "" {
+				t.Errorf("machineServiceServer.Create() = %v, want %v diff: %s", got, want, diff)
+			}
+		})
+	}
+}
+
+func Test_machineServiceServer_CreateFirewallWithoutVPN(t *testing.T) {
+	t.Parallel()
+
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	ctx := t.Context()
+
+	// Add token to be able to get the user from the context
+	testToken := apiv2.Token{
+		User:      "unit-test-user",
+		AdminRole: apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+	}
+	ctx = token.ContextWithToken(ctx, &testToken)
+
+	dc := test.NewDatacenter(t, log, test.WithHeadscale(false))
+	dc.Create(&sc.DefaultDatacenter)
+	defer dc.Close()
+
+	tests := []struct {
+		name string
+		req  *apiv2.MachineServiceCreateRequest
+		// this func only defines the datacenter spec
+		// must not be defined together with the createRequestFn
+		createDatacenterFn func() *sc.DatacenterSpec
+		// when this func is defined, the datacenter must be created inside
+		// with the request and the expected error if any.
+		// This is handy if entities with random uuids must be created as precondition
+		// and also must be part of the request and the error message
+		createRequestFn func() (*apiv2.MachineServiceCreateRequest, error)
+		want            func(dc *test.Datacenter) *apiv2.MachineServiceCreateResponse
+		wantErr         error
+	}{
+		{
+			name: "firewall with internet and private network",
+			req:  nil, // set below
+			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
+				testDC := sc.DefaultDatacenter
+				testDC.ProjectsPerTenant = 2
+				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
+					Name:          new("project namespaced network"),
+					ParentNetwork: new(sc.NetworkTenantSuperPartition1),
+					Project:       new(sc.Tenant1Project1),
+					Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD,
+				})
+				testDC.Machines = append(testDC.Machines, &sc.MachineWithLiveliness{
+					Machine: &metal.Machine{
+						Base:        metal.Base{ID: sc.Machine5},
+						PartitionID: sc.Partition1,
+						SizeID:      sc.SizeN1Medium,
+						Waiting:     true,
+						Hardware: metal.MachineHardware{
+							Disks: []metal.BlockDevice{
+								{
+									Name: "/dev/sda",
+									Size: 1024 * 1024 * 1024,
+								},
+							},
+						},
+					},
+					Liveliness: metal.MachineLivelinessAlive,
+				})
+				dc.Create(&testDC)
+
+				projectNetworkId := dc.GetNetworkByName("project namespaced network").Id
+				req := &apiv2.MachineServiceCreateRequest{
+					Name:           "testfirewall",
+					Project:        sc.Tenant1Project1,
+					Partition:      new(sc.Partition1),
+					Size:           new(sc.SizeN1Medium),
+					Image:          sc.ImageFirewall3_0,
+					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
+					Networks: []*apiv2.MachineAllocationNetwork{
+						{Network: sc.NetworkInternet},
+						{Network: projectNetworkId},
+					},
+				}
+				return req, nil
+			},
+			want: func(dc *test.Datacenter) *apiv2.MachineServiceCreateResponse {
+				return &apiv2.MachineServiceCreateResponse{
+					Machine: &apiv2.Machine{
+						Meta: &apiv2.Meta{
+							Generation: 2,
+							Labels: &apiv2.Labels{
+								Labels: map[string]string{
+									"machine.metal-stack.io/network.primary.asn": "4210000020",
+								},
+							},
+						},
+						Size:      dc.GetSizes()[sc.SizeN1Medium],
+						Partition: dc.GetPartitions()[sc.Partition1],
+						Status: &apiv2.MachineStatus{
+							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
+							Condition:  &apiv2.MachineCondition{},
+							LedState:   &apiv2.MachineChassisIdentifyLEDState{},
+						},
+						Uuid: sc.Machine5,
+						Hardware: &apiv2.MachineHardware{
+							Disks: []*apiv2.MachineBlockDevice{
+								{
+									Name: "/dev/sda",
+									Size: 1024 * 1024 * 1024,
+								},
+							},
+						},
+						RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
+							Events: []*apiv2.MachineProvisioningEvent{
+								{Event: apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_WAITING},
+							},
+						},
+						Allocation: &apiv2.MachineAllocation{
+							Meta:     &apiv2.Meta{},
+							Name:     "testfirewall",
+							Hostname: "metal", // Because it was not set during create
+							Image:    dc.GetImages()[sc.ImageFirewall3_0],
+							Networks: []*apiv2.MachineNetwork{
+								{
+									Network:             sc.NetworkInternet,
+									Prefixes:            dc.GetNetworks()[sc.NetworkInternet].Prefixes,
+									DestinationPrefixes: dc.GetNetworks()[sc.NetworkInternet].DestinationPrefixes,
+									Ips:                 []string{"1.2.3.2"},
+									NetworkType:         apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
+									NatType:             apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE,
+									Vrf:                 uint64(*dc.GetNetworks()[sc.NetworkInternet].Vrf),
+									Project:             nil,
+									Asn:                 uint32(4210000020),
+								},
+								{
+									Network:             dc.GetNetworkByName("project namespaced network").Id,
+									Prefixes:            dc.GetNetworkByName("project namespaced network").Prefixes,
+									DestinationPrefixes: dc.GetNetworkByName("project namespaced network").DestinationPrefixes,
+									Ips:                 []string{"12.110.0.1"},
+									NetworkType:         apiv2.NetworkType_NETWORK_TYPE_CHILD,
+									NatType:             apiv2.NATType_NAT_TYPE_NONE,
+									Vrf:                 uint64(*dc.GetNetworkByName("project namespaced network").Vrf),
+									Project:             new(sc.Tenant1Project1),
+									Asn:                 uint32(4210000020),
+								},
+								{
+									Network:             sc.NetworkUnderlayPartition1,
+									Prefixes:            dc.GetNetworks()[sc.NetworkUnderlayPartition1].Prefixes,
+									DestinationPrefixes: dc.GetNetworks()[sc.NetworkUnderlayPartition1].DestinationPrefixes,
+									Ips:                 []string{"10.253.0.1"},
+									NetworkType:         apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
+									NatType:             apiv2.NATType_NAT_TYPE_NONE,
+									Vrf:                 uint64(0),
+									Project:             nil,
+									Asn:                 uint32(4210000020),
+								},
+							},
+							FilesystemLayout: dc.GetFilesystemLayouts()["firewall"],
+							AllocationType:   apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
+							CreatedBy:        "unit-test-user",
+							Project:          sc.Tenant1Project1,
+						},
+					},
+				}
+			},
+		},
+
+		{
+			name: "firewall with internet, private network, firewallrules, dnsservers and ntpservers and user tags",
+			req:  nil, // set below
+			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
+				testDC := sc.DefaultDatacenter
+				testDC.ProjectsPerTenant = 2
+				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
+					Name:          new("project namespaced network"),
+					ParentNetwork: new(sc.NetworkTenantSuperPartition1),
+					Project:       new(sc.Tenant1Project1),
+					Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD,
+				})
+				testDC.Machines = append(testDC.Machines, &sc.MachineWithLiveliness{
+					Machine: &metal.Machine{
+						Base:        metal.Base{ID: sc.Machine5},
+						PartitionID: sc.Partition1,
+						SizeID:      sc.SizeN1Medium,
+						Waiting:     true,
+						Hardware: metal.MachineHardware{
+							Disks: []metal.BlockDevice{
+								{
+									Name: "/dev/sda",
+									Size: 1024 * 1024 * 1024,
+								},
+							},
+						},
+					},
+					Liveliness: metal.MachineLivelinessAlive,
+				})
+				dc.Create(&testDC)
+
+				projectNetworkId := dc.GetNetworkByName("project namespaced network").Id
+				req := &apiv2.MachineServiceCreateRequest{
+					Name:           "testfirewall",
+					Project:        sc.Tenant1Project1,
+					Partition:      new(sc.Partition1),
+					Size:           new(sc.SizeN1Medium),
+					Image:          sc.ImageFirewall3_0,
+					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
+					Networks: []*apiv2.MachineAllocationNetwork{
+						{Network: sc.NetworkInternet},
+						{Network: projectNetworkId},
+					},
+					FirewallSpec: &apiv2.FirewallSpec{
+						FirewallRules: &apiv2.FirewallRules{
+							Egress: []*apiv2.FirewallEgressRule{
+								{
+									Protocol: apiv2.IPProtocol_IP_PROTOCOL_TCP,
+									Ports:    []uint32{80, 443},
+									To:       []string{"0.0.0.0/0"},
+									Comment:  "outgoing http",
+								},
+								{
+									Protocol: apiv2.IPProtocol_IP_PROTOCOL_UDP,
+									Ports:    []uint32{53},
+									To:       []string{"0.0.0.0/0"},
+									Comment:  "outgoing dns",
+								},
+							},
+							Ingress: []*apiv2.FirewallIngressRule{
+								{
+									Protocol: apiv2.IPProtocol_IP_PROTOCOL_TCP,
+									Ports:    []uint32{443},
+									From:     []string{"0.0.0.0/0"},
+									Comment:  "incoming web traffic",
+								},
+							},
+						},
+					},
+					DnsServers: []*apiv2.DNSServer{
+						{Ip: "1.1.1.1"},
+					},
+					NtpServers: []*apiv2.NTPServer{
+						{Address: "ntp0.ntp.org"},
+					},
+					Labels: &apiv2.Labels{
+						Labels: map[string]string{
+							"organization": "webserver-team",
+						},
+					},
+					PlacementTags: []string{"rack01"},
+				}
+				return req, nil
+			},
+			want: func(dc *test.Datacenter) *apiv2.MachineServiceCreateResponse {
+				return &apiv2.MachineServiceCreateResponse{
+					Machine: &apiv2.Machine{
+						Meta: &apiv2.Meta{
+							Generation: 2,
+							Labels: &apiv2.Labels{
+								Labels: map[string]string{
+									"machine.metal-stack.io/network.primary.asn": "4210000020",
+								},
+							},
+						},
+						Size:      dc.GetSizes()[sc.SizeN1Medium],
+						Partition: dc.GetPartitions()[sc.Partition1],
+						Status: &apiv2.MachineStatus{
+							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
+							Condition:  &apiv2.MachineCondition{},
+							LedState:   &apiv2.MachineChassisIdentifyLEDState{},
+						},
+						Uuid: sc.Machine5,
+						Hardware: &apiv2.MachineHardware{
+							Disks: []*apiv2.MachineBlockDevice{
+								{
+									Name: "/dev/sda",
+									Size: 1024 * 1024 * 1024,
+								},
+							},
+						},
+						RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
+							Events: []*apiv2.MachineProvisioningEvent{
+								{Event: apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_WAITING},
+							},
+						},
+						Allocation: &apiv2.MachineAllocation{
+							Meta: &apiv2.Meta{
+								Labels: &apiv2.Labels{
+									Labels: map[string]string{
+										"organization": "webserver-team",
+									},
+								},
+							},
+							Name:     "testfirewall",
+							Hostname: "metal", // Because it was not set during create
+							Image:    dc.GetImages()[sc.ImageFirewall3_0],
+							Networks: []*apiv2.MachineNetwork{
+								{
+									Network:             sc.NetworkInternet,
+									Prefixes:            dc.GetNetworks()[sc.NetworkInternet].Prefixes,
+									DestinationPrefixes: dc.GetNetworks()[sc.NetworkInternet].DestinationPrefixes,
+									Ips:                 []string{"1.2.3.2"},
+									NetworkType:         apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
+									NatType:             apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE,
+									Vrf:                 uint64(*dc.GetNetworks()[sc.NetworkInternet].Vrf),
+									Project:             nil,
+									Asn:                 uint32(4210000020),
+								},
+								{
+									Network:             dc.GetNetworkByName("project namespaced network").Id,
+									Prefixes:            dc.GetNetworkByName("project namespaced network").Prefixes,
+									DestinationPrefixes: dc.GetNetworkByName("project namespaced network").DestinationPrefixes,
+									Ips:                 []string{"12.110.0.1"},
+									NetworkType:         apiv2.NetworkType_NETWORK_TYPE_CHILD,
+									NatType:             apiv2.NATType_NAT_TYPE_NONE,
+									Vrf:                 uint64(*dc.GetNetworkByName("project namespaced network").Vrf),
+									Project:             new(sc.Tenant1Project1),
+									Asn:                 uint32(4210000020),
+								},
+								{
+									Network:             sc.NetworkUnderlayPartition1,
+									Prefixes:            dc.GetNetworks()[sc.NetworkUnderlayPartition1].Prefixes,
+									DestinationPrefixes: dc.GetNetworks()[sc.NetworkUnderlayPartition1].DestinationPrefixes,
+									Ips:                 []string{"10.253.0.1"},
+									NetworkType:         apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
+									NatType:             apiv2.NATType_NAT_TYPE_NONE,
+									Vrf:                 uint64(0),
+									Project:             nil,
+									Asn:                 uint32(4210000020),
+								},
+							},
+							FilesystemLayout: dc.GetFilesystemLayouts()["firewall"],
+							AllocationType:   apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
+							CreatedBy:        "unit-test-user",
+							Project:          sc.Tenant1Project1,
+							DnsServers: []*apiv2.DNSServer{
+								{Ip: "1.1.1.1"},
+							},
+							NtpServers: []*apiv2.NTPServer{
+								{Address: "ntp0.ntp.org"},
+							},
+							FirewallRules: &apiv2.FirewallRules{
+								Egress: []*apiv2.FirewallEgressRule{
+									{
+										Protocol: apiv2.IPProtocol_IP_PROTOCOL_TCP,
+										Ports:    []uint32{80, 443},
+										To:       []string{"0.0.0.0/0"},
+										Comment:  "outgoing http",
+									},
+									{
+										Protocol: apiv2.IPProtocol_IP_PROTOCOL_UDP,
+										Ports:    []uint32{53},
+										To:       []string{"0.0.0.0/0"},
+										Comment:  "outgoing dns",
+									},
+								},
+								Ingress: []*apiv2.FirewallIngressRule{
+									{
+										Protocol: apiv2.IPProtocol_IP_PROTOCOL_TCP,
+										Ports:    []uint32{443},
+										From:     []string{"0.0.0.0/0"},
+										Comment:  "incoming web traffic",
+									},
+								},
+							},
+						},
+					},
+				}
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.createDatacenterFn != nil && tt.createRequestFn != nil {
+				t.Errorf("it is not possible to define createDatacenterFn and createRequestFn")
+			}
+			if tt.createDatacenterFn != nil {
+				dc.Cleanup()
+				dc.Create(tt.createDatacenterFn())
+			}
+			if tt.createRequestFn != nil {
+				dc.Cleanup()
+				req, err := tt.createRequestFn()
+				tt.req = req
+				tt.wantErr = err
+			}
+
+			m := &machineServiceServer{
+				log:  log,
+				repo: dc.GetTestStore().Store,
+			}
+			if tt.wantErr == nil {
+				test.Validate(t, tt.req)
+			}
+			resp, err := m.Create(ctx, tt.req)
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("diff = %s", diff)
+				return
+			}
+
+			// Really fetch the machine to ensure nothing was missed during response creation
+			ms, err := dc.GetTestStore().Store.UnscopedMachine().Get(ctx, resp.Machine.Uuid)
+			require.NoError(t, err)
+			got := &apiv2.MachineServiceCreateResponse{
+				Machine: ms,
+			}
+
+			for _, nw := range ms.Allocation.Networks {
+				// Actually not possible to detect if this machine network is namespaced
+				// requires to fetch the network
+				apinw, err := dc.GetTestStore().Store.UnscopedNetwork().Get(ctx, nw.Network)
+				require.NoError(t, err)
+				for _, ip := range nw.Ips {
+					apiip, err := dc.GetTestStore().Store.IP(ms.Allocation.Project).Get(ctx, metal.CreateNamespacedIPAddress(apinw.Namespace, ip))
+					require.NoError(t, err)
+					machineID, ok := apiip.Meta.Labels.Labels[tag.MachineID]
+					require.True(t, ok)
+					require.Equal(t, ms.Uuid, machineID)
+				}
+			}
+
+			want := tt.want(dc)
+			if diff := cmp.Diff(
+				want, got,
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.MachineAllocation{}, "uuid",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.Image{}, "expires_at", "url",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.PartitionBootConfiguration{}, "image_url", "kernel_url",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.MachineProvisioningEvent{}, "time",
+				),
+			); diff != "" {
+				t.Errorf("machineServiceServer.Create() = %v, want %v diff: %s", got, want, diff)
+			}
+		})
+	}
+}
+
+func Test_machineServiceServer_CreateFirewallWithVPN(t *testing.T) {
+	t.Parallel()
+
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	ctx := t.Context()
+
+	// Add token to be able to get the user from the context
+	testToken := apiv2.Token{
+		User:      "unit-test-user",
+		AdminRole: apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+	}
+	ctx = token.ContextWithToken(ctx, &testToken)
+
+	dc := test.NewDatacenter(t, log, test.WithHeadscale(true))
+	dc.Create(&sc.DefaultDatacenter)
+	defer dc.Close()
+
+	tests := []struct {
+		name string
+		req  *apiv2.MachineServiceCreateRequest
+		// this func only defines the datacenter spec
+		// must not be defined together with the createRequestFn
+		createDatacenterFn func() *sc.DatacenterSpec
+		// when this func is defined, the datacenter must be created inside
+		// with the request and the expected error if any.
+		// This is handy if entities with random uuids must be created as precondition
+		// and also must be part of the request and the error message
+		createRequestFn func() (*apiv2.MachineServiceCreateRequest, error)
+		want            func(dc *test.Datacenter) *apiv2.MachineServiceCreateResponse
+		wantErr         error
+	}{
+		{
+			name: "firewall with internet and private network",
+			req:  nil, // set below
+			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
+				testDC := sc.DefaultDatacenter
+				testDC.ProjectsPerTenant = 2
+				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
+					Name:          new("project namespaced network"),
+					ParentNetwork: new(sc.NetworkTenantSuperPartition1),
+					Project:       new(sc.Tenant1Project1),
+					Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD,
+				})
+				testDC.Machines = append(testDC.Machines, &sc.MachineWithLiveliness{
+					Machine: &metal.Machine{
+						Base:        metal.Base{ID: sc.Machine5},
+						PartitionID: sc.Partition1,
+						SizeID:      sc.SizeN1Medium,
+						Waiting:     true,
+						Hardware: metal.MachineHardware{
+							Disks: []metal.BlockDevice{
+								{
+									Name: "/dev/sda",
+									Size: 1024 * 1024 * 1024,
+								},
+							},
+						},
+					},
+					Liveliness: metal.MachineLivelinessAlive,
+				})
+				dc.Create(&testDC)
+
+				projectNetworkId := dc.GetNetworkByName("project namespaced network").Id
+				req := &apiv2.MachineServiceCreateRequest{
+					Name:           "testfirewall",
+					Project:        sc.Tenant1Project1,
+					Partition:      new(sc.Partition1),
+					Size:           new(sc.SizeN1Medium),
+					Image:          sc.ImageFirewall3_0,
+					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
+					Networks: []*apiv2.MachineAllocationNetwork{
+						{Network: sc.NetworkInternet},
+						{Network: projectNetworkId},
+					},
+				}
+				return req, nil
+			},
+			want: func(dc *test.Datacenter) *apiv2.MachineServiceCreateResponse {
+				return &apiv2.MachineServiceCreateResponse{
+					Machine: &apiv2.Machine{
+						Meta: &apiv2.Meta{
+							Generation: 2,
+							Labels: &apiv2.Labels{
+								Labels: map[string]string{
+									"machine.metal-stack.io/network.primary.asn": "4210000020",
+								},
+							},
+						},
+						Size:      dc.GetSizes()[sc.SizeN1Medium],
+						Partition: dc.GetPartitions()[sc.Partition1],
+						Status: &apiv2.MachineStatus{
+							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
+							Condition:  &apiv2.MachineCondition{},
+							LedState:   &apiv2.MachineChassisIdentifyLEDState{},
+						},
+						Uuid: sc.Machine5,
+						Hardware: &apiv2.MachineHardware{
+							Disks: []*apiv2.MachineBlockDevice{
+								{
+									Name: "/dev/sda",
+									Size: 1024 * 1024 * 1024,
+								},
+							},
+						},
+						RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
+							Events: []*apiv2.MachineProvisioningEvent{
+								{Event: apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_WAITING},
+							},
+						},
+						Allocation: &apiv2.MachineAllocation{
+							Meta:     &apiv2.Meta{},
+							Name:     "testfirewall",
+							Hostname: "metal", // Because it was not set during create
+							Image:    dc.GetImages()[sc.ImageFirewall3_0],
+							Networks: []*apiv2.MachineNetwork{
+								{
+									Network:             sc.NetworkInternet,
+									Prefixes:            dc.GetNetworks()[sc.NetworkInternet].Prefixes,
+									DestinationPrefixes: dc.GetNetworks()[sc.NetworkInternet].DestinationPrefixes,
+									Ips:                 []string{"1.2.3.2"},
+									NetworkType:         apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
+									NatType:             apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE,
+									Vrf:                 uint64(*dc.GetNetworks()[sc.NetworkInternet].Vrf),
+									Project:             nil,
+									Asn:                 uint32(4210000020),
+								},
+								{
+									Network:             dc.GetNetworkByName("project namespaced network").Id,
+									Prefixes:            dc.GetNetworkByName("project namespaced network").Prefixes,
+									DestinationPrefixes: dc.GetNetworkByName("project namespaced network").DestinationPrefixes,
+									Ips:                 []string{"12.110.0.1"},
+									NetworkType:         apiv2.NetworkType_NETWORK_TYPE_CHILD,
+									NatType:             apiv2.NATType_NAT_TYPE_NONE,
+									Vrf:                 uint64(*dc.GetNetworkByName("project namespaced network").Vrf),
+									Project:             new(sc.Tenant1Project1),
+									Asn:                 uint32(4210000020),
+								},
+								{
+									Network:             sc.NetworkUnderlayPartition1,
+									Prefixes:            dc.GetNetworks()[sc.NetworkUnderlayPartition1].Prefixes,
+									DestinationPrefixes: dc.GetNetworks()[sc.NetworkUnderlayPartition1].DestinationPrefixes,
+									Ips:                 []string{"10.253.0.1"},
+									NetworkType:         apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
+									NatType:             apiv2.NATType_NAT_TYPE_NONE,
+									Vrf:                 uint64(0),
+									Project:             nil,
+									Asn:                 uint32(4210000020),
+								},
+							},
+							FilesystemLayout: dc.GetFilesystemLayouts()["firewall"],
+							AllocationType:   apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
+							CreatedBy:        "unit-test-user",
+							Project:          sc.Tenant1Project1,
+							Vpn:              &apiv2.MachineVPN{},
+						},
+					},
+				}
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.createDatacenterFn != nil && tt.createRequestFn != nil {
+				t.Errorf("it is not possible to define createDatacenterFn and createRequestFn")
+			}
+			if tt.createDatacenterFn != nil {
+				dc.Cleanup()
+				dc.Create(tt.createDatacenterFn())
+			}
+			if tt.createRequestFn != nil {
+				dc.Cleanup()
+				req, err := tt.createRequestFn()
+				tt.req = req
+				tt.wantErr = err
+			}
+
+			m := &machineServiceServer{
+				log:  log,
+				repo: dc.GetTestStore().Store,
+			}
+			if tt.wantErr == nil {
+				test.Validate(t, tt.req)
+			}
+			resp, err := m.Create(ctx, tt.req)
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("diff = %s", diff)
+			}
+
+			// Really fetch the machine to ensure nothing was missed during response creation
+			ms, err := dc.GetTestStore().Store.UnscopedMachine().Get(ctx, resp.Machine.Uuid)
+			require.NoError(t, err)
+			got := &apiv2.MachineServiceCreateResponse{
+				Machine: ms,
+			}
+
+			require.NotNil(t, ms.Allocation.Vpn)
+			require.NotEmpty(t, ms.Allocation.Vpn.AuthKey)
+			require.Contains(t, ms.Allocation.Vpn.AuthKey, "hskey-auth")
+			require.NotEmpty(t, ms.Allocation.Vpn.ControlPlaneAddress)
+			require.Contains(t, ms.Allocation.Vpn.ControlPlaneAddress, "localhost")
+
+			for _, nw := range ms.Allocation.Networks {
+				// Actually not possible to detect if this machine network is namespaced
+				// requires to fetch the network
+				apinw, err := dc.GetTestStore().Store.UnscopedNetwork().Get(ctx, nw.Network)
+				require.NoError(t, err)
+				for _, ip := range nw.Ips {
+					apiip, err := dc.GetTestStore().Store.IP(ms.Allocation.Project).Get(ctx, metal.CreateNamespacedIPAddress(apinw.Namespace, ip))
+					require.NoError(t, err)
+					machineID, ok := apiip.Meta.Labels.Labels[tag.MachineID]
+					require.True(t, ok)
+					require.Equal(t, ms.Uuid, machineID)
+				}
+			}
+
+			want := tt.want(dc)
+			if diff := cmp.Diff(
+				want, got,
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.MachineAllocation{}, "uuid",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.MachineVPN{}, "auth_key", "control_plane_address",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.Image{}, "expires_at", "url",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.PartitionBootConfiguration{}, "image_url", "kernel_url",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.MachineProvisioningEvent{}, "time",
+				),
+			); diff != "" {
+				t.Errorf("machineServiceServer.Create() = %v, want %v diff: %s", got, want, diff)
+			}
+
+			assert.True(t, strings.HasPrefix(got.Machine.Allocation.Vpn.AuthKey, "hskey-auth-"))
+			assert.True(t, strings.HasPrefix(got.Machine.Allocation.Vpn.ControlPlaneAddress, "localhost:"))
+		})
+	}
+}

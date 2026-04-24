@@ -7,6 +7,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPrefixes_OfFamily(t *testing.T) {
@@ -68,7 +69,7 @@ func TestPrefixes_AddressFamilies(t *testing.T) {
 	tests := []struct {
 		name string
 		p    metal.Prefixes
-		want metal.AddressFamilies
+		want []metal.AddressFamily
 	}{
 		{
 			name: "only ipv4",
@@ -100,9 +101,8 @@ func TestPrefixes_AddressFamilies(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.p.AddressFamilies(); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Prefixes.AddressFamilies() = %v, want %v", got, tt.want)
-			}
+			got := tt.p.AddressFamilies()
+			require.Equal(t, tt.want, got)
 		})
 	}
 }
