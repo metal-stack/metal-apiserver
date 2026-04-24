@@ -22,27 +22,26 @@ import (
 )
 
 func Test_switchServiceServer_Get(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	ctx := t.Context()
-
-	dc := test.NewDatacenter(t, log)
-	defer dc.Close()
-	dc.Create(&sc.SwitchesWithMachinesDatacenter)
-	snapshot := dc.Snapshot()
+	var (
+		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+		ctx = t.Context()
+	)
 
 	tests := []struct {
 		name    string
 		rq      *adminv2.SwitchServiceGetRequest
-		want    *adminv2.SwitchServiceGetResponse
+		want    func(*test.Datacenter) *adminv2.SwitchServiceGetResponse
 		wantErr error
 	}{
 		{
 			name: "get existing",
 			rq: &adminv2.SwitchServiceGetRequest{
-				Id: dc.GetSwitches()[sc.P01Rack01Switch1].Id,
+				Id: sc.P01Rack01Switch1,
 			},
-			want: &adminv2.SwitchServiceGetResponse{
-				Switch: dc.GetSwitches()[sc.P01Rack01Switch1],
+			want: func(dc *test.Datacenter) *adminv2.SwitchServiceGetResponse {
+				return &adminv2.SwitchServiceGetResponse{
+					Switch: dc.GetSwitches()[sc.P01Rack01Switch1],
+				}
 			},
 			wantErr: nil,
 		},
@@ -55,6 +54,12 @@ func Test_switchServiceServer_Get(t *testing.T) {
 			wantErr: errorutil.NotFound("no switch with id \"sw10\" found"),
 		},
 	}
+
+	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
+	dc.Create(&sc.SwitchesWithMachinesDatacenter)
+	snapshot := dc.Snapshot()
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &switchServiceServer{
@@ -85,23 +90,20 @@ func Test_switchServiceServer_Get(t *testing.T) {
 }
 
 func Test_switchServiceServer_List(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	ctx := t.Context()
-
-	dc := test.NewDatacenter(t, log)
-	defer dc.Close()
-	dc.Create(&sc.SwitchesWithMachinesDatacenter)
-	snapshot := dc.Snapshot()
+	var (
+		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+		ctx = t.Context()
+	)
 
 	tests := []struct {
-		name     string
-		rq       *adminv2.SwitchServiceListRequest
-		wantFunc func() *adminv2.SwitchServiceListResponse
+		name string
+		rq   *adminv2.SwitchServiceListRequest
+		want func(*test.Datacenter) *adminv2.SwitchServiceListResponse
 	}{
 		{
 			name: "get all",
 			rq:   &adminv2.SwitchServiceListRequest{},
-			wantFunc: func() *adminv2.SwitchServiceListResponse {
+			want: func(dc *test.Datacenter) *adminv2.SwitchServiceListResponse {
 				switches := lo.Values(dc.GetSwitches())
 				slices.SortFunc(switches, func(sw1, sw2 *apiv2.Switch) int {
 					return strings.Compare(sw1.Id, sw2.Id)
@@ -117,7 +119,7 @@ func Test_switchServiceServer_List(t *testing.T) {
 					Rack: new(sc.P01Rack01),
 				},
 			},
-			wantFunc: func() *adminv2.SwitchServiceListResponse {
+			want: func(dc *test.Datacenter) *adminv2.SwitchServiceListResponse {
 				return &adminv2.SwitchServiceListResponse{
 					Switches: []*apiv2.Switch{
 						dc.GetSwitches()[sc.P01Rack01Switch1],
@@ -134,7 +136,7 @@ func Test_switchServiceServer_List(t *testing.T) {
 					Id: new(sc.P01Rack01Switch1),
 				},
 			},
-			wantFunc: func() *adminv2.SwitchServiceListResponse {
+			want: func(dc *test.Datacenter) *adminv2.SwitchServiceListResponse {
 				return &adminv2.SwitchServiceListResponse{
 					Switches: []*apiv2.Switch{dc.GetSwitches()[sc.P01Rack01Switch1]},
 				}
@@ -147,7 +149,7 @@ func Test_switchServiceServer_List(t *testing.T) {
 					Partition: new(sc.Partition2),
 				},
 			},
-			wantFunc: func() *adminv2.SwitchServiceListResponse {
+			want: func(dc *test.Datacenter) *adminv2.SwitchServiceListResponse {
 				return &adminv2.SwitchServiceListResponse{
 					Switches: []*apiv2.Switch{
 						dc.GetSwitches()[sc.P02Rack01Switch1],
@@ -171,7 +173,7 @@ func Test_switchServiceServer_List(t *testing.T) {
 					},
 				},
 			},
-			wantFunc: func() *adminv2.SwitchServiceListResponse {
+			want: func(dc *test.Datacenter) *adminv2.SwitchServiceListResponse {
 				return &adminv2.SwitchServiceListResponse{
 					Switches: []*apiv2.Switch{
 						dc.GetSwitches()[sc.P01Rack02Switch1],
@@ -191,7 +193,7 @@ func Test_switchServiceServer_List(t *testing.T) {
 					},
 				},
 			},
-			wantFunc: func() *adminv2.SwitchServiceListResponse {
+			want: func(dc *test.Datacenter) *adminv2.SwitchServiceListResponse {
 				return &adminv2.SwitchServiceListResponse{
 					Switches: []*apiv2.Switch{
 						dc.GetSwitches()[sc.P01Rack03Switch1],
@@ -200,6 +202,12 @@ func Test_switchServiceServer_List(t *testing.T) {
 			},
 		},
 	}
+
+	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
+	dc.Create(&sc.SwitchesWithMachinesDatacenter)
+	snapshot := dc.Snapshot()
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &switchServiceServer{
@@ -212,8 +220,8 @@ func Test_switchServiceServer_List(t *testing.T) {
 			require.NoError(t, err)
 
 			var want *adminv2.SwitchServiceListResponse
-			if tt.wantFunc != nil {
-				want = tt.wantFunc()
+			if tt.want != nil {
+				want = tt.want(dc)
 			}
 
 			if diff := cmp.Diff(want, got,
@@ -236,19 +244,16 @@ func Test_switchServiceServer_Update(t *testing.T) {
 		now = time.Now()
 	)
 
-	dc := test.NewDatacenter(t, log)
-	defer dc.Close()
-
 	tests := []struct {
 		name    string
-		rq      func() *adminv2.SwitchServiceUpdateRequest
-		want    func() *adminv2.SwitchServiceUpdateResponse
+		rq      func(*test.Datacenter) *adminv2.SwitchServiceUpdateRequest
+		want    func(*test.Datacenter) *adminv2.SwitchServiceUpdateResponse
 		mods    func() *test.Asserters
 		wantErr error
 	}{
 		{
 			name: "no updates made",
-			rq: func() *adminv2.SwitchServiceUpdateRequest {
+			rq: func(dc *test.Datacenter) *adminv2.SwitchServiceUpdateRequest {
 				return &adminv2.SwitchServiceUpdateRequest{
 					Id: sc.P01Rack01Switch1,
 					UpdateMeta: &apiv2.UpdateMeta{
@@ -256,7 +261,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 					},
 				}
 			},
-			want: func() *adminv2.SwitchServiceUpdateResponse {
+			want: func(dc *test.Datacenter) *adminv2.SwitchServiceUpdateResponse {
 				return &adminv2.SwitchServiceUpdateResponse{
 					Switch: dc.GetSwitches()[sc.P01Rack01Switch1],
 				}
@@ -265,7 +270,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 		},
 		{
 			name: "update all valid fields",
-			rq: func() *adminv2.SwitchServiceUpdateRequest {
+			rq: func(dc *test.Datacenter) *adminv2.SwitchServiceUpdateRequest {
 				return &adminv2.SwitchServiceUpdateRequest{
 					Id: sc.P01Rack01Switch1,
 					UpdateMeta: &apiv2.UpdateMeta{
@@ -315,7 +320,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 					},
 				}
 			},
-			want: func() *adminv2.SwitchServiceUpdateResponse {
+			want: func(dc *test.Datacenter) *adminv2.SwitchServiceUpdateResponse {
 				sw := dc.GetSwitches()[sc.P01Rack01Switch1]
 				nic1 := &apiv2.SwitchNic{
 					Name:       "Ethernet0",
@@ -422,7 +427,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 		},
 		{
 			name: "cannot update os vendor",
-			rq: func() *adminv2.SwitchServiceUpdateRequest {
+			rq: func(dc *test.Datacenter) *adminv2.SwitchServiceUpdateRequest {
 				return &adminv2.SwitchServiceUpdateRequest{
 					Id: dc.GetSwitches()[sc.P01Rack03Switch2].Id,
 					UpdateMeta: &apiv2.UpdateMeta{
@@ -437,6 +442,10 @@ func Test_switchServiceServer_Update(t *testing.T) {
 			wantErr: errorutil.InvalidArgument("cannot update switch os vendor from Cumulus to SONiC, use replace instead"),
 		},
 	}
+
+	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			dc.Create(&sc.SwitchesWithMachinesDatacenter)
@@ -449,10 +458,10 @@ func Test_switchServiceServer_Update(t *testing.T) {
 			)
 
 			if tt.rq != nil {
-				rq = tt.rq()
+				rq = tt.rq(dc)
 			}
 			if tt.want != nil {
-				want = tt.want()
+				want = tt.want(dc)
 			}
 
 			s := &switchServiceServer{
@@ -487,16 +496,15 @@ func Test_switchServiceServer_Update(t *testing.T) {
 }
 
 func Test_switchServiceServer_Delete(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	ctx := t.Context()
-
-	dc := test.NewDatacenter(t, log)
-	defer dc.Close()
+	var (
+		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+		ctx = t.Context()
+	)
 
 	tests := []struct {
 		name    string
 		rq      *adminv2.SwitchServiceDeleteRequest
-		want    func() *adminv2.SwitchServiceDeleteResponse
+		want    func(*test.Datacenter) *adminv2.SwitchServiceDeleteResponse
 		mods    func() *test.Asserters
 		wantErr error
 	}{
@@ -505,7 +513,7 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 			rq: &adminv2.SwitchServiceDeleteRequest{
 				Id: sc.P01Rack03Switch1,
 			},
-			want: func() *adminv2.SwitchServiceDeleteResponse {
+			want: func(dc *test.Datacenter) *adminv2.SwitchServiceDeleteResponse {
 				sw := dc.GetSwitches()[sc.P01Rack03Switch1]
 				sw.LastSync = nil
 				sw.LastSyncError = nil
@@ -530,7 +538,7 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 			rq: &adminv2.SwitchServiceDeleteRequest{
 				Id: sc.P01Rack02Switch1,
 			},
-			want: func() *adminv2.SwitchServiceDeleteResponse {
+			want: func(dc *test.Datacenter) *adminv2.SwitchServiceDeleteResponse {
 				return nil
 			},
 			wantErr: errorutil.FailedPrecondition("cannot delete switch %s while it still has machines connected to it", sc.P01Rack02Switch1),
@@ -541,7 +549,7 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 				Id:    sc.P01Rack02Switch1,
 				Force: true,
 			},
-			want: func() *adminv2.SwitchServiceDeleteResponse {
+			want: func(dc *test.Datacenter) *adminv2.SwitchServiceDeleteResponse {
 				sw := dc.GetSwitches()[sc.P01Rack02Switch1]
 				sw.LastSync = nil
 				sw.LastSyncError = nil
@@ -562,6 +570,10 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 			wantErr: nil,
 		},
 	}
+
+	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			dc.Create(&sc.SwitchesWithMachinesDatacenter)
@@ -579,7 +591,7 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 
 			var want *adminv2.SwitchServiceDeleteResponse
 			if tt.want != nil {
-				want = tt.want()
+				want = tt.want(dc)
 			}
 
 			got, err := s.Delete(ctx, tt.rq)
@@ -606,83 +618,69 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 }
 
 func Test_switchServiceServer_Port(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	ctx := t.Context()
-
-	dc := test.NewDatacenter(t, log)
-	defer dc.Close()
+	var (
+		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+		ctx = t.Context()
+	)
 
 	tests := []struct {
-		name     string
-		reqFunc  func() *adminv2.SwitchServicePortRequest
-		wantFunc func() *adminv2.SwitchServicePortResponse
-		mods     func() *test.Asserters
-		wantErr  error
+		name    string
+		rq      *adminv2.SwitchServicePortRequest
+		want    func(*test.Datacenter) *adminv2.SwitchServicePortResponse
+		mods    func() *test.Asserters
+		wantErr error
 	}{
 		{
-			name: "port status must be specified",
-			reqFunc: func() *adminv2.SwitchServicePortRequest {
-				return &adminv2.SwitchServicePortRequest{}
-			},
-			wantFunc: nil,
-			wantErr:  errorutil.InvalidArgument("failed to parse port status \"SWITCH_PORT_STATUS_UNSPECIFIED\": unable to fetch stringvalue from SWITCH_PORT_STATUS_UNSPECIFIED"),
+			name:    "port status must be specified",
+			rq:      &adminv2.SwitchServicePortRequest{},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument("failed to parse port status \"SWITCH_PORT_STATUS_UNSPECIFIED\": unable to fetch stringvalue from SWITCH_PORT_STATUS_UNSPECIFIED"),
 		},
 		{
 			name: "port status UNKNOWN is invalid",
-			reqFunc: func() *adminv2.SwitchServicePortRequest {
-				return &adminv2.SwitchServicePortRequest{
-					Status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNKNOWN,
-				}
+			rq: &adminv2.SwitchServicePortRequest{
+				Status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNKNOWN,
 			},
-			wantFunc: nil,
-			wantErr:  errorutil.InvalidArgument("port status \"UNKNOWN\" must be one of [\"UP\", \"DOWN\"]"),
+			want:    nil,
+			wantErr: errorutil.InvalidArgument("port status \"UNKNOWN\" must be one of [\"UP\", \"DOWN\"]"),
 		},
 		{
 			name: "switch does not exist",
-			reqFunc: func() *adminv2.SwitchServicePortRequest {
-				return &adminv2.SwitchServicePortRequest{
-					Status:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-					Id:      "sw10",
-					NicName: "Ethernet0",
-				}
-			},
-			wantFunc: nil,
-			wantErr:  errorutil.NotFound("no switch with id \"sw10\" found"),
+			rq: &adminv2.SwitchServicePortRequest{
+				Status:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+				Id:      "sw10",
+				NicName: "Ethernet0"},
+			want:    nil,
+			wantErr: errorutil.NotFound("no switch with id \"sw10\" found"),
 		},
 		{
 			name: "port does not exist on switch",
-			reqFunc: func() *adminv2.SwitchServicePortRequest {
-				return &adminv2.SwitchServicePortRequest{
-					Status:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-					Id:      sc.P01Rack01Switch1,
-					NicName: "swp1",
-				}
+			rq: &adminv2.SwitchServicePortRequest{
+				Status:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+				Id:      sc.P01Rack01Switch1,
+				NicName: "swp1",
 			},
-			wantFunc: nil,
-			wantErr:  errorutil.InvalidArgument("port swp1 does not exist on switch %s", sc.P01Rack01Switch1),
+			want:    nil,
+			wantErr: errorutil.InvalidArgument("port swp1 does not exist on switch %s", sc.P01Rack01Switch1),
 		},
 		{
 			name: "nic is not connected to a machine",
-			reqFunc: func() *adminv2.SwitchServicePortRequest {
-				return &adminv2.SwitchServicePortRequest{
-					Status:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-					Id:      sc.P01Rack01Switch1,
-					NicName: "Ethernet1",
-				}
+			rq: &adminv2.SwitchServicePortRequest{
+				Status:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+				Id:      sc.P01Rack01Switch1,
+				NicName: "Ethernet1",
 			},
-			wantFunc: nil,
-			wantErr:  errorutil.FailedPrecondition("port Ethernet1 is not connected to any machine"),
+			want:    nil,
+			wantErr: errorutil.FailedPrecondition("port Ethernet1 is not connected to any machine"),
 		},
 		{
 			name: "nic update successful",
-			reqFunc: func() *adminv2.SwitchServicePortRequest {
-				return &adminv2.SwitchServicePortRequest{
-					Status:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
-					Id:      sc.P01Rack01Switch1,
-					NicName: "Ethernet0",
-				}
+			rq: &adminv2.SwitchServicePortRequest{
+				Status:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
+				Id:      sc.P01Rack01Switch1,
+				NicName: "Ethernet0",
 			},
-			wantFunc: func() *adminv2.SwitchServicePortResponse {
+			want: func(dc *test.Datacenter) *adminv2.SwitchServicePortResponse {
 				sw := dc.GetSwitches()[sc.P01Rack01Switch1]
 				sw.Nics[0].State.Desired = apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN.Enum()
 				return &adminv2.SwitchServicePortResponse{
@@ -705,6 +703,10 @@ func Test_switchServiceServer_Port(t *testing.T) {
 			wantErr: nil,
 		},
 	}
+
+	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			dc.Create(&sc.SwitchesWithMachinesDatacenter)
@@ -713,14 +715,10 @@ func Test_switchServiceServer_Port(t *testing.T) {
 			var (
 				snapshot = dc.Snapshot()
 				want     *adminv2.SwitchServicePortResponse
-				req      *adminv2.SwitchServicePortRequest
 			)
 
-			if tt.reqFunc != nil {
-				req = tt.reqFunc()
-			}
-			if tt.wantFunc != nil {
-				want = tt.wantFunc()
+			if tt.want != nil {
+				want = tt.want(dc)
 			}
 
 			s := &switchServiceServer{
@@ -728,10 +726,10 @@ func Test_switchServiceServer_Port(t *testing.T) {
 				repo: dc.GetTestStore().Store,
 			}
 			if tt.wantErr == nil {
-				test.Validate(t, req)
+				test.Validate(t, tt.rq)
 			}
 
-			got, err := s.Port(ctx, req)
+			got, err := s.Port(ctx, tt.rq)
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("switchServiceServer.Port() error diff = %s", diff)
 				return
@@ -755,50 +753,43 @@ func Test_switchServiceServer_Port(t *testing.T) {
 }
 
 func Test_switchServiceServer_Migrate(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	ctx := t.Context()
-
-	dc := test.NewDatacenter(t, log)
-	defer dc.Close()
+	var (
+		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+		ctx = t.Context()
+	)
 
 	tests := []struct {
-		name     string
-		reqFunc  func() *adminv2.SwitchServiceMigrateRequest
-		wantFunc func() *adminv2.SwitchServiceMigrateResponse
-		mods     func() *test.Asserters
-		wantErr  error
+		name    string
+		rq      *adminv2.SwitchServiceMigrateRequest
+		want    func(*test.Datacenter) *adminv2.SwitchServiceMigrateResponse
+		mods    func() *test.Asserters
+		wantErr error
 	}{
 		{
 			name: "cannot migrate from one rack to another",
-			reqFunc: func() *adminv2.SwitchServiceMigrateRequest {
-				return &adminv2.SwitchServiceMigrateRequest{
-					OldSwitch: sc.P01Rack01Switch1,
-					NewSwitch: sc.P01Rack02Switch1,
-				}
+			rq: &adminv2.SwitchServiceMigrateRequest{
+				OldSwitch: sc.P01Rack01Switch1,
+				NewSwitch: sc.P01Rack02Switch1,
 			},
-			wantFunc: nil,
-			wantErr:  errorutil.FailedPrecondition("cannot migrate from switch %s in rack %s to switch %s in rack %s, switches must be in the same rack", sc.P01Rack01Switch1, sc.P01Rack01, sc.P01Rack02Switch1, sc.P01Rack02),
+			want:    nil,
+			wantErr: errorutil.FailedPrecondition("cannot migrate from switch %s in rack %s to switch %s in rack %s, switches must be in the same rack", sc.P01Rack01Switch1, sc.P01Rack01, sc.P01Rack02Switch1, sc.P01Rack02),
 		},
 		{
 			name: "cannot migrate to switch that already has connections",
-			reqFunc: func() *adminv2.SwitchServiceMigrateRequest {
-				return &adminv2.SwitchServiceMigrateRequest{
-					OldSwitch: sc.P02Rack02Switch2,
-					NewSwitch: sc.P02Rack02Switch2_1,
-				}
+			rq: &adminv2.SwitchServiceMigrateRequest{
+				OldSwitch: sc.P02Rack02Switch2,
+				NewSwitch: sc.P02Rack02Switch2_1,
 			},
-			wantFunc: nil,
-			wantErr:  errorutil.FailedPrecondition("cannot migrate from switch %s to switch %s because the new switch already has machine connections", sc.P02Rack02Switch2, sc.P02Rack02Switch2_1),
+			want:    nil,
+			wantErr: errorutil.FailedPrecondition("cannot migrate from switch %s to switch %s because the new switch already has machine connections", sc.P02Rack02Switch2, sc.P02Rack02Switch2_1),
 		},
 		{
 			name: "migrate from cumulus to sonic",
-			reqFunc: func() *adminv2.SwitchServiceMigrateRequest {
-				return &adminv2.SwitchServiceMigrateRequest{
-					OldSwitch: sc.P01Rack02Switch1,
-					NewSwitch: sc.P01Rack02Switch1_1,
-				}
+			rq: &adminv2.SwitchServiceMigrateRequest{
+				OldSwitch: sc.P01Rack02Switch1,
+				NewSwitch: sc.P01Rack02Switch1_1,
 			},
-			wantFunc: func() *adminv2.SwitchServiceMigrateResponse {
+			want: func(dc *test.Datacenter) *adminv2.SwitchServiceMigrateResponse {
 				sw := dc.GetSwitches()[sc.P01Rack02Switch1_1]
 				nic, found := lo.Find(sw.Nics, func(n *apiv2.SwitchNic) bool {
 					return n.Name == "Ethernet0"
@@ -840,13 +831,11 @@ func Test_switchServiceServer_Migrate(t *testing.T) {
 		},
 		{
 			name: "migrate from sonic to cumulus",
-			reqFunc: func() *adminv2.SwitchServiceMigrateRequest {
-				return &adminv2.SwitchServiceMigrateRequest{
-					OldSwitch: sc.P02Rack01Switch2,
-					NewSwitch: sc.P02Rack01Switch2_1,
-				}
+			rq: &adminv2.SwitchServiceMigrateRequest{
+				OldSwitch: sc.P02Rack01Switch2,
+				NewSwitch: sc.P02Rack01Switch2_1,
 			},
-			wantFunc: func() *adminv2.SwitchServiceMigrateResponse {
+			want: func(dc *test.Datacenter) *adminv2.SwitchServiceMigrateResponse {
 
 				sw := dc.GetSwitches()[sc.P02Rack01Switch2_1]
 				nic, found := lo.Find(sw.Nics, func(n *apiv2.SwitchNic) bool {
@@ -888,6 +877,10 @@ func Test_switchServiceServer_Migrate(t *testing.T) {
 			wantErr: nil,
 		},
 	}
+
+	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			dc.Create(&sc.SwitchesWithMachinesDatacenter)
@@ -896,14 +889,10 @@ func Test_switchServiceServer_Migrate(t *testing.T) {
 			var (
 				snapshot = dc.Snapshot()
 				want     *adminv2.SwitchServiceMigrateResponse
-				req      *adminv2.SwitchServiceMigrateRequest
 			)
 
-			if tt.reqFunc != nil {
-				req = tt.reqFunc()
-			}
-			if tt.wantFunc != nil {
-				want = tt.wantFunc()
+			if tt.want != nil {
+				want = tt.want(dc)
 			}
 
 			s := &switchServiceServer{
@@ -911,10 +900,10 @@ func Test_switchServiceServer_Migrate(t *testing.T) {
 				repo: dc.GetTestStore().Store,
 			}
 			if tt.wantErr == nil {
-				test.Validate(t, req)
+				test.Validate(t, tt.rq)
 			}
 
-			got, err := s.Migrate(ctx, req)
+			got, err := s.Migrate(ctx, tt.rq)
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("switchServiceServer.Migrate() error diff = %s", diff)
 				return
@@ -938,404 +927,404 @@ func Test_switchServiceServer_Migrate(t *testing.T) {
 }
 
 func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	ctx := t.Context()
-
-	dc := test.NewDatacenter(t, log)
-	defer dc.Close()
-	dc.Create(&sc.SwitchesWithMachinesDatacenter)
+	var (
+		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+		ctx = t.Context()
+	)
 
 	tests := []struct {
 		name string
 		rq   *adminv2.SwitchServiceConnectedMachinesRequest
-		want *adminv2.SwitchServiceConnectedMachinesResponse
+		want func(*test.Datacenter) *adminv2.SwitchServiceConnectedMachinesResponse
 	}{
 		{
 			name: "get all",
 			rq:   &adminv2.SwitchServiceConnectedMachinesRequest{},
-			want: &adminv2.SwitchServiceConnectedMachinesResponse{
-				SwitchesWithMachines: []*apiv2.SwitchWithMachines{
-					{
-						Id:        sc.P01Rack01Switch1,
-						Partition: sc.Partition1,
-						Rack:      sc.P01Rack01,
-						Connections: []*apiv2.SwitchNicWithMachine{
-							{
-								Nic: &apiv2.SwitchNic{
-									Name:       "Ethernet0",
-									Identifier: "Ethernet0",
-									BgpFilter:  &apiv2.BGPFilter{},
-									State: &apiv2.NicState{
-										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+			want: func(dc *test.Datacenter) *adminv2.SwitchServiceConnectedMachinesResponse {
+				return &adminv2.SwitchServiceConnectedMachinesResponse{
+					SwitchesWithMachines: []*apiv2.SwitchWithMachines{
+						{
+							Id:        sc.P01Rack01Switch1,
+							Partition: sc.Partition1,
+							Rack:      sc.P01Rack01,
+							Connections: []*apiv2.SwitchNicWithMachine{
+								{
+									Nic: &apiv2.SwitchNic{
+										Name:       "Ethernet0",
+										Identifier: "Ethernet0",
+										BgpFilter:  &apiv2.BGPFilter{},
+										State: &apiv2.NicState{
+											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+										},
+									},
+									Machine: dc.GetMachines()[sc.Machine1],
+									Fru: &apiv2.MachineFRU{
+										ChassisPartNumber:   new(string),
+										ChassisPartSerial:   new(string),
+										BoardMfg:            new(string),
+										BoardMfgSerial:      new(string),
+										BoardPartNumber:     new(string),
+										ProductManufacturer: new(string),
+										ProductPartNumber:   new(string),
+										ProductSerial:       new("PS1"),
 									},
 								},
-								Machine: dc.GetMachines()[sc.Machine1],
-								Fru: &apiv2.MachineFRU{
-									ChassisPartNumber:   new(string),
-									ChassisPartSerial:   new(string),
-									BoardMfg:            new(string),
-									BoardMfgSerial:      new(string),
-									BoardPartNumber:     new(string),
-									ProductManufacturer: new(string),
-									ProductPartNumber:   new(string),
-									ProductSerial:       new("PS1"),
+							},
+						},
+						{
+							Id:        sc.P01Rack01Switch2,
+							Partition: sc.Partition1,
+							Rack:      sc.P01Rack01,
+							Connections: []*apiv2.SwitchNicWithMachine{
+								{
+									Nic: &apiv2.SwitchNic{
+										Name:       "Ethernet0",
+										Identifier: "Ethernet0",
+										BgpFilter:  &apiv2.BGPFilter{},
+										State: &apiv2.NicState{
+											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+										},
+									},
+									Machine: dc.GetMachines()[sc.Machine1],
+									Fru: &apiv2.MachineFRU{
+										ChassisPartNumber:   new(string),
+										ChassisPartSerial:   new(string),
+										BoardMfg:            new(string),
+										BoardMfgSerial:      new(string),
+										BoardPartNumber:     new(string),
+										ProductManufacturer: new(string),
+										ProductPartNumber:   new(string),
+										ProductSerial:       new("PS1"),
+									},
+								},
+							},
+						},
+						{
+							Id:        sc.P01Rack01Switch2_1,
+							Partition: sc.Partition1,
+							Rack:      sc.P01Rack01,
+						},
+						{
+							Id:        sc.P01Rack02Switch1,
+							Partition: sc.Partition1,
+							Rack:      sc.P01Rack02,
+							Connections: []*apiv2.SwitchNicWithMachine{
+								{
+									Nic: &apiv2.SwitchNic{
+										Name:       "swp1s0",
+										Identifier: "swp1s0",
+										BgpFilter:  &apiv2.BGPFilter{},
+										State: &apiv2.NicState{
+											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+										},
+									},
+									Machine: dc.GetMachines()[sc.Machine2],
+									Fru: &apiv2.MachineFRU{
+										ChassisPartNumber:   new(string),
+										ChassisPartSerial:   new(string),
+										BoardMfg:            new(string),
+										BoardMfgSerial:      new(string),
+										BoardPartNumber:     new(string),
+										ProductManufacturer: new(string),
+										ProductPartNumber:   new(string),
+										ProductSerial:       new("PS2"),
+									},
+								},
+							},
+						},
+						{
+							Id:        sc.P01Rack02Switch1_1,
+							Partition: sc.Partition1,
+							Rack:      sc.P01Rack02,
+						},
+						{
+							Id:        sc.P01Rack02Switch2,
+							Partition: sc.Partition1,
+							Rack:      sc.P01Rack02,
+							Connections: []*apiv2.SwitchNicWithMachine{
+								{
+									Nic: &apiv2.SwitchNic{
+										Name:       "Ethernet0",
+										Identifier: "Ethernet0",
+										BgpFilter:  &apiv2.BGPFilter{},
+										State: &apiv2.NicState{
+											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+										},
+									},
+									Machine: dc.GetMachines()[sc.Machine2],
+									Fru: &apiv2.MachineFRU{
+										ChassisPartNumber:   new(string),
+										ChassisPartSerial:   new(string),
+										BoardMfg:            new(string),
+										BoardMfgSerial:      new(string),
+										BoardPartNumber:     new(string),
+										ProductManufacturer: new(string),
+										ProductPartNumber:   new(string),
+										ProductSerial:       new("PS2"),
+									},
+								},
+							},
+						},
+						{
+							Id:        sc.P01Rack03Switch1,
+							Partition: sc.Partition1,
+							Rack:      sc.P01Rack03,
+						},
+						{
+							Id:        sc.P01Rack03Switch2,
+							Partition: sc.Partition1,
+							Rack:      sc.P01Rack03,
+						},
+						{
+							Id:        sc.P01Rack04Switch1,
+							Partition: sc.Partition1,
+							Rack:      sc.P01Rack04,
+						},
+						{
+							Id:        sc.P02Rack01Switch1,
+							Partition: sc.Partition2,
+							Rack:      sc.P02Rack01,
+							Connections: []*apiv2.SwitchNicWithMachine{
+								{
+									Nic: &apiv2.SwitchNic{
+										Name:       "Ethernet0",
+										Identifier: "Ethernet0",
+										BgpFilter:  &apiv2.BGPFilter{},
+										State: &apiv2.NicState{
+											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+										},
+									},
+									Machine: dc.GetMachines()[sc.Machine3],
+									Fru: &apiv2.MachineFRU{
+										ChassisPartNumber:   new(string),
+										ChassisPartSerial:   new(string),
+										BoardMfg:            new(string),
+										BoardMfgSerial:      new(string),
+										BoardPartNumber:     new(string),
+										ProductManufacturer: new(string),
+										ProductPartNumber:   new(string),
+										ProductSerial:       new("PS3"),
+									},
+								},
+							},
+						},
+						{
+							Id:        sc.P02Rack01Switch2,
+							Partition: sc.Partition2,
+							Rack:      sc.P02Rack01,
+							Connections: []*apiv2.SwitchNicWithMachine{
+								{
+									Nic: &apiv2.SwitchNic{
+										Name:       "Ethernet0",
+										Identifier: "Ethernet0",
+										BgpFilter:  &apiv2.BGPFilter{},
+										State: &apiv2.NicState{
+											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+										},
+									},
+									Machine: dc.GetMachines()[sc.Machine3],
+									Fru: &apiv2.MachineFRU{
+										ChassisPartNumber:   new(string),
+										ChassisPartSerial:   new(string),
+										BoardMfg:            new(string),
+										BoardMfgSerial:      new(string),
+										BoardPartNumber:     new(string),
+										ProductManufacturer: new(string),
+										ProductPartNumber:   new(string),
+										ProductSerial:       new("PS3"),
+									},
+								},
+							},
+						},
+						{
+							Id:        sc.P02Rack01Switch2_1,
+							Partition: sc.Partition2,
+							Rack:      sc.P02Rack01,
+						},
+						{
+							Id:        sc.P02Rack02Switch1,
+							Partition: sc.Partition2,
+							Rack:      sc.P02Rack02,
+							Connections: []*apiv2.SwitchNicWithMachine{
+								{
+									Nic: &apiv2.SwitchNic{
+										Name:       "Ethernet0",
+										Identifier: "Ethernet0",
+										BgpFilter:  &apiv2.BGPFilter{},
+										State: &apiv2.NicState{
+											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+										},
+									},
+									Machine: dc.GetMachines()[sc.Machine4],
+									Fru: &apiv2.MachineFRU{
+										ChassisPartNumber:   new(string),
+										ChassisPartSerial:   new(string),
+										BoardMfg:            new(string),
+										BoardMfgSerial:      new(string),
+										BoardPartNumber:     new(string),
+										ProductManufacturer: new(string),
+										ProductPartNumber:   new(string),
+										ProductSerial:       new("PS4"),
+									},
+								},
+								{
+									Nic: &apiv2.SwitchNic{
+										Name:       "Ethernet1",
+										Identifier: "Ethernet1",
+										BgpFilter:  &apiv2.BGPFilter{},
+										State: &apiv2.NicState{
+											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+										},
+									},
+									Machine: dc.GetMachines()[sc.Machine5],
+									Fru: &apiv2.MachineFRU{
+										ChassisPartNumber:   new(string),
+										ChassisPartSerial:   new(string),
+										BoardMfg:            new(string),
+										BoardMfgSerial:      new(string),
+										BoardPartNumber:     new(string),
+										ProductManufacturer: new(string),
+										ProductPartNumber:   new(string),
+										ProductSerial:       new("PS5"),
+									},
+								},
+							},
+						},
+						{
+							Id:        sc.P02Rack02Switch2,
+							Partition: sc.Partition2,
+							Rack:      sc.P02Rack02,
+							Connections: []*apiv2.SwitchNicWithMachine{
+								{
+									Nic: &apiv2.SwitchNic{
+										Name:       "Ethernet0",
+										Identifier: "Ethernet0",
+										BgpFilter:  &apiv2.BGPFilter{},
+										State: &apiv2.NicState{
+											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+										},
+									},
+									Machine: dc.GetMachines()[sc.Machine4],
+									Fru: &apiv2.MachineFRU{
+										ChassisPartNumber:   new(string),
+										ChassisPartSerial:   new(string),
+										BoardMfg:            new(string),
+										BoardMfgSerial:      new(string),
+										BoardPartNumber:     new(string),
+										ProductManufacturer: new(string),
+										ProductPartNumber:   new(string),
+										ProductSerial:       new("PS4"),
+									},
+								},
+								{
+									Nic: &apiv2.SwitchNic{
+										Name:       "Ethernet1",
+										Identifier: "Ethernet1",
+										BgpFilter:  &apiv2.BGPFilter{},
+										State: &apiv2.NicState{
+											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+										},
+									},
+									Machine: dc.GetMachines()[sc.Machine5],
+									Fru: &apiv2.MachineFRU{
+										ChassisPartNumber:   new(string),
+										ChassisPartSerial:   new(string),
+										BoardMfg:            new(string),
+										BoardMfgSerial:      new(string),
+										BoardPartNumber:     new(string),
+										ProductManufacturer: new(string),
+										ProductPartNumber:   new(string),
+										ProductSerial:       new("PS5"),
+									},
+								},
+							},
+						},
+						{
+							Id:        sc.P02Rack02Switch2_1,
+							Partition: sc.Partition2,
+							Rack:      sc.P02Rack02,
+							Connections: []*apiv2.SwitchNicWithMachine{
+								{
+									Nic: &apiv2.SwitchNic{
+										Name:       "Ethernet0",
+										Identifier: "Ethernet0",
+										BgpFilter:  &apiv2.BGPFilter{},
+										State: &apiv2.NicState{
+											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+										},
+									},
+									Machine: dc.GetMachines()[sc.Machine6],
+									Fru: &apiv2.MachineFRU{
+										ChassisPartNumber:   new(string),
+										ChassisPartSerial:   new(string),
+										BoardMfg:            new(string),
+										BoardMfgSerial:      new(string),
+										BoardPartNumber:     new(string),
+										ProductManufacturer: new(string),
+										ProductPartNumber:   new(string),
+										ProductSerial:       new("PS6"),
+									},
+								},
+							},
+						},
+						{
+							Id:        sc.P02Rack03Switch1,
+							Partition: sc.Partition2,
+							Rack:      sc.P02Rack03,
+							Connections: []*apiv2.SwitchNicWithMachine{
+								{
+									Nic: &apiv2.SwitchNic{
+										Name:       "Ethernet0",
+										Identifier: "Ethernet0",
+										BgpFilter:  &apiv2.BGPFilter{},
+										State: &apiv2.NicState{
+											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+										},
+									},
+									Machine: dc.GetMachines()[sc.Machine7],
+									Fru: &apiv2.MachineFRU{
+										ChassisPartNumber:   new(string),
+										ChassisPartSerial:   new(string),
+										BoardMfg:            new(string),
+										BoardMfgSerial:      new(string),
+										BoardPartNumber:     new(string),
+										ProductManufacturer: new(string),
+										ProductPartNumber:   new(string),
+										ProductSerial:       new("PS7"),
+									},
+								},
+							},
+						},
+						{
+							Id:        sc.P02Rack03Switch2,
+							Partition: sc.Partition2,
+							Rack:      sc.P02Rack03,
+							Connections: []*apiv2.SwitchNicWithMachine{
+								{
+									Nic: &apiv2.SwitchNic{
+										Name:       "swp1s0",
+										Identifier: "swp1s0",
+										BgpFilter:  &apiv2.BGPFilter{},
+										State: &apiv2.NicState{
+											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+										},
+									},
+									Machine: dc.GetMachines()[sc.Machine7],
+									Fru: &apiv2.MachineFRU{
+										ChassisPartNumber:   new(string),
+										ChassisPartSerial:   new(string),
+										BoardMfg:            new(string),
+										BoardMfgSerial:      new(string),
+										BoardPartNumber:     new(string),
+										ProductManufacturer: new(string),
+										ProductPartNumber:   new(string),
+										ProductSerial:       new("PS7"),
+									},
 								},
 							},
 						},
 					},
-					{
-						Id:        sc.P01Rack01Switch2,
-						Partition: sc.Partition1,
-						Rack:      sc.P01Rack01,
-						Connections: []*apiv2.SwitchNicWithMachine{
-							{
-								Nic: &apiv2.SwitchNic{
-									Name:       "Ethernet0",
-									Identifier: "Ethernet0",
-									BgpFilter:  &apiv2.BGPFilter{},
-									State: &apiv2.NicState{
-										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-									},
-								},
-								Machine: dc.GetMachines()[sc.Machine1],
-								Fru: &apiv2.MachineFRU{
-									ChassisPartNumber:   new(string),
-									ChassisPartSerial:   new(string),
-									BoardMfg:            new(string),
-									BoardMfgSerial:      new(string),
-									BoardPartNumber:     new(string),
-									ProductManufacturer: new(string),
-									ProductPartNumber:   new(string),
-									ProductSerial:       new("PS1"),
-								},
-							},
-						},
-					},
-					{
-						Id:        sc.P01Rack01Switch2_1,
-						Partition: sc.Partition1,
-						Rack:      sc.P01Rack01,
-					},
-					{
-						Id:        sc.P01Rack02Switch1,
-						Partition: sc.Partition1,
-						Rack:      sc.P01Rack02,
-						Connections: []*apiv2.SwitchNicWithMachine{
-							{
-								Nic: &apiv2.SwitchNic{
-									Name:       "swp1s0",
-									Identifier: "swp1s0",
-									BgpFilter:  &apiv2.BGPFilter{},
-									State: &apiv2.NicState{
-										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-									},
-								},
-								Machine: dc.GetMachines()[sc.Machine2],
-								Fru: &apiv2.MachineFRU{
-									ChassisPartNumber:   new(string),
-									ChassisPartSerial:   new(string),
-									BoardMfg:            new(string),
-									BoardMfgSerial:      new(string),
-									BoardPartNumber:     new(string),
-									ProductManufacturer: new(string),
-									ProductPartNumber:   new(string),
-									ProductSerial:       new("PS2"),
-								},
-							},
-						},
-					},
-					{
-						Id:        sc.P01Rack02Switch1_1,
-						Partition: sc.Partition1,
-						Rack:      sc.P01Rack02,
-					},
-					{
-						Id:        sc.P01Rack02Switch2,
-						Partition: sc.Partition1,
-						Rack:      sc.P01Rack02,
-						Connections: []*apiv2.SwitchNicWithMachine{
-							{
-								Nic: &apiv2.SwitchNic{
-									Name:       "Ethernet0",
-									Identifier: "Ethernet0",
-									BgpFilter:  &apiv2.BGPFilter{},
-									State: &apiv2.NicState{
-										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-									},
-								},
-								Machine: dc.GetMachines()[sc.Machine2],
-								Fru: &apiv2.MachineFRU{
-									ChassisPartNumber:   new(string),
-									ChassisPartSerial:   new(string),
-									BoardMfg:            new(string),
-									BoardMfgSerial:      new(string),
-									BoardPartNumber:     new(string),
-									ProductManufacturer: new(string),
-									ProductPartNumber:   new(string),
-									ProductSerial:       new("PS2"),
-								},
-							},
-						},
-					},
-					{
-						Id:        sc.P01Rack03Switch1,
-						Partition: sc.Partition1,
-						Rack:      sc.P01Rack03,
-					},
-					{
-						Id:        sc.P01Rack03Switch2,
-						Partition: sc.Partition1,
-						Rack:      sc.P01Rack03,
-					},
-					{
-						Id:        sc.P01Rack04Switch1,
-						Partition: sc.Partition1,
-						Rack:      sc.P01Rack04,
-					},
-					{
-						Id:        sc.P02Rack01Switch1,
-						Partition: sc.Partition2,
-						Rack:      sc.P02Rack01,
-						Connections: []*apiv2.SwitchNicWithMachine{
-							{
-								Nic: &apiv2.SwitchNic{
-									Name:       "Ethernet0",
-									Identifier: "Ethernet0",
-									BgpFilter:  &apiv2.BGPFilter{},
-									State: &apiv2.NicState{
-										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-									},
-								},
-								Machine: dc.GetMachines()[sc.Machine3],
-								Fru: &apiv2.MachineFRU{
-									ChassisPartNumber:   new(string),
-									ChassisPartSerial:   new(string),
-									BoardMfg:            new(string),
-									BoardMfgSerial:      new(string),
-									BoardPartNumber:     new(string),
-									ProductManufacturer: new(string),
-									ProductPartNumber:   new(string),
-									ProductSerial:       new("PS3"),
-								},
-							},
-						},
-					},
-					{
-						Id:        sc.P02Rack01Switch2,
-						Partition: sc.Partition2,
-						Rack:      sc.P02Rack01,
-						Connections: []*apiv2.SwitchNicWithMachine{
-							{
-								Nic: &apiv2.SwitchNic{
-									Name:       "Ethernet0",
-									Identifier: "Ethernet0",
-									BgpFilter:  &apiv2.BGPFilter{},
-									State: &apiv2.NicState{
-										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-									},
-								},
-								Machine: dc.GetMachines()[sc.Machine3],
-								Fru: &apiv2.MachineFRU{
-									ChassisPartNumber:   new(string),
-									ChassisPartSerial:   new(string),
-									BoardMfg:            new(string),
-									BoardMfgSerial:      new(string),
-									BoardPartNumber:     new(string),
-									ProductManufacturer: new(string),
-									ProductPartNumber:   new(string),
-									ProductSerial:       new("PS3"),
-								},
-							},
-						},
-					},
-					{
-						Id:        sc.P02Rack01Switch2_1,
-						Partition: sc.Partition2,
-						Rack:      sc.P02Rack01,
-					},
-					{
-						Id:        sc.P02Rack02Switch1,
-						Partition: sc.Partition2,
-						Rack:      sc.P02Rack02,
-						Connections: []*apiv2.SwitchNicWithMachine{
-							{
-								Nic: &apiv2.SwitchNic{
-									Name:       "Ethernet0",
-									Identifier: "Ethernet0",
-									BgpFilter:  &apiv2.BGPFilter{},
-									State: &apiv2.NicState{
-										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-									},
-								},
-								Machine: dc.GetMachines()[sc.Machine4],
-								Fru: &apiv2.MachineFRU{
-									ChassisPartNumber:   new(string),
-									ChassisPartSerial:   new(string),
-									BoardMfg:            new(string),
-									BoardMfgSerial:      new(string),
-									BoardPartNumber:     new(string),
-									ProductManufacturer: new(string),
-									ProductPartNumber:   new(string),
-									ProductSerial:       new("PS4"),
-								},
-							},
-							{
-								Nic: &apiv2.SwitchNic{
-									Name:       "Ethernet1",
-									Identifier: "Ethernet1",
-									BgpFilter:  &apiv2.BGPFilter{},
-									State: &apiv2.NicState{
-										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-									},
-								},
-								Machine: dc.GetMachines()[sc.Machine5],
-								Fru: &apiv2.MachineFRU{
-									ChassisPartNumber:   new(string),
-									ChassisPartSerial:   new(string),
-									BoardMfg:            new(string),
-									BoardMfgSerial:      new(string),
-									BoardPartNumber:     new(string),
-									ProductManufacturer: new(string),
-									ProductPartNumber:   new(string),
-									ProductSerial:       new("PS5"),
-								},
-							},
-						},
-					},
-					{
-						Id:        sc.P02Rack02Switch2,
-						Partition: sc.Partition2,
-						Rack:      sc.P02Rack02,
-						Connections: []*apiv2.SwitchNicWithMachine{
-							{
-								Nic: &apiv2.SwitchNic{
-									Name:       "Ethernet0",
-									Identifier: "Ethernet0",
-									BgpFilter:  &apiv2.BGPFilter{},
-									State: &apiv2.NicState{
-										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-									},
-								},
-								Machine: dc.GetMachines()[sc.Machine4],
-								Fru: &apiv2.MachineFRU{
-									ChassisPartNumber:   new(string),
-									ChassisPartSerial:   new(string),
-									BoardMfg:            new(string),
-									BoardMfgSerial:      new(string),
-									BoardPartNumber:     new(string),
-									ProductManufacturer: new(string),
-									ProductPartNumber:   new(string),
-									ProductSerial:       new("PS4"),
-								},
-							},
-							{
-								Nic: &apiv2.SwitchNic{
-									Name:       "Ethernet1",
-									Identifier: "Ethernet1",
-									BgpFilter:  &apiv2.BGPFilter{},
-									State: &apiv2.NicState{
-										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-									},
-								},
-								Machine: dc.GetMachines()[sc.Machine5],
-								Fru: &apiv2.MachineFRU{
-									ChassisPartNumber:   new(string),
-									ChassisPartSerial:   new(string),
-									BoardMfg:            new(string),
-									BoardMfgSerial:      new(string),
-									BoardPartNumber:     new(string),
-									ProductManufacturer: new(string),
-									ProductPartNumber:   new(string),
-									ProductSerial:       new("PS5"),
-								},
-							},
-						},
-					},
-					{
-						Id:        sc.P02Rack02Switch2_1,
-						Partition: sc.Partition2,
-						Rack:      sc.P02Rack02,
-						Connections: []*apiv2.SwitchNicWithMachine{
-							{
-								Nic: &apiv2.SwitchNic{
-									Name:       "Ethernet0",
-									Identifier: "Ethernet0",
-									BgpFilter:  &apiv2.BGPFilter{},
-									State: &apiv2.NicState{
-										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-									},
-								},
-								Machine: dc.GetMachines()[sc.Machine6],
-								Fru: &apiv2.MachineFRU{
-									ChassisPartNumber:   new(string),
-									ChassisPartSerial:   new(string),
-									BoardMfg:            new(string),
-									BoardMfgSerial:      new(string),
-									BoardPartNumber:     new(string),
-									ProductManufacturer: new(string),
-									ProductPartNumber:   new(string),
-									ProductSerial:       new("PS6"),
-								},
-							},
-						},
-					},
-					{
-						Id:        sc.P02Rack03Switch1,
-						Partition: sc.Partition2,
-						Rack:      sc.P02Rack03,
-						Connections: []*apiv2.SwitchNicWithMachine{
-							{
-								Nic: &apiv2.SwitchNic{
-									Name:       "Ethernet0",
-									Identifier: "Ethernet0",
-									BgpFilter:  &apiv2.BGPFilter{},
-									State: &apiv2.NicState{
-										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-									},
-								},
-								Machine: dc.GetMachines()[sc.Machine7],
-								Fru: &apiv2.MachineFRU{
-									ChassisPartNumber:   new(string),
-									ChassisPartSerial:   new(string),
-									BoardMfg:            new(string),
-									BoardMfgSerial:      new(string),
-									BoardPartNumber:     new(string),
-									ProductManufacturer: new(string),
-									ProductPartNumber:   new(string),
-									ProductSerial:       new("PS7"),
-								},
-							},
-						},
-					},
-					{
-						Id:        sc.P02Rack03Switch2,
-						Partition: sc.Partition2,
-						Rack:      sc.P02Rack03,
-						Connections: []*apiv2.SwitchNicWithMachine{
-							{
-								Nic: &apiv2.SwitchNic{
-									Name:       "swp1s0",
-									Identifier: "swp1s0",
-									BgpFilter:  &apiv2.BGPFilter{},
-									State: &apiv2.NicState{
-										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-									},
-								},
-								Machine: dc.GetMachines()[sc.Machine7],
-								Fru: &apiv2.MachineFRU{
-									ChassisPartNumber:   new(string),
-									ChassisPartSerial:   new(string),
-									BoardMfg:            new(string),
-									BoardMfgSerial:      new(string),
-									BoardPartNumber:     new(string),
-									ProductManufacturer: new(string),
-									ProductPartNumber:   new(string),
-									ProductSerial:       new("PS7"),
-								},
-							},
-						},
-					},
-				},
+				}
 			},
 		},
 		{
@@ -1345,37 +1334,39 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 					Id: new(sc.P01Rack01Switch2),
 				},
 			},
-			want: &adminv2.SwitchServiceConnectedMachinesResponse{
-				SwitchesWithMachines: []*apiv2.SwitchWithMachines{
-					{
-						Id:        sc.P01Rack01Switch2,
-						Partition: sc.Partition1,
-						Rack:      sc.P01Rack01,
-						Connections: []*apiv2.SwitchNicWithMachine{
-							{
-								Nic: &apiv2.SwitchNic{
-									Name:       "Ethernet0",
-									Identifier: "Ethernet0",
-									BgpFilter:  &apiv2.BGPFilter{},
-									State: &apiv2.NicState{
-										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+			want: func(dc *test.Datacenter) *adminv2.SwitchServiceConnectedMachinesResponse {
+				return &adminv2.SwitchServiceConnectedMachinesResponse{
+					SwitchesWithMachines: []*apiv2.SwitchWithMachines{
+						{
+							Id:        sc.P01Rack01Switch2,
+							Partition: sc.Partition1,
+							Rack:      sc.P01Rack01,
+							Connections: []*apiv2.SwitchNicWithMachine{
+								{
+									Nic: &apiv2.SwitchNic{
+										Name:       "Ethernet0",
+										Identifier: "Ethernet0",
+										BgpFilter:  &apiv2.BGPFilter{},
+										State: &apiv2.NicState{
+											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+										},
 									},
-								},
-								Machine: dc.GetMachines()[sc.Machine1],
-								Fru: &apiv2.MachineFRU{
-									ChassisPartNumber:   new(string),
-									ChassisPartSerial:   new(string),
-									BoardMfg:            new(string),
-									BoardMfgSerial:      new(string),
-									BoardPartNumber:     new(string),
-									ProductManufacturer: new(string),
-									ProductPartNumber:   new(string),
-									ProductSerial:       new("PS1"),
+									Machine: dc.GetMachines()[sc.Machine1],
+									Fru: &apiv2.MachineFRU{
+										ChassisPartNumber:   new(string),
+										ChassisPartSerial:   new(string),
+										BoardMfg:            new(string),
+										BoardMfgSerial:      new(string),
+										BoardPartNumber:     new(string),
+										ProductManufacturer: new(string),
+										ProductPartNumber:   new(string),
+										ProductSerial:       new("PS1"),
+									},
 								},
 							},
 						},
 					},
-				},
+				}
 			},
 		},
 		{
@@ -1385,65 +1376,67 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 					Uuid: new(sc.Machine5),
 				},
 			},
-			want: &adminv2.SwitchServiceConnectedMachinesResponse{
-				SwitchesWithMachines: []*apiv2.SwitchWithMachines{
-					{
-						Id:        sc.P02Rack02Switch1,
-						Partition: sc.Partition2,
-						Rack:      sc.P02Rack02,
-						Connections: []*apiv2.SwitchNicWithMachine{
-							{
-								Nic: &apiv2.SwitchNic{
-									Name:       "Ethernet1",
-									Identifier: "Ethernet1",
-									BgpFilter:  &apiv2.BGPFilter{},
-									State: &apiv2.NicState{
-										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+			want: func(dc *test.Datacenter) *adminv2.SwitchServiceConnectedMachinesResponse {
+				return &adminv2.SwitchServiceConnectedMachinesResponse{
+					SwitchesWithMachines: []*apiv2.SwitchWithMachines{
+						{
+							Id:        sc.P02Rack02Switch1,
+							Partition: sc.Partition2,
+							Rack:      sc.P02Rack02,
+							Connections: []*apiv2.SwitchNicWithMachine{
+								{
+									Nic: &apiv2.SwitchNic{
+										Name:       "Ethernet1",
+										Identifier: "Ethernet1",
+										BgpFilter:  &apiv2.BGPFilter{},
+										State: &apiv2.NicState{
+											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+										},
+									},
+									Machine: dc.GetMachines()[sc.Machine5],
+									Fru: &apiv2.MachineFRU{
+										ChassisPartNumber:   new(string),
+										ChassisPartSerial:   new(string),
+										BoardMfg:            new(string),
+										BoardMfgSerial:      new(string),
+										BoardPartNumber:     new(string),
+										ProductManufacturer: new(string),
+										ProductPartNumber:   new(string),
+										ProductSerial:       new("PS5"),
 									},
 								},
-								Machine: dc.GetMachines()[sc.Machine5],
-								Fru: &apiv2.MachineFRU{
-									ChassisPartNumber:   new(string),
-									ChassisPartSerial:   new(string),
-									BoardMfg:            new(string),
-									BoardMfgSerial:      new(string),
-									BoardPartNumber:     new(string),
-									ProductManufacturer: new(string),
-									ProductPartNumber:   new(string),
-									ProductSerial:       new("PS5"),
+							},
+						},
+						{
+							Id:        sc.P02Rack02Switch2,
+							Partition: sc.Partition2,
+							Rack:      sc.P02Rack02,
+							Connections: []*apiv2.SwitchNicWithMachine{
+								{
+									Nic: &apiv2.SwitchNic{
+										Name:       "Ethernet1",
+										Identifier: "Ethernet1",
+										BgpFilter:  &apiv2.BGPFilter{},
+										State: &apiv2.NicState{
+											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+										},
+									},
+									Machine: dc.GetMachines()[sc.Machine5],
+									Fru: &apiv2.MachineFRU{
+										ChassisPartNumber:   new(string),
+										ChassisPartSerial:   new(string),
+										BoardMfg:            new(string),
+										BoardMfgSerial:      new(string),
+										BoardPartNumber:     new(string),
+										ProductManufacturer: new(string),
+										ProductPartNumber:   new(string),
+										ProductSerial:       new("PS5"),
+									},
 								},
 							},
 						},
 					},
-					{
-						Id:        sc.P02Rack02Switch2,
-						Partition: sc.Partition2,
-						Rack:      sc.P02Rack02,
-						Connections: []*apiv2.SwitchNicWithMachine{
-							{
-								Nic: &apiv2.SwitchNic{
-									Name:       "Ethernet1",
-									Identifier: "Ethernet1",
-									BgpFilter:  &apiv2.BGPFilter{},
-									State: &apiv2.NicState{
-										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-									},
-								},
-								Machine: dc.GetMachines()[sc.Machine5],
-								Fru: &apiv2.MachineFRU{
-									ChassisPartNumber:   new(string),
-									ChassisPartSerial:   new(string),
-									BoardMfg:            new(string),
-									BoardMfgSerial:      new(string),
-									BoardPartNumber:     new(string),
-									ProductManufacturer: new(string),
-									ProductPartNumber:   new(string),
-									ProductSerial:       new("PS5"),
-								},
-							},
-						},
-					},
-				},
+				}
 			},
 		},
 		{
@@ -1454,149 +1447,156 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 				},
 				MachineQuery: &apiv2.MachineQuery{},
 			},
-			want: &adminv2.SwitchServiceConnectedMachinesResponse{
-				SwitchesWithMachines: []*apiv2.SwitchWithMachines{
-					{
-						Id:        sc.P01Rack01Switch1,
-						Partition: sc.Partition1,
-						Rack:      sc.P01Rack01,
-						Connections: []*apiv2.SwitchNicWithMachine{
-							{
-								Nic: &apiv2.SwitchNic{
-									Name:       "Ethernet0",
-									Identifier: "Ethernet0",
-									BgpFilter:  &apiv2.BGPFilter{},
-									State: &apiv2.NicState{
-										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+			want: func(dc *test.Datacenter) *adminv2.SwitchServiceConnectedMachinesResponse {
+				return &adminv2.SwitchServiceConnectedMachinesResponse{
+					SwitchesWithMachines: []*apiv2.SwitchWithMachines{
+						{
+							Id:        sc.P01Rack01Switch1,
+							Partition: sc.Partition1,
+							Rack:      sc.P01Rack01,
+							Connections: []*apiv2.SwitchNicWithMachine{
+								{
+									Nic: &apiv2.SwitchNic{
+										Name:       "Ethernet0",
+										Identifier: "Ethernet0",
+										BgpFilter:  &apiv2.BGPFilter{},
+										State: &apiv2.NicState{
+											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+										},
 									},
-								},
-								Machine: dc.GetMachines()[sc.Machine1],
-								Fru: &apiv2.MachineFRU{
-									ChassisPartNumber:   new(string),
-									ChassisPartSerial:   new(string),
-									BoardMfg:            new(string),
-									BoardMfgSerial:      new(string),
-									BoardPartNumber:     new(string),
-									ProductManufacturer: new(string),
-									ProductPartNumber:   new(string),
-									ProductSerial:       new("PS1"),
+									Machine: dc.GetMachines()[sc.Machine1],
+									Fru: &apiv2.MachineFRU{
+										ChassisPartNumber:   new(string),
+										ChassisPartSerial:   new(string),
+										BoardMfg:            new(string),
+										BoardMfgSerial:      new(string),
+										BoardPartNumber:     new(string),
+										ProductManufacturer: new(string),
+										ProductPartNumber:   new(string),
+										ProductSerial:       new("PS1"),
+									},
 								},
 							},
 						},
-					},
-					{
-						Id:        sc.P01Rack01Switch2,
-						Partition: sc.Partition1,
-						Rack:      sc.P01Rack01,
-						Connections: []*apiv2.SwitchNicWithMachine{
-							{
-								Nic: &apiv2.SwitchNic{
-									Name:       "Ethernet0",
-									Identifier: "Ethernet0",
-									BgpFilter:  &apiv2.BGPFilter{},
-									State: &apiv2.NicState{
-										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+						{
+							Id:        sc.P01Rack01Switch2,
+							Partition: sc.Partition1,
+							Rack:      sc.P01Rack01,
+							Connections: []*apiv2.SwitchNicWithMachine{
+								{
+									Nic: &apiv2.SwitchNic{
+										Name:       "Ethernet0",
+										Identifier: "Ethernet0",
+										BgpFilter:  &apiv2.BGPFilter{},
+										State: &apiv2.NicState{
+											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+										},
 									},
-								},
-								Machine: dc.GetMachines()[sc.Machine1],
-								Fru: &apiv2.MachineFRU{
-									ChassisPartNumber:   new(string),
-									ChassisPartSerial:   new(string),
-									BoardMfg:            new(string),
-									BoardMfgSerial:      new(string),
-									BoardPartNumber:     new(string),
-									ProductManufacturer: new(string),
-									ProductPartNumber:   new(string),
-									ProductSerial:       new("PS1"),
+									Machine: dc.GetMachines()[sc.Machine1],
+									Fru: &apiv2.MachineFRU{
+										ChassisPartNumber:   new(string),
+										ChassisPartSerial:   new(string),
+										BoardMfg:            new(string),
+										BoardMfgSerial:      new(string),
+										BoardPartNumber:     new(string),
+										ProductManufacturer: new(string),
+										ProductPartNumber:   new(string),
+										ProductSerial:       new("PS1"),
+									},
 								},
 							},
 						},
-					},
-					{
-						Id:        sc.P01Rack01Switch2_1,
-						Partition: sc.Partition1,
-						Rack:      sc.P01Rack01,
-					},
-					{
-						Id:        sc.P01Rack02Switch1,
-						Partition: sc.Partition1,
-						Rack:      sc.P01Rack02,
-						Connections: []*apiv2.SwitchNicWithMachine{
-							{
-								Nic: &apiv2.SwitchNic{
-									Name:       "swp1s0",
-									Identifier: "swp1s0",
-									BgpFilter:  &apiv2.BGPFilter{},
-									State: &apiv2.NicState{
-										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+						{
+							Id:        sc.P01Rack01Switch2_1,
+							Partition: sc.Partition1,
+							Rack:      sc.P01Rack01,
+						},
+						{
+							Id:        sc.P01Rack02Switch1,
+							Partition: sc.Partition1,
+							Rack:      sc.P01Rack02,
+							Connections: []*apiv2.SwitchNicWithMachine{
+								{
+									Nic: &apiv2.SwitchNic{
+										Name:       "swp1s0",
+										Identifier: "swp1s0",
+										BgpFilter:  &apiv2.BGPFilter{},
+										State: &apiv2.NicState{
+											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+										},
 									},
-								},
-								Machine: dc.GetMachines()[sc.Machine2],
-								Fru: &apiv2.MachineFRU{
-									ChassisPartNumber:   new(string),
-									ChassisPartSerial:   new(string),
-									BoardMfg:            new(string),
-									BoardMfgSerial:      new(string),
-									BoardPartNumber:     new(string),
-									ProductManufacturer: new(string),
-									ProductPartNumber:   new(string),
-									ProductSerial:       new("PS2"),
+									Machine: dc.GetMachines()[sc.Machine2],
+									Fru: &apiv2.MachineFRU{
+										ChassisPartNumber:   new(string),
+										ChassisPartSerial:   new(string),
+										BoardMfg:            new(string),
+										BoardMfgSerial:      new(string),
+										BoardPartNumber:     new(string),
+										ProductManufacturer: new(string),
+										ProductPartNumber:   new(string),
+										ProductSerial:       new("PS2"),
+									},
 								},
 							},
 						},
-					},
-					{
-						Id:        sc.P01Rack02Switch1_1,
-						Partition: sc.Partition1,
-						Rack:      sc.P01Rack02,
-					},
-					{
-						Id:        sc.P01Rack02Switch2,
-						Partition: sc.Partition1,
-						Rack:      sc.P01Rack02,
-						Connections: []*apiv2.SwitchNicWithMachine{
-							{
-								Nic: &apiv2.SwitchNic{
-									Name:       "Ethernet0",
-									Identifier: "Ethernet0",
-									BgpFilter:  &apiv2.BGPFilter{},
-									State: &apiv2.NicState{
-										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+						{
+							Id:        sc.P01Rack02Switch1_1,
+							Partition: sc.Partition1,
+							Rack:      sc.P01Rack02,
+						},
+						{
+							Id:        sc.P01Rack02Switch2,
+							Partition: sc.Partition1,
+							Rack:      sc.P01Rack02,
+							Connections: []*apiv2.SwitchNicWithMachine{
+								{
+									Nic: &apiv2.SwitchNic{
+										Name:       "Ethernet0",
+										Identifier: "Ethernet0",
+										BgpFilter:  &apiv2.BGPFilter{},
+										State: &apiv2.NicState{
+											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+										},
 									},
-								},
-								Machine: dc.GetMachines()[sc.Machine2],
-								Fru: &apiv2.MachineFRU{
-									ChassisPartNumber:   new(string),
-									ChassisPartSerial:   new(string),
-									BoardMfg:            new(string),
-									BoardMfgSerial:      new(string),
-									BoardPartNumber:     new(string),
-									ProductManufacturer: new(string),
-									ProductPartNumber:   new(string),
-									ProductSerial:       new("PS2"),
+									Machine: dc.GetMachines()[sc.Machine2],
+									Fru: &apiv2.MachineFRU{
+										ChassisPartNumber:   new(string),
+										ChassisPartSerial:   new(string),
+										BoardMfg:            new(string),
+										BoardMfgSerial:      new(string),
+										BoardPartNumber:     new(string),
+										ProductManufacturer: new(string),
+										ProductPartNumber:   new(string),
+										ProductSerial:       new("PS2"),
+									},
 								},
 							},
 						},
+						{
+							Id:        sc.P01Rack03Switch1,
+							Partition: sc.Partition1,
+							Rack:      sc.P01Rack03,
+						},
+						{
+							Id:        sc.P01Rack03Switch2,
+							Partition: sc.Partition1,
+							Rack:      sc.P01Rack03,
+						},
+						{
+							Id:        sc.P01Rack04Switch1,
+							Partition: sc.Partition1,
+							Rack:      sc.P01Rack04,
+						},
 					},
-					{
-						Id:        sc.P01Rack03Switch1,
-						Partition: sc.Partition1,
-						Rack:      sc.P01Rack03,
-					},
-					{
-						Id:        sc.P01Rack03Switch2,
-						Partition: sc.Partition1,
-						Rack:      sc.P01Rack03,
-					},
-					{
-						Id:        sc.P01Rack04Switch1,
-						Partition: sc.Partition1,
-						Rack:      sc.P01Rack04,
-					},
-				},
+				}
 			},
 		},
 	}
+
+	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
+	dc.Create(&sc.SwitchesWithMachinesDatacenter)
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &switchServiceServer{

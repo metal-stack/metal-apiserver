@@ -28,35 +28,30 @@ func Test_switchServiceServer_Register(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
-	dc := test.NewDatacenter(t, log)
-	defer dc.Close()
-
 	tests := []struct {
 		name    string
-		rq      func() *infrav2.SwitchServiceRegisterRequest
-		want    func() *infrav2.SwitchServiceRegisterResponse
+		rq      *infrav2.SwitchServiceRegisterRequest
+		want    func(*test.Datacenter) *infrav2.SwitchServiceRegisterResponse
 		mods    func() *test.Asserters
 		wantErr error
 	}{
 		{
 			name: "register new switch",
-			rq: func() *infrav2.SwitchServiceRegisterRequest {
-				return &infrav2.SwitchServiceRegisterRequest{
-					Switch: &apiv2.Switch{
-						Id:           "p01-r01leaf01-1",
-						Rack:         new(sc.P01Rack01),
-						Partition:    sc.Partition1,
-						ManagementIp: "1.1.1.1",
-						ReplaceMode:  apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
-						Os: &apiv2.SwitchOS{
-							Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_CUMULUS,
-							Version:          "v5.9",
-							MetalCoreVersion: "v0.13.0",
-						},
+			rq: &infrav2.SwitchServiceRegisterRequest{
+				Switch: &apiv2.Switch{
+					Id:           "p01-r01leaf01-1",
+					Rack:         new(sc.P01Rack01),
+					Partition:    sc.Partition1,
+					ManagementIp: "1.1.1.1",
+					ReplaceMode:  apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+					Os: &apiv2.SwitchOS{
+						Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_CUMULUS,
+						Version:          "v5.9",
+						MetalCoreVersion: "v0.13.0",
 					},
-				}
+				},
 			},
-			want: func() *infrav2.SwitchServiceRegisterResponse {
+			want: func(dc *test.Datacenter) *infrav2.SwitchServiceRegisterResponse {
 				return &infrav2.SwitchServiceRegisterResponse{
 					Switch: &apiv2.Switch{
 						Id:           "p01-r01leaf01-1",
@@ -103,41 +98,39 @@ func Test_switchServiceServer_Register(t *testing.T) {
 		},
 		{
 			name: "registering existing operational switch updates the switch",
-			rq: func() *infrav2.SwitchServiceRegisterRequest {
-				return &infrav2.SwitchServiceRegisterRequest{
-					Switch: &apiv2.Switch{
-						Id:             sc.P01Rack01Switch1,
-						Description:    "new description",
-						Partition:      sc.Partition1,
-						ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
-						ManagementIp:   "1.1.1.1",
-						ManagementUser: new("admin"),
-						ConsoleCommand: new("tty"),
-						Os: &apiv2.SwitchOS{
-							Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
-							Version:          sc.SwitchOSSonic2021.Version,
-							MetalCoreVersion: "v0.13.0",
+			rq: &infrav2.SwitchServiceRegisterRequest{
+				Switch: &apiv2.Switch{
+					Id:             sc.P01Rack01Switch1,
+					Description:    "new description",
+					Partition:      sc.Partition1,
+					ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+					ManagementIp:   "1.1.1.1",
+					ManagementUser: new("admin"),
+					ConsoleCommand: new("tty"),
+					Os: &apiv2.SwitchOS{
+						Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+						Version:          sc.SwitchOSSonic2021.Version,
+						MetalCoreVersion: "v0.13.0",
+					},
+					Nics: []*apiv2.SwitchNic{
+						{
+							Name:       "Ethernet0",
+							Identifier: "Ethernet0",
+							Mac:        "11:11:11:11:11:11", // MAC does not get updated but is necessary for the validation to pass
 						},
-						Nics: []*apiv2.SwitchNic{
-							{
-								Name:       "Ethernet0",
-								Identifier: "Ethernet0",
-								Mac:        "11:11:11:11:11:11", // MAC does not get updated but is necessary for the validation to pass
+						{
+							Name:       "Ethernet2", // doesn't make sense; just testing whether port names are updated
+							Identifier: "Ethernet1",
+							Mac:        "22:22:22:22:22:22",
+							State: &apiv2.NicState{
+								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 							},
-							{
-								Name:       "Ethernet2", // doesn't make sense; just testing whether port names are updated
-								Identifier: "Ethernet1",
-								Mac:        "22:22:22:22:22:22",
-								State: &apiv2.NicState{
-									Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-								},
-								Vrf: new("must not be updated"),
-							},
+							Vrf: new("must not be updated"),
 						},
 					},
-				}
+				},
 			},
-			want: func() *infrav2.SwitchServiceRegisterResponse {
+			want: func(dc *test.Datacenter) *infrav2.SwitchServiceRegisterResponse {
 				sw := dc.GetSwitches()[sc.P01Rack01Switch1]
 				sw.Description = "new description"
 				sw.ManagementIp = "1.1.1.1"
@@ -203,91 +196,73 @@ func Test_switchServiceServer_Register(t *testing.T) {
 		},
 		{
 			name: "try replace but no switches found in the rack",
-			rq: func() *infrav2.SwitchServiceRegisterRequest {
-				return &infrav2.SwitchServiceRegisterRequest{
-					Switch: &apiv2.Switch{
-						Id:           sc.P01Rack04Switch1,
-						Rack:         new("p01-rack05"),
-						Partition:    sc.Partition1,
-						ManagementIp: "1.1.1.1",
-						ReplaceMode:  apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
-						Os: &apiv2.SwitchOS{
-							Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
-							Version:          "ec202211",
-							MetalCoreVersion: "v0.14.0",
-						},
+			rq: &infrav2.SwitchServiceRegisterRequest{
+				Switch: &apiv2.Switch{
+					Id:           sc.P01Rack04Switch1,
+					Rack:         new("p01-rack05"),
+					Partition:    sc.Partition1,
+					ManagementIp: "1.1.1.1",
+					ReplaceMode:  apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+					Os: &apiv2.SwitchOS{
+						Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+						Version:          "ec202211",
+						MetalCoreVersion: "v0.14.0",
 					},
-				}
+				},
 			},
 			want:    nil,
 			wantErr: errorutil.NotFound("failed to determine twin for switch %s: could not find any switch in rack p01-rack05", sc.P01Rack04Switch1),
 		},
 		{
 			name: "try replace but no twin switch found",
-			rq: func() *infrav2.SwitchServiceRegisterRequest {
-				return &infrav2.SwitchServiceRegisterRequest{
-					Switch: &apiv2.Switch{
-						Id:           sc.P01Rack04Switch1,
-						Rack:         new(sc.P01Rack04),
-						Partition:    sc.Partition1,
-						ManagementIp: "1.1.1.1",
-						ReplaceMode:  apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
-						Os: &apiv2.SwitchOS{
-							Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
-							Version:          "ec202211",
-							MetalCoreVersion: "v0.14.0",
-						},
+			rq: &infrav2.SwitchServiceRegisterRequest{
+				Switch: &apiv2.Switch{
+					Id:           sc.P01Rack04Switch1,
+					Rack:         new(sc.P01Rack04),
+					Partition:    sc.Partition1,
+					ManagementIp: "1.1.1.1",
+					ReplaceMode:  apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+					Os: &apiv2.SwitchOS{
+						Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+						Version:          "ec202211",
+						MetalCoreVersion: "v0.14.0",
 					},
-				}
+				},
 			},
 			want:    nil,
 			wantErr: errorutil.NotFound("failed to determine twin for switch %s: no twin found for switch %s in partition %v and rack %v", sc.P01Rack04Switch1, sc.P01Rack04Switch1, sc.Partition1, sc.P01Rack04),
 		},
 		{
 			name: "try replace but multiple potential twins exist",
-			rq: func() *infrav2.SwitchServiceRegisterRequest {
-				return &infrav2.SwitchServiceRegisterRequest{
-					Switch: &apiv2.Switch{
-						Id:           sc.P01Rack01Switch2_1,
-						Rack:         new(sc.P01Rack01),
-						Partition:    sc.Partition1,
-						ManagementIp: "1.1.1.1",
-						ReplaceMode:  apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
-						Os: &apiv2.SwitchOS{
-							Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
-							Version:          "ec202211",
-							MetalCoreVersion: "v0.14.0",
-						},
+			rq: &infrav2.SwitchServiceRegisterRequest{
+				Switch: &apiv2.Switch{
+					Id:           sc.P01Rack01Switch2_1,
+					Rack:         new(sc.P01Rack01),
+					Partition:    sc.Partition1,
+					ManagementIp: "1.1.1.1",
+					ReplaceMode:  apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
+					Os: &apiv2.SwitchOS{
+						Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+						Version:          "ec202211",
+						MetalCoreVersion: "v0.14.0",
 					},
-				}
+				},
 			},
 			want:    nil,
 			wantErr: errorutil.FailedPrecondition("failed to determine twin for switch %s: found multiple twin switches for %s (%s and %s)", sc.P01Rack01Switch2_1, sc.P01Rack01Switch2_1, sc.P01Rack01Switch2, sc.P01Rack01Switch1),
 		},
 		{
 			name: "successful replacement",
-			rq: func() *infrav2.SwitchServiceRegisterRequest {
-				return &infrav2.SwitchServiceRegisterRequest{
-					Switch: &apiv2.Switch{
-						Id:           sc.P02Rack03Switch2,
-						Partition:    sc.Partition2,
-						Rack:         new(sc.P02Rack03),
-						ManagementIp: "1.1.1.1",
-						MachineConnections: []*apiv2.MachineConnection{
-							{
-								MachineId: sc.Machine7,
-								Nic: &apiv2.SwitchNic{
-									Name:       "Ethernet0",
-									Identifier: "Ethernet0",
-									Mac:        "11:11:11:11:11:11",
-									State: &apiv2.NicState{
-										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-									},
-								},
-							},
-						},
-						Nics: []*apiv2.SwitchNic{
-							{
+			rq: &infrav2.SwitchServiceRegisterRequest{
+				Switch: &apiv2.Switch{
+					Id:           sc.P02Rack03Switch2,
+					Partition:    sc.Partition2,
+					Rack:         new(sc.P02Rack03),
+					ManagementIp: "1.1.1.1",
+					MachineConnections: []*apiv2.MachineConnection{
+						{
+							MachineId: sc.Machine7,
+							Nic: &apiv2.SwitchNic{
 								Name:       "Ethernet0",
 								Identifier: "Ethernet0",
 								Mac:        "11:11:11:11:11:11",
@@ -295,24 +270,34 @@ func Test_switchServiceServer_Register(t *testing.T) {
 									Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 								},
 							},
-							{
-								Name:       "Ethernet1",
-								Identifier: "Ethernet1",
-								Mac:        "22:22:22:22:22:22",
-								State: &apiv2.NicState{
-									Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-								},
-							},
-						},
-						Os: &apiv2.SwitchOS{
-							Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
-							Version:          "ec202211",
-							MetalCoreVersion: "v0.13.0",
 						},
 					},
-				}
+					Nics: []*apiv2.SwitchNic{
+						{
+							Name:       "Ethernet0",
+							Identifier: "Ethernet0",
+							Mac:        "11:11:11:11:11:11",
+							State: &apiv2.NicState{
+								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							},
+						},
+						{
+							Name:       "Ethernet1",
+							Identifier: "Ethernet1",
+							Mac:        "22:22:22:22:22:22",
+							State: &apiv2.NicState{
+								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							},
+						},
+					},
+					Os: &apiv2.SwitchOS{
+						Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
+						Version:          "ec202211",
+						MetalCoreVersion: "v0.13.0",
+					},
+				},
 			},
-			want: func() *infrav2.SwitchServiceRegisterResponse {
+			want: func(dc *test.Datacenter) *infrav2.SwitchServiceRegisterResponse {
 				return &infrav2.SwitchServiceRegisterResponse{
 					Switch: &apiv2.Switch{
 						Id:           sc.P02Rack03Switch2,
@@ -415,22 +400,22 @@ func Test_switchServiceServer_Register(t *testing.T) {
 			wantErr: nil,
 		},
 	}
+
+	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			dc.Create(&sc.SwitchesWithMachinesDatacenter)
 			defer dc.Cleanup()
 
 			var (
-				rq       *infrav2.SwitchServiceRegisterRequest
 				want     *infrav2.SwitchServiceRegisterResponse
 				snapshot = dc.Snapshot()
 			)
 
-			if tt.rq != nil {
-				rq = tt.rq()
-			}
 			if tt.want != nil {
-				want = tt.want()
+				want = tt.want(dc)
 			}
 
 			s := &switchServiceServer{
@@ -439,10 +424,10 @@ func Test_switchServiceServer_Register(t *testing.T) {
 			}
 
 			if tt.wantErr == nil {
-				test.Validate(t, rq)
+				test.Validate(t, tt.rq)
 			}
 
-			got, err := s.Register(ctx, rq)
+			got, err := s.Register(ctx, tt.rq)
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("switchServiceServer.Register() error diff = %s", diff)
 			}
@@ -471,15 +456,10 @@ func Test_switchServiceServer_Get(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
-	dc := test.NewDatacenter(t, log)
-	defer dc.Close()
-	dc.Create(&sc.SwitchesWithMachinesDatacenter)
-	snapshot := dc.Snapshot()
-
 	tests := []struct {
 		name    string
 		rq      *infrav2.SwitchServiceGetRequest
-		want    *infrav2.SwitchServiceGetResponse
+		want    func(*test.Datacenter) *infrav2.SwitchServiceGetResponse
 		wantErr error
 	}{
 		{
@@ -487,8 +467,10 @@ func Test_switchServiceServer_Get(t *testing.T) {
 			rq: &infrav2.SwitchServiceGetRequest{
 				Id: sc.P01Rack01Switch1,
 			},
-			want: &infrav2.SwitchServiceGetResponse{
-				Switch: dc.GetSwitches()[sc.P01Rack01Switch1],
+			want: func(dc *test.Datacenter) *infrav2.SwitchServiceGetResponse {
+				return &infrav2.SwitchServiceGetResponse{
+					Switch: dc.GetSwitches()[sc.P01Rack01Switch1],
+				}
 			},
 			wantErr: nil,
 		},
@@ -501,6 +483,12 @@ func Test_switchServiceServer_Get(t *testing.T) {
 			wantErr: errorutil.NotFound("no switch with id \"sw50\" found"),
 		},
 	}
+
+	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
+	dc.Create(&sc.SwitchesWithMachinesDatacenter)
+	snapshot := dc.Snapshot()
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &switchServiceServer{
@@ -534,19 +522,16 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
-	dc := test.NewDatacenter(t, log)
-	defer dc.Close()
-
 	tests := []struct {
 		name    string
-		rq      func() *infrav2.SwitchServiceHeartbeatRequest
-		want    func() *infrav2.SwitchServiceHeartbeatResponse
+		rq      func(*test.Datacenter) *infrav2.SwitchServiceHeartbeatRequest
+		want    func(*test.Datacenter) *infrav2.SwitchServiceHeartbeatResponse
 		mods    func() *test.Asserters
 		wantErr error
 	}{
 		{
 			name: "switch status empty, no error, no change",
-			rq: func() *infrav2.SwitchServiceHeartbeatRequest {
+			rq: func(dc *test.Datacenter) *infrav2.SwitchServiceHeartbeatRequest {
 				return &infrav2.SwitchServiceHeartbeatRequest{
 					Id:       sc.P01Rack01Switch1,
 					Duration: durationpb.New(time.Second),
@@ -568,7 +553,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 					},
 				}
 			},
-			want: func() *infrav2.SwitchServiceHeartbeatResponse {
+			want: func(dc *test.Datacenter) *infrav2.SwitchServiceHeartbeatResponse {
 				return &infrav2.SwitchServiceHeartbeatResponse{
 					Id: sc.P01Rack01Switch1,
 					LastSync: &apiv2.SwitchSync{
@@ -618,7 +603,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 		},
 		{
 			name: "switch status exists, error occurred, no change",
-			rq: func() *infrav2.SwitchServiceHeartbeatRequest {
+			rq: func(dc *test.Datacenter) *infrav2.SwitchServiceHeartbeatRequest {
 				err := dc.GetTestStore().Store.Switch().AdditionalMethods().SetSwitchStatus(ctx, &api.SwitchStatus{
 					ID: sc.P01Rack01Switch1,
 					LastSync: &apiv2.SwitchSync{
@@ -636,7 +621,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 					Error:    new("sync failed"),
 				}
 			},
-			want: func() *infrav2.SwitchServiceHeartbeatResponse {
+			want: func(dc *test.Datacenter) *infrav2.SwitchServiceHeartbeatResponse {
 				return &infrav2.SwitchServiceHeartbeatResponse{
 					Id: sc.P01Rack01Switch1,
 					LastSync: &apiv2.SwitchSync{
@@ -676,7 +661,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 		},
 		{
 			name: "error occurred, update anyway",
-			rq: func() *infrav2.SwitchServiceHeartbeatRequest {
+			rq: func(dc *test.Datacenter) *infrav2.SwitchServiceHeartbeatRequest {
 				err := dc.GetTestStore().Switch().AdditionalMethods().SetSwitchStatus(ctx, &api.SwitchStatus{
 					ID: sc.P02Rack01Switch2,
 					LastSync: &apiv2.SwitchSync{
@@ -704,7 +689,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 					},
 				}
 			},
-			want: func() *infrav2.SwitchServiceHeartbeatResponse {
+			want: func(dc *test.Datacenter) *infrav2.SwitchServiceHeartbeatResponse {
 				return &infrav2.SwitchServiceHeartbeatResponse{
 					Id: sc.P02Rack01Switch2,
 					LastSync: &apiv2.SwitchSync{
@@ -754,7 +739,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 		},
 		{
 			name: "no error occurred",
-			rq: func() *infrav2.SwitchServiceHeartbeatRequest {
+			rq: func(dc *test.Datacenter) *infrav2.SwitchServiceHeartbeatRequest {
 				err := dc.GetTestStore().Switch().AdditionalMethods().SetSwitchStatus(ctx, &api.SwitchStatus{
 					ID:       sc.P01Rack02Switch1,
 					LastSync: &apiv2.SwitchSync{},
@@ -775,7 +760,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 					BgpPortStates: map[string]*apiv2.SwitchBGPPortState{},
 				}
 			},
-			want: func() *infrav2.SwitchServiceHeartbeatResponse {
+			want: func(dc *test.Datacenter) *infrav2.SwitchServiceHeartbeatResponse {
 				return &infrav2.SwitchServiceHeartbeatResponse{
 					Id: sc.P01Rack02Switch1,
 					LastSync: &apiv2.SwitchSync{
@@ -817,6 +802,10 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 			wantErr: nil,
 		},
 	}
+
+	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			dc.Create(&sc.SwitchesWithMachinesDatacenter)
@@ -829,10 +818,10 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 			)
 
 			if tt.rq != nil {
-				rq = tt.rq()
+				rq = tt.rq(dc)
 			}
 			if tt.want != nil {
-				want = tt.want()
+				want = tt.want(dc)
 			}
 			s := &switchServiceServer{
 				log:  log,
