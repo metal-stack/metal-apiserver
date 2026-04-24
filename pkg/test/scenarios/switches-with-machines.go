@@ -1,8 +1,12 @@
 package scenarios
 
 import (
+	"time"
+
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 var (
@@ -18,6 +22,31 @@ var (
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4},
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024, Max: 1024},
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 1024, Max: 1024},
+				},
+			},
+		},
+		SwitchStatuses: []*api.SwitchStatus{
+			{
+				ID: P01Rack01Switch1,
+				LastSync: &apiv2.SwitchSync{
+					Duration: &durationpb.Duration{},
+				},
+				LastSyncError: &apiv2.SwitchSync{
+					Error: new("previous error"),
+				},
+			},
+			{
+				ID:       P01Rack02Switch1,
+				LastSync: &apiv2.SwitchSync{},
+				LastSyncError: &apiv2.SwitchSync{
+					Duration: durationpb.New(time.Second),
+					Error:    new("sync failed"),
+				},
+			},
+			{
+				ID: P02Rack01Switch2,
+				LastSync: &apiv2.SwitchSync{
+					Duration: durationpb.New(time.Second),
 				},
 			},
 		},

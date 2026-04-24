@@ -291,7 +291,7 @@ func TestAssert(t *testing.T) {
 				mods = tt.mods()
 			}
 
-			err1 := dc.Assert(snapshot, mods,
+			err1 := dc.AssertSnapshot(snapshot, mods,
 				protocmp.IgnoreFields(
 					&apiv2.IP{}, "uuid",
 				),
@@ -303,7 +303,7 @@ func TestAssert(t *testing.T) {
 				t.Errorf("Assert() error = %v, wantErr %v", err1, tt.wantErr)
 			}
 
-			err2 := dc.Assert(snapshot, mods,
+			err2 := dc.AssertSnapshot(snapshot, mods,
 				protocmp.IgnoreFields(
 					&apiv2.IP{}, "uuid",
 				),
@@ -321,118 +321,118 @@ func TestAssert(t *testing.T) {
 func Test_entities_deepCopy(t *testing.T) {
 	tests := []struct {
 		name string
-		e    *entities
-		want *entities
+		e    *Entities
+		want *Entities
 	}{
 		{
 			name: "copy all entities",
-			e: &entities{
-				tenants: map[string]*apiv2.Tenant{
+			e: &Entities{
+				Tenants: map[string]*apiv2.Tenant{
 					"tenant": {
 						Login: "tenant",
 					},
 				},
-				projects: map[string][]*apiv2.Project{
+				Projects: map[string][]*apiv2.Project{
 					"tenant": {
 						{
 							Name: "project",
 						},
 					},
 				},
-				partitions: map[string]*apiv2.Partition{
+				Partitions: map[string]*apiv2.Partition{
 					"partition": {
 						Id: "partition",
 					},
 				},
-				sizes: map[string]*apiv2.Size{
+				Sizes: map[string]*apiv2.Size{
 					"size": {
 						Id: "size",
 					},
 				},
-				networks: map[string]*apiv2.Network{
+				Networks: map[string]*apiv2.Network{
 					"network": {
 						Id: "network",
 					},
 				},
-				ips: map[string]*apiv2.IP{
+				Ips: map[string]*apiv2.IP{
 					"ip": {
 						Ip: "1.1.1.1",
 					},
 				},
-				images: map[string]*apiv2.Image{
+				Images: map[string]*apiv2.Image{
 					"image": {
 						Id: "image",
 					},
 				},
-				switches: map[string]*apiv2.Switch{
+				Switches: map[string]*apiv2.Switch{
 					"switch": {
 						Id: "switch",
 					},
 				},
-				switchStatuses: map[string]*metal.SwitchStatus{
+				SwitchStatuses: map[string]*metal.SwitchStatus{
 					"switch": {
 						Base: metal.Base{
 							ID: "switch",
 						},
 					},
 				},
-				machines: map[string]*apiv2.Machine{
+				Machines: map[string]*apiv2.Machine{
 					"machine": {
 						Uuid: "machine",
 					},
 				},
 			},
-			want: &entities{
-				tenants: map[string]*apiv2.Tenant{
+			want: &Entities{
+				Tenants: map[string]*apiv2.Tenant{
 					"tenant": {
 						Login: "tenant",
 					},
 				},
-				projects: map[string][]*apiv2.Project{
+				Projects: map[string][]*apiv2.Project{
 					"tenant": {
 						{
 							Name: "project",
 						},
 					},
 				},
-				partitions: map[string]*apiv2.Partition{
+				Partitions: map[string]*apiv2.Partition{
 					"partition": {
 						Id: "partition",
 					},
 				},
-				sizes: map[string]*apiv2.Size{
+				Sizes: map[string]*apiv2.Size{
 					"size": {
 						Id: "size",
 					},
 				},
-				networks: map[string]*apiv2.Network{
+				Networks: map[string]*apiv2.Network{
 					"network": {
 						Id: "network",
 					},
 				},
-				ips: map[string]*apiv2.IP{
+				Ips: map[string]*apiv2.IP{
 					"ip": {
 						Ip: "1.1.1.1",
 					},
 				},
-				images: map[string]*apiv2.Image{
+				Images: map[string]*apiv2.Image{
 					"image": {
 						Id: "image",
 					},
 				},
-				switches: map[string]*apiv2.Switch{
+				Switches: map[string]*apiv2.Switch{
 					"switch": {
 						Id: "switch",
 					},
 				},
-				switchStatuses: map[string]*metal.SwitchStatus{
+				SwitchStatuses: map[string]*metal.SwitchStatus{
 					"switch": {
 						Base: metal.Base{
 							ID: "switch",
 						},
 					},
 				},
-				machines: map[string]*apiv2.Machine{
+				Machines: map[string]*apiv2.Machine{
 					"machine": {
 						Uuid: "machine",
 					},
@@ -444,7 +444,7 @@ func Test_entities_deepCopy(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := tt.e.deepCopy()
 			require.NoError(t, err)
-			if diff := cmp.Diff(tt.want, got, cmp.AllowUnexported(entities{}), protocmp.Transform()); diff != "" {
+			if diff := cmp.Diff(tt.want, got, cmp.AllowUnexported(Entities{}), protocmp.Transform()); diff != "" {
 				t.Errorf("entities.deepCopy() diff = %s", diff)
 			}
 		})

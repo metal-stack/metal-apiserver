@@ -4,6 +4,7 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 )
 
 const (
@@ -99,6 +100,7 @@ type (
 		Networks             []*adminv2.NetworkServiceCreateRequest
 		IPs                  []*apiv2.IPServiceCreateRequest
 		Switches             []*apiv2.Switch
+		SwitchStatuses       []*api.SwitchStatus
 		Machines             []*MachineWithLiveliness
 		ReservedMachines     []string // TODO
 	}

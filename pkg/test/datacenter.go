@@ -26,24 +26,24 @@ import (
 
 type (
 	Datacenter struct {
-		entities  *entities
+		entities  *Entities
 		testStore *testStore
 		t         testing.TB
 		closers   []func()
 	}
 
-	entities struct {
-		tenants           map[string]*apiv2.Tenant
-		projects          map[string][]*apiv2.Project
-		partitions        map[string]*apiv2.Partition
-		filesystemLayouts map[string]*apiv2.FilesystemLayout
-		sizes             map[string]*apiv2.Size
-		networks          map[string]*apiv2.Network
-		ips               map[string]*apiv2.IP
-		images            map[string]*apiv2.Image
-		switches          map[string]*apiv2.Switch
-		switchStatuses    map[string]*metal.SwitchStatus
-		machines          map[string]*apiv2.Machine
+	Entities struct {
+		Tenants           map[string]*apiv2.Tenant
+		Projects          map[string][]*apiv2.Project
+		Partitions        map[string]*apiv2.Partition
+		FilesystemLayouts map[string]*apiv2.FilesystemLayout
+		Sizes             map[string]*apiv2.Size
+		Networks          map[string]*apiv2.Network
+		Ips               map[string]*apiv2.IP
+		Images            map[string]*apiv2.Image
+		Switches          map[string]*apiv2.Switch
+		SwitchStatuses    map[string]*metal.SwitchStatus
+		Machines          map[string]*apiv2.Machine
 	}
 
 	Asserters struct {
@@ -67,18 +67,18 @@ func NewDatacenter(t testing.TB, log *slog.Logger, testOpts ...testOpt) *Datacen
 	dc := &Datacenter{
 		t:         t,
 		testStore: testStore,
-		entities: &entities{
-			tenants:           make(map[string]*apiv2.Tenant),
-			projects:          make(map[string][]*apiv2.Project),
-			partitions:        make(map[string]*apiv2.Partition),
-			sizes:             make(map[string]*apiv2.Size),
-			filesystemLayouts: make(map[string]*apiv2.FilesystemLayout),
-			networks:          make(map[string]*apiv2.Network),
-			ips:               make(map[string]*apiv2.IP),
-			images:            make(map[string]*apiv2.Image),
-			switches:          make(map[string]*apiv2.Switch),
-			switchStatuses:    make(map[string]*metal.SwitchStatus),
-			machines:          make(map[string]*apiv2.Machine),
+		entities: &Entities{
+			Tenants:           make(map[string]*apiv2.Tenant),
+			Projects:          make(map[string][]*apiv2.Project),
+			Partitions:        make(map[string]*apiv2.Partition),
+			Sizes:             make(map[string]*apiv2.Size),
+			FilesystemLayouts: make(map[string]*apiv2.FilesystemLayout),
+			Networks:          make(map[string]*apiv2.Network),
+			Ips:               make(map[string]*apiv2.IP),
+			Images:            make(map[string]*apiv2.Image),
+			Switches:          make(map[string]*apiv2.Switch),
+			SwitchStatuses:    make(map[string]*metal.SwitchStatus),
+			Machines:          make(map[string]*apiv2.Machine),
 		},
 	}
 
@@ -102,54 +102,55 @@ func (dc *Datacenter) Create(spec *scenarios.DatacenterSpec) {
 	dc.createIPs(spec)
 	dc.createMachines(spec)
 	dc.createSwitches(spec)
+	dc.createSwitchStatuses(spec)
 
 	// this is done after creating all currentEntities because some currentEntities affect other currentEntities upon creation and we want to start of with a consistent state between database and datacenter
 	currentEntities, err := getCurrentEntities(dc.t.Context(), dc.testStore)
 	require.NoError(dc.t, err)
-	e := &entities{}
+	e := &Entities{}
 
-	e.tenants = currentEntities.tenants
-	e.projects = currentEntities.projects
-	e.partitions = currentEntities.partitions
-	e.sizes = currentEntities.sizes
-	e.filesystemLayouts = currentEntities.filesystemLayouts
-	e.networks = currentEntities.networks
-	e.ips = currentEntities.ips
-	e.images = currentEntities.images
-	e.switches = currentEntities.switches
-	e.switchStatuses = currentEntities.switchStatuses
-	e.machines = currentEntities.machines
+	e.Tenants = currentEntities.Tenants
+	e.Projects = currentEntities.Projects
+	e.Partitions = currentEntities.Partitions
+	e.Sizes = currentEntities.Sizes
+	e.FilesystemLayouts = currentEntities.FilesystemLayouts
+	e.Networks = currentEntities.Networks
+	e.Ips = currentEntities.Ips
+	e.Images = currentEntities.Images
+	e.Switches = currentEntities.Switches
+	e.SwitchStatuses = currentEntities.SwitchStatuses
+	e.Machines = currentEntities.Machines
 	dc.entities = e
 }
 
-func (dc *Datacenter) Snapshot() *entities {
+func (dc *Datacenter) Snapshot() *Entities {
 	copied, err := dc.entities.deepCopy()
 	require.NoError(dc.t, err)
 	return copied
 }
 
 func (dc *Datacenter) GetTenants() map[string]*apiv2.Tenant {
-	return dc.entities.tenants
+	return dc.entities.Tenants
 }
 
 func (dc *Datacenter) GetProjects() map[string][]*apiv2.Project {
-	return dc.entities.projects
+	return dc.entities.Projects
 }
 
 func (dc *Datacenter) GetPartitions() map[string]*apiv2.Partition {
-	return dc.entities.partitions
+	return dc.entities.Partitions
 }
 
 func (dc *Datacenter) GetSizes() map[string]*apiv2.Size {
-	return dc.entities.sizes
+	return dc.entities.Sizes
 }
 
 func (dc *Datacenter) GetNetworks() map[string]*apiv2.Network {
-	return dc.entities.networks
+	return dc.entities.Networks
 }
 
 func (dc *Datacenter) GetNetworkByName(name string) *apiv2.Network {
-	for _, n := range dc.entities.networks {
+	for _, n := range dc.entities.Networks {
 		if n.Name != nil && *n.Name == name {
 			return n
 		}
@@ -158,27 +159,27 @@ func (dc *Datacenter) GetNetworkByName(name string) *apiv2.Network {
 }
 
 func (dc *Datacenter) GetIPs() map[string]*apiv2.IP {
-	return dc.entities.ips
+	return dc.entities.Ips
 }
 
 func (dc *Datacenter) GetImages() map[string]*apiv2.Image {
-	return dc.entities.images
+	return dc.entities.Images
 }
 
 func (dc *Datacenter) GetSwitches() map[string]*apiv2.Switch {
-	return dc.entities.switches
+	return dc.entities.Switches
 }
 
 func (dc *Datacenter) GetSwitchStatuses() map[string]*metal.SwitchStatus {
-	return dc.entities.switchStatuses
+	return dc.entities.SwitchStatuses
 }
 
 func (dc *Datacenter) GetMachines() map[string]*apiv2.Machine {
-	return dc.entities.machines
+	return dc.entities.Machines
 }
 
 func (dc *Datacenter) GetFilesystemLayouts() map[string]*apiv2.FilesystemLayout {
-	return dc.entities.filesystemLayouts
+	return dc.entities.FilesystemLayouts
 }
 
 func (dc *Datacenter) Close() {
@@ -191,54 +192,55 @@ func (dc *Datacenter) Cleanup() {
 	dc.testStore.Cleanup(dc.t)
 }
 
-// Assert tests whether all of the intended changes (and no others) were applied to the database.
+// AssertSnapshot tests whether all of the intended changes (and no others) were applied to the database as compared to a specific snapshot.
 //
 // Usage:
 //
 // Define modifier functions that express what changes you expect the functions you are testing to apply to the database.
 // Run the functions you are testing.
-// Call dc.Assert(mods) with the modifiers you defined.
-// Assert will fetch all current entities from the database and apply the modifications to the current datacenter.
-// If the results differ Assert will return an error containing the diff.
+// Call dc.AssertSnapshot(snapshot, mods) with the modifiers and a snapshot that you created at some point before calling this func.
+// AssertSnapshot will fetch all current entities from the database and apply the modifications to the snapshot you passed.
+// After the modifications were applied the snapshot is expected to be equal to the actual current state.
+// If the results differ AssertSnapshot will return an error containing the diff.
 // A `-` in the diff indicates a field that was expected but is not present in the database.
 // A `+` in the diff indicates a field that was unexpectedly present in the database.
-func (dc *Datacenter) Assert(snapshot *entities, mods *Asserters, opts ...cmp.Option) error {
+func (dc *Datacenter) AssertSnapshot(snapshot *Entities, mods *Asserters, opts ...cmp.Option) error {
 	copied, err := snapshot.deepCopy()
 	require.NoError(dc.t, err)
 
 	if mods != nil {
 		if mods.Tenants != nil {
-			mods.Tenants(copied.tenants)
+			mods.Tenants(copied.Tenants)
 		}
 		if mods.Projects != nil {
-			mods.Projects(copied.projects)
+			mods.Projects(copied.Projects)
 		}
 		if mods.Partitions != nil {
-			mods.Partitions(copied.partitions)
+			mods.Partitions(copied.Partitions)
 		}
 		if mods.Sizes != nil {
-			mods.Sizes(copied.sizes)
+			mods.Sizes(copied.Sizes)
 		}
 		if mods.FilesystemLayouts != nil {
-			mods.FilesystemLayouts(copied.filesystemLayouts)
+			mods.FilesystemLayouts(copied.FilesystemLayouts)
 		}
 		if mods.Networks != nil {
-			mods.Networks(copied.networks)
+			mods.Networks(copied.Networks)
 		}
 		if mods.IPs != nil {
-			mods.IPs(copied.ips)
+			mods.IPs(copied.Ips)
 		}
 		if mods.Images != nil {
-			mods.Images(copied.images)
+			mods.Images(copied.Images)
 		}
 		if mods.Switches != nil {
-			mods.Switches(copied.switches)
+			mods.Switches(copied.Switches)
 		}
 		if mods.SwitchStatuses != nil {
-			mods.SwitchStatuses(copied.switchStatuses)
+			mods.SwitchStatuses(copied.SwitchStatuses)
 		}
 		if mods.Machines != nil {
-			mods.Machines(copied.machines)
+			mods.Machines(copied.Machines)
 		}
 	}
 
@@ -249,7 +251,7 @@ func (dc *Datacenter) Assert(snapshot *entities, mods *Asserters, opts ...cmp.Op
 
 	options := slices.Concat(opts, []cmp.Option{
 		protocmp.Transform(),
-		cmp.AllowUnexported(entities{}),
+		cmp.AllowUnexported(Entities{}),
 		cmpopts.IgnoreFields(
 			metal.Base{}, "Created", "Changed", "Generation",
 		),
@@ -408,43 +410,47 @@ func (dc *Datacenter) createSwitches(spec *scenarios.DatacenterSpec) {
 	CreateSwitches(dc.t, dc.testStore, reqs)
 }
 
-func (e *entities) deepCopy() (*entities, error) {
+func (dc *Datacenter) createSwitchStatuses(spec *scenarios.DatacenterSpec) {
+	CreateSwitchStatuses(dc.t, dc.testStore, spec.SwitchStatuses)
+}
+
+func (e *Entities) deepCopy() (*Entities, error) {
 	var (
-		copied = &entities{}
+		copied = &Entities{}
 		err    error
 	)
 
-	if copied.tenants, err = deepCopy(e.tenants); err != nil {
+	if copied.Tenants, err = deepCopy(e.Tenants); err != nil {
 		return nil, err
 	}
-	if copied.projects, err = deepCopy(e.projects); err != nil {
+	if copied.Projects, err = deepCopy(e.Projects); err != nil {
 		return nil, err
 	}
-	if copied.partitions, err = deepCopy(e.partitions); err != nil {
+	if copied.Partitions, err = deepCopy(e.Partitions); err != nil {
 		return nil, err
 	}
-	if copied.sizes, err = deepCopy(e.sizes); err != nil {
+	if copied.Sizes, err = deepCopy(e.Sizes); err != nil {
 		return nil, err
 	}
-	if copied.filesystemLayouts, err = deepCopy(e.filesystemLayouts); err != nil {
+	if copied.FilesystemLayouts, err = deepCopy(e.FilesystemLayouts); err != nil {
 		return nil, err
 	}
-	if copied.networks, err = deepCopy(e.networks); err != nil {
+	if copied.Networks, err = deepCopy(e.Networks); err != nil {
 		return nil, err
 	}
-	if copied.ips, err = deepCopy(e.ips); err != nil {
+	if copied.Ips, err = deepCopy(e.Ips); err != nil {
 		return nil, err
 	}
-	if copied.images, err = deepCopy(e.images); err != nil {
+	if copied.Images, err = deepCopy(e.Images); err != nil {
 		return nil, err
 	}
-	if copied.switches, err = deepCopy(e.switches); err != nil {
+	if copied.Switches, err = deepCopy(e.Switches); err != nil {
 		return nil, err
 	}
-	if copied.switchStatuses, err = deepCopy(e.switchStatuses); err != nil {
+	if copied.SwitchStatuses, err = deepCopy(e.SwitchStatuses); err != nil {
 		return nil, err
 	}
-	if copied.machines, err = deepCopy(e.machines); err != nil {
+	if copied.Machines, err = deepCopy(e.Machines); err != nil {
 		return nil, err
 	}
 
@@ -464,25 +470,25 @@ func deepCopy[T any](in T) (T, error) {
 	return out, nil
 }
 
-func getCurrentEntities(ctx context.Context, store *testStore) (*entities, error) {
-	e := &entities{}
+func getCurrentEntities(ctx context.Context, store *testStore) (*Entities, error) {
+	e := &Entities{}
 
 	tenants, err := store.Tenant().List(ctx, &apiv2.TenantServiceListRequest{})
 	if err != nil {
 		return nil, err
 	}
-	e.tenants = map[string]*apiv2.Tenant{}
+	e.Tenants = map[string]*apiv2.Tenant{}
 	for _, t := range tenants {
-		e.tenants[t.Login] = t
+		e.Tenants[t.Login] = t
 	}
 	projects, err := store.UnscopedProject().List(ctx, &apiv2.ProjectServiceListRequest{})
 	if err != nil {
 		return nil, err
 	}
-	e.projects = map[string][]*apiv2.Project{}
+	e.Projects = map[string][]*apiv2.Project{}
 	for _, p := range projects {
-		e.projects[p.Tenant] = append(e.projects[p.Tenant], p)
-		slices.SortStableFunc(e.projects[p.Tenant], func(p1, p2 *apiv2.Project) int {
+		e.Projects[p.Tenant] = append(e.Projects[p.Tenant], p)
+		slices.SortStableFunc(e.Projects[p.Tenant], func(p1, p2 *apiv2.Project) int {
 			return strings.Compare(p1.Uuid, p2.Uuid)
 		})
 	}
@@ -490,72 +496,72 @@ func getCurrentEntities(ctx context.Context, store *testStore) (*entities, error
 	if err != nil {
 		return nil, err
 	}
-	e.partitions = map[string]*apiv2.Partition{}
+	e.Partitions = map[string]*apiv2.Partition{}
 	for _, p := range partitions {
-		e.partitions[p.Id] = p
+		e.Partitions[p.Id] = p
 	}
 	sizes, err := store.Size().List(ctx, &apiv2.SizeQuery{})
 	if err != nil {
 		return nil, err
 	}
-	e.sizes = map[string]*apiv2.Size{}
+	e.Sizes = map[string]*apiv2.Size{}
 	for _, s := range sizes {
-		e.sizes[s.Id] = s
+		e.Sizes[s.Id] = s
 	}
 	fsls, err := store.FilesystemLayout().List(ctx, &apiv2.FilesystemServiceListRequest{})
 	if err != nil {
 		return nil, err
 	}
-	e.filesystemLayouts = map[string]*apiv2.FilesystemLayout{}
+	e.FilesystemLayouts = map[string]*apiv2.FilesystemLayout{}
 	for _, fsl := range fsls {
-		e.filesystemLayouts[fsl.Id] = fsl
+		e.FilesystemLayouts[fsl.Id] = fsl
 	}
 	networks, err := store.UnscopedNetwork().List(ctx, &apiv2.NetworkQuery{})
 	if err != nil {
 		return nil, err
 	}
-	e.networks = map[string]*apiv2.Network{}
+	e.Networks = map[string]*apiv2.Network{}
 	for _, n := range networks {
-		e.networks[n.Id] = n
+		e.Networks[n.Id] = n
 	}
 	ips, err := store.UnscopedIP().List(ctx, &apiv2.IPQuery{})
 	if err != nil {
 		return nil, err
 	}
-	e.ips = map[string]*apiv2.IP{}
+	e.Ips = map[string]*apiv2.IP{}
 	for _, ip := range ips {
-		e.ips[ip.Ip] = ip
+		e.Ips[ip.Ip] = ip
 	}
 	images, err := store.Image().List(ctx, &apiv2.ImageQuery{})
 	if err != nil {
 		return nil, err
 	}
-	e.images = map[string]*apiv2.Image{}
+	e.Images = map[string]*apiv2.Image{}
 	for _, i := range images {
-		e.images[i.Id] = i
+		e.Images[i.Id] = i
 	}
 	switches, err := store.Switch().List(ctx, &apiv2.SwitchQuery{})
 	if err != nil {
 		return nil, err
 	}
-	e.switches = map[string]*apiv2.Switch{}
-	e.switchStatuses = map[string]*metal.SwitchStatus{}
+	e.Switches = map[string]*apiv2.Switch{}
+	e.SwitchStatuses = map[string]*metal.SwitchStatus{}
 	for _, sw := range switches {
-		e.switches[sw.Id] = sw
+		e.Switches[sw.Id] = sw
 
 		status, err := store.GetSwitchStatus(sw.Id)
 		if err != nil {
 			return nil, err
 		}
-		e.switchStatuses[sw.Id] = status
+		e.SwitchStatuses[sw.Id] = status
 	}
 	machines, err := store.UnscopedMachine().List(ctx, &apiv2.MachineQuery{})
 	if err != nil {
 		return nil, err
 	}
-	e.machines = map[string]*apiv2.Machine{}
+	e.Machines = map[string]*apiv2.Machine{}
 	for _, m := range machines {
-		e.machines[m.Uuid] = m
+		e.Machines[m.Uuid] = m
 	}
 	return e, nil
 }

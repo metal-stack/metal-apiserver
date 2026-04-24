@@ -30,7 +30,7 @@ func Test_switchServiceServer_Get(t *testing.T) {
 	tests := []struct {
 		name    string
 		rq      *adminv2.SwitchServiceGetRequest
-		want    func(*test.Datacenter) *adminv2.SwitchServiceGetResponse
+		want    func(*test.Entities) *adminv2.SwitchServiceGetResponse
 		wantErr error
 	}{
 		{
@@ -38,9 +38,9 @@ func Test_switchServiceServer_Get(t *testing.T) {
 			rq: &adminv2.SwitchServiceGetRequest{
 				Id: sc.P01Rack01Switch1,
 			},
-			want: func(dc *test.Datacenter) *adminv2.SwitchServiceGetResponse {
+			want: func(e *test.Entities) *adminv2.SwitchServiceGetResponse {
 				return &adminv2.SwitchServiceGetResponse{
-					Switch: dc.GetSwitches()[sc.P01Rack01Switch1],
+					Switch: e.Switches[sc.P01Rack01Switch1],
 				}
 			},
 			wantErr: nil,
@@ -71,19 +71,24 @@ func Test_switchServiceServer_Get(t *testing.T) {
 				test.Validate(t, tt.rq)
 			}
 
+			var want *adminv2.SwitchServiceGetResponse
+			if tt.want != nil {
+				want = tt.want(dc.Snapshot())
+			}
+
 			got, err := s.Get(ctx, tt.rq)
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("switchServiceServer.Get() error diff = %s", diff)
 				return
 			}
-			if diff := cmp.Diff(tt.want, got,
+			if diff := cmp.Diff(want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
 				)); diff != "" {
 				t.Errorf("switchServiceServer.Get() diff = %s", diff)
 			}
-			err = dc.Assert(snapshot, nil)
+			err = dc.AssertSnapshot(snapshot, nil)
 			require.NoError(t, err)
 		})
 	}
@@ -98,13 +103,13 @@ func Test_switchServiceServer_List(t *testing.T) {
 	tests := []struct {
 		name string
 		rq   *adminv2.SwitchServiceListRequest
-		want func(*test.Datacenter) *adminv2.SwitchServiceListResponse
+		want func(*test.Entities) *adminv2.SwitchServiceListResponse
 	}{
 		{
 			name: "get all",
 			rq:   &adminv2.SwitchServiceListRequest{},
-			want: func(dc *test.Datacenter) *adminv2.SwitchServiceListResponse {
-				switches := lo.Values(dc.GetSwitches())
+			want: func(e *test.Entities) *adminv2.SwitchServiceListResponse {
+				switches := lo.Values(e.Switches)
 				slices.SortFunc(switches, func(sw1, sw2 *apiv2.Switch) int {
 					return strings.Compare(sw1.Id, sw2.Id)
 				})
@@ -119,12 +124,12 @@ func Test_switchServiceServer_List(t *testing.T) {
 					Rack: new(sc.P01Rack01),
 				},
 			},
-			want: func(dc *test.Datacenter) *adminv2.SwitchServiceListResponse {
+			want: func(e *test.Entities) *adminv2.SwitchServiceListResponse {
 				return &adminv2.SwitchServiceListResponse{
 					Switches: []*apiv2.Switch{
-						dc.GetSwitches()[sc.P01Rack01Switch1],
-						dc.GetSwitches()[sc.P01Rack01Switch2],
-						dc.GetSwitches()[sc.P01Rack01Switch2_1],
+						e.Switches[sc.P01Rack01Switch1],
+						e.Switches[sc.P01Rack01Switch2],
+						e.Switches[sc.P01Rack01Switch2_1],
 					},
 				}
 			},
@@ -136,9 +141,9 @@ func Test_switchServiceServer_List(t *testing.T) {
 					Id: new(sc.P01Rack01Switch1),
 				},
 			},
-			want: func(dc *test.Datacenter) *adminv2.SwitchServiceListResponse {
+			want: func(e *test.Entities) *adminv2.SwitchServiceListResponse {
 				return &adminv2.SwitchServiceListResponse{
-					Switches: []*apiv2.Switch{dc.GetSwitches()[sc.P01Rack01Switch1]},
+					Switches: []*apiv2.Switch{e.Switches[sc.P01Rack01Switch1]},
 				}
 			},
 		},
@@ -149,17 +154,17 @@ func Test_switchServiceServer_List(t *testing.T) {
 					Partition: new(sc.Partition2),
 				},
 			},
-			want: func(dc *test.Datacenter) *adminv2.SwitchServiceListResponse {
+			want: func(e *test.Entities) *adminv2.SwitchServiceListResponse {
 				return &adminv2.SwitchServiceListResponse{
 					Switches: []*apiv2.Switch{
-						dc.GetSwitches()[sc.P02Rack01Switch1],
-						dc.GetSwitches()[sc.P02Rack01Switch2],
-						dc.GetSwitches()[sc.P02Rack01Switch2_1],
-						dc.GetSwitches()[sc.P02Rack02Switch1],
-						dc.GetSwitches()[sc.P02Rack02Switch2],
-						dc.GetSwitches()[sc.P02Rack02Switch2_1],
-						dc.GetSwitches()[sc.P02Rack03Switch1],
-						dc.GetSwitches()[sc.P02Rack03Switch2],
+						e.Switches[sc.P02Rack01Switch1],
+						e.Switches[sc.P02Rack01Switch2],
+						e.Switches[sc.P02Rack01Switch2_1],
+						e.Switches[sc.P02Rack02Switch1],
+						e.Switches[sc.P02Rack02Switch2],
+						e.Switches[sc.P02Rack02Switch2_1],
+						e.Switches[sc.P02Rack03Switch1],
+						e.Switches[sc.P02Rack03Switch2],
 					},
 				}
 			},
@@ -173,13 +178,13 @@ func Test_switchServiceServer_List(t *testing.T) {
 					},
 				},
 			},
-			want: func(dc *test.Datacenter) *adminv2.SwitchServiceListResponse {
+			want: func(e *test.Entities) *adminv2.SwitchServiceListResponse {
 				return &adminv2.SwitchServiceListResponse{
 					Switches: []*apiv2.Switch{
-						dc.GetSwitches()[sc.P01Rack02Switch1],
-						dc.GetSwitches()[sc.P01Rack03Switch2],
-						dc.GetSwitches()[sc.P02Rack01Switch2_1],
-						dc.GetSwitches()[sc.P02Rack03Switch2],
+						e.Switches[sc.P01Rack02Switch1],
+						e.Switches[sc.P01Rack03Switch2],
+						e.Switches[sc.P02Rack01Switch2_1],
+						e.Switches[sc.P02Rack03Switch2],
 					},
 				}
 			},
@@ -193,10 +198,10 @@ func Test_switchServiceServer_List(t *testing.T) {
 					},
 				},
 			},
-			want: func(dc *test.Datacenter) *adminv2.SwitchServiceListResponse {
+			want: func(e *test.Entities) *adminv2.SwitchServiceListResponse {
 				return &adminv2.SwitchServiceListResponse{
 					Switches: []*apiv2.Switch{
-						dc.GetSwitches()[sc.P01Rack03Switch1],
+						e.Switches[sc.P01Rack03Switch1],
 					},
 				}
 			},
@@ -221,7 +226,7 @@ func Test_switchServiceServer_List(t *testing.T) {
 
 			var want *adminv2.SwitchServiceListResponse
 			if tt.want != nil {
-				want = tt.want(dc)
+				want = tt.want(dc.Snapshot())
 			}
 
 			if diff := cmp.Diff(want, got,
@@ -231,7 +236,7 @@ func Test_switchServiceServer_List(t *testing.T) {
 				)); diff != "" {
 				t.Errorf("switchServiceServer.List() diff = %s", diff)
 			}
-			err = dc.Assert(snapshot, nil)
+			err = dc.AssertSnapshot(snapshot, nil)
 			require.NoError(t, err)
 		})
 	}
@@ -246,35 +251,35 @@ func Test_switchServiceServer_Update(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		rq      func(*test.Datacenter) *adminv2.SwitchServiceUpdateRequest
-		want    func(*test.Datacenter) *adminv2.SwitchServiceUpdateResponse
+		rq      func(*test.Entities) *adminv2.SwitchServiceUpdateRequest
+		want    func(*test.Entities) *adminv2.SwitchServiceUpdateResponse
 		mods    func() *test.Asserters
 		wantErr error
 	}{
 		{
 			name: "no updates made",
-			rq: func(dc *test.Datacenter) *adminv2.SwitchServiceUpdateRequest {
+			rq: func(e *test.Entities) *adminv2.SwitchServiceUpdateRequest {
 				return &adminv2.SwitchServiceUpdateRequest{
 					Id: sc.P01Rack01Switch1,
 					UpdateMeta: &apiv2.UpdateMeta{
-						UpdatedAt: dc.GetSwitches()[sc.P01Rack01Switch1].Meta.UpdatedAt,
+						UpdatedAt: e.Switches[sc.P01Rack01Switch1].Meta.UpdatedAt,
 					},
 				}
 			},
-			want: func(dc *test.Datacenter) *adminv2.SwitchServiceUpdateResponse {
+			want: func(e *test.Entities) *adminv2.SwitchServiceUpdateResponse {
 				return &adminv2.SwitchServiceUpdateResponse{
-					Switch: dc.GetSwitches()[sc.P01Rack01Switch1],
+					Switch: e.Switches[sc.P01Rack01Switch1],
 				}
 			},
 			wantErr: nil,
 		},
 		{
 			name: "update all valid fields",
-			rq: func(dc *test.Datacenter) *adminv2.SwitchServiceUpdateRequest {
+			rq: func(e *test.Entities) *adminv2.SwitchServiceUpdateRequest {
 				return &adminv2.SwitchServiceUpdateRequest{
 					Id: sc.P01Rack01Switch1,
 					UpdateMeta: &apiv2.UpdateMeta{
-						UpdatedAt: dc.GetSwitches()[sc.P01Rack01Switch1].Meta.UpdatedAt,
+						UpdatedAt: e.Switches[sc.P01Rack01Switch1].Meta.UpdatedAt,
 					},
 					Description:    new("new description"),
 					ReplaceMode:    new(apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_REPLACE),
@@ -320,8 +325,8 @@ func Test_switchServiceServer_Update(t *testing.T) {
 					},
 				}
 			},
-			want: func(dc *test.Datacenter) *adminv2.SwitchServiceUpdateResponse {
-				sw := dc.GetSwitches()[sc.P01Rack01Switch1]
+			want: func(e *test.Entities) *adminv2.SwitchServiceUpdateResponse {
+				sw := e.Switches[sc.P01Rack01Switch1]
 				nic1 := &apiv2.SwitchNic{
 					Name:       "Ethernet0",
 					Identifier: "Ethernet0",
@@ -427,11 +432,11 @@ func Test_switchServiceServer_Update(t *testing.T) {
 		},
 		{
 			name: "cannot update os vendor",
-			rq: func(dc *test.Datacenter) *adminv2.SwitchServiceUpdateRequest {
+			rq: func(e *test.Entities) *adminv2.SwitchServiceUpdateRequest {
 				return &adminv2.SwitchServiceUpdateRequest{
-					Id: dc.GetSwitches()[sc.P01Rack03Switch2].Id,
+					Id: e.Switches[sc.P01Rack03Switch2].Id,
 					UpdateMeta: &apiv2.UpdateMeta{
-						UpdatedAt: dc.GetSwitches()[sc.P01Rack03Switch2].Meta.UpdatedAt,
+						UpdatedAt: e.Switches[sc.P01Rack03Switch2].Meta.UpdatedAt,
 					},
 					Os: &apiv2.SwitchOS{
 						Vendor: apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
@@ -458,10 +463,10 @@ func Test_switchServiceServer_Update(t *testing.T) {
 			)
 
 			if tt.rq != nil {
-				rq = tt.rq(dc)
+				rq = tt.rq(dc.Snapshot())
 			}
 			if tt.want != nil {
-				want = tt.want(dc)
+				want = tt.want(dc.Snapshot())
 			}
 
 			s := &switchServiceServer{
@@ -489,7 +494,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 			if tt.mods != nil {
 				mods = tt.mods()
 			}
-			err = dc.Assert(snapshot, mods)
+			err = dc.AssertSnapshot(snapshot, mods)
 			require.NoError(t, err)
 		})
 	}
@@ -611,7 +616,7 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 			if tt.mods != nil {
 				mods = tt.mods()
 			}
-			err = dc.Assert(snapshot, mods)
+			err = dc.AssertSnapshot(snapshot, mods)
 			require.NoError(t, err)
 		})
 	}
@@ -746,7 +751,7 @@ func Test_switchServiceServer_Port(t *testing.T) {
 			if tt.mods != nil {
 				mods = tt.mods()
 			}
-			err = dc.Assert(snapshot, mods)
+			err = dc.AssertSnapshot(snapshot, mods)
 			require.NoError(t, err)
 		})
 	}
@@ -920,7 +925,7 @@ func Test_switchServiceServer_Migrate(t *testing.T) {
 			if tt.mods != nil {
 				mods = tt.mods()
 			}
-			err = dc.Assert(snapshot, mods)
+			err = dc.AssertSnapshot(snapshot, mods)
 			require.NoError(t, err)
 		})
 	}

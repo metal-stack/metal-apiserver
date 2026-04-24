@@ -14,7 +14,6 @@ import (
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
-	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
 	"github.com/samber/lo"
@@ -31,7 +30,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 	tests := []struct {
 		name    string
 		rq      *infrav2.SwitchServiceRegisterRequest
-		want    func(*test.Datacenter) *infrav2.SwitchServiceRegisterResponse
+		want    func(*test.Entities) *infrav2.SwitchServiceRegisterResponse
 		mods    func() *test.Asserters
 		wantErr error
 	}{
@@ -51,7 +50,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 					},
 				},
 			},
-			want: func(dc *test.Datacenter) *infrav2.SwitchServiceRegisterResponse {
+			want: func(e *test.Entities) *infrav2.SwitchServiceRegisterResponse {
 				return &infrav2.SwitchServiceRegisterResponse{
 					Switch: &apiv2.Switch{
 						Id:           "p01-r01leaf01-1",
@@ -130,8 +129,8 @@ func Test_switchServiceServer_Register(t *testing.T) {
 					},
 				},
 			},
-			want: func(dc *test.Datacenter) *infrav2.SwitchServiceRegisterResponse {
-				sw := dc.GetSwitches()[sc.P01Rack01Switch1]
+			want: func(e *test.Entities) *infrav2.SwitchServiceRegisterResponse {
+				sw := e.Switches[sc.P01Rack01Switch1]
 				sw.Description = "new description"
 				sw.ManagementIp = "1.1.1.1"
 				sw.ManagementUser = new("admin")
@@ -297,7 +296,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 					},
 				},
 			},
-			want: func(dc *test.Datacenter) *infrav2.SwitchServiceRegisterResponse {
+			want: func(e *test.Entities) *infrav2.SwitchServiceRegisterResponse {
 				return &infrav2.SwitchServiceRegisterResponse{
 					Switch: &apiv2.Switch{
 						Id:           sc.P02Rack03Switch2,
@@ -415,7 +414,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 			)
 
 			if tt.want != nil {
-				want = tt.want(dc)
+				want = tt.want(dc.Snapshot())
 			}
 
 			s := &switchServiceServer{
@@ -446,7 +445,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 			if tt.mods != nil {
 				mods = tt.mods()
 			}
-			err = dc.Assert(snapshot, mods)
+			err = dc.AssertSnapshot(snapshot, mods)
 			require.NoError(t, err)
 		})
 	}
@@ -459,7 +458,7 @@ func Test_switchServiceServer_Get(t *testing.T) {
 	tests := []struct {
 		name    string
 		rq      *infrav2.SwitchServiceGetRequest
-		want    func(*test.Datacenter) *infrav2.SwitchServiceGetResponse
+		want    func(*test.Entities) *infrav2.SwitchServiceGetResponse
 		wantErr error
 	}{
 		{
@@ -467,9 +466,9 @@ func Test_switchServiceServer_Get(t *testing.T) {
 			rq: &infrav2.SwitchServiceGetRequest{
 				Id: sc.P01Rack01Switch1,
 			},
-			want: func(dc *test.Datacenter) *infrav2.SwitchServiceGetResponse {
+			want: func(e *test.Entities) *infrav2.SwitchServiceGetResponse {
 				return &infrav2.SwitchServiceGetResponse{
-					Switch: dc.GetSwitches()[sc.P01Rack01Switch1],
+					Switch: e.Switches[sc.P01Rack01Switch1],
 				}
 			},
 			wantErr: nil,
@@ -499,20 +498,24 @@ func Test_switchServiceServer_Get(t *testing.T) {
 			if tt.wantErr == nil {
 				test.Validate(t, tt.rq)
 			}
+			var want *infrav2.SwitchServiceGetResponse
+			if tt.want != nil {
+				want = tt.want(dc.Snapshot())
+			}
 
 			got, err := s.Get(ctx, tt.rq)
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("switchServiceServer.Get() error diff = %s", diff)
 				return
 			}
-			if diff := cmp.Diff(tt.want, got,
+			if diff := cmp.Diff(want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
 				)); diff != "" {
 				t.Errorf("switchServiceServer.Get() diff = %s", diff)
 			}
-			err = dc.Assert(snapshot, nil)
+			err = dc.AssertSnapshot(snapshot, nil)
 			require.NoError(t, err)
 		})
 	}
@@ -524,16 +527,16 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		rq      func(*test.Datacenter) *infrav2.SwitchServiceHeartbeatRequest
-		want    func(*test.Datacenter) *infrav2.SwitchServiceHeartbeatResponse
+		rq      func(*test.Entities) *infrav2.SwitchServiceHeartbeatRequest
+		want    func(*test.Entities) *infrav2.SwitchServiceHeartbeatResponse
 		mods    func() *test.Asserters
 		wantErr error
 	}{
 		{
 			name: "switch status empty, no error, no change",
-			rq: func(dc *test.Datacenter) *infrav2.SwitchServiceHeartbeatRequest {
+			rq: func(e *test.Entities) *infrav2.SwitchServiceHeartbeatRequest {
 				return &infrav2.SwitchServiceHeartbeatRequest{
-					Id:       sc.P01Rack01Switch1,
+					Id:       sc.P01Rack01Switch2,
 					Duration: durationpb.New(time.Second),
 					Error:    nil,
 					PortStates: map[string]apiv2.SwitchPortStatus{
@@ -553,9 +556,9 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 					},
 				}
 			},
-			want: func(dc *test.Datacenter) *infrav2.SwitchServiceHeartbeatResponse {
+			want: func(e *test.Entities) *infrav2.SwitchServiceHeartbeatResponse {
 				return &infrav2.SwitchServiceHeartbeatResponse{
-					Id: sc.P01Rack01Switch1,
+					Id: sc.P01Rack01Switch2,
 					LastSync: &apiv2.SwitchSync{
 						Duration: durationpb.New(time.Second),
 						Error:    nil,
@@ -565,7 +568,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 			mods: func() *test.Asserters {
 				return &test.Asserters{
 					Switches: func(switches map[string]*apiv2.Switch) {
-						sw := switches[sc.P01Rack01Switch1]
+						sw := switches[sc.P01Rack01Switch2]
 						sw.LastSync = &apiv2.SwitchSync{
 							Duration: durationpb.New(time.Second),
 						}
@@ -592,7 +595,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 						sw.MachineConnections[0].Nic.State.Actual = apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN
 					},
 					SwitchStatuses: func(switchStatuses map[string]*metal.SwitchStatus) {
-						status := switchStatuses[sc.P01Rack01Switch1]
+						status := switchStatuses[sc.P01Rack01Switch2]
 						status.LastSync = &metal.SwitchSync{
 							Duration: time.Second,
 						}
@@ -603,25 +606,14 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 		},
 		{
 			name: "switch status exists, error occurred, no change",
-			rq: func(dc *test.Datacenter) *infrav2.SwitchServiceHeartbeatRequest {
-				err := dc.GetTestStore().Store.Switch().AdditionalMethods().SetSwitchStatus(ctx, &api.SwitchStatus{
-					ID: sc.P01Rack01Switch1,
-					LastSync: &apiv2.SwitchSync{
-						Duration: &durationpb.Duration{},
-					},
-					LastSyncError: &apiv2.SwitchSync{
-						Error: new("previous error"),
-					},
-				})
-				require.NoError(t, err)
-
+			rq: func(e *test.Entities) *infrav2.SwitchServiceHeartbeatRequest {
 				return &infrav2.SwitchServiceHeartbeatRequest{
 					Id:       sc.P01Rack01Switch1,
 					Duration: durationpb.New(time.Second),
 					Error:    new("sync failed"),
 				}
 			},
-			want: func(dc *test.Datacenter) *infrav2.SwitchServiceHeartbeatResponse {
+			want: func(e *test.Entities) *infrav2.SwitchServiceHeartbeatResponse {
 				return &infrav2.SwitchServiceHeartbeatResponse{
 					Id: sc.P01Rack01Switch1,
 					LastSync: &apiv2.SwitchSync{
@@ -661,15 +653,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 		},
 		{
 			name: "error occurred, update anyway",
-			rq: func(dc *test.Datacenter) *infrav2.SwitchServiceHeartbeatRequest {
-				err := dc.GetTestStore().Switch().AdditionalMethods().SetSwitchStatus(ctx, &api.SwitchStatus{
-					ID: sc.P02Rack01Switch2,
-					LastSync: &apiv2.SwitchSync{
-						Duration: durationpb.New(time.Second),
-					},
-				})
-				require.NoError(t, err)
-
+			rq: func(e *test.Entities) *infrav2.SwitchServiceHeartbeatRequest {
 				return &infrav2.SwitchServiceHeartbeatRequest{
 					Id:       sc.P02Rack01Switch2,
 					Duration: durationpb.New(time.Second),
@@ -689,7 +673,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 					},
 				}
 			},
-			want: func(dc *test.Datacenter) *infrav2.SwitchServiceHeartbeatResponse {
+			want: func(e *test.Entities) *infrav2.SwitchServiceHeartbeatResponse {
 				return &infrav2.SwitchServiceHeartbeatResponse{
 					Id: sc.P02Rack01Switch2,
 					LastSync: &apiv2.SwitchSync{
@@ -739,17 +723,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 		},
 		{
 			name: "no error occurred",
-			rq: func(dc *test.Datacenter) *infrav2.SwitchServiceHeartbeatRequest {
-				err := dc.GetTestStore().Switch().AdditionalMethods().SetSwitchStatus(ctx, &api.SwitchStatus{
-					ID:       sc.P01Rack02Switch1,
-					LastSync: &apiv2.SwitchSync{},
-					LastSyncError: &apiv2.SwitchSync{
-						Duration: durationpb.New(time.Second),
-						Error:    new("sync failed"),
-					},
-				})
-				require.NoError(t, err)
-
+			rq: func(e *test.Entities) *infrav2.SwitchServiceHeartbeatRequest {
 				return &infrav2.SwitchServiceHeartbeatRequest{
 					Id:       sc.P01Rack02Switch1,
 					Duration: durationpb.New(2 * time.Second),
@@ -760,7 +734,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 					BgpPortStates: map[string]*apiv2.SwitchBGPPortState{},
 				}
 			},
-			want: func(dc *test.Datacenter) *infrav2.SwitchServiceHeartbeatResponse {
+			want: func(e *test.Entities) *infrav2.SwitchServiceHeartbeatResponse {
 				return &infrav2.SwitchServiceHeartbeatResponse{
 					Id: sc.P01Rack02Switch1,
 					LastSync: &apiv2.SwitchSync{
@@ -818,10 +792,10 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 			)
 
 			if tt.rq != nil {
-				rq = tt.rq(dc)
+				rq = tt.rq(dc.Snapshot())
 			}
 			if tt.want != nil {
-				want = tt.want(dc)
+				want = tt.want(dc.Snapshot())
 			}
 			s := &switchServiceServer{
 				log:  log,
@@ -851,7 +825,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 			if tt.mods != nil {
 				mods = tt.mods()
 			}
-			err = dc.Assert(snapshot, mods,
+			err = dc.AssertSnapshot(snapshot, mods,
 				cmpopts.IgnoreFields(
 					metal.SwitchSync{}, "Time",
 				),
@@ -1237,7 +1211,7 @@ func Test_switchRepository_ConnectMachineWithSwitches(t *testing.T) {
 			if tt.mods != nil {
 				mods = tt.mods()
 			}
-			err = dc.Assert(snapshot, mods,
+			err = dc.AssertSnapshot(snapshot, mods,
 				cmpopts.IgnoreFields(
 					metal.SwitchSync{}, "Time",
 				),
