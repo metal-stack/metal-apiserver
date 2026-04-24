@@ -35,19 +35,27 @@ func (s *server) Run(ctx context.Context) error {
 		return err
 	}
 
-	p := new(http.Protocols)
+	p := &http.Protocols{}
 	p.SetHTTP1(true)
+	p.SetHTTP2(true)
 	// For gRPC clients, it's convenient to support HTTP/2 without TLS.
 	p.SetUnencryptedHTTP2(true)
 
 	apiServer := &http.Server{
-		Addr:              s.c.HttpServerEndpoint,
-		Handler:           newCORS().Handler(mux),
-		Protocols:         p,
-		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       5 * time.Minute,
-		WriteTimeout:      5 * time.Minute,
-		MaxHeaderBytes:    8 * 1024, // 8KiB
+		Addr:           s.c.HttpServerEndpoint,
+		Handler:        newCORS().Handler(mux),
+		Protocols:      p,
+		MaxHeaderBytes: 8 * 1024,
+		// Low timeouts and ping timeouts set for machine wait streams
+		// to detect early if a machine crashed during wait and does not get allocated
+		IdleTimeout:       10 * time.Second,
+		ReadHeaderTimeout: 8 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      1 * time.Minute,
+		HTTP2: &http.HTTP2Config{
+			SendPingTimeout: 5 * time.Second,
+			PingTimeout:     5 * time.Second,
+		},
 	}
 	s.log.Info("serving http on", "addr", apiServer.Addr)
 

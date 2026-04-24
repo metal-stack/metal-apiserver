@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	"github.com/metal-stack/metal-lib/pkg/tag"
+	"github.com/metal-stack/api/go/tag"
 
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )

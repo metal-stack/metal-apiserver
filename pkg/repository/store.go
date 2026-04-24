@@ -82,11 +82,14 @@ func (s *Store) UnscopedIP() IP {
 }
 
 func (s *Store) ip(scope *ProjectScope) IP {
+	repo := &ipRepository{
+		s:     s,
+		scope: scope,
+	}
+
 	return &store[*ipRepository, *metal.IP, *apiv2.IP, *apiv2.IPServiceCreateRequest, *apiv2.IPServiceUpdateRequest, *apiv2.IPQuery]{
-		repository: &ipRepository{
-			s:     s,
-			scope: scope,
-		},
+		repository: repo,
+		typed:      repo,
 	}
 }
 func (s *Store) Machine(project string) Machine {
