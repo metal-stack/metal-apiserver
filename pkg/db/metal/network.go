@@ -69,7 +69,7 @@ const (
 	AddressFamilyIPv4 = AddressFamily("IPv4")
 	// AddressFamilyIPv6 identifies IPv6
 	AddressFamilyIPv6 = AddressFamily("IPv6")
-	// AddressFamilyDualStack identifies DualStack
+	// AddressFamilyDualStack identifies DualStack Network
 	AddressFamilyDualStack = AddressFamily("dual-stack")
 
 	// NetworkType
@@ -179,7 +179,6 @@ func ToAddressFamily(af apiv2.IPAddressFamily) (AddressFamily, error) {
 }
 
 // FromAddressFamily returns the apiv2 address family of the corresponding metal address family.
-// Attention: this function might return nil for ip family dual stack!!
 func FromAddressFamily(af AddressFamily) (*apiv2.IPAddressFamily, error) {
 	switch af {
 	case AddressFamilyIPv4:
@@ -207,7 +206,6 @@ func ToAddressFamilyFromNetwork(af apiv2.NetworkAddressFamily) (*AddressFamily, 
 }
 
 // FromAddressFamilyOfNetwork returns the apiv2 address family of the corresponding metal address family.
-// Attention: this function might return nil for network family dual stack!!
 func FromAddressFamilyOfNetwork(af AddressFamily) (*apiv2.NetworkAddressFamily, error) {
 	switch af {
 	case AddressFamilyIPv4:
