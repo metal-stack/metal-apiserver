@@ -30,6 +30,7 @@ func Test_switchServiceServer_Get(t *testing.T) {
 	dc := test.NewDatacenter(t, log)
 	defer dc.Close()
 	dc.Create(&sc.SwitchesWithMachinesDatacenter)
+	snapshot := dc.Snapshot()
 
 	tests := []struct {
 		name    string
@@ -79,6 +80,8 @@ func Test_switchServiceServer_Get(t *testing.T) {
 				)); diff != "" {
 				t.Errorf("switchServiceServer.Get() diff = %s", diff)
 			}
+			err = dc.Assert(snapshot, nil)
+			require.NoError(t, err)
 		})
 	}
 }
@@ -92,6 +95,7 @@ func Test_switchServiceServer_List(t *testing.T) {
 	dc := test.NewDatacenter(t, log)
 	defer dc.Close()
 	dc.Create(&sc.SwitchesWithMachinesDatacenter)
+	snapshot := dc.Snapshot()
 
 	tests := []struct {
 		name     string
@@ -223,6 +227,8 @@ func Test_switchServiceServer_List(t *testing.T) {
 				)); diff != "" {
 				t.Errorf("switchServiceServer.List() diff = %s", diff)
 			}
+			err = dc.Assert(snapshot, nil)
+			require.NoError(t, err)
 		})
 	}
 }
