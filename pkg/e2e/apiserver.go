@@ -63,7 +63,7 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 		HeadscaleClient:                     hc,
 	}
 
-	mux, err := service.New(log, c)
+	mux, err := service.New(ctx, log, c)
 	require.NoError(t, err)
 
 	server := httptest.NewUnstartedServer(mux)
