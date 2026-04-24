@@ -22,8 +22,6 @@ import (
 )
 
 func Test_switchServiceServer_Get(t *testing.T) {
-	t.Parallel()
-
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
@@ -87,8 +85,6 @@ func Test_switchServiceServer_Get(t *testing.T) {
 }
 
 func Test_switchServiceServer_List(t *testing.T) {
-	t.Parallel()
-
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
@@ -234,8 +230,6 @@ func Test_switchServiceServer_List(t *testing.T) {
 }
 
 func Test_switchServiceServer_Update(t *testing.T) {
-	t.Parallel()
-
 	var (
 		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 		ctx = t.Context()
@@ -493,8 +487,6 @@ func Test_switchServiceServer_Update(t *testing.T) {
 }
 
 func Test_switchServiceServer_Delete(t *testing.T) {
-	t.Parallel()
-
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
@@ -614,8 +606,6 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 }
 
 func Test_switchServiceServer_Port(t *testing.T) {
-	t.Parallel()
-
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
@@ -765,8 +755,6 @@ func Test_switchServiceServer_Port(t *testing.T) {
 }
 
 func Test_switchServiceServer_Migrate(t *testing.T) {
-	t.Parallel()
-
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
@@ -950,8 +938,6 @@ func Test_switchServiceServer_Migrate(t *testing.T) {
 }
 
 func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
-	t.Parallel()
-
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
