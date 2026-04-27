@@ -489,17 +489,11 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 			if err != nil {
 				return nil, err
 			}
-			if metalNetwork.NetworkType == nil {
-				return nil, errorutil.Internal("network type of network:%s is nil", nw.NetworkID)
-			}
-			networkType, err := metal.FromNetworkType(*metalNetwork.NetworkType)
+			networkType, err := metal.FromNetworkType(metalNetwork.NetworkType)
 			if err != nil {
 				return nil, err
 			}
-			if metalNetwork.NATType == nil {
-				metalNetwork.NATType = new(metal.NATTypeNone)
-			}
-			natType, err := metal.FromNATType(*metalNetwork.NATType)
+			natType, err := metal.FromNATType(metalNetwork.NATType)
 			if err != nil {
 				return nil, err
 			}

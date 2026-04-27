@@ -215,7 +215,7 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 		}
 	}
 
-	if err := r.validatePrefixesAndAddressFamilies(parentNetwork.Prefixes, nil, parentLength, new(metal.NetworkTypeChild)); err != nil {
+	if err := r.validatePrefixesAndAddressFamilies(parentNetwork.Prefixes, nil, parentLength, metal.NetworkTypeChild); err != nil {
 		return err
 	}
 
@@ -273,11 +273,11 @@ func (r *networkRepository) validateCreateNetworkTypeSuper(ctx context.Context, 
 		return err
 	}
 
-	if err := r.validatePrefixesAndAddressFamilies(prefixes, nil, defaultChildPrefixLength, new(metal.NetworkTypeSuper)); err != nil {
+	if err := r.validatePrefixesAndAddressFamilies(prefixes, nil, defaultChildPrefixLength, metal.NetworkTypeSuper); err != nil {
 		return err
 	}
 
-	if err := r.validateAdditionalAnnouncableCIDRs(req.AdditionalAnnouncableCidrs, new(metal.NetworkTypeSuper)); err != nil {
+	if err := r.validateAdditionalAnnouncableCIDRs(req.AdditionalAnnouncableCidrs, metal.NetworkTypeSuper); err != nil {
 		return err
 
 	}
@@ -329,7 +329,7 @@ func (r *networkRepository) validateCreateNetworkTypeExternal(ctx context.Contex
 		return err
 	}
 
-	if err := r.validatePrefixesAndAddressFamilies(prefixes, destinationprefixes.AddressFamilies(), nil, new(metal.NetworkTypeExternal)); err != nil {
+	if err := r.validatePrefixesAndAddressFamilies(prefixes, destinationprefixes.AddressFamilies(), nil, metal.NetworkTypeExternal); err != nil {
 		return err
 	}
 
@@ -458,7 +458,7 @@ func (r *networkRepository) networkTypeInPartitionPossible(ctx context.Context, 
 	return nil
 }
 
-func (r *networkRepository) validatePrefixesAndAddressFamilies(prefixes metal.Prefixes, destPrefixesAfs metal.AddressFamilies, defaultChildPrefixLength metal.ChildPrefixLength, networkType *metal.NetworkType) error {
+func (r *networkRepository) validatePrefixesAndAddressFamilies(prefixes metal.Prefixes, destPrefixesAfs metal.AddressFamilies, defaultChildPrefixLength metal.ChildPrefixLength, networkType metal.NetworkType) error {
 	for _, af := range destPrefixesAfs {
 		if !slices.Contains(prefixes.AddressFamilies(), af) {
 			return fmt.Errorf("addressfamily:%s of destination prefixes is not present in existing prefixes", af)
@@ -482,7 +482,7 @@ func (r *networkRepository) validatePrefixesAndAddressFamilies(prefixes metal.Pr
 	return nil
 }
 
-func (r *networkRepository) validateAdditionalAnnouncableCIDRs(additionalCidrs []string, networkType *metal.NetworkType) error {
+func (r *networkRepository) validateAdditionalAnnouncableCIDRs(additionalCidrs []string, networkType metal.NetworkType) error {
 	if len(additionalCidrs) == 0 {
 		return nil
 	}
@@ -502,8 +502,8 @@ func (r *networkRepository) validateAdditionalAnnouncableCIDRs(additionalCidrs [
 }
 
 func (r *networkRepository) validateUpdate(ctx context.Context, req *adminv2.NetworkServiceUpdateRequest, nw *metal.Network) error {
-	if nw.NetworkType == nil {
-		return errorutil.Internal("networktype is nil")
+	if nw.NetworkType == metal.NetworkType("") {
+		return errorutil.Internal("networktype is not set")
 	}
 
 	if req.DefaultChildPrefixLength != nil && !metal.IsSuperNetwork(nw.NetworkType) {

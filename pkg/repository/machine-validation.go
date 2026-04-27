@@ -160,7 +160,7 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 			return err
 		}
 		if n.Project != nil && project.Uuid != *n.Project {
-			if n.Type != nil && *n.Type != apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED {
+			if n.Type != apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED {
 				return fmt.Errorf("given network %s is project scoped but not part of project %s", nw.Network, req.Project)
 			}
 		}
@@ -169,9 +169,7 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 			return fmt.Errorf("network %q must be located in the partition where the machine is going to be placed", n.Id)
 		}
 
-		if n.Type != nil {
-			networkTypeCount[*n.Type]++
-		}
+		networkTypeCount[n.Type]++
 
 		if len(n.Prefixes) == 0 {
 			return fmt.Errorf("network %q does not have any prefixes", n.Id)

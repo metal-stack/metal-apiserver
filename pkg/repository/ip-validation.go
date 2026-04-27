@@ -33,11 +33,11 @@ func (r *ipRepository) validateCreate(ctx context.Context, req *apiv2.IPServiceC
 	// for private, unshared networks the project id must be the same
 	// for external and underlay networks the project id is not checked
 	if nw.ProjectID != req.Project {
-		switch *nw.NetworkType {
+		switch nw.NetworkType {
 		case metal.NetworkTypeChildShared, metal.NetworkTypeExternal, metal.NetworkTypeUnderlay:
 			// this is fine
 		default:
-			return fmt.Errorf("can not allocate ip for project %q because network belongs to %q and the network is of type:%s", req.Project, nw.ProjectID, *nw.NetworkType)
+			return fmt.Errorf("can not allocate ip for project %q because network belongs to %q and the network is of type:%s", req.Project, nw.ProjectID, nw.NetworkType)
 		}
 	}
 
@@ -85,7 +85,7 @@ func (r *ipRepository) validateCreate(ctx context.Context, req *apiv2.IPServiceC
 		}
 	}
 
-	switch nt := *nw.NetworkType; nt {
+	switch nt := nw.NetworkType; nt {
 	case metal.NetworkTypeChild, metal.NetworkTypeChildShared, metal.NetworkTypeExternal:
 		// all fine
 	case metal.NetworkTypeUnderlay:
