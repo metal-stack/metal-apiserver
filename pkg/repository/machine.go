@@ -1404,7 +1404,7 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 		var asn uint32
 
 		for _, nw := range m.Allocation.MachineNetworks {
-			switch pointer.SafeDeref(nw.NetworkType) {
+			switch nw.NetworkType {
 			case metal.NetworkTypeChild, metal.NetworkTypeChildShared:
 				if asn >= ASNBase {
 					asn = nw.ASN
