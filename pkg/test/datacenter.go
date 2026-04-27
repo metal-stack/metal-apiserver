@@ -273,7 +273,7 @@ func (dc *Datacenter) AssertSnapshot(snapshot *Entities, mods *Asserters, opts .
 //
 // Define modifier functions (mods) that express what changes you expect the functions you are testing to apply to the database.
 // Run the functions you are testing.
-// Call dc.Assert(mods) with the modifiers and a snapshot that you created at some point before calling this func.
+// Call dc.Assert(mods) with the modifiers.
 // Assert will fetch all current entities from the database and apply the modifications to a deepcopy of its initial state.
 // After the modifications were applied the new state is expected to be equal to the actual current state.
 // If the results differ Assert will return an error containing the diff.
