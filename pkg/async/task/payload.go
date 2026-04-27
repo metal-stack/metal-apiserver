@@ -30,6 +30,7 @@ type (
 		UUID *string `json:"uuid,omitempty"`
 		// AllocationUUID of the machine allocation which should be deleted
 		AllocationUUID *string `json:"allocation_uuid,omitempty"`
+		// TODO maybe we need the allocated ips during create here as well
 	}
 
 	MachineBMCCommandPayload struct {

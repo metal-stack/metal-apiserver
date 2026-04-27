@@ -71,8 +71,13 @@ func (m *machineServiceServer) Update(ctx context.Context, req *apiv2.MachineSer
 }
 
 // Delete implements apiv2connect.MachineServiceHandler.
-func (m *machineServiceServer) Delete(context.Context, *apiv2.MachineServiceDeleteRequest) (*apiv2.MachineServiceDeleteResponse, error) {
-	panic("unimplemented")
+func (m *machineServiceServer) Delete(ctx context.Context, req *apiv2.MachineServiceDeleteRequest) (*apiv2.MachineServiceDeleteResponse, error) {
+	machine, err := m.repo.Machine(req.Project).Delete(ctx, req.Uuid)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
+	return &apiv2.MachineServiceDeleteResponse{Machine: machine}, nil
 }
 
 func (m *machineServiceServer) BMCCommand(ctx context.Context, req *apiv2.MachineServiceBMCCommandRequest) (*apiv2.MachineServiceBMCCommandResponse, error) {

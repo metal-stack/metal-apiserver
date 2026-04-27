@@ -173,10 +173,6 @@ func (r *machineRepository) create(ctx context.Context, req *apiv2.MachineServic
 }
 
 func (r *machineRepository) update(ctx context.Context, m *metal.Machine, req *apiv2.MachineServiceUpdateRequest) (*metal.Machine, error) {
-	if m.Allocation == nil {
-		return m, errorutil.InvalidArgument("only allocated machines can be updated")
-	}
-
 	if req.Description != nil {
 		m.Allocation.Description = *req.Description
 	}
@@ -188,8 +184,9 @@ func (r *machineRepository) update(ctx context.Context, m *metal.Machine, req *a
 	if len(req.SshPublicKeys) > 0 {
 		m.Allocation.SSHPubKeys = req.SshPublicKeys
 	}
+
 	if err := r.s.ds.Machine().Update(ctx, m); err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	return m, nil
@@ -1349,7 +1346,17 @@ func (r *machineRepository) setMachineWaitingFlag(ctx context.Context, machineUU
 //---------------------------------------------------------------
 
 func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
-	// FIXME implement with machineDelete
+
+	// - delete Allocation
+	// - delete ephemeral ips from every machineNetwork
+	// - remove machine tag from static ips
+	// - release asn
+	// - send a provisioning event
+	// - delete headscale node if this was a firewall
+	// - delete tags
+	// - set preallocated to false
+	// - deleteVrfAtSwitches
+	// - send the machine bmc command MACHINE_BMC_COMMAND_MACHINE_DELETED
 
 	return nil
 }
