@@ -44,7 +44,7 @@ func New(log *slog.Logger, opts r.ConnectOpts, dsOpts ...dataStoreOption) (*data
 	opts.Username = demotedUser
 	log = log.WithGroup("datastore")
 
-	log.Info("create rethinkdb client", "addresses", opts.Addresses, "dbname", opts.Database, "user", opts.Username, "password", opts.Password)
+	log.Info("create rethinkdb client", "addresses", opts.Addresses, "dbname", opts.Database, "user", opts.Username)
 
 	session, err := r.Connect(opts)
 	if err != nil {
