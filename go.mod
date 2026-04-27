@@ -26,7 +26,7 @@ require (
 	github.com/lestrrat-go/jwx/v3 v3.1.0
 	github.com/looplab/fsm v1.0.3
 	github.com/markbates/goth v1.82.0
-	github.com/metal-stack/api v0.0.62-0.20260424053318-2654e6d6c94e
+	github.com/metal-stack/api v0.0.62
 	github.com/metal-stack/go-ipam v1.14.14
 	github.com/metal-stack/masterdata-api v0.13.0
 	github.com/metal-stack/metal-lib v0.25.0
