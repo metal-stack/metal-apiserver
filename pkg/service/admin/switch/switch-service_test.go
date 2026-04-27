@@ -1617,7 +1617,11 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 				return strings.Compare(swm1.Id, swm2.Id)
 			})
 
-			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
+			var want *adminv2.SwitchServiceConnectedMachinesResponse
+			if tt.want != nil {
+				want = tt.want(dc)
+			}
+			if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
 				t.Errorf("switchServiceServer.ConnectedMachines() diff = %s", diff)
 			}
 		})
