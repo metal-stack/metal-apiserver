@@ -397,35 +397,33 @@ func (r *ipRepository) convertToProto(ctx context.Context, metalIP *metal.IP) (*
 //---------------------------------------------------------------
 
 func (r *Store) IpDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
-
 	var payload task.IPDeletePayload
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
 		return fmt.Errorf("json.Unmarshal failed: %w %w", err, asynq.SkipRetry)
 	}
+
 	r.log.Info("delete ip", "uuid", payload.AllocationUUID, "ip", payload.IP)
 
-	metalIP, err := r.ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Uuid: &payload.AllocationUUID}))
+	ip, err := r.ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Uuid: &payload.AllocationUUID}))
 	if err != nil && !errorutil.IsNotFound(err) {
 		return err
 	}
-	if metalIP == nil {
-		r.log.Info("ds find, metalip is nil", "task", t)
+	if ip == nil {
 		return nil
 	}
-	r.log.Info("ds find", "metalip", metalIP)
 
-	metalNW, err := r.ds.Network().Get(ctx, metalIP.NetworkID)
+	nw, err := r.ds.Network().Get(ctx, ip.NetworkID)
 	if err != nil {
 		return fmt.Errorf("unable to retrieve parent network: %w", err)
 	}
 
-	_, err = r.ipam.ReleaseIP(ctx, connect.NewRequest(&ipamapiv1.ReleaseIPRequest{PrefixCidr: metalIP.ParentPrefixCidr, Ip: metalIP.IPAddress, Namespace: metalNW.Namespace}))
+	_, err = r.ipam.ReleaseIP(ctx, connect.NewRequest(&ipamapiv1.ReleaseIPRequest{PrefixCidr: ip.ParentPrefixCidr, Ip: ip.IPAddress, Namespace: nw.Namespace}))
 	if err != nil && !errorutil.IsNotFound(err) {
 		r.log.Error("ipam release", "error", err)
 		return err
 	}
 
-	err = r.ds.IP().Delete(ctx, metalIP)
+	err = r.ds.IP().Delete(ctx, ip)
 	if err != nil && !errorutil.IsNotFound(err) {
 		r.log.Error("ds delete", "error", err)
 		return err

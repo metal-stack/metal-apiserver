@@ -21,6 +21,11 @@ func New(tags []string) *Tags {
 	}
 }
 
+// NewTag creates a new tag from a given key and value.
+func (t *Tags) NewTag(key, value string) string {
+	return key + "=" + value
+}
+
 // Has checks whether the given tag is contained in the tags.
 func (t *Tags) Has(tag string) bool {
 	return slices.Contains(t.tags, tag)
