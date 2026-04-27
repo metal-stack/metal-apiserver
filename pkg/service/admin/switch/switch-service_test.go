@@ -58,7 +58,6 @@ func Test_switchServiceServer_Get(t *testing.T) {
 	dc := test.NewDatacenter(t, log)
 	defer dc.Close()
 	dc.Create(&sc.SwitchesWithMachinesDatacenter)
-	snapshot := dc.Snapshot()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -88,7 +87,7 @@ func Test_switchServiceServer_Get(t *testing.T) {
 				)); diff != "" {
 				t.Errorf("switchServiceServer.Get() diff = %s", diff)
 			}
-			err = dc.AssertSnapshot(snapshot, nil)
+			err = dc.Assert(nil)
 			require.NoError(t, err)
 		})
 	}
@@ -211,7 +210,6 @@ func Test_switchServiceServer_List(t *testing.T) {
 	dc := test.NewDatacenter(t, log)
 	defer dc.Close()
 	dc.Create(&sc.SwitchesWithMachinesDatacenter)
-	snapshot := dc.Snapshot()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -236,7 +234,7 @@ func Test_switchServiceServer_List(t *testing.T) {
 				)); diff != "" {
 				t.Errorf("switchServiceServer.List() diff = %s", diff)
 			}
-			err = dc.AssertSnapshot(snapshot, nil)
+			err = dc.Assert(nil)
 			require.NoError(t, err)
 		})
 	}
@@ -457,9 +455,8 @@ func Test_switchServiceServer_Update(t *testing.T) {
 			defer dc.Cleanup()
 
 			var (
-				rq       *adminv2.SwitchServiceUpdateRequest
-				want     *adminv2.SwitchServiceUpdateResponse
-				snapshot = dc.Snapshot()
+				rq   *adminv2.SwitchServiceUpdateRequest
+				want *adminv2.SwitchServiceUpdateResponse
 			)
 
 			if tt.rq != nil {
@@ -494,7 +491,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 			if tt.mods != nil {
 				mods = tt.mods()
 			}
-			err = dc.AssertSnapshot(snapshot, mods)
+			err = dc.Assert(mods)
 			require.NoError(t, err)
 		})
 	}
@@ -584,8 +581,6 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 			dc.Create(&sc.SwitchesWithMachinesDatacenter)
 			defer dc.Cleanup()
 
-			snapshot := dc.Snapshot()
-
 			s := &switchServiceServer{
 				log:  log,
 				repo: dc.GetTestStore().Store,
@@ -616,7 +611,7 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 			if tt.mods != nil {
 				mods = tt.mods()
 			}
-			err = dc.AssertSnapshot(snapshot, mods)
+			err = dc.Assert(mods)
 			require.NoError(t, err)
 		})
 	}
@@ -717,11 +712,7 @@ func Test_switchServiceServer_Port(t *testing.T) {
 			dc.Create(&sc.SwitchesWithMachinesDatacenter)
 			defer dc.Cleanup()
 
-			var (
-				snapshot = dc.Snapshot()
-				want     *adminv2.SwitchServicePortResponse
-			)
-
+			var want *adminv2.SwitchServicePortResponse
 			if tt.want != nil {
 				want = tt.want(dc)
 			}
@@ -751,7 +742,7 @@ func Test_switchServiceServer_Port(t *testing.T) {
 			if tt.mods != nil {
 				mods = tt.mods()
 			}
-			err = dc.AssertSnapshot(snapshot, mods)
+			err = dc.Assert(mods)
 			require.NoError(t, err)
 		})
 	}
@@ -891,11 +882,7 @@ func Test_switchServiceServer_Migrate(t *testing.T) {
 			dc.Create(&sc.SwitchesWithMachinesDatacenter)
 			defer dc.Cleanup()
 
-			var (
-				snapshot = dc.Snapshot()
-				want     *adminv2.SwitchServiceMigrateResponse
-			)
-
+			var want *adminv2.SwitchServiceMigrateResponse
 			if tt.want != nil {
 				want = tt.want(dc)
 			}
@@ -925,7 +912,7 @@ func Test_switchServiceServer_Migrate(t *testing.T) {
 			if tt.mods != nil {
 				mods = tt.mods()
 			}
-			err = dc.AssertSnapshot(snapshot, mods)
+			err = dc.Assert(mods)
 			require.NoError(t, err)
 		})
 	}

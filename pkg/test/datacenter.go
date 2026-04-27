@@ -267,6 +267,80 @@ func (dc *Datacenter) AssertSnapshot(snapshot *Entities, mods *Asserters, opts .
 	return nil
 }
 
+// Assert tests whether all of the intended changes (and no others) were applied to the database as compared to its initial state.
+//
+// Usage:
+//
+// Define modifier functions (mods) that express what changes you expect the functions you are testing to apply to the database.
+// Run the functions you are testing.
+// Call dc.Assert(mods) with the modifiers and a snapshot that you created at some point before calling this func.
+// Assert will fetch all current entities from the database and apply the modifications to a deepcopy of its initial state.
+// After the modifications were applied the new state is expected to be equal to the actual current state.
+// If the results differ Assert will return an error containing the diff.
+// A `-` in the diff indicates a field that was expected but is not present in the database.
+// A `+` in the diff indicates a field that was unexpectedly present in the database.
+func (dc *Datacenter) Assert(mods *Asserters, opts ...cmp.Option) error {
+	snapshot := dc.Snapshot()
+
+	if mods != nil {
+		if mods.Tenants != nil {
+			mods.Tenants(snapshot.Tenants)
+		}
+		if mods.Projects != nil {
+			mods.Projects(snapshot.Projects)
+		}
+		if mods.Partitions != nil {
+			mods.Partitions(snapshot.Partitions)
+		}
+		if mods.Sizes != nil {
+			mods.Sizes(snapshot.Sizes)
+		}
+		if mods.FilesystemLayouts != nil {
+			mods.FilesystemLayouts(snapshot.FilesystemLayouts)
+		}
+		if mods.Networks != nil {
+			mods.Networks(snapshot.Networks)
+		}
+		if mods.IPs != nil {
+			mods.IPs(snapshot.Ips)
+		}
+		if mods.Images != nil {
+			mods.Images(snapshot.Images)
+		}
+		if mods.Switches != nil {
+			mods.Switches(snapshot.Switches)
+		}
+		if mods.SwitchStatuses != nil {
+			mods.SwitchStatuses(snapshot.SwitchStatuses)
+		}
+		if mods.Machines != nil {
+			mods.Machines(snapshot.Machines)
+		}
+	}
+
+	current, err := getCurrentEntities(dc.t.Context(), dc.testStore)
+	if err != nil {
+		return err
+	}
+
+	options := slices.Concat(opts, []cmp.Option{
+		protocmp.Transform(),
+		cmp.AllowUnexported(Entities{}),
+		cmpopts.IgnoreFields(
+			metal.Base{}, "Created", "Changed", "Generation",
+		),
+		protocmp.IgnoreFields(
+			&apiv2.Meta{}, "generation", "updated_at", "created_at",
+		),
+	})
+
+	diff := cmp.Diff(snapshot, current, options...)
+	if diff != "" {
+		return fmt.Errorf("datacenters differ: %s", diff)
+	}
+	return nil
+}
+
 func (dc *Datacenter) createPartitions(spec *scenarios.DatacenterSpec) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "a image")

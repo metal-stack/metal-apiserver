@@ -408,11 +408,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 			dc.Create(&sc.SwitchesWithMachinesDatacenter)
 			defer dc.Cleanup()
 
-			var (
-				want     *infrav2.SwitchServiceRegisterResponse
-				snapshot = dc.Snapshot()
-			)
-
+			var want *infrav2.SwitchServiceRegisterResponse
 			if tt.want != nil {
 				want = tt.want(dc.Snapshot())
 			}
@@ -445,7 +441,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 			if tt.mods != nil {
 				mods = tt.mods()
 			}
-			err = dc.AssertSnapshot(snapshot, mods)
+			err = dc.Assert(mods)
 			require.NoError(t, err)
 		})
 	}
@@ -486,7 +482,6 @@ func Test_switchServiceServer_Get(t *testing.T) {
 	dc := test.NewDatacenter(t, log)
 	defer dc.Close()
 	dc.Create(&sc.SwitchesWithMachinesDatacenter)
-	snapshot := dc.Snapshot()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -515,7 +510,7 @@ func Test_switchServiceServer_Get(t *testing.T) {
 				)); diff != "" {
 				t.Errorf("switchServiceServer.Get() diff = %s", diff)
 			}
-			err = dc.AssertSnapshot(snapshot, nil)
+			err = dc.Assert(nil)
 			require.NoError(t, err)
 		})
 	}
@@ -786,9 +781,8 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 			defer dc.Cleanup()
 
 			var (
-				rq       *infrav2.SwitchServiceHeartbeatRequest
-				want     *infrav2.SwitchServiceHeartbeatResponse
-				snapshot = dc.Snapshot()
+				rq   *infrav2.SwitchServiceHeartbeatRequest
+				want *infrav2.SwitchServiceHeartbeatResponse
 			)
 
 			if tt.rq != nil {
@@ -825,7 +819,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 			if tt.mods != nil {
 				mods = tt.mods()
 			}
-			err = dc.AssertSnapshot(snapshot, mods,
+			err = dc.Assert(mods,
 				cmpopts.IgnoreFields(
 					metal.SwitchSync{}, "Time",
 				),
@@ -1188,11 +1182,7 @@ func Test_switchRepository_ConnectMachineWithSwitches(t *testing.T) {
 			dc.Create(&sc.SwitchesWithMachinesDatacenter)
 			defer dc.Cleanup()
 
-			var (
-				m        *apiv2.Machine
-				snapshot = dc.Snapshot()
-			)
-
+			var m *apiv2.Machine
 			if tt.m != nil {
 				m = tt.m()
 			}
@@ -1211,7 +1201,7 @@ func Test_switchRepository_ConnectMachineWithSwitches(t *testing.T) {
 			if tt.mods != nil {
 				mods = tt.mods()
 			}
-			err = dc.AssertSnapshot(snapshot, mods,
+			err = dc.Assert(mods,
 				cmpopts.IgnoreFields(
 					metal.SwitchSync{}, "Time",
 				),
