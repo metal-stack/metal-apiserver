@@ -78,35 +78,11 @@ func (r *ipRepository) create(ctx context.Context, req *apiv2.IPServiceCreateReq
 		return nil, err
 	}
 
-	if nw.ProjectID != "" && nw.ProjectID != req.Project {
-		return nil, errorutil.InvalidArgument("not allowed to create ip with project %s in network %s scoped to project %s", req.Project, req.Network, nw.ProjectID)
-	}
-
-	// for private, unshared networks the project id must be the same
-	// for external and underlay networks the project id is not checked
-	if nw.ProjectID != req.Project {
-		switch *nw.NetworkType {
-		case metal.NetworkTypeChildShared, metal.NetworkTypeExternal, metal.NetworkTypeUnderlay:
-			// this is fine
-		default:
-			return nil, errorutil.InvalidArgument("can not allocate ip for project %q because network belongs to %q and the network is of type:%s", req.Project, nw.ProjectID, *nw.NetworkType)
-		}
-	}
-
-	// FIXME: move validation to ip validation
-
 	af := metal.AddressFamilyIPv4
 	if req.AddressFamily != nil {
 		convertedAf, err := metal.ToAddressFamily(*req.AddressFamily)
 		if err != nil {
 			return nil, errorutil.NewInvalidArgument(err)
-		}
-
-		if !slices.Contains(nw.Prefixes.AddressFamilies(), convertedAf) {
-			return nil, errorutil.InvalidArgument("there is no prefix for the given addressfamily:%s present in network:%s %s", convertedAf, req.Network, nw.Prefixes.AddressFamilies())
-		}
-		if req.Ip != nil {
-			return nil, errorutil.InvalidArgument("it is not possible to specify specificIP and addressfamily")
 		}
 		af = convertedAf
 	} else {

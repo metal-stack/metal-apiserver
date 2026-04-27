@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/netip"
+	"slices"
 	"strings"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -24,7 +26,64 @@ func (r *ipRepository) validateCreate(ctx context.Context, req *apiv2.IPServiceC
 		return err
 	}
 
-	errs = validate(errs, nw.NetworkType != nil, "networktype must not be empty")
+	if nw.ProjectID != "" && nw.ProjectID != req.Project {
+		return fmt.Errorf("not allowed to create ip with project %s in network %s scoped to project %s", req.Project, req.Network, nw.ProjectID)
+	}
+
+	// for private, unshared networks the project id must be the same
+	// for external and underlay networks the project id is not checked
+	if nw.ProjectID != req.Project {
+		switch *nw.NetworkType {
+		case metal.NetworkTypeChildShared, metal.NetworkTypeExternal, metal.NetworkTypeUnderlay:
+			// this is fine
+		default:
+			return fmt.Errorf("can not allocate ip for project %q because network belongs to %q and the network is of type:%s", req.Project, nw.ProjectID, *nw.NetworkType)
+		}
+	}
+
+	if req.Ip != nil {
+		existingIP, err := r.s.ds.IP().Get(ctx, metal.CreateNamespacedIPAddress(nw.Namespace, *req.Ip))
+		if err == nil || existingIP != nil {
+			return fmt.Errorf("given ip %q is already allocated", *req.Ip)
+		}
+		parsedIP, err := netip.ParseAddr(*req.Ip)
+		if err != nil {
+			return err
+		}
+
+		var partofNetworkPrefixes bool
+		for _, pfx := range nw.Prefixes {
+			parsedPrefix, err := netip.ParsePrefix(pfx.String())
+			if err != nil {
+				return err
+			}
+
+			if parsedPrefix.Contains(parsedIP) {
+				partofNetworkPrefixes = true
+			}
+		}
+		if !partofNetworkPrefixes {
+			return fmt.Errorf("specific ip %q is not contained in any of the prefixes of network %q", *req.Ip, nw.ID)
+		}
+	} else {
+		if err := r.s.UnscopedNetwork().AdditionalMethods().ipsAvailable(ctx, nw.ID); err != nil {
+			return err
+		}
+	}
+
+	if req.AddressFamily != nil {
+		convertedAf, err := metal.ToAddressFamily(*req.AddressFamily)
+		if err != nil {
+			return err
+		}
+
+		if !slices.Contains(nw.Prefixes.AddressFamilies(), convertedAf) {
+			return fmt.Errorf("there is no prefix for the given addressfamily:%s present in network:%s %s", convertedAf, req.Network, nw.Prefixes.AddressFamilies())
+		}
+		if req.Ip != nil {
+			return fmt.Errorf("it is not possible to specify specificIP and addressfamily")
+		}
+	}
 
 	switch nt := *nw.NetworkType; nt {
 	case metal.NetworkTypeChild, metal.NetworkTypeChildShared, metal.NetworkTypeExternal:
