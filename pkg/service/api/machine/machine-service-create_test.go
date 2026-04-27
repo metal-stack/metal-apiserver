@@ -1151,7 +1151,7 @@ func Test_machineServiceServer_CreateFirewallWithoutVPN(t *testing.T) {
 					&apiv2.MachineProvisioningEvent{}, "time",
 				),
 			); diff != "" {
-				t.Errorf("machineServiceServer.Create() = %v, want %v diff: %s", got, want, diff)
+				t.Errorf("machineServiceServer.Create() diff = %s", diff)
 			}
 		})
 	}
