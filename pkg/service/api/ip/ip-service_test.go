@@ -26,6 +26,9 @@ var (
 	p2 = "00000000-0000-0000-0000-000000000002"
 )
 
+// TODO:
+// - no free ips in network
+
 func Test_ipServiceServer_Get(t *testing.T) {
 	t.Parallel()
 
@@ -724,7 +727,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 				Ip:      new("1.2.3.1"),
 			},
 			want:    nil,
-			wantErr: errorutil.Conflict("AlreadyAllocatedError: given ip:1.2.3.1 is already allocated"),
+			wantErr: errorutil.InvalidArgument(`given ip "1.2.3.1" is already allocated`),
 		},
 		{
 			name: "allocate a static specific ip outside prefix",
@@ -734,7 +737,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 				Ip:      new("1.3.0.1"),
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("specific ip 1.3.0.1 not contained in any of the defined prefixes"),
+			wantErr: errorutil.InvalidArgument(`specific ip "1.3.0.1" is not contained in any of the prefixes of network "internet"`),
 		},
 		{
 			name: "allocate a random ip with unavailable addressfamily",
