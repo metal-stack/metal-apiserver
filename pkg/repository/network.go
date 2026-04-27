@@ -109,7 +109,7 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 		vrf         uint
 
 		nat          bool
-		natType      *metal.NATType
+		natType      metal.NATType
 		privateSuper bool
 		shared       bool
 		underlay     bool
@@ -152,7 +152,7 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 		}
 
 		// Inherit nat from Parent
-		if parent.NATType != nil && *parent.NATType == metal.NATTypeIPv4Masquerade {
+		if parent.NATType == metal.NATTypeIPv4Masquerade {
 			nat = true
 		}
 
@@ -160,7 +160,7 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 			shared = true
 		}
 		var namespace *string
-		if *parent.NetworkType == metal.NetworkTypeSuperNamespaced {
+		if parent.NetworkType == metal.NetworkTypeSuperNamespaced {
 			namespace = req.Project
 		}
 
@@ -182,7 +182,7 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 			ParentNetworkID:     parent.ID,
 			Labels:              labels,
 			NATType:             parent.NATType,
-			NetworkType:         &networkType,
+			NetworkType:         networkType,
 		}
 
 		nw, err = r.s.ds.Network().Create(ctx, nw)
@@ -235,7 +235,7 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 		if err != nil {
 			return nil, errorutil.Convert(err)
 		}
-		natType = &nat
+		natType = nat
 	}
 
 	nw := &metal.Network{
@@ -258,7 +258,7 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 		Shared:                     shared,
 		Labels:                     labels,
 		AdditionalAnnouncableCIDRs: req.AdditionalAnnouncableCidrs,
-		NetworkType:                &networkType,
+		NetworkType:                networkType,
 		NATType:                    natType,
 	}
 
@@ -294,7 +294,7 @@ func (r *networkRepository) update(ctx context.Context, nw *metal.Network, req *
 			return nil, err
 		}
 
-		nw.NATType = &nt
+		nw.NATType = nt
 		switch nt {
 		case metal.NATTypeIPv4Masquerade:
 			nw.Nat = true // nolint:staticcheck
@@ -398,8 +398,8 @@ func (r *networkRepository) convertToInternal(ctx context.Context, msg *apiv2.Ne
 func (r *networkRepository) convertToProto(ctx context.Context, e *metal.Network) (*apiv2.Network, error) {
 	var (
 		labels      *apiv2.Labels
-		networkType *apiv2.NetworkType
-		natType     *apiv2.NATType
+		networkType apiv2.NetworkType
+		natType     apiv2.NATType
 	)
 
 	if e == nil {
@@ -412,22 +412,14 @@ func (r *networkRepository) convertToProto(ctx context.Context, e *metal.Network
 		}
 	}
 
-	if e.NATType != nil {
-		nt, err := metal.FromNATType(*e.NATType)
-		if err != nil {
-			return nil, err
-		}
-
-		natType = &nt
+	natType, err := metal.FromNATType(e.NATType)
+	if err != nil {
+		return nil, err
 	}
 
-	if e.NetworkType != nil {
-		nwt, err := metal.FromNetworkType(*e.NetworkType)
-		if err != nil {
-			return nil, err
-		}
-
-		networkType = &nwt
+	networkType, err = metal.FromNetworkType(e.NetworkType)
+	if err != nil {
+		return nil, err
 	}
 
 	defaultChildPrefixLength, err := r.toProtoChildPrefixLength(e.DefaultChildPrefixLength)
@@ -572,17 +564,14 @@ func (r *networkRepository) allocateChildPrefixes(ctx context.Context, projectId
 		if err != nil {
 			return nil, nil, errorutil.FailedPrecondition("unable to find a super network with id:%s %w", *parentNetworkId, err)
 		}
-		if p.NetworkType == nil {
-			return nil, nil, fmt.Errorf("parent network with id:%s does not have a networktype set", *parentNetworkId)
-		}
 
-		switch *p.NetworkType {
+		switch p.NetworkType {
 		case metal.NetworkTypeSuper:
 			// all good
 		case metal.NetworkTypeSuperNamespaced:
 			namespace = projectId
 		default:
-			return nil, nil, fmt.Errorf("parent network with id:%s is not a valid super network but has type:%s", *parentNetworkId, *p.NetworkType)
+			return nil, nil, fmt.Errorf("parent network with id:%s is not a valid super network but has type:%s", *parentNetworkId, p.NetworkType)
 		}
 
 		parent = p
