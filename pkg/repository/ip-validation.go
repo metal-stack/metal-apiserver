@@ -24,9 +24,7 @@ func (r *ipRepository) validateCreate(ctx context.Context, req *apiv2.IPServiceC
 		return err
 	}
 
-	errs = validate(errs, nw.NetworkType != nil, "networktype must not be empty")
-
-	switch nt := *nw.NetworkType; nt {
+	switch nt := nw.NetworkType; nt {
 	case metal.NetworkTypeChild, metal.NetworkTypeChildShared, metal.NetworkTypeExternal:
 		// all fine
 	case metal.NetworkTypeUnderlay:

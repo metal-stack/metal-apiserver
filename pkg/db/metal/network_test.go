@@ -442,27 +442,22 @@ func TestToAddressFamily(t *testing.T) {
 func TestIsSuperNetwork(t *testing.T) {
 	tests := []struct {
 		name string
-		nt   *metal.NetworkType
+		nt   metal.NetworkType
 		want bool
 	}{
 		{
 			name: "super",
-			nt:   new(metal.NetworkTypeSuper),
+			nt:   metal.NetworkTypeSuper,
 			want: true,
 		},
 		{
 			name: "super namespaced",
-			nt:   new(metal.NetworkTypeSuperNamespaced),
+			nt:   metal.NetworkTypeSuperNamespaced,
 			want: true,
 		},
 		{
 			name: "underlay",
-			nt:   new(metal.NetworkTypeUnderlay),
-			want: false,
-		},
-		{
-			name: "nil",
-			nt:   nil,
+			nt:   metal.NetworkTypeUnderlay,
 			want: false,
 		},
 	}
@@ -477,27 +472,22 @@ func TestIsSuperNetwork(t *testing.T) {
 func TestIsChildNetwork(t *testing.T) {
 	tests := []struct {
 		name string
-		nt   *metal.NetworkType
+		nt   metal.NetworkType
 		want bool
 	}{
 		{
 			name: "child",
-			nt:   new(metal.NetworkTypeChild),
+			nt:   metal.NetworkTypeChild,
 			want: true,
 		},
 		{
 			name: "child shared",
-			nt:   new(metal.NetworkTypeChildShared),
+			nt:   metal.NetworkTypeChildShared,
 			want: true,
 		},
 		{
 			name: "underlay",
-			nt:   new(metal.NetworkTypeUnderlay),
-			want: false,
-		},
-		{
-			name: "nil",
-			nt:   nil,
+			nt:   metal.NetworkTypeUnderlay,
 			want: false,
 		},
 	}

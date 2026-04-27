@@ -107,7 +107,7 @@ func (n *networkServiceServer) ListBaseNetworks(ctx context.Context, req *apiv2.
 	var res []*apiv2.Network
 	for _, nw := range networks {
 		// TODO convert to a equivalent reql query
-		switch pointer.SafeDeref(nw.Type) {
+		switch nw.Type {
 		case apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED, apiv2.NetworkType_NETWORK_TYPE_EXTERNAL, apiv2.NetworkType_NETWORK_TYPE_SUPER, apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED:
 			// users should not see usage of global networks, only admins
 			if pointer.SafeDeref(nw.Project) == "" {
