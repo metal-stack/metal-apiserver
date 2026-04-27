@@ -1,7 +1,6 @@
 package boot
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -340,7 +339,7 @@ func Test_bootServiceServer_SuperUserPassword(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.req)
 			}
-			got, err := b.SuperUserPassword(context.Background(), tt.req)
+			got, err := b.SuperUserPassword(t.Context(), tt.req)
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("bootServiceServer.SuperUserPassword() error diff = %s", diff)
 			}

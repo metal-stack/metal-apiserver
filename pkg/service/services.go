@@ -17,6 +17,7 @@ import (
 	"github.com/metal-stack/api/go/permissions"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	"github.com/metal-stack/metal-lib/auditing"
+	auditingconnectrpc "github.com/metal-stack/metal-lib/auditing/connectrpc"
 	"github.com/redis/go-redis/v9"
 	"github.com/valkey-io/valkey-go"
 	"go.opentelemetry.io/otel/exporters/prometheus"
@@ -82,7 +83,7 @@ type RedisConfig struct {
 	ComponentClient valkey.Client
 }
 
-func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
+func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error) {
 	var (
 		tokenStore = tokencommon.NewRedisStore(c.RedisConfig.TokenClient)
 		certStore  = certs.NewRedisStore(&certs.Config{
@@ -151,7 +152,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 		}
 
 		for _, backend := range c.AuditBackends {
-			auditInterceptor, err := auditing.NewConnectInterceptor(backend, log, shouldAudit)
+			auditInterceptor, err := auditingconnectrpc.NewConnectInterceptor(backend, log, shouldAudit)
 			if err != nil {
 				return nil, fmt.Errorf("unable to create auditing interceptor: %w", err)
 			}
@@ -169,7 +170,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 
 	mux := http.NewServeMux()
 
-	tokenService, err := api.ApiServices(api.Config{
+	tokenService, err := api.ApiServices(ctx, api.Config{
 		Log:                log,
 		Repository:         c.Repository,
 		Datastore:          c.Datastore,

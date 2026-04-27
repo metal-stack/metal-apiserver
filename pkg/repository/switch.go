@@ -325,7 +325,7 @@ func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *ap
 
 	metalMachine, err := r.s.ds.Machine().Get(ctx, m.Uuid)
 	if err != nil && !errorutil.IsNotFound(err) {
-		return err
+		return errorutil.Internal("failed to connect machine with switches: %w", err)
 	}
 
 	if metalMachine != nil {
@@ -599,17 +599,17 @@ func (r *switchRepository) update(ctx context.Context, sw *metal.Switch, req *ad
 		return nil, errorutil.Internal("failed to update switch %s, request was empty", sw.ID)
 	}
 
-	updated, err := updateAllButNics(sw, req)
+	err := updateAllButNics(sw, req)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(req.Nics) > 0 {
+	if req.Nics != nil {
 		nics, err := toMetalNics(req.Nics, sw.ID)
 		if err != nil {
 			return nil, err
 		}
-		updated.Nics = nics
+		sw.Nics = nics
 	}
 
 	err = r.s.ds.Switch().Update(ctx, sw)
@@ -625,9 +625,11 @@ func (r *switchRepository) delete(ctx context.Context, sw *metal.Switch) error {
 	if err != nil && !errorutil.IsNotFound(err) {
 		return err
 	}
-	err = r.s.ds.SwitchStatus().Delete(ctx, status)
-	if err != nil {
-		return err
+	if status != nil {
+		err = r.s.ds.SwitchStatus().Delete(ctx, status)
+		if err != nil {
+			return err
+		}
 	}
 	return r.s.ds.Switch().Delete(ctx, sw)
 }
@@ -759,6 +761,29 @@ func (r *switchRepository) convertToProto(ctx context.Context, sw *metal.Switch)
 		return nil, err
 	}
 
+	var (
+		lastSync      *apiv2.SwitchSync
+		lastErrorSync *apiv2.SwitchSync
+	)
+
+	status, err := r.s.ds.SwitchStatus().Get(ctx, sw.ID)
+	if err != nil && !errorutil.IsNotFound(err) {
+		return nil, err
+	}
+
+	if status != nil {
+		lastSync = &apiv2.SwitchSync{
+			Time:     timestamppb.New(pointer.SafeDeref(status.LastSync).Time),
+			Duration: durationpb.New(pointer.SafeDeref(status.LastSync).Duration),
+			Error:    pointer.SafeDeref(status.LastSync).Error,
+		}
+		lastErrorSync = &apiv2.SwitchSync{
+			Time:     timestamppb.New(pointer.SafeDeref(status.LastSyncError).Time),
+			Duration: durationpb.New(pointer.SafeDeref(status.LastSyncError).Duration),
+			Error:    pointer.SafeDeref(status.LastSyncError).Error,
+		}
+	}
+
 	return &apiv2.Switch{
 		Id: sw.ID,
 		Meta: &apiv2.Meta{
@@ -780,6 +805,8 @@ func (r *switchRepository) convertToProto(ctx context.Context, sw *metal.Switch)
 			Version:          sw.OS.Version,
 			MetalCoreVersion: sw.OS.MetalCoreVersion,
 		},
+		LastSync:      lastSync,
+		LastSyncError: lastErrorSync,
 	}, nil
 }
 
@@ -830,7 +857,7 @@ func (r *switchRepository) findTwinSwitch(ctx context.Context, newSwitch *metal.
 }
 
 func (r *switchRepository) updateOnRegister(ctx context.Context, sw *metal.Switch, req *adminv2.SwitchServiceUpdateRequest) (*metal.Switch, error) {
-	updated, err := updateAllButNics(sw, req)
+	err := updateAllButNics(sw, req)
 	if err != nil {
 		return nil, err
 	}
@@ -840,7 +867,7 @@ func (r *switchRepository) updateOnRegister(ctx context.Context, sw *metal.Switc
 		if err != nil {
 			return nil, err
 		}
-		updated.Nics = updateNicNames(sw.Nics, nics)
+		sw.Nics = updateNicNames(sw.Nics, nics)
 	}
 
 	err = r.s.ds.Switch().Update(ctx, sw)
@@ -851,14 +878,14 @@ func (r *switchRepository) updateOnRegister(ctx context.Context, sw *metal.Switc
 	return sw, nil
 }
 
-func updateAllButNics(sw *metal.Switch, req *adminv2.SwitchServiceUpdateRequest) (*metal.Switch, error) {
+func updateAllButNics(sw *metal.Switch, req *adminv2.SwitchServiceUpdateRequest) error {
 	if req.Description != nil {
 		sw.Description = *req.Description
 	}
 	if req.ReplaceMode != nil {
 		replaceMode, err := metal.ToReplaceMode(*req.ReplaceMode)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		sw.ReplaceMode = replaceMode
 	}
@@ -874,7 +901,7 @@ func updateAllButNics(sw *metal.Switch, req *adminv2.SwitchServiceUpdateRequest)
 	if req.Os != nil {
 		vendor, err := metal.ToSwitchOSVendor(req.Os.Vendor)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		sw.OS = &metal.SwitchOS{
 			Vendor:           vendor,
@@ -883,15 +910,15 @@ func updateAllButNics(sw *metal.Switch, req *adminv2.SwitchServiceUpdateRequest)
 		}
 	}
 
-	return sw, nil
+	return nil
 }
 
 func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Switch) ([]*apiv2.SwitchNic, error) {
 	var (
 		switchNics      []*apiv2.SwitchNic
 		projectMachines []*metal.Machine
-		desiredStatus   *apiv2.SwitchPortStatus
 	)
+
 	networks, err := r.s.ds.Network().List(ctx)
 	if err != nil {
 		return nil, err
@@ -903,7 +930,11 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 	}
 
 	for _, nic := range sw.Nics {
-		var bgpPortState *apiv2.SwitchBGPPortState
+		var (
+			bgpPortState  *apiv2.SwitchBGPPortState
+			desiredStatus *apiv2.SwitchPortStatus
+		)
+
 		if nic.BGPPortState != nil {
 			bgpState, err := metal.FromBGPState(nic.BGPPortState.BgpState)
 			if err != nil {
@@ -960,9 +991,14 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 			return nil, err
 		}
 
+		identifier := nic.Identifier
+		if identifier == "" {
+			identifier = nic.MacAddress
+		}
+
 		switchNics = append(switchNics, &apiv2.SwitchNic{
 			Name:       nic.Name,
-			Identifier: nic.Identifier,
+			Identifier: identifier,
 			Mac:        nic.MacAddress,
 			Vrf:        pointer.PointerOrNil(nic.Vrf),
 			State: &apiv2.NicState{
@@ -1008,7 +1044,7 @@ func convertMachineConnections(machineConnections metal.ConnectionMap, nics []*a
 	for _, cons := range machineConnections {
 		for _, con := range cons {
 			nic, found := lo.Find(nics, func(n *apiv2.SwitchNic) bool {
-				return n.Identifier == con.Nic.Identifier
+				return n.Name == con.Nic.Name
 			})
 
 			if !found {

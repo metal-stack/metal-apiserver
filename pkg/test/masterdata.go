@@ -20,7 +20,7 @@ import (
 )
 
 func StartMasterdataWithPostgres(t testing.TB, log *slog.Logger) (mdc.Client, *grpc.ClientConn, func()) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	postgres, err := postgres.Run(ctx,
 		"postgres:18-alpine",

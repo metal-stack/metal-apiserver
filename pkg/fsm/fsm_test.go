@@ -1,7 +1,6 @@
 package fsm
 
 import (
-	"context"
 	"log/slog"
 	"os"
 	"testing"
@@ -687,7 +686,7 @@ func TestHandleProvisioningEvent(t *testing.T) {
 		},
 	}
 	for i := range tests {
-		ctx := context.Background()
+		ctx := t.Context()
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := HandleProvisioningEvent(ctx, slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})), tt.container, tt.event)
@@ -707,7 +706,7 @@ func TestHandleProvisioningEvent(t *testing.T) {
 }
 
 func TestReactionToAllIncomingEvents(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	// this test ensures that for every incoming event we have a proper transition
 	for e1 := range metal.AllProvisioningEventTypes {
 		for e2 := range metal.AllProvisioningEventTypes {

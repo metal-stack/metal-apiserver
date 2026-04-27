@@ -107,7 +107,7 @@ func Test_sharedMutex_expires(t *testing.T) {
 		done <- true
 	}()
 
-	timeoutCtx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
+	timeoutCtx, cancel := context.WithTimeout(ctx, 6*time.Second)
 	defer cancel()
 
 	select {

@@ -61,7 +61,7 @@ type Config struct {
 	Admins        []string
 }
 
-func ApiServices(cfg Config) (token.TokenService, error) {
+func ApiServices(ctx context.Context, cfg Config) (token.TokenService, error) {
 	var (
 		auditService      = audit.New(audit.Config{Log: cfg.Log, Repo: cfg.Repository, AuditClient: cfg.AuditSearchBackend})
 		filesystemService = filesystem.New(filesystem.Config{Log: cfg.Log, Repo: cfg.Repository})
@@ -102,7 +102,7 @@ func ApiServices(cfg Config) (token.TokenService, error) {
 	)
 
 	healthService, err := health.New(health.Config{
-		Ctx:                 context.Background(),
+		Ctx:                 ctx,
 		Log:                 cfg.Log,
 		HealthcheckInterval: 1 * time.Minute,
 		Ipam:                cfg.IpamClient,
