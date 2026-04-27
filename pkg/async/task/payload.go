@@ -27,9 +27,19 @@ type (
 
 	MachineDeletePayload struct {
 		// UUID of the machine which should be deleted (the machine)
-		UUID *string `json:"uuid,omitempty"`
+		UUID string `json:"uuid"`
 		// AllocationUUID of the machine allocation which should be deleted
-		AllocationUUID *string `json:"allocation_uuid,omitempty"`
+		AllocationUUID string `json:"allocation_uuid"`
+		// MachineIpAllocationUUIDs are the machine ips that belong to machine allocation at the point of deletion
+		MachineIpAllocationUUIDs []string `json:"machine_ip_allocation_uuids,omitempty"`
+		// Project is the project on which the machine is allocated
+		Project string `json:"project"`
+		// Partition is the partition in which the machine is located
+		Partition string `json:"partition"`
+		// RackID is the rack id in which the machine is located
+		RackID string `json:"rack_id"`
+		// IsFirewall is true when the machine to be deleted is a firewall
+		IsFirewall bool `json:"is_firewall"`
 	}
 
 	MachineBMCCommandPayload struct {

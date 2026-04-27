@@ -83,10 +83,10 @@ func (m *machineServiceServer) BMCCommand(ctx context.Context, req *adminv2.Mach
 	}
 
 	if resp.Bmc == nil || resp.Bmc.Bmc == nil {
-		return nil, errorutil.FailedPrecondition("machine %s does not have bmc details yet", req.Uuid)
+		return nil, errorutil.FailedPrecondition("machine %q does not have bmc details yet", req.Uuid)
 	}
 	if resp.Bmc.Bmc.Address == "" || resp.Bmc.Bmc.Password == "" || resp.Bmc.Bmc.User == "" {
-		return nil, errorutil.FailedPrecondition("machine %s does not have bmc connections details yet", req.Uuid)
+		return nil, errorutil.FailedPrecondition("machine %q does not have bmc connections details yet", req.Uuid)
 	}
 
 	err = m.repo.UnscopedMachine().AdditionalMethods().MachineBMCCommand(ctx, machine.Uuid, machine.Partition.Id, req.Command)

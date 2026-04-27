@@ -28,22 +28,20 @@ func New(c Config) apiv2connect.MachineServiceHandler {
 	}
 }
 
-// Create implements apiv2connect.MachineServiceHandler.
 func (m *machineServiceServer) Create(ctx context.Context, req *apiv2.MachineServiceCreateRequest) (*apiv2.MachineServiceCreateResponse, error) {
 	machine, err := m.repo.Machine(req.Project).Create(ctx, req)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 	return &apiv2.MachineServiceCreateResponse{
 		Machine: machine,
 	}, nil
 }
 
-// Get implements apiv2connect.MachineServiceHandler.
 func (m *machineServiceServer) Get(ctx context.Context, req *apiv2.MachineServiceGetRequest) (*apiv2.MachineServiceGetResponse, error) {
 	machine, err := m.repo.Machine(req.Project).Get(ctx, req.Uuid)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	return &apiv2.MachineServiceGetResponse{
@@ -51,34 +49,36 @@ func (m *machineServiceServer) Get(ctx context.Context, req *apiv2.MachineServic
 	}, nil
 }
 
-// List implements apiv2connect.MachineServiceHandler.
 func (m *machineServiceServer) List(ctx context.Context, rq *apiv2.MachineServiceListRequest) (*apiv2.MachineServiceListResponse, error) {
 	machines, err := m.repo.Machine(rq.Project).List(ctx, rq.Query)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 	return &apiv2.MachineServiceListResponse{Machines: machines}, nil
 }
 
-// Update implements apiv2connect.MachineServiceHandler.
 func (m *machineServiceServer) Update(ctx context.Context, req *apiv2.MachineServiceUpdateRequest) (*apiv2.MachineServiceUpdateResponse, error) {
 	machine, err := m.repo.Machine(req.Project).Update(ctx, req.Uuid, req)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	return &apiv2.MachineServiceUpdateResponse{Machine: machine}, nil
 }
 
-// Delete implements apiv2connect.MachineServiceHandler.
-func (m *machineServiceServer) Delete(context.Context, *apiv2.MachineServiceDeleteRequest) (*apiv2.MachineServiceDeleteResponse, error) {
-	panic("unimplemented")
+func (m *machineServiceServer) Delete(ctx context.Context, req *apiv2.MachineServiceDeleteRequest) (*apiv2.MachineServiceDeleteResponse, error) {
+	machine, err := m.repo.Machine(req.Project).Delete(ctx, req.Uuid)
+	if err != nil {
+		return nil, err
+	}
+
+	return &apiv2.MachineServiceDeleteResponse{Machine: machine}, nil
 }
 
 func (m *machineServiceServer) BMCCommand(ctx context.Context, req *apiv2.MachineServiceBMCCommandRequest) (*apiv2.MachineServiceBMCCommandResponse, error) {
 	machine, err := m.repo.Machine(req.Project).Get(ctx, req.Uuid)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	resp, err := m.repo.Machine(req.Project).AdditionalMethods().GetBMC(ctx, &adminv2.MachineServiceGetBMCRequest{Uuid: req.Uuid})
@@ -86,16 +86,17 @@ func (m *machineServiceServer) BMCCommand(ctx context.Context, req *apiv2.Machin
 		return nil, err
 	}
 	if resp.Bmc == nil || resp.Bmc.Bmc == nil {
-		return nil, errorutil.FailedPrecondition("machine %s does not have bmc details yet", req.Uuid)
+		return nil, errorutil.FailedPrecondition("machine %q does not have bmc details yet", req.Uuid)
 	}
 	if resp.Bmc.Bmc.Address == "" || resp.Bmc.Bmc.Password == "" || resp.Bmc.Bmc.User == "" {
-		return nil, errorutil.FailedPrecondition("machine %s does not have bmc connections details yet", req.Uuid)
+		return nil, errorutil.FailedPrecondition("machine %q does not have bmc connections details yet", req.Uuid)
 	}
 
 	err = m.repo.Machine(req.Project).AdditionalMethods().MachineBMCCommand(ctx, machine.Uuid, machine.Partition.Id, req.Command)
 	if err != nil {
 		return nil, err
 	}
+
 	return &apiv2.MachineServiceBMCCommandResponse{}, nil
 }
 
@@ -104,6 +105,7 @@ func (m *machineServiceServer) GetBMC(ctx context.Context, req *apiv2.MachineSer
 	if err != nil {
 		return nil, err
 	}
+
 	return &apiv2.MachineServiceGetBMCResponse{
 		Uuid: req.Uuid,
 		Bmc:  resp.Bmc,

@@ -24,10 +24,12 @@ func (r *machineRepository) acquireASN(ctx context.Context) (*uint32, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	asn := ASNBase + uint32(i)
 	if asn > ASNMax {
 		return nil, fmt.Errorf("unable to calculate asn, got a asn larger than ASNMax: %d > %d", asn, ASNMax)
 	}
+
 	return &asn, nil
 }
 
@@ -36,6 +38,7 @@ func (r *machineRepository) releaseASN(ctx context.Context, asn uint32) error {
 	if asn < ASNBase || asn > ASNMax {
 		return fmt.Errorf("asn %d might not be smaller than:%d or larger than %d", asn, ASNBase, ASNMax)
 	}
+
 	i := uint(asn - ASNBase)
 
 	return r.s.ds.AsnPool().ReleaseUniqueInteger(ctx, i)

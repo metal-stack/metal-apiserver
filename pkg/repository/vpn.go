@@ -189,6 +189,7 @@ func (v *vpn) getNode(ctx context.Context, machineID, projectID string) (machine
 	req := &headscalev1.ListNodesRequest{
 		User: projectID,
 	}
+
 	resp, err := v.c.ListNodes(ctx, req)
 	if err != nil || resp == nil {
 		return nil, fmt.Errorf("failed to list nodes: %w", err)

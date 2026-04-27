@@ -330,7 +330,7 @@ func Test_machineServiceServer_BMCCommand(t *testing.T) {
 				Command: apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_BOOT_FROM_DISK,
 			},
 			want:    nil,
-			wantErr: errorutil.FailedPrecondition("machine 00000000-0000-0000-0000-000000000001 does not have bmc connections details yet"),
+			wantErr: errorutil.FailedPrecondition(`machine "00000000-0000-0000-0000-000000000001" does not have bmc connections details yet`),
 		},
 		{
 			name: "boot from disk command, machine with bmc connection details",
