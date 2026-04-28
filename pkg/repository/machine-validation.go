@@ -287,7 +287,7 @@ func (r *machineRepository) validateFirewallSpec(firewallSpec *apiv2.FirewallSpe
 
 func (r *machineRepository) validateUpdate(ctx context.Context, req *apiv2.MachineServiceUpdateRequest, machine *metal.Machine) error {
 	if machine.Allocation == nil {
-		return fmt.Errorf("only allocated machines can be updated")
+		return errorutil.FailedPrecondition("only allocated machines can be updated")
 	}
 
 	for _, pubKey := range req.SshPublicKeys {
@@ -296,16 +296,18 @@ func (r *machineRepository) validateUpdate(ctx context.Context, req *apiv2.Machi
 			return fmt.Errorf("invalid public SSH key: %s error:%w", pubKey, err)
 		}
 	}
+
 	return nil
 }
 
 func (r *machineRepository) validateDelete(ctx context.Context, machine *metal.Machine) error {
 	if machine.Allocation == nil {
-		return fmt.Errorf("only allocated machines can be deleted")
+		return errorutil.FailedPrecondition("only allocated machines can be deleted")
 	}
 
 	if machine.State.Value == metal.LockedState {
-		return fmt.Errorf("machine is locked and cannot be freed")
+		return errorutil.FailedPrecondition("machine is locked and cannot be freed")
 	}
+
 	return nil
 }

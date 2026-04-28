@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"slices"
 	"strings"
 	"time"
@@ -36,7 +35,7 @@ type (
 )
 
 func (r *machineRepository) Dhcp(ctx context.Context, req *infrav2.BootServiceDhcpRequest) (*infrav2.BootServiceDhcpResponse, error) {
-	err := r.SendEvent(ctx, r.s.log, req.Uuid, &infrav2.MachineProvisioningEvent{
+	err := r.SendEvent(ctx, req.Uuid, &infrav2.MachineProvisioningEvent{
 		Time:    timestamppb.Now(),
 		Event:   infrav2.ProvisioningEventType_PROVISIONING_EVENT_TYPE_PXE_BOOTING,
 		Message: "machine sent extended dhcp request",
@@ -44,6 +43,7 @@ func (r *machineRepository) Dhcp(ctx context.Context, req *infrav2.BootServiceDh
 	if err != nil {
 		return nil, err
 	}
+
 	machine, err := r.get(ctx, req.Uuid)
 	if err != nil {
 		return nil, err
@@ -56,6 +56,7 @@ func (r *machineRepository) Dhcp(ctx context.Context, req *infrav2.BootServiceDh
 			return nil, err
 		}
 	}
+
 	return &infrav2.BootServiceDhcpResponse{}, nil
 }
 
@@ -81,7 +82,7 @@ func (r *machineRepository) SetMachineConnectedToVPN(ctx context.Context, id str
 	return r.convertToProto(ctx, m)
 }
 
-func (r *machineRepository) SendEvent(ctx context.Context, log *slog.Logger, machineID string, event *infrav2.MachineProvisioningEvent) error {
+func (r *machineRepository) SendEvent(ctx context.Context, machineID string, event *infrav2.MachineProvisioningEvent) error {
 	if event == nil {
 		return errorutil.InvalidArgument("event for machine %s is nil", machineID)
 	}
@@ -125,7 +126,7 @@ func (r *machineRepository) SendEvent(ctx context.Context, log *slog.Logger, mac
 		}
 	}
 
-	newEC, err := fsm.HandleProvisioningEvent(ctx, log, ec, ev)
+	newEC, err := fsm.HandleProvisioningEvent(ctx, r.s.log, ec, ev)
 	if err != nil {
 		return err
 	}
@@ -194,15 +195,13 @@ func (r *machineRepository) update(ctx context.Context, m *metal.Machine, req *a
 }
 
 func (r *machineRepository) delete(ctx context.Context, m *metal.Machine) error {
-	if m.Allocation == nil {
-		return errorutil.FailedPrecondition("machine must be allocated in order to delete it")
-	}
 
 	var (
+		alloc                    = pointer.SafeDeref(m.Allocation)
 		machineIpAllocationUUIDs []string
 	)
 
-	ips, err := r.s.IP(m.Allocation.Project).List(ctx, &apiv2.IPQuery{
+	ips, err := r.s.IP(alloc.Project).List(ctx, &apiv2.IPQuery{
 		Machine: &m.ID,
 	})
 	if err != nil {
@@ -213,21 +212,20 @@ func (r *machineRepository) delete(ctx context.Context, m *metal.Machine) error 
 		machineIpAllocationUUIDs = append(machineIpAllocationUUIDs, ip.Uuid)
 	}
 
-	// TODO: check if passing the logger is really necessary?
-	if err := r.SendEvent(ctx, r.s.log, m.ID, &infrav2.MachineProvisioningEvent{
-		Time:    timestamppb.Now(),
+	if err := r.SendEvent(ctx, m.ID, &infrav2.MachineProvisioningEvent{
 		Event:   infrav2.ProvisioningEventType_PROVISIONING_EVENT_TYPE_MACHINE_RECLAIM,
 		Message: "reclaiming machine",
+		Time:    timestamppb.Now(),
 	}); err != nil {
 		return fmt.Errorf("unable to write provisioning event: %w", err)
 	}
 
 	info, err := r.s.task.NewTask(&task.MachineDeletePayload{
-		AllocationUUID:           m.Allocation.UUID,
-		IsFirewall:               m.Allocation.Role == metal.RoleFirewall,
+		AllocationUUID:           alloc.UUID,
+		IsFirewall:               alloc.Role == metal.RoleFirewall,
 		MachineIpAllocationUUIDs: machineIpAllocationUUIDs,
 		Partition:                m.PartitionID,
-		Project:                  m.Allocation.Project,
+		Project:                  alloc.Project,
 		RackID:                   m.RackID,
 		UUID:                     m.ID,
 	},
