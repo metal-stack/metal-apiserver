@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -231,7 +230,10 @@ func (r *machineRepository) delete(ctx context.Context, m *metal.Machine) error 
 		Project:                  m.Allocation.Project,
 		RackID:                   m.RackID,
 		UUID:                     m.ID,
-	})
+	},
+		// TODO: should we always append a retention or add to new task interface more explicitly?
+		asynq.Retention(30*24*time.Hour), // Only with retention a task will be stored in completed tasks
+	)
 	if err != nil {
 		return err
 	}
@@ -1376,10 +1378,9 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 	// - ✅ deleteVrfAtSwitches
 	// - ✅ send the machine bmc command MACHINE_BMC_COMMAND_MACHINE_DELETED
 
-	var payload task.MachineDeletePayload
-
-	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
-		return fmt.Errorf("unable to unmarshal task payload, %w: %w", err, asynq.SkipRetry)
+	payload, err := task.DecodePayload[*task.MachineDeletePayload](t.Payload())
+	if err != nil {
+		return err
 	}
 
 	var g errgroup.Group
@@ -1546,15 +1547,14 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 }
 
 func (r *Store) MachineBMCCommandHandleFn(ctx context.Context, t *asynq.Task) error {
-	var payload task.MachineBMCCommandPayload
-
-	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
-		return fmt.Errorf("unable to unmarshal task payload, %w: %w", err, asynq.SkipRetry)
+	payload, err := task.DecodePayload[*task.MachineBMCCommandPayload](t.Payload())
+	if err != nil {
+		return err
 	}
 
 	r.log.Info("machine bmc command handler", "machine", payload.UUID, "command", payload.Command)
 
-	if err := r.queue.PushMachineCommand(ctx, payload.Partition, payload); err != nil {
+	if err := r.queue.PushMachineCommand(ctx, payload.Partition, *payload); err != nil {
 		return err
 	}
 

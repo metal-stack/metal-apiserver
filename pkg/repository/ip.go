@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/netip"
 	"slices"
@@ -397,9 +396,9 @@ func (r *ipRepository) convertToProto(ctx context.Context, metalIP *metal.IP) (*
 //---------------------------------------------------------------
 
 func (r *Store) IpDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
-	var payload task.IPDeletePayload
-	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
-		return fmt.Errorf("json.Unmarshal failed: %w %w", err, asynq.SkipRetry)
+	payload, err := task.DecodePayload[*task.IPDeletePayload](t.Payload())
+	if err != nil {
+		return err
 	}
 
 	r.log.Info("delete ip", "uuid", payload.AllocationUUID, "ip", payload.IP)

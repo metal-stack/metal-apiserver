@@ -1,5 +1,12 @@
 package task
 
+import (
+	"encoding/json"
+	"fmt"
+
+	"github.com/hibiken/asynq"
+)
+
 const (
 	TypeIpDelete          TaskType = "ip:delete"
 	TypeNetworkDelete     TaskType = "network:delete"
@@ -77,4 +84,26 @@ func (p *MachineDeletePayload) Type() TaskType {
 
 func (p *MachineBMCCommandPayload) Type() TaskType {
 	return TypeMachineBMCCommand
+}
+
+// EncodePayload can be used to encode a task payload using json marshal.
+func EncodePayload(payload TaskPayload) ([]byte, error) {
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("unable to marshal task payload: %w", err)
+	}
+
+	return encoded, nil
+}
+
+// DecodePayload can be used to decode a task payload using json unmarshal.
+// If an error occurs while decoding, an asynq.SkipRetry error gets wrapped to prevent retry of the task.
+func DecodePayload[t TaskPayload](data []byte) (t, error) {
+	var payload t
+
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return payload, fmt.Errorf("unable to unmarshal task payload, %w: %w", asynq.SkipRetry, err)
+	}
+
+	return payload, nil
 }
