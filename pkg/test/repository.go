@@ -11,8 +11,6 @@ import (
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
 	"github.com/metal-stack/go-ipam/api/v1/apiv1connect"
-	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
-	mdc "github.com/metal-stack/masterdata-api/pkg/client"
 	"github.com/metal-stack/metal-apiserver/pkg/async/queue"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
@@ -28,10 +26,11 @@ import (
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/auditing"
 	auditingmemory "github.com/metal-stack/metal-lib/auditing/memory"
+	tenantv1 "github.com/metal-stack/tenant-api/go/api/v1"
+	tenant "github.com/metal-stack/tenant-api/go/client"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 	"github.com/valkey-io/valkey-go"
-	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
@@ -57,7 +56,7 @@ type (
 
 		// only use this when you are very certain about it!!
 		tokenService           token.TokenService
-		mdc                    mdc.Client
+		tc                     tenant.Client
 		rc                     *redis.Client
 		vc                     valkey.Client
 		hc                     *headscale.Client
@@ -203,29 +202,28 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 	ipam, ipamCloser := StartIpam(t)
 
 	var (
-		mdc              mdc.Client
-		connection       *grpc.ClientConn
-		masterdataCloser func()
+		tc                    tenant.Client
+		tenantApiserverCloser func()
 
 		task  = task.NewClient(log, rc)
 		queue = queue.New(log, vc)
 	)
 	if withPostgres {
-		mdc, connection, masterdataCloser = StartMasterdataWithPostgres(t, log)
+		tc, tenantApiserverCloser = StartTenantApiserverWithPostgres(t, log)
 	} else {
-		mdc, connection, masterdataCloser = StartMasterdataInMemory(t, log)
+		tc, tenantApiserverCloser = StartTenantApiserverInMemory(t, log)
 	}
 
 	config := repository.Config{
-		Log:              log,
-		MasterdataClient: mdc,
-		Datastore:        ds,
-		Ipam:             ipam,
-		Task:             task,
-		Queue:            queue,
-		Component:        vc, // Use same valkey instance as queue for tests
-		Auditing:         auditingBackend,
-		HeadscaleClient:  hc,
+		Log:                   log,
+		TenantApiserverClient: tc,
+		Datastore:             ds,
+		Ipam:                  ipam,
+		Task:                  task,
+		Queue:                 queue,
+		Component:             vc, // Use same valkey instance as queue for tests
+		Auditing:              auditingBackend,
+		HeadscaleClient:       hc,
 	}
 
 	repo := repository.New(config)
@@ -233,12 +231,11 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 	asyncCloser := StartAsynqServer(t, log.WithGroup("asynq"), repo, rc)
 
 	closer := func() {
-		_ = connection.Close()
 		if withRethink {
 			rethinkCloser()
 		}
 		ipamCloser()
-		masterdataCloser()
+		tenantApiserverCloser()
 		asyncCloser()
 		_ = rc.Close()
 		if valkeyCloser != nil {
@@ -261,7 +258,7 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		tenantInviteStore:      tenantInviteStore,
 		tokenStore:             tokenStore,
 		tokenService:           tokenService,
-		mdc:                    mdc,
+		tc:                     tc,
 		rc:                     rc,
 		vc:                     vc,
 		audit:                  auditingBackend,
@@ -309,8 +306,8 @@ func (t *testStore) GetTokenStore() tokencommon.TokenStore {
 	return t.tokenStore
 }
 
-func (t *testStore) GetMasterdataClient() mdc.Client {
-	return t.mdc
+func (t *testStore) GetTenantApiserverClient() tenant.Client {
+	return t.tc
 }
 
 func (t *testStore) GetIpamClient() apiv1connect.IpamServiceClient {
@@ -480,17 +477,17 @@ func DeleteMachines(t testing.TB, testStore *testStore) {
 }
 
 func (t *testStore) DeleteTenants() {
-	ts, err := t.mdc.Tenant().Find(t.t.Context(), &mdcv1.TenantFindRequest{})
+	ts, err := t.tc.Apiv1().Tenant().Find(t.t.Context(), &tenantv1.TenantFindRequest{})
 	require.NoError(t.t, err)
 
 	for _, tenant := range ts.Tenants {
-		_, err = t.mdc.Tenant().Delete(t.t.Context(), &mdcv1.TenantDeleteRequest{Id: tenant.Meta.Id})
+		_, err = t.tc.Apiv1().Tenant().Delete(t.t.Context(), &tenantv1.TenantDeleteRequest{Id: tenant.Meta.Id})
 		require.NoError(t.t, err)
 	}
 }
 
 func (t *testStore) DeleteTenantInvites() {
-	ts, err := t.mdc.Tenant().Find(t.t.Context(), &mdcv1.TenantFindRequest{})
+	ts, err := t.tc.Apiv1().Tenant().Find(t.t.Context(), &tenantv1.TenantFindRequest{})
 	require.NoError(t.t, err)
 
 	for _, tenant := range ts.Tenants {
@@ -505,17 +502,17 @@ func (t *testStore) DeleteTenantInvites() {
 }
 
 func (t *testStore) DeleteProjects() {
-	ps, err := t.mdc.Project().Find(t.t.Context(), &mdcv1.ProjectFindRequest{})
+	ps, err := t.tc.Apiv1().Project().Find(t.t.Context(), &tenantv1.ProjectFindRequest{})
 	require.NoError(t.t, err)
 
 	for _, p := range ps.Projects {
-		_, err = t.mdc.Project().Delete(t.t.Context(), &mdcv1.ProjectDeleteRequest{Id: p.Meta.Id})
+		_, err = t.tc.Apiv1().Project().Delete(t.t.Context(), &tenantv1.ProjectDeleteRequest{Id: p.Meta.Id})
 		require.NoError(t.t, err)
 	}
 }
 
 func (t *testStore) DeleteProjectInvites() {
-	ts, err := t.mdc.Project().Find(t.t.Context(), &mdcv1.ProjectFindRequest{})
+	ts, err := t.tc.Apiv1().Project().Find(t.t.Context(), &tenantv1.ProjectFindRequest{})
 	require.NoError(t.t, err)
 
 	for _, project := range ts.Projects {

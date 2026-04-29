@@ -23,10 +23,10 @@ import (
 	"go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/sdk/metric"
 
-	mdm "github.com/metal-stack/masterdata-api/pkg/client"
 	authpkg "github.com/metal-stack/metal-apiserver/pkg/auth"
 	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	ratelimiter "github.com/metal-stack/metal-apiserver/pkg/rate-limiter"
+	tenantclient "github.com/metal-stack/tenant-api/go/client"
 
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
@@ -58,7 +58,7 @@ type Config struct {
 	OIDCTLSSkipVerify                   bool
 	Datastore                           generic.Datastore
 	Repository                          *repository.Store
-	MasterClient                        mdm.Client
+	MasterClient                        tenantclient.Client
 	IpamClient                          ipamv1connect.IpamServiceClient
 	AuditSearchBackend                  auditing.Auditing
 	AuditBackends                       []auditing.Auditing

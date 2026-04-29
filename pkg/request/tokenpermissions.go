@@ -63,12 +63,12 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 	}
 
 	if token.TokenType == apiv2.TokenType_TOKEN_TYPE_USER {
-		// as we do not store roles in the user token, we set the roles from the information in the masterdata-db
+		// as we do not store roles in the user token, we set the roles from the information in the tenant-apiserver
 		token.ProjectRoles = pat.ProjectRoles
 		token.TenantRoles = pat.TenantRoles
 		// User token will never get admin roles from the database
 		token.AdminRole = nil
-		// user tokens should never have permissions cause they are not stored in the masterdata-db
+		// user tokens should never have permissions cause they are not stored in the tenant-apiserver
 		token.Permissions = nil
 	}
 

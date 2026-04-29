@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	mdmv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	mdmv1 "github.com/metal-stack/tenant-api/go/api/v1"
 )
 
 func TestReservations_ForPartition(t *testing.T) {

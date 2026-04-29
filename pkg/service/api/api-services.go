@@ -36,15 +36,15 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/user"
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/version"
 
-	mdm "github.com/metal-stack/masterdata-api/pkg/client"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
+	tenantclient "github.com/metal-stack/tenant-api/go/client"
 )
 
 type Config struct {
 	Log                *slog.Logger
 	Datastore          generic.Datastore
 	Repository         *repository.Store
-	MasterClient       mdm.Client
+	MasterClient       tenantclient.Client
 	IpamClient         ipamv1connect.IpamServiceClient
 	Mux                *http.ServeMux
 	Interceptors       connect.Option
