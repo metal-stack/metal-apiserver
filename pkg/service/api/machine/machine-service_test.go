@@ -390,7 +390,7 @@ func Test_machineServiceServer_Update(t *testing.T) {
 			name:    "update without allocation",
 			rq:      &apiv2.MachineServiceUpdateRequest{Uuid: m1, UpdateMeta: &apiv2.UpdateMeta{}},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("only allocated machines can be updated"),
+			wantErr: errorutil.FailedPrecondition("only allocated machines can be updated"),
 		},
 		{
 			name: "Update tags",
