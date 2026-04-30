@@ -45,8 +45,8 @@ type (
 		Partition string `json:"partition"`
 		// RackID is the rack id in which the machine is located
 		RackID string `json:"rack_id"`
-		// IsFirewall is true when the machine to be deleted is a firewall
-		IsFirewall bool `json:"is_firewall"`
+		// HeadscaleNodeID is the vpn node id that the firewall was connected with
+		HeadscaleNodeID *uint64 `json:"headscale_node_id"`
 	}
 
 	MachineBMCCommandPayload struct {

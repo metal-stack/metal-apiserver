@@ -89,7 +89,7 @@ func (m *machineServiceServer) BMCCommand(ctx context.Context, req *adminv2.Mach
 		return nil, errorutil.FailedPrecondition("machine %q does not have bmc connections details yet", req.Uuid)
 	}
 
-	err = m.repo.UnscopedMachine().AdditionalMethods().MachineBMCCommand(ctx, machine.Uuid, machine.Partition.Id, req.Command)
+	_, err = m.repo.UnscopedMachine().AdditionalMethods().MachineBMCCommand(ctx, machine.Uuid, machine.Partition.Id, req.Command)
 	if err != nil {
 		return nil, err
 	}

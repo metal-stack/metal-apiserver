@@ -195,10 +195,10 @@ func (r *machineRepository) update(ctx context.Context, m *metal.Machine, req *a
 }
 
 func (r *machineRepository) delete(ctx context.Context, m *metal.Machine) error {
-
 	var (
 		alloc                    = pointer.SafeDeref(m.Allocation)
 		machineIpAllocationUUIDs []string
+		headscaleNodeID          uint64
 	)
 
 	ips, err := r.s.IP(alloc.Project).List(ctx, &apiv2.IPQuery{
@@ -212,6 +212,15 @@ func (r *machineRepository) delete(ctx context.Context, m *metal.Machine) error 
 		machineIpAllocationUUIDs = append(machineIpAllocationUUIDs, ip.Uuid)
 	}
 
+	if alloc.Role == metal.RoleFirewall && r.s.UnscopedVPN().Enabled() && alloc.VPN != nil {
+		node, err := r.s.VPN(alloc.Project).getNode(ctx, m.ID, alloc.Project)
+		if err != nil {
+			return fmt.Errorf("unable to retrieve vpn node: %w", err)
+		}
+
+		headscaleNodeID = node.Id
+	}
+
 	if err := r.SendEvent(ctx, m.ID, &infrav2.MachineProvisioningEvent{
 		Event:   infrav2.ProvisioningEventType_PROVISIONING_EVENT_TYPE_MACHINE_RECLAIM,
 		Message: "reclaiming machine",
@@ -222,7 +231,7 @@ func (r *machineRepository) delete(ctx context.Context, m *metal.Machine) error 
 
 	info, err := r.s.task.NewTask(&task.MachineDeletePayload{
 		AllocationUUID:           alloc.UUID,
-		IsFirewall:               alloc.Role == metal.RoleFirewall,
+		HeadscaleNodeID:          &headscaleNodeID,
 		MachineIpAllocationUUIDs: machineIpAllocationUUIDs,
 		Partition:                m.PartitionID,
 		Project:                  alloc.Project,
@@ -918,7 +927,7 @@ func (r *machineRepository) InstallationSucceeded(ctx context.Context, req *infr
 		return nil, fmt.Errorf("the machine %q could not be enslaved into the vrf %s, error: %w", req.Uuid, vrf, err)
 	}
 
-	err = r.MachineBMCCommand(ctx, m.ID, m.PartitionID, apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_MACHINE_CREATED)
+	_, err = r.MachineBMCCommand(ctx, m.ID, m.PartitionID, apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_MACHINE_CREATED)
 	if err != nil {
 		return nil, fmt.Errorf("unable to send machinecommand to trigger boot to disk %w", err)
 	}
@@ -1197,10 +1206,10 @@ func (r *machineRepository) convertToBMCReport(machine *metal.Machine) *apiv2.Ma
 	return bmcReport
 }
 
-func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, partition string, command apiv2.MachineBMCCommand) error {
+func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, partition string, command apiv2.MachineBMCCommand) (string, error) {
 	cmdString, err := enum.GetStringValue(command)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	cmd := *cmdString
@@ -1217,10 +1226,12 @@ func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, 
 		asynq.Retention(30*24*time.Hour), // Only with retention a task will be stored in completed tasks
 	)
 	if err != nil {
-		return err
+		return "", err
 	}
+
 	r.s.log.Debug("machine bmc command scheduled", "task", info)
-	return nil
+
+	return info.ID, nil
 }
 
 func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWaitRequest, srv *connect.ServerStream[infrav2.BootServiceWaitResponse]) error {
@@ -1419,6 +1430,29 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 			return nil
 		}
 
+		// if in the meantime someone else allocated the asn, we do not want to erase it
+		// so check if it's used somewhere else
+
+		machines, err := r.UnscopedMachine().List(ctx, &apiv2.MachineQuery{
+			Network: &apiv2.MachineNetworkQuery{
+				Asns: []uint32{asn},
+			},
+		})
+		if err != nil {
+			return fmt.Errorf("unable to list machines: %w", err)
+		}
+
+		for _, otherMachine := range machines {
+			if otherMachine.Allocation == nil {
+				continue
+			}
+
+			if otherMachine.Allocation.Uuid != payload.AllocationUUID {
+				// somebody else has it, do not release
+				return nil
+			}
+		}
+
 		if err := r.UnscopedMachine().AdditionalMethods().releaseASN(ctx, asn); err != nil {
 			return fmt.Errorf("unable to release asn: %w", err)
 		}
@@ -1427,12 +1461,29 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 	})
 
 	g.Go(func() error {
-		if !payload.IsFirewall {
+		if !r.VPN(payload.Project).Enabled() {
 			return nil
 		}
 
-		if !r.VPN(payload.Project).Enabled() {
+		if payload.HeadscaleNodeID == nil {
 			return nil
+		}
+
+		// if in the meantime someone else allocated the machine and created a vpn node, we do not want to erase it
+		// so check if it's used somewhere else
+
+		resp, err := r.UnscopedVPN().ListNodes(ctx, &adminv2.VPNServiceListNodesRequest{
+			Project: &payload.Project,
+		})
+		if err != nil {
+			return fmt.Errorf("unable to list vpn nodes: %w", err)
+		}
+
+		for _, node := range resp.Nodes {
+			if node.Id != *payload.HeadscaleNodeID {
+				// somebody else has it, do not release
+				return nil
+			}
 		}
 
 		if _, err := r.VPN(payload.Project).DeleteNode(ctx, payload.UUID, payload.Project); err != nil {
@@ -1527,8 +1578,24 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 	// machine to pxe boot bmc cmd
 	// reconfigure switch port to pxe boot network
 
-	if err := r.UnscopedMachine().AdditionalMethods().MachineBMCCommand(ctx, payload.UUID, payload.Partition, apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_MACHINE_DELETED); err != nil {
+	taskID, err := r.UnscopedMachine().AdditionalMethods().MachineBMCCommand(ctx, payload.UUID, payload.Partition, apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_MACHINE_DELETED)
+	if err != nil {
 		return fmt.Errorf("unable to send machine delete bmc command: %w", err)
+	}
+
+	if err := retry.Do(func() error {
+		task, err := r.Task().GetTaskInfo("default", taskID)
+		if err != nil {
+			return fmt.Errorf("unable to get bmc delete task: %w", err)
+		}
+
+		if task.State == asynq.TaskStateCompleted {
+			return nil
+		}
+
+		return fmt.Errorf("bmc delete task did not reach state completed, only: %q", task.State.String())
+	}, retry.Context(ctx), retry.DelayType(retry.FixedDelay), retry.Delay(1*time.Second), retry.Attempts(30)); err != nil {
+		return fmt.Errorf("timed out waiting for bmc delete command to be executed: %w", err)
 	}
 
 	// TODO: the function signature is a bit unfortunate for the machine deletion because we do not have the full machine in the payload but only id and rack id is needed
