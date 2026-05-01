@@ -61,7 +61,7 @@ func startTenantApiserverWithDB(t testing.TB, log *slog.Logger, dbcloser func(),
 
 	projectService := service.NewProjectService(log, ps, pms, ts)
 	projectMemberService := service.NewProjectMemberService(log, ps, pms, ts)
-	tenantService := service.NewTenantService(nil, log, ts, tms)
+	tenantService := service.NewTenantService(db, log, ts, tms)
 	tenantMemberService := service.NewTenantMemberService(log, ts, tms)
 	versionService := service.NewVersionService()
 
@@ -74,7 +74,7 @@ func startTenantApiserverWithDB(t testing.TB, log *slog.Logger, dbcloser func(),
 
 	server := httptest.NewUnstartedServer(mux)
 	server.EnableHTTP2 = true
-	server.StartTLS()
+	server.Start()
 	closer := func() {
 		server.Close()
 	}
@@ -82,6 +82,7 @@ func startTenantApiserverWithDB(t testing.TB, log *slog.Logger, dbcloser func(),
 	conn, err := tenant.New(&tenant.DialConfig{
 		BaseURL:   server.URL,
 		Namespace: "metal-stack.io",
+		Log:       log,
 	})
 	require.NoError(t, err)
 	return conn, closer
@@ -110,7 +111,7 @@ func StartTenantApiserverInMemory(t testing.TB, log *slog.Logger) (tenant.Client
 
 	server := httptest.NewUnstartedServer(mux)
 	server.EnableHTTP2 = true
-	server.StartTLS()
+	server.Start()
 	closer := func() {
 		server.Close()
 	}
