@@ -14,7 +14,7 @@ type tenantApiserverHealthChecker struct {
 }
 
 func (h *tenantApiserverHealthChecker) Health(ctx context.Context) *apiv2.HealthStatus {
-	resp, err := h.tenant.Apiv1().Version().Get(ctx, &tenantv1.GetVersionRequest{})
+	resp, err := h.tenant.Apiv1().Version().Get(ctx, &tenantv1.VersionServiceGetRequest{})
 
 	var (
 		status  = apiv2.ServiceStatus_SERVICE_STATUS_HEALTHY

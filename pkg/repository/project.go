@@ -54,7 +54,7 @@ func (r *projectRepository) projectMember(scope *ProjectScope) ProjectMember {
 }
 
 func (r *projectRepository) get(ctx context.Context, id string) (*projectEntity, error) {
-	resp, err := r.s.tc.Apiv1().Project().Get(ctx, &tenantv1.ProjectGetRequest{Id: id})
+	resp, err := r.s.tc.Apiv1().Project().Get(ctx, &tenantv1.ProjectServiceGetRequest{Id: id})
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -92,7 +92,7 @@ func (r *projectRepository) CreateWithID(ctx context.Context, e *apiv2.ProjectSe
 		labels = tags.ToTags(e.Labels.Labels)
 	}
 
-	resp, err := r.s.tc.Apiv1().Project().Create(ctx, &tenantv1.ProjectCreateRequest{Project: &tenantv1.Project{
+	resp, err := r.s.tc.Apiv1().Project().Create(ctx, &tenantv1.ProjectServiceCreateRequest{Project: &tenantv1.Project{
 		Meta: &tenantv1.Meta{
 			Annotations: ann,
 			Id:          id,
@@ -132,7 +132,7 @@ func (r *projectRepository) update(ctx context.Context, p *projectEntity, rq *ap
 		p.Meta.Labels = updateLabelsOnSlice(rq.Labels, p.Meta.Labels)
 	}
 
-	resp, err := r.s.tc.Apiv1().Project().Update(ctx, &tenantv1.ProjectUpdateRequest{Project: p.Project})
+	resp, err := r.s.tc.Apiv1().Project().Update(ctx, &tenantv1.ProjectServiceUpdateRequest{Project: p.Project})
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -143,7 +143,7 @@ func (r *projectRepository) update(ctx context.Context, p *projectEntity, rq *ap
 }
 
 func (r *projectRepository) delete(ctx context.Context, e *projectEntity) error {
-	_, err := r.s.tc.Apiv1().Project().Delete(ctx, &tenantv1.ProjectDeleteRequest{Id: e.Meta.Id})
+	_, err := r.s.tc.Apiv1().Project().Delete(ctx, &tenantv1.ProjectServiceDeleteRequest{Id: e.Meta.Id})
 	if err != nil {
 		return errorutil.Convert(err)
 	}
@@ -168,7 +168,7 @@ func (r *projectRepository) find(ctx context.Context, query *apiv2.ProjectServic
 }
 
 func (r *projectRepository) list(ctx context.Context, query *apiv2.ProjectServiceListRequest) ([]*projectEntity, error) {
-	resp, err := r.s.tc.Apiv1().Project().Find(ctx, &tenantv1.ProjectFindRequest{
+	resp, err := r.s.tc.Apiv1().Project().List(ctx, &tenantv1.ProjectServiceListRequest{
 		Id:       query.Id,
 		Name:     query.Name,
 		TenantId: query.Tenant,
@@ -267,7 +267,7 @@ func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId st
 		return nil, errorutil.NotFound("userid is empty")
 	}
 
-	projectResp, err := r.s.tc.Apiv1().Tenant().FindParticipatingProjects(ctx, &tenantv1.FindParticipatingProjectsRequest{TenantId: userId, IncludeInherited: new(true)})
+	projectResp, err := r.s.tc.Apiv1().Tenant().FindParticipatingProjects(ctx, &tenantv1.TenantServiceFindParticipatingProjectsRequest{TenantId: userId, IncludeInherited: new(true)})
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -354,7 +354,7 @@ func (r *projectRepository) EnsureProviderProject(ctx context.Context, providerT
 			return err
 		}
 
-		_, err = r.s.tc.Apiv1().ProjectMember().Create(ctx, &tenantv1.ProjectMemberCreateRequest{
+		_, err = r.s.tc.Apiv1().ProjectMember().Create(ctx, &tenantv1.ProjectMemberServiceCreateRequest{
 			ProjectMember: &tenantv1.ProjectMember{
 				Meta: &tenantv1.Meta{
 					Annotations: map[string]string{
@@ -369,7 +369,7 @@ func (r *projectRepository) EnsureProviderProject(ctx context.Context, providerT
 		return err
 	}
 
-	resp, err := r.s.tc.Apiv1().Project().Find(ctx, &tenantv1.ProjectFindRequest{
+	resp, err := r.s.tc.Apiv1().Project().List(ctx, &tenantv1.ProjectServiceListRequest{
 		TenantId: &providerTenantID,
 	})
 	if err != nil {

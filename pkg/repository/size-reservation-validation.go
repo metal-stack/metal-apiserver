@@ -39,7 +39,7 @@ func (r *sizeReservationRepository) validateCreate(ctx context.Context, req *adm
 		}
 	}
 
-	if _, err := r.s.tc.Apiv1().Project().Get(ctx, &v1.ProjectGetRequest{Id: sr.Project}); err != nil {
+	if _, err := r.s.tc.Apiv1().Project().Get(ctx, &v1.ProjectServiceGetRequest{Id: sr.Project}); err != nil {
 		return errorutil.FailedPrecondition("project must exist before creating a size reservation: %w", err)
 	}
 

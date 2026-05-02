@@ -477,17 +477,17 @@ func DeleteMachines(t testing.TB, testStore *testStore) {
 }
 
 func (t *testStore) DeleteTenants() {
-	ts, err := t.tc.Apiv1().Tenant().Find(t.t.Context(), &tenantv1.TenantFindRequest{})
+	ts, err := t.tc.Apiv1().Tenant().List(t.t.Context(), &tenantv1.TenantServiceListRequest{})
 	require.NoError(t.t, err)
 
 	for _, tenant := range ts.Tenants {
-		_, err = t.tc.Apiv1().Tenant().Delete(t.t.Context(), &tenantv1.TenantDeleteRequest{Id: tenant.Meta.Id})
+		_, err = t.tc.Apiv1().Tenant().Delete(t.t.Context(), &tenantv1.TenantServiceDeleteRequest{Id: tenant.Meta.Id})
 		require.NoError(t.t, err)
 	}
 }
 
 func (t *testStore) DeleteTenantInvites() {
-	ts, err := t.tc.Apiv1().Tenant().Find(t.t.Context(), &tenantv1.TenantFindRequest{})
+	ts, err := t.tc.Apiv1().Tenant().List(t.t.Context(), &tenantv1.TenantServiceListRequest{})
 	require.NoError(t.t, err)
 
 	for _, tenant := range ts.Tenants {
@@ -502,17 +502,17 @@ func (t *testStore) DeleteTenantInvites() {
 }
 
 func (t *testStore) DeleteProjects() {
-	ps, err := t.tc.Apiv1().Project().Find(t.t.Context(), &tenantv1.ProjectFindRequest{})
+	ps, err := t.tc.Apiv1().Project().List(t.t.Context(), &tenantv1.ProjectServiceListRequest{})
 	require.NoError(t.t, err)
 
 	for _, p := range ps.Projects {
-		_, err = t.tc.Apiv1().Project().Delete(t.t.Context(), &tenantv1.ProjectDeleteRequest{Id: p.Meta.Id})
+		_, err = t.tc.Apiv1().Project().Delete(t.t.Context(), &tenantv1.ProjectServiceDeleteRequest{Id: p.Meta.Id})
 		require.NoError(t.t, err)
 	}
 }
 
 func (t *testStore) DeleteProjectInvites() {
-	ts, err := t.tc.Apiv1().Project().Find(t.t.Context(), &tenantv1.ProjectFindRequest{})
+	ts, err := t.tc.Apiv1().Project().List(t.t.Context(), &tenantv1.ProjectServiceListRequest{})
 	require.NoError(t.t, err)
 
 	for _, project := range ts.Projects {

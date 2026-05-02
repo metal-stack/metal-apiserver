@@ -49,7 +49,7 @@ func (t *projectMemberRepository) convertToProto(ctx context.Context, e *project
 }
 
 func (t *projectMemberRepository) create(ctx context.Context, c *api.ProjectMemberCreateRequest) (*projectMemberEntity, error) {
-	resp, err := t.s.tc.Apiv1().ProjectMember().Create(ctx, &tenantv1.ProjectMemberCreateRequest{
+	resp, err := t.s.tc.Apiv1().ProjectMember().Create(ctx, &tenantv1.ProjectMemberServiceCreateRequest{
 		ProjectMember: &tenantv1.ProjectMember{
 			Meta: &tenantv1.Meta{
 				Annotations: map[string]string{
@@ -70,7 +70,7 @@ func (t *projectMemberRepository) create(ctx context.Context, c *api.ProjectMemb
 }
 
 func (t *projectMemberRepository) delete(ctx context.Context, e *projectMemberEntity) error {
-	_, err := t.s.tc.Apiv1().ProjectMember().Delete(ctx, &tenantv1.ProjectMemberDeleteRequest{
+	_, err := t.s.tc.Apiv1().ProjectMember().Delete(ctx, &tenantv1.ProjectMemberServiceDeleteRequest{
 		Id: e.Meta.Id,
 	})
 	if err != nil {
@@ -114,7 +114,7 @@ func (t *projectMemberRepository) get(ctx context.Context, id string) (*projectM
 }
 
 func (t *projectMemberRepository) list(ctx context.Context, query *api.ProjectMemberQuery) ([]*projectMemberEntity, error) {
-	resp, err := t.s.tc.Apiv1().ProjectMember().Find(ctx, &tenantv1.ProjectMemberFindRequest{
+	resp, err := t.s.tc.Apiv1().ProjectMember().List(ctx, &tenantv1.ProjectMemberServiceListRequest{
 		ProjectId:   &t.scope.projectID,
 		TenantId:    query.TenantId,
 		Annotations: query.Annotations,
@@ -144,7 +144,7 @@ func (t *projectMemberRepository) update(ctx context.Context, member *projectMem
 		member.Meta.Annotations[api.ProjectRoleAnnotation] = msg.Role.String()
 	}
 
-	resp, err := t.s.tc.Apiv1().ProjectMember().Update(ctx, &tenantv1.ProjectMemberUpdateRequest{
+	resp, err := t.s.tc.Apiv1().ProjectMember().Update(ctx, &tenantv1.ProjectMemberServiceUpdateRequest{
 		ProjectMember: member.ProjectMember,
 	})
 	if err != nil {

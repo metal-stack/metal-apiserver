@@ -55,7 +55,7 @@ func (t *tenantMemberRepository) convertToProto(ctx context.Context, e *tenantMe
 }
 
 func (t *tenantMemberRepository) create(ctx context.Context, c *api.TenantMemberCreateRequest) (*tenantMemberEntity, error) {
-	resp, err := t.s.tc.Apiv1().TenantMember().Create(ctx, &tenantv1.TenantMemberCreateRequest{
+	resp, err := t.s.tc.Apiv1().TenantMember().Create(ctx, &tenantv1.TenantMemberServiceCreateRequest{
 		TenantMember: &tenantv1.TenantMember{
 			Meta: &tenantv1.Meta{
 				Annotations: map[string]string{
@@ -74,7 +74,7 @@ func (t *tenantMemberRepository) create(ctx context.Context, c *api.TenantMember
 }
 
 func (t *tenantMemberRepository) delete(ctx context.Context, e *tenantMemberEntity) error {
-	_, err := t.s.tc.Apiv1().TenantMember().Delete(ctx, &tenantv1.TenantMemberDeleteRequest{
+	_, err := t.s.tc.Apiv1().TenantMember().Delete(ctx, &tenantv1.TenantMemberServiceDeleteRequest{
 		Id: e.Meta.Id,
 	})
 	if err != nil {
@@ -118,7 +118,7 @@ func (t *tenantMemberRepository) get(ctx context.Context, id string) (*tenantMem
 }
 
 func (t *tenantMemberRepository) list(ctx context.Context, query *api.TenantMemberQuery) ([]*tenantMemberEntity, error) {
-	resp, err := t.s.tc.Apiv1().TenantMember().Find(ctx, &tenantv1.TenantMemberFindRequest{
+	resp, err := t.s.tc.Apiv1().TenantMember().List(ctx, &tenantv1.TenantMemberServiceListRequest{
 		TenantId:    &t.scope.tenantID,
 		MemberId:    query.MemberId,
 		Annotations: query.Annotations,
@@ -148,7 +148,7 @@ func (t *tenantMemberRepository) update(ctx context.Context, member *tenantMembe
 		member.Meta.Annotations[api.TenantRoleAnnotation] = msg.Role.String()
 	}
 
-	resp, err := t.s.tc.Apiv1().TenantMember().Update(ctx, &tenantv1.TenantMemberUpdateRequest{
+	resp, err := t.s.tc.Apiv1().TenantMember().Update(ctx, &tenantv1.TenantMemberServiceUpdateRequest{
 		TenantMember: member.TenantMember,
 	})
 	if err != nil {

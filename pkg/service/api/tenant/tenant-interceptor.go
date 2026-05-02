@@ -30,7 +30,7 @@ type (
 func NewInterceptor(log *slog.Logger, masterClient tenant.Client) *tenantInterceptor {
 	return &tenantInterceptor{
 		projectCache: cache.New(1*time.Hour, func(ctx context.Context, id string) (*tenantv1.Project, error) {
-			pgr, err := masterClient.Apiv1().Project().Get(ctx, &tenantv1.ProjectGetRequest{Id: id})
+			pgr, err := masterClient.Apiv1().Project().Get(ctx, &tenantv1.ProjectServiceGetRequest{Id: id})
 			if err != nil {
 				return nil, fmt.Errorf("unable to get project: %w", err)
 			}
@@ -55,7 +55,7 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 			}
 
 			setUserFieldsByTenantLookup = func(tenantID string) error {
-				tgr, err := i.masterClient.Apiv1().Tenant().Get(ctx, &tenantv1.TenantGetRequest{Id: tenantID})
+				tgr, err := i.masterClient.Apiv1().Tenant().Get(ctx, &tenantv1.TenantServiceGetRequest{Id: tenantID})
 				if errorutil.IsNotFound(err) {
 					return errorutil.NewNotFound(err)
 				}

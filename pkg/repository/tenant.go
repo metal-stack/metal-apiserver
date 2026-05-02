@@ -109,7 +109,7 @@ func (t *tenantRepository) createWithID(ctx context.Context, c *apiv2.TenantServ
 		tenant.Description = *c.Description
 	}
 
-	resp, err := t.s.tc.Apiv1().Tenant().Create(ctx, &tenantv1.TenantCreateRequest{Tenant: tenant})
+	resp, err := t.s.tc.Apiv1().Tenant().Create(ctx, &tenantv1.TenantServiceCreateRequest{Tenant: tenant})
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -118,7 +118,7 @@ func (t *tenantRepository) createWithID(ctx context.Context, c *apiv2.TenantServ
 }
 
 func (t *tenantRepository) delete(ctx context.Context, e *tenantEntity) error {
-	_, err := t.s.tc.Apiv1().Tenant().Delete(ctx, &tenantv1.TenantDeleteRequest{Id: e.Meta.Id})
+	_, err := t.s.tc.Apiv1().Tenant().Delete(ctx, &tenantv1.TenantServiceDeleteRequest{Id: e.Meta.Id})
 	if err != nil {
 		return errorutil.Convert(err)
 	}
@@ -143,7 +143,7 @@ func (t *tenantRepository) find(ctx context.Context, query *apiv2.TenantServiceL
 }
 
 func (t *tenantRepository) get(ctx context.Context, id string) (*tenantEntity, error) {
-	resp, err := t.s.tc.Apiv1().Tenant().Get(ctx, &tenantv1.TenantGetRequest{Id: id})
+	resp, err := t.s.tc.Apiv1().Tenant().Get(ctx, &tenantv1.TenantServiceGetRequest{Id: id})
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -152,7 +152,7 @@ func (t *tenantRepository) get(ctx context.Context, id string) (*tenantEntity, e
 }
 
 func (t *tenantRepository) list(ctx context.Context, query *apiv2.TenantServiceListRequest) ([]*tenantEntity, error) {
-	resp, err := t.s.tc.Apiv1().Tenant().Find(ctx, &tenantv1.TenantFindRequest{
+	resp, err := t.s.tc.Apiv1().Tenant().List(ctx, &tenantv1.TenantServiceListRequest{
 		Id:   query.Id,
 		Name: query.Name,
 	})
@@ -192,7 +192,7 @@ func (t *tenantRepository) update(ctx context.Context, tenant *tenantEntity, rq 
 		tenant.Meta.Labels = updateLabelsOnSlice(rq.Labels, tenant.Meta.Labels)
 	}
 
-	resp, err := t.s.tc.Apiv1().Tenant().Update(ctx, &tenantv1.TenantUpdateRequest{Tenant: tenant.Tenant})
+	resp, err := t.s.tc.Apiv1().Tenant().Update(ctx, &tenantv1.TenantServiceUpdateRequest{Tenant: tenant.Tenant})
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -271,7 +271,7 @@ func (t *tenantRepository) tenantMember(scope *TenantScope) TenantMember {
 }
 
 func (t *tenantRepository) ListTenantMembers(ctx context.Context, tenant string, includeInherited bool) ([]*api.TenantWithMembershipAnnotations, error) {
-	resp, err := t.s.tc.Apiv1().Tenant().ListTenantMembers(ctx, &tenantv1.ListTenantMembersRequest{
+	resp, err := t.s.tc.Apiv1().Tenant().ListTenantMembers(ctx, &tenantv1.TenantServiceListTenantMembersRequest{
 		TenantId:         tenant,
 		IncludeInherited: new(includeInherited),
 	})
@@ -299,7 +299,7 @@ func (t *tenantRepository) ListTenantMembers(ctx context.Context, tenant string,
 }
 
 func (t *tenantRepository) FindParticipatingTenants(ctx context.Context, tenant string, includeInherited bool) ([]*api.TenantWithMembershipAnnotations, error) {
-	resp, err := t.s.tc.Apiv1().Tenant().FindParticipatingTenants(ctx, &tenantv1.FindParticipatingTenantsRequest{
+	resp, err := t.s.tc.Apiv1().Tenant().FindParticipatingTenants(ctx, &tenantv1.TenantServiceFindParticipatingTenantsRequest{
 		TenantId:         tenant,
 		IncludeInherited: new(includeInherited),
 	})
