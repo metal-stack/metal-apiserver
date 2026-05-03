@@ -102,7 +102,7 @@ func Test_filesystemServiceServer_Create(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("imageServiceServer.Create() = %v, want %vņdiff: %s", got, tt.want, diff)
+				t.Errorf("filesystemServiceServer.Create() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -206,7 +206,7 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("imageServiceServer.Create() = %v, want %vņdiff: %s", got, tt.want, diff)
+				t.Errorf("filesystemServiceServer.Update() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -330,7 +330,7 @@ func Test_filesystemServiceServer_Delete(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("imageServiceServer.Create() = %v, want %vņdiff: %s", got, tt.want, diff)
+				t.Errorf("filesystemServiceServer.Delete() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}

@@ -51,12 +51,18 @@ func (f *filesystemServiceServer) List(ctx context.Context, req *apiv2.Filesyste
 func (f *filesystemServiceServer) Match(ctx context.Context, req *apiv2.FilesystemServiceMatchRequest) (*apiv2.FilesystemServiceMatchResponse, error) {
 	switch match := req.Match.(type) {
 	case *apiv2.FilesystemServiceMatchRequest_SizeAndImage:
-		// call old school fsl try
+		fsl, err := f.repo.FilesystemLayout().AdditionalMethods().Try(ctx, match.SizeAndImage)
+		if err != nil {
+			return nil, err
+		}
+		return &apiv2.FilesystemServiceMatchResponse{FilesystemLayout: fsl}, nil
 	case *apiv2.FilesystemServiceMatchRequest_MachineAndFilesystemlayout:
-		// call old school fsl match
+		fsl, err := f.repo.FilesystemLayout().AdditionalMethods().Match(ctx, match.MachineAndFilesystemlayout)
+		if err != nil {
+			return nil, err
+		}
+		return &apiv2.FilesystemServiceMatchResponse{FilesystemLayout: fsl}, nil
 	default:
 		return nil, errorutil.InvalidArgument("given matchtype %T is unsupported", match)
 	}
-
-	panic("unimplemented")
 }
