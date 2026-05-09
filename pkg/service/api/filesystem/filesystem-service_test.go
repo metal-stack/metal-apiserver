@@ -89,3 +89,90 @@ func Test_filesystemServiceServer_Match(t *testing.T) {
 		})
 	}
 }
+
+func Test_filesystemServiceServer_Try(t *testing.T) {
+	t.Parallel()
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	ctx := t.Context()
+	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
+	dc.Create(&sc.DefaultDatacenter)
+
+	tests := []struct {
+		name    string
+		req     *apiv2.FilesystemServiceMatchRequest
+		want    func(*test.Entities) *apiv2.FilesystemServiceMatchResponse
+		wantErr error
+	}{
+		{
+			name: "try size and image",
+			req: &apiv2.FilesystemServiceMatchRequest{
+				Match: &apiv2.FilesystemServiceMatchRequest_SizeAndImage{
+					SizeAndImage: &apiv2.MatchImageAndSize{
+						Size:  sc.SizeC1Large,
+						Image: sc.ImageDebian12,
+					},
+				},
+			},
+			want: func(e *test.Entities) *apiv2.FilesystemServiceMatchResponse {
+				return &apiv2.FilesystemServiceMatchResponse{
+					FilesystemLayout: &apiv2.FilesystemLayout{
+						Id:          "debian",
+						Name:        new(""),
+						Description: new(""),
+						Meta:        &apiv2.Meta{},
+						Disks: []*apiv2.Disk{
+							{
+								Device: "/dev/sda",
+								Partitions: []*apiv2.DiskPartition{
+									{
+										Size: 1024,
+									},
+								},
+							},
+						},
+
+						Constraints: &apiv2.FilesystemLayoutConstraints{
+							Sizes: []string{sc.SizeC1Large, sc.SizeN1Medium},
+							Images: map[string]string{
+								"debian": ">= 12.0",
+							},
+						},
+					},
+				}
+			},
+			wantErr: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &filesystemServiceServer{
+				log:  log,
+				repo: dc.GetTestStore().Store,
+			}
+
+			var want *apiv2.FilesystemServiceMatchResponse
+			if tt.want != nil {
+				want = tt.want(dc.Snapshot())
+			}
+
+			if tt.wantErr == nil {
+				test.Validate(t, tt.req)
+			}
+			got, err := f.Match(ctx, tt.req)
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("diff = %s", diff)
+			}
+			if diff := cmp.Diff(
+				want, got,
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
+			); diff != "" {
+				t.Errorf("filesystemServiceServer.Match() diff: %s", diff)
+			}
+		})
+	}
+}
