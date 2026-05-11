@@ -266,15 +266,15 @@ const (
 
 func createRedisClients(cli *cli.Context, logger *slog.Logger) (*service.RedisConfig, error) {
 
-	token, _, err := createRedisClient(cli, logger, redisDatabaseTokens)
+	_, token, err := createRedisClient(cli, logger, redisDatabaseTokens)
 	if err != nil {
 		return nil, err
 	}
-	rate, _, err := createRedisClient(cli, logger, redisDatabaseRateLimiting)
+	_, rate, err := createRedisClient(cli, logger, redisDatabaseRateLimiting)
 	if err != nil {
 		return nil, err
 	}
-	invite, _, err := createRedisClient(cli, logger, redisDatabaseInvites)
+	_, invite, err := createRedisClient(cli, logger, redisDatabaseInvites)
 	if err != nil {
 		return nil, err
 	}

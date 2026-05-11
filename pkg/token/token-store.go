@@ -9,7 +9,6 @@ import (
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/valkey-io/valkey-go"
-	"github.com/valkey-io/valkey-go/valkeycompat"
 )
 
 const (
@@ -104,15 +103,14 @@ func (r *redisStore) List(ctx context.Context, userid string) ([]*apiv2.Token, e
 
 func (r *redisStore) AdminList(ctx context.Context) ([]*apiv2.Token, error) {
 	var (
-		compat = valkeycompat.NewAdapter(r.client)
-		res    []*apiv2.Token
+		res []*apiv2.Token
 	)
-	elements, _, err := compat.Scan(ctx, 0, prefix+"*", 0).Result()
+	entry, err := r.client.Do(ctx, r.client.B().Scan().Cursor(0).Match(prefix+"*").Build()).AsScanEntry()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error scanning all tokens error:%w", err)
 	}
 
-	for _, element := range elements {
+	for _, element := range entry.Elements {
 		encoded, err := r.client.Do(ctx, r.client.B().Get().Key(element).Build()).AsBytes()
 		if err != nil {
 			return nil, fmt.Errorf("unable to get content by key:%q error:%w", encoded, err)

@@ -19,19 +19,26 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
-	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
+	"github.com/valkey-io/valkey-go"
 )
 
 func prepare(t *testing.T) (certs.CertStore, *ecdsa.PrivateKey) {
 	s := miniredis.RunT(t)
-	c := redis.NewClient(&redis.Options{Addr: s.Addr()})
+	c, err := valkey.NewClient(valkey.ClientOption{
+		InitAddress: []string{s.Addr()},
+		// This is required because otherwise we get:
+		// unknown subcommand 'TRACKING'. Try CLIENT HELP.: [CLIENT TRACKING ON OPTIN]
+		// ClientOption.DisableCache must be true for valkey not supporting client-side caching or not supporting RESP3
+		DisableCache: true,
+	})
+	require.NoError(t, err)
 
 	// creating an initial signing certificate
 	store := certs.NewRedisStore(&certs.Config{
-		RedisClient: c,
+		ValkeyClient: c,
 	})
-	_, err := store.LatestPrivate(t.Context())
+	_, err = store.LatestPrivate(t.Context())
 	require.NoError(t, err)
 
 	key, err := store.LatestPrivate(t.Context())
@@ -142,7 +149,15 @@ func Test_authorize_with_permissions(t *testing.T) {
 			defer s.Close()
 
 			ctx := t.Context()
-			tokenStore := token.NewRedisStore(redis.NewClient(&redis.Options{Addr: s.Addr()}))
+			c, err := valkey.NewClient(valkey.ClientOption{
+				InitAddress: []string{s.Addr()},
+				// This is required because otherwise we get:
+				// unknown subcommand 'TRACKING'. Try CLIENT HELP.: [CLIENT TRACKING ON OPTIN]
+				// ClientOption.DisableCache must be true for valkey not supporting client-side caching or not supporting RESP3
+				DisableCache: true,
+			})
+			require.NoError(t, err)
+			tokenStore := token.NewRedisStore(c)
 
 			exp := time.Hour
 			if tt.expiration != nil {

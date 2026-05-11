@@ -9,13 +9,12 @@ import (
 	"connectrpc.com/connect"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
-
-	"github.com/redis/go-redis/v9"
+	"github.com/valkey-io/valkey-go"
 )
 
 type Config struct {
-	Log         *slog.Logger
-	RedisClient *redis.Client
+	Log          *slog.Logger
+	ValkeyClient valkey.Client
 
 	MaxRequestsPerMinuteToken           int
 	MaxRequestsPerMinuteUnauthenticated int
@@ -30,7 +29,7 @@ type ratelimitInterceptor struct {
 
 func NewInterceptor(c *Config) *ratelimitInterceptor {
 	return &ratelimitInterceptor{
-		ratelimiter:                         New(c.RedisClient),
+		ratelimiter:                         New(c.ValkeyClient),
 		maxRequestsPerMinuteToken:           c.MaxRequestsPerMinuteToken,
 		maxRequestsPerMinuteUnauthenticated: c.MaxRequestsPerMinuteUnauthenticated,
 		log:                                 c.Log,

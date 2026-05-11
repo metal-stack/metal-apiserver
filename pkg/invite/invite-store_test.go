@@ -9,8 +9,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
-	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
+	"github.com/valkey-io/valkey-go"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -53,10 +53,19 @@ func Test_ProjectInvite(t *testing.T) {
 	secret, err := GenerateInviteSecret()
 	require.NoError(t, err)
 
+	now := timestamppb.Now()
+	mr := miniredis.RunT(t)
+	c, err := valkey.NewClient(valkey.ClientOption{
+		InitAddress: []string{mr.Addr()},
+		// This is required because otherwise we get:
+		// unknown subcommand 'TRACKING'. Try CLIENT HELP.: [CLIENT TRACKING ON OPTIN]
+		// ClientOption.DisableCache must be true for valkey not supporting client-side caching or not supporting RESP3
+		DisableCache: true,
+	})
+	require.NoError(t, err)
+
 	var (
-		now   = timestamppb.Now()
-		mr    = miniredis.RunT(t)
-		store = NewProjectRedisStore(redis.NewClient(&redis.Options{Addr: mr.Addr()}))
+		store = NewProjectRedisStore(c)
 		ctx   = t.Context()
 
 		i = &apiv2.ProjectInvite{
@@ -96,13 +105,21 @@ func Test_TenantInvite(t *testing.T) {
 	secret, err := GenerateInviteSecret()
 	require.NoError(t, err)
 
-	var (
-		now   = timestamppb.Now()
-		mr    = miniredis.RunT(t)
-		store = NewTenantRedisStore(redis.NewClient(&redis.Options{Addr: mr.Addr()}))
-		ctx   = t.Context()
+	now := timestamppb.Now()
+	mr := miniredis.RunT(t)
+	c, err := valkey.NewClient(valkey.ClientOption{
+		InitAddress: []string{mr.Addr()},
+		// This is required because otherwise we get:
+		// unknown subcommand 'TRACKING'. Try CLIENT HELP.: [CLIENT TRACKING ON OPTIN]
+		// ClientOption.DisableCache must be true for valkey not supporting client-side caching or not supporting RESP3
+		DisableCache: true,
+	})
+	require.NoError(t, err)
 
-		i = &apiv2.TenantInvite{
+	var (
+		ctx   = t.Context()
+		store = NewTenantRedisStore(c)
+		i     = &apiv2.TenantInvite{
 			Secret:           secret,
 			TargetTenant:     "target",
 			Role:             apiv2.TenantRole_TENANT_ROLE_EDITOR,

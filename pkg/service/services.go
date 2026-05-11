@@ -75,9 +75,9 @@ type Config struct {
 }
 
 type RedisConfig struct {
-	TokenClient     *redis.Client
-	RateLimitClient *redis.Client
-	InviteClient    *redis.Client
+	TokenClient     valkey.Client
+	RateLimitClient valkey.Client
+	InviteClient    valkey.Client
 	AsyncClient     *redis.Client
 	QueueClient     valkey.Client
 	ComponentClient valkey.Client
@@ -87,7 +87,7 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 	var (
 		tokenStore = tokencommon.NewRedisStore(c.RedisConfig.QueueClient) // FIXME TokenClient must be valkey-go
 		certStore  = certs.NewRedisStore(&certs.Config{
-			RedisClient: c.RedisConfig.TokenClient,
+			ValkeyClient: c.RedisConfig.TokenClient,
 		})
 		projectInviteStore = invite.NewProjectRedisStore(c.RedisConfig.InviteClient)
 		tenantInviteStore  = invite.NewTenantRedisStore(c.RedisConfig.InviteClient)
@@ -130,7 +130,7 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 		tenantInterceptor    = tenant.NewInterceptor(log, c.MasterClient)
 		ratelimitInterceptor = ratelimiter.NewInterceptor(&ratelimiter.Config{
 			Log:                                 log,
-			RedisClient:                         c.RedisConfig.RateLimitClient,
+			ValkeyClient:                        c.RedisConfig.RateLimitClient,
 			MaxRequestsPerMinuteToken:           c.MaxRequestsPerMinuteToken,
 			MaxRequestsPerMinuteUnauthenticated: c.MaxRequestsPerMinuteUnauthenticated,
 		})

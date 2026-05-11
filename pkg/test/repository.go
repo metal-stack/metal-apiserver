@@ -182,10 +182,10 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		hc, headscaleControllerURL, headscaleCloser = StartHeadscale(t)
 	}
 
-	projectInviteStore := invite.NewProjectRedisStore(rc)
-	tenantInviteStore := invite.NewTenantRedisStore(rc)
+	projectInviteStore := invite.NewProjectRedisStore(vc)
+	tenantInviteStore := invite.NewTenantRedisStore(vc)
 	tokenStore := tokencommon.NewRedisStore(vc)
-	certStore := certs.NewRedisStore(&certs.Config{RedisClient: rc})
+	certStore := certs.NewRedisStore(&certs.Config{ValkeyClient: vc})
 
 	auditingBackend, err := auditingmemory.NewMemory(auditing.Config{
 		Component: api.AuditingComponent,

@@ -8,10 +8,9 @@ import (
 	"math/big"
 	"strconv"
 	"strings"
-	"time"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	"github.com/redis/go-redis/v9"
+	"github.com/valkey-io/valkey-go"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -26,7 +25,7 @@ const (
 )
 
 var (
-	ErrInviteNotFound = redis.Nil
+	ErrInviteNotFound = valkey.Nil
 )
 
 type ProjectInviteStore interface {
@@ -48,18 +47,18 @@ type invite interface {
 }
 
 type projectRedisStore struct {
-	client *redis.Client
+	client valkey.Client
 }
 type tenantRedisStore struct {
-	client *redis.Client
+	client valkey.Client
 }
 
-func NewProjectRedisStore(client *redis.Client) ProjectInviteStore {
+func NewProjectRedisStore(client valkey.Client) ProjectInviteStore {
 	return &projectRedisStore{
 		client: client,
 	}
 }
-func NewTenantRedisStore(client *redis.Client) TenantInviteStore {
+func NewTenantRedisStore(client valkey.Client) TenantInviteStore {
 	return &tenantRedisStore{
 		client: client,
 	}
@@ -119,20 +118,20 @@ func (r *tenantRedisStore) SetInvite(ctx context.Context, invite *apiv2.TenantIn
 	return set(ctx, r.client, invite, func() string { return tenantkey(invite) })
 }
 
-func get[E any](ctx context.Context, c *redis.Client, secret string) (E, error) {
+func get[E any](ctx context.Context, c valkey.Client, secret string) (E, error) {
 	var zero E
 
 	if err := validateInviteSecret(secret); err != nil {
 		return zero, err
 	}
 
-	encoded, err := c.Get(ctx, secretkey(secret)).Result()
+	encoded, err := c.Do(ctx, c.B().Get().Key(secretkey(secret)).Build()).AsBytes()
 	if err != nil {
 		return zero, err
 	}
 
 	var e E
-	err = json.Unmarshal([]byte(encoded), &e)
+	err = json.Unmarshal(encoded, &e)
 	if err != nil {
 		return zero, err
 	}
@@ -140,22 +139,24 @@ func get[E any](ctx context.Context, c *redis.Client, secret string) (E, error) 
 	return e, nil
 }
 
-func delete(ctx context.Context, c *redis.Client, i invite, keyFn func() string) error {
+func delete(ctx context.Context, c valkey.Client, i invite, keyFn func() string) error {
 	if err := validateInviteSecret(i.GetSecret()); err != nil {
 		return err
 	}
 
-	pipe := c.TxPipeline()
+	cmds := make(valkey.Commands, 0, 2)
+	cmds = append(cmds, c.B().Del().Key(secretkey(i.GetSecret())).Build())
+	cmds = append(cmds, c.B().Del().Key(keyFn()).Build())
+	for i, resp := range c.DoMulti(ctx, cmds...) {
+		if resp.Error() != nil {
+			return fmt.Errorf("unable delete with command:%s %w", cmds[i].Commands()[1], resp.Error())
+		}
+	}
 
-	_ = pipe.Del(ctx, secretkey(i.GetSecret()))
-	_ = pipe.Del(ctx, keyFn())
-
-	_, err := pipe.Exec(ctx)
-
-	return err
+	return nil
 }
 
-func set(ctx context.Context, c *redis.Client, i invite, keyFn func() string) error {
+func set(ctx context.Context, c valkey.Client, i invite, keyFn func() string) error {
 	if i.GetExpiresAt() == nil {
 		return fmt.Errorf("invite needs to have an expiration")
 	}
@@ -169,38 +170,39 @@ func set(ctx context.Context, c *redis.Client, i invite, keyFn func() string) er
 		return fmt.Errorf("unable to encode invite: %w", err)
 	}
 
-	pipe := c.TxPipeline()
-
-	_ = pipe.Set(ctx, keyFn(), string(encoded), time.Until(i.GetExpiresAt().AsTime()))
-	_ = pipe.Set(ctx, secretkey(i.GetSecret()), string(encoded), time.Until(i.GetExpiresAt().AsTime()))
-
-	_, err = pipe.Exec(ctx)
-
-	return err
+	cmds := make(valkey.Commands, 0, 2)
+	cmds = append(cmds, c.B().Set().Key(keyFn()).Value(string(encoded)).Exat(i.GetExpiresAt().AsTime()).Build())
+	cmds = append(cmds, c.B().Set().Key(secretkey(i.GetSecret())).Value(string(encoded)).Exat(i.GetExpiresAt().AsTime()).Build())
+	for i, resp := range c.DoMulti(ctx, cmds...) {
+		if resp.Error() != nil {
+			return fmt.Errorf("unable delete with command:%s %w", cmds[i].Commands(), resp.Error())
+		}
+	}
+	return nil
 }
 
-func list[E any](ctx context.Context, c *redis.Client, match string) ([]E, error) {
+func list[E any](ctx context.Context, c valkey.Client, match string) ([]E, error) {
 	var (
-		res  []E
-		iter = c.Scan(ctx, 0, match, 0).Iterator()
+		res []E
 	)
+	entry, err := c.Do(ctx, c.B().Scan().Cursor(0).Match(match).Build()).AsScanEntry()
+	if err != nil {
+		return nil, err
+	}
 
-	for iter.Next(ctx) {
-		encoded, err := c.Get(ctx, iter.Val()).Result()
+	for _, element := range entry.Elements {
+		encoded, err := c.Do(ctx, c.B().Get().Key(element).Build()).AsBytes()
 		if err != nil {
 			return nil, err
 		}
 
 		var i E
-		err = json.Unmarshal([]byte(encoded), &i)
+		err = json.Unmarshal(encoded, &i)
 		if err != nil {
 			return nil, err
 		}
 
 		res = append(res, i)
-	}
-	if err := iter.Err(); err != nil {
-		return nil, err
 	}
 
 	return res, nil
