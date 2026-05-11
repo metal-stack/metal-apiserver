@@ -85,7 +85,7 @@ type RedisConfig struct {
 
 func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error) {
 	var (
-		tokenStore = tokencommon.NewRedisStore(c.RedisConfig.TokenClient)
+		tokenStore = tokencommon.NewRedisStore(c.RedisConfig.QueueClient) // FIXME TokenClient must be valkey-go
 		certStore  = certs.NewRedisStore(&certs.Config{
 			RedisClient: c.RedisConfig.TokenClient,
 		})

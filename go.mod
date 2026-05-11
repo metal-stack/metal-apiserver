@@ -41,6 +41,7 @@ require (
 	github.com/testcontainers/testcontainers-go/modules/valkey v0.42.0
 	github.com/urfave/cli/v2 v2.27.7
 	github.com/valkey-io/valkey-go v1.0.74
+	github.com/valkey-io/valkey-go/valkeycompat v1.0.74
 	go.opentelemetry.io/otel/exporters/prometheus v0.65.0
 	go.opentelemetry.io/otel/sdk/metric v1.43.0
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba

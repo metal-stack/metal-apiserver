@@ -7,9 +7,9 @@ import (
 
 	"github.com/alicebob/miniredis/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/valkey-io/valkey-go"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -17,15 +17,21 @@ func TestRedisStore(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	s := miniredis.RunT(t)
-	c := redis.NewClient(&redis.Options{Addr: s.Addr()})
-
+	c, err := valkey.NewClient(valkey.ClientOption{
+		InitAddress: []string{s.Addr()},
+		// This is required because otherwise we get:
+		// unknown subcommand 'TRACKING'. Try CLIENT HELP.: [CLIENT TRACKING ON OPTIN]
+		// ClientOption.DisableCache must be true for valkey not supporting client-side caching or not supporting RESP3
+		DisableCache: true,
+	})
+	require.NoError(t, err)
 	store := NewRedisStore(c)
 
-	johnDoeToken := &apiv2.Token{User: "john@doe.com", Uuid: "abc"}
-	willSmithToken := &apiv2.Token{User: "will@smith.com", Uuid: "def"}
-	frankZappaToken := &apiv2.Token{User: "frank@zappa.com", Uuid: "cde"}
+	johnDoeToken := &apiv2.Token{User: "john@doe.com", Uuid: "abc", Expires: timestamppb.New(time.Now().Add(time.Hour))}
+	willSmithToken := &apiv2.Token{User: "will@smith.com", Uuid: "def", Expires: timestamppb.New(time.Now().Add(time.Hour))}
+	frankZappaToken := &apiv2.Token{User: "frank@zappa.com", Uuid: "cde", Expires: timestamppb.New(time.Now().Add(time.Hour))}
 
-	err := store.Set(ctx, johnDoeToken)
+	err = store.Set(ctx, johnDoeToken)
 	require.NoError(t, err)
 
 	err = store.Set(ctx, willSmithToken)
@@ -59,8 +65,14 @@ func TestRedisStoreSetAndGet(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	s := miniredis.RunT(t)
-	c := redis.NewClient(&redis.Options{Addr: s.Addr()})
-
+	c, err := valkey.NewClient(valkey.ClientOption{
+		InitAddress: []string{s.Addr()},
+		// This is required because otherwise we get:
+		// unknown subcommand 'TRACKING'. Try CLIENT HELP.: [CLIENT TRACKING ON OPTIN]
+		// ClientOption.DisableCache must be true for valkey not supporting client-side caching or not supporting RESP3
+		DisableCache: true,
+	})
+	require.NoError(t, err)
 	store := NewRedisStore(c)
 
 	now := time.Now()
@@ -91,7 +103,7 @@ func TestRedisStoreSetAndGet(t *testing.T) {
 		MachineRoles: map[string]apiv2.MachineRole{},
 	}
 
-	err := store.Set(ctx, inTok)
+	err = store.Set(ctx, inTok)
 	require.NoError(t, err)
 
 	require.NoError(t, store.Migrate(ctx, slog.Default()))

@@ -184,7 +184,7 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 
 	projectInviteStore := invite.NewProjectRedisStore(rc)
 	tenantInviteStore := invite.NewTenantRedisStore(rc)
-	tokenStore := tokencommon.NewRedisStore(rc)
+	tokenStore := tokencommon.NewRedisStore(vc)
 	certStore := certs.NewRedisStore(&certs.Config{RedisClient: rc})
 
 	auditingBackend, err := auditingmemory.NewMemory(auditing.Config{
