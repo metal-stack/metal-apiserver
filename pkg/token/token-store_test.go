@@ -75,7 +75,7 @@ func TestRedisStoreSetAndGet(t *testing.T) {
 	require.NoError(t, err)
 	store := NewRedisStore(c)
 
-	now := time.Now()
+	inOneHour := time.Now().Add(time.Hour)
 
 	inTok := &apiv2.Token{
 		Uuid:        "bd21fe60-047c-45aa-812d-adc44e098a38",
@@ -87,8 +87,8 @@ func TestRedisStoreSetAndGet(t *testing.T) {
 				Methods: []string{"b", "c"},
 			},
 		},
-		Expires:   timestamppb.New(now),
-		IssuedAt:  timestamppb.New(now),
+		Expires:   timestamppb.New(inOneHour),
+		IssuedAt:  timestamppb.New(inOneHour),
 		TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 		ProjectRoles: map[string]apiv2.ProjectRole{
 			"8aa3f4c1-52a8-4656-86bc-4006ec016af6": apiv2.ProjectRole_PROJECT_ROLE_OWNER,

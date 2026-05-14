@@ -1115,7 +1115,7 @@ func Test_projectServiceServer_InviteGet(t *testing.T) {
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
 
-	now := timestamppb.Now()
+	inOneHour := timestamppb.New(time.Now().Add(time.Hour))
 
 	test.CreateProjectInvites(t, testStore, []*apiv2.ProjectInvite{
 		{
@@ -1126,7 +1126,7 @@ func Test_projectServiceServer_InviteGet(t *testing.T) {
 			TenantName:  "john.doe@github",
 			Project:     p0,
 			ProjectName: "john.doe@github",
-			ExpiresAt:   now,
+			ExpiresAt:   inOneHour,
 			JoinedAt:    nil,
 		},
 	})
@@ -1151,7 +1151,7 @@ func Test_projectServiceServer_InviteGet(t *testing.T) {
 					Project:     p0,
 					ProjectName: "john.doe@github",
 					Secret:      "abcdefghijklmnopqrstuvwxyz123456",
-					ExpiresAt:   now,
+					ExpiresAt:   inOneHour,
 					JoinedAt:    nil,
 				},
 			},
@@ -1211,7 +1211,7 @@ func Test_projectServiceServer_InvitesList(t *testing.T) {
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
 
-	now := timestamppb.Now()
+	inOneHour := timestamppb.New(time.Now().Add(time.Hour))
 
 	test.CreateProjectInvites(t, testStore, []*apiv2.ProjectInvite{
 		{
@@ -1222,7 +1222,7 @@ func Test_projectServiceServer_InvitesList(t *testing.T) {
 			TenantName:  "john.doe@github",
 			Project:     p0,
 			ProjectName: "john.doe@github",
-			ExpiresAt:   now,
+			ExpiresAt:   inOneHour,
 			JoinedAt:    nil,
 		},
 		{
@@ -1233,7 +1233,7 @@ func Test_projectServiceServer_InvitesList(t *testing.T) {
 			TenantName:  "john.doe@github",
 			Project:     p1,
 			ProjectName: "project-1",
-			ExpiresAt:   now,
+			ExpiresAt:   inOneHour,
 			JoinedAt:    nil,
 		},
 	})
@@ -1259,7 +1259,7 @@ func Test_projectServiceServer_InvitesList(t *testing.T) {
 						TenantName:  "john.doe@github",
 						Project:     p1,
 						ProjectName: "project-1",
-						ExpiresAt:   now,
+						ExpiresAt:   inOneHour,
 						JoinedAt:    nil,
 					},
 				},
@@ -1313,7 +1313,7 @@ func Test_projectServiceServer_InviteDelete(t *testing.T) {
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
 
-	now := timestamppb.Now()
+	inOneHour := timestamppb.New(time.Now().Add(time.Hour))
 
 	test.CreateProjectInvites(t, testStore, []*apiv2.ProjectInvite{
 		{
@@ -1324,7 +1324,7 @@ func Test_projectServiceServer_InviteDelete(t *testing.T) {
 			TenantName:  "john.doe@github",
 			Project:     p1,
 			ProjectName: "john.doe@github",
-			ExpiresAt:   now,
+			ExpiresAt:   inOneHour,
 			JoinedAt:    nil,
 		},
 	})

@@ -9,8 +9,8 @@ require (
 	connectrpc.com/grpcreflect v1.3.0
 	connectrpc.com/otelconnect v0.9.0
 	connectrpc.com/validate v0.6.0
-	github.com/Masterminds/semver/v3 v3.4.0
-	github.com/alicebob/miniredis/v2 v2.37.0
+	github.com/Masterminds/semver/v3 v3.5.0
+	github.com/alicebob/miniredis/v2 v2.38.0
 	github.com/avast/retry-go/v4 v4.7.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/golang-jwt/jwt/v5 v5.3.1
@@ -23,7 +23,7 @@ require (
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/juanfont/headscale v0.28.0
 	github.com/klauspost/connect-compress/v2 v2.1.1
-	github.com/lestrrat-go/jwx/v3 v3.1.0
+	github.com/lestrrat-go/jwx/v3 v3.1.1
 	github.com/looplab/fsm v1.0.3
 	github.com/markbates/goth v1.82.0
 	github.com/metal-stack/api v0.0.62
@@ -32,7 +32,7 @@ require (
 	github.com/metal-stack/metal-lib v0.25.0
 	github.com/metal-stack/v v1.0.3
 	github.com/prometheus/client_golang v1.23.2
-	github.com/redis/go-redis/v9 v9.18.0
+	github.com/redis/go-redis/v9 v9.19.0
 	github.com/rs/cors v1.11.1
 	github.com/samber/lo v1.53.0
 	github.com/stretchr/testify v1.11.1
@@ -40,14 +40,14 @@ require (
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.42.0
 	github.com/testcontainers/testcontainers-go/modules/valkey v0.42.0
 	github.com/urfave/cli/v2 v2.27.7
-	github.com/valkey-io/valkey-go v1.0.74
+	github.com/valkey-io/valkey-go v1.0.75
 	go.opentelemetry.io/otel/exporters/prometheus v0.65.0
 	go.opentelemetry.io/otel/sdk/metric v1.43.0
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba
-	golang.org/x/crypto v0.50.0
+	golang.org/x/crypto v0.51.0
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/sync v0.20.0
-	google.golang.org/grpc v1.80.0
+	google.golang.org/grpc v1.81.0
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/rethinkdb/rethinkdb-go.v6 v6.2.2
 	tailscale.com v1.96.5
@@ -97,7 +97,6 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dblohm7/wingoes v0.0.0-20250822163801-6d8e6105c62d // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.1 // indirect
-	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/docker/go-connections v0.7.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
@@ -195,6 +194,7 @@ require (
 	github.com/tailscale/wireguard-go v0.0.0-20250716170648-1d0488a3d7da // indirect
 	github.com/tklauser/go-sysconf v0.3.16 // indirect
 	github.com/tklauser/numcpus v0.11.0 // indirect
+	github.com/valyala/fastjson v1.6.10 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.2.0 // indirect
@@ -218,11 +218,11 @@ require (
 	go.uber.org/zap v1.27.1 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	go4.org/mem v0.0.0-20240501181205-ae6ca9944745 // indirect
-	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f // indirect
-	golang.org/x/net v0.53.0 // indirect
-	golang.org/x/sys v0.43.0 // indirect
-	golang.org/x/term v0.42.0 // indirect
-	golang.org/x/text v0.36.0 // indirect
+	golang.org/x/exp v0.0.0-20260508232706-74f9aab9d74a // indirect
+	golang.org/x/net v0.54.0 // indirect
+	golang.org/x/sys v0.44.0 // indirect
+	golang.org/x/term v0.43.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
 	golang.zx2c4.com/wireguard/windows v1.0.1 // indirect
