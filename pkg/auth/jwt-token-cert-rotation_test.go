@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"testing"
-	"testing/synctest"
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
@@ -34,10 +33,7 @@ func Test_jwt_cert_rotation(t *testing.T) {
 
 	s := miniredis.RunT(t)
 	c, err := valkey.NewClient(valkey.ClientOption{
-		InitAddress: []string{s.Addr()},
-		// This is required because otherwise we get:
-		// unknown subcommand 'TRACKING'. Try CLIENT HELP.: [CLIENT TRACKING ON OPTIN]
-		// ClientOption.DisableCache must be true for valkey not supporting client-side caching or not supporting RESP3
+		InitAddress:  []string{s.Addr()},
 		DisableCache: true,
 	})
 	require.NoError(t, err)
@@ -73,111 +69,111 @@ func Test_jwt_cert_rotation(t *testing.T) {
 		return s
 	}()
 
-	synctest.Test(t, func(t *testing.T) {
+	// synctest.Test(t, func(t *testing.T) {
 
-		ctx := t.Context()
+	ctx := t.Context()
 
-		var (
-			token1     = ""
-			token2     = ""
-			token3     = ""
-			previousAt *time.Duration
-		)
-		steps := []struct {
-			name string
-			at   time.Duration
-			task func(t *testing.T)
-		}{
-			{
-				name: "token 1",
-				at:   0 * time.Second,
-				task: func(t *testing.T) {
-					token1 = createNewConsoleToken(t, ctx, service)
-					expectCertStore(t, ctx, certStore, 1)
-					expectTokenWorks(t, ctx, auth, token1)
-				},
+	var (
+		token1     = ""
+		token2     = ""
+		token3     = ""
+		previousAt *time.Duration
+	)
+	steps := []struct {
+		name string
+		at   time.Duration
+		task func(t *testing.T)
+	}{
+		{
+			name: "token 1",
+			at:   0 * time.Second,
+			task: func(t *testing.T) {
+				token1 = createNewConsoleToken(t, ctx, service)
+				expectCertStore(t, ctx, certStore, 1)
+				expectTokenWorks(t, ctx, auth, token1)
 			},
-			{
-				name: "token2",
-				at:   2 * time.Second,
-				task: func(t *testing.T) {
-					token2 = createNewConsoleToken(t, ctx, service)
-					expectCertStore(t, ctx, certStore, 1)
-					expectTokenWorks(t, ctx, auth, token1)
-					expectTokenWorks(t, ctx, auth, token2)
-				},
+		},
+		{
+			name: "token2",
+			at:   2 * time.Second,
+			task: func(t *testing.T) {
+				token2 = createNewConsoleToken(t, ctx, service)
+				expectCertStore(t, ctx, certStore, 1)
+				expectTokenWorks(t, ctx, auth, token1)
+				expectTokenWorks(t, ctx, auth, token2)
 			},
-			{
-				name: "token3, next signing cert gets created",
-				at:   4 * time.Second,
-				task: func(t *testing.T) {
-					token3 = createNewConsoleToken(t, ctx, service)
-					expectCertStore(t, ctx, certStore, 2)
-					expectTokenWorks(t, ctx, auth, token1)
-					expectTokenWorks(t, ctx, auth, token2)
-					expectTokenWorks(t, ctx, auth, token3)
-				},
+		},
+		{
+			name: "token3, next signing cert gets created",
+			at:   4 * time.Second,
+			task: func(t *testing.T) {
+				token3 = createNewConsoleToken(t, ctx, service)
+				expectCertStore(t, ctx, certStore, 2)
+				expectTokenWorks(t, ctx, auth, token1)
+				expectTokenWorks(t, ctx, auth, token2)
+				expectTokenWorks(t, ctx, auth, token3)
 			},
-			{
-				name: "token1 expired, token 2 and 3 still work",
-				at:   6 * time.Second,
-				task: func(t *testing.T) {
-					token3 = createNewConsoleToken(t, ctx, service)
-					expectCertStore(t, ctx, certStore, 2)
-					expectTokenExpired(t, ctx, auth, token1)
-					expectTokenWorks(t, ctx, auth, token2)
-					expectTokenWorks(t, ctx, auth, token3)
-				},
+		},
+		{
+			name: "token1 expired, token 2 and 3 still work",
+			at:   6 * time.Second,
+			task: func(t *testing.T) {
+				token3 = createNewConsoleToken(t, ctx, service)
+				expectCertStore(t, ctx, certStore, 2)
+				expectTokenExpired(t, ctx, auth, token1)
+				expectTokenWorks(t, ctx, auth, token2)
+				expectTokenWorks(t, ctx, auth, token3)
 			},
-			{
-				name: "token1 and token2 expired, token 3 still works",
-				at:   8 * time.Second,
-				task: func(t *testing.T) {
-					expectCertStore(t, ctx, certStore, 2)
-					expectTokenExpired(t, ctx, auth, token1)
-					expectTokenExpired(t, ctx, auth, token2)
-					expectTokenWorks(t, ctx, auth, token3)
-				},
+		},
+		{
+			name: "token1 and token2 expired, token 3 still works",
+			at:   8 * time.Second,
+			task: func(t *testing.T) {
+				expectCertStore(t, ctx, certStore, 2)
+				expectTokenExpired(t, ctx, auth, token1)
+				expectTokenExpired(t, ctx, auth, token2)
+				expectTokenWorks(t, ctx, auth, token3)
 			},
-			{
-				name: "all tokens expired, first signing cert is gone",
-				at:   11 * time.Second,
-				task: func(t *testing.T) {
-					expectCertStore(t, ctx, certStore, 1)
-					expectTokenNoPublicKeyForSignatureFound(t, ctx, auth, token1)
-					expectTokenNoPublicKeyForSignatureFound(t, ctx, auth, token2)
-					expectTokenExpired(t, ctx, auth, token3)
-				},
+		},
+		{
+			name: "all tokens expired, first signing cert is gone",
+			at:   11 * time.Second,
+			task: func(t *testing.T) {
+				expectCertStore(t, ctx, certStore, 1)
+				expectTokenNoPublicKeyForSignatureFound(t, ctx, auth, token1)
+				expectTokenNoPublicKeyForSignatureFound(t, ctx, auth, token2)
+				expectTokenExpired(t, ctx, auth, token3)
 			},
-			{
-				name: "all tokens expired, all signing certs gone",
-				at:   15 * time.Second,
-				task: func(t *testing.T) {
-					expectCertStore(t, ctx, certStore, 0)
-					expectTokenNoPublicKeyForSignatureFound(t, ctx, auth, token1)
-					expectTokenNoPublicKeyForSignatureFound(t, ctx, auth, token2)
-					expectTokenNoPublicKeyForSignatureFound(t, ctx, auth, token3)
-				},
+		},
+		{
+			name: "all tokens expired, all signing certs gone",
+			at:   15 * time.Second,
+			task: func(t *testing.T) {
+				expectCertStore(t, ctx, certStore, 0)
+				expectTokenNoPublicKeyForSignatureFound(t, ctx, auth, token1)
+				expectTokenNoPublicKeyForSignatureFound(t, ctx, auth, token2)
+				expectTokenNoPublicKeyForSignatureFound(t, ctx, auth, token3)
 			},
+		},
+	}
+
+	time.Sleep(1 * time.Second)
+
+	for _, step := range steps {
+		forwardText := ""
+		if previousAt != nil {
+			forward := step.at - *previousAt
+			forwardText = fmt.Sprintf(" (forwarding by %s)", forward)
+			time.Sleep(forward)
+			s.FastForward(forward)
 		}
+		previousAt = &step.at
 
-		time.Sleep(1 * time.Second)
+		t.Logf("%s: running step at %q%s: %q", time.Now(), step.at, forwardText, step.name)
 
-		for _, step := range steps {
-			forwardText := ""
-			if previousAt != nil {
-				forward := step.at - *previousAt
-				forwardText = fmt.Sprintf(" (forwarding by %s)", forward)
-				time.Sleep(forward)
-				s.FastForward(forward)
-			}
-			previousAt = &step.at
-
-			t.Logf("%s: running step at %q%s: %q", time.Now(), step.at, forwardText, step.name)
-
-			step.task(t)
-		}
-	})
+		step.task(t)
+	}
+	// })
 }
 
 func createNewConsoleToken(t *testing.T, ctx context.Context, service tokenservice.TokenService) string {
