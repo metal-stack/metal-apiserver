@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/google/go-cmp/cmp"
@@ -53,7 +54,7 @@ func Test_ProjectInvite(t *testing.T) {
 	secret, err := GenerateInviteSecret()
 	require.NoError(t, err)
 
-	now := timestamppb.Now()
+	inOneHour := timestamppb.New(time.Now().Add(time.Hour))
 	mr := miniredis.RunT(t)
 	c, err := valkey.NewClient(valkey.ClientOption{
 		InitAddress: []string{mr.Addr()},
@@ -76,7 +77,7 @@ func Test_ProjectInvite(t *testing.T) {
 			ProjectName: "bar",
 			Tenant:      "tenant",
 			TenantName:  "tenant with name",
-			ExpiresAt:   now,
+			ExpiresAt:   inOneHour,
 			JoinedAt:    nil,
 		}
 	)
@@ -105,7 +106,7 @@ func Test_TenantInvite(t *testing.T) {
 	secret, err := GenerateInviteSecret()
 	require.NoError(t, err)
 
-	now := timestamppb.Now()
+	inOneHour := timestamppb.New(time.Now().Add(time.Hour))
 	mr := miniredis.RunT(t)
 	c, err := valkey.NewClient(valkey.ClientOption{
 		InitAddress: []string{mr.Addr()},
@@ -127,7 +128,7 @@ func Test_TenantInvite(t *testing.T) {
 			TargetTenantName: "target with name",
 			Tenant:           "tenant",
 			TenantName:       "tenant with name",
-			ExpiresAt:        now,
+			ExpiresAt:        inOneHour,
 			JoinedAt:         nil,
 		}
 	)

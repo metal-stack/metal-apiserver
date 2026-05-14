@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/valkey-io/valkey-go"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -52,8 +54,12 @@ func (r *redisStore) Set(ctx context.Context, token *apiv2.Token) error {
 	if err != nil {
 		return fmt.Errorf("unable to encode token: %w", err)
 	}
+	if token.Expires == nil {
+		token.Expires = timestamppb.New(time.Now().Add(DefaultExpiration))
+	}
 
-	err = r.client.Do(ctx, r.client.B().Set().Key(key(token.User, token.Uuid)).Value(string(encoded)).ExatTimestamp(token.Expires.AsTime().UnixMilli()).Build()).Error()
+	cmd := r.client.B().Set().Key(key(token.User, token.Uuid)).Value(string(encoded)).Exat(token.GetExpires().AsTime()).Build()
+	err = r.client.Do(ctx, cmd).Error()
 	if err != nil {
 		return err
 	}

@@ -39,6 +39,7 @@ type (
 	}
 
 	Datastore interface {
+		// Entities
 		IP() Storage[*metal.IP]
 		Machine() Storage[*metal.Machine]
 		Size() Storage[*metal.Size]
@@ -52,12 +53,11 @@ type (
 		SwitchStatus() Storage[*metal.SwitchStatus]
 		Event() Storage[*metal.ProvisioningEventContainer]
 
-		// sizeimageConstraint Storage[*metal.SizeImageConstraint]
-
 		// Pools
 		AsnPool() *integerPool
 		VrfPool() *integerPool
 
+		// SharedMutex
 		Lock(ctx context.Context, key string, opts ...lockOpt) error
 		Unlock(ctx context.Context, key string, opts ...lockOpt)
 

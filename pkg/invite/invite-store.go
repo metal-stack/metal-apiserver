@@ -125,15 +125,15 @@ func get[E any](ctx context.Context, c valkey.Client, secret string) (E, error) 
 		return zero, err
 	}
 
-	encoded, err := c.Do(ctx, c.B().Get().Key(secretkey(secret)).Build()).AsBytes()
+	encoded, err := c.Do(ctx, c.B().Get().Key(secretkey(secret)).Build()).ToString()
 	if err != nil {
-		return zero, err
+		return zero, fmt.Errorf("unable to get secret as bytes:%w", err)
 	}
 
 	var e E
-	err = json.Unmarshal(encoded, &e)
+	err = json.Unmarshal([]byte(encoded), &e)
 	if err != nil {
-		return zero, err
+		return zero, fmt.Errorf("unable to unmarshal secret from bytes:%w", err)
 	}
 
 	return e, nil
@@ -173,6 +173,9 @@ func set(ctx context.Context, c valkey.Client, i invite, keyFn func() string) er
 	cmds := make(valkey.Commands, 0, 2)
 	cmds = append(cmds, c.B().Set().Key(keyFn()).Value(string(encoded)).Exat(i.GetExpiresAt().AsTime()).Build())
 	cmds = append(cmds, c.B().Set().Key(secretkey(i.GetSecret())).Value(string(encoded)).Exat(i.GetExpiresAt().AsTime()).Build())
+	for _, cmd := range cmds {
+		fmt.Printf("cmd:%s\n", cmd.Commands())
+	}
 	for i, resp := range c.DoMulti(ctx, cmds...) {
 		if resp.Error() != nil {
 			return fmt.Errorf("unable delete with command:%s %w", cmds[i].Commands(), resp.Error())
