@@ -68,13 +68,13 @@ func (r *redisStore) Set(ctx context.Context, token *apiv2.Token) error {
 }
 
 func (r *redisStore) Get(ctx context.Context, userid, tokenid string) (*apiv2.Token, error) {
-	encoded, err := r.client.Do(ctx, r.client.B().Get().Key(key(userid, tokenid)).Build()).ToString()
+	encoded, err := r.client.Do(ctx, r.client.B().Get().Key(key(userid, tokenid)).Build()).AsBytes()
 	if err != nil {
 		return nil, err
 	}
 
 	var t token
-	err = json.Unmarshal([]byte(encoded), &t)
+	err = json.Unmarshal(encoded, &t)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +98,7 @@ func (r *redisStore) List(ctx context.Context, userid string) ([]*apiv2.Token, e
 		}
 
 		var t token
-		err = json.Unmarshal([]byte(encoded), &t)
+		err = json.Unmarshal(encoded, &t)
 		if err != nil {
 			return nil, fmt.Errorf("unable to decode scan result:%q error:%w", encoded, err)
 		}
@@ -123,7 +123,7 @@ func (r *redisStore) AdminList(ctx context.Context) ([]*apiv2.Token, error) {
 		}
 
 		var t token
-		err = json.Unmarshal([]byte(encoded), &t)
+		err = json.Unmarshal(encoded, &t)
 		if err != nil {
 			return nil, fmt.Errorf("unable to decode scan result:%q error:%w", encoded, err)
 		}

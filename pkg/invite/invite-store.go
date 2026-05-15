@@ -125,13 +125,13 @@ func get[E any](ctx context.Context, c valkey.Client, secret string) (E, error) 
 		return zero, err
 	}
 
-	encoded, err := c.Do(ctx, c.B().Get().Key(secretkey(secret)).Build()).ToString()
+	encoded, err := c.Do(ctx, c.B().Get().Key(secretkey(secret)).Build()).AsBytes()
 	if err != nil {
 		return zero, fmt.Errorf("unable to get secret as bytes:%w", err)
 	}
 
 	var e E
-	err = json.Unmarshal([]byte(encoded), &e)
+	err = json.Unmarshal(encoded, &e)
 	if err != nil {
 		return zero, fmt.Errorf("unable to unmarshal secret from bytes:%w", err)
 	}
