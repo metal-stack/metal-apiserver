@@ -18,10 +18,7 @@ func TestRedisStore(t *testing.T) {
 	ctx := t.Context()
 	s := miniredis.RunT(t)
 	c, err := valkey.NewClient(valkey.ClientOption{
-		InitAddress: []string{s.Addr()},
-		// This is required because otherwise we get:
-		// unknown subcommand 'TRACKING'. Try CLIENT HELP.: [CLIENT TRACKING ON OPTIN]
-		// ClientOption.DisableCache must be true for valkey not supporting client-side caching or not supporting RESP3
+		InitAddress:  []string{s.Addr()},
 		DisableCache: true,
 	})
 	require.NoError(t, err)
@@ -66,10 +63,7 @@ func TestRedisStoreSetAndGet(t *testing.T) {
 	ctx := t.Context()
 	s := miniredis.RunT(t)
 	c, err := valkey.NewClient(valkey.ClientOption{
-		InitAddress: []string{s.Addr()},
-		// This is required because otherwise we get:
-		// unknown subcommand 'TRACKING'. Try CLIENT HELP.: [CLIENT TRACKING ON OPTIN]
-		// ClientOption.DisableCache must be true for valkey not supporting client-side caching or not supporting RESP3
+		InitAddress:  []string{s.Addr()},
 		DisableCache: true,
 	})
 	require.NoError(t, err)

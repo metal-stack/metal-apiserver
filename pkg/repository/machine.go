@@ -376,7 +376,7 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 
 	for _, gpu := range m.Hardware.MetalGPUs {
 		gpus = append(gpus, &apiv2.MetalGPU{
-			Vendor: gpu.Model,
+			Vendor: gpu.Vendor,
 			Model:  gpu.Model,
 		})
 	}

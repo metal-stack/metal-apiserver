@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alicebob/miniredis/v2"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
@@ -18,33 +17,26 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
+	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/stretchr/testify/require"
 	"github.com/valkey-io/valkey-go"
 )
 
-func prepare(t *testing.T) (certs.CertStore, *ecdsa.PrivateKey) {
-	s := miniredis.RunT(t)
-	c, err := valkey.NewClient(valkey.ClientOption{
-		InitAddress: []string{s.Addr()},
-		// This is required because otherwise we get:
-		// unknown subcommand 'TRACKING'. Try CLIENT HELP.: [CLIENT TRACKING ON OPTIN]
-		// ClientOption.DisableCache must be true for valkey not supporting client-side caching or not supporting RESP3
-		DisableCache: true,
-	})
-	require.NoError(t, err)
+func prepare(t *testing.T) (valkey.Client, certs.CertStore, *ecdsa.PrivateKey) {
+	_, c, _ := test.StartValkey(t, test.WithMiniRedis(true))
 
 	// creating an initial signing certificate
 	store := certs.NewRedisStore(&certs.Config{
 		ValkeyClient: c,
 	})
-	_, err = store.LatestPrivate(t.Context())
+	_, err := store.LatestPrivate(t.Context())
 	require.NoError(t, err)
 
 	key, err := store.LatestPrivate(t.Context())
 	require.NoError(t, err)
 
-	return store, key
+	return c, store, key
 }
 
 func Test_authorize_with_permissions(t *testing.T) {
@@ -52,9 +44,11 @@ func Test_authorize_with_permissions(t *testing.T) {
 	require.NoError(t, err)
 	var (
 		expired             = -time.Hour
-		certStore, key      = prepare(t)
+		c, certStore, key   = prepare(t)
 		defaultIssuer       = "https://api-server"
 		maliciousSigningKey = pk
+		tokenStore          = token.NewRedisStore(c)
+		ctx                 = t.Context()
 	)
 
 	tests := []struct {
@@ -145,19 +139,6 @@ func Test_authorize_with_permissions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := miniredis.RunT(t)
-			defer s.Close()
-
-			ctx := t.Context()
-			c, err := valkey.NewClient(valkey.ClientOption{
-				InitAddress: []string{s.Addr()},
-				// This is required because otherwise we get:
-				// unknown subcommand 'TRACKING'. Try CLIENT HELP.: [CLIENT TRACKING ON OPTIN]
-				// ClientOption.DisableCache must be true for valkey not supporting client-side caching or not supporting RESP3
-				DisableCache: true,
-			})
-			require.NoError(t, err)
-			tokenStore := token.NewRedisStore(c)
 
 			exp := time.Hour
 			if tt.expiration != nil {
