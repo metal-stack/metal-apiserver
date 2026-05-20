@@ -16,6 +16,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	admintask "github.com/metal-stack/metal-apiserver/pkg/service/admin/task"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
+	"github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
 	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/stretchr/testify/require"
@@ -74,17 +75,46 @@ func Test_machineServiceServer_DeleteMachine(t *testing.T) {
 
 						m1.Allocation = nil
 					},
+					IPs: func(ips map[string]*apiv2.IP) {
+						delete(ips, "12.110.0.1")
+					},
+					Networks: func(networks map[string]*apiv2.Network) {
+						var tenantNetwork *apiv2.Network
+
+						for _, nw := range networks {
+							if nw.Name != nil && *nw.Name == scenarios.NetworkNameTenantPartition1 {
+								tenantNetwork = nw
+								break
+							}
+						}
+
+						require.NotNil(t, tenantNetwork, "tenant network was not created")
+
+						networks[tenantNetwork.Id].Consumption.Ipv4.UsedIps--
+					},
 				}
 			},
 		},
+		// delete machine keep static ips
 	}
 
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t, log, test.WithPostgres(true))
 	defer dc.Close()
+
+	// - ✅ delete Allocation
+	// - ✅ delete ephemeral ips from every machineNetwork
+	// - remove machine tag from static ips
+	// - release asn
+	// - ✅ send a provisioning event
+	// - delete headscale node if this was a firewall
+	// - delete tags
+	// - set preallocated to false
+	// - deleteVrfAtSwitches
+	// - ✅ send the machine bmc command MACHINE_BMC_COMMAND_MACHINE_DELETED
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			dc.Create(&sc.DefaultDatacenter)
+			dc.Create(&sc.DatacenterWithAllocations)
 			defer dc.Cleanup()
 
 			var (

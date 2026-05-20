@@ -74,4 +74,35 @@ var (
 			Machine:    m,
 		}
 	}
+
+	AllocatedMachineFunc = func(id, partition, size, project, image string, liveliness metal.MachineLiveliness, networks []*metal.MachineNetwork) *MachineWithLiveliness {
+		machineNumber := lo.Substring(id, -1, 1)
+
+		return &MachineWithLiveliness{
+			Liveliness: liveliness,
+			Machine: &metal.Machine{
+				Base:        metal.Base{ID: id},
+				PartitionID: partition,
+				SizeID:      size,
+				IPMI: metal.IPMI{ // required for healthy machine state
+					Address:     fmt.Sprintf("1.2.3.%s:623", machineNumber),
+					MacAddress:  "aa:bb:0" + machineNumber,
+					LastUpdated: time.Now().Add(-1 * time.Minute),
+					Fru: metal.Fru{
+						ProductSerial: "PS" + machineNumber,
+					},
+				},
+				State: metal.MachineState{
+					Value: metal.AvailableState,
+				},
+				Waiting: false,
+				Allocation: &metal.MachineAllocation{
+					Project:         project,
+					ImageID:         image,
+					Role:            metal.RoleMachine,
+					MachineNetworks: networks,
+				},
+			},
+		}
+	}
 )

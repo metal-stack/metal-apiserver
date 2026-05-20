@@ -1453,6 +1453,7 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 			}
 		}
 
+		// release asn does an insert with replace, so this is already idempotent and needs no further checking
 		if err := r.UnscopedMachine().AdditionalMethods().releaseASN(ctx, asn); err != nil {
 			return fmt.Errorf("unable to release asn: %w", err)
 		}
