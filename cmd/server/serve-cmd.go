@@ -371,7 +371,7 @@ func createIpamClient(cli *cli.Context, log *slog.Logger) (ipamv1connect.IpamSer
 	)
 
 	err := retry.Do(func() error {
-		version, err := ipamService.Version(cli.Context, connect.NewRequest(&ipamv1.VersionRequest{}))
+		version, err := ipamService.Version(cli.Context, &ipamv1.VersionRequest{})
 		if err != nil {
 			return err
 		}
