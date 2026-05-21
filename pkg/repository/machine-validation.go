@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"slices"
 
-	"connectrpc.com/connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
@@ -260,14 +259,14 @@ func (r *machineRepository) ipsAvailable(ctx context.Context, network string) er
 
 	var availableIps uint64
 	for _, pfx := range metalnetwork.Prefixes {
-		usage, err := r.s.ipam.PrefixUsage(ctx, connect.NewRequest(&ipamv1.PrefixUsageRequest{
+		usage, err := r.s.ipam.PrefixUsage(ctx, &ipamv1.PrefixUsageRequest{
 			Cidr:      pfx.String(),
 			Namespace: metalnetwork.Namespace,
-		}))
+		})
 		if err != nil {
 			return fmt.Errorf("unable to get network usage of: %s and prefixes:%s %w", network, pfx.String(), err)
 		}
-		availableIps += (usage.Msg.AvailableIps - usage.Msg.AcquiredIps)
+		availableIps += (usage.AvailableIps - usage.AcquiredIps)
 	}
 	r.s.log.Debug("ipsavailable", "network", network, "available", availableIps)
 	if availableIps < 1 {

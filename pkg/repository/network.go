@@ -8,7 +8,6 @@ import (
 	"slices"
 	"strings"
 
-	"connectrpc.com/connect"
 	"github.com/hibiken/asynq"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -74,7 +73,7 @@ func (r *Store) NetworkDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 	}
 
 	for _, prefix := range nw.Prefixes {
-		_, err = r.ipam.DeletePrefix(ctx, connect.NewRequest(&ipamv1.DeletePrefixRequest{Cidr: prefix.String(), Namespace: nw.Namespace}))
+		_, err = r.ipam.DeletePrefix(ctx, &ipamv1.DeletePrefixRequest{Cidr: prefix.String(), Namespace: nw.Namespace})
 		if err != nil && !errorutil.IsNotFound(err) {
 			r.log.Error("network release", "error", err)
 			return err
@@ -266,7 +265,7 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 	}
 
 	for _, prefix := range nw.Prefixes {
-		_, err = r.s.ipam.CreatePrefix(ctx, connect.NewRequest(&ipamv1.CreatePrefixRequest{Cidr: prefix.String(), Namespace: nw.Namespace}))
+		_, err = r.s.ipam.CreatePrefix(ctx, &ipamv1.CreatePrefixRequest{Cidr: prefix.String(), Namespace: nw.Namespace})
 		if err != nil {
 			return nil, err
 		}
@@ -347,14 +346,14 @@ func (r *networkRepository) update(ctx context.Context, nw *metal.Network, req *
 	r.s.log.Debug("update", "network id", nw.ID, "prefixes to add", prefixesToBeAdded, "prefixes to remove", prefixesToBeRemoved)
 
 	for _, p := range prefixesToBeRemoved {
-		_, err := r.s.ipam.DeletePrefix(ctx, connect.NewRequest(&ipamv1.DeletePrefixRequest{Cidr: p.String(), Namespace: nw.Namespace}))
+		_, err := r.s.ipam.DeletePrefix(ctx, &ipamv1.DeletePrefixRequest{Cidr: p.String(), Namespace: nw.Namespace})
 		if err != nil {
 			return nil, errorutil.Convert(err)
 		}
 	}
 
 	for _, p := range prefixesToBeAdded {
-		_, err := r.s.ipam.CreatePrefix(ctx, connect.NewRequest(&ipamv1.CreatePrefixRequest{Cidr: p.String(), Namespace: nw.Namespace}))
+		_, err := r.s.ipam.CreatePrefix(ctx, &ipamv1.CreatePrefixRequest{Cidr: p.String(), Namespace: nw.Namespace})
 		if err != nil {
 			return nil, errorutil.Convert(err)
 		}
@@ -493,7 +492,7 @@ func (r *networkRepository) getNetworkUsage(ctx context.Context, nw *metal.Netwo
 		if pfx.Addr().Is6() {
 			af = metal.AddressFamilyIPv6
 		}
-		resp, err := r.s.ipam.PrefixUsage(ctx, connect.NewRequest(&ipamv1.PrefixUsageRequest{Cidr: prefix.String(), Namespace: nw.Namespace}))
+		resp, err := r.s.ipam.PrefixUsage(ctx, &ipamv1.PrefixUsageRequest{Cidr: prefix.String(), Namespace: nw.Namespace})
 		if err != nil {
 			return nil, err
 		}
@@ -503,18 +502,18 @@ func (r *networkRepository) getNetworkUsage(ctx context.Context, nw *metal.Netwo
 			if consumption.Ipv4 == nil {
 				consumption.Ipv4 = &apiv2.NetworkUsage{}
 			}
-			consumption.Ipv4.AvailableIps += u.Msg.AvailableIps
-			consumption.Ipv4.UsedIps += u.Msg.AcquiredIps
-			consumption.Ipv4.AvailablePrefixes += uint64(len(u.Msg.AvailablePrefixes))
-			consumption.Ipv4.UsedPrefixes += u.Msg.AcquiredPrefixes
+			consumption.Ipv4.AvailableIps += u.AvailableIps
+			consumption.Ipv4.UsedIps += u.AcquiredIps
+			consumption.Ipv4.AvailablePrefixes += uint64(len(u.AvailablePrefixes))
+			consumption.Ipv4.UsedPrefixes += u.AcquiredPrefixes
 		case metal.AddressFamilyIPv6:
 			if consumption.Ipv6 == nil {
 				consumption.Ipv6 = &apiv2.NetworkUsage{}
 			}
-			consumption.Ipv6.AvailableIps += u.Msg.AvailableIps
-			consumption.Ipv6.UsedIps += u.Msg.AcquiredIps
-			consumption.Ipv6.AvailablePrefixes += uint64(len(u.Msg.AvailablePrefixes))
-			consumption.Ipv6.UsedPrefixes += u.Msg.AcquiredPrefixes
+			consumption.Ipv6.AvailableIps += u.AvailableIps
+			consumption.Ipv6.UsedIps += u.AcquiredIps
+			consumption.Ipv6.AvailablePrefixes += uint64(len(u.AvailablePrefixes))
+			consumption.Ipv6.UsedPrefixes += u.AcquiredPrefixes
 		}
 
 	}
@@ -629,15 +628,15 @@ func (r *networkRepository) createChildPrefix(ctx context.Context, namespace *st
 	)
 
 	if namespace != nil {
-		_, err := r.s.ipam.CreateNamespace(ctx, connect.NewRequest(&ipamv1.CreateNamespaceRequest{Namespace: *namespace}))
+		_, err := r.s.ipam.CreateNamespace(ctx, &ipamv1.CreateNamespaceRequest{Namespace: *namespace})
 		if err != nil {
 			return nil, errorutil.Internal("unable to create namespace:%v", err)
 		}
 		for _, parentPrefix := range parentPrefixes.OfFamily(af) {
-			_, err := r.s.ipam.GetPrefix(ctx, connect.NewRequest(&ipamv1.GetPrefixRequest{
+			_, err := r.s.ipam.GetPrefix(ctx, &ipamv1.GetPrefixRequest{
 				Cidr:      parentPrefix.String(),
 				Namespace: namespace,
-			}))
+			})
 			if err == nil {
 				continue
 			}
@@ -645,21 +644,21 @@ func (r *networkRepository) createChildPrefix(ctx context.Context, namespace *st
 				return nil, errorutil.Internal("unable to get prefix %s from super network in ipam:%v", parentPrefix.String(), err)
 			}
 
-			_, err = r.s.ipam.CreatePrefix(ctx, connect.NewRequest(&ipamv1.CreatePrefixRequest{
+			_, err = r.s.ipam.CreatePrefix(ctx, &ipamv1.CreatePrefixRequest{
 				Cidr:      parentPrefix.String(),
 				Namespace: namespace,
-			}))
+			})
 			if err != nil {
 				return nil, errorutil.Internal("unable to create namespaced super network:%v", err)
 			}
 		}
 	}
 	for _, parentPrefix := range parentPrefixes.OfFamily(af) {
-		resp, err := r.s.ipam.AcquireChildPrefix(ctx, connect.NewRequest(&ipamv1.AcquireChildPrefixRequest{
+		resp, err := r.s.ipam.AcquireChildPrefix(ctx, &ipamv1.AcquireChildPrefixRequest{
 			Cidr:      parentPrefix.String(),
 			Length:    uint32(childLength),
 			Namespace: namespace,
-		}))
+		})
 		if err != nil {
 			// If in one of the prefixes is not enough room for a prefix, ignore it an proceed
 			// hopefully one of the prefixes has one left.
@@ -670,7 +669,7 @@ func (r *networkRepository) createChildPrefix(ctx context.Context, namespace *st
 			continue
 		}
 
-		pfx, _, err := metal.NewPrefixFromCIDR(resp.Msg.Prefix.Cidr)
+		pfx, _, err := metal.NewPrefixFromCIDR(resp.Prefix.Cidr)
 		if err != nil {
 			return nil, errorutil.NewInternal(err)
 		}
