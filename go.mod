@@ -2,8 +2,6 @@ module github.com/metal-stack/metal-apiserver
 
 go 1.26.1
 
-replace github.com/metal-stack/go-ipam => ../go-ipam
-
 require (
 	buf.build/go/protovalidate v1.2.0
 	connectrpc.com/connect v1.19.2
@@ -29,7 +27,7 @@ require (
 	github.com/looplab/fsm v1.0.3
 	github.com/markbates/goth v1.82.0
 	github.com/metal-stack/api v0.0.62
-	github.com/metal-stack/go-ipam v1.14.14
+	github.com/metal-stack/go-ipam v1.15.0
 	github.com/metal-stack/masterdata-api v0.13.0
 	github.com/metal-stack/metal-lib v0.25.0
 	github.com/metal-stack/v v1.0.3

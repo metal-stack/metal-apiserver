@@ -441,6 +441,8 @@ github.com/mdlayher/socket v0.6.0 h1:ScZPaAGyO1icQnbFrhPM8mnXyMu9qukC1K4ZoM2IQKU
 github.com/mdlayher/socket v0.6.0/go.mod h1:q7vozUAnxSqnjHc12Fik5yUKIzfZ8ITCfMkhOtE9z18=
 github.com/metal-stack/api v0.0.62 h1:yXpRk/xRFB/L1e5MR1TKpL6B+azAYpd2QhnEAnZ12a4=
 github.com/metal-stack/api v0.0.62/go.mod h1:n8bd+Oi65Xf+3TUFwxyF79jt+1Aryt+M7quoqnyhxxY=
+github.com/metal-stack/go-ipam v1.15.0 h1:3uKcIfGpIeIBGyksxW+akpZkc8CtHlS0eKVvQj5hm6Y=
+github.com/metal-stack/go-ipam v1.15.0/go.mod h1:1tqol/jwJCWiM8QCZVsMzle6AW3lG3AGb7JH9BS4PT8=
 github.com/metal-stack/goth v0.1.0 h1:sdadAH9QG+xAjLNKAJq8+esfXct6icTs58juoR4BKrQ=
 github.com/metal-stack/goth v0.1.0/go.mod h1:FNz3T5lydfi+ls1O3adXgN9Xmn4sn/SZE4t+Sswl+Uc=
 github.com/metal-stack/masterdata-api v0.13.0 h1:1AxnsiWiTMstjMsphZ0wMFT7aW3QQhAMumXnQ81PtHk=
