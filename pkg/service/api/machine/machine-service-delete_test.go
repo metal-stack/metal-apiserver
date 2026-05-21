@@ -16,7 +16,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	admintask "github.com/metal-stack/metal-apiserver/pkg/service/admin/task"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
-	"github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
 	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/stretchr/testify/require"
@@ -82,7 +81,7 @@ func Test_machineServiceServer_DeleteMachine(t *testing.T) {
 						var tenantNetwork *apiv2.Network
 
 						for _, nw := range networks {
-							if nw.Name != nil && *nw.Name == scenarios.NetworkNameTenantPartition1 {
+							if nw.Name != nil && *nw.Name == sc.NetworkNameTenantPartition1 {
 								tenantNetwork = nw
 								break
 							}
