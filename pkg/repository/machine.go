@@ -376,7 +376,7 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 
 	for _, gpu := range m.Hardware.MetalGPUs {
 		gpus = append(gpus, &apiv2.MetalGPU{
-			Vendor: gpu.Model,
+			Vendor: gpu.Vendor,
 			Model:  gpu.Model,
 		})
 	}
@@ -876,7 +876,7 @@ func (r *machineRepository) InstallationSucceeded(ctx context.Context, req *infr
 		return nil, fmt.Errorf("unknown allocation role:%q found", role)
 	}
 	if vrf == "" {
-		return nil, fmt.Errorf("the machine %q could not be put into the vrf because no vrf was found, error: %w", req.Uuid, err)
+		return nil, fmt.Errorf("the machine %q could not be put into the vrf because no vrf was found", req.Uuid)
 	}
 
 	// TODO convert to tasks
