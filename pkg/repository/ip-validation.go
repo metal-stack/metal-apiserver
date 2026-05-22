@@ -27,7 +27,7 @@ func (r *ipRepository) validateCreate(ctx context.Context, req *apiv2.IPServiceC
 	}
 
 	if nw.ProjectID != "" && nw.ProjectID != req.Project {
-		return fmt.Errorf("not allowed to create ip with project %s in network %s scoped to project %s", req.Project, req.Network, nw.ProjectID)
+		return fmt.Errorf("not allowed to create ip in network %q", req.Network)
 	}
 
 	// for private, unshared networks the project id must be the same
@@ -37,7 +37,7 @@ func (r *ipRepository) validateCreate(ctx context.Context, req *apiv2.IPServiceC
 		case metal.NetworkTypeChildShared, metal.NetworkTypeExternal, metal.NetworkTypeUnderlay:
 			// this is fine
 		default:
-			return fmt.Errorf("can not allocate ip for project %q because network belongs to %q and the network is of type:%s", req.Project, nw.ProjectID, nw.NetworkType)
+			return fmt.Errorf("cannot allocate ip in network of type %s", nw.NetworkType)
 		}
 	}
 
@@ -46,12 +46,17 @@ func (r *ipRepository) validateCreate(ctx context.Context, req *apiv2.IPServiceC
 		if err == nil || existingIP != nil {
 			return fmt.Errorf("given ip %q is already allocated", *req.Ip)
 		}
+		if !errorutil.IsNotFound(err) {
+			return errorutil.NewFailedPrecondition(err)
+		}
+
 		parsedIP, err := netip.ParseAddr(*req.Ip)
 		if err != nil {
 			return err
 		}
 
 		var partofNetworkPrefixes bool
+
 		for _, pfx := range nw.Prefixes {
 			parsedPrefix, err := netip.ParsePrefix(pfx.String())
 			if err != nil {
@@ -60,15 +65,15 @@ func (r *ipRepository) validateCreate(ctx context.Context, req *apiv2.IPServiceC
 
 			if parsedPrefix.Contains(parsedIP) {
 				partofNetworkPrefixes = true
+				break
 			}
 		}
+
 		if !partofNetworkPrefixes {
 			return fmt.Errorf("specific ip %q is not contained in any of the prefixes of network %q", *req.Ip, nw.ID)
 		}
-	} else {
-		if err := r.s.UnscopedNetwork().AdditionalMethods().ipsAvailable(ctx, nw.ID); err != nil {
-			return err
-		}
+	} else if err := r.s.UnscopedNetwork().AdditionalMethods().ipsAvailable(ctx, nw.ID); err != nil {
+		return err
 	}
 
 	if req.AddressFamily != nil {
@@ -78,8 +83,9 @@ func (r *ipRepository) validateCreate(ctx context.Context, req *apiv2.IPServiceC
 		}
 
 		if !slices.Contains(nw.Prefixes.AddressFamilies(), convertedAf) {
-			return fmt.Errorf("there is no prefix for the given addressfamily:%s present in network:%s %s", convertedAf, req.Network, nw.Prefixes.AddressFamilies())
+			return fmt.Errorf("there is no prefix for the given addressfamily %s present in network %q, available address families are: %s", convertedAf, req.Network, nw.Prefixes.AddressFamilies())
 		}
+
 		if req.Ip != nil {
 			return fmt.Errorf("it is not possible to specify specificIP and addressfamily")
 		}

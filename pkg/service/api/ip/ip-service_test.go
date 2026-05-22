@@ -740,24 +740,24 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			wantErr: errorutil.InvalidArgument(`specific ip "1.3.0.1" is not contained in any of the prefixes of network "internet"`),
 		},
 		{
-			name: "allocate a random ip with unavailable addressfamily",
+			name: "allocate a random ip with unavailable addressfamily, only ipv6 available",
 			rq: &apiv2.IPServiceCreateRequest{
 				Network:       networks["private-v6"].Id,
 				Project:       p1,
 				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4.Enum(),
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("there is no prefix for the given addressfamily:IPv4 present in network:%s [IPv6]", networks["private-v6"].Id),
+			wantErr: errorutil.InvalidArgument("there is no prefix for the given addressfamily IPv4 present in network %q, available address families are: [IPv6]", networks["private-v6"].Id),
 		},
 		{
-			name: "allocate a random ip with unavailable addressfamily",
+			name: "allocate a random ip with unavailable addressfamily, only ipv4 available",
 			rq: &apiv2.IPServiceCreateRequest{
 				Network:       networks["private-v4"].Id,
 				Project:       p1,
 				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(),
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("there is no prefix for the given addressfamily:IPv6 present in network:%s [IPv4]", networks["private-v4"].Id),
+			wantErr: errorutil.InvalidArgument("there is no prefix for the given addressfamily IPv6 present in network %q, available address families are: [IPv4]", networks["private-v4"].Id),
 		},
 		{
 			name: "disallow creating an ip address in a project-scoped network that does not belong to the request project",
@@ -767,7 +767,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(),
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("not allowed to create ip with project 00000000-0000-0000-0000-000000000001 in network %s scoped to project 00000000-0000-0000-0000-000000000002", networks["private-namespaced-2"].Id),
+			wantErr: errorutil.InvalidArgument("not allowed to create ip in network %q", networks["private-namespaced-2"].Id),
 		},
 		{
 			name: "create ip in project-scoped external network",
@@ -788,7 +788,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 				Type:    apiv2.IPType_IP_TYPE_STATIC.Enum(),
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("not allowed to create ip with project %s in network external-with-project scoped to project %s", p2, p1),
+			wantErr: errorutil.InvalidArgument(`not allowed to create ip in network "external-with-project"`),
 		},
 		{
 			name: "create ip from underlay network",
