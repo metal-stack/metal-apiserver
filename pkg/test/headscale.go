@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	headscalev1 "github.com/juanfont/headscale/gen/go/headscale/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 
 	"github.com/stretchr/testify/assert"
@@ -28,7 +27,7 @@ func StartHeadscale(t testing.TB) (*headscale.Client, string, func()) {
 
 	headscaleContainer, err := testcontainers.Run(
 		ctx,
-		"ghcr.io/juanfont/headscale:v0.28.0",
+		"ghcr.io/juanfont/headscale:v0.26.1",
 		testcontainers.WithFiles(testcontainers.ContainerFile{
 			Reader:            strings.NewReader(headscaleConfig),
 			ContainerFilePath: "/config.yaml",
@@ -67,8 +66,9 @@ func StartHeadscale(t testing.TB) (*headscale.Client, string, func()) {
 	})
 	require.NoError(t, err)
 
-	_, err = client.Health(ctx, &headscalev1.HealthRequest{})
-	require.NoError(t, err)
+	// TODO: can be added back with headscale >= v0.27
+	// _, err = client.Health(ctx, &headscalev1.HealthRequest{})
+	// require.NoError(t, err)
 
 	closer := func() {
 		_ = headscaleContainer.Terminate(ctx)

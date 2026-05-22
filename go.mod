@@ -21,7 +21,7 @@ require (
 	github.com/gorilla/sessions v1.4.0
 	github.com/hibiken/asynq v0.26.0
 	github.com/jmoiron/sqlx v1.4.0
-	github.com/juanfont/headscale v0.28.0
+	github.com/juanfont/headscale v0.26.1
 	github.com/klauspost/connect-compress/v2 v2.1.1
 	github.com/lestrrat-go/jwx/v3 v3.1.0
 	github.com/looplab/fsm v1.0.3
