@@ -8,7 +8,6 @@ import (
 	"slices"
 	"time"
 
-	"connectrpc.com/connect"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -255,12 +254,12 @@ func (r *ipRepository) allocateSpecificIP(ctx context.Context, parent *metal.Net
 			continue
 		}
 
-		resp, err := r.s.ipam.AcquireIP(ctx, connect.NewRequest(&ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String(), Ip: &specificIP, Namespace: parent.Namespace}))
+		resp, err := r.s.ipam.AcquireIP(ctx, &ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String(), Ip: &specificIP, Namespace: parent.Namespace})
 		if err != nil {
 			return "", "", err
 		}
 
-		return resp.Msg.Ip.Ip, prefix.String(), nil
+		return resp.Ip.Ip, prefix.String(), nil
 	}
 
 	return "", "", errorutil.InvalidArgument("specific ip %s not contained in any of the defined prefixes", specificIP)
@@ -269,7 +268,7 @@ func (r *ipRepository) allocateSpecificIP(ctx context.Context, parent *metal.Net
 func (r *ipRepository) allocateRandomIP(ctx context.Context, network *metal.Network, af metal.AddressFamily) (ipAddress, parentPrefixCidr string, err error) {
 	r.s.log.Debug("allocateRandomIP from", "network", network)
 	for _, prefix := range network.Prefixes.OfFamily(af) {
-		resp, err := r.s.ipam.AcquireIP(ctx, connect.NewRequest(&ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String(), Namespace: network.Namespace}))
+		resp, err := r.s.ipam.AcquireIP(ctx, &ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String(), Namespace: network.Namespace})
 		if err != nil {
 			if errorutil.IsNotFound(err) {
 				continue
@@ -277,7 +276,7 @@ func (r *ipRepository) allocateRandomIP(ctx context.Context, network *metal.Netw
 			return "", "", err
 		}
 
-		return resp.Msg.Ip.Ip, prefix.String(), nil
+		return resp.Ip.Ip, prefix.String(), nil
 	}
 
 	return "", "", errorutil.InvalidArgument("cannot allocate random free ip in ipam, no ips left in network:%s af:%s parent afs:%#v", network.ID, af, network.Prefixes.AddressFamilies())
@@ -419,7 +418,7 @@ func (r *Store) IpDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
 		return fmt.Errorf("unable to retrieve parent network: %w", err)
 	}
 
-	_, err = r.ipam.ReleaseIP(ctx, connect.NewRequest(&ipamapiv1.ReleaseIPRequest{PrefixCidr: metalIP.ParentPrefixCidr, Ip: metalIP.IPAddress, Namespace: metalNW.Namespace}))
+	_, err = r.ipam.ReleaseIP(ctx, &ipamapiv1.ReleaseIPRequest{PrefixCidr: metalIP.ParentPrefixCidr, Ip: metalIP.IPAddress, Namespace: metalNW.Namespace})
 	if err != nil && !errorutil.IsNotFound(err) {
 		r.log.Error("ipam release", "error", err)
 		return err
