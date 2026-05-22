@@ -449,11 +449,23 @@ func (dc *Datacenter) createNetworks(spec *scenarios.DatacenterSpec) map[string]
 }
 
 func (dc *Datacenter) createIPs(spec *scenarios.DatacenterSpec, nws map[string]*apiv2.Network) {
-	CreateIPs(dc.t, dc.testStore, append(spec.IPs, spec.IpFns(dc.t, nws)...))
+	ips := spec.IPs
+
+	if spec.IpFns != nil {
+		ips = append(ips, spec.IpFns(dc.t, nws)...)
+	}
+
+	CreateIPs(dc.t, dc.testStore, ips)
 }
 
 func (dc *Datacenter) createMachines(spec *scenarios.DatacenterSpec, nws map[string]*apiv2.Network) {
-	for _, pair := range append(spec.Machines, spec.MachineFns(dc.t, nws)...) {
+	machines := spec.Machines
+
+	if spec.MachineFns != nil {
+		machines = append(machines, spec.MachineFns(dc.t, nws)...)
+	}
+
+	for _, pair := range machines {
 		m, err := dc.testStore.ds.Machine().Create(dc.t.Context(), pair.Machine)
 		require.NoError(dc.t, err)
 
