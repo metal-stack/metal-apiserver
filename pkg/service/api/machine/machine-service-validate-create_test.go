@@ -758,7 +758,7 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 						{Network: projectNetworkId},
 					},
 				}
-				return req, errorutil.InvalidArgument(`no free ips in network %s`, projectNetworkId)
+				return req, errorutil.InvalidArgument(`no free ips in network %q`, projectNetworkId)
 			},
 			want: nil,
 		},
@@ -1064,7 +1064,7 @@ func Test_machineServiceServer_ValidateCreateFirewall(t *testing.T) {
 						{Network: projectNetworkId},
 					},
 				}
-				return req, errorutil.InvalidArgument(`no free ips in network underlay-partition-2`)
+				return req, errorutil.InvalidArgument(`no free ips in network "underlay-partition-2"`)
 			},
 			want: nil,
 		},
