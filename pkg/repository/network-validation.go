@@ -11,6 +11,7 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	goipam "github.com/metal-stack/go-ipam"
+	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
@@ -675,4 +676,31 @@ func (*networkRepository) validatePrefixesOnBoundaries(prefixes []string) error 
 	}
 
 	return errors.Join(errs...)
+}
+
+func (r *networkRepository) ipsAvailable(ctx context.Context, network string) error {
+	metalnetwork, err := r.s.ds.Network().Get(ctx, network)
+	if err != nil {
+		return err
+	}
+
+	var availableIps uint64
+
+	for _, pfx := range metalnetwork.Prefixes {
+		usage, err := r.s.ipam.PrefixUsage(ctx, &ipamv1.PrefixUsageRequest{
+			Cidr:      pfx.String(),
+			Namespace: metalnetwork.Namespace,
+		})
+		if err != nil {
+			return fmt.Errorf("unable to get network usage of %q and prefixes: %q, %w", network, pfx.String(), err)
+		}
+
+		availableIps += (usage.AvailableIps - usage.AcquiredIps)
+	}
+
+	if availableIps < 1 {
+		return fmt.Errorf("no free ips in network %q", network)
+	}
+
+	return nil
 }
