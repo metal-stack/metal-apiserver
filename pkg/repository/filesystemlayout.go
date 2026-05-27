@@ -473,7 +473,7 @@ func (r *filesystemLayoutRepository) convertToProto(ctx context.Context, in *met
 	}, nil
 }
 
-func (r *filesystemLayoutRepository) Match(ctx context.Context, matchMachine *apiv2.MatchMachine) (*apiv2.FilesystemLayout, error) {
+func (r *filesystemLayoutRepository) Match(ctx context.Context, matchMachine *adminv2.MatchMachineAndFilesystemLayout) (*apiv2.FilesystemLayout, error) {
 	fsl, err := r.s.ds.FilesystemLayout().Get(ctx, matchMachine.FilesystemLayout)
 	if err != nil {
 		return nil, err
@@ -495,7 +495,7 @@ func (r *filesystemLayoutRepository) Match(ctx context.Context, matchMachine *ap
 	return apiv2fsl, nil
 }
 
-func (r *filesystemLayoutRepository) Try(ctx context.Context, imageAndSize *apiv2.MatchImageAndSize) (*apiv2.FilesystemLayout, error) {
+func (r *filesystemLayoutRepository) Try(ctx context.Context, imageAndSize *adminv2.MatchImageAndSize) (*apiv2.FilesystemLayout, error) {
 
 	flss, err := r.s.ds.FilesystemLayout().List(ctx)
 	if err != nil {
