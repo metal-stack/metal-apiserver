@@ -2,6 +2,7 @@ package admin
 
 import (
 	"log/slog"
+	"os"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -10,6 +11,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
+	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -102,7 +104,7 @@ func Test_filesystemServiceServer_Create(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("imageServiceServer.Create() = %v, want %vņdiff: %s", got, tt.want, diff)
+				t.Errorf("filesystemServiceServer.Create() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -206,7 +208,7 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("imageServiceServer.Create() = %v, want %vņdiff: %s", got, tt.want, diff)
+				t.Errorf("filesystemServiceServer.Update() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}
@@ -330,7 +332,171 @@ func Test_filesystemServiceServer_Delete(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("imageServiceServer.Create() = %v, want %vņdiff: %s", got, tt.want, diff)
+				t.Errorf("filesystemServiceServer.Delete() = %v, want %vņdiff: %s", got, tt.want, diff)
+			}
+		})
+	}
+}
+
+func Test_filesystemServiceServer_Match(t *testing.T) {
+	t.Parallel()
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	ctx := t.Context()
+	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
+	dc.Create(&sc.DefaultDatacenter)
+
+	tests := []struct {
+		name    string
+		req     *adminv2.FilesystemServiceMatchRequest
+		want    func(*test.Entities) *adminv2.FilesystemServiceMatchResponse
+		wantErr error
+	}{
+		{
+			name: "match a machine and fsl",
+			req: &adminv2.FilesystemServiceMatchRequest{
+				Match: &adminv2.FilesystemServiceMatchRequest_MachineAndFilesystemlayout{
+					MachineAndFilesystemlayout: &adminv2.MatchMachineAndFilesystemLayout{
+						Machine:          sc.Machine1,
+						FilesystemLayout: "firewall",
+					},
+				},
+			},
+			want: func(e *test.Entities) *adminv2.FilesystemServiceMatchResponse {
+				return &adminv2.FilesystemServiceMatchResponse{
+					FilesystemLayout: &apiv2.FilesystemLayout{
+						Id:          "firewall",
+						Name:        new(""),
+						Description: new(""),
+						Meta:        &apiv2.Meta{},
+
+						Constraints: &apiv2.FilesystemLayoutConstraints{
+							Sizes: []string{sc.SizeN1Medium},
+							Images: map[string]string{
+								"firewall-ubuntu": ">= 3.0",
+							},
+						},
+					},
+				}
+			},
+			wantErr: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &filesystemServiceServer{
+				log:  log,
+				repo: dc.GetTestStore().Store,
+			}
+
+			var want *adminv2.FilesystemServiceMatchResponse
+			if tt.want != nil {
+				want = tt.want(dc.Snapshot())
+			}
+
+			if tt.wantErr == nil {
+				test.Validate(t, tt.req)
+			}
+			got, err := f.Match(ctx, tt.req)
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("diff = %s", diff)
+			}
+			if diff := cmp.Diff(
+				want, got,
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
+			); diff != "" {
+				t.Errorf("filesystemServiceServer.Match() diff: %s", diff)
+			}
+		})
+	}
+}
+
+func Test_filesystemServiceServer_Try(t *testing.T) {
+	t.Parallel()
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	ctx := t.Context()
+	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
+	dc.Create(&sc.DefaultDatacenter)
+
+	tests := []struct {
+		name    string
+		req     *adminv2.FilesystemServiceMatchRequest
+		want    func(*test.Entities) *adminv2.FilesystemServiceMatchResponse
+		wantErr error
+	}{
+		{
+			name: "try size and image",
+			req: &adminv2.FilesystemServiceMatchRequest{
+				Match: &adminv2.FilesystemServiceMatchRequest_SizeAndImage{
+					SizeAndImage: &adminv2.MatchImageAndSize{
+						Size:  sc.SizeC1Large,
+						Image: sc.ImageDebian12,
+					},
+				},
+			},
+			want: func(e *test.Entities) *adminv2.FilesystemServiceMatchResponse {
+				return &adminv2.FilesystemServiceMatchResponse{
+					FilesystemLayout: &apiv2.FilesystemLayout{
+						Id:          "debian",
+						Name:        new(""),
+						Description: new(""),
+						Meta:        &apiv2.Meta{},
+						Disks: []*apiv2.Disk{
+							{
+								Device: "/dev/sda",
+								Partitions: []*apiv2.DiskPartition{
+									{
+										Size: 1024,
+									},
+								},
+							},
+						},
+
+						Constraints: &apiv2.FilesystemLayoutConstraints{
+							Sizes: []string{sc.SizeC1Large, sc.SizeN1Medium},
+							Images: map[string]string{
+								"debian": ">= 12.0",
+							},
+						},
+					},
+				}
+			},
+			wantErr: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &filesystemServiceServer{
+				log:  log,
+				repo: dc.GetTestStore().Store,
+			}
+
+			var want *adminv2.FilesystemServiceMatchResponse
+			if tt.want != nil {
+				want = tt.want(dc.Snapshot())
+			}
+
+			if tt.wantErr == nil {
+				test.Validate(t, tt.req)
+			}
+			got, err := f.Match(ctx, tt.req)
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("diff = %s", diff)
+			}
+			if diff := cmp.Diff(
+				want, got,
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
+			); diff != "" {
+				t.Errorf("filesystemServiceServer.Match() diff: %s", diff)
 			}
 		})
 	}
