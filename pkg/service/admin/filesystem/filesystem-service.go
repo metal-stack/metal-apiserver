@@ -59,13 +59,13 @@ func (f *filesystemServiceServer) Update(ctx context.Context, rq *adminv2.Filesy
 func (f *filesystemServiceServer) Match(ctx context.Context, req *adminv2.FilesystemServiceMatchRequest) (*adminv2.FilesystemServiceMatchResponse, error) {
 	switch match := req.Match.(type) {
 	case *adminv2.FilesystemServiceMatchRequest_SizeAndImage:
-		fsl, err := f.repo.FilesystemLayout().AdditionalMethods().Try(ctx, match.SizeAndImage)
+		fsl, err := f.repo.FilesystemLayout().AdditionalMethods().FromImageAndSize(ctx, match.SizeAndImage)
 		if err != nil {
 			return nil, err
 		}
 		return &adminv2.FilesystemServiceMatchResponse{FilesystemLayout: fsl}, nil
 	case *adminv2.FilesystemServiceMatchRequest_MachineAndFilesystemlayout:
-		fsl, err := f.repo.FilesystemLayout().AdditionalMethods().Match(ctx, match.MachineAndFilesystemlayout)
+		fsl, err := f.repo.FilesystemLayout().AdditionalMethods().FromMachineAndFSL(ctx, match.MachineAndFilesystemlayout)
 		if err != nil {
 			return nil, err
 		}
