@@ -100,6 +100,7 @@ func (a *auth) NewHandler(isDevStage bool) (string, http.Handler, error) {
 			Path:     "/",
 			MaxAge:   86400 * 30,
 			SameSite: http.SameSiteLaxMode,
+			Secure:   true,
 		},
 	}
 

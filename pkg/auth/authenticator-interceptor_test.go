@@ -195,8 +195,9 @@ func generateJWT(t *testing.T, subject, issuer string, secret crypto.PrivateKey,
 		ID: uuid.New().String(),
 
 		// put name/title/ID of whoever will be using this JWT here:
-		Subject: subject,
-		Issuer:  issuer,
+		Subject:  subject,
+		Issuer:   issuer,
+		Audience: jwt.ClaimStrings{token.Audience},
 	}
 
 	jwtWithClaims := jwt.NewWithClaims(jwt.SigningMethodES512, claims)

@@ -16,6 +16,10 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+const (
+	Audience = "metal-stack.io/metal-apiserver"
+)
+
 var (
 	DefaultExpiration = time.Hour * 8
 	MaxExpiration     = 365 * 24 * time.Hour
@@ -60,8 +64,9 @@ func NewJWT(tokenType apiv2.TokenType, subject, issuer string, expires time.Dura
 			ID: id.String(),
 
 			// put name/title/ID of whoever will be using this JWT here:
-			Subject: subject,
-			Issuer:  issuer,
+			Subject:  subject,
+			Issuer:   issuer,
+			Audience: jwt.ClaimStrings{Audience},
 		},
 		Type: tokenType.String(),
 	}
@@ -81,23 +86,6 @@ func NewJWT(tokenType apiv2.TokenType, subject, issuer string, expires time.Dura
 	}
 
 	return res, token, nil
-}
-
-// ParseJWTToken unverified to Claims to get Issuer,Subject, Roles and Permissions
-func ParseJWTToken(token string) (*Claims, error) {
-	if token == "" {
-		return nil, nil
-	}
-
-	claims := &Claims{}
-	parser := jwt.NewParser()
-	_, _, err := parser.ParseUnverified(string(token), claims)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return claims, nil
 }
 
 func IsAdminToken(token *apiv2.Token) bool {
@@ -129,7 +117,12 @@ func Validate(ctx context.Context, log *slog.Logger, tokenString string, set jwk
 		keyFunc     = func(t *jwt.Token) (any, error) { return publicKey, nil }
 	)
 
-	parser := jwt.NewParser()
+	parser := jwt.NewParser(
+		jwt.WithAudience(Audience),
+		jwt.WithExpirationRequired(),
+		jwt.WithNotBeforeRequired(),
+		jwt.WithIssuedAt(),
+	)
 
 	log.Debug("validate", "tokenstring", tokenString)
 	for i := range set.Len() {
