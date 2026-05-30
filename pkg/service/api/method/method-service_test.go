@@ -99,7 +99,6 @@ func Test_methodServiceServer_List(t *testing.T) {
 					"/metalstack.api.v2.AuditService/List",
 					"/metalstack.api.v2.FilesystemService/Get",
 					"/metalstack.api.v2.FilesystemService/List",
-					"/metalstack.api.v2.FilesystemService/Match",
 					"/metalstack.api.v2.HealthService/Get",
 					"/metalstack.api.v2.IPService/Get",
 					"/metalstack.api.v2.IPService/List",

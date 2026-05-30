@@ -105,7 +105,7 @@ func newServeCmd() *cli.Command {
 				return fmt.Errorf("unable to create redis clients: %w", err)
 			}
 
-			mc, err := createTenanApiserverClient(ctx, log)
+			tc, err := createTenantApiserverClient(ctx, log)
 			if err != nil {
 				return fmt.Errorf("unable to create tenant-apiserver client: %w", err)
 			}
@@ -148,7 +148,7 @@ func newServeCmd() *cli.Command {
 				queue = queue.New(log, redisConfig.QueueClient)
 				repo  = repository.New(repository.Config{
 					Log:                   log,
-					TenantApiserverClient: mc,
+					TenantApiserverClient: tc,
 					Datastore:             ds,
 					Ipam:                  ipam,
 					Task:                  task,
@@ -172,7 +172,7 @@ func newServeCmd() *cli.Command {
 				MetricsServerEndpoint:               ctx.String(metricServerEndpointFlag.Name),
 				Log:                                 log,
 				Repository:                          repo,
-				MasterClient:                        mc,
+				TenantClient:                        tc,
 				Datastore:                           ds,
 				IpamClient:                          ipam,
 				ServerHttpURL:                       ctx.String(serverHttpUrlFlag.Name),
@@ -225,8 +225,8 @@ func newServeCmd() *cli.Command {
 	}
 }
 
-// createTenanApiserverClient creates a client to the tenant-apiserver
-func createTenanApiserverClient(cli *cli.Context, log *slog.Logger) (tenant.Client, error) {
+// createTenantApiserverClient creates a client to the tenant-apiserver
+func createTenantApiserverClient(cli *cli.Context, log *slog.Logger) (tenant.Client, error) {
 	const tenantApiserverNamespace = "metal-stack.io"
 
 	client, err := tenant.New(&tenant.DialConfig{
@@ -360,7 +360,7 @@ func createIpamClient(cli *cli.Context, log *slog.Logger) (ipamv1connect.IpamSer
 	)
 
 	err := retry.Do(func() error {
-		version, err := ipamService.Version(cli.Context, connect.NewRequest(&ipamv1.VersionRequest{}))
+		version, err := ipamService.Version(cli.Context, &ipamv1.VersionRequest{})
 		if err != nil {
 			return err
 		}

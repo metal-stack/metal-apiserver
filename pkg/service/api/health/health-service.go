@@ -34,7 +34,7 @@ type Config struct {
 	HealthcheckInterval time.Duration
 	Ipam                ipamv1connect.IpamServiceClient
 	Redis               valkeygo.Client
-	Masterdata          tenant.Client
+	TenantClient        tenant.Client
 	Headscale           *headscale.Client
 	TaskClient          *task.Client
 	AuditBackends       []auditing.Auditing
@@ -59,8 +59,8 @@ func New(c Config) (apiv2connect.HealthServiceHandler, error) {
 	if c.Ipam != nil {
 		checkers = append(checkers, &ipamHealthChecker{ipam: c.Ipam})
 	}
-	if c.Masterdata != nil {
-		checkers = append(checkers, &tenantApiserverHealthChecker{tenant: c.Masterdata})
+	if c.TenantClient != nil {
+		checkers = append(checkers, &tenantApiserverHealthChecker{tenant: c.TenantClient})
 	}
 	if c.Datastore != nil {
 		checkers = append(checkers, &rethinkdbHealthChecker{ds: c.Datastore})

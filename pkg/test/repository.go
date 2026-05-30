@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"connectrpc.com/connect"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
@@ -434,17 +433,17 @@ func CreateNetworks(t testing.TB, testStore *testStore, nws []*adminv2.NetworkSe
 }
 
 func DeleteNetworks(t testing.TB, testStore *testStore) {
-	nsResp, err := testStore.ipam.ListNamespaces(t.Context(), connect.NewRequest(&ipamv1.ListNamespacesRequest{}))
+	nsResp, err := testStore.ipam.ListNamespaces(t.Context(), &ipamv1.ListNamespacesRequest{})
 	require.NoError(t, err)
 
-	for _, ns := range nsResp.Msg.Namespace {
-		resp, err := testStore.ipam.ListPrefixes(t.Context(), connect.NewRequest(&ipamv1.ListPrefixesRequest{
+	for _, ns := range nsResp.Namespace {
+		resp, err := testStore.ipam.ListPrefixes(t.Context(), &ipamv1.ListPrefixesRequest{
 			Namespace: new(ns),
-		}))
+		})
 		require.NoError(t, err)
 
-		for _, prefix := range resp.Msg.Prefixes {
-			_, err := testStore.ipam.DeletePrefix(t.Context(), connect.NewRequest(&ipamv1.DeletePrefixRequest{Cidr: prefix.Cidr}))
+		for _, prefix := range resp.Prefixes {
+			_, err := testStore.ipam.DeletePrefix(t.Context(), &ipamv1.DeletePrefixRequest{Cidr: prefix.Cidr})
 			require.NoError(t, err)
 		}
 	}
@@ -459,11 +458,11 @@ func DeleteIPs(t testing.TB, testStore *testStore) {
 	require.NoError(t, err)
 
 	for _, ip := range ips {
-		_, err = testStore.ipam.ReleaseIP(t.Context(), connect.NewRequest(&ipamv1.ReleaseIPRequest{
+		_, err = testStore.ipam.ReleaseIP(t.Context(), &ipamv1.ReleaseIPRequest{
 			PrefixCidr: ip.ParentPrefixCidr,
 			Ip:         ip.IPAddress,
 			Namespace:  ip.Namespace,
-		}))
+		})
 		require.NoError(t, err)
 	}
 

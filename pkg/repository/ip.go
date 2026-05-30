@@ -8,7 +8,6 @@ import (
 	"slices"
 	"time"
 
-	"connectrpc.com/connect"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -78,35 +77,11 @@ func (r *ipRepository) create(ctx context.Context, req *apiv2.IPServiceCreateReq
 		return nil, err
 	}
 
-	if nw.ProjectID != "" && nw.ProjectID != req.Project {
-		return nil, errorutil.InvalidArgument("not allowed to create ip with project %s in network %s scoped to project %s", req.Project, req.Network, nw.ProjectID)
-	}
-
-	// for private, unshared networks the project id must be the same
-	// for external and underlay networks the project id is not checked
-	if nw.ProjectID != req.Project {
-		switch nw.NetworkType {
-		case metal.NetworkTypeChildShared, metal.NetworkTypeExternal, metal.NetworkTypeUnderlay:
-			// this is fine
-		default:
-			return nil, errorutil.InvalidArgument("can not allocate ip for project %q because network belongs to %q and the network is of type:%s", req.Project, nw.ProjectID, nw.NetworkType)
-		}
-	}
-
-	// FIXME: move validation to ip validation
-
 	af := metal.AddressFamilyIPv4
 	if req.AddressFamily != nil {
 		convertedAf, err := metal.ToAddressFamily(*req.AddressFamily)
 		if err != nil {
 			return nil, errorutil.NewInvalidArgument(err)
-		}
-
-		if !slices.Contains(nw.Prefixes.AddressFamilies(), convertedAf) {
-			return nil, errorutil.InvalidArgument("there is no prefix for the given addressfamily:%s present in network:%s %s", convertedAf, req.Network, nw.Prefixes.AddressFamilies())
-		}
-		if req.Ip != nil {
-			return nil, errorutil.InvalidArgument("it is not possible to specify specificIP and addressfamily")
 		}
 		af = convertedAf
 	} else {
@@ -255,12 +230,12 @@ func (r *ipRepository) allocateSpecificIP(ctx context.Context, parent *metal.Net
 			continue
 		}
 
-		resp, err := r.s.ipam.AcquireIP(ctx, connect.NewRequest(&ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String(), Ip: &specificIP, Namespace: parent.Namespace}))
+		resp, err := r.s.ipam.AcquireIP(ctx, &ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String(), Ip: &specificIP, Namespace: parent.Namespace})
 		if err != nil {
 			return "", "", err
 		}
 
-		return resp.Msg.Ip.Ip, prefix.String(), nil
+		return resp.Ip.Ip, prefix.String(), nil
 	}
 
 	return "", "", errorutil.InvalidArgument("specific ip %s not contained in any of the defined prefixes", specificIP)
@@ -269,7 +244,7 @@ func (r *ipRepository) allocateSpecificIP(ctx context.Context, parent *metal.Net
 func (r *ipRepository) allocateRandomIP(ctx context.Context, network *metal.Network, af metal.AddressFamily) (ipAddress, parentPrefixCidr string, err error) {
 	r.s.log.Debug("allocateRandomIP from", "network", network)
 	for _, prefix := range network.Prefixes.OfFamily(af) {
-		resp, err := r.s.ipam.AcquireIP(ctx, connect.NewRequest(&ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String(), Namespace: network.Namespace}))
+		resp, err := r.s.ipam.AcquireIP(ctx, &ipamapiv1.AcquireIPRequest{PrefixCidr: prefix.String(), Namespace: network.Namespace})
 		if err != nil {
 			if errorutil.IsNotFound(err) {
 				continue
@@ -277,7 +252,7 @@ func (r *ipRepository) allocateRandomIP(ctx context.Context, network *metal.Netw
 			return "", "", err
 		}
 
-		return resp.Msg.Ip.Ip, prefix.String(), nil
+		return resp.Ip.Ip, prefix.String(), nil
 	}
 
 	return "", "", errorutil.InvalidArgument("cannot allocate random free ip in ipam, no ips left in network:%s af:%s parent afs:%#v", network.ID, af, network.Prefixes.AddressFamilies())
@@ -419,7 +394,7 @@ func (r *Store) IpDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
 		return fmt.Errorf("unable to retrieve parent network: %w", err)
 	}
 
-	_, err = r.ipam.ReleaseIP(ctx, connect.NewRequest(&ipamapiv1.ReleaseIPRequest{PrefixCidr: metalIP.ParentPrefixCidr, Ip: metalIP.IPAddress, Namespace: metalNW.Namespace}))
+	_, err = r.ipam.ReleaseIP(ctx, &ipamapiv1.ReleaseIPRequest{PrefixCidr: metalIP.ParentPrefixCidr, Ip: metalIP.IPAddress, Namespace: metalNW.Namespace})
 	if err != nil && !errorutil.IsNotFound(err) {
 		r.log.Error("ipam release", "error", err)
 		return err

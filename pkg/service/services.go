@@ -58,7 +58,7 @@ type Config struct {
 	OIDCTLSSkipVerify                   bool
 	Datastore                           generic.Datastore
 	Repository                          *repository.Store
-	MasterClient                        tenantclient.Client
+	TenantClient                        tenantclient.Client
 	IpamClient                          ipamv1connect.IpamServiceClient
 	AuditSearchBackend                  auditing.Auditing
 	AuditBackends                       []auditing.Auditing
@@ -127,7 +127,7 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 
 	var (
 		logInterceptor       = newLogRequestInterceptor(log)
-		tenantInterceptor    = tenant.NewInterceptor(log, c.MasterClient)
+		tenantInterceptor    = tenant.NewInterceptor(log, c.TenantClient)
 		ratelimitInterceptor = ratelimiter.NewInterceptor(&ratelimiter.Config{
 			Log:                                 log,
 			RedisClient:                         c.RedisConfig.RateLimitClient,
@@ -175,7 +175,7 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 		Repository:         c.Repository,
 		Datastore:          c.Datastore,
 		IpamClient:         c.IpamClient,
-		MasterClient:       c.MasterClient,
+		TenantClient:       c.TenantClient,
 		Mux:                mux,
 		Interceptors:       interceptors,
 		ProjectInviteStore: projectInviteStore,
