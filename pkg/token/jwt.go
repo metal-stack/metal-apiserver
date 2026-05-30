@@ -16,10 +16,6 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-const (
-	Audience = "metal-stack.io/metal-apiserver"
-)
-
 var (
 	DefaultExpiration = time.Hour * 8
 	MaxExpiration     = 365 * 24 * time.Hour
@@ -66,7 +62,7 @@ func NewJWT(tokenType apiv2.TokenType, subject, issuer string, expires time.Dura
 			// put name/title/ID of whoever will be using this JWT here:
 			Subject:  subject,
 			Issuer:   issuer,
-			Audience: jwt.ClaimStrings{Audience},
+			Audience: jwt.ClaimStrings{issuer},
 		},
 		Type: tokenType.String(),
 	}
@@ -118,7 +114,7 @@ func Validate(ctx context.Context, log *slog.Logger, tokenString string, set jwk
 	)
 
 	parser := jwt.NewParser(
-		jwt.WithAudience(Audience),
+		jwt.WithAudience(allowedIssuers...),
 		jwt.WithExpirationRequired(),
 		jwt.WithNotBeforeRequired(),
 		jwt.WithIssuedAt(),
