@@ -29,7 +29,7 @@ func (h *tenantApiserverHealthChecker) Health(ctx context.Context) *apiv2.Health
 	}
 
 	return &apiv2.HealthStatus{
-		Name:    apiv2.Service_SERVICE_MASTERDATA,
+		Name:    apiv2.Service_SERVICE_TENANT_APISERVER,
 		Status:  status,
 		Message: message,
 	}
