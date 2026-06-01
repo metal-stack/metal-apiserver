@@ -5,12 +5,12 @@ import (
 )
 
 const (
-	// TODO: Migrate to common fields introduced in https://github.com/metal-stack/masterdata-api/pull/127
+	// TODO: Migrate to common fields introduced in https://github.com/metal-stack/tenant-api/pull/127
 	TenantTagEmail     = "metal-stack.io/email"
 	TenantTagAvatarURL = "metal-stack.io/avatarurl"
 	TenantTagCreator   = "metal-stack.io/creator"
 
-	// TODO: Use scoped memberships: https://github.com/metal-stack/masterdata-api/issues/130
+	// TODO: Use scoped memberships: https://github.com/metal-stack/tenant-api/issues/130
 	TenantRoleAnnotation = "metal-stack.io/tenant-role"
 )
 
