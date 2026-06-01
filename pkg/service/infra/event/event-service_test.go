@@ -41,10 +41,10 @@ func Test_eventServiceServer_Send(t *testing.T) {
 		{
 			name: "one machine sending event",
 			rq: &infrav2.EventServiceSendRequest{
-				Events: map[string]*infrav2.MachineProvisioningEvent{
+				Events: map[string]*apiv2.MachineProvisioningEvent{
 					"m1": {
 						Time:    timestamppb.New(now),
-						Event:   infrav2.ProvisioningEventType_PROVISIONING_EVENT_TYPE_PXE_BOOTING,
+						Event:   apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_PXE_BOOTING,
 						Message: "Machine is PXE booting.",
 					},
 				},

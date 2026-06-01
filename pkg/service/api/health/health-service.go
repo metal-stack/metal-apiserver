@@ -11,11 +11,11 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
-	mdm "github.com/metal-stack/masterdata-api/pkg/client"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-lib/auditing"
+	tenant "github.com/metal-stack/tenant-api/go/client"
 	valkeygo "github.com/valkey-io/valkey-go"
 	"golang.org/x/sync/errgroup"
 )
@@ -34,7 +34,7 @@ type Config struct {
 	HealthcheckInterval time.Duration
 	Ipam                ipamv1connect.IpamServiceClient
 	Redis               valkeygo.Client
-	Masterdata          mdm.Client
+	TenantClient        tenant.Client
 	Headscale           *headscale.Client
 	TaskClient          *task.Client
 	AuditBackends       []auditing.Auditing
@@ -59,8 +59,8 @@ func New(c Config) (apiv2connect.HealthServiceHandler, error) {
 	if c.Ipam != nil {
 		checkers = append(checkers, &ipamHealthChecker{ipam: c.Ipam})
 	}
-	if c.Masterdata != nil {
-		checkers = append(checkers, &masterdataHealthChecker{mdm: c.Masterdata})
+	if c.TenantClient != nil {
+		checkers = append(checkers, &tenantApiserverHealthChecker{tenant: c.TenantClient})
 	}
 	if c.Datastore != nil {
 		checkers = append(checkers, &rethinkdbHealthChecker{ds: c.Datastore})

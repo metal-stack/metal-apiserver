@@ -162,7 +162,7 @@ func Test_projectRepository_GetProjectsAndTenants(t *testing.T) {
 			name:   "unknown user",
 			userId: "bud@github.com",
 			want:   nil,
-			// FIXME this error should be a NotFound, but this would require a additional masterdata call
+			// FIXME this error should be a NotFound, but this would require a additional tenant-apiserver call
 			wantErr: errorutil.Internal("unable to find a default tenant for user: bud@github.com"),
 		},
 	}

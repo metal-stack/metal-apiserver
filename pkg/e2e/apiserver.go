@@ -51,7 +51,7 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 
 		AuditBackends:                       []auditing.Auditing{testStore.GetAuditBackend()},
 		AuditSearchBackend:                  testStore.GetAuditBackend(),
-		MasterClient:                        testStore.GetMasterdataClient(),
+		TenantClient:                        testStore.GetTenantApiserverClient(),
 		Datastore:                           testStore.GetDatastore(),
 		IpamClient:                          testStore.GetIpamClient(),
 		OIDCClientID:                        "oidc-client-id",

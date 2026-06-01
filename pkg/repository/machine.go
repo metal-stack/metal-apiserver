@@ -36,9 +36,9 @@ type (
 )
 
 func (r *machineRepository) Dhcp(ctx context.Context, req *infrav2.BootServiceDhcpRequest) (*infrav2.BootServiceDhcpResponse, error) {
-	err := r.SendEvent(ctx, r.s.log, req.Uuid, &infrav2.MachineProvisioningEvent{
+	err := r.SendEvent(ctx, r.s.log, req.Uuid, &apiv2.MachineProvisioningEvent{
 		Time:    timestamppb.Now(),
-		Event:   infrav2.ProvisioningEventType_PROVISIONING_EVENT_TYPE_PXE_BOOTING,
+		Event:   apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_PXE_BOOTING,
 		Message: "machine sent extended dhcp request",
 	})
 	if err != nil {
@@ -80,7 +80,7 @@ func (r *machineRepository) SetMachineConnectedToVPN(ctx context.Context, id str
 	return r.convertToProto(ctx, m)
 }
 
-func (r *machineRepository) SendEvent(ctx context.Context, log *slog.Logger, machineID string, event *infrav2.MachineProvisioningEvent) error {
+func (r *machineRepository) SendEvent(ctx context.Context, log *slog.Logger, machineID string, event *apiv2.MachineProvisioningEvent) error {
 	if event == nil {
 		return errorutil.InvalidArgument("event for machine %s is nil", machineID)
 	}
@@ -876,7 +876,7 @@ func (r *machineRepository) InstallationSucceeded(ctx context.Context, req *infr
 		return nil, fmt.Errorf("unknown allocation role:%q found", role)
 	}
 	if vrf == "" {
-		return nil, fmt.Errorf("the machine %q could not be put into the vrf because no vrf was found, error: %w", req.Uuid, err)
+		return nil, fmt.Errorf("the machine %q could not be put into the vrf because no vrf was found", req.Uuid)
 	}
 
 	// TODO convert to tasks
