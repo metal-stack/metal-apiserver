@@ -91,41 +91,11 @@ var (
 		Usage:   "log-level can be one of error|warn|info|debug",
 		EnvVars: []string{"LOG_LEVEL"},
 	}
-	masterdataApiHostnameFlag = &cli.StringFlag{
-		Name:    "masterdata-api-hostname",
-		Value:   "localhost",
-		Usage:   "masterdata-api hostname",
-		EnvVars: []string{"MASTERDATA_API_HOSTNAME"},
-	}
-	masterdataApiPortFlag = &cli.UintFlag{
-		Name:    "masterdata-api-port",
-		Value:   50051,
-		Usage:   "masterdata-api port",
-		EnvVars: []string{"MASTERDATA_API_PORT"},
-	}
-	masterdataApiHmacFlag = &cli.StringFlag{
-		Name:    "masterdata-api-hmac",
-		Value:   "",
-		Usage:   "masterdata-api-hmac",
-		EnvVars: []string{"MASTERDATA_API_HMAC"},
-	}
-	masterdataApiCAPathFlag = &cli.StringFlag{
-		Name:    "masterdata-api-ca-path",
-		Value:   "certs/ca.pem",
-		Usage:   "masterdata-api CA path",
-		EnvVars: []string{"MASTERDATA_API_CA_PATH"},
-	}
-	masterdataApiCertPathFlag = &cli.StringFlag{
-		Name:    "masterdata-api-cert-path",
-		Value:   "certs/client.pem",
-		Usage:   "masterdata-api certificate path",
-		EnvVars: []string{"MASTERDATA_API_CERT_PATH"},
-	}
-	masterdataApiCertKeyPathFlag = &cli.StringFlag{
-		Name:    "masterdata-api-cert-key-path",
-		Value:   "certs/client-key.pem",
-		Usage:   "masterdata-api certificate key path",
-		EnvVars: []string{"MASTERDATA_API_CERT_KEY_PATH"},
+	tenantApiserverBaseURLFlag = &cli.StringFlag{
+		Name:    "tenant-apiserver-baseurl",
+		Value:   "http://tenant-apiserver:8080",
+		Usage:   "tenant-apiserver base url",
+		EnvVars: []string{"TENANT_APISERVER_BASEURL"},
 	}
 	rethinkdbAddressesFlag = &cli.StringSliceFlag{
 		Name:     "rethinkdb-addresses",

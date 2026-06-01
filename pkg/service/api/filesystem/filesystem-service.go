@@ -6,7 +6,6 @@ import (
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
-	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 )
 
@@ -46,17 +45,4 @@ func (f *filesystemServiceServer) List(ctx context.Context, req *apiv2.Filesyste
 	return &apiv2.FilesystemServiceListResponse{
 		FilesystemLayouts: fsls,
 	}, nil
-}
-
-func (f *filesystemServiceServer) Match(ctx context.Context, req *apiv2.FilesystemServiceMatchRequest) (*apiv2.FilesystemServiceMatchResponse, error) {
-	switch match := req.Match.(type) {
-	case *apiv2.FilesystemServiceMatchRequest_SizeAndImage:
-		// call old school fsl try
-	case *apiv2.FilesystemServiceMatchRequest_MachineAndFilesystemlayout:
-		// call old school fsl match
-	default:
-		return nil, errorutil.InvalidArgument("given matchtype %T is unsupported", match)
-	}
-
-	panic("unimplemented")
 }

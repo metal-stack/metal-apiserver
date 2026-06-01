@@ -9,7 +9,6 @@ import (
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
-	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
@@ -88,7 +87,7 @@ func (u *tenantServiceServer) Create(ctx context.Context, req *apiv2.TenantServi
 
 	ownTenant, err := u.repo.Tenant().Get(ctx, t.User)
 	if err != nil {
-		if mdcv1.IsNotFound(err) {
+		if errorutil.IsNotFound(err) {
 			return nil, errorutil.NotFound("no tenant found with id %q: %w", t.User, err)
 		}
 
