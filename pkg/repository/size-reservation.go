@@ -69,7 +69,7 @@ func (r *sizeReservationRepository) update(ctx context.Context, e *metal.SizeRes
 		e.PartitionIDs = req.Partitions
 	}
 	if req.Labels != nil {
-		e.Labels = updateLabelsOnMap(req.Labels, e.Labels)
+		e.Labels = UpdateLabelsOnMap(req.Labels, e.Labels)
 	}
 
 	err := r.s.ds.SizeReservation().Update(ctx, e)

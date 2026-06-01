@@ -54,6 +54,8 @@ func (r *redisStore) Set(ctx context.Context, token *apiv2.Token) error {
 		return fmt.Errorf("unable to encode token: %w", err)
 	}
 
+	// TODO: implement optimistic locking. when using the valkey client, they advise to use a lua script for this.
+
 	_, err = r.client.Set(ctx, key(token.User, token.Uuid), string(encoded), time.Until(token.Expires.AsTime())).Result()
 	if err != nil {
 		return err

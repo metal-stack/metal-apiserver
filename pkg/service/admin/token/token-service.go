@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 
+	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -38,18 +39,40 @@ func New(c Config) adminv2connect.TokenServiceHandler {
 
 func (t *tokenService) List(ctx context.Context, req *adminv2.TokenServiceListRequest) (*adminv2.TokenServiceListResponse, error) {
 	var (
-		tokens []*apiv2.Token
+		result []*apiv2.Token
 		err    error
 	)
-	if req.User != nil {
-		tokens, err = t.tokenstore.List(ctx, *req.User)
-		if err != nil {
-			return nil, errorutil.NewInternal(err)
+
+	tokens, err := t.tokenstore.AdminList(ctx)
+	if err != nil {
+		return nil, errorutil.NewInternal(err)
+	}
+
+	for _, tok := range tokens {
+		match := true
+
+		if req.Query.Description != nil {
+			match = match && *req.Query.Description == tok.Description
 		}
-	} else {
-		tokens, err = t.tokenstore.AdminList(ctx)
-		if err != nil {
-			return nil, errorutil.NewInternal(err)
+		if req.Query.TokenType != nil {
+			match = match && *req.Query.TokenType == tok.TokenType
+		}
+		if req.Query.User != nil {
+			match = match && *req.Query.User == tok.User
+		}
+		if req.Query.Uuid != nil {
+			match = match && *req.Query.Uuid == tok.Uuid
+		}
+		if req.Query.Labels != nil {
+			if tok.Meta == nil || tok.Meta.Labels == nil {
+				continue
+			}
+
+			match = match && cmp.Equal(req.Query.Labels.Labels, tok.Meta.Labels.Labels)
+		}
+
+		if match {
+			result = append(result, tok)
 		}
 	}
 

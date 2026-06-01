@@ -8,6 +8,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/api/go/permissions"
@@ -218,6 +219,16 @@ func (t *tokenService) Update(ctx context.Context, req *apiv2.TokenServiceUpdate
 			tokenToUpdate.AdminRole = req.AdminRole
 		}
 	}
+	if req.Labels != nil {
+		if tokenToUpdate.Meta == nil {
+			tokenToUpdate.Meta = &apiv2.Meta{}
+		}
+		if tokenToUpdate.Meta.Labels == nil {
+			tokenToUpdate.Meta.Labels = &apiv2.Labels{}
+		}
+
+		tokenToUpdate.Meta.Labels.Labels = repository.UpdateLabelsOnMap(req.Labels, token.Meta.Labels.Labels)
+	}
 
 	tokenToUpdate.Permissions = req.Permissions
 	tokenToUpdate.ProjectRoles = req.ProjectRoles
@@ -277,6 +288,7 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 	if err != nil {
 		return nil, errorutil.NewInternal(err)
 	}
+
 	fullUserToken := &apiv2.Token{
 		User:         token.User,
 		ProjectRoles: projectsAndTenants.ProjectRoles,
@@ -320,6 +332,11 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 	token.TenantRoles = req.TenantRoles
 	token.AdminRole = req.AdminRole
 	token.InfraRole = req.InfraRole
+	token.Meta = &apiv2.Meta{
+		Labels:     req.Labels,
+		CreatedAt:  token.IssuedAt,
+		Generation: 0,
+	}
 
 	err = t.tokens.Set(ctx, token)
 	if err != nil {
@@ -335,7 +352,7 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 }
 
 // List lists the tokens of a specific user.
-func (t *tokenService) List(ctx context.Context, _ *apiv2.TokenServiceListRequest) (*apiv2.TokenServiceListResponse, error) {
+func (t *tokenService) List(ctx context.Context, req *apiv2.TokenServiceListRequest) (*apiv2.TokenServiceListResponse, error) {
 	token, ok := tokenutil.TokenFromContext(ctx)
 	if !ok || token == nil {
 		return nil, errorutil.Unauthenticated("no token found in request")
@@ -346,8 +363,42 @@ func (t *tokenService) List(ctx context.Context, _ *apiv2.TokenServiceListReques
 		return nil, errorutil.NewInternal(err)
 	}
 
+	var result []*apiv2.Token
+
+	if req.Query == nil {
+		result = tokens
+	} else {
+		for _, tok := range tokens {
+			match := true
+
+			if req.Query.Description != nil {
+				match = match && *req.Query.Description == tok.Description
+			}
+			if req.Query.TokenType != nil {
+				match = match && *req.Query.TokenType == tok.TokenType
+			}
+			if req.Query.User != nil {
+				match = match && *req.Query.User == tok.User
+			}
+			if req.Query.Uuid != nil {
+				match = match && *req.Query.Uuid == tok.Uuid
+			}
+			if req.Query.Labels != nil {
+				if tok.Meta == nil || tok.Meta.Labels == nil {
+					continue
+				}
+
+				match = match && cmp.Equal(req.Query.Labels.Labels, tok.Meta.Labels.Labels)
+			}
+
+			if match {
+				result = append(result, tok)
+			}
+		}
+	}
+
 	return &apiv2.TokenServiceListResponse{
-		Tokens: tokens,
+		Tokens: result,
 	}, nil
 }
 

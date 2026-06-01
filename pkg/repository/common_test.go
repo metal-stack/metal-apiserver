@@ -233,7 +233,7 @@ func Test_updateLabelsOnMap(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := updateLabelsOnMap(tt.rq, tt.existingTags)
+			got := UpdateLabelsOnMap(tt.rq, tt.existingTags)
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
