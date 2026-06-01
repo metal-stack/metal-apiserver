@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"slices"
 
-	mdmv1 "github.com/metal-stack/tenant-api/go/api/v1"
+	tenantv1 "github.com/metal-stack/tenant-api/go/api/v1"
 )
 
 // SizeReservation defines a reservation of a size for machine allocations
@@ -45,7 +45,7 @@ func SizeReservationsForPartition(rs []*SizeReservation, partitionID string) []*
 	return result
 }
 
-func Validate(rs []*SizeReservation, sizes map[string]*Size, partitions map[string]*Partition, projects map[string]*mdmv1.Project) error {
+func Validate(rs []*SizeReservation, sizes map[string]*Size, partitions map[string]*Partition, projects map[string]*tenantv1.Project) error {
 	if rs == nil {
 		return nil
 	}
@@ -60,7 +60,7 @@ func Validate(rs []*SizeReservation, sizes map[string]*Size, partitions map[stri
 	return nil
 }
 
-func (r *SizeReservation) Validate(sizes map[string]*Size, partitions map[string]*Partition, projects map[string]*mdmv1.Project) error {
+func (r *SizeReservation) Validate(sizes map[string]*Size, partitions map[string]*Partition, projects map[string]*tenantv1.Project) error {
 	if r.Amount <= 0 {
 		return fmt.Errorf("amount must be a positive integer")
 	}

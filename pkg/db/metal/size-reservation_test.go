@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
-	mdmv1 "github.com/metal-stack/tenant-api/go/api/v1"
+	tenantv1 "github.com/metal-stack/tenant-api/go/api/v1"
 )
 
 func TestReservations_ForPartition(t *testing.T) {
@@ -61,7 +61,7 @@ func TestReservations_Validate(t *testing.T) {
 		name       string
 		sizes      map[string]*Size
 		partitions map[string]*Partition
-		projects   map[string]*mdmv1.Project
+		projects   map[string]*tenantv1.Project
 		rs         []*SizeReservation
 		wantErr    error
 	}{
@@ -83,7 +83,7 @@ func TestReservations_Validate(t *testing.T) {
 				"b": {},
 				"c": {},
 			},
-			projects: map[string]*mdmv1.Project{
+			projects: map[string]*tenantv1.Project{
 				"1": {},
 				"2": {},
 				"3": {},
@@ -108,7 +108,7 @@ func TestReservations_Validate(t *testing.T) {
 				"b": {},
 				"c": {},
 			},
-			projects: map[string]*mdmv1.Project{
+			projects: map[string]*tenantv1.Project{
 				"1": {},
 				"2": {},
 				"3": {},
@@ -133,7 +133,7 @@ func TestReservations_Validate(t *testing.T) {
 				"b": {},
 				"c": {},
 			},
-			projects: map[string]*mdmv1.Project{
+			projects: map[string]*tenantv1.Project{
 				"1": {},
 				"2": {},
 				"3": {},
@@ -157,7 +157,7 @@ func TestReservations_Validate(t *testing.T) {
 				"b": {},
 				"c": {},
 			},
-			projects: map[string]*mdmv1.Project{
+			projects: map[string]*tenantv1.Project{
 				"1": {},
 				"2": {},
 				"3": {},
@@ -182,7 +182,7 @@ func TestReservations_Validate(t *testing.T) {
 				"b": {},
 				"c": {},
 			},
-			projects: map[string]*mdmv1.Project{
+			projects: map[string]*tenantv1.Project{
 				"1": {},
 				"2": {},
 				"3": {},
@@ -207,7 +207,7 @@ func TestReservations_Validate(t *testing.T) {
 				"b": {},
 				"c": {},
 			},
-			projects: map[string]*mdmv1.Project{
+			projects: map[string]*tenantv1.Project{
 				"1": {},
 				"2": {},
 				"3": {},
@@ -231,7 +231,7 @@ func TestReservations_Validate(t *testing.T) {
 				"b": {},
 				"c": {},
 			},
-			projects: map[string]*mdmv1.Project{
+			projects: map[string]*tenantv1.Project{
 				"1": {},
 				"2": {},
 				"3": {},
@@ -256,7 +256,7 @@ func TestReservations_Validate(t *testing.T) {
 				"b": {},
 				"c": {},
 			},
-			projects: map[string]*mdmv1.Project{
+			projects: map[string]*tenantv1.Project{
 				"1": {},
 				"2": {},
 				"3": {},
