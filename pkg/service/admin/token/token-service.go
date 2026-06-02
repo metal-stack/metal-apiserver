@@ -77,7 +77,7 @@ func (t *tokenService) List(ctx context.Context, req *adminv2.TokenServiceListRe
 	}
 
 	return &adminv2.TokenServiceListResponse{
-		Tokens: tokens,
+		Tokens: result,
 	}, nil
 }
 
