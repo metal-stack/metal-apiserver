@@ -21,7 +21,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
-	"github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/auditing"
 	auditingmemory "github.com/metal-stack/metal-lib/auditing/memory"
@@ -54,7 +53,7 @@ type (
 		tokenStore         tokencommon.TokenStore
 
 		// only use this when you are very certain about it!!
-		tokenService           token.TokenService
+		tokenService           *tokencommon.TokenWithoutPermissionCheck
 		tc                     tenant.Client
 		rc                     *redis.Client
 		vc                     valkey.Client
@@ -191,11 +190,10 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 	}, auditingmemory.MemoryConfig{})
 	require.NoError(t, err)
 
-	tokenService := token.New(token.Config{
-		Log:        log,
-		TokenStore: tokenStore,
-		CertStore:  certStore,
-		Issuer:     tokenIssuer,
+	tokenService := tokencommon.NewWithoutPermissionCheck(&tokencommon.TokenWithoutPermissionCheckConfig{
+		Certs:  certStore,
+		Tokens: tokenStore,
+		Issuer: tokenIssuer,
 	})
 
 	ipam, ipamCloser := StartIpam(t)
@@ -333,7 +331,7 @@ func (t *testStore) GetAuditBackend() auditing.Auditing {
 	return t.audit
 }
 
-func (t *testStore) GetTokenService() token.TokenService {
+func (t *testStore) GetTokenService() *tokencommon.TokenWithoutPermissionCheck {
 	return t.tokenService
 }
 

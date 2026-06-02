@@ -13,12 +13,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/lestrrat-go/jwx/v3/jwk"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var (
 	DefaultExpiration = time.Hour * 8
-	MaxExpiration     = 365 * 24 * time.Hour
 )
 
 type (
@@ -35,8 +35,8 @@ func NewJWT(tokenType apiv2.TokenType, subject, issuer string, expires time.Dura
 	if expires == 0 {
 		expires = DefaultExpiration
 	}
-	if expires > MaxExpiration {
-		return "", nil, fmt.Errorf("expires: %q exceeds maximum: %q", expires, MaxExpiration)
+	if expires > certs.MaxTokenExpiration {
+		return "", nil, fmt.Errorf("expires: %q exceeds maximum: %q", expires, certs.MaxTokenExpiration)
 	}
 
 	id, err := uuid.NewV7()

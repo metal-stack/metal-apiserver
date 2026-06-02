@@ -12,8 +12,6 @@ import (
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/auditing"
 
-	"github.com/metal-stack/metal-apiserver/pkg/service/api/token"
-
 	auditadmin "github.com/metal-stack/metal-apiserver/pkg/service/admin/audit"
 	componentadmin "github.com/metal-stack/metal-apiserver/pkg/service/admin/component"
 	filesystemadmin "github.com/metal-stack/metal-apiserver/pkg/service/admin/filesystem"
@@ -34,15 +32,18 @@ import (
 )
 
 type Config struct {
-	Log                *slog.Logger
-	Repository         *repository.Store
-	Mux                *http.ServeMux
-	Interceptors       connect.Option
-	InviteStore        invite.TenantInviteStore
-	TokenStore         tokencommon.TokenStore
-	TokenService       token.TokenService
+	Log          *slog.Logger
+	Repository   *repository.Store
+	Mux          *http.ServeMux
+	Interceptors connect.Option
+	InviteStore  invite.TenantInviteStore
+	TokenStore   tokencommon.TokenStore
+
 	CertStore          certs.CertStore
 	AuditSearchBackend auditing.Auditing
+
+	ServerHttpURL string
+	Admins        []string
 }
 
 func AdminServices(cfg Config) {
@@ -68,8 +69,15 @@ func AdminServices(cfg Config) {
 			InviteStore: cfg.InviteStore,
 			TokenStore:  cfg.TokenStore,
 		})
-		adminTokenService = tokenadmin.New(tokenadmin.Config{Log: cfg.Log, CertStore: cfg.CertStore, TokenStore: cfg.TokenStore, TokenService: cfg.TokenService})
-		adminVPNService   = vpnadmin.New(vpnadmin.Config{
+		adminTokenService = tokenadmin.New(tokenadmin.Config{
+			Log:           cfg.Log,
+			CertStore:     cfg.CertStore,
+			TokenStore:    cfg.TokenStore,
+			Issuer:        cfg.ServerHttpURL,
+			AdminSubjects: cfg.Admins,
+			Repo:          cfg.Repository,
+		})
+		adminVPNService = vpnadmin.New(vpnadmin.Config{
 			Log:  cfg.Log,
 			Repo: cfg.Repository,
 		})

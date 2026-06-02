@@ -36,7 +36,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/service/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/api"
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/tenant"
-	"github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 	"github.com/metal-stack/metal-apiserver/pkg/service/infra"
 
 	authservice "github.com/metal-stack/metal-apiserver/pkg/service/auth"
@@ -170,7 +169,7 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 
 	mux := http.NewServeMux()
 
-	tokenService, err := api.ApiServices(ctx, api.Config{
+	if err := api.ApiServices(ctx, api.Config{
 		Log:                log,
 		Repository:         c.Repository,
 		Datastore:          c.Datastore,
@@ -188,8 +187,7 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 		Admins:             c.Admins,
 		AuditBackends:      c.AuditBackends,
 		HeadscaleClient:    c.HeadscaleClient,
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 
@@ -200,9 +198,10 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 		Interceptors:       adminInterceptors,
 		InviteStore:        tenantInviteStore,
 		TokenStore:         tokenStore,
-		TokenService:       tokenService,
 		CertStore:          certStore,
 		AuditSearchBackend: c.AuditSearchBackend,
+		ServerHttpURL:      c.ServerHttpURL,
+		Admins:             c.Admins,
 	})
 
 	infra.InfraServices(infra.Config{
@@ -227,7 +226,11 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 	mux.Handle(grpcreflect.NewHandlerV1Alpha(reflector))
 
 	// Add OIDC Handlers
-	authHandlerPath, authHandler, err := oidcAuthHandler(log, tokenService, c)
+	authHandlerPath, authHandler, err := oidcAuthHandler(log, tokencommon.NewWithoutPermissionCheck(&tokencommon.TokenWithoutPermissionCheckConfig{
+		Certs:  certStore,
+		Tokens: tokenStore,
+		Issuer: c.ServerHttpURL,
+	}), c)
 	if err != nil {
 		return nil, err
 	}
@@ -239,7 +242,7 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 	return mux, nil
 }
 
-func oidcAuthHandler(log *slog.Logger, tokenService token.TokenService, c Config) (string, http.Handler, error) {
+func oidcAuthHandler(log *slog.Logger, tokenCreator *tokencommon.TokenWithoutPermissionCheck, c Config) (string, http.Handler, error) {
 	frontendURL, err := url.Parse(c.FrontEndUrl)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to parse frontend url %w", err)
@@ -247,7 +250,7 @@ func oidcAuthHandler(log *slog.Logger, tokenService token.TokenService, c Config
 
 	auth, err := authservice.New(authservice.Config{
 		Log:           log,
-		TokenService:  tokenService,
+		TokenCreator:  tokenCreator,
 		Repo:          c.Repository,
 		AuditBackends: c.AuditBackends,
 		FrontEndUrl:   frontendURL,

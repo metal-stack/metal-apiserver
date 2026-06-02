@@ -23,7 +23,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
-	"github.com/metal-stack/metal-apiserver/pkg/service/api/token"
+	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
 
 	"github.com/metal-stack/metal-lib/auditing"
 )
@@ -33,7 +33,7 @@ const (
 )
 
 type Config struct {
-	TokenService  token.TokenService
+	TokenCreator  *tokencommon.TokenWithoutPermissionCheck
 	Repo          *repository.Store
 	AuditBackends []auditing.Auditing
 	Log           *slog.Logger
@@ -58,7 +58,7 @@ type providerBackend interface {
 
 type auth struct {
 	providerBackends map[string]providerBackend
-	tokenService     token.TokenService
+	tokenCreator     *tokencommon.TokenWithoutPermissionCheck
 	auditBackends    []auditing.Auditing
 	log              *slog.Logger
 	frontEndUrl      *url.URL
@@ -71,7 +71,7 @@ type authOption func(*auth) error
 func New(c Config, options ...authOption) (*auth, error) {
 	a := &auth{
 		log:              c.Log,
-		tokenService:     c.TokenService,
+		tokenCreator:     c.TokenCreator,
 		auditBackends:    c.AuditBackends,
 		providerBackends: map[string]providerBackend{},
 		frontEndUrl:      c.FrontEndUrl,
@@ -278,7 +278,7 @@ func (a *auth) Callback(res http.ResponseWriter, req *http.Request) {
 
 	// TODO: shall we create a user token in case a redirect url was given? Rename Console token to User token?
 
-	tcr, err := a.tokenService.CreateUserTokenWithoutPermissionCheck(ctx, u.login, nil)
+	tcr, err := a.tokenCreator.CreateUserTokenWithoutPermissionCheck(ctx, u.login, nil)
 	if err != nil {
 		http.Error(res, fmt.Sprintf("unable to create a token:%v", err), http.StatusInternalServerError)
 		return

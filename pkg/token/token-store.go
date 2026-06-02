@@ -10,6 +10,7 @@ import (
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/redis/go-redis/v9"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -49,6 +50,12 @@ func NewRedisStore(client *redis.Client) TokenStore {
 }
 
 func (r *redisStore) Set(ctx context.Context, token *apiv2.Token) error {
+	if token.Meta == nil {
+		token.Meta = &apiv2.Meta{}
+	}
+
+	token.Meta.UpdatedAt = timestamppb.Now()
+
 	encoded, err := json.Marshal(toInternal(token))
 	if err != nil {
 		return fmt.Errorf("unable to encode token: %w", err)

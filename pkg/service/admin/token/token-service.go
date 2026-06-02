@@ -10,30 +10,48 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
-	ts "github.com/metal-stack/metal-apiserver/pkg/service/api/token"
-	tokenutil "github.com/metal-stack/metal-apiserver/pkg/token"
+	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
+	"github.com/metal-stack/metal-apiserver/pkg/request"
+	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
 )
 
 type Config struct {
-	Log          *slog.Logger
-	TokenStore   tokenutil.TokenStore
-	CertStore    certs.CertStore
-	TokenService ts.TokenService
+	Log           *slog.Logger
+	TokenStore    tokencommon.TokenStore
+	CertStore     certs.CertStore
+	Issuer        string
+	AdminSubjects []string
+	Repo          *repository.Store
 }
 
 type tokenService struct {
-	tokenstore tokenutil.TokenStore
-	certs      certs.CertStore
-	log        *slog.Logger
-	ts         ts.TokenService
+	tokenStore   tokencommon.TokenStore
+	tokenCreator tokencommon.TokenWithPermissionCheck
 }
 
 func New(c Config) adminv2connect.TokenServiceHandler {
+	var (
+		log = c.Log.WithGroup("adminTokenService")
+	)
+
+	projectsAndTenantsGetter := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
+		return c.Repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, userId)
+	}
+
 	return &tokenService{
-		log:        c.Log.WithGroup("adminTokenService"),
-		tokenstore: c.TokenStore,
-		certs:      c.CertStore,
-		ts:         c.TokenService,
+		tokenStore: c.TokenStore,
+		tokenCreator: *tokencommon.NewWithPermissionCheck(&tokencommon.TokenWithPermissionCheckConfig{
+			TokenWithoutPermissionCheckConfig: tokencommon.TokenWithoutPermissionCheckConfig{
+				Certs:  c.CertStore,
+				Tokens: c.TokenStore,
+				Issuer: c.Issuer,
+			},
+			Log:                      log,
+			AdminSubjects:            c.AdminSubjects,
+			Authorizer:               request.NewAuthorizer(log, projectsAndTenantsGetter),
+			ProjectsAndTenantsGetter: projectsAndTenantsGetter,
+		}),
 	}
 }
 
@@ -43,36 +61,40 @@ func (t *tokenService) List(ctx context.Context, req *adminv2.TokenServiceListRe
 		err    error
 	)
 
-	tokens, err := t.tokenstore.AdminList(ctx)
+	tokens, err := t.tokenStore.AdminList(ctx)
 	if err != nil {
 		return nil, errorutil.NewInternal(err)
 	}
 
-	for _, tok := range tokens {
-		match := true
+	if req.Query == nil {
+		result = tokens
+	} else {
+		for _, tok := range tokens {
+			match := true
 
-		if req.Query.Description != nil {
-			match = match && *req.Query.Description == tok.Description
-		}
-		if req.Query.TokenType != nil {
-			match = match && *req.Query.TokenType == tok.TokenType
-		}
-		if req.Query.User != nil {
-			match = match && *req.Query.User == tok.User
-		}
-		if req.Query.Uuid != nil {
-			match = match && *req.Query.Uuid == tok.Uuid
-		}
-		if req.Query.Labels != nil {
-			if tok.Meta == nil || tok.Meta.Labels == nil {
-				continue
+			if req.Query.Description != nil {
+				match = match && *req.Query.Description == tok.Description
+			}
+			if req.Query.TokenType != nil {
+				match = match && *req.Query.TokenType == tok.TokenType
+			}
+			if req.Query.User != nil {
+				match = match && *req.Query.User == tok.User
+			}
+			if req.Query.Uuid != nil {
+				match = match && *req.Query.Uuid == tok.Uuid
+			}
+			if req.Query.Labels != nil {
+				if tok.Meta == nil || tok.Meta.Labels == nil {
+					continue
+				}
+
+				match = match && cmp.Equal(req.Query.Labels.Labels, tok.Meta.Labels.Labels)
 			}
 
-			match = match && cmp.Equal(req.Query.Labels.Labels, tok.Meta.Labels.Labels)
-		}
-
-		if match {
-			result = append(result, tok)
+			if match {
+				result = append(result, tok)
+			}
 		}
 	}
 
@@ -82,7 +104,7 @@ func (t *tokenService) List(ctx context.Context, req *adminv2.TokenServiceListRe
 }
 
 func (t *tokenService) Revoke(ctx context.Context, req *adminv2.TokenServiceRevokeRequest) (*adminv2.TokenServiceRevokeResponse, error) {
-	err := t.tokenstore.Revoke(ctx, req.User, req.Uuid)
+	err := t.tokenStore.Revoke(ctx, req.User, req.Uuid)
 	if err != nil {
 		return nil, errorutil.NewInternal(err)
 	}
@@ -91,7 +113,7 @@ func (t *tokenService) Revoke(ctx context.Context, req *adminv2.TokenServiceRevo
 }
 
 func (t *tokenService) Create(ctx context.Context, req *adminv2.TokenServiceCreateRequest) (*adminv2.TokenServiceCreateResponse, error) {
-	resp, err := t.ts.CreateTokenForUser(ctx, req.User, req.TokenCreateRequest)
+	resp, err := t.tokenCreator.CreateTokenForUser(ctx, req.User, req.TokenCreateRequest)
 
 	if err != nil {
 		return nil, err

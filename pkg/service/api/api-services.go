@@ -61,7 +61,7 @@ type Config struct {
 	Admins        []string
 }
 
-func ApiServices(ctx context.Context, cfg Config) (token.TokenService, error) {
+func ApiServices(ctx context.Context, cfg Config) error {
 	var (
 		auditService      = audit.New(audit.Config{Log: cfg.Log, Repo: cfg.Repository, AuditClient: cfg.AuditSearchBackend})
 		filesystemService = filesystem.New(filesystem.Config{Log: cfg.Log, Repo: cfg.Repository})
@@ -114,7 +114,7 @@ func ApiServices(ctx context.Context, cfg Config) (token.TokenService, error) {
 		TaskClient:          cfg.Repository.Task(),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("unable to initialize health service %w", err)
+		return fmt.Errorf("unable to initialize health service %w", err)
 	}
 
 	// Register the services
@@ -136,5 +136,5 @@ func ApiServices(ctx context.Context, cfg Config) (token.TokenService, error) {
 	cfg.Mux.Handle(apiv2connect.NewUserServiceHandler(userService, cfg.Interceptors))
 	cfg.Mux.Handle(apiv2connect.NewVersionServiceHandler(versionService, cfg.Interceptors))
 
-	return tokenService, nil
+	return nil
 }

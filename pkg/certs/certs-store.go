@@ -17,8 +17,12 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lestrrat-go/jwx/v3/jwk"
-	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/redis/go-redis/v9"
+)
+
+var (
+	// MaxTokenExpiration defines the maximum lifetime of a token (which depends on the root cert expiration)
+	MaxTokenExpiration = 365 * 24 * time.Hour
 )
 
 const (
@@ -105,7 +109,7 @@ func (r *redisStore) LatestPrivate(ctx context.Context) (*ecdsa.PrivateKey, erro
 func (r *redisStore) setNewCert(ctx context.Context) (*ecdsa.PrivateKey, error) {
 	now := time.Now()
 
-	cert, privKey, rawBytes, err := createRootCertificate("metal-stack", now, now.Add(2*token.MaxExpiration))
+	cert, privKey, rawBytes, err := createRootCertificate("metal-stack", now, now.Add(2*MaxTokenExpiration))
 	if err != nil {
 		return nil, fmt.Errorf("unable to create certificate: %w", err)
 	}

@@ -11,7 +11,6 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	"github.com/lestrrat-go/jwx/v3/jwk"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
-	tokenservice "github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
@@ -19,18 +18,18 @@ import (
 
 func Test_jwt_cert_rotation(t *testing.T) {
 	t.Parallel()
-	oldMaxExpiration := token.MaxExpiration
+	oldMaxExpiration := certs.MaxTokenExpiration
 	oldDefaultExpiration := token.DefaultExpiration
 
-	token.MaxExpiration = 5 * time.Second
+	certs.MaxTokenExpiration = 5 * time.Second
 	token.DefaultExpiration = 5 * time.Second
 	defer func() {
-		token.MaxExpiration = oldMaxExpiration
+		certs.MaxTokenExpiration = oldMaxExpiration
 		token.DefaultExpiration = oldDefaultExpiration
 	}()
 	renewCertBeforeExpiration := 7 * time.Second
 
-	t.Logf("token lifetime: %s, certificate lifetime: %s, issue new signing certificate after: %s", token.DefaultExpiration, 2*token.MaxExpiration, 2*token.MaxExpiration-renewCertBeforeExpiration)
+	t.Logf("token lifetime: %s, certificate lifetime: %s, issue new signing certificate after: %s", token.DefaultExpiration, 2*certs.MaxTokenExpiration, 2*certs.MaxTokenExpiration-renewCertBeforeExpiration)
 
 	s := miniredis.RunT(t)
 	c := redis.NewClient(&redis.Options{Addr: s.Addr()})
@@ -54,16 +53,12 @@ func Test_jwt_cert_rotation(t *testing.T) {
 
 		return o
 	}()
-	service := func() tokenservice.TokenService {
-		s := tokenservice.New(tokenservice.Config{
-			Log:           log,
-			CertStore:     certStore,
-			TokenStore:    tokenStore,
-			AdminSubjects: []string{},
-			Issuer:        "integration",
+	service := func() *token.TokenWithoutPermissionCheck {
+		return token.NewWithoutPermissionCheck(&token.TokenWithoutPermissionCheckConfig{
+			Certs:  certStore,
+			Tokens: tokenStore,
+			Issuer: "integration",
 		})
-
-		return s
 	}()
 
 	synctest.Test(t, func(t *testing.T) {
@@ -173,8 +168,8 @@ func Test_jwt_cert_rotation(t *testing.T) {
 	})
 }
 
-func createNewConsoleToken(t *testing.T, ctx context.Context, service tokenservice.TokenService) string {
-	resp, err := service.CreateUserTokenWithoutPermissionCheck(ctx, "test-user", nil)
+func createNewConsoleToken(t *testing.T, ctx context.Context, tokenCreator *token.TokenWithoutPermissionCheck) string {
+	resp, err := tokenCreator.CreateUserTokenWithoutPermissionCheck(ctx, "test-user", nil)
 	require.NoError(t, err)
 
 	return resp.Secret

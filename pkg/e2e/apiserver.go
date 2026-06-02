@@ -12,7 +12,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/service"
-	"github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/auditing"
@@ -120,7 +119,7 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 	return server.URL, resp.Secret, tenantTokenSecrets, closer
 }
 
-func createTenantTokens(t testing.TB, repo *repository.Store, tokenService token.TokenService, tenants ...string) map[string]string {
+func createTenantTokens(t testing.TB, repo *repository.Store, tokenService *tokencommon.TokenWithoutPermissionCheck, tenants ...string) map[string]string {
 	ctx := t.Context()
 	tenantTokens := make(map[string]string)
 
