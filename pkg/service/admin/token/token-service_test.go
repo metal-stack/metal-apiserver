@@ -315,7 +315,7 @@ func Test_List(t *testing.T) {
 						Issuer: "",
 					},
 					Log:                      log,
-					AdminSubjects:            []string{},
+					AdminSubjects:            tt.state.adminSubjects,
 					Authorizer:               nil,
 					ProjectsAndTenantsGetter: projectsAndTenantsGetter,
 				}),
