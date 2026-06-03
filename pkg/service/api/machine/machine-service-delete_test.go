@@ -94,7 +94,16 @@ func Test_machineServiceServer_DeleteMachine(t *testing.T) {
 				}
 			},
 		},
-		// delete machine keep static ips
+		{
+			name: "not allocated, arbitrary machine is not found",
+			rq: func(e *test.Entities) *apiv2.MachineServiceDeleteRequest {
+				return &apiv2.MachineServiceDeleteRequest{
+					Uuid:    e.Machines[sc.Machine2].Uuid,
+					Project: e.Machines[sc.Machine1].Allocation.Project,
+				}
+			},
+			wantErr: errorutil.NotFound(`*metal.Machine with id "00000000-0000-0000-0000-000000000002" not found`),
+		},
 	}
 
 	dc := test.NewDatacenter(t, log, test.WithPostgres(true))
@@ -160,6 +169,20 @@ func Test_machineServiceServer_DeleteMachine(t *testing.T) {
 			got, err := m.Delete(ctx, rq)
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("error diff = %s", diff)
+				return
+			}
+
+			if tt.wantErr != nil {
+				err = dc.Assert(nil,
+					protocmp.IgnoreFields(
+						&apiv2.MachineProvisioningEvent{}, "time",
+					),
+					protocmp.IgnoreFields(
+						&apiv2.MachineRecentProvisioningEvents{}, "last_event_time",
+					),
+				)
+				require.NoError(t, err)
+
 				return
 			}
 

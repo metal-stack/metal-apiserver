@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
-	v1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	v1 "github.com/metal-stack/tenant-api/go/api/v1"
 )
 
 func (r *sizeReservationRepository) validateCreate(ctx context.Context, req *adminv2.SizeReservationServiceCreateRequest) error {
@@ -39,7 +39,7 @@ func (r *sizeReservationRepository) validateCreate(ctx context.Context, req *adm
 		}
 	}
 
-	if _, err := r.s.mdc.Project().Get(ctx, &v1.ProjectGetRequest{Id: sr.Project}); err != nil {
+	if _, err := r.s.tc.Apiv1().Project().Get(ctx, &v1.ProjectServiceGetRequest{Id: sr.Project}); err != nil {
 		return errorutil.FailedPrecondition("project must exist before creating a size reservation: %w", err)
 	}
 

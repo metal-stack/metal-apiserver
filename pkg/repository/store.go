@@ -19,14 +19,14 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
-	mdm "github.com/metal-stack/masterdata-api/pkg/client"
+	tenant "github.com/metal-stack/tenant-api/go/client"
 )
 
 type (
 	Store struct {
 		log             *slog.Logger
 		ds              generic.Datastore
-		mdc             mdm.Client
+		tc              tenant.Client
 		ipam            ipamv1connect.IpamServiceClient
 		task            *task.Client
 		queue           *queue.Queue
@@ -36,15 +36,15 @@ type (
 	}
 
 	Config struct {
-		Log              *slog.Logger
-		Datastore        generic.Datastore
-		MasterdataClient mdm.Client
-		Ipam             ipamv1connect.IpamServiceClient
-		Task             *task.Client
-		Queue            *queue.Queue
-		Component        valkey.Client
-		Auditing         auditing.Auditing
-		HeadscaleClient  *headscale.Client
+		Log                   *slog.Logger
+		Datastore             generic.Datastore
+		TenantApiserverClient tenant.Client
+		Ipam                  ipamv1connect.IpamServiceClient
+		Task                  *task.Client
+		Queue                 *queue.Queue
+		Component             valkey.Client
+		Auditing              auditing.Auditing
+		HeadscaleClient       *headscale.Client
 	}
 
 	store[R Repo, E Entity, M Message, C CreateMessage, U UpdateMessage, Q Query] struct {
@@ -56,7 +56,7 @@ type (
 func New(c Config) *Store {
 	return &Store{
 		log:             c.Log,
-		mdc:             c.MasterdataClient,
+		tc:              c.TenantApiserverClient,
 		ipam:            c.Ipam,
 		ds:              c.Datastore,
 		task:            c.Task,

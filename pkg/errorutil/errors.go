@@ -24,7 +24,7 @@ func Convert(err error) *connect.Error {
 		return connect.NewError(connectErr.Code(), errors.New(cleaned))
 	}
 
-	// for masterdata-api or other pure grpc apis
+	// for other pure grpc apis
 	if _, ok := status.FromError(err); ok {
 		// when the grpc error is wrapped deeper a tree, status.FromError calls the string function on
 		// the error and adds "rpc error: ..."

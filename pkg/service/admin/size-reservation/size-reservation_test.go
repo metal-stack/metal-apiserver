@@ -113,7 +113,7 @@ func Test_sizeReservationServiceServer_Create(t *testing.T) {
 			wantErr: errorutil.FailedPrecondition(`partition must exist before creating a size reservation: not_found: no partition with id "partition-0" found`),
 		},
 		{
-			name: "Create with errors, partition does not exist",
+			name: "Create with errors, project does not exist",
 			req: &adminv2.SizeReservationServiceCreateRequest{
 				SizeReservation: &apiv2.SizeReservation{
 					Name:       "no size",
@@ -123,7 +123,7 @@ func Test_sizeReservationServiceServer_Create(t *testing.T) {
 				},
 			},
 			want:    nil,
-			wantErr: errorutil.FailedPrecondition(`project must exist before creating a size reservation: rpc error: code = NotFound desc = get of project with id `),
+			wantErr: errorutil.FailedPrecondition(`project must exist before creating a size reservation: not_found: get of project with id `),
 		},
 		{
 			name: "Create with errors, id specified",

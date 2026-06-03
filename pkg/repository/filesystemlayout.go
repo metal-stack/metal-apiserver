@@ -472,3 +472,54 @@ func (r *filesystemLayoutRepository) convertToProto(ctx context.Context, in *met
 		},
 	}, nil
 }
+
+func (r *filesystemLayoutRepository) FromMachineAndFSL(ctx context.Context, matchMachine *adminv2.MatchMachineAndFilesystemLayout) (*apiv2.FilesystemLayout, error) {
+	fsl, err := r.s.ds.FilesystemLayout().Get(ctx, matchMachine.FilesystemLayout)
+	if err != nil {
+		return nil, err
+	}
+
+	machine, err := r.s.ds.Machine().Get(ctx, matchMachine.Machine)
+	if err != nil {
+		return nil, err
+	}
+
+	err = fsl.Matches(machine.Hardware)
+	if err != nil {
+		return nil, err
+	}
+
+	apiv2fsl, err := r.convertToProto(ctx, fsl)
+	if err != nil {
+		return nil, err
+	}
+
+	return apiv2fsl, nil
+}
+
+func (r *filesystemLayoutRepository) FromImageAndSize(ctx context.Context, imageAndSize *adminv2.MatchImageAndSize) (*apiv2.FilesystemLayout, error) {
+	flss, err := r.s.ds.FilesystemLayout().List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var matchedFsl *metal.FilesystemLayout
+
+	for _, fl := range flss {
+		if fl.Constraints.Matches(imageAndSize.Size, imageAndSize.Image) {
+			matchedFsl = fl
+			break
+		}
+	}
+
+	if matchedFsl == nil {
+		return nil, errorutil.NotFound("no filesystemlayout which matches size:%s and image:%s", imageAndSize.Size, imageAndSize.Image)
+	}
+
+	convertedFsl, err := r.convertToProto(ctx, matchedFsl)
+	if err != nil {
+		return nil, err
+	}
+
+	return convertedFsl, nil
+}

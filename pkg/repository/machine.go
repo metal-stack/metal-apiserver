@@ -35,9 +35,9 @@ type (
 )
 
 func (r *machineRepository) Dhcp(ctx context.Context, req *infrav2.BootServiceDhcpRequest) (*infrav2.BootServiceDhcpResponse, error) {
-	err := r.SendEvent(ctx, req.Uuid, &infrav2.MachineProvisioningEvent{
+	err := r.SendEvent(ctx, req.Uuid, &apiv2.MachineProvisioningEvent{
 		Time:    timestamppb.Now(),
-		Event:   infrav2.ProvisioningEventType_PROVISIONING_EVENT_TYPE_PXE_BOOTING,
+		Event:   apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_PXE_BOOTING,
 		Message: "machine sent extended dhcp request",
 	})
 	if err != nil {
@@ -82,7 +82,7 @@ func (r *machineRepository) SetMachineConnectedToVPN(ctx context.Context, id str
 	return r.convertToProto(ctx, m)
 }
 
-func (r *machineRepository) SendEvent(ctx context.Context, machineID string, event *infrav2.MachineProvisioningEvent) error {
+func (r *machineRepository) SendEvent(ctx context.Context, machineID string, event *apiv2.MachineProvisioningEvent) error {
 	if event == nil {
 		return errorutil.InvalidArgument("event for machine %s is nil", machineID)
 	}
@@ -221,8 +221,8 @@ func (r *machineRepository) delete(ctx context.Context, m *metal.Machine) error 
 		headscaleNodeID = node.Id
 	}
 
-	if err := r.SendEvent(ctx, m.ID, &infrav2.MachineProvisioningEvent{
-		Event:   infrav2.ProvisioningEventType_PROVISIONING_EVENT_TYPE_MACHINE_RECLAIM,
+	if err := r.SendEvent(ctx, m.ID, &apiv2.MachineProvisioningEvent{
+		Event:   apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_MACHINE_RECLAIM,
 		Message: "reclaiming machine",
 		Time:    timestamppb.Now(),
 	}); err != nil {
@@ -407,7 +407,7 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 
 	for _, gpu := range m.Hardware.MetalGPUs {
 		gpus = append(gpus, &apiv2.MetalGPU{
-			Vendor: gpu.Model,
+			Vendor: gpu.Vendor,
 			Model:  gpu.Model,
 		})
 	}
@@ -907,7 +907,7 @@ func (r *machineRepository) InstallationSucceeded(ctx context.Context, req *infr
 		return nil, fmt.Errorf("unknown allocation role:%q found", role)
 	}
 	if vrf == "" {
-		return nil, fmt.Errorf("the machine %q could not be put into the vrf because no vrf was found, error: %w", req.Uuid, err)
+		return nil, fmt.Errorf("the machine %q could not be put into the vrf because no vrf was found", req.Uuid)
 	}
 
 	// TODO convert to tasks
@@ -1398,6 +1398,8 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 	// this way we can ensure no interference with new machine allocations
 
 	g.Go(func() error {
+		r.log.Debug("machine delete attempting to release asn")
+
 		m, err := r.ds.Machine().Find(ctx, queries.MachineFilter(&apiv2.MachineQuery{
 			Allocation: &apiv2.MachineAllocationQuery{
 				Uuid: &payload.AllocationUUID,
@@ -1458,10 +1460,14 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 			return fmt.Errorf("unable to release asn: %w", err)
 		}
 
+		r.log.Debug("machine delete released asn", "asn", asn)
+
 		return nil
 	})
 
 	g.Go(func() error {
+		r.log.Debug("machine delete attempting to delete vpn node", "vpn-user-id", payload.Project, "vpn-node-id", payload.UUID)
+
 		if !r.VPN(payload.Project).Enabled() {
 			return nil
 		}
@@ -1495,6 +1501,8 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 			return fmt.Errorf("unable to delete vpn node: %w", err)
 		}
 
+		r.log.Debug("machine delete deleted vpn node", "vpn-user-id", payload.Project, "vpn-node-id", payload.UUID)
+
 		return nil
 	})
 
@@ -1503,6 +1511,8 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 	}
 
 	g.Go(func() error {
+		r.log.Debug("machine delete attempting to remove allocation", "allocation-uuid", payload.AllocationUUID)
+
 		m, err := r.ds.Machine().Find(ctx, queries.MachineFilter(&apiv2.MachineQuery{
 			Allocation: &apiv2.MachineAllocationQuery{
 				Uuid: &payload.AllocationUUID,
@@ -1524,10 +1534,14 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 			return fmt.Errorf("unable to remove machine allocation: %w", err)
 		}
 
+		r.log.Debug("machine delete removed allocation", "allocation-uuid", payload.AllocationUUID)
+
 		return nil
 	})
 
 	g.Go(func() error {
+		r.log.Debug("machine delete attempting to release ips", "allocation-uuid", payload.AllocationUUID)
+
 		var errs []error
 
 		for _, uuid := range payload.MachineIpAllocationUUIDs {
@@ -1556,6 +1570,8 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 					errs = append(errs, fmt.Errorf("unable to remove machine tag from static ip %q: %w", uuid, err))
 				}
 
+				r.log.Debug("machine delete untagged machine from static ip", "ip", ip.IPAddress)
+
 			case metal.Ephemeral:
 				fallthrough
 
@@ -1563,6 +1579,8 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 				if err := r.IP(ip.ProjectID).AdditionalMethods().delete(ctx, ip); err != nil {
 					errs = append(errs, fmt.Errorf("unable to free machine ip %q: %w", uuid, err))
 				}
+
+				r.log.Debug("machine delete released ephemeral ip", "ip", ip.IPAddress)
 			}
 		}
 
@@ -1599,6 +1617,8 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 		return fmt.Errorf("timed out waiting for bmc delete command to be executed: %w", err)
 	}
 
+	r.log.Debug("machine delete bmc command issued")
+
 	// TODO: the function signature is a bit unfortunate for the machine deletion because we do not have the full machine in the payload but only id and rack id is needed
 	if _, err := r.Switch().AdditionalMethods().SetVrfAtSwitches(ctx, &metal.Machine{
 		Base: metal.Base{
@@ -1608,6 +1628,8 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 	}, ""); err != nil {
 		return fmt.Errorf("unable to set machine back into pxe boot vrf: %w", err)
 	}
+
+	r.log.Debug("machine delete triggered switch reconfiguration")
 
 	return nil
 }

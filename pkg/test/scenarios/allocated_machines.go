@@ -149,6 +149,9 @@ var (
 				},
 			}
 		},
+		Machines: []*MachineWithLiveliness{
+			MachineFunc(Machine2, Partition1, SizeC1Large, "Tenant1Project1", "", metal.MachineLivelinessAlive, true),
+		},
 		MachineFns: func(t testing.TB, nws map[string]*apiv2.Network) []*MachineWithLiveliness {
 			var tenantNetwork *apiv2.Network
 
