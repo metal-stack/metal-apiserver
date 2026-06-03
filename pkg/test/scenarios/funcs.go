@@ -97,6 +97,7 @@ var (
 				},
 				Waiting: false,
 				Allocation: &metal.MachineAllocation{
+					UUID:            id,
 					Project:         project,
 					ImageID:         image,
 					Role:            metal.RoleMachine,
