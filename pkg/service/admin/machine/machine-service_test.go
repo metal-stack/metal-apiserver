@@ -15,6 +15,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
+	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 )
@@ -81,7 +82,7 @@ func Test_machineServiceServer_Get(t *testing.T) {
 					Size:                     &apiv2.Size{Id: "c1-large-x86", Meta: &apiv2.Meta{}},
 					RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
 					Status: &apiv2.MachineStatus{
-						Condition:  &apiv2.MachineCondition{},
+						Condition:  &apiv2.MachineCondition{State: apiv2.MachineState_MACHINE_STATE_AVAILABLE},
 						LedState:   &apiv2.MachineChassisIdentifyLEDState{},
 						Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
 					},
@@ -187,7 +188,7 @@ func Test_machineServiceServer_List(t *testing.T) {
 						Size:                     &apiv2.Size{Id: "c1-large-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 8, Max: 8}}},
 						RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
 						Status: &apiv2.MachineStatus{
-							Condition:  &apiv2.MachineCondition{},
+							Condition:  &apiv2.MachineCondition{State: apiv2.MachineState_MACHINE_STATE_AVAILABLE},
 							LedState:   &apiv2.MachineChassisIdentifyLEDState{},
 							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
 						},
@@ -222,7 +223,7 @@ func Test_machineServiceServer_List(t *testing.T) {
 						Size:                     &apiv2.Size{Id: "c1-large-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 8, Max: 8}}},
 						RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
 						Status: &apiv2.MachineStatus{
-							Condition:  &apiv2.MachineCondition{},
+							Condition:  &apiv2.MachineCondition{State: apiv2.MachineState_MACHINE_STATE_AVAILABLE},
 							LedState:   &apiv2.MachineChassisIdentifyLEDState{},
 							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
 						},
@@ -380,6 +381,187 @@ func Test_machineServiceServer_BMCCommand(t *testing.T) {
 				require.Len(t, tasks, 1)
 				require.Equal(t, asynq.TaskStatePending, tasks[0].State)
 				require.Contains(t, string(tasks[0].Payload), "boot-from-disk")
+			}
+		})
+	}
+}
+
+func Test_machineServiceServer_SetState(t *testing.T) {
+	t.Parallel()
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
+
+	testDC := sc.DefaultDatacenter
+	testDC.Machines = append(testDC.Machines, &sc.MachineWithLiveliness{
+		Machine: &metal.Machine{
+			Base:        metal.Base{ID: sc.Machine5},
+			PartitionID: sc.Partition1,
+			SizeID:      sc.SizeC1Large,
+			State: metal.MachineState{
+				Value:       metal.LockedState,
+				Description: "locked for testing",
+			},
+		},
+		Liveliness: metal.MachineLivelinessAlive,
+	})
+	dc.Create(&testDC)
+
+	tests := []struct {
+		name    string
+		req     *adminv2.MachineServiceSetStateRequest
+		want    *adminv2.MachineServiceSetStateResponse
+		wantErr error
+	}{
+		{
+			name: "taint a machine",
+			req: &adminv2.MachineServiceSetStateRequest{
+				Uuid:        sc.Machine1,
+				State:       apiv2.MachineState_MACHINE_STATE_TAINTED,
+				Description: "tainted during test",
+			},
+			want: &adminv2.MachineServiceSetStateResponse{
+				Machine: &apiv2.Machine{
+					Uuid:                     sc.Machine1,
+					Allocation:               &apiv2.MachineAllocation{},
+					Hardware:                 &apiv2.MachineHardware{},
+					Meta:                     &apiv2.Meta{Generation: 1},
+					Partition:                &apiv2.Partition{},
+					Size:                     &apiv2.Size{},
+					RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
+					Status: &apiv2.MachineStatus{
+						Condition: &apiv2.MachineCondition{
+							State:       apiv2.MachineState_MACHINE_STATE_TAINTED,
+							Description: "tainted during test",
+							Issuer:      "unknown issuer",
+						},
+						LedState:   &apiv2.MachineChassisIdentifyLEDState{},
+						Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "untaint a tainted machine",
+			req: &adminv2.MachineServiceSetStateRequest{
+				Uuid:        sc.Machine1,
+				State:       apiv2.MachineState_MACHINE_STATE_AVAILABLE,
+				Description: "unlocking",
+			},
+			want: &adminv2.MachineServiceSetStateResponse{
+				Machine: &apiv2.Machine{
+					Uuid:                     sc.Machine1,
+					Allocation:               &apiv2.MachineAllocation{},
+					Hardware:                 &apiv2.MachineHardware{},
+					Meta:                     &apiv2.Meta{Generation: 2},
+					Partition:                &apiv2.Partition{},
+					Size:                     &apiv2.Size{},
+					RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
+					Status: &apiv2.MachineStatus{
+						Condition: &apiv2.MachineCondition{
+							State:       apiv2.MachineState_MACHINE_STATE_AVAILABLE,
+							Description: "",
+							Issuer:      "unknown issuer",
+						},
+						LedState:   &apiv2.MachineChassisIdentifyLEDState{},
+						Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "lock a machine",
+			req: &adminv2.MachineServiceSetStateRequest{
+				Uuid:        sc.Machine1,
+				State:       apiv2.MachineState_MACHINE_STATE_LOCKED,
+				Description: "Locked during test",
+			},
+			want: &adminv2.MachineServiceSetStateResponse{
+				Machine: &apiv2.Machine{
+					Uuid:                     sc.Machine1,
+					Allocation:               &apiv2.MachineAllocation{},
+					Hardware:                 &apiv2.MachineHardware{},
+					Meta:                     &apiv2.Meta{Generation: 3},
+					Partition:                &apiv2.Partition{},
+					Size:                     &apiv2.Size{},
+					RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
+					Status: &apiv2.MachineStatus{
+						Condition: &apiv2.MachineCondition{
+							State:       apiv2.MachineState_MACHINE_STATE_LOCKED,
+							Description: "Locked during test",
+							Issuer:      "unknown issuer",
+						},
+						LedState:   &apiv2.MachineChassisIdentifyLEDState{},
+						Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "taint a locked a machine",
+			req: &adminv2.MachineServiceSetStateRequest{
+				Uuid:        sc.Machine5,
+				State:       apiv2.MachineState_MACHINE_STATE_TAINTED,
+				Description: "Locked during test",
+			},
+			want:    nil,
+			wantErr: errorutil.FailedPrecondition(`machine is currently "locked", must made available first`),
+		},
+		{
+			name: "unlock a locked a machine",
+			req: &adminv2.MachineServiceSetStateRequest{
+				Uuid:        sc.Machine5,
+				State:       apiv2.MachineState_MACHINE_STATE_AVAILABLE,
+				Description: "unlocking",
+			},
+			want: &adminv2.MachineServiceSetStateResponse{
+				Machine: &apiv2.Machine{
+					Uuid:                     sc.Machine5,
+					Allocation:               &apiv2.MachineAllocation{},
+					Hardware:                 &apiv2.MachineHardware{},
+					Meta:                     &apiv2.Meta{Generation: 1},
+					Partition:                &apiv2.Partition{},
+					Size:                     &apiv2.Size{},
+					RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
+					Status: &apiv2.MachineStatus{
+						Condition: &apiv2.MachineCondition{
+							State:       apiv2.MachineState_MACHINE_STATE_AVAILABLE,
+							Description: "",
+							Issuer:      "unknown issuer",
+						},
+						LedState:   &apiv2.MachineChassisIdentifyLEDState{},
+						Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
+					},
+				},
+			},
+			wantErr: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := &machineServiceServer{
+				log:  log,
+				repo: dc.GetTestStore().Store,
+			}
+			got, err := m.SetState(t.Context(), tt.req)
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("diff = %s", diff)
+			}
+			if diff := cmp.Diff(
+				tt.want, got,
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Machine{}, "size", "partition", "allocation", "recent_provisioning_events",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
+			); diff != "" {
+				t.Errorf("machineServiceServer.SetState() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
 		})
 	}

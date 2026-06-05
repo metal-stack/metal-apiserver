@@ -24,6 +24,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/fsm"
 	"github.com/metal-stack/metal-apiserver/pkg/tags"
+	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -546,12 +547,12 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 		}
 	}
 
-	stateString, err := enum.GetEnum[apiv2.MachineState](strings.ToLower(string(m.State.Value)))
+	apiv2State, err := metal.ToAPIV2MachineStatus(m.State.Value)
 	if err != nil {
 		return nil, err
 	}
 	condition = &apiv2.MachineCondition{
-		State:       apiv2.MachineState(stateString),
+		State:       apiv2State,
 		Description: m.State.Description,
 		Issuer:      m.State.Issuer,
 	}
@@ -1312,6 +1313,7 @@ func (r *machineRepository) BMCCommandDone(ctx context.Context, req *infrav2.BMC
 	}
 	return &infrav2.BMCCommandDoneResponse{}, nil
 }
+
 func (r *machineRepository) GetConsolePassword(ctx context.Context, machineUUID string) (string, error) {
 	m, err := r.s.ds.Machine().Get(ctx, machineUUID)
 	if err != nil {
@@ -1322,6 +1324,46 @@ func (r *machineRepository) GetConsolePassword(ctx context.Context, machineUUID 
 	}
 
 	return m.Allocation.ConsolePassword, nil
+}
+
+func (r *machineRepository) SetState(ctx context.Context, req *adminv2.MachineServiceSetStateRequest) (*adminv2.MachineServiceSetStateResponse, error) {
+	ms, err := r.s.ds.Machine().Get(ctx, req.Uuid)
+	if err != nil {
+		return nil, err
+	}
+	issuer := "unknown issuer"
+	tok, ok := token.TokenFromContext(ctx)
+	if ok {
+		issuer = tok.User
+	}
+	ms.State.Description = req.Description
+	ms.State.Issuer = issuer
+
+	switch req.State {
+	case apiv2.MachineState_MACHINE_STATE_LOCKED:
+		ms.State.Value = metal.LockedState
+	case apiv2.MachineState_MACHINE_STATE_TAINTED:
+		ms.State.Value = metal.TaintedState
+	case apiv2.MachineState_MACHINE_STATE_AVAILABLE:
+		ms.State.Value = metal.AvailableState
+		ms.State.Description = ""
+	default:
+		return nil, errorutil.InvalidArgument("given state %q is not supported", req.State)
+	}
+
+	err = r.s.ds.Machine().Update(ctx, ms)
+	if err != nil {
+		return nil, err
+	}
+
+	apiv2Machine, err := r.convertToProto(ctx, ms)
+	if err != nil {
+		return nil, err
+	}
+
+	return &adminv2.MachineServiceSetStateResponse{
+		Machine: apiv2Machine,
+	}, nil
 }
 
 func (r *machineRepository) setMachineWaitingFlag(ctx context.Context, machineUUID string, waiting bool) error {
