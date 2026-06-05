@@ -100,7 +100,7 @@ func (a *auth) NewHandler(isDevStage bool) (string, http.Handler, error) {
 			Path:     "/",
 			MaxAge:   86400 * 30,
 			SameSite: http.SameSiteLaxMode,
-			// Secure:   true, // FIXME true only works in production, not in mini-lab
+			// Secure:   true, // FIXME see: https://github.com/metal-stack/metal-apiserver/issues/212
 		},
 	}
 
