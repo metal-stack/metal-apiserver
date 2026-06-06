@@ -68,6 +68,7 @@ type Config struct {
 	MaxRequestsPerMinuteToken           int
 	MaxRequestsPerMinuteUnauthenticated int
 	IsStageDev                          bool
+	SecureCookie                        bool
 	BMCSuperuserPassword                string
 	HeadscaleControlplaneAddress        string
 	HeadscaleClient                     *headscale.Client
@@ -252,6 +253,8 @@ func oidcAuthHandler(log *slog.Logger, tokenService token.TokenService, c Config
 		AuditBackends: c.AuditBackends,
 		FrontEndUrl:   frontendURL,
 		CallbackUrl:   c.ServerHttpURL + "/auth/{provider}/callback",
+		IsDevStage:    c.IsStageDev,
+		SecureCookie:  c.SecureCookie,
 	})
 	if err != nil {
 		return "", nil, err
@@ -271,6 +274,6 @@ func oidcAuthHandler(log *slog.Logger, tokenService token.TokenService, c Config
 		return "", nil, err
 	}
 
-	return auth.NewHandler(c.IsStageDev)
+	return auth.NewHandler()
 
 }

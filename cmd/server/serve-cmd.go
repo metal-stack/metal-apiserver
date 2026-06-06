@@ -83,6 +83,7 @@ func newServeCmd() *cli.Command {
 			headscaleApikeyFlag,
 			headscaleEnabledFlag,
 			componentExpirationFlag,
+			secureCookieFlag,
 		},
 		Action: func(ctx *cli.Context) error {
 			log, err := createLogger(ctx)
@@ -191,6 +192,7 @@ func newServeCmd() *cli.Command {
 				OIDCUniqueUserKey:                   ctx.String(oidcUniqueUserKeyFlag.Name),
 				OIDCTLSSkipVerify:                   ctx.Bool(oidcTLSSkipVerifyFlag.Name),
 				IsStageDev:                          strings.EqualFold(stage, stageDEV),
+				SecureCookie:                        ctx.Bool(secureCookieFlag.Name),
 				BMCSuperuserPassword:                ctx.String(bmcSuperuserPasswordFlag.Name),
 				HeadscaleControlplaneAddress:        ctx.String(headscaleControlplaneAddressFlag.Name),
 				HeadscaleClient:                     hc,

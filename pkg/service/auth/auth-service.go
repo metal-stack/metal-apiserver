@@ -40,6 +40,8 @@ type Config struct {
 	CallbackUrl   string // will replace `"{" + providerKey + ""}"` with the actual provider name
 	FrontEndUrl   *url.URL
 	CookieMaxAge  time.Duration
+	IsDevStage    bool
+	SecureCookie  bool
 }
 
 type providerUser struct {
@@ -64,6 +66,8 @@ type auth struct {
 	frontEndUrl      *url.URL
 	callbackUrl      string
 	repo             *repository.Store
+	isDevStage       bool
+	secureCookie     bool
 }
 
 type authOption func(*auth) error
@@ -81,12 +85,12 @@ func New(c Config, options ...authOption) (*auth, error) {
 	return a.With(options...)
 }
 
-func (a *auth) NewHandler(isDevStage bool) (string, http.Handler, error) {
-	a.log.Info("authhandler", "isDevStage", isDevStage)
+func (a *auth) NewHandler() (string, http.Handler, error) {
+	a.log.Info("authhandler", "isDevStage", a.isDevStage)
 	// FIXME: since go-1.22 and goth v1.81 can be replaced by
 	// r := http.NewServeMux()
 	r := mux.NewRouter()
-	if isDevStage {
+	if a.isDevStage {
 		_, err := a.With(FakeProvider())
 		if err != nil {
 			return "", nil, err
@@ -100,6 +104,7 @@ func (a *auth) NewHandler(isDevStage bool) (string, http.Handler, error) {
 			Path:     "/",
 			MaxAge:   86400 * 30,
 			SameSite: http.SameSiteLaxMode,
+			Secure:   a.secureCookie,
 		},
 	}
 

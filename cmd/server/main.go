@@ -333,6 +333,12 @@ var (
 		Usage:   "duration after which inactive component entries are removed",
 		EnvVars: []string{"COMPONENT_EXPIRATION"},
 	}
+	secureCookieFlag = &cli.BoolFlag{
+		Name:    "secure-cookie",
+		Value:   true,
+		Usage:   "enable secure cookie transport, should be disabled in mini-lab or test and dev environments where authentication endpoint is not https terminated",
+		EnvVars: []string{"SECURE_COOKIE"},
+	}
 )
 
 func main() {
