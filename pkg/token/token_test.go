@@ -10,6 +10,7 @@ import (
 
 	"buf.build/go/protovalidate"
 	"github.com/alicebob/miniredis/v2"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/go-cmp/cmp"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
@@ -49,7 +50,7 @@ func Test_tokenService_CreateConsoleTokenWithoutPermissionCheck(t *testing.T) {
 
 	assert.NotEmpty(t, got.GetSecret())
 	assert.True(t, strings.HasPrefix(got.GetSecret(), "ey"), "not a valid jwt token") // jwt always starts with "ey" because it's b64 encoded JSON
-	claims, err := ParseJWTToken(got.GetSecret())
+	claims, err := parseJWTToken(got.GetSecret())
 	require.NoError(t, err, "token claims not parsable")
 	require.NotNil(t, claims)
 
@@ -86,6 +87,23 @@ func Test_tokenService_CreateConsoleTokenWithoutPermissionCheck(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Empty(t, tokenList)
+}
+
+// parseJWTToken unverified to Claims to get Issuer,Subject, Roles and Permissions
+func parseJWTToken(tokenString string) (*Claims, error) {
+	if tokenString == "" {
+		return nil, nil
+	}
+
+	claims := &Claims{}
+	parser := jwt.NewParser()
+	_, _, err := parser.ParseUnverified(string(tokenString), claims)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return claims, nil
 }
 
 func Test_CreateForUser(t *testing.T) {
