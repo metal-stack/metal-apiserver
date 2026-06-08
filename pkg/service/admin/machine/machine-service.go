@@ -48,7 +48,7 @@ func (m *machineServiceServer) List(ctx context.Context, rq *adminv2.MachineServ
 	}
 
 	partition := rq.Partition
-	if partition == nil {
+	if partition != nil {
 		if len(partitions) > 1 {
 			return nil, errorutil.InvalidArgument("no partition specified, but %d partitions available", len(partitions))
 		}
