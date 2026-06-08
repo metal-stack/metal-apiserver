@@ -328,6 +328,11 @@ func TestMachineFilter(t *testing.T) {
 			want: []*metal.Machine{m2},
 		},
 		{
+			name: "by allocation uuid 1",
+			rq:   &apiv2.MachineQuery{Allocation: &apiv2.MachineAllocationQuery{Uuid: new("alloc-m1")}},
+			want: []*metal.Machine{m1},
+		},
+		{
 			name: "by name",
 			rq:   &apiv2.MachineQuery{Name: &m1.Name},
 			want: []*metal.Machine{m1},
