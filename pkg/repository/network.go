@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/netip"
@@ -52,7 +51,7 @@ func (r *networkRepository) delete(ctx context.Context, nw *metal.Network) error
 		return err
 	}
 
-	r.s.log.Info("network delete queued", "info", info)
+	r.s.log.Info("network delete enqueued", "info", info)
 
 	return nil
 }
@@ -60,10 +59,11 @@ func (r *networkRepository) delete(ctx context.Context, nw *metal.Network) error
 // NetworkDeleteHandleFn is called async to ensure all dependent entities are deleted
 // Async deletion must be scheduled by async.NewNetworkDeleteTask
 func (r *Store) NetworkDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
-	var payload task.NetworkDeletePayload
-	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
-		return fmt.Errorf("json.Unmarshal failed: %w %w", err, asynq.SkipRetry)
+	payload, err := task.DecodePayload[*task.NetworkDeletePayload](t.Payload())
+	if err != nil {
+		return err
 	}
+
 	r.log.Info("delete network handler", "uuid", payload.UUID)
 
 	nw, err := r.ds.Network().Get(ctx, payload.UUID)

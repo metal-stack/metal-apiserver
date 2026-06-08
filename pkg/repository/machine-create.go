@@ -265,7 +265,8 @@ func (r *machineRepository) rollback(ctx context.Context, rollbackEntities *roll
 				r.s.log.Error("unable to start task to delete ip", "error", err)
 				continue
 			}
-			r.s.log.Info("ip delete queued", "info", info)
+
+			r.s.log.Info("ip delete enqueued", "info", info)
 		} else {
 			metalIP, err := r.s.ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Uuid: &ip.AllocationUUID}))
 			if err != nil {

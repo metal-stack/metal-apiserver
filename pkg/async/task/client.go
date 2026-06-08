@@ -1,15 +1,19 @@
 package task
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
+)
+
+const (
+	defaultTaskRetention = 14 * 24 * time.Hour // only with retention a task will be stored in completed tasks
 )
 
 var (
@@ -130,9 +134,9 @@ func listAll(queue string, callFn taskListFn) ([]*asynq.TaskInfo, error) {
 }
 
 func (c *Client) NewTask(payload TaskPayload, additionalOpts ...asynq.Option) (*asynq.TaskInfo, error) {
-	encoded, err := json.Marshal(payload)
+	encoded, err := EncodePayload(payload)
 	if err != nil {
-		return nil, fmt.Errorf("unable to marshal task payload: %w", err)
+		return nil, err
 	}
 
 	taskId, err := taskID()
@@ -142,8 +146,15 @@ func (c *Client) NewTask(payload TaskPayload, additionalOpts ...asynq.Option) (*
 
 	var (
 		opts = append(c.opts, asynq.TaskID(taskId))
-		task = asynq.NewTask(string(payload.Type()), encoded, append(opts, additionalOpts...)...)
 	)
+
+	if !slices.ContainsFunc(additionalOpts, func(opt asynq.Option) bool {
+		return opt.Type() == asynq.RetentionOpt
+	}) {
+		opts = append(opts, asynq.Retention(defaultTaskRetention))
+	}
+
+	task := asynq.NewTask(string(payload.Type()), encoded, append(opts, additionalOpts...)...)
 
 	taskInfo, err := c.client.Enqueue(task)
 

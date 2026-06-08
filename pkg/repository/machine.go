@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -197,25 +196,14 @@ func (r *machineRepository) update(ctx context.Context, m *metal.Machine, req *a
 }
 
 func (r *machineRepository) delete(ctx context.Context, m *metal.Machine) error {
-	var (
-		uuid           = &m.ID
-		allocationUUID *string
-	)
-
-	if m.Allocation != nil {
-		uuid = nil
-		allocationUUID = &m.Allocation.UUID
-	}
-
 	info, err := r.s.task.NewTask(&task.MachineDeletePayload{
-		UUID:           uuid,
-		AllocationUUID: allocationUUID,
+		// TODO
 	})
 	if err != nil {
 		return err
 	}
 
-	r.s.log.Info("machine delete queued", "info", info)
+	r.s.log.Info("machine delete enqueued", "info", info)
 
 	return nil
 }
@@ -1193,7 +1181,6 @@ func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, 
 	},
 		asynq.Timeout(time.Minute),
 		asynq.MaxRetry(0),
-		asynq.Retention(30*24*time.Hour), // Only with retention a task will be stored in completed tasks
 	)
 	if err != nil {
 		return err
@@ -1261,7 +1248,6 @@ func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWa
 }
 
 func (r *machineRepository) WaitForBMCCommand(ctx context.Context, req *infrav2.WaitForBMCCommandRequest, stream *connect.ServerStream[infrav2.WaitForBMCCommandResponse]) error {
-
 	// Stream messages to client
 	cmdChan := r.s.queue.WaitMachineCommand(ctx, req.Partition)
 
@@ -1390,10 +1376,11 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 }
 
 func (r *Store) MachineBMCCommandHandleFn(ctx context.Context, t *asynq.Task) error {
-	var payload task.MachineBMCCommandPayload
-	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
-		return fmt.Errorf("json.Unmarshal failed: %w %w", err, asynq.SkipRetry)
+	payload, err := task.DecodePayload[*task.MachineBMCCommandPayload](t.Payload())
+	if err != nil {
+		return err
 	}
+
 	r.log.Info("machine bmc command handler", "machine", payload.UUID, "command", payload.Command)
 
 	if err := r.queue.PushMachineCommand(ctx, payload.Partition, payload); err != nil {
