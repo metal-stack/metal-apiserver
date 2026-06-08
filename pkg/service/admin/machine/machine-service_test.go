@@ -448,7 +448,6 @@ func Test_machineServiceServer_SetState(t *testing.T) {
 			req: &adminv2.MachineServiceSetStateRequest{
 				Uuid:        sc.Machine1,
 				State:       apiv2.MachineState_MACHINE_STATE_AVAILABLE,
-				Description: "unlocking",
 			},
 			want: &adminv2.MachineServiceSetStateResponse{
 				Machine: &apiv2.Machine{
@@ -516,7 +515,6 @@ func Test_machineServiceServer_SetState(t *testing.T) {
 			req: &adminv2.MachineServiceSetStateRequest{
 				Uuid:        sc.Machine5,
 				State:       apiv2.MachineState_MACHINE_STATE_AVAILABLE,
-				Description: "unlocking",
 			},
 			want: &adminv2.MachineServiceSetStateResponse{
 				Machine: &apiv2.Machine{
