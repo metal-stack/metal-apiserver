@@ -6,6 +6,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 )
 
 // A Machine is a piece of metal which is under the control of our system. It registers itself
@@ -71,7 +73,10 @@ const (
 	// AvailableState describes a machine state where a machine is available for an allocation
 	AvailableState MState = ""
 	// ReservedState describes a machine state where a machine is not being considered for random allocation
+	// Deprecated: use TaintedState instead
 	ReservedState MState = "RESERVED"
+	// TaintedState describes a machine state where a machine is not being considered for random allocation
+	TaintedState MState = "TAINTED"
 	// LockedState describes a machine state where a machine cannot be deleted or allocated anymore
 	LockedState MState = "LOCKED"
 )
@@ -395,4 +400,17 @@ func (n *MachineNetwork) ContainsIP(ip string) bool {
 		}
 		return n.Contains(pip)
 	})
+}
+
+func ToAPIV2MachineStatus(state MState) (apiv2.MachineState, error) {
+	switch state {
+	case AvailableState:
+		return apiv2.MachineState_MACHINE_STATE_AVAILABLE, nil
+	case ReservedState, TaintedState:
+		return apiv2.MachineState_MACHINE_STATE_TAINTED, nil
+	case LockedState:
+		return apiv2.MachineState_MACHINE_STATE_LOCKED, nil
+	default:
+		return apiv2.MachineState_MACHINE_STATE_UNSPECIFIED, fmt.Errorf("given state:%q is not known", state)
+	}
 }
