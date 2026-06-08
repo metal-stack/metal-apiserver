@@ -51,7 +51,7 @@ func (r *networkRepository) delete(ctx context.Context, nw *metal.Network) error
 		return err
 	}
 
-	r.s.log.Info("network delete queued", "info", info)
+	r.s.log.Info("network delete enqueued", "info", info)
 
 	return nil
 }

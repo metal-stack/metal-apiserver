@@ -1224,7 +1224,6 @@ func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, 
 	},
 		asynq.Timeout(time.Minute),
 		asynq.MaxRetry(0),
-		asynq.Retention(30*24*time.Hour), // Only with retention a task will be stored in completed tasks
 	)
 	if err != nil {
 		return "", err
