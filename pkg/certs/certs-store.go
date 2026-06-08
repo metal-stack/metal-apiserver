@@ -27,6 +27,12 @@ var (
 
 const (
 	prefix = "certstore_"
+
+	// defaultRenewalThreshold is the default duration when a new root certificate gets issued before it expires.
+	// e.g. 365 days max token lifetime = 730 days root cert expiration, renewal 90 days before expiration = renewal at day 640.
+	//
+	// the renewal process is triggered when the root certificate is retrieved from the store.
+	defaultRenewalThreshold = 90 * 24 * time.Hour
 )
 
 type Config struct {
@@ -63,10 +69,11 @@ func matchPublic() string {
 }
 
 func NewRedisStore(c *Config) CertStore {
-	renewCertBeforeExpiration := 90 * 24 * time.Hour
+	renewCertBeforeExpiration := defaultRenewalThreshold
 	if c.RenewCertBeforeExpiration != nil {
 		renewCertBeforeExpiration = *c.RenewCertBeforeExpiration
 	}
+
 	return &redisStore{
 		client:                    c.RedisClient,
 		renewCertBeforeExpiration: renewCertBeforeExpiration,
