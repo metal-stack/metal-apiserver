@@ -319,7 +319,7 @@ func Test_List(t *testing.T) {
 					Authorizer:               nil,
 					ProjectsAndTenantsGetter: projectsAndTenantsGetter,
 				}),
-				tokenStore: tokenStore,
+				tokens: tokenStore,
 			}
 
 			if tt.wantErr == false {

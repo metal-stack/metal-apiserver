@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -176,11 +175,8 @@ func (o *auth) extractAndValidateJWTToken(ctx context.Context, jwtTokenfunc func
 
 	t, err := o.tokenStore.Get(ctx, claim.Subject, claim.ID)
 	if err != nil {
-		if errors.Is(err, token.ErrTokenNotFound) {
-			return nil, errorutil.Unauthenticated("token was revoked")
-		}
-
-		return nil, errorutil.NewInternal(err)
+		return nil, err
 	}
+
 	return t, nil
 }

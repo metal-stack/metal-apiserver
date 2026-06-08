@@ -8,6 +8,7 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	"github.com/google/go-cmp/cmp"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -51,6 +52,11 @@ func TestRedisStore(t *testing.T) {
 
 	err = store.Revoke(ctx, johnDoeToken.User, johnDoeToken.Uuid)
 	require.NoError(t, err)
+
+	err = store.Revoke(ctx, johnDoeToken.User, "1234")
+	if diff := cmp.Diff(errorutil.NotFound("token not found"), err, errorutil.ErrorStringComparer()); diff != "" {
+		t.Errorf("error diff (+got -want):\n %s", diff)
+	}
 
 	tok, err = store.Get(ctx, johnDoeToken.User, johnDoeToken.Uuid)
 	require.Error(t, err)

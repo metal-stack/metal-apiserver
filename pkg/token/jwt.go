@@ -44,29 +44,32 @@ func NewJWT(tokenType apiv2.TokenType, subject, issuer string, expires time.Dura
 		return "", nil, err
 	}
 
-	issuedAt := time.Now().UTC()
-	expiresAt := issuedAt.Add(expires)
-	claims := &Claims{
-		// see overview of "registered" JWT claims as used by jwt-go here:
-		//   https://pkg.go.dev/github.com/golang-jwt/jwt/v5?utm_source=godoc#RegisteredClaims
-		// see the semantics of the registered claims here:
-		//   https://en.wikipedia.org/wiki/JSON_Web_Token#Standard_fields
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(expiresAt),
-			IssuedAt:  jwt.NewNumericDate(issuedAt),
-			NotBefore: jwt.NewNumericDate(issuedAt),
+	var (
+		issuedAt  = time.Now().UTC()
+		expiresAt = issuedAt.Add(expires)
+		claims    = &Claims{
+			// see overview of "registered" JWT claims as used by jwt-go here:
+			//   https://pkg.go.dev/github.com/golang-jwt/jwt/v5?utm_source=godoc#RegisteredClaims
+			// see the semantics of the registered claims here:
+			//   https://en.wikipedia.org/wiki/JSON_Web_Token#Standard_fields
+			RegisteredClaims: jwt.RegisteredClaims{
+				ExpiresAt: jwt.NewNumericDate(expiresAt),
+				IssuedAt:  jwt.NewNumericDate(issuedAt),
+				NotBefore: jwt.NewNumericDate(issuedAt),
 
-			// ID is for your traceability, doesn't have to be UUID:
-			ID: id.String(),
+				// ID is for your traceability, doesn't have to be UUID:
+				ID: id.String(),
 
-			// put name/title/ID of whoever will be using this JWT here:
-			Subject: subject,
-			Issuer:  issuer,
-		},
-		Type: tokenType.String(),
-	}
+				// put name/title/ID of whoever will be using this JWT here:
+				Subject: subject,
+				Issuer:  issuer,
+			},
+			Type: tokenType.String(),
+		}
+	)
 
 	jwtWithClaims := jwt.NewWithClaims(jwt.SigningMethodES512, claims)
+
 	res, err := jwtWithClaims.SignedString(secret)
 	if err != nil {
 		return "", nil, fmt.Errorf("unable to sign ES512 JWT: %w", err)

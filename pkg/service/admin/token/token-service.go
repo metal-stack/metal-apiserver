@@ -9,7 +9,6 @@ import (
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
-	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/request"
@@ -26,7 +25,7 @@ type Config struct {
 }
 
 type tokenService struct {
-	tokenStore   tokencommon.TokenStore
+	tokens       tokencommon.TokenStore
 	tokenCreator tokencommon.TokenWithPermissionCheck
 }
 
@@ -40,7 +39,7 @@ func New(c Config) adminv2connect.TokenServiceHandler {
 	}
 
 	return &tokenService{
-		tokenStore: c.TokenStore,
+		tokens: c.TokenStore,
 		tokenCreator: *tokencommon.NewWithPermissionCheck(&tokencommon.TokenWithPermissionCheckConfig{
 			TokenWithoutPermissionCheckConfig: tokencommon.TokenWithoutPermissionCheckConfig{
 				Certs:  c.CertStore,
@@ -61,9 +60,9 @@ func (t *tokenService) List(ctx context.Context, req *adminv2.TokenServiceListRe
 		err    error
 	)
 
-	tokens, err := t.tokenStore.AdminList(ctx)
+	tokens, err := t.tokens.AdminList(ctx)
 	if err != nil {
-		return nil, errorutil.NewInternal(err)
+		return nil, err
 	}
 
 	if req.Query == nil {
@@ -104,9 +103,9 @@ func (t *tokenService) List(ctx context.Context, req *adminv2.TokenServiceListRe
 }
 
 func (t *tokenService) Revoke(ctx context.Context, req *adminv2.TokenServiceRevokeRequest) (*adminv2.TokenServiceRevokeResponse, error) {
-	err := t.tokenStore.Revoke(ctx, req.User, req.Uuid)
+	err := t.tokens.Revoke(ctx, req.User, req.Uuid)
 	if err != nil {
-		return nil, errorutil.NewInternal(err)
+		return nil, err
 	}
 
 	return &adminv2.TokenServiceRevokeResponse{}, nil
