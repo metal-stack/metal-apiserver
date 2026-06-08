@@ -185,7 +185,7 @@ func (r *ipRepository) delete(ctx context.Context, e *metal.IP) error {
 		return err
 	}
 
-	r.s.log.Info("ip delete queued", "info", info)
+	r.s.log.Info("ip delete enqueued", "info", info)
 
 	return nil
 }
