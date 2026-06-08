@@ -203,7 +203,7 @@ func (r *machineRepository) delete(ctx context.Context, m *metal.Machine) error 
 		return err
 	}
 
-	r.s.log.Info("machine delete queued", "info", info)
+	r.s.log.Info("machine delete enqueued", "info", info)
 
 	return nil
 }
@@ -1181,7 +1181,6 @@ func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, 
 	},
 		asynq.Timeout(time.Minute),
 		asynq.MaxRetry(0),
-		asynq.Retention(30*24*time.Hour), // Only with retention a task will be stored in completed tasks
 	)
 	if err != nil {
 		return err
@@ -1249,7 +1248,6 @@ func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWa
 }
 
 func (r *machineRepository) WaitForBMCCommand(ctx context.Context, req *infrav2.WaitForBMCCommandRequest, stream *connect.ServerStream[infrav2.WaitForBMCCommandResponse]) error {
-
 	// Stream messages to client
 	cmdChan := r.s.queue.WaitMachineCommand(ctx, req.Partition)
 

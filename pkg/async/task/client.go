@@ -4,11 +4,16 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
+)
+
+const (
+	defaultTaskRetention = 14 * 24 * time.Hour // only with retention a task will be stored in completed tasks
 )
 
 var (
@@ -141,8 +146,15 @@ func (c *Client) NewTask(payload TaskPayload, additionalOpts ...asynq.Option) (*
 
 	var (
 		opts = append(c.opts, asynq.TaskID(taskId))
-		task = asynq.NewTask(string(payload.Type()), encoded, append(opts, additionalOpts...)...)
 	)
+
+	if !slices.ContainsFunc(additionalOpts, func(opt asynq.Option) bool {
+		return opt.Type() == asynq.RetentionOpt
+	}) {
+		opts = append(opts, asynq.Retention(defaultTaskRetention))
+	}
+
+	task := asynq.NewTask(string(payload.Type()), encoded, append(opts, additionalOpts...)...)
 
 	taskInfo, err := c.client.Enqueue(task)
 
