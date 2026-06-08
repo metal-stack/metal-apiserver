@@ -175,6 +175,10 @@ func (o *auth) extractAndValidateJWTToken(ctx context.Context, jwtTokenfunc func
 
 	t, err := o.tokenStore.Get(ctx, claim.Subject, claim.ID)
 	if err != nil {
+		if errorutil.IsNotFound(err) {
+			return nil, errorutil.Unauthenticated("token was revoked")
+		}
+
 		return nil, err
 	}
 
