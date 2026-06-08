@@ -226,7 +226,11 @@ func Test_bootServiceServer_Dhcp(t *testing.T) {
 					BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL},
 				},
 				Hardware: &apiv2.MachineHardware{},
-				Status:   &apiv2.MachineStatus{Condition: &apiv2.MachineCondition{}, LedState: &apiv2.MachineChassisIdentifyLEDState{}, Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE},
+				Status: &apiv2.MachineStatus{
+					Condition:  &apiv2.MachineCondition{State: apiv2.MachineState_MACHINE_STATE_AVAILABLE},
+					LedState:   &apiv2.MachineChassisIdentifyLEDState{},
+					Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
+				},
 				RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
 					Events: []*apiv2.MachineProvisioningEvent{
 						{Event: apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_PXE_BOOTING, Message: "machine sent extended dhcp request"},
@@ -252,7 +256,11 @@ func Test_bootServiceServer_Dhcp(t *testing.T) {
 					BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL},
 				},
 				Hardware: &apiv2.MachineHardware{},
-				Status:   &apiv2.MachineStatus{Condition: &apiv2.MachineCondition{}, LedState: &apiv2.MachineChassisIdentifyLEDState{}, Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE},
+				Status: &apiv2.MachineStatus{
+					Condition:  &apiv2.MachineCondition{State: apiv2.MachineState_MACHINE_STATE_AVAILABLE},
+					LedState:   &apiv2.MachineChassisIdentifyLEDState{},
+					Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
+				},
 				RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
 					Events: []*apiv2.MachineProvisioningEvent{
 						{Event: apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_PXE_BOOTING, Message: "machine sent extended dhcp request"},
@@ -454,7 +462,10 @@ func Test_bootServiceServer_Register(t *testing.T) {
 					Meta:              &apiv2.Meta{},
 					BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL},
 				},
-				Status: &apiv2.MachineStatus{LedState: &apiv2.MachineChassisIdentifyLEDState{}, Condition: &apiv2.MachineCondition{}},
+				Status: &apiv2.MachineStatus{
+					LedState: &apiv2.MachineChassisIdentifyLEDState{}, 
+					Condition: &apiv2.MachineCondition{State: apiv2.MachineState_MACHINE_STATE_AVAILABLE},
+				},
 				RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
 					Events: []*apiv2.MachineProvisioningEvent{
 						{Event: apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_ALIVE, Message: "machine registered"},
@@ -588,7 +599,7 @@ func Test_bootServiceServer_Register(t *testing.T) {
 				},
 				Status: &apiv2.MachineStatus{
 					LedState:           &apiv2.MachineChassisIdentifyLEDState{},
-					Condition:          &apiv2.MachineCondition{},
+					Condition:          &apiv2.MachineCondition{State: apiv2.MachineState_MACHINE_STATE_AVAILABLE},
 					Liveliness:         apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
 					MetalHammerVersion: "v1.0.1",
 				},
@@ -858,7 +869,11 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 				},
 				Hardware:                 &apiv2.MachineHardware{},
 				RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
-				Status:                   &apiv2.MachineStatus{Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE, Condition: &apiv2.MachineCondition{}, LedState: &apiv2.MachineChassisIdentifyLEDState{}},
+				Status: &apiv2.MachineStatus{
+					Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
+					Condition:  &apiv2.MachineCondition{State: apiv2.MachineState_MACHINE_STATE_AVAILABLE},
+					LedState:   &apiv2.MachineChassisIdentifyLEDState{},
+				},
 			},
 			wantSwitches: []*apiv2.Switch{
 				{
@@ -953,7 +968,11 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 				},
 				Hardware:                 &apiv2.MachineHardware{},
 				RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
-				Status:                   &apiv2.MachineStatus{Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE, Condition: &apiv2.MachineCondition{}, LedState: &apiv2.MachineChassisIdentifyLEDState{}},
+				Status: &apiv2.MachineStatus{
+					Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
+					Condition:  &apiv2.MachineCondition{State: apiv2.MachineState_MACHINE_STATE_AVAILABLE},
+					LedState:   &apiv2.MachineChassisIdentifyLEDState{},
+				},
 			},
 			wantSwitches: []*apiv2.Switch{
 				{

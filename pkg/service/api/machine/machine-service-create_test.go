@@ -123,7 +123,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 						Partition: dc.GetPartitions()[sc.Partition1],
 						Status: &apiv2.MachineStatus{
 							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
-							Condition:  &apiv2.MachineCondition{},
+							Condition:  &apiv2.MachineCondition{State: apiv2.MachineState_MACHINE_STATE_AVAILABLE},
 							LedState:   &apiv2.MachineChassisIdentifyLEDState{},
 						},
 						Uuid: sc.Machine5,
@@ -228,7 +228,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 						Partition: dc.GetPartitions()[sc.Partition1],
 						Status: &apiv2.MachineStatus{
 							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
-							Condition:  &apiv2.MachineCondition{},
+							Condition:  &apiv2.MachineCondition{State: apiv2.MachineState_MACHINE_STATE_AVAILABLE},
 							LedState:   &apiv2.MachineChassisIdentifyLEDState{},
 						},
 						Uuid: sc.Machine5,
@@ -341,7 +341,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 						Partition: dc.GetPartitions()[sc.Partition1],
 						Status: &apiv2.MachineStatus{
 							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
-							Condition:  &apiv2.MachineCondition{},
+							Condition:  &apiv2.MachineCondition{State: apiv2.MachineState_MACHINE_STATE_AVAILABLE},
 							LedState:   &apiv2.MachineChassisIdentifyLEDState{},
 						},
 						Uuid: sc.Machine5,
@@ -473,7 +473,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 						Rack:      "rack01",
 						Status: &apiv2.MachineStatus{
 							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
-							Condition:  &apiv2.MachineCondition{},
+							Condition:  &apiv2.MachineCondition{State: apiv2.MachineState_MACHINE_STATE_AVAILABLE},
 							LedState:   &apiv2.MachineChassisIdentifyLEDState{},
 						},
 						Uuid: sc.Machine5,
@@ -593,7 +593,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 						Partition: dc.GetPartitions()[sc.Partition1],
 						Status: &apiv2.MachineStatus{
 							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
-							Condition:  &apiv2.MachineCondition{},
+							Condition:  &apiv2.MachineCondition{State: apiv2.MachineState_MACHINE_STATE_AVAILABLE},
 							LedState:   &apiv2.MachineChassisIdentifyLEDState{},
 						},
 						Uuid: sc.Machine5,
@@ -812,7 +812,7 @@ func Test_machineServiceServer_CreateFirewallWithoutVPN(t *testing.T) {
 						Partition: dc.GetPartitions()[sc.Partition1],
 						Status: &apiv2.MachineStatus{
 							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
-							Condition:  &apiv2.MachineCondition{},
+							Condition:  &apiv2.MachineCondition{State: apiv2.MachineState_MACHINE_STATE_AVAILABLE},
 							LedState:   &apiv2.MachineChassisIdentifyLEDState{},
 						},
 						Uuid: sc.Machine5,
@@ -978,7 +978,7 @@ func Test_machineServiceServer_CreateFirewallWithoutVPN(t *testing.T) {
 						Partition: dc.GetPartitions()[sc.Partition1],
 						Status: &apiv2.MachineStatus{
 							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
-							Condition:  &apiv2.MachineCondition{},
+							Condition:  &apiv2.MachineCondition{State: apiv2.MachineState_MACHINE_STATE_AVAILABLE},
 							LedState:   &apiv2.MachineChassisIdentifyLEDState{},
 						},
 						Uuid: sc.Machine5,
@@ -1249,7 +1249,7 @@ func Test_machineServiceServer_CreateFirewallWithVPN(t *testing.T) {
 						Partition: dc.GetPartitions()[sc.Partition1],
 						Status: &apiv2.MachineStatus{
 							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
-							Condition:  &apiv2.MachineCondition{},
+							Condition:  &apiv2.MachineCondition{State: apiv2.MachineState_MACHINE_STATE_AVAILABLE},
 							LedState:   &apiv2.MachineChassisIdentifyLEDState{},
 						},
 						Uuid: sc.Machine5,
