@@ -68,7 +68,7 @@ func Test_authorize_with_permissions(t *testing.T) {
 			name: "machine get not allowed, token signed with invalid private key",
 			req:  v2.MachineServiceGetRequest{},
 			userJwtMutateFn: func(t *testing.T, _ string) string {
-				jwt := generateJWT(t, "", defaultIssuer, maliciousSigningKey, time.Now().Add(time.Hour), time.Now(), time.Now())
+				jwt := generateJWT(t, "", defaultIssuer, defaultIssuer, maliciousSigningKey, time.Now().Add(time.Hour), time.Now(), time.Now())
 
 				require.NoError(t, err)
 				return jwt
@@ -79,7 +79,7 @@ func Test_authorize_with_permissions(t *testing.T) {
 			name: "machine get not allowed, token used before not before date",
 			req:  v2.MachineServiceGetRequest{},
 			userJwtMutateFn: func(t *testing.T, _ string) string {
-				jwt := generateJWT(t, "", defaultIssuer, key, time.Now().Add(time.Hour), time.Now(), time.Now().Add(time.Hour))
+				jwt := generateJWT(t, "", defaultIssuer, defaultIssuer, key, time.Now().Add(time.Hour), time.Now(), time.Now().Add(time.Hour))
 
 				require.NoError(t, err)
 				return jwt
@@ -116,7 +116,7 @@ func Test_authorize_with_permissions(t *testing.T) {
 			subject: "john.doe@github",
 			req:     v2.TokenServiceCreateRequest{},
 			userJwtMutateFn: func(t *testing.T, _ string) string {
-				jwt := generateJWT(t, "", "unknown-issuer", key, time.Now().Add(time.Hour), time.Now(), time.Now())
+				jwt := generateJWT(t, "", "unknown-issuer", defaultIssuer, key, time.Now().Add(time.Hour), time.Now(), time.Now())
 				require.NoError(t, err)
 				return jwt
 			},
@@ -124,6 +124,20 @@ func Test_authorize_with_permissions(t *testing.T) {
 				"john.doe@github": v2.TenantRole_TENANT_ROLE_OWNER,
 			},
 			wantErr: errorutil.Unauthenticated("invalid token issuer: unknown-issuer"),
+		},
+		{
+			name:    "token service unknown audience",
+			subject: "john.doe@github",
+			req:     v2.TokenServiceCreateRequest{},
+			userJwtMutateFn: func(t *testing.T, _ string) string {
+				jwt := generateJWT(t, "", defaultIssuer, "unknown-audience", key, time.Now().Add(time.Hour), time.Now(), time.Now())
+				require.NoError(t, err)
+				return jwt
+			},
+			tenantRoles: map[string]v2.TenantRole{
+				"john.doe@github": v2.TenantRole_TENANT_ROLE_OWNER,
+			},
+			wantErr: errorutil.Unauthenticated("token has invalid claims: token has invalid audience"),
 		},
 		{
 			name:    "token service allowed",
@@ -185,7 +199,7 @@ func Test_authorize_with_permissions(t *testing.T) {
 	}
 }
 
-func generateJWT(t *testing.T, subject, issuer string, secret crypto.PrivateKey, expiresAt, issuedAt, notBefore time.Time) string {
+func generateJWT(t *testing.T, subject, issuer, audience string, secret crypto.PrivateKey, expiresAt, issuedAt, notBefore time.Time) string {
 	claims := &jwt.RegisteredClaims{
 		ExpiresAt: jwt.NewNumericDate(expiresAt),
 		IssuedAt:  jwt.NewNumericDate(issuedAt),
@@ -195,8 +209,9 @@ func generateJWT(t *testing.T, subject, issuer string, secret crypto.PrivateKey,
 		ID: uuid.New().String(),
 
 		// put name/title/ID of whoever will be using this JWT here:
-		Subject: subject,
-		Issuer:  issuer,
+		Subject:  subject,
+		Issuer:   issuer,
+		Audience: jwt.ClaimStrings{audience},
 	}
 
 	jwtWithClaims := jwt.NewWithClaims(jwt.SigningMethodES512, claims)
