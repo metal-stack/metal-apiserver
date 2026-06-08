@@ -31,38 +31,35 @@ func Test_jwt_cert_rotation(t *testing.T) {
 
 	t.Logf("token lifetime: %s, certificate lifetime: %s, issue new signing certificate after: %s", token.DefaultExpiration, 2*certs.MaxTokenExpiration, 2*certs.MaxTokenExpiration-renewCertBeforeExpiration)
 
-	s := miniredis.RunT(t)
-	c := redis.NewClient(&redis.Options{Addr: s.Addr()})
-	log := slog.Default()
+	var (
+		log = slog.Default()
 
-	certStore := certs.NewRedisStore(&certs.Config{
-		RedisClient:               c,
-		RenewCertBeforeExpiration: &renewCertBeforeExpiration,
-	})
-	tokenStore := token.NewRedisStore(c)
+		s = miniredis.RunT(t)
+		c = redis.NewClient(&redis.Options{Addr: s.Addr()})
 
-	auth := func() *auth {
-		o, err := NewAuthenticatorInterceptor(Config{
+		certStore = certs.NewRedisStore(&certs.Config{
+			RedisClient:               c,
+			RenewCertBeforeExpiration: &renewCertBeforeExpiration,
+		})
+		tokenStore = token.NewRedisStore(c)
+
+		tokenCreator = token.NewWithoutPermissionCheck(&token.TokenWithoutPermissionCheckConfig{
+			Certs:  certStore,
+			Tokens: tokenStore,
+			Issuer: "integration",
+		})
+		auth, err = NewAuthenticatorInterceptor(Config{
 			Log:            log,
 			CertStore:      certStore,
 			CertCacheTime:  new(0 * time.Second),
 			TokenStore:     tokenStore,
 			AllowedIssuers: []string{"integration"},
 		})
-		require.NoError(t, err)
+	)
 
-		return o
-	}()
-	service := func() *token.TokenWithoutPermissionCheck {
-		return token.NewWithoutPermissionCheck(&token.TokenWithoutPermissionCheckConfig{
-			Certs:  certStore,
-			Tokens: tokenStore,
-			Issuer: "integration",
-		})
-	}()
+	require.NoError(t, err)
 
 	synctest.Test(t, func(t *testing.T) {
-
 		ctx := t.Context()
 
 		var (
@@ -71,6 +68,7 @@ func Test_jwt_cert_rotation(t *testing.T) {
 			token3     = ""
 			previousAt *time.Duration
 		)
+
 		steps := []struct {
 			name string
 			at   time.Duration
@@ -80,7 +78,7 @@ func Test_jwt_cert_rotation(t *testing.T) {
 				name: "token 1",
 				at:   0 * time.Second,
 				task: func(t *testing.T) {
-					token1 = createNewConsoleToken(t, ctx, service)
+					token1 = createNewUserToken(t, ctx, tokenCreator)
 					expectCertStore(t, ctx, certStore, 1)
 					expectTokenWorks(t, ctx, auth, token1)
 				},
@@ -89,7 +87,7 @@ func Test_jwt_cert_rotation(t *testing.T) {
 				name: "token2",
 				at:   2 * time.Second,
 				task: func(t *testing.T) {
-					token2 = createNewConsoleToken(t, ctx, service)
+					token2 = createNewUserToken(t, ctx, tokenCreator)
 					expectCertStore(t, ctx, certStore, 1)
 					expectTokenWorks(t, ctx, auth, token1)
 					expectTokenWorks(t, ctx, auth, token2)
@@ -99,7 +97,7 @@ func Test_jwt_cert_rotation(t *testing.T) {
 				name: "token3, next signing cert gets created",
 				at:   4 * time.Second,
 				task: func(t *testing.T) {
-					token3 = createNewConsoleToken(t, ctx, service)
+					token3 = createNewUserToken(t, ctx, tokenCreator)
 					expectCertStore(t, ctx, certStore, 2)
 					expectTokenWorks(t, ctx, auth, token1)
 					expectTokenWorks(t, ctx, auth, token2)
@@ -110,7 +108,7 @@ func Test_jwt_cert_rotation(t *testing.T) {
 				name: "token1 expired, token 2 and 3 still work",
 				at:   6 * time.Second,
 				task: func(t *testing.T) {
-					token3 = createNewConsoleToken(t, ctx, service)
+					token3 = createNewUserToken(t, ctx, tokenCreator)
 					expectCertStore(t, ctx, certStore, 2)
 					expectTokenExpired(t, ctx, auth, token1)
 					expectTokenWorks(t, ctx, auth, token2)
@@ -153,12 +151,16 @@ func Test_jwt_cert_rotation(t *testing.T) {
 
 		for _, step := range steps {
 			forwardText := ""
+
 			if previousAt != nil {
 				forward := step.at - *previousAt
 				forwardText = fmt.Sprintf(" (forwarding by %s)", forward)
+
 				time.Sleep(forward)
+
 				s.FastForward(forward)
 			}
+
 			previousAt = &step.at
 
 			t.Logf("%s: running step at %q%s: %q", time.Now(), step.at, forwardText, step.name)
@@ -168,7 +170,7 @@ func Test_jwt_cert_rotation(t *testing.T) {
 	})
 }
 
-func createNewConsoleToken(t *testing.T, ctx context.Context, tokenCreator *token.TokenWithoutPermissionCheck) string {
+func createNewUserToken(t *testing.T, ctx context.Context, tokenCreator *token.TokenWithoutPermissionCheck) string {
 	resp, err := tokenCreator.CreateUserTokenWithoutPermissionCheck(ctx, "test-user", nil)
 	require.NoError(t, err)
 
