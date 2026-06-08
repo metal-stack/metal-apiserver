@@ -3,7 +3,6 @@ package queries_test
 import (
 	"log/slog"
 	"os"
-	"sort"
 	"testing"
 	"time"
 
@@ -244,13 +243,6 @@ func TestIPFilter(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := ds.IP().List(ctx, queries.IpFilter(tt.rq))
 			require.NoError(t, err)
-
-			sort.Slice(got, func(i, j int) bool {
-				return got[i].IPAddress < got[j].IPAddress
-			})
-			sort.Slice(tt.want, func(i, j int) bool {
-				return tt.want[i].IPAddress < tt.want[j].IPAddress
-			})
 
 			if diff := cmp.Diff(
 				tt.want, got,

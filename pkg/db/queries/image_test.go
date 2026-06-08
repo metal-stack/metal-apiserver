@@ -20,7 +20,7 @@ var (
 		Base:           metal.Base{ID: "debian-11", Name: "debian-11", Description: "Debian 11"},
 		OS:             "debian",
 		Version:        "11",
-		URL:            "https://example.com/debian-11.qcow2",
+		URL:            "https://example.com/debian-11.tgz",
 		Classification: metal.ClassificationSupported,
 		Features:       map[metal.ImageFeatureType]bool{metal.ImageFeatureMachine: true},
 	}
@@ -28,7 +28,7 @@ var (
 		Base:           metal.Base{ID: "debian-12", Name: "debian-12", Description: "Debian 12"},
 		OS:             "debian",
 		Version:        "12",
-		URL:            "https://example.com/debian-12.qcow2",
+		URL:            "https://example.com/debian-12.tgz",
 		Classification: metal.ClassificationSupported,
 		Features:       map[metal.ImageFeatureType]bool{metal.ImageFeatureMachine: true},
 	}
@@ -36,7 +36,7 @@ var (
 		Base:           metal.Base{ID: "ubuntu-22", Name: "ubuntu-22", Description: "Ubuntu 22"},
 		OS:             "ubuntu",
 		Version:        "22",
-		URL:            "https://example.com/ubuntu-22.qcow2",
+		URL:            "https://example.com/ubuntu-22.tgz",
 		Classification: metal.ClassificationSupported,
 		Features:       map[metal.ImageFeatureType]bool{metal.ImageFeatureMachine: true, metal.ImageFeatureFirewall: true},
 	}
@@ -44,7 +44,7 @@ var (
 		Base:           metal.Base{ID: "debian-10", Name: "debian-10", Description: "Old Debian"},
 		OS:             "debian",
 		Version:        "10",
-		URL:            "https://example.com/debian-10.qcow2",
+		URL:            "https://example.com/debian-10.tgz",
 		Classification: metal.ClassificationDeprecated,
 		Features:       map[metal.ImageFeatureType]bool{metal.ImageFeatureMachine: true},
 	}
@@ -52,7 +52,7 @@ var (
 		Base:           metal.Base{ID: "firewall-image", Name: "firewall-only", Description: "Firewall Image"},
 		OS:             "metalstack",
 		Version:        "1",
-		URL:            "https://example.com/firewall.qcow2",
+		URL:            "https://example.com/firewall.tgz",
 		Classification: metal.ClassificationSupported,
 		Features:       map[metal.ImageFeatureType]bool{metal.ImageFeatureFirewall: true},
 	}
@@ -60,7 +60,7 @@ var (
 		Base:           metal.Base{ID: "preview-image", Name: "preview-os", Description: "Preview Image"},
 		OS:             "previewos",
 		Version:        "1",
-		URL:            "https://example.com/preview.qcow2",
+		URL:            "https://example.com/preview.tgz",
 		Classification: metal.ClassificationPreview,
 		Features:       map[metal.ImageFeatureType]bool{metal.ImageFeatureMachine: true},
 	}
