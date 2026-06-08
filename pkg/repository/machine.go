@@ -1346,7 +1346,6 @@ func (r *machineRepository) SetState(ctx context.Context, req *adminv2.MachineSe
 		ms.State.Value = metal.TaintedState
 	case apiv2.MachineState_MACHINE_STATE_AVAILABLE:
 		ms.State.Value = metal.AvailableState
-		ms.State.Description = ""
 	default:
 		return nil, errorutil.InvalidArgument("given state %q is not supported", req.State)
 	}

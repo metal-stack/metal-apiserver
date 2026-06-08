@@ -135,6 +135,10 @@ func (m *machineServiceServer) SetState(ctx context.Context, req *adminv2.Machin
 				}
 				return nil, errorutil.FailedPrecondition("machine is currently %q, must made available first", *stateString)
 			}
+		case apiv2.MachineState_MACHINE_STATE_AVAILABLE:
+			if req.Description != "" {
+				return nil, errorutil.InvalidArgument("description must not be provided when setting machine to available.")
+			}
 		}
 	}
 
