@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -197,19 +196,8 @@ func (r *machineRepository) update(ctx context.Context, m *metal.Machine, req *a
 }
 
 func (r *machineRepository) delete(ctx context.Context, m *metal.Machine) error {
-	var (
-		uuid           = &m.ID
-		allocationUUID *string
-	)
-
-	if m.Allocation != nil {
-		uuid = nil
-		allocationUUID = &m.Allocation.UUID
-	}
-
 	info, err := r.s.task.NewTask(&task.MachineDeletePayload{
-		UUID:           uuid,
-		AllocationUUID: allocationUUID,
+		// TODO
 	})
 	if err != nil {
 		return err
@@ -1390,10 +1378,11 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 }
 
 func (r *Store) MachineBMCCommandHandleFn(ctx context.Context, t *asynq.Task) error {
-	var payload task.MachineBMCCommandPayload
-	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
-		return fmt.Errorf("json.Unmarshal failed: %w %w", err, asynq.SkipRetry)
+	payload, err := task.DecodePayload[*task.MachineBMCCommandPayload](t.Payload())
+	if err != nil {
+		return err
 	}
+
 	r.log.Info("machine bmc command handler", "machine", payload.UUID, "command", payload.Command)
 
 	if err := r.queue.PushMachineCommand(ctx, payload.Partition, payload); err != nil {

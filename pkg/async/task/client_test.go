@@ -116,8 +116,8 @@ func TestClient_NewMachineDeleteTask(t *testing.T) {
 	)
 
 	type args struct {
-		uuid           *string
-		allocationUUID *string
+		uuid           string
+		allocationUUID string
 	}
 	tests := []struct {
 		name    string
@@ -128,24 +128,24 @@ func TestClient_NewMachineDeleteTask(t *testing.T) {
 		{
 			name: "simple with machine uuid",
 			args: args{
-				uuid: new("machine-uuid"),
+				uuid: "machine-uuid",
 			},
-			want: task.MachineDeletePayload{UUID: new("machine-uuid")},
+			want: task.MachineDeletePayload{UUID: "machine-uuid"},
 		},
 		{
 			name: "simple with allocation uuid",
 			args: args{
-				allocationUUID: new("allocation-uuid"),
+				allocationUUID: "allocation-uuid",
 			},
-			want: task.MachineDeletePayload{AllocationUUID: new("allocation-uuid")},
+			want: task.MachineDeletePayload{AllocationUUID: "allocation-uuid"},
 		},
 		{
 			name: "simple with allocation and machine uuid",
 			args: args{
-				uuid:           new("machine-uuid"),
-				allocationUUID: new("allocation-uuid"),
+				uuid:           "machine-uuid",
+				allocationUUID: "allocation-uuid",
 			},
-			want: task.MachineDeletePayload{UUID: new("machine-uuid"), AllocationUUID: new("allocation-uuid")},
+			want: task.MachineDeletePayload{UUID: "machine-uuid", AllocationUUID: "allocation-uuid"},
 		},
 	}
 	for _, tt := range tests {
@@ -177,8 +177,8 @@ func TestClient_Informers(t *testing.T) {
 	)
 
 	task, err := c.NewTask(&task.MachineDeletePayload{
-		UUID:           new("machine-uuid"),
-		AllocationUUID: new("allocation-uuid"),
+		UUID:           "machine-uuid",
+		AllocationUUID: "allocation-uuid",
 	})
 	require.NoError(t, err)
 

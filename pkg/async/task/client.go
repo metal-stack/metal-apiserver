@@ -1,7 +1,6 @@
 package task
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -130,9 +129,9 @@ func listAll(queue string, callFn taskListFn) ([]*asynq.TaskInfo, error) {
 }
 
 func (c *Client) NewTask(payload TaskPayload, additionalOpts ...asynq.Option) (*asynq.TaskInfo, error) {
-	encoded, err := json.Marshal(payload)
+	encoded, err := EncodePayload(payload)
 	if err != nil {
-		return nil, fmt.Errorf("unable to marshal task payload: %w", err)
+		return nil, err
 	}
 
 	taskId, err := taskID()
