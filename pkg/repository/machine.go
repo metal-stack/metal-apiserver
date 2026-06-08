@@ -238,10 +238,7 @@ func (r *machineRepository) delete(ctx context.Context, m *metal.Machine) error 
 		Project:                  alloc.Project,
 		RackID:                   m.RackID,
 		UUID:                     m.ID,
-	},
-		// TODO: should we always append a retention or add to new task interface more explicitly?
-		asynq.Retention(30*24*time.Hour), // Only with retention a task will be stored in completed tasks
-	)
+	})
 	if err != nil {
 		return err
 	}
