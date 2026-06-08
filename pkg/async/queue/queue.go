@@ -27,7 +27,7 @@ func New(log *slog.Logger, client valkeygo.Client) *Queue {
 
 // Machine BMC Commands
 
-func (q *Queue) PushMachineCommand(ctx context.Context, partition string, command task.MachineBMCCommandPayload) error {
+func (q *Queue) PushMachineCommand(ctx context.Context, partition string, command *task.MachineBMCCommandPayload) error {
 	return Push(ctx, q.log, q.client, partition, command)
 }
 
