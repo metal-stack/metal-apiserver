@@ -86,7 +86,7 @@ func Test_machineServiceServer_Get(t *testing.T) {
 					Size:                     &apiv2.Size{Id: "c1-large-x86", Meta: &apiv2.Meta{}},
 					RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
 					Status: &apiv2.MachineStatus{
-						Condition:  &apiv2.MachineCondition{},
+						Condition:  &apiv2.MachineCondition{State: apiv2.MachineState_MACHINE_STATE_AVAILABLE},
 						LedState:   &apiv2.MachineChassisIdentifyLEDState{},
 						Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
 					},
@@ -215,7 +215,7 @@ func Test_machineServiceServer_List(t *testing.T) {
 						Size:                     &apiv2.Size{Id: "c1-large-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 8, Max: 8}}},
 						RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
 						Status: &apiv2.MachineStatus{
-							Condition:  &apiv2.MachineCondition{},
+							Condition:  &apiv2.MachineCondition{State: apiv2.MachineState_MACHINE_STATE_AVAILABLE},
 							LedState:   &apiv2.MachineChassisIdentifyLEDState{},
 							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
 						},
@@ -250,7 +250,7 @@ func Test_machineServiceServer_List(t *testing.T) {
 						Size:                     &apiv2.Size{Id: "c1-large-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 8, Max: 8}}},
 						RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
 						Status: &apiv2.MachineStatus{
-							Condition:  &apiv2.MachineCondition{},
+							Condition:  &apiv2.MachineCondition{State: apiv2.MachineState_MACHINE_STATE_AVAILABLE},
 							LedState:   &apiv2.MachineChassisIdentifyLEDState{},
 							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
 						},
@@ -399,7 +399,7 @@ func Test_machineServiceServer_Update(t *testing.T) {
 					Size:                     &apiv2.Size{Id: "c1-medium-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4}}},
 					RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
 					Status: &apiv2.MachineStatus{
-						Condition:  &apiv2.MachineCondition{},
+						Condition:  &apiv2.MachineCondition{State: apiv2.MachineState_MACHINE_STATE_AVAILABLE},
 						LedState:   &apiv2.MachineChassisIdentifyLEDState{},
 						Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
 					},
@@ -442,7 +442,7 @@ func Test_machineServiceServer_Update(t *testing.T) {
 					Size:                     &apiv2.Size{Id: "c1-medium-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4}}},
 					RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
 					Status: &apiv2.MachineStatus{
-						Condition:  &apiv2.MachineCondition{},
+						Condition:  &apiv2.MachineCondition{State: apiv2.MachineState_MACHINE_STATE_AVAILABLE},
 						LedState:   &apiv2.MachineChassisIdentifyLEDState{},
 						Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
 					},

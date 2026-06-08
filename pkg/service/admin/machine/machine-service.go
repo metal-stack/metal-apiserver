@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 
+	"github.com/metal-stack/api/go/enum"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -48,7 +49,7 @@ func (m *machineServiceServer) List(ctx context.Context, rq *adminv2.MachineServ
 	}
 
 	partition := rq.Partition
-	if partition == nil {
+	if partition != nil {
 		if len(partitions) > 1 {
 			return nil, errorutil.InvalidArgument("no partition specified, but %d partitions available", len(partitions))
 		}
@@ -115,4 +116,31 @@ func (m *machineServiceServer) ConsolePassword(ctx context.Context, req *adminv2
 		Uuid:     req.Uuid,
 		Password: password,
 	}, nil
+}
+
+func (m *machineServiceServer) SetState(ctx context.Context, req *adminv2.MachineServiceSetStateRequest) (*adminv2.MachineServiceSetStateResponse, error) {
+	ms, err := m.repo.UnscopedMachine().Get(ctx, req.Uuid)
+	if err != nil {
+		return nil, err
+	}
+
+	if ms.Status != nil && ms.Status.Condition != nil {
+		actualState := ms.Status.Condition.State
+		switch actualState {
+		case apiv2.MachineState_MACHINE_STATE_LOCKED, apiv2.MachineState_MACHINE_STATE_TAINTED:
+			if req.State != apiv2.MachineState_MACHINE_STATE_AVAILABLE {
+				stateString, err := enum.GetStringValue(actualState)
+				if err != nil {
+					return nil, err
+				}
+				return nil, errorutil.FailedPrecondition("machine is currently %q, must made available first", *stateString)
+			}
+		}
+	}
+
+	if req.State == apiv2.MachineState_MACHINE_STATE_AVAILABLE && req.Description != "" {
+		return nil, errorutil.InvalidArgument("description must not be provided when setting machine to available.")
+	}
+
+	return m.repo.UnscopedMachine().AdditionalMethods().SetState(ctx, req)
 }
