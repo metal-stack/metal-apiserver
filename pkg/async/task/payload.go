@@ -12,7 +12,6 @@ const (
 	TypeNetworkDelete     TaskType = "network:delete"
 	TypeMachineDelete     TaskType = "machine:delete"
 	TypeMachineBMCCommand TaskType = "machine:bmc-command"
-	TypeMachineAllocation TaskType = "machine:allocation"
 )
 
 type (

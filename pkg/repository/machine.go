@@ -1683,7 +1683,7 @@ func (r *Store) MachineBMCCommandHandleFn(ctx context.Context, t *asynq.Task) er
 
 	r.log.Info("machine bmc command handler", "machine", payload.UUID, "command", payload.Command)
 
-	if err := r.queue.PushMachineCommand(ctx, payload.Partition, *payload); err != nil {
+	if err := r.queue.PushMachineCommand(ctx, payload.Partition, payload); err != nil {
 		return err
 	}
 
