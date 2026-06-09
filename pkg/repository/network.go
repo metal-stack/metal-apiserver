@@ -284,7 +284,7 @@ func (r *networkRepository) update(ctx context.Context, nw *metal.Network, req *
 		nw.Description = *req.Description
 	}
 	if req.Labels != nil {
-		nw.Labels = UpdateLabelsOnMap(req.Labels, nw.Labels)
+		nw.Labels = updateLabelsOnMap(req.Labels, nw.Labels)
 	}
 
 	if req.NatType != nil {

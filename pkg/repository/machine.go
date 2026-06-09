@@ -182,7 +182,7 @@ func (r *machineRepository) update(ctx context.Context, m *metal.Machine, req *a
 	}
 
 	if req.Labels != nil {
-		m.Allocation.Labels = UpdateLabelsOnMap(req.Labels, m.Allocation.Labels)
+		m.Allocation.Labels = updateLabelsOnMap(req.Labels, m.Allocation.Labels)
 	}
 
 	if len(req.SshPublicKeys) > 0 {

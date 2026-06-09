@@ -91,7 +91,7 @@ func (p *partitionRepository) update(ctx context.Context, e *metal.Partition, re
 	}
 
 	if req.Labels != nil {
-		e.Labels = UpdateLabelsOnMap(req.Labels, e.Labels)
+		e.Labels = updateLabelsOnMap(req.Labels, e.Labels)
 	}
 
 	err := p.s.ds.Partition().Update(ctx, e)

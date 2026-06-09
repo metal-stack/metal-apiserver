@@ -1,4 +1,4 @@
-package token
+package repository
 
 import (
 	"context"
@@ -12,10 +12,11 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/go-cmp/cmp"
+	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
-	"github.com/metal-stack/metal-apiserver/pkg/request"
+	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,42 +24,46 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
-func Test_tokenService_CreateConsoleTokenWithoutPermissionCheck(t *testing.T) {
+func Test_tokenRepository_CreateConsoleTokenWithoutPermissionCheck(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	s := miniredis.RunT(t)
 	c := redis.NewClient(&redis.Options{Addr: s.Addr()})
 
-	tokenStore := NewRedisStore(c)
+	tokenStore := token.NewRedisStore(c)
 	certStore := certs.NewRedisStore(&certs.Config{
 		RedisClient: c,
 	})
 
-	service := NewWithoutPermissionCheck(&TokenWithoutPermissionCheckConfig{
-		Tokens: tokenStore,
-		Certs:  certStore,
-		Issuer: "http://test",
-	})
+	repo := &tokenRepository{
+		s: &Store{
+			log:           slog.Default(),
+			certs:         certStore,
+			tokens:        tokenStore,
+			issuer:        "http://test",
+			adminSubjects: []string{},
+		},
+	}
 
-	got, err := service.CreateUserTokenWithoutPermissionCheck(ctx, "test", new(1*time.Minute))
+	got, err := repo.CreateUserTokenWithoutPermissionCheck(ctx, "test", new(1*time.Minute))
 	require.NoError(t, err)
 	// verifying response
 
 	require.NotNil(t, got)
 	require.NotNil(t, got)
-	require.NotNil(t, got.GetToken())
+	require.NotNil(t, got.Token)
 
-	assert.NotEmpty(t, got.GetSecret())
-	assert.True(t, strings.HasPrefix(got.GetSecret(), "ey"), "not a valid jwt token") // jwt always starts with "ey" because it's b64 encoded JSON
-	claims, err := parseJWTToken(got.GetSecret())
+	assert.NotEmpty(t, got.Secret)
+	assert.True(t, strings.HasPrefix(got.Secret, "ey"), "not a valid jwt token") // jwt always starts with "ey" because it's b64 encoded JSON
+	claims, err := parseJWTToken(got.Secret)
 	require.NoError(t, err, "token claims not parsable")
 	require.NotNil(t, claims)
 
-	assert.NotEmpty(t, got.GetToken().GetUuid())
-	assert.Equal(t, "test", got.GetToken().GetUser())
+	assert.NotEmpty(t, got.Token.GetUuid())
+	assert.Equal(t, "test", got.Token.GetUser())
 
 	// verifying keydb entry
-	err = tokenStore.Set(ctx, got.GetToken())
+	err = tokenStore.Set(ctx, got.Token)
 	require.NoError(t, err)
 
 	// listing tokens
@@ -72,14 +77,14 @@ func Test_tokenService_CreateConsoleTokenWithoutPermissionCheck(t *testing.T) {
 	require.Len(t, tokenList, 1)
 
 	// Check still present
-	_, err = tokenStore.Get(ctx, got.GetToken().GetUser(), got.GetToken().GetUuid())
+	_, err = tokenStore.Get(ctx, got.Token.GetUser(), got.Token.GetUuid())
 	require.NoError(t, err)
 
 	// Check unpresent after revocation
-	err = tokenStore.Revoke(ctx, got.GetToken().GetUser(), got.GetToken().GetUuid())
+	err = tokenStore.Revoke(ctx, got.Token.GetUser(), got.Token.GetUuid())
 	require.NoError(t, err)
 
-	_, err = tokenStore.Get(ctx, got.GetToken().GetUser(), got.GetToken().GetUuid())
+	_, err = tokenStore.Get(ctx, got.Token.GetUser(), got.Token.GetUuid())
 	require.Error(t, err)
 
 	// List must now be empty
@@ -90,12 +95,12 @@ func Test_tokenService_CreateConsoleTokenWithoutPermissionCheck(t *testing.T) {
 }
 
 // parseJWTToken unverified to Claims to get Issuer,Subject, Roles and Permissions
-func parseJWTToken(tokenString string) (*Claims, error) {
+func parseJWTToken(tokenString string) (*token.Claims, error) {
 	if tokenString == "" {
 		return nil, nil
 	}
 
-	claims := &Claims{}
+	claims := &token.Claims{}
 	parser := jwt.NewParser()
 	_, _, err := parser.ParseUnverified(string(tokenString), claims)
 
@@ -106,7 +111,7 @@ func parseJWTToken(tokenString string) (*Claims, error) {
 	return claims, nil
 }
 
-func Test_CreateForUser(t *testing.T) {
+func Test_tokenRepository_create(t *testing.T) {
 	t.Parallel()
 	type state struct {
 		adminSubjects []string
@@ -168,13 +173,13 @@ func Test_CreateForUser(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(ContextWithToken(t.Context(), tt.sessionToken))
+			ctx, cancel := context.WithCancel(token.ContextWithToken(t.Context(), tt.sessionToken))
 			defer cancel()
 
 			s := miniredis.RunT(t)
 			c := redis.NewClient(&redis.Options{Addr: s.Addr()})
 
-			tokenStore := NewRedisStore(c)
+			tokenStore := token.NewRedisStore(c)
 			certStore := certs.NewRedisStore(&certs.Config{
 				RedisClient: c,
 			})
@@ -187,16 +192,18 @@ func Test_CreateForUser(t *testing.T) {
 			}
 			log := slog.Default()
 
-			service := TokenWithPermissionCheck{
-				TokenWithoutPermissionCheck: TokenWithoutPermissionCheck{
-					tokens: tokenStore,
-					certs:  certStore,
-					issuer: "http://test",
+			tokenRepo := &tokenRepository{
+				s: &Store{
+					log:           log,
+					certs:         certStore,
+					tokens:        tokenStore,
+					issuer:        "http://test",
+					adminSubjects: tt.state.adminSubjects,
 				},
-				log:                      log,
-				adminSubjects:            tt.state.adminSubjects,
-				projectsAndTenantsGetter: projectsAndTenantsGetter,
-				authorizer:               request.NewAuthorizer(log, projectsAndTenantsGetter),
+				patg: projectsAndTenantsGetter,
+				scope: &UserScope{
+					user: *tt.user,
+				},
 			}
 
 			if tt.wantErr == false {
@@ -205,7 +212,26 @@ func Test_CreateForUser(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			response, err := service.CreateTokenForUser(ctx, tt.user, tt.req)
+			req := &adminv2.TokenServiceCreateRequest{
+				TokenCreateRequest: tt.req,
+				User:               tt.user,
+			}
+
+			err := tokenRepo.validateCreate(ctx, req)
+			switch {
+			case tt.wantErr && err != nil:
+				if dff := cmp.Diff(tt.wantErrMessage, err.Error()); dff != "" {
+					t.Fatal(dff)
+				}
+
+				return
+			case tt.wantErr && err == nil:
+				t.Fatalf("want error %q, got nil", tt.wantErrMessage)
+			case err != nil:
+				t.Fatalf("want response, got error %q", err)
+			}
+
+			response, err := tokenRepo.create(ctx, req)
 			switch {
 			case tt.wantErr && err != nil:
 				if dff := cmp.Diff(tt.wantErrMessage, err.Error()); dff != "" {
@@ -241,7 +267,7 @@ func Test_CreateForUser(t *testing.T) {
 	}
 }
 
-func Test_ValidateTokenRequest(t *testing.T) {
+func Test_tokenRepository_validateTokenRequest(t *testing.T) {
 	t.Parallel()
 	inOneHour := durationpb.New(time.Hour)
 	tests := []struct {
@@ -753,19 +779,18 @@ func Test_ValidateTokenRequest(t *testing.T) {
 			}
 			log := slog.Default()
 
-			service := TokenWithPermissionCheck{
-				TokenWithoutPermissionCheck: TokenWithoutPermissionCheck{
-					tokens: nil,
-					certs:  nil,
-					issuer: "http://test",
+			tokenRepo := &tokenRepository{
+				s: &Store{
+					log:           log,
+					certs:         nil,
+					tokens:        nil,
+					issuer:        "http://test",
+					adminSubjects: tt.adminSubjects,
 				},
-				log:                      log,
-				adminSubjects:            tt.adminSubjects,
-				projectsAndTenantsGetter: projectsAndTenantsGetter,
-				authorizer:               request.NewAuthorizer(log, projectsAndTenantsGetter),
+				patg: projectsAndTenantsGetter,
 			}
 
-			gotErr := service.ValidateTokenRequest(t.Context(), tt.token, tt.req)
+			gotErr := tokenRepo.validateTokenRequest(t.Context(), tt.token, tt.req)
 
 			t.Log(gotErr)
 			if tt.wantErr != nil {

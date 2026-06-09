@@ -63,7 +63,6 @@ type Config struct {
 	AuditBackends                       []auditing.Auditing
 	Stage                               string
 	RedisConfig                         *RedisConfig
-	Admins                              []string
 	MaxRequestsPerMinuteToken           int
 	MaxRequestsPerMinuteUnauthenticated int
 	IsStageDev                          bool
@@ -184,8 +183,6 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 		CertStore:          certStore,
 		AuditSearchBackend: c.AuditSearchBackend,
 		Redis:              c.RedisConfig.ComponentClient,
-		ServerHttpURL:      c.ServerHttpURL,
-		Admins:             c.Admins,
 		AuditBackends:      c.AuditBackends,
 		HeadscaleClient:    c.HeadscaleClient,
 	}); err != nil {
@@ -201,8 +198,6 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 		TokenStore:         tokenStore,
 		CertStore:          certStore,
 		AuditSearchBackend: c.AuditSearchBackend,
-		ServerHttpURL:      c.ServerHttpURL,
-		Admins:             c.Admins,
 	})
 
 	infra.InfraServices(infra.Config{
@@ -227,11 +222,7 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 	mux.Handle(grpcreflect.NewHandlerV1Alpha(reflector))
 
 	// Add OIDC Handlers
-	authHandlerPath, authHandler, err := oidcAuthHandler(log, tokencommon.NewWithoutPermissionCheck(&tokencommon.TokenWithoutPermissionCheckConfig{
-		Certs:  certStore,
-		Tokens: tokenStore,
-		Issuer: c.ServerHttpURL,
-	}), c)
+	authHandlerPath, authHandler, err := oidcAuthHandler(log, c)
 	if err != nil {
 		return nil, err
 	}
@@ -243,7 +234,7 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 	return mux, nil
 }
 
-func oidcAuthHandler(log *slog.Logger, tokenCreator *tokencommon.TokenWithoutPermissionCheck, c Config) (string, http.Handler, error) {
+func oidcAuthHandler(log *slog.Logger, c Config) (string, http.Handler, error) {
 	frontendURL, err := url.Parse(c.FrontEndUrl)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to parse frontend url %w", err)
@@ -251,7 +242,6 @@ func oidcAuthHandler(log *slog.Logger, tokenCreator *tokencommon.TokenWithoutPer
 
 	auth, err := authservice.New(authservice.Config{
 		Log:           log,
-		TokenCreator:  tokenCreator,
 		Repo:          c.Repository,
 		AuditBackends: c.AuditBackends,
 		FrontEndUrl:   frontendURL,
@@ -278,5 +268,4 @@ func oidcAuthHandler(log *slog.Logger, tokenCreator *tokencommon.TokenWithoutPer
 	}
 
 	return auth.NewHandler()
-
 }

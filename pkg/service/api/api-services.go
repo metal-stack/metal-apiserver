@@ -56,9 +56,6 @@ type Config struct {
 	Redis              valkey.Client
 	AuditBackends      []auditing.Auditing
 	HeadscaleClient    *headscale.Client
-
-	ServerHttpURL string
-	Admins        []string
 }
 
 func ApiServices(ctx context.Context, cfg Config) error {
@@ -87,12 +84,8 @@ func ApiServices(ctx context.Context, cfg Config) error {
 			TokenStore:  cfg.TokenStore,
 		})
 		tokenService = token.New(token.Config{
-			Log:           cfg.Log,
-			CertStore:     cfg.CertStore,
-			TokenStore:    cfg.TokenStore,
-			Repo:          cfg.Repository,
-			Issuer:        cfg.ServerHttpURL,
-			AdminSubjects: cfg.Admins,
+			Log:  cfg.Log,
+			Repo: cfg.Repository,
 		})
 		userService = user.New(&user.Config{
 			Log:  cfg.Log,

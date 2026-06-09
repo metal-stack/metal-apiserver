@@ -41,13 +41,9 @@ type Config struct {
 
 	CertStore          certs.CertStore
 	AuditSearchBackend auditing.Auditing
-
-	ServerHttpURL string
-	Admins        []string
 }
 
 func AdminServices(cfg Config) {
-
 	var (
 		adminAuditService               = auditadmin.New(auditadmin.Config{Log: cfg.Log, Repo: cfg.Repository, AuditClient: cfg.AuditSearchBackend})
 		adminComponentService           = componentadmin.New(componentadmin.Config{Log: cfg.Log, Repo: cfg.Repository})
@@ -70,12 +66,8 @@ func AdminServices(cfg Config) {
 			TokenStore:  cfg.TokenStore,
 		})
 		adminTokenService = tokenadmin.New(tokenadmin.Config{
-			Log:           cfg.Log,
-			CertStore:     cfg.CertStore,
-			TokenStore:    cfg.TokenStore,
-			Issuer:        cfg.ServerHttpURL,
-			AdminSubjects: cfg.Admins,
-			Repo:          cfg.Repository,
+			Log:  cfg.Log,
+			Repo: cfg.Repository,
 		})
 		adminVPNService = vpnadmin.New(vpnadmin.Config{
 			Log:  cfg.Log,

@@ -6,14 +6,12 @@ import (
 	"testing"
 
 	"buf.build/go/protovalidate"
-	"github.com/alicebob/miniredis/v2"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	"github.com/metal-stack/metal-apiserver/pkg/certs"
-	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
+	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
-	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 )
@@ -23,11 +21,11 @@ func Test_List(t *testing.T) {
 
 	log := slog.Default()
 
+	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithValkey(true), test.WithPostgres(true))
+	defer closer()
+
 	type state struct {
 		existingTokens []*apiv2.Token
-		adminSubjects  []string
-		projectRoles   map[string]apiv2.ProjectRole
-		tenantRoles    map[string]apiv2.TenantRole
 	}
 	tests := []struct {
 		name           string
@@ -284,48 +282,26 @@ func Test_List(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(token.ContextWithToken(t.Context(), tt.sessionToken))
+		t.Run(tt.name, func(innerT *testing.T) {
+			defer testStore.Cleanup(t)
+
+			ctx, cancel := context.WithCancel(token.ContextWithToken(innerT.Context(), tt.sessionToken))
 			defer cancel()
 
-			s := miniredis.RunT(t)
-			c := redis.NewClient(&redis.Options{Addr: s.Addr()})
-
-			tokenStore := token.NewRedisStore(c)
-			certStore := certs.NewRedisStore(&certs.Config{
-				RedisClient: c,
-			})
-
-			projectsAndTenantsGetter := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
-				return &api.ProjectsAndTenants{
-					ProjectRoles: tt.state.projectRoles,
-					TenantRoles:  tt.state.tenantRoles,
-				}, nil
-			}
-
 			for _, tok := range tt.state.existingTokens {
-				require.NoError(t, tokenStore.Set(t.Context(), tok))
+				err := testStore.GetTokenStore().Set(ctx, tok)
+				require.NoError(innerT, err)
 			}
 
 			service := tokenService{
-				tokenCreator: *token.NewWithPermissionCheck(&token.TokenWithPermissionCheckConfig{
-					TokenWithoutPermissionCheckConfig: token.TokenWithoutPermissionCheckConfig{
-						Certs:  certStore,
-						Tokens: tokenStore,
-						Issuer: "",
-					},
-					Log:                      log,
-					AdminSubjects:            tt.state.adminSubjects,
-					Authorizer:               nil,
-					ProjectsAndTenantsGetter: projectsAndTenantsGetter,
-				}),
-				tokens: tokenStore,
+				log:  log,
+				repo: testStore.Store,
 			}
 
 			if tt.wantErr == false {
 				// Execute proto based validation
 				err := protovalidate.Validate(tt.req)
-				require.NoError(t, err)
+				require.NoError(innerT, err)
 			}
 
 			response, err := service.List(ctx, tt.req)
@@ -333,13 +309,13 @@ func Test_List(t *testing.T) {
 			switch {
 			case tt.wantErr && err != nil:
 				if diff := cmp.Diff(tt.wantErrMessage, err.Error()); diff != "" {
-					t.Errorf("diff = %s", diff)
+					innerT.Errorf("diff = %s", diff)
 				}
 
 			case tt.wantErr && err == nil:
-				t.Fatalf("want error %q, got response %q", tt.wantErrMessage, response)
+				innerT.Fatalf("want error %q, got response %q", tt.wantErrMessage, response)
 			case err != nil:
-				t.Fatalf("want response, got error %q", err)
+				innerT.Fatalf("want response, got error %q", err)
 
 			default:
 				if diff := cmp.Diff(
@@ -351,8 +327,9 @@ func Test_List(t *testing.T) {
 					protocmp.IgnoreFields(
 						&apiv2.Meta{}, "created_at", "updated_at",
 					),
+					cmpopts.SortSlices(func(a, b *apiv2.Token) bool { return a.Uuid < b.Uuid }),
 				); diff != "" {
-					t.Errorf("diff: %s", diff)
+					innerT.Errorf("diff: %s", diff)
 				}
 			}
 		})

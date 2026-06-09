@@ -81,7 +81,7 @@ func (r *sizeRepository) update(ctx context.Context, e *metal.Size, req *adminv2
 	}
 
 	if req.Labels != nil {
-		e.Labels = UpdateLabelsOnMap(req.Labels, e.Labels)
+		e.Labels = updateLabelsOnMap(req.Labels, e.Labels)
 	}
 
 	err := r.s.ds.Size().Update(ctx, e)

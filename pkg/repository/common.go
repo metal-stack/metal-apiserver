@@ -92,7 +92,7 @@ func updateLabelsOnSlice(rq *apiv2.UpdateLabels, existingTags []string) []string
 	return newTags
 }
 
-func UpdateLabelsOnMap(rq *apiv2.UpdateLabels, existingLabels map[string]string) map[string]string {
+func updateLabelsOnMap(rq *apiv2.UpdateLabels, existingLabels map[string]string) map[string]string {
 	var result map[string]string
 
 	if existingLabels != nil {

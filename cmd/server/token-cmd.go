@@ -7,6 +7,7 @@ import (
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
+	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/urfave/cli/v2"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -136,13 +137,17 @@ func newTokenCmd() *cli.Command {
 				return fmt.Errorf("token subject cannot be empty")
 			}
 
-			resp, err := token.NewWithoutPermissionCheck(&token.TokenWithoutPermissionCheckConfig{
-				Tokens: token.NewRedisStore(tokenRedisClient),
+			repo := repository.New(repository.Config{
+				Log: log,
 				Certs: certs.NewRedisStore(&certs.Config{
 					RedisClient: tokenRedisClient,
 				}),
-				Issuer: ctx.String(serverHttpUrlFlag.Name),
-			}).CreateApiTokenWithoutPermissionCheck(ctx.Context, subject, &apiv2.TokenServiceCreateRequest{
+				Tokens:        token.NewRedisStore(tokenRedisClient),
+				Issuer:        ctx.String(serverHttpUrlFlag.Name),
+				AdminSubjects: []string{},
+			})
+
+			resp, err := repo.UnscopedToken().AdditionalMethods().CreateApiTokenWithoutPermissionCheck(ctx.Context, subject, &apiv2.TokenServiceCreateRequest{
 				Description:  ctx.String(tokenDescriptionFlag.Name),
 				Expires:      durationpb.New(ctx.Duration(tokenExpirationFlag.Name)),
 				ProjectRoles: projectRoles,
