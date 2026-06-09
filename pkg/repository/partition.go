@@ -218,8 +218,9 @@ func (p *partitionRepository) convertToProto(ctx context.Context, e *metal.Parti
 			KernelUrl:   e.BootConfiguration.KernelURL,
 			Commandline: e.BootConfiguration.CommandLine,
 		},
-		DnsServers: dnsServers,
-		NtpServers: ntpServers,
+		MgmtServiceAddresses: []string{e.MgmtServiceAddress},
+		DnsServers:           dnsServers,
+		NtpServers:           ntpServers,
 	}, nil
 }
 

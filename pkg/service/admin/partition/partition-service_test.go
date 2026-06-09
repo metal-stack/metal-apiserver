@@ -100,10 +100,21 @@ func Test_partitionServiceServer_Create(t *testing.T) {
 			wantErr: errorutil.InvalidArgument(`dns name: 1:3 for ntp server not correct`),
 		},
 		{
-			name:    "valid partition",
-			request: &adminv2.PartitionServiceCreateRequest{Partition: &apiv2.Partition{Id: partition1, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+			name: "valid partition",
+			request: &adminv2.PartitionServiceCreateRequest{
+				Partition: &apiv2.Partition{
+					Id:                   partition1,
+					BootConfiguration:    &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL},
+					MgmtServiceAddresses: []string{"mgmtsrv.partition"},
+				},
+			},
 			want: &adminv2.PartitionServiceCreateResponse{
-				Partition: &apiv2.Partition{Id: partition1, Meta: &apiv2.Meta{}, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
+				Partition: &apiv2.Partition{
+					Id:                   partition1,
+					Meta:                 &apiv2.Meta{},
+					BootConfiguration:    &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL},
+					MgmtServiceAddresses: []string{"mgmtsrv.partition"},
+				},
 			},
 			wantErr: nil,
 		},
@@ -234,12 +245,16 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 				UpdateMeta: &apiv2.UpdateMeta{
 					UpdatedAt: timestamppb.New(partitionMap[partition1].Meta.UpdatedAt.AsTime()),
 				},
-				BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
+				BootConfiguration:    &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL},
+				MgmtServiceAddresses: []string{"mgmtsrv.partition"},
+			},
 			want: &adminv2.PartitionServiceUpdateResponse{
 				Partition: &apiv2.Partition{
-					Id:                partition1,
-					Meta:              &apiv2.Meta{Generation: 1},
-					BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
+					Id:                   partition1,
+					Meta:                 &apiv2.Meta{Generation: 1},
+					BootConfiguration:    &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL},
+					MgmtServiceAddresses: []string{"mgmtsrv.partition"},
+				},
 			},
 			wantErr: nil,
 		},
@@ -250,12 +265,16 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 				UpdateMeta: &apiv2.UpdateMeta{
 					UpdatedAt: timestamppb.New(partitionMap[partition2].Meta.UpdatedAt.AsTime()),
 				},
-				BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL + "/changed", KernelUrl: validURL}},
+				BootConfiguration:    &apiv2.PartitionBootConfiguration{ImageUrl: validURL + "/changed", KernelUrl: validURL},
+				MgmtServiceAddresses: []string{"mgmtsrv.partition"},
+			},
 			want: &adminv2.PartitionServiceUpdateResponse{
 				Partition: &apiv2.Partition{
-					Id:                partition2,
-					Meta:              &apiv2.Meta{Generation: 1},
-					BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL + "/changed", KernelUrl: validURL}},
+					Id:                   partition2,
+					Meta:                 &apiv2.Meta{Generation: 1},
+					BootConfiguration:    &apiv2.PartitionBootConfiguration{ImageUrl: validURL + "/changed", KernelUrl: validURL},
+					MgmtServiceAddresses: []string{"mgmtsrv.partition"},
+				},
 			},
 			wantErr: nil,
 		},
@@ -266,13 +285,17 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 				UpdateMeta: &apiv2.UpdateMeta{
 					UpdatedAt: timestamppb.New(partitionMap[partition3].Meta.UpdatedAt.AsTime()),
 				},
-				Labels:            &apiv2.UpdateLabels{Update: &apiv2.Labels{Labels: map[string]string{"color": "red"}}},
-				BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL + "/changed", KernelUrl: validURL}},
+				Labels:               &apiv2.UpdateLabels{Update: &apiv2.Labels{Labels: map[string]string{"color": "red"}}},
+				BootConfiguration:    &apiv2.PartitionBootConfiguration{ImageUrl: validURL + "/changed", KernelUrl: validURL},
+				MgmtServiceAddresses: []string{"mgmtsrv.partition"},
+			},
 			want: &adminv2.PartitionServiceUpdateResponse{
 				Partition: &apiv2.Partition{
-					Id:                partition3,
-					Meta:              &apiv2.Meta{Labels: &apiv2.Labels{Labels: map[string]string{"color": "red"}}, Generation: 1},
-					BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL + "/changed", KernelUrl: validURL}},
+					Id:                   partition3,
+					Meta:                 &apiv2.Meta{Labels: &apiv2.Labels{Labels: map[string]string{"color": "red"}}, Generation: 1},
+					BootConfiguration:    &apiv2.PartitionBootConfiguration{ImageUrl: validURL + "/changed", KernelUrl: validURL},
+					MgmtServiceAddresses: []string{"mgmtsrv.partition"},
+				},
 			},
 			wantErr: nil,
 		},
@@ -319,10 +342,11 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 			wantErr: nil,
 			want: &adminv2.PartitionServiceUpdateResponse{
 				Partition: &apiv2.Partition{
-					Id:                "partition-4",
-					Meta:              &apiv2.Meta{Generation: 1},
-					BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL},
-					Description:       "",
+					Id:                   "partition-4",
+					Meta:                 &apiv2.Meta{Generation: 1},
+					BootConfiguration:    &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL},
+					Description:          "",
+					MgmtServiceAddresses: []string{""},
 				},
 			},
 		},
@@ -455,7 +479,7 @@ func Test_partitionServiceServer_Delete(t *testing.T) {
 			request: &adminv2.PartitionServiceDeleteRequest{Id: partition1},
 			wantErr: nil,
 			want: &adminv2.PartitionServiceDeleteResponse{
-				Partition: &apiv2.Partition{Id: partition1, Meta: &apiv2.Meta{}, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
+				Partition: &apiv2.Partition{Id: partition1, Meta: &apiv2.Meta{}, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, MgmtServiceAddresses: []string{""}},
 			},
 		},
 	}
