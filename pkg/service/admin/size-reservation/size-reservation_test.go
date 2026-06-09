@@ -123,7 +123,7 @@ func Test_sizeReservationServiceServer_Create(t *testing.T) {
 				},
 			},
 			want:    nil,
-			wantErr: errorutil.FailedPrecondition(`project must exist before creating a size reservation: rpc error: code = NotFound desc = get of project with id `),
+			wantErr: errorutil.FailedPrecondition(`project must exist before creating a size reservation: not_found: get of project with id `),
 		},
 		{
 			name: "Create with errors, id specified",
