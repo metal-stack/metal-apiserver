@@ -191,6 +191,7 @@ func (p *partitionRepository) convertToProto(ctx context.Context, e *metal.Parti
 			UpdatedAt:  timestamppb.New(e.Changed),
 			Generation: e.Generation,
 		}
+		mgmtServers []string
 	)
 
 	for _, dnsServer := range e.DNSServers {
@@ -208,6 +209,9 @@ func (p *partitionRepository) convertToProto(ctx context.Context, e *metal.Parti
 	if e.Labels != nil {
 		meta.Labels = &apiv2.Labels{Labels: e.Labels}
 	}
+	if e.MgmtServiceAddress != "" {
+		mgmtServers = append(mgmtServers, e.MgmtServiceAddress)
+	}
 
 	return &apiv2.Partition{
 		Id:          e.ID,
@@ -218,8 +222,9 @@ func (p *partitionRepository) convertToProto(ctx context.Context, e *metal.Parti
 			KernelUrl:   e.BootConfiguration.KernelURL,
 			Commandline: e.BootConfiguration.CommandLine,
 		},
-		DnsServers: dnsServers,
-		NtpServers: ntpServers,
+		MgmtServiceAddresses: mgmtServers,
+		DnsServers:           dnsServers,
+		NtpServers:           ntpServers,
 	}, nil
 }
 
