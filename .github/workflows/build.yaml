@@ -62,7 +62,7 @@ jobs:
             # Catch-all: everything not covered above, including cmd/ and top-level pkg/
             packages: >-
               $(go list ./... |
-                grep -v "metal-apiserver/pkg/e2$" |
+                grep -v "metal-apiserver/pkg/e2e$" |
                 grep -v "metal-apiserver/pkg/service/api/image$" |
                 grep -v "metal-apiserver/pkg/service/api/ip$" |
                 grep -v "metal-apiserver/pkg/service/api/machine$" |
