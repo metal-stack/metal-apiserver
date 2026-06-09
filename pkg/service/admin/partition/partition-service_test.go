@@ -346,7 +346,6 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 					Meta:                 &apiv2.Meta{Generation: 1},
 					BootConfiguration:    &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL},
 					Description:          "",
-					MgmtServiceAddresses: []string{""},
 				},
 			},
 		},
@@ -479,7 +478,7 @@ func Test_partitionServiceServer_Delete(t *testing.T) {
 			request: &adminv2.PartitionServiceDeleteRequest{Id: partition1},
 			wantErr: nil,
 			want: &adminv2.PartitionServiceDeleteResponse{
-				Partition: &apiv2.Partition{Id: partition1, Meta: &apiv2.Meta{}, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, MgmtServiceAddresses: []string{""}},
+				Partition: &apiv2.Partition{Id: partition1, Meta: &apiv2.Meta{}, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
 			},
 		},
 	}
