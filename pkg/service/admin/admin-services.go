@@ -6,7 +6,6 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
-	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
@@ -32,14 +31,12 @@ import (
 )
 
 type Config struct {
-	Log          *slog.Logger
-	Repository   *repository.Store
-	Mux          *http.ServeMux
-	Interceptors connect.Option
-	InviteStore  invite.TenantInviteStore
-	TokenStore   tokencommon.TokenStore
-
-	CertStore          certs.CertStore
+	Log                *slog.Logger
+	Repository         *repository.Store
+	Mux                *http.ServeMux
+	Interceptors       connect.Option
+	InviteStore        invite.TenantInviteStore
+	TokenStore         tokencommon.TokenStore
 	AuditSearchBackend auditing.Auditing
 }
 

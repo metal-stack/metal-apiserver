@@ -180,7 +180,6 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 		ProjectInviteStore: projectInviteStore,
 		TenantInviteStore:  tenantInviteStore,
 		TokenStore:         tokenStore,
-		CertStore:          certStore,
 		AuditSearchBackend: c.AuditSearchBackend,
 		Redis:              c.RedisConfig.ComponentClient,
 		AuditBackends:      c.AuditBackends,
@@ -196,7 +195,6 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 		Interceptors:       adminInterceptors,
 		InviteStore:        tenantInviteStore,
 		TokenStore:         tokenStore,
-		CertStore:          certStore,
 		AuditSearchBackend: c.AuditSearchBackend,
 	})
 

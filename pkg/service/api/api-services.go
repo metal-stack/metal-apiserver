@@ -9,7 +9,6 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
-	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
@@ -51,7 +50,6 @@ type Config struct {
 	ProjectInviteStore invite.ProjectInviteStore
 	TenantInviteStore  invite.TenantInviteStore
 	TokenStore         tokencommon.TokenStore
-	CertStore          certs.CertStore
 	AuditSearchBackend auditing.Auditing
 	Redis              valkey.Client
 	AuditBackends      []auditing.Auditing
