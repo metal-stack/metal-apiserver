@@ -155,7 +155,7 @@ func (v *vpn) GetUser(ctx context.Context, name string) (*headscalev1.User, bool
 }
 
 func (v *vpn) ControlPlaneAddress() string {
-	return v.c.Endpoint()
+	return v.c.ControllerURL()
 }
 
 func (v *vpn) DeleteNode(ctx context.Context, machineID string, projectID string) (*headscalev1.Node, error) {
