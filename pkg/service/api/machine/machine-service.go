@@ -67,12 +67,7 @@ func (m *machineServiceServer) Update(ctx context.Context, req *apiv2.MachineSer
 }
 
 func (m *machineServiceServer) Delete(ctx context.Context, req *apiv2.MachineServiceDeleteRequest) (*apiv2.MachineServiceDeleteResponse, error) {
-	machine, err := m.repo.Machine(req.Project).Delete(ctx, req.Uuid)
-	if err != nil {
-		return nil, err
-	}
-
-	return &apiv2.MachineServiceDeleteResponse{Machine: machine}, nil
+	return m.repo.Machine(req.Project).AdditionalMethods().DeleteWithTaskReturn(ctx, req)
 }
 
 func (m *machineServiceServer) BMCCommand(ctx context.Context, req *apiv2.MachineServiceBMCCommandRequest) (*apiv2.MachineServiceBMCCommandResponse, error) {

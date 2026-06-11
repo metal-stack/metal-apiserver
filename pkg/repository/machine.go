@@ -196,55 +196,6 @@ func (r *machineRepository) update(ctx context.Context, m *metal.Machine, req *a
 }
 
 func (r *machineRepository) delete(ctx context.Context, m *metal.Machine) error {
-	var (
-		alloc                    = pointer.SafeDeref(m.Allocation)
-		machineIpAllocationUUIDs []string
-		headscaleNodeID          uint64
-	)
-
-	ips, err := r.s.IP(alloc.Project).List(ctx, &apiv2.IPQuery{
-		Machine: &m.ID,
-	})
-	if err != nil {
-		return fmt.Errorf("unable to list ips: %w", err)
-	}
-
-	for _, ip := range ips {
-		machineIpAllocationUUIDs = append(machineIpAllocationUUIDs, ip.Uuid)
-	}
-
-	if alloc.Role == metal.RoleFirewall && r.s.UnscopedVPN().Enabled() && alloc.VPN != nil {
-		node, err := r.s.VPN(alloc.Project).getNode(ctx, m.ID, alloc.Project)
-		if err != nil {
-			return fmt.Errorf("unable to retrieve vpn node: %w", err)
-		}
-
-		headscaleNodeID = node.Id
-	}
-
-	if err := r.SendEvent(ctx, m.ID, &apiv2.MachineProvisioningEvent{
-		Event:   apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_MACHINE_RECLAIM,
-		Message: "reclaiming machine",
-		Time:    timestamppb.Now(),
-	}); err != nil {
-		return fmt.Errorf("unable to write provisioning event: %w", err)
-	}
-
-	info, err := r.s.task.NewTask(&task.MachineDeletePayload{
-		AllocationUUID:           alloc.UUID,
-		HeadscaleNodeID:          &headscaleNodeID,
-		MachineIpAllocationUUIDs: machineIpAllocationUUIDs,
-		Partition:                m.PartitionID,
-		Project:                  alloc.Project,
-		RackID:                   m.RackID,
-		UUID:                     m.ID,
-	})
-	if err != nil {
-		return err
-	}
-
-	r.s.log.Info("machine delete enqueued", "info", info)
-
 	return nil
 }
 
@@ -659,6 +610,84 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 	}
 
 	return result, nil
+}
+
+func (r *machineRepository) DeleteWithTaskReturn(ctx context.Context, req *apiv2.MachineServiceDeleteRequest) (*apiv2.MachineServiceDeleteResponse, error) {
+	m, err := r.s.Machine(req.Project).Delete(ctx, req.Uuid)
+	if err != nil {
+		return nil, err
+	}
+
+	var (
+		alloc                    = pointer.SafeDeref(m.Allocation)
+		machineIpAllocationUUIDs []string
+		headscaleNodeID          uint64
+	)
+
+	ips, err := r.s.IP(alloc.Project).List(ctx, &apiv2.IPQuery{
+		Machine: &m.Uuid,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("unable to list ips: %w", err)
+	}
+
+	for _, ip := range ips {
+		machineIpAllocationUUIDs = append(machineIpAllocationUUIDs, ip.Uuid)
+	}
+
+	if alloc.AllocationType == apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL && r.s.UnscopedVPN().Enabled() && alloc.Vpn != nil {
+		node, err := r.s.VPN(alloc.Project).getNode(ctx, m.Uuid, alloc.Project)
+		if err != nil {
+			return nil, fmt.Errorf("unable to retrieve vpn node: %w", err)
+		}
+
+		headscaleNodeID = node.Id
+	}
+
+	if err := r.SendEvent(ctx, m.Uuid, &apiv2.MachineProvisioningEvent{
+		Event:   apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_MACHINE_RECLAIM,
+		Message: "reclaiming machine",
+		Time:    timestamppb.Now(),
+	}); err != nil {
+		return nil, fmt.Errorf("unable to write provisioning event: %w", err)
+	}
+
+	info, err := r.s.task.NewTask(&task.MachineDeletePayload{
+		AllocationUUID:           alloc.Uuid,
+		HeadscaleNodeID:          &headscaleNodeID,
+		MachineIpAllocationUUIDs: machineIpAllocationUUIDs,
+		Partition:                m.Partition.Id,
+		Project:                  alloc.Project,
+		RackID:                   m.Rack,
+		UUID:                     m.Uuid,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	r.s.log.Info("machine delete enqueued, polling for completion", "info", info)
+
+	pollCtx, cancel := context.WithTimeout(ctx, taskCompletionTimeout)
+	defer cancel()
+
+	if _, err = r.s.Task().Watch(pollCtx, info.Queue, info.ID, asynq.TaskStateCompleted, asynq.TaskStateArchived); err != nil {
+		return nil, fmt.Errorf("error waiting for task %q to complete: %w", info.ID, err)
+	}
+
+	updated, err := r.get(ctx, m.Uuid)
+	if err != nil {
+		return nil, err
+	}
+
+	converted, err := r.convertToProto(ctx, updated)
+	if err != nil {
+		return nil, err
+	}
+
+	return &apiv2.MachineServiceDeleteResponse{
+		Machine: converted,
+		TaskId:  info.ID,
+	}, nil
 }
 
 func (r *machineRepository) Register(ctx context.Context, req *infrav2.BootServiceRegisterRequest) (*metal.Machine, error) {
@@ -1628,6 +1657,8 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 		return err
 	}
 
+	r.log.Debug("send bmc command to delete machine")
+
 	// TODO: discuss how we can make the reclaim more secure
 	// for example:
 	// reconfigure switch port to pxe decommissioning network (no internet but just pxe server, strict rules on traffic, check that machine does indeed pxe boot and not boot into os)
@@ -1639,19 +1670,11 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 		return fmt.Errorf("unable to send machine delete bmc command: %w", err)
 	}
 
-	if err := retry.Do(func() error {
-		task, err := r.Task().GetTaskInfo("default", taskID)
-		if err != nil {
-			return fmt.Errorf("unable to get bmc delete task: %w", err)
-		}
+	pollCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
 
-		if task.State == asynq.TaskStateCompleted {
-			return nil
-		}
-
-		return fmt.Errorf("bmc delete task did not reach state completed, only: %q", task.State.String())
-	}, retry.Context(ctx), retry.DelayType(retry.FixedDelay), retry.Delay(1*time.Second), retry.Attempts(30)); err != nil {
-		return fmt.Errorf("timed out waiting for bmc delete command to be executed: %w", err)
+	if _, err := r.Task().Watch(pollCtx, "default", taskID, asynq.TaskStateCompleted, asynq.TaskStateArchived); err != nil {
+		return fmt.Errorf("metal-bmc did not complete machine delete task: %w", err)
 	}
 
 	r.log.Debug("machine delete bmc command issued")

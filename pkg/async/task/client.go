@@ -1,10 +1,12 @@
 package task
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -62,6 +64,45 @@ func (c *Client) DeleteTask(queue, id string) error {
 
 func (c *Client) Ping() error {
 	return c.client.Ping()
+}
+
+func (c *Client) Watch(ctx context.Context, queue, id string, states ...asynq.TaskState) (*asynq.TaskInfo, error) {
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	var (
+		info       *asynq.TaskInfo
+		wantStates []string
+	)
+
+	for _, state := range states {
+		wantStates = append(wantStates, state.String())
+	}
+
+	for {
+		select {
+		case <-ticker.C:
+			var err error
+			info, err = c.GetTaskInfo(queue, id)
+			if err != nil {
+				return nil, err
+			}
+
+			if slices.Contains(states, info.State) {
+				return info, nil
+			}
+
+			c.log.Debug("watched task state not yet reached", "task-id", info.ID, "task-type", info.Type, "got", info.State.String(), "want", strings.Join(wantStates, ","), "last-err", info.LastErr)
+			continue
+
+		case <-ctx.Done():
+			if info != nil {
+				return nil, fmt.Errorf("context cancelled, task %q of type %q did not reach one of expected states %q (had %q), last error: %s", info.ID, info.Type, wantStates, info.State.String(), info.LastErr)
+			}
+
+			return nil, fmt.Errorf("context cancelled")
+		}
+	}
 }
 
 func (c *Client) List(queue *string) ([]*asynq.TaskInfo, error) {

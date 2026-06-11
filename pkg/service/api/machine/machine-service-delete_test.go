@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/avast/retry-go/v4"
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -18,7 +19,9 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -57,6 +60,8 @@ func Test_machineServiceServer_DeleteMachine(t *testing.T) {
 					Event:   apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_MACHINE_RECLAIM,
 					Message: "reclaiming machine",
 				}}, m.RecentProvisioningEvents.Events...)
+
+				m.Allocation = nil
 
 				return &apiv2.MachineServiceDeleteResponse{
 					Machine: m,
@@ -166,6 +171,75 @@ func Test_machineServiceServer_DeleteMachine(t *testing.T) {
 				test.Validate(t, rq)
 			}
 
+			var g errgroup.Group
+
+			g.Go(func() error {
+				if tt.wantErr != nil {
+					return nil
+				}
+
+				// wait for the bmc command to be triggered and fake a response
+				var bmcPayload *task.MachineBMCCommandPayload
+
+				err := retry.Do(func() error {
+					tsk, err := findTaskInList(task.TypeMachineBMCCommand)
+					if err != nil {
+						return err
+					}
+
+					payload, err := task.DecodePayload[*task.MachineBMCCommandPayload](tsk.Payload)
+					if err != nil {
+						return err
+					}
+
+					bmcPayload = payload
+
+					if tsk.State != adminv2.TaskState_TASK_STATE_ACTIVE {
+						return fmt.Errorf("task state not yet reached")
+					}
+
+					return nil
+				}, retry.Attempts(5), retry.Delay(1*time.Second), retry.Context(t.Context()))
+				if err != nil {
+					return err
+				}
+
+				if _, err = dc.GetTestStore().UnscopedMachine().AdditionalMethods().BMCCommandDone(t.Context(), &infrav2.BMCCommandDoneRequest{
+					CommandId: bmcPayload.CommandID,
+				}); err != nil {
+					return err
+				}
+
+				err = retry.Do(func() error {
+					tsk, err := findTaskInList(task.TypeMachineBMCCommand)
+					if err != nil {
+						return err
+					}
+
+					payload, err := task.DecodePayload[*task.MachineBMCCommandPayload](tsk.Payload)
+					if err != nil {
+						return err
+					}
+
+					bmcPayload = payload
+
+					log.Info("task poll in bmc simulation", "state", tsk.State.String())
+
+					if tsk.State != adminv2.TaskState_TASK_STATE_COMPLETED {
+						return fmt.Errorf("task state not yet reached")
+					}
+
+					return nil
+				}, retry.Attempts(5), retry.Delay(1*time.Second), retry.Context(t.Context()))
+
+				return nil
+			})
+
+			go func() {
+				err := g.Wait()
+				assert.NoError(t, err, "error waiting for bmc fake command")
+			}()
+
 			got, err := m.Delete(ctx, rq)
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("error diff = %s", diff)
@@ -197,57 +271,22 @@ func Test_machineServiceServer_DeleteMachine(t *testing.T) {
 				protocmp.IgnoreFields(
 					&apiv2.MachineRecentProvisioningEvents{}, "last_event_time",
 				),
+				protocmp.IgnoreFields(
+					&apiv2.MachineServiceDeleteResponse{}, "task_id",
+				),
 			); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
-			// now wait for the bmc command to be triggered and fake a response
+			// check also that delete task has completed
 
-			var bmcPayload *task.MachineBMCCommandPayload
-
-			require.Eventually(t, func() bool {
-				tsk, err := findTaskInList(task.TypeMachineBMCCommand)
-				if err != nil {
-					return false
-				}
-
-				payload, err := task.DecodePayload[*task.MachineBMCCommandPayload](tsk.Payload)
-				require.NoError(t, err)
-
-				bmcPayload = payload
-
-				return tsk.State == adminv2.TaskState_TASK_STATE_ACTIVE
-			}, 5*time.Second, 1*time.Second, "machine delete bmc command task did not appear")
-
-			_, err = dc.GetTestStore().UnscopedMachine().AdditionalMethods().BMCCommandDone(t.Context(), &infrav2.BMCCommandDoneRequest{
-				CommandId: bmcPayload.CommandID,
+			task, err := taskServer.Get(ctx, &adminv2.TaskServiceGetRequest{
+				TaskId: got.TaskId,
+				Queue:  "default",
 			})
 			require.NoError(t, err)
 
-			require.Eventually(t, func() bool {
-				tsk, err := findTaskInList(task.TypeMachineBMCCommand)
-				if err != nil {
-					return false
-				}
-
-				payload, err := task.DecodePayload[*task.MachineBMCCommandPayload](tsk.Payload)
-				require.NoError(t, err)
-
-				bmcPayload = payload
-
-				return tsk.State == adminv2.TaskState_TASK_STATE_COMPLETED
-			}, 5*time.Second, 1*time.Second, "machine delete bmc command task did reach status completed")
-
-			// the delete task should now be able to complete
-
-			require.Eventually(t, func() bool {
-				task, err := findTaskInList(task.TypeMachineDelete)
-				if err != nil {
-					return false
-				}
-
-				return task.State == adminv2.TaskState_TASK_STATE_COMPLETED
-			}, 5*time.Second, 1*time.Second, "delete task did not reach status completed")
+			assert.Equal(t, adminv2.TaskState_TASK_STATE_COMPLETED, task.Task.State)
 
 			var mods *test.Asserters
 			if tt.mods != nil {

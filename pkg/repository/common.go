@@ -14,6 +14,8 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 )
 
+const taskCompletionTimeout = 10 * time.Second
+
 func checkIfUrlExists(ctx context.Context, entity, id, url string) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, nil)
 	if err != nil {
