@@ -229,6 +229,9 @@ func Test_machineServiceServer_DeleteMachine(t *testing.T) {
 
 					return nil
 				}, retry.Attempts(5), retry.Delay(1*time.Second), retry.Context(t.Context()))
+				if err != nil {
+					return err
+				}
 
 				return nil
 			})
