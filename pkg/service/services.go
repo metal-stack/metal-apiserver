@@ -70,7 +70,6 @@ type Config struct {
 	IsStageDev                          bool
 	SecureCookie                        bool
 	BMCSuperuserPassword                string
-	HeadscaleControlplaneAddress        string
 	HeadscaleClient                     *headscale.Client
 	ComponentExpiration                 time.Duration
 }

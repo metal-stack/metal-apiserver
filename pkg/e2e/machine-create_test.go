@@ -18,6 +18,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"tailscale.com/tsnet"
 )
 
 var (
@@ -105,10 +106,27 @@ func TestMachineCreate(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_ = createMachine(t, apiClient)
+	_ = createMachine(t, apiClient, apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE)
 }
 
-func createMachine(t *testing.T, apiClient client.Client) *apiv2.Machine {
+func TestFirewallCreate(t *testing.T) {
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	baseURL, adminToken, _, closer := StartApiserver(t, log)
+	defer closer()
+	require.NotNil(t, baseURL, adminToken)
+
+	apiClient, err := client.New(&client.DialConfig{
+		BaseURL:   baseURL,
+		Token:     adminToken,
+		UserAgent: "integration test",
+		Log:       log,
+	})
+	require.NoError(t, err)
+
+	_ = createMachine(t, apiClient, apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL)
+}
+
+func createMachine(t *testing.T, apiClient client.Client, allocationType apiv2.MachineAllocationType) *apiv2.Machine {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "an image")
 	}))
@@ -162,7 +180,7 @@ func createMachine(t *testing.T, apiClient client.Client) *apiv2.Machine {
 		Image: &apiv2.Image{
 			Id:             "debian-12.0.0",
 			Url:            validURL,
-			Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE},
+			Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE, apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL},
 			Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED,
 		},
 	})
@@ -188,6 +206,13 @@ func createMachine(t *testing.T, apiClient client.Client) *apiv2.Machine {
 		DestinationPrefixes:      []string{"1.2.3.0/24"},
 		DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: new(uint32(22))},
 		Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
+	})
+	require.NoError(t, err)
+	_, err = apiClient.Adminv2().Network().Create(ctx, &adminv2.NetworkServiceCreateRequest{
+		Id:        new("underlay"),
+		Partition: new(partition1),
+		Prefixes:  []string{"192.168.0.0/24"},
+		Type:      apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
 	})
 	require.NoError(t, err)
 
@@ -261,27 +286,92 @@ func createMachine(t *testing.T, apiClient client.Client) *apiv2.Machine {
 	})
 	require.NoError(t, err)
 
-	// Create a machine by uuid
-	machineCreateResp, err := apiClient.Apiv2().Machine().Create(ctx, &apiv2.MachineServiceCreateRequest{
-		Project:        project1.Project.Uuid,
-		Uuid:           new(m0),
-		Name:           "e2e-test",
-		Hostname:       new("e2e-test"),
-		Image:          "debian-12.0.0",
-		AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
-		Networks: []*apiv2.MachineAllocationNetwork{
-			{Network: projectNetwork.Network.Id},
-		},
-	})
-	require.NoError(t, err)
+	var machine *apiv2.Machine
+
+	switch allocationType {
+	case apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE:
+		// Create a machine by uuid
+		machineCreateResp, err := apiClient.Apiv2().Machine().Create(ctx, &apiv2.MachineServiceCreateRequest{
+			Project:        project1.Project.Uuid,
+			Uuid:           new(m0),
+			Name:           "e2e-test",
+			Hostname:       new("e2e-test"),
+			Image:          "debian-12.0.0",
+			AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+			Networks: []*apiv2.MachineAllocationNetwork{
+				{Network: projectNetwork.Network.Id},
+			},
+		})
+		require.NoError(t, err)
+
+		machine = machineCreateResp.Machine
+
+	case apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL:
+		// Create a machine by uuid
+		machineCreateResp, err := apiClient.Apiv2().Machine().Create(ctx, &apiv2.MachineServiceCreateRequest{
+			Project:        project1.Project.Uuid,
+			Uuid:           new(m0),
+			Name:           "e2e-test",
+			Hostname:       new("e2e-test"),
+			Image:          "debian-12.0.0",
+			AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL,
+			Networks: []*apiv2.MachineAllocationNetwork{
+				{Network: projectNetwork.Network.Id},
+				{Network: "internet"},
+			},
+		})
+		require.NoError(t, err)
+
+		machine = machineCreateResp.Machine
+
+		require.NotEmpty(t, machine.Allocation.Vpn)
+		require.NotEmpty(t, machine.Allocation.Vpn.AuthKey)
+		require.NotEmpty(t, machine.Allocation.Vpn.ControlPlaneAddress)
+
+		connectVPNClient(t, machine.Uuid, machine.Allocation.Vpn.ControlPlaneAddress, machine.Allocation.Vpn.AuthKey)
+
+	default:
+		t.FailNow()
+	}
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		require.NoError(c, waiterror)
-		require.NotNil(c, machineWaitResponse)
-		require.NotNil(c, machineWaitResponse.Allocation)
-		require.Equal(c, "e2e-test", machineWaitResponse.Allocation.Hostname)
-		require.Len(c, machineWaitResponse.Allocation.Networks, 1)
-	}, 5*time.Second, 100*time.Millisecond)
+		resp, err := apiClient.Apiv2().Machine().Get(ctx, &apiv2.MachineServiceGetRequest{
+			Uuid:    machine.Uuid,
+			Project: machine.Allocation.Project,
+		})
+		require.NoError(t, err)
 
-	return machineCreateResp.Machine
+		machine = resp.Machine
+
+		require.NoError(c, waiterror)
+		require.NotNil(c, machine)
+		require.NotNil(c, machine.Allocation)
+		require.Equal(c, "e2e-test", machine.Allocation.Hostname)
+
+		switch allocationType {
+		case apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE:
+			require.Len(c, machine.Allocation.Networks, 1)
+		case apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL:
+			require.Len(c, machine.Allocation.Networks, 3)
+			require.True(c, machine.Allocation.Vpn.Connected)
+		}
+
+	}, 30*time.Second, 100*time.Millisecond)
+
+	return machine
+}
+
+func connectVPNClient(t testing.TB, hostname, controllerURL, authkey string) {
+	s := &tsnet.Server{
+		Hostname:   hostname,
+		ControlURL: controllerURL,
+		AuthKey:    authkey,
+	}
+	lc, err := s.LocalClient()
+	require.NoError(t, err)
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		status, err := lc.Status(t.Context())
+		require.NoError(c, err)
+		require.True(c, status.Self.Online)
+	}, 10*time.Second, 50*time.Millisecond)
 }

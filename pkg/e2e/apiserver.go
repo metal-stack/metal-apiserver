@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
+	"github.com/metal-stack/metal-apiserver/pkg/vpn"
 	"github.com/metal-stack/metal-lib/auditing"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -110,9 +112,27 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 	})
 	require.NoError(t, err)
 
+	vpnEvalCtx, vpnEvalCancel := context.WithCancel(ctx)
+
+	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+
+		for {
+			select {
+			case <-ticker.C:
+				if _, err = vpn.EvaluateVPNConnected(vpnEvalCtx, log, testStore.Store); err != nil {
+					log.Error("unable to evaluate vpn connected", "error", err)
+				}
+			case <-vpnEvalCtx.Done():
+				return
+			}
+		}
+	}()
+
 	closer = func() {
 		repocloser()
 		server.Close()
+		vpnEvalCancel()
 	}
 
 	tenantTokenSecrets := createTenantTokens(t, testStore.Store, testStore.GetTokenService(), additionalTenants...)

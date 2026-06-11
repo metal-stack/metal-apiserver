@@ -80,7 +80,7 @@ func (v *vpn) CreateAuthKey(ctx context.Context, req *adminv2.VPNServiceAuthKeyR
 	}
 
 	return &adminv2.VPNServiceAuthKeyResponse{
-		Address:   v.c.Endpoint(),
+		Address:   v.c.ControllerURL(),
 		AuthKey:   resp.PreAuthKey.Key,
 		Ephemeral: resp.PreAuthKey.Ephemeral,
 		ExpiresAt: resp.PreAuthKey.Expiration,

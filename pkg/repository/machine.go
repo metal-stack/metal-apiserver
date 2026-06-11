@@ -650,11 +650,15 @@ func (r *machineRepository) Decommission(ctx context.Context, req *apiv2.Machine
 
 	if alloc.Role == metal.RoleFirewall && r.s.UnscopedVPN().Enabled() && alloc.VPN != nil {
 		node, err := r.s.VPN(alloc.Project).getNode(ctx, m.ID, alloc.Project)
-		if err != nil {
+
+		switch {
+		case err == nil:
+			headscaleNodeID = &node.Id
+		case errorutil.IsNotFound(err):
+			// noop
+		default:
 			return nil, fmt.Errorf("unable to retrieve vpn node: %w", err)
 		}
-
-		headscaleNodeID = &node.Id
 	}
 
 	if err := r.SendEvent(ctx, m.ID, &apiv2.MachineProvisioningEvent{
