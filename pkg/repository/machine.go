@@ -634,7 +634,7 @@ func (r *machineRepository) Decommission(ctx context.Context, req *apiv2.Machine
 	var (
 		alloc                    = pointer.SafeDeref(m.Allocation)
 		machineIpAllocationUUIDs []string
-		headscaleNodeID          uint64
+		headscaleNodeID          *uint64
 	)
 
 	ips, err := r.s.IP(alloc.Project).List(ctx, &apiv2.IPQuery{
@@ -654,7 +654,7 @@ func (r *machineRepository) Decommission(ctx context.Context, req *apiv2.Machine
 			return nil, fmt.Errorf("unable to retrieve vpn node: %w", err)
 		}
 
-		headscaleNodeID = node.Id
+		headscaleNodeID = &node.Id
 	}
 
 	if err := r.SendEvent(ctx, m.ID, &apiv2.MachineProvisioningEvent{
@@ -667,7 +667,7 @@ func (r *machineRepository) Decommission(ctx context.Context, req *apiv2.Machine
 
 	info, err := r.s.task.NewTask(&task.MachineDeletePayload{
 		AllocationUUID:           alloc.UUID,
-		HeadscaleNodeID:          &headscaleNodeID,
+		HeadscaleNodeID:          headscaleNodeID,
 		MachineIpAllocationUUIDs: machineIpAllocationUUIDs,
 		Partition:                m.PartitionID,
 		Project:                  alloc.Project,

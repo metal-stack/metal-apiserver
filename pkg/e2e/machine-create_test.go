@@ -97,13 +97,6 @@ func TestMachineCreate(t *testing.T) {
 	defer closer()
 	require.NotNil(t, baseURL, adminToken)
 
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = fmt.Fprintln(w, "a image")
-	}))
-
-	validURL := ts.URL
-	defer ts.Close()
-
 	apiClient, err := client.New(&client.DialConfig{
 		BaseURL:   baseURL,
 		Token:     adminToken,
@@ -112,7 +105,19 @@ func TestMachineCreate(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	_ = createMachine(t, apiClient)
+}
+
+func createMachine(t *testing.T, apiClient client.Client) *apiv2.Machine {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintln(w, "an image")
+	}))
+
+	validURL := ts.URL
+	defer ts.Close()
+
 	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
 
 	t1, err := apiClient.Apiv2().Tenant().Create(ctx, &apiv2.TenantServiceCreateRequest{Name: "t1"})
 	require.NoError(t, err)
@@ -257,7 +262,7 @@ func TestMachineCreate(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create a machine by uuid
-	_, err = apiClient.Apiv2().Machine().Create(ctx, &apiv2.MachineServiceCreateRequest{
+	machineCreateResp, err := apiClient.Apiv2().Machine().Create(ctx, &apiv2.MachineServiceCreateRequest{
 		Project:        project1.Project.Uuid,
 		Uuid:           new(m0),
 		Name:           "e2e-test",
@@ -278,6 +283,5 @@ func TestMachineCreate(t *testing.T) {
 		require.Len(c, machineWaitResponse.Allocation.Networks, 1)
 	}, 5*time.Second, 100*time.Millisecond)
 
-	// We need to cancel the context because otherwise the Wait blocks the grpc http server from stopping
-	cancel()
+	return machineCreateResp.Machine
 }
