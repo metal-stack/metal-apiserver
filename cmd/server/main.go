@@ -375,8 +375,5 @@ func createLogger(ctx *cli.Context) (*slog.Logger, error) {
 			},
 		),
 	)
-
-	log.Info("created slog logger", "level", lvlvar.String())
-
 	return log, nil
 }

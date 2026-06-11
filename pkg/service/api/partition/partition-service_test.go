@@ -34,7 +34,15 @@ func Test_partitionServiceServer_Get(t *testing.T) {
 
 	test.CreatePartitions(t, testStore, []*adminv2.PartitionServiceCreateRequest{
 		{
-			Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
+			Partition: &apiv2.Partition{
+				Id: "partition-1",
+				BootConfiguration: &apiv2.PartitionBootConfiguration{
+					Commandline: "debug=1",
+					ImageUrl:    validURL,
+					KernelUrl:   validURL,
+				},
+				MgmtServiceAddresses: []string{"mgmtsrv.partition"},
+			},
 		},
 	})
 
@@ -45,9 +53,20 @@ func Test_partitionServiceServer_Get(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name:    "get existing",
-			rq:      &apiv2.PartitionServiceGetRequest{Id: "partition-1"},
-			want:    &apiv2.PartitionServiceGetResponse{Partition: &apiv2.Partition{Id: "partition-1", Meta: &apiv2.Meta{}, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+			name: "get existing",
+			rq:   &apiv2.PartitionServiceGetRequest{Id: "partition-1"},
+			want: &apiv2.PartitionServiceGetResponse{
+				Partition: &apiv2.Partition{
+					Id:   "partition-1",
+					Meta: &apiv2.Meta{},
+					BootConfiguration: &apiv2.PartitionBootConfiguration{
+						Commandline: "debug=1",
+						ImageUrl:    validURL,
+						KernelUrl:   validURL,
+					},
+					MgmtServiceAddresses: []string{"mgmtsrv.partition"},
+				},
+			},
 			wantErr: nil,
 		},
 		{
@@ -107,10 +126,10 @@ func Test_partitionServiceServer_List(t *testing.T) {
 
 	test.CreatePartitions(t, testStore, []*adminv2.PartitionServiceCreateRequest{
 		{
-			Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
+			Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, MgmtServiceAddresses: []string{"mgmtsrv.partition-1"}},
 		},
 		{
-			Partition: &apiv2.Partition{Id: "partition-2", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
+			Partition: &apiv2.Partition{Id: "partition-2", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}, MgmtServiceAddresses: []string{"mgmtsrv.partition-2"}},
 		},
 	})
 
@@ -124,7 +143,7 @@ func Test_partitionServiceServer_List(t *testing.T) {
 			name: "list one existing",
 			rq:   &apiv2.PartitionServiceListRequest{Query: &apiv2.PartitionQuery{Id: new("partition-1")}},
 			want: &apiv2.PartitionServiceListResponse{Partitions: []*apiv2.Partition{
-				{Id: "partition-1", Meta: &apiv2.Meta{}, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
+				{Id: "partition-1", Meta: &apiv2.Meta{}, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL},MgmtServiceAddresses: []string{"mgmtsrv.partition-1"}},
 			},
 			},
 			wantErr: nil,
@@ -133,8 +152,8 @@ func Test_partitionServiceServer_List(t *testing.T) {
 			name: "list all",
 			rq:   &apiv2.PartitionServiceListRequest{},
 			want: &apiv2.PartitionServiceListResponse{Partitions: []*apiv2.Partition{
-				{Id: "partition-1", Meta: &apiv2.Meta{}, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
-				{Id: "partition-2", Meta: &apiv2.Meta{}, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
+				{Id: "partition-1", Meta: &apiv2.Meta{}, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL},MgmtServiceAddresses: []string{"mgmtsrv.partition-1"}},
+				{Id: "partition-2", Meta: &apiv2.Meta{}, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL},MgmtServiceAddresses: []string{"mgmtsrv.partition-2"}},
 			},
 			},
 			wantErr: nil,
