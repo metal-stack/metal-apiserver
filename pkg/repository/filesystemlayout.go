@@ -366,10 +366,12 @@ func (r *filesystemLayoutRepository) convertToProto(ctx context.Context, in *met
 		}
 
 		filesystems = append(filesystems, &apiv2.Filesystem{
-			Device: fs.Device,
-			Format: f,
-			Label:  fs.Label,
-			Path:   fs.Path,
+			Device:        fs.Device,
+			Format:        f,
+			Label:         fs.Label,
+			Path:          fs.Path,
+			MountOptions:  fs.MountOptions,
+			CreateOptions: fs.CreateOptions,
 		})
 	}
 
