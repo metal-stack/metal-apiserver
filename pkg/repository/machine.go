@@ -612,10 +612,23 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 	return result, nil
 }
 
-func (r *machineRepository) DeleteWithTaskReturn(ctx context.Context, req *apiv2.MachineServiceDeleteRequest) (*apiv2.MachineServiceDeleteResponse, error) {
-	m, err := r.s.Machine(req.Project).Delete(ctx, req.Uuid)
+func (r *machineRepository) Decommission(ctx context.Context, req *apiv2.MachineServiceDeleteRequest) (*apiv2.MachineServiceDeleteResponse, error) {
+	if r.scope == nil {
+		return nil, errorutil.FailedPrecondition("machines can only be decommissioned with scope")
+	}
+
+	m, err := r.get(ctx, req.Uuid)
 	if err != nil {
 		return nil, err
+	}
+
+	ok := r.matchScope(m)
+	if !ok {
+		return nil, errorutil.NotFound("%T with id %q not found", m, req.Uuid)
+	}
+
+	if err := r.validateDecommission(ctx, m); err != nil {
+		return nil, errorutil.WrapConnectErr(connect.CodeInvalidArgument, err)
 	}
 
 	var (
@@ -625,7 +638,7 @@ func (r *machineRepository) DeleteWithTaskReturn(ctx context.Context, req *apiv2
 	)
 
 	ips, err := r.s.IP(alloc.Project).List(ctx, &apiv2.IPQuery{
-		Machine: &m.Uuid,
+		Machine: &m.ID,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("unable to list ips: %w", err)
@@ -635,8 +648,8 @@ func (r *machineRepository) DeleteWithTaskReturn(ctx context.Context, req *apiv2
 		machineIpAllocationUUIDs = append(machineIpAllocationUUIDs, ip.Uuid)
 	}
 
-	if alloc.AllocationType == apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL && r.s.UnscopedVPN().Enabled() && alloc.Vpn != nil {
-		node, err := r.s.VPN(alloc.Project).getNode(ctx, m.Uuid, alloc.Project)
+	if alloc.Role == metal.RoleFirewall && r.s.UnscopedVPN().Enabled() && alloc.VPN != nil {
+		node, err := r.s.VPN(alloc.Project).getNode(ctx, m.ID, alloc.Project)
 		if err != nil {
 			return nil, fmt.Errorf("unable to retrieve vpn node: %w", err)
 		}
@@ -644,7 +657,7 @@ func (r *machineRepository) DeleteWithTaskReturn(ctx context.Context, req *apiv2
 		headscaleNodeID = node.Id
 	}
 
-	if err := r.SendEvent(ctx, m.Uuid, &apiv2.MachineProvisioningEvent{
+	if err := r.SendEvent(ctx, m.ID, &apiv2.MachineProvisioningEvent{
 		Event:   apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_MACHINE_RECLAIM,
 		Message: "reclaiming machine",
 		Time:    timestamppb.Now(),
@@ -653,13 +666,13 @@ func (r *machineRepository) DeleteWithTaskReturn(ctx context.Context, req *apiv2
 	}
 
 	info, err := r.s.task.NewTask(&task.MachineDeletePayload{
-		AllocationUUID:           alloc.Uuid,
+		AllocationUUID:           alloc.UUID,
 		HeadscaleNodeID:          &headscaleNodeID,
 		MachineIpAllocationUUIDs: machineIpAllocationUUIDs,
-		Partition:                m.Partition.Id,
+		Partition:                m.PartitionID,
 		Project:                  alloc.Project,
-		RackID:                   m.Rack,
-		UUID:                     m.Uuid,
+		RackID:                   m.RackID,
+		UUID:                     m.ID,
 	})
 	if err != nil {
 		return nil, err
@@ -674,12 +687,7 @@ func (r *machineRepository) DeleteWithTaskReturn(ctx context.Context, req *apiv2
 		return nil, fmt.Errorf("error waiting for task %q to complete: %w", info.ID, err)
 	}
 
-	updated, err := r.get(ctx, m.Uuid)
-	if err != nil {
-		return nil, err
-	}
-
-	converted, err := r.convertToProto(ctx, updated)
+	converted, err := r.convertToProto(ctx, m)
 	if err != nil {
 		return nil, err
 	}

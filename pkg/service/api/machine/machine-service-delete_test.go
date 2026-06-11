@@ -61,8 +61,6 @@ func Test_machineServiceServer_DeleteMachine(t *testing.T) {
 					Message: "reclaiming machine",
 				}}, m.RecentProvisioningEvents.Events...)
 
-				m.Allocation = nil
-
 				return &apiv2.MachineServiceDeleteResponse{
 					Machine: m,
 				}

@@ -275,8 +275,12 @@ func (r *machineRepository) validateUpdate(ctx context.Context, req *apiv2.Machi
 }
 
 func (r *machineRepository) validateDelete(ctx context.Context, machine *metal.Machine) error {
+	return nil
+}
+
+func (r *machineRepository) validateDecommission(_ context.Context, machine *metal.Machine) error {
 	if machine.Allocation == nil {
-		return errorutil.FailedPrecondition("only allocated machines can be deleted")
+		return errorutil.FailedPrecondition("only allocated machines can be freed")
 	}
 
 	if machine.State.Value == metal.LockedState {

@@ -67,7 +67,7 @@ func (m *machineServiceServer) Update(ctx context.Context, req *apiv2.MachineSer
 }
 
 func (m *machineServiceServer) Delete(ctx context.Context, req *apiv2.MachineServiceDeleteRequest) (*apiv2.MachineServiceDeleteResponse, error) {
-	return m.repo.Machine(req.Project).AdditionalMethods().DeleteWithTaskReturn(ctx, req)
+	return m.repo.Machine(req.Project).AdditionalMethods().Decommission(ctx, req)
 }
 
 func (m *machineServiceServer) BMCCommand(ctx context.Context, req *apiv2.MachineServiceBMCCommandRequest) (*apiv2.MachineServiceBMCCommandResponse, error) {
