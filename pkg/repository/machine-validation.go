@@ -259,12 +259,33 @@ func (r *machineRepository) validateFirewallSpec(firewallSpec *apiv2.FirewallSpe
 	return err
 }
 
-func (r *machineRepository) validateUpdate(ctx context.Context, req *apiv2.MachineServiceUpdateRequest, _ *metal.Machine) error {
-	// FIXME implement with admin machine update
+func (r *machineRepository) validateUpdate(ctx context.Context, req *apiv2.MachineServiceUpdateRequest, machine *metal.Machine) error {
+	if machine.Allocation == nil {
+		return errorutil.FailedPrecondition("only allocated machines can be updated")
+	}
+
+	for _, pubKey := range req.SshPublicKeys {
+		_, _, _, _, err := ssh.ParseAuthorizedKey([]byte(pubKey))
+		if err != nil {
+			return fmt.Errorf("invalid public SSH key: %s error:%w", pubKey, err)
+		}
+	}
+
 	return nil
 }
 
-func (r *machineRepository) validateDelete(ctx context.Context, req *metal.Machine) error {
-	panic("unimplemented")
+func (r *machineRepository) validateDelete(ctx context.Context, machine *metal.Machine) error {
+	return nil
+}
 
+func (r *machineRepository) validateDecommission(_ context.Context, machine *metal.Machine) error {
+	if machine.Allocation == nil {
+		return errorutil.FailedPrecondition("only allocated machines can be freed")
+	}
+
+	if machine.State.Value == metal.LockedState {
+		return errorutil.FailedPrecondition("machine is locked and cannot be freed")
+	}
+
+	return nil
 }

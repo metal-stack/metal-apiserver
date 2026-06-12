@@ -1705,7 +1705,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 	defer closer()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = fmt.Fprintln(w, "a image")
+		_, _ = fmt.Fprintln(w, "an image")
 	}))
 	defer ts.Close()
 

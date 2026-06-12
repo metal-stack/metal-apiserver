@@ -187,6 +187,12 @@ func (r *ipRepository) delete(ctx context.Context, e *metal.IP) error {
 
 	r.s.log.Info("ip delete enqueued", "info", info)
 
+	if _, err = r.s.Task().WatchForTaskCompletion(ctx, &task.WatchConfig{
+		Timeout: new(3 * time.Second),
+	}, info.Queue, info.ID); err != nil {
+		return errorutil.Internal("error waiting for task %q of type %q to complete: %w", info.ID, info.Type, err)
+	}
+
 	return nil
 }
 
@@ -383,10 +389,8 @@ func (r *Store) IpDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
 		return err
 	}
 	if ip == nil {
-		r.log.Info("ds find, metalip is nil", "task", t)
 		return nil
 	}
-	r.log.Info("ds find", "metalip", ip)
 
 	nw, err := r.ds.Network().Get(ctx, ip.NetworkID)
 	if err != nil {

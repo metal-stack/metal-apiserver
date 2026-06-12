@@ -1,20 +1,21 @@
 package scenarios
 
 import (
+	"testing"
+
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/stretchr/testify/require"
 )
 
 var (
-	DefaultDatacenter = DatacenterSpec{
+	DatacenterWithAllocations = DatacenterSpec{
 		Partitions:        []string{Partition1},
-		Tenants:           []string{Tenant1},
-		ProjectsPerTenant: 1,
+		Tenants:           []string{Tenant1, Tenant2},
+		ProjectsPerTenant: 2,
 		Images: map[string]apiv2.ImageFeature{
 			ImageDebian13:    apiv2.ImageFeature_IMAGE_FEATURE_MACHINE,
-			ImageDebian12:    apiv2.ImageFeature_IMAGE_FEATURE_MACHINE,
-			ImageDebian11:    apiv2.ImageFeature_IMAGE_FEATURE_MACHINE,
 			ImageFirewall3_0: apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL,
 		},
 		FilesystemLayouts: []*adminv2.FilesystemServiceCreateRequest{
@@ -72,18 +73,6 @@ var (
 				},
 			},
 		},
-		SizeReservations: []*adminv2.SizeReservationServiceCreateRequest{
-			{
-				SizeReservation: &apiv2.SizeReservation{
-					Name:        "sz-n1",
-					Description: "N1 Reservation for project-1 in partition-4",
-					Project:     Tenant1Project1,
-					Size:        SizeN1Medium,
-					Partitions:  []string{Partition1},
-					Amount:      1,
-				},
-			},
-		},
 
 		Networks: []*adminv2.NetworkServiceCreateRequest{
 			{
@@ -100,13 +89,6 @@ var (
 				Partition: new(Partition1),
 			},
 			{
-				Id:                       new(NetworkTenantSuperNamespaced),
-				Prefixes:                 []string{"12.100.0.0/16"},
-				DestinationPrefixes:      []string{"1.2.3.0/24"},
-				DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: new(uint32(22))},
-				Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED,
-			},
-			{
 				Id:                       new(NetworkTenantSuperPartition1),
 				Partition:                new(Partition1),
 				Prefixes:                 []string{"12.110.0.0/16"},
@@ -114,19 +96,113 @@ var (
 				DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: new(uint32(22))},
 				Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
 			},
-		},
-		IPs: []*apiv2.IPServiceCreateRequest{
 			{
-				Network: NetworkInternet,
-				Project: Tenant1Project1,
+				Partition: new(Partition1),
+				Project:   new(Tenant1Project1),
+				Type:      apiv2.NetworkType_NETWORK_TYPE_CHILD,
+				Name:      new(NetworkNameTenantPartition1),
 			},
 		},
+
+		IPs: []*apiv2.IPServiceCreateRequest{
+			{
+				Ip:      new("1.2.3.1"),
+				Network: NetworkInternet,
+				Project: Tenant1Project1,
+				Name:    new("static internet"),
+				Type:    apiv2.IPType_IP_TYPE_STATIC.Enum(),
+			},
+			{
+				Ip:      new("1.2.3.2"),
+				Network: NetworkInternet,
+				Project: Tenant1Project1,
+				Name:    new("ephemeral internet"),
+				Type:    apiv2.IPType_IP_TYPE_EPHEMERAL.Enum(),
+			},
+		},
+
 		Switches: []*apiv2.Switch{
 			SwitchFunc(P01Rack01Switch1, Partition1, P01Rack01, []string{"Ethernet0"}, SwitchOSSonic2021, apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL),
 			SwitchFunc(P01Rack01Switch2, Partition1, P01Rack01, []string{"Ethernet0"}, SwitchOSSonic2021, apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL),
 		},
+
+		IpFns: func(t testing.TB, nws map[string]*apiv2.Network) []*apiv2.IPServiceCreateRequest {
+			var tenantNetwork *apiv2.Network
+
+			for _, nw := range nws {
+				if nw.Name != nil && *nw.Name == NetworkNameTenantPartition1 {
+					tenantNetwork = nw
+					break
+				}
+			}
+
+			require.NotNil(t, tenantNetwork, "tenant network was not created")
+
+			return []*apiv2.IPServiceCreateRequest{
+				{
+					Ip:      new("12.110.0.1"),
+					Network: tenantNetwork.Id,
+					Project: Tenant1Project1,
+					Name:    new("ephemeral node"),
+					Type:    apiv2.IPType_IP_TYPE_EPHEMERAL.Enum(),
+					// FIXME: why can a user set an arbitrary machine association? this is dangerous?
+					Machine: new(Machine1),
+				},
+			}
+		},
+
 		Machines: []*MachineWithLiveliness{
-			MachineFunc(Machine1, Partition1, SizeC1Large, Tenant1Project1, ImageDebian13, metal.MachineLivelinessAlive, false),
+			MachineFunc(Machine2, Partition1, SizeC1Large, "Tenant1Project1", "", metal.MachineLivelinessAlive, true),
+		},
+
+		MachineFns: func(t testing.TB, nws map[string]*apiv2.Network) []*MachineWithLiveliness {
+			var tenantNetwork *apiv2.Network
+
+			for _, nw := range nws {
+				if nw.Name != nil && *nw.Name == NetworkNameTenantPartition1 {
+					tenantNetwork = nw
+					break
+				}
+			}
+
+			require.NotNil(t, tenantNetwork, "tenant network was not created")
+
+			return []*MachineWithLiveliness{
+				AllocatedMachineFunc(Machine1, Partition1, SizeC1Large, Tenant1Project1, ImageDebian13, metal.MachineLivelinessAlive, []*metal.MachineNetwork{
+					{
+						NetworkID:           NetworkInternet,
+						Prefixes:            []string{},
+						IPs:                 []string{"1.2.3.1", "1.2.3.2"},
+						DestinationPrefixes: []string{},
+						Vrf:                 104009,
+						PrivatePrimary:      false,
+						Private:             false,
+						ASN:                 4210000001,
+						Nat:                 true,
+						Underlay:            false,
+						Shared:              false,
+						ProjectID:           "",
+						NetworkType:         metal.NetworkTypeExternal,
+						NATType:             metal.NATTypeIPv4Masquerade,
+					},
+					{
+						NetworkID:           tenantNetwork.Id,
+						Prefixes:            []string{},
+						IPs:                 []string{"12.110.0.1"},
+						DestinationPrefixes: []string{},
+						Vrf:                 uint(*tenantNetwork.Vrf),
+						PrivatePrimary:      true,
+						Private:             true,
+						ASN:                 4210000001,
+						Nat:                 false,
+						Underlay:            false,
+						Shared:              false,
+						ProjectID:           *tenantNetwork.Project,
+						NetworkType:         metal.NetworkTypeChild,
+						NATType:             metal.NATTypeNone,
+					},
+				}),
+			}
 		},
 	}
 )

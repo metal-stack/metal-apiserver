@@ -14,13 +14,15 @@ import (
 type (
 	Client struct {
 		headscalev1.HeadscaleServiceClient
-		endpoint string
+		endpoint      string
+		controllerURL string
 	}
 
 	Config struct {
-		Log      *slog.Logger
-		Apikey   string
-		Endpoint string
+		Log           *slog.Logger
+		Apikey        string
+		Endpoint      string
+		ControllerURL string
 	}
 )
 
@@ -40,11 +42,16 @@ func NewClient(cfg Config) (*Client, error) {
 	return &Client{
 		HeadscaleServiceClient: headscalev1.NewHeadscaleServiceClient(conn),
 		endpoint:               cfg.Endpoint,
+		controllerURL:          cfg.ControllerURL,
 	}, nil
 }
 
 func (h Client) Endpoint() string {
 	return h.endpoint
+}
+
+func (h Client) ControllerURL() string {
+	return h.controllerURL
 }
 
 type tokenAuth struct {
