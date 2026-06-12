@@ -249,6 +249,7 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 	return result, nil
 }
 
+// TODO: migrate away from rollback and instead just call the idempotent machine delete task
 func (r *machineRepository) rollback(ctx context.Context, rollbackEntities *rollbackEntities) {
 	if rollbackEntities == nil {
 		return
