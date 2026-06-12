@@ -43,9 +43,9 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 		ServerHttpURL: "https://test.io",
 		RedisConfig: &service.RedisConfig{
 			// Take the same redis db for all
-			TokenClient:     testStore.GetRedisClient(),
-			RateLimitClient: testStore.GetRedisClient(),
-			InviteClient:    testStore.GetRedisClient(),
+			TokenClient:     testStore.GetValkeyClient(),
+			RateLimitClient: testStore.GetValkeyClient(),
+			InviteClient:    testStore.GetValkeyClient(),
 			AsyncClient:     testStore.GetRedisClient(),
 			QueueClient:     testStore.GetValkeyClient(),
 			ComponentClient: testStore.GetValkeyClient(),

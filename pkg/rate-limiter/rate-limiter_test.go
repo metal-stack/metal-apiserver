@@ -5,27 +5,26 @@ import (
 	"time"
 
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
+	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/alicebob/miniredis/v2"
-	"github.com/redis/go-redis/v9"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 )
 
 func Test_ratelimiter_CheckLimitTokenAccess(t *testing.T) {
 	ctx := t.Context()
-	s := miniredis.RunT(t)
-	c := redis.NewClient(&redis.Options{Addr: s.Addr()})
+
+	_, c, closer := test.StartValkey(t, test.WithMiniRedis(true))
+	defer closer()
 
 	limiter := ratelimiter{
 		client: c,
 	}
 
 	privateKey, err := certs.NewRedisStore(&certs.Config{
-		RedisClient: c,
+		ValkeyClient: c,
 	}).LatestPrivate(ctx)
 	require.NoError(t, err)
 

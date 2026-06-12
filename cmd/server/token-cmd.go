@@ -74,14 +74,14 @@ func newTokenCmd() *cli.Command {
 				return fmt.Errorf("unable to create logger %w", err)
 			}
 
-			tokenRedisClient, _, err := createRedisClient(ctx, log, redisDatabaseTokens)
+			_, tokenValkeyClient, err := createRedisClient(ctx, log, redisDatabaseTokens)
 			if err != nil {
 				return err
 			}
 
-			tokenStore := tokencommon.NewRedisStore(tokenRedisClient)
+			tokenStore := tokencommon.NewRedisStore(tokenValkeyClient)
 			certStore := certs.NewRedisStore(&certs.Config{
-				RedisClient: tokenRedisClient,
+				ValkeyClient: tokenValkeyClient,
 			})
 
 			tokenService := token.New(token.Config{
@@ -136,7 +136,6 @@ func newTokenCmd() *cli.Command {
 
 			var adminRole *apiv2.AdminRole
 			if roleString := ctx.String(tokenAdminRoleFlag.Name); roleString != "" {
-				// FIXME new linter complains that role is never used
 				role, ok := apiv2.AdminRole_value[roleString]
 				if !ok {
 					return fmt.Errorf("unknown role: %s", roleString)

@@ -12,6 +12,7 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/valkey"
 )
+
 type testOptMiniRedis struct {
 	with bool
 }
@@ -48,7 +49,9 @@ func StartValkey(t testing.TB, testOpts ...testOpt) (*redis.Client, valkeygo.Cli
 			DisableCache: true,
 		})
 		require.NoError(t, err)
-		return rc, vc, nil
+		return rc, vc, func() {
+			mr.Close()
+		}
 	}
 
 	valkeyContainer, err := valkey.Run(ctx,

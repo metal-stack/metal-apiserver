@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alicebob/miniredis/v2"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
@@ -18,18 +17,18 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
+	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
-	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
+	"github.com/valkey-io/valkey-go"
 )
 
-func prepare(t *testing.T) (certs.CertStore, *ecdsa.PrivateKey) {
-	s := miniredis.RunT(t)
-	c := redis.NewClient(&redis.Options{Addr: s.Addr()})
+func prepare(t *testing.T) (valkey.Client, certs.CertStore, *ecdsa.PrivateKey) {
+	_, c, _ := test.StartValkey(t, test.WithMiniRedis(true))
 
 	// creating an initial signing certificate
 	store := certs.NewRedisStore(&certs.Config{
-		RedisClient: c,
+		ValkeyClient: c,
 	})
 	_, err := store.LatestPrivate(t.Context())
 	require.NoError(t, err)
@@ -37,7 +36,7 @@ func prepare(t *testing.T) (certs.CertStore, *ecdsa.PrivateKey) {
 	key, err := store.LatestPrivate(t.Context())
 	require.NoError(t, err)
 
-	return store, key
+	return c, store, key
 }
 
 func Test_authorize_with_permissions(t *testing.T) {
@@ -45,9 +44,11 @@ func Test_authorize_with_permissions(t *testing.T) {
 	require.NoError(t, err)
 	var (
 		expired             = -time.Hour
-		certStore, key      = prepare(t)
+		c, certStore, key   = prepare(t)
 		defaultIssuer       = "https://api-server"
 		maliciousSigningKey = pk
+		tokenStore          = token.NewRedisStore(c)
+		ctx                 = t.Context()
 	)
 
 	tests := []struct {
@@ -152,11 +153,6 @@ func Test_authorize_with_permissions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := miniredis.RunT(t)
-			defer s.Close()
-
-			ctx := t.Context()
-			tokenStore := token.NewRedisStore(redis.NewClient(&redis.Options{Addr: s.Addr()}))
 
 			exp := time.Hour
 			if tt.expiration != nil {
