@@ -78,7 +78,7 @@ type WatchConfig struct {
 	Interval *time.Duration
 }
 
-func (c *Client) WatchForTaskCompletion(ctx context.Context, cfg *WatchConfig, queue, id string) (info *asynq.TaskInfo, err error) {
+func (c *Client) WatchForTaskCompletion(ctx context.Context, cfg *WatchConfig, queue, id string) (*asynq.TaskInfo, error) {
 	var (
 		timeout  = defaultTaskWatchTimeout
 		interval = defaultTaskWatchPollInterval
@@ -113,6 +113,10 @@ func (c *Client) WatchForTaskCompletion(ctx context.Context, cfg *WatchConfig, q
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
+
+	var (
+		info *asynq.TaskInfo
+	)
 
 	for {
 		select {

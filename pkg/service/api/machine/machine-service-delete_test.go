@@ -112,17 +112,6 @@ func Test_machineServiceServer_DeleteMachine(t *testing.T) {
 	dc := test.NewDatacenter(t, log, test.WithPostgres(true))
 	defer dc.Close()
 
-	// - ✅ delete Allocation
-	// - ✅ delete ephemeral ips from every machineNetwork
-	// - remove machine tag from static ips
-	// - release asn
-	// - ✅ send a provisioning event
-	// - delete headscale node if this was a firewall
-	// - delete tags
-	// - set preallocated to false
-	// - deleteVrfAtSwitches
-	// - ✅ send the machine bmc command MACHINE_BMC_COMMAND_MACHINE_DELETED
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			dc.Create(&sc.DatacenterWithAllocations)

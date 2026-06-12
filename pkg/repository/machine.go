@@ -637,15 +637,19 @@ func (r *machineRepository) Decommission(ctx context.Context, req *apiv2.Machine
 		headscaleNodeID          *uint64
 	)
 
-	ips, err := r.s.IP(alloc.Project).List(ctx, &apiv2.IPQuery{
-		Machine: &m.ID,
-	})
-	if err != nil {
-		return nil, errorutil.Internal("unable to list ips: %w", err)
-	}
+	for _, nw := range alloc.MachineNetworks {
+		for _, ipAddress := range nw.IPs {
+			ip, err := r.s.IP(req.Project).Get(ctx, ipAddress)
+			if err != nil {
+				if errorutil.IsNotFound(err) {
+					continue
+				}
 
-	for _, ip := range ips {
-		machineIpAllocationUUIDs = append(machineIpAllocationUUIDs, ip.Uuid)
+				return nil, err
+			}
+
+			machineIpAllocationUUIDs = append(machineIpAllocationUUIDs, ip.Uuid)
+		}
 	}
 
 	if alloc.Role == metal.RoleFirewall && r.s.UnscopedVPN().Enabled() && alloc.VPN != nil {
@@ -657,7 +661,7 @@ func (r *machineRepository) Decommission(ctx context.Context, req *apiv2.Machine
 		case errorutil.IsNotFound(err):
 			// noop
 		default:
-			return nil, fmt.Errorf("unable to retrieve vpn node: %w", err)
+			return nil, errorutil.Internal("unable to retrieve vpn node: %w", err)
 		}
 	}
 
@@ -666,7 +670,7 @@ func (r *machineRepository) Decommission(ctx context.Context, req *apiv2.Machine
 		Message: "reclaiming machine",
 		Time:    timestamppb.Now(),
 	}); err != nil {
-		return nil, fmt.Errorf("unable to write provisioning event: %w", err)
+		return nil, errorutil.Internal("unable to write provisioning event: %w", err)
 	}
 
 	info, err := r.s.task.NewTask(&task.MachineDeletePayload{
@@ -679,18 +683,18 @@ func (r *machineRepository) Decommission(ctx context.Context, req *apiv2.Machine
 		UUID:                     m.ID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errorutil.NewInternal(err)
 	}
 
 	r.s.log.Info("machine delete enqueued, polling for completion", "info", info)
 
 	if _, err = r.s.Task().WatchForTaskCompletion(ctx, nil, info.Queue, info.ID); err != nil {
-		return nil, fmt.Errorf("error waiting for task %q to complete: %w", info.ID, err)
+		return nil, errorutil.Internal("error waiting for task %q to complete: %w", info.ID, err)
 	}
 
 	converted, err := r.convertToProto(ctx, m)
 	if err != nil {
-		return nil, err
+		return nil, protoConversionError(err)
 	}
 
 	return &apiv2.MachineServiceDeleteResponse{
@@ -1450,18 +1454,6 @@ func (r *machineRepository) setMachineWaitingFlag(ctx context.Context, machineUU
 //---------------------------------------------------------------
 
 func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
-
-	// - ✅ delete Allocation
-	// - ✅ delete ephemeral ips from every machineNetwork
-	// - ✅ remove machine tag from static ips
-	// - ✅ release asn
-	// - ✅ send a provisioning event
-	// - ✅ delete headscale node if this was a firewall
-	// - ✅ delete tags
-	// - ✅ set preallocated to false
-	// - ✅ deleteVrfAtSwitches
-	// - ✅ send the machine bmc command MACHINE_BMC_COMMAND_MACHINE_DELETED
-
 	payload, err := task.DecodePayload[*task.MachineDeletePayload](t.Payload())
 	if err != nil {
 		return err
@@ -1473,112 +1465,11 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 	// this way we can ensure no interference with new machine allocations
 
 	g.Go(func() error {
-		r.log.Debug("machine delete attempting to release asn")
-
-		m, err := r.ds.Machine().Find(ctx, queries.MachineFilter(&apiv2.MachineQuery{
-			Allocation: &apiv2.MachineAllocationQuery{
-				Uuid: &payload.AllocationUUID,
-			},
-		}))
-		if err != nil {
-			if errorutil.IsNotFound(err) {
-				return nil
-			}
-
-			return fmt.Errorf("unable to find machine %q: %w", payload.AllocationUUID, err)
-		}
-
-		var asn uint32
-
-		for _, nw := range m.Allocation.MachineNetworks {
-			switch nw.NetworkType {
-			case metal.NetworkTypeChild, metal.NetworkTypeChildShared:
-				if asn >= ASNBase {
-					asn = nw.ASN
-				}
-			}
-
-			if asn > 0 {
-				break
-			}
-		}
-
-		if asn == 0 {
-			return nil
-		}
-
-		// if in the meantime someone else allocated the asn, we do not want to erase it
-		// so check if it's used somewhere else
-
-		machines, err := r.UnscopedMachine().List(ctx, &apiv2.MachineQuery{
-			Network: &apiv2.MachineNetworkQuery{
-				Asns: []uint32{asn},
-			},
-		})
-		if err != nil {
-			return fmt.Errorf("unable to list machines: %w", err)
-		}
-
-		for _, otherMachine := range machines {
-			if otherMachine.Allocation == nil {
-				continue
-			}
-
-			if otherMachine.Allocation.Uuid != payload.AllocationUUID {
-				// somebody else has it, do not release
-				return nil
-			}
-		}
-
-		// release asn does an insert with replace, so this is already idempotent and needs no further checking
-		if err := r.UnscopedMachine().AdditionalMethods().releaseASN(ctx, asn); err != nil {
-			return fmt.Errorf("unable to release asn: %w", err)
-		}
-
-		r.log.Debug("machine delete released asn", "asn", asn)
-
-		return nil
+		return r.UnscopedMachine().AdditionalMethods().releaseAsnTask(ctx, payload)
 	})
 
 	g.Go(func() error {
-		r.log.Debug("machine delete attempting to delete vpn node", "vpn-user-id", payload.Project, "vpn-node-id", payload.UUID)
-
-		if !r.VPN(payload.Project).Enabled() {
-			return nil
-		}
-
-		if payload.HeadscaleNodeID == nil {
-			return nil
-		}
-
-		// if in the meantime someone else allocated the machine and created a vpn node, we do not want to erase it
-		// so check if it's used somewhere else
-
-		resp, err := r.UnscopedVPN().ListNodes(ctx, &adminv2.VPNServiceListNodesRequest{
-			Project: &payload.Project,
-		})
-		if err != nil {
-			return fmt.Errorf("unable to list vpn nodes: %w", err)
-		}
-
-		for _, node := range resp.Nodes {
-			if node.Id != *payload.HeadscaleNodeID {
-				// somebody else has it, do not release
-				return nil
-			}
-		}
-
-		if _, err := r.VPN(payload.Project).DeleteNode(ctx, payload.UUID, payload.Project); err != nil {
-			if errorutil.IsNotFound(err) {
-				return nil
-			}
-
-			return fmt.Errorf("unable to delete vpn node: %w", err)
-		}
-
-		r.log.Debug("machine delete deleted vpn node", "vpn-user-id", payload.Project, "vpn-node-id", payload.UUID)
-
-		return nil
+		return r.UnscopedMachine().AdditionalMethods().releaseVpnNodeTask(ctx, payload)
 	})
 
 	if err := g.Wait(); err != nil {
@@ -1586,80 +1477,11 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 	}
 
 	g.Go(func() error {
-		r.log.Debug("machine delete attempting to remove allocation", "allocation-uuid", payload.AllocationUUID)
-
-		m, err := r.ds.Machine().Find(ctx, queries.MachineFilter(&apiv2.MachineQuery{
-			Allocation: &apiv2.MachineAllocationQuery{
-				Uuid: &payload.AllocationUUID,
-			},
-		}))
-		if err != nil {
-			if errorutil.IsNotFound(err) {
-				return nil
-			}
-
-			return fmt.Errorf("unable to find machine: %w", err)
-		}
-
-		m.Allocation = nil
-		m.PreAllocated = false
-		m.Tags = nil
-
-		if err := r.ds.Machine().Update(ctx, m); err != nil {
-			return fmt.Errorf("unable to remove machine allocation: %w", err)
-		}
-
-		r.log.Debug("machine delete removed allocation", "allocation-uuid", payload.AllocationUUID)
-
-		return nil
+		return r.UnscopedMachine().AdditionalMethods().releaseAllocationTask(ctx, payload)
 	})
 
 	g.Go(func() error {
-		r.log.Debug("machine delete attempting to release ips", "allocation-uuid", payload.AllocationUUID)
-
-		var errs []error
-
-		for _, uuid := range payload.MachineIpAllocationUUIDs {
-			ip, err := r.ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{
-				Uuid: &uuid,
-			}))
-			if err != nil {
-				if errorutil.IsNotFound(err) {
-					continue
-				}
-
-				errs = append(errs, fmt.Errorf("unable to find ip %q: %w", uuid, err))
-
-				continue
-			}
-
-			switch ip.Type {
-			case metal.Static:
-				if !ip.HasMachineId(payload.UUID) {
-					continue
-				}
-
-				ip.RemoveMachineId(payload.UUID)
-
-				if err := r.ds.IP().Update(ctx, ip); err != nil {
-					errs = append(errs, fmt.Errorf("unable to remove machine tag from static ip %q: %w", uuid, err))
-				}
-
-				r.log.Debug("machine delete untagged machine from static ip", "ip", ip.IPAddress)
-
-			case metal.Ephemeral:
-				fallthrough
-
-			default:
-				if err := r.IP(ip.ProjectID).AdditionalMethods().delete(ctx, ip); err != nil {
-					errs = append(errs, fmt.Errorf("unable to free machine ip %q: %w", uuid, err))
-				}
-
-				r.log.Debug("machine delete released ephemeral ip", "ip", ip.IPAddress)
-			}
-		}
-
-		return errors.Join(errs...)
+		return r.UnscopedMachine().AdditionalMethods().releaseMachineIPsTask(ctx, payload)
 	})
 
 	if err := g.Wait(); err != nil {
@@ -1667,12 +1489,6 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 	}
 
 	r.log.Debug("send bmc command to delete machine")
-
-	// TODO: discuss how we can make the reclaim more secure
-	// for example:
-	// reconfigure switch port to pxe decommissioning network (no internet but just pxe server, strict rules on traffic, check that machine does indeed pxe boot and not boot into os)
-	// machine to pxe boot bmc cmd
-	// reconfigure switch port to pxe boot network
 
 	taskID, err := r.UnscopedMachine().AdditionalMethods().MachineBMCCommand(ctx, payload.UUID, payload.Partition, apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_MACHINE_DELETED)
 	if err != nil {
@@ -1739,4 +1555,121 @@ func (r *machineRepository) scopedMachineFilters(filter generic.EntityQuery) []g
 	}
 
 	return qs
+}
+
+func (r *machineRepository) releaseVpnNodeTask(ctx context.Context, payload *task.MachineDeletePayload) error {
+	r.s.log.Debug("machine delete attempting to delete vpn node", "vpn-user-id", payload.Project, "vpn-node-id", payload.UUID)
+
+	if !r.s.VPN(payload.Project).Enabled() {
+		return nil
+	}
+
+	if payload.HeadscaleNodeID == nil {
+		return nil
+	}
+
+	// if in the meantime someone else allocated the machine and created a vpn node, we do not want to erase it
+	// so check if it's used somewhere else
+
+	resp, err := r.s.UnscopedVPN().ListNodes(ctx, &adminv2.VPNServiceListNodesRequest{
+		Project: &payload.Project,
+	})
+	if err != nil {
+		return fmt.Errorf("unable to list vpn nodes: %w", err)
+	}
+
+	for _, node := range resp.Nodes {
+		if node.Id != *payload.HeadscaleNodeID {
+			// somebody else has it, do not release
+			return nil
+		}
+	}
+
+	if _, err := r.s.VPN(payload.Project).DeleteNode(ctx, payload.UUID, payload.Project); err != nil {
+		if errorutil.IsNotFound(err) {
+			return nil
+		}
+
+		return fmt.Errorf("unable to delete vpn node: %w", err)
+	}
+
+	r.s.log.Debug("machine delete deleted vpn node", "vpn-user-id", payload.Project, "vpn-node-id", payload.UUID)
+
+	return nil
+}
+
+func (r *machineRepository) releaseAllocationTask(ctx context.Context, payload *task.MachineDeletePayload) error {
+	r.s.log.Debug("machine delete attempting to remove allocation", "allocation-uuid", payload.AllocationUUID)
+
+	m, err := r.s.ds.Machine().Find(ctx, queries.MachineFilter(&apiv2.MachineQuery{
+		Allocation: &apiv2.MachineAllocationQuery{
+			Uuid: &payload.AllocationUUID,
+		},
+	}))
+	if err != nil {
+		if errorutil.IsNotFound(err) {
+			return nil
+		}
+
+		return fmt.Errorf("unable to find machine: %w", err)
+	}
+
+	m.Allocation = nil
+	m.PreAllocated = false
+
+	if err := r.s.ds.Machine().Update(ctx, m); err != nil {
+		return fmt.Errorf("unable to remove machine allocation: %w", err)
+	}
+
+	r.s.log.Debug("machine delete removed allocation", "allocation-uuid", payload.AllocationUUID)
+
+	return nil
+}
+
+func (r *machineRepository) releaseMachineIPsTask(ctx context.Context, payload *task.MachineDeletePayload) error {
+	r.s.log.Debug("machine delete attempting to release ips", "allocation-uuid", payload.AllocationUUID)
+
+	var errs []error
+
+	for _, uuid := range payload.MachineIpAllocationUUIDs {
+		ip, err := r.s.ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{
+			Uuid: &uuid,
+		}))
+		if err != nil {
+			if errorutil.IsNotFound(err) {
+				continue
+			}
+
+			errs = append(errs, fmt.Errorf("unable to find ip %q: %w", uuid, err))
+
+			continue
+		}
+
+		switch ip.Type {
+		case metal.Static:
+			if !ip.HasMachineId(payload.UUID) {
+				continue
+			}
+
+			ip.RemoveMachineId(payload.UUID)
+
+			if err := r.s.ds.IP().Update(ctx, ip); err != nil {
+				errs = append(errs, fmt.Errorf("unable to remove machine tag from static ip %q: %w", uuid, err))
+			}
+
+			r.s.log.Debug("machine delete untagged machine from static ip", "ip", ip.IPAddress)
+
+		case metal.Ephemeral:
+			fallthrough
+
+		default:
+			if err := r.s.IP(ip.ProjectID).AdditionalMethods().delete(ctx, ip); err != nil {
+				errs = append(errs, fmt.Errorf("unable to free machine ip %q: %w", uuid, err))
+			}
+
+			r.s.log.Debug("machine delete released ephemeral ip", "ip", ip.IPAddress)
+		}
+	}
+
+	return errors.Join(errs...)
 }

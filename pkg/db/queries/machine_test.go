@@ -575,6 +575,13 @@ func TestMachineFilter(t *testing.T) {
 			},
 			want: []*metal.Machine{m4},
 		},
+		{
+			name: "find allocated machine",
+			rq: &apiv2.MachineQuery{
+				Allocation: &apiv2.MachineAllocationQuery{},
+			},
+			want: []*metal.Machine{m1, m2, m3},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
