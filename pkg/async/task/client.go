@@ -15,7 +15,9 @@ import (
 )
 
 const (
-	defaultTaskRetention = 14 * 24 * time.Hour // only with retention a task will be stored in completed tasks
+	defaultTaskRetention         = 14 * 24 * time.Hour // only with retention a task will be stored in completed tasks
+	defaultTaskWatchTimeout      = 10 * time.Second
+	defaultTaskWatchPollInterval = 100 * time.Millisecond
 )
 
 var (
@@ -66,8 +68,38 @@ func (c *Client) Ping() error {
 	return c.client.Ping()
 }
 
-func (c *Client) Watch(ctx context.Context, queue, id string, states ...asynq.TaskState) (*asynq.TaskInfo, error) {
-	ticker := time.NewTicker(100 * time.Millisecond)
+// WatchConfig can be used to overwrite some watch configuration defaults.
+// Can be provided optionally by callers.
+type WatchConfig struct {
+	// Timeout specifies when the watch cancels in case no state is getting reached.
+	// Set to 0 to only depend on parent context cancellation.
+	Timeout *time.Duration
+	// Interval specifies how often the state is checked in the backend.
+	Interval *time.Duration
+}
+
+func (c *Client) Watch(ctx context.Context, cfg *WatchConfig, queue, id string, states ...asynq.TaskState) (*asynq.TaskInfo, error) {
+	var (
+		timeout  = defaultTaskWatchTimeout
+		interval = defaultTaskWatchPollInterval
+	)
+
+	if cfg != nil {
+		switch {
+		case cfg.Timeout != nil:
+			timeout = *cfg.Timeout
+		case cfg.Interval != nil:
+			interval = *cfg.Interval
+		}
+	}
+
+	if timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	var (

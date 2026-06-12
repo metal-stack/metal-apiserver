@@ -641,7 +641,7 @@ func (r *machineRepository) Decommission(ctx context.Context, req *apiv2.Machine
 		Machine: &m.ID,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("unable to list ips: %w", err)
+		return nil, errorutil.Internal("unable to list ips: %w", err)
 	}
 
 	for _, ip := range ips {
@@ -684,10 +684,7 @@ func (r *machineRepository) Decommission(ctx context.Context, req *apiv2.Machine
 
 	r.s.log.Info("machine delete enqueued, polling for completion", "info", info)
 
-	pollCtx, cancel := context.WithTimeout(ctx, taskCompletionTimeout)
-	defer cancel()
-
-	if _, err = r.s.Task().Watch(pollCtx, info.Queue, info.ID, asynq.TaskStateCompleted, asynq.TaskStateArchived); err != nil {
+	if _, err = r.s.Task().Watch(ctx, nil, info.Queue, info.ID, asynq.TaskStateCompleted, asynq.TaskStateArchived); err != nil {
 		return nil, fmt.Errorf("error waiting for task %q to complete: %w", info.ID, err)
 	}
 
@@ -1682,10 +1679,7 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 		return fmt.Errorf("unable to send machine delete bmc command: %w", err)
 	}
 
-	pollCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
-	defer cancel()
-
-	if _, err := r.Task().Watch(pollCtx, "default", taskID, asynq.TaskStateCompleted, asynq.TaskStateArchived); err != nil {
+	if _, err := r.Task().Watch(ctx, nil, "default", taskID, asynq.TaskStateCompleted, asynq.TaskStateArchived); err != nil {
 		return fmt.Errorf("metal-bmc did not complete machine delete task: %w", err)
 	}
 
