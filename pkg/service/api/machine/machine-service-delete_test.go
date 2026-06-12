@@ -79,6 +79,7 @@ func Test_machineServiceServer_DeleteMachine(t *testing.T) {
 					},
 					IPs: func(ips map[string]*apiv2.IP) {
 						delete(ips, "12.110.0.1")
+						delete(ips, "1.2.3.2")
 					},
 					Networks: func(networks map[string]*apiv2.Network) {
 						var tenantNetwork *apiv2.Network
@@ -93,6 +94,7 @@ func Test_machineServiceServer_DeleteMachine(t *testing.T) {
 						require.NotNil(t, tenantNetwork, "tenant network was not created")
 
 						networks[tenantNetwork.Id].Consumption.Ipv4.UsedIps--
+						networks[sc.NetworkInternet].Consumption.Ipv4.UsedIps--
 					},
 				}
 			},
@@ -222,12 +224,19 @@ func Test_machineServiceServer_DeleteMachine(t *testing.T) {
 					return err
 				}
 
+				log.Info("bmc simulation done")
+
 				return nil
 			})
 
+			var (
+				waitErr  error
+				waitDone = make(chan (bool))
+			)
+
 			go func() {
-				err := g.Wait()
-				assert.NoError(t, err, "error waiting for bmc fake command")
+				waitErr = g.Wait()
+				waitDone <- true
 			}()
 
 			got, err := m.Delete(ctx, rq)
@@ -291,6 +300,10 @@ func Test_machineServiceServer_DeleteMachine(t *testing.T) {
 				),
 			)
 			require.NoError(t, err)
+
+			log.Info("waiting for bmc sim to finish")
+			<-waitDone
+			require.NoError(t, waitErr)
 		})
 	}
 }

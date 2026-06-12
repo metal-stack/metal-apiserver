@@ -125,6 +125,7 @@ var (
 			SwitchFunc(P01Rack01Switch1, Partition1, P01Rack01, []string{"Ethernet0"}, SwitchOSSonic2021, apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL),
 			SwitchFunc(P01Rack01Switch2, Partition1, P01Rack01, []string{"Ethernet0"}, SwitchOSSonic2021, apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL),
 		},
+
 		IpFns: func(t testing.TB, nws map[string]*apiv2.Network) []*apiv2.IPServiceCreateRequest {
 			var tenantNetwork *apiv2.Network
 
@@ -149,9 +150,11 @@ var (
 				},
 			}
 		},
+
 		Machines: []*MachineWithLiveliness{
 			MachineFunc(Machine2, Partition1, SizeC1Large, "Tenant1Project1", "", metal.MachineLivelinessAlive, true),
 		},
+
 		MachineFns: func(t testing.TB, nws map[string]*apiv2.Network) []*MachineWithLiveliness {
 			var tenantNetwork *apiv2.Network
 

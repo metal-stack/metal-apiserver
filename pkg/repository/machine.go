@@ -1629,47 +1629,54 @@ func (r *machineRepository) releaseAllocationTask(ctx context.Context, payload *
 func (r *machineRepository) releaseMachineIPsTask(ctx context.Context, payload *task.MachineDeletePayload) error {
 	r.s.log.Debug("machine delete attempting to release ips", "allocation-uuid", payload.AllocationUUID)
 
-	var errs []error
+	var g errgroup.Group
 
 	for _, uuid := range payload.MachineIpAllocationUUIDs {
-		ip, err := r.s.ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{
-			Uuid: &uuid,
-		}))
-		if err != nil {
-			if errorutil.IsNotFound(err) {
-				continue
+		g.Go(func() error {
+			ip, err := r.s.ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{
+				Uuid: &uuid,
+			}))
+			if err != nil {
+				if errorutil.IsNotFound(err) {
+					return nil
+				}
+
+				return fmt.Errorf("unable to find ip %q: %w", uuid, err)
 			}
 
-			errs = append(errs, fmt.Errorf("unable to find ip %q: %w", uuid, err))
+			switch ip.Type {
+			case metal.Static:
+				if !ip.HasMachineId(payload.UUID) {
+					return nil
+				}
 
-			continue
-		}
+				ip.RemoveMachineId(payload.UUID)
 
-		switch ip.Type {
-		case metal.Static:
-			if !ip.HasMachineId(payload.UUID) {
-				continue
+				if err := r.s.ds.IP().Update(ctx, ip); err != nil {
+					return fmt.Errorf("unable to remove machine tag from static ip %q: %w", uuid, err)
+				}
+
+				r.s.log.Debug("machine delete untagged machine from static ip", "ip", ip.IPAddress)
+
+				return nil
+			case metal.Ephemeral:
+				fallthrough
+
+			default:
+				if err := r.s.IP(ip.ProjectID).AdditionalMethods().delete(ctx, ip); err != nil {
+					return fmt.Errorf("unable to free machine ip %q: %w", uuid, err)
+				}
+
+				r.s.log.Debug("machine delete released ephemeral ip", "ip", ip.IPAddress)
+
+				return nil
 			}
-
-			ip.RemoveMachineId(payload.UUID)
-
-			if err := r.s.ds.IP().Update(ctx, ip); err != nil {
-				errs = append(errs, fmt.Errorf("unable to remove machine tag from static ip %q: %w", uuid, err))
-			}
-
-			r.s.log.Debug("machine delete untagged machine from static ip", "ip", ip.IPAddress)
-
-		case metal.Ephemeral:
-			fallthrough
-
-		default:
-			if err := r.s.IP(ip.ProjectID).AdditionalMethods().delete(ctx, ip); err != nil {
-				errs = append(errs, fmt.Errorf("unable to free machine ip %q: %w", uuid, err))
-			}
-
-			r.s.log.Debug("machine delete released ephemeral ip", "ip", ip.IPAddress)
-		}
+		})
 	}
 
-	return errors.Join(errs...)
+	if err := g.Wait(); err != nil {
+		return err
+	}
+
+	return nil
 }
