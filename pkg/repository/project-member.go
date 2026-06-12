@@ -69,15 +69,15 @@ func (t *projectMemberRepository) create(ctx context.Context, c *api.ProjectMemb
 	}, nil
 }
 
-func (t *projectMemberRepository) delete(ctx context.Context, e *projectMemberEntity) error {
+func (t *projectMemberRepository) delete(ctx context.Context, e *projectMemberEntity) (*deleteInfo, error) {
 	_, err := t.s.tc.Apiv1().ProjectMember().Delete(ctx, &tenantv1.ProjectMemberServiceDeleteRequest{
 		Id: e.Meta.Id,
 	})
 	if err != nil {
-		return errorutil.Convert(err)
+		return nil, errorutil.Convert(err)
 	}
 
-	return nil
+	return nil, nil
 }
 
 func (t *projectMemberRepository) find(ctx context.Context, query *api.ProjectMemberQuery) (*projectMemberEntity, error) {

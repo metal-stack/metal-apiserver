@@ -279,8 +279,11 @@ func Test_machineServiceServer_DeleteMachine(t *testing.T) {
 
 			// check also that delete task has completed
 
+			require.NotNil(t, got.Machine.Meta)
+			require.NotNil(t, got.Machine.Meta.DeletionTaskId)
+
 			task, err := taskServer.Get(ctx, &adminv2.TaskServiceGetRequest{
-				TaskId: got.TaskId,
+				TaskId: *got.Machine.Meta.DeletionTaskId,
 				Queue:  "default",
 			})
 			require.NoError(t, err)

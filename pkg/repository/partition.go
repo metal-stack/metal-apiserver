@@ -34,13 +34,13 @@ func (p *partitionRepository) create(ctx context.Context, c *adminv2.PartitionSe
 	return resp, nil
 }
 
-func (p *partitionRepository) delete(ctx context.Context, e *metal.Partition) error {
+func (p *partitionRepository) delete(ctx context.Context, e *metal.Partition) (*deleteInfo, error) {
 	err := p.s.ds.Partition().Delete(ctx, e)
 	if err != nil {
-		return errorutil.Convert(err)
+		return nil, errorutil.Convert(err)
 	}
 
-	return nil
+	return nil, nil
 }
 
 func (p *partitionRepository) get(ctx context.Context, id string) (*metal.Partition, error) {

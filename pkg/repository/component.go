@@ -108,18 +108,18 @@ func (c *componentRepository) validateDelete(ctx context.Context, e *componentEn
 	return nil
 }
 
-func (c *componentRepository) delete(ctx context.Context, e *componentEntity) error {
+func (c *componentRepository) delete(ctx context.Context, e *componentEntity) (*deleteInfo, error) {
 	resp, err := c.get(ctx, e.Uuid)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	key, err := c.key(resp.Component)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return c.s.component.Do(ctx, c.s.component.B().Del().Key(key).Build()).Error()
+	return nil, c.s.component.Do(ctx, c.s.component.B().Del().Key(key).Build()).Error()
 }
 
 func (c *componentRepository) find(ctx context.Context, query *apiv2.ComponentQuery) (*componentEntity, error) {

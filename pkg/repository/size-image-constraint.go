@@ -81,13 +81,13 @@ func (r *sizeImageConstraintRepository) update(ctx context.Context, e *metal.Siz
 	return e, nil
 }
 
-func (r *sizeImageConstraintRepository) delete(ctx context.Context, e *metal.SizeImageConstraint) error {
+func (r *sizeImageConstraintRepository) delete(ctx context.Context, e *metal.SizeImageConstraint) (*deleteInfo, error) {
 	err := r.s.ds.SizeImageConstraint().Delete(ctx, e)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return nil, nil
 }
 
 func (r *sizeImageConstraintRepository) find(ctx context.Context, rq *apiv2.SizeImageConstraintQuery) (*metal.SizeImageConstraint, error) {

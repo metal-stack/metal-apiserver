@@ -436,7 +436,7 @@ func (r *switchRepository) ForceDelete(ctx context.Context, switchID string) (*a
 		return nil, err
 	}
 
-	err = r.delete(ctx, sw)
+	_, err = r.delete(ctx, sw)
 	if err != nil {
 		return nil, err
 	}
@@ -620,18 +620,18 @@ func (r *switchRepository) update(ctx context.Context, sw *metal.Switch, req *ad
 	return sw, nil
 }
 
-func (r *switchRepository) delete(ctx context.Context, sw *metal.Switch) error {
+func (r *switchRepository) delete(ctx context.Context, sw *metal.Switch) (*deleteInfo, error) {
 	status, err := r.s.ds.SwitchStatus().Get(ctx, sw.ID)
 	if err != nil && !errorutil.IsNotFound(err) {
-		return err
+		return nil, err
 	}
 	if status != nil {
 		err = r.s.ds.SwitchStatus().Delete(ctx, status)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return r.s.ds.Switch().Delete(ctx, sw)
+	return nil, r.s.ds.Switch().Delete(ctx, sw)
 }
 
 func (r *switchRepository) replace(ctx context.Context, oldSwitch, newSwitch *apiv2.Switch) (*metal.Switch, error) {
