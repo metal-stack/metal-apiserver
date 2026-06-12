@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	defaultTaskRetention         = 14 * 24 * time.Hour // only with retention a task will be stored in completed tasks
+	defaultTaskRetention         = 14 * 24 * time.Hour // only with retention a task will be stored after task failure
 	defaultTaskWatchTimeout      = 10 * time.Second
 	defaultTaskWatchPollInterval = 100 * time.Millisecond
 )
@@ -78,10 +78,22 @@ type WatchConfig struct {
 	Interval *time.Duration
 }
 
-func (c *Client) Watch(ctx context.Context, cfg *WatchConfig, queue, id string, states ...asynq.TaskState) (*asynq.TaskInfo, error) {
+func (c *Client) WatchForTaskCompletion(ctx context.Context, cfg *WatchConfig, queue, id string) (info *asynq.TaskInfo, err error) {
 	var (
 		timeout  = defaultTaskWatchTimeout
 		interval = defaultTaskWatchPollInterval
+
+		// a task is put to archive if it failed and will not be retried, to completed if it succeeds successfully
+		finalStates = []asynq.TaskState{asynq.TaskStateArchived, asynq.TaskStateCompleted}
+
+		// this is just for nicer error messages
+		finalStatesString = func() string {
+			var res []string
+			for _, state := range finalStates {
+				res = append(res, state.String())
+			}
+			return strings.Join(res, ",")
+		}()
 	)
 
 	if cfg != nil {
@@ -102,15 +114,6 @@ func (c *Client) Watch(ctx context.Context, cfg *WatchConfig, queue, id string, 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	var (
-		info       *asynq.TaskInfo
-		wantStates []string
-	)
-
-	for _, state := range states {
-		wantStates = append(wantStates, state.String())
-	}
-
 	for {
 		select {
 		case <-ticker.C:
@@ -120,19 +123,19 @@ func (c *Client) Watch(ctx context.Context, cfg *WatchConfig, queue, id string, 
 				return nil, err
 			}
 
-			if slices.Contains(states, info.State) {
+			if slices.Contains(finalStates, info.State) {
 				return info, nil
 			}
 
-			c.log.Debug("watched task state not yet reached", "task-id", info.ID, "task-type", info.Type, "got", info.State.String(), "want", strings.Join(wantStates, ","), "last-err", info.LastErr)
+			c.log.Debug("watched task state not yet reached", "task-id", info.ID, "task-type", info.Type, "got", info.State.String(), "want", finalStatesString, "last-err", info.LastErr)
 			continue
 
 		case <-ctx.Done():
 			if info != nil {
-				return nil, fmt.Errorf("context cancelled, task %q of type %q did not reach one of expected states %q (had %q), last error: %s", info.ID, info.Type, wantStates, info.State.String(), info.LastErr)
+				return nil, fmt.Errorf("context cancelled, task %q of type %q did not reach one of expected states %q (had %q), last error: %s", info.ID, info.Type, finalStatesString, info.State.String(), info.LastErr)
 			}
 
-			return nil, fmt.Errorf("context cancelled")
+			return nil, fmt.Errorf("context cancelled before the task %q of type %q was even received once", info.ID, info.Type)
 		}
 	}
 }

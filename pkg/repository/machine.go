@@ -684,7 +684,7 @@ func (r *machineRepository) Decommission(ctx context.Context, req *apiv2.Machine
 
 	r.s.log.Info("machine delete enqueued, polling for completion", "info", info)
 
-	if _, err = r.s.Task().Watch(ctx, nil, info.Queue, info.ID, asynq.TaskStateCompleted, asynq.TaskStateArchived); err != nil {
+	if _, err = r.s.Task().WatchForTaskCompletion(ctx, nil, info.Queue, info.ID); err != nil {
 		return nil, fmt.Errorf("error waiting for task %q to complete: %w", info.ID, err)
 	}
 
@@ -1679,7 +1679,7 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 		return fmt.Errorf("unable to send machine delete bmc command: %w", err)
 	}
 
-	if _, err := r.Task().Watch(ctx, nil, "default", taskID, asynq.TaskStateCompleted, asynq.TaskStateArchived); err != nil {
+	if _, err := r.Task().WatchForTaskCompletion(ctx, nil, "default", taskID); err != nil {
 		return fmt.Errorf("metal-bmc did not complete machine delete task: %w", err)
 	}
 
