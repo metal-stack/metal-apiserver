@@ -128,6 +128,7 @@ func (c *Client) WatchForTaskCompletion(ctx context.Context, cfg *WatchConfig, q
 			}
 
 			if slices.Contains(finalStates, info.State) {
+				c.log.Debug("watched task reached expected state", "task-id", info.ID, "task-type", info.Type, "got", info.State.String(), "want", finalStatesString)
 				return info, nil
 			}
 
@@ -139,7 +140,7 @@ func (c *Client) WatchForTaskCompletion(ctx context.Context, cfg *WatchConfig, q
 				return nil, fmt.Errorf("context cancelled, task %q of type %q did not reach one of expected states %q (had %q), last error: %s", info.ID, info.Type, finalStatesString, info.State.String(), info.LastErr)
 			}
 
-			return nil, fmt.Errorf("context cancelled before the task %q of type %q was even received once", info.ID, info.Type)
+			return nil, fmt.Errorf("context cancelled before the task %q was even received once", id)
 		}
 	}
 }

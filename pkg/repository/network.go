@@ -7,7 +7,6 @@ import (
 	"net/netip"
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/hibiken/asynq"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
@@ -54,9 +53,7 @@ func (r *networkRepository) delete(ctx context.Context, nw *metal.Network) error
 
 	r.s.log.Info("network delete enqueued", "info", info)
 
-	if _, err = r.s.Task().WatchForTaskCompletion(ctx, &task.WatchConfig{
-		Timeout: new(3 * time.Second),
-	}, info.Queue, info.ID); err != nil {
+	if _, err = r.s.Task().WatchForTaskCompletion(ctx, nil, info.Queue, info.ID); err != nil {
 		return errorutil.Internal("error waiting for task %q of type %q to complete: %w", info.ID, info.Type, err)
 	}
 
@@ -501,6 +498,10 @@ func (r *networkRepository) getNetworkUsage(ctx context.Context, nw *metal.Netwo
 		}
 		resp, err := r.s.ipam.PrefixUsage(ctx, &ipamv1.PrefixUsageRequest{Cidr: prefix.String(), Namespace: nw.Namespace})
 		if err != nil {
+			if errorutil.IsNotFound(err) {
+				continue
+			}
+
 			return nil, err
 		}
 		u := resp
