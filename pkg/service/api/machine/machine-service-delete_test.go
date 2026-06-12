@@ -262,7 +262,7 @@ func Test_machineServiceServer_DeleteMachine(t *testing.T) {
 			if diff := cmp.Diff(want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
-					&apiv2.Meta{}, "created_at", "updated_at", "generation",
+					&apiv2.Meta{}, "created_at", "updated_at", "generation", "deletion_task_id",
 				),
 				protocmp.IgnoreFields(
 					&apiv2.MachineProvisioningEvent{}, "time",
@@ -270,25 +270,9 @@ func Test_machineServiceServer_DeleteMachine(t *testing.T) {
 				protocmp.IgnoreFields(
 					&apiv2.MachineRecentProvisioningEvents{}, "last_event_time",
 				),
-				protocmp.IgnoreFields(
-					&apiv2.MachineServiceDeleteResponse{}, "task_id",
-				),
 			); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
-
-			// check also that delete task has completed
-
-			require.NotNil(t, got.Machine.Meta)
-			require.NotNil(t, got.Machine.Meta.DeletionTaskId)
-
-			task, err := taskServer.Get(ctx, &adminv2.TaskServiceGetRequest{
-				TaskId: *got.Machine.Meta.DeletionTaskId,
-				Queue:  "default",
-			})
-			require.NoError(t, err)
-
-			assert.Equal(t, adminv2.TaskState_TASK_STATE_COMPLETED, task.Task.State)
 
 			var mods *test.Asserters
 			if tt.mods != nil {
@@ -307,6 +291,24 @@ func Test_machineServiceServer_DeleteMachine(t *testing.T) {
 			log.Info("waiting for bmc sim to finish")
 			<-waitDone
 			require.NoError(t, waitErr)
+
+			if tt.wantErr != nil {
+				return
+			}
+
+			// check also that delete task has completed
+
+			require.NotNil(t, got.Machine.Meta)
+			require.NotNil(t, got.Machine.Meta.DeletionTaskId)
+
+			task, err := taskServer.Get(ctx, &adminv2.TaskServiceGetRequest{
+				TaskId: *got.Machine.Meta.DeletionTaskId,
+				Queue:  "default",
+			})
+			require.NoError(t, err)
+
+			assert.Equal(t, adminv2.TaskState_TASK_STATE_COMPLETED, task.Task.State)
+
 		})
 	}
 }

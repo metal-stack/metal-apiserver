@@ -697,6 +697,8 @@ func (r *machineRepository) Decommission(ctx context.Context, req *apiv2.Machine
 		return nil, protoConversionError(err)
 	}
 
+	converted.Meta.DeletionTaskId = &info.ID
+
 	return &apiv2.MachineServiceDeleteResponse{
 		Machine: converted,
 	}, nil
