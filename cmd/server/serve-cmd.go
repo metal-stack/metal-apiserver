@@ -119,9 +119,10 @@ func newServeCmd() *cli.Command {
 
 			if ctx.Bool(headscaleEnabledFlag.Name) {
 				hc, err = headscale.NewClient(headscale.Config{
-					Log:      log,
-					Apikey:   ctx.String(headscaleApikeyFlag.Name),
-					Endpoint: ctx.String(headscaleAddressFlag.Name),
+					Log:           log,
+					Apikey:        ctx.String(headscaleApikeyFlag.Name),
+					Endpoint:      ctx.String(headscaleAddressFlag.Name),
+					ControllerURL: ctx.String(headscaleControlplaneAddressFlag.Name),
 				})
 				if err != nil {
 					return err
@@ -207,7 +208,6 @@ func newServeCmd() *cli.Command {
 				IsStageDev:                          strings.EqualFold(stage, stageDEV),
 				SecureCookie:                        ctx.Bool(secureCookieFlag.Name),
 				BMCSuperuserPassword:                ctx.String(bmcSuperuserPasswordFlag.Name),
-				HeadscaleControlplaneAddress:        ctx.String(headscaleControlplaneAddressFlag.Name),
 				HeadscaleClient:                     hc,
 				ComponentExpiration:                 ctx.Duration(componentExpirationFlag.Name),
 			}

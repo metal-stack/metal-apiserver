@@ -61,9 +61,10 @@ func StartHeadscale(t testing.TB) (*headscale.Client, string, func()) {
 	require.NoError(t, err)
 
 	client, err := headscale.NewClient(headscale.Config{
-		Log:      slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{})),
-		Apikey:   apikey,
-		Endpoint: endpoint,
+		Log:           slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{})),
+		Apikey:        apikey,
+		Endpoint:      endpoint,
+		ControllerURL: controllerURL,
 	})
 	require.NoError(t, err)
 

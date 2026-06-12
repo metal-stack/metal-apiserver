@@ -1,6 +1,8 @@
 package scenarios
 
 import (
+	"testing"
+
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
@@ -9,9 +11,13 @@ import (
 
 const (
 	Tenant1 = "john.doe"
+	Tenant2 = "john.woe"
+
 	// Project UUIDs are generated be counting the first digit for every tenant, last digit for every project of this tenant
 	Tenant1Project1 = "10000000-0000-0000-0000-000000000001"
 	Tenant1Project2 = "10000000-0000-0000-0000-000000000002"
+	Tenant2Project1 = "20000000-0000-0000-0000-000000000001"
+	Tenant2Project2 = "20000000-0000-0000-0000-000000000002"
 
 	ImageDebian13    = "debian-13.0.20260131"
 	ImageDebian12    = "debian-12.0.20251220"
@@ -28,6 +34,7 @@ const (
 	NetworkUnderlayPartition1    = "underlay-partition-1"
 	NetworkTenantSuperNamespaced = "tenant-super-namespaced"
 	NetworkTenantSuperPartition1 = "tenant-super-partition-1"
+	NetworkNameTenantPartition1  = "tenant-partition-1"
 
 	P01Rack01 = "p01-rack01"
 	P01Rack02 = "p01-rack02"
@@ -99,9 +106,13 @@ type (
 		SizeImageConstraints []*adminv2.SizeImageConstraintServiceCreateRequest
 		Networks             []*adminv2.NetworkServiceCreateRequest
 		IPs                  []*apiv2.IPServiceCreateRequest
-		Switches             []*apiv2.Switch
-		SwitchStatuses       []*api.SwitchStatus
-		Machines             []*MachineWithLiveliness
-		ReservedMachines     []string // TODO
+		// IpFns allows creating ips referencing already created networks
+		IpFns          func(t testing.TB, nws map[string]*apiv2.Network) []*apiv2.IPServiceCreateRequest
+		Switches       []*apiv2.Switch
+		SwitchStatuses []*api.SwitchStatus
+		Machines       []*MachineWithLiveliness
+		// MachineFns allows creating ips referencing already created networks
+		MachineFns       func(t testing.TB, nws map[string]*apiv2.Network) []*MachineWithLiveliness
+		ReservedMachines []string // TODO
 	}
 )

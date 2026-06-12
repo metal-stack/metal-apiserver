@@ -1,4 +1,4 @@
-package main
+package vpn_test
 
 import (
 	"fmt"
@@ -16,6 +16,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
+	"github.com/metal-stack/metal-apiserver/pkg/vpn"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -152,7 +153,7 @@ func Test_evaluateVPNConnected(t *testing.T) {
 			test.CreateMachines(t, testStore, tt.machinesToCreate)
 
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
-				got, err := evaluateVPNConnected(ctx, log, testStore.Store)
+				got, err := vpn.EvaluateVPNConnected(ctx, log, testStore.Store)
 				if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 					c.Errorf("diff = %s", diff)
 					return

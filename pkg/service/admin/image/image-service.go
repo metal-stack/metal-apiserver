@@ -57,7 +57,6 @@ func (i *imageServiceServer) Update(ctx context.Context, rq *adminv2.ImageServic
 	return &adminv2.ImageServiceUpdateResponse{Image: image}, nil
 }
 
-// Usage implements adminv2connect.ImageServiceHandler.
 func (i *imageServiceServer) Usage(ctx context.Context, rq *adminv2.ImageServiceUsageRequest) (*adminv2.ImageServiceUsageResponse, error) {
 	machineQuery := &apiv2.MachineQuery{}
 
