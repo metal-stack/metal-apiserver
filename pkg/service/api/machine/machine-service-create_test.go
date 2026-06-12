@@ -1399,7 +1399,7 @@ func Test_machineServiceServer_CreateFirewallWithVPN(t *testing.T) {
 			}
 
 			assert.True(t, strings.HasPrefix(got.Machine.Allocation.Vpn.AuthKey, "hskey-auth-"))
-			assert.True(t, strings.HasPrefix(got.Machine.Allocation.Vpn.ControlPlaneAddress, "localhost:"))
+			assert.True(t, strings.HasPrefix(got.Machine.Allocation.Vpn.ControlPlaneAddress, "http://localhost:"))
 		})
 	}
 }

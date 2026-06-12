@@ -117,13 +117,13 @@ func (t *tenantRepository) createWithID(ctx context.Context, c *apiv2.TenantServ
 	return &tenantEntity{Tenant: resp.Tenant}, nil
 }
 
-func (t *tenantRepository) delete(ctx context.Context, e *tenantEntity) error {
+func (t *tenantRepository) delete(ctx context.Context, e *tenantEntity) (*deleteInfo, error) {
 	_, err := t.s.tc.Apiv1().Tenant().Delete(ctx, &tenantv1.TenantServiceDeleteRequest{Id: e.Meta.Id})
 	if err != nil {
-		return errorutil.Convert(err)
+		return nil, errorutil.Convert(err)
 	}
 
-	return nil
+	return nil, nil
 }
 
 func (t *tenantRepository) find(ctx context.Context, query *apiv2.TenantServiceListRequest) (*tenantEntity, error) {

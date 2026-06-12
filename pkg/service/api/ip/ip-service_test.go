@@ -16,6 +16,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/samber/lo"
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -122,7 +123,7 @@ func Test_ipServiceServer_Get(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("ipServiceServer.Get() = %v, want %vņdiff: %s", got, tt.want, diff)
+				t.Errorf("diff: %s", diff)
 			}
 		})
 	}
@@ -535,11 +536,18 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 					&apiv2.IP{}, "uuid",
 				),
 				protocmp.IgnoreFields(
-					&apiv2.Meta{}, "created_at", "updated_at",
+					&apiv2.Meta{}, "created_at", "updated_at", "deletion_task_id",
 				),
 			); diff != "" {
 				t.Errorf("ipServiceServer.Delete() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
+
+			if tt.wantErr != nil {
+				return
+			}
+
+			assert.NotNil(t, got.Ip.Meta)
+			assert.NotNil(t, got.Ip.Meta.DeletionTaskId)
 		})
 	}
 }

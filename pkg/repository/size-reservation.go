@@ -80,13 +80,13 @@ func (r *sizeReservationRepository) update(ctx context.Context, e *metal.SizeRes
 	return e, nil
 }
 
-func (r *sizeReservationRepository) delete(ctx context.Context, e *metal.SizeReservation) error {
+func (r *sizeReservationRepository) delete(ctx context.Context, e *metal.SizeReservation) (*deleteInfo, error) {
 	err := r.s.ds.SizeReservation().Delete(ctx, e)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return nil, nil
 }
 
 func (r *sizeReservationRepository) find(ctx context.Context, rq *apiv2.SizeReservationQuery) (*metal.SizeReservation, error) {

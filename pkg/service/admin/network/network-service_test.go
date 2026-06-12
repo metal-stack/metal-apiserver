@@ -15,6 +15,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/samber/lo"
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -1705,7 +1706,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 	defer closer()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = fmt.Fprintln(w, "a image")
+		_, _ = fmt.Fprintln(w, "an image")
 	}))
 	defer ts.Close()
 
@@ -1829,11 +1830,18 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 					&apiv2.Network{}, "consumption", "id", "vrf",
 				),
 				protocmp.IgnoreFields(
-					&apiv2.Meta{}, "created_at", "updated_at",
+					&apiv2.Meta{}, "created_at", "updated_at", "deletion_task_id",
 				),
 			); diff != "" {
 				t.Errorf("networkServiceServer.Delete() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
+
+			if tt.wantErr != nil {
+				return
+			}
+
+			assert.NotNil(t, got.Network.Meta)
+			assert.NotNil(t, got.Network.Meta.DeletionTaskId)
 		})
 	}
 }

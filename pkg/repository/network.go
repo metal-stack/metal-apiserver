@@ -43,17 +43,23 @@ func (r *networkRepository) matchScope(nw *metal.Network) bool {
 	return r.scope.projectID == pointer.SafeDeref(nw).ProjectID
 }
 
-func (r *networkRepository) delete(ctx context.Context, nw *metal.Network) error {
+func (r *networkRepository) delete(ctx context.Context, nw *metal.Network) (*deleteInfo, error) {
 	info, err := r.s.task.NewTask(&task.NetworkDeletePayload{
 		UUID: nw.ID,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	r.s.log.Info("network delete enqueued", "info", info)
 
-	return nil
+	if _, err = r.s.Task().WatchForTaskCompletion(ctx, nil, info.Queue, info.ID); err != nil {
+		return nil, errorutil.Internal("error waiting for task %q of type %q to complete: %w", info.ID, info.Type, err)
+	}
+
+	return &deleteInfo{
+		taskID: &info.ID,
+	}, nil
 }
 
 // NetworkDeleteHandleFn is called async to ensure all dependent entities are deleted
@@ -63,8 +69,6 @@ func (r *Store) NetworkDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 	if err != nil {
 		return err
 	}
-
-	r.log.Info("delete network handler", "uuid", payload.UUID)
 
 	nw, err := r.ds.Network().Get(ctx, payload.UUID)
 	if err != nil && !errorutil.IsNotFound(err) {
@@ -496,6 +500,10 @@ func (r *networkRepository) getNetworkUsage(ctx context.Context, nw *metal.Netwo
 		}
 		resp, err := r.s.ipam.PrefixUsage(ctx, &ipamv1.PrefixUsageRequest{Cidr: prefix.String(), Namespace: nw.Namespace})
 		if err != nil {
+			if errorutil.IsNotFound(err) {
+				continue
+			}
+
 			return nil, err
 		}
 		u := resp

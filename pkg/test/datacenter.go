@@ -98,9 +98,9 @@ func (dc *Datacenter) Create(spec *scenarios.DatacenterSpec) {
 	dc.createSizeReservations(spec)
 	dc.createFilesystemLayouts(spec)
 	dc.createSizeImageConstraints(spec)
-	dc.createNetworks(spec)
-	dc.createIPs(spec)
-	dc.createMachines(spec)
+	nws := dc.createNetworks(spec)
+	dc.createIPs(spec, nws)
+	dc.createMachines(spec, nws)
 	dc.createSwitches(spec)
 	dc.createSwitchStatuses(spec)
 
@@ -366,9 +366,8 @@ func (dc *Datacenter) createPartitions(spec *scenarios.DatacenterSpec) {
 
 func (dc *Datacenter) createTenantsAndMembers(spec *scenarios.DatacenterSpec) {
 	var (
-		tenantCreateReq       []*apiv2.TenantServiceCreateRequest
-		tenantMemberCreateReq []*api.TenantMemberCreateRequest
-		projectCreateReq      []*apiv2.ProjectServiceCreateRequest
+		tenantCreateReq  []*apiv2.TenantServiceCreateRequest
+		projectCreateReq []*apiv2.ProjectServiceCreateRequest
 	)
 
 	assert.LessOrEqual(dc.t, len(tenantCreateReq), 9)
@@ -392,10 +391,11 @@ func (dc *Datacenter) createTenantsAndMembers(spec *scenarios.DatacenterSpec) {
 	CreateProjects(dc.t, dc.testStore, projectCreateReq)
 
 	for _, tenant := range spec.Tenants {
-		tenantMemberCreateReq = append(tenantMemberCreateReq, &api.TenantMemberCreateRequest{
-			MemberID: tenant, Role: apiv2.TenantRole_TENANT_ROLE_OWNER,
+		CreateTenantMemberships(dc.t, dc.testStore, tenant, []*api.TenantMemberCreateRequest{
+			{
+				MemberID: tenant, Role: apiv2.TenantRole_TENANT_ROLE_OWNER,
+			},
 		})
-		CreateTenantMemberships(dc.t, dc.testStore, tenant, tenantMemberCreateReq)
 	}
 }
 
@@ -444,16 +444,28 @@ func (dc *Datacenter) createSizeImageConstraints(spec *scenarios.DatacenterSpec)
 	CreateSizeImageConstraints(dc.t, dc.testStore, spec.SizeImageConstraints)
 }
 
-func (dc *Datacenter) createNetworks(spec *scenarios.DatacenterSpec) {
-	CreateNetworks(dc.t, dc.testStore, spec.Networks)
+func (dc *Datacenter) createNetworks(spec *scenarios.DatacenterSpec) map[string]*apiv2.Network {
+	return CreateNetworks(dc.t, dc.testStore, spec.Networks)
 }
 
-func (dc *Datacenter) createIPs(spec *scenarios.DatacenterSpec) {
-	CreateIPs(dc.t, dc.testStore, spec.IPs)
+func (dc *Datacenter) createIPs(spec *scenarios.DatacenterSpec, nws map[string]*apiv2.Network) {
+	ips := spec.IPs
+
+	if spec.IpFns != nil {
+		ips = append(ips, spec.IpFns(dc.t, nws)...)
+	}
+
+	CreateIPs(dc.t, dc.testStore, ips)
 }
 
-func (dc *Datacenter) createMachines(spec *scenarios.DatacenterSpec) {
-	for _, pair := range spec.Machines {
+func (dc *Datacenter) createMachines(spec *scenarios.DatacenterSpec, nws map[string]*apiv2.Network) {
+	machines := spec.Machines
+
+	if spec.MachineFns != nil {
+		machines = append(machines, spec.MachineFns(dc.t, nws)...)
+	}
+
+	for _, pair := range machines {
 		m, err := dc.testStore.ds.Machine().Create(dc.t.Context(), pair.Machine)
 		require.NoError(dc.t, err)
 

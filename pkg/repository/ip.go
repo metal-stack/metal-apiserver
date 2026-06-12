@@ -175,19 +175,27 @@ func (r *ipRepository) update(ctx context.Context, e *metal.IP, req *apiv2.IPSer
 	return e, nil
 }
 
-func (r *ipRepository) delete(ctx context.Context, e *metal.IP) error {
+func (r *ipRepository) delete(ctx context.Context, e *metal.IP) (*deleteInfo, error) {
 	info, err := r.s.task.NewTask(&task.IPDeletePayload{
 		AllocationUUID: e.AllocationUUID,
 		IP:             e.IPAddress,
 		Project:        e.ProjectID,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	r.s.log.Info("ip delete enqueued", "info", info)
 
-	return nil
+	if _, err = r.s.Task().WatchForTaskCompletion(ctx, &task.WatchConfig{
+		Timeout: new(3 * time.Second),
+	}, info.Queue, info.ID); err != nil {
+		return nil, errorutil.Internal("error waiting for task %q of type %q to complete: %w", info.ID, info.Type, err)
+	}
+
+	return &deleteInfo{
+		taskID: &info.ID,
+	}, nil
 }
 
 func (r *ipRepository) find(ctx context.Context, rq *apiv2.IPQuery) (*metal.IP, error) {
@@ -383,10 +391,8 @@ func (r *Store) IpDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
 		return err
 	}
 	if ip == nil {
-		r.log.Info("ds find, metalip is nil", "task", t)
 		return nil
 	}
-	r.log.Info("ds find", "metalip", ip)
 
 	nw, err := r.ds.Network().Get(ctx, ip.NetworkID)
 	if err != nil {

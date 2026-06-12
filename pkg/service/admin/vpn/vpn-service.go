@@ -17,21 +17,19 @@ type Config struct {
 }
 
 type vpnService struct {
-	log      *slog.Logger
-	repo     *repository.Store
-	disabled bool
+	log  *slog.Logger
+	repo *repository.Store
 }
 
 func New(c Config) adminv2connect.VPNServiceHandler {
 	return &vpnService{
-		log:      c.Log.WithGroup("vpnService"),
-		repo:     c.Repo,
-		disabled: c.Repo.UnscopedVPN().Enabled(),
+		log:  c.Log.WithGroup("vpnService"),
+		repo: c.Repo,
 	}
 }
 
 func (v *vpnService) AuthKey(ctx context.Context, req *adminv2.VPNServiceAuthKeyRequest) (*adminv2.VPNServiceAuthKeyResponse, error) {
-	if v.disabled {
+	if !v.repo.UnscopedVPN().Enabled() {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("vpn is currently disabled"))
 	}
 
@@ -44,7 +42,7 @@ func (v *vpnService) AuthKey(ctx context.Context, req *adminv2.VPNServiceAuthKey
 }
 
 func (v *vpnService) ListNodes(ctx context.Context, req *adminv2.VPNServiceListNodesRequest) (*adminv2.VPNServiceListNodesResponse, error) {
-	if v.disabled {
+	if !v.repo.UnscopedVPN().Enabled() {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("vpn is currently disabled"))
 	}
 
