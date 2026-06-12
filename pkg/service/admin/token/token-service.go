@@ -41,8 +41,8 @@ func (t *tokenService) List(ctx context.Context, req *adminv2.TokenServiceListRe
 		tokens []*apiv2.Token
 		err    error
 	)
-	if req.User != nil {
-		tokens, err = t.tokenstore.List(ctx, *req.User)
+	if req.Query != nil && req.Query.User != nil {
+		tokens, err = t.tokenstore.List(ctx, *req.Query.User)
 		if err != nil {
 			return nil, errorutil.NewInternal(err)
 		}
