@@ -43,21 +43,23 @@ func (r *networkRepository) matchScope(nw *metal.Network) bool {
 	return r.scope.projectID == pointer.SafeDeref(nw).ProjectID
 }
 
-func (r *networkRepository) delete(ctx context.Context, nw *metal.Network) error {
+func (r *networkRepository) delete(ctx context.Context, nw *metal.Network) (*deleteInfo, error) {
 	info, err := r.s.task.NewTask(&task.NetworkDeletePayload{
 		UUID: nw.ID,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	r.s.log.Info("network delete enqueued", "info", info)
 
 	if _, err = r.s.Task().WatchForTaskCompletion(ctx, nil, info.Queue, info.ID); err != nil {
-		return errorutil.Internal("error waiting for task %q of type %q to complete: %w", info.ID, info.Type, err)
+		return nil, errorutil.Internal("error waiting for task %q of type %q to complete: %w", info.ID, info.Type, err)
 	}
 
-	return nil
+	return &deleteInfo{
+		taskID: &info.ID,
+	}, nil
 }
 
 // NetworkDeleteHandleFn is called async to ensure all dependent entities are deleted

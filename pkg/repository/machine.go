@@ -195,8 +195,8 @@ func (r *machineRepository) update(ctx context.Context, m *metal.Machine, req *a
 	return m, nil
 }
 
-func (r *machineRepository) delete(ctx context.Context, m *metal.Machine) error {
-	return nil
+func (r *machineRepository) delete(ctx context.Context, m *metal.Machine) (*deleteInfo, error) {
+	return nil, nil
 }
 
 func (r *machineRepository) find(ctx context.Context, rq *apiv2.MachineQuery) (*metal.Machine, error) {
@@ -696,6 +696,8 @@ func (r *machineRepository) Decommission(ctx context.Context, req *apiv2.Machine
 	if err != nil {
 		return nil, protoConversionError(err)
 	}
+
+	converted.Meta.DeletionTaskId = &info.ID
 
 	return &apiv2.MachineServiceDeleteResponse{
 		Machine: converted,
@@ -1662,7 +1664,7 @@ func (r *machineRepository) releaseMachineIPsTask(ctx context.Context, payload *
 				fallthrough
 
 			default:
-				if err := r.s.IP(ip.ProjectID).AdditionalMethods().delete(ctx, ip); err != nil {
+				if _, err := r.s.IP(ip.ProjectID).AdditionalMethods().delete(ctx, ip); err != nil {
 					return fmt.Errorf("unable to free machine ip %q: %w", uuid, err)
 				}
 

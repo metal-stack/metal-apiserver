@@ -1036,7 +1036,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 					&apiv2.Network{}, "consumption", "id", "vrf",
 				),
 				protocmp.IgnoreFields(
-					&apiv2.Meta{}, "created_at", "updated_at",
+					&apiv2.Meta{}, "created_at", "updated_at", "deletion_task_id",
 				),
 			); diff != "" {
 				t.Errorf("networkServiceServer.Create() = %v, want %vņdiff: %s", got, tt.want, diff)
@@ -1051,6 +1051,12 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 				assert.True(collect, errorutil.IsNotFound(err))
 			}, 5*time.Second, 100*time.Millisecond)
 
+			if tt.wantErr != nil {
+				return
+			}
+
+			assert.NotNil(t, got.Network.Meta)
+			assert.NotNil(t, got.Network.Meta.DeletionTaskId)
 		})
 	}
 }

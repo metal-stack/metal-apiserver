@@ -51,7 +51,7 @@ type (
 		// the passed entity was retrieved from the backend so it does not need to be checked if it exists or not.
 		// every error returned will be wrapped into an InvalidArgument connect error except another connect error is returned.
 		validateDelete(ctx context.Context, e E) error
-		delete(ctx context.Context, e E) error
+		delete(ctx context.Context, e E) (*deleteInfo, error)
 
 		find(ctx context.Context, query Q) (E, error)
 		list(ctx context.Context, query Q) ([]E, error)
@@ -62,6 +62,11 @@ type (
 		matchScope(e E) bool
 	}
 
+	deleteInfo struct {
+		// taskID is an optional task id that was used during deletion
+		taskID *string
+	}
+
 	// Repo is the typed repository in order to expose public functions on the repository to the consumers.
 	Repo any
 	// Entity is the internal representation of an api resource, which is stored in the backend.
@@ -69,7 +74,9 @@ type (
 		SetChanged(t time.Time)
 	}
 	// Message is the external representation of an api resource for consumers.
-	Message any
+	Message interface {
+		GetMeta() *apiv2.Meta
+	}
 	// UpdateMessage is an external request to update an entity for consumers.
 	UpdateMessage interface {
 		GetUpdateMeta() *apiv2.UpdateMeta

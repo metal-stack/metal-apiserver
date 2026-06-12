@@ -90,13 +90,13 @@ func (r *imageRepository) update(ctx context.Context, e *metal.Image, rq *adminv
 	return e, nil
 }
 
-func (r *imageRepository) delete(ctx context.Context, e *metal.Image) error {
+func (r *imageRepository) delete(ctx context.Context, e *metal.Image) (*deleteInfo, error) {
 	err := r.s.ds.Image().Delete(ctx, e)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return nil, nil
 }
 
 func (r *imageRepository) find(ctx context.Context, rq *apiv2.ImageQuery) (*metal.Image, error) {

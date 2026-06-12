@@ -142,13 +142,13 @@ func (r *projectRepository) update(ctx context.Context, p *projectEntity, rq *ap
 	}, nil
 }
 
-func (r *projectRepository) delete(ctx context.Context, e *projectEntity) error {
+func (r *projectRepository) delete(ctx context.Context, e *projectEntity) (*deleteInfo, error) {
 	_, err := r.s.tc.Apiv1().Project().Delete(ctx, &tenantv1.ProjectServiceDeleteRequest{Id: e.Meta.Id})
 	if err != nil {
-		return errorutil.Convert(err)
+		return nil, errorutil.Convert(err)
 	}
 
-	return nil
+	return nil, nil
 }
 
 func (r *projectRepository) find(ctx context.Context, query *apiv2.ProjectServiceListRequest) (*projectEntity, error) {

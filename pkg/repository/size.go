@@ -92,13 +92,13 @@ func (r *sizeRepository) update(ctx context.Context, e *metal.Size, req *adminv2
 	return e, nil
 }
 
-func (r *sizeRepository) delete(ctx context.Context, e *metal.Size) error {
+func (r *sizeRepository) delete(ctx context.Context, e *metal.Size) (*deleteInfo, error) {
 	err := r.s.ds.Size().Delete(ctx, e)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return nil, nil
 }
 
 func (r *sizeRepository) find(ctx context.Context, rq *apiv2.SizeQuery) (*metal.Size, error) {

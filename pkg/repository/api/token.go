@@ -13,3 +13,7 @@ type TokenWithSecret struct {
 }
 
 func (t *TokenWithSecret) SetChanged(time time.Time) {}
+
+func (t *TokenWithSecret) GetMeta() *apiv2.Meta {
+	return t.Token.Meta
+}

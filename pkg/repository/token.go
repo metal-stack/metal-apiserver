@@ -66,17 +66,17 @@ func (t *tokenRepository) create(ctx context.Context, c *adminv2.TokenServiceCre
 	}, nil
 }
 
-func (t *tokenRepository) delete(ctx context.Context, e *api.TokenWithSecret) error {
+func (t *tokenRepository) delete(ctx context.Context, e *api.TokenWithSecret) (*deleteInfo, error) {
 	if t.scope == nil {
-		return errorutil.FailedPrecondition("tokens cannot be revoked unscoped")
+		return nil, errorutil.FailedPrecondition("tokens cannot be revoked unscoped")
 	}
 
 	err := t.s.tokens.Revoke(ctx, t.scope.user, e.Token.Uuid)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return nil, nil
 }
 
 func (t *tokenRepository) find(ctx context.Context, query *apiv2.TokenQuery) (*api.TokenWithSecret, error) {
