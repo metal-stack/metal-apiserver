@@ -187,6 +187,12 @@ func (r *ipRepository) delete(ctx context.Context, e *metal.IP) error {
 
 	r.s.log.Info("ip delete enqueued", "info", info)
 
+	if _, err = r.s.Task().WatchForTaskCompletion(ctx, &task.WatchConfig{
+		Timeout: new(3 * time.Second),
+	}, info.Queue, info.ID); err != nil {
+		return errorutil.Internal("error waiting for task %q of type %q to complete: %w", info.ID, info.Type, err)
+	}
+
 	return nil
 }
 

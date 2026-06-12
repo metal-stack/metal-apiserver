@@ -689,7 +689,7 @@ func (r *machineRepository) Decommission(ctx context.Context, req *apiv2.Machine
 	r.s.log.Info("machine delete enqueued, polling for completion", "info", info)
 
 	if _, err = r.s.Task().WatchForTaskCompletion(ctx, nil, info.Queue, info.ID); err != nil {
-		return nil, errorutil.Internal("error waiting for task %q to complete: %w", info.ID, err)
+		return nil, errorutil.Internal("error waiting for task %q of type %q to complete: %w", info.ID, info.Type, err)
 	}
 
 	converted, err := r.convertToProto(ctx, m)
