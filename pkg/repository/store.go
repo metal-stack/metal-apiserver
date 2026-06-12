@@ -8,11 +8,13 @@ import (
 	"connectrpc.com/connect"
 	"github.com/metal-stack/metal-apiserver/pkg/async/queue"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
+	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
+	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/auditing"
 	"github.com/valkey-io/valkey-go"
 
@@ -33,6 +35,11 @@ type (
 		component       valkey.Client
 		auditing        auditing.Auditing
 		headscaleClient *headscale.Client
+
+		certs         certs.CertStore
+		tokens        token.TokenStore
+		issuer        string
+		adminSubjects []string
 	}
 
 	Config struct {
@@ -45,6 +52,11 @@ type (
 		Component             valkey.Client
 		Auditing              auditing.Auditing
 		HeadscaleClient       *headscale.Client
+
+		Certs         certs.CertStore
+		Tokens        token.TokenStore
+		Issuer        string
+		AdminSubjects []string
 	}
 
 	store[R Repo, E Entity, M Message, C CreateMessage, U UpdateMessage, Q Query] struct {
@@ -64,6 +76,10 @@ func New(c Config) *Store {
 		component:       c.Component,
 		auditing:        c.Auditing,
 		headscaleClient: c.HeadscaleClient,
+		certs:           c.Certs,
+		tokens:          c.Tokens,
+		issuer:          c.Issuer,
+		adminSubjects:   c.AdminSubjects,
 	}
 }
 
@@ -92,6 +108,32 @@ func (s *Store) ip(scope *ProjectScope) IP {
 		typed:      repo,
 	}
 }
+
+func (s *Store) Token(user string) Token {
+	return s.token(&UserScope{
+		user: user,
+	})
+}
+
+func (s *Store) UnscopedToken() Token {
+	return s.token(nil)
+}
+
+func (s *Store) token(scope *UserScope) Token {
+	repository := &tokenRepository{
+		s:     s,
+		scope: scope,
+		patg: func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
+			return s.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, userId)
+		},
+	}
+
+	return &store[*tokenRepository, *api.TokenWithSecret, *api.TokenWithSecret, *adminv2.TokenServiceCreateRequest, *apiv2.TokenServiceUpdateRequest, *apiv2.TokenQuery]{
+		repository: repository,
+		typed:      repository,
+	}
+}
+
 func (s *Store) Machine(project string) Machine {
 	return s.machine(&ProjectScope{
 		projectID: project,

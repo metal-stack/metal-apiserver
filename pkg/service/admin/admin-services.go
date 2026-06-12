@@ -6,13 +6,10 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
-	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/auditing"
-
-	"github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 
 	auditadmin "github.com/metal-stack/metal-apiserver/pkg/service/admin/audit"
 	componentadmin "github.com/metal-stack/metal-apiserver/pkg/service/admin/component"
@@ -40,13 +37,10 @@ type Config struct {
 	Interceptors       connect.Option
 	InviteStore        invite.TenantInviteStore
 	TokenStore         tokencommon.TokenStore
-	TokenService       token.TokenService
-	CertStore          certs.CertStore
 	AuditSearchBackend auditing.Auditing
 }
 
 func AdminServices(cfg Config) {
-
 	var (
 		adminAuditService               = auditadmin.New(auditadmin.Config{Log: cfg.Log, Repo: cfg.Repository, AuditClient: cfg.AuditSearchBackend})
 		adminComponentService           = componentadmin.New(componentadmin.Config{Log: cfg.Log, Repo: cfg.Repository})
@@ -68,8 +62,11 @@ func AdminServices(cfg Config) {
 			InviteStore: cfg.InviteStore,
 			TokenStore:  cfg.TokenStore,
 		})
-		adminTokenService = tokenadmin.New(tokenadmin.Config{Log: cfg.Log, CertStore: cfg.CertStore, TokenStore: cfg.TokenStore, TokenService: cfg.TokenService})
-		adminVPNService   = vpnadmin.New(vpnadmin.Config{
+		adminTokenService = tokenadmin.New(tokenadmin.Config{
+			Log:  cfg.Log,
+			Repo: cfg.Repository,
+		})
+		adminVPNService = vpnadmin.New(vpnadmin.Config{
 			Log:  cfg.Log,
 			Repo: cfg.Repository,
 		})

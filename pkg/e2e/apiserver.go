@@ -13,7 +13,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/service"
-	"github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-apiserver/pkg/vpn"
@@ -25,7 +24,10 @@ import (
 func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string) (baseURL, adminToken string, tenantTokens map[string]string, closer func()) {
 	ctx := t.Context()
 
-	testStore, repocloser := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true), test.WithValkey(true), test.WithHeadscale(true))
+	subject := "e2e-tests"
+	providerTenant := "metal-stack"
+
+	testStore, repocloser := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true), test.WithValkey(true), test.WithHeadscale(true), test.WithAdminSubjects(providerTenant, subject))
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "{}")
@@ -33,8 +35,6 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 	discoveryURL := ts.URL
 	defer ts.Close()
 
-	subject := "e2e-tests"
-	providerTenant := "metal-stack"
 	hc := testStore.GetHeadscaleClient()
 
 	c := service.Config{
@@ -59,7 +59,6 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 		OIDCClientID:                        "oidc-client-id",
 		OIDCClientSecret:                    "oidc-client-secret",
 		OIDCDiscoveryURL:                    discoveryURL,
-		Admins:                              []string{providerTenant, subject},
 		MaxRequestsPerMinuteToken:           100,
 		MaxRequestsPerMinuteUnauthenticated: 100,
 		HeadscaleClient:                     hc,
@@ -71,7 +70,7 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 	server := httptest.NewUnstartedServer(mux)
 	server.Start()
 
-	tok, err := testStore.GetTokenService().CreateApiTokenWithoutPermissionCheck(t.Context(), subject, &apiv2.TokenServiceCreateRequest{
+	tok, err := testStore.UnscopedToken().AdditionalMethods().CreateApiTokenWithoutPermissionCheck(t.Context(), subject, &apiv2.TokenServiceCreateRequest{
 		Expires:   durationpb.New(time.Minute),
 		AdminRole: apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
 	})
@@ -103,7 +102,7 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 
 	require.NoError(t, err)
 
-	resp, err := testStore.GetTokenService().CreateApiTokenWithoutPermissionCheck(ctx, subject, &apiv2.TokenServiceCreateRequest{
+	resp, err := testStore.UnscopedToken().AdditionalMethods().CreateApiTokenWithoutPermissionCheck(ctx, subject, &apiv2.TokenServiceCreateRequest{
 		Description:  "e2e admin token",
 		Expires:      durationpb.New(time.Hour),
 		ProjectRoles: nil,
@@ -135,12 +134,12 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 		vpnEvalCancel()
 	}
 
-	tenantTokenSecrets := createTenantTokens(t, testStore.Store, testStore.GetTokenService(), additionalTenants...)
+	tenantTokenSecrets := createTenantTokens(t, testStore.Store, additionalTenants...)
 
 	return server.URL, resp.Secret, tenantTokenSecrets, closer
 }
 
-func createTenantTokens(t testing.TB, repo *repository.Store, tokenService token.TokenService, tenants ...string) map[string]string {
+func createTenantTokens(t testing.TB, repo *repository.Store, tenants ...string) map[string]string {
 	ctx := t.Context()
 	tenantTokens := make(map[string]string)
 
@@ -156,7 +155,7 @@ func createTenantTokens(t testing.TB, repo *repository.Store, tokenService token
 		})
 		require.NoError(t, err)
 
-		tcr, err := tokenService.CreateUserTokenWithoutPermissionCheck(ctx, tenant, nil)
+		tcr, err := repo.UnscopedToken().AdditionalMethods().CreateUserTokenWithoutPermissionCheck(ctx, tenant, nil)
 		require.NoError(t, err)
 
 		tenantTokens[tenant] = tcr.Secret

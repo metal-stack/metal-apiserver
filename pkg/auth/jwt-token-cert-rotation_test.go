@@ -8,66 +8,50 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/alicebob/miniredis/v2"
 	"github.com/lestrrat-go/jwx/v3/jwk"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
-	tokenservice "github.com/metal-stack/metal-apiserver/pkg/service/api/token"
+	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
-	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 )
 
 func Test_jwt_cert_rotation(t *testing.T) {
 	t.Parallel()
-	oldMaxExpiration := token.MaxExpiration
+
+	log := slog.Default()
+
+	oldMaxExpiration := certs.MaxTokenExpiration
 	oldDefaultExpiration := token.DefaultExpiration
 
-	token.MaxExpiration = 5 * time.Second
+	certs.MaxTokenExpiration = 5 * time.Second
 	token.DefaultExpiration = 5 * time.Second
 	defer func() {
-		token.MaxExpiration = oldMaxExpiration
+		certs.MaxTokenExpiration = oldMaxExpiration
 		token.DefaultExpiration = oldDefaultExpiration
 	}()
 	renewCertBeforeExpiration := 7 * time.Second
 
-	t.Logf("token lifetime: %s, certificate lifetime: %s, issue new signing certificate after: %s", token.DefaultExpiration, 2*token.MaxExpiration, 2*token.MaxExpiration-renewCertBeforeExpiration)
+	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithRenewCertBeforeExpiration(&renewCertBeforeExpiration))
+	defer closer()
 
-	s := miniredis.RunT(t)
-	c := redis.NewClient(&redis.Options{Addr: s.Addr()})
-	log := slog.Default()
+	t.Logf("token lifetime: %s, certificate lifetime: %s, issue new signing certificate after: %s", token.DefaultExpiration, 2*certs.MaxTokenExpiration, 2*certs.MaxTokenExpiration-renewCertBeforeExpiration)
 
-	certStore := certs.NewRedisStore(&certs.Config{
-		RedisClient:               c,
-		RenewCertBeforeExpiration: &renewCertBeforeExpiration,
-	})
-	tokenStore := token.NewRedisStore(c)
-
-	auth := func() *auth {
-		o, err := NewAuthenticatorInterceptor(Config{
+	var (
+		auth, err = NewAuthenticatorInterceptor(Config{
 			Log:            log,
-			CertStore:      certStore,
+			CertStore:      testStore.GetCertStore(),
 			CertCacheTime:  new(0 * time.Second),
-			TokenStore:     tokenStore,
-			AllowedIssuers: []string{"integration"},
+			TokenStore:     testStore.GetTokenStore(),
+			AllowedIssuers: []string{"https://test.io"},
 		})
-		require.NoError(t, err)
+	)
 
-		return o
-	}()
-	service := func() tokenservice.TokenService {
-		s := tokenservice.New(tokenservice.Config{
-			Log:           log,
-			CertStore:     certStore,
-			TokenStore:    tokenStore,
-			AdminSubjects: []string{},
-			Issuer:        "integration",
-		})
+	defer closer()
 
-		return s
-	}()
+	require.NoError(t, err)
 
 	synctest.Test(t, func(t *testing.T) {
-
 		ctx := t.Context()
 
 		var (
@@ -76,6 +60,7 @@ func Test_jwt_cert_rotation(t *testing.T) {
 			token3     = ""
 			previousAt *time.Duration
 		)
+
 		steps := []struct {
 			name string
 			at   time.Duration
@@ -85,8 +70,8 @@ func Test_jwt_cert_rotation(t *testing.T) {
 				name: "token 1",
 				at:   0 * time.Second,
 				task: func(t *testing.T) {
-					token1 = createNewConsoleToken(t, ctx, service)
-					expectCertStore(t, ctx, certStore, 1)
+					token1 = createNewUserToken(t, ctx, testStore.Store)
+					expectCertStore(t, ctx, testStore.GetCertStore(), 1)
 					expectTokenWorks(t, ctx, auth, token1)
 				},
 			},
@@ -94,8 +79,8 @@ func Test_jwt_cert_rotation(t *testing.T) {
 				name: "token2",
 				at:   2 * time.Second,
 				task: func(t *testing.T) {
-					token2 = createNewConsoleToken(t, ctx, service)
-					expectCertStore(t, ctx, certStore, 1)
+					token2 = createNewUserToken(t, ctx, testStore.Store)
+					expectCertStore(t, ctx, testStore.GetCertStore(), 1)
 					expectTokenWorks(t, ctx, auth, token1)
 					expectTokenWorks(t, ctx, auth, token2)
 				},
@@ -104,8 +89,8 @@ func Test_jwt_cert_rotation(t *testing.T) {
 				name: "token3, next signing cert gets created",
 				at:   4 * time.Second,
 				task: func(t *testing.T) {
-					token3 = createNewConsoleToken(t, ctx, service)
-					expectCertStore(t, ctx, certStore, 2)
+					token3 = createNewUserToken(t, ctx, testStore.Store)
+					expectCertStore(t, ctx, testStore.GetCertStore(), 2)
 					expectTokenWorks(t, ctx, auth, token1)
 					expectTokenWorks(t, ctx, auth, token2)
 					expectTokenWorks(t, ctx, auth, token3)
@@ -115,8 +100,8 @@ func Test_jwt_cert_rotation(t *testing.T) {
 				name: "token1 expired, token 2 and 3 still work",
 				at:   6 * time.Second,
 				task: func(t *testing.T) {
-					token3 = createNewConsoleToken(t, ctx, service)
-					expectCertStore(t, ctx, certStore, 2)
+					token3 = createNewUserToken(t, ctx, testStore.Store)
+					expectCertStore(t, ctx, testStore.GetCertStore(), 2)
 					expectTokenExpired(t, ctx, auth, token1)
 					expectTokenWorks(t, ctx, auth, token2)
 					expectTokenWorks(t, ctx, auth, token3)
@@ -126,7 +111,7 @@ func Test_jwt_cert_rotation(t *testing.T) {
 				name: "token1 and token2 expired, token 3 still works",
 				at:   8 * time.Second,
 				task: func(t *testing.T) {
-					expectCertStore(t, ctx, certStore, 2)
+					expectCertStore(t, ctx, testStore.GetCertStore(), 2)
 					expectTokenExpired(t, ctx, auth, token1)
 					expectTokenExpired(t, ctx, auth, token2)
 					expectTokenWorks(t, ctx, auth, token3)
@@ -136,7 +121,7 @@ func Test_jwt_cert_rotation(t *testing.T) {
 				name: "all tokens expired, first signing cert is gone",
 				at:   11 * time.Second,
 				task: func(t *testing.T) {
-					expectCertStore(t, ctx, certStore, 1)
+					expectCertStore(t, ctx, testStore.GetCertStore(), 1)
 					expectTokenNoPublicKeyForSignatureFound(t, ctx, auth, token1)
 					expectTokenNoPublicKeyForSignatureFound(t, ctx, auth, token2)
 					expectTokenExpired(t, ctx, auth, token3)
@@ -146,7 +131,7 @@ func Test_jwt_cert_rotation(t *testing.T) {
 				name: "all tokens expired, all signing certs gone",
 				at:   15 * time.Second,
 				task: func(t *testing.T) {
-					expectCertStore(t, ctx, certStore, 0)
+					expectCertStore(t, ctx, testStore.GetCertStore(), 0)
 					expectTokenNoPublicKeyForSignatureFound(t, ctx, auth, token1)
 					expectTokenNoPublicKeyForSignatureFound(t, ctx, auth, token2)
 					expectTokenNoPublicKeyForSignatureFound(t, ctx, auth, token3)
@@ -158,12 +143,16 @@ func Test_jwt_cert_rotation(t *testing.T) {
 
 		for _, step := range steps {
 			forwardText := ""
+
 			if previousAt != nil {
 				forward := step.at - *previousAt
 				forwardText = fmt.Sprintf(" (forwarding by %s)", forward)
+
 				time.Sleep(forward)
-				s.FastForward(forward)
+
+				testStore.GetMiniRedis().FastForward(forward)
 			}
+
 			previousAt = &step.at
 
 			t.Logf("%s: running step at %q%s: %q", time.Now(), step.at, forwardText, step.name)
@@ -173,8 +162,8 @@ func Test_jwt_cert_rotation(t *testing.T) {
 	})
 }
 
-func createNewConsoleToken(t *testing.T, ctx context.Context, service tokenservice.TokenService) string {
-	resp, err := service.CreateUserTokenWithoutPermissionCheck(ctx, "test-user", nil)
+func createNewUserToken(t *testing.T, ctx context.Context, repo *repository.Store) string {
+	resp, err := repo.UnscopedToken().AdditionalMethods().CreateUserTokenWithoutPermissionCheck(ctx, "test-user", nil)
 	require.NoError(t, err)
 
 	return resp.Secret

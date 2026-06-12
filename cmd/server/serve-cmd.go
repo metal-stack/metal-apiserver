@@ -19,11 +19,13 @@ import (
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	"github.com/metal-stack/metal-apiserver/pkg/async/queue"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
+	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/service"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
+	"github.com/metal-stack/metal-apiserver/pkg/token"
 	tenant "github.com/metal-stack/tenant-api/go/client"
 
 	"github.com/metal-stack/v"
@@ -145,10 +147,15 @@ func newServeCmd() *cli.Command {
 				return fmt.Errorf("unable to create datastore: %w", err)
 			}
 
+			admins := ctx.StringSlice(adminsFlag.Name)
+			if providerTenant := ctx.String(ensureProviderTenantFlag.Name); providerTenant != "" {
+				admins = append(admins, providerTenant)
+			}
+
 			var (
-				task  = task.NewClient(log, redisConfig.AsyncClient)
-				queue = queue.New(log, redisConfig.QueueClient)
-				repo  = repository.New(repository.Config{
+				task       = task.NewClient(log, redisConfig.AsyncClient)
+				queue      = queue.New(log, redisConfig.QueueClient)
+				repoConfig = repository.Config{
 					Log:                   log,
 					TenantApiserverClient: tc,
 					Datastore:             ds,
@@ -158,7 +165,14 @@ func newServeCmd() *cli.Command {
 					Component:             redisConfig.ComponentClient,
 					Auditing:              auditSearchBackend,
 					HeadscaleClient:       hc,
-				})
+					Certs: certs.NewRedisStore(&certs.Config{
+						RedisClient: redisConfig.TokenClient,
+					}),
+					Tokens:        token.NewRedisStore(redisConfig.TokenClient),
+					Issuer:        ctx.String(serverHttpUrlFlag.Name),
+					AdminSubjects: admins,
+				}
+				repo  = repository.New(repoConfig)
 				stage = ctx.String(stageFlag.Name)
 			)
 
@@ -183,7 +197,6 @@ func newServeCmd() *cli.Command {
 				AuditBackends:                       auditBackends,
 				Stage:                               stage,
 				RedisConfig:                         redisConfig,
-				Admins:                              ctx.StringSlice(adminsFlag.Name),
 				MaxRequestsPerMinuteToken:           ctx.Int(maxRequestsPerMinuteFlag.Name),
 				MaxRequestsPerMinuteUnauthenticated: ctx.Int(maxRequestsPerMinuteUnauthenticatedFlag.Name),
 				OIDCClientID:                        ctx.String(oidcClientIdFlag.Name),
@@ -211,8 +224,6 @@ func newServeCmd() *cli.Command {
 				}
 
 				log.Info("ensured provider tenant", "id", providerTenant)
-
-				c.Admins = append(c.Admins, providerTenant)
 			}
 
 			log.Info("running api-server", "version", v.V.String(), "go-runtime", runtime.Version(), "http-endpoint", c.HttpServerEndpoint)

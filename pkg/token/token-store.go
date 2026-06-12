@@ -4,21 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	"time"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/redis/go-redis/v9"
 )
 
 const (
 	separator = ":"
 	prefix    = "tokenstore_"
-)
-
-var (
-	ErrTokenNotFound = redis.Nil
 )
 
 type TokenStore interface {
@@ -51,12 +47,23 @@ func NewRedisStore(client *redis.Client) TokenStore {
 func (r *redisStore) Set(ctx context.Context, token *apiv2.Token) error {
 	encoded, err := json.Marshal(toInternal(token))
 	if err != nil {
-		return fmt.Errorf("unable to encode token: %w", err)
+		return errorutil.Internal("unable to encode token: %w", err)
+	}
+
+	if token.Meta == nil {
+		token.Meta = &apiv2.Meta{}
+	}
+
+	// TODO: implement optimistic locking. when using the valkey client, they advise to use a lua script for this.
+	// token.Meta.UpdatedAt = timestamppb.Now()
+
+	if token.Meta != nil && token.Meta.UpdatedAt != nil {
+		return errorutil.InvalidArgument("optimistic locking is not yet implemented, please do not provide updated_at")
 	}
 
 	_, err = r.client.Set(ctx, key(token.User, token.Uuid), string(encoded), time.Until(token.Expires.AsTime())).Result()
 	if err != nil {
-		return err
+		return errorutil.Internal("unable to set token: %w", err)
 	}
 
 	return nil
@@ -65,13 +72,17 @@ func (r *redisStore) Set(ctx context.Context, token *apiv2.Token) error {
 func (r *redisStore) Get(ctx context.Context, userid, tokenid string) (*apiv2.Token, error) {
 	encoded, err := r.client.Get(ctx, key(userid, tokenid)).Result()
 	if err != nil {
-		return nil, err
+		if errors.Is(err, redis.Nil) {
+			return nil, errorutil.NotFound("token not found")
+		}
+
+		return nil, errorutil.Internal("unable to get token: %w", err)
 	}
 
 	var t token
 	err = json.Unmarshal([]byte(encoded), &t)
 	if err != nil {
-		return nil, err
+		return nil, errorutil.Internal("unable to decode token: %w", err)
 	}
 
 	return toExternal(&t), nil
@@ -86,19 +97,19 @@ func (r *redisStore) List(ctx context.Context, userid string) ([]*apiv2.Token, e
 	for iter.Next(ctx) {
 		encoded, err := r.client.Get(ctx, iter.Val()).Result()
 		if err != nil {
-			return nil, err
+			return nil, errorutil.Internal("unable to get token: %w", err)
 		}
 
 		var t token
 		err = json.Unmarshal([]byte(encoded), &t)
 		if err != nil {
-			return nil, err
+			return nil, errorutil.Internal("unable to decode token: %w", err)
 		}
 
 		res = append(res, toExternal(&t))
 	}
 	if err := iter.Err(); err != nil {
-		return nil, err
+		return nil, errorutil.Internal("unable to iterate tokens: %w", err)
 	}
 
 	return res, nil
@@ -113,27 +124,35 @@ func (r *redisStore) AdminList(ctx context.Context) ([]*apiv2.Token, error) {
 	for iter.Next(ctx) {
 		encoded, err := r.client.Get(ctx, iter.Val()).Result()
 		if err != nil {
-			return nil, err
+			return nil, errorutil.Internal("unable to get token: %w", err)
 		}
 
 		var t token
 		err = json.Unmarshal([]byte(encoded), &t)
 		if err != nil {
-			return nil, err
+			return nil, errorutil.Internal("unable to decode token: %w", err)
 		}
 
 		res = append(res, toExternal(&t))
 	}
 	if err := iter.Err(); err != nil {
-		return nil, err
+		return nil, errorutil.Internal("unable to iterate tokens: %w", err)
 	}
 
 	return res, nil
 }
 
 func (r *redisStore) Revoke(ctx context.Context, userid, tokenid string) error {
-	_, err := r.client.Del(ctx, key(userid, tokenid)).Result()
-	return err
+	res, err := r.client.Del(ctx, key(userid, tokenid)).Result()
+	if err != nil {
+		return errorutil.Internal("unable to revoke token: %w", err)
+	}
+
+	if res == 0 {
+		return errorutil.NotFound("token not found")
+	}
+
+	return nil
 }
 
 func (r *redisStore) Migrate(ctx context.Context, log *slog.Logger) error {
