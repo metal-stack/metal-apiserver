@@ -347,7 +347,7 @@ func (s *store[R, E, M, C, U, Q]) Delete(ctx context.Context, id string) (M, err
 		return zero, errorutil.WrapConnectErr(connect.CodeInvalidArgument, err)
 	}
 
-	err = s.delete(ctx, e)
+	deleteInfo, err := s.delete(ctx, e)
 	if err != nil {
 		return zero, errorutil.Convert(err)
 	}
@@ -355,6 +355,10 @@ func (s *store[R, E, M, C, U, Q]) Delete(ctx context.Context, id string) (M, err
 	converted, err := s.convertToProto(ctx, e)
 	if err != nil {
 		return zero, protoConversionError(err)
+	}
+
+	if deleteInfo != nil {
+		converted.GetMeta().DeletionTaskId = deleteInfo.taskID
 	}
 
 	return converted, nil

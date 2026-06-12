@@ -133,7 +133,7 @@ func (a *auditRepository) find(ctx context.Context, query *apiv2.AuditQuery) (*a
 	panic("unimplemented")
 }
 
-func (a *auditRepository) delete(ctx context.Context, audit *auditEntity) error {
+func (a *auditRepository) delete(ctx context.Context, audit *auditEntity) (*deleteInfo, error) {
 	panic("unimplemented")
 }
 

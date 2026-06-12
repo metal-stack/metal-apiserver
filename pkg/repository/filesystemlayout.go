@@ -193,13 +193,13 @@ func (r *filesystemLayoutRepository) update(ctx context.Context, e *metal.Filesy
 	return e, nil
 }
 
-func (r *filesystemLayoutRepository) delete(ctx context.Context, e *metal.FilesystemLayout) error {
+func (r *filesystemLayoutRepository) delete(ctx context.Context, e *metal.FilesystemLayout) (*deleteInfo, error) {
 	err := r.s.ds.FilesystemLayout().Delete(ctx, e)
 	if err != nil {
-		return errorutil.Convert(err)
+		return nil, errorutil.Convert(err)
 	}
 
-	return nil
+	return nil, nil
 }
 
 func (r *filesystemLayoutRepository) find(ctx context.Context, rq *apiv2.FilesystemServiceListRequest) (*metal.FilesystemLayout, error) {
