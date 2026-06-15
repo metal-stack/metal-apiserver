@@ -453,6 +453,9 @@ func Test_Create(t *testing.T) {
 			state: state{
 				adminSubjects: []string{},
 				projectRoles:  map[string]apiv2.ProjectRole{},
+				tenantRoles: map[string]apiv2.TenantRole{
+					"phippy": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
 			},
 			wantErr:        true,
 			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.ProjectService/Create" is not allowed`,
