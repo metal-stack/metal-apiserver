@@ -115,6 +115,9 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 	vpnEvalCtx, vpnEvalCancel := context.WithCancel(ctx)
 
 	go func() {
+		if hc == nil {
+			return
+		}
 		ticker := time.NewTicker(1 * time.Second)
 
 		for {

@@ -1,7 +1,6 @@
 package queries_test
 
 import (
-	"fmt"
 	"log/slog"
 	"os"
 	"slices"
@@ -592,7 +591,6 @@ func TestMachineFilter(t *testing.T) {
 				return strings.Compare(a.ID, b.ID)
 			})
 
-			fmt.Print(got)
 			if diff := cmp.Diff(
 				tt.want, got,
 				cmpopts.IgnoreFields(

@@ -63,6 +63,7 @@ func Test_getTokenPermissions(t *testing.T) {
 				"/metalstack.admin.v2.ImageService/Usage":                        {"*": {}},
 				"/metalstack.admin.v2.MachineService/BMCCommand":                 {"*": {}},
 				"/metalstack.admin.v2.MachineService/ConsolePassword":            {"*": {}},
+				"/metalstack.admin.v2.MachineService/Delete":                     {"*": {}},
 				"/metalstack.admin.v2.MachineService/Get":                        {"*": {}},
 				"/metalstack.admin.v2.MachineService/GetBMC":                     {"*": {}},
 				"/metalstack.admin.v2.MachineService/List":                       {"*": {}},
