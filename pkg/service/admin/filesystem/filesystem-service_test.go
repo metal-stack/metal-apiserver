@@ -45,7 +45,7 @@ func Test_filesystemServiceServer_Create(t *testing.T) {
 							CreateOptions: []string{"-L", "root"},
 						},
 					},
-					Disks: []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: new("1"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
+					Disks: []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: new("root"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
 					Constraints: &apiv2.FilesystemLayoutConstraints{
 						Sizes: []string{"c1-large-x86"},
 						Images: map[string]string{
@@ -70,7 +70,7 @@ func Test_filesystemServiceServer_Create(t *testing.T) {
 							CreateOptions: []string{"-L", "root"},
 						},
 					},
-					Disks: []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: new("1"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
+					Disks: []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: new("root"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
 					Constraints: &apiv2.FilesystemLayoutConstraints{
 						Sizes: []string{"c1-large-x86"},
 						Images: map[string]string{
@@ -88,7 +88,7 @@ func Test_filesystemServiceServer_Create(t *testing.T) {
 					Id:          "default",
 					Name:        new("Default FSL"),
 					Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: new("/"), Label: new("root")}},
-					Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: new("1"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
+					Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: new("root"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
 					Constraints: &apiv2.FilesystemLayoutConstraints{
 						Sizes: []string{"c1-large-x86"},
 						Images: map[string]string{
@@ -142,7 +142,7 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 				Id:          "default",
 				Name:        new("Default FSL"),
 				Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: new("/"), Label: new("root")}},
-				Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: new("1"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
+				Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: new("root"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
 				Constraints: &apiv2.FilesystemLayoutConstraints{
 					Sizes: []string{"c1-large-x86"},
 					Images: map[string]string{
@@ -170,7 +170,7 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 				},
 				Name:        new("Default FSL"),
 				Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: new("/"), Label: new("root")}},
-				Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: new("1"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
+				Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: new("root"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
 				Constraints: &apiv2.FilesystemLayoutConstraints{
 					Sizes: []string{"c1-large-x86"},
 					Images: map[string]string{
@@ -186,7 +186,7 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 					Name:        new("Default FSL"),
 					Description: new(""),
 					Filesystems: []*apiv2.Filesystem{{Device: "/dev/sda1", Format: apiv2.Format_FORMAT_EXT4, Path: new("/"), Label: new("root")}},
-					Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: new("1"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
+					Disks:       []*apiv2.Disk{{Device: "/dev/sda", Partitions: []*apiv2.DiskPartition{{Number: 1, Label: new("root"), GptType: apiv2.GPTType_GPT_TYPE_LINUX.Enum()}}}},
 					Constraints: &apiv2.FilesystemLayoutConstraints{
 						Sizes: []string{"c1-large-x86"},
 						Images: map[string]string{
