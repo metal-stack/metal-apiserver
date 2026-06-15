@@ -46,13 +46,18 @@ func StartHeadscale(t testing.TB) (*headscale.Client, string, func()) {
 	)
 	require.NoError(t, err)
 
-	c, reader, err := headscaleContainer.Exec(ctx, []string{"headscale", "apikeys", "create"}, exec.Multiplexed())
-	require.NoError(t, err)
-	assert.Zerof(t, c, "apikeys should have been created, expected return code 0, got %d", c)
+	var reader io.Reader
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+
+		code, r, err := headscaleContainer.Exec(ctx, []string{"headscale", "apikeys", "create", "-o", "json-line"}, exec.Multiplexed())
+		require.NoError(c, err)
+		require.Zerof(c, code, "apikeys should have been created, expected return code 0, got %d", c)
+		reader = r
+	}, 10*time.Second, 100*time.Millisecond)
 
 	output, err := io.ReadAll(reader)
 	require.NoError(t, err)
-	apikey := strings.TrimSpace(string(output))
+	apikey := strings.ReplaceAll(strings.TrimSpace(string(output)), "\"", "")
 	require.NoError(t, err)
 
 	endpoint, err := headscaleContainer.PortEndpoint(ctx, "50443/tcp", "")

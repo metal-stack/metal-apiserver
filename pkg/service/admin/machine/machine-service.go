@@ -29,7 +29,6 @@ func New(c Config) adminv2connect.MachineServiceHandler {
 	}
 }
 
-// Get implements apiv2connect.MachineServiceHandler.
 func (m *machineServiceServer) Get(ctx context.Context, req *adminv2.MachineServiceGetRequest) (*adminv2.MachineServiceGetResponse, error) {
 	machine, err := m.repo.UnscopedMachine().Get(ctx, req.Uuid)
 	if err != nil {
@@ -41,7 +40,10 @@ func (m *machineServiceServer) Get(ctx context.Context, req *adminv2.MachineServ
 	}, nil
 }
 
-// List implements apiv2connect.MachineServiceHandler.
+func (m *machineServiceServer) Delete(context.Context, *adminv2.MachineServiceDeleteRequest) (*adminv2.MachineServiceDeleteResponse, error) {
+	panic("unimplemented")
+}
+
 func (m *machineServiceServer) List(ctx context.Context, rq *adminv2.MachineServiceListRequest) (*adminv2.MachineServiceListResponse, error) {
 	partitions, err := m.repo.Partition().List(ctx, &apiv2.PartitionQuery{})
 	if err != nil {

@@ -44,6 +44,16 @@ var (
 		Value: "",
 		Usage: "requested admin role for the token",
 	}
+	tokenInfraRoleFlag = &cli.StringFlag{
+		Name:  "infra-role",
+		Value: "",
+		Usage: "requested infra role for the token",
+	}
+	tokenMachineRolesFlag = &cli.StringSliceFlag{
+		Name:  "machine-roles",
+		Value: &cli.StringSlice{},
+		Usage: "requested machine roles for the token",
+	}
 	tokenExpirationFlag = &cli.DurationFlag{
 		Name:  "expiration",
 		Value: 6 * 30 * 24 * time.Hour,
@@ -65,6 +75,8 @@ func newTokenCmd() *cli.Command {
 			tokenProjectRolesFlag,
 			tokenTenantRolesFlag,
 			tokenAdminRoleFlag,
+			tokenInfraRoleFlag,
+			tokenMachineRolesFlag,
 			tokenExpirationFlag,
 			serverHttpUrlFlag,
 		},
@@ -124,13 +136,35 @@ func newTokenCmd() *cli.Command {
 
 			var adminRole *apiv2.AdminRole
 			if roleString := ctx.String(tokenAdminRoleFlag.Name); roleString != "" {
-				// FIXME new linter complains that role is never used
 				role, ok := apiv2.AdminRole_value[roleString]
 				if !ok {
 					return fmt.Errorf("unknown role: %s", roleString)
 				}
 
 				adminRole = new(apiv2.AdminRole(role))
+			}
+			var infraRole *apiv2.InfraRole
+			if roleString := ctx.String(tokenInfraRoleFlag.Name); roleString != "" {
+				role, ok := apiv2.InfraRole_value[roleString]
+				if !ok {
+					return fmt.Errorf("unknown role: %s", roleString)
+				}
+
+				infraRole = new(apiv2.InfraRole(role))
+			}
+			machineRoles := map[string]apiv2.MachineRole{}
+			for _, r := range ctx.StringSlice(tokenMachineRolesFlag.Name) {
+				machineID, roleString, ok := strings.Cut(r, "=")
+				if !ok {
+					return fmt.Errorf("machine roles must be provided in the form <machine-uuid>=<role>")
+				}
+
+				role, ok := apiv2.MachineRole_value[roleString]
+				if !ok {
+					return fmt.Errorf("unknown role: %s", roleString)
+				}
+
+				machineRoles[machineID] = apiv2.MachineRole(role)
 			}
 			subject := ctx.String(tokenSubjectFlag.Name)
 			if subject == "" {
@@ -154,6 +188,8 @@ func newTokenCmd() *cli.Command {
 				TenantRoles:  tenantRoles,
 				AdminRole:    adminRole,
 				Permissions:  permissions,
+				InfraRole:    infraRole,
+				MachineRoles: machineRoles,
 			})
 			if err != nil {
 				return err
