@@ -57,8 +57,8 @@ type Config struct {
 	AuditBackends      []auditing.Auditing
 	HeadscaleClient    *headscale.Client
 
-	ServerHttpURL string
-	Admins        []string
+	ServerHttpURL  string
+	ProviderTenant string
 }
 
 func ApiServices(ctx context.Context, cfg Config) (token.TokenService, error) {
@@ -87,12 +87,12 @@ func ApiServices(ctx context.Context, cfg Config) (token.TokenService, error) {
 			TokenStore:  cfg.TokenStore,
 		})
 		tokenService = token.New(token.Config{
-			Log:           cfg.Log,
-			CertStore:     cfg.CertStore,
-			TokenStore:    cfg.TokenStore,
-			Repo:          cfg.Repository,
-			Issuer:        cfg.ServerHttpURL,
-			AdminSubjects: cfg.Admins,
+			Log:            cfg.Log,
+			CertStore:      cfg.CertStore,
+			TokenStore:     cfg.TokenStore,
+			Repo:           cfg.Repository,
+			Issuer:         cfg.ServerHttpURL,
+			ProviderTenant: cfg.ProviderTenant,
 		})
 		userService = user.New(&user.Config{
 			Log:  cfg.Log,

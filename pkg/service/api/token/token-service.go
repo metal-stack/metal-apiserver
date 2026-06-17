@@ -26,19 +26,20 @@ type Config struct {
 	CertStore  certs.CertStore
 	Repo       *repository.Store
 
-	// AdminSubjects are the subjects for which the token service allows the creation of admin api tokens
-	AdminSubjects []string
+	// provider tenant, other tenants which are made member with owner rights of this tenant can request admin-role-editor,
+	// if they have viewer rights, they can request admin-role-viewer.
+	ProviderTenant string
 
 	// Issuer to sign the JWT Token with
 	Issuer string
 }
 
 type tokenService struct {
-	issuer        string
-	adminSubjects []string
-	tokens        tokenutil.TokenStore
-	certs         certs.CertStore
-	log           *slog.Logger
+	issuer         string
+	providerTenant string
+	tokens         tokenutil.TokenStore
+	certs          certs.CertStore
+	log            *slog.Logger
 
 	projectsAndTenantsGetter api.ProjectsAndTenantsGetter
 	authorizer               request.Authorizer
@@ -59,11 +60,11 @@ func New(c Config) TokenService {
 	log := c.Log.WithGroup("tokenService")
 
 	return &tokenService{
-		tokens:        c.TokenStore,
-		certs:         c.CertStore,
-		issuer:        c.Issuer,
-		log:           log,
-		adminSubjects: c.AdminSubjects,
+		tokens:         c.TokenStore,
+		certs:          c.CertStore,
+		issuer:         c.Issuer,
+		log:            log,
+		providerTenant: c.ProviderTenant,
 
 		projectsAndTenantsGetter: projectsAndTenantsGetter,
 		authorizer:               request.NewAuthorizer(log, projectsAndTenantsGetter),
@@ -186,9 +187,11 @@ func (t *tokenService) Update(ctx context.Context, req *apiv2.TokenServiceUpdate
 		AdminRole:    nil,
 		InfraRole:    token.InfraRole,
 	}
-	if slices.Contains(t.adminSubjects, token.User) {
-		fullUserToken.AdminRole = apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum()
+
+	if role, ok := t.hasAdminRole(projectsAndTenants); ok {
+		fullUserToken.AdminRole = role
 	}
+
 	err = t.validateTokenRequest(ctx, fullUserToken, req)
 	if err != nil {
 		return nil, errorutil.NewPermissionDenied(err)
@@ -253,18 +256,31 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 		return nil, fmt.Errorf("requested expiration duration: %q exceeds max expiration: %q", req.Expires.AsDuration(), tokenutil.MaxExpiration)
 	}
 
-	if slices.Contains(t.adminSubjects, token.User) {
+	projectsAndTenants, err := t.projectsAndTenantsGetter(ctx, token.GetUser())
+	if err != nil {
+		return nil, errorutil.NewInternal(err)
+	}
+	var (
+		isAdmin   bool
+		adminRole apiv2.AdminRole
+	)
+
+	if role, ok := t.hasAdminRole(projectsAndTenants); ok {
 		if token.AdminRole == nil || *token.AdminRole == apiv2.AdminRole_ADMIN_ROLE_UNSPECIFIED {
-			token.AdminRole = req.AdminRole
+			token.AdminRole = role
 			token.TokenType = apiv2.TokenType_TOKEN_TYPE_API
 		}
+
+		adminRole = *role
+		isAdmin = true
+
 		t.log.Debug("user is listed in adminsubjects", "new token.adminrole", token.AdminRole)
 	}
 
 	// we first validate token permission elevation for the token used in the token create request,
 	// which might be an API token with restricted permissions
 
-	err := t.validateTokenRequest(ctx, token, req)
+	err = t.validateTokenRequest(ctx, token, req)
 	if err != nil {
 		return nil, errorutil.NewPermissionDenied(err)
 	}
@@ -273,10 +289,6 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 	// doing this check is not strictly necessary because the resulting token would fail in the auther when being compared
 	// to the actual user permissions, but it's nicer for the user to already prevent token creation immediately in this place
 
-	projectsAndTenants, err := t.projectsAndTenantsGetter(ctx, token.GetUser())
-	if err != nil {
-		return nil, errorutil.NewInternal(err)
-	}
 	fullUserToken := &apiv2.Token{
 		User:         token.User,
 		ProjectRoles: projectsAndTenants.ProjectRoles,
@@ -287,12 +299,12 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 
 	tokenUser := token.GetUser()
 
-	if !slices.Contains(t.adminSubjects, token.User) && user != nil {
+	if !isAdmin && user != nil {
 		return nil, errorutil.PermissionDenied("only admins can specify token user")
 	}
 
-	if slices.Contains(t.adminSubjects, token.User) {
-		fullUserToken.AdminRole = apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum()
+	if isAdmin {
+		fullUserToken.AdminRole = &adminRole
 	}
 
 	if user != nil {
@@ -409,8 +421,8 @@ func (t *tokenService) Refresh(ctx context.Context, _ *apiv2.TokenServiceRefresh
 		AdminRole:    nil,
 		InfraRole:    token.InfraRole,
 	}
-	if slices.Contains(t.adminSubjects, token.User) {
-		fullUserToken.AdminRole = apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum()
+	if role, ok := t.hasAdminRole(projectsAndTenants); ok {
+		fullUserToken.AdminRole = role
 	}
 	err = t.validateTokenRequest(ctx, fullUserToken, createRequest)
 	if err != nil {
@@ -551,4 +563,17 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 	}
 
 	return nil
+}
+
+func (t *tokenService) hasAdminRole(projectsAndTenants *api.ProjectsAndTenants) (*apiv2.AdminRole, bool) {
+
+	if role, ok := projectsAndTenants.TenantRoles[t.providerTenant]; ok {
+		switch role {
+		case apiv2.TenantRole_TENANT_ROLE_OWNER:
+			return apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(), true
+		case apiv2.TenantRole_TENANT_ROLE_VIEWER:
+			return apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(), true
+		}
+	}
+	return nil, false
 }
