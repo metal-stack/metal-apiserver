@@ -342,10 +342,10 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 			wantErr: nil,
 			want: &adminv2.PartitionServiceUpdateResponse{
 				Partition: &apiv2.Partition{
-					Id:                   "partition-4",
-					Meta:                 &apiv2.Meta{Generation: 1},
-					BootConfiguration:    &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL},
-					Description:          "",
+					Id:                "partition-4",
+					Meta:              &apiv2.Meta{Generation: 1},
+					BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL},
+					Description:       "",
 				},
 			},
 		},
@@ -732,7 +732,7 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:    "reserved machine does not count as free",
+			name:    "tainted machine does not count as free",
 			request: &adminv2.PartitionServiceCapacityRequest{Id: &partition1},
 			scenarioModFn: func(spec *sc.DatacenterSpec) {
 				spec.Machines = []*sc.MachineWithLiveliness{
