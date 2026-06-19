@@ -325,7 +325,7 @@ func (r *machineRepository) findWaitingMachine(ctx context.Context, partition, p
 	candidates, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
 		Partition:    &partition,
 		Size:         &size,
-		State:        apiv2.MachineState_MACHINE_STATE_AVAILABLE.Enum(), // Machines which are locked or reserved are not considered
+		State:        apiv2.MachineState_MACHINE_STATE_AVAILABLE.Enum(), // Machines which are locked or tainted are not considered
 		Waiting:      new(true),
 		Preallocated: new(false),
 		NotAllocated: new(true),
