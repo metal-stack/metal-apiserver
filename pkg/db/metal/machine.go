@@ -72,9 +72,6 @@ type MState string
 const (
 	// AvailableState describes a machine state where a machine is available for an allocation
 	AvailableState MState = ""
-	// ReservedState describes a machine state where a machine is not being considered for random allocation
-	// Deprecated: use TaintedState instead
-	ReservedState MState = "RESERVED"
 	// TaintedState describes a machine state where a machine is not being considered for random allocation
 	TaintedState MState = "TAINTED"
 	// LockedState describes a machine state where a machine cannot be deleted or allocated anymore
@@ -406,7 +403,7 @@ func ToAPIV2MachineStatus(state MState) (apiv2.MachineState, error) {
 	switch state {
 	case AvailableState:
 		return apiv2.MachineState_MACHINE_STATE_AVAILABLE, nil
-	case ReservedState, TaintedState:
+	case TaintedState:
 		return apiv2.MachineState_MACHINE_STATE_TAINTED, nil
 	case LockedState:
 		return apiv2.MachineState_MACHINE_STATE_LOCKED, nil

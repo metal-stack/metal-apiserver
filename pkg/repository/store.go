@@ -185,7 +185,7 @@ func (s *Store) Tenant() Tenant {
 		s: s,
 	}
 
-	return &store[*tenantRepository, *tenantEntity, *apiv2.Tenant, *apiv2.TenantServiceCreateRequest, *apiv2.TenantServiceUpdateRequest, *apiv2.TenantServiceListRequest]{
+	return &store[*tenantRepository, *tenantEntity, *apiv2.Tenant, *apiv2.TenantServiceCreateRequest, *apiv2.TenantServiceUpdateRequest, *apiv2.TenantQuery]{
 		repository: repository,
 		typed:      repository,
 	}

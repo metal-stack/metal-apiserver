@@ -559,7 +559,7 @@ func deepCopy[T any](in T) (T, error) {
 func getCurrentEntities(ctx context.Context, store *testStore) (*Entities, error) {
 	e := &Entities{}
 
-	tenants, err := store.Tenant().List(ctx, &apiv2.TenantServiceListRequest{})
+	tenants, err := store.Tenant().List(ctx, &apiv2.TenantQuery{})
 	if err != nil {
 		return nil, err
 	}
