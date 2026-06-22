@@ -63,10 +63,7 @@ func (t *tenantServiceServer) Create(ctx context.Context, req *adminv2.TenantSer
 }
 
 func (t *tenantServiceServer) List(ctx context.Context, req *adminv2.TenantServiceListRequest) (*adminv2.TenantServiceListResponse, error) {
-	tenants, err := t.repo.Tenant().List(ctx, &apiv2.TenantServiceListRequest{
-		Id:   req.Login,
-		Name: req.Name,
-	})
+	tenants, err := t.repo.Tenant().List(ctx, req.Query)
 	if err != nil {
 		return nil, err
 	}
