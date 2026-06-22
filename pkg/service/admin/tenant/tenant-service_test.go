@@ -32,13 +32,13 @@ func Test_tenantServiceServer_List(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		rq      *adminv2.TenantServiceListRequest
+		rq      *apiv2.TenantQuery
 		want    *adminv2.TenantServiceListResponse
 		wantErr error
 	}{
 		{
 			name: "list the tenants",
-			rq:   &adminv2.TenantServiceListRequest{},
+			rq:   &apiv2.TenantQuery{},
 			want: &adminv2.TenantServiceListResponse{
 				Tenants: []*apiv2.Tenant{
 					{
@@ -65,7 +65,7 @@ func Test_tenantServiceServer_List(t *testing.T) {
 		},
 		{
 			name: "filter by name",
-			rq: &adminv2.TenantServiceListRequest{
+			rq: &apiv2.TenantQuery{
 				Name: new("jane.roe@github"),
 			},
 			want: &adminv2.TenantServiceListResponse{
@@ -85,8 +85,31 @@ func Test_tenantServiceServer_List(t *testing.T) {
 		},
 		{
 			name: "filter by login",
-			rq: &adminv2.TenantServiceListRequest{
+			rq: &apiv2.TenantQuery{
 				Login: new("john.doe@github"),
+			},
+			want: &adminv2.TenantServiceListResponse{
+				Tenants: []*apiv2.Tenant{
+					{
+						Meta:        &apiv2.Meta{},
+						Login:       "john.doe@github",
+						Name:        "john.doe@github",
+						Email:       "",
+						Description: "",
+						AvatarUrl:   "",
+						CreatedBy:   "john.doe@github",
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "request first page",
+			rq: &apiv2.TenantQuery{
+				Paging: &apiv2.Paging{
+					Page:  new(uint64(1)),
+					Count: new(uint64(1)),
+				},
 			},
 			want: &adminv2.TenantServiceListResponse{
 				Tenants: []*apiv2.Tenant{
@@ -121,7 +144,9 @@ func Test_tenantServiceServer_List(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
-			got, err := u.List(reqCtx, tt.rq)
+			got, err := u.List(reqCtx, &adminv2.TenantServiceListRequest{
+				Query: tt.rq,
+			})
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
