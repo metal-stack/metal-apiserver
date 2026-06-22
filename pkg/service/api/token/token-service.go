@@ -267,7 +267,8 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 
 	if role, ok := t.hasAdminRole(projectsAndTenants); ok {
 		if token.AdminRole == nil || *token.AdminRole == apiv2.AdminRole_ADMIN_ROLE_UNSPECIFIED {
-			token.AdminRole = role
+			// FIXME clarify if this is correct, and ensure that no elevation is possible.
+			token.AdminRole = req.AdminRole
 			token.TokenType = apiv2.TokenType_TOKEN_TYPE_API
 		}
 
@@ -571,7 +572,7 @@ func (t *tokenService) hasAdminRole(projectsAndTenants *api.ProjectsAndTenants) 
 		switch role {
 		case apiv2.TenantRole_TENANT_ROLE_OWNER:
 			return apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(), true
-		case apiv2.TenantRole_TENANT_ROLE_VIEWER:
+		case apiv2.TenantRole_TENANT_ROLE_EDITOR, apiv2.TenantRole_TENANT_ROLE_VIEWER:
 			return apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(), true
 		}
 	}

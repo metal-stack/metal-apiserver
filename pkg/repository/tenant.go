@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -360,7 +361,7 @@ func (t *tenantRepository) EnsureProviderTenant(ctx context.Context, providerTen
 	providerTenant, err := t.s.Tenant().Find(ctx, &apiv2.TenantQuery{
 		Labels: &apiv2.Labels{
 			Labels: map[string]string{
-				tag.ProviderTenant: "true",
+				tag.ProviderTenant: strconv.FormatBool(true),
 			},
 		},
 	})
@@ -374,7 +375,7 @@ func (t *tenantRepository) EnsureProviderTenant(ctx context.Context, providerTen
 			Description: new("initial provider tenant for metal-stack"),
 			Labels: &apiv2.Labels{
 				Labels: map[string]string{
-					tag.ProviderTenant: "true",
+					tag.ProviderTenant: strconv.FormatBool(true),
 				},
 			},
 		}, providerTenantID, NewTenantCreateOptWithCreator(providerTenantID))

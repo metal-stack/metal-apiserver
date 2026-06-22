@@ -269,7 +269,7 @@ var (
 		Name:  "provider-tenant",
 		Value: "metal-stack",
 		Usage: `provider tenant, other tenants which are made member with owner rights of this tenant can request admin-role-editor,
-if they have viewer rights, they can request admin-role-viewer.
+if they have editor or viewer rights, they can request admin-role-viewer.
 Can not be changed after initial creation.
 `,
 		EnvVars:  []string{"PROVIDER_TENANT"},
