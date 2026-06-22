@@ -126,7 +126,7 @@ func (t *tenantRepository) delete(ctx context.Context, e *tenantEntity) (*delete
 	return nil, nil
 }
 
-func (t *tenantRepository) find(ctx context.Context, query *apiv2.TenantServiceListRequest) (*tenantEntity, error) {
+func (t *tenantRepository) find(ctx context.Context, query *apiv2.TenantQuery) (*tenantEntity, error) {
 	tenants, err := t.list(ctx, query)
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -151,11 +151,27 @@ func (t *tenantRepository) get(ctx context.Context, id string) (*tenantEntity, e
 	return &tenantEntity{Tenant: resp.Tenant}, nil
 }
 
-func (t *tenantRepository) list(ctx context.Context, query *apiv2.TenantServiceListRequest) ([]*tenantEntity, error) {
-	resp, err := t.s.tc.Apiv1().Tenant().List(ctx, &tenantv1.TenantServiceListRequest{
-		Id:   query.Id,
+func (t *tenantRepository) list(ctx context.Context, query *apiv2.TenantQuery) ([]*tenantEntity, error) {
+	if query == nil {
+		query = &apiv2.TenantQuery{}
+	}
+
+	req := &tenantv1.TenantServiceListRequest{
+		Id:   query.Login,
 		Name: query.Name,
-	})
+	}
+
+	if query.Labels != nil && len(query.Labels.Labels) > 0 {
+		req.Labels = tags.ToTags(query.Labels.Labels)
+	}
+	if query.Paging != nil {
+		req.Paging = &tenantv1.Paging{
+			Page:  query.Paging.Page,
+			Count: query.Paging.Count,
+		}
+	}
+
+	resp, err := t.s.tc.Apiv1().Tenant().List(ctx, req)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
