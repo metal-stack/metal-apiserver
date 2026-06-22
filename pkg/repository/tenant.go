@@ -339,8 +339,17 @@ func TenantRoleFromMap(annotations map[string]string) apiv2.TenantRole {
 	return tenantRole
 }
 
+// FIXME move to api/go/tag/tenant.go
+const isProviderTenantTag = "tenant.metal-stack.io/provider"
+
 func (t *tenantRepository) EnsureProviderTenant(ctx context.Context, providerTenantID string) error {
-	_, err := t.s.Tenant().Get(ctx, providerTenantID)
+	providerTenant, err := t.s.Tenant().Find(ctx, &apiv2.TenantServiceListRequest{
+		Labels: &apiv2.Labels{
+			Labels: map[string]string{
+				isProviderTenantTag: "true",
+			},
+		},
+	})
 	if err != nil && !errorutil.IsNotFound(err) {
 		return errorutil.Convert(fmt.Errorf("unable to get tenant %q: %w", providerTenantID, err))
 	}
@@ -349,10 +358,18 @@ func (t *tenantRepository) EnsureProviderTenant(ctx context.Context, providerTen
 		_, err := t.CreateWithID(ctx, &apiv2.TenantServiceCreateRequest{
 			Name:        providerTenantID,
 			Description: new("initial provider tenant for metal-stack"),
+			Labels: &apiv2.Labels{
+				Labels: map[string]string{
+					isProviderTenantTag: "true",
+				},
+			},
 		}, providerTenantID, NewTenantCreateOptWithCreator(providerTenantID))
 		if err != nil {
 			return errorutil.Convert(fmt.Errorf("unable to create tenant:%s %w", providerTenantID, err))
 		}
+	}
+	if providerTenant.Login != providerTenantID {
+		return errorutil.InvalidArgument("providerTenant with id:%q already exists", providerTenant.Login)
 	}
 
 	_, err = t.Member(providerTenantID).Get(ctx, providerTenantID)

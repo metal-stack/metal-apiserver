@@ -265,17 +265,15 @@ var (
 		Usage:   "the password to the redis key value store",
 		EnvVars: []string{"REDIS_PASSWORD"},
 	}
-	providerTenantFlag = &cli.StringSliceFlag{
-		Name:    "provider-tenant",
-		Value:   cli.NewStringSlice("metal-stack"),
-		Usage:   "provider tenant, other tenants which are made member with owner rights of this tenant can request admin-role-editor, if they have viewer rights, they can request admin-role-viewer.",
-		EnvVars: []string{"PROVIDER_TENANT"},
-	}
-	ensureProviderTenantFlag = &cli.BoolFlag{
-		Name:    "ensure-provider-tenant",
-		Value:   true,
-		Usage:   "ensures a provider tenant on startup (used for bootstrapping and technical tokens).",
-		EnvVars: []string{"ENSURE_PROVIDER_TENANT"},
+	providerTenantFlag = &cli.StringFlag{
+		Name:  "provider-tenant",
+		Value: "metal-stack",
+		Usage: `provider tenant, other tenants which are made member with owner rights of this tenant can request admin-role-editor,
+if they have viewer rights, they can request admin-role-viewer.
+Can not be changed after initial creation.
+`,
+		EnvVars:  []string{"PROVIDER_TENANT"},
+		Required: true,
 	}
 	maxRequestsPerMinuteFlag = &cli.IntFlag{
 		Name:    "max-requests-per-minute",

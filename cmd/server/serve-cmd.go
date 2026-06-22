@@ -69,7 +69,6 @@ func newServeCmd() *cli.Command {
 			maxRequestsPerMinuteFlag,
 			maxRequestsPerMinuteUnauthenticatedFlag,
 			ipamGrpcEndpointFlag,
-			ensureProviderTenantFlag,
 			frontEndUrlFlag,
 			oidcClientIdFlag,
 			oidcClientSecretFlag,
@@ -203,21 +202,17 @@ func newServeCmd() *cli.Command {
 				return fmt.Errorf("providerTenant must be specified")
 			}
 
-			if ctx.Bool(ensureProviderTenantFlag.Name) {
-				err := repo.Tenant().AdditionalMethods().EnsureProviderTenant(ctx.Context, c.ProviderTenant)
-				if err != nil {
-					return err
-				}
-
-				err = repo.UnscopedProject().AdditionalMethods().EnsureProviderProject(ctx.Context, c.ProviderTenant)
-				if err != nil {
-					return err
-				}
-
-				log.Info("ensured provider tenant", "id", c.ProviderTenant)
-			} else {
-				log.Info("ensure provider tenant is disabled")
+			err = repo.Tenant().AdditionalMethods().EnsureProviderTenant(ctx.Context, c.ProviderTenant)
+			if err != nil {
+				return err
 			}
+
+			err = repo.UnscopedProject().AdditionalMethods().EnsureProviderProject(ctx.Context, c.ProviderTenant)
+			if err != nil {
+				return err
+			}
+
+			log.Info("ensured provider tenant", "id", c.ProviderTenant)
 
 			log.Info("running api-server", "version", v.V.String(), "go-runtime", runtime.Version(), "http-endpoint", c.HttpServerEndpoint)
 
