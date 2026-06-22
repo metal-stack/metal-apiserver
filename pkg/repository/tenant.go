@@ -357,7 +357,7 @@ func TenantRoleFromMap(annotations map[string]string) apiv2.TenantRole {
 }
 
 func (t *tenantRepository) EnsureProviderTenant(ctx context.Context, providerTenantID string) error {
-	providerTenant, err := t.s.Tenant().Find(ctx, &apiv2.TenantServiceListRequest{
+	providerTenant, err := t.s.Tenant().Find(ctx, &apiv2.TenantQuery{
 		Labels: &apiv2.Labels{
 			Labels: map[string]string{
 				tag.ProviderTenant: "true",
@@ -369,7 +369,7 @@ func (t *tenantRepository) EnsureProviderTenant(ctx context.Context, providerTen
 	}
 
 	if err != nil && errorutil.IsNotFound(err) {
-		_, err := t.CreateWithID(ctx, &apiv2.TenantServiceCreateRequest{
+		created, err := t.CreateWithID(ctx, &apiv2.TenantServiceCreateRequest{
 			Name:        providerTenantID,
 			Description: new("initial provider tenant for metal-stack"),
 			Labels: &apiv2.Labels{
@@ -381,8 +381,13 @@ func (t *tenantRepository) EnsureProviderTenant(ctx context.Context, providerTen
 		if err != nil {
 			return errorutil.Convert(fmt.Errorf("unable to create tenant:%s %w", providerTenantID, err))
 		}
+		providerTenant = created
 	}
-	if providerTenant.Login != providerTenantID {
+	if providerTenant == nil {
+		return errorutil.Internal("tenant %q: is nil", providerTenantID)
+	}
+
+	if providerTenant.Name != providerTenantID {
 		return errorutil.InvalidArgument("providerTenant with id:%q already exists", providerTenant.Login)
 	}
 
