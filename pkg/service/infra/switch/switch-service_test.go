@@ -1062,7 +1062,7 @@ func Test_switchRepository_ConnectMachineWithSwitches(t *testing.T) {
 					},
 				}
 			},
-			wantErr: errorutil.FailedPrecondition(`machine wants to register on rack "p01-rack02", but machine connections are present on the following switches [%s %s], likely the machine was moved in the data center but not deleted through the admin api`, sc.P01Rack01Switch1, sc.P01Rack01Switch2),
+			wantErr: errorutil.FailedPrecondition(`machine wants to register on rack %q, but machine connections are present on the following switches [%s %s], likely the machine was moved in the data center but not deleted through the admin api`, sc.P01Rack02, sc.P01Rack01Switch1, sc.P01Rack01Switch2),
 		},
 		{
 			name: "machine connections don't change",
