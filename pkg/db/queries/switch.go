@@ -46,6 +46,12 @@ func SwitchFilter(query *apiv2.SwitchQuery) func(q r.Term) r.Term {
 			}
 		}
 
+		if query.ConnectedMachineId != nil {
+			q = q.Filter(func(row r.Term) r.Term {
+				return row.Field("machineconnections").HasFields(*query.ConnectedMachineId)
+			})
+		}
+
 		return q
 	}
 }

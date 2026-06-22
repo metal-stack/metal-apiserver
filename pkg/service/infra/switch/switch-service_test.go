@@ -3,8 +3,6 @@ package infra
 import (
 	"log/slog"
 	"os"
-	"slices"
-	"strings"
 	"testing"
 	"time"
 
@@ -1064,29 +1062,7 @@ func Test_switchRepository_ConnectMachineWithSwitches(t *testing.T) {
 					},
 				}
 			},
-			mods: func() *test.Asserters {
-				return &test.Asserters{
-					Switches: func(switches map[string]*apiv2.Switch) {
-						sw := switches[sc.P01Rack02Switch1]
-						sw.MachineConnections = append(sw.MachineConnections, &apiv2.MachineConnection{
-							MachineId: sc.Machine1,
-							Nic:       sw.Nics[1],
-						})
-						slices.SortFunc(sw.MachineConnections, func(a, b *apiv2.MachineConnection) int {
-							return strings.Compare(a.MachineId, b.MachineId)
-						})
-						sw = switches[sc.P01Rack02Switch2]
-						sw.MachineConnections = append(sw.MachineConnections, &apiv2.MachineConnection{
-							MachineId: sc.Machine1,
-							Nic:       sw.Nics[1],
-						})
-						slices.SortFunc(sw.MachineConnections, func(a, b *apiv2.MachineConnection) int {
-							return strings.Compare(a.MachineId, b.MachineId)
-						})
-					},
-				}
-			},
-			wantErr: nil,
+			wantErr: errorutil.FailedPrecondition(`machine wants to register on rack %q, but machine connections are present on the following switches [%s %s], likely the machine was moved in the data center but not deleted through the admin api`, sc.P01Rack02, sc.P01Rack01Switch1, sc.P01Rack01Switch2),
 		},
 		{
 			name: "machine connections don't change",

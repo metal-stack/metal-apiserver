@@ -368,6 +368,28 @@ func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *ap
 	}
 	m.Rack = s1.Rack
 
+	sws, err := r.s.ds.Switch().List(ctx, queries.SwitchFilter(&apiv2.SwitchQuery{
+		ConnectedMachineId: &m.Uuid,
+	}))
+	if err != nil {
+		return fmt.Errorf("unable to query switches: %w", err)
+	}
+
+	var orphanedSwitchNames []string
+
+	for _, sw := range sws {
+		if sw.Rack == m.Rack {
+			continue
+		}
+
+		orphanedSwitchNames = append(orphanedSwitchNames, sw.ID)
+	}
+
+	if len(orphanedSwitchNames) > 0 {
+		slices.Sort(orphanedSwitchNames)
+		return errorutil.FailedPrecondition("machine wants to register on rack %q, but machine connections are present on the following switches %v, likely the machine was moved in the data center but not deleted through the admin api", m.Rack, orphanedSwitchNames)
+	}
+
 	var newMachineNics metal.Nics
 	for _, n := range m.Hardware.Nics {
 		newNic := metal.Nic{}
