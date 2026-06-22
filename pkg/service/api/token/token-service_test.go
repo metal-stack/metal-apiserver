@@ -376,7 +376,7 @@ func Test_Create(t *testing.T) {
 				adminSubjects: []string{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: the following method "/grpc.reflection.v1.ServerReflection/ServerReflectionInfo" is not allowed on any of the requested subjects: [*]`,
+			wantErrMessage: `permission_denied: the following method "/metalstack.admin.v2.AuditService/Get" is not allowed on any of the requested subjects: [*]`,
 		},
 
 		{
@@ -1185,6 +1185,9 @@ func Test_validateTokenRequest(t *testing.T) {
 			}
 
 			projectsAndTenantsGetter := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
+				if tt.pat == nil {
+					return &api.ProjectsAndTenants{}, nil
+				}
 				return tt.pat, nil
 			}
 			log := slog.Default()
@@ -1231,6 +1234,7 @@ func Test_Update(t *testing.T) {
 			name: "can update bare token",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -1697,6 +1701,7 @@ func Test_Refresh(t *testing.T) {
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
 				Uuid:         token1,
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -1704,10 +1709,10 @@ func Test_Refresh(t *testing.T) {
 			existingToken: &apiv2.Token{
 				Uuid:         token1,
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
-				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				IssuedAt:     timestamppb.New(iat),
 				Expires:      timestamppb.New(exp),
 			},

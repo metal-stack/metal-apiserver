@@ -459,12 +459,6 @@ type tokenRequest interface {
 }
 
 func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *apiv2.Token, req tokenRequest) error {
-	// Calculate the permission from the token in the request
-	currentPermissions, err := t.authorizer.TokenPermissions(ctx, currentToken)
-	if err != nil {
-		return err
-	}
-
 	var (
 		adminRole *apiv2.AdminRole
 		infraRole *apiv2.InfraRole
@@ -498,57 +492,15 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 		}
 	}
 
-	// Calculate the permission from the token request (either create/update or refresh)
-	// and the methods which are coming from roles only.
-	requestedPermissions, err := t.authorizer.TokenPermissions(ctx, &apiv2.Token{
+	requestedToken := &apiv2.Token{
+		TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 		User:         currentToken.User,
 		Permissions:  req.GetPermissions(),
 		ProjectRoles: req.GetProjectRoles(),
 		TenantRoles:  req.GetTenantRoles(),
 		AdminRole:    adminRole,
 		InfraRole:    infraRole,
-	})
-	if err != nil {
-		return err
 	}
 
-	// sort requestedPermissions by method
-	var methods []string
-	for method := range requestedPermissions {
-		methods = append(methods, method)
-	}
-	slices.Sort(methods)
-
-	for _, method := range methods {
-		subjects, ok := requestedPermissions[method]
-		if !ok {
-			continue
-		}
-		currentSubjects, ok := currentPermissions[method]
-		if !ok {
-			errMsg := fmt.Sprintf("the following method %q is not allowed", method)
-			if len(subjects) > 0 {
-				errMsg += fmt.Sprintf(" on any of the requested subjects: %s", subjects)
-			}
-			return errors.New(errMsg)
-		}
-
-		if _, ok := currentSubjects[request.AnySubject]; ok {
-			continue
-		}
-		// It is possible to request any subjects to be able to have a token
-		// which is able to make calls to projects which will be created in the future.
-		// The actually possible subjects are calculated at request time.
-		if _, ok := subjects[request.AnySubject]; ok {
-			continue
-		}
-
-		for subject := range subjects {
-			if _, ok := currentSubjects[subject]; !ok {
-				return fmt.Errorf("method %q is not allowed on subject %q with your current user permissions", method, subject)
-			}
-		}
-	}
-
-	return nil
+	return t.authorizer.ValidateTokenAgainstDatabase(ctx, currentToken, requestedToken)
 }

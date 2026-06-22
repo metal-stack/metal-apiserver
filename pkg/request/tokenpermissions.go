@@ -2,11 +2,13 @@ package request
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/permissions"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 )
 
 type (
@@ -14,36 +16,150 @@ type (
 	entry struct{}
 	// set emulates a slice with unique entries by using a map internally to achieve a O(1) access
 	set map[string]entry
-	// tokenPermission represents the unflattened permissions from a token.
+	// flattenedPerms contain flattened method permissions for every subject, all roles were expanded.
 	// It maps the method to the allowed subjects per method.
 	// The subject will be set to "*" in case of admin roles.
 	// This works because a certain method can either be tenant or project scoped.
 	// Therefore a single subject is enough to decide
 	//
 	// eg. map[method]set[subject]
-	tokenPermissions map[string]set
+	flattenedPerms map[string]set
 )
 
 func (s set) String() string {
 	var keys []string
+
 	for k := range s {
 		keys = append(keys, k)
 	}
+
 	if len(keys) == 0 {
 		return ""
 	}
+
 	return fmt.Sprintf("%s", keys)
 }
 
 const AnySubject = "*"
 
-func (a *authorizer) TokenPermissions(ctx context.Context, token *apiv2.Token) (tokenPermissions, error) {
-	return a.getTokenPermissions(ctx, token)
+func (a *authorizer) TokenPermissions(ctx context.Context, token *apiv2.Token) (flattenedPerms, error) {
+	switch {
+	case token == nil:
+		return a.anonymousRequestPermissions()
+	case token.TokenType == apiv2.TokenType_TOKEN_TYPE_API:
+		return a.tokenPermissions(ctx, token)
+	case token.TokenType == apiv2.TokenType_TOKEN_TYPE_USER:
+		return a.databasePermissions(ctx, token.User)
+	default:
+		return nil, fmt.Errorf("unexpected token type %q", token.TokenType.String())
+	}
 }
 
-func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token) (tokenPermissions, error) {
+func (a *authorizer) ValidateTokenAgainstDatabase(ctx context.Context, currentToken, requestedToken *apiv2.Token) error {
+	userPermissions, err := a.databasePermissions(ctx, currentToken.User)
+	if err != nil {
+		return err
+	}
+
+	// FIXME: check that no roles are requested for tenants and projects that the user does not belong to!
+	// for tenant, role := range requestedToken.GetTenantRoles() {
+	// 	// you do not belong to this tenant!
+	// }
+
+	// for project, role := range requestedToken.GetProjectRoles() {
+	// 	// you do not belong to this project!
+	// }
+
+	// // you cannot request machine, infra or admin roles!
+
+	// now expand the permissions from the requested token to check if the methods are allowed
+	requestedPermissions, err := a.TokenPermissions(ctx, requestedToken)
+	if err != nil {
+		return err
+	}
+
+	// sort requestedPermissions by method
+	var methods []string
+	for method := range requestedPermissions {
+		methods = append(methods, method)
+	}
+	slices.Sort(methods)
+
+	for _, method := range methods {
+		subjects, ok := requestedPermissions[method]
+		if !ok {
+			continue
+		}
+		currentSubjects, ok := userPermissions[method]
+		if !ok {
+			errMsg := fmt.Sprintf("the following method %q is not allowed", method)
+			if len(subjects) > 0 {
+				errMsg += fmt.Sprintf(" on any of the requested subjects: %s", subjects)
+			}
+			return errors.New(errMsg)
+		}
+
+		if _, ok := currentSubjects[AnySubject]; ok {
+			continue
+		}
+		// It is possible to request any subjects to be able to have a token
+		// which is able to make calls to projects which will be created in the future.
+		// The actually possible subjects are calculated at request time.
+		if _, ok := subjects[AnySubject]; ok {
+			continue
+		}
+
+		for subject := range subjects {
+			if _, ok := currentSubjects[subject]; !ok {
+				return fmt.Errorf("method %q is not allowed on subject %q with your current user permissions", method, subject)
+			}
+		}
+	}
+
+	return nil
+}
+
+// anonymousRequestPermissions returns a flat permission set for anonymous user requests.
+func (a *authorizer) anonymousRequestPermissions() (flattenedPerms, error) {
+	return a.expandRoles(nil, nil)
+}
+
+// tokenPermissions returns a flat permission set from a token.
+// It expands the roles stored inside the token.
+func (a *authorizer) tokenPermissions(ctx context.Context, token *apiv2.Token) (flattenedPerms, error) {
+	pat, err := a.projectsAndTenantsGetter(ctx, token.User)
+	if err != nil {
+		return nil, err
+	}
+
+	return a.expandRoles(pat, token)
+}
+
+// databasePermissions returns a flat permission set from the database for the given user.
+// It expands the roles stored inside the token.
+func (a *authorizer) databasePermissions(ctx context.Context, user string) (flattenedPerms, error) {
+	pat, err := a.projectsAndTenantsGetter(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+
+	return a.expandRoles(pat, &apiv2.Token{
+		Uuid:         user,
+		User:         user,
+		TokenType:    apiv2.TokenType_TOKEN_TYPE_USER,
+		ProjectRoles: pat.ProjectRoles,
+		TenantRoles:  pat.TenantRoles,
+		// User token does not gain admin roles from the database because
+		// we want to grant admin permissions only explicitly through API token
+		AdminRole:    nil,
+		InfraRole:    nil,
+		MachineRoles: nil,
+	})
+}
+
+func (a *authorizer) expandRoles(pat *api.ProjectsAndTenants, token *apiv2.Token) (flattenedPerms, error) {
 	var (
-		tp                 = tokenPermissions{}
+		tp                 = flattenedPerms{}
 		servicePermissions = permissions.GetServicePermissions()
 	)
 
@@ -55,21 +171,6 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 			tp[method][AnySubject] = entry{}
 		}
 		return tp, nil
-	}
-
-	pat, err := a.projectsAndTenantsGetter(ctx, token.User)
-	if err != nil {
-		return nil, err
-	}
-
-	if token.TokenType == apiv2.TokenType_TOKEN_TYPE_USER {
-		// as we do not store roles in the user token, we set the roles from the information in the tenant-apiserver
-		token.ProjectRoles = pat.ProjectRoles
-		token.TenantRoles = pat.TenantRoles
-		// User token will never get admin roles from the database
-		token.AdminRole = nil
-		// user tokens should never have permissions cause they are not stored in the tenant-apiserver
-		token.Permissions = nil
 	}
 
 	// Admin Roles have precedence

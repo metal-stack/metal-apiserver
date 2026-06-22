@@ -25,7 +25,11 @@ type (
 		// req is only fully populated after a interceptor call.
 		Authorize(ctx context.Context, token *apiv2.Token, req connect.AnyRequest) error
 		// TokenPermissions returns the permissions based on the given token
-		TokenPermissions(ctx context.Context, token *apiv2.Token) (tokenPermissions, error)
+		TokenPermissions(ctx context.Context, token *apiv2.Token) (flattenedPerms, error)
+
+		// ValidateTokenAgainstDatabase checks that the requested token is valid against the permissions
+		// stored in the database.
+		ValidateTokenAgainstDatabase(ctx context.Context, currentToken, requestedToken *apiv2.Token) error
 	}
 )
 
@@ -78,7 +82,7 @@ func (a *authorizer) Authorize(ctx context.Context, token *apiv2.Token, req conn
 func (a *authorizer) authorize(ctx context.Context, token *apiv2.Token, method string, subject string) error {
 	a.log.Debug("authorize", "token", token, "method", method, "subject", subject)
 
-	permissions, err := a.getTokenPermissions(ctx, token)
+	permissions, err := a.TokenPermissions(ctx, token)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}

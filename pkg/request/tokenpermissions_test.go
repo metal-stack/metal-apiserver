@@ -13,23 +13,35 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_getTokenPermissions(t *testing.T) {
+func Test_TokenPermissions(t *testing.T) {
 	tests := []struct {
 		name               string
 		token              *apiv2.Token
 		projectsAndTenants *api.ProjectsAndTenants
-		want               tokenPermissions
+		want               flattenedPerms
 		wantErr            error
 	}{
 		{
-			name:    "unknown admin role",
-			token:   &apiv2.Token{User: "admin", AdminRole: apiv2.AdminRole_ADMIN_ROLE_UNSPECIFIED.Enum()},
+			name: "unexpected token type",
+			token: &apiv2.Token{
+				User:      "admin",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_UNSPECIFIED,
+			},
+			wantErr: errors.New(`unexpected token type "TOKEN_TYPE_UNSPECIFIED"`),
+		},
+		{
+			name: "unknown admin role",
+			token: &apiv2.Token{
+				User:      "admin",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				AdminRole: apiv2.AdminRole_ADMIN_ROLE_UNSPECIFIED.Enum(),
+			},
 			wantErr: errors.New("given admin role:ADMIN_ROLE_UNSPECIFIED is not valid"),
 		},
 		{
 			name:  "empty token",
 			token: nil,
-			want: tokenPermissions{
+			want: flattenedPerms{
 				"/grpc.reflection.v1.ServerReflection/ServerReflectionInfo":      {"*": {}},
 				"/grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo": {"*": {}},
 				"/metalstack.api.v2.HealthService/Get":                           {"*": {}},
@@ -44,7 +56,7 @@ func Test_getTokenPermissions(t *testing.T) {
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				AdminRole: apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
 			},
-			want: tokenPermissions{
+			want: flattenedPerms{
 				"/grpc.reflection.v1.ServerReflection/ServerReflectionInfo":      {"*": {}},
 				"/grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo": {"*": {}},
 				"/metalstack.admin.v2.AuditService/Get":                          {"*": {}},
@@ -202,7 +214,7 @@ func Test_getTokenPermissions(t *testing.T) {
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				AdminRole: apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
 			},
-			want: tokenPermissions{
+			want: flattenedPerms{
 				"/grpc.reflection.v1.ServerReflection/ServerReflectionInfo":      {"*": {}},
 				"/grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo": {"*": {}},
 				"/metalstack.admin.v2.AuditService/Get":                          {"*": {}},
@@ -285,7 +297,7 @@ func Test_getTokenPermissions(t *testing.T) {
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				InfraRole: apiv2.InfraRole_INFRA_ROLE_EDITOR.Enum(),
 			},
-			want: tokenPermissions{
+			want: flattenedPerms{
 				"/metalstack.infra.v2.BMCService/BMCCommandDone":    {"*": {}},
 				"/metalstack.infra.v2.BMCService/UpdateBMCInfo":     {"*": {}},
 				"/metalstack.infra.v2.BMCService/WaitForBMCCommand": {"*": {}},
@@ -305,7 +317,7 @@ func Test_getTokenPermissions(t *testing.T) {
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				InfraRole: apiv2.InfraRole_INFRA_ROLE_VIEWER.Enum(),
 			},
-			want: tokenPermissions{
+			want: flattenedPerms{
 				"/metalstack.infra.v2.SwitchService/Get": {"*": {}},
 			},
 		},
@@ -326,7 +338,7 @@ func Test_getTokenPermissions(t *testing.T) {
 					"b": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
 				},
 			},
-			want: tokenPermissions{
+			want: flattenedPerms{
 				"/metalstack.api.v2.IPService/Create": {"a": {}},
 				"/metalstack.api.v2.IPService/Delete": {"a": {}, "b": {}},
 			},
@@ -334,12 +346,13 @@ func Test_getTokenPermissions(t *testing.T) {
 		{
 			name: "infra permissions",
 			token: &apiv2.Token{
-				User: "metal-core",
+				User:      "metal-core",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{
 					{Subject: "*", Methods: []string{infrav2connect.SwitchServiceRegisterProcedure}},
 				},
 			},
-			want: tokenPermissions{
+			want: flattenedPerms{
 				"/metalstack.infra.v2.SwitchService/Register": {"*": {}},
 			},
 		},
@@ -361,7 +374,7 @@ func Test_getTokenPermissions(t *testing.T) {
 					"c": apiv2.TenantRole_TENANT_ROLE_OWNER,
 				},
 			},
-			want: tokenPermissions{
+			want: flattenedPerms{
 				"/metalstack.api.v2.AuditService/Get":           {"c": {}},
 				"/metalstack.api.v2.AuditService/List":          {"c": {}},
 				"/metalstack.api.v2.ProjectService/Create":      {"b": {}, "c": {}},
@@ -388,7 +401,7 @@ func Test_getTokenPermissions(t *testing.T) {
 					"c": apiv2.TenantRole_TENANT_ROLE_OWNER,
 				},
 			},
-			want: tokenPermissions{
+			want: flattenedPerms{
 				"/grpc.reflection.v1.ServerReflection/ServerReflectionInfo":      {"*": {}},
 				"/grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo": {"*": {}},
 				"/metalstack.api.v2.AuditService/Get":                            {"c": {}},
@@ -450,7 +463,7 @@ func Test_getTokenPermissions(t *testing.T) {
 					"c": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
 				},
 			},
-			want: tokenPermissions{
+			want: flattenedPerms{
 				"/metalstack.api.v2.IPService/Get":                   {"a": {}, "b": {}, "c": {}},
 				"/metalstack.api.v2.IPService/Create":                {"b": {}, "c": {}},
 				"/metalstack.api.v2.IPService/Update":                {"b": {}, "c": {}},
@@ -495,7 +508,7 @@ func Test_getTokenPermissions(t *testing.T) {
 					"c": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
 				},
 			},
-			want: tokenPermissions{
+			want: flattenedPerms{
 				"/grpc.reflection.v1.ServerReflection/ServerReflectionInfo":      {"*": {}},
 				"/grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo": {"*": {}},
 				"/metalstack.api.v2.FilesystemService/Get":                       {"*": {}},
@@ -568,7 +581,7 @@ func Test_getTokenPermissions(t *testing.T) {
 					"a": apiv2.ProjectRole_PROJECT_ROLE_VIEWER,
 				},
 			},
-			want: tokenPermissions{
+			want: flattenedPerms{
 				"/grpc.reflection.v1.ServerReflection/ServerReflectionInfo":      {"*": {}},
 				"/grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo": {"*": {}},
 				"/metalstack.api.v2.FilesystemService/Get":                       {"*": {}},
@@ -634,7 +647,7 @@ func Test_getTokenPermissions(t *testing.T) {
 					"b": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 			},
-			want: tokenPermissions{
+			want: flattenedPerms{
 				"/metalstack.api.v2.MachineService/Create": {"b": {}},
 			},
 		},
@@ -658,7 +671,7 @@ func Test_getTokenPermissions(t *testing.T) {
 					"user-a": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
 			},
-			want: tokenPermissions{
+			want: flattenedPerms{
 				"/metalstack.api.v2.ProjectService/Create": {"user-a": {}},
 			},
 		},
@@ -686,7 +699,7 @@ func Test_getTokenPermissions(t *testing.T) {
 					"user-a": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
 			},
-			want: tokenPermissions{
+			want: flattenedPerms{
 				"/metalstack.api.v2.ProjectService/Create": {"user-a": {}},
 			},
 		},
@@ -714,7 +727,7 @@ func Test_getTokenPermissions(t *testing.T) {
 					"project-a": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 			},
-			want: tokenPermissions{
+			want: flattenedPerms{
 				"/metalstack.api.v2.MachineService/Create": {"project-a": {}},
 			},
 		},
@@ -724,6 +737,7 @@ func Test_getTokenPermissions(t *testing.T) {
 			a := &authorizer{
 				log: slog.Default(),
 			}
+
 			a.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
 				if tt.projectsAndTenants == nil {
 					return &api.ProjectsAndTenants{}, nil
@@ -731,7 +745,7 @@ func Test_getTokenPermissions(t *testing.T) {
 				return tt.projectsAndTenants, nil
 			}
 
-			got, gotErr := a.getTokenPermissions(t.Context(), tt.token)
+			got, gotErr := a.TokenPermissions(t.Context(), tt.token)
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
