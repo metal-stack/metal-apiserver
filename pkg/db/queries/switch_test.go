@@ -26,6 +26,16 @@ var (
 			Version: "5.9",
 		},
 		Nics: metal.Nics{},
+		MachineConnections: metal.ConnectionMap{
+			"m1": []metal.Connection{
+				{
+					Nic: metal.Nic{
+						Neighbors: metal.Nics{},
+					},
+					MachineID: "m1",
+				},
+			},
+		},
 	}
 	sw2 = &metal.Switch{
 		Base:      metal.Base{ID: "sw2"},
@@ -36,6 +46,16 @@ var (
 			Version: "5.6",
 		},
 		Nics: metal.Nics{},
+		MachineConnections: metal.ConnectionMap{
+			"m1": []metal.Connection{
+				{
+					Nic: metal.Nic{
+						Neighbors: metal.Nics{},
+					},
+					MachineID: "m1",
+				},
+			},
+		},
 	}
 	sw3 = &metal.Switch{
 		Base:      metal.Base{ID: "sw3"},
@@ -114,6 +134,13 @@ func TestSwitchFilter(t *testing.T) {
 				},
 			},
 			want: []*metal.Switch{sw2},
+		},
+		{
+			name: "query by connected machine id",
+			rq: &apiv2.SwitchQuery{
+				ConnectedMachineId: new("m1"),
+			},
+			want: []*metal.Switch{sw1, sw2},
 		},
 	}
 	for _, tt := range tests {

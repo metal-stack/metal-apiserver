@@ -119,7 +119,7 @@ type (
 	}
 
 	Tenant interface {
-		Repository[*tenantRepository, *apiv2.Tenant, *apiv2.TenantServiceCreateRequest, *apiv2.TenantServiceUpdateRequest, *apiv2.TenantServiceListRequest]
+		Repository[*tenantRepository, *apiv2.Tenant, *apiv2.TenantServiceCreateRequest, *apiv2.TenantServiceUpdateRequest, *apiv2.TenantQuery]
 	}
 
 	TenantMember interface {

@@ -7,6 +7,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
@@ -62,12 +63,20 @@ func (u *tenantServiceServer) List(ctx context.Context, req *apiv2.TenantService
 
 	for _, tenant := range projectsAndTenants.Tenants {
 		// TODO: maybe we can pass the filter and not filter here
+		if req.Query != nil {
+			if req.Query.Paging != nil {
+				return nil, errorutil.InvalidArgument("paging is currently not supported on tenant list request")
+			}
 
-		if req.Name != nil && tenant.Name != *req.Name {
-			continue
-		}
-		if req.Id != nil && tenant.Login != *req.Id {
-			continue
+			if req.Query.Name != nil && tenant.Name != *req.Query.Name {
+				continue
+			}
+			if req.Query.Login != nil && tenant.Login != *req.Query.Login {
+				continue
+			}
+			if req.Query.Labels != nil && !cmp.Equal(req.Query.Labels.Labels, pointer.SafeDeref(pointer.SafeDeref(tenant.Meta).Labels).Labels) {
+				continue
+			}
 		}
 
 		result = append(result, tenant)
