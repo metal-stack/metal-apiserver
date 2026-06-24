@@ -104,6 +104,7 @@ func Test_getTokenPermissions(t *testing.T) {
 				"/metalstack.admin.v2.TaskService/Queues":                        {"*": {}},
 				"/metalstack.admin.v2.TenantService/Create":                      {"*": {}},
 				"/metalstack.admin.v2.TenantService/List":                        {"*": {}},
+				"/metalstack.admin.v2.TenantService/AddMember":                   {"*": {}},
 				"/metalstack.admin.v2.TokenService/Create":                       {"*": {}},
 				"/metalstack.admin.v2.TokenService/List":                         {"*": {}},
 				"/metalstack.admin.v2.TokenService/Revoke":                       {"*": {}},
