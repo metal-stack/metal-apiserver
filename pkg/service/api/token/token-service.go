@@ -268,7 +268,7 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 	if role, ok := t.hasAdminRole(projectsAndTenants); ok {
 		if token.AdminRole == nil || *token.AdminRole == apiv2.AdminRole_ADMIN_ROLE_UNSPECIFIED {
 			// FIXME clarify if this is correct, and ensure that no elevation is possible.
-			if err := t.IsAdminRoleRequestAllowed(projectsAndTenants, req.AdminRole); err != nil {
+			if err := t.isAdminRoleRequestAllowed(projectsAndTenants, req.AdminRole); err != nil {
 				return nil, errorutil.NewPermissionDenied(err)
 			}
 			token.AdminRole = req.AdminRole
@@ -582,7 +582,7 @@ func (t *tokenService) hasAdminRole(projectsAndTenants *api.ProjectsAndTenants) 
 	return nil, false
 }
 
-func (t *tokenService) IsAdminRoleRequestAllowed(projectsAndTenants *api.ProjectsAndTenants, requestedRole *apiv2.AdminRole) error {
+func (t *tokenService) isAdminRoleRequestAllowed(projectsAndTenants *api.ProjectsAndTenants, requestedRole *apiv2.AdminRole) error {
 	if requestedRole == nil {
 		return nil
 	}

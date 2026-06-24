@@ -273,8 +273,7 @@ var (
 if they have editor or viewer rights, they can request admin-role-viewer.
 Can not be changed after initial creation.
 `,
-		EnvVars:  []string{"PROVIDER_TENANT"},
-		Required: true,
+		EnvVars: []string{"PROVIDER_TENANT"},
 		Action: func(ctx *cli.Context, s string) error {
 			if len(s) < 2 {
 				return fmt.Errorf("provider-tenant must be longer than 2 characters")
