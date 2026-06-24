@@ -315,6 +315,31 @@ func Test_Create(t *testing.T) {
 			},
 		},
 		{
+			name: "admin viewer cannot create admin editor token",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_USER,
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description:  "admin token",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			},
+			state: state{
+				providerTenant: "phippy",
+				tenantRoles: map[string]apiv2.TenantRole{
+					"phippy": apiv2.TenantRole_TENANT_ROLE_VIEWER,
+				},
+			},
+			wantToken:      nil,
+			wantErr:        true,
+			wantErrMessage: `your provider tenant membership only allows "ADMIN_ROLE_VIEWER", but you requested "ADMIN_ROLE_EDITOR"`,
+		},
+		{
 			name: "normal user which is not listed in admin-subjects can not create new admin viewer token",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",

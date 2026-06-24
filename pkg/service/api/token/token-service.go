@@ -26,8 +26,8 @@ type Config struct {
 	CertStore  certs.CertStore
 	Repo       *repository.Store
 
-	// provider tenant, other tenants which are made member with owner rights of this tenant can request admin-role-editor,
-	// if they have viewer rights, they can request admin-role-viewer.
+	// provider tenant, other tenants which are tenant member with owner rights of this tenant can request admin-role-editor,
+	// if they have editor or viewer rights, they can request admin-role-viewer.
 	ProviderTenant string
 
 	// Issuer to sign the JWT Token with
@@ -268,6 +268,9 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 	if role, ok := t.hasAdminRole(projectsAndTenants); ok {
 		if token.AdminRole == nil || *token.AdminRole == apiv2.AdminRole_ADMIN_ROLE_UNSPECIFIED {
 			// FIXME clarify if this is correct, and ensure that no elevation is possible.
+			if err := t.IsAdminRoleRequestAllowed(projectsAndTenants, req.AdminRole); err != nil {
+				return nil, errorutil.NewPermissionDenied(err)
+			}
 			token.AdminRole = req.AdminRole
 			token.TokenType = apiv2.TokenType_TOKEN_TYPE_API
 		}
@@ -275,7 +278,7 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 		adminRole = *role
 		isAdmin = true
 
-		t.log.Debug("user is listed in adminsubjects", "new token.adminrole", token.AdminRole)
+		t.log.Debug("user is member of the provider-tenant", "admin-role", token.AdminRole)
 	}
 
 	// we first validate token permission elevation for the token used in the token create request,
@@ -577,4 +580,21 @@ func (t *tokenService) hasAdminRole(projectsAndTenants *api.ProjectsAndTenants) 
 		}
 	}
 	return nil, false
+}
+
+func (t *tokenService) IsAdminRoleRequestAllowed(projectsAndTenants *api.ProjectsAndTenants, requestedRole *apiv2.AdminRole) error {
+	if requestedRole == nil {
+		return nil
+	}
+
+	role, ok := t.hasAdminRole(projectsAndTenants)
+	if !ok {
+		return fmt.Errorf("requested adminrole %q is not allowed because you are not member of provider tenant", *requestedRole)
+	}
+
+	if *role == apiv2.AdminRole_ADMIN_ROLE_VIEWER && *requestedRole == apiv2.AdminRole_ADMIN_ROLE_EDITOR {
+		return fmt.Errorf("your provider tenant membership only allows %q, but you requested %q", *role, *requestedRole)
+	}
+
+	return nil
 }

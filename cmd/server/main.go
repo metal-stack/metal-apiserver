@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"log/slog"
 	"os"
@@ -274,6 +275,12 @@ Can not be changed after initial creation.
 `,
 		EnvVars:  []string{"PROVIDER_TENANT"},
 		Required: true,
+		Action: func(ctx *cli.Context, s string) error {
+			if len(s) < 2 {
+				return fmt.Errorf("provider-tenant must be longer than 2 characters")
+			}
+			return nil
+		},
 	}
 	maxRequestsPerMinuteFlag = &cli.IntFlag{
 		Name:    "max-requests-per-minute",

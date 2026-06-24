@@ -198,10 +198,6 @@ func newServeCmd() *cli.Command {
 				ComponentExpiration:                 ctx.Duration(componentExpirationFlag.Name),
 			}
 
-			if c.ProviderTenant == "" {
-				return fmt.Errorf("providerTenant must be specified")
-			}
-
 			err = repo.Tenant().AdditionalMethods().EnsureProviderTenant(ctx.Context, c.ProviderTenant)
 			if err != nil {
 				return err
