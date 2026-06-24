@@ -121,6 +121,7 @@ func Test_Create(t *testing.T) {
 		providerTenant string
 		projectRoles   map[string]apiv2.ProjectRole
 		tenantRoles    map[string]apiv2.TenantRole
+		getterErr      error
 	}
 	tests := []struct {
 		name           string
@@ -337,7 +338,7 @@ func Test_Create(t *testing.T) {
 			},
 			wantToken:      nil,
 			wantErr:        true,
-			wantErrMessage: `your provider tenant membership only allows "ADMIN_ROLE_VIEWER", but you requested "ADMIN_ROLE_EDITOR"`,
+			wantErrMessage: `permission_denied: your provider tenant membership only allows "ADMIN_ROLE_VIEWER", but you requested "ADMIN_ROLE_EDITOR"`,
 		},
 		{
 			name: "normal user which is not listed in admin-subjects can not create new admin viewer token",
@@ -515,6 +516,42 @@ func Test_Create(t *testing.T) {
 			wantErr:        true,
 			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.ProjectService/Create" is not allowed on any of the requested subjects: [mascots]`,
 		},
+		{
+			name: "expiration exceeds max expiration",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "token with long expiry",
+				Expires:     durationpb.New(366 * 24 * time.Hour),
+			},
+			state: state{
+				providerTenant: "metal-stack",
+			},
+			wantErr:        true,
+			wantErrMessage: `requested expiration duration: "8784h0m0s" exceeds max expiration: "8760h0m0s"`,
+		},
+		{
+			name: "projects and tenants getter fails",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "empty token",
+			},
+			state: state{
+				providerTenant: "metal-stack",
+				getterErr:      errors.New("getter failed"),
+			},
+			wantErr:        true,
+			wantErrMessage: `internal: getter failed`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -531,6 +568,9 @@ func Test_Create(t *testing.T) {
 			})
 
 			projectsAndTenantsGetter := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
+				if tt.state.getterErr != nil {
+					return nil, tt.state.getterErr
+				}
 				return &api.ProjectsAndTenants{
 					ProjectRoles: tt.state.projectRoles,
 					TenantRoles:  tt.state.tenantRoles,
@@ -581,6 +621,36 @@ func Test_Create(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_Create_NoToken(t *testing.T) {
+	t.Parallel()
+
+	s := miniredis.RunT(t)
+	c := redis.NewClient(&redis.Options{Addr: s.Addr()})
+
+	tokenStore := token.NewRedisStore(c)
+	certStore := certs.NewRedisStore(&certs.Config{
+		RedisClient: c,
+	})
+
+	projectsAndTenantsGetter := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
+		return &api.ProjectsAndTenants{}, nil
+	}
+	log := slog.Default()
+	service := tokenService{
+		log:                      log,
+		tokens:                   tokenStore,
+		certs:                    certStore,
+		issuer:                   "http://test",
+		providerTenant:           "metal-stack",
+		projectsAndTenantsGetter: projectsAndTenantsGetter,
+		authorizer:               request.NewAuthorizer(log, projectsAndTenantsGetter),
+	}
+
+	_, err := service.Create(t.Context(), &apiv2.TokenServiceCreateRequest{})
+	require.Error(t, err)
+	require.Equal(t, "unauthenticated: no token found in request", err.Error())
 }
 
 func Test_CreateForUser(t *testing.T) {
@@ -1196,6 +1266,7 @@ func Test_validateTokenRequest(t *testing.T) {
 			wantErr:        errors.New("the following method \"/metalstack.admin.v2.NetworkService/Create\" is not allowed on any of the requested subjects: [internet]"),
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.token.User == "" {
