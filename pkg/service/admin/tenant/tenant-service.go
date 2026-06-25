@@ -94,3 +94,12 @@ func (t *tenantServiceServer) AddMember(ctx context.Context, req *adminv2.Tenant
 	t.log.Debug("member added successfully", "memberId", req.Member)
 	return &adminv2.TenantServiceAddMemberResponse{}, nil
 }
+func (t *tenantServiceServer) RemoveMember(ctx context.Context, req *adminv2.TenantServiceRemoveMemberRequest) (*adminv2.TenantServiceRemoveMemberResponse, error) {
+	_, err := t.repo.Tenant().AdditionalMethods().Member(req.Tenant).Delete(ctx, req.Member)
+	if err != nil {
+		return nil, err
+	}
+
+	t.log.Debug("member removed successfully", "memberId", req.Member)
+	return &adminv2.TenantServiceRemoveMemberResponse{}, nil
+}
