@@ -12,6 +12,7 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/valkey"
 )
+
 type testOptMiniRedis struct {
 	with bool
 }
