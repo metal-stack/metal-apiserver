@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"log/slog"
 	"os"
@@ -265,11 +266,20 @@ var (
 		Usage:   "the password to the redis key value store",
 		EnvVars: []string{"REDIS_PASSWORD"},
 	}
-	adminsFlag = &cli.StringSliceFlag{
-		Name:    "admin-subjects",
-		Value:   cli.NewStringSlice("metal-stack-ops@github"),
-		Usage:   "the user subjects that are considered as administrators when creating api tokens to gain extended api access permissions",
-		EnvVars: []string{"ADMIN_SUBJECTS"},
+	providerTenantFlag = &cli.StringFlag{
+		Name:  "provider-tenant",
+		Value: "metal-stack",
+		Usage: `provider tenant, other tenants which are made member with owner rights of this tenant can request admin-role-editor,
+if they have editor or viewer rights, they can request admin-role-viewer.
+Can not be changed after initial creation.
+`,
+		EnvVars: []string{"PROVIDER_TENANT"},
+		Action: func(ctx *cli.Context, s string) error {
+			if len(s) < 2 {
+				return fmt.Errorf("provider-tenant must be longer than 2 characters")
+			}
+			return nil
+		},
 	}
 	maxRequestsPerMinuteFlag = &cli.IntFlag{
 		Name:    "max-requests-per-minute",
@@ -288,12 +298,6 @@ var (
 		Value:   "http://ipam:9090",
 		Usage:   "the ipam grpc server endpoint",
 		EnvVars: []string{"IPAM_GRPC_ENDPOINT"},
-	}
-	ensureProviderTenantFlag = &cli.StringFlag{
-		Name:    "ensure-provider-tenant",
-		Value:   "metal-stack",
-		Usage:   "ensures a provider tenant on startup (used for bootstrapping and technical tokens). can be disabled by setting to empty string.",
-		EnvVars: []string{"ENSURE_PROVIDER_TENANT"},
 	}
 	bmcSuperuserPasswordFlag = &cli.StringFlag{
 		Name:    "bmc-superuser-pwd",

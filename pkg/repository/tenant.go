@@ -3,9 +3,11 @@ package repository
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/api/go/tag"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/tags"
@@ -356,19 +358,38 @@ func TenantRoleFromMap(annotations map[string]string) apiv2.TenantRole {
 }
 
 func (t *tenantRepository) EnsureProviderTenant(ctx context.Context, providerTenantID string) error {
-	_, err := t.s.Tenant().Get(ctx, providerTenantID)
+	providerTenant, err := t.s.Tenant().Find(ctx, &apiv2.TenantQuery{
+		Labels: &apiv2.Labels{
+			Labels: map[string]string{
+				tag.ProviderTenant: strconv.FormatBool(true),
+			},
+		},
+	})
 	if err != nil && !errorutil.IsNotFound(err) {
 		return errorutil.Convert(fmt.Errorf("unable to get tenant %q: %w", providerTenantID, err))
 	}
 
 	if err != nil && errorutil.IsNotFound(err) {
-		_, err := t.CreateWithID(ctx, &apiv2.TenantServiceCreateRequest{
+		created, err := t.CreateWithID(ctx, &apiv2.TenantServiceCreateRequest{
 			Name:        providerTenantID,
 			Description: new("initial provider tenant for metal-stack"),
+			Labels: &apiv2.Labels{
+				Labels: map[string]string{
+					tag.ProviderTenant: strconv.FormatBool(true),
+				},
+			},
 		}, providerTenantID, NewTenantCreateOptWithCreator(providerTenantID))
 		if err != nil {
 			return errorutil.Convert(fmt.Errorf("unable to create tenant:%s %w", providerTenantID, err))
 		}
+		providerTenant = created
+	}
+	if providerTenant == nil {
+		return errorutil.Internal("tenant %q: is nil", providerTenantID)
+	}
+
+	if providerTenant.Name != providerTenantID {
+		return errorutil.InvalidArgument("providerTenant with id:%q already exists", providerTenant.Login)
 	}
 
 	_, err = t.Member(providerTenantID).Get(ctx, providerTenantID)

@@ -64,7 +64,7 @@ type Config struct {
 	AuditBackends                       []auditing.Auditing
 	Stage                               string
 	RedisConfig                         *RedisConfig
-	Admins                              []string
+	ProviderTenant                      string
 	MaxRequestsPerMinuteToken           int
 	MaxRequestsPerMinuteUnauthenticated int
 	IsStageDev                          bool
@@ -185,7 +185,7 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 		AuditSearchBackend: c.AuditSearchBackend,
 		Redis:              c.RedisConfig.ComponentClient,
 		ServerHttpURL:      c.ServerHttpURL,
-		Admins:             c.Admins,
+		ProviderTenant:     c.ProviderTenant,
 		AuditBackends:      c.AuditBackends,
 		HeadscaleClient:    c.HeadscaleClient,
 	})
