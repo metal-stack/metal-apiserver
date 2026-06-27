@@ -27,7 +27,7 @@ const (
 type Secret struct {
 	APIVersion string            `json:"apiVersion"`
 	Kind       string            `json:"kind"`
-	Metadata   map[string]string `json:"metadata"`
+	Metadata   map[string]any    `json:"metadata"`
 	Data       map[string]string `json:"data"` // base64-encoded values
 }
 
@@ -77,7 +77,7 @@ func CreateOrUpdateSecret(ctx context.Context, log *slog.Logger, namespace, secr
 	secret := Secret{
 		APIVersion: "v1",
 		Kind:       "Secret",
-		Metadata: map[string]string{
+		Metadata: map[string]any{
 			"name":      secretName,
 			"namespace": namespace,
 		},
@@ -131,7 +131,7 @@ func getSecret(client *http.Client, url, token string) (bool, map[string]string,
 
 	var s Secret
 	if err := json.Unmarshal(body, &s); err != nil {
-		return false, nil, fmt.Errorf("unmarshal: %w", err)
+		return false, nil, fmt.Errorf("unmarshal body:%v error: %w", string(body), err)
 	}
 	return true, s.Data, nil
 }
