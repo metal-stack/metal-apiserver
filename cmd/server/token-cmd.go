@@ -1,10 +1,15 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
+	"os"
 	"strings"
 	"time"
 
+	"buf.build/go/protoyaml"
+	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/k8s"
@@ -61,19 +66,28 @@ var (
 		Usage: "requested expiration for the token",
 	}
 	storeInSecretFlag = &cli.BoolFlag{
-		Name:  "store-in-secret",
-		Value: false,
-		Usage: "if set to true, the generated token is also stored in a secret",
+		Name:    "store-in-secret",
+		Value:   false,
+		Usage:   "if set to true, the generated token is also stored in a secret",
+		EnvVars: []string{"STORE_TOKENS_IN_SECRET"},
 	}
 	namespaceFlag = &cli.StringFlag{
-		Name:  "namespace",
-		Value: "metal-control-plane",
-		Usage: "namespace of the secret",
+		Name:    "namespace",
+		Value:   "metal-control-plane",
+		Usage:   "namespace of the secret",
+		EnvVars: []string{"NAMESPACE"},
 	}
 	secretNameFlag = &cli.StringFlag{
-		Name:  "secret-name",
-		Value: "metal-apiserver-admin-token",
-		Usage: "name of the secret",
+		Name:    "secret-name",
+		Value:   "metal-apiserver-admin-token",
+		Usage:   "name of the secret",
+		EnvVars: []string{"SECRET_NAME"},
+	}
+	tokensCreateConfigFileFlag = &cli.StringFlag{
+		Name:    "tokens-create-config-file",
+		Value:   "",
+		Usage:   "path to a yaml file which contains the serialized map from token-name to TokenServiceCreateRequest",
+		EnvVars: []string{"TOKENS_CREATE_CONFIG_FILE_PATH"},
 	}
 )
 
@@ -98,6 +112,7 @@ func newTokenCmd() *cli.Command {
 			storeInSecretFlag,
 			namespaceFlag,
 			secretNameFlag,
+			tokensCreateConfigFileFlag,
 		},
 		Action: func(ctx *cli.Context) error {
 			log, err := createLogger(ctx)
@@ -212,6 +227,10 @@ func newTokenCmd() *cli.Command {
 				return fmt.Errorf("secretName cannot be empty")
 			}
 
+			if configFile := ctx.String(tokensCreateConfigFileFlag.Name); configFile != "" {
+				return storeTokensFromConfigFile(ctx.Context, log, tokenService, configFile, namespace, secretName)
+			}
+
 			resp, err := tokenService.CreateApiTokenWithoutPermissionCheck(ctx.Context, subject, &apiv2.TokenServiceCreateRequest{
 				Description:  ctx.String(tokenDescriptionFlag.Name),
 				Expires:      durationpb.New(ctx.Duration(tokenExpirationFlag.Name)),
@@ -235,4 +254,41 @@ func newTokenCmd() *cli.Command {
 			return nil
 		},
 	}
+}
+
+func storeTokensFromConfigFile(ctx context.Context, log *slog.Logger, tokenService token.TokenService, configFile, namespace, secretName string) error {
+	yamlBytes, err := os.ReadFile(configFile)
+	if err != nil {
+		return err
+	}
+
+	// Unmarshal a proto message from YAML.
+	options := protoyaml.UnmarshalOptions{
+		Path: configFile,
+	}
+	var msg adminv2.TokenServiceCreateMultiRequest
+	if err := options.Unmarshal(yamlBytes, &msg); err != nil {
+		return err
+	}
+
+	for target, tokenCreateRequest := range msg.TokenCreateRequests {
+		subject := "metal-stack"
+		// TODO Check if this is correct
+		if tokenCreateRequest.User != nil {
+			subject = *tokenCreateRequest.User
+		}
+
+		resp, err := tokenService.CreateApiTokenWithoutPermissionCheck(ctx, subject, tokenCreateRequest.TokenCreateRequest)
+		if err != nil {
+			return err
+		}
+
+		log.Info("store token in secret", "namespace", namespace, "secret-name", secretName)
+		err = k8s.CreateOrUpdateSecret(ctx, log, namespace, secretName, target, resp.Secret)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

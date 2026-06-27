@@ -23,25 +23,20 @@ const (
 	inClusterHost      = "https://kubernetes.default.svc"
 )
 
-// Minimal Secret structure – only the fields we need.
 type Secret struct {
 	APIVersion string            `json:"apiVersion"`
 	Kind       string            `json:"kind"`
 	Metadata   map[string]any    `json:"metadata"`
-	Data       map[string]string `json:"data"` // base64-encoded values
+	Data       map[string]string `json:"data"`
 }
 
 func CreateOrUpdateSecret(ctx context.Context, log *slog.Logger, namespace, secretName, key, value string) error {
-
-	// ── 1. Build HTTP client ────────────────────────────────────────────────
 	var (
 		client *http.Client
 		token  string
 		host   = inClusterHost
 		url    = fmt.Sprintf("%s/api/v1/namespaces/%s/secrets/%s", host, namespace, secretName)
 	)
-
-	// In-cluster: use service-account token + CA bundle
 
 	caData, err := os.ReadFile(inClusterCAFile)
 	if err != nil {
@@ -62,13 +57,12 @@ func CreateOrUpdateSecret(ctx context.Context, log *slog.Logger, namespace, secr
 	}
 	token = string(tokenBytes)
 
-	// ── 2. Try GET to decide between CREATE and UPDATE ──────────────────────
-	exists, currentData, err := getSecret(client, url, token)
+	// get secret to see if we need to create it
+	exists, currentData, err := getSecret(ctx, client, url, token)
 	if err != nil {
 		return fmt.Errorf("GET secret: %v", err)
 	}
 
-	// Merge: keep existing keys, overwrite/add our key.
 	if currentData == nil {
 		currentData = map[string]string{}
 	}
@@ -89,7 +83,7 @@ func CreateOrUpdateSecret(ctx context.Context, log *slog.Logger, namespace, secr
 		return fmt.Errorf("marshal: %v", err)
 	}
 
-	// ── 3. CREATE (POST) or UPDATE (PUT) ────────────────────────────────────
+	// create or update
 	var (
 		method string
 		reqURL string
@@ -103,7 +97,7 @@ func CreateOrUpdateSecret(ctx context.Context, log *slog.Logger, namespace, secr
 		reqURL = fmt.Sprintf("%s/api/v1/namespaces/%s/secrets", host, namespace)
 	}
 
-	status, respBody, err := doRequest(client, method, reqURL, token, body)
+	status, respBody, err := doRequest(ctx, client, method, reqURL, token, body)
 	if err != nil {
 		return fmt.Errorf("request: %v", err)
 	}
@@ -117,8 +111,8 @@ func CreateOrUpdateSecret(ctx context.Context, log *slog.Logger, namespace, secr
 }
 
 // getSecret GETs the secret and returns (exists, current base64 data, error).
-func getSecret(client *http.Client, url, token string) (bool, map[string]string, error) {
-	status, body, err := doRequest(client, http.MethodGet, url, token, nil)
+func getSecret(ctx context.Context, client *http.Client, url, token string) (bool, map[string]string, error) {
+	status, body, err := doRequest(ctx, client, http.MethodGet, url, token, nil)
 	if err != nil {
 		return false, nil, err
 	}
@@ -136,14 +130,13 @@ func getSecret(client *http.Client, url, token string) (bool, map[string]string,
 	return true, s.Data, nil
 }
 
-// doRequest is a thin wrapper around http.Request.
-func doRequest(client *http.Client, method, url, token string, body []byte) (int, []byte, error) {
+func doRequest(ctx context.Context, client *http.Client, method, url, token string, body []byte) (int, []byte, error) {
 	var bodyReader io.Reader
 	if body != nil {
 		bodyReader = bytes.NewReader(body)
 	}
 
-	req, err := http.NewRequest(method, url, bodyReader)
+	req, err := http.NewRequestWithContext(ctx, method, url, bodyReader)
 	if err != nil {
 		return 0, nil, err
 	}
