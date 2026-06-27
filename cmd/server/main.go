@@ -352,7 +352,6 @@ func main() {
 		Commands: []*cli.Command{
 			newServeCmd(),
 			newTokenCmd(),
-			newAdminTokenCmd(),
 			newDatastoreCmd(),
 			newVPNCmd(),
 		},

@@ -7,6 +7,7 @@ import (
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
+	"github.com/metal-stack/metal-apiserver/pkg/k8s"
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/urfave/cli/v2"
@@ -59,6 +60,21 @@ var (
 		Value: 6 * 30 * 24 * time.Hour,
 		Usage: "requested expiration for the token",
 	}
+	storeInSecretFlag = &cli.BoolFlag{
+		Name:  "store-in-secret",
+		Value: false,
+		Usage: "if set to true, the generated token is also stored in a secret",
+	}
+	namespaceFlag = &cli.StringFlag{
+		Name:  "namespace",
+		Value: "metal-control-plane",
+		Usage: "namespace of the secret",
+	}
+	secretNameFlag = &cli.StringFlag{
+		Name:  "secret-name",
+		Value: "metal-apiserver-admin-token",
+		Usage: "name of the secret",
+	}
 )
 
 func newTokenCmd() *cli.Command {
@@ -79,6 +95,9 @@ func newTokenCmd() *cli.Command {
 			tokenMachineRolesFlag,
 			tokenExpirationFlag,
 			serverHttpUrlFlag,
+			storeInSecretFlag,
+			namespaceFlag,
+			secretNameFlag,
 		},
 		Action: func(ctx *cli.Context) error {
 			log, err := createLogger(ctx)
@@ -183,6 +202,16 @@ func newTokenCmd() *cli.Command {
 				return fmt.Errorf("token subject cannot be empty")
 			}
 
+			namespace := ctx.String(namespaceFlag.Name)
+			if namespace == "" {
+				return fmt.Errorf("namespace cannot be empty")
+			}
+
+			secretName := ctx.String(secretNameFlag.Name)
+			if secretName == "" {
+				return fmt.Errorf("secretName cannot be empty")
+			}
+
 			resp, err := tokenService.CreateApiTokenWithoutPermissionCheck(ctx.Context, subject, &apiv2.TokenServiceCreateRequest{
 				Description:  ctx.String(tokenDescriptionFlag.Name),
 				Expires:      durationpb.New(ctx.Duration(tokenExpirationFlag.Name)),
@@ -199,6 +228,10 @@ func newTokenCmd() *cli.Command {
 
 			fmt.Println(resp.Secret)
 
+			if ctx.Bool(storeInSecretFlag.Name) {
+				log.Info("store token in secret", "namespace", namespace, "secret-name", secretName)
+				return k8s.CreateOrUpdateSecret(ctx.Context, log, namespace, secretName, "admin-token", resp.Secret)
+			}
 			return nil
 		},
 	}
