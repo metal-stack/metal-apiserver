@@ -7,6 +7,8 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
@@ -69,4 +71,35 @@ func (t *tenantServiceServer) List(ctx context.Context, req *adminv2.TenantServi
 	}
 
 	return &adminv2.TenantServiceListResponse{Tenants: tenants}, nil
+}
+
+func (t *tenantServiceServer) AddMember(ctx context.Context, req *adminv2.TenantServiceAddMemberRequest) (*adminv2.TenantServiceAddMemberResponse, error) {
+	existing, err := t.repo.Tenant().AdditionalMethods().Member(req.Tenant).Get(ctx, req.Member)
+
+	if err != nil && !errorutil.IsNotFound(err) {
+		return nil, errorutil.Internal("error reading tenant member:%v", err)
+	}
+	if existing != nil {
+		return nil, errorutil.Conflict("tenant with id %q already is member in tenant: %q", req.Member, req.Tenant)
+	}
+
+	_, err = t.repo.Tenant().AdditionalMethods().Member(req.Tenant).Create(ctx, &api.TenantMemberCreateRequest{
+		MemberID: req.Member,
+		Role:     req.Role,
+	})
+	if err != nil {
+		return nil, errorutil.Internal("failed to add member to tenant: %w", err)
+	}
+
+	t.log.Debug("member added successfully", "memberId", req.Member)
+	return &adminv2.TenantServiceAddMemberResponse{}, nil
+}
+func (t *tenantServiceServer) RemoveMember(ctx context.Context, req *adminv2.TenantServiceRemoveMemberRequest) (*adminv2.TenantServiceRemoveMemberResponse, error) {
+	_, err := t.repo.Tenant().AdditionalMethods().Member(req.Tenant).Delete(ctx, req.Member)
+	if err != nil {
+		return nil, err
+	}
+
+	t.log.Debug("member removed successfully", "memberId", req.Member)
+	return &adminv2.TenantServiceRemoveMemberResponse{}, nil
 }

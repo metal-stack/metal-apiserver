@@ -1499,6 +1499,9 @@ func (r *machineRepository) Issues(ctx context.Context, req *adminv2.MachineServ
 		lastErrorThreshold = req.Query.LastErrorThreshold.AsDuration()
 	}
 
+	// TODO if only some machines are specified in the machine query the certain issues cannot
+	// be identified because the comparison with other machines is not possible.
+	// One example would be bmc_without_distinct_ip
 	ms, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(req.Query.MachineQuery))
 	if err != nil {
 		return nil, err

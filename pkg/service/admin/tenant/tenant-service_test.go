@@ -10,6 +10,7 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/stretchr/testify/assert"
@@ -159,6 +160,72 @@ func Test_tenantServiceServer_List(t *testing.T) {
 				),
 			); diff != "" {
 				t.Errorf("%v, want %v diff: %s", got, tt.want, diff)
+			}
+		})
+	}
+}
+
+func Test_tenantServiceServer_AddMember(t *testing.T) {
+	t.Parallel()
+
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
+	defer closer()
+
+	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{
+		{Name: "john.doe@github"},
+		{Name: "jane.roe@github"},
+		{Name: "sam.sane@github"},
+	})
+	// CreateTenants creates tenants directly without OWNER memberships, so we add one explicitly.
+	test.CreateTenantMemberships(t, testStore, "john.doe@github", []*api.TenantMemberCreateRequest{
+		{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+	})
+
+	tests := []struct {
+		name    string
+		rq      *adminv2.TenantServiceAddMemberRequest
+		wantErr error
+	}{
+		{
+			name: "add a member",
+			rq: &adminv2.TenantServiceAddMemberRequest{
+				Tenant: "john.doe@github",
+				Member: "sam.sane@github",
+				Role:   apiv2.TenantRole_TENANT_ROLE_EDITOR,
+			},
+		},
+		{
+			name: "add already existing member",
+			rq: &adminv2.TenantServiceAddMemberRequest{
+				Tenant: "john.doe@github",
+				Member: "john.doe@github",
+				Role:   apiv2.TenantRole_TENANT_ROLE_EDITOR,
+			},
+			wantErr: errorutil.Conflict(`tenant with id "john.doe@github" already is member in tenant: "john.doe@github"`),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			u := &tenantServiceServer{
+				log:  log,
+				repo: testStore.Store,
+			}
+			role := apiv2.AdminRole_ADMIN_ROLE_EDITOR
+			tok := testStore.GetToken("john.doe@github", &apiv2.TokenServiceCreateRequest{
+				Expires:   durationpb.New(time.Hour),
+				AdminRole: &role,
+			})
+
+			reqCtx := token.ContextWithToken(t.Context(), tok)
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
+			_, err := u.AddMember(reqCtx, tt.rq)
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("diff = %s", diff)
 			}
 		})
 	}
