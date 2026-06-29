@@ -567,7 +567,7 @@ func getCurrentEntities(ctx context.Context, store *testStore) (*Entities, error
 	for _, t := range tenants {
 		e.Tenants[t.Login] = t
 	}
-	projects, err := store.UnscopedProject().List(ctx, &apiv2.ProjectServiceListRequest{})
+	projects, err := store.UnscopedProject().List(ctx, &apiv2.ProjectQuery{})
 	if err != nil {
 		return nil, err
 	}
