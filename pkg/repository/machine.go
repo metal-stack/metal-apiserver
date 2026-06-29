@@ -1454,8 +1454,8 @@ func (r *machineRepository) Issues(ctx context.Context, req *adminv2.MachineServ
 		}
 	}
 
-	if req.Query.Severity != apiv2.MachineIssueSeverity_MACHINE_ISSUE_SEVERITY_UNSPECIFIED {
-		severityString, err := enum.GetStringValue(req.Query.Severity)
+	if req.Query.Severity != nil && *req.Query.Severity != apiv2.MachineIssueSeverity_MACHINE_ISSUE_SEVERITY_UNSPECIFIED {
+		severityString, err := enum.GetStringValue(*req.Query.Severity)
 		if err != nil {
 			return nil, err
 		}

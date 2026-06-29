@@ -906,7 +906,7 @@ func Test_machineServiceServer_Issues(t *testing.T) {
 			name: "filter by severity critical",
 			rq: &adminv2.MachineServiceIssuesRequest{
 				Query: &apiv2.MachineIssuesQuery{
-					Severity: apiv2.MachineIssueSeverity_MACHINE_ISSUE_SEVERITY_CRITICAL,
+					Severity: apiv2.MachineIssueSeverity_MACHINE_ISSUE_SEVERITY_CRITICAL.Enum(),
 				},
 			},
 			want: &adminv2.MachineServiceIssuesResponse{
