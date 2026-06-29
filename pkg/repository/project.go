@@ -151,7 +151,7 @@ func (r *projectRepository) delete(ctx context.Context, e *projectEntity) (*dele
 	return nil, nil
 }
 
-func (r *projectRepository) find(ctx context.Context, query *apiv2.ProjectServiceListRequest) (*projectEntity, error) {
+func (r *projectRepository) find(ctx context.Context, query *apiv2.ProjectQuery) (*projectEntity, error) {
 	projects, err := r.list(ctx, query)
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -167,11 +167,21 @@ func (r *projectRepository) find(ctx context.Context, query *apiv2.ProjectServic
 	}
 }
 
-func (r *projectRepository) list(ctx context.Context, query *apiv2.ProjectServiceListRequest) ([]*projectEntity, error) {
+func (r *projectRepository) list(ctx context.Context, query *apiv2.ProjectQuery) ([]*projectEntity, error) {
+	if query == nil {
+		query = &apiv2.ProjectQuery{}
+	}
+
+	var labelQuery []string
+	if query.Labels != nil && len(query.Labels.Labels) > 0 {
+		labelQuery = tags.ToTags(query.Labels.Labels)
+	}
+
 	resp, err := r.s.tc.Apiv1().Project().List(ctx, &tenantv1.ProjectServiceListRequest{
-		Id:       query.Id,
+		Id:       query.Uuid,
 		Name:     query.Name,
 		TenantId: query.Tenant,
+		Labels:   labelQuery,
 	})
 	if err != nil {
 		return nil, errorutil.Convert(err)

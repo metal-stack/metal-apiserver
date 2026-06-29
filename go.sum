@@ -391,8 +391,8 @@ github.com/mdlayher/sdnotify v1.0.0 h1:Ma9XeLVN/l0qpyx1tNeMSeTjCPH6NtuD6/N9XdTlQ
 github.com/mdlayher/sdnotify v1.0.0/go.mod h1:HQUmpM4XgYkhDLtd+Uad8ZFK1T9D5+pNxnXQjCeJlGE=
 github.com/mdlayher/socket v0.6.1 h1:M7uj2NtuujUY4mYr1C57NmfNiRHbkKpnBxO856lsc3A=
 github.com/mdlayher/socket v0.6.1/go.mod h1:+/SGtqc9V+5dAuRgQsU0fGBI+oRDiW7O2Obx10OIWfg=
-github.com/metal-stack/api v0.1.8-0.20260625100022-2002a3a35fde h1:9Uo/pLmkp/099S82zJ9YDDR5RkqevP7CGmdK1M+U89s=
-github.com/metal-stack/api v0.1.8-0.20260625100022-2002a3a35fde/go.mod h1:+WrGqA7QpQ2O60vakm3tjDbo70Q4c92pdco4R5MRcL8=
+github.com/metal-stack/api v0.1.8-0.20260629120845-41cee62ac89a h1:skex04OXSdDofrEcG3+rLeRYUJoW1tZJUzQKUUUIRxA=
+github.com/metal-stack/api v0.1.8-0.20260629120845-41cee62ac89a/go.mod h1:+WrGqA7QpQ2O60vakm3tjDbo70Q4c92pdco4R5MRcL8=
 github.com/metal-stack/go-ipam v1.15.1 h1:lpW0tioHx0V4udAtpqY06LZ8odkGd0aoATjWCdiLtCk=
 github.com/metal-stack/go-ipam v1.15.1/go.mod h1:CbkULx+ZsB8/lmDYaFX3jN5J2SeeSHMQzGJnYYPNfGg=
 github.com/metal-stack/goth v0.1.0 h1:sdadAH9QG+xAjLNKAJq8+esfXct6icTs58juoR4BKrQ=
