@@ -262,7 +262,9 @@ func Test_projectServiceServer_List(t *testing.T) {
 		{
 			name: "list the projects filtered by id",
 			rq: &apiv2.ProjectServiceListRequest{
-				Id: new(p0),
+				Query: &apiv2.ProjectQuery{
+					Uuid: new(p0),
+				},
 			},
 			want: &apiv2.ProjectServiceListResponse{
 				Projects: []*apiv2.Project{
@@ -279,7 +281,9 @@ func Test_projectServiceServer_List(t *testing.T) {
 		{
 			name: "list the projects filtered by name",
 			rq: &apiv2.ProjectServiceListRequest{
-				Name: new("b950f4f5-d8b8-4252-aa02-ae08a1d2b044"),
+				Query: &apiv2.ProjectQuery{
+					Name: new("b950f4f5-d8b8-4252-aa02-ae08a1d2b044"),
+				},
 			},
 			want: &apiv2.ProjectServiceListResponse{
 				Projects: []*apiv2.Project{
@@ -296,7 +300,9 @@ func Test_projectServiceServer_List(t *testing.T) {
 		{
 			name: "list the projects filtered by tenant 1",
 			rq: &apiv2.ProjectServiceListRequest{
-				Tenant: new("john.doe@github"),
+				Query: &apiv2.ProjectQuery{
+					Tenant: new("john.doe@github"),
+				},
 			},
 			want: &apiv2.ProjectServiceListResponse{
 				Projects: []*apiv2.Project{
@@ -319,7 +325,9 @@ func Test_projectServiceServer_List(t *testing.T) {
 		{
 			name: "list the projects filtered by tenant 2",
 			rq: &apiv2.ProjectServiceListRequest{
-				Tenant: new(p99),
+				Query: &apiv2.ProjectQuery{
+					Tenant: new(p99),
+				},
 			},
 			want:    &apiv2.ProjectServiceListResponse{},
 			wantErr: nil,
