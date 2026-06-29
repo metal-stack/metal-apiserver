@@ -176,6 +176,7 @@ func Test_tenantServiceServer_AddMember(t *testing.T) {
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{
 		{Name: "john.doe@github"},
 		{Name: "jane.roe@github"},
+		{Name: "sam.sane@github"},
 	})
 	// CreateTenants creates tenants directly without OWNER memberships, so we add one explicitly.
 	test.CreateTenantMemberships(t, testStore, "john.doe@github", []*api.TenantMemberCreateRequest{
@@ -191,7 +192,7 @@ func Test_tenantServiceServer_AddMember(t *testing.T) {
 			name: "add a member",
 			rq: &adminv2.TenantServiceAddMemberRequest{
 				Tenant: "john.doe@github",
-				Member: "jane.roe@github",
+				Member: "sam.sane@github",
 				Role:   apiv2.TenantRole_TENANT_ROLE_EDITOR,
 			},
 		},
@@ -202,7 +203,7 @@ func Test_tenantServiceServer_AddMember(t *testing.T) {
 				Member: "john.doe@github",
 				Role:   apiv2.TenantRole_TENANT_ROLE_EDITOR,
 			},
-			wantErr: errorutil.Conflict("tenant with id %q already is member in tenant: %q", "john.doe@github", "john.doe@github"),
+			wantErr: errorutil.Conflict(`tenant with id "john.doe@github" already is member in tenant: "john.doe@github"`),
 		},
 	}
 	for _, tt := range tests {

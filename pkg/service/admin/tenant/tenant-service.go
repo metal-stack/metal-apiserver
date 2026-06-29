@@ -74,10 +74,13 @@ func (t *tenantServiceServer) List(ctx context.Context, req *adminv2.TenantServi
 }
 
 func (t *tenantServiceServer) AddMember(ctx context.Context, req *adminv2.TenantServiceAddMemberRequest) (*adminv2.TenantServiceAddMemberResponse, error) {
-	_, err := t.repo.Tenant().AdditionalMethods().Member(req.Tenant).Get(ctx, req.Member)
+	existing, err := t.repo.Tenant().AdditionalMethods().Member(req.Tenant).Get(ctx, req.Member)
 
-	if err != nil {
+	if err != nil && !errorutil.IsNotFound(err) {
 		return nil, errorutil.Internal("error reading tenant member:%v", err)
+	}
+	if existing != nil {
+		return nil, errorutil.Conflict("tenant with id %q already is member in tenant: %q", req.Member, req.Tenant)
 	}
 
 	_, err = t.repo.Tenant().AdditionalMethods().Member(req.Tenant).Create(ctx, &api.TenantMemberCreateRequest{
