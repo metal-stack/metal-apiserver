@@ -446,8 +446,8 @@ func Test_machineServiceServer_SetState(t *testing.T) {
 		{
 			name: "untaint a tainted machine",
 			req: &adminv2.MachineServiceSetStateRequest{
-				Uuid:        sc.Machine1,
-				State:       apiv2.MachineState_MACHINE_STATE_AVAILABLE,
+				Uuid:  sc.Machine1,
+				State: apiv2.MachineState_MACHINE_STATE_AVAILABLE,
 			},
 			want: &adminv2.MachineServiceSetStateResponse{
 				Machine: &apiv2.Machine{
@@ -513,8 +513,8 @@ func Test_machineServiceServer_SetState(t *testing.T) {
 		{
 			name: "unlock a locked a machine",
 			req: &adminv2.MachineServiceSetStateRequest{
-				Uuid:        sc.Machine5,
-				State:       apiv2.MachineState_MACHINE_STATE_AVAILABLE,
+				Uuid:  sc.Machine5,
+				State: apiv2.MachineState_MACHINE_STATE_AVAILABLE,
 			},
 			want: &adminv2.MachineServiceSetStateResponse{
 				Machine: &apiv2.Machine{
