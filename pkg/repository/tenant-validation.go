@@ -23,7 +23,7 @@ func (t *tenantRepository) validateDelete(ctx context.Context, e *tenantEntity) 
 		return fmt.Errorf("the personal tenant (default-tenant) cannot be deleted")
 	}
 
-	projects, err := t.s.UnscopedProject().List(ctx, &apiv2.ProjectServiceListRequest{
+	projects, err := t.s.UnscopedProject().List(ctx, &apiv2.ProjectQuery{
 		Tenant: &e.Meta.Id,
 	})
 	if err != nil {

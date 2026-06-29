@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
@@ -9,12 +10,18 @@ import (
 )
 
 func (t *tenantMemberRepository) validateCreate(ctx context.Context, req *api.TenantMemberCreateRequest) error {
+	if req.Role == apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED {
+		return fmt.Errorf("role must not be %s", req.Role)
+	}
 	return nil
 }
 
 func (t *tenantMemberRepository) validateUpdate(ctx context.Context, req *api.TenantMemberUpdateRequest, membership *tenantMemberEntity) error {
 	// TODO: currently the API defines that only owners can update members so there is no possibility to elevate permissions
 	// probably, we should still check that no elevation of permissions is possible in case we later change the API
+	if req.Role == apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED {
+		return fmt.Errorf("role must not be %s", req.Role)
+	}
 
 	if membership.MemberId == membership.TenantId && req.Role != apiv2.TenantRole_TENANT_ROLE_OWNER {
 		return errorutil.FailedPrecondition("cannot demote a user's role within their own default tenant")
