@@ -463,7 +463,7 @@ func Test_bootServiceServer_Register(t *testing.T) {
 					BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL},
 				},
 				Status: &apiv2.MachineStatus{
-					LedState: &apiv2.MachineChassisIdentifyLEDState{}, 
+					LedState:  &apiv2.MachineChassisIdentifyLEDState{},
 					Condition: &apiv2.MachineCondition{State: apiv2.MachineState_MACHINE_STATE_AVAILABLE},
 				},
 				RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{
