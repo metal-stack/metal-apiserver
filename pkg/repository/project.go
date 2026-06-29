@@ -168,8 +168,12 @@ func (r *projectRepository) find(ctx context.Context, query *apiv2.ProjectQuery)
 }
 
 func (r *projectRepository) list(ctx context.Context, query *apiv2.ProjectQuery) ([]*projectEntity, error) {
+	if query == nil {
+		query = &apiv2.ProjectQuery{}
+	}
+
 	var labelQuery []string
-	if query.Labels != nil {
+	if query.Labels != nil && len(query.Labels.Labels) > 0 {
 		labelQuery = tags.ToTags(query.Labels.Labels)
 	}
 
