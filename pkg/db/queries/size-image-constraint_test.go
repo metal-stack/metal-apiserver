@@ -17,20 +17,20 @@ import (
 
 var (
 	sic1 = &metal.SizeImageConstraint{
-		Base:        metal.Base{ID: "size-1", Name: "size-1", Description: "Size 1 Constraint"},
-		Images:      map[string]string{"debian": ">= 11.0.0", "ubuntu": ">= 22.04.0"},
+		Base:   metal.Base{ID: "size-1", Name: "size-1", Description: "Size 1 Constraint"},
+		Images: map[string]string{"debian": ">= 11.0.0", "ubuntu": ">= 22.04.0"},
 	}
 	sic2 = &metal.SizeImageConstraint{
-		Base:        metal.Base{ID: "size-2", Name: "size-2", Description: "Size 2 Constraint"},
-		Images:      map[string]string{"debian": ">= 12.0.0", "fedora": ">= 38.0"},
+		Base:   metal.Base{ID: "size-2", Name: "size-2", Description: "Size 2 Constraint"},
+		Images: map[string]string{"debian": ">= 12.0.0", "fedora": ">= 38.0"},
 	}
 	sic3 = &metal.SizeImageConstraint{
-		Base:        metal.Base{ID: "size-3", Name: "size-3", Description: "Size 3 Constraint"},
-		Images:      map[string]string{"ubuntu": ">= 20.04.0"},
+		Base:   metal.Base{ID: "size-3", Name: "size-3", Description: "Size 3 Constraint"},
+		Images: map[string]string{"ubuntu": ">= 20.04.0"},
 	}
 	sic4 = &metal.SizeImageConstraint{
-		Base:        metal.Base{ID: "firewall-size", Name: "firewall-size", Description: "Firewall Size Constraint"},
-		Images:      map[string]string{"metalstack": ">= 1.0.0"},
+		Base:   metal.Base{ID: "firewall-size", Name: "firewall-size", Description: "Firewall Size Constraint"},
+		Images: map[string]string{"metalstack": ">= 1.0.0"},
 	}
 	sizeImageConstraints = []*metal.SizeImageConstraint{sic1, sic2, sic3, sic4}
 )
