@@ -171,7 +171,7 @@ func Test_Create(t *testing.T) {
 				providerTenant: "metal-stack",
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.IPService/Create" is not allowed`,
+			wantErrMessage: `permission_denied: requested project roles are not allowed: [00000000-0000-0000-0000-000000000000]`,
 		},
 		{
 			name: "user and token with project access can create project token",
@@ -229,7 +229,7 @@ func Test_Create(t *testing.T) {
 				projectRoles:   map[string]apiv2.ProjectRole{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.IPService/Create" is not allowed`,
+			wantErrMessage: `permission_denied: requested project roles are not allowed: [00000000-0000-0000-0000-000000000000]`,
 		},
 		{
 			name: "project without but user with project access cannot create project token",
@@ -253,7 +253,7 @@ func Test_Create(t *testing.T) {
 				},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.IPService/Create" is not allowed on any of the requested subjects: [00000000-0000-0000-0000-000000000000]`,
+			wantErrMessage: `permission_denied: requested project roles are not allowed: [00000000-0000-0000-0000-000000000000]`,
 		},
 		{
 			name: "normal user which is listed in admin-subjects can create new admin editor token",
@@ -433,7 +433,7 @@ func Test_Create(t *testing.T) {
 				providerTenant: "metal-stack",
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.ProjectService/Create" is not allowed`,
+			wantErrMessage: `permission_denied: requested tenant roles are not allowed: [mascots]`,
 		},
 		{
 			name: "user and token with tenant access can create tenant token",
@@ -544,7 +544,7 @@ func Test_Create(t *testing.T) {
 				},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.ProjectService/Create" is not allowed on any of the requested subjects: [mascots]`,
+			wantErrMessage: `permission_denied: requested tenant roles are not allowed: [mascots]`,
 		},
 		{
 			name: "expiration exceeds max expiration",
