@@ -21,6 +21,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/fsm"
+	"github.com/metal-stack/metal-apiserver/pkg/issues"
 	"github.com/metal-stack/metal-apiserver/pkg/tags"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
@@ -1434,6 +1435,129 @@ func (r *machineRepository) SetState(ctx context.Context, req *adminv2.MachineSe
 	return &adminv2.MachineServiceSetStateResponse{
 		Machine: apiv2Machine,
 	}, nil
+}
+
+func (r *machineRepository) Issues(ctx context.Context, req *adminv2.MachineServiceIssuesRequest) (*adminv2.MachineServiceIssuesResponse, error) {
+
+	var (
+		ms []*metal.Machine
+
+		severity           = issues.SeverityMinor
+		only               []issues.Type
+		omit               []issues.Type
+		lastErrorThreshold = issues.DefaultLastErrorThreshold()
+	)
+
+	if req.Query == nil {
+		req.Query = &apiv2.MachineIssuesQuery{
+			MachineQuery: &apiv2.MachineQuery{},
+		}
+	}
+
+	if req.Query.Severity != nil && *req.Query.Severity != apiv2.MachineIssueSeverity_MACHINE_ISSUE_SEVERITY_UNSPECIFIED {
+		severityString, err := enum.GetStringValue(*req.Query.Severity)
+		if err != nil {
+			return nil, err
+		}
+		severity, err = issues.SeverityFromString(*severityString)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if len(req.Query.Omit) > 0 {
+		for _, o := range req.Query.Omit {
+			it, err := issues.FromAPIV2Type(o)
+			if err != nil {
+				return nil, err
+			}
+			_, err = issues.NewIssueFromType(it)
+			if err != nil {
+				return nil, err
+			}
+
+			omit = append(omit, it)
+		}
+	}
+
+	if len(req.Query.Only) > 0 {
+		for _, o := range req.Query.Only {
+			it, err := issues.FromAPIV2Type(o)
+			if err != nil {
+				return nil, err
+			}
+			_, err = issues.NewIssueFromType(it)
+			if err != nil {
+				return nil, err
+			}
+
+			only = append(only, it)
+		}
+	}
+
+	if req.Query.LastErrorThreshold != nil {
+		lastErrorThreshold = req.Query.LastErrorThreshold.AsDuration()
+	}
+
+	// TODO if only some machines are specified in the machine query the certain issues cannot
+	// be identified because the comparison with other machines is not possible.
+	// One example would be bmc_without_distinct_ip
+	ms, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(req.Query.MachineQuery))
+	if err != nil {
+		return nil, err
+	}
+
+	ecs, err := r.s.ds.Event().List(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	machinesWithIssues, err := issues.Find(&issues.Config{
+		Machines:           ms,
+		EventContainers:    ecs,
+		Severity:           severity,
+		Only:               only,
+		Omit:               omit,
+		LastErrorThreshold: lastErrorThreshold,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var allIssues []*apiv2.MachineIssues
+	for _, machineWithIssues := range machinesWithIssues.ToList() {
+		entry := &apiv2.MachineIssues{
+			Uuid: machineWithIssues.Machine.ID,
+		}
+		for _, issue := range machineWithIssues.Issues {
+			issueType, err := issues.ToAPIV2Type(issue.Type)
+			if err != nil {
+				return nil, err
+			}
+			var severity apiv2.MachineIssueSeverity
+			switch issue.Severity {
+			case issues.SeverityMinor:
+				severity = apiv2.MachineIssueSeverity_MACHINE_ISSUE_SEVERITY_MINOR
+			case issues.SeverityMajor:
+				severity = apiv2.MachineIssueSeverity_MACHINE_ISSUE_SEVERITY_MAJOR
+			case issues.SeverityCritical:
+				severity = apiv2.MachineIssueSeverity_MACHINE_ISSUE_SEVERITY_CRITICAL
+			default:
+				return nil, fmt.Errorf("unknown issue severity:%s", issue.Severity)
+			}
+			entry.Issues = append(entry.Issues, &apiv2.MachineIssue{
+				Type:         issueType,
+				Severity:     severity,
+				Details:      issue.Details,
+				Description:  issue.Description,
+				ReferenceUrl: issue.RefURL,
+			})
+		}
+
+		allIssues = append(allIssues, entry)
+	}
+
+	return &adminv2.MachineServiceIssuesResponse{Issues: allIssues}, nil
 }
 
 func (r *machineRepository) setMachineWaitingFlag(ctx context.Context, machineUUID string, waiting bool) error {

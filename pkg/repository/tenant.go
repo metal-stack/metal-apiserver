@@ -365,12 +365,12 @@ func (t *tenantRepository) EnsureProviderTenant(ctx context.Context, providerTen
 			},
 		},
 	})
-	if err != nil && !errorutil.IsNotFound(err) {
-		return errorutil.Convert(fmt.Errorf("unable to get tenant %q: %w", providerTenantID, err))
-	}
 
-	if err != nil && errorutil.IsNotFound(err) {
-		created, err := t.CreateWithID(ctx, &apiv2.TenantServiceCreateRequest{
+	switch {
+	case err == nil:
+		// noop
+	case errorutil.IsNotFound(err):
+		providerTenant, err = t.CreateWithID(ctx, &apiv2.TenantServiceCreateRequest{
 			Name:        providerTenantID,
 			Description: new("initial provider tenant for metal-stack"),
 			Labels: &apiv2.Labels{
@@ -379,17 +379,36 @@ func (t *tenantRepository) EnsureProviderTenant(ctx context.Context, providerTen
 				},
 			},
 		}, providerTenantID, NewTenantCreateOptWithCreator(providerTenantID))
-		if err != nil {
-			return errorutil.Convert(fmt.Errorf("unable to create tenant:%s %w", providerTenantID, err))
+		if err != nil && !errorutil.IsConflict(err) {
+			return errorutil.Convert(fmt.Errorf("unable to create tenant %q: %w", providerTenantID, err))
 		}
-		providerTenant = created
-	}
-	if providerTenant == nil {
-		return errorutil.Internal("tenant %q: is nil", providerTenantID)
+
+		if err != nil && errorutil.IsConflict(err) {
+			t.s.log.Info("provider tenant already exists, but missing provider tenant label; patching tenant")
+
+			providerTenant, err = t.s.Tenant().Update(ctx, providerTenantID, &apiv2.TenantServiceUpdateRequest{
+				UpdateMeta: &apiv2.UpdateMeta{
+					LockingStrategy: apiv2.OptimisticLockingStrategy_OPTIMISTIC_LOCKING_STRATEGY_SERVER,
+				},
+				Labels: &apiv2.UpdateLabels{
+					Update: &apiv2.Labels{
+						Labels: map[string]string{
+							tag.ProviderTenant: strconv.FormatBool(true),
+						},
+					},
+				},
+			})
+			if err != nil {
+				return errorutil.Internal("unable to patch provider tenant label to existing provider tenant entity: %w", err)
+			}
+		}
+
+	default:
+		return errorutil.Convert(fmt.Errorf("unable to find unique provider tenant %q: %w", providerTenantID, err))
 	}
 
-	if providerTenant.Name != providerTenantID {
-		return errorutil.InvalidArgument("providerTenant with id:%q already exists", providerTenant.Login)
+	if providerTenant.Login != providerTenantID {
+		return errorutil.InvalidArgument("provider tenant %q already exists, refusing to create another one with id %q", providerTenant.Login, providerTenantID)
 	}
 
 	_, err = t.Member(providerTenantID).Get(ctx, providerTenantID)
