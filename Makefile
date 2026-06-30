@@ -14,10 +14,10 @@ else
   GO_TEST_ARGS=
 endif
 
-all: test server
+all: fmt test server
 
 .PHONY: server
-server:
+server: fmt
 	go build -tags netgo,osusergo,urfave_cli_no_docs \
 		 -ldflags "$(LINKMODE) -X 'github.com/metal-stack/v.Version=$(VERSION)' \
 								   -X 'github.com/metal-stack/v.Revision=$(GITVERSION)' \
@@ -29,6 +29,10 @@ server:
 .PHONY: test
 test:
 	go test ./... -race -coverpkg=./... -coverprofile=coverage.out -covermode=atomic $(GO_TEST_ARGS) -timeout=300s && go tool cover -func=coverage.out
+
+.PHONY: fmt
+fmt:
+	go fmt ./...
 
 .PHONY: bench
 bench:

@@ -118,9 +118,10 @@ func parseJWTToken(tokenString string) (*token.Claims, error) {
 func Test_Create(t *testing.T) {
 	t.Parallel()
 	type state struct {
-		adminSubjects []string
-		projectRoles  map[string]apiv2.ProjectRole
-		tenantRoles   map[string]apiv2.TenantRole
+		providerTenant string
+		projectRoles   map[string]apiv2.ProjectRole
+		tenantRoles    map[string]apiv2.TenantRole
+		getterErr      error
 	}
 	tests := []struct {
 		name           string
@@ -143,7 +144,7 @@ func Test_Create(t *testing.T) {
 				Description: "empty token",
 			},
 			state: state{
-				adminSubjects: []string{},
+				providerTenant: "metal-stack",
 			},
 			wantToken: &apiv2.Token{
 				User:        "phippy",
@@ -167,7 +168,7 @@ func Test_Create(t *testing.T) {
 				TenantRoles: map[string]apiv2.TenantRole{},
 			},
 			state: state{
-				adminSubjects: []string{},
+				providerTenant: "metal-stack",
 			},
 			wantErr:        true,
 			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.IPService/Create" is not allowed`,
@@ -190,7 +191,7 @@ func Test_Create(t *testing.T) {
 				TenantRoles: map[string]apiv2.TenantRole{},
 			},
 			state: state{
-				adminSubjects: []string{},
+				providerTenant: "metal-stack",
 				projectRoles: map[string]apiv2.ProjectRole{
 					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
@@ -224,8 +225,8 @@ func Test_Create(t *testing.T) {
 				TenantRoles: map[string]apiv2.TenantRole{},
 			},
 			state: state{
-				adminSubjects: []string{},
-				projectRoles:  map[string]apiv2.ProjectRole{},
+				providerTenant: "metal-stack",
+				projectRoles:   map[string]apiv2.ProjectRole{},
 			},
 			wantErr:        true,
 			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.IPService/Create" is not allowed`,
@@ -246,7 +247,7 @@ func Test_Create(t *testing.T) {
 				TenantRoles: map[string]apiv2.TenantRole{},
 			},
 			state: state{
-				adminSubjects: []string{},
+				providerTenant: "metal-stack",
 				projectRoles: map[string]apiv2.ProjectRole{
 					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
@@ -270,7 +271,10 @@ func Test_Create(t *testing.T) {
 				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
 			},
 			state: state{
-				adminSubjects: []string{"phippy"},
+				providerTenant: "phippy",
+				tenantRoles: map[string]apiv2.TenantRole{
+					"phippy": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
 			},
 			wantToken: &apiv2.Token{
 				User:         "phippy",
@@ -297,7 +301,10 @@ func Test_Create(t *testing.T) {
 				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
 			},
 			state: state{
-				adminSubjects: []string{"phippy"},
+				providerTenant: "phippy",
+				tenantRoles: map[string]apiv2.TenantRole{
+					"phippy": apiv2.TenantRole_TENANT_ROLE_VIEWER,
+				},
 			},
 			wantToken: &apiv2.Token{
 				User:         "phippy",
@@ -307,6 +314,31 @@ func Test_Create(t *testing.T) {
 				TenantRoles:  map[string]apiv2.TenantRole{},
 				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
 			},
+		},
+		{
+			name: "admin viewer cannot create admin editor token",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_USER,
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description:  "admin token",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			},
+			state: state{
+				providerTenant: "phippy",
+				tenantRoles: map[string]apiv2.TenantRole{
+					"phippy": apiv2.TenantRole_TENANT_ROLE_VIEWER,
+				},
+			},
+			wantToken:      nil,
+			wantErr:        true,
+			wantErrMessage: `permission_denied: your provider tenant membership only allows "ADMIN_ROLE_VIEWER", but you requested "ADMIN_ROLE_EDITOR"`,
 		},
 		{
 			name: "normal user which is not listed in admin-subjects can not create new admin viewer token",
@@ -324,7 +356,7 @@ func Test_Create(t *testing.T) {
 				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
 			},
 			state: state{
-				adminSubjects: []string{"blippy"},
+				providerTenant: "blippy",
 			},
 			wantToken:      nil,
 			wantErr:        true,
@@ -346,7 +378,10 @@ func Test_Create(t *testing.T) {
 				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
 			},
 			state: state{
-				adminSubjects: []string{"phippy"},
+				providerTenant: "phippy",
+				tenantRoles: map[string]apiv2.TenantRole{
+					"phippy": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
 			},
 			wantToken: &apiv2.Token{
 				User:         "phippy",
@@ -373,7 +408,7 @@ func Test_Create(t *testing.T) {
 				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
 			},
 			state: state{
-				adminSubjects: []string{},
+				providerTenant: "metal-stack",
 			},
 			wantErr:        true,
 			wantErrMessage: `permission_denied: the following method "/grpc.reflection.v1.ServerReflection/ServerReflectionInfo" is not allowed on any of the requested subjects: [*]`,
@@ -395,7 +430,7 @@ func Test_Create(t *testing.T) {
 				},
 			},
 			state: state{
-				adminSubjects: []string{},
+				providerTenant: "metal-stack",
 			},
 			wantErr:        true,
 			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.ProjectService/Create" is not allowed`,
@@ -418,7 +453,7 @@ func Test_Create(t *testing.T) {
 				},
 			},
 			state: state{
-				adminSubjects: []string{},
+				providerTenant: "metal-stack",
 				tenantRoles: map[string]apiv2.TenantRole{
 					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
@@ -451,8 +486,8 @@ func Test_Create(t *testing.T) {
 				},
 			},
 			state: state{
-				adminSubjects: []string{},
-				projectRoles:  map[string]apiv2.ProjectRole{},
+				providerTenant: "metal-stack",
+				projectRoles:   map[string]apiv2.ProjectRole{},
 				tenantRoles: map[string]apiv2.TenantRole{
 					"phippy": apiv2.TenantRole_TENANT_ROLE_OWNER,
 				},
@@ -475,14 +510,50 @@ func Test_Create(t *testing.T) {
 				},
 			},
 			state: state{
-				adminSubjects: []string{},
-				projectRoles:  map[string]apiv2.ProjectRole{},
+				providerTenant: "metal-stack",
+				projectRoles:   map[string]apiv2.ProjectRole{},
 				tenantRoles: map[string]apiv2.TenantRole{
 					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
 			},
 			wantErr:        true,
 			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.ProjectService/Create" is not allowed on any of the requested subjects: [mascots]`,
+		},
+		{
+			name: "expiration exceeds max expiration",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "token with long expiry",
+				Expires:     durationpb.New(366 * 24 * time.Hour),
+			},
+			state: state{
+				providerTenant: "metal-stack",
+			},
+			wantErr:        true,
+			wantErrMessage: `requested expiration duration: "8784h0m0s" exceeds max expiration: "8760h0m0s"`,
+		},
+		{
+			name: "projects and tenants getter fails",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "empty token",
+			},
+			state: state{
+				providerTenant: "metal-stack",
+				getterErr:      errors.New("getter failed"),
+			},
+			wantErr:        true,
+			wantErrMessage: `internal: getter failed`,
 		},
 	}
 
@@ -500,6 +571,9 @@ func Test_Create(t *testing.T) {
 			})
 
 			projectsAndTenantsGetter := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
+				if tt.state.getterErr != nil {
+					return nil, tt.state.getterErr
+				}
 				return &api.ProjectsAndTenants{
 					ProjectRoles: tt.state.projectRoles,
 					TenantRoles:  tt.state.tenantRoles,
@@ -511,7 +585,7 @@ func Test_Create(t *testing.T) {
 				tokens:                   tokenStore,
 				certs:                    certStore,
 				issuer:                   "http://test",
-				adminSubjects:            tt.state.adminSubjects,
+				providerTenant:           tt.state.providerTenant,
 				projectsAndTenantsGetter: projectsAndTenantsGetter,
 				authorizer:               request.NewAuthorizer(log, projectsAndTenantsGetter),
 			}
@@ -552,12 +626,42 @@ func Test_Create(t *testing.T) {
 	}
 }
 
+func Test_Create_NoToken(t *testing.T) {
+	t.Parallel()
+
+	s := miniredis.RunT(t)
+	c := redis.NewClient(&redis.Options{Addr: s.Addr()})
+
+	tokenStore := token.NewRedisStore(c)
+	certStore := certs.NewRedisStore(&certs.Config{
+		RedisClient: c,
+	})
+
+	projectsAndTenantsGetter := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
+		return &api.ProjectsAndTenants{}, nil
+	}
+	log := slog.Default()
+	service := tokenService{
+		log:                      log,
+		tokens:                   tokenStore,
+		certs:                    certStore,
+		issuer:                   "http://test",
+		providerTenant:           "metal-stack",
+		projectsAndTenantsGetter: projectsAndTenantsGetter,
+		authorizer:               request.NewAuthorizer(log, projectsAndTenantsGetter),
+	}
+
+	_, err := service.Create(t.Context(), &apiv2.TokenServiceCreateRequest{})
+	require.Error(t, err)
+	require.Equal(t, "unauthenticated: no token found in request", err.Error())
+}
+
 func Test_CreateForUser(t *testing.T) {
 	t.Parallel()
 	type state struct {
-		adminSubjects []string
-		projectRoles  map[string]apiv2.ProjectRole
-		tenantRoles   map[string]apiv2.TenantRole
+		providerTenant string
+		projectRoles   map[string]apiv2.ProjectRole
+		tenantRoles    map[string]apiv2.TenantRole
 	}
 	tests := []struct {
 		name           string
@@ -582,7 +686,10 @@ func Test_CreateForUser(t *testing.T) {
 			},
 			user: new("foo"),
 			state: state{
-				adminSubjects: []string{"phippy"},
+				providerTenant: "phippy",
+				tenantRoles: map[string]apiv2.TenantRole{
+					"phippy": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
 			},
 			wantToken: &apiv2.Token{
 				User:        "foo",
@@ -603,7 +710,7 @@ func Test_CreateForUser(t *testing.T) {
 			},
 			user: new("foo"),
 			state: state{
-				adminSubjects: []string{"phippy"},
+				providerTenant: "phippy",
 			},
 			wantToken:      nil,
 			wantErr:        true,
@@ -636,7 +743,7 @@ func Test_CreateForUser(t *testing.T) {
 				tokens:                   tokenStore,
 				certs:                    certStore,
 				issuer:                   "http://test",
-				adminSubjects:            tt.state.adminSubjects,
+				providerTenant:           tt.state.providerTenant,
 				projectsAndTenantsGetter: projectsAndTenantsGetter,
 				authorizer:               request.NewAuthorizer(log, projectsAndTenantsGetter),
 			}
@@ -681,12 +788,12 @@ func Test_validateTokenRequest(t *testing.T) {
 	t.Parallel()
 	inOneHour := durationpb.New(time.Hour)
 	tests := []struct {
-		name          string
-		pat           *api.ProjectsAndTenants
-		token         *apiv2.Token
-		req           *apiv2.TokenServiceCreateRequest
-		adminSubjects []string
-		wantErr       error
+		name           string
+		pat            *api.ProjectsAndTenants
+		token          *apiv2.Token
+		req            *apiv2.TokenServiceCreateRequest
+		providerTenant string
+		wantErr        error
 	}{
 		{
 			name: "simple token with empty permissions and roles",
@@ -704,8 +811,8 @@ func Test_validateTokenRequest(t *testing.T) {
 				Description: "i don't need any permissions",
 				Expires:     inOneHour,
 			},
-			adminSubjects: []string{},
-			wantErr:       nil,
+			providerTenant: "metal-stack",
+			wantErr:        nil,
 		},
 		// Inherited Permissions
 		{
@@ -734,8 +841,8 @@ func Test_validateTokenRequest(t *testing.T) {
 				},
 				Expires: inOneHour,
 			},
-			adminSubjects: []string{},
-			wantErr:       nil,
+			providerTenant: "metal-stack",
+			wantErr:        nil,
 		},
 		// Permissions from Token
 		{
@@ -765,8 +872,8 @@ func Test_validateTokenRequest(t *testing.T) {
 				},
 				Expires: inOneHour,
 			},
-			adminSubjects: []string{},
-			wantErr:       nil,
+			providerTenant: "metal-stack",
+			wantErr:        nil,
 		},
 		{
 			name: "simple token with unknown method",
@@ -795,8 +902,8 @@ func Test_validateTokenRequest(t *testing.T) {
 				},
 				Expires: inOneHour,
 			},
-			adminSubjects: []string{},
-			wantErr:       errors.New("unknown method \"/metalstack.api.v2.UnknownService/Get\""),
+			providerTenant: "metal-stack",
+			wantErr:        errors.New("unknown method \"/metalstack.api.v2.UnknownService/Get\""),
 		},
 		{
 			name: "simple token with one project and permission, wrong project given",
@@ -826,8 +933,8 @@ func Test_validateTokenRequest(t *testing.T) {
 				},
 				Expires: inOneHour,
 			},
-			adminSubjects: []string{},
-			wantErr:       errors.New("method \"/metalstack.api.v2.IPService/Get\" is not allowed on subject \"cde\" with your current user permissions"),
+			providerTenant: "metal-stack",
+			wantErr:        errors.New("method \"/metalstack.api.v2.IPService/Get\" is not allowed on subject \"cde\" with your current user permissions"),
 		},
 		{
 			name: "simple token with one project and permission, wrong message given",
@@ -856,8 +963,8 @@ func Test_validateTokenRequest(t *testing.T) {
 				},
 				Expires: inOneHour,
 			},
-			adminSubjects: []string{},
-			wantErr:       errors.New("the following method \"/metalstack.api.v2.IPService/List\" is not allowed on any of the requested subjects: [abc]"),
+			providerTenant: "metal-stack",
+			wantErr:        errors.New("the following method \"/metalstack.api.v2.IPService/List\" is not allowed on any of the requested subjects: [abc]"),
 		},
 		{
 			name: "simple token with one project and permission, wrong messages given",
@@ -893,8 +1000,8 @@ func Test_validateTokenRequest(t *testing.T) {
 				},
 				Expires: inOneHour,
 			},
-			adminSubjects: []string{},
-			wantErr:       errors.New("the following method \"/metalstack.api.v2.IPService/List\" is not allowed on any of the requested subjects: [abc]"),
+			providerTenant: "metal-stack",
+			wantErr:        errors.New("the following method \"/metalstack.api.v2.IPService/List\" is not allowed on any of the requested subjects: [abc]"),
 		},
 		// Roles from Token
 		{
@@ -927,8 +1034,8 @@ func Test_validateTokenRequest(t *testing.T) {
 				},
 				Expires: inOneHour,
 			},
-			adminSubjects: []string{},
-			wantErr:       errors.New("the following method \"/metalstack.api.v2.AuditService/Get\" is not allowed"),
+			providerTenant: "metal-stack",
+			wantErr:        errors.New("the following method \"/metalstack.api.v2.AuditService/Get\" is not allowed"),
 		},
 		{
 			name: "token has to low role",
@@ -963,8 +1070,8 @@ func Test_validateTokenRequest(t *testing.T) {
 				},
 				Expires: inOneHour,
 			},
-			adminSubjects: []string{},
-			wantErr:       errors.New("the following method \"/metalstack.api.v2.ProjectService/Create\" is not allowed"),
+			providerTenant: "metal-stack",
+			wantErr:        errors.New("the following method \"/metalstack.api.v2.ProjectService/Create\" is not allowed"),
 		},
 		{
 			name: "token request has unspecified role",
@@ -1002,13 +1109,13 @@ func Test_validateTokenRequest(t *testing.T) {
 				},
 				Expires: inOneHour,
 			},
-			adminSubjects: []string{},
-			wantErr:       errors.New("requested tenant role: \"TENANT_ROLE_UNSPECIFIED\" is not allowed"),
+			providerTenant: "metal-stack",
+			wantErr:        errors.New("requested tenant role: \"TENANT_ROLE_UNSPECIFIED\" is not allowed"),
 		},
 		// AdminSubjects
 		{
-			name:          "requested admin role but is not allowed",
-			adminSubjects: []string{},
+			name:           "requested admin role but is not allowed",
+			providerTenant: "metal-stack",
 			pat: &api.ProjectsAndTenants{
 				TenantRoles: map[string]apiv2.TenantRole{
 					"company-a@github": apiv2.TenantRole_TENANT_ROLE_EDITOR,
@@ -1029,10 +1136,8 @@ func Test_validateTokenRequest(t *testing.T) {
 			wantErr: errors.New("the following method \"/grpc.reflection.v1.ServerReflection/ServerReflectionInfo\" is not allowed on any of the requested subjects: [*]"),
 		},
 		{
-			name: "requested admin role but is only viewer of admin orga",
-			adminSubjects: []string{
-				"company-a@github",
-			},
+			name:           "requested admin role but is only viewer of admin orga",
+			providerTenant: "company-a@github",
 			pat: &api.ProjectsAndTenants{
 				TenantRoles: map[string]apiv2.TenantRole{
 					"company-a@github": apiv2.TenantRole_TENANT_ROLE_EDITOR,
@@ -1053,10 +1158,8 @@ func Test_validateTokenRequest(t *testing.T) {
 			wantErr: errors.New("the following method \"/grpc.reflection.v1.ServerReflection/ServerReflectionInfo\" is not allowed on any of the requested subjects: [*]"),
 		},
 		{
-			name: "token requested admin role but is editor in admin orga",
-			adminSubjects: []string{
-				"company-a@github",
-			},
+			name:           "token requested admin role but is editor in admin orga",
+			providerTenant: "company-a@github",
 			pat: &api.ProjectsAndTenants{
 				TenantRoles: map[string]apiv2.TenantRole{
 					"company-a@github": apiv2.TenantRole_TENANT_ROLE_EDITOR,
@@ -1077,10 +1180,8 @@ func Test_validateTokenRequest(t *testing.T) {
 			wantErr: errors.New("the following method \"/grpc.reflection.v1.ServerReflection/ServerReflectionInfo\" is not allowed on any of the requested subjects: [*]"),
 		},
 		{
-			name: "token requested admin role and has admin role editor",
-			adminSubjects: []string{
-				"company-a@github",
-			},
+			name:           "token requested admin role and has admin role editor",
+			providerTenant: "company-a@github",
 			pat: &api.ProjectsAndTenants{
 				TenantRoles: map[string]apiv2.TenantRole{
 					"company-a@github": apiv2.TenantRole_TENANT_ROLE_EDITOR,
@@ -1103,10 +1204,8 @@ func Test_validateTokenRequest(t *testing.T) {
 		},
 		// Infra Roles
 		{
-			name: "admin editor requested infra editor",
-			adminSubjects: []string{
-				"company-admin@github",
-			},
+			name:           "admin editor requested infra editor",
+			providerTenant: "company-admin@github",
 			token: &apiv2.Token{
 				User:      "company-admin@github",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
@@ -1120,10 +1219,8 @@ func Test_validateTokenRequest(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "admin viewer requested infra editor",
-			adminSubjects: []string{
-				"company-admin@github",
-			},
+			name:           "admin viewer requested infra editor",
+			providerTenant: "company-admin@github",
 			token: &apiv2.Token{
 				User:      "company-admin@github",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
@@ -1168,10 +1265,11 @@ func Test_validateTokenRequest(t *testing.T) {
 				},
 				Expires: inOneHour,
 			},
-			adminSubjects: []string{},
-			wantErr:       errors.New("the following method \"/metalstack.admin.v2.NetworkService/Create\" is not allowed on any of the requested subjects: [internet]"),
+			providerTenant: "metal-stack",
+			wantErr:        errors.New("the following method \"/metalstack.admin.v2.NetworkService/Create\" is not allowed on any of the requested subjects: [internet]"),
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.token.User == "" {
@@ -1193,7 +1291,7 @@ func Test_validateTokenRequest(t *testing.T) {
 				tokens:                   nil,
 				certs:                    nil,
 				issuer:                   "http://test",
-				adminSubjects:            tt.adminSubjects,
+				providerTenant:           tt.providerTenant,
 				projectsAndTenantsGetter: projectsAndTenantsGetter,
 				authorizer:               request.NewAuthorizer(log, projectsAndTenantsGetter),
 			}
@@ -1213,9 +1311,9 @@ func Test_validateTokenRequest(t *testing.T) {
 func Test_Update(t *testing.T) {
 	t.Parallel()
 	type state struct {
-		adminSubjects []string
-		projectRoles  map[string]apiv2.ProjectRole
-		tenantRoles   map[string]apiv2.TenantRole
+		providerTenant string
+		projectRoles   map[string]apiv2.ProjectRole
+		tenantRoles    map[string]apiv2.TenantRole
 	}
 	tests := []struct {
 		name           string
@@ -1248,7 +1346,7 @@ func Test_Update(t *testing.T) {
 				Description: new("update!"),
 			},
 			state: state{
-				adminSubjects: []string{},
+				providerTenant: "metal-stack",
 			},
 			wantToken: &apiv2.Token{
 				Uuid:        token1,
@@ -1280,7 +1378,7 @@ func Test_Update(t *testing.T) {
 				TenantRoles: map[string]apiv2.TenantRole{},
 			},
 			state: state{
-				adminSubjects: []string{},
+				providerTenant: "metal-stack",
 			},
 			wantErr:        true,
 			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.IPService/Create" is not allowed`,
@@ -1311,7 +1409,7 @@ func Test_Update(t *testing.T) {
 				TenantRoles: map[string]apiv2.TenantRole{},
 			},
 			state: state{
-				adminSubjects: []string{},
+				providerTenant: "metal-stack",
 				projectRoles: map[string]apiv2.ProjectRole{
 					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
@@ -1351,8 +1449,8 @@ func Test_Update(t *testing.T) {
 				TenantRoles: map[string]apiv2.TenantRole{},
 			},
 			state: state{
-				adminSubjects: []string{},
-				projectRoles:  map[string]apiv2.ProjectRole{},
+				providerTenant: "metal-stack",
+				projectRoles:   map[string]apiv2.ProjectRole{},
 			},
 			wantErr:        true,
 			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.IPService/Create" is not allowed`,
@@ -1380,7 +1478,7 @@ func Test_Update(t *testing.T) {
 				TenantRoles: map[string]apiv2.TenantRole{},
 			},
 			state: state{
-				adminSubjects: []string{},
+				providerTenant: "metal-stack",
 				projectRoles: map[string]apiv2.ProjectRole{
 					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
@@ -1413,7 +1511,10 @@ func Test_Update(t *testing.T) {
 				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
 			},
 			state: state{
-				adminSubjects: []string{"phippy"},
+				providerTenant: "phippy",
+				tenantRoles: map[string]apiv2.TenantRole{
+					"phippy": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
 			},
 			wantToken: &apiv2.Token{
 				Uuid:         token1,
@@ -1444,7 +1545,7 @@ func Test_Update(t *testing.T) {
 				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
 			},
 			state: state{
-				adminSubjects: []string{},
+				providerTenant: "metal-stack",
 			},
 			wantErr:        true,
 			wantErrMessage: `permission_denied: the following method "/grpc.reflection.v1.ServerReflection/ServerReflectionInfo" is not allowed on any of the requested subjects: [*]`,
@@ -1470,7 +1571,7 @@ func Test_Update(t *testing.T) {
 				},
 			},
 			state: state{
-				adminSubjects: []string{},
+				providerTenant: "metal-stack",
 			},
 			wantErr:        true,
 			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.ProjectService/Create" is not allowed`,
@@ -1501,7 +1602,7 @@ func Test_Update(t *testing.T) {
 				},
 			},
 			state: state{
-				adminSubjects: []string{},
+				providerTenant: "metal-stack",
 				tenantRoles: map[string]apiv2.TenantRole{
 					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
@@ -1539,8 +1640,8 @@ func Test_Update(t *testing.T) {
 				},
 			},
 			state: state{
-				adminSubjects: []string{},
-				projectRoles:  map[string]apiv2.ProjectRole{},
+				providerTenant: "metal-stack",
+				projectRoles:   map[string]apiv2.ProjectRole{},
 			},
 			wantErr:        true,
 			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.ProjectService/Create" is not allowed`,
@@ -1565,8 +1666,8 @@ func Test_Update(t *testing.T) {
 				},
 			},
 			state: state{
-				adminSubjects: []string{},
-				projectRoles:  map[string]apiv2.ProjectRole{},
+				providerTenant: "metal-stack",
+				projectRoles:   map[string]apiv2.ProjectRole{},
 				tenantRoles: map[string]apiv2.TenantRole{
 					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
@@ -1596,7 +1697,7 @@ func Test_Update(t *testing.T) {
 				TenantRoles: map[string]apiv2.TenantRole{},
 			},
 			state: state{
-				adminSubjects: []string{},
+				providerTenant: "metal-stack",
 				projectRoles: map[string]apiv2.ProjectRole{
 					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
@@ -1637,7 +1738,7 @@ func Test_Update(t *testing.T) {
 				tokens:                   tokenStore,
 				certs:                    certStore,
 				issuer:                   "http://test",
-				adminSubjects:            tt.state.adminSubjects,
+				providerTenant:           tt.state.providerTenant,
 				projectsAndTenantsGetter: projectsAndTenantsGetter,
 				authorizer:               request.NewAuthorizer(log, projectsAndTenantsGetter),
 			}
@@ -1679,9 +1780,9 @@ func Test_Refresh(t *testing.T) {
 	iat := time.Now()
 	exp := iat.Add(time.Hour)
 	type state struct {
-		adminSubjects []string
-		projectRoles  map[string]apiv2.ProjectRole
-		tenantRoles   map[string]apiv2.TenantRole
+		providerTenant string
+		projectRoles   map[string]apiv2.ProjectRole
+		tenantRoles    map[string]apiv2.TenantRole
 	}
 	tests := []struct {
 		name           string
@@ -1712,7 +1813,7 @@ func Test_Refresh(t *testing.T) {
 				Expires:      timestamppb.New(exp),
 			},
 			state: state{
-				adminSubjects: []string{},
+				providerTenant: "metal-stack",
 			},
 			wantToken: &apiv2.Token{
 				Uuid:         token1,
@@ -1736,7 +1837,7 @@ func Test_Refresh(t *testing.T) {
 				},
 			},
 			state: state{
-				adminSubjects: []string{},
+				providerTenant: "metal-stack",
 				projectRoles: map[string]apiv2.ProjectRole{
 					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
@@ -1777,7 +1878,7 @@ func Test_Refresh(t *testing.T) {
 				tokens:                   tokenStore,
 				certs:                    certStore,
 				issuer:                   "http://test",
-				adminSubjects:            tt.state.adminSubjects,
+				providerTenant:           tt.state.providerTenant,
 				projectsAndTenantsGetter: projectsAndTenantsGetter,
 				authorizer:               request.NewAuthorizer(log, projectsAndTenantsGetter),
 			}

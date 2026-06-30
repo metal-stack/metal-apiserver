@@ -59,7 +59,7 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 		OIDCClientID:                        "oidc-client-id",
 		OIDCClientSecret:                    "oidc-client-secret",
 		OIDCDiscoveryURL:                    discoveryURL,
-		Admins:                              []string{providerTenant, subject},
+		ProviderTenant:                      providerTenant,
 		MaxRequestsPerMinuteToken:           100,
 		MaxRequestsPerMinuteUnauthenticated: 100,
 		HeadscaleClient:                     hc,

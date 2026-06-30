@@ -151,14 +151,17 @@ func (p *projectServiceServer) List(ctx context.Context, req *apiv2.ProjectServi
 	for _, project := range projectsAndTenants.Projects {
 		// TODO: maybe we can pass the filter and not filter here
 
-		if req.Id != nil && project.Uuid != *req.Id {
-			continue
-		}
-		if req.Name != nil && project.Name != *req.Name {
-			continue
-		}
-		if req.Tenant != nil && project.Tenant != *req.Tenant {
-			continue
+		if req.Query != nil {
+			q := req.Query
+			if q.Uuid != nil && project.Uuid != *q.Uuid {
+				continue
+			}
+			if q.Name != nil && project.Name != *q.Name {
+				continue
+			}
+			if q.Tenant != nil && project.Tenant != *q.Tenant {
+				continue
+			}
 		}
 
 		result = append(result, project)

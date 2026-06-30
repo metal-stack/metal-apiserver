@@ -146,3 +146,7 @@ func (m *machineServiceServer) SetState(ctx context.Context, req *adminv2.Machin
 
 	return m.repo.UnscopedMachine().AdditionalMethods().SetState(ctx, req)
 }
+
+func (m *machineServiceServer) Issues(ctx context.Context, req *adminv2.MachineServiceIssuesRequest) (*adminv2.MachineServiceIssuesResponse, error) {
+	return m.repo.UnscopedMachine().AdditionalMethods().Issues(ctx, req)
+}

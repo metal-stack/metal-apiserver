@@ -174,7 +174,7 @@ func (s *Store) project(scope *ProjectScope) Project {
 		scope: scope,
 	}
 
-	return &store[*projectRepository, *projectEntity, *apiv2.Project, *apiv2.ProjectServiceCreateRequest, *apiv2.ProjectServiceUpdateRequest, *apiv2.ProjectServiceListRequest]{
+	return &store[*projectRepository, *projectEntity, *apiv2.Project, *apiv2.ProjectServiceCreateRequest, *apiv2.ProjectServiceUpdateRequest, *apiv2.ProjectQuery]{
 		repository: repository,
 		typed:      repository,
 	}
@@ -185,7 +185,7 @@ func (s *Store) Tenant() Tenant {
 		s: s,
 	}
 
-	return &store[*tenantRepository, *tenantEntity, *apiv2.Tenant, *apiv2.TenantServiceCreateRequest, *apiv2.TenantServiceUpdateRequest, *apiv2.TenantServiceListRequest]{
+	return &store[*tenantRepository, *tenantEntity, *apiv2.Tenant, *apiv2.TenantServiceCreateRequest, *apiv2.TenantServiceUpdateRequest, *apiv2.TenantQuery]{
 		repository: repository,
 		typed:      repository,
 	}

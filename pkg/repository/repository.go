@@ -108,7 +108,7 @@ type (
 	}
 
 	Project interface {
-		Repository[*projectRepository, *apiv2.Project, *apiv2.ProjectServiceCreateRequest, *apiv2.ProjectServiceUpdateRequest, *apiv2.ProjectServiceListRequest]
+		Repository[*projectRepository, *apiv2.Project, *apiv2.ProjectServiceCreateRequest, *apiv2.ProjectServiceUpdateRequest, *apiv2.ProjectQuery]
 	}
 
 	ProjectMember interface {
@@ -116,7 +116,7 @@ type (
 	}
 
 	Tenant interface {
-		Repository[*tenantRepository, *apiv2.Tenant, *apiv2.TenantServiceCreateRequest, *apiv2.TenantServiceUpdateRequest, *apiv2.TenantServiceListRequest]
+		Repository[*tenantRepository, *apiv2.Tenant, *apiv2.TenantServiceCreateRequest, *apiv2.TenantServiceUpdateRequest, *apiv2.TenantQuery]
 	}
 
 	TenantMember interface {

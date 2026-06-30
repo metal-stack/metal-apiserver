@@ -76,6 +76,7 @@ func startTenantApiserverWithDB(t testing.TB, log *slog.Logger, dbcloser func(),
 	server.EnableHTTP2 = true
 	server.Start()
 	closer := func() {
+		dbcloser()
 		server.Close()
 	}
 

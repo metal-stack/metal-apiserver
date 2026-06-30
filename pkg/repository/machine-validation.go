@@ -55,8 +55,8 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 		switch m.State.Value {
 		case metal.LockedState:
 			return fmt.Errorf("machine %s is %s", *req.Uuid, m.State.Value)
-		case metal.AvailableState, metal.ReservedState:
-			// machines which are reserved can be allocated by specifying the uuid,
+		case metal.AvailableState, metal.TaintedState:
+			// machines which are tainted can be allocated by specifying the uuid,
 			// but they will not be considered for random allocation
 		}
 		if !m.Waiting {
