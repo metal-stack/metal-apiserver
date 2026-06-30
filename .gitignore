@@ -21,3 +21,4 @@ meili_data
 .vscode
 .env
 cmd/cli/cli
+.codegraph

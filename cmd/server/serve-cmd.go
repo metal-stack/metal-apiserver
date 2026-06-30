@@ -65,11 +65,10 @@ func newServeCmd() *cli.Command {
 			stageFlag,
 			redisAddrFlag,
 			redisPasswordFlag,
-			adminsFlag,
+			providerTenantFlag,
 			maxRequestsPerMinuteFlag,
 			maxRequestsPerMinuteUnauthenticatedFlag,
 			ipamGrpcEndpointFlag,
-			ensureProviderTenantFlag,
 			frontEndUrlFlag,
 			oidcClientIdFlag,
 			oidcClientSecretFlag,
@@ -183,7 +182,7 @@ func newServeCmd() *cli.Command {
 				AuditBackends:                       auditBackends,
 				Stage:                               stage,
 				RedisConfig:                         redisConfig,
-				Admins:                              ctx.StringSlice(adminsFlag.Name),
+				ProviderTenant:                      ctx.String(providerTenantFlag.Name),
 				MaxRequestsPerMinuteToken:           ctx.Int(maxRequestsPerMinuteFlag.Name),
 				MaxRequestsPerMinuteUnauthenticated: ctx.Int(maxRequestsPerMinuteUnauthenticatedFlag.Name),
 				OIDCClientID:                        ctx.String(oidcClientIdFlag.Name),
@@ -199,21 +198,17 @@ func newServeCmd() *cli.Command {
 				ComponentExpiration:                 ctx.Duration(componentExpirationFlag.Name),
 			}
 
-			if providerTenant := ctx.String(ensureProviderTenantFlag.Name); providerTenant != "" {
-				err := repo.Tenant().AdditionalMethods().EnsureProviderTenant(ctx.Context, providerTenant)
-				if err != nil {
-					return err
-				}
-
-				err = repo.UnscopedProject().AdditionalMethods().EnsureProviderProject(ctx.Context, providerTenant)
-				if err != nil {
-					return err
-				}
-
-				log.Info("ensured provider tenant", "id", providerTenant)
-
-				c.Admins = append(c.Admins, providerTenant)
+			err = repo.Tenant().AdditionalMethods().EnsureProviderTenant(ctx.Context, c.ProviderTenant)
+			if err != nil {
+				return err
 			}
+
+			err = repo.UnscopedProject().AdditionalMethods().EnsureProviderProject(ctx.Context, c.ProviderTenant)
+			if err != nil {
+				return err
+			}
+
+			log.Info("ensured provider tenant", "id", c.ProviderTenant)
 
 			log.Info("running api-server", "version", v.V.String(), "go-runtime", runtime.Version(), "http-endpoint", c.HttpServerEndpoint)
 
