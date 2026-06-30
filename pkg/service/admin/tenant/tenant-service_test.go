@@ -397,6 +397,29 @@ func Test_EnsureProviderTenant(t *testing.T) {
 			},
 			wantErr: errorutil.InvalidArgument(`provider tenant "metal-stack" already exists, refusing to create another one with id "i-want-to-get-admin"`),
 		},
+		{
+			name:             "two provider tenants present for some reason, results into an error",
+			providerTenantID: "metal-stack",
+			existingTenants: []*apiv2.TenantServiceCreateRequest{
+				{
+					Name: "metal-stack",
+					Labels: &apiv2.Labels{
+						Labels: map[string]string{
+							tag.ProviderTenant: strconv.FormatBool(true),
+						},
+					},
+				},
+				{
+					Name: "metal-stack-2",
+					Labels: &apiv2.Labels{
+						Labels: map[string]string{
+							tag.ProviderTenant: strconv.FormatBool(true),
+						},
+					},
+				},
+			},
+			wantErr: errorutil.Internal(`unable to find unique provider tenant "metal-stack": more than one tenant exists`),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(innerT *testing.T) {
@@ -420,6 +443,11 @@ func Test_EnsureProviderTenant(t *testing.T) {
 			assert.Equal(innerT, tenant.Meta.Labels, &apiv2.Labels{
 				Labels: map[string]string{tag.ProviderTenant: "true"},
 			}, "provider tenant missing provider tenant label")
+
+			member, err := testStore.Tenant().AdditionalMethods().Member(tenant.Login).Get(ctx, tenant.Login)
+			require.NoError(innerT, err)
+
+			assert.Equal(innerT, apiv2.TenantRole_TENANT_ROLE_OWNER, member.Role)
 		})
 	}
 }
