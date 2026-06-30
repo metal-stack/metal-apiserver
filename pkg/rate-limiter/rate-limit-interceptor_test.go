@@ -125,9 +125,9 @@ func Test_ratelimitInterceptor_WrapUnary(t *testing.T) {
 
 			ctx, req := tt.setup()
 
-			for i := 0; i < tt.calls-1; i++ {
+			for i := range tt.calls - 1 {
 				_, err := wrapped(ctx, req)
-				require.NoError(t, err, "unexpected error on call %d during exhaustion", i+1)
+				require.NoError(t, err, "unexpected error on call %d during exhaustion", i)
 			}
 
 			nextBefore := nextCallCount
