@@ -3,17 +3,20 @@ package admin
 import (
 	"log/slog"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/api/go/tag"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
@@ -318,6 +321,105 @@ func Test_tenantServiceServer_Create(t *testing.T) {
 			}
 
 			assert.NotEmpty(t, got.Tenant.Login)
+		})
+	}
+}
+
+func Test_EnsureProviderTenant(t *testing.T) {
+	t.Parallel()
+
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
+	defer closer()
+
+	tests := []struct {
+		name             string
+		providerTenantID string
+		existingTenants  []*apiv2.TenantServiceCreateRequest
+		wantErr          error
+	}{
+		{
+			name:             "ensure provider tenant on fresh database",
+			providerTenantID: "metal-stack",
+			wantErr:          nil,
+		},
+		{
+			name: "ensure provider tenant next to existing tenants",
+			existingTenants: []*apiv2.TenantServiceCreateRequest{
+				{
+					Name: "tenant-a",
+				},
+				{
+					Name: "tenant-b",
+				},
+			},
+			providerTenantID: "metal-stack",
+			wantErr:          nil,
+		},
+		{
+			name:             "ensure label added on existing tenant",
+			providerTenantID: "metal-stack",
+			existingTenants: []*apiv2.TenantServiceCreateRequest{
+				{
+					Name: "metal-stack",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:             "provider tenant already present",
+			providerTenantID: "metal-stack",
+			existingTenants: []*apiv2.TenantServiceCreateRequest{
+				{
+					Name: "metal-stack",
+					Labels: &apiv2.Labels{
+						Labels: map[string]string{
+							tag.ProviderTenant: strconv.FormatBool(true),
+						},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:             "provider tenant already present, but want to create another one",
+			providerTenantID: "i-want-to-get-admin",
+			existingTenants: []*apiv2.TenantServiceCreateRequest{
+				{
+					Name: "metal-stack",
+					Labels: &apiv2.Labels{
+						Labels: map[string]string{
+							tag.ProviderTenant: strconv.FormatBool(true),
+						},
+					},
+				},
+			},
+			wantErr: errorutil.InvalidArgument(`provider tenant "metal-stack" already exists, refusing to create another one with id "i-want-to-get-admin"`),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(innerT *testing.T) {
+			ctx := innerT.Context()
+			defer testStore.Cleanup(t)
+
+			_ = test.CreateTenants(innerT, testStore, tt.existingTenants)
+
+			err := testStore.Tenant().AdditionalMethods().EnsureProviderTenant(ctx, tt.providerTenantID)
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+				innerT.Errorf("diff = %s", diff)
+			}
+
+			if tt.wantErr != nil {
+				return
+			}
+
+			tenant, err := testStore.Tenant().Get(ctx, tt.providerTenantID)
+			require.NoError(innerT, err)
+
+			assert.Equal(innerT, tenant.Meta.Labels, &apiv2.Labels{
+				Labels: map[string]string{tag.ProviderTenant: "true"},
+			}, "provider tenant missing provider tenant label")
 		})
 	}
 }
