@@ -57,6 +57,7 @@ func (s *server) Run(ctx context.Context) error {
 			PingTimeout:     5 * time.Second,
 		},
 	}
+
 	s.log.Info("serving http on", "addr", apiServer.Addr)
 
 	signals := make(chan os.Signal, 1)

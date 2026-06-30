@@ -36,7 +36,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/service/admin"
 	"github.com/metal-stack/metal-apiserver/pkg/service/api"
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/tenant"
-	"github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 	"github.com/metal-stack/metal-apiserver/pkg/service/infra"
 
 	authservice "github.com/metal-stack/metal-apiserver/pkg/service/auth"
@@ -64,7 +63,6 @@ type Config struct {
 	AuditBackends                       []auditing.Auditing
 	Stage                               string
 	RedisConfig                         *RedisConfig
-	Admins                              []string
 	MaxRequestsPerMinuteToken           int
 	MaxRequestsPerMinuteUnauthenticated int
 	IsStageDev                          bool
@@ -170,7 +168,7 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 
 	mux := http.NewServeMux()
 
-	tokenService, err := api.ApiServices(ctx, api.Config{
+	if err := api.ApiServices(ctx, api.Config{
 		Log:                log,
 		Repository:         c.Repository,
 		Datastore:          c.Datastore,
@@ -181,15 +179,11 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 		ProjectInviteStore: projectInviteStore,
 		TenantInviteStore:  tenantInviteStore,
 		TokenStore:         tokenStore,
-		CertStore:          certStore,
 		AuditSearchBackend: c.AuditSearchBackend,
 		Redis:              c.RedisConfig.ComponentClient,
-		ServerHttpURL:      c.ServerHttpURL,
-		Admins:             c.Admins,
 		AuditBackends:      c.AuditBackends,
 		HeadscaleClient:    c.HeadscaleClient,
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 
@@ -200,8 +194,6 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 		Interceptors:       adminInterceptors,
 		InviteStore:        tenantInviteStore,
 		TokenStore:         tokenStore,
-		TokenService:       tokenService,
-		CertStore:          certStore,
 		AuditSearchBackend: c.AuditSearchBackend,
 	})
 
@@ -227,7 +219,7 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 	mux.Handle(grpcreflect.NewHandlerV1Alpha(reflector))
 
 	// Add OIDC Handlers
-	authHandlerPath, authHandler, err := oidcAuthHandler(log, tokenService, c)
+	authHandlerPath, authHandler, err := oidcAuthHandler(log, c)
 	if err != nil {
 		return nil, err
 	}
@@ -239,7 +231,7 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 	return mux, nil
 }
 
-func oidcAuthHandler(log *slog.Logger, tokenService token.TokenService, c Config) (string, http.Handler, error) {
+func oidcAuthHandler(log *slog.Logger, c Config) (string, http.Handler, error) {
 	frontendURL, err := url.Parse(c.FrontEndUrl)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to parse frontend url %w", err)
@@ -247,7 +239,6 @@ func oidcAuthHandler(log *slog.Logger, tokenService token.TokenService, c Config
 
 	auth, err := authservice.New(authservice.Config{
 		Log:           log,
-		TokenService:  tokenService,
 		Repo:          c.Repository,
 		AuditBackends: c.AuditBackends,
 		FrontEndUrl:   frontendURL,
@@ -274,5 +265,4 @@ func oidcAuthHandler(log *slog.Logger, tokenService token.TokenService, c Config
 	}
 
 	return auth.NewHandler()
-
 }

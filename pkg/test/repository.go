@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alicebob/miniredis/v2"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
@@ -21,7 +22,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
-	"github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/auditing"
 	auditingmemory "github.com/metal-stack/metal-lib/auditing/memory"
@@ -52,13 +52,15 @@ type (
 		projectInviteStore invite.ProjectInviteStore
 		tenantInviteStore  invite.TenantInviteStore
 		tokenStore         tokencommon.TokenStore
+		certStore          certs.CertStore
 
 		// only use this when you are very certain about it!!
-		tokenService           token.TokenService
-		tc                     tenant.Client
-		rc                     *redis.Client
-		vc                     valkey.Client
-		hc                     *headscale.Client
+		tc tenant.Client
+		rc *redis.Client
+		vc valkey.Client
+		hc *headscale.Client
+		mr *miniredis.Miniredis
+
 		headscaleControllerURL string
 
 		audit auditing.Auditing
@@ -80,6 +82,12 @@ type (
 	}
 	testOptContainer struct {
 		with bool
+	}
+	testOptAdminSubjects struct {
+		subjects []string
+	}
+	testOptRenewCertBeforeExpiration struct {
+		renew *time.Duration
 	}
 )
 
@@ -118,6 +126,18 @@ func WithContainers(with bool) *testOptContainer {
 	}
 }
 
+func WithAdminSubjects(subjects ...string) *testOptAdminSubjects {
+	return &testOptAdminSubjects{
+		subjects: subjects,
+	}
+}
+
+func WithRenewCertBeforeExpiration(renew *time.Duration) *testOptRenewCertBeforeExpiration {
+	return &testOptRenewCertBeforeExpiration{
+		renew: renew,
+	}
+}
+
 func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...testOpt) (*testStore, func()) {
 	var (
 		withPostgres   = false
@@ -125,6 +145,9 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		withRethink    = true
 		withHeadscale  = false
 		withContainers = true
+
+		adminSubjects             []string
+		renewCertBeforeExpiration *time.Duration
 	)
 
 	for _, opt := range testOpts {
@@ -139,6 +162,10 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 			withHeadscale = o.with
 		case *testOptContainer:
 			withContainers = o.with
+		case *testOptAdminSubjects:
+			adminSubjects = o.subjects
+		case *testOptRenewCertBeforeExpiration:
+			renewCertBeforeExpiration = o.renew
 		default:
 			t.Errorf("unsupported test option: %T", o)
 		}
@@ -154,6 +181,7 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		rc                     *redis.Client
 		vc                     valkey.Client
 		hc                     *headscale.Client
+		mr                     *miniredis.Miniredis
 		headscaleControllerURL string
 		valkeyCloser           func()
 		ds                     generic.Datastore
@@ -171,9 +199,9 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 	}
 
 	if withValkey {
-		rc, vc, valkeyCloser = StartValkey(t)
+		rc, vc, _, valkeyCloser = StartValkey(t)
 	} else {
-		rc, vc, valkeyCloser = StartValkey(t, WithMiniRedis(true))
+		rc, vc, mr, valkeyCloser = StartValkey(t, WithMiniRedis(true))
 	}
 
 	if withHeadscale {
@@ -183,20 +211,13 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 	projectInviteStore := invite.NewProjectRedisStore(rc)
 	tenantInviteStore := invite.NewTenantRedisStore(rc)
 	tokenStore := tokencommon.NewRedisStore(rc)
-	certStore := certs.NewRedisStore(&certs.Config{RedisClient: rc})
+	certStore := certs.NewRedisStore(&certs.Config{RedisClient: rc, RenewCertBeforeExpiration: renewCertBeforeExpiration})
 
 	auditingBackend, err := auditingmemory.NewMemory(auditing.Config{
 		Component: api.AuditingComponent,
 		Log:       log,
 	}, auditingmemory.MemoryConfig{})
 	require.NoError(t, err)
-
-	tokenService := token.New(token.Config{
-		Log:        log,
-		TokenStore: tokenStore,
-		CertStore:  certStore,
-		Issuer:     tokenIssuer,
-	})
 
 	ipam, ipamCloser := StartIpam(t)
 
@@ -223,6 +244,10 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		Component:             vc, // Use same valkey instance as queue for tests
 		Auditing:              auditingBackend,
 		HeadscaleClient:       hc,
+		Certs:                 certStore,
+		Tokens:                tokenStore,
+		Issuer:                tokenIssuer,
+		AdminSubjects:         adminSubjects,
 	}
 
 	repo := repository.New(config)
@@ -256,12 +281,13 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		projectInviteStore:     projectInviteStore,
 		tenantInviteStore:      tenantInviteStore,
 		tokenStore:             tokenStore,
-		tokenService:           tokenService,
+		certStore:              certStore,
 		tc:                     tc,
 		rc:                     rc,
 		vc:                     vc,
 		audit:                  auditingBackend,
 		hc:                     hc,
+		mr:                     mr,
 		headscaleControllerURL: headscaleControllerURL,
 	}, closer
 }
@@ -271,8 +297,6 @@ func (s *testStore) Cleanup(t testing.TB) {
 	s.DeleteTenants()
 	DeleteIPs(t, s)
 	DeleteNetworks(t, s)
-
-	// TODO valkey
 
 	tables := s.ds.GetTableNames()
 
@@ -286,6 +310,13 @@ func (s *testStore) Cleanup(t testing.TB) {
 		require.NoError(t, err)
 		err = s.ds.VrfPool().ReleaseUniqueInteger(t.Context(), uint(i+1))
 		require.NoError(t, err)
+	}
+
+	toks, err := s.tokenStore.AdminList(t.Context())
+	require.NoError(t, err)
+
+	for _, tok := range toks {
+		require.NoError(t, s.tokenStore.Revoke(t.Context(), tok.User, tok.Uuid))
 	}
 }
 
@@ -303,6 +334,14 @@ func (t *testStore) GetTenantInviteStore() invite.TenantInviteStore {
 
 func (t *testStore) GetTokenStore() tokencommon.TokenStore {
 	return t.tokenStore
+}
+
+func (t *testStore) GetCertStore() certs.CertStore {
+	return t.certStore
+}
+
+func (t *testStore) GetMiniRedis() *miniredis.Miniredis {
+	return t.mr
 }
 
 func (t *testStore) GetTenantApiserverClient() tenant.Client {
@@ -333,14 +372,10 @@ func (t *testStore) GetAuditBackend() auditing.Auditing {
 	return t.audit
 }
 
-func (t *testStore) GetTokenService() token.TokenService {
-	return t.tokenService
-}
-
 func (t *testStore) GetToken(subject string, cr *apiv2.TokenServiceCreateRequest) *apiv2.Token {
-	resp, err := t.tokenService.CreateApiTokenWithoutPermissionCheck(t.t.Context(), subject, cr)
+	resp, err := t.Store.UnscopedToken().AdditionalMethods().CreateApiTokenWithoutPermissionCheck(t.t.Context(), subject, cr)
 	require.NoError(t.t, err)
-	return resp.GetToken()
+	return resp.Token
 }
 
 func (t *testStore) GetEventContainer(machineID string) *metal.ProvisioningEventContainer {
@@ -587,7 +622,7 @@ func CreateProjectInvites(t testing.TB, testStore *testStore, invites []*apiv2.P
 func CreateTenants(t testing.TB, testStore *testStore, tenants []*apiv2.TenantServiceCreateRequest) []string {
 	var tenantList []string
 	for _, tenant := range tenants {
-		tok, err := testStore.tokenService.CreateApiTokenWithoutPermissionCheck(t.Context(), tenant.GetName(), &apiv2.TokenServiceCreateRequest{
+		tok, err := testStore.UnscopedToken().AdditionalMethods().CreateApiTokenWithoutPermissionCheck(t.Context(), tenant.GetName(), &apiv2.TokenServiceCreateRequest{
 			Expires:   durationpb.New(time.Minute),
 			AdminRole: apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
 		})

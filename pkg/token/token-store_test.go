@@ -6,10 +6,13 @@ import (
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
+	"github.com/google/go-cmp/cmp"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -50,6 +53,11 @@ func TestRedisStore(t *testing.T) {
 	err = store.Revoke(ctx, johnDoeToken.User, johnDoeToken.Uuid)
 	require.NoError(t, err)
 
+	err = store.Revoke(ctx, johnDoeToken.User, "1234")
+	if diff := cmp.Diff(errorutil.NotFound("token not found"), err, errorutil.ErrorStringComparer()); diff != "" {
+		t.Errorf("error diff (+got -want):\n %s", diff)
+	}
+
 	tok, err = store.Get(ctx, johnDoeToken.User, johnDoeToken.Uuid)
 	require.Error(t, err)
 	require.Nil(t, tok)
@@ -89,6 +97,7 @@ func TestRedisStoreSetAndGet(t *testing.T) {
 		AdminRole:    new(apiv2.AdminRole_ADMIN_ROLE_VIEWER),
 		InfraRole:    new(apiv2.InfraRole_INFRA_ROLE_EDITOR),
 		MachineRoles: map[string]apiv2.MachineRole{},
+		Meta:         &apiv2.Meta{},
 	}
 
 	err := store.Set(ctx, inTok)
@@ -100,5 +109,13 @@ func TestRedisStoreSetAndGet(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, outTok)
 
-	assert.Equal(t, inTok, outTok)
+	if diff := cmp.Diff(
+		outTok, inTok,
+		protocmp.Transform(),
+		protocmp.IgnoreFields(
+			&apiv2.Meta{}, "created_at",
+		),
+	); diff != "" {
+		t.Errorf("diff: %s", diff)
+	}
 }

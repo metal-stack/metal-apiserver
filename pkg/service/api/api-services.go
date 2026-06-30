@@ -9,7 +9,6 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
-	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
@@ -51,17 +50,13 @@ type Config struct {
 	ProjectInviteStore invite.ProjectInviteStore
 	TenantInviteStore  invite.TenantInviteStore
 	TokenStore         tokencommon.TokenStore
-	CertStore          certs.CertStore
 	AuditSearchBackend auditing.Auditing
 	Redis              valkey.Client
 	AuditBackends      []auditing.Auditing
 	HeadscaleClient    *headscale.Client
-
-	ServerHttpURL string
-	Admins        []string
 }
 
-func ApiServices(ctx context.Context, cfg Config) (token.TokenService, error) {
+func ApiServices(ctx context.Context, cfg Config) error {
 	var (
 		auditService      = audit.New(audit.Config{Log: cfg.Log, Repo: cfg.Repository, AuditClient: cfg.AuditSearchBackend})
 		filesystemService = filesystem.New(filesystem.Config{Log: cfg.Log, Repo: cfg.Repository})
@@ -87,12 +82,8 @@ func ApiServices(ctx context.Context, cfg Config) (token.TokenService, error) {
 			TokenStore:  cfg.TokenStore,
 		})
 		tokenService = token.New(token.Config{
-			Log:           cfg.Log,
-			CertStore:     cfg.CertStore,
-			TokenStore:    cfg.TokenStore,
-			Repo:          cfg.Repository,
-			Issuer:        cfg.ServerHttpURL,
-			AdminSubjects: cfg.Admins,
+			Log:  cfg.Log,
+			Repo: cfg.Repository,
 		})
 		userService = user.New(&user.Config{
 			Log:  cfg.Log,
@@ -114,7 +105,7 @@ func ApiServices(ctx context.Context, cfg Config) (token.TokenService, error) {
 		TaskClient:          cfg.Repository.Task(),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("unable to initialize health service %w", err)
+		return fmt.Errorf("unable to initialize health service %w", err)
 	}
 
 	// Register the services
@@ -136,5 +127,5 @@ func ApiServices(ctx context.Context, cfg Config) (token.TokenService, error) {
 	cfg.Mux.Handle(apiv2connect.NewUserServiceHandler(userService, cfg.Interceptors))
 	cfg.Mux.Handle(apiv2connect.NewVersionServiceHandler(versionService, cfg.Interceptors))
 
-	return tokenService, nil
+	return nil
 }
