@@ -440,9 +440,9 @@ func Test_EnsureProviderTenant(t *testing.T) {
 			tenant, err := testStore.Tenant().Get(ctx, tt.providerTenantID)
 			require.NoError(innerT, err)
 
-			assert.Equal(innerT, tenant.Meta.Labels, &apiv2.Labels{
+			assert.Equal(innerT, &apiv2.Labels{
 				Labels: map[string]string{tag.ProviderTenant: "true"},
-			}, "provider tenant missing provider tenant label")
+			}, tenant.Meta.Labels, "provider tenant missing provider tenant label")
 
 			member, err := testStore.Tenant().AdditionalMethods().Member(tenant.Login).Get(ctx, tenant.Login)
 			require.NoError(innerT, err)
