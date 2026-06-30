@@ -469,13 +469,40 @@ func Test_Create(t *testing.T) {
 			},
 		},
 		{
-			name: "user without but token with tenant access cannot create tenant token",
+			name: "user requests token for mascots but in the database does not have required tenant membership for mascots",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles: map[string]apiv2.TenantRole{
 					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description:  "project token",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
+			state: state{
+				providerTenant: "metal-stack",
+				projectRoles:   map[string]apiv2.ProjectRole{},
+				tenantRoles: map[string]apiv2.TenantRole{
+					"phippy": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			wantErr:        true,
+			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.ProjectService/Create" is not allowed`,
+		},
+		{
+			name: "user requests token for mascots but neither has mascots in his token permissions nor in the database",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"phippy": apiv2.TenantRole_TENANT_ROLE_OWNER,
 				},
 			},
 			req: &apiv2.TokenServiceCreateRequest{
