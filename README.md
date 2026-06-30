@@ -1,6 +1,6 @@
 # metal-apiserver
 
-[![Actions](https://github.com/metal-stack/metal-apiserver/actions/workflows/docker.yaml/badge.svg?branch=main)](https://github.com/metal-stack/metal-apiserver/actions)
+[![Actions](https://github.com/metal-stack/metal-apiserver/actions/workflows/build.yaml/badge.svg?branch=main)](https://github.com/metal-stack/metal-apiserver/actions)
 [![Go Report Card](https://goreportcard.com/badge/github.com/metal-stack/metal-apiserver)](https://goreportcard.com/report/github.com/metal-stack/metal-apiserver)
 [![codecov](https://codecov.io/gh/metal-stack/metal-apiserver/branch/main/graph/badge.svg)](https://codecov.io/gh/metal-stack/metal-apiserver)
 
