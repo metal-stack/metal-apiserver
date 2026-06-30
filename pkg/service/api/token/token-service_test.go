@@ -1062,7 +1062,7 @@ func Test_validateTokenRequest(t *testing.T) {
 				Expires: inOneHour,
 			},
 			providerTenant: "metal-stack",
-			wantErr:        errors.New("the following method \"/metalstack.api.v2.AuditService/Get\" is not allowed"),
+			wantErr:        errors.New("requested tenant roles are not allowed: [john@github]"),
 		},
 		{
 			name: "token has to low role",
@@ -1293,7 +1293,7 @@ func Test_validateTokenRequest(t *testing.T) {
 				Expires: inOneHour,
 			},
 			providerTenant: "metal-stack",
-			wantErr:        errors.New("the following method \"/metalstack.admin.v2.NetworkService/Create\" is not allowed on any of the requested subjects: [internet]"),
+			wantErr:        errors.New("requested tenant roles are not allowed: [john@github]"),
 		},
 	}
 
@@ -1408,7 +1408,7 @@ func Test_Update(t *testing.T) {
 				providerTenant: "metal-stack",
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.IPService/Create" is not allowed`,
+			wantErrMessage: `permission_denied: requested project roles are not allowed: [00000000-0000-0000-0000-000000000000]`,
 		},
 		{
 			name: "user and token with project access can update project token",
@@ -1480,7 +1480,7 @@ func Test_Update(t *testing.T) {
 				projectRoles:   map[string]apiv2.ProjectRole{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.IPService/Create" is not allowed`,
+			wantErrMessage: `permission_denied: requested project roles are not allowed: [00000000-0000-0000-0000-000000000000]`,
 		},
 		{
 			name: "project without but user with project access cannot create project token",
@@ -1511,7 +1511,7 @@ func Test_Update(t *testing.T) {
 				},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.IPService/Create" is not allowed on any of the requested subjects: [00000000-0000-0000-0000-000000000000]`,
+			wantErrMessage: `permission_denied: requested project roles are not allowed: [00000000-0000-0000-0000-000000000000]`,
 		},
 		{
 			name: "admin user and token can update admin token",
@@ -1601,7 +1601,7 @@ func Test_Update(t *testing.T) {
 				providerTenant: "metal-stack",
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.ProjectService/Create" is not allowed`,
+			wantErrMessage: `permission_denied: requested tenant roles are not allowed: [mascots]`,
 		},
 		{
 			name: "user and token with tenant access can update tenant token",
@@ -1671,7 +1671,7 @@ func Test_Update(t *testing.T) {
 				projectRoles:   map[string]apiv2.ProjectRole{},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.ProjectService/Create" is not allowed`,
+			wantErrMessage: `permission_denied: requested tenant roles are not allowed: [mascots]`,
 		},
 		{
 			name: "token without but user with tenant access cannot update tenant token",
@@ -1700,7 +1700,7 @@ func Test_Update(t *testing.T) {
 				},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.ProjectService/Create" is not allowed on any of the requested subjects: [mascots]`,
+			wantErrMessage: `permission_denied: requested tenant roles are not allowed: [mascots]`,
 		},
 		{
 			name: "token does not exist in database",
