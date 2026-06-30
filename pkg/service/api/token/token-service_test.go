@@ -493,7 +493,7 @@ func Test_Create(t *testing.T) {
 				},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.ProjectService/Create" is not allowed`,
+			wantErrMessage: `permission_denied: requested tenant roles are not allowed: [mascots]`,
 		},
 		{
 			name: "user requests token for mascots but neither has mascots in his token permissions nor in the database",
@@ -520,7 +520,7 @@ func Test_Create(t *testing.T) {
 				},
 			},
 			wantErr:        true,
-			wantErrMessage: `permission_denied: the following method "/metalstack.api.v2.ProjectService/Create" is not allowed`,
+			wantErrMessage: `permission_denied: requested tenant roles are not allowed: [mascots]`,
 		},
 		{
 			name: "token without but user with tenant access cannot create tenant token",

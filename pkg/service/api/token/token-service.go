@@ -14,6 +14,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/request"
+	"github.com/samber/lo"
 
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
@@ -494,11 +495,32 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 		infraRole = req.GetInfraRole().Enum()
 	}
 
+	var (
+		requestedTenants    = lo.Keys(req.GetTenantRoles())
+		allowedTenants      = lo.Keys(currentToken.TenantRoles)
+		forbiddenTenants, _ = lo.Difference(requestedTenants, allowedTenants)
+	)
+
+	if len(forbiddenTenants) > 0 {
+		return fmt.Errorf("requested tenant roles are not allowed: %v", forbiddenTenants)
+	}
+
 	for _, tr := range req.GetTenantRoles() {
 		if tr == apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED {
 			return fmt.Errorf("requested tenant role: %q is not allowed", tr)
 		}
 	}
+
+	var (
+		requestedProjects    = lo.Keys(req.GetProjectRoles())
+		allowedProjects      = lo.Keys(currentToken.ProjectRoles)
+		forbiddenProjects, _ = lo.Difference(requestedProjects, allowedProjects)
+	)
+
+	if len(forbiddenProjects) > 0 {
+		return fmt.Errorf("requested project roles are not allowed: %v", forbiddenProjects)
+	}
+
 	for _, pr := range req.GetProjectRoles() {
 		if pr == apiv2.ProjectRole_PROJECT_ROLE_UNSPECIFIED {
 			return fmt.Errorf("requested project role: %q is not allowed", pr)
