@@ -97,6 +97,8 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 				servicePermissions.Roles.Admin[apiv2.AdminRole_ADMIN_ROLE_VIEWER.String()]...)
 			adminViewerMethods = append(adminViewerMethods,
 				servicePermissions.Roles.Infra[apiv2.InfraRole_INFRA_ROLE_VIEWER.String()]...)
+			adminViewerMethods = append(adminViewerMethods,
+				servicePermissions.Roles.Machine[apiv2.MachineRole_MACHINE_ROLE_VIEWER.String()]...)
 			adminViewerMethods = append(adminViewerMethods, publicMethods()...)
 			adminViewerMethods = append(adminViewerMethods, selfMethods()...)
 
