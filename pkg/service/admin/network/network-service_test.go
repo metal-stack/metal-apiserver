@@ -2313,8 +2313,8 @@ func Test_networkServiceServer_Update(t *testing.T) {
 					UpdatedAt: timestamppb.New(networkMap["tenant-1"].Meta.UpdatedAt.AsTime()),
 				},
 				Labels: &apiv2.UpdateLabels{
-					Strategy: &apiv2.UpdateLabels_Inidivual{
-						Inidivual: &apiv2.UpdateLabelsIndividually{
+					Strategy: &apiv2.UpdateLabels_Individual{
+						Individual: &apiv2.UpdateLabelsIndividually{
 							Update: &apiv2.Labels{Labels: map[string]string{"color": "red", "size": "large"}},
 						},
 					},
