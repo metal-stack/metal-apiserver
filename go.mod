@@ -4,6 +4,7 @@ go 1.26.4
 
 require (
 	buf.build/go/protovalidate v1.2.0
+	buf.build/go/protoyaml v0.7.0
 	connectrpc.com/connect v1.20.0
 	connectrpc.com/grpchealth v1.5.0
 	connectrpc.com/grpcreflect v1.3.0
@@ -26,7 +27,7 @@ require (
 	github.com/lestrrat-go/jwx/v3 v3.1.1
 	github.com/looplab/fsm v1.0.3
 	github.com/markbates/goth v1.82.0
-	github.com/metal-stack/api v0.2.0
+	github.com/metal-stack/api v0.2.1-0.20260630105646-ce9c344f0c46
 	github.com/metal-stack/go-ipam v1.15.1
 	github.com/metal-stack/metal-lib v0.25.2
 	github.com/metal-stack/tenant-api v0.1.1
