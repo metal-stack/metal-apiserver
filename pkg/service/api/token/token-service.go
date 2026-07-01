@@ -510,7 +510,7 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 		forbiddenTenants, _ = lo.Difference(requestedTenants, allowedTenants)
 	)
 
-	if len(forbiddenTenants) > 0 {
+	if len(forbiddenTenants) > 0 && !slices.Contains(allowedTenants, "*") {
 		return fmt.Errorf("requested tenant roles are not allowed: %v", forbiddenTenants)
 	}
 
@@ -526,7 +526,7 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 		forbiddenProjects, _ = lo.Difference(requestedProjects, allowedProjects)
 	)
 
-	if len(forbiddenProjects) > 0 {
+	if len(forbiddenProjects) > 0 && !slices.Contains(allowedProjects, "*") {
 		return fmt.Errorf("requested project roles are not allowed: %v", forbiddenProjects)
 	}
 
@@ -546,12 +546,12 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 	}
 
 	var (
-		requestedMachineRoles = lo.Keys(req.GetMachineRoles())
-		allowedMachineRoles   = lo.Keys(currentToken.MachineRoles)
-		forbiddenMachines, _  = lo.Difference(requestedMachineRoles, allowedMachineRoles)
+		requestedMachines    = lo.Keys(req.GetMachineRoles())
+		allowedMachines      = lo.Keys(currentToken.MachineRoles)
+		forbiddenMachines, _ = lo.Difference(requestedMachines, allowedMachines)
 	)
 
-	if len(forbiddenMachines) > 0 {
+	if len(forbiddenMachines) > 0 && !slices.Contains(allowedMachines, "*") {
 		return fmt.Errorf("requested machine roles are not allowed: %v", forbiddenMachines)
 	}
 

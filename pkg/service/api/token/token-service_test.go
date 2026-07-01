@@ -588,10 +588,10 @@ func Test_Create(t *testing.T) {
 		{
 			name: "user and token with machine access can create machine token",
 			sessionToken: &apiv2.Token{
-				User:        "phippy",
+				User:        "pixie-core",
 				Permissions: []*apiv2.MethodPermission{},
 				MachineRoles: map[string]apiv2.MachineRole{
-					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+					"*": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
 				},
 				TenantRoles: map[string]apiv2.TenantRole{},
 			},
@@ -606,7 +606,7 @@ func Test_Create(t *testing.T) {
 				providerTenant: "metal-stack",
 			},
 			wantToken: &apiv2.Token{
-				User:        "phippy",
+				User:        "pixie-core",
 				Description: "machine token",
 				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
 				MachineRoles: map[string]apiv2.MachineRole{
@@ -777,9 +777,9 @@ func Test_CreateForUser(t *testing.T) {
 			},
 		},
 		{
-			name: "admin can create token for user with machine roles",
+			name: "pixie-core can create token for metal-hammer with machine roles",
 			sessionToken: &apiv2.Token{
-				User:         "phippy",
+				User:         "pixie-core",
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -793,7 +793,7 @@ func Test_CreateForUser(t *testing.T) {
 					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
 				},
 			},
-			user: new("foo"),
+			user: new("metal-hammer"),
 			state: state{
 				providerTenant: "phippy",
 				tenantRoles: map[string]apiv2.TenantRole{
@@ -801,7 +801,7 @@ func Test_CreateForUser(t *testing.T) {
 				},
 			},
 			wantToken: &apiv2.Token{
-				User:        "foo",
+				User:        "metal-hammer",
 				Description: "machine token",
 				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
 				MachineRoles: map[string]apiv2.MachineRole{
@@ -2059,6 +2059,7 @@ func Test_Refresh(t *testing.T) {
 				Permissions:  nil,
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
+				MachineRoles: map[string]apiv2.MachineRole{},
 				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				IssuedAt:     timestamppb.New(exp),
 				Expires:      timestamppb.New(exp.Add(time.Hour)),
@@ -2093,8 +2094,10 @@ func Test_Refresh(t *testing.T) {
 				providerTenant: "metal-stack",
 			},
 			wantToken: &apiv2.Token{
-				Uuid: token1,
-				User: "phippy",
+				Uuid:         token1,
+				User:         "phippy",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
 				MachineRoles: map[string]apiv2.MachineRole{
 					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
 				},
