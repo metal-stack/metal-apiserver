@@ -12,6 +12,7 @@ import (
 )
 
 func Test_versionServiceServer_Get(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		ctx      context.Context

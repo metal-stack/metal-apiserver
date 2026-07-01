@@ -380,6 +380,9 @@ func Test_imageServiceServer_Usage(t *testing.T) {
 						Image: dc.GetImages()[sc.ImageDebian12],
 					},
 					{
+						Image: dc.GetImages()[sc.ImageDebian11],
+					},
+					{
 						Image: dc.GetImages()[sc.ImageFirewall3_0],
 					},
 				},

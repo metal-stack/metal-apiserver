@@ -11,6 +11,7 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	goipam "github.com/metal-stack/go-ipam"
+	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
@@ -73,6 +74,7 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 	// if partition is not nil, a super in this partition must be present and is used
 	// if partition is nil, a superNamespaces must be present and is used
 	// project is mandatory
+	// only one child-shared per project
 	// parent network id is optional, if not given, exactly one private super must be found before
 	// nat is optional
 	// shared is optional
@@ -212,7 +214,7 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 		}
 	}
 
-	if err := r.validatePrefixesAndAddressFamilies(parentNetwork.Prefixes, nil, parentLength, new(metal.NetworkTypeChild)); err != nil {
+	if err := r.validatePrefixesAndAddressFamilies(parentNetwork.Prefixes, nil, parentLength, metal.NetworkTypeChild); err != nil {
 		return err
 	}
 
@@ -270,11 +272,11 @@ func (r *networkRepository) validateCreateNetworkTypeSuper(ctx context.Context, 
 		return err
 	}
 
-	if err := r.validatePrefixesAndAddressFamilies(prefixes, nil, defaultChildPrefixLength, new(metal.NetworkTypeSuper)); err != nil {
+	if err := r.validatePrefixesAndAddressFamilies(prefixes, nil, defaultChildPrefixLength, metal.NetworkTypeSuper); err != nil {
 		return err
 	}
 
-	if err := r.validateAdditionalAnnouncableCIDRs(req.AdditionalAnnouncableCidrs, new(metal.NetworkTypeSuper)); err != nil {
+	if err := r.validateAdditionalAnnouncableCIDRs(req.AdditionalAnnouncableCidrs, metal.NetworkTypeSuper); err != nil {
 		return err
 
 	}
@@ -326,7 +328,7 @@ func (r *networkRepository) validateCreateNetworkTypeExternal(ctx context.Contex
 		return err
 	}
 
-	if err := r.validatePrefixesAndAddressFamilies(prefixes, destinationprefixes.AddressFamilies(), nil, new(metal.NetworkTypeExternal)); err != nil {
+	if err := r.validatePrefixesAndAddressFamilies(prefixes, destinationprefixes.AddressFamilies(), nil, metal.NetworkTypeExternal); err != nil {
 		return err
 	}
 
@@ -455,7 +457,7 @@ func (r *networkRepository) networkTypeInPartitionPossible(ctx context.Context, 
 	return nil
 }
 
-func (r *networkRepository) validatePrefixesAndAddressFamilies(prefixes metal.Prefixes, destPrefixesAfs metal.AddressFamilies, defaultChildPrefixLength metal.ChildPrefixLength, networkType *metal.NetworkType) error {
+func (r *networkRepository) validatePrefixesAndAddressFamilies(prefixes metal.Prefixes, destPrefixesAfs metal.AddressFamilies, defaultChildPrefixLength metal.ChildPrefixLength, networkType metal.NetworkType) error {
 	for _, af := range destPrefixesAfs {
 		if !slices.Contains(prefixes.AddressFamilies(), af) {
 			return fmt.Errorf("addressfamily:%s of destination prefixes is not present in existing prefixes", af)
@@ -479,7 +481,7 @@ func (r *networkRepository) validatePrefixesAndAddressFamilies(prefixes metal.Pr
 	return nil
 }
 
-func (r *networkRepository) validateAdditionalAnnouncableCIDRs(additionalCidrs []string, networkType *metal.NetworkType) error {
+func (r *networkRepository) validateAdditionalAnnouncableCIDRs(additionalCidrs []string, networkType metal.NetworkType) error {
 	if len(additionalCidrs) == 0 {
 		return nil
 	}
@@ -499,8 +501,8 @@ func (r *networkRepository) validateAdditionalAnnouncableCIDRs(additionalCidrs [
 }
 
 func (r *networkRepository) validateUpdate(ctx context.Context, req *adminv2.NetworkServiceUpdateRequest, nw *metal.Network) error {
-	if nw.NetworkType == nil {
-		return errorutil.Internal("networktype is nil")
+	if nw.NetworkType == metal.NetworkType("") {
+		return errorutil.Internal("networktype is not set")
 	}
 
 	if req.DefaultChildPrefixLength != nil && !metal.IsSuperNetwork(nw.NetworkType) {
@@ -674,4 +676,31 @@ func (*networkRepository) validatePrefixesOnBoundaries(prefixes []string) error 
 	}
 
 	return errors.Join(errs...)
+}
+
+func (r *networkRepository) ipsAvailable(ctx context.Context, network string) error {
+	metalnetwork, err := r.s.ds.Network().Get(ctx, network)
+	if err != nil {
+		return err
+	}
+
+	var availableIps uint64
+
+	for _, pfx := range metalnetwork.Prefixes {
+		usage, err := r.s.ipam.PrefixUsage(ctx, &ipamv1.PrefixUsageRequest{
+			Cidr:      pfx.String(),
+			Namespace: metalnetwork.Namespace,
+		})
+		if err != nil {
+			return fmt.Errorf("unable to get network usage of %q and prefixes: %q, %w", network, pfx.String(), err)
+		}
+
+		availableIps += (usage.AvailableIps - usage.AcquiredIps)
+	}
+
+	if availableIps < 1 {
+		return fmt.Errorf("no free ips in network %q", network)
+	}
+
+	return nil
 }

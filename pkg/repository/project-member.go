@@ -5,9 +5,9 @@ import (
 	"time"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
+	tenantv1 "github.com/metal-stack/tenant-api/go/api/v1"
 )
 
 type (
@@ -17,7 +17,7 @@ type (
 	}
 
 	projectMemberEntity struct {
-		*mdcv1.ProjectMember
+		*tenantv1.ProjectMember
 	}
 )
 
@@ -25,8 +25,8 @@ func (t *projectMemberEntity) SetChanged(time time.Time) {}
 
 func (t *projectMemberRepository) convertToInternal(ctx context.Context, msg *apiv2.ProjectMember) (*projectMemberEntity, error) {
 	return &projectMemberEntity{
-		ProjectMember: &mdcv1.ProjectMember{
-			Meta: &mdcv1.Meta{
+		ProjectMember: &tenantv1.ProjectMember{
+			Meta: &tenantv1.Meta{
 				Id: msg.Id,
 				Annotations: map[string]string{
 					api.ProjectRoleAnnotation: msg.Role.String(),
@@ -49,9 +49,9 @@ func (t *projectMemberRepository) convertToProto(ctx context.Context, e *project
 }
 
 func (t *projectMemberRepository) create(ctx context.Context, c *api.ProjectMemberCreateRequest) (*projectMemberEntity, error) {
-	resp, err := t.s.mdc.ProjectMember().Create(ctx, &mdcv1.ProjectMemberCreateRequest{
-		ProjectMember: &mdcv1.ProjectMember{
-			Meta: &mdcv1.Meta{
+	resp, err := t.s.tc.Apiv1().ProjectMember().Create(ctx, &tenantv1.ProjectMemberServiceCreateRequest{
+		ProjectMember: &tenantv1.ProjectMember{
+			Meta: &tenantv1.Meta{
 				Annotations: map[string]string{
 					api.ProjectRoleAnnotation: c.Role.String(),
 				},
@@ -69,15 +69,15 @@ func (t *projectMemberRepository) create(ctx context.Context, c *api.ProjectMemb
 	}, nil
 }
 
-func (t *projectMemberRepository) delete(ctx context.Context, e *projectMemberEntity) error {
-	_, err := t.s.mdc.ProjectMember().Delete(ctx, &mdcv1.ProjectMemberDeleteRequest{
+func (t *projectMemberRepository) delete(ctx context.Context, e *projectMemberEntity) (*deleteInfo, error) {
+	_, err := t.s.tc.Apiv1().ProjectMember().Delete(ctx, &tenantv1.ProjectMemberServiceDeleteRequest{
 		Id: e.Meta.Id,
 	})
 	if err != nil {
-		return errorutil.Convert(err)
+		return nil, errorutil.Convert(err)
 	}
 
-	return nil
+	return nil, nil
 }
 
 func (t *projectMemberRepository) find(ctx context.Context, query *api.ProjectMemberQuery) (*projectMemberEntity, error) {
@@ -114,7 +114,7 @@ func (t *projectMemberRepository) get(ctx context.Context, id string) (*projectM
 }
 
 func (t *projectMemberRepository) list(ctx context.Context, query *api.ProjectMemberQuery) ([]*projectMemberEntity, error) {
-	resp, err := t.s.mdc.ProjectMember().Find(ctx, &mdcv1.ProjectMemberFindRequest{
+	resp, err := t.s.tc.Apiv1().ProjectMember().List(ctx, &tenantv1.ProjectMemberServiceListRequest{
 		ProjectId:   &t.scope.projectID,
 		TenantId:    query.TenantId,
 		Annotations: query.Annotations,
@@ -144,7 +144,7 @@ func (t *projectMemberRepository) update(ctx context.Context, member *projectMem
 		member.Meta.Annotations[api.ProjectRoleAnnotation] = msg.Role.String()
 	}
 
-	resp, err := t.s.mdc.ProjectMember().Update(ctx, &mdcv1.ProjectMemberUpdateRequest{
+	resp, err := t.s.tc.Apiv1().ProjectMember().Update(ctx, &tenantv1.ProjectMemberServiceUpdateRequest{
 		ProjectMember: member.ProjectMember,
 	})
 	if err != nil {

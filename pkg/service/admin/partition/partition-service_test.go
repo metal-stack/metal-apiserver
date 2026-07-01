@@ -100,10 +100,21 @@ func Test_partitionServiceServer_Create(t *testing.T) {
 			wantErr: errorutil.InvalidArgument(`dns name: 1:3 for ntp server not correct`),
 		},
 		{
-			name:    "valid partition",
-			request: &adminv2.PartitionServiceCreateRequest{Partition: &apiv2.Partition{Id: partition1, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}}},
+			name: "valid partition",
+			request: &adminv2.PartitionServiceCreateRequest{
+				Partition: &apiv2.Partition{
+					Id:                   partition1,
+					BootConfiguration:    &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL},
+					MgmtServiceAddresses: []string{"mgmtsrv.partition"},
+				},
+			},
 			want: &adminv2.PartitionServiceCreateResponse{
-				Partition: &apiv2.Partition{Id: partition1, Meta: &apiv2.Meta{}, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
+				Partition: &apiv2.Partition{
+					Id:                   partition1,
+					Meta:                 &apiv2.Meta{},
+					BootConfiguration:    &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL},
+					MgmtServiceAddresses: []string{"mgmtsrv.partition"},
+				},
 			},
 			wantErr: nil,
 		},
@@ -234,12 +245,16 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 				UpdateMeta: &apiv2.UpdateMeta{
 					UpdatedAt: timestamppb.New(partitionMap[partition1].Meta.UpdatedAt.AsTime()),
 				},
-				BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
+				BootConfiguration:    &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL},
+				MgmtServiceAddresses: []string{"mgmtsrv.partition"},
+			},
 			want: &adminv2.PartitionServiceUpdateResponse{
 				Partition: &apiv2.Partition{
-					Id:                partition1,
-					Meta:              &apiv2.Meta{Generation: 1},
-					BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
+					Id:                   partition1,
+					Meta:                 &apiv2.Meta{Generation: 1},
+					BootConfiguration:    &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL},
+					MgmtServiceAddresses: []string{"mgmtsrv.partition"},
+				},
 			},
 			wantErr: nil,
 		},
@@ -250,12 +265,16 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 				UpdateMeta: &apiv2.UpdateMeta{
 					UpdatedAt: timestamppb.New(partitionMap[partition2].Meta.UpdatedAt.AsTime()),
 				},
-				BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL + "/changed", KernelUrl: validURL}},
+				BootConfiguration:    &apiv2.PartitionBootConfiguration{ImageUrl: validURL + "/changed", KernelUrl: validURL},
+				MgmtServiceAddresses: []string{"mgmtsrv.partition"},
+			},
 			want: &adminv2.PartitionServiceUpdateResponse{
 				Partition: &apiv2.Partition{
-					Id:                partition2,
-					Meta:              &apiv2.Meta{Generation: 1},
-					BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL + "/changed", KernelUrl: validURL}},
+					Id:                   partition2,
+					Meta:                 &apiv2.Meta{Generation: 1},
+					BootConfiguration:    &apiv2.PartitionBootConfiguration{ImageUrl: validURL + "/changed", KernelUrl: validURL},
+					MgmtServiceAddresses: []string{"mgmtsrv.partition"},
+				},
 			},
 			wantErr: nil,
 		},
@@ -266,13 +285,23 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 				UpdateMeta: &apiv2.UpdateMeta{
 					UpdatedAt: timestamppb.New(partitionMap[partition3].Meta.UpdatedAt.AsTime()),
 				},
-				Labels:            &apiv2.UpdateLabels{Update: &apiv2.Labels{Labels: map[string]string{"color": "red"}}},
-				BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL + "/changed", KernelUrl: validURL}},
+				Labels: &apiv2.UpdateLabels{
+					Strategy: &apiv2.UpdateLabels_Inidivual{
+						Inidivual: &apiv2.UpdateLabelsIndividually{
+							Update: &apiv2.Labels{Labels: map[string]string{"color": "red"}},
+						},
+					},
+				},
+				BootConfiguration:    &apiv2.PartitionBootConfiguration{ImageUrl: validURL + "/changed", KernelUrl: validURL},
+				MgmtServiceAddresses: []string{"mgmtsrv.partition"},
+			},
 			want: &adminv2.PartitionServiceUpdateResponse{
 				Partition: &apiv2.Partition{
-					Id:                partition3,
-					Meta:              &apiv2.Meta{Labels: &apiv2.Labels{Labels: map[string]string{"color": "red"}}, Generation: 1},
-					BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL + "/changed", KernelUrl: validURL}},
+					Id:                   partition3,
+					Meta:                 &apiv2.Meta{Labels: &apiv2.Labels{Labels: map[string]string{"color": "red"}}, Generation: 1},
+					BootConfiguration:    &apiv2.PartitionBootConfiguration{ImageUrl: validURL + "/changed", KernelUrl: validURL},
+					MgmtServiceAddresses: []string{"mgmtsrv.partition"},
+				},
 			},
 			wantErr: nil,
 		},
@@ -524,8 +553,8 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 			request: &adminv2.PartitionServiceCapacityRequest{Id: &partition1},
 			scenarioModFn: func(spec *sc.DatacenterSpec) {
 				spec.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessAlive),
-					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessAlive, false),
+					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessAlive, false),
 				}
 			},
 			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
@@ -562,11 +591,11 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 			},
 			scenarioModFn: func(spec *sc.DatacenterSpec) {
 				spec.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessDead),
-					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessAlive),
-					sc.MachineFunc(sc.Machine3, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessAlive),
-					sc.MachineFunc(sc.Machine4, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, sc.ImageFirewall3_0, metal.MachineLivelinessDead),
-					sc.MachineFunc(sc.Machine5, sc.Partition2, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessDead, false),
+					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessAlive, false),
+					sc.MachineFunc(sc.Machine3, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessAlive, false),
+					sc.MachineFunc(sc.Machine4, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, sc.ImageFirewall3_0, metal.MachineLivelinessDead, false),
+					sc.MachineFunc(sc.Machine5, sc.Partition2, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessAlive, false),
 				}
 			},
 			want: &adminv2.PartitionServiceCapacityResponse{PartitionCapacity: []*adminv2.PartitionCapacity{
@@ -585,11 +614,11 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 			scenarioModFn: func(spec *sc.DatacenterSpec) {
 				spec.Partitions = []string{sc.Partition1, sc.Partition2}
 				spec.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessDead),
-					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessAlive),
-					sc.MachineFunc(sc.Machine3, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessAlive),
-					sc.MachineFunc(sc.Machine4, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, sc.ImageFirewall3_0, metal.MachineLivelinessAlive),
-					sc.MachineFunc(sc.Machine5, sc.Partition2, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessDead, false),
+					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessAlive, false),
+					sc.MachineFunc(sc.Machine3, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessAlive, false),
+					sc.MachineFunc(sc.Machine4, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, sc.ImageFirewall3_0, metal.MachineLivelinessAlive, false),
+					sc.MachineFunc(sc.Machine5, sc.Partition2, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessAlive, false),
 				}
 				spec.Machines[3].Machine.IPMI.Address = ""
 				spec.SizeReservations = []*adminv2.SizeReservationServiceCreateRequest{}
@@ -616,7 +645,7 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 			request: &adminv2.PartitionServiceCapacityRequest{Id: &partition1},
 			scenarioModFn: func(spec *sc.DatacenterSpec) {
 				spec.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive, false),
 				}
 				spec.Machines[0].Machine.Waiting = true
 			},
@@ -635,7 +664,7 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 			request: &adminv2.PartitionServiceCapacityRequest{Id: &partition1},
 			scenarioModFn: func(spec *sc.DatacenterSpec) {
 				spec.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, "", "", metal.MachineLivelinessDead),
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, "", "", metal.MachineLivelinessDead, false),
 				}
 				spec.Machines[0].Machine.Waiting = true
 			},
@@ -654,8 +683,8 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 			request: &adminv2.PartitionServiceCapacityRequest{Id: &partition1},
 			scenarioModFn: func(spec *sc.DatacenterSpec) {
 				spec.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive),
-					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive, false),
+					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessAlive, false),
 				}
 				spec.Machines[0].Machine.Waiting = true
 			},
@@ -674,7 +703,7 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 			request: &adminv2.PartitionServiceCapacityRequest{Id: &partition1},
 			scenarioModFn: func(spec *sc.DatacenterSpec) {
 				spec.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive, false),
 				}
 				spec.Machines[0].Machine.Waiting = true
 				spec.Machines[0].Machine.State.Value = metal.AvailableState
@@ -694,7 +723,7 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 			request: &adminv2.PartitionServiceCapacityRequest{Id: &partition1},
 			scenarioModFn: func(spec *sc.DatacenterSpec) {
 				spec.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive, false),
 				}
 				spec.Machines[0].Machine.Waiting = false
 			},
@@ -709,11 +738,11 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:    "reserved machine does not count as free",
+			name:    "tainted machine does not count as free",
 			request: &adminv2.PartitionServiceCapacityRequest{Id: &partition1},
 			scenarioModFn: func(spec *sc.DatacenterSpec) {
 				spec.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeN1Medium, "", "", metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeN1Medium, "", "", metal.MachineLivelinessAlive, false),
 				}
 				spec.Machines[0].Machine.Waiting = true
 			},
@@ -733,7 +762,7 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 			scenarioModFn: func(spec *sc.DatacenterSpec) {
 				spec.ProjectsPerTenant = 2
 				spec.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeN1Medium, "", "", metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeN1Medium, "", "", metal.MachineLivelinessAlive, false),
 				}
 				spec.Machines[0].Machine.Waiting = true
 				spec.SizeReservations = []*adminv2.SizeReservationServiceCreateRequest{
@@ -774,9 +803,9 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 			request: &adminv2.PartitionServiceCapacityRequest{Id: &partition1},
 			scenarioModFn: func(spec *sc.DatacenterSpec) {
 				spec.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, sc.ImageFirewall3_0, metal.MachineLivelinessAlive),
-					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, sc.ImageFirewall3_0, metal.MachineLivelinessAlive),
-					sc.MachineFunc(sc.Machine3, sc.Partition1, sc.SizeN1Medium, "", "", metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, sc.ImageFirewall3_0, metal.MachineLivelinessAlive, false),
+					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, sc.ImageFirewall3_0, metal.MachineLivelinessAlive, false),
+					sc.MachineFunc(sc.Machine3, sc.Partition1, sc.SizeN1Medium, "", "", metal.MachineLivelinessAlive, false),
 				}
 				spec.Machines[2].Machine.Waiting = true
 				spec.SizeReservations = []*adminv2.SizeReservationServiceCreateRequest{
@@ -807,9 +836,9 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 			request: &adminv2.PartitionServiceCapacityRequest{Id: &partition1},
 			scenarioModFn: func(spec *sc.DatacenterSpec) {
 				spec.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, sc.ImageFirewall3_0, metal.MachineLivelinessAlive),
-					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, sc.ImageFirewall3_0, metal.MachineLivelinessAlive),
-					sc.MachineFunc(sc.Machine3, sc.Partition1, sc.SizeN1Medium, "", "", metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, sc.ImageFirewall3_0, metal.MachineLivelinessAlive, false),
+					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, sc.ImageFirewall3_0, metal.MachineLivelinessAlive, false),
+					sc.MachineFunc(sc.Machine3, sc.Partition1, sc.SizeN1Medium, "", "", metal.MachineLivelinessAlive, false),
 				}
 				spec.Machines[2].Machine.Waiting = true
 				spec.SizeReservations = []*adminv2.SizeReservationServiceCreateRequest{
@@ -841,9 +870,9 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 			scenarioModFn: func(spec *sc.DatacenterSpec) {
 				spec.Partitions = []string{sc.Partition1, sc.Partition2}
 				spec.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, sc.ImageFirewall3_0, metal.MachineLivelinessAlive),
-					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, sc.ImageFirewall3_0, metal.MachineLivelinessAlive),
-					sc.MachineFunc(sc.Machine3, sc.Partition1, sc.SizeN1Medium, "", "", metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, sc.ImageFirewall3_0, metal.MachineLivelinessAlive, false),
+					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, sc.ImageFirewall3_0, metal.MachineLivelinessAlive, false),
+					sc.MachineFunc(sc.Machine3, sc.Partition1, sc.SizeN1Medium, "", "", metal.MachineLivelinessAlive, false),
 				}
 				spec.Machines[2].Machine.Waiting = true
 				spec.SizeReservations = []*adminv2.SizeReservationServiceCreateRequest{
@@ -888,9 +917,9 @@ func Test_partitionServiceServer_Capacity(t *testing.T) {
 			scenarioModFn: func(spec *sc.DatacenterSpec) {
 				spec.Partitions = []string{sc.Partition1, sc.Partition2}
 				spec.Machines = []*sc.MachineWithLiveliness{
-					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, sc.ImageFirewall3_0, metal.MachineLivelinessAlive),
-					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, "", "", metal.MachineLivelinessAlive),
-					sc.MachineFunc(sc.Machine3, sc.Partition1, sc.SizeN1Medium, "", "", metal.MachineLivelinessAlive),
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeN1Medium, sc.Tenant1Project1, sc.ImageFirewall3_0, metal.MachineLivelinessAlive, false),
+					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeN1Medium, "", "", metal.MachineLivelinessAlive, false),
+					sc.MachineFunc(sc.Machine3, sc.Partition1, sc.SizeN1Medium, "", "", metal.MachineLivelinessAlive, false),
 				}
 				spec.Machines[1].Machine.Waiting = true
 				spec.Machines[2].Machine.Waiting = true

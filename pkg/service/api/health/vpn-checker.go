@@ -5,10 +5,11 @@ import (
 
 	headscalev1 "github.com/juanfont/headscale/gen/go/headscale/v1"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 )
 
 type vpnHealthChecker struct {
-	client headscalev1.HeadscaleServiceClient
+	client *headscale.Client
 }
 
 func (h *vpnHealthChecker) Health(ctx context.Context) *apiv2.HealthStatus {

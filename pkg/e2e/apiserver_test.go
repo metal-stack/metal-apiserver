@@ -15,6 +15,7 @@ import (
 )
 
 func TestUnauthenticated(t *testing.T) {
+	t.Parallel()
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	baseURL, adminToken, _, closer := StartApiserver(t, log)
 	defer closer()
@@ -35,6 +36,7 @@ func TestUnauthenticated(t *testing.T) {
 }
 
 func TestAuthenticated(t *testing.T) {
+	t.Parallel()
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	baseURL, adminToken, _, closer := StartApiserver(t, log)
 	defer closer()
@@ -56,6 +58,7 @@ func TestAuthenticated(t *testing.T) {
 }
 
 func TestListBaseNetworks(t *testing.T) {
+	t.Parallel()
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	baseURL, adminToken, tenantTokenSecrets, closer := StartApiserver(t, log, "user-a")
 	defer closer()
@@ -109,6 +112,7 @@ func TestListBaseNetworks(t *testing.T) {
 }
 
 func TestImageCacheServiceToken(t *testing.T) {
+	t.Parallel()
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	baseURL, adminToken, tenantTokenSecrets, closer := StartApiserver(t, log, "metal-image-cache-sync")
 	defer closer()
@@ -158,6 +162,7 @@ func TestImageCacheServiceToken(t *testing.T) {
 }
 
 func TestHealthGet(t *testing.T) {
+	t.Parallel()
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	baseURL, adminToken, tenantTokenSecrets, closer := StartApiserver(t, log, "user-a")
 	defer closer()

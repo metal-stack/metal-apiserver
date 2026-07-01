@@ -1,7 +1,6 @@
 package repository_test
 
 import (
-	"fmt"
 	"log/slog"
 	"testing"
 
@@ -41,10 +40,10 @@ func TestGet(t *testing.T) {
 
 	ip, err := repo.IP("project1").Get(ctx, "asdf")
 	require.Error(t, err)
+	require.Nil(t, ip)
 	nw, err := repo.Network("project1").Get(ctx, "asdf")
 	require.Error(t, err)
-
-	fmt.Printf("%v %v", ip, nw)
+	require.Nil(t, nw)
 }
 
 func TestIpUnscopedList(t *testing.T) {

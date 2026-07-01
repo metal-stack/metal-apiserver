@@ -7,7 +7,6 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 )
 
@@ -35,7 +34,7 @@ func (i *ipServiceServer) Get(ctx context.Context, req *apiv2.IPServiceGetReques
 
 	ip, err := i.repo.IP(req.Project).Get(ctx, namespacedIP)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	return &apiv2.IPServiceGetResponse{
@@ -59,7 +58,7 @@ func (i *ipServiceServer) List(ctx context.Context, req *apiv2.IPServiceListRequ
 func (i *ipServiceServer) Delete(ctx context.Context, req *apiv2.IPServiceDeleteRequest) (*apiv2.IPServiceDeleteResponse, error) {
 	ip, err := i.repo.IP(req.Project).Delete(ctx, req.Ip)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	return &apiv2.IPServiceDeleteResponse{Ip: ip}, nil
@@ -68,7 +67,7 @@ func (i *ipServiceServer) Delete(ctx context.Context, req *apiv2.IPServiceDelete
 func (i *ipServiceServer) Create(ctx context.Context, req *apiv2.IPServiceCreateRequest) (*apiv2.IPServiceCreateResponse, error) {
 	ip, err := i.repo.IP(req.Project).Create(ctx, req)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	return &apiv2.IPServiceCreateResponse{Ip: ip}, nil
@@ -78,7 +77,7 @@ func (i *ipServiceServer) Create(ctx context.Context, req *apiv2.IPServiceCreate
 func (i *ipServiceServer) Update(ctx context.Context, req *apiv2.IPServiceUpdateRequest) (*apiv2.IPServiceUpdateResponse, error) {
 	ip, err := i.repo.IP(req.Project).Update(ctx, req.Ip, req)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	return &apiv2.IPServiceUpdateResponse{Ip: ip}, nil

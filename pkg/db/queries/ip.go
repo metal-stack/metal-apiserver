@@ -3,8 +3,9 @@ package queries
 import (
 	"fmt"
 
+	"github.com/metal-stack/api/go/enum"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	"github.com/metal-stack/metal-lib/pkg/tag"
+	"github.com/metal-stack/api/go/tag"
 
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
@@ -81,8 +82,12 @@ func IpFilter(rq *apiv2.IPQuery) func(q r.Term) r.Term {
 		}
 
 		if rq.Type != nil {
+			typeString, err := enum.GetStringValue(*rq.Type)
+			if err != nil {
+				return q
+			}
 			q = q.Filter(func(row r.Term) r.Term {
-				return row.Field("type").Eq(rq.Type.String())
+				return row.Field("type").Eq(typeString)
 			})
 		}
 

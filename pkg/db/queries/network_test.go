@@ -32,8 +32,8 @@ var (
 		Shared:                     true,
 		Labels:                     map[string]string{"color": "red", "size": "small"},
 		AdditionalAnnouncableCIDRs: []string{"10.240.0.0/12"},
-		NetworkType:                new(metal.NetworkTypeExternal),
-		NATType:                    new(metal.NATTypeIPv4Masquerade),
+		NetworkType:                metal.NetworkTypeExternal,
+		NATType:                    metal.NATTypeIPv4Masquerade,
 	}
 	n2 = &metal.Network{
 		Base:                       metal.Base{ID: "n2", Name: "n2", Description: "Network 2"},
@@ -51,8 +51,8 @@ var (
 		Shared:                     false,
 		Labels:                     map[string]string{"color": "green", "size": "medium"},
 		AdditionalAnnouncableCIDRs: []string{"10.241.0.0/12"},
-		NetworkType:                new(metal.NetworkTypeChild),
-		NATType:                    new(metal.NATTypeNone),
+		NetworkType:                metal.NetworkTypeChild,
+		NATType:                    metal.NATTypeNone,
 	}
 	n3 = &metal.Network{
 		Base:                       metal.Base{ID: "n3", Name: "n3", Description: "Network 3"},
@@ -71,8 +71,8 @@ var (
 		Shared:                     false,
 		Labels:                     map[string]string{"color": "blue", "size": "large"},
 		AdditionalAnnouncableCIDRs: []string{"10.241.0.0/12"},
-		NetworkType:                new(metal.NetworkTypeExternal),
-		NATType:                    new(metal.NATTypeNone),
+		NetworkType:                metal.NetworkTypeExternal,
+		NATType:                    metal.NATTypeNone,
 	}
 	networks = []*metal.Network{n1, n2, n3}
 )

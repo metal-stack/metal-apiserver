@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"log/slog"
 	"os"
@@ -91,41 +92,11 @@ var (
 		Usage:   "log-level can be one of error|warn|info|debug",
 		EnvVars: []string{"LOG_LEVEL"},
 	}
-	masterdataApiHostnameFlag = &cli.StringFlag{
-		Name:    "masterdata-api-hostname",
-		Value:   "localhost",
-		Usage:   "masterdata-api hostname",
-		EnvVars: []string{"MASTERDATA_API_HOSTNAME"},
-	}
-	masterdataApiPortFlag = &cli.UintFlag{
-		Name:    "masterdata-api-port",
-		Value:   50051,
-		Usage:   "masterdata-api port",
-		EnvVars: []string{"MASTERDATA_API_PORT"},
-	}
-	masterdataApiHmacFlag = &cli.StringFlag{
-		Name:    "masterdata-api-hmac",
-		Value:   "",
-		Usage:   "masterdata-api-hmac",
-		EnvVars: []string{"MASTERDATA_API_HMAC"},
-	}
-	masterdataApiCAPathFlag = &cli.StringFlag{
-		Name:    "masterdata-api-ca-path",
-		Value:   "certs/ca.pem",
-		Usage:   "masterdata-api CA path",
-		EnvVars: []string{"MASTERDATA_API_CA_PATH"},
-	}
-	masterdataApiCertPathFlag = &cli.StringFlag{
-		Name:    "masterdata-api-cert-path",
-		Value:   "certs/client.pem",
-		Usage:   "masterdata-api certificate path",
-		EnvVars: []string{"MASTERDATA_API_CERT_PATH"},
-	}
-	masterdataApiCertKeyPathFlag = &cli.StringFlag{
-		Name:    "masterdata-api-cert-key-path",
-		Value:   "certs/client-key.pem",
-		Usage:   "masterdata-api certificate key path",
-		EnvVars: []string{"MASTERDATA_API_CERT_KEY_PATH"},
+	tenantApiserverBaseURLFlag = &cli.StringFlag{
+		Name:    "tenant-apiserver-baseurl",
+		Value:   "http://tenant-apiserver:8080",
+		Usage:   "tenant-apiserver base url",
+		EnvVars: []string{"TENANT_APISERVER_BASEURL"},
 	}
 	rethinkdbAddressesFlag = &cli.StringSliceFlag{
 		Name:     "rethinkdb-addresses",
@@ -295,11 +266,20 @@ var (
 		Usage:   "the password to the redis key value store",
 		EnvVars: []string{"REDIS_PASSWORD"},
 	}
-	adminsFlag = &cli.StringSliceFlag{
-		Name:    "admin-subjects",
-		Value:   cli.NewStringSlice("metal-stack-ops@github"),
-		Usage:   "the user subjects that are considered as administrators when creating api tokens to gain extended api access permissions",
-		EnvVars: []string{"ADMIN_SUBJECTS"},
+	providerTenantFlag = &cli.StringFlag{
+		Name:  "provider-tenant",
+		Value: "metal-stack",
+		Usage: `provider tenant, other tenants which are made member with owner rights of this tenant can request admin-role-editor,
+if they have editor or viewer rights, they can request admin-role-viewer.
+Can not be changed after initial creation.
+`,
+		EnvVars: []string{"PROVIDER_TENANT"},
+		Action: func(ctx *cli.Context, s string) error {
+			if len(s) < 2 {
+				return fmt.Errorf("provider-tenant must be longer than 2 characters")
+			}
+			return nil
+		},
 	}
 	maxRequestsPerMinuteFlag = &cli.IntFlag{
 		Name:    "max-requests-per-minute",
@@ -318,12 +298,6 @@ var (
 		Value:   "http://ipam:9090",
 		Usage:   "the ipam grpc server endpoint",
 		EnvVars: []string{"IPAM_GRPC_ENDPOINT"},
-	}
-	ensureProviderTenantFlag = &cli.StringFlag{
-		Name:    "ensure-provider-tenant",
-		Value:   "metal-stack",
-		Usage:   "ensures a provider tenant on startup (used for bootstrapping and technical tokens). can be disabled by setting to empty string.",
-		EnvVars: []string{"ENSURE_PROVIDER_TENANT"},
 	}
 	bmcSuperuserPasswordFlag = &cli.StringFlag{
 		Name:    "bmc-superuser-pwd",
@@ -363,6 +337,12 @@ var (
 		Usage:   "duration after which inactive component entries are removed",
 		EnvVars: []string{"COMPONENT_EXPIRATION"},
 	}
+	secureCookieFlag = &cli.BoolFlag{
+		Name:    "secure-cookie",
+		Value:   true,
+		Usage:   "enable secure cookie transport, should be disabled in mini-lab or test and dev environments where authentication endpoint is not https terminated",
+		EnvVars: []string{"SECURE_COOKIE"},
+	}
 )
 
 func main() {
@@ -399,8 +379,5 @@ func createLogger(ctx *cli.Context) (*slog.Logger, error) {
 			},
 		),
 	)
-
-	log.Info("created slog logger", "level", lvlvar.String())
-
 	return log, nil
 }

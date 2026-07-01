@@ -2,15 +2,16 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
+	"github.com/metal-stack/metal-apiserver/pkg/tags"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
-	"github.com/metal-stack/metal-lib/pkg/tag"
+	tenantv1 "github.com/metal-stack/tenant-api/go/api/v1"
 )
 
 const (
@@ -24,7 +25,7 @@ type (
 	}
 
 	projectEntity struct {
-		*mdcv1.Project
+		*tenantv1.Project
 	}
 )
 
@@ -53,7 +54,7 @@ func (r *projectRepository) projectMember(scope *ProjectScope) ProjectMember {
 }
 
 func (r *projectRepository) get(ctx context.Context, id string) (*projectEntity, error) {
-	resp, err := r.s.mdc.Project().Get(ctx, &mdcv1.ProjectGetRequest{Id: id})
+	resp, err := r.s.tc.Apiv1().Project().Get(ctx, &tenantv1.ProjectServiceGetRequest{Id: id})
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -88,11 +89,11 @@ func (r *projectRepository) CreateWithID(ctx context.Context, e *apiv2.ProjectSe
 
 	var labels []string
 	if e.Labels != nil && len(e.Labels.Labels) > 0 {
-		labels = tag.TagMap(e.Labels.Labels).Slice()
+		labels = tags.ToTags(e.Labels.Labels)
 	}
 
-	resp, err := r.s.mdc.Project().Create(ctx, &mdcv1.ProjectCreateRequest{Project: &mdcv1.Project{
-		Meta: &mdcv1.Meta{
+	resp, err := r.s.tc.Apiv1().Project().Create(ctx, &tenantv1.ProjectServiceCreateRequest{Project: &tenantv1.Project{
+		Meta: &tenantv1.Meta{
 			Annotations: ann,
 			Id:          id,
 			Labels:      labels,
@@ -131,7 +132,7 @@ func (r *projectRepository) update(ctx context.Context, p *projectEntity, rq *ap
 		p.Meta.Labels = updateLabelsOnSlice(rq.Labels, p.Meta.Labels)
 	}
 
-	resp, err := r.s.mdc.Project().Update(ctx, &mdcv1.ProjectUpdateRequest{Project: p.Project})
+	resp, err := r.s.tc.Apiv1().Project().Update(ctx, &tenantv1.ProjectServiceUpdateRequest{Project: p.Project})
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -141,16 +142,16 @@ func (r *projectRepository) update(ctx context.Context, p *projectEntity, rq *ap
 	}, nil
 }
 
-func (r *projectRepository) delete(ctx context.Context, e *projectEntity) error {
-	_, err := r.s.mdc.Project().Delete(ctx, &mdcv1.ProjectDeleteRequest{Id: e.Meta.Id})
+func (r *projectRepository) delete(ctx context.Context, e *projectEntity) (*deleteInfo, error) {
+	_, err := r.s.tc.Apiv1().Project().Delete(ctx, &tenantv1.ProjectServiceDeleteRequest{Id: e.Meta.Id})
 	if err != nil {
-		return errorutil.Convert(err)
+		return nil, errorutil.Convert(err)
 	}
 
-	return nil
+	return nil, nil
 }
 
-func (r *projectRepository) find(ctx context.Context, query *apiv2.ProjectServiceListRequest) (*projectEntity, error) {
+func (r *projectRepository) find(ctx context.Context, query *apiv2.ProjectQuery) (*projectEntity, error) {
 	projects, err := r.list(ctx, query)
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -166,11 +167,21 @@ func (r *projectRepository) find(ctx context.Context, query *apiv2.ProjectServic
 	}
 }
 
-func (r *projectRepository) list(ctx context.Context, query *apiv2.ProjectServiceListRequest) ([]*projectEntity, error) {
-	resp, err := r.s.mdc.Project().Find(ctx, &mdcv1.ProjectFindRequest{
-		Id:       query.Id,
+func (r *projectRepository) list(ctx context.Context, query *apiv2.ProjectQuery) ([]*projectEntity, error) {
+	if query == nil {
+		query = &apiv2.ProjectQuery{}
+	}
+
+	var labelQuery []string
+	if query.Labels != nil && len(query.Labels.Labels) > 0 {
+		labelQuery = tags.ToTags(query.Labels.Labels)
+	}
+
+	resp, err := r.s.tc.Apiv1().Project().List(ctx, &tenantv1.ProjectServiceListRequest{
+		Id:       query.Uuid,
 		Name:     query.Name,
 		TenantId: query.Tenant,
+		Labels:   labelQuery,
 	})
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -187,10 +198,10 @@ func (r *projectRepository) list(ctx context.Context, query *apiv2.ProjectServic
 func (r *projectRepository) convertToInternal(ctx context.Context, p *apiv2.Project) (*projectEntity, error) {
 	var labels []string
 	if p.Meta != nil && p.Meta.Labels != nil && len(p.Meta.Labels.Labels) > 0 {
-		labels = tag.TagMap(p.Meta.Labels.Labels).Slice()
+		labels = tags.ToTags(p.Meta.Labels.Labels)
 	}
 
-	meta := &mdcv1.Meta{
+	meta := &tenantv1.Meta{
 		Id:          p.Uuid,
 		CreatedTime: p.Meta.CreatedAt,
 		UpdatedTime: p.Meta.UpdatedAt,
@@ -202,7 +213,7 @@ func (r *projectRepository) convertToInternal(ctx context.Context, p *apiv2.Proj
 	}
 
 	return &projectEntity{
-		Project: &mdcv1.Project{
+		Project: &tenantv1.Project{
 			Meta:        meta,
 			Name:        p.Name,
 			Description: p.Description,
@@ -213,13 +224,14 @@ func (r *projectRepository) convertToInternal(ctx context.Context, p *apiv2.Proj
 
 func (r *projectRepository) convertToProto(ctx context.Context, p *projectEntity) (*apiv2.Project, error) {
 	if p.Meta == nil {
-		return nil, errorutil.Internal("project meta is nil")
+		return nil, errors.New("project meta is nil")
 	}
 
 	var labels *apiv2.Labels
+
 	if p.Meta != nil && p.Meta.Labels != nil && len(p.Meta.Labels) > 0 {
 		labels = &apiv2.Labels{
-			Labels: tag.NewTagMap(p.Meta.Labels),
+			Labels: tags.ToLabels(p.Meta.Labels),
 		}
 	}
 
@@ -235,7 +247,6 @@ func (r *projectRepository) convertToProto(ctx context.Context, p *projectEntity
 		},
 		AvatarUrl: pointer.PointerOrNil(p.Meta.Annotations[avatarURLAnnotation]),
 	}, nil
-
 }
 
 func projectRoleFromMap(annotations map[string]string) apiv2.ProjectRole {
@@ -266,7 +277,7 @@ func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId st
 		return nil, errorutil.NotFound("userid is empty")
 	}
 
-	projectResp, err := r.s.mdc.Tenant().FindParticipatingProjects(ctx, &mdcv1.FindParticipatingProjectsRequest{TenantId: userId, IncludeInherited: new(true)})
+	projectResp, err := r.s.tc.Apiv1().Tenant().FindParticipatingProjects(ctx, &tenantv1.TenantServiceFindParticipatingProjectsRequest{TenantId: userId, IncludeInherited: new(true)})
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -353,9 +364,9 @@ func (r *projectRepository) EnsureProviderProject(ctx context.Context, providerT
 			return err
 		}
 
-		_, err = r.s.mdc.ProjectMember().Create(ctx, &mdcv1.ProjectMemberCreateRequest{
-			ProjectMember: &mdcv1.ProjectMember{
-				Meta: &mdcv1.Meta{
+		_, err = r.s.tc.Apiv1().ProjectMember().Create(ctx, &tenantv1.ProjectMemberServiceCreateRequest{
+			ProjectMember: &tenantv1.ProjectMember{
+				Meta: &tenantv1.Meta{
 					Annotations: map[string]string{
 						api.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_OWNER.String(),
 					},
@@ -368,7 +379,7 @@ func (r *projectRepository) EnsureProviderProject(ctx context.Context, providerT
 		return err
 	}
 
-	resp, err := r.s.mdc.Project().Find(ctx, &mdcv1.ProjectFindRequest{
+	resp, err := r.s.tc.Apiv1().Project().List(ctx, &tenantv1.ProjectServiceListRequest{
 		TenantId: &providerTenantID,
 	})
 	if err != nil {

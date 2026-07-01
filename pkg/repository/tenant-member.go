@@ -5,14 +5,14 @@ import (
 	"time"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
+	tenantv1 "github.com/metal-stack/tenant-api/go/api/v1"
 )
 
 type (
 	tenantMemberEntity struct {
-		*mdcv1.TenantMember
+		*tenantv1.TenantMember
 	}
 
 	tenantMemberRepository struct {
@@ -55,9 +55,9 @@ func (t *tenantMemberRepository) convertToProto(ctx context.Context, e *tenantMe
 }
 
 func (t *tenantMemberRepository) create(ctx context.Context, c *api.TenantMemberCreateRequest) (*tenantMemberEntity, error) {
-	resp, err := t.s.mdc.TenantMember().Create(ctx, &mdcv1.TenantMemberCreateRequest{
-		TenantMember: &mdcv1.TenantMember{
-			Meta: &mdcv1.Meta{
+	resp, err := t.s.tc.Apiv1().TenantMember().Create(ctx, &tenantv1.TenantMemberServiceCreateRequest{
+		TenantMember: &tenantv1.TenantMember{
+			Meta: &tenantv1.Meta{
 				Annotations: map[string]string{
 					api.TenantRoleAnnotation: c.Role.String(),
 				},
@@ -73,15 +73,15 @@ func (t *tenantMemberRepository) create(ctx context.Context, c *api.TenantMember
 	return &tenantMemberEntity{TenantMember: resp.TenantMember}, nil
 }
 
-func (t *tenantMemberRepository) delete(ctx context.Context, e *tenantMemberEntity) error {
-	_, err := t.s.mdc.TenantMember().Delete(ctx, &mdcv1.TenantMemberDeleteRequest{
+func (t *tenantMemberRepository) delete(ctx context.Context, e *tenantMemberEntity) (*deleteInfo, error) {
+	_, err := t.s.tc.Apiv1().TenantMember().Delete(ctx, &tenantv1.TenantMemberServiceDeleteRequest{
 		Id: e.Meta.Id,
 	})
 	if err != nil {
-		return errorutil.Convert(err)
+		return nil, errorutil.Convert(err)
 	}
 
-	return nil
+	return nil, nil
 }
 
 func (t *tenantMemberRepository) find(ctx context.Context, query *api.TenantMemberQuery) (*tenantMemberEntity, error) {
@@ -118,7 +118,7 @@ func (t *tenantMemberRepository) get(ctx context.Context, id string) (*tenantMem
 }
 
 func (t *tenantMemberRepository) list(ctx context.Context, query *api.TenantMemberQuery) ([]*tenantMemberEntity, error) {
-	resp, err := t.s.mdc.TenantMember().Find(ctx, &mdcv1.TenantMemberFindRequest{
+	resp, err := t.s.tc.Apiv1().TenantMember().List(ctx, &tenantv1.TenantMemberServiceListRequest{
 		TenantId:    &t.scope.tenantID,
 		MemberId:    query.MemberId,
 		Annotations: query.Annotations,
@@ -148,7 +148,7 @@ func (t *tenantMemberRepository) update(ctx context.Context, member *tenantMembe
 		member.Meta.Annotations[api.TenantRoleAnnotation] = msg.Role.String()
 	}
 
-	resp, err := t.s.mdc.TenantMember().Update(ctx, &mdcv1.TenantMemberUpdateRequest{
+	resp, err := t.s.tc.Apiv1().TenantMember().Update(ctx, &tenantv1.TenantMemberServiceUpdateRequest{
 		TenantMember: member.TenantMember,
 	})
 	if err != nil {

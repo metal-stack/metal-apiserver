@@ -6,32 +6,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 )
 
-const (
-	Machine1 = "00000000-0000-0000-0000-000000000001"
-	Machine2 = "00000000-0000-0000-0000-000000000002"
-	Machine3 = "00000000-0000-0000-0000-000000000003"
-	Machine4 = "00000000-0000-0000-0000-000000000004"
-	Machine5 = "00000000-0000-0000-0000-000000000005"
-
-	Switch1 = "p01-r01leaf01"
-	Switch2 = "p01-r01leaf02"
-
-	Partition1 = "partition-1"
-	Partition2 = "partition-2"
-
-	SizeN1Medium = "n1-medium-x86"
-	SizeC1Large  = "c1-large-x86"
-
-	Tenant1 = "john.doe"
-	// Project UUIDs are generated be counting the first digit for every tenant, last digit for every project of this tenant
-	Tenant1Project1 = "10000000-0000-0000-0000-000000000001"
-	Tenant1Project2 = "10000000-0000-0000-0000-000000000002"
-
-	ImageDebian13    = "debian-13.0.20260131"
-	ImageDebian12    = "debian-12.0.20251220"
-	ImageFirewall3_0 = "firewall-ubuntu-3.0.20260201"
-)
-
 var (
 	DefaultDatacenter = DatacenterSpec{
 		Partitions:        []string{Partition1},
@@ -40,7 +14,43 @@ var (
 		Images: map[string]apiv2.ImageFeature{
 			ImageDebian13:    apiv2.ImageFeature_IMAGE_FEATURE_MACHINE,
 			ImageDebian12:    apiv2.ImageFeature_IMAGE_FEATURE_MACHINE,
+			ImageDebian11:    apiv2.ImageFeature_IMAGE_FEATURE_MACHINE,
 			ImageFirewall3_0: apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL,
+		},
+		FilesystemLayouts: []*adminv2.FilesystemServiceCreateRequest{
+			{
+				FilesystemLayout: &apiv2.FilesystemLayout{
+					Id: "debian",
+					Constraints: &apiv2.FilesystemLayoutConstraints{
+						Sizes: []string{SizeC1Large, SizeN1Medium},
+						Images: map[string]string{
+							"debian": ">= 12.0",
+						},
+					},
+					Disks: []*apiv2.Disk{
+						{
+							Device: "/dev/sda",
+							Partitions: []*apiv2.DiskPartition{
+								{
+									Number: 0,
+									Size:   1024,
+								},
+							},
+						},
+					},
+				},
+			},
+			{
+				FilesystemLayout: &apiv2.FilesystemLayout{
+					Id: "firewall",
+					Constraints: &apiv2.FilesystemLayoutConstraints{
+						Sizes: []string{SizeN1Medium},
+						Images: map[string]string{
+							"firewall-ubuntu": ">= 3.0",
+						},
+					},
+				},
+			},
 		},
 		Sizes: []*apiv2.Size{
 			{
@@ -77,28 +87,46 @@ var (
 
 		Networks: []*adminv2.NetworkServiceCreateRequest{
 			{
-				Id:       new("internet"),
+				Id:       new(NetworkInternet),
 				Prefixes: []string{"1.2.3.0/24"},
 				Type:     apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
+				NatType:  apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE.Enum(),
 				Vrf:      new(uint32(11)),
 			},
 			{
-				Id:                       new("tenant-super-namespaced"),
+				Id:        new(NetworkUnderlayPartition1),
+				Prefixes:  []string{"10.253.0.0/16"},
+				Type:      apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
+				Partition: new(Partition1),
+			},
+			{
+				Id:                       new(NetworkTenantSuperNamespaced),
 				Prefixes:                 []string{"12.100.0.0/16"},
 				DestinationPrefixes:      []string{"1.2.3.0/24"},
 				DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: new(uint32(22))},
 				Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED,
 			},
+			{
+				Id:                       new(NetworkTenantSuperPartition1),
+				Partition:                new(Partition1),
+				Prefixes:                 []string{"12.110.0.0/16"},
+				DestinationPrefixes:      []string{"1.2.3.0/24"},
+				DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: new(uint32(22))},
+				Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
+			},
 		},
 		IPs: []*apiv2.IPServiceCreateRequest{
 			{
-				Network: "internet",
+				Network: NetworkInternet,
 				Project: Tenant1Project1,
 			},
 		},
-		Switches: SwitchPairFunc([2]string{Switch1, Switch2}, Partition1, "rack-1", 2),
+		Switches: []*apiv2.Switch{
+			SwitchFunc(P01Rack01Switch1, Partition1, P01Rack01, []string{"Ethernet0"}, SwitchOSSonic2021, apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL),
+			SwitchFunc(P01Rack01Switch2, Partition1, P01Rack01, []string{"Ethernet0"}, SwitchOSSonic2021, apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL),
+		},
 		Machines: []*MachineWithLiveliness{
-			MachineFunc(Machine1, Partition1, SizeC1Large, Tenant1Project1, ImageDebian13, metal.MachineLivelinessAlive),
+			MachineFunc(Machine1, Partition1, SizeC1Large, Tenant1Project1, ImageDebian13, metal.MachineLivelinessAlive, false),
 		},
 	}
 )

@@ -6,7 +6,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
-	vpnadmin "github.com/metal-stack/metal-apiserver/pkg/service/admin/vpn"
+	"github.com/metal-stack/metal-apiserver/pkg/vpn"
 	"github.com/urfave/cli/v2"
 	"gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
@@ -22,6 +22,7 @@ func newVPNCmd() *cli.Command {
 			headscaleAddressFlag,
 			headscaleApikeyFlag,
 			headscaleEnabledFlag,
+			headscaleControlplaneAddressFlag,
 		},
 		Subcommands: []*cli.Command{
 			{
@@ -33,17 +34,19 @@ func newVPNCmd() *cli.Command {
 						return fmt.Errorf("unable to create logger %w", err)
 					}
 
+					if !ctx.Bool(headscaleEnabledFlag.Name) {
+						log.Info("headscale is disabled, not checking for connected machines")
+						return nil
+					}
+
 					hc, err := headscale.NewClient(headscale.Config{
-						Log:      log,
-						Disabled: !ctx.Bool(headscaleEnabledFlag.Name),
-						Apikey:   ctx.String(headscaleApikeyFlag.Name),
-						Endpoint: ctx.String(headscaleAddressFlag.Name),
+						Log:           log,
+						Apikey:        ctx.String(headscaleApikeyFlag.Name),
+						Endpoint:      ctx.String(headscaleAddressFlag.Name),
+						ControllerURL: ctx.String(headscaleControlplaneAddressFlag.Name),
 					})
 					if err != nil {
 						return err
-					}
-					if hc == nil || !ctx.Bool(headscaleEnabledFlag.Name) {
-						log.Info("headscale is disabled, not checking for connected machines")
 					}
 
 					connectOpts := rethinkdb.ConnectOpts{
@@ -60,16 +63,13 @@ func newVPNCmd() *cli.Command {
 						return fmt.Errorf("unable to create datastore: %w", err)
 					}
 
-					vpnService := vpnadmin.New(vpnadmin.Config{
-						Log: log,
-						Repo: repository.New(repository.Config{
-							Log:       log,
-							Datastore: ds,
-						}),
+					repo := repository.New(repository.Config{
+						Log:             log,
+						Datastore:       ds,
 						HeadscaleClient: hc,
 					})
 
-					_, err = vpnService.EvaluateVPNConnected(ctx.Context)
+					_, err = vpn.EvaluateVPNConnected(ctx.Context, log, repo)
 					return err
 				},
 			},

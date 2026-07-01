@@ -10,7 +10,6 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-lib/auditing"
 )
@@ -50,7 +49,7 @@ func (a *auditServiceServer) Get(ctx context.Context, rq *adminv2.AuditServiceGe
 		Phase: &phase,
 	})
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	switch len(traces) {
@@ -70,7 +69,7 @@ func (a *auditServiceServer) List(ctx context.Context, rq *adminv2.AuditServiceL
 
 	traces, err := a.repo.List(ctx, rq.Query)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	return &adminv2.AuditServiceListResponse{Traces: traces}, nil

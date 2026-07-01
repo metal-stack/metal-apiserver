@@ -10,13 +10,26 @@ import (
 )
 
 type (
+	// Repository implements the basic CRUD operations (business logic) for the consuming API services.
+	// It shadows internal data representations from external API representations.
+	// It offers scopes during initialization so that resource operations can be scoped by projects and tenants.
+	// It ensures that all functions return a connect error, except those called from AdditionalMethods().
+	// Therefore, consumers do not need to convert errors to connect errors.
 	Repository[R Repo, M Message, C CreateMessage, U UpdateMessage, Q Query] interface {
+		// Get returns the API entity with the given id.
 		Get(ctx context.Context, id string) (M, error)
+		// Create creates the entity from the given create request and returns the API entity.
 		Create(ctx context.Context, c C) (M, error)
+		// Update updates the entity from the given update request and returns the API entity.
 		Update(ctx context.Context, id string, u U) (M, error)
+		// Delete deletes the API entity with the given id.
 		Delete(ctx context.Context, id string) (M, error)
+		// Find returns exactly the one API entity matched by the given query.
+		// For multiple or no results an error is returned.
 		Find(ctx context.Context, query Q) (M, error)
+		// List returns the API entities matched by the given query.
 		List(ctx context.Context, query Q) ([]M, error)
+		// AdditionalMethods allows access to more specific, non-crud operations of a repository store.
 		AdditionalMethods() R
 	}
 
@@ -38,7 +51,7 @@ type (
 		// the passed entity was retrieved from the backend so it does not need to be checked if it exists or not.
 		// every error returned will be wrapped into an InvalidArgument connect error except another connect error is returned.
 		validateDelete(ctx context.Context, e E) error
-		delete(ctx context.Context, e E) error
+		delete(ctx context.Context, e E) (*deleteInfo, error)
 
 		find(ctx context.Context, query Q) (E, error)
 		list(ctx context.Context, query Q) ([]E, error)
@@ -49,6 +62,11 @@ type (
 		matchScope(e E) bool
 	}
 
+	deleteInfo struct {
+		// taskID is an optional task id that was used during deletion
+		taskID *string
+	}
+
 	// Repo is the typed repository in order to expose public functions on the repository to the consumers.
 	Repo any
 	// Entity is the internal representation of an api resource, which is stored in the backend.
@@ -56,7 +74,9 @@ type (
 		SetChanged(t time.Time)
 	}
 	// Message is the external representation of an api resource for consumers.
-	Message any
+	Message interface {
+		GetMeta() *apiv2.Meta
+	}
 	// UpdateMessage is an external request to update an entity for consumers.
 	UpdateMessage interface {
 		GetUpdateMeta() *apiv2.UpdateMeta
@@ -88,7 +108,7 @@ type (
 	}
 
 	Project interface {
-		Repository[*projectRepository, *apiv2.Project, *apiv2.ProjectServiceCreateRequest, *apiv2.ProjectServiceUpdateRequest, *apiv2.ProjectServiceListRequest]
+		Repository[*projectRepository, *apiv2.Project, *apiv2.ProjectServiceCreateRequest, *apiv2.ProjectServiceUpdateRequest, *apiv2.ProjectQuery]
 	}
 
 	ProjectMember interface {
@@ -96,7 +116,7 @@ type (
 	}
 
 	Tenant interface {
-		Repository[*tenantRepository, *apiv2.Tenant, *apiv2.TenantServiceCreateRequest, *apiv2.TenantServiceUpdateRequest, *apiv2.TenantServiceListRequest]
+		Repository[*tenantRepository, *apiv2.Tenant, *apiv2.TenantServiceCreateRequest, *apiv2.TenantServiceUpdateRequest, *apiv2.TenantQuery]
 	}
 
 	TenantMember interface {

@@ -17,7 +17,6 @@ import (
 
 	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
-	mdm "github.com/metal-stack/masterdata-api/pkg/client"
 	"github.com/metal-stack/metal-apiserver/pkg/async/queue"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
@@ -25,6 +24,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/service"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
+	tenant "github.com/metal-stack/tenant-api/go/client"
 
 	"github.com/metal-stack/v"
 	"github.com/redis/go-redis/v9"
@@ -41,12 +41,7 @@ func newServeCmd() *cli.Command {
 			metricServerEndpointFlag,
 			sessionSecretFlag,
 			serverHttpUrlFlag,
-			masterdataApiHostnameFlag,
-			masterdataApiPortFlag,
-			masterdataApiHmacFlag,
-			masterdataApiCAPathFlag,
-			masterdataApiCertPathFlag,
-			masterdataApiCertKeyPathFlag,
+			tenantApiserverBaseURLFlag,
 			rethinkdbAddressesFlag,
 			rethinkdbDBNameFlag,
 			rethinkdbPasswordFlag,
@@ -70,11 +65,10 @@ func newServeCmd() *cli.Command {
 			stageFlag,
 			redisAddrFlag,
 			redisPasswordFlag,
-			adminsFlag,
+			providerTenantFlag,
 			maxRequestsPerMinuteFlag,
 			maxRequestsPerMinuteUnauthenticatedFlag,
 			ipamGrpcEndpointFlag,
-			ensureProviderTenantFlag,
 			frontEndUrlFlag,
 			oidcClientIdFlag,
 			oidcClientSecretFlag,
@@ -88,6 +82,7 @@ func newServeCmd() *cli.Command {
 			headscaleApikeyFlag,
 			headscaleEnabledFlag,
 			componentExpirationFlag,
+			secureCookieFlag,
 		},
 		Action: func(ctx *cli.Context) error {
 			log, err := createLogger(ctx)
@@ -110,19 +105,29 @@ func newServeCmd() *cli.Command {
 				return fmt.Errorf("unable to create redis clients: %w", err)
 			}
 
-			mc, err := createMasterdataClient(ctx, log)
+			tc, err := createTenantApiserverClient(ctx, log)
 			if err != nil {
-				return fmt.Errorf("unable to create masterdata.client: %w", err)
+				return fmt.Errorf("unable to create tenant-apiserver client: %w", err)
 			}
 
-			hc, err := headscale.NewClient(headscale.Config{
-				Log:      log,
-				Disabled: !ctx.Bool(headscaleEnabledFlag.Name),
-				Apikey:   ctx.String(headscaleApikeyFlag.Name),
-				Endpoint: ctx.String(headscaleAddressFlag.Name),
-			})
-			if err != nil {
-				return err
+			var (
+				hc *headscale.Client
+			)
+
+			if ctx.Bool(headscaleEnabledFlag.Name) {
+				hc, err = headscale.NewClient(headscale.Config{
+					Log:           log,
+					Apikey:        ctx.String(headscaleApikeyFlag.Name),
+					Endpoint:      ctx.String(headscaleAddressFlag.Name),
+					ControllerURL: ctx.String(headscaleControlplaneAddressFlag.Name),
+				})
+				if err != nil {
+					return err
+				}
+
+				log.Info("headscale enabled")
+			} else {
+				log.Info("headscale is not enabled, not configuring vpn services")
 			}
 
 			connectOpts := rethinkdb.ConnectOpts{
@@ -143,24 +148,32 @@ func newServeCmd() *cli.Command {
 				task  = task.NewClient(log, redisConfig.AsyncClient)
 				queue = queue.New(log, redisConfig.QueueClient)
 				repo  = repository.New(repository.Config{
-					Log:              log,
-					MasterdataClient: mc,
-					Datastore:        ds,
-					Ipam:             ipam,
-					Task:             task,
-					Queue:            queue,
-					Component:        redisConfig.ComponentClient,
-					Auditing:         auditSearchBackend,
+					Log:                   log,
+					TenantApiserverClient: tc,
+					Datastore:             ds,
+					Ipam:                  ipam,
+					Task:                  task,
+					Queue:                 queue,
+					Component:             redisConfig.ComponentClient,
+					Auditing:              auditSearchBackend,
+					HeadscaleClient:       hc,
 				})
 				stage = ctx.String(stageFlag.Name)
 			)
+
+			if ctx.Bool(headscaleEnabledFlag.Name) {
+				err = repo.UnscopedVPN().SetDefaultPolicy(ctx.Context)
+				if err != nil {
+					return fmt.Errorf("unable to ensure headscale default policy: %w", err)
+				}
+			}
 
 			c := service.Config{
 				HttpServerEndpoint:                  ctx.String(httpServerEndpointFlag.Name),
 				MetricsServerEndpoint:               ctx.String(metricServerEndpointFlag.Name),
 				Log:                                 log,
 				Repository:                          repo,
-				MasterClient:                        mc,
+				TenantClient:                        tc,
 				Datastore:                           ds,
 				IpamClient:                          ipam,
 				ServerHttpURL:                       ctx.String(serverHttpUrlFlag.Name),
@@ -169,7 +182,7 @@ func newServeCmd() *cli.Command {
 				AuditBackends:                       auditBackends,
 				Stage:                               stage,
 				RedisConfig:                         redisConfig,
-				Admins:                              ctx.StringSlice(adminsFlag.Name),
+				ProviderTenant:                      ctx.String(providerTenantFlag.Name),
 				MaxRequestsPerMinuteToken:           ctx.Int(maxRequestsPerMinuteFlag.Name),
 				MaxRequestsPerMinuteUnauthenticated: ctx.Int(maxRequestsPerMinuteUnauthenticatedFlag.Name),
 				OIDCClientID:                        ctx.String(oidcClientIdFlag.Name),
@@ -179,27 +192,23 @@ func newServeCmd() *cli.Command {
 				OIDCUniqueUserKey:                   ctx.String(oidcUniqueUserKeyFlag.Name),
 				OIDCTLSSkipVerify:                   ctx.Bool(oidcTLSSkipVerifyFlag.Name),
 				IsStageDev:                          strings.EqualFold(stage, stageDEV),
+				SecureCookie:                        ctx.Bool(secureCookieFlag.Name),
 				BMCSuperuserPassword:                ctx.String(bmcSuperuserPasswordFlag.Name),
-				HeadscaleControlplaneAddress:        ctx.String(headscaleControlplaneAddressFlag.Name),
 				HeadscaleClient:                     hc,
 				ComponentExpiration:                 ctx.Duration(componentExpirationFlag.Name),
 			}
 
-			if providerTenant := ctx.String(ensureProviderTenantFlag.Name); providerTenant != "" {
-				err := repo.Tenant().AdditionalMethods().EnsureProviderTenant(ctx.Context, providerTenant)
-				if err != nil {
-					return err
-				}
-
-				err = repo.UnscopedProject().AdditionalMethods().EnsureProviderProject(ctx.Context, providerTenant)
-				if err != nil {
-					return err
-				}
-
-				log.Info("ensured provider tenant", "id", providerTenant)
-
-				c.Admins = append(c.Admins, providerTenant)
+			err = repo.Tenant().AdditionalMethods().EnsureProviderTenant(ctx.Context, c.ProviderTenant)
+			if err != nil {
+				return err
 			}
+
+			err = repo.UnscopedProject().AdditionalMethods().EnsureProviderProject(ctx.Context, c.ProviderTenant)
+			if err != nil {
+				return err
+			}
+
+			log.Info("ensured provider tenant", "id", c.ProviderTenant)
 
 			log.Info("running api-server", "version", v.V.String(), "go-runtime", runtime.Version(), "http-endpoint", c.HttpServerEndpoint)
 
@@ -213,26 +222,20 @@ func newServeCmd() *cli.Command {
 	}
 }
 
-// createMasterdataClient creates a client to the masterdata-api
-func createMasterdataClient(cli *cli.Context, log *slog.Logger) (mdm.Client, error) {
-	const masterdataNamespace = "metal-stack.io"
+// createTenantApiserverClient creates a client to the tenant-apiserver
+func createTenantApiserverClient(cli *cli.Context, log *slog.Logger) (tenant.Client, error) {
+	const tenantApiserverNamespace = "metal-stack.io"
 
-	client, err := mdm.NewClient(&mdm.Config{
-		Logger:    log.WithGroup("masterdata-client"),
-		Hostname:  cli.String(masterdataApiHostnameFlag.Name),
-		Port:      cli.Uint(masterdataApiPortFlag.Name),
-		CertFile:  cli.String(masterdataApiCertPathFlag.Name),
-		KeyFile:   cli.String(masterdataApiCertKeyPathFlag.Name),
-		CaFile:    cli.String(masterdataApiCAPathFlag.Name),
-		Insecure:  false,
-		HmacKey:   cli.String(masterdataApiHmacFlag.Name),
-		Namespace: masterdataNamespace,
+	client, err := tenant.New(&tenant.DialConfig{
+		Log:       log.WithGroup("tenant-apiserver-client"),
+		BaseURL:   cli.String(tenantApiserverBaseURLFlag.Name),
+		Namespace: tenantApiserverNamespace,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	log.Info("masterdata client initialized")
+	log.Info("tenant-apiserver client initialized")
 
 	return client, nil
 }
@@ -354,7 +357,7 @@ func createIpamClient(cli *cli.Context, log *slog.Logger) (ipamv1connect.IpamSer
 	)
 
 	err := retry.Do(func() error {
-		version, err := ipamService.Version(cli.Context, connect.NewRequest(&ipamv1.VersionRequest{}))
+		version, err := ipamService.Version(cli.Context, &ipamv1.VersionRequest{})
 		if err != nil {
 			return err
 		}

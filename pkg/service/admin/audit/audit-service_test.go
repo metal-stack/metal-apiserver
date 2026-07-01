@@ -14,6 +14,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-lib/auditing"
+	auditingmemory "github.com/metal-stack/metal-lib/auditing/memory"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -77,10 +78,10 @@ func Test_auditServiceServer_Get(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := auditing.NewMemory(auditing.Config{
+			c, err := auditingmemory.NewMemory(auditing.Config{
 				Component: api.AuditingComponent,
 				Log:       log,
-			}, auditing.MemoryConfig{})
+			}, auditingmemory.MemoryConfig{})
 			require.NoError(t, err)
 
 			for _, e := range tt.entries {
@@ -221,10 +222,10 @@ func Test_auditServiceServer_List(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := auditing.NewMemory(auditing.Config{
+			c, err := auditingmemory.NewMemory(auditing.Config{
 				Component: api.AuditingComponent,
 				Log:       log,
-			}, auditing.MemoryConfig{})
+			}, auditingmemory.MemoryConfig{})
 			require.NoError(t, err)
 
 			for _, e := range tt.entries {

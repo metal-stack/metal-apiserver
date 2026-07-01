@@ -23,7 +23,7 @@ import (
 //go:embed headscale-config.yaml
 var headscaleConfig string
 
-func StartHeadscale(t testing.TB) (headscalev1.HeadscaleServiceClient, string, string, func()) {
+func StartHeadscale(t testing.TB) (*headscale.Client, string, func()) {
 	ctx := t.Context()
 
 	headscaleContainer, err := testcontainers.Run(
@@ -46,13 +46,18 @@ func StartHeadscale(t testing.TB) (headscalev1.HeadscaleServiceClient, string, s
 	)
 	require.NoError(t, err)
 
-	c, reader, err := headscaleContainer.Exec(ctx, []string{"headscale", "apikeys", "create"}, exec.Multiplexed())
-	require.NoError(t, err)
-	assert.Zerof(t, c, "apikeys should have been created, expected return code 0, got %d", c)
+	var reader io.Reader
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+
+		code, r, err := headscaleContainer.Exec(ctx, []string{"headscale", "apikeys", "create", "-o", "json-line"}, exec.Multiplexed())
+		require.NoError(c, err)
+		require.Zerof(c, code, "apikeys should have been created, expected return code 0, got %d", c)
+		reader = r
+	}, 10*time.Second, 100*time.Millisecond)
 
 	output, err := io.ReadAll(reader)
 	require.NoError(t, err)
-	apikey := strings.TrimSpace(string(output))
+	apikey := strings.ReplaceAll(strings.TrimSpace(string(output)), "\"", "")
 	require.NoError(t, err)
 
 	endpoint, err := headscaleContainer.PortEndpoint(ctx, "50443/tcp", "")
@@ -61,9 +66,10 @@ func StartHeadscale(t testing.TB) (headscalev1.HeadscaleServiceClient, string, s
 	require.NoError(t, err)
 
 	client, err := headscale.NewClient(headscale.Config{
-		Log:      slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{})),
-		Apikey:   apikey,
-		Endpoint: endpoint,
+		Log:           slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{})),
+		Apikey:        apikey,
+		Endpoint:      endpoint,
+		ControllerURL: controllerURL,
 	})
 	require.NoError(t, err)
 
@@ -74,5 +80,5 @@ func StartHeadscale(t testing.TB) (headscalev1.HeadscaleServiceClient, string, s
 		_ = headscaleContainer.Terminate(ctx)
 	}
 
-	return client, endpoint, controllerURL, closer
+	return client, controllerURL, closer
 }

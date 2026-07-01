@@ -11,6 +11,7 @@ import (
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-lib/auditing"
@@ -35,17 +36,15 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/user"
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/version"
 
-	headscalev1 "github.com/juanfont/headscale/gen/go/headscale/v1"
-
-	mdm "github.com/metal-stack/masterdata-api/pkg/client"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
+	tenantclient "github.com/metal-stack/tenant-api/go/client"
 )
 
 type Config struct {
 	Log                *slog.Logger
 	Datastore          generic.Datastore
 	Repository         *repository.Store
-	MasterClient       mdm.Client
+	TenantClient       tenantclient.Client
 	IpamClient         ipamv1connect.IpamServiceClient
 	Mux                *http.ServeMux
 	Interceptors       connect.Option
@@ -56,13 +55,13 @@ type Config struct {
 	AuditSearchBackend auditing.Auditing
 	Redis              valkey.Client
 	AuditBackends      []auditing.Auditing
-	HeadscaleClient    headscalev1.HeadscaleServiceClient
+	HeadscaleClient    *headscale.Client
 
-	ServerHttpURL string
-	Admins        []string
+	ServerHttpURL  string
+	ProviderTenant string
 }
 
-func ApiServices(cfg Config) (token.TokenService, error) {
+func ApiServices(ctx context.Context, cfg Config) (token.TokenService, error) {
 	var (
 		auditService      = audit.New(audit.Config{Log: cfg.Log, Repo: cfg.Repository, AuditClient: cfg.AuditSearchBackend})
 		filesystemService = filesystem.New(filesystem.Config{Log: cfg.Log, Repo: cfg.Repository})
@@ -88,12 +87,12 @@ func ApiServices(cfg Config) (token.TokenService, error) {
 			TokenStore:  cfg.TokenStore,
 		})
 		tokenService = token.New(token.Config{
-			Log:           cfg.Log,
-			CertStore:     cfg.CertStore,
-			TokenStore:    cfg.TokenStore,
-			Repo:          cfg.Repository,
-			Issuer:        cfg.ServerHttpURL,
-			AdminSubjects: cfg.Admins,
+			Log:            cfg.Log,
+			CertStore:      cfg.CertStore,
+			TokenStore:     cfg.TokenStore,
+			Repo:           cfg.Repository,
+			Issuer:         cfg.ServerHttpURL,
+			ProviderTenant: cfg.ProviderTenant,
 		})
 		userService = user.New(&user.Config{
 			Log:  cfg.Log,
@@ -103,11 +102,11 @@ func ApiServices(cfg Config) (token.TokenService, error) {
 	)
 
 	healthService, err := health.New(health.Config{
-		Ctx:                 context.Background(),
+		Ctx:                 ctx,
 		Log:                 cfg.Log,
 		HealthcheckInterval: 1 * time.Minute,
 		Ipam:                cfg.IpamClient,
-		Masterdata:          cfg.MasterClient,
+		TenantClient:        cfg.TenantClient,
 		Datastore:           cfg.Datastore,
 		Redis:               cfg.Redis,
 		Headscale:           cfg.HeadscaleClient,

@@ -10,6 +10,8 @@ import (
 
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-lib/auditing"
+	auditingsplunk "github.com/metal-stack/metal-lib/auditing/splunk"
+	auditingtimescaledb "github.com/metal-stack/metal-lib/auditing/timescaledb"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/urfave/cli/v2"
 )
@@ -79,7 +81,7 @@ func createAuditingClient(cli *cli.Context, log *slog.Logger) (searchBackend aud
 }
 
 func newTimescaledbBackend(cli *cli.Context, auditingCfg auditing.Config) (searchBackend auditing.Auditing, err error) {
-	return auditing.NewTimescaleDB(auditingCfg, auditing.TimescaleDbConfig{
+	return auditingtimescaledb.NewTimescaleDB(auditingCfg, auditingtimescaledb.TimescaleDbConfig{
 		Host:      cli.String(auditingTimescaleHostFlag.Name),
 		Port:      cli.String(auditingTimescalePortFlag.Name),
 		DB:        cli.String(auditingTimescaleDbFlag.Name),
@@ -108,7 +110,7 @@ func newSplunkBackend(cli *cli.Context, auditingCfg auditing.Config) (searchBack
 		source = s
 	}
 
-	splunkConfig := auditing.SplunkConfig{
+	splunkConfig := auditingsplunk.SplunkConfig{
 		Endpoint:   cli.String(auditingSplunkEndpointFlag.Name),
 		HECToken:   cli.String(auditingSplunkHecTokenFlag.Name),
 		SourceType: cli.String(auditingSplunkSourceTypeFlag.Name),
@@ -130,7 +132,7 @@ func newSplunkBackend(cli *cli.Context, auditingCfg auditing.Config) (searchBack
 		}
 	}
 
-	splunkBackend, err := auditing.NewSplunk(auditing.Config{
+	splunkBackend, err := auditingsplunk.NewSplunk(auditing.Config{
 		Component: source,
 		Log:       auditingCfg.Log,
 	}, splunkConfig)

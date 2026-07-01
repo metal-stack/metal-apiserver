@@ -67,7 +67,7 @@ func (r *imageRepository) validateUpdate(ctx context.Context, req *adminv2.Image
 		}
 	}
 
-	if len(req.Features) >= 0 {
+	if len(req.Features) > 0 {
 		if _, err := metal.ImageFeaturesFrom(req.Features); err != nil {
 			return err
 		}

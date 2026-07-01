@@ -3,19 +3,21 @@ package repository
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
+	"github.com/metal-stack/api/go/tag"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
+	"github.com/metal-stack/metal-apiserver/pkg/tags"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
-	"github.com/metal-stack/metal-lib/pkg/tag"
+	tenantv1 "github.com/metal-stack/tenant-api/go/api/v1"
 )
 
 type (
 	tenantEntity struct {
-		*mdcv1.Tenant
+		*tenantv1.Tenant
 	}
 
 	tenantRepository struct {
@@ -93,11 +95,11 @@ func (t *tenantRepository) createWithID(ctx context.Context, c *apiv2.TenantServ
 
 	var labels []string
 	if c.Labels != nil && len(c.Labels.Labels) > 0 {
-		labels = tag.TagMap(c.Labels.Labels).Slice()
+		labels = tags.ToTags(c.Labels.Labels)
 	}
 
-	tenant := &mdcv1.Tenant{
-		Meta: &mdcv1.Meta{
+	tenant := &tenantv1.Tenant{
+		Meta: &tenantv1.Meta{
 			Id:          id,
 			Annotations: ann,
 			Labels:      labels,
@@ -109,7 +111,7 @@ func (t *tenantRepository) createWithID(ctx context.Context, c *apiv2.TenantServ
 		tenant.Description = *c.Description
 	}
 
-	resp, err := t.s.mdc.Tenant().Create(ctx, &mdcv1.TenantCreateRequest{Tenant: tenant})
+	resp, err := t.s.tc.Apiv1().Tenant().Create(ctx, &tenantv1.TenantServiceCreateRequest{Tenant: tenant})
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -117,16 +119,16 @@ func (t *tenantRepository) createWithID(ctx context.Context, c *apiv2.TenantServ
 	return &tenantEntity{Tenant: resp.Tenant}, nil
 }
 
-func (t *tenantRepository) delete(ctx context.Context, e *tenantEntity) error {
-	_, err := t.s.mdc.Tenant().Delete(ctx, &mdcv1.TenantDeleteRequest{Id: e.Meta.Id})
+func (t *tenantRepository) delete(ctx context.Context, e *tenantEntity) (*deleteInfo, error) {
+	_, err := t.s.tc.Apiv1().Tenant().Delete(ctx, &tenantv1.TenantServiceDeleteRequest{Id: e.Meta.Id})
 	if err != nil {
-		return errorutil.Convert(err)
+		return nil, errorutil.Convert(err)
 	}
 
-	return nil
+	return nil, nil
 }
 
-func (t *tenantRepository) find(ctx context.Context, query *apiv2.TenantServiceListRequest) (*tenantEntity, error) {
+func (t *tenantRepository) find(ctx context.Context, query *apiv2.TenantQuery) (*tenantEntity, error) {
 	tenants, err := t.list(ctx, query)
 	if err != nil {
 		return nil, errorutil.Convert(err)
@@ -143,7 +145,7 @@ func (t *tenantRepository) find(ctx context.Context, query *apiv2.TenantServiceL
 }
 
 func (t *tenantRepository) get(ctx context.Context, id string) (*tenantEntity, error) {
-	resp, err := t.s.mdc.Tenant().Get(ctx, &mdcv1.TenantGetRequest{Id: id})
+	resp, err := t.s.tc.Apiv1().Tenant().Get(ctx, &tenantv1.TenantServiceGetRequest{Id: id})
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -151,11 +153,27 @@ func (t *tenantRepository) get(ctx context.Context, id string) (*tenantEntity, e
 	return &tenantEntity{Tenant: resp.Tenant}, nil
 }
 
-func (t *tenantRepository) list(ctx context.Context, query *apiv2.TenantServiceListRequest) ([]*tenantEntity, error) {
-	resp, err := t.s.mdc.Tenant().Find(ctx, &mdcv1.TenantFindRequest{
-		Id:   query.Id,
+func (t *tenantRepository) list(ctx context.Context, query *apiv2.TenantQuery) ([]*tenantEntity, error) {
+	if query == nil {
+		query = &apiv2.TenantQuery{}
+	}
+
+	req := &tenantv1.TenantServiceListRequest{
+		Id:   query.Login,
 		Name: query.Name,
-	})
+	}
+
+	if query.Labels != nil && len(query.Labels.Labels) > 0 {
+		req.Labels = tags.ToTags(query.Labels.Labels)
+	}
+	if query.Paging != nil {
+		req.Paging = &tenantv1.Paging{
+			Page:  query.Paging.Page,
+			Count: query.Paging.Count,
+		}
+	}
+
+	resp, err := t.s.tc.Apiv1().Tenant().List(ctx, req)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -192,7 +210,7 @@ func (t *tenantRepository) update(ctx context.Context, tenant *tenantEntity, rq 
 		tenant.Meta.Labels = updateLabelsOnSlice(rq.Labels, tenant.Meta.Labels)
 	}
 
-	resp, err := t.s.mdc.Tenant().Update(ctx, &mdcv1.TenantUpdateRequest{Tenant: tenant.Tenant})
+	resp, err := t.s.tc.Apiv1().Tenant().Update(ctx, &tenantv1.TenantServiceUpdateRequest{Tenant: tenant.Tenant})
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -209,11 +227,11 @@ func (t *tenantRepository) convertToInternal(ctx context.Context, tenant *apiv2.
 
 	var labels []string
 	if tenant.Meta != nil && tenant.Meta.Labels != nil && len(tenant.Meta.Labels.Labels) > 0 {
-		labels = tag.TagMap(tenant.Meta.Labels.Labels).Slice()
+		labels = tags.ToTags(tenant.Meta.Labels.Labels)
 	}
 
-	return &tenantEntity{Tenant: &mdcv1.Tenant{
-		Meta: &mdcv1.Meta{
+	return &tenantEntity{Tenant: &tenantv1.Tenant{
+		Meta: &tenantv1.Meta{
 			Id:          tenant.Login,
 			Kind:        "Tenant",
 			Annotations: ann,
@@ -226,9 +244,10 @@ func (t *tenantRepository) convertToInternal(ctx context.Context, tenant *apiv2.
 
 func (t *tenantRepository) convertToProto(ctx context.Context, tenant *tenantEntity) (*apiv2.Tenant, error) {
 	var labels *apiv2.Labels
+
 	if tenant.Meta != nil && tenant.Meta.Labels != nil && len(tenant.Meta.Labels) > 0 {
 		labels = &apiv2.Labels{
-			Labels: tag.NewTagMap(tenant.Meta.Labels),
+			Labels: tags.ToLabels(tenant.Meta.Labels),
 		}
 	}
 
@@ -270,7 +289,7 @@ func (t *tenantRepository) tenantMember(scope *TenantScope) TenantMember {
 }
 
 func (t *tenantRepository) ListTenantMembers(ctx context.Context, tenant string, includeInherited bool) ([]*api.TenantWithMembershipAnnotations, error) {
-	resp, err := t.s.mdc.Tenant().ListTenantMembers(ctx, &mdcv1.ListTenantMembersRequest{
+	resp, err := t.s.tc.Apiv1().Tenant().ListTenantMembers(ctx, &tenantv1.TenantServiceListTenantMembersRequest{
 		TenantId:         tenant,
 		IncludeInherited: new(includeInherited),
 	})
@@ -298,7 +317,7 @@ func (t *tenantRepository) ListTenantMembers(ctx context.Context, tenant string,
 }
 
 func (t *tenantRepository) FindParticipatingTenants(ctx context.Context, tenant string, includeInherited bool) ([]*api.TenantWithMembershipAnnotations, error) {
-	resp, err := t.s.mdc.Tenant().FindParticipatingTenants(ctx, &mdcv1.FindParticipatingTenantsRequest{
+	resp, err := t.s.tc.Apiv1().Tenant().FindParticipatingTenants(ctx, &tenantv1.TenantServiceFindParticipatingTenantsRequest{
 		TenantId:         tenant,
 		IncludeInherited: new(includeInherited),
 	})
@@ -339,19 +358,61 @@ func TenantRoleFromMap(annotations map[string]string) apiv2.TenantRole {
 }
 
 func (t *tenantRepository) EnsureProviderTenant(ctx context.Context, providerTenantID string) error {
-	_, err := t.s.Tenant().Get(ctx, providerTenantID)
-	if err != nil && !errorutil.IsNotFound(err) {
-		return errorutil.Convert(fmt.Errorf("unable to get tenant %q: %w", providerTenantID, err))
-	}
+	providerTenant, err := t.s.Tenant().Find(ctx, &apiv2.TenantQuery{
+		Labels: &apiv2.Labels{
+			Labels: map[string]string{
+				tag.ProviderTenant: strconv.FormatBool(true),
+			},
+		},
+	})
 
-	if err != nil && errorutil.IsNotFound(err) {
-		_, err := t.CreateWithID(ctx, &apiv2.TenantServiceCreateRequest{
+	switch {
+	case err == nil:
+		// noop
+	case errorutil.IsNotFound(err):
+		providerTenant, err = t.CreateWithID(ctx, &apiv2.TenantServiceCreateRequest{
 			Name:        providerTenantID,
 			Description: new("initial provider tenant for metal-stack"),
+			Labels: &apiv2.Labels{
+				Labels: map[string]string{
+					tag.ProviderTenant: strconv.FormatBool(true),
+				},
+			},
 		}, providerTenantID, NewTenantCreateOptWithCreator(providerTenantID))
-		if err != nil {
-			return errorutil.Convert(fmt.Errorf("unable to create tenant:%s %w", providerTenantID, err))
+		if err != nil && !errorutil.IsConflict(err) {
+			return errorutil.Convert(fmt.Errorf("unable to create tenant %q: %w", providerTenantID, err))
 		}
+
+		if err != nil && errorutil.IsConflict(err) {
+			t.s.log.Info("provider tenant already exists, but missing provider tenant label; patching tenant")
+
+			providerTenant, err = t.s.Tenant().Update(ctx, providerTenantID, &apiv2.TenantServiceUpdateRequest{
+				UpdateMeta: &apiv2.UpdateMeta{
+					LockingStrategy: apiv2.OptimisticLockingStrategy_OPTIMISTIC_LOCKING_STRATEGY_SERVER,
+				},
+				Labels: &apiv2.UpdateLabels{
+					Strategy: &apiv2.UpdateLabels_Inidivual{
+						Inidivual: &apiv2.UpdateLabelsIndividually{
+							Update: &apiv2.Labels{
+								Labels: map[string]string{
+									tag.ProviderTenant: strconv.FormatBool(true),
+								},
+							},
+						},
+					},
+				},
+			})
+			if err != nil {
+				return errorutil.Internal("unable to patch provider tenant label to existing provider tenant entity: %w", err)
+			}
+		}
+
+	default:
+		return errorutil.Convert(fmt.Errorf("unable to find unique provider tenant %q: %w", providerTenantID, err))
+	}
+
+	if providerTenant.Login != providerTenantID {
+		return errorutil.InvalidArgument("provider tenant %q already exists, refusing to create another one with id %q", providerTenant.Login, providerTenantID)
 	}
 
 	_, err = t.Member(providerTenantID).Get(ctx, providerTenantID)

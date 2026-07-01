@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"connectrpc.com/connect"
@@ -10,6 +11,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-lib/auditing"
 	"github.com/valkey-io/valkey-go"
@@ -17,30 +19,32 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
-	mdm "github.com/metal-stack/masterdata-api/pkg/client"
+	tenant "github.com/metal-stack/tenant-api/go/client"
 )
 
 type (
 	Store struct {
-		log       *slog.Logger
-		ds        generic.Datastore
-		mdc       mdm.Client
-		ipam      ipamv1connect.IpamServiceClient
-		task      *task.Client
-		queue     *queue.Queue
-		component valkey.Client
-		auditing  auditing.Auditing
+		log             *slog.Logger
+		ds              generic.Datastore
+		tc              tenant.Client
+		ipam            ipamv1connect.IpamServiceClient
+		task            *task.Client
+		queue           *queue.Queue
+		component       valkey.Client
+		auditing        auditing.Auditing
+		headscaleClient *headscale.Client
 	}
 
 	Config struct {
-		Log              *slog.Logger
-		Datastore        generic.Datastore
-		MasterdataClient mdm.Client
-		Ipam             ipamv1connect.IpamServiceClient
-		Task             *task.Client
-		Queue            *queue.Queue
-		Component        valkey.Client
-		Auditing         auditing.Auditing
+		Log                   *slog.Logger
+		Datastore             generic.Datastore
+		TenantApiserverClient tenant.Client
+		Ipam                  ipamv1connect.IpamServiceClient
+		Task                  *task.Client
+		Queue                 *queue.Queue
+		Component             valkey.Client
+		Auditing              auditing.Auditing
+		HeadscaleClient       *headscale.Client
 	}
 
 	store[R Repo, E Entity, M Message, C CreateMessage, U UpdateMessage, Q Query] struct {
@@ -51,14 +55,15 @@ type (
 
 func New(c Config) *Store {
 	return &Store{
-		log:       c.Log,
-		mdc:       c.MasterdataClient,
-		ipam:      c.Ipam,
-		ds:        c.Datastore,
-		task:      c.Task,
-		queue:     c.Queue,
-		component: c.Component,
-		auditing:  c.Auditing,
+		log:             c.Log,
+		tc:              c.TenantApiserverClient,
+		ipam:            c.Ipam,
+		ds:              c.Datastore,
+		task:            c.Task,
+		queue:           c.Queue,
+		component:       c.Component,
+		auditing:        c.Auditing,
+		headscaleClient: c.HeadscaleClient,
 	}
 }
 
@@ -77,11 +82,14 @@ func (s *Store) UnscopedIP() IP {
 }
 
 func (s *Store) ip(scope *ProjectScope) IP {
+	repo := &ipRepository{
+		s:     s,
+		scope: scope,
+	}
+
 	return &store[*ipRepository, *metal.IP, *apiv2.IP, *apiv2.IPServiceCreateRequest, *apiv2.IPServiceUpdateRequest, *apiv2.IPQuery]{
-		repository: &ipRepository{
-			s:     s,
-			scope: scope,
-		},
+		repository: repo,
+		typed:      repo,
 	}
 }
 func (s *Store) Machine(project string) Machine {
@@ -166,7 +174,7 @@ func (s *Store) project(scope *ProjectScope) Project {
 		scope: scope,
 	}
 
-	return &store[*projectRepository, *projectEntity, *apiv2.Project, *apiv2.ProjectServiceCreateRequest, *apiv2.ProjectServiceUpdateRequest, *apiv2.ProjectServiceListRequest]{
+	return &store[*projectRepository, *projectEntity, *apiv2.Project, *apiv2.ProjectServiceCreateRequest, *apiv2.ProjectServiceUpdateRequest, *apiv2.ProjectQuery]{
 		repository: repository,
 		typed:      repository,
 	}
@@ -177,7 +185,7 @@ func (s *Store) Tenant() Tenant {
 		s: s,
 	}
 
-	return &store[*tenantRepository, *tenantEntity, *apiv2.Tenant, *apiv2.TenantServiceCreateRequest, *apiv2.TenantServiceUpdateRequest, *apiv2.TenantServiceListRequest]{
+	return &store[*tenantRepository, *tenantEntity, *apiv2.Tenant, *apiv2.TenantServiceCreateRequest, *apiv2.TenantServiceUpdateRequest, *apiv2.TenantQuery]{
 		repository: repository,
 		typed:      repository,
 	}
@@ -282,6 +290,24 @@ func (s *Store) audit(scope *TenantScope) Audit {
 	}
 }
 
+func (s *Store) VPN(project string) *vpn {
+	return &vpn{
+		s: s,
+		scope: &ProjectScope{
+			projectID: project,
+		},
+		c: s.headscaleClient,
+	}
+}
+
+func (s *Store) UnscopedVPN() *vpn {
+	return &vpn{
+		s:     s,
+		scope: nil,
+		c:     s.headscaleClient,
+	}
+}
+
 func (s *store[R, E, M, C, U, Q]) Create(ctx context.Context, c C) (M, error) {
 	var zero M
 
@@ -292,12 +318,12 @@ func (s *store[R, E, M, C, U, Q]) Create(ctx context.Context, c C) (M, error) {
 
 	e, err := s.create(ctx, c)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.Convert(err)
 	}
 
 	converted, err := s.convertToProto(ctx, e)
 	if err != nil {
-		return zero, err
+		return zero, protoConversionError(err)
 	}
 
 	return converted, nil
@@ -308,7 +334,7 @@ func (s *store[R, E, M, C, U, Q]) Delete(ctx context.Context, id string) (M, err
 
 	e, err := s.get(ctx, id)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.Convert(err)
 	}
 
 	ok := s.matchScope(e)
@@ -321,14 +347,18 @@ func (s *store[R, E, M, C, U, Q]) Delete(ctx context.Context, id string) (M, err
 		return zero, errorutil.WrapConnectErr(connect.CodeInvalidArgument, err)
 	}
 
-	err = s.delete(ctx, e)
+	deleteInfo, err := s.delete(ctx, e)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.Convert(err)
 	}
 
 	converted, err := s.convertToProto(ctx, e)
 	if err != nil {
-		return zero, err
+		return zero, protoConversionError(err)
+	}
+
+	if deleteInfo != nil {
+		converted.GetMeta().DeletionTaskId = deleteInfo.taskID
 	}
 
 	return converted, nil
@@ -339,12 +369,12 @@ func (s *store[R, E, M, C, U, Q]) Find(ctx context.Context, query Q) (M, error) 
 
 	e, err := s.find(ctx, query)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.Convert(err)
 	}
 
 	converted, err := s.convertToProto(ctx, e)
 	if err != nil {
-		return zero, err
+		return zero, protoConversionError(err)
 	}
 
 	return converted, nil
@@ -355,7 +385,7 @@ func (s *store[R, E, M, C, U, Q]) Get(ctx context.Context, id string) (M, error)
 
 	e, err := s.get(ctx, id)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.Convert(err)
 	}
 
 	ok := s.matchScope(e)
@@ -365,7 +395,7 @@ func (s *store[R, E, M, C, U, Q]) Get(ctx context.Context, id string) (M, error)
 
 	converted, err := s.convertToProto(ctx, e)
 	if err != nil {
-		return zero, err
+		return zero, protoConversionError(err)
 	}
 
 	return converted, nil
@@ -374,14 +404,15 @@ func (s *store[R, E, M, C, U, Q]) Get(ctx context.Context, id string) (M, error)
 func (s *store[R, E, M, C, U, Q]) List(ctx context.Context, query Q) ([]M, error) {
 	es, err := s.list(ctx, query)
 	if err != nil {
-		return nil, err
+		return nil, errorutil.Convert(err)
 	}
 
 	var res []M
+
 	for _, e := range es {
 		converted, err := s.convertToProto(ctx, e)
 		if err != nil {
-			return nil, err
+			return nil, protoConversionError(err)
 		}
 
 		res = append(res, converted)
@@ -395,7 +426,7 @@ func (s *store[R, E, M, C, U, Q]) Update(ctx context.Context, id string, u U) (M
 
 	e, err := s.get(ctx, id)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.Convert(err)
 	}
 
 	ok := s.matchScope(e)
@@ -414,12 +445,12 @@ func (s *store[R, E, M, C, U, Q]) Update(ctx context.Context, id string, u U) (M
 
 	e, err = s.update(ctx, e, u)
 	if err != nil {
-		return zero, err
+		return zero, errorutil.Convert(err)
 	}
 
 	converted, err := s.convertToProto(ctx, e)
 	if err != nil {
-		return zero, err
+		return zero, protoConversionError(err)
 	}
 
 	return converted, nil
@@ -446,4 +477,8 @@ func setUpdateMeta(u UpdateMessage, e Entity) error {
 	}
 
 	return nil
+}
+
+func protoConversionError(err error) error {
+	return errorutil.WrapConnectErr(connect.CodeInternal, fmt.Errorf("error during proto conversion: %w", err))
 }

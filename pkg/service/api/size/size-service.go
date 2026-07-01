@@ -6,7 +6,6 @@ import (
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
-	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 )
 
@@ -27,21 +26,19 @@ func New(c Config) apiv2connect.SizeServiceHandler {
 	}
 }
 
-// Get implements apiv2connect.SizeServiceHandler.
 func (s *sizeServiceServer) Get(ctx context.Context, rq *apiv2.SizeServiceGetRequest) (*apiv2.SizeServiceGetResponse, error) {
 	size, err := s.repo.Size().Get(ctx, rq.Id)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	return &apiv2.SizeServiceGetResponse{Size: size}, nil
 }
 
-// List implements apiv2connect.SizeServiceHandler.
 func (s *sizeServiceServer) List(ctx context.Context, rq *apiv2.SizeServiceListRequest) (*apiv2.SizeServiceListResponse, error) {
 	sizes, err := s.repo.Size().List(ctx, rq.Query)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	return &apiv2.SizeServiceListResponse{Sizes: sizes}, nil

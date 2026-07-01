@@ -31,7 +31,7 @@ func New(c Config) adminv2connect.FilesystemServiceHandler {
 func (f *filesystemServiceServer) Create(ctx context.Context, rq *adminv2.FilesystemServiceCreateRequest) (*adminv2.FilesystemServiceCreateResponse, error) {
 	fsl, err := f.repo.FilesystemLayout().Create(ctx, rq)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	return &adminv2.FilesystemServiceCreateResponse{FilesystemLayout: fsl}, nil
@@ -41,7 +41,7 @@ func (f *filesystemServiceServer) Create(ctx context.Context, rq *adminv2.Filesy
 func (f *filesystemServiceServer) Delete(ctx context.Context, rq *adminv2.FilesystemServiceDeleteRequest) (*adminv2.FilesystemServiceDeleteResponse, error) {
 	fsl, err := f.repo.FilesystemLayout().Delete(ctx, rq.Id)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	return &adminv2.FilesystemServiceDeleteResponse{FilesystemLayout: fsl}, nil
@@ -51,8 +51,26 @@ func (f *filesystemServiceServer) Delete(ctx context.Context, rq *adminv2.Filesy
 func (f *filesystemServiceServer) Update(ctx context.Context, rq *adminv2.FilesystemServiceUpdateRequest) (*adminv2.FilesystemServiceUpdateResponse, error) {
 	fsl, err := f.repo.FilesystemLayout().Update(ctx, rq.Id, rq)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	return &adminv2.FilesystemServiceUpdateResponse{FilesystemLayout: fsl}, nil
+}
+func (f *filesystemServiceServer) Match(ctx context.Context, req *adminv2.FilesystemServiceMatchRequest) (*adminv2.FilesystemServiceMatchResponse, error) {
+	switch match := req.Match.(type) {
+	case *adminv2.FilesystemServiceMatchRequest_SizeAndImage:
+		fsl, err := f.repo.FilesystemLayout().AdditionalMethods().FromImageAndSize(ctx, match.SizeAndImage)
+		if err != nil {
+			return nil, err
+		}
+		return &adminv2.FilesystemServiceMatchResponse{FilesystemLayout: fsl}, nil
+	case *adminv2.FilesystemServiceMatchRequest_MachineAndFilesystemlayout:
+		fsl, err := f.repo.FilesystemLayout().AdditionalMethods().FromMachineAndFSL(ctx, match.MachineAndFilesystemlayout)
+		if err != nil {
+			return nil, err
+		}
+		return &adminv2.FilesystemServiceMatchResponse{FilesystemLayout: fsl}, nil
+	default:
+		return nil, errorutil.InvalidArgument("given matchtype %T is unsupported", match)
+	}
 }

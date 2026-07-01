@@ -37,6 +37,7 @@ func OIDCHubProvider(c ProviderConfig) authOption {
 		scopes := []string{"openid", "email", "profile"}
 
 		tlsConf := &tls.Config{
+			MinVersion:         tls.VersionTLS13,
 			InsecureSkipVerify: c.TLSSkipVerify,
 		}
 

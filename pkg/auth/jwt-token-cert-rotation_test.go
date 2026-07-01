@@ -18,6 +18,7 @@ import (
 )
 
 func Test_jwt_cert_rotation(t *testing.T) {
+	t.Parallel()
 	oldMaxExpiration := token.MaxExpiration
 	oldDefaultExpiration := token.DefaultExpiration
 
@@ -55,11 +56,11 @@ func Test_jwt_cert_rotation(t *testing.T) {
 	}()
 	service := func() tokenservice.TokenService {
 		s := tokenservice.New(tokenservice.Config{
-			Log:           log,
-			CertStore:     certStore,
-			TokenStore:    tokenStore,
-			AdminSubjects: []string{},
-			Issuer:        "integration",
+			Log:            log,
+			CertStore:      certStore,
+			TokenStore:     tokenStore,
+			ProviderTenant: "metal-stack",
+			Issuer:         "integration",
 		})
 
 		return s

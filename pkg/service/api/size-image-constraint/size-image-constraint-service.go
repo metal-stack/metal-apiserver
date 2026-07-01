@@ -31,5 +31,6 @@ func (s *sizeImageConstraintServiceServer) Try(ctx context.Context, req *apiv2.S
 	if err != nil {
 		return nil, err
 	}
+
 	return &apiv2.SizeImageConstraintServiceTryResponse{}, nil
 }

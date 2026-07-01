@@ -1,12 +1,18 @@
 package machine
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
+
+	"golang.org/x/crypto/ssh"
 
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
@@ -14,6 +20,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -28,6 +35,9 @@ var (
 	p1 = "00000000-0000-0000-0000-000000000001"
 	p2 = "00000000-0000-0000-0000-000000000002"
 )
+
+// TODO:
+// - convert to datacenter
 
 func Test_machineServiceServer_Get(t *testing.T) {
 	t.Parallel()
@@ -86,7 +96,7 @@ func Test_machineServiceServer_Get(t *testing.T) {
 					Size:                     &apiv2.Size{Id: "c1-large-x86", Meta: &apiv2.Meta{}},
 					RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
 					Status: &apiv2.MachineStatus{
-						Condition:  &apiv2.MachineCondition{},
+						Condition:  &apiv2.MachineCondition{State: apiv2.MachineState_MACHINE_STATE_AVAILABLE},
 						LedState:   &apiv2.MachineChassisIdentifyLEDState{},
 						Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
 					},
@@ -215,7 +225,7 @@ func Test_machineServiceServer_List(t *testing.T) {
 						Size:                     &apiv2.Size{Id: "c1-large-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 8, Max: 8}}},
 						RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
 						Status: &apiv2.MachineStatus{
-							Condition:  &apiv2.MachineCondition{},
+							Condition:  &apiv2.MachineCondition{State: apiv2.MachineState_MACHINE_STATE_AVAILABLE},
 							LedState:   &apiv2.MachineChassisIdentifyLEDState{},
 							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
 						},
@@ -250,7 +260,7 @@ func Test_machineServiceServer_List(t *testing.T) {
 						Size:                     &apiv2.Size{Id: "c1-large-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 8, Max: 8}}},
 						RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
 						Status: &apiv2.MachineStatus{
-							Condition:  &apiv2.MachineCondition{},
+							Condition:  &apiv2.MachineCondition{State: apiv2.MachineState_MACHINE_STATE_AVAILABLE},
 							LedState:   &apiv2.MachineChassisIdentifyLEDState{},
 							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
 						},
@@ -367,6 +377,9 @@ func Test_machineServiceServer_Update(t *testing.T) {
 		},
 	})
 
+	key1 := generateSSHPublicKey(t)
+	key2 := generateSSHPublicKey(t)
+
 	tests := []struct {
 		name    string
 		rq      *apiv2.MachineServiceUpdateRequest
@@ -377,7 +390,7 @@ func Test_machineServiceServer_Update(t *testing.T) {
 			name:    "update without allocation",
 			rq:      &apiv2.MachineServiceUpdateRequest{Uuid: m1, UpdateMeta: &apiv2.UpdateMeta{}},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("only allocated machines can be updated"),
+			wantErr: errorutil.FailedPrecondition("only allocated machines can be updated"),
 		},
 		{
 			name: "Update tags",
@@ -388,7 +401,11 @@ func Test_machineServiceServer_Update(t *testing.T) {
 				},
 				Project: p1,
 				Labels: &apiv2.UpdateLabels{
-					Update: &apiv2.Labels{Labels: map[string]string{"color": "red"}},
+					Strategy: &apiv2.UpdateLabels_Inidivual{
+						Inidivual: &apiv2.UpdateLabelsIndividually{
+							Update: &apiv2.Labels{Labels: map[string]string{"color": "red"}},
+						},
+					},
 				}},
 			want: &apiv2.MachineServiceUpdateResponse{
 				Machine: &apiv2.Machine{
@@ -399,7 +416,7 @@ func Test_machineServiceServer_Update(t *testing.T) {
 					Size:                     &apiv2.Size{Id: "c1-medium-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4}}},
 					RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
 					Status: &apiv2.MachineStatus{
-						Condition:  &apiv2.MachineCondition{},
+						Condition:  &apiv2.MachineCondition{State: apiv2.MachineState_MACHINE_STATE_AVAILABLE},
 						LedState:   &apiv2.MachineChassisIdentifyLEDState{},
 						Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
 					},
@@ -431,7 +448,7 @@ func Test_machineServiceServer_Update(t *testing.T) {
 					UpdatedAt: timestamppb.New(machineMap[m4].Changed),
 				},
 				Description:   new("my-beloved-machine"),
-				SshPublicKeys: []string{"key-2", "key-3"},
+				SshPublicKeys: []string{key1, key2},
 			},
 			want: &apiv2.MachineServiceUpdateResponse{
 				Machine: &apiv2.Machine{
@@ -442,7 +459,7 @@ func Test_machineServiceServer_Update(t *testing.T) {
 					Size:                     &apiv2.Size{Id: "c1-medium-x86", Meta: &apiv2.Meta{}, Constraints: []*apiv2.SizeConstraint{{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_CORES, Min: 4, Max: 4}}},
 					RecentProvisioningEvents: &apiv2.MachineRecentProvisioningEvents{},
 					Status: &apiv2.MachineStatus{
-						Condition:  &apiv2.MachineCondition{},
+						Condition:  &apiv2.MachineCondition{State: apiv2.MachineState_MACHINE_STATE_AVAILABLE},
 						LedState:   &apiv2.MachineChassisIdentifyLEDState{},
 						Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
 					},
@@ -450,7 +467,7 @@ func Test_machineServiceServer_Update(t *testing.T) {
 						Project:       p2,
 						Meta:          &apiv2.Meta{},
 						Description:   "my-beloved-machine",
-						SshPublicKeys: []string{"key-2", "key-3"},
+						SshPublicKeys: []string{key1, key2},
 						Image: &apiv2.Image{
 							Id:             "debian-12",
 							Meta:           &apiv2.Meta{},
@@ -498,4 +515,17 @@ func Test_machineServiceServer_Update(t *testing.T) {
 			}
 		})
 	}
+}
+
+func generateSSHPublicKey(t *testing.T) string {
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	signer, err := ssh.NewSignerFromKey(privateKey)
+	require.NoError(t, err)
+
+	publicKey := signer.PublicKey()
+	sshBytes := ssh.MarshalAuthorizedKey(publicKey)
+
+	return strings.TrimSpace(string(sshBytes))
 }

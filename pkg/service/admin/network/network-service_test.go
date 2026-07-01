@@ -15,6 +15,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/samber/lo"
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -93,7 +94,8 @@ func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 			want: &adminv2.NetworkServiceCreateResponse{
 				Network: &apiv2.Network{
 					Meta:          &apiv2.Meta{},
-					Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
+					Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD,
+					NatType:       apiv2.NATType_NAT_TYPE_NONE,
 					Name:          new("private-1"),
 					Project:       new(p1),
 					ParentNetwork: new("tenant-super-network"),
@@ -126,7 +128,8 @@ func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 			want: &adminv2.NetworkServiceCreateResponse{
 				Network: &apiv2.Network{
 					Meta:          &apiv2.Meta{},
-					Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
+					Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD,
+					NatType:       apiv2.NATType_NAT_TYPE_NONE,
 					Name:          new("private-1"),
 					Project:       new(p1),
 					Partition:     new("partition-one"),
@@ -158,7 +161,8 @@ func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 			want: &adminv2.NetworkServiceCreateResponse{
 				Network: &apiv2.Network{
 					Meta:          &apiv2.Meta{},
-					Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
+					Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD,
+					NatType:       apiv2.NATType_NAT_TYPE_NONE,
 					Name:          new("private-1"),
 					Project:       new(p1),
 					Namespace:     new(p1),
@@ -191,7 +195,8 @@ func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 			want: &adminv2.NetworkServiceCreateResponse{
 				Network: &apiv2.Network{
 					Meta:          &apiv2.Meta{},
-					Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
+					Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD,
+					NatType:       apiv2.NATType_NAT_TYPE_NONE,
 					Name:          new("private-1"),
 					Project:       new(p1),
 					ParentNetwork: new("tenant-super-with-vrf"),
@@ -224,7 +229,8 @@ func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 			want: &adminv2.NetworkServiceCreateResponse{
 				Network: &apiv2.Network{
 					Meta:          &apiv2.Meta{},
-					Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
+					Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD,
+					NatType:       apiv2.NATType_NAT_TYPE_NONE,
 					Name:          new("private-1"),
 					Project:       new(p1),
 					ParentNetwork: new("tenant-super-with-partition"),
@@ -258,7 +264,8 @@ func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 			want: &adminv2.NetworkServiceCreateResponse{
 				Network: &apiv2.Network{
 					Meta:                &apiv2.Meta{},
-					Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
+					Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD,
+					NatType:             apiv2.NATType_NAT_TYPE_NONE,
 					Name:                new("private-1"),
 					Project:             new(p1),
 					ParentNetwork:       new("tenant-super-with-dst-prefixes"),
@@ -293,7 +300,8 @@ func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 			want: &adminv2.NetworkServiceCreateResponse{
 				Network: &apiv2.Network{
 					Meta:                &apiv2.Meta{},
-					Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
+					Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD,
+					NatType:             apiv2.NATType_NAT_TYPE_NONE,
 					Name:                new("private-1"),
 					Project:             new(p1),
 					ParentNetwork:       new("project-scoped-tenant-super"),
@@ -352,7 +360,8 @@ func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 			want: &adminv2.NetworkServiceCreateResponse{
 				Network: &apiv2.Network{
 					Meta:                &apiv2.Meta{},
-					Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
+					Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD,
+					NatType:             apiv2.NATType_NAT_TYPE_NONE,
 					Name:                new("private-1"),
 					Project:             new(p1),
 					ParentNetwork:       new("project-scoped-tenant-super"),
@@ -387,7 +396,8 @@ func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 			want: &adminv2.NetworkServiceCreateResponse{
 				Network: &apiv2.Network{
 					Meta:                &apiv2.Meta{},
-					Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED.Enum(),
+					Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED,
+					NatType:             apiv2.NATType_NAT_TYPE_NONE,
 					Name:                new("shared-storage-1"),
 					Project:             new(p1),
 					ParentNetwork:       new("tenant-super-with-dst-prefixes"),
@@ -456,7 +466,8 @@ func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 			want: &adminv2.NetworkServiceCreateResponse{
 				Network: &apiv2.Network{
 					Meta:                &apiv2.Meta{},
-					Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED.Enum(),
+					Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED,
+					NatType:             apiv2.NATType_NAT_TYPE_NONE,
 					Name:                new("shared-storage-2"),
 					Project:             new(p2),
 					ParentNetwork:       new("tenant-super-with-dst-prefixes"),
@@ -567,7 +578,8 @@ func Test_networkServiceServer_CreateChildNetworksFromSuperNameSpaced(t *testing
 				{
 					Network: &apiv2.Network{
 						Meta:                &apiv2.Meta{},
-						Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
+						Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD,
+						NatType:             apiv2.NATType_NAT_TYPE_NONE,
 						Name:                new("private-1"),
 						Project:             new(p1),
 						ParentNetwork:       new("project-scoped-tenant-super"),
@@ -612,7 +624,8 @@ func Test_networkServiceServer_CreateChildNetworksFromSuperNameSpaced(t *testing
 				{
 					Network: &apiv2.Network{
 						Meta:                &apiv2.Meta{},
-						Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
+						Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD,
+						NatType:             apiv2.NATType_NAT_TYPE_NONE,
 						Name:                new("private-1"),
 						Project:             new(p1),
 						ParentNetwork:       new("tenant-super-namespaced-1"),
@@ -625,7 +638,8 @@ func Test_networkServiceServer_CreateChildNetworksFromSuperNameSpaced(t *testing
 				{
 					Network: &apiv2.Network{
 						Meta:                &apiv2.Meta{},
-						Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
+						Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD,
+						NatType:             apiv2.NATType_NAT_TYPE_NONE,
 						Name:                new("private-2"),
 						Project:             new(p1),
 						ParentNetwork:       new("tenant-super-namespaced-1"),
@@ -682,7 +696,8 @@ func Test_networkServiceServer_CreateChildNetworksFromSuperNameSpaced(t *testing
 				{
 					Network: &apiv2.Network{
 						Meta:                &apiv2.Meta{},
-						Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
+						Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD,
+						NatType:             apiv2.NATType_NAT_TYPE_NONE,
 						Name:                new("private-1"),
 						Project:             new(p1),
 						ParentNetwork:       new("tenant-super-namespaced-1"),
@@ -695,7 +710,8 @@ func Test_networkServiceServer_CreateChildNetworksFromSuperNameSpaced(t *testing
 				{
 					Network: &apiv2.Network{
 						Meta:                &apiv2.Meta{},
-						Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
+						Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD,
+						NatType:             apiv2.NATType_NAT_TYPE_NONE,
 						Name:                new("private-2"),
 						Project:             new(p1),
 						ParentNetwork:       new("tenant-super-namespaced-1"),
@@ -708,7 +724,8 @@ func Test_networkServiceServer_CreateChildNetworksFromSuperNameSpaced(t *testing
 				{
 					Network: &apiv2.Network{
 						Meta:                &apiv2.Meta{},
-						Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
+						Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD,
+						NatType:             apiv2.NATType_NAT_TYPE_NONE,
 						Name:                new("private-3"),
 						Project:             new(p2),
 						ParentNetwork:       new("tenant-super-namespaced-1"),
@@ -721,7 +738,8 @@ func Test_networkServiceServer_CreateChildNetworksFromSuperNameSpaced(t *testing
 				{
 					Network: &apiv2.Network{
 						Meta:                &apiv2.Meta{},
-						Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
+						Type:                apiv2.NetworkType_NETWORK_TYPE_CHILD,
+						NatType:             apiv2.NATType_NAT_TYPE_NONE,
 						Name:                new("private-4"),
 						Project:             new(p3),
 						ParentNetwork:       new("tenant-super-namespaced-1"),
@@ -881,7 +899,8 @@ func Test_networkServiceServer_CreateSuper(t *testing.T) {
 					Meta:                     &apiv2.Meta{},
 					Prefixes:                 []string{"11.100.0.0/14"},
 					DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: new(uint32(22))},
-					Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
+					Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
+					NatType:                  apiv2.NATType_NAT_TYPE_NONE,
 					Partition:                new("partition-two"),
 				},
 			},
@@ -990,7 +1009,8 @@ func Test_networkServiceServer_CreateSuper(t *testing.T) {
 					DefaultChildPrefixLength:   &apiv2.ChildPrefixLength{Ipv4: new(uint32(22)), Ipv6: new(uint32(112))},
 					MinChildPrefixLength:       &apiv2.ChildPrefixLength{Ipv4: new(uint32(20)), Ipv6: new(uint32(104))},
 					AdditionalAnnouncableCidrs: []string{"10.240.0.0/12"},
-					Type:                       apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
+					NatType:                    apiv2.NATType_NAT_TYPE_NONE,
+					Type:                       apiv2.NetworkType_NETWORK_TYPE_SUPER,
 					Partition:                  new("partition-one"),
 				},
 			},
@@ -1017,7 +1037,8 @@ func Test_networkServiceServer_CreateSuper(t *testing.T) {
 					DefaultChildPrefixLength:   &apiv2.ChildPrefixLength{Ipv4: new(uint32(22)), Ipv6: new(uint32(112))},
 					MinChildPrefixLength:       &apiv2.ChildPrefixLength{Ipv4: new(uint32(20)), Ipv6: new(uint32(104))},
 					AdditionalAnnouncableCidrs: []string{"10.240.0.0/12"},
-					Type:                       apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
+					Type:                       apiv2.NetworkType_NETWORK_TYPE_SUPER,
+					NatType:                    apiv2.NATType_NAT_TYPE_NONE,
 					Partition:                  new("partition-one"),
 					Vrf:                        new(uint32(45)),
 				},
@@ -1050,7 +1071,8 @@ func Test_networkServiceServer_CreateSuper(t *testing.T) {
 					Prefixes:                 []string{"10.200.0.0/14"},
 					DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: new(uint32(22))},
 					MinChildPrefixLength:     &apiv2.ChildPrefixLength{Ipv4: new(uint32(20))},
-					Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
+					Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
+					NatType:                  apiv2.NATType_NAT_TYPE_NONE,
 				},
 			},
 			wantErr: nil,
@@ -1223,7 +1245,8 @@ func Test_networkServiceServer_CreateSuperNamespaced(t *testing.T) {
 					DefaultChildPrefixLength:   &apiv2.ChildPrefixLength{Ipv4: new(uint32(22)), Ipv6: new(uint32(112))},
 					MinChildPrefixLength:       &apiv2.ChildPrefixLength{Ipv4: new(uint32(20)), Ipv6: new(uint32(104))},
 					AdditionalAnnouncableCidrs: []string{"10.240.0.0/12"},
-					Type:                       apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED.Enum(),
+					Type:                       apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED,
+					NatType:                    apiv2.NATType_NAT_TYPE_NONE,
 				},
 			},
 			wantErr: nil,
@@ -1248,7 +1271,8 @@ func Test_networkServiceServer_CreateSuperNamespaced(t *testing.T) {
 					DefaultChildPrefixLength:   &apiv2.ChildPrefixLength{Ipv4: new(uint32(22)), Ipv6: new(uint32(112))},
 					MinChildPrefixLength:       &apiv2.ChildPrefixLength{Ipv4: new(uint32(20)), Ipv6: new(uint32(104))},
 					AdditionalAnnouncableCidrs: []string{"10.240.0.0/12"},
-					Type:                       apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED.Enum(),
+					Type:                       apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED,
+					NatType:                    apiv2.NATType_NAT_TYPE_NONE,
 					Vrf:                        new(uint32(45)),
 				},
 			},
@@ -1395,7 +1419,8 @@ func Test_networkServiceServer_CreateExternal(t *testing.T) {
 					Meta:     &apiv2.Meta{},
 					Prefixes: []string{"1.2.5.0/24"},
 					Vrf:      new(uint32(95)),
-					Type:     apiv2.NetworkType_NETWORK_TYPE_EXTERNAL.Enum(),
+					Type:     apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
+					NatType:  apiv2.NATType_NAT_TYPE_NONE,
 					Project:  new(p1),
 				}},
 			wantErr: nil,
@@ -1441,6 +1466,7 @@ func Test_networkServiceServer_CreateExternal(t *testing.T) {
 				Id:       new("internet"),
 				Prefixes: []string{"1.2.3.0/24"},
 				Type:     apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
+				NatType:  apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE.Enum(),
 				Vrf:      new(uint32(91)),
 			},
 			want: &adminv2.NetworkServiceCreateResponse{
@@ -1449,7 +1475,8 @@ func Test_networkServiceServer_CreateExternal(t *testing.T) {
 					Meta:     &apiv2.Meta{},
 					Prefixes: []string{"1.2.3.0/24"},
 					Vrf:      new(uint32(91)),
-					Type:     apiv2.NetworkType_NETWORK_TYPE_EXTERNAL.Enum(),
+					Type:     apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
+					NatType:  apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE,
 				}},
 			wantErr: nil,
 		},
@@ -1467,7 +1494,8 @@ func Test_networkServiceServer_CreateExternal(t *testing.T) {
 					Meta:     &apiv2.Meta{},
 					Prefixes: []string{"1.2.3.0/24", "2.3.4.0/24"},
 					Vrf:      new(uint32(92)),
-					Type:     apiv2.NetworkType_NETWORK_TYPE_EXTERNAL.Enum(),
+					Type:     apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
+					NatType:  apiv2.NATType_NAT_TYPE_NONE,
 				}},
 			wantErr: nil,
 		},
@@ -1485,7 +1513,8 @@ func Test_networkServiceServer_CreateExternal(t *testing.T) {
 					Meta:     &apiv2.Meta{},
 					Prefixes: []string{"1.2.3.0/24", "2.3.4.0/24", "2001:db8::/64", "2002:db8::/64"},
 					Vrf:      new(uint32(93)),
-					Type:     apiv2.NetworkType_NETWORK_TYPE_EXTERNAL.Enum(),
+					Type:     apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
+					NatType:  apiv2.NATType_NAT_TYPE_NONE,
 				}},
 			wantErr: nil,
 		},
@@ -1620,7 +1649,8 @@ func Test_networkServiceServer_CreateUnderlay(t *testing.T) {
 					Id:        "underlay",
 					Meta:      &apiv2.Meta{},
 					Prefixes:  []string{"1.2.3.0/24"},
-					Type:      apiv2.NetworkType_NETWORK_TYPE_UNDERLAY.Enum(),
+					Type:      apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
+					NatType:   apiv2.NATType_NAT_TYPE_NONE,
 					Partition: new("partition-one"),
 				}},
 			wantErr: nil,
@@ -1676,7 +1706,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 	defer closer()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = fmt.Fprintln(w, "a image")
+		_, _ = fmt.Fprintln(w, "an image")
 	}))
 	defer ts.Close()
 
@@ -1770,7 +1800,8 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 					Prefixes:      []string{"10.100.4.0/22"},
 					Vrf:           new(uint32(5)),
 					ParentNetwork: new("tenant-super-network"),
-					Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
+					NatType:       apiv2.NATType_NAT_TYPE_NONE,
+					Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD,
 				},
 			},
 			wantErr: nil,
@@ -1799,11 +1830,18 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 					&apiv2.Network{}, "consumption", "id", "vrf",
 				),
 				protocmp.IgnoreFields(
-					&apiv2.Meta{}, "created_at", "updated_at",
+					&apiv2.Meta{}, "created_at", "updated_at", "deletion_task_id",
 				),
 			); diff != "" {
 				t.Errorf("networkServiceServer.Delete() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
+
+			if tt.wantErr != nil {
+				return
+			}
+
+			assert.NotNil(t, got.Network.Meta)
+			assert.NotNil(t, got.Network.Meta.DeletionTaskId)
 		})
 	}
 }
@@ -1964,7 +2002,8 @@ func Test_networkServiceServer_List(t *testing.T) {
 						Prefixes:      []string{"10.100.0.0/22"},
 						Vrf:           new(uint32(20)),
 						ParentNetwork: new("tenant-super-network"),
-						Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
+						Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD,
+						NatType:       apiv2.NATType_NAT_TYPE_NONE,
 					},
 				},
 			},
@@ -1983,7 +2022,8 @@ func Test_networkServiceServer_List(t *testing.T) {
 						Name:      new("Underlay Network"),
 						Partition: new("partition-one"),
 						Prefixes:  []string{"10.0.0.0/24"},
-						Type:      apiv2.NetworkType_NETWORK_TYPE_UNDERLAY.Enum(),
+						Type:      apiv2.NetworkType_NETWORK_TYPE_UNDERLAY,
+						NatType:   apiv2.NATType_NAT_TYPE_NONE,
 					},
 				},
 			},
@@ -2001,7 +2041,8 @@ func Test_networkServiceServer_List(t *testing.T) {
 						Meta:                     &apiv2.Meta{},
 						Partition:                new("partition-one"),
 						Prefixes:                 []string{"10.100.0.0/14"},
-						Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
+						Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
+						NatType:                  apiv2.NATType_NAT_TYPE_NONE,
 						DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: new(uint32(22))},
 					},
 				},
@@ -2020,7 +2061,8 @@ func Test_networkServiceServer_List(t *testing.T) {
 						Meta:                     &apiv2.Meta{},
 						Partition:                new("partition-three"),
 						Prefixes:                 []string{"10.200.0.0/14", "2001:dc8::/96"},
-						Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
+						Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
+						NatType:                  apiv2.NATType_NAT_TYPE_NONE,
 						DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: new(uint32(22)), Ipv6: new(uint32(112))},
 					},
 					{
@@ -2028,7 +2070,8 @@ func Test_networkServiceServer_List(t *testing.T) {
 						Meta:                     &apiv2.Meta{},
 						Partition:                new("partition-two"),
 						Prefixes:                 []string{"2001:db8::/96"},
-						Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
+						Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
+						NatType:                  apiv2.NATType_NAT_TYPE_NONE,
 						DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv6: new(uint32(112))},
 					},
 				},
@@ -2047,7 +2090,8 @@ func Test_networkServiceServer_List(t *testing.T) {
 						Meta:                     &apiv2.Meta{},
 						Partition:                new("partition-three"),
 						Prefixes:                 []string{"10.200.0.0/14", "2001:dc8::/96"},
-						Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
+						Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
+						NatType:                  apiv2.NATType_NAT_TYPE_NONE,
 						DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: new(uint32(22)), Ipv6: new(uint32(112))},
 					},
 				},
@@ -2066,7 +2110,8 @@ func Test_networkServiceServer_List(t *testing.T) {
 						Meta:                &apiv2.Meta{},
 						Prefixes:            []string{"20.0.0.0/24"},
 						DestinationPrefixes: []string{"0.0.0.0/0"},
-						Type:                apiv2.NetworkType_NETWORK_TYPE_EXTERNAL.Enum(),
+						Type:                apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
+						NatType:             apiv2.NATType_NAT_TYPE_NONE,
 						Vrf:                 new(uint32(1)),
 					},
 				},
@@ -2089,7 +2134,8 @@ func Test_networkServiceServer_List(t *testing.T) {
 						Prefixes:      []string{"10.100.4.0/22"},
 						Vrf:           new(uint32(30)),
 						ParentNetwork: new("tenant-super-network"),
-						Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
+						Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD,
+						NatType:       apiv2.NATType_NAT_TYPE_NONE,
 					},
 				},
 			},
@@ -2266,7 +2312,13 @@ func Test_networkServiceServer_Update(t *testing.T) {
 				UpdateMeta: &apiv2.UpdateMeta{
 					UpdatedAt: timestamppb.New(networkMap["tenant-1"].Meta.UpdatedAt.AsTime()),
 				},
-				Labels: &apiv2.UpdateLabels{Update: &apiv2.Labels{Labels: map[string]string{"color": "red", "size": "large"}}},
+				Labels: &apiv2.UpdateLabels{
+					Strategy: &apiv2.UpdateLabels_Inidivual{
+						Inidivual: &apiv2.UpdateLabelsIndividually{
+							Update: &apiv2.Labels{Labels: map[string]string{"color": "red", "size": "large"}},
+						},
+					},
+				},
 			},
 			want: &adminv2.NetworkServiceUpdateResponse{
 				Network: &apiv2.Network{
@@ -2281,7 +2333,8 @@ func Test_networkServiceServer_Update(t *testing.T) {
 					Prefixes:      []string{"10.100.0.0/22"},
 					Vrf:           new(uint32(20)),
 					ParentNetwork: new("tenant-super-network"),
-					Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD.Enum(),
+					Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD,
+					NatType:       apiv2.NATType_NAT_TYPE_NONE,
 				},
 			},
 			wantErr: nil,
@@ -2313,7 +2366,8 @@ func Test_networkServiceServer_Update(t *testing.T) {
 					Meta:                     &apiv2.Meta{Generation: 1},
 					Partition:                new("partition-one"),
 					Prefixes:                 []string{"10.100.0.0/14", "10.104.0.0/14"},
-					Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
+					Type:                     apiv2.NetworkType_NETWORK_TYPE_SUPER,
+					NatType:                  apiv2.NATType_NAT_TYPE_NONE,
 					DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: new(uint32(22))},
 				},
 			},
@@ -2335,9 +2389,9 @@ func Test_networkServiceServer_Update(t *testing.T) {
 					Meta:                &apiv2.Meta{Generation: 1},
 					Prefixes:            []string{"20.0.0.0/24", "30.0.0.0/24"},
 					DestinationPrefixes: []string{"0.0.0.0/0"},
-					Type:                apiv2.NetworkType_NETWORK_TYPE_EXTERNAL.Enum(),
+					Type:                apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
 					Vrf:                 new(uint32(1)),
-					NatType:             apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE.Enum(),
+					NatType:             apiv2.NATType_NAT_TYPE_IPV4_MASQUERADE,
 				},
 			},
 			wantErr: nil,

@@ -36,7 +36,7 @@ func New(c Config) infrav2connect.SwitchServiceHandler {
 func (s *switchServiceServer) Get(ctx context.Context, rq *infrav2.SwitchServiceGetRequest) (*infrav2.SwitchServiceGetResponse, error) {
 	sw, err := s.repo.Switch().Get(ctx, rq.Id)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	return &infrav2.SwitchServiceGetResponse{Switch: sw}, nil
@@ -76,7 +76,7 @@ func (s *switchServiceServer) Heartbeat(ctx context.Context, rq *infrav2.SwitchS
 
 	sw, err := s.repo.Switch().Get(ctx, rq.Id)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	var updated bool

@@ -10,46 +10,16 @@ import (
 )
 
 var (
-	SwitchPairFunc = func(ids [2]string, partition, rack string, ports int, machines ...string) []*apiv2.Switch {
-		nics, cons := switchNicsFunc(ports, machines)
-
-		return []*apiv2.Switch{
-			{
-				Id:                 ids[0],
-				Meta:               &apiv2.Meta{},
-				Partition:          partition,
-				Rack:               new(rack),
-				ReplaceMode:        apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
-				Nics:               nics,
-				MachineConnections: cons,
-				Os: &apiv2.SwitchOS{
-					Vendor: apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
-				},
-			},
-			{
-				Id:                 ids[1],
-				Meta:               &apiv2.Meta{},
-				Partition:          partition,
-				Rack:               new(rack),
-				ReplaceMode:        apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
-				Nics:               nics,
-				MachineConnections: cons,
-				Os: &apiv2.SwitchOS{
-					Vendor: apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_SONIC,
-				},
-			},
-		}
-	}
-
-	switchNicsFunc = func(ports int, machines []string) ([]*apiv2.SwitchNic, []*apiv2.MachineConnection) {
+	SwitchFunc = func(id, partition, rack string, ports []string, os *apiv2.SwitchOS, replaceMode apiv2.SwitchReplaceMode, machines ...string) *apiv2.Switch {
 		var (
 			nics []*apiv2.SwitchNic
 			cons []*apiv2.MachineConnection
 		)
-		for i := range ports {
+
+		for i, p := range ports {
 			nic := &apiv2.SwitchNic{
-				Name:       fmt.Sprintf("Ethernet%d", i),
-				Identifier: fmt.Sprintf("Eth%d/%d", i+1, i+1), // TODO configure breakout
+				Name:       p,
+				Identifier: p,
 				State: &apiv2.NicState{
 					Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 				},
@@ -62,10 +32,19 @@ var (
 				})
 			}
 		}
-		return nics, cons
+
+		return &apiv2.Switch{
+			Id:                 id,
+			Rack:               new(rack),
+			Partition:          partition,
+			Nics:               nics,
+			Os:                 os,
+			ReplaceMode:        replaceMode,
+			MachineConnections: cons,
+		}
 	}
 
-	MachineFunc = func(id, partition, size, project, image string, liveliness metal.MachineLiveliness) *MachineWithLiveliness {
+	MachineFunc = func(id, partition, size, project, image string, liveliness metal.MachineLiveliness, waiting bool) *MachineWithLiveliness {
 		machineNumber := lo.Substring(id, -1, 1)
 		m := &metal.Machine{
 			Base:        metal.Base{ID: id},
@@ -82,6 +61,7 @@ var (
 			State: metal.MachineState{
 				Value: metal.AvailableState,
 			},
+			Waiting: waiting,
 		}
 		if project != "" && image != "" {
 			m.Allocation = &metal.MachineAllocation{
@@ -92,6 +72,38 @@ var (
 		return &MachineWithLiveliness{
 			Liveliness: liveliness,
 			Machine:    m,
+		}
+	}
+
+	AllocatedMachineFunc = func(id, partition, size, project, image string, liveliness metal.MachineLiveliness, networks []*metal.MachineNetwork) *MachineWithLiveliness {
+		machineNumber := lo.Substring(id, -1, 1)
+
+		return &MachineWithLiveliness{
+			Liveliness: liveliness,
+			Machine: &metal.Machine{
+				Base:        metal.Base{ID: id},
+				PartitionID: partition,
+				SizeID:      size,
+				IPMI: metal.IPMI{ // required for healthy machine state
+					Address:     fmt.Sprintf("1.2.3.%s:623", machineNumber),
+					MacAddress:  "aa:bb:0" + machineNumber,
+					LastUpdated: time.Now().Add(-1 * time.Minute),
+					Fru: metal.Fru{
+						ProductSerial: "PS" + machineNumber,
+					},
+				},
+				State: metal.MachineState{
+					Value: metal.AvailableState,
+				},
+				Waiting: false,
+				Allocation: &metal.MachineAllocation{
+					UUID:            id,
+					Project:         project,
+					ImageID:         image,
+					Role:            metal.RoleMachine,
+					MachineNetworks: networks,
+				},
+			},
 		}
 	}
 )

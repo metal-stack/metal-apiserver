@@ -14,18 +14,19 @@ import (
 	"connectrpc.com/otelconnect"
 	"connectrpc.com/validate"
 
-	headscalev1 "github.com/juanfont/headscale/gen/go/headscale/v1"
 	"github.com/metal-stack/api/go/permissions"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	"github.com/metal-stack/metal-lib/auditing"
+	auditingconnectrpc "github.com/metal-stack/metal-lib/auditing/connectrpc"
 	"github.com/redis/go-redis/v9"
 	"github.com/valkey-io/valkey-go"
 	"go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/sdk/metric"
 
-	mdm "github.com/metal-stack/masterdata-api/pkg/client"
 	authpkg "github.com/metal-stack/metal-apiserver/pkg/auth"
+	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	ratelimiter "github.com/metal-stack/metal-apiserver/pkg/rate-limiter"
+	tenantclient "github.com/metal-stack/tenant-api/go/client"
 
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
@@ -57,19 +58,19 @@ type Config struct {
 	OIDCTLSSkipVerify                   bool
 	Datastore                           generic.Datastore
 	Repository                          *repository.Store
-	MasterClient                        mdm.Client
+	TenantClient                        tenantclient.Client
 	IpamClient                          ipamv1connect.IpamServiceClient
 	AuditSearchBackend                  auditing.Auditing
 	AuditBackends                       []auditing.Auditing
 	Stage                               string
 	RedisConfig                         *RedisConfig
-	Admins                              []string
+	ProviderTenant                      string
 	MaxRequestsPerMinuteToken           int
 	MaxRequestsPerMinuteUnauthenticated int
 	IsStageDev                          bool
+	SecureCookie                        bool
 	BMCSuperuserPassword                string
-	HeadscaleControlplaneAddress        string
-	HeadscaleClient                     headscalev1.HeadscaleServiceClient
+	HeadscaleClient                     *headscale.Client
 	ComponentExpiration                 time.Duration
 }
 
@@ -82,7 +83,7 @@ type RedisConfig struct {
 	ComponentClient valkey.Client
 }
 
-func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
+func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error) {
 	var (
 		tokenStore = tokencommon.NewRedisStore(c.RedisConfig.TokenClient)
 		certStore  = certs.NewRedisStore(&certs.Config{
@@ -126,7 +127,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 
 	var (
 		logInterceptor       = newLogRequestInterceptor(log)
-		tenantInterceptor    = tenant.NewInterceptor(log, c.MasterClient)
+		tenantInterceptor    = tenant.NewInterceptor(log, c.TenantClient)
 		ratelimitInterceptor = ratelimiter.NewInterceptor(&ratelimiter.Config{
 			Log:                                 log,
 			RedisClient:                         c.RedisConfig.RateLimitClient,
@@ -151,7 +152,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 		}
 
 		for _, backend := range c.AuditBackends {
-			auditInterceptor, err := auditing.NewConnectInterceptor(backend, log, shouldAudit)
+			auditInterceptor, err := auditingconnectrpc.NewConnectInterceptor(backend, log, shouldAudit)
 			if err != nil {
 				return nil, fmt.Errorf("unable to create auditing interceptor: %w", err)
 			}
@@ -169,12 +170,12 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 
 	mux := http.NewServeMux()
 
-	tokenService, err := api.ApiServices(api.Config{
+	tokenService, err := api.ApiServices(ctx, api.Config{
 		Log:                log,
 		Repository:         c.Repository,
 		Datastore:          c.Datastore,
 		IpamClient:         c.IpamClient,
-		MasterClient:       c.MasterClient,
+		TenantClient:       c.TenantClient,
 		Mux:                mux,
 		Interceptors:       interceptors,
 		ProjectInviteStore: projectInviteStore,
@@ -184,7 +185,7 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 		AuditSearchBackend: c.AuditSearchBackend,
 		Redis:              c.RedisConfig.ComponentClient,
 		ServerHttpURL:      c.ServerHttpURL,
-		Admins:             c.Admins,
+		ProviderTenant:     c.ProviderTenant,
 		AuditBackends:      c.AuditBackends,
 		HeadscaleClient:    c.HeadscaleClient,
 	})
@@ -193,17 +194,15 @@ func New(log *slog.Logger, c Config) (*http.ServeMux, error) {
 	}
 
 	admin.AdminServices(admin.Config{
-		Log:                          log,
-		Repository:                   c.Repository,
-		Mux:                          mux,
-		Interceptors:                 adminInterceptors,
-		InviteStore:                  tenantInviteStore,
-		TokenStore:                   tokenStore,
-		TokenService:                 tokenService,
-		CertStore:                    certStore,
-		HeadscaleClient:              c.HeadscaleClient,
-		HeadscaleControlplaneAddress: c.HeadscaleControlplaneAddress,
-		AuditSearchBackend:           c.AuditSearchBackend,
+		Log:                log,
+		Repository:         c.Repository,
+		Mux:                mux,
+		Interceptors:       adminInterceptors,
+		InviteStore:        tenantInviteStore,
+		TokenStore:         tokenStore,
+		TokenService:       tokenService,
+		CertStore:          certStore,
+		AuditSearchBackend: c.AuditSearchBackend,
 	})
 
 	infra.InfraServices(infra.Config{
@@ -253,6 +252,8 @@ func oidcAuthHandler(log *slog.Logger, tokenService token.TokenService, c Config
 		AuditBackends: c.AuditBackends,
 		FrontEndUrl:   frontendURL,
 		CallbackUrl:   c.ServerHttpURL + "/auth/{provider}/callback",
+		IsDevStage:    c.IsStageDev,
+		SecureCookie:  c.SecureCookie,
 	})
 	if err != nil {
 		return "", nil, err
@@ -272,6 +273,6 @@ func oidcAuthHandler(log *slog.Logger, tokenService token.TokenService, c Config
 		return "", nil, err
 	}
 
-	return auth.NewHandler(c.IsStageDev)
+	return auth.NewHandler()
 
 }

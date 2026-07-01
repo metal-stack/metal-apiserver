@@ -2,14 +2,12 @@ package repository
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/netip"
 	"slices"
 	"strings"
 
-	"connectrpc.com/connect"
 	"github.com/hibiken/asynq"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -45,27 +43,32 @@ func (r *networkRepository) matchScope(nw *metal.Network) bool {
 	return r.scope.projectID == pointer.SafeDeref(nw).ProjectID
 }
 
-func (r *networkRepository) delete(ctx context.Context, nw *metal.Network) error {
+func (r *networkRepository) delete(ctx context.Context, nw *metal.Network) (*deleteInfo, error) {
 	info, err := r.s.task.NewTask(&task.NetworkDeletePayload{
 		UUID: nw.ID,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	r.s.log.Info("network delete queued", "info", info)
+	r.s.log.Info("network delete enqueued", "info", info)
 
-	return nil
+	if _, err = r.s.Task().WatchForTaskCompletion(ctx, nil, info.Queue, info.ID); err != nil {
+		return nil, errorutil.Internal("error waiting for task %q of type %q to complete: %w", info.ID, info.Type, err)
+	}
+
+	return &deleteInfo{
+		taskID: &info.ID,
+	}, nil
 }
 
 // NetworkDeleteHandleFn is called async to ensure all dependent entities are deleted
 // Async deletion must be scheduled by async.NewNetworkDeleteTask
 func (r *Store) NetworkDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
-	var payload task.NetworkDeletePayload
-	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
-		return fmt.Errorf("json.Unmarshal failed: %w %w", err, asynq.SkipRetry)
+	payload, err := task.DecodePayload[*task.NetworkDeletePayload](t.Payload())
+	if err != nil {
+		return err
 	}
-	r.log.Info("delete network handler", "uuid", payload.UUID)
 
 	nw, err := r.ds.Network().Get(ctx, payload.UUID)
 	if err != nil && !errorutil.IsNotFound(err) {
@@ -76,7 +79,7 @@ func (r *Store) NetworkDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 	}
 
 	for _, prefix := range nw.Prefixes {
-		_, err = r.ipam.DeletePrefix(ctx, connect.NewRequest(&ipamv1.DeletePrefixRequest{Cidr: prefix.String(), Namespace: nw.Namespace}))
+		_, err = r.ipam.DeletePrefix(ctx, &ipamv1.DeletePrefixRequest{Cidr: prefix.String(), Namespace: nw.Namespace})
 		if err != nil && !errorutil.IsNotFound(err) {
 			r.log.Error("network release", "error", err)
 			return err
@@ -109,7 +112,7 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 		vrf         uint
 
 		nat          bool
-		natType      *metal.NATType
+		natType      metal.NATType
 		privateSuper bool
 		shared       bool
 		underlay     bool
@@ -152,7 +155,7 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 		}
 
 		// Inherit nat from Parent
-		if parent.NATType != nil && *parent.NATType == metal.NATTypeIPv4Masquerade {
+		if parent.NATType == metal.NATTypeIPv4Masquerade {
 			nat = true
 		}
 
@@ -160,7 +163,7 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 			shared = true
 		}
 		var namespace *string
-		if *parent.NetworkType == metal.NetworkTypeSuperNamespaced {
+		if parent.NetworkType == metal.NetworkTypeSuperNamespaced {
 			namespace = req.Project
 		}
 
@@ -182,7 +185,7 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 			ParentNetworkID:     parent.ID,
 			Labels:              labels,
 			NATType:             parent.NATType,
-			NetworkType:         &networkType,
+			NetworkType:         networkType,
 		}
 
 		nw, err = r.s.ds.Network().Create(ctx, nw)
@@ -235,7 +238,7 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 		if err != nil {
 			return nil, errorutil.Convert(err)
 		}
-		natType = &nat
+		natType = nat
 	}
 
 	nw := &metal.Network{
@@ -258,7 +261,7 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 		Shared:                     shared,
 		Labels:                     labels,
 		AdditionalAnnouncableCIDRs: req.AdditionalAnnouncableCidrs,
-		NetworkType:                &networkType,
+		NetworkType:                networkType,
 		NATType:                    natType,
 	}
 
@@ -268,7 +271,7 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 	}
 
 	for _, prefix := range nw.Prefixes {
-		_, err = r.s.ipam.CreatePrefix(ctx, connect.NewRequest(&ipamv1.CreatePrefixRequest{Cidr: prefix.String(), Namespace: nw.Namespace}))
+		_, err = r.s.ipam.CreatePrefix(ctx, &ipamv1.CreatePrefixRequest{Cidr: prefix.String(), Namespace: nw.Namespace})
 		if err != nil {
 			return nil, err
 		}
@@ -294,7 +297,7 @@ func (r *networkRepository) update(ctx context.Context, nw *metal.Network, req *
 			return nil, err
 		}
 
-		nw.NATType = &nt
+		nw.NATType = nt
 		switch nt {
 		case metal.NATTypeIPv4Masquerade:
 			nw.Nat = true // nolint:staticcheck
@@ -349,14 +352,14 @@ func (r *networkRepository) update(ctx context.Context, nw *metal.Network, req *
 	r.s.log.Debug("update", "network id", nw.ID, "prefixes to add", prefixesToBeAdded, "prefixes to remove", prefixesToBeRemoved)
 
 	for _, p := range prefixesToBeRemoved {
-		_, err := r.s.ipam.DeletePrefix(ctx, connect.NewRequest(&ipamv1.DeletePrefixRequest{Cidr: p.String(), Namespace: nw.Namespace}))
+		_, err := r.s.ipam.DeletePrefix(ctx, &ipamv1.DeletePrefixRequest{Cidr: p.String(), Namespace: nw.Namespace})
 		if err != nil {
 			return nil, errorutil.Convert(err)
 		}
 	}
 
 	for _, p := range prefixesToBeAdded {
-		_, err := r.s.ipam.CreatePrefix(ctx, connect.NewRequest(&ipamv1.CreatePrefixRequest{Cidr: p.String(), Namespace: nw.Namespace}))
+		_, err := r.s.ipam.CreatePrefix(ctx, &ipamv1.CreatePrefixRequest{Cidr: p.String(), Namespace: nw.Namespace})
 		if err != nil {
 			return nil, errorutil.Convert(err)
 		}
@@ -397,10 +400,9 @@ func (r *networkRepository) convertToInternal(ctx context.Context, msg *apiv2.Ne
 
 func (r *networkRepository) convertToProto(ctx context.Context, e *metal.Network) (*apiv2.Network, error) {
 	var (
-		consumption *apiv2.NetworkConsumption
 		labels      *apiv2.Labels
-		networkType *apiv2.NetworkType
-		natType     *apiv2.NATType
+		networkType apiv2.NetworkType
+		natType     apiv2.NATType
 	)
 
 	if e == nil {
@@ -413,20 +415,14 @@ func (r *networkRepository) convertToProto(ctx context.Context, e *metal.Network
 		}
 	}
 
-	if e.NATType != nil {
-		nt, err := metal.FromNATType(*e.NATType)
-		if err != nil {
-			return nil, err
-		}
-		natType = &nt
+	natType, err := metal.FromNATType(e.NATType)
+	if err != nil {
+		return nil, err
 	}
 
-	if e.NetworkType != nil {
-		nwt, err := metal.FromNetworkType(*e.NetworkType)
-		if err != nil {
-			return nil, err
-		}
-		networkType = &nwt
+	networkType, err = metal.FromNetworkType(e.NetworkType)
+	if err != nil {
+		return nil, err
 	}
 
 	defaultChildPrefixLength, err := r.toProtoChildPrefixLength(e.DefaultChildPrefixLength)
@@ -461,11 +457,11 @@ func (r *networkRepository) convertToProto(ctx context.Context, e *metal.Network
 		MinChildPrefixLength:     minChildPrefixLength,
 		Type:                     networkType,
 	}
-	consumption, err = r.getNetworkUsage(ctx, e)
+
+	nw.Consumption, err = r.getNetworkUsage(ctx, e)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
-	nw.Consumption = consumption
 
 	return nw, nil
 }
@@ -502,8 +498,12 @@ func (r *networkRepository) getNetworkUsage(ctx context.Context, nw *metal.Netwo
 		if pfx.Addr().Is6() {
 			af = metal.AddressFamilyIPv6
 		}
-		resp, err := r.s.ipam.PrefixUsage(ctx, connect.NewRequest(&ipamv1.PrefixUsageRequest{Cidr: prefix.String(), Namespace: nw.Namespace}))
+		resp, err := r.s.ipam.PrefixUsage(ctx, &ipamv1.PrefixUsageRequest{Cidr: prefix.String(), Namespace: nw.Namespace})
 		if err != nil {
+			if errorutil.IsNotFound(err) {
+				continue
+			}
+
 			return nil, err
 		}
 		u := resp
@@ -512,18 +512,18 @@ func (r *networkRepository) getNetworkUsage(ctx context.Context, nw *metal.Netwo
 			if consumption.Ipv4 == nil {
 				consumption.Ipv4 = &apiv2.NetworkUsage{}
 			}
-			consumption.Ipv4.AvailableIps += u.Msg.AvailableIps
-			consumption.Ipv4.UsedIps += u.Msg.AcquiredIps
-			consumption.Ipv4.AvailablePrefixes += uint64(len(u.Msg.AvailablePrefixes))
-			consumption.Ipv4.UsedPrefixes += u.Msg.AcquiredPrefixes
+			consumption.Ipv4.AvailableIps += u.AvailableIps
+			consumption.Ipv4.UsedIps += u.AcquiredIps
+			consumption.Ipv4.AvailablePrefixes += uint64(len(u.AvailablePrefixes))
+			consumption.Ipv4.UsedPrefixes += u.AcquiredPrefixes
 		case metal.AddressFamilyIPv6:
 			if consumption.Ipv6 == nil {
 				consumption.Ipv6 = &apiv2.NetworkUsage{}
 			}
-			consumption.Ipv6.AvailableIps += u.Msg.AvailableIps
-			consumption.Ipv6.UsedIps += u.Msg.AcquiredIps
-			consumption.Ipv6.AvailablePrefixes += uint64(len(u.Msg.AvailablePrefixes))
-			consumption.Ipv6.UsedPrefixes += u.Msg.AcquiredPrefixes
+			consumption.Ipv6.AvailableIps += u.AvailableIps
+			consumption.Ipv6.UsedIps += u.AcquiredIps
+			consumption.Ipv6.AvailablePrefixes += uint64(len(u.AvailablePrefixes))
+			consumption.Ipv6.UsedPrefixes += u.AcquiredPrefixes
 		}
 
 	}
@@ -571,17 +571,14 @@ func (r *networkRepository) allocateChildPrefixes(ctx context.Context, projectId
 		if err != nil {
 			return nil, nil, errorutil.FailedPrecondition("unable to find a super network with id:%s %w", *parentNetworkId, err)
 		}
-		if p.NetworkType == nil {
-			return nil, nil, fmt.Errorf("parent network with id:%s does not have a networktype set", *parentNetworkId)
-		}
 
-		switch *p.NetworkType {
+		switch p.NetworkType {
 		case metal.NetworkTypeSuper:
 			// all good
 		case metal.NetworkTypeSuperNamespaced:
 			namespace = projectId
 		default:
-			return nil, nil, fmt.Errorf("parent network with id:%s is not a valid super network but has type:%s", *parentNetworkId, *p.NetworkType)
+			return nil, nil, fmt.Errorf("parent network with id:%s is not a valid super network but has type:%s", *parentNetworkId, p.NetworkType)
 		}
 
 		parent = p
@@ -641,15 +638,15 @@ func (r *networkRepository) createChildPrefix(ctx context.Context, namespace *st
 	)
 
 	if namespace != nil {
-		_, err := r.s.ipam.CreateNamespace(ctx, connect.NewRequest(&ipamv1.CreateNamespaceRequest{Namespace: *namespace}))
+		_, err := r.s.ipam.CreateNamespace(ctx, &ipamv1.CreateNamespaceRequest{Namespace: *namespace})
 		if err != nil {
 			return nil, errorutil.Internal("unable to create namespace:%v", err)
 		}
 		for _, parentPrefix := range parentPrefixes.OfFamily(af) {
-			_, err := r.s.ipam.GetPrefix(ctx, connect.NewRequest(&ipamv1.GetPrefixRequest{
+			_, err := r.s.ipam.GetPrefix(ctx, &ipamv1.GetPrefixRequest{
 				Cidr:      parentPrefix.String(),
 				Namespace: namespace,
-			}))
+			})
 			if err == nil {
 				continue
 			}
@@ -657,21 +654,21 @@ func (r *networkRepository) createChildPrefix(ctx context.Context, namespace *st
 				return nil, errorutil.Internal("unable to get prefix %s from super network in ipam:%v", parentPrefix.String(), err)
 			}
 
-			_, err = r.s.ipam.CreatePrefix(ctx, connect.NewRequest(&ipamv1.CreatePrefixRequest{
+			_, err = r.s.ipam.CreatePrefix(ctx, &ipamv1.CreatePrefixRequest{
 				Cidr:      parentPrefix.String(),
 				Namespace: namespace,
-			}))
+			})
 			if err != nil {
 				return nil, errorutil.Internal("unable to create namespaced super network:%v", err)
 			}
 		}
 	}
 	for _, parentPrefix := range parentPrefixes.OfFamily(af) {
-		resp, err := r.s.ipam.AcquireChildPrefix(ctx, connect.NewRequest(&ipamv1.AcquireChildPrefixRequest{
+		resp, err := r.s.ipam.AcquireChildPrefix(ctx, &ipamv1.AcquireChildPrefixRequest{
 			Cidr:      parentPrefix.String(),
 			Length:    uint32(childLength),
 			Namespace: namespace,
-		}))
+		})
 		if err != nil {
 			// If in one of the prefixes is not enough room for a prefix, ignore it an proceed
 			// hopefully one of the prefixes has one left.
@@ -682,7 +679,7 @@ func (r *networkRepository) createChildPrefix(ctx context.Context, namespace *st
 			continue
 		}
 
-		pfx, _, err := metal.NewPrefixFromCIDR(resp.Msg.Prefix.Cidr)
+		pfx, _, err := metal.NewPrefixFromCIDR(resp.Prefix.Cidr)
 		if err != nil {
 			return nil, errorutil.NewInternal(err)
 		}

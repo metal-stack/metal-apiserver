@@ -31,8 +31,6 @@ func New(c Config) infrav2connect.BootServiceHandler {
 }
 
 func (b *bootServiceServer) Boot(ctx context.Context, req *infrav2.BootServiceBootRequest) (*infrav2.BootServiceBootResponse, error) {
-	b.log.Info("boot", "req", req)
-
 	p, err := b.repo.Partition().Get(ctx, req.Partition)
 	if err != nil {
 		return nil, err
@@ -43,12 +41,11 @@ func (b *bootServiceServer) Boot(ctx context.Context, req *infrav2.BootServiceBo
 		InitRamDisks: []string{p.BootConfiguration.ImageUrl},
 		Cmdline:      &p.BootConfiguration.Commandline,
 	}
-	b.log.Info("boot", "resp", resp)
+
 	return resp, nil
 }
 
 func (b *bootServiceServer) Dhcp(ctx context.Context, req *infrav2.BootServiceDhcpRequest) (*infrav2.BootServiceDhcpResponse, error) {
-	b.log.Info("dhcp", "req", req)
 	return b.repo.UnscopedMachine().AdditionalMethods().Dhcp(ctx, req)
 }
 
@@ -70,12 +67,11 @@ func (b *bootServiceServer) InstallationSucceeded(ctx context.Context, req *infr
 	if err != nil {
 		return nil, err
 	}
+
 	return &infrav2.BootServiceInstallationSucceededResponse{}, nil
 }
 
 func (b *bootServiceServer) SuperUserPassword(ctx context.Context, req *infrav2.BootServiceSuperUserPasswordRequest) (*infrav2.BootServiceSuperUserPasswordResponse, error) {
-	b.log.Info("superuserpassword", "req", req)
-
 	resp := &infrav2.BootServiceSuperUserPasswordResponse{
 		FeatureDisabled:   b.bmcSuperuserPassword == "",
 		SuperUserPassword: b.bmcSuperuserPassword,

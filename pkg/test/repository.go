@@ -5,31 +5,31 @@ import (
 	"testing"
 	"time"
 
-	"connectrpc.com/connect"
-	headscalev1 "github.com/juanfont/headscale/gen/go/headscale/v1"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
 	"github.com/metal-stack/go-ipam/api/v1/apiv1connect"
-	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
-	mdc "github.com/metal-stack/masterdata-api/pkg/client"
 	"github.com/metal-stack/metal-apiserver/pkg/async/queue"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
+	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/auditing"
+	auditingmemory "github.com/metal-stack/metal-lib/auditing/memory"
+	tenantv1 "github.com/metal-stack/tenant-api/go/api/v1"
+	tenant "github.com/metal-stack/tenant-api/go/client"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 	"github.com/valkey-io/valkey-go"
-	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
@@ -54,12 +54,14 @@ type (
 		tokenStore         tokencommon.TokenStore
 
 		// only use this when you are very certain about it!!
-		tokenService token.TokenService
-		mdc          mdc.Client
-		rc           *redis.Client
-		vc           valkey.Client
-		hc           headscalev1.HeadscaleServiceClient
-		audit        auditing.Auditing
+		tokenService           token.TokenService
+		tc                     tenant.Client
+		rc                     *redis.Client
+		vc                     valkey.Client
+		hc                     *headscale.Client
+		headscaleControllerURL string
+
+		audit auditing.Auditing
 	}
 
 	testOpt any
@@ -149,15 +151,16 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 	}
 
 	var (
-		rc              *redis.Client
-		vc              valkey.Client
-		hc              headscalev1.HeadscaleServiceClient
-		valkeyCloser    func()
-		ds              generic.Datastore
-		opts            r.ConnectOpts
-		rethinkCloser   func()
-		headscaleCloser func()
-		session         *r.Session
+		rc                     *redis.Client
+		vc                     valkey.Client
+		hc                     *headscale.Client
+		headscaleControllerURL string
+		valkeyCloser           func()
+		ds                     generic.Datastore
+		opts                   r.ConnectOpts
+		rethinkCloser          func()
+		headscaleCloser        func()
+		session                *r.Session
 	)
 
 	if withRethink {
@@ -174,7 +177,7 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 	}
 
 	if withHeadscale {
-		hc, _, _, headscaleCloser = StartHeadscale(t)
+		hc, headscaleControllerURL, headscaleCloser = StartHeadscale(t)
 	}
 
 	projectInviteStore := invite.NewProjectRedisStore(rc)
@@ -182,10 +185,10 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 	tokenStore := tokencommon.NewRedisStore(rc)
 	certStore := certs.NewRedisStore(&certs.Config{RedisClient: rc})
 
-	auditingBackend, err := auditing.NewMemory(auditing.Config{
+	auditingBackend, err := auditingmemory.NewMemory(auditing.Config{
 		Component: api.AuditingComponent,
 		Log:       log,
-	}, auditing.MemoryConfig{})
+	}, auditingmemory.MemoryConfig{})
 	require.NoError(t, err)
 
 	tokenService := token.New(token.Config{
@@ -198,28 +201,28 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 	ipam, ipamCloser := StartIpam(t)
 
 	var (
-		mdc              mdc.Client
-		connection       *grpc.ClientConn
-		masterdataCloser func()
+		tc                    tenant.Client
+		tenantApiserverCloser func()
 
 		task  = task.NewClient(log, rc)
 		queue = queue.New(log, vc)
 	)
 	if withPostgres {
-		mdc, connection, masterdataCloser = StartMasterdataWithPostgres(t, log)
+		tc, tenantApiserverCloser = StartTenantApiserverWithPostgres(t, log)
 	} else {
-		mdc, connection, masterdataCloser = StartMasterdataInMemory(t, log)
+		tc, tenantApiserverCloser = StartTenantApiserverInMemory(t, log)
 	}
 
 	config := repository.Config{
-		Log:              log,
-		MasterdataClient: mdc,
-		Datastore:        ds,
-		Ipam:             ipam,
-		Task:             task,
-		Queue:            queue,
-		Component:        vc, // Use same valkey instance as queue for tests
-		Auditing:         auditingBackend,
+		Log:                   log,
+		TenantApiserverClient: tc,
+		Datastore:             ds,
+		Ipam:                  ipam,
+		Task:                  task,
+		Queue:                 queue,
+		Component:             vc, // Use same valkey instance as queue for tests
+		Auditing:              auditingBackend,
+		HeadscaleClient:       hc,
 	}
 
 	repo := repository.New(config)
@@ -227,12 +230,11 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 	asyncCloser := StartAsynqServer(t, log.WithGroup("asynq"), repo, rc)
 
 	closer := func() {
-		_ = connection.Close()
 		if withRethink {
 			rethinkCloser()
 		}
 		ipamCloser()
-		masterdataCloser()
+		tenantApiserverCloser()
 		asyncCloser()
 		_ = rc.Close()
 		if valkeyCloser != nil {
@@ -244,22 +246,23 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 	}
 
 	return &testStore{
-		t:                  t,
-		Store:              repo,
-		ds:                 ds,
-		dbName:             opts.Database,
-		queryExecutor:      session,
-		ipam:               ipam,
-		ipamcloser:         ipamCloser,
-		projectInviteStore: projectInviteStore,
-		tenantInviteStore:  tenantInviteStore,
-		tokenStore:         tokenStore,
-		tokenService:       tokenService,
-		mdc:                mdc,
-		rc:                 rc,
-		vc:                 vc,
-		audit:              auditingBackend,
-		hc:                 hc,
+		t:                      t,
+		Store:                  repo,
+		ds:                     ds,
+		dbName:                 opts.Database,
+		queryExecutor:          session,
+		ipam:                   ipam,
+		ipamcloser:             ipamCloser,
+		projectInviteStore:     projectInviteStore,
+		tenantInviteStore:      tenantInviteStore,
+		tokenStore:             tokenStore,
+		tokenService:           tokenService,
+		tc:                     tc,
+		rc:                     rc,
+		vc:                     vc,
+		audit:                  auditingBackend,
+		hc:                     hc,
+		headscaleControllerURL: headscaleControllerURL,
 	}, closer
 }
 
@@ -302,8 +305,8 @@ func (t *testStore) GetTokenStore() tokencommon.TokenStore {
 	return t.tokenStore
 }
 
-func (t *testStore) GetMasterdataClient() mdc.Client {
-	return t.mdc
+func (t *testStore) GetTenantApiserverClient() tenant.Client {
+	return t.tc
 }
 
 func (t *testStore) GetIpamClient() apiv1connect.IpamServiceClient {
@@ -318,8 +321,12 @@ func (t *testStore) GetValkeyClient() valkey.Client {
 	return t.vc
 }
 
-func (t *testStore) GetHeadscaleClient() headscalev1.HeadscaleServiceClient {
+func (t *testStore) GetHeadscaleClient() *headscale.Client {
 	return t.hc
+}
+
+func (t *testStore) GetHeadscaleControllerURL() string {
+	return t.headscaleControllerURL
 }
 
 func (t *testStore) GetAuditBackend() auditing.Auditing {
@@ -426,17 +433,17 @@ func CreateNetworks(t testing.TB, testStore *testStore, nws []*adminv2.NetworkSe
 }
 
 func DeleteNetworks(t testing.TB, testStore *testStore) {
-	nsResp, err := testStore.ipam.ListNamespaces(t.Context(), connect.NewRequest(&ipamv1.ListNamespacesRequest{}))
+	nsResp, err := testStore.ipam.ListNamespaces(t.Context(), &ipamv1.ListNamespacesRequest{})
 	require.NoError(t, err)
 
-	for _, ns := range nsResp.Msg.Namespace {
-		resp, err := testStore.ipam.ListPrefixes(t.Context(), connect.NewRequest(&ipamv1.ListPrefixesRequest{
+	for _, ns := range nsResp.Namespace {
+		resp, err := testStore.ipam.ListPrefixes(t.Context(), &ipamv1.ListPrefixesRequest{
 			Namespace: new(ns),
-		}))
+		})
 		require.NoError(t, err)
 
-		for _, prefix := range resp.Msg.Prefixes {
-			_, err := testStore.ipam.DeletePrefix(t.Context(), connect.NewRequest(&ipamv1.DeletePrefixRequest{Cidr: prefix.Cidr}))
+		for _, prefix := range resp.Prefixes {
+			_, err := testStore.ipam.DeletePrefix(t.Context(), &ipamv1.DeletePrefixRequest{Cidr: prefix.Cidr})
 			require.NoError(t, err)
 		}
 	}
@@ -451,11 +458,11 @@ func DeleteIPs(t testing.TB, testStore *testStore) {
 	require.NoError(t, err)
 
 	for _, ip := range ips {
-		_, err = testStore.ipam.ReleaseIP(t.Context(), connect.NewRequest(&ipamv1.ReleaseIPRequest{
+		_, err = testStore.ipam.ReleaseIP(t.Context(), &ipamv1.ReleaseIPRequest{
 			PrefixCidr: ip.ParentPrefixCidr,
 			Ip:         ip.IPAddress,
 			Namespace:  ip.Namespace,
-		}))
+		})
 		require.NoError(t, err)
 	}
 
@@ -469,17 +476,17 @@ func DeleteMachines(t testing.TB, testStore *testStore) {
 }
 
 func (t *testStore) DeleteTenants() {
-	ts, err := t.mdc.Tenant().Find(t.t.Context(), &mdcv1.TenantFindRequest{})
+	ts, err := t.tc.Apiv1().Tenant().List(t.t.Context(), &tenantv1.TenantServiceListRequest{})
 	require.NoError(t.t, err)
 
 	for _, tenant := range ts.Tenants {
-		_, err = t.mdc.Tenant().Delete(t.t.Context(), &mdcv1.TenantDeleteRequest{Id: tenant.Meta.Id})
+		_, err = t.tc.Apiv1().Tenant().Delete(t.t.Context(), &tenantv1.TenantServiceDeleteRequest{Id: tenant.Meta.Id})
 		require.NoError(t.t, err)
 	}
 }
 
 func (t *testStore) DeleteTenantInvites() {
-	ts, err := t.mdc.Tenant().Find(t.t.Context(), &mdcv1.TenantFindRequest{})
+	ts, err := t.tc.Apiv1().Tenant().List(t.t.Context(), &tenantv1.TenantServiceListRequest{})
 	require.NoError(t.t, err)
 
 	for _, tenant := range ts.Tenants {
@@ -494,17 +501,17 @@ func (t *testStore) DeleteTenantInvites() {
 }
 
 func (t *testStore) DeleteProjects() {
-	ps, err := t.mdc.Project().Find(t.t.Context(), &mdcv1.ProjectFindRequest{})
+	ps, err := t.tc.Apiv1().Project().List(t.t.Context(), &tenantv1.ProjectServiceListRequest{})
 	require.NoError(t.t, err)
 
 	for _, p := range ps.Projects {
-		_, err = t.mdc.Project().Delete(t.t.Context(), &mdcv1.ProjectDeleteRequest{Id: p.Meta.Id})
+		_, err = t.tc.Apiv1().Project().Delete(t.t.Context(), &tenantv1.ProjectServiceDeleteRequest{Id: p.Meta.Id})
 		require.NoError(t.t, err)
 	}
 }
 
 func (t *testStore) DeleteProjectInvites() {
-	ts, err := t.mdc.Project().Find(t.t.Context(), &mdcv1.ProjectFindRequest{})
+	ts, err := t.tc.Apiv1().Project().List(t.t.Context(), &tenantv1.ProjectServiceListRequest{})
 	require.NoError(t.t, err)
 
 	for _, project := range ts.Projects {
@@ -699,5 +706,16 @@ func CreateSwitchStatuses(t testing.TB, testStore *testStore, statuses []*api.Sw
 }
 
 func (t *testStore) GetSwitchStatus(id string) (*metal.SwitchStatus, error) {
-	return t.ds.SwitchStatus().Get(t.t.Context(), id)
+	status, err := t.ds.SwitchStatus().Get(t.t.Context(), id)
+	if err != nil && !errorutil.IsNotFound(err) {
+		return nil, err
+	}
+	if status == nil {
+		status = &metal.SwitchStatus{
+			Base: metal.Base{
+				ID: id,
+			},
+		}
+	}
+	return status, nil
 }

@@ -24,8 +24,8 @@ type (
 		Vrf                        uint              `rethinkdb:"vrf"`
 		Labels                     map[string]string `rethinkdb:"labels"`
 		AdditionalAnnouncableCIDRs []string          `rethinkdb:"additionalannouncablecidrs" description:"list of cidrs which are added to the route maps per tenant private network, these are typically pod- and service cidrs, can only be set in a supernetwork"`
-		NetworkType                *NetworkType      `rethinkdb:"networktype"`
-		NATType                    *NATType          `rethinkdb:"nattype"`
+		NetworkType                NetworkType       `rethinkdb:"networktype"`
+		NATType                    NATType           `rethinkdb:"nattype"`
 		// PrivateSuper if set identifies this Network as a Super Network for private networks
 		//
 		// Deprecated: use SuperNetworkType instead
@@ -69,6 +69,8 @@ const (
 	AddressFamilyIPv4 = AddressFamily("IPv4")
 	// AddressFamilyIPv6 identifies IPv6
 	AddressFamilyIPv6 = AddressFamily("IPv6")
+	// AddressFamilyDualStack identifies DualStack Network
+	AddressFamilyDualStack = AddressFamily("dual-stack")
 
 	// NetworkType
 	// NetworkTypeExternal identifies a network where ips can be allocated from different projects
@@ -93,21 +95,15 @@ const (
 	NATTypeIPv4Masquerade = NATType("ipv4-masq")
 )
 
-func IsSuperNetwork(nt *NetworkType) bool {
-	if nt == nil {
-		return false
-	}
-	if *nt == NetworkTypeSuper || *nt == NetworkTypeSuperNamespaced {
+func IsSuperNetwork(nt NetworkType) bool {
+	if nt == NetworkTypeSuper || nt == NetworkTypeSuperNamespaced {
 		return true
 	}
 	return false
 }
 
-func IsChildNetwork(nt *NetworkType) bool {
-	if nt == nil {
-		return false
-	}
-	if *nt == NetworkTypeChild || *nt == NetworkTypeChildShared {
+func IsChildNetwork(nt NetworkType) bool {
+	if nt == NetworkTypeChild || nt == NetworkTypeChildShared {
 		return true
 	}
 	return false
@@ -156,6 +152,9 @@ func ToNATType(nt apiv2.NATType) (NATType, error) {
 }
 
 func FromNATType(nt NATType) (apiv2.NATType, error) {
+	if string(nt) == "" {
+		return apiv2.NATType_NAT_TYPE_NONE, nil
+	}
 	apiv2NatType, err := enum.GetEnum[apiv2.NATType](string(nt))
 	if err != nil {
 		return apiv2.NATType_NAT_TYPE_UNSPECIFIED, fmt.Errorf("given nat type %q is invalid", nt)
@@ -176,6 +175,18 @@ func ToAddressFamily(af apiv2.IPAddressFamily) (AddressFamily, error) {
 	}
 }
 
+// FromAddressFamily returns the apiv2 address family of the corresponding metal address family.
+func FromAddressFamily(af AddressFamily) (*apiv2.IPAddressFamily, error) {
+	switch af {
+	case AddressFamilyIPv4:
+		return apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4.Enum(), nil
+	case AddressFamilyIPv6:
+		return apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(), nil
+	default:
+		return apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_UNSPECIFIED.Enum(), fmt.Errorf("given addressfamily %q is invalid", af)
+	}
+}
+
 // ToAddressFamilyFromNetwork returns the metal address family of the corresponding apiv2 address family.
 // Attention: this function might return nil for network family dual stack!!
 func ToAddressFamilyFromNetwork(af apiv2.NetworkAddressFamily) (*AddressFamily, error) {
@@ -188,6 +199,20 @@ func ToAddressFamilyFromNetwork(af apiv2.NetworkAddressFamily) (*AddressFamily, 
 		return new(AddressFamilyIPv6), nil
 	default:
 		return nil, fmt.Errorf("given addressfamily %q is invalid", af)
+	}
+}
+
+// FromAddressFamilyOfNetwork returns the apiv2 address family of the corresponding metal address family.
+func FromAddressFamilyOfNetwork(af AddressFamily) (*apiv2.NetworkAddressFamily, error) {
+	switch af {
+	case AddressFamilyIPv4:
+		return apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_V4.Enum(), nil
+	case AddressFamilyIPv6:
+		return apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_V6.Enum(), nil
+	case AddressFamilyDualStack:
+		return apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_DUAL_STACK.Enum(), nil
+	default:
+		return apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_UNSPECIFIED.Enum(), fmt.Errorf("given addressfamily %q is invalid", af)
 	}
 }
 
@@ -248,8 +273,8 @@ func (p Prefixes) OfFamily(af AddressFamily) Prefixes {
 
 // AddressFamilies returns the addressfamilies of given prefixes.
 // be aware that malformed prefixes are just skipped, so do not use this for validation or something.
-func (p Prefixes) AddressFamilies() AddressFamilies {
-	var afs AddressFamilies
+func (p Prefixes) AddressFamilies() []AddressFamily {
+	var afs []AddressFamily
 
 	for _, prefix := range p {
 		pfx, err := netip.ParsePrefix(prefix.String())

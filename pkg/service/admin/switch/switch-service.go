@@ -33,7 +33,7 @@ func New(c Config) adminv2connect.SwitchServiceHandler {
 func (s *switchServiceServer) Get(ctx context.Context, rq *adminv2.SwitchServiceGetRequest) (*adminv2.SwitchServiceGetResponse, error) {
 	sw, err := s.repo.Switch().Get(ctx, rq.Id)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	return &adminv2.SwitchServiceGetResponse{Switch: sw}, nil
@@ -42,7 +42,7 @@ func (s *switchServiceServer) Get(ctx context.Context, rq *adminv2.SwitchService
 func (s *switchServiceServer) List(ctx context.Context, rq *adminv2.SwitchServiceListRequest) (*adminv2.SwitchServiceListResponse, error) {
 	switches, err := s.repo.Switch().List(ctx, rq.Query)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	slices.SortFunc(switches, func(s1, s2 *apiv2.Switch) int {
@@ -55,7 +55,7 @@ func (s *switchServiceServer) List(ctx context.Context, rq *adminv2.SwitchServic
 func (s *switchServiceServer) Update(ctx context.Context, rq *adminv2.SwitchServiceUpdateRequest) (*adminv2.SwitchServiceUpdateResponse, error) {
 	sw, err := s.repo.Switch().Update(ctx, rq.Id, rq)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	return &adminv2.SwitchServiceUpdateResponse{Switch: sw}, nil
@@ -68,7 +68,7 @@ func (s *switchServiceServer) Delete(ctx context.Context, rq *adminv2.SwitchServ
 
 	sw, err := s.repo.Switch().Delete(ctx, rq.Id)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	return &adminv2.SwitchServiceDeleteResponse{Switch: sw}, nil

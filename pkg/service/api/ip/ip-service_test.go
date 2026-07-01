@@ -1,6 +1,7 @@
 package ip
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -13,7 +14,9 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
+	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/samber/lo"
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -23,6 +26,9 @@ var (
 	p1 = "00000000-0000-0000-0000-000000000001"
 	p2 = "00000000-0000-0000-0000-000000000002"
 )
+
+// TODO:
+// - no free ips in network
 
 func Test_ipServiceServer_Get(t *testing.T) {
 	t.Parallel()
@@ -117,7 +123,7 @@ func Test_ipServiceServer_Get(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 			); diff != "" {
-				t.Errorf("ipServiceServer.Get() = %v, want %vņdiff: %s", got, tt.want, diff)
+				t.Errorf("diff: %s", diff)
 			}
 		})
 	}
@@ -364,7 +370,13 @@ func Test_ipServiceServer_Update(t *testing.T) {
 					UpdatedAt: ipmap["2001:db8::1"].Meta.UpdatedAt,
 				},
 				Project: p2,
-				Labels:  &apiv2.UpdateLabels{Update: &apiv2.Labels{Labels: map[string]string{"color": "red", "purpose": "lb"}}},
+				Labels: &apiv2.UpdateLabels{
+					Strategy: &apiv2.UpdateLabels_Inidivual{
+						Inidivual: &apiv2.UpdateLabelsIndividually{
+							Update: &apiv2.Labels{Labels: map[string]string{"color": "red", "purpose": "lb"}},
+						},
+					},
+				},
 			},
 			want: &apiv2.IPServiceUpdateResponse{Ip: &apiv2.IP{
 				Name:    "ip4",
@@ -384,7 +396,13 @@ func Test_ipServiceServer_Update(t *testing.T) {
 					UpdatedAt: timestamppb.New(ipmap["2001:db8::2"].Meta.UpdatedAt.AsTime()),
 				},
 				Project: p2,
-				Labels:  &apiv2.UpdateLabels{Remove: []string{"color", "purpose"}}},
+				Labels: &apiv2.UpdateLabels{
+					Strategy: &apiv2.UpdateLabels_Inidivual{
+						Inidivual: &apiv2.UpdateLabelsIndividually{
+							Remove: []string{"color", "purpose"}},
+					},
+				},
+			},
 			want: &apiv2.IPServiceUpdateResponse{
 				Ip: &apiv2.IP{
 					Name:    "ip7",
@@ -530,11 +548,18 @@ func Test_ipServiceServer_Delete(t *testing.T) {
 					&apiv2.IP{}, "uuid",
 				),
 				protocmp.IgnoreFields(
-					&apiv2.Meta{}, "created_at", "updated_at",
+					&apiv2.Meta{}, "created_at", "updated_at", "deletion_task_id",
 				),
 			); diff != "" {
 				t.Errorf("ipServiceServer.Delete() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
+
+			if tt.wantErr != nil {
+				return
+			}
+
+			assert.NotNil(t, got.Ip.Meta)
+			assert.NotNil(t, got.Ip.Meta.DeletionTaskId)
 		})
 	}
 }
@@ -554,7 +579,10 @@ func Test_ipServiceServer_Create(t *testing.T) {
 
 	validURL := ts.URL
 
-	ctx := t.Context()
+	testToken := apiv2.Token{
+		User:      "unit-test-user",
+		AdminRole: apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
+	}
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
 	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{{Name: p0, Login: "t1"}, {Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
@@ -575,6 +603,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 			Vrf:       new(uint32(45)),
 			Partition: new("partition-three"),
 		},
+		{Id: new("underlay"), Prefixes: []string{"4.5.6.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_UNDERLAY, Partition: new("partition-three")},
 		{Id: new("tenant-network"), Partition: new("partition-one"), Prefixes: []string{"10.2.0.0/24"}, Type: apiv2.NetworkType_NETWORK_TYPE_SUPER, DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: new(uint32(28))}},
 		{Id: new("tenant-network-v6"), Partition: new("partition-two"), Prefixes: []string{"2001:db8:1::/64"}, Type: apiv2.NetworkType_NETWORK_TYPE_SUPER, DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv6: new(uint32(80))}},
 		{Id: new("tenant-network-dualstack"), Partition: new("partition-three"), Prefixes: []string{"10.3.0.0/24", "2001:db8:2::/64"}, Type: apiv2.NetworkType_NETWORK_TYPE_SUPER, DefaultChildPrefixLength: &apiv2.ChildPrefixLength{Ipv4: new(uint32(28)), Ipv6: new(uint32(80))}},
@@ -620,6 +649,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 	tests := []struct {
 		name    string
 		rq      *apiv2.IPServiceCreateRequest
+		ctxFn   func() context.Context
 		want    *apiv2.IPServiceCreateResponse
 		wantErr error
 	}{
@@ -717,7 +747,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 				Ip:      new("1.2.3.1"),
 			},
 			want:    nil,
-			wantErr: errorutil.Conflict("AlreadyAllocatedError: given ip:1.2.3.1 is already allocated"),
+			wantErr: errorutil.InvalidArgument(`given ip "1.2.3.1" is already allocated`),
 		},
 		{
 			name: "allocate a static specific ip outside prefix",
@@ -727,27 +757,27 @@ func Test_ipServiceServer_Create(t *testing.T) {
 				Ip:      new("1.3.0.1"),
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("specific ip 1.3.0.1 not contained in any of the defined prefixes"),
+			wantErr: errorutil.InvalidArgument(`specific ip "1.3.0.1" is not contained in any of the prefixes of network "internet"`),
 		},
 		{
-			name: "allocate a random ip with unavailable addressfamily",
+			name: "allocate a random ip with unavailable addressfamily, only ipv6 available",
 			rq: &apiv2.IPServiceCreateRequest{
 				Network:       networks["private-v6"].Id,
 				Project:       p1,
 				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4.Enum(),
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("there is no prefix for the given addressfamily:IPv4 present in network:%s [IPv6]", networks["private-v6"].Id),
+			wantErr: errorutil.InvalidArgument("there is no prefix for the given addressfamily IPv4 present in network %q, available address families are: [IPv6]", networks["private-v6"].Id),
 		},
 		{
-			name: "allocate a random ip with unavailable addressfamily",
+			name: "allocate a random ip with unavailable addressfamily, only ipv4 available",
 			rq: &apiv2.IPServiceCreateRequest{
 				Network:       networks["private-v4"].Id,
 				Project:       p1,
 				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(),
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("there is no prefix for the given addressfamily:IPv6 present in network:%s [IPv4]", networks["private-v4"].Id),
+			wantErr: errorutil.InvalidArgument("there is no prefix for the given addressfamily IPv6 present in network %q, available address families are: [IPv4]", networks["private-v4"].Id),
 		},
 		{
 			name: "disallow creating an ip address in a project-scoped network that does not belong to the request project",
@@ -757,7 +787,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 				AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.Enum(),
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("not allowed to create ip with project 00000000-0000-0000-0000-000000000001 in network %s scoped to project 00000000-0000-0000-0000-000000000002", networks["private-namespaced-2"].Id),
+			wantErr: errorutil.InvalidArgument("not allowed to create ip in network %q", networks["private-namespaced-2"].Id),
 		},
 		{
 			name: "create ip in project-scoped external network",
@@ -778,7 +808,35 @@ func Test_ipServiceServer_Create(t *testing.T) {
 				Type:    apiv2.IPType_IP_TYPE_STATIC.Enum(),
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("not allowed to create ip with project %s in network external-with-project scoped to project %s", p2, p1),
+			wantErr: errorutil.InvalidArgument(`not allowed to create ip in network "external-with-project"`),
+		},
+		{
+			name: "create ip from underlay network",
+			rq: &apiv2.IPServiceCreateRequest{
+				Network: "underlay",
+				Project: p2,
+				Type:    apiv2.IPType_IP_TYPE_STATIC.Enum(),
+			},
+			want:    nil,
+			wantErr: errorutil.PermissionDenied("only admin editors can allocate ips from an underlay network"),
+		},
+		{
+			name: "create ip from underlay network as admin editor",
+			rq: &apiv2.IPServiceCreateRequest{
+				Network: "underlay",
+				Project: p2,
+				Type:    apiv2.IPType_IP_TYPE_STATIC.Enum(),
+			},
+			ctxFn: func() context.Context {
+				return token.ContextWithToken(t.Context(), &apiv2.Token{
+					User:      "unit-test-admin",
+					AdminRole: apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+				})
+			},
+			want: &apiv2.IPServiceCreateResponse{
+				Ip: &apiv2.IP{Ip: "4.5.6.1", Network: "underlay", Project: p2, Type: apiv2.IPType_IP_TYPE_STATIC, Meta: &apiv2.Meta{}},
+			},
+			wantErr: nil,
 		},
 	}
 	for _, tt := range tests {
@@ -791,6 +849,12 @@ func Test_ipServiceServer_Create(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
+
+			ctx := token.ContextWithToken(t.Context(), &testToken)
+			if tt.ctxFn != nil {
+				ctx = tt.ctxFn()
+			}
+
 			got, err := i.Create(
 				ctx, tt.rq,
 			)

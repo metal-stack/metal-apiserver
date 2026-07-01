@@ -63,18 +63,20 @@ func (r *switchRepository) validateUpdate(ctx context.Context, req *adminv2.Swit
 		}
 	}
 
-	err = checkDuplicateNics(sw.Nics)
-	if err != nil {
-		errs = append(errs, err)
-	}
-
 	reqNics, err := toMetalNics(req.Nics, req.Id)
 	if err != nil {
 		errs = append(errs, err)
 	}
 
-	if err = validateConnectedNics(sw.Nics, reqNics, sw.MachineConnections); err != nil {
+	err = checkDuplicateNics(reqNics)
+	if err != nil {
 		errs = append(errs, err)
+	}
+
+	if reqNics != nil {
+		if err = validateConnectedNics(sw.Nics, reqNics, sw.MachineConnections); err != nil {
+			errs = append(errs, err)
+		}
 	}
 
 	if len(errs) > 0 {

@@ -14,6 +14,7 @@ import (
 )
 
 func TestRedisStore(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	s := miniredis.RunT(t)
 	c := redis.NewClient(&redis.Options{Addr: s.Addr()})
@@ -55,6 +56,7 @@ func TestRedisStore(t *testing.T) {
 }
 
 func TestRedisStoreSetAndGet(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	s := miniredis.RunT(t)
 	c := redis.NewClient(&redis.Options{Addr: s.Addr()})

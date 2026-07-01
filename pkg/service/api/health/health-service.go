@@ -8,14 +8,14 @@ import (
 	"sync"
 	"time"
 
-	headscalev1 "github.com/juanfont/headscale/gen/go/headscale/v1"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
-	mdm "github.com/metal-stack/masterdata-api/pkg/client"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-lib/auditing"
+	tenant "github.com/metal-stack/tenant-api/go/client"
 	valkeygo "github.com/valkey-io/valkey-go"
 	"golang.org/x/sync/errgroup"
 )
@@ -34,8 +34,8 @@ type Config struct {
 	HealthcheckInterval time.Duration
 	Ipam                ipamv1connect.IpamServiceClient
 	Redis               valkeygo.Client
-	Masterdata          mdm.Client
-	Headscale           headscalev1.HeadscaleServiceClient
+	TenantClient        tenant.Client
+	Headscale           *headscale.Client
 	TaskClient          *task.Client
 	AuditBackends       []auditing.Auditing
 	Datastore           generic.Datastore
@@ -46,6 +46,8 @@ type healthServiceServer struct {
 
 	checkers []healthchecker
 	current  *apiv2.Health
+
+	mu sync.RWMutex
 }
 
 func New(c Config) (apiv2connect.HealthServiceHandler, error) {
@@ -57,8 +59,8 @@ func New(c Config) (apiv2connect.HealthServiceHandler, error) {
 	if c.Ipam != nil {
 		checkers = append(checkers, &ipamHealthChecker{ipam: c.Ipam})
 	}
-	if c.Masterdata != nil {
-		checkers = append(checkers, &masterdataHealthChecker{mdm: c.Masterdata})
+	if c.TenantClient != nil {
+		checkers = append(checkers, &tenantApiserverHealthChecker{tenant: c.TenantClient})
 	}
 	if c.Datastore != nil {
 		checkers = append(checkers, &rethinkdbHealthChecker{ds: c.Datastore})
@@ -90,6 +92,8 @@ func New(c Config) (apiv2connect.HealthServiceHandler, error) {
 }
 
 func (h *healthServiceServer) Get(ctx context.Context, rq *apiv2.HealthServiceGetRequest) (*apiv2.HealthServiceGetResponse, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	return &apiv2.HealthServiceGetResponse{
 		Health: h.current,
 	}, nil
@@ -174,6 +178,8 @@ func (h *healthServiceServer) updateStatuses(outerCtx context.Context) error {
 		return statuses.Services[i].Name < statuses.Services[j].Name
 	})
 
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	h.current = statuses
 
 	h.log.Info("health statuses checked successfully")

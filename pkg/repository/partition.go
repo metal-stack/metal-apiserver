@@ -34,13 +34,13 @@ func (p *partitionRepository) create(ctx context.Context, c *adminv2.PartitionSe
 	return resp, nil
 }
 
-func (p *partitionRepository) delete(ctx context.Context, e *metal.Partition) error {
+func (p *partitionRepository) delete(ctx context.Context, e *metal.Partition) (*deleteInfo, error) {
 	err := p.s.ds.Partition().Delete(ctx, e)
 	if err != nil {
-		return errorutil.Convert(err)
+		return nil, errorutil.Convert(err)
 	}
 
-	return nil
+	return nil, nil
 }
 
 func (p *partitionRepository) get(ctx context.Context, id string) (*metal.Partition, error) {
@@ -186,28 +186,34 @@ func (p *partitionRepository) convertToProto(ctx context.Context, e *metal.Parti
 	var (
 		dnsServers []*apiv2.DNSServer
 		ntpServers []*apiv2.NTPServer
+		meta       = &apiv2.Meta{
+			CreatedAt:  timestamppb.New(e.Created),
+			UpdatedAt:  timestamppb.New(e.Changed),
+			Generation: e.Generation,
+		}
+		mgmtServers []string
 	)
+
 	for _, dnsServer := range e.DNSServers {
 		dnsServers = append(dnsServers, &apiv2.DNSServer{
 			Ip: dnsServer.IP,
 		})
 	}
+
 	for _, ntpServer := range e.NTPServers {
 		ntpServers = append(ntpServers, &apiv2.NTPServer{
 			Address: ntpServer.Address,
 		})
 	}
 
-	meta := &apiv2.Meta{
-		CreatedAt:  timestamppb.New(e.Created),
-		UpdatedAt:  timestamppb.New(e.Changed),
-		Generation: e.Generation,
-	}
 	if e.Labels != nil {
 		meta.Labels = &apiv2.Labels{Labels: e.Labels}
 	}
+	if e.MgmtServiceAddress != "" {
+		mgmtServers = append(mgmtServers, e.MgmtServiceAddress)
+	}
 
-	partition := &apiv2.Partition{
+	return &apiv2.Partition{
 		Id:          e.ID,
 		Description: e.Description,
 		Meta:        meta,
@@ -216,10 +222,10 @@ func (p *partitionRepository) convertToProto(ctx context.Context, e *metal.Parti
 			KernelUrl:   e.BootConfiguration.KernelURL,
 			Commandline: e.BootConfiguration.CommandLine,
 		},
-		DnsServers: dnsServers,
-		NtpServers: ntpServers,
-	}
-	return partition, nil
+		MgmtServiceAddresses: mgmtServers,
+		DnsServers:           dnsServers,
+		NtpServers:           ntpServers,
+	}, nil
 }
 
 func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.PartitionServiceCapacityRequest) (*adminv2.PartitionServiceCapacityResponse, error) {

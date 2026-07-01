@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 
+	"github.com/metal-stack/api/go/enum"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -28,11 +29,10 @@ func New(c Config) adminv2connect.MachineServiceHandler {
 	}
 }
 
-// Get implements apiv2connect.MachineServiceHandler.
 func (m *machineServiceServer) Get(ctx context.Context, req *adminv2.MachineServiceGetRequest) (*adminv2.MachineServiceGetResponse, error) {
 	machine, err := m.repo.UnscopedMachine().Get(ctx, req.Uuid)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	return &adminv2.MachineServiceGetResponse{
@@ -40,15 +40,18 @@ func (m *machineServiceServer) Get(ctx context.Context, req *adminv2.MachineServ
 	}, nil
 }
 
-// List implements apiv2connect.MachineServiceHandler.
+func (m *machineServiceServer) Delete(context.Context, *adminv2.MachineServiceDeleteRequest) (*adminv2.MachineServiceDeleteResponse, error) {
+	panic("unimplemented")
+}
+
 func (m *machineServiceServer) List(ctx context.Context, rq *adminv2.MachineServiceListRequest) (*adminv2.MachineServiceListResponse, error) {
 	partitions, err := m.repo.Partition().List(ctx, &apiv2.PartitionQuery{})
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	partition := rq.Partition
-	if partition == nil {
+	if partition != nil {
 		if len(partitions) > 1 {
 			return nil, errorutil.InvalidArgument("no partition specified, but %d partitions available", len(partitions))
 		}
@@ -65,7 +68,7 @@ func (m *machineServiceServer) List(ctx context.Context, rq *adminv2.MachineServ
 
 	machines, err := m.repo.UnscopedMachine().List(ctx, q)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
 
 	return &adminv2.MachineServiceListResponse{Machines: machines}, nil
@@ -74,23 +77,26 @@ func (m *machineServiceServer) List(ctx context.Context, rq *adminv2.MachineServ
 func (m *machineServiceServer) BMCCommand(ctx context.Context, req *adminv2.MachineServiceBMCCommandRequest) (*adminv2.MachineServiceBMCCommandResponse, error) {
 	machine, err := m.repo.UnscopedMachine().Get(ctx, req.Uuid)
 	if err != nil {
-		return nil, errorutil.Convert(err)
+		return nil, err
 	}
+
 	resp, err := m.repo.UnscopedMachine().AdditionalMethods().GetBMC(ctx, &adminv2.MachineServiceGetBMCRequest{Uuid: req.Uuid})
 	if err != nil {
 		return nil, err
 	}
+
 	if resp.Bmc == nil || resp.Bmc.Bmc == nil {
-		return nil, errorutil.FailedPrecondition("machine %s does not have bmc details yet", req.Uuid)
+		return nil, errorutil.FailedPrecondition("machine %q does not have bmc details yet", req.Uuid)
 	}
 	if resp.Bmc.Bmc.Address == "" || resp.Bmc.Bmc.Password == "" || resp.Bmc.Bmc.User == "" {
-		return nil, errorutil.FailedPrecondition("machine %s does not have bmc connections details yet", req.Uuid)
+		return nil, errorutil.FailedPrecondition("machine %q does not have bmc connections details yet", req.Uuid)
 	}
 
-	err = m.repo.UnscopedMachine().AdditionalMethods().MachineBMCCommand(ctx, machine.Uuid, machine.Partition.Id, req.Command)
+	_, err = m.repo.UnscopedMachine().AdditionalMethods().MachineBMCCommand(ctx, machine.Uuid, machine.Partition.Id, req.Command)
 	if err != nil {
 		return nil, err
 	}
+
 	return &adminv2.MachineServiceBMCCommandResponse{}, nil
 }
 
@@ -112,4 +118,35 @@ func (m *machineServiceServer) ConsolePassword(ctx context.Context, req *adminv2
 		Uuid:     req.Uuid,
 		Password: password,
 	}, nil
+}
+
+func (m *machineServiceServer) SetState(ctx context.Context, req *adminv2.MachineServiceSetStateRequest) (*adminv2.MachineServiceSetStateResponse, error) {
+	ms, err := m.repo.UnscopedMachine().Get(ctx, req.Uuid)
+	if err != nil {
+		return nil, err
+	}
+
+	if ms.Status != nil && ms.Status.Condition != nil {
+		actualState := ms.Status.Condition.State
+		switch actualState {
+		case apiv2.MachineState_MACHINE_STATE_LOCKED, apiv2.MachineState_MACHINE_STATE_TAINTED:
+			if req.State != apiv2.MachineState_MACHINE_STATE_AVAILABLE {
+				stateString, err := enum.GetStringValue(actualState)
+				if err != nil {
+					return nil, err
+				}
+				return nil, errorutil.FailedPrecondition("machine is currently %q, must made available first", *stateString)
+			}
+		}
+	}
+
+	if req.State == apiv2.MachineState_MACHINE_STATE_AVAILABLE && req.Description != "" {
+		return nil, errorutil.InvalidArgument("description must not be provided when setting machine to available.")
+	}
+
+	return m.repo.UnscopedMachine().AdditionalMethods().SetState(ctx, req)
+}
+
+func (m *machineServiceServer) Issues(ctx context.Context, req *adminv2.MachineServiceIssuesRequest) (*adminv2.MachineServiceIssuesResponse, error) {
+	return m.repo.UnscopedMachine().AdditionalMethods().Issues(ctx, req)
 }

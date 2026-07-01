@@ -8,36 +8,36 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/metal-stack/api/go/permissions"
-	mdcv1 "github.com/metal-stack/masterdata-api/api/v1"
-	mdc "github.com/metal-stack/masterdata-api/pkg/client"
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/cache"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
+	tenantv1 "github.com/metal-stack/tenant-api/go/api/v1"
+	tenant "github.com/metal-stack/tenant-api/go/client"
 
-	"github.com/metal-stack/security"
+	"github.com/metal-stack/metal-lib/auditing"
 )
 
 type (
 	tenantInterceptor struct {
-		projectCache *cache.Cache[string, *mdcv1.Project]
+		projectCache *cache.Cache[string, *tenantv1.Project]
 		log          *slog.Logger
-		masterClient mdc.Client
+		tenantClient tenant.Client
 	}
 )
 
-func NewInterceptor(log *slog.Logger, masterClient mdc.Client) *tenantInterceptor {
+func NewInterceptor(log *slog.Logger, tenantClient tenant.Client) *tenantInterceptor {
 	return &tenantInterceptor{
-		projectCache: cache.New(1*time.Hour, func(ctx context.Context, id string) (*mdcv1.Project, error) {
-			pgr, err := masterClient.Project().Get(ctx, &mdcv1.ProjectGetRequest{Id: id})
+		projectCache: cache.New(1*time.Hour, func(ctx context.Context, id string) (*tenantv1.Project, error) {
+			pgr, err := tenantClient.Apiv1().Project().Get(ctx, &tenantv1.ProjectServiceGetRequest{Id: id})
 			if err != nil {
 				return nil, fmt.Errorf("unable to get project: %w", err)
 			}
 			return pgr.GetProject(), nil
 		}),
 		log:          log,
-		masterClient: masterClient,
+		tenantClient: tenantClient,
 	}
 }
 
@@ -47,18 +47,16 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 		var (
 			tok, tokenInCtx = token.TokenFromContext(ctx)
-			user            = &security.User{
+			user            = &auditing.User{
 				EMail:   "",
 				Name:    "",
 				Tenant:  "",
-				Groups:  []security.ResourceAccess{},
-				Issuer:  "",
 				Subject: pointer.SafeDeref(tok).User,
 			}
 
 			setUserFieldsByTenantLookup = func(tenantID string) error {
-				tgr, err := i.masterClient.Tenant().Get(ctx, &mdcv1.TenantGetRequest{Id: tenantID})
-				if mdcv1.IsNotFound(err) {
+				tgr, err := i.tenantClient.Apiv1().Tenant().Get(ctx, &tenantv1.TenantServiceGetRequest{Id: tenantID})
+				if errorutil.IsNotFound(err) {
 					return errorutil.NewNotFound(err)
 				}
 				if err != nil {
@@ -69,7 +67,7 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 				user.EMail = tgr.Tenant.Meta.Annotations[api.TenantTagEmail]
 
 				// update the context with the user information BEFORE calling next
-				ctx = security.PutUserInContext(ctx, user)
+				ctx = auditing.PutUserInContext(ctx, user)
 
 				return nil
 			}
@@ -86,7 +84,7 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 
 				user.Tenant = "" // public methods do not operate on a tenant, therefore erase again
 			} else {
-				ctx = security.PutUserInContext(ctx, user)
+				ctx = auditing.PutUserInContext(ctx, user)
 			}
 
 			return next(ctx, req)
@@ -123,7 +121,7 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 		if permissions.IsMachineScope(req) {
 			i.log.Debug("tenant interceptor", "request-scope", "machine")
 
-			user := &security.User{
+			user := &auditing.User{
 				Name: tok.User,
 			}
 
@@ -133,7 +131,7 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 			}
 
 			// machine methods do not operate on a tenant, therefore create the security user from the machine id
-			ctx = security.PutUserInContext(ctx, user)
+			ctx = auditing.PutUserInContext(ctx, user)
 
 			return next(ctx, req)
 		}
@@ -142,7 +140,7 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 			i.log.Debug("tenant interceptor", "request-scope", "infra")
 
 			// infra methods do not operate on a tenant, therefore create the security user from the token id
-			ctx = security.PutUserInContext(ctx, &security.User{
+			ctx = auditing.PutUserInContext(ctx, &auditing.User{
 				Name:    tok.User,
 				Subject: tok.User,
 			})
@@ -165,7 +163,7 @@ func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc 
 			i.log.Debug("tenant interceptor", "request-scope", "project", "id", projectID)
 
 			project, err := i.projectCache.Get(ctx, projectID)
-			if mdcv1.IsNotFound(err) {
+			if errorutil.IsNotFound(err) {
 				return nil, errorutil.NewNotFound(err)
 			}
 			if err != nil {

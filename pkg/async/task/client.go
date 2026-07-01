@@ -1,15 +1,23 @@
 package task
 
 import (
-	"encoding/json"
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
+)
+
+const (
+	defaultTaskRetention         = 14 * 24 * time.Hour // only with retention a task will be stored after task failure
+	defaultTaskWatchTimeout      = 10 * time.Second
+	defaultTaskWatchPollInterval = 100 * time.Millisecond
 )
 
 var (
@@ -58,6 +66,83 @@ func (c *Client) DeleteTask(queue, id string) error {
 
 func (c *Client) Ping() error {
 	return c.client.Ping()
+}
+
+// WatchConfig can be used to overwrite some watch configuration defaults.
+// Can be provided optionally by callers.
+type WatchConfig struct {
+	// Timeout specifies when the watch cancels in case no state is getting reached.
+	// Set to 0 to only depend on parent context cancellation.
+	Timeout *time.Duration
+	// Interval specifies how often the state is checked in the backend.
+	Interval *time.Duration
+}
+
+func (c *Client) WatchForTaskCompletion(ctx context.Context, cfg *WatchConfig, queue, id string) (*asynq.TaskInfo, error) {
+	var (
+		timeout  = defaultTaskWatchTimeout
+		interval = defaultTaskWatchPollInterval
+
+		// a task is put to archive if it failed and will not be retried, to completed if it succeeds successfully
+		finalStates = []asynq.TaskState{asynq.TaskStateArchived, asynq.TaskStateCompleted}
+
+		// this is just for nicer error messages
+		finalStatesString = func() string {
+			var res []string
+			for _, state := range finalStates {
+				res = append(res, state.String())
+			}
+			return strings.Join(res, ",")
+		}()
+	)
+
+	if cfg != nil {
+		switch {
+		case cfg.Timeout != nil:
+			timeout = *cfg.Timeout
+		case cfg.Interval != nil:
+			interval = *cfg.Interval
+		}
+	}
+
+	if timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	var (
+		info *asynq.TaskInfo
+	)
+
+	for {
+		select {
+		case <-ticker.C:
+			var err error
+			info, err = c.GetTaskInfo(queue, id)
+			if err != nil {
+				return nil, err
+			}
+
+			if slices.Contains(finalStates, info.State) {
+				c.log.Debug("watched task reached expected state", "task-id", info.ID, "task-type", info.Type, "got", info.State.String(), "want", finalStatesString)
+				return info, nil
+			}
+
+			c.log.Debug("watched task state not yet reached", "task-id", info.ID, "task-type", info.Type, "got", info.State.String(), "want", finalStatesString, "last-err", info.LastErr)
+			continue
+
+		case <-ctx.Done():
+			if info != nil {
+				return nil, fmt.Errorf("context cancelled, task %q of type %q did not reach one of expected states %q (had %q), last error: %s", info.ID, info.Type, finalStatesString, info.State.String(), info.LastErr)
+			}
+
+			return nil, fmt.Errorf("context cancelled before the task %q was even received once", id)
+		}
+	}
 }
 
 func (c *Client) List(queue *string) ([]*asynq.TaskInfo, error) {
@@ -130,9 +215,9 @@ func listAll(queue string, callFn taskListFn) ([]*asynq.TaskInfo, error) {
 }
 
 func (c *Client) NewTask(payload TaskPayload, additionalOpts ...asynq.Option) (*asynq.TaskInfo, error) {
-	encoded, err := json.Marshal(payload)
+	encoded, err := EncodePayload(payload)
 	if err != nil {
-		return nil, fmt.Errorf("unable to marshal task payload: %w", err)
+		return nil, err
 	}
 
 	taskId, err := taskID()
@@ -142,8 +227,15 @@ func (c *Client) NewTask(payload TaskPayload, additionalOpts ...asynq.Option) (*
 
 	var (
 		opts = append(c.opts, asynq.TaskID(taskId))
-		task = asynq.NewTask(string(payload.Type()), encoded, append(opts, additionalOpts...)...)
 	)
+
+	if !slices.ContainsFunc(additionalOpts, func(opt asynq.Option) bool {
+		return opt.Type() == asynq.RetentionOpt
+	}) {
+		opts = append(opts, asynq.Retention(defaultTaskRetention))
+	}
+
+	task := asynq.NewTask(string(payload.Type()), encoded, append(opts, additionalOpts...)...)
 
 	taskInfo, err := c.client.Enqueue(task)
 

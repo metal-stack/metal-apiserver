@@ -189,7 +189,7 @@ func Test_tenantServiceServer_List(t *testing.T) {
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{
 		{Name: "john.doe@github"},
 		{Name: "will.smith@github"},
-		{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044"},
+		{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Labels: &apiv2.Labels{Labels: map[string]string{"a": "b", "c": "d"}}},
 	})
 
 	test.CreateTenantMemberships(t, testStore, "john.doe@github", []*api.TenantMemberCreateRequest{
@@ -214,7 +214,11 @@ func Test_tenantServiceServer_List(t *testing.T) {
 			want: &apiv2.TenantServiceListResponse{
 				Tenants: []*apiv2.Tenant{
 					{
-						Meta:      &apiv2.Meta{},
+						Meta: &apiv2.Meta{
+							Labels: &apiv2.Labels{
+								Labels: map[string]string{"a": "b", "c": "d"},
+							},
+						},
 						Name:      "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
 						Login:     "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
 						CreatedBy: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
@@ -232,7 +236,9 @@ func Test_tenantServiceServer_List(t *testing.T) {
 		{
 			name: "list the tenants filtered by id",
 			rq: &apiv2.TenantServiceListRequest{
-				Id: new("john.doe@github"),
+				Query: &apiv2.TenantQuery{
+					Login: new("john.doe@github"),
+				},
 			},
 			want: &apiv2.TenantServiceListResponse{
 				Tenants: []*apiv2.Tenant{
@@ -249,12 +255,18 @@ func Test_tenantServiceServer_List(t *testing.T) {
 		{
 			name: "list the tenants filtered by name",
 			rq: &apiv2.TenantServiceListRequest{
-				Name: new("b950f4f5-d8b8-4252-aa02-ae08a1d2b044"),
+				Query: &apiv2.TenantQuery{
+					Name: new("b950f4f5-d8b8-4252-aa02-ae08a1d2b044"),
+				},
 			},
 			want: &apiv2.TenantServiceListResponse{
 				Tenants: []*apiv2.Tenant{
 					{
-						Meta:      &apiv2.Meta{},
+						Meta: &apiv2.Meta{
+							Labels: &apiv2.Labels{
+								Labels: map[string]string{"a": "b", "c": "d"},
+							},
+						},
 						Name:      "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
 						Login:     "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
 						CreatedBy: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
@@ -262,6 +274,44 @@ func Test_tenantServiceServer_List(t *testing.T) {
 				},
 			},
 			wantErr: nil,
+		},
+		{
+			name: "list the tenants filtered by label",
+			rq: &apiv2.TenantServiceListRequest{
+				Query: &apiv2.TenantQuery{
+					Labels: &apiv2.Labels{
+						Labels: map[string]string{"a": "b", "c": "d"},
+					},
+				},
+			},
+			want: &apiv2.TenantServiceListResponse{
+				Tenants: []*apiv2.Tenant{
+					{
+						Meta: &apiv2.Meta{
+							Labels: &apiv2.Labels{
+								Labels: map[string]string{"a": "b", "c": "d"},
+							},
+						},
+						Name:      "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
+						Login:     "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
+						CreatedBy: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "paging for self listing tenants currently not supported",
+			rq: &apiv2.TenantServiceListRequest{
+				Query: &apiv2.TenantQuery{
+					Paging: &apiv2.Paging{
+						Page:  new(uint64(1)),
+						Count: new(uint64(1)),
+					},
+				},
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument("paging is currently not supported on tenant list request"),
 		},
 	}
 	for _, tt := range tests {
@@ -290,6 +340,10 @@ func Test_tenantServiceServer_List(t *testing.T) {
 			got, err := u.List(reqCtx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
+			}
+
+			if tt.wantErr != nil {
+				return
 			}
 
 			sort.SliceStable(got.Tenants, func(i, j int) bool {
@@ -483,9 +537,13 @@ func Test_tenantServiceServer_Update(t *testing.T) {
 				Email:       new("new@mail.com"),
 				AvatarUrl:   new("http://new"),
 				Labels: &apiv2.UpdateLabels{
-					Update: &apiv2.Labels{
-						Labels: map[string]string{
-							"c": "d",
+					Strategy: &apiv2.UpdateLabels_Inidivual{
+						Inidivual: &apiv2.UpdateLabelsIndividually{
+							Update: &apiv2.Labels{
+								Labels: map[string]string{
+									"c": "d",
+								},
+							},
 						},
 					},
 				},

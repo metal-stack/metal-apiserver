@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -79,13 +80,13 @@ func (r *sizeReservationRepository) update(ctx context.Context, e *metal.SizeRes
 	return e, nil
 }
 
-func (r *sizeReservationRepository) delete(ctx context.Context, e *metal.SizeReservation) error {
+func (r *sizeReservationRepository) delete(ctx context.Context, e *metal.SizeReservation) (*deleteInfo, error) {
 	err := r.s.ds.SizeReservation().Delete(ctx, e)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return nil, nil
 }
 
 func (r *sizeReservationRepository) find(ctx context.Context, rq *apiv2.SizeReservationQuery) (*metal.SizeReservation, error) {
@@ -133,7 +134,7 @@ func (r *sizeReservationRepository) convertToInternal(ctx context.Context, e *ap
 
 func (r *sizeReservationRepository) convertToProto(ctx context.Context, e *metal.SizeReservation) (*apiv2.SizeReservation, error) {
 	if e == nil {
-		return nil, errors.New("sizeReservation is nil")
+		return nil, errors.New("size reservation is nil")
 	}
 
 	var (
@@ -146,7 +147,7 @@ func (r *sizeReservationRepository) convertToProto(ctx context.Context, e *metal
 		}
 	}
 
-	sizeReservation := &apiv2.SizeReservation{
+	return &apiv2.SizeReservation{
 		Id:          e.ID,
 		Name:        e.Name,
 		Description: e.Description,
@@ -160,9 +161,7 @@ func (r *sizeReservationRepository) convertToProto(ctx context.Context, e *metal
 			UpdatedAt:  timestamppb.New(e.Changed),
 			Generation: e.Generation,
 		},
-	}
-
-	return sizeReservation, nil
+	}, nil
 }
 
 func (r *sizeReservationRepository) sizeReservationFilters(filter generic.EntityQuery) []generic.EntityQuery {
@@ -172,4 +171,69 @@ func (r *sizeReservationRepository) sizeReservationFilters(filter generic.Entity
 	}
 
 	return qs
+}
+
+func (r *sizeReservationRepository) check(ctx context.Context, candidates []*metal.Machine, partition, project, size string) error {
+	r.s.log.Debug("check", "partition", partition, "project", project, "size", size)
+
+	reservations, err := r.list(ctx, &apiv2.SizeReservationQuery{
+		Partition: &partition,
+		Size:      &size,
+	})
+	if err != nil {
+		return err
+	}
+	if len(reservations) == 0 {
+		r.s.log.Debug("check, no reservations")
+		return nil
+	}
+
+	partitionMachines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
+		Partition: &partition,
+		Size:      &size,
+	}))
+	if err != nil {
+		return err
+	}
+	var (
+		machinesByProject = make(map[string][]*metal.Machine)
+	)
+	for _, m := range partitionMachines {
+		if m.Allocation == nil {
+			continue
+		}
+		machinesByProject[m.Allocation.Project] = append(machinesByProject[m.Allocation.Project], m)
+	}
+
+	r.s.log.Debug("check", "candidates", len(candidates), "project", project, "machinesbyproject", machinesByProject, "reservations", reservations)
+	ok := r.checkSizeReservations(candidates, project, machinesByProject, reservations)
+	if ok {
+		return nil
+	}
+	return fmt.Errorf("no machine available")
+}
+
+// checkSizeReservations returns true when an allocation is possible and
+// false when size reservations prevent the allocation for the given project in the given partition
+func (r *sizeReservationRepository) checkSizeReservations(available []*metal.Machine, projectid string, machinesByProject map[string][]*metal.Machine, reservations []*metal.SizeReservation) bool {
+	var (
+		amount = 0
+	)
+
+	for _, r := range reservations {
+		// sum up the amount of reservations
+		amount += r.Amount
+
+		alreadyAllocated := len(machinesByProject[r.ProjectID])
+
+		if projectid == r.ProjectID && alreadyAllocated < r.Amount {
+			// allow allocation for the project when it has a reservation and there are still allocations left
+			return true
+		}
+
+		// subtract already used up reservations of the project
+		amount = max(amount-alreadyAllocated, 0)
+	}
+
+	return amount < len(available)
 }

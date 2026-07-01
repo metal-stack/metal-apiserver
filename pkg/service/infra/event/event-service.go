@@ -28,8 +28,6 @@ func New(c Config) infrav2connect.EventServiceHandler {
 }
 
 func (s *eventServiceServer) Send(ctx context.Context, rq *infrav2.EventServiceSendRequest) (*infrav2.EventServiceSendResponse, error) {
-	s.log.Debug("send", "event", rq)
-
 	var (
 		processed uint64
 		failed    []string
@@ -37,7 +35,7 @@ func (s *eventServiceServer) Send(ctx context.Context, rq *infrav2.EventServiceS
 	)
 
 	for id, event := range rq.Events {
-		err := s.repo.UnscopedMachine().AdditionalMethods().SendEvent(ctx, s.log, id, event)
+		err := s.repo.UnscopedMachine().AdditionalMethods().SendEvent(ctx, id, event)
 		if err != nil {
 			errs = append(errs, err)
 			failed = append(failed, id)

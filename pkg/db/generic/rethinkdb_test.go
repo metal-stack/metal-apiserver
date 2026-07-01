@@ -14,6 +14,7 @@ import (
 )
 
 func TestGenericCRUD(t *testing.T) {
+	t.Parallel()
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ds, _, rethinkCloser := test.StartRethink(t, log)
 	defer func() {
@@ -99,6 +100,7 @@ func TestGenericCRUD(t *testing.T) {
 }
 
 func TestFindAndListGeneric(t *testing.T) {
+	t.Parallel()
 	log := slog.Default()
 
 	ds, _, rethinkCloser := test.StartRethink(t, log)

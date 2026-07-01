@@ -85,7 +85,9 @@ func Test_projectServiceServer_List(t *testing.T) {
 		{
 			name: "list the projects filtered by tenant 1",
 			rq: &adminv2.ProjectServiceListRequest{
-				Tenant: new("john.doe@github"),
+				Query: &apiv2.ProjectQuery{
+					Tenant: new("john.doe@github"),
+				},
 			},
 			want: &adminv2.ProjectServiceListResponse{
 				Projects: []*apiv2.Project{
@@ -108,7 +110,9 @@ func Test_projectServiceServer_List(t *testing.T) {
 		{
 			name: "list the projects filtered by tenant 2",
 			rq: &adminv2.ProjectServiceListRequest{
-				Tenant: new("jane.roe@github"),
+				Query: &apiv2.ProjectQuery{
+					Tenant: new("jane.roe@github"),
+				},
 			},
 			want: &adminv2.ProjectServiceListResponse{
 				Projects: []*apiv2.Project{

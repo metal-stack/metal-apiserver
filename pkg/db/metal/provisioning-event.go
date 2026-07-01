@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/metal-stack/api/go/enum"
-	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 )
 
 type (
@@ -72,7 +72,7 @@ var (
 	}
 )
 
-func ToProvisioningEventType(t infrav2.ProvisioningEventType) (ProvisioningEventType, error) {
+func ToProvisioningEventType(t apiv2.MachineProvisioningEventType) (ProvisioningEventType, error) {
 	strVal, err := enum.GetStringValue(t)
 	if err != nil {
 		return ProvisioningEventType(""), err
@@ -80,12 +80,12 @@ func ToProvisioningEventType(t infrav2.ProvisioningEventType) (ProvisioningEvent
 	return ProvisioningEventType(*strVal), nil
 }
 
-func FromProvisioningEventType(t ProvisioningEventType) (infrav2.ProvisioningEventType, error) {
-	infrav2Type, err := enum.GetEnum[infrav2.ProvisioningEventType](string(t))
+func FromProvisioningEventType(t ProvisioningEventType) (apiv2.MachineProvisioningEventType, error) {
+	apiv2Type, err := enum.GetEnum[apiv2.MachineProvisioningEventType](string(t))
 	if err != nil {
-		return infrav2.ProvisioningEventType_PROVISIONING_EVENT_TYPE_UNSPECIFIED, fmt.Errorf("provisioning event type %q is invalid", t)
+		return apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_UNSPECIFIED, fmt.Errorf("provisioning event type %q is invalid", t)
 	}
-	return infrav2Type, nil
+	return apiv2Type, nil
 }
 
 func (p *ProvisioningEventContainer) TrimEvents(maxCount int) {
