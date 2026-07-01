@@ -52,68 +52,124 @@ func updateLabelsOnSlice(rq *apiv2.UpdateLabels, existingTags []string) []string
 	// as soon as a user touches a pure label though, it will be transformed into the map format because
 	// the current api definition does not allow pure labels
 
-	var (
-		pureLabels []string
-		tagMap     = map[string]string{}
-	)
+	if rq == nil {
+		return existingTags
+	}
 
-	for _, l := range existingTags {
-		key, value, ok := strings.Cut(l, "=")
-		if ok {
-			tagMap[key] = value
-		} else {
-			pureLabels = append(pureLabels, l)
+	switch strategy := rq.Strategy.(type) {
+	case *apiv2.UpdateLabels_Inidivual:
+		var (
+			individual = strategy.Inidivual
+			pureLabels []string
+			tagMap     = map[string]string{}
+		)
+
+		if individual == nil {
+			return existingTags
 		}
-	}
 
-	for _, remove := range rq.Remove {
-		delete(tagMap, remove)
-		pureLabels = slices.DeleteFunc(pureLabels, func(l string) bool { return l == remove })
-	}
-
-	if rq.Update != nil {
-		for k, v := range rq.Update.Labels {
-			if slices.Contains(pureLabels, k) {
-				pureLabels = slices.DeleteFunc(pureLabels, func(l string) bool { return l == k })
+		for _, l := range existingTags {
+			key, value, ok := strings.Cut(l, "=")
+			if ok {
+				tagMap[key] = value
+			} else {
+				pureLabels = append(pureLabels, l)
 			}
-
-			tagMap[k] = v
 		}
+
+		for _, remove := range individual.Remove {
+			delete(tagMap, remove)
+			pureLabels = slices.DeleteFunc(pureLabels, func(l string) bool { return l == remove })
+		}
+
+		if individual.Update != nil && individual.Update.Labels != nil {
+			for k, v := range individual.Update.Labels {
+				if slices.Contains(pureLabels, k) {
+					pureLabels = slices.DeleteFunc(pureLabels, func(l string) bool { return l == k })
+				}
+
+				tagMap[k] = v
+			}
+		}
+
+		var newTags []string
+		for k, v := range tagMap {
+			newTags = append(newTags, fmt.Sprintf("%s=%s", k, v))
+		}
+
+		newTags = append(newTags, pureLabels...)
+
+		slices.Sort(newTags)
+
+		return newTags
+
+	case *apiv2.UpdateLabels_Replace:
+		if strategy.Replace == nil {
+			return existingTags
+		}
+
+		var newTags []string
+
+		for k, v := range strategy.Replace.Labels {
+			newTags = append(newTags, fmt.Sprintf("%s=%s", k, v))
+		}
+
+		slices.Sort(newTags)
+
+		return newTags
+	default:
+		return existingTags
 	}
-
-	var newTags []string
-	for k, v := range tagMap {
-		newTags = append(newTags, fmt.Sprintf("%s=%s", k, v))
-	}
-	newTags = append(newTags, pureLabels...)
-
-	slices.Sort(newTags)
-
-	return newTags
 }
 
 func updateLabelsOnMap(rq *apiv2.UpdateLabels, existingLabels map[string]string) map[string]string {
-	var result map[string]string
-
-	if existingLabels != nil {
-		result = make(map[string]string)
-		maps.Copy(result, existingLabels)
+	if rq == nil {
+		return existingLabels
 	}
 
-	for _, remove := range rq.Remove {
-		delete(result, remove)
-	}
+	switch strategy := rq.Strategy.(type) {
+	case *apiv2.UpdateLabels_Inidivual:
+		var (
+			individual = strategy.Inidivual
+			result     map[string]string
+		)
 
-	if rq.Update != nil {
-		for k, v := range rq.Update.Labels {
-			if result == nil {
-				result = make(map[string]string)
-			}
-			result[k] = v
+		if individual == nil {
+			return existingLabels
 		}
-	}
 
-	return result
+		if existingLabels != nil {
+			result = make(map[string]string)
+			maps.Copy(result, existingLabels)
+		}
+
+		for _, remove := range individual.Remove {
+			delete(result, remove)
+		}
+
+		if individual.Update != nil {
+			for k, v := range individual.Update.Labels {
+				if result == nil {
+					result = make(map[string]string)
+				}
+				result[k] = v
+			}
+		}
+
+		return result
+	case *apiv2.UpdateLabels_Replace:
+		if strategy.Replace == nil {
+			return existingLabels
+		}
+
+		result := make(map[string]string)
+
+		maps.Copy(result, strategy.Replace.Labels)
+
+		return result
+	default:
+		return existingLabels
+	}
 }
 
 func checkAlreadyExists[E generic.Entity](ctx context.Context, s generic.Storage[E], id string) bool {

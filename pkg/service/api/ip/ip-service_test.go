@@ -370,7 +370,13 @@ func Test_ipServiceServer_Update(t *testing.T) {
 					UpdatedAt: ipmap["2001:db8::1"].Meta.UpdatedAt,
 				},
 				Project: p2,
-				Labels:  &apiv2.UpdateLabels{Update: &apiv2.Labels{Labels: map[string]string{"color": "red", "purpose": "lb"}}},
+				Labels: &apiv2.UpdateLabels{
+					Strategy: &apiv2.UpdateLabels_Inidivual{
+						Inidivual: &apiv2.UpdateLabelsIndividually{
+							Update: &apiv2.Labels{Labels: map[string]string{"color": "red", "purpose": "lb"}},
+						},
+					},
+				},
 			},
 			want: &apiv2.IPServiceUpdateResponse{Ip: &apiv2.IP{
 				Name:    "ip4",
@@ -390,7 +396,13 @@ func Test_ipServiceServer_Update(t *testing.T) {
 					UpdatedAt: timestamppb.New(ipmap["2001:db8::2"].Meta.UpdatedAt.AsTime()),
 				},
 				Project: p2,
-				Labels:  &apiv2.UpdateLabels{Remove: []string{"color", "purpose"}}},
+				Labels: &apiv2.UpdateLabels{
+					Strategy: &apiv2.UpdateLabels_Inidivual{
+						Inidivual: &apiv2.UpdateLabelsIndividually{
+							Remove: []string{"color", "purpose"}},
+					},
+				},
+			},
 			want: &apiv2.IPServiceUpdateResponse{
 				Ip: &apiv2.IP{
 					Name:    "ip7",

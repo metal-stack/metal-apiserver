@@ -285,7 +285,13 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 				UpdateMeta: &apiv2.UpdateMeta{
 					UpdatedAt: timestamppb.New(partitionMap[partition3].Meta.UpdatedAt.AsTime()),
 				},
-				Labels:               &apiv2.UpdateLabels{Update: &apiv2.Labels{Labels: map[string]string{"color": "red"}}},
+				Labels: &apiv2.UpdateLabels{
+					Strategy: &apiv2.UpdateLabels_Inidivual{
+						Inidivual: &apiv2.UpdateLabelsIndividually{
+							Update: &apiv2.Labels{Labels: map[string]string{"color": "red"}},
+						},
+					},
+				},
 				BootConfiguration:    &apiv2.PartitionBootConfiguration{ImageUrl: validURL + "/changed", KernelUrl: validURL},
 				MgmtServiceAddresses: []string{"mgmtsrv.partition"},
 			},
