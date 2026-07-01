@@ -66,7 +66,7 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 		// as we do not store roles in the user token, we set the roles from the information in the tenant-apiserver
 		token.ProjectRoles = pat.ProjectRoles
 		token.TenantRoles = pat.TenantRoles
-		// User token will never get admin roles from the database
+		// User token will never get admin roles from the database to prevent interactive logins to directly have admin role.
 		token.AdminRole = nil
 		// user tokens should never have permissions cause they are not stored in the tenant-apiserver
 		token.Permissions = nil
@@ -97,6 +97,8 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 				servicePermissions.Roles.Admin[apiv2.AdminRole_ADMIN_ROLE_VIEWER.String()]...)
 			adminViewerMethods = append(adminViewerMethods,
 				servicePermissions.Roles.Infra[apiv2.InfraRole_INFRA_ROLE_VIEWER.String()]...)
+			adminViewerMethods = append(adminViewerMethods,
+				servicePermissions.Roles.Machine[apiv2.MachineRole_MACHINE_ROLE_VIEWER.String()]...)
 			adminViewerMethods = append(adminViewerMethods, publicMethods()...)
 			adminViewerMethods = append(adminViewerMethods, selfMethods()...)
 

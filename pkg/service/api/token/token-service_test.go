@@ -565,6 +565,57 @@ func Test_Create(t *testing.T) {
 			wantErrMessage: `requested expiration duration: "8784h0m0s" exceeds max expiration: "8760h0m0s"`,
 		},
 		{
+			name: "user and token without machine access cannot create machine token",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "machine token",
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+				TenantRoles: map[string]apiv2.TenantRole{},
+			},
+			state: state{
+				providerTenant: "metal-stack",
+			},
+			wantErr:        true,
+			wantErrMessage: `permission_denied: requested machine roles are not allowed: [de240964-ff9f-4e3d-95b2-8a96e43788f1]`,
+		},
+		{
+			name: "user and token with machine access can create machine token",
+			sessionToken: &apiv2.Token{
+				User:        "pixie-core",
+				Permissions: []*apiv2.MethodPermission{},
+				MachineRoles: map[string]apiv2.MachineRole{
+					"*": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+				TenantRoles: map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "machine token",
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+				TenantRoles: map[string]apiv2.TenantRole{},
+			},
+			state: state{
+				providerTenant: "metal-stack",
+			},
+			wantToken: &apiv2.Token{
+				User:        "pixie-core",
+				Description: "machine token",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+				TenantRoles: map[string]apiv2.TenantRole{},
+			},
+		},
+		{
 			name: "projects and tenants getter fails",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
@@ -648,6 +699,7 @@ func Test_Create(t *testing.T) {
 				assert.Equal(t, tt.wantToken.Permissions, got.Permissions, "permissions")
 				assert.Equal(t, tt.wantToken.ProjectRoles, got.ProjectRoles, "project roles")
 				assert.Equal(t, tt.wantToken.TenantRoles, got.TenantRoles, "tenant roles")
+				assert.Equal(t, tt.wantToken.MachineRoles, got.MachineRoles, "machine roles")
 			}
 		})
 	}
@@ -722,6 +774,39 @@ func Test_CreateForUser(t *testing.T) {
 				User:        "foo",
 				Description: "empty token",
 				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
+			},
+		},
+		{
+			name: "pixie-core can create token for metal-hammer with machine roles",
+			sessionToken: &apiv2.Token{
+				User:         "pixie-core",
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "machine token",
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+			},
+			user: new("metal-hammer"),
+			state: state{
+				providerTenant: "phippy",
+				tenantRoles: map[string]apiv2.TenantRole{
+					"phippy": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			wantToken: &apiv2.Token{
+				User:        "metal-hammer",
+				Description: "machine token",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
 			},
 		},
 		{
@@ -806,6 +891,7 @@ func Test_CreateForUser(t *testing.T) {
 				assert.Equal(t, tt.wantToken.Permissions, got.Permissions, "permissions")
 				assert.Equal(t, tt.wantToken.ProjectRoles, got.ProjectRoles, "project roles")
 				assert.Equal(t, tt.wantToken.TenantRoles, got.TenantRoles, "tenant roles")
+				assert.Equal(t, tt.wantToken.MachineRoles, got.MachineRoles, "machine roles")
 			}
 		})
 	}
@@ -1295,6 +1381,67 @@ func Test_validateTokenRequest(t *testing.T) {
 			providerTenant: "metal-stack",
 			wantErr:        errors.New("requested tenant roles are not allowed: [john@github]"),
 		},
+
+		// Machine Roles
+		{
+			name: "token has no machine role",
+			token: &apiv2.Token{
+				User:        "test",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "i want to get access to a machine",
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+				Expires: inOneHour,
+			},
+			providerTenant: "metal-stack",
+			wantErr:        errors.New("requested machine roles are not allowed: [de240964-ff9f-4e3d-95b2-8a96e43788f1]"),
+		},
+		{
+			name: "token has machine role, matching request succeeds",
+			pat:  &api.ProjectsAndTenants{},
+			token: &apiv2.Token{
+				User:        "test",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{},
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "i want to get access to a machine",
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+				Expires: inOneHour,
+			},
+			providerTenant: "metal-stack",
+			wantErr:        nil,
+		},
+		{
+			name: "token has different machine role, forbidden machine in request",
+			pat:  &api.ProjectsAndTenants{},
+			token: &apiv2.Token{
+				User:        "test",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{},
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "i want to get access to a different machine",
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f2": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+				Expires: inOneHour,
+			},
+			providerTenant: "metal-stack",
+			wantErr:        errors.New("requested machine roles are not allowed: [de240964-ff9f-4e3d-95b2-8a96e43788f2]"),
+		},
 	}
 
 	for _, tt := range tests {
@@ -1674,6 +1821,69 @@ func Test_Update(t *testing.T) {
 			wantErrMessage: `permission_denied: requested tenant roles are not allowed: [mascots]`,
 		},
 		{
+			name: "user and token with machine access can update machine token",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+			},
+			tokenToUpdate: &apiv2.Token{
+				Uuid:         token1,
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				MachineRoles: map[string]apiv2.MachineRole{},
+			},
+			req: &apiv2.TokenServiceUpdateRequest{
+				Uuid: token1,
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+			},
+			state: state{
+				providerTenant: "metal-stack",
+			},
+			wantToken: &apiv2.Token{
+				Uuid:      token1,
+				User:      "phippy",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+			},
+		},
+		{
+			name: "user and token without machine access cannot update machine token",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			tokenToUpdate: &apiv2.Token{
+				Uuid:      token1,
+				User:      "phippy",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+			},
+			req: &apiv2.TokenServiceUpdateRequest{
+				Uuid: token1,
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+			},
+			state: state{
+				providerTenant: "metal-stack",
+			},
+			wantErr:        true,
+			wantErrMessage: `permission_denied: requested machine roles are not allowed: [de240964-ff9f-4e3d-95b2-8a96e43788f1]`,
+		},
+		{
 			name: "token without but user with tenant access cannot update tenant token",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
@@ -1797,6 +2007,7 @@ func Test_Update(t *testing.T) {
 				assert.Equal(t, tt.wantToken.Permissions, got.Permissions, "permissions")
 				assert.Equal(t, tt.wantToken.ProjectRoles, got.ProjectRoles, "project roles")
 				assert.Equal(t, tt.wantToken.TenantRoles, got.TenantRoles, "tenant roles")
+				assert.Equal(t, tt.wantToken.MachineRoles, got.MachineRoles, "machine roles")
 			}
 		})
 	}
@@ -1848,9 +2059,51 @@ func Test_Refresh(t *testing.T) {
 				Permissions:  nil,
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
+				MachineRoles: map[string]apiv2.MachineRole{},
 				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				IssuedAt:     timestamppb.New(exp),
 				Expires:      timestamppb.New(exp.Add(time.Hour)),
+			},
+		},
+		{
+			name: "refresh preserves machine roles from existing token",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				Uuid:         token1,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+			},
+			existingToken: &apiv2.Token{
+				Uuid:         token1,
+				User:         "phippy",
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				IssuedAt:  timestamppb.New(iat),
+				Expires:   timestamppb.New(exp),
+			},
+			state: state{
+				providerTenant: "metal-stack",
+			},
+			wantToken: &apiv2.Token{
+				Uuid:         token1,
+				User:         "phippy",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				IssuedAt:  timestamppb.New(exp),
+				Expires:   timestamppb.New(exp.Add(time.Hour)),
 			},
 		},
 		// FIXME more tests
@@ -1930,6 +2183,7 @@ func Test_Refresh(t *testing.T) {
 				assert.Equal(t, tt.wantToken.Permissions, got.Permissions, "permissions")
 				assert.Equal(t, tt.wantToken.ProjectRoles, got.ProjectRoles, "project roles")
 				assert.Equal(t, tt.wantToken.TenantRoles, got.TenantRoles, "tenant roles")
+				assert.Equal(t, tt.wantToken.MachineRoles, got.MachineRoles, "machine roles")
 			}
 		})
 	}
