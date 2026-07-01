@@ -57,9 +57,9 @@ func updateLabelsOnSlice(rq *apiv2.UpdateLabels, existingTags []string) []string
 	}
 
 	switch strategy := rq.Strategy.(type) {
-	case *apiv2.UpdateLabels_Inidivual:
+	case *apiv2.UpdateLabels_Individual:
 		var (
-			individual = strategy.Inidivual
+			individual = strategy.Individual
 			pureLabels []string
 			tagMap     = map[string]string{}
 		)
@@ -128,9 +128,9 @@ func updateLabelsOnMap(rq *apiv2.UpdateLabels, existingLabels map[string]string)
 	}
 
 	switch strategy := rq.Strategy.(type) {
-	case *apiv2.UpdateLabels_Inidivual:
+	case *apiv2.UpdateLabels_Individual:
 		var (
-			individual = strategy.Inidivual
+			individual = strategy.Individual
 			result     map[string]string
 		)
 
