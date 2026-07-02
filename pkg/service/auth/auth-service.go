@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
@@ -318,8 +319,11 @@ func (a *auth) Callback(res http.ResponseWriter, req *http.Request) {
 		redirectURL.RawQuery = rawQuery
 	}
 
+	uuid, _ := uuid.NewV7() // we drop the error in this case
+
 	for _, backend := range a.auditBackends {
 		err = backend.Index(auditing.Entry{
+			RequestId:    uuid.String(),
 			Timestamp:    time.Now(),
 			Component:    api.AuditingComponent,
 			Type:         "login",
