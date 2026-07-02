@@ -329,6 +329,7 @@ func (a *auth) Callback(res http.ResponseWriter, req *http.Request) {
 			Body:         u,
 			Path:         req.RequestURI,
 			StatusCode:   new(http.StatusSeeOther),
+			Phase:        auditing.EntryPhaseRequest,
 			Error:        nil,
 		})
 		if err != nil {
