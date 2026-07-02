@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
@@ -45,11 +46,11 @@ type Config struct {
 }
 
 type providerUser struct {
-	login     string
-	name      string
-	email     string
-	avatarUrl string
-	provider  string
+	Login     string `json:"login"`
+	Name      string `json:"name"`
+	Email     string `json:"email"`
+	AvatarUrl string `json:"avatar_url"`
+	Provider  string `json:"provider"`
 }
 
 type providerBackend interface {
@@ -275,7 +276,7 @@ func (a *auth) Callback(res http.ResponseWriter, req *http.Request) {
 
 	// Create Token
 
-	pat, err := a.repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, u.login)
+	pat, err := a.repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, u.Login)
 	if err != nil {
 		http.Error(res, fmt.Sprintf("unable to lookup projects and tenants: %v", err), http.StatusInternalServerError)
 		return
@@ -285,7 +286,7 @@ func (a *auth) Callback(res http.ResponseWriter, req *http.Request) {
 
 	// TODO: shall we create a user token in case a redirect url was given? Rename Console token to User token?
 
-	tcr, err := a.tokenService.CreateUserTokenWithoutPermissionCheck(ctx, u.login, nil)
+	tcr, err := a.tokenService.CreateUserTokenWithoutPermissionCheck(ctx, u.Login, nil)
 	if err != nil {
 		http.Error(res, fmt.Sprintf("unable to create a token:%v", err), http.StatusInternalServerError)
 		return
@@ -318,14 +319,22 @@ func (a *auth) Callback(res http.ResponseWriter, req *http.Request) {
 		redirectURL.RawQuery = rawQuery
 	}
 
+	uuid, _ := uuid.NewV7() // we drop the error in this case
+
 	for _, backend := range a.auditBackends {
 		err = backend.Index(auditing.Entry{
-			Component:    "auth",
-			Type:         "login",
-			User:         u.login,
+			RequestId:    uuid.String(),
+			Timestamp:    time.Now(),
+			Component:    api.AuditingComponent,
+			Type:         auditing.EntryTypeHTTP,
+			User:         u.Login,
 			RemoteAddr:   req.RemoteAddr,
 			ForwardedFor: req.Header.Get("X-Forwarded-For"),
 			Body:         u,
+			Path:         req.URL.Path,
+			StatusCode:   new(http.StatusSeeOther),
+			Phase:        auditing.EntryPhaseRequest,
+			Error:        nil,
 		})
 		if err != nil {
 			a.log.Error("unable to index login request to audit backend", "error", err)
@@ -338,35 +347,35 @@ func (a *auth) Callback(res http.ResponseWriter, req *http.Request) {
 }
 
 func (a *auth) ensureTenant(ctx context.Context, u *providerUser) error {
-	tenant, err := a.repo.Tenant().Get(ctx, u.login)
+	tenant, err := a.repo.Tenant().Get(ctx, u.Login)
 	if err != nil && !errorutil.IsNotFound(err) {
-		return fmt.Errorf("unable to get tenant %s: %w", u.login, err)
+		return fmt.Errorf("unable to get tenant %s: %w", u.Login, err)
 	}
 
 	if err != nil && errorutil.IsNotFound(err) {
 		created, err := a.repo.Tenant().AdditionalMethods().CreateWithID(ctx, &apiv2.TenantServiceCreateRequest{
-			Name:      u.login,
-			Email:     &u.email, // TODO: this field can be empty, fallback to user email would be great but for github this is also empty (#151)
-			AvatarUrl: &u.avatarUrl,
-		}, u.login, repository.NewTenantCreateOptWithCreator(u.login))
+			Name:      u.Login,
+			Email:     &u.Email, // TODO: this field can be empty, fallback to user email would be great but for github this is also empty (#151)
+			AvatarUrl: &u.AvatarUrl,
+		}, u.Login, repository.NewTenantCreateOptWithCreator(u.Login))
 		if err != nil {
-			return fmt.Errorf("unable to create tenant:%s %w", u.login, err)
+			return fmt.Errorf("unable to create tenant:%s %w", u.Login, err)
 		}
 
 		tenant = created
 	}
 
-	if tenant.AvatarUrl != u.avatarUrl {
+	if tenant.AvatarUrl != u.AvatarUrl {
 		_, err := a.repo.Tenant().Update(ctx, tenant.Login, &apiv2.TenantServiceUpdateRequest{
-			Login:     u.login,
-			AvatarUrl: &u.avatarUrl,
+			Login:     u.Login,
+			AvatarUrl: &u.AvatarUrl,
 		})
 		if err != nil {
-			return fmt.Errorf("unable to update tenant %s: %w", u.login, err)
+			return fmt.Errorf("unable to update tenant %s: %w", u.Login, err)
 		}
 	}
 
-	_, err = a.repo.Tenant().AdditionalMethods().Member(u.login).Get(ctx, u.login)
+	_, err = a.repo.Tenant().AdditionalMethods().Member(u.Login).Get(ctx, u.Login)
 	if err == nil {
 		return nil
 	}
@@ -375,9 +384,9 @@ func (a *auth) ensureTenant(ctx context.Context, u *providerUser) error {
 		return err
 	}
 
-	_, err = a.repo.Tenant().AdditionalMethods().Member(u.login).Create(ctx, &api.TenantMemberCreateRequest{
+	_, err = a.repo.Tenant().AdditionalMethods().Member(u.Login).Create(ctx, &api.TenantMemberCreateRequest{
 		Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
-		MemberID: u.login,
+		MemberID: u.Login,
 	})
 
 	return err
