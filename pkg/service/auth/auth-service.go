@@ -320,12 +320,16 @@ func (a *auth) Callback(res http.ResponseWriter, req *http.Request) {
 
 	for _, backend := range a.auditBackends {
 		err = backend.Index(auditing.Entry{
+			Timestamp:    time.Now(),
 			Component:    "auth",
 			Type:         "login",
 			User:         u.login,
 			RemoteAddr:   req.RemoteAddr,
 			ForwardedFor: req.Header.Get("X-Forwarded-For"),
 			Body:         u,
+			Path:         req.RequestURI,
+			StatusCode:   new(http.StatusSeeOther),
+			Error:        nil,
 		})
 		if err != nil {
 			a.log.Error("unable to index login request to audit backend", "error", err)
