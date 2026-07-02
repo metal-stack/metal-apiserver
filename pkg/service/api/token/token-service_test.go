@@ -17,9 +17,9 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/request"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
-	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/valkey-io/valkey-go"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -33,11 +33,15 @@ func Test_tokenService_CreateConsoleTokenWithoutPermissionCheck(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	s := miniredis.RunT(t)
-	c := redis.NewClient(&redis.Options{Addr: s.Addr()})
+	c, err := valkey.NewClient(valkey.ClientOption{
+		InitAddress:  []string{s.Addr()},
+		DisableCache: true,
+	})
+	require.NoError(t, err)
 
 	tokenStore := token.NewRedisStore(c)
 	certStore := certs.NewRedisStore(&certs.Config{
-		RedisClient: c,
+		ValkeyClient: c,
 	})
 
 	service := New(Config{
@@ -641,11 +645,16 @@ func Test_Create(t *testing.T) {
 			defer cancel()
 
 			s := miniredis.RunT(t)
-			c := redis.NewClient(&redis.Options{Addr: s.Addr()})
+
+			c, err := valkey.NewClient(valkey.ClientOption{
+				InitAddress:  []string{s.Addr()},
+				DisableCache: true,
+			})
+			require.NoError(t, err)
 
 			tokenStore := token.NewRedisStore(c)
 			certStore := certs.NewRedisStore(&certs.Config{
-				RedisClient: c,
+				ValkeyClient: c,
 			})
 
 			projectsAndTenantsGetter := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
@@ -836,11 +845,16 @@ func Test_CreateForUser(t *testing.T) {
 			defer cancel()
 
 			s := miniredis.RunT(t)
-			c := redis.NewClient(&redis.Options{Addr: s.Addr()})
+
+			c, err := valkey.NewClient(valkey.ClientOption{
+				InitAddress:  []string{s.Addr()},
+				DisableCache: true,
+			})
+			require.NoError(t, err)
 
 			tokenStore := token.NewRedisStore(c)
 			certStore := certs.NewRedisStore(&certs.Config{
-				RedisClient: c,
+				ValkeyClient: c,
 			})
 
 			projectsAndTenantsGetter := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
@@ -1951,11 +1965,16 @@ func Test_Update(t *testing.T) {
 			defer cancel()
 
 			s := miniredis.RunT(t)
-			c := redis.NewClient(&redis.Options{Addr: s.Addr()})
+
+			c, err := valkey.NewClient(valkey.ClientOption{
+				InitAddress:  []string{s.Addr()},
+				DisableCache: true,
+			})
+			require.NoError(t, err)
 
 			tokenStore := token.NewRedisStore(c)
 			certStore := certs.NewRedisStore(&certs.Config{
-				RedisClient: c,
+				ValkeyClient: c,
 			})
 
 			if tt.tokenToUpdate != nil {
@@ -2134,11 +2153,16 @@ func Test_Refresh(t *testing.T) {
 			defer cancel()
 
 			s := miniredis.RunT(t)
-			c := redis.NewClient(&redis.Options{Addr: s.Addr()})
+
+			c, err := valkey.NewClient(valkey.ClientOption{
+				InitAddress:  []string{s.Addr()},
+				DisableCache: true,
+			})
+			require.NoError(t, err)
 
 			tokenStore := token.NewRedisStore(c)
 			certStore := certs.NewRedisStore(&certs.Config{
-				RedisClient: c,
+				ValkeyClient: c,
 			})
 
 			if tt.existingToken != nil {

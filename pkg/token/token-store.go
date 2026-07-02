@@ -9,7 +9,8 @@ import (
 	"time"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	"github.com/redis/go-redis/v9"
+	"github.com/valkey-io/valkey-go"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -18,7 +19,7 @@ const (
 )
 
 var (
-	ErrTokenNotFound = redis.Nil
+	ErrTokenNotFound = valkey.Nil
 )
 
 type TokenStore interface {
@@ -31,7 +32,7 @@ type TokenStore interface {
 }
 
 type redisStore struct {
-	client *redis.Client
+	client valkey.Client
 }
 
 func key(userid, tokenid string) string {
@@ -42,7 +43,7 @@ func match(userid string) string {
 	return prefix + userid + separator + "*"
 }
 
-func NewRedisStore(client *redis.Client) TokenStore {
+func NewRedisStore(client valkey.Client) TokenStore {
 	return &redisStore{
 		client: client,
 	}
@@ -53,8 +54,12 @@ func (r *redisStore) Set(ctx context.Context, token *apiv2.Token) error {
 	if err != nil {
 		return fmt.Errorf("unable to encode token: %w", err)
 	}
+	if token.Expires == nil {
+		token.Expires = timestamppb.New(time.Now().Add(DefaultExpiration))
+	}
 
-	_, err = r.client.Set(ctx, key(token.User, token.Uuid), string(encoded), time.Until(token.Expires.AsTime())).Result()
+	cmd := r.client.B().Set().Key(key(token.User, token.Uuid)).Value(string(encoded)).Exat(token.GetExpires().AsTime()).Build()
+	err = r.client.Do(ctx, cmd).Error()
 	if err != nil {
 		return err
 	}
@@ -63,13 +68,13 @@ func (r *redisStore) Set(ctx context.Context, token *apiv2.Token) error {
 }
 
 func (r *redisStore) Get(ctx context.Context, userid, tokenid string) (*apiv2.Token, error) {
-	encoded, err := r.client.Get(ctx, key(userid, tokenid)).Result()
+	encoded, err := r.client.Do(ctx, r.client.B().Get().Key(key(userid, tokenid)).Build()).AsBytes()
 	if err != nil {
 		return nil, err
 	}
 
 	var t token
-	err = json.Unmarshal([]byte(encoded), &t)
+	err = json.Unmarshal(encoded, &t)
 	if err != nil {
 		return nil, err
 	}
@@ -79,61 +84,57 @@ func (r *redisStore) Get(ctx context.Context, userid, tokenid string) (*apiv2.To
 
 func (r *redisStore) List(ctx context.Context, userid string) ([]*apiv2.Token, error) {
 	var (
-		res  []*apiv2.Token
-		iter = r.client.Scan(ctx, 0, match(userid), 0).Iterator()
+		res []*apiv2.Token
 	)
+	entry, err := r.client.Do(ctx, r.client.B().Scan().Cursor(0).Match(match(userid)).Build()).AsScanEntry()
+	if err != nil {
+		return nil, fmt.Errorf("error scanning user token with:%q error:%w", match(userid), err)
+	}
 
-	for iter.Next(ctx) {
-		encoded, err := r.client.Get(ctx, iter.Val()).Result()
+	for _, element := range entry.Elements {
+		encoded, err := r.client.Do(ctx, r.client.B().Get().Key(element).Build()).AsBytes()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("unable to get content by key:%q error:%w", encoded, err)
 		}
 
 		var t token
-		err = json.Unmarshal([]byte(encoded), &t)
+		err = json.Unmarshal(encoded, &t)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("unable to decode scan result:%q error:%w", encoded, err)
 		}
-
 		res = append(res, toExternal(&t))
 	}
-	if err := iter.Err(); err != nil {
-		return nil, err
-	}
-
 	return res, nil
 }
 
 func (r *redisStore) AdminList(ctx context.Context) ([]*apiv2.Token, error) {
 	var (
-		res  []*apiv2.Token
-		iter = r.client.Scan(ctx, 0, prefix+"*", 0).Iterator()
+		res []*apiv2.Token
 	)
+	entry, err := r.client.Do(ctx, r.client.B().Scan().Cursor(0).Match(prefix+"*").Build()).AsScanEntry()
+	if err != nil {
+		return nil, fmt.Errorf("error scanning all tokens error:%w", err)
+	}
 
-	for iter.Next(ctx) {
-		encoded, err := r.client.Get(ctx, iter.Val()).Result()
+	for _, element := range entry.Elements {
+		encoded, err := r.client.Do(ctx, r.client.B().Get().Key(element).Build()).AsBytes()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("unable to get content by key:%q error:%w", encoded, err)
 		}
 
 		var t token
-		err = json.Unmarshal([]byte(encoded), &t)
+		err = json.Unmarshal(encoded, &t)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("unable to decode scan result:%q error:%w", encoded, err)
 		}
-
 		res = append(res, toExternal(&t))
-	}
-	if err := iter.Err(); err != nil {
-		return nil, err
 	}
 
 	return res, nil
 }
 
 func (r *redisStore) Revoke(ctx context.Context, userid, tokenid string) error {
-	_, err := r.client.Del(ctx, key(userid, tokenid)).Result()
-	return err
+	return r.client.Do(ctx, r.client.B().Del().Key(key(userid, tokenid)).Build()).Error()
 }
 
 func (r *redisStore) Migrate(ctx context.Context, log *slog.Logger) error {

@@ -1075,7 +1075,7 @@ func Test_tenantServiceServer_InviteGet(t *testing.T) {
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
 
-	now := timestamppb.Now()
+	inOneHour := timestamppb.New(time.Now().Add(time.Hour))
 
 	test.CreateTenantInvites(t, testStore, []*apiv2.TenantInvite{
 		{
@@ -1086,7 +1086,7 @@ func Test_tenantServiceServer_InviteGet(t *testing.T) {
 			TargetTenantName: "john.doe@github",
 			Tenant:           "john.doe@github",
 			TenantName:       "john.doe@github",
-			ExpiresAt:        now,
+			ExpiresAt:        inOneHour,
 			JoinedAt:         nil,
 		},
 	})
@@ -1111,7 +1111,7 @@ func Test_tenantServiceServer_InviteGet(t *testing.T) {
 					Tenant:           "john.doe@github",
 					TenantName:       "john.doe@github",
 					Secret:           "abcdefghijklmnopqrstuvwxyz123456",
-					ExpiresAt:        now,
+					ExpiresAt:        inOneHour,
 					JoinedAt:         nil,
 				},
 			},
@@ -1172,7 +1172,7 @@ func Test_tenantServiceServer_InvitesList(t *testing.T) {
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
 
-	now := timestamppb.Now()
+	inOneHour := timestamppb.New(time.Now().Add(time.Hour))
 
 	test.CreateTenantInvites(t, testStore, []*apiv2.TenantInvite{
 		{
@@ -1183,7 +1183,7 @@ func Test_tenantServiceServer_InvitesList(t *testing.T) {
 			TargetTenantName: "john.doe@github",
 			Tenant:           "john.doe@github",
 			TenantName:       "john.doe@github",
-			ExpiresAt:        now,
+			ExpiresAt:        inOneHour,
 			JoinedAt:         nil,
 		},
 		{
@@ -1194,7 +1194,7 @@ func Test_tenantServiceServer_InvitesList(t *testing.T) {
 			TargetTenantName: "will.smith@github",
 			Tenant:           "john.doe@github",
 			TenantName:       "john.doe@github",
-			ExpiresAt:        now,
+			ExpiresAt:        inOneHour,
 			JoinedAt:         nil,
 		},
 	})
@@ -1220,7 +1220,7 @@ func Test_tenantServiceServer_InvitesList(t *testing.T) {
 						TargetTenantName: "john.doe@github",
 						Tenant:           "john.doe@github",
 						TenantName:       "john.doe@github",
-						ExpiresAt:        now,
+						ExpiresAt:        inOneHour,
 						JoinedAt:         nil,
 					},
 				},
@@ -1275,7 +1275,7 @@ func Test_tenantServiceServer_InviteDelete(t *testing.T) {
 	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
 	defer closer()
 
-	now := timestamppb.Now()
+	inOneHour := timestamppb.New(time.Now().Add(time.Hour))
 
 	test.CreateTenantInvites(t, testStore, []*apiv2.TenantInvite{
 		{
@@ -1286,7 +1286,7 @@ func Test_tenantServiceServer_InviteDelete(t *testing.T) {
 			TargetTenantName: "john.doe@github",
 			Tenant:           "john.doe@github",
 			TenantName:       "john.doe@github",
-			ExpiresAt:        now,
+			ExpiresAt:        inOneHour,
 			JoinedAt:         nil,
 		},
 	})
