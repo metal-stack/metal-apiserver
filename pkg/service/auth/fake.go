@@ -68,11 +68,11 @@ func (p *fakeProviderBackend) RefreshTokenAvailable() bool {
 
 func (p *fakeProviderBackend) User(_ context.Context, _ goth.User) (*providerUser, error) {
 	return &providerUser{
-		login:     "Testman@test",
-		name:      "John Test",
-		email:     "Testman",
-		avatarUrl: "https://avatars.githubusercontent.com/u/101409188?v=4",
-		provider:  p.Name(),
+		Login:     "Testman@test",
+		Name:      "John Test",
+		Email:     "Testman",
+		AvatarUrl: "https://avatars.githubusercontent.com/u/101409188?v=4",
+		Provider:  p.Name(),
 	}, nil
 }
 func (g *fakeProviderBackend) EndSessionRedirectURL() string {
