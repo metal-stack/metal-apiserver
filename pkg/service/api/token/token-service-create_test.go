@@ -200,6 +200,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 					"phippy": apiv2.TenantRole_TENANT_ROLE_VIEWER,
 				},
 			},
+			// FIXME better error message
 			wantError: errorutil.PermissionDenied(`the following method "/metalstack.admin.v2.ComponentService/Delete" is not allowed on any of the requested subjects: [*]`),
 		},
 		{
@@ -234,6 +235,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 		},
 		{
 			name: "USER token without admin can obtain admin EDITOR when PAT shows owner",
+			// TODO review
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
 				TokenType:    apiv2.TokenType_TOKEN_TYPE_USER,
@@ -1486,6 +1488,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 		},
 		{
 			name: "token create with only machine role and tenant role succeeds",
+			// FIXME review
 			sessionToken: &apiv2.Token{
 				User:        "pixie-core",
 				Permissions: []*apiv2.MethodPermission{},
