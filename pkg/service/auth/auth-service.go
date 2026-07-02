@@ -321,7 +321,7 @@ func (a *auth) Callback(res http.ResponseWriter, req *http.Request) {
 	for _, backend := range a.auditBackends {
 		err = backend.Index(auditing.Entry{
 			Timestamp:    time.Now(),
-			Component:    "auth",
+			Component:    api.AuditingComponent,
 			Type:         "login",
 			User:         u.login,
 			RemoteAddr:   req.RemoteAddr,
