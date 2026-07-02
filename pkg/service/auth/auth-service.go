@@ -327,7 +327,7 @@ func (a *auth) Callback(res http.ResponseWriter, req *http.Request) {
 			RemoteAddr:   req.RemoteAddr,
 			ForwardedFor: req.Header.Get("X-Forwarded-For"),
 			Body:         u,
-			Path:         req.RequestURI,
+			Path:         req.URL.Path,
 			StatusCode:   new(http.StatusSeeOther),
 			Phase:        auditing.EntryPhaseRequest,
 			Error:        nil,
