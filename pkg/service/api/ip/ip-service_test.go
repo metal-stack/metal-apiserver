@@ -371,8 +371,8 @@ func Test_ipServiceServer_Update(t *testing.T) {
 				},
 				Project: p2,
 				Labels: &apiv2.UpdateLabels{
-					Strategy: &apiv2.UpdateLabels_Individual{
-						Individual: &apiv2.UpdateLabelsIndividually{
+					Strategy: &apiv2.UpdateLabels_Patch{
+						Patch: &apiv2.LabelsPatch{
 							Update: &apiv2.Labels{Labels: map[string]string{"color": "red", "purpose": "lb"}},
 						},
 					},
@@ -397,8 +397,8 @@ func Test_ipServiceServer_Update(t *testing.T) {
 				},
 				Project: p2,
 				Labels: &apiv2.UpdateLabels{
-					Strategy: &apiv2.UpdateLabels_Individual{
-						Individual: &apiv2.UpdateLabelsIndividually{
+					Strategy: &apiv2.UpdateLabels_Patch{
+						Patch: &apiv2.LabelsPatch{
 							Remove: []string{"color", "purpose"}},
 					},
 				},
