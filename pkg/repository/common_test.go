@@ -35,8 +35,8 @@ func Test_updateLabelsOnSlice(t *testing.T) {
 		{
 			name: "adding new labels",
 			rq: &apiv2.UpdateLabels{
-				Strategy: &apiv2.UpdateLabels_Individual{
-					Individual: &apiv2.UpdateLabelsIndividually{
+				Strategy: &apiv2.UpdateLabels_Patch{
+					Patch: &apiv2.LabelsPatch{
 						Update: &apiv2.Labels{
 							Labels: map[string]string{
 								"a": "b",
@@ -52,8 +52,8 @@ func Test_updateLabelsOnSlice(t *testing.T) {
 		{
 			name: "adding new labels to existing ones",
 			rq: &apiv2.UpdateLabels{
-				Strategy: &apiv2.UpdateLabels_Individual{
-					Individual: &apiv2.UpdateLabelsIndividually{
+				Strategy: &apiv2.UpdateLabels_Patch{
+					Patch: &apiv2.LabelsPatch{
 						Update: &apiv2.Labels{
 							Labels: map[string]string{
 								"a": "b",
@@ -69,8 +69,8 @@ func Test_updateLabelsOnSlice(t *testing.T) {
 		{
 			name: "adding nothing maintains everything #1",
 			rq: &apiv2.UpdateLabels{
-				Strategy: &apiv2.UpdateLabels_Individual{
-					Individual: &apiv2.UpdateLabelsIndividually{
+				Strategy: &apiv2.UpdateLabels_Patch{
+					Patch: &apiv2.LabelsPatch{
 						Update: &apiv2.Labels{},
 						Remove: []string{},
 					},
@@ -82,8 +82,8 @@ func Test_updateLabelsOnSlice(t *testing.T) {
 		{
 			name: "adding nothing maintains everything #2",
 			rq: &apiv2.UpdateLabels{
-				Strategy: &apiv2.UpdateLabels_Individual{
-					Individual: &apiv2.UpdateLabelsIndividually{},
+				Strategy: &apiv2.UpdateLabels_Patch{
+					Patch: &apiv2.LabelsPatch{},
 				},
 			},
 			existingTags: []string{"1=2", "foo="},
@@ -92,7 +92,7 @@ func Test_updateLabelsOnSlice(t *testing.T) {
 		{
 			name: "adding nothing maintains everything #3",
 			rq: &apiv2.UpdateLabels{
-				Strategy: &apiv2.UpdateLabels_Individual{},
+				Strategy: &apiv2.UpdateLabels_Patch{},
 			},
 			existingTags: []string{"1=2", "foo="},
 			want:         []string{"1=2", "foo="},
@@ -100,8 +100,8 @@ func Test_updateLabelsOnSlice(t *testing.T) {
 		{
 			name: "removing a label",
 			rq: &apiv2.UpdateLabels{
-				Strategy: &apiv2.UpdateLabels_Individual{
-					Individual: &apiv2.UpdateLabelsIndividually{
+				Strategy: &apiv2.UpdateLabels_Patch{
+					Patch: &apiv2.LabelsPatch{
 						Remove: []string{"foo"},
 					},
 				},
@@ -112,8 +112,8 @@ func Test_updateLabelsOnSlice(t *testing.T) {
 		{
 			name: "removing two labels",
 			rq: &apiv2.UpdateLabels{
-				Strategy: &apiv2.UpdateLabels_Individual{
-					Individual: &apiv2.UpdateLabelsIndividually{
+				Strategy: &apiv2.UpdateLabels_Patch{
+					Patch: &apiv2.LabelsPatch{
 						Remove: []string{"foo", "1"},
 					},
 				},
@@ -124,8 +124,8 @@ func Test_updateLabelsOnSlice(t *testing.T) {
 		{
 			name: "removing non-existent key is noop",
 			rq: &apiv2.UpdateLabels{
-				Strategy: &apiv2.UpdateLabels_Individual{
-					Individual: &apiv2.UpdateLabelsIndividually{
+				Strategy: &apiv2.UpdateLabels_Patch{
+					Patch: &apiv2.LabelsPatch{
 						Remove: []string{"bar"},
 					},
 				},
@@ -142,8 +142,8 @@ func Test_updateLabelsOnSlice(t *testing.T) {
 		{
 			name: "existing tags without assignment are maintained",
 			rq: &apiv2.UpdateLabels{
-				Strategy: &apiv2.UpdateLabels_Individual{
-					Individual: &apiv2.UpdateLabelsIndividually{
+				Strategy: &apiv2.UpdateLabels_Patch{
+					Patch: &apiv2.LabelsPatch{
 						Update: &apiv2.Labels{
 							Labels: map[string]string{
 								"a=": "b",
@@ -158,8 +158,8 @@ func Test_updateLabelsOnSlice(t *testing.T) {
 		{
 			name: "transform as soon as user updates a pure label",
 			rq: &apiv2.UpdateLabels{
-				Strategy: &apiv2.UpdateLabels_Individual{
-					Individual: &apiv2.UpdateLabelsIndividually{
+				Strategy: &apiv2.UpdateLabels_Patch{
+					Patch: &apiv2.LabelsPatch{
 						Update: &apiv2.Labels{
 							Labels: map[string]string{
 								"foo": "",
@@ -246,8 +246,8 @@ func Test_updateLabelsOnMap(t *testing.T) {
 		{
 			name: "adding nothing if update is not nil",
 			rq: &apiv2.UpdateLabels{
-				Strategy: &apiv2.UpdateLabels_Individual{
-					Individual: &apiv2.UpdateLabelsIndividually{
+				Strategy: &apiv2.UpdateLabels_Patch{
+					Patch: &apiv2.LabelsPatch{
 						Update: &apiv2.Labels{
 							Labels: nil,
 						},
@@ -260,8 +260,8 @@ func Test_updateLabelsOnMap(t *testing.T) {
 		{
 			name: "adding new labels",
 			rq: &apiv2.UpdateLabels{
-				Strategy: &apiv2.UpdateLabels_Individual{
-					Individual: &apiv2.UpdateLabelsIndividually{
+				Strategy: &apiv2.UpdateLabels_Patch{
+					Patch: &apiv2.LabelsPatch{
 						Update: &apiv2.Labels{
 							Labels: map[string]string{
 								"a": "b",
@@ -280,8 +280,8 @@ func Test_updateLabelsOnMap(t *testing.T) {
 		{
 			name: "adding new labels to existing ones",
 			rq: &apiv2.UpdateLabels{
-				Strategy: &apiv2.UpdateLabels_Individual{
-					Individual: &apiv2.UpdateLabelsIndividually{
+				Strategy: &apiv2.UpdateLabels_Patch{
+					Patch: &apiv2.LabelsPatch{
 						Update: &apiv2.Labels{
 							Labels: map[string]string{
 								"a": "b",
@@ -305,8 +305,8 @@ func Test_updateLabelsOnMap(t *testing.T) {
 		{
 			name: "removing a label",
 			rq: &apiv2.UpdateLabels{
-				Strategy: &apiv2.UpdateLabels_Individual{
-					Individual: &apiv2.UpdateLabelsIndividually{
+				Strategy: &apiv2.UpdateLabels_Patch{
+					Patch: &apiv2.LabelsPatch{
 						Remove: []string{"foo"},
 					},
 				},
@@ -322,8 +322,8 @@ func Test_updateLabelsOnMap(t *testing.T) {
 		{
 			name: "removing two labels",
 			rq: &apiv2.UpdateLabels{
-				Strategy: &apiv2.UpdateLabels_Individual{
-					Individual: &apiv2.UpdateLabelsIndividually{
+				Strategy: &apiv2.UpdateLabels_Patch{
+					Patch: &apiv2.LabelsPatch{
 						Remove: []string{"foo", "1"},
 					},
 				},
@@ -337,8 +337,8 @@ func Test_updateLabelsOnMap(t *testing.T) {
 		{
 			name: "removing non-existent key is noop",
 			rq: &apiv2.UpdateLabels{
-				Strategy: &apiv2.UpdateLabels_Individual{
-					Individual: &apiv2.UpdateLabelsIndividually{
+				Strategy: &apiv2.UpdateLabels_Patch{
+					Patch: &apiv2.LabelsPatch{
 						Remove: []string{"bar"},
 					},
 				},
