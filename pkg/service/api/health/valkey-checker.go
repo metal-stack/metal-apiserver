@@ -9,12 +9,12 @@ import (
 	valkeygo "github.com/valkey-io/valkey-go"
 )
 
-type redisHealthChecker struct {
-	redis valkeygo.Client
+type valkeyHealthChecker struct {
+	valkey valkeygo.Client
 }
 
-func (h *redisHealthChecker) Health(ctx context.Context) *apiv2.HealthStatus {
-	res, err := h.redis.Do(ctx, h.redis.B().Info().Section("server").Section("server_version").Build()).ToString()
+func (h *valkeyHealthChecker) Health(ctx context.Context) *apiv2.HealthStatus {
+	res, err := h.valkey.Do(ctx, h.valkey.B().Info().Section("server").Section("server_version").Build()).ToString()
 
 	var (
 		status  = apiv2.ServiceStatus_SERVICE_STATUS_HEALTHY
@@ -26,7 +26,7 @@ func (h *redisHealthChecker) Health(ctx context.Context) *apiv2.HealthStatus {
 		message = err.Error()
 	} else {
 		info := verbatimStringToMap(res)
-		message = fmt.Sprintf("connected to redis service %q version %q", info["server_name"], info["redis_version"])
+		message = fmt.Sprintf("connected to %q version %q", info["server_name"], info["valkey_version"])
 	}
 
 	return &apiv2.HealthStatus{
