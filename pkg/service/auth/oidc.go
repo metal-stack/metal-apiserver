@@ -37,6 +37,7 @@ func OIDCHubProvider(c ProviderConfig) authOption {
 		scopes := []string{"openid", "email", "profile"}
 
 		tlsConf := &tls.Config{
+			MinVersion:         tls.VersionTLS13,
 			InsecureSkipVerify: c.TLSSkipVerify,
 		}
 
@@ -88,10 +89,10 @@ func (g *provider) User(ctx context.Context, user goth.User) (*providerUser, err
 	}
 
 	return &providerUser{
-		login:     g.getLogin(login),
-		name:      user.Name,
-		email:     user.Email,
-		avatarUrl: user.AvatarURL,
+		Login:     g.getLogin(login),
+		Name:      user.Name,
+		Email:     user.Email,
+		AvatarUrl: user.AvatarURL,
 	}, nil
 }
 

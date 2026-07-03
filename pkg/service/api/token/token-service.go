@@ -14,6 +14,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/request"
+	"github.com/samber/lo"
 
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
@@ -124,6 +125,7 @@ func (t *tokenService) CreateApiTokenWithoutPermissionCheck(ctx context.Context,
 	token.TenantRoles = req.TenantRoles
 	token.AdminRole = req.AdminRole
 	token.InfraRole = req.InfraRole
+	token.MachineRoles = req.MachineRoles
 
 	err = t.tokens.Set(ctx, token)
 	if err != nil {
@@ -186,6 +188,7 @@ func (t *tokenService) Update(ctx context.Context, req *apiv2.TokenServiceUpdate
 		TenantRoles:  projectsAndTenants.TenantRoles,
 		AdminRole:    nil,
 		InfraRole:    token.InfraRole,
+		MachineRoles: token.MachineRoles,
 	}
 
 	if role, ok := t.hasAdminRole(projectsAndTenants); ok {
@@ -225,6 +228,7 @@ func (t *tokenService) Update(ctx context.Context, req *apiv2.TokenServiceUpdate
 	tokenToUpdate.Permissions = req.Permissions
 	tokenToUpdate.ProjectRoles = req.ProjectRoles
 	tokenToUpdate.TenantRoles = req.TenantRoles
+	tokenToUpdate.MachineRoles = req.MachineRoles
 
 	err = t.tokens.Set(ctx, tokenToUpdate)
 	if err != nil {
@@ -299,6 +303,7 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 		TenantRoles:  projectsAndTenants.TenantRoles,
 		AdminRole:    nil,
 		InfraRole:    token.InfraRole,
+		MachineRoles: token.MachineRoles,
 	}
 
 	tokenUser := token.GetUser()
@@ -336,6 +341,7 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 	token.TenantRoles = req.TenantRoles
 	token.AdminRole = req.AdminRole
 	token.InfraRole = req.InfraRole
+	token.MachineRoles = req.MachineRoles
 
 	err = t.tokens.Set(ctx, token)
 	if err != nil {
@@ -403,6 +409,7 @@ func (t *tokenService) Refresh(ctx context.Context, _ *apiv2.TokenServiceRefresh
 		TenantRoles:  oldtoken.TenantRoles,
 		AdminRole:    oldtoken.AdminRole,
 		InfraRole:    oldtoken.InfraRole,
+		MachineRoles: oldtoken.MachineRoles,
 	}
 
 	err = t.validateTokenRequest(ctx, token, createRequest)
@@ -424,6 +431,7 @@ func (t *tokenService) Refresh(ctx context.Context, _ *apiv2.TokenServiceRefresh
 		TenantRoles:  projectsAndTenants.TenantRoles,
 		AdminRole:    nil,
 		InfraRole:    token.InfraRole,
+		MachineRoles: token.MachineRoles,
 	}
 	if role, ok := t.hasAdminRole(projectsAndTenants); ok {
 		fullUserToken.AdminRole = role
@@ -454,6 +462,7 @@ func (t *tokenService) Refresh(ctx context.Context, _ *apiv2.TokenServiceRefresh
 	newToken.TenantRoles = oldtoken.TenantRoles
 	newToken.AdminRole = oldtoken.AdminRole
 	newToken.InfraRole = oldtoken.InfraRole
+	newToken.MachineRoles = oldtoken.MachineRoles
 
 	err = t.tokens.Set(ctx, newToken)
 	if err != nil {
@@ -470,6 +479,7 @@ type tokenRequest interface {
 	GetPermissions() []*apiv2.MethodPermission
 	GetProjectRoles() map[string]apiv2.ProjectRole
 	GetTenantRoles() map[string]apiv2.TenantRole
+	GetMachineRoles() map[string]apiv2.MachineRole
 	GetAdminRole() apiv2.AdminRole
 	GetInfraRole() apiv2.InfraRole
 }
@@ -494,11 +504,32 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 		infraRole = req.GetInfraRole().Enum()
 	}
 
+	var (
+		requestedTenants    = lo.Keys(req.GetTenantRoles())
+		allowedTenants      = lo.Keys(currentToken.TenantRoles)
+		forbiddenTenants, _ = lo.Difference(requestedTenants, allowedTenants)
+	)
+
+	if len(forbiddenTenants) > 0 && !slices.Contains(allowedTenants, "*") {
+		return fmt.Errorf("requested tenant roles are not allowed: %v", forbiddenTenants)
+	}
+
 	for _, tr := range req.GetTenantRoles() {
 		if tr == apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED {
 			return fmt.Errorf("requested tenant role: %q is not allowed", tr)
 		}
 	}
+
+	var (
+		requestedProjects    = lo.Keys(req.GetProjectRoles())
+		allowedProjects      = lo.Keys(currentToken.ProjectRoles)
+		forbiddenProjects, _ = lo.Difference(requestedProjects, allowedProjects)
+	)
+
+	if len(forbiddenProjects) > 0 && !slices.Contains(allowedProjects, "*") {
+		return fmt.Errorf("requested project roles are not allowed: %v", forbiddenProjects)
+	}
+
 	for _, pr := range req.GetProjectRoles() {
 		if pr == apiv2.ProjectRole_PROJECT_ROLE_UNSPECIFIED {
 			return fmt.Errorf("requested project role: %q is not allowed", pr)
@@ -514,6 +545,16 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 		}
 	}
 
+	var (
+		requestedMachines    = lo.Keys(req.GetMachineRoles())
+		allowedMachines      = lo.Keys(currentToken.MachineRoles)
+		forbiddenMachines, _ = lo.Difference(requestedMachines, allowedMachines)
+	)
+
+	if len(forbiddenMachines) > 0 && !slices.Contains(allowedMachines, "*") {
+		return fmt.Errorf("requested machine roles are not allowed: %v", forbiddenMachines)
+	}
+
 	// Calculate the permission from the token request (either create/update or refresh)
 	// and the methods which are coming from roles only.
 	requestedPermissions, err := t.authorizer.TokenPermissions(ctx, &apiv2.Token{
@@ -521,6 +562,7 @@ func (t *tokenService) validateTokenRequest(ctx context.Context, currentToken *a
 		Permissions:  req.GetPermissions(),
 		ProjectRoles: req.GetProjectRoles(),
 		TenantRoles:  req.GetTenantRoles(),
+		MachineRoles: req.GetMachineRoles(),
 		AdminRole:    adminRole,
 		InfraRole:    infraRole,
 	})

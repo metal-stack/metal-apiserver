@@ -401,7 +401,11 @@ func Test_machineServiceServer_Update(t *testing.T) {
 				},
 				Project: p1,
 				Labels: &apiv2.UpdateLabels{
-					Update: &apiv2.Labels{Labels: map[string]string{"color": "red"}},
+					Strategy: &apiv2.UpdateLabels_Patch{
+						Patch: &apiv2.LabelsPatch{
+							Update: &apiv2.Labels{Labels: map[string]string{"color": "red"}},
+						},
+					},
 				}},
 			want: &apiv2.MachineServiceUpdateResponse{
 				Machine: &apiv2.Machine{
