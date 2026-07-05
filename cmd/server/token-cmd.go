@@ -249,7 +249,7 @@ func newTokenCmd() *cli.Command {
 
 			if ctx.Bool(storeInSecretFlag.Name) {
 				log.Info("store token in secret", "namespace", namespace, "secret-name", secretName)
-				return k8s.CreateOrUpdateSecret(ctx.Context, log, namespace, secretName, "admin-token", resp.Secret)
+				return k8s.CreateOrUpdateSecret(ctx.Context, log, namespace, ApplicationName, secretName, "admin-token", resp.Secret)
 			}
 			return nil
 		},
@@ -284,7 +284,7 @@ func storeTokensFromConfigFile(ctx context.Context, log *slog.Logger, tokenServi
 		}
 
 		log.Info("store token in secret", "namespace", namespace, "secret-name", secretName)
-		err = k8s.CreateOrUpdateSecret(ctx, log, namespace, secretName, target, resp.Secret)
+		err = k8s.CreateOrUpdateSecret(ctx, log, namespace, ApplicationName, secretName, target, resp.Secret)
 		if err != nil {
 			return err
 		}
