@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -352,52 +351,4 @@ func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId st
 		ProjectRoles:  projectRoles,
 		TenantRoles:   tenantRoles,
 	}, nil
-}
-
-func (r *projectRepository) EnsureProviderProject(ctx context.Context, providerTenantID string) error {
-	ensureMembership := func(projectId string) error {
-		_, err := r.s.Project(projectId).AdditionalMethods().Member().Get(ctx, providerTenantID)
-		if err == nil {
-			return nil
-		}
-		if !errorutil.IsNotFound(err) {
-			return err
-		}
-
-		_, err = r.s.tc.Apiv1().ProjectMember().Create(ctx, &tenantv1.ProjectMemberServiceCreateRequest{
-			ProjectMember: &tenantv1.ProjectMember{
-				Meta: &tenantv1.Meta{
-					Annotations: map[string]string{
-						api.ProjectRoleAnnotation: apiv2.ProjectRole_PROJECT_ROLE_OWNER.String(),
-					},
-				},
-				ProjectId: projectId,
-				TenantId:  providerTenantID,
-			},
-		})
-
-		return err
-	}
-
-	resp, err := r.s.tc.Apiv1().Project().List(ctx, &tenantv1.ProjectServiceListRequest{
-		TenantId: &providerTenantID,
-	})
-	if err != nil {
-		return errorutil.Convert(fmt.Errorf("unable to find project %q: %w", providerTenantID, err))
-	}
-
-	if len(resp.Projects) > 0 {
-		return ensureMembership(resp.Projects[0].Meta.Id)
-	}
-
-	project, err := r.s.UnscopedProject().AdditionalMethods().CreateWithID(ctx, &apiv2.ProjectServiceCreateRequest{
-		Name:        "Default Project",
-		Description: "Default project of " + providerTenantID,
-		Login:       providerTenantID,
-	}, providerTenantID)
-	if err != nil {
-		return errorutil.Convert(fmt.Errorf("unable to create project: %w", err))
-	}
-
-	return ensureMembership(project.Meta.Id)
 }

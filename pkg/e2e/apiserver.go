@@ -82,9 +82,6 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 	err = testStore.Tenant().AdditionalMethods().EnsureProviderTenant(reqCtx, providerTenant)
 	require.NoError(t, err)
 
-	err = testStore.UnscopedProject().AdditionalMethods().EnsureProviderProject(ctx, providerTenant)
-	require.NoError(t, err)
-
 	tenant, err := testStore.Tenant().AdditionalMethods().CreateWithID(reqCtx, &apiv2.TenantServiceCreateRequest{
 		Name: subject,
 	}, subject)
