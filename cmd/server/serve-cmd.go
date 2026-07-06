@@ -203,11 +203,6 @@ func newServeCmd() *cli.Command {
 				return err
 			}
 
-			err = repo.UnscopedProject().AdditionalMethods().EnsureProviderProject(ctx.Context, c.ProviderTenant)
-			if err != nil {
-				return err
-			}
-
 			log.Info("ensured provider tenant", "id", c.ProviderTenant)
 
 			log.Info("running api-server", "version", v.V.String(), "go-runtime", runtime.Version(), "http-endpoint", c.HttpServerEndpoint)
