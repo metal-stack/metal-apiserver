@@ -65,12 +65,6 @@ var (
 		Value: 6 * 30 * 24 * time.Hour,
 		Usage: "requested expiration for the token",
 	}
-	storeInSecretFlag = &cli.BoolFlag{
-		Name:    "store-in-secret",
-		Value:   false,
-		Usage:   "if set to true, the generated token is also stored in a secret",
-		EnvVars: []string{"STORE_TOKENS_IN_SECRET"},
-	}
 	namespaceFlag = &cli.StringFlag{
 		Name:    "namespace",
 		Value:   "metal-control-plane",
@@ -109,7 +103,6 @@ func newTokenCmd() *cli.Command {
 			tokenMachineRolesFlag,
 			tokenExpirationFlag,
 			serverHttpUrlFlag,
-			storeInSecretFlag,
 			namespaceFlag,
 			secretNameFlag,
 			tokensCreateConfigFileFlag,
@@ -246,11 +239,6 @@ func newTokenCmd() *cli.Command {
 			}
 
 			fmt.Println(resp.Secret)
-
-			if ctx.Bool(storeInSecretFlag.Name) {
-				log.Info("store token in secret", "namespace", namespace, "secret-name", secretName)
-				return k8s.CreateOrUpdateSecret(ctx.Context, log, namespace, ApplicationName, secretName, "admin-token", resp.Secret)
-			}
 			return nil
 		},
 	}

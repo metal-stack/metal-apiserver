@@ -27,7 +27,7 @@ require (
 	github.com/lestrrat-go/jwx/v3 v3.1.1
 	github.com/looplab/fsm v1.0.3
 	github.com/markbates/goth v1.82.0
-	github.com/metal-stack/api v0.2.4-0.20260703140034-aedf4038713b
+	github.com/metal-stack/api v0.2.4-0.20260707082535-98f3f76acb95
 	github.com/metal-stack/go-ipam v1.15.1
 	github.com/metal-stack/metal-lib v0.25.2
 	github.com/metal-stack/tenant-api v0.1.1
@@ -106,7 +106,7 @@ require (
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v1.0.0 // indirect
 	github.com/google/btree v1.1.3 // indirect
-	github.com/google/cel-go v0.28.1 // indirect
+	github.com/google/cel-go v0.29.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0 // indirect
 	github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed // indirect
 	github.com/hdevalence/ed25519consensus v0.2.0 // indirect
@@ -114,7 +114,7 @@ require (
 	github.com/jackc/pgtype v1.14.4 // indirect
 	github.com/jackc/pgx/v4 v4.18.3 // indirect
 	github.com/jsimonetti/rtnetlink v1.4.2 // indirect
-	github.com/klauspost/compress v1.18.7 // indirect
+	github.com/klauspost/compress v1.19.0 // indirect
 	github.com/lann/builder v0.0.0-20180802200727-47ae307949d0 // indirect
 	github.com/lann/ps v0.0.0-20150810152359-62de8c46ede0 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.4 // indirect

@@ -39,7 +39,7 @@ func Test_newTokenCmd(t *testing.T) {
 	args := []string{"-h"}
 
 	cmd := newTokenCmd()
-	require.Len(t, cmd.Flags, 17)
+	require.Len(t, cmd.Flags, 16)
 
 	app.Commands = []*cli.Command{cmd}
 	err := app.Run(args)
