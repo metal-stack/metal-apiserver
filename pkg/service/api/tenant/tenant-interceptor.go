@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/metal-stack/api/go/errorutil"
 	"github.com/metal-stack/api/go/permissions"
-	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/cache"

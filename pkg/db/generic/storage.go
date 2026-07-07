@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/api/go/errorutil"
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
 

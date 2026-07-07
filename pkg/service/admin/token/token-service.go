@@ -4,11 +4,11 @@ import (
 	"context"
 	"log/slog"
 
+	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
-	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	ts "github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 	tokenutil "github.com/metal-stack/metal-apiserver/pkg/token"
 )
