@@ -18,7 +18,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/lestrrat-go/jwx/v3/jwk"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
-	"github.com/redis/go-redis/v9"
+	"github.com/valkey-io/valkey-go"
 )
 
 const (
@@ -26,7 +26,7 @@ const (
 )
 
 type Config struct {
-	RedisClient               *redis.Client
+	ValkeyClient              valkey.Client
 	RenewCertBeforeExpiration *time.Duration
 }
 
@@ -36,7 +36,7 @@ type CertStore interface {
 }
 
 type redisStore struct {
-	client                    *redis.Client
+	client                    valkey.Client
 	renewCertBeforeExpiration time.Duration
 }
 
@@ -64,15 +64,15 @@ func NewRedisStore(c *Config) CertStore {
 		renewCertBeforeExpiration = *c.RenewCertBeforeExpiration
 	}
 	return &redisStore{
-		client:                    c.RedisClient,
+		client:                    c.ValkeyClient,
 		renewCertBeforeExpiration: renewCertBeforeExpiration,
 	}
 }
 
 func (r *redisStore) LatestPrivate(ctx context.Context) (*ecdsa.PrivateKey, error) {
-	res, err := r.client.Get(ctx, keyPrivateLatest()).Result()
+	res, err := r.client.Do(ctx, r.client.B().Get().Key(keyPrivateLatest()).Build()).AsBytes()
 	if err != nil {
-		if !errors.Is(err, redis.Nil) { // this means not found
+		if !errors.Is(err, valkey.Nil) { // this means not found
 			return nil, err
 		}
 
@@ -80,7 +80,7 @@ func (r *redisStore) LatestPrivate(ctx context.Context) (*ecdsa.PrivateKey, erro
 	}
 
 	var privateKey privateKey
-	err = json.Unmarshal([]byte(res), &privateKey)
+	err = json.Unmarshal(res, &privateKey)
 	if err != nil {
 		return nil, fmt.Errorf("unable to unmarshal private key: %w", err)
 	}
@@ -131,14 +131,13 @@ func (r *redisStore) setNewCert(ctx context.Context) (*ecdsa.PrivateKey, error) 
 		return nil, fmt.Errorf("unable to encode signing certificate: %w", err)
 	}
 
-	pipe := r.client.TxPipeline()
-
-	_ = pipe.Set(ctx, keyPrivateLatest(), string(encoded), expires)
-	_ = pipe.Set(ctx, keyPublic(), string(rawBytes), expires)
-
-	_, err = pipe.Exec(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("unable to store certificate: %w", err)
+	cmds := make(valkey.Commands, 0, 2)
+	cmds = append(cmds, r.client.B().Set().Key(keyPrivateLatest()).Value(string(encoded)).Ex(expires).Build())
+	cmds = append(cmds, r.client.B().Set().Key(keyPublic()).Value(string(rawBytes)).Ex(expires).Build())
+	for i, resp := range r.client.DoMulti(ctx, cmds...) {
+		if resp.Error() != nil {
+			return nil, fmt.Errorf("unable to store certificate with command:%s %w", cmds[i].Commands()[1], resp.Error())
+		}
 	}
 
 	return privKey, nil
@@ -146,12 +145,15 @@ func (r *redisStore) setNewCert(ctx context.Context) (*ecdsa.PrivateKey, error) 
 
 func (r *redisStore) PublicKeys(ctx context.Context) (jwk.Set, string, error) {
 	var (
-		set  = jwk.NewSet()
-		iter = r.client.Scan(ctx, 0, matchPublic(), 0).Iterator()
+		set = jwk.NewSet()
 	)
+	entry, err := r.client.Do(ctx, r.client.B().Scan().Cursor(0).Match(matchPublic()).Build()).AsScanEntry()
+	if err != nil {
+		return nil, "", err
+	}
 
-	for iter.Next(ctx) {
-		pemEncoded, err := r.client.Get(ctx, iter.Val()).Result()
+	for _, element := range entry.Elements {
+		pemEncoded, err := r.client.Do(ctx, r.client.B().Get().Key(element).Build()).AsBytes()
 		if err != nil {
 			return nil, "", err
 		}
@@ -175,9 +177,6 @@ func (r *redisStore) PublicKeys(ctx context.Context) (jwk.Set, string, error) {
 		if err != nil {
 			return nil, "", err
 		}
-	}
-	if err := iter.Err(); err != nil {
-		return nil, "", err
 	}
 
 	res, err := json.MarshalIndent(set, "", "  ")

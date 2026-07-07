@@ -3,25 +3,25 @@ package certs_test
 import (
 	"testing"
 
-	"github.com/alicebob/miniredis/v2"
 	"github.com/lestrrat-go/jwx/v3/jwk"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
+	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
-	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 )
 
-func Test_redisStore(t *testing.T) {
+func Test_certStore(t *testing.T) {
 	t.Parallel()
 	var (
-		ctx   = t.Context()
-		s     = miniredis.RunT(t)
-		c     = redis.NewClient(&redis.Options{Addr: s.Addr()})
-		store = certs.NewRedisStore(&certs.Config{
-			RenewCertBeforeExpiration: new(4 * token.MaxExpiration),
-			RedisClient:               c,
-		})
+		ctx = t.Context()
 	)
+	_, c, closer := test.StartValkey(t, test.WithMiniRedis(true))
+	defer closer()
+
+	store := certs.NewRedisStore(&certs.Config{
+		RenewCertBeforeExpiration: new(4 * token.MaxExpiration),
+		ValkeyClient:              c,
+	})
 
 	set, rawSet, err := store.PublicKeys(ctx)
 	require.NoError(t, err)

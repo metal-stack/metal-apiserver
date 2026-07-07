@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/redis/go-redis/v9"
+	"github.com/valkey-io/valkey-go"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
@@ -25,11 +25,11 @@ type (
 	}
 
 	ratelimiter struct {
-		client *redis.Client
+		client valkey.Client
 	}
 )
 
-func New(client *redis.Client) *ratelimiter {
+func New(client valkey.Client) *ratelimiter {
 	return &ratelimiter{
 		client: client,
 	}
@@ -51,31 +51,24 @@ func (r *ratelimiter) CheckLimitUnauthenticatedAccess(ctx context.Context, ip st
 }
 
 func (r *ratelimiter) limit(ctx context.Context, k string, maxRequestsPerMinute int) (bool, error) {
-	raw, err := r.client.Get(ctx, k).Result()
-	if err != nil && !errors.Is(err, redis.Nil) {
+	count, err := r.client.Do(ctx, r.client.B().Get().Key(k).Build()).AsInt64()
+	if err != nil && !errors.Is(err, valkey.Nil) {
 		return false, err
 	}
 
 	if err == nil {
-		count, err := strconv.Atoi(raw)
-		if err != nil {
-			return false, fmt.Errorf("limit count is malformed: %w", err)
-		}
-
-		if count > maxRequestsPerMinute {
+		if count > int64(maxRequestsPerMinute) {
 			return false, &errRatelimitReached{limit: maxRequestsPerMinute}
 		}
 	}
 
-	// Redis Pipeline will create a new key prefix every minute
-	pipe := r.client.TxPipeline()
-
-	_ = pipe.Incr(ctx, k)
-	_ = pipe.Expire(ctx, k, halfHour) // expiration must be less than 60 minutes
-
-	_, err = pipe.Exec(ctx)
-	if err != nil {
-		return false, fmt.Errorf("unable to increment rate-limit count: %w", err)
+	cmds := make(valkey.Commands, 0, 2)
+	cmds = append(cmds, r.client.B().Incr().Key(k).Build())
+	cmds = append(cmds, r.client.B().Expire().Key(k).Seconds(int64(halfHour.Seconds())).Build())
+	for i, resp := range r.client.DoMulti(ctx, cmds...) {
+		if resp.Error() != nil {
+			return false, fmt.Errorf("unable to increment rate-limit count with command:%s %w", cmds[i].Commands()[1], resp.Error())
+		}
 	}
 
 	return true, nil
