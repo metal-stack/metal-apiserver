@@ -83,6 +83,7 @@ func newServeCmd() *cli.Command {
 			headscaleEnabledFlag,
 			componentExpirationFlag,
 			secureCookieFlag,
+			redirectUrlsFlag,
 		},
 		Action: func(ctx *cli.Context) error {
 			log, err := createLogger(ctx)

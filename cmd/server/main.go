@@ -34,6 +34,12 @@ var (
 		Usage:   "the url on which the http server is reachable from the outside",
 		EnvVars: []string{"SERVER_HTTP_URL"},
 	}
+	redirectUrlsFlag = &cli.StringSliceFlag{
+		Name:    "redirect-urls",
+		Value:   cli.NewStringSlice("http://localhost", "https://localhost"),
+		Usage:   "allowed redirect urls after login",
+		EnvVars: []string{"REDIRECT_URLS"},
+	}
 	sessionSecretFlag = &cli.StringFlag{
 		Name:     "session-secret",
 		Value:    "geheim",
