@@ -537,8 +537,8 @@ func Test_tenantServiceServer_Update(t *testing.T) {
 				Email:       new("new@mail.com"),
 				AvatarUrl:   new("http://new"),
 				Labels: &apiv2.UpdateLabels{
-					Strategy: &apiv2.UpdateLabels_Individual{
-						Individual: &apiv2.UpdateLabelsIndividually{
+					Strategy: &apiv2.UpdateLabels_Patch{
+						Patch: &apiv2.LabelsPatch{
 							Update: &apiv2.Labels{
 								Labels: map[string]string{
 									"c": "d",

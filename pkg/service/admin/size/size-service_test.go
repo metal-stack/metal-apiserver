@@ -268,8 +268,8 @@ func Test_sizeServiceServer_Update(t *testing.T) {
 					UpdatedAt: sizeMap["n3-medium-x86"].Meta.UpdatedAt,
 				},
 				Labels: &apiv2.UpdateLabels{
-					Strategy: &apiv2.UpdateLabels_Individual{
-						Individual: &apiv2.UpdateLabelsIndividually{
+					Strategy: &apiv2.UpdateLabels_Patch{
+						Patch: &apiv2.LabelsPatch{
 							Update: &apiv2.Labels{Labels: map[string]string{"purpose": "big worker"}},
 							Remove: []string{"location"},
 						},

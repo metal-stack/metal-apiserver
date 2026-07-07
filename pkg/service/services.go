@@ -50,6 +50,7 @@ type Config struct {
 	MetricsServerEndpoint               string
 	FrontEndUrl                         string
 	ServerHttpURL                       string
+	RedirectURLs                        []string
 	OIDCClientID                        string
 	OIDCClientSecret                    string
 	OIDCDiscoveryURL                    string
@@ -245,6 +246,15 @@ func oidcAuthHandler(log *slog.Logger, tokenService token.TokenService, c Config
 		return "", nil, fmt.Errorf("failed to parse frontend url %w", err)
 	}
 
+	var redirectUrls []*url.URL
+	for _, u := range c.RedirectURLs {
+		parsed, err := url.Parse(u)
+		if err != nil {
+			return "", nil, fmt.Errorf("failed to parse redirect url %w", err)
+		}
+		redirectUrls = append(redirectUrls, parsed)
+	}
+
 	auth, err := authservice.New(authservice.Config{
 		Log:           log,
 		TokenService:  tokenService,
@@ -252,6 +262,7 @@ func oidcAuthHandler(log *slog.Logger, tokenService token.TokenService, c Config
 		AuditBackends: c.AuditBackends,
 		FrontEndUrl:   frontendURL,
 		CallbackUrl:   c.ServerHttpURL + "/auth/{provider}/callback",
+		RedirectUrls:  redirectUrls,
 		IsDevStage:    c.IsStageDev,
 		SecureCookie:  c.SecureCookie,
 	})
