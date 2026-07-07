@@ -83,6 +83,7 @@ func newServeCmd() *cli.Command {
 			headscaleEnabledFlag,
 			componentExpirationFlag,
 			secureCookieFlag,
+			redirectUrlsFlag,
 		},
 		Action: func(ctx *cli.Context) error {
 			log, err := createLogger(ctx)
@@ -178,6 +179,7 @@ func newServeCmd() *cli.Command {
 				IpamClient:                          ipam,
 				ServerHttpURL:                       ctx.String(serverHttpUrlFlag.Name),
 				FrontEndUrl:                         ctx.String(frontEndUrlFlag.Name),
+				RedirectURLs:                        ctx.StringSlice(redirectUrlsFlag.Name),
 				AuditSearchBackend:                  auditSearchBackend,
 				AuditBackends:                       auditBackends,
 				Stage:                               stage,
@@ -199,11 +201,6 @@ func newServeCmd() *cli.Command {
 			}
 
 			err = repo.Tenant().AdditionalMethods().EnsureProviderTenant(ctx.Context, c.ProviderTenant)
-			if err != nil {
-				return err
-			}
-
-			err = repo.UnscopedProject().AdditionalMethods().EnsureProviderProject(ctx.Context, c.ProviderTenant)
 			if err != nil {
 				return err
 			}

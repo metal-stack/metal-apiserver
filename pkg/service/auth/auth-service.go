@@ -40,6 +40,7 @@ type Config struct {
 	Log           *slog.Logger
 	CallbackUrl   string // will replace `"{" + providerKey + ""}"` with the actual provider name
 	FrontEndUrl   *url.URL
+	RedirectUrls  []*url.URL
 	CookieMaxAge  time.Duration
 	IsDevStage    bool
 	SecureCookie  bool
@@ -66,6 +67,7 @@ type auth struct {
 	log              *slog.Logger
 	frontEndUrl      *url.URL
 	callbackUrl      string
+	redirectUrls     []*url.URL
 	repo             *repository.Store
 	isDevStage       bool
 	secureCookie     bool
@@ -81,6 +83,7 @@ func New(c Config, options ...authOption) (*auth, error) {
 		providerBackends: map[string]providerBackend{},
 		frontEndUrl:      c.FrontEndUrl,
 		callbackUrl:      c.CallbackUrl,
+		redirectUrls:     c.RedirectUrls,
 		repo:             c.Repo,
 		secureCookie:     c.SecureCookie,
 	}
@@ -343,7 +346,29 @@ func (a *auth) Callback(res http.ResponseWriter, req *http.Request) {
 
 	a.log.Debug("redirecting back", "url", redirectURL.String())
 
+	if err := a.isRedirectURLAllowed(redirectURL); err != nil {
+		a.log.Error("redirect url is not allowed", "error", err)
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	http.Redirect(res, req, redirectURL.String(), http.StatusSeeOther)
+}
+
+func (a *auth) isRedirectURLAllowed(url *url.URL) error {
+	if url == nil {
+		return fmt.Errorf("redirect url is nil")
+	}
+	for _, u := range a.redirectUrls {
+		if u.Hostname() != url.Hostname() {
+			continue
+		}
+		if u.Scheme != url.Scheme {
+			continue
+		}
+		return nil
+	}
+	return fmt.Errorf("given url %q is not in the configured list of allowed redirect urls %v", url.String(), a.redirectUrls)
 }
 
 func (a *auth) ensureTenant(ctx context.Context, u *providerUser) error {

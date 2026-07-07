@@ -103,6 +103,10 @@ func (t *projectMemberRepository) find(ctx context.Context, query *api.ProjectMe
 }
 
 func (t *projectMemberRepository) get(ctx context.Context, id string) (*projectMemberEntity, error) {
+	if t.scope == nil {
+		return nil, errorutil.InvalidArgument("project member get cannot be called unscoped")
+	}
+
 	member, err := t.find(ctx, &api.ProjectMemberQuery{
 		TenantId: &id,
 	})
