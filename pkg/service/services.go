@@ -184,7 +184,7 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 		TokenStore:         tokenStore,
 		CertStore:          certStore,
 		AuditSearchBackend: c.AuditSearchBackend,
-		Redis:              c.RedisConfig.ComponentClient,
+		Valkey:             c.RedisConfig.ComponentClient,
 		ServerHttpURL:      c.ServerHttpURL,
 		ProviderTenant:     c.ProviderTenant,
 		AuditBackends:      c.AuditBackends,

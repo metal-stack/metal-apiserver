@@ -13,13 +13,11 @@ type vpnHealthChecker struct {
 }
 
 func (h *vpnHealthChecker) Health(ctx context.Context) *apiv2.HealthStatus {
-	res, err := h.client.Health(ctx, &headscalev1.HealthRequest{})
-
 	var (
 		status  = apiv2.ServiceStatus_SERVICE_STATUS_HEALTHY
 		message string
 	)
-
+	res, err := h.client.Health(ctx, &headscalev1.HealthRequest{})
 	if err != nil {
 		status = apiv2.ServiceStatus_SERVICE_STATUS_UNHEALTHY
 		message = err.Error()

@@ -33,7 +33,7 @@ type Config struct {
 	Ctx                 context.Context
 	HealthcheckInterval time.Duration
 	Ipam                ipamv1connect.IpamServiceClient
-	Redis               valkeygo.Client
+	Valkey              valkeygo.Client
 	TenantClient        tenant.Client
 	Headscale           *headscale.Client
 	TaskClient          *task.Client
@@ -65,8 +65,8 @@ func New(c Config) (apiv2connect.HealthServiceHandler, error) {
 	if c.Datastore != nil {
 		checkers = append(checkers, &rethinkdbHealthChecker{ds: c.Datastore})
 	}
-	if c.Redis != nil {
-		checkers = append(checkers, &redisHealthChecker{redis: c.Redis})
+	if c.Valkey != nil {
+		checkers = append(checkers, &valkeyHealthChecker{valkey: c.Valkey})
 	}
 	if c.Headscale != nil {
 		checkers = append(checkers, &vpnHealthChecker{client: c.Headscale})
