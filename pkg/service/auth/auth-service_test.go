@@ -21,6 +21,12 @@ func Test_auth_isRedirectURLAllowed(t *testing.T) {
 			wantErr:      false,
 		},
 		{
+			name:         "url with ip is allowed",
+			redirectUrls: []string{"http://localhost", "https://localhost", "https://metal-stack.io","http://127.0.0.1"},
+			url:          "http://127.0.0.1:8080/login?token=asdf",
+			wantErr:      false,
+		},
+		{
 			name:         "url is not allowed",
 			redirectUrls: []string{"http://localhost", "https://localhost", "https://metal-stack.io"},
 			url:          "http://evil.com:8080",

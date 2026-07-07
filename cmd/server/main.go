@@ -36,7 +36,7 @@ var (
 	}
 	redirectUrlsFlag = &cli.StringSliceFlag{
 		Name:    "redirect-urls",
-		Value:   cli.NewStringSlice("http://localhost", "https://localhost"),
+		Value:   cli.NewStringSlice("http://localhost", "https://localhost", "http://127.0.0.1"),
 		Usage:   "allowed redirect urls after login",
 		EnvVars: []string{"REDIRECT_URLS"},
 	}

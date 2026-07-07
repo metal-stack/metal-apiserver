@@ -179,6 +179,7 @@ func newServeCmd() *cli.Command {
 				IpamClient:                          ipam,
 				ServerHttpURL:                       ctx.String(serverHttpUrlFlag.Name),
 				FrontEndUrl:                         ctx.String(frontEndUrlFlag.Name),
+				RedirectURLs:                        ctx.StringSlice(redirectUrlsFlag.Name),
 				AuditSearchBackend:                  auditSearchBackend,
 				AuditBackends:                       auditBackends,
 				Stage:                               stage,
