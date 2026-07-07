@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/metal-stack/api/go/errorutil"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
-	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 )
 
 func checkIfUrlExists(ctx context.Context, entity, id, url string) error {

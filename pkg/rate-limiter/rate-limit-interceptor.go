@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	"connectrpc.com/connect"
-	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/api/go/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 
 	"github.com/redis/go-redis/v9"
