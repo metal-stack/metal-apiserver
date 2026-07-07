@@ -391,9 +391,13 @@ func (t *tenantRepository) EnsureProviderTenant(ctx context.Context, providerTen
 					LockingStrategy: apiv2.OptimisticLockingStrategy_OPTIMISTIC_LOCKING_STRATEGY_SERVER,
 				},
 				Labels: &apiv2.UpdateLabels{
-					Update: &apiv2.Labels{
-						Labels: map[string]string{
-							tag.ProviderTenant: strconv.FormatBool(true),
+					Strategy: &apiv2.UpdateLabels_Patch{
+						Patch: &apiv2.LabelsPatch{
+							Update: &apiv2.Labels{
+								Labels: map[string]string{
+									tag.ProviderTenant: strconv.FormatBool(true),
+								},
+							},
 						},
 					},
 				},

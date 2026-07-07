@@ -530,7 +530,13 @@ func Test_networkServiceServer_Update(t *testing.T) {
 					UpdatedAt: timestamppb.New(networkMap["p3-network-a"].Meta.UpdatedAt.AsTime()),
 				},
 				Project: p3,
-				Labels:  &apiv2.UpdateLabels{Update: &apiv2.Labels{Labels: map[string]string{"size": "small"}}},
+				Labels: &apiv2.UpdateLabels{
+					Strategy: &apiv2.UpdateLabels_Patch{
+						Patch: &apiv2.LabelsPatch{
+							Update: &apiv2.Labels{Labels: map[string]string{"size": "small"}},
+						},
+					},
+				},
 			},
 			want: &apiv2.NetworkServiceUpdateResponse{
 				Network: &apiv2.Network{
@@ -559,7 +565,13 @@ func Test_networkServiceServer_Update(t *testing.T) {
 					UpdatedAt: timestamppb.New(networkMap["p2-network-b"].Meta.UpdatedAt.AsTime()),
 				},
 				Project: p2,
-				Labels:  &apiv2.UpdateLabels{Remove: []string{"a"}},
+				Labels: &apiv2.UpdateLabels{
+					Strategy: &apiv2.UpdateLabels_Patch{
+						Patch: &apiv2.LabelsPatch{
+							Remove: []string{"a"},
+						},
+					},
+				},
 			},
 			want: &apiv2.NetworkServiceUpdateResponse{
 				Network: &apiv2.Network{
