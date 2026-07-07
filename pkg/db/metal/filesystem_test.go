@@ -8,7 +8,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/go-cmp/cmp"
-	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/api/go/errorutil"
 )
 
 var (

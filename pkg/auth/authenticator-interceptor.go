@@ -10,9 +10,9 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/lestrrat-go/jwx/v3/jwk"
+	"github.com/metal-stack/api/go/errorutil"
 	v2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
-	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/cache"
