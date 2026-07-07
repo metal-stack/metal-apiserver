@@ -314,7 +314,7 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 				},
 				Description: new(""),
 			},
-			wantErr: errorutil.Conflict(`cannot update partition (partition-4): the entity was already modified, please retry`),
+			wantErr: errorutil.Aborted(`cannot update partition (partition-4): the entity was already modified, please retry`),
 		},
 		{
 			name: "client side optimistic lock handling fails with wrong timestamp from the future",
@@ -325,7 +325,7 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 				},
 				Description: new(""),
 			},
-			wantErr: errorutil.Conflict(`cannot update partition (partition-4): the entity was already modified, please retry`),
+			wantErr: errorutil.Aborted(`cannot update partition (partition-4): the entity was already modified, please retry`),
 		},
 		{
 			name: "client side optimistic lock handling fails with empty timestamp (should be prevented by protovalidate, but for completeness...)",

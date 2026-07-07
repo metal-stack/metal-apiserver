@@ -67,6 +67,11 @@ func Internal(format string, args ...any) error {
 	return connect.NewError(connect.CodeInternal, fmt.Errorf(format, args...))
 }
 
+// Aborted creates a new Aborted error with a given error message and the original error.
+func Aborted(format string, args ...any) error {
+	return connect.NewError(connect.CodeAborted, fmt.Errorf(format, args...))
+}
+
 // InvalidArgument creates a new InvalidArgument error with a given error message and the original error.
 func InvalidArgument(format string, args ...any) error {
 	return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf(format, args...))
@@ -107,6 +112,11 @@ func NewInternal(err error) error {
 	return connect.NewError(connect.CodeInternal, err)
 }
 
+// NewAborted creates a new Aborted error with a given error message and the original error.
+func NewAborted(err error) error {
+	return connect.NewError(connect.CodeAborted, err)
+}
+
 // NewInvalidArgument creates a new InvalidArgument error with a given error message and the original error.
 func NewInvalidArgument(err error) error {
 	return connect.NewError(connect.CodeInvalidArgument, err)
@@ -145,6 +155,11 @@ func IsConflict(err error) bool {
 func IsInternal(err error) bool {
 	connectErr := Convert(err)
 	return connectErr.Code() == connect.CodeInternal
+}
+
+func IsAborted(err error) bool {
+	connectErr := Convert(err)
+	return connectErr.Code() == connect.CodeAborted
 }
 
 func IsInvalidArgument(err error) bool {
