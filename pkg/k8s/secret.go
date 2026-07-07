@@ -27,7 +27,6 @@ type Secret struct {
 	APIVersion string            `json:"apiVersion"`
 	Kind       string            `json:"kind"`
 	Metadata   map[string]any    `json:"metadata"`
-	Labels     map[string]string `json:"labels"`
 	Data       map[string]string `json:"data"`
 }
 
@@ -75,9 +74,9 @@ func CreateOrUpdateSecret(ctx context.Context, log *slog.Logger, namespace, appl
 		Metadata: map[string]any{
 			"name":      secretName,
 			"namespace": namespace,
-		},
-		Labels: map[string]string{
-			"app": applicationName,
+			"labels": map[string]string{
+				"app": applicationName,
+			},
 		},
 		Data: currentData,
 	}
