@@ -80,7 +80,7 @@ var (
 	tokensCreateConfigFileFlag = &cli.StringFlag{
 		Name:    "tokens-create-config-file",
 		Value:   "",
-		Usage:   "path to a yaml file which contains the serialized map from token-name to TokenServiceCreateRequest",
+		Usage:   "path to a yaml file which contains the serialized map from token-name to TokenServiceCreateRequest. If provided the generated tokens will not be printed to stdout but instead written back into a kubernetes secret resource as specified by the secret-name and namespace flags.",
 		EnvVars: []string{"TOKENS_CREATE_CONFIG_FILE_PATH"},
 	}
 )
@@ -93,6 +93,7 @@ func newTokenCmd() *cli.Command {
 			logLevelFlag,
 			redisAddrFlag,
 			redisPasswordFlag,
+			providerTenantFlag,
 			tokenSubjectFlag,
 			tokenDescriptionFlag,
 			tokenPermissionsFlag,
@@ -210,18 +211,23 @@ func newTokenCmd() *cli.Command {
 				return fmt.Errorf("token subject cannot be empty")
 			}
 
-			namespace := ctx.String(namespaceFlag.Name)
-			if namespace == "" {
-				return fmt.Errorf("namespace cannot be empty")
-			}
-
-			secretName := ctx.String(secretNameFlag.Name)
-			if secretName == "" {
-				return fmt.Errorf("secretName cannot be empty")
-			}
-
 			if configFile := ctx.String(tokensCreateConfigFileFlag.Name); configFile != "" {
-				return storeTokensFromConfigFile(ctx.Context, log, tokenService, configFile, namespace, secretName)
+				namespace := ctx.String(namespaceFlag.Name)
+				if namespace == "" {
+					return fmt.Errorf("namespace cannot be empty")
+				}
+
+				secretName := ctx.String(secretNameFlag.Name)
+				if secretName == "" {
+					return fmt.Errorf("secretName cannot be empty")
+				}
+
+				providerTenant := ctx.String(providerTenantFlag.Name)
+				if providerTenant == "" {
+					return fmt.Errorf("providerTenant cannot be empty")
+				}
+
+				return storeTokensFromConfigFile(ctx.Context, log, tokenService, configFile, providerTenant, namespace, secretName)
 			}
 
 			resp, err := tokenService.CreateApiTokenWithoutPermissionCheck(ctx.Context, subject, &apiv2.TokenServiceCreateRequest{
@@ -244,7 +250,7 @@ func newTokenCmd() *cli.Command {
 	}
 }
 
-func storeTokensFromConfigFile(ctx context.Context, log *slog.Logger, tokenService token.TokenService, configFile, namespace, secretName string) error {
+func storeTokensFromConfigFile(ctx context.Context, log *slog.Logger, tokenService token.TokenService, configFile, providerTenant, namespace, secretName string) error {
 	yamlBytes, err := os.ReadFile(configFile)
 	if err != nil {
 		return err
@@ -260,8 +266,7 @@ func storeTokensFromConfigFile(ctx context.Context, log *slog.Logger, tokenServi
 	}
 
 	for target, tokenCreateRequest := range msg.TokenCreateRequests {
-		subject := "metal-stack"
-		// TODO Check if this is correct
+		subject := providerTenant
 		if tokenCreateRequest.User != nil {
 			subject = *tokenCreateRequest.User
 		}

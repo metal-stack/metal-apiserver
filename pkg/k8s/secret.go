@@ -40,7 +40,7 @@ func CreateOrUpdateSecret(ctx context.Context, log *slog.Logger, namespace, appl
 
 	caData, err := os.ReadFile(inClusterCAFile)
 	if err != nil {
-		return fmt.Errorf("read CA: %v", err)
+		return fmt.Errorf("read CA: %w", err)
 	}
 	pool := x509.NewCertPool()
 	pool.AppendCertsFromPEM(caData)
@@ -83,7 +83,7 @@ func CreateOrUpdateSecret(ctx context.Context, log *slog.Logger, namespace, appl
 
 	body, err := json.Marshal(secret)
 	if err != nil {
-		return fmt.Errorf("marshal: %v", err)
+		return fmt.Errorf("unable to marshal secret: %w", err)
 	}
 
 	// create or update
