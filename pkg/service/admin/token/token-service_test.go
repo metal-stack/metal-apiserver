@@ -22,7 +22,7 @@ func Test_List(t *testing.T) {
 
 	log := slog.Default()
 
-	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithValkey(true), test.WithPostgres(true))
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
 	defer closer()
 
 	type state struct {
