@@ -52,6 +52,7 @@ type (
 		projectInviteStore invite.ProjectInviteStore
 		tenantInviteStore  invite.TenantInviteStore
 		tokenStore         tokencommon.TokenStore
+		certStore          certs.CertStore
 
 		// only use this when you are very certain about it!!
 		tokenService           token.TokenService
@@ -277,6 +278,7 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		tenantInviteStore:      tenantInviteStore,
 		tokenStore:             tokenStore,
 		tokenService:           tokenService,
+		certStore:              certStore,
 		tc:                     tc,
 		rc:                     rc,
 		vc:                     vc,
@@ -330,6 +332,10 @@ func (t *testStore) GetTenantInviteStore() invite.TenantInviteStore {
 
 func (t *testStore) GetTokenStore() tokencommon.TokenStore {
 	return t.tokenStore
+}
+
+func (t *testStore) GetCertStore() certs.CertStore {
+	return t.certStore
 }
 
 func (t *testStore) GetTenantApiserverClient() tenant.Client {
