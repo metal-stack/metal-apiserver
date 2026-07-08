@@ -2,8 +2,8 @@ package repository
 
 import (
 	"context"
+	"maps"
 
-	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
@@ -75,7 +75,7 @@ func (t *tokenRepository) list(ctx context.Context, query *apiv2.TokenQuery) ([]
 				continue
 			}
 
-			if !cmp.Equal(query.Labels.Labels, tok.Meta.Labels.Labels) {
+			if !maps.Equal(query.Labels.Labels, tok.Meta.Labels.Labels) {
 				continue
 			}
 		}
