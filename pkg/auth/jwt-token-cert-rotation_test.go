@@ -19,18 +19,18 @@ import (
 
 func Test_jwt_cert_rotation(t *testing.T) {
 	t.Parallel()
-	oldMaxExpiration := token.MaxExpiration
+	oldMaxExpiration := certs.MaxTokenExpiration
 	oldDefaultExpiration := token.DefaultExpiration
 
-	token.MaxExpiration = 5 * time.Second
+	certs.MaxTokenExpiration = 5 * time.Second
 	token.DefaultExpiration = 5 * time.Second
 	defer func() {
-		token.MaxExpiration = oldMaxExpiration
+		certs.MaxTokenExpiration = oldMaxExpiration
 		token.DefaultExpiration = oldDefaultExpiration
 	}()
 	renewCertBeforeExpiration := 7 * time.Second
 
-	t.Logf("token lifetime: %s, certificate lifetime: %s, issue new signing certificate after: %s", token.DefaultExpiration, 2*token.MaxExpiration, 2*token.MaxExpiration-renewCertBeforeExpiration)
+	t.Logf("token lifetime: %s, certificate lifetime: %s, issue new signing certificate after: %s", token.DefaultExpiration, 2*certs.MaxTokenExpiration, 2*certs.MaxTokenExpiration-renewCertBeforeExpiration)
 
 	s := miniredis.RunT(t)
 	c := redis.NewClient(&redis.Options{Addr: s.Addr()})
