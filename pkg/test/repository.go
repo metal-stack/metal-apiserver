@@ -81,6 +81,9 @@ type (
 	testOptContainer struct {
 		with bool
 	}
+	testOptProviderTenant struct {
+		t string
+	}
 )
 
 // WithPostgres if set to true a postgres database container is started, defaults to false.
@@ -118,6 +121,12 @@ func WithContainers(with bool) *testOptContainer {
 	}
 }
 
+func WithProviderTenant(t string) *testOptProviderTenant {
+	return &testOptProviderTenant{
+		t: t,
+	}
+}
+
 func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...testOpt) (*testStore, func()) {
 	var (
 		withPostgres   = false
@@ -125,6 +134,8 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		withRethink    = true
 		withHeadscale  = false
 		withContainers = true
+
+		providerTenant = "metal-stack"
 	)
 
 	for _, opt := range testOpts {
@@ -139,6 +150,8 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 			withHeadscale = o.with
 		case *testOptContainer:
 			withContainers = o.with
+		case *testOptProviderTenant:
+			providerTenant = o.t
 		default:
 			t.Errorf("unsupported test option: %T", o)
 		}
@@ -192,10 +205,11 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 	require.NoError(t, err)
 
 	tokenService := token.New(token.Config{
-		Log:        log,
-		TokenStore: tokenStore,
-		CertStore:  certStore,
-		Issuer:     tokenIssuer,
+		Log:            log,
+		TokenStore:     tokenStore,
+		CertStore:      certStore,
+		Issuer:         tokenIssuer,
+		ProviderTenant: providerTenant,
 	})
 
 	ipam, ipamCloser := StartIpam(t)
@@ -223,6 +237,12 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		Component:             vc, // Use same valkey instance as queue for tests
 		Auditing:              auditingBackend,
 		HeadscaleClient:       hc,
+		TokenConfig: repository.TokenConfig{
+			TokenStore:     tokenStore,
+			CertStore:      certStore,
+			ProviderTenant: providerTenant,
+			Issuer:         tokenIssuer,
+		},
 	}
 
 	repo := repository.New(config)

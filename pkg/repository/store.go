@@ -9,10 +9,12 @@ import (
 	"github.com/metal-stack/api/go/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/async/queue"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
+	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
+	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/auditing"
 	"github.com/valkey-io/valkey-go"
 
@@ -33,6 +35,10 @@ type (
 		component       valkey.Client
 		auditing        auditing.Auditing
 		headscaleClient *headscale.Client
+		certs           certs.CertStore
+		tokens          token.TokenStore
+		issuer          string
+		providerTenant  string
 	}
 
 	Config struct {
@@ -45,6 +51,17 @@ type (
 		Component             valkey.Client
 		Auditing              auditing.Auditing
 		HeadscaleClient       *headscale.Client
+		TokenConfig           TokenConfig
+	}
+
+	TokenConfig struct {
+		TokenStore token.TokenStore
+		CertStore  certs.CertStore
+		// provider tenant, other tenants which are tenant member with owner rights of this tenant can request admin-role-editor,
+		// if they have editor or viewer rights, they can request admin-role-viewer.
+		ProviderTenant string
+		// Issuer to sign the JWT Token with
+		Issuer string
 	}
 
 	store[R Repo, E Entity, M Message, C CreateMessage, U UpdateMessage, Q Query] struct {
@@ -64,6 +81,10 @@ func New(c Config) *Store {
 		component:       c.Component,
 		auditing:        c.Auditing,
 		headscaleClient: c.HeadscaleClient,
+		certs:           c.TokenConfig.CertStore,
+		tokens:          c.TokenConfig.TokenStore,
+		issuer:          c.TokenConfig.Issuer,
+		providerTenant:  c.TokenConfig.ProviderTenant,
 	}
 }
 
@@ -285,6 +306,31 @@ func (s *Store) audit(scope *TenantScope) Audit {
 	}
 
 	return &store[*auditRepository, *auditEntity, *apiv2.AuditTrace, any, *auditEntity, *apiv2.AuditQuery]{
+		repository: repository,
+		typed:      repository,
+	}
+}
+
+func (s *Store) Token(user string) Token {
+	return s.token(&UserScope{
+		user: user,
+	})
+}
+
+func (s *Store) UnscopedToken() Token {
+	return s.token(nil)
+}
+
+func (s *Store) token(scope *UserScope) Token {
+	repository := &tokenRepository{
+		s:     s,
+		scope: scope,
+		patg: func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
+			return s.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, userId)
+		},
+	}
+
+	return &store[*tokenRepository, *api.TokenWithSecret, *api.TokenWithSecret, *adminv2.TokenServiceCreateRequest, *apiv2.TokenServiceUpdateRequest, *apiv2.TokenQuery]{
 		repository: repository,
 		typed:      repository,
 	}
