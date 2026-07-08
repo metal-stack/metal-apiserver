@@ -3,9 +3,9 @@ package repository
 import (
 	"context"
 
+	"github.com/metal-stack/api/go/errorutil"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
-	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 )
 
 func (r *projectRepository) validateCreate(ctx context.Context, req *apiv2.ProjectServiceCreateRequest) error {

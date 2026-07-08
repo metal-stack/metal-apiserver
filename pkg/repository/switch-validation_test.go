@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/metal-stack/api/go/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 )
 
 func Test_checkDuplicateNics(t *testing.T) {

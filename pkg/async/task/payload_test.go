@@ -8,8 +8,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/hibiken/asynq"
+	"github.com/metal-stack/api/go/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
-	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 )
 
 func TestEncodePayload(t *testing.T) {
