@@ -88,6 +88,9 @@ type (
 	// Query is an external representation to filter an entity for consumers.
 	Query any
 
+	UserScope struct {
+		user string
+	}
 	ProjectScope struct {
 		projectID string
 	}
@@ -154,7 +157,12 @@ type (
 	Component interface {
 		Repository[*componentRepository, *apiv2.Component, *api.ComponentServiceCreateRequest, *api.ComponentServiceUpdateRequest, *apiv2.ComponentQuery]
 	}
+
 	Audit interface {
 		Repository[*auditRepository, *apiv2.AuditTrace, any, *auditEntity, *apiv2.AuditQuery]
+	}
+
+	Token interface {
+		Repository[*tokenRepository, *api.TokenWithSecret, *adminv2.TokenServiceCreateRequest, *apiv2.TokenServiceUpdateRequest, *apiv2.TokenQuery]
 	}
 )

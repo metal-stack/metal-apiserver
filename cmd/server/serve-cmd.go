@@ -19,11 +19,13 @@ import (
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	"github.com/metal-stack/metal-apiserver/pkg/async/queue"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
+	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/service"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
+	"github.com/metal-stack/metal-apiserver/pkg/token"
 	tenant "github.com/metal-stack/tenant-api/go/client"
 
 	"github.com/metal-stack/v"
@@ -158,6 +160,14 @@ func newServeCmd() *cli.Command {
 					Component:             redisConfig.ComponentClient,
 					Auditing:              auditSearchBackend,
 					HeadscaleClient:       hc,
+					TokenConfig: repository.TokenConfig{
+						TokenStore: token.NewRedisStore(redisConfig.TokenClient),
+						CertStore: certs.NewRedisStore(&certs.Config{
+							RedisClient: redisConfig.TokenClient,
+						}),
+						ProviderTenant: ctx.String(providerTenantFlag.Name),
+						Issuer:         ctx.String(serverHttpUrlFlag.Name),
+					},
 				})
 				stage = ctx.String(stageFlag.Name)
 			)
