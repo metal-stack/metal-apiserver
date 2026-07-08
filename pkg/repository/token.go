@@ -4,6 +4,7 @@ import (
 	"context"
 	"maps"
 
+	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
@@ -18,7 +19,18 @@ type (
 )
 
 func (t *tokenRepository) get(ctx context.Context, id string) (*api.TokenWithSecret, error) {
-	panic("unimplemented")
+	if t.scope == nil {
+		return nil, errorutil.FailedPrecondition("tokens cannot be retrieved unscoped")
+	}
+
+	res, err := t.s.tokens.Get(ctx, t.scope.user, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return &api.TokenWithSecret{
+		Token: res,
+	}, nil
 }
 
 func (t *tokenRepository) list(ctx context.Context, query *apiv2.TokenQuery) ([]*api.TokenWithSecret, error) {
@@ -87,7 +99,25 @@ func (t *tokenRepository) list(ctx context.Context, query *apiv2.TokenQuery) ([]
 }
 
 func (t *tokenRepository) find(ctx context.Context, query *apiv2.TokenQuery) (*api.TokenWithSecret, error) {
-	panic("unimplemented")
+	if query == nil {
+		return nil, errorutil.InvalidArgument("query must be specified")
+	}
+
+	toks, err := t.list(ctx, query)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
+	switch len(toks) {
+	case 0:
+		return nil, errorutil.NotFound("unable to find a token by the specified query")
+	case 1:
+		// noop
+	default:
+		return nil, errorutil.Internal("found multiple tokens by the specified query")
+	}
+
+	return toks[0], nil
 }
 
 func (t *tokenRepository) create(ctx context.Context, c *adminv2.TokenServiceCreateRequest) (*api.TokenWithSecret, error) {
