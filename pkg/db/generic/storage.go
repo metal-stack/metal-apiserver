@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
+	"github.com/metal-stack/api/go/errorutil"
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
 
@@ -200,7 +200,7 @@ func (s *storage[E]) Update(ctx context.Context, e E) error {
 	}).RunWrite(s.r.queryExecutor, r.RunOpts{Context: ctx})
 	if err != nil {
 		if strings.Contains(err.Error(), entityAlreadyModifiedErrorMessage) {
-			return errorutil.Conflict("cannot update %v (%s): %s", s.tableName, e.GetID(), entityAlreadyModifiedErrorMessage)
+			return errorutil.Aborted("cannot update %v (%s): %s", s.tableName, e.GetID(), entityAlreadyModifiedErrorMessage)
 		}
 
 		return fmt.Errorf("cannot update %v (%s): %w", s.tableName, e.GetID(), err)

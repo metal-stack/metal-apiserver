@@ -53,7 +53,7 @@ type Config struct {
 	TokenStore         tokencommon.TokenStore
 	CertStore          certs.CertStore
 	AuditSearchBackend auditing.Auditing
-	Redis              valkey.Client
+	Valkey             valkey.Client
 	AuditBackends      []auditing.Auditing
 	HeadscaleClient    *headscale.Client
 
@@ -108,7 +108,7 @@ func ApiServices(ctx context.Context, cfg Config) (token.TokenService, error) {
 		Ipam:                cfg.IpamClient,
 		TenantClient:        cfg.TenantClient,
 		Datastore:           cfg.Datastore,
-		Redis:               cfg.Redis,
+		Valkey:              cfg.Valkey,
 		Headscale:           cfg.HeadscaleClient,
 		AuditBackends:       cfg.AuditBackends,
 		TaskClient:          cfg.Repository.Task(),

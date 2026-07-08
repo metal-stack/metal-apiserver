@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	v1 "github.com/metal-stack/tenant-api/go/api/v1"
 )
 

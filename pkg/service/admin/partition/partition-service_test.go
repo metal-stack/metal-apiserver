@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -314,7 +314,7 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 				},
 				Description: new(""),
 			},
-			wantErr: errorutil.Conflict(`cannot update partition (partition-4): the entity was already modified, please retry`),
+			wantErr: errorutil.Aborted(`cannot update partition (partition-4): the entity was already modified, please retry`),
 		},
 		{
 			name: "client side optimistic lock handling fails with wrong timestamp from the future",
@@ -325,7 +325,7 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 				},
 				Description: new(""),
 			},
-			wantErr: errorutil.Conflict(`cannot update partition (partition-4): the entity was already modified, please retry`),
+			wantErr: errorutil.Aborted(`cannot update partition (partition-4): the entity was already modified, please retry`),
 		},
 		{
 			name: "client side optimistic lock handling fails with empty timestamp (should be prevented by protovalidate, but for completeness...)",
