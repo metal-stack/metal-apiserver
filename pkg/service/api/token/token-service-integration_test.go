@@ -11,6 +11,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/metal-stack/api/go/errorutil"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	tokenservice "github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
@@ -402,6 +403,207 @@ func Test_List(t *testing.T) {
 					cmpopts.SortSlices(func(a, b *apiv2.Token) bool {
 						return a.Uuid < b.Uuid
 					}),
+					protocmp.Transform(),
+					protocmp.IgnoreFields(
+						&apiv2.Token{}, "issued_at", "expires",
+					),
+					protocmp.IgnoreFields(
+						&apiv2.Meta{}, "created_at", "updated_at",
+					),
+				); diff != "" {
+					innerT.Errorf("diff: %s", diff)
+				}
+			}
+		})
+	}
+}
+
+func Test_Get(t *testing.T) {
+	t.Parallel()
+
+	log := slog.Default()
+
+	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	defer closer()
+
+	type state struct {
+		existingTokens []*apiv2.Token
+	}
+	tests := []struct {
+		name              string
+		sessionToken      *apiv2.Token
+		req               *apiv2.TokenServiceGetRequest
+		state             state
+		wantErr           error
+		wantValidationErr string
+		want              *apiv2.Token
+	}{
+		{
+			name: "missing id in request",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceGetRequest{},
+			state: state{
+				existingTokens: []*apiv2.Token{
+					{
+						Uuid: "c223af4d-b3f5-4df6-8815-52b80323930d",
+						User: "phippy",
+					},
+					{
+						Uuid: "8ff27ee2-209f-43e2-a15d-50143fb03229",
+						User: "phippy",
+					},
+					{
+						Uuid: "9baa8668-2212-4fa5-a2e4-167084d0552d",
+						User: "not phippy",
+					},
+				},
+			},
+			want:              nil,
+			wantValidationErr: "validation error: uuid: value is empty, which is not a valid UUID",
+		},
+		{
+			name: "get non-existing",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceGetRequest{
+				Uuid: "57460ff2-30e9-45e5-93c8-7f9ca85a92af",
+			},
+			state: state{
+				existingTokens: []*apiv2.Token{
+					{
+						Uuid: "c223af4d-b3f5-4df6-8815-52b80323930d",
+						User: "phippy",
+					},
+					{
+						Uuid: "8ff27ee2-209f-43e2-a15d-50143fb03229",
+						User: "phippy",
+					},
+					{
+						Uuid: "9baa8668-2212-4fa5-a2e4-167084d0552d",
+						User: "not phippy",
+					},
+				},
+			},
+			wantErr: errorutil.NotFound("token not found"),
+		},
+		{
+			name: "cannot get another user's token",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceGetRequest{
+				Uuid: "9baa8668-2212-4fa5-a2e4-167084d0552d",
+			},
+			state: state{
+				existingTokens: []*apiv2.Token{
+					{
+						Uuid: "c223af4d-b3f5-4df6-8815-52b80323930d",
+						User: "phippy",
+					},
+					{
+						Uuid: "8ff27ee2-209f-43e2-a15d-50143fb03229",
+						User: "phippy",
+					},
+					{
+						Uuid: "9baa8668-2212-4fa5-a2e4-167084d0552d",
+						User: "not phippy",
+					},
+				},
+			},
+			wantErr: errorutil.NotFound("token not found"),
+		},
+		{
+			name: "get existing",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceGetRequest{
+				Uuid: "8ff27ee2-209f-43e2-a15d-50143fb03229",
+			},
+			state: state{
+				existingTokens: []*apiv2.Token{
+					{
+						Uuid: "c223af4d-b3f5-4df6-8815-52b80323930d",
+						User: "phippy",
+					},
+					{
+						Uuid: "8ff27ee2-209f-43e2-a15d-50143fb03229",
+						User: "phippy",
+					},
+					{
+						Uuid: "9baa8668-2212-4fa5-a2e4-167084d0552d",
+						User: "not phippy",
+					},
+				},
+			},
+			want: &apiv2.Token{
+				Uuid: "8ff27ee2-209f-43e2-a15d-50143fb03229",
+				User: "phippy",
+				Meta: &apiv2.Meta{},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(innerT *testing.T) {
+			defer testStore.Cleanup(t)
+
+			ctx, cancel := context.WithCancel(token.ContextWithToken(innerT.Context(), tt.sessionToken))
+			defer cancel()
+
+			for _, tok := range tt.state.existingTokens {
+				err := testStore.GetTokenStore().Set(ctx, tok)
+				require.NoError(innerT, err)
+			}
+
+			service := tokenservice.New(tokenservice.Config{
+				Log:  log,
+				Repo: testStore.Store,
+			})
+
+			// Execute proto based validation
+			err := protovalidate.Validate(tt.req)
+			if tt.wantValidationErr != "" {
+				if diff := cmp.Diff(tt.wantValidationErr, err.Error(), errorutil.ErrorStringComparer()); diff != "" {
+					innerT.Errorf("diff = %s", diff)
+				}
+
+				return
+			}
+
+			require.NoError(innerT, err)
+
+			response, err := service.Get(ctx, tt.req)
+
+			switch {
+			case tt.wantErr != nil && err != nil:
+				if diff := cmp.Diff(tt.wantErr, err, errorutil.ErrorStringComparer()); diff != "" {
+					innerT.Errorf("diff = %s", diff)
+				}
+
+			case tt.wantErr != nil && err == nil:
+				innerT.Fatalf("want error %q, got response %q", tt.wantErr, response)
+			case err != nil:
+				innerT.Fatalf("want response, got error %q", err)
+
+			default:
+				if diff := cmp.Diff(
+					tt.want, response.Token,
 					protocmp.Transform(),
 					protocmp.IgnoreFields(
 						&apiv2.Token{}, "issued_at", "expires",

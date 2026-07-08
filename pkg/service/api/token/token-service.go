@@ -147,13 +147,13 @@ func (t *tokenService) Get(ctx context.Context, rq *apiv2.TokenServiceGetRequest
 		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
-	res, err := t.tokens.Get(ctx, token.User, rq.Uuid)
+	res, err := t.repo.Token(token.User).Get(ctx, rq.Uuid)
 	if err != nil {
 		return nil, err
 	}
 
 	return &apiv2.TokenServiceGetResponse{
-		Token: res,
+		Token: res.Token,
 	}, nil
 }
 
