@@ -32,6 +32,10 @@ type token struct {
 	InfraRole *string `json:"infra_role,omitempty"`
 	// MachineRoles associates a machine uuid with the corresponding role of the token owner
 	MachineRoles map[string]string `json:"machine_roles,omitempty"`
+	// Labels holds labels associated with the token
+	Labels map[string]string `json:"labels,omitempty"`
+	// UpdatedAt gives the date when this token was updated
+	UpdatedAt *time.Time `json:"updated_at,omitempty"`
 }
 
 type methodPermission struct {
@@ -43,25 +47,29 @@ type methodPermission struct {
 }
 
 func toInternal(t *apiv2.Token) *token {
-	var permissions []methodPermission
+	var (
+		permissions []methodPermission
+
+		projectRoles = map[string]string{}
+		tenantRoles  = map[string]string{}
+
+		expires   *time.Time
+		issuedAt  *time.Time
+		updatedAt *time.Time
+
+		adminRole    *string
+		infraRole    *string
+		machineRoles = map[string]string{}
+
+		labels map[string]string
+	)
+
 	for _, p := range t.Permissions {
 		permissions = append(permissions, methodPermission{
 			Subject: p.Subject,
 			Methods: p.Methods,
 		})
 	}
-
-	var (
-		projectRoles = map[string]string{}
-		tenantRoles  = map[string]string{}
-
-		expires  *time.Time
-		issuedAt *time.Time
-
-		adminRole    *string
-		infraRole    *string
-		machineRoles = map[string]string{}
-	)
 
 	if t.Expires != nil {
 		expires = new(t.Expires.AsTime())
@@ -89,6 +97,16 @@ func toInternal(t *apiv2.Token) *token {
 		machineRoles[id] = role.String()
 	}
 
+	if t.Meta != nil {
+		if t.Meta.UpdatedAt != nil {
+			updatedAt = new(t.Meta.UpdatedAt.AsTime())
+		}
+
+		if t.Meta.Labels != nil {
+			labels = t.Meta.Labels.Labels
+		}
+	}
+
 	return &token{
 		Uuid:         t.Uuid,
 		User:         t.User,
@@ -96,17 +114,34 @@ func toInternal(t *apiv2.Token) *token {
 		Permissions:  permissions,
 		Expires:      expires,
 		IssuedAt:     issuedAt,
+		UpdatedAt:    updatedAt,
 		TokenType:    int32(t.TokenType),
 		ProjectRoles: projectRoles,
 		TenantRoles:  tenantRoles,
 		AdminRole:    adminRole,
 		InfraRole:    infraRole,
 		MachineRoles: machineRoles,
+		Labels:       labels,
 	}
 }
 
 func toExternal(t *token) *apiv2.Token {
-	var permissions []*apiv2.MethodPermission
+
+	var (
+		permissions []*apiv2.MethodPermission
+
+		projectRoles = map[string]apiv2.ProjectRole{}
+		tenantRoles  = map[string]apiv2.TenantRole{}
+
+		expires   *timestamppb.Timestamp
+		issuedAt  *timestamppb.Timestamp
+		updatedAt *timestamppb.Timestamp
+
+		adminRole    *apiv2.AdminRole
+		infraRole    *apiv2.InfraRole
+		machineRoles = map[string]apiv2.MachineRole{}
+	)
+
 	for _, p := range t.Permissions {
 		permissions = append(permissions, &apiv2.MethodPermission{
 			Subject: p.Subject,
@@ -114,23 +149,14 @@ func toExternal(t *token) *apiv2.Token {
 		})
 	}
 
-	var (
-		projectRoles = map[string]apiv2.ProjectRole{}
-		tenantRoles  = map[string]apiv2.TenantRole{}
-
-		expires  *timestamppb.Timestamp
-		issuedAt *timestamppb.Timestamp
-
-		adminRole    *apiv2.AdminRole
-		infraRole    *apiv2.InfraRole
-		machineRoles = map[string]apiv2.MachineRole{}
-	)
-
 	if t.Expires != nil {
 		expires = timestamppb.New(*t.Expires)
 	}
 	if t.IssuedAt != nil {
 		issuedAt = timestamppb.New(*t.IssuedAt)
+	}
+	if t.UpdatedAt != nil {
+		updatedAt = timestamppb.New(*t.UpdatedAt)
 	}
 
 	for id, role := range t.ProjectRoles {
@@ -152,7 +178,19 @@ func toExternal(t *token) *apiv2.Token {
 		machineRoles[id] = apiv2.MachineRole(apiv2.MachineRole_value[role])
 	}
 
+	meta := &apiv2.Meta{
+		CreatedAt: issuedAt,
+		UpdatedAt: updatedAt,
+	}
+
+	if t.Labels != nil {
+		meta.Labels = &apiv2.Labels{
+			Labels: t.Labels,
+		}
+	}
+
 	return &apiv2.Token{
+		Meta:         meta,
 		Uuid:         t.Uuid,
 		User:         t.User,
 		Description:  t.Description,
