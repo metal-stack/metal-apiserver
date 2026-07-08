@@ -53,14 +53,14 @@ func CreateOrUpdateSecret(ctx context.Context, log *slog.Logger, namespace, appl
 
 	tokenBytes, err := os.ReadFile(inClusterTokenFile)
 	if err != nil {
-		return fmt.Errorf("read token: %v", err)
+		return fmt.Errorf("read token: %w", err)
 	}
 	token = string(tokenBytes)
 
 	// get secret to see if we need to create it
 	exists, currentData, err := getSecret(ctx, client, url, token)
 	if err != nil {
-		return fmt.Errorf("GET secret: %v", err)
+		return fmt.Errorf("get secret: %w", err)
 	}
 
 	if currentData == nil {
@@ -102,7 +102,7 @@ func CreateOrUpdateSecret(ctx context.Context, log *slog.Logger, namespace, appl
 
 	status, respBody, err := doRequest(ctx, client, method, reqURL, token, body)
 	if err != nil {
-		return fmt.Errorf("request: %v", err)
+		return fmt.Errorf("request: %w", err)
 	}
 	if status < 200 || status >= 300 {
 		return fmt.Errorf("unexpected status %d: %s", status, respBody)
