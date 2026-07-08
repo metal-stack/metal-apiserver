@@ -256,8 +256,8 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
-	if req.Expires.AsDuration() > tokenutil.MaxExpiration {
-		return nil, fmt.Errorf("requested expiration duration: %q exceeds max expiration: %q", req.Expires.AsDuration(), tokenutil.MaxExpiration)
+	if req.Expires.AsDuration() > certs.MaxTokenExpiration {
+		return nil, fmt.Errorf("requested expiration duration: %q exceeds max expiration: %q", req.Expires.AsDuration(), certs.MaxTokenExpiration)
 	}
 
 	projectsAndTenants, err := t.projectsAndTenantsGetter(ctx, token.GetUser())
