@@ -52,6 +52,7 @@ type (
 		projectInviteStore invite.ProjectInviteStore
 		tenantInviteStore  invite.TenantInviteStore
 		tokenStore         tokencommon.TokenStore
+		certStore          certs.CertStore
 
 		// only use this when you are very certain about it!!
 		tokenService           token.TokenService
@@ -277,6 +278,7 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		tenantInviteStore:      tenantInviteStore,
 		tokenStore:             tokenStore,
 		tokenService:           tokenService,
+		certStore:              certStore,
 		tc:                     tc,
 		rc:                     rc,
 		vc:                     vc,
@@ -307,6 +309,13 @@ func (s *testStore) Cleanup(t testing.TB) {
 		err = s.ds.VrfPool().ReleaseUniqueInteger(t.Context(), uint(i+1))
 		require.NoError(t, err)
 	}
+
+	toks, err := s.tokenStore.AdminList(t.Context())
+	require.NoError(t, err)
+
+	for _, tok := range toks {
+		require.NoError(t, s.tokenStore.Revoke(t.Context(), tok.User, tok.Uuid))
+	}
 }
 
 func (t *testStore) GetDatastore() generic.Datastore {
@@ -323,6 +332,10 @@ func (t *testStore) GetTenantInviteStore() invite.TenantInviteStore {
 
 func (t *testStore) GetTokenStore() tokencommon.TokenStore {
 	return t.tokenStore
+}
+
+func (t *testStore) GetCertStore() certs.CertStore {
+	return t.certStore
 }
 
 func (t *testStore) GetTenantApiserverClient() tenant.Client {

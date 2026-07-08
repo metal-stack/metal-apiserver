@@ -41,6 +41,7 @@ type tokenService struct {
 	tokens         tokenutil.TokenStore
 	certs          certs.CertStore
 	log            *slog.Logger
+	repo           *repository.Store
 
 	projectsAndTenantsGetter api.ProjectsAndTenantsGetter
 	authorizer               request.Authorizer
@@ -66,6 +67,7 @@ func New(c Config) TokenService {
 		issuer:         c.Issuer,
 		log:            log,
 		providerTenant: c.ProviderTenant,
+		repo:           c.Repo,
 
 		projectsAndTenantsGetter: projectsAndTenantsGetter,
 		authorizer:               request.NewAuthorizer(log, projectsAndTenantsGetter),
@@ -351,19 +353,25 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 }
 
 // List lists the tokens of a specific user.
-func (t *tokenService) List(ctx context.Context, _ *apiv2.TokenServiceListRequest) (*apiv2.TokenServiceListResponse, error) {
+func (t *tokenService) List(ctx context.Context, rq *apiv2.TokenServiceListRequest) (*apiv2.TokenServiceListResponse, error) {
 	token, ok := tokenutil.TokenFromContext(ctx)
 	if !ok || token == nil {
 		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
-	tokens, err := t.tokens.List(ctx, token.User)
+	tokens, err := t.repo.Token(token.User).List(ctx, rq.Query)
 	if err != nil {
 		return nil, err
 	}
 
+	var result []*apiv2.Token
+
+	for _, tok := range tokens {
+		result = append(result, tok.Token)
+	}
+
 	return &apiv2.TokenServiceListResponse{
-		Tokens: tokens,
+		Tokens: result,
 	}, nil
 }
 
