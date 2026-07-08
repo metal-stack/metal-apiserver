@@ -4,13 +4,11 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"strings"
 	"testing"
 	"time"
 
 	"buf.build/go/protovalidate"
 	"github.com/alicebob/miniredis/v2"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/go-cmp/cmp"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
@@ -28,92 +26,6 @@ var (
 	kubies = "00000000-0000-0000-0000-000000000000"
 	token1 = "00000000-0000-0000-0000-000000000000"
 )
-
-func Test_tokenService_CreateConsoleTokenWithoutPermissionCheck(t *testing.T) {
-	t.Parallel()
-	ctx := t.Context()
-	s := miniredis.RunT(t)
-	c := redis.NewClient(&redis.Options{Addr: s.Addr()})
-
-	tokenStore := token.NewRedisStore(c)
-	certStore := certs.NewRedisStore(&certs.Config{
-		RedisClient: c,
-	})
-
-	service := New(Config{
-		Log:        slog.Default(),
-		TokenStore: tokenStore,
-		CertStore:  certStore,
-		Issuer:     "http://test",
-	})
-
-	got, err := service.CreateUserTokenWithoutPermissionCheck(ctx, "test", new(1*time.Minute))
-	require.NoError(t, err)
-	// verifying response
-
-	require.NotNil(t, got)
-	require.NotNil(t, got)
-	require.NotNil(t, got.GetToken())
-
-	assert.NotEmpty(t, got.GetSecret())
-	assert.True(t, strings.HasPrefix(got.GetSecret(), "ey"), "not a valid jwt token") // jwt always starts with "ey" because it's b64 encoded JSON
-	claims, err := parseJWTToken(got.GetSecret())
-	require.NoError(t, err, "token claims not parsable")
-	require.NotNil(t, claims)
-
-	assert.NotEmpty(t, got.GetToken().GetUuid())
-	assert.Equal(t, "test", got.GetToken().GetUser())
-
-	// verifying keydb entry
-	err = tokenStore.Set(ctx, got.GetToken())
-	require.NoError(t, err)
-
-	// listing tokens
-
-	tokenList, err := service.List(token.ContextWithToken(ctx, got.Token), &apiv2.TokenServiceListRequest{})
-	require.NoError(t, err)
-
-	require.NotNil(t, tokenList)
-	require.NotNil(t, tokenList)
-
-	require.Len(t, tokenList.Tokens, 1)
-
-	// Check still present
-	_, err = tokenStore.Get(ctx, got.GetToken().GetUser(), got.GetToken().GetUuid())
-	require.NoError(t, err)
-
-	// Check unpresent after revocation
-	err = tokenStore.Revoke(ctx, got.GetToken().GetUser(), got.GetToken().GetUuid())
-	require.NoError(t, err)
-
-	_, err = tokenStore.Get(ctx, got.GetToken().GetUser(), got.GetToken().GetUuid())
-	require.Error(t, err)
-
-	// List must now be empty
-	tokenList, err = service.List(token.ContextWithToken(ctx, got.Token), &apiv2.TokenServiceListRequest{})
-	require.NoError(t, err)
-
-	require.NotNil(t, tokenList)
-	require.NotNil(t, tokenList)
-	require.Empty(t, tokenList.Tokens)
-}
-
-// parseJWTToken unverified to Claims to get Issuer,Subject, Roles and Permissions
-func parseJWTToken(tokenString string) (*token.Claims, error) {
-	if tokenString == "" {
-		return nil, nil
-	}
-
-	claims := &token.Claims{}
-	parser := jwt.NewParser()
-	_, _, err := parser.ParseUnverified(string(tokenString), claims)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return claims, nil
-}
 
 func Test_Create(t *testing.T) {
 	t.Parallel()

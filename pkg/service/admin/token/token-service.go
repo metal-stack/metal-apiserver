@@ -8,6 +8,7 @@ import (
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
+	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	ts "github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 	tokenutil "github.com/metal-stack/metal-apiserver/pkg/token"
 )
@@ -17,6 +18,7 @@ type Config struct {
 	TokenStore   tokenutil.TokenStore
 	CertStore    certs.CertStore
 	TokenService ts.TokenService
+	Repo         *repository.Store
 }
 
 type tokenService struct {
@@ -24,6 +26,7 @@ type tokenService struct {
 	certs      certs.CertStore
 	log        *slog.Logger
 	ts         ts.TokenService
+	repo       *repository.Store
 }
 
 func New(c Config) adminv2connect.TokenServiceHandler {
@@ -32,28 +35,24 @@ func New(c Config) adminv2connect.TokenServiceHandler {
 		tokenstore: c.TokenStore,
 		certs:      c.CertStore,
 		ts:         c.TokenService,
+		repo:       c.Repo,
 	}
 }
 
-func (t *tokenService) List(ctx context.Context, req *adminv2.TokenServiceListRequest) (*adminv2.TokenServiceListResponse, error) {
-	var (
-		tokens []*apiv2.Token
-		err    error
-	)
-	if req.Query != nil && req.Query.User != nil {
-		tokens, err = t.tokenstore.List(ctx, *req.Query.User)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		tokens, err = t.tokenstore.AdminList(ctx)
-		if err != nil {
-			return nil, err
-		}
+func (t *tokenService) List(ctx context.Context, rq *adminv2.TokenServiceListRequest) (*adminv2.TokenServiceListResponse, error) {
+	tokens, err := t.repo.UnscopedToken().List(ctx, rq.Query)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []*apiv2.Token
+
+	for _, tok := range tokens {
+		result = append(result, tok.Token)
 	}
 
 	return &adminv2.TokenServiceListResponse{
-		Tokens: tokens,
+		Tokens: result,
 	}, nil
 }
 
