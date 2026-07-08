@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -44,12 +43,12 @@ func (t *tokenService) List(ctx context.Context, req *adminv2.TokenServiceListRe
 	if req.Query != nil && req.Query.User != nil {
 		tokens, err = t.tokenstore.List(ctx, *req.Query.User)
 		if err != nil {
-			return nil, errorutil.NewInternal(err)
+			return nil, err
 		}
 	} else {
 		tokens, err = t.tokenstore.AdminList(ctx)
 		if err != nil {
-			return nil, errorutil.NewInternal(err)
+			return nil, err
 		}
 	}
 
@@ -61,7 +60,7 @@ func (t *tokenService) List(ctx context.Context, req *adminv2.TokenServiceListRe
 func (t *tokenService) Revoke(ctx context.Context, req *adminv2.TokenServiceRevokeRequest) (*adminv2.TokenServiceRevokeResponse, error) {
 	err := t.tokenstore.Revoke(ctx, req.User, req.Uuid)
 	if err != nil {
-		return nil, errorutil.NewInternal(err)
+		return nil, err
 	}
 
 	return &adminv2.TokenServiceRevokeResponse{}, nil

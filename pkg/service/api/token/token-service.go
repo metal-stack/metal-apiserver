@@ -92,7 +92,7 @@ func (t *tokenService) CreateUserTokenWithoutPermissionCheck(ctx context.Context
 
 	err = t.tokens.Set(ctx, token)
 	if err != nil {
-		return nil, errorutil.NewInternal(err)
+		return nil, err
 	}
 
 	return &apiv2.TokenServiceCreateResponse{
@@ -129,7 +129,7 @@ func (t *tokenService) CreateApiTokenWithoutPermissionCheck(ctx context.Context,
 
 	err = t.tokens.Set(ctx, token)
 	if err != nil {
-		return nil, errorutil.NewInternal(err)
+		return nil, err
 	}
 
 	return &apiv2.TokenServiceCreateResponse{
@@ -147,10 +147,7 @@ func (t *tokenService) Get(ctx context.Context, rq *apiv2.TokenServiceGetRequest
 
 	res, err := t.tokens.Get(ctx, token.User, rq.Uuid)
 	if err != nil {
-		if errors.Is(err, tokenutil.ErrTokenNotFound) {
-			return nil, errorutil.NotFound("token not found")
-		}
-		return nil, errorutil.NewInternal(err)
+		return nil, err
 	}
 
 	return &apiv2.TokenServiceGetResponse{
@@ -204,10 +201,7 @@ func (t *tokenService) Update(ctx context.Context, req *apiv2.TokenServiceUpdate
 
 	tokenToUpdate, err := t.tokens.Get(ctx, token.User, req.Uuid)
 	if err != nil {
-		if errors.Is(err, tokenutil.ErrTokenNotFound) {
-			return nil, errorutil.NotFound("token not found")
-		}
-		return nil, errorutil.NewInternal(err)
+		return nil, err
 	}
 
 	if tokenToUpdate.TokenType != apiv2.TokenType_TOKEN_TYPE_API {
@@ -232,7 +226,7 @@ func (t *tokenService) Update(ctx context.Context, req *apiv2.TokenServiceUpdate
 
 	err = t.tokens.Set(ctx, tokenToUpdate)
 	if err != nil {
-		return nil, errorutil.NewInternal(err)
+		return nil, err
 	}
 
 	return &apiv2.TokenServiceUpdateResponse{
@@ -345,7 +339,7 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 
 	err = t.tokens.Set(ctx, token)
 	if err != nil {
-		return nil, errorutil.NewInternal(err)
+		return nil, err
 	}
 
 	resp := &apiv2.TokenServiceCreateResponse{
@@ -365,7 +359,7 @@ func (t *tokenService) List(ctx context.Context, _ *apiv2.TokenServiceListReques
 
 	tokens, err := t.tokens.List(ctx, token.User)
 	if err != nil {
-		return nil, errorutil.NewInternal(err)
+		return nil, err
 	}
 
 	return &apiv2.TokenServiceListResponse{
@@ -382,7 +376,7 @@ func (t *tokenService) Revoke(ctx context.Context, rq *apiv2.TokenServiceRevokeR
 
 	err := t.tokens.Revoke(ctx, token.User, rq.Uuid)
 	if err != nil {
-		return nil, errorutil.NewInternal(err)
+		return nil, err
 	}
 
 	return &apiv2.TokenServiceRevokeResponse{}, nil
@@ -396,10 +390,7 @@ func (t *tokenService) Refresh(ctx context.Context, _ *apiv2.TokenServiceRefresh
 
 	oldtoken, err := t.tokens.Get(ctx, token.User, token.Uuid)
 	if err != nil {
-		if errors.Is(err, tokenutil.ErrTokenNotFound) {
-			return nil, errorutil.NotFound("token not found")
-		}
-		return nil, errorutil.NewInternal(err)
+		return nil, err
 	}
 
 	// we first copy the token permission from the old token
@@ -466,7 +457,7 @@ func (t *tokenService) Refresh(ctx context.Context, _ *apiv2.TokenServiceRefresh
 
 	err = t.tokens.Set(ctx, newToken)
 	if err != nil {
-		return nil, errorutil.NewInternal(err)
+		return nil, err
 	}
 
 	return &apiv2.TokenServiceRefreshResponse{
