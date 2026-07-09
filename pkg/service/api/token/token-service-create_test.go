@@ -55,7 +55,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "bare token with no roles or permissions",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
-				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_UNSPECIFIED,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -66,11 +66,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			state: state{
 				providerTenant: "metal-stack",
 			},
-			wantToken: &apiv2.Token{
-				User:        "phippy",
-				Description: "bare token",
-				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
-			},
+			wantError: errorutil.FailedPrecondition(`invalid token type for token creation: "TOKEN_TYPE_UNSPECIFIED"`),
 		},
 		{
 			name: "USER token with empty roles can create empty token",
@@ -121,7 +117,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 		//   PAT controls what level the user is allowed to request.
 		// ============================================================================
 		{
-			name: "admin EDITOR session can create admin EDITOR token",
+			name: "admin EDITOR session can create admin EDITOR token as provider tenant OWNER",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
 				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
@@ -152,7 +148,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			},
 		},
 		{
-			name: "admin VIEWER session can create admin VIEWER token",
+			name: "admin VIEWER session can create admin VIEWER token as provider tenant VIEWER",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
 				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
@@ -183,7 +179,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			},
 		},
 		{
-			name: "admin VIEWER session cannot create admin EDITOR token",
+			name: "admin VIEWER session cannot create admin EDITOR token as provider tenant VIEWER",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
 				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
@@ -204,11 +200,34 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 					"phippy": apiv2.TenantRole_TENANT_ROLE_VIEWER,
 				},
 			},
-			// FIXME better error message
 			wantError: errorutil.PermissionDenied(`the following method "/metalstack.admin.v2.ComponentService/Delete" is not allowed on any of the requested subjects: [*]`),
 		},
 		{
-			name: "admin EDITOR session can create admin VIEWER token",
+			name: "admin VIEWER session cannot elevate to admin EDITOR token as provider tenant OWNER",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description:  "admin editor token",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			},
+			state: state{
+				providerTenant: "phippy",
+				tenantRoles: map[string]apiv2.TenantRole{
+					"phippy": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			wantError: errorutil.PermissionDenied(`the following method "/metalstack.admin.v2.ComponentService/Delete" is not allowed on any of the requested subjects: [*]`),
+		},
+		{
+			name: "admin EDITOR session can create admin VIEWER token as provider tenant OWNER",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
 				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
@@ -239,8 +258,28 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			},
 		},
 		{
-			name: "USER token without admin can obtain admin EDITOR when PAT shows owner",
-			// TODO review
+			name: "admin EDITOR session cannot create admin VIEWER token without provider tenant membership",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description:  "admin viewer token",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
+			},
+			state: state{
+				providerTenant: "metal-stack",
+			},
+			wantError: errorutil.PermissionDenied(`the following method "/grpc.reflection.v1.ServerReflection/ServerReflectionInfo" is not allowed on any of the requested subjects: [*]`),
+		},
+		{
+			name: "USER token without admin can obtain admin EDITOR as provider tenant OWNER",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
 				TokenType:    apiv2.TokenType_TOKEN_TYPE_USER,
@@ -249,7 +288,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 				TenantRoles:  map[string]apiv2.TenantRole{},
 			},
 			req: &apiv2.TokenServiceCreateRequest{
-				Description:  "become admin",
+				Description:  "become admin flow for provider tenant users",
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
 				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
@@ -262,7 +301,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			},
 			wantToken: &apiv2.Token{
 				User:         "phippy",
-				Description:  "become admin",
+				Description:  "become admin flow for provider tenant users",
 				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -270,7 +309,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			},
 		},
 		{
-			name: "USER token without admin can obtain admin VIEWER when PAT shows viewer",
+			name: "USER token without admin can obtain admin VIEWER as provider tenant VIEWER",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
 				TokenType:    apiv2.TokenType_TOKEN_TYPE_USER,
@@ -279,7 +318,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 				TenantRoles:  map[string]apiv2.TenantRole{},
 			},
 			req: &apiv2.TokenServiceCreateRequest{
-				Description:  "become admin viewer",
+				Description:  "become admin viewer flow for provider tenant users",
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
 				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
@@ -292,7 +331,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			},
 			wantToken: &apiv2.Token{
 				User:         "phippy",
-				Description:  "become admin viewer",
+				Description:  "become admin viewer flow for provider tenant users",
 				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -300,7 +339,37 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			},
 		},
 		{
-			name: "USER token cannot obtain admin EDITOR when PAT shows viewer only",
+			name: "USER token without admin can obtain admin VIEWER as provider tenant EDITOR",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_USER,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description:  "become admin viewer flow for provider tenant users",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
+			},
+			state: state{
+				providerTenant: "phippy",
+				tenantRoles: map[string]apiv2.TenantRole{
+					"phippy": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
+			wantToken: &apiv2.Token{
+				User:         "phippy",
+				Description:  "become admin viewer flow for provider tenant users",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
+			},
+		},
+		{
+			name: "USER token cannot obtain admin EDITOR as provider tenant VIEWER",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
 				TokenType:    apiv2.TokenType_TOKEN_TYPE_USER,
@@ -323,6 +392,52 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			wantError: errorutil.PermissionDenied(`your provider tenant membership only allows "ADMIN_ROLE_VIEWER", but you requested "ADMIN_ROLE_EDITOR"`),
 		},
 		{
+			name: "USER token cannot obtain admin EDITOR as provider tenant EDITOR",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_USER,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description:  "cannot become editor",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			},
+			state: state{
+				providerTenant: "phippy",
+				tenantRoles: map[string]apiv2.TenantRole{
+					"phippy": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
+			wantError: errorutil.PermissionDenied(`your provider tenant membership only allows "ADMIN_ROLE_VIEWER", but you requested "ADMIN_ROLE_EDITOR"`),
+		},
+		{
+			name: "USER token cannot obtain admin EDITOR as provider tenant GUEST",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_USER,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description:  "cannot become editor",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			},
+			state: state{
+				providerTenant: "phippy",
+				tenantRoles: map[string]apiv2.TenantRole{
+					"phippy": apiv2.TenantRole_TENANT_ROLE_GUEST,
+				},
+			},
+			wantError: errorutil.PermissionDenied(`the following method "/metalstack.admin.v2.AuditService/Get" is not allowed on any of the requested subjects: [*]`),
+		},
+		{
 			name: "USER token cannot obtain admin VIEWER when not in provider tenant",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
@@ -343,7 +458,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			wantError: errorutil.PermissionDenied(`the following method "/metalstack.admin.v2.AuditService/Get" is not allowed on any of the requested subjects: [*]`),
 		},
 		{
-			name: "API token with admin EDITOR cannot create admin token when PAT lacks provider tenant",
+			name: "API token with admin EDITOR cannot create admin token without provider tenant membership",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
 				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
@@ -378,7 +493,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 				TenantRoles:  map[string]apiv2.TenantRole{},
 			},
 			state: state{
-				providerTenant: "metal-stack",
+				providerTenant: "phippy",
 			},
 			wantToken: &apiv2.Token{
 				User:         "phippy",
