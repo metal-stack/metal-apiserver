@@ -458,6 +458,68 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			wantError: errorutil.PermissionDenied(`the following method "/metalstack.admin.v2.AuditService/Get" is not allowed on any of the requested subjects: [*]`),
 		},
 		{
+			name: "USER token cannot obtain admin VIEWER when not in provider tenant even if other owner memberships are present",
+			sessionToken: &apiv2.Token{
+				User:        "phippy",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_USER,
+				Permissions: []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					project1: apiv2.ProjectRole_PROJECT_ROLE_OWNER,
+				},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"metal-stack": apiv2.TenantRole_TENANT_ROLE_OWNER,
+					tenant1:       apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description:  "cannot become admin",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
+			},
+			state: state{
+				providerTenant: "metal-stack",
+				projectRoles: map[string]apiv2.ProjectRole{
+					project1: apiv2.ProjectRole_PROJECT_ROLE_OWNER,
+				},
+				tenantRoles: map[string]apiv2.TenantRole{
+					tenant1: apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			wantError: errorutil.PermissionDenied(`the following method "/metalstack.admin.v2.AuditService/Get" is not allowed on any of the requested subjects: [*]`),
+		},
+		{
+			name: "token cannot obtain admin VIEWER when not in provider tenant even if other owner memberships are present",
+			sessionToken: &apiv2.Token{
+				User:        "phippy",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					project1: apiv2.ProjectRole_PROJECT_ROLE_OWNER,
+				},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"metal-stack": apiv2.TenantRole_TENANT_ROLE_OWNER,
+					tenant1:       apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description:  "cannot become admin",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
+			},
+			state: state{
+				providerTenant: "metal-stack",
+				projectRoles: map[string]apiv2.ProjectRole{
+					project1: apiv2.ProjectRole_PROJECT_ROLE_OWNER,
+				},
+				tenantRoles: map[string]apiv2.TenantRole{
+					tenant1: apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			wantError: errorutil.PermissionDenied(`the following method "/grpc.reflection.v1.ServerReflection/ServerReflectionInfo" is not allowed on any of the requested subjects: [*]`),
+		},
+		{
 			name: "API token with admin EDITOR cannot create admin token without provider tenant membership",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
@@ -543,7 +605,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			},
 		},
 		{
-			name: "session lacks tenant subject, request has it — fails",
+			name: "cannot request tenant subject without tenant membership",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
 				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
@@ -564,7 +626,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			wantError: errorutil.PermissionDenied(`requested tenant roles are not allowed: [%s]`, tenant1),
 		},
 		{
-			name: "session has tenant, PAT getter lacks it — fails second validation",
+			name: "session has tenant but no tenant membership in database",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
 				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
@@ -588,7 +650,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			wantError: errorutil.PermissionDenied(`requested tenant roles are not allowed: [%s]`, tenant1),
 		},
 		{
-			name: "session tenant wildcard allows any tenant subject",
+			name: "session tenant wildcard allows database tenant subject",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
 				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
@@ -622,7 +684,90 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			},
 		},
 		{
-			name: "tenant role escalation from VIEWER to EDITOR fails method check",
+			name: "session tenant wildcard does not allow tenant subjects that are not in the database",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"*": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description:  "wildcard tenant",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					tenant1: apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
+			state: state{
+				providerTenant: "metal-stack",
+				tenantRoles: map[string]apiv2.TenantRole{
+					tenant2: apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
+			wantError: errorutil.PermissionDenied(`requested tenant roles are not allowed: [%s]`, tenant1),
+		},
+		// FIXME:
+		// - users can not obtain wildcard tokens in any form at the moment, implement this
+		// - make sure api tokens can not elevate their permissions with wildcards (because they were scoped to specific roles)
+		// {
+		// 	name: "user token can request wildcard tenant roles",
+		// 	sessionToken: &apiv2.Token{
+		// 		User:         "phippy",
+		// 		TokenType:    apiv2.TokenType_TOKEN_TYPE_USER,
+		// 		Permissions:  []*apiv2.MethodPermission{},
+		// 		ProjectRoles: map[string]apiv2.ProjectRole{},
+		// 	},
+		// 	req: &apiv2.TokenServiceCreateRequest{
+		// 		Description:  "wildcard tenant",
+		// 		ProjectRoles: map[string]apiv2.ProjectRole{},
+		// 		TenantRoles: map[string]apiv2.TenantRole{
+		// 			"*": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+		// 		},
+		// 	},
+		// 	state: state{
+		// 		providerTenant: "metal-stack",
+		// 		tenantRoles: map[string]apiv2.TenantRole{
+		// 			tenant2: apiv2.TenantRole_TENANT_ROLE_EDITOR,
+		// 		},
+		// 	},
+		// 	wantToken: &apiv2.Token{
+		// 		User:         "phippy",
+		// 		Description:  "wildcard tenant",
+		// 		TokenType:    *apiv2.TokenType_TOKEN_TYPE_API.Enum(),
+		// 		ProjectRoles: map[string]apiv2.ProjectRole{},
+		// 		TenantRoles: map[string]apiv2.TenantRole{
+		// 			"*": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+		// 		},
+		// 	},
+		// },
+		// {
+		// 	name: "API token can not request wildcard tenant roles (as it would widen up the permission scope of the issued token)",
+		// 	sessionToken: &apiv2.Token{
+		// 		User:         "phippy",
+		// 		TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+		// 		Permissions:  []*apiv2.MethodPermission{},
+		// 		ProjectRoles: map[string]apiv2.ProjectRole{},
+		// 	},
+		// 	req: &apiv2.TokenServiceCreateRequest{
+		// 		Description:  "wildcard tenant",
+		// 		ProjectRoles: map[string]apiv2.ProjectRole{},
+		// 		TenantRoles: map[string]apiv2.TenantRole{
+		// 			"*": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+		// 		},
+		// 	},
+		// 	state: state{
+		// 		providerTenant: "metal-stack",
+		// 		tenantRoles: map[string]apiv2.TenantRole{
+		// 			tenant2: apiv2.TenantRole_TENANT_ROLE_EDITOR,
+		// 		},
+		// 	},
+		// 	wantError: errorutil.InvalidArgument(`api tokens without wildcard are not allowed to issue wildcard tokens`),
+		// },
+		{
+			name: "tenant role escalation from VIEWER to EDITOR is not allowed",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
 				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
@@ -718,6 +863,34 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			},
 		},
 		{
+			name: "multiple tenants in session, elevation in request not possible",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					tenant1: apiv2.TenantRole_TENANT_ROLE_EDITOR,
+					tenant2: apiv2.TenantRole_TENANT_ROLE_VIEWER,
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description:  "single of multiple",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					tenant2: apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
+			state: state{
+				providerTenant: "metal-stack",
+				tenantRoles: map[string]apiv2.TenantRole{
+					tenant1: apiv2.TenantRole_TENANT_ROLE_EDITOR,
+					tenant2: apiv2.TenantRole_TENANT_ROLE_VIEWER,
+				},
+			},
+			wantError: errorutil.PermissionDenied(`method "/metalstack.api.v2.ProjectService/Create" is not allowed on subject %q with your current user permissions`, tenant2),
+		},
+		{
 			name: "request for TENANT_ROLE_UNSPECIFIED fails",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
@@ -803,7 +976,30 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			wantError: errorutil.PermissionDenied(`requested project roles are not allowed: [%s]`, project1),
 		},
 		{
-			name: "session has project wildcard allows any project",
+			name: "database lacks project subject — fails",
+			sessionToken: &apiv2.Token{
+				User:        "phippy",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					project1: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+				TenantRoles: map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "project token",
+				TenantRoles: map[string]apiv2.TenantRole{},
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					project1: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+			},
+			state: state{
+				providerTenant: "metal-stack",
+			},
+			wantError: errorutil.PermissionDenied(`requested project roles are not allowed: [%s]`, project1),
+		},
+		{
+			name: "session has project wildcard allows database project subject",
 			sessionToken: &apiv2.Token{
 				User:        "phippy",
 				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
@@ -836,6 +1032,33 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 				TenantRoles: map[string]apiv2.TenantRole{},
 			},
 		},
+		{
+			name: "session has project wildcard does not allow missing database project subject",
+			sessionToken: &apiv2.Token{
+				User:        "phippy",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"*": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+				TenantRoles: map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "wildcard project",
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					project2: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+				TenantRoles: map[string]apiv2.TenantRole{},
+			},
+			state: state{
+				providerTenant: "metal-stack",
+				projectRoles: map[string]apiv2.ProjectRole{
+					project1: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+			},
+			wantError: errorutil.PermissionDenied(`requested project roles are not allowed: [%s]`, project2),
+		},
+		// FIXME: as above with tenants, add tests for requesting project role wildcards
 		{
 			name: "project role escalation from VIEWER to EDITOR fails",
 			sessionToken: &apiv2.Token{
@@ -896,6 +1119,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 				TenantRoles: map[string]apiv2.TenantRole{},
 			},
 		},
+		// TODO: add test for requesting project role / permission when being tenant viewer / guest
 
 		// ============================================================================
 		// 5. MACHINE ROLE VARIATIONS
