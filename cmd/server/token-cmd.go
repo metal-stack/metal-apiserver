@@ -16,6 +16,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/urfave/cli/v2"
+	"go.yaml.in/yaml/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
@@ -256,16 +257,24 @@ func storeTokensFromConfigFile(ctx context.Context, log *slog.Logger, tokenServi
 		return err
 	}
 
-	// Unmarshal a proto message from YAML.
-	options := protoyaml.UnmarshalOptions{
-		Path: configFile,
-	}
-	var msg adminv2.TokenServiceCreateMultiRequest
-	if err := options.Unmarshal(yamlBytes, &msg); err != nil {
+	var config map[string]any
+	err = yaml.Unmarshal(yamlBytes, &config)
+	if err != nil {
 		return err
 	}
 
-	for target, tokenCreateRequest := range msg.TokenCreateRequests {
+	for target, v := range config {
+		unmodifiedProtoBytes, err := yaml.Marshal(v)
+		if err != nil {
+			return fmt.Errorf("unable to marshal yaml content from target:%s %w", target, err)
+		}
+
+		var tokenCreateRequest adminv2.TokenServiceCreateRequest
+		err = protoyaml.Unmarshal(unmodifiedProtoBytes, &tokenCreateRequest)
+		if err != nil {
+			return fmt.Errorf("unable to unmarshal protoyaml from target:%s %w", target, err)
+		}
+
 		subject := providerTenant
 		if tokenCreateRequest.User != nil {
 			subject = *tokenCreateRequest.User
