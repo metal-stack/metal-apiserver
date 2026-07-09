@@ -17,5 +17,7 @@ func (t *tokenRepository) validateUpdate(ctx context.Context, req *apiv2.TokenSe
 }
 
 func (t *tokenRepository) validateDelete(ctx context.Context, req *api.TokenWithSecret) error {
-	panic("unimplemented")
+	// token scope match is already checked before this func
+	// apart from this a token can always be revoked
+	return nil
 }

@@ -125,7 +125,16 @@ func (t *tokenRepository) create(ctx context.Context, c *adminv2.TokenServiceCre
 }
 
 func (t *tokenRepository) delete(ctx context.Context, e *api.TokenWithSecret) (*deleteInfo, error) {
-	panic("unimplemented")
+	if t.scope == nil {
+		return nil, errorutil.FailedPrecondition("tokens cannot be revoked unscoped")
+	}
+
+	err := t.s.tokens.Revoke(ctx, t.scope.user, e.Token.Uuid)
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, nil
 }
 
 func (t *tokenRepository) update(ctx context.Context, tok *api.TokenWithSecret, req *apiv2.TokenServiceUpdateRequest) (*api.TokenWithSecret, error) {
