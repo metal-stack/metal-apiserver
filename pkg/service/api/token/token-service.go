@@ -382,7 +382,7 @@ func (t *tokenService) Revoke(ctx context.Context, rq *apiv2.TokenServiceRevokeR
 		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
-	err := t.tokens.Revoke(ctx, token.User, rq.Uuid)
+	_, err := t.repo.Token(token.User).Delete(ctx, rq.Uuid)
 	if err != nil {
 		return nil, err
 	}

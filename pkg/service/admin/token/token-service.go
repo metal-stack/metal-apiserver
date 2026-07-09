@@ -57,7 +57,7 @@ func (t *tokenService) List(ctx context.Context, rq *adminv2.TokenServiceListReq
 }
 
 func (t *tokenService) Revoke(ctx context.Context, req *adminv2.TokenServiceRevokeRequest) (*adminv2.TokenServiceRevokeResponse, error) {
-	err := t.tokenstore.Revoke(ctx, req.User, req.Uuid)
+	_, err := t.repo.Token(req.User).Delete(ctx, req.Uuid)
 	if err != nil {
 		return nil, err
 	}
