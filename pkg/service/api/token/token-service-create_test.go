@@ -55,6 +55,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "bare token with no roles or permissions",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -123,6 +124,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "admin EDITOR session can create admin EDITOR token",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -153,6 +155,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "admin VIEWER session can create admin VIEWER token",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -183,6 +186,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "admin VIEWER session cannot create admin EDITOR token",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -207,6 +211,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "admin EDITOR session can create admin VIEWER token",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -341,6 +346,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "API token with admin EDITOR cannot create admin token when PAT lacks provider tenant",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -361,6 +367,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "no admin role in session or request",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -390,6 +397,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "session and request share same tenant role",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles: map[string]apiv2.TenantRole{
@@ -423,6 +431,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "session lacks tenant subject, request has it — fails",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -443,6 +452,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "session has tenant, PAT getter lacks it — fails second validation",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles: map[string]apiv2.TenantRole{
@@ -466,6 +476,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "session tenant wildcard allows any tenant subject",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles: map[string]apiv2.TenantRole{
@@ -499,6 +510,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "tenant role escalation from VIEWER to EDITOR fails method check",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles: map[string]apiv2.TenantRole{
@@ -524,6 +536,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "tenant role from OWNER to EDITOR (same subject) succeeds",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles: map[string]apiv2.TenantRole{
@@ -557,6 +570,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "multiple tenants in session, one in request",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles: map[string]apiv2.TenantRole{
@@ -592,6 +606,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "request for TENANT_ROLE_UNSPECIFIED fails",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles: map[string]apiv2.TenantRole{
@@ -621,6 +636,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "session and request share same project role",
 			sessionToken: &apiv2.Token{
 				User:        "phippy",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					project1: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
@@ -654,6 +670,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "session lacks project subject — fails",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -674,6 +691,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "session has project wildcard allows any project",
 			sessionToken: &apiv2.Token{
 				User:        "phippy",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					"*": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
@@ -707,6 +725,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "project role escalation from VIEWER to EDITOR fails",
 			sessionToken: &apiv2.Token{
 				User:        "phippy",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					project1: apiv2.ProjectRole_PROJECT_ROLE_VIEWER,
@@ -732,6 +751,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "project OWNER to EDITOR downgrade succeeds",
 			sessionToken: &apiv2.Token{
 				User:        "phippy",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					project1: apiv2.ProjectRole_PROJECT_ROLE_OWNER,
@@ -769,6 +789,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "session and request share same machine role",
 			sessionToken: &apiv2.Token{
 				User:        "pixie-core",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{},
 				MachineRoles: map[string]apiv2.MachineRole{
 					machineID1: apiv2.MachineRole_MACHINE_ROLE_EDITOR,
@@ -799,6 +820,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "session lacks machine — fails",
 			sessionToken: &apiv2.Token{
 				User:         "pixie-core",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				MachineRoles: map[string]apiv2.MachineRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -819,6 +841,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "session machine wildcard allows any machine",
 			sessionToken: &apiv2.Token{
 				User:        "pixie-core",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{},
 				MachineRoles: map[string]apiv2.MachineRole{
 					"*": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
@@ -849,6 +872,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "session has one machine, request asks for different machine — fails",
 			sessionToken: &apiv2.Token{
 				User:        "pixie-core",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{},
 				MachineRoles: map[string]apiv2.MachineRole{
 					machineID1: apiv2.MachineRole_MACHINE_ROLE_EDITOR,
@@ -871,6 +895,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "machine VIEWER cannot request machine EDITOR (same subject)",
 			sessionToken: &apiv2.Token{
 				User:        "pixie-core",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{},
 				MachineRoles: map[string]apiv2.MachineRole{
 					machineID1: apiv2.MachineRole_MACHINE_ROLE_VIEWER,
@@ -897,6 +922,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "admin EDITOR session can create infra EDITOR token",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -927,6 +953,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "admin VIEWER session requesting infra EDITOR fails",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -950,6 +977,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "non-admin session with infra role directly fails",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -969,6 +997,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "infra VIEWER can create infra VIEWER token",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -1007,7 +1036,8 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 		{
 			name: "session has permission, request same permission",
 			sessionToken: &apiv2.Token{
-				User: "phippy",
+				User:      "phippy",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: project1,
@@ -1048,6 +1078,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "session lacks permission method — fails",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -1069,7 +1100,8 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 		{
 			name: "session permission with wildcard subject grants any subject",
 			sessionToken: &apiv2.Token{
-				User: "phippy",
+				User:      "phippy",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: "*",
@@ -1109,7 +1141,8 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 		{
 			name: "session permission for subject A, request for subject B — fails",
 			sessionToken: &apiv2.Token{
-				User: "phippy",
+				User:      "phippy",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: project1,
@@ -1139,7 +1172,8 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 		{
 			name: "multiple permissions in request, all allowed",
 			sessionToken: &apiv2.Token{
-				User: "phippy",
+				User:      "phippy",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: "*",
@@ -1195,6 +1229,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "admin + project role combination",
 			sessionToken: &apiv2.Token{
 				User:        "phippy",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					project1: apiv2.ProjectRole_PROJECT_ROLE_OWNER,
@@ -1235,6 +1270,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			sessionToken: &apiv2.Token{
 				User:        "phippy",
 				Permissions: []*apiv2.MethodPermission{},
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					project1: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
@@ -1276,6 +1312,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "machine + tenant role combination",
 			sessionToken: &apiv2.Token{
 				User:        "pixie-core",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{},
 				MachineRoles: map[string]apiv2.MachineRole{
 					machineID1: apiv2.MachineRole_MACHINE_ROLE_EDITOR,
@@ -1314,7 +1351,8 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 		{
 			name: "permission + project role combination",
 			sessionToken: &apiv2.Token{
-				User: "phippy",
+				User:      "phippy",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: project1,
@@ -1365,6 +1403,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "all role types empty request succeeds",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -1397,6 +1436,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "expiration exceeds max",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -1414,6 +1454,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			name: "PAT getter fails",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -1430,7 +1471,8 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 		{
 			name: "unknown method in request permissions",
 			sessionToken: &apiv2.Token{
-				User: "phippy",
+				User:      "phippy",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: "*",
@@ -1491,6 +1533,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			// FIXME review
 			sessionToken: &apiv2.Token{
 				User:        "pixie-core",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{},
 				MachineRoles: map[string]apiv2.MachineRole{
 					machineID1: apiv2.MachineRole_MACHINE_ROLE_VIEWER,

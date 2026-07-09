@@ -243,10 +243,6 @@ func (t *tokenService) Update(ctx context.Context, req *apiv2.TokenServiceUpdate
 // Create is called by users to issue new API tokens. This can be done from console tokens but also from other API tokens which have the permission to call token create.
 // We need to prevent a user from elevating permissions here.
 func (t *tokenService) Create(ctx context.Context, req *apiv2.TokenServiceCreateRequest) (*apiv2.TokenServiceCreateResponse, error) {
-	token, ok := tokenutil.TokenFromContext(ctx)
-	if !ok || token == nil {
-		return nil, errorutil.Unauthenticated("no token found in request")
-	}
 	return t.CreateTokenForUser(ctx, nil, req)
 }
 
@@ -254,6 +250,13 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 	token, ok := tokenutil.TokenFromContext(ctx)
 	if !ok || token == nil {
 		return nil, errorutil.Unauthenticated("no token found in request")
+	}
+
+	switch token.TokenType {
+	case apiv2.TokenType_TOKEN_TYPE_API, apiv2.TokenType_TOKEN_TYPE_USER:
+		// noop
+	default:
+		return nil, errorutil.FailedPrecondition("invalid token type for token creation: %q", token.TokenType)
 	}
 
 	if req.Expires.AsDuration() > tokenutil.MaxExpiration {
