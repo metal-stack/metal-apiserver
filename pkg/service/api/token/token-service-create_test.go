@@ -113,8 +113,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 
 		// ============================================================================
 		// 2. ADMIN ROLE
-		//   session nil/EDITOR/VIEWER × request nil/EDITOR/VIEWER
-		//   PAT controls what level the user is allowed to request.
+		//   session nil/EDITOR/VIEWER x request nil/EDITOR/VIEWER
 		// ============================================================================
 		{
 			name: "admin EDITOR session can create admin EDITOR token as provider tenant OWNER",
@@ -764,7 +763,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 		// 			tenant2: apiv2.TenantRole_TENANT_ROLE_EDITOR,
 		// 		},
 		// 	},
-		// 	wantError: errorutil.InvalidArgument(`api tokens without wildcard are not allowed to issue wildcard tokens`),
+		// 	wantError: errorutil.PermissionDenied(`requested tenant roles are not allowed: [*]`),
 		// },
 		{
 			name: "tenant role escalation from VIEWER to EDITOR is not allowed",
@@ -2024,7 +2023,7 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			state: state{
 				providerTenant: "metal-stack",
 			},
-			wantError: errors.New(`requested expiration duration: "8784h0m0s" exceeds max expiration: "8760h0m0s"`),
+			wantError: errorutil.InvalidArgument(`requested expiration duration: "8784h0m0s" exceeds max expiration: "8760h0m0s"`),
 		},
 		{
 			name: "PAT getter fails",
