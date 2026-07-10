@@ -6,14 +6,18 @@ import (
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/metal-stack/api/go/errorutil"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func TestRedisStore(t *testing.T) {
+func TestTokenStore(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	s := miniredis.RunT(t)
@@ -50,12 +54,17 @@ func TestRedisStore(t *testing.T) {
 	err = store.Revoke(ctx, johnDoeToken.User, johnDoeToken.Uuid)
 	require.NoError(t, err)
 
+	err = store.Revoke(ctx, johnDoeToken.User, "1234")
+	if diff := cmp.Diff(errorutil.NotFound("token not found"), err, errorutil.ErrorStringComparer()); diff != "" {
+		t.Errorf("error diff (+got -want):\n %s", diff)
+	}
+
 	tok, err = store.Get(ctx, johnDoeToken.User, johnDoeToken.Uuid)
 	require.Error(t, err)
 	require.Nil(t, tok)
 }
 
-func TestRedisStoreSetAndGet(t *testing.T) {
+func TestTokenStoreSetAndGet(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	s := miniredis.RunT(t)
@@ -66,6 +75,13 @@ func TestRedisStoreSetAndGet(t *testing.T) {
 	now := time.Now()
 
 	inTok := &apiv2.Token{
+		Meta: &apiv2.Meta{
+			Labels: &apiv2.Labels{
+				Labels: map[string]string{
+					"a": "b",
+				},
+			},
+		},
 		Uuid:        "bd21fe60-047c-45aa-812d-adc44e098a38",
 		User:        "john@doe.com",
 		Description: "abc",
@@ -100,5 +116,14 @@ func TestRedisStoreSetAndGet(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, outTok)
 
-	assert.Equal(t, inTok, outTok)
+	if diff := cmp.Diff(
+		outTok, inTok,
+		protocmp.Transform(),
+		protocmp.IgnoreFields(
+			&apiv2.Meta{}, "created_at",
+		),
+		cmpopts.IgnoreUnexported(),
+	); diff != "" {
+		t.Errorf("diff: %s", diff)
+	}
 }

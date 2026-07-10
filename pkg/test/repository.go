@@ -52,6 +52,7 @@ type (
 		projectInviteStore invite.ProjectInviteStore
 		tenantInviteStore  invite.TenantInviteStore
 		tokenStore         tokencommon.TokenStore
+		certStore          certs.CertStore
 
 		// only use this when you are very certain about it!!
 		tokenService           token.TokenService
@@ -80,6 +81,9 @@ type (
 	}
 	testOptContainer struct {
 		with bool
+	}
+	testOptProviderTenant struct {
+		t string
 	}
 )
 
@@ -118,6 +122,12 @@ func WithContainers(with bool) *testOptContainer {
 	}
 }
 
+func WithProviderTenant(t string) *testOptProviderTenant {
+	return &testOptProviderTenant{
+		t: t,
+	}
+}
+
 func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...testOpt) (*testStore, func()) {
 	var (
 		withPostgres   = false
@@ -125,6 +135,8 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		withRethink    = true
 		withHeadscale  = false
 		withContainers = true
+
+		providerTenant = "metal-stack"
 	)
 
 	for _, opt := range testOpts {
@@ -139,6 +151,8 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 			withHeadscale = o.with
 		case *testOptContainer:
 			withContainers = o.with
+		case *testOptProviderTenant:
+			providerTenant = o.t
 		default:
 			t.Errorf("unsupported test option: %T", o)
 		}
@@ -192,10 +206,11 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 	require.NoError(t, err)
 
 	tokenService := token.New(token.Config{
-		Log:        log,
-		TokenStore: tokenStore,
-		CertStore:  certStore,
-		Issuer:     tokenIssuer,
+		Log:            log,
+		TokenStore:     tokenStore,
+		CertStore:      certStore,
+		Issuer:         tokenIssuer,
+		ProviderTenant: providerTenant,
 	})
 
 	ipam, ipamCloser := StartIpam(t)
@@ -223,6 +238,12 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		Component:             vc, // Use same valkey instance as queue for tests
 		Auditing:              auditingBackend,
 		HeadscaleClient:       hc,
+		TokenConfig: repository.TokenConfig{
+			TokenStore:     tokenStore,
+			CertStore:      certStore,
+			ProviderTenant: providerTenant,
+			Issuer:         tokenIssuer,
+		},
 	}
 
 	repo := repository.New(config)
@@ -257,6 +278,7 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		tenantInviteStore:      tenantInviteStore,
 		tokenStore:             tokenStore,
 		tokenService:           tokenService,
+		certStore:              certStore,
 		tc:                     tc,
 		rc:                     rc,
 		vc:                     vc,
@@ -287,6 +309,13 @@ func (s *testStore) Cleanup(t testing.TB) {
 		err = s.ds.VrfPool().ReleaseUniqueInteger(t.Context(), uint(i+1))
 		require.NoError(t, err)
 	}
+
+	toks, err := s.tokenStore.AdminList(t.Context())
+	require.NoError(t, err)
+
+	for _, tok := range toks {
+		require.NoError(t, s.tokenStore.Revoke(t.Context(), tok.User, tok.Uuid))
+	}
 }
 
 func (t *testStore) GetDatastore() generic.Datastore {
@@ -303,6 +332,10 @@ func (t *testStore) GetTenantInviteStore() invite.TenantInviteStore {
 
 func (t *testStore) GetTokenStore() tokencommon.TokenStore {
 	return t.tokenStore
+}
+
+func (t *testStore) GetCertStore() certs.CertStore {
+	return t.certStore
 }
 
 func (t *testStore) GetTenantApiserverClient() tenant.Client {

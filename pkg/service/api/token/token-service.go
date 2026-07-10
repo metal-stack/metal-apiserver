@@ -41,6 +41,7 @@ type tokenService struct {
 	tokens         tokenutil.TokenStore
 	certs          certs.CertStore
 	log            *slog.Logger
+	repo           *repository.Store
 
 	projectsAndTenantsGetter api.ProjectsAndTenantsGetter
 	authorizer               request.Authorizer
@@ -66,6 +67,7 @@ func New(c Config) TokenService {
 		issuer:         c.Issuer,
 		log:            log,
 		providerTenant: c.ProviderTenant,
+		repo:           c.Repo,
 
 		projectsAndTenantsGetter: projectsAndTenantsGetter,
 		authorizer:               request.NewAuthorizer(log, projectsAndTenantsGetter),
@@ -92,7 +94,7 @@ func (t *tokenService) CreateUserTokenWithoutPermissionCheck(ctx context.Context
 
 	err = t.tokens.Set(ctx, token)
 	if err != nil {
-		return nil, errorutil.NewInternal(err)
+		return nil, err
 	}
 
 	return &apiv2.TokenServiceCreateResponse{
@@ -129,7 +131,7 @@ func (t *tokenService) CreateApiTokenWithoutPermissionCheck(ctx context.Context,
 
 	err = t.tokens.Set(ctx, token)
 	if err != nil {
-		return nil, errorutil.NewInternal(err)
+		return nil, err
 	}
 
 	return &apiv2.TokenServiceCreateResponse{
@@ -145,16 +147,13 @@ func (t *tokenService) Get(ctx context.Context, rq *apiv2.TokenServiceGetRequest
 		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
-	res, err := t.tokens.Get(ctx, token.User, rq.Uuid)
+	res, err := t.repo.Token(token.User).Get(ctx, rq.Uuid)
 	if err != nil {
-		if errors.Is(err, tokenutil.ErrTokenNotFound) {
-			return nil, errorutil.NotFound("token not found")
-		}
-		return nil, errorutil.NewInternal(err)
+		return nil, err
 	}
 
 	return &apiv2.TokenServiceGetResponse{
-		Token: res,
+		Token: res.Token,
 	}, nil
 }
 
@@ -204,10 +203,7 @@ func (t *tokenService) Update(ctx context.Context, req *apiv2.TokenServiceUpdate
 
 	tokenToUpdate, err := t.tokens.Get(ctx, token.User, req.Uuid)
 	if err != nil {
-		if errors.Is(err, tokenutil.ErrTokenNotFound) {
-			return nil, errorutil.NotFound("token not found")
-		}
-		return nil, errorutil.NewInternal(err)
+		return nil, err
 	}
 
 	if tokenToUpdate.TokenType != apiv2.TokenType_TOKEN_TYPE_API {
@@ -232,7 +228,7 @@ func (t *tokenService) Update(ctx context.Context, req *apiv2.TokenServiceUpdate
 
 	err = t.tokens.Set(ctx, tokenToUpdate)
 	if err != nil {
-		return nil, errorutil.NewInternal(err)
+		return nil, err
 	}
 
 	return &apiv2.TokenServiceUpdateResponse{
@@ -259,8 +255,8 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 		return nil, errorutil.FailedPrecondition("invalid token type for token creation: %q", token.TokenType)
 	}
 
-	if req.Expires.AsDuration() > tokenutil.MaxExpiration {
-		return nil, fmt.Errorf("requested expiration duration: %q exceeds max expiration: %q", req.Expires.AsDuration(), tokenutil.MaxExpiration)
+	if req.Expires.AsDuration() > certs.MaxTokenExpiration {
+		return nil, fmt.Errorf("requested expiration duration: %q exceeds max expiration: %q", req.Expires.AsDuration(), certs.MaxTokenExpiration)
 	}
 
 	projectsAndTenants, err := t.projectsAndTenantsGetter(ctx, token.GetUser())
@@ -348,7 +344,7 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 
 	err = t.tokens.Set(ctx, token)
 	if err != nil {
-		return nil, errorutil.NewInternal(err)
+		return nil, err
 	}
 
 	resp := &apiv2.TokenServiceCreateResponse{
@@ -360,19 +356,25 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 }
 
 // List lists the tokens of a specific user.
-func (t *tokenService) List(ctx context.Context, _ *apiv2.TokenServiceListRequest) (*apiv2.TokenServiceListResponse, error) {
+func (t *tokenService) List(ctx context.Context, rq *apiv2.TokenServiceListRequest) (*apiv2.TokenServiceListResponse, error) {
 	token, ok := tokenutil.TokenFromContext(ctx)
 	if !ok || token == nil {
 		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
-	tokens, err := t.tokens.List(ctx, token.User)
+	tokens, err := t.repo.Token(token.User).List(ctx, rq.Query)
 	if err != nil {
-		return nil, errorutil.NewInternal(err)
+		return nil, err
+	}
+
+	var result []*apiv2.Token
+
+	for _, tok := range tokens {
+		result = append(result, tok.Token)
 	}
 
 	return &apiv2.TokenServiceListResponse{
-		Tokens: tokens,
+		Tokens: result,
 	}, nil
 }
 
@@ -383,9 +385,9 @@ func (t *tokenService) Revoke(ctx context.Context, rq *apiv2.TokenServiceRevokeR
 		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
-	err := t.tokens.Revoke(ctx, token.User, rq.Uuid)
+	_, err := t.repo.Token(token.User).Delete(ctx, rq.Uuid)
 	if err != nil {
-		return nil, errorutil.NewInternal(err)
+		return nil, err
 	}
 
 	return &apiv2.TokenServiceRevokeResponse{}, nil
@@ -399,10 +401,7 @@ func (t *tokenService) Refresh(ctx context.Context, _ *apiv2.TokenServiceRefresh
 
 	oldtoken, err := t.tokens.Get(ctx, token.User, token.Uuid)
 	if err != nil {
-		if errors.Is(err, tokenutil.ErrTokenNotFound) {
-			return nil, errorutil.NotFound("token not found")
-		}
-		return nil, errorutil.NewInternal(err)
+		return nil, err
 	}
 
 	// we first copy the token permission from the old token
@@ -469,7 +468,7 @@ func (t *tokenService) Refresh(ctx context.Context, _ *apiv2.TokenServiceRefresh
 
 	err = t.tokens.Set(ctx, newToken)
 	if err != nil {
-		return nil, errorutil.NewInternal(err)
+		return nil, err
 	}
 
 	return &apiv2.TokenServiceRefreshResponse{

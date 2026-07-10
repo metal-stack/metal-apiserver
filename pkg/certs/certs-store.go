@@ -17,12 +17,22 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lestrrat-go/jwx/v3/jwk"
-	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/redis/go-redis/v9"
+)
+
+var (
+	// MaxTokenExpiration defines the maximum lifetime of a token (which depends on the root cert expiration)
+	MaxTokenExpiration = 365 * 24 * time.Hour
 )
 
 const (
 	prefix = "certstore_"
+
+	// defaultRenewalThreshold is the default duration when a new root certificate gets issued before it expires.
+	// e.g. 365 days max token lifetime = 730 days root cert expiration, renewal 90 days before expiration = renewal at day 640.
+	//
+	// the renewal process is triggered when the root certificate is retrieved from the store.
+	defaultRenewalThreshold = 90 * 24 * time.Hour
 )
 
 type Config struct {
@@ -59,10 +69,11 @@ func matchPublic() string {
 }
 
 func NewRedisStore(c *Config) CertStore {
-	renewCertBeforeExpiration := 90 * 24 * time.Hour
+	renewCertBeforeExpiration := defaultRenewalThreshold
 	if c.RenewCertBeforeExpiration != nil {
 		renewCertBeforeExpiration = *c.RenewCertBeforeExpiration
 	}
+
 	return &redisStore{
 		client:                    c.RedisClient,
 		renewCertBeforeExpiration: renewCertBeforeExpiration,
@@ -105,7 +116,7 @@ func (r *redisStore) LatestPrivate(ctx context.Context) (*ecdsa.PrivateKey, erro
 func (r *redisStore) setNewCert(ctx context.Context) (*ecdsa.PrivateKey, error) {
 	now := time.Now()
 
-	cert, privKey, rawBytes, err := createRootCertificate("metal-stack", now, now.Add(2*token.MaxExpiration))
+	cert, privKey, rawBytes, err := createRootCertificate("metal-stack", now, now.Add(2*MaxTokenExpiration))
 	if err != nil {
 		return nil, fmt.Errorf("unable to create certificate: %w", err)
 	}
