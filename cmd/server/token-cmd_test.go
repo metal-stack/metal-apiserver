@@ -44,12 +44,12 @@ func TestTokenCreateConfigTest(t *testing.T) {
 	}
 
 	userInput := `
-admin-editor-token:
+admin_editor_token:
     user: metal-stack
     tokenCreateRequest:
         expires: 3600s
         adminRole: ADMIN_ROLE_EDITOR
-metal-console:
+metal_console:
     user: metal-console
     tokenCreateRequest:
         permissions:
