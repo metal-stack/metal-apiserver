@@ -487,7 +487,7 @@ func Test_Create(t *testing.T) {
 				providerTenant: "metal-stack",
 			},
 			wantErr:        true,
-			wantErrMessage: `requested expiration duration: "8784h0m0s" exceeds max expiration: "8760h0m0s"`,
+			wantErrMessage: `invalid_argument: requested expiration duration: "8784h0m0s" exceeds max expiration: "8760h0m0s"`,
 		},
 		{
 			name: "user and token without machine access cannot create machine token",
