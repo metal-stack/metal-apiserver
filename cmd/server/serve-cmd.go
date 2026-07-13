@@ -319,7 +319,7 @@ func createRedisClient(cli *cli.Context, logger *slog.Logger, dbName RedisDataba
 		Addr:       address,
 		Password:   password,
 		DB:         db,
-		ClientName: "metal-apiserver",
+		ClientName: applicationName,
 	})
 	pong, err := client.Ping(cli.Context).Result()
 	if err != nil {
@@ -338,7 +338,7 @@ func createRedisClient(cli *cli.Context, logger *slog.Logger, dbName RedisDataba
 			}, nil
 		},
 		SelectDB:   db,
-		ClientName: "metal-apiserver",
+		ClientName: applicationName,
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create valkey client: %w", err)

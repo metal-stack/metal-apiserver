@@ -11,8 +11,9 @@ import (
 )
 
 const (
-	stageDEV  = "DEV"
-	stagePROD = "PROD"
+	stageDEV        = "DEV"
+	stagePROD       = "PROD"
+	applicationName = "metal-apiserver"
 )
 
 var (
@@ -353,7 +354,7 @@ Can not be changed after initial creation.
 
 func main() {
 	app := &cli.App{
-		Name:  "metal-apiserver",
+		Name:  applicationName,
 		Usage: "apiserver for metal-stack.io",
 		Commands: []*cli.Command{
 			newServeCmd(),

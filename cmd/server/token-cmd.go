@@ -1,15 +1,22 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
+	"os"
 	"strings"
 	"time"
 
+	"buf.build/go/protoyaml"
+	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
+	"github.com/metal-stack/metal-apiserver/pkg/k8s"
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/urfave/cli/v2"
+	"go.yaml.in/yaml/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
@@ -59,6 +66,24 @@ var (
 		Value: 6 * 30 * 24 * time.Hour,
 		Usage: "requested expiration for the token",
 	}
+	namespaceFlag = &cli.StringFlag{
+		Name:    "namespace",
+		Value:   "metal-control-plane",
+		Usage:   "namespace of the secret",
+		EnvVars: []string{"NAMESPACE"},
+	}
+	secretNameFlag = &cli.StringFlag{
+		Name:    "secret-name",
+		Value:   "metal-apiserver-admin-token",
+		Usage:   "name of the secret",
+		EnvVars: []string{"SECRET_NAME"},
+	}
+	tokensCreateConfigFileFlag = &cli.StringFlag{
+		Name:    "tokens-create-config-file",
+		Value:   "",
+		Usage:   "path to a yaml file which contains the serialized map from token-name to TokenServiceCreateRequest. If provided the generated tokens will not be printed to stdout but instead written back into a kubernetes secret resource as specified by the secret-name and namespace flags.",
+		EnvVars: []string{"TOKENS_CREATE_CONFIG_FILE_PATH"},
+	}
 )
 
 func newTokenCmd() *cli.Command {
@@ -69,6 +94,7 @@ func newTokenCmd() *cli.Command {
 			logLevelFlag,
 			redisAddrFlag,
 			redisPasswordFlag,
+			providerTenantFlag,
 			tokenSubjectFlag,
 			tokenDescriptionFlag,
 			tokenPermissionsFlag,
@@ -79,6 +105,9 @@ func newTokenCmd() *cli.Command {
 			tokenMachineRolesFlag,
 			tokenExpirationFlag,
 			serverHttpUrlFlag,
+			namespaceFlag,
+			secretNameFlag,
+			tokensCreateConfigFileFlag,
 		},
 		Action: func(ctx *cli.Context) error {
 			log, err := createLogger(ctx)
@@ -183,6 +212,25 @@ func newTokenCmd() *cli.Command {
 				return fmt.Errorf("token subject cannot be empty")
 			}
 
+			if configFile := ctx.String(tokensCreateConfigFileFlag.Name); configFile != "" {
+				namespace := ctx.String(namespaceFlag.Name)
+				if namespace == "" {
+					return fmt.Errorf("namespace cannot be empty")
+				}
+
+				secretName := ctx.String(secretNameFlag.Name)
+				if secretName == "" {
+					return fmt.Errorf("secretName cannot be empty")
+				}
+
+				providerTenant := ctx.String(providerTenantFlag.Name)
+				if providerTenant == "" {
+					return fmt.Errorf("providerTenant cannot be empty")
+				}
+
+				return storeTokensFromConfigFile(ctx.Context, log, tokenService, configFile, providerTenant, namespace, secretName)
+			}
+
 			resp, err := tokenService.CreateApiTokenWithoutPermissionCheck(ctx.Context, subject, &apiv2.TokenServiceCreateRequest{
 				Description:  ctx.String(tokenDescriptionFlag.Name),
 				Expires:      durationpb.New(ctx.Duration(tokenExpirationFlag.Name)),
@@ -198,8 +246,51 @@ func newTokenCmd() *cli.Command {
 			}
 
 			fmt.Println(resp.Secret)
-
 			return nil
 		},
 	}
+}
+
+func storeTokensFromConfigFile(ctx context.Context, log *slog.Logger, tokenService token.TokenService, configFile, providerTenant, namespace, secretName string) error {
+	yamlBytes, err := os.ReadFile(configFile)
+	if err != nil {
+		return err
+	}
+
+	var config map[string]any
+	err = yaml.Unmarshal(yamlBytes, &config)
+	if err != nil {
+		return err
+	}
+
+	for target, v := range config {
+		unmodifiedProtoBytes, err := yaml.Marshal(v)
+		if err != nil {
+			return fmt.Errorf("unable to marshal yaml content from target:%s %w", target, err)
+		}
+
+		var tokenCreateRequest adminv2.TokenServiceCreateRequest
+		err = protoyaml.Unmarshal(unmodifiedProtoBytes, &tokenCreateRequest)
+		if err != nil {
+			return fmt.Errorf("unable to unmarshal protoyaml from target:%s %w", target, err)
+		}
+
+		subject := providerTenant
+		if tokenCreateRequest.User != nil {
+			subject = *tokenCreateRequest.User
+		}
+
+		resp, err := tokenService.CreateApiTokenWithoutPermissionCheck(ctx, subject, tokenCreateRequest.TokenCreateRequest)
+		if err != nil {
+			return err
+		}
+
+		log.Info("store token in secret", "namespace", namespace, "secret-name", secretName)
+		err = k8s.CreateOrUpdateSecret(ctx, log, namespace, applicationName, secretName, target, resp.Secret)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
