@@ -162,11 +162,11 @@ Infra roles apply globally to infrastructure-managed resources.
 
 ### 5.4 Project Roles (Project-Scoped)
 
-| Role                  | Description                                        |
-|-----------------------|----------------------------------------------------|
-| `PROJECT_ROLE_OWNER`  | Full control over the project.                     |
-| `PROJECT_ROLE_EDITOR` | Can manage resources within the project.           |
-| `PROJECT_ROLE_VIEWER` | Read-only access within the project.               |
+| Role                  | Description                              |
+|-----------------------|------------------------------------------|
+| `PROJECT_ROLE_OWNER`  | Full control over the project.           |
+| `PROJECT_ROLE_EDITOR` | Can manage resources within the project. |
+| `PROJECT_ROLE_VIEWER` | Read-only access within the project.     |
 
 ### 5.5 Machine Roles (Machine-Scoped, per UUID)
 
@@ -218,96 +218,26 @@ Grants **read-only** access to all methods on all subjects, including:
 
 ### 6.3 Infra Roles (Infra-Scoped)
 
-// FIXME wrong
-
 These grant access to infrastructure-level methods on **all subjects**.
 
-| Method                                | `INFRA_ROLE_EDITOR` | `INFRA_ROLE_VIEWER` |
-|---------------------------------------|:-------------------:|:-------------------:|
-| `AuthService/GetLoginState`           |         +R          |         +R          |
-| `TokenService/Get`                    |         +R          |         +R          |
-| `TokenService/Update`                 |         +R          |          -          |
-| `TokenService/UpdateLabels`           |         +R          |          -          |
-| `TokenService/Revoke`                 |         +R          |          -          |
-| `TokenService/List`                   |         +R          |         +R          |
-| `TokenService/Create`                 |         +R          |          -          |
-| `TokenService/Refresh`                |         +R          |          -          |
-| `TokenService/GetTokenBySubject`      |         +R          |          -          |
-| `IPService/Get`                       |         +R          |         +R          |
-| `IPService/GetFreeIPAddress`          |         +R          |          -          |
-| `IPService/AllocateIP`                |         +R          |          -          |
-| `IPService/ReleaseIP`                 |         +R          |          -          |
-| `IPService/ReserveIP`                 |         +R          |          -          |
-| `PartService/Get`                     |         +R          |         +R          |
-| `PartService/List`                    |         +R          |         +R          |
-| `PartService/Create`                  |         +R          |          -          |
-| `PartService/Update`                  |         +R          |          -          |
-| `PartService/Delete`                  |         +R          |          -          |
-| `PartService/UpdateLabels`            |         +R          |          -          |
-| `SizeService/Get`                     |         +R          |         +R          |
-| `SizeService/List`                    |         +R          |         +R          |
-| `SizeService/Create`                  |         +R          |          -          |
-| `SizeService/Update`                  |         +R          |          -          |
-| `SizeService/Delete`                  |         +R          |          -          |
-| `SizeService/UpdateLabels`            |         +R          |          -          |
-| `SizeImageConstraintService/Get`      |         +R          |         +R          |
-| `SizeImageConstraintService/List`     |         +R          |         +R          |
-| `SizeImageConstraintService/Create`   |         +R          |          -          |
-| `SizeImageConstraintService/Update`   |         +R          |          -          |
-| `SizeImageConstraintService/Delete`   |         +R          |          -          |
-| `ImageService/Get`                    |         +R          |         +R          |
-| `ImageService/List`                   |         +R          |         +R          |
-| `ImageService/Create`                 |         +R          |          -          |
-| `ImageService/Update`                 |         +R          |          -          |
-| `ImageService/Delete`                 |         +R          |          -          |
-| `ImageService/UpdateLabels`           |         +R          |          -          |
-| `FilesystemService/Get`               |         +R          |         +R          |
-| `FilesystemService/List`              |         +R          |         +R          |
-| `FilesystemService/Create`            |         +R          |          -          |
-| `FilesystemService/Delete`            |         +R          |          -          |
-| `FilesystemService/UpdateLabels`      |         +R          |          -          |
-| `SwitchService/Get`                   |         +R          |         +R          |
-| `SwitchService/List`                  |         +R          |         +R          |
-| `SwitchService/Create`                |         +R          |          -          |
-| `SwitchService/Update`                |         +R          |          -          |
-| `SwitchService/Delete`                |         +R          |          -          |
-| `SwitchService/UpdateLabels`          |         +R          |          -          |
-| `ComponentService/Get`                |         +R          |         +R          |
-| `ComponentService/List`               |         +R          |         +R          |
-| `ComponentService/Create`             |         +R          |          -          |
-| `ComponentService/Update`             |         +R          |          -          |
-| `ComponentService/Delete`             |         +R          |          -          |
-| `ComponentService/UpdateLabels`       |         +R          |          -          |
-| `TaskService/Get`                     |         +R          |         +R          |
-| `TaskService/List`                    |         +R          |         +R          |
-| `TaskService/Queues`                  |         +R          |         +R          |
-| `TaskService/Delete`                  |         +R          |          -          |
-| `AuditService/Get`                    |         +R          |         +R          |
-| `AuditService/List`                   |         +R          |         +R          |
-| `APIService/GetEndpoints`             |         +R          |         +R          |
-| `MachineService/Get`                  |         +R          |         +R          |
-| `MachineService/List`                 |         +R          |         +R          |
-| `MachineService/SetState`             |         +R          |          -          |
-| `MachineService/ConsolePassword`      |         +R          |          -          |
-| `MachineService/GetConsolePassword`   |         +R          |          -          |
-| `MachineService/ListBMC`              |         +R          |         +R          |
-| `MachineService/GetBMC`               |         +R          |         +R          |
-| `MachineService/BMCCommand`           |         +R          |          -          |
-| `MachineService/Issues`               |         +R          |         +R          |
-| `NetworkService/Get`                  |         +R          |         +R          |
-| `NetworkService/List`                 |         +R          |         +R          |
-| `NetworkService/Create`               |         +R          |          -          |
-| `NetworkService/Update`               |         +R          |          -          |
-| `NetworkService/Delete`               |         +R          |          -          |
-| `NetworkService/UpdateLabels`         |         +R          |          -          |
-| `SizeReservationService/Get`          |         +R          |         +R          |
-| `SizeReservationService/List`         |         +R          |         +R          |
-| `SizeReservationService/Create`       |         +R          |          -          |
-| `SizeReservationService/Update`       |         +R          |          -          |
-| `SizeReservationService/Delete`       |         +R          |          -          |
-| `SizeReservationService/UpdateLabels` |         +R          |          -          |
+| Method                                              | `INFRA_ROLE_EDITOR` | `INFRA_ROLE_VIEWER` |
+|-----------------------------------------------------|:-------------------:|:-------------------:|
+| `/metalstack.infra.v2.BMCService/UpdateBMCInfo`     |         +R          |                     |
+| `/metalstack.infra.v2.BMCService/WaitForBMCCommand` |         +R          |                     |
+| `/metalstack.infra.v2.BMCService/BMCCommandDone`    |         +R          |                     |
+| `/metalstack.infra.v2.BootService/Dhcp`             |         +R          |                     |
+| `/metalstack.infra.v2.BootService/Boot`             |         +R          |                     |
+| `/metalstack.infra.v2.ComponentService/Ping`        |         +R          |                     |
+| `/metalstack.infra.v2.EventService/Send`            |         +R          |                     |
+| `/metalstack.infra.v2.SwitchService/Get`            |         +R          |                     |
+| `/metalstack.infra.v2.SwitchService/Register`       |         +R          |                     |
+| `/metalstack.infra.v2.SwitchService/Heartbeat`      |         +R          |                     |
+| `/metalstack.infra.v2.SwitchService/Heartbeat`      |         +R          |                     |
+| `/metalstack.infra.v2.SwitchService/Get`            |                     |          R          |
 
 ### 6.4 Tenant Roles (Tenant-Scoped)
+
+// FIXME review all tables below
 
 These grant access to tenant-scoped methods, scoped to the **subject** being the tenant ID.
 
