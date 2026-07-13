@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"maps"
 	"sort"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/metal-stack/api/go/errorutil"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
@@ -74,7 +74,7 @@ func (u *tenantServiceServer) List(ctx context.Context, req *apiv2.TenantService
 			if req.Query.Login != nil && tenant.Login != *req.Query.Login {
 				continue
 			}
-			if req.Query.Labels != nil && !cmp.Equal(req.Query.Labels.Labels, pointer.SafeDeref(pointer.SafeDeref(tenant.Meta).Labels).Labels) {
+			if req.Query.Labels != nil && !maps.Equal(req.Query.Labels.Labels, pointer.SafeDeref(pointer.SafeDeref(tenant.Meta).Labels).Labels) {
 				continue
 			}
 		}

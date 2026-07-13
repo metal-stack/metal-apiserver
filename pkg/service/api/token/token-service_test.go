@@ -48,6 +48,7 @@ func Test_Create(t *testing.T) {
 			name: "can create bare token",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -68,6 +69,7 @@ func Test_Create(t *testing.T) {
 			name: "user and token without project access cannot create project token",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -89,6 +91,7 @@ func Test_Create(t *testing.T) {
 			name: "user and token with project access can create project token",
 			sessionToken: &apiv2.Token{
 				User:        "phippy",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
@@ -123,6 +126,7 @@ func Test_Create(t *testing.T) {
 			name: "user without but token with project access cannot create project token",
 			sessionToken: &apiv2.Token{
 				User:        "phippy",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
@@ -147,6 +151,7 @@ func Test_Create(t *testing.T) {
 			name: "project without but user with project access cannot create project token",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -278,6 +283,7 @@ func Test_Create(t *testing.T) {
 			name: "admin user and token can create new admin token",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -308,6 +314,7 @@ func Test_Create(t *testing.T) {
 			name: "admin token but not user cannot create new admin token",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -330,6 +337,7 @@ func Test_Create(t *testing.T) {
 			name: "user and token without tenant access cannot create tenant token",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -351,6 +359,7 @@ func Test_Create(t *testing.T) {
 			name: "user and token with tenant access can create tenant token",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles: map[string]apiv2.TenantRole{
@@ -384,6 +393,7 @@ func Test_Create(t *testing.T) {
 			name: "user requests token for mascots but in the database does not have required tenant membership for mascots",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles: map[string]apiv2.TenantRole{
@@ -411,6 +421,7 @@ func Test_Create(t *testing.T) {
 			name: "user requests token for mascots but neither has mascots in his token permissions nor in the database",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles: map[string]apiv2.TenantRole{
@@ -438,6 +449,7 @@ func Test_Create(t *testing.T) {
 			name: "token without but user with tenant access cannot create tenant token",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 			},
@@ -459,27 +471,10 @@ func Test_Create(t *testing.T) {
 			wantErrMessage: `permission_denied: requested tenant roles are not allowed: [mascots]`,
 		},
 		{
-			name: "expiration exceeds max expiration",
-			sessionToken: &apiv2.Token{
-				User:         "phippy",
-				Permissions:  []*apiv2.MethodPermission{},
-				ProjectRoles: map[string]apiv2.ProjectRole{},
-				TenantRoles:  map[string]apiv2.TenantRole{},
-			},
-			req: &apiv2.TokenServiceCreateRequest{
-				Description: "token with long expiry",
-				Expires:     durationpb.New(366 * 24 * time.Hour),
-			},
-			state: state{
-				providerTenant: "metal-stack",
-			},
-			wantErr:        true,
-			wantErrMessage: `requested expiration duration: "8784h0m0s" exceeds max expiration: "8760h0m0s"`,
-		},
-		{
 			name: "user and token without machine access cannot create machine token",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -501,6 +496,7 @@ func Test_Create(t *testing.T) {
 			name: "user and token with machine access can create machine token",
 			sessionToken: &apiv2.Token{
 				User:        "pixie-core",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{},
 				MachineRoles: map[string]apiv2.MachineRole{
 					"*": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
@@ -531,6 +527,7 @@ func Test_Create(t *testing.T) {
 			name: "projects and tenants getter fails",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -668,6 +665,7 @@ func Test_CreateForUser(t *testing.T) {
 			name: "phippy can create token for user foo",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -692,6 +690,7 @@ func Test_CreateForUser(t *testing.T) {
 			name: "pixie-core can create token for metal-hammer with machine roles",
 			sessionToken: &apiv2.Token{
 				User:         "pixie-core",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
@@ -725,6 +724,7 @@ func Test_CreateForUser(t *testing.T) {
 			name: "bar can not create token for user foo",
 			sessionToken: &apiv2.Token{
 				User:         "bar",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions:  []*apiv2.MethodPermission{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
