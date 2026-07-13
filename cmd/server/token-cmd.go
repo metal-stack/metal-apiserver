@@ -286,7 +286,7 @@ func storeTokensFromConfigFile(ctx context.Context, log *slog.Logger, tokenServi
 		}
 
 		log.Info("store token in secret", "namespace", namespace, "secret-name", secretName)
-		err = k8s.CreateOrUpdateSecret(ctx, log, namespace, ApplicationName, secretName, target, resp.Secret)
+		err = k8s.CreateOrUpdateSecret(ctx, log, namespace, applicationName, secretName, target, resp.Secret)
 		if err != nil {
 			return err
 		}
