@@ -68,8 +68,14 @@ func AdminServices(cfg Config) {
 			InviteStore: cfg.InviteStore,
 			TokenStore:  cfg.TokenStore,
 		})
-		adminTokenService = tokenadmin.New(tokenadmin.Config{Log: cfg.Log, CertStore: cfg.CertStore, TokenStore: cfg.TokenStore, TokenService: cfg.TokenService})
-		adminVPNService   = vpnadmin.New(vpnadmin.Config{
+		adminTokenService = tokenadmin.New(tokenadmin.Config{
+			Log:          cfg.Log,
+			CertStore:    cfg.CertStore,
+			TokenStore:   cfg.TokenStore,
+			TokenService: cfg.TokenService,
+			Repo:         cfg.Repository,
+		})
+		adminVPNService = vpnadmin.New(vpnadmin.Config{
 			Log:  cfg.Log,
 			Repo: cfg.Repository,
 		})
