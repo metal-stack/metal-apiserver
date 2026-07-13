@@ -255,10 +255,6 @@ func (t *tokenService) CreateTokenForUser(ctx context.Context, user *string, req
 		return nil, errorutil.FailedPrecondition("invalid token type for token creation: %q", token.TokenType)
 	}
 
-	if req.Expires.AsDuration() > certs.MaxTokenExpiration {
-		return nil, errorutil.InvalidArgument("requested expiration duration: %q exceeds max expiration: %q", req.Expires.AsDuration(), certs.MaxTokenExpiration)
-	}
-
 	projectsAndTenants, err := t.projectsAndTenantsGetter(ctx, token.GetUser())
 	if err != nil {
 		return nil, errorutil.NewInternal(err)

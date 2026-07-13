@@ -2023,7 +2023,25 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 			state: state{
 				providerTenant: "metal-stack",
 			},
-			wantError: errorutil.InvalidArgument(`requested expiration duration: "8784h0m0s" exceeds max expiration: "8760h0m0s"`),
+			wantError: errors.New(`validation error: expires: must be greater than or equal to 600s and less than 31536001s`),
+		},
+		{
+			name: "expiration falls below min",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "too long",
+				Expires:     durationpb.New(1 * time.Minute),
+			},
+			state: state{
+				providerTenant: "metal-stack",
+			},
+			wantError: errors.New(`validation error: expires: must be greater than or equal to 600s and less than 31536001s`),
 		},
 		{
 			name: "PAT getter fails",
@@ -2179,9 +2197,16 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 				authorizer:               request.NewAuthorizer(log, projectsAndTenantsGetter),
 			}
 
+			err := protovalidate.Validate(tt.req)
 			if tt.wantError == nil {
-				err := protovalidate.Validate(tt.req)
 				require.NoError(t, err)
+			}
+			if err != nil {
+				if diff := cmp.Diff(tt.wantError.Error(), err.Error()); diff != "" {
+					t.Errorf("diff = %s", diff)
+				}
+
+				return
 			}
 
 			response, err := service.Create(ctx, tt.req)

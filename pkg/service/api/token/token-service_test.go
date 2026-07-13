@@ -471,25 +471,6 @@ func Test_Create(t *testing.T) {
 			wantErrMessage: `permission_denied: requested tenant roles are not allowed: [mascots]`,
 		},
 		{
-			name: "expiration exceeds max expiration",
-			sessionToken: &apiv2.Token{
-				User:         "phippy",
-				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
-				Permissions:  []*apiv2.MethodPermission{},
-				ProjectRoles: map[string]apiv2.ProjectRole{},
-				TenantRoles:  map[string]apiv2.TenantRole{},
-			},
-			req: &apiv2.TokenServiceCreateRequest{
-				Description: "token with long expiry",
-				Expires:     durationpb.New(366 * 24 * time.Hour),
-			},
-			state: state{
-				providerTenant: "metal-stack",
-			},
-			wantErr:        true,
-			wantErrMessage: `invalid_argument: requested expiration duration: "8784h0m0s" exceeds max expiration: "8760h0m0s"`,
-		},
-		{
 			name: "user and token without machine access cannot create machine token",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
