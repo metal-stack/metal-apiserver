@@ -44,12 +44,12 @@ Authentication is performed via **OpenID Connect (OIDC)**. The metal-apiserver s
 
 ## 2. Token Types
 
-| Token Type     | Constant          | Purpose                                                                                                                                                                                                                                                                                                                                |
-|----------------|-------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **User Token** | `TOKEN_TYPE_USER` | Created during the interactive login flow. Contains the user's implicit roles from the tenant-API-server. Used by human users interacting with the console/UI. User tokens do **not** store `AdminRole`, `TenantRoles`, `ProjectRoles`, or `Permissions` -- these are resolved dynamically from the tenant-API-server at request time. |
-| **API Token**  | `TOKEN_TYPE_API`  | Created programmatically via the Token API (`TokenService.Create`, `TokenService.Refresh`, or the CLI). Used by machines, CI/CD pipelines, and automation. Stores all permissions explicitly embedded in the JWT.                                                                                                                      |
+| Token Type     | Constant          | Purpose                                                                                                                                                                                                                                                                                                                                                       |
+| -------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **User Token** | `TOKEN_TYPE_USER` | Created during the interactive login flow. Contains the user's implicit roles from the tenant-API-server. Used by human users interacting with the API (e.g. through console or CLI). User tokens do **not** store `AdminRole`, `TenantRoles`, `ProjectRoles`, or `Permissions` -- these are resolved dynamically from the tenant-API-server at request time. |
+| **API Token**  | `TOKEN_TYPE_API`  | Created programmatically via the Token API (`TokenService.Create`, `TokenService.Refresh`, or the server CLI). Used by applications that interact with the metal-stack API, CI/CD pipelines, and automation. Stores all permissions explicitly embedded in the JWT.                                                                                           |
 
-**Key difference**: A User Token carries dynamic role enforcement resolved at runtime from the tenant-API-server (the `tenant-apiserver` that manages tenant/project memberships). An API Token carries static, self-contained permissions directly in the JWT payload. This means API tokens can be given fine-grained custom permissions that are not tied to tenant-project membership.
+**Key difference**: A User Token carries dynamic role enforcement resolved at runtime from the tenant-API-server (the `tenant-apiserver` that manages tenant/project memberships). An API Token carries static, self-contained permissions directly in the JWT payload. This means API tokens can be given fine-grained custom permissions that are not tied to tenant-project membership. Note that API tokens are additionally checked against the implicit user permissions of the token owner from the tenant-API-server, too. This check prevents that an API token can access resources after a tenant membership was removed or modified.
 
 ---
 
@@ -66,11 +66,11 @@ Authentication is performed via **OpenID Connect (OIDC)**. The metal-apiserver s
 
 1. Run `metalctl login --api-url <reachable apiserver endpoint> --provider openid-connect`
 2. A browser will open and you are prompted for your credentials.
-3. With successful authentication, you are redirected with the token and the cli will store them in ~/.metal-stack/config.yaml
+3. With successful authentication, you are redirected with the token and the cli will store them in `~/.metal-stack/config.yaml`.
 4. Subsequent calls with metalctl will be authenticated with the token stored in the configuration.
-5. api-url and provider are stored in the config.yaml. Further logins do not require them anymore
+5. api-url and provider are stored in the config.yaml. Further logins do not require them anymore.
 
-### 3.3 Via the CLI (`api-server token create`)
+### 3.3 Via the api-server CLI (`api-server token create`)
 
 The server provides a CLI command for creating tokens programmatically without web-based OIDC:
 
@@ -87,6 +87,8 @@ Internally this calls `CreateApiTokenWithoutPermissionCheck` which:
 A cronjob with the apiserver images is executed every 8h and create a `ADMIN_ROLE_EDITOR` and a `ADMIN_ROLE_VIEWER` token and store it in a Secret `metal-apiserver-admin-token`
 The tokens in this secret expire after 16h and can be used e.g. for IaC automation jobs which need a token with admin role to create other tokens for services for example.
 
+Note that the api-server CLI is intended to be used for bootstrapping mechanisms only as it skips the token permission check. Please do not build up on this mechanism internally for creating tokens.
+
 ---
 
 ## 4. Creating API Tokens
@@ -95,27 +97,27 @@ API tokens are managed through the Token Service API. They are JWTs that carry e
 
 ### 4.1 Token Service Endpoints
 
-| Endpoint (connect-procedure) | Description                                                                                                                                     |
-|------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|
-| `TokenService.Create`        | Creates a new API token with the specified roles and permissions.                                                                               |
-| `TokenService.Refresh`       | Refreshes an existing token (re-issue with the same permissions and duration, but a new JWT and secret).                                        |
-| `TokenService.Update`        | Updates an existing API token's roles, permissions, or description. Only updates to roles/permissions the caller already possesses are allowed. |
-| `TokenService.Get`           | Retrieves a specific token by UUID (only its own tokens).                                                                                       |
-| `TokenService.List`          | Lists all tokens belonging to the authenticated user.                                                                                           |
-| `TokenService.Revoke`        | Revokes (deletes) a token.                                                                                                                      |
+| Procedure              | Description                                                                                                                                     |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TokenService.Create`  | Creates a new API token with the specified roles and permissions.                                                                               |
+| `TokenService.Refresh` | Refreshes an existing token (re-issue with the same permissions and duration, but a new JWT and secret).                                        |
+| `TokenService.Update`  | Updates an existing API token's roles, permissions, or description. Only updates to roles/permissions the caller already possesses are allowed. |
+| `TokenService.Get`     | Retrieves a specific token by UUID (only its own tokens).                                                                                       |
+| `TokenService.List`    | Lists all tokens belonging to the authenticated user.                                                                                           |
+| `TokenService.Revoke`  | Revokes (deletes) a token.                                                                                                                      |
 
 ### 4.2 Token Creation Request Fields
 
 When calling `TokenService.Create`, you must provide a `TokenServiceCreateRequest` with the following optional fields:
 
 | Field           | Type                       | Description                                                                                                                                                              |
-|-----------------|----------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| --------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `expires`       | `google.protobuf.Duration` | Token validity period. Must not exceed `MaxTokenExpiration` (server configuration).                                                                                      |
 | `description`   | `string`                   | Human-readable description for identification.                                                                                                                           |
 | `admin_role`    | `AdminRole`                | Admin-level role (see Section 5).                                                                                                                                        |
 | `infra_role`    | `InfraRole`                | Infrastructure-level role (see Section 5).                                                                                                                               |
-| `project_roles` | `map<string, ProjectRole>` | Map of project ID to role (e.g. `{"my-project": "PROJECT_ROLE_OWNER"}`).                                                                                                 |
-| `tenant_roles`  | `map<string, TenantRole>`  | Map of tenant ID to role (e.g. `{"my-tenant": "TENANT_ROLE_EDITOR"}`). Use `"*"` for any/unknown tenants.                                                                |
+| `project_roles` | `map<string, ProjectRole>` | Map of project ID to role (e.g. `{"my-project": "PROJECT_ROLE_OWNER"}`). Use `"*"` for any projects that the requester is member of.                                     |
+| `tenant_roles`  | `map<string, TenantRole>`  | Map of tenant ID to role (e.g. `{"my-tenant": "TENANT_ROLE_EDITOR"}`). Use `"*"` for any tenants that the requester is member of.                                        |
 | `machine_roles` | `map<string, MachineRole>` | Map of machine UUID to role (e.g. `{"<uuid>": "MACHINE_ROLE_OWNER"}`). Use `"*"` for any machine.                                                                        |
 | `permissions`   | `MethodPermission[]`       | Custom fine-grained permissions, each specifying a `subject`, `methods` list (e.g. `[{"subject": "my-project", "methods": ["metalstack.api.v2.MachineService/List"]}]`). |
 
@@ -123,7 +125,7 @@ When calling `TokenService.Create`, you must provide a `TokenServiceCreateReques
 
 Token creation enforces a **no-elevation** rule: the caller's token must already possess sufficient permissions to authorize every requested role/permission in the new token. This prevents privilege escalation. The validation works as follows:
 
-1. If the requesting user is a member of the **provider tenant**, they can request a admin only up to the level of their own provider-tenant membership, see table 5.1 below.
+1. If the requesting user is a member of the **provider tenant**, they can request an admin role only up to the level of their own provider-tenant membership, see table 5.1 below.
 2. For project-scoped roles, the user must already have a role in the target project (or use `"*"` for future/unknown projects). The same applies to tenants and machines.
 3. Custom `MethodPermission` entries must reference methods the user can already call.
 4. Every requested subject (tenant, project, machine) must either be one the user already has access to, or `"*"` (wildcard).
@@ -138,29 +140,26 @@ Roles in the metal-apiserver follow a hierarchical structure across multiple sco
 
 Admin roles are the highest privilege level and apply to **all** subjects.
 
-| Role                | Description                                                                                                                                                                                                                               |
-|---------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `ADMIN_ROLE_EDITOR` | Full editor access to all resources, all projects, all tenants, all components, all partitions, all switches, all sizes, all images, all filesystem layouts, all IPAM, all tasks, all audit traces. Can read, create, update, and delete. |
-| `ADMIN_ROLE_VIEWER` | Read-only access across all resources. Cannot create, update, or delete anything.                                                                                                                                                         |
+| Role                | Description                                                                                                                           |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `ADMIN_ROLE_EDITOR` | Full editor access to all resources (projects, tenants, components, partitions, switches, ...). Can read, create, update, and delete. |
+| `ADMIN_ROLE_VIEWER` | Read-only access across all resources. Cannot create, update, or delete anything.                                                     |
 
 **Important**: Only members of the **provider tenant** can hold admin roles. The provider tenant role determines the maximum admin role:
 
 - `TENANT_ROLE_OWNER` in the provider tenant --> maximum admin role is `ADMIN_ROLE_EDITOR`
 - `TENANT_ROLE_EDITOR` or `TENANT_ROLE_VIEWER` in the provider tenant --> maximum admin role is `ADMIN_ROLE_VIEWER`
 
-### 5.2 Infrastructure Roles (Unscoped -- Infrastructure Level)
+### 5.2 Tenant Roles (Tenant-Scoped)
 
-Infra roles apply globally to infrastructure-managed resources.
+| Role                 | Description                                                                                                                          |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `TENANT_ROLE_OWNER`  | Full control over the tenant and all its projects.                                                                                   |
+| `TENANT_ROLE_EDITOR` | Can manage resources within the tenant.                                                                                              |
+| `TENANT_ROLE_VIEWER` | Read-only access within the tenant.                                                                                                  |
+| `TENANT_ROLE_GUEST`  | Very restricted view on the tenant's properties. This role is gained implicitly through a direct project membership within a tenant. |
 
-### 5.3 Tenant Roles (Tenant-Scoped)
-
-| Role                 | Description                                        |
-|----------------------|----------------------------------------------------|
-| `TENANT_ROLE_OWNER`  | Full control over the tenant and all its projects. |
-| `TENANT_ROLE_EDITOR` | Can manage resources within the tenant.            |
-| `TENANT_ROLE_VIEWER` | Read-only access within the tenant.                |
-
-### 5.4 Project Roles (Project-Scoped)
+### 5.3 Project Roles (Project-Scoped)
 
 | Role                  | Description                              |
 |-----------------------|------------------------------------------|
@@ -168,122 +167,31 @@ Infra roles apply globally to infrastructure-managed resources.
 | `PROJECT_ROLE_EDITOR` | Can manage resources within the project. |
 | `PROJECT_ROLE_VIEWER` | Read-only access within the project.     |
 
+Note that a tenant membership implicitly grants projects roles. For instance, when a user is an editor of a tenant, he implicitly gains editor project permissions on all of the tenant's projects without requiring to request direct project memberships.
+
+### 5.4 Infrastructure Roles (Unscoped -- Infrastructure Level)
+
+| Role                | Description                                 |
+| ------------------- | ------------------------------------------- |
+| `INFRA_ROLE_EDITOR` | Full editor access to infra API procedures. |
+| `INFRA_ROLE_VIEWER` | Read-only access to infra API procedures.   |
+
+
 ### 5.5 Machine Roles (Machine-Scoped, per UUID)
 
-| Role                  | Description                             |
-|-----------------------|-----------------------------------------|
-| `MACHINE_ROLE_OWNER`  | Full control over the specific machine. |
-| `MACHINE_ROLE_EDITOR` | Can manage the machine.                 |
-| `MACHINE_ROLE_VIEWER` | Read-only access to the machine.        |
+| Role                  | Description                                         |
+| --------------------- | --------------------------------------------------- |
+| `MACHINE_ROLE_EDITOR` | Full editor access to infra machine API procedures. |
+| `MACHINE_ROLE_VIEWER` | Read-only access to infra machine API procedures.   |
 
 ---
 
 ## 6. Permissions Table
 
-The following table maps each role to the API methods (gRPC connect procedures) it can access. A method marked with `[*]` is accessible for **all subjects**, while others are scoped to the corresponding resource type.
+TBD
 
-### 6.1 `ADMIN_ROLE_EDITOR`
-
-Grants full access to **all methods on all subjects**:
-
-- Every API method (public, self-scoped, tenant-scoped, project-scoped, and infra-scoped)
-- Read (+ create, update, delete) on all resources
-
-### 6.2 `ADMIN_ROLE_VIEWER`
-
-Grants **read-only** access to all methods on all subjects, including:
-
-- `APIService/GetEndpoints` (public)
-- `TokenService/List` (self)
-- `TokenService/Get` (self)
-- `AuthService/GetLoginState` (self)
-- `UserService/Get` (self)
-- `UserService/List` (self)
-- All audit trace GET/LIST methods
-- All APIService methods
-- All Machine Service (admin) methods
-- All Component Service methods
-- All Partition Service methods
-- All Switch Service methods
-- All Size Service methods
-- All Image Service methods
-- All FilesystemLayout Service methods
-- All IPAM Service methods
-- All Task Service methods
-- All IP Service (admin) methods
-- All SizeReservation Service methods
-- All SizeImageConstraint Service methods
-- All Network Service (admin) methods
-- Plus all project-scoped and tenant-scoped methods
-
-### 6.3 Infra Roles (Infra-Scoped)
-
-These grant access to infrastructure-level methods on **all subjects**.
-
-| Method                                              | `INFRA_ROLE_EDITOR` | `INFRA_ROLE_VIEWER` |
-|-----------------------------------------------------|:-------------------:|:-------------------:|
-| `/metalstack.infra.v2.BMCService/UpdateBMCInfo`     |         +R          |                     |
-| `/metalstack.infra.v2.BMCService/WaitForBMCCommand` |         +R          |                     |
-| `/metalstack.infra.v2.BMCService/BMCCommandDone`    |         +R          |                     |
-| `/metalstack.infra.v2.BootService/Dhcp`             |         +R          |                     |
-| `/metalstack.infra.v2.BootService/Boot`             |         +R          |                     |
-| `/metalstack.infra.v2.ComponentService/Ping`        |         +R          |                     |
-| `/metalstack.infra.v2.EventService/Send`            |         +R          |                     |
-| `/metalstack.infra.v2.SwitchService/Get`            |         +R          |                     |
-| `/metalstack.infra.v2.SwitchService/Register`       |         +R          |                     |
-| `/metalstack.infra.v2.SwitchService/Heartbeat`      |         +R          |                     |
-| `/metalstack.infra.v2.SwitchService/Heartbeat`      |         +R          |                     |
-| `/metalstack.infra.v2.SwitchService/Get`            |                     |          R          |
-
-### 6.4 Tenant Roles (Tenant-Scoped)
-
-// FIXME review all tables below
-
-These grant access to tenant-scoped methods, scoped to the **subject** being the tenant ID.
-
-| Method                             | `TENANT_ROLE_OWNER` | `TENANT_ROLE_EDITOR` | `TENANT_ROLE_VIEWER` |
-|------------------------------------|:-------------------:|:--------------------:|:--------------------:|
-| `TenantService/Get`                |         +R          |          +R          |          +R          |
-| `TenantService/List`               |         +R          |          +R          |          +R          |
-| `TenantService/Create`             |         +R          |          -           |          -           |
-| `TenantService/Update`             |         +R          |          -           |          -           |
-| `TenantService/Delete`             |         +R          |          -           |          -           |
-| `TenantService/AddMember`          |         +R          |          -           |          -           |
-| `TenantService/RemoveMember`       |         +R          |          -           |          -           |
-| `TenantService/CreateProject`      |         +R          |          -           |          -           |
-| `TenantService/UpdateLabels`       |         +R          |          -           |          -           |
-| `ProjectService/Get`               |         +R          |          +R          |          +R          |
-| `ProjectService/List`              |         +R          |          +R          |          +R          |
-| `ProjectService/Create`            |         +R          |          +R          |          -           |
-| `ProjectService/Update`            |         +R          |          +R          |          -           |
-| `ProjectService/Delete`            |         +R          |          +R          |          -           |
-| `ProjectService/GetProjectQuota`   |         +R          |          +R          |          +R          |
-| `ProjectService/AddMember`         |         +R          |          +R          |          -           |
-| `ProjectService/RemoveMember`      |         +R          |          +R          |          -           |
-| `ProjectService/UpdateLabels`      |         +R          |          +R          |          -           |
-| Machine/Network/IP/Image/Size/etc. |     All methods     |  See project roles   |      Read-only       |
-
-### 6.5 Project Roles (Project-Scoped)
-
-These grant access to project-scoped methods, scoped to the **subject** being the project ID.
-
-| Method                       | `PROJECT_ROLE_OWNER` | `PROJECT_ROLE_EDITOR` | `PROJECT_ROLE_VIEWER` |
-|------------------------------|:--------------------:|:---------------------:|:---------------------:|
-| `MachineService/Get`         |          +R          |          +R           |          +R           |
-| `MachineService/Create`      |          +R          |          +R           |           -           |
-| `MachineService/Update`      |          +R          |          +R           |           -           |
-| `MachineService/List`        |          +R          |          +R           |          +R           |
-| `MachineService/Delete`      |          +R          |          +R           |           -           |
-| `MachineService/Allocate`    |          +R          |          +R           |           -           |
-| `MachineService/SetState`    |          +R          |          +R           |           -           |
-| `MachineService/BMCCommand`  |          +R          |           -           |           -           |
-| Machine Console Password     |          +R          |           -           |           -           |
-| Network Service CRD          |          +R          |          +R           |          +R           |
-| Network Create/Update/Delete |          +R          |          +R           |           -           |
-| IP Service CRD               |          +R          |          +R           |          +R           |
-| IP Allocate/Release          |          +R          |          +R           |           -           |
-| SizeReservation Service      |          +R          |          +R           |          +R           |
-| VPN Service                  |          +R          |          +R           |          +R           |
+<!--
+// FIXME auto-generate these tables from servicepermissions.go
 
 ### 6.6 Machine Roles (Machine-Scoped)
 
@@ -312,6 +220,7 @@ These grant access to machine-service methods scoped to a specific machine UUID.
 | `UserService/List`          | Self-scoped              | List users                                  |
 | `TokenService/Get`          | Self-scoped              | Get a token by UUID                         |
 | `TokenService/List`         | Self-scoped              | List user's own tokens                      |
+-->
 
 ---
 
@@ -319,24 +228,26 @@ These grant access to machine-service methods scoped to a specific machine UUID.
 
 Every method in the metal-apiserver is categorized by its **scope**, which determines how the subject (resource identifier) is checked:
 
-| Category    | Method Scoping                                  | Authorization Logic                                                                 |
-|-------------|-------------------------------------------------|-------------------------------------------------------------------------------------|
-| **Public**  | No subject required                             | Accessible to everyone, including unauthenticated requests                          |
-| **Self**    | Subject = authenticated user token's user field | Only the token's owner can call. Used for `/user`, `/token` operations              |
-| **Project** | Subject = project ID from request               | Token must have project-level role for that specific project ID (or wildcard `*`)   |
-| **Tenant**  | Subject = tenant ID from request                | Token must have tenant-level role for that specific tenant ID (or wildcard `*`)     |
-| **Machine** | Subject = machine UUID from request             | Token must have machine-level role for that specific machine UUID (or wildcard `*`) |
+| Category    | Method Scoping                                  | Authorization Logic                                                                           |
+| ----------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| **Public**  | No subject required                             | Accessible to everyone, including unauthenticated requests                                    |
+| **Self**    | Subject = authenticated user token's user field | Only the token's owner can call. Used for `/user`, `/token` operations                        |
+| **Project** | Subject = project ID from request               | Requester must have project-level role for that specific project ID                           |
+| **Tenant**  | Subject = tenant ID from request                | Requester must have tenant-level role for that specific tenant ID                             |
+| **Machine** | Subject = machine UUID from request             | Requester token must have machine-level role for that specific machine UUID (or wildcard `*`) |
 
-### Wildcard `*` Subject
+### Wildcard `*` Subject in Token Permissions
 
 When a token contains `*` as a subject for a given role, it means the token has access to **all subjects** of that scope. For example:
 
-- `project_roles: {"*": "PROJECT_ROLE_EDITOR"}` grants project editor access to all current and future projects.
-- `tenant_roles: {"*": "TENANT_ROLE_EDITOR"}` grants tenant editor access to all current and future tenants.
+- `project_roles: {"*": "PROJECT_ROLE_EDITOR"}` grants project editor access to all current and future projects the requester has access to.
+- `tenant_roles: {"*": "TENANT_ROLE_EDITOR"}` grants tenant editor access to all current and future tenants the requester has access to.
 
 ### Permission Elevation and Wildcards
 
 During token creation, a user cannot specify a wildcard `*` unless their own token also has `*` for the same scope, OR the user has the specific role on that subject. Wildcards allow tokens to work with resources that don't exist yet (e.g. future projects).
+
+TODO: How to gain a `*` permission initially as a user.
 
 ---
 
@@ -346,12 +257,17 @@ During token creation, a user cannot specify a wildcard `*` unless their own tok
 
 Tokens are **JWT (JSON Web Tokens)** signed with an X.509 private key. Each token carries:
 
-- `token_uuid` (`uuid`): Unique identifier, used for revocation
-- `user` (`string`): The user/login who owns this token
-- `iss` (`string`): Token issuer
+- `aud` (`[]string`): The intended audience (statically set to `[<api-server-endpoint>]`)
 - `exp` (`timestamp`): Expiration time
 - `iat` (`timestamp`): Issued-at time
-- `token_type` (`TokenType_enum`): Whether `TOKEN_TYPE_USER` or `TOKEN_TYPE_API`
+- `iss` (`string`): Token issuer
+- `jti` (`string`): JWT Token UUID
+- `nbf` (`timestamp`): Time when the token becomes valid
+- `sub` (`string`): The user/login who owns this token
+- `type` (`string`): The token type as described in the [token types section](#2-token-types)
+
+In the backend, additional information on the token permissions are stored:
+
 - `admin_role` (`AdminRole_enum`): Admin-level role
 - `infra_role` (`InfraRole_enum`): Infrastructure-level role
 - `project_roles` (`map<string, ProjectRole_enum>`): Project-scoped roles
@@ -363,20 +279,20 @@ Tokens are **JWT (JSON Web Tokens)** signed with an X.509 private key. Each toke
 
 ### 8.2 Token Expiration
 
-- **User tokens** created via login do not have an explicit expiration (use default).
+- **User tokens** created via login use a default expiration of 8 hours.
 - **API tokens** have a configurable expiration set during creation. The maximum allowed expiration is defined by the server's `MaxTokenExpiration` setting.
 
 ### 8.3 Token Refresh
 
-The **Refresh** operation creates a brand new JWT with the exact same roles and permissions as the original token, giving the consumer a fresh `exp` time while retaining all capabilities. It requires the calling token to already have the permissions to authorize the requested roles. Token must contain the required permissions `TokenService/Refresh` to call the refresh endpoint.
+The **Refresh** operation creates a new JWT with the exact same roles and permissions as the original token, giving the consumer a fresh `exp` time while retaining all capabilities. It requires the calling token to already have the permissions to authorize the requested roles. Token must contain the required permissions `TokenService/Refresh` to call the refresh endpoint.
 
 ### 8.4 Token Revocation
 
-To revoke a token, call `TokenService.Revoke` with the token's UUID. After revocation, the token is removed from the token store and all subsequent API calls using it will fail with an authorization error. The revocation is effective immediately on the next request.
+To revoke a token, call `TokenService/Revoke` with the token's UUID. After revocation, the token is removed from the token store and all subsequent API calls using it will fail with an authorization error. The revocation is effective immediately on the next request.
 
 ### 8.5 Certificate Rotation
 
-Tokens are signed using X.509 certificates managed by the server's certificate store. During rotation, new tokens are signed with the latest private key while existing tokens remain valid until they expire (since old certificates are still used for verification). The signing certificate is fetched at token creation time from `t.certs.LatestPrivate(ctx)` (see `pkg/service/api/token/token-service.go:85`).
+Tokens are signed using X.509 certificates managed by the server's certificate store. During rotation, new tokens are signed with the latest private key while existing tokens remain valid until they expire (since old certificates are still used for verification). The signing certificate is fetched at token creation time from `t.certs.LatestPrivate(ctx)` (see `pkg/service/api/token/token-service.go:85`). This mechanism defines the maximum token expiration length.
 
 ### 8.6 Token Storage
 
@@ -389,6 +305,8 @@ Each user can manage their own tokens. Tokens are listed with `TokenService/List
 When a user creates an API token, this decision flow determines whether the operation is allowed:
 
 ```plain
+Note that this flow is not fully complete but gives an insight to the implementation.
+
 1. Is the calling token a valid USER or API token type?
    No  --> error: "invalid token type for token creation"
    Yes --> continue
