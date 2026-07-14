@@ -2130,7 +2130,7 @@ func Test_Update(t *testing.T) {
 				}
 
 				require.NotNil(innerT, got.Meta.UpdatedAt)
-				assert.True(innerT, !got.Meta.UpdatedAt.AsTime().IsZero())
+				assert.False(innerT, got.Meta.UpdatedAt.AsTime().IsZero())
 			}
 		})
 	}
