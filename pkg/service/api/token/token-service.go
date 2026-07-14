@@ -527,20 +527,3 @@ func (t *tokenService) hasAdminRole(projectsAndTenants *api.ProjectsAndTenants) 
 	}
 	return nil, false
 }
-
-func (t *tokenService) isAdminRoleRequestAllowed(projectsAndTenants *api.ProjectsAndTenants, requestedRole *apiv2.AdminRole) error {
-	if requestedRole == nil {
-		return nil
-	}
-
-	role, ok := t.hasAdminRole(projectsAndTenants)
-	if !ok {
-		return fmt.Errorf("requested adminrole %q is not allowed because you are not member of provider tenant", *requestedRole)
-	}
-
-	if *role == apiv2.AdminRole_ADMIN_ROLE_VIEWER && *requestedRole == apiv2.AdminRole_ADMIN_ROLE_EDITOR {
-		return fmt.Errorf("your provider tenant membership only allows %q, but you requested %q", *role, *requestedRole)
-	}
-
-	return nil
-}
