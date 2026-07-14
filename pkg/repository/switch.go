@@ -14,6 +14,7 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
+	"github.com/metal-stack/api/go/tag"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
@@ -84,7 +85,7 @@ func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServ
 		return nil, err
 	}
 
-	updated, err := r.updateOnRegister(ctx, sw, updateReq)
+	updated, err := r.updateOnRegister(ctx, sw, new, updateReq)
 	if err != nil {
 		return nil, err
 	}
@@ -367,6 +368,7 @@ func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *ap
 		return errorutil.FailedPrecondition("connected switches of a machine must reside in the same rack, rack of switch %s: %s, rack of switch %s: %s, machine: %s", s1.Name, s1.Rack, s2.Name, s2.Rack, m.Uuid)
 	}
 	m.Rack = s1.Rack
+	m.Room = s1.Room
 
 	sws, err := r.s.ds.Switch().List(ctx, queries.SwitchFilter(&apiv2.SwitchQuery{
 		ConnectedMachineId: &m.Uuid,
@@ -743,6 +745,7 @@ func (r *switchRepository) convertToInternal(ctx context.Context, sw *apiv2.Swit
 			Description: sw.Description,
 		},
 		Rack:               pointer.SafeDeref(sw.Rack),
+		Room:               pointer.SafeDeref(sw.Room),
 		Partition:          sw.Partition,
 		ReplaceMode:        replaceMode,
 		ManagementIP:       sw.ManagementIp,
@@ -815,6 +818,7 @@ func (r *switchRepository) convertToProto(ctx context.Context, sw *metal.Switch)
 		},
 		Description:        sw.Description,
 		Rack:               pointer.PointerOrNil(sw.Rack),
+		Room:               pointer.PointerOrNil(sw.Room),
 		Partition:          sw.Partition,
 		ReplaceMode:        replaceMode,
 		ManagementIp:       sw.ManagementIP,
@@ -878,10 +882,18 @@ func (r *switchRepository) findTwinSwitch(ctx context.Context, newSwitch *metal.
 	return twin, nil
 }
 
-func (r *switchRepository) updateOnRegister(ctx context.Context, sw *metal.Switch, req *adminv2.SwitchServiceUpdateRequest) (*metal.Switch, error) {
+func (r *switchRepository) updateOnRegister(ctx context.Context, sw *metal.Switch, newSwitch *apiv2.Switch, req *adminv2.SwitchServiceUpdateRequest) (*metal.Switch, error) {
 	err := updateAllButNics(sw, req)
 	if err != nil {
 		return nil, err
+	}
+
+	if newSwitch != nil && newSwitch.Room != nil && *newSwitch.Room != sw.Room {
+		err = r.updateMachineRoom(ctx, sw, *newSwitch.Room)
+		if err != nil {
+			return nil, err
+		}
+		sw.Room = *newSwitch.Room
 	}
 
 	if len(req.Nics) > 0 {
@@ -933,6 +945,47 @@ func updateAllButNics(sw *metal.Switch, req *adminv2.SwitchServiceUpdateRequest)
 	}
 
 	return nil
+}
+
+func (r *switchRepository) updateMachineRoom(ctx context.Context, sw *metal.Switch, newRoomID string) error {
+	for machineID := range sw.MachineConnections {
+		m, err := r.s.ds.Machine().Get(ctx, machineID)
+		if err != nil {
+			return fmt.Errorf("failed to find machine %s connected to switch %s: %w", machineID, sw.ID, err)
+		}
+
+		if m.RoomID == newRoomID {
+			continue
+		}
+
+		oldRoomID := m.RoomID
+		m.RoomID = newRoomID
+		m.Tags = updateMachineRoomTag(m.Tags, newRoomID)
+
+		err = r.s.ds.Machine().Update(ctx, m)
+		if err != nil {
+			return fmt.Errorf("failed to update room for machine %s from %s to %s: %w", machineID, oldRoomID, newRoomID, err)
+		}
+
+		r.s.log.Info("updated machine room", "machine_id", machineID, "old_room", oldRoomID, "new_room", newRoomID, "switch_id", sw.ID)
+	}
+
+	return nil
+}
+
+func updateMachineRoomTag(existingTags []string, newRoomID string) []string {
+	newTags := []string{}
+	for _, t := range existingTags {
+		if !strings.HasPrefix(t, tag.MachineRoom+"=") {
+			newTags = append(newTags, t)
+		}
+	}
+
+	if newRoomID != "" {
+		newTags = append(newTags, fmt.Sprintf("%s=%s", tag.MachineRoom, newRoomID))
+	}
+
+	return newTags
 }
 
 func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Switch) ([]*apiv2.SwitchNic, error) {

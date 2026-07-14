@@ -20,6 +20,7 @@ var (
 	sw1 = &metal.Switch{
 		Base:      metal.Base{ID: "sw1"},
 		Rack:      "rack01",
+		Room:      "room-a",
 		Partition: "partition-a",
 		OS: &metal.SwitchOS{
 			Vendor:  metal.SwitchOSVendorCumulus,
@@ -40,6 +41,7 @@ var (
 	sw2 = &metal.Switch{
 		Base:      metal.Base{ID: "sw2"},
 		Rack:      "rack01",
+		Room:      "room-b",
 		Partition: "partition-b",
 		OS: &metal.SwitchOS{
 			Vendor:  metal.SwitchOSVendorCumulus,
@@ -60,6 +62,7 @@ var (
 	sw3 = &metal.Switch{
 		Base:      metal.Base{ID: "sw3"},
 		Rack:      "rack02",
+		Room:      "room-a",
 		Partition: "partition-a",
 		OS: &metal.SwitchOS{
 			Vendor:  metal.SwitchOSVendorSonic,
@@ -116,6 +119,13 @@ func TestSwitchFilter(t *testing.T) {
 				Rack: new("rack01"),
 			},
 			want: []*metal.Switch{sw1, sw2},
+		},
+		{
+			name: "query by room",
+			rq: &apiv2.SwitchQuery{
+				Room: new("room-a"),
+			},
+			want: []*metal.Switch{sw1, sw3},
 		},
 		{
 			name: "query by os vendor",

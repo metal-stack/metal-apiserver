@@ -29,6 +29,12 @@ func SwitchFilter(query *apiv2.SwitchQuery) func(q r.Term) r.Term {
 			})
 		}
 
+		if query.Room != nil {
+			q = q.Filter(func(row r.Term) r.Term {
+				return row.Field("roomid").Eq(*query.Room)
+			})
+		}
+
 		if query.Os != nil {
 			if query.Os.Vendor != nil {
 				stringValue, err := enum.GetStringValue(query.Os.Vendor)

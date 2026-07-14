@@ -561,6 +561,10 @@ func (r *machineRepository) addMachineTagsAndLabels(m *metal.Machine) {
 		labels[tag.MachineRack] = m.RackID
 	}
 
+	if m.RoomID != "" {
+		labels[tag.MachineRoom] = m.RoomID
+	}
+
 	if m.IPMI.Fru.ChassisPartSerial != "" {
 		labels[tag.MachineChassis] = m.IPMI.Fru.ChassisPartSerial
 	}

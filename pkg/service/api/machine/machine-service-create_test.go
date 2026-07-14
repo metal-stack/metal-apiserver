@@ -413,6 +413,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 						Base:        metal.Base{ID: sc.Machine5},
 						PartitionID: sc.Partition1,
 						RackID:      "rack01",
+						RoomID:      "room01",
 						SizeID:      sc.SizeC1Large,
 						Waiting:     true,
 						Hardware: metal.MachineHardware{
@@ -465,12 +466,14 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 									"machine.metal-stack.io/chassis":             "chassis-123",
 									"machine.metal-stack.io/network.primary.asn": "4210000020",
 									"machine.metal-stack.io/rack":                "rack01",
+									"machine.metal-stack.io/room":                "room01",
 								},
 							},
 						},
 						Size:      dc.GetSizes()[sc.SizeC1Large],
 						Partition: dc.GetPartitions()[sc.Partition1],
 						Rack:      "rack01",
+						Room:      "room01",
 						Status: &apiv2.MachineStatus{
 							Liveliness: apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE,
 							Condition:  &apiv2.MachineCondition{State: apiv2.MachineState_MACHINE_STATE_AVAILABLE},

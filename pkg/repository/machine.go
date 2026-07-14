@@ -603,6 +603,7 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 		},
 		Partition:                partition,
 		Rack:                     m.RackID,
+		Room:                     m.RoomID,
 		Size:                     size,
 		Hardware:                 hardware,
 		Allocation:               allocation,
@@ -900,6 +901,7 @@ func (r *machineRepository) Register(ctx context.Context, req *infrav2.BootServi
 				return err
 			}
 			m.RackID = machine.Rack
+			m.RoomID = machine.Room
 			return r.s.ds.Machine().Update(ctx, m)
 		},
 		retry.Attempts(10),

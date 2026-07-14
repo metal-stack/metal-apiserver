@@ -62,6 +62,7 @@ var (
 		PartitionID:  "p1",
 		SizeID:       "c1-medium",
 		RackID:       "rack-1",
+		RoomID:       "room-1",
 		Waiting:      false,
 		PreAllocated: false,
 		Hardware: metal.MachineHardware{
@@ -140,6 +141,7 @@ var (
 		PartitionID:  "p2",
 		SizeID:       "n1-medium",
 		RackID:       "rack-2",
+		RoomID:       "room-2",
 		Waiting:      false,
 		PreAllocated: false,
 		Hardware: metal.MachineHardware{
@@ -360,6 +362,11 @@ func TestMachineFilter(t *testing.T) {
 		{
 			name: "by rack",
 			rq:   &apiv2.MachineQuery{Rack: new("rack-2")},
+			want: []*metal.Machine{m2},
+		},
+		{
+			name: "by room",
+			rq:   &apiv2.MachineQuery{Room: new("room-2")},
 			want: []*metal.Machine{m2},
 		},
 		{

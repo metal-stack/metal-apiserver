@@ -9,6 +9,7 @@ import (
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/api/go/tag"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -178,6 +179,43 @@ func Test_makeBGPFilter(t *testing.T) {
 			}
 			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
 				t.Errorf("makeBGPFilter() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_updateMachineRoomTag(t *testing.T) {
+	tests := []struct {
+		name string
+		tags []string
+		room string
+		want []string
+	}{
+		{
+			name: "replaces existing room tag",
+			tags: []string{"a=b", tag.MachineRoom + "=room-a", "c=d"},
+			room: "room-b",
+			want: []string{"a=b", "c=d", tag.MachineRoom + "=room-b"},
+		},
+		{
+			name: "adds room tag when missing",
+			tags: []string{"a=b", "c=d"},
+			room: "room-a",
+			want: []string{"a=b", "c=d", tag.MachineRoom + "=room-a"},
+		},
+		{
+			name: "removes room tag when room is empty",
+			tags: []string{"a=b", tag.MachineRoom + "=room-a", "c=d"},
+			room: "",
+			want: []string{"a=b", "c=d"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := updateMachineRoomTag(tt.tags, tt.room)
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Errorf("updateMachineRoomTag() diff = %s", diff)
 			}
 		})
 	}
