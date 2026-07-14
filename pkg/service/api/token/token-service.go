@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
-	"time"
 
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
@@ -50,9 +49,6 @@ type tokenService struct {
 
 type TokenService interface {
 	apiv2connect.TokenServiceHandler
-	// TODO: move this to pkg/token, we do not want cross-service dependencies anymore
-	CreateUserTokenWithoutPermissionCheck(ctx context.Context, subject string, expiration *time.Duration) (*apiv2.TokenServiceCreateResponse, error)
-	CreateApiTokenWithoutPermissionCheck(ctx context.Context, subject string, rq *apiv2.TokenServiceCreateRequest) (*apiv2.TokenServiceCreateResponse, error)
 }
 
 func New(c Config) TokenService {
@@ -72,72 +68,6 @@ func New(c Config) TokenService {
 		projectsAndTenantsGetter: projectsAndTenantsGetter,
 		authorizer:               request.NewAuthorizer(log, projectsAndTenantsGetter),
 	}
-}
-
-// CreateUserTokenWithoutPermissionCheck is only called from the auth service during login through console
-// No validation against requested roles and permissions is required and implemented here
-func (t *tokenService) CreateUserTokenWithoutPermissionCheck(ctx context.Context, subject string, expiration *time.Duration) (*apiv2.TokenServiceCreateResponse, error) {
-	expires := tokenutil.DefaultExpiration
-	if expiration != nil {
-		expires = *expiration
-	}
-
-	privateKey, err := t.certs.LatestPrivate(ctx)
-	if err != nil {
-		return nil, errorutil.Internal("unable to fetch signing certificate: %w", err)
-	}
-
-	secret, token, err := tokenutil.NewJWT(apiv2.TokenType_TOKEN_TYPE_USER, subject, t.issuer, expires, privateKey)
-	if err != nil {
-		return nil, errorutil.Internal("unable to create console token: %w", err)
-	}
-
-	err = t.tokens.Set(ctx, token)
-	if err != nil {
-		return nil, err
-	}
-
-	return &apiv2.TokenServiceCreateResponse{
-		Token:  token,
-		Secret: secret,
-	}, nil
-}
-
-// CreateApiTokenWithoutPermissionCheck is only called from the api-server command line interface
-// No validation against requested roles and permissions is required and implemented here
-func (t *tokenService) CreateApiTokenWithoutPermissionCheck(ctx context.Context, subject string, req *apiv2.TokenServiceCreateRequest) (*apiv2.TokenServiceCreateResponse, error) {
-	expires := tokenutil.DefaultExpiration
-	if req.Expires != nil {
-		expires = req.Expires.AsDuration()
-	}
-
-	privateKey, err := t.certs.LatestPrivate(ctx)
-	if err != nil {
-		return nil, errorutil.NewInternal(err)
-	}
-
-	secret, token, err := tokenutil.NewJWT(apiv2.TokenType_TOKEN_TYPE_API, subject, t.issuer, expires, privateKey)
-	if err != nil {
-		return nil, errorutil.NewInternal(err)
-	}
-
-	token.Description = req.Description
-	token.Permissions = req.Permissions
-	token.ProjectRoles = req.ProjectRoles
-	token.TenantRoles = req.TenantRoles
-	token.AdminRole = req.AdminRole
-	token.InfraRole = req.InfraRole
-	token.MachineRoles = req.MachineRoles
-
-	err = t.tokens.Set(ctx, token)
-	if err != nil {
-		return nil, err
-	}
-
-	return &apiv2.TokenServiceCreateResponse{
-		Token:  token,
-		Secret: secret,
-	}, nil
 }
 
 // Get returns the token by a given uuid for the user who requests it.

@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"maps"
+	"time"
 
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
@@ -202,4 +203,74 @@ func (t *tokenRepository) convertToInternal(ctx context.Context, msg *api.TokenW
 
 func (t *tokenRepository) convertToProto(ctx context.Context, e *api.TokenWithSecret) (*api.TokenWithSecret, error) {
 	return e, nil
+}
+
+func (t *tokenRepository) CreateUserTokenWithoutPermissionCheck(ctx context.Context, subject string, expiration *time.Duration) (*apiv2.TokenServiceCreateResponse, error) {
+	if t.scope != nil {
+		return nil, errorutil.FailedPrecondition("tokens without permission check can only be created unscoped")
+	}
+
+	expires := token.DefaultExpiration
+	if expiration != nil {
+		expires = *expiration
+	}
+
+	privateKey, err := t.s.certs.LatestPrivate(ctx)
+	if err != nil {
+		return nil, errorutil.Internal("unable to fetch signing certificate: %w", err)
+	}
+
+	secret, token, err := token.NewJWT(apiv2.TokenType_TOKEN_TYPE_USER, subject, t.s.issuer, expires, privateKey)
+	if err != nil {
+		return nil, errorutil.Internal("unable to create console token: %w", err)
+	}
+
+	err = t.s.tokens.Set(ctx, token)
+	if err != nil {
+		return nil, err
+	}
+
+	return &apiv2.TokenServiceCreateResponse{
+		Token:  token,
+		Secret: secret,
+	}, nil
+}
+
+func (t *tokenRepository) CreateApiTokenWithoutPermissionCheck(ctx context.Context, subject string, req *apiv2.TokenServiceCreateRequest) (*apiv2.TokenServiceCreateResponse, error) {
+	if t.scope != nil {
+		return nil, errorutil.FailedPrecondition("tokens without permission check can only be created unscoped")
+	}
+
+	expires := token.DefaultExpiration
+	if req.Expires != nil {
+		expires = req.Expires.AsDuration()
+	}
+
+	privateKey, err := t.s.certs.LatestPrivate(ctx)
+	if err != nil {
+		return nil, errorutil.NewInternal(err)
+	}
+
+	secret, token, err := token.NewJWT(apiv2.TokenType_TOKEN_TYPE_API, subject, t.s.issuer, expires, privateKey)
+	if err != nil {
+		return nil, errorutil.NewInternal(err)
+	}
+
+	token.Description = req.Description
+	token.Permissions = req.Permissions
+	token.ProjectRoles = req.ProjectRoles
+	token.TenantRoles = req.TenantRoles
+	token.AdminRole = req.AdminRole
+	token.InfraRole = req.InfraRole
+	token.MachineRoles = req.MachineRoles
+
+	err = t.s.tokens.Set(ctx, token)
+	if err != nil {
+		return nil, err
+	}
+
+	return &apiv2.TokenServiceCreateResponse{
+		Token:  token,
+		Secret: secret,
+	}, nil
 }
