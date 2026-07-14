@@ -710,63 +710,54 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			},
 			wantError: errorutil.PermissionDenied(`requested tenant roles are not allowed: [%s]`, tenant1),
 		},
-		// FIXME:
 		// - users can not obtain wildcard tokens in any form at the moment, implement this
 		// - make sure api tokens can not elevate their permissions with wildcards (because they were scoped to specific roles)
-		// {
-		// 	name: "user token can request wildcard tenant roles",
-		// 	sessionToken: &apiv2.Token{
-		// 		User:         "phippy",
-		// 		TokenType:    apiv2.TokenType_TOKEN_TYPE_USER,
-		// 		Permissions:  []*apiv2.MethodPermission{},
-		// 		ProjectRoles: map[string]apiv2.ProjectRole{},
-		// 	},
-		// 	req: &apiv2.TokenServiceCreateRequest{
-		// 		Description:  "wildcard tenant",
-		// 		ProjectRoles: map[string]apiv2.ProjectRole{},
-		// 		TenantRoles: map[string]apiv2.TenantRole{
-		// 			"*": apiv2.TenantRole_TENANT_ROLE_EDITOR,
-		// 		},
-		// 	},
-		// 	state: state{
-		// 		providerTenant: "metal-stack",
-		// 		tenantRoles: map[string]apiv2.TenantRole{
-		// 			tenant2: apiv2.TenantRole_TENANT_ROLE_EDITOR,
-		// 		},
-		// 	},
-		// 	wantToken: &apiv2.Token{
-		// 		User:         "phippy",
-		// 		Description:  "wildcard tenant",
-		// 		TokenType:    *apiv2.TokenType_TOKEN_TYPE_API.Enum(),
-		// 		ProjectRoles: map[string]apiv2.ProjectRole{},
-		// 		TenantRoles: map[string]apiv2.TenantRole{
-		// 			"*": apiv2.TenantRole_TENANT_ROLE_EDITOR,
-		// 		},
-		// 	},
-		// },
-		// {
-		// 	name: "API token can not request wildcard tenant roles (as it would widen up the permission scope of the issued token)",
-		// 	sessionToken: &apiv2.Token{
-		// 		User:         "phippy",
-		// 		TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
-		// 		Permissions:  []*apiv2.MethodPermission{},
-		// 		ProjectRoles: map[string]apiv2.ProjectRole{},
-		// 	},
-		// 	req: &apiv2.TokenServiceCreateRequest{
-		// 		Description:  "wildcard tenant",
-		// 		ProjectRoles: map[string]apiv2.ProjectRole{},
-		// 		TenantRoles: map[string]apiv2.TenantRole{
-		// 			"*": apiv2.TenantRole_TENANT_ROLE_EDITOR,
-		// 		},
-		// 	},
-		// 	state: state{
-		// 		providerTenant: "metal-stack",
-		// 		tenantRoles: map[string]apiv2.TenantRole{
-		// 			tenant2: apiv2.TenantRole_TENANT_ROLE_EDITOR,
-		// 		},
-		// 	},
-		// 	wantError: errorutil.PermissionDenied(`requested tenant roles are not allowed: [*]`),
-		// },
+		{
+			name: "user token can request wildcard tenant roles",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_USER,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description:  "wildcard tenant",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"*": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
+			state: state{
+				providerTenant: "metal-stack",
+				tenantRoles: map[string]apiv2.TenantRole{
+					tenant2: apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
+			wantError: errorutil.PermissionDenied(`requested tenant roles are not allowed: [*]`),
+		},
+		{
+			name: "API token can not request wildcard tenant roles (as it would widen up the permission scope of the issued token)",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description:  "wildcard tenant",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"*": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
+			state: state{
+				providerTenant: "metal-stack",
+				tenantRoles: map[string]apiv2.TenantRole{
+					tenant2: apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
+			wantError: errorutil.PermissionDenied(`requested tenant roles are not allowed: [*]`),
+		},
 		{
 			name: "tenant role escalation from VIEWER to EDITOR is not allowed",
 			sessionToken: &apiv2.Token{
