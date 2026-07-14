@@ -289,7 +289,7 @@ func (a *auth) Callback(res http.ResponseWriter, req *http.Request) {
 
 	// TODO: shall we create a user token in case a redirect url was given? Rename Console token to User token?
 
-	tcr, err := a.tokenService.CreateUserTokenWithoutPermissionCheck(ctx, u.Login, nil)
+	tcr, err := a.repo.UnscopedToken().AdditionalMethods().CreateUserTokenWithoutPermissionCheck(ctx, u.Login, nil)
 	if err != nil {
 		http.Error(res, fmt.Sprintf("unable to create a token:%v", err), http.StatusInternalServerError)
 		return

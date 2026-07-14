@@ -13,7 +13,7 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/k8s"
-	"github.com/metal-stack/metal-apiserver/pkg/service/api/token"
+	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/urfave/cli/v2"
 	"go.yaml.in/yaml/v3"
@@ -120,16 +120,16 @@ func newTokenCmd() *cli.Command {
 				return err
 			}
 
-			tokenStore := tokencommon.NewRedisStore(tokenRedisClient)
-			certStore := certs.NewRedisStore(&certs.Config{
-				RedisClient: tokenRedisClient,
-			})
-
-			tokenService := token.New(token.Config{
-				Log:        log,
-				TokenStore: tokenStore,
-				CertStore:  certStore,
-				Issuer:     ctx.String(serverHttpUrlFlag.Name),
+			repo := repository.New(repository.Config{
+				Log: log,
+				TokenConfig: repository.TokenConfig{
+					TokenStore: tokencommon.NewRedisStore(tokenRedisClient),
+					CertStore: certs.NewRedisStore(&certs.Config{
+						RedisClient: tokenRedisClient,
+					}),
+					ProviderTenant: ctx.String(providerTenantFlag.Name),
+					Issuer:         ctx.String(serverHttpUrlFlag.Name),
+				},
 			})
 
 			var permissions []*apiv2.MethodPermission
@@ -228,10 +228,10 @@ func newTokenCmd() *cli.Command {
 					return fmt.Errorf("providerTenant cannot be empty")
 				}
 
-				return storeTokensFromConfigFile(ctx.Context, log, tokenService, configFile, providerTenant, namespace, secretName)
+				return storeTokensFromConfigFile(ctx.Context, log, repo, configFile, providerTenant, namespace, secretName)
 			}
 
-			resp, err := tokenService.CreateApiTokenWithoutPermissionCheck(ctx.Context, subject, &apiv2.TokenServiceCreateRequest{
+			resp, err := repo.UnscopedToken().AdditionalMethods().CreateApiTokenWithoutPermissionCheck(ctx.Context, subject, &apiv2.TokenServiceCreateRequest{
 				Description:  ctx.String(tokenDescriptionFlag.Name),
 				Expires:      durationpb.New(ctx.Duration(tokenExpirationFlag.Name)),
 				ProjectRoles: projectRoles,
@@ -246,12 +246,13 @@ func newTokenCmd() *cli.Command {
 			}
 
 			fmt.Println(resp.Secret)
+
 			return nil
 		},
 	}
 }
 
-func storeTokensFromConfigFile(ctx context.Context, log *slog.Logger, tokenService token.TokenService, configFile, providerTenant, namespace, secretName string) error {
+func storeTokensFromConfigFile(ctx context.Context, log *slog.Logger, repo *repository.Store, configFile, providerTenant, namespace, secretName string) error {
 	yamlBytes, err := os.ReadFile(configFile)
 	if err != nil {
 		return err
@@ -280,7 +281,7 @@ func storeTokensFromConfigFile(ctx context.Context, log *slog.Logger, tokenServi
 			subject = *tokenCreateRequest.User
 		}
 
-		resp, err := tokenService.CreateApiTokenWithoutPermissionCheck(ctx, subject, tokenCreateRequest.TokenCreateRequest)
+		resp, err := repo.UnscopedToken().AdditionalMethods().CreateApiTokenWithoutPermissionCheck(ctx, subject, tokenCreateRequest.TokenCreateRequest)
 		if err != nil {
 			return err
 		}
