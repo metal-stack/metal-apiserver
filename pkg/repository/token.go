@@ -8,13 +8,16 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
+	"github.com/metal-stack/metal-apiserver/pkg/request"
+	"github.com/metal-stack/metal-apiserver/pkg/token"
 )
 
 type (
 	tokenRepository struct {
-		s     *Store
-		scope *UserScope
-		patg  api.ProjectsAndTenantsGetter
+		s          *Store
+		scope      *UserScope
+		patg       api.ProjectsAndTenantsGetter
+		authorizer request.Authorizer
 	}
 )
 
@@ -121,7 +124,51 @@ func (t *tokenRepository) find(ctx context.Context, query *apiv2.TokenQuery) (*a
 }
 
 func (t *tokenRepository) create(ctx context.Context, c *adminv2.TokenServiceCreateRequest) (*api.TokenWithSecret, error) {
-	panic("unimplemented")
+	if t.scope == nil {
+		return nil, errorutil.FailedPrecondition("tokens cannot be created unscoped")
+	}
+
+	user := t.scope.user
+	if c.User != nil {
+		user = *c.User
+	}
+
+	privateKey, err := t.s.certs.LatestPrivate(ctx)
+	if err != nil {
+		return nil, errorutil.NewInternal(err)
+	}
+
+	req := c.TokenCreateRequest
+
+	secret, tok, err := token.NewJWT(apiv2.TokenType_TOKEN_TYPE_API, user, t.s.issuer, req.Expires.AsDuration(), privateKey)
+	if err != nil {
+		return nil, errorutil.NewInternal(err)
+	}
+
+	tok.Description = req.Description
+	tok.Permissions = req.Permissions
+	tok.ProjectRoles = req.ProjectRoles
+	tok.TenantRoles = req.TenantRoles
+	tok.AdminRole = req.AdminRole
+	tok.InfraRole = req.InfraRole
+	tok.MachineRoles = req.MachineRoles
+
+	if tok.Meta == nil {
+		tok.Meta = &apiv2.Meta{}
+	}
+	tok.Meta.Generation = 1
+	tok.Meta.CreatedAt = tok.IssuedAt
+	tok.Meta.Labels = req.Labels
+
+	err = t.s.tokens.Set(ctx, tok)
+	if err != nil {
+		return nil, err
+	}
+
+	return &api.TokenWithSecret{
+		Token:  tok,
+		Secret: secret,
+	}, nil
 }
 
 func (t *tokenRepository) delete(ctx context.Context, e *api.TokenWithSecret) (*deleteInfo, error) {
