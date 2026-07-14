@@ -20,6 +20,7 @@ var (
 	sw1 = &metal.Switch{
 		Base:      metal.Base{ID: "sw1"},
 		Rack:      "rack01",
+		Room:      "room01",
 		Partition: "partition-a",
 		OS: &metal.SwitchOS{
 			Vendor:  metal.SwitchOSVendorCumulus,
@@ -116,6 +117,13 @@ func TestSwitchFilter(t *testing.T) {
 				Rack: new("rack01"),
 			},
 			want: []*metal.Switch{sw1, sw2},
+		},
+		{
+			name: "query by room",
+			rq: &apiv2.SwitchQuery{
+				Room: new("room01"),
+			},
+			want: []*metal.Switch{sw1},
 		},
 		{
 			name: "query by os vendor",

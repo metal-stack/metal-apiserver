@@ -16,6 +16,7 @@ type (
 	Switch struct {
 		Base
 		Rack               string            `rethinkdb:"rackid"`
+		Room               string            `rethinkdb:"roomid"`
 		Partition          string            `rethinkdb:"partitionid"`
 		ReplaceMode        SwitchReplaceMode `rethinkdb:"mode"`
 		ManagementIP       string            `rethinkdb:"management_ip"`

@@ -19,6 +19,7 @@ type Machine struct {
 	PartitionID  string                  `rethinkdb:"partitionid"`
 	SizeID       string                  `rethinkdb:"sizeid"`
 	RackID       string                  `rethinkdb:"rackid"`
+	RoomID       string                  `rethinkdb:"roomid"`
 	Waiting      bool                    `rethinkdb:"waiting"`
 	PreAllocated bool                    `rethinkdb:"preallocated"`
 	Hardware     MachineHardware         `rethinkdb:"hardware"`

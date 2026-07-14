@@ -53,6 +53,12 @@ func MachineFilter(rq *apiv2.MachineQuery) func(q r.Term) r.Term {
 			})
 		}
 
+		if rq.Room != nil {
+			q = q.Filter(func(row r.Term) r.Term {
+				return row.Field("roomid").Eq(*rq.Room)
+			})
+		}
+
 		if rq.Labels != nil {
 			for key, value := range rq.Labels.Labels {
 				tag := fmt.Sprintf("%s=%s", key, value)
