@@ -14,6 +14,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
+	"github.com/metal-stack/metal-apiserver/pkg/request"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/auditing"
 	"github.com/valkey-io/valkey-go"
@@ -322,12 +323,15 @@ func (s *Store) UnscopedToken() Token {
 }
 
 func (s *Store) token(scope *UserScope) Token {
+	patg := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
+		return s.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, userId)
+	}
+
 	repository := &tokenRepository{
-		s:     s,
-		scope: scope,
-		patg: func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
-			return s.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, userId)
-		},
+		s:          s,
+		scope:      scope,
+		patg:       patg,
+		authorizer: request.NewAuthorizer(s.log, patg),
 	}
 
 	return &store[*tokenRepository, *api.TokenWithSecret, *api.TokenWithSecret, *adminv2.TokenServiceCreateRequest, *apiv2.TokenServiceUpdateRequest, *apiv2.TokenQuery]{
