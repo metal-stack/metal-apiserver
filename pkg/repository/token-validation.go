@@ -98,7 +98,7 @@ func (t *tokenRepository) validateCreate(ctx context.Context, req *adminv2.Token
 
 func (t *tokenRepository) validateUpdate(ctx context.Context, req *apiv2.TokenServiceUpdateRequest, tokenToUpdate *api.TokenWithSecret) error {
 	if t.scope == nil {
-		return errorutil.FailedPrecondition("tokens cannot be created unscoped")
+		return errorutil.FailedPrecondition("tokens cannot be updated unscoped")
 	}
 
 	if req.UpdateMeta != nil && req.UpdateMeta.UpdatedAt != nil {

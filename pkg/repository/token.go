@@ -188,7 +188,7 @@ func (t *tokenRepository) delete(ctx context.Context, e *api.TokenWithSecret) (*
 
 func (t *tokenRepository) update(ctx context.Context, tokenToUpdate *api.TokenWithSecret, req *apiv2.TokenServiceUpdateRequest) (*api.TokenWithSecret, error) {
 	if t.scope == nil {
-		return nil, errorutil.FailedPrecondition("tokens cannot be created unscoped")
+		return nil, errorutil.FailedPrecondition("tokens cannot be updated unscoped")
 	}
 
 	tok := tokenToUpdate.Token
