@@ -1,4 +1,4 @@
-package token
+package repository
 
 import (
 	"context"
@@ -11,10 +11,10 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	"github.com/google/go-cmp/cmp"
 	"github.com/metal-stack/api/go/errorutil"
+	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
-	"github.com/metal-stack/metal-apiserver/pkg/request"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
@@ -32,8 +32,9 @@ var (
 	tenant2    = "animals"
 )
 
-func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
+func Test_roleAndPermissionCombinations(t *testing.T) {
 	t.Parallel()
+
 	type state struct {
 		providerTenant string
 		projectRoles   map[string]apiv2.ProjectRole
@@ -2187,14 +2188,19 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 				}, nil
 			}
 			log := slog.Default()
-			service := tokenService{
-				log:                      log,
-				tokens:                   tokenStore,
-				certs:                    certStore,
-				issuer:                   "http://test",
-				providerTenant:           tt.state.providerTenant,
-				projectsAndTenantsGetter: projectsAndTenantsGetter,
-				authorizer:               request.NewAuthorizer(log, projectsAndTenantsGetter),
+
+			tokenRepo := tokenRepository{
+				s: &Store{
+					log:            log,
+					certs:          certStore,
+					tokens:         tokenStore,
+					issuer:         "http://test",
+					providerTenant: tt.state.providerTenant,
+				},
+				scope: &UserScope{
+					user: tt.sessionToken.User,
+				},
+				patg: projectsAndTenantsGetter,
 			}
 
 			err := protovalidate.Validate(tt.req)
@@ -2209,7 +2215,26 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 				return
 			}
 
-			response, err := service.Create(ctx, tt.req)
+			req := &adminv2.TokenServiceCreateRequest{
+				TokenCreateRequest: tt.req,
+			}
+
+			err = tokenRepo.validateCreate(ctx, req)
+			switch {
+			case tt.wantError != nil && err != nil:
+				if dff := cmp.Diff(tt.wantError.Error(), err.Error()); dff != "" {
+					t.Fatal(dff)
+				}
+
+				return
+			case tt.wantError != nil && err == nil:
+				t.Fatalf("want error %q, got nil", tt.wantError.Error())
+			case err != nil:
+				t.Fatalf("want response, got error %q", err.Error())
+			}
+
+			response, err := tokenRepo.create(ctx, req)
+
 			switch {
 			case tt.wantError != nil && err != nil:
 				if diff := cmp.Diff(tt.wantError.Error(), err.Error()); diff != "" {
@@ -2240,6 +2265,589 @@ func Test_Create_RoleAndPermissionCombinations(t *testing.T) {
 				if tt.wantToken.InfraRole != nil {
 					assert.Equal(t, tt.wantToken.InfraRole, got.InfraRole, "infra role")
 				}
+			}
+		})
+	}
+}
+
+func Test_validateTokenRequest(t *testing.T) {
+	t.Parallel()
+	inOneHour := durationpb.New(time.Hour)
+	tests := []struct {
+		name           string
+		pat            *api.ProjectsAndTenants
+		token          *apiv2.Token
+		req            *apiv2.TokenServiceCreateRequest
+		providerTenant string
+		wantErr        error
+	}{
+		{
+			name: "simple token with empty permissions and roles",
+			token: &apiv2.Token{
+				User:      "test",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "",
+						Methods: []string{""},
+					},
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "i don't need any permissions",
+				Expires:     inOneHour,
+			},
+			providerTenant: "metal-stack",
+			wantErr:        nil,
+		},
+		// Inherited Permissions
+		{
+			name: "simple token with no permissions but project role",
+			pat: &api.ProjectsAndTenants{
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"ae8d2493-41ec-4efd-bbb4-81085b20b6fe": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
+				},
+			},
+			token: &apiv2.Token{
+				User:      "test",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"ae8d2493-41ec-4efd-bbb4-81085b20b6fe": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "i want to get a cluster for this project",
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "ae8d2493-41ec-4efd-bbb4-81085b20b6fe",
+						Methods: []string{
+							"/metalstack.api.v2.IPService/Get",
+						},
+					},
+				},
+				Expires: inOneHour,
+			},
+			providerTenant: "metal-stack",
+			wantErr:        nil,
+		},
+		// Permissions from Token
+		{
+			name: "simple token with one project and permission",
+			pat: &api.ProjectsAndTenants{
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"abc": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
+				},
+			},
+			token: &apiv2.Token{
+				User:      "test",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "abc",
+						Methods: []string{"/metalstack.api.v2.IPService/Get"},
+					},
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "i want to get a cluster",
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "abc",
+						Methods: []string{"/metalstack.api.v2.IPService/Get"},
+					},
+				},
+				Expires: inOneHour,
+			},
+			providerTenant: "metal-stack",
+			wantErr:        nil,
+		},
+		{
+			name: "simple token with unknown method",
+			pat: &api.ProjectsAndTenants{
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"abc": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+			},
+			token: &apiv2.Token{
+				User:      "test",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "abc",
+						Methods: []string{"/metalstack.api.v2.IPService/Get"},
+					},
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "i want to get a cluster",
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "abc",
+						Methods: []string{"/metalstack.api.v2.UnknownService/Get"},
+					},
+				},
+				Expires: inOneHour,
+			},
+			providerTenant: "metal-stack",
+			wantErr:        errors.New("unknown method \"/metalstack.api.v2.UnknownService/Get\""),
+		},
+		{
+			name: "simple token with one project and permission, wrong project given",
+			pat: &api.ProjectsAndTenants{
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"abc": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+					"cde": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+			},
+			token: &apiv2.Token{
+				User:      "sfs",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "abc",
+						Methods: []string{"/metalstack.api.v2.IPService/Get"},
+					},
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "i want to get a cluster",
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "cde",
+						Methods: []string{"/metalstack.api.v2.IPService/Get"},
+					},
+				},
+				Expires: inOneHour,
+			},
+			providerTenant: "metal-stack",
+			wantErr:        errors.New("method \"/metalstack.api.v2.IPService/Get\" is not allowed on subject \"cde\" with your current user permissions"),
+		},
+		{
+			name: "simple token with one project and permission, wrong message given",
+			pat: &api.ProjectsAndTenants{
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"abc": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+			},
+			token: &apiv2.Token{
+				User:      "sfs",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "abc",
+						Methods: []string{"/metalstack.api.v2.IPService/Get"},
+					},
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "i want to list clusters",
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "abc",
+						Methods: []string{"/metalstack.api.v2.IPService/List"},
+					},
+				},
+				Expires: inOneHour,
+			},
+			providerTenant: "metal-stack",
+			wantErr:        errors.New("the following method \"/metalstack.api.v2.IPService/List\" is not allowed on any of the requested subjects: [abc]"),
+		},
+		{
+			name: "simple token with one project and permission, wrong messages given",
+			pat: &api.ProjectsAndTenants{
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"abc": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+			},
+			token: &apiv2.Token{
+				User:      "sfs",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "abc",
+						Methods: []string{
+							"/metalstack.api.v2.IPService/Create",
+							"/metalstack.api.v2.IPService/Get",
+							"/metalstack.api.v2.IPService/Delete",
+						},
+					},
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "i want to get and list clusters",
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "abc",
+						Methods: []string{
+							"/metalstack.api.v2.IPService/Get",
+							"/metalstack.api.v2.IPService/List",
+						},
+					},
+				},
+				Expires: inOneHour,
+			},
+			providerTenant: "metal-stack",
+			wantErr:        errors.New("the following method \"/metalstack.api.v2.IPService/List\" is not allowed on any of the requested subjects: [abc]"),
+		},
+		// Roles from Token
+		{
+			name: "token has no role",
+			pat: &api.ProjectsAndTenants{
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"abc": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
+				},
+			},
+			token: &apiv2.Token{
+				User:      "test",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "abc",
+						Methods: []string{"/metalstack.api.v2.IPService/Get"},
+					},
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "i want to get a cluster",
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "abc",
+						Methods: []string{"/metalstack.api.v2.IPService/Get"},
+					},
+				},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"john@github": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+				Expires: inOneHour,
+			},
+			providerTenant: "metal-stack",
+			wantErr:        errors.New("requested tenant roles are not allowed: [john@github]"),
+		},
+		{
+			name: "token has to low role",
+			pat: &api.ProjectsAndTenants{
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"abc": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
+				},
+			},
+			token: &apiv2.Token{
+				User:      "test",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "abc",
+						Methods: []string{"/metalstack.api.v2.IPService/Get"},
+					},
+				},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"company-a@github": apiv2.TenantRole_TENANT_ROLE_VIEWER,
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "i want to get a cluster",
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "abc",
+						Methods: []string{"/metalstack.api.v2.IPService/Get"},
+					},
+				},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"company-a@github": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+				Expires: inOneHour,
+			},
+			providerTenant: "metal-stack",
+			wantErr:        errors.New("the following method \"/metalstack.api.v2.ProjectService/Create\" is not allowed"),
+		},
+		{
+			name: "token request has unspecified role",
+			pat: &api.ProjectsAndTenants{
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"abc": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
+				},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"company-a@github": apiv2.TenantRole_TENANT_ROLE_VIEWER,
+				},
+			},
+			token: &apiv2.Token{
+				User:      "test",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "abc",
+						Methods: []string{"/metalstack.api.v2.IPService/Get"},
+					},
+				},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"company-a@github": apiv2.TenantRole_TENANT_ROLE_VIEWER,
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "i want to get a cluster",
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "abc",
+						Methods: []string{"/metalstack.api.v2.IPService/Get"},
+					},
+				},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"company-a@github": apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED,
+				},
+				Expires: inOneHour,
+			},
+			providerTenant: "metal-stack",
+			wantErr:        errors.New("requested tenant role: \"TENANT_ROLE_UNSPECIFIED\" is not allowed"),
+		},
+		// AdminSubjects
+		{
+			name:           "requested admin role but is not allowed",
+			providerTenant: "metal-stack",
+			pat: &api.ProjectsAndTenants{
+				TenantRoles: map[string]apiv2.TenantRole{
+					"company-a@github": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
+			token: &apiv2.Token{
+				User:      "test",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				TenantRoles: map[string]apiv2.TenantRole{
+					"company-a@github": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "i want to get admin access",
+				AdminRole:   new(apiv2.AdminRole_ADMIN_ROLE_VIEWER),
+				Expires:     inOneHour,
+			},
+			wantErr: errors.New("the following method \"/grpc.reflection.v1.ServerReflection/ServerReflectionInfo\" is not allowed on any of the requested subjects: [*]"),
+		},
+		{
+			name:           "requested admin role but is only viewer of admin orga",
+			providerTenant: "company-a@github",
+			pat: &api.ProjectsAndTenants{
+				TenantRoles: map[string]apiv2.TenantRole{
+					"company-a@github": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
+			token: &apiv2.Token{
+				User:      "test",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				TenantRoles: map[string]apiv2.TenantRole{
+					"company-a@github": apiv2.TenantRole_TENANT_ROLE_VIEWER,
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "i want to get admin access",
+				AdminRole:   new(apiv2.AdminRole_ADMIN_ROLE_EDITOR),
+				Expires:     inOneHour,
+			},
+			wantErr: errors.New("the following method \"/grpc.reflection.v1.ServerReflection/ServerReflectionInfo\" is not allowed on any of the requested subjects: [*]"),
+		},
+		{
+			name:           "token requested admin role but is editor in admin orga",
+			providerTenant: "company-a@github",
+			pat: &api.ProjectsAndTenants{
+				TenantRoles: map[string]apiv2.TenantRole{
+					"company-a@github": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
+			token: &apiv2.Token{
+				User:      "company-a@github",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				TenantRoles: map[string]apiv2.TenantRole{
+					"company-a@github": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "i want to get admin access",
+				AdminRole:   new(apiv2.AdminRole_ADMIN_ROLE_EDITOR),
+				Expires:     inOneHour,
+			},
+			wantErr: errors.New("the following method \"/grpc.reflection.v1.ServerReflection/ServerReflectionInfo\" is not allowed on any of the requested subjects: [*]"),
+		},
+		{
+			name:           "token requested admin role and has admin role editor",
+			providerTenant: "company-a@github",
+			pat: &api.ProjectsAndTenants{
+				TenantRoles: map[string]apiv2.TenantRole{
+					"company-a@github": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
+			token: &apiv2.Token{
+				User:      "company-a@github",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				TenantRoles: map[string]apiv2.TenantRole{
+					"company-a@github": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+				AdminRole: new(apiv2.AdminRole_ADMIN_ROLE_EDITOR),
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "i want to get admin access",
+				AdminRole:   new(apiv2.AdminRole_ADMIN_ROLE_EDITOR),
+				Expires:     inOneHour,
+			},
+			wantErr: nil,
+		},
+		// Infra Roles
+		{
+			name:           "admin editor requested infra editor",
+			providerTenant: "company-admin@github",
+			token: &apiv2.Token{
+				User:      "company-admin@github",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				AdminRole: apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "metal-bmc token",
+				InfraRole:   apiv2.InfraRole_INFRA_ROLE_EDITOR.Enum(),
+				Expires:     inOneHour,
+			},
+			wantErr: nil,
+		},
+		{
+			name:           "admin viewer requested infra editor",
+			providerTenant: "company-admin@github",
+			token: &apiv2.Token{
+				User:      "company-admin@github",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				AdminRole: apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "metal-bmc token",
+				InfraRole:   apiv2.InfraRole_INFRA_ROLE_EDITOR.Enum(),
+				Expires:     inOneHour,
+			},
+			wantErr: errors.New("the following method \"/metalstack.infra.v2.BMCService/BMCCommandDone\" is not allowed on any of the requested subjects: [*]"),
+		},
+		// Mixed role and permissions
+		{
+			name: "token has no role",
+			pat: &api.ProjectsAndTenants{
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"ae8d2493-41ec-4efd-bbb4-81085b20b6fe": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
+				},
+			},
+			token: &apiv2.Token{
+				User:      "test",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					"ae8d2493-41ec-4efd-bbb4-81085b20b6fe": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "i want to get a cluster",
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "ae8d2493-41ec-4efd-bbb4-81085b20b6fe",
+						Methods: []string{"/metalstack.api.v2.IPService/Get"},
+					},
+					{
+						Subject: "internet",
+						Methods: []string{"/metalstack.admin.v2.NetworkService/Create"},
+					},
+				},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"john@github": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+				Expires: inOneHour,
+			},
+			providerTenant: "metal-stack",
+			wantErr:        errors.New("requested tenant roles are not allowed: [john@github]"),
+		},
+
+		// Machine Roles
+		{
+			name: "token has no machine role",
+			token: &apiv2.Token{
+				User:        "test",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "i want to get access to a machine",
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+				Expires: inOneHour,
+			},
+			providerTenant: "metal-stack",
+			wantErr:        errors.New("requested machine roles are not allowed: [de240964-ff9f-4e3d-95b2-8a96e43788f1]"),
+		},
+		{
+			name: "token has machine role, matching request succeeds",
+			pat:  &api.ProjectsAndTenants{},
+			token: &apiv2.Token{
+				User:        "test",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{},
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "i want to get access to a machine",
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+				Expires: inOneHour,
+			},
+			providerTenant: "metal-stack",
+			wantErr:        nil,
+		},
+		{
+			name: "token has different machine role, forbidden machine in request",
+			pat:  &api.ProjectsAndTenants{},
+			token: &apiv2.Token{
+				User:        "test",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{},
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "i want to get access to a different machine",
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f2": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+				Expires: inOneHour,
+			},
+			providerTenant: "metal-stack",
+			wantErr:        errors.New("requested machine roles are not allowed: [de240964-ff9f-4e3d-95b2-8a96e43788f2]"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.token.User == "" {
+				t.Errorf("no user in token specified")
+			}
+
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				err := protovalidate.Validate(tt.req)
+				require.NoError(t, err)
+			}
+
+			projectsAndTenantsGetter := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
+				return tt.pat, nil
+			}
+			log := slog.Default()
+
+			tokenRepo := tokenRepository{
+				s: &Store{
+					log: log,
+				},
+				patg: projectsAndTenantsGetter,
+			}
+
+			gotErr := tokenRepo.validateTokenRequest(t.Context(), tt.token, tt.req)
+
+			t.Log(gotErr)
+			if tt.wantErr != nil {
+				require.EqualError(t, gotErr, tt.wantErr.Error())
+			} else if gotErr != nil {
+				require.NoError(t, gotErr)
 			}
 		})
 	}

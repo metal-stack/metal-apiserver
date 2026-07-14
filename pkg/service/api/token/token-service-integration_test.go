@@ -13,6 +13,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/metal-stack/api/go/errorutil"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	tokenservice "github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
@@ -20,6 +21,683 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 )
+
+var (
+	kubies = "00000000-0000-0000-0000-000000000000"
+)
+
+func Test_Create(t *testing.T) {
+	t.Parallel()
+
+	log := slog.Default()
+
+	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithValkey(true), test.WithPostgres(true))
+	defer closer()
+
+	type state struct {
+		providerTenant string
+		projectRoles   map[string]apiv2.ProjectRole
+		tenantRoles    map[string]apiv2.TenantRole
+	}
+	tests := []struct {
+		name           string
+		sessionToken   *apiv2.Token
+		req            *apiv2.TokenServiceCreateRequest
+		state          state
+		wantErr        bool
+		wantErrMessage string
+		wantToken      *apiv2.Token
+	}{
+		{
+			name: "can create bare token",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "empty token",
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+				tenantRoles:    map[string]apiv2.TenantRole{},
+			},
+			wantToken: &apiv2.Token{
+				User:        "phippy",
+				Description: "empty token",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
+			},
+		},
+		{
+			name: "user and token without project access cannot create project token",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "project token",
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+				TenantRoles: map[string]apiv2.TenantRole{},
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+			},
+			wantErr:        true,
+			wantErrMessage: `permission_denied: requested project roles are not allowed: [00000000-0000-0000-0000-000000000000]`,
+		},
+		{
+			name: "user and token with project access can create project token",
+			sessionToken: &apiv2.Token{
+				User:        "phippy",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+				TenantRoles: map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "project token",
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+				TenantRoles: map[string]apiv2.TenantRole{},
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+				projectRoles: map[string]apiv2.ProjectRole{
+					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+			},
+			wantToken: &apiv2.Token{
+				User:        "phippy",
+				Description: "project token",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+				TenantRoles: map[string]apiv2.TenantRole{},
+			},
+		},
+		{
+			name: "user without but token with project access cannot create project token",
+			sessionToken: &apiv2.Token{
+				User:        "phippy",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+				TenantRoles: map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "project token",
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+				TenantRoles: map[string]apiv2.TenantRole{},
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+				projectRoles:   map[string]apiv2.ProjectRole{},
+			},
+			wantErr:        true,
+			wantErrMessage: `permission_denied: requested project roles are not allowed: [00000000-0000-0000-0000-000000000000]`,
+		},
+		{
+			name: "project without but user with project access cannot create project token",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "project token",
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+				TenantRoles: map[string]apiv2.TenantRole{},
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+				projectRoles: map[string]apiv2.ProjectRole{
+					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+			},
+			wantErr:        true,
+			wantErrMessage: `permission_denied: requested project roles are not allowed: [00000000-0000-0000-0000-000000000000]`,
+		},
+		{
+			name: "normal user with provider-tenant owner membership can create new admin editor token",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_USER,
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description:  "admin token",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+				tenantRoles: map[string]apiv2.TenantRole{
+					test.DefaultProviderTenant: apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			wantToken: &apiv2.Token{
+				User:         "phippy",
+				Description:  "admin token",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			},
+		},
+		{
+			name: "normal user with provider-tenant viewer membership can create new admin viewer token",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_USER,
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description:  "admin token",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+				tenantRoles: map[string]apiv2.TenantRole{
+					test.DefaultProviderTenant: apiv2.TenantRole_TENANT_ROLE_VIEWER,
+				},
+			},
+			wantToken: &apiv2.Token{
+				User:         "phippy",
+				Description:  "admin token",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
+			},
+		},
+		{
+			name: "provider tenant user owner can create new admin editor token",
+			sessionToken: &apiv2.Token{
+				User:         test.DefaultProviderTenant,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_USER,
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description:  "admin token",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+			},
+			wantToken: &apiv2.Token{
+				User:         test.DefaultProviderTenant,
+				Description:  "admin token",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			},
+		},
+		{
+			name: "provider tenant user viewer can create new admin viewer token",
+			sessionToken: &apiv2.Token{
+				User:         test.DefaultProviderTenant,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_USER,
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description:  "admin token",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+				tenantRoles: map[string]apiv2.TenantRole{
+					test.DefaultProviderTenant: apiv2.TenantRole_TENANT_ROLE_VIEWER,
+				},
+			},
+			wantToken: &apiv2.Token{
+				User:         test.DefaultProviderTenant,
+				Description:  "admin token",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
+			},
+		},
+		{
+			name: "admin viewer cannot create admin editor token",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_USER,
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description:  "admin token",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+				tenantRoles: map[string]apiv2.TenantRole{
+					test.DefaultProviderTenant: apiv2.TenantRole_TENANT_ROLE_VIEWER,
+				},
+			},
+			wantToken:      nil,
+			wantErr:        true,
+			wantErrMessage: `permission_denied: your provider tenant membership only allows "ADMIN_ROLE_VIEWER", but you requested "ADMIN_ROLE_EDITOR"`,
+		},
+		{
+			name: "normal user which is not member in the provider tenant can not create new admin viewer token",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_USER,
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description:  "admin token",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
+			},
+			state: state{
+				providerTenant: "blippy",
+			},
+			wantToken:      nil,
+			wantErr:        true,
+			wantErrMessage: `permission_denied: the following method "/metalstack.admin.v2.AuditService/Get" is not allowed on any of the requested subjects: [*]`,
+		},
+		{
+			name: "admin user and token can create new admin token",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description:  "admin token",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+				tenantRoles: map[string]apiv2.TenantRole{
+					test.DefaultProviderTenant: apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			wantToken: &apiv2.Token{
+				User:         "phippy",
+				Description:  "admin token",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			},
+		},
+		{
+			name: "admin token but not user cannot create new admin token",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description:  "admin token",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+			},
+			wantErr:        true,
+			wantErrMessage: `permission_denied: the following method "/grpc.reflection.v1.ServerReflection/ServerReflectionInfo" is not allowed on any of the requested subjects: [*]`,
+		},
+		{
+			name: "user and token without tenant access cannot create tenant token",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description:  "project token",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+			},
+			wantErr:        true,
+			wantErrMessage: `permission_denied: requested tenant roles are not allowed: [mascots]`,
+		},
+		{
+			name: "user and token with tenant access can create tenant token",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description:  "project token",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+				tenantRoles: map[string]apiv2.TenantRole{
+					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
+			wantToken: &apiv2.Token{
+				User:         "phippy",
+				Description:  "project token",
+				TokenType:    *apiv2.TokenType_TOKEN_TYPE_API.Enum(),
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
+		},
+		{
+			name: "user requests token for mascots but in the database does not have required tenant membership for mascots",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description:  "project token",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+				projectRoles:   map[string]apiv2.ProjectRole{},
+				tenantRoles: map[string]apiv2.TenantRole{
+					"phippy": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			wantErr:        true,
+			wantErrMessage: `permission_denied: requested tenant roles are not allowed: [mascots]`,
+		},
+		{
+			name: "user requests token for mascots but neither has mascots in his token permissions nor in the database",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"phippy": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description:  "project token",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+				projectRoles:   map[string]apiv2.ProjectRole{},
+				tenantRoles: map[string]apiv2.TenantRole{
+					"phippy": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			wantErr:        true,
+			wantErrMessage: `permission_denied: requested tenant roles are not allowed: [mascots]`,
+		},
+		{
+			name: "token without but user with tenant access cannot create tenant token",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description:  "project token",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+				projectRoles:   map[string]apiv2.ProjectRole{},
+				tenantRoles: map[string]apiv2.TenantRole{
+					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
+				},
+			},
+			wantErr:        true,
+			wantErrMessage: `permission_denied: requested tenant roles are not allowed: [mascots]`,
+		},
+		{
+			name: "user and token without machine access cannot create machine token",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "machine token",
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+				TenantRoles: map[string]apiv2.TenantRole{},
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+			},
+			wantErr:        true,
+			wantErrMessage: `permission_denied: requested machine roles are not allowed: [de240964-ff9f-4e3d-95b2-8a96e43788f1]`,
+		},
+		{
+			name: "user and token with machine access can create machine token",
+			sessionToken: &apiv2.Token{
+				User:        "pixie-core",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{},
+				MachineRoles: map[string]apiv2.MachineRole{
+					"*": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+				TenantRoles: map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "machine token",
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+				TenantRoles: map[string]apiv2.TenantRole{},
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+			},
+			wantToken: &apiv2.Token{
+				User:        "pixie-core",
+				Description: "machine token",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+				TenantRoles: map[string]apiv2.TenantRole{},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(innerT *testing.T) {
+			defer testStore.Cleanup(t)
+
+			ctx, cancel := context.WithCancel(token.ContextWithToken(innerT.Context(), tt.sessionToken))
+			defer cancel()
+
+			test.CreateTenants(innerT, testStore, []*apiv2.TenantServiceCreateRequest{
+				{
+					Name: tt.sessionToken.User,
+				},
+			})
+
+			// every logged in users comes with default tenant owner membership
+			test.CreateTenantMemberships(innerT, testStore, tt.sessionToken.User, []*api.TenantMemberCreateRequest{
+				{
+					MemberID: tt.sessionToken.User,
+					Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			})
+
+			for id, perm := range tt.state.tenantRoles {
+				if id != tt.sessionToken.User {
+					test.CreateTenants(innerT, testStore, []*apiv2.TenantServiceCreateRequest{
+						{
+							Name: id,
+						},
+					})
+				}
+				test.CreateTenantMemberships(innerT, testStore, id, []*api.TenantMemberCreateRequest{
+					{
+						MemberID: tt.sessionToken.User,
+						Role:     perm,
+					},
+				})
+			}
+
+			for id, perm := range tt.state.projectRoles {
+				test.CreateProjects(innerT, testStore, []*apiv2.ProjectServiceCreateRequest{
+					{
+						Login: tt.sessionToken.User,
+						Name:  id,
+					},
+				})
+				test.CreateProjectMemberships(innerT, testStore, id, []*api.ProjectMemberCreateRequest{
+					{
+						TenantId: tt.sessionToken.User,
+						Role:     perm,
+					},
+				})
+			}
+
+			service := tokenservice.New(tokenservice.Config{
+				Log:  log,
+				Repo: testStore.Store,
+			})
+
+			if tt.wantErr == false {
+				// Execute proto based validation
+				err := protovalidate.Validate(tt.req)
+				require.NoError(t, err)
+			}
+
+			response, err := service.Create(ctx, tt.req)
+			switch {
+			case tt.wantErr && err != nil:
+				if diff := cmp.Diff(tt.wantErrMessage, err.Error()); diff != "" {
+					t.Errorf("diff = %s", diff)
+				}
+			case tt.wantErr && err == nil:
+				t.Fatalf("want error %q, got response %q", tt.wantErrMessage, response)
+			case err != nil:
+				t.Fatalf("want response, got error %q", err)
+
+			default:
+				if response.Secret == "" {
+					t.Error("response secret for token may not be empty")
+				}
+				require.NotNil(t, tt.wantToken, "token returned, nil expected")
+
+				got := response.Token
+				assert.Equal(t, tt.wantToken.Description, got.Description, "description")
+				assert.Equal(t, tt.wantToken.User, got.User, "user id")
+				assert.Equal(t, tt.wantToken.TokenType, got.TokenType, "token type")
+				assert.Equal(t, tt.wantToken.AdminRole, got.AdminRole, "admin role")
+				assert.Equal(t, tt.wantToken.Permissions, got.Permissions, "permissions")
+				assert.Equal(t, tt.wantToken.ProjectRoles, got.ProjectRoles, "project roles")
+				assert.Equal(t, tt.wantToken.TenantRoles, got.TenantRoles, "tenant roles")
+				assert.Equal(t, tt.wantToken.MachineRoles, got.MachineRoles, "machine roles")
+			}
+		})
+	}
+}
+
+func Test_Create_NoToken(t *testing.T) {
+	t.Parallel()
+
+	log := slog.Default()
+
+	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithValkey(true), test.WithPostgres(true))
+	defer closer()
+
+	service := tokenservice.New(tokenservice.Config{
+		Log:            log,
+		Repo:           testStore.Store,
+		ProviderTenant: test.DefaultProviderTenant,
+		Issuer:         "http://test",
+	})
+
+	_, err := service.Create(t.Context(), &apiv2.TokenServiceCreateRequest{})
+	require.Error(t, err)
+	require.Equal(t, "unauthenticated: no token found in request", err.Error())
+}
 
 func Test_tokenService_CreateConsoleTokenWithoutPermissionCheck(t *testing.T) {
 	t.Parallel()

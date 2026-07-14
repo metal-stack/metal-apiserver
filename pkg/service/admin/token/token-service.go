@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 
+	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -66,14 +67,18 @@ func (t *tokenService) Revoke(ctx context.Context, req *adminv2.TokenServiceRevo
 }
 
 func (t *tokenService) Create(ctx context.Context, req *adminv2.TokenServiceCreateRequest) (*adminv2.TokenServiceCreateResponse, error) {
-	resp, err := t.ts.CreateTokenForUser(ctx, req.User, req.TokenCreateRequest)
+	token, ok := tokenutil.TokenFromContext(ctx)
+	if !ok || token == nil {
+		return nil, errorutil.Unauthenticated("no token found in request")
+	}
 
+	res, err := t.repo.Token(token.User).Create(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 
 	return &adminv2.TokenServiceCreateResponse{
-		Token:  resp.Token,
-		Secret: resp.Secret,
+		Token:  res.Token,
+		Secret: res.Secret,
 	}, nil
 }

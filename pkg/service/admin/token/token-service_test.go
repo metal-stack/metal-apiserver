@@ -11,9 +11,11 @@ import (
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	tokenservice "github.com/metal-stack/metal-apiserver/pkg/service/admin/token"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 )
@@ -598,6 +600,206 @@ func Test_Revoke(t *testing.T) {
 				); diff != "" {
 					innerT.Errorf("diff: %s", diff)
 				}
+			}
+		})
+	}
+}
+
+func Test_Create(t *testing.T) {
+	t.Parallel()
+
+	log := slog.Default()
+
+	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithValkey(true), test.WithPostgres(true))
+	defer closer()
+
+	type state struct {
+		providerTenant string
+		projectRoles   map[string]apiv2.ProjectRole
+		tenantRoles    map[string]apiv2.TenantRole
+	}
+	tests := []struct {
+		name           string
+		sessionToken   *apiv2.Token
+		req            *adminv2.TokenServiceCreateRequest
+		state          state
+		wantErr        bool
+		wantErrMessage string
+		wantToken      *apiv2.Token
+	}{
+		{
+			name: "phippy can create token for user foo",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			req: &adminv2.TokenServiceCreateRequest{
+				TokenCreateRequest: &apiv2.TokenServiceCreateRequest{
+					Description: "empty token",
+				},
+				User: new("foo"),
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+				tenantRoles: map[string]apiv2.TenantRole{
+					test.DefaultProviderTenant: apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			wantToken: &apiv2.Token{
+				User:        "foo",
+				Description: "empty token",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
+			},
+		},
+		{
+			name: "pixie-core can create token for metal-hammer with machine roles",
+			sessionToken: &apiv2.Token{
+				User:         "pixie-core",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+			},
+			req: &adminv2.TokenServiceCreateRequest{
+				TokenCreateRequest: &apiv2.TokenServiceCreateRequest{
+					Description: "machine token",
+					MachineRoles: map[string]apiv2.MachineRole{
+						"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+					},
+				},
+				User: new("metal-hammer"),
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+				tenantRoles: map[string]apiv2.TenantRole{
+					test.DefaultProviderTenant: apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			wantToken: &apiv2.Token{
+				User:        "metal-hammer",
+				Description: "machine token",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+			},
+		},
+		{
+			name: "bar can not create token for user foo",
+			sessionToken: &apiv2.Token{
+				User:         "bar",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			req: &adminv2.TokenServiceCreateRequest{
+				TokenCreateRequest: &apiv2.TokenServiceCreateRequest{
+					Description: "empty token",
+				},
+				User: new("foo"),
+			},
+			state: state{
+				providerTenant: "phippy",
+			},
+			wantToken:      nil,
+			wantErr:        true,
+			wantErrMessage: "permission_denied: only admins can specify token user",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(innerT *testing.T) {
+			defer testStore.Cleanup(t)
+
+			ctx, cancel := context.WithCancel(token.ContextWithToken(innerT.Context(), tt.sessionToken))
+			defer cancel()
+
+			test.CreateTenants(innerT, testStore, []*apiv2.TenantServiceCreateRequest{
+				{
+					Name: tt.sessionToken.User,
+				},
+			})
+			test.CreateTenantMemberships(innerT, testStore, tt.sessionToken.User, []*api.TenantMemberCreateRequest{
+				{
+					MemberID: tt.sessionToken.User,
+					Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			})
+
+			for id, perm := range tt.state.tenantRoles {
+				if id != tt.sessionToken.User {
+					test.CreateTenants(innerT, testStore, []*apiv2.TenantServiceCreateRequest{
+						{
+							Name: id,
+						},
+					})
+				}
+				test.CreateTenantMemberships(innerT, testStore, id, []*api.TenantMemberCreateRequest{
+					{
+						MemberID: tt.sessionToken.User,
+						Role:     perm,
+					},
+				})
+			}
+
+			for id, perm := range tt.state.projectRoles {
+				test.CreateProjects(innerT, testStore, []*apiv2.ProjectServiceCreateRequest{
+					{
+						Login: tt.sessionToken.User,
+						Name:  id,
+					},
+				})
+				test.CreateProjectMemberships(innerT, testStore, id, []*api.ProjectMemberCreateRequest{
+					{
+						TenantId: tt.sessionToken.User,
+						Role:     perm,
+					},
+				})
+			}
+			service := tokenservice.New(tokenservice.Config{
+				Log:  log,
+				Repo: testStore.Store,
+			})
+
+			if tt.wantErr == false {
+				// Execute proto based validation
+				err := protovalidate.Validate(tt.req)
+				require.NoError(t, err)
+			}
+
+			response, err := service.Create(ctx, tt.req)
+			switch {
+			case tt.wantErr && err != nil:
+				if dff := cmp.Diff(tt.wantErrMessage, err.Error()); dff != "" {
+					t.Fatal(dff)
+				}
+			case tt.wantErr && err == nil:
+				t.Fatalf("want error %q, got response %q", tt.wantErrMessage, response)
+			case err != nil:
+				t.Fatalf("want response, got error %q", err)
+
+			default:
+				if response.Secret == "" {
+					t.Error("response secret for token may not be empty")
+				}
+				require.NotNil(t, tt.wantToken, "token returned, nil expected")
+
+				got := response.Token
+				assert.Equal(t, tt.wantToken.Description, got.Description, "description")
+				assert.Equal(t, tt.wantToken.User, got.User, "user id")
+				assert.Equal(t, tt.wantToken.TokenType, got.TokenType, "token type")
+				assert.Equal(t, tt.wantToken.AdminRole, got.AdminRole, "admin role")
+				assert.Equal(t, tt.wantToken.Permissions, got.Permissions, "permissions")
+				assert.Equal(t, tt.wantToken.ProjectRoles, got.ProjectRoles, "project roles")
+				assert.Equal(t, tt.wantToken.TenantRoles, got.TenantRoles, "tenant roles")
+				assert.Equal(t, tt.wantToken.MachineRoles, got.MachineRoles, "machine roles")
 			}
 		})
 	}

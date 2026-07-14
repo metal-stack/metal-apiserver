@@ -35,7 +35,8 @@ import (
 )
 
 const (
-	tokenIssuer = "https://test.io"
+	DefaultProviderTenant = "metal-stack"
+	tokenIssuer           = "https://test.io"
 )
 
 // TODO should we make all methods return/consume the teststore ?
@@ -136,7 +137,7 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		withHeadscale  = false
 		withContainers = true
 
-		providerTenant = "metal-stack"
+		providerTenant = DefaultProviderTenant
 	)
 
 	for _, opt := range testOpts {
