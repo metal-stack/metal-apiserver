@@ -15,6 +15,7 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
+	"github.com/metal-stack/metal-apiserver/pkg/request"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
@@ -2163,6 +2164,8 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 				},
 			},
 		},
+
+		// TODO: As we have a adminv2.TokenServiceCreateRequest we can extent tests which create tokens for different users.
 	}
 
 	for _, tt := range tests {
@@ -2200,7 +2203,8 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 				scope: &UserScope{
 					user: tt.sessionToken.User,
 				},
-				patg: projectsAndTenantsGetter,
+				patg:       projectsAndTenantsGetter,
+				authorizer: request.NewAuthorizer(log, projectsAndTenantsGetter),
 			}
 
 			err := protovalidate.Validate(tt.req)
@@ -2838,7 +2842,8 @@ func Test_validateTokenRequest(t *testing.T) {
 				s: &Store{
 					log: log,
 				},
-				patg: projectsAndTenantsGetter,
+				patg:       projectsAndTenantsGetter,
+				authorizer: request.NewAuthorizer(log, projectsAndTenantsGetter),
 			}
 
 			gotErr := tokenRepo.validateTokenRequest(t.Context(), tt.token, tt.req)

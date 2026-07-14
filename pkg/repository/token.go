@@ -8,14 +8,16 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
+	"github.com/metal-stack/metal-apiserver/pkg/request"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 )
 
 type (
 	tokenRepository struct {
-		s     *Store
-		scope *UserScope
-		patg  api.ProjectsAndTenantsGetter
+		s          *Store
+		scope      *UserScope
+		patg       api.ProjectsAndTenantsGetter
+		authorizer request.Authorizer
 	}
 )
 

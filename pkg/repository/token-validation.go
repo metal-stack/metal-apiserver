@@ -46,7 +46,6 @@ func (t *tokenRepository) validateCreate(ctx context.Context, req *adminv2.Token
 
 	if role, ok := t.hasAdminRole(projectsAndTenants); ok {
 		if tok.AdminRole == nil || *tok.AdminRole == apiv2.AdminRole_ADMIN_ROLE_UNSPECIFIED {
-			// FIXME clarify if this is correct, and ensure that no elevation is possible.
 			if err := t.isAdminRoleRequestAllowed(projectsAndTenants, req.TokenCreateRequest.AdminRole); err != nil {
 				return errorutil.NewPermissionDenied(err)
 			}
@@ -118,9 +117,7 @@ type tokenRequest interface {
 
 func (t *tokenRepository) validateTokenRequest(ctx context.Context, currentToken *apiv2.Token, req tokenRequest) error {
 	// Calculate the permission from the token in the request
-	authorizer := request.NewAuthorizer(t.s.log, t.patg)
-
-	currentPermissions, err := authorizer.TokenPermissions(ctx, currentToken)
+	currentPermissions, err := t.authorizer.TokenPermissions(ctx, currentToken)
 	if err != nil {
 		return err
 	}
@@ -191,7 +188,7 @@ func (t *tokenRepository) validateTokenRequest(ctx context.Context, currentToken
 
 	// Calculate the permission from the token request (either create/update or refresh)
 	// and the methods which are coming from roles only.
-	requestedPermissions, err := authorizer.TokenPermissions(ctx, &apiv2.Token{
+	requestedPermissions, err := t.authorizer.TokenPermissions(ctx, &apiv2.Token{
 		User:         currentToken.User,
 		Permissions:  req.GetPermissions(),
 		ProjectRoles: req.GetProjectRoles(),
