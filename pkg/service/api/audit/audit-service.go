@@ -2,11 +2,9 @@ package audit
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"log/slog"
 
-	"connectrpc.com/connect"
+	"github.com/metal-stack/api/go/errorutil"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
@@ -37,7 +35,7 @@ func New(c Config) apiv2connect.AuditServiceHandler {
 
 func (a *auditServiceServer) Get(ctx context.Context, rq *apiv2.AuditServiceGetRequest) (*apiv2.AuditServiceGetResponse, error) {
 	if a.disabled {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("the audit backend is currently disabled"))
+		return nil, errorutil.FailedPrecondition("the audit backend is currently disabled")
 	}
 
 	phase := apiv2.AuditPhase_AUDIT_PHASE_REQUEST
@@ -55,17 +53,17 @@ func (a *auditServiceServer) Get(ctx context.Context, rq *apiv2.AuditServiceGetR
 
 	switch len(traces) {
 	case 0:
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no audit trace found for given request id %q", rq.Uuid))
+		return nil, errorutil.NotFound("no audit trace found for given request id %q", rq.Uuid)
 	case 1:
 		return &apiv2.AuditServiceGetResponse{Trace: traces[0]}, nil
 	default:
-		return nil, connect.NewError(connect.CodeInternal, errors.New("unable to find distinct audit entry, search result is ambiguous"))
+		return nil, errorutil.Internal("unable to find distinct audit entry, search result is ambiguous")
 	}
 }
 
 func (a *auditServiceServer) List(ctx context.Context, rq *apiv2.AuditServiceListRequest) (*apiv2.AuditServiceListResponse, error) {
 	if a.disabled {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("the audit backend is currently disabled"))
+		return nil, errorutil.FailedPrecondition("the audit backend is currently disabled")
 	}
 
 	traces, err := a.repo.Audit(rq.Login).List(ctx, rq.Query)

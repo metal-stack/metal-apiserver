@@ -2,10 +2,9 @@ package admin
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 
-	"connectrpc.com/connect"
+	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
@@ -30,7 +29,7 @@ func New(c Config) adminv2connect.VPNServiceHandler {
 
 func (v *vpnService) AuthKey(ctx context.Context, req *adminv2.VPNServiceAuthKeyRequest) (*adminv2.VPNServiceAuthKeyResponse, error) {
 	if !v.repo.UnscopedVPN().Enabled() {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("vpn is currently disabled"))
+		return nil, errorutil.FailedPrecondition("vpn is currently disabled")
 	}
 
 	key, err := v.repo.VPN(req.Project).CreateAuthKey(ctx, req)
@@ -43,7 +42,7 @@ func (v *vpnService) AuthKey(ctx context.Context, req *adminv2.VPNServiceAuthKey
 
 func (v *vpnService) ListNodes(ctx context.Context, req *adminv2.VPNServiceListNodesRequest) (*adminv2.VPNServiceListNodesResponse, error) {
 	if !v.repo.UnscopedVPN().Enabled() {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("vpn is currently disabled"))
+		return nil, errorutil.FailedPrecondition("vpn is currently disabled")
 	}
 
 	nodes, err := v.repo.UnscopedVPN().ListNodes(ctx, req)

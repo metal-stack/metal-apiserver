@@ -7,7 +7,7 @@ import (
 	"sort"
 	"time"
 
-	"connectrpc.com/connect"
+	"github.com/metal-stack/api/go/errorutil"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-lib/auditing"
@@ -53,7 +53,7 @@ func (a *auditRepository) list(ctx context.Context, query *apiv2.AuditQuery) ([]
 	}
 
 	if from.After(to) {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid time window, from must be before to"))
+		return nil, errorutil.InvalidArgument("invalid time window, from must be before to")
 	}
 
 	var code *int
@@ -82,7 +82,7 @@ func (a *auditRepository) list(ctx context.Context, query *apiv2.AuditQuery) ([]
 
 	entries, err := a.c.Search(ctx, filter)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("error searching audit backend: %w", err))
+		return nil, errorutil.Internal("error searching audit backend: %w", err)
 	}
 
 	sort.Slice(entries, func(i, j int) bool {
