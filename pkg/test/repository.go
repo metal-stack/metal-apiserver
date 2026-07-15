@@ -22,7 +22,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
-	"github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/auditing"
 	auditingmemory "github.com/metal-stack/metal-lib/auditing/memory"
@@ -57,7 +56,6 @@ type (
 		certStore          certs.CertStore
 
 		// only use this when you are very certain about it!!
-		tokenService           token.TokenService
 		tc                     tenant.Client
 		rc                     *redis.Client
 		vc                     valkey.Client
@@ -221,14 +219,6 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 	}, auditingmemory.MemoryConfig{})
 	require.NoError(t, err)
 
-	tokenService := token.New(token.Config{
-		Log:            log,
-		TokenStore:     tokenStore,
-		CertStore:      certStore,
-		Issuer:         TokenIssuer,
-		ProviderTenant: providerTenant,
-	})
-
 	ipam, ipamCloser := StartIpam(t)
 
 	var (
@@ -293,7 +283,6 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		projectInviteStore:     projectInviteStore,
 		tenantInviteStore:      tenantInviteStore,
 		tokenStore:             tokenStore,
-		tokenService:           tokenService,
 		certStore:              certStore,
 		tc:                     tc,
 		rc:                     rc,
@@ -385,10 +374,6 @@ func (t *testStore) GetHeadscaleControllerURL() string {
 
 func (t *testStore) GetAuditBackend() auditing.Auditing {
 	return t.audit
-}
-
-func (t *testStore) GetTokenService() token.TokenService {
-	return t.tokenService
 }
 
 func (t *testStore) GetToken(subject string, cr *apiv2.TokenServiceCreateRequest) *apiv2.Token {

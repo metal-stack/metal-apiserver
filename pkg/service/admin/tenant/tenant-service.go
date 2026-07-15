@@ -12,20 +12,17 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
-	"github.com/metal-stack/metal-apiserver/pkg/token"
 )
 
 type Config struct {
 	Log         *slog.Logger
 	Repo        *repository.Store
 	InviteStore invite.TenantInviteStore
-	TokenStore  token.TokenStore
 }
 type tenantServiceServer struct {
 	log         *slog.Logger
 	repo        *repository.Store
 	inviteStore invite.TenantInviteStore
-	tokenStore  token.TokenStore
 }
 
 type TenantService interface {
@@ -37,7 +34,6 @@ func New(c Config) TenantService {
 		log:         c.Log.WithGroup("adminTenantService"),
 		repo:        c.Repo,
 		inviteStore: c.InviteStore,
-		tokenStore:  c.TokenStore,
 	}
 }
 
