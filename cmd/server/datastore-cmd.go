@@ -51,12 +51,12 @@ func newDatastoreCmd() *cli.Command {
 						ctx.Context,
 						log.WithGroup("datastore"),
 						rethinkdb.ConnectOpts{
-							Addresses: ctx.StringSlice(rethinkdbAddressesFlag.Name),
-							Database:  ctx.String(rethinkdbDBNameFlag.Name),
-							Username:  ctx.String(rethinkdbUserFlag.Name),
-							Password:  ctx.String(rethinkdbPasswordFlag.Name),
-							MaxIdle:   10,
-							MaxOpen:   20,
+							Addresses:  ctx.StringSlice(rethinkdbAddressesFlag.Name),
+							Database:   ctx.String(rethinkdbDBNameFlag.Name),
+							Username:   ctx.String(rethinkdbUserFlag.Name),
+							Password:   ctx.String(rethinkdbPasswordFlag.Name),
+							InitialCap: 10,
+							MaxOpen:    20,
 						},
 						generic.AsnPoolRange(ctx.Uint(asnPoolRangeMinFlag.Name), ctx.Uint(asnPoolRangeMaxFlag.Name)),
 						generic.VrfPoolRange(ctx.Uint(vrfPoolRangeMinFlag.Name), ctx.Uint(vrfPoolRangeMaxFlag.Name)),
@@ -87,12 +87,12 @@ func newDatastoreCmd() *cli.Command {
 					}
 
 					err = generic.Migrate(ctx.Context, rethinkdb.ConnectOpts{
-						Addresses: ctx.StringSlice(rethinkdbAddressesFlag.Name),
-						Database:  ctx.String(rethinkdbDBNameFlag.Name),
-						Username:  ctx.String(rethinkdbUserFlag.Name),
-						Password:  ctx.String(rethinkdbPasswordFlag.Name),
-						MaxIdle:   10,
-						MaxOpen:   20,
+						Addresses:  ctx.StringSlice(rethinkdbAddressesFlag.Name),
+						Database:   ctx.String(rethinkdbDBNameFlag.Name),
+						Username:   ctx.String(rethinkdbUserFlag.Name),
+						Password:   ctx.String(rethinkdbPasswordFlag.Name),
+						InitialCap: 10,
+						MaxOpen:    20,
 					}, log.WithGroup("datastore"), targetVersion, ctx.Bool(dryRunFlag.Name))
 					if err != nil {
 						return fmt.Errorf("unable to initialize datastore: %w", err)
