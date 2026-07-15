@@ -8,60 +8,25 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
-	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
-	"github.com/metal-stack/metal-apiserver/pkg/request"
 
-	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	tokenutil "github.com/metal-stack/metal-apiserver/pkg/token"
 )
 
 type Config struct {
-	Log        *slog.Logger
-	TokenStore tokenutil.TokenStore
-	CertStore  certs.CertStore
-	Repo       *repository.Store
-
-	// provider tenant, other tenants which are tenant member with owner rights of this tenant can request admin-role-editor,
-	// if they have editor or viewer rights, they can request admin-role-viewer.
-	ProviderTenant string
-
-	// Issuer to sign the JWT Token with
-	Issuer string
+	Log  *slog.Logger
+	Repo *repository.Store
 }
 
 type tokenService struct {
-	issuer         string
-	providerTenant string
-	tokens         tokenutil.TokenStore
-	certs          certs.CertStore
-	log            *slog.Logger
-	repo           *repository.Store
-
-	projectsAndTenantsGetter api.ProjectsAndTenantsGetter
-	authorizer               request.Authorizer
+	log  *slog.Logger
+	repo *repository.Store
 }
 
-type TokenService interface {
-	apiv2connect.TokenServiceHandler
-}
-
-func New(c Config) TokenService {
-	projectsAndTenantsGetter := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
-		return c.Repo.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, userId)
-	}
-	log := c.Log.WithGroup("tokenService")
-
+func New(c Config) apiv2connect.TokenServiceHandler {
 	return &tokenService{
-		tokens:         c.TokenStore,
-		certs:          c.CertStore,
-		issuer:         c.Issuer,
-		log:            log,
-		providerTenant: c.ProviderTenant,
-		repo:           c.Repo,
-
-		projectsAndTenantsGetter: projectsAndTenantsGetter,
-		authorizer:               request.NewAuthorizer(log, projectsAndTenantsGetter),
+		log:  c.Log.WithGroup("tokenService"),
+		repo: c.Repo,
 	}
 }
 

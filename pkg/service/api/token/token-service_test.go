@@ -688,10 +688,8 @@ func Test_Create_NoToken(t *testing.T) {
 	defer closer()
 
 	service := tokenservice.New(tokenservice.Config{
-		Log:            log,
-		Repo:           testStore.Store,
-		ProviderTenant: test.DefaultProviderTenant,
-		Issuer:         "http://test",
+		Log:  log,
+		Repo: testStore.Store,
 	})
 
 	_, err := service.Create(t.Context(), &apiv2.TokenServiceCreateRequest{})

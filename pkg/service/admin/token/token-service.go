@@ -8,35 +8,24 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
-	ts "github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 	tokenutil "github.com/metal-stack/metal-apiserver/pkg/token"
 )
 
 type Config struct {
-	Log          *slog.Logger
-	TokenStore   tokenutil.TokenStore
-	CertStore    certs.CertStore
-	TokenService ts.TokenService
-	Repo         *repository.Store
+	Log  *slog.Logger
+	Repo *repository.Store
 }
 
 type tokenService struct {
-	tokenstore tokenutil.TokenStore
-	certs      certs.CertStore
-	log        *slog.Logger
-	ts         ts.TokenService
-	repo       *repository.Store
+	log  *slog.Logger
+	repo *repository.Store
 }
 
 func New(c Config) adminv2connect.TokenServiceHandler {
 	return &tokenService{
-		log:        c.Log.WithGroup("adminTokenService"),
-		tokenstore: c.TokenStore,
-		certs:      c.CertStore,
-		ts:         c.TokenService,
-		repo:       c.Repo,
+		log:  c.Log.WithGroup("adminTokenService"),
+		repo: c.Repo,
 	}
 }
 
