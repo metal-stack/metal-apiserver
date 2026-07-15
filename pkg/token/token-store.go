@@ -50,11 +50,6 @@ func (r *redisStore) Set(ctx context.Context, token *apiv2.Token) error {
 	}
 
 	// TODO: implement optimistic locking. documentation of clients advise to use a small, atomic lua script for this.
-	// token.Meta.UpdatedAt = timestamppb.Now()
-
-	if token.Meta != nil && token.Meta.UpdatedAt != nil {
-		return errorutil.InvalidArgument("optimistic locking is not yet implemented, please do not provide updated_at")
-	}
 
 	encoded, err := json.Marshal(toInternal(token))
 	if err != nil {

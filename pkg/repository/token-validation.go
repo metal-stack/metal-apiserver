@@ -97,7 +97,54 @@ func (t *tokenRepository) validateCreate(ctx context.Context, req *adminv2.Token
 }
 
 func (t *tokenRepository) validateUpdate(ctx context.Context, req *apiv2.TokenServiceUpdateRequest, tokenToUpdate *api.TokenWithSecret) error {
-	panic("unimplemented")
+	if t.scope == nil {
+		return errorutil.FailedPrecondition("tokens cannot be updated unscoped")
+	}
+
+	if req.UpdateMeta != nil && req.UpdateMeta.UpdatedAt != nil {
+		return errorutil.InvalidArgument("optimistic locking is not yet implemented, please do not provide updated_at in update meta")
+	}
+
+	tok, ok := token.TokenFromContext(ctx)
+	if !ok || tok == nil {
+		return errorutil.Unauthenticated("no token found in request")
+	}
+
+	// we first validate token permission elevation for the token used in the token update request,
+	// which might be an API token with restricted permissions
+
+	err := t.validateTokenRequest(ctx, tok, req)
+	if err != nil {
+		return errorutil.NewPermissionDenied(err)
+	}
+
+	// now, we validate if the user is still permitted to update the token
+	// doing this check is not strictly necessary because the resulting token would fail in the auther when being compared
+	// to the actual user permissions, but it's nicer for the user to already prevent token update immediately in this place
+
+	projectsAndTenants, err := t.patg(ctx, t.scope.user)
+	if err != nil {
+		return errorutil.NewInternal(err)
+	}
+	fullUserToken := &apiv2.Token{
+		User:         t.scope.user,
+		ProjectRoles: projectsAndTenants.ProjectRoles,
+		TenantRoles:  projectsAndTenants.TenantRoles,
+		AdminRole:    nil,
+		InfraRole:    tok.InfraRole,
+		MachineRoles: tok.MachineRoles,
+	}
+
+	if role, ok := t.hasAdminRole(projectsAndTenants); ok {
+		fullUserToken.AdminRole = role
+	}
+
+	err = t.validateTokenRequest(ctx, fullUserToken, req)
+	if err != nil {
+		return errorutil.NewPermissionDenied(err)
+	}
+
+	return nil
 }
 
 func (t *tokenRepository) validateDelete(ctx context.Context, req *api.TokenWithSecret) error {
