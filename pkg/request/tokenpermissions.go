@@ -3,10 +3,10 @@ package request
 import (
 	"context"
 	"fmt"
-	"slices"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/permissions"
+	"github.com/samber/lo"
 )
 
 type (
@@ -85,24 +85,7 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 			return tp, nil
 
 		case apiv2.AdminRole_ADMIN_ROLE_VIEWER:
-			var (
-				adminViewerMethods []string
-			)
-
-			adminViewerMethods = append(adminViewerMethods,
-				servicePermissions.Roles.Tenant[apiv2.TenantRole_TENANT_ROLE_VIEWER.String()]...)
-			adminViewerMethods = append(adminViewerMethods,
-				servicePermissions.Roles.Project[apiv2.ProjectRole_PROJECT_ROLE_VIEWER.String()]...)
-			adminViewerMethods = append(adminViewerMethods,
-				servicePermissions.Roles.Admin[apiv2.AdminRole_ADMIN_ROLE_VIEWER.String()]...)
-			adminViewerMethods = append(adminViewerMethods,
-				servicePermissions.Roles.Infra[apiv2.InfraRole_INFRA_ROLE_VIEWER.String()]...)
-			adminViewerMethods = append(adminViewerMethods,
-				servicePermissions.Roles.Machine[apiv2.MachineRole_MACHINE_ROLE_VIEWER.String()]...)
-			adminViewerMethods = append(adminViewerMethods, publicMethods()...)
-			adminViewerMethods = append(adminViewerMethods, selfMethods()...)
-
-			for _, method := range adminViewerMethods {
+			for _, method := range a.adminViewerMethods {
 				tp[method] = set{AnySubject: entry{}}
 			}
 			// Do not return here because it might be that some permissions are granted later
@@ -114,7 +97,7 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 
 	// Infra Roles
 	if token.InfraRole != nil {
-		for _, method := range servicePermissions.Roles.Infra[token.InfraRole.String()] {
+		for method := range servicePermissions.Roles.Infra[*token.InfraRole] {
 			if _, ok := tp[method]; !ok {
 				tp[method] = set{}
 			}
@@ -124,8 +107,8 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 
 	// Machine Roles
 	for subject, role := range token.MachineRoles {
-		machineMethods := servicePermissions.Roles.Machine[role.Enum().String()]
-		for _, method := range machineMethods {
+		machineMethods := servicePermissions.Roles.Machine[role]
+		for method := range machineMethods {
 			if _, ok := tp[method]; !ok {
 				tp[method] = set{}
 			}
@@ -146,8 +129,8 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 
 	// Tenant Roles
 	for subject, role := range token.TenantRoles {
-		tenantMethods := servicePermissions.Roles.Tenant[role.Enum().String()]
-		for _, method := range tenantMethods {
+		tenantMethods := servicePermissions.Roles.Tenant[role]
+		for method := range tenantMethods {
 			if _, ok := tp[method]; !ok {
 				tp[method] = set{}
 			}
@@ -157,8 +140,8 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 
 	// Project Roles
 	for subject, role := range token.ProjectRoles {
-		projectMethods := servicePermissions.Roles.Project[role.Enum().String()]
-		for _, method := range projectMethods {
+		projectMethods := servicePermissions.Roles.Project[role]
+		for method := range projectMethods {
 			if _, ok := tp[method]; !ok {
 				tp[method] = set{}
 			}
@@ -176,7 +159,7 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 			if servicePermissions.Visibility.Project[method] {
 				delete(tp[method], AnySubject)
 				for project, role := range pat.ProjectRoles {
-					if slices.Contains(servicePermissions.Roles.Project[role.Enum().String()], method) {
+					if _, ok := servicePermissions.Roles.Project[role][method]; ok {
 						tp[method][project] = entry{}
 					}
 				}
@@ -184,7 +167,7 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 			if servicePermissions.Visibility.Tenant[method] {
 				delete(tp[method], AnySubject)
 				for tenant, role := range pat.TenantRoles {
-					if slices.Contains(servicePermissions.Roles.Tenant[role.Enum().String()], method) {
+					if _, ok := servicePermissions.Roles.Tenant[role][method]; ok {
 						tp[method][tenant] = entry{}
 					}
 				}
@@ -238,18 +221,33 @@ func (a *authorizer) getTokenPermissions(ctx context.Context, token *apiv2.Token
 	return tp, nil
 }
 
-func publicMethods() []string {
-	var m []string
+func adminViewerMethods() []string {
+	var (
+		servicePermissions = permissions.GetServicePermissions()
+		adminViewerMethods []string
+		publicMethods      []string
+		selfMethods        []string
+	)
 	for method := range permissions.GetServicePermissions().Visibility.Public {
-		m = append(m, method)
+		publicMethods = append(publicMethods, method)
 	}
-	return m
-}
 
-func selfMethods() []string {
-	var m []string
 	for method := range permissions.GetServicePermissions().Visibility.Self {
-		m = append(m, method)
+		selfMethods = append(selfMethods, method)
 	}
-	return m
+
+	adminViewerMethods = append(adminViewerMethods,
+		lo.Keys(servicePermissions.Roles.Tenant[apiv2.TenantRole_TENANT_ROLE_VIEWER])...)
+	adminViewerMethods = append(adminViewerMethods,
+		lo.Keys(servicePermissions.Roles.Project[apiv2.ProjectRole_PROJECT_ROLE_VIEWER])...)
+	adminViewerMethods = append(adminViewerMethods,
+		lo.Keys(servicePermissions.Roles.Admin[apiv2.AdminRole_ADMIN_ROLE_VIEWER])...)
+	adminViewerMethods = append(adminViewerMethods,
+		lo.Keys(servicePermissions.Roles.Infra[apiv2.InfraRole_INFRA_ROLE_VIEWER])...)
+	adminViewerMethods = append(adminViewerMethods,
+		lo.Keys(servicePermissions.Roles.Machine[apiv2.MachineRole_MACHINE_ROLE_VIEWER])...)
+	adminViewerMethods = append(adminViewerMethods, publicMethods...)
+	adminViewerMethods = append(adminViewerMethods, selfMethods...)
+
+	return adminViewerMethods
 }

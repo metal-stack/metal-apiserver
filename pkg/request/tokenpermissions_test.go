@@ -726,7 +726,8 @@ func Test_getTokenPermissions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			a := &authorizer{
-				log: slog.Default(),
+				log:                slog.Default(),
+				adminViewerMethods: adminViewerMethods(),
 			}
 			a.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
 				if tt.projectsAndTenants == nil {

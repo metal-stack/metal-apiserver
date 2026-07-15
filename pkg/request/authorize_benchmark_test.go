@@ -12,7 +12,8 @@ import (
 
 func Benchmark_allow(b *testing.B) {
 	a := &authorizer{
-		log: slog.Default(),
+		log:                slog.Default(),
+		adminViewerMethods: adminViewerMethods(),
 	}
 	a.projectsAndTenantsGetter = func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
 		return &api.ProjectsAndTenants{
@@ -22,14 +23,14 @@ func Benchmark_allow(b *testing.B) {
 		}, nil
 	}
 
+	token := &apiv2.Token{
+		User:      "user-a",
+		TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+		Permissions: []*apiv2.MethodPermission{
+			{Subject: "project-a", Methods: []string{"/metalstack.api.v2.IPService/Get"}},
+		},
+	}
 	for b.Loop() {
-		token := &apiv2.Token{
-			User:      "user-a",
-			TokenType: apiv2.TokenType_TOKEN_TYPE_API,
-			Permissions: []*apiv2.MethodPermission{
-				{Subject: "project-a", Methods: []string{"/metalstack.api.v2.IPService/Get"}},
-			},
-		}
 		message := "/metalstack.api.v2.IPService/Get"
 		subject := "project-a"
 		err := a.authorize(b.Context(), token, message, subject)
