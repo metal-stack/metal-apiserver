@@ -134,12 +134,12 @@ func newServeCmd() *cli.Command {
 			}
 
 			connectOpts := rethinkdb.ConnectOpts{
-				Addresses: ctx.StringSlice(rethinkdbAddressesFlag.Name),
-				Database:  ctx.String(rethinkdbDBNameFlag.Name),
-				Username:  ctx.String(rethinkdbUserFlag.Name),
-				Password:  ctx.String(rethinkdbPasswordFlag.Name),
-				MaxIdle:   10,
-				MaxOpen:   20,
+				Addresses:  ctx.StringSlice(rethinkdbAddressesFlag.Name),
+				Database:   ctx.String(rethinkdbDBNameFlag.Name),
+				Username:   ctx.String(rethinkdbUserFlag.Name),
+				Password:   ctx.String(rethinkdbPasswordFlag.Name),
+				InitialCap: 20,
+				MaxOpen:    50,
 			}
 
 			ds, err := generic.New(log.WithGroup("datastore"), connectOpts)

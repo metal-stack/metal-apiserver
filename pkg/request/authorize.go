@@ -16,6 +16,7 @@ type (
 	authorizer struct {
 		log                      *slog.Logger
 		projectsAndTenantsGetter api.ProjectsAndTenantsGetter
+		adminViewerMethods       []string
 	}
 
 	// Authorizer provides methods to authorize requests with a given token
@@ -33,6 +34,7 @@ func NewAuthorizer(log *slog.Logger, patg api.ProjectsAndTenantsGetter) Authoriz
 	return &authorizer{
 		log:                      log,
 		projectsAndTenantsGetter: patg,
+		adminViewerMethods:       adminViewerMethods(),
 	}
 }
 

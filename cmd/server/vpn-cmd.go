@@ -50,12 +50,12 @@ func newVPNCmd() *cli.Command {
 					}
 
 					connectOpts := rethinkdb.ConnectOpts{
-						Addresses: ctx.StringSlice(rethinkdbAddressesFlag.Name),
-						Database:  ctx.String(rethinkdbDBNameFlag.Name),
-						Username:  ctx.String(rethinkdbUserFlag.Name),
-						Password:  ctx.String(rethinkdbPasswordFlag.Name),
-						MaxIdle:   10,
-						MaxOpen:   20,
+						Addresses:  ctx.StringSlice(rethinkdbAddressesFlag.Name),
+						Database:   ctx.String(rethinkdbDBNameFlag.Name),
+						Username:   ctx.String(rethinkdbUserFlag.Name),
+						Password:   ctx.String(rethinkdbPasswordFlag.Name),
+						InitialCap: 10,
+						MaxOpen:    20,
 					}
 
 					ds, err := generic.New(log.WithGroup("datastore"), connectOpts)

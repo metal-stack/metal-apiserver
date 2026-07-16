@@ -33,6 +33,11 @@ type projectServiceServer struct {
 	tokenStore  token.TokenStore
 }
 
+// AddMember implements [apiv2connect.ProjectServiceHandler].
+func (p *projectServiceServer) AddMember(context.Context, *apiv2.ProjectServiceAddMemberRequest) (*apiv2.ProjectServiceAddMemberResponse, error) {
+	panic("unimplemented")
+}
+
 func New(c Config) apiv2connect.ProjectServiceHandler {
 	return &projectServiceServer{
 		log:         c.Log.WithGroup("projectService"),

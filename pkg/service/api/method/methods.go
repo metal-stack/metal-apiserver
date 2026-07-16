@@ -3,6 +3,7 @@ package method
 import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/permissions"
+	"github.com/samber/lo"
 )
 
 func PermissionsBySubject(token *apiv2.Token) map[string]*apiv2.MethodPermission {
@@ -33,7 +34,7 @@ func AllowedMethodsFromRoles(servicePermissions *permissions.ServicePermissions,
 			}
 		}
 
-		perm.Methods = append(perm.Methods, servicePermissions.Roles.Project[role.String()]...)
+		perm.Methods = append(perm.Methods, lo.Keys(servicePermissions.Roles.Project[role])...)
 
 		perms[projectID] = perm
 	}
@@ -46,7 +47,7 @@ func AllowedMethodsFromRoles(servicePermissions *permissions.ServicePermissions,
 			}
 		}
 
-		perm.Methods = append(perm.Methods, servicePermissions.Roles.Tenant[role.String()]...)
+		perm.Methods = append(perm.Methods, lo.Keys(servicePermissions.Roles.Tenant[role])...)
 
 		perms[tenantID] = perm
 	}
