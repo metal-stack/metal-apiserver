@@ -61,12 +61,12 @@ func StartRethink(t testing.TB, log *slog.Logger) (generic.Datastore, r.ConnectO
 	}
 
 	rethinkDbConnectOpts = r.ConnectOpts{
-		Address:  rethinkDbEndpoint,
-		Database: databaseNameFromT(t),
-		Username: "admin",
-		Password: "rethink",
-		MaxIdle:  10,
-		MaxOpen:  2000,
+		Address:    rethinkDbEndpoint,
+		Database:   databaseNameFromT(t),
+		Username:   "admin",
+		Password:   "rethink",
+		InitialCap: 20,
+		MaxOpen:    2000,
 	}
 
 	err := generic.Initialize(t.Context(), log, rethinkDbConnectOpts, generic.AsnPoolRange(uint(1), uint(100)), generic.VrfPoolRange(uint(1), uint(100)), generic.NewMutexOptCheckInterval(3*time.Second))
