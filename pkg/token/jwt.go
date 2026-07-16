@@ -118,6 +118,7 @@ func Validate(ctx context.Context, log *slog.Logger, tokenString string, set jwk
 		jwt.WithExpirationRequired(),
 		jwt.WithNotBeforeRequired(),
 		jwt.WithIssuedAt(),
+		jwt.WithValidMethods([]string{jwt.SigningMethodES512.Name}),
 	)
 
 	log.Debug("validate", "tokenstring", tokenString)

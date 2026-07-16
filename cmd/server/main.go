@@ -43,10 +43,16 @@ var (
 	}
 	sessionSecretFlag = &cli.StringFlag{
 		Name:     "session-secret",
-		Value:    "geheim",
+		Value:    "",
 		Usage:    "session secret encrypts the cookie, used by goth cookiestore",
 		Required: true,
 		EnvVars:  []string{"SESSION_SECRET"},
+		Action: func(ctx *cli.Context, s string) error {
+			if len(s) < 10 {
+				return fmt.Errorf("session-secret must be at least 10 characters long")
+			}
+			return nil
+		},
 	}
 	frontEndUrlFlag = &cli.StringFlag{
 		Name:    "front-end-url",
@@ -60,6 +66,12 @@ var (
 		Usage:    "id of the oauth app in oidc",
 		Required: true,
 		EnvVars:  []string{"OIDC_CLIENT_ID"},
+		Action: func(ctx *cli.Context, s string) error {
+			if len(s) < 2 {
+				return fmt.Errorf("oidc-client-id must be at least 2 characters long")
+			}
+			return nil
+		},
 	}
 	oidcClientSecretFlag = &cli.StringFlag{
 		Name:     "oidc-client-secret",
@@ -67,6 +79,12 @@ var (
 		Usage:    "client secret of the oauth app in oidc",
 		Required: true,
 		EnvVars:  []string{"OIDC_CLIENT_SECRET"},
+		Action: func(ctx *cli.Context, s string) error {
+			if len(s) < 2 {
+				return fmt.Errorf("oidc-client-secret must be at least 2 characters long")
+			}
+			return nil
+		},
 	}
 	oidcDiscoveryUrlFlag = &cli.StringFlag{
 		Name:     "oidc-discovery-url",
@@ -311,6 +329,12 @@ Can not be changed after initial creation.
 		Value:   "",
 		Usage:   "the BMC superuser password",
 		EnvVars: []string{"BMC_SUPER_USER_PASSWORD"},
+		Action: func(ctx *cli.Context, s string) error {
+			if len(s) < 8 {
+				return fmt.Errorf("bmc superuser password must be longer than 2 characters")
+			}
+			return nil
+		},
 	}
 	// Headscale
 	headscaleAddressFlag = &cli.StringFlag{
