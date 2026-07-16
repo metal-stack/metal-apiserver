@@ -38,6 +38,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 				Switch: &apiv2.Switch{
 					Id:           "p01-r01leaf01-1",
 					Rack:         new(sc.P01Rack01),
+					Room:         new(sc.P01Rack01Room01),
 					Partition:    sc.Partition1,
 					ManagementIp: "1.1.1.1",
 					ReplaceMode:  apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
@@ -54,6 +55,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 						Id:           "p01-r01leaf01-1",
 						Meta:         &apiv2.Meta{},
 						Rack:         new(sc.P01Rack01),
+						Room:         new(sc.P01Rack01Room01),
 						Partition:    sc.Partition1,
 						ManagementIp: "1.1.1.1",
 						ReplaceMode:  apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
@@ -72,6 +74,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 							Id:           "p01-r01leaf01-1",
 							Meta:         &apiv2.Meta{},
 							Rack:         new(sc.P01Rack01),
+							Room:         new(sc.P01Rack01Room01),
 							Partition:    sc.Partition1,
 							ManagementIp: "1.1.1.1",
 							ReplaceMode:  apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,

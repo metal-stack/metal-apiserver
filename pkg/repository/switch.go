@@ -367,6 +367,7 @@ func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *ap
 		return errorutil.FailedPrecondition("connected switches of a machine must reside in the same rack, rack of switch %s: %s, rack of switch %s: %s, machine: %s", s1.Name, s1.Rack, s2.Name, s2.Rack, m.Uuid)
 	}
 	m.Rack = s1.Rack
+	m.Room = s1.Room
 
 	sws, err := r.s.ds.Switch().List(ctx, queries.SwitchFilter(&apiv2.SwitchQuery{
 		ConnectedMachineId: &m.Uuid,
@@ -743,6 +744,7 @@ func (r *switchRepository) convertToInternal(ctx context.Context, sw *apiv2.Swit
 			Description: sw.Description,
 		},
 		Rack:               pointer.SafeDeref(sw.Rack),
+		Room:               pointer.SafeDeref(sw.Room),
 		Partition:          sw.Partition,
 		ReplaceMode:        replaceMode,
 		ManagementIP:       sw.ManagementIp,
@@ -815,6 +817,7 @@ func (r *switchRepository) convertToProto(ctx context.Context, sw *metal.Switch)
 		},
 		Description:        sw.Description,
 		Rack:               pointer.PointerOrNil(sw.Rack),
+		Room:               pointer.PointerOrNil(sw.Room),
 		Partition:          sw.Partition,
 		ReplaceMode:        replaceMode,
 		ManagementIp:       sw.ManagementIP,
