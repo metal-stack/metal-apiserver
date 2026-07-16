@@ -125,6 +125,7 @@ func Test_methodServiceServer_List(t *testing.T) {
 					"/metalstack.api.v2.SizeReservationService/List",
 					"/metalstack.api.v2.SizeService/Get",
 					"/metalstack.api.v2.SizeService/List",
+					"/metalstack.api.v2.TenantService/AddMember",
 					"/metalstack.api.v2.TenantService/Create",
 					"/metalstack.api.v2.TenantService/Delete",
 					"/metalstack.api.v2.TenantService/Get",
@@ -161,7 +162,7 @@ func Test_methodServiceServer_List(t *testing.T) {
 			}
 
 			got, gotErr := m.List(ctx, nil)
-			if diff := cmp.Diff(got, tt.want, protocmp.Transform()); diff != "" {
+			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
