@@ -13,7 +13,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/service"
-	"github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-apiserver/pkg/vpn"
@@ -40,7 +39,7 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 	c := service.Config{
 		Log:           log,
 		Repository:    testStore.Store,
-		ServerHttpURL: "https://test.io",
+		ServerHttpURL: test.TokenIssuer,
 		RedisConfig: &service.RedisConfig{
 			// Take the same redis db for all
 			TokenClient:     testStore.GetRedisClient(),
@@ -71,7 +70,7 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 	server := httptest.NewUnstartedServer(mux)
 	server.Start()
 
-	tok, err := testStore.GetTokenService().CreateApiTokenWithoutPermissionCheck(t.Context(), subject, &apiv2.TokenServiceCreateRequest{
+	tok, err := testStore.UnscopedToken().AdditionalMethods().CreateApiTokenWithoutPermissionCheck(t.Context(), subject, &apiv2.TokenServiceCreateRequest{
 		Expires:   durationpb.New(time.Minute),
 		AdminRole: apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
 	})
@@ -100,7 +99,7 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 
 	require.NoError(t, err)
 
-	resp, err := testStore.GetTokenService().CreateApiTokenWithoutPermissionCheck(ctx, subject, &apiv2.TokenServiceCreateRequest{
+	resp, err := testStore.UnscopedToken().AdditionalMethods().CreateApiTokenWithoutPermissionCheck(ctx, subject, &apiv2.TokenServiceCreateRequest{
 		Description:  "e2e admin token",
 		Expires:      durationpb.New(time.Hour),
 		ProjectRoles: nil,
@@ -135,12 +134,12 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 		vpnEvalCancel()
 	}
 
-	tenantTokenSecrets := createTenantTokens(t, testStore.Store, testStore.GetTokenService(), additionalTenants...)
+	tenantTokenSecrets := createTenantTokens(t, testStore.Store, additionalTenants...)
 
 	return server.URL, resp.Secret, tenantTokenSecrets, closer
 }
 
-func createTenantTokens(t testing.TB, repo *repository.Store, tokenService token.TokenService, tenants ...string) map[string]string {
+func createTenantTokens(t testing.TB, repo *repository.Store, tenants ...string) map[string]string {
 	ctx := t.Context()
 	tenantTokens := make(map[string]string)
 
@@ -156,7 +155,7 @@ func createTenantTokens(t testing.TB, repo *repository.Store, tokenService token
 		})
 		require.NoError(t, err)
 
-		tcr, err := tokenService.CreateUserTokenWithoutPermissionCheck(ctx, tenant, nil)
+		tcr, err := repo.UnscopedToken().AdditionalMethods().CreateUserTokenWithoutPermissionCheck(ctx, tenant, nil)
 		require.NoError(t, err)
 
 		tenantTokens[tenant] = tcr.Secret

@@ -10,6 +10,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/avast/retry-go/v4"
+	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/metal-stack/api/go/enum"
 	"github.com/metal-stack/api/go/errorutil"
@@ -97,8 +98,11 @@ func (r *machineRepository) SendEvent(ctx context.Context, machineID string, eve
 	// an event can actually create an empty machine. This enables us to also catch the very first PXE Booting event
 	// in a machine lifecycle
 	if errorutil.IsNotFound(err) {
-		_, err := r.s.ds.Machine().Create(ctx, &metal.Machine{Base: metal.Base{ID: machineID}})
-		if err != nil {
+		if _, err := uuid.Parse(machineID); err != nil {
+			return errorutil.InvalidArgument("given machineid is not a well formed uuid:%w", err)
+		}
+
+		if _, err := r.s.ds.Machine().Create(ctx, &metal.Machine{Base: metal.Base{ID: machineID}}); err != nil {
 			return err
 		}
 	}

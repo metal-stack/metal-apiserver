@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"maps"
+	"time"
 
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
@@ -10,6 +11,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/request"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type (
@@ -184,8 +186,66 @@ func (t *tokenRepository) delete(ctx context.Context, e *api.TokenWithSecret) (*
 	return nil, nil
 }
 
-func (t *tokenRepository) update(ctx context.Context, tok *api.TokenWithSecret, req *apiv2.TokenServiceUpdateRequest) (*api.TokenWithSecret, error) {
-	panic("unimplemented")
+func (t *tokenRepository) update(ctx context.Context, tokenToUpdate *api.TokenWithSecret, req *apiv2.TokenServiceUpdateRequest) (*api.TokenWithSecret, error) {
+	if t.scope == nil {
+		return nil, errorutil.FailedPrecondition("tokens cannot be updated unscoped")
+	}
+
+	tok := tokenToUpdate.Token
+
+	if tok.TokenType != apiv2.TokenType_TOKEN_TYPE_API {
+		return nil, errorutil.FailedPrecondition("only updating API tokens is currently supported")
+	}
+
+	if req.Description != nil {
+		tok.Description = *req.Description
+	}
+
+	if req.AdminRole != nil {
+		if *req.AdminRole == apiv2.AdminRole_ADMIN_ROLE_UNSPECIFIED {
+			tok.AdminRole = nil
+		} else {
+			tok.AdminRole = req.AdminRole
+		}
+	}
+	if req.Permissions != nil {
+		tok.Permissions = req.Permissions
+	}
+	if req.ProjectRoles != nil {
+		tok.ProjectRoles = req.ProjectRoles
+	}
+	if req.TenantRoles != nil {
+		tok.TenantRoles = req.TenantRoles
+	}
+	if req.InfraRole != nil {
+		tok.InfraRole = req.InfraRole
+	}
+	if req.MachineRoles != nil {
+		tok.MachineRoles = req.MachineRoles
+	}
+
+	if tok.Meta == nil {
+		tok.Meta = &apiv2.Meta{}
+	}
+	tok.Meta.Generation++
+	tok.Meta.UpdatedAt = timestamppb.Now()
+
+	if req.Labels != nil {
+		if tok.Meta.Labels == nil {
+			tok.Meta.Labels = &apiv2.Labels{}
+		}
+
+		tok.Meta.Labels.Labels = updateLabelsOnMap(req.Labels, tok.Meta.Labels.Labels)
+	}
+
+	err := t.s.tokens.Set(ctx, tok)
+	if err != nil {
+		return nil, err
+	}
+
+	return &api.TokenWithSecret{
+		Token: tok,
+	}, nil
 }
 
 func (t *tokenRepository) matchScope(e *api.TokenWithSecret) bool {
@@ -202,4 +262,170 @@ func (t *tokenRepository) convertToInternal(ctx context.Context, msg *api.TokenW
 
 func (t *tokenRepository) convertToProto(ctx context.Context, e *api.TokenWithSecret) (*api.TokenWithSecret, error) {
 	return e, nil
+}
+
+func (t *tokenRepository) CreateUserTokenWithoutPermissionCheck(ctx context.Context, subject string, expiration *time.Duration) (*apiv2.TokenServiceCreateResponse, error) {
+	if t.scope != nil {
+		return nil, errorutil.FailedPrecondition("tokens without permission check can only be created unscoped")
+	}
+
+	expires := token.DefaultExpiration
+	if expiration != nil {
+		expires = *expiration
+	}
+
+	privateKey, err := t.s.certs.LatestPrivate(ctx)
+	if err != nil {
+		return nil, errorutil.Internal("unable to fetch signing certificate: %w", err)
+	}
+
+	secret, token, err := token.NewJWT(apiv2.TokenType_TOKEN_TYPE_USER, subject, t.s.issuer, expires, privateKey)
+	if err != nil {
+		return nil, errorutil.Internal("unable to create console token: %w", err)
+	}
+
+	err = t.s.tokens.Set(ctx, token)
+	if err != nil {
+		return nil, err
+	}
+
+	return &apiv2.TokenServiceCreateResponse{
+		Token:  token,
+		Secret: secret,
+	}, nil
+}
+
+func (t *tokenRepository) CreateApiTokenWithoutPermissionCheck(ctx context.Context, subject string, req *apiv2.TokenServiceCreateRequest) (*apiv2.TokenServiceCreateResponse, error) {
+	if t.scope != nil {
+		return nil, errorutil.FailedPrecondition("tokens without permission check can only be created unscoped")
+	}
+
+	expires := token.DefaultExpiration
+	if req.Expires != nil {
+		expires = req.Expires.AsDuration()
+	}
+
+	privateKey, err := t.s.certs.LatestPrivate(ctx)
+	if err != nil {
+		return nil, errorutil.NewInternal(err)
+	}
+
+	secret, token, err := token.NewJWT(apiv2.TokenType_TOKEN_TYPE_API, subject, t.s.issuer, expires, privateKey)
+	if err != nil {
+		return nil, errorutil.NewInternal(err)
+	}
+
+	token.Description = req.Description
+	token.Permissions = req.Permissions
+	token.ProjectRoles = req.ProjectRoles
+	token.TenantRoles = req.TenantRoles
+	token.AdminRole = req.AdminRole
+	token.InfraRole = req.InfraRole
+	token.MachineRoles = req.MachineRoles
+
+	err = t.s.tokens.Set(ctx, token)
+	if err != nil {
+		return nil, err
+	}
+
+	return &apiv2.TokenServiceCreateResponse{
+		Token:  token,
+		Secret: secret,
+	}, nil
+}
+
+func (t *tokenRepository) Refresh(ctx context.Context, uuid string) (*apiv2.TokenServiceRefreshResponse, error) {
+	if t.scope == nil {
+		return nil, errorutil.FailedPrecondition("tokens cannot be refreshed unscoped")
+	}
+
+	oldtoken, err := t.s.tokens.Get(ctx, t.scope.user, uuid)
+	if err != nil {
+		return nil, err
+	}
+
+	// we first copy the token permission from the old token
+	createRequest := &apiv2.TokenServiceCreateRequest{
+		Permissions:  oldtoken.Permissions,
+		ProjectRoles: oldtoken.ProjectRoles,
+		TenantRoles:  oldtoken.TenantRoles,
+		AdminRole:    oldtoken.AdminRole,
+		InfraRole:    oldtoken.InfraRole,
+		MachineRoles: oldtoken.MachineRoles,
+	}
+
+	tok, ok := token.TokenFromContext(ctx)
+	if !ok || tok == nil {
+		return nil, errorutil.Unauthenticated("no token found in request")
+	}
+
+	err = t.validateTokenRequest(ctx, tok, createRequest)
+	if err != nil {
+		return nil, errorutil.NewPermissionDenied(err)
+	}
+
+	// now, we validate if the user is still permitted to refresh the token
+	// doing this check is not strictly necessary because the resulting token would fail in the auther when being compared
+	// to the actual user permissions, but it's nicer for the user to already prevent token update immediately in this place
+
+	projectsAndTenants, err := t.patg(ctx, t.scope.user)
+	if err != nil {
+		return nil, errorutil.NewInternal(err)
+	}
+	fullUserToken := &apiv2.Token{
+		User:         t.scope.user,
+		ProjectRoles: projectsAndTenants.ProjectRoles,
+		TenantRoles:  projectsAndTenants.TenantRoles,
+		AdminRole:    nil,
+		InfraRole:    tok.InfraRole,
+		MachineRoles: tok.MachineRoles,
+	}
+	if role, ok := t.hasAdminRole(projectsAndTenants); ok {
+		fullUserToken.AdminRole = role
+	}
+	err = t.validateTokenRequest(ctx, fullUserToken, createRequest)
+	if err != nil {
+		return nil, errorutil.NewPermissionDenied(err)
+	}
+
+	// now follows the refresh, aka create a new token
+
+	privateKey, err := t.s.certs.LatestPrivate(ctx)
+	if err != nil {
+		return nil, errorutil.NewInternal(err)
+	}
+
+	// New duration is calculated from the old token
+	exp := oldtoken.Expires.AsTime().Sub(oldtoken.IssuedAt.AsTime())
+
+	secret, newToken, err := token.NewJWT(apiv2.TokenType_TOKEN_TYPE_API, t.scope.user, t.s.issuer, exp, privateKey)
+	if err != nil {
+		return nil, errorutil.NewInternal(err)
+	}
+
+	newToken.Description = oldtoken.Description
+	newToken.Permissions = oldtoken.Permissions
+	newToken.ProjectRoles = oldtoken.ProjectRoles
+	newToken.TenantRoles = oldtoken.TenantRoles
+	newToken.AdminRole = oldtoken.AdminRole
+	newToken.InfraRole = oldtoken.InfraRole
+	newToken.MachineRoles = oldtoken.MachineRoles
+	if newToken.Meta == nil {
+		newToken.Meta = &apiv2.Meta{}
+	}
+	newToken.Meta.Generation = 1
+	newToken.Meta.CreatedAt = newToken.IssuedAt
+	if oldtoken.Meta != nil {
+		newToken.Meta.Labels = oldtoken.Meta.Labels
+	}
+
+	err = t.s.tokens.Set(ctx, newToken)
+	if err != nil {
+		return nil, err
+	}
+
+	return &apiv2.TokenServiceRefreshResponse{
+		Token:  newToken,
+		Secret: secret,
+	}, nil
 }

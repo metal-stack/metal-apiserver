@@ -23,7 +23,7 @@ func WithMiniRedis(with bool) *testOptMiniRedis {
 	}
 }
 
-func StartValkey(t testing.TB, testOpts ...testOpt) (*redis.Client, valkeygo.Client, func()) {
+func StartValkey(t testing.TB, testOpts ...testOpt) (*redis.Client, valkeygo.Client, *miniredis.Miniredis, func()) {
 	ctx := t.Context()
 	var (
 		withMiniRedis = false
@@ -49,7 +49,7 @@ func StartValkey(t testing.TB, testOpts ...testOpt) (*redis.Client, valkeygo.Cli
 			DisableCache: true,
 		})
 		require.NoError(t, err)
-		return rc, vc, nil
+		return rc, vc, mr, nil
 	}
 
 	valkeyContainer, err := valkey.Run(ctx,
@@ -81,5 +81,5 @@ func StartValkey(t testing.TB, testOpts ...testOpt) (*redis.Client, valkeygo.Cli
 		_ = valkeyContainer.Terminate(ctx)
 	}
 
-	return client, valkeygoclient, closer
+	return client, valkeygoclient, nil, closer
 }

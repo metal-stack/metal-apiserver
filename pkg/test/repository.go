@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alicebob/miniredis/v2"
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -21,7 +22,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
-	"github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/auditing"
 	auditingmemory "github.com/metal-stack/metal-lib/auditing/memory"
@@ -36,7 +36,7 @@ import (
 
 const (
 	DefaultProviderTenant = "metal-stack"
-	tokenIssuer           = "https://test.io"
+	TokenIssuer           = "https://test.io"
 )
 
 // TODO should we make all methods return/consume the teststore ?
@@ -56,11 +56,11 @@ type (
 		certStore          certs.CertStore
 
 		// only use this when you are very certain about it!!
-		tokenService           token.TokenService
 		tc                     tenant.Client
 		rc                     *redis.Client
 		vc                     valkey.Client
 		hc                     *headscale.Client
+		mr                     *miniredis.Miniredis
 		headscaleControllerURL string
 
 		audit auditing.Auditing
@@ -85,6 +85,9 @@ type (
 	}
 	testOptProviderTenant struct {
 		t string
+	}
+	testOptRenewCertBeforeExpiration struct {
+		renew *time.Duration
 	}
 )
 
@@ -129,6 +132,12 @@ func WithProviderTenant(t string) *testOptProviderTenant {
 	}
 }
 
+func WithRenewCertBeforeExpiration(renew *time.Duration) *testOptRenewCertBeforeExpiration {
+	return &testOptRenewCertBeforeExpiration{
+		renew: renew,
+	}
+}
+
 func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...testOpt) (*testStore, func()) {
 	var (
 		withPostgres   = false
@@ -137,7 +146,8 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		withHeadscale  = false
 		withContainers = true
 
-		providerTenant = DefaultProviderTenant
+		providerTenant            = DefaultProviderTenant
+		renewCertBeforeExpiration *time.Duration
 	)
 
 	for _, opt := range testOpts {
@@ -154,6 +164,8 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 			withContainers = o.with
 		case *testOptProviderTenant:
 			providerTenant = o.t
+		case *testOptRenewCertBeforeExpiration:
+			renewCertBeforeExpiration = o.renew
 		default:
 			t.Errorf("unsupported test option: %T", o)
 		}
@@ -169,6 +181,7 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		rc                     *redis.Client
 		vc                     valkey.Client
 		hc                     *headscale.Client
+		mr                     *miniredis.Miniredis
 		headscaleControllerURL string
 		valkeyCloser           func()
 		ds                     generic.Datastore
@@ -186,9 +199,9 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 	}
 
 	if withValkey {
-		rc, vc, valkeyCloser = StartValkey(t)
+		rc, vc, _, valkeyCloser = StartValkey(t)
 	} else {
-		rc, vc, valkeyCloser = StartValkey(t, WithMiniRedis(true))
+		rc, vc, mr, valkeyCloser = StartValkey(t, WithMiniRedis(true))
 	}
 
 	if withHeadscale {
@@ -198,21 +211,13 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 	projectInviteStore := invite.NewProjectRedisStore(rc)
 	tenantInviteStore := invite.NewTenantRedisStore(rc)
 	tokenStore := tokencommon.NewRedisStore(rc)
-	certStore := certs.NewRedisStore(&certs.Config{RedisClient: rc})
+	certStore := certs.NewRedisStore(&certs.Config{RedisClient: rc, RenewCertBeforeExpiration: renewCertBeforeExpiration})
 
 	auditingBackend, err := auditingmemory.NewMemory(auditing.Config{
 		Component: api.AuditingComponent,
 		Log:       log,
 	}, auditingmemory.MemoryConfig{})
 	require.NoError(t, err)
-
-	tokenService := token.New(token.Config{
-		Log:            log,
-		TokenStore:     tokenStore,
-		CertStore:      certStore,
-		Issuer:         tokenIssuer,
-		ProviderTenant: providerTenant,
-	})
 
 	ipam, ipamCloser := StartIpam(t)
 
@@ -243,7 +248,7 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 			TokenStore:     tokenStore,
 			CertStore:      certStore,
 			ProviderTenant: providerTenant,
-			Issuer:         tokenIssuer,
+			Issuer:         TokenIssuer,
 		},
 	}
 
@@ -278,13 +283,13 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		projectInviteStore:     projectInviteStore,
 		tenantInviteStore:      tenantInviteStore,
 		tokenStore:             tokenStore,
-		tokenService:           tokenService,
 		certStore:              certStore,
 		tc:                     tc,
 		rc:                     rc,
 		vc:                     vc,
 		audit:                  auditingBackend,
 		hc:                     hc,
+		mr:                     mr,
 		headscaleControllerURL: headscaleControllerURL,
 	}, closer
 }
@@ -339,6 +344,10 @@ func (t *testStore) GetCertStore() certs.CertStore {
 	return t.certStore
 }
 
+func (t *testStore) GetMiniRedis() *miniredis.Miniredis {
+	return t.mr
+}
+
 func (t *testStore) GetTenantApiserverClient() tenant.Client {
 	return t.tc
 }
@@ -367,12 +376,8 @@ func (t *testStore) GetAuditBackend() auditing.Auditing {
 	return t.audit
 }
 
-func (t *testStore) GetTokenService() token.TokenService {
-	return t.tokenService
-}
-
 func (t *testStore) GetToken(subject string, cr *apiv2.TokenServiceCreateRequest) *apiv2.Token {
-	resp, err := t.tokenService.CreateApiTokenWithoutPermissionCheck(t.t.Context(), subject, cr)
+	resp, err := t.UnscopedToken().AdditionalMethods().CreateApiTokenWithoutPermissionCheck(t.t.Context(), subject, cr)
 	require.NoError(t.t, err)
 	return resp.GetToken()
 }
@@ -621,7 +626,7 @@ func CreateProjectInvites(t testing.TB, testStore *testStore, invites []*apiv2.P
 func CreateTenants(t testing.TB, testStore *testStore, tenants []*apiv2.TenantServiceCreateRequest) []string {
 	var tenantList []string
 	for _, tenant := range tenants {
-		tok, err := testStore.tokenService.CreateApiTokenWithoutPermissionCheck(t.Context(), tenant.GetName(), &apiv2.TokenServiceCreateRequest{
+		tok, err := testStore.UnscopedToken().AdditionalMethods().CreateApiTokenWithoutPermissionCheck(t.Context(), tenant.GetName(), &apiv2.TokenServiceCreateRequest{
 			Expires:   durationpb.New(time.Minute),
 			AdminRole: apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
 		})
