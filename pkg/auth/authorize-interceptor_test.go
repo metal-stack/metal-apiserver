@@ -838,6 +838,43 @@ func Test_authorizeInterceptor_WrapUnary(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		{
+			name:    "ip create not allowed for viewer user token",
+			method:  apiv2connect.IPServiceCreateProcedure,
+			handler: handler[apiv2.IPServiceCreateRequest, apiv2.IPServiceCreateResponse](),
+			reqFn: func(ctx context.Context, c client.Client) error {
+				_, err := c.Apiv2().IP().Create(ctx, &apiv2.IPServiceCreateRequest{Project: projectMap["john.doe@github.com"]})
+				return err
+			},
+			token: &apiv2.Token{
+				User:      "viewer@github.com",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_USER,
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					projectMap["john.doe@github.com"]: apiv2.ProjectRole_PROJECT_ROLE_VIEWER,
+				},
+			},
+			wantErr: errorutil.PermissionDenied("access to:\"/metalstack.api.v2.IPService/Create\" is not allowed because it is not part of the token permissions"),
+		},
+		{
+			name:    "token create with no project membership for project-scoped subject",
+			method:  apiv2connect.MachineServiceGetProcedure,
+			handler: handler[apiv2.MachineServiceGetRequest, apiv2.MachineServiceGetResponse](),
+			reqFn: func(ctx context.Context, c client.Client) error {
+				_, err := c.Apiv2().Machine().Get(ctx, &apiv2.MachineServiceGetRequest{Project: "project-without-membership"})
+				return err
+			},
+			token: &apiv2.Token{
+				User:      "john.doe@github.com",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "project-without-membership",
+						Methods: []string{"/metalstack.api.v2.MachineService/Get"},
+					},
+				},
+			},
+			wantErr: errorutil.PermissionDenied(`access to:"/metalstack.api.v2.MachineService/Get" with subject:"project-without-membership" is not allowed because it is not part of the token permissions, allowed subjects are:[]`),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
