@@ -3,34 +3,23 @@
 [![Actions](https://github.com/metal-stack/metal-apiserver/actions/workflows/build.yaml/badge.svg?branch=main)](https://github.com/metal-stack/metal-apiserver/actions)
 [![codecov](https://codecov.io/gh/metal-stack/metal-apiserver/branch/main/graph/badge.svg)](https://codecov.io/gh/metal-stack/metal-apiserver)
 
-The **metal-apiserver** is an implementation of the [metal-stack V2 API](https://github.com/metal-stack/api) -- a bare-metal-as-a-service control plane that manages the full lifecycle of physical servers, networking, IP addressing, and VPN connectivity for a bare-metal cloud.
-
-- [Overview](#overview)
-- [Architecture](#architecture)
-- [API Surface](#api-surface)
-- [Domain Entities](#domain-entities)
-- [End-User Guide](#end-user-guide)
-- [Developer Guide](#developer-guide)
-
----
+The **metal-apiserver** is an implementation of the [metal-stack V2 API](https://github.com/metal-stack/api), the central part of the metal-stack control plane that manages the full lifecycle of physical servers, images, networking, IP addressing, and VPN connectivity for a bare-metal cloud.
 
 ## Overview
 
 metal-apiserver provisions and manages bare-metal machines at scale. It handles:
 
-- **Machine Lifecycle** -- power on/off, boot image selection, provisioning state machine, BMC management
-- **Networking** -- virtual networks, IPAM (prefix/IP allocation), VRF/NAT configuration
-- **Multi-Tenancy** -- projects and tenants with RBAC, isolation, and resource sharing
-- **Machine Sizing** -- size/flavor definitions with CPU, RAM, storage, and GPU constraints
-- **OS Imaging** -- image registry with versioning, classification (preview/supported/deprecated), and expiration
-- **VPN** -- WireGuard-based mesh VPN via Headscale (Tailscale-compatible control server)
-- **Auditing** -- optional Splunk HEC or TimescaleDB audit logging
-
----
+- **Machine Lifecycle** - power on/off, boot image selection, provisioning, BMC management
+- **Networking** - virtual networks, IPAM (prefix/IP allocation), VRF/NAT configuration
+- **Multi-Tenancy** - projects and tenants with RBAC, isolation, and resource sharing
+- **Machine Sizes** - size/flavor definitions with CPU, RAM, storage, and GPU constraints
+- **OS Imaging** - image registry with versioning, classification (preview/supported/deprecated), and expiration
+- **VPN** - WireGuard-based mesh VPN via Headscale (Tailscale-compatible control server)
+- **Auditing** - optional Splunk HEC or TimescaleDB audit logging
 
 ## Architecture
 
-```
+```raw
 ┌──────────────┐   ┌──────────────┐   ┌──────────────┐
 │   metalctl   │   │  Web Console │   │  Infra Agent │
 │    (CLI)     │   │     (UI)     │   │ (metal-core) │
@@ -39,8 +28,8 @@ metal-apiserver provisions and manages bare-metal machines at scale. It handles:
        └──────────────────┼──────────────────┘
                           │
               ┌───────────▼───────────┐
-              │  HTTP/2 (Connect-RPC) │
-              │  + gRPC-Web           │
+              │        HTTP/2         │
+              │     (Connect-RPC)     │
               └───────────┬───────────┘
                           │
      ┌────────────────────▼────────────────────┐
@@ -65,32 +54,34 @@ metal-apiserver provisions and manages bare-metal machines at scale. It handles:
      ┌────────────────────▼────────────────────┐
      │             Storage Layer               │
      │                                         │
-     │  ┌──────────┐  ┌──────────┐             │
-     │  │RethinkDB │  │  Redis/  │             │
-     │  │(primary) │  │  Valkey  │             │
-     │  └──────────┘  └──────────┘             │
+     │        ┌──────────┐  ┌──────────┐       │
+     │        │RethinkDB │  │  Redis/  │       │
+     │        │(primary) │  │  Valkey  │       │
+     │        └──────────┘  └──────────┘       │
      │                                         │
-     │  ┌──────────┐  ┌──────────┐             │
-     │  │  IPAM    │  │  Tenant  │  (external) │
-     │  │ (gRPC)   │  │  (gRPC)  │             │
-     │  └──────────┘  └──────────┘             │
+     │               (external)                │
+     │        ┌──────────┐  ┌──────────┐       │
+     │        │  IPAM    │  │  Tenant  │       │
+     │        │ (gRPC)   │  │  (gRPC)  │       │
+     │        └──────────┘  └──────────┘       │
      │                                         │
-     │  ┌──────────┐  ┌──────────┐             │
-     │  │ Splunk / │  │Headscale│  (optional)  │
-     │  │Timescale │  │  (VPN)   │             │
-     │  └──────────┘  └──────────┘             │
+     │                (optional)               │
+     │        ┌──────────┐  ┌───────────┐      │
+     │        │ Splunk / │  │ Headscale │      │
+     │        │Timescale │  │   (VPN)   │      │
+     │        └──────────┘  └───────────┘      │
      └─────────────────────────────────────────┘
 ```
 
 ### Layers
 
-| Layer            | Location                                                       | Responsibility                                                                                               |
-|------------------|----------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------|
-| **Transport**    | Connect-RPC                                                    | HTTP/2 with gRPC compatibility, gRPC-Web support                                                             |
-| **Interceptors** | `pkg/auth/`, `pkg/rate-limiter/`                               | Authentication (JWT/OIDC), authorization (RBAC), rate-limiting, validation, tenant resolution, audit logging |
-| **Services**     | `pkg/service/api/`, `pkg/service/admin/`, `pkg/service/infra/` | Public, admin, and infrastructure API handlers                                                               |
-| **Repository**   | `pkg/repository/`                                              | Business logic, data validation, authorization enforcement, protobuf conversion                              |
-| **Storage**      | `pkg/db/`                                                      | RethinkDB queries, domain models, migrations                                                                 |
+| Layer            | Responsibility                                                                                               |
+|------------------|--------------------------------------------------------------------------------------------------------------|
+| **Transport**    | HTTP/2 with gRPC compatibility, gRPC-Web support                                                             |
+| **Interceptors** | Authentication (JWT/OIDC), authorization (RBAC), rate-limiting, validation, tenant resolution, audit logging |
+| **Services**     | Public, admin, and infrastructure API handlers                                                               |
+| **Repository**   | Business logic, data validation, authorization enforcement, protobuf conversion                              |
+| **Storage**      | RethinkDB queries, domain models, migrations                                                                 |
 
 ### Storage Backends
 
@@ -103,83 +94,17 @@ metal-apiserver provisions and manages bare-metal machines at scale. It handles:
 | **TimescaleDB / Splunk** | Auditing                                                                                                                   | Optional                         |
 | **Headscale**            | WireGuard VPN mesh control plane                                                                                           | Optional                         |
 
----
-
-## API Surface
-
-Three API groups are defined via [Connect-RPC](https://connectrpc.com/) protobuf definitions in [`github.com/metal-stack/api`](https://github.com/metal-stack/api):
-
-### Public API (`metalstack.api.v2`)
-
-| Service                      | Operations                                                  |
-|------------------------------|-------------------------------------------------------------|
-| `AuditService`               | Search audit traces                                         |
-| `FilesystemService`          | List filesystem layouts                                     |
-| `HealthService`              | Health checks (IPAM, RethinkDB, Tenant, Valkey, VPN, Tasks) |
-| `ImageService`               | List/get OS images                                          |
-| `IPService`                  | CRUD for IP addresses, acquire/release                      |
-| `MachineService`             | CRUD for machines, BMC commands, console passwords, issues  |
-| `MethodService`              | List available methods/permissions                          |
-| `NetworkService`             | CRUD for networks                                           |
-| `PartitionService`           | List/get partitions                                         |
-| `ProjectService`             | CRUD for projects, invites, members                         |
-| `SizeImageConstraintService` | Manage size-image compatibility                             |
-| `SizeReservationService`     | Reserve sizes in projects                                   |
-| `SizeService`                | List/get machine sizes                                      |
-| `TenantService`              | CRUD for tenants, invites, members                          |
-| `TokenService`               | CRUD + refresh for API tokens                               |
-| `UserService`                | Get/list current user info                                  |
-| `VersionService`             | Server version                                              |
-
-### Admin API (`metalstack.admin.v2`)
-
-Same entities as public, plus admin-only services: `ComponentService`, `SwitchService`, `TaskService`, `VPNService`.
-
-### Infra API (`metalstack.infra.v2`)
-
-Used by infrastructure agents (metal-hammer, metal-core):
-
-| Service            | Operations                                    |
-|--------------------|-----------------------------------------------|
-| `BMCService`       | Power control, boot device selection, console |
-| `BootService`      | Boot configuration for machines               |
-| `ComponentService` | Hardware component registration               |
-| `EventService`     | Provisioning events                           |
-| `SwitchService`    | Switch operations                             |
-
----
-
-## Domain Entities
-
-All models are defined in `pkg/db/metal/`.
-
-| Entity                         | Description                                                                                     |
-|--------------------------------|-------------------------------------------------------------------------------------------------|
-| **Machine**                    | Bare-metal server with allocation state, hardware info, IPMI, BIOS, provisioning events         |
-| **Network**                    | Virtual network with prefixes, VRFs, NAT type, network type (private/super/underlay/shared)     |
-| **IP**                         | IP address with type (ephemeral/static), scope (project/machine/empty), namespace support       |
-| **Size**                       | Machine flavor (CPU cores, memory, storage, GPU constraints)                                    |
-| **Image**                      | OS image with URL, features, version, classification (preview/supported/deprecated), expiration |
-| **Partition**                  | Physical location/data center with boot configuration                                           |
-| **Switch**                     | Network switch                                                                                  |
-| **FilesystemLayout**           | Disk partitioning scheme                                                                        |
-| **SizeImageConstraint**        | Compatibility between sizes and images                                                          |
-| **SizeReservation**            | Size reservations for projects                                                                  |
-| **ProvisioningEventContainer** | Event history for machine provisioning lifecycle                                                |
-
----
-
 ## End-User Guide
 
 ### Authentication
 
 Authentication is performed via **OpenID Connect (OIDC)**. Three HTTP endpoints handle the login flow:
 
-| Endpoint         | Method | Description                                        |
-|------------------|--------|----------------------------------------------------|
-| `/auth/login`    | GET    | Start OIDC authorization flow                      |
-| `/auth/callback` | GET    | OIDC provider callback -- exchanges code for token |
-| `/auth/logout`   | GET    | Terminate session                                  |
+| Endpoint         | Method | Description                                       |
+|------------------|--------|---------------------------------------------------|
+| `/auth/login`    | GET    | Start OIDC authorization flow                     |
+| `/auth/callback` | GET    | OIDC provider callback - exchanges code for token |
+| `/auth/logout`   | GET    | Terminate session                                 |
 
 **CLI login via `metalctl`:**
 
@@ -218,8 +143,6 @@ See [RBAC.md](RBAC.md) for the complete role and permissions reference.
 | **Project**            | `PROJECT_ROLE_OWNER`, `PROJECT_ROLE_EDITOR`, `PROJECT_ROLE_VIEWER`                   |
 | **Infrastructure**     | `INFRA_ROLE_EDITOR`, `INFRA_ROLE_VIEWER`                                             |
 | **Machine (per UUID)** | `MACHINE_ROLE_EDITOR`, `MACHINE_ROLE_VIEWER`                                         |
-
----
 
 ## Developer Guide
 
@@ -282,7 +205,7 @@ make golint        # golangci-lint (bugs + unused groups)
 
 ### Project Structure
 
-```
+```raw
 ├── cmd/server/            # CLI entry point and sub-commands
 ├── pkg/
 │   ├── async/            # Async task workflows and FIFO queues (asynq/Redis)
