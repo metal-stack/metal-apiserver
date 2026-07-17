@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sort"
 	"time"
 
@@ -81,17 +82,17 @@ func (c *componentRepository) validateCreate(ctx context.Context, rq *api.Compon
 func (c *componentRepository) create(ctx context.Context, rq *api.ComponentServiceCreateRequest) (*componentEntity, error) {
 	payload, err := json.Marshal(rq)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to marshal component create request: %w", err)
 	}
 
 	key, err := c.key(rq.Component)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to get component key: %w", err)
 	}
 
 	err = c.s.component.Do(ctx, c.s.component.B().Set().Key(key).Value(string(payload)).Ex(rq.Expiration).Build()).Error()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to store component: %w", err)
 	}
 	return &componentEntity{Component: rq.Component}, err
 }
