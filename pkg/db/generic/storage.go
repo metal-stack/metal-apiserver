@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/metal-stack/api/go/errorutil"
+	"github.com/metal-stack/metal-lib/pkg/cache"
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
 
@@ -16,16 +17,55 @@ type storage[E Entity] struct {
 	r         *datastore
 	table     r.Term
 	tableName string
+	cache     *cache.Cache[string, E]
 }
 
 // newStorage creates a new Storage which uses the given database abstraction.
 func newStorage[E Entity](re *datastore, tableName string) *storage[E] {
 	re.tableNames = append(re.tableNames, tableName)
+
 	return &storage[E]{
 		r:         re,
 		table:     r.DB(re.dbname).Table(tableName),
 		tableName: tableName,
 	}
+}
+
+// newStorage creates a new Storage which uses the given database abstraction.
+func newCachedStorage[E Entity](re *datastore, tableName string, withCacheExpiration *time.Duration) *storage[E] {
+	s := newStorage[E](re, tableName)
+
+	var c *cache.Cache[string, E]
+	if withCacheExpiration != nil {
+		c = cache.New(*withCacheExpiration, func(ctx context.Context, id string) (E, error) {
+			var zero E
+			res, err := s.table.Get(id).Run(s.r.queryExecutor, r.RunOpts{Context: ctx})
+			if err != nil {
+				return zero, fmt.Errorf("cannot find %v with id %q in database: %w", s.tableName, id, err)
+			}
+
+			defer func() {
+				if err := res.Close(); err != nil {
+					s.r.log.Error("unable to close database connection", "error", err)
+				}
+			}()
+			if res.IsNil() {
+				return zero, errorutil.NotFound("no %v with id %q found", s.tableName, id)
+			}
+
+			e := new(E)
+			err = res.One(e)
+			if err != nil {
+				return zero, fmt.Errorf("more than one %v with same id exists: %w", s.tableName, err)
+			}
+
+			return *e, nil
+		})
+
+		s.cache = c
+	}
+
+	return s
 }
 
 // Create creates the given entity in the database. in case it is already present, a conflict error will be returned.
@@ -152,6 +192,9 @@ func (s *storage[E]) List(ctx context.Context, queries ...EntityQuery) ([]E, err
 
 // Get returns the entity of the given ID  from the database.
 func (s *storage[E]) Get(ctx context.Context, id string) (E, error) {
+	if s.cache != nil {
+		return s.cache.Get(ctx, id)
+	}
 	var zero E
 	res, err := s.table.Get(id).Run(s.r.queryExecutor, r.RunOpts{Context: ctx})
 	if err != nil {
