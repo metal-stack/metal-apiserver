@@ -219,7 +219,7 @@ func Test_projectServiceServer_List(t *testing.T) {
 	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{
 		{Name: p0, Login: "john.doe@github"},
 		{Name: "will.smith@github", Login: "will.smith@github"},
-		{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
+		{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github", Labels: &apiv2.Labels{Labels: map[string]string{"a": "b", "c": "d"}}},
 	})
 
 	test.CreateProjectMemberships(t, testStore, p0, []*api.ProjectMemberCreateRequest{
@@ -250,7 +250,9 @@ func Test_projectServiceServer_List(t *testing.T) {
 						Tenant: "john.doe@github",
 					},
 					{
-						Meta:   &apiv2.Meta{},
+						Meta: &apiv2.Meta{Labels: &apiv2.Labels{
+							Labels: map[string]string{"a": "b", "c": "d"},
+						}},
 						Name:   "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
 						Uuid:   "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
 						Tenant: "john.doe@github",
@@ -288,13 +290,64 @@ func Test_projectServiceServer_List(t *testing.T) {
 			want: &apiv2.ProjectServiceListResponse{
 				Projects: []*apiv2.Project{
 					{
-						Meta:   &apiv2.Meta{},
+						Meta: &apiv2.Meta{Labels: &apiv2.Labels{
+							Labels: map[string]string{"a": "b", "c": "d"},
+						}},
 						Name:   "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
 						Uuid:   "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
 						Tenant: "john.doe@github",
 					},
 				},
 			},
+			wantErr: nil,
+		},
+		{
+			name: "list the projects filtered by one label",
+			rq: &apiv2.ProjectServiceListRequest{
+				Query: &apiv2.ProjectQuery{
+					Labels: &apiv2.Labels{
+						Labels: map[string]string{"a": "b"},
+					},
+				},
+			},
+			want: &apiv2.ProjectServiceListResponse{
+				Projects: []*apiv2.Project{
+					{
+						Meta: &apiv2.Meta{
+							Labels: &apiv2.Labels{
+								Labels: map[string]string{"a": "b", "c": "d"},
+							},
+						},
+						Name:   "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
+						Tenant: "john.doe@github",
+						Uuid:   "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "list the projects filtered by one label with wrong value",
+			rq: &apiv2.ProjectServiceListRequest{
+				Query: &apiv2.ProjectQuery{
+					Labels: &apiv2.Labels{
+						Labels: map[string]string{"a": "c"},
+					},
+				},
+			},
+			want:    &apiv2.ProjectServiceListResponse{},
+			wantErr: nil,
+		},
+		{
+			name: "list the projects filtered by partially matching label",
+			rq: &apiv2.ProjectServiceListRequest{
+				Query: &apiv2.ProjectQuery{
+					Labels: &apiv2.Labels{
+						Labels: map[string]string{"a": "b", "e": "f"},
+					},
+				},
+			},
+			want:    &apiv2.ProjectServiceListResponse{},
 			wantErr: nil,
 		},
 		{
@@ -313,7 +366,9 @@ func Test_projectServiceServer_List(t *testing.T) {
 						Tenant: "john.doe@github",
 					},
 					{
-						Meta:   &apiv2.Meta{},
+						Meta: &apiv2.Meta{Labels: &apiv2.Labels{
+							Labels: map[string]string{"a": "b", "c": "d"},
+						}},
 						Name:   "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
 						Uuid:   "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
 						Tenant: "john.doe@github",

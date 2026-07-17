@@ -276,7 +276,7 @@ func Test_tenantServiceServer_List(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "list the tenants filtered by label",
+			name: "list the tenants filtered by all label",
 			rq: &apiv2.TenantServiceListRequest{
 				Query: &apiv2.TenantQuery{
 					Labels: &apiv2.Labels{
@@ -298,6 +298,55 @@ func Test_tenantServiceServer_List(t *testing.T) {
 					},
 				},
 			},
+			wantErr: nil,
+		},
+		{
+			name: "list the tenants filtered by one label",
+			rq: &apiv2.TenantServiceListRequest{
+				Query: &apiv2.TenantQuery{
+					Labels: &apiv2.Labels{
+						Labels: map[string]string{"a": "b"},
+					},
+				},
+			},
+			want: &apiv2.TenantServiceListResponse{
+				Tenants: []*apiv2.Tenant{
+					{
+						Meta: &apiv2.Meta{
+							Labels: &apiv2.Labels{
+								Labels: map[string]string{"a": "b", "c": "d"},
+							},
+						},
+						Name:      "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
+						Login:     "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
+						CreatedBy: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "list the tenants filtered by one label with wrong value",
+			rq: &apiv2.TenantServiceListRequest{
+				Query: &apiv2.TenantQuery{
+					Labels: &apiv2.Labels{
+						Labels: map[string]string{"a": "c"},
+					},
+				},
+			},
+			want:    &apiv2.TenantServiceListResponse{},
+			wantErr: nil,
+		},
+		{
+			name: "list the tenants filtered by partially matching label",
+			rq: &apiv2.TenantServiceListRequest{
+				Query: &apiv2.TenantQuery{
+					Labels: &apiv2.Labels{
+						Labels: map[string]string{"a": "b", "e": "f"},
+					},
+				},
+			},
+			want:    &apiv2.TenantServiceListResponse{},
 			wantErr: nil,
 		},
 		{
