@@ -15,7 +15,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/k8s"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	tokencommon "github.com/metal-stack/metal-apiserver/pkg/token"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"go.yaml.in/yaml/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
@@ -33,17 +33,17 @@ var (
 	}
 	tokenPermissionsFlag = &cli.StringSliceFlag{
 		Name:  "permissions",
-		Value: &cli.StringSlice{},
+		Value: []string{},
 		Usage: "requested permissions for the token",
 	}
 	tokenProjectRolesFlag = &cli.StringSliceFlag{
 		Name:  "project-roles",
-		Value: &cli.StringSlice{},
+		Value: []string{},
 		Usage: "requested project roles for the token",
 	}
 	tokenTenantRolesFlag = &cli.StringSliceFlag{
 		Name:  "tenant-roles",
-		Value: &cli.StringSlice{},
+		Value: []string{},
 		Usage: "requested tenant roles for the token",
 	}
 	tokenAdminRoleFlag = &cli.StringFlag{
@@ -58,7 +58,7 @@ var (
 	}
 	tokenMachineRolesFlag = &cli.StringSliceFlag{
 		Name:  "machine-roles",
-		Value: &cli.StringSlice{},
+		Value: []string{},
 		Usage: "requested machine roles for the token",
 	}
 	tokenExpirationFlag = &cli.DurationFlag{
@@ -70,19 +70,19 @@ var (
 		Name:    "namespace",
 		Value:   "metal-control-plane",
 		Usage:   "namespace of the secret",
-		EnvVars: []string{"NAMESPACE"},
+		Sources: cli.EnvVars("NAMESPACE"),
 	}
 	secretNameFlag = &cli.StringFlag{
 		Name:    "secret-name",
 		Value:   "metal-apiserver-admin-token",
 		Usage:   "name of the secret",
-		EnvVars: []string{"SECRET_NAME"},
+		Sources: cli.EnvVars("SECRET_NAME"),
 	}
 	tokensCreateConfigFileFlag = &cli.StringFlag{
 		Name:    "tokens-create-config-file",
 		Value:   "",
 		Usage:   "path to a yaml file which contains the serialized map from token-name to TokenServiceCreateRequest. If provided the generated tokens will not be printed to stdout but instead written back into a kubernetes secret resource as specified by the secret-name and namespace flags.",
-		EnvVars: []string{"TOKENS_CREATE_CONFIG_FILE_PATH"},
+		Sources: cli.EnvVars("TOKENS_CREATE_CONFIG_FILE_PATH"),
 	}
 )
 
@@ -109,13 +109,13 @@ func newTokenCmd() *cli.Command {
 			secretNameFlag,
 			tokensCreateConfigFileFlag,
 		},
-		Action: func(ctx *cli.Context) error {
-			log, err := createLogger(ctx)
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			log, err := createLogger(cmd)
 			if err != nil {
 				return fmt.Errorf("unable to create logger %w", err)
 			}
 
-			tokenRedisClient, _, err := createRedisClient(ctx, log, redisDatabaseTokens)
+			tokenRedisClient, _, err := createRedisClient(ctx, cmd, log, redisDatabaseTokens)
 			if err != nil {
 				return err
 			}
@@ -127,13 +127,13 @@ func newTokenCmd() *cli.Command {
 					CertStore: certs.NewRedisStore(&certs.Config{
 						RedisClient: tokenRedisClient,
 					}),
-					ProviderTenant: ctx.String(providerTenantFlag.Name),
-					Issuer:         ctx.String(serverHttpUrlFlag.Name),
+					ProviderTenant: cmd.String(providerTenantFlag.Name),
+					Issuer:         cmd.String(serverHttpUrlFlag.Name),
 				},
 			})
 
 			var permissions []*apiv2.MethodPermission
-			for _, m := range ctx.StringSlice(tokenPermissionsFlag.Name) {
+			for _, m := range cmd.StringSlice(tokenPermissionsFlag.Name) {
 				project, semicolonSeparatedMethods, ok := strings.Cut(m, "=")
 				if !ok {
 					return fmt.Errorf("permissions must be provided in the form <project>=<methods-colon-separated>")
@@ -146,7 +146,7 @@ func newTokenCmd() *cli.Command {
 			}
 
 			projectRoles := map[string]apiv2.ProjectRole{}
-			for _, r := range ctx.StringSlice(tokenProjectRolesFlag.Name) {
+			for _, r := range cmd.StringSlice(tokenProjectRolesFlag.Name) {
 				projectID, roleString, ok := strings.Cut(r, "=")
 				if !ok {
 					return fmt.Errorf("project roles must be provided in the form <project-id>=<role>")
@@ -161,7 +161,7 @@ func newTokenCmd() *cli.Command {
 			}
 
 			tenantRoles := map[string]apiv2.TenantRole{}
-			for _, r := range ctx.StringSlice(tokenTenantRolesFlag.Name) {
+			for _, r := range cmd.StringSlice(tokenTenantRolesFlag.Name) {
 				tenantID, roleString, ok := strings.Cut(r, "=")
 				if !ok {
 					return fmt.Errorf("tenant roles must be provided in the form <tenant-id>=<role>")
@@ -176,7 +176,7 @@ func newTokenCmd() *cli.Command {
 			}
 
 			var adminRole *apiv2.AdminRole
-			if roleString := ctx.String(tokenAdminRoleFlag.Name); roleString != "" {
+			if roleString := cmd.String(tokenAdminRoleFlag.Name); roleString != "" {
 				role, ok := apiv2.AdminRole_value[roleString]
 				if !ok {
 					return fmt.Errorf("unknown role: %s", roleString)
@@ -185,7 +185,7 @@ func newTokenCmd() *cli.Command {
 				adminRole = new(apiv2.AdminRole(role))
 			}
 			var infraRole *apiv2.InfraRole
-			if roleString := ctx.String(tokenInfraRoleFlag.Name); roleString != "" {
+			if roleString := cmd.String(tokenInfraRoleFlag.Name); roleString != "" {
 				role, ok := apiv2.InfraRole_value[roleString]
 				if !ok {
 					return fmt.Errorf("unknown role: %s", roleString)
@@ -194,7 +194,7 @@ func newTokenCmd() *cli.Command {
 				infraRole = new(apiv2.InfraRole(role))
 			}
 			machineRoles := map[string]apiv2.MachineRole{}
-			for _, r := range ctx.StringSlice(tokenMachineRolesFlag.Name) {
+			for _, r := range cmd.StringSlice(tokenMachineRolesFlag.Name) {
 				machineID, roleString, ok := strings.Cut(r, "=")
 				if !ok {
 					return fmt.Errorf("machine roles must be provided in the form <machine-uuid>=<role>")
@@ -207,33 +207,33 @@ func newTokenCmd() *cli.Command {
 
 				machineRoles[machineID] = apiv2.MachineRole(role)
 			}
-			subject := ctx.String(tokenSubjectFlag.Name)
+			subject := cmd.String(tokenSubjectFlag.Name)
 			if subject == "" {
 				return fmt.Errorf("token subject cannot be empty")
 			}
 
-			if configFile := ctx.String(tokensCreateConfigFileFlag.Name); configFile != "" {
-				namespace := ctx.String(namespaceFlag.Name)
+			if configFile := cmd.String(tokensCreateConfigFileFlag.Name); configFile != "" {
+				namespace := cmd.String(namespaceFlag.Name)
 				if namespace == "" {
 					return fmt.Errorf("namespace cannot be empty")
 				}
 
-				secretName := ctx.String(secretNameFlag.Name)
+				secretName := cmd.String(secretNameFlag.Name)
 				if secretName == "" {
 					return fmt.Errorf("secretName cannot be empty")
 				}
 
-				providerTenant := ctx.String(providerTenantFlag.Name)
+				providerTenant := cmd.String(providerTenantFlag.Name)
 				if providerTenant == "" {
 					return fmt.Errorf("providerTenant cannot be empty")
 				}
 
-				return storeTokensFromConfigFile(ctx.Context, log, repo, configFile, providerTenant, namespace, secretName)
+				return storeTokensFromConfigFile(ctx, log, repo, configFile, providerTenant, namespace, secretName)
 			}
 
-			resp, err := repo.UnscopedToken().AdditionalMethods().CreateApiTokenWithoutPermissionCheck(ctx.Context, subject, &apiv2.TokenServiceCreateRequest{
-				Description:  ctx.String(tokenDescriptionFlag.Name),
-				Expires:      durationpb.New(ctx.Duration(tokenExpirationFlag.Name)),
+			resp, err := repo.UnscopedToken().AdditionalMethods().CreateApiTokenWithoutPermissionCheck(ctx, subject, &apiv2.TokenServiceCreateRequest{
+				Description:  cmd.String(tokenDescriptionFlag.Name),
+				Expires:      durationpb.New(cmd.Duration(tokenExpirationFlag.Name)),
 				ProjectRoles: projectRoles,
 				TenantRoles:  tenantRoles,
 				AdminRole:    adminRole,
