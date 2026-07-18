@@ -374,6 +374,7 @@ func (t *tokenRepository) Refresh(ctx context.Context, uuid string) (*apiv2.Toke
 	}
 	fullUserToken := &apiv2.Token{
 		User:         t.scope.user,
+		Permissions:  tok.Permissions,
 		ProjectRoles: projectsAndTenants.ProjectRoles,
 		TenantRoles:  projectsAndTenants.TenantRoles,
 		AdminRole:    nil,
@@ -423,6 +424,8 @@ func (t *tokenRepository) Refresh(ctx context.Context, uuid string) (*apiv2.Toke
 	if err != nil {
 		return nil, err
 	}
+
+	// TODO, should we delete the old token now ?
 
 	return &apiv2.TokenServiceRefreshResponse{
 		Token:  newToken,

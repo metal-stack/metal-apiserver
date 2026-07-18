@@ -2255,6 +2255,70 @@ func Test_Refresh(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "refresh preserves method permissions from existing token",
+			sessionToken: &apiv2.Token{
+				User: "phippy",
+				Uuid: token1,
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "",
+						Methods: []string{
+							"/metalstack.api.v2.PartitionService/List",
+							"/metalstack.api.v2.TokenService/Refresh",
+							"/metalstack.infra.v2.ComponentService/Ping",
+						},
+					},
+				},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				MachineRoles: map[string]apiv2.MachineRole{},
+			},
+			existingToken: &apiv2.Token{
+				Uuid: token1,
+				User: "phippy",
+				Permissions: []*apiv2.MethodPermission{{
+					Subject: "",
+					Methods: []string{
+						"/metalstack.api.v2.PartitionService/List",
+						"/metalstack.api.v2.TokenService/Refresh",
+						"/metalstack.infra.v2.ComponentService/Ping",
+					},
+				}},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				MachineRoles: map[string]apiv2.MachineRole{},
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				IssuedAt:     timestamppb.New(iat),
+				Expires:      timestamppb.New(exp),
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+			},
+			wantToken: &apiv2.Token{
+				Uuid: token1,
+				User: "phippy",
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "",
+						Methods: []string{
+							"/metalstack.api.v2.PartitionService/List",
+							"/metalstack.api.v2.TokenService/Refresh",
+							"/metalstack.infra.v2.ComponentService/Ping",
+						},
+					},
+				},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				MachineRoles: map[string]apiv2.MachineRole{},
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				IssuedAt:     timestamppb.New(exp),
+				Expires:      timestamppb.New(exp.Add(time.Hour)),
+				Meta: &apiv2.Meta{
+					Generation: 1,
+				},
+			},
+		},
 		// FIXME more tests
 		{
 			name: "token does not exist in database",
