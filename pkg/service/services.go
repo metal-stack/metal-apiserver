@@ -14,11 +14,14 @@ import (
 	"connectrpc.com/otelconnect"
 	"connectrpc.com/validate"
 
+	mcpserver "github.com/mark3labs/mcp-go/server"
 	"github.com/metal-stack/api/go/permissions"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	"github.com/metal-stack/metal-lib/auditing"
 	auditingconnectrpc "github.com/metal-stack/metal-lib/auditing/connectrpc"
+	"github.com/metal-stack/v"
 	"github.com/redis/go-redis/v9"
+	"github.com/redpanda-data/protoc-gen-go-mcp/pkg/runtime/mark3labs"
 	"github.com/valkey-io/valkey-go"
 	"go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/sdk/metric"
@@ -168,6 +171,8 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 		infraInterceptors = connect.WithInterceptors(allInfraInterceptors...)
 	)
 
+	raw, mcps := mark3labs.NewServer("metal-stack.io mcp server", v.V.String())
+
 	mux := http.NewServeMux()
 
 	err = api.ApiServices(ctx, api.Config{
@@ -188,6 +193,7 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 		ProviderTenant:     c.ProviderTenant,
 		AuditBackends:      c.AuditBackends,
 		HeadscaleClient:    c.HeadscaleClient,
+		MCPServer:          mcps,
 	})
 	if err != nil {
 		return nil, err
@@ -232,6 +238,9 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 	// Add all authentication handlers in one go
 	mux.Handle(authHandlerPath, authHandler)
 	// END OIDC Login Authentication
+
+	// Add MCP Handler
+	mux.Handle("/mcp", mcpserver.NewStreamableHTTPServer(raw))
 
 	return mux, nil
 }

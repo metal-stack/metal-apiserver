@@ -9,12 +9,14 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
+	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2mcp"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-lib/auditing"
+	"github.com/redpanda-data/protoc-gen-go-mcp/pkg/runtime"
 	"github.com/valkey-io/valkey-go"
 
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
@@ -56,6 +58,7 @@ type Config struct {
 	Valkey             valkey.Client
 	AuditBackends      []auditing.Auditing
 	HeadscaleClient    *headscale.Client
+	MCPServer          runtime.MCPServer
 
 	ServerHttpURL  string
 	ProviderTenant string
@@ -131,6 +134,9 @@ func ApiServices(ctx context.Context, cfg Config) error {
 	cfg.Mux.Handle(apiv2connect.NewTokenServiceHandler(tokenService, cfg.Interceptors))
 	cfg.Mux.Handle(apiv2connect.NewUserServiceHandler(userService, cfg.Interceptors))
 	cfg.Mux.Handle(apiv2connect.NewVersionServiceHandler(versionService, cfg.Interceptors))
+
+	// Register MCP Handlers
+	apiv2mcp.RegisterAuditServiceHandler(cfg.MCPServer, auditService)
 
 	return nil
 }
