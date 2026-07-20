@@ -1464,9 +1464,9 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			},
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "permission token",
-				Permissions: []*apiv2.TypedMethodPermission{
+				Permissions: []*apiv2.PermissionsByVisibility{
 					{
-						Permissiontype: &apiv2.TypedMethodPermission_Project{
+						Visibility: &apiv2.PermissionsByVisibility_Project{
 							Project: &apiv2.ProjectPermissions{
 								Project: project1,
 								Methods: []string{"/metalstack.api.v2.IPService/Get"},
@@ -1504,9 +1504,9 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			},
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "unknown method",
-				Permissions: []*apiv2.TypedMethodPermission{
+				Permissions: []*apiv2.PermissionsByVisibility{
 					{
-						Permissiontype: &apiv2.TypedMethodPermission_Project{
+						Visibility: &apiv2.PermissionsByVisibility_Project{
 							Project: &apiv2.ProjectPermissions{
 								Project: project1,
 								Methods: []string{"/metalstack.api.v2.IPService/Get"},
@@ -1536,9 +1536,9 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			},
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "unknown method",
-				Permissions: []*apiv2.TypedMethodPermission{
+				Permissions: []*apiv2.PermissionsByVisibility{
 					{
-						Permissiontype: &apiv2.TypedMethodPermission_Project{
+						Visibility: &apiv2.PermissionsByVisibility_Project{
 							Project: &apiv2.ProjectPermissions{
 								Project: project1,
 								Methods: []string{"/metalstack.api.v2.IPService/Get"},
@@ -1563,9 +1563,9 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			},
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "unknown method",
-				Permissions: []*apiv2.TypedMethodPermission{
+				Permissions: []*apiv2.PermissionsByVisibility{
 					{
-						Permissiontype: &apiv2.TypedMethodPermission_Self{
+						Visibility: &apiv2.PermissionsByVisibility_Self{
 							Self: &apiv2.SelfPermissions{
 								Methods: []string{"/metalstack.api.v2.IPService/Get"},
 							},
@@ -1579,7 +1579,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 					project1: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 			},
-			wantError: errorutil.PermissionDenied(`invalid permissions requested: requested method "/metalstack.api.v2.IPService/Get" is of type "project", not of type "self"`),
+			wantError: errorutil.PermissionDenied(`invalid permissions requested: requested method "/metalstack.api.v2.IPService/Get" is of visibility "project", not of visibility "self"`),
 		},
 		{
 			name: "user cannot request permissions for a project without membership",
@@ -1597,9 +1597,9 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			},
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "permission token",
-				Permissions: []*apiv2.TypedMethodPermission{
+				Permissions: []*apiv2.PermissionsByVisibility{
 					{
-						Permissiontype: &apiv2.TypedMethodPermission_Project{
+						Visibility: &apiv2.PermissionsByVisibility_Project{
 							Project: &apiv2.ProjectPermissions{
 								Project: project2,
 								Methods: []string{"/metalstack.api.v2.IPService/Get"},
@@ -1632,9 +1632,9 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			},
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "wildcard permission",
-				Permissions: []*apiv2.TypedMethodPermission{
+				Permissions: []*apiv2.PermissionsByVisibility{
 					{
-						Permissiontype: &apiv2.TypedMethodPermission_Project{
+						Visibility: &apiv2.PermissionsByVisibility_Project{
 							Project: &apiv2.ProjectPermissions{
 								Project: project2,
 								Methods: []string{"/metalstack.api.v2.IPService/Get"},
@@ -1667,9 +1667,9 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			},
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "wildcard permission",
-				Permissions: []*apiv2.TypedMethodPermission{
+				Permissions: []*apiv2.PermissionsByVisibility{
 					{
-						Permissiontype: &apiv2.TypedMethodPermission_Project{
+						Visibility: &apiv2.PermissionsByVisibility_Project{
 							Project: &apiv2.ProjectPermissions{
 								Project: project1,
 								Methods: []string{"/metalstack.api.v2.IPService/Get"},
@@ -1712,9 +1712,9 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			},
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "wildcard permission",
-				Permissions: []*apiv2.TypedMethodPermission{
+				Permissions: []*apiv2.PermissionsByVisibility{
 					{
-						Permissiontype: &apiv2.TypedMethodPermission_Project{
+						Visibility: &apiv2.PermissionsByVisibility_Project{
 							Project: &apiv2.ProjectPermissions{
 								Project: "hello my name is phippy?",
 								Methods: []string{"/metalstack.api.v2.IPService/Get"},
@@ -1747,9 +1747,9 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			},
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "wildcard permission",
-				Permissions: []*apiv2.TypedMethodPermission{
+				Permissions: []*apiv2.PermissionsByVisibility{
 					{
-						Permissiontype: &apiv2.TypedMethodPermission_Project{
+						Visibility: &apiv2.PermissionsByVisibility_Project{
 							Project: &apiv2.ProjectPermissions{
 								Project: project1,
 								Methods: []string{"/metalstack.api.v2.IPService/Get"},
@@ -1792,9 +1792,9 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			},
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "wrong subject",
-				Permissions: []*apiv2.TypedMethodPermission{
+				Permissions: []*apiv2.PermissionsByVisibility{
 					{
-						Permissiontype: &apiv2.TypedMethodPermission_Project{
+						Visibility: &apiv2.PermissionsByVisibility_Project{
 							Project: &apiv2.ProjectPermissions{
 								Project: project2,
 								Methods: []string{"/metalstack.api.v2.IPService/Get"},
@@ -1830,9 +1830,9 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			},
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "multiple permissions",
-				Permissions: []*apiv2.TypedMethodPermission{
+				Permissions: []*apiv2.PermissionsByVisibility{
 					{
-						Permissiontype: &apiv2.TypedMethodPermission_Project{
+						Visibility: &apiv2.PermissionsByVisibility_Project{
 							Project: &apiv2.ProjectPermissions{
 								Project: project1,
 								Methods: []string{"/metalstack.api.v2.IPService/Get"},
@@ -1840,7 +1840,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 						},
 					},
 					{
-						Permissiontype: &apiv2.TypedMethodPermission_Project{
+						Visibility: &apiv2.PermissionsByVisibility_Project{
 							Project: &apiv2.ProjectPermissions{
 								Project: project1,
 								Methods: []string{"/metalstack.api.v2.IPService/List"},
@@ -1886,9 +1886,9 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			},
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "multiple permissions",
-				Permissions: []*apiv2.TypedMethodPermission{
+				Permissions: []*apiv2.PermissionsByVisibility{
 					{
-						Permissiontype: &apiv2.TypedMethodPermission_Project{
+						Visibility: &apiv2.PermissionsByVisibility_Project{
 							Project: &apiv2.ProjectPermissions{
 								Project: project1,
 								Methods: []string{"/metalstack.api.v2.IPService/Get"},
@@ -1896,7 +1896,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 						},
 					},
 					{
-						Permissiontype: &apiv2.TypedMethodPermission_Project{
+						Visibility: &apiv2.PermissionsByVisibility_Project{
 							Project: &apiv2.ProjectPermissions{
 								Project: project1,
 								Methods: []string{"/metalstack.api.v2.IPService/List"},
@@ -2071,9 +2071,9 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			},
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "permission and project",
-				Permissions: []*apiv2.TypedMethodPermission{
+				Permissions: []*apiv2.PermissionsByVisibility{
 					{
-						Permissiontype: &apiv2.TypedMethodPermission_Project{
+						Visibility: &apiv2.PermissionsByVisibility_Project{
 							Project: &apiv2.ProjectPermissions{
 								Project: project1,
 								Methods: []string{"/metalstack.api.v2.IPService/Get"},
@@ -2120,7 +2120,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			},
 			req: &apiv2.TokenServiceCreateRequest{
 				Description:  "all empty",
-				Permissions:  []*apiv2.TypedMethodPermission{},
+				Permissions:  []*apiv2.PermissionsByVisibility{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
 				MachineRoles: map[string]apiv2.MachineRole{},
@@ -2212,9 +2212,9 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			},
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "unknown method",
-				Permissions: []*apiv2.TypedMethodPermission{
+				Permissions: []*apiv2.PermissionsByVisibility{
 					{
-						Permissiontype: &apiv2.TypedMethodPermission_Self{
+						Visibility: &apiv2.PermissionsByVisibility_Self{
 							Self: &apiv2.SelfPermissions{
 								Methods: []string{"/metalstack.api.v2.UnknownService/Get"},
 							},
@@ -2537,7 +2537,7 @@ func Test_validateTokenRequest(t *testing.T) {
 				Expires: inOneHour,
 			},
 			providerTenant: "metal-stack",
-			wantErr:        errors.New(`invalid permissions requested: requested method "/metalstack.api.v2.UnknownService/Get" is not contained in the api`),
+			wantErr:        errors.New(`unknown method "/metalstack.api.v2.UnknownService/Get"`),
 		},
 		{
 			name: "simple token with one project and permission, wrong project given",

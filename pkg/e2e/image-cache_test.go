@@ -35,9 +35,9 @@ func TestImageCacheServiceToken(t *testing.T) {
 		User: new("metal-image-cache-sync"),
 		TokenCreateRequest: &apiv2.TokenServiceCreateRequest{
 			Description: "metal-image-cache-sync token",
-			Permissions: []*apiv2.TypedMethodPermission{
+			Permissions: []*apiv2.PermissionsByVisibility{
 				{
-					Permissiontype: &apiv2.TypedMethodPermission_Self{
+					Visibility: &apiv2.PermissionsByVisibility_Self{
 						Self: &apiv2.SelfPermissions{
 							Methods: []string{
 								"/metalstack.api.v2.ImageService/List",
@@ -48,7 +48,7 @@ func TestImageCacheServiceToken(t *testing.T) {
 					},
 				},
 				{
-					Permissiontype: &apiv2.TypedMethodPermission_Infra{
+					Visibility: &apiv2.PermissionsByVisibility_Infra{
 						Infra: &apiv2.InfraPermissions{
 							Methods: []string{
 								"/metalstack.infra.v2.ComponentService/Ping",

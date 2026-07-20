@@ -27,9 +27,9 @@ func TestTokenCreateConfigTest(t *testing.T) {
 		"metal_console": {
 			User: new("metal-console"),
 			TokenCreateRequest: &apiv2.TokenServiceCreateRequest{
-				Permissions: []*apiv2.TypedMethodPermission{
+				Permissions: []*apiv2.PermissionsByVisibility{
 					{
-						Permissiontype: &apiv2.TypedMethodPermission_Self{
+						Visibility: &apiv2.PermissionsByVisibility_Self{
 							Self: &apiv2.SelfPermissions{
 								Methods: []string{
 									apiv2connect.MethodServiceTokenScopedListProcedure,

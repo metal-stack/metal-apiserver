@@ -47,9 +47,9 @@ func TestIPCreate(t *testing.T) {
 		User: &userName,
 		TokenCreateRequest: &apiv2.TokenServiceCreateRequest{
 			Description: userName,
-			Permissions: []*apiv2.TypedMethodPermission{
+			Permissions: []*apiv2.PermissionsByVisibility{
 				{
-					Permissiontype: &apiv2.TypedMethodPermission_Project{
+					Visibility: &apiv2.PermissionsByVisibility_Project{
 						Project: &apiv2.ProjectPermissions{
 							Project: project1.Project.Uuid,
 							Methods: []string{

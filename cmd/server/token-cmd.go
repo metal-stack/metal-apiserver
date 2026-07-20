@@ -133,7 +133,7 @@ func newTokenCmd() *cli.Command {
 				},
 			})
 
-			var typedPermissions []*apiv2.TypedMethodPermission
+			var typedPermissions []*apiv2.PermissionsByVisibility
 			for _, m := range ctx.StringSlice(tokenPermissionsFlag.Name) {
 				subject, colonSeparatedMethods, ok := strings.Cut(m, "=")
 				if !ok {
@@ -143,8 +143,8 @@ func newTokenCmd() *cli.Command {
 				for _, method := range strings.Split(colonSeparatedMethods, ":") {
 					if _, ok := permissions.GetServicePermissions().Visibility.Admin[method]; ok {
 
-						typedPermissions = append(typedPermissions, &apiv2.TypedMethodPermission{
-							Permissiontype: &apiv2.TypedMethodPermission_Admin{
+						typedPermissions = append(typedPermissions, &apiv2.PermissionsByVisibility{
+							Visibility: &apiv2.PermissionsByVisibility_Admin{
 								Admin: &apiv2.AdminPermissions{
 									Methods: []string{method},
 								},
@@ -155,8 +155,8 @@ func newTokenCmd() *cli.Command {
 					}
 
 					if _, ok := permissions.GetServicePermissions().Visibility.Infra[method]; ok {
-						typedPermissions = append(typedPermissions, &apiv2.TypedMethodPermission{
-							Permissiontype: &apiv2.TypedMethodPermission_Infra{
+						typedPermissions = append(typedPermissions, &apiv2.PermissionsByVisibility{
+							Visibility: &apiv2.PermissionsByVisibility_Infra{
 								Infra: &apiv2.InfraPermissions{
 									Methods: []string{method},
 								},
@@ -167,8 +167,8 @@ func newTokenCmd() *cli.Command {
 					}
 
 					if _, ok := permissions.GetServicePermissions().Visibility.Machine[method]; ok {
-						typedPermissions = append(typedPermissions, &apiv2.TypedMethodPermission{
-							Permissiontype: &apiv2.TypedMethodPermission_Machine{
+						typedPermissions = append(typedPermissions, &apiv2.PermissionsByVisibility{
+							Visibility: &apiv2.PermissionsByVisibility_Machine{
 								Machine: &apiv2.MachinePermissions{
 									Uuid:    subject,
 									Methods: []string{method},
@@ -180,8 +180,8 @@ func newTokenCmd() *cli.Command {
 					}
 
 					if _, ok := permissions.GetServicePermissions().Visibility.Project[method]; ok {
-						typedPermissions = append(typedPermissions, &apiv2.TypedMethodPermission{
-							Permissiontype: &apiv2.TypedMethodPermission_Project{
+						typedPermissions = append(typedPermissions, &apiv2.PermissionsByVisibility{
+							Visibility: &apiv2.PermissionsByVisibility_Project{
 								Project: &apiv2.ProjectPermissions{
 									Project: subject,
 									Methods: []string{method},
@@ -193,8 +193,8 @@ func newTokenCmd() *cli.Command {
 					}
 
 					if _, ok := permissions.GetServicePermissions().Visibility.Public[method]; ok {
-						typedPermissions = append(typedPermissions, &apiv2.TypedMethodPermission{
-							Permissiontype: &apiv2.TypedMethodPermission_Public{
+						typedPermissions = append(typedPermissions, &apiv2.PermissionsByVisibility{
+							Visibility: &apiv2.PermissionsByVisibility_Public{
 								Public: &apiv2.PublicPermissions{
 									Methods: []string{method},
 								},
@@ -205,8 +205,8 @@ func newTokenCmd() *cli.Command {
 					}
 
 					if _, ok := permissions.GetServicePermissions().Visibility.Self[method]; ok {
-						typedPermissions = append(typedPermissions, &apiv2.TypedMethodPermission{
-							Permissiontype: &apiv2.TypedMethodPermission_Self{
+						typedPermissions = append(typedPermissions, &apiv2.PermissionsByVisibility{
+							Visibility: &apiv2.PermissionsByVisibility_Self{
 								Self: &apiv2.SelfPermissions{
 									Methods: []string{method},
 								},
@@ -217,8 +217,8 @@ func newTokenCmd() *cli.Command {
 					}
 
 					if _, ok := permissions.GetServicePermissions().Visibility.Tenant[method]; ok {
-						typedPermissions = append(typedPermissions, &apiv2.TypedMethodPermission{
-							Permissiontype: &apiv2.TypedMethodPermission_Tenant{
+						typedPermissions = append(typedPermissions, &apiv2.PermissionsByVisibility{
+							Visibility: &apiv2.PermissionsByVisibility_Tenant{
 								Tenant: &apiv2.TenantPermissions{
 									Login:   subject,
 									Methods: []string{method},

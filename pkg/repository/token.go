@@ -150,7 +150,7 @@ func (t *tokenRepository) create(ctx context.Context, c *adminv2.TokenServiceCre
 	}
 
 	tok.Description = req.Description
-	tok.Permissions = flattenTypedTokenPermissions(req.Permissions)
+	tok.Permissions = flattenPermissions(req.Permissions)
 	tok.ProjectRoles = req.ProjectRoles
 	tok.TenantRoles = req.TenantRoles
 	tok.AdminRole = req.AdminRole
@@ -211,7 +211,7 @@ func (t *tokenRepository) update(ctx context.Context, tokenToUpdate *api.TokenWi
 		}
 	}
 	if req.Permissions != nil {
-		tok.Permissions = flattenTypedTokenPermissions(req.Permissions)
+		tok.Permissions = flattenPermissions(req.Permissions)
 	}
 	if req.ProjectRoles != nil {
 		tok.ProjectRoles = req.ProjectRoles
@@ -318,7 +318,7 @@ func (t *tokenRepository) CreateApiTokenWithoutPermissionCheck(ctx context.Conte
 	}
 
 	token.Description = req.Description
-	token.Permissions = flattenTypedTokenPermissions(req.Permissions)
+	token.Permissions = flattenPermissions(req.Permissions)
 	token.ProjectRoles = req.ProjectRoles
 	token.TenantRoles = req.TenantRoles
 	token.AdminRole = req.AdminRole
@@ -425,42 +425,42 @@ func (t *tokenRepository) Refresh(ctx context.Context, uuid string) (*apiv2.Toke
 	}, nil
 }
 
-func flattenTypedTokenPermissions(typed []*apiv2.TypedMethodPermission) []*apiv2.MethodPermission {
+func flattenPermissions(typed []*apiv2.PermissionsByVisibility) []*apiv2.MethodPermission {
 	res := make([]*apiv2.MethodPermission, len(typed))
 
 	for i, p := range typed {
-		switch p.Permissiontype.(type) {
-		case *apiv2.TypedMethodPermission_Admin:
+		switch p.Visibility.(type) {
+		case *apiv2.PermissionsByVisibility_Admin:
 			res[i] = &apiv2.MethodPermission{
 				Subject: "",
 				Methods: p.GetAdmin().GetMethods(),
 			}
-		case *apiv2.TypedMethodPermission_Infra:
+		case *apiv2.PermissionsByVisibility_Infra:
 			res[i] = &apiv2.MethodPermission{
 				Subject: "",
 				Methods: p.GetInfra().GetMethods(),
 			}
-		case *apiv2.TypedMethodPermission_Machine:
+		case *apiv2.PermissionsByVisibility_Machine:
 			res[i] = &apiv2.MethodPermission{
 				Subject: p.GetMachine().GetUuid(),
 				Methods: p.GetMachine().GetMethods(),
 			}
-		case *apiv2.TypedMethodPermission_Project:
+		case *apiv2.PermissionsByVisibility_Project:
 			res[i] = &apiv2.MethodPermission{
 				Subject: p.GetProject().GetProject(),
 				Methods: p.GetProject().GetMethods(),
 			}
-		case *apiv2.TypedMethodPermission_Public:
+		case *apiv2.PermissionsByVisibility_Public:
 			res[i] = &apiv2.MethodPermission{
 				Subject: "",
 				Methods: p.GetPublic().GetMethods(),
 			}
-		case *apiv2.TypedMethodPermission_Self:
+		case *apiv2.PermissionsByVisibility_Self:
 			res[i] = &apiv2.MethodPermission{
 				Subject: "",
 				Methods: p.GetSelf().GetMethods(),
 			}
-		case *apiv2.TypedMethodPermission_Tenant:
+		case *apiv2.PermissionsByVisibility_Tenant:
 			res[i] = &apiv2.MethodPermission{
 				Subject: p.GetTenant().GetLogin(),
 				Methods: p.GetTenant().GetMethods(),
@@ -471,14 +471,14 @@ func flattenTypedTokenPermissions(typed []*apiv2.TypedMethodPermission) []*apiv2
 	return res
 }
 
-func compactTypedMethodPermissions(perms []*apiv2.TypedMethodPermission) []*apiv2.TypedMethodPermission {
-	var res []*apiv2.TypedMethodPermission
+func compactPermissions(perms []*apiv2.PermissionsByVisibility) []*apiv2.PermissionsByVisibility {
+	var res []*apiv2.PermissionsByVisibility
 
 	for _, p := range perms {
-		switch p.Permissiontype.(type) {
-		case *apiv2.TypedMethodPermission_Admin:
+		switch p.Visibility.(type) {
+		case *apiv2.PermissionsByVisibility_Admin:
 			var (
-				idx = slices.IndexFunc(res, func(perm *apiv2.TypedMethodPermission) bool {
+				idx = slices.IndexFunc(res, func(perm *apiv2.PermissionsByVisibility) bool {
 					return perm.GetAdmin() != nil
 				})
 				methods = p.GetAdmin().Methods
@@ -488,8 +488,8 @@ func compactTypedMethodPermissions(perms []*apiv2.TypedMethodPermission) []*apiv
 				slices.Sort(methods)
 				methods = lo.Uniq(methods)
 
-				res = append(res, &apiv2.TypedMethodPermission{
-					Permissiontype: &apiv2.TypedMethodPermission_Admin{
+				res = append(res, &apiv2.PermissionsByVisibility{
+					Visibility: &apiv2.PermissionsByVisibility_Admin{
 						Admin: &apiv2.AdminPermissions{
 							Methods: methods,
 						},
@@ -504,9 +504,9 @@ func compactTypedMethodPermissions(perms []*apiv2.TypedMethodPermission) []*apiv
 			slices.Sort(res[idx].GetAdmin().Methods)
 			res[idx].GetAdmin().Methods = lo.Uniq(res[idx].GetAdmin().Methods)
 
-		case *apiv2.TypedMethodPermission_Infra:
+		case *apiv2.PermissionsByVisibility_Infra:
 			var (
-				idx = slices.IndexFunc(res, func(perm *apiv2.TypedMethodPermission) bool {
+				idx = slices.IndexFunc(res, func(perm *apiv2.PermissionsByVisibility) bool {
 					return perm.GetInfra() != nil
 				})
 				methods = p.GetInfra().Methods
@@ -516,8 +516,8 @@ func compactTypedMethodPermissions(perms []*apiv2.TypedMethodPermission) []*apiv
 				slices.Sort(methods)
 				methods = lo.Uniq(methods)
 
-				res = append(res, &apiv2.TypedMethodPermission{
-					Permissiontype: &apiv2.TypedMethodPermission_Infra{
+				res = append(res, &apiv2.PermissionsByVisibility{
+					Visibility: &apiv2.PermissionsByVisibility_Infra{
 						Infra: &apiv2.InfraPermissions{
 							Methods: methods,
 						},
@@ -532,9 +532,9 @@ func compactTypedMethodPermissions(perms []*apiv2.TypedMethodPermission) []*apiv
 			slices.Sort(res[idx].GetInfra().Methods)
 			res[idx].GetInfra().Methods = lo.Uniq(res[idx].GetInfra().Methods)
 
-		case *apiv2.TypedMethodPermission_Machine:
+		case *apiv2.PermissionsByVisibility_Machine:
 			var (
-				idx = slices.IndexFunc(res, func(perm *apiv2.TypedMethodPermission) bool {
+				idx = slices.IndexFunc(res, func(perm *apiv2.PermissionsByVisibility) bool {
 					return perm.GetMachine() != nil
 				})
 				methods = p.GetMachine().Methods
@@ -544,8 +544,8 @@ func compactTypedMethodPermissions(perms []*apiv2.TypedMethodPermission) []*apiv
 				slices.Sort(methods)
 				methods = lo.Uniq(methods)
 
-				res = append(res, &apiv2.TypedMethodPermission{
-					Permissiontype: &apiv2.TypedMethodPermission_Machine{
+				res = append(res, &apiv2.PermissionsByVisibility{
+					Visibility: &apiv2.PermissionsByVisibility_Machine{
 						Machine: &apiv2.MachinePermissions{
 							Uuid:    p.GetMachine().GetUuid(),
 							Methods: methods,
@@ -561,9 +561,9 @@ func compactTypedMethodPermissions(perms []*apiv2.TypedMethodPermission) []*apiv
 			slices.Sort(res[idx].GetMachine().Methods)
 			res[idx].GetMachine().Methods = lo.Uniq(res[idx].GetMachine().Methods)
 
-		case *apiv2.TypedMethodPermission_Project:
+		case *apiv2.PermissionsByVisibility_Project:
 			var (
-				idx = slices.IndexFunc(res, func(perm *apiv2.TypedMethodPermission) bool {
+				idx = slices.IndexFunc(res, func(perm *apiv2.PermissionsByVisibility) bool {
 					return perm.GetProject() != nil
 				})
 				methods = p.GetProject().Methods
@@ -573,8 +573,8 @@ func compactTypedMethodPermissions(perms []*apiv2.TypedMethodPermission) []*apiv
 				slices.Sort(methods)
 				methods = lo.Uniq(methods)
 
-				res = append(res, &apiv2.TypedMethodPermission{
-					Permissiontype: &apiv2.TypedMethodPermission_Project{
+				res = append(res, &apiv2.PermissionsByVisibility{
+					Visibility: &apiv2.PermissionsByVisibility_Project{
 						Project: &apiv2.ProjectPermissions{
 							Project: p.GetProject().GetProject(),
 							Methods: methods,
@@ -590,9 +590,9 @@ func compactTypedMethodPermissions(perms []*apiv2.TypedMethodPermission) []*apiv
 			slices.Sort(res[idx].GetProject().Methods)
 			res[idx].GetProject().Methods = lo.Uniq(res[idx].GetProject().Methods)
 
-		case *apiv2.TypedMethodPermission_Public:
+		case *apiv2.PermissionsByVisibility_Public:
 			var (
-				idx = slices.IndexFunc(res, func(perm *apiv2.TypedMethodPermission) bool {
+				idx = slices.IndexFunc(res, func(perm *apiv2.PermissionsByVisibility) bool {
 					return perm.GetPublic() != nil
 				})
 				methods = p.GetPublic().Methods
@@ -602,8 +602,8 @@ func compactTypedMethodPermissions(perms []*apiv2.TypedMethodPermission) []*apiv
 				slices.Sort(methods)
 				methods = lo.Uniq(methods)
 
-				res = append(res, &apiv2.TypedMethodPermission{
-					Permissiontype: &apiv2.TypedMethodPermission_Public{
+				res = append(res, &apiv2.PermissionsByVisibility{
+					Visibility: &apiv2.PermissionsByVisibility_Public{
 						Public: &apiv2.PublicPermissions{
 							Methods: methods,
 						},
@@ -618,9 +618,9 @@ func compactTypedMethodPermissions(perms []*apiv2.TypedMethodPermission) []*apiv
 			slices.Sort(res[idx].GetPublic().Methods)
 			res[idx].GetPublic().Methods = lo.Uniq(res[idx].GetPublic().Methods)
 
-		case *apiv2.TypedMethodPermission_Self:
+		case *apiv2.PermissionsByVisibility_Self:
 			var (
-				idx = slices.IndexFunc(res, func(perm *apiv2.TypedMethodPermission) bool {
+				idx = slices.IndexFunc(res, func(perm *apiv2.PermissionsByVisibility) bool {
 					return perm.GetSelf() != nil
 				})
 				methods = p.GetSelf().Methods
@@ -630,8 +630,8 @@ func compactTypedMethodPermissions(perms []*apiv2.TypedMethodPermission) []*apiv
 				slices.Sort(methods)
 				methods = lo.Uniq(methods)
 
-				res = append(res, &apiv2.TypedMethodPermission{
-					Permissiontype: &apiv2.TypedMethodPermission_Self{
+				res = append(res, &apiv2.PermissionsByVisibility{
+					Visibility: &apiv2.PermissionsByVisibility_Self{
 						Self: &apiv2.SelfPermissions{
 							Methods: methods,
 						},
@@ -646,9 +646,9 @@ func compactTypedMethodPermissions(perms []*apiv2.TypedMethodPermission) []*apiv
 			slices.Sort(res[idx].GetSelf().Methods)
 			res[idx].GetSelf().Methods = lo.Uniq(res[idx].GetSelf().Methods)
 
-		case *apiv2.TypedMethodPermission_Tenant:
+		case *apiv2.PermissionsByVisibility_Tenant:
 			var (
-				idx = slices.IndexFunc(res, func(perm *apiv2.TypedMethodPermission) bool {
+				idx = slices.IndexFunc(res, func(perm *apiv2.PermissionsByVisibility) bool {
 					return perm.GetTenant() != nil
 				})
 				methods = p.GetTenant().Methods
@@ -658,8 +658,8 @@ func compactTypedMethodPermissions(perms []*apiv2.TypedMethodPermission) []*apiv
 				slices.Sort(methods)
 				methods = lo.Uniq(methods)
 
-				res = append(res, &apiv2.TypedMethodPermission{
-					Permissiontype: &apiv2.TypedMethodPermission_Tenant{
+				res = append(res, &apiv2.PermissionsByVisibility{
+					Visibility: &apiv2.PermissionsByVisibility_Tenant{
 						Tenant: &apiv2.TenantPermissions{
 							Login:   p.GetTenant().GetLogin(),
 							Methods: methods,

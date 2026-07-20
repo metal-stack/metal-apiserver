@@ -109,33 +109,33 @@ func parseJWTToken(tokenString string) (*token.Claims, error) {
 	return claims, nil
 }
 
-func Test_compactTypedMethodPermissions(t *testing.T) {
+func Test_compactPermissionsByVisibilitys(t *testing.T) {
 	tests := []struct {
 		name  string
-		perms []*apiv2.TypedMethodPermission
-		want  []*apiv2.TypedMethodPermission
+		perms []*apiv2.PermissionsByVisibility
+		want  []*apiv2.PermissionsByVisibility
 	}{
 		{
 			name: "combine admin perms",
-			perms: []*apiv2.TypedMethodPermission{
+			perms: []*apiv2.PermissionsByVisibility{
 				{
-					Permissiontype: &apiv2.TypedMethodPermission_Admin{
+					Visibility: &apiv2.PermissionsByVisibility_Admin{
 						Admin: &apiv2.AdminPermissions{
 							Methods: []string{adminv2connect.AuditServiceGetProcedure, adminv2connect.AuditServiceListProcedure},
 						},
 					},
 				},
 				{
-					Permissiontype: &apiv2.TypedMethodPermission_Admin{
+					Visibility: &apiv2.PermissionsByVisibility_Admin{
 						Admin: &apiv2.AdminPermissions{
 							Methods: []string{adminv2connect.AuditServiceGetProcedure, adminv2connect.ComponentServiceGetProcedure},
 						},
 					},
 				},
 			},
-			want: []*apiv2.TypedMethodPermission{
+			want: []*apiv2.PermissionsByVisibility{
 				{
-					Permissiontype: &apiv2.TypedMethodPermission_Admin{
+					Visibility: &apiv2.PermissionsByVisibility_Admin{
 						Admin: &apiv2.AdminPermissions{
 							Methods: []string{
 								adminv2connect.AuditServiceGetProcedure,
@@ -149,23 +149,23 @@ func Test_compactTypedMethodPermissions(t *testing.T) {
 		},
 		{
 			name: "all different types",
-			perms: []*apiv2.TypedMethodPermission{
+			perms: []*apiv2.PermissionsByVisibility{
 				{
-					Permissiontype: &apiv2.TypedMethodPermission_Admin{
+					Visibility: &apiv2.PermissionsByVisibility_Admin{
 						Admin: &apiv2.AdminPermissions{
 							Methods: []string{adminv2connect.AuditServiceGetProcedure, adminv2connect.AuditServiceListProcedure},
 						},
 					},
 				},
 				{
-					Permissiontype: &apiv2.TypedMethodPermission_Infra{
+					Visibility: &apiv2.PermissionsByVisibility_Infra{
 						Infra: &apiv2.InfraPermissions{
 							Methods: []string{infrav2connect.BMCServiceBMCCommandDoneProcedure},
 						},
 					},
 				},
 				{
-					Permissiontype: &apiv2.TypedMethodPermission_Machine{
+					Visibility: &apiv2.PermissionsByVisibility_Machine{
 						Machine: &apiv2.MachinePermissions{
 							Uuid:    "123",
 							Methods: []string{infrav2connect.BootServiceRegisterProcedure},
@@ -173,7 +173,7 @@ func Test_compactTypedMethodPermissions(t *testing.T) {
 					},
 				},
 				{
-					Permissiontype: &apiv2.TypedMethodPermission_Project{
+					Visibility: &apiv2.PermissionsByVisibility_Project{
 						Project: &apiv2.ProjectPermissions{
 							Project: "a",
 							Methods: []string{apiv2connect.IPServiceCreateProcedure},
@@ -181,21 +181,21 @@ func Test_compactTypedMethodPermissions(t *testing.T) {
 					},
 				},
 				{
-					Permissiontype: &apiv2.TypedMethodPermission_Public{
+					Visibility: &apiv2.PermissionsByVisibility_Public{
 						Public: &apiv2.PublicPermissions{
 							Methods: []string{apiv2connect.HealthServiceGetProcedure},
 						},
 					},
 				},
 				{
-					Permissiontype: &apiv2.TypedMethodPermission_Self{
+					Visibility: &apiv2.PermissionsByVisibility_Self{
 						Self: &apiv2.SelfPermissions{
 							Methods: []string{apiv2connect.TenantServiceListProcedure},
 						},
 					},
 				},
 				{
-					Permissiontype: &apiv2.TypedMethodPermission_Tenant{
+					Visibility: &apiv2.PermissionsByVisibility_Tenant{
 						Tenant: &apiv2.TenantPermissions{
 							Login:   "tenant-a",
 							Methods: []string{apiv2connect.AuditServiceListProcedure},
@@ -204,21 +204,21 @@ func Test_compactTypedMethodPermissions(t *testing.T) {
 				},
 				// just repeat the first part here to check that compaction works properly
 				{
-					Permissiontype: &apiv2.TypedMethodPermission_Admin{
+					Visibility: &apiv2.PermissionsByVisibility_Admin{
 						Admin: &apiv2.AdminPermissions{
 							Methods: []string{adminv2connect.AuditServiceGetProcedure, adminv2connect.AuditServiceListProcedure},
 						},
 					},
 				},
 				{
-					Permissiontype: &apiv2.TypedMethodPermission_Infra{
+					Visibility: &apiv2.PermissionsByVisibility_Infra{
 						Infra: &apiv2.InfraPermissions{
 							Methods: []string{infrav2connect.BMCServiceBMCCommandDoneProcedure},
 						},
 					},
 				},
 				{
-					Permissiontype: &apiv2.TypedMethodPermission_Machine{
+					Visibility: &apiv2.PermissionsByVisibility_Machine{
 						Machine: &apiv2.MachinePermissions{
 							Uuid:    "123",
 							Methods: []string{infrav2connect.BootServiceRegisterProcedure},
@@ -226,7 +226,7 @@ func Test_compactTypedMethodPermissions(t *testing.T) {
 					},
 				},
 				{
-					Permissiontype: &apiv2.TypedMethodPermission_Project{
+					Visibility: &apiv2.PermissionsByVisibility_Project{
 						Project: &apiv2.ProjectPermissions{
 							Project: "a",
 							Methods: []string{apiv2connect.IPServiceCreateProcedure},
@@ -234,21 +234,21 @@ func Test_compactTypedMethodPermissions(t *testing.T) {
 					},
 				},
 				{
-					Permissiontype: &apiv2.TypedMethodPermission_Public{
+					Visibility: &apiv2.PermissionsByVisibility_Public{
 						Public: &apiv2.PublicPermissions{
 							Methods: []string{apiv2connect.HealthServiceGetProcedure},
 						},
 					},
 				},
 				{
-					Permissiontype: &apiv2.TypedMethodPermission_Self{
+					Visibility: &apiv2.PermissionsByVisibility_Self{
 						Self: &apiv2.SelfPermissions{
 							Methods: []string{apiv2connect.TenantServiceListProcedure},
 						},
 					},
 				},
 				{
-					Permissiontype: &apiv2.TypedMethodPermission_Tenant{
+					Visibility: &apiv2.PermissionsByVisibility_Tenant{
 						Tenant: &apiv2.TenantPermissions{
 							Login:   "tenant-a",
 							Methods: []string{apiv2connect.AuditServiceListProcedure},
@@ -256,23 +256,23 @@ func Test_compactTypedMethodPermissions(t *testing.T) {
 					},
 				},
 			},
-			want: []*apiv2.TypedMethodPermission{
+			want: []*apiv2.PermissionsByVisibility{
 				{
-					Permissiontype: &apiv2.TypedMethodPermission_Admin{
+					Visibility: &apiv2.PermissionsByVisibility_Admin{
 						Admin: &apiv2.AdminPermissions{
 							Methods: []string{adminv2connect.AuditServiceGetProcedure, adminv2connect.AuditServiceListProcedure},
 						},
 					},
 				},
 				{
-					Permissiontype: &apiv2.TypedMethodPermission_Infra{
+					Visibility: &apiv2.PermissionsByVisibility_Infra{
 						Infra: &apiv2.InfraPermissions{
 							Methods: []string{infrav2connect.BMCServiceBMCCommandDoneProcedure},
 						},
 					},
 				},
 				{
-					Permissiontype: &apiv2.TypedMethodPermission_Machine{
+					Visibility: &apiv2.PermissionsByVisibility_Machine{
 						Machine: &apiv2.MachinePermissions{
 							Uuid:    "123",
 							Methods: []string{infrav2connect.BootServiceRegisterProcedure},
@@ -280,7 +280,7 @@ func Test_compactTypedMethodPermissions(t *testing.T) {
 					},
 				},
 				{
-					Permissiontype: &apiv2.TypedMethodPermission_Project{
+					Visibility: &apiv2.PermissionsByVisibility_Project{
 						Project: &apiv2.ProjectPermissions{
 							Project: "a",
 							Methods: []string{apiv2connect.IPServiceCreateProcedure},
@@ -288,21 +288,21 @@ func Test_compactTypedMethodPermissions(t *testing.T) {
 					},
 				},
 				{
-					Permissiontype: &apiv2.TypedMethodPermission_Public{
+					Visibility: &apiv2.PermissionsByVisibility_Public{
 						Public: &apiv2.PublicPermissions{
 							Methods: []string{apiv2connect.HealthServiceGetProcedure},
 						},
 					},
 				},
 				{
-					Permissiontype: &apiv2.TypedMethodPermission_Self{
+					Visibility: &apiv2.PermissionsByVisibility_Self{
 						Self: &apiv2.SelfPermissions{
 							Methods: []string{apiv2connect.TenantServiceListProcedure},
 						},
 					},
 				},
 				{
-					Permissiontype: &apiv2.TypedMethodPermission_Tenant{
+					Visibility: &apiv2.PermissionsByVisibility_Tenant{
 						Tenant: &apiv2.TenantPermissions{
 							Login:   "tenant-a",
 							Methods: []string{apiv2connect.AuditServiceListProcedure},
@@ -314,7 +314,7 @@ func Test_compactTypedMethodPermissions(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := compactTypedMethodPermissions(tt.perms)
+			got := compactPermissions(tt.perms)
 			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}

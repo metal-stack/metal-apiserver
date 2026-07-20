@@ -66,8 +66,8 @@ func (t *tokenRepository) validateCreate(ctx context.Context, req *adminv2.Token
 		return errorutil.PermissionDenied("only admins can specify token user")
 	}
 
-	rq.Permissions = compactTypedMethodPermissions(rq.Permissions)
-	if err := t.validateTypedPermissions(ctx, rq.Permissions, projectsAndTenants); err != nil {
+	rq.Permissions = compactPermissions(rq.Permissions)
+	if err := t.validatePermissions(ctx, rq.Permissions, projectsAndTenants); err != nil {
 		return errorutil.PermissionDenied("invalid permissions requested: %w", err)
 	}
 
@@ -79,7 +79,7 @@ func (t *tokenRepository) validateCreate(ctx context.Context, req *adminv2.Token
 			AdminRole:    rq.AdminRole,
 			InfraRole:    rq.InfraRole,
 			MachineRoles: rq.MachineRoles,
-			Permissions:  flattenTypedTokenPermissions(rq.Permissions),
+			Permissions:  flattenPermissions(rq.Permissions),
 			TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 		}
 		userToken = &apiv2.Token{
@@ -139,8 +139,8 @@ func (t *tokenRepository) validateUpdate(ctx context.Context, req *apiv2.TokenSe
 		return errorutil.NewInternal(err)
 	}
 
-	req.Permissions = compactTypedMethodPermissions(req.Permissions)
-	if err := t.validateTypedPermissions(ctx, req.Permissions, projectsAndTenants); err != nil {
+	req.Permissions = compactPermissions(req.Permissions)
+	if err := t.validatePermissions(ctx, req.Permissions, projectsAndTenants); err != nil {
 		return errorutil.PermissionDenied("invalid permissions requested: %w", err)
 	}
 
@@ -152,7 +152,7 @@ func (t *tokenRepository) validateUpdate(ctx context.Context, req *apiv2.TokenSe
 			AdminRole:    req.AdminRole,
 			InfraRole:    req.InfraRole,
 			MachineRoles: req.MachineRoles,
-			Permissions:  flattenTypedTokenPermissions(req.Permissions),
+			Permissions:  flattenPermissions(req.Permissions),
 			TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 		}
 		userToken = &apiv2.Token{
@@ -322,83 +322,82 @@ func (t *tokenRepository) validateTokenRequest(ctx context.Context, currentToken
 	return nil
 }
 
-func (t *tokenRepository) validateTypedPermissions(ctx context.Context, typedPerms []*apiv2.TypedMethodPermission, projectsAndTenants *api.ProjectsAndTenants) error {
-	type permType string
+func (t *tokenRepository) validatePermissions(ctx context.Context, perms []*apiv2.PermissionsByVisibility, projectsAndTenants *api.ProjectsAndTenants) error {
+	type visibility string
 
 	const (
-		// TODO: can we somehow define these in the API?
-		adminType   permType = "admin"
-		infraType   permType = "infra"
-		machineType permType = "machine"
-		projectType permType = "project"
-		publicType  permType = "public"
-		selfType    permType = "self"
-		tenantType  permType = "tenant"
+		adminVisibility   visibility = "admin"
+		infraVisibility   visibility = "infra"
+		machineVisibility visibility = "machine"
+		projectVisibility visibility = "project"
+		publicVisibility  visibility = "public"
+		selfVisibility    visibility = "self"
+		tenantVisibility  visibility = "tenant"
 	)
 
-	requestedMethodNotOfType := func(requestedType permType, method string) error {
-		var actualPermType permType
+	errorVisibility := func(requestedVisibility visibility, method string) error {
+		var actualVisibility visibility
 
 		if _, ok := permissions.GetServicePermissions().Visibility.Admin[method]; ok {
-			actualPermType = adminType
+			actualVisibility = adminVisibility
 		}
 		if _, ok := permissions.GetServicePermissions().Visibility.Infra[method]; ok {
-			actualPermType = infraType
+			actualVisibility = infraVisibility
 		}
 		if _, ok := permissions.GetServicePermissions().Visibility.Machine[method]; ok {
-			actualPermType = machineType
+			actualVisibility = machineVisibility
 		}
 		if _, ok := permissions.GetServicePermissions().Visibility.Project[method]; ok {
-			actualPermType = projectType
+			actualVisibility = projectVisibility
 		}
 		if _, ok := permissions.GetServicePermissions().Visibility.Public[method]; ok {
-			actualPermType = publicType
+			actualVisibility = publicVisibility
 		}
 		if _, ok := permissions.GetServicePermissions().Visibility.Self[method]; ok {
-			actualPermType = selfType
+			actualVisibility = selfVisibility
 		}
 		if _, ok := permissions.GetServicePermissions().Visibility.Tenant[method]; ok {
-			actualPermType = tenantType
+			actualVisibility = tenantVisibility
 		}
 
-		if actualPermType == "" {
+		if actualVisibility == "" {
 			return fmt.Errorf("requested method %q is not contained in the api", method)
 		}
 
-		return fmt.Errorf("requested method %q is of type %q, not of type %q", method, actualPermType, requestedType)
+		return fmt.Errorf("requested method %q is of visibility %q, not of visibility %q", method, actualVisibility, requestedVisibility)
 	}
 
-	for _, p := range typedPerms {
-		switch p.Permissiontype.(type) {
-		case *apiv2.TypedMethodPermission_Admin:
+	for _, p := range perms {
+		switch p.Visibility.(type) {
+		case *apiv2.PermissionsByVisibility_Admin:
 			if _, has := t.hasAdminRole(projectsAndTenants); !has {
 				return fmt.Errorf("admin api permission are only allowed for admins")
 			}
 
 			for _, method := range p.GetAdmin().GetMethods() {
 				if _, ok := permissions.GetServicePermissions().Visibility.Admin[method]; !ok {
-					return requestedMethodNotOfType(adminType, method)
+					return errorVisibility(adminVisibility, method)
 				}
 			}
 
-		case *apiv2.TypedMethodPermission_Infra:
+		case *apiv2.PermissionsByVisibility_Infra:
 			for _, method := range p.GetInfra().GetMethods() {
 				if _, ok := permissions.GetServicePermissions().Visibility.Infra[method]; !ok {
-					return requestedMethodNotOfType(infraType, method)
+					return errorVisibility(infraVisibility, method)
 				}
 			}
 
-		case *apiv2.TypedMethodPermission_Machine:
+		case *apiv2.PermissionsByVisibility_Machine:
 			// every machine is allowed to be scoped, so no check necessary
 			// if p.GetMachine().Uuid != request.AnySubject {}
 
 			for _, method := range p.GetMachine().GetMethods() {
 				if _, ok := permissions.GetServicePermissions().Visibility.Machine[method]; !ok {
-					return requestedMethodNotOfType(machineType, method)
+					return errorVisibility(machineVisibility, method)
 				}
 			}
 
-		case *apiv2.TypedMethodPermission_Project:
+		case *apiv2.PermissionsByVisibility_Project:
 			if project := p.GetProject().GetProject(); project != request.AnySubject {
 				if _, has := t.hasAdminRole(projectsAndTenants); has {
 					if _, err := t.s.UnscopedProject().Get(ctx, project); err != nil {
@@ -417,25 +416,25 @@ func (t *tokenRepository) validateTypedPermissions(ctx context.Context, typedPer
 
 			for _, method := range p.GetProject().GetMethods() {
 				if _, ok := permissions.GetServicePermissions().Visibility.Project[method]; !ok {
-					return requestedMethodNotOfType(projectType, method)
+					return errorVisibility(projectVisibility, method)
 				}
 			}
 
-		case *apiv2.TypedMethodPermission_Public:
+		case *apiv2.PermissionsByVisibility_Public:
 			for _, method := range p.GetPublic().GetMethods() {
 				if _, ok := permissions.GetServicePermissions().Visibility.Public[method]; !ok {
-					return requestedMethodNotOfType(publicType, method)
+					return errorVisibility(publicVisibility, method)
 				}
 			}
 
-		case *apiv2.TypedMethodPermission_Self:
+		case *apiv2.PermissionsByVisibility_Self:
 			for _, method := range p.GetSelf().GetMethods() {
 				if _, ok := permissions.GetServicePermissions().Visibility.Self[method]; !ok {
-					return requestedMethodNotOfType(selfType, method)
+					return errorVisibility(selfVisibility, method)
 				}
 			}
 
-		case *apiv2.TypedMethodPermission_Tenant:
+		case *apiv2.PermissionsByVisibility_Tenant:
 			if login := p.GetTenant().GetLogin(); login != request.AnySubject {
 				if _, has := t.hasAdminRole(projectsAndTenants); has {
 					if _, err := t.s.Tenant().Get(ctx, login); err != nil {
@@ -454,7 +453,7 @@ func (t *tokenRepository) validateTypedPermissions(ctx context.Context, typedPer
 
 			for _, method := range p.GetTenant().GetMethods() {
 				if _, ok := permissions.GetServicePermissions().Visibility.Tenant[method]; !ok {
-					return requestedMethodNotOfType(tenantType, method)
+					return errorVisibility(tenantVisibility, method)
 				}
 			}
 
