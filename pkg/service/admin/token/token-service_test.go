@@ -15,7 +15,6 @@ import (
 	tokenservice "github.com/metal-stack/metal-apiserver/pkg/service/admin/token"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 )
@@ -329,7 +328,7 @@ func Test_List(t *testing.T) {
 						&apiv2.Token{}, "issued_at", "expires",
 					),
 					protocmp.IgnoreFields(
-						&apiv2.Meta{}, "created_at", "updated_at",
+						&apiv2.Meta{}, "created_at", "updated_at", "generation",
 					),
 					cmpopts.SortSlices(func(a, b *apiv2.Token) bool {
 						return a.Uuid < b.Uuid
@@ -652,6 +651,7 @@ func Test_Create(t *testing.T) {
 				User:        "foo",
 				Description: "empty token",
 				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
+				Meta:        &apiv2.Meta{},
 			},
 		},
 		{
@@ -688,6 +688,7 @@ func Test_Create(t *testing.T) {
 				MachineRoles: map[string]apiv2.MachineRole{
 					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
 				},
+				Meta: &apiv2.Meta{},
 			},
 		},
 		{
@@ -791,15 +792,18 @@ func Test_Create(t *testing.T) {
 				}
 				require.NotNil(t, tt.wantToken, "token returned, nil expected")
 
-				got := response.Token
-				assert.Equal(t, tt.wantToken.Description, got.Description, "description")
-				assert.Equal(t, tt.wantToken.User, got.User, "user id")
-				assert.Equal(t, tt.wantToken.TokenType, got.TokenType, "token type")
-				assert.Equal(t, tt.wantToken.AdminRole, got.AdminRole, "admin role")
-				assert.Equal(t, tt.wantToken.Permissions, got.Permissions, "permissions")
-				assert.Equal(t, tt.wantToken.ProjectRoles, got.ProjectRoles, "project roles")
-				assert.Equal(t, tt.wantToken.TenantRoles, got.TenantRoles, "tenant roles")
-				assert.Equal(t, tt.wantToken.MachineRoles, got.MachineRoles, "machine roles")
+				if diff := cmp.Diff(
+					tt.wantToken, response.Token,
+					protocmp.Transform(),
+					protocmp.IgnoreFields(
+						&apiv2.Token{}, "issued_at", "expires", "uuid",
+					),
+					protocmp.IgnoreFields(
+						&apiv2.Meta{}, "created_at", "updated_at", "generation",
+					),
+				); diff != "" {
+					innerT.Errorf("diff: %s", diff)
+				}
 			}
 		})
 	}
