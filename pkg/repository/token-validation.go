@@ -66,7 +66,7 @@ func (t *tokenRepository) validateCreate(ctx context.Context, req *adminv2.Token
 		return errorutil.PermissionDenied("only admins can specify token user")
 	}
 
-	rq.Permissions = CompactTypedMethodPermissions(rq.Permissions)
+	rq.Permissions = compactTypedMethodPermissions(rq.Permissions)
 	if err := t.validateTypedPermissions(rq.Permissions, projectsAndTenants); err != nil {
 		return errorutil.PermissionDenied("invalid permissions requested: %w", err)
 	}
@@ -139,7 +139,7 @@ func (t *tokenRepository) validateUpdate(ctx context.Context, req *apiv2.TokenSe
 		return errorutil.NewInternal(err)
 	}
 
-	req.Permissions = CompactTypedMethodPermissions(req.Permissions)
+	req.Permissions = compactTypedMethodPermissions(req.Permissions)
 	if err := t.validateTypedPermissions(req.Permissions, projectsAndTenants); err != nil {
 		return errorutil.PermissionDenied("invalid permissions requested: %w", err)
 	}

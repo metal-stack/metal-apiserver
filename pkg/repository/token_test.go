@@ -109,7 +109,7 @@ func parseJWTToken(tokenString string) (*token.Claims, error) {
 	return claims, nil
 }
 
-func TestCompactTypedMethodPermissions(t *testing.T) {
+func Test_compactTypedMethodPermissions(t *testing.T) {
 	tests := []struct {
 		name  string
 		perms []*apiv2.TypedMethodPermission
@@ -314,7 +314,7 @@ func TestCompactTypedMethodPermissions(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := CompactTypedMethodPermissions(tt.perms)
+			got := compactTypedMethodPermissions(tt.perms)
 			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}

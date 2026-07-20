@@ -471,7 +471,7 @@ func flattenTypedTokenPermissions(typed []*apiv2.TypedMethodPermission) []*apiv2
 	return res
 }
 
-func CompactTypedMethodPermissions(perms []*apiv2.TypedMethodPermission) []*apiv2.TypedMethodPermission {
+func compactTypedMethodPermissions(perms []*apiv2.TypedMethodPermission) []*apiv2.TypedMethodPermission {
 	var res []*apiv2.TypedMethodPermission
 
 	for _, p := range perms {
