@@ -37,14 +37,9 @@ func TestImageCacheServiceToken(t *testing.T) {
 			Description: "metal-image-cache-sync token",
 			Permissions: []*apiv2.MethodPermission{
 				{
-					Subject: "*",
-					Methods: []string{
-						"/metalstack.api.v2.ImageService/List",
-					},
-				},
-				{
 					Subject: "",
 					Methods: []string{
+						"/metalstack.api.v2.ImageService/List",
 						"/metalstack.api.v2.PartitionService/List",
 						"/metalstack.api.v2.TokenService/Refresh",
 						"/metalstack.infra.v2.ComponentService/Ping",
