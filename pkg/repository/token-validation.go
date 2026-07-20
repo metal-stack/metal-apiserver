@@ -26,16 +26,16 @@ func (t *tokenRepository) validateCreate(ctx context.Context, req *adminv2.Token
 		user = t.scope.user
 	)
 
-	tok, ok := token.TokenFromContext(ctx)
-	if !ok || tok == nil {
+	sessionToken, ok := token.TokenFromContext(ctx)
+	if !ok || sessionToken == nil {
 		return errorutil.Unauthenticated("no token found in request")
 	}
 
-	switch tok.TokenType {
+	switch sessionToken.TokenType {
 	case apiv2.TokenType_TOKEN_TYPE_API, apiv2.TokenType_TOKEN_TYPE_USER:
 		// noop
 	default:
-		return errorutil.FailedPrecondition("invalid token type for token creation: %q", tok.TokenType)
+		return errorutil.FailedPrecondition("invalid token type for token creation: %q", sessionToken.TokenType)
 	}
 
 	projectsAndTenants, err := t.patg(ctx, user)
@@ -48,18 +48,18 @@ func (t *tokenRepository) validateCreate(ctx context.Context, req *adminv2.Token
 	)
 
 	if role, ok := t.hasAdminRole(projectsAndTenants); ok {
-		if tok.AdminRole == nil || *tok.AdminRole == apiv2.AdminRole_ADMIN_ROLE_UNSPECIFIED {
+		if sessionToken.AdminRole == nil || *sessionToken.AdminRole == apiv2.AdminRole_ADMIN_ROLE_UNSPECIFIED {
 			if err := t.isAdminRoleRequestAllowed(projectsAndTenants, rq.AdminRole); err != nil {
 				return errorutil.NewPermissionDenied(err)
 			}
-			tok.AdminRole = rq.AdminRole
-			tok.TokenType = apiv2.TokenType_TOKEN_TYPE_API
+			sessionToken.AdminRole = rq.AdminRole
+			sessionToken.TokenType = apiv2.TokenType_TOKEN_TYPE_API
 		}
 
 		adminRole = *role
 		isAdmin = true
 
-		t.s.log.Debug("user is member of the provider-tenant", "admin-role", tok.AdminRole)
+		t.s.log.Debug("user is member of the provider-tenant", "admin-role", sessionToken.AdminRole)
 	}
 
 	if !isAdmin && req.User != nil {
@@ -87,8 +87,8 @@ func (t *tokenRepository) validateCreate(ctx context.Context, req *adminv2.Token
 			ProjectRoles: projectsAndTenants.ProjectRoles,
 			TenantRoles:  projectsAndTenants.TenantRoles,
 			AdminRole:    nil,
-			InfraRole:    tok.InfraRole,
-			MachineRoles: tok.MachineRoles,
+			InfraRole:    sessionToken.InfraRole,
+			MachineRoles: sessionToken.MachineRoles,
 		}
 	)
 
@@ -99,7 +99,7 @@ func (t *tokenRepository) validateCreate(ctx context.Context, req *adminv2.Token
 	// we first validate token permission elevation for the token used in the token create request,
 	// which might be an API token with restricted permissions
 
-	err = t.validateTokenRequest(ctx, tok, requestedToken)
+	err = t.validateTokenRequest(ctx, sessionToken, requestedToken)
 	if err != nil {
 		return errorutil.NewPermissionDenied(err)
 	}
@@ -125,8 +125,8 @@ func (t *tokenRepository) validateUpdate(ctx context.Context, req *apiv2.TokenSe
 		return errorutil.InvalidArgument("optimistic locking is not yet implemented, please do not provide updated_at in update meta")
 	}
 
-	tok, ok := token.TokenFromContext(ctx)
-	if !ok || tok == nil {
+	sessionToken, ok := token.TokenFromContext(ctx)
+	if !ok || sessionToken == nil {
 		return errorutil.Unauthenticated("no token found in request")
 	}
 
@@ -156,12 +156,12 @@ func (t *tokenRepository) validateUpdate(ctx context.Context, req *apiv2.TokenSe
 			TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 		}
 		userToken = &apiv2.Token{
-			User:         tok.User,
+			User:         sessionToken.User,
 			ProjectRoles: projectsAndTenants.ProjectRoles,
 			TenantRoles:  projectsAndTenants.TenantRoles,
 			AdminRole:    nil,
-			InfraRole:    tok.InfraRole,
-			MachineRoles: tok.MachineRoles,
+			InfraRole:    sessionToken.InfraRole,
+			MachineRoles: sessionToken.MachineRoles,
 		}
 	)
 
@@ -172,7 +172,7 @@ func (t *tokenRepository) validateUpdate(ctx context.Context, req *apiv2.TokenSe
 	// we first validate token permission elevation for the token used in the token update request,
 	// which might be an API token with restricted permissions
 
-	err = t.validateTokenRequest(ctx, tok, requestedToken)
+	err = t.validateTokenRequest(ctx, sessionToken, requestedToken)
 	if err != nil {
 		return errorutil.NewPermissionDenied(err)
 	}
