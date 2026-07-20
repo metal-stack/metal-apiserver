@@ -8,11 +8,17 @@ import (
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/go-cmp/cmp"
+	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
+	"github.com/metal-stack/api/go/metalstack/infra/v2/infrav2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/testing/protocmp"
 )
 
 func Test_tokenRepository_CreateConsoleTokenWithoutPermissionCheck(t *testing.T) {
@@ -101,4 +107,217 @@ func parseJWTToken(tokenString string) (*token.Claims, error) {
 	}
 
 	return claims, nil
+}
+
+func TestCompactTypedMethodPermissions(t *testing.T) {
+	tests := []struct {
+		name  string
+		perms []*apiv2.TypedMethodPermission
+		want  []*apiv2.TypedMethodPermission
+	}{
+		{
+			name: "combine admin perms",
+			perms: []*apiv2.TypedMethodPermission{
+				{
+					Permissiontype: &apiv2.TypedMethodPermission_Admin{
+						Admin: &apiv2.AdminPermissions{
+							Methods: []string{adminv2connect.AuditServiceGetProcedure, adminv2connect.AuditServiceListProcedure},
+						},
+					},
+				},
+				{
+					Permissiontype: &apiv2.TypedMethodPermission_Admin{
+						Admin: &apiv2.AdminPermissions{
+							Methods: []string{adminv2connect.AuditServiceGetProcedure, adminv2connect.ComponentServiceGetProcedure},
+						},
+					},
+				},
+			},
+			want: []*apiv2.TypedMethodPermission{
+				{
+					Permissiontype: &apiv2.TypedMethodPermission_Admin{
+						Admin: &apiv2.AdminPermissions{
+							Methods: []string{
+								adminv2connect.AuditServiceGetProcedure,
+								adminv2connect.AuditServiceListProcedure,
+								adminv2connect.ComponentServiceGetProcedure,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "all different types",
+			perms: []*apiv2.TypedMethodPermission{
+				{
+					Permissiontype: &apiv2.TypedMethodPermission_Admin{
+						Admin: &apiv2.AdminPermissions{
+							Methods: []string{adminv2connect.AuditServiceGetProcedure, adminv2connect.AuditServiceListProcedure},
+						},
+					},
+				},
+				{
+					Permissiontype: &apiv2.TypedMethodPermission_Infra{
+						Infra: &apiv2.InfraPermissions{
+							Methods: []string{infrav2connect.BMCServiceBMCCommandDoneProcedure},
+						},
+					},
+				},
+				{
+					Permissiontype: &apiv2.TypedMethodPermission_Machine{
+						Machine: &apiv2.MachinePermissions{
+							Uuid:    "123",
+							Methods: []string{infrav2connect.BootServiceRegisterProcedure},
+						},
+					},
+				},
+				{
+					Permissiontype: &apiv2.TypedMethodPermission_Project{
+						Project: &apiv2.ProjectPermissions{
+							Project: "a",
+							Methods: []string{apiv2connect.IPServiceCreateProcedure},
+						},
+					},
+				},
+				{
+					Permissiontype: &apiv2.TypedMethodPermission_Public{
+						Public: &apiv2.PublicPermissions{
+							Methods: []string{apiv2connect.HealthServiceGetProcedure},
+						},
+					},
+				},
+				{
+					Permissiontype: &apiv2.TypedMethodPermission_Self{
+						Self: &apiv2.SelfPermissions{
+							Methods: []string{apiv2connect.TenantServiceListProcedure},
+						},
+					},
+				},
+				{
+					Permissiontype: &apiv2.TypedMethodPermission_Tenant{
+						Tenant: &apiv2.TenantPermissions{
+							Login:   "tenant-a",
+							Methods: []string{apiv2connect.AuditServiceListProcedure},
+						},
+					},
+				},
+				// just repeat the first part here to check that compaction works properly
+				{
+					Permissiontype: &apiv2.TypedMethodPermission_Admin{
+						Admin: &apiv2.AdminPermissions{
+							Methods: []string{adminv2connect.AuditServiceGetProcedure, adminv2connect.AuditServiceListProcedure},
+						},
+					},
+				},
+				{
+					Permissiontype: &apiv2.TypedMethodPermission_Infra{
+						Infra: &apiv2.InfraPermissions{
+							Methods: []string{infrav2connect.BMCServiceBMCCommandDoneProcedure},
+						},
+					},
+				},
+				{
+					Permissiontype: &apiv2.TypedMethodPermission_Machine{
+						Machine: &apiv2.MachinePermissions{
+							Uuid:    "123",
+							Methods: []string{infrav2connect.BootServiceRegisterProcedure},
+						},
+					},
+				},
+				{
+					Permissiontype: &apiv2.TypedMethodPermission_Project{
+						Project: &apiv2.ProjectPermissions{
+							Project: "a",
+							Methods: []string{apiv2connect.IPServiceCreateProcedure},
+						},
+					},
+				},
+				{
+					Permissiontype: &apiv2.TypedMethodPermission_Public{
+						Public: &apiv2.PublicPermissions{
+							Methods: []string{apiv2connect.HealthServiceGetProcedure},
+						},
+					},
+				},
+				{
+					Permissiontype: &apiv2.TypedMethodPermission_Self{
+						Self: &apiv2.SelfPermissions{
+							Methods: []string{apiv2connect.TenantServiceListProcedure},
+						},
+					},
+				},
+				{
+					Permissiontype: &apiv2.TypedMethodPermission_Tenant{
+						Tenant: &apiv2.TenantPermissions{
+							Login:   "tenant-a",
+							Methods: []string{apiv2connect.AuditServiceListProcedure},
+						},
+					},
+				},
+			},
+			want: []*apiv2.TypedMethodPermission{
+				{
+					Permissiontype: &apiv2.TypedMethodPermission_Admin{
+						Admin: &apiv2.AdminPermissions{
+							Methods: []string{adminv2connect.AuditServiceGetProcedure, adminv2connect.AuditServiceListProcedure},
+						},
+					},
+				},
+				{
+					Permissiontype: &apiv2.TypedMethodPermission_Infra{
+						Infra: &apiv2.InfraPermissions{
+							Methods: []string{infrav2connect.BMCServiceBMCCommandDoneProcedure},
+						},
+					},
+				},
+				{
+					Permissiontype: &apiv2.TypedMethodPermission_Machine{
+						Machine: &apiv2.MachinePermissions{
+							Uuid:    "123",
+							Methods: []string{infrav2connect.BootServiceRegisterProcedure},
+						},
+					},
+				},
+				{
+					Permissiontype: &apiv2.TypedMethodPermission_Project{
+						Project: &apiv2.ProjectPermissions{
+							Project: "a",
+							Methods: []string{apiv2connect.IPServiceCreateProcedure},
+						},
+					},
+				},
+				{
+					Permissiontype: &apiv2.TypedMethodPermission_Public{
+						Public: &apiv2.PublicPermissions{
+							Methods: []string{apiv2connect.HealthServiceGetProcedure},
+						},
+					},
+				},
+				{
+					Permissiontype: &apiv2.TypedMethodPermission_Self{
+						Self: &apiv2.SelfPermissions{
+							Methods: []string{apiv2connect.TenantServiceListProcedure},
+						},
+					},
+				},
+				{
+					Permissiontype: &apiv2.TypedMethodPermission_Tenant{
+						Tenant: &apiv2.TenantPermissions{
+							Login:   "tenant-a",
+							Methods: []string{apiv2connect.AuditServiceListProcedure},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := CompactTypedMethodPermissions(tt.perms)
+			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
+				t.Errorf("diff = %s", diff)
+			}
+		})
+	}
 }

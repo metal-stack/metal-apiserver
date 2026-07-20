@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"maps"
+	"slices"
 	"time"
 
 	"github.com/metal-stack/api/go/errorutil"
@@ -11,6 +12,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/request"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
+	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -148,7 +150,7 @@ func (t *tokenRepository) create(ctx context.Context, c *adminv2.TokenServiceCre
 	}
 
 	tok.Description = req.Description
-	tok.Permissions = req.Permissions
+	tok.Permissions = flattenTypedTokenPermissions(req.Permissions)
 	tok.ProjectRoles = req.ProjectRoles
 	tok.TenantRoles = req.TenantRoles
 	tok.AdminRole = req.AdminRole
@@ -209,7 +211,7 @@ func (t *tokenRepository) update(ctx context.Context, tokenToUpdate *api.TokenWi
 		}
 	}
 	if req.Permissions != nil {
-		tok.Permissions = req.Permissions
+		tok.Permissions = flattenTypedTokenPermissions(req.Permissions)
 	}
 	if req.ProjectRoles != nil {
 		tok.ProjectRoles = req.ProjectRoles
@@ -316,7 +318,7 @@ func (t *tokenRepository) CreateApiTokenWithoutPermissionCheck(ctx context.Conte
 	}
 
 	token.Description = req.Description
-	token.Permissions = req.Permissions
+	token.Permissions = flattenTypedTokenPermissions(req.Permissions)
 	token.ProjectRoles = req.ProjectRoles
 	token.TenantRoles = req.TenantRoles
 	token.AdminRole = req.AdminRole
@@ -339,19 +341,9 @@ func (t *tokenRepository) Refresh(ctx context.Context, uuid string) (*apiv2.Toke
 		return nil, errorutil.FailedPrecondition("tokens cannot be refreshed unscoped")
 	}
 
-	oldtoken, err := t.s.tokens.Get(ctx, t.scope.user, uuid)
+	currentToken, err := t.s.tokens.Get(ctx, t.scope.user, uuid)
 	if err != nil {
 		return nil, err
-	}
-
-	// we first copy the token permission from the old token
-	createRequest := &apiv2.TokenServiceCreateRequest{
-		Permissions:  oldtoken.Permissions,
-		ProjectRoles: oldtoken.ProjectRoles,
-		TenantRoles:  oldtoken.TenantRoles,
-		AdminRole:    oldtoken.AdminRole,
-		InfraRole:    oldtoken.InfraRole,
-		MachineRoles: oldtoken.MachineRoles,
 	}
 
 	tok, ok := token.TokenFromContext(ctx)
@@ -359,7 +351,7 @@ func (t *tokenRepository) Refresh(ctx context.Context, uuid string) (*apiv2.Toke
 		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
-	err = t.validateTokenRequest(ctx, tok, createRequest)
+	err = t.validateTokenRequest(ctx, tok, currentToken)
 	if err != nil {
 		return nil, errorutil.NewPermissionDenied(err)
 	}
@@ -384,7 +376,7 @@ func (t *tokenRepository) Refresh(ctx context.Context, uuid string) (*apiv2.Toke
 	if role, ok := t.hasAdminRole(projectsAndTenants); ok {
 		fullUserToken.AdminRole = role
 	}
-	err = t.validateTokenRequest(ctx, fullUserToken, createRequest)
+	err = t.validateTokenRequest(ctx, fullUserToken, currentToken)
 	if err != nil {
 		return nil, errorutil.NewPermissionDenied(err)
 	}
@@ -397,27 +389,27 @@ func (t *tokenRepository) Refresh(ctx context.Context, uuid string) (*apiv2.Toke
 	}
 
 	// New duration is calculated from the old token
-	exp := oldtoken.Expires.AsTime().Sub(oldtoken.IssuedAt.AsTime())
+	exp := currentToken.Expires.AsTime().Sub(currentToken.IssuedAt.AsTime())
 
 	secret, newToken, err := token.NewJWT(apiv2.TokenType_TOKEN_TYPE_API, t.scope.user, t.s.issuer, exp, privateKey)
 	if err != nil {
 		return nil, errorutil.NewInternal(err)
 	}
 
-	newToken.Description = oldtoken.Description
-	newToken.Permissions = oldtoken.Permissions
-	newToken.ProjectRoles = oldtoken.ProjectRoles
-	newToken.TenantRoles = oldtoken.TenantRoles
-	newToken.AdminRole = oldtoken.AdminRole
-	newToken.InfraRole = oldtoken.InfraRole
-	newToken.MachineRoles = oldtoken.MachineRoles
+	newToken.Description = currentToken.Description
+	newToken.Permissions = currentToken.Permissions
+	newToken.ProjectRoles = currentToken.ProjectRoles
+	newToken.TenantRoles = currentToken.TenantRoles
+	newToken.AdminRole = currentToken.AdminRole
+	newToken.InfraRole = currentToken.InfraRole
+	newToken.MachineRoles = currentToken.MachineRoles
 	if newToken.Meta == nil {
 		newToken.Meta = &apiv2.Meta{}
 	}
 	newToken.Meta.Generation = 1
 	newToken.Meta.CreatedAt = newToken.IssuedAt
-	if oldtoken.Meta != nil {
-		newToken.Meta.Labels = oldtoken.Meta.Labels
+	if currentToken.Meta != nil {
+		newToken.Meta.Labels = currentToken.Meta.Labels
 	}
 
 	err = t.s.tokens.Set(ctx, newToken)
@@ -431,4 +423,260 @@ func (t *tokenRepository) Refresh(ctx context.Context, uuid string) (*apiv2.Toke
 		Token:  newToken,
 		Secret: secret,
 	}, nil
+}
+
+func flattenTypedTokenPermissions(typed []*apiv2.TypedMethodPermission) []*apiv2.MethodPermission {
+	res := make([]*apiv2.MethodPermission, len(typed))
+
+	for i, p := range typed {
+		switch p.Permissiontype.(type) {
+		case *apiv2.TypedMethodPermission_Admin:
+			res[i] = &apiv2.MethodPermission{
+				Subject: "",
+				Methods: p.GetAdmin().GetMethods(),
+			}
+		case *apiv2.TypedMethodPermission_Infra:
+			res[i] = &apiv2.MethodPermission{
+				Subject: "",
+				Methods: p.GetInfra().GetMethods(),
+			}
+		case *apiv2.TypedMethodPermission_Machine:
+			res[i] = &apiv2.MethodPermission{
+				Subject: p.GetMachine().GetUuid(),
+				Methods: p.GetMachine().GetMethods(),
+			}
+		case *apiv2.TypedMethodPermission_Project:
+			res[i] = &apiv2.MethodPermission{
+				Subject: p.GetProject().GetProject(),
+				Methods: p.GetProject().GetMethods(),
+			}
+		case *apiv2.TypedMethodPermission_Public:
+			res[i] = &apiv2.MethodPermission{
+				Subject: "",
+				Methods: p.GetPublic().GetMethods(),
+			}
+		case *apiv2.TypedMethodPermission_Self:
+			res[i] = &apiv2.MethodPermission{
+				Subject: "",
+				Methods: p.GetSelf().GetMethods(),
+			}
+		case *apiv2.TypedMethodPermission_Tenant:
+			res[i] = &apiv2.MethodPermission{
+				Subject: p.GetTenant().GetLogin(),
+				Methods: p.GetTenant().GetMethods(),
+			}
+		}
+	}
+
+	return res
+}
+
+func CompactTypedMethodPermissions(perms []*apiv2.TypedMethodPermission) []*apiv2.TypedMethodPermission {
+	var res []*apiv2.TypedMethodPermission
+
+	for _, p := range perms {
+		switch p.Permissiontype.(type) {
+		case *apiv2.TypedMethodPermission_Admin:
+			var (
+				idx = slices.IndexFunc(res, func(perm *apiv2.TypedMethodPermission) bool {
+					return perm.GetAdmin() != nil
+				})
+				methods = p.GetAdmin().Methods
+			)
+
+			if idx < 0 {
+				slices.Sort(methods)
+				methods = lo.Uniq(methods)
+
+				res = append(res, &apiv2.TypedMethodPermission{
+					Permissiontype: &apiv2.TypedMethodPermission_Admin{
+						Admin: &apiv2.AdminPermissions{
+							Methods: methods,
+						},
+					},
+				})
+
+				continue
+			}
+
+			res[idx].GetAdmin().Methods = append(res[idx].GetAdmin().Methods, methods...)
+
+			slices.Sort(res[idx].GetAdmin().Methods)
+			res[idx].GetAdmin().Methods = lo.Uniq(res[idx].GetAdmin().Methods)
+
+		case *apiv2.TypedMethodPermission_Infra:
+			var (
+				idx = slices.IndexFunc(res, func(perm *apiv2.TypedMethodPermission) bool {
+					return perm.GetInfra() != nil
+				})
+				methods = p.GetInfra().Methods
+			)
+
+			if idx < 0 {
+				slices.Sort(methods)
+				methods = lo.Uniq(methods)
+
+				res = append(res, &apiv2.TypedMethodPermission{
+					Permissiontype: &apiv2.TypedMethodPermission_Infra{
+						Infra: &apiv2.InfraPermissions{
+							Methods: methods,
+						},
+					},
+				})
+
+				continue
+			}
+
+			res[idx].GetInfra().Methods = append(res[idx].GetInfra().Methods, methods...)
+
+			slices.Sort(res[idx].GetInfra().Methods)
+			res[idx].GetInfra().Methods = lo.Uniq(res[idx].GetInfra().Methods)
+
+		case *apiv2.TypedMethodPermission_Machine:
+			var (
+				idx = slices.IndexFunc(res, func(perm *apiv2.TypedMethodPermission) bool {
+					return perm.GetMachine() != nil
+				})
+				methods = p.GetMachine().Methods
+			)
+
+			if idx < 0 {
+				slices.Sort(methods)
+				methods = lo.Uniq(methods)
+
+				res = append(res, &apiv2.TypedMethodPermission{
+					Permissiontype: &apiv2.TypedMethodPermission_Machine{
+						Machine: &apiv2.MachinePermissions{
+							Uuid:    p.GetMachine().GetUuid(),
+							Methods: methods,
+						},
+					},
+				})
+
+				continue
+			}
+
+			res[idx].GetMachine().Methods = append(res[idx].GetMachine().Methods, methods...)
+
+			slices.Sort(res[idx].GetMachine().Methods)
+			res[idx].GetMachine().Methods = lo.Uniq(res[idx].GetMachine().Methods)
+
+		case *apiv2.TypedMethodPermission_Project:
+			var (
+				idx = slices.IndexFunc(res, func(perm *apiv2.TypedMethodPermission) bool {
+					return perm.GetProject() != nil
+				})
+				methods = p.GetProject().Methods
+			)
+
+			if idx < 0 {
+				slices.Sort(methods)
+				methods = lo.Uniq(methods)
+
+				res = append(res, &apiv2.TypedMethodPermission{
+					Permissiontype: &apiv2.TypedMethodPermission_Project{
+						Project: &apiv2.ProjectPermissions{
+							Project: p.GetProject().GetProject(),
+							Methods: methods,
+						},
+					},
+				})
+
+				continue
+			}
+
+			res[idx].GetProject().Methods = append(res[idx].GetProject().Methods, methods...)
+
+			slices.Sort(res[idx].GetProject().Methods)
+			res[idx].GetProject().Methods = lo.Uniq(res[idx].GetProject().Methods)
+
+		case *apiv2.TypedMethodPermission_Public:
+			var (
+				idx = slices.IndexFunc(res, func(perm *apiv2.TypedMethodPermission) bool {
+					return perm.GetPublic() != nil
+				})
+				methods = p.GetPublic().Methods
+			)
+
+			if idx < 0 {
+				slices.Sort(methods)
+				methods = lo.Uniq(methods)
+
+				res = append(res, &apiv2.TypedMethodPermission{
+					Permissiontype: &apiv2.TypedMethodPermission_Public{
+						Public: &apiv2.PublicPermissions{
+							Methods: methods,
+						},
+					},
+				})
+
+				continue
+			}
+
+			res[idx].GetPublic().Methods = append(res[idx].GetPublic().Methods, methods...)
+
+			slices.Sort(res[idx].GetPublic().Methods)
+			res[idx].GetPublic().Methods = lo.Uniq(res[idx].GetPublic().Methods)
+
+		case *apiv2.TypedMethodPermission_Self:
+			var (
+				idx = slices.IndexFunc(res, func(perm *apiv2.TypedMethodPermission) bool {
+					return perm.GetSelf() != nil
+				})
+				methods = p.GetSelf().Methods
+			)
+
+			if idx < 0 {
+				slices.Sort(methods)
+				methods = lo.Uniq(methods)
+
+				res = append(res, &apiv2.TypedMethodPermission{
+					Permissiontype: &apiv2.TypedMethodPermission_Self{
+						Self: &apiv2.SelfPermissions{
+							Methods: methods,
+						},
+					},
+				})
+
+				continue
+			}
+
+			res[idx].GetSelf().Methods = append(res[idx].GetSelf().Methods, methods...)
+
+			slices.Sort(res[idx].GetSelf().Methods)
+			res[idx].GetSelf().Methods = lo.Uniq(res[idx].GetSelf().Methods)
+
+		case *apiv2.TypedMethodPermission_Tenant:
+			var (
+				idx = slices.IndexFunc(res, func(perm *apiv2.TypedMethodPermission) bool {
+					return perm.GetTenant() != nil
+				})
+				methods = p.GetTenant().Methods
+			)
+
+			if idx < 0 {
+				slices.Sort(methods)
+				methods = lo.Uniq(methods)
+
+				res = append(res, &apiv2.TypedMethodPermission{
+					Permissiontype: &apiv2.TypedMethodPermission_Tenant{
+						Tenant: &apiv2.TenantPermissions{
+							Login:   p.GetTenant().GetLogin(),
+							Methods: methods,
+						},
+					},
+				})
+
+				continue
+			}
+
+			res[idx].GetTenant().Methods = append(res[idx].GetTenant().Methods, methods...)
+
+			slices.Sort(res[idx].GetTenant().Methods)
+			res[idx].GetTenant().Methods = lo.Uniq(res[idx].GetTenant().Methods)
+
+		}
+	}
+
+	return res
 }

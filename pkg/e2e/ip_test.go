@@ -47,12 +47,16 @@ func TestIPCreate(t *testing.T) {
 		User: &userName,
 		TokenCreateRequest: &apiv2.TokenServiceCreateRequest{
 			Description: userName,
-			Permissions: []*apiv2.MethodPermission{
+			Permissions: []*apiv2.TypedMethodPermission{
 				{
-					Subject: project1.Project.Uuid,
-					Methods: []string{
-						apiv2connect.IPServiceCreateProcedure,
-						apiv2connect.IPServiceGetProcedure,
+					Permissiontype: &apiv2.TypedMethodPermission_Project{
+						Project: &apiv2.ProjectPermissions{
+							Project: project1.Project.Uuid,
+							Methods: []string{
+								apiv2connect.IPServiceCreateProcedure,
+								apiv2connect.IPServiceGetProcedure,
+							},
+						},
 					},
 				},
 			},

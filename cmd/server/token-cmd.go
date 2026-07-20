@@ -11,6 +11,7 @@ import (
 	"buf.build/go/protoyaml"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/api/go/permissions"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/k8s"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
@@ -132,17 +133,104 @@ func newTokenCmd() *cli.Command {
 				},
 			})
 
-			var permissions []*apiv2.MethodPermission
+			var typedPermissions []*apiv2.TypedMethodPermission
 			for _, m := range ctx.StringSlice(tokenPermissionsFlag.Name) {
-				project, semicolonSeparatedMethods, ok := strings.Cut(m, "=")
+				subject, colonSeparatedMethods, ok := strings.Cut(m, "=")
 				if !ok {
-					return fmt.Errorf("permissions must be provided in the form <project>=<methods-colon-separated>")
+					return fmt.Errorf("permissions must be provided in the form [<subject>=<methods-colon-separated>")
 				}
 
-				permissions = append(permissions, &apiv2.MethodPermission{
-					Subject: project,
-					Methods: strings.Split(semicolonSeparatedMethods, ":"),
-				})
+				for _, method := range strings.Split(colonSeparatedMethods, ":") {
+					if _, ok := permissions.GetServicePermissions().Visibility.Admin[method]; ok {
+
+						typedPermissions = append(typedPermissions, &apiv2.TypedMethodPermission{
+							Permissiontype: &apiv2.TypedMethodPermission_Admin{
+								Admin: &apiv2.AdminPermissions{
+									Methods: []string{method},
+								},
+							},
+						})
+
+						continue
+					}
+
+					if _, ok := permissions.GetServicePermissions().Visibility.Infra[method]; ok {
+						typedPermissions = append(typedPermissions, &apiv2.TypedMethodPermission{
+							Permissiontype: &apiv2.TypedMethodPermission_Infra{
+								Infra: &apiv2.InfraPermissions{
+									Methods: []string{method},
+								},
+							},
+						})
+
+						continue
+					}
+
+					if _, ok := permissions.GetServicePermissions().Visibility.Machine[method]; ok {
+						typedPermissions = append(typedPermissions, &apiv2.TypedMethodPermission{
+							Permissiontype: &apiv2.TypedMethodPermission_Machine{
+								Machine: &apiv2.MachinePermissions{
+									Uuid:    subject,
+									Methods: []string{method},
+								},
+							},
+						})
+
+						continue
+					}
+
+					if _, ok := permissions.GetServicePermissions().Visibility.Project[method]; ok {
+						typedPermissions = append(typedPermissions, &apiv2.TypedMethodPermission{
+							Permissiontype: &apiv2.TypedMethodPermission_Project{
+								Project: &apiv2.ProjectPermissions{
+									Project: subject,
+									Methods: []string{method},
+								},
+							},
+						})
+
+						continue
+					}
+
+					if _, ok := permissions.GetServicePermissions().Visibility.Public[method]; ok {
+						typedPermissions = append(typedPermissions, &apiv2.TypedMethodPermission{
+							Permissiontype: &apiv2.TypedMethodPermission_Public{
+								Public: &apiv2.PublicPermissions{
+									Methods: []string{method},
+								},
+							},
+						})
+
+						continue
+					}
+
+					if _, ok := permissions.GetServicePermissions().Visibility.Self[method]; ok {
+						typedPermissions = append(typedPermissions, &apiv2.TypedMethodPermission{
+							Permissiontype: &apiv2.TypedMethodPermission_Self{
+								Self: &apiv2.SelfPermissions{
+									Methods: []string{method},
+								},
+							},
+						})
+
+						continue
+					}
+
+					if _, ok := permissions.GetServicePermissions().Visibility.Tenant[method]; ok {
+						typedPermissions = append(typedPermissions, &apiv2.TypedMethodPermission{
+							Permissiontype: &apiv2.TypedMethodPermission_Tenant{
+								Tenant: &apiv2.TenantPermissions{
+									Login:   subject,
+									Methods: []string{method},
+								},
+							},
+						})
+
+						continue
+					}
+
+					return fmt.Errorf("your requested method is not part of the api: %s", method)
+				}
 			}
 
 			projectRoles := map[string]apiv2.ProjectRole{}
@@ -237,7 +325,7 @@ func newTokenCmd() *cli.Command {
 				ProjectRoles: projectRoles,
 				TenantRoles:  tenantRoles,
 				AdminRole:    adminRole,
-				Permissions:  permissions,
+				Permissions:  typedPermissions,
 				InfraRole:    infraRole,
 				MachineRoles: machineRoles,
 			})
