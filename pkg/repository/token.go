@@ -425,10 +425,10 @@ func (t *tokenRepository) Refresh(ctx context.Context, uuid string) (*apiv2.Toke
 	}, nil
 }
 
-func flattenPermissions(typed []*apiv2.PermissionsByVisibility) []*apiv2.MethodPermission {
-	res := make([]*apiv2.MethodPermission, len(typed))
+func flattenPermissions(perms []*apiv2.PermissionsByVisibility) []*apiv2.MethodPermission {
+	res := make([]*apiv2.MethodPermission, len(perms))
 
-	for i, p := range typed {
+	for i, p := range perms {
 		switch p.Visibility.(type) {
 		case *apiv2.PermissionsByVisibility_Admin:
 			res[i] = &apiv2.MethodPermission{
