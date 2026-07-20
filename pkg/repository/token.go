@@ -475,208 +475,131 @@ func compactPermissions(perms []*apiv2.PermissionsByVisibility) []*apiv2.Permiss
 	var res []*apiv2.PermissionsByVisibility
 
 	for _, p := range perms {
-		switch p.Visibility.(type) {
+		switch v := p.Visibility.(type) {
 		case *apiv2.PermissionsByVisibility_Admin:
-			var (
-				idx = slices.IndexFunc(res, func(perm *apiv2.PermissionsByVisibility) bool {
-					return perm.GetAdmin() != nil
-				})
-				methods = p.GetAdmin().Methods
-			)
-
+			idx := slices.IndexFunc(res, func(perm *apiv2.PermissionsByVisibility) bool {
+				return perm.GetAdmin() != nil
+			})
 			if idx < 0 {
-				slices.Sort(methods)
-				methods = lo.Uniq(methods)
-
 				res = append(res, &apiv2.PermissionsByVisibility{
 					Visibility: &apiv2.PermissionsByVisibility_Admin{
 						Admin: &apiv2.AdminPermissions{
-							Methods: methods,
+							Methods: sortUniq(v.Admin.Methods),
 						},
 					},
 				})
-
 				continue
 			}
-
-			res[idx].GetAdmin().Methods = append(res[idx].GetAdmin().Methods, methods...)
-
-			slices.Sort(res[idx].GetAdmin().Methods)
-			res[idx].GetAdmin().Methods = lo.Uniq(res[idx].GetAdmin().Methods)
+			res[idx].GetAdmin().Methods = sortUniq(append(res[idx].GetAdmin().Methods, v.Admin.Methods...))
 
 		case *apiv2.PermissionsByVisibility_Infra:
-			var (
-				idx = slices.IndexFunc(res, func(perm *apiv2.PermissionsByVisibility) bool {
-					return perm.GetInfra() != nil
-				})
-				methods = p.GetInfra().Methods
-			)
-
+			idx := slices.IndexFunc(res, func(perm *apiv2.PermissionsByVisibility) bool {
+				return perm.GetInfra() != nil
+			})
 			if idx < 0 {
-				slices.Sort(methods)
-				methods = lo.Uniq(methods)
-
 				res = append(res, &apiv2.PermissionsByVisibility{
 					Visibility: &apiv2.PermissionsByVisibility_Infra{
 						Infra: &apiv2.InfraPermissions{
-							Methods: methods,
+							Methods: sortUniq(v.Infra.Methods),
 						},
 					},
 				})
-
 				continue
 			}
-
-			res[idx].GetInfra().Methods = append(res[idx].GetInfra().Methods, methods...)
-
-			slices.Sort(res[idx].GetInfra().Methods)
-			res[idx].GetInfra().Methods = lo.Uniq(res[idx].GetInfra().Methods)
+			res[idx].GetInfra().Methods = sortUniq(append(res[idx].GetInfra().Methods, v.Infra.Methods...))
 
 		case *apiv2.PermissionsByVisibility_Machine:
-			var (
-				idx = slices.IndexFunc(res, func(perm *apiv2.PermissionsByVisibility) bool {
-					return perm.GetMachine() != nil
-				})
-				methods = p.GetMachine().Methods
-			)
-
+			idx := slices.IndexFunc(res, func(perm *apiv2.PermissionsByVisibility) bool {
+				m := perm.GetMachine()
+				return m != nil && m.Uuid == v.Machine.Uuid
+			})
 			if idx < 0 {
-				slices.Sort(methods)
-				methods = lo.Uniq(methods)
-
 				res = append(res, &apiv2.PermissionsByVisibility{
 					Visibility: &apiv2.PermissionsByVisibility_Machine{
 						Machine: &apiv2.MachinePermissions{
-							Uuid:    p.GetMachine().GetUuid(),
-							Methods: methods,
+							Uuid:    v.Machine.Uuid,
+							Methods: sortUniq(v.Machine.Methods),
 						},
 					},
 				})
-
 				continue
 			}
-
-			res[idx].GetMachine().Methods = append(res[idx].GetMachine().Methods, methods...)
-
-			slices.Sort(res[idx].GetMachine().Methods)
-			res[idx].GetMachine().Methods = lo.Uniq(res[idx].GetMachine().Methods)
+			res[idx].GetMachine().Methods = sortUniq(append(res[idx].GetMachine().Methods, v.Machine.Methods...))
 
 		case *apiv2.PermissionsByVisibility_Project:
-			var (
-				idx = slices.IndexFunc(res, func(perm *apiv2.PermissionsByVisibility) bool {
-					return perm.GetProject() != nil
-				})
-				methods = p.GetProject().Methods
-			)
-
+			idx := slices.IndexFunc(res, func(perm *apiv2.PermissionsByVisibility) bool {
+				m := perm.GetProject()
+				return m != nil && m.Project == v.Project.Project
+			})
 			if idx < 0 {
-				slices.Sort(methods)
-				methods = lo.Uniq(methods)
-
 				res = append(res, &apiv2.PermissionsByVisibility{
 					Visibility: &apiv2.PermissionsByVisibility_Project{
 						Project: &apiv2.ProjectPermissions{
-							Project: p.GetProject().GetProject(),
-							Methods: methods,
+							Project: v.Project.Project,
+							Methods: sortUniq(v.Project.Methods),
 						},
 					},
 				})
-
 				continue
 			}
-
-			res[idx].GetProject().Methods = append(res[idx].GetProject().Methods, methods...)
-
-			slices.Sort(res[idx].GetProject().Methods)
-			res[idx].GetProject().Methods = lo.Uniq(res[idx].GetProject().Methods)
+			res[idx].GetProject().Methods = sortUniq(append(res[idx].GetProject().Methods, v.Project.Methods...))
 
 		case *apiv2.PermissionsByVisibility_Public:
-			var (
-				idx = slices.IndexFunc(res, func(perm *apiv2.PermissionsByVisibility) bool {
-					return perm.GetPublic() != nil
-				})
-				methods = p.GetPublic().Methods
-			)
-
+			idx := slices.IndexFunc(res, func(perm *apiv2.PermissionsByVisibility) bool {
+				return perm.GetPublic() != nil
+			})
 			if idx < 0 {
-				slices.Sort(methods)
-				methods = lo.Uniq(methods)
-
 				res = append(res, &apiv2.PermissionsByVisibility{
 					Visibility: &apiv2.PermissionsByVisibility_Public{
 						Public: &apiv2.PublicPermissions{
-							Methods: methods,
+							Methods: sortUniq(v.Public.Methods),
 						},
 					},
 				})
-
 				continue
 			}
-
-			res[idx].GetPublic().Methods = append(res[idx].GetPublic().Methods, methods...)
-
-			slices.Sort(res[idx].GetPublic().Methods)
-			res[idx].GetPublic().Methods = lo.Uniq(res[idx].GetPublic().Methods)
+			res[idx].GetPublic().Methods = sortUniq(append(res[idx].GetPublic().Methods, v.Public.Methods...))
 
 		case *apiv2.PermissionsByVisibility_Self:
-			var (
-				idx = slices.IndexFunc(res, func(perm *apiv2.PermissionsByVisibility) bool {
-					return perm.GetSelf() != nil
-				})
-				methods = p.GetSelf().Methods
-			)
-
+			idx := slices.IndexFunc(res, func(perm *apiv2.PermissionsByVisibility) bool {
+				return perm.GetSelf() != nil
+			})
 			if idx < 0 {
-				slices.Sort(methods)
-				methods = lo.Uniq(methods)
-
 				res = append(res, &apiv2.PermissionsByVisibility{
 					Visibility: &apiv2.PermissionsByVisibility_Self{
 						Self: &apiv2.SelfPermissions{
-							Methods: methods,
+							Methods: sortUniq(v.Self.Methods),
 						},
 					},
 				})
-
 				continue
 			}
-
-			res[idx].GetSelf().Methods = append(res[idx].GetSelf().Methods, methods...)
-
-			slices.Sort(res[idx].GetSelf().Methods)
-			res[idx].GetSelf().Methods = lo.Uniq(res[idx].GetSelf().Methods)
+			res[idx].GetSelf().Methods = sortUniq(append(res[idx].GetSelf().Methods, v.Self.Methods...))
 
 		case *apiv2.PermissionsByVisibility_Tenant:
-			var (
-				idx = slices.IndexFunc(res, func(perm *apiv2.PermissionsByVisibility) bool {
-					return perm.GetTenant() != nil
-				})
-				methods = p.GetTenant().Methods
-			)
-
+			idx := slices.IndexFunc(res, func(perm *apiv2.PermissionsByVisibility) bool {
+				m := perm.GetTenant()
+				return m != nil && m.Login == v.Tenant.Login
+			})
 			if idx < 0 {
-				slices.Sort(methods)
-				methods = lo.Uniq(methods)
-
 				res = append(res, &apiv2.PermissionsByVisibility{
 					Visibility: &apiv2.PermissionsByVisibility_Tenant{
 						Tenant: &apiv2.TenantPermissions{
-							Login:   p.GetTenant().GetLogin(),
-							Methods: methods,
+							Login:   v.Tenant.Login,
+							Methods: sortUniq(v.Tenant.Methods),
 						},
 					},
 				})
-
 				continue
 			}
-
-			res[idx].GetTenant().Methods = append(res[idx].GetTenant().Methods, methods...)
-
-			slices.Sort(res[idx].GetTenant().Methods)
-			res[idx].GetTenant().Methods = lo.Uniq(res[idx].GetTenant().Methods)
-
+			res[idx].GetTenant().Methods = sortUniq(append(res[idx].GetTenant().Methods, v.Tenant.Methods...))
 		}
 	}
 
 	return res
+}
+
+func sortUniq(s []string) []string {
+	slices.Sort(s)
+	return lo.Uniq(s)
 }
