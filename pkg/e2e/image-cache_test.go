@@ -43,6 +43,14 @@ func TestImageCacheServiceToken(t *testing.T) {
 								"/metalstack.api.v2.ImageService/List",
 								"/metalstack.api.v2.PartitionService/List",
 								"/metalstack.api.v2.TokenService/Refresh",
+							},
+						},
+					},
+				},
+				{
+					Permissiontype: &apiv2.TypedMethodPermission_Infra{
+						Infra: &apiv2.InfraPermissions{
+							Methods: []string{
 								"/metalstack.infra.v2.ComponentService/Ping",
 							},
 						},

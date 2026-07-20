@@ -67,7 +67,7 @@ func (t *tokenRepository) validateCreate(ctx context.Context, req *adminv2.Token
 	}
 
 	rq.Permissions = compactTypedMethodPermissions(rq.Permissions)
-	if err := t.validateTypedPermissions(rq.Permissions, projectsAndTenants); err != nil {
+	if err := t.validateTypedPermissions(ctx, rq.Permissions, projectsAndTenants); err != nil {
 		return errorutil.PermissionDenied("invalid permissions requested: %w", err)
 	}
 
@@ -140,7 +140,7 @@ func (t *tokenRepository) validateUpdate(ctx context.Context, req *apiv2.TokenSe
 	}
 
 	req.Permissions = compactTypedMethodPermissions(req.Permissions)
-	if err := t.validateTypedPermissions(req.Permissions, projectsAndTenants); err != nil {
+	if err := t.validateTypedPermissions(ctx, req.Permissions, projectsAndTenants); err != nil {
 		return errorutil.PermissionDenied("invalid permissions requested: %w", err)
 	}
 
@@ -322,7 +322,52 @@ func (t *tokenRepository) validateTokenRequest(ctx context.Context, currentToken
 	return nil
 }
 
-func (t *tokenRepository) validateTypedPermissions(typedPerms []*apiv2.TypedMethodPermission, projectsAndTenants *api.ProjectsAndTenants) error {
+func (t *tokenRepository) validateTypedPermissions(ctx context.Context, typedPerms []*apiv2.TypedMethodPermission, projectsAndTenants *api.ProjectsAndTenants) error {
+	type permType string
+
+	const (
+		// TODO: can we somehow define these in the API?
+		adminType   permType = "admin"
+		infraType   permType = "infra"
+		machineType permType = "machine"
+		projectType permType = "project"
+		publicType  permType = "public"
+		selfType    permType = "self"
+		tenantType  permType = "tenant"
+	)
+
+	requestedMethodNotOfType := func(requestedType permType, method string) error {
+		var actualPermType permType
+
+		if _, ok := permissions.GetServicePermissions().Visibility.Admin[method]; ok {
+			actualPermType = adminType
+		}
+		if _, ok := permissions.GetServicePermissions().Visibility.Infra[method]; ok {
+			actualPermType = infraType
+		}
+		if _, ok := permissions.GetServicePermissions().Visibility.Machine[method]; ok {
+			actualPermType = machineType
+		}
+		if _, ok := permissions.GetServicePermissions().Visibility.Project[method]; ok {
+			actualPermType = projectType
+		}
+		if _, ok := permissions.GetServicePermissions().Visibility.Public[method]; ok {
+			actualPermType = publicType
+		}
+		if _, ok := permissions.GetServicePermissions().Visibility.Self[method]; ok {
+			actualPermType = selfType
+		}
+		if _, ok := permissions.GetServicePermissions().Visibility.Tenant[method]; ok {
+			actualPermType = tenantType
+		}
+
+		if actualPermType == "" {
+			return fmt.Errorf("requested method %q is not contained in the api", method)
+		}
+
+		return fmt.Errorf("requested method %q is of type %q, not of type %q", method, actualPermType, requestedType)
+	}
+
 	for _, p := range typedPerms {
 		switch p.Permissiontype.(type) {
 		case *apiv2.TypedMethodPermission_Admin:
@@ -332,14 +377,14 @@ func (t *tokenRepository) validateTypedPermissions(typedPerms []*apiv2.TypedMeth
 
 			for _, method := range p.GetAdmin().GetMethods() {
 				if _, ok := permissions.GetServicePermissions().Visibility.Admin[method]; !ok {
-					return fmt.Errorf("requested method %q is not an admin api method", method)
+					return requestedMethodNotOfType(adminType, method)
 				}
 			}
 
 		case *apiv2.TypedMethodPermission_Infra:
 			for _, method := range p.GetInfra().GetMethods() {
 				if _, ok := permissions.GetServicePermissions().Visibility.Infra[method]; !ok {
-					return fmt.Errorf("requested method %q is not an infra api method", method)
+					return requestedMethodNotOfType(infraType, method)
 				}
 			}
 
@@ -349,47 +394,67 @@ func (t *tokenRepository) validateTypedPermissions(typedPerms []*apiv2.TypedMeth
 
 			for _, method := range p.GetMachine().GetMethods() {
 				if _, ok := permissions.GetServicePermissions().Visibility.Machine[method]; !ok {
-					return fmt.Errorf("requested method %q is not a machine api method", method)
+					return requestedMethodNotOfType(machineType, method)
 				}
 			}
 
 		case *apiv2.TypedMethodPermission_Project:
 			if project := p.GetProject().GetProject(); project != request.AnySubject {
-				if _, ok := projectsAndTenants.ProjectRoles[project]; !ok {
-					return fmt.Errorf("requesting method for project %q but available projects are: %v", project, lo.Keys(projectsAndTenants.ProjectRoles))
+				if _, has := t.hasAdminRole(projectsAndTenants); has {
+					if _, err := t.s.UnscopedProject().Get(ctx, project); err != nil {
+						if errorutil.IsNotFound(err) {
+							return fmt.Errorf("requesting method for project %q but this does not exist in the database", project)
+						}
+
+						return err
+					}
+				} else {
+					if _, ok := projectsAndTenants.ProjectRoles[project]; !ok {
+						return fmt.Errorf("requesting method for project %q but available projects are: %v", project, lo.Keys(projectsAndTenants.ProjectRoles))
+					}
 				}
 			}
 
 			for _, method := range p.GetProject().GetMethods() {
 				if _, ok := permissions.GetServicePermissions().Visibility.Project[method]; !ok {
-					return fmt.Errorf("requested method %q is not a project api method", method)
+					return requestedMethodNotOfType(projectType, method)
 				}
 			}
 
 		case *apiv2.TypedMethodPermission_Public:
 			for _, method := range p.GetPublic().GetMethods() {
 				if _, ok := permissions.GetServicePermissions().Visibility.Public[method]; !ok {
-					return fmt.Errorf("requested method %q is not a public api method", method)
+					return requestedMethodNotOfType(publicType, method)
 				}
 			}
 
 		case *apiv2.TypedMethodPermission_Self:
 			for _, method := range p.GetSelf().GetMethods() {
 				if _, ok := permissions.GetServicePermissions().Visibility.Self[method]; !ok {
-					return fmt.Errorf("requested method %q is not a self api method", method)
+					return requestedMethodNotOfType(selfType, method)
 				}
 			}
 
 		case *apiv2.TypedMethodPermission_Tenant:
 			if login := p.GetTenant().GetLogin(); login != request.AnySubject {
-				if _, ok := projectsAndTenants.TenantRoles[login]; !ok {
-					return fmt.Errorf("requesting method for tenant %q but available tenants are: %v", login, lo.Keys(projectsAndTenants.TenantRoles))
+				if _, has := t.hasAdminRole(projectsAndTenants); has {
+					if _, err := t.s.Tenant().Get(ctx, login); err != nil {
+						if errorutil.IsNotFound(err) {
+							return fmt.Errorf("requesting method for tenant %q but this does not exist in the database", login)
+						}
+
+						return err
+					}
+				} else {
+					if _, ok := projectsAndTenants.TenantRoles[login]; !ok {
+						return fmt.Errorf("requesting method for tenant %q but available tenants are: %v", login, lo.Keys(projectsAndTenants.TenantRoles))
+					}
 				}
 			}
 
 			for _, method := range p.GetTenant().GetMethods() {
 				if _, ok := permissions.GetServicePermissions().Visibility.Tenant[method]; !ok {
-					return fmt.Errorf("requested method %q is not a tenant api method", method)
+					return requestedMethodNotOfType(tenantType, method)
 				}
 			}
 

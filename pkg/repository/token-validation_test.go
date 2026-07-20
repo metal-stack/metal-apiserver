@@ -1553,6 +1553,35 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			wantError: errorutil.PermissionDenied(`invalid permissions requested: requesting method for project "00000000-0000-0000-0000-000000000000" but available projects are: []`),
 		},
 		{
+			name: "user requests permission in wrong api permission scope",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "unknown method",
+				Permissions: []*apiv2.TypedMethodPermission{
+					{
+						Permissiontype: &apiv2.TypedMethodPermission_Self{
+							Self: &apiv2.SelfPermissions{
+								Methods: []string{"/metalstack.api.v2.IPService/Get"},
+							},
+						},
+					},
+				},
+			},
+			state: state{
+				providerTenant: "metal-stack",
+				projectRoles: map[string]apiv2.ProjectRole{
+					project1: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+			},
+			wantError: errorutil.PermissionDenied(`invalid permissions requested: requested method "/metalstack.api.v2.IPService/Get" is of type "project", not of type "self"`),
+		},
+		{
 			name: "user cannot request permissions for a project without membership",
 			sessionToken: &apiv2.Token{
 				User:      "phippy",
@@ -2196,7 +2225,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			state: state{
 				providerTenant: "metal-stack",
 			},
-			wantError: errorutil.PermissionDenied(`unknown method "/metalstack.api.v2.UnknownService/Get"`),
+			wantError: errorutil.PermissionDenied(`invalid permissions requested: requested method "/metalstack.api.v2.UnknownService/Get" is not contained in the api`),
 		},
 		{
 			name: "USER token creates token with project from PAT",
@@ -2508,7 +2537,7 @@ func Test_validateTokenRequest(t *testing.T) {
 				Expires: inOneHour,
 			},
 			providerTenant: "metal-stack",
-			wantErr:        errors.New("unknown method \"/metalstack.api.v2.UnknownService/Get\""),
+			wantErr:        errors.New(`invalid permissions requested: requested method "/metalstack.api.v2.UnknownService/Get" is not contained in the api`),
 		},
 		{
 			name: "simple token with one project and permission, wrong project given",
