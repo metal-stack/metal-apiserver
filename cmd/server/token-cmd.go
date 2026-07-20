@@ -137,7 +137,7 @@ func newTokenCmd() *cli.Command {
 			for _, m := range ctx.StringSlice(tokenPermissionsFlag.Name) {
 				subject, colonSeparatedMethods, ok := strings.Cut(m, "=")
 				if !ok {
-					colonSeparatedMethods=subject
+					colonSeparatedMethods = subject
 				}
 
 				for method := range strings.SplitSeq(colonSeparatedMethods, ":") {
