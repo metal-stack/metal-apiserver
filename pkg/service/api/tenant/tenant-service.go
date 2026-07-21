@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"maps"
 	"sort"
 	"time"
 
@@ -13,7 +12,9 @@ import (
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
+	"github.com/metal-stack/metal-apiserver/pkg/tags"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
+	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
@@ -79,8 +80,16 @@ func (u *tenantServiceServer) List(ctx context.Context, req *apiv2.TenantService
 			if req.Query.Login != nil && tenant.Login != *req.Query.Login {
 				continue
 			}
-			if req.Query.Labels != nil && !maps.Equal(req.Query.Labels.Labels, pointer.SafeDeref(pointer.SafeDeref(tenant.Meta).Labels).Labels) {
-				continue
+			if req.Query.Labels != nil {
+				var (
+					queryTags  = tags.ToTags(req.Query.Labels.Labels)
+					tenantTags = tags.ToTags(pointer.SafeDeref(pointer.SafeDeref(tenant.Meta).Labels).Labels)
+				)
+
+				noMatch, _ := lo.Difference(queryTags, tenantTags)
+				if len(noMatch) > 0 {
+					continue
+				}
 			}
 		}
 

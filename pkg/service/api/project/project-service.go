@@ -15,7 +15,10 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
+	"github.com/metal-stack/metal-apiserver/pkg/tags"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
+	"github.com/metal-stack/metal-lib/pkg/pointer"
+	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -166,6 +169,17 @@ func (p *projectServiceServer) List(ctx context.Context, req *apiv2.ProjectServi
 			}
 			if q.Tenant != nil && project.Tenant != *q.Tenant {
 				continue
+			}
+			if req.Query.Labels != nil {
+				var (
+					queryTags   = tags.ToTags(req.Query.Labels.Labels)
+					projectTags = tags.ToTags(pointer.SafeDeref(pointer.SafeDeref(project.Meta).Labels).Labels)
+				)
+
+				noMatch, _ := lo.Difference(queryTags, projectTags)
+				if len(noMatch) > 0 {
+					continue
+				}
 			}
 		}
 
