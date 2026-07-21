@@ -821,10 +821,13 @@ func Test_authorizeInterceptor_WrapUnary(t *testing.T) {
 					User: new("pixiecore"),
 					TokenCreateRequest: &apiv2.TokenServiceCreateRequest{
 						Description: "i want to act as pixiecore",
-						Permissions: []*apiv2.MethodPermission{
+						Permissions: []*apiv2.PermissionsByVisibility{
 							{
-								Subject: "*",
-								Methods: []string{"/metalstack.api.v2.TokenService/Create"},
+								Visibility: &apiv2.PermissionsByVisibility_Self{
+									Self: &apiv2.SelfPermissions{
+										Methods: []string{"/metalstack.api.v2.TokenService/Create"},
+									},
+								},
 							},
 						},
 						MachineRoles: map[string]apiv2.MachineRole{

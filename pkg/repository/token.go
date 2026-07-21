@@ -2,7 +2,7 @@ package repository
 
 import (
 	"context"
-	"maps"
+	"slices"
 	"time"
 
 	"github.com/metal-stack/api/go/errorutil"
@@ -10,7 +10,10 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/request"
+	"github.com/metal-stack/metal-apiserver/pkg/tags"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
+	"github.com/metal-stack/metal-lib/pkg/pointer"
+	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -88,11 +91,13 @@ func (t *tokenRepository) list(ctx context.Context, query *apiv2.TokenQuery) ([]
 			continue
 		}
 		if query.Labels != nil {
-			if tok.Meta == nil || tok.Meta.Labels == nil {
-				continue
-			}
+			var (
+				queryTags = tags.ToTags(query.Labels.Labels)
+				tokenTags = tags.ToTags(pointer.SafeDeref(pointer.SafeDeref(tok.Meta).Labels).Labels)
+			)
 
-			if !maps.Equal(query.Labels.Labels, tok.Meta.Labels.Labels) {
+			noMatch, _ := lo.Difference(queryTags, tokenTags)
+			if len(noMatch) > 0 {
 				continue
 			}
 		}
@@ -148,7 +153,7 @@ func (t *tokenRepository) create(ctx context.Context, c *adminv2.TokenServiceCre
 	}
 
 	tok.Description = req.Description
-	tok.Permissions = req.Permissions
+	tok.Permissions = flattenPermissions(req.Permissions)
 	tok.ProjectRoles = req.ProjectRoles
 	tok.TenantRoles = req.TenantRoles
 	tok.AdminRole = req.AdminRole
@@ -209,7 +214,7 @@ func (t *tokenRepository) update(ctx context.Context, tokenToUpdate *api.TokenWi
 		}
 	}
 	if req.Permissions != nil {
-		tok.Permissions = req.Permissions
+		tok.Permissions = flattenPermissions(req.Permissions)
 	}
 	if req.ProjectRoles != nil {
 		tok.ProjectRoles = req.ProjectRoles
@@ -316,7 +321,7 @@ func (t *tokenRepository) CreateApiTokenWithoutPermissionCheck(ctx context.Conte
 	}
 
 	token.Description = req.Description
-	token.Permissions = req.Permissions
+	token.Permissions = flattenPermissions(req.Permissions)
 	token.ProjectRoles = req.ProjectRoles
 	token.TenantRoles = req.TenantRoles
 	token.AdminRole = req.AdminRole
@@ -339,19 +344,9 @@ func (t *tokenRepository) Refresh(ctx context.Context, uuid string) (*apiv2.Toke
 		return nil, errorutil.FailedPrecondition("tokens cannot be refreshed unscoped")
 	}
 
-	oldtoken, err := t.s.tokens.Get(ctx, t.scope.user, uuid)
+	currentToken, err := t.s.tokens.Get(ctx, t.scope.user, uuid)
 	if err != nil {
 		return nil, err
-	}
-
-	// we first copy the token permission from the old token
-	createRequest := &apiv2.TokenServiceCreateRequest{
-		Permissions:  oldtoken.Permissions,
-		ProjectRoles: oldtoken.ProjectRoles,
-		TenantRoles:  oldtoken.TenantRoles,
-		AdminRole:    oldtoken.AdminRole,
-		InfraRole:    oldtoken.InfraRole,
-		MachineRoles: oldtoken.MachineRoles,
 	}
 
 	tok, ok := token.TokenFromContext(ctx)
@@ -359,7 +354,7 @@ func (t *tokenRepository) Refresh(ctx context.Context, uuid string) (*apiv2.Toke
 		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
-	err = t.validateTokenRequest(ctx, tok, createRequest)
+	err = t.validateTokenRequest(ctx, tok, currentToken)
 	if err != nil {
 		return nil, errorutil.NewPermissionDenied(err)
 	}
@@ -384,7 +379,7 @@ func (t *tokenRepository) Refresh(ctx context.Context, uuid string) (*apiv2.Toke
 	if role, ok := t.hasAdminRole(projectsAndTenants); ok {
 		fullUserToken.AdminRole = role
 	}
-	err = t.validateTokenRequest(ctx, fullUserToken, createRequest)
+	err = t.validateTokenRequest(ctx, fullUserToken, currentToken)
 	if err != nil {
 		return nil, errorutil.NewPermissionDenied(err)
 	}
@@ -397,27 +392,27 @@ func (t *tokenRepository) Refresh(ctx context.Context, uuid string) (*apiv2.Toke
 	}
 
 	// New duration is calculated from the old token
-	exp := oldtoken.Expires.AsTime().Sub(oldtoken.IssuedAt.AsTime())
+	exp := currentToken.Expires.AsTime().Sub(currentToken.IssuedAt.AsTime())
 
 	secret, newToken, err := token.NewJWT(apiv2.TokenType_TOKEN_TYPE_API, t.scope.user, t.s.issuer, exp, privateKey)
 	if err != nil {
 		return nil, errorutil.NewInternal(err)
 	}
 
-	newToken.Description = oldtoken.Description
-	newToken.Permissions = oldtoken.Permissions
-	newToken.ProjectRoles = oldtoken.ProjectRoles
-	newToken.TenantRoles = oldtoken.TenantRoles
-	newToken.AdminRole = oldtoken.AdminRole
-	newToken.InfraRole = oldtoken.InfraRole
-	newToken.MachineRoles = oldtoken.MachineRoles
+	newToken.Description = currentToken.Description
+	newToken.Permissions = currentToken.Permissions
+	newToken.ProjectRoles = currentToken.ProjectRoles
+	newToken.TenantRoles = currentToken.TenantRoles
+	newToken.AdminRole = currentToken.AdminRole
+	newToken.InfraRole = currentToken.InfraRole
+	newToken.MachineRoles = currentToken.MachineRoles
 	if newToken.Meta == nil {
 		newToken.Meta = &apiv2.Meta{}
 	}
 	newToken.Meta.Generation = 1
 	newToken.Meta.CreatedAt = newToken.IssuedAt
-	if oldtoken.Meta != nil {
-		newToken.Meta.Labels = oldtoken.Meta.Labels
+	if currentToken.Meta != nil {
+		newToken.Meta.Labels = currentToken.Meta.Labels
 	}
 
 	err = t.s.tokens.Set(ctx, newToken)
@@ -425,10 +420,187 @@ func (t *tokenRepository) Refresh(ctx context.Context, uuid string) (*apiv2.Toke
 		return nil, err
 	}
 
-	// TODO, should we delete the old token now ?
-
 	return &apiv2.TokenServiceRefreshResponse{
 		Token:  newToken,
 		Secret: secret,
 	}, nil
+}
+
+func flattenPermissions(perms []*apiv2.PermissionsByVisibility) []*apiv2.MethodPermission {
+	res := make([]*apiv2.MethodPermission, len(perms))
+
+	for i, p := range perms {
+		switch p.Visibility.(type) {
+		case *apiv2.PermissionsByVisibility_Admin:
+			res[i] = &apiv2.MethodPermission{
+				Subject: "",
+				Methods: p.GetAdmin().GetMethods(),
+			}
+		case *apiv2.PermissionsByVisibility_Infra:
+			res[i] = &apiv2.MethodPermission{
+				Subject: "",
+				Methods: p.GetInfra().GetMethods(),
+			}
+		case *apiv2.PermissionsByVisibility_Machine:
+			res[i] = &apiv2.MethodPermission{
+				Subject: p.GetMachine().GetUuid(),
+				Methods: p.GetMachine().GetMethods(),
+			}
+		case *apiv2.PermissionsByVisibility_Project:
+			res[i] = &apiv2.MethodPermission{
+				Subject: p.GetProject().GetProject(),
+				Methods: p.GetProject().GetMethods(),
+			}
+		case *apiv2.PermissionsByVisibility_Public:
+			res[i] = &apiv2.MethodPermission{
+				Subject: "",
+				Methods: p.GetPublic().GetMethods(),
+			}
+		case *apiv2.PermissionsByVisibility_Self:
+			res[i] = &apiv2.MethodPermission{
+				Subject: "",
+				Methods: p.GetSelf().GetMethods(),
+			}
+		case *apiv2.PermissionsByVisibility_Tenant:
+			res[i] = &apiv2.MethodPermission{
+				Subject: p.GetTenant().GetLogin(),
+				Methods: p.GetTenant().GetMethods(),
+			}
+		}
+	}
+
+	return res
+}
+
+func compactPermissions(perms []*apiv2.PermissionsByVisibility) []*apiv2.PermissionsByVisibility {
+	var res []*apiv2.PermissionsByVisibility
+
+	for _, p := range perms {
+		switch v := p.Visibility.(type) {
+		case *apiv2.PermissionsByVisibility_Admin:
+			idx := slices.IndexFunc(res, func(perm *apiv2.PermissionsByVisibility) bool {
+				return perm.GetAdmin() != nil
+			})
+			if idx < 0 {
+				res = append(res, &apiv2.PermissionsByVisibility{
+					Visibility: &apiv2.PermissionsByVisibility_Admin{
+						Admin: &apiv2.AdminPermissions{
+							Methods: sortUniq(v.Admin.Methods),
+						},
+					},
+				})
+				continue
+			}
+			res[idx].GetAdmin().Methods = sortUniq(append(res[idx].GetAdmin().Methods, v.Admin.Methods...))
+
+		case *apiv2.PermissionsByVisibility_Infra:
+			idx := slices.IndexFunc(res, func(perm *apiv2.PermissionsByVisibility) bool {
+				return perm.GetInfra() != nil
+			})
+			if idx < 0 {
+				res = append(res, &apiv2.PermissionsByVisibility{
+					Visibility: &apiv2.PermissionsByVisibility_Infra{
+						Infra: &apiv2.InfraPermissions{
+							Methods: sortUniq(v.Infra.Methods),
+						},
+					},
+				})
+				continue
+			}
+			res[idx].GetInfra().Methods = sortUniq(append(res[idx].GetInfra().Methods, v.Infra.Methods...))
+
+		case *apiv2.PermissionsByVisibility_Machine:
+			idx := slices.IndexFunc(res, func(perm *apiv2.PermissionsByVisibility) bool {
+				m := perm.GetMachine()
+				return m != nil && m.Uuid == v.Machine.Uuid
+			})
+			if idx < 0 {
+				res = append(res, &apiv2.PermissionsByVisibility{
+					Visibility: &apiv2.PermissionsByVisibility_Machine{
+						Machine: &apiv2.MachinePermissions{
+							Uuid:    v.Machine.Uuid,
+							Methods: sortUniq(v.Machine.Methods),
+						},
+					},
+				})
+				continue
+			}
+			res[idx].GetMachine().Methods = sortUniq(append(res[idx].GetMachine().Methods, v.Machine.Methods...))
+
+		case *apiv2.PermissionsByVisibility_Project:
+			idx := slices.IndexFunc(res, func(perm *apiv2.PermissionsByVisibility) bool {
+				m := perm.GetProject()
+				return m != nil && m.Project == v.Project.Project
+			})
+			if idx < 0 {
+				res = append(res, &apiv2.PermissionsByVisibility{
+					Visibility: &apiv2.PermissionsByVisibility_Project{
+						Project: &apiv2.ProjectPermissions{
+							Project: v.Project.Project,
+							Methods: sortUniq(v.Project.Methods),
+						},
+					},
+				})
+				continue
+			}
+			res[idx].GetProject().Methods = sortUniq(append(res[idx].GetProject().Methods, v.Project.Methods...))
+
+		case *apiv2.PermissionsByVisibility_Public:
+			idx := slices.IndexFunc(res, func(perm *apiv2.PermissionsByVisibility) bool {
+				return perm.GetPublic() != nil
+			})
+			if idx < 0 {
+				res = append(res, &apiv2.PermissionsByVisibility{
+					Visibility: &apiv2.PermissionsByVisibility_Public{
+						Public: &apiv2.PublicPermissions{
+							Methods: sortUniq(v.Public.Methods),
+						},
+					},
+				})
+				continue
+			}
+			res[idx].GetPublic().Methods = sortUniq(append(res[idx].GetPublic().Methods, v.Public.Methods...))
+
+		case *apiv2.PermissionsByVisibility_Self:
+			idx := slices.IndexFunc(res, func(perm *apiv2.PermissionsByVisibility) bool {
+				return perm.GetSelf() != nil
+			})
+			if idx < 0 {
+				res = append(res, &apiv2.PermissionsByVisibility{
+					Visibility: &apiv2.PermissionsByVisibility_Self{
+						Self: &apiv2.SelfPermissions{
+							Methods: sortUniq(v.Self.Methods),
+						},
+					},
+				})
+				continue
+			}
+			res[idx].GetSelf().Methods = sortUniq(append(res[idx].GetSelf().Methods, v.Self.Methods...))
+
+		case *apiv2.PermissionsByVisibility_Tenant:
+			idx := slices.IndexFunc(res, func(perm *apiv2.PermissionsByVisibility) bool {
+				m := perm.GetTenant()
+				return m != nil && m.Login == v.Tenant.Login
+			})
+			if idx < 0 {
+				res = append(res, &apiv2.PermissionsByVisibility{
+					Visibility: &apiv2.PermissionsByVisibility_Tenant{
+						Tenant: &apiv2.TenantPermissions{
+							Login:   v.Tenant.Login,
+							Methods: sortUniq(v.Tenant.Methods),
+						},
+					},
+				})
+				continue
+			}
+			res[idx].GetTenant().Methods = sortUniq(append(res[idx].GetTenant().Methods, v.Tenant.Methods...))
+		}
+	}
+
+	return res
+}
+
+func sortUniq(s []string) []string {
+	slices.Sort(s)
+	return lo.Uniq(s)
 }

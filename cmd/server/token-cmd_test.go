@@ -7,7 +7,6 @@ import (
 	"buf.build/go/protoyaml"
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
-	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/stretchr/testify/require"
@@ -28,13 +27,15 @@ func TestTokenCreateConfigTest(t *testing.T) {
 		"metal_console": {
 			User: new("metal-console"),
 			TokenCreateRequest: &apiv2.TokenServiceCreateRequest{
-				Permissions: []*apiv2.MethodPermission{
+				Permissions: []*apiv2.PermissionsByVisibility{
 					{
-						Subject: "*",
-						Methods: []string{
-							adminv2connect.MachineServiceGetProcedure,
-							apiv2connect.MethodServiceTokenScopedListProcedure,
-							apiv2connect.TokenServiceRefreshProcedure,
+						Visibility: &apiv2.PermissionsByVisibility_Self{
+							Self: &apiv2.SelfPermissions{
+								Methods: []string{
+									apiv2connect.MethodServiceTokenScopedListProcedure,
+									apiv2connect.TokenServiceRefreshProcedure,
+								},
+							},
 						},
 					},
 				},
@@ -53,11 +54,10 @@ metal_console:
     user: metal-console
     tokenCreateRequest:
         permissions:
-            - subject: '*'
-              methods:
-                - /metalstack.admin.v2.MachineService/Get
-                - /metalstack.api.v2.MethodService/TokenScopedList
-                - /metalstack.api.v2.TokenService/Refresh
+            - self:
+                methods:
+                  - /metalstack.api.v2.MethodService/TokenScopedList
+                  - /metalstack.api.v2.TokenService/Refresh
         expires: 172800s
     `
 
