@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var (
@@ -89,6 +90,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 				User:        "phippy",
 				Description: "from user token",
 				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{},
 			},
 		},
 		{
@@ -110,6 +112,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 				User:        "phippy",
 				Description: "from api token",
 				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{},
 			},
 		},
 
@@ -146,6 +149,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
 				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+				Permissions:  []*apiv2.MethodPermission{},
 			},
 		},
 		{
@@ -177,6 +181,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
 				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
+				Permissions:  []*apiv2.MethodPermission{},
 			},
 		},
 		{
@@ -256,6 +261,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
 				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
+				Permissions:  []*apiv2.MethodPermission{},
 			},
 		},
 		{
@@ -307,6 +313,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
 				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+				Permissions:  []*apiv2.MethodPermission{},
 			},
 		},
 		{
@@ -337,6 +344,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
 				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
+				Permissions:  []*apiv2.MethodPermission{},
 			},
 		},
 		{
@@ -367,6 +375,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
 				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
+				Permissions:  []*apiv2.MethodPermission{},
 			},
 		},
 		{
@@ -542,6 +551,35 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			wantError: errorutil.PermissionDenied(`the following method "/grpc.reflection.v1.ServerReflection/ServerReflectionInfo" is not allowed on any of the requested subjects: [*]`),
 		},
 		{
+			name: "session token has admin role but does not request admin role",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description:  "no admin requested",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			state: state{
+				providerTenant: "phippy",
+				tenantRoles: map[string]apiv2.TenantRole{
+					"phippy": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			wantToken: &apiv2.Token{
+				User:         "phippy",
+				Description:  "no admin requested",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				Permissions:  []*apiv2.MethodPermission{},
+			},
+		},
+		{
 			name: "no admin role in session or request",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
@@ -564,6 +602,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
+				Permissions:  []*apiv2.MethodPermission{},
 			},
 		},
 
@@ -603,6 +642,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 				TenantRoles: map[string]apiv2.TenantRole{
 					tenant1: apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
+				Permissions: []*apiv2.MethodPermission{},
 			},
 		},
 		{
@@ -682,6 +722,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 				TenantRoles: map[string]apiv2.TenantRole{
 					tenant1: apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
+				Permissions: []*apiv2.MethodPermission{},
 			},
 		},
 		{
@@ -816,6 +857,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 				TenantRoles: map[string]apiv2.TenantRole{
 					tenant1: apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
+				Permissions: []*apiv2.MethodPermission{},
 			},
 		},
 		{
@@ -852,6 +894,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 				TenantRoles: map[string]apiv2.TenantRole{
 					tenant1: apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
+				Permissions: []*apiv2.MethodPermission{},
 			},
 		},
 		{
@@ -944,6 +987,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 					project1: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 				TenantRoles: map[string]apiv2.TenantRole{},
+				Permissions: []*apiv2.MethodPermission{},
 			},
 		},
 		{
@@ -1022,6 +1066,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 					project1: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 				TenantRoles: map[string]apiv2.TenantRole{},
+				Permissions: []*apiv2.MethodPermission{},
 			},
 		},
 		{
@@ -1109,6 +1154,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 					project1: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 				TenantRoles: map[string]apiv2.TenantRole{},
+				Permissions: []*apiv2.MethodPermission{},
 			},
 		},
 		// TODO: add test for requesting project role / permission when being tenant viewer / guest
@@ -1180,6 +1226,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 					machineID1: apiv2.MachineRole_MACHINE_ROLE_EDITOR,
 				},
 				TenantRoles: map[string]apiv2.TenantRole{},
+				Permissions: []*apiv2.MethodPermission{},
 			},
 		},
 		{
@@ -1232,6 +1279,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 					machineID2: apiv2.MachineRole_MACHINE_ROLE_EDITOR,
 				},
 				TenantRoles: map[string]apiv2.TenantRole{},
+				Permissions: []*apiv2.MethodPermission{},
 			},
 		},
 		{
@@ -1341,6 +1389,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
 				InfraRole:    apiv2.InfraRole_INFRA_ROLE_EDITOR.Enum(),
+				Permissions:  []*apiv2.MethodPermission{},
 			},
 		},
 		{
@@ -1417,6 +1466,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
 				InfraRole:    apiv2.InfraRole_INFRA_ROLE_VIEWER.Enum(),
+				Permissions:  []*apiv2.MethodPermission{},
 			},
 		},
 
@@ -1443,10 +1493,14 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			},
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "permission token",
-				Permissions: []*apiv2.MethodPermission{
+				Permissions: []*apiv2.PermissionsByVisibility{
 					{
-						Subject: project1,
-						Methods: []string{"/metalstack.api.v2.IPService/Get"},
+						Visibility: &apiv2.PermissionsByVisibility_Project{
+							Project: &apiv2.ProjectPermissions{
+								Project: project1,
+								Methods: []string{"/metalstack.api.v2.IPService/Get"},
+							},
+						},
 					},
 				},
 			},
@@ -1479,10 +1533,14 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			},
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "unknown method",
-				Permissions: []*apiv2.MethodPermission{
+				Permissions: []*apiv2.PermissionsByVisibility{
 					{
-						Subject: project1,
-						Methods: []string{"/metalstack.api.v2.IPService/Get"},
+						Visibility: &apiv2.PermissionsByVisibility_Project{
+							Project: &apiv2.ProjectPermissions{
+								Project: project1,
+								Methods: []string{"/metalstack.api.v2.IPService/Get"},
+							},
+						},
 					},
 				},
 			},
@@ -1507,112 +1565,86 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			},
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "unknown method",
-				Permissions: []*apiv2.MethodPermission{
+				Permissions: []*apiv2.PermissionsByVisibility{
 					{
-						Subject: project1,
-						Methods: []string{"/metalstack.api.v2.IPService/Get"},
+						Visibility: &apiv2.PermissionsByVisibility_Project{
+							Project: &apiv2.ProjectPermissions{
+								Project: project1,
+								Methods: []string{"/metalstack.api.v2.IPService/Get"},
+							},
+						},
 					},
 				},
 			},
 			state: state{
 				providerTenant: "metal-stack",
 			},
-			wantError: errorutil.PermissionDenied(`the following method "/metalstack.api.v2.IPService/Get" is not allowed`),
+			wantError: errorutil.PermissionDenied(`invalid permissions requested: requesting method for project "00000000-0000-0000-0000-000000000000" but available projects are: []`),
 		},
-		// FIXME: this must not be allowed
-		// {
-		// 	name: "user cannot request permissions for a project without membership",
-		// 	sessionToken: &apiv2.Token{
-		// 		User:      "phippy",
-		// 		TokenType: apiv2.TokenType_TOKEN_TYPE_API,
-		// 		Permissions: []*apiv2.MethodPermission{
-		// 			{
-		// 				Subject: project1,
-		// 				Methods: []string{"/metalstack.api.v2.IPService/Get"},
-		// 			},
-		// 		},
-		// 		ProjectRoles: map[string]apiv2.ProjectRole{},
-		// 		TenantRoles:  map[string]apiv2.TenantRole{},
-		// 	},
-		// 	req: &apiv2.TokenServiceCreateRequest{
-		// 		Description: "permission token",
-		// 		Permissions: []*apiv2.MethodPermission{
-		// 			{
-		// 				Subject: project2,
-		// 				Methods: []string{"/metalstack.api.v2.IPService/Get"},
-		// 			},
-		// 		},
-		// 	},
-		// 	state: state{
-		// 		providerTenant: "metal-stack",
-		// 		projectRoles: map[string]apiv2.ProjectRole{
-		// 			project1: apiv2.ProjectRole_PROJECT_ROLE_OWNER,
-		// 		},
-		// 	},
-		// 	wantError: errorutil.PermissionDenied(""),
-		// },
-		// 	{
-		// 	name: "session permission with wildcard subject grants any subject",
-		// 	sessionToken: &apiv2.Token{
-		// 		User:      "phippy",
-		// 		TokenType: apiv2.TokenType_TOKEN_TYPE_API,
-		// 		Permissions: []*apiv2.MethodPermission{
-		// 			{
-		// 				Subject: "*",
-		// 				Methods: []string{"/metalstack.api.v2.IPService/Get"},
-		// 			},
-		// 		},
-		// 		ProjectRoles: map[string]apiv2.ProjectRole{},
-		// 		TenantRoles:  map[string]apiv2.TenantRole{},
-		// 	},
-		// 	req: &apiv2.TokenServiceCreateRequest{
-		// 		Description: "wildcard permission",
-		// 		Permissions: []*apiv2.MethodPermission{
-		// 			{
-		// 				Subject: project1,
-		// 				Methods: []string{"/metalstack.api.v2.IPService/Get"},
-		// 			},
-		// 		},
-		// 	},
-		// 	state: state{
-		// 		providerTenant: "metal-stack",
-		// 		projectRoles: map[string]apiv2.ProjectRole{
-		// 			project2: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
-		// 		},
-		// 	},
-		// 	wantError: errorutil.PermissionDenied(""),
-		// },
-		// {
-		// 	name: "grant to invalid subject should not be possible",
-		// 	sessionToken: &apiv2.Token{
-		// 		User:      "phippy",
-		// 		TokenType: apiv2.TokenType_TOKEN_TYPE_API,
-		// 		Permissions: []*apiv2.MethodPermission{
-		// 			{
-		// 				Subject: "*",
-		// 				Methods: []string{"/metalstack.api.v2.IPService/Get"},
-		// 			},
-		// 		},
-		// 		ProjectRoles: map[string]apiv2.ProjectRole{},
-		// 		TenantRoles:  map[string]apiv2.TenantRole{},
-		// 	},
-		// 	req: &apiv2.TokenServiceCreateRequest{
-		// 		Description: "wildcard permission",
-		// 		Permissions: []*apiv2.MethodPermission{
-		// 			{
-		// 				Subject: "hello my name is phippy?",
-		// 				Methods: []string{"/metalstack.api.v2.IPService/Get"},
-		// 			},
-		// 		},
-		// 	},
-		// 	state: state{
-		// 		providerTenant: "metal-stack",
-		// 		projectRoles: map[string]apiv2.ProjectRole{
-		// 			project2: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
-		// 		},
-		// 	},
-		// 	wantError: errorutil.PermissionDenied(""),
-		// },
+		{
+			name: "user requests permission in wrong api permission scope",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "unknown method",
+				Permissions: []*apiv2.PermissionsByVisibility{
+					{
+						Visibility: &apiv2.PermissionsByVisibility_Self{
+							Self: &apiv2.SelfPermissions{
+								Methods: []string{"/metalstack.api.v2.IPService/Get"},
+							},
+						},
+					},
+				},
+			},
+			state: state{
+				providerTenant: "metal-stack",
+				projectRoles: map[string]apiv2.ProjectRole{
+					project1: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+			},
+			wantError: errorutil.PermissionDenied(`invalid permissions requested: requested method "/metalstack.api.v2.IPService/Get" is of visibility "project", not of visibility "self"`),
+		},
+		{
+			name: "user cannot request permissions for a project without membership",
+			sessionToken: &apiv2.Token{
+				User:      "phippy",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: project1,
+						Methods: []string{"/metalstack.api.v2.IPService/Get"},
+					},
+				},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "permission token",
+				Permissions: []*apiv2.PermissionsByVisibility{
+					{
+						Visibility: &apiv2.PermissionsByVisibility_Project{
+							Project: &apiv2.ProjectPermissions{
+								Project: project2,
+								Methods: []string{"/metalstack.api.v2.IPService/Get"},
+							},
+						},
+					},
+				},
+			},
+			state: state{
+				providerTenant: "metal-stack",
+				projectRoles: map[string]apiv2.ProjectRole{
+					project1: apiv2.ProjectRole_PROJECT_ROLE_OWNER,
+				},
+			},
+			wantError: errorutil.PermissionDenied(`invalid permissions requested: requesting method for project "11111111-1111-1111-1111-111111111111" but available projects are: [00000000-0000-0000-0000-000000000000]`),
+		},
 		{
 			name: "session permission with wildcard subject grants any subject",
 			sessionToken: &apiv2.Token{
@@ -1629,10 +1661,129 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			},
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "wildcard permission",
+				Permissions: []*apiv2.PermissionsByVisibility{
+					{
+						Visibility: &apiv2.PermissionsByVisibility_Project{
+							Project: &apiv2.ProjectPermissions{
+								Project: project2,
+								Methods: []string{"/metalstack.api.v2.IPService/Get"},
+							},
+						},
+					},
+				},
+			},
+			state: state{
+				providerTenant: "metal-stack",
+				projectRoles: map[string]apiv2.ProjectRole{
+					project1: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+			},
+			wantError: errorutil.PermissionDenied(`invalid permissions requested: requesting method for project "11111111-1111-1111-1111-111111111111" but available projects are: [00000000-0000-0000-0000-000000000000]`),
+		},
+		{
+			name: "session permission with wildcard subject grants permissions to own project",
+			sessionToken: &apiv2.Token{
+				User:      "phippy",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "*",
+						Methods: []string{"/metalstack.api.v2.IPService/Get"},
+					},
+				},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "wildcard permission",
+				Permissions: []*apiv2.PermissionsByVisibility{
+					{
+						Visibility: &apiv2.PermissionsByVisibility_Project{
+							Project: &apiv2.ProjectPermissions{
+								Project: project1,
+								Methods: []string{"/metalstack.api.v2.IPService/Get"},
+							},
+						},
+					},
+				},
+			},
+			state: state{
+				providerTenant: "metal-stack",
+				projectRoles: map[string]apiv2.ProjectRole{
+					project1: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+			},
+			wantToken: &apiv2.Token{
+				User:        "phippy",
+				Description: "wildcard permission",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: project1,
 						Methods: []string{"/metalstack.api.v2.IPService/Get"},
+					},
+				},
+			},
+		},
+		{
+			name: "grant to invalid subject should not be possible",
+			sessionToken: &apiv2.Token{
+				User:      "phippy",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "*",
+						Methods: []string{"/metalstack.api.v2.IPService/Get"},
+					},
+				},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "wildcard permission",
+				Permissions: []*apiv2.PermissionsByVisibility{
+					{
+						Visibility: &apiv2.PermissionsByVisibility_Project{
+							Project: &apiv2.ProjectPermissions{
+								Project: "hello my name is phippy?",
+								Methods: []string{"/metalstack.api.v2.IPService/Get"},
+							},
+						},
+					},
+				},
+			},
+			state: state{
+				providerTenant: "metal-stack",
+				projectRoles: map[string]apiv2.ProjectRole{
+					project2: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+			},
+			wantError: errors.New(`validation error: permissions[0].project.project: must be '*' or a uuid`),
+		},
+		{
+			name: "session permission with wildcard subject grants any subject",
+			sessionToken: &apiv2.Token{
+				User:      "phippy",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: "*",
+						Methods: []string{"/metalstack.api.v2.IPService/Get"},
+					},
+				},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "wildcard permission",
+				Permissions: []*apiv2.PermissionsByVisibility{
+					{
+						Visibility: &apiv2.PermissionsByVisibility_Project{
+							Project: &apiv2.ProjectPermissions{
+								Project: project1,
+								Methods: []string{"/metalstack.api.v2.IPService/Get"},
+							},
+						},
 					},
 				},
 			},
@@ -1670,10 +1821,14 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			},
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "wrong subject",
-				Permissions: []*apiv2.MethodPermission{
+				Permissions: []*apiv2.PermissionsByVisibility{
 					{
-						Subject: project2,
-						Methods: []string{"/metalstack.api.v2.IPService/Get"},
+						Visibility: &apiv2.PermissionsByVisibility_Project{
+							Project: &apiv2.ProjectPermissions{
+								Project: project2,
+								Methods: []string{"/metalstack.api.v2.IPService/Get"},
+							},
+						},
 					},
 				},
 			},
@@ -1704,14 +1859,22 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			},
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "multiple permissions",
-				Permissions: []*apiv2.MethodPermission{
+				Permissions: []*apiv2.PermissionsByVisibility{
 					{
-						Subject: project1,
-						Methods: []string{"/metalstack.api.v2.IPService/Get"},
+						Visibility: &apiv2.PermissionsByVisibility_Project{
+							Project: &apiv2.ProjectPermissions{
+								Project: project1,
+								Methods: []string{"/metalstack.api.v2.IPService/Get"},
+							},
+						},
 					},
 					{
-						Subject: project1,
-						Methods: []string{"/metalstack.api.v2.IPService/List"},
+						Visibility: &apiv2.PermissionsByVisibility_Project{
+							Project: &apiv2.ProjectPermissions{
+								Project: project1,
+								Methods: []string{"/metalstack.api.v2.IPService/List"},
+							},
+						},
 					},
 				},
 			},
@@ -1728,11 +1891,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: project1,
-						Methods: []string{"/metalstack.api.v2.IPService/Get"},
-					},
-					{
-						Subject: project1,
-						Methods: []string{"/metalstack.api.v2.IPService/List"},
+						Methods: []string{"/metalstack.api.v2.IPService/Get", "/metalstack.api.v2.IPService/List"},
 					},
 				},
 			},
@@ -1756,14 +1915,22 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			},
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "multiple permissions",
-				Permissions: []*apiv2.MethodPermission{
+				Permissions: []*apiv2.PermissionsByVisibility{
 					{
-						Subject: project1,
-						Methods: []string{"/metalstack.api.v2.IPService/Get"},
+						Visibility: &apiv2.PermissionsByVisibility_Project{
+							Project: &apiv2.ProjectPermissions{
+								Project: project1,
+								Methods: []string{"/metalstack.api.v2.IPService/Get"},
+							},
+						},
 					},
 					{
-						Subject: project1,
-						Methods: []string{"/metalstack.api.v2.IPService/List"},
+						Visibility: &apiv2.PermissionsByVisibility_Project{
+							Project: &apiv2.ProjectPermissions{
+								Project: project1,
+								Methods: []string{"/metalstack.api.v2.IPService/List"},
+							},
+						},
 					},
 				},
 			},
@@ -1780,11 +1947,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 				Permissions: []*apiv2.MethodPermission{
 					{
 						Subject: project1,
-						Methods: []string{"/metalstack.api.v2.IPService/Get"},
-					},
-					{
-						Subject: project1,
-						Methods: []string{"/metalstack.api.v2.IPService/List"},
+						Methods: []string{"/metalstack.api.v2.IPService/Get", "/metalstack.api.v2.IPService/List"},
 					},
 				},
 			},
@@ -1831,6 +1994,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 				},
 				TenantRoles: map[string]apiv2.TenantRole{},
 				AdminRole:   apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+				Permissions: []*apiv2.MethodPermission{},
 			},
 		},
 		{
@@ -1874,6 +2038,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 				TenantRoles: map[string]apiv2.TenantRole{
 					tenant1: apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
+				Permissions: []*apiv2.MethodPermission{},
 			},
 		},
 		{
@@ -1914,6 +2079,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 				TenantRoles: map[string]apiv2.TenantRole{
 					tenant1: apiv2.TenantRole_TENANT_ROLE_VIEWER,
 				},
+				Permissions: []*apiv2.MethodPermission{},
 			},
 		},
 		{
@@ -1934,12 +2100,17 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			},
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "permission and project",
-				Permissions: []*apiv2.MethodPermission{
+				Permissions: []*apiv2.PermissionsByVisibility{
 					{
-						Subject: project1,
-						Methods: []string{"/metalstack.api.v2.IPService/Get"},
+						Visibility: &apiv2.PermissionsByVisibility_Project{
+							Project: &apiv2.ProjectPermissions{
+								Project: project1,
+								Methods: []string{"/metalstack.api.v2.IPService/Get"},
+							},
+						},
 					},
 				},
+
 				ProjectRoles: map[string]apiv2.ProjectRole{
 					project1: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
@@ -1978,7 +2149,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			},
 			req: &apiv2.TokenServiceCreateRequest{
 				Description:  "all empty",
-				Permissions:  []*apiv2.MethodPermission{},
+				Permissions:  []*apiv2.PermissionsByVisibility{},
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
 				MachineRoles: map[string]apiv2.MachineRole{},
@@ -2070,17 +2241,20 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			},
 			req: &apiv2.TokenServiceCreateRequest{
 				Description: "unknown method",
-				Permissions: []*apiv2.MethodPermission{
+				Permissions: []*apiv2.PermissionsByVisibility{
 					{
-						Subject: project1,
-						Methods: []string{"/metalstack.api.v2.UnknownService/Get"},
+						Visibility: &apiv2.PermissionsByVisibility_Self{
+							Self: &apiv2.SelfPermissions{
+								Methods: []string{"/metalstack.api.v2.UnknownService/Get"},
+							},
+						},
 					},
 				},
 			},
 			state: state{
 				providerTenant: "metal-stack",
 			},
-			wantError: errorutil.PermissionDenied(`unknown method "/metalstack.api.v2.UnknownService/Get"`),
+			wantError: errorutil.PermissionDenied(`invalid permissions requested: requested method "/metalstack.api.v2.UnknownService/Get" is not contained in the api`),
 		},
 		{
 			name: "USER token creates token with project from PAT",
@@ -2112,6 +2286,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 					project1: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 				TenantRoles: map[string]apiv2.TenantRole{},
+				Permissions: []*apiv2.MethodPermission{},
 			},
 		},
 		{
@@ -2153,6 +2328,7 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 				TenantRoles: map[string]apiv2.TenantRole{
 					tenant1: apiv2.TenantRole_TENANT_ROLE_VIEWER,
 				},
+				Permissions: []*apiv2.MethodPermission{},
 			},
 		},
 
@@ -2265,14 +2441,551 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 	}
 }
 
+func Test_validatePermissions(t *testing.T) {
+	t.Parallel()
+
+	type state struct {
+		providerTenant string
+		projectRoles   map[string]apiv2.ProjectRole
+		tenantRoles    map[string]apiv2.TenantRole
+	}
+
+	tests := []struct {
+		name    string
+		state   state
+		perms   []*apiv2.PermissionsByVisibility
+		wantErr string
+	}{
+		{
+			name: "admin visibility succeeds for admin user",
+			state: state{
+				providerTenant: "metal-stack",
+				tenantRoles: map[string]apiv2.TenantRole{
+					"metal-stack": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			perms: []*apiv2.PermissionsByVisibility{
+				{
+					Visibility: &apiv2.PermissionsByVisibility_Admin{
+						Admin: &apiv2.AdminPermissions{
+							Methods: []string{"/metalstack.admin.v2.TenantService/List"},
+						},
+					},
+				},
+			},
+			wantErr: "",
+		},
+		{
+			name: "admin visibility fails for non-admin user",
+			state: state{
+				providerTenant: "metal-stack",
+			},
+			perms: []*apiv2.PermissionsByVisibility{
+				{
+					Visibility: &apiv2.PermissionsByVisibility_Admin{
+						Admin: &apiv2.AdminPermissions{
+							Methods: []string{"/metalstack.admin.v2.TenantService/List"},
+						},
+					},
+				},
+			},
+			wantErr: "admin api permission are only allowed for admins",
+		},
+		{
+			name: "admin visibility with wrong method fails",
+			state: state{
+				providerTenant: "metal-stack",
+				tenantRoles: map[string]apiv2.TenantRole{
+					"metal-stack": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			perms: []*apiv2.PermissionsByVisibility{
+				{
+					Visibility: &apiv2.PermissionsByVisibility_Admin{
+						Admin: &apiv2.AdminPermissions{
+							Methods: []string{"/metalstack.api.v2.IPService/Get"},
+						},
+					},
+				},
+			},
+			wantErr: `requested method "/metalstack.api.v2.IPService/Get" is of visibility "project", not of visibility "admin"`,
+		},
+		{
+			name: "infra visibility succeeds with correct method",
+			state: state{
+				providerTenant: "metal-stack",
+			},
+			perms: []*apiv2.PermissionsByVisibility{
+				{
+					Visibility: &apiv2.PermissionsByVisibility_Infra{
+						Infra: &apiv2.InfraPermissions{
+							Methods: []string{"/metalstack.infra.v2.BootService/Boot"},
+						},
+					},
+				},
+			},
+			wantErr: "",
+		},
+		{
+			name: "infra visibility with wrong method fails",
+			state: state{
+				providerTenant: "metal-stack",
+			},
+			perms: []*apiv2.PermissionsByVisibility{
+				{
+					Visibility: &apiv2.PermissionsByVisibility_Infra{
+						Infra: &apiv2.InfraPermissions{
+							Methods: []string{"/metalstack.api.v2.IPService/Get"},
+						},
+					},
+				},
+			},
+			wantErr: `requested method "/metalstack.api.v2.IPService/Get" is of visibility "project", not of visibility "infra"`,
+		},
+		{
+			name: "machine visibility succeeds with correct method",
+			state: state{
+				providerTenant: "metal-stack",
+			},
+			perms: []*apiv2.PermissionsByVisibility{
+				{
+					Visibility: &apiv2.PermissionsByVisibility_Machine{
+						Machine: &apiv2.MachinePermissions{
+							Uuid:    machineID1,
+							Methods: []string{"/metalstack.infra.v2.BootService/Register"},
+						},
+					},
+				},
+			},
+			wantErr: "",
+		},
+		{
+			name: "machine visibility with wrong method fails",
+			state: state{
+				providerTenant: "metal-stack",
+			},
+			perms: []*apiv2.PermissionsByVisibility{
+				{
+					Visibility: &apiv2.PermissionsByVisibility_Machine{
+						Machine: &apiv2.MachinePermissions{
+							Uuid:    machineID1,
+							Methods: []string{"/metalstack.api.v2.IPService/Get"},
+						},
+					},
+				},
+			},
+			wantErr: `requested method "/metalstack.api.v2.IPService/Get" is of visibility "project", not of visibility "machine"`,
+		},
+		{
+			name: "public visibility succeeds with correct method",
+			state: state{
+				providerTenant: "metal-stack",
+			},
+			perms: []*apiv2.PermissionsByVisibility{
+				{
+					Visibility: &apiv2.PermissionsByVisibility_Public{
+						Public: &apiv2.PublicPermissions{
+							Methods: []string{"/metalstack.api.v2.HealthService/Get"},
+						},
+					},
+				},
+			},
+			wantErr: "",
+		},
+		{
+			name: "public visibility with wrong method fails",
+			state: state{
+				providerTenant: "metal-stack",
+			},
+			perms: []*apiv2.PermissionsByVisibility{
+				{
+					Visibility: &apiv2.PermissionsByVisibility_Public{
+						Public: &apiv2.PublicPermissions{
+							Methods: []string{"/metalstack.api.v2.IPService/Get"},
+						},
+					},
+				},
+			},
+			wantErr: `requested method "/metalstack.api.v2.IPService/Get" is of visibility "project", not of visibility "public"`,
+		},
+		{
+			name: "self visibility succeeds with correct method",
+			state: state{
+				providerTenant: "metal-stack",
+			},
+			perms: []*apiv2.PermissionsByVisibility{
+				{
+					Visibility: &apiv2.PermissionsByVisibility_Self{
+						Self: &apiv2.SelfPermissions{
+							Methods: []string{"/metalstack.api.v2.TokenService/Create"},
+						},
+					},
+				},
+			},
+			wantErr: "",
+		},
+		{
+			name: "self visibility with wrong method fails",
+			state: state{
+				providerTenant: "metal-stack",
+			},
+			perms: []*apiv2.PermissionsByVisibility{
+				{
+					Visibility: &apiv2.PermissionsByVisibility_Self{
+						Self: &apiv2.SelfPermissions{
+							Methods: []string{"/metalstack.api.v2.IPService/Get"},
+						},
+					},
+				},
+			},
+			wantErr: `requested method "/metalstack.api.v2.IPService/Get" is of visibility "project", not of visibility "self"`,
+		},
+		{
+			name: "tenant visibility succeeds for non-admin user with tenant membership",
+			state: state{
+				providerTenant: "metal-stack",
+				tenantRoles: map[string]apiv2.TenantRole{
+					tenant1: apiv2.TenantRole_TENANT_ROLE_VIEWER,
+				},
+			},
+			perms: []*apiv2.PermissionsByVisibility{
+				{
+					Visibility: &apiv2.PermissionsByVisibility_Tenant{
+						Tenant: &apiv2.TenantPermissions{
+							Login:   tenant1,
+							Methods: []string{"/metalstack.api.v2.TenantService/Get"},
+						},
+					},
+				},
+			},
+			wantErr: "",
+		},
+		{
+			name: "tenant visibility fails for non-admin user without tenant membership",
+			state: state{
+				providerTenant: "metal-stack",
+				tenantRoles: map[string]apiv2.TenantRole{
+					tenant2: apiv2.TenantRole_TENANT_ROLE_VIEWER,
+				},
+			},
+			perms: []*apiv2.PermissionsByVisibility{
+				{
+					Visibility: &apiv2.PermissionsByVisibility_Tenant{
+						Tenant: &apiv2.TenantPermissions{
+							Login:   tenant1,
+							Methods: []string{"/metalstack.api.v2.TenantService/Get"},
+						},
+					},
+				},
+			},
+			wantErr: `requesting method for tenant "mascots" but available tenants are: [animals]`,
+		},
+		{
+			name: "tenant visibility with wrong method scope fails",
+			state: state{
+				providerTenant: "metal-stack",
+				tenantRoles: map[string]apiv2.TenantRole{
+					tenant1: apiv2.TenantRole_TENANT_ROLE_VIEWER,
+				},
+			},
+			perms: []*apiv2.PermissionsByVisibility{
+				{
+					Visibility: &apiv2.PermissionsByVisibility_Tenant{
+						Tenant: &apiv2.TenantPermissions{
+							Login:   tenant1,
+							Methods: []string{"/metalstack.api.v2.IPService/Get"},
+						},
+					},
+				},
+			},
+			wantErr: `requested method "/metalstack.api.v2.IPService/Get" is of visibility "project", not of visibility "tenant"`,
+		},
+		{
+			name: "method not found in any visibility fails",
+			state: state{
+				providerTenant: "metal-stack",
+			},
+			perms: []*apiv2.PermissionsByVisibility{
+				{
+					Visibility: &apiv2.PermissionsByVisibility_Self{
+						Self: &apiv2.SelfPermissions{
+							Methods: []string{"/metalstack.api.v2.UnknownService/Get"},
+						},
+					},
+				},
+			},
+			wantErr: `requested method "/metalstack.api.v2.UnknownService/Get" is not contained in the api`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := t.Context()
+
+			projectsAndTenantsGetter := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
+				return &api.ProjectsAndTenants{
+					ProjectRoles: tt.state.projectRoles,
+					TenantRoles:  tt.state.tenantRoles,
+				}, nil
+			}
+
+			log := slog.Default()
+
+			tokenRepo := tokenRepository{
+				s: &Store{
+					log:            log,
+					providerTenant: tt.state.providerTenant,
+				},
+				patg:       projectsAndTenantsGetter,
+				authorizer: request.NewAuthorizer(log, projectsAndTenantsGetter),
+			}
+
+			pat, err := projectsAndTenantsGetter(ctx, "")
+			require.NoError(t, err)
+
+			err = tokenRepo.validatePermissions(ctx, tt.perms, pat)
+			if tt.wantErr != "" {
+				require.EqualError(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func Test_validateCreate_edgeCases(t *testing.T) {
+	t.Parallel()
+
+	t.Run("unscoped token repository", func(t *testing.T) {
+		tokenRepo := tokenRepository{
+			scope: nil,
+		}
+
+		err := tokenRepo.validateCreate(t.Context(), &adminv2.TokenServiceCreateRequest{})
+		require.EqualError(t, err, errorutil.FailedPrecondition("tokens cannot be created unscoped").Error())
+	})
+
+	t.Run("no token in context", func(t *testing.T) {
+		log := slog.Default()
+		projectsAndTenantsGetter := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
+			return &api.ProjectsAndTenants{}, nil
+		}
+
+		tokenRepo := tokenRepository{
+			s: &Store{
+				log: log,
+			},
+			scope: &UserScope{
+				user: "phippy",
+			},
+			patg:       projectsAndTenantsGetter,
+			authorizer: request.NewAuthorizer(log, projectsAndTenantsGetter),
+		}
+
+		err := tokenRepo.validateCreate(t.Context(), &adminv2.TokenServiceCreateRequest{
+			TokenCreateRequest: &apiv2.TokenServiceCreateRequest{
+				Description: "no token",
+			},
+		})
+		require.EqualError(t, err, errorutil.Unauthenticated("no token found in request").Error())
+	})
+
+	t.Run("session token has invalid type", func(t *testing.T) {
+		log := slog.Default()
+		projectsAndTenantsGetter := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
+			return &api.ProjectsAndTenants{}, nil
+		}
+
+		tokenRepo := tokenRepository{
+			s: &Store{
+				log: log,
+			},
+			scope: &UserScope{
+				user: "phippy",
+			},
+			patg:       projectsAndTenantsGetter,
+			authorizer: request.NewAuthorizer(log, projectsAndTenantsGetter),
+		}
+
+		sessionToken := &apiv2.Token{
+			User:      "phippy",
+			TokenType: apiv2.TokenType_TOKEN_TYPE_UNSPECIFIED,
+		}
+		ctx := token.ContextWithToken(t.Context(), sessionToken)
+
+		err := tokenRepo.validateCreate(ctx, &adminv2.TokenServiceCreateRequest{
+			TokenCreateRequest: &apiv2.TokenServiceCreateRequest{
+				Description: "invalid type",
+			},
+		})
+		require.EqualError(t, err, errorutil.FailedPrecondition(`invalid token type for token creation: "TOKEN_TYPE_UNSPECIFIED"`).Error())
+	})
+
+	t.Run("non-admin cannot specify token user", func(t *testing.T) {
+		log := slog.Default()
+		projectsAndTenantsGetter := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
+			return &api.ProjectsAndTenants{}, nil
+		}
+
+		tokenRepo := tokenRepository{
+			s: &Store{
+				log: log,
+			},
+			scope: &UserScope{
+				user: "phippy",
+			},
+			patg:       projectsAndTenantsGetter,
+			authorizer: request.NewAuthorizer(log, projectsAndTenantsGetter),
+		}
+
+		sessionToken := &apiv2.Token{
+			User:      "phippy",
+			TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+		}
+		ctx := token.ContextWithToken(t.Context(), sessionToken)
+
+		anotherUser := "another-user"
+		err := tokenRepo.validateCreate(ctx, &adminv2.TokenServiceCreateRequest{
+			TokenCreateRequest: &apiv2.TokenServiceCreateRequest{
+				Description: "for another user",
+			},
+			User: &anotherUser,
+		})
+		require.EqualError(t, err, errorutil.PermissionDenied("only admins can specify token user").Error())
+	})
+
+	t.Run("admin can specify token user for another user", func(t *testing.T) {
+		s := miniredis.RunT(t)
+		c := redis.NewClient(&redis.Options{Addr: s.Addr()})
+		tokenStore := token.NewRedisStore(c)
+		certStore := certs.NewRedisStore(&certs.Config{
+			RedisClient: c,
+		})
+
+		log := slog.Default()
+		projectsAndTenantsGetter := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
+			return &api.ProjectsAndTenants{
+				TenantRoles: map[string]apiv2.TenantRole{
+					"metal-stack": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			}, nil
+		}
+
+		tokenRepo := tokenRepository{
+			s: &Store{
+				log:            log,
+				certs:          certStore,
+				tokens:         tokenStore,
+				issuer:         "http://test",
+				providerTenant: "metal-stack",
+			},
+			scope: &UserScope{
+				user: "phippy",
+			},
+			patg:       projectsAndTenantsGetter,
+			authorizer: request.NewAuthorizer(log, projectsAndTenantsGetter),
+		}
+
+		sessionToken := &apiv2.Token{
+			User:         "admin-user",
+			TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+			AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			Permissions:  []*apiv2.MethodPermission{},
+			ProjectRoles: map[string]apiv2.ProjectRole{},
+			TenantRoles:  map[string]apiv2.TenantRole{},
+		}
+		ctx := token.ContextWithToken(t.Context(), sessionToken)
+
+		anotherUser := "another-user"
+		req := &adminv2.TokenServiceCreateRequest{
+			TokenCreateRequest: &apiv2.TokenServiceCreateRequest{
+				Description:  "for another user",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			User: &anotherUser,
+		}
+
+		err := tokenRepo.validateCreate(ctx, req)
+		require.NoError(t, err)
+
+		resp, err := tokenRepo.create(ctx, req)
+		require.NoError(t, err)
+		require.Equal(t, anotherUser, resp.Token.User)
+		require.NotEmpty(t, resp.Secret)
+	})
+}
+
+func Test_validateTokenRequest_subjectEdgeCases(t *testing.T) {
+	t.Parallel()
+
+	t.Run("project role UNSPECIFIED fails", func(t *testing.T) {
+		projectsAndTenantsGetter := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
+			return &api.ProjectsAndTenants{}, nil
+		}
+		log := slog.Default()
+
+		tokenRepo := tokenRepository{
+			patg:       projectsAndTenantsGetter,
+			authorizer: request.NewAuthorizer(log, projectsAndTenantsGetter),
+		}
+
+		currentToken := &apiv2.Token{
+			User:      "test",
+			TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+			ProjectRoles: map[string]apiv2.ProjectRole{
+				project1: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+			},
+		}
+		requestedToken := &apiv2.Token{
+			ProjectRoles: map[string]apiv2.ProjectRole{
+				project1: apiv2.ProjectRole_PROJECT_ROLE_UNSPECIFIED,
+			},
+		}
+
+		err := tokenRepo.validateTokenRequest(t.Context(), currentToken, requestedToken)
+		require.EqualError(t, err, `requested project role: "PROJECT_ROLE_UNSPECIFIED" is not allowed`)
+	})
+
+	t.Run("empty permissions on current token causes method not allowed without subjects", func(t *testing.T) {
+		projectsAndTenantsGetter := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
+			return &api.ProjectsAndTenants{}, nil
+		}
+		log := slog.Default()
+
+		tokenRepo := tokenRepository{
+			patg:       projectsAndTenantsGetter,
+			authorizer: request.NewAuthorizer(log, projectsAndTenantsGetter),
+		}
+
+		currentToken := &apiv2.Token{
+			User:         "test",
+			TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+			TenantRoles:  map[string]apiv2.TenantRole{},
+			ProjectRoles: map[string]apiv2.ProjectRole{},
+		}
+		requestedToken := &apiv2.Token{
+			Permissions: []*apiv2.MethodPermission{
+				{
+					Subject: "",
+					Methods: []string{"/metalstack.api.v2.IPService/Get"},
+				},
+			},
+		}
+
+		err := tokenRepo.validateTokenRequest(t.Context(), currentToken, requestedToken)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), `the following method "/metalstack.api.v2.IPService/Get" is not allowed on any of the requested subjects`)
+	})
+}
 func Test_validateTokenRequest(t *testing.T) {
 	t.Parallel()
-	inOneHour := durationpb.New(time.Hour)
+	inOneHour := timestamppb.New(time.Now().Add(time.Hour))
 	tests := []struct {
 		name           string
 		pat            *api.ProjectsAndTenants
 		token          *apiv2.Token
-		req            *apiv2.TokenServiceCreateRequest
+		req            *apiv2.Token
 		providerTenant string
 		wantErr        error
 	}{
@@ -2288,7 +3001,9 @@ func Test_validateTokenRequest(t *testing.T) {
 					},
 				},
 			},
-			req: &apiv2.TokenServiceCreateRequest{
+			req: &apiv2.Token{
+				Uuid:        "3ebe2404-e62c-4886-8530-e81b62a6453c",
+				User:        "abc",
 				Description: "i don't need any permissions",
 				Expires:     inOneHour,
 			},
@@ -2310,7 +3025,9 @@ func Test_validateTokenRequest(t *testing.T) {
 					"ae8d2493-41ec-4efd-bbb4-81085b20b6fe": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
 				},
 			},
-			req: &apiv2.TokenServiceCreateRequest{
+			req: &apiv2.Token{
+				Uuid:        "3ebe2404-e62c-4886-8530-e81b62a6453c",
+				User:        "test",
 				Description: "i want to get a cluster for this project",
 				Permissions: []*apiv2.MethodPermission{
 					{
@@ -2325,7 +3042,7 @@ func Test_validateTokenRequest(t *testing.T) {
 			providerTenant: "metal-stack",
 			wantErr:        nil,
 		},
-		// Permissions from Token
+		// // Permissions from Token
 		{
 			name: "simple token with one project and permission",
 			pat: &api.ProjectsAndTenants{
@@ -2343,7 +3060,9 @@ func Test_validateTokenRequest(t *testing.T) {
 					},
 				},
 			},
-			req: &apiv2.TokenServiceCreateRequest{
+			req: &apiv2.Token{
+				Uuid:        "3ebe2404-e62c-4886-8530-e81b62a6453c",
+				User:        "test",
 				Description: "i want to get a cluster",
 				Permissions: []*apiv2.MethodPermission{
 					{
@@ -2373,7 +3092,7 @@ func Test_validateTokenRequest(t *testing.T) {
 					},
 				},
 			},
-			req: &apiv2.TokenServiceCreateRequest{
+			req: &apiv2.Token{
 				Description: "i want to get a cluster",
 				Permissions: []*apiv2.MethodPermission{
 					{
@@ -2384,7 +3103,7 @@ func Test_validateTokenRequest(t *testing.T) {
 				Expires: inOneHour,
 			},
 			providerTenant: "metal-stack",
-			wantErr:        errors.New("unknown method \"/metalstack.api.v2.UnknownService/Get\""),
+			wantErr:        errors.New(`unknown method "/metalstack.api.v2.UnknownService/Get"`),
 		},
 		{
 			name: "simple token with one project and permission, wrong project given",
@@ -2404,7 +3123,7 @@ func Test_validateTokenRequest(t *testing.T) {
 					},
 				},
 			},
-			req: &apiv2.TokenServiceCreateRequest{
+			req: &apiv2.Token{
 				Description: "i want to get a cluster",
 				Permissions: []*apiv2.MethodPermission{
 					{
@@ -2434,7 +3153,7 @@ func Test_validateTokenRequest(t *testing.T) {
 					},
 				},
 			},
-			req: &apiv2.TokenServiceCreateRequest{
+			req: &apiv2.Token{
 				Description: "i want to list clusters",
 				Permissions: []*apiv2.MethodPermission{
 					{
@@ -2468,7 +3187,7 @@ func Test_validateTokenRequest(t *testing.T) {
 					},
 				},
 			},
-			req: &apiv2.TokenServiceCreateRequest{
+			req: &apiv2.Token{
 				Description: "i want to get and list clusters",
 				Permissions: []*apiv2.MethodPermission{
 					{
@@ -2502,7 +3221,7 @@ func Test_validateTokenRequest(t *testing.T) {
 					},
 				},
 			},
-			req: &apiv2.TokenServiceCreateRequest{
+			req: &apiv2.Token{
 				Description: "i want to get a cluster",
 				Permissions: []*apiv2.MethodPermission{
 					{
@@ -2538,7 +3257,7 @@ func Test_validateTokenRequest(t *testing.T) {
 					"company-a@github": apiv2.TenantRole_TENANT_ROLE_VIEWER,
 				},
 			},
-			req: &apiv2.TokenServiceCreateRequest{
+			req: &apiv2.Token{
 				Description: "i want to get a cluster",
 				Permissions: []*apiv2.MethodPermission{
 					{
@@ -2577,7 +3296,7 @@ func Test_validateTokenRequest(t *testing.T) {
 					"company-a@github": apiv2.TenantRole_TENANT_ROLE_VIEWER,
 				},
 			},
-			req: &apiv2.TokenServiceCreateRequest{
+			req: &apiv2.Token{
 				Description: "i want to get a cluster",
 				Permissions: []*apiv2.MethodPermission{
 					{
@@ -2609,7 +3328,7 @@ func Test_validateTokenRequest(t *testing.T) {
 					"company-a@github": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
 			},
-			req: &apiv2.TokenServiceCreateRequest{
+			req: &apiv2.Token{
 				Description: "i want to get admin access",
 				AdminRole:   new(apiv2.AdminRole_ADMIN_ROLE_VIEWER),
 				Expires:     inOneHour,
@@ -2631,7 +3350,7 @@ func Test_validateTokenRequest(t *testing.T) {
 					"company-a@github": apiv2.TenantRole_TENANT_ROLE_VIEWER,
 				},
 			},
-			req: &apiv2.TokenServiceCreateRequest{
+			req: &apiv2.Token{
 				Description: "i want to get admin access",
 				AdminRole:   new(apiv2.AdminRole_ADMIN_ROLE_EDITOR),
 				Expires:     inOneHour,
@@ -2653,7 +3372,7 @@ func Test_validateTokenRequest(t *testing.T) {
 					"company-a@github": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
 			},
-			req: &apiv2.TokenServiceCreateRequest{
+			req: &apiv2.Token{
 				Description: "i want to get admin access",
 				AdminRole:   new(apiv2.AdminRole_ADMIN_ROLE_EDITOR),
 				Expires:     inOneHour,
@@ -2676,7 +3395,9 @@ func Test_validateTokenRequest(t *testing.T) {
 				},
 				AdminRole: new(apiv2.AdminRole_ADMIN_ROLE_EDITOR),
 			},
-			req: &apiv2.TokenServiceCreateRequest{
+			req: &apiv2.Token{
+				User:        "company-a@github",
+				Uuid:        "3ebe2404-e62c-4886-8530-e81b62a6453c",
 				Description: "i want to get admin access",
 				AdminRole:   new(apiv2.AdminRole_ADMIN_ROLE_EDITOR),
 				Expires:     inOneHour,
@@ -2692,7 +3413,9 @@ func Test_validateTokenRequest(t *testing.T) {
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				AdminRole: apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
 			},
-			req: &apiv2.TokenServiceCreateRequest{
+			req: &apiv2.Token{
+				User:        "company-admin@github",
+				Uuid:        "3ebe2404-e62c-4886-8530-e81b62a6453c",
 				Description: "metal-bmc token",
 				InfraRole:   apiv2.InfraRole_INFRA_ROLE_EDITOR.Enum(),
 				Expires:     inOneHour,
@@ -2707,7 +3430,7 @@ func Test_validateTokenRequest(t *testing.T) {
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				AdminRole: apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
 			},
-			req: &apiv2.TokenServiceCreateRequest{
+			req: &apiv2.Token{
 				Description: "metal-bmc token",
 				InfraRole:   apiv2.InfraRole_INFRA_ROLE_EDITOR.Enum(),
 				Expires:     inOneHour,
@@ -2729,7 +3452,7 @@ func Test_validateTokenRequest(t *testing.T) {
 					"ae8d2493-41ec-4efd-bbb4-81085b20b6fe": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
 				},
 			},
-			req: &apiv2.TokenServiceCreateRequest{
+			req: &apiv2.Token{
 				Description: "i want to get a cluster",
 				Permissions: []*apiv2.MethodPermission{
 					{
@@ -2758,7 +3481,7 @@ func Test_validateTokenRequest(t *testing.T) {
 				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
 				Permissions: []*apiv2.MethodPermission{},
 			},
-			req: &apiv2.TokenServiceCreateRequest{
+			req: &apiv2.Token{
 				Description: "i want to get access to a machine",
 				MachineRoles: map[string]apiv2.MachineRole{
 					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
@@ -2779,7 +3502,9 @@ func Test_validateTokenRequest(t *testing.T) {
 					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
 				},
 			},
-			req: &apiv2.TokenServiceCreateRequest{
+			req: &apiv2.Token{
+				User:        "test",
+				Uuid:        "3ebe2404-e62c-4886-8530-e81b62a6453c",
 				Description: "i want to get access to a machine",
 				MachineRoles: map[string]apiv2.MachineRole{
 					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
@@ -2800,7 +3525,7 @@ func Test_validateTokenRequest(t *testing.T) {
 					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
 				},
 			},
-			req: &apiv2.TokenServiceCreateRequest{
+			req: &apiv2.Token{
 				Description: "i want to get access to a different machine",
 				MachineRoles: map[string]apiv2.MachineRole{
 					"de240964-ff9f-4e3d-95b2-8a96e43788f2": apiv2.MachineRole_MACHINE_ROLE_EDITOR,

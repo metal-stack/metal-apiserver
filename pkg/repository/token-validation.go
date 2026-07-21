@@ -21,18 +21,21 @@ func (t *tokenRepository) validateCreate(ctx context.Context, req *adminv2.Token
 		return errorutil.FailedPrecondition("tokens cannot be created unscoped")
 	}
 
-	user := t.scope.user
+	var (
+		rq   = req.TokenCreateRequest
+		user = t.scope.user
+	)
 
-	tok, ok := token.TokenFromContext(ctx)
-	if !ok || tok == nil {
+	sessionToken, ok := token.TokenFromContext(ctx)
+	if !ok || sessionToken == nil {
 		return errorutil.Unauthenticated("no token found in request")
 	}
 
-	switch tok.TokenType {
+	switch sessionToken.TokenType {
 	case apiv2.TokenType_TOKEN_TYPE_API, apiv2.TokenType_TOKEN_TYPE_USER:
 		// noop
 	default:
-		return errorutil.FailedPrecondition("invalid token type for token creation: %q", tok.TokenType)
+		return errorutil.FailedPrecondition("invalid token type for token creation: %q", sessionToken.TokenType)
 	}
 
 	projectsAndTenants, err := t.patg(ctx, user)
@@ -45,28 +48,58 @@ func (t *tokenRepository) validateCreate(ctx context.Context, req *adminv2.Token
 	)
 
 	if role, ok := t.hasAdminRole(projectsAndTenants); ok {
-		if tok.AdminRole == nil || *tok.AdminRole == apiv2.AdminRole_ADMIN_ROLE_UNSPECIFIED {
-			if err := t.isAdminRoleRequestAllowed(projectsAndTenants, req.TokenCreateRequest.AdminRole); err != nil {
+		if sessionToken.AdminRole == nil || *sessionToken.AdminRole == apiv2.AdminRole_ADMIN_ROLE_UNSPECIFIED {
+			if err := t.isAdminRoleRequestAllowed(projectsAndTenants, rq.AdminRole); err != nil {
 				return errorutil.NewPermissionDenied(err)
 			}
-			tok.AdminRole = req.TokenCreateRequest.AdminRole
-			tok.TokenType = apiv2.TokenType_TOKEN_TYPE_API
+			sessionToken.AdminRole = rq.AdminRole
+			sessionToken.TokenType = apiv2.TokenType_TOKEN_TYPE_API
 		}
 
 		adminRole = *role
 		isAdmin = true
 
-		t.s.log.Debug("user is member of the provider-tenant", "admin-role", tok.AdminRole)
+		t.s.log.Debug("user is member of the provider-tenant", "admin-role", sessionToken.AdminRole)
 	}
 
 	if !isAdmin && req.User != nil {
 		return errorutil.PermissionDenied("only admins can specify token user")
 	}
 
+	rq.Permissions = compactPermissions(rq.Permissions)
+	if err := t.validatePermissions(ctx, rq.Permissions, projectsAndTenants); err != nil {
+		return errorutil.PermissionDenied("invalid permissions requested: %w", err)
+	}
+
+	var (
+		requestedToken = &apiv2.Token{
+			User:         user,
+			ProjectRoles: rq.ProjectRoles,
+			TenantRoles:  rq.TenantRoles,
+			AdminRole:    rq.AdminRole,
+			InfraRole:    rq.InfraRole,
+			MachineRoles: rq.MachineRoles,
+			Permissions:  flattenPermissions(rq.Permissions),
+			TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+		}
+		userToken = &apiv2.Token{
+			User:         user,
+			ProjectRoles: projectsAndTenants.ProjectRoles,
+			TenantRoles:  projectsAndTenants.TenantRoles,
+			AdminRole:    nil,
+			InfraRole:    sessionToken.InfraRole,
+			MachineRoles: sessionToken.MachineRoles,
+		}
+	)
+
+	if isAdmin {
+		userToken.AdminRole = &adminRole
+	}
+
 	// we first validate token permission elevation for the token used in the token create request,
 	// which might be an API token with restricted permissions
 
-	err = t.validateTokenRequest(ctx, tok, req.TokenCreateRequest)
+	err = t.validateTokenRequest(ctx, sessionToken, requestedToken)
 	if err != nil {
 		return errorutil.NewPermissionDenied(err)
 	}
@@ -75,20 +108,7 @@ func (t *tokenRepository) validateCreate(ctx context.Context, req *adminv2.Token
 	// doing this check is not strictly necessary because the resulting token would fail in the auther when being compared
 	// to the actual user permissions, but it's nicer for the user to already prevent token creation immediately in this place
 
-	fullUserToken := &apiv2.Token{
-		User:         user,
-		ProjectRoles: projectsAndTenants.ProjectRoles,
-		TenantRoles:  projectsAndTenants.TenantRoles,
-		AdminRole:    nil,
-		InfraRole:    tok.InfraRole,
-		MachineRoles: tok.MachineRoles,
-	}
-
-	if isAdmin {
-		fullUserToken.AdminRole = &adminRole
-	}
-
-	err = t.validateTokenRequest(ctx, fullUserToken, req.TokenCreateRequest)
+	err = t.validateTokenRequest(ctx, userToken, requestedToken)
 	if err != nil {
 		return errorutil.NewPermissionDenied(err)
 	}
@@ -105,15 +125,54 @@ func (t *tokenRepository) validateUpdate(ctx context.Context, req *apiv2.TokenSe
 		return errorutil.InvalidArgument("optimistic locking is not yet implemented, please do not provide updated_at in update meta")
 	}
 
-	tok, ok := token.TokenFromContext(ctx)
-	if !ok || tok == nil {
+	sessionToken, ok := token.TokenFromContext(ctx)
+	if !ok || sessionToken == nil {
 		return errorutil.Unauthenticated("no token found in request")
+	}
+
+	var (
+		user = t.scope.user
+	)
+
+	projectsAndTenants, err := t.patg(ctx, user)
+	if err != nil {
+		return errorutil.NewInternal(err)
+	}
+
+	req.Permissions = compactPermissions(req.Permissions)
+	if err := t.validatePermissions(ctx, req.Permissions, projectsAndTenants); err != nil {
+		return errorutil.PermissionDenied("invalid permissions requested: %w", err)
+	}
+
+	var (
+		requestedToken = &apiv2.Token{
+			User:         tokenToUpdate.Token.User,
+			ProjectRoles: req.ProjectRoles,
+			TenantRoles:  req.TenantRoles,
+			AdminRole:    req.AdminRole,
+			InfraRole:    req.InfraRole,
+			MachineRoles: req.MachineRoles,
+			Permissions:  flattenPermissions(req.Permissions),
+			TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+		}
+		userToken = &apiv2.Token{
+			User:         sessionToken.User,
+			ProjectRoles: projectsAndTenants.ProjectRoles,
+			TenantRoles:  projectsAndTenants.TenantRoles,
+			AdminRole:    nil,
+			InfraRole:    sessionToken.InfraRole,
+			MachineRoles: sessionToken.MachineRoles,
+		}
+	)
+
+	if role, ok := t.hasAdminRole(projectsAndTenants); ok {
+		userToken.AdminRole = role
 	}
 
 	// we first validate token permission elevation for the token used in the token update request,
 	// which might be an API token with restricted permissions
 
-	err := t.validateTokenRequest(ctx, tok, req)
+	err = t.validateTokenRequest(ctx, sessionToken, requestedToken)
 	if err != nil {
 		return errorutil.NewPermissionDenied(err)
 	}
@@ -122,24 +181,7 @@ func (t *tokenRepository) validateUpdate(ctx context.Context, req *apiv2.TokenSe
 	// doing this check is not strictly necessary because the resulting token would fail in the auther when being compared
 	// to the actual user permissions, but it's nicer for the user to already prevent token update immediately in this place
 
-	projectsAndTenants, err := t.patg(ctx, t.scope.user)
-	if err != nil {
-		return errorutil.NewInternal(err)
-	}
-	fullUserToken := &apiv2.Token{
-		User:         t.scope.user,
-		ProjectRoles: projectsAndTenants.ProjectRoles,
-		TenantRoles:  projectsAndTenants.TenantRoles,
-		AdminRole:    nil,
-		InfraRole:    tok.InfraRole,
-		MachineRoles: tok.MachineRoles,
-	}
-
-	if role, ok := t.hasAdminRole(projectsAndTenants); ok {
-		fullUserToken.AdminRole = role
-	}
-
-	err = t.validateTokenRequest(ctx, fullUserToken, req)
+	err = t.validateTokenRequest(ctx, userToken, requestedToken)
 	if err != nil {
 		return errorutil.NewPermissionDenied(err)
 	}
@@ -153,16 +195,7 @@ func (t *tokenRepository) validateDelete(ctx context.Context, req *api.TokenWith
 	return nil
 }
 
-type tokenRequest interface {
-	GetPermissions() []*apiv2.MethodPermission
-	GetProjectRoles() map[string]apiv2.ProjectRole
-	GetTenantRoles() map[string]apiv2.TenantRole
-	GetMachineRoles() map[string]apiv2.MachineRole
-	GetAdminRole() apiv2.AdminRole
-	GetInfraRole() apiv2.InfraRole
-}
-
-func (t *tokenRepository) validateTokenRequest(ctx context.Context, currentToken *apiv2.Token, req tokenRequest) error {
+func (t *tokenRepository) validateTokenRequest(ctx context.Context, currentToken *apiv2.Token, requestedToken *apiv2.Token) error {
 	// Calculate the permission from the token in the request
 	currentPermissions, err := t.authorizer.TokenPermissions(ctx, currentToken)
 	if err != nil {
@@ -175,15 +208,15 @@ func (t *tokenRepository) validateTokenRequest(ctx context.Context, currentToken
 	)
 
 	// Ensure no unspecified roles are requested.
-	if req.GetAdminRole() != apiv2.AdminRole_ADMIN_ROLE_UNSPECIFIED {
-		adminRole = req.GetAdminRole().Enum()
+	if requestedToken.GetAdminRole() != apiv2.AdminRole_ADMIN_ROLE_UNSPECIFIED {
+		adminRole = requestedToken.GetAdminRole().Enum()
 	}
-	if req.GetInfraRole() != apiv2.InfraRole_INFRA_ROLE_UNSPECIFIED {
-		infraRole = req.GetInfraRole().Enum()
+	if requestedToken.GetInfraRole() != apiv2.InfraRole_INFRA_ROLE_UNSPECIFIED {
+		infraRole = requestedToken.GetInfraRole().Enum()
 	}
 
 	var (
-		requestedTenants    = lo.Keys(req.GetTenantRoles())
+		requestedTenants    = lo.Keys(requestedToken.GetTenantRoles())
 		allowedTenants      = lo.Keys(currentToken.TenantRoles)
 		forbiddenTenants, _ = lo.Difference(requestedTenants, allowedTenants)
 	)
@@ -192,14 +225,14 @@ func (t *tokenRepository) validateTokenRequest(ctx context.Context, currentToken
 		return fmt.Errorf("requested tenant roles are not allowed: %v", forbiddenTenants)
 	}
 
-	for _, tr := range req.GetTenantRoles() {
+	for _, tr := range requestedToken.GetTenantRoles() {
 		if tr == apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED {
 			return fmt.Errorf("requested tenant role: %q is not allowed", tr)
 		}
 	}
 
 	var (
-		requestedProjects    = lo.Keys(req.GetProjectRoles())
+		requestedProjects    = lo.Keys(requestedToken.GetProjectRoles())
 		allowedProjects      = lo.Keys(currentToken.ProjectRoles)
 		forbiddenProjects, _ = lo.Difference(requestedProjects, allowedProjects)
 	)
@@ -208,14 +241,14 @@ func (t *tokenRepository) validateTokenRequest(ctx context.Context, currentToken
 		return fmt.Errorf("requested project roles are not allowed: %v", forbiddenProjects)
 	}
 
-	for _, pr := range req.GetProjectRoles() {
+	for _, pr := range requestedToken.GetProjectRoles() {
 		if pr == apiv2.ProjectRole_PROJECT_ROLE_UNSPECIFIED {
 			return fmt.Errorf("requested project role: %q is not allowed", pr)
 		}
 	}
 
 	// Ensure no permissions pointing to unknown methods are requested
-	for _, permission := range req.GetPermissions() {
+	for _, permission := range requestedToken.GetPermissions() {
 		for _, method := range permission.Methods {
 			if _, found := permissions.GetServicePermissions().Methods[method]; !found {
 				return fmt.Errorf("unknown method %q", method)
@@ -224,7 +257,7 @@ func (t *tokenRepository) validateTokenRequest(ctx context.Context, currentToken
 	}
 
 	var (
-		requestedMachines    = lo.Keys(req.GetMachineRoles())
+		requestedMachines    = lo.Keys(requestedToken.GetMachineRoles())
 		allowedMachines      = lo.Keys(currentToken.MachineRoles)
 		forbiddenMachines, _ = lo.Difference(requestedMachines, allowedMachines)
 	)
@@ -237,10 +270,10 @@ func (t *tokenRepository) validateTokenRequest(ctx context.Context, currentToken
 	// and the methods which are coming from roles only.
 	requestedPermissions, err := t.authorizer.TokenPermissions(ctx, &apiv2.Token{
 		User:         currentToken.User,
-		Permissions:  req.GetPermissions(),
-		ProjectRoles: req.GetProjectRoles(),
-		TenantRoles:  req.GetTenantRoles(),
-		MachineRoles: req.GetMachineRoles(),
+		Permissions:  requestedToken.GetPermissions(),
+		ProjectRoles: requestedToken.GetProjectRoles(),
+		TenantRoles:  requestedToken.GetTenantRoles(),
+		MachineRoles: requestedToken.GetMachineRoles(),
 		AdminRole:    adminRole,
 		InfraRole:    infraRole,
 	})
@@ -289,8 +322,148 @@ func (t *tokenRepository) validateTokenRequest(ctx context.Context, currentToken
 	return nil
 }
 
-func (t *tokenRepository) hasAdminRole(projectsAndTenants *api.ProjectsAndTenants) (*apiv2.AdminRole, bool) {
+func (t *tokenRepository) validatePermissions(ctx context.Context, perms []*apiv2.PermissionsByVisibility, projectsAndTenants *api.ProjectsAndTenants) error {
+	type visibility string
 
+	const (
+		adminVisibility   visibility = "admin"
+		infraVisibility   visibility = "infra"
+		machineVisibility visibility = "machine"
+		projectVisibility visibility = "project"
+		publicVisibility  visibility = "public"
+		selfVisibility    visibility = "self"
+		tenantVisibility  visibility = "tenant"
+	)
+
+	errorVisibility := func(requestedVisibility visibility, method string) error {
+		var actualVisibility visibility
+
+		if _, ok := permissions.GetServicePermissions().Visibility.Admin[method]; ok {
+			actualVisibility = adminVisibility
+		}
+		if _, ok := permissions.GetServicePermissions().Visibility.Infra[method]; ok {
+			actualVisibility = infraVisibility
+		}
+		if _, ok := permissions.GetServicePermissions().Visibility.Machine[method]; ok {
+			actualVisibility = machineVisibility
+		}
+		if _, ok := permissions.GetServicePermissions().Visibility.Project[method]; ok {
+			actualVisibility = projectVisibility
+		}
+		if _, ok := permissions.GetServicePermissions().Visibility.Public[method]; ok {
+			actualVisibility = publicVisibility
+		}
+		if _, ok := permissions.GetServicePermissions().Visibility.Self[method]; ok {
+			actualVisibility = selfVisibility
+		}
+		if _, ok := permissions.GetServicePermissions().Visibility.Tenant[method]; ok {
+			actualVisibility = tenantVisibility
+		}
+
+		if actualVisibility == "" {
+			return fmt.Errorf("requested method %q is not contained in the api", method)
+		}
+
+		return fmt.Errorf("requested method %q is of visibility %q, not of visibility %q", method, actualVisibility, requestedVisibility)
+	}
+
+	for _, p := range perms {
+		switch p.Visibility.(type) {
+		case *apiv2.PermissionsByVisibility_Admin:
+			if _, has := t.hasAdminRole(projectsAndTenants); !has {
+				return fmt.Errorf("admin api permission are only allowed for admins")
+			}
+
+			for _, method := range p.GetAdmin().GetMethods() {
+				if _, ok := permissions.GetServicePermissions().Visibility.Admin[method]; !ok {
+					return errorVisibility(adminVisibility, method)
+				}
+			}
+
+		case *apiv2.PermissionsByVisibility_Infra:
+			for _, method := range p.GetInfra().GetMethods() {
+				if _, ok := permissions.GetServicePermissions().Visibility.Infra[method]; !ok {
+					return errorVisibility(infraVisibility, method)
+				}
+			}
+
+		case *apiv2.PermissionsByVisibility_Machine:
+			// every machine is allowed to be scoped, so no check necessary
+			// if p.GetMachine().Uuid != request.AnySubject {}
+
+			for _, method := range p.GetMachine().GetMethods() {
+				if _, ok := permissions.GetServicePermissions().Visibility.Machine[method]; !ok {
+					return errorVisibility(machineVisibility, method)
+				}
+			}
+
+		case *apiv2.PermissionsByVisibility_Project:
+			if project := p.GetProject().GetProject(); project != request.AnySubject {
+				if _, has := t.hasAdminRole(projectsAndTenants); has {
+					if _, err := t.s.UnscopedProject().Get(ctx, project); err != nil {
+						if errorutil.IsNotFound(err) {
+							return fmt.Errorf("requesting method for project %q but this does not exist in the database", project)
+						}
+
+						return err
+					}
+				} else {
+					if _, ok := projectsAndTenants.ProjectRoles[project]; !ok {
+						return fmt.Errorf("requesting method for project %q but available projects are: %v", project, lo.Keys(projectsAndTenants.ProjectRoles))
+					}
+				}
+			}
+
+			for _, method := range p.GetProject().GetMethods() {
+				if _, ok := permissions.GetServicePermissions().Visibility.Project[method]; !ok {
+					return errorVisibility(projectVisibility, method)
+				}
+			}
+
+		case *apiv2.PermissionsByVisibility_Public:
+			for _, method := range p.GetPublic().GetMethods() {
+				if _, ok := permissions.GetServicePermissions().Visibility.Public[method]; !ok {
+					return errorVisibility(publicVisibility, method)
+				}
+			}
+
+		case *apiv2.PermissionsByVisibility_Self:
+			for _, method := range p.GetSelf().GetMethods() {
+				if _, ok := permissions.GetServicePermissions().Visibility.Self[method]; !ok {
+					return errorVisibility(selfVisibility, method)
+				}
+			}
+
+		case *apiv2.PermissionsByVisibility_Tenant:
+			if login := p.GetTenant().GetLogin(); login != request.AnySubject {
+				if _, has := t.hasAdminRole(projectsAndTenants); has {
+					if _, err := t.s.Tenant().Get(ctx, login); err != nil {
+						if errorutil.IsNotFound(err) {
+							return fmt.Errorf("requesting method for tenant %q but this does not exist in the database", login)
+						}
+
+						return err
+					}
+				} else {
+					if _, ok := projectsAndTenants.TenantRoles[login]; !ok {
+						return fmt.Errorf("requesting method for tenant %q but available tenants are: %v", login, lo.Keys(projectsAndTenants.TenantRoles))
+					}
+				}
+			}
+
+			for _, method := range p.GetTenant().GetMethods() {
+				if _, ok := permissions.GetServicePermissions().Visibility.Tenant[method]; !ok {
+					return errorVisibility(tenantVisibility, method)
+				}
+			}
+
+		}
+	}
+
+	return nil
+}
+
+func (t *tokenRepository) hasAdminRole(projectsAndTenants *api.ProjectsAndTenants) (*apiv2.AdminRole, bool) {
 	if role, ok := projectsAndTenants.TenantRoles[t.s.providerTenant]; ok {
 		switch role {
 		case apiv2.TenantRole_TENANT_ROLE_OWNER:
@@ -299,6 +472,7 @@ func (t *tokenRepository) hasAdminRole(projectsAndTenants *api.ProjectsAndTenant
 			return apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(), true
 		}
 	}
+
 	return nil, false
 }
 

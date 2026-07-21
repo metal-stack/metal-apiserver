@@ -62,6 +62,7 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 		MaxRequestsPerMinuteToken:           100,
 		MaxRequestsPerMinuteUnauthenticated: 100,
 		HeadscaleClient:                     hc,
+		ComponentExpiration:                 time.Hour,
 	}
 
 	mux, err := service.New(ctx, log, c)

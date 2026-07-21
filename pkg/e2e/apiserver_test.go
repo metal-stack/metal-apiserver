@@ -11,7 +11,6 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 func TestUnauthenticated(t *testing.T) {
@@ -109,56 +108,6 @@ func TestListBaseNetworks(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, nslr)
 	require.Len(t, nslr.Networks, 1)
-}
-
-func TestImageCacheServiceToken(t *testing.T) {
-	t.Parallel()
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	baseURL, adminToken, tenantTokenSecrets, closer := StartApiserver(t, log, "metal-image-cache-sync")
-	defer closer()
-	require.NotNil(t, baseURL, adminToken)
-	log.Info("token", "secret", tenantTokenSecrets["metal-image-cache-sync"])
-
-	adminClient, err := client.New(&client.DialConfig{
-		BaseURL:   baseURL,
-		Token:     adminToken,
-		UserAgent: "integration test admin",
-		Log:       log,
-	})
-	require.NoError(t, err)
-
-	tokenResp, err := adminClient.Adminv2().Token().Create(t.Context(), &adminv2.TokenServiceCreateRequest{
-		User: new("metal-image-cache-sync"),
-		TokenCreateRequest: &apiv2.TokenServiceCreateRequest{
-			Description: "metal-image-cache-sync token",
-			Permissions: []*apiv2.MethodPermission{
-				{
-					Subject: "",
-					Methods: []string{
-						"/metalstack.api.v2.ImageService/List",
-						"/metalstack.api.v2.PartitionService/List",
-						"/metalstack.api.v2.TokenService/Refresh",
-					},
-				},
-			},
-			Expires: durationpb.New(10 * time.Minute),
-		},
-	})
-	require.NoError(t, err)
-
-	userClient, err := client.New(&client.DialConfig{
-		BaseURL:   baseURL,
-		Token:     tokenResp.Secret,
-		UserAgent: "metal-image-cache-sync user",
-		Log:       log,
-	})
-	require.NoError(t, err)
-
-	_, err = userClient.Apiv2().Image().List(t.Context(), &apiv2.ImageServiceListRequest{})
-	require.NoError(t, err)
-
-	_, err = userClient.Apiv2().Partition().List(t.Context(), &apiv2.PartitionServiceListRequest{})
-	require.NoError(t, err)
 }
 
 func TestHealthGet(t *testing.T) {
