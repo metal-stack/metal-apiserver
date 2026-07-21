@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -30,7 +31,7 @@ import (
 
 	"github.com/metal-stack/v"
 	"github.com/redis/go-redis/v9"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 func newServeCmd() *cli.Command {
@@ -87,28 +88,28 @@ func newServeCmd() *cli.Command {
 			secureCookieFlag,
 			redirectUrlsFlag,
 		},
-		Action: func(ctx *cli.Context) error {
-			log, err := createLogger(ctx)
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			log, err := createLogger(cmd)
 			if err != nil {
 				return fmt.Errorf("unable to create logger %w", err)
 			}
 
-			auditSearchBackend, auditBackends, err := createAuditingClient(ctx, log)
+			auditSearchBackend, auditBackends, err := createAuditingClient(cmd, log)
 			if err != nil {
 				return fmt.Errorf("unable to create auditing client: %w", err)
 			}
 
-			ipam, err := createIpamClient(ctx, log)
+			ipam, err := createIpamClient(ctx, cmd, log)
 			if err != nil {
 				return fmt.Errorf("unable to create ipam client: %w", err)
 			}
 
-			redisConfig, err := createRedisClients(ctx, log)
+			redisConfig, err := createRedisClients(ctx, cmd, log)
 			if err != nil {
 				return fmt.Errorf("unable to create redis clients: %w", err)
 			}
 
-			tc, err := createTenantApiserverClient(ctx, log)
+			tc, err := createTenantApiserverClient(cmd, log)
 			if err != nil {
 				return fmt.Errorf("unable to create tenant-apiserver client: %w", err)
 			}
@@ -117,12 +118,12 @@ func newServeCmd() *cli.Command {
 				hc *headscale.Client
 			)
 
-			if ctx.Bool(headscaleEnabledFlag.Name) {
+			if cmd.Bool(headscaleEnabledFlag.Name) {
 				hc, err = headscale.NewClient(headscale.Config{
 					Log:           log,
-					Apikey:        ctx.String(headscaleApikeyFlag.Name),
-					Endpoint:      ctx.String(headscaleAddressFlag.Name),
-					ControllerURL: ctx.String(headscaleControlplaneAddressFlag.Name),
+					Apikey:        cmd.String(headscaleApikeyFlag.Name),
+					Endpoint:      cmd.String(headscaleAddressFlag.Name),
+					ControllerURL: cmd.String(headscaleControlplaneAddressFlag.Name),
 				})
 				if err != nil {
 					return err
@@ -134,10 +135,10 @@ func newServeCmd() *cli.Command {
 			}
 
 			connectOpts := rethinkdb.ConnectOpts{
-				Addresses:  ctx.StringSlice(rethinkdbAddressesFlag.Name),
-				Database:   ctx.String(rethinkdbDBNameFlag.Name),
-				Username:   ctx.String(rethinkdbUserFlag.Name),
-				Password:   ctx.String(rethinkdbPasswordFlag.Name),
+				Addresses:  cmd.StringSlice(rethinkdbAddressesFlag.Name),
+				Database:   cmd.String(rethinkdbDBNameFlag.Name),
+				Username:   cmd.String(rethinkdbUserFlag.Name),
+				Password:   cmd.String(rethinkdbPasswordFlag.Name),
 				InitialCap: 20,
 				MaxOpen:    50,
 			}
@@ -165,52 +166,52 @@ func newServeCmd() *cli.Command {
 						CertStore: certs.NewRedisStore(&certs.Config{
 							RedisClient: redisConfig.TokenClient,
 						}),
-						ProviderTenant: ctx.String(providerTenantFlag.Name),
-						Issuer:         ctx.String(serverHttpUrlFlag.Name),
+						ProviderTenant: cmd.String(providerTenantFlag.Name),
+						Issuer:         cmd.String(serverHttpUrlFlag.Name),
 					},
 				})
-				stage = ctx.String(stageFlag.Name)
+				stage = cmd.String(stageFlag.Name)
 			)
 
-			if ctx.Bool(headscaleEnabledFlag.Name) {
-				err = repo.UnscopedVPN().SetDefaultPolicy(ctx.Context)
+			if cmd.Bool(headscaleEnabledFlag.Name) {
+				err = repo.UnscopedVPN().SetDefaultPolicy(ctx)
 				if err != nil {
 					return fmt.Errorf("unable to ensure headscale default policy: %w", err)
 				}
 			}
 
 			c := service.Config{
-				HttpServerEndpoint:                  ctx.String(httpServerEndpointFlag.Name),
-				MetricsServerEndpoint:               ctx.String(metricServerEndpointFlag.Name),
+				HttpServerEndpoint:                  cmd.String(httpServerEndpointFlag.Name),
+				MetricsServerEndpoint:               cmd.String(metricServerEndpointFlag.Name),
 				Log:                                 log,
 				Repository:                          repo,
 				TenantClient:                        tc,
 				Datastore:                           ds,
 				IpamClient:                          ipam,
-				ServerHttpURL:                       ctx.String(serverHttpUrlFlag.Name),
-				FrontEndUrl:                         ctx.String(frontEndUrlFlag.Name),
-				RedirectURLs:                        ctx.StringSlice(redirectUrlsFlag.Name),
+				ServerHttpURL:                       cmd.String(serverHttpUrlFlag.Name),
+				FrontEndUrl:                         cmd.String(frontEndUrlFlag.Name),
+				RedirectURLs:                        cmd.StringSlice(redirectUrlsFlag.Name),
 				AuditSearchBackend:                  auditSearchBackend,
 				AuditBackends:                       auditBackends,
 				Stage:                               stage,
 				RedisConfig:                         redisConfig,
-				ProviderTenant:                      ctx.String(providerTenantFlag.Name),
-				MaxRequestsPerMinuteToken:           ctx.Int(maxRequestsPerMinuteFlag.Name),
-				MaxRequestsPerMinuteUnauthenticated: ctx.Int(maxRequestsPerMinuteUnauthenticatedFlag.Name),
-				OIDCClientID:                        ctx.String(oidcClientIdFlag.Name),
-				OIDCClientSecret:                    ctx.String(oidcClientSecretFlag.Name),
-				OIDCDiscoveryURL:                    ctx.String(oidcDiscoveryUrlFlag.Name),
-				OIDCEndSessionURL:                   ctx.String(oidcEndSessionUrlFlag.Name),
-				OIDCUniqueUserKey:                   ctx.String(oidcUniqueUserKeyFlag.Name),
-				OIDCTLSSkipVerify:                   ctx.Bool(oidcTLSSkipVerifyFlag.Name),
+				ProviderTenant:                      cmd.String(providerTenantFlag.Name),
+				MaxRequestsPerMinuteToken:           cmd.Int(maxRequestsPerMinuteFlag.Name),
+				MaxRequestsPerMinuteUnauthenticated: cmd.Int(maxRequestsPerMinuteUnauthenticatedFlag.Name),
+				OIDCClientID:                        cmd.String(oidcClientIdFlag.Name),
+				OIDCClientSecret:                    cmd.String(oidcClientSecretFlag.Name),
+				OIDCDiscoveryURL:                    cmd.String(oidcDiscoveryUrlFlag.Name),
+				OIDCEndSessionURL:                   cmd.String(oidcEndSessionUrlFlag.Name),
+				OIDCUniqueUserKey:                   cmd.String(oidcUniqueUserKeyFlag.Name),
+				OIDCTLSSkipVerify:                   cmd.Bool(oidcTLSSkipVerifyFlag.Name),
 				IsStageDev:                          strings.EqualFold(stage, stageDEV),
-				SecureCookie:                        ctx.Bool(secureCookieFlag.Name),
-				BMCSuperuserPassword:                ctx.String(bmcSuperuserPasswordFlag.Name),
+				SecureCookie:                        cmd.Bool(secureCookieFlag.Name),
+				BMCSuperuserPassword:                cmd.String(bmcSuperuserPasswordFlag.Name),
 				HeadscaleClient:                     hc,
-				ComponentExpiration:                 ctx.Duration(componentExpirationFlag.Name),
+				ComponentExpiration:                 cmd.Duration(componentExpirationFlag.Name),
 			}
 
-			err = repo.Tenant().AdditionalMethods().EnsureProviderTenant(ctx.Context, c.ProviderTenant)
+			err = repo.Tenant().AdditionalMethods().EnsureProviderTenant(ctx, c.ProviderTenant)
 			if err != nil {
 				return err
 			}
@@ -220,7 +221,7 @@ func newServeCmd() *cli.Command {
 			log.Info("running api-server", "version", v.V.String(), "go-runtime", runtime.Version(), "http-endpoint", c.HttpServerEndpoint)
 
 			s := newServer(c)
-			if err := s.Run(ctx.Context); err != nil {
+			if err := s.Run(ctx); err != nil {
 				return fmt.Errorf("unable to execute server: %w", err)
 			}
 
@@ -230,12 +231,12 @@ func newServeCmd() *cli.Command {
 }
 
 // createTenantApiserverClient creates a client to the tenant-apiserver
-func createTenantApiserverClient(cli *cli.Context, log *slog.Logger) (tenant.Client, error) {
+func createTenantApiserverClient(cmd *cli.Command, log *slog.Logger) (tenant.Client, error) {
 	const tenantApiserverNamespace = "metal-stack.io"
 
 	client, err := tenant.New(&tenant.DialConfig{
 		Log:       log.WithGroup("tenant-apiserver-client"),
-		BaseURL:   cli.String(tenantApiserverBaseURLFlag.Name),
+		BaseURL:   cmd.String(tenantApiserverBaseURLFlag.Name),
 		Namespace: tenantApiserverNamespace,
 	})
 	if err != nil {
@@ -257,25 +258,25 @@ const (
 	redisDatabaseComponent    RedisDatabase = "component"
 )
 
-func createRedisClients(cli *cli.Context, logger *slog.Logger) (*service.RedisConfig, error) {
+func createRedisClients(ctx context.Context, cmd *cli.Command, logger *slog.Logger) (*service.RedisConfig, error) {
 
-	token, _, err := createRedisClient(cli, logger, redisDatabaseTokens)
+	token, _, err := createRedisClient(ctx, cmd, logger, redisDatabaseTokens)
 	if err != nil {
 		return nil, err
 	}
-	rate, _, err := createRedisClient(cli, logger, redisDatabaseRateLimiting)
+	rate, _, err := createRedisClient(ctx, cmd, logger, redisDatabaseRateLimiting)
 	if err != nil {
 		return nil, err
 	}
-	invite, _, err := createRedisClient(cli, logger, redisDatabaseInvites)
+	invite, _, err := createRedisClient(ctx, cmd, logger, redisDatabaseInvites)
 	if err != nil {
 		return nil, err
 	}
-	async, queue, err := createRedisClient(cli, logger, redisDatabaseAsync)
+	async, queue, err := createRedisClient(ctx, cmd, logger, redisDatabaseAsync)
 	if err != nil {
 		return nil, err
 	}
-	_, component, err := createRedisClient(cli, logger, redisDatabaseComponent)
+	_, component, err := createRedisClient(ctx, cmd, logger, redisDatabaseComponent)
 	if err != nil {
 		return nil, err
 	}
@@ -289,7 +290,7 @@ func createRedisClients(cli *cli.Context, logger *slog.Logger) (*service.RedisCo
 	}, nil
 }
 
-func createRedisClient(cli *cli.Context, logger *slog.Logger, dbName RedisDatabase) (*redis.Client, valkey.Client, error) {
+func createRedisClient(ctx context.Context, cmd *cli.Command, logger *slog.Logger, dbName RedisDatabase) (*redis.Client, valkey.Client, error) {
 	db := 0
 	switch dbName {
 	case redisDatabaseTokens:
@@ -306,8 +307,8 @@ func createRedisClient(cli *cli.Context, logger *slog.Logger, dbName RedisDataba
 		return nil, nil, fmt.Errorf("invalid db name: %s", dbName)
 	}
 
-	address := cli.String(redisAddrFlag.Name)
-	password := cli.String(redisPasswordFlag.Name)
+	address := cmd.String(redisAddrFlag.Name)
+	password := cmd.String(redisPasswordFlag.Name)
 
 	if address == "" {
 		logger.Warn("no redis address given, start in-memory redis database")
@@ -321,7 +322,7 @@ func createRedisClient(cli *cli.Context, logger *slog.Logger, dbName RedisDataba
 		DB:         db,
 		ClientName: applicationName,
 	})
-	pong, err := client.Ping(cli.Context).Result()
+	pong, err := client.Ping(ctx).Result()
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create redis client: %w", err)
 	}
@@ -347,10 +348,10 @@ func createRedisClient(cli *cli.Context, logger *slog.Logger, dbName RedisDataba
 	return client, valkeyClient, nil
 }
 
-func createIpamClient(cli *cli.Context, log *slog.Logger) (ipamv1connect.IpamServiceClient, error) {
-	ipamgrpcendpoint := cli.String(ipamGrpcEndpointFlag.Name)
-	log.Info("create ipam client", "stage", cli.String(stageFlag.Name))
-	if cli.String(stageFlag.Name) == stageDEV {
+func createIpamClient(ctx context.Context, cmd *cli.Command, log *slog.Logger) (ipamv1connect.IpamServiceClient, error) {
+	ipamgrpcendpoint := cmd.String(ipamGrpcEndpointFlag.Name)
+	log.Info("create ipam client", "stage", cmd.String(stageFlag.Name))
+	if cmd.String(stageFlag.Name) == stageDEV {
 		log.Warn("ipam grpc endpoint not configured, starting in memory ipam service")
 		ipam, _ := test.StartIpam(&testing.T{})
 		return ipam, nil
@@ -364,7 +365,7 @@ func createIpamClient(cli *cli.Context, log *slog.Logger) (ipamv1connect.IpamSer
 	)
 
 	err := retry.Do(func() error {
-		version, err := ipamService.Version(cli.Context, &ipamv1.VersionRequest{})
+		version, err := ipamService.Version(ctx, &ipamv1.VersionRequest{})
 		if err != nil {
 			return err
 		}
