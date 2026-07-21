@@ -551,6 +551,35 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			wantError: errorutil.PermissionDenied(`the following method "/grpc.reflection.v1.ServerReflection/ServerReflectionInfo" is not allowed on any of the requested subjects: [*]`),
 		},
 		{
+			name: "session token has admin role but does not request admin role",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description:  "no admin requested",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			state: state{
+				providerTenant: "phippy",
+				tenantRoles: map[string]apiv2.TenantRole{
+					"phippy": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			wantToken: &apiv2.Token{
+				User:         "phippy",
+				Description:  "no admin requested",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				Permissions:  []*apiv2.MethodPermission{},
+			},
+		},
+		{
 			name: "no admin role in session or request",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",
@@ -2412,6 +2441,543 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 	}
 }
 
+func Test_validatePermissions(t *testing.T) {
+	t.Parallel()
+
+	type state struct {
+		providerTenant string
+		projectRoles   map[string]apiv2.ProjectRole
+		tenantRoles    map[string]apiv2.TenantRole
+	}
+
+	tests := []struct {
+		name    string
+		state   state
+		perms   []*apiv2.PermissionsByVisibility
+		wantErr string
+	}{
+		{
+			name: "admin visibility succeeds for admin user",
+			state: state{
+				providerTenant: "metal-stack",
+				tenantRoles: map[string]apiv2.TenantRole{
+					"metal-stack": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			perms: []*apiv2.PermissionsByVisibility{
+				{
+					Visibility: &apiv2.PermissionsByVisibility_Admin{
+						Admin: &apiv2.AdminPermissions{
+							Methods: []string{"/metalstack.admin.v2.TenantService/List"},
+						},
+					},
+				},
+			},
+			wantErr: "",
+		},
+		{
+			name: "admin visibility fails for non-admin user",
+			state: state{
+				providerTenant: "metal-stack",
+			},
+			perms: []*apiv2.PermissionsByVisibility{
+				{
+					Visibility: &apiv2.PermissionsByVisibility_Admin{
+						Admin: &apiv2.AdminPermissions{
+							Methods: []string{"/metalstack.admin.v2.TenantService/List"},
+						},
+					},
+				},
+			},
+			wantErr: "admin api permission are only allowed for admins",
+		},
+		{
+			name: "admin visibility with wrong method fails",
+			state: state{
+				providerTenant: "metal-stack",
+				tenantRoles: map[string]apiv2.TenantRole{
+					"metal-stack": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			perms: []*apiv2.PermissionsByVisibility{
+				{
+					Visibility: &apiv2.PermissionsByVisibility_Admin{
+						Admin: &apiv2.AdminPermissions{
+							Methods: []string{"/metalstack.api.v2.IPService/Get"},
+						},
+					},
+				},
+			},
+			wantErr: `requested method "/metalstack.api.v2.IPService/Get" is of visibility "project", not of visibility "admin"`,
+		},
+		{
+			name: "infra visibility succeeds with correct method",
+			state: state{
+				providerTenant: "metal-stack",
+			},
+			perms: []*apiv2.PermissionsByVisibility{
+				{
+					Visibility: &apiv2.PermissionsByVisibility_Infra{
+						Infra: &apiv2.InfraPermissions{
+							Methods: []string{"/metalstack.infra.v2.BootService/Boot"},
+						},
+					},
+				},
+			},
+			wantErr: "",
+		},
+		{
+			name: "infra visibility with wrong method fails",
+			state: state{
+				providerTenant: "metal-stack",
+			},
+			perms: []*apiv2.PermissionsByVisibility{
+				{
+					Visibility: &apiv2.PermissionsByVisibility_Infra{
+						Infra: &apiv2.InfraPermissions{
+							Methods: []string{"/metalstack.api.v2.IPService/Get"},
+						},
+					},
+				},
+			},
+			wantErr: `requested method "/metalstack.api.v2.IPService/Get" is of visibility "project", not of visibility "infra"`,
+		},
+		{
+			name: "machine visibility succeeds with correct method",
+			state: state{
+				providerTenant: "metal-stack",
+			},
+			perms: []*apiv2.PermissionsByVisibility{
+				{
+					Visibility: &apiv2.PermissionsByVisibility_Machine{
+						Machine: &apiv2.MachinePermissions{
+							Uuid:    machineID1,
+							Methods: []string{"/metalstack.infra.v2.BootService/Register"},
+						},
+					},
+				},
+			},
+			wantErr: "",
+		},
+		{
+			name: "machine visibility with wrong method fails",
+			state: state{
+				providerTenant: "metal-stack",
+			},
+			perms: []*apiv2.PermissionsByVisibility{
+				{
+					Visibility: &apiv2.PermissionsByVisibility_Machine{
+						Machine: &apiv2.MachinePermissions{
+							Uuid:    machineID1,
+							Methods: []string{"/metalstack.api.v2.IPService/Get"},
+						},
+					},
+				},
+			},
+			wantErr: `requested method "/metalstack.api.v2.IPService/Get" is of visibility "project", not of visibility "machine"`,
+		},
+		{
+			name: "public visibility succeeds with correct method",
+			state: state{
+				providerTenant: "metal-stack",
+			},
+			perms: []*apiv2.PermissionsByVisibility{
+				{
+					Visibility: &apiv2.PermissionsByVisibility_Public{
+						Public: &apiv2.PublicPermissions{
+							Methods: []string{"/metalstack.api.v2.HealthService/Get"},
+						},
+					},
+				},
+			},
+			wantErr: "",
+		},
+		{
+			name: "public visibility with wrong method fails",
+			state: state{
+				providerTenant: "metal-stack",
+			},
+			perms: []*apiv2.PermissionsByVisibility{
+				{
+					Visibility: &apiv2.PermissionsByVisibility_Public{
+						Public: &apiv2.PublicPermissions{
+							Methods: []string{"/metalstack.api.v2.IPService/Get"},
+						},
+					},
+				},
+			},
+			wantErr: `requested method "/metalstack.api.v2.IPService/Get" is of visibility "project", not of visibility "public"`,
+		},
+		{
+			name: "self visibility succeeds with correct method",
+			state: state{
+				providerTenant: "metal-stack",
+			},
+			perms: []*apiv2.PermissionsByVisibility{
+				{
+					Visibility: &apiv2.PermissionsByVisibility_Self{
+						Self: &apiv2.SelfPermissions{
+							Methods: []string{"/metalstack.api.v2.TokenService/Create"},
+						},
+					},
+				},
+			},
+			wantErr: "",
+		},
+		{
+			name: "self visibility with wrong method fails",
+			state: state{
+				providerTenant: "metal-stack",
+			},
+			perms: []*apiv2.PermissionsByVisibility{
+				{
+					Visibility: &apiv2.PermissionsByVisibility_Self{
+						Self: &apiv2.SelfPermissions{
+							Methods: []string{"/metalstack.api.v2.IPService/Get"},
+						},
+					},
+				},
+			},
+			wantErr: `requested method "/metalstack.api.v2.IPService/Get" is of visibility "project", not of visibility "self"`,
+		},
+		{
+			name: "tenant visibility succeeds for non-admin user with tenant membership",
+			state: state{
+				providerTenant: "metal-stack",
+				tenantRoles: map[string]apiv2.TenantRole{
+					tenant1: apiv2.TenantRole_TENANT_ROLE_VIEWER,
+				},
+			},
+			perms: []*apiv2.PermissionsByVisibility{
+				{
+					Visibility: &apiv2.PermissionsByVisibility_Tenant{
+						Tenant: &apiv2.TenantPermissions{
+							Login:   tenant1,
+							Methods: []string{"/metalstack.api.v2.TenantService/Get"},
+						},
+					},
+				},
+			},
+			wantErr: "",
+		},
+		{
+			name: "tenant visibility fails for non-admin user without tenant membership",
+			state: state{
+				providerTenant: "metal-stack",
+				tenantRoles: map[string]apiv2.TenantRole{
+					tenant2: apiv2.TenantRole_TENANT_ROLE_VIEWER,
+				},
+			},
+			perms: []*apiv2.PermissionsByVisibility{
+				{
+					Visibility: &apiv2.PermissionsByVisibility_Tenant{
+						Tenant: &apiv2.TenantPermissions{
+							Login:   tenant1,
+							Methods: []string{"/metalstack.api.v2.TenantService/Get"},
+						},
+					},
+				},
+			},
+			wantErr: `requesting method for tenant "mascots" but available tenants are: [animals]`,
+		},
+		{
+			name: "tenant visibility with wrong method scope fails",
+			state: state{
+				providerTenant: "metal-stack",
+				tenantRoles: map[string]apiv2.TenantRole{
+					tenant1: apiv2.TenantRole_TENANT_ROLE_VIEWER,
+				},
+			},
+			perms: []*apiv2.PermissionsByVisibility{
+				{
+					Visibility: &apiv2.PermissionsByVisibility_Tenant{
+						Tenant: &apiv2.TenantPermissions{
+							Login:   tenant1,
+							Methods: []string{"/metalstack.api.v2.IPService/Get"},
+						},
+					},
+				},
+			},
+			wantErr: `requested method "/metalstack.api.v2.IPService/Get" is of visibility "project", not of visibility "tenant"`,
+		},
+		{
+			name: "method not found in any visibility fails",
+			state: state{
+				providerTenant: "metal-stack",
+			},
+			perms: []*apiv2.PermissionsByVisibility{
+				{
+					Visibility: &apiv2.PermissionsByVisibility_Self{
+						Self: &apiv2.SelfPermissions{
+							Methods: []string{"/metalstack.api.v2.UnknownService/Get"},
+						},
+					},
+				},
+			},
+			wantErr: `requested method "/metalstack.api.v2.UnknownService/Get" is not contained in the api`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := t.Context()
+
+			projectsAndTenantsGetter := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
+				return &api.ProjectsAndTenants{
+					ProjectRoles: tt.state.projectRoles,
+					TenantRoles:  tt.state.tenantRoles,
+				}, nil
+			}
+
+			log := slog.Default()
+
+			tokenRepo := tokenRepository{
+				s: &Store{
+					log:            log,
+					providerTenant: tt.state.providerTenant,
+				},
+				patg:       projectsAndTenantsGetter,
+				authorizer: request.NewAuthorizer(log, projectsAndTenantsGetter),
+			}
+
+			pat, err := projectsAndTenantsGetter(ctx, "")
+			require.NoError(t, err)
+
+			err = tokenRepo.validatePermissions(ctx, tt.perms, pat)
+			if tt.wantErr != "" {
+				require.EqualError(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func Test_validateCreate_edgeCases(t *testing.T) {
+	t.Parallel()
+
+	t.Run("unscoped token repository", func(t *testing.T) {
+		tokenRepo := tokenRepository{
+			scope: nil,
+		}
+
+		err := tokenRepo.validateCreate(t.Context(), &adminv2.TokenServiceCreateRequest{})
+		require.EqualError(t, err, errorutil.FailedPrecondition("tokens cannot be created unscoped").Error())
+	})
+
+	t.Run("no token in context", func(t *testing.T) {
+		log := slog.Default()
+		projectsAndTenantsGetter := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
+			return &api.ProjectsAndTenants{}, nil
+		}
+
+		tokenRepo := tokenRepository{
+			s: &Store{
+				log: log,
+			},
+			scope: &UserScope{
+				user: "phippy",
+			},
+			patg:       projectsAndTenantsGetter,
+			authorizer: request.NewAuthorizer(log, projectsAndTenantsGetter),
+		}
+
+		err := tokenRepo.validateCreate(t.Context(), &adminv2.TokenServiceCreateRequest{
+			TokenCreateRequest: &apiv2.TokenServiceCreateRequest{
+				Description: "no token",
+			},
+		})
+		require.EqualError(t, err, errorutil.Unauthenticated("no token found in request").Error())
+	})
+
+	t.Run("session token has invalid type", func(t *testing.T) {
+		log := slog.Default()
+		projectsAndTenantsGetter := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
+			return &api.ProjectsAndTenants{}, nil
+		}
+
+		tokenRepo := tokenRepository{
+			s: &Store{
+				log: log,
+			},
+			scope: &UserScope{
+				user: "phippy",
+			},
+			patg:       projectsAndTenantsGetter,
+			authorizer: request.NewAuthorizer(log, projectsAndTenantsGetter),
+		}
+
+		sessionToken := &apiv2.Token{
+			User:      "phippy",
+			TokenType: apiv2.TokenType_TOKEN_TYPE_UNSPECIFIED,
+		}
+		ctx := token.ContextWithToken(t.Context(), sessionToken)
+
+		err := tokenRepo.validateCreate(ctx, &adminv2.TokenServiceCreateRequest{
+			TokenCreateRequest: &apiv2.TokenServiceCreateRequest{
+				Description: "invalid type",
+			},
+		})
+		require.EqualError(t, err, errorutil.FailedPrecondition(`invalid token type for token creation: "TOKEN_TYPE_UNSPECIFIED"`).Error())
+	})
+
+	t.Run("non-admin cannot specify token user", func(t *testing.T) {
+		log := slog.Default()
+		projectsAndTenantsGetter := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
+			return &api.ProjectsAndTenants{}, nil
+		}
+
+		tokenRepo := tokenRepository{
+			s: &Store{
+				log: log,
+			},
+			scope: &UserScope{
+				user: "phippy",
+			},
+			patg:       projectsAndTenantsGetter,
+			authorizer: request.NewAuthorizer(log, projectsAndTenantsGetter),
+		}
+
+		sessionToken := &apiv2.Token{
+			User:      "phippy",
+			TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+		}
+		ctx := token.ContextWithToken(t.Context(), sessionToken)
+
+		anotherUser := "another-user"
+		err := tokenRepo.validateCreate(ctx, &adminv2.TokenServiceCreateRequest{
+			TokenCreateRequest: &apiv2.TokenServiceCreateRequest{
+				Description: "for another user",
+			},
+			User: &anotherUser,
+		})
+		require.EqualError(t, err, errorutil.PermissionDenied("only admins can specify token user").Error())
+	})
+
+	t.Run("admin can specify token user for another user", func(t *testing.T) {
+		s := miniredis.RunT(t)
+		c := redis.NewClient(&redis.Options{Addr: s.Addr()})
+		tokenStore := token.NewRedisStore(c)
+		certStore := certs.NewRedisStore(&certs.Config{
+			RedisClient: c,
+		})
+
+		log := slog.Default()
+		projectsAndTenantsGetter := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
+			return &api.ProjectsAndTenants{
+				TenantRoles: map[string]apiv2.TenantRole{
+					"metal-stack": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			}, nil
+		}
+
+		tokenRepo := tokenRepository{
+			s: &Store{
+				log:            log,
+				certs:          certStore,
+				tokens:         tokenStore,
+				issuer:         "http://test",
+				providerTenant: "metal-stack",
+			},
+			scope: &UserScope{
+				user: "phippy",
+			},
+			patg:       projectsAndTenantsGetter,
+			authorizer: request.NewAuthorizer(log, projectsAndTenantsGetter),
+		}
+
+		sessionToken := &apiv2.Token{
+			User:         "admin-user",
+			TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+			AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			Permissions:  []*apiv2.MethodPermission{},
+			ProjectRoles: map[string]apiv2.ProjectRole{},
+			TenantRoles:  map[string]apiv2.TenantRole{},
+		}
+		ctx := token.ContextWithToken(t.Context(), sessionToken)
+
+		anotherUser := "another-user"
+		req := &adminv2.TokenServiceCreateRequest{
+			TokenCreateRequest: &apiv2.TokenServiceCreateRequest{
+				Description:  "for another user",
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			User: &anotherUser,
+		}
+
+		err := tokenRepo.validateCreate(ctx, req)
+		require.NoError(t, err)
+
+		resp, err := tokenRepo.create(ctx, req)
+		require.NoError(t, err)
+		require.Equal(t, anotherUser, resp.Token.User)
+		require.NotEmpty(t, resp.Secret)
+	})
+}
+
+func Test_validateTokenRequest_subjectEdgeCases(t *testing.T) {
+	t.Parallel()
+
+	t.Run("project role UNSPECIFIED fails", func(t *testing.T) {
+		projectsAndTenantsGetter := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
+			return &api.ProjectsAndTenants{}, nil
+		}
+		log := slog.Default()
+
+		tokenRepo := tokenRepository{
+			patg:       projectsAndTenantsGetter,
+			authorizer: request.NewAuthorizer(log, projectsAndTenantsGetter),
+		}
+
+		currentToken := &apiv2.Token{
+			User:      "test",
+			TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+			ProjectRoles: map[string]apiv2.ProjectRole{
+				project1: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+			},
+		}
+		requestedToken := &apiv2.Token{
+			ProjectRoles: map[string]apiv2.ProjectRole{
+				project1: apiv2.ProjectRole_PROJECT_ROLE_UNSPECIFIED,
+			},
+		}
+
+		err := tokenRepo.validateTokenRequest(t.Context(), currentToken, requestedToken)
+		require.EqualError(t, err, `requested project role: "PROJECT_ROLE_UNSPECIFIED" is not allowed`)
+	})
+
+	t.Run("empty permissions on current token causes method not allowed without subjects", func(t *testing.T) {
+		projectsAndTenantsGetter := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
+			return &api.ProjectsAndTenants{}, nil
+		}
+		log := slog.Default()
+
+		tokenRepo := tokenRepository{
+			patg:       projectsAndTenantsGetter,
+			authorizer: request.NewAuthorizer(log, projectsAndTenantsGetter),
+		}
+
+		currentToken := &apiv2.Token{
+			User:         "test",
+			TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+			TenantRoles:  map[string]apiv2.TenantRole{},
+			ProjectRoles: map[string]apiv2.ProjectRole{},
+		}
+		requestedToken := &apiv2.Token{
+			Permissions: []*apiv2.MethodPermission{
+				{
+					Subject: "",
+					Methods: []string{"/metalstack.api.v2.IPService/Get"},
+				},
+			},
+		}
+
+		err := tokenRepo.validateTokenRequest(t.Context(), currentToken, requestedToken)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), `the following method "/metalstack.api.v2.IPService/Get" is not allowed on any of the requested subjects`)
+	})
+}
 func Test_validateTokenRequest(t *testing.T) {
 	t.Parallel()
 	inOneHour := timestamppb.New(time.Now().Add(time.Hour))
