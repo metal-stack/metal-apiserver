@@ -206,6 +206,7 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 		Interceptors:       adminInterceptors,
 		InviteStore:        tenantInviteStore,
 		AuditSearchBackend: c.AuditSearchBackend,
+		MCPServer:          mcps,
 	})
 
 	infra.InfraServices(infra.Config{
@@ -215,6 +216,7 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 		Interceptors:         infraInterceptors,
 		ComponentExpiration:  c.ComponentExpiration,
 		BMCSuperuserPassword: c.BMCSuperuserPassword,
+		MCPServer:            mcps,
 	})
 
 	var (
@@ -240,7 +242,11 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 	// END OIDC Login Authentication
 
 	// Add MCP Handler
-	mux.Handle("/mcp", mcpserver.NewStreamableHTTPServer(raw))
+	mux.Handle("/mcp", mcpserver.NewStreamableHTTPServer(
+		raw,
+		mcpserver.WithLogger(&slogLogger{log: log}),
+		mcpserver.WithStateLess(true), // TODO: needs to be discussed
+	))
 
 	return mux, nil
 }
@@ -290,4 +296,17 @@ func oidcAuthHandler(log *slog.Logger, c Config) (string, http.Handler, error) {
 
 	return auth.NewHandler()
 
+}
+
+// slogLogger adapts slog.Logger to implement util.Logger for the MCP server.
+type slogLogger struct {
+	log *slog.Logger
+}
+
+func (l *slogLogger) Infof(format string, v ...any) {
+	l.log.Info(fmt.Sprintf(format, v...))
+}
+
+func (l *slogLogger) Errorf(format string, v ...any) {
+	l.log.Error(fmt.Sprintf(format, v...))
 }

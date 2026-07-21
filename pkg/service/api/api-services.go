@@ -137,6 +137,22 @@ func ApiServices(ctx context.Context, cfg Config) error {
 
 	// Register MCP Handlers
 	apiv2mcp.RegisterAuditServiceHandler(cfg.MCPServer, auditService)
+	apiv2mcp.RegisterFilesystemServiceHandler(cfg.MCPServer, filesystemService)
+	apiv2mcp.RegisterHealthServiceHandler(cfg.MCPServer, healthService)
+	apiv2mcp.RegisterImageServiceHandler(cfg.MCPServer, imageService)
+	apiv2mcp.RegisterIPServiceHandler(cfg.MCPServer, ipService)
+	apiv2mcp.RegisterMachineServiceHandler(cfg.MCPServer, machineService)
+	apiv2mcp.RegisterMethodServiceHandler(cfg.MCPServer, methodService)
+	apiv2mcp.RegisterNetworkServiceHandler(cfg.MCPServer, networkService)
+	apiv2mcp.RegisterPartitionServiceHandler(cfg.MCPServer, partitionService)
+	apiv2mcp.RegisterProjectServiceHandler(cfg.MCPServer, projectService)
+	apiv2mcp.RegisterSizeImageConstraintServiceHandler(cfg.MCPServer, sizeImageConstraintService)
+	apiv2mcp.RegisterSizeReservationServiceHandler(cfg.MCPServer, sizeReservationService)
+	apiv2mcp.RegisterSizeServiceHandler(cfg.MCPServer, sizeService)
+	apiv2mcp.RegisterTenantServiceHandler(cfg.MCPServer, tenantService)
+	apiv2mcp.RegisterTokenServiceHandler(cfg.MCPServer, tokenService)
+	apiv2mcp.RegisterUserServiceHandler(cfg.MCPServer, userService)
+	apiv2mcp.RegisterVersionServiceHandler(cfg.MCPServer, versionService)
 
 	return nil
 }
