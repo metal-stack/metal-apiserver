@@ -895,6 +895,57 @@ func Test_List(t *testing.T) {
 			},
 		},
 		{
+			name: "query label subset",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceListRequest{
+				Query: &apiv2.TokenQuery{
+					Labels: &apiv2.Labels{
+						Labels: map[string]string{
+							"a": "b",
+						},
+					},
+					Description: new("test"),
+				},
+			},
+			state: state{
+				existingTokens: []*apiv2.Token{
+					{
+						Uuid:        "c223af4d-b3f5-4df6-8815-52b80323930d",
+						User:        "phippy",
+						Description: "test",
+						Meta: &apiv2.Meta{
+							Labels: &apiv2.Labels{
+								Labels: map[string]string{
+									"c": "d",
+									"a": "b",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []*apiv2.Token{
+				{
+					Uuid:        "c223af4d-b3f5-4df6-8815-52b80323930d",
+					User:        "phippy",
+					Description: "test",
+					Meta: &apiv2.Meta{
+						Labels: &apiv2.Labels{
+							Labels: map[string]string{
+								"c": "d",
+								"a": "b",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "query user (does not see other users)",
 			sessionToken: &apiv2.Token{
 				User:         "phippy",

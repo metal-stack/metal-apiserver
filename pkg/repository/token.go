@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"maps"
 	"slices"
 	"time"
 
@@ -11,7 +10,9 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/request"
+	"github.com/metal-stack/metal-apiserver/pkg/tags"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
+	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -90,11 +91,13 @@ func (t *tokenRepository) list(ctx context.Context, query *apiv2.TokenQuery) ([]
 			continue
 		}
 		if query.Labels != nil {
-			if tok.Meta == nil || tok.Meta.Labels == nil {
-				continue
-			}
+			var (
+				queryTags = tags.ToTags(query.Labels.Labels)
+				tokenTags = tags.ToTags(pointer.SafeDeref(pointer.SafeDeref(tok.Meta).Labels).Labels)
+			)
 
-			if !maps.Equal(query.Labels.Labels, tok.Meta.Labels.Labels) {
+			noMatch, _ := lo.Difference(queryTags, tokenTags)
+			if len(noMatch) > 0 {
 				continue
 			}
 		}
