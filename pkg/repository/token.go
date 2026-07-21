@@ -417,8 +417,6 @@ func (t *tokenRepository) Refresh(ctx context.Context, uuid string) (*apiv2.Toke
 		return nil, err
 	}
 
-	// TODO, should we delete the old token now ?
-
 	return &apiv2.TokenServiceRefreshResponse{
 		Token:  newToken,
 		Secret: secret,
