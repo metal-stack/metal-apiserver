@@ -1,13 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"log/slog"
 	"os"
 	"time"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 const (
@@ -21,33 +22,33 @@ var (
 		Name:    "http-server-endpoint",
 		Value:   "localhost:8081",
 		Usage:   "http server bind address",
-		EnvVars: []string{"HTTP_SERVER_ENDPOINT"},
+		Sources: cli.EnvVars("HTTP_SERVER_ENDPOINT"),
 	}
 	metricServerEndpointFlag = &cli.StringFlag{
 		Name:    "metric-server-endpoint",
 		Value:   "localhost:2112",
 		Usage:   "metric server endpoint",
-		EnvVars: []string{"METRIC_SERVER_ENDPOINT"},
+		Sources: cli.EnvVars("METRIC_SERVER_ENDPOINT"),
 	}
 	serverHttpUrlFlag = &cli.StringFlag{
 		Name:    "server-http-url",
 		Value:   "http://localhost:8081",
 		Usage:   "the url on which the http server is reachable from the outside",
-		EnvVars: []string{"SERVER_HTTP_URL"},
+		Sources: cli.EnvVars("SERVER_HTTP_URL"),
 	}
 	redirectUrlsFlag = &cli.StringSliceFlag{
 		Name:    "redirect-urls",
-		Value:   cli.NewStringSlice("http://localhost", "https://localhost", "http://127.0.0.1"),
+		Value:   []string{"http://localhost", "https://localhost", "http://127.0.0.1"},
 		Usage:   "allowed redirect urls after login",
-		EnvVars: []string{"REDIRECT_URLS"},
+		Sources: cli.EnvVars("REDIRECT_URLS"),
 	}
 	sessionSecretFlag = &cli.StringFlag{
 		Name:     "session-secret",
 		Value:    "",
 		Usage:    "session secret encrypts the cookie, used by goth cookiestore",
 		Required: true,
-		EnvVars:  []string{"SESSION_SECRET"},
-		Action: func(ctx *cli.Context, s string) error {
+		Sources:  cli.EnvVars("SESSION_SECRET"),
+		Action: func(ctx context.Context, cmd *cli.Command, s string) error {
 			if len(s) < 10 {
 				return fmt.Errorf("session-secret must be at least 10 characters long")
 			}
@@ -58,15 +59,15 @@ var (
 		Name:    "front-end-url",
 		Value:   "https://metal-stack.io",
 		Usage:   "URL of the frontend (metalctl)",
-		EnvVars: []string{"FRONT_END_URL"},
+		Sources: cli.EnvVars("FRONT_END_URL"),
 	}
 	oidcClientIdFlag = &cli.StringFlag{
 		Name:     "oidc-client-id",
 		Value:    "",
 		Usage:    "id of the oauth app in oidc",
 		Required: true,
-		EnvVars:  []string{"OIDC_CLIENT_ID"},
-		Action: func(ctx *cli.Context, s string) error {
+		Sources:  cli.EnvVars("OIDC_CLIENT_ID"),
+		Action: func(ctx context.Context, cmd *cli.Command, s string) error {
 			if len(s) < 2 {
 				return fmt.Errorf("oidc-client-id must be at least 2 characters long")
 			}
@@ -78,8 +79,8 @@ var (
 		Value:    "",
 		Usage:    "client secret of the oauth app in oidc",
 		Required: true,
-		EnvVars:  []string{"OIDC_CLIENT_SECRET"},
-		Action: func(ctx *cli.Context, s string) error {
+		Sources:  cli.EnvVars("OIDC_CLIENT_SECRET"),
+		Action: func(ctx context.Context, cmd *cli.Command, s string) error {
 			if len(s) < 2 {
 				return fmt.Errorf("oidc-client-secret must be at least 2 characters long")
 			}
@@ -91,205 +92,205 @@ var (
 		Value:    "",
 		Usage:    "discovery url of the oauth app in oidc",
 		Required: true,
-		EnvVars:  []string{"OIDC_DISCOVERY_URL"},
+		Sources:  cli.EnvVars("OIDC_DISCOVERY_URL"),
 	}
 	oidcEndSessionUrlFlag = &cli.StringFlag{
 		Name:     "oidc-end-session-url",
 		Value:    "",
 		Required: true,
-		EnvVars:  []string{"OIDC_END_SESSION_URL"},
+		Sources:  cli.EnvVars("OIDC_END_SESSION_URL"),
 	}
 	oidcUniqueUserKeyFlag = &cli.StringFlag{
 		Name:    "oidc-unique-user-key",
 		Value:   "email", // make sure the oidc provider has unique email addresses, otherwise use "sub"
 		Usage:   "used to extract the unique user id from the oidc provider response raw data",
-		EnvVars: []string{"OIDC_UNIQUE_USER_KEY"},
+		Sources: cli.EnvVars("OIDC_UNIQUE_USER_KEY"),
 	}
 	oidcTLSSkipVerifyFlag = &cli.BoolFlag{
 		Name:    "oidc-tls-skip-verify",
 		Value:   true,
 		Usage:   "skip tls verification when talking to the oidc provider, set this to false in real production environments",
-		EnvVars: []string{"OIDC_TLS_SKIP_VERIFY"},
+		Sources: cli.EnvVars("OIDC_TLS_SKIP_VERIFY"),
 	}
 	logLevelFlag = &cli.StringFlag{
 		Name:    "log-level",
 		Value:   "info",
 		Usage:   "log-level can be one of error|warn|info|debug",
-		EnvVars: []string{"LOG_LEVEL"},
+		Sources: cli.EnvVars("LOG_LEVEL"),
 	}
 	tenantApiserverBaseURLFlag = &cli.StringFlag{
 		Name:    "tenant-apiserver-baseurl",
 		Value:   "http://tenant-apiserver:8080",
 		Usage:   "tenant-apiserver base url",
-		EnvVars: []string{"TENANT_APISERVER_BASEURL"},
+		Sources: cli.EnvVars("TENANT_APISERVER_BASEURL"),
 	}
 	rethinkdbAddressesFlag = &cli.StringSliceFlag{
 		Name:     "rethinkdb-addresses",
-		Value:    &cli.StringSlice{},
+		Value:    []string{},
 		Required: true,
 		Usage:    "rethinkdb addresses without http prefix",
-		EnvVars:  []string{"RETHINKDB_ADDRESSES"},
+		Sources:  cli.EnvVars("RETHINKDB_ADDRESSES"),
 	}
 	rethinkdbDBNameFlag = &cli.StringFlag{
 		Name:    "rethinkdb-dbname",
 		Value:   "metalapi",
 		Usage:   "rethinkdb database name",
-		EnvVars: []string{"RETHINKDB_DBNAME"},
+		Sources: cli.EnvVars("RETHINKDB_DBNAME"),
 	}
 	rethinkdbUserFlag = &cli.StringFlag{
 		Name:    "rethinkdb-user",
 		Value:   "admin",
 		Usage:   "rethinkdb username to connect",
-		EnvVars: []string{"RETHINKDB_USER"},
+		Sources: cli.EnvVars("RETHINKDB_USER"),
 	}
 	rethinkdbPasswordFlag = &cli.StringFlag{
 		Name:     "rethinkdb-password",
 		Value:    "",
 		Required: true,
 		Usage:    "rethinkdb password to connect",
-		EnvVars:  []string{"RETHINKDB_PASSWORD"},
+		Sources:  cli.EnvVars("RETHINKDB_PASSWORD"),
 	}
 	asnPoolRangeMinFlag = &cli.UintFlag{
 		Name:    "asnpool-range-min",
 		Value:   1,
 		Usage:   "asn pool range min, this can not be changed after initial deployment",
-		EnvVars: []string{"ASN_POOL_RANGE_MIN"},
+		Sources: cli.EnvVars("ASN_POOL_RANGE_MIN"),
 	}
 	asnPoolRangeMaxFlag = &cli.UintFlag{
 		Name:    "asnpool-range-max",
 		Value:   131072,
 		Usage:   "asn pool range max, this can not be changed after initial deployment",
-		EnvVars: []string{"ASN_POOL_RANGE_MAX"},
+		Sources: cli.EnvVars("ASN_POOL_RANGE_MAX"),
 	}
 	vrfPoolRangeMinFlag = &cli.UintFlag{
 		Name:    "vrfpool-range-min",
 		Value:   1,
 		Usage:   "vrf pool range min, this can not be changed after initial deployment",
-		EnvVars: []string{"VRF_POOL_RANGE_MIN"},
+		Sources: cli.EnvVars("VRF_POOL_RANGE_MIN"),
 	}
 	vrfPoolRangeMaxFlag = &cli.UintFlag{
 		Name:    "vrfpool-range-max",
 		Value:   131072,
 		Usage:   "vrf pool range max, this can not be changed after initial deployment",
-		EnvVars: []string{"VRF_POOL_RANGE_MAX"},
+		Sources: cli.EnvVars("VRF_POOL_RANGE_MAX"),
 	}
 
 	auditingSearchBackendFlag = &cli.StringFlag{
 		Name:    "auditing-search-backend",
 		Value:   "",
 		Usage:   "the audit backend used for searches, defaults to timescaledb",
-		EnvVars: []string{"AUDITING_SEARCH_BACKEND"},
+		Sources: cli.EnvVars("AUDITING_SEARCH_BACKEND"),
 	}
 
 	auditingTimescaleEnabledFlag = &cli.BoolFlag{
 		Name:    "auditing-timescaledb-enabled",
 		Value:   false,
 		Usage:   "enable timescaledb auditing",
-		EnvVars: []string{"AUDITING_TIMESCALEDB_ENABLED"},
+		Sources: cli.EnvVars("AUDITING_TIMESCALEDB_ENABLED"),
 	}
 	auditingTimescaleHostFlag = &cli.StringFlag{
 		Name:    "auditing-timescaledb-host",
 		Value:   "",
 		Usage:   "timescaledb auditing database host",
-		EnvVars: []string{"AUDITING_TIMESCALEDB_HOST"},
+		Sources: cli.EnvVars("AUDITING_TIMESCALEDB_HOST"),
 	}
 	auditingTimescalePortFlag = &cli.StringFlag{
 		Name:    "auditing-timescaledb-port",
 		Value:   "5432",
 		Usage:   "timescaledb auditing database port",
-		EnvVars: []string{"AUDITING_TIMESCALEDB_PORT"},
+		Sources: cli.EnvVars("AUDITING_TIMESCALEDB_PORT"),
 	}
 	auditingTimescaleDbFlag = &cli.StringFlag{
 		Name:    "auditing-timescaledb-db",
 		Value:   "auditing",
 		Usage:   "timescaledb auditing database",
-		EnvVars: []string{"AUDITING_TIMESCALEDB_DB"},
+		Sources: cli.EnvVars("AUDITING_TIMESCALEDB_DB"),
 	}
 	auditingTimescaleUserFlag = &cli.StringFlag{
 		Name:    "auditing-timescaledb-user",
 		Value:   "postgres",
 		Usage:   "timescaledb auditing database user",
-		EnvVars: []string{"AUDITING_TIMESCALEDB_USER"},
+		Sources: cli.EnvVars("AUDITING_TIMESCALEDB_USER"),
 	}
 	auditingTimescalePasswordFlag = &cli.StringFlag{
 		Name:    "auditing-timescaledb-password",
 		Value:   "",
 		Usage:   "timescaledb auditing database password",
-		EnvVars: []string{"AUDITING_TIMESCALEDB_PASSWORD"},
+		Sources: cli.EnvVars("AUDITING_TIMESCALEDB_PASSWORD"),
 	}
 	auditingTimescaleRetentionFlag = &cli.StringFlag{
 		Name:    "auditing-timescaledb-retention",
 		Value:   "14 days",
 		Usage:   "timescaledb auditing database retention",
-		EnvVars: []string{"AUDITING_TIMESCALEDB_RETENTION"},
+		Sources: cli.EnvVars("AUDITING_TIMESCALEDB_RETENTION"),
 	}
 
 	auditingSplunkEnabledFlag = &cli.BoolFlag{
 		Name:    "auditing-splunk-enabled",
 		Value:   false,
 		Usage:   "enable splunk auditing",
-		EnvVars: []string{"AUDITING_SPLUNK_ENABLED"},
+		Sources: cli.EnvVars("AUDITING_SPLUNK_ENABLED"),
 	}
 	auditingSplunkEndpointFlag = &cli.StringFlag{
 		Name:    "auditing-splunk-endpoint",
 		Value:   "",
 		Usage:   "splunk auditing endpoint",
-		EnvVars: []string{"AUDITING_SPLUNK_ENDPOINT"},
+		Sources: cli.EnvVars("AUDITING_SPLUNK_ENDPOINT"),
 	}
 	auditingSplunkHostFlag = &cli.StringFlag{
 		Name:    "auditing-splunk-host",
 		Value:   "",
 		Usage:   "splunk auditing host",
-		EnvVars: []string{"AUDITING_SPLUNK_HOST"},
+		Sources: cli.EnvVars("AUDITING_SPLUNK_HOST"),
 	}
 	auditingSplunkSourceFlag = &cli.StringFlag{
 		Name:    "auditing-splunk-source",
 		Value:   "",
 		Usage:   "splunk auditing source",
-		EnvVars: []string{"AUDITING_SPLUNK_SOURCE"},
+		Sources: cli.EnvVars("AUDITING_SPLUNK_SOURCE"),
 	}
 	auditingSplunkSourceTypeFlag = &cli.StringFlag{
 		Name:    "auditing-splunk-source-type",
 		Value:   "",
 		Usage:   "splunk auditing source type",
-		EnvVars: []string{"AUDITING_SPLUNK_SOURCE_TYPE"},
+		Sources: cli.EnvVars("AUDITING_SPLUNK_SOURCE_TYPE"),
 	}
 	auditingSplunkHecTokenFlag = &cli.StringFlag{
 		Name:    "auditing-splunk-hec-token",
 		Value:   "",
 		Usage:   "splunk auditing hec token",
-		EnvVars: []string{"AUDITING_SPLUNK_HEC_TOKEN"},
+		Sources: cli.EnvVars("AUDITING_SPLUNK_HEC_TOKEN"),
 	}
 	auditingSplunkIndexFlag = &cli.StringFlag{
 		Name:    "auditing-splunk-index",
 		Value:   "",
 		Usage:   "splunk auditing index",
-		EnvVars: []string{"AUDITING_SPLUNK_INDEX"},
+		Sources: cli.EnvVars("AUDITING_SPLUNK_INDEX"),
 	}
 	auditingSplunkCaFlag = &cli.StringFlag{
 		Name:    "auditing-splunk-ca",
 		Value:   "",
 		Usage:   "splunk auditing ca path",
-		EnvVars: []string{"AUDITING_SPLUNK_CA"},
+		Sources: cli.EnvVars("AUDITING_SPLUNK_CA"),
 	}
 
 	stageFlag = &cli.StringFlag{
 		Name:    "stage",
 		Value:   stagePROD,
 		Usage:   "deployment stage of application",
-		EnvVars: []string{"STAGE"},
+		Sources: cli.EnvVars("STAGE"),
 	}
 	redisAddrFlag = &cli.StringFlag{
 		Name:    "redis-addr",
 		Value:   "",
 		Usage:   "the address to a redis key value store",
-		EnvVars: []string{"REDIS_ADDR"},
+		Sources: cli.EnvVars("REDIS_ADDR"),
 	}
 	redisPasswordFlag = &cli.StringFlag{
 		Name:    "redis-password",
 		Value:   "",
 		Usage:   "the password to the redis key value store",
-		EnvVars: []string{"REDIS_PASSWORD"},
+		Sources: cli.EnvVars("REDIS_PASSWORD"),
 	}
 	providerTenantFlag = &cli.StringFlag{
 		Name:  "provider-tenant",
@@ -298,8 +299,8 @@ var (
 if they have editor or viewer rights, they can request admin-role-viewer.
 Can not be changed after initial creation.
 `,
-		EnvVars: []string{"PROVIDER_TENANT"},
-		Action: func(ctx *cli.Context, s string) error {
+		Sources: cli.EnvVars("PROVIDER_TENANT"),
+		Action: func(ctx context.Context, cmd *cli.Command, s string) error {
 			if len(s) < 2 {
 				return fmt.Errorf("provider-tenant must be longer than 2 characters")
 			}
@@ -310,26 +311,26 @@ Can not be changed after initial creation.
 		Name:    "max-requests-per-minute",
 		Value:   100,
 		Usage:   "the maximum requests per minute per api token",
-		EnvVars: []string{"MAX_REQUESTS_PER_MINUTE"},
+		Sources: cli.EnvVars("MAX_REQUESTS_PER_MINUTE"),
 	}
 	maxRequestsPerMinuteUnauthenticatedFlag = &cli.IntFlag{
 		Name:    "max-unauthenticated-requests-per-minute",
 		Value:   20,
 		Usage:   "the maximum requests per minute for unauthenticated api access",
-		EnvVars: []string{"MAX_UNAUTHENTICATED_PER_MINUTE"},
+		Sources: cli.EnvVars("MAX_UNAUTHENTICATED_PER_MINUTE"),
 	}
 	ipamGrpcEndpointFlag = &cli.StringFlag{
 		Name:    "ipam-grpc-endpoint",
 		Value:   "http://ipam:9090",
 		Usage:   "the ipam grpc server endpoint",
-		EnvVars: []string{"IPAM_GRPC_ENDPOINT"},
+		Sources: cli.EnvVars("IPAM_GRPC_ENDPOINT"),
 	}
 	bmcSuperuserPasswordFlag = &cli.StringFlag{
 		Name:    "bmc-superuser-pwd",
 		Value:   "",
 		Usage:   "the BMC superuser password",
-		EnvVars: []string{"BMC_SUPER_USER_PASSWORD"},
-		Action: func(ctx *cli.Context, s string) error {
+		Sources: cli.EnvVars("BMC_SUPER_USER_PASSWORD"),
+		Action: func(ctx context.Context, cmd *cli.Command, s string) error {
 			if len(s) < 8 {
 				return fmt.Errorf("bmc superuser password must be longer than 2 characters")
 			}
@@ -341,43 +342,43 @@ Can not be changed after initial creation.
 		Name:    "headscale-addr",
 		Value:   "headscale:50443",
 		Usage:   "address of headscale grpc server endpoint",
-		EnvVars: []string{"HEADSCALE_ADDRESS"},
+		Sources: cli.EnvVars("HEADSCALE_ADDRESS"),
 	}
 	headscaleControlplaneAddressFlag = &cli.StringFlag{
 		Name:    "headscale-cp-addr",
 		Value:   "",
 		Usage:   "controlplane address of headscale server reachable from the nodes to join",
-		EnvVars: []string{"HEADSCALE_CONTROLPLANE_ADDRESS"},
+		Sources: cli.EnvVars("HEADSCALE_CONTROLPLANE_ADDRESS"),
 	}
 	headscaleApikeyFlag = &cli.StringFlag{
 		Name:    "headscale-api-key",
 		Value:   "",
 		Usage:   "initial api key to connect to the headscale grpc server",
-		EnvVars: []string{"HEADSCALE_API_KEY"},
+		Sources: cli.EnvVars("HEADSCALE_API_KEY"),
 	}
 	headscaleEnabledFlag = &cli.BoolFlag{
 		Name:    "headscale-enabled",
 		Value:   false,
 		Usage:   "toggle if headscale should be enabled",
-		EnvVars: []string{"HEADSCALE_ENABLED"},
+		Sources: cli.EnvVars("HEADSCALE_ENABLED"),
 	}
 	// End Headscale
 	componentExpirationFlag = &cli.DurationFlag{
 		Name:    "component-expiration",
 		Value:   24 * time.Hour,
 		Usage:   "duration after which inactive component entries are removed",
-		EnvVars: []string{"COMPONENT_EXPIRATION"},
+		Sources: cli.EnvVars("COMPONENT_EXPIRATION"),
 	}
 	secureCookieFlag = &cli.BoolFlag{
 		Name:    "secure-cookie",
 		Value:   true,
 		Usage:   "enable secure cookie transport, should be disabled in mini-lab or test and dev environments where authentication endpoint is not https terminated",
-		EnvVars: []string{"SECURE_COOKIE"},
+		Sources: cli.EnvVars("SECURE_COOKIE"),
 	}
 )
 
 func main() {
-	app := &cli.App{
+	app := &cli.Command{
 		Name:  applicationName,
 		Usage: "apiserver for metal-stack.io",
 		Commands: []*cli.Command{
@@ -388,13 +389,13 @@ func main() {
 		},
 	}
 
-	err := app.Run(os.Args)
+	err := app.Run(context.Background(), os.Args)
 	if err != nil {
 		log.Fatalf("error in cli: %v", err)
 	}
 }
 
-func createLogger(ctx *cli.Context) (*slog.Logger, error) {
+func createLogger(ctx *cli.Command) (*slog.Logger, error) {
 	var lvlvar slog.LevelVar
 
 	err := lvlvar.UnmarshalText([]byte(ctx.String(logLevelFlag.Name)))

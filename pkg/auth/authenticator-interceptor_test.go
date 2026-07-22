@@ -148,6 +148,44 @@ func Test_authorize_with_permissions(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		{
+			name:    "no bearer token in request, to be able to call public endpoints, authorization is done in the following interceptors",
+			subject: "john.doe@github",
+			req:     v2.TokenServiceCreateRequest{},
+			tenantRoles: map[string]v2.TenantRole{
+				"john.doe@github": v2.TenantRole_TENANT_ROLE_OWNER,
+			},
+			userJwtMutateFn: func(_ *testing.T, _ string) string {
+				return ""
+			},
+			wantErr: nil,
+		},
+		{
+			name:    "token revoked",
+			subject: "revoked-user",
+			req:     v2.TokenServiceCreateRequest{},
+			tenantRoles: map[string]v2.TenantRole{
+				"revoked-user": v2.TenantRole_TENANT_ROLE_OWNER,
+			},
+			userJwtMutateFn: func(t *testing.T, jwt string) string {
+				// Return a valid JWT that is NOT stored in the token store.
+				// generate a JWT with a different subject so it won't be found.
+				return generateJWT(t, "other-user", defaultIssuer, defaultIssuer, key, time.Now().Add(time.Hour), time.Now(), time.Now())
+			},
+			wantErr: errorutil.Unauthenticated("token was revoked"),
+		},
+		{
+			name:    "token signed with wrong algorithm",
+			subject: "john.doe@github",
+			req:     v2.TokenServiceCreateRequest{},
+			tenantRoles: map[string]v2.TenantRole{
+				"john.doe@github": v2.TenantRole_TENANT_ROLE_OWNER,
+			},
+			userJwtMutateFn: func(_ *testing.T, _ string) string {
+				return generateUnsignedJWT(t, "john.doe@github", defaultIssuer, defaultIssuer, time.Now().Add(time.Hour), time.Now(), time.Now())
+			},
+			wantErr: errorutil.Unauthenticated("token is not valid, no suitable publickey to validate signature found"),
+		},
 	}
 
 	for _, tt := range tests {
@@ -225,5 +263,25 @@ func generateJWT(t *testing.T, subject, issuer, audience string, secret crypto.P
 	} else {
 		jwt = jwtWithClaims.Raw
 	}
+	return jwt
+}
+
+// generateUnsignedJWT creates a JWT that has no signature (uses "none" algorithm).
+// This tests that tokens with an invalid signing algorithm are rejected.
+func generateUnsignedJWT(t *testing.T, subject, issuer, audience string, expiresAt, issuedAt, notBefore time.Time) string {
+	claims := &jwt.RegisteredClaims{
+		ExpiresAt: jwt.NewNumericDate(expiresAt),
+		IssuedAt:  jwt.NewNumericDate(issuedAt),
+		NotBefore: jwt.NewNumericDate(notBefore),
+
+		ID:       uuid.New().String(),
+		Subject:  subject,
+		Issuer:   issuer,
+		Audience: jwt.ClaimStrings{audience},
+	}
+
+	jwtWithClaims := jwt.NewWithClaims(jwt.SigningMethodNone, claims)
+	jwt, err := jwtWithClaims.SignedString(jwt.UnsafeAllowNoneSignatureType)
+	require.NoError(t, err)
 	return jwt
 }

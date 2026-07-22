@@ -68,6 +68,7 @@ func Test_Create(t *testing.T) {
 				User:        "phippy",
 				Description: "empty token",
 				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
+				Meta:        &apiv2.Meta{},
 			},
 		},
 		{
@@ -124,6 +125,7 @@ func Test_Create(t *testing.T) {
 					kubies: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 				TenantRoles: map[string]apiv2.TenantRole{},
+				Meta:        &apiv2.Meta{},
 			},
 		},
 		{
@@ -204,6 +206,7 @@ func Test_Create(t *testing.T) {
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
 				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+				Meta:         &apiv2.Meta{},
 			},
 		},
 		{
@@ -234,6 +237,7 @@ func Test_Create(t *testing.T) {
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
 				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
+				Meta:         &apiv2.Meta{},
 			},
 		},
 		{
@@ -261,6 +265,7 @@ func Test_Create(t *testing.T) {
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
 				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+				Meta:         &apiv2.Meta{},
 			},
 		},
 		{
@@ -291,6 +296,7 @@ func Test_Create(t *testing.T) {
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
 				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
+				Meta:         &apiv2.Meta{},
 			},
 		},
 		{
@@ -369,6 +375,7 @@ func Test_Create(t *testing.T) {
 				ProjectRoles: map[string]apiv2.ProjectRole{},
 				TenantRoles:  map[string]apiv2.TenantRole{},
 				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+				Meta:         &apiv2.Meta{},
 			},
 		},
 		{
@@ -447,6 +454,7 @@ func Test_Create(t *testing.T) {
 				TenantRoles: map[string]apiv2.TenantRole{
 					"mascots": apiv2.TenantRole_TENANT_ROLE_EDITOR,
 				},
+				Meta: &apiv2.Meta{},
 			},
 		},
 		{
@@ -581,6 +589,7 @@ func Test_Create(t *testing.T) {
 					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
 				},
 				TenantRoles: map[string]apiv2.TenantRole{},
+				Meta:        &apiv2.Meta{},
 			},
 		},
 	}
@@ -665,15 +674,18 @@ func Test_Create(t *testing.T) {
 				}
 				require.NotNil(t, tt.wantToken, "token returned, nil expected")
 
-				got := response.Token
-				assert.Equal(t, tt.wantToken.Description, got.Description, "description")
-				assert.Equal(t, tt.wantToken.User, got.User, "user id")
-				assert.Equal(t, tt.wantToken.TokenType, got.TokenType, "token type")
-				assert.Equal(t, tt.wantToken.AdminRole, got.AdminRole, "admin role")
-				assert.Equal(t, tt.wantToken.Permissions, got.Permissions, "permissions")
-				assert.Equal(t, tt.wantToken.ProjectRoles, got.ProjectRoles, "project roles")
-				assert.Equal(t, tt.wantToken.TenantRoles, got.TenantRoles, "tenant roles")
-				assert.Equal(t, tt.wantToken.MachineRoles, got.MachineRoles, "machine roles")
+				if diff := cmp.Diff(
+					tt.wantToken, response.Token,
+					protocmp.Transform(),
+					protocmp.IgnoreFields(
+						&apiv2.Token{}, "issued_at", "expires", "uuid",
+					),
+					protocmp.IgnoreFields(
+						&apiv2.Meta{}, "created_at", "updated_at", "generation",
+					),
+				); diff != "" {
+					innerT.Errorf("diff: %s", diff)
+				}
 			}
 		})
 	}
@@ -876,6 +888,57 @@ func Test_List(t *testing.T) {
 							Labels: map[string]string{
 								"a": "b",
 								"c": "d",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "query label subset",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+			},
+			req: &apiv2.TokenServiceListRequest{
+				Query: &apiv2.TokenQuery{
+					Labels: &apiv2.Labels{
+						Labels: map[string]string{
+							"a": "b",
+						},
+					},
+					Description: new("test"),
+				},
+			},
+			state: state{
+				existingTokens: []*apiv2.Token{
+					{
+						Uuid:        "c223af4d-b3f5-4df6-8815-52b80323930d",
+						User:        "phippy",
+						Description: "test",
+						Meta: &apiv2.Meta{
+							Labels: &apiv2.Labels{
+								Labels: map[string]string{
+									"c": "d",
+									"a": "b",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []*apiv2.Token{
+				{
+					Uuid:        "c223af4d-b3f5-4df6-8815-52b80323930d",
+					User:        "phippy",
+					Description: "test",
+					Meta: &apiv2.Meta{
+						Labels: &apiv2.Labels{
+							Labels: map[string]string{
+								"c": "d",
+								"a": "b",
 							},
 						},
 					},
