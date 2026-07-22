@@ -5,15 +5,16 @@ import (
 	"net/http"
 	"time"
 
+	"connectrpc.com/connect"
 	"github.com/metal-stack/api/go/metalstack/infra/v2/infrav2connect"
+	"github.com/metal-stack/api/go/metalstack/infra/v2/infrav2mcp"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/service/infra/bmc"
 	"github.com/metal-stack/metal-apiserver/pkg/service/infra/boot"
 	componentinfra "github.com/metal-stack/metal-apiserver/pkg/service/infra/component"
 	eventinfra "github.com/metal-stack/metal-apiserver/pkg/service/infra/event"
 	switchinfra "github.com/metal-stack/metal-apiserver/pkg/service/infra/switch"
-
-	"connectrpc.com/connect"
+	"github.com/redpanda-data/protoc-gen-go-mcp/pkg/runtime"
 )
 
 type Config struct {
@@ -23,6 +24,7 @@ type Config struct {
 	Interceptors         connect.Option
 	ComponentExpiration  time.Duration
 	BMCSuperuserPassword string
+	MCPServer            runtime.MCPServer
 }
 
 func InfraServices(cfg Config) {
@@ -40,4 +42,11 @@ func InfraServices(cfg Config) {
 	cfg.Mux.Handle(infrav2connect.NewComponentServiceHandler(infraComponentService, cfg.Interceptors))
 	cfg.Mux.Handle(infrav2connect.NewEventServiceHandler(infraEventService, cfg.Interceptors))
 	cfg.Mux.Handle(infrav2connect.NewSwitchServiceHandler(infraSwitchService, cfg.Interceptors))
+
+	// Register Infra MCP Handlers
+	infrav2mcp.RegisterBMCServiceHandler(cfg.MCPServer, bmcService)
+	infrav2mcp.RegisterBootServiceHandler(cfg.MCPServer, bootService)
+	infrav2mcp.RegisterComponentServiceHandler(cfg.MCPServer, infraComponentService)
+	infrav2mcp.RegisterEventServiceHandler(cfg.MCPServer, infraEventService)
+	infrav2mcp.RegisterSwitchServiceHandler(cfg.MCPServer, infraSwitchService)
 }

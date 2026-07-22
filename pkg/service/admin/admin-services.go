@@ -6,9 +6,11 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
+	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2mcp"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-lib/auditing"
+	"github.com/redpanda-data/protoc-gen-go-mcp/pkg/runtime"
 
 	auditadmin "github.com/metal-stack/metal-apiserver/pkg/service/admin/audit"
 	componentadmin "github.com/metal-stack/metal-apiserver/pkg/service/admin/component"
@@ -36,6 +38,7 @@ type Config struct {
 	Interceptors       connect.Option
 	InviteStore        invite.TenantInviteStore
 	AuditSearchBackend auditing.Auditing
+	MCPServer          runtime.MCPServer
 }
 
 func AdminServices(cfg Config) {
@@ -87,4 +90,23 @@ func AdminServices(cfg Config) {
 	cfg.Mux.Handle(adminv2connect.NewTenantServiceHandler(adminTenantService, cfg.Interceptors))
 	cfg.Mux.Handle(adminv2connect.NewTokenServiceHandler(adminTokenService, cfg.Interceptors))
 	cfg.Mux.Handle(adminv2connect.NewVPNServiceHandler(adminVPNService))
+
+	// Register Admin MCP Handlers
+	adminv2mcp.RegisterAuditServiceHandler(cfg.MCPServer, adminAuditService)
+	adminv2mcp.RegisterComponentServiceHandler(cfg.MCPServer, adminComponentService)
+	adminv2mcp.RegisterFilesystemServiceHandler(cfg.MCPServer, adminFilesystemService)
+	adminv2mcp.RegisterImageServiceHandler(cfg.MCPServer, adminImageService)
+	adminv2mcp.RegisterIPServiceHandler(cfg.MCPServer, adminIpService)
+	adminv2mcp.RegisterMachineServiceHandler(cfg.MCPServer, adminMachineService)
+	adminv2mcp.RegisterNetworkServiceHandler(cfg.MCPServer, adminNetworkService)
+	adminv2mcp.RegisterPartitionServiceHandler(cfg.MCPServer, adminPartitionService)
+	adminv2mcp.RegisterProjectServiceHandler(cfg.MCPServer, adminProjectService)
+	adminv2mcp.RegisterSizeImageConstraintServiceHandler(cfg.MCPServer, adminSizeImageConstraintService)
+	adminv2mcp.RegisterSizeReservationServiceHandler(cfg.MCPServer, adminSizeReservationService)
+	adminv2mcp.RegisterSizeServiceHandler(cfg.MCPServer, adminSizeService)
+	adminv2mcp.RegisterSwitchServiceHandler(cfg.MCPServer, adminSwitchService)
+	adminv2mcp.RegisterTaskServiceHandler(cfg.MCPServer, adminTaskService)
+	adminv2mcp.RegisterTenantServiceHandler(cfg.MCPServer, adminTenantService)
+	adminv2mcp.RegisterTokenServiceHandler(cfg.MCPServer, adminTokenService)
+	adminv2mcp.RegisterVPNServiceHandler(cfg.MCPServer, adminVPNService)
 }
