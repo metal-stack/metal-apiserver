@@ -39,6 +39,9 @@ var (
 		URL:            "https://example.com/ubuntu-22.tgz",
 		Classification: metal.ClassificationSupported,
 		Features:       map[metal.ImageFeatureType]bool{metal.ImageFeatureMachine: true, metal.ImageFeatureFirewall: true},
+		Labels: map[string]string{
+			"a": "b",
+		},
 	}
 	img4 = &metal.Image{
 		Base:           metal.Base{ID: "debian-10", Name: "debian-10", Description: "Old Debian"},
@@ -120,6 +123,13 @@ func TestImageFilter(t *testing.T) {
 			name: "by description",
 			rq:   &apiv2.ImageQuery{Description: &img4.Description},
 			want: []*metal.Image{img4},
+		},
+		{
+			name: "by label",
+			rq: &apiv2.ImageQuery{Labels: &apiv2.Labels{
+				Labels: img3.Labels,
+			}},
+			want: []*metal.Image{img3},
 		},
 		{
 			name: "by machine feature",
