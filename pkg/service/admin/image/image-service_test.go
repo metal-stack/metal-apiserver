@@ -163,11 +163,25 @@ func Test_imageServiceServer_Update(t *testing.T) {
 				UpdateMeta: &apiv2.UpdateMeta{
 					UpdatedAt: timestamppb.New(imageMap["debian-11.0.20231231"].Meta.UpdatedAt.AsTime()),
 				},
+				Labels: &apiv2.UpdateLabels{
+					Strategy: &apiv2.UpdateLabels_Replace{
+						Replace: &apiv2.Labels{
+							Labels: map[string]string{
+								"a": "b",
+							},
+						},
+					},
+				},
 				Url: &validURL, Name: new("NewName")},
 			want: &adminv2.ImageServiceUpdateResponse{
 				Image: &apiv2.Image{
-					Id:             "debian-11.0.20231231",
-					Meta:           &apiv2.Meta{Generation: 1},
+					Id: "debian-11.0.20231231",
+					Meta: &apiv2.Meta{
+						Generation: 1,
+						Labels: &apiv2.Labels{
+							Labels: map[string]string{"a": "b"},
+						},
+					},
 					Url:            validURL,
 					Name:           new("NewName"),
 					Description:    new(""),
