@@ -108,8 +108,8 @@ var (
 	}
 	oidcTLSSkipVerifyFlag = &cli.BoolFlag{
 		Name:    "oidc-tls-skip-verify",
-		Value:   true,
-		Usage:   "skip tls verification when talking to the oidc provider, set this to false in real production environments",
+		Value:   false,
+		Usage:   "skip tls verification when talking to the oidc provider",
 		Sources: cli.EnvVars("OIDC_TLS_SKIP_VERIFY"),
 	}
 	logLevelFlag = &cli.StringFlag{

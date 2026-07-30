@@ -11,6 +11,7 @@ import (
 type Image struct {
 	Base
 	URL      string                    `rethinkdb:"url"`
+	Labels   map[string]string         `rethinkdb:"labels"`
 	Features map[ImageFeatureType]bool `rethinkdb:"features"`
 	// OS is parsed from id and is the first part, specifies operating system derivate, internal usage only
 	OS string `rethinkdb:"os"`

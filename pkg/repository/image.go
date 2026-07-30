@@ -82,6 +82,10 @@ func (r *imageRepository) update(ctx context.Context, e *metal.Image, rq *adminv
 		e.URL = *rq.Url
 	}
 
+	if rq.Labels != nil {
+		e.Labels = updateLabelsOnMap(rq.Labels, e.Labels)
+	}
+
 	err := r.s.ds.Image().Update(ctx, e)
 	if err != nil {
 		return nil, err
@@ -135,6 +139,11 @@ func (r *imageRepository) convertToInternal(ctx context.Context, msg *apiv2.Imag
 		return nil, err
 	}
 
+	var labels map[string]string
+	if msg.Meta != nil && msg.Meta.Labels != nil {
+		labels = msg.Meta.Labels.Labels
+	}
+
 	image := &metal.Image{
 		Base: metal.Base{
 			ID:          msg.Id,
@@ -147,6 +156,7 @@ func (r *imageRepository) convertToInternal(ctx context.Context, msg *apiv2.Imag
 		Version:        v.String(),
 		ExpirationDate: expiresAt,
 		Classification: classification,
+		Labels:         labels,
 	}
 	return image, nil
 }
@@ -165,7 +175,16 @@ func (r *imageRepository) convertToProto(ctx context.Context, in *metal.Image) (
 		}
 	}
 
-	var classification apiv2.ImageClassification
+	var (
+		classification apiv2.ImageClassification
+		labels         *apiv2.Labels
+	)
+
+	if in.Labels != nil {
+		labels = &apiv2.Labels{
+			Labels: in.Labels,
+		}
+	}
 
 	switch in.Classification {
 	case metal.ClassificationDeprecated:
@@ -186,6 +205,7 @@ func (r *imageRepository) convertToProto(ctx context.Context, in *metal.Image) (
 			CreatedAt:  timestamppb.New(in.Created),
 			UpdatedAt:  timestamppb.New(in.Changed),
 			Generation: in.Generation,
+			Labels:     labels,
 		},
 		Url:            in.URL,
 		Features:       features,

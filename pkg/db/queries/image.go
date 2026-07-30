@@ -61,6 +61,14 @@ func ImageFilter(rq *apiv2.ImageQuery) func(q r.Term) r.Term {
 			})
 		}
 
+		if rq.Labels != nil {
+			for key, value := range rq.Labels.Labels {
+				q = q.Filter(func(row r.Term) r.Term {
+					return row.Field("labels").Field(key).Eq(value)
+				})
+			}
+		}
+
 		return q
 	}
 }
