@@ -29,7 +29,7 @@ import (
 	tenantclient "github.com/metal-stack/tenant-api/go/client"
 
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
-	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/db/interfaces"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	repoapi "github.com/metal-stack/metal-apiserver/pkg/repository/api"
@@ -56,7 +56,7 @@ type Config struct {
 	OIDCEndSessionURL                   string
 	OIDCUniqueUserKey                   string
 	OIDCTLSSkipVerify                   bool
-	Datastore                           generic.Datastore
+	Datastore                           interfaces.Datastore
 	Repository                          *repository.Store
 	TenantClient                        tenantclient.Client
 	IpamClient                          ipamv1connect.IpamServiceClient

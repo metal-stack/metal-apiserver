@@ -7,9 +7,9 @@ import (
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
+	"github.com/metal-stack/metal-apiserver/pkg/db/rethinkdb"
+	"github.com/metal-stack/metal-apiserver/pkg/db/rethinkdb/queries"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -164,8 +164,8 @@ func (r *sizeReservationRepository) convertToProto(ctx context.Context, e *metal
 	}, nil
 }
 
-func (r *sizeReservationRepository) sizeReservationFilters(filter generic.EntityQuery) []generic.EntityQuery {
-	var qs []generic.EntityQuery
+func (r *sizeReservationRepository) sizeReservationFilters(filter rethinkdb.EntityQuery) []any {
+	var qs []any
 	if filter != nil {
 		qs = append(qs, filter)
 	}

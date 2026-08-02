@@ -10,7 +10,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/async/queue"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
-	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/db/interfaces"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
@@ -28,7 +28,7 @@ import (
 type (
 	Store struct {
 		log             *slog.Logger
-		ds              generic.Datastore
+		ds              interfaces.Datastore
 		tc              tenant.Client
 		ipam            ipamv1connect.IpamServiceClient
 		task            *task.Client
@@ -44,7 +44,7 @@ type (
 
 	Config struct {
 		Log                   *slog.Logger
-		Datastore             generic.Datastore
+		Datastore             interfaces.Datastore
 		TenantApiserverClient tenant.Client
 		Ipam                  ipamv1connect.IpamServiceClient
 		Task                  *task.Client

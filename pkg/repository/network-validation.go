@@ -14,7 +14,7 @@ import (
 	goipam "github.com/metal-stack/go-ipam"
 	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
+	"github.com/metal-stack/metal-apiserver/pkg/db/rethinkdb/queries"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 )
 

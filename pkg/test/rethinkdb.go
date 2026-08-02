@@ -9,7 +9,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/db/interfaces"
+	"github.com/metal-stack/metal-apiserver/pkg/db/rethinkdb"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	tlog "github.com/testcontainers/testcontainers-go/log"
@@ -26,7 +27,7 @@ var (
 	rethinkDbMtx         sync.Mutex
 )
 
-func StartRethink(t testing.TB, log *slog.Logger) (generic.Datastore, r.ConnectOpts, func()) {
+func StartRethink(t testing.TB, log *slog.Logger) (interfaces.Datastore, r.ConnectOpts, func()) {
 	rethinkDbMtx.Lock()
 	defer rethinkDbMtx.Unlock()
 
@@ -69,10 +70,10 @@ func StartRethink(t testing.TB, log *slog.Logger) (generic.Datastore, r.ConnectO
 		MaxOpen:    2000,
 	}
 
-	err := generic.Initialize(t.Context(), log, rethinkDbConnectOpts, generic.AsnPoolRange(uint(1), uint(100)), generic.VrfPoolRange(uint(1), uint(100)), generic.NewMutexOptCheckInterval(3*time.Second))
+	err := rethinkdb.Initialize(t.Context(), log, rethinkDbConnectOpts, rethinkdb.AsnPoolRange(uint(1), uint(100)), rethinkdb.VrfPoolRange(uint(1), uint(100)), rethinkdb.NewMutexOptCheckInterval(3*time.Second))
 	require.NoError(t, err)
 
-	ds, err := generic.New(log, rethinkDbConnectOpts)
+	ds, err := rethinkdb.New(log, rethinkDbConnectOpts)
 	require.NoError(t, err)
 
 	return ds, rethinkDbConnectOpts, rethinkDbCloser
