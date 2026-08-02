@@ -7,10 +7,10 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/postgres/cond"
 )
 
-// buildWhereClause builds a SQL WHERE clause from a list of Where conditions.
+// BuildWhereClause builds a SQL WHERE clause from a list of Where conditions.
 // If no conditions are given, returns an empty string (no WHERE clause).
 // It renumbers the parameter placeholders to be sequential starting from startParam.
-func buildWhereClause(conds []*cond.Where, startParam int) (string, []any) {
+func BuildWhereClause(conds []*cond.Where, startParam int) (string, []any) {
 	if len(conds) == 0 {
 		return "", nil
 	}

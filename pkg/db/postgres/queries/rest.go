@@ -81,7 +81,7 @@ func SizeReservationFilter(rq *apiv2.SizeReservationQuery) *cond.Where {
 	if rq.Labels != nil {
 		for key, value := range rq.Labels.Labels {
 			conds = append(conds, &cond.Where{
-				SQL:  fmt.Sprintf("data->'Labels'->>'%s' = $%d", escapeJSONKey(key), 1),
+				SQL:  fmt.Sprintf("data->'Labels'->>'%s' = $%d", key, 1),
 				Args: []any{value},
 			})
 		}

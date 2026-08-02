@@ -3,6 +3,7 @@ package queries
 import (
 	"fmt"
 
+	"github.com/metal-stack/api/go/enum"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/tag"
 	"github.com/metal-stack/metal-apiserver/pkg/db/postgres/cond"
@@ -50,11 +51,11 @@ func IpFilter(rq *apiv2.IPQuery) *cond.Where {
 		}
 	}
 	if rq.Type != nil {
-		typeStr, err := enumGetStringValue(*rq.Type)
-		if err == nil && typeStr != "" {
-			conds = append(conds, cond.FieldEq("Type", typeStr))
+			typePtr, err := enum.GetStringValue(*rq.Type)
+			if err == nil && typePtr != nil {
+				conds = append(conds, cond.FieldEq("Type", *typePtr))
+			}
 		}
-	}
 	if rq.AddressFamily != nil {
 		switch rq.AddressFamily.String() {
 		case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4.String():

@@ -5,6 +5,7 @@ import (
 	"net/netip"
 	"strconv"
 
+	"github.com/metal-stack/api/go/enum"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/postgres/cond"
 )
@@ -46,21 +47,21 @@ func NetworkFilter(rq *apiv2.NetworkQuery) *cond.Where {
 	if rq.Labels != nil {
 		for key, value := range rq.Labels.Labels {
 			conds = append(conds, &cond.Where{
-				SQL:  fmt.Sprintf("data->'Labels'->>'%s' = $%d", escapeJSONKey(key), 1),
+				SQL:  fmt.Sprintf("data->'Labels'->>'%s' = $%d", key, 1),
 				Args: []any{value},
 			})
 		}
 	}
 	if rq.Type != nil {
-		typeStr, err := enumGetStringValue(*rq.Type)
-		if err == nil && typeStr != "" {
-			conds = append(conds, cond.FieldEq("NetworkType", typeStr))
+		typePtr, err := enum.GetStringValue(rq.Type)
+		if err == nil && typePtr != nil {
+			conds = append(conds, cond.FieldEq("NetworkType", *typePtr))
 		}
 	}
 	if rq.NatType != nil {
-		typeStr, err := enumGetStringValue(*rq.NatType)
-		if err == nil && typeStr != "" {
-			conds = append(conds, cond.FieldEq("NATType", typeStr))
+		typePtr, err := enum.GetStringValue(rq.NatType)
+		if err == nil && typePtr != nil {
+			conds = append(conds, cond.FieldEq("NATType", *typePtr))
 		}
 	}
 	for _, prefix := range rq.Prefixes {

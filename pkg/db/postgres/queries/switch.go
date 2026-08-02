@@ -3,6 +3,7 @@ package queries
 import (
 	"fmt"
 
+	"github.com/metal-stack/api/go/enum"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/postgres/cond"
 )
@@ -28,11 +29,11 @@ func SwitchFilter(query *apiv2.SwitchQuery) *cond.Where {
 	}
 	if query.Os != nil {
 		if query.Os.Vendor != nil {
-			vendorStr, err := enumGetStringValue(query.Os.Vendor)
-			if err == nil && vendorStr != "" {
+			vendorPtr, err := enum.GetStringValue(query.Os.Vendor)
+			if err == nil && vendorPtr != nil {
 				conds = append(conds, &cond.Where{
 					SQL:  fmt.Sprintf("data->'OS'->>'Vendor' = $%d", 1),
-					Args: []any{vendorStr},
+					Args: []any{*vendorPtr},
 				})
 			}
 		}
@@ -45,8 +46,7 @@ func SwitchFilter(query *apiv2.SwitchQuery) *cond.Where {
 	}
 	if query.ConnectedMachineId != nil {
 		conds = append(conds, &cond.Where{
-			SQL:  fmt.Sprintf("data->'MachineConnections' ? '%s'", escapeJSONKey(*query.ConnectedMachineId)),
-			Args: nil,
+			SQL:  fmt.Sprintf("data->'MachineConnections' ? '%s'", *query.ConnectedMachineId),
 		})
 	}
 

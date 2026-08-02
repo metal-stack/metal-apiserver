@@ -92,7 +92,7 @@ func (s *storage[E]) Find(ctx context.Context, queries ...any) (E, error) {
 
 	if len(conds) > 0 || len(filters) == 0 {
 		// Use JSONB query path
-		whereSQL, whereArgs := buildWhereClause(conds, 1)
+		whereSQL, whereArgs := BuildWhereClause(conds, 1)
 		query := `SELECT data FROM ` + quoteIdent(s.tableName) + whereSQL
 
 		rows, err := s.ds.pool.Query(ctx, query, whereArgs...)
@@ -171,7 +171,7 @@ func (s *storage[E]) List(ctx context.Context, queries ...any) ([]E, error) {
 
 	if len(conds) > 0 || len(filters) == 0 {
 		// Use JSONB query path
-		whereSQL, whereArgs := buildWhereClause(conds, 1)
+		whereSQL, whereArgs := BuildWhereClause(conds, 1)
 		query := `SELECT data FROM ` + quoteIdent(s.tableName) + whereSQL
 
 		rows, err := s.ds.pool.Query(ctx, query, whereArgs...)

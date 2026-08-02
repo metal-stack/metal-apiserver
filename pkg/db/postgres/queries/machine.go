@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/metal-stack/api/go/enum"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/postgres/cond"
 )
@@ -54,69 +55,94 @@ func MachineFilter(rq *apiv2.MachineQuery) *cond.Where {
 		conds = append(conds, &cond.Where{SQL: fmt.Sprintf("data->>'PreAllocated' = '%s'", val)})
 	}
 	if rq.NotAllocated != nil && *rq.NotAllocated {
-		conds = append(conds, cond.FieldIsNull("Allocation"))
+		conds = append(conds, &cond.Where{SQL: "(data->'Allocation' IS NULL OR data->'Allocation' = 'null'::jsonb)"})
 	}
 	if rq.Allocation != nil {
 		alloc := rq.Allocation
+
+		noSubFilters := alloc.Project == nil && alloc.Uuid == nil && alloc.Name == nil && alloc.Image == nil &&
+			alloc.Hostname == nil && alloc.AllocationType == nil && alloc.FilesystemLayout == nil &&
+			alloc.Labels == nil && alloc.Vpn == nil
+		if noSubFilters {
+			conds = append(conds, &cond.Where{SQL: "(data ? 'Allocation' AND data->'Allocation' IS NOT NULL AND data->'Allocation' != 'null'::jsonb)"})
+		}
+
 		if alloc.Project != nil {
-			conds = append(conds, cond.NestedFieldEq("Allocation", "Project", *alloc.Project))
+			conds = append(conds, nestedFieldEq("Allocation", "Project", *alloc.Project))
 		}
 		if alloc.Uuid != nil {
-			conds = append(conds, cond.NestedFieldEq("Allocation", "UUID", *alloc.Uuid))
+			conds = append(conds, nestedFieldEq("Allocation", "UUID", *alloc.Uuid))
 		}
 		if alloc.Name != nil {
-			conds = append(conds, cond.NestedFieldEq("Allocation", "Name", *alloc.Name))
+			conds = append(conds, nestedFieldEq("Allocation", "Name", *alloc.Name))
 		}
 		if alloc.Image != nil {
-			conds = append(conds, cond.NestedFieldEq("Allocation", "ImageID", *alloc.Image))
+			conds = append(conds, nestedFieldEq("Allocation", "ImageID", *alloc.Image))
 		}
 		if alloc.Hostname != nil {
-			conds = append(conds, cond.NestedFieldEq("Allocation", "Hostname", *alloc.Hostname))
+			conds = append(conds, nestedFieldEq("Allocation", "Hostname", *alloc.Hostname))
 		}
 		if alloc.AllocationType != nil {
-			roleStr, err := enumGetStringValue(*alloc.AllocationType)
-			if err == nil && roleStr != "" {
-				conds = append(conds, cond.NestedFieldEq("Allocation", "Role", roleStr))
+				rolePtr, err := enum.GetStringValue(*alloc.AllocationType)
+				if err == nil && rolePtr != nil && *rolePtr != "" {
+					conds = append(conds, nestedFieldEq("Allocation", "Role", *rolePtr))
+				}
 			}
-		}
 		if alloc.FilesystemLayout != nil {
-			conds = append(conds, cond.NestedFieldEq("Allocation", "FilesystemLayout", *alloc.FilesystemLayout))
+			conds = append(conds, &cond.Where{
+				SQL:  fmt.Sprintf("data->'Allocation'->'FilesystemLayout'->>'ID' = $%d", 1),
+				Args: []any{*alloc.FilesystemLayout},
+			})
 		}
 		if alloc.Labels != nil {
 			for key, value := range alloc.Labels.Labels {
 				conds = append(conds, &cond.Where{
-					SQL:  fmt.Sprintf("data->'Allocation'->'Labels'->>'%s' = $%d", escapeJSONKey(key), 1),
+					SQL:  fmt.Sprintf("data->'Allocation'->'Labels'->>'%s' = $%d", key, 1),
 					Args: []any{value},
 				})
 			}
 		}
 		if alloc.Vpn != nil {
-			conds = append(conds, cond.NestedFieldHasKey("Allocation", "VPN"))
+			conds = append(conds, &cond.Where{
+				SQL: "(data->'Allocation' ? 'VPN' AND data->'Allocation'->'VPN' IS NOT NULL AND data->'Allocation'->'VPN' != 'null'::jsonb)",
+			})
 		}
 	}
 	if rq.Network != nil {
 		nw := rq.Network
 		for _, id := range nw.Networks {
-			conds = append(conds, cond.NestedArrayFieldEq("Allocation", "Networks", id))
+			conds = append(conds, &cond.Where{
+				SQL:  fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements(data->'Allocation'->'MachineNetworks') elem WHERE elem->>'NetworkID' = $%d)", 1),
+				Args: []any{id},
+			})
 		}
 		for _, prefix := range nw.Prefixes {
-			conds = append(conds, cond.NestedArrayCheck("Allocation", fmt.Sprintf(`{"Networks": [{"Prefixes": ["%s"]}]}`, escapeJSONString(prefix))))
+			conds = append(conds, &cond.Where{
+				SQL:  fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements(data->'Allocation'->'MachineNetworks') elem WHERE elem @> $%d::jsonb)", 1),
+				Args: []any{fmt.Sprintf(`{"Prefixes": ["%s"]}`, prefix)},
+			})
 		}
 		for _, ip := range nw.Ips {
-			conds = append(conds, cond.NestedArrayCheck("Allocation", fmt.Sprintf(`{"Networks": [{"IPs": ["%s"]}]}`, escapeJSONString(ip))))
+			conds = append(conds, &cond.Where{
+				SQL:  fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements(data->'Allocation'->'MachineNetworks') elem WHERE elem @> $%d::jsonb)", 1),
+				Args: []any{fmt.Sprintf(`{"IPs": ["%s"]}`, ip)},
+			})
 		}
 		for _, destPrefix := range nw.DestinationPrefixes {
-			conds = append(conds, cond.NestedArrayCheck("Allocation", fmt.Sprintf(`{"Networks": [{"DestinationPrefixes": ["%s"]}]}`, escapeJSONString(destPrefix))))
+			conds = append(conds, &cond.Where{
+				SQL:  fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements(data->'Allocation'->'MachineNetworks') elem WHERE elem @> $%d::jsonb)", 1),
+				Args: []any{fmt.Sprintf(`{"DestinationPrefixes": ["%s"]}`, destPrefix)},
+			})
 		}
 		for _, vrf := range nw.Vrfs {
 			conds = append(conds, &cond.Where{
-				SQL:  fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements(data->'Allocation'->'Networks') elem WHERE elem->>'Vrf' = $%d::text)", 1),
-				Args: []any{fmt.Sprintf("%d", vrf)},
+				SQL:  fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements(data->'Allocation'->'MachineNetworks') elem WHERE (elem->>'Vrf')::int = $%d)", 1),
+				Args: []any{vrf},
 			})
 		}
 		for _, asn := range nw.Asns {
 			conds = append(conds, &cond.Where{
-				SQL:  fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements(data->'Allocation'->'Networks') elem WHERE (elem->>'ASN')::int = $%d)", 1),
+				SQL:  fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements(data->'Allocation'->'MachineNetworks') elem WHERE (elem->>'ASN')::int = $%d)", 1),
 				Args: []any{asn},
 			})
 		}
@@ -124,11 +150,14 @@ func MachineFilter(rq *apiv2.MachineQuery) *cond.Where {
 	if rq.Hardware != nil {
 		hw := rq.Hardware
 		if hw.Memory != nil {
-			conds = append(conds, cond.FieldEqFloat("Memory", float64(*hw.Memory)))
+			conds = append(conds, &cond.Where{
+				SQL:  fmt.Sprintf("(data->'Hardware'->>'Memory')::float8 = $%d", 1),
+				Args: []any{float64(*hw.Memory)},
+			})
 		}
 		if hw.CpuCores != nil {
 			conds = append(conds, &cond.Where{
-				SQL:  fmt.Sprintf("(SELECT SUM((elem->>'Cores')::int) FROM jsonb_array_elements(data->'Hardware'->'Cpus') elem) = $%d", 1),
+				SQL:  fmt.Sprintf("(SELECT COALESCE(SUM((elem->>'Cores')::int), 0) FROM jsonb_array_elements(data->'Hardware'->'MetalCPUs') elem) = $%d", 1),
 				Args: []any{*hw.CpuCores},
 			})
 		}
@@ -136,37 +165,22 @@ func MachineFilter(rq *apiv2.MachineQuery) *cond.Where {
 	if rq.Nic != nil {
 		nic := rq.Nic
 		for _, mac := range nic.Macs {
-			conds = append(conds, &cond.Where{
-				SQL:  fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements(data->'Hardware'->'Nics') elem WHERE elem->>'MacAddress' = $%d)", 1),
-				Args: []any{mac},
-			})
+			conds = append(conds, arrayElemFieldEq("Hardware", "Nics", "MacAddress", mac))
 		}
 		for _, name := range nic.Names {
-			conds = append(conds, &cond.Where{
-				SQL:  fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements(data->'Hardware'->'Nics') elem WHERE elem->>'Name' = $%d)", 1),
-				Args: []any{name},
-			})
+			conds = append(conds, arrayElemFieldEq("Hardware", "Nics", "Name", name))
 		}
 		for _, mac := range nic.NeighborMacs {
-			conds = append(conds, &cond.Where{
-				SQL:  fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements(data->'Hardware'->'Nics') nic, jsonb_array_elements(nic->'Neighbors') neigh WHERE neigh->>'MacAddress' = $%d)", 1),
-				Args: []any{mac},
-			})
+			conds = append(conds, nestedArrayElemFieldEq("Hardware", "Nics", "Neighbors", "MacAddress", mac))
 		}
 		for _, name := range nic.NeighborNames {
-			conds = append(conds, &cond.Where{
-				SQL:  fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements(data->'Hardware'->'Nics') nic, jsonb_array_elements(nic->'Neighbors') neigh WHERE neigh->>'Name' = $%d)", 1),
-				Args: []any{name},
-			})
+			conds = append(conds, nestedArrayElemFieldEq("Hardware", "Nics", "Neighbors", "Name", name))
 		}
 	}
 	if rq.Disk != nil {
 		disk := rq.Disk
 		for _, name := range disk.Names {
-			conds = append(conds, &cond.Where{
-				SQL:  fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements(data->'Hardware'->'Disks') elem WHERE elem->>'Name' = $%d)", 1),
-				Args: []any{name},
-			})
+			conds = append(conds, arrayElemFieldEq("Hardware", "Disks", "Name", name))
 		}
 		for _, size := range disk.Sizes {
 			conds = append(conds, &cond.Where{
@@ -176,84 +190,102 @@ func MachineFilter(rq *apiv2.MachineQuery) *cond.Where {
 		}
 	}
 	if rq.State != nil {
-		stateStr, err := enumGetStringValue(*rq.State)
-		if err == nil && stateStr != "" {
+			statePtr, err := enum.GetStringValue(rq.State)
+			if err != nil {
+				return cond.And(conds...)
+			}
+			stateStr := ""
+			if statePtr != nil {
+				stateStr = *statePtr
+			}
 			if *rq.State == apiv2.MachineState_MACHINE_STATE_AVAILABLE {
-				conds = append(conds, &cond.Where{SQL: "(data->'State' IS NULL OR data->'State'->>'Value' = '' OR data->'State'->>'Value' IS NULL)"})
+				stateStr = ""
+			}
+			if stateStr == "" {
+				conds = append(conds, stateEqAvailable())
 			} else {
 				conds = append(conds, &cond.Where{
 					SQL:  fmt.Sprintf("UPPER(data->'State'->>'Value') = $%d", 1),
 					Args: []any{strings.ToUpper(stateStr)},
 				})
 			}
-		}
 	}
 	if rq.Bmc != nil {
 		bmc := rq.Bmc
 		if bmc.Address != nil {
-			conds = append(conds, cond.NestedFieldEq("IPMI", "Address", *bmc.Address))
+			conds = append(conds, nestedFieldEq("IPMI", "Address", *bmc.Address))
 		}
 		if bmc.Mac != nil {
-			conds = append(conds, cond.NestedFieldEq("IPMI", "MacAddress", *bmc.Mac))
+			conds = append(conds, nestedFieldEq("IPMI", "MacAddress", *bmc.Mac))
 		}
 		if bmc.User != nil {
-			conds = append(conds, cond.NestedFieldEq("IPMI", "User", *bmc.User))
+			conds = append(conds, nestedFieldEq("IPMI", "User", *bmc.User))
 		}
 		if bmc.Interface != nil {
-			conds = append(conds, cond.NestedFieldEq("IPMI", "Interface", *bmc.Interface))
+			conds = append(conds, nestedFieldEq("IPMI", "Interface", *bmc.Interface))
 		}
 	}
 	if rq.Fru != nil {
 		fru := rq.Fru
 		if fru.ChassisPartNumber != nil {
-			conds = append(conds, &cond.Where{
-				SQL:  fmt.Sprintf("data->'IPMI'->'Fru'->>'ChassisPartNumber' = $%d", 1),
-				Args: []any{*fru.ChassisPartNumber},
-			})
+			conds = append(conds, fruFieldEq("ChassisPartNumber", *fru.ChassisPartNumber))
 		}
 		if fru.ChassisPartSerial != nil {
-			conds = append(conds, &cond.Where{
-				SQL:  fmt.Sprintf("data->'IPMI'->'Fru'->>'ChassisPartSerial' = $%d", 1),
-				Args: []any{*fru.ChassisPartSerial},
-			})
+			conds = append(conds, fruFieldEq("ChassisPartSerial", *fru.ChassisPartSerial))
 		}
 		if fru.BoardMfg != nil {
-			conds = append(conds, &cond.Where{
-				SQL:  fmt.Sprintf("data->'IPMI'->'Fru'->>'BoardMfg' = $%d", 1),
-				Args: []any{*fru.BoardMfg},
-			})
+			conds = append(conds, fruFieldEq("BoardMfg", *fru.BoardMfg))
 		}
 		if fru.BoardSerial != nil {
-			conds = append(conds, &cond.Where{
-				SQL:  fmt.Sprintf("data->'IPMI'->'Fru'->>'BoardMfgSerial' = $%d", 1),
-				Args: []any{*fru.BoardSerial},
-			})
+			conds = append(conds, fruFieldEq("BoardMfgSerial", *fru.BoardSerial))
 		}
 		if fru.BoardPartNumber != nil {
-			conds = append(conds, &cond.Where{
-				SQL:  fmt.Sprintf("data->'IPMI'->'Fru'->>'BoardPartNumber' = $%d", 1),
-				Args: []any{*fru.BoardPartNumber},
-			})
+			conds = append(conds, fruFieldEq("BoardPartNumber", *fru.BoardPartNumber))
 		}
 		if fru.ProductManufacturer != nil {
-			conds = append(conds, &cond.Where{
-				SQL:  fmt.Sprintf("data->'IPMI'->'Fru'->>'ProductManufacturer' = $%d", 1),
-				Args: []any{*fru.ProductManufacturer},
-			})
+			conds = append(conds, fruFieldEq("ProductManufacturer", *fru.ProductManufacturer))
 		}
 		if fru.ProductPartNumber != nil {
-			conds = append(conds, &cond.Where{
-				SQL:  fmt.Sprintf("data->'IPMI'->'Fru'->>'ProductPartNumber' = $%d", 1),
-				Args: []any{*fru.ProductPartNumber},
-			})
+			conds = append(conds, fruFieldEq("ProductPartNumber", *fru.ProductPartNumber))
 		}
 		if fru.ProductSerial != nil {
-			conds = append(conds, &cond.Where{
-				SQL:  fmt.Sprintf("data->'IPMI'->'Fru'->>'ProductSerial' = $%d", 1),
-				Args: []any{*fru.ProductSerial},
-			})
+			conds = append(conds, fruFieldEq("ProductSerial", *fru.ProductSerial))
 		}
 	}
 
 	return cond.And(conds...)
+}
+
+func nestedFieldEq(parent, field, value string) *cond.Where {
+	return &cond.Where{
+		SQL:  fmt.Sprintf("data->'%s'->>'%s' = $%d", parent, field, 1),
+		Args: []any{value},
+	}
+}
+
+func fruFieldEq(field, value string) *cond.Where {
+	return &cond.Where{
+		SQL:  fmt.Sprintf("data->'IPMI'->'Fru'->>'%s' = $%d", field, 1),
+		Args: []any{value},
+	}
+}
+
+func arrayElemFieldEq(parent, array, field, value string) *cond.Where {
+	return &cond.Where{
+		SQL:  fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements(data->'%s'->'%s') elem WHERE elem->>'%s' = $%d)", parent, array, field, 1),
+		Args: []any{value},
+	}
+}
+
+func nestedArrayElemFieldEq(parent, array, nestedArray, field, value string) *cond.Where {
+	return &cond.Where{
+		SQL: fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements(data->'%s'->'%s') elem, jsonb_array_elements(elem->'%s') nelem WHERE nelem->>'%s' = $%d)", parent, array, nestedArray, field, 1),
+		Args: []any{value},
+	}
+}
+
+func stateEqAvailable() *cond.Where {
+	return &cond.Where{
+		SQL: "(data->'State' IS NULL OR data->'State'->>'Value' = '' OR data->'State'->>'Value' IS NULL)",
+	}
 }
