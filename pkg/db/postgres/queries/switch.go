@@ -46,7 +46,7 @@ func SwitchFilter(query *apiv2.SwitchQuery) *cond.Where {
 	}
 	if query.ConnectedMachineId != nil {
 		conds = append(conds, &cond.Where{
-			SQL:  fmt.Sprintf("data->'MachineConnections' ? '%s'", *query.ConnectedMachineId),
+			SQL: fmt.Sprintf("data->'MachineConnections' ? '%s'", *query.ConnectedMachineId),
 		})
 	}
 

@@ -62,10 +62,10 @@ func New(log *slog.Logger, cfg Config) (interfaces.Datastore, error) {
 	ds.switchStatus = newStorage[*metal.SwitchStatus](ds, "switchstatus")
 
 	var (
-		vrfMin  = uint(1)
-		vrfMax  = uint(131072)
-		asnMin  = uint(1)
-		asnMax  = uint(131072)
+		vrfMin = uint(1)
+		vrfMax = uint(131072)
+		asnMin = uint(1)
+		asnMax = uint(131072)
 	)
 
 	ds.asnPool = newIntegerPool(ds, "asnpool", asnMin, asnMax)
@@ -93,18 +93,22 @@ func (ds *datastore) Unlock(ctx context.Context, key string, opts ...any) {
 	ds.locker.unlock(ctx, key)
 }
 
-func (ds *datastore) IP() interfaces.Storage[*metal.IP]                    { return ds.ip }
-func (ds *datastore) Machine() interfaces.Storage[*metal.Machine]          { return ds.machine }
-func (ds *datastore) Size() interfaces.Storage[*metal.Size]                { return ds.size }
-func (ds *datastore) SizeImageConstraint() interfaces.Storage[*metal.SizeImageConstraint] { return ds.sizeImageConstraint }
-func (ds *datastore) SizeReservation() interfaces.Storage[*metal.SizeReservation] { return ds.sizeReservation }
-func (ds *datastore) Partition() interfaces.Storage[*metal.Partition]      { return ds.partition }
-func (ds *datastore) Network() interfaces.Storage[*metal.Network]          { return ds.network }
+func (ds *datastore) IP() interfaces.Storage[*metal.IP]           { return ds.ip }
+func (ds *datastore) Machine() interfaces.Storage[*metal.Machine] { return ds.machine }
+func (ds *datastore) Size() interfaces.Storage[*metal.Size]       { return ds.size }
+func (ds *datastore) SizeImageConstraint() interfaces.Storage[*metal.SizeImageConstraint] {
+	return ds.sizeImageConstraint
+}
+func (ds *datastore) SizeReservation() interfaces.Storage[*metal.SizeReservation] {
+	return ds.sizeReservation
+}
+func (ds *datastore) Partition() interfaces.Storage[*metal.Partition]               { return ds.partition }
+func (ds *datastore) Network() interfaces.Storage[*metal.Network]                   { return ds.network }
 func (ds *datastore) FilesystemLayout() interfaces.Storage[*metal.FilesystemLayout] { return ds.fsl }
-func (ds *datastore) Image() interfaces.Storage[*metal.Image]              { return ds.image }
-func (ds *datastore) Switch() interfaces.Storage[*metal.Switch]            { return ds.sw }
-func (ds *datastore) SwitchStatus() interfaces.Storage[*metal.SwitchStatus] { return ds.switchStatus }
-func (ds *datastore) Event() interfaces.Storage[*metal.ProvisioningEventContainer] { return ds.event }
-func (ds *datastore) AsnPool() interfaces.IntegerPool                      { return ds.asnPool }
-func (ds *datastore) VrfPool() interfaces.IntegerPool                      { return ds.vrfPool }
-func (ds *datastore) GetTableNames() []string                              { return ds.tableNames }
+func (ds *datastore) Image() interfaces.Storage[*metal.Image]                       { return ds.image }
+func (ds *datastore) Switch() interfaces.Storage[*metal.Switch]                     { return ds.sw }
+func (ds *datastore) SwitchStatus() interfaces.Storage[*metal.SwitchStatus]         { return ds.switchStatus }
+func (ds *datastore) Event() interfaces.Storage[*metal.ProvisioningEventContainer]  { return ds.event }
+func (ds *datastore) AsnPool() interfaces.IntegerPool                               { return ds.asnPool }
+func (ds *datastore) VrfPool() interfaces.IntegerPool                               { return ds.vrfPool }
+func (ds *datastore) GetTableNames() []string                                       { return ds.tableNames }

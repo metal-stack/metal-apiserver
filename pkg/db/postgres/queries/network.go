@@ -69,7 +69,7 @@ func NetworkFilter(rq *apiv2.NetworkQuery) *cond.Where {
 		ip := pfx.Addr().String()
 		length := strconv.Itoa(pfx.Bits())
 		conds = append(conds, &cond.Where{
-			SQL: fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements(data->'Prefixes') elem WHERE elem->>'IP' = $%d AND elem->>'Length' = $%d)", 1, 2),
+			SQL:  fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements(data->'Prefixes') elem WHERE elem->>'IP' = $%d AND elem->>'Length' = $%d)", 1, 2),
 			Args: []any{ip, length},
 		})
 	}
@@ -78,7 +78,7 @@ func NetworkFilter(rq *apiv2.NetworkQuery) *cond.Where {
 		ip := pfx.Addr().String()
 		length := strconv.Itoa(pfx.Bits())
 		conds = append(conds, &cond.Where{
-			SQL: fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements(data->'DestinationPrefixes') elem WHERE elem->>'IP' = $%d AND elem->>'Length' = $%d)", 1, 2),
+			SQL:  fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements(data->'DestinationPrefixes') elem WHERE elem->>'IP' = $%d AND elem->>'Length' = $%d)", 1, 2),
 			Args: []any{ip, length},
 		})
 	}

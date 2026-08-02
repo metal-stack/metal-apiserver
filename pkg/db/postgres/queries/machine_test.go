@@ -19,8 +19,8 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/postgres/queries"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
-	pgmodules "github.com/testcontainers/testcontainers-go/modules/postgres"
 	tlog "github.com/testcontainers/testcontainers-go/log"
+	pgmodules "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
@@ -33,7 +33,7 @@ var (
 	m1 = &metal.Machine{
 		Base: metal.Base{ID: "m1", Name: "m1"},
 		Allocation: &metal.MachineAllocation{
-			Name:   "shoot-worker-1",
+			Name:    "shoot-worker-1",
 			Project: "p1",
 			ImageID: "debian-12",
 			FilesystemLayout: &metal.FilesystemLayout{
@@ -51,17 +51,17 @@ var (
 			FirewallRules:   &metal.FirewallRules{},
 			Labels:          map[string]string{"color": "red"},
 		},
-		PartitionID:  "p1",
-		SizeID:       "c1-medium",
-		RackID:       "rack-1",
-		RoomID:       "room-1",
-		Tags:         []string{"color=red"},
-		IPMI:         metal.IPMI{PowerMetric: &metal.PowerMetric{}, PowerSupplies: metal.PowerSupplies{}},
+		PartitionID: "p1",
+		SizeID:      "c1-medium",
+		RackID:      "rack-1",
+		RoomID:      "room-1",
+		Tags:        []string{"color=red"},
+		IPMI:        metal.IPMI{PowerMetric: &metal.PowerMetric{}, PowerSupplies: metal.PowerSupplies{}},
 	}
 	m2 = &metal.Machine{
 		Base: metal.Base{ID: "m2", Name: "m2"},
 		Allocation: &metal.MachineAllocation{
-			Name:   "shoot-fw-m2",
+			Name:    "shoot-fw-m2",
 			Project: "p2",
 			ImageID: "firewall-ubuntu-3",
 			FilesystemLayout: &metal.FilesystemLayout{

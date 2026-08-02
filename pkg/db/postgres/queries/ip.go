@@ -51,11 +51,11 @@ func IpFilter(rq *apiv2.IPQuery) *cond.Where {
 		}
 	}
 	if rq.Type != nil {
-			typePtr, err := enum.GetStringValue(*rq.Type)
-			if err == nil && typePtr != nil {
-				conds = append(conds, cond.FieldEq("Type", *typePtr))
-			}
+		typePtr, err := enum.GetStringValue(*rq.Type)
+		if err == nil && typePtr != nil {
+			conds = append(conds, cond.FieldEq("Type", *typePtr))
 		}
+	}
 	if rq.AddressFamily != nil {
 		switch rq.AddressFamily.String() {
 		case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4.String():

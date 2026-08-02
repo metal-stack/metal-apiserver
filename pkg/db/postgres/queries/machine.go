@@ -83,11 +83,11 @@ func MachineFilter(rq *apiv2.MachineQuery) *cond.Where {
 			conds = append(conds, nestedFieldEq("Allocation", "Hostname", *alloc.Hostname))
 		}
 		if alloc.AllocationType != nil {
-				rolePtr, err := enum.GetStringValue(*alloc.AllocationType)
-				if err == nil && rolePtr != nil && *rolePtr != "" {
-					conds = append(conds, nestedFieldEq("Allocation", "Role", *rolePtr))
-				}
+			rolePtr, err := enum.GetStringValue(*alloc.AllocationType)
+			if err == nil && rolePtr != nil && *rolePtr != "" {
+				conds = append(conds, nestedFieldEq("Allocation", "Role", *rolePtr))
 			}
+		}
 		if alloc.FilesystemLayout != nil {
 			conds = append(conds, &cond.Where{
 				SQL:  fmt.Sprintf("data->'Allocation'->'FilesystemLayout'->>'ID' = $%d", 1),
@@ -190,25 +190,25 @@ func MachineFilter(rq *apiv2.MachineQuery) *cond.Where {
 		}
 	}
 	if rq.State != nil {
-			statePtr, err := enum.GetStringValue(rq.State)
-			if err != nil {
-				return cond.And(conds...)
-			}
-			stateStr := ""
-			if statePtr != nil {
-				stateStr = *statePtr
-			}
-			if *rq.State == apiv2.MachineState_MACHINE_STATE_AVAILABLE {
-				stateStr = ""
-			}
-			if stateStr == "" {
-				conds = append(conds, stateEqAvailable())
-			} else {
-				conds = append(conds, &cond.Where{
-					SQL:  fmt.Sprintf("UPPER(data->'State'->>'Value') = $%d", 1),
-					Args: []any{strings.ToUpper(stateStr)},
-				})
-			}
+		statePtr, err := enum.GetStringValue(rq.State)
+		if err != nil {
+			return cond.And(conds...)
+		}
+		stateStr := ""
+		if statePtr != nil {
+			stateStr = *statePtr
+		}
+		if *rq.State == apiv2.MachineState_MACHINE_STATE_AVAILABLE {
+			stateStr = ""
+		}
+		if stateStr == "" {
+			conds = append(conds, stateEqAvailable())
+		} else {
+			conds = append(conds, &cond.Where{
+				SQL:  fmt.Sprintf("UPPER(data->'State'->>'Value') = $%d", 1),
+				Args: []any{strings.ToUpper(stateStr)},
+			})
+		}
 	}
 	if rq.Bmc != nil {
 		bmc := rq.Bmc
@@ -279,7 +279,7 @@ func arrayElemFieldEq(parent, array, field, value string) *cond.Where {
 
 func nestedArrayElemFieldEq(parent, array, nestedArray, field, value string) *cond.Where {
 	return &cond.Where{
-		SQL: fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements(data->'%s'->'%s') elem, jsonb_array_elements(elem->'%s') nelem WHERE nelem->>'%s' = $%d)", parent, array, nestedArray, field, 1),
+		SQL:  fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements(data->'%s'->'%s') elem, jsonb_array_elements(elem->'%s') nelem WHERE nelem->>'%s' = $%d)", parent, array, nestedArray, field, 1),
 		Args: []any{value},
 	}
 }
