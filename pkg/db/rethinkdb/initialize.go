@@ -1,4 +1,4 @@
-package generic
+package rethinkdb
 
 import (
 	"context"
@@ -76,25 +76,26 @@ func Initialize(ctx context.Context, log *slog.Logger, opts r.ConnectOpts, dsOpt
 		return fmt.Errorf("unable to create datastore: %w", err)
 	}
 
-	ds.queryExecutor = session // the metal user cannot create tables
+	dsi := ds.(*datastore)
+	dsi.queryExecutor = session // the metal user cannot create tables
 
-	err = ds.createTable(ctx, migrationTableName)
+	err = dsi.createTable(ctx, migrationTableName)
 	if err != nil {
 		return fmt.Errorf("cannot create migration table: %w", err)
 	}
 
-	err = ds.createTable(ctx, sharedMutexTableName)
+	err = dsi.createTable(ctx, sharedMutexTableName)
 	if err != nil {
 		return fmt.Errorf("cannot create shared mutex table: %w", err)
 	}
 
-	for _, tableName := range ds.tableNames {
-		if err := ds.createTable(ctx, tableName); err != nil {
+	for _, tableName := range dsi.tableNames {
+		if err := dsi.createTable(ctx, tableName); err != nil {
 			return fmt.Errorf("cannot create %s table: %w", tableName, err)
 		}
 	}
 
-	ds.log.Info("waiting for tables to be ready")
+	dsi.log.Info("waiting for tables to be ready")
 
 	// be graceful after table creation and wait until ready
 	res, err := db.Wait().Run(session, r.RunOpts{Context: ctx})
@@ -103,20 +104,20 @@ func Initialize(ctx context.Context, log *slog.Logger, opts r.ConnectOpts, dsOpt
 	}
 	defer func() {
 		if err := res.Close(); err != nil {
-			ds.log.Error("unable to close database connection", "error", err)
+			dsi.log.Error("unable to close database connection", "error", err)
 		}
 	}()
 
-	ds.log.Info("initializing pools")
+	dsi.log.Info("initializing pools")
 
-	if err := ds.asnPool.initialize(); err != nil {
+	if err := dsi.asnPool.initialize(); err != nil {
 		return fmt.Errorf("unable to initialize asn pool: %w", err)
 	}
-	if err := ds.vrfPool.initialize(); err != nil {
+	if err := dsi.vrfPool.initialize(); err != nil {
 		return fmt.Errorf("unable to initialize vrf pool: %w", err)
 	}
 
-	ds.log.Info("database init complete")
+	dsi.log.Info("database init complete")
 
 	return nil
 }

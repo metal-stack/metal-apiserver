@@ -14,9 +14,9 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
-	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/db/rethinkdb"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
+	"github.com/metal-stack/metal-apiserver/pkg/db/rethinkdb/queries"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -530,8 +530,8 @@ func (r *networkRepository) getNetworkUsage(ctx context.Context, nw *metal.Netwo
 	return consumption, nil
 }
 
-func (r *networkRepository) scopedNetworkFilters(filter generic.EntityQuery) []generic.EntityQuery {
-	var qs []generic.EntityQuery
+func (r *networkRepository) scopedNetworkFilters(filter rethinkdb.EntityQuery) []any {
+	var qs []any
 	if r.scope != nil {
 		qs = append(qs, queries.NetworkProjectScoped(r.scope.projectID))
 	}

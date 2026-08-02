@@ -1,10 +1,11 @@
-package generic
+package rethinkdb
 
 import (
 	"context"
 	"fmt"
 	"log/slog"
 
+	"github.com/metal-stack/metal-apiserver/pkg/db/interfaces"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
@@ -39,8 +40,9 @@ type (
 	}
 )
 
-func New(log *slog.Logger, opts r.ConnectOpts, dsOpts ...dataStoreOption) (*datastore, error) {
-	// the datastore runs with the metal user (not admin user) that cannot write during migrations
+var _ interfaces.Datastore = (*datastore)(nil)
+
+func New(log *slog.Logger, opts r.ConnectOpts, dsOpts ...dataStoreOption) (interfaces.Datastore, error) {
 	opts.Username = demotedUser
 	log = log.WithGroup("datastore")
 
@@ -120,67 +122,73 @@ func (ds *datastore) Version(ctx context.Context) (string, error) {
 	return version, nil
 }
 
-func (ds *datastore) Lock(ctx context.Context, key string, opts ...lockOpt) error {
-	return ds.sharedMutex.lock(ctx, key, opts...)
+func (ds *datastore) Lock(ctx context.Context, key string, opts ...any) error {
+	var lockOpts []lockOpt
+	for _, o := range opts {
+		if lo, ok := o.(lockOpt); ok {
+			lockOpts = append(lockOpts, lo)
+		}
+	}
+	return ds.sharedMutex.lock(ctx, key, lockOpts...)
 }
 
-func (ds *datastore) Unlock(ctx context.Context, key string, opts ...lockOpt) {
+func (ds *datastore) Unlock(ctx context.Context, key string, opts ...any) {
 	ds.sharedMutex.unlock(ctx, key)
 }
 
-func (ds *datastore) IP() Storage[*metal.IP] {
+func (ds *datastore) IP() interfaces.Storage[*metal.IP] {
 	return ds.ip
 }
 
-func (ds *datastore) Machine() Storage[*metal.Machine] {
+func (ds *datastore) Machine() interfaces.Storage[*metal.Machine] {
 	return ds.machine
 }
 
-func (ds *datastore) Size() Storage[*metal.Size] {
+func (ds *datastore) Size() interfaces.Storage[*metal.Size] {
 	return ds.size
 }
 
-func (ds *datastore) SizeImageConstraint() Storage[*metal.SizeImageConstraint] {
+func (ds *datastore) SizeImageConstraint() interfaces.Storage[*metal.SizeImageConstraint] {
 	return ds.sizeImageConstraint
 }
 
-func (ds *datastore) SizeReservation() Storage[*metal.SizeReservation] {
+func (ds *datastore) SizeReservation() interfaces.Storage[*metal.SizeReservation] {
 	return ds.sizeReservation
 }
 
-func (ds *datastore) Partition() Storage[*metal.Partition] {
+func (ds *datastore) Partition() interfaces.Storage[*metal.Partition] {
 	return ds.partition
 }
 
-func (ds *datastore) Network() Storage[*metal.Network] {
+func (ds *datastore) Network() interfaces.Storage[*metal.Network] {
 	return ds.network
 }
 
-func (ds *datastore) FilesystemLayout() Storage[*metal.FilesystemLayout] {
+func (ds *datastore) FilesystemLayout() interfaces.Storage[*metal.FilesystemLayout] {
 	return ds.fsl
 }
 
-func (ds *datastore) Image() Storage[*metal.Image] {
+func (ds *datastore) Image() interfaces.Storage[*metal.Image] {
 	return ds.image
 }
 
-func (ds *datastore) Switch() Storage[*metal.Switch] {
+func (ds *datastore) Switch() interfaces.Storage[*metal.Switch] {
 	return ds.sw
 }
 
-func (ds *datastore) SwitchStatus() Storage[*metal.SwitchStatus] {
+func (ds *datastore) SwitchStatus() interfaces.Storage[*metal.SwitchStatus] {
 	return ds.switchStatus
 }
 
-func (ds *datastore) Event() Storage[*metal.ProvisioningEventContainer] {
+func (ds *datastore) Event() interfaces.Storage[*metal.ProvisioningEventContainer] {
 	return ds.event
 }
 
-func (ds *datastore) AsnPool() *integerPool {
+func (ds *datastore) AsnPool() interfaces.IntegerPool {
 	return ds.asnPool
 }
 
-func (ds *datastore) VrfPool() *integerPool {
+func (ds *datastore) VrfPool() interfaces.IntegerPool {
 	return ds.vrfPool
 }
 

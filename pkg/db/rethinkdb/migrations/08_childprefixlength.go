@@ -4,8 +4,9 @@ import (
 	"context"
 	"net/netip"
 
-	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/db/interfaces"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/metal-stack/metal-apiserver/pkg/db/rethinkdb"
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
 
@@ -13,10 +14,10 @@ func init() {
 	type tmpPartition struct {
 		PrivateNetworkPrefixLength uint8 `rethinkdb:"privatenetworkprefixlength"`
 	}
-	generic.MustRegisterMigration(generic.Migration{
+	rethinkdb.MustRegisterMigration(rethinkdb.Migration{
 		Name:    "migrate partition.childprefixlength to tenant super network",
 		Version: 8,
-		Up: func(ctx context.Context, db *r.Term, session r.QueryExecutor, ds generic.Datastore) error {
+		Up: func(ctx context.Context, db *r.Term, session r.QueryExecutor, ds interfaces.Datastore) error {
 			nws, err := ds.Network().List(ctx)
 			if err != nil {
 				return err

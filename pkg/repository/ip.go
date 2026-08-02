@@ -14,9 +14,9 @@ import (
 	"github.com/metal-stack/api/go/tag"
 	ipamapiv1 "github.com/metal-stack/go-ipam/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
-	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/db/rethinkdb"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
+	"github.com/metal-stack/metal-apiserver/pkg/db/rethinkdb/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/tags"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/samber/lo"
@@ -414,8 +414,8 @@ func (r *Store) IpDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
 	return nil
 }
 
-func (r *ipRepository) scopedIPFilters(filter generic.EntityQuery) []generic.EntityQuery {
-	var qs []generic.EntityQuery
+func (r *ipRepository) scopedIPFilters(filter rethinkdb.EntityQuery) []any {
+	var qs []any
 	if r.scope != nil {
 		qs = append(qs, queries.IpProjectScoped(r.scope.projectID))
 	}

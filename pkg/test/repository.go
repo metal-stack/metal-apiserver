@@ -15,9 +15,9 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/async/queue"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
-	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/db/interfaces"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
+	"github.com/metal-stack/metal-apiserver/pkg/db/rethinkdb/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
@@ -44,7 +44,7 @@ type (
 	testStore struct {
 		t testing.TB
 		*repository.Store
-		ds            generic.Datastore
+		ds            interfaces.Datastore
 		dbName        string
 		queryExecutor *r.Session
 		ipam          apiv1connect.IpamServiceClient
@@ -184,7 +184,7 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		mr                     *miniredis.Miniredis
 		headscaleControllerURL string
 		valkeyCloser           func()
-		ds                     generic.Datastore
+		ds                     interfaces.Datastore
 		opts                   r.ConnectOpts
 		rethinkCloser          func()
 		headscaleCloser        func()
@@ -324,7 +324,7 @@ func (s *testStore) Cleanup(t testing.TB) {
 	}
 }
 
-func (t *testStore) GetDatastore() generic.Datastore {
+func (t *testStore) GetDatastore() interfaces.Datastore {
 	return t.ds
 }
 

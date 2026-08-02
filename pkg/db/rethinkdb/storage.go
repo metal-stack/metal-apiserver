@@ -1,4 +1,4 @@
-package generic
+package rethinkdb
 
 import (
 	"context"
@@ -9,17 +9,22 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/metal-stack/api/go/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/db/interfaces"
+	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
 
-type storage[E Entity] struct {
+// compile-time check
+var _ interfaces.Storage[*metal.IP] = (*storage[*metal.IP])(nil)
+
+type storage[E interfaces.Entity] struct {
 	r         *datastore
 	table     r.Term
 	tableName string
 }
 
 // newStorage creates a new Storage which uses the given database abstraction.
-func newStorage[E Entity](re *datastore, tableName string) *storage[E] {
+func newStorage[E interfaces.Entity](re *datastore, tableName string) *storage[E] {
 	re.tableNames = append(re.tableNames, tableName)
 	return &storage[E]{
 		r:         re,
@@ -29,7 +34,7 @@ func newStorage[E Entity](re *datastore, tableName string) *storage[E] {
 }
 
 // Create creates the given entity in the database. in case it is already present, a conflict error will be returned.
-
+//
 // if the ID field of the entity is an empty string, the ID will be generated automatically as UUIDv7.
 func (s *storage[E]) Create(ctx context.Context, e E) (E, error) {
 	var (
@@ -47,8 +52,6 @@ func (s *storage[E]) Create(ctx context.Context, e E) (E, error) {
 		return zero, err
 	}
 
-	// Create a uuidv7 id if an empty string is given
-	// this ensures alphabetically ordered uuids by creation date.
 	if e.GetID() == "" {
 		uid, err := uuid.NewV7()
 		if err != nil {
@@ -81,10 +84,15 @@ func (s *storage[E]) Delete(ctx context.Context, e E) error {
 // Find attempts to find a single entity from the given set of queries.
 //
 // if either none or more than one entities were found by the query, an error gets returned.
-func (s *storage[E]) Find(ctx context.Context, queries ...EntityQuery) (E, error) {
+func (s *storage[E]) Find(ctx context.Context, queries ...any) (E, error) {
 	query := s.table
 	for _, q := range queries {
-		query = q(query)
+		if q == nil {
+			continue
+		}
+		if f, ok := q.(func(r.Term) r.Term); ok {
+			query = f(query)
+		}
 	}
 	s.r.log.Debug("find", "table", s.tableName, "query", query.String())
 
@@ -119,13 +127,15 @@ func (s *storage[E]) Find(ctx context.Context, queries ...EntityQuery) (E, error
 }
 
 // List returns all entities present in the database, optionally filtered by the given set of queries.
-func (s *storage[E]) List(ctx context.Context, queries ...EntityQuery) ([]E, error) {
+func (s *storage[E]) List(ctx context.Context, queries ...any) ([]E, error) {
 	query := s.table
 	for _, q := range queries {
 		if q == nil {
 			continue
 		}
-		query = q(query)
+		if f, ok := q.(func(r.Term) r.Term); ok {
+			query = f(query)
+		}
 	}
 
 	s.r.log.Debug("list", "table", s.tableName, "query", query.String())

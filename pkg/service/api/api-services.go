@@ -10,7 +10,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
-	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/db/interfaces"
 	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
@@ -42,7 +42,7 @@ import (
 
 type Config struct {
 	Log                *slog.Logger
-	Datastore          generic.Datastore
+	Datastore          interfaces.Datastore
 	Repository         *repository.Store
 	TenantClient       tenantclient.Client
 	IpamClient         ipamv1connect.IpamServiceClient

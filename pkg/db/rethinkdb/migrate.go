@@ -1,14 +1,15 @@
-package generic
+package rethinkdb
 
 import (
 	"context"
 	"errors"
 	"fmt"
 	"log/slog"
-	"sync"
 
 	"sort"
+	"sync"
 
+	"github.com/metal-stack/metal-apiserver/pkg/db/interfaces"
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
 
@@ -27,7 +28,7 @@ type (
 	}
 
 	// migrateFunc is a function that contains database migration logic
-	migrateFunc func(ctx context.Context, db *r.Term, session r.QueryExecutor, ds Datastore) error
+	migrateFunc func(ctx context.Context, db *r.Term, session r.QueryExecutor, ds interfaces.Datastore) error
 
 	// migrations is a list of migrations
 	migrations []Migration
@@ -71,7 +72,8 @@ func Migrate(ctx context.Context, opts r.ConnectOpts, log *slog.Logger, targetVe
 		return err
 	}
 
-	ds.queryExecutor = session // the metal user cannot create tables
+	dsi := ds.(*datastore)
+	dsi.queryExecutor = session // the metal user cannot create tables
 
 	_, err = migrationTable.Insert(migrationVersionEntry{Version: 0}, r.InsertOpts{
 		Conflict: "replace",
@@ -86,7 +88,7 @@ func Migrate(ctx context.Context, opts r.ConnectOpts, log *slog.Logger, targetVe
 	}
 	defer func() {
 		if err := results.Close(); err != nil {
-			ds.log.Error("unable to close database connection", "error", err)
+			dsi.log.Error("unable to close database connection", "error", err)
 		}
 	}()
 	var current migrationVersionEntry
@@ -120,13 +122,13 @@ func Migrate(ctx context.Context, opts r.ConnectOpts, log *slog.Logger, targetVe
 	db := r.DB(opts.Database)
 
 	log.Info("setting demoted runtime user to read only", "user", demotedUser)
-	_, err = db.Grant(demotedUser, map[string]any{"read": true, "write": false}).RunWrite(ds.queryExecutor)
+	_, err = db.Grant(demotedUser, map[string]any{"read": true, "write": false}).RunWrite(dsi.queryExecutor)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		log.Info("removing read only", "user", demotedUser)
-		_, err = db.Grant(demotedUser, map[string]any{"read": true, "write": true}).RunWrite(ds.queryExecutor)
+		_, err = db.Grant(demotedUser, map[string]any{"read": true, "write": true}).RunWrite(dsi.queryExecutor)
 		if err != nil {
 			log.Error("error giving back write permissions", "user", demotedUser)
 		}
@@ -141,13 +143,13 @@ func Migrate(ctx context.Context, opts r.ConnectOpts, log *slog.Logger, targetVe
 
 		_, err := migrationTable.Insert(migrationVersionEntry{Version: m.Version, Name: m.Name}, r.InsertOpts{
 			Conflict: "replace",
-		}).RunWrite(ds.queryExecutor)
+		}).RunWrite(dsi.queryExecutor)
 		if err != nil {
 			return fmt.Errorf("error updating database migration version: %w", err)
 		}
 	}
 
-	ds.log.Info("database migration succeeded")
+	dsi.log.Info("database migration succeeded")
 
 	return nil
 }

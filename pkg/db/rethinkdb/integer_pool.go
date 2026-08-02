@@ -1,4 +1,4 @@
-package generic
+package rethinkdb
 
 import (
 	"context"
@@ -8,8 +8,12 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	"github.com/metal-stack/api/go/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/db/interfaces"
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
+
+// compile-time check
+var _ interfaces.IntegerPool = (*integerPool)(nil)
 
 // integerPoolType defines the name of the IntegerPool
 type integerPoolType string
@@ -23,10 +27,6 @@ const (
 	asnIntegerPool integerPoolType = "asnpool"
 )
 
-// func (p IntegerPoolType) String() string {
-// 	return string(p)
-// }
-
 // integerPool manages unique integers
 type integerPool struct {
 	r *datastore
@@ -35,15 +35,13 @@ type integerPool struct {
 	table     r.Term
 	tableName string
 
-	min uint
-	max uint
+	min, max uint
 }
 
 type integer struct {
 	ID uint `rethinkdb:"id"`
 }
 
-// integerinfo contains information on the integer pool.
 type integerinfo struct {
 	ID            string `rethinkdb:"id"`
 	IsInitialized bool   `rethinkdb:"isInitialized"`
@@ -61,38 +59,6 @@ func newIntegerPool(d *datastore, poolType integerPoolType, tableName string, mi
 	}
 }
 
-// initIntegerPool initializes a pool to acquire unique integers from.
-// the acquired integers are used from the network service for defining the:
-// one integer for:
-// - vrf name
-// - vni
-// - vxlan-id
-// and one integer for:
-// - asn-id offset added to 4210000000 (ASNBase)
-//
-// the integer range has a vxlan-id constraint from Cumulus:
-//
-//		net add vxlan vxlan10 vxlan id
-//	 <1-16777214>  :  An integer from 1 to 16777214
-//
-// in order not to impact performance too much, we limited the range of integers to 2^17=131072,
-// which includes the range that we typically used for vrf names in the past.
-// By this limitation we limit the number of machines possible to manage to ~130.000 !
-//
-// the implementation of the pool works as follows:
-// - write the given range of integers to the rethinkdb on first start (with the integer as the document id)
-// - write a marker that the pool was initialized to another table (integerpoolinfo), such that it will not initialize again
-// - to acquire an integer, delete a random document from the pool and return it to the caller
-// - to give it back, a caller can insert the integer back into the database
-//
-// implementing an efficient unique pool of integers is not so easy.
-// the current implementation comes with a performance cost during initialization of the database.
-// the initialization takes a few seconds but only needs to be run once in a lifetime of database.
-// this seems to be a reasonable trade-off as the following positive criteria are guaranteed:
-// - acquiring an integer is fast
-// - releasing the integer is fast
-// - you do not have gaps (because you can give the integers back to the pool)
-// - everything can be done atomically, so there are no race conditions
 func (ip *integerPool) initialize() error {
 	if err := ip.r.createTable(context.Background(), ip.tableName); err != nil {
 		return err

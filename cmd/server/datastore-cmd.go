@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/db/rethinkdb"
 	"github.com/urfave/cli/v3"
-	"gopkg.in/rethinkdb/rethinkdb-go.v6"
+	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 
-	_ "github.com/metal-stack/metal-apiserver/pkg/db/generic/migrations"
+	_ "github.com/metal-stack/metal-apiserver/pkg/db/rethinkdb/migrations"
 )
 
 var (
@@ -48,10 +48,10 @@ func newDatastoreCmd() *cli.Command {
 						return fmt.Errorf("unable to create logger %w", err)
 					}
 
-					err = generic.Initialize(
+					err = rethinkdb.Initialize(
 						ctx,
 						log.WithGroup("datastore"),
-						rethinkdb.ConnectOpts{
+						r.ConnectOpts{
 							Addresses:  cmd.StringSlice(rethinkdbAddressesFlag.Name),
 							Database:   cmd.String(rethinkdbDBNameFlag.Name),
 							Username:   cmd.String(rethinkdbUserFlag.Name),
@@ -59,8 +59,8 @@ func newDatastoreCmd() *cli.Command {
 							InitialCap: 10,
 							MaxOpen:    20,
 						},
-						generic.AsnPoolRange(cmd.Uint(asnPoolRangeMinFlag.Name), cmd.Uint(asnPoolRangeMaxFlag.Name)),
-						generic.VrfPoolRange(cmd.Uint(vrfPoolRangeMinFlag.Name), cmd.Uint(vrfPoolRangeMaxFlag.Name)),
+						rethinkdb.AsnPoolRange(cmd.Uint(asnPoolRangeMinFlag.Name), cmd.Uint(asnPoolRangeMaxFlag.Name)),
+						rethinkdb.VrfPoolRange(cmd.Uint(vrfPoolRangeMinFlag.Name), cmd.Uint(vrfPoolRangeMaxFlag.Name)),
 					)
 					if err != nil {
 						return fmt.Errorf("unable to initialize datastore: %w", err)
@@ -87,7 +87,7 @@ func newDatastoreCmd() *cli.Command {
 						targetVersion = &v
 					}
 
-					err = generic.Migrate(ctx, rethinkdb.ConnectOpts{
+					err = rethinkdb.Migrate(ctx, r.ConnectOpts{
 						Addresses:  cmd.StringSlice(rethinkdbAddressesFlag.Name),
 						Database:   cmd.String(rethinkdbDBNameFlag.Name),
 						Username:   cmd.String(rethinkdbUserFlag.Name),

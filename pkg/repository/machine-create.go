@@ -13,9 +13,9 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/tag"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
-	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/db/rethinkdb"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
+	"github.com/metal-stack/metal-apiserver/pkg/db/rethinkdb/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	metalcommon "github.com/metal-stack/metal-lib/pkg/metal"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
@@ -317,7 +317,7 @@ func (r *machineRepository) rollback(ctx context.Context, rollbackEntities *roll
 
 // FindWaitingMachine returns an available, not allocated, waiting and alive machine of given size within the given partition.
 func (r *machineRepository) findWaitingMachine(ctx context.Context, partition, project, size string, placementTags []string, role metal.Role) (*metal.Machine, error) {
-	if err := r.s.ds.Lock(ctx, partition, generic.NewLockOptExpirationTimeout(10*time.Second)); err != nil {
+	if err := r.s.ds.Lock(ctx, partition, rethinkdb.NewLockOptExpirationTimeout(10*time.Second)); err != nil {
 		return nil, fmt.Errorf("too many parallel machine allocations taking place, try again later:%w", err)
 	}
 	defer r.s.ds.Unlock(ctx, partition)

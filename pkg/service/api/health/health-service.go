@@ -12,7 +12,7 @@ import (
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
-	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/db/interfaces"
 	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-lib/auditing"
 	tenant "github.com/metal-stack/tenant-api/go/client"
@@ -38,7 +38,7 @@ type Config struct {
 	Headscale           *headscale.Client
 	TaskClient          *task.Client
 	AuditBackends       []auditing.Auditing
-	Datastore           generic.Datastore
+	Datastore           interfaces.Datastore
 }
 
 type healthServiceServer struct {

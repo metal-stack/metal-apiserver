@@ -14,14 +14,14 @@ import (
 	"github.com/avast/retry-go/v4"
 	compress "github.com/klauspost/connect-compress/v2"
 	"github.com/valkey-io/valkey-go"
-	"gopkg.in/rethinkdb/rethinkdb-go.v6"
+	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 
 	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	"github.com/metal-stack/metal-apiserver/pkg/async/queue"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
-	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/db/rethinkdb"
 	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/service"
@@ -134,7 +134,7 @@ func newServeCmd() *cli.Command {
 				log.Info("headscale is not enabled, not configuring vpn services")
 			}
 
-			connectOpts := rethinkdb.ConnectOpts{
+			connectOpts := r.ConnectOpts{
 				Addresses:  cmd.StringSlice(rethinkdbAddressesFlag.Name),
 				Database:   cmd.String(rethinkdbDBNameFlag.Name),
 				Username:   cmd.String(rethinkdbUserFlag.Name),
@@ -143,7 +143,7 @@ func newServeCmd() *cli.Command {
 				MaxOpen:    50,
 			}
 
-			ds, err := generic.New(log.WithGroup("datastore"), connectOpts)
+			ds, err := rethinkdb.New(log.WithGroup("datastore"), connectOpts)
 			if err != nil {
 				return fmt.Errorf("unable to create datastore: %w", err)
 			}

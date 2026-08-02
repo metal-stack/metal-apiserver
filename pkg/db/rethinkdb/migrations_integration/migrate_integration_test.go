@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/metal-stack/metal-apiserver/pkg/db/rethinkdb"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
@@ -16,7 +16,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	_ "github.com/metal-stack/metal-apiserver/pkg/db/generic/migrations"
+	_ "github.com/metal-stack/metal-apiserver/pkg/db/rethinkdb/migrations"
 )
 
 func Test_MigrationChildPrefixLength(t *testing.T) {
@@ -119,7 +119,7 @@ func Test_MigrationChildPrefixLength(t *testing.T) {
 	_, err = ds.Network().Create(ctx, n5)
 	require.NoError(t, err)
 
-	err = generic.Migrate(ctx, c, log, nil, false)
+	err = rethinkdb.Migrate(ctx, c, log, nil, false)
 	require.NoError(t, err)
 
 	p, err := ds.Partition().Get(ctx, p1.ID)

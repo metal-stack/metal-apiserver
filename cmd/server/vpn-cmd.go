@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/db/rethinkdb"
 	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/vpn"
 	"github.com/urfave/cli/v3"
-	"gopkg.in/rethinkdb/rethinkdb-go.v6"
+	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
 
 func newVPNCmd() *cli.Command {
@@ -50,7 +50,7 @@ func newVPNCmd() *cli.Command {
 						return err
 					}
 
-					connectOpts := rethinkdb.ConnectOpts{
+					connectOpts := r.ConnectOpts{
 						Addresses:  cmd.StringSlice(rethinkdbAddressesFlag.Name),
 						Database:   cmd.String(rethinkdbDBNameFlag.Name),
 						Username:   cmd.String(rethinkdbUserFlag.Name),
@@ -59,7 +59,7 @@ func newVPNCmd() *cli.Command {
 						MaxOpen:    20,
 					}
 
-					ds, err := generic.New(log.WithGroup("datastore"), connectOpts)
+					ds, err := rethinkdb.New(log.WithGroup("datastore"), connectOpts)
 					if err != nil {
 						return fmt.Errorf("unable to create datastore: %w", err)
 					}

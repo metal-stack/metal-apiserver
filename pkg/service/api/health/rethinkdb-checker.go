@@ -5,11 +5,11 @@ import (
 	"fmt"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/db/interfaces"
 )
 
 type rethinkdbHealthChecker struct {
-	ds generic.Datastore
+	ds interfaces.Datastore
 }
 
 func (h *rethinkdbHealthChecker) Health(ctx context.Context) *apiv2.HealthStatus {
