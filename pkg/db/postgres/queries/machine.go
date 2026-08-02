@@ -4,405 +4,256 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/metal-stack/api/go/enum"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/db/postgres/cond"
 )
 
-// MachineFilter builds an in-memory filter for Machine entities from the given query.
-func MachineFilter(rq *apiv2.MachineQuery) func(map[string]any) bool {
+// MachineFilter builds a JSONB query condition for Machine entities from the given query.
+func MachineFilter(rq *apiv2.MachineQuery) *cond.Where {
 	if rq == nil {
 		return nil
 	}
-	return func(data map[string]any) bool {
-		if rq.Uuid != nil {
-			if data["ID"] != *rq.Uuid {
-				return false
-			}
-		}
-		if rq.Name != nil {
-			if data["Name"] != *rq.Name {
-				return false
-			}
-		}
-		if rq.Partition != nil {
-			if data["PartitionID"] != *rq.Partition {
-				return false
-			}
-		}
-		if rq.Size != nil {
-			if data["SizeID"] != *rq.Size {
-				return false
-			}
-		}
-		if rq.Rack != nil {
-			if data["RackID"] != *rq.Rack {
-				return false
-			}
-		}
-		if rq.Room != nil {
-			if data["RoomID"] != *rq.Room {
-				return false
-			}
-		}
-		if rq.Labels != nil {
-			tags, _ := data["Tags"].([]any)
-			for key, value := range rq.Labels.Labels {
-				tagStr := fmt.Sprintf("%s=%s", key, value)
-				if !containsAny(tags, tagStr) {
-					return false
-				}
-			}
-		}
-		if rq.Waiting != nil {
-			if data["Waiting"] != *rq.Waiting {
-				return false
-			}
-		}
-		if rq.Preallocated != nil {
-			if data["PreAllocated"] != *rq.Preallocated {
-				return false
-			}
-		}
-		if rq.NotAllocated != nil && *rq.NotAllocated {
-			alloc, has := data["Allocation"]
-			if !has || alloc != nil {
-				return false
-			}
-		}
-		if rq.Allocation != nil {
-			alloc := rq.Allocation
-			allocMap, _ := data["Allocation"].(map[string]any)
-			if allocMap == nil {
-				return false
-			}
+	var conds []*cond.Where
 
-			if alloc.Project != nil {
-				if allocMap["Project"] != *alloc.Project {
-					return false
-				}
-			}
-			if alloc.Uuid != nil {
-				if allocMap["UUID"] != *alloc.Uuid {
-					return false
-				}
-			}
-			if alloc.Name != nil {
-				if allocMap["Name"] != *alloc.Name {
-					return false
-				}
-			}
-			if alloc.Image != nil {
-				if allocMap["ImageID"] != *alloc.Image {
-					return false
-				}
-			}
-			if alloc.Hostname != nil {
-				if allocMap["Hostname"] != *alloc.Hostname {
-					return false
-				}
-			}
-			if alloc.AllocationType != nil {
-				rolePtr, err := enum.GetStringValue(*alloc.AllocationType)
-				if err == nil && rolePtr != nil && allocMap["Role"] != *rolePtr {
-					return false
-				}
-			}
-			if alloc.FilesystemLayout != nil {
-				fsl, _ := allocMap["FilesystemLayout"].(map[string]any)
-				if fsl == nil || fsl["ID"] != *alloc.FilesystemLayout {
-					return false
-				}
-			}
-			if alloc.Labels != nil {
-				labels, _ := allocMap["Labels"].(map[string]any)
-				for key, value := range alloc.Labels.Labels {
-					if labels == nil || labels[key] != value {
-						return false
-					}
-				}
-			}
-			if alloc.Vpn != nil {
-				_, has := allocMap["VPN"]
-				if !has {
-					return false
-				}
+	if rq.Uuid != nil {
+		conds = append(conds, cond.FieldEq("ID", *rq.Uuid))
+	}
+	if rq.Name != nil {
+		conds = append(conds, cond.FieldEq("Name", *rq.Name))
+	}
+	if rq.Partition != nil {
+		conds = append(conds, cond.FieldEq("PartitionID", *rq.Partition))
+	}
+	if rq.Size != nil {
+		conds = append(conds, cond.FieldEq("SizeID", *rq.Size))
+	}
+	if rq.Rack != nil {
+		conds = append(conds, cond.FieldEq("RackID", *rq.Rack))
+	}
+	if rq.Room != nil {
+		conds = append(conds, cond.FieldEq("RoomID", *rq.Room))
+	}
+	if rq.Labels != nil {
+		for key, value := range rq.Labels.Labels {
+			tagStr := fmt.Sprintf("%s=%s", key, value)
+			conds = append(conds, cond.TagInSlice(tagStr))
+		}
+	}
+	if rq.Waiting != nil {
+		val := "true"
+		if !*rq.Waiting {
+			val = "false"
+		}
+		conds = append(conds, &cond.Where{SQL: fmt.Sprintf("data->>'Waiting' = '%s'", val)})
+	}
+	if rq.Preallocated != nil {
+		val := "true"
+		if !*rq.Preallocated {
+			val = "false"
+		}
+		conds = append(conds, &cond.Where{SQL: fmt.Sprintf("data->>'PreAllocated' = '%s'", val)})
+	}
+	if rq.NotAllocated != nil && *rq.NotAllocated {
+		conds = append(conds, cond.FieldIsNull("Allocation"))
+	}
+	if rq.Allocation != nil {
+		alloc := rq.Allocation
+		if alloc.Project != nil {
+			conds = append(conds, cond.NestedFieldEq("Allocation", "Project", *alloc.Project))
+		}
+		if alloc.Uuid != nil {
+			conds = append(conds, cond.NestedFieldEq("Allocation", "UUID", *alloc.Uuid))
+		}
+		if alloc.Name != nil {
+			conds = append(conds, cond.NestedFieldEq("Allocation", "Name", *alloc.Name))
+		}
+		if alloc.Image != nil {
+			conds = append(conds, cond.NestedFieldEq("Allocation", "ImageID", *alloc.Image))
+		}
+		if alloc.Hostname != nil {
+			conds = append(conds, cond.NestedFieldEq("Allocation", "Hostname", *alloc.Hostname))
+		}
+		if alloc.AllocationType != nil {
+			roleStr, err := enumGetStringValue(*alloc.AllocationType)
+			if err == nil && roleStr != "" {
+				conds = append(conds, cond.NestedFieldEq("Allocation", "Role", roleStr))
 			}
 		}
-		if rq.Network != nil {
-			nw := rq.Network
-			allocation, _ := data["Allocation"].(map[string]any)
-			networks, _ := allocation["Networks"].([]any)
-
-			for _, id := range nw.Networks {
-				if !hasNetworkStrField(networks, "NetworkID", id) {
-					return false
-				}
-			}
-			for _, prefix := range nw.Prefixes {
-				if !networkContainsAny(networks, "Prefixes", prefix) {
-					return false
-				}
-			}
-			for _, ip := range nw.Ips {
-				if !networkContainsAny(networks, "IPs", ip) {
-					return false
-				}
-			}
-			for _, destPrefix := range nw.DestinationPrefixes {
-				if !networkContainsAny(networks, "DestinationPrefixes", destPrefix) {
-					return false
-				}
-			}
-			for _, vrf := range nw.Vrfs {
-				if !hasNetworkFloatField(networks, "Vrf", float64(vrf)) {
-					return false
-				}
-			}
-			for _, asn := range nw.Asns {
-				if !hasNetworkFloatField(networks, "ASN", float64(asn)) {
-					return false
-				}
+		if alloc.FilesystemLayout != nil {
+			conds = append(conds, cond.NestedFieldEq("Allocation", "FilesystemLayout", *alloc.FilesystemLayout))
+		}
+		if alloc.Labels != nil {
+			for key, value := range alloc.Labels.Labels {
+				conds = append(conds, &cond.Where{
+					SQL:  fmt.Sprintf("data->'Allocation'->'Labels'->>'%s' = $%d", escapeJSONKey(key), 1),
+					Args: []any{value},
+				})
 			}
 		}
-		if rq.Hardware != nil {
-			hw := rq.Hardware
-			hwMap, _ := data["Hardware"].(map[string]any)
-			if hwMap == nil {
-				if hw.Memory != nil || hw.CpuCores != nil {
-					return false
-				}
-			} else {
-				if hw.Memory != nil {
-					mem, ok := hwMap["Memory"].(float64)
-					if !ok || uint64(mem) != *hw.Memory {
-						return false
-					}
-				}
-				if hw.CpuCores != nil {
-					cpus, _ := hwMap["Cpus"].([]any)
-					total := uint64(0)
-					for _, cpu := range cpus {
-						if cpuMap, ok := cpu.(map[string]any); ok {
-							if cores, ok := cpuMap["Cores"].(float64); ok {
-								total += uint64(cores)
-							}
-						}
-					}
-					if uint32(total) != *hw.CpuCores {
-						return false
-					}
-				}
-			}
+		if alloc.Vpn != nil {
+			conds = append(conds, cond.NestedFieldHasKey("Allocation", "VPN"))
 		}
-		if rq.Nic != nil {
-			nic := rq.Nic
-			hwMap, _ := data["Hardware"].(map[string]any)
-			nics, _ := hwMap["Nics"].([]any)
-
-			for _, mac := range nic.Macs {
-				if !nicHasField(nics, "MacAddress", mac) {
-					return false
-				}
-			}
-			for _, name := range nic.Names {
-				if !nicHasField(nics, "Name", name) {
-					return false
-				}
-			}
-			for _, mac := range nic.NeighborMacs {
-				if !nicHasNeighborField(nics, "MacAddress", mac) {
-					return false
-				}
-			}
-			for _, name := range nic.NeighborNames {
-				if !nicHasNeighborField(nics, "Name", name) {
-					return false
-				}
-			}
+	}
+	if rq.Network != nil {
+		nw := rq.Network
+		for _, id := range nw.Networks {
+			conds = append(conds, cond.NestedArrayFieldEq("Allocation", "Networks", id))
 		}
-		if rq.Disk != nil {
-			disk := rq.Disk
-			hwMap, _ := data["Hardware"].(map[string]any)
-			blockDevices, _ := hwMap["Disks"].([]any)
-
-			for _, name := range disk.Names {
-				if !blockDeviceHasStrField(blockDevices, "Name", name) {
-					return false
-				}
-			}
-			for _, size := range disk.Sizes {
-				if !blockDeviceHasFloatField(blockDevices, "Size", float64(size)) {
-					return false
-				}
-			}
+		for _, prefix := range nw.Prefixes {
+			conds = append(conds, cond.NestedArrayCheck("Allocation", fmt.Sprintf(`{"Networks": [{"Prefixes": ["%s"]}]}`, escapeJSONString(prefix))))
 		}
-		if rq.State != nil {
-			statePtr, err := enum.GetStringValue(rq.State)
-			if err != nil {
-				return false
-			}
-			stateString := ""
-			if statePtr != nil {
-				stateString = *statePtr
-			}
+		for _, ip := range nw.Ips {
+			conds = append(conds, cond.NestedArrayCheck("Allocation", fmt.Sprintf(`{"Networks": [{"IPs": ["%s"]}]}`, escapeJSONString(ip))))
+		}
+		for _, destPrefix := range nw.DestinationPrefixes {
+			conds = append(conds, cond.NestedArrayCheck("Allocation", fmt.Sprintf(`{"Networks": [{"DestinationPrefixes": ["%s"]}]}`, escapeJSONString(destPrefix))))
+		}
+		for _, vrf := range nw.Vrfs {
+			conds = append(conds, &cond.Where{
+				SQL:  fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements(data->'Allocation'->'Networks') elem WHERE elem->>'Vrf' = $%d::text)", 1),
+				Args: []any{fmt.Sprintf("%d", vrf)},
+			})
+		}
+		for _, asn := range nw.Asns {
+			conds = append(conds, &cond.Where{
+				SQL:  fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements(data->'Allocation'->'Networks') elem WHERE (elem->>'ASN')::int = $%d)", 1),
+				Args: []any{asn},
+			})
+		}
+	}
+	if rq.Hardware != nil {
+		hw := rq.Hardware
+		if hw.Memory != nil {
+			conds = append(conds, cond.FieldEqFloat("Memory", float64(*hw.Memory)))
+		}
+		if hw.CpuCores != nil {
+			conds = append(conds, &cond.Where{
+				SQL:  fmt.Sprintf("(SELECT SUM((elem->>'Cores')::int) FROM jsonb_array_elements(data->'Hardware'->'Cpus') elem) = $%d", 1),
+				Args: []any{*hw.CpuCores},
+			})
+		}
+	}
+	if rq.Nic != nil {
+		nic := rq.Nic
+		for _, mac := range nic.Macs {
+			conds = append(conds, &cond.Where{
+				SQL:  fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements(data->'Hardware'->'Nics') elem WHERE elem->>'MacAddress' = $%d)", 1),
+				Args: []any{mac},
+			})
+		}
+		for _, name := range nic.Names {
+			conds = append(conds, &cond.Where{
+				SQL:  fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements(data->'Hardware'->'Nics') elem WHERE elem->>'Name' = $%d)", 1),
+				Args: []any{name},
+			})
+		}
+		for _, mac := range nic.NeighborMacs {
+			conds = append(conds, &cond.Where{
+				SQL:  fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements(data->'Hardware'->'Nics') nic, jsonb_array_elements(nic->'Neighbors') neigh WHERE neigh->>'MacAddress' = $%d)", 1),
+				Args: []any{mac},
+			})
+		}
+		for _, name := range nic.NeighborNames {
+			conds = append(conds, &cond.Where{
+				SQL:  fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements(data->'Hardware'->'Nics') nic, jsonb_array_elements(nic->'Neighbors') neigh WHERE neigh->>'Name' = $%d)", 1),
+				Args: []any{name},
+			})
+		}
+	}
+	if rq.Disk != nil {
+		disk := rq.Disk
+		for _, name := range disk.Names {
+			conds = append(conds, &cond.Where{
+				SQL:  fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements(data->'Hardware'->'Disks') elem WHERE elem->>'Name' = $%d)", 1),
+				Args: []any{name},
+			})
+		}
+		for _, size := range disk.Sizes {
+			conds = append(conds, &cond.Where{
+				SQL:  fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements(data->'Hardware'->'Disks') elem WHERE (elem->>'Size')::int = $%d)", 1),
+				Args: []any{size},
+			})
+		}
+	}
+	if rq.State != nil {
+		stateStr, err := enumGetStringValue(*rq.State)
+		if err == nil && stateStr != "" {
 			if *rq.State == apiv2.MachineState_MACHINE_STATE_AVAILABLE {
-				stateString = ""
-			}
-			stateMap, _ := data["State"].(map[string]any)
-			if stateString == "" {
-				if stateMap != nil {
-					if toString(stateMap["Value"]) != "" {
-						return false
-					}
-				}
+				conds = append(conds, &cond.Where{SQL: "(data->'State' IS NULL OR data->'State'->>'Value' = '' OR data->'State'->>'Value' IS NULL)"})
 			} else {
-				if stateMap == nil {
-					return false
-				}
-				if !strings.EqualFold(toString(stateMap["Value"]), strings.ToUpper(stateString)) {
-					return false
-				}
+				conds = append(conds, &cond.Where{
+					SQL:  fmt.Sprintf("UPPER(data->'State'->>'Value') = $%d", 1),
+					Args: []any{strings.ToUpper(stateStr)},
+				})
 			}
 		}
-		if rq.Bmc != nil {
-			bmc := rq.Bmc
-			ipmi, _ := data["IPMI"].(map[string]any)
-			if ipmi == nil {
-				return false
-			}
-			if bmc.Address != nil && ipmi["Address"] != *bmc.Address {
-				return false
-			}
-			if bmc.Mac != nil && ipmi["MacAddress"] != *bmc.Mac {
-				return false
-			}
-			if bmc.User != nil && ipmi["User"] != *bmc.User {
-				return false
-			}
-			if bmc.Interface != nil && ipmi["Interface"] != *bmc.Interface {
-				return false
-			}
-		}
-		if rq.Fru != nil {
-			fru := rq.Fru
-			ipmi, _ := data["IPMI"].(map[string]any)
-			if ipmi == nil {
-				return false
-			}
-			fruMap, _ := ipmi["Fru"].(map[string]any)
-			if fruMap == nil {
-				return false
-			}
-			if fru.ChassisPartNumber != nil && fruMap["ChassisPartNumber"] != *fru.ChassisPartNumber {
-				return false
-			}
-			if fru.ChassisPartSerial != nil && fruMap["ChassisPartSerial"] != *fru.ChassisPartSerial {
-				return false
-			}
-			if fru.BoardMfg != nil && fruMap["BoardMfg"] != *fru.BoardMfg {
-				return false
-			}
-			if fru.BoardSerial != nil && fruMap["BoardMfgSerial"] != *fru.BoardSerial {
-				return false
-			}
-			if fru.BoardPartNumber != nil && fruMap["BoardPartNumber"] != *fru.BoardPartNumber {
-				return false
-			}
-			if fru.ProductManufacturer != nil && fruMap["ProductManufacturer"] != *fru.ProductManufacturer {
-				return false
-			}
-			if fru.ProductPartNumber != nil && fruMap["ProductPartNumber"] != *fru.ProductPartNumber {
-				return false
-			}
-			if fru.ProductSerial != nil && fruMap["ProductSerial"] != *fru.ProductSerial {
-				return false
-			}
-		}
-		return true
 	}
-}
+	if rq.Bmc != nil {
+		bmc := rq.Bmc
+		if bmc.Address != nil {
+			conds = append(conds, cond.NestedFieldEq("IPMI", "Address", *bmc.Address))
+		}
+		if bmc.Mac != nil {
+			conds = append(conds, cond.NestedFieldEq("IPMI", "MacAddress", *bmc.Mac))
+		}
+		if bmc.User != nil {
+			conds = append(conds, cond.NestedFieldEq("IPMI", "User", *bmc.User))
+		}
+		if bmc.Interface != nil {
+			conds = append(conds, cond.NestedFieldEq("IPMI", "Interface", *bmc.Interface))
+		}
+	}
+	if rq.Fru != nil {
+		fru := rq.Fru
+		if fru.ChassisPartNumber != nil {
+			conds = append(conds, &cond.Where{
+				SQL:  fmt.Sprintf("data->'IPMI'->'Fru'->>'ChassisPartNumber' = $%d", 1),
+				Args: []any{*fru.ChassisPartNumber},
+			})
+		}
+		if fru.ChassisPartSerial != nil {
+			conds = append(conds, &cond.Where{
+				SQL:  fmt.Sprintf("data->'IPMI'->'Fru'->>'ChassisPartSerial' = $%d", 1),
+				Args: []any{*fru.ChassisPartSerial},
+			})
+		}
+		if fru.BoardMfg != nil {
+			conds = append(conds, &cond.Where{
+				SQL:  fmt.Sprintf("data->'IPMI'->'Fru'->>'BoardMfg' = $%d", 1),
+				Args: []any{*fru.BoardMfg},
+			})
+		}
+		if fru.BoardSerial != nil {
+			conds = append(conds, &cond.Where{
+				SQL:  fmt.Sprintf("data->'IPMI'->'Fru'->>'BoardMfgSerial' = $%d", 1),
+				Args: []any{*fru.BoardSerial},
+			})
+		}
+		if fru.BoardPartNumber != nil {
+			conds = append(conds, &cond.Where{
+				SQL:  fmt.Sprintf("data->'IPMI'->'Fru'->>'BoardPartNumber' = $%d", 1),
+				Args: []any{*fru.BoardPartNumber},
+			})
+		}
+		if fru.ProductManufacturer != nil {
+			conds = append(conds, &cond.Where{
+				SQL:  fmt.Sprintf("data->'IPMI'->'Fru'->>'ProductManufacturer' = $%d", 1),
+				Args: []any{*fru.ProductManufacturer},
+			})
+		}
+		if fru.ProductPartNumber != nil {
+			conds = append(conds, &cond.Where{
+				SQL:  fmt.Sprintf("data->'IPMI'->'Fru'->>'ProductPartNumber' = $%d", 1),
+				Args: []any{*fru.ProductPartNumber},
+			})
+		}
+		if fru.ProductSerial != nil {
+			conds = append(conds, &cond.Where{
+				SQL:  fmt.Sprintf("data->'IPMI'->'Fru'->>'ProductSerial' = $%d", 1),
+				Args: []any{*fru.ProductSerial},
+			})
+		}
+	}
 
-func hasNetworkStrField(networks []any, field, val string) bool {
-	for _, n := range networks {
-		if nm, ok := n.(map[string]any); ok {
-			if toString(nm[field]) == val {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func hasNetworkFloatField(networks []any, field string, val float64) bool {
-	for _, n := range networks {
-		if nm, ok := n.(map[string]any); ok {
-			if v, ok := nm[field].(float64); ok && v == val {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func networkContainsAny(networks []any, field, val string) bool {
-	for _, n := range networks {
-		if nm, ok := n.(map[string]any); ok {
-			items, _ := nm[field].([]any)
-			for _, item := range items {
-				if toString(item) == val {
-					return true
-				}
-			}
-		}
-	}
-	return false
-}
-
-func nicHasField(nics []any, field, val string) bool {
-	for _, n := range nics {
-		if nm, ok := n.(map[string]any); ok {
-			if toString(nm[field]) == val {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func nicHasNeighborField(nics []any, field, val string) bool {
-	for _, n := range nics {
-		if nm, ok := n.(map[string]any); ok {
-			neighbors, _ := nm["Neighbors"].([]any)
-			for _, neigh := range neighbors {
-				if ne, ok := neigh.(map[string]any); ok {
-					if toString(ne[field]) == val {
-						return true
-					}
-				}
-			}
-		}
-	}
-	return false
-}
-
-func blockDeviceHasStrField(devices []any, field, val string) bool {
-	for _, d := range devices {
-		if dm, ok := d.(map[string]any); ok {
-			if toString(dm[field]) == val {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func blockDeviceHasFloatField(devices []any, field string, val float64) bool {
-	for _, d := range devices {
-		if dm, ok := d.(map[string]any); ok {
-			if v, ok := dm[field].(float64); ok && v == val {
-				return true
-			}
-		}
-	}
-	return false
+	return cond.And(conds...)
 }

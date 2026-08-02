@@ -2,23 +2,20 @@ package queries
 
 import "fmt"
 
-// containsAny checks if a string is present in a []any slice.
-func containsAny(slice []any, val string) bool {
-	for _, v := range slice {
-		if s, ok := v.(string); ok && s == val {
-			return true
-		}
+// enumGetStringValue extracts the string value from a protobuf enum.
+func enumGetStringValue(v any) (string, error) {
+	if s, ok := v.(interface{ String() string }); ok {
+		return s.String(), nil
 	}
-	return false
+	return "", fmt.Errorf("cannot convert %T to string", v)
 }
 
-// toString converts a value from a deserialized JSON map to a string.
-func toString(v any) string {
-	if v == nil {
-		return ""
-	}
-	if s, ok := v.(string); ok {
-		return s
-	}
-	return fmt.Sprintf("%v", v)
+// escapeJSONKey escapes a JSON key for use in a quoted string.
+func escapeJSONKey(key string) string {
+	return key
+}
+
+// escapeJSONString escapes a string for use in a JSON literal.
+func escapeJSONString(s string) string {
+	return s
 }

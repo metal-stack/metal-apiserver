@@ -1,119 +1,100 @@
 package queries
 
 import (
+	"fmt"
+
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/db/postgres/cond"
 )
 
-// EventFilter builds an in-memory filter for ProvisioningEventContainer entities from the given query.
-func EventFilter(machineID string) func(map[string]any) bool {
+// EventFilter builds a JSONB query condition for ProvisioningEventContainer entities.
+func EventFilter(machineID string) *cond.Where {
 	if machineID == "" {
 		return nil
 	}
-	return func(data map[string]any) bool {
-		return data["ID"] == machineID
-	}
+	return cond.FieldEq("ID", machineID)
 }
 
-// PartitionFilter builds an in-memory filter for Partition entities from the given query.
-func PartitionFilter(rq *apiv2.PartitionQuery) func(map[string]any) bool {
+// PartitionFilter builds a JSONB query condition for Partition entities.
+func PartitionFilter(rq *apiv2.PartitionQuery) *cond.Where {
 	if rq == nil {
 		return nil
 	}
-	return func(data map[string]any) bool {
-		if rq.Id != nil {
-			if data["ID"] != *rq.Id {
-				return false
-			}
-		}
-		return true
+	var conds []*cond.Where
+	if rq.Id != nil {
+		conds = append(conds, cond.FieldEq("ID", *rq.Id))
 	}
+	return cond.And(conds...)
 }
 
-// FileSystemLayoutFilter builds an in-memory filter for FilesystemLayout entities from the given query.
-func FileSystemLayoutFilter(rq *apiv2.FilesystemServiceListRequest) func(map[string]any) bool {
+// FileSystemLayoutFilter builds a JSONB query condition for FilesystemLayout entities.
+func FileSystemLayoutFilter(rq *apiv2.FilesystemServiceListRequest) *cond.Where {
 	if rq == nil {
 		return nil
 	}
-	return func(data map[string]any) bool {
-		if rq.Id != nil {
-			if data["ID"] != *rq.Id {
-				return false
-			}
-		}
-		return true
+	var conds []*cond.Where
+	if rq.Id != nil {
+		conds = append(conds, cond.FieldEq("ID", *rq.Id))
 	}
+	return cond.And(conds...)
 }
 
-// SizeImageConstraintFilter builds an in-memory filter for SizeImageConstraint entities from the given query.
-func SizeImageConstraintFilter(rq *apiv2.SizeImageConstraintQuery) func(map[string]any) bool {
+// SizeImageConstraintFilter builds a JSONB query condition for SizeImageConstraint entities.
+func SizeImageConstraintFilter(rq *apiv2.SizeImageConstraintQuery) *cond.Where {
 	if rq == nil {
 		return nil
 	}
-	return func(data map[string]any) bool {
-		if rq.Size != nil {
-			if data["ID"] != *rq.Size {
-				return false
-			}
-		}
-		if rq.Name != nil {
-			if data["Name"] != *rq.Name {
-				return false
-			}
-		}
-		if rq.Description != nil {
-			if data["Description"] != *rq.Description {
-				return false
-			}
-		}
-		return true
+	var conds []*cond.Where
+
+	if rq.Size != nil {
+		conds = append(conds, cond.FieldEq("ID", *rq.Size))
 	}
+	if rq.Name != nil {
+		conds = append(conds, cond.FieldEq("Name", *rq.Name))
+	}
+	if rq.Description != nil {
+		conds = append(conds, cond.FieldEq("Description", *rq.Description))
+	}
+
+	return cond.And(conds...)
 }
 
-// SizeReservationFilter builds an in-memory filter for SizeReservation entities from the given query.
-func SizeReservationFilter(rq *apiv2.SizeReservationQuery) func(map[string]any) bool {
+// SizeReservationFilter builds a JSONB query condition for SizeReservation entities.
+func SizeReservationFilter(rq *apiv2.SizeReservationQuery) *cond.Where {
 	if rq == nil {
 		return nil
 	}
-	return func(data map[string]any) bool {
-		if rq.Id != nil {
-			if data["ID"] != *rq.Id {
-				return false
-			}
-		}
-		if rq.Size != nil {
-			if data["SizeID"] != *rq.Size {
-				return false
-			}
-		}
-		if rq.Name != nil {
-			if data["Name"] != *rq.Name {
-				return false
-			}
-		}
-		if rq.Description != nil {
-			if data["Description"] != *rq.Description {
-				return false
-			}
-		}
-		if rq.Labels != nil {
-			labels, _ := data["Labels"].(map[string]any)
-			for key, value := range rq.Labels.Labels {
-				if labels == nil || labels[key] != value {
-					return false
-				}
-			}
-		}
-		if rq.Project != nil {
-			if data["ProjectID"] != *rq.Project {
-				return false
-			}
-		}
-		if rq.Partition != nil {
-			partitionIDs, _ := data["PartitionIDs"].([]any)
-			if !containsAny(partitionIDs, *rq.Partition) {
-				return false
-			}
-		}
-		return true
+	var conds []*cond.Where
+
+	if rq.Id != nil {
+		conds = append(conds, cond.FieldEq("ID", *rq.Id))
 	}
+	if rq.Size != nil {
+		conds = append(conds, cond.FieldEq("SizeID", *rq.Size))
+	}
+	if rq.Name != nil {
+		conds = append(conds, cond.FieldEq("Name", *rq.Name))
+	}
+	if rq.Description != nil {
+		conds = append(conds, cond.FieldEq("Description", *rq.Description))
+	}
+	if rq.Labels != nil {
+		for key, value := range rq.Labels.Labels {
+			conds = append(conds, &cond.Where{
+				SQL:  fmt.Sprintf("data->'Labels'->>'%s' = $%d", escapeJSONKey(key), 1),
+				Args: []any{value},
+			})
+		}
+	}
+	if rq.Project != nil {
+		conds = append(conds, cond.FieldEq("ProjectID", *rq.Project))
+	}
+	if rq.Partition != nil {
+		conds = append(conds, &cond.Where{
+			SQL:  fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements_text(data->'PartitionIDs') elem WHERE elem = $%d)", 1),
+			Args: []any{*rq.Partition},
+		})
+	}
+
+	return cond.And(conds...)
 }

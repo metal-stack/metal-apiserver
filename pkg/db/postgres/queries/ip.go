@@ -2,90 +2,73 @@ package queries
 
 import (
 	"fmt"
-	"strings"
 
-	"github.com/metal-stack/api/go/enum"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/tag"
+	"github.com/metal-stack/metal-apiserver/pkg/db/postgres/cond"
 )
 
-// IpFilter builds an in-memory filter for IP entities from the given query.
-func IpFilter(rq *apiv2.IPQuery) func(map[string]any) bool {
+// IpFilter builds a JSONB query condition for IP entities from the given query.
+func IpFilter(rq *apiv2.IPQuery) *cond.Where {
 	if rq == nil {
 		return nil
 	}
-	return func(data map[string]any) bool {
-		if rq.Project != nil {
-			if data["ProjectID"] != *rq.Project {
-				return false
-			}
-		}
-		if rq.Ip != nil {
-			if data["IPAddress"] != *rq.Ip {
-				return false
-			}
-		}
-		if rq.Uuid != nil {
-			if data["AllocationUUID"] != *rq.Uuid {
-				return false
-			}
-		}
-		if rq.Name != nil {
-			if data["Name"] != *rq.Name {
-				return false
-			}
-		}
-		if rq.Namespace != nil {
-			v, _ := data["Namespace"].(*string)
-			if v == nil || *v != *rq.Namespace {
-				return false
-			}
-		}
-		if rq.Network != nil {
-			if data["NetworkID"] != *rq.Network {
-				return false
-			}
-		}
-		if rq.ParentPrefixCidr != nil {
-			if data["ParentPrefixCidr"] != *rq.ParentPrefixCidr {
-				return false
-			}
-		}
-		if rq.Machine != nil {
-			tagStr := fmt.Sprintf("%s=%s", tag.MachineID, *rq.Machine)
-			tags, _ := data["Tags"].([]any)
-			if !containsAny(tags, tagStr) {
-				return false
-			}
-		}
-		if rq.Labels != nil {
-			tags, _ := data["Tags"].([]any)
-			for key, value := range rq.Labels.Labels {
-				tagStr := fmt.Sprintf("%s=%s", key, value)
-				if !containsAny(tags, tagStr) {
-					return false
-				}
-			}
-		}
-		if rq.Type != nil {
-			typeString, err := enum.GetStringValue(*rq.Type)
-			if err == nil && typeString != nil && data["Type"] != *typeString {
-				return false
-			}
-		}
-		if rq.AddressFamily != nil {
-			ip, _ := data["IPAddress"].(string)
-			switch rq.AddressFamily.String() {
-			case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4.String():
-				if !strings.Contains(ip, ".") {
-					return false
-				}
-			case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.String():
-				if !strings.Contains(ip, ":") {
-					return false
-				}
-			}
-		}
-		return true
+	var conds []*cond.Where
+
+	if rq.Project != nil {
+		conds = append(conds, cond.FieldEq("ProjectID", *rq.Project))
 	}
+	if rq.Ip != nil {
+		conds = append(conds, cond.FieldEq("IPAddress", *rq.Ip))
+	}
+	if rq.Uuid != nil {
+		conds = append(conds, cond.FieldEq("AllocationUUID", *rq.Uuid))
+	}
+	if rq.Name != nil {
+		conds = append(conds, cond.FieldEq("Name", *rq.Name))
+	}
+	if rq.Namespace != nil {
+		conds = append(conds, cond.NestedFieldEq("", "Namespace", *rq.Namespace))
+	}
+	if rq.Network != nil {
+		conds = append(conds, cond.FieldEq("NetworkID", *rq.Network))
+	}
+	if rq.ParentPrefixCidr != nil {
+		conds = append(conds, cond.FieldEq("ParentPrefixCidr", *rq.ParentPrefixCidr))
+	}
+	if rq.Machine != nil {
+		tagStr := fmt.Sprintf("%s=%s", tag.MachineID, *rq.Machine)
+		conds = append(conds, cond.TagInSlice(tagStr))
+	}
+	if rq.Labels != nil {
+		for _, value := range rq.Labels.Labels {
+			_ = value
+		}
+		for key, value := range rq.Labels.Labels {
+			tagStr := fmt.Sprintf("%s=%s", key, value)
+			conds = append(conds, cond.TagInSlice(tagStr))
+		}
+	}
+	if rq.Type != nil {
+		typeStr, err := enumGetStringValue(*rq.Type)
+		if err == nil && typeStr != "" {
+			conds = append(conds, cond.FieldEq("Type", typeStr))
+		}
+	}
+	if rq.AddressFamily != nil {
+		switch rq.AddressFamily.String() {
+		case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4.String():
+			conds = append(conds, &cond.Where{
+				SQL:  "data->>'IPAddress' ~ '\\\\.'",
+				Args: nil,
+			})
+		case apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V6.String():
+			conds = append(conds, &cond.Where{
+				SQL:  "data->>'IPAddress' ~ ':'",
+				Args: nil,
+			})
+		}
+	}
+
+	return cond.And(conds...)
 }

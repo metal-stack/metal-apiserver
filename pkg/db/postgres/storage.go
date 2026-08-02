@@ -88,9 +88,48 @@ func (s *storage[E]) Delete(ctx context.Context, e E) error {
 }
 
 func (s *storage[E]) Find(ctx context.Context, queries ...any) (E, error) {
-	rows, err := s.ds.pool.Query(ctx,
-		`SELECT data FROM `+quoteIdent(s.tableName),
-	)
+	conds, filters := separateConditions(queries)
+
+	if len(conds) > 0 || len(filters) == 0 {
+		// Use JSONB query path
+		whereSQL, whereArgs := buildWhereClause(conds, 1)
+		query := `SELECT data FROM ` + quoteIdent(s.tableName) + whereSQL
+
+		rows, err := s.ds.pool.Query(ctx, query, whereArgs...)
+		if err != nil {
+			var zero E
+			return zero, fmt.Errorf("cannot find %v in database: %w", s.tableName, err)
+		}
+		defer rows.Close()
+
+		var results []E
+		for rows.Next() {
+			var raw []byte
+			if err := rows.Scan(&raw); err != nil {
+				var zero E
+				return zero, fmt.Errorf("cannot scan %v: %w", s.tableName, err)
+			}
+			e := new(E)
+			if err := json.Unmarshal(raw, e); err != nil {
+				var zero E
+				return zero, fmt.Errorf("cannot unmarshal %v: %w", s.tableName, err)
+			}
+			results = append(results, *e)
+		}
+
+		if len(results) == 0 {
+			var zero E
+			return zero, errorutil.NotFound("no %v found", s.tableName)
+		}
+		if len(results) > 1 {
+			var zero E
+			return zero, fmt.Errorf("more than one %v exists", s.tableName)
+		}
+		return results[0], nil
+	}
+
+	// Fallback: in-memory filtering for func(map[string]any) bool filters
+	rows, err := s.ds.pool.Query(ctx, `SELECT data FROM `+quoteIdent(s.tableName))
 	if err != nil {
 		var zero E
 		return zero, fmt.Errorf("cannot find %v in database: %w", s.tableName, err)
@@ -98,7 +137,6 @@ func (s *storage[E]) Find(ctx context.Context, queries ...any) (E, error) {
 	defer rows.Close()
 
 	var results []E
-
 	for rows.Next() {
 		var raw []byte
 		if err := rows.Scan(&raw); err != nil {
@@ -112,7 +150,7 @@ func (s *storage[E]) Find(ctx context.Context, queries ...any) (E, error) {
 			return zero, fmt.Errorf("cannot unmarshal %v: %w", s.tableName, err)
 		}
 
-		if matchEntity(*e, queries) {
+		if matchInMemory(*e, filters) {
 			results = append(results, *e)
 		}
 	}
@@ -125,21 +163,46 @@ func (s *storage[E]) Find(ctx context.Context, queries ...any) (E, error) {
 		var zero E
 		return zero, fmt.Errorf("more than one %v exists", s.tableName)
 	}
-
 	return results[0], nil
 }
 
 func (s *storage[E]) List(ctx context.Context, queries ...any) ([]E, error) {
-	rows, err := s.ds.pool.Query(ctx,
-		`SELECT data FROM `+quoteIdent(s.tableName),
-	)
+	conds, filters := separateConditions(queries)
+
+	if len(conds) > 0 || len(filters) == 0 {
+		// Use JSONB query path
+		whereSQL, whereArgs := buildWhereClause(conds, 1)
+		query := `SELECT data FROM ` + quoteIdent(s.tableName) + whereSQL
+
+		rows, err := s.ds.pool.Query(ctx, query, whereArgs...)
+		if err != nil {
+			return nil, fmt.Errorf("cannot search %v in database: %w", s.tableName, err)
+		}
+		defer rows.Close()
+
+		var results []E
+		for rows.Next() {
+			var raw []byte
+			if err := rows.Scan(&raw); err != nil {
+				return nil, fmt.Errorf("cannot scan %v: %w", s.tableName, err)
+			}
+			e := new(E)
+			if err := json.Unmarshal(raw, e); err != nil {
+				return nil, fmt.Errorf("cannot unmarshal %v: %w", s.tableName, err)
+			}
+			results = append(results, *e)
+		}
+		return results, nil
+	}
+
+	// Fallback: in-memory filtering
+	rows, err := s.ds.pool.Query(ctx, `SELECT data FROM `+quoteIdent(s.tableName))
 	if err != nil {
 		return nil, fmt.Errorf("cannot search %v in database: %w", s.tableName, err)
 	}
 	defer rows.Close()
 
 	var results []E
-
 	for rows.Next() {
 		var raw []byte
 		if err := rows.Scan(&raw); err != nil {
@@ -151,11 +214,10 @@ func (s *storage[E]) List(ctx context.Context, queries ...any) ([]E, error) {
 			return nil, fmt.Errorf("cannot unmarshal %v: %w", s.tableName, err)
 		}
 
-		if matchEntity(*e, queries) {
+		if matchInMemory(*e, filters) {
 			results = append(results, *e)
 		}
 	}
-
 	return results, nil
 }
 
@@ -202,7 +264,6 @@ func (s *storage[E]) Update(ctx context.Context, e E) error {
 		return fmt.Errorf("cannot marshal %v for update: %w", s.tableName, err)
 	}
 
-	// Use changed timestamp for optimistic locking, but also update the new changed value
 	tag, err := s.ds.pool.Exec(ctx,
 		`UPDATE `+quoteIdent(s.tableName)+` SET data = $1, changed = $2, generation = $3 WHERE id = $4 AND changed = $5`,
 		data, e.GetChanged(), newGeneration, e.GetID(), changedTimestamp,
@@ -274,32 +335,23 @@ func setEntityField[E interfaces.Entity](e E, fieldName string, val any) error {
 	return nil
 }
 
-// matchEntity checks if an entity matches all the given query filters.
-func matchEntity[E interfaces.Entity](e E, queries []any) bool {
-	if len(queries) == 0 {
-		return true
-	}
-	data, err := json.Marshal(e)
-	if err != nil {
-		return true
-	}
-	var m map[string]any
-	if err := json.Unmarshal(data, &m); err != nil {
-		return true
-	}
-	for _, q := range queries {
-		if q == nil {
+// matchInMemory checks if an entity matches all the given in-memory filter functions.
+func matchInMemory[E interfaces.Entity](e E, filters []func(map[string]any) bool) bool {
+	for _, f := range filters {
+		if f == nil {
 			continue
 		}
-		if f, ok := q.(func(map[string]any) bool); ok {
-			if !f(m) {
-				return false
-			}
+		data, err := json.Marshal(e)
+		if err != nil {
+			return true
+		}
+		var m map[string]any
+		if err := json.Unmarshal(data, &m); err != nil {
+			return true
+		}
+		if !f(m) {
+			return false
 		}
 	}
 	return true
-}
-
-func quoteIdent(name string) string {
-	return `"` + name + `"`
 }

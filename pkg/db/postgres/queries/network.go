@@ -1,142 +1,96 @@
 package queries
 
 import (
+	"fmt"
 	"net/netip"
 	"strconv"
-	"strings"
 
-	"github.com/metal-stack/api/go/enum"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/metal-stack/metal-apiserver/pkg/db/postgres/cond"
 )
 
-// NetworkFilter builds an in-memory filter for Network entities from the given query.
-func NetworkFilter(rq *apiv2.NetworkQuery) func(map[string]any) bool {
+// NetworkFilter builds a JSONB query condition for Network entities from the given query.
+func NetworkFilter(rq *apiv2.NetworkQuery) *cond.Where {
 	if rq == nil {
 		return nil
 	}
-	return func(data map[string]any) bool {
-		if rq.Project != nil {
-			if data["ProjectID"] != *rq.Project {
-				return false
-			}
-		}
-		if rq.Id != nil {
-			if data["ID"] != *rq.Id {
-				return false
-			}
-		}
-		if rq.Name != nil {
-			if data["Name"] != *rq.Name {
-				return false
-			}
-		}
-		if rq.Namespace != nil {
-			v, _ := data["Namespace"].(*string)
-			if v == nil || *v != *rq.Namespace {
-				return false
-			}
-		}
-		if rq.Description != nil {
-			if data["Description"] != *rq.Description {
-				return false
-			}
-		}
-		if rq.Partition != nil {
-			if data["PartitionID"] != *rq.Partition {
-				return false
-			}
-		}
-		if rq.ParentNetwork != nil {
-			if data["ParentNetworkID"] != *rq.ParentNetwork {
-				return false
-			}
-		}
-		if rq.Vrf != nil {
-			vrf, ok := data["Vrf"].(float64)
-			if !ok || uint32(vrf) != *rq.Vrf {
-				return false
-			}
-		}
-		if rq.Labels != nil {
-			labels, _ := data["Labels"].(map[string]any)
-			for key, value := range rq.Labels.Labels {
-				if labels == nil || labels[key] != value {
-					return false
-				}
-			}
-		}
-		if rq.Type != nil {
-			stringPtr, err := enum.GetStringValue(rq.Type)
-			if err == nil && stringPtr != nil && data["NetworkType"] != *stringPtr {
-				return false
-			}
-		}
-		if rq.NatType != nil {
-			nt, err := metal.ToNATType(*rq.NatType)
-			if err == nil && data["NATType"] != string(nt) {
-				return false
-			}
-		}
-		for _, prefix := range rq.Prefixes {
-			pfx := netip.MustParsePrefix(prefix)
-			ip := pfx.Addr().String()
-			length := strconv.Itoa(pfx.Bits())
+	var conds []*cond.Where
 
-			prefixes, _ := data["Prefixes"].([]any)
-			if !hasPrefix(prefixes, ip, length) {
-				return false
-			}
-		}
-		for _, destPrefix := range rq.DestinationPrefixes {
-			pfx := netip.MustParsePrefix(destPrefix)
-			ip := pfx.Addr().String()
-			length := strconv.Itoa(pfx.Bits())
-
-			destPrefixes, _ := data["DestinationPrefixes"].([]any)
-			if !hasPrefix(destPrefixes, ip, length) {
-				return false
-			}
-		}
-		if rq.AddressFamily != nil {
-			prefixes, _ := data["Prefixes"].([]any)
-			switch rq.AddressFamily.String() {
-			case apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_V4.String():
-				if !hasPrefixWithSeparator(prefixes, ".") {
-					return false
-				}
-			case apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_V6.String():
-				if !hasPrefixWithSeparator(prefixes, ":") {
-					return false
-				}
-			case apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_DUAL_STACK.String():
-				if !hasPrefixWithSeparator(prefixes, ".") || !hasPrefixWithSeparator(prefixes, ":") {
-					return false
-				}
-			}
-		}
-		return true
+	if rq.Project != nil {
+		conds = append(conds, cond.FieldEq("ProjectID", *rq.Project))
 	}
-}
-
-func hasPrefix(prefixes []any, ip, length string) bool {
-	for _, p := range prefixes {
-		if pm, ok := p.(map[string]any); ok {
-			if toString(pm["IP"]) == ip && toString(pm["Length"]) == length {
-				return true
-			}
+	if rq.Id != nil {
+		conds = append(conds, cond.FieldEq("ID", *rq.Id))
+	}
+	if rq.Name != nil {
+		conds = append(conds, cond.FieldEq("Name", *rq.Name))
+	}
+	if rq.Namespace != nil {
+		conds = append(conds, &cond.Where{
+			SQL:  fmt.Sprintf("data->>'Namespace' = $%d", 1),
+			Args: []any{*rq.Namespace},
+		})
+	}
+	if rq.Description != nil {
+		conds = append(conds, cond.FieldEq("Description", *rq.Description))
+	}
+	if rq.Partition != nil {
+		conds = append(conds, cond.FieldEq("PartitionID", *rq.Partition))
+	}
+	if rq.ParentNetwork != nil {
+		conds = append(conds, cond.FieldEq("ParentNetworkID", *rq.ParentNetwork))
+	}
+	if rq.Vrf != nil {
+		conds = append(conds, cond.FieldEqInt("Vrf", int(*rq.Vrf)))
+	}
+	if rq.Labels != nil {
+		for key, value := range rq.Labels.Labels {
+			conds = append(conds, &cond.Where{
+				SQL:  fmt.Sprintf("data->'Labels'->>'%s' = $%d", escapeJSONKey(key), 1),
+				Args: []any{value},
+			})
 		}
 	}
-	return false
-}
-
-func hasPrefixWithSeparator(prefixes []any, sep string) bool {
-	for _, p := range prefixes {
-		if pm, ok := p.(map[string]any); ok {
-			if ip, ok := pm["IP"].(string); ok && strings.Contains(ip, sep) {
-				return true
-			}
+	if rq.Type != nil {
+		typeStr, err := enumGetStringValue(*rq.Type)
+		if err == nil && typeStr != "" {
+			conds = append(conds, cond.FieldEq("NetworkType", typeStr))
 		}
 	}
-	return false
+	if rq.NatType != nil {
+		typeStr, err := enumGetStringValue(*rq.NatType)
+		if err == nil && typeStr != "" {
+			conds = append(conds, cond.FieldEq("NATType", typeStr))
+		}
+	}
+	for _, prefix := range rq.Prefixes {
+		pfx := netip.MustParsePrefix(prefix)
+		ip := pfx.Addr().String()
+		length := strconv.Itoa(pfx.Bits())
+		conds = append(conds, &cond.Where{
+			SQL: fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements(data->'Prefixes') elem WHERE elem->>'IP' = $%d AND elem->>'Length' = $%d)", 1, 2),
+			Args: []any{ip, length},
+		})
+	}
+	for _, destPrefix := range rq.DestinationPrefixes {
+		pfx := netip.MustParsePrefix(destPrefix)
+		ip := pfx.Addr().String()
+		length := strconv.Itoa(pfx.Bits())
+		conds = append(conds, &cond.Where{
+			SQL: fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_array_elements(data->'DestinationPrefixes') elem WHERE elem->>'IP' = $%d AND elem->>'Length' = $%d)", 1, 2),
+			Args: []any{ip, length},
+		})
+	}
+	if rq.AddressFamily != nil {
+		switch rq.AddressFamily.String() {
+		case apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_V4.String():
+			conds = append(conds, &cond.Where{SQL: "EXISTS (SELECT 1 FROM jsonb_array_elements(data->'Prefixes') elem WHERE elem->>'IP' ~ '\\.')"})
+		case apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_V6.String():
+			conds = append(conds, &cond.Where{SQL: "EXISTS (SELECT 1 FROM jsonb_array_elements(data->'Prefixes') elem WHERE elem->>'IP' ~ ':')"})
+		case apiv2.NetworkAddressFamily_NETWORK_ADDRESS_FAMILY_DUAL_STACK.String():
+			conds = append(conds, &cond.Where{SQL: "EXISTS (SELECT 1 FROM jsonb_array_elements(data->'Prefixes') elem WHERE elem->>'IP' ~ '\\.') AND EXISTS (SELECT 1 FROM jsonb_array_elements(data->'Prefixes') elem WHERE elem->>'IP' ~ ':')"})
+		}
+	}
+
+	return cond.And(conds...)
 }

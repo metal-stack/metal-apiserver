@@ -1,64 +1,57 @@
 package queries
 
 import (
-	"github.com/metal-stack/api/go/enum"
+	"fmt"
+
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/db/postgres/cond"
 )
 
-// ImageFilter builds an in-memory filter for Image entities from the given query.
-func ImageFilter(rq *apiv2.ImageQuery) func(map[string]any) bool {
+// ImageFilter builds a JSONB query condition for Image entities from the given query.
+func ImageFilter(rq *apiv2.ImageQuery) *cond.Where {
 	if rq == nil {
 		return nil
 	}
-	return func(data map[string]any) bool {
-		if rq.Id != nil {
-			if data["ID"] != *rq.Id {
-				return false
-			}
-		}
-		if rq.Os != nil {
-			if data["OS"] != *rq.Os {
-				return false
-			}
-		}
-		if rq.Version != nil {
-			if data["Version"] != *rq.Version {
-				return false
-			}
-		}
-		if rq.Name != nil {
-			if data["Name"] != *rq.Name {
-				return false
-			}
-		}
-		if rq.Description != nil {
-			if data["Description"] != *rq.Description {
-				return false
-			}
-		}
-		if rq.Feature != nil {
-			featurePtr, err := enum.GetStringValue(*rq.Feature)
-			if err == nil && featurePtr != nil {
-				features, _ := data["Features"].(map[string]any)
-				if features == nil || features[*featurePtr] == nil {
-					return false
-				}
-			}
-		}
-		if rq.Classification != nil {
-			classPtr, err := enum.GetStringValue(*rq.Classification)
-			if err == nil && classPtr != nil && data["Classification"] != *classPtr {
-				return false
-			}
-		}
-		if rq.Labels != nil {
-			labels, _ := data["Labels"].(map[string]any)
-			for key, value := range rq.Labels.Labels {
-				if labels == nil || labels[key] != value {
-					return false
-				}
-			}
-		}
-		return true
+	var conds []*cond.Where
+
+	if rq.Id != nil {
+		conds = append(conds, cond.FieldEq("ID", *rq.Id))
 	}
+	if rq.Os != nil {
+		conds = append(conds, cond.FieldEq("OS", *rq.Os))
+	}
+	if rq.Version != nil {
+		conds = append(conds, cond.FieldEq("Version", *rq.Version))
+	}
+	if rq.Name != nil {
+		conds = append(conds, cond.FieldEq("Name", *rq.Name))
+	}
+	if rq.Description != nil {
+		conds = append(conds, cond.FieldEq("Description", *rq.Description))
+	}
+	if rq.Feature != nil {
+		featureStr, err := enumGetStringValue(*rq.Feature)
+		if err == nil && featureStr != "" {
+			conds = append(conds, &cond.Where{
+				SQL:  fmt.Sprintf("data->'Features' ? '%s'", escapeJSONKey(featureStr)),
+				Args: nil,
+			})
+		}
+	}
+	if rq.Classification != nil {
+		classStr, err := enumGetStringValue(*rq.Classification)
+		if err == nil && classStr != "" {
+			conds = append(conds, cond.FieldEq("Classification", classStr))
+		}
+	}
+	if rq.Labels != nil {
+		for key, value := range rq.Labels.Labels {
+			conds = append(conds, &cond.Where{
+				SQL:  fmt.Sprintf("data->'Labels'->>'%s' = $%d", escapeJSONKey(key), 1),
+				Args: []any{value},
+			})
+		}
+	}
+
+	return cond.And(conds...)
 }
