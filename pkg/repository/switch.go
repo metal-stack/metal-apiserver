@@ -169,15 +169,6 @@ func (r *switchRepository) Port(ctx context.Context, id, port string, status api
 		return nil, errorutil.InvalidArgument("port %s does not exist on switch %s", port, id)
 	}
 
-	m, err := r.getConnectedMachineForNic(ctx, nic, sw.MachineConnections)
-	if err != nil {
-		return nil, err
-	}
-
-	if m == nil {
-		return nil, errorutil.FailedPrecondition("port %s is not connected to any machine", port)
-	}
-
 	nic.State.Desired = &metalStatus
 	err = r.s.ds.Switch().Update(ctx, sw)
 	if err != nil {

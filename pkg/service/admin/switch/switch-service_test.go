@@ -664,17 +664,31 @@ func Test_switchServiceServer_Port(t *testing.T) {
 			wantErr: errorutil.InvalidArgument("port swp1 does not exist on switch %s", sc.P01Rack01Switch1),
 		},
 		{
-			name: "nic is not connected to a machine",
+			name: "nic is not connected to a machine, port update still works",
 			rq: &adminv2.SwitchServicePortRequest{
 				Status:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 				Id:      sc.P01Rack01Switch1,
 				NicName: "Ethernet1",
 			},
-			want:    nil,
-			wantErr: errorutil.FailedPrecondition("port Ethernet1 is not connected to any machine"),
+			want: func(dc *test.Datacenter) *adminv2.SwitchServicePortResponse {
+				sw := dc.GetSwitches()[sc.P01Rack01Switch1]
+				sw.Nics[1].State.Desired = apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum()
+				return &adminv2.SwitchServicePortResponse{
+					Switch: sw,
+				}
+			},
+			mods: func() *test.Asserters {
+				return &test.Asserters{
+					Switches: func(switches map[string]*apiv2.Switch) {
+						sw := switches[sc.P01Rack01Switch1]
+						sw.Nics[1].State.Desired = apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum()
+					},
+				}
+			},
+			wantErr: nil,
 		},
 		{
-			name: "nic update successful",
+			name: "nic update for connected nic successful",
 			rq: &adminv2.SwitchServicePortRequest{
 				Status:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
 				Id:      sc.P01Rack01Switch1,
