@@ -1172,7 +1172,7 @@ func (r *machineRepository) GetBMC(ctx context.Context, req *adminv2.MachineServ
 }
 
 func (r *machineRepository) ListBMC(ctx context.Context, req *adminv2.MachineServiceListBMCRequest) (*adminv2.MachineServiceListBMCResponse, error) {
-	machines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{Bmc: req.Query}))
+	machines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(req.Query))
 	if err != nil {
 		return nil, err
 	}
