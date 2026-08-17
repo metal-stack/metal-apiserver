@@ -55,6 +55,7 @@ type MachineAllocation struct {
 	DNSServers       DNSServers        `rethinkdb:"dns_servers"`
 	NTPServers       NTPServers        `rethinkdb:"ntp_servers"`
 	Labels           map[string]string `rethinkdb:"labels"`
+	PlacementLabels  map[string]string `rethinkdb:"placement_labels"`
 }
 
 // A MachineState describes the state of a machine. If the Value is AvailableState,

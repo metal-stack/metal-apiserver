@@ -304,6 +304,7 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 	var (
 		labels           *apiv2.Labels
 		allocationLabels *apiv2.Labels
+		placementLabels  *apiv2.Labels
 		allocation       *apiv2.MachineAllocation
 		condition        *apiv2.MachineCondition
 		status           *apiv2.MachineStatus
@@ -507,12 +508,19 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 			}
 		}
 
+		if m.Allocation.PlacementLabels != nil {
+			placementLabels = &apiv2.Labels{
+				Labels: m.Allocation.PlacementLabels,
+			}
+		}
+
 		allocation = &apiv2.MachineAllocation{
 			Uuid: alloc.UUID,
 			Meta: &apiv2.Meta{
 				CreatedAt: timestamppb.New(alloc.Created),
 				Labels:    allocationLabels,
 			},
+			PlacementLabels:  placementLabels,
 			Name:             alloc.Name,
 			Description:      alloc.Description,
 			CreatedBy:        alloc.Creator,
@@ -1011,16 +1019,15 @@ func (r *machineRepository) UpdateBMCInfo(ctx context.Context, req *infrav2.Upda
 		CreatedMachines: []string{},
 	}
 	// create empty machines for uuids that are not yet known to the metal-api
-	for uuid, report := range req.BmcReports {
-		if uuid == "" {
+	knownReports := make(map[string]*apiv2.MachineBMCReport)
+	for _, report := range req.BmcReports {
+		if _, ok := known[report.Uuid]; ok {
 			continue
 		}
-		if _, ok := known[uuid]; ok {
-			continue
-		}
+		knownReports[report.Uuid] = report
 		m := &metal.Machine{
 			Base: metal.Base{
-				ID: uuid,
+				ID: report.Uuid,
 			},
 			PartitionID: partition.ID,
 			IPMI: metal.IPMI{
@@ -1035,14 +1042,14 @@ func (r *machineRepository) UpdateBMCInfo(ctx context.Context, req *infrav2.Upda
 				Value: ledstate,
 			}
 		} else {
-			r.s.log.Error("unable to decode ledstate", "id", uuid, "ledstate", report.LedState.Value, "error", err)
+			r.s.log.Error("unable to decode ledstate", "id", report.Uuid, "ledstate", report.LedState.Value, "error", err)
 		}
 		_, err = r.s.ds.Machine().Create(ctx, m)
 		if err != nil {
-			r.s.log.Error("could not create machine", "id", uuid, "ipmi-ip", report.Bmc.Address, "m", m, "err", err)
+			r.s.log.Error("could not create machine", "id", report.Uuid, "ipmi-ip", report.Bmc.Address, "m", m, "err", err)
 			continue
 		}
-		resp.CreatedMachines = append(resp.CreatedMachines, uuid)
+		resp.CreatedMachines = append(resp.CreatedMachines, report.Uuid)
 	}
 	// update machine bmc data if bmc ip changed
 	for _, machine := range ms {
@@ -1051,7 +1058,7 @@ func (r *machineRepository) UpdateBMCInfo(ctx context.Context, req *infrav2.Upda
 			continue
 		}
 		// if oldmachine.uuid is not part of this update cycle skip it
-		report, ok := req.BmcReports[uuid]
+		report, ok := knownReports[uuid]
 		if !ok {
 			continue
 		}
@@ -1163,11 +1170,17 @@ func (r *machineRepository) GetBMC(ctx context.Context, req *adminv2.MachineServ
 		return nil, err
 	}
 
-	bmcReport := r.convertToBMCReport(machine)
+	details := &apiv2.MachineBMCDetails{
+		Uuid:      machine.ID,
+		Partition: machine.PartitionID,
+		Rack:      machine.RackID,
+		Room:      machine.RackID,
+		Size:      machine.SizeID,
+		BmcReport: r.convertToBMCReport(machine),
+	}
 
 	return &adminv2.MachineServiceGetBMCResponse{
-		Uuid: req.Uuid,
-		Bmc:  bmcReport,
+		BmcDetails: details,
 	}, nil
 }
 
@@ -1177,13 +1190,21 @@ func (r *machineRepository) ListBMC(ctx context.Context, req *adminv2.MachineSer
 		return nil, err
 	}
 
-	bmcReports := make(map[string]*apiv2.MachineBMCReport)
+	var bmcDetails []*apiv2.MachineBMCDetails
 	for _, machine := range machines {
-		bmcReports[machine.ID] = r.convertToBMCReport(machine)
+		details := &apiv2.MachineBMCDetails{
+			Uuid:      machine.ID,
+			Partition: machine.PartitionID,
+			Rack:      machine.RackID,
+			Room:      machine.RackID,
+			Size:      machine.SizeID,
+			BmcReport: r.convertToBMCReport(machine),
+		}
+		bmcDetails = append(bmcDetails, details)
 	}
 
 	return &adminv2.MachineServiceListBMCResponse{
-		BmcReports: bmcReports,
+		BmcDetails: bmcDetails,
 	}, nil
 }
 
@@ -1240,6 +1261,7 @@ func (r *machineRepository) convertToBMCReport(machine *metal.Machine) *apiv2.Ma
 	}
 
 	bmcReport := &apiv2.MachineBMCReport{
+		Uuid:          machine.ID,
 		Bmc:           bmc,
 		Bios:          bios,
 		Fru:           fru,

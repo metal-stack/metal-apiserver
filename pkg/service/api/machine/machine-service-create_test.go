@@ -1,6 +1,7 @@
 package machine
 
 import (
+	"encoding/base64"
 	"log/slog"
 	"os"
 	"strings"
@@ -35,8 +36,10 @@ import (
 func Test_machineServiceServer_CreateMachine(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	ctx := t.Context()
+	var (
+		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+		ctx = t.Context()
+	)
 
 	// Add token to be able to get the user from the context
 	testToken := apiv2.Token{
@@ -569,7 +572,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 					Networks: []*apiv2.MachineAllocationNetwork{
 						{Network: projectNetworkId},
 					},
-					Userdata: new("echo hello from userdata"),
+					Userdata: new(base64.StdEncoding.EncodeToString([]byte("echo hello from userdata"))),
 					Labels: &apiv2.Labels{
 						Labels: map[string]string{
 							"test-label": "test-value",
@@ -638,7 +641,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 							AllocationType:   apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
 							CreatedBy:        "unit-test-user",
 							Project:          sc.Tenant1Project1,
-							Userdata:         "echo hello from userdata",
+							Userdata:         base64.StdEncoding.EncodeToString([]byte("echo hello from userdata")),
 						},
 					},
 				}
@@ -959,7 +962,11 @@ func Test_machineServiceServer_CreateFirewallWithoutVPN(t *testing.T) {
 							"organization": "webserver-team",
 						},
 					},
-					PlacementTags: []string{"rack01"},
+					PlacementLabels: &apiv2.Labels{
+						Labels: map[string]string{
+							"rack": "01",
+						},
+					},
 				}
 				return req, nil
 			},
@@ -1001,6 +1008,11 @@ func Test_machineServiceServer_CreateFirewallWithoutVPN(t *testing.T) {
 									Labels: map[string]string{
 										"organization": "webserver-team",
 									},
+								},
+							},
+							PlacementLabels: &apiv2.Labels{
+								Labels: map[string]string{
+									"rack": "01",
 								},
 							},
 							Name:     "testfirewall",
