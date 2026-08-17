@@ -304,6 +304,7 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 	var (
 		labels           *apiv2.Labels
 		allocationLabels *apiv2.Labels
+		placementLabels  *apiv2.Labels
 		allocation       *apiv2.MachineAllocation
 		condition        *apiv2.MachineCondition
 		status           *apiv2.MachineStatus
@@ -507,12 +508,19 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 			}
 		}
 
+		if m.Allocation.PlacementLabels != nil {
+			placementLabels = &apiv2.Labels{
+				Labels: m.Allocation.PlacementLabels,
+			}
+		}
+
 		allocation = &apiv2.MachineAllocation{
 			Uuid: alloc.UUID,
 			Meta: &apiv2.Meta{
 				CreatedAt: timestamppb.New(alloc.Created),
 				Labels:    allocationLabels,
 			},
+			PlacementLabels:  placementLabels,
 			Name:             alloc.Name,
 			Description:      alloc.Description,
 			CreatedBy:        alloc.Creator,
