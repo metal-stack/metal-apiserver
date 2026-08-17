@@ -16,6 +16,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
+	"github.com/metal-stack/metal-apiserver/pkg/tags"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	metalcommon "github.com/metal-stack/metal-lib/pkg/metal"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
@@ -163,7 +164,7 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 	}
 
 	if req.Uuid == nil {
-		machineCandidate, err := r.findWaitingMachine(ctx, partitionID, req.Project, sizeID, req.PlacementTags, role)
+		machineCandidate, err := r.findWaitingMachine(ctx, partitionID, req.Project, sizeID, req.PlacementLabels, role)
 		if err != nil {
 			return result, err
 		}
@@ -179,6 +180,11 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 	allocationUUID, err := uuid.NewV7()
 	if err != nil {
 		return result, fmt.Errorf("unable to create allocation uuid %w", err)
+	}
+
+	var placementLabels map[string]string
+	if req.PlacementLabels != nil {
+		placementLabels = req.PlacementLabels.Labels
 	}
 
 	alloc := &metal.MachineAllocation{
@@ -198,6 +204,7 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 		FirewallRules:   fwrules,
 		DNSServers:      dnsServers,
 		NTPServers:      ntpServers,
+		PlacementLabels: placementLabels,
 	}
 
 	if req.Labels != nil && req.Labels.Labels != nil {
@@ -316,7 +323,7 @@ func (r *machineRepository) rollback(ctx context.Context, rollbackEntities *roll
 }
 
 // FindWaitingMachine returns an available, not allocated, waiting and alive machine of given size within the given partition.
-func (r *machineRepository) findWaitingMachine(ctx context.Context, partition, project, size string, placementTags []string, role metal.Role) (*metal.Machine, error) {
+func (r *machineRepository) findWaitingMachine(ctx context.Context, partition, project, size string, placementLabels *apiv2.Labels, role metal.Role) (*metal.Machine, error) {
 	if err := r.s.ds.Lock(ctx, partition, generic.NewLockOptExpirationTimeout(10*time.Second)); err != nil {
 		return nil, fmt.Errorf("too many parallel machine allocations taking place, try again later:%w", err)
 	}
@@ -380,6 +387,11 @@ func (r *machineRepository) findWaitingMachine(ctx context.Context, partition, p
 
 	if err := r.s.UnscopedSizeReservation().AdditionalMethods().check(ctx, candidates, partition, project, size); err != nil {
 		return nil, errorutil.NewResourceExhausted(err)
+	}
+
+	var placementTags []string
+	if placementLabels != nil {
+		placementTags = tags.ToTags(placementLabels.Labels)
 	}
 
 	desiredMachine, err := r.selectMachine(available, projectMachines, placementTags)
