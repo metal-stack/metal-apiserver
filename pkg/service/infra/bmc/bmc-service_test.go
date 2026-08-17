@@ -28,7 +28,7 @@ var (
 )
 
 func Test_bmcServiceServer_UpdateBMCInfo(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
@@ -135,17 +135,22 @@ func Test_bmcServiceServer_UpdateBMCInfo(t *testing.T) {
 		},
 		{
 			name: "update bmc info for known machine, no values",
-			req: &infrav2.UpdateBMCInfoRequest{Partition: "partition-1", BmcReports: []*apiv2.MachineBMCReport{
-				{
-					Uuid:          m1,
-					Bmc:           &apiv2.MachineBMC{Address: "192.168.0.1:623", Mac: "00:00:00:00:00:01"},
-					Bios:          &apiv2.MachineBios{},
-					Fru:           &apiv2.MachineFRU{},
-					PowerMetric:   &apiv2.MachinePowerMetric{},
-					PowerSupplies: []*apiv2.MachinePowerSupply{},
-					LedState:      &apiv2.MachineChassisIdentifyLEDState{Value: "LED-OFF"},
-				},
-			}},
+			req: &infrav2.UpdateBMCInfoRequest{
+				Partition: "partition-1",
+				BmcReports: []*apiv2.MachineBMCReport{
+					{
+						Uuid: m1,
+						Bmc: &apiv2.MachineBMC{
+							Address: "192.168.0.1:623",
+							Mac:     "00:00:00:00:00:01",
+						},
+						Bios:          &apiv2.MachineBios{},
+						Fru:           &apiv2.MachineFRU{},
+						PowerMetric:   &apiv2.MachinePowerMetric{},
+						PowerSupplies: []*apiv2.MachinePowerSupply{},
+						LedState:      &apiv2.MachineChassisIdentifyLEDState{Value: "LED-OFF"},
+					},
+				}},
 			want: &adminv2.MachineServiceListBMCResponse{
 				BmcDetails: []*apiv2.MachineBMCDetails{
 					{
@@ -153,7 +158,9 @@ func Test_bmcServiceServer_UpdateBMCInfo(t *testing.T) {
 						Partition: "partition-1",
 						BmcReport: &apiv2.MachineBMCReport{
 							Uuid: m0,
-							Bmc:  &apiv2.MachineBMC{Address: "192.168.0.1:623", Mac: "00:00:00:00:00:01"},
+							Bmc: &apiv2.MachineBMC{
+								Address: "192.168.0.1:623",
+								Mac:     "00:00:00:00:00:01"},
 							Bios: &apiv2.MachineBios{},
 							Fru: &apiv2.MachineFRU{
 								ChassisPartNumber:   new(""),
@@ -175,7 +182,10 @@ func Test_bmcServiceServer_UpdateBMCInfo(t *testing.T) {
 						Size:      "c1-large-x86",
 						BmcReport: &apiv2.MachineBMCReport{
 							Uuid: m1,
-							Bmc:  &apiv2.MachineBMC{Address: "192.168.0.1:623", Mac: "00:00:00:00:00:01"},
+							Bmc: &apiv2.MachineBMC{
+								Address: "192.168.0.1:623",
+								Mac:     "00:00:00:00:00:01",
+							},
 							Bios: &apiv2.MachineBios{},
 							Fru: &apiv2.MachineFRU{
 								ChassisPartNumber:   new(""),
@@ -240,6 +250,8 @@ func Test_bmcServiceServer_UpdateBMCInfo(t *testing.T) {
 			want: &adminv2.MachineServiceListBMCResponse{
 				BmcDetails: []*apiv2.MachineBMCDetails{
 					{
+						Uuid:      m0,
+						Partition: "partition-1",
 						BmcReport: &apiv2.MachineBMCReport{
 							Uuid: m0,
 							Bmc:  &apiv2.MachineBMC{Address: "192.168.0.1:623", Mac: "00:00:00:00:00:01"},
@@ -259,8 +271,10 @@ func Test_bmcServiceServer_UpdateBMCInfo(t *testing.T) {
 						},
 					},
 					{
+						Uuid:      m1,
+						Partition: "partition-1",
+						Size:      "c1-large-x86",
 						BmcReport: &apiv2.MachineBMCReport{
-
 							Uuid: m1,
 							Bmc: &apiv2.MachineBMC{
 								Address:    "1.2.3.4:631",

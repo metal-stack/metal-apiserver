@@ -1203,6 +1203,17 @@ func (r *machineRepository) ListBMC(ctx context.Context, req *adminv2.MachineSer
 		bmcDetails = append(bmcDetails, details)
 	}
 
+	slices.SortStableFunc(bmcDetails, func(a, b *apiv2.MachineBMCDetails) int {
+		if a.Uuid >= b.Uuid {
+			return 1
+		}
+		if a.Uuid < b.Uuid {
+			return -1
+		}
+
+		return 0
+	})
+
 	return &adminv2.MachineServiceListBMCResponse{
 		BmcDetails: bmcDetails,
 	}, nil
