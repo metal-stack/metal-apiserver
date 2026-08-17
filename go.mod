@@ -58,6 +58,8 @@ require (
 
 replace github.com/markbates/goth => github.com/metal-stack/goth v0.1.0
 
+replace github.com/metal-stack/api => ../api
+
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.12-20260709200747-435963d16310.1 // indirect
 	cel.dev/expr v0.25.3 // indirect

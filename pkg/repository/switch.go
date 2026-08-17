@@ -1015,7 +1015,7 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 		switchNics = append(switchNics, &apiv2.SwitchNic{
 			Name:       nic.Name,
 			Identifier: identifier,
-			Mac:        nic.MacAddress,
+			Mac:        &nic.MacAddress,
 			Vrf:        pointer.PointerOrNil(nic.Vrf),
 			State: &apiv2.NicState{
 				Desired: desiredStatus,
@@ -1317,7 +1317,7 @@ func toMetalNic(switchNic *apiv2.SwitchNic, hostname string) (*metal.Nic, error)
 		Name:         switchNic.Name,
 		Hostname:     hostname,
 		Identifier:   switchNic.Identifier,
-		MacAddress:   switchNic.Mac,
+		MacAddress:   pointer.SafeDeref(switchNic.Mac),
 		Vrf:          pointer.SafeDeref(switchNic.Vrf),
 		State:        nicState,
 		BGPPortState: bgpPortState,
