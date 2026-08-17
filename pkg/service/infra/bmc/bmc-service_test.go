@@ -28,7 +28,7 @@ var (
 )
 
 func Test_bmcServiceServer_UpdateBMCInfo(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
