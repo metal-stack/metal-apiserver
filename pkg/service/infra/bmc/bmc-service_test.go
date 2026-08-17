@@ -86,7 +86,9 @@ func Test_bmcServiceServer_UpdateBMCInfo(t *testing.T) {
 			}},
 			want: &adminv2.MachineServiceListBMCResponse{
 				BmcDetails: []*apiv2.MachineBMCDetails{
-					&apiv2.MachineBMCDetails{
+					{
+						Uuid:      m0,
+						Partition: "partition-1",
 						BmcReport: &apiv2.MachineBMCReport{
 							Uuid: m0,
 							Bmc:  &apiv2.MachineBMC{Address: "192.168.0.1:623", Mac: "00:00:00:00:00:01"},
@@ -105,7 +107,10 @@ func Test_bmcServiceServer_UpdateBMCInfo(t *testing.T) {
 							LedState:      &apiv2.MachineChassisIdentifyLEDState{Value: "LED-OFF"},
 						},
 					},
-					&apiv2.MachineBMCDetails{
+					{
+						Uuid:      m1,
+						Partition: "partition-1",
+						Size:      "c1-large-x86",
 						BmcReport: &apiv2.MachineBMCReport{
 							Uuid: m1,
 							Bmc:  &apiv2.MachineBMC{},
@@ -143,7 +148,9 @@ func Test_bmcServiceServer_UpdateBMCInfo(t *testing.T) {
 			}},
 			want: &adminv2.MachineServiceListBMCResponse{
 				BmcDetails: []*apiv2.MachineBMCDetails{
-					&apiv2.MachineBMCDetails{
+					{
+						Uuid:      m0,
+						Partition: "partition-1",
 						BmcReport: &apiv2.MachineBMCReport{
 							Uuid: m0,
 							Bmc:  &apiv2.MachineBMC{Address: "192.168.0.1:623", Mac: "00:00:00:00:00:01"},
@@ -162,7 +169,10 @@ func Test_bmcServiceServer_UpdateBMCInfo(t *testing.T) {
 							LedState:      &apiv2.MachineChassisIdentifyLEDState{Value: "LED-OFF"},
 						},
 					},
-					&apiv2.MachineBMCDetails{
+					{
+						Uuid:      m1,
+						Partition: "partition-1",
+						Size:      "c1-large-x86",
 						BmcReport: &apiv2.MachineBMCReport{
 							Uuid: m1,
 							Bmc:  &apiv2.MachineBMC{Address: "192.168.0.1:623", Mac: "00:00:00:00:00:01"},
@@ -229,7 +239,7 @@ func Test_bmcServiceServer_UpdateBMCInfo(t *testing.T) {
 			}},
 			want: &adminv2.MachineServiceListBMCResponse{
 				BmcDetails: []*apiv2.MachineBMCDetails{
-					&apiv2.MachineBMCDetails{
+					{
 						BmcReport: &apiv2.MachineBMCReport{
 							Uuid: m0,
 							Bmc:  &apiv2.MachineBMC{Address: "192.168.0.1:623", Mac: "00:00:00:00:00:01"},
@@ -248,7 +258,7 @@ func Test_bmcServiceServer_UpdateBMCInfo(t *testing.T) {
 							LedState:      &apiv2.MachineChassisIdentifyLEDState{Value: "LED-OFF"},
 						},
 					},
-					&apiv2.MachineBMCDetails{
+					{
 						BmcReport: &apiv2.MachineBMCReport{
 
 							Uuid: m1,
