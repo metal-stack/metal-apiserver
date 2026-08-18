@@ -1012,6 +1012,10 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 			identifier = nic.MacAddress
 		}
 
+		if identifier == "" {
+			return nil, errorutil.FailedPrecondition("both, identifier and mac address, of nic %s are empty which is not allowed", nic.Name)
+		}
+
 		switchNics = append(switchNics, &apiv2.SwitchNic{
 			Name:       nic.Name,
 			Identifier: identifier,

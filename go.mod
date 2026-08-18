@@ -27,7 +27,7 @@ require (
 	github.com/lestrrat-go/jwx/v3 v3.2.0
 	github.com/looplab/fsm v1.0.3
 	github.com/markbates/goth v1.82.0
-	github.com/metal-stack/api v0.4.5-0.20260817073006-f766bcc74e23
+	github.com/metal-stack/api v0.4.5-0.20260817135217-39d69374f6e6
 	github.com/metal-stack/go-ipam v1.15.2
 	github.com/metal-stack/metal-lib v0.26.1
 	github.com/metal-stack/tenant-api v0.1.1
@@ -57,8 +57,6 @@ require (
 )
 
 replace github.com/markbates/goth => github.com/metal-stack/goth v0.1.0
-
-replace github.com/metal-stack/api => ../api
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.12-20260709200747-435963d16310.1 // indirect
