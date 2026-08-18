@@ -174,7 +174,7 @@ func TestSizes_Overlaps(t *testing.T) {
 			},
 			sizes: []*Size{
 				tinySize,
-				&Size{
+				{
 					Base: Base{
 						ID: "large",
 					},
@@ -268,7 +268,7 @@ func TestSizes_Overlaps(t *testing.T) {
 						},
 					},
 				},
-				&Size{
+				{
 					Base: Base{
 						ID: "large",
 					},
@@ -310,7 +310,7 @@ func TestSizes_Overlaps(t *testing.T) {
 			sizes: []*Size{
 				microSize,
 				tinySize,
-				&Size{
+				{
 					Base: Base{
 						ID: "large",
 					},
@@ -351,7 +351,7 @@ func TestSizes_Overlaps(t *testing.T) {
 				},
 			},
 			sizes: []*Size{
-				&Size{
+				{
 					Base: Base{
 						ID: "micro",
 					},
