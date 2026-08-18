@@ -182,10 +182,10 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 		return result, fmt.Errorf("unable to create allocation uuid %w", err)
 	}
 
-	// var placementLabels map[string]string
-	// if req.PlacementLabels != nil {
-	// 	placementLabels = req.PlacementLabels.Labels
-	// }
+	var placementLabels map[string]string
+	if req.PlacementLabels != nil {
+		placementLabels = req.PlacementLabels.Labels
+	}
 
 	alloc := &metal.MachineAllocation{
 		UUID:            allocationUUID.String(),
@@ -204,7 +204,7 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 		FirewallRules:   fwrules,
 		DNSServers:      dnsServers,
 		NTPServers:      ntpServers,
-		// PlacementLabels: placementLabels,
+		PlacementLabels: placementLabels,
 	}
 
 	if req.Labels != nil && req.Labels.Labels != nil {
