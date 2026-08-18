@@ -56,9 +56,9 @@ func TestWaitForBMCCommandSync(t *testing.T) {
 
 	_, err = apiClient.Infrav2().Boot().Dhcp(ctx, &infrav2.BootServiceDhcpRequest{Uuid: m0, Partition: p.Partition.Id})
 	require.NoError(t, err)
-	_, err = apiClient.Infrav2().BMC().UpdateBMCInfo(ctx, &infrav2.UpdateBMCInfoRequest{Partition: p.Partition.Id, BmcReports: map[string]*apiv2.MachineBMCReport{
-		m0: {
-			Bmc: &apiv2.MachineBMC{Address: "192.168.0.1:623", User: "metal", Password: "secret", Mac: "00:00:00:00:00:01"},
+	_, err = apiClient.Infrav2().BMC().UpdateBMCInfo(ctx, &infrav2.UpdateBMCInfoRequest{Partition: p.Partition.Id, BmcReports: []*apiv2.MachineBMCReport{
+		{
+			Uuid: m0, Bmc: &apiv2.MachineBMC{Address: "192.168.0.1:623", User: "metal", Password: "secret", Mac: "00:00:00:00:00:01"},
 		},
 	}})
 	require.NoError(t, err)
@@ -160,9 +160,9 @@ func TestWaitForBMCCommandAsync(t *testing.T) {
 
 	_, err = apiClient.Infrav2().Boot().Dhcp(ctx, &infrav2.BootServiceDhcpRequest{Uuid: m0, Partition: p.Partition.Id})
 	require.NoError(t, err)
-	_, err = apiClient.Infrav2().BMC().UpdateBMCInfo(ctx, &infrav2.UpdateBMCInfoRequest{Partition: p.Partition.Id, BmcReports: map[string]*apiv2.MachineBMCReport{
-		m0: {
-			Bmc: &apiv2.MachineBMC{Address: "192.168.0.1:623", User: "metal", Password: "secret", Mac: "00:00:00:00:00:01"},
+	_, err = apiClient.Infrav2().BMC().UpdateBMCInfo(ctx, &infrav2.UpdateBMCInfoRequest{Partition: p.Partition.Id, BmcReports: []*apiv2.MachineBMCReport{
+		{
+			Uuid: m0, Bmc: &apiv2.MachineBMC{Address: "192.168.0.1:623", User: "metal", Password: "secret", Mac: "00:00:00:00:00:01"},
 		},
 	}})
 	require.NoError(t, err)

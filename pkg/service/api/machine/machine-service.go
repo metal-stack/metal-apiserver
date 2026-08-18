@@ -80,10 +80,10 @@ func (m *machineServiceServer) BMCCommand(ctx context.Context, req *apiv2.Machin
 	if err != nil {
 		return nil, err
 	}
-	if resp.Bmc == nil || resp.Bmc.Bmc == nil {
+	if resp.BmcDetails == nil || resp.BmcDetails.BmcReport == nil || resp.BmcDetails.BmcReport.Bmc == nil {
 		return nil, errorutil.FailedPrecondition("machine %q does not have bmc details yet", req.Uuid)
 	}
-	if resp.Bmc.Bmc.Address == "" || resp.Bmc.Bmc.Password == "" || resp.Bmc.Bmc.User == "" {
+	if resp.BmcDetails.BmcReport.Bmc.Address == "" || resp.BmcDetails.BmcReport.Bmc.Password == "" || resp.BmcDetails.BmcReport.Bmc.User == "" {
 		return nil, errorutil.FailedPrecondition("machine %q does not have bmc connections details yet", req.Uuid)
 	}
 
@@ -102,7 +102,6 @@ func (m *machineServiceServer) GetBMC(ctx context.Context, req *apiv2.MachineSer
 	}
 
 	return &apiv2.MachineServiceGetBMCResponse{
-		Uuid: req.Uuid,
-		Bmc:  resp.Bmc,
+		BmcDetails: resp.BmcDetails,
 	}, nil
 }

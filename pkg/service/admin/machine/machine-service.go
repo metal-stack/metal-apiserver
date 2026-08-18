@@ -85,10 +85,10 @@ func (m *machineServiceServer) BMCCommand(ctx context.Context, req *adminv2.Mach
 		return nil, err
 	}
 
-	if resp.Bmc == nil || resp.Bmc.Bmc == nil {
+	if resp.BmcDetails == nil || resp.BmcDetails.BmcReport == nil || resp.BmcDetails.BmcReport.Bmc == nil {
 		return nil, errorutil.FailedPrecondition("machine %q does not have bmc details yet", req.Uuid)
 	}
-	if resp.Bmc.Bmc.Address == "" || resp.Bmc.Bmc.Password == "" || resp.Bmc.Bmc.User == "" {
+	if resp.BmcDetails.BmcReport.Bmc.Address == "" || resp.BmcDetails.BmcReport.Bmc.Password == "" || resp.BmcDetails.BmcReport.Bmc.User == "" {
 		return nil, errorutil.FailedPrecondition("machine %q does not have bmc connections details yet", req.Uuid)
 	}
 
