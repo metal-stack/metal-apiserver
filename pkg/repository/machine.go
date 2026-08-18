@@ -1006,29 +1006,27 @@ func (r *machineRepository) UpdateBMCInfo(ctx context.Context, req *infrav2.Upda
 		return nil, err
 	}
 
-	known := make(map[string]string)
+	machinesByID := make(map[string]*metal.Machine)
 	for _, m := range ms {
-		uuid := m.ID
-		if uuid == "" {
-			continue
-		}
-		known[uuid] = m.IPMI.Address
+		machinesByID[m.ID] = m
 	}
-	resp := &infrav2.UpdateBMCInfoResponse{
-		UpdatedMachines: []string{},
-		CreatedMachines: []string{},
-	}
-	// create empty machines for uuids that are not yet known to the metal-api
-	for uuid, report := range req.BmcReports {
-		if uuid == "" {
+
+	var (
+		resp = &infrav2.UpdateBMCInfoResponse{
+			UpdatedMachines: []string{},
+			CreatedMachines: []string{},
+		}
+	)
+
+	// create empty machines for uuids that are not yet known
+	for _, report := range req.BmcReports {
+		if _, ok := machinesByID[report.Uuid]; ok {
 			continue
 		}
-		if _, ok := known[uuid]; ok {
-			continue
-		}
+
 		m := &metal.Machine{
 			Base: metal.Base{
-				ID: uuid,
+				ID: report.Uuid,
 			},
 			PartitionID: partition.ID,
 			IPMI: metal.IPMI{
@@ -1037,30 +1035,33 @@ func (r *machineRepository) UpdateBMCInfo(ctx context.Context, req *infrav2.Upda
 				MacAddress:  report.Bmc.Mac,
 			},
 		}
+
 		ledstate, err := metal.LEDStateFrom(report.LedState.Value)
 		if err == nil {
 			m.LEDState = metal.ChassisIdentifyLEDState{
 				Value: ledstate,
 			}
 		} else {
-			r.s.log.Error("unable to decode ledstate", "id", uuid, "ledstate", report.LedState.Value, "error", err)
+			r.s.log.Error("unable to decode ledstate", "id", report.Uuid, "ledstate", report.LedState.Value, "error", err)
 		}
+
 		_, err = r.s.ds.Machine().Create(ctx, m)
 		if err != nil {
-			r.s.log.Error("could not create machine", "id", uuid, "ipmi-ip", report.Bmc.Address, "m", m, "err", err)
+			r.s.log.Error("could not create machine", "id", report.Uuid, "ipmi-ip", report.Bmc.Address, "m", m, "err", err)
 			continue
 		}
-		resp.CreatedMachines = append(resp.CreatedMachines, uuid)
+
+		resp.CreatedMachines = append(resp.CreatedMachines, report.Uuid)
 	}
+
 	// update machine bmc data if bmc ip changed
-	for _, machine := range ms {
-		uuid := machine.ID
-		if uuid == "" {
+	for _, report := range req.BmcReports {
+		machine, ok := machinesByID[report.Uuid]
+		if !ok {
 			continue
 		}
-		// if oldmachine.uuid is not part of this update cycle skip it
-		report, ok := req.BmcReports[uuid]
-		if !ok {
+
+		if slices.Contains(resp.CreatedMachines, report.Uuid) {
 			continue
 		}
 
@@ -1070,7 +1071,7 @@ func (r *machineRepository) UpdateBMCInfo(ctx context.Context, req *infrav2.Upda
 		}
 
 		if machine.PartitionID != partition.ID {
-			r.s.log.Error("could not update machine because overlapping id found", "id", uuid, "machine", machine, "partition", req.Partition)
+			r.s.log.Error("could not update machine because overlapping id found", "id", report.Uuid, "machine", machine, "partition", req.Partition)
 			continue
 		}
 
@@ -1131,6 +1132,7 @@ func (r *machineRepository) UpdateBMCInfo(ctx context.Context, req *infrav2.Upda
 				MinConsumedWatts:     report.PowerMetric.MinConsumedWatts,
 			}
 		}
+
 		var powerSupplies metal.PowerSupplies
 		for _, ps := range report.PowerSupplies {
 			powerSupplies = append(powerSupplies, metal.PowerSupply{
@@ -1150,18 +1152,20 @@ func (r *machineRepository) UpdateBMCInfo(ctx context.Context, req *infrav2.Upda
 					Description: machine.LEDState.Description,
 				}
 			} else {
-				r.s.log.Error("unable to decode ledstate", "id", uuid, "ledstate", report.LedState.Value, "error", err)
+				r.s.log.Error("unable to decode ledstate", "id", report.Uuid, "ledstate", report.LedState.Value, "error", err)
 			}
 		}
 		machine.IPMI.LastUpdated = time.Now()
 
 		err = r.s.ds.Machine().Update(ctx, machine)
 		if err != nil {
-			r.s.log.Error("could not update machine", "id", uuid, "ip", report.Bmc.Address, "machine", machine, "err", err)
+			r.s.log.Error("could not update machine", "id", report.Uuid, "ip", report.Bmc.Address, "machine", machine, "err", err)
 			continue
 		}
-		resp.UpdatedMachines = append(resp.UpdatedMachines, uuid)
+
+		resp.UpdatedMachines = append(resp.UpdatedMachines, report.Uuid)
 	}
+
 	return resp, nil
 }
 
@@ -1171,27 +1175,52 @@ func (r *machineRepository) GetBMC(ctx context.Context, req *adminv2.MachineServ
 		return nil, err
 	}
 
-	bmcReport := r.convertToBMCReport(machine)
+	details := &apiv2.MachineBMCDetails{
+		Uuid:      machine.ID,
+		Partition: machine.PartitionID,
+		Rack:      machine.RackID,
+		Room:      machine.RackID,
+		Size:      machine.SizeID,
+		BmcReport: r.convertToBMCReport(machine),
+	}
 
 	return &adminv2.MachineServiceGetBMCResponse{
-		Uuid: req.Uuid,
-		Bmc:  bmcReport,
+		BmcDetails: details,
 	}, nil
 }
 
 func (r *machineRepository) ListBMC(ctx context.Context, req *adminv2.MachineServiceListBMCRequest) (*adminv2.MachineServiceListBMCResponse, error) {
-	machines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{Bmc: req.Query}))
+	machines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(req.Query))
 	if err != nil {
 		return nil, err
 	}
 
-	bmcReports := make(map[string]*apiv2.MachineBMCReport)
+	var bmcDetails []*apiv2.MachineBMCDetails
 	for _, machine := range machines {
-		bmcReports[machine.ID] = r.convertToBMCReport(machine)
+		details := &apiv2.MachineBMCDetails{
+			Uuid:      machine.ID,
+			Partition: machine.PartitionID,
+			Rack:      machine.RackID,
+			Room:      machine.RackID,
+			Size:      machine.SizeID,
+			BmcReport: r.convertToBMCReport(machine),
+		}
+		bmcDetails = append(bmcDetails, details)
 	}
 
+	slices.SortStableFunc(bmcDetails, func(a, b *apiv2.MachineBMCDetails) int {
+		if a.Uuid >= b.Uuid {
+			return 1
+		}
+		if a.Uuid < b.Uuid {
+			return -1
+		}
+
+		return 0
+	})
+
 	return &adminv2.MachineServiceListBMCResponse{
-		BmcReports: bmcReports,
+		BmcDetails: bmcDetails,
 	}, nil
 }
 
@@ -1248,6 +1277,7 @@ func (r *machineRepository) convertToBMCReport(machine *metal.Machine) *apiv2.Ma
 	}
 
 	bmcReport := &apiv2.MachineBMCReport{
+		Uuid:          machine.ID,
 		Bmc:           bmc,
 		Bios:          bios,
 		Fru:           fru,

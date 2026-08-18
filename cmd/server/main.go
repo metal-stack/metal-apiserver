@@ -332,7 +332,7 @@ Can not be changed after initial creation.
 		Sources: cli.EnvVars("BMC_SUPER_USER_PASSWORD"),
 		Action: func(ctx context.Context, cmd *cli.Command, s string) error {
 			if len(s) < 8 {
-				return fmt.Errorf("bmc superuser password must be longer than 2 characters")
+				return fmt.Errorf("bmc superuser password must be longer than 8 characters")
 			}
 			return nil
 		},

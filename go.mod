@@ -27,9 +27,9 @@ require (
 	github.com/lestrrat-go/jwx/v3 v3.2.0
 	github.com/looplab/fsm v1.0.3
 	github.com/markbates/goth v1.82.0
-	github.com/metal-stack/api v0.4.5-0.20260817135217-39d69374f6e6
+	github.com/metal-stack/api v0.4.5-0.20260817093333-ba41d21eb6d0
 	github.com/metal-stack/go-ipam v1.15.2
-	github.com/metal-stack/metal-lib v0.26.1
+	github.com/metal-stack/metal-lib v0.26.2
 	github.com/metal-stack/tenant-api v0.1.1
 	github.com/metal-stack/tenant-apiserver v0.1.1
 	github.com/metal-stack/v v1.0.3
@@ -82,7 +82,7 @@ require (
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.7.0 // indirect
 	github.com/cpuguy83/dockercfg v0.3.2 // indirect
-	github.com/creachadair/msync v0.9.1 // indirect
+	github.com/creachadair/msync v0.10.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dblohm7/wingoes v0.0.0-20260526185140-fb298caac7ca // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.1 // indirect
@@ -92,9 +92,9 @@ require (
 	github.com/ebitengine/purego v0.10.2 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.2 // indirect
-	github.com/gaissmai/bart v0.28.0 // indirect
+	github.com/gaissmai/bart v0.29.0 // indirect
 	github.com/go-chi/chi/v5 v5.3.1 // indirect
-	github.com/go-json-experiment/json v0.0.0-20260214004413-d219187c3433 // indirect
+	github.com/go-json-experiment/json v0.0.0-20260623181947-01eb4420fa68 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
