@@ -42,6 +42,9 @@ func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServ
 		return nil, err
 	}
 	if errorutil.IsNotFound(err) {
+		if req.Switch.ReplaceMode == apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_UNSPECIFIED {
+			req.Switch.ReplaceMode = apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL
+		}
 		return r.s.Switch().Create(ctx, &api.SwitchServiceCreateRequest{Switch: req.Switch})
 	}
 
@@ -71,12 +74,16 @@ func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServ
 			LockingStrategy: apiv2.OptimisticLockingStrategy_OPTIMISTIC_LOCKING_STRATEGY_SERVER,
 		},
 		Description:    pointer.PointerOrNil(new.Description),
-		ReplaceMode:    pointer.PointerOrNil(new.ReplaceMode),
 		ManagementIp:   pointer.PointerOrNil(new.ManagementIp),
 		ManagementUser: new.ManagementUser,
 		ConsoleCommand: new.ConsoleCommand,
 		Nics:           new.Nics,
 		Os:             new.Os,
+	}
+
+	// lazy migration because in the past replace mode was allowed to be unspecified.
+	if req.Switch.ReplaceMode == apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_UNSPECIFIED && sw.ReplaceMode == "" {
+		updateReq.ReplaceMode = apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL.Enum()
 	}
 
 	err = r.validateUpdate(ctx, updateReq, sw)
@@ -675,6 +682,7 @@ func (r *switchRepository) replace(ctx context.Context, oldSwitch, newSwitch *ap
 	}
 
 	sw.SetChanged(oldSwitch.Meta.UpdatedAt.AsTime())
+	sw.ReplaceMode = metal.SwitchReplaceModeOperational
 	err = r.s.ds.Switch().Update(ctx, sw)
 	if err != nil {
 		return nil, fmt.Errorf("failed to replace switch %s by %s: %w", oldSwitch.Id, newSwitch.Id, err)

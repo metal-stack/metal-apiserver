@@ -172,20 +172,23 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 				Name:        name,
 				Description: description,
 			},
-			Prefixes:            childPrefixes,
-			DestinationPrefixes: parent.DestinationPrefixes,
-			PartitionID:         partition,
-			ProjectID:           projectId,
-			Namespace:           namespace,
-			Nat:                 nat,
-			PrivateSuper:        false,
-			Underlay:            false,
-			Shared:              shared,
-			Vrf:                 vrf,
-			ParentNetworkID:     parent.ID,
-			Labels:              labels,
-			NATType:             parent.NATType,
-			NetworkType:         networkType,
+			Prefixes:                   childPrefixes,
+			DestinationPrefixes:        parent.DestinationPrefixes,
+			PartitionID:                partition,
+			ProjectID:                  projectId,
+			Namespace:                  namespace,
+			Nat:                        nat,    //nolint:staticcheck
+			PrivateSuper:               false,  //nolint:staticcheck
+			Underlay:                   false,  //nolint:staticcheck
+			Shared:                     shared, //nolint:staticcheck
+			Vrf:                        vrf,
+			ParentNetworkID:            parent.ID,
+			Labels:                     labels,
+			NATType:                    parent.NATType,
+			NetworkType:                networkType,
+			DefaultChildPrefixLength:   metal.ChildPrefixLength{},
+			MinChildPrefixLength:       metal.ChildPrefixLength{},
+			AdditionalAnnouncableCIDRs: []string{},
 		}
 
 		nw, err = r.s.ds.Network().Create(ctx, nw)
@@ -254,11 +257,11 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 		MinChildPrefixLength:       minChildPrefixLength,
 		PartitionID:                partition,
 		ProjectID:                  projectId,
-		Nat:                        nat,
-		PrivateSuper:               privateSuper,
-		Underlay:                   underlay,
+		Nat:                        nat,          //nolint:staticcheck
+		PrivateSuper:               privateSuper, //nolint:staticcheck
+		Underlay:                   underlay,     //nolint:staticcheck
+		Shared:                     shared,       //nolint:staticcheck
 		Vrf:                        vrf,
-		Shared:                     shared,
 		Labels:                     labels,
 		AdditionalAnnouncableCIDRs: req.AdditionalAnnouncableCidrs,
 		NetworkType:                networkType,

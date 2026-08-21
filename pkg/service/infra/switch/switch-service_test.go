@@ -41,7 +41,6 @@ func Test_switchServiceServer_Register(t *testing.T) {
 					Room:         new(sc.P01Rack01Room01),
 					Partition:    sc.Partition1,
 					ManagementIp: "1.1.1.1",
-					ReplaceMode:  apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 					Os: &apiv2.SwitchOS{
 						Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_CUMULUS,
 						Version:          "v5.9",
@@ -103,7 +102,6 @@ func Test_switchServiceServer_Register(t *testing.T) {
 					Id:             sc.P01Rack01Switch1,
 					Description:    "new description",
 					Partition:      sc.Partition1,
-					ReplaceMode:    apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 					ManagementIp:   "1.1.1.1",
 					ManagementUser: new("admin"),
 					ConsoleCommand: new("tty"),
