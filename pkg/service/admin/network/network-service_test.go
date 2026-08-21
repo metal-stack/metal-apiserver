@@ -1,21 +1,27 @@
 package admin
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"reflect"
 	"testing"
+
+	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -2423,6 +2429,126 @@ func Test_networkServiceServer_Update(t *testing.T) {
 				),
 			); diff != "" {
 				t.Errorf("networkServiceServer.Update() = %v, want %vņdiff: %s", got, tt.want, diff)
+			}
+		})
+	}
+}
+
+func Test_networkServiceServer_ListExternalMembers(t *testing.T) {
+	var (
+		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+		ctx = t.Context()
+	)
+
+	tests := []struct {
+		name string
+		req  func() *adminv2.NetworkServiceListExternalMembersRequest
+		want func() *adminv2.NetworkServiceListExternalMembersResponse
+	}{
+		// TODO: Add test cases.
+	}
+
+	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
+	dc.Create(&sc.SwitchesWithExternalNetworkMembers)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			n := &networkServiceServer{
+				log:  log,
+				repo: dc.GetTestStore().Store,
+			}
+
+			var (
+				req  *adminv2.NetworkServiceListExternalMembersRequest
+				want *adminv2.NetworkServiceListExternalMembersResponse
+			)
+
+			if tt.req != nil {
+				req = tt.req()
+			}
+			if tt.want != nil {
+				want = tt.want()
+			}
+
+			test.Validate(t, req)
+			got, err := n.ListExternalMembers(ctx, req)
+			require.NoError(t, err)
+
+			if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
+				t.Errorf("networkServiceServer.ListExternalMembers() diff = %s", diff)
+			}
+		})
+	}
+}
+
+func Test_networkServiceServer_AddExternalMember(t *testing.T) {
+	type fields struct {
+		log  *slog.Logger
+		repo *repository.Store
+	}
+	type args struct {
+		ctx context.Context
+		req *adminv2.NetworkServiceAddExternalMemberRequest
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    *adminv2.NetworkServiceAddExternalMemberResponse
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			n := &networkServiceServer{
+				log:  tt.fields.log,
+				repo: tt.fields.repo,
+			}
+			got, err := n.AddExternalMember(tt.args.ctx, tt.args.req)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("networkServiceServer.AddExternalMember() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("networkServiceServer.AddExternalMember() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_networkServiceServer_RemoveExternalMember(t *testing.T) {
+	type fields struct {
+		log  *slog.Logger
+		repo *repository.Store
+	}
+	type args struct {
+		ctx context.Context
+		req *adminv2.NetworkServiceRemoveExternalMemberRequest
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    *adminv2.NetworkServiceRemoveExternalMemberResponse
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			n := &networkServiceServer{
+				log:  tt.fields.log,
+				repo: tt.fields.repo,
+			}
+			got, err := n.RemoveExternalMember(tt.args.ctx, tt.args.req)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("networkServiceServer.RemoveExternalMember() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("networkServiceServer.RemoveExternalMember() = %v, want %v", got, tt.want)
 			}
 		})
 	}

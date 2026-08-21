@@ -466,6 +466,18 @@ func (r *networkRepository) convertToProto(ctx context.Context, e *metal.Network
 	return nw, nil
 }
 
+func (r *networkRepository) ListExternalMembers(ctx context.Context, req *adminv2.NetworkServiceListExternalMembersRequest) ([]*apiv2.ExternalNetworkMember, error) {
+	panic("unimplemented")
+}
+
+func (r *networkRepository) AddExternalMember(ctx context.Context, req *adminv2.NetworkServiceAddExternalMemberRequest) (*apiv2.Switch, error) {
+	panic("unimplemented")
+}
+
+func (r *networkRepository) RemoveExternalMember(ctx context.Context, req *adminv2.NetworkServiceRemoveExternalMemberRequest) (*apiv2.Switch, error) {
+	panic("unimplemented")
+}
+
 func (r *networkRepository) toProtoChildPrefixLength(childPrefixLength metal.ChildPrefixLength) (*apiv2.ChildPrefixLength, error) {
 	var result *apiv2.ChildPrefixLength
 	for af, length := range childPrefixLength {

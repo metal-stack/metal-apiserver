@@ -75,3 +75,30 @@ func (n *networkServiceServer) Update(ctx context.Context, req *adminv2.NetworkS
 
 	return &adminv2.NetworkServiceUpdateResponse{Network: nw}, nil
 }
+
+func (n *networkServiceServer) ListExternalMembers(ctx context.Context, req *adminv2.NetworkServiceListExternalMembersRequest) (*adminv2.NetworkServiceListExternalMembersResponse, error) {
+	members, err := n.repo.UnscopedNetwork().AdditionalMethods().ListExternalMembers(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return &adminv2.NetworkServiceListExternalMembersResponse{Members: members}, nil
+}
+
+func (n *networkServiceServer) AddExternalMember(ctx context.Context, req *adminv2.NetworkServiceAddExternalMemberRequest) (*adminv2.NetworkServiceAddExternalMemberResponse, error) {
+	sw, err := n.repo.UnscopedNetwork().AdditionalMethods().AddExternalMember(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return &adminv2.NetworkServiceAddExternalMemberResponse{Switch: sw}, nil
+}
+
+func (n *networkServiceServer) RemoveExternalMember(ctx context.Context, req *adminv2.NetworkServiceRemoveExternalMemberRequest) (*adminv2.NetworkServiceRemoveExternalMemberResponse, error) {
+	sw, err := n.repo.UnscopedNetwork().AdditionalMethods().RemoveExternalMember(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return &adminv2.NetworkServiceRemoveExternalMemberResponse{Switch: sw}, nil
+}
