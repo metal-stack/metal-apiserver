@@ -26,10 +26,10 @@ var (
 		ProjectID:                  "p1",
 		ParentNetworkID:            "parent-network",
 		Vrf:                        uint(42),
-		PrivateSuper:               true,
-		Nat:                        true,
-		Underlay:                   true,
-		Shared:                     true,
+		PrivateSuper:               true, //nolint:staticcheck
+		Nat:                        true, //nolint:staticcheck
+		Underlay:                   true, //nolint:staticcheck
+		Shared:                     true, //nolint:staticcheck
 		Labels:                     map[string]string{"color": "red", "size": "small"},
 		AdditionalAnnouncableCIDRs: []string{"10.240.0.0/12"},
 		NetworkType:                metal.NetworkTypeExternal,
@@ -45,10 +45,10 @@ var (
 		ProjectID:                  "p2",
 		ParentNetworkID:            "parent-network-2",
 		Vrf:                        uint(43),
-		PrivateSuper:               false,
-		Nat:                        false,
-		Underlay:                   false,
-		Shared:                     false,
+		PrivateSuper:               false, //nolint:staticcheck
+		Nat:                        false, //nolint:staticcheck
+		Underlay:                   false, //nolint:staticcheck
+		Shared:                     false, //nolint:staticcheck
 		Labels:                     map[string]string{"color": "green", "size": "medium"},
 		AdditionalAnnouncableCIDRs: []string{"10.241.0.0/12"},
 		NetworkType:                metal.NetworkTypeChild,
@@ -65,10 +65,10 @@ var (
 		Namespace:                  new("p3"),
 		ParentNetworkID:            "parent-network-3",
 		Vrf:                        uint(44),
-		PrivateSuper:               false,
-		Nat:                        false,
-		Underlay:                   false,
-		Shared:                     false,
+		PrivateSuper:               false, //nolint:staticcheck
+		Nat:                        false, //nolint:staticcheck
+		Underlay:                   false, //nolint:staticcheck
+		Shared:                     false, //nolint:staticcheck
 		Labels:                     map[string]string{"color": "blue", "size": "large"},
 		AdditionalAnnouncableCIDRs: []string{"10.241.0.0/12"},
 		NetworkType:                metal.NetworkTypeExternal,

@@ -55,7 +55,7 @@ func Test_MigrationChildPrefixLength(t *testing.T) {
 			Prefixes: metal.Prefixes{
 				{IP: "10.0.0.0", Length: "8"},
 			},
-			PrivateSuper: true,
+			PrivateSuper: true, //nolint:staticcheck
 		}
 		n2 = &metal.Network{
 			Base: metal.Base{
@@ -65,7 +65,7 @@ func Test_MigrationChildPrefixLength(t *testing.T) {
 				{IP: "2001::", Length: "64"},
 			},
 			PartitionID:  "p2",
-			PrivateSuper: true,
+			PrivateSuper: true, //nolint:staticcheck
 		}
 		n3 = &metal.Network{
 			Base: metal.Base{
@@ -75,7 +75,7 @@ func Test_MigrationChildPrefixLength(t *testing.T) {
 				{IP: "100.1.0.0", Length: "22"},
 			},
 			PartitionID:  "p2",
-			PrivateSuper: false,
+			PrivateSuper: false, //nolint:staticcheck
 		}
 		n4 = &metal.Network{
 			Base: metal.Base{
@@ -85,7 +85,7 @@ func Test_MigrationChildPrefixLength(t *testing.T) {
 				{IP: "100.1.0.0", Length: "22"},
 			},
 			PartitionID:  "p3",
-			PrivateSuper: true,
+			PrivateSuper: true, //nolint:staticcheck
 		}
 		n5 = &metal.Network{
 			Base: metal.Base{
@@ -94,7 +94,7 @@ func Test_MigrationChildPrefixLength(t *testing.T) {
 			Prefixes: metal.Prefixes{
 				{IP: "9.0.0.0", Length: "8"},
 			},
-			PrivateSuper: true,
+			PrivateSuper: true, //nolint:staticcheck
 		}
 	)
 
