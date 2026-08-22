@@ -168,10 +168,8 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 		}
 
 		nw := &metal.Network{
-			Base: metal.Base{
-				Name:        name,
-				Description: description,
-			},
+			Name:                name,
+			Description:         description,
 			Prefixes:            childPrefixes,
 			DestinationPrefixes: parent.DestinationPrefixes,
 			PartitionID:         partition,
@@ -242,11 +240,9 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 	}
 
 	nw := &metal.Network{
-		Base: metal.Base{
-			ID:          id,
-			Name:        name,
-			Description: description,
-		},
+		ID:                         id,
+		Name:                       name,
+		Description:                description,
 		Prefixes:                   prefixes,
 		ParentNetworkID:            pointer.SafeDeref(req.ParentNetwork),
 		DestinationPrefixes:        destPrefixes,

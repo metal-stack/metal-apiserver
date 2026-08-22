@@ -62,7 +62,7 @@ func Test_machineServiceServer_Get(t *testing.T) {
 	// We need to create machines directly on the database because there is no MachineCreateRequest available and never will.
 	// Once the boot-service is available we can simulate a pxe booting machine the actually create a machine from the api level.
 	test.CreateMachines(t, testStore, []*metal.Machine{
-		{Base: metal.Base{ID: m1}, PartitionID: "partition-1", SizeID: "c1-large-x86"},
+		{ID: m1, PartitionID: "partition-1", SizeID: "c1-large-x86"},
 	})
 
 	tests := []struct {
@@ -163,11 +163,11 @@ func Test_machineServiceServer_List(t *testing.T) {
 	// We need to create machines directly on the database because there is no MachineCreateRequest available and never will.
 	// Once the boot-service is available we can simulate a pxe booting machine the actually create a machine from the api level.
 	test.CreateMachines(t, testStore, []*metal.Machine{
-		{Base: metal.Base{ID: m1}, PartitionID: "partition-1", SizeID: "c1-medium-x86"},
-		{Base: metal.Base{ID: "m2"}, PartitionID: "partition-1", SizeID: "c1-medium-x86"},
-		{Base: metal.Base{ID: m3}, PartitionID: "partition-1", SizeID: "c1-large-x86", Allocation: &metal.MachineAllocation{Project: p1, ImageID: "debian-12"}},
-		{Base: metal.Base{ID: m4}, PartitionID: "partition-1", SizeID: "c1-large-x86", Allocation: &metal.MachineAllocation{Project: p2, ImageID: "debian-12"}},
-		{Base: metal.Base{ID: "m5"}, PartitionID: "partition-1", SizeID: "c1-large-x86", Allocation: &metal.MachineAllocation{Project: p2, ImageID: "debian-12"}},
+		{ID: m1, PartitionID: "partition-1", SizeID: "c1-medium-x86"},
+		{ID: "m2", PartitionID: "partition-1", SizeID: "c1-medium-x86"},
+		{ID: m3, PartitionID: "partition-1", SizeID: "c1-large-x86", Allocation: &metal.MachineAllocation{Project: p1, ImageID: "debian-12"}},
+		{ID: m4, PartitionID: "partition-1", SizeID: "c1-large-x86", Allocation: &metal.MachineAllocation{Project: p2, ImageID: "debian-12"}},
+		{ID: "m5", PartitionID: "partition-1", SizeID: "c1-large-x86", Allocation: &metal.MachineAllocation{Project: p2, ImageID: "debian-12"}},
 	})
 
 	tests := []struct {
@@ -315,8 +315,8 @@ func Test_machineServiceServer_BMCCommand(t *testing.T) {
 	// We need to create machines directly on the database because there is no MachineCreateRequest available and never will.
 	// Once the boot-service is available we can simulate a pxe booting machine the actually create a machine from the api level.
 	test.CreateMachines(t, testStore, []*metal.Machine{
-		{Base: metal.Base{ID: m1}, PartitionID: "partition-1", SizeID: "c1-medium-x86"},
-		{Base: metal.Base{ID: m3}, PartitionID: "partition-1", SizeID: "c1-large-x86", IPMI: metal.IPMI{Address: "10.0.0.1", User: "metal", Password: "secret"}},
+		{ID: m1, PartitionID: "partition-1", SizeID: "c1-medium-x86"},
+		{ID: m3, PartitionID: "partition-1", SizeID: "c1-large-x86", IPMI: metal.IPMI{Address: "10.0.0.1", User: "metal", Password: "secret"}},
 	})
 
 	tests := []struct {
@@ -438,7 +438,7 @@ func Test_machineServiceServer_Issues(t *testing.T) {
 	// create a healthy machine with IPMI -> will have no issues
 	test.CreateMachines(t, testStore, []*metal.Machine{
 		{
-			Base:        metal.Base{ID: m1},
+			ID:          m1,
 			PartitionID: "partition-1",
 			SizeID:      "c1-large-x86",
 			IPMI: metal.IPMI{
@@ -451,7 +451,7 @@ func Test_machineServiceServer_Issues(t *testing.T) {
 
 	// create a machine directly on the database to avoid event container creation
 	_, err := testStore.GetDatastore().Machine().Create(ctx, &metal.Machine{
-		Base:        metal.Base{ID: noEcMachine},
+		ID:          noEcMachine,
 		PartitionID: "partition-1",
 		SizeID:      "c1-large-x86",
 		IPMI: metal.IPMI{
@@ -465,29 +465,29 @@ func Test_machineServiceServer_Issues(t *testing.T) {
 	// create machines with event containers that have specific issue-triggering states
 	machineEventContainers := []*metal.ProvisioningEventContainer{
 		{
-			Base:       metal.Base{ID: deadMachine},
+			ID:         deadMachine,
 			Liveliness: metal.MachineLivelinessDead,
 			Events:     metal.ProvisioningEvents{{Time: time.Now(), Event: metal.ProvisioningEventAlive}},
 		},
 		{
-			Base:       metal.Base{ID: unknownMachine},
+			ID:         unknownMachine,
 			Liveliness: metal.MachineLivelinessUnknown,
 			Events:     metal.ProvisioningEvents{{Time: time.Now(), Event: metal.ProvisioningEventAlive}},
 		},
 		{
-			Base:       metal.Base{ID: crashLoopMachine},
+			ID:         crashLoopMachine,
 			CrashLoop:  true,
 			Liveliness: metal.MachineLivelinessAlive,
 			Events:     metal.ProvisioningEvents{{Time: time.Now(), Event: metal.ProvisioningEventCrashed}},
 		},
 		{
-			Base:                 metal.Base{ID: failedReclaimMachine},
+			ID:                   failedReclaimMachine,
 			FailedMachineReclaim: true,
 			Liveliness:           metal.MachineLivelinessAlive,
 			Events:               metal.ProvisioningEvents{{Time: time.Now(), Event: metal.ProvisioningEventPhonedHome}},
 		},
 		{
-			Base:       metal.Base{ID: naLivelinessMachine},
+			ID:         naLivelinessMachine,
 			Liveliness: metal.MachineLiveliness(""),
 			Events:     metal.ProvisioningEvents{{Time: time.Now(), Event: metal.ProvisioningEventAlive}},
 		},
@@ -501,7 +501,7 @@ func Test_machineServiceServer_Issues(t *testing.T) {
 		ip := fmt.Sprintf("10.0.0.%d", i+100)
 		mac := fmt.Sprintf("aa:bb:cc:dd:ee:%02x", i+10)
 		_, err = testStore.GetDatastore().Machine().Create(ctx, &metal.Machine{
-			Base:        metal.Base{ID: ec.ID},
+			ID:          ec.ID,
 			PartitionID: "partition-1",
 			SizeID:      "c1-large-x86",
 			IPMI: metal.IPMI{
@@ -518,7 +518,7 @@ func Test_machineServiceServer_Issues(t *testing.T) {
 	// noBmcMacMachine and noBmcIpMachine have PartitionID but their BMC will also trigger no_partition if empty
 	machinePropertyMachines := []*metal.Machine{
 		{
-			Base: metal.Base{ID: noPartitionMachine},
+			ID: noPartitionMachine,
 			// intentionally empty PartitionID to trigger no-partition issue
 			IPMI: metal.IPMI{
 				Address:     "10.0.0.110",
@@ -527,7 +527,7 @@ func Test_machineServiceServer_Issues(t *testing.T) {
 			},
 		},
 		{
-			Base:        metal.Base{ID: noBmcMacMachine},
+			ID:          noBmcMacMachine,
 			PartitionID: "partition-1",
 			IPMI: metal.IPMI{
 				Address:     "10.0.0.111",
@@ -535,7 +535,7 @@ func Test_machineServiceServer_Issues(t *testing.T) {
 			},
 		},
 		{
-			Base:        metal.Base{ID: noBmcIpMachine},
+			ID:          noBmcIpMachine,
 			PartitionID: "partition-1",
 			IPMI: metal.IPMI{
 				MacAddress:  "aa:bb:cc:dd:ee:06",
@@ -548,7 +548,7 @@ func Test_machineServiceServer_Issues(t *testing.T) {
 		require.NoError(t, err)
 		// event containers created without specific issue-triggering states
 		_, err = testStore.GetDatastore().Event().Create(ctx, &metal.ProvisioningEventContainer{
-			Base:       metal.Base{ID: m.ID},
+			ID:         m.ID,
 			Liveliness: metal.MachineLivelinessAlive,
 			Events:     metal.ProvisioningEvents{{Time: time.Now(), Event: metal.ProvisioningEventAlive}},
 		})
@@ -958,7 +958,7 @@ func Test_machineServiceServer_SetState(t *testing.T) {
 	testDC := sc.DefaultDatacenter
 	testDC.Machines = append(testDC.Machines, &sc.MachineWithLiveliness{
 		Machine: &metal.Machine{
-			Base:        metal.Base{ID: sc.Machine5},
+			ID:          sc.Machine5,
 			PartitionID: sc.Partition1,
 			SizeID:      sc.SizeC1Large,
 			State: metal.MachineState{

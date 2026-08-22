@@ -32,6 +32,7 @@ func (e *componentEntity) SetChanged(time time.Time) {
 }
 
 func id(typeString, identifier string) string {
+	// FIXME find a way to create a stable uuid from type and identifier with stdlib uuid
 	return uuid.NewSHA1(uuid.NameSpaceOID, []byte(typeString+":"+identifier)).String()
 }
 

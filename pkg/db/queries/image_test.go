@@ -17,7 +17,7 @@ import (
 
 var (
 	img1 = &metal.Image{
-		Base:           metal.Base{ID: "debian-11", Name: "debian-11", Description: "Debian 11"},
+		ID: "debian-11", Name: "debian-11", Description: "Debian 11",
 		OS:             "debian",
 		Version:        "11",
 		URL:            "https://example.com/debian-11.tgz",
@@ -25,7 +25,7 @@ var (
 		Features:       map[metal.ImageFeatureType]bool{metal.ImageFeatureMachine: true},
 	}
 	img2 = &metal.Image{
-		Base:           metal.Base{ID: "debian-12", Name: "debian-12", Description: "Debian 12"},
+		ID: "debian-12", Name: "debian-12", Description: "Debian 12",
 		OS:             "debian",
 		Version:        "12",
 		URL:            "https://example.com/debian-12.tgz",
@@ -33,7 +33,7 @@ var (
 		Features:       map[metal.ImageFeatureType]bool{metal.ImageFeatureMachine: true},
 	}
 	img3 = &metal.Image{
-		Base:           metal.Base{ID: "ubuntu-22", Name: "ubuntu-22", Description: "Ubuntu 22"},
+		ID: "ubuntu-22", Name: "ubuntu-22", Description: "Ubuntu 22",
 		OS:             "ubuntu",
 		Version:        "22",
 		URL:            "https://example.com/ubuntu-22.tgz",
@@ -44,7 +44,7 @@ var (
 		},
 	}
 	img4 = &metal.Image{
-		Base:           metal.Base{ID: "debian-10", Name: "debian-10", Description: "Old Debian"},
+		ID: "debian-10", Name: "debian-10", Description: "Old Debian",
 		OS:             "debian",
 		Version:        "10",
 		URL:            "https://example.com/debian-10.tgz",
@@ -52,7 +52,7 @@ var (
 		Features:       map[metal.ImageFeatureType]bool{metal.ImageFeatureMachine: true},
 	}
 	img5 = &metal.Image{
-		Base:           metal.Base{ID: "firewall-image", Name: "firewall-only", Description: "Firewall Image"},
+		ID: "firewall-image", Name: "firewall-only", Description: "Firewall Image",
 		OS:             "metalstack",
 		Version:        "1",
 		URL:            "https://example.com/firewall.tgz",
@@ -60,7 +60,7 @@ var (
 		Features:       map[metal.ImageFeatureType]bool{metal.ImageFeatureFirewall: true},
 	}
 	img6 = &metal.Image{
-		Base:           metal.Base{ID: "preview-image", Name: "preview-os", Description: "Preview Image"},
+		ID: "preview-image", Name: "preview-os", Description: "Preview Image",
 		OS:             "previewos",
 		Version:        "1",
 		URL:            "https://example.com/preview.tgz",

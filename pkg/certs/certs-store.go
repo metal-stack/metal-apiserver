@@ -15,7 +15,8 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/google/uuid"
+	"uuid"
+
 	"github.com/lestrrat-go/jwx/v3/jwk"
 	"github.com/redis/go-redis/v9"
 )

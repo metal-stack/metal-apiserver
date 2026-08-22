@@ -9,7 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
+	"uuid"
+
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
 )
@@ -252,10 +253,5 @@ func (c *Client) NewTask(payload TaskPayload, additionalOpts ...asynq.Option) (*
 // taskID generate a random taskID to ensure unique execution
 // see: https://github.com/hibiken/asynq/wiki/Unique-Tasks
 func taskID() (string, error) {
-	taskId, err := uuid.NewV7()
-	if err != nil {
-		return "", fmt.Errorf("unable to generate a unique task id: %w", err)
-	}
-
-	return taskId.String(), nil
+	return uuid.NewV7().String(), nil
 }

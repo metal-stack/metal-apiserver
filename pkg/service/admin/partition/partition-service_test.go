@@ -420,7 +420,7 @@ func Test_partitionServiceServer_Delete(t *testing.T) {
 	})
 
 	test.CreateMachines(t, testStore, []*metal.Machine{
-		{Base: metal.Base{ID: "m1"}, PartitionID: partition3, SizeID: "c1-large-x86"},
+		{ID: "m1", PartitionID: partition3, SizeID: "c1-large-x86"},
 	})
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})

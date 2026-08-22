@@ -8,7 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
+	"uuid"
+
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -83,6 +84,6 @@ func databaseNameFromT(t testing.TB) string {
 }
 
 func containerName(t testing.TB) string {
-	suffix, _, _ := strings.Cut(uuid.NewString(), "-")
+	suffix, _, _ := strings.Cut(uuid.NewV7().String(), "-")
 	return t.Name() + "-" + suffix
 }

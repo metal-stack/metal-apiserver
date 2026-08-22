@@ -10,9 +10,7 @@ import (
 
 var (
 	microSize = &Size{
-		Base: Base{
-			ID: "micro",
-		},
+		ID: "micro",
 		Constraints: []Constraint{
 			{
 				Type: CoreConstraint,
@@ -32,9 +30,7 @@ var (
 		},
 	}
 	tinySize = &Size{
-		Base: Base{
-			ID: "tiny",
-		},
+		ID: "tiny",
 		Constraints: []Constraint{
 			{
 				Type: CoreConstraint,
@@ -175,9 +171,7 @@ func TestSizes_Overlaps(t *testing.T) {
 			sizes: []*Size{
 				tinySize,
 				{
-					Base: Base{
-						ID: "large",
-					},
+					ID: "large",
 					Constraints: []Constraint{
 						{
 							Type: CoreConstraint,
@@ -225,9 +219,7 @@ func TestSizes_Overlaps(t *testing.T) {
 			},
 			sizes: []*Size{
 				{
-					Base: Base{
-						ID: "micro",
-					},
+					ID: "micro",
 					Constraints: []Constraint{
 						{
 							Type: CoreConstraint,
@@ -247,9 +239,7 @@ func TestSizes_Overlaps(t *testing.T) {
 					},
 				},
 				{
-					Base: Base{
-						ID: "tiny",
-					},
+					ID: "tiny",
 					Constraints: []Constraint{
 						{
 							Type: CoreConstraint,
@@ -269,9 +259,7 @@ func TestSizes_Overlaps(t *testing.T) {
 					},
 				},
 				{
-					Base: Base{
-						ID: "large",
-					},
+					ID: "large",
 					Constraints: []Constraint{
 						{
 							Type: CoreConstraint,
@@ -311,9 +299,7 @@ func TestSizes_Overlaps(t *testing.T) {
 				microSize,
 				tinySize,
 				{
-					Base: Base{
-						ID: "large",
-					},
+					ID: "large",
 					Constraints: []Constraint{
 						{
 							Type: CoreConstraint,
@@ -352,9 +338,7 @@ func TestSizes_Overlaps(t *testing.T) {
 			},
 			sizes: []*Size{
 				{
-					Base: Base{
-						ID: "micro",
-					},
+					ID: "micro",
 					Constraints: []Constraint{
 						{
 							Type: MemoryConstraint,
@@ -674,9 +658,7 @@ func TestSize_overlaps(t *testing.T) {
 		{
 			name: "independent of order #1",
 			this: &Size{
-				Base: Base{
-					ID: "g1-medium-x86",
-				},
+				ID: "g1-medium-x86",
 				Constraints: []Constraint{
 					{
 						Type: CoreConstraint,
@@ -702,9 +684,7 @@ func TestSize_overlaps(t *testing.T) {
 				},
 			},
 			other: &Size{
-				Base: Base{
-					ID: "c2-xlarge-x86",
-				},
+				ID: "c2-xlarge-x86",
 				Constraints: []Constraint{
 					{
 						Type: CoreConstraint,
@@ -728,9 +708,7 @@ func TestSize_overlaps(t *testing.T) {
 		{
 			name: "independent of order #2",
 			this: &Size{
-				Base: Base{
-					ID: "c2-xlarge-x86",
-				},
+				ID: "c2-xlarge-x86",
 				Constraints: []Constraint{
 					{
 						Type: CoreConstraint,
@@ -750,9 +728,7 @@ func TestSize_overlaps(t *testing.T) {
 				},
 			},
 			other: &Size{
-				Base: Base{
-					ID: "g1-medium-x86",
-				},
+				ID: "g1-medium-x86",
 				Constraints: []Constraint{
 					{
 						Type: CoreConstraint,

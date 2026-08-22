@@ -154,11 +154,11 @@ func Test_makeBGPFilter(t *testing.T) {
 			},
 			networks: []*metal.Network{
 				{
-					Base:            metal.Base{ID: "private-1"},
+					ID:              "private-1",
 					ParentNetworkID: "private",
 				},
 				{
-					Base: metal.Base{ID: "private"},
+					ID: "private",
 				},
 			},
 			ips: []*metal.IP{},
@@ -1075,9 +1075,7 @@ func Test_switchRepository_updateAllButNics(t *testing.T) {
 		{
 			name: "update everything",
 			sw: &metal.Switch{
-				Base: metal.Base{
-					ID: "sw1",
-				},
+				ID:             "sw1",
 				Rack:           "rack01",
 				Partition:      "partition-a",
 				ReplaceMode:    metal.SwitchReplaceModeOperational,
@@ -1140,10 +1138,8 @@ func Test_switchRepository_updateAllButNics(t *testing.T) {
 				},
 			},
 			want: &metal.Switch{
-				Base: metal.Base{
-					ID:          "sw1",
-					Description: "new description",
-				},
+				ID:             "sw1",
+				Description:    "new description",
 				Rack:           "rack01",
 				Partition:      "partition-a",
 				ReplaceMode:    metal.SwitchReplaceModeReplace,

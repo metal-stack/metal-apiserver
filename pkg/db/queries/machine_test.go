@@ -19,7 +19,7 @@ import (
 
 var (
 	m1 = &metal.Machine{
-		Base: metal.Base{ID: "m1", Name: "m1"},
+		ID: "m1", Name: "m1",
 		Allocation: &metal.MachineAllocation{
 			Creator:     "",
 			Created:     time.Time{},
@@ -28,9 +28,7 @@ var (
 			Project:     "p1",
 			ImageID:     "debian-12",
 			FilesystemLayout: &metal.FilesystemLayout{
-				Base: metal.Base{
-					ID: "c1-medium-fsl",
-				},
+				ID:             "c1-medium-fsl",
 				Filesystems:    []metal.Filesystem{},
 				Disks:          []metal.Disk{},
 				Raid:           []metal.Raid{},
@@ -91,7 +89,7 @@ var (
 		BIOS: metal.BIOS{},
 	}
 	m2 = &metal.Machine{
-		Base: metal.Base{ID: "m2", Name: "m2"},
+		ID: "m2", Name: "m2",
 		Allocation: &metal.MachineAllocation{
 			Creator:     "",
 			Created:     time.Time{},
@@ -100,9 +98,7 @@ var (
 			Project:     "p2",
 			ImageID:     "firewall-ubuntu-3",
 			FilesystemLayout: &metal.FilesystemLayout{
-				Base: metal.Base{
-					ID: "n1-medium-fsl",
-				},
+				ID:             "n1-medium-fsl",
 				Filesystems:    []metal.Filesystem{},
 				Disks:          []metal.Disk{},
 				Raid:           []metal.Raid{},
@@ -169,7 +165,7 @@ var (
 		BIOS: metal.BIOS{},
 	}
 	m3 = &metal.Machine{
-		Base: metal.Base{ID: "m3", Name: "m3"},
+		ID: "m3", Name: "m3",
 		Allocation: &metal.MachineAllocation{
 			Creator:     "",
 			Created:     time.Time{},
@@ -178,9 +174,7 @@ var (
 			Project:     "",
 			ImageID:     "",
 			FilesystemLayout: &metal.FilesystemLayout{
-				Base: metal.Base{
-					ID: "c1-large-fsl",
-				},
+				ID:             "c1-large-fsl",
 				Filesystems:    []metal.Filesystem{},
 				Disks:          []metal.Disk{},
 				Raid:           []metal.Raid{},
@@ -270,7 +264,7 @@ var (
 		BIOS: metal.BIOS{},
 	}
 	m4 = &metal.Machine{
-		Base:         metal.Base{ID: "m4", Name: "m4"},
+		ID: "m4", Name: "m4",
 		PartitionID:  "partition-1",
 		SizeID:       "c1-xlarge",
 		State:        metal.MachineState{Value: metal.AvailableState},
