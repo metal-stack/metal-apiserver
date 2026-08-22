@@ -7,7 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/google/uuid"
+	"uuid"
+
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -177,18 +178,13 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 
 	result.rollbackEntities.machineId = machine.ID
 
-	allocationUUID, err := uuid.NewV7()
-	if err != nil {
-		return result, fmt.Errorf("unable to create allocation uuid %w", err)
-	}
-
 	var placementLabels map[string]string
 	if req.PlacementLabels != nil {
 		placementLabels = req.PlacementLabels.Labels
 	}
 
 	alloc := &metal.MachineAllocation{
-		UUID:            allocationUUID.String(),
+		UUID:            uuid.NewV7().String(),
 		Created:         time.Now(),
 		Creator:         creator,
 		Name:            req.Name,

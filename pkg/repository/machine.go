@@ -8,9 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"uuid"
+
 	"connectrpc.com/connect"
 	"github.com/avast/retry-go/v4"
-	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/metal-stack/api/go/enum"
 	"github.com/metal-stack/api/go/errorutil"

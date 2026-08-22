@@ -7,7 +7,8 @@ import (
 	"slices"
 	"time"
 
-	"github.com/google/uuid"
+	"uuid"
+
 	"github.com/hibiken/asynq"
 	"github.com/metal-stack/api/go/errorutil"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -114,13 +115,8 @@ func (r *ipRepository) create(ctx context.Context, req *apiv2.IPServiceCreateReq
 		return nil, err
 	}
 
-	uuid, err := uuid.NewV7()
-	if err != nil {
-		return nil, err
-	}
-
 	ip := &metal.IP{
-		AllocationUUID:   uuid.String(),
+		AllocationUUID:   uuid.NewV7().String(),
 		IPAddress:        metal.CreateNamespacedIPAddress(nw.Namespace, ipAddress),
 		Namespace:        nw.Namespace,
 		ParentPrefixCidr: ipParentCidr,
