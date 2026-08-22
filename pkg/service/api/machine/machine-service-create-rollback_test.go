@@ -45,7 +45,7 @@ func TestMachineCreate_Rollback(t *testing.T) {
 	uid := uuid.New()
 	testDC.Machines = append(testDC.Machines, &sc.MachineWithLiveliness{
 		Machine: &metal.Machine{
-			Base:        metal.Base{ID: uid.String()},
+			ID:          uid.String(),
 			PartitionID: sc.Partition1,
 			RackID:      "rack-01",
 			SizeID:      sc.SizeC1Large,

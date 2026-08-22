@@ -62,7 +62,7 @@ func TestMachineCreateIntegration(t *testing.T) {
 
 		testDC.Machines = append(testDC.Machines, &sc.MachineWithLiveliness{
 			Machine: &metal.Machine{
-				Base:        metal.Base{ID: machineID},
+				ID:          machineID,
 				PartitionID: sc.Partition1,
 				RackID:      fmt.Sprintf("rack-%d", rackId),
 				SizeID:      sc.SizeC1Large,
@@ -87,7 +87,7 @@ func TestMachineCreateIntegration(t *testing.T) {
 
 		testDC.Machines = append(testDC.Machines, &sc.MachineWithLiveliness{
 			Machine: &metal.Machine{
-				Base:        metal.Base{ID: machineID},
+				ID:          machineID,
 				PartitionID: sc.Partition1,
 				RackID:      fmt.Sprintf("rack-%d", rackId),
 				SizeID:      sc.SizeN1Medium,

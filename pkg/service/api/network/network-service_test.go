@@ -972,7 +972,7 @@ func Test_networkServiceServer_Delete(t *testing.T) {
 
 	test.CreateMachines(t, testStore, []*metal.Machine{
 		{
-			Base: metal.Base{ID: "m1"}, PartitionID: "partition-one",
+			ID: "m1", PartitionID: "partition-one",
 			Allocation: &metal.MachineAllocation{
 				MachineNetworks: []*metal.MachineNetwork{
 					{

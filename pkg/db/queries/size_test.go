@@ -17,22 +17,22 @@ import (
 
 var (
 	s1 = &metal.Size{
-		Base:        metal.Base{ID: "s1", Name: "s1", Description: "Size 1"},
+		ID: "s1", Name: "s1", Description: "Size 1",
 		Labels:      map[string]string{"tier": "standard", "region": "eu"},
 		Constraints: []metal.Constraint{{Type: metal.CoreConstraint, Min: 4, Max: 4}},
 	}
 	s2 = &metal.Size{
-		Base:        metal.Base{ID: "s2", Name: "s2", Description: "Size 2"},
+		ID: "s2", Name: "s2", Description: "Size 2",
 		Labels:      map[string]string{"tier": "premium", "region": "eu"},
 		Constraints: []metal.Constraint{{Type: metal.CoreConstraint, Min: 8, Max: 16}},
 	}
 	s3 = &metal.Size{
-		Base:        metal.Base{ID: "s3", Name: "s3", Description: "Size 3"},
+		ID: "s3", Name: "s3", Description: "Size 3",
 		Labels:      map[string]string{"tier": "standard", "region": "us"},
 		Constraints: []metal.Constraint{{Type: metal.CoreConstraint, Min: 4, Max: 8}, {Type: metal.MemoryConstraint, Min: 8192, Max: 16384}},
 	}
 	s4 = &metal.Size{
-		Base:        metal.Base{ID: "gpu-size", Name: "gpu-size", Description: "GPU Size"},
+		ID: "gpu-size", Name: "gpu-size", Description: "GPU Size",
 		Labels:      map[string]string{"tier": "premium", "region": "eu", "gpu": "nvidia"},
 		Constraints: []metal.Constraint{{Type: metal.GPUConstraint, Min: 1, Max: 4, Identifier: "a100"}},
 	}

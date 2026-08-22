@@ -17,7 +17,7 @@ import (
 
 var (
 	n1 = &metal.Network{
-		Base:                       metal.Base{ID: "n1", Name: "n1", Description: "Network 1"},
+		ID: "n1", Name: "n1", Description: "Network 1",
 		Prefixes:                   metal.Prefixes{{IP: "10.0.0.0", Length: "8"}},
 		DestinationPrefixes:        metal.Prefixes{{IP: "0.0.0.0", Length: "0"}},
 		DefaultChildPrefixLength:   metal.ChildPrefixLength{metal.AddressFamilyIPv4: 22},
@@ -36,7 +36,7 @@ var (
 		NATType:                    metal.NATTypeIPv4Masquerade,
 	}
 	n2 = &metal.Network{
-		Base:                       metal.Base{ID: "n2", Name: "n2", Description: "Network 2"},
+		ID: "n2", Name: "n2", Description: "Network 2",
 		Prefixes:                   metal.Prefixes{{IP: "2001:db8::", Length: "96"}},
 		DestinationPrefixes:        metal.Prefixes{{IP: "::", Length: "0"}},
 		DefaultChildPrefixLength:   metal.ChildPrefixLength{metal.AddressFamilyIPv6: 64},
@@ -55,7 +55,7 @@ var (
 		NATType:                    metal.NATTypeNone,
 	}
 	n3 = &metal.Network{
-		Base:                       metal.Base{ID: "n3", Name: "n3", Description: "Network 3"},
+		ID: "n3", Name: "n3", Description: "Network 3",
 		Prefixes:                   metal.Prefixes{{IP: "2001:db8::", Length: "96"}, {IP: "13.0.0.0", Length: "8"}},
 		DestinationPrefixes:        metal.Prefixes{{IP: "::", Length: "0"}, {IP: "0.0.0.0", Length: "0"}},
 		DefaultChildPrefixLength:   metal.ChildPrefixLength{metal.AddressFamilyIPv6: 64, metal.AddressFamilyIPv4: 22},

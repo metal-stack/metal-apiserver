@@ -293,7 +293,7 @@ func Test_imageServiceServer_Delete(t *testing.T) {
 
 	test.CreateMachines(t, testStore, []*metal.Machine{
 		{
-			Base: metal.Base{ID: "m1"},
+			ID: "m1",
 			Allocation: &metal.MachineAllocation{
 				ImageID: "debian-11.0.20221231",
 			},

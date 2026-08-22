@@ -89,7 +89,7 @@ func Test_evaluateVPNConnected(t *testing.T) {
 			nodesToCreate: []string{m1},
 			machinesToCreate: []*metal.Machine{
 				{
-					Base:        metal.Base{ID: m1},
+					ID:          m1,
 					PartitionID: "partition-1", SizeID: "c1-large-x86",
 					Allocation: &metal.MachineAllocation{Project: p1, ImageID: "debian-12", VPN: &metal.MachineVPN{ControlPlaneAddress: testStore.UnscopedVPN().ControlPlaneAddress()}},
 				},
@@ -119,7 +119,7 @@ func Test_evaluateVPNConnected(t *testing.T) {
 			nodesToCreate: []string{m2},
 			machinesToCreate: []*metal.Machine{
 				{
-					Base:        metal.Base{ID: m2},
+					ID:          m2,
 					PartitionID: "partition-1", SizeID: "c1-large-x86",
 					Allocation: &metal.MachineAllocation{Project: p1, ImageID: "debian-12", VPN: &metal.MachineVPN{ControlPlaneAddress: testStore.UnscopedVPN().ControlPlaneAddress()}},
 				},

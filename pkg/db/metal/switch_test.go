@@ -540,9 +540,7 @@ func TestSwitch_getPhysicalMachineConnection(t *testing.T) {
 		{
 			name: "machine is connected",
 			s: &Switch{
-				Base: Base{
-					ID: "leaf01",
-				},
+				ID: "leaf01",
 				Nics: Nics{
 					{
 						MacAddress: "aa:aa:aa:aa:aa:aa",
@@ -579,9 +577,7 @@ func TestSwitch_getPhysicalMachineConnection(t *testing.T) {
 		{
 			name: "machine is not connected",
 			s: &Switch{
-				Base: Base{
-					ID: "leaf02",
-				},
+				ID: "leaf02",
 				Nics: Nics{
 					{
 						MacAddress: "aa:aa:aa:aa:aa:aa",
@@ -630,9 +626,7 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 		{
 			name: "switch and machine are not connected",
 			s: &Switch{
-				Base: Base{
-					ID: "sw1",
-				},
+				ID: "sw1",
 				Nics: Nics{
 					{
 						MacAddress: "aa:aa:aa:aa:aa:aa",
@@ -687,9 +681,7 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 		{
 			name: "error when machine connection for the switch exists in the database but not physically",
 			s: &Switch{
-				Base: Base{
-					ID: "sw1",
-				},
+				ID: "sw1",
 				Nics: Nics{
 					{
 						MacAddress: "aa:aa:aa:aa:aa:aa",
@@ -739,9 +731,7 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 		{
 			name: "new connection replaces old ones for the same switch",
 			s: &Switch{
-				Base: Base{
-					ID: "sw1",
-				},
+				ID: "sw1",
 				Nics: Nics{
 					{
 						MacAddress: "bb:bb:bb:bb:bb:bb",
@@ -958,9 +948,7 @@ func TestSwitch_SetVrfOfMachine(t *testing.T) {
 				},
 			},
 			m: &Machine{
-				Base: Base{
-					ID: "m1",
-				},
+				ID: "m1",
 			},
 			vrf: "vrf100",
 			wantNics: Nics{
@@ -993,9 +981,7 @@ func TestSwitch_SetVrfOfMachine(t *testing.T) {
 				},
 			},
 			m: &Machine{
-				Base: Base{
-					ID: "m1",
-				},
+				ID: "m1",
 			},
 			vrf: "vrf100",
 			wantNics: Nics{

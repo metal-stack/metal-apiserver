@@ -199,7 +199,7 @@ func Test_bootServiceServer_Dhcp(t *testing.T) {
 
 	// We need to create machines directly on the database because there is no MachineCreateRequest available and never will.
 	test.CreateMachines(t, testStore, []*metal.Machine{
-		{Base: metal.Base{ID: m1}, PartitionID: partition1, SizeID: "c1-large-x86"},
+		{ID: m1, PartitionID: partition1, SizeID: "c1-large-x86"},
 	})
 
 	tests := []struct {
@@ -403,7 +403,7 @@ func Test_bootServiceServer_Register(t *testing.T) {
 
 	// We need to create machines directly on the database because there is no MachineCreateRequest available and never will.
 	test.CreateMachines(t, testStore, []*metal.Machine{
-		{Base: metal.Base{ID: m1}, PartitionID: partition1, SizeID: "c1-large-x86"},
+		{ID: m1, PartitionID: partition1, SizeID: "c1-large-x86"},
 	})
 
 	test.CreateSwitches(t, testStore, []*api.SwitchServiceCreateRequest{sw1, sw2})
@@ -798,7 +798,7 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 	// We need to create machines directly on the database because there is no MachineCreateRequest available and never will.
 	test.CreateMachines(t, testStore, []*metal.Machine{
 		{
-			Base:        metal.Base{ID: m1},
+			ID:          m1,
 			PartitionID: partition1,
 			RackID:      "r01",
 			SizeID:      "c1-large-x86",
@@ -811,7 +811,7 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 				}},
 		},
 		{
-			Base:        metal.Base{ID: m0},
+			ID:          m0,
 			PartitionID: partition1,
 			RackID:      "r01",
 			SizeID:      "c1-large-x86",

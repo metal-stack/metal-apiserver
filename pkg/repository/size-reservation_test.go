@@ -11,11 +11,11 @@ import (
 func Test_checkSizeReservations(t *testing.T) {
 	var (
 		available = []*metal.Machine{
-			{Base: metal.Base{ID: "1"}},
-			{Base: metal.Base{ID: "2"}},
-			{Base: metal.Base{ID: "3"}},
-			{Base: metal.Base{ID: "4"}},
-			{Base: metal.Base{ID: "5"}},
+			{ID: "1"},
+			{ID: "2"},
+			{ID: "3"},
+			{ID: "4"},
+			{ID: "5"},
 		}
 
 		partitionA = "a"
@@ -44,7 +44,7 @@ func Test_checkSizeReservations(t *testing.T) {
 			available = slices.DeleteFunc(available, func(m *metal.Machine) bool {
 				return m.ID == id
 			})
-			projectMachines[project] = append(projectMachines[project], &metal.Machine{Base: metal.Base{ID: id}})
+			projectMachines[project] = append(projectMachines[project], &metal.Machine{ID: id})
 		}
 	)
 
@@ -55,14 +55,14 @@ func Test_checkSizeReservations(t *testing.T) {
 	allocate(available[0].ID, p0)
 
 	require.Equal(t, []*metal.Machine{
-		{Base: metal.Base{ID: "2"}},
-		{Base: metal.Base{ID: "3"}},
-		{Base: metal.Base{ID: "4"}},
-		{Base: metal.Base{ID: "5"}},
+		{ID: "2"},
+		{ID: "3"},
+		{ID: "4"},
+		{ID: "5"},
 	}, available)
 	require.Equal(t, map[string][]*metal.Machine{
 		p0: {
-			{Base: metal.Base{ID: "1"}},
+			{ID: "1"},
 		},
 	}, projectMachines)
 
@@ -72,16 +72,16 @@ func Test_checkSizeReservations(t *testing.T) {
 	allocate(available[0].ID, p2)
 
 	require.Equal(t, []*metal.Machine{
-		{Base: metal.Base{ID: "3"}},
-		{Base: metal.Base{ID: "4"}},
-		{Base: metal.Base{ID: "5"}},
+		{ID: "3"},
+		{ID: "4"},
+		{ID: "5"},
 	}, available)
 	require.Equal(t, map[string][]*metal.Machine{
 		p0: {
-			{Base: metal.Base{ID: "1"}},
+			{ID: "1"},
 		},
 		p2: {
-			{Base: metal.Base{ID: "2"}},
+			{ID: "2"},
 		},
 	}, projectMachines)
 
@@ -91,16 +91,16 @@ func Test_checkSizeReservations(t *testing.T) {
 	allocate(available[0].ID, p0)
 
 	require.Equal(t, []*metal.Machine{
-		{Base: metal.Base{ID: "4"}},
-		{Base: metal.Base{ID: "5"}},
+		{ID: "4"},
+		{ID: "5"},
 	}, available)
 	require.Equal(t, map[string][]*metal.Machine{
 		p0: {
-			{Base: metal.Base{ID: "1"}},
-			{Base: metal.Base{ID: "3"}},
+			{ID: "1"},
+			{ID: "3"},
 		},
 		p2: {
-			{Base: metal.Base{ID: "2"}},
+			{ID: "2"},
 		},
 	}, projectMachines)
 
@@ -114,16 +114,16 @@ func Test_checkSizeReservations(t *testing.T) {
 	allocate(available[0].ID, p2)
 
 	require.Equal(t, []*metal.Machine{
-		{Base: metal.Base{ID: "5"}},
+		{ID: "5"},
 	}, available)
 	require.Equal(t, map[string][]*metal.Machine{
 		p0: {
-			{Base: metal.Base{ID: "1"}},
-			{Base: metal.Base{ID: "3"}},
+			{ID: "1"},
+			{ID: "3"},
 		},
 		p2: {
-			{Base: metal.Base{ID: "2"}},
-			{Base: metal.Base{ID: "4"}},
+			{ID: "2"},
+			{ID: "4"},
 		},
 	}, projectMachines)
 
@@ -141,15 +141,15 @@ func Test_checkSizeReservations(t *testing.T) {
 	require.Equal(t, []*metal.Machine{}, available)
 	require.Equal(t, map[string][]*metal.Machine{
 		p0: {
-			{Base: metal.Base{ID: "1"}},
-			{Base: metal.Base{ID: "3"}},
+			{ID: "1"},
+			{ID: "3"},
 		},
 		p1: {
-			{Base: metal.Base{ID: "5"}},
+			{ID: "5"},
 		},
 		p2: {
-			{Base: metal.Base{ID: "2"}},
-			{Base: metal.Base{ID: "4"}},
+			{ID: "2"},
+			{ID: "4"},
 		},
 	}, projectMachines)
 }
