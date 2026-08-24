@@ -257,6 +257,19 @@ func (a *auth) Callback(res http.ResponseWriter, req *http.Request) {
 	user, err := gothic.CompleteUserAuth(res, req)
 	if err != nil {
 		a.log.Error("failed to complete user auth", "err", err)
+
+		var (
+			q                  = req.URL.Query()
+			oidcErr            = q.Get("error")
+			oidcErrDescription = q.Get("error_description")
+		)
+
+		if oidcErr == "" {
+			oidcErrDescription = err.Error()
+		}
+
+		a.redirectWithError(res, req, state, oidcErr, oidcErrDescription)
+
 		return
 	}
 	u, err := provider.User(ctx, user)
@@ -365,6 +378,42 @@ func (a *auth) isRedirectURLAllowed(url *url.URL) error {
 		return nil
 	}
 	return fmt.Errorf("given url %q is not in the configured list of allowed redirect urls %v", url.String(), a.redirectUrls)
+}
+
+func (a *auth) redirectWithError(res http.ResponseWriter, req *http.Request, st *state, oidcErr, oidcErrDescription string) {
+	var (
+		rawQuery = url.Values{
+			"error":             []string{oidcErr},
+			"error_description": []string{oidcErrDescription},
+		}.Encode()
+
+		redirectURL = &url.URL{
+			Scheme:   a.frontEndUrl.Scheme,
+			Host:     a.frontEndUrl.Host,
+			Path:     "login/auth",
+			RawQuery: rawQuery,
+		}
+	)
+
+	if st.RedirectURL != "" {
+		u, err := url.Parse(st.RedirectURL)
+		if err != nil {
+			a.log.Error("unable to parse redirect url from state", "error", err)
+			http.Error(res, "unable to parse redirect url from state", http.StatusInternalServerError)
+			return
+		}
+		u.RawQuery = rawQuery
+		redirectURL = u
+	}
+
+	if err := a.isRedirectURLAllowed(redirectURL); err != nil {
+		a.log.Error("redirect url is not allowed", "error", err)
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	a.log.Debug("redirecting back with error", "url", redirectURL.String())
+	http.Redirect(res, req, redirectURL.String(), http.StatusSeeOther)
 }
 
 func (a *auth) ensureTenant(ctx context.Context, u *providerUser) error {
