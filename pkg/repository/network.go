@@ -177,10 +177,10 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 			PartitionID:         partition,
 			ProjectID:           projectId,
 			Namespace:           namespace,
-			Nat:                 nat,
-			PrivateSuper:        false,
-			Underlay:            false,
-			Shared:              shared,
+			Nat:                 nat,    //nolint:staticcheck
+			PrivateSuper:        false,  //nolint:staticcheck
+			Underlay:            false,  //nolint:staticcheck
+			Shared:              shared, //nolint:staticcheck
 			Vrf:                 vrf,
 			ParentNetworkID:     parent.ID,
 			Labels:              labels,
@@ -254,11 +254,11 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 		MinChildPrefixLength:       minChildPrefixLength,
 		PartitionID:                partition,
 		ProjectID:                  projectId,
-		Nat:                        nat,
-		PrivateSuper:               privateSuper,
-		Underlay:                   underlay,
+		Nat:                        nat,          //nolint:staticcheck
+		PrivateSuper:               privateSuper, //nolint:staticcheck
+		Underlay:                   underlay,     //nolint:staticcheck
 		Vrf:                        vrf,
-		Shared:                     shared,
+		Shared:                     shared, //nolint:staticcheck
 		Labels:                     labels,
 		AdditionalAnnouncableCIDRs: req.AdditionalAnnouncableCidrs,
 		NetworkType:                networkType,
