@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -24,6 +25,8 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
+
+	"golang.org/x/oauth2"
 
 	"github.com/metal-stack/metal-lib/auditing"
 )
@@ -265,6 +268,13 @@ func (a *auth) Callback(res http.ResponseWriter, req *http.Request) {
 		)
 
 		if oidcErr == "" {
+			oidcErr = "login_failed"
+		}
+
+		var retrieveErr *oauth2.RetrieveError
+		if errors.As(err, &retrieveErr) && retrieveErr.ErrorDescription != "" {
+			oidcErrDescription = retrieveErr.ErrorDescription
+		} else if oidcErrDescription == "" {
 			oidcErrDescription = err.Error()
 		}
 
