@@ -221,13 +221,10 @@ func (c *Client) NewTask(payload TaskPayload, additionalOpts ...asynq.Option) (*
 		return nil, err
 	}
 
-	taskId, err := taskID()
-	if err != nil {
-		return nil, err
-	}
-
 	var (
-		opts = append(c.opts, asynq.TaskID(taskId))
+		// see: https://github.com/hibiken/asynq/wiki/Unique-Tasks
+		taskId = uuid.NewV7().String()
+		opts   = append(c.opts, asynq.TaskID(taskId))
 	)
 
 	if !slices.ContainsFunc(additionalOpts, func(opt asynq.Option) bool {
@@ -248,10 +245,4 @@ func (c *Client) NewTask(payload TaskPayload, additionalOpts ...asynq.Option) (*
 	}
 
 	return taskInfo, nil
-}
-
-// taskID generate a random taskID to ensure unique execution
-// see: https://github.com/hibiken/asynq/wiki/Unique-Tasks
-func taskID() (string, error) {
-	return uuid.NewV7().String(), nil
 }
