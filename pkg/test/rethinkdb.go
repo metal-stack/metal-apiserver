@@ -84,6 +84,7 @@ func databaseNameFromT(t testing.TB) string {
 }
 
 func containerName(t testing.TB) string {
-	suffix, _, _ := strings.Cut(uuid.NewV7().String(), "-")
+	containerUUID := uuid.New().String()
+	suffix, _, _ := strings.Cut(containerUUID, "-")
 	return t.Name() + "-" + suffix
 }
