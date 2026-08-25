@@ -47,7 +47,7 @@ var (
 	MachineFunc = func(id, partition, size, project, image string, liveliness metal.MachineLiveliness, waiting bool) *MachineWithLiveliness {
 		machineNumber := lo.Substring(id, -1, 1)
 		m := &metal.Machine{
-			Base:        metal.Base{ID: id},
+			ID:          id,
 			PartitionID: partition,
 			SizeID:      size,
 			IPMI: metal.IPMI{ // required for healthy machine state
@@ -81,7 +81,7 @@ var (
 		return &MachineWithLiveliness{
 			Liveliness: liveliness,
 			Machine: &metal.Machine{
-				Base:        metal.Base{ID: id},
+				ID:          id,
 				PartitionID: partition,
 				SizeID:      size,
 				IPMI: metal.IPMI{ // required for healthy machine state

@@ -138,11 +138,9 @@ func (r *sizeRepository) convertToInternal(ctx context.Context, e *apiv2.Size) (
 	}
 
 	size := &metal.Size{
-		Base: metal.Base{
-			ID:          e.Id,
-			Name:        pointer.SafeDeref(e.Name),
-			Description: pointer.SafeDeref(e.Description),
-		},
+		ID:          e.Id,
+		Name:        pointer.SafeDeref(e.Name),
+		Description: pointer.SafeDeref(e.Description),
 		Labels:      labels,
 		Constraints: constraints,
 	}

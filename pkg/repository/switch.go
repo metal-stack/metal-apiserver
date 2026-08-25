@@ -498,9 +498,7 @@ func (r *switchRepository) GetSwitchStatus(ctx context.Context, switchID string)
 
 func (r *switchRepository) SetSwitchStatus(ctx context.Context, status *api.SwitchStatus) error {
 	metalStatus := &metal.SwitchStatus{
-		Base: metal.Base{
-			ID: status.ID,
-		},
+		ID:            status.ID,
 		LastSync:      toMetalSwitchSync(status.LastSync),
 		LastSyncError: toMetalSwitchSync(status.LastSyncError),
 	}
@@ -729,11 +727,9 @@ func (r *switchRepository) convertToInternal(ctx context.Context, sw *apiv2.Swit
 	}
 
 	return &metal.Switch{
-		Base: metal.Base{
-			ID:          sw.Id,
-			Name:        sw.Id,
-			Description: sw.Description,
-		},
+		ID:                 sw.Id,
+		Name:               sw.Id,
+		Description:        sw.Description,
 		Rack:               pointer.SafeDeref(sw.Rack),
 		Room:               pointer.SafeDeref(sw.Room),
 		Partition:          sw.Partition,

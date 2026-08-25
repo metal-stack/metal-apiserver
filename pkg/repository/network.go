@@ -168,19 +168,17 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 		}
 
 		nw := &metal.Network{
-			Base: metal.Base{
-				Name:        name,
-				Description: description,
-			},
+			Name:                name,
+			Description:         description,
 			Prefixes:            childPrefixes,
 			DestinationPrefixes: parent.DestinationPrefixes,
 			PartitionID:         partition,
 			ProjectID:           projectId,
 			Namespace:           namespace,
-			Nat:                 nat,
-			PrivateSuper:        false,
-			Underlay:            false,
-			Shared:              shared,
+			Nat:                 nat,    // nolint:staticcheck
+			PrivateSuper:        false,  // nolint:staticcheck
+			Underlay:            false,  // nolint:staticcheck
+			Shared:              shared, // nolint:staticcheck
 			Vrf:                 vrf,
 			ParentNetworkID:     parent.ID,
 			Labels:              labels,
@@ -242,11 +240,9 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 	}
 
 	nw := &metal.Network{
-		Base: metal.Base{
-			ID:          id,
-			Name:        name,
-			Description: description,
-		},
+		ID:                         id,
+		Name:                       name,
+		Description:                description,
 		Prefixes:                   prefixes,
 		ParentNetworkID:            pointer.SafeDeref(req.ParentNetwork),
 		DestinationPrefixes:        destPrefixes,
@@ -254,11 +250,11 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 		MinChildPrefixLength:       minChildPrefixLength,
 		PartitionID:                partition,
 		ProjectID:                  projectId,
-		Nat:                        nat,
-		PrivateSuper:               privateSuper,
-		Underlay:                   underlay,
+		Nat:                        nat,          // nolint:staticcheck
+		PrivateSuper:               privateSuper, // nolint:staticcheck
+		Underlay:                   underlay,     // nolint:staticcheck
 		Vrf:                        vrf,
-		Shared:                     shared,
+		Shared:                     shared, // nolint:staticcheck
 		Labels:                     labels,
 		AdditionalAnnouncableCIDRs: req.AdditionalAnnouncableCidrs,
 		NetworkType:                networkType,

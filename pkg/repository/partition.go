@@ -150,11 +150,9 @@ func (p *partitionRepository) convertToInternal(ctx context.Context, msg *apiv2.
 	}
 
 	partition := &metal.Partition{
-		Base: metal.Base{
-			ID:          msg.Id,
-			Name:        msg.Id,
-			Description: msg.Description,
-		},
+		ID:                 msg.Id,
+		Name:               msg.Id,
+		Description:        msg.Description,
 		MgmtServiceAddress: mgm,
 		Labels:             labels,
 		DNSServers:         dnsServers,

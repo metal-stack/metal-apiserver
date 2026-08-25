@@ -145,11 +145,9 @@ func (r *imageRepository) convertToInternal(ctx context.Context, msg *apiv2.Imag
 	}
 
 	image := &metal.Image{
-		Base: metal.Base{
-			ID:          msg.Id,
-			Name:        pointer.SafeDeref(msg.Name),
-			Description: pointer.SafeDeref(msg.Description),
-		},
+		ID:             msg.Id,
+		Name:           pointer.SafeDeref(msg.Name),
+		Description:    pointer.SafeDeref(msg.Description),
 		URL:            msg.Url,
 		Features:       features,
 		OS:             os,
