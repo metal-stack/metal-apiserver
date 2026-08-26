@@ -1126,3 +1126,149 @@ func Test_machineServiceServer_SetState(t *testing.T) {
 		})
 	}
 }
+
+func Test_machineServiceServer_Delete(t *testing.T) {
+	var (
+		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+		ctx = t.Context()
+	)
+
+	tests := []struct {
+		name     string
+		rq       func(*test.Entities) *adminv2.MachineServiceDeleteRequest
+		want     func(*test.Entities) *adminv2.MachineServiceDeleteResponse
+		scenario func() *sc.DatacenterSpec
+		mods     func() *test.Asserters
+		wantErr  error
+	}{
+		{
+			name: "delete alive machine",
+			rq: func(e *test.Entities) *adminv2.MachineServiceDeleteRequest {
+				return &adminv2.MachineServiceDeleteRequest{Uuid: sc.Machine1}
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument("can only delete dead machines, if you power off this machine it will reach dead state."),
+		},
+		{
+			name: "delete allocated machine",
+			scenario: func() *sc.DatacenterSpec {
+				s := sc.SwitchesWithMachinesDatacenter
+				s.Images = map[string]apiv2.ImageFeature{
+					sc.ImageDebian13: apiv2.ImageFeature_IMAGE_FEATURE_MACHINE,
+				}
+				s.Machines = []*sc.MachineWithLiveliness{
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive, false),
+					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessDead, false),
+					sc.MachineFunc(sc.Machine3, sc.Partition2, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive, false),
+					sc.MachineFunc(sc.Machine4, sc.Partition2, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive, false),
+					sc.MachineFunc(sc.Machine5, sc.Partition2, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive, false),
+					sc.MachineFunc(sc.Machine6, sc.Partition2, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive, false),
+					sc.MachineFunc(sc.Machine7, sc.Partition2, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive, false),
+					sc.MachineFunc(sc.Machine8, sc.Partition2, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive, false),
+				}
+				return &s
+			},
+			rq: func(e *test.Entities) *adminv2.MachineServiceDeleteRequest {
+				return &adminv2.MachineServiceDeleteRequest{Uuid: sc.Machine2}
+			},
+			want:    nil,
+			wantErr: errorutil.InvalidArgument("machine is allocated and can not be deleted"),
+		},
+		{
+			name: "delete dead machine",
+			scenario: func() *sc.DatacenterSpec {
+				s := sc.SwitchesWithMachinesDatacenter
+				s.Images = map[string]apiv2.ImageFeature{
+					sc.ImageDebian13: apiv2.ImageFeature_IMAGE_FEATURE_MACHINE,
+				}
+				s.Machines = []*sc.MachineWithLiveliness{
+					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive, false),
+					sc.MachineFunc(sc.Machine2, sc.Partition1, sc.SizeC1Large, sc.Tenant1Project1, sc.ImageDebian13, metal.MachineLivelinessDead, false),
+					sc.MachineFunc(sc.Machine3, sc.Partition2, sc.SizeC1Large, "", "", metal.MachineLivelinessDead, false),
+					sc.MachineFunc(sc.Machine4, sc.Partition2, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive, false),
+					sc.MachineFunc(sc.Machine5, sc.Partition2, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive, false),
+					sc.MachineFunc(sc.Machine6, sc.Partition2, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive, false),
+					sc.MachineFunc(sc.Machine7, sc.Partition2, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive, false),
+					sc.MachineFunc(sc.Machine8, sc.Partition2, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive, false),
+				}
+				return &s
+			},
+			rq: func(e *test.Entities) *adminv2.MachineServiceDeleteRequest {
+				return &adminv2.MachineServiceDeleteRequest{Uuid: sc.Machine3}
+			},
+			want: func(e *test.Entities) *adminv2.MachineServiceDeleteResponse {
+				return &adminv2.MachineServiceDeleteResponse{
+					Machine: e.Machines[sc.Machine3],
+				}
+			},
+			mods: func() *test.Asserters {
+				return &test.Asserters{
+					Switches: func(switches map[string]*apiv2.Switch) {
+						sw1 := switches[sc.P02Rack01Switch1]
+						sw1.MachineConnections = nil
+						switches[sc.P02Rack01Switch1] = sw1
+						sw2 := switches[sc.P02Rack01Switch2]
+						sw2.MachineConnections = nil
+						switches[sc.P02Rack01Switch2] = sw2
+					},
+				}
+			},
+			wantErr: nil,
+		},
+	}
+
+	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.scenario != nil {
+				dc.Create(tt.scenario())
+			} else {
+				dc.Create(&sc.SwitchesWithMachinesDatacenter)
+			}
+
+			defer dc.Cleanup()
+
+			var (
+				rq   *adminv2.MachineServiceDeleteRequest
+				want *adminv2.MachineServiceDeleteResponse
+			)
+
+			if tt.rq != nil {
+				rq = tt.rq(dc.Snapshot())
+			}
+			if tt.want != nil {
+				want = tt.want(dc.Snapshot())
+			}
+
+			s := &machineServiceServer{
+				log:  log,
+				repo: dc.GetTestStore().Store,
+			}
+			if tt.wantErr == nil {
+				test.Validate(t, rq)
+			}
+
+			got, err := s.Delete(ctx, rq)
+			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("machineServiceServer.Delete() error diff = %s", diff)
+				return
+			}
+			if diff := cmp.Diff(want, got,
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at", "generation",
+				)); diff != "" {
+				t.Errorf("machineServiceServer.Delete() diff = %s", diff)
+			}
+
+			var mods *test.Asserters
+			if tt.mods != nil {
+				mods = tt.mods()
+			}
+			err = dc.Assert(mods)
+			require.NoError(t, err)
+		})
+	}
+}
