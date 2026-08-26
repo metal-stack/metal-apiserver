@@ -41,7 +41,7 @@ func (m *machineServiceServer) Get(ctx context.Context, req *adminv2.MachineServ
 }
 
 func (m *machineServiceServer) Delete(context.Context, *adminv2.MachineServiceDeleteRequest) (*adminv2.MachineServiceDeleteResponse, error) {
-	panic("unimplemented")
+	return nil, errorutil.Unimplemented("")
 }
 
 func (m *machineServiceServer) List(ctx context.Context, rq *adminv2.MachineServiceListRequest) (*adminv2.MachineServiceListResponse, error) {

@@ -99,11 +99,11 @@ func (c *componentRepository) create(ctx context.Context, rq *api.ComponentServi
 }
 
 func (c *componentRepository) validateUpdate(ctx context.Context, rq *api.ComponentServiceUpdateRequest, old *componentEntity) error {
-	panic("unimplemented")
+	return errorutil.Unimplemented("")
 }
 
 func (c *componentRepository) update(ctx context.Context, e *componentEntity, msg *api.ComponentServiceUpdateRequest) (*componentEntity, error) {
-	panic("unimplemented")
+	return nil, errorutil.Unimplemented("")
 }
 
 func (c *componentRepository) validateDelete(ctx context.Context, e *componentEntity) error {
@@ -125,7 +125,7 @@ func (c *componentRepository) delete(ctx context.Context, e *componentEntity) (*
 }
 
 func (c *componentRepository) find(ctx context.Context, query *apiv2.ComponentQuery) (*componentEntity, error) {
-	panic("unimplemented")
+	return nil, errorutil.Unimplemented("")
 }
 
 func (c *componentRepository) list(ctx context.Context, query *apiv2.ComponentQuery) ([]*componentEntity, error) {
@@ -172,7 +172,7 @@ func (c *componentRepository) list(ctx context.Context, query *apiv2.ComponentQu
 }
 
 func (c *componentRepository) convertToInternal(ctx context.Context, msg *apiv2.Component) (*componentEntity, error) {
-	panic("unimplemented")
+	return nil, errorutil.Unimplemented("")
 }
 
 func (c *componentRepository) convertToProto(ctx context.Context, e *componentEntity) (*apiv2.Component, error) {

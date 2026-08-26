@@ -122,27 +122,27 @@ func (a *auditRepository) matchScope(e *auditEntity) bool {
 }
 
 func (a *auditRepository) get(ctx context.Context, id string) (*auditEntity, error) {
-	panic("unimplemented")
+	return nil, errorutil.Unimplemented("")
 }
 
 func (a *auditRepository) create(ctx context.Context, rq any) (*auditEntity, error) {
-	panic("unimplemented")
+	return nil, errorutil.Unimplemented("")
 }
 
 func (a *auditRepository) find(ctx context.Context, query *apiv2.AuditQuery) (*auditEntity, error) {
-	panic("unimplemented")
+	return nil, errorutil.Unimplemented("")
 }
 
 func (a *auditRepository) delete(ctx context.Context, audit *auditEntity) (*deleteInfo, error) {
-	panic("unimplemented")
+	return nil, errorutil.Unimplemented("")
 }
 
 func (a *auditRepository) update(ctx context.Context, audit *auditEntity, rq *auditEntity) (*auditEntity, error) {
-	panic("unimplemented")
+	return nil, errorutil.Unimplemented("")
 }
 
 func (a *auditRepository) convertToInternal(ctx context.Context, audit *apiv2.AuditTrace) (*auditEntity, error) {
-	panic("unimplemented")
+	return nil, errorutil.Unimplemented("")
 }
 
 func (a *auditRepository) convertToProto(ctx context.Context, e *auditEntity) (*apiv2.AuditTrace, error) {

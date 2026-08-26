@@ -38,7 +38,7 @@ type projectServiceServer struct {
 
 // AddMember implements [apiv2connect.ProjectServiceHandler].
 func (p *projectServiceServer) AddMember(context.Context, *apiv2.ProjectServiceAddMemberRequest) (*apiv2.ProjectServiceAddMemberResponse, error) {
-	panic("unimplemented")
+	return nil, errorutil.Unimplemented("")
 }
 
 func New(c Config) apiv2connect.ProjectServiceHandler {
