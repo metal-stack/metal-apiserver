@@ -12,7 +12,7 @@ import (
 	"uuid"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/lestrrat-go/jwx/v3/jwk"
+	"github.com/lestrrat-go/jwx/v4/jwk"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -116,13 +116,9 @@ func Validate(ctx context.Context, log *slog.Logger, tokenString string, set jwk
 	)
 
 	log.Debug("validate", "tokenstring", tokenString)
-	for i := range set.Len() {
-		key, ok := set.Key(i)
-		if !ok {
-			continue
-		}
-
-		err := jwk.Export(key, &publicKey)
+	for _, key := range set.All() {
+		var err error
+		publicKey, err = jwk.Export[crypto.PublicKey](key)
 		if err != nil {
 			log.Error("unable to export publickey", "error", err)
 			continue
