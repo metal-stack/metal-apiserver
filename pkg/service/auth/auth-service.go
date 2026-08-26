@@ -267,12 +267,36 @@ func (a *auth) Callback(res http.ResponseWriter, req *http.Request) {
 			oidcErrDescription = q.Get("error_description")
 		)
 
+		// TODO: temporary diagnostics to determine why the code exchange hits NoCode
+		var retrieveErr *oauth2.RetrieveError
+		if errors.As(err, &retrieveErr) {
+			statusText := ""
+			if retrieveErr.Response != nil {
+				statusText = http.StatusText(retrieveErr.Response.StatusCode)
+			}
+			a.log.Error("complete user auth: oauth2 retrieve error",
+				"callback_has_code", q.Get("code") != "",
+				"callback_error", q.Get("error"),
+				"callback_error_description", q.Get("error_description"),
+				"retrieve_error_code", retrieveErr.ErrorCode,
+				"retrieve_error_description", retrieveErr.ErrorDescription,
+				"retrieve_error_uri", retrieveErr.ErrorURI,
+				"retrieve_error_body", string(retrieveErr.Body),
+				"retrieve_error_status", statusText,
+			)
+		} else {
+			a.log.Error("complete user auth: non-retrieve error",
+				"callback_has_code", q.Get("code") != "",
+				"callback_error", q.Get("error"),
+				"callback_error_description", q.Get("error_description"),
+			)
+		}
+
 		if oidcErr == "" {
 			oidcErr = "login_failed"
 		}
 
-		var retrieveErr *oauth2.RetrieveError
-		if errors.As(err, &retrieveErr) && retrieveErr.ErrorDescription != "" {
+		if retrieveErr != nil && retrieveErr.ErrorDescription != "" {
 			oidcErrDescription = retrieveErr.ErrorDescription
 		} else if oidcErrDescription == "" {
 			oidcErrDescription = err.Error()
