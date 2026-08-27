@@ -939,13 +939,17 @@ type tokenInjector struct {
 }
 
 // WrapStreamingClient implements connect.Interceptor.
-func (t *tokenInjector) WrapStreamingClient(connect.StreamingClientFunc) connect.StreamingClientFunc {
-	panic("unimplemented")
+func (t *tokenInjector) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
+	return func(ctx context.Context, spec connect.Spec) connect.StreamingClientConn {
+		return next(ctx, spec)
+	}
 }
 
 // WrapStreamingHandler implements connect.Interceptor.
-func (t *tokenInjector) WrapStreamingHandler(connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
-	panic("unimplemented")
+func (t *tokenInjector) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
+	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
+		return next(ctx, conn)
+	}
 }
 
 // WrapUnary implements connect.Interceptor.

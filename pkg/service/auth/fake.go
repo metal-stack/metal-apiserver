@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/markbates/goth"
+	"github.com/metal-stack/api/go/errorutil"
 	"golang.org/x/oauth2"
 )
 
@@ -59,7 +60,7 @@ func (p *fakeProviderBackend) FetchUser(_ goth.Session) (goth.User, error) {
 func (p *fakeProviderBackend) Debug(_ bool) {}
 
 func (p *fakeProviderBackend) RefreshToken(_ string) (*oauth2.Token, error) {
-	panic("not implemented")
+	return nil, errorutil.Unimplemented("")
 }
 
 func (p *fakeProviderBackend) RefreshTokenAvailable() bool {
