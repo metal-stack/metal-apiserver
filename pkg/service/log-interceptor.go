@@ -3,9 +3,11 @@ package service
 import (
 	"context"
 	"log/slog"
+	"strings"
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 )
 
@@ -27,9 +29,9 @@ func (i *logInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 			start = time.Now()
 		)
 
-		tok, ok := token.TokenFromContext(ctx)
+		tokenId, ok := tokenId(ctx)
 		if ok {
-			log = log.With("token uuid", tok.Uuid)
+			log = log.With("token", tokenId)
 		}
 
 		if debug {
@@ -87,4 +89,30 @@ func (w *wrapper) Receive(m any) error {
 	procedure := w.StreamingHandlerConn.Spec().Procedure
 	w.log.Debug("streaminghandler receive called", "procedure", procedure, "message", m)
 	return w.StreamingHandlerConn.Receive(m)
+}
+
+const (
+	prefix              = "Bearer "
+	authorizationHeader = "Authorization"
+)
+
+func tokenId(ctx context.Context) (string, bool) {
+	callinfo, ok := connect.CallInfoForHandlerContext(ctx)
+	if !ok {
+		return "", false
+	}
+	auth := callinfo.RequestHeader().Get(authorizationHeader)
+	// Case insensitive prefix match. See RFC 9110 Section 11.1.
+	if len(auth) < len(prefix) || !strings.EqualFold(auth[:len(prefix)], prefix) {
+		return "", false
+	}
+	tokenString := auth[len(prefix):]
+
+	claims := &token.Claims{}
+	_, _, err := jwt.NewParser().ParseUnverified(string(tokenString), claims)
+	if err != nil {
+		return "", false
+	}
+
+	return claims.ID, true
 }

@@ -99,8 +99,7 @@ func parseJWTToken(tokenString string) (*token.Claims, error) {
 	}
 
 	claims := &token.Claims{}
-	parser := jwt.NewParser()
-	_, _, err := parser.ParseUnverified(string(tokenString), claims)
+	_, _, err := jwt.NewParser().ParseUnverified(string(tokenString), claims)
 
 	if err != nil {
 		return nil, err
