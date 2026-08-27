@@ -17,7 +17,7 @@ import (
 )
 
 func Test_jwt_cert_rotation(t *testing.T) {
-	t.Parallel()
+	// FIXME migrate to synctest
 	oldMaxExpiration := certs.MaxTokenExpiration
 	oldDefaultExpiration := token.DefaultExpiration
 
