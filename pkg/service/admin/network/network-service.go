@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
@@ -18,21 +17,6 @@ type Config struct {
 type networkServiceServer struct {
 	log  *slog.Logger
 	repo *repository.Store
-}
-
-// AddExternalMember implements [adminv2connect.NetworkServiceHandler].
-func (n *networkServiceServer) AddExternalMember(context.Context, *adminv2.NetworkServiceAddExternalMemberRequest) (*adminv2.NetworkServiceAddExternalMemberResponse, error) {
-	return nil, errorutil.Unimplemented("")
-}
-
-// ListExternalMembers implements [adminv2connect.NetworkServiceHandler].
-func (n *networkServiceServer) ListExternalMembers(context.Context, *adminv2.NetworkServiceListExternalMembersRequest) (*adminv2.NetworkServiceListExternalMembersResponse, error) {
-	return nil, errorutil.Unimplemented("")
-}
-
-// RemoveExternalMember implements [adminv2connect.NetworkServiceHandler].
-func (n *networkServiceServer) RemoveExternalMember(context.Context, *adminv2.NetworkServiceRemoveExternalMemberRequest) (*adminv2.NetworkServiceRemoveExternalMemberResponse, error) {
-	return nil, errorutil.Unimplemented("")
 }
 
 func New(c Config) adminv2connect.NetworkServiceHandler {
