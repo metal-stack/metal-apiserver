@@ -42,12 +42,10 @@ func (r *sizeImageConstraintRepository) create(ctx context.Context, req *adminv2
 	}
 
 	sic := &metal.SizeImageConstraint{
-		Base: metal.Base{
-			ID:          req.Size,
-			Name:        pointer.SafeDerefOrDefault(req.Name, ""),
-			Description: pointer.SafeDerefOrDefault(req.Description, ""),
-		},
-		Images: images,
+		ID:          req.Size,
+		Name:        pointer.SafeDerefOrDefault(req.Name, ""),
+		Description: pointer.SafeDerefOrDefault(req.Description, ""),
+		Images:      images,
 	}
 
 	resp, err := r.s.ds.SizeImageConstraint().Create(ctx, sic)
@@ -122,12 +120,10 @@ func (r *sizeImageConstraintRepository) convertToInternal(ctx context.Context, e
 	}
 
 	sizeImageConstraint := &metal.SizeImageConstraint{
-		Base: metal.Base{
-			ID:          e.Size,
-			Name:        pointer.SafeDerefOrDefault(e.Name, ""),
-			Description: pointer.SafeDerefOrDefault(e.Description, ""),
-		},
-		Images: images,
+		ID:          e.Size,
+		Name:        pointer.SafeDerefOrDefault(e.Name, ""),
+		Description: pointer.SafeDerefOrDefault(e.Description, ""),
+		Images:      images,
 	}
 
 	return sizeImageConstraint, nil

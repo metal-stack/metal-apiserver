@@ -36,7 +36,7 @@ type tenantServiceServer struct {
 
 // AddMember implements [TenantService].
 func (u *tenantServiceServer) AddMember(context.Context, *apiv2.TenantServiceAddMemberRequest) (*apiv2.TenantServiceAddMemberResponse, error) {
-	panic("unimplemented")
+	return nil, errorutil.Unimplemented("")
 }
 
 type TenantService interface {

@@ -7,7 +7,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/google/uuid"
+	"uuid"
+
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
@@ -54,16 +55,14 @@ func TestMachineCreateIntegration(t *testing.T) {
 	machinesPerRack := (machineCount + firewallCount) / racks
 
 	for i := range machineCount {
-		id, err := uuid.NewV7()
-		require.NoError(t, err)
-		machineID := id.String()
+		machineID := uuid.NewV7().String()
 		allMachineUUIDs[machineID] = true
 
 		rackId := i % racks
 
 		testDC.Machines = append(testDC.Machines, &sc.MachineWithLiveliness{
 			Machine: &metal.Machine{
-				Base:        metal.Base{ID: machineID},
+				ID:          machineID,
 				PartitionID: sc.Partition1,
 				RackID:      fmt.Sprintf("rack-%d", rackId),
 				SizeID:      sc.SizeC1Large,
@@ -81,16 +80,14 @@ func TestMachineCreateIntegration(t *testing.T) {
 		})
 	}
 	for i := range firewallCount {
-		id, err := uuid.NewV7()
-		require.NoError(t, err)
-		machineID := id.String()
+		machineID := uuid.NewV7().String()
 		allFirewallUUIDs[machineID] = true
 
 		rackId := i % racks
 
 		testDC.Machines = append(testDC.Machines, &sc.MachineWithLiveliness{
 			Machine: &metal.Machine{
-				Base:        metal.Base{ID: machineID},
+				ID:          machineID,
 				PartitionID: sc.Partition1,
 				RackID:      fmt.Sprintf("rack-%d", rackId),
 				SizeID:      sc.SizeN1Medium,

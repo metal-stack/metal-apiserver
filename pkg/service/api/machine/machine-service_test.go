@@ -75,7 +75,7 @@ func Test_machineServiceServer_Get(t *testing.T) {
 	// We need to create machines directly on the database because there is no MachineCreateRequest available and never will.
 	// Once the boot-service is available we can simulate a pxe booting machine the actually create a machine from the api level.
 	test.CreateMachines(t, testStore, []*metal.Machine{
-		{Base: metal.Base{ID: m1}, PartitionID: "partition-1", SizeID: "c1-large-x86", Allocation: &metal.MachineAllocation{Project: p1, ImageID: "debian-12"}},
+		{ID: m1, PartitionID: "partition-1", SizeID: "c1-large-x86", Allocation: &metal.MachineAllocation{Project: p1, ImageID: "debian-12"}},
 	})
 
 	tests := []struct {
@@ -199,11 +199,11 @@ func Test_machineServiceServer_List(t *testing.T) {
 	// We need to create machines directly on the database because there is no MachineCreateRequest available and never will.
 	// Once the boot-service is available we can simulate a pxe booting machine the actually create a machine from the api level.
 	test.CreateMachines(t, testStore, []*metal.Machine{
-		{Base: metal.Base{ID: m1}, PartitionID: "partition-1", SizeID: "c1-medium-x86"},
-		{Base: metal.Base{ID: m2}, PartitionID: "partition-1", SizeID: "c1-medium-x86"},
-		{Base: metal.Base{ID: m3}, PartitionID: "partition-1", SizeID: "c1-large-x86", Allocation: &metal.MachineAllocation{Project: p1, ImageID: "debian-12"}},
-		{Base: metal.Base{ID: m4}, PartitionID: "partition-1", SizeID: "c1-large-x86", Allocation: &metal.MachineAllocation{Project: p2, ImageID: "debian-12"}},
-		{Base: metal.Base{ID: m5}, PartitionID: "partition-1", SizeID: "c1-large-x86", Allocation: &metal.MachineAllocation{Project: p2, ImageID: "debian-12"}},
+		{ID: m1, PartitionID: "partition-1", SizeID: "c1-medium-x86"},
+		{ID: m2, PartitionID: "partition-1", SizeID: "c1-medium-x86"},
+		{ID: m3, PartitionID: "partition-1", SizeID: "c1-large-x86", Allocation: &metal.MachineAllocation{Project: p1, ImageID: "debian-12"}},
+		{ID: m4, PartitionID: "partition-1", SizeID: "c1-large-x86", Allocation: &metal.MachineAllocation{Project: p2, ImageID: "debian-12"}},
+		{ID: m5, PartitionID: "partition-1", SizeID: "c1-large-x86", Allocation: &metal.MachineAllocation{Project: p2, ImageID: "debian-12"}},
 	})
 
 	tests := []struct {
@@ -353,17 +353,17 @@ func Test_machineServiceServer_Update(t *testing.T) {
 	// Once the boot-service is available we can simulate a pxe booting machine the actually create a machine from the api level.
 	machineMap := test.CreateMachines(t, testStore, []*metal.Machine{
 		{
-			Base: metal.Base{ID: m1}, PartitionID: "partition-1", SizeID: "c1-medium-x86",
+			ID: m1, PartitionID: "partition-1", SizeID: "c1-medium-x86",
 		},
 		{
-			Base: metal.Base{ID: m2}, PartitionID: "partition-1", SizeID: "c1-medium-x86",
+			ID: m2, PartitionID: "partition-1", SizeID: "c1-medium-x86",
 		},
 		{
-			Base: metal.Base{ID: m3}, PartitionID: "partition-1", SizeID: "c1-medium-x86",
+			ID: m3, PartitionID: "partition-1", SizeID: "c1-medium-x86",
 			Allocation: &metal.MachineAllocation{Project: p1, ImageID: "debian-12"},
 		},
 		{
-			Base: metal.Base{ID: m4}, PartitionID: "partition-1", SizeID: "c1-medium-x86",
+			ID: m4, PartitionID: "partition-1", SizeID: "c1-medium-x86",
 			Allocation: &metal.MachineAllocation{
 				Description: "my-machine",
 				Project:     p2,
@@ -372,7 +372,7 @@ func Test_machineServiceServer_Update(t *testing.T) {
 			},
 		},
 		{
-			Base: metal.Base{ID: m5}, PartitionID: "partition-1", SizeID: "c1-medium-x86",
+			ID: m5, PartitionID: "partition-1", SizeID: "c1-medium-x86",
 			Allocation: &metal.MachineAllocation{Project: p2, ImageID: "debian-12"},
 		},
 	})

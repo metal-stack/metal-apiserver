@@ -48,53 +48,43 @@ func Test_MigrationChildPrefixLength(t *testing.T) {
 			ID: "p3",
 		}
 		n1 = &metal.Network{
-			Base: metal.Base{
-				ID: "n1",
-			},
+			ID:          "n1",
 			PartitionID: "p1",
 			Prefixes: metal.Prefixes{
 				{IP: "10.0.0.0", Length: "8"},
 			},
-			PrivateSuper: true, //nolint:staticcheck
+			PrivateSuper: true, // nolint:staticcheck
 		}
 		n2 = &metal.Network{
-			Base: metal.Base{
-				ID: "n2",
-			},
+			ID: "n2",
 			Prefixes: metal.Prefixes{
 				{IP: "2001::", Length: "64"},
 			},
 			PartitionID:  "p2",
-			PrivateSuper: true, //nolint:staticcheck
+			PrivateSuper: true, // nolint:staticcheck
 		}
 		n3 = &metal.Network{
-			Base: metal.Base{
-				ID: "n3",
-			},
+			ID: "n3",
 			Prefixes: metal.Prefixes{
 				{IP: "100.1.0.0", Length: "22"},
 			},
 			PartitionID:  "p2",
-			PrivateSuper: false, //nolint:staticcheck
+			PrivateSuper: false, // nolint:staticcheck
 		}
 		n4 = &metal.Network{
-			Base: metal.Base{
-				ID: "n4",
-			},
+			ID: "n4",
 			Prefixes: metal.Prefixes{
 				{IP: "100.1.0.0", Length: "22"},
 			},
 			PartitionID:  "p3",
-			PrivateSuper: true, //nolint:staticcheck
+			PrivateSuper: true, // nolint:staticcheck
 		}
 		n5 = &metal.Network{
-			Base: metal.Base{
-				ID: "n5",
-			},
+			ID: "n5",
 			Prefixes: metal.Prefixes{
 				{IP: "9.0.0.0", Length: "8"},
 			},
-			PrivateSuper: true, //nolint:staticcheck
+			PrivateSuper: true, // nolint:staticcheck
 		}
 	)
 

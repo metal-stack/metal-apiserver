@@ -9,9 +9,10 @@ import (
 	"slices"
 	"time"
 
+	"uuid"
+
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
-	"github.com/lestrrat-go/jwx/v3/jwk"
+	"github.com/lestrrat-go/jwx/v4/jwk"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -39,11 +40,6 @@ func NewJWT(tokenType apiv2.TokenType, subject, issuer string, expires time.Dura
 		return "", nil, fmt.Errorf("expires: %q exceeds maximum: %q", expires, certs.MaxTokenExpiration)
 	}
 
-	id, err := uuid.NewV7()
-	if err != nil {
-		return "", nil, err
-	}
-
 	issuedAt := time.Now().UTC()
 	expiresAt := issuedAt.Add(expires)
 	claims := &Claims{
@@ -51,20 +47,18 @@ func NewJWT(tokenType apiv2.TokenType, subject, issuer string, expires time.Dura
 		//   https://pkg.go.dev/github.com/golang-jwt/jwt/v5?utm_source=godoc#RegisteredClaims
 		// see the semantics of the registered claims here:
 		//   https://en.wikipedia.org/wiki/JSON_Web_Token#Standard_fields
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(expiresAt),
-			IssuedAt:  jwt.NewNumericDate(issuedAt),
-			NotBefore: jwt.NewNumericDate(issuedAt),
+		ExpiresAt: jwt.NewNumericDate(expiresAt),
+		IssuedAt:  jwt.NewNumericDate(issuedAt),
+		NotBefore: jwt.NewNumericDate(issuedAt),
 
-			// ID is for your traceability, doesn't have to be UUID:
-			ID: id.String(),
+		// ID is for your traceability, doesn't have to be UUID:
+		ID: uuid.NewV7().String(),
 
-			// put name/title/ID of whoever will be using this JWT here:
-			Subject:  subject,
-			Issuer:   issuer,
-			Audience: jwt.ClaimStrings{issuer},
-		},
-		Type: tokenType.String(),
+		// put name/title/ID of whoever will be using this JWT here:
+		Subject:  subject,
+		Issuer:   issuer,
+		Audience: jwt.ClaimStrings{issuer},
+		Type:     tokenType.String(),
 	}
 
 	jwtWithClaims := jwt.NewWithClaims(jwt.SigningMethodES512, claims)
@@ -122,13 +116,9 @@ func Validate(ctx context.Context, log *slog.Logger, tokenString string, set jwk
 	)
 
 	log.Debug("validate", "tokenstring", tokenString)
-	for i := range set.Len() {
-		key, ok := set.Key(i)
-		if !ok {
-			continue
-		}
-
-		err := jwk.Export(key, &publicKey)
+	for _, key := range set.All() {
+		var err error
+		publicKey, err = jwk.Export[crypto.PublicKey](key)
 		if err != nil {
 			log.Error("unable to export publickey", "error", err)
 			continue

@@ -18,7 +18,7 @@ import (
 
 var (
 	sw1 = &metal.Switch{
-		Base:      metal.Base{ID: "sw1"},
+		ID:        "sw1",
 		Rack:      "rack01",
 		Room:      "room01",
 		Partition: "partition-a",
@@ -39,7 +39,7 @@ var (
 		},
 	}
 	sw2 = &metal.Switch{
-		Base:      metal.Base{ID: "sw2"},
+		ID:        "sw2",
 		Rack:      "rack01",
 		Partition: "partition-b",
 		OS: &metal.SwitchOS{
@@ -59,7 +59,7 @@ var (
 		},
 	}
 	sw3 = &metal.Switch{
-		Base:      metal.Base{ID: "sw3"},
+		ID:        "sw3",
 		Rack:      "rack02",
 		Partition: "partition-a",
 		OS: &metal.SwitchOS{

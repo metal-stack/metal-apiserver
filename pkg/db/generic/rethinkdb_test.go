@@ -75,7 +75,7 @@ func TestGenericCRUD(t *testing.T) {
 	require.Error(t, err)
 	require.EqualError(t, err, errorutil.NotFound("no machine with id \"m1\" found").Error())
 
-	createdMachine1, err := ds.Machine().Create(ctx, &metal.Machine{Base: metal.Base{ID: "m1"}})
+	createdMachine1, err := ds.Machine().Create(ctx, &metal.Machine{ID: "m1"})
 	require.NoError(t, err)
 	require.NotNil(t, createdMachine1)
 	require.Equal(t, "m1", createdMachine1.ID)

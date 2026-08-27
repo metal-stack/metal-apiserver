@@ -62,7 +62,7 @@ func Test_bmcServiceServer_UpdateBMCInfo(t *testing.T) {
 
 	// We need to create machines directly on the database because there is no MachineCreateRequest available and never will.
 	test.CreateMachines(t, testStore, []*metal.Machine{
-		{Base: metal.Base{ID: m1}, PartitionID: "partition-1", SizeID: "c1-large-x86"},
+		{ID: m1, PartitionID: "partition-1", SizeID: "c1-large-x86"},
 	})
 
 	tests := []struct {
