@@ -326,9 +326,7 @@ func (r *filesystemLayoutRepository) convertToInternal(ctx context.Context, f *a
 	}
 
 	fl := &metal.FilesystemLayout{
-		Base: metal.Base{
-			ID: f.Id,
-		},
+		ID:             f.Id,
 		Filesystems:    fss,
 		Disks:          ds,
 		Raid:           rs,

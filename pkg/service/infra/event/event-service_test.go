@@ -28,7 +28,7 @@ func Test_eventServiceServer_Send(t *testing.T) {
 	now := time.Now()
 
 	test.CreateMachines(t, testStore, []*metal.Machine{
-		{Base: metal.Base{ID: "m1"}},
+		{ID: "m1"},
 	})
 
 	tests := []struct {
@@ -55,10 +55,8 @@ func Test_eventServiceServer_Send(t *testing.T) {
 			},
 			wantEventContainers: []*metal.ProvisioningEventContainer{
 				{
-					Base: metal.Base{
-						ID:         "m1",
-						Generation: 1,
-					},
+					ID:         "m1",
+					Generation: 1,
 					Liveliness: metal.MachineLivelinessAlive,
 					Events: metal.ProvisioningEvents{
 						{

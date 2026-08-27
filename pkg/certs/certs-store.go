@@ -15,8 +15,9 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/lestrrat-go/jwx/v3/jwk"
+	"uuid"
+
+	"github.com/lestrrat-go/jwx/v4/jwk"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -177,7 +178,7 @@ func (r *redisStore) PublicKeys(ctx context.Context) (jwk.Set, string, error) {
 			return nil, "", err
 		}
 
-		key, err := jwk.Import(c.PublicKey)
+		key, err := jwk.Import[jwk.Key](c.PublicKey)
 		if err != nil {
 			return nil, "", fmt.Errorf("failed to add public key: %w", err)
 		}

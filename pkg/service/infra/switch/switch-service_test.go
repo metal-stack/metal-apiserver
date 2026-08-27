@@ -87,9 +87,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 					},
 					SwitchStatuses: func(switchStatuses map[string]*metal.SwitchStatus) {
 						switchStatuses["p01-r01leaf01-1"] = &metal.SwitchStatus{
-							Base: metal.Base{
-								ID: "p01-r01leaf01-1",
-							},
+							ID: "p01-r01leaf01-1",
 						}
 					},
 				}
@@ -633,7 +631,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 					},
 					SwitchStatuses: func(switchStatuses map[string]*metal.SwitchStatus) {
 						switchStatuses[sc.P01Rack01Switch1] = &metal.SwitchStatus{
-							Base:     metal.Base{ID: sc.P01Rack01Switch1},
+							ID:       sc.P01Rack01Switch1,
 							LastSync: &metal.SwitchSync{},
 							LastSyncError: &metal.SwitchSync{
 								Duration: time.Second,
@@ -701,7 +699,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 					},
 					SwitchStatuses: func(switchStatuses map[string]*metal.SwitchStatus) {
 						switchStatuses[sc.P02Rack01Switch2] = &metal.SwitchStatus{
-							Base: metal.Base{ID: sc.P02Rack01Switch2},
+							ID: sc.P02Rack01Switch2,
 							LastSync: &metal.SwitchSync{
 								Duration: time.Second,
 							},
@@ -755,7 +753,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 					},
 					SwitchStatuses: func(switchStatuses map[string]*metal.SwitchStatus) {
 						switchStatuses[sc.P01Rack02Switch1] = &metal.SwitchStatus{
-							Base: metal.Base{ID: sc.P01Rack02Switch1},
+							ID: sc.P01Rack02Switch1,
 							LastSync: &metal.SwitchSync{
 								Duration: 2 * time.Second,
 							},

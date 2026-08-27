@@ -8,9 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"uuid"
+
 	"connectrpc.com/connect"
 	"github.com/avast/retry-go/v4"
-	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/metal-stack/api/go/enum"
 	"github.com/metal-stack/api/go/errorutil"
@@ -102,7 +103,7 @@ func (r *machineRepository) SendEvent(ctx context.Context, machineID string, eve
 			return errorutil.InvalidArgument("given machineid is not a well formed uuid:%w", err)
 		}
 
-		if _, err := r.s.ds.Machine().Create(ctx, &metal.Machine{Base: metal.Base{ID: machineID}}); err != nil {
+		if _, err := r.s.ds.Machine().Create(ctx, &metal.Machine{ID: machineID}); err != nil {
 			return err
 		}
 	}
@@ -125,9 +126,7 @@ func (r *machineRepository) SendEvent(ctx context.Context, machineID string, eve
 
 	if ec == nil {
 		ec = &metal.ProvisioningEventContainer{
-			Base: metal.Base{
-				ID: machineID,
-			},
+			ID:         machineID,
 			Liveliness: metal.MachineLivelinessAlive,
 		}
 	}
@@ -201,6 +200,9 @@ func (r *machineRepository) update(ctx context.Context, m *metal.Machine, req *a
 }
 
 func (r *machineRepository) delete(ctx context.Context, m *metal.Machine) (*deleteInfo, error) {
+	if err := r.s.ds.Machine().Delete(ctx, m); err != nil {
+		return nil, err
+	}
 	return nil, nil
 }
 
@@ -227,7 +229,7 @@ func (r *machineRepository) list(ctx context.Context, rq *apiv2.MachineQuery) ([
 }
 
 func (r *machineRepository) convertToInternal(ctx context.Context, machine *apiv2.Machine) (*metal.Machine, error) {
-	panic("unimplemented")
+	return nil, errorutil.Unimplemented("")
 }
 
 func (r *machineRepository) convertFirewallRulesToInternal(firewallRules *apiv2.FirewallRules) (*metal.FirewallRules, error) {
@@ -735,7 +737,7 @@ func (r *machineRepository) Register(ctx context.Context, req *infrav2.BootServi
 	}
 	// TODO changed behavior compared to metal-api, create machine here if not already done during dhcp request
 	if m == nil {
-		m, err = r.s.ds.Machine().Create(ctx, &metal.Machine{Base: metal.Base{ID: req.Uuid}})
+		m, err = r.s.ds.Machine().Create(ctx, &metal.Machine{ID: req.Uuid})
 		if err != nil {
 			return nil, err
 		}
@@ -833,9 +835,7 @@ func (r *machineRepository) Register(ctx context.Context, req *infrav2.BootServi
 	if m == nil {
 		// machine is not in the database, create it
 		m = &metal.Machine{
-			Base: metal.Base{
-				ID: req.Uuid,
-			},
+			ID:         req.Uuid,
 			Allocation: nil,
 			SizeID:     size.ID,
 			Hardware:   machineHardware,
@@ -884,9 +884,7 @@ func (r *machineRepository) Register(ctx context.Context, req *infrav2.BootServi
 	}
 	if ec == nil {
 		_, err = r.s.ds.Event().Create(ctx, &metal.ProvisioningEventContainer{
-			Base: metal.Base{
-				ID: m.ID,
-			},
+			ID: m.ID,
 			Events: metal.ProvisioningEvents{
 				{
 					Event:   metal.ProvisioningEventAlive,
@@ -1025,9 +1023,7 @@ func (r *machineRepository) UpdateBMCInfo(ctx context.Context, req *infrav2.Upda
 		}
 
 		m := &metal.Machine{
-			Base: metal.Base{
-				ID: report.Uuid,
-			},
+			ID:          report.Uuid,
 			PartitionID: partition.ID,
 			IPMI: metal.IPMI{
 				Address:     report.Bmc.Address,
@@ -1672,9 +1668,7 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 
 	// TODO: the function signature is a bit unfortunate for the machine deletion because we do not have the full machine in the payload but only id and rack id is needed
 	if _, err := r.Switch().AdditionalMethods().SetVrfAtSwitches(ctx, &metal.Machine{
-		Base: metal.Base{
-			ID: payload.UUID,
-		},
+		ID:     payload.UUID,
 		RackID: payload.RackID,
 	}, ""); err != nil {
 		return fmt.Errorf("unable to set machine back into pxe boot vrf: %w", err)

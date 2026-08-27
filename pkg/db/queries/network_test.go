@@ -17,7 +17,7 @@ import (
 
 var (
 	n1 = &metal.Network{
-		Base:                       metal.Base{ID: "n1", Name: "n1", Description: "Network 1"},
+		ID: "n1", Name: "n1", Description: "Network 1",
 		Prefixes:                   metal.Prefixes{{IP: "10.0.0.0", Length: "8"}},
 		DestinationPrefixes:        metal.Prefixes{{IP: "0.0.0.0", Length: "0"}},
 		DefaultChildPrefixLength:   metal.ChildPrefixLength{metal.AddressFamilyIPv4: 22},
@@ -26,17 +26,17 @@ var (
 		ProjectID:                  "p1",
 		ParentNetworkID:            "parent-network",
 		Vrf:                        uint(42),
-		PrivateSuper:               true,
-		Nat:                        true,
-		Underlay:                   true,
-		Shared:                     true,
+		PrivateSuper:               true, // nolint:staticcheck
+		Nat:                        true, // nolint:staticcheck
+		Underlay:                   true, // nolint:staticcheck
+		Shared:                     true, // nolint:staticcheck
 		Labels:                     map[string]string{"color": "red", "size": "small"},
 		AdditionalAnnouncableCIDRs: []string{"10.240.0.0/12"},
 		NetworkType:                metal.NetworkTypeExternal,
 		NATType:                    metal.NATTypeIPv4Masquerade,
 	}
 	n2 = &metal.Network{
-		Base:                       metal.Base{ID: "n2", Name: "n2", Description: "Network 2"},
+		ID: "n2", Name: "n2", Description: "Network 2",
 		Prefixes:                   metal.Prefixes{{IP: "2001:db8::", Length: "96"}},
 		DestinationPrefixes:        metal.Prefixes{{IP: "::", Length: "0"}},
 		DefaultChildPrefixLength:   metal.ChildPrefixLength{metal.AddressFamilyIPv6: 64},
@@ -45,17 +45,17 @@ var (
 		ProjectID:                  "p2",
 		ParentNetworkID:            "parent-network-2",
 		Vrf:                        uint(43),
-		PrivateSuper:               false,
-		Nat:                        false,
-		Underlay:                   false,
-		Shared:                     false,
+		PrivateSuper:               false, // nolint:staticcheck
+		Nat:                        false, // nolint:staticcheck
+		Underlay:                   false, // nolint:staticcheck
+		Shared:                     false, // nolint:staticcheck
 		Labels:                     map[string]string{"color": "green", "size": "medium"},
 		AdditionalAnnouncableCIDRs: []string{"10.241.0.0/12"},
 		NetworkType:                metal.NetworkTypeChild,
 		NATType:                    metal.NATTypeNone,
 	}
 	n3 = &metal.Network{
-		Base:                       metal.Base{ID: "n3", Name: "n3", Description: "Network 3"},
+		ID: "n3", Name: "n3", Description: "Network 3",
 		Prefixes:                   metal.Prefixes{{IP: "2001:db8::", Length: "96"}, {IP: "13.0.0.0", Length: "8"}},
 		DestinationPrefixes:        metal.Prefixes{{IP: "::", Length: "0"}, {IP: "0.0.0.0", Length: "0"}},
 		DefaultChildPrefixLength:   metal.ChildPrefixLength{metal.AddressFamilyIPv6: 64, metal.AddressFamilyIPv4: 22},
@@ -65,10 +65,10 @@ var (
 		Namespace:                  new("p3"),
 		ParentNetworkID:            "parent-network-3",
 		Vrf:                        uint(44),
-		PrivateSuper:               false,
-		Nat:                        false,
-		Underlay:                   false,
-		Shared:                     false,
+		PrivateSuper:               false, // nolint:staticcheck
+		Nat:                        false, // nolint:staticcheck
+		Underlay:                   false, // nolint:staticcheck
+		Shared:                     false, // nolint:staticcheck
 		Labels:                     map[string]string{"color": "blue", "size": "large"},
 		AdditionalAnnouncableCIDRs: []string{"10.241.0.0/12"},
 		NetworkType:                metal.NetworkTypeExternal,

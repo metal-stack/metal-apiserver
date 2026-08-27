@@ -405,11 +405,11 @@ func Test_sizeServiceServer_Delete(t *testing.T) {
 	test.CreateSizes(t, testStore, sizes)
 	test.CreateMachines(t, testStore, []*metal.Machine{
 		{
-			Base: metal.Base{ID: "m1"}, PartitionID: "partition-one",
+			ID: "m1", PartitionID: "partition-one",
 			SizeID: "c1-large-x86",
 			Allocation: &metal.MachineAllocation{
 				FilesystemLayout: &metal.FilesystemLayout{
-					Base: metal.Base{ID: "m1-large"},
+					ID: "m1-large",
 				},
 			},
 		},

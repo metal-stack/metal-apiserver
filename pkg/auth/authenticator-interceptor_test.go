@@ -10,10 +10,11 @@ import (
 	"testing"
 	"time"
 
+	"uuid"
+
 	"github.com/alicebob/miniredis/v2"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/uuid"
 	"github.com/metal-stack/api/go/errorutil"
 	v2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
