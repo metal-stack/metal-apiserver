@@ -444,6 +444,25 @@ func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *ap
 	return nil
 }
 
+func (r *switchRepository) RemoveMachineFromSwitches(ctx context.Context, m *apiv2.Machine) error {
+
+	switches, err := r.s.ds.Switch().List(ctx, queries.SwitchFilter(&apiv2.SwitchQuery{
+		ConnectedMachineId: &m.Uuid,
+	}))
+	if err != nil {
+		return fmt.Errorf("unable to query switches: %w", err)
+	}
+	for _, sw := range switches {
+		delete(sw.MachineConnections, m.Uuid)
+
+		if err := r.s.ds.Switch().Update(ctx, sw); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (r *switchRepository) ForceDelete(ctx context.Context, switchID string) (*apiv2.Switch, error) {
 	sw, err := r.get(ctx, switchID)
 	if err != nil {
