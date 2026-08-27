@@ -1203,6 +1203,9 @@ func Test_machineServiceServer_Delete(t *testing.T) {
 			},
 			mods: func() *test.Asserters {
 				return &test.Asserters{
+					Machines: func(machines map[string]*apiv2.Machine) {
+						delete(machines, sc.Machine3)
+					},
 					Switches: func(switches map[string]*apiv2.Switch) {
 						sw1 := switches[sc.P02Rack01Switch1]
 						sw1.MachineConnections = nil

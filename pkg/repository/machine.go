@@ -200,6 +200,9 @@ func (r *machineRepository) update(ctx context.Context, m *metal.Machine, req *a
 }
 
 func (r *machineRepository) delete(ctx context.Context, m *metal.Machine) (*deleteInfo, error) {
+	if err := r.s.ds.Machine().Delete(ctx, m); err != nil {
+		return nil, err
+	}
 	return nil, nil
 }
 
