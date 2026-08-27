@@ -54,7 +54,7 @@ func (m *machineServiceServer) Delete(ctx context.Context, req *adminv2.MachineS
 		return nil, errorutil.InvalidArgument("can only delete dead machines, if you power off this machine it will reach dead state.")
 	}
 
-	// TODO wrap in a Task
+	// We remove the machine from all switches to be sure there are no leftovers from history machine movements.
 	if err := m.repo.Switch().AdditionalMethods().RemoveMachineFromSwitches(ctx, machine); err != nil {
 		return nil, errorutil.NewInternal(err)
 	}
