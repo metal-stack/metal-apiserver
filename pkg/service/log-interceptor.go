@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/metal-stack/metal-apiserver/pkg/token"
 )
 
 type logInterceptor struct {
@@ -26,13 +27,19 @@ func (i *logInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 			start = time.Now()
 		)
 
-		if debug {
-			log = log.With("request", req.Any())
+		tok, ok := token.TokenFromContext(ctx)
+		if ok {
+			log = log.With("token uuid", tok.Uuid)
 		}
 
-		log.Info("handling unary call")
+		if debug {
+			log = log.With("request", req.Any())
+			log.Debug("handling unary call")
+		}
 
 		response, err := next(ctx, req)
+
+		log = log.With("duration", time.Since(start).String())
 
 		if debug && response != nil {
 			log = log.With("response", response.Any())
@@ -40,9 +47,9 @@ func (i *logInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 
 		if err != nil {
 			log.Error("error during unary call", "error", err)
-		} else if debug {
-			log.Debug("handled call successfully", "duration", time.Since(start).String())
 		}
+
+		log.Info("handled unary call")
 
 		return response, err
 	}
