@@ -109,7 +109,7 @@ func tokenId(ctx context.Context) (string, bool) {
 	tokenString := auth[len(prefix):]
 
 	claims := &token.Claims{}
-	_, _, err := jwt.NewParser().ParseUnverified(string(tokenString), claims)
+	_, _, err := jwt.NewParser().ParseUnverified(tokenString, claims)
 	if err != nil {
 		return "", false
 	}
