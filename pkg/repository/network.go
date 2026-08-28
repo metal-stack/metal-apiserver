@@ -168,19 +168,17 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 		}
 
 		nw := &metal.Network{
-			Base: metal.Base{
-				Name:        name,
-				Description: description,
-			},
+			Name:                name,
+			Description:         description,
 			Prefixes:            childPrefixes,
 			DestinationPrefixes: parent.DestinationPrefixes,
 			PartitionID:         partition,
 			ProjectID:           projectId,
 			Namespace:           namespace,
-			Nat:                 nat,    //nolint:staticcheck
-			PrivateSuper:        false,  //nolint:staticcheck
-			Underlay:            false,  //nolint:staticcheck
-			Shared:              shared, //nolint:staticcheck
+			Nat:                 nat,    // nolint:staticcheck
+			PrivateSuper:        false,  // nolint:staticcheck
+			Underlay:            false,  // nolint:staticcheck
+			Shared:              shared, // nolint:staticcheck
 			Vrf:                 vrf,
 			ParentNetworkID:     parent.ID,
 			Labels:              labels,
@@ -242,11 +240,9 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 	}
 
 	nw := &metal.Network{
-		Base: metal.Base{
-			ID:          id,
-			Name:        name,
-			Description: description,
-		},
+		ID:                         id,
+		Name:                       name,
+		Description:                description,
 		Prefixes:                   prefixes,
 		ParentNetworkID:            pointer.SafeDeref(req.ParentNetwork),
 		DestinationPrefixes:        destPrefixes,
@@ -254,11 +250,11 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 		MinChildPrefixLength:       minChildPrefixLength,
 		PartitionID:                partition,
 		ProjectID:                  projectId,
-		Nat:                        nat,          //nolint:staticcheck
-		PrivateSuper:               privateSuper, //nolint:staticcheck
-		Underlay:                   underlay,     //nolint:staticcheck
+		Nat:                        nat,          // nolint:staticcheck
+		PrivateSuper:               privateSuper, // nolint:staticcheck
+		Underlay:                   underlay,     // nolint:staticcheck
 		Vrf:                        vrf,
-		Shared:                     shared, //nolint:staticcheck
+		Shared:                     shared, // nolint:staticcheck
 		Labels:                     labels,
 		AdditionalAnnouncableCIDRs: req.AdditionalAnnouncableCidrs,
 		NetworkType:                networkType,
@@ -395,7 +391,7 @@ func (r *networkRepository) list(ctx context.Context, query *apiv2.NetworkQuery)
 	return nws, nil
 }
 func (r *networkRepository) convertToInternal(ctx context.Context, msg *apiv2.Network) (*metal.Network, error) {
-	panic("unimplemented")
+	return nil, errorutil.Unimplemented("")
 }
 
 func (r *networkRepository) convertToProto(ctx context.Context, e *metal.Network) (*apiv2.Network, error) {

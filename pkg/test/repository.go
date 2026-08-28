@@ -434,7 +434,7 @@ func CreateMachines(t testing.TB, testStore *testStore, machines []*metal.Machin
 		m, err := testStore.ds.Machine().Create(t.Context(), machine)
 		require.NoError(t, err)
 		event := &metal.ProvisioningEventContainer{
-			Base:       metal.Base{ID: machine.ID},
+			ID:         machine.ID,
 			Events:     metal.ProvisioningEvents{},
 			Liveliness: metal.MachineLivelinessAlive,
 		}
@@ -699,9 +699,7 @@ func CreateSwitchStatuses(t testing.TB, testStore *testStore, statuses []*api.Sw
 	statusMap := map[string]*metal.SwitchStatus{}
 	for _, status := range statuses {
 		metalStatus := &metal.SwitchStatus{
-			Base: metal.Base{
-				ID: status.ID,
-			},
+			ID: status.ID,
 		}
 
 		var (
@@ -751,9 +749,7 @@ func (t *testStore) GetSwitchStatus(id string) (*metal.SwitchStatus, error) {
 	}
 	if status == nil {
 		status = &metal.SwitchStatus{
-			Base: metal.Base{
-				ID: id,
-			},
+			ID: id,
 		}
 	}
 	return status, nil

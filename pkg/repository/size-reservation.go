@@ -117,11 +117,9 @@ func (r *sizeReservationRepository) convertToInternal(ctx context.Context, e *ap
 	}
 
 	sizeReservation := &metal.SizeReservation{
-		Base: metal.Base{
-			ID:          e.Id,
-			Name:        e.Name,
-			Description: e.Description,
-		},
+		ID:           e.Id,
+		Name:         e.Name,
+		Description:  e.Description,
 		Labels:       labels,
 		SizeID:       e.Size,
 		Amount:       int(e.Amount),

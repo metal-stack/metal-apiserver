@@ -333,9 +333,7 @@ func capacityOf[V any](identifier string, vs []V, countFn func(v V) (model strin
 
 func UnknownSize() *Size {
 	return &Size{
-		Base: Base{
-			ID:   "unknown",
-			Name: "unknown",
-		},
+		ID:   "unknown",
+		Name: "unknown",
 	}
 }

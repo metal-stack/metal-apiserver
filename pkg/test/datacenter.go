@@ -470,7 +470,7 @@ func (dc *Datacenter) createMachines(spec *scenarios.DatacenterSpec, nws map[str
 		require.NoError(dc.t, err)
 
 		var events []*metal.ProvisioningEventContainer
-		ec := &metal.ProvisioningEventContainer{Base: metal.Base{ID: m.ID}, Liveliness: pair.Liveliness}
+		ec := &metal.ProvisioningEventContainer{ID: m.ID, Liveliness: pair.Liveliness}
 		if m.Waiting {
 			ec.Events = append(ec.Events, metal.ProvisioningEvent{
 				Event: metal.ProvisioningEventWaiting,

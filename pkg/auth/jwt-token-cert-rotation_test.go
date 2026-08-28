@@ -8,7 +8,7 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/lestrrat-go/jwx/v3/jwk"
+	"github.com/lestrrat-go/jwx/v4/jwk"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
@@ -17,7 +17,6 @@ import (
 )
 
 func Test_jwt_cert_rotation(t *testing.T) {
-	t.Parallel()
 	oldMaxExpiration := certs.MaxTokenExpiration
 	oldDefaultExpiration := token.DefaultExpiration
 

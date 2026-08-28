@@ -7,7 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
+	"uuid"
+
 	"github.com/metal-stack/api/go/errorutil"
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
@@ -50,11 +51,7 @@ func (s *storage[E]) Create(ctx context.Context, e E) (E, error) {
 	// Create a uuidv7 id if an empty string is given
 	// this ensures alphabetically ordered uuids by creation date.
 	if e.GetID() == "" {
-		uid, err := uuid.NewV7()
-		if err != nil {
-			return zero, err
-		}
-		e.SetID(uid.String())
+		e.SetID(uuid.NewV7().String())
 	}
 
 	_, err := s.table.Insert(e).RunWrite(s.r.queryExecutor, r.RunOpts{Context: ctx})

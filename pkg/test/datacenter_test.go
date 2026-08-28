@@ -233,9 +233,7 @@ func TestDatacenter_AssertSnapshot(t *testing.T) {
 					},
 					SwitchStatuses: func(switchStatuses map[string]*metal.SwitchStatus) {
 						switchStatuses[sw.Id] = &metal.SwitchStatus{
-							Base: metal.Base{
-								ID: sw.Id,
-							},
+							ID: sw.Id,
 							LastSync: &metal.SwitchSync{
 								Time: time.Unix(0, 0),
 							},
@@ -526,9 +524,7 @@ func TestDatacenter_Assert(t *testing.T) {
 					},
 					SwitchStatuses: func(switchStatuses map[string]*metal.SwitchStatus) {
 						switchStatuses[sw.Id] = &metal.SwitchStatus{
-							Base: metal.Base{
-								ID: sw.Id,
-							},
+							ID: sw.Id,
 							LastSync: &metal.SwitchSync{
 								Time: time.Unix(0, 0),
 							},

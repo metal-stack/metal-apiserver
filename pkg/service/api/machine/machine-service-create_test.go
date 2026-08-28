@@ -80,7 +80,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 				})
 				testDC.Machines = append(testDC.Machines, &sc.MachineWithLiveliness{
 					Machine: &metal.Machine{
-						Base:        metal.Base{ID: sc.Machine5},
+						ID:          sc.Machine5,
 						PartitionID: sc.Partition1,
 						SizeID:      sc.SizeC1Large,
 						Waiting:     true,
@@ -184,7 +184,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 				})
 				testDC.Machines = append(testDC.Machines, &sc.MachineWithLiveliness{
 					Machine: &metal.Machine{
-						Base:        metal.Base{ID: sc.Machine5},
+						ID:          sc.Machine5,
 						PartitionID: sc.Partition1,
 						SizeID:      sc.SizeC1Large,
 						Waiting:     true,
@@ -290,7 +290,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 				})
 				testDC.Machines = append(testDC.Machines, &sc.MachineWithLiveliness{
 					Machine: &metal.Machine{
-						Base:        metal.Base{ID: sc.Machine5},
+						ID:          sc.Machine5,
 						PartitionID: sc.Partition1,
 						SizeID:      sc.SizeC1Large,
 						Waiting:     true,
@@ -413,7 +413,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 				})
 				testDC.Machines = append(testDC.Machines, &sc.MachineWithLiveliness{
 					Machine: &metal.Machine{
-						Base:        metal.Base{ID: sc.Machine5},
+						ID:          sc.Machine5,
 						PartitionID: sc.Partition1,
 						RackID:      "rack01",
 						SizeID:      sc.SizeC1Large,
@@ -545,7 +545,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 				})
 				testDC.Machines = append(testDC.Machines, &sc.MachineWithLiveliness{
 					Machine: &metal.Machine{
-						Base:        metal.Base{ID: sc.Machine5},
+						ID:          sc.Machine5,
 						PartitionID: sc.Partition1,
 						SizeID:      sc.SizeC1Large,
 						Waiting:     true,
@@ -768,7 +768,7 @@ func Test_machineServiceServer_CreateFirewallWithoutVPN(t *testing.T) {
 				})
 				testDC.Machines = append(testDC.Machines, &sc.MachineWithLiveliness{
 					Machine: &metal.Machine{
-						Base:        metal.Base{ID: sc.Machine5},
+						ID:          sc.Machine5,
 						PartitionID: sc.Partition1,
 						SizeID:      sc.SizeN1Medium,
 						Waiting:     true,
@@ -896,7 +896,7 @@ func Test_machineServiceServer_CreateFirewallWithoutVPN(t *testing.T) {
 				})
 				testDC.Machines = append(testDC.Machines, &sc.MachineWithLiveliness{
 					Machine: &metal.Machine{
-						Base:        metal.Base{ID: sc.Machine5},
+						ID:          sc.Machine5,
 						PartitionID: sc.Partition1,
 						SizeID:      sc.SizeN1Medium,
 						Waiting:     true,
@@ -1214,7 +1214,7 @@ func Test_machineServiceServer_CreateFirewallWithVPN(t *testing.T) {
 				})
 				testDC.Machines = append(testDC.Machines, &sc.MachineWithLiveliness{
 					Machine: &metal.Machine{
-						Base:        metal.Base{ID: sc.Machine5},
+						ID:          sc.Machine5,
 						PartitionID: sc.Partition1,
 						SizeID:      sc.SizeN1Medium,
 						Waiting:     true,

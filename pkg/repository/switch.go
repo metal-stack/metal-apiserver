@@ -444,6 +444,25 @@ func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *ap
 	return nil
 }
 
+func (r *switchRepository) RemoveMachineFromSwitches(ctx context.Context, m *apiv2.Machine) error {
+
+	switches, err := r.s.ds.Switch().List(ctx, queries.SwitchFilter(&apiv2.SwitchQuery{
+		ConnectedMachineId: &m.Uuid,
+	}))
+	if err != nil {
+		return fmt.Errorf("unable to query switches: %w", err)
+	}
+	for _, sw := range switches {
+		delete(sw.MachineConnections, m.Uuid)
+
+		if err := r.s.ds.Switch().Update(ctx, sw); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (r *switchRepository) ForceDelete(ctx context.Context, switchID string) (*apiv2.Switch, error) {
 	sw, err := r.get(ctx, switchID)
 	if err != nil {
@@ -498,9 +517,7 @@ func (r *switchRepository) GetSwitchStatus(ctx context.Context, switchID string)
 
 func (r *switchRepository) SetSwitchStatus(ctx context.Context, status *api.SwitchStatus) error {
 	metalStatus := &metal.SwitchStatus{
-		Base: metal.Base{
-			ID: status.ID,
-		},
+		ID:            status.ID,
 		LastSync:      toMetalSwitchSync(status.LastSync),
 		LastSyncError: toMetalSwitchSync(status.LastSyncError),
 	}
@@ -729,11 +746,9 @@ func (r *switchRepository) convertToInternal(ctx context.Context, sw *apiv2.Swit
 	}
 
 	return &metal.Switch{
-		Base: metal.Base{
-			ID:          sw.Id,
-			Name:        sw.Id,
-			Description: sw.Description,
-		},
+		ID:                 sw.Id,
+		Name:               sw.Id,
+		Description:        sw.Description,
 		Rack:               pointer.SafeDeref(sw.Rack),
 		Room:               pointer.SafeDeref(sw.Room),
 		Partition:          sw.Partition,
