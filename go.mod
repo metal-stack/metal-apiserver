@@ -30,8 +30,8 @@ require (
 	github.com/metal-stack/api v0.5.3
 	github.com/metal-stack/go-ipam v1.15.2
 	github.com/metal-stack/metal-lib v0.26.3
-	github.com/metal-stack/tenant-api v0.1.1
-	github.com/metal-stack/tenant-apiserver v0.1.1
+	github.com/metal-stack/tenant-api v0.2.0
+	github.com/metal-stack/tenant-apiserver v0.2.0
 	github.com/metal-stack/v v1.0.3
 	github.com/prometheus/client_golang v1.24.1
 	github.com/redis/go-redis/v9 v9.22.0
