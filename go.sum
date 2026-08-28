@@ -383,10 +383,10 @@ github.com/metal-stack/goth v0.1.0 h1:sdadAH9QG+xAjLNKAJq8+esfXct6icTs58juoR4BKr
 github.com/metal-stack/goth v0.1.0/go.mod h1:FNz3T5lydfi+ls1O3adXgN9Xmn4sn/SZE4t+Sswl+Uc=
 github.com/metal-stack/metal-lib v0.26.3 h1:K5gLoD65m6p3l6qCPrfavIdvNdWfmF2QdXrvU2URaZs=
 github.com/metal-stack/metal-lib v0.26.3/go.mod h1:cNXjPBs8SFnjqfBobuSbm5mDk6E/jS8PVeIOrV/7POE=
-github.com/metal-stack/tenant-api v0.1.2-0.20260828055648-4de525424bee h1:jcMs9daRAdPMAjYM7+YNZ+YbI731jJv84x9jLhPxOk4=
-github.com/metal-stack/tenant-api v0.1.2-0.20260828055648-4de525424bee/go.mod h1:eBZvQzIcJqlQ914ineCNBcXlfQjfJ3YoIKNmuAIOL20=
-github.com/metal-stack/tenant-apiserver v0.1.2-0.20260827140816-1e13444b2a9e h1:tSy+zkwgmw/E141z1Su7QNa72xFFJ8DH7DiWZ1Lk7oc=
-github.com/metal-stack/tenant-apiserver v0.1.2-0.20260827140816-1e13444b2a9e/go.mod h1:Q2dHeAmnbBmxPWLFmeSexUsbbzG/i1f+Og77ZvNuBAc=
+github.com/metal-stack/tenant-api v0.2.0 h1:sJghAvGIgxhufyxOoZRPETZWmTd3gDBL7EX/p413o7g=
+github.com/metal-stack/tenant-api v0.2.0/go.mod h1:eBZvQzIcJqlQ914ineCNBcXlfQjfJ3YoIKNmuAIOL20=
+github.com/metal-stack/tenant-apiserver v0.2.0 h1:8KvbEuajYx3PhZwAGW6iQv4wSSj2t+p3+SDsLa6LG6I=
+github.com/metal-stack/tenant-apiserver v0.2.0/go.mod h1:Yx6e4Wu8u7Yiehr01Ey6zRig4xe0Ky09Pq5MhluUh3I=
 github.com/metal-stack/v v1.0.3 h1:Sh2oBlnxrCUD+mVpzfC8HiqL045YWkxs0gpTvkjppqs=
 github.com/metal-stack/v v1.0.3/go.mod h1:YTahEu7/ishwpYKnp/VaW/7nf8+PInogkfGwLcGPdXg=
 github.com/miekg/dns v1.1.58 h1:ca2Hdkz+cDg/7eNF6V56jjzuZ4aCAE+DbVkILdQWG/4=
