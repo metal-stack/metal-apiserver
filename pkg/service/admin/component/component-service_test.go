@@ -120,10 +120,22 @@ func Test_componentServiceServer_List(t *testing.T) {
 					Interval:   durationpb.New(time.Minute),
 					Version:    &apiv2.Version{Version: "v0.0.1"},
 				},
+				{
+					Type:       apiv2.ComponentType_COMPONENT_TYPE_EXTERNAL_APPLICATION,
+					Identifier: "accounting",
+					Interval:   durationpb.New(time.Minute),
+					Version:    &apiv2.Version{Version: "v0.0.3"},
+				},
 			},
 			req: &adminv2.ComponentServiceListRequest{},
 			want: &adminv2.ComponentServiceListResponse{
 				Components: []*apiv2.Component{
+					{
+						Type:       apiv2.ComponentType_COMPONENT_TYPE_EXTERNAL_APPLICATION,
+						Identifier: "accounting",
+						Interval:   durationpb.New(time.Minute),
+						Version:    &apiv2.Version{Version: "v0.0.3"},
+					},
 					{
 						Type:       apiv2.ComponentType_COMPONENT_TYPE_METAL_BMC,
 						Identifier: "management-server-01",
