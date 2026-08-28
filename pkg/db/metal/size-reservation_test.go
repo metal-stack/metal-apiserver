@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/metal-stack/api/go/errorutil"
-	tenantv1 "github.com/metal-stack/tenant-api/go/api/v1"
+	tenantv1 "github.com/metal-stack/tenant-api/go/tenant/api/v1"
 )
 
 func TestReservations_ForPartition(t *testing.T) {

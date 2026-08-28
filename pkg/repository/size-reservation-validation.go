@@ -7,7 +7,7 @@ import (
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	v1 "github.com/metal-stack/tenant-api/go/api/v1"
+	v1 "github.com/metal-stack/tenant-api/go/tenant/api/v1"
 )
 
 func (r *sizeReservationRepository) validateCreate(ctx context.Context, req *adminv2.SizeReservationServiceCreateRequest) error {

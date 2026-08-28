@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	tenantv1 "github.com/metal-stack/tenant-api/go/api/v1"
 	tenant "github.com/metal-stack/tenant-api/go/client"
+	tenantv1 "github.com/metal-stack/tenant-api/go/tenant/api/v1"
 )
 
 type tenantApiserverHealthChecker struct {

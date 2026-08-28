@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"slices"
 
-	tenantv1 "github.com/metal-stack/tenant-api/go/api/v1"
+	tenantv1 "github.com/metal-stack/tenant-api/go/tenant/api/v1"
 )
 
 // SizeReservation defines a reservation of a size for machine allocations
