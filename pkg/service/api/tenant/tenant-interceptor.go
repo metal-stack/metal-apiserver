@@ -13,8 +13,8 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/cache"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
-	tenantv1 "github.com/metal-stack/tenant-api/go/api/v1"
 	tenant "github.com/metal-stack/tenant-api/go/client"
+	tenantv1 "github.com/metal-stack/tenant-api/go/tenant/api/v1"
 
 	"github.com/metal-stack/metal-lib/auditing"
 )

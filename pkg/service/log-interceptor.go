@@ -3,9 +3,12 @@ package service
 import (
 	"context"
 	"log/slog"
+	"strings"
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/metal-stack/metal-apiserver/pkg/token"
 )
 
 type logInterceptor struct {
@@ -26,13 +29,19 @@ func (i *logInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 			start = time.Now()
 		)
 
-		if debug {
-			log = log.With("request", req.Any())
+		tokenId, ok := tokenId(ctx)
+		if ok {
+			log = log.With("token", tokenId)
 		}
 
-		log.Info("handling unary call")
+		if debug {
+			log = log.With("request", req.Any())
+			log.Debug("handling unary call")
+		}
 
 		response, err := next(ctx, req)
+
+		log = log.With("duration", time.Since(start).String())
 
 		if debug && response != nil {
 			log = log.With("response", response.Any())
@@ -40,9 +49,9 @@ func (i *logInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 
 		if err != nil {
 			log.Error("error during unary call", "error", err)
-		} else if debug {
-			log.Debug("handled call successfully", "duration", time.Since(start).String())
 		}
+
+		log.Info("handled unary call")
 
 		return response, err
 	}
@@ -80,4 +89,30 @@ func (w *wrapper) Receive(m any) error {
 	procedure := w.StreamingHandlerConn.Spec().Procedure
 	w.log.Debug("streaminghandler receive called", "procedure", procedure, "message", m)
 	return w.StreamingHandlerConn.Receive(m)
+}
+
+const (
+	prefix              = "Bearer "
+	authorizationHeader = "Authorization"
+)
+
+func tokenId(ctx context.Context) (string, bool) {
+	callinfo, ok := connect.CallInfoForHandlerContext(ctx)
+	if !ok {
+		return "", false
+	}
+	auth := callinfo.RequestHeader().Get(authorizationHeader)
+	// Case insensitive prefix match. See RFC 9110 Section 11.1.
+	if len(auth) < len(prefix) || !strings.EqualFold(auth[:len(prefix)], prefix) {
+		return "", false
+	}
+	tokenString := auth[len(prefix):]
+
+	claims := &token.Claims{}
+	_, _, err := jwt.NewParser().ParseUnverified(tokenString, claims)
+	if err != nil {
+		return "", false
+	}
+
+	return claims.ID, true
 }
