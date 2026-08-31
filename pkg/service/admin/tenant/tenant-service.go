@@ -73,7 +73,7 @@ func (t *tenantServiceServer) AddMember(ctx context.Context, req *adminv2.Tenant
 	existing, err := t.repo.Tenant().AdditionalMethods().Member(req.Tenant).Get(ctx, req.Member)
 
 	if err != nil && !errorutil.IsNotFound(err) {
-		return nil, errorutil.Internal("error reading tenant member:%v", err)
+		return nil, errorutil.Internal("error reading tenant member:%w", err)
 	}
 	if existing != nil {
 		return nil, errorutil.Conflict("tenant with id %q already is member in tenant: %q", req.Member, req.Tenant)
