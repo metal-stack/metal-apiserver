@@ -9,6 +9,8 @@ import (
 	"net/http/httptest"
 	"os"
 	"reflect"
+	"slices"
+	"strings"
 	"testing"
 
 	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
@@ -2440,19 +2442,152 @@ func Test_networkServiceServer_ListExternalMembers(t *testing.T) {
 		ctx = t.Context()
 	)
 
+	spec := &sc.SwitchesWithExternalNetworkMembers
+
+	spec.Switches[0].Nics[0].Vrf = new("Vrf100")
+	spec.Switches[1].Nics[0].Vrf = new("Vrf100")
+	spec.Switches[0].Nics[1].Vrf = new("Vrf100")
+	spec.Switches[1].Nics[1].Vrf = new("Vrf100")
+
+	spec.Switches[2].Nics[0].Vrf = new("Vrf100")
+	spec.Switches[3].Nics[0].Vrf = new("Vrf100")
+	spec.Switches[2].Nics[1].Vrf = new("Vrf100")
+	spec.Switches[3].Nics[1].Vrf = new("Vrf100")
+
+	spec.Switches[4].Nics[0].Vrf = new("Vrf100")
+	spec.Switches[5].Nics[0].Vrf = new("Vrf100")
+
+	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
+	dc.Create(spec)
+
 	tests := []struct {
 		name string
 		req  func() *adminv2.NetworkServiceListExternalMembersRequest
 		want func() *adminv2.NetworkServiceListExternalMembersResponse
 	}{
-		// TODO: Add test cases.
+		{
+			name: "list all",
+			req: func() *adminv2.NetworkServiceListExternalMembersRequest {
+				return &adminv2.NetworkServiceListExternalMembersRequest{
+					Network: sc.NetworkExternal,
+					Query:   &apiv2.ExternalNetworkMemberQuery{},
+				}
+			},
+			want: func() *adminv2.NetworkServiceListExternalMembersResponse {
+				return &adminv2.NetworkServiceListExternalMembersResponse{
+					Members: []*apiv2.ExternalNetworkMember{
+						{
+							Switch: sc.P01Rack01Switch1,
+							Ports:  []string{"Ethernet1"},
+						},
+						{
+							Switch: sc.P01Rack01Switch2,
+							Ports:  []string{"Ethernet1"},
+						},
+						{
+							Switch: sc.P01Rack02Switch1,
+							Ports:  []string{"Ethernet0", "Ethernet1"},
+						},
+						{
+							Switch: sc.P01Rack02Switch2,
+							Ports:  []string{"Ethernet0", "Ethernet1"},
+						},
+						{
+							Switch: sc.P02Rack01Switch1,
+							Ports:  []string{"Ethernet0"},
+						},
+						{
+							Switch: sc.P02Rack01Switch2,
+							Ports:  []string{"Ethernet0"},
+						},
+					},
+				}
+			},
+		},
+		{
+			name: "list by partition",
+			req: func() *adminv2.NetworkServiceListExternalMembersRequest {
+				return &adminv2.NetworkServiceListExternalMembersRequest{
+					Network: sc.NetworkExternal,
+					Query: &apiv2.ExternalNetworkMemberQuery{
+						Partition: new(sc.Partition1),
+					},
+				}
+			},
+			want: func() *adminv2.NetworkServiceListExternalMembersResponse {
+				return &adminv2.NetworkServiceListExternalMembersResponse{
+					Members: []*apiv2.ExternalNetworkMember{
+						{
+							Switch: sc.P01Rack01Switch1,
+							Ports:  []string{"Ethernet1"},
+						},
+						{
+							Switch: sc.P01Rack01Switch2,
+							Ports:  []string{"Ethernet1"},
+						},
+						{
+							Switch: sc.P01Rack02Switch1,
+							Ports:  []string{"Ethernet0", "Ethernet1"},
+						},
+						{
+							Switch: sc.P01Rack02Switch2,
+							Ports:  []string{"Ethernet0", "Ethernet1"},
+						},
+					},
+				}
+			},
+		},
+		{
+			name: "list by rack",
+			req: func() *adminv2.NetworkServiceListExternalMembersRequest {
+				return &adminv2.NetworkServiceListExternalMembersRequest{
+					Network: sc.NetworkExternal,
+					Query: &apiv2.ExternalNetworkMemberQuery{
+						Rack: new(sc.P01Rack02),
+					},
+				}
+			},
+			want: func() *adminv2.NetworkServiceListExternalMembersResponse {
+				return &adminv2.NetworkServiceListExternalMembersResponse{
+					Members: []*apiv2.ExternalNetworkMember{
+						{
+							Switch: sc.P01Rack02Switch1,
+							Ports:  []string{"Ethernet0", "Ethernet1"},
+						},
+						{
+							Switch: sc.P01Rack02Switch2,
+							Ports:  []string{"Ethernet0", "Ethernet1"},
+						},
+					},
+				}
+			},
+		},
+		{
+			name: "list by switch",
+			req: func() *adminv2.NetworkServiceListExternalMembersRequest {
+				return &adminv2.NetworkServiceListExternalMembersRequest{
+					Network: sc.NetworkExternal,
+					Query: &apiv2.ExternalNetworkMemberQuery{
+						Switch: new(sc.P01Rack02Switch2),
+					},
+				}
+			},
+			want: func() *adminv2.NetworkServiceListExternalMembersResponse {
+				return &adminv2.NetworkServiceListExternalMembersResponse{
+					Members: []*apiv2.ExternalNetworkMember{
+						{
+							Switch: sc.P01Rack02Switch2,
+							Ports:  []string{"Ethernet0", "Ethernet1"},
+						},
+					},
+				}
+			},
+		},
 	}
 
-	dc := test.NewDatacenter(t, log)
-	defer dc.Close()
-	dc.Create(&sc.SwitchesWithExternalNetworkMembers)
-
 	for _, tt := range tests {
+
 		t.Run(tt.name, func(t *testing.T) {
 			n := &networkServiceServer{
 				log:  log,
@@ -2475,9 +2610,16 @@ func Test_networkServiceServer_ListExternalMembers(t *testing.T) {
 			got, err := n.ListExternalMembers(ctx, req)
 			require.NoError(t, err)
 
+			slices.SortFunc(got.Members, func(a, b *apiv2.ExternalNetworkMember) int {
+				return strings.Compare(a.Switch, b.Switch)
+			})
+
 			if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
 				t.Errorf("networkServiceServer.ListExternalMembers() diff = %s", diff)
 			}
+
+			err = dc.Assert(nil)
+			require.NoError(t, err)
 		})
 	}
 }

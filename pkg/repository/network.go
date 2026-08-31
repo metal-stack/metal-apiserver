@@ -463,7 +463,44 @@ func (r *networkRepository) convertToProto(ctx context.Context, e *metal.Network
 }
 
 func (r *networkRepository) ListExternalMembers(ctx context.Context, req *adminv2.NetworkServiceListExternalMembersRequest) ([]*apiv2.ExternalNetworkMember, error) {
-	panic("unimplemented")
+	var members []*apiv2.ExternalNetworkMember
+
+	query := &apiv2.SwitchQuery{
+		Id:        req.Query.Switch,
+		Partition: req.Query.Partition,
+		Rack:      req.Query.Rack,
+	}
+
+	switches, err := r.s.Switch().AdditionalMethods().list(ctx, query)
+	if err != nil {
+		return nil, errorutil.Internal("failed to list switches: %w", err)
+	}
+
+	for _, sw := range switches {
+		member := &apiv2.ExternalNetworkMember{
+			Switch: sw.ID,
+		}
+
+		for _, nic := range sw.Nics {
+			if nic.Vrf == "" || nic.Vrf == "default" {
+				continue
+			}
+			m, err := r.s.Switch().AdditionalMethods().getConnectedMachineForNic(ctx, nic, sw.MachineConnections)
+			if err != nil {
+				return nil, errorutil.Internal("failed to check machine connections for nic %s: %w", nic.Name, err)
+			}
+			if m != nil {
+				continue
+			}
+			member.Ports = append(member.Ports, nic.Name)
+		}
+
+		if len(member.Ports) > 0 {
+			members = append(members, member)
+		}
+	}
+
+	return members, nil
 }
 
 func (r *networkRepository) AddExternalMember(ctx context.Context, req *adminv2.NetworkServiceAddExternalMemberRequest) (*apiv2.Switch, error) {
