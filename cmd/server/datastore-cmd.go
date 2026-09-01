@@ -48,7 +48,7 @@ func newDatastoreCmd() *cli.Command {
 						return fmt.Errorf("unable to create logger %w", err)
 					}
 
-					err = generic.Initialize(
+					_, err = generic.Initialize(
 						ctx,
 						log.WithGroup("datastore"),
 						rethinkdb.ConnectOpts{

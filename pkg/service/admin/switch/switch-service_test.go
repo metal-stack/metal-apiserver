@@ -697,6 +697,12 @@ func Test_switchServiceServer_Port(t *testing.T) {
 			want: func(dc *test.Datacenter) *adminv2.SwitchServicePortResponse {
 				sw := dc.GetSwitches()[sc.P01Rack01Switch1]
 				sw.Nics[0].State.Desired = apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN.Enum()
+				con, found := lo.Find(sw.MachineConnections, func(c *apiv2.MachineConnection) bool {
+					return c.Nic.Name == "Ethernet0"
+				})
+				require.True(t, found)
+				con.Nic.State.Desired = apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN.Enum()
+
 				return &adminv2.SwitchServicePortResponse{
 					Switch: sw,
 				}

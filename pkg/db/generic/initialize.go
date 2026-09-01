@@ -32,12 +32,12 @@ func AsnPoolRange(min, max uint) dataStoreOption {
 	}
 }
 
-func Initialize(ctx context.Context, log *slog.Logger, opts r.ConnectOpts, dsOpts ...dataStoreOption) error {
+func Initialize(ctx context.Context, log *slog.Logger, opts r.ConnectOpts, dsOpts ...dataStoreOption) (*datastore, error) {
 	db := r.DB(opts.Database)
 
 	session, err := r.Connect(opts)
 	if err != nil {
-		return fmt.Errorf("unable to connect to database: %w", err)
+		return nil, fmt.Errorf("unable to connect to database: %w", err)
 	}
 
 	log.Info("creating / updating runtime user metal")
@@ -46,7 +46,7 @@ func Initialize(ctx context.Context, log *slog.Logger, opts r.ConnectOpts, dsOpt
 		Conflict: "update",
 	}).RunWrite(session, r.RunOpts{Context: ctx})
 	if err != nil {
-		return fmt.Errorf("unable to ensure runtime user metal: %w", err)
+		return nil, fmt.Errorf("unable to ensure runtime user metal: %w", err)
 	}
 
 	log.Info("initializing database", "database", opts.Database)
@@ -55,42 +55,42 @@ func Initialize(ctx context.Context, log *slog.Logger, opts r.ConnectOpts, dsOpt
 		return r.Branch(row, nil, r.DBCreate(opts.Database))
 	}).Exec(session, r.ExecOpts{Context: ctx})
 	if err != nil {
-		return fmt.Errorf("cannot create database: %w", err)
+		return nil, fmt.Errorf("cannot create database: %w", err)
 	}
 
 	log.Info("ensuring demoted user can read and write")
 
 	_, err = db.Grant(demotedUser, map[string]any{"read": true, "write": true}).RunWrite(session, r.RunOpts{Context: ctx})
 	if err != nil {
-		return fmt.Errorf("unable to grant read / write permissions to metal user on database %s: %w", opts.Database, err)
+		return nil, fmt.Errorf("unable to grant read / write permissions to metal user on database %s: %w", opts.Database, err)
 	}
 	_, err = r.DB("rethinkdb").Grant(demotedUser, map[string]any{"read": true}).RunWrite(session, r.RunOpts{Context: ctx})
 	if err != nil {
-		return fmt.Errorf("unable to grant read / write permissions to metal user on rethinkdb database: %w", err)
+		return nil, fmt.Errorf("unable to grant read / write permissions to metal user on rethinkdb database: %w", err)
 	}
 
 	log.Info("initializing tables")
 
 	ds, err := New(log, opts, dsOpts...)
 	if err != nil {
-		return fmt.Errorf("unable to create datastore: %w", err)
+		return nil, fmt.Errorf("unable to create datastore: %w", err)
 	}
 
 	ds.queryExecutor = session // the metal user cannot create tables
 
 	err = ds.createTable(ctx, migrationTableName)
 	if err != nil {
-		return fmt.Errorf("cannot create migration table: %w", err)
+		return nil, fmt.Errorf("cannot create migration table: %w", err)
 	}
 
 	err = ds.createTable(ctx, sharedMutexTableName)
 	if err != nil {
-		return fmt.Errorf("cannot create shared mutex table: %w", err)
+		return nil, fmt.Errorf("cannot create shared mutex table: %w", err)
 	}
 
 	for _, tableName := range ds.tableNames {
 		if err := ds.createTable(ctx, tableName); err != nil {
-			return fmt.Errorf("cannot create %s table: %w", tableName, err)
+			return nil, fmt.Errorf("cannot create %s table: %w", tableName, err)
 		}
 	}
 
@@ -99,7 +99,7 @@ func Initialize(ctx context.Context, log *slog.Logger, opts r.ConnectOpts, dsOpt
 	// be graceful after table creation and wait until ready
 	res, err := db.Wait().Run(session, r.RunOpts{Context: ctx})
 	if err != nil {
-		return fmt.Errorf("unable to wait for database creation")
+		return nil, fmt.Errorf("unable to wait for database creation")
 	}
 	defer func() {
 		if err := res.Close(); err != nil {
@@ -110,15 +110,15 @@ func Initialize(ctx context.Context, log *slog.Logger, opts r.ConnectOpts, dsOpt
 	ds.log.Info("initializing pools")
 
 	if err := ds.asnPool.initialize(); err != nil {
-		return fmt.Errorf("unable to initialize asn pool: %w", err)
+		return nil, fmt.Errorf("unable to initialize asn pool: %w", err)
 	}
 	if err := ds.vrfPool.initialize(); err != nil {
-		return fmt.Errorf("unable to initialize vrf pool: %w", err)
+		return nil, fmt.Errorf("unable to initialize vrf pool: %w", err)
 	}
 
 	ds.log.Info("database init complete")
 
-	return nil
+	return ds, nil
 }
 
 func (ds *datastore) createTable(ctx context.Context, tableName string) error {

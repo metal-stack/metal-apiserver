@@ -130,27 +130,27 @@ func (dc *Datacenter) Snapshot() *Entities {
 }
 
 func (dc *Datacenter) GetTenants() map[string]*apiv2.Tenant {
-	return dc.entities.Tenants
+	return dc.Snapshot().Tenants
 }
 
 func (dc *Datacenter) GetProjects() map[string][]*apiv2.Project {
-	return dc.entities.Projects
+	return dc.Snapshot().Projects
 }
 
 func (dc *Datacenter) GetPartitions() map[string]*apiv2.Partition {
-	return dc.entities.Partitions
+	return dc.Snapshot().Partitions
 }
 
 func (dc *Datacenter) GetSizes() map[string]*apiv2.Size {
-	return dc.entities.Sizes
+	return dc.Snapshot().Sizes
 }
 
 func (dc *Datacenter) GetNetworks() map[string]*apiv2.Network {
-	return dc.entities.Networks
+	return dc.Snapshot().Networks
 }
 
 func (dc *Datacenter) GetNetworkByName(name string) *apiv2.Network {
-	for _, n := range dc.entities.Networks {
+	for _, n := range dc.Snapshot().Networks {
 		if n.Name != nil && *n.Name == name {
 			return n
 		}
@@ -159,27 +159,27 @@ func (dc *Datacenter) GetNetworkByName(name string) *apiv2.Network {
 }
 
 func (dc *Datacenter) GetIPs() map[string]*apiv2.IP {
-	return dc.entities.Ips
+	return dc.Snapshot().Ips
 }
 
 func (dc *Datacenter) GetImages() map[string]*apiv2.Image {
-	return dc.entities.Images
+	return dc.Snapshot().Images
 }
 
 func (dc *Datacenter) GetSwitches() map[string]*apiv2.Switch {
-	return dc.entities.Switches
+	return dc.Snapshot().Switches
 }
 
 func (dc *Datacenter) GetSwitchStatuses() map[string]*metal.SwitchStatus {
-	return dc.entities.SwitchStatuses
+	return dc.Snapshot().SwitchStatuses
 }
 
 func (dc *Datacenter) GetMachines() map[string]*apiv2.Machine {
-	return dc.entities.Machines
+	return dc.Snapshot().Machines
 }
 
 func (dc *Datacenter) GetFilesystemLayouts() map[string]*apiv2.FilesystemLayout {
-	return dc.entities.FilesystemLayouts
+	return dc.Snapshot().FilesystemLayouts
 }
 
 func (dc *Datacenter) Close() {

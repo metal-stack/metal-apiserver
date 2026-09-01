@@ -202,6 +202,8 @@ func (ip *integerPool) genericAcquire(ctx context.Context, term *r.Term) (uint, 
 			return 0, err
 		}
 
+		fmt.Printf("############### %v", count)
+
 		if count <= 0 {
 			return 0, errorutil.Internal("acquisition of a value failed for exhausted pool")
 		}

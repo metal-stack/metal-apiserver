@@ -1,14 +1,12 @@
 package admin
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -19,7 +17,6 @@ import (
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
@@ -2444,6 +2441,7 @@ func Test_networkServiceServer_ListExternalMembers(t *testing.T) {
 
 	spec := &sc.SwitchesWithExternalNetworkMembers
 
+	// FIXME: allow adding vrf to port during initialization
 	spec.Switches[0].Nics[0].Vrf = new("Vrf100")
 	spec.Switches[1].Nics[0].Vrf = new("Vrf100")
 	spec.Switches[0].Nics[1].Vrf = new("Vrf100")
@@ -2587,7 +2585,6 @@ func Test_networkServiceServer_ListExternalMembers(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-
 		t.Run(tt.name, func(t *testing.T) {
 			n := &networkServiceServer{
 				log:  log,
@@ -2625,73 +2622,239 @@ func Test_networkServiceServer_ListExternalMembers(t *testing.T) {
 }
 
 func Test_networkServiceServer_AddExternalMember(t *testing.T) {
-	type fields struct {
-		log  *slog.Logger
-		repo *repository.Store
-	}
-	type args struct {
-		ctx context.Context
-		req *adminv2.NetworkServiceAddExternalMemberRequest
-	}
+	var (
+		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+		ctx = t.Context()
+	)
+
+	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
+
+	spec := &sc.SwitchesWithExternalNetworkMembers
+	spec.Switches[4].Nics[0].Vrf = new("Vrf100")
+	spec.Switches[5].Nics[0].Vrf = new("Vrf100")
+	dc.Create(spec)
+
 	tests := []struct {
 		name    string
-		fields  fields
-		args    args
-		want    *adminv2.NetworkServiceAddExternalMemberResponse
-		wantErr bool
+		mods    func() *test.Asserters
+		req     func() *adminv2.NetworkServiceAddExternalMembersRequest
+		want    func() *adminv2.NetworkServiceAddExternalMembersResponse
+		wantErr error
 	}{
-		// TODO: Add test cases.
+		{
+			name: "network not found",
+			req: func() *adminv2.NetworkServiceAddExternalMembersRequest {
+				return &adminv2.NetworkServiceAddExternalMembersRequest{
+					Network: "unknown-network",
+					Rack:    sc.P01Rack01,
+				}
+			},
+			wantErr: errorutil.NotFound(`no network with id "unknown-network" found`),
+		},
+		{
+			name: "no switches in rack found",
+			req: func() *adminv2.NetworkServiceAddExternalMembersRequest {
+				return &adminv2.NetworkServiceAddExternalMembersRequest{
+					Network: sc.NetworkNameTenantPartition1,
+					Rack:    "unknown-rack",
+				}
+			},
+			wantErr: errorutil.NotFound(`no switches in rack "unknown-rack" found`),
+		},
+		{
+			name: "add switches of different partition to partition scoped network fails",
+			req: func() *adminv2.NetworkServiceAddExternalMembersRequest {
+				return &adminv2.NetworkServiceAddExternalMembersRequest{
+					Network: sc.NetworkNameTenantPartition1,
+					Rack:    sc.P02Rack01,
+					Ports:   []string{"Ethernet0"},
+				}
+			},
+			wantErr: errorutil.InvalidArgument("cannot add switches of partition %q as members to network scoped to partition %q", sc.Partition2, sc.Partition1),
+		},
+		{
+			name: "invalid port",
+			req: func() *adminv2.NetworkServiceAddExternalMembersRequest {
+				return &adminv2.NetworkServiceAddExternalMembersRequest{
+					Network: sc.NetworkExternal,
+					Rack:    sc.P01Rack01,
+					Ports:   []string{"Ethernet120"},
+				}
+			},
+			wantErr: errorutil.NotFound(`port "Ethernet120" not found on switch %q`, sc.P01Rack01Switch1),
+		},
+		{
+			name: "trying to add port connected to a machine as an external members fails",
+			req: func() *adminv2.NetworkServiceAddExternalMembersRequest {
+				return &adminv2.NetworkServiceAddExternalMembersRequest{
+					Network: sc.NetworkExternal,
+					Rack:    sc.P01Rack01,
+					Ports:   []string{"Ethernet0"},
+				}
+			},
+			wantErr: errorutil.InvalidArgument(`only ports whose neighbors aren't registered machines can be added as external members but port "Ethernet0" of the switches in rack %q is connected to machine %q`, sc.P01Rack01, sc.Machine1),
+		},
+		{
+			name: "trying to add port that is already members of a network fails",
+			req: func() *adminv2.NetworkServiceAddExternalMembersRequest {
+				return &adminv2.NetworkServiceAddExternalMembersRequest{
+					Network: sc.NetworkExternal,
+					Rack:    sc.P02Rack01,
+					Ports:   []string{"Ethernet0"},
+				}
+			},
+			wantErr: errorutil.InvalidArgument(`port "Ethernet0" of switches in rack %q is already member of network %q`, sc.P02Rack01, sc.NetworkExternal),
+		},
+		{
+			name: "successfully add externmal members",
+			mods: func() *test.Asserters {
+				return &test.Asserters{
+					Switches: func(switches map[string]*apiv2.Switch) {
+						sw1 := switches[sc.P01Rack02Switch1]
+						require.NotNil(t, sw1)
+						sw1.Nics[0].Vrf = new("Vrf99")
+						sw1.Nics[1].Vrf = new("Vrf99")
+
+						sw2 := switches[sc.P01Rack02Switch2]
+						require.NotNil(t, sw2)
+						sw2.Nics[0].Vrf = new("Vrf99")
+						sw2.Nics[1].Vrf = new("Vrf99")
+					},
+				}
+			},
+			req: func() *adminv2.NetworkServiceAddExternalMembersRequest {
+				return &adminv2.NetworkServiceAddExternalMembersRequest{
+					Network: sc.NetworkNameTenantPartition1,
+					Rack:    sc.P01Rack02,
+					Ports:   []string{"Ethernet0", "Ethernet1"},
+				}
+			},
+			want: func() *adminv2.NetworkServiceAddExternalMembersResponse {
+				allSwitches := dc.GetSwitches()
+
+				sw1 := allSwitches[sc.P01Rack02Switch1]
+				require.NotNil(t, sw1)
+				sw1.Nics[0].Vrf = new("Vrf99")
+				sw1.Nics[1].Vrf = new("Vrf99")
+
+				sw2 := allSwitches[sc.P01Rack02Switch2]
+				require.NotNil(t, sw2)
+				sw2.Nics[0].Vrf = new("Vrf99")
+				sw2.Nics[1].Vrf = new("Vrf99")
+
+				return &adminv2.NetworkServiceAddExternalMembersResponse{Switches: []*apiv2.Switch{sw1, sw2}}
+			},
+			wantErr: nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			n := &networkServiceServer{
-				log:  tt.fields.log,
-				repo: tt.fields.repo,
+				log:  log,
+				repo: dc.GetTestStore().Store,
 			}
-			got, err := n.AddExternalMember(tt.args.ctx, tt.args.req)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("networkServiceServer.AddExternalMember() error = %v, wantErr %v", err, tt.wantErr)
+
+			var (
+				req  *adminv2.NetworkServiceAddExternalMembersRequest
+				want *adminv2.NetworkServiceAddExternalMembersResponse
+			)
+
+			if tt.req != nil {
+				req = tt.req()
+			}
+			if tt.want != nil {
+				want = tt.want()
+			}
+
+			test.Validate(t, req)
+			got, err := n.AddExternalMembers(ctx, req)
+			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("networkServiceServer.AddExternalMembers() error diff = %s", diff)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("networkServiceServer.AddExternalMember() = %v, want %v", got, tt.want)
+
+			if tt.wantErr != nil {
+				return
 			}
+
+			slices.SortFunc(got.Switches, func(a, b *apiv2.Switch) int {
+				return strings.Compare(a.Id, b.Id)
+			})
+
+			if diff := cmp.Diff(want, got,
+				protocmp.Transform(),
+				protocmp.IgnoreFields(&apiv2.Meta{}, "created_at", "updated_at"),
+			); diff != "" {
+				t.Errorf("networkServiceServer.AddExternalMembers() diff = %s", diff)
+				return
+			}
+
+			var mods *test.Asserters
+			if tt.mods != nil {
+				mods = tt.mods()
+			}
+			err = dc.Assert(mods)
+			require.NoError(t, err)
 		})
 	}
 }
 
 func Test_networkServiceServer_RemoveExternalMember(t *testing.T) {
-	type fields struct {
-		log  *slog.Logger
-		repo *repository.Store
-	}
-	type args struct {
-		ctx context.Context
-		req *adminv2.NetworkServiceRemoveExternalMemberRequest
-	}
+	var (
+		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+		ctx = t.Context()
+	)
+
+	dc := test.NewDatacenter(t, log)
+	defer dc.Close()
+	dc.Create(&sc.SwitchesWithExternalNetworkMembers)
+
 	tests := []struct {
 		name    string
-		fields  fields
-		args    args
-		want    *adminv2.NetworkServiceRemoveExternalMemberResponse
-		wantErr bool
+		mods    func() *test.Asserters
+		req     func() *adminv2.NetworkServiceRemoveExternalMembersRequest
+		want    func() *adminv2.NetworkServiceRemoveExternalMembersResponse
+		wantErr error
 	}{
 		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			n := &networkServiceServer{
-				log:  tt.fields.log,
-				repo: tt.fields.repo,
+				log:  log,
+				repo: dc.GetTestStore().Store,
 			}
-			got, err := n.RemoveExternalMember(tt.args.ctx, tt.args.req)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("networkServiceServer.RemoveExternalMember() error = %v, wantErr %v", err, tt.wantErr)
+
+			var (
+				req  *adminv2.NetworkServiceRemoveExternalMembersRequest
+				want *adminv2.NetworkServiceRemoveExternalMembersResponse
+			)
+
+			if tt.req != nil {
+				req = tt.req()
+			}
+			if tt.want != nil {
+				want = tt.want()
+			}
+
+			test.Validate(t, req)
+			got, err := n.RemoveExternalMembers(ctx, req)
+			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("networkServiceServer.RemoveExternalMembers() error diff = %s", diff)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("networkServiceServer.RemoveExternalMember() = %v, want %v", got, tt.want)
+
+			if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
+				t.Errorf("networkServiceServer.RemoveExternalMembers() diff = %s", diff)
 			}
+
+			var mods *test.Asserters
+			if tt.mods != nil {
+				mods = tt.mods()
+			}
+			err = dc.Assert(mods)
+			require.NoError(t, err)
 		})
 	}
 }
