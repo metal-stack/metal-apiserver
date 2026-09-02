@@ -2439,25 +2439,9 @@ func Test_networkServiceServer_ListExternalMembers(t *testing.T) {
 		ctx = t.Context()
 	)
 
-	spec := &sc.SwitchesWithExternalNetworkMembers
-
-	// FIXME: allow adding vrf to port during initialization
-	spec.Switches[0].Nics[0].Vrf = new("Vrf100")
-	spec.Switches[1].Nics[0].Vrf = new("Vrf100")
-	spec.Switches[0].Nics[1].Vrf = new("Vrf100")
-	spec.Switches[1].Nics[1].Vrf = new("Vrf100")
-
-	spec.Switches[2].Nics[0].Vrf = new("Vrf100")
-	spec.Switches[3].Nics[0].Vrf = new("Vrf100")
-	spec.Switches[2].Nics[1].Vrf = new("Vrf100")
-	spec.Switches[3].Nics[1].Vrf = new("Vrf100")
-
-	spec.Switches[4].Nics[0].Vrf = new("Vrf100")
-	spec.Switches[5].Nics[0].Vrf = new("Vrf100")
-
 	dc := test.NewDatacenter(t, log)
 	defer dc.Close()
-	dc.Create(spec)
+	dc.Create(&sc.SwitchesWithExternalNetworkMembers)
 
 	tests := []struct {
 		name string
@@ -2629,11 +2613,7 @@ func Test_networkServiceServer_AddExternalMember(t *testing.T) {
 
 	dc := test.NewDatacenter(t, log)
 	defer dc.Close()
-
-	spec := &sc.SwitchesWithExternalNetworkMembers
-	spec.Switches[4].Nics[0].Vrf = new("Vrf100")
-	spec.Switches[5].Nics[0].Vrf = new("Vrf100")
-	dc.Create(spec)
+	dc.Create(&sc.SwitchesWithExternalNetworkMembers)
 
 	tests := []struct {
 		name    string
@@ -2704,7 +2684,7 @@ func Test_networkServiceServer_AddExternalMember(t *testing.T) {
 					Ports:   []string{"Ethernet0"},
 				}
 			},
-			wantErr: errorutil.InvalidArgument(`port "Ethernet0" of switches in rack %q is already member of network %q`, sc.P02Rack01, sc.NetworkExternal),
+			wantErr: errorutil.InvalidArgument(`port "Ethernet0" of switches in rack %q is already member of network %q`, sc.P02Rack01, sc.NetworkNameTenantPartition1),
 		},
 		{
 			name: "successfully add externmal members",
@@ -2713,13 +2693,13 @@ func Test_networkServiceServer_AddExternalMember(t *testing.T) {
 					Switches: func(switches map[string]*apiv2.Switch) {
 						sw1 := switches[sc.P01Rack02Switch1]
 						require.NotNil(t, sw1)
-						sw1.Nics[0].Vrf = new("Vrf99")
-						sw1.Nics[1].Vrf = new("Vrf99")
+						sw1.Nics[2].Vrf = new("Vrf99")
+						sw1.Nics[3].Vrf = new("Vrf99")
 
 						sw2 := switches[sc.P01Rack02Switch2]
 						require.NotNil(t, sw2)
-						sw2.Nics[0].Vrf = new("Vrf99")
-						sw2.Nics[1].Vrf = new("Vrf99")
+						sw2.Nics[2].Vrf = new("Vrf99")
+						sw2.Nics[3].Vrf = new("Vrf99")
 					},
 				}
 			},
@@ -2727,7 +2707,7 @@ func Test_networkServiceServer_AddExternalMember(t *testing.T) {
 				return &adminv2.NetworkServiceAddExternalMembersRequest{
 					Network: sc.NetworkNameTenantPartition1,
 					Rack:    sc.P01Rack02,
-					Ports:   []string{"Ethernet0", "Ethernet1"},
+					Ports:   []string{"Ethernet2", "Ethernet3"},
 				}
 			},
 			want: func() *adminv2.NetworkServiceAddExternalMembersResponse {
@@ -2735,13 +2715,13 @@ func Test_networkServiceServer_AddExternalMember(t *testing.T) {
 
 				sw1 := allSwitches[sc.P01Rack02Switch1]
 				require.NotNil(t, sw1)
-				sw1.Nics[0].Vrf = new("Vrf99")
-				sw1.Nics[1].Vrf = new("Vrf99")
+				sw1.Nics[2].Vrf = new("Vrf99")
+				sw1.Nics[3].Vrf = new("Vrf99")
 
 				sw2 := allSwitches[sc.P01Rack02Switch2]
 				require.NotNil(t, sw2)
-				sw2.Nics[0].Vrf = new("Vrf99")
-				sw2.Nics[1].Vrf = new("Vrf99")
+				sw2.Nics[2].Vrf = new("Vrf99")
+				sw2.Nics[3].Vrf = new("Vrf99")
 
 				return &adminv2.NetworkServiceAddExternalMembersResponse{Switches: []*apiv2.Switch{sw1, sw2}}
 			},
@@ -2808,16 +2788,7 @@ func Test_networkServiceServer_RemoveExternalMember(t *testing.T) {
 
 	dc := test.NewDatacenter(t, log)
 	defer dc.Close()
-
-	spec := &sc.SwitchesWithExternalNetworkMembers
-	spec.Switches[0].Nics[0].Vrf = new("Vrf100")
-	spec.Switches[1].Nics[0].Vrf = new("Vrf100")
-	spec.Switches[1].Nics[2].Vrf = new("Vrf100")
-	spec.Switches[4].Nics[0].Vrf = new("Vrf100")
-	spec.Switches[5].Nics[0].Vrf = new("Vrf100")
-	spec.Switches[4].Nics[1].Vrf = new("Vrf100")
-	spec.Switches[5].Nics[1].Vrf = new("Vrf100")
-	dc.Create(spec)
+	dc.Create(&sc.SwitchesWithExternalNetworkMembers)
 
 	tests := []struct {
 		name    string
