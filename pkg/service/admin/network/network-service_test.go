@@ -2808,7 +2808,16 @@ func Test_networkServiceServer_RemoveExternalMember(t *testing.T) {
 
 	dc := test.NewDatacenter(t, log)
 	defer dc.Close()
-	dc.Create(&sc.SwitchesWithExternalNetworkMembers)
+
+	spec := &sc.SwitchesWithExternalNetworkMembers
+	spec.Switches[0].Nics[0].Vrf = new("Vrf100")
+	spec.Switches[1].Nics[0].Vrf = new("Vrf100")
+	spec.Switches[1].Nics[2].Vrf = new("Vrf100")
+	spec.Switches[4].Nics[0].Vrf = new("Vrf100")
+	spec.Switches[5].Nics[0].Vrf = new("Vrf100")
+	spec.Switches[4].Nics[1].Vrf = new("Vrf100")
+	spec.Switches[5].Nics[1].Vrf = new("Vrf100")
+	dc.Create(spec)
 
 	tests := []struct {
 		name    string
@@ -2817,7 +2826,100 @@ func Test_networkServiceServer_RemoveExternalMember(t *testing.T) {
 		want    func() *adminv2.NetworkServiceRemoveExternalMembersResponse
 		wantErr error
 	}{
-		// TODO: Add test cases.
+		{
+			name: "network not found",
+			req: func() *adminv2.NetworkServiceRemoveExternalMembersRequest {
+				return &adminv2.NetworkServiceRemoveExternalMembersRequest{
+					Network: "unknown-network",
+					Rack:    sc.P01Rack01,
+				}
+			},
+			wantErr: errorutil.NotFound(`no network with id "unknown-network" found`),
+		},
+		{
+			name: "no switches in rack found",
+			req: func() *adminv2.NetworkServiceRemoveExternalMembersRequest {
+				return &adminv2.NetworkServiceRemoveExternalMembersRequest{
+					Network: sc.NetworkExternal,
+					Rack:    "unknown-rack",
+				}
+			},
+			wantErr: errorutil.NotFound(`no switches in rack "unknown-rack" found`),
+		},
+		{
+			name: "invalid port",
+			req: func() *adminv2.NetworkServiceRemoveExternalMembersRequest {
+				return &adminv2.NetworkServiceRemoveExternalMembersRequest{
+					Network: sc.NetworkExternal,
+					Rack:    sc.P01Rack01,
+					Ports:   []string{"Ethernet120"},
+				}
+			},
+			wantErr: errorutil.NotFound(`port "Ethernet120" not found on switch %q`, sc.P01Rack01Switch1),
+		},
+		{
+			name: "port is not member of the network",
+			req: func() *adminv2.NetworkServiceRemoveExternalMembersRequest {
+				return &adminv2.NetworkServiceRemoveExternalMembersRequest{
+					Network: sc.NetworkNameTenantPartition1,
+					Rack:    sc.P02Rack01,
+					Ports:   []string{"Ethernet0"},
+				}
+			},
+			wantErr: errorutil.InvalidArgument(`port "Ethernet0" is not a member of network %q`, sc.NetworkNameTenantPartition1),
+		},
+		{
+			name: "cannot remove port that is connected to a machine",
+			req: func() *adminv2.NetworkServiceRemoveExternalMembersRequest {
+				return &adminv2.NetworkServiceRemoveExternalMembersRequest{
+					Network: sc.NetworkExternal,
+					Rack:    sc.P01Rack01,
+					Ports:   []string{"Ethernet0"},
+				}
+			},
+			wantErr: errorutil.InvalidArgument(`port "Ethernet0" of rack %q is not an external member as it is connected to machine %q`, sc.P01Rack01, sc.Machine1),
+		},
+		{
+			name: "successfully remove network members",
+			mods: func() *test.Asserters {
+				return &test.Asserters{
+					Switches: func(switches map[string]*apiv2.Switch) {
+						sw1 := switches[sc.P02Rack01Switch1]
+						require.NotNil(t, sw1)
+						sw1.Nics[0].Vrf = nil
+						sw1.Nics[1].Vrf = nil
+
+						sw2 := switches[sc.P02Rack01Switch2]
+						require.NotNil(t, sw2)
+						sw2.Nics[0].Vrf = nil
+						sw2.Nics[1].Vrf = nil
+					},
+				}
+			},
+			req: func() *adminv2.NetworkServiceRemoveExternalMembersRequest {
+				return &adminv2.NetworkServiceRemoveExternalMembersRequest{
+					Network: sc.NetworkExternal,
+					Rack:    sc.P02Rack01,
+					Ports:   []string{"Ethernet0", "Ethernet1"},
+				}
+			},
+			want: func() *adminv2.NetworkServiceRemoveExternalMembersResponse {
+				allSwitches := dc.GetSwitches()
+
+				sw1 := allSwitches[sc.P02Rack01Switch1]
+				require.NotNil(t, sw1)
+				sw1.Nics[0].Vrf = nil
+				sw1.Nics[1].Vrf = nil
+
+				sw2 := allSwitches[sc.P02Rack01Switch2]
+				require.NotNil(t, sw2)
+				sw2.Nics[0].Vrf = nil
+				sw2.Nics[1].Vrf = nil
+
+				return &adminv2.NetworkServiceRemoveExternalMembersResponse{Switches: []*apiv2.Switch{sw1, sw2}}
+			},
+			wantErr: nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -2844,6 +2946,14 @@ func Test_networkServiceServer_RemoveExternalMember(t *testing.T) {
 				t.Errorf("networkServiceServer.RemoveExternalMembers() error diff = %s", diff)
 				return
 			}
+
+			if tt.wantErr != nil {
+				return
+			}
+
+			slices.SortFunc(got.Switches, func(a, b *apiv2.Switch) int {
+				return strings.Compare(a.Id, b.Id)
+			})
 
 			if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
 				t.Errorf("networkServiceServer.RemoveExternalMembers() diff = %s", diff)

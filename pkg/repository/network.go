@@ -581,7 +581,61 @@ func (r *networkRepository) AddExternalMembers(ctx context.Context, req *adminv2
 }
 
 func (r *networkRepository) RemoveExternalMembers(ctx context.Context, req *adminv2.NetworkServiceRemoveExternalMembersRequest) ([]*apiv2.Switch, error) {
-	panic("unimplemented")
+	var switches []*apiv2.Switch
+
+	nw, err := r.s.ds.Network().Get(ctx, req.Network)
+	if err != nil {
+		return nil, err
+	}
+
+	rackSwitches, err := r.s.Switch().List(ctx, &apiv2.SwitchQuery{Rack: &req.Rack})
+	if err != nil {
+		return nil, errorutil.Internal("failed to list switches in rack %q: %w", req.Rack, err)
+	}
+
+	if len(rackSwitches) < 1 {
+		return nil, errorutil.NotFound("no switches in rack %q found", req.Rack)
+	}
+
+	for _, sw := range rackSwitches {
+		for _, port := range req.Ports {
+			nic, found := lo.Find(sw.Nics, func(n *apiv2.SwitchNic) bool {
+				return n.Name == port
+			})
+			if !found {
+				return nil, errorutil.NotFound("port %q not found on switch %q", port, sw.Id)
+			}
+
+			if pointer.SafeDeref(nic.Vrf) != fmt.Sprintf("Vrf%d", nw.Vrf) {
+				return nil, errorutil.InvalidArgument("port %q is not a member of network %q", port, nw.ID)
+			}
+
+			for _, con := range sw.MachineConnections {
+				if con.Nic.Name == port {
+					return nil, errorutil.InvalidArgument("port %q of rack %q is not an external member as it is connected to machine %q", port, req.Rack, con.MachineId)
+				}
+			}
+
+			nic.Vrf = nil
+		}
+
+		switches = append(switches, sw)
+	}
+
+	for _, sw := range switches {
+		_, err := r.s.Switch().Update(ctx, sw.Id, &adminv2.SwitchServiceUpdateRequest{
+			Id:   sw.Id,
+			Nics: sw.Nics,
+			UpdateMeta: &apiv2.UpdateMeta{
+				LockingStrategy: apiv2.OptimisticLockingStrategy_OPTIMISTIC_LOCKING_STRATEGY_SERVER,
+			},
+		})
+		if err != nil {
+			return nil, errorutil.Internal("failed to update switch %q: %w", sw.Id, err)
+		}
+	}
+
+	return switches, nil
 }
 
 func (r *networkRepository) toProtoChildPrefixLength(childPrefixLength metal.ChildPrefixLength) (*apiv2.ChildPrefixLength, error) {
