@@ -2439,9 +2439,9 @@ func Test_networkServiceServer_ListExternalMembers(t *testing.T) {
 		ctx = t.Context()
 	)
 
-	spec := &sc.SwitchesWithExternalNetworkMembers
+	spec, err := sc.SwitchesWithExternalNetworkMembers.DeepCopy()
+	require.NoError(t, err)
 
-	// FIXME: allow adding vrf to port during initialization
 	spec.Switches[0].Nics[0].Vrf = new("Vrf100")
 	spec.Switches[1].Nics[0].Vrf = new("Vrf100")
 	spec.Switches[0].Nics[1].Vrf = new("Vrf100")
@@ -2630,15 +2630,17 @@ func Test_networkServiceServer_AddExternalMember(t *testing.T) {
 	dc := test.NewDatacenter(t, log)
 	defer dc.Close()
 
-	spec := &sc.SwitchesWithExternalNetworkMembers
+	spec, err := sc.SwitchesWithExternalNetworkMembers.DeepCopy()
+	require.NoError(t, err)
+
 	spec.Switches[4].Nics[0].Vrf = new("Vrf100")
 	spec.Switches[5].Nics[0].Vrf = new("Vrf100")
 	dc.Create(spec)
 
 	tests := []struct {
 		name    string
-		mods    func() *test.Asserters
 		req     func() *adminv2.NetworkServiceAddExternalMembersRequest
+		mods    func() *test.Asserters
 		want    func() *adminv2.NetworkServiceAddExternalMembersResponse
 		wantErr error
 	}{
@@ -2809,7 +2811,9 @@ func Test_networkServiceServer_RemoveExternalMember(t *testing.T) {
 	dc := test.NewDatacenter(t, log)
 	defer dc.Close()
 
-	spec := &sc.SwitchesWithExternalNetworkMembers
+	spec, err := sc.SwitchesWithExternalNetworkMembers.DeepCopy()
+	require.NoError(t, err)
+
 	spec.Switches[0].Nics[0].Vrf = new("Vrf100")
 	spec.Switches[1].Nics[0].Vrf = new("Vrf100")
 	spec.Switches[1].Nics[2].Vrf = new("Vrf100")

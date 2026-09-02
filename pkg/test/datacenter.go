@@ -2,7 +2,6 @@ package test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -506,54 +505,41 @@ func (e *Entities) deepCopy() (*Entities, error) {
 		err    error
 	)
 
-	if copied.Tenants, err = deepCopy(e.Tenants); err != nil {
+	if copied.Tenants, err = scenarios.DeepCopy(e.Tenants); err != nil {
 		return nil, err
 	}
-	if copied.Projects, err = deepCopy(e.Projects); err != nil {
+	if copied.Projects, err = scenarios.DeepCopy(e.Projects); err != nil {
 		return nil, err
 	}
-	if copied.Partitions, err = deepCopy(e.Partitions); err != nil {
+	if copied.Partitions, err = scenarios.DeepCopy(e.Partitions); err != nil {
 		return nil, err
 	}
-	if copied.Sizes, err = deepCopy(e.Sizes); err != nil {
+	if copied.Sizes, err = scenarios.DeepCopy(e.Sizes); err != nil {
 		return nil, err
 	}
-	if copied.FilesystemLayouts, err = deepCopy(e.FilesystemLayouts); err != nil {
+	if copied.FilesystemLayouts, err = scenarios.DeepCopy(e.FilesystemLayouts); err != nil {
 		return nil, err
 	}
-	if copied.Networks, err = deepCopy(e.Networks); err != nil {
+	if copied.Networks, err = scenarios.DeepCopy(e.Networks); err != nil {
 		return nil, err
 	}
-	if copied.Ips, err = deepCopy(e.Ips); err != nil {
+	if copied.Ips, err = scenarios.DeepCopy(e.Ips); err != nil {
 		return nil, err
 	}
-	if copied.Images, err = deepCopy(e.Images); err != nil {
+	if copied.Images, err = scenarios.DeepCopy(e.Images); err != nil {
 		return nil, err
 	}
-	if copied.Switches, err = deepCopy(e.Switches); err != nil {
+	if copied.Switches, err = scenarios.DeepCopy(e.Switches); err != nil {
 		return nil, err
 	}
-	if copied.SwitchStatuses, err = deepCopy(e.SwitchStatuses); err != nil {
+	if copied.SwitchStatuses, err = scenarios.DeepCopy(e.SwitchStatuses); err != nil {
 		return nil, err
 	}
-	if copied.Machines, err = deepCopy(e.Machines); err != nil {
+	if copied.Machines, err = scenarios.DeepCopy(e.Machines); err != nil {
 		return nil, err
 	}
 
 	return copied, nil
-}
-
-func deepCopy[T any](in T) (T, error) {
-	var out T
-	bytes, err := json.Marshal(in)
-	if err != nil {
-		return out, err
-	}
-	err = json.Unmarshal(bytes, &out)
-	if err != nil {
-		return out, err
-	}
-	return out, nil
 }
 
 func getCurrentEntities(ctx context.Context, store *testStore) (*Entities, error) {
