@@ -45,6 +45,7 @@ func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServ
 		if req.Switch.ReplaceMode == apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_UNSPECIFIED {
 			req.Switch.ReplaceMode = apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL
 		}
+		defaultNicMemberships(req.Switch.Nics)
 		return r.s.Switch().Create(ctx, &api.SwitchServiceCreateRequest{Switch: req.Switch})
 	}
 
@@ -85,6 +86,7 @@ func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServ
 	if req.Switch.ReplaceMode == apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_UNSPECIFIED && sw.ReplaceMode == "" {
 		updateReq.ReplaceMode = apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL.Enum()
 	}
+	defaultNicMemberships(updateReq.Nics)
 
 	err = r.validateUpdate(ctx, updateReq, sw)
 	if err != nil {
@@ -906,7 +908,7 @@ func (r *switchRepository) updateOnRegister(ctx context.Context, sw *metal.Switc
 		if err != nil {
 			return nil, err
 		}
-		sw.Nics = updateNicNames(sw.Nics, nics)
+		sw.Nics = updateNics(sw.Nics, nics)
 	}
 
 	err = r.s.ds.Switch().Update(ctx, sw)
@@ -1122,7 +1124,7 @@ func convertMachineConnections(machineConnections metal.ConnectionMap, nics []*a
 	return connections, nil
 }
 
-func updateNicNames(old, new metal.Nics) metal.Nics {
+func updateNics(old, new metal.Nics) metal.Nics {
 	var (
 		updated metal.Nics
 		oldNics = old.MapByIdentifier()
@@ -1138,6 +1140,11 @@ func updateNicNames(old, new metal.Nics) metal.Nics {
 
 		updatedNic := *oldNic
 		updatedNic.Name = newNic.Name
+
+		if updatedNic.Membership == "" {
+			updatedNic.Membership = metal.SwitchPortMembershipUnmanaged
+		}
+
 		updated = append(updated, updatedNic)
 	}
 
@@ -1586,4 +1593,12 @@ func nicInConnections(name string, mac string, connections metal.Connections) bo
 		}
 	}
 	return false
+}
+
+func defaultNicMemberships(switchNics []*apiv2.SwitchNic) {
+	for _, nic := range switchNics {
+		if nic.Membership == apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNSPECIFIED {
+			nic.Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED
+		}
+	}
 }

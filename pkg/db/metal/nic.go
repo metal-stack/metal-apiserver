@@ -4,14 +4,15 @@ import "github.com/samber/lo"
 
 type (
 	Nic struct {
-		MacAddress   string              `rethinkdb:"macAddress"`
-		Name         string              `rethinkdb:"name"`
-		Identifier   string              `rethinkdb:"identifier"`
-		Vrf          string              `rethinkdb:"vrf"`
-		Neighbors    Nics                `rethinkdb:"neighbors"`
-		Hostname     string              `rethinkdb:"hostname"`
-		State        *NicState           `rethinkdb:"state"`
-		BGPPortState *SwitchBGPPortState `rethinkdb:"bgpPortState"`
+		MacAddress   string               `rethinkdb:"macAddress"`
+		Name         string               `rethinkdb:"name"`
+		Identifier   string               `rethinkdb:"identifier"`
+		Vrf          string               `rethinkdb:"vrf"`
+		Neighbors    Nics                 `rethinkdb:"neighbors"`
+		Hostname     string               `rethinkdb:"hostname"`
+		State        *NicState            `rethinkdb:"state"`
+		BGPPortState *SwitchBGPPortState  `rethinkdb:"bgpPortState"`
+		Membership   SwitchPortMembership `rethinkdb:"membership"`
 	}
 
 	Nics []Nic
@@ -23,8 +24,9 @@ type (
 		Actual  SwitchPortStatus  `rethinkdb:"actual"`
 	}
 
-	BGPState         string
-	SwitchPortStatus string
+	BGPState             string
+	SwitchPortStatus     string
+	SwitchPortMembership string
 )
 
 const (
@@ -37,9 +39,15 @@ const (
 )
 
 const (
-	SwitchPortStatusUnknown SwitchPortStatus = "UNKNOWN"
-	SwitchPortStatusUp      SwitchPortStatus = "UP"
-	SwitchPortStatusDown    SwitchPortStatus = "DOWN"
+	SwitchPortStatusUnknown = SwitchPortStatus("UNKNOWN")
+	SwitchPortStatusUp      = SwitchPortStatus("UP")
+	SwitchPortStatusDown    = SwitchPortStatus("DOWN")
+)
+
+const (
+	SwitchPortMembershipUnmanaged = SwitchPortMembership("unmanaged")
+	SwitchPortMembershipInternal  = SwitchPortMembership("internal")
+	SwitchPortMembershipExternal  = SwitchPortMembership("external")
 )
 
 func (nics Nics) MapByIdentifier() NicMap {

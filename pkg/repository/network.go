@@ -505,6 +505,7 @@ func (r *networkRepository) ListExternalMembers(ctx context.Context, req *adminv
 	return members, nil
 }
 
+// FIXME: validate network type: only child, child_shared and external
 func (r *networkRepository) AddExternalMembers(ctx context.Context, req *adminv2.NetworkServiceAddExternalMembersRequest) ([]*apiv2.Switch, error) {
 	var switches []*apiv2.Switch
 

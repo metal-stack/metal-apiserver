@@ -77,7 +77,7 @@ func Test_updateNics(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := updateNicNames(tt.old, tt.new)
+			got := updateNics(tt.old, tt.new)
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("updateNics() diff = %s", diff)
 			}
