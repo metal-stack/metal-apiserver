@@ -633,32 +633,43 @@ func (r *networkRepository) createChildPrefix(ctx context.Context, namespace *st
 		errs []error
 	)
 
+	// Make sure the namespace exists before touching any prefixes in it.
+	// For namespaced supers this is the project namespace, for non-namespaced supers
+	// the default namespace (which always exists) is used.
 	if namespace != nil {
 		_, err := r.s.ipam.CreateNamespace(ctx, &ipamv1.CreateNamespaceRequest{Namespace: *namespace})
 		if err != nil {
 			return nil, errorutil.Internal("unable to create namespace:%v", err)
 		}
-		for _, parentPrefix := range parentPrefixes.OfFamily(af) {
-			_, err := r.s.ipam.GetPrefix(ctx, &ipamv1.GetPrefixRequest{
-				Cidr:      parentPrefix.String(),
-				Namespace: namespace,
-			})
-			if err == nil {
-				continue
-			}
-			if !errorutil.IsNotFound(err) {
-				return nil, errorutil.Internal("unable to get prefix %s from super network in ipam:%v", parentPrefix.String(), err)
-			}
+	}
 
-			_, err = r.s.ipam.CreatePrefix(ctx, &ipamv1.CreatePrefixRequest{
-				Cidr:      parentPrefix.String(),
-				Namespace: namespace,
-			})
-			if err != nil {
-				return nil, errorutil.Internal("unable to create namespaced super network:%v", err)
-			}
+	// Ensure the parent prefixes are present in the target namespace before
+	// acquiring a child prefix from them. This must not only be done for
+	// namespaced supers: go-ipam maps a missing parent prefix during
+	// AcquireChildPrefix to InvalidArgument (not NotFound), so without this
+	// a transiently missing parent would surface as a hard internal error
+	// instead of being allocated deterministically.
+	for _, parentPrefix := range parentPrefixes.OfFamily(af) {
+		_, err := r.s.ipam.GetPrefix(ctx, &ipamv1.GetPrefixRequest{
+			Cidr:      parentPrefix.String(),
+			Namespace: namespace,
+		})
+		if err == nil {
+			continue
+		}
+		if !errorutil.IsNotFound(err) {
+			return nil, errorutil.Internal("unable to get prefix %s from super network in ipam:%w", parentPrefix.String(), err)
+		}
+
+		_, err = r.s.ipam.CreatePrefix(ctx, &ipamv1.CreatePrefixRequest{
+			Cidr:      parentPrefix.String(),
+			Namespace: namespace,
+		})
+		if err != nil {
+			return nil, errorutil.Internal("unable to create parent prefix %s from super network in ipam:%w", parentPrefix.String(), err)
 		}
 	}
+
 	for _, parentPrefix := range parentPrefixes.OfFamily(af) {
 		resp, err := r.s.ipam.AcquireChildPrefix(ctx, &ipamv1.AcquireChildPrefixRequest{
 			Cidr:      parentPrefix.String(),
