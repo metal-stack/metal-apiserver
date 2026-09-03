@@ -145,6 +145,22 @@ func FromBGPState(state BGPState) (apiv2.BGPState, error) {
 	return apiv2State, nil
 }
 
+func ToMembership(membership apiv2.SwitchPortMembership) (SwitchPortMembership, error) {
+	strVal, err := enum.GetStringValue(membership)
+	if err != nil {
+		return SwitchPortMembership(""), err
+	}
+	return SwitchPortMembership(*strVal), nil
+}
+
+func FromMembership(membership SwitchPortMembership) (apiv2.SwitchPortMembership, error) {
+	apiv2Membership, err := enum.GetEnum[apiv2.SwitchPortMembership](string(membership))
+	if err != nil {
+		return apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNSPECIFIED, err
+	}
+	return apiv2Membership, nil
+}
+
 func (c ConnectionMap) ByNicName() (map[string]Connection, error) {
 	res := make(map[string]Connection)
 	for _, cons := range c {

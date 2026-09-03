@@ -1041,6 +1041,11 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 			return nil, errorutil.FailedPrecondition("both, identifier and mac address, of nic %s are empty which is not allowed", nic.Name)
 		}
 
+		membership, err := metal.FromMembership(nic.Membership)
+		if err != nil {
+			return nil, errorutil.Internal("failed to convert membership of nic %q: %w", nic.Name, err)
+		}
+
 		switchNics = append(switchNics, &apiv2.SwitchNic{
 			Name:       nic.Name,
 			Identifier: identifier,
@@ -1052,6 +1057,7 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 			},
 			BgpFilter:    filter,
 			BgpPortState: bgpPortState,
+			Membership:   membership,
 		})
 	}
 
@@ -1347,6 +1353,11 @@ func toMetalNic(switchNic *apiv2.SwitchNic, hostname string) (*metal.Nic, error)
 		return nil, fmt.Errorf("failed to convert port state: %w", err)
 	}
 
+	membership, err := metal.ToMembership(switchNic.Membership)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert membership of nic %q: %w", switchNic.Name, err)
+	}
+
 	return &metal.Nic{
 		Name:         switchNic.Name,
 		Hostname:     hostname,
@@ -1355,6 +1366,7 @@ func toMetalNic(switchNic *apiv2.SwitchNic, hostname string) (*metal.Nic, error)
 		Vrf:          pointer.SafeDeref(switchNic.Vrf),
 		State:        nicState,
 		BGPPortState: bgpPortState,
+		Membership:   membership,
 	}, nil
 }
 
