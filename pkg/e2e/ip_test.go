@@ -1,8 +1,6 @@
 package e2e
 
 import (
-	"log/slog"
-	"os"
 	"testing"
 	"time"
 
@@ -15,9 +13,8 @@ import (
 )
 
 func TestIPCreate(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	userName := t.Name()
-	baseURL, adminToken, tenantTokenSecrets, closer := StartApiserver(t, log, userName)
+	log, baseURL, adminToken, tenantTokenSecrets, closer := StartApiserver(t, userName)
 	defer closer()
 	require.NotNil(t, baseURL, adminToken)
 	log.Info("token", "secret", tenantTokenSecrets[userName])

@@ -1,8 +1,6 @@
 package admin
 
 import (
-	"log/slog"
-	"os"
 	"slices"
 	"strings"
 	"testing"
@@ -23,7 +21,6 @@ import (
 
 func Test_switchServiceServer_Get(t *testing.T) {
 	var (
-		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 		ctx = t.Context()
 	)
 
@@ -55,7 +52,8 @@ func Test_switchServiceServer_Get(t *testing.T) {
 		},
 	}
 
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 	dc.Create(&sc.SwitchesWithMachinesDatacenter)
 
@@ -95,7 +93,6 @@ func Test_switchServiceServer_Get(t *testing.T) {
 
 func Test_switchServiceServer_List(t *testing.T) {
 	var (
-		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 		ctx = t.Context()
 	)
 
@@ -207,7 +204,8 @@ func Test_switchServiceServer_List(t *testing.T) {
 		},
 	}
 
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 	dc.Create(&sc.SwitchesWithMachinesDatacenter)
 
@@ -242,7 +240,6 @@ func Test_switchServiceServer_List(t *testing.T) {
 
 func Test_switchServiceServer_Update(t *testing.T) {
 	var (
-		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 		ctx = t.Context()
 		now = time.Now()
 	)
@@ -446,7 +443,8 @@ func Test_switchServiceServer_Update(t *testing.T) {
 		},
 	}
 
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 
 	for _, tt := range tests {
@@ -499,7 +497,6 @@ func Test_switchServiceServer_Update(t *testing.T) {
 
 func Test_switchServiceServer_Delete(t *testing.T) {
 	var (
-		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 		ctx = t.Context()
 	)
 
@@ -573,7 +570,8 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 		},
 	}
 
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 
 	for _, tt := range tests {
@@ -619,7 +617,6 @@ func Test_switchServiceServer_Delete(t *testing.T) {
 
 func Test_switchServiceServer_Port(t *testing.T) {
 	var (
-		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 		ctx = t.Context()
 	)
 
@@ -718,7 +715,8 @@ func Test_switchServiceServer_Port(t *testing.T) {
 		},
 	}
 
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 
 	for _, tt := range tests {
@@ -764,7 +762,6 @@ func Test_switchServiceServer_Port(t *testing.T) {
 
 func Test_switchServiceServer_Migrate(t *testing.T) {
 	var (
-		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 		ctx = t.Context()
 	)
 
@@ -888,7 +885,8 @@ func Test_switchServiceServer_Migrate(t *testing.T) {
 		},
 	}
 
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 
 	for _, tt := range tests {
@@ -934,7 +932,6 @@ func Test_switchServiceServer_Migrate(t *testing.T) {
 
 func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 	var (
-		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 		ctx = t.Context()
 	)
 
@@ -1599,7 +1596,8 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 		},
 	}
 
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 	dc.Create(&sc.SwitchesWithMachinesDatacenter)
 

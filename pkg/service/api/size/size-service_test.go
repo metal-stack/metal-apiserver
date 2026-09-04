@@ -1,8 +1,6 @@
 package size
 
 import (
-	"log/slog"
-	"os"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -16,9 +14,8 @@ import (
 func Test_sizeServiceServer_Get(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
+	log := testStore.GetLogger()
 	defer closer()
 
 	ctx := t.Context()
@@ -96,9 +93,8 @@ func Test_sizeServiceServer_Get(t *testing.T) {
 func Test_sizeServiceServer_List(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
+	log := testStore.GetLogger()
 	defer closer()
 
 	ctx := t.Context()

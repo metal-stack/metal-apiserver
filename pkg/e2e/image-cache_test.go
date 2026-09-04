@@ -1,8 +1,6 @@
 package e2e
 
 import (
-	"log/slog"
-	"os"
 	"testing"
 	"time"
 
@@ -17,8 +15,7 @@ import (
 
 func TestImageCacheServiceToken(t *testing.T) {
 	t.Parallel()
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	baseURL, adminToken, tenantTokenSecrets, closer := StartApiserver(t, log, "metal-image-cache-sync")
+	log, baseURL, adminToken, tenantTokenSecrets, closer := StartApiserver(t, "metal-image-cache-sync")
 	defer closer()
 	require.NotNil(t, baseURL, adminToken)
 	log.Info("token", "secret", tenantTokenSecrets["metal-image-cache-sync"])

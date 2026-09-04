@@ -1,8 +1,6 @@
 package admin
 
 import (
-	"log/slog"
-	"os"
 	"testing"
 	"time"
 
@@ -24,9 +22,8 @@ var (
 func Test_projectServiceServer_List(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
+	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithPostgres(true))
+	log := testStore.GetLogger()
 	defer closer()
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{

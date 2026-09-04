@@ -1,8 +1,6 @@
 package method_test
 
 import (
-	"log/slog"
-	"os"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -22,9 +20,8 @@ import (
 func Test_methodServiceServer_List(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
+	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithPostgres(true))
+	log := testStore.GetLogger()
 	defer closer()
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{

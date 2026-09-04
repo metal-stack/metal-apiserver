@@ -1,8 +1,6 @@
 package repository_test
 
 import (
-	"log/slog"
-	"os"
 	"sort"
 	"testing"
 
@@ -17,9 +15,7 @@ import (
 func Test_projectRepository_GetProjectsAndTenants(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
+	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithPostgres(true))
 	defer closer()
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{

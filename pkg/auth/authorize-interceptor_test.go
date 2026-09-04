@@ -3,10 +3,8 @@ package auth
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 	"time"
 
@@ -30,9 +28,8 @@ type interceptorTestFn func(string, []connect.Interceptor, func(context.Context)
 func Test_authorizeInterceptor_WrapUnary(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
+	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithPostgres(true))
+	log := testStore.GetLogger()
 	defer closer()
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{

@@ -1,8 +1,6 @@
 package infra
 
 import (
-	"log/slog"
-	"os"
 	"testing"
 	"time"
 
@@ -22,7 +20,6 @@ import (
 )
 
 func Test_switchServiceServer_Register(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
 	tests := []struct {
@@ -395,7 +392,8 @@ func Test_switchServiceServer_Register(t *testing.T) {
 		},
 	}
 
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 
 	for _, tt := range tests {
@@ -443,7 +441,6 @@ func Test_switchServiceServer_Register(t *testing.T) {
 }
 
 func Test_switchServiceServer_Get(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
 	tests := []struct {
@@ -474,7 +471,8 @@ func Test_switchServiceServer_Get(t *testing.T) {
 		},
 	}
 
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 	dc.Create(&sc.SwitchesWithMachinesDatacenter)
 
@@ -512,7 +510,6 @@ func Test_switchServiceServer_Get(t *testing.T) {
 }
 
 func Test_switchServiceServer_Heartbeat(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
 	tests := []struct {
@@ -767,7 +764,8 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 		},
 	}
 
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 
 	for _, tt := range tests {
@@ -832,10 +830,9 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 
 // added this test here because using testStore inside the repository package creates an import cycle
 func Test_switchRepository_ConnectMachineWithSwitches(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
 	defer dc.Close()
 
 	tests := []struct {

@@ -1,8 +1,6 @@
 package sizeimageconstraint
 
 import (
-	"log/slog"
-	"os"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -16,9 +14,8 @@ import (
 func Test_sizeImageConstraintServiceServer_Try(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
 	dc.Create(&sc.DatacenterSpec{
 		Sizes:  sc.DefaultDatacenter.Sizes,
 		Images: sc.DefaultDatacenter.Images,

@@ -2,7 +2,6 @@ package admin
 
 import (
 	"log/slog"
-	"os"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -18,9 +17,7 @@ import (
 func Test_filesystemServiceServer_Create(t *testing.T) {
 	t.Parallel()
 
-	log := slog.Default()
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
 	defer closer()
 
 	tests := []struct {
@@ -104,7 +101,7 @@ func Test_filesystemServiceServer_Create(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f := &filesystemServiceServer{
-				log:  log,
+				log:  testStore.GetLogger(),
 				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
@@ -133,7 +130,7 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 
 	log := slog.Default()
 
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
 	defer closer()
 
 	fslMap := test.CreateFilesystemLayouts(t, testStore, []*adminv2.FilesystemServiceCreateRequest{
@@ -235,8 +232,8 @@ func Test_filesystemServiceServer_Update(t *testing.T) {
 func Test_filesystemServiceServer_Delete(t *testing.T) {
 	t.Parallel()
 
-	log := slog.Default()
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
+	log := testStore.GetLogger()
 	defer closer()
 
 	test.CreateFilesystemLayouts(t, testStore, []*adminv2.FilesystemServiceCreateRequest{
@@ -358,9 +355,9 @@ func Test_filesystemServiceServer_Delete(t *testing.T) {
 
 func Test_filesystemServiceServer_Match(t *testing.T) {
 	t.Parallel()
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 	dc.Create(&sc.DefaultDatacenter)
 
@@ -435,9 +432,9 @@ func Test_filesystemServiceServer_Match(t *testing.T) {
 
 func Test_filesystemServiceServer_Try(t *testing.T) {
 	t.Parallel()
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 	dc.Create(&sc.DefaultDatacenter)
 

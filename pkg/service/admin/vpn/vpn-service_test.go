@@ -1,8 +1,6 @@
 package admin
 
 import (
-	"log/slog"
-	"os"
 	"testing"
 	"time"
 
@@ -23,9 +21,8 @@ var (
 func Test_vpnService_AuthKey(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-
-	testStore, repoCloser := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(false), test.WithHeadscale(true))
+	testStore, repoCloser := test.StartRepositoryWithCleanup(t, test.WithPostgres(false), test.WithHeadscale(true))
+	log := testStore.GetLogger()
 
 	defer func() {
 		repoCloser()

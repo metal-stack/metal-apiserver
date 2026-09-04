@@ -1,8 +1,6 @@
 package ip
 
 import (
-	"log/slog"
-	"os"
 	"testing"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
@@ -12,9 +10,8 @@ import (
 )
 
 func Benchmark_ipServiceServer_Create(b *testing.B) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
-
-	testStore, closer := test.StartRepositoryWithCleanup(b, log)
+	testStore, closer := test.StartRepositoryWithCleanup(b)
+	log := testStore.GetLogger()
 	defer closer()
 
 	ctx := b.Context()
