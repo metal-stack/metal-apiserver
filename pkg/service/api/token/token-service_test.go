@@ -2,7 +2,6 @@ package token_test
 
 import (
 	"context"
-	"log/slog"
 	"testing"
 	"time"
 
@@ -29,9 +28,8 @@ var (
 func Test_Create(t *testing.T) {
 	t.Parallel()
 
-	log := slog.Default()
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithValkey(true), test.WithPostgres(true))
+	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithValkey(true), test.WithPostgres(true))
+	log := testStore.GetLogger()
 	defer closer()
 
 	type state struct {
@@ -694,9 +692,8 @@ func Test_Create(t *testing.T) {
 func Test_Create_NoToken(t *testing.T) {
 	t.Parallel()
 
-	log := slog.Default()
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithValkey(true), test.WithPostgres(true))
+	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithValkey(true), test.WithPostgres(true))
+	log := testStore.GetLogger()
 	defer closer()
 
 	service := tokenservice.New(tokenservice.Config{
@@ -712,9 +709,8 @@ func Test_Create_NoToken(t *testing.T) {
 func Test_List(t *testing.T) {
 	t.Parallel()
 
-	log := slog.Default()
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
+	log := testStore.GetLogger()
 	defer closer()
 
 	type state struct {
@@ -1074,9 +1070,8 @@ func Test_List(t *testing.T) {
 func Test_Get(t *testing.T) {
 	t.Parallel()
 
-	log := slog.Default()
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
+	log := testStore.GetLogger()
 	defer closer()
 
 	type state struct {
@@ -1275,9 +1270,8 @@ func Test_Get(t *testing.T) {
 func Test_Revoke(t *testing.T) {
 	t.Parallel()
 
-	log := slog.Default()
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
+	log := testStore.GetLogger()
 	defer closer()
 
 	type state struct {
@@ -1539,10 +1533,10 @@ func Test_Revoke(t *testing.T) {
 func Test_Update(t *testing.T) {
 	t.Parallel()
 
-	log := slog.Default()
 	now := time.Now()
 
-	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithValkey(true), test.WithPostgres(true))
+	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithValkey(true), test.WithPostgres(true))
+	log := testStore.GetLogger()
 	defer closer()
 
 	type state struct {
@@ -2203,9 +2197,8 @@ func Test_Refresh(t *testing.T) {
 	iat := time.Now()
 	exp := iat.Add(time.Hour)
 
-	log := slog.Default()
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithValkey(true), test.WithPostgres(true))
+	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithValkey(true), test.WithPostgres(true))
+	log := testStore.GetLogger()
 	defer closer()
 
 	type state struct {

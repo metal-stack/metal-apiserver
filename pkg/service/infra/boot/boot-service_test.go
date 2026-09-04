@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -93,9 +92,8 @@ var (
 func Test_bootServiceServer_Boot(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
+	log := testStore.GetLogger()
 	defer closer()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -167,9 +165,8 @@ func Test_bootServiceServer_Boot(t *testing.T) {
 func Test_bootServiceServer_Dhcp(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
+	log := testStore.GetLogger()
 	defer closer()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -367,9 +364,7 @@ func Test_bootServiceServer_SuperUserPassword(t *testing.T) {
 func Test_bootServiceServer_Register(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
 	defer closer()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -736,9 +731,7 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 	// TODO this test is only completely useful if the register call is also done before to have the machine connections in the switch.
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
 	defer closer()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

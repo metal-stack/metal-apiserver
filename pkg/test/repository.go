@@ -2,6 +2,7 @@ package test
 
 import (
 	"log/slog"
+	"os"
 	"testing"
 	"time"
 
@@ -44,6 +45,7 @@ type (
 	testStore struct {
 		t testing.TB
 		*repository.Store
+		log           *slog.Logger
 		ds            generic.Datastore
 		dbName        string
 		queryExecutor *r.Session
@@ -138,7 +140,12 @@ func WithRenewCertBeforeExpiration(renew *time.Duration) *testOptRenewCertBefore
 	}
 }
 
-func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...testOpt) (*testStore, func()) {
+func StartRepositoryWithCleanup(t testing.TB, testOpts ...testOpt) (*testStore, func()) {
+	lvl := slog.LevelDebug
+	if os.Getenv("CI") != "" {
+		lvl = slog.LevelError
+	}
+
 	var (
 		withPostgres   = false
 		withValkey     = false
@@ -148,6 +155,7 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 
 		providerTenant            = DefaultProviderTenant
 		renewCertBeforeExpiration *time.Duration
+		log                       = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: lvl}))
 	)
 
 	for _, opt := range testOpts {
@@ -275,6 +283,7 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 	return &testStore{
 		t:                      t,
 		Store:                  repo,
+		log:                    log,
 		ds:                     ds,
 		dbName:                 opts.Database,
 		queryExecutor:          session,
@@ -322,6 +331,10 @@ func (s *testStore) Cleanup(t testing.TB) {
 	for _, tok := range toks {
 		require.NoError(t, s.tokenStore.Revoke(t.Context(), tok.User, tok.Uuid))
 	}
+}
+
+func (t *testStore) GetLogger() *slog.Logger {
+	return t.log
 }
 
 func (t *testStore) GetDatastore() generic.Datastore {

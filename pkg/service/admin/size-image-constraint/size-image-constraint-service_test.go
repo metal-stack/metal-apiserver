@@ -1,8 +1,6 @@
 package admin
 
 import (
-	"log/slog"
-	"os"
 	"slices"
 	"strings"
 	"testing"
@@ -19,8 +17,8 @@ import (
 func Test_sizeImageConstraintServiceServer_Create(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 
 	tests := []struct {
@@ -83,8 +81,8 @@ func Test_sizeImageConstraintServiceServer_Create(t *testing.T) {
 func Test_sizeImageConstraintServiceServer_Delete(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 
 	dc.Create(&sc.DatacenterSpec{
@@ -165,8 +163,8 @@ func Test_sizeImageConstraintServiceServer_Delete(t *testing.T) {
 func Test_sizeImageConstraintServiceServer_Get(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 
 	dc.Create(&sc.DatacenterSpec{
@@ -246,8 +244,8 @@ func Test_sizeImageConstraintServiceServer_Get(t *testing.T) {
 func Test_sizeImageConstraintServiceServer_Update(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 
 	dc.Create(&sc.DatacenterSpec{
@@ -355,8 +353,8 @@ func Test_sizeImageConstraintServiceServer_Update(t *testing.T) {
 func Test_sizeImageConstraintServiceServer_List(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 
 	dc.Create(&sc.DatacenterSpec{
