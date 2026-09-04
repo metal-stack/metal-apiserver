@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
@@ -18,21 +17,6 @@ type Config struct {
 type networkServiceServer struct {
 	log  *slog.Logger
 	repo *repository.Store
-}
-
-// AddExternalMember implements [adminv2connect.NetworkServiceHandler].
-func (n *networkServiceServer) AddExternalMember(context.Context, *adminv2.NetworkServiceAddExternalMemberRequest) (*adminv2.NetworkServiceAddExternalMemberResponse, error) {
-	return nil, errorutil.Unimplemented("")
-}
-
-// ListExternalMembers implements [adminv2connect.NetworkServiceHandler].
-func (n *networkServiceServer) ListExternalMembers(context.Context, *adminv2.NetworkServiceListExternalMembersRequest) (*adminv2.NetworkServiceListExternalMembersResponse, error) {
-	return nil, errorutil.Unimplemented("")
-}
-
-// RemoveExternalMember implements [adminv2connect.NetworkServiceHandler].
-func (n *networkServiceServer) RemoveExternalMember(context.Context, *adminv2.NetworkServiceRemoveExternalMemberRequest) (*adminv2.NetworkServiceRemoveExternalMemberResponse, error) {
-	return nil, errorutil.Unimplemented("")
 }
 
 func New(c Config) adminv2connect.NetworkServiceHandler {
@@ -90,4 +74,34 @@ func (n *networkServiceServer) Update(ctx context.Context, req *adminv2.NetworkS
 	}
 
 	return &adminv2.NetworkServiceUpdateResponse{Network: nw}, nil
+}
+
+func (n *networkServiceServer) ListExternalMembers(ctx context.Context, req *adminv2.NetworkServiceListExternalMembersRequest) (*adminv2.NetworkServiceListExternalMembersResponse, error) {
+	members, err := n.repo.UnscopedNetwork().AdditionalMethods().ListExternalMembers(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	// FIXME: return network
+	return &adminv2.NetworkServiceListExternalMembersResponse{Members: members}, nil
+}
+
+func (n *networkServiceServer) AddExternalMembers(ctx context.Context, req *adminv2.NetworkServiceAddExternalMembersRequest) (*adminv2.NetworkServiceAddExternalMembersResponse, error) {
+	switchhes, err := n.repo.UnscopedNetwork().AdditionalMethods().AddExternalMembers(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	// FIXME: return network
+	return &adminv2.NetworkServiceAddExternalMembersResponse{Switches: switchhes}, nil
+}
+
+func (n *networkServiceServer) RemoveExternalMembers(ctx context.Context, req *adminv2.NetworkServiceRemoveExternalMembersRequest) (*adminv2.NetworkServiceRemoveExternalMembersResponse, error) {
+	switches, err := n.repo.UnscopedNetwork().AdditionalMethods().RemoveExternalMembers(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	// FIXME: return network
+	return &adminv2.NetworkServiceRemoveExternalMembersResponse{Switches: switches}, nil
 }

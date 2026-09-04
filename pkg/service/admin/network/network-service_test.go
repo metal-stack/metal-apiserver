@@ -5,7 +5,11 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
+	"strings"
 	"testing"
+
+	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/metal-stack/api/go/errorutil"
@@ -14,6 +18,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -2413,6 +2418,599 @@ func Test_networkServiceServer_Update(t *testing.T) {
 			); diff != "" {
 				t.Errorf("networkServiceServer.Update() = %v, want %vņdiff: %s", got, tt.want, diff)
 			}
+		})
+	}
+}
+
+func Test_networkServiceServer_ListExternalMembers(t *testing.T) {
+	ctx := t.Context()
+
+	spec, err := sc.SwitchesWithExternalNetworkMembers.DeepCopy()
+	require.NoError(t, err)
+
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[0], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL, "Ethernet0"))
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[0], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet1"))
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[1], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL, "Ethernet0"))
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[1], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet1"))
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[1], "Vrf99", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet120"))
+
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[2], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet0", "Ethernet1"))
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[3], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet0", "Ethernet1"))
+
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[4], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet0"))
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[5], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet0"))
+
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
+	defer dc.Close()
+	dc.Create(spec)
+
+	tests := []struct {
+		name    string
+		req     func() *adminv2.NetworkServiceListExternalMembersRequest
+		want    func() *adminv2.NetworkServiceListExternalMembersResponse
+		wantErr error
+	}{
+		{
+			name: "network not found",
+			req: func() *adminv2.NetworkServiceListExternalMembersRequest {
+				return &adminv2.NetworkServiceListExternalMembersRequest{
+					Network: "unknown-network",
+				}
+			},
+			wantErr: errorutil.NotFound(`no network with id "unknown-network" found`),
+		},
+		{
+			name: "list all",
+			req: func() *adminv2.NetworkServiceListExternalMembersRequest {
+				return &adminv2.NetworkServiceListExternalMembersRequest{
+					Network: sc.NetworkExternal,
+				}
+			},
+			want: func() *adminv2.NetworkServiceListExternalMembersResponse {
+				return &adminv2.NetworkServiceListExternalMembersResponse{
+					Members: []*apiv2.ExternalNetworkMember{
+						{
+							Switch: sc.P01Rack01Switch1,
+							Ports:  []string{"Ethernet1"},
+						},
+						{
+							Switch: sc.P01Rack01Switch2,
+							Ports:  []string{"Ethernet1"},
+						},
+						{
+							Switch: sc.P01Rack02Switch1,
+							Ports:  []string{"Ethernet0", "Ethernet1"},
+						},
+						{
+							Switch: sc.P01Rack02Switch2,
+							Ports:  []string{"Ethernet0", "Ethernet1"},
+						},
+						{
+							Switch: sc.P02Rack01Switch1,
+							Ports:  []string{"Ethernet0"},
+						},
+						{
+							Switch: sc.P02Rack01Switch2,
+							Ports:  []string{"Ethernet0"},
+						},
+					},
+				}
+			},
+		},
+		{
+			name: "list by partition",
+			req: func() *adminv2.NetworkServiceListExternalMembersRequest {
+				return &adminv2.NetworkServiceListExternalMembersRequest{
+					Network: sc.NetworkExternal,
+					Query: &apiv2.ExternalNetworkMemberQuery{
+						Partition: new(sc.Partition1),
+					},
+				}
+			},
+			want: func() *adminv2.NetworkServiceListExternalMembersResponse {
+				return &adminv2.NetworkServiceListExternalMembersResponse{
+					Members: []*apiv2.ExternalNetworkMember{
+						{
+							Switch: sc.P01Rack01Switch1,
+							Ports:  []string{"Ethernet1"},
+						},
+						{
+							Switch: sc.P01Rack01Switch2,
+							Ports:  []string{"Ethernet1"},
+						},
+						{
+							Switch: sc.P01Rack02Switch1,
+							Ports:  []string{"Ethernet0", "Ethernet1"},
+						},
+						{
+							Switch: sc.P01Rack02Switch2,
+							Ports:  []string{"Ethernet0", "Ethernet1"},
+						},
+					},
+				}
+			},
+		},
+		{
+			name: "list by rack",
+			req: func() *adminv2.NetworkServiceListExternalMembersRequest {
+				return &adminv2.NetworkServiceListExternalMembersRequest{
+					Network: sc.NetworkExternal,
+					Query: &apiv2.ExternalNetworkMemberQuery{
+						Rack: new(sc.P01Rack02),
+					},
+				}
+			},
+			want: func() *adminv2.NetworkServiceListExternalMembersResponse {
+				return &adminv2.NetworkServiceListExternalMembersResponse{
+					Members: []*apiv2.ExternalNetworkMember{
+						{
+							Switch: sc.P01Rack02Switch1,
+							Ports:  []string{"Ethernet0", "Ethernet1"},
+						},
+						{
+							Switch: sc.P01Rack02Switch2,
+							Ports:  []string{"Ethernet0", "Ethernet1"},
+						},
+					},
+				}
+			},
+		},
+		{
+			name: "list by switch",
+			req: func() *adminv2.NetworkServiceListExternalMembersRequest {
+				return &adminv2.NetworkServiceListExternalMembersRequest{
+					Network: sc.NetworkExternal,
+					Query: &apiv2.ExternalNetworkMemberQuery{
+						Switch: new(sc.P01Rack02Switch2),
+					},
+				}
+			},
+			want: func() *adminv2.NetworkServiceListExternalMembersResponse {
+				return &adminv2.NetworkServiceListExternalMembersResponse{
+					Members: []*apiv2.ExternalNetworkMember{
+						{
+							Switch: sc.P01Rack02Switch2,
+							Ports:  []string{"Ethernet0", "Ethernet1"},
+						},
+					},
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			n := &networkServiceServer{
+				log:  log,
+				repo: dc.GetTestStore().Store,
+			}
+
+			var (
+				req  *adminv2.NetworkServiceListExternalMembersRequest
+				want *adminv2.NetworkServiceListExternalMembersResponse
+			)
+
+			if tt.req != nil {
+				req = tt.req()
+			}
+			if tt.want != nil {
+				want = tt.want()
+			}
+
+			test.Validate(t, req)
+			got, err := n.ListExternalMembers(ctx, req)
+			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("networkServiceServer.ListExternalMembers() error diff = %s", diff)
+				return
+			}
+
+			if tt.wantErr != nil {
+				return
+			}
+
+			slices.SortFunc(got.Members, func(a, b *apiv2.ExternalNetworkMember) int {
+				return strings.Compare(a.Switch, b.Switch)
+			})
+
+			if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
+				t.Errorf("networkServiceServer.ListExternalMembers() diff = %s", diff)
+			}
+
+			err = dc.Assert(nil)
+			require.NoError(t, err)
+		})
+	}
+}
+
+func Test_networkServiceServer_AddExternalMember(t *testing.T) {
+	ctx := t.Context()
+
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
+	defer dc.Close()
+
+	spec, err := sc.SwitchesWithExternalNetworkMembers.DeepCopy()
+	require.NoError(t, err)
+
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[0], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL, "Ethernet0"))
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[1], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL, "Ethernet0"))
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[4], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet0"))
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[5], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet0"))
+
+	dc.Create(spec)
+
+	tests := []struct {
+		name    string
+		req     func() *adminv2.NetworkServiceAddExternalMembersRequest
+		mods    func() *test.Asserters
+		want    func() *adminv2.NetworkServiceAddExternalMembersResponse
+		wantErr error
+	}{
+		{
+			name: "network not found",
+			req: func() *adminv2.NetworkServiceAddExternalMembersRequest {
+				return &adminv2.NetworkServiceAddExternalMembersRequest{
+					Network: "unknown-network",
+					Rack:    sc.P01Rack01,
+				}
+			},
+			wantErr: errorutil.NotFound(`no network with id "unknown-network" found`),
+		},
+		{
+			name: "cannot add external members to underlay network",
+			req: func() *adminv2.NetworkServiceAddExternalMembersRequest {
+				return &adminv2.NetworkServiceAddExternalMembersRequest{
+					Network: sc.NetworkUnderlayPartition1,
+					Rack:    sc.P01Rack02,
+					Ports:   []string{"Ethernet0", "Ethernet1"},
+				}
+			},
+			wantErr: errorutil.InvalidArgument(`cannot add external members to network of type %q`, apiv2.NetworkType_NETWORK_TYPE_UNDERLAY),
+		},
+		{
+			name: "cannot add external members to super network",
+			req: func() *adminv2.NetworkServiceAddExternalMembersRequest {
+				return &adminv2.NetworkServiceAddExternalMembersRequest{
+					Network: sc.NetworkSuper,
+					Rack:    sc.P01Rack02,
+					Ports:   []string{"Ethernet0", "Ethernet1"},
+				}
+			},
+			wantErr: errorutil.InvalidArgument(`cannot add external members to network of type %q`, apiv2.NetworkType_NETWORK_TYPE_SUPER),
+		},
+		{
+			name: "cannot add external members to super namespaced network",
+			req: func() *adminv2.NetworkServiceAddExternalMembersRequest {
+				return &adminv2.NetworkServiceAddExternalMembersRequest{
+					Network: sc.NetworkSuperNamespaced,
+					Rack:    sc.P01Rack02,
+					Ports:   []string{"Ethernet0", "Ethernet1"},
+				}
+			},
+			wantErr: errorutil.InvalidArgument(`cannot add external members to network of type %q`, apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED),
+		},
+		{
+			name: "no switches in rack found",
+			req: func() *adminv2.NetworkServiceAddExternalMembersRequest {
+				return &adminv2.NetworkServiceAddExternalMembersRequest{
+					Network: sc.NetworkNameTenantPartition1,
+					Rack:    "unknown-rack",
+				}
+			},
+			wantErr: errorutil.NotFound(`no switches in rack "unknown-rack" found`),
+		},
+		{
+			name: "add switches of different partition to partition scoped network fails",
+			req: func() *adminv2.NetworkServiceAddExternalMembersRequest {
+				return &adminv2.NetworkServiceAddExternalMembersRequest{
+					Network: sc.NetworkNameTenantPartition1,
+					Rack:    sc.P02Rack01,
+					Ports:   []string{"Ethernet0"},
+				}
+			},
+			wantErr: errorutil.InvalidArgument("cannot add switches of partition %q as members to network scoped to partition %q", sc.Partition2, sc.Partition1),
+		},
+		{
+			name: "invalid port",
+			req: func() *adminv2.NetworkServiceAddExternalMembersRequest {
+				return &adminv2.NetworkServiceAddExternalMembersRequest{
+					Network: sc.NetworkExternal,
+					Rack:    sc.P01Rack01,
+					Ports:   []string{"Ethernet120"},
+				}
+			},
+			wantErr: errorutil.NotFound(`port "Ethernet120" not found on switch %q`, sc.P01Rack01Switch1),
+		},
+		{
+			name: "cannot add internal port as external member",
+			req: func() *adminv2.NetworkServiceAddExternalMembersRequest {
+				return &adminv2.NetworkServiceAddExternalMembersRequest{
+					Network: sc.NetworkExternal,
+					Rack:    sc.P01Rack01,
+					Ports:   []string{"Ethernet0"},
+				}
+			},
+			wantErr: errorutil.InvalidArgument(`cannot add internal port "Ethernet0" of rack %q as external member`, sc.P01Rack01),
+		},
+		{
+			name: "trying to add port that is already members of a network fails",
+			req: func() *adminv2.NetworkServiceAddExternalMembersRequest {
+				return &adminv2.NetworkServiceAddExternalMembersRequest{
+					Network: sc.NetworkExternal,
+					Rack:    sc.P02Rack01,
+					Ports:   []string{"Ethernet0"},
+				}
+			},
+			wantErr: errorutil.InvalidArgument(`port "Ethernet0" of switches in rack %q is already member of network %q`, sc.P02Rack01, sc.NetworkExternal),
+		},
+		{
+			name: "successfully add externmal members",
+			req: func() *adminv2.NetworkServiceAddExternalMembersRequest {
+				return &adminv2.NetworkServiceAddExternalMembersRequest{
+					Network: sc.NetworkNameTenantPartition1,
+					Rack:    sc.P01Rack02,
+					Ports:   []string{"Ethernet0", "Ethernet1"},
+				}
+			},
+			mods: func() *test.Asserters {
+				return &test.Asserters{
+					Switches: func(switches map[string]*apiv2.Switch) {
+						sw1 := switches[sc.P01Rack02Switch1]
+						require.NotNil(t, sw1)
+						sw1.Nics[0].Vrf = new("Vrf99")
+						sw1.Nics[0].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL
+						sw1.Nics[1].Vrf = new("Vrf99")
+						sw1.Nics[1].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL
+
+						sw2 := switches[sc.P01Rack02Switch2]
+						require.NotNil(t, sw2)
+						sw2.Nics[0].Vrf = new("Vrf99")
+						sw2.Nics[0].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL
+						sw2.Nics[1].Vrf = new("Vrf99")
+						sw2.Nics[1].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL
+					},
+				}
+			},
+			want: func() *adminv2.NetworkServiceAddExternalMembersResponse {
+				allSwitches := dc.GetSwitches()
+
+				sw1 := allSwitches[sc.P01Rack02Switch1]
+				require.NotNil(t, sw1)
+				sw1.Nics[0].Vrf = new("Vrf99")
+				sw1.Nics[0].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL
+				sw1.Nics[1].Vrf = new("Vrf99")
+				sw1.Nics[1].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL
+
+				sw2 := allSwitches[sc.P01Rack02Switch2]
+				require.NotNil(t, sw2)
+				sw2.Nics[0].Vrf = new("Vrf99")
+				sw2.Nics[0].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL
+				sw2.Nics[1].Vrf = new("Vrf99")
+				sw2.Nics[1].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL
+
+				return &adminv2.NetworkServiceAddExternalMembersResponse{Switches: []*apiv2.Switch{sw1, sw2}}
+			},
+			wantErr: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			n := &networkServiceServer{
+				log:  log,
+				repo: dc.GetTestStore().Store,
+			}
+
+			var (
+				req  *adminv2.NetworkServiceAddExternalMembersRequest
+				want *adminv2.NetworkServiceAddExternalMembersResponse
+			)
+
+			if tt.req != nil {
+				req = tt.req()
+			}
+			if tt.want != nil {
+				want = tt.want()
+			}
+
+			test.Validate(t, req)
+			got, err := n.AddExternalMembers(ctx, req)
+			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("networkServiceServer.AddExternalMembers() error diff = %s", diff)
+				return
+			}
+
+			if tt.wantErr != nil {
+				return
+			}
+
+			slices.SortFunc(got.Switches, func(a, b *apiv2.Switch) int {
+				return strings.Compare(a.Id, b.Id)
+			})
+
+			if diff := cmp.Diff(want, got,
+				protocmp.Transform(),
+				protocmp.IgnoreFields(&apiv2.Meta{}, "created_at", "updated_at"),
+			); diff != "" {
+				t.Errorf("networkServiceServer.AddExternalMembers() diff = %s", diff)
+				return
+			}
+
+			var mods *test.Asserters
+			if tt.mods != nil {
+				mods = tt.mods()
+			}
+			err = dc.Assert(mods)
+			require.NoError(t, err)
+		})
+	}
+}
+
+func Test_networkServiceServer_RemoveExternalMember(t *testing.T) {
+	ctx := t.Context()
+
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
+	defer dc.Close()
+
+	spec, err := sc.SwitchesWithExternalNetworkMembers.DeepCopy()
+	require.NoError(t, err)
+
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[0], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL, "Ethernet0"))
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[1], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL, "Ethernet0"))
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[1], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet120"))
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[4], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet0", "Ethernet1"))
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[5], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet0", "Ethernet1"))
+	dc.Create(spec)
+
+	tests := []struct {
+		name    string
+		mods    func() *test.Asserters
+		req     func() *adminv2.NetworkServiceRemoveExternalMembersRequest
+		want    func() *adminv2.NetworkServiceRemoveExternalMembersResponse
+		wantErr error
+	}{
+		{
+			name: "network not found",
+			req: func() *adminv2.NetworkServiceRemoveExternalMembersRequest {
+				return &adminv2.NetworkServiceRemoveExternalMembersRequest{
+					Network: "unknown-network",
+					Rack:    sc.P01Rack01,
+				}
+			},
+			wantErr: errorutil.NotFound(`no network with id "unknown-network" found`),
+		},
+		{
+			name: "no switches in rack found",
+			req: func() *adminv2.NetworkServiceRemoveExternalMembersRequest {
+				return &adminv2.NetworkServiceRemoveExternalMembersRequest{
+					Network: sc.NetworkExternal,
+					Rack:    "unknown-rack",
+				}
+			},
+			wantErr: errorutil.NotFound(`no switches in rack "unknown-rack" found`),
+		},
+		{
+			name: "invalid port",
+			req: func() *adminv2.NetworkServiceRemoveExternalMembersRequest {
+				return &adminv2.NetworkServiceRemoveExternalMembersRequest{
+					Network: sc.NetworkExternal,
+					Rack:    sc.P01Rack01,
+					Ports:   []string{"Ethernet120"},
+				}
+			},
+			wantErr: errorutil.NotFound(`port "Ethernet120" not found on switch %q`, sc.P01Rack01Switch1),
+		},
+		{
+			name: "port is not member of the network",
+			req: func() *adminv2.NetworkServiceRemoveExternalMembersRequest {
+				return &adminv2.NetworkServiceRemoveExternalMembersRequest{
+					Network: sc.NetworkNameTenantPartition1,
+					Rack:    sc.P02Rack01,
+					Ports:   []string{"Ethernet0"},
+				}
+			},
+			wantErr: errorutil.InvalidArgument(`port "Ethernet0" is not a member of network %q`, sc.NetworkNameTenantPartition1),
+		},
+		{
+			name: "cannot remove port that is connected to a machine",
+			req: func() *adminv2.NetworkServiceRemoveExternalMembersRequest {
+				return &adminv2.NetworkServiceRemoveExternalMembersRequest{
+					Network: sc.NetworkExternal,
+					Rack:    sc.P01Rack01,
+					Ports:   []string{"Ethernet0"},
+				}
+			},
+			wantErr: errorutil.InvalidArgument(`port "Ethernet0" of rack %q is not an external member`, sc.P01Rack01),
+		},
+		{
+			name: "successfully remove network members",
+			mods: func() *test.Asserters {
+				return &test.Asserters{
+					Switches: func(switches map[string]*apiv2.Switch) {
+						sw1 := switches[sc.P02Rack01Switch1]
+						require.NotNil(t, sw1)
+						sw1.Nics[0].Vrf = nil
+						sw1.Nics[1].Vrf = nil
+
+						sw2 := switches[sc.P02Rack01Switch2]
+						require.NotNil(t, sw2)
+						sw2.Nics[0].Vrf = nil
+						sw2.Nics[1].Vrf = nil
+					},
+				}
+			},
+			req: func() *adminv2.NetworkServiceRemoveExternalMembersRequest {
+				return &adminv2.NetworkServiceRemoveExternalMembersRequest{
+					Network: sc.NetworkExternal,
+					Rack:    sc.P02Rack01,
+					Ports:   []string{"Ethernet0", "Ethernet1"},
+				}
+			},
+			want: func() *adminv2.NetworkServiceRemoveExternalMembersResponse {
+				allSwitches := dc.GetSwitches()
+
+				sw1 := allSwitches[sc.P02Rack01Switch1]
+				require.NotNil(t, sw1)
+				sw1.Nics[0].Vrf = nil
+				sw1.Nics[1].Vrf = nil
+
+				sw2 := allSwitches[sc.P02Rack01Switch2]
+				require.NotNil(t, sw2)
+				sw2.Nics[0].Vrf = nil
+				sw2.Nics[1].Vrf = nil
+
+				return &adminv2.NetworkServiceRemoveExternalMembersResponse{Switches: []*apiv2.Switch{sw1, sw2}}
+			},
+			wantErr: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			n := &networkServiceServer{
+				log:  log,
+				repo: dc.GetTestStore().Store,
+			}
+
+			var (
+				req  *adminv2.NetworkServiceRemoveExternalMembersRequest
+				want *adminv2.NetworkServiceRemoveExternalMembersResponse
+			)
+
+			if tt.req != nil {
+				req = tt.req()
+			}
+			if tt.want != nil {
+				want = tt.want()
+			}
+
+			test.Validate(t, req)
+			got, err := n.RemoveExternalMembers(ctx, req)
+			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("networkServiceServer.RemoveExternalMembers() error diff = %s", diff)
+				return
+			}
+
+			if tt.wantErr != nil {
+				return
+			}
+
+			slices.SortFunc(got.Switches, func(a, b *apiv2.Switch) int {
+				return strings.Compare(a.Id, b.Id)
+			})
+
+			if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
+				t.Errorf("networkServiceServer.RemoveExternalMembers() diff = %s", diff)
+			}
+
+			var mods *test.Asserters
+			if tt.mods != nil {
+				mods = tt.mods()
+			}
+			err = dc.Assert(mods)
+			require.NoError(t, err)
 		})
 	}
 }

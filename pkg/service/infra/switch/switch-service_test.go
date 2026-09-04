@@ -43,6 +43,15 @@ func Test_switchServiceServer_Register(t *testing.T) {
 						Version:          "v5.9",
 						MetalCoreVersion: "v0.13.0",
 					},
+					Nics: []*apiv2.SwitchNic{
+						{
+							Name:       "Ethernet0",
+							Identifier: "Ethernet0",
+							State: &apiv2.NicState{
+								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+							},
+						},
+					},
 				},
 			},
 			want: func(e *test.Entities) *infrav2.SwitchServiceRegisterResponse {
@@ -59,6 +68,17 @@ func Test_switchServiceServer_Register(t *testing.T) {
 							Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_CUMULUS,
 							Version:          "v5.9",
 							MetalCoreVersion: "v0.13.0",
+						},
+						Nics: []*apiv2.SwitchNic{
+							{
+								Name:       "Ethernet0",
+								Identifier: "Ethernet0",
+								State: &apiv2.NicState{
+									Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+								},
+								BgpFilter:  &apiv2.BGPFilter{},
+								Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
+							},
 						},
 					},
 				}
@@ -78,6 +98,17 @@ func Test_switchServiceServer_Register(t *testing.T) {
 								Vendor:           apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_CUMULUS,
 								Version:          "v5.9",
 								MetalCoreVersion: "v0.13.0",
+							},
+							Nics: []*apiv2.SwitchNic{
+								{
+									Name:       "Ethernet0",
+									Identifier: "Ethernet0",
+									State: &apiv2.NicState{
+										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+									},
+									BgpFilter:  &apiv2.BGPFilter{},
+									Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
+								},
 							},
 						}
 					},
@@ -136,6 +167,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 						State: &apiv2.NicState{
 							Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 						},
+						Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
 					},
 					{
 						Name:       "Ethernet2",
@@ -144,6 +176,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 						State: &apiv2.NicState{
 							Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 						},
+						Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
 					},
 				}
 				sw.Os.MetalCoreVersion = "v0.13.0"
@@ -169,6 +202,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 								State: &apiv2.NicState{
 									Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 								},
+								Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
 							},
 							{
 								Name:       "Ethernet2",
@@ -177,6 +211,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 								State: &apiv2.NicState{
 									Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 								},
+								Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
 							},
 						}
 						sw.Os.MetalCoreVersion = "v0.13.0"
@@ -308,6 +343,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 									State: &apiv2.NicState{
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 									},
+									Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
 								},
 							},
 						},
@@ -320,6 +356,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 								State: &apiv2.NicState{
 									Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 								},
+								Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
 							},
 							{
 								Name:       "Ethernet1",
@@ -329,6 +366,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 								State: &apiv2.NicState{
 									Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 								},
+								Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
 							},
 						},
 						Os: &apiv2.SwitchOS{
@@ -353,6 +391,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 							State: &apiv2.NicState{
 								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 							},
+							Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
 						}
 						sw.MachineConnections = []*apiv2.MachineConnection{
 							{
@@ -369,6 +408,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 								State: &apiv2.NicState{
 									Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 								},
+								Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
 							},
 							{
 								Name:       "Ethernet1",
@@ -378,6 +418,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 								State: &apiv2.NicState{
 									Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 								},
+								Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
 							},
 						}
 						sw.Os = &apiv2.SwitchOS{

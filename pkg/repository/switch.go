@@ -36,11 +36,13 @@ func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServ
 	if req == nil || req.Switch == nil {
 		return nil, errorutil.InvalidArgument("empty request")
 	}
+	defaultNicMemberships(req.Switch.Nics, req.Switch.MachineConnections)
 
 	sw, err := r.get(ctx, req.Switch.Id)
 	if err != nil && !errorutil.IsNotFound(err) {
 		return nil, err
 	}
+
 	if errorutil.IsNotFound(err) {
 		if req.Switch.ReplaceMode == apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_UNSPECIFIED {
 			req.Switch.ReplaceMode = apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL
@@ -906,7 +908,7 @@ func (r *switchRepository) updateOnRegister(ctx context.Context, sw *metal.Switc
 		if err != nil {
 			return nil, err
 		}
-		sw.Nics = updateNicNames(sw.Nics, nics)
+		sw.Nics = updateNics(sw.Nics, nics)
 	}
 
 	err = r.s.ds.Switch().Update(ctx, sw)
@@ -1039,6 +1041,11 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 			return nil, errorutil.FailedPrecondition("both, identifier and mac address, of nic %s are empty which is not allowed", nic.Name)
 		}
 
+		membership, err := metal.FromMembership(nic.Membership)
+		if err != nil {
+			return nil, errorutil.Internal("failed to convert membership of nic %q: %w", nic.Name, err)
+		}
+
 		switchNics = append(switchNics, &apiv2.SwitchNic{
 			Name:       nic.Name,
 			Identifier: identifier,
@@ -1050,6 +1057,7 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 			},
 			BgpFilter:    filter,
 			BgpPortState: bgpPortState,
+			Membership:   membership,
 		})
 	}
 
@@ -1122,7 +1130,7 @@ func convertMachineConnections(machineConnections metal.ConnectionMap, nics []*a
 	return connections, nil
 }
 
-func updateNicNames(old, new metal.Nics) metal.Nics {
+func updateNics(old, new metal.Nics) metal.Nics {
 	var (
 		updated metal.Nics
 		oldNics = old.MapByIdentifier()
@@ -1138,6 +1146,11 @@ func updateNicNames(old, new metal.Nics) metal.Nics {
 
 		updatedNic := *oldNic
 		updatedNic.Name = newNic.Name
+
+		if updatedNic.Membership == "" {
+			updatedNic.Membership = metal.SwitchPortMembershipUnmanaged
+		}
+
 		updated = append(updated, updatedNic)
 	}
 
@@ -1340,6 +1353,11 @@ func toMetalNic(switchNic *apiv2.SwitchNic, hostname string) (*metal.Nic, error)
 		return nil, fmt.Errorf("failed to convert port state: %w", err)
 	}
 
+	membership, err := metal.ToMembership(switchNic.Membership)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert membership of nic %q: %w", switchNic.Name, err)
+	}
+
 	return &metal.Nic{
 		Name:         switchNic.Name,
 		Hostname:     hostname,
@@ -1348,6 +1366,7 @@ func toMetalNic(switchNic *apiv2.SwitchNic, hostname string) (*metal.Nic, error)
 		Vrf:          pointer.SafeDeref(switchNic.Vrf),
 		State:        nicState,
 		BGPPortState: bgpPortState,
+		Membership:   membership,
 	}, nil
 }
 
@@ -1470,6 +1489,7 @@ func adoptNics(twin, newSwitch *metal.Switch) (metal.Nics, error) {
 	for name, nic := range newNicMap {
 		if twinNic, ok := twinNicsByName[name]; ok {
 			nic.Vrf = twinNic.Vrf
+			nic.Membership = twinNic.Membership
 		}
 		newNics = append(newNics, *nic)
 	}
@@ -1586,4 +1606,17 @@ func nicInConnections(name string, mac string, connections metal.Connections) bo
 		}
 	}
 	return false
+}
+
+func defaultNicMemberships(switchNics []*apiv2.SwitchNic, connections []*apiv2.MachineConnection) {
+	for _, nic := range switchNics {
+		if nic.Membership == apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNSPECIFIED {
+			nic.Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED
+		}
+	}
+	for _, con := range connections {
+		if con.Nic.Membership == apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNSPECIFIED {
+			con.Nic.Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED
+		}
+	}
 }
