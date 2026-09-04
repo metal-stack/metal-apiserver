@@ -2,8 +2,6 @@ package machine
 
 import (
 	"encoding/base64"
-	"log/slog"
-	"os"
 	"strings"
 	"testing"
 
@@ -37,7 +35,6 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 	t.Parallel()
 
 	var (
-		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 		ctx = t.Context()
 	)
 
@@ -48,8 +45,9 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 	}
 	ctx = token.ContextWithToken(ctx, &testToken)
 
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
 	dc.Create(&sc.DefaultDatacenter)
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 
 	tests := []struct {
@@ -726,7 +724,6 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 func Test_machineServiceServer_CreateFirewallWithoutVPN(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
 	// Add token to be able to get the user from the context
@@ -736,8 +733,9 @@ func Test_machineServiceServer_CreateFirewallWithoutVPN(t *testing.T) {
 	}
 	ctx = token.ContextWithToken(ctx, &testToken)
 
-	dc := test.NewDatacenter(t, log, test.WithHeadscale(false))
+	dc := test.NewDatacenter(t, test.WithHeadscale(false))
 	dc.Create(&sc.DefaultDatacenter)
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 
 	tests := []struct {
@@ -1172,7 +1170,6 @@ func Test_machineServiceServer_CreateFirewallWithoutVPN(t *testing.T) {
 func Test_machineServiceServer_CreateFirewallWithVPN(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
 	// Add token to be able to get the user from the context
@@ -1182,8 +1179,9 @@ func Test_machineServiceServer_CreateFirewallWithVPN(t *testing.T) {
 	}
 	ctx = token.ContextWithToken(ctx, &testToken)
 
-	dc := test.NewDatacenter(t, log, test.WithHeadscale(true))
+	dc := test.NewDatacenter(t, test.WithHeadscale(true))
 	dc.Create(&sc.DefaultDatacenter)
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 
 	tests := []struct {

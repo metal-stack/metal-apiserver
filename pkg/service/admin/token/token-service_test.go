@@ -2,7 +2,6 @@ package admin_test
 
 import (
 	"context"
-	"log/slog"
 	"testing"
 
 	"buf.build/go/protovalidate"
@@ -22,9 +21,8 @@ import (
 func Test_List(t *testing.T) {
 	t.Parallel()
 
-	log := slog.Default()
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
+	log := testStore.GetLogger()
 	defer closer()
 
 	type state struct {
@@ -344,9 +342,8 @@ func Test_List(t *testing.T) {
 func Test_Revoke(t *testing.T) {
 	t.Parallel()
 
-	log := slog.Default()
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
+	log := testStore.GetLogger()
 	defer closer()
 
 	type state struct {
@@ -607,9 +604,8 @@ func Test_Revoke(t *testing.T) {
 func Test_Create(t *testing.T) {
 	t.Parallel()
 
-	log := slog.Default()
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithValkey(true), test.WithPostgres(true))
+	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithValkey(true), test.WithPostgres(true))
+	log := testStore.GetLogger()
 	defer closer()
 
 	type state struct {

@@ -31,10 +31,9 @@ var (
 func Test_vpnService_DeleteNode(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
-	testStore, repocloser := test.StartRepositoryWithCleanup(t, log, test.WithHeadscale(true))
+	testStore, repocloser := test.StartRepositoryWithCleanup(t, test.WithHeadscale(true))
 	defer repocloser()
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})

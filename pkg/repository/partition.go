@@ -423,7 +423,13 @@ func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.Partitio
 
 		for _, cap := range pc.MachineSizeCapacities {
 			cap.RemainingReservations = cap.Reservations - cap.UsedReservations
+			sort.Strings(cap.FaultyMachines)
+			sort.Strings(cap.OtherMachines)
 		}
+
+		sort.SliceStable(pc.MachineSizeCapacities, func(i, j int) bool {
+			return pc.MachineSizeCapacities[i].Size < pc.MachineSizeCapacities[j].Size
+		})
 
 		res = append(res, pc)
 	}

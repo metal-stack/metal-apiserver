@@ -3,7 +3,6 @@ package test
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -60,8 +59,8 @@ type (
 	}
 )
 
-func NewDatacenter(t testing.TB, log *slog.Logger, testOpts ...testOpt) *Datacenter {
-	testStore, closer := StartRepositoryWithCleanup(t, log, testOpts...)
+func NewDatacenter(t testing.TB, testOpts ...testOpt) *Datacenter {
+	testStore, closer := StartRepositoryWithCleanup(t, testOpts...)
 
 	dc := &Datacenter{
 		t:         t,

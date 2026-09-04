@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -27,8 +26,7 @@ var (
 func TestWaitForBMCCommandSync(t *testing.T) {
 	t.Parallel()
 	// TODO test more scenarios with more receivers
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	baseURL, adminToken, _, closer := StartApiserver(t, log)
+	log, baseURL, adminToken, _, closer := StartApiserver(t)
 	defer closer()
 	require.NotNil(t, baseURL, adminToken)
 
@@ -131,8 +129,7 @@ func TestWaitForBMCCommandSync(t *testing.T) {
 func TestWaitForBMCCommandAsync(t *testing.T) {
 	t.Parallel()
 	// TODO test more scenarios with more receivers
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	baseURL, adminToken, _, closer := StartApiserver(t, log)
+	log, baseURL, adminToken, _, closer := StartApiserver(t)
 	defer closer()
 	require.NotNil(t, baseURL, adminToken)
 

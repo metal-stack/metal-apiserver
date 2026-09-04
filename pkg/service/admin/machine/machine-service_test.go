@@ -2,10 +2,8 @@ package admin
 
 import (
 	"fmt"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 	"time"
 
@@ -32,9 +30,9 @@ var (
 
 func Test_machineServiceServer_Get(t *testing.T) {
 	t.Parallel()
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
+	log := testStore.GetLogger()
 	defer closer()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -131,9 +129,9 @@ func Test_machineServiceServer_Get(t *testing.T) {
 
 func Test_machineServiceServer_List(t *testing.T) {
 	t.Parallel()
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
+	log := testStore.GetLogger()
 	defer closer()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -283,9 +281,9 @@ func Test_machineServiceServer_List(t *testing.T) {
 
 func Test_machineServiceServer_BMCCommand(t *testing.T) {
 	t.Parallel()
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
+	log := testStore.GetLogger()
 	defer closer()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -389,9 +387,9 @@ func Test_machineServiceServer_BMCCommand(t *testing.T) {
 
 func Test_machineServiceServer_Issues(t *testing.T) {
 	t.Parallel()
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
+	log := testStore.GetLogger()
 	defer closer()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -950,9 +948,9 @@ func Test_machineServiceServer_Issues(t *testing.T) {
 
 func Test_machineServiceServer_SetState(t *testing.T) {
 	t.Parallel()
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 
 	testDC := sc.DefaultDatacenter
@@ -1129,7 +1127,6 @@ func Test_machineServiceServer_SetState(t *testing.T) {
 
 func Test_machineServiceServer_Delete(t *testing.T) {
 	var (
-		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 		ctx = t.Context()
 	)
 
@@ -1220,7 +1217,9 @@ func Test_machineServiceServer_Delete(t *testing.T) {
 		},
 	}
 
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
+
 	defer dc.Close()
 
 	for _, tt := range tests {
