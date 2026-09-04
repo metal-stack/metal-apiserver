@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"slices"
 	"strings"
 	"testing"
@@ -2424,10 +2423,7 @@ func Test_networkServiceServer_Update(t *testing.T) {
 }
 
 func Test_networkServiceServer_ListExternalMembers(t *testing.T) {
-	var (
-		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-		ctx = t.Context()
-	)
+	ctx := t.Context()
 
 	spec, err := sc.SwitchesWithExternalNetworkMembers.DeepCopy()
 	require.NoError(t, err)
@@ -2444,7 +2440,8 @@ func Test_networkServiceServer_ListExternalMembers(t *testing.T) {
 	require.NoError(t, sc.AddNicsToVRF(spec.Switches[4], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet0"))
 	require.NoError(t, sc.AddNicsToVRF(spec.Switches[5], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet0"))
 
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 	dc.Create(spec)
 
@@ -2627,12 +2624,10 @@ func Test_networkServiceServer_ListExternalMembers(t *testing.T) {
 }
 
 func Test_networkServiceServer_AddExternalMember(t *testing.T) {
-	var (
-		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-		ctx = t.Context()
-	)
+	ctx := t.Context()
 
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 
 	spec, err := sc.SwitchesWithExternalNetworkMembers.DeepCopy()
@@ -2854,12 +2849,10 @@ func Test_networkServiceServer_AddExternalMember(t *testing.T) {
 }
 
 func Test_networkServiceServer_RemoveExternalMember(t *testing.T) {
-	var (
-		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-		ctx = t.Context()
-	)
+	ctx := t.Context()
 
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 
 	spec, err := sc.SwitchesWithExternalNetworkMembers.DeepCopy()
