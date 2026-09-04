@@ -36,16 +36,17 @@ func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServ
 	if req == nil || req.Switch == nil {
 		return nil, errorutil.InvalidArgument("empty request")
 	}
+	defaultNicMemberships(req.Switch.Nics, req.Switch.MachineConnections)
 
 	sw, err := r.get(ctx, req.Switch.Id)
 	if err != nil && !errorutil.IsNotFound(err) {
 		return nil, err
 	}
+
 	if errorutil.IsNotFound(err) {
 		if req.Switch.ReplaceMode == apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_UNSPECIFIED {
 			req.Switch.ReplaceMode = apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL
 		}
-		defaultNicMemberships(req.Switch.Nics)
 		return r.s.Switch().Create(ctx, &api.SwitchServiceCreateRequest{Switch: req.Switch})
 	}
 
@@ -86,7 +87,6 @@ func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServ
 	if req.Switch.ReplaceMode == apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_UNSPECIFIED && sw.ReplaceMode == "" {
 		updateReq.ReplaceMode = apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL.Enum()
 	}
-	defaultNicMemberships(updateReq.Nics)
 
 	err = r.validateUpdate(ctx, updateReq, sw)
 	if err != nil {
@@ -1489,6 +1489,7 @@ func adoptNics(twin, newSwitch *metal.Switch) (metal.Nics, error) {
 	for name, nic := range newNicMap {
 		if twinNic, ok := twinNicsByName[name]; ok {
 			nic.Vrf = twinNic.Vrf
+			nic.Membership = twinNic.Membership
 		}
 		newNics = append(newNics, *nic)
 	}
@@ -1607,10 +1608,15 @@ func nicInConnections(name string, mac string, connections metal.Connections) bo
 	return false
 }
 
-func defaultNicMemberships(switchNics []*apiv2.SwitchNic) {
+func defaultNicMemberships(switchNics []*apiv2.SwitchNic, connections []*apiv2.MachineConnection) {
 	for _, nic := range switchNics {
 		if nic.Membership == apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNSPECIFIED {
 			nic.Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED
+		}
+	}
+	for _, con := range connections {
+		if con.Nic.Membership == apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNSPECIFIED {
+			con.Nic.Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED
 		}
 	}
 }
