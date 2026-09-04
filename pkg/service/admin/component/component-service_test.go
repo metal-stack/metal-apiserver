@@ -1,8 +1,6 @@
 package admin
 
 import (
-	"log/slog"
-	"os"
 	"testing"
 	"time"
 
@@ -21,10 +19,9 @@ import (
 func Test_componentServiceServer_List(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
-	testStore, repocloser := test.StartRepositoryWithCleanup(t, log, test.WithContainers(false))
+	testStore, repocloser := test.StartRepositoryWithCleanup(t, test.WithContainers(false))
 	defer repocloser()
 
 	tests := []struct {
@@ -323,7 +320,7 @@ func Test_componentServiceServer_List(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &componentServiceServer{
-				log:  log,
+				log:  testStore.GetLogger(),
 				repo: testStore.Store,
 			}
 			for _, ping := range tt.pings {
@@ -354,10 +351,9 @@ func Test_componentServiceServer_List(t *testing.T) {
 func Test_componentServiceServer_Get(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
-	testStore, repocloser := test.StartRepositoryWithCleanup(t, log, test.WithContainers(false))
+	testStore, repocloser := test.StartRepositoryWithCleanup(t, test.WithContainers(false))
 	defer repocloser()
 
 	tests := []struct {
@@ -458,7 +454,7 @@ func Test_componentServiceServer_Get(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &componentServiceServer{
-				log:  log,
+				log:  testStore.GetLogger(),
 				repo: testStore.Store,
 			}
 			for _, ping := range tt.pings {
@@ -489,10 +485,9 @@ func Test_componentServiceServer_Get(t *testing.T) {
 func Test_componentServiceServer_Delete(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
-	testStore, repocloser := test.StartRepositoryWithCleanup(t, log, test.WithContainers(false))
+	testStore, repocloser := test.StartRepositoryWithCleanup(t, test.WithContainers(false))
 	defer repocloser()
 
 	tests := []struct {
@@ -577,7 +572,7 @@ func Test_componentServiceServer_Delete(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &componentServiceServer{
-				log:  log,
+				log:  testStore.GetLogger(),
 				repo: testStore.Store,
 			}
 			for _, ping := range tt.pings {

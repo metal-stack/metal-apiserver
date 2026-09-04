@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -30,14 +29,13 @@ func Test_jwt_cert_rotation(t *testing.T) {
 
 	t.Logf("token lifetime: %s, certificate lifetime: %s, issue new signing certificate after: %s", token.DefaultExpiration, 2*certs.MaxTokenExpiration, 2*certs.MaxTokenExpiration-renewCertBeforeExpiration)
 
-	log := slog.Default()
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithRenewCertBeforeExpiration(&renewCertBeforeExpiration))
+	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithRenewCertBeforeExpiration(&renewCertBeforeExpiration))
 	defer closer()
 
 	var (
 		certStore  = testStore.GetCertStore()
 		tokenStore = testStore.GetTokenStore()
+		log        = testStore.GetLogger()
 	)
 
 	auth := func() *auth {
