@@ -36,27 +36,27 @@ func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServ
 	if req == nil || req.Switch == nil {
 		return nil, errorutil.InvalidArgument("empty request")
 	}
-	defaultNicMemberships(req.Switch.Nics, req.Switch.MachineConnections)
+	new := req.Switch
+	defaultNicMemberships(new.Nics, new.MachineConnections)
 
-	sw, err := r.get(ctx, req.Switch.Id)
+	metalSwitch, err := r.get(ctx, req.Switch.Id)
 	if err != nil && !errorutil.IsNotFound(err) {
 		return nil, err
 	}
 
 	if errorutil.IsNotFound(err) {
-		if req.Switch.ReplaceMode == apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_UNSPECIFIED {
-			req.Switch.ReplaceMode = apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL
+		if new.ReplaceMode == apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_UNSPECIFIED {
+			new.ReplaceMode = apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL
 		}
-		return r.s.Switch().Create(ctx, &api.SwitchServiceCreateRequest{Switch: req.Switch})
+		return r.s.Switch().Create(ctx, &api.SwitchServiceCreateRequest{Switch: new})
 	}
 
-	new := req.Switch
-	old, err := r.convertToProto(ctx, sw)
+	old, err := r.convertToProto(ctx, metalSwitch)
 	if err != nil {
 		return nil, err
 	}
 
-	if sw.ReplaceMode == metal.SwitchReplaceModeReplace {
+	if metalSwitch.ReplaceMode == metal.SwitchReplaceModeReplace {
 		sw, err := r.replace(ctx, old, new)
 		if err != nil {
 			return nil, err
@@ -84,16 +84,16 @@ func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServ
 	}
 
 	// lazy migration because in the past replace mode was allowed to be unspecified.
-	if req.Switch.ReplaceMode == apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_UNSPECIFIED && sw.ReplaceMode == "" {
+	if new.ReplaceMode == apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_UNSPECIFIED && metalSwitch.ReplaceMode == "" {
 		updateReq.ReplaceMode = apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL.Enum()
 	}
 
-	err = r.validateUpdate(ctx, updateReq, sw)
+	err = r.validateUpdate(ctx, updateReq, metalSwitch)
 	if err != nil {
 		return nil, err
 	}
 
-	updated, err := r.updateOnRegister(ctx, sw, updateReq)
+	updated, err := r.updateOnRegister(ctx, metalSwitch, updateReq)
 	if err != nil {
 		return nil, err
 	}
@@ -908,7 +908,7 @@ func (r *switchRepository) updateOnRegister(ctx context.Context, sw *metal.Switc
 		if err != nil {
 			return nil, err
 		}
-		sw.Nics = updateNics(sw.Nics, nics)
+		sw.Nics = updateNicsOnRegister(sw.Nics, nics)
 	}
 
 	err = r.s.ds.Switch().Update(ctx, sw)
@@ -1130,7 +1130,7 @@ func convertMachineConnections(machineConnections metal.ConnectionMap, nics []*a
 	return connections, nil
 }
 
-func updateNics(old, new metal.Nics) metal.Nics {
+func updateNicsOnRegister(old, new metal.Nics) metal.Nics {
 	var (
 		updated metal.Nics
 		oldNics = old.MapByIdentifier()
@@ -1140,6 +1140,9 @@ func updateNics(old, new metal.Nics) metal.Nics {
 	for id, newNic := range newNics {
 		oldNic, ok := oldNics[id]
 		if !ok {
+			if newNic.Membership == "" {
+				newNic.Membership = metal.SwitchPortMembershipUnmanaged
+			}
 			updated = append(updated, *newNic)
 			continue
 		}

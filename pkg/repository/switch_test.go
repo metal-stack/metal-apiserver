@@ -15,7 +15,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func Test_updateNics(t *testing.T) {
+func Test_updateNicsOnRegister(t *testing.T) {
 	tests := []struct {
 		name string
 		old  metal.Nics
@@ -40,6 +40,7 @@ func Test_updateNics(t *testing.T) {
 				{
 					Identifier: "Eth1/2",
 					Name:       "Ethernet1",
+					Membership: metal.SwitchPortMembershipUnmanaged,
 				},
 			},
 		},
@@ -50,12 +51,14 @@ func Test_updateNics(t *testing.T) {
 					Identifier: "Eth1/1",
 					Name:       "Ethernet0",
 					Vrf:        "Vrf100",
+					Membership: metal.SwitchPortMembershipExternal,
 				},
 			},
 			new: metal.Nics{
 				{
 					Identifier: "Eth1/1",
 					Name:       "Ethernet2",
+					Membership: metal.SwitchPortMembershipInternal,
 				},
 				{
 					Identifier: "Eth1/2",
@@ -67,17 +70,19 @@ func Test_updateNics(t *testing.T) {
 					Identifier: "Eth1/1",
 					Name:       "Ethernet2",
 					Vrf:        "Vrf100",
+					Membership: metal.SwitchPortMembershipExternal,
 				},
 				{
 					Identifier: "Eth1/2",
 					Name:       "Ethernet1",
+					Membership: metal.SwitchPortMembershipUnmanaged,
 				},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := updateNics(tt.old, tt.new)
+			got := updateNicsOnRegister(tt.old, tt.new)
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("updateNics() diff = %s", diff)
 			}
