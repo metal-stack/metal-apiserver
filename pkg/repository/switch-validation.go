@@ -15,13 +15,12 @@ import (
 )
 
 func (r *switchRepository) validateCreate(ctx context.Context, req *api.SwitchServiceCreateRequest) error {
-	var errs []error
-
-	if req.Switch == nil {
+	if req == nil || req.Switch == nil {
 		return nil
 	}
 	defaultNicMemberships(req.Switch.Nics, req.Switch.MachineConnections)
 
+	var errs []error
 	_, err := r.s.ds.Partition().Get(ctx, req.Switch.Partition)
 	if err != nil {
 		errs = append(errs, errorutil.NewInternal(err))
@@ -46,13 +45,16 @@ func (r *switchRepository) validateCreate(ctx context.Context, req *api.SwitchSe
 }
 
 func (r *switchRepository) validateUpdate(ctx context.Context, req *adminv2.SwitchServiceUpdateRequest, oldSwitch *metal.Switch) error {
-	var errs []error
+	if req == nil {
+		return nil
+	}
 
 	sw, err := r.s.ds.Switch().Get(ctx, req.Id)
 	if err != nil {
 		return errorutil.NewInternal(err)
 	}
 
+	var errs []error
 	_, err = r.s.ds.Partition().Get(ctx, sw.Partition)
 	if err != nil {
 		errs = append(errs, errorutil.NewInternal(err))

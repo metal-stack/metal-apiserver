@@ -167,7 +167,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 						State: &apiv2.NicState{
 							Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 						},
-						Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
+						Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 					},
 					{
 						Name:       "Ethernet2",
@@ -202,7 +202,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 								State: &apiv2.NicState{
 									Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 								},
-								Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
+								Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 							},
 							{
 								Name:       "Ethernet2",
@@ -343,7 +343,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 									State: &apiv2.NicState{
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 									},
-									Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
+									Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 								},
 							},
 						},
@@ -356,7 +356,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 								State: &apiv2.NicState{
 									Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 								},
-								Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
+								Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 							},
 							{
 								Name:       "Ethernet1",
@@ -391,7 +391,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 							State: &apiv2.NicState{
 								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 							},
-							Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
+							Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 						}
 						sw.MachineConnections = []*apiv2.MachineConnection{
 							{
@@ -400,16 +400,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 							},
 						}
 						sw.Nics = []*apiv2.SwitchNic{
-							{
-								Name:       "Ethernet0",
-								Identifier: "Ethernet0",
-								Mac:        new("11:11:11:11:11:11"),
-								BgpFilter:  &apiv2.BGPFilter{},
-								State: &apiv2.NicState{
-									Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
-								},
-								Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
-							},
+							nic1,
 							{
 								Name:       "Ethernet1",
 								Identifier: "Ethernet1",

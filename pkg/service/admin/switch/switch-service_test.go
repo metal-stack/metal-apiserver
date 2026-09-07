@@ -288,6 +288,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 							Mac:        new("11:11:11:11:11:11"),
 							Vrf:        new("Vrf100"),
 							BgpFilter:  &apiv2.BGPFilter{},
+							Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 							State: &apiv2.NicState{
 								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 							},
@@ -307,6 +308,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 							Mac:        new("aa:aa:aa:aa:aa:aa"),
 							Vrf:        nil,
 							BgpFilter:  &apiv2.BGPFilter{},
+							Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
 							State: &apiv2.NicState{
 								Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
 								Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -328,6 +330,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 					Mac:        new("11:11:11:11:11:11"),
 					Vrf:        new("Vrf100"),
 					BgpFilter:  &apiv2.BGPFilter{},
+					Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 					State: &apiv2.NicState{
 						Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 					},
@@ -347,6 +350,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 					Mac:        new("aa:aa:aa:aa:aa:aa"),
 					Vrf:        nil,
 					BgpFilter:  &apiv2.BGPFilter{},
+					Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
 					State: &apiv2.NicState{
 						Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
 						Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -381,6 +385,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 							Mac:        new("11:11:11:11:11:11"),
 							Vrf:        new("Vrf100"),
 							BgpFilter:  &apiv2.BGPFilter{},
+							Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 							State: &apiv2.NicState{
 								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 							},
@@ -400,6 +405,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 							Mac:        new("aa:aa:aa:aa:aa:aa"),
 							Vrf:        nil,
 							BgpFilter:  &apiv2.BGPFilter{},
+							Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
 							State: &apiv2.NicState{
 								Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
 								Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -808,6 +814,7 @@ func Test_switchServiceServer_Migrate(t *testing.T) {
 					return n.Name == "Ethernet0"
 				})
 				require.True(t, found)
+				nic.Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL
 				sw.MachineConnections = []*apiv2.MachineConnection{
 					{
 						MachineId: sc.Machine2,
@@ -830,6 +837,7 @@ func Test_switchServiceServer_Migrate(t *testing.T) {
 							return n.Name == "Ethernet0"
 						})
 						require.True(t, found)
+						nic.Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL
 						sw2.MachineConnections = []*apiv2.MachineConnection{
 							{
 								MachineId: sc.Machine2,
@@ -855,6 +863,7 @@ func Test_switchServiceServer_Migrate(t *testing.T) {
 					return n.Name == "swp1s0"
 				})
 				require.True(t, found)
+				nic.Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL
 				sw.MachineConnections = []*apiv2.MachineConnection{
 					{
 						MachineId: sc.Machine3,
@@ -876,6 +885,7 @@ func Test_switchServiceServer_Migrate(t *testing.T) {
 							return n.Name == "swp1s0"
 						})
 						require.True(t, found)
+						nic.Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL
 						sw1.MachineConnections = []*apiv2.MachineConnection{}
 						sw2.MachineConnections = []*apiv2.MachineConnection{
 							{
@@ -965,6 +975,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										State: &apiv2.NicState{
 											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 										},
+										Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 									},
 									Machine: dc.GetMachines()[sc.Machine1],
 									Fru: &apiv2.MachineFRU{
@@ -990,6 +1001,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Name:       "Ethernet0",
 										Identifier: "Ethernet0",
 										BgpFilter:  &apiv2.BGPFilter{},
+										Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 										State: &apiv2.NicState{
 											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 										},
@@ -1023,6 +1035,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Name:       "swp1s0",
 										Identifier: "swp1s0",
 										BgpFilter:  &apiv2.BGPFilter{},
+										Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 										State: &apiv2.NicState{
 											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 										},
@@ -1056,6 +1069,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Name:       "Ethernet0",
 										Identifier: "Ethernet0",
 										BgpFilter:  &apiv2.BGPFilter{},
+										Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 										State: &apiv2.NicState{
 											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 										},
@@ -1099,6 +1113,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Name:       "Ethernet0",
 										Identifier: "Ethernet0",
 										BgpFilter:  &apiv2.BGPFilter{},
+										Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 										State: &apiv2.NicState{
 											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 										},
@@ -1127,6 +1142,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Name:       "Ethernet0",
 										Identifier: "Ethernet0",
 										BgpFilter:  &apiv2.BGPFilter{},
+										Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 										State: &apiv2.NicState{
 											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 										},
@@ -1160,6 +1176,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Name:       "Ethernet0",
 										Identifier: "Ethernet0",
 										BgpFilter:  &apiv2.BGPFilter{},
+										Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 										State: &apiv2.NicState{
 											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 										},
@@ -1181,6 +1198,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Name:       "Ethernet1",
 										Identifier: "Ethernet1",
 										BgpFilter:  &apiv2.BGPFilter{},
+										Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 										State: &apiv2.NicState{
 											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 										},
@@ -1209,6 +1227,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Name:       "Ethernet0",
 										Identifier: "Ethernet0",
 										BgpFilter:  &apiv2.BGPFilter{},
+										Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 										State: &apiv2.NicState{
 											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 										},
@@ -1230,6 +1249,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Name:       "Ethernet1",
 										Identifier: "Ethernet1",
 										BgpFilter:  &apiv2.BGPFilter{},
+										Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 										State: &apiv2.NicState{
 											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 										},
@@ -1258,6 +1278,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Name:       "Ethernet0",
 										Identifier: "Ethernet0",
 										BgpFilter:  &apiv2.BGPFilter{},
+										Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 										State: &apiv2.NicState{
 											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 										},
@@ -1286,6 +1307,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Name:       "Ethernet0",
 										Identifier: "Ethernet0",
 										BgpFilter:  &apiv2.BGPFilter{},
+										Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 										State: &apiv2.NicState{
 											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 										},
@@ -1314,6 +1336,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Name:       "swp1s0",
 										Identifier: "swp1s0",
 										BgpFilter:  &apiv2.BGPFilter{},
+										Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 										State: &apiv2.NicState{
 											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 										},
@@ -1356,6 +1379,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Name:       "Ethernet0",
 										Identifier: "Ethernet0",
 										BgpFilter:  &apiv2.BGPFilter{},
+										Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 										State: &apiv2.NicState{
 											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 										},
@@ -1398,6 +1422,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Name:       "Ethernet1",
 										Identifier: "Ethernet1",
 										BgpFilter:  &apiv2.BGPFilter{},
+										Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 										State: &apiv2.NicState{
 											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 										},
@@ -1426,6 +1451,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Name:       "Ethernet1",
 										Identifier: "Ethernet1",
 										BgpFilter:  &apiv2.BGPFilter{},
+										Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 										State: &apiv2.NicState{
 											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 										},
@@ -1469,6 +1495,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Name:       "Ethernet0",
 										Identifier: "Ethernet0",
 										BgpFilter:  &apiv2.BGPFilter{},
+										Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 										State: &apiv2.NicState{
 											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 										},
@@ -1497,6 +1524,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Name:       "Ethernet0",
 										Identifier: "Ethernet0",
 										BgpFilter:  &apiv2.BGPFilter{},
+										Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 										State: &apiv2.NicState{
 											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 										},
@@ -1530,6 +1558,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Name:       "swp1s0",
 										Identifier: "swp1s0",
 										BgpFilter:  &apiv2.BGPFilter{},
+										Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 										State: &apiv2.NicState{
 											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 										},
@@ -1563,6 +1592,7 @@ func Test_switchServiceServer_ConnectedMachines(t *testing.T) {
 										Name:       "Ethernet0",
 										Identifier: "Ethernet0",
 										BgpFilter:  &apiv2.BGPFilter{},
+										Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 										State: &apiv2.NicState{
 											Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 										},
