@@ -24,13 +24,14 @@ func SwitchFunc(id, partition, rack string, ports []string, os *apiv2.SwitchOS, 
 			},
 			Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
 		}
-		nics = append(nics, nic)
 		if i < len(machines) {
+			nic.Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL
 			cons = append(cons, &apiv2.MachineConnection{
 				MachineId: machines[i],
 				Nic:       nic,
 			})
 		}
+		nics = append(nics, nic)
 	}
 
 	return &apiv2.Switch{

@@ -175,18 +175,44 @@ func (c ConnectionMap) ByNicName() (map[string]Connection, error) {
 }
 
 func (s *Switch) ConnectMachine(machineID string, machineNics Nics) (int, error) {
-	physicalConnections := s.getPhysicalMachineConnections(machineID, machineNics)
+	newCons := s.getConnectionsFromMachineNics(machineID, machineNics)
 
-	if len(physicalConnections) < 1 {
+	if len(newCons) < 1 {
 		if _, exists := s.MachineConnections[machineID]; exists {
 			return 0, fmt.Errorf("machine connection between machine %s and switch %s exists in the database but not physically; if you are attempting migrate the machine from one rack to another delete it first", machineID, s.ID)
 		}
 		return 0, nil
 	}
 
-	delete(s.MachineConnections, machineID)
-	s.MachineConnections[machineID] = append(s.MachineConnections[machineID], physicalConnections...)
-	return len(physicalConnections), nil
+	oldCons := s.MachineConnections[machineID]
+
+	for _, con := range oldCons {
+		nic, idx, found := lo.FindIndexOf(s.Nics, func(n Nic) bool {
+			return n.Name == con.Nic.Name
+		})
+		if !found {
+			return 0, fmt.Errorf("nic %s found in machine connections but not in switch nics", con.Nic.Name)
+		}
+		nic.Membership = SwitchPortMembershipUnmanaged
+		s.Nics[idx] = nic
+	}
+
+	for i, con := range newCons {
+		nic, idx, found := lo.FindIndexOf(s.Nics, func(n Nic) bool {
+			return n.Name == con.Nic.Name
+		})
+		if !found {
+			return 0, fmt.Errorf("nic %s found in machine connections but not in switch nics", con.Nic.Name)
+		}
+		nic.Membership = SwitchPortMembershipInternal
+		s.Nics[idx] = nic
+
+		con.Nic.Membership = SwitchPortMembershipInternal
+		newCons[i] = con
+	}
+
+	s.MachineConnections[machineID] = newCons
+	return len(newCons), nil
 }
 
 func (s *Switch) SetVrfOfMachine(m *Machine, vrf string) {
@@ -408,9 +434,10 @@ func cumulusPortByLineNumber(line int, allLines []int) string {
 	return fmt.Sprintf("swp%d", line/4+1)
 }
 
-// getPhysicalMachineConnections correlates machine nic information with the nics on the switch to figure out physical connections
-func (s *Switch) getPhysicalMachineConnections(machineID string, machineNics Nics) Connections {
-	connections := make(Connections, 0)
+func (s *Switch) getConnectionsFromMachineNics(machineID string, machineNics Nics) Connections {
+	var (
+		connections Connections
+	)
 	for _, machineNic := range machineNics {
 		neighMap := machineNic.Neighbors.FilterByHostname(s.ID).MapByIdentifier()
 
@@ -423,5 +450,8 @@ func (s *Switch) getPhysicalMachineConnections(machineID string, machineNics Nic
 			}
 		}
 	}
+
+	// FIXME: shouldn't we return an error if a machine sees a neighbor but we can't find the nic on the switch?
+
 	return connections
 }

@@ -36,8 +36,6 @@ func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServ
 	if req == nil || req.Switch == nil {
 		return nil, errorutil.InvalidArgument("empty request")
 	}
-	new := req.Switch
-	defaultNicMemberships(new.Nics, new.MachineConnections)
 
 	metalSwitch, err := r.get(ctx, req.Switch.Id)
 	if err != nil && !errorutil.IsNotFound(err) {
@@ -45,12 +43,14 @@ func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServ
 	}
 
 	if errorutil.IsNotFound(err) {
-		if new.ReplaceMode == apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_UNSPECIFIED {
-			new.ReplaceMode = apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL
+		if req.Switch.ReplaceMode == apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_UNSPECIFIED {
+			req.Switch.ReplaceMode = apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL
 		}
-		return r.s.Switch().Create(ctx, &api.SwitchServiceCreateRequest{Switch: new})
+		return r.s.Switch().Create(ctx, &api.SwitchServiceCreateRequest{Switch: req.Switch})
 	}
 
+	new := req.Switch
+	defaultNicMemberships(new.Nics, new.MachineConnections)
 	old, err := r.convertToProto(ctx, metalSwitch)
 	if err != nil {
 		return nil, err
@@ -337,19 +337,12 @@ func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *ap
 			}),
 		))
 
-		prev, _ := lo.Difference(oldNeighs, neighs)
-		for _, id := range prev {
-			s, err := r.get(ctx, id)
-			if err != nil {
-				return fmt.Errorf("failed to remove machine connection from switch %s: %w", id, err)
-			}
+		if len(oldNeighs) > 0 {
+			slices.Sort(neighs)
+			slices.Sort(oldNeighs)
 
-			cons := s.MachineConnections
-			delete(cons, m.Uuid)
-
-			err = r.s.ds.Switch().Update(ctx, s)
-			if err != nil {
-				return fmt.Errorf("failed to remove machine connection from switch %s: %w", id, err)
+			if diff := cmp.Diff(neighs, oldNeighs); diff != "" {
+				return errorutil.FailedPrecondition("cannot connect machine %q to different switches than it was previously connected to; current: %v, previous: %v; if you want to migrate machine connections from one switch to another call 'switch mirgate' first", metalMachine.ID, neighs, oldNeighs)
 			}
 		}
 	}
@@ -377,12 +370,10 @@ func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *ap
 	}
 
 	var orphanedSwitchNames []string
-
 	for _, sw := range sws {
 		if sw.Rack == m.Rack {
 			continue
 		}
-
 		orphanedSwitchNames = append(orphanedSwitchNames, sw.ID)
 	}
 
@@ -619,6 +610,7 @@ func (r *switchRepository) create(ctx context.Context, req *api.SwitchServiceCre
 	if req.Switch == nil {
 		return nil, nil
 	}
+
 	sw, err := r.convertToInternal(ctx, req.Switch)
 	if err != nil {
 		return nil, err

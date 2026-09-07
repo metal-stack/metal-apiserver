@@ -879,6 +879,7 @@ func Test_switchRepository_ConnectMachineWithSwitches(t *testing.T) {
 	tests := []struct {
 		name    string
 		m       func() *apiv2.Machine
+		spec    func() *sc.DatacenterSpec
 		mods    func() *test.Asserters
 		wantErr error
 	}{
@@ -1100,6 +1101,69 @@ func Test_switchRepository_ConnectMachineWithSwitches(t *testing.T) {
 			wantErr: errorutil.FailedPrecondition(`machine wants to register on rack %q, but machine connections are present on the following switches [%s %s], likely the machine was moved in the data center but not deleted through the admin api`, sc.P01Rack02, sc.P01Rack01Switch1, sc.P01Rack01Switch2),
 		},
 		{
+			name: "can't connect machine to different switches than before, even within the same rack",
+			m: func() *apiv2.Machine {
+				return &apiv2.Machine{
+					Uuid: sc.Machine2,
+					Partition: &apiv2.Partition{
+						Id: sc.Partition1,
+					},
+					Hardware: &apiv2.MachineHardware{
+						Nics: []*apiv2.MachineNic{
+							{
+								Name: "lan0",
+								Neighbors: []*apiv2.MachineNic{
+									{
+										Name:       "Ethernet0",
+										Identifier: "Ethernet0",
+										Hostname:   sc.P01Rack02Switch1_1,
+									},
+								},
+							},
+							{
+								Name: "lan1",
+								Neighbors: []*apiv2.MachineNic{
+									{
+										Name:       "Ethernet0",
+										Identifier: "Ethernet0",
+										Hostname:   sc.P01Rack02Switch2,
+									},
+								},
+							},
+						},
+					},
+				}
+			},
+			spec: func() *sc.DatacenterSpec {
+				spec, err := sc.SwitchesWithMachinesDatacenter.DeepCopy()
+				require.NoError(t, err)
+				spec.Machines[1].Machine.Hardware.Nics = metal.Nics{
+					{
+						Name: "lan0",
+						Neighbors: metal.Nics{
+							{
+								Name:       "Ethernet0",
+								Identifier: "Ethernet0",
+								Hostname:   sc.P01Rack02Switch1,
+							},
+						},
+					},
+					{
+						Name: "lan1",
+						Neighbors: metal.Nics{
+							{
+								Name:       "Ethernet0",
+								Identifier: "Ethernet0",
+								Hostname:   sc.P01Rack02Switch2,
+							},
+						},
+					},
+				}
+				return spec
+			},
+			wantErr: errorutil.FailedPrecondition("cannot connect machine %q to different switches than it was previously connected to; current: %v, previous: %v; if you want to migrate machine connections from one switch to another call 'switch mirgate' first", sc.Machine2, []string{sc.P01Rack02Switch1_1, sc.P01Rack02Switch2}, []string{sc.P01Rack02Switch1, sc.P01Rack02Switch2}),
+		},
+		{
 			name: "machine connections don't change",
 			m: func() *apiv2.Machine {
 				return &apiv2.Machine{
@@ -1173,11 +1237,13 @@ func Test_switchRepository_ConnectMachineWithSwitches(t *testing.T) {
 				return &test.Asserters{
 					Switches: func(switches map[string]*apiv2.Switch) {
 						sw := switches[sc.P01Rack01Switch1]
+						sw.Nics[1].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL
 						sw.MachineConnections = append(sw.MachineConnections, &apiv2.MachineConnection{
 							MachineId: sc.Machine8,
 							Nic:       sw.Nics[1],
 						})
 						sw = switches[sc.P01Rack01Switch2]
+						sw.Nics[1].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL
 						sw.MachineConnections = append(sw.MachineConnections, &apiv2.MachineConnection{
 							MachineId: sc.Machine8,
 							Nic:       sw.Nics[1],
@@ -1187,10 +1253,74 @@ func Test_switchRepository_ConnectMachineWithSwitches(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		{
+			name: "connect machine to different ports on the same switches",
+			m: func() *apiv2.Machine {
+				return &apiv2.Machine{
+					Uuid: sc.Machine1,
+					Partition: &apiv2.Partition{
+						Id: sc.Partition1,
+					},
+					Hardware: &apiv2.MachineHardware{
+						Nics: []*apiv2.MachineNic{
+							{
+								Name: "lan0",
+								Neighbors: []*apiv2.MachineNic{
+									{
+										Name:       "Ethernet1",
+										Identifier: "Ethernet1",
+										Hostname:   sc.P01Rack01Switch1,
+									},
+								},
+							},
+							{
+								Name: "lan1",
+								Neighbors: []*apiv2.MachineNic{
+									{
+										Name:       "Ethernet1",
+										Identifier: "Ethernet1",
+										Hostname:   sc.P01Rack01Switch2,
+									},
+								},
+							},
+						},
+					},
+				}
+			},
+			mods: func() *test.Asserters {
+				return &test.Asserters{
+					Switches: func(switches map[string]*apiv2.Switch) {
+						sw := switches[sc.P01Rack01Switch1]
+						sw.Nics[0].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED
+						sw.Nics[1].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL
+						sw.MachineConnections = []*apiv2.MachineConnection{
+							{
+								MachineId: sc.Machine1,
+								Nic:       sw.Nics[1],
+							},
+						}
+						sw = switches[sc.P01Rack01Switch2]
+						sw.Nics[0].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED
+						sw.Nics[1].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL
+						sw.MachineConnections = []*apiv2.MachineConnection{
+							{
+								MachineId: sc.Machine1,
+								Nic:       sw.Nics[1],
+							},
+						}
+					},
+				}
+			},
+			wantErr: nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			dc.Create(&sc.SwitchesWithMachinesDatacenter)
+			spec := &sc.SwitchesWithMachinesDatacenter
+			if tt.spec != nil {
+				spec = tt.spec()
+			}
+			dc.Create(spec)
 			defer dc.Cleanup()
 
 			var m *apiv2.Machine

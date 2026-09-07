@@ -17,6 +17,11 @@ import (
 func (r *switchRepository) validateCreate(ctx context.Context, req *api.SwitchServiceCreateRequest) error {
 	var errs []error
 
+	if req.Switch == nil {
+		return nil
+	}
+	defaultNicMemberships(req.Switch.Nics, req.Switch.MachineConnections)
+
 	_, err := r.s.ds.Partition().Get(ctx, req.Switch.Partition)
 	if err != nil {
 		errs = append(errs, errorutil.NewInternal(err))
