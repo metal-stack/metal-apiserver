@@ -2582,7 +2582,6 @@ func Test_networkServiceServer_ListExternalMembers(t *testing.T) {
 			},
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			n := &networkServiceServer{
@@ -2798,7 +2797,6 @@ func Test_networkServiceServer_AddExternalMember(t *testing.T) {
 			wantErr: nil,
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
