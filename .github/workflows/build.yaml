@@ -81,7 +81,7 @@ jobs:
                 grep -v "metal-apiserver/pkg/service/admin/tenant$" |
                 grep -v "metal-apiserver/pkg/service/admin/switch$" |
                 grep -v "metal-apiserver/pkg/service/admin/vpn$" |
-                grep -v "metal-apiserver/pkg/service/infra$" |
+                grep -v "metal-apiserver/pkg/service/infra" |
                 tr '\n' ' ')
 
     steps:
