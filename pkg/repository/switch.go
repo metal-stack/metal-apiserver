@@ -445,7 +445,6 @@ func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *ap
 }
 
 func (r *switchRepository) RemoveMachineFromSwitches(ctx context.Context, m *apiv2.Machine) error {
-
 	switches, err := r.s.ds.Switch().List(ctx, queries.SwitchFilter(&apiv2.SwitchQuery{
 		ConnectedMachineId: &m.Uuid,
 	}))
@@ -453,6 +452,17 @@ func (r *switchRepository) RemoveMachineFromSwitches(ctx context.Context, m *api
 		return fmt.Errorf("unable to query switches: %w", err)
 	}
 	for _, sw := range switches {
+		for _, con := range sw.MachineConnections[m.Uuid] {
+			nic, idx, found := lo.FindIndexOf(sw.Nics, func(n metal.Nic) bool {
+				return n.Name == con.Nic.Name
+			})
+			if !found {
+				return errorutil.Internal("cannot find nic %s on switch %s", con.Nic.Name, sw.ID)
+			}
+			nic.Membership = metal.SwitchPortMembershipUnmanaged
+			sw.Nics[idx] = nic
+		}
+
 		delete(sw.MachineConnections, m.Uuid)
 
 		if err := r.s.ds.Switch().Update(ctx, sw); err != nil {
