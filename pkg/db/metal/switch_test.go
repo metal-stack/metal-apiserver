@@ -599,15 +599,13 @@ func TestSwitch_getConnectionsFromMachineNics(t *testing.T) {
 					},
 				},
 			},
-
-			want: Connections{},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.s.getConnectionsFromMachineNics(tt.machineID, tt.machineNics)
 			if diff := cmp.Diff(tt.want, got); diff != "" {
-				t.Errorf("Switch.getPhysicalMachineConnection() diff = %v", diff)
+				t.Errorf("Switch.getConnectionsFromMachineNics() diff = %v", diff)
 			}
 		})
 	}
