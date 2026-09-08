@@ -82,8 +82,10 @@ func (n *networkServiceServer) ListExternalMembers(ctx context.Context, req *adm
 		return nil, err
 	}
 
-	// FIXME: return network
-	return &adminv2.NetworkServiceListExternalMembersResponse{Members: members}, nil
+	return &adminv2.NetworkServiceListExternalMembersResponse{
+		Network: req.Network,
+		Members: members,
+	}, nil
 }
 
 func (n *networkServiceServer) AddExternalMembers(ctx context.Context, req *adminv2.NetworkServiceAddExternalMembersRequest) (*adminv2.NetworkServiceAddExternalMembersResponse, error) {
