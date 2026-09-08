@@ -518,7 +518,6 @@ func (r *networkRepository) ListExternalMembers(ctx context.Context, req *adminv
 	return members, nil
 }
 
-// FIXME: validate network type: only child, child_shared and external
 func (r *networkRepository) AddExternalMembers(ctx context.Context, req *adminv2.NetworkServiceAddExternalMembersRequest) ([]*apiv2.Switch, error) {
 	var switches []*apiv2.Switch
 
@@ -528,10 +527,10 @@ func (r *networkRepository) AddExternalMembers(ctx context.Context, req *adminv2
 	}
 
 	switch nw.Type {
-	case apiv2.NetworkType_NETWORK_TYPE_SUPER, apiv2.NetworkType_NETWORK_TYPE_SUPER_NAMESPACED, apiv2.NetworkType_NETWORK_TYPE_UNDERLAY:
-		return nil, errorutil.InvalidArgument("cannot add external members to network of type %q", nw.Type)
-	default:
+	case apiv2.NetworkType_NETWORK_TYPE_CHILD, apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED, apiv2.NetworkType_NETWORK_TYPE_EXTERNAL:
 		// noop
+	default:
+		return nil, errorutil.InvalidArgument("cannot add external members to network of type %q", nw.Type)
 	}
 
 	rackSwitches, err := r.s.Switch().List(ctx, &apiv2.SwitchQuery{Rack: &req.Rack})
