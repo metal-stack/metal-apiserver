@@ -1056,7 +1056,7 @@ func Test_switchRepository_ConnectMachineWithSwitches(t *testing.T) {
 			wantErr: errorutil.FailedPrecondition("machine %s is connected to port swp1s1 on switch %s but not to the corresponding port Ethernet1 of switch %s", sc.Machine2, sc.P01Rack02Switch1, sc.P01Rack02Switch2),
 		},
 		{
-			name: "machine is connected to different switches than before",
+			name: "can't connect machine to different rack than before",
 			m: func() *apiv2.Machine {
 				return &apiv2.Machine{
 					Uuid: sc.Machine1,

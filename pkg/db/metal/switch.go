@@ -204,6 +204,11 @@ func (s *Switch) ConnectMachine(machineID string, machineNics Nics) (int, error)
 		if !found {
 			return 0, fmt.Errorf("nic %s found in machine connections but not in switch nics", con.Nic.Name)
 		}
+
+		if nic.Membership == SwitchPortMembershipExternal {
+			return 0, fmt.Errorf("nic %s is an external member of a network", nic.Name)
+		}
+
 		nic.Membership = SwitchPortMembershipInternal
 		s.Nics[idx] = nic
 

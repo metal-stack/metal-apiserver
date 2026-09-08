@@ -752,6 +752,41 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "cannot connect machine with external port of a switch",
+			s: &Switch{
+				ID: "sw1",
+				Nics: Nics{
+					{
+						Name:       "Ethernet0",
+						Identifier: "Ethernet0",
+						Membership: SwitchPortMembershipExternal,
+					},
+				},
+			},
+			machineID: "m1",
+			machineNics: Nics{
+				{
+					Neighbors: Nics{
+						{
+							MacAddress: "bb:bb:bb:bb:bb:bb",
+							Name:       "Ethernet0",
+							Identifier: "Ethernet0",
+							Hostname:   "sw1",
+						},
+					},
+				},
+			},
+			want: 0,
+			wantNics: Nics{
+				{
+					Name:       "Ethernet0",
+					Identifier: "Ethernet0",
+					Membership: SwitchPortMembershipExternal,
+				},
+			},
+			wantErr: true,
+		},
+		{
 			name: "new connection replaces old ones for the same switch",
 			s: &Switch{
 				ID: "sw1",
