@@ -725,6 +725,7 @@ func TestToMetalNics(t *testing.T) {
 					Name:       "Ethernet0",
 					Identifier: "Eth1/1",
 					Mac:        new("11:11:11:11:11:11"),
+					Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 					State: &apiv2.NicState{
 						Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
 						Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
@@ -735,6 +736,7 @@ func TestToMetalNics(t *testing.T) {
 					Identifier: "Eth1/2",
 					Mac:        new("22:22:22:22:22:22"),
 					Vrf:        new("Vrf100"),
+					Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL,
 					State: &apiv2.NicState{
 						Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
 						Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -755,6 +757,7 @@ func TestToMetalNics(t *testing.T) {
 					MacAddress: "11:11:11:11:11:11",
 					Name:       "Ethernet0",
 					Identifier: "Eth1/1",
+					Membership: metal.SwitchPortMembershipInternal,
 					State: &metal.NicState{
 						Desired: new(metal.SwitchPortStatusUp),
 						Actual:  metal.SwitchPortStatusDown,
@@ -765,6 +768,7 @@ func TestToMetalNics(t *testing.T) {
 					Name:       "Ethernet1",
 					Identifier: "Eth1/2",
 					Vrf:        "Vrf100",
+					Membership: metal.SwitchPortMembershipExternal,
 					State: &metal.NicState{
 						Desired: new(metal.SwitchPortStatusUp),
 						Actual:  metal.SwitchPortStatusUp,
@@ -812,12 +816,14 @@ func TestToMachineConnections(t *testing.T) {
 					MachineId: "machine-a",
 					Nic: &apiv2.SwitchNic{
 						Identifier: "Eth1/1",
+						Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
 					},
 				},
 				{
 					MachineId: "machine-b",
 					Nic: &apiv2.SwitchNic{
 						Identifier: "Eth1/2",
+						Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 					},
 				},
 			},
@@ -826,6 +832,7 @@ func TestToMachineConnections(t *testing.T) {
 					{
 						Nic: metal.Nic{
 							Identifier: "Eth1/1",
+							Membership: metal.SwitchPortMembershipUnmanaged,
 						},
 						MachineID: "machine-a",
 					},
@@ -834,6 +841,7 @@ func TestToMachineConnections(t *testing.T) {
 					{
 						Nic: metal.Nic{
 							Identifier: "Eth1/2",
+							Membership: metal.SwitchPortMembershipInternal,
 						},
 						MachineID: "machine-b",
 					},
@@ -848,18 +856,21 @@ func TestToMachineConnections(t *testing.T) {
 					MachineId: "machine-a",
 					Nic: &apiv2.SwitchNic{
 						Identifier: "Eth1/1",
+						Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 					},
 				},
 				{
 					MachineId: "machine-b",
 					Nic: &apiv2.SwitchNic{
 						Identifier: "Eth1/2",
+						Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 					},
 				},
 				{
 					MachineId: "machine-b",
 					Nic: &apiv2.SwitchNic{
 						Identifier: "Eth1/3",
+						Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 					},
 				},
 			},
@@ -868,6 +879,7 @@ func TestToMachineConnections(t *testing.T) {
 					{
 						Nic: metal.Nic{
 							Identifier: "Eth1/1",
+							Membership: metal.SwitchPortMembershipInternal,
 						},
 						MachineID: "machine-a",
 					},
@@ -876,12 +888,14 @@ func TestToMachineConnections(t *testing.T) {
 					{
 						Nic: metal.Nic{
 							Identifier: "Eth1/2",
+							Membership: metal.SwitchPortMembershipInternal,
 						},
 						MachineID: "machine-b",
 					},
 					{
 						Nic: metal.Nic{
 							Identifier: "Eth1/3",
+							Membership: metal.SwitchPortMembershipInternal,
 						},
 						MachineID: "machine-b",
 					},
@@ -896,12 +910,14 @@ func TestToMachineConnections(t *testing.T) {
 					MachineId: "machine-a",
 					Nic: &apiv2.SwitchNic{
 						Identifier: "Eth1/1",
+						Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 					},
 				},
 				{
 					MachineId: "machine-b",
 					Nic: &apiv2.SwitchNic{
 						Identifier: "Eth1/1",
+						Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 					},
 				},
 			},
