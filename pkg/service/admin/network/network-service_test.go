@@ -2469,6 +2469,7 @@ func Test_networkServiceServer_ListExternalMembers(t *testing.T) {
 			},
 			want: func() *adminv2.NetworkServiceListExternalMembersResponse {
 				return &adminv2.NetworkServiceListExternalMembersResponse{
+					Network: sc.NetworkExternal,
 					Members: []*apiv2.ExternalNetworkMember{
 						{
 							Switch: sc.P01Rack01Switch1,
@@ -2510,6 +2511,7 @@ func Test_networkServiceServer_ListExternalMembers(t *testing.T) {
 			},
 			want: func() *adminv2.NetworkServiceListExternalMembersResponse {
 				return &adminv2.NetworkServiceListExternalMembersResponse{
+					Network: sc.NetworkExternal,
 					Members: []*apiv2.ExternalNetworkMember{
 						{
 							Switch: sc.P01Rack01Switch1,
@@ -2543,6 +2545,7 @@ func Test_networkServiceServer_ListExternalMembers(t *testing.T) {
 			},
 			want: func() *adminv2.NetworkServiceListExternalMembersResponse {
 				return &adminv2.NetworkServiceListExternalMembersResponse{
+					Network: sc.NetworkExternal,
 					Members: []*apiv2.ExternalNetworkMember{
 						{
 							Switch: sc.P01Rack02Switch1,
@@ -2568,6 +2571,7 @@ func Test_networkServiceServer_ListExternalMembers(t *testing.T) {
 			},
 			want: func() *adminv2.NetworkServiceListExternalMembersResponse {
 				return &adminv2.NetworkServiceListExternalMembersResponse{
+					Network: sc.NetworkExternal,
 					Members: []*apiv2.ExternalNetworkMember{
 						{
 							Switch: sc.P01Rack02Switch2,
