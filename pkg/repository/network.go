@@ -501,7 +501,7 @@ func (r *networkRepository) ListExternalMembers(ctx context.Context, req *adminv
 				continue
 			}
 
-			if pointer.SafeDeref(nic.Vrf) != fmt.Sprintf("Vrf%d", pointer.SafeDeref(nw.Vrf)) {
+			if pointer.SafeDeref(nic.Vrf) != fmt.Sprintf("vrf%d", pointer.SafeDeref(nw.Vrf)) {
 				continue
 			}
 
@@ -590,7 +590,7 @@ func (r *networkRepository) AddExternalMembers(ctx context.Context, req *adminv2
 				return nil, errorutil.InvalidArgument("port %q of switches in rack %q is already member of network %q", port, req.Rack, nicNetwork.ID)
 			}
 
-			nic.Vrf = new(fmt.Sprintf("Vrf%d", pointer.SafeDeref(nw.Vrf)))
+			nic.Vrf = new(fmt.Sprintf("vrf%d", pointer.SafeDeref(nw.Vrf)))
 			nic.Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL
 			member.Ports = append(member.Ports, nic.Name)
 		}
@@ -655,7 +655,7 @@ func (r *networkRepository) RemoveExternalMembers(ctx context.Context, req *admi
 				return nil, errorutil.NotFound("port %q not found on switch %q", port, sw.Id)
 			}
 
-			if pointer.SafeDeref(nic.Vrf) != fmt.Sprintf("Vrf%d", pointer.SafeDeref(nw.Vrf)) {
+			if pointer.SafeDeref(nic.Vrf) != fmt.Sprintf("vrf%d", pointer.SafeDeref(nw.Vrf)) {
 				return nil, errorutil.InvalidArgument("port %q is not a member of network %q", port, nw.Id)
 			}
 
