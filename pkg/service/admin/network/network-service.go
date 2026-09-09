@@ -77,33 +77,25 @@ func (n *networkServiceServer) Update(ctx context.Context, req *adminv2.NetworkS
 }
 
 func (n *networkServiceServer) ListExternalMembers(ctx context.Context, req *adminv2.NetworkServiceListExternalMembersRequest) (*adminv2.NetworkServiceListExternalMembersResponse, error) {
-	members, err := n.repo.UnscopedNetwork().AdditionalMethods().ListExternalMembers(ctx, req)
+	res, err := n.repo.UnscopedNetwork().AdditionalMethods().ListExternalMembers(ctx, req)
 	if err != nil {
 		return nil, err
 	}
-
-	return &adminv2.NetworkServiceListExternalMembersResponse{
-		Network: req.Network,
-		Members: members,
-	}, nil
+	return res, nil
 }
 
 func (n *networkServiceServer) AddExternalMembers(ctx context.Context, req *adminv2.NetworkServiceAddExternalMembersRequest) (*adminv2.NetworkServiceAddExternalMembersResponse, error) {
-	switchhes, err := n.repo.UnscopedNetwork().AdditionalMethods().AddExternalMembers(ctx, req)
+	res, err := n.repo.UnscopedNetwork().AdditionalMethods().AddExternalMembers(ctx, req)
 	if err != nil {
 		return nil, err
 	}
-
-	// FIXME: return network
-	return &adminv2.NetworkServiceAddExternalMembersResponse{Switches: switchhes}, nil
+	return res, nil
 }
 
 func (n *networkServiceServer) RemoveExternalMembers(ctx context.Context, req *adminv2.NetworkServiceRemoveExternalMembersRequest) (*adminv2.NetworkServiceRemoveExternalMembersResponse, error) {
-	switches, err := n.repo.UnscopedNetwork().AdditionalMethods().RemoveExternalMembers(ctx, req)
+	res, err := n.repo.UnscopedNetwork().AdditionalMethods().RemoveExternalMembers(ctx, req)
 	if err != nil {
 		return nil, err
 	}
-
-	// FIXME: return network
-	return &adminv2.NetworkServiceRemoveExternalMembersResponse{Switches: switches}, nil
+	return res, nil
 }

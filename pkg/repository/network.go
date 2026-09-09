@@ -465,7 +465,7 @@ func (r *networkRepository) convertToProto(ctx context.Context, e *metal.Network
 	return nw, nil
 }
 
-func (r *networkRepository) ListExternalMembers(ctx context.Context, req *adminv2.NetworkServiceListExternalMembersRequest) ([]*apiv2.ExternalNetworkMember, error) {
+func (r *networkRepository) ListExternalMembers(ctx context.Context, req *adminv2.NetworkServiceListExternalMembersRequest) (*adminv2.NetworkServiceListExternalMembersResponse, error) {
 	var (
 		members []*apiv2.ExternalNetworkMember
 		query   *apiv2.SwitchQuery
@@ -479,7 +479,7 @@ func (r *networkRepository) ListExternalMembers(ctx context.Context, req *adminv
 		}
 	}
 
-	nw, err := r.s.ds.Network().Get(ctx, req.Network)
+	nw, err := r.s.UnscopedNetwork().Get(ctx, req.Network)
 	if err != nil {
 		return nil, err
 	}
@@ -499,7 +499,7 @@ func (r *networkRepository) ListExternalMembers(ctx context.Context, req *adminv
 				continue
 			}
 
-			if nic.Vrf != fmt.Sprintf("Vrf%d", nw.Vrf) {
+			if nic.Vrf != fmt.Sprintf("Vrf%d", pointer.SafeDeref(nw.Vrf)) {
 				continue
 			}
 
@@ -515,11 +515,17 @@ func (r *networkRepository) ListExternalMembers(ctx context.Context, req *adminv
 		}
 	}
 
-	return members, nil
+	return &adminv2.NetworkServiceListExternalMembersResponse{
+		Network: nw,
+		Members: members,
+	}, nil
 }
 
-func (r *networkRepository) AddExternalMembers(ctx context.Context, req *adminv2.NetworkServiceAddExternalMembersRequest) ([]*apiv2.Switch, error) {
-	var switches []*apiv2.Switch
+func (r *networkRepository) AddExternalMembers(ctx context.Context, req *adminv2.NetworkServiceAddExternalMembersRequest) (*adminv2.NetworkServiceAddExternalMembersResponse, error) {
+	var (
+		switches []*apiv2.Switch
+		members  []*apiv2.ExternalNetworkMember
+	)
 
 	nw, err := r.s.UnscopedNetwork().Get(ctx, req.Network)
 	if err != nil {
@@ -547,6 +553,10 @@ func (r *networkRepository) AddExternalMembers(ctx context.Context, req *adminv2
 	}
 
 	for _, sw := range rackSwitches {
+		member := &apiv2.ExternalNetworkMember{
+			Switch: sw.Id,
+		}
+
 		for _, port := range req.Ports {
 			nic, found := lo.Find(sw.Nics, func(n *apiv2.SwitchNic) bool {
 				return n.Name == port
@@ -578,9 +588,13 @@ func (r *networkRepository) AddExternalMembers(ctx context.Context, req *adminv2
 
 			nic.Vrf = new(fmt.Sprintf("Vrf%d", pointer.SafeDeref(nw.Vrf)))
 			nic.Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL
+			member.Ports = append(member.Ports, nic.Name)
 		}
 
-		switches = append(switches, sw)
+		if len(member.Ports) > 0 {
+			members = append(members, member)
+			switches = append(switches, sw)
+		}
 	}
 
 	for _, sw := range switches {
@@ -596,11 +610,17 @@ func (r *networkRepository) AddExternalMembers(ctx context.Context, req *adminv2
 		}
 	}
 
-	return switches, nil
+	return &adminv2.NetworkServiceAddExternalMembersResponse{
+		Network: nw,
+		Members: members,
+	}, nil
 }
 
-func (r *networkRepository) RemoveExternalMembers(ctx context.Context, req *adminv2.NetworkServiceRemoveExternalMembersRequest) ([]*apiv2.Switch, error) {
-	var switches []*apiv2.Switch
+func (r *networkRepository) RemoveExternalMembers(ctx context.Context, req *adminv2.NetworkServiceRemoveExternalMembersRequest) (*adminv2.NetworkServiceRemoveExternalMembersResponse, error) {
+	var (
+		switches []*apiv2.Switch
+		members  []*apiv2.ExternalNetworkMember
+	)
 
 	nw, err := r.s.UnscopedNetwork().Get(ctx, req.Network)
 	if err != nil {
@@ -617,6 +637,10 @@ func (r *networkRepository) RemoveExternalMembers(ctx context.Context, req *admi
 	}
 
 	for _, sw := range rackSwitches {
+		member := &apiv2.ExternalNetworkMember{
+			Switch: sw.Id,
+		}
+
 		for _, port := range req.Ports {
 			nic, found := lo.Find(sw.Nics, func(n *apiv2.SwitchNic) bool {
 				return n.Name == port
@@ -634,9 +658,14 @@ func (r *networkRepository) RemoveExternalMembers(ctx context.Context, req *admi
 			}
 
 			nic.Vrf = nil
+			nic.Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED
+			member.Ports = append(member.Ports, nic.Name)
 		}
 
-		switches = append(switches, sw)
+		if len(member.Ports) > 0 {
+			members = append(members, member)
+			switches = append(switches, sw)
+		}
 	}
 
 	for _, sw := range switches {
@@ -652,7 +681,10 @@ func (r *networkRepository) RemoveExternalMembers(ctx context.Context, req *admi
 		}
 	}
 
-	return switches, nil
+	return &adminv2.NetworkServiceRemoveExternalMembersResponse{
+		Network: nw,
+		Members: members,
+	}, nil
 }
 
 func (r *networkRepository) toProtoChildPrefixLength(childPrefixLength metal.ChildPrefixLength) (*apiv2.ChildPrefixLength, error) {

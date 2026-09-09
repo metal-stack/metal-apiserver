@@ -2469,7 +2469,7 @@ func Test_networkServiceServer_ListExternalMembers(t *testing.T) {
 			},
 			want: func() *adminv2.NetworkServiceListExternalMembersResponse {
 				return &adminv2.NetworkServiceListExternalMembersResponse{
-					Network: sc.NetworkExternal,
+					Network: dc.GetNetworks()[sc.NetworkExternal],
 					Members: []*apiv2.ExternalNetworkMember{
 						{
 							Switch: sc.P01Rack01Switch1,
@@ -2511,7 +2511,7 @@ func Test_networkServiceServer_ListExternalMembers(t *testing.T) {
 			},
 			want: func() *adminv2.NetworkServiceListExternalMembersResponse {
 				return &adminv2.NetworkServiceListExternalMembersResponse{
-					Network: sc.NetworkExternal,
+					Network: dc.GetNetworks()[sc.NetworkExternal],
 					Members: []*apiv2.ExternalNetworkMember{
 						{
 							Switch: sc.P01Rack01Switch1,
@@ -2545,7 +2545,7 @@ func Test_networkServiceServer_ListExternalMembers(t *testing.T) {
 			},
 			want: func() *adminv2.NetworkServiceListExternalMembersResponse {
 				return &adminv2.NetworkServiceListExternalMembersResponse{
-					Network: sc.NetworkExternal,
+					Network: dc.GetNetworks()[sc.NetworkExternal],
 					Members: []*apiv2.ExternalNetworkMember{
 						{
 							Switch: sc.P01Rack02Switch1,
@@ -2571,7 +2571,7 @@ func Test_networkServiceServer_ListExternalMembers(t *testing.T) {
 			},
 			want: func() *adminv2.NetworkServiceListExternalMembersResponse {
 				return &adminv2.NetworkServiceListExternalMembersResponse{
-					Network: sc.NetworkExternal,
+					Network: dc.GetNetworks()[sc.NetworkExternal],
 					Members: []*apiv2.ExternalNetworkMember{
 						{
 							Switch: sc.P01Rack02Switch2,
@@ -2792,7 +2792,19 @@ func Test_networkServiceServer_AddExternalMember(t *testing.T) {
 				sw2.Nics[1].Vrf = new("Vrf99")
 				sw2.Nics[1].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL
 
-				return &adminv2.NetworkServiceAddExternalMembersResponse{Switches: []*apiv2.Switch{sw1, sw2}}
+				return &adminv2.NetworkServiceAddExternalMembersResponse{
+					Network: dc.GetNetworks()[sc.NetworkNameTenantPartition1],
+					Members: []*apiv2.ExternalNetworkMember{
+						{
+							Switch: sw1.Id,
+							Ports:  []string{"Ethernet0", "Ethernet1"},
+						},
+						{
+							Switch: sw2.Id,
+							Ports:  []string{"Ethernet0", "Ethernet1"},
+						},
+					},
+				}
 			},
 			wantErr: nil,
 		},
@@ -2828,8 +2840,8 @@ func Test_networkServiceServer_AddExternalMember(t *testing.T) {
 				return
 			}
 
-			slices.SortFunc(got.Switches, func(a, b *apiv2.Switch) int {
-				return strings.Compare(a.Id, b.Id)
+			slices.SortFunc(got.Members, func(a, b *apiv2.ExternalNetworkMember) int {
+				return strings.Compare(a.Switch, b.Switch)
 			})
 
 			if diff := cmp.Diff(want, got,
@@ -2935,12 +2947,16 @@ func Test_networkServiceServer_RemoveExternalMember(t *testing.T) {
 						sw1 := switches[sc.P02Rack01Switch1]
 						require.NotNil(t, sw1)
 						sw1.Nics[0].Vrf = nil
+						sw1.Nics[0].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED
 						sw1.Nics[1].Vrf = nil
+						sw1.Nics[1].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED
 
 						sw2 := switches[sc.P02Rack01Switch2]
 						require.NotNil(t, sw2)
 						sw2.Nics[0].Vrf = nil
+						sw2.Nics[0].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED
 						sw2.Nics[1].Vrf = nil
+						sw2.Nics[1].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED
 					},
 				}
 			},
@@ -2957,14 +2973,30 @@ func Test_networkServiceServer_RemoveExternalMember(t *testing.T) {
 				sw1 := allSwitches[sc.P02Rack01Switch1]
 				require.NotNil(t, sw1)
 				sw1.Nics[0].Vrf = nil
+				sw1.Nics[0].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED
 				sw1.Nics[1].Vrf = nil
+				sw1.Nics[1].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED
 
 				sw2 := allSwitches[sc.P02Rack01Switch2]
 				require.NotNil(t, sw2)
 				sw2.Nics[0].Vrf = nil
+				sw2.Nics[0].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED
 				sw2.Nics[1].Vrf = nil
+				sw2.Nics[1].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED
 
-				return &adminv2.NetworkServiceRemoveExternalMembersResponse{Switches: []*apiv2.Switch{sw1, sw2}}
+				return &adminv2.NetworkServiceRemoveExternalMembersResponse{
+					Network: dc.GetNetworks()[sc.NetworkExternal],
+					Members: []*apiv2.ExternalNetworkMember{
+						{
+							Switch: sw1.Id,
+							Ports:  []string{"Ethernet0", "Ethernet1"},
+						},
+						{
+							Switch: sw2.Id,
+							Ports:  []string{"Ethernet0", "Ethernet1"},
+						},
+					},
+				}
 			},
 			wantErr: nil,
 		},
@@ -2999,8 +3031,8 @@ func Test_networkServiceServer_RemoveExternalMember(t *testing.T) {
 				return
 			}
 
-			slices.SortFunc(got.Switches, func(a, b *apiv2.Switch) int {
-				return strings.Compare(a.Id, b.Id)
+			slices.SortFunc(got.Members, func(a, b *apiv2.ExternalNetworkMember) int {
+				return strings.Compare(a.Switch, b.Switch)
 			})
 
 			if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
