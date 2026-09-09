@@ -51,6 +51,7 @@ func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServ
 
 	new := req.Switch
 	defaultNicMemberships(new.Nics, new.MachineConnections)
+	defaultMetalNicMemberships(metalSwitch)
 	old, err := r.convertToProto(ctx, metalSwitch)
 	if err != nil {
 		return nil, err
@@ -1623,5 +1624,21 @@ func defaultNicMemberships(switchNics []*apiv2.SwitchNic, connections []*apiv2.M
 		if con.Nic.Membership == apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNSPECIFIED {
 			con.Nic.Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED
 		}
+	}
+}
+
+func defaultMetalNicMemberships(sw *metal.Switch) {
+	for i, nic := range sw.Nics {
+		if nic.Membership == "" {
+			sw.Nics[i].Membership = metal.SwitchPortMembershipUnmanaged
+		}
+	}
+	for mid, cons := range sw.MachineConnections {
+		for i, con := range cons {
+			if con.Nic.Membership == "" {
+				cons[i].Nic.Membership = metal.SwitchPortMembershipUnmanaged
+			}
+		}
+		sw.MachineConnections[mid] = cons
 	}
 }
