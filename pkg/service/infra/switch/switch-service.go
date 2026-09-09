@@ -12,6 +12,7 @@ import (
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/api/go/metalstack/infra/v2/infrav2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/samber/lo"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -109,6 +110,21 @@ func (s *switchServiceServer) Heartbeat(ctx context.Context, rq *infrav2.SwitchS
 			}
 			updated = true
 		}
+	}
+
+	for i, nic := range sw.Nics {
+		if nic.Membership != apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNSPECIFIED {
+			continue
+		}
+		_, connected := lo.Find(sw.MachineConnections, func(con *apiv2.MachineConnection) bool {
+			return con.Nic.Name == nic.Name
+		})
+		if connected {
+			sw.Nics[i].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL
+		} else {
+			sw.Nics[i].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL
+		}
+		updated = true
 	}
 
 	if updated {
