@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
+	"github.com/metal-stack/metal-lib/pkg/pointer"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/metal-stack/api/go/errorutil"
@@ -2474,37 +2475,37 @@ func Test_networkServiceServer_ListExternalMembers(t *testing.T) {
 						{
 							Switch:    sc.P01Rack01Switch1,
 							Partition: sc.Partition1,
-							Rack:      new(sc.P01Rack01),
+							Rack:      sc.P01Rack01,
 							Ports:     []string{"Ethernet1"},
 						},
 						{
 							Switch:    sc.P01Rack01Switch2,
 							Partition: sc.Partition1,
-							Rack:      new(sc.P01Rack01),
+							Rack:      sc.P01Rack01,
 							Ports:     []string{"Ethernet1"},
 						},
 						{
 							Switch:    sc.P01Rack02Switch1,
 							Partition: sc.Partition1,
-							Rack:      new(sc.P01Rack02),
+							Rack:      sc.P01Rack02,
 							Ports:     []string{"Ethernet0", "Ethernet1"},
 						},
 						{
 							Switch:    sc.P01Rack02Switch2,
 							Partition: sc.Partition1,
-							Rack:      new(sc.P01Rack02),
+							Rack:      sc.P01Rack02,
 							Ports:     []string{"Ethernet0", "Ethernet1"},
 						},
 						{
 							Switch:    sc.P02Rack01Switch1,
 							Partition: sc.Partition2,
-							Rack:      new(sc.P02Rack01),
+							Rack:      sc.P02Rack01,
 							Ports:     []string{"Ethernet0"},
 						},
 						{
 							Switch:    sc.P02Rack01Switch2,
 							Partition: sc.Partition2,
-							Rack:      new(sc.P02Rack01),
+							Rack:      sc.P02Rack01,
 							Ports:     []string{"Ethernet0"},
 						},
 					},
@@ -2528,25 +2529,25 @@ func Test_networkServiceServer_ListExternalMembers(t *testing.T) {
 						{
 							Switch:    sc.P01Rack01Switch1,
 							Partition: sc.Partition1,
-							Rack:      new(sc.P01Rack01),
+							Rack:      sc.P01Rack01,
 							Ports:     []string{"Ethernet1"},
 						},
 						{
 							Switch:    sc.P01Rack01Switch2,
 							Partition: sc.Partition1,
-							Rack:      new(sc.P01Rack01),
+							Rack:      sc.P01Rack01,
 							Ports:     []string{"Ethernet1"},
 						},
 						{
 							Switch:    sc.P01Rack02Switch1,
 							Partition: sc.Partition1,
-							Rack:      new(sc.P01Rack02),
+							Rack:      sc.P01Rack02,
 							Ports:     []string{"Ethernet0", "Ethernet1"},
 						},
 						{
 							Switch:    sc.P01Rack02Switch2,
 							Partition: sc.Partition1,
-							Rack:      new(sc.P01Rack02),
+							Rack:      sc.P01Rack02,
 							Ports:     []string{"Ethernet0", "Ethernet1"},
 						},
 					},
@@ -2570,13 +2571,13 @@ func Test_networkServiceServer_ListExternalMembers(t *testing.T) {
 						{
 							Switch:    sc.P01Rack02Switch1,
 							Partition: sc.Partition1,
-							Rack:      new(sc.P01Rack02),
+							Rack:      sc.P01Rack02,
 							Ports:     []string{"Ethernet0", "Ethernet1"},
 						},
 						{
 							Switch:    sc.P01Rack02Switch2,
 							Partition: sc.Partition1,
-							Rack:      new(sc.P01Rack02),
+							Rack:      sc.P01Rack02,
 							Ports:     []string{"Ethernet0", "Ethernet1"},
 						},
 					},
@@ -2600,7 +2601,7 @@ func Test_networkServiceServer_ListExternalMembers(t *testing.T) {
 						{
 							Switch:    sc.P01Rack02Switch2,
 							Partition: sc.Partition1,
-							Rack:      new(sc.P01Rack02),
+							Rack:      sc.P01Rack02,
 							Ports:     []string{"Ethernet0", "Ethernet1"},
 						},
 					},
@@ -2824,13 +2825,13 @@ func Test_networkServiceServer_AddExternalMember(t *testing.T) {
 						{
 							Switch:    sw1.Id,
 							Partition: sw1.Partition,
-							Rack:      sw1.Rack,
+							Rack:      pointer.SafeDeref(sw1.Rack),
 							Ports:     []string{"Ethernet0", "Ethernet1"},
 						},
 						{
 							Switch:    sw2.Id,
 							Partition: sw2.Partition,
-							Rack:      sw2.Rack,
+							Rack:      pointer.SafeDeref(sw2.Rack),
 							Ports:     []string{"Ethernet0", "Ethernet1"},
 						},
 					},
@@ -3020,13 +3021,13 @@ func Test_networkServiceServer_RemoveExternalMember(t *testing.T) {
 						{
 							Switch:    sw1.Id,
 							Partition: sw1.Partition,
-							Rack:      sw1.Rack,
+							Rack:      pointer.SafeDeref(sw1.Rack),
 							Ports:     []string{"Ethernet0", "Ethernet1"},
 						},
 						{
 							Switch:    sw2.Id,
 							Partition: sw2.Partition,
-							Rack:      sw2.Rack,
+							Rack:      pointer.SafeDeref(sw2.Rack),
 							Ports:     []string{"Ethernet0", "Ethernet1"},
 						},
 					},

@@ -493,7 +493,7 @@ func (r *networkRepository) ListExternalMembers(ctx context.Context, req *adminv
 		member := &apiv2.ExternalNetworkMember{
 			Switch:    sw.Id,
 			Partition: sw.Partition,
-			Rack:      sw.Rack,
+			Rack:      pointer.SafeDeref(sw.Rack),
 		}
 
 		for _, nic := range sw.Nics {
@@ -558,7 +558,7 @@ func (r *networkRepository) AddExternalMembers(ctx context.Context, req *adminv2
 		member := &apiv2.ExternalNetworkMember{
 			Switch:    sw.Id,
 			Partition: sw.Partition,
-			Rack:      sw.Rack,
+			Rack:      pointer.SafeDeref(sw.Rack),
 		}
 
 		for _, port := range req.Ports {
@@ -644,7 +644,7 @@ func (r *networkRepository) RemoveExternalMembers(ctx context.Context, req *admi
 		member := &apiv2.ExternalNetworkMember{
 			Switch:    sw.Id,
 			Partition: sw.Partition,
-			Rack:      sw.Rack,
+			Rack:      pointer.SafeDeref(sw.Rack),
 		}
 
 		for _, port := range req.Ports {
