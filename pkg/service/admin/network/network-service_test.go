@@ -2472,28 +2472,40 @@ func Test_networkServiceServer_ListExternalMembers(t *testing.T) {
 					Network: dc.GetNetworks()[sc.NetworkExternal],
 					Members: []*apiv2.ExternalNetworkMember{
 						{
-							Switch: sc.P01Rack01Switch1,
-							Ports:  []string{"Ethernet1"},
+							Switch:    sc.P01Rack01Switch1,
+							Partition: sc.Partition1,
+							Rack:      new(sc.P01Rack01),
+							Ports:     []string{"Ethernet1"},
 						},
 						{
-							Switch: sc.P01Rack01Switch2,
-							Ports:  []string{"Ethernet1"},
+							Switch:    sc.P01Rack01Switch2,
+							Partition: sc.Partition1,
+							Rack:      new(sc.P01Rack01),
+							Ports:     []string{"Ethernet1"},
 						},
 						{
-							Switch: sc.P01Rack02Switch1,
-							Ports:  []string{"Ethernet0", "Ethernet1"},
+							Switch:    sc.P01Rack02Switch1,
+							Partition: sc.Partition1,
+							Rack:      new(sc.P01Rack02),
+							Ports:     []string{"Ethernet0", "Ethernet1"},
 						},
 						{
-							Switch: sc.P01Rack02Switch2,
-							Ports:  []string{"Ethernet0", "Ethernet1"},
+							Switch:    sc.P01Rack02Switch2,
+							Partition: sc.Partition1,
+							Rack:      new(sc.P01Rack02),
+							Ports:     []string{"Ethernet0", "Ethernet1"},
 						},
 						{
-							Switch: sc.P02Rack01Switch1,
-							Ports:  []string{"Ethernet0"},
+							Switch:    sc.P02Rack01Switch1,
+							Partition: sc.Partition2,
+							Rack:      new(sc.P02Rack01),
+							Ports:     []string{"Ethernet0"},
 						},
 						{
-							Switch: sc.P02Rack01Switch2,
-							Ports:  []string{"Ethernet0"},
+							Switch:    sc.P02Rack01Switch2,
+							Partition: sc.Partition2,
+							Rack:      new(sc.P02Rack01),
+							Ports:     []string{"Ethernet0"},
 						},
 					},
 				}
@@ -2514,20 +2526,28 @@ func Test_networkServiceServer_ListExternalMembers(t *testing.T) {
 					Network: dc.GetNetworks()[sc.NetworkExternal],
 					Members: []*apiv2.ExternalNetworkMember{
 						{
-							Switch: sc.P01Rack01Switch1,
-							Ports:  []string{"Ethernet1"},
+							Switch:    sc.P01Rack01Switch1,
+							Partition: sc.Partition1,
+							Rack:      new(sc.P01Rack01),
+							Ports:     []string{"Ethernet1"},
 						},
 						{
-							Switch: sc.P01Rack01Switch2,
-							Ports:  []string{"Ethernet1"},
+							Switch:    sc.P01Rack01Switch2,
+							Partition: sc.Partition1,
+							Rack:      new(sc.P01Rack01),
+							Ports:     []string{"Ethernet1"},
 						},
 						{
-							Switch: sc.P01Rack02Switch1,
-							Ports:  []string{"Ethernet0", "Ethernet1"},
+							Switch:    sc.P01Rack02Switch1,
+							Partition: sc.Partition1,
+							Rack:      new(sc.P01Rack02),
+							Ports:     []string{"Ethernet0", "Ethernet1"},
 						},
 						{
-							Switch: sc.P01Rack02Switch2,
-							Ports:  []string{"Ethernet0", "Ethernet1"},
+							Switch:    sc.P01Rack02Switch2,
+							Partition: sc.Partition1,
+							Rack:      new(sc.P01Rack02),
+							Ports:     []string{"Ethernet0", "Ethernet1"},
 						},
 					},
 				}
@@ -2548,12 +2568,16 @@ func Test_networkServiceServer_ListExternalMembers(t *testing.T) {
 					Network: dc.GetNetworks()[sc.NetworkExternal],
 					Members: []*apiv2.ExternalNetworkMember{
 						{
-							Switch: sc.P01Rack02Switch1,
-							Ports:  []string{"Ethernet0", "Ethernet1"},
+							Switch:    sc.P01Rack02Switch1,
+							Partition: sc.Partition1,
+							Rack:      new(sc.P01Rack02),
+							Ports:     []string{"Ethernet0", "Ethernet1"},
 						},
 						{
-							Switch: sc.P01Rack02Switch2,
-							Ports:  []string{"Ethernet0", "Ethernet1"},
+							Switch:    sc.P01Rack02Switch2,
+							Partition: sc.Partition1,
+							Rack:      new(sc.P01Rack02),
+							Ports:     []string{"Ethernet0", "Ethernet1"},
 						},
 					},
 				}
@@ -2574,8 +2598,10 @@ func Test_networkServiceServer_ListExternalMembers(t *testing.T) {
 					Network: dc.GetNetworks()[sc.NetworkExternal],
 					Members: []*apiv2.ExternalNetworkMember{
 						{
-							Switch: sc.P01Rack02Switch2,
-							Ports:  []string{"Ethernet0", "Ethernet1"},
+							Switch:    sc.P01Rack02Switch2,
+							Partition: sc.Partition1,
+							Rack:      new(sc.P01Rack02),
+							Ports:     []string{"Ethernet0", "Ethernet1"},
 						},
 					},
 				}
@@ -2796,12 +2822,16 @@ func Test_networkServiceServer_AddExternalMember(t *testing.T) {
 					Network: dc.GetNetworks()[sc.NetworkNameTenantPartition1],
 					Members: []*apiv2.ExternalNetworkMember{
 						{
-							Switch: sw1.Id,
-							Ports:  []string{"Ethernet0", "Ethernet1"},
+							Switch:    sw1.Id,
+							Partition: sw1.Partition,
+							Rack:      sw1.Rack,
+							Ports:     []string{"Ethernet0", "Ethernet1"},
 						},
 						{
-							Switch: sw2.Id,
-							Ports:  []string{"Ethernet0", "Ethernet1"},
+							Switch:    sw2.Id,
+							Partition: sw2.Partition,
+							Rack:      sw2.Rack,
+							Ports:     []string{"Ethernet0", "Ethernet1"},
 						},
 					},
 				}
@@ -2988,12 +3018,16 @@ func Test_networkServiceServer_RemoveExternalMember(t *testing.T) {
 					Network: dc.GetNetworks()[sc.NetworkExternal],
 					Members: []*apiv2.ExternalNetworkMember{
 						{
-							Switch: sw1.Id,
-							Ports:  []string{"Ethernet0", "Ethernet1"},
+							Switch:    sw1.Id,
+							Partition: sw1.Partition,
+							Rack:      sw1.Rack,
+							Ports:     []string{"Ethernet0", "Ethernet1"},
 						},
 						{
-							Switch: sw2.Id,
-							Ports:  []string{"Ethernet0", "Ethernet1"},
+							Switch:    sw2.Id,
+							Partition: sw2.Partition,
+							Rack:      sw2.Rack,
+							Ports:     []string{"Ethernet0", "Ethernet1"},
 						},
 					},
 				}

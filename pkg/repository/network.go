@@ -484,26 +484,28 @@ func (r *networkRepository) ListExternalMembers(ctx context.Context, req *adminv
 		return nil, err
 	}
 
-	switches, err := r.s.Switch().AdditionalMethods().list(ctx, query)
+	switches, err := r.s.Switch().List(ctx, query)
 	if err != nil {
 		return nil, errorutil.Internal("failed to list switches: %w", err)
 	}
 
 	for _, sw := range switches {
 		member := &apiv2.ExternalNetworkMember{
-			Switch: sw.ID,
+			Switch:    sw.Id,
+			Partition: sw.Partition,
+			Rack:      sw.Rack,
 		}
 
 		for _, nic := range sw.Nics {
-			if nic.Vrf == "" || nic.Vrf == "default" {
+			if pointer.SafeDeref(nic.Vrf) == "" || pointer.SafeDeref(nic.Vrf) == "default" {
 				continue
 			}
 
-			if nic.Vrf != fmt.Sprintf("Vrf%d", pointer.SafeDeref(nw.Vrf)) {
+			if pointer.SafeDeref(nic.Vrf) != fmt.Sprintf("Vrf%d", pointer.SafeDeref(nw.Vrf)) {
 				continue
 			}
 
-			if nic.Membership != metal.SwitchPortMembershipExternal {
+			if nic.Membership != apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL {
 				continue
 			}
 
@@ -554,7 +556,9 @@ func (r *networkRepository) AddExternalMembers(ctx context.Context, req *adminv2
 
 	for _, sw := range rackSwitches {
 		member := &apiv2.ExternalNetworkMember{
-			Switch: sw.Id,
+			Switch:    sw.Id,
+			Partition: sw.Partition,
+			Rack:      sw.Rack,
 		}
 
 		for _, port := range req.Ports {
@@ -638,7 +642,9 @@ func (r *networkRepository) RemoveExternalMembers(ctx context.Context, req *admi
 
 	for _, sw := range rackSwitches {
 		member := &apiv2.ExternalNetworkMember{
-			Switch: sw.Id,
+			Switch:    sw.Id,
+			Partition: sw.Partition,
+			Rack:      sw.Rack,
 		}
 
 		for _, port := range req.Ports {
