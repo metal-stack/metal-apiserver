@@ -168,8 +168,11 @@ func (r *machineRepository) matchScope(machine *metal.Machine) bool {
 func (r *machineRepository) create(ctx context.Context, req *apiv2.MachineServiceCreateRequest) (*metal.Machine, error) {
 	result, err := r.allocateMachine(ctx, req)
 	if err != nil {
-		// FIXME migrate the whole mechanism of allocating to a task and roll back there on error
-		r.rollback(ctx, result.rollbackEntities)
+		if result != nil {
+			// FIXME migrate the whole mechanism of allocating to a task and roll back there on error
+			r.rollback(ctx, result.rollbackEntities)
+		}
+
 		return nil, err
 	}
 
