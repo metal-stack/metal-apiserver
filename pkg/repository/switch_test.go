@@ -10,20 +10,22 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func Test_updateNics(t *testing.T) {
+func Test_updateNicsOnRegister(t *testing.T) {
 	tests := []struct {
-		name string
-		old  metal.Nics
-		new  metal.Nics
-		want metal.Nics
+		name        string
+		old         metal.Nics
+		new         metal.Nics
+		connections metal.ConnectionMap
+		want        metal.Nics
 	}{
 		{
-			name: "new nics just get added",
+			name: "new nics just get added, old get removed",
 			old: metal.Nics{
 				{
 					Identifier: "Eth1/1",
@@ -40,44 +42,86 @@ func Test_updateNics(t *testing.T) {
 				{
 					Identifier: "Eth1/2",
 					Name:       "Ethernet1",
+					Membership: metal.SwitchPortMembershipUnmanaged,
 				},
 			},
 		},
 		{
-			name: "existing nics can only be renamed",
+			name: "update existing nics",
 			old: metal.Nics{
 				{
 					Identifier: "Eth1/1",
 					Name:       "Ethernet0",
 					Vrf:        "Vrf100",
+					Membership: metal.SwitchPortMembershipExternal,
+				},
+				{
+					Identifier: "Eth1/2",
+					Name:       "Ethernet1",
+				},
+				{
+					Identifier: "Eth1/4",
+					Name:       "Eth1/4",
 				},
 			},
 			new: metal.Nics{
 				{
 					Identifier: "Eth1/1",
-					Name:       "Ethernet2",
+					Name:       "Ethernet0",
 				},
 				{
 					Identifier: "Eth1/2",
-					Name:       "Ethernet1",
+					Name:       "Eth1/2",
+				},
+				{
+					Identifier: "Eth1/3",
+					Name:       "Ethernet2",
+				},
+				{
+					Identifier: "Eth1/4",
+					Name:       "Eth1/4",
+				},
+			},
+			connections: metal.ConnectionMap{
+				"m1": {
+					{
+						Nic: metal.Nic{
+							Identifier: "Eth1/2",
+							Name:       "Ethernet1",
+						},
+						MachineID: "m1",
+					},
 				},
 			},
 			want: metal.Nics{
 				{
 					Identifier: "Eth1/1",
-					Name:       "Ethernet2",
+					Name:       "Ethernet0",
 					Vrf:        "Vrf100",
+					Membership: metal.SwitchPortMembershipExternal,
 				},
 				{
 					Identifier: "Eth1/2",
-					Name:       "Ethernet1",
+					Name:       "Eth1/2",
+					Membership: metal.SwitchPortMembershipInternal,
+				},
+				{
+					Identifier: "Eth1/3",
+					Name:       "Ethernet2",
+					Membership: metal.SwitchPortMembershipUnmanaged,
+				},
+				{
+					Identifier: "Eth1/4",
+					Name:       "Eth1/4",
+					Membership: metal.SwitchPortMembershipUnmanaged,
 				},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := updateNicNames(tt.old, tt.new)
+			got, err := updateNicsOnRegister(tt.old, tt.new, tt.connections)
+			require.NoError(t, err)
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("updateNics() diff = %s", diff)
 			}
@@ -720,6 +764,7 @@ func TestToMetalNics(t *testing.T) {
 					Name:       "Ethernet0",
 					Identifier: "Eth1/1",
 					Mac:        new("11:11:11:11:11:11"),
+					Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 					State: &apiv2.NicState{
 						Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
 						Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
@@ -730,12 +775,13 @@ func TestToMetalNics(t *testing.T) {
 					Identifier: "Eth1/2",
 					Mac:        new("22:22:22:22:22:22"),
 					Vrf:        new("Vrf100"),
+					Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL,
 					State: &apiv2.NicState{
 						Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
 						Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 					},
 					BgpPortState: &apiv2.SwitchBGPPortState{
-						Neighbor:              "lan0",
+						Neighbor:              new("lan0"),
 						PeerGroup:             "external",
 						VrfName:               "Vrf200",
 						BgpState:              apiv2.BGPState_BGP_STATE_ESTABLISHED,
@@ -750,6 +796,7 @@ func TestToMetalNics(t *testing.T) {
 					MacAddress: "11:11:11:11:11:11",
 					Name:       "Ethernet0",
 					Identifier: "Eth1/1",
+					Membership: metal.SwitchPortMembershipInternal,
 					State: &metal.NicState{
 						Desired: new(metal.SwitchPortStatusUp),
 						Actual:  metal.SwitchPortStatusDown,
@@ -760,6 +807,7 @@ func TestToMetalNics(t *testing.T) {
 					Name:       "Ethernet1",
 					Identifier: "Eth1/2",
 					Vrf:        "Vrf100",
+					Membership: metal.SwitchPortMembershipExternal,
 					State: &metal.NicState{
 						Desired: new(metal.SwitchPortStatusUp),
 						Actual:  metal.SwitchPortStatusUp,
@@ -807,12 +855,14 @@ func TestToMachineConnections(t *testing.T) {
 					MachineId: "machine-a",
 					Nic: &apiv2.SwitchNic{
 						Identifier: "Eth1/1",
+						Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
 					},
 				},
 				{
 					MachineId: "machine-b",
 					Nic: &apiv2.SwitchNic{
 						Identifier: "Eth1/2",
+						Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 					},
 				},
 			},
@@ -821,6 +871,7 @@ func TestToMachineConnections(t *testing.T) {
 					{
 						Nic: metal.Nic{
 							Identifier: "Eth1/1",
+							Membership: metal.SwitchPortMembershipUnmanaged,
 						},
 						MachineID: "machine-a",
 					},
@@ -829,6 +880,7 @@ func TestToMachineConnections(t *testing.T) {
 					{
 						Nic: metal.Nic{
 							Identifier: "Eth1/2",
+							Membership: metal.SwitchPortMembershipInternal,
 						},
 						MachineID: "machine-b",
 					},
@@ -843,18 +895,21 @@ func TestToMachineConnections(t *testing.T) {
 					MachineId: "machine-a",
 					Nic: &apiv2.SwitchNic{
 						Identifier: "Eth1/1",
+						Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 					},
 				},
 				{
 					MachineId: "machine-b",
 					Nic: &apiv2.SwitchNic{
 						Identifier: "Eth1/2",
+						Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 					},
 				},
 				{
 					MachineId: "machine-b",
 					Nic: &apiv2.SwitchNic{
 						Identifier: "Eth1/3",
+						Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 					},
 				},
 			},
@@ -863,6 +918,7 @@ func TestToMachineConnections(t *testing.T) {
 					{
 						Nic: metal.Nic{
 							Identifier: "Eth1/1",
+							Membership: metal.SwitchPortMembershipInternal,
 						},
 						MachineID: "machine-a",
 					},
@@ -871,12 +927,14 @@ func TestToMachineConnections(t *testing.T) {
 					{
 						Nic: metal.Nic{
 							Identifier: "Eth1/2",
+							Membership: metal.SwitchPortMembershipInternal,
 						},
 						MachineID: "machine-b",
 					},
 					{
 						Nic: metal.Nic{
 							Identifier: "Eth1/3",
+							Membership: metal.SwitchPortMembershipInternal,
 						},
 						MachineID: "machine-b",
 					},
@@ -891,12 +949,14 @@ func TestToMachineConnections(t *testing.T) {
 					MachineId: "machine-a",
 					Nic: &apiv2.SwitchNic{
 						Identifier: "Eth1/1",
+						Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 					},
 				},
 				{
 					MachineId: "machine-b",
 					Nic: &apiv2.SwitchNic{
 						Identifier: "Eth1/1",
+						Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 					},
 				},
 			},
@@ -1288,6 +1348,7 @@ func Test_adoptFromTwin(t *testing.T) {
 					metal.Nic{
 						Name:       "swp1s3",
 						MacAddress: "bb:bb:bb:bb:bb:b4",
+						Membership: metal.SwitchPortMembershipUnmanaged,
 					},
 				},
 				MachineConnections: metal.ConnectionMap{
@@ -1477,6 +1538,7 @@ func Test_adoptFromTwin(t *testing.T) {
 					metal.Nic{
 						Name:       "Ethernet3",
 						MacAddress: "bb:bb:bb:bb:bb:b4",
+						Membership: metal.SwitchPortMembershipUnmanaged,
 					},
 				},
 				MachineConnections: metal.ConnectionMap{
@@ -1510,8 +1572,8 @@ func Test_adoptFromTwin(t *testing.T) {
 				t.Errorf("adoptFromTwin() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !cmp.Equal(got, tt.want) {
-				t.Errorf("adoptFromTwin() = %v", cmp.Diff(got, tt.want))
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Errorf("adoptFromTwin() = %v", diff)
 			}
 		})
 	}
@@ -1578,6 +1640,7 @@ func Test_adoptNics(t *testing.T) {
 				metal.Nic{
 					Name:       "swp99",
 					MacAddress: "bb:bb:bb:bb:bb:b3",
+					Membership: metal.SwitchPortMembershipUnmanaged,
 				},
 			},
 			wantErr: false,

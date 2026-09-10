@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/netip"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/hibiken/asynq"
@@ -18,6 +19,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
+	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -390,6 +392,7 @@ func (r *networkRepository) list(ctx context.Context, query *apiv2.NetworkQuery)
 
 	return nws, nil
 }
+
 func (r *networkRepository) convertToInternal(ctx context.Context, msg *apiv2.Network) (*metal.Network, error) {
 	return nil, errorutil.Unimplemented("")
 }
@@ -460,6 +463,234 @@ func (r *networkRepository) convertToProto(ctx context.Context, e *metal.Network
 	}
 
 	return nw, nil
+}
+
+func (r *networkRepository) ListExternalMembers(ctx context.Context, req *adminv2.NetworkServiceListExternalMembersRequest) (*adminv2.NetworkServiceListExternalMembersResponse, error) {
+	var (
+		members []*apiv2.ExternalNetworkMember
+		query   *apiv2.SwitchQuery
+	)
+
+	if req.Query != nil {
+		query = &apiv2.SwitchQuery{
+			Id:        req.Query.Switch,
+			Partition: req.Query.Partition,
+			Rack:      req.Query.Rack,
+		}
+	}
+
+	nw, err := r.s.UnscopedNetwork().Get(ctx, req.Network)
+	if err != nil {
+		return nil, err
+	}
+
+	switches, err := r.s.Switch().List(ctx, query)
+	if err != nil {
+		return nil, errorutil.Internal("failed to list switches: %w", err)
+	}
+
+	for _, sw := range switches {
+		member := &apiv2.ExternalNetworkMember{
+			Switch:    sw.Id,
+			Partition: sw.Partition,
+			Rack:      pointer.SafeDeref(sw.Rack),
+		}
+
+		for _, nic := range sw.Nics {
+			if pointer.SafeDeref(nic.Vrf) == "" || pointer.SafeDeref(nic.Vrf) == "default" {
+				continue
+			}
+
+			if pointer.SafeDeref(nic.Vrf) != fmt.Sprintf("vrf%d", pointer.SafeDeref(nw.Vrf)) {
+				continue
+			}
+
+			if nic.Membership != apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL {
+				continue
+			}
+
+			member.Ports = append(member.Ports, nic.Name)
+		}
+
+		if len(member.Ports) > 0 {
+			members = append(members, member)
+		}
+	}
+
+	return &adminv2.NetworkServiceListExternalMembersResponse{
+		Network: nw,
+		Members: members,
+	}, nil
+}
+
+func (r *networkRepository) AddExternalMembers(ctx context.Context, req *adminv2.NetworkServiceAddExternalMembersRequest) (*adminv2.NetworkServiceAddExternalMembersResponse, error) {
+	var (
+		switches []*apiv2.Switch
+		members  []*apiv2.ExternalNetworkMember
+	)
+
+	nw, err := r.s.UnscopedNetwork().Get(ctx, req.Network)
+	if err != nil {
+		return nil, err
+	}
+
+	switch nw.Type {
+	case apiv2.NetworkType_NETWORK_TYPE_CHILD, apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED, apiv2.NetworkType_NETWORK_TYPE_EXTERNAL:
+		// noop
+	default:
+		return nil, errorutil.InvalidArgument("cannot add external members to network of type %q", nw.Type)
+	}
+
+	rackSwitches, err := r.s.Switch().List(ctx, &apiv2.SwitchQuery{Rack: &req.Rack})
+	if err != nil {
+		return nil, errorutil.Internal("failed to list switches in rack %q: %w", req.Rack, err)
+	}
+
+	if len(rackSwitches) < 1 {
+		return nil, errorutil.NotFound("no switches in rack %q found", req.Rack)
+	}
+
+	if pointer.SafeDeref(nw.Partition) != "" && pointer.SafeDeref(nw.Partition) != rackSwitches[0].Partition {
+		return nil, errorutil.InvalidArgument("cannot add switches of partition %q as members to network scoped to partition %q", rackSwitches[0].Partition, pointer.SafeDeref(nw.Partition))
+	}
+
+	for _, sw := range rackSwitches {
+		member := &apiv2.ExternalNetworkMember{
+			Switch:    sw.Id,
+			Partition: sw.Partition,
+			Rack:      pointer.SafeDeref(sw.Rack),
+		}
+
+		for _, port := range req.Ports {
+			nic, found := lo.Find(sw.Nics, func(n *apiv2.SwitchNic) bool {
+				return n.Name == port
+			})
+			if !found {
+				return nil, errorutil.NotFound("port %q not found on switch %q", port, sw.Id)
+			}
+
+			if nic.Membership == apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL {
+				return nil, errorutil.InvalidArgument(`cannot add internal port %q of rack %q as external member`, port, req.Rack)
+			}
+
+			if nic.Membership == apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL {
+				vrfNumString := strings.TrimPrefix(pointer.SafeDeref(nic.Vrf), "vrf")
+				vrf, err := strconv.Atoi(vrfNumString)
+				if err != nil {
+					return nil, errorutil.Internal("failed to parse vrf number from %q", pointer.SafeDeref(nic.Vrf))
+				}
+
+				nicNetwork, err := r.find(ctx, &apiv2.NetworkQuery{
+					Vrf: new(uint32(vrf)),
+				})
+				if err != nil {
+					return nil, errorutil.Internal("failed to find network for vrf %q: %w", pointer.SafeDeref(nic.Vrf), err)
+				}
+
+				return nil, errorutil.InvalidArgument("port %q of switches in rack %q is already member of network %q", port, req.Rack, nicNetwork.ID)
+			}
+
+			nic.Vrf = new(fmt.Sprintf("vrf%d", pointer.SafeDeref(nw.Vrf)))
+			nic.Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL
+			member.Ports = append(member.Ports, nic.Name)
+		}
+
+		if len(member.Ports) > 0 {
+			members = append(members, member)
+			switches = append(switches, sw)
+		}
+	}
+
+	for _, sw := range switches {
+		_, err := r.s.Switch().Update(ctx, sw.Id, &adminv2.SwitchServiceUpdateRequest{
+			Id:   sw.Id,
+			Nics: sw.Nics,
+			UpdateMeta: &apiv2.UpdateMeta{
+				LockingStrategy: apiv2.OptimisticLockingStrategy_OPTIMISTIC_LOCKING_STRATEGY_SERVER,
+			},
+		})
+		if err != nil {
+			return nil, errorutil.Internal("failed to update switch %q: %w", sw.Id, err)
+		}
+	}
+
+	return &adminv2.NetworkServiceAddExternalMembersResponse{
+		Network: nw,
+		Members: members,
+	}, nil
+}
+
+func (r *networkRepository) RemoveExternalMembers(ctx context.Context, req *adminv2.NetworkServiceRemoveExternalMembersRequest) (*adminv2.NetworkServiceRemoveExternalMembersResponse, error) {
+	var (
+		switches []*apiv2.Switch
+		members  []*apiv2.ExternalNetworkMember
+	)
+
+	nw, err := r.s.UnscopedNetwork().Get(ctx, req.Network)
+	if err != nil {
+		return nil, err
+	}
+
+	rackSwitches, err := r.s.Switch().List(ctx, &apiv2.SwitchQuery{Rack: &req.Rack})
+	if err != nil {
+		return nil, errorutil.Internal("failed to list switches in rack %q: %w", req.Rack, err)
+	}
+
+	if len(rackSwitches) < 1 {
+		return nil, errorutil.NotFound("no switches in rack %q found", req.Rack)
+	}
+
+	for _, sw := range rackSwitches {
+		member := &apiv2.ExternalNetworkMember{
+			Switch:    sw.Id,
+			Partition: sw.Partition,
+			Rack:      pointer.SafeDeref(sw.Rack),
+		}
+
+		for _, port := range req.Ports {
+			nic, found := lo.Find(sw.Nics, func(n *apiv2.SwitchNic) bool {
+				return n.Name == port
+			})
+			if !found {
+				return nil, errorutil.NotFound("port %q not found on switch %q", port, sw.Id)
+			}
+
+			if pointer.SafeDeref(nic.Vrf) != fmt.Sprintf("vrf%d", pointer.SafeDeref(nw.Vrf)) {
+				return nil, errorutil.InvalidArgument("port %q is not a member of network %q", port, nw.Id)
+			}
+
+			if nic.Membership != apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL {
+				return nil, errorutil.InvalidArgument("port %q of rack %q is not an external member", port, req.Rack)
+			}
+
+			nic.Vrf = nil
+			nic.Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED
+			member.Ports = append(member.Ports, nic.Name)
+		}
+
+		if len(member.Ports) > 0 {
+			members = append(members, member)
+			switches = append(switches, sw)
+		}
+	}
+
+	for _, sw := range switches {
+		_, err := r.s.Switch().Update(ctx, sw.Id, &adminv2.SwitchServiceUpdateRequest{
+			Id:   sw.Id,
+			Nics: sw.Nics,
+			UpdateMeta: &apiv2.UpdateMeta{
+				LockingStrategy: apiv2.OptimisticLockingStrategy_OPTIMISTIC_LOCKING_STRATEGY_SERVER,
+			},
+		})
+		if err != nil {
+			return nil, errorutil.Internal("failed to update switch %q: %w", sw.Id, err)
+		}
+	}
+
+	return &adminv2.NetworkServiceRemoveExternalMembersResponse{
+		Network: nw,
+		Members: members,
+	}, nil
 }
 
 func (r *networkRepository) toProtoChildPrefixLength(childPrefixLength metal.ChildPrefixLength) (*apiv2.ChildPrefixLength, error) {

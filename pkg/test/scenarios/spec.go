@@ -1,6 +1,7 @@
 package scenarios
 
 import (
+	"encoding/json"
 	"testing"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
@@ -35,6 +36,10 @@ const (
 	NetworkTenantSuperNamespaced = "tenant-super-namespaced"
 	NetworkTenantSuperPartition1 = "tenant-super-partition-1"
 	NetworkNameTenantPartition1  = "tenant-partition-1"
+	NetworkExternal              = "external"
+	NetworkSuper                 = "super"
+	NetworkSuperNamespaced       = "super-namespaced"
+	NetworkChildShared           = "child-shared"
 
 	P01Rack01 = "p01-rack01"
 	P01Rack02 = "p01-rack02"
@@ -119,3 +124,69 @@ type (
 		ReservedMachines []string // TODO
 	}
 )
+
+func (s *DatacenterSpec) DeepCopy() (*DatacenterSpec, error) {
+	var (
+		copied = &DatacenterSpec{}
+		err    error
+	)
+
+	copied.ProjectsPerTenant = s.ProjectsPerTenant
+	copied.MachineFns = s.MachineFns
+	copied.IpFns = s.IpFns
+
+	if copied.Partitions, err = DeepCopy(s.Partitions); err != nil {
+		return nil, err
+	}
+	if copied.Tenants, err = DeepCopy(s.Tenants); err != nil {
+		return nil, err
+	}
+	if copied.Images, err = DeepCopy(s.Images); err != nil {
+		return nil, err
+	}
+	if copied.FilesystemLayouts, err = DeepCopy(s.FilesystemLayouts); err != nil {
+		return nil, err
+	}
+	if copied.Sizes, err = DeepCopy(s.Sizes); err != nil {
+		return nil, err
+	}
+	if copied.SizeReservations, err = DeepCopy(s.SizeReservations); err != nil {
+		return nil, err
+	}
+	if copied.SizeImageConstraints, err = DeepCopy(s.SizeImageConstraints); err != nil {
+		return nil, err
+	}
+	if copied.Networks, err = DeepCopy(s.Networks); err != nil {
+		return nil, err
+	}
+	if copied.IPs, err = DeepCopy(s.IPs); err != nil {
+		return nil, err
+	}
+	if copied.Switches, err = DeepCopy(s.Switches); err != nil {
+		return nil, err
+	}
+	if copied.SwitchStatuses, err = DeepCopy(s.SwitchStatuses); err != nil {
+		return nil, err
+	}
+	if copied.Machines, err = DeepCopy(s.Machines); err != nil {
+		return nil, err
+	}
+	if copied.ReservedMachines, err = DeepCopy(s.ReservedMachines); err != nil {
+		return nil, err
+	}
+
+	return copied, nil
+}
+
+func DeepCopy[T any](in T) (T, error) {
+	var out T
+	bytes, err := json.Marshal(in)
+	if err != nil {
+		return out, err
+	}
+	err = json.Unmarshal(bytes, &out)
+	if err != nil {
+		return out, err
+	}
+	return out, nil
+}

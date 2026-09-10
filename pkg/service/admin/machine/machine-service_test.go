@@ -1218,9 +1218,11 @@ func Test_machineServiceServer_Delete(t *testing.T) {
 					Switches: func(switches map[string]*apiv2.Switch) {
 						sw1 := switches[sc.P02Rack01Switch1]
 						sw1.MachineConnections = nil
+						sw1.Nics[0].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED
 						switches[sc.P02Rack01Switch1] = sw1
 						sw2 := switches[sc.P02Rack01Switch2]
 						sw2.MachineConnections = nil
+						sw2.Nics[0].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED
 						switches[sc.P02Rack01Switch2] = sw2
 					},
 				}

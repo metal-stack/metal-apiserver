@@ -529,7 +529,7 @@ func Test_cumulusPortByLineNumber(t *testing.T) {
 	}
 }
 
-func TestSwitch_getPhysicalMachineConnection(t *testing.T) {
+func TestSwitch_getConnectionsFromMachineNics(t *testing.T) {
 	tests := []struct {
 		name        string
 		s           *Switch
@@ -599,15 +599,13 @@ func TestSwitch_getPhysicalMachineConnection(t *testing.T) {
 					},
 				},
 			},
-
-			want: Connections{},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := tt.s.getPhysicalMachineConnections(tt.machineID, tt.machineNics)
+			got := tt.s.getConnectionsFromMachineNics(tt.machineID, tt.machineNics)
 			if diff := cmp.Diff(tt.want, got); diff != "" {
-				t.Errorf("Switch.getPhysicalMachineConnection() diff = %v", diff)
+				t.Errorf("Switch.getConnectionsFromMachineNics() diff = %v", diff)
 			}
 		})
 	}
@@ -621,6 +619,7 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 		machineNics     Nics
 		want            int
 		wantConnections ConnectionMap
+		wantNics        Nics
 		wantErr         bool
 	}{
 		{
@@ -633,6 +632,7 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 						Name:       "Ethernet12",
 						Identifier: "Eth4",
 						Hostname:   "sw1",
+						Membership: SwitchPortMembershipInternal,
 					},
 				},
 				MachineConnections: ConnectionMap{
@@ -643,6 +643,7 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 								Name:       "Ethernet12",
 								Identifier: "Eth4",
 								Hostname:   "sw1",
+								Membership: SwitchPortMembershipInternal,
 							},
 							MachineID: "m2",
 						},
@@ -671,9 +672,19 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 							Name:       "Ethernet12",
 							Identifier: "Eth4",
 							Hostname:   "sw1",
+							Membership: SwitchPortMembershipInternal,
 						},
 						MachineID: "m2",
 					},
+				},
+			},
+			wantNics: Nics{
+				{
+					MacAddress: "aa:aa:aa:aa:aa:aa",
+					Name:       "Ethernet12",
+					Identifier: "Eth4",
+					Hostname:   "sw1",
+					Membership: SwitchPortMembershipInternal,
 				},
 			},
 			wantErr: false,
@@ -688,6 +699,7 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 						Name:       "Ethernet12",
 						Identifier: "Eth4",
 						Hostname:   "sw1",
+						Membership: SwitchPortMembershipInternal,
 					},
 				},
 				MachineConnections: ConnectionMap{
@@ -697,6 +709,7 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 								MacAddress: "aa:aa:aa:aa:aa:aa",
 								Name:       "Ethernet12",
 								Identifier: "Eth4",
+								Membership: SwitchPortMembershipInternal,
 							},
 							MachineID: "m1",
 						},
@@ -721,9 +734,54 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 							MacAddress: "aa:aa:aa:aa:aa:aa",
 							Name:       "Ethernet12",
 							Identifier: "Eth4",
+							Membership: SwitchPortMembershipInternal,
 						},
 						MachineID: "m1",
 					},
+				},
+			},
+			wantNics: Nics{
+				{
+					MacAddress: "aa:aa:aa:aa:aa:aa",
+					Name:       "Ethernet12",
+					Identifier: "Eth4",
+					Hostname:   "sw1",
+					Membership: SwitchPortMembershipInternal,
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "cannot connect machine with external port of a switch",
+			s: &Switch{
+				ID: "sw1",
+				Nics: Nics{
+					{
+						Name:       "Ethernet0",
+						Identifier: "Ethernet0",
+						Membership: SwitchPortMembershipExternal,
+					},
+				},
+			},
+			machineID: "m1",
+			machineNics: Nics{
+				{
+					Neighbors: Nics{
+						{
+							MacAddress: "bb:bb:bb:bb:bb:bb",
+							Name:       "Ethernet0",
+							Identifier: "Ethernet0",
+							Hostname:   "sw1",
+						},
+					},
+				},
+			},
+			want: 0,
+			wantNics: Nics{
+				{
+					Name:       "Ethernet0",
+					Identifier: "Ethernet0",
+					Membership: SwitchPortMembershipExternal,
 				},
 			},
 			wantErr: true,
@@ -734,9 +792,22 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 				ID: "sw1",
 				Nics: Nics{
 					{
+						MacAddress: "aa:aa:aa:aa:aa:aa",
+						Name:       "Ethernet12",
+						Identifier: "Eth4",
+						Membership: SwitchPortMembershipInternal,
+					},
+					{
 						MacAddress: "bb:bb:bb:bb:bb:bb",
 						Name:       "Ethernet16",
 						Identifier: "Eth5",
+						Membership: SwitchPortMembershipUnmanaged,
+					},
+					{
+						MacAddress: "cc:cc:cc:cc:cc:cc",
+						Name:       "Ethernet20",
+						Identifier: "Eth6",
+						Membership: SwitchPortMembershipInternal,
 					},
 				},
 				MachineConnections: ConnectionMap{
@@ -746,8 +817,9 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 								MacAddress: "aa:aa:aa:aa:aa:aa",
 								Name:       "Ethernet12",
 								Identifier: "Eth4",
+								Membership: SwitchPortMembershipInternal,
 							},
-							MachineID: "",
+							MachineID: "m1",
 						},
 					},
 					"m2": {
@@ -756,6 +828,7 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 								MacAddress: "cc:cc:cc:cc:cc:cc",
 								Name:       "Ethernet20",
 								Identifier: "Eth6",
+								Membership: SwitchPortMembershipInternal,
 							},
 							MachineID: "m2",
 						},
@@ -783,6 +856,7 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 							MacAddress: "bb:bb:bb:bb:bb:bb",
 							Name:       "Ethernet16",
 							Identifier: "Eth5",
+							Membership: SwitchPortMembershipInternal,
 						},
 						MachineID: "m1",
 					},
@@ -793,9 +867,30 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 							MacAddress: "cc:cc:cc:cc:cc:cc",
 							Name:       "Ethernet20",
 							Identifier: "Eth6",
+							Membership: SwitchPortMembershipInternal,
 						},
 						MachineID: "m2",
 					},
+				},
+			},
+			wantNics: Nics{
+				{
+					MacAddress: "aa:aa:aa:aa:aa:aa",
+					Name:       "Ethernet12",
+					Identifier: "Eth4",
+					Membership: SwitchPortMembershipUnmanaged,
+				},
+				{
+					MacAddress: "bb:bb:bb:bb:bb:bb",
+					Name:       "Ethernet16",
+					Identifier: "Eth5",
+					Membership: SwitchPortMembershipInternal,
+				},
+				{
+					MacAddress: "cc:cc:cc:cc:cc:cc",
+					Name:       "Ethernet20",
+					Identifier: "Eth6",
+					Membership: SwitchPortMembershipInternal,
 				},
 			},
 			wantErr: false,
@@ -816,7 +911,11 @@ func TestSwitch_ConnectMachine(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(tt.wantConnections, tt.s.MachineConnections); diff != "" {
-				t.Errorf("Switch.ConnectMachine() diff = %v", diff)
+				t.Errorf("Switch.ConnectMachine() connections diff = %v", diff)
+			}
+
+			if diff := cmp.Diff(tt.wantNics, tt.s.Nics); diff != "" {
+				t.Errorf("Switch.ConnectMachine() nics diff = %v", diff)
 			}
 		})
 	}

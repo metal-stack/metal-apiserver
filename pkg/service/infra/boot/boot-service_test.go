@@ -475,9 +475,15 @@ func Test_bootServiceServer_Register(t *testing.T) {
 					Rack:        new("r01"),
 					ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 					MachineConnections: []*apiv2.MachineConnection{
-						{MachineId: m99, Nic: &apiv2.SwitchNic{
-							Name: "Ethernet0", Identifier: "Eth1/1", BgpFilter: &apiv2.BGPFilter{}, State: &apiv2.NicState{Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP},
-						}},
+						{
+							MachineId: m99, Nic: &apiv2.SwitchNic{
+								Name:       "Ethernet0",
+								Identifier: "Eth1/1",
+								BgpFilter:  &apiv2.BGPFilter{},
+								State:      &apiv2.NicState{Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP},
+								Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
+							},
+						},
 					},
 					Nics: []*apiv2.SwitchNic{
 						{
@@ -487,6 +493,7 @@ func Test_bootServiceServer_Register(t *testing.T) {
 							State: &apiv2.NicState{
 								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 							},
+							Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 						},
 						{
 							Name:       "Ethernet1",
@@ -508,9 +515,15 @@ func Test_bootServiceServer_Register(t *testing.T) {
 					Rack:        new("r01"),
 					ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 					MachineConnections: []*apiv2.MachineConnection{
-						{MachineId: m99, Nic: &apiv2.SwitchNic{
-							Name: "Ethernet0", Identifier: "Eth1/1", BgpFilter: &apiv2.BGPFilter{}, State: &apiv2.NicState{Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP},
-						}},
+						{
+							MachineId: m99, Nic: &apiv2.SwitchNic{
+								Name:       "Ethernet0",
+								Identifier: "Eth1/1",
+								BgpFilter:  &apiv2.BGPFilter{},
+								State:      &apiv2.NicState{Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP},
+								Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
+							},
+						},
 					},
 					Nics: []*apiv2.SwitchNic{
 						{
@@ -520,6 +533,7 @@ func Test_bootServiceServer_Register(t *testing.T) {
 							State: &apiv2.NicState{
 								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 							},
+							Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 						},
 						{
 							Name:       "Ethernet1",
@@ -610,8 +624,24 @@ func Test_bootServiceServer_Register(t *testing.T) {
 					Rack:        new("r01"),
 					ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 					MachineConnections: []*apiv2.MachineConnection{
-						{MachineId: m1, Nic: &apiv2.SwitchNic{Name: "Ethernet1", Identifier: "Eth1/2", BgpFilter: &apiv2.BGPFilter{}, State: &apiv2.NicState{Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP}}},
-						{MachineId: m99, Nic: &apiv2.SwitchNic{Name: "Ethernet0", Identifier: "Eth1/1", BgpFilter: &apiv2.BGPFilter{}, State: &apiv2.NicState{Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP}}},
+						{
+							MachineId: m1,
+							Nic: &apiv2.SwitchNic{Name: "Ethernet1",
+								Identifier: "Eth1/2",
+								BgpFilter:  &apiv2.BGPFilter{},
+								State:      &apiv2.NicState{Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP},
+								Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
+							},
+						},
+						{
+							MachineId: m99,
+							Nic: &apiv2.SwitchNic{Name: "Ethernet0",
+								Identifier: "Eth1/1",
+								BgpFilter:  &apiv2.BGPFilter{},
+								State:      &apiv2.NicState{Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP},
+								Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
+							},
+						},
 					},
 					Nics: []*apiv2.SwitchNic{
 						{
@@ -621,6 +651,7 @@ func Test_bootServiceServer_Register(t *testing.T) {
 							State: &apiv2.NicState{
 								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 							},
+							Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 						},
 						{
 							Name:       "Ethernet1",
@@ -629,6 +660,7 @@ func Test_bootServiceServer_Register(t *testing.T) {
 							State: &apiv2.NicState{
 								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 							},
+							Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 						},
 					},
 					Os: &apiv2.SwitchOS{
@@ -642,8 +674,24 @@ func Test_bootServiceServer_Register(t *testing.T) {
 					Rack:        new("r01"),
 					ReplaceMode: apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL,
 					MachineConnections: []*apiv2.MachineConnection{
-						{MachineId: m1, Nic: &apiv2.SwitchNic{Name: "Ethernet1", Identifier: "Eth1/2", BgpFilter: &apiv2.BGPFilter{}, State: &apiv2.NicState{Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP}}},
-						{MachineId: m99, Nic: &apiv2.SwitchNic{Name: "Ethernet0", Identifier: "Eth1/1", BgpFilter: &apiv2.BGPFilter{}, State: &apiv2.NicState{Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP}}},
+						{
+							MachineId: m1,
+							Nic: &apiv2.SwitchNic{Name: "Ethernet1",
+								Identifier: "Eth1/2",
+								BgpFilter:  &apiv2.BGPFilter{},
+								State:      &apiv2.NicState{Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP},
+								Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
+							},
+						},
+						{
+							MachineId: m99,
+							Nic: &apiv2.SwitchNic{Name: "Ethernet0",
+								Identifier: "Eth1/1",
+								BgpFilter:  &apiv2.BGPFilter{},
+								State:      &apiv2.NicState{Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP},
+								Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
+							},
+						},
 					},
 					Nics: []*apiv2.SwitchNic{
 						{
@@ -653,6 +701,7 @@ func Test_bootServiceServer_Register(t *testing.T) {
 							State: &apiv2.NicState{
 								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 							},
+							Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 						},
 						{
 							Name:       "Ethernet1",
@@ -661,6 +710,7 @@ func Test_bootServiceServer_Register(t *testing.T) {
 							State: &apiv2.NicState{
 								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 							},
+							Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
 						},
 					},
 					Os: &apiv2.SwitchOS{

@@ -34,7 +34,7 @@ func Test_AcquireAndReleaseUniqueInteger(t *testing.T) {
 		{
 			name:       "verify validation of input fails",
 			acquire:    524288,
-			acquireErr: errors.New("value '524288' is outside of the allowed range '1 - 131072'"),
+			acquireErr: errors.New("value '524288' is outside of the allowed range '1 - 100'"),
 		},
 	}
 

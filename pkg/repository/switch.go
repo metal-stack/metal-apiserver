@@ -37,11 +37,15 @@ func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServ
 		return nil, errorutil.InvalidArgument("empty request")
 	}
 
-	sw, err := r.get(ctx, req.Switch.Id)
+	metalSwitch, err := r.get(ctx, req.Switch.Id)
 	if err != nil && !errorutil.IsNotFound(err) {
 		return nil, err
 	}
+
 	if errorutil.IsNotFound(err) {
+		for _, nic := range req.Switch.Nics {
+			nic.Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED
+		}
 		if req.Switch.ReplaceMode == apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_UNSPECIFIED {
 			req.Switch.ReplaceMode = apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL
 		}
@@ -49,12 +53,12 @@ func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServ
 	}
 
 	new := req.Switch
-	old, err := r.convertToProto(ctx, sw)
+	old, err := r.convertToProto(ctx, metalSwitch)
 	if err != nil {
 		return nil, err
 	}
 
-	if sw.ReplaceMode == metal.SwitchReplaceModeReplace {
+	if metalSwitch.ReplaceMode == metal.SwitchReplaceModeReplace {
 		sw, err := r.replace(ctx, old, new)
 		if err != nil {
 			return nil, err
@@ -82,16 +86,16 @@ func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServ
 	}
 
 	// lazy migration because in the past replace mode was allowed to be unspecified.
-	if req.Switch.ReplaceMode == apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_UNSPECIFIED && sw.ReplaceMode == "" {
+	if new.ReplaceMode == apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_UNSPECIFIED && metalSwitch.ReplaceMode == "" {
 		updateReq.ReplaceMode = apiv2.SwitchReplaceMode_SWITCH_REPLACE_MODE_OPERATIONAL.Enum()
 	}
 
-	err = r.validateUpdate(ctx, updateReq, sw)
+	err = r.validateUpdate(ctx, updateReq, metalSwitch)
 	if err != nil {
 		return nil, err
 	}
 
-	updated, err := r.updateOnRegister(ctx, sw, updateReq)
+	updated, err := r.updateOnRegister(ctx, metalSwitch, updateReq)
 	if err != nil {
 		return nil, err
 	}
@@ -335,19 +339,12 @@ func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *ap
 			}),
 		))
 
-		prev, _ := lo.Difference(oldNeighs, neighs)
-		for _, id := range prev {
-			s, err := r.get(ctx, id)
-			if err != nil {
-				return fmt.Errorf("failed to remove machine connection from switch %s: %w", id, err)
-			}
+		if len(oldNeighs) > 0 {
+			slices.Sort(neighs)
+			slices.Sort(oldNeighs)
 
-			cons := s.MachineConnections
-			delete(cons, m.Uuid)
-
-			err = r.s.ds.Switch().Update(ctx, s)
-			if err != nil {
-				return fmt.Errorf("failed to remove machine connection from switch %s: %w", id, err)
+			if diff := cmp.Diff(neighs, oldNeighs); diff != "" {
+				return errorutil.FailedPrecondition("cannot connect machine %q to different switches than it was previously connected to; current: %v, previous: %v; if you want to migrate machine connections from one switch to another call 'switch mirgate' first", metalMachine.ID, neighs, oldNeighs)
 			}
 		}
 	}
@@ -375,12 +372,10 @@ func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *ap
 	}
 
 	var orphanedSwitchNames []string
-
 	for _, sw := range sws {
 		if sw.Rack == m.Rack {
 			continue
 		}
-
 		orphanedSwitchNames = append(orphanedSwitchNames, sw.ID)
 	}
 
@@ -460,6 +455,16 @@ func (r *switchRepository) RemoveMachineFromSwitches(ctx context.Context, machin
 	}
 
 	for _, sw := range switches {
+		for _, con := range sw.MachineConnections[machineID] {
+			nic, idx, found := lo.FindIndexOf(sw.Nics, func(n metal.Nic) bool {
+				return n.Name == con.Nic.Name
+			})
+			if !found {
+				return errorutil.Internal("cannot find nic %s on switch %s", con.Nic.Name, sw.ID)
+			}
+			nic.Membership = metal.SwitchPortMembershipUnmanaged
+			sw.Nics[idx] = nic
+		}
 		delete(sw.MachineConnections, machineID)
 
 		if err := r.s.ds.Switch().Update(ctx, sw); err != nil {
@@ -572,7 +577,7 @@ func toSwitchBGPPortState(state *apiv2.SwitchBGPPortState) (*metal.SwitchBGPPort
 	}
 
 	bgpPortState := &metal.SwitchBGPPortState{
-		Neighbor:              state.Neighbor,
+		Neighbor:              pointer.SafeDeref(state.Neighbor),
 		PeerGroup:             state.PeerGroup,
 		VrfName:               state.VrfName,
 		BgpState:              bgpState,
@@ -617,6 +622,7 @@ func (r *switchRepository) create(ctx context.Context, req *api.SwitchServiceCre
 	if req.Switch == nil {
 		return nil, nil
 	}
+
 	sw, err := r.convertToInternal(ctx, req.Switch)
 	if err != nil {
 		return nil, err
@@ -906,7 +912,10 @@ func (r *switchRepository) updateOnRegister(ctx context.Context, sw *metal.Switc
 		if err != nil {
 			return nil, err
 		}
-		sw.Nics = updateNicNames(sw.Nics, nics)
+		sw.Nics, err = updateNicsOnRegister(sw.Nics, nics, sw.MachineConnections)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	err = r.s.ds.Switch().Update(ctx, sw)
@@ -981,7 +990,7 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 			}
 
 			bgpPortState = &apiv2.SwitchBGPPortState{
-				Neighbor:              nic.BGPPortState.Neighbor,
+				Neighbor:              new(nic.BGPPortState.Neighbor),
 				PeerGroup:             nic.BGPPortState.PeerGroup,
 				VrfName:               nic.BGPPortState.VrfName,
 				BgpState:              bgpState,
@@ -1039,6 +1048,14 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 			return nil, errorutil.FailedPrecondition("both, identifier and mac address, of nic %s are empty which is not allowed", nic.Name)
 		}
 
+		membership := apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNSPECIFIED
+		if nic.Membership != "" {
+			membership, err = metal.FromMembership(nic.Membership)
+			if err != nil {
+				return nil, errorutil.Internal("failed to convert membership of nic %q: %w", nic.Name, err)
+			}
+		}
+
 		switchNics = append(switchNics, &apiv2.SwitchNic{
 			Name:       nic.Name,
 			Identifier: identifier,
@@ -1050,6 +1067,7 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 			},
 			BgpFilter:    filter,
 			BgpPortState: bgpPortState,
+			Membership:   membership,
 		})
 	}
 
@@ -1122,7 +1140,7 @@ func convertMachineConnections(machineConnections metal.ConnectionMap, nics []*a
 	return connections, nil
 }
 
-func updateNicNames(old, new metal.Nics) metal.Nics {
+func updateNicsOnRegister(old, new metal.Nics, connections metal.ConnectionMap) (metal.Nics, error) {
 	var (
 		updated metal.Nics
 		oldNics = old.MapByIdentifier()
@@ -1132,12 +1150,27 @@ func updateNicNames(old, new metal.Nics) metal.Nics {
 	for id, newNic := range newNics {
 		oldNic, ok := oldNics[id]
 		if !ok {
+			newNic.Membership = metal.SwitchPortMembershipUnmanaged
 			updated = append(updated, *newNic)
 			continue
 		}
 
 		updatedNic := *oldNic
 		updatedNic.Name = newNic.Name
+
+		con, err := connections.ByNicName()
+		if err != nil {
+			return nil, err
+		}
+
+		if _, connected := con[oldNic.Name]; connected {
+			updatedNic.Membership = metal.SwitchPortMembershipInternal
+		}
+
+		if updatedNic.Membership == "" {
+			updatedNic.Membership = metal.SwitchPortMembershipUnmanaged
+		}
+
 		updated = append(updated, updatedNic)
 	}
 
@@ -1145,7 +1178,7 @@ func updateNicNames(old, new metal.Nics) metal.Nics {
 		return strings.Compare(n1.Identifier, n2.Identifier)
 	})
 
-	return updated
+	return updated, nil
 }
 
 func makeBGPFilter(m *metal.Machine, projectMachines []*metal.Machine, vrf string, networks []*metal.Network, ips []*metal.IP) (*apiv2.BGPFilter, error) {
@@ -1340,6 +1373,14 @@ func toMetalNic(switchNic *apiv2.SwitchNic, hostname string) (*metal.Nic, error)
 		return nil, fmt.Errorf("failed to convert port state: %w", err)
 	}
 
+	var membership metal.SwitchPortMembership
+	if switchNic.Membership != apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNSPECIFIED {
+		membership, err = metal.ToMembership(switchNic.Membership)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert membership of nic %q: %w", switchNic.Name, err)
+		}
+	}
+
 	return &metal.Nic{
 		Name:         switchNic.Name,
 		Hostname:     hostname,
@@ -1348,6 +1389,7 @@ func toMetalNic(switchNic *apiv2.SwitchNic, hostname string) (*metal.Nic, error)
 		Vrf:          pointer.SafeDeref(switchNic.Vrf),
 		State:        nicState,
 		BGPPortState: bgpPortState,
+		Membership:   membership,
 	}, nil
 }
 
@@ -1470,6 +1512,9 @@ func adoptNics(twin, newSwitch *metal.Switch) (metal.Nics, error) {
 	for name, nic := range newNicMap {
 		if twinNic, ok := twinNicsByName[name]; ok {
 			nic.Vrf = twinNic.Vrf
+			nic.Membership = twinNic.Membership
+		} else {
+			nic.Membership = metal.SwitchPortMembershipUnmanaged
 		}
 		newNics = append(newNics, *nic)
 	}
