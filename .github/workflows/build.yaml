@@ -48,6 +48,10 @@ jobs:
             packages: ./pkg/service/{api,admin}/ip/...  ./pkg/service/{api,admin}/network/...
           - package-group: project-tenant
             packages: ./pkg/service/{api,admin}/project/... ./pkg/service/{api,admin}/tenant/...
+          - package-group: token
+            packages: ./pkg/service/{api,admin}/token/...
+          - package-group: db-and-testframework
+            packages: ./pkg/db/... ./pkg/test
           - package-group: machine-switch
             packages: ./pkg/service/{api,admin}/machine/... ./pkg/service/admin/switch/...
           - package-group: partition-vpn
@@ -63,6 +67,8 @@ jobs:
             packages: >-
               $(go list ./... |
                 grep -v "metal-apiserver/pkg/e2e$" |
+                grep -v "metal-apiserver/pkg/db" |
+                grep -v "metal-apiserver/pkg/test$" |
                 grep -v "metal-apiserver/pkg/service/api/image$" |
                 grep -v "metal-apiserver/pkg/service/api/ip$" |
                 grep -v "metal-apiserver/pkg/service/api/machine$" |
@@ -71,6 +77,7 @@ jobs:
                 grep -v "metal-apiserver/pkg/service/api/project$" |
                 grep -v "metal-apiserver/pkg/service/api/size$" |
                 grep -v "metal-apiserver/pkg/service/api/tenant$" |
+                grep -v "metal-apiserver/pkg/service/api/token$" |
                 grep -v "metal-apiserver/pkg/service/admin/image$" |
                 grep -v "metal-apiserver/pkg/service/admin/ip$" |
                 grep -v "metal-apiserver/pkg/service/admin/machine$" |
@@ -79,6 +86,7 @@ jobs:
                 grep -v "metal-apiserver/pkg/service/admin/project$" |
                 grep -v "metal-apiserver/pkg/service/admin/size$" |
                 grep -v "metal-apiserver/pkg/service/admin/tenant$" |
+                grep -v "metal-apiserver/pkg/service/admin/token$" |
                 grep -v "metal-apiserver/pkg/service/admin/switch$" |
                 grep -v "metal-apiserver/pkg/service/admin/vpn$" |
                 grep -v "metal-apiserver/pkg/service/infra$" |
