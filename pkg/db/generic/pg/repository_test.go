@@ -1,18 +1,17 @@
 package pg_test
 
 import (
-	"database/sql"
 	"errors"
 	"log/slog"
+	"os"
 	"strconv"
 	"testing"
 	"uuid"
 
 	_ "github.com/lib/pq"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic/pg"
+	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/modules/postgres"
 )
 
 // UserProfile is our nested sample entity struct
@@ -29,27 +28,12 @@ type UserProfile struct {
 
 func TestGenericRepository(t *testing.T) {
 	ctx := t.Context()
-	// Connect to test PostgreSQL database
-	postgres, err := postgres.Run(ctx,
-		"postgres:18-alpine",
-		postgres.WithPassword("password"),
-		postgres.BasicWaitStrategies(),
-		testcontainers.WithTmpfs(map[string]string{"/var/lib/postgresql": "rw"}),
-	)
-	require.NoError(t, err)
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	db, closer := test.StartPostgres(t, log)
+	defer closer()
 
-	connectionString, err := postgres.ConnectionString(ctx, "sslmode=disable")
+	repo, err := pg.NewGenericRepository[UserProfile](log, db)
 	require.NoError(t, err)
-
-	db, err := sql.Open("postgres", connectionString)
-	require.NoError(t, err)
-
-	// Setup table schema
-	setupQuery := pg.DDL
-	_, err = db.ExecContext(ctx, setupQuery)
-	require.NoError(t, err)
-
-	repo := pg.NewGenericRepository[UserProfile](slog.Default(), db)
 	userID := uuid.NewV7()
 
 	// 1. Test Create (Insert)
@@ -69,7 +53,7 @@ func TestGenericRepository(t *testing.T) {
 	ent, err := repo.Get(ctx, userID)
 	require.NoError(t, err)
 	require.NotNil(t, ent)
-	require.Equal(t, 1, ent.Version)
+	require.Equal(t, int32(1), ent.Version)
 	require.Equal(t, "Munich", ent.Data.Address.City)
 
 	// 2. Test Optimistic Locking (Success Path)
@@ -81,7 +65,7 @@ func TestGenericRepository(t *testing.T) {
 
 	// Fetch to verify version bump
 	entUpdated, _ := repo.Get(ctx, userID)
-	require.Equal(t, 2, entUpdated.Version)
+	require.Equal(t, int32(2), entUpdated.Version)
 
 	// 3. Test Optimistic Locking (Failure Path - Stale Version)
 	staleProfile := updatedProfile
@@ -145,29 +129,17 @@ func TestGenericRepository(t *testing.T) {
 
 func TestGenericRepositoryPagination(t *testing.T) {
 	ctx := t.Context()
-	postgres, err := postgres.Run(ctx,
-		"postgres:18-alpine",
-		postgres.WithPassword("password"),
-		postgres.BasicWaitStrategies(),
-		testcontainers.WithTmpfs(map[string]string{"/var/lib/postgresql": "rw"}),
-	)
-	require.NoError(t, err)
+	log := slog.Default()
+	db, closer := test.StartPostgres(t, log)
+	defer closer()
 
-	connectionString, err := postgres.ConnectionString(ctx, "sslmode=disable")
+	repo, err := pg.NewGenericRepository[UserProfile](log, db)
 	require.NoError(t, err)
-
-	db, err := sql.Open("postgres", connectionString)
-	require.NoError(t, err)
-
-	_, err = db.ExecContext(ctx, pg.DDL)
-	require.NoError(t, err)
-
-	repo := pg.NewGenericRepository[UserProfile](slog.Default(), db)
 
 	// Insert 5 entities sharing a common city so paging over the result is meaningful
 	const total = 5
 	for i := range total {
-		err = repo.Create(ctx, uuid.NewV7(), UserProfile{
+		err := repo.Create(ctx, uuid.NewV7(), UserProfile{
 			Name:    "User" + strconv.Itoa(i),
 			Age:     i,
 			Address: Address{City: "Munich", Country: "Germany"},

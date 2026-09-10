@@ -34,19 +34,21 @@ var (
 	}
 )
 
-const DDL = `
-CREATE TABLE generic_entities (
+const (
+	RepositorySchema = `
+CREATE TABLE IF NOT EXISTS generic_entities (
     id UUID PRIMARY KEY DEFAULT uuidv7(), -- requires Postgres 17+
     entity_type TEXT NOT NULL,
     version INT NOT NULL DEFAULT 1,
     data JSONB NOT NULL
 );
 
-CREATE INDEX idx_generic_entities_type ON generic_entities(entity_type);
-CREATE INDEX idx_generic_entities_data ON generic_entities USING gin (data);
+CREATE INDEX IF NOT EXISTS idx_generic_entities_type ON generic_entities(entity_type);
+CREATE INDEX IF NOT EXISTS idx_generic_entities_data ON generic_entities USING gin (data);
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
-CREATE INDEX idx_generic_entities_type_data ON generic_entities USING gin (entity_type gin_trgm_ops, data);
+CREATE INDEX IF NOT EXISTS idx_generic_entities_type_data ON generic_entities USING gin (entity_type gin_trgm_ops, data);
 `
+)
 
 type (
 	Entity[T any] struct {
@@ -80,7 +82,12 @@ type (
 const MaxPaginationLimit = 10000
 
 // Beware: if T changes its name over time, data will be stored/queried in another entityType
-func NewGenericRepository[T any](log *slog.Logger, db *sql.DB) *GenericRepository[T] {
+func NewGenericRepository[T any](log *slog.Logger, db *sql.DB) (*GenericRepository[T], error) {
+	_, err := db.ExecContext(context.Background(), RepositorySchema)
+	if err != nil {
+		return nil, err
+	}
+
 	tType := reflect.TypeFor[T]()
 	if tType.Kind() == reflect.Pointer {
 		tType = tType.Elem()
@@ -92,7 +99,7 @@ func NewGenericRepository[T any](log *slog.Logger, db *sql.DB) *GenericRepositor
 		log:        log.WithGroup("generic").WithGroup(entityTypeName),
 		db:         db,
 		entityType: entityTypeName,
-	}
+	}, nil
 }
 
 func (r *GenericRepository[T]) Create(ctx context.Context, id uuid.UUID, data T) error {

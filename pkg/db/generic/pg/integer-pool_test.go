@@ -1,26 +1,22 @@
 package pg_test
 
 import (
-	"database/sql"
 	"log/slog"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic/pg"
+	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 func TestIntegerPoolService(t *testing.T) {
-	db, cleanup := setupTestDB(t)
-	defer cleanup()
-
 	ctx := t.Context()
 	log := slog.Default()
-	service := pg.NewIntegerPool(log, db)
+	db, closer := test.StartPostgres(t, log)
+	defer closer()
+	service, err := pg.NewIntegerPool(log, db)
+	require.NoError(t, err)
 
 	t.Run("Seed and Pool Isolation", func(t *testing.T) {
 		// Seed ASN (64512-64514) and VRFId (100-102)
@@ -107,57 +103,4 @@ func TestIntegerPoolService(t *testing.T) {
 
 		require.Len(t, seen, poolSize)
 	})
-}
-
-// setupTestDB provisions an isolated Postgres container running the schema.
-func setupTestDB(t *testing.T) (*sql.DB, func()) {
-	t.Helper()
-	ctx := t.Context()
-
-	pgContainer, err := postgres.Run(ctx,
-		"postgres:18-alpine",
-		postgres.WithDatabase("testdb"),
-		postgres.WithUsername("testuser"),
-		postgres.WithPassword("testpass"),
-		testcontainers.WithWaitStrategy(
-			wait.ForLog("database system is ready to accept connections").
-				WithOccurrence(2).
-				WithStartupTimeout(5*time.Second),
-		),
-	)
-	if err != nil {
-		t.Fatalf("failed to start postgres container: %s", err)
-	}
-
-	connectionString, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
-	if err != nil {
-		t.Fatalf("failed to get connection string: %s", err)
-	}
-
-	db, err := sql.Open("postgres", connectionString)
-	if err != nil {
-		t.Fatalf("failed to connect to db: %s", err)
-	}
-
-	// Schema creation
-	schema := `
-		CREATE TABLE integer_pool (
-			pool_type VARCHAR(64) NOT NULL,
-			id INT NOT NULL,
-			is_allocated BOOLEAN NOT NULL DEFAULT FALSE,
-			allocated_at TIMESTAMPTZ,
-			PRIMARY KEY (pool_type, id)
-		);
-		CREATE INDEX idx_integer_pool_type_free ON integer_pool (pool_type, id) WHERE is_allocated = FALSE;
-	`
-	if _, err := db.ExecContext(ctx, schema); err != nil {
-		t.Fatalf("failed to create schema: %s", err)
-	}
-
-	cleanup := func() {
-		_ = db.Close()
-		_ = pgContainer.Terminate(ctx)
-	}
-
-	return db, cleanup
 }

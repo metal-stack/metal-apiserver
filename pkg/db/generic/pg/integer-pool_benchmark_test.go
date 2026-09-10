@@ -3,72 +3,26 @@ package pg_test
 import (
 	"database/sql"
 	"log/slog"
-	"runtime"
 	"testing"
-	"time"
 
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic/pg"
+	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 // setupBenchmarkIntegerPoolDB boots a PostgreSQL container and seeds a large pool.
 func setupBenchmarkIntegerPoolDB(b *testing.B, poolSize int) (*sql.DB, func()) {
-	b.Helper()
-	ctx := b.Context()
-
-	// Spin up Postgres in Docker
-	pgContainer, err := postgres.Run(ctx,
-		"postgres:18-alpine",
-		postgres.WithDatabase("benchdb"),
-		postgres.WithUsername("benchuser"),
-		postgres.WithPassword("benchpass"),
-		testcontainers.WithWaitStrategy(
-			wait.ForLog("database system is ready to accept connections").
-				WithOccurrence(2).
-				WithStartupTimeout(10*time.Second),
-		),
-	)
-	require.NoError(b, err)
-
-	connStr, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
-	require.NoError(b, err)
-
-	db, err := sql.Open("postgres", connStr)
-	require.NoError(b, err)
-
-	// Tune connection pool for benchmark concurrency
-	maxConns := runtime.GOMAXPROCS(0) * 4
-	db.SetMaxOpenConns(maxConns)
-	db.SetMaxIdleConns(maxConns)
-
-	schema := `
-		CREATE TABLE integer_pool (
-			pool_type VARCHAR(64) NOT NULL,
-			id INT NOT NULL,
-			is_allocated BOOLEAN NOT NULL DEFAULT FALSE,
-			allocated_at TIMESTAMPTZ,
-			PRIMARY KEY (pool_type, id)
-		);
-		CREATE INDEX idx_integer_pool_type_free ON integer_pool (pool_type, id) WHERE is_allocated = FALSE;
-	`
-	_, err = db.ExecContext(ctx, schema)
-	require.NoError(b, err)
 
 	log := slog.Default()
-	service := pg.NewIntegerPool(log, db)
+	db, closer := test.StartPostgres(b, log)
+
+	service, err := pg.NewIntegerPool(log, db)
+	require.NoError(b, err)
 	b.Logf("Seeding benchmark database with %d integers...", poolSize)
-	err = service.Seed(ctx, pg.PoolTypeASN, 1, poolSize)
+	err = service.Seed(b.Context(), pg.PoolTypeASN, 1, poolSize)
 	require.NoError(b, err)
 
-	cleanup := func() {
-		_ = db.Close()
-		_ = pgContainer.Terminate(ctx)
-	}
-
-	return db, cleanup
+	return db, closer
 }
 
 func BenchmarkIntegerPool_AcquireAndRelease(b *testing.B) {
@@ -77,7 +31,9 @@ func BenchmarkIntegerPool_AcquireAndRelease(b *testing.B) {
 	defer cleanup()
 
 	log := slog.Default()
-	service := pg.NewIntegerPool(log, db)
+	service, err := pg.NewIntegerPool(log, db)
+	require.NoError(b, err)
+
 	ctx := b.Context()
 
 	// Reset timer to ignore container setup and seeding overhead
@@ -103,7 +59,8 @@ func BenchmarkIntegerPool_HighContentionAcquire(b *testing.B) {
 	defer cleanup()
 
 	log := slog.Default()
-	service := pg.NewIntegerPool(log, db)
+	service, err := pg.NewIntegerPool(log, db)
+	require.NoError(b, err)
 	ctx := b.Context()
 
 	b.ResetTimer()

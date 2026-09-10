@@ -14,6 +14,17 @@ type PoolType string
 const (
 	PoolTypeASN PoolType = "ASN"
 	PoolTypeVRF PoolType = "VRF"
+
+	IntegerPoolschema = `
+	CREATE TABLE IF NOT EXISTS integer_pool (
+		pool_type VARCHAR(64) NOT NULL,
+		id INT NOT NULL,
+			is_allocated BOOLEAN NOT NULL DEFAULT FALSE,
+			allocated_at TIMESTAMPTZ,
+			PRIMARY KEY (pool_type, id)
+			);
+			CREATE INDEX IF NOT EXISTS idx_integer_pool_type_free ON integer_pool (pool_type, id) WHERE is_allocated = FALSE;
+			`
 )
 
 // ErrPoolExhausted is returned by Acquire when a pool has no free integers left.
@@ -24,11 +35,16 @@ type IntegerPool struct {
 	db  *sql.DB
 }
 
-func NewIntegerPool(log *slog.Logger, db *sql.DB) *IntegerPool {
+func NewIntegerPool(log *slog.Logger, db *sql.DB) (*IntegerPool, error) {
+	_, err := db.ExecContext(context.Background(), IntegerPoolschema)
+	if err != nil {
+		return nil, err
+	}
+
 	return &IntegerPool{
 		log: log.WithGroup("integer-pool"),
 		db:  db,
-	}
+	}, nil
 }
 
 // Seed ensures a specific pool contains integers from startID up to endID.
