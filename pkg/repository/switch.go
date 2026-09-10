@@ -451,16 +451,16 @@ func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *ap
 	return nil
 }
 
-func (r *switchRepository) RemoveMachineFromSwitches(ctx context.Context, m *apiv2.Machine) error {
-
+func (r *switchRepository) RemoveMachineFromSwitches(ctx context.Context, machineID string) error {
 	switches, err := r.s.ds.Switch().List(ctx, queries.SwitchFilter(&apiv2.SwitchQuery{
-		ConnectedMachineId: &m.Uuid,
+		ConnectedMachineId: &machineID,
 	}))
 	if err != nil {
 		return fmt.Errorf("unable to query switches: %w", err)
 	}
+
 	for _, sw := range switches {
-		delete(sw.MachineConnections, m.Uuid)
+		delete(sw.MachineConnections, machineID)
 
 		if err := r.s.ds.Switch().Update(ctx, sw); err != nil {
 			return err

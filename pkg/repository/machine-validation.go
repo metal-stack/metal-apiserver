@@ -275,6 +275,21 @@ func (r *machineRepository) validateUpdate(ctx context.Context, req *apiv2.Machi
 }
 
 func (r *machineRepository) validateDelete(ctx context.Context, machine *metal.Machine) error {
+	if machine.Allocation != nil {
+		return errorutil.FailedPrecondition("machine is allocated and can not be deleted")
+	}
+
+	ec, err := r.s.ds.Event().Get(ctx, machine.ID)
+	if err != nil && !errorutil.IsNotFound(err) {
+		return err
+	}
+
+	if ec != nil {
+		if ec.Liveliness != metal.MachineLivelinessDead {
+			return errorutil.FailedPrecondition("can only delete dead machines, if you power off this machine it will reach dead state")
+		}
+	}
+
 	return nil
 }
 
