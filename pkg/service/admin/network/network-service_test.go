@@ -2429,17 +2429,17 @@ func Test_networkServiceServer_ListExternalMembers(t *testing.T) {
 	spec, err := sc.SwitchesWithExternalNetworkMembers.DeepCopy()
 	require.NoError(t, err)
 
-	require.NoError(t, sc.AddNicsToVRF(spec.Switches[0], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL, "Ethernet0"))
-	require.NoError(t, sc.AddNicsToVRF(spec.Switches[0], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet1"))
-	require.NoError(t, sc.AddNicsToVRF(spec.Switches[1], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL, "Ethernet0"))
-	require.NoError(t, sc.AddNicsToVRF(spec.Switches[1], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet1"))
-	require.NoError(t, sc.AddNicsToVRF(spec.Switches[1], "Vrf99", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet120"))
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[0], "vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL, "Ethernet0"))
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[0], "vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet1"))
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[1], "vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL, "Ethernet0"))
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[1], "vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet1"))
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[1], "vrf99", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet120"))
 
-	require.NoError(t, sc.AddNicsToVRF(spec.Switches[2], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet0", "Ethernet1"))
-	require.NoError(t, sc.AddNicsToVRF(spec.Switches[3], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet0", "Ethernet1"))
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[2], "vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet0", "Ethernet1"))
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[3], "vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet0", "Ethernet1"))
 
-	require.NoError(t, sc.AddNicsToVRF(spec.Switches[4], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet0"))
-	require.NoError(t, sc.AddNicsToVRF(spec.Switches[5], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet0"))
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[4], "vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet0"))
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[5], "vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet0"))
 
 	dc := test.NewDatacenter(t)
 	log := dc.GetTestStore().GetLogger()
@@ -2663,10 +2663,10 @@ func Test_networkServiceServer_AddExternalMember(t *testing.T) {
 	spec, err := sc.SwitchesWithExternalNetworkMembers.DeepCopy()
 	require.NoError(t, err)
 
-	require.NoError(t, sc.AddNicsToVRF(spec.Switches[0], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL, "Ethernet0"))
-	require.NoError(t, sc.AddNicsToVRF(spec.Switches[1], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL, "Ethernet0"))
-	require.NoError(t, sc.AddNicsToVRF(spec.Switches[4], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet0"))
-	require.NoError(t, sc.AddNicsToVRF(spec.Switches[5], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet0"))
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[0], "vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL, "Ethernet0"))
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[1], "vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL, "Ethernet0"))
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[4], "vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet0"))
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[5], "vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet0"))
 
 	dc.Create(spec)
 
@@ -2788,16 +2788,16 @@ func Test_networkServiceServer_AddExternalMember(t *testing.T) {
 					Switches: func(switches map[string]*apiv2.Switch) {
 						sw1 := switches[sc.P01Rack02Switch1]
 						require.NotNil(t, sw1)
-						sw1.Nics[0].Vrf = new("Vrf99")
+						sw1.Nics[0].Vrf = new("vrf99")
 						sw1.Nics[0].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL
-						sw1.Nics[1].Vrf = new("Vrf99")
+						sw1.Nics[1].Vrf = new("vrf99")
 						sw1.Nics[1].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL
 
 						sw2 := switches[sc.P01Rack02Switch2]
 						require.NotNil(t, sw2)
-						sw2.Nics[0].Vrf = new("Vrf99")
+						sw2.Nics[0].Vrf = new("vrf99")
 						sw2.Nics[0].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL
-						sw2.Nics[1].Vrf = new("Vrf99")
+						sw2.Nics[1].Vrf = new("vrf99")
 						sw2.Nics[1].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL
 					},
 				}
@@ -2807,16 +2807,16 @@ func Test_networkServiceServer_AddExternalMember(t *testing.T) {
 
 				sw1 := allSwitches[sc.P01Rack02Switch1]
 				require.NotNil(t, sw1)
-				sw1.Nics[0].Vrf = new("Vrf99")
+				sw1.Nics[0].Vrf = new("vrf99")
 				sw1.Nics[0].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL
-				sw1.Nics[1].Vrf = new("Vrf99")
+				sw1.Nics[1].Vrf = new("vrf99")
 				sw1.Nics[1].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL
 
 				sw2 := allSwitches[sc.P01Rack02Switch2]
 				require.NotNil(t, sw2)
-				sw2.Nics[0].Vrf = new("Vrf99")
+				sw2.Nics[0].Vrf = new("vrf99")
 				sw2.Nics[0].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL
-				sw2.Nics[1].Vrf = new("Vrf99")
+				sw2.Nics[1].Vrf = new("vrf99")
 				sw2.Nics[1].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL
 
 				return &adminv2.NetworkServiceAddExternalMembersResponse{
@@ -2903,11 +2903,11 @@ func Test_networkServiceServer_RemoveExternalMember(t *testing.T) {
 	spec, err := sc.SwitchesWithExternalNetworkMembers.DeepCopy()
 	require.NoError(t, err)
 
-	require.NoError(t, sc.AddNicsToVRF(spec.Switches[0], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL, "Ethernet0"))
-	require.NoError(t, sc.AddNicsToVRF(spec.Switches[1], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL, "Ethernet0"))
-	require.NoError(t, sc.AddNicsToVRF(spec.Switches[1], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet120"))
-	require.NoError(t, sc.AddNicsToVRF(spec.Switches[4], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet0", "Ethernet1"))
-	require.NoError(t, sc.AddNicsToVRF(spec.Switches[5], "Vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet0", "Ethernet1"))
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[0], "vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL, "Ethernet0"))
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[1], "vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL, "Ethernet0"))
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[1], "vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet120"))
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[4], "vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet0", "Ethernet1"))
+	require.NoError(t, sc.AddNicsToVRF(spec.Switches[5], "vrf100", apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL, "Ethernet0", "Ethernet1"))
 	dc.Create(spec)
 
 	tests := []struct {

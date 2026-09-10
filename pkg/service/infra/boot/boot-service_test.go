@@ -502,7 +502,6 @@ func Test_bootServiceServer_Register(t *testing.T) {
 							State: &apiv2.NicState{
 								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 							},
-							Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
 						},
 					},
 					Os: &apiv2.SwitchOS{
@@ -543,7 +542,6 @@ func Test_bootServiceServer_Register(t *testing.T) {
 							State: &apiv2.NicState{
 								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 							},
-							Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
 						},
 					},
 					Os: &apiv2.SwitchOS{
@@ -935,7 +933,6 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 							State: &apiv2.NicState{
 								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 							},
-							Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED, // in a real setup, this would be internal but the endpoint doesn't touch the memberships
 						},
 						{
 							Name:       "Ethernet1",
@@ -944,7 +941,6 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 							State: &apiv2.NicState{
 								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 							},
-							Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
 						},
 					},
 					Os: &apiv2.SwitchOS{
@@ -965,7 +961,6 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 							State: &apiv2.NicState{
 								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 							},
-							Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
 						},
 						{
 							Name:       "Ethernet1",
@@ -974,7 +969,6 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 							State: &apiv2.NicState{
 								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 							},
-							Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
 						},
 					},
 					Os: &apiv2.SwitchOS{
@@ -1038,7 +1032,6 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 							State: &apiv2.NicState{
 								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 							},
-							Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
 						},
 						{
 							Name:       "Ethernet1",
@@ -1047,7 +1040,6 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 							State: &apiv2.NicState{
 								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 							},
-							Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
 						},
 					},
 					Os: &apiv2.SwitchOS{
@@ -1068,7 +1060,6 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 							State: &apiv2.NicState{
 								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 							},
-							Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
 						},
 						{
 							Name:       "Ethernet1",
@@ -1077,7 +1068,6 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 							State: &apiv2.NicState{
 								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 							},
-							Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
 						},
 					},
 					Os: &apiv2.SwitchOS{

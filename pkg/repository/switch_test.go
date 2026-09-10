@@ -1348,6 +1348,7 @@ func Test_adoptFromTwin(t *testing.T) {
 					metal.Nic{
 						Name:       "swp1s3",
 						MacAddress: "bb:bb:bb:bb:bb:b4",
+						Membership: metal.SwitchPortMembershipUnmanaged,
 					},
 				},
 				MachineConnections: metal.ConnectionMap{
@@ -1537,6 +1538,7 @@ func Test_adoptFromTwin(t *testing.T) {
 					metal.Nic{
 						Name:       "Ethernet3",
 						MacAddress: "bb:bb:bb:bb:bb:b4",
+						Membership: metal.SwitchPortMembershipUnmanaged,
 					},
 				},
 				MachineConnections: metal.ConnectionMap{
@@ -1570,8 +1572,8 @@ func Test_adoptFromTwin(t *testing.T) {
 				t.Errorf("adoptFromTwin() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !cmp.Equal(got, tt.want) {
-				t.Errorf("adoptFromTwin() = %v", cmp.Diff(got, tt.want))
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Errorf("adoptFromTwin() = %v", diff)
 			}
 		})
 	}

@@ -574,7 +574,7 @@ func (r *networkRepository) AddExternalMembers(ctx context.Context, req *adminv2
 			}
 
 			if nic.Membership == apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL {
-				vrfNumString := strings.TrimPrefix(pointer.SafeDeref(nic.Vrf), "Vrf")
+				vrfNumString := strings.TrimPrefix(pointer.SafeDeref(nic.Vrf), "vrf")
 				vrf, err := strconv.Atoi(vrfNumString)
 				if err != nil {
 					return nil, errorutil.Internal("failed to parse vrf number from %q", pointer.SafeDeref(nic.Vrf))
