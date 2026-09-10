@@ -405,16 +405,14 @@ func (dc *Datacenter) createImages(spec *scenarios.DatacenterSpec) {
 	dc.closers = append(dc.closers, ts.Close)
 
 	var req []*adminv2.ImageServiceCreateRequest
-	for name, feature := range spec.Images {
+	for _, img := range spec.Images {
+		img.Url = ts.URL
+
 		req = append(req, &adminv2.ImageServiceCreateRequest{
-			Image: &apiv2.Image{
-				Id:             name,
-				Url:            ts.URL,
-				Features:       []apiv2.ImageFeature{feature},
-				Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED,
-			},
+			Image: img,
 		})
 	}
+
 	CreateImages(dc.t, dc.testStore, req)
 }
 

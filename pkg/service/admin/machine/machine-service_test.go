@@ -1150,8 +1150,12 @@ func Test_machineServiceServer_Delete(t *testing.T) {
 			name: "delete allocated machine",
 			scenario: func() *sc.DatacenterSpec {
 				s := sc.SwitchesWithMachinesDatacenter
-				s.Images = map[string]apiv2.ImageFeature{
-					sc.ImageDebian13: apiv2.ImageFeature_IMAGE_FEATURE_MACHINE,
+				s.Images = []*apiv2.Image{
+					{
+						Id:             sc.ImageDebian13,
+						Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE},
+						Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED,
+					},
 				}
 				s.Machines = []*sc.MachineWithLiveliness{
 					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive, false),
@@ -1175,8 +1179,12 @@ func Test_machineServiceServer_Delete(t *testing.T) {
 			name: "delete dead machine",
 			scenario: func() *sc.DatacenterSpec {
 				s := sc.SwitchesWithMachinesDatacenter
-				s.Images = map[string]apiv2.ImageFeature{
-					sc.ImageDebian13: apiv2.ImageFeature_IMAGE_FEATURE_MACHINE,
+				s.Images = []*apiv2.Image{
+					{
+						Id:             sc.ImageDebian13,
+						Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE},
+						Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED,
+					},
 				}
 				s.Machines = []*sc.MachineWithLiveliness{
 					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive, false),
