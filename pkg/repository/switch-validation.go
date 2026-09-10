@@ -18,7 +18,6 @@ func (r *switchRepository) validateCreate(ctx context.Context, req *api.SwitchSe
 	if req == nil || req.Switch == nil {
 		return nil
 	}
-	defaultNicMemberships(req.Switch.Nics, req.Switch.MachineConnections)
 
 	var errs []error
 	_, err := r.s.ds.Partition().Get(ctx, req.Switch.Partition)

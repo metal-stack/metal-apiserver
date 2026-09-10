@@ -10,6 +10,7 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -17,13 +18,14 @@ import (
 
 func Test_updateNicsOnRegister(t *testing.T) {
 	tests := []struct {
-		name string
-		old  metal.Nics
-		new  metal.Nics
-		want metal.Nics
+		name        string
+		old         metal.Nics
+		new         metal.Nics
+		connections metal.ConnectionMap
+		want        metal.Nics
 	}{
 		{
-			name: "new nics just get added",
+			name: "new nics just get added, old get removed",
 			old: metal.Nics{
 				{
 					Identifier: "Eth1/1",
@@ -45,7 +47,7 @@ func Test_updateNicsOnRegister(t *testing.T) {
 			},
 		},
 		{
-			name: "existing nics can only be renamed",
+			name: "update existing nics",
 			old: metal.Nics{
 				{
 					Identifier: "Eth1/1",
@@ -53,28 +55,64 @@ func Test_updateNicsOnRegister(t *testing.T) {
 					Vrf:        "Vrf100",
 					Membership: metal.SwitchPortMembershipExternal,
 				},
+				{
+					Identifier: "Eth1/2",
+					Name:       "Ethernet1",
+				},
+				{
+					Identifier: "Eth1/4",
+					Name:       "Eth1/4",
+				},
 			},
 			new: metal.Nics{
 				{
 					Identifier: "Eth1/1",
-					Name:       "Ethernet2",
-					Membership: metal.SwitchPortMembershipInternal,
+					Name:       "Ethernet0",
 				},
 				{
 					Identifier: "Eth1/2",
-					Name:       "Ethernet1",
+					Name:       "Eth1/2",
+				},
+				{
+					Identifier: "Eth1/3",
+					Name:       "Ethernet2",
+				},
+				{
+					Identifier: "Eth1/4",
+					Name:       "Eth1/4",
+				},
+			},
+			connections: metal.ConnectionMap{
+				"m1": {
+					{
+						Nic: metal.Nic{
+							Identifier: "Eth1/2",
+							Name:       "Ethernet1",
+						},
+						MachineID: "m1",
+					},
 				},
 			},
 			want: metal.Nics{
 				{
 					Identifier: "Eth1/1",
-					Name:       "Ethernet2",
+					Name:       "Ethernet0",
 					Vrf:        "Vrf100",
 					Membership: metal.SwitchPortMembershipExternal,
 				},
 				{
 					Identifier: "Eth1/2",
-					Name:       "Ethernet1",
+					Name:       "Eth1/2",
+					Membership: metal.SwitchPortMembershipInternal,
+				},
+				{
+					Identifier: "Eth1/3",
+					Name:       "Ethernet2",
+					Membership: metal.SwitchPortMembershipUnmanaged,
+				},
+				{
+					Identifier: "Eth1/4",
+					Name:       "Eth1/4",
 					Membership: metal.SwitchPortMembershipUnmanaged,
 				},
 			},
@@ -82,7 +120,8 @@ func Test_updateNicsOnRegister(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := updateNicsOnRegister(tt.old, tt.new)
+			got, err := updateNicsOnRegister(tt.old, tt.new, tt.connections)
+			require.NoError(t, err)
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("updateNics() diff = %s", diff)
 			}

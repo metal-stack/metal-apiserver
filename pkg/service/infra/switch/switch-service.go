@@ -122,7 +122,7 @@ func (s *switchServiceServer) Heartbeat(ctx context.Context, rq *infrav2.SwitchS
 		if connected {
 			sw.Nics[i].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL
 		} else {
-			sw.Nics[i].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL
+			sw.Nics[i].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED
 		}
 		updated = true
 	}
