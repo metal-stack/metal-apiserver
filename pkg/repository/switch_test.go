@@ -1640,6 +1640,7 @@ func Test_adoptNics(t *testing.T) {
 				metal.Nic{
 					Name:       "swp99",
 					MacAddress: "bb:bb:bb:bb:bb:b3",
+					Membership: metal.SwitchPortMembershipUnmanaged,
 				},
 			},
 			wantErr: false,
