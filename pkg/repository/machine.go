@@ -123,7 +123,7 @@ func (r *machineRepository) SendEvent(ctx context.Context, machineID string, eve
 		Message: event.Message,
 	}
 
-	ec, err := r.s.ds.Event().Find(ctx, queries.EventFilter(machineID))
+	ec, err := r.s.ds.Event().Get(ctx, machineID)
 	if err != nil && !errorutil.IsNotFound(err) {
 		return err
 	}
@@ -168,8 +168,11 @@ func (r *machineRepository) matchScope(machine *metal.Machine) bool {
 func (r *machineRepository) create(ctx context.Context, req *apiv2.MachineServiceCreateRequest) (*metal.Machine, error) {
 	result, err := r.allocateMachine(ctx, req)
 	if err != nil {
-		// FIXME migrate the whole mechanism of allocating to a task and roll back there on error
-		r.rollback(ctx, result.rollbackEntities)
+		if result != nil {
+			// FIXME migrate the whole mechanism of allocating to a task and roll back there on error
+			r.rollback(ctx, result.rollbackEntities)
+		}
+
 		return nil, err
 	}
 
@@ -204,10 +207,26 @@ func (r *machineRepository) update(ctx context.Context, m *metal.Machine, req *a
 }
 
 func (r *machineRepository) delete(ctx context.Context, m *metal.Machine) (*deleteInfo, error) {
-	if err := r.s.ds.Machine().Delete(ctx, m); err != nil {
+	if r.scope != nil {
+		return nil, errorutil.FailedPrecondition("machines can only be deleted unscoped")
+	}
+
+	info, err := r.s.task.NewTask(&task.MachineDeletePayload{
+		UUID: m.ID,
+	})
+	if err != nil {
 		return nil, err
 	}
-	return nil, nil
+
+	r.s.log.Info("machine delete enqueued, polling for completion", "info", info)
+
+	if _, err := r.s.Task().WatchForTaskCompletion(ctx, nil, info.Queue, info.ID); err != nil {
+		return nil, errorutil.Internal("error waiting for task %q of type %q to complete: %w", info.ID, info.Type, err)
+	}
+
+	return &deleteInfo{
+		taskID: &info.ID,
+	}, nil
 }
 
 func (r *machineRepository) find(ctx context.Context, rq *apiv2.MachineQuery) (*metal.Machine, error) {
@@ -313,7 +332,6 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 		placementLabels  *apiv2.Labels
 		allocation       *apiv2.MachineAllocation
 		condition        *apiv2.MachineCondition
-		status           *apiv2.MachineStatus
 		size             *apiv2.Size
 		vpn              *apiv2.MachineVPN
 		dnsServers       []*apiv2.DNSServer
@@ -555,62 +573,6 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 		Issuer:      m.State.Issuer,
 	}
 
-	event, err := r.s.ds.Event().Get(ctx, m.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	liveliness, err := enum.GetEnum[apiv2.MachineLiveliness](strings.ToLower(string(event.Liveliness)))
-	if err != nil {
-		return nil, err
-	}
-	var (
-		lastEventTime  *timestamppb.Timestamp
-		lastErrorEvent *apiv2.MachineProvisioningEvent
-		state          apiv2.MachineProvisioningEventState
-		events         []*apiv2.MachineProvisioningEvent
-	)
-	if event.LastEventTime != nil {
-		lastEventTime = timestamppb.New(*event.LastEventTime)
-	}
-	if event.LastErrorEvent != nil {
-		eventType, err := enum.GetEnum[apiv2.MachineProvisioningEventType](event.LastErrorEvent.Event.String())
-		if err != nil {
-			return nil, err
-		}
-		lastErrorEvent = &apiv2.MachineProvisioningEvent{
-			Time:  timestamppb.New(event.LastErrorEvent.Time),
-			Event: eventType,
-		}
-	}
-
-	for _, e := range event.Events {
-		eventType, err := enum.GetEnum[apiv2.MachineProvisioningEventType](string(e.Event))
-		if err != nil {
-			return nil, err
-		}
-
-		events = append(events, &apiv2.MachineProvisioningEvent{
-			Time:    timestamppb.New(e.Time),
-			Event:   eventType,
-			Message: e.Message,
-		})
-	}
-
-	recentEvents := &apiv2.MachineRecentProvisioningEvents{
-		LastEventTime:  lastEventTime,
-		LastErrorEvent: lastErrorEvent,
-		Events:         events,
-		State:          state,
-	}
-
-	status = &apiv2.MachineStatus{
-		Condition:          condition,
-		LedState:           &apiv2.MachineChassisIdentifyLEDState{},
-		Liveliness:         liveliness,
-		MetalHammerVersion: m.State.MetalHammerVersion,
-	}
-
 	result := &apiv2.Machine{
 		Uuid: m.ID,
 		Meta: &apiv2.Meta{
@@ -619,14 +581,71 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 			Labels:     labels,
 			Generation: m.Generation,
 		},
-		Partition:                partition,
-		Rack:                     m.RackID,
-		Room:                     m.RoomID,
-		Size:                     size,
-		Hardware:                 hardware,
-		Allocation:               allocation,
-		Status:                   status,
-		RecentProvisioningEvents: recentEvents,
+		Partition:  partition,
+		Rack:       m.RackID,
+		Room:       m.RoomID,
+		Size:       size,
+		Hardware:   hardware,
+		Allocation: allocation,
+	}
+
+	event, err := r.s.ds.Event().Get(ctx, m.ID)
+	if err != nil && !errorutil.IsNotFound(err) {
+		return nil, err
+	}
+
+	if event != nil {
+
+		liveliness, err := enum.GetEnum[apiv2.MachineLiveliness](strings.ToLower(string(event.Liveliness)))
+		if err != nil {
+			return nil, err
+		}
+		var (
+			lastEventTime  *timestamppb.Timestamp
+			lastErrorEvent *apiv2.MachineProvisioningEvent
+			state          apiv2.MachineProvisioningEventState
+			events         []*apiv2.MachineProvisioningEvent
+		)
+		if event.LastEventTime != nil {
+			lastEventTime = timestamppb.New(*event.LastEventTime)
+		}
+		if event.LastErrorEvent != nil {
+			eventType, err := enum.GetEnum[apiv2.MachineProvisioningEventType](event.LastErrorEvent.Event.String())
+			if err != nil {
+				return nil, err
+			}
+			lastErrorEvent = &apiv2.MachineProvisioningEvent{
+				Time:  timestamppb.New(event.LastErrorEvent.Time),
+				Event: eventType,
+			}
+		}
+
+		for _, e := range event.Events {
+			eventType, err := enum.GetEnum[apiv2.MachineProvisioningEventType](string(e.Event))
+			if err != nil {
+				return nil, err
+			}
+
+			events = append(events, &apiv2.MachineProvisioningEvent{
+				Time:    timestamppb.New(e.Time),
+				Event:   eventType,
+				Message: e.Message,
+			})
+		}
+
+		result.RecentProvisioningEvents = &apiv2.MachineRecentProvisioningEvents{
+			LastEventTime:  lastEventTime,
+			LastErrorEvent: lastErrorEvent,
+			Events:         events,
+			State:          state,
+		}
+
+		result.Status = &apiv2.MachineStatus{
+			Condition:          condition,
+			LedState:           &apiv2.MachineChassisIdentifyLEDState{},
+			Liveliness:         liveliness,
+			MetalHammerVersion: m.State.MetalHammerVersion,
+		}
 	}
 
 	return result, nil
@@ -693,7 +712,7 @@ func (r *machineRepository) Decommission(ctx context.Context, req *apiv2.Machine
 		return nil, errorutil.Internal("unable to write provisioning event: %w", err)
 	}
 
-	info, err := r.s.task.NewTask(&task.MachineDeletePayload{
+	info, err := r.s.task.NewTask(&task.MachineDecommissionPayload{
 		AllocationUUID:           alloc.UUID,
 		HeadscaleNodeID:          headscaleNodeID,
 		MachineIpAllocationUUIDs: machineIpAllocationUUIDs,
@@ -706,7 +725,7 @@ func (r *machineRepository) Decommission(ctx context.Context, req *apiv2.Machine
 		return nil, errorutil.NewInternal(err)
 	}
 
-	r.s.log.Info("machine delete enqueued, polling for completion", "info", info)
+	r.s.log.Info("machine decommission enqueued, polling for completion", "info", info)
 
 	if _, err = r.s.Task().WatchForTaskCompletion(ctx, nil, info.Queue, info.ID); err != nil {
 		return nil, errorutil.Internal("error waiting for task %q of type %q to complete: %w", info.ID, info.Type, err)
@@ -882,7 +901,7 @@ func (r *machineRepository) Register(ctx context.Context, req *infrav2.BootServi
 		}
 	}
 
-	ec, err := r.s.ds.Event().Find(ctx, queries.EventFilter(m.ID))
+	ec, err := r.s.ds.Event().Get(ctx, m.ID)
 	if err != nil && !errorutil.IsNotFound(err) {
 		return nil, err
 	}
@@ -1614,16 +1633,37 @@ func (r *machineRepository) setMachineWaitingFlag(ctx context.Context, machineUU
 	return err
 }
 
-//---------------------------------------------------------------
-// Write a function HandleXXXTask to handle the input task.
-// Note that it satisfies the asynq.HandlerFunc interface.
-//
-// Handler doesn't need to be a function. You can define a type
-// that satisfies asynq.Handler interface. See examples below.
-//---------------------------------------------------------------
-
 func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
 	payload, err := task.DecodePayload[*task.MachineDeletePayload](t.Payload())
+	if err != nil {
+		return err
+	}
+
+	// we remove the machine from all switches to be sure there are no leftovers from history machine movements.
+	if err := r.Switch().AdditionalMethods().RemoveMachineFromSwitches(ctx, payload.UUID); err != nil {
+		return err
+	}
+
+	if err := r.ds.Machine().Delete(ctx, &metal.Machine{ID: payload.UUID}); err != nil && !errorutil.IsNotFound(err) {
+		return err
+	}
+
+	ec, err := r.ds.Event().Get(ctx, payload.UUID)
+	if err != nil && !errorutil.IsNotFound(err) {
+		return err
+	}
+
+	if ec != nil {
+		if err := r.ds.Event().Delete(ctx, ec); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *Store) MachineDecommissionHandleFn(ctx context.Context, t *asynq.Task) error {
+	payload, err := task.DecodePayload[*task.MachineDecommissionPayload](t.Payload())
 	if err != nil {
 		return err
 	}
@@ -1657,7 +1697,7 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 		return err
 	}
 
-	r.log.Debug("send bmc command to delete machine")
+	r.log.Debug("send bmc command to decommission machine")
 
 	taskID, err := r.UnscopedMachine().AdditionalMethods().MachineBMCCommand(ctx, payload.UUID, payload.Partition, apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_MACHINE_DELETED)
 	if err != nil {
@@ -1678,7 +1718,7 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 		return fmt.Errorf("unable to set machine back into pxe boot vrf: %w", err)
 	}
 
-	r.log.Debug("machine delete triggered switch reconfiguration")
+	r.log.Debug("machine decommission triggered switch reconfiguration")
 
 	return nil
 }
@@ -1724,7 +1764,7 @@ func (r *machineRepository) scopedMachineFilters(filter generic.EntityQuery) []g
 	return qs
 }
 
-func (r *machineRepository) releaseVpnNodeTask(ctx context.Context, payload *task.MachineDeletePayload) error {
+func (r *machineRepository) releaseVpnNodeTask(ctx context.Context, payload *task.MachineDecommissionPayload) error {
 	r.s.log.Debug("machine delete attempting to delete vpn node", "vpn-user-id", payload.Project, "vpn-node-id", payload.UUID)
 
 	if !r.s.VPN(payload.Project).Enabled() {
@@ -1765,7 +1805,7 @@ func (r *machineRepository) releaseVpnNodeTask(ctx context.Context, payload *tas
 	return nil
 }
 
-func (r *machineRepository) releaseAllocationTask(ctx context.Context, payload *task.MachineDeletePayload) error {
+func (r *machineRepository) releaseAllocationTask(ctx context.Context, payload *task.MachineDecommissionPayload) error {
 	r.s.log.Debug("machine delete attempting to remove allocation", "allocation-uuid", payload.AllocationUUID)
 
 	m, err := r.s.ds.Machine().Find(ctx, queries.MachineFilter(&apiv2.MachineQuery{
@@ -1793,7 +1833,7 @@ func (r *machineRepository) releaseAllocationTask(ctx context.Context, payload *
 	return nil
 }
 
-func (r *machineRepository) releaseMachineIPsTask(ctx context.Context, payload *task.MachineDeletePayload) error {
+func (r *machineRepository) releaseMachineIPsTask(ctx context.Context, payload *task.MachineDecommissionPayload) error {
 	r.s.log.Debug("machine delete attempting to release ips", "allocation-uuid", payload.AllocationUUID)
 
 	var g errgroup.Group

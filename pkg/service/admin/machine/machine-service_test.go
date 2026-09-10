@@ -15,6 +15,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 )
@@ -1144,14 +1145,18 @@ func Test_machineServiceServer_Delete(t *testing.T) {
 				return &adminv2.MachineServiceDeleteRequest{Uuid: sc.Machine1}
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("can only delete dead machines, if you power off this machine it will reach dead state."),
+			wantErr: errorutil.FailedPrecondition("can only delete dead machines, if you power off this machine it will reach dead state"),
 		},
 		{
 			name: "delete allocated machine",
 			scenario: func() *sc.DatacenterSpec {
 				s := sc.SwitchesWithMachinesDatacenter
-				s.Images = map[string]apiv2.ImageFeature{
-					sc.ImageDebian13: apiv2.ImageFeature_IMAGE_FEATURE_MACHINE,
+				s.Images = []*apiv2.Image{
+					{
+						Id:             sc.ImageDebian13,
+						Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE},
+						Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED,
+					},
 				}
 				s.Machines = []*sc.MachineWithLiveliness{
 					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive, false),
@@ -1169,14 +1174,18 @@ func Test_machineServiceServer_Delete(t *testing.T) {
 				return &adminv2.MachineServiceDeleteRequest{Uuid: sc.Machine2}
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("machine is allocated and can not be deleted"),
+			wantErr: errorutil.FailedPrecondition("machine is allocated and can not be deleted"),
 		},
 		{
 			name: "delete dead machine",
 			scenario: func() *sc.DatacenterSpec {
 				s := sc.SwitchesWithMachinesDatacenter
-				s.Images = map[string]apiv2.ImageFeature{
-					sc.ImageDebian13: apiv2.ImageFeature_IMAGE_FEATURE_MACHINE,
+				s.Images = []*apiv2.Image{
+					{
+						Id:             sc.ImageDebian13,
+						Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE},
+						Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED,
+					},
 				}
 				s.Machines = []*sc.MachineWithLiveliness{
 					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive, false),
@@ -1194,8 +1203,11 @@ func Test_machineServiceServer_Delete(t *testing.T) {
 				return &adminv2.MachineServiceDeleteRequest{Uuid: sc.Machine3}
 			},
 			want: func(e *test.Entities) *adminv2.MachineServiceDeleteResponse {
+				m := e.Machines[sc.Machine3]
+				m.Status = nil
+				m.RecentProvisioningEvents = nil
 				return &adminv2.MachineServiceDeleteResponse{
-					Machine: e.Machines[sc.Machine3],
+					Machine: m,
 				}
 			},
 			mods: func() *test.Asserters {
@@ -1260,9 +1272,14 @@ func Test_machineServiceServer_Delete(t *testing.T) {
 			if diff := cmp.Diff(want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
-					&apiv2.Meta{}, "created_at", "updated_at", "generation",
+					&apiv2.Meta{}, "created_at", "updated_at", "generation", "deletion_task_id",
 				)); diff != "" {
 				t.Errorf("machineServiceServer.Delete() diff = %s", diff)
+			}
+
+			if tt.wantErr == nil {
+				require.NotNil(t, got.Machine.Meta.DeletionTaskId)
+				assert.NotEmpty(t, got.Machine.Meta.DeletionTaskId)
 			}
 
 			var mods *test.Asserters

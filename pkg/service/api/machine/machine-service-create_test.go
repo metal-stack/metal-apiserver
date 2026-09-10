@@ -51,23 +51,14 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 	defer dc.Close()
 
 	tests := []struct {
-		name string
-		req  *apiv2.MachineServiceCreateRequest
-		// this func only defines the datacenter spec
-		// must not be defined together with the createRequestFn
-		createDatacenterFn func() *sc.DatacenterSpec
-		// when this func is defined, the datacenter must be created inside
-		// with the request and the expected error if any.
-		// This is handy if entities with random uuids must be created as precondition
-		// and also must be part of the request and the error message
-		createRequestFn func() (*apiv2.MachineServiceCreateRequest, error)
+		name            string
+		createRequestFn func() *apiv2.MachineServiceCreateRequest
 		want            func(dc *test.Datacenter) *apiv2.MachineServiceCreateResponse
 		wantErr         error
 	}{
 		{
 			name: "machine with private network",
-			req:  nil, // set below
-			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
+			createRequestFn: func() *apiv2.MachineServiceCreateRequest {
 				testDC := sc.DefaultDatacenter
 				testDC.ProjectsPerTenant = 2
 				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
@@ -107,7 +98,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 						{Network: projectNetworkId},
 					},
 				}
-				return req, nil
+				return req
 			},
 			want: func(dc *test.Datacenter) *apiv2.MachineServiceCreateResponse {
 				return &apiv2.MachineServiceCreateResponse{
@@ -170,8 +161,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 		},
 		{
 			name: "machine with private network and image in short form",
-			req:  nil, // set below
-			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
+			createRequestFn: func() *apiv2.MachineServiceCreateRequest {
 				testDC := sc.DefaultDatacenter
 				testDC.ProjectsPerTenant = 2
 				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
@@ -212,7 +202,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 						{Network: projectNetworkId},
 					},
 				}
-				return req, nil
+				return req
 			},
 			want: func(dc *test.Datacenter) *apiv2.MachineServiceCreateResponse {
 				return &apiv2.MachineServiceCreateResponse{
@@ -276,8 +266,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 
 		{
 			name: "machine with private network and reserved ip from internet",
-			req:  nil, // set below
-			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
+			createRequestFn: func() *apiv2.MachineServiceCreateRequest {
 				testDC := sc.DefaultDatacenter
 				testDC.ProjectsPerTenant = 2
 				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
@@ -325,7 +314,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 						{Network: sc.NetworkInternet, Ips: []string{"1.2.3.42"}},
 					},
 				}
-				return req, nil
+				return req
 			},
 			want: func(dc *test.Datacenter) *apiv2.MachineServiceCreateResponse {
 				return &apiv2.MachineServiceCreateResponse{
@@ -399,8 +388,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 		},
 		{
 			name: "machine with specific uuid with private network and reserved ip from internet and specific fsl",
-			req:  nil, // set below
-			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
+			createRequestFn: func() *apiv2.MachineServiceCreateRequest {
 				testDC := sc.DefaultDatacenter
 				testDC.ProjectsPerTenant = 2
 				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
@@ -454,7 +442,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 					},
 					FilesystemLayout: new("debian"),
 				}
-				return req, nil
+				return req
 			},
 			want: func(dc *test.Datacenter) *apiv2.MachineServiceCreateResponse {
 				return &apiv2.MachineServiceCreateResponse{
@@ -531,8 +519,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 		},
 		{
 			name: "machine with specific uuid, user data and labels",
-			req:  nil,
-			createRequestFn: func() (*apiv2.MachineServiceCreateRequest, error) {
+			createRequestFn: func() *apiv2.MachineServiceCreateRequest {
 				testDC := sc.DefaultDatacenter
 				testDC.ProjectsPerTenant = 2
 				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
@@ -577,7 +564,7 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 						},
 					},
 				}
-				return req, nil
+				return req
 			},
 			want: func(dc *test.Datacenter) *apiv2.MachineServiceCreateResponse {
 				return &apiv2.MachineServiceCreateResponse{
@@ -645,77 +632,117 @@ func Test_machineServiceServer_CreateMachine(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "machine cannot auto-default image when no images are supported",
+			createRequestFn: func() *apiv2.MachineServiceCreateRequest {
+				testDC := sc.DefaultDatacenter
+				testDC.ProjectsPerTenant = 2
+				testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{
+					Name:          new("project namespaced network"),
+					ParentNetwork: new(sc.NetworkTenantSuperPartition1),
+					Project:       new(sc.Tenant1Project1),
+					Type:          apiv2.NetworkType_NETWORK_TYPE_CHILD,
+				})
+				testDC.Machines = append(testDC.Machines, &sc.MachineWithLiveliness{
+					Machine: &metal.Machine{
+						ID:          sc.Machine5,
+						PartitionID: sc.Partition1,
+						SizeID:      sc.SizeC1Large,
+						Waiting:     true,
+						Hardware: metal.MachineHardware{
+							Disks: []metal.BlockDevice{
+								{
+									Name: "/dev/sda",
+									Size: 1024 * 1024 * 1024,
+								},
+							},
+						},
+					},
+					Liveliness: metal.MachineLivelinessAlive,
+				})
+				for _, img := range testDC.Images {
+					img.Classification = apiv2.ImageClassification_IMAGE_CLASSIFICATION_DEPRECATED
+				}
+				dc.Create(&testDC)
+
+				projectNetworkId := dc.GetNetworkByName("project namespaced network").Id
+				req := &apiv2.MachineServiceCreateRequest{
+					Name:           "testmachine",
+					Project:        sc.Tenant1Project1,
+					Partition:      new(sc.Partition1),
+					Size:           new(sc.SizeC1Large),
+					Image:          "debian-12.0",
+					AllocationType: apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_MACHINE,
+					Networks: []*apiv2.MachineAllocationNetwork{
+						{Network: projectNetworkId},
+					},
+				}
+				return req
+			},
+			wantErr: errorutil.InvalidArgument(`no latest image version found for "debian-12.0" which has status "IMAGE_CLASSIFICATION_SUPPORTED"`),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.createDatacenterFn != nil && tt.createRequestFn != nil {
-				t.Errorf("it is not possible to define createDatacenterFn and createRequestFn")
-			}
-			if tt.createDatacenterFn != nil {
-				dc.Cleanup()
-				dc.Create(tt.createDatacenterFn())
-			}
-			if tt.createRequestFn != nil {
-				dc.Cleanup()
-				req, err := tt.createRequestFn()
-				tt.req = req
-				tt.wantErr = err
-			}
+			dc.Cleanup()
+			req := tt.createRequestFn()
 
 			m := &machineServiceServer{
 				log:  log,
 				repo: dc.GetTestStore().Store,
 			}
 			if tt.wantErr == nil {
-				test.Validate(t, tt.req)
+				test.Validate(t, req)
 			}
-			resp, err := m.Create(ctx, tt.req)
+			resp, err := m.Create(ctx, req)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
 			}
 
-			// Really fetch the machine to ensure nothing was missed during response creation
-			ms, err := dc.GetTestStore().Store.UnscopedMachine().Get(ctx, resp.Machine.Uuid)
-			require.NoError(t, err)
-			got := &apiv2.MachineServiceCreateResponse{
-				Machine: ms,
-			}
-
-			for _, nw := range ms.Allocation.Networks {
-				// Actually not possible to detect if this machine network is namespaced
-				// requires to fetch the network
-				apinw, err := dc.GetTestStore().Store.UnscopedNetwork().Get(ctx, nw.Network)
+			if tt.want != nil {
+				// Really fetch the machine to ensure nothing was missed during response creation
+				ms, err := dc.GetTestStore().Store.UnscopedMachine().Get(ctx, resp.Machine.Uuid)
 				require.NoError(t, err)
-				for _, ip := range nw.Ips {
-					apiip, err := dc.GetTestStore().Store.IP(ms.Allocation.Project).Get(ctx, metal.CreateNamespacedIPAddress(apinw.Namespace, ip))
-					require.NoError(t, err)
-					machineID, ok := apiip.Meta.Labels.Labels[tag.MachineID]
-					require.True(t, ok)
-					require.Equal(t, ms.Uuid, machineID)
+				got := &apiv2.MachineServiceCreateResponse{
+					Machine: ms,
 				}
-			}
 
-			want := tt.want(dc)
-			if diff := cmp.Diff(
-				want, got,
-				protocmp.Transform(),
-				protocmp.IgnoreFields(
-					&apiv2.Meta{}, "created_at", "updated_at",
-				),
-				protocmp.IgnoreFields(
-					&apiv2.MachineAllocation{}, "uuid",
-				),
-				protocmp.IgnoreFields(
-					&apiv2.Image{}, "expires_at", "url",
-				),
-				protocmp.IgnoreFields(
-					&apiv2.PartitionBootConfiguration{}, "image_url", "kernel_url",
-				),
-				protocmp.IgnoreFields(
-					&apiv2.MachineProvisioningEvent{}, "time",
-				),
-			); diff != "" {
-				t.Errorf("machineServiceServer.Create() = %v, want %v diff: %s", got, want, diff)
+				for _, nw := range ms.Allocation.Networks {
+					// Actually not possible to detect if this machine network is namespaced
+					// requires to fetch the network
+					apinw, err := dc.GetTestStore().Store.UnscopedNetwork().Get(ctx, nw.Network)
+					require.NoError(t, err)
+					for _, ip := range nw.Ips {
+						apiip, err := dc.GetTestStore().Store.IP(ms.Allocation.Project).Get(ctx, metal.CreateNamespacedIPAddress(apinw.Namespace, ip))
+						require.NoError(t, err)
+						machineID, ok := apiip.Meta.Labels.Labels[tag.MachineID]
+						require.True(t, ok)
+						require.Equal(t, ms.Uuid, machineID)
+					}
+				}
+
+				want := tt.want(dc)
+				if diff := cmp.Diff(
+					want, got,
+					protocmp.Transform(),
+					protocmp.IgnoreFields(
+						&apiv2.Meta{}, "created_at", "updated_at",
+					),
+					protocmp.IgnoreFields(
+						&apiv2.MachineAllocation{}, "uuid",
+					),
+					protocmp.IgnoreFields(
+						&apiv2.Image{}, "expires_at", "url",
+					),
+					protocmp.IgnoreFields(
+						&apiv2.PartitionBootConfiguration{}, "image_url", "kernel_url",
+					),
+					protocmp.IgnoreFields(
+						&apiv2.MachineProvisioningEvent{}, "time",
+					),
+				); diff != "" {
+					t.Errorf("machineServiceServer.Create() = %v, want %v diff: %s", got, want, diff)
+				}
 			}
 		})
 	}

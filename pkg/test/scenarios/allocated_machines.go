@@ -14,9 +14,17 @@ var (
 		Partitions:        []string{Partition1},
 		Tenants:           []string{Tenant1, Tenant2},
 		ProjectsPerTenant: 2,
-		Images: map[string]apiv2.ImageFeature{
-			ImageDebian13:    apiv2.ImageFeature_IMAGE_FEATURE_MACHINE,
-			ImageFirewall3_0: apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL,
+		Images: []*apiv2.Image{
+			{
+				Id:             ImageDebian13,
+				Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE},
+				Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED,
+			},
+			{
+				Id:             ImageFirewall3_0,
+				Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_FIREWALL},
+				Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED,
+			},
 		},
 		FilesystemLayouts: []*adminv2.FilesystemServiceCreateRequest{
 			{

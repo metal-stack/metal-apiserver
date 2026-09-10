@@ -41,26 +41,9 @@ func (m *machineServiceServer) Get(ctx context.Context, req *adminv2.MachineServ
 }
 
 func (m *machineServiceServer) Delete(ctx context.Context, req *adminv2.MachineServiceDeleteRequest) (*adminv2.MachineServiceDeleteResponse, error) {
-	machine, err := m.repo.UnscopedMachine().Get(ctx, req.Uuid)
+	machine, err := m.repo.UnscopedMachine().Delete(ctx, req.Uuid)
 	if err != nil {
 		return nil, err
-	}
-
-	if machine.Allocation != nil {
-		return nil, errorutil.InvalidArgument("machine is allocated and can not be deleted")
-	}
-
-	if machine.Status == nil || machine.Status.Liveliness != apiv2.MachineLiveliness_MACHINE_LIVELINESS_DEAD {
-		return nil, errorutil.InvalidArgument("can only delete dead machines, if you power off this machine it will reach dead state.")
-	}
-
-	// We remove the machine from all switches to be sure there are no leftovers from history machine movements.
-	if err := m.repo.Switch().AdditionalMethods().RemoveMachineFromSwitches(ctx, machine); err != nil {
-		return nil, errorutil.NewInternal(err)
-	}
-
-	if _, err := m.repo.UnscopedMachine().Delete(ctx, machine.Uuid); err != nil {
-		return nil, errorutil.NewInternal(err)
 	}
 
 	return &adminv2.MachineServiceDeleteResponse{
