@@ -293,7 +293,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 							},
 							BgpPortState: &apiv2.SwitchBGPPortState{
-								Neighbor:              "Ethernet1",
+								Neighbor:              new("Ethernet1"),
 								PeerGroup:             "external",
 								VrfName:               "Vrf200",
 								BgpState:              apiv2.BGPState_BGP_STATE_ESTABLISHED,
@@ -335,7 +335,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 						Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 					},
 					BgpPortState: &apiv2.SwitchBGPPortState{
-						Neighbor:              "Ethernet1",
+						Neighbor:              new("Ethernet1"),
 						PeerGroup:             "external",
 						VrfName:               "Vrf200",
 						BgpState:              apiv2.BGPState_BGP_STATE_ESTABLISHED,
@@ -390,7 +390,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 							},
 							BgpPortState: &apiv2.SwitchBGPPortState{
-								Neighbor:              "Ethernet1",
+								Neighbor:              new("Ethernet1"),
 								PeerGroup:             "external",
 								VrfName:               "Vrf200",
 								BgpState:              apiv2.BGPState_BGP_STATE_ESTABLISHED,

@@ -564,7 +564,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 					},
 					BgpPortStates: map[string]*apiv2.SwitchBGPPortState{
 						"Ethernet1": {
-							Neighbor:              "Ethernet2",
+							Neighbor:              new("Ethernet2"),
 							PeerGroup:             "external",
 							VrfName:               "Vrf200",
 							BgpState:              apiv2.BGPState_BGP_STATE_CONNECT,
@@ -605,7 +605,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 						require.True(t, found)
 						nic.State.Actual = apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN
 						nic.BgpPortState = &apiv2.SwitchBGPPortState{
-							Neighbor:              "Ethernet2",
+							Neighbor:              new("Ethernet2"),
 							PeerGroup:             "external",
 							VrfName:               "Vrf200",
 							BgpState:              apiv2.BGPState_BGP_STATE_CONNECT,
@@ -683,7 +683,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 					},
 					BgpPortStates: map[string]*apiv2.SwitchBGPPortState{
 						"Ethernet1": {
-							Neighbor:              "Ethernet2",
+							Neighbor:              new("Ethernet2"),
 							PeerGroup:             "external",
 							VrfName:               "Vrf200",
 							BgpState:              apiv2.BGPState_BGP_STATE_ESTABLISHED,
@@ -716,7 +716,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 							Error:    new("failed to sync"),
 						}
 						sw.Nics[1].BgpPortState = &apiv2.SwitchBGPPortState{
-							Neighbor:              "Ethernet2",
+							Neighbor:              new("Ethernet2"),
 							PeerGroup:             "external",
 							VrfName:               "Vrf200",
 							BgpState:              apiv2.BGPState_BGP_STATE_ESTABLISHED,
