@@ -122,7 +122,7 @@ func TestClient_NewMachineDeleteTask(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    task.MachineDeletePayload
+		want    task.MachineDecommissionPayload
 		wantErr bool
 	}{
 		{
@@ -130,14 +130,14 @@ func TestClient_NewMachineDeleteTask(t *testing.T) {
 			args: args{
 				uuid: "machine-uuid",
 			},
-			want: task.MachineDeletePayload{UUID: "machine-uuid"},
+			want: task.MachineDecommissionPayload{UUID: "machine-uuid"},
 		},
 		{
 			name: "simple with allocation uuid",
 			args: args{
 				allocationUUID: "allocation-uuid",
 			},
-			want: task.MachineDeletePayload{AllocationUUID: "allocation-uuid"},
+			want: task.MachineDecommissionPayload{AllocationUUID: "allocation-uuid"},
 		},
 		{
 			name: "simple with allocation and machine uuid",
@@ -145,12 +145,12 @@ func TestClient_NewMachineDeleteTask(t *testing.T) {
 				uuid:           "machine-uuid",
 				allocationUUID: "allocation-uuid",
 			},
-			want: task.MachineDeletePayload{UUID: "machine-uuid", AllocationUUID: "allocation-uuid"},
+			want: task.MachineDecommissionPayload{UUID: "machine-uuid", AllocationUUID: "allocation-uuid"},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := c.NewTask(&task.MachineDeletePayload{
+			got, err := c.NewTask(&task.MachineDecommissionPayload{
 				UUID:           tt.args.uuid,
 				AllocationUUID: tt.args.allocationUUID,
 			})
@@ -158,7 +158,7 @@ func TestClient_NewMachineDeleteTask(t *testing.T) {
 				t.Errorf("Client.NewMachineDeleteTask() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			var payload task.MachineDeletePayload
+			var payload task.MachineDecommissionPayload
 			err = json.Unmarshal(got.Payload, &payload)
 			require.NoError(t, err)
 			if !reflect.DeepEqual(payload, tt.want) {
@@ -176,7 +176,7 @@ func TestClient_Informers(t *testing.T) {
 		c   = task.NewClient(log, rc)
 	)
 
-	task, err := c.NewTask(&task.MachineDeletePayload{
+	task, err := c.NewTask(&task.MachineDecommissionPayload{
 		UUID:           "machine-uuid",
 		AllocationUUID: "allocation-uuid",
 	})
