@@ -8,10 +8,11 @@ import (
 )
 
 const (
-	TypeIpDelete          TaskType = "ip:delete"
-	TypeNetworkDelete     TaskType = "network:delete"
-	TypeMachineDelete     TaskType = "machine:delete"
-	TypeMachineBMCCommand TaskType = "machine:bmc-command"
+	TypeIpDelete            TaskType = "ip:delete"
+	TypeNetworkDelete       TaskType = "network:delete"
+	TypeMachineDelete       TaskType = "machine:delete"
+	TypeMachineDecommission TaskType = "machine:decommission"
+	TypeMachineBMCCommand   TaskType = "machine:bmc-command"
 )
 
 type (
@@ -31,7 +32,7 @@ type (
 		UUID string `json:"uuid,omitempty"`
 	}
 
-	MachineDeletePayload struct {
+	MachineDecommissionPayload struct {
 		// UUID of the machine which should be deleted (the machine)
 		UUID string `json:"uuid"`
 		// AllocationUUID of the machine allocation which should be deleted
@@ -46,6 +47,11 @@ type (
 		RackID string `json:"rack_id"`
 		// HeadscaleNodeID is the vpn node id that the firewall was connected with
 		HeadscaleNodeID *uint64 `json:"headscale_node_id"`
+	}
+
+	MachineDeletePayload struct {
+		// UUID of the machine which should be deleted (the machine)
+		UUID string `json:"uuid"`
 	}
 
 	MachineBMCCommandPayload struct {
@@ -79,6 +85,10 @@ func (p *NetworkDeletePayload) Type() TaskType {
 
 func (p *MachineDeletePayload) Type() TaskType {
 	return TypeMachineDelete
+}
+
+func (p *MachineDecommissionPayload) Type() TaskType {
+	return TypeMachineDecommission
 }
 
 func (p *MachineBMCCommandPayload) Type() TaskType {
