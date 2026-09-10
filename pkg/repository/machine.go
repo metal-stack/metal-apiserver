@@ -31,6 +31,10 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+const (
+	maxMachineEvents = 15
+)
+
 type (
 	machineRepository struct {
 		s     *Store
@@ -139,7 +143,7 @@ func (r *machineRepository) SendEvent(ctx context.Context, machineID string, eve
 	if err = newEC.Validate(); err != nil {
 		return err
 	}
-	newEC.TrimEvents(100)
+	newEC.TrimEvents(maxMachineEvents)
 
 	return r.s.ds.Event().Upsert(ctx, newEC)
 }
