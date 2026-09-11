@@ -155,12 +155,17 @@ func (r *switchRepository) Migrate(ctx context.Context, oldSwitch, newSwitch str
 }
 
 func (r *switchRepository) Port(ctx context.Context, rq *adminv2.SwitchServicePortRequest) (*apiv2.Switch, error) {
-	metalStatus, err := metal.ToSwitchPortStatus(rq.Status)
-	if err != nil {
-		return nil, errorutil.InvalidArgument("failed to parse port status %q: %w", rq.Status, err)
+	if rq == nil {
+		return nil, errorutil.InvalidArgument("request is empty")
 	}
 
-	if rq.Status != apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP && rq.Status != apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN {
+	config := pointer.SafeDeref(rq.Config)
+	metalStatus, err := metal.ToSwitchPortStatus(config.Status)
+	if err != nil {
+		return nil, errorutil.InvalidArgument("failed to parse port status %q: %w", config.Status, err)
+	}
+
+	if config.Status != apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP && config.Status != apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN {
 		return nil, errorutil.InvalidArgument("port status %q must be one of [%q, %q]", metalStatus, metal.SwitchPortStatusUp, metal.SwitchPortStatusDown)
 	}
 

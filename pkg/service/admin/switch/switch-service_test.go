@@ -630,7 +630,9 @@ func Test_switchServiceServer_Port(t *testing.T) {
 		{
 			name: "port status UNKNOWN is invalid",
 			rq: &adminv2.SwitchServicePortRequest{
-				Status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNKNOWN,
+				Config: &apiv2.StaticPortConfig{
+					Status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNKNOWN,
+				},
 			},
 			want:    nil,
 			wantErr: errorutil.InvalidArgument("port status \"UNKNOWN\" must be one of [\"UP\", \"DOWN\"]"),
@@ -638,7 +640,9 @@ func Test_switchServiceServer_Port(t *testing.T) {
 		{
 			name: "switch does not exist",
 			rq: &adminv2.SwitchServicePortRequest{
-				Status:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+				Config: &apiv2.StaticPortConfig{
+					Status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+				},
 				Id:      "sw10",
 				NicName: "Ethernet0"},
 			want:    nil,
@@ -647,7 +651,9 @@ func Test_switchServiceServer_Port(t *testing.T) {
 		{
 			name: "port does not exist on switch",
 			rq: &adminv2.SwitchServicePortRequest{
-				Status:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+				Config: &apiv2.StaticPortConfig{
+					Status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+				},
 				Id:      sc.P01Rack01Switch1,
 				NicName: "swp1",
 			},
@@ -657,7 +663,9 @@ func Test_switchServiceServer_Port(t *testing.T) {
 		{
 			name: "nic is not connected to a machine, port update still works",
 			rq: &adminv2.SwitchServicePortRequest{
-				Status:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+				Config: &apiv2.StaticPortConfig{
+					Status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+				},
 				Id:      sc.P01Rack01Switch1,
 				NicName: "Ethernet1",
 			},
@@ -681,7 +689,9 @@ func Test_switchServiceServer_Port(t *testing.T) {
 		{
 			name: "nic update for connected nic successful",
 			rq: &adminv2.SwitchServicePortRequest{
-				Status:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
+				Config: &apiv2.StaticPortConfig{
+					Status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
+				},
 				Id:      sc.P01Rack01Switch1,
 				NicName: "Ethernet0",
 			},
