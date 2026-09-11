@@ -572,7 +572,7 @@ func toSwitchBGPPortState(state *apiv2.SwitchBGPPortState) (*metal.SwitchBGPPort
 	}
 
 	bgpPortState := &metal.SwitchBGPPortState{
-		Neighbor:              state.Neighbor,
+		Neighbor:              pointer.SafeDeref(state.Neighbor),
 		PeerGroup:             state.PeerGroup,
 		VrfName:               state.VrfName,
 		BgpState:              bgpState,
@@ -981,7 +981,7 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 			}
 
 			bgpPortState = &apiv2.SwitchBGPPortState{
-				Neighbor:              nic.BGPPortState.Neighbor,
+				Neighbor:              new(nic.BGPPortState.Neighbor),
 				PeerGroup:             nic.BGPPortState.PeerGroup,
 				VrfName:               nic.BGPPortState.VrfName,
 				BgpState:              bgpState,
@@ -1030,19 +1030,9 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 			return nil, err
 		}
 
-		identifier := nic.Identifier
-		if identifier == "" {
-			identifier = nic.MacAddress
-		}
-
-		if identifier == "" {
-			return nil, errorutil.FailedPrecondition("both, identifier and mac address, of nic %s are empty which is not allowed", nic.Name)
-		}
-
 		switchNics = append(switchNics, &apiv2.SwitchNic{
 			Name:       nic.Name,
-			Identifier: identifier,
-			Mac:        pointer.PointerOrNil(nic.MacAddress),
+			Identifier: nic.Identifier,
 			Vrf:        pointer.PointerOrNil(nic.Vrf),
 			State: &apiv2.NicState{
 				Desired: desiredStatus,
@@ -1344,7 +1334,6 @@ func toMetalNic(switchNic *apiv2.SwitchNic, hostname string) (*metal.Nic, error)
 		Name:         switchNic.Name,
 		Hostname:     hostname,
 		Identifier:   switchNic.Identifier,
-		MacAddress:   pointer.SafeDeref(switchNic.Mac),
 		Vrf:          pointer.SafeDeref(switchNic.Vrf),
 		State:        nicState,
 		BGPPortState: bgpPortState,
