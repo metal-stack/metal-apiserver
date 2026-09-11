@@ -719,7 +719,6 @@ func TestToMetalNics(t *testing.T) {
 				{
 					Name:       "Ethernet0",
 					Identifier: "Eth1/1",
-					Mac:        new("11:11:11:11:11:11"),
 					State: &apiv2.NicState{
 						Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
 						Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
@@ -728,7 +727,6 @@ func TestToMetalNics(t *testing.T) {
 				{
 					Name:       "Ethernet1",
 					Identifier: "Eth1/2",
-					Mac:        new("22:22:22:22:22:22"),
 					Vrf:        new("Vrf100"),
 					State: &apiv2.NicState{
 						Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
@@ -747,7 +745,6 @@ func TestToMetalNics(t *testing.T) {
 			},
 			want: metal.Nics{
 				{
-					MacAddress: "11:11:11:11:11:11",
 					Name:       "Ethernet0",
 					Identifier: "Eth1/1",
 					State: &metal.NicState{
@@ -756,7 +753,6 @@ func TestToMetalNics(t *testing.T) {
 					},
 				},
 				{
-					MacAddress: "22:22:22:22:22:22",
 					Name:       "Ethernet1",
 					Identifier: "Eth1/2",
 					Vrf:        "Vrf100",
@@ -1122,7 +1118,6 @@ func Test_switchRepository_updateAllButNics(t *testing.T) {
 					{
 						Name:       "Ethernet2",
 						Identifier: "Eth1/1",
-						Mac:        new("11:11:11:11:11:11"),
 						State: &apiv2.NicState{
 							Desired: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum(),
 							Actual:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,

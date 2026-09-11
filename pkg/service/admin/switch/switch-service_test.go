@@ -285,7 +285,6 @@ func Test_switchServiceServer_Update(t *testing.T) {
 						{
 							Name:       "Ethernet0",
 							Identifier: "Ethernet0",
-							Mac:        new("11:11:11:11:11:11"),
 							Vrf:        new("Vrf100"),
 							BgpFilter:  &apiv2.BGPFilter{},
 							State: &apiv2.NicState{
@@ -304,7 +303,6 @@ func Test_switchServiceServer_Update(t *testing.T) {
 						{
 							Name:       "Ethernet2",
 							Identifier: "Ethernet2",
-							Mac:        new("aa:aa:aa:aa:aa:aa"),
 							Vrf:        nil,
 							BgpFilter:  &apiv2.BGPFilter{},
 							State: &apiv2.NicState{

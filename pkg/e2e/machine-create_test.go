@@ -36,7 +36,6 @@ var (
 					State: &apiv2.NicState{
 						Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 					},
-					Mac: new("00:00:00:00:00:01"),
 				},
 				{
 					Name:       "Ethernet1",
@@ -44,7 +43,6 @@ var (
 					State: &apiv2.NicState{
 						Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 					},
-					Mac: new("00:00:00:00:00:02"),
 				},
 			},
 			Os: &apiv2.SwitchOS{
@@ -70,7 +68,6 @@ var (
 					State: &apiv2.NicState{
 						Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 					},
-					Mac: new("01:00:00:00:00:01"),
 				},
 				{
 					Name:       "Ethernet1",
@@ -78,7 +75,6 @@ var (
 					State: &apiv2.NicState{
 						Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 					},
-					Mac: new("01:00:00:00:00:02"),
 				},
 			},
 			Os: &apiv2.SwitchOS{
