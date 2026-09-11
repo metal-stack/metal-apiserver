@@ -154,26 +154,26 @@ func (r *switchRepository) Migrate(ctx context.Context, oldSwitch, newSwitch str
 	return converted, nil
 }
 
-func (r *switchRepository) Port(ctx context.Context, id, port string, status apiv2.SwitchPortStatus) (*apiv2.Switch, error) {
-	metalStatus, err := metal.ToSwitchPortStatus(status)
+func (r *switchRepository) Port(ctx context.Context, rq *adminv2.SwitchServicePortRequest) (*apiv2.Switch, error) {
+	metalStatus, err := metal.ToSwitchPortStatus(rq.Status)
 	if err != nil {
-		return nil, errorutil.InvalidArgument("failed to parse port status %q: %w", status, err)
+		return nil, errorutil.InvalidArgument("failed to parse port status %q: %w", rq.Status, err)
 	}
 
-	if status != apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP && status != apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN {
+	if rq.Status != apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP && rq.Status != apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN {
 		return nil, errorutil.InvalidArgument("port status %q must be one of [%q, %q]", metalStatus, metal.SwitchPortStatusUp, metal.SwitchPortStatusDown)
 	}
 
-	sw, err := r.s.ds.Switch().Get(ctx, id)
+	sw, err := r.s.ds.Switch().Get(ctx, rq.Id)
 	if err != nil {
 		return nil, err
 	}
 
 	nic, found := lo.Find(sw.Nics, func(nic metal.Nic) bool {
-		return nic.Name == port
+		return nic.Name == rq.NicName
 	})
 	if !found {
-		return nil, errorutil.InvalidArgument("port %s does not exist on switch %s", port, id)
+		return nil, errorutil.InvalidArgument("port %s does not exist on switch %s", rq.NicName, rq.Id)
 	}
 
 	nic.State.Desired = &metalStatus
