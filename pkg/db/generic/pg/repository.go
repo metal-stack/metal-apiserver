@@ -35,20 +35,20 @@ var (
 )
 
 const (
-	RepositorySchema = `
-CREATE TABLE IF NOT EXISTS generic_entities (
+	repositorySchema = `
+CREATE TABLE IF NOT EXISTS %s (
     id UUID PRIMARY KEY DEFAULT uuidv7(), -- requires Postgres 17+
-    entity_type TEXT NOT NULL,
     version INT NOT NULL DEFAULT 1,
     data JSONB NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_generic_entities_type ON generic_entities(entity_type);
-CREATE INDEX IF NOT EXISTS idx_generic_entities_data ON generic_entities USING gin (data);
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
-CREATE INDEX IF NOT EXISTS idx_generic_entities_type_data ON generic_entities USING gin (entity_type gin_trgm_ops, data);
+CREATE INDEX IF NOT EXISTS idx_%s_data ON %s USING gin (data);
 `
 )
+
+var RepositorySchema = func(entityName string) string {
+	return fmt.Sprintf(repositorySchema, entityName, entityName, entityName)
+}
 
 type (
 	Entity[T any] struct {
@@ -83,17 +83,17 @@ const MaxPaginationLimit = 10000
 
 // Beware: if T changes its name over time, data will be stored/queried in another entityType
 func NewGenericRepository[T any](log *slog.Logger, db *sql.DB) (*GenericRepository[T], error) {
-	_, err := db.ExecContext(context.Background(), RepositorySchema)
-	if err != nil {
-		return nil, err
-	}
-
 	tType := reflect.TypeFor[T]()
 	if tType.Kind() == reflect.Pointer {
 		tType = tType.Elem()
 	}
 
 	entityTypeName := tType.Name()
+
+	_, err := db.ExecContext(context.Background(), RepositorySchema(entityTypeName))
+	if err != nil {
+		return nil, err
+	}
 
 	return &GenericRepository[T]{
 		log:        log.WithGroup("generic").WithGroup(entityTypeName),
@@ -109,17 +109,17 @@ func (r *GenericRepository[T]) Create(ctx context.Context, id uuid.UUID, data T)
 	}
 
 	// Upsert with version initialization or increment
-	const query = `
-		INSERT INTO generic_entities (id, entity_type, version, data)
-		VALUES ($1, $2, 1, $3)
+	var query = `
+		INSERT INTO ` + r.entityType + ` (id, version, data)
+		VALUES ($1, 1, $2)
 		ON CONFLICT (id) DO UPDATE 
 		SET data = EXCLUDED.data, 
-		    version = generic_entities.version + 1
+		    version = ` + r.entityType + `.version + 1
 	`
 
 	r.log.Debug("create", "id", id, "data", jsonData)
 
-	_, err = r.db.ExecContext(ctx, query, id, r.entityType, jsonData)
+	_, err = r.db.ExecContext(ctx, query, id, jsonData)
 	return err
 }
 
@@ -129,14 +129,14 @@ func (r *GenericRepository[T]) Update(ctx context.Context, id uuid.UUID, expecte
 		return err
 	}
 
-	const query = `
-		UPDATE generic_entities 
-		SET data = $1, version = version + 1 
-		WHERE id = $2 AND entity_type = $3 AND version = $4
+	var query = `
+		UPDATE ` + r.entityType +
+		` SET data = $1, version = version + 1 
+		WHERE id = $2 AND version = $3
 	`
 
 	r.log.Debug("update", "id", id, "version", expectedVersion, "data", jsonData)
-	result, err := r.db.ExecContext(ctx, query, jsonData, id, r.entityType, expectedVersion)
+	result, err := r.db.ExecContext(ctx, query, jsonData, id, expectedVersion)
 	if err != nil {
 		return err
 	}
@@ -164,10 +164,10 @@ func (r *GenericRepository[T]) Update(ctx context.Context, id uuid.UUID, expecte
 
 // exists reports whether an entity with the given id exists for this entity type.
 func (r *GenericRepository[T]) exists(ctx context.Context, id uuid.UUID) (bool, error) {
-	const query = `SELECT EXISTS(SELECT 1 FROM generic_entities WHERE id = $1 AND entity_type = $2)`
+	var query = `SELECT EXISTS(SELECT 1 FROM  ` + r.entityType + `  WHERE id = $1)`
 
 	var found bool
-	err := r.db.QueryRowContext(ctx, query, id, r.entityType).Scan(&found)
+	err := r.db.QueryRowContext(ctx, query, id).Scan(&found)
 	if err != nil {
 		return false, err
 	}
@@ -177,10 +177,10 @@ func (r *GenericRepository[T]) exists(ctx context.Context, id uuid.UUID) (bool, 
 // Delete removes the entity with the given id. It returns ErrNotFound if no
 // entity matched the id for this entity type.
 func (r *GenericRepository[T]) Delete(ctx context.Context, id uuid.UUID) error {
-	const query = `DELETE FROM generic_entities WHERE id = $1 AND entity_type = $2`
+	var query = `DELETE FROM ` + r.entityType + ` WHERE id = $1`
 
 	r.log.Debug("delete", "id", id)
-	result, err := r.db.ExecContext(ctx, query, id, r.entityType)
+	result, err := r.db.ExecContext(ctx, query, id)
 	if err != nil {
 		return err
 	}
@@ -199,7 +199,7 @@ func (r *GenericRepository[T]) Delete(ctx context.Context, id uuid.UUID) error {
 // Get returns the entity with the given id, or ErrNotFound if no entity matches
 // the id for this entity type.
 func (r *GenericRepository[T]) Get(ctx context.Context, id uuid.UUID) (*Entity[T], error) {
-	const query = `SELECT id, entity_type, version, data FROM generic_entities WHERE id = $1 AND entity_type = $2`
+	var query = `SELECT id, version, data FROM ` + r.entityType + ` WHERE id = $1`
 
 	var (
 		ent     Entity[T]
@@ -207,7 +207,7 @@ func (r *GenericRepository[T]) Get(ctx context.Context, id uuid.UUID) (*Entity[T
 	)
 
 	r.log.Debug("get", "id", id)
-	err := r.db.QueryRowContext(ctx, query, id, r.entityType).Scan(&ent.ID, &ent.EntityType, &ent.Version, &rawJSON)
+	err := r.db.QueryRowContext(ctx, query, id).Scan(&ent.ID, &ent.Version, &rawJSON)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	} else if err != nil {
@@ -223,16 +223,25 @@ func (r *GenericRepository[T]) Get(ctx context.Context, id uuid.UUID) (*Entity[T
 
 func (r *GenericRepository[T]) Query(ctx context.Context, filters []QueryFilter, pagination *Pagination) ([]Entity[T], error) {
 	queryBuilder := strings.Builder{}
-	queryBuilder.WriteString("SELECT id, entity_type, version, data FROM generic_entities WHERE entity_type = $1")
+	queryBuilder.WriteString("SELECT id, version, data FROM ")
+	queryBuilder.WriteString(r.entityType)
 
 	var (
-		args   = []any{r.entityType}
-		argIdx = 2
+		args        = []any{}
+		argIdx      = 1
+		firstFilter = true
 	)
 
 	for _, f := range filters {
 		if !allowedQueryOps[f.Op] {
 			return nil, fmt.Errorf("unsupported query operator %q", f.Op)
+		}
+		if firstFilter {
+			// Add WHERE for the first filter only, all following must be AND
+			queryBuilder.WriteString(" WHERE")
+			firstFilter = false
+		} else {
+			queryBuilder.WriteString(" AND")
 		}
 
 		if f.Op == "=" {
@@ -242,7 +251,7 @@ func (r *GenericRepository[T]) Query(ctx context.Context, filters []QueryFilter,
 			if err != nil {
 				return nil, err
 			}
-			fmt.Fprintf(&queryBuilder, " AND data @> $%d", argIdx)
+			fmt.Fprintf(&queryBuilder, " data @> $%d", argIdx)
 			args = append(args, jsonValue)
 			argIdx++
 			continue
@@ -252,7 +261,7 @@ func (r *GenericRepository[T]) Query(ctx context.Context, filters []QueryFilter,
 		parts := strings.Split(f.Path, ".")
 		jsonPath := "{" + strings.Join(parts, ",") + "}"
 
-		fmt.Fprintf(&queryBuilder, " AND (data #>> $%d) %s $%d", argIdx, f.Op, argIdx+1)
+		fmt.Fprintf(&queryBuilder, " (data #>> $%d) %s $%d", argIdx, f.Op, argIdx+1)
 		args = append(args, jsonPath, f.Value)
 		argIdx += 2
 	}
@@ -283,7 +292,7 @@ func (r *GenericRepository[T]) Query(ctx context.Context, filters []QueryFilter,
 			ent     Entity[T]
 			rawJSON []byte
 		)
-		if err := rows.Scan(&ent.ID, &ent.EntityType, &ent.Version, &rawJSON); err != nil {
+		if err := rows.Scan(&ent.ID, &ent.Version, &rawJSON); err != nil {
 			_ = rows.Close()
 			return nil, err
 		}
