@@ -103,4 +103,43 @@ func BenchmarkPgVsRethink(b *testing.B) {
 			require.NoError(b, err)
 		}
 	})
+
+	b.Run("Insert_Postgres", func(b *testing.B) {
+		for b.Loop() {
+			id := uuid.NewV7()
+			ip := &metal.IP{IPAddress: id.String(), Type: metal.Ephemeral}
+			require.NoError(b, pgRepo.Create(ctx, id, ip))
+		}
+	})
+
+	b.Run("Insert_Rethink", func(b *testing.B) {
+		for b.Loop() {
+			ip := &metal.IP{IPAddress: uuid.NewV7().String(), Type: metal.Ephemeral}
+			_, err := rethinkRepo.Create(ctx, ip)
+			require.NoError(b, err)
+		}
+	})
+
+	b.Run("Update_Postgres", func(b *testing.B) {
+		id := uuid.NewV7()
+		ip := &metal.IP{IPAddress: id.String(), Type: metal.Ephemeral}
+		require.NoError(b, pgRepo.Create(ctx, id, ip))
+		b.ResetTimer()
+		version := int32(1)
+		for b.Loop() {
+			require.NoError(b, pgRepo.Update(ctx, id, version, ip))
+			version++
+		}
+	})
+
+	b.Run("Update_Rethink", func(b *testing.B) {
+		ip := &metal.IP{IPAddress: uuid.NewV7().String(), Type: metal.Ephemeral}
+		_, err := rethinkRepo.Create(ctx, ip)
+		require.NoError(b, err)
+		b.ResetTimer()
+		for b.Loop() {
+			ip.Name = "updated-" + strconv.Itoa(b.N)
+			require.NoError(b, rethinkRepo.Update(ctx, ip))
+		}
+	})
 }

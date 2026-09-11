@@ -31,9 +31,13 @@ Could be made possible by checking if the reference is a uuid, otherwise query b
 
 ## TODO
 
+- [ ] add json tags to all properties of the metal entities
+
 ### Migration helper
 
 This should be done Entity by Entity
+
+- [x] metal.Machine
 
 ### Adopt Test and Datacenter framework
 
