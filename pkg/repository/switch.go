@@ -154,26 +154,31 @@ func (r *switchRepository) Migrate(ctx context.Context, oldSwitch, newSwitch str
 	return converted, nil
 }
 
-func (r *switchRepository) Port(ctx context.Context, id, port string, status apiv2.SwitchPortStatus) (*apiv2.Switch, error) {
-	metalStatus, err := metal.ToSwitchPortStatus(status)
-	if err != nil {
-		return nil, errorutil.InvalidArgument("failed to parse port status %q: %w", status, err)
+func (r *switchRepository) Port(ctx context.Context, rq *adminv2.SwitchServicePortRequest) (*apiv2.Switch, error) {
+	if rq == nil {
+		return nil, errorutil.InvalidArgument("request is empty")
 	}
 
-	if status != apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP && status != apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN {
+	config := pointer.SafeDeref(rq.Config)
+	metalStatus, err := metal.ToSwitchPortStatus(config.Status)
+	if err != nil {
+		return nil, errorutil.InvalidArgument("failed to parse port status %q: %w", config.Status, err)
+	}
+
+	if config.Status != apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP && config.Status != apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN {
 		return nil, errorutil.InvalidArgument("port status %q must be one of [%q, %q]", metalStatus, metal.SwitchPortStatusUp, metal.SwitchPortStatusDown)
 	}
 
-	sw, err := r.s.ds.Switch().Get(ctx, id)
+	sw, err := r.s.ds.Switch().Get(ctx, rq.Id)
 	if err != nil {
 		return nil, err
 	}
 
 	nic, found := lo.Find(sw.Nics, func(nic metal.Nic) bool {
-		return nic.Name == port
+		return nic.Name == rq.NicName
 	})
 	if !found {
-		return nil, errorutil.InvalidArgument("port %s does not exist on switch %s", port, id)
+		return nil, errorutil.InvalidArgument("port %s does not exist on switch %s", rq.NicName, rq.Id)
 	}
 
 	nic.State.Desired = &metalStatus
@@ -572,7 +577,7 @@ func toSwitchBGPPortState(state *apiv2.SwitchBGPPortState) (*metal.SwitchBGPPort
 	}
 
 	bgpPortState := &metal.SwitchBGPPortState{
-		Neighbor:              state.Neighbor,
+		Neighbor:              pointer.SafeDeref(state.Neighbor),
 		PeerGroup:             state.PeerGroup,
 		VrfName:               state.VrfName,
 		BgpState:              bgpState,
@@ -981,7 +986,7 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 			}
 
 			bgpPortState = &apiv2.SwitchBGPPortState{
-				Neighbor:              nic.BGPPortState.Neighbor,
+				Neighbor:              new(nic.BGPPortState.Neighbor),
 				PeerGroup:             nic.BGPPortState.PeerGroup,
 				VrfName:               nic.BGPPortState.VrfName,
 				BgpState:              bgpState,
@@ -1030,19 +1035,9 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 			return nil, err
 		}
 
-		identifier := nic.Identifier
-		if identifier == "" {
-			identifier = nic.MacAddress
-		}
-
-		if identifier == "" {
-			return nil, errorutil.FailedPrecondition("both, identifier and mac address, of nic %s are empty which is not allowed", nic.Name)
-		}
-
 		switchNics = append(switchNics, &apiv2.SwitchNic{
 			Name:       nic.Name,
-			Identifier: identifier,
-			Mac:        pointer.PointerOrNil(nic.MacAddress),
+			Identifier: nic.Identifier,
 			Vrf:        pointer.PointerOrNil(nic.Vrf),
 			State: &apiv2.NicState{
 				Desired: desiredStatus,
@@ -1344,7 +1339,6 @@ func toMetalNic(switchNic *apiv2.SwitchNic, hostname string) (*metal.Nic, error)
 		Name:         switchNic.Name,
 		Hostname:     hostname,
 		Identifier:   switchNic.Identifier,
-		MacAddress:   pointer.SafeDeref(switchNic.Mac),
 		Vrf:          pointer.SafeDeref(switchNic.Vrf),
 		State:        nicState,
 		BGPPortState: bgpPortState,
