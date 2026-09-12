@@ -13,15 +13,16 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
+// FIXME postgres can be shared across multiple tests if one database per test is created
 func StartPostgres(t testing.TB, log *slog.Logger) (*sql.DB, func()) {
 	t.Helper()
 	ctx := t.Context()
 
 	pgContainer, err := postgres.Run(ctx,
-		"postgres:18-alpine",
-		postgres.WithDatabase("benchdb"),
-		postgres.WithUsername("benchuser"),
-		postgres.WithPassword("benchpass"),
+		"postgres:19beta3-alpine",
+		postgres.WithDatabase("testdb"),
+		postgres.WithUsername("testuser"),
+		postgres.WithPassword("testpass"),
 		testcontainers.WithWaitStrategy(
 			wait.ForLog("database system is ready to accept connections").
 				WithOccurrence(2).

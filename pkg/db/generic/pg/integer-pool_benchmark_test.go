@@ -11,7 +11,7 @@ import (
 )
 
 // setupBenchmarkIntegerPoolDB boots a PostgreSQL container and seeds a large pool.
-func setupBenchmarkIntegerPoolDB(b *testing.B, poolSize int) (*sql.DB, func()) {
+func setupBenchmarkIntegerPoolDB(b *testing.B, poolSize uint32) (*sql.DB, func()) {
 
 	log := slog.Default()
 	db, closer := test.StartPostgres(b, log)
