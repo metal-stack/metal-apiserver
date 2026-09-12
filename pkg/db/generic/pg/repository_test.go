@@ -113,6 +113,29 @@ func TestGenericRepository(t *testing.T) {
 	require.Len(t, results2, 1)
 	require.Equal(t, user2ID, results2[0].ID)
 
+	// Query all
+	results3, err := repo.Query(ctx, nil, nil)
+	require.NoError(t, err)
+	require.Len(t, results3, 2)
+	require.ElementsMatch(t, results3, []*UserProfile{
+		{
+			Name: "Bob",
+			Age:  25,
+			Address: Address{
+				City:    "Vienna",
+				Country: "Austria",
+			},
+		},
+		{
+			Name: "Alice",
+			Age:  30,
+			Address: Address{
+				City:    "Munich",
+				Country: "Germany",
+			},
+		},
+	})
+
 	// 5. Test Delete
 	err = repo.Delete(ctx, userID)
 	require.NoError(t, err)
