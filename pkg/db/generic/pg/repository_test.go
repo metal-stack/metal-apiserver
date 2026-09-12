@@ -129,7 +129,7 @@ func TestGenericRepository(t *testing.T) {
 
 func TestGenericRepositoryPagination(t *testing.T) {
 	ctx := t.Context()
-	log := slog.Default()
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	db, closer := test.StartPostgres(t, log)
 	defer closer()
 

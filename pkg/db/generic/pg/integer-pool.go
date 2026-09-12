@@ -18,17 +18,28 @@ const (
 	IntegerPoolschema = `
 	CREATE TABLE IF NOT EXISTS integer_pool (
 		pool_type VARCHAR(64) NOT NULL,
-		id INT NOT NULL,
-			is_allocated BOOLEAN NOT NULL DEFAULT FALSE,
-			allocated_at TIMESTAMPTZ,
-			PRIMARY KEY (pool_type, id)
-			);
-			CREATE INDEX IF NOT EXISTS idx_integer_pool_type_free ON integer_pool (pool_type, id) WHERE is_allocated = FALSE;
-			`
+		id BIGINT NOT NULL,
+		is_allocated BOOLEAN NOT NULL DEFAULT FALSE,
+		allocated_at TIMESTAMPTZ,
+		PRIMARY KEY (pool_type, id)
+	);
+	CREATE INDEX IF NOT EXISTS idx_integer_pool_type_free ON integer_pool (pool_type, id) WHERE is_allocated = FALSE;
+	CREATE TABLE IF NOT EXISTS integer_pool_state (
+		pool_type VARCHAR(64) PRIMARY KEY,
+		next BIGINT NOT NULL,
+		max BIGINT NOT NULL
+	);
+`
 )
 
-// ErrPoolExhausted is returned by Acquire when a pool has no free integers left.
-var ErrPoolExhausted = errors.New("pool exhausted: no integers available")
+var (
+	// ErrPoolExhausted is returned by Acquire when a pool has no free integers left.
+	ErrPoolExhausted = errors.New("pool exhausted: no integers available")
+	// ErrIntegerNotFound is returned by Release when the integer was not found or already released.
+	ErrIntegerNotFound = errors.New("was either not found or already released")
+	// ErrIntegerAlreadyAcquired is returned by AcquireUniqueInteger when the requested integer is already in use.
+	ErrIntegerAlreadyAcquired = errors.New("integer is already acquired")
+)
 
 type IntegerPool struct {
 	log *slog.Logger
@@ -47,13 +58,16 @@ func NewIntegerPool(log *slog.Logger, db *sql.DB) (*IntegerPool, error) {
 	}, nil
 }
 
-// Seed ensures a specific pool contains integers from startID up to endID.
-func (p *IntegerPool) Seed(ctx context.Context, poolType PoolType, startID, endID int) error {
+// Seed configures the range of a pool. It does not precompute the individual
+// integers of the range; instead it records the range bounds and the pool
+// grows on demand when integers are acquired.
+func (p *IntegerPool) Seed(ctx context.Context, poolType PoolType, startID, endID uint32) error {
 	const query = `
-		INSERT INTO integer_pool (pool_type, id, is_allocated)
-		SELECT $1, g, false
-		FROM generate_series($2::int, $3::int) AS g
-		ON CONFLICT (pool_type, id) DO NOTHING;
+		INSERT INTO integer_pool_state (pool_type, next, max)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (pool_type) DO UPDATE
+		SET next = LEAST(integer_pool_state.next, EXCLUDED.next),
+		    max = GREATEST(integer_pool_state.max, EXCLUDED.max);
 	`
 	p.log.Debug("seed", "pool", poolType, "start", startID, "end", endID)
 	_, err := p.db.ExecContext(ctx, query, string(poolType), startID, endID)
@@ -61,27 +75,47 @@ func (p *IntegerPool) Seed(ctx context.Context, poolType PoolType, startID, endI
 }
 
 // Acquire gets the next available integer for a given pool atomically.
-func (p *IntegerPool) Acquire(ctx context.Context, poolType PoolType) (int, error) {
-	const query = `
+// Released integers are reused first (ordered ASC); if none are free the pool
+// grows by taking the next integer from its configured range.
+func (p *IntegerPool) Acquire(ctx context.Context, poolType PoolType) (uint32, error) {
+	const takeFree = `
 		WITH next_num AS (
-			SELECT pool_type, id 
-			FROM integer_pool 
-			WHERE pool_type = $1 AND is_allocated = FALSE 
-			ORDER BY id ASC 
-			LIMIT 1 
+			SELECT pool_type, id
+			FROM integer_pool
+			WHERE pool_type = $1 AND is_allocated = FALSE
+			ORDER BY id ASC
+			LIMIT 1
 			FOR UPDATE SKIP LOCKED
 		)
 		UPDATE integer_pool
 		SET is_allocated = TRUE, allocated_at = NOW()
 		FROM next_num
-		WHERE integer_pool.pool_type = next_num.pool_type 
+		WHERE integer_pool.pool_type = next_num.pool_type
 		  AND integer_pool.id = next_num.id
 		RETURNING integer_pool.id;
 	`
 
-	var acquiredID int
+	var acquiredID uint32
 	p.log.Debug("acquire", "pool", poolType)
-	err := p.db.QueryRowContext(ctx, query, string(poolType)).Scan(&acquiredID)
+
+	err := p.db.QueryRowContext(ctx, takeFree, string(poolType)).Scan(&acquiredID)
+	if err == nil {
+		return acquiredID, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return 0, err
+	}
+
+	// No released integer available, grow the pool from its range counter.
+	// The UPDATE gates on next <= max and is atomic, so concurrent acquires
+	// receive distinct, monotonically increasing values.
+	const grow = `
+		UPDATE integer_pool_state
+		SET next = next + 1
+		WHERE pool_type = $1 AND next <= max
+		RETURNING next - 1;
+	`
+	err = p.db.QueryRowContext(ctx, grow, string(poolType)).Scan(&acquiredID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return 0, fmt.Errorf("%w: pool '%s'", ErrPoolExhausted, poolType)
@@ -89,14 +123,92 @@ func (p *IntegerPool) Acquire(ctx context.Context, poolType PoolType) (int, erro
 		return 0, err
 	}
 
+	// Record the grown integer as allocated so Release can validate it.
+	const record = `
+		INSERT INTO integer_pool (pool_type, id, is_allocated)
+		VALUES ($1, $2, TRUE)
+		ON CONFLICT (pool_type, id) DO NOTHING;
+	`
+	if _, err := p.db.ExecContext(ctx, record, string(poolType), acquiredID); err != nil {
+		return 0, err
+	}
+
 	return acquiredID, nil
 }
 
+// AcquireUniqueInteger acquires a specific integer from a pool atomically.
+// The value must lie within the pool's configured range and must not already be
+// in use. Unlike Acquire, it does not grow the pool: if the requested integer is
+// not currently free (either already allocated, or never within the range) an
+// error is returned.
+func (p *IntegerPool) AcquireUniqueInteger(ctx context.Context, poolType PoolType, value uint32) (uint32, error) {
+	// Ensure the requested value lies within the pool's configured range.
+	const maxQuery = `
+		SELECT max
+		FROM integer_pool_state
+		WHERE pool_type = $1;
+	`
+	var maxID uint32
+	err := p.db.QueryRowContext(ctx, maxQuery, string(poolType)).Scan(&maxID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, fmt.Errorf("%w: pool '%s'", ErrPoolExhausted, poolType)
+	}
+	if err != nil {
+		return 0, err
+	}
+	if value > maxID {
+		return 0, fmt.Errorf("value %d is outside of the allowed range 0 - %d for pool '%s'", value, maxID, poolType)
+	}
+
+	p.log.Debug("acquire-unique", "pool", poolType, "id", value)
+
+	// Fast path: the row already exists and is free. Rows are created lazily by
+	// Acquire, so a specific value may not have a row yet.
+	const claim = `
+		UPDATE integer_pool
+		SET is_allocated = TRUE, allocated_at = NOW()
+		WHERE pool_type = $1 AND id = $2 AND is_allocated = FALSE;
+	`
+	res, err := p.db.ExecContext(ctx, claim, string(poolType), value)
+	if err != nil {
+		return 0, err
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	if rowsAffected == 1 {
+		return value, nil
+	}
+
+	// No free row existed: either the value was never materialized in the pool
+	// (claim it by inserting) or it is already allocated. The ON CONFLICT makes
+	// this atomic under concurrency: only one caller can insert.
+	const insert = `
+		INSERT INTO integer_pool (pool_type, id, is_allocated)
+		VALUES ($1, $2, TRUE)
+		ON CONFLICT (pool_type, id) DO NOTHING;
+	`
+	res, err = p.db.ExecContext(ctx, insert, string(poolType), value)
+	if err != nil {
+		return 0, err
+	}
+	rowsAffected, err = res.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	if rowsAffected == 1 {
+		return value, nil
+	}
+
+	return 0, fmt.Errorf("%w: %d in pool '%s'", ErrIntegerAlreadyAcquired, value, poolType)
+}
+
 // Release makes an integer in a specific pool available again.
-func (p *IntegerPool) Release(ctx context.Context, poolType PoolType, id int) error {
+func (p *IntegerPool) Release(ctx context.Context, poolType PoolType, id uint32) error {
 	const query = `
-		UPDATE integer_pool 
-		SET is_allocated = FALSE, allocated_at = NULL 
+		UPDATE integer_pool
+		SET is_allocated = FALSE, allocated_at = NULL
 		WHERE pool_type = $1 AND id = $2 AND is_allocated = TRUE;
 	`
 
@@ -112,7 +224,7 @@ func (p *IntegerPool) Release(ctx context.Context, poolType PoolType, id int) er
 	}
 
 	if rowsAffected == 0 {
-		return fmt.Errorf("integer %d in pool '%s' was either not found or already released", id, poolType)
+		return fmt.Errorf("integer %d in pool '%s' %w", id, poolType, ErrIntegerNotFound)
 	}
 
 	return nil
