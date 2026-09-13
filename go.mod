@@ -24,6 +24,7 @@ require (
 	github.com/juanfont/headscale v0.28.0
 	github.com/klauspost/connect-compress/v2 v2.1.1
 	github.com/lestrrat-go/jwx/v4 v4.4.0
+	github.com/lib/pq v1.12.3
 	github.com/looplab/fsm v1.0.4
 	github.com/markbates/goth v1.82.0
 	github.com/metal-stack/api v0.5.3
@@ -111,7 +112,6 @@ require (
 	github.com/lann/builder v0.0.0-20180802200727-47ae307949d0 // indirect
 	github.com/lann/ps v0.0.0-20150810152359-62de8c46ede0 // indirect
 	github.com/lestrrat-go/option/v3 v3.0.0-alpha1 // indirect
-	github.com/lib/pq v1.12.3 // indirect
 	github.com/lopezator/migrator v0.3.1 // indirect
 	github.com/lufia/plan9stats v0.0.0-20260802145828-341c2f0c90b5 // indirect
 	github.com/magiconair/properties v1.18.11 // indirect
