@@ -717,17 +717,43 @@ func Test_switchServiceServer_Port(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		{
+			name: "add external membership to port",
+			rq: &adminv2.SwitchServicePortRequest{
+				Id:      sc.P01Rack01Switch1,
+				NicName: "Ethernet1",
+				Config: &apiv2.StaticPortConfig{
+					Status:     apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+					Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL,
+					Network:    new(sc.NetworkExternal),
+				},
+			},
+			want: func(dc *test.Datacenter) *adminv2.SwitchServicePortResponse {
+				sw := dc.GetSwitches()[sc.P01Rack01Switch1]
+				sw.Nics[1].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL
+				sw.Nics[1].Vrf = new("vrf100")
+				return &adminv2.SwitchServicePortResponse{}
+			},
+			mods: func() *test.Asserters {
+				return &test.Asserters{
+					Switches: func(switches map[string]*apiv2.Switch) {
+						sw := switches[sc.P01Rack01Switch1]
+						sw.Nics[1].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL
+						sw.Nics[1].Vrf = new("vrf100")
+					},
+				}
+			},
+			wantErr: nil,
+		},
 	}
 
 	dc := test.NewDatacenter(t)
 	log := dc.GetTestStore().GetLogger()
+	dc.Create(&sc.SwitchesWithMachinesDatacenter)
 	defer dc.Close()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			dc.Create(&sc.SwitchesWithMachinesDatacenter)
-			defer dc.Cleanup()
-
 			var want *adminv2.SwitchServicePortResponse
 			if tt.want != nil {
 				want = tt.want(dc)

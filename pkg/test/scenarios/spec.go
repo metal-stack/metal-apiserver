@@ -35,6 +35,7 @@ const (
 	NetworkTenantSuperNamespaced = "tenant-super-namespaced"
 	NetworkTenantSuperPartition1 = "tenant-super-partition-1"
 	NetworkNameTenantPartition1  = "tenant-partition-1"
+	NetworkExternal              = "external"
 
 	P01Rack01 = "p01-rack01"
 	P01Rack02 = "p01-rack02"

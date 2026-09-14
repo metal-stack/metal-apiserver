@@ -3,6 +3,7 @@ package scenarios
 import (
 	"time"
 
+	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
@@ -23,6 +24,14 @@ var (
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_MEMORY, Min: 1024, Max: 1024},
 					{Type: apiv2.SizeConstraintType_SIZE_CONSTRAINT_TYPE_STORAGE, Min: 1024, Max: 1024},
 				},
+			},
+		},
+		Networks: []*adminv2.NetworkServiceCreateRequest{
+			{
+				Id:       new(NetworkExternal),
+				Type:     apiv2.NetworkType_NETWORK_TYPE_EXTERNAL,
+				Prefixes: []string{"10.1.0.0/16"},
+				Vrf:      new(uint32(100)),
 			},
 		},
 		SwitchStatuses: []*api.SwitchStatus{
