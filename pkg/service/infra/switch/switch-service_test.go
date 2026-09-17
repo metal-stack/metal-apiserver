@@ -144,6 +144,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 						State: &apiv2.NicState{
 							Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 						},
+						Vrf: new("vrf2"),
 					},
 				}
 				sw.Os.MetalCoreVersion = "v0.13.0"
