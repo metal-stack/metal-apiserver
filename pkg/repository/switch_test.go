@@ -15,7 +15,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func Test_updateNics(t *testing.T) {
+func Test_updateNicNames(t *testing.T) {
 	tests := []struct {
 		name string
 		old  metal.Nics
@@ -71,6 +71,29 @@ func Test_updateNics(t *testing.T) {
 				{
 					Identifier: "Eth1/2",
 					Name:       "Ethernet1",
+				},
+			},
+		},
+		{
+			name: "existing nic with empty identifier keeps its vrf when the report provides the mac as identifier",
+			old: metal.Nics{
+				{
+					Identifier: "",
+					Name:       "Ethernet0",
+					Vrf:        "Vrf100",
+				},
+			},
+			new: metal.Nics{
+				{
+					Identifier: "aa:bb:cc:dd:ee:ff",
+					Name:       "Ethernet0",
+				},
+			},
+			want: metal.Nics{
+				{
+					Identifier: "aa:bb:cc:dd:ee:ff",
+					Name:       "Ethernet0",
+					Vrf:        "Vrf100",
 				},
 			},
 		},
