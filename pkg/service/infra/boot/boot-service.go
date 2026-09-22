@@ -5,9 +5,14 @@ import (
 	"log/slog"
 
 	"connectrpc.com/connect"
+	"github.com/metal-stack/api/go/errorutil"
+	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/api/go/metalstack/infra/v2/infrav2connect"
+	"github.com/metal-stack/api/go/tag"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/token"
 )
 
 type Config struct {
@@ -82,4 +87,44 @@ func (b *bootServiceServer) SuperUserPassword(ctx context.Context, req *infrav2.
 
 func (b *bootServiceServer) Wait(ctx context.Context, req *infrav2.BootServiceWaitRequest, srv *connect.ServerStream[infrav2.BootServiceWaitResponse]) error {
 	return b.repo.UnscopedMachine().AdditionalMethods().Wait(ctx, req, srv)
+}
+
+func (b *bootServiceServer) MachineToken(ctx context.Context, req *infrav2.BootServiceMachineTokenRequest) (*infrav2.BootServiceMachineTokenResponse, error) {
+	token, ok := token.TokenFromContext(ctx)
+	if !ok || token == nil {
+		return nil, errorutil.Unauthenticated("no token found in request")
+	}
+
+	tenant, err := b.repo.Tenant().Get(ctx, req.User)
+	if err != nil {
+		return nil, err
+	}
+
+	if tenant.Meta.Labels == nil || tenant.Meta.Labels.Labels == nil {
+		return nil, errorutil.InvalidArgument("tenant %q must have a label %q to be used for machine token creation", req.User, tag.MachineBootstrapperTenant)
+	}
+
+	if _, ok := tenant.Meta.Labels.Labels[tag.MachineBootstrapperTenant]; !ok {
+		return nil, errorutil.InvalidArgument("tenant %q must have a label %q to be used for machine token creation", req.User, tag.MachineBootstrapperTenant)
+	}
+
+	res, err := b.repo.Token(token.User).Create(ctx, &adminv2.TokenServiceCreateRequest{
+		User: &req.User,
+		TokenCreateRequest: &apiv2.TokenServiceCreateRequest{
+			Description: "machine token for " + req.Uuid,
+			Expires:     req.Expires,
+			MachineRoles: map[string]apiv2.MachineRole{
+				req.Uuid: apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+			},
+			Labels: req.Labels,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &infrav2.BootServiceMachineTokenResponse{
+		Token:  res.Token,
+		Secret: res.Secret,
+	}, nil
 }

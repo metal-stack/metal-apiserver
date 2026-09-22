@@ -21,7 +21,7 @@ type networkServiceServer struct {
 }
 
 // AddExternalMember implements [adminv2connect.NetworkServiceHandler].
-func (n *networkServiceServer) AddExternalMember(context.Context, *adminv2.NetworkServiceAddExternalMemberRequest) (*adminv2.NetworkServiceAddExternalMemberResponse, error) {
+func (n *networkServiceServer) AddExternalMembers(context.Context, *adminv2.NetworkServiceAddExternalMembersRequest) (*adminv2.NetworkServiceAddExternalMembersResponse, error) {
 	return nil, errorutil.Unimplemented("")
 }
 
@@ -31,7 +31,7 @@ func (n *networkServiceServer) ListExternalMembers(context.Context, *adminv2.Net
 }
 
 // RemoveExternalMember implements [adminv2connect.NetworkServiceHandler].
-func (n *networkServiceServer) RemoveExternalMember(context.Context, *adminv2.NetworkServiceRemoveExternalMemberRequest) (*adminv2.NetworkServiceRemoveExternalMemberResponse, error) {
+func (n *networkServiceServer) RemoveExternalMembers(context.Context, *adminv2.NetworkServiceRemoveExternalMembersRequest) (*adminv2.NetworkServiceRemoveExternalMembersResponse, error) {
 	return nil, errorutil.Unimplemented("")
 }
 
