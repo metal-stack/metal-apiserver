@@ -3,6 +3,7 @@ package boot
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/metal-stack/api/go/errorutil"
@@ -13,6 +14,7 @@ import (
 	"github.com/metal-stack/api/go/tag"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 type Config struct {
@@ -106,6 +108,10 @@ func (b *bootServiceServer) MachineToken(ctx context.Context, req *infrav2.BootS
 
 	if _, ok := tenant.Meta.Labels.Labels[tag.MachineBootstrapperTenant]; !ok {
 		return nil, errorutil.InvalidArgument("tenant %q must have a label %q to be used for machine token creation", req.User, tag.MachineBootstrapperTenant)
+	}
+
+	if req.Expires == nil {
+		req.Expires = durationpb.New(3 * 24 * time.Hour)
 	}
 
 	res, err := b.repo.Token(token.User).Create(ctx, &adminv2.TokenServiceCreateRequest{

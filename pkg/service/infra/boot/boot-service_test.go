@@ -1,20 +1,24 @@
 package boot
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"buf.build/go/protovalidate"
 	"github.com/google/go-cmp/cmp"
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
+	"github.com/metal-stack/api/go/tag"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
+	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 )
@@ -1087,6 +1091,215 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 					),
 				); diff != "" {
 					t.Errorf("bootServiceServer.InstallationSucceeded() switches diff =%s", diff)
+				}
+			}
+		})
+	}
+}
+
+func Test_bootServiceServer_MachineToken(t *testing.T) {
+	t.Parallel()
+
+	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithValkey(true), test.WithPostgres(true))
+	log := testStore.GetLogger()
+	defer closer()
+
+	type state struct {
+		providerTenant string
+		projectRoles   map[string]apiv2.ProjectRole
+		tenantRoles    map[string]apiv2.TenantRole
+		tenantLabels   map[string]map[string]string
+	}
+	tests := []struct {
+		name           string
+		sessionToken   *apiv2.Token
+		req            *infrav2.BootServiceMachineTokenRequest
+		state          state
+		wantErr        bool
+		wantErrMessage string
+		wantToken      *apiv2.Token
+	}{
+		{
+			name: "pixie-core can create token for metal-hammer with machine roles",
+			sessionToken: &apiv2.Token{
+				User:      "pixie-core",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				InfraRole: apiv2.InfraRole_INFRA_ROLE_EDITOR.Enum(),
+				MachineRoles: map[string]apiv2.MachineRole{
+					"*": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+			},
+			req: &infrav2.BootServiceMachineTokenRequest{
+				Uuid: "de240964-ff9f-4e3d-95b2-8a96e43788f1",
+				User: "metal-hammer",
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+				tenantRoles: map[string]apiv2.TenantRole{
+					test.DefaultProviderTenant: apiv2.TenantRole_TENANT_ROLE_OWNER,
+					"metal-hammer":             apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+				tenantLabels: map[string]map[string]string{
+					"metal-hammer": {tag.MachineBootstrapperTenant: ""},
+				},
+			},
+			wantToken: &apiv2.Token{
+				User:        "metal-hammer",
+				Description: "machine token for de240964-ff9f-4e3d-95b2-8a96e43788f1",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+				Meta: &apiv2.Meta{},
+			},
+		},
+		{
+			name: "pixie-core misses permissions for machine roles",
+			sessionToken: &apiv2.Token{
+				User:      "pixie-core",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				InfraRole: apiv2.InfraRole_INFRA_ROLE_EDITOR.Enum(),
+			},
+			req: &infrav2.BootServiceMachineTokenRequest{
+				Uuid: "de240964-ff9f-4e3d-95b2-8a96e43788f1",
+				User: "metal-hammer",
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+				tenantRoles: map[string]apiv2.TenantRole{
+					test.DefaultProviderTenant: apiv2.TenantRole_TENANT_ROLE_OWNER,
+					"metal-hammer":             apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+				tenantLabels: map[string]map[string]string{
+					"metal-hammer": {tag.MachineBootstrapperTenant: ""},
+				},
+			},
+			wantErr:        true,
+			wantErrMessage: "permission_denied: requested machine roles are not allowed: [de240964-ff9f-4e3d-95b2-8a96e43788f1]",
+		},
+		{
+			name: "cannot create token for tenant that has no special bootstrapper label",
+			sessionToken: &apiv2.Token{
+				User:      "pixie-core",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				InfraRole: apiv2.InfraRole_INFRA_ROLE_EDITOR.Enum(),
+				MachineRoles: map[string]apiv2.MachineRole{
+					"*": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+			},
+			req: &infrav2.BootServiceMachineTokenRequest{
+				Uuid: "de240964-ff9f-4e3d-95b2-8a96e43788f1",
+				User: "metal-hammer",
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+				tenantRoles: map[string]apiv2.TenantRole{
+					test.DefaultProviderTenant: apiv2.TenantRole_TENANT_ROLE_OWNER,
+					"metal-hammer":             apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			wantErr:        true,
+			wantErrMessage: `invalid_argument: tenant "metal-hammer" must have a label "tenant.metal-stack.io/machine-bootstrapper" to be used for machine token creation`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(innerT *testing.T) {
+			defer testStore.Cleanup(t)
+
+			ctx, cancel := context.WithCancel(token.ContextWithToken(innerT.Context(), tt.sessionToken))
+			defer cancel()
+
+			test.CreateTenants(innerT, testStore, []*apiv2.TenantServiceCreateRequest{
+				{
+					Name: tt.sessionToken.User,
+				},
+			})
+			test.CreateTenantMemberships(innerT, testStore, tt.sessionToken.User, []*api.TenantMemberCreateRequest{
+				{
+					MemberID: tt.sessionToken.User,
+					Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			})
+
+			for id, perm := range tt.state.tenantRoles {
+				if id != tt.sessionToken.User {
+					var labels *apiv2.Labels
+
+					if labelMap, ok := tt.state.tenantLabels[id]; ok {
+						labels = &apiv2.Labels{
+							Labels: labelMap,
+						}
+					}
+
+					test.CreateTenants(innerT, testStore, []*apiv2.TenantServiceCreateRequest{
+						{
+							Name:   id,
+							Labels: labels,
+						},
+					})
+				}
+				test.CreateTenantMemberships(innerT, testStore, id, []*api.TenantMemberCreateRequest{
+					{
+						MemberID: tt.sessionToken.User,
+						Role:     perm,
+					},
+				})
+			}
+
+			for id, perm := range tt.state.projectRoles {
+				test.CreateProjects(innerT, testStore, []*apiv2.ProjectServiceCreateRequest{
+					{
+						Login: tt.sessionToken.User,
+						Name:  id,
+					},
+				})
+				test.CreateProjectMemberships(innerT, testStore, id, []*api.ProjectMemberCreateRequest{
+					{
+						TenantId: tt.sessionToken.User,
+						Role:     perm,
+					},
+				})
+			}
+			service := New(Config{
+				Log:  log,
+				Repo: testStore.Store,
+			})
+
+			if tt.wantErr == false {
+				// Execute proto based validation
+				err := protovalidate.Validate(tt.req)
+				require.NoError(t, err)
+			}
+
+			response, err := service.MachineToken(ctx, tt.req)
+			switch {
+			case tt.wantErr && err != nil:
+				if dff := cmp.Diff(tt.wantErrMessage, err.Error()); dff != "" {
+					t.Fatal(dff)
+				}
+			case tt.wantErr && err == nil:
+				t.Fatalf("want error %q, got response %q", tt.wantErrMessage, response)
+			case err != nil:
+				t.Fatalf("want response, got error %q", err)
+
+			default:
+				if response.Secret == "" {
+					t.Error("response secret for token may not be empty")
+				}
+				require.NotNil(t, tt.wantToken, "token returned, nil expected")
+
+				if diff := cmp.Diff(
+					tt.wantToken, response.Token,
+					protocmp.Transform(),
+					protocmp.IgnoreFields(
+						&apiv2.Token{}, "issued_at", "expires", "uuid",
+					),
+					protocmp.IgnoreFields(
+						&apiv2.Meta{}, "created_at", "updated_at", "generation",
+					),
+				); diff != "" {
+					innerT.Errorf("diff: %s", diff)
 				}
 			}
 		})
