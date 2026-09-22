@@ -256,7 +256,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 							Nic: &apiv2.SwitchNic{
 								Name:       "Ethernet0",
 								Identifier: "Ethernet0",
-								Mac:        new("11:11:11:11:11:11"),
+								Mac:        new("11:11:11:11:11:11"), // nolint:staticcheck
 								State: &apiv2.NicState{
 									Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 								},
@@ -267,7 +267,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 						{
 							Name:       "Ethernet0",
 							Identifier: "Ethernet0",
-							Mac:        new("11:11:11:11:11:11"),
+							Mac:        new("11:11:11:11:11:11"), // nolint:staticcheck
 							State: &apiv2.NicState{
 								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 							},
@@ -275,7 +275,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 						{
 							Name:       "Ethernet1",
 							Identifier: "Ethernet1",
-							Mac:        new("22:22:22:22:22:22"),
+							Mac:        new("22:22:22:22:22:22"), // nolint:staticcheck
 							State: &apiv2.NicState{
 								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 							},
@@ -303,7 +303,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 								Nic: &apiv2.SwitchNic{
 									Name:       "Ethernet0",
 									Identifier: "Ethernet0",
-									Mac:        new("11:11:11:11:11:11"),
+									Mac:        new("11:11:11:11:11:11"), // nolint:staticcheck
 									BgpFilter:  &apiv2.BGPFilter{},
 									State: &apiv2.NicState{
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -315,7 +315,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 							{
 								Name:       "Ethernet0",
 								Identifier: "Ethernet0",
-								Mac:        new("11:11:11:11:11:11"),
+								Mac:        new("11:11:11:11:11:11"), // nolint:staticcheck
 								BgpFilter:  &apiv2.BGPFilter{},
 								State: &apiv2.NicState{
 									Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -324,7 +324,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 							{
 								Name:       "Ethernet1",
 								Identifier: "Ethernet1",
-								Mac:        new("22:22:22:22:22:22"),
+								Mac:        new("22:22:22:22:22:22"), // nolint:staticcheck
 								BgpFilter:  &apiv2.BGPFilter{},
 								State: &apiv2.NicState{
 									Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -348,7 +348,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 						nic1 := &apiv2.SwitchNic{
 							Name:       "Ethernet0",
 							Identifier: "Ethernet0",
-							Mac:        new("11:11:11:11:11:11"),
+							Mac:        new("11:11:11:11:11:11"), // nolint:staticcheck
 							BgpFilter:  &apiv2.BGPFilter{},
 							State: &apiv2.NicState{
 								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -364,7 +364,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 							{
 								Name:       "Ethernet0",
 								Identifier: "Ethernet0",
-								Mac:        new("11:11:11:11:11:11"),
+								Mac:        new("11:11:11:11:11:11"), // nolint:staticcheck
 								BgpFilter:  &apiv2.BGPFilter{},
 								State: &apiv2.NicState{
 									Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -373,7 +373,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 							{
 								Name:       "Ethernet1",
 								Identifier: "Ethernet1",
-								Mac:        new("22:22:22:22:22:22"),
+								Mac:        new("22:22:22:22:22:22"), // nolint:staticcheck
 								BgpFilter:  &apiv2.BGPFilter{},
 								State: &apiv2.NicState{
 									Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
