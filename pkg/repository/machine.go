@@ -1317,8 +1317,12 @@ func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, 
 		return "", err
 	}
 
-	cmd := *cmdString
-	commandId := machineUUID + ":machine-bmc-command:" + cmd
+	const bmcCommandTimeout = 30 * time.Second
+
+	var (
+		cmd       = *cmdString
+		commandId = machineUUID + ":machine-bmc-command:" + cmd
+	)
 
 	info, err := r.s.task.NewTask(&task.MachineBMCCommandPayload{
 		UUID:      machineUUID,
@@ -1326,7 +1330,7 @@ func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, 
 		Command:   cmd,
 		CommandID: commandId,
 	},
-		asynq.Timeout(time.Minute),
+		asynq.Timeout(bmcCommandTimeout),
 		asynq.MaxRetry(0),
 	)
 	if err != nil {
@@ -1336,7 +1340,7 @@ func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, 
 	r.s.log.Info("machine bmc command enqueued", "info", info)
 
 	if _, err = r.s.Task().WatchForTaskCompletion(ctx, &task.WatchConfig{
-		Timeout: new(15 * time.Second),
+		Timeout: new(bmcCommandTimeout),
 	}, info.Queue, info.ID); err != nil {
 		return "", errorutil.Internal("error waiting for task %q of type %q to complete: %w", info.ID, info.Type, err)
 	}
