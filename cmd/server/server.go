@@ -13,9 +13,24 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
 
+	infrav2connect "github.com/metal-stack/api/go/metalstack/infra/v2/infrav2connect"
 	taskserver "github.com/metal-stack/metal-apiserver/pkg/async/task/server"
 	"github.com/metal-stack/metal-apiserver/pkg/service"
 )
+
+var streamingProcedures = map[string]struct{}{
+	infrav2connect.BMCServiceWaitForBMCCommandProcedure: {},
+	infrav2connect.BootServiceWaitProcedure:             {},
+}
+
+func withoutStreamWriteDeadline(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := streamingProcedures[r.URL.Path]; ok {
+			_ = http.NewResponseController(w).SetWriteDeadline(time.Time{})
+		}
+		next.ServeHTTP(w, r)
+	})
+}
 
 type server struct {
 	c   service.Config
@@ -43,7 +58,7 @@ func (s *server) Run(ctx context.Context) error {
 
 	apiServer := &http.Server{
 		Addr:           s.c.HttpServerEndpoint,
-		Handler:        newCORS().Handler(mux),
+		Handler:        newCORS().Handler(withoutStreamWriteDeadline(mux)),
 		Protocols:      p,
 		MaxHeaderBytes: 8 * 1024,
 		// Low timeouts and ping timeouts set for machine wait streams
