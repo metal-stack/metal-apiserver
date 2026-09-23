@@ -59,6 +59,16 @@ func (t *tokenRepository) validateCreate(ctx context.Context, req *adminv2.Token
 		adminRole = *role
 		isAdmin = true
 
+		// allow admins to create wildcard machine tokens
+		switch adminRole {
+		case apiv2.AdminRole_ADMIN_ROLE_EDITOR:
+			sessionToken.MachineRoles = map[string]apiv2.MachineRole{"*": apiv2.MachineRole_MACHINE_ROLE_EDITOR}
+		case apiv2.AdminRole_ADMIN_ROLE_VIEWER:
+			fallthrough
+		default:
+			sessionToken.MachineRoles = map[string]apiv2.MachineRole{"*": apiv2.MachineRole_MACHINE_ROLE_VIEWER}
+		}
+
 		t.s.log.Debug("user is member of the provider-tenant", "admin-role", sessionToken.AdminRole)
 	}
 

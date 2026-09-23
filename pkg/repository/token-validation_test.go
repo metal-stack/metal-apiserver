@@ -1162,41 +1162,40 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 		// ============================================================================
 		// 5. MACHINE ROLE VARIATIONS
 		// ============================================================================
-
-		// FIXME: how to obtain a wildcard machine role token? seems like this only worked through server cli without permission check?
-		// {
-		// 	name: "admin token can request a wildcard machine role token",
-		// 	sessionToken: &apiv2.Token{
-		// 		User:         "phippy",
-		// 		TokenType:    apiv2.TokenType_TOKEN_TYPE_USER,
-		// 		Permissions:  []*apiv2.MethodPermission{},
-		// 		MachineRoles: map[string]apiv2.MachineRole{},
-		// 		TenantRoles:  map[string]apiv2.TenantRole{},
-		// 		AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
-		// 	},
-		// 	req: &apiv2.TokenServiceCreateRequest{
-		// 		Description: "pixiecore",
-		// 		MachineRoles: map[string]apiv2.MachineRole{
-		// 			"*": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
-		// 		},
-		// 		TenantRoles: map[string]apiv2.TenantRole{},
-		// 	},
-		// 	state: state{
-		// 		providerTenant: "metal-stack",
-		// 		tenantRoles: map[string]apiv2.TenantRole{
-		// 			"metal-stack": apiv2.TenantRole_TENANT_ROLE_OWNER,
-		// 		},
-		// 	},
-		// 	wantToken: &apiv2.Token{
-		// 		User:        "phippy",
-		// 		Description: "pixiecore",
-		// 		TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
-		// 		MachineRoles: map[string]apiv2.MachineRole{
-		// 			"*": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
-		// 		},
-		// 		TenantRoles: map[string]apiv2.TenantRole{},
-		// 	},
-		// },
+		{
+			name: "admin token can request a wildcard machine role token",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_USER,
+				Permissions:  []*apiv2.MethodPermission{},
+				MachineRoles: map[string]apiv2.MachineRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "pixiecore",
+				MachineRoles: map[string]apiv2.MachineRole{
+					"*": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+				TenantRoles: map[string]apiv2.TenantRole{},
+			},
+			state: state{
+				providerTenant: "metal-stack",
+				tenantRoles: map[string]apiv2.TenantRole{
+					"metal-stack": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			wantToken: &apiv2.Token{
+				User:        "phippy",
+				Description: "pixiecore",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
+				MachineRoles: map[string]apiv2.MachineRole{
+					"*": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+				TenantRoles: map[string]apiv2.TenantRole{},
+				Permissions: []*apiv2.MethodPermission{},
+			},
+		},
 		{
 			name: "session and request share same machine role",
 			sessionToken: &apiv2.Token{
