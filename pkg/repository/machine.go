@@ -1006,7 +1006,7 @@ func (r *machineRepository) InstallationSucceeded(ctx context.Context, req *infr
 
 	_, err = r.MachineBMCCommand(ctx, m.ID, m.PartitionID, apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_MACHINE_CREATED)
 	if err != nil {
-		return nil, fmt.Errorf("unable to send machinecommand to trigger boot to disk %w", err)
+		return nil, fmt.Errorf("unable to send machine bmc command to trigger boot to disk: %w", err)
 	}
 
 	return m, nil
@@ -1314,11 +1314,15 @@ func (r *machineRepository) convertToBMCReport(machine *metal.Machine) *apiv2.Ma
 func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, partition string, command apiv2.MachineBMCCommand) (string, error) {
 	cmdString, err := enum.GetStringValue(command)
 	if err != nil {
-		return "", err
+		return "", errorutil.InvalidArgument("unknown command: %s", command)
 	}
 
-	cmd := *cmdString
-	commandId := machineUUID + ":machine-bmc-command:" + cmd
+	const bmcCommandTimeout = 30 * time.Second
+
+	var (
+		cmd       = *cmdString
+		commandId = machineUUID + ":machine-bmc-command:" + cmd
+	)
 
 	info, err := r.s.task.NewTask(&task.MachineBMCCommandPayload{
 		UUID:      machineUUID,
@@ -1326,14 +1330,21 @@ func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, 
 		Command:   cmd,
 		CommandID: commandId,
 	},
-		asynq.Timeout(time.Minute),
+		asynq.Timeout(bmcCommandTimeout),
 		asynq.MaxRetry(0),
 	)
 	if err != nil {
 		return "", err
 	}
 
-	r.s.log.Debug("machine bmc command scheduled", "task", info)
+	r.s.log.Info("machine bmc command enqueued", "info", info)
+
+	if _, err = r.s.Task().WatchForTaskCompletion(ctx, &task.WatchConfig{
+		Timeout:  new(bmcCommandTimeout),
+		Interval: new(1 * time.Second),
+	}, info.Queue, info.ID); err != nil {
+		return info.ID, errorutil.Internal("error waiting for task %q of type %q to complete: %w", info.ID, info.Type, err)
+	}
 
 	return info.ID, nil
 }

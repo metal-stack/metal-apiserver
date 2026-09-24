@@ -1,6 +1,7 @@
 package boot
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/metal-stack/api/go/enum"
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -16,6 +18,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -742,6 +745,7 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 	defer ts.Close()
 
 	ctx := t.Context()
+	log := slog.Default()
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
 	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{{Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
@@ -1033,13 +1037,45 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			b := &bootServiceServer{
-				log:  slog.Default(),
+				log:  log,
 				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				// Execute proto based validation
 				test.Validate(t, tt.req)
 			}
+
+			g, _ := errgroup.WithContext(t.Context())
+
+			bmcCtx, bmcCancelWatch := context.WithCancel(t.Context())
+			defer bmcCancelWatch()
+
+			strVal, err := enum.GetStringValue(apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_MACHINE_CREATED)
+			require.NoError(t, err)
+
+			g.Go(func() error {
+				msgs := testStore.GetQueue().WaitMachineCommand(bmcCtx, partition1)
+
+				select {
+				case msg := <-msgs:
+					if diff := cmp.Diff(*strVal, msg.Command); diff != "" {
+						return fmt.Errorf("bmc cmd diff: %s", diff)
+					}
+
+					_, err := testStore.UnscopedMachine().AdditionalMethods().BMCCommandDone(bmcCtx, &infrav2.BMCCommandDoneRequest{
+						CommandId: msg.CommandID,
+						Error:     nil,
+					})
+					if err != nil {
+						return err
+					}
+
+					return nil
+				case <-ctx.Done():
+					return nil
+				}
+			})
+
 			got, err := b.InstallationSucceeded(ctx, tt.req)
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("bootServiceServer.InstallationSucceeded() error diff = %s", diff)
@@ -1089,6 +1125,9 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 					t.Errorf("bootServiceServer.InstallationSucceeded() switches diff =%s", diff)
 				}
 			}
+
+			bmcCancelWatch()
+			require.NoError(t, g.Wait())
 		})
 	}
 }
