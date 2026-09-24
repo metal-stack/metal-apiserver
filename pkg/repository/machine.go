@@ -1317,7 +1317,8 @@ func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, 
 		return "", errorutil.InvalidArgument("unknown command: %s", command)
 	}
 
-	const bmcCommandTimeout = 30 * time.Second
+	// as we have a write timeout of 60 seconds, we choose something lower
+	const bmcCommandTimeout = 45 * time.Second
 
 	var (
 		cmd       = *cmdString
