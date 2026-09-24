@@ -5,6 +5,7 @@ import (
 	"log/slog"
 
 	"connectrpc.com/connect"
+	"github.com/metal-stack/api/go/errorutil"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/api/go/metalstack/infra/v2/infrav2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
@@ -82,4 +83,8 @@ func (b *bootServiceServer) SuperUserPassword(ctx context.Context, req *infrav2.
 
 func (b *bootServiceServer) Wait(ctx context.Context, req *infrav2.BootServiceWaitRequest, srv *connect.ServerStream[infrav2.BootServiceWaitResponse]) error {
 	return b.repo.UnscopedMachine().AdditionalMethods().Wait(ctx, req, srv)
+}
+
+func (b *bootServiceServer) MachineToken(context.Context, *infrav2.BootServiceMachineTokenRequest) (*infrav2.BootServiceMachineTokenResponse, error) {
+	return nil, errorutil.Unimplemented("")
 }
