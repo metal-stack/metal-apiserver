@@ -401,24 +401,17 @@ func Test_machineServiceServer_BMCCommand(t *testing.T) {
 				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
-					&apiv2.Image{}, "expires_at",
-				),
-				protocmp.IgnoreFields(
-					&apiv2.Meta{}, "created_at", "updated_at",
-				),
-				protocmp.IgnoreFields(
-					&apiv2.MachineProvisioningEvent{}, "time",
+					&adminv2.MachineServiceBMCCommandResponse{}, "task_id",
 				),
 			); diff != "" {
 				t.Errorf("machineServiceServer.BMCCommand() = %v, want %v diff: %s", got, tt.want, diff)
 			}
 
 			if tt.want != nil {
-				tasks, err := m.repo.Task().List(nil)
+				task, err := m.repo.Task().GetTaskInfo("default", got.TaskId)
 				require.NoError(t, err)
-				require.Len(t, tasks, 1)
-				require.Equal(t, asynq.TaskStateCompleted, tasks[0].State)
-				require.Contains(t, string(tasks[0].Payload), "boot-from-disk")
+				require.Equal(t, asynq.TaskStateCompleted, task.State)
+				require.Contains(t, string(task.Payload), "boot-from-disk")
 			}
 
 			bmcCancelWatch()

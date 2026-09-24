@@ -99,12 +99,14 @@ func (m *machineServiceServer) BMCCommand(ctx context.Context, req *adminv2.Mach
 		return nil, errorutil.FailedPrecondition("machine %q does not have bmc connections details yet", req.Uuid)
 	}
 
-	_, err = m.repo.UnscopedMachine().AdditionalMethods().MachineBMCCommand(ctx, machine.Uuid, machine.Partition.Id, req.Command)
+	taskID, err := m.repo.UnscopedMachine().AdditionalMethods().MachineBMCCommand(ctx, machine.Uuid, machine.Partition.Id, req.Command)
 	if err != nil {
 		return nil, err
 	}
 
-	return &adminv2.MachineServiceBMCCommandResponse{}, nil
+	return &adminv2.MachineServiceBMCCommandResponse{
+		TaskId: taskID,
+	}, nil
 }
 
 func (m *machineServiceServer) GetBMC(ctx context.Context, req *adminv2.MachineServiceGetBMCRequest) (*adminv2.MachineServiceGetBMCResponse, error) {

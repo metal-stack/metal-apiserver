@@ -1314,7 +1314,7 @@ func (r *machineRepository) convertToBMCReport(machine *metal.Machine) *apiv2.Ma
 func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, partition string, command apiv2.MachineBMCCommand) (string, error) {
 	cmdString, err := enum.GetStringValue(command)
 	if err != nil {
-		return "", err
+		return "", errorutil.InvalidArgument("unknown command: %s", command)
 	}
 
 	const bmcCommandTimeout = 30 * time.Second
