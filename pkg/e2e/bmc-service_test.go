@@ -6,14 +6,15 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"connectrpc.com/connect"
+	"github.com/google/go-cmp/cmp"
 	"github.com/metal-stack/api/go/client"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -59,7 +60,9 @@ func TestWaitForBMCCommand(t *testing.T) {
 	require.NoError(t, err)
 	// Now we have a machine
 
-	go func() {
+	g, _ := errgroup.WithContext(t.Context())
+
+	g.Go(func() error {
 		messages, errs := client.ReconnectingStreamRead(ctx, func(ctx context.Context) (*connect.ServerStreamForClient[infrav2.WaitForBMCCommandResponse], error) {
 			return apiClient.Infrav2().BMC().WaitForBMCCommand(ctx, &infrav2.WaitForBMCCommandRequest{Partition: p.Partition.Id})
 		}, client.WithStreamBackoff(0), client.WithStreamLogger(log))
@@ -67,20 +70,20 @@ func TestWaitForBMCCommand(t *testing.T) {
 		for {
 			select {
 			case msg := <-messages:
-				require.NotNil(t, msg.MachineBmc)
-				require.Equal(t, apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_BOOT_FROM_DISK, msg.BmcCommand)
+				if diff := cmp.Diff(apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_BOOT_FROM_DISK, msg.BmcCommand); diff != "" {
+					return fmt.Errorf("bmc cmd diff: %s", diff)
+				}
 				_, err := apiClient.Infrav2().BMC().BMCCommandDone(ctx, &infrav2.BMCCommandDoneRequest{CommandId: msg.CommandId})
-				require.NoError(t, err)
+				if err != nil {
+					return err
+				}
 			case err := <-errs:
-				require.NoError(t, err)
+				return fmt.Errorf("unexpected error: %w", err)
 			case <-ctx.Done():
-				return
+				return nil
 			}
 		}
-	}()
-
-	// Give subscription time to establish
-	time.Sleep(1 * time.Second)
+	})
 
 	// Publish a message
 	_, err = apiClient.Adminv2().Machine().BMCCommand(ctx,
@@ -96,4 +99,5 @@ func TestWaitForBMCCommand(t *testing.T) {
 	require.Equal(t, adminv2.TaskState_TASK_STATE_COMPLETED, tasks.Tasks[0].State)
 
 	cancel()
+	require.NoError(t, g.Wait())
 }

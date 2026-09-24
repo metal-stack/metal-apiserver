@@ -20,6 +20,7 @@ import (
 	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -358,6 +359,8 @@ func Test_machineServiceServer_BMCCommand(t *testing.T) {
 				test.Validate(t, tt.rq)
 			}
 
+			g, _ := errgroup.WithContext(t.Context())
+
 			bmcCtx, bmcCancelWatch := context.WithCancel(t.Context())
 			defer bmcCancelWatch()
 
@@ -365,21 +368,28 @@ func Test_machineServiceServer_BMCCommand(t *testing.T) {
 			require.NoError(t, err)
 
 			if tt.wantErr == nil {
-				go func() {
+				g.Go(func() error {
 					msgs := testStore.GetQueue().WaitMachineCommand(bmcCtx, "partition-1")
 
 					select {
 					case msg := <-msgs:
-						require.Equal(t, *strVal, msg.Command)
+						if diff := cmp.Diff(*strVal, msg.Command); diff != "" {
+							return fmt.Errorf("bmc cmd diff: %s", diff)
+						}
+
 						_, err := testStore.UnscopedMachine().AdditionalMethods().BMCCommandDone(bmcCtx, &infrav2.BMCCommandDoneRequest{
 							CommandId: msg.CommandID,
 							Error:     nil,
 						})
-						require.NoError(t, err)
+						if err != nil {
+							return err
+						}
+
+						return nil
 					case <-ctx.Done():
-						return
+						return nil
 					}
-				}()
+				})
 			}
 
 			got, err := m.BMCCommand(ctx, tt.rq)
@@ -410,6 +420,9 @@ func Test_machineServiceServer_BMCCommand(t *testing.T) {
 				require.Equal(t, asynq.TaskStateCompleted, tasks[0].State)
 				require.Contains(t, string(tasks[0].Payload), "boot-from-disk")
 			}
+
+			bmcCancelWatch()
+			require.NoError(t, g.Wait())
 		})
 	}
 }
