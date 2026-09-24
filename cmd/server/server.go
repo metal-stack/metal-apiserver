@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -12,25 +13,13 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
 
-	infrav2connect "github.com/metal-stack/api/go/metalstack/infra/v2/infrav2connect"
+	"github.com/metal-stack/api/go/permissions"
 	taskserver "github.com/metal-stack/metal-apiserver/pkg/async/task/server"
 	"github.com/metal-stack/metal-apiserver/pkg/service"
 )
-
-var streamingProcedures = map[string]struct{}{
-	infrav2connect.BMCServiceWaitForBMCCommandProcedure: {},
-	infrav2connect.BootServiceWaitProcedure:             {},
-}
-
-func withoutStreamWriteDeadline(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if _, ok := streamingProcedures[r.URL.Path]; ok {
-			_ = http.NewResponseController(w).SetWriteDeadline(time.Time{})
-		}
-		next.ServeHTTP(w, r)
-	})
-}
 
 type server struct {
 	c   service.Config
@@ -58,7 +47,7 @@ func (s *server) Run(ctx context.Context) error {
 
 	apiServer := &http.Server{
 		Addr:           s.c.HttpServerEndpoint,
-		Handler:        newCORS().Handler(withoutStreamWriteDeadline(mux)),
+		Handler:        newCORS().Handler(mustWithoutStreamWriteDeadline(mux)),
 		Protocols:      p,
 		MaxHeaderBytes: 8 * 1024,
 		// Low timeouts and ping timeouts set for machine wait streams
@@ -155,4 +144,39 @@ func newCORS() *cors.Cors {
 		// Chrome caps it at 2h.
 		MaxAge: int(2 * time.Hour / time.Second),
 	})
+}
+
+func mustWithoutStreamWriteDeadline(next http.Handler) http.Handler {
+	streamMethods := mustFindStreamMethods()
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := streamMethods[r.URL.Path]; ok {
+			_ = http.NewResponseController(w).SetWriteDeadline(time.Time{})
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func mustFindStreamMethods() map[string]bool {
+	streamMethods := map[string]bool{}
+
+	for _, svcName := range permissions.GetServices() {
+		d, err := protoregistry.GlobalFiles.FindDescriptorByName(protoreflect.FullName(svcName))
+		if err != nil {
+			panic(err)
+		}
+
+		svc := d.(protoreflect.ServiceDescriptor)
+
+		for i := range svc.Methods().Len() {
+			m := svc.Methods().Get(i)
+			if m.IsStreamingServer() {
+				method := fmt.Sprintf("/%s/%s", svcName, m.Name())
+				streamMethods[method] = true
+			}
+		}
+	}
+
+	return streamMethods
 }

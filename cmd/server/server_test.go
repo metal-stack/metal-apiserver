@@ -51,7 +51,7 @@ func Test_newTokenCmd(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func Test_withoutStreamWriteDeadline(t *testing.T) {
+func Test_mustWithoutStreamWriteDeadline(t *testing.T) {
 	t.Parallel()
 
 	const (
@@ -61,7 +61,7 @@ func Test_withoutStreamWriteDeadline(t *testing.T) {
 		writeDelay   = 300 * time.Millisecond
 	)
 
-	handler := withoutStreamWriteDeadline(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := mustWithoutStreamWriteDeadline(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(writeDelay)
 		_, _ = w.Write([]byte("ok"))
 	}))
