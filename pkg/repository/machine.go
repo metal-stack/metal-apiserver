@@ -1006,7 +1006,7 @@ func (r *machineRepository) InstallationSucceeded(ctx context.Context, req *infr
 
 	_, err = r.MachineBMCCommand(ctx, m.ID, m.PartitionID, apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_MACHINE_CREATED)
 	if err != nil {
-		return nil, fmt.Errorf("unable to send machinecommand to trigger boot to disk %w", err)
+		return nil, fmt.Errorf("unable to send machine bmc command to trigger boot to disk: %w", err)
 	}
 
 	return m, nil
@@ -1340,9 +1340,10 @@ func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, 
 	r.s.log.Info("machine bmc command enqueued", "info", info)
 
 	if _, err = r.s.Task().WatchForTaskCompletion(ctx, &task.WatchConfig{
-		Timeout: new(bmcCommandTimeout),
+		Timeout:  new(bmcCommandTimeout),
+		Interval: new(1 * time.Second),
 	}, info.Queue, info.ID); err != nil {
-		return "", errorutil.Internal("error waiting for task %q of type %q to complete: %w", info.ID, info.Type, err)
+		return info.ID, errorutil.Internal("error waiting for task %q of type %q to complete: %w", info.ID, info.Type, err)
 	}
 
 	return info.ID, nil

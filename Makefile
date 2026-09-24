@@ -28,7 +28,7 @@ server: fmt
 
 .PHONY: test
 test:
-	go test ./... -race -coverpkg=./... -coverprofile=coverage.out -covermode=atomic $(GO_TEST_ARGS) -timeout=300s && go tool cover -func=coverage.out
+	go test -p 4 ./... -race -coverpkg=./... -coverprofile=coverage.out -covermode=atomic $(GO_TEST_ARGS) -timeout=300s && go tool cover -func=coverage.out
 
 .PHONY: fmt
 fmt:

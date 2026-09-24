@@ -72,8 +72,15 @@ func (t *tokenRepository) validateCreate(ctx context.Context, req *adminv2.Token
 		t.s.log.Debug("user is member of the provider-tenant", "admin-role", sessionToken.AdminRole)
 	}
 
-	if !isAdmin && req.User != nil {
-		return errorutil.PermissionDenied("only admins can specify token user")
+	if req.User != nil {
+		switch {
+		case isAdmin:
+			// ok
+		case sessionToken.InfraRole != nil && *sessionToken.InfraRole == apiv2.InfraRole_INFRA_ROLE_EDITOR:
+			// ok
+		default:
+			return errorutil.PermissionDenied("only admins or infra editors can specify token user")
+		}
 	}
 
 	rq.Permissions = compactPermissions(rq.Permissions)

@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -9,9 +10,11 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/hibiken/asynq"
+	"github.com/metal-stack/api/go/enum"
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
@@ -354,6 +357,31 @@ func Test_machineServiceServer_BMCCommand(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
+
+			bmcCtx, bmcCancelWatch := context.WithCancel(t.Context())
+			defer bmcCancelWatch()
+
+			strVal, err := enum.GetStringValue(tt.rq.Command)
+			require.NoError(t, err)
+
+			if tt.wantErr == nil {
+				go func() {
+					msgs := testStore.GetQueue().WaitMachineCommand(bmcCtx, "partition-1")
+
+					select {
+					case msg := <-msgs:
+						require.Equal(t, *strVal, msg.Command)
+						_, err := testStore.UnscopedMachine().AdditionalMethods().BMCCommandDone(bmcCtx, &infrav2.BMCCommandDoneRequest{
+							CommandId: msg.CommandID,
+							Error:     nil,
+						})
+						require.NoError(t, err)
+					case <-ctx.Done():
+						return
+					}
+				}()
+			}
+
 			got, err := m.BMCCommand(ctx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
@@ -379,7 +407,7 @@ func Test_machineServiceServer_BMCCommand(t *testing.T) {
 				tasks, err := m.repo.Task().List(nil)
 				require.NoError(t, err)
 				require.Len(t, tasks, 1)
-				require.Equal(t, asynq.TaskStatePending, tasks[0].State)
+				require.Equal(t, asynq.TaskStateCompleted, tasks[0].State)
 				require.Contains(t, string(tasks[0].Payload), "boot-from-disk")
 			}
 		})

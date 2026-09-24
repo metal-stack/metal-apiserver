@@ -2850,7 +2850,7 @@ func Test_validateCreate_edgeCases(t *testing.T) {
 			},
 			User: &anotherUser,
 		})
-		require.EqualError(t, err, errorutil.PermissionDenied("only admins can specify token user").Error())
+		require.EqualError(t, err, errorutil.PermissionDenied("only admins or infra editors can specify token user").Error())
 	})
 
 	t.Run("admin can specify token user for another user", func(t *testing.T) {

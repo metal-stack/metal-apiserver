@@ -10,6 +10,7 @@ import (
 
 	"buf.build/go/protovalidate"
 	"github.com/google/go-cmp/cmp"
+	"github.com/metal-stack/api/go/enum"
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -746,6 +747,7 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 	defer ts.Close()
 
 	ctx := t.Context()
+	log := slog.Default()
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
 	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{{Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
@@ -1037,13 +1039,36 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			b := &bootServiceServer{
-				log:  slog.Default(),
+				log:  log,
 				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				// Execute proto based validation
 				test.Validate(t, tt.req)
 			}
+
+			bmcCtx, bmcCancelWatch := context.WithCancel(t.Context())
+			defer bmcCancelWatch()
+
+			strVal, err := enum.GetStringValue(apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_MACHINE_CREATED)
+			require.NoError(t, err)
+
+			go func() {
+				msgs := testStore.GetQueue().WaitMachineCommand(bmcCtx, partition1)
+
+				select {
+				case msg := <-msgs:
+					require.Equal(t, *strVal, msg.Command)
+					_, err := testStore.UnscopedMachine().AdditionalMethods().BMCCommandDone(bmcCtx, &infrav2.BMCCommandDoneRequest{
+						CommandId: msg.CommandID,
+						Error:     nil,
+					})
+					require.NoError(t, err)
+				case <-ctx.Done():
+					return
+				}
+			}()
+
 			got, err := b.InstallationSucceeded(ctx, tt.req)
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("bootServiceServer.InstallationSucceeded() error diff = %s", diff)
@@ -1105,10 +1130,10 @@ func Test_bootServiceServer_MachineToken(t *testing.T) {
 	defer closer()
 
 	type state struct {
-		providerTenant string
-		projectRoles   map[string]apiv2.ProjectRole
-		tenantRoles    map[string]apiv2.TenantRole
-		tenantLabels   map[string]map[string]string
+		providerTenant     string
+		projectRoles       map[string]apiv2.ProjectRole
+		tenantRoles        map[string]apiv2.TenantRole
+		independentTenants map[string]*apiv2.Labels
 	}
 	tests := []struct {
 		name           string
@@ -1135,12 +1160,13 @@ func Test_bootServiceServer_MachineToken(t *testing.T) {
 			},
 			state: state{
 				providerTenant: test.DefaultProviderTenant,
-				tenantRoles: map[string]apiv2.TenantRole{
-					test.DefaultProviderTenant: apiv2.TenantRole_TENANT_ROLE_OWNER,
-					"metal-hammer":             apiv2.TenantRole_TENANT_ROLE_OWNER,
-				},
-				tenantLabels: map[string]map[string]string{
-					"metal-hammer": {tag.MachineBootstrapperTenant: ""},
+				tenantRoles:    map[string]apiv2.TenantRole{},
+				independentTenants: map[string]*apiv2.Labels{
+					"metal-hammer": {
+						Labels: map[string]string{
+							tag.MachineBootstrapperTenant: "",
+						},
+					},
 				},
 			},
 			wantToken: &apiv2.Token{
@@ -1152,6 +1178,30 @@ func Test_bootServiceServer_MachineToken(t *testing.T) {
 				},
 				Meta: &apiv2.Meta{},
 			},
+		},
+		{
+			name: "pixie-core misses infra role editor",
+			sessionToken: &apiv2.Token{
+				User:      "pixie-core",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+			},
+			req: &infrav2.BootServiceMachineTokenRequest{
+				Uuid: "de240964-ff9f-4e3d-95b2-8a96e43788f1",
+				User: "metal-hammer",
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+				tenantRoles:    map[string]apiv2.TenantRole{},
+				independentTenants: map[string]*apiv2.Labels{
+					"metal-hammer": {
+						Labels: map[string]string{
+							tag.MachineBootstrapperTenant: "",
+						},
+					},
+				},
+			},
+			wantErr:        true,
+			wantErrMessage: "permission_denied: only admins or infra editors can specify token user",
 		},
 		{
 			name: "pixie-core misses permissions for machine roles",
@@ -1166,12 +1216,13 @@ func Test_bootServiceServer_MachineToken(t *testing.T) {
 			},
 			state: state{
 				providerTenant: test.DefaultProviderTenant,
-				tenantRoles: map[string]apiv2.TenantRole{
-					test.DefaultProviderTenant: apiv2.TenantRole_TENANT_ROLE_OWNER,
-					"metal-hammer":             apiv2.TenantRole_TENANT_ROLE_OWNER,
-				},
-				tenantLabels: map[string]map[string]string{
-					"metal-hammer": {tag.MachineBootstrapperTenant: ""},
+				tenantRoles:    map[string]apiv2.TenantRole{},
+				independentTenants: map[string]*apiv2.Labels{
+					"metal-hammer": {
+						Labels: map[string]string{
+							tag.MachineBootstrapperTenant: "",
+						},
+					},
 				},
 			},
 			wantErr:        true,
@@ -1193,9 +1244,13 @@ func Test_bootServiceServer_MachineToken(t *testing.T) {
 			},
 			state: state{
 				providerTenant: test.DefaultProviderTenant,
-				tenantRoles: map[string]apiv2.TenantRole{
-					test.DefaultProviderTenant: apiv2.TenantRole_TENANT_ROLE_OWNER,
-					"metal-hammer":             apiv2.TenantRole_TENANT_ROLE_OWNER,
+				tenantRoles:    map[string]apiv2.TenantRole{},
+				independentTenants: map[string]*apiv2.Labels{
+					"metal-hammer": {
+						Labels: map[string]string{
+							"a": "b",
+						},
+					},
 				},
 			},
 			wantErr:        true,
@@ -1224,18 +1279,9 @@ func Test_bootServiceServer_MachineToken(t *testing.T) {
 
 			for id, perm := range tt.state.tenantRoles {
 				if id != tt.sessionToken.User {
-					var labels *apiv2.Labels
-
-					if labelMap, ok := tt.state.tenantLabels[id]; ok {
-						labels = &apiv2.Labels{
-							Labels: labelMap,
-						}
-					}
-
 					test.CreateTenants(innerT, testStore, []*apiv2.TenantServiceCreateRequest{
 						{
-							Name:   id,
-							Labels: labels,
+							Name: id,
 						},
 					})
 				}
@@ -1243,6 +1289,21 @@ func Test_bootServiceServer_MachineToken(t *testing.T) {
 					{
 						MemberID: tt.sessionToken.User,
 						Role:     perm,
+					},
+				})
+			}
+
+			for id, labels := range tt.state.independentTenants {
+				test.CreateTenants(innerT, testStore, []*apiv2.TenantServiceCreateRequest{
+					{
+						Name:   id,
+						Labels: labels,
+					},
+				})
+				test.CreateTenantMemberships(innerT, testStore, id, []*api.TenantMemberCreateRequest{
+					{
+						MemberID: id,
+						Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
 					},
 				})
 			}
