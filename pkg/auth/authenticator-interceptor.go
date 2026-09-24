@@ -134,7 +134,7 @@ func (o *auth) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 
 		resp, err := next(ctx, req)
 		if err != nil {
-			return nil, fmt.Errorf("unable to process request %w", err)
+			return nil, fmt.Errorf("unable to process request: %w", err)
 		}
 
 		return resp, nil
