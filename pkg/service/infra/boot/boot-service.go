@@ -11,7 +11,6 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/api/go/metalstack/infra/v2/infrav2connect"
-	"github.com/metal-stack/api/go/tag"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -95,19 +94,6 @@ func (b *bootServiceServer) MachineToken(ctx context.Context, req *infrav2.BootS
 	token, ok := token.TokenFromContext(ctx)
 	if !ok || token == nil {
 		return nil, errorutil.Unauthenticated("no token found in request")
-	}
-
-	tenant, err := b.repo.Tenant().Get(ctx, req.User)
-	if err != nil {
-		return nil, err
-	}
-
-	if tenant.Meta.Labels == nil || tenant.Meta.Labels.Labels == nil {
-		return nil, errorutil.InvalidArgument("tenant %q must have a label %q to be used for machine token creation", req.User, tag.MachineBootstrapperTenant)
-	}
-
-	if _, ok := tenant.Meta.Labels.Labels[tag.MachineBootstrapperTenant]; !ok {
-		return nil, errorutil.InvalidArgument("tenant %q must have a label %q to be used for machine token creation", req.User, tag.MachineBootstrapperTenant)
 	}
 
 	if req.Expires == nil {

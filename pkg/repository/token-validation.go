@@ -10,10 +10,12 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/permissions"
+	"github.com/metal-stack/api/go/tag"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/request"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/samber/lo"
+	"google.golang.org/protobuf/proto"
 )
 
 func (t *tokenRepository) validateCreate(ctx context.Context, req *adminv2.TokenServiceCreateRequest) error {
@@ -26,10 +28,13 @@ func (t *tokenRepository) validateCreate(ctx context.Context, req *adminv2.Token
 		user = t.scope.user
 	)
 
-	sessionToken, ok := token.TokenFromContext(ctx)
-	if !ok || sessionToken == nil {
+	tok, ok := token.TokenFromContext(ctx)
+	if !ok || tok == nil {
 		return errorutil.Unauthenticated("no token found in request")
 	}
+
+	// create a copy for modifications
+	sessionToken := proto.Clone(tok).(*apiv2.Token)
 
 	switch sessionToken.TokenType {
 	case apiv2.TokenType_TOKEN_TYPE_API, apiv2.TokenType_TOKEN_TYPE_USER:
@@ -43,8 +48,8 @@ func (t *tokenRepository) validateCreate(ctx context.Context, req *adminv2.Token
 		return errorutil.NewInternal(err)
 	}
 	var (
-		isAdmin   bool
-		adminRole apiv2.AdminRole
+		isAdmin             = false
+		membershipAdminRole apiv2.AdminRole
 	)
 
 	if role, ok := t.hasAdminRole(projectsAndTenants); ok {
@@ -56,17 +61,13 @@ func (t *tokenRepository) validateCreate(ctx context.Context, req *adminv2.Token
 			sessionToken.TokenType = apiv2.TokenType_TOKEN_TYPE_API
 		}
 
-		adminRole = *role
+		membershipAdminRole = *role
 		isAdmin = true
 
-		// allow admins to create wildcard machine tokens
-		switch adminRole {
-		case apiv2.AdminRole_ADMIN_ROLE_EDITOR:
-			sessionToken.MachineRoles = map[string]apiv2.MachineRole{"*": apiv2.MachineRole_MACHINE_ROLE_EDITOR}
-		case apiv2.AdminRole_ADMIN_ROLE_VIEWER:
-			fallthrough
-		default:
-			sessionToken.MachineRoles = map[string]apiv2.MachineRole{"*": apiv2.MachineRole_MACHINE_ROLE_VIEWER}
+		if len(sessionToken.MachineRoles) == 0 {
+			sessionToken.MachineRoles = map[string]apiv2.MachineRole{
+				"*": wildcardMachineRole(membershipAdminRole, sessionToken.AdminRole),
+			}
 		}
 
 		t.s.log.Debug("user is member of the provider-tenant", "admin-role", sessionToken.AdminRole)
@@ -76,10 +77,12 @@ func (t *tokenRepository) validateCreate(ctx context.Context, req *adminv2.Token
 		switch {
 		case isAdmin:
 			// this is for example required for deployment tokens that create infra service tenants
-		case sessionToken.InfraRole != nil && *sessionToken.InfraRole == apiv2.InfraRole_INFRA_ROLE_EDITOR:
-			// this is for example required for pixiecore which creates tokens for the metal-hammer tenant
+		case len(rq.MachineRoles) > 0 && sessionToken.InfraRole != nil && *sessionToken.InfraRole == apiv2.InfraRole_INFRA_ROLE_EDITOR:
+			if err := t.validateMachineBootstrapperTenant(ctx, *req.User); err != nil {
+				return err
+			}
 		default:
-			return errorutil.PermissionDenied("only admins or infra editors can specify token user")
+			return errorutil.PermissionDenied("only admins or infra editors (bootstrappers) can specify token user")
 		}
 	}
 
@@ -110,7 +113,7 @@ func (t *tokenRepository) validateCreate(ctx context.Context, req *adminv2.Token
 	)
 
 	if isAdmin {
-		userToken.AdminRole = &adminRole
+		userToken.AdminRole = &membershipAdminRole
 	}
 
 	// we first validate token permission elevation for the token used in the token create request,
@@ -508,4 +511,28 @@ func (t *tokenRepository) isAdminRoleRequestAllowed(projectsAndTenants *api.Proj
 	}
 
 	return nil
+}
+
+func (t *tokenRepository) validateMachineBootstrapperTenant(ctx context.Context, tenantID string) error {
+	tenant, err := t.s.Tenant().Get(ctx, tenantID)
+	if err != nil {
+		return err
+	}
+
+	if _, ok := tenant.GetMeta().GetLabels().GetLabels()[tag.MachineBootstrapperTenant]; !ok {
+		return errorutil.InvalidArgument("tenant %q must have a label %q to be used for machine token creation", tenantID, tag.MachineBootstrapperTenant)
+	}
+
+	return nil
+}
+
+func wildcardMachineRole(membershipRole apiv2.AdminRole, tokenAdminRole *apiv2.AdminRole) apiv2.MachineRole {
+	if membershipRole != apiv2.AdminRole_ADMIN_ROLE_EDITOR {
+		return apiv2.MachineRole_MACHINE_ROLE_VIEWER
+	}
+	if tokenAdminRole != nil && *tokenAdminRole != apiv2.AdminRole_ADMIN_ROLE_EDITOR {
+		return apiv2.MachineRole_MACHINE_ROLE_VIEWER
+	}
+
+	return apiv2.MachineRole_MACHINE_ROLE_EDITOR
 }

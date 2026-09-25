@@ -756,7 +756,7 @@ func Test_Create(t *testing.T) {
 			},
 			wantToken:      nil,
 			wantErr:        true,
-			wantErrMessage: "permission_denied: only admins or infra editors can specify token user",
+			wantErrMessage: "permission_denied: only admins or infra editors (bootstrappers) can specify token user",
 		},
 	}
 

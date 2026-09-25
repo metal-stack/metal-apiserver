@@ -1197,6 +1197,56 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			},
 		},
 		{
+			name: "admin token with restricted machine roles cannot request wildcard",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				MachineRoles: map[string]apiv2.MachineRole{machineID1: apiv2.MachineRole_MACHINE_ROLE_EDITOR},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "restricted admin token escalates",
+				MachineRoles: map[string]apiv2.MachineRole{
+					"*": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+				TenantRoles: map[string]apiv2.TenantRole{},
+			},
+			state: state{
+				providerTenant: "metal-stack",
+				tenantRoles: map[string]apiv2.TenantRole{
+					"metal-stack": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			wantError: errorutil.PermissionDenied(`requested machine roles are not allowed: [*]`),
+		},
+		{
+			name: "admin viewer token cannot request machine editor",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				MachineRoles: map[string]apiv2.MachineRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Description: "admin viewer escalates machine role",
+				MachineRoles: map[string]apiv2.MachineRole{
+					"*": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+				TenantRoles: map[string]apiv2.TenantRole{},
+			},
+			state: state{
+				providerTenant: "metal-stack",
+				tenantRoles: map[string]apiv2.TenantRole{
+					"metal-stack": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			wantError: errorutil.PermissionDenied(`the following method "/metalstack.infra.v2.BootService/InstallationSucceeded" is not allowed on any of the requested subjects: [*]`),
+		},
+		{
 			name: "session and request share same machine role",
 			sessionToken: &apiv2.Token{
 				User:        "pixie-core",
@@ -2850,7 +2900,41 @@ func Test_validateCreate_edgeCases(t *testing.T) {
 			},
 			User: &anotherUser,
 		})
-		require.EqualError(t, err, errorutil.PermissionDenied("only admins or infra editors can specify token user").Error())
+		require.EqualError(t, err, errorutil.PermissionDenied("only admins or infra editors (bootstrappers) can specify token user").Error())
+	})
+
+	t.Run("infra editor cannot specify token user without machine roles", func(t *testing.T) {
+		log := slog.Default()
+		projectsAndTenantsGetter := func(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
+			return &api.ProjectsAndTenants{}, nil
+		}
+
+		tokenRepo := tokenRepository{
+			s: &Store{
+				log: log,
+			},
+			scope: &UserScope{
+				user: "pixie-core",
+			},
+			patg:       projectsAndTenantsGetter,
+			authorizer: request.NewAuthorizer(log, projectsAndTenantsGetter),
+		}
+
+		sessionToken := &apiv2.Token{
+			User:      "pixie-core",
+			TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+			InfraRole: apiv2.InfraRole_INFRA_ROLE_EDITOR.Enum(),
+		}
+		ctx := token.ContextWithToken(t.Context(), sessionToken)
+
+		anotherUser := "metal-hammer"
+		err := tokenRepo.validateCreate(ctx, &adminv2.TokenServiceCreateRequest{
+			TokenCreateRequest: &apiv2.TokenServiceCreateRequest{
+				Description: "for another user",
+			},
+			User: &anotherUser,
+		})
+		require.EqualError(t, err, errorutil.PermissionDenied("only admins or infra editors (bootstrappers) can specify token user").Error())
 	})
 
 	t.Run("admin can specify token user for another user", func(t *testing.T) {
