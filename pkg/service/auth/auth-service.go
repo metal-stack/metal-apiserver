@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -25,6 +26,8 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
+
+	"golang.org/x/oauth2"
 
 	"github.com/metal-stack/metal-lib/auditing"
 )
@@ -258,6 +261,50 @@ func (a *auth) Callback(res http.ResponseWriter, req *http.Request) {
 	user, err := gothic.CompleteUserAuth(res, req)
 	if err != nil {
 		a.log.Error("failed to complete user auth", "err", err)
+
+		var (
+			q                  = req.URL.Query()
+			oidcErr            = q.Get("error")
+			oidcErrDescription = q.Get("error_description")
+		)
+
+		// TODO: temporary diagnostics to determine why the code exchange hits NoCode
+		var retrieveErr *oauth2.RetrieveError
+		if errors.As(err, &retrieveErr) {
+			statusText := ""
+			if retrieveErr.Response != nil {
+				statusText = http.StatusText(retrieveErr.Response.StatusCode)
+			}
+			a.log.Error("complete user auth: oauth2 retrieve error",
+				"callback_has_code", q.Get("code") != "",
+				"callback_error", q.Get("error"),
+				"callback_error_description", q.Get("error_description"),
+				"retrieve_error_code", retrieveErr.ErrorCode,
+				"retrieve_error_description", retrieveErr.ErrorDescription,
+				"retrieve_error_uri", retrieveErr.ErrorURI,
+				"retrieve_error_body", string(retrieveErr.Body),
+				"retrieve_error_status", statusText,
+			)
+		} else {
+			a.log.Error("complete user auth: non-retrieve error",
+				"callback_has_code", q.Get("code") != "",
+				"callback_error", q.Get("error"),
+				"callback_error_description", q.Get("error_description"),
+			)
+		}
+
+		if oidcErr == "" {
+			oidcErr = "login_failed"
+		}
+
+		if retrieveErr != nil && retrieveErr.ErrorDescription != "" {
+			oidcErrDescription = retrieveErr.ErrorDescription
+		} else if oidcErrDescription == "" {
+			oidcErrDescription = err.Error()
+		}
+
+		a.redirectWithError(res, req, state, oidcErr, oidcErrDescription)
+
 		return
 	}
 	u, err := provider.User(ctx, user)
@@ -364,6 +411,42 @@ func (a *auth) isRedirectURLAllowed(url *url.URL) error {
 		return nil
 	}
 	return fmt.Errorf("given url %q is not in the configured list of allowed redirect urls %v", url.String(), a.redirectUrls)
+}
+
+func (a *auth) redirectWithError(res http.ResponseWriter, req *http.Request, st *state, oidcErr, oidcErrDescription string) {
+	var (
+		rawQuery = url.Values{
+			"error":             []string{oidcErr},
+			"error_description": []string{oidcErrDescription},
+		}.Encode()
+
+		redirectURL = &url.URL{
+			Scheme:   a.frontEndUrl.Scheme,
+			Host:     a.frontEndUrl.Host,
+			Path:     "login/auth",
+			RawQuery: rawQuery,
+		}
+	)
+
+	if st.RedirectURL != "" {
+		u, err := url.Parse(st.RedirectURL)
+		if err != nil {
+			a.log.Error("unable to parse redirect url from state", "error", err)
+			http.Error(res, "unable to parse redirect url from state", http.StatusInternalServerError)
+			return
+		}
+		u.RawQuery = rawQuery
+		redirectURL = u
+	}
+
+	if err := a.isRedirectURLAllowed(redirectURL); err != nil {
+		a.log.Error("redirect url is not allowed", "error", err)
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	a.log.Debug("redirecting back with error", "url", redirectURL.String())
+	http.Redirect(res, req, redirectURL.String(), http.StatusSeeOther)
 }
 
 func (a *auth) ensureTenant(ctx context.Context, u *providerUser) error {
