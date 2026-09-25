@@ -1074,7 +1074,7 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 					}
 
 					return nil
-				case <-ctx.Done():
+				case <-bmcCtx.Done():
 					return nil
 				}
 			})

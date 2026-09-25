@@ -386,7 +386,7 @@ func Test_machineServiceServer_BMCCommand(t *testing.T) {
 						}
 
 						return nil
-					case <-ctx.Done():
+					case <-bmcCtx.Done():
 						return nil
 					}
 				})
