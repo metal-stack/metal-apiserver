@@ -75,9 +75,9 @@ func (t *tokenRepository) validateCreate(ctx context.Context, req *adminv2.Token
 	if req.User != nil {
 		switch {
 		case isAdmin:
-			// ok
+			// this is for example required for deployment tokens that create infra service tenants
 		case sessionToken.InfraRole != nil && *sessionToken.InfraRole == apiv2.InfraRole_INFRA_ROLE_EDITOR:
-			// ok
+			// this is for example required for pixiecore which creates tokens for the metal-hammer tenant
 		default:
 			return errorutil.PermissionDenied("only admins or infra editors can specify token user")
 		}

@@ -688,7 +688,7 @@ func Test_Create(t *testing.T) {
 			},
 		},
 		{
-			name: "deployment token  can create token for pixiecore with machine roles",
+			name: "deployment token can create token for pixiecore with machine roles",
 			sessionToken: &apiv2.Token{
 				User:      test.DefaultProviderTenant,
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
