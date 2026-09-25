@@ -495,7 +495,10 @@ func DeleteNetworks(t testing.TB, testStore *testStore) {
 		require.NoError(t, err)
 
 		for _, prefix := range resp.Prefixes {
-			_, err := testStore.ipam.DeletePrefix(t.Context(), &ipamv1.DeletePrefixRequest{Cidr: prefix.Cidr})
+			_, err := testStore.ipam.DeletePrefix(t.Context(), &ipamv1.DeletePrefixRequest{
+				Cidr:      prefix.Cidr,
+				Namespace: new(ns),
+			})
 			require.NoError(t, err)
 		}
 	}
