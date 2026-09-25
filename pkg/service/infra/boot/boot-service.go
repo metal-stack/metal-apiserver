@@ -3,12 +3,17 @@ package boot
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/metal-stack/api/go/errorutil"
+	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/api/go/metalstack/infra/v2/infrav2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-apiserver/pkg/token"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 type Config struct {
@@ -85,6 +90,33 @@ func (b *bootServiceServer) Wait(ctx context.Context, req *infrav2.BootServiceWa
 	return b.repo.UnscopedMachine().AdditionalMethods().Wait(ctx, req, srv)
 }
 
-func (b *bootServiceServer) MachineToken(context.Context, *infrav2.BootServiceMachineTokenRequest) (*infrav2.BootServiceMachineTokenResponse, error) {
-	return nil, errorutil.Unimplemented("")
+func (b *bootServiceServer) MachineToken(ctx context.Context, req *infrav2.BootServiceMachineTokenRequest) (*infrav2.BootServiceMachineTokenResponse, error) {
+	token, ok := token.TokenFromContext(ctx)
+	if !ok || token == nil {
+		return nil, errorutil.Unauthenticated("no token found in request")
+	}
+
+	if req.Expires == nil {
+		req.Expires = durationpb.New(3 * 24 * time.Hour)
+	}
+
+	res, err := b.repo.Token(token.User).Create(ctx, &adminv2.TokenServiceCreateRequest{
+		User: &req.User,
+		TokenCreateRequest: &apiv2.TokenServiceCreateRequest{
+			Description: "machine token for " + req.Uuid,
+			Expires:     req.Expires,
+			MachineRoles: map[string]apiv2.MachineRole{
+				req.Uuid: apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+			},
+			Labels: req.Labels,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &infrav2.BootServiceMachineTokenResponse{
+		Token:  res.Token,
+		Secret: res.Secret,
+	}, nil
 }

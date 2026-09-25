@@ -688,6 +688,55 @@ func Test_Create(t *testing.T) {
 			},
 		},
 		{
+			name: "deployment token can create token for pixiecore with machine roles",
+			sessionToken: &apiv2.Token{
+				User:      test.DefaultProviderTenant,
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				AdminRole: apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			},
+			req: &adminv2.TokenServiceCreateRequest{
+				TokenCreateRequest: &apiv2.TokenServiceCreateRequest{
+					Description: "pixie-core",
+					MachineRoles: map[string]apiv2.MachineRole{
+						"*": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+					},
+					Permissions: []*apiv2.PermissionsByVisibility{
+						{
+							Visibility: &apiv2.PermissionsByVisibility_Infra{
+								Infra: &apiv2.InfraPermissions{
+									Methods: []string{
+										"/metalstack.infra.v2.BootService/MachineToken",
+									},
+								},
+							},
+						},
+					},
+				},
+				User: new("pixie-core"),
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+				tenantRoles: map[string]apiv2.TenantRole{
+					test.DefaultProviderTenant: apiv2.TenantRole_TENANT_ROLE_OWNER,
+					"pixie-core":               apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			wantToken: &apiv2.Token{
+				User:        "pixie-core",
+				Description: "pixie-core",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
+				MachineRoles: map[string]apiv2.MachineRole{
+					"*": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Methods: []string{"/metalstack.infra.v2.BootService/MachineToken"},
+					},
+				},
+				Meta: &apiv2.Meta{},
+			},
+		},
+		{
 			name: "bar can not create token for user foo",
 			sessionToken: &apiv2.Token{
 				User:         "bar",
@@ -707,7 +756,7 @@ func Test_Create(t *testing.T) {
 			},
 			wantToken:      nil,
 			wantErr:        true,
-			wantErrMessage: "permission_denied: only admins can specify token user",
+			wantErrMessage: "permission_denied: no permissions to create tokens for other users",
 		},
 	}
 
