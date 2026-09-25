@@ -2964,7 +2964,7 @@ func Test_validateCreate_edgeCases(t *testing.T) {
 			},
 			User: &anotherUser,
 		})
-		require.EqualError(t, err, errorutil.PermissionDenied("only admins or infra editors (bootstrappers) can specify token user").Error())
+		require.EqualError(t, err, errorutil.PermissionDenied("no permissions to create tokens for other users").Error())
 	})
 
 	t.Run("infra editor cannot specify token user without machine roles", func(t *testing.T) {
@@ -2998,7 +2998,7 @@ func Test_validateCreate_edgeCases(t *testing.T) {
 			},
 			User: &anotherUser,
 		})
-		require.EqualError(t, err, errorutil.PermissionDenied("only admins or infra editors (bootstrappers) can specify token user").Error())
+		require.EqualError(t, err, errorutil.PermissionDenied("no permissions to create tokens for other users").Error())
 	})
 
 	t.Run("admin can specify token user for another user", func(t *testing.T) {

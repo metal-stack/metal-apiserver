@@ -1214,7 +1214,7 @@ func Test_bootServiceServer_MachineToken(t *testing.T) {
 				},
 			},
 			wantErr:        true,
-			wantErrMessage: "permission_denied: only admins or infra editors (bootstrappers) can specify token user",
+			wantErrMessage: "permission_denied: no permissions to create tokens for other users",
 		},
 		{
 			name: "pixie-core misses permissions for machine roles",

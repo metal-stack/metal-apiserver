@@ -83,7 +83,7 @@ func (t *tokenRepository) validateCreate(ctx context.Context, req *adminv2.Token
 				return err
 			}
 		default:
-			return errorutil.PermissionDenied("only admins or infra editors (bootstrappers) can specify token user")
+			return errorutil.PermissionDenied("no permissions to create tokens for other users")
 		}
 	}
 
