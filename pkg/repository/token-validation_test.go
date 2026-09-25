@@ -1247,6 +1247,70 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			wantError: errorutil.PermissionDenied(`the following method "/metalstack.infra.v2.BootService/InstallationSucceeded" is not allowed on any of the requested subjects: [*]`),
 		},
 		{
+			name: "admin viewer token can request machine viewer",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				MachineRoles: map[string]apiv2.MachineRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				MachineRoles: map[string]apiv2.MachineRole{
+					"*": apiv2.MachineRole_MACHINE_ROLE_VIEWER,
+				},
+				TenantRoles: map[string]apiv2.TenantRole{},
+			},
+			state: state{
+				providerTenant: "metal-stack",
+				tenantRoles: map[string]apiv2.TenantRole{
+					"metal-stack": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			wantToken: &apiv2.Token{
+				User:      "phippy",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				MachineRoles: map[string]apiv2.MachineRole{
+					"*": apiv2.MachineRole_MACHINE_ROLE_VIEWER,
+				},
+				TenantRoles: map[string]apiv2.TenantRole{},
+				Permissions: []*apiv2.MethodPermission{},
+			},
+		},
+		{
+			name: "admin editor token can request machine viewer",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				MachineRoles: map[string]apiv2.MachineRole{},
+				TenantRoles:  map[string]apiv2.TenantRole{},
+				AdminRole:    apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				MachineRoles: map[string]apiv2.MachineRole{
+					"*": apiv2.MachineRole_MACHINE_ROLE_VIEWER,
+				},
+				TenantRoles: map[string]apiv2.TenantRole{},
+			},
+			state: state{
+				providerTenant: "metal-stack",
+				tenantRoles: map[string]apiv2.TenantRole{
+					"metal-stack": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			wantToken: &apiv2.Token{
+				User:      "phippy",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				MachineRoles: map[string]apiv2.MachineRole{
+					"*": apiv2.MachineRole_MACHINE_ROLE_VIEWER,
+				},
+				TenantRoles: map[string]apiv2.TenantRole{},
+				Permissions: []*apiv2.MethodPermission{},
+			},
+		},
+		{
 			name: "session and request share same machine role",
 			sessionToken: &apiv2.Token{
 				User:        "pixie-core",
