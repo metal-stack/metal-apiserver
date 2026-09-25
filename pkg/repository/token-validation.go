@@ -33,7 +33,7 @@ func (t *tokenRepository) validateCreate(ctx context.Context, req *adminv2.Token
 		return errorutil.Unauthenticated("no token found in request")
 	}
 
-	// create a copy for modifications
+	// create a copy as this function applies modifications to the token that should not be passed through the call stack
 	sessionToken := proto.Clone(tok).(*apiv2.Token)
 
 	switch sessionToken.TokenType {
@@ -64,7 +64,8 @@ func (t *tokenRepository) validateCreate(ctx context.Context, req *adminv2.Token
 		membershipAdminRole = *role
 		isAdmin = true
 
-		if len(sessionToken.MachineRoles) == 0 {
+		if len(rq.MachineRoles) > 0 && len(sessionToken.MachineRoles) == 0 {
+			// we allow admins to create wildcard machine roles when they request them
 			sessionToken.MachineRoles = map[string]apiv2.MachineRole{
 				"*": wildcardMachineRole(membershipAdminRole, sessionToken.AdminRole),
 			}
