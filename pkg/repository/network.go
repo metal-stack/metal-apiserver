@@ -138,7 +138,6 @@ func (r *networkRepository) create(ctx context.Context, req *adminv2.NetworkServ
 			return nil, err
 		}
 
-		var vrf uint
 		if parent.Vrf > 0 {
 			vrf = parent.Vrf
 		}
@@ -636,7 +635,7 @@ func (r *networkRepository) createChildPrefix(ctx context.Context, namespace *st
 	if namespace != nil {
 		_, err := r.s.ipam.CreateNamespace(ctx, &ipamv1.CreateNamespaceRequest{Namespace: *namespace})
 		if err != nil {
-			return nil, errorutil.Internal("unable to create namespace:%v", err)
+			return nil, errorutil.Internal("unable to create namespace:%w", err)
 		}
 		for _, parentPrefix := range parentPrefixes.OfFamily(af) {
 			_, err := r.s.ipam.GetPrefix(ctx, &ipamv1.GetPrefixRequest{
@@ -647,7 +646,7 @@ func (r *networkRepository) createChildPrefix(ctx context.Context, namespace *st
 				continue
 			}
 			if !errorutil.IsNotFound(err) {
-				return nil, errorutil.Internal("unable to get prefix %s from super network in ipam:%v", parentPrefix.String(), err)
+				return nil, errorutil.Internal("unable to get prefix %s from super network in ipam:%w", parentPrefix.String(), err)
 			}
 
 			_, err = r.s.ipam.CreatePrefix(ctx, &ipamv1.CreatePrefixRequest{
@@ -655,7 +654,7 @@ func (r *networkRepository) createChildPrefix(ctx context.Context, namespace *st
 				Namespace: namespace,
 			})
 			if err != nil {
-				return nil, errorutil.Internal("unable to create namespaced super network:%v", err)
+				return nil, errorutil.Internal("unable to create namespaced super network:%w", err)
 			}
 		}
 	}

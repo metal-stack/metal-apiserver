@@ -39,13 +39,13 @@ func NewAuthorizer(log *slog.Logger, patg api.ProjectsAndTenantsGetter) Authoriz
 }
 
 func (a *authorizer) Authorize(ctx context.Context, token *apiv2.Token, req connect.AnyRequest) error {
+	if req == nil {
+		return errorutil.Internal("request is nil")
+	}
 	var (
 		method  = req.Spec().Procedure
 		subject string
 	)
-	if req == nil {
-		return errorutil.Internal("request is nil")
-	}
 
 	if permissions.IsProjectScope(req) {
 		project, ok := permissions.GetProjectFromRequest(req)
