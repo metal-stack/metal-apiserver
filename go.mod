@@ -27,7 +27,7 @@ require (
 	github.com/looplab/fsm v1.0.4
 	github.com/markbates/goth v1.82.0
 	github.com/metal-stack/api v0.7.0
-	github.com/metal-stack/go-ipam v1.15.2
+	github.com/metal-stack/go-ipam v1.15.3-0.20260924140232-f4c979311f4b
 	github.com/metal-stack/metal-lib v0.26.3
 	github.com/metal-stack/tenant-api v0.2.1
 	github.com/metal-stack/tenant-apiserver v0.2.1
