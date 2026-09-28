@@ -321,6 +321,21 @@ func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *ap
 		return errorutil.FailedPrecondition("machine %s is not connected to exactly two switches, found connections to switches %v", m.Uuid, neighs)
 	}
 
+	s1, err := r.get(ctx, neighs[0])
+	if err != nil {
+		return fmt.Errorf("failed to add machine connections to switch %s: %w", neighs[0], err)
+	}
+	s2, err := r.get(ctx, neighs[1])
+	if err != nil {
+		return fmt.Errorf("failed to add machine connections to switch %s: %w", neighs[1], err)
+	}
+
+	if s1.Rack != s2.Rack {
+		return errorutil.FailedPrecondition("connected switches of a machine must reside in the same rack, rack of switch %s: %s, rack of switch %s: %s, machine: %s", s1.Name, s1.Rack, s2.Name, s2.Rack, m.Uuid)
+	}
+	m.Rack = s1.Rack
+	m.Room = s1.Room
+
 	sws, err := r.s.ds.Switch().List(ctx, queries.SwitchFilter(&apiv2.SwitchQuery{
 		ConnectedMachineId: &m.Uuid,
 	}))
@@ -340,21 +355,6 @@ func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *ap
 		slices.Sort(orphanedSwitchNames)
 		return errorutil.FailedPrecondition("machine wants to register on rack %q, but machine connections are present on the following switches %v; if you want to move the machine from one rack to another delete it first via admin api", m.Rack, orphanedSwitchNames)
 	}
-
-	s1, err := r.get(ctx, neighs[0])
-	if err != nil {
-		return fmt.Errorf("failed to add machine connections to switch %s: %w", neighs[0], err)
-	}
-	s2, err := r.get(ctx, neighs[1])
-	if err != nil {
-		return fmt.Errorf("failed to add machine connections to switch %s: %w", neighs[1], err)
-	}
-
-	if s1.Rack != s2.Rack {
-		return errorutil.FailedPrecondition("connected switches of a machine must reside in the same rack, rack of switch %s: %s, rack of switch %s: %s, machine: %s", s1.Name, s1.Rack, s2.Name, s2.Rack, m.Uuid)
-	}
-	m.Rack = s1.Rack
-	m.Room = s1.Room
 
 	var newMachineNics metal.Nics
 	for _, n := range m.Hardware.Nics {
