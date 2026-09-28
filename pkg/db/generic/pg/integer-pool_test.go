@@ -40,6 +40,14 @@ func TestIntegerPoolService(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, uint32(64513), asn2)
 
+		// Re-seeding an already seeded pool must fail
+		err = service.Seed(ctx, pg.PoolTypeASN, uint32(64512), uint32(64514))
+		require.ErrorIs(t, err, pg.ErrPoolAlreadySeeded)
+		require.EqualError(t, err, "pool is already seeded: pool 'ASN'")
+
+		// Seeding with an inverted range must fail
+		err = service.Seed(ctx, "INVALID_RANGE", uint32(10), uint32(1))
+		require.EqualError(t, err, "invalid range for pool 'INVALID_RANGE': start 10 must not exceed end 1")
 	})
 
 	t.Run("Release and Reuse", func(t *testing.T) {
@@ -70,28 +78,30 @@ func TestIntegerPoolService(t *testing.T) {
 	})
 
 	t.Run("AcquireUniqueInteger", func(t *testing.T) {
+		const uniquePool pg.PoolType = "UNIQUE_TEST"
+
 		// Seed a fresh pool for isolated testing
-		err := service.Seed(ctx, pg.PoolTypeVRF, uint32(200), uint32(202))
+		err := service.Seed(ctx, uniquePool, uint32(200), uint32(202))
 		require.NoError(t, err)
 
 		// Acquire a specific value
-		id, err := service.AcquireUniqueInteger(ctx, pg.PoolTypeVRF, uint32(201))
+		id, err := service.AcquireUniqueInteger(ctx, uniquePool, uint32(201))
 		require.NoError(t, err)
 		require.Equal(t, uint32(201), id)
 
 		// Acquiring the same value again should fail
-		_, err = service.AcquireUniqueInteger(ctx, pg.PoolTypeVRF, uint32(201))
+		_, err = service.AcquireUniqueInteger(ctx, uniquePool, uint32(201))
 		require.ErrorIs(t, err, pg.ErrIntegerAlreadyAcquired)
-		require.EqualError(t, err, "integer is already acquired: 201 in pool 'VRF'")
+		require.EqualError(t, err, "integer is already acquired: 201 in pool 'UNIQUE_TEST'")
 
 		// A value outside the pool's configured range should fail
-		_, err = service.AcquireUniqueInteger(ctx, pg.PoolTypeVRF, uint32(99999))
-		require.EqualError(t, err, "value 99999 is outside of the allowed range 0 - 202 for pool 'VRF'")
+		_, err = service.AcquireUniqueInteger(ctx, uniquePool, uint32(99999))
+		require.EqualError(t, err, "value 99999 is outside of the allowed range 0 - 202 for pool 'UNIQUE_TEST'")
 
 		// Releasing the specific integer makes it acquirable again
-		err = service.Release(ctx, pg.PoolTypeVRF, uint32(201))
+		err = service.Release(ctx, uniquePool, uint32(201))
 		require.NoError(t, err)
-		id, err = service.AcquireUniqueInteger(ctx, pg.PoolTypeVRF, uint32(201))
+		id, err = service.AcquireUniqueInteger(ctx, uniquePool, uint32(201))
 		require.NoError(t, err)
 		require.Equal(t, uint32(201), id)
 

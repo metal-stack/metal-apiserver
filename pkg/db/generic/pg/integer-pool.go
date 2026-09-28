@@ -39,6 +39,8 @@ var (
 	ErrIntegerNotFound = errors.New("was either not found or already released")
 	// ErrIntegerAlreadyAcquired is returned by AcquireUniqueInteger when the requested integer is already in use.
 	ErrIntegerAlreadyAcquired = errors.New("integer is already acquired")
+	// ErrPoolAlreadySeeded is returned by Seed when the pool has already been seeded.
+	ErrPoolAlreadySeeded = errors.New("pool is already seeded")
 )
 
 type IntegerPool struct {
@@ -61,17 +63,36 @@ func NewIntegerPool(log *slog.Logger, db *sql.DB) (*IntegerPool, error) {
 // Seed configures the range of a pool. It does not precompute the individual
 // integers of the range; instead it records the range bounds and the pool
 // grows on demand when integers are acquired.
+//
+// A pool can only be seeded once: Seed returns ErrPoolAlreadySeeded if the
+// pool was seeded before. This keeps the growth counter monotonic, so an
+// already-allocated integer can never be handed out again.
 func (p *IntegerPool) Seed(ctx context.Context, poolType PoolType, startID, endID uint32) error {
+	if startID > endID {
+		return fmt.Errorf("invalid range for pool '%s': start %d must not exceed end %d", poolType, startID, endID)
+	}
+
 	const query = `
 		INSERT INTO integer_pool_state (pool_type, next, max)
 		VALUES ($1, $2, $3)
-		ON CONFLICT (pool_type) DO UPDATE
-		SET next = LEAST(integer_pool_state.next, EXCLUDED.next),
-		    max = GREATEST(integer_pool_state.max, EXCLUDED.max);
+		ON CONFLICT (pool_type) DO NOTHING;
 	`
 	p.log.Debug("seed", "pool", poolType, "start", startID, "end", endID)
-	_, err := p.db.ExecContext(ctx, query, string(poolType), startID, endID)
-	return err
+
+	res, err := p.db.ExecContext(ctx, query, string(poolType), startID, endID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("%w: pool '%s'", ErrPoolAlreadySeeded, poolType)
+	}
+
+	return nil
 }
 
 // Acquire gets the next available integer for a given pool atomically.

@@ -221,20 +221,20 @@ no WAL spike. See #19–#24 for issues introduced by the new design.
 `Release` now wraps the `ErrIntegerNotFound` sentinel, so callers can
 `errors.Is`.
 
-### 19. `Seed` rewinds the growth counter — HIGH (correctness) — NEW
+### 19. `Seed` rewinds the growth counter — HIGH (correctness) — FIXED
 
-`Seed` upserts with `next = LEAST(integer_pool_state.next, EXCLUDED.next)`.
-Re-seeding a pool with a lower start value (or re-running seed logic after the
-pool has grown) **rewinds** `next`, so `Acquire` will hand out integers that may
-already be allocated: the grow path's `record` insert is `ON CONFLICT DO
-NOTHING`, which silently no-ops on an existing allocated row while the caller
-still receives the id. Two owners, one integer.
+`Seed` used `next = LEAST(integer_pool_state.next, EXCLUDED.next)`, so re-seeding
+a pool with a lower start (or re-running seed logic after growth) rewound `next`
+and `Acquire` could hand out already-allocated integers.
 
-Related: `Seed` does not validate `startID <= endID`.
+`Seed` is now insert-once: it uses `ON CONFLICT (pool_type) DO NOTHING` and
+returns `ErrPoolAlreadySeeded` if the pool already exists, so the growth counter
+can never move backwards. Covered by the "re-seeding an already seeded pool must
+fail" assertion in `TestIntegerPoolService`.
 
-**Fix:** keep `next` monotonic — only extend `max` (`GREATEST`), never decrease
-`next` (store the original start in a separate column if downward extension is
-ever needed).
+`Seed` now also rejects an inverted range (`startID > endID`). Note: this makes
+`Seed` non-idempotent by design — startup code that seeds unconditionally must
+tolerate `ErrPoolAlreadySeeded` (or check first).
 
 ### 20. `Acquire` grow + record is not transactional — MEDIUM (robustness) — NEW
 
@@ -393,8 +393,8 @@ and leave the version of unchanged entities alone (see #4a, `Upsert`).
 
 1. **Fix the shared mutex**: ownership token on unlock + server-side expiry
    (#8, #9) — HIGH, correctness
-2. **Stop `Seed` from rewinding the growth counter** (#19) — HIGH, correctness
-   (duplicate integer allocation)
+2. ~~Stop `Seed` from rewinding the growth counter~~ — done: `Seed` is
+   insert-once and returns `ErrPoolAlreadySeeded` (#19)
 3. ~~Give `Create` a conflict result~~ — done: `ErrAlreadyExists` + `Upsert`
    with data-change-only version bump; migration converges on re-run (#4a)
 4. **Make unique-acquire range checks real**: store and check the lower bound
