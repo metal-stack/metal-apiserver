@@ -18,7 +18,7 @@ const (
 	IntegerPoolschema = `
 	CREATE TABLE IF NOT EXISTS integer_pool (
 		pool_type VARCHAR(64) NOT NULL,
-		id BIGINT NOT NULL,
+		id INTEGER NOT NULL,
 		is_allocated BOOLEAN NOT NULL DEFAULT FALSE,
 		allocated_at TIMESTAMPTZ,
 		PRIMARY KEY (pool_type, id)
@@ -26,8 +26,8 @@ const (
 	CREATE INDEX IF NOT EXISTS idx_integer_pool_type_free ON integer_pool (pool_type, id) WHERE is_allocated = FALSE;
 	CREATE TABLE IF NOT EXISTS integer_pool_state (
 		pool_type VARCHAR(64) PRIMARY KEY,
-		next BIGINT NOT NULL,
-		max BIGINT NOT NULL
+		next INTEGER NOT NULL,
+		max INTEGER NOT NULL
 	);
 `
 )
