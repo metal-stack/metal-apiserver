@@ -75,6 +75,11 @@ func TestIntegerPoolService(t *testing.T) {
 		_, err := service.Acquire(ctx, pg.PoolTypeVRF)
 		require.ErrorIs(t, err, pg.ErrPoolExhausted)
 		require.EqualError(t, err, "pool exhausted: no integers available: pool 'VRF'")
+
+		// Acquiring from a pool that was never seeded reports ErrPoolNotSeeded
+		_, err = service.Acquire(ctx, "UNSEEDED_ACQUIRE")
+		require.ErrorIs(t, err, pg.ErrPoolNotSeeded)
+		require.EqualError(t, err, "pool not seeded: pool 'UNSEEDED_ACQUIRE'")
 	})
 
 	t.Run("AcquireUniqueInteger", func(t *testing.T) {
@@ -105,10 +110,10 @@ func TestIntegerPoolService(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, uint32(201), id)
 
-		// A value for a pool that was never seeded should fail
+		// A value for a pool that was never seeded should report ErrPoolNotSeeded
 		_, err = service.AcquireUniqueInteger(ctx, "UNSEEDED_POOL", uint32(1))
-		require.ErrorIs(t, err, pg.ErrPoolExhausted)
-		require.EqualError(t, err, "pool exhausted: no integers available: pool 'UNSEEDED_POOL'")
+		require.ErrorIs(t, err, pg.ErrPoolNotSeeded)
+		require.EqualError(t, err, "pool not seeded: pool 'UNSEEDED_POOL'")
 	})
 
 	t.Run("Concurrent Acquisition Safety", func(t *testing.T) {

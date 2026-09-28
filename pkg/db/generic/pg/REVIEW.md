@@ -252,25 +252,33 @@ so the original lower bound is no longer queryable. A pool seeded with
 `start > 0` accepts unique acquires below its configured range.
 **Fix:** store `min` in `integer_pool_state` and check `min <= value <= max`.
 
-### 22. `AcquireUniqueInteger` reports unseeded pools as exhausted — LOW (behavior) — NEW
+### 22. `AcquireUniqueInteger` reports unseeded pools as exhausted — LOW (behavior) — FIXED
 
-A missing `integer_pool_state` row (pool never seeded) returns
-`ErrPoolExhausted`, which is the wrong diagnosis. Add an
-`ErrPoolNotSeeded`-style sentinel.
+A new `ErrPoolNotSeeded` sentinel distinguishes "no configured range" from
+"range fully allocated". `AcquireUniqueInteger` returns it when the pool state
+row is missing; `Acquire`'s grow path does the same via a failure-path
+`SELECT` on `integer_pool_state` (`poolUnavailableError`), so an unseeded pool
+is no longer misdiagnosed as exhausted in either method. Covered by the
+updated "UNSEEDED_POOL" assertion and the new unseeded-`Acquire` case in
+`TestIntegerPoolService`.
 
-### 23. `AcquireUniqueInteger` takes two round trips where one atomic statement suffices — LOW (performance) — NEW
+### 23. `AcquireUniqueInteger` takes two round trips where one atomic statement suffices — LOW (performance) — FIXED
 
-`claim` (UPDATE) then `insert` (INSERT ... ON CONFLICT DO NOTHING) can be a
-single statement:
+The `claim` (UPDATE) + `insert` (INSERT ... ON CONFLICT DO NOTHING) pair was
+replaced by a single atomic upsert:
 
 ```sql
-INSERT INTO integer_pool (pool_type, id, is_allocated) VALUES ($1, $2, TRUE)
-ON CONFLICT (pool_type, id) DO UPDATE SET is_allocated = TRUE
+INSERT INTO integer_pool (pool_type, id, is_allocated, allocated_at)
+VALUES ($1, $2, TRUE, NOW())
+ON CONFLICT (pool_type, id) DO UPDATE
+SET is_allocated = TRUE, allocated_at = NOW()
 WHERE integer_pool.is_allocated = FALSE
 RETURNING id;
 ```
 
-One round trip, same atomicity (0 rows ⇒ already allocated).
+One round trip, same atomicity (no returned row ⇒ `ErrIntegerAlreadyAcquired`).
+Side benefit: the lazy-insert path now also stamps `allocated_at`, which the old
+plain insert left NULL on allocated rows.
 
 ### 24. `BIGINT` column vs `uint32` Go API — LOW (consistency) — FIXED
 

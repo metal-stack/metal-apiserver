@@ -41,6 +41,9 @@ var (
 	ErrIntegerAlreadyAcquired = errors.New("integer is already acquired")
 	// ErrPoolAlreadySeeded is returned by Seed when the pool has already been seeded.
 	ErrPoolAlreadySeeded = errors.New("pool is already seeded")
+	// ErrPoolNotSeeded is returned by Acquire and AcquireUniqueInteger when the
+	// pool has no configured range yet.
+	ErrPoolNotSeeded = errors.New("pool not seeded")
 )
 
 type IntegerPool struct {
@@ -139,7 +142,7 @@ func (p *IntegerPool) Acquire(ctx context.Context, poolType PoolType) (uint32, e
 	err = p.db.QueryRowContext(ctx, grow, string(poolType)).Scan(&acquiredID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return 0, fmt.Errorf("%w: pool '%s'", ErrPoolExhausted, poolType)
+			return 0, p.poolUnavailableError(ctx, poolType)
 		}
 		return 0, err
 	}
@@ -172,7 +175,7 @@ func (p *IntegerPool) AcquireUniqueInteger(ctx context.Context, poolType PoolTyp
 	var maxID uint32
 	err := p.db.QueryRowContext(ctx, maxQuery, string(poolType)).Scan(&maxID)
 	if errors.Is(err, sql.ErrNoRows) {
-		return 0, fmt.Errorf("%w: pool '%s'", ErrPoolExhausted, poolType)
+		return 0, fmt.Errorf("%w: pool '%s'", ErrPoolNotSeeded, poolType)
 	}
 	if err != nil {
 		return 0, err
@@ -183,46 +186,46 @@ func (p *IntegerPool) AcquireUniqueInteger(ctx context.Context, poolType PoolTyp
 
 	p.log.Debug("acquire-unique", "pool", poolType, "id", value)
 
-	// Fast path: the row already exists and is free. Rows are created lazily by
-	// Acquire, so a specific value may not have a row yet.
+	// Single atomic statement: insert the row if it does not exist yet (rows are
+	// created lazily by Acquire, so a specific value may not have a row yet), or
+	// flip an existing free row to allocated. Zero returned rows mean the value
+	// is already allocated. Under concurrency only one caller can win.
 	const claim = `
-		UPDATE integer_pool
+		INSERT INTO integer_pool (pool_type, id, is_allocated, allocated_at)
+		VALUES ($1, $2, TRUE, NOW())
+		ON CONFLICT (pool_type, id) DO UPDATE
 		SET is_allocated = TRUE, allocated_at = NOW()
-		WHERE pool_type = $1 AND id = $2 AND is_allocated = FALSE;
+		WHERE integer_pool.is_allocated = FALSE
+		RETURNING id;
 	`
-	res, err := p.db.ExecContext(ctx, claim, string(poolType), value)
+	var claimed uint32
+	err = p.db.QueryRowContext(ctx, claim, string(poolType), value).Scan(&claimed)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, fmt.Errorf("%w: %d in pool '%s'", ErrIntegerAlreadyAcquired, value, poolType)
+	}
 	if err != nil {
 		return 0, err
-	}
-	rowsAffected, err := res.RowsAffected()
-	if err != nil {
-		return 0, err
-	}
-	if rowsAffected == 1 {
-		return value, nil
 	}
 
-	// No free row existed: either the value was never materialized in the pool
-	// (claim it by inserting) or it is already allocated. The ON CONFLICT makes
-	// this atomic under concurrency: only one caller can insert.
-	const insert = `
-		INSERT INTO integer_pool (pool_type, id, is_allocated)
-		VALUES ($1, $2, TRUE)
-		ON CONFLICT (pool_type, id) DO NOTHING;
-	`
-	res, err = p.db.ExecContext(ctx, insert, string(poolType), value)
-	if err != nil {
-		return 0, err
+	return claimed, nil
+}
+
+// poolUnavailableError reports why no integer could be acquired: either the
+// pool has no configured range at all (ErrPoolNotSeeded) or its range is fully
+// allocated (ErrPoolExhausted). It is only called on the failure path of Acquire.
+func (p *IntegerPool) poolUnavailableError(ctx context.Context, poolType PoolType) error {
+	const query = `SELECT 1 FROM integer_pool_state WHERE pool_type = $1`
+
+	var exists int
+	err := p.db.QueryRowContext(ctx, query, string(poolType)).Scan(&exists)
+	if errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("%w: pool '%s'", ErrPoolNotSeeded, poolType)
 	}
-	rowsAffected, err = res.RowsAffected()
 	if err != nil {
-		return 0, err
-	}
-	if rowsAffected == 1 {
-		return value, nil
+		return err
 	}
 
-	return 0, fmt.Errorf("%w: %d in pool '%s'", ErrIntegerAlreadyAcquired, value, poolType)
+	return fmt.Errorf("%w: pool '%s'", ErrPoolExhausted, poolType)
 }
 
 // Release makes an integer in a specific pool available again.
