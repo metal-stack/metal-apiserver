@@ -15,44 +15,44 @@ import (
 type (
 	Switch struct {
 		Base
-		Rack               string            `rethinkdb:"rackid"`
-		Room               string            `rethinkdb:"roomid"`
-		Partition          string            `rethinkdb:"partitionid"`
-		ReplaceMode        SwitchReplaceMode `rethinkdb:"mode"`
-		ManagementIP       string            `rethinkdb:"management_ip"`
-		ManagementUser     string            `rethinkdb:"management_user"`
-		ConsoleCommand     string            `rethinkdb:"console_command"`
-		OS                 *SwitchOS         `rethinkdb:"os"`
-		Nics               Nics              `rethinkdb:"network_interfaces"`
-		MachineConnections ConnectionMap     `rethinkdb:"machineconnections"`
+		Rack               string            `rethinkdb:"rackid" json:"rack"`
+		Room               string            `rethinkdb:"roomid" json:"room"`
+		Partition          string            `rethinkdb:"partitionid" json:"partition"`
+		ReplaceMode        SwitchReplaceMode `rethinkdb:"mode" json:"replace_mode"`
+		ManagementIP       string            `rethinkdb:"management_ip" json:"management_ip"`
+		ManagementUser     string            `rethinkdb:"management_user" json:"management_user"`
+		ConsoleCommand     string            `rethinkdb:"console_command" json:"console_command"`
+		OS                 *SwitchOS         `rethinkdb:"os" json:"os"`
+		Nics               Nics              `rethinkdb:"network_interfaces" json:"nics"`
+		MachineConnections ConnectionMap     `rethinkdb:"machineconnections" json:"machine_connections"`
 	}
 
 	SwitchStatus struct {
 		Base
-		LastSync      *SwitchSync `rethinkdb:"last_sync"`
-		LastSyncError *SwitchSync `rethinkdb:"last_sync_error"`
+		LastSync      *SwitchSync `rethinkdb:"last_sync" json:"last_sync"`
+		LastSyncError *SwitchSync `rethinkdb:"last_sync_error" json:"last_sync_error"`
 	}
 
 	SwitchBGPPortState struct {
 		// FIXME add rethinkdb annotations, check against existing database entries
-		Neighbor              string
-		PeerGroup             string
-		VrfName               string
-		BgpState              BGPState
-		BgpTimerUpEstablished uint64
-		SentPrefixCounter     uint64
-		AcceptedPrefixCounter uint64
+		Neighbor              string   `json:"neighbor"`
+		PeerGroup             string   `json:"peer_group"`
+		VrfName               string   `json:"vrf_name"`
+		BgpState              BGPState `json:"bgp_state"`
+		BgpTimerUpEstablished uint64   `json:"bgp_timer_up_established"`
+		SentPrefixCounter     uint64   `json:"sent_prefix_counter"`
+		AcceptedPrefixCounter uint64   `json:"accepted_prefix_counter"`
 	}
 
 	SwitchSync struct {
-		Time     time.Time     `rethinkdb:"time"`
-		Duration time.Duration `rethinkdb:"duration"`
-		Error    *string       `rethinkdb:"error"`
+		Time     time.Time     `rethinkdb:"time" json:"time"`
+		Duration time.Duration `rethinkdb:"duration" json:"duration"`
+		Error    *string       `rethinkdb:"error" json:"error"`
 	}
 
 	Connection struct {
-		Nic       Nic    `rethinkdb:"nic"`
-		MachineID string `rethinkdb:"machineid"`
+		Nic       Nic    `rethinkdb:"nic" json:"nic"`
+		MachineID string `rethinkdb:"machineid" json:"machine_id"`
 	}
 	Connections []Connection
 
@@ -60,9 +60,9 @@ type (
 	ConnectionMap map[string]Connections
 
 	SwitchOS struct {
-		Vendor           SwitchOSVendor `rethinkdb:"vendor"`
-		Version          string         `rethinkdb:"version"`
-		MetalCoreVersion string         `rethinkdb:"metal_core_version"`
+		Vendor           SwitchOSVendor `rethinkdb:"vendor" json:"vendor"`
+		Version          string         `rethinkdb:"version" json:"version"`
+		MetalCoreVersion string         `rethinkdb:"metal_core_version" json:"metal_core_version"`
 	}
 
 	SwitchReplaceMode string

@@ -52,7 +52,7 @@ func TestMigrateMachine(t *testing.T) {
 
 	t.Run("migrated machines can be queried with the new query format", func(t *testing.T) {
 		results, err := repo.Query(ctx, []pg.QueryFilter{
-			{Path: "PartitionID", Op: "=", Value: "partition-1"},
+			{Path: "partition_id", Op: "=", Value: "partition-1"},
 		}, nil)
 		require.NoError(t, err)
 		require.Len(t, results, 2)

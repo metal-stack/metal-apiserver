@@ -69,7 +69,7 @@ var machinePaths = struct {
 	StateValue:      pg.SelectorPath[*metal.Machine]("State", "Value"),
 	Tags:            pg.SelectorPath[*metal.Machine]("Tags"),
 	HardwareMemory:  pg.SelectorPath[*metal.Machine]("Hardware", "Memory"),
-	HardwareCPUsSum: "Hardware.MetalCPUs.Cores",
+	HardwareCPUsSum: "hardware.metal_cpus.cores",
 	IPMIAddress:     pg.SelectorPath[*metal.Machine]("IPMI", "Address"),
 	IPMIMacAddress:  pg.SelectorPath[*metal.Machine]("IPMI", "MacAddress"),
 	IPMIUser:        pg.SelectorPath[*metal.Machine]("IPMI", "User"),
@@ -102,11 +102,11 @@ var machinePaths = struct {
 // value contains the fragment.
 //
 // Examples:
-//   - containsJSON("Tags", []string{"color=red"}) -> {"Tags":["color=red"]}
-//   - containsJSON("Allocation.Labels", map[string]string{"color":"red"}) ->
-//     {"Allocation":{"Labels":{"color":"red"}}}
-//   - containsJSON("Hardware.Nics", []any{element}) ->
-//     {"Hardware":{"Nics":[element]}}
+//   - containsJSON("tags", []string{"color=red"}) -> {"tags":["color=red"]}
+//   - containsJSON("allocation.labels", map[string]string{"color":"red"}) ->
+//     {"allocation":{"labels":{"color":"red"}}}
+//   - containsJSON("hardware.nics", []any{element}) ->
+//     {"hardware":{"nics":[element]}}
 func containsJSON(path string, value any) map[string]any {
 	parts := strings.Split(path, ".")
 	var cur = value
@@ -230,22 +230,22 @@ func MachineFilter(rq *apiv2.MachineQuery) []pg.QueryFilter {
 	if rq.Network != nil {
 		nw := rq.Network
 		for _, id := range nw.Networks {
-			filters = append(filters, pg.QueryFilter{Path: machinePaths.MachineNetworks, Op: "@>", Value: netwWrap(map[string]any{"NetworkID": id})})
+			filters = append(filters, pg.QueryFilter{Path: machinePaths.MachineNetworks, Op: "@>", Value: netwWrap(map[string]any{"network_id": id})})
 		}
 		for _, prefix := range nw.Prefixes {
-			filters = append(filters, pg.QueryFilter{Path: machinePaths.MachineNetworks, Op: "@>", Value: netwWrap(map[string]any{"Prefixes": []string{prefix}})})
+			filters = append(filters, pg.QueryFilter{Path: machinePaths.MachineNetworks, Op: "@>", Value: netwWrap(map[string]any{"prefixes": []string{prefix}})})
 		}
 		for _, ip := range nw.Ips {
-			filters = append(filters, pg.QueryFilter{Path: machinePaths.MachineNetworks, Op: "@>", Value: netwWrap(map[string]any{"IPs": []string{ip}})})
+			filters = append(filters, pg.QueryFilter{Path: machinePaths.MachineNetworks, Op: "@>", Value: netwWrap(map[string]any{"ips": []string{ip}})})
 		}
 		for _, destPrefix := range nw.DestinationPrefixes {
-			filters = append(filters, pg.QueryFilter{Path: machinePaths.MachineNetworks, Op: "@>", Value: netwWrap(map[string]any{"DestinationPrefixes": []string{destPrefix}})})
+			filters = append(filters, pg.QueryFilter{Path: machinePaths.MachineNetworks, Op: "@>", Value: netwWrap(map[string]any{"destination_prefixes": []string{destPrefix}})})
 		}
 		for _, vrf := range nw.Vrfs {
-			filters = append(filters, pg.QueryFilter{Path: machinePaths.MachineNetworks, Op: "@>", Value: netwWrap(map[string]any{"Vrf": vrf})})
+			filters = append(filters, pg.QueryFilter{Path: machinePaths.MachineNetworks, Op: "@>", Value: netwWrap(map[string]any{"vrf": vrf})})
 		}
 		for _, asn := range nw.Asns {
-			filters = append(filters, pg.QueryFilter{Path: machinePaths.MachineNetworks, Op: "@>", Value: netwWrap(map[string]any{"ASN": asn})})
+			filters = append(filters, pg.QueryFilter{Path: machinePaths.MachineNetworks, Op: "@>", Value: netwWrap(map[string]any{"asn": asn})})
 		}
 	}
 
@@ -262,26 +262,26 @@ func MachineFilter(rq *apiv2.MachineQuery) []pg.QueryFilter {
 	if rq.Nic != nil {
 		nic := rq.Nic
 		for _, mac := range nic.Macs {
-			filters = append(filters, pg.QueryFilter{Path: machinePaths.Nics, Op: "@>", Value: nicsWrap(map[string]any{"MacAddress": mac})})
+			filters = append(filters, pg.QueryFilter{Path: machinePaths.Nics, Op: "@>", Value: nicsWrap(map[string]any{"mac_address": mac})})
 		}
 		for _, name := range nic.Names {
-			filters = append(filters, pg.QueryFilter{Path: machinePaths.Nics, Op: "@>", Value: nicsWrap(map[string]any{"Name": name})})
+			filters = append(filters, pg.QueryFilter{Path: machinePaths.Nics, Op: "@>", Value: nicsWrap(map[string]any{"name": name})})
 		}
 		for _, mac := range nic.NeighborMacs {
-			filters = append(filters, pg.QueryFilter{Path: machinePaths.Nics, Op: "@>", Value: nicsWrap(map[string]any{"Neighbors": []any{map[string]any{"MacAddress": mac}}})})
+			filters = append(filters, pg.QueryFilter{Path: machinePaths.Nics, Op: "@>", Value: nicsWrap(map[string]any{"neighbors": []any{map[string]any{"mac_address": mac}}})})
 		}
 		for _, name := range nic.NeighborNames {
-			filters = append(filters, pg.QueryFilter{Path: machinePaths.Nics, Op: "@>", Value: nicsWrap(map[string]any{"Neighbors": []any{map[string]any{"Name": name}}})})
+			filters = append(filters, pg.QueryFilter{Path: machinePaths.Nics, Op: "@>", Value: nicsWrap(map[string]any{"neighbors": []any{map[string]any{"name": name}}})})
 		}
 	}
 
 	if rq.Disk != nil {
 		disk := rq.Disk
 		for _, name := range disk.Names {
-			filters = append(filters, pg.QueryFilter{Path: machinePaths.Disks, Op: "@>", Value: disksWrap(map[string]any{"Name": name})})
+			filters = append(filters, pg.QueryFilter{Path: machinePaths.Disks, Op: "@>", Value: disksWrap(map[string]any{"name": name})})
 		}
 		for _, size := range disk.Sizes {
-			filters = append(filters, pg.QueryFilter{Path: machinePaths.Disks, Op: "@>", Value: disksWrap(map[string]any{"Size": size})})
+			filters = append(filters, pg.QueryFilter{Path: machinePaths.Disks, Op: "@>", Value: disksWrap(map[string]any{"size": size})})
 		}
 	}
 

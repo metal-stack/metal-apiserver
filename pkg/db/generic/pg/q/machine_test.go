@@ -535,16 +535,16 @@ func TestMachineFilter(t *testing.T) {
 	})
 
 	require.Equal(t, []string{
-		"Name",
-		"PartitionID",
-		"SizeID",
-		"RackID",
-		"RoomID",
-		"Waiting",
-		"PreAllocated",
-		"State.Value",
-		"Allocation",
-		"Allocation.Project",
+		"name",
+		"partition_id",
+		"size_id",
+		"rack_id",
+		"room_id",
+		"waiting",
+		"pre_allocated",
+		"state.value",
+		"allocation",
+		"allocation.project",
 	}, pathsOf(filters))
 
 	byPath := map[string]any{}
@@ -552,15 +552,15 @@ func TestMachineFilter(t *testing.T) {
 		byPath[f.Path] = f.Value
 	}
 
-	require.Equal(t, "partition-1", byPath["PartitionID"])
-	require.Equal(t, "s1.xlarge", byPath["SizeID"])
-	require.Equal(t, "rack-1", byPath["RackID"])
-	require.Equal(t, "room-1", byPath["RoomID"])
-	require.Equal(t, "machine-1", byPath["Name"])
-	require.Equal(t, "project-1", byPath["Allocation.Project"])
-	require.Equal(t, true, byPath["Waiting"])
-	require.Equal(t, false, byPath["PreAllocated"])
-	require.Equal(t, "TAINTED", byPath["State.Value"])
+	require.Equal(t, "partition-1", byPath["partition_id"])
+	require.Equal(t, "s1.xlarge", byPath["size_id"])
+	require.Equal(t, "rack-1", byPath["rack_id"])
+	require.Equal(t, "room-1", byPath["room_id"])
+	require.Equal(t, "machine-1", byPath["name"])
+	require.Equal(t, "project-1", byPath["allocation.project"])
+	require.Equal(t, true, byPath["waiting"])
+	require.Equal(t, false, byPath["pre_allocated"])
+	require.Equal(t, "TAINTED", byPath["state.value"])
 }
 
 func TestMachineFilterNilQuery(t *testing.T) {
@@ -577,9 +577,9 @@ func TestMachineFilterAllocationType(t *testing.T) {
 	})
 
 	require.Len(t, filters, 2)
-	require.Equal(t, "Allocation", filters[0].Path)
+	require.Equal(t, "allocation", filters[0].Path)
 	require.Equal(t, "IS NOT NULL", filters[0].Op)
-	require.Equal(t, "Allocation.Role", filters[1].Path)
+	require.Equal(t, "allocation.role", filters[1].Path)
 	require.Equal(t, "firewall", filters[1].Value)
 }
 

@@ -19,7 +19,7 @@ func StartPostgres(t testing.TB, log *slog.Logger) (*sql.DB, func()) {
 	ctx := t.Context()
 
 	pgContainer, err := postgres.Run(ctx,
-		"postgres:19beta3-alpine",
+		"postgres:19beta4-alpine",
 		postgres.WithDatabase("testdb"),
 		postgres.WithUsername("testuser"),
 		postgres.WithPassword("testpass"),

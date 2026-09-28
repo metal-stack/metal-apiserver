@@ -272,7 +272,7 @@ RETURNING id;
 
 One round trip, same atomicity (0 rows ⇒ already allocated).
 
-### 24. `BIGINT` column vs `uint32` Go API — LOW (consistency) — NEW
+### 24. `BIGINT` column vs `uint32` Go API — LOW (consistency) — FIXED
 
 The schema uses `BIGINT` but every Go signature takes/returns `uint32`. Scanning
 a `BIGINT` into `uint32` errors out-of-range, so the wider column buys nothing
@@ -350,12 +350,20 @@ output keys. More generally, all current coverage is testcontainers-based
 integration (slow, requires Docker in CI); the filter→SQL building logic has no
 pure unit tests.
 
-### 15. JSON-tag hazard for metal entities — MEDIUM (design) — NEW
+### 15. JSON-tag hazard for metal entities — MEDIUM (design) — FIXED
 
-Metal entities have no `json` tags yet (README TODO); paths today equal Go field
-names. Adding tags later renames the stored JSON keys, making already-migrated
-rows unqueryable unless the data is rewritten. Decide the key-naming strategy
-**before** the migration goes live.
+Decided before the migration went live: every exported struct field in
+`pkg/db/metal` now carries an explicit **snake_case** `json` tag (e.g.
+`PartitionID` → `partition_id`, `MachineNetworks` → `machine_networks`,
+`MetalCPUs` → `metal_cpus`). RethinkDB is unaffected (its driver uses only the
+`rethinkdb` tag), and the Postgres storage keys are now stable and independent
+of later Go renames. `SelectorPath` picks the names up automatically, so
+`q.MachineFilter`/`q.NetworkFilter` produce snake_case paths; the two paths that
+could not be derived by reflection (`hardware.metal_cpus.cores`,
+`prefixes.ip`) and the `@>`-containment element keys were updated by hand.
+
+Going forward: any new field must ship with a `json` tag, otherwise the stored
+key silently follows the Go field name.
 
 ### 16. `containsJSON` (q) duplicates `jsonPathValue` (pg) — LOW (maintainability) — NEW
 

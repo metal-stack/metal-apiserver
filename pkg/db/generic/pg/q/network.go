@@ -40,7 +40,7 @@ var networkPaths = struct {
 	NetworkType:         pg.SelectorPath[*metal.Network]("NetworkType"),
 	NATType:             pg.SelectorPath[*metal.Network]("NATType"),
 	Prefixes:            pg.SelectorPath[*metal.Network]("Prefixes"),
-	PrefixIP:            "Prefixes.IP",
+	PrefixIP:            "prefixes.ip",
 	DestinationPrefixes: pg.SelectorPath[*metal.Network]("DestinationPrefixes"),
 }
 
@@ -118,8 +118,8 @@ func NetworkFilter(rq *apiv2.NetworkQuery) []pg.QueryFilter {
 		ip := pfx.Addr().String()
 		length := strconv.Itoa(pfx.Bits())
 
-		filters = append(filters, pg.QueryFilter{Path: networkPaths.Prefixes, Op: "@>", Value: prefixWrap(map[string]any{"IP": ip})})
-		filters = append(filters, pg.QueryFilter{Path: networkPaths.Prefixes, Op: "@>", Value: prefixWrap(map[string]any{"Length": length})})
+		filters = append(filters, pg.QueryFilter{Path: networkPaths.Prefixes, Op: "@>", Value: prefixWrap(map[string]any{"ip": ip})})
+		filters = append(filters, pg.QueryFilter{Path: networkPaths.Prefixes, Op: "@>", Value: prefixWrap(map[string]any{"length": length})})
 	}
 
 	for _, destPrefix := range rq.DestinationPrefixes {
@@ -127,8 +127,8 @@ func NetworkFilter(rq *apiv2.NetworkQuery) []pg.QueryFilter {
 		ip := pfx.Addr().String()
 		length := strconv.Itoa(pfx.Bits())
 
-		filters = append(filters, pg.QueryFilter{Path: networkPaths.DestinationPrefixes, Op: "@>", Value: destPrefixWrap(map[string]any{"IP": ip})})
-		filters = append(filters, pg.QueryFilter{Path: networkPaths.DestinationPrefixes, Op: "@>", Value: destPrefixWrap(map[string]any{"Length": length})})
+		filters = append(filters, pg.QueryFilter{Path: networkPaths.DestinationPrefixes, Op: "@>", Value: destPrefixWrap(map[string]any{"ip": ip})})
+		filters = append(filters, pg.QueryFilter{Path: networkPaths.DestinationPrefixes, Op: "@>", Value: destPrefixWrap(map[string]any{"length": length})})
 	}
 
 	if rq.AddressFamily != nil {

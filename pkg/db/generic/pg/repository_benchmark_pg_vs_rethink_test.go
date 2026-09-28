@@ -91,7 +91,7 @@ func BenchmarkPgVsRethink(b *testing.B) {
 	b.Run("Filtered_Query_Postgres", func(b *testing.B) {
 		for b.Loop() {
 			_, err := pgRepo.Query(ctx, []pg.QueryFilter{
-				{Path: "Type", Op: "=", Value: string(metal.Ephemeral)},
+				{Path: "type", Op: "=", Value: string(metal.Ephemeral)},
 			}, nil)
 			require.NoError(b, err)
 		}
