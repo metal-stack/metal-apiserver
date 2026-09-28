@@ -79,16 +79,20 @@ conflict. If a `Create` and an `Update` race on the same id, `Create` will
 bump the version and clobber `data`. Fine if `Create` is create-only, but worth
 documenting the invariant.
 
-### 4a. `Create` is a silent cross-type upsert — HIGH (design/correctness) — FIXED
+### 4a. `Create` silently skips on conflict — HIGH (design/correctness) — FIXED
 
-with no RowsAffected check afterward. So Create on an existing id
-silently succeeds and does nothing — no error, no update, no version bump.
-The comment above it ("Upsert... or increment") doesn't even match the SQL below it.
-This matters beyond style: migrations/machine.go relies on Create for its claimed idempotent-convergence behavior,
-but if a machine's data changed in RethinkDB between migration runs,
-re-running the migration will not pick up the change — it'll just no-op.
-That's a real gap in the migration story that the review doc's "FIXED" label papers over.
-I'd treat that whole doc as a snapshot of intent rather than a guarantee of current state.
+`Create` now checks `RowsAffected` and returns an `ErrAlreadyExists` sentinel
+when the id already exists (same **or different** entity type); the existing row
+is left untouched. Callers can distinguish "created" from "already present".
+
+For the migration story, a new `Upsert` method was added: it inserts or replaces
+the data for the same entity type, bumps `version` only when the data actually
+changed (`IS DISTINCT FROM`), and returns `ErrAlreadyExists` if the id is owned
+by a different entity type. `migrations/machine.go` now uses `Upsert`, so
+re-running the migration converges machines whose data changed in RethinkDB in
+between, while unchanged machines keep their version. Covered by
+`TestGenericRepositoryUpsert` and the "converges changed data on re-run"
+migration subtest.
 
 ### 4b. `Get`/`Delete` error semantics differ — LOW (consistency) — FIXED
 
@@ -162,6 +166,13 @@ All entity types share one table, but the repository exposes no
 operations (allocate machine + touch network/IP) cannot be made atomic. Needed
 before wiring into `repository.Store`.
 
+### 4l. `DEFAULT uuidv7()` version claim and dead default — LOW (maintainability) — NEW
+
+The schema comment says "requires Postgres 18+", but verify which release
+actually ships `uuidv7()` (tests run against `postgres:19beta3-alpine`, a beta
+image). Also note the default is effectively dead code: every write path
+supplies an explicit id, so the `DEFAULT` only matters for out-of-band inserts.
+
 ### 7. `rows.Close` error ignored — LOW — FIXED
 
 `repository.go` closes `rows` explicitly after draining and returns the close
@@ -181,6 +192,11 @@ free row, serializing on it. Released low ids also become hot again. This is the
 standard "lowest-free" pool pattern; acceptable, but a known bottleneck under
 concurrent acquires. Randomized acquisition would spread the contention.
 
+Note: with the range-counter redesign, growth contention has moved to the single
+`integer_pool_state` row — every grower serializes on that one `UPDATE`. It is
+much cheaper than scanning the pool table, but it is still a hot spot at very
+high acquire concurrency.
+
 ### 5b. `Acquire` exhaustion is not a sentinel error — LOW (design) — FIXED
 
 `Acquire` now returns an `ErrPoolExhausted` sentinel (wrapped with the pool type,
@@ -194,17 +210,74 @@ formatted string.
 4,200,000,000–4,294,967,294, and `PoolTypeASN` exists precisely for this.
 **Fix:** use `BIGINT`.
 
-### 5d. `Seed` runs the whole range in one statement/transaction — MEDIUM (performance) — NEW
+### 5d. `Seed` runs the whole range in one statement/transaction — MEDIUM (performance) — FIXED
 
-`generate_series` inserts the entire range in a single statement — a huge WAL
-spike for wide ranges (the public ASN space alone is ~45M rows). Batch the
-inserts.
+Resolved by the range-counter redesign: `Seed` now only records the bounds in
+`integer_pool_state` and the pool grows lazily on demand — no `generate_series`,
+no WAL spike. See #19–#24 for issues introduced by the new design.
 
 ### 5e. `Release` error is not a sentinel — LOW (consistency) — FIXED
 
-`Release` returns an ad-hoc `fmt.Errorf` ("not found or already released"),
-inconsistent with the `ErrPoolExhausted` sentinel; callers cannot
-`errors.Is`. Provide distinct sentinels.
+`Release` now wraps the `ErrIntegerNotFound` sentinel, so callers can
+`errors.Is`.
+
+### 19. `Seed` rewinds the growth counter — HIGH (correctness) — NEW
+
+`Seed` upserts with `next = LEAST(integer_pool_state.next, EXCLUDED.next)`.
+Re-seeding a pool with a lower start value (or re-running seed logic after the
+pool has grown) **rewinds** `next`, so `Acquire` will hand out integers that may
+already be allocated: the grow path's `record` insert is `ON CONFLICT DO
+NOTHING`, which silently no-ops on an existing allocated row while the caller
+still receives the id. Two owners, one integer.
+
+Related: `Seed` does not validate `startID <= endID`.
+
+**Fix:** keep `next` monotonic — only extend `max` (`GREATEST`), never decrease
+`next` (store the original start in a separate column if downward extension is
+ever needed).
+
+### 20. `Acquire` grow + record is not transactional — MEDIUM (robustness) — NEW
+
+The counter increment (`UPDATE ... RETURNING next - 1`) and the `record` insert
+are separate statements with no surrounding transaction. If the process dies or
+the `record` fails in between, the integer is lost forever: the counter has
+moved past it but no pool row exists, so it can never be acquired or released.
+**Fix:** wrap both statements in one transaction.
+
+### 21. `AcquireUniqueInteger` ignores the lower bound — MEDIUM (correctness) — NEW
+
+Only `value <= max` is checked; the error message even claims the range is
+"0 - max". The pool's start is stored in `next`, which moves as the pool grows,
+so the original lower bound is no longer queryable. A pool seeded with
+`start > 0` accepts unique acquires below its configured range.
+**Fix:** store `min` in `integer_pool_state` and check `min <= value <= max`.
+
+### 22. `AcquireUniqueInteger` reports unseeded pools as exhausted — LOW (behavior) — NEW
+
+A missing `integer_pool_state` row (pool never seeded) returns
+`ErrPoolExhausted`, which is the wrong diagnosis. Add an
+`ErrPoolNotSeeded`-style sentinel.
+
+### 23. `AcquireUniqueInteger` takes two round trips where one atomic statement suffices — LOW (performance) — NEW
+
+`claim` (UPDATE) then `insert` (INSERT ... ON CONFLICT DO NOTHING) can be a
+single statement:
+
+```sql
+INSERT INTO integer_pool (pool_type, id, is_allocated) VALUES ($1, $2, TRUE)
+ON CONFLICT (pool_type, id) DO UPDATE SET is_allocated = TRUE
+WHERE integer_pool.is_allocated = FALSE
+RETURNING id;
+```
+
+One round trip, same atomicity (0 rows ⇒ already allocated).
+
+### 24. `BIGINT` column vs `uint32` Go API — LOW (consistency) — NEW
+
+The schema uses `BIGINT` but every Go signature takes/returns `uint32`. Scanning
+a `BIGINT` into `uint32` errors out-of-range, so the wider column buys nothing
+today and invites confusion. Pick one: `int64`/`BIGINT` end to end, or
+`INTEGER`/`uint32` (which still covers the full ASN space).
 
 ---
 
@@ -295,6 +368,14 @@ Same wrapping algorithm implemented in two packages. Export one and reuse.
 **unfiltered** result (returns everything) instead of an error. Surface or log
 the error.
 
+### 26. `netip.MustParsePrefix` panics on malformed query input — MEDIUM (robustness) — NEW
+
+`q/network.go` (`NetworkFilter`) calls `netip.MustParsePrefix` on
+`rq.Prefixes` / `rq.DestinationPrefixes` — values that originate from API
+queries. A malformed prefix panics in the request path instead of returning an
+error. Use `netip.ParsePrefix` and fail (or skip with a logged warning) on
+error.
+
 ---
 
 ## `migrations/machine.go`
@@ -303,8 +384,8 @@ the error.
 
 `rdb.Machine().List(ctx)` loads every machine into memory, and each
 `storeMachine` is its own query (no batching/`COPY`). Fine for a one-shot
-migration of a modest fleet; batch if it grows. Partial failures converge on
-re-run (documented), but see #4a for the version-drift side effect.
+migration of a modest fleet; batch if it grows. Re-runs converge changed data
+and leave the version of unchanged entities alone (see #4a, `Upsert`).
 
 ---
 
@@ -312,14 +393,20 @@ re-run (documented), but see #4a for the version-drift side effect.
 
 1. **Fix the shared mutex**: ownership token on unlock + server-side expiry
    (#8, #9) — HIGH, correctness
-2. **Move DDL out of constructors**, especially `CREATE EXTENSION pg_trgm`
+2. **Stop `Seed` from rewinding the growth counter** (#19) — HIGH, correctness
+   (duplicate integer allocation)
+3. ~~Give `Create` a conflict result~~ — done: `ErrAlreadyExists` + `Upsert`
+   with data-change-only version bump; migration converges on re-run (#4a)
+4. **Make unique-acquire range checks real**: store and check the lower bound
+   (#21), wrap grow+record in a transaction (#20) — MEDIUM, correctness
+5. **Move DDL out of constructors**, especially `CREATE EXTENSION pg_trgm`
    (#4g) — MEDIUM, operational
-3. **Robustness**: `SUM_EQ` cast guard, `LIKE` escaping, stop silently dropping
-   filters on conversion errors (#4h, #4i, #17) — MEDIUM
-4. **Explicit, stable `entityType` key** (#4f) — MEDIUM
-5. **Carry-over open items**: integer-pool hot-row contention (#5), document the
-   `Create` vs `Update` invariant (#4), remove/replace `PathOf` (#6)
-6. **Before wiring into production**: transaction API (#4k), decide JSON key
+6. **Robustness batch**: `SUM_EQ` cast guard, `LIKE` escaping, no silent filter
+   drops, no `MustParsePrefix` panic (#4h, #4i, #17, #26) — MEDIUM
+7. **Explicit, stable `entityType` key** (#4f) — MEDIUM
+8. **Carry-over open items**: pool hot-row/counter-row contention (#5),
+   `PathOf` removal (#6), unbounded `Offset` (#4d)
+9. **Before wiring into production**: transaction API (#4k), decide JSON key
    naming (#15)
 
 ### Minor / cosmetic

@@ -22,8 +22,9 @@ import (
 )
 
 // MigrateMachine reads every metal.Machine from the RethinkDB datastore and
-// stores it in the Postgres datastore using the same machine UUID as the
-// Postgres row id.
+// upserts it into the Postgres datastore using the same machine UUID as the
+// Postgres row id. Re-running it converges machines whose data changed in
+// RethinkDB in between; unchanged machines keep their version.
 func MigrateMachine(ctx context.Context, log *slog.Logger, rdb generic.Datastore, pgdb *sql.DB) error {
 	repo, err := pg.NewGenericRepository[*metal.Machine](log, pgdb)
 	if err != nil {
@@ -51,8 +52,5 @@ func storeMachine(ctx context.Context, repo *pg.GenericRepository[*metal.Machine
 		return fmt.Errorf("machine id %q is not a valid uuid: %w", m.GetID(), err)
 	}
 
-	if err := repo.Create(ctx, id, m); err != nil {
-		return err
-	}
-	return nil
+	return repo.Upsert(ctx, id, m)
 }

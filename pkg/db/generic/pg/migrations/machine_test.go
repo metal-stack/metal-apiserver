@@ -65,6 +65,23 @@ func TestMigrateMachine(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, all, len(testMachines))
 	})
+
+	t.Run("migration converges changed data on re-run", func(t *testing.T) {
+		const machineID = "6b22ccd6-4c93-4a1f-8c8f-2f63b3c6e001"
+
+		m, err := rdb.Machine().Get(ctx, machineID)
+		require.NoError(t, err)
+		m.Name = "machine-1-renamed"
+		require.NoError(t, rdb.Machine().Update(ctx, m))
+
+		require.NoError(t, migrations.MigrateMachine(ctx, log, rdb, pgdb))
+
+		id, err := uuid.Parse(machineID)
+		require.NoError(t, err)
+		ent, err := repo.Get(ctx, id)
+		require.NoError(t, err)
+		require.Equal(t, "machine-1-renamed", ent.Data.Name)
+	})
 }
 
 type machineSeed struct {

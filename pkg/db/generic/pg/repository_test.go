@@ -56,6 +56,14 @@ func TestGenericRepository(t *testing.T) {
 	require.Equal(t, int32(1), ent.Version)
 	require.Equal(t, "Munich", ent.Data.Address.City)
 
+	// Creating an existing id fails with ErrAlreadyExists and leaves the row untouched
+	err = repo.Create(ctx, userID, UserProfile{Name: "Impostor"})
+	require.ErrorIs(t, err, pg.ErrAlreadyExists)
+	ent, err = repo.Get(ctx, userID)
+	require.NoError(t, err)
+	require.Equal(t, int32(1), ent.Version)
+	require.Equal(t, "Alice", ent.Data.Name)
+
 	// 2. Test Optimistic Locking (Success Path)
 	updatedProfile := ent.Data
 	updatedProfile.Address.City = "Berlin"
@@ -125,6 +133,52 @@ func TestGenericRepository(t *testing.T) {
 	// Deleting a non-existent entity returns ErrNotFound
 	err = repo.Delete(ctx, userID)
 	require.ErrorIs(t, err, pg.ErrNotFound)
+}
+
+func TestGenericRepositoryUpsert(t *testing.T) {
+	ctx := t.Context()
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	db, closer := test.StartPostgres(t, log)
+	defer closer()
+
+	repo, err := pg.NewGenericRepository[UserProfile](log, db)
+	require.NoError(t, err)
+	userID := uuid.NewV7()
+
+	profile := UserProfile{
+		Name:    "Alice",
+		Age:     30,
+		Address: Address{City: "Munich", Country: "Germany"},
+	}
+	require.NoError(t, repo.Upsert(ctx, userID, profile))
+
+	ent, err := repo.Get(ctx, userID)
+	require.NoError(t, err)
+	require.Equal(t, int32(1), ent.Version)
+
+	// Upsert with changed data replaces it and bumps the version
+	changed := profile
+	changed.Address.City = "Berlin"
+	require.NoError(t, repo.Upsert(ctx, userID, changed))
+	ent, err = repo.Get(ctx, userID)
+	require.NoError(t, err)
+	require.Equal(t, int32(2), ent.Version)
+	require.Equal(t, "Berlin", ent.Data.Address.City)
+
+	// Upsert with identical data is a no-op: the version stays put
+	require.NoError(t, repo.Upsert(ctx, userID, changed))
+	ent, err = repo.Get(ctx, userID)
+	require.NoError(t, err)
+	require.Equal(t, int32(2), ent.Version)
+
+	// An id owned by another entity type cannot be upserted
+	type OtherEntity struct {
+		X int `json:"x"`
+	}
+	otherRepo, err := pg.NewGenericRepository[OtherEntity](log, db)
+	require.NoError(t, err)
+	err = otherRepo.Upsert(ctx, userID, OtherEntity{X: 1})
+	require.ErrorIs(t, err, pg.ErrAlreadyExists)
 }
 
 func TestGenericRepositoryPagination(t *testing.T) {

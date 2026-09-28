@@ -18,6 +18,11 @@ var (
 
 	ErrNotFound = errors.New("entity not found")
 
+	// ErrAlreadyExists is returned by Create when an entity with the same id
+	// already exists, and by Upsert when the id is owned by a different
+	// entity type.
+	ErrAlreadyExists = errors.New("entity already exists")
+
 	// allowedQueryOps is the allowlist of operators accepted in QueryFilter.Op.
 	// The operator is interpolated into the SQL query string, so anything not in
 	// this list must be rejected to prevent SQL injection.
@@ -102,13 +107,14 @@ func NewGenericRepository[T any](log *slog.Logger, db *sql.DB) (*GenericReposito
 	}, nil
 }
 
+// Create inserts a new entity. It returns ErrAlreadyExists if an entity with
+// the same id already exists; the existing row is left untouched.
 func (r *GenericRepository[T]) Create(ctx context.Context, id uuid.UUID, data T) error {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return err
 	}
 
-	// Create it
 	const query = `
 		INSERT INTO generic_entities (id, entity_type, version, data)
 		VALUES ($1, $2, 1, $3)
@@ -117,8 +123,59 @@ func (r *GenericRepository[T]) Create(ctx context.Context, id uuid.UUID, data T)
 
 	r.log.Debug("create", "id", id, "data", jsonData)
 
-	_, err = r.db.ExecContext(ctx, query, id, r.entityType, jsonData)
-	return err
+	result, err := r.db.ExecContext(ctx, query, id, r.entityType, jsonData)
+	if err != nil {
+		return err
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return fmt.Errorf("%w: id %s", ErrAlreadyExists, id)
+	}
+
+	return nil
+}
+
+// Upsert inserts the entity or replaces the data of the existing entity with
+// the same id for this entity type. The version is bumped only when the data
+// actually changes, so upserting identical data is a no-op. It returns
+// ErrAlreadyExists if the id is owned by a different entity type.
+func (r *GenericRepository[T]) Upsert(ctx context.Context, id uuid.UUID, data T) error {
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+
+	const query = `
+		INSERT INTO generic_entities (id, entity_type, version, data)
+		VALUES ($1, $2, 1, $3)
+		ON CONFLICT (id) DO UPDATE
+		SET data = EXCLUDED.data,
+		    version = CASE WHEN generic_entities.data IS DISTINCT FROM EXCLUDED.data
+		                  THEN generic_entities.version + 1
+		                  ELSE generic_entities.version END
+		WHERE generic_entities.entity_type = EXCLUDED.entity_type
+	`
+
+	r.log.Debug("upsert", "id", id, "data", jsonData)
+
+	result, err := r.db.ExecContext(ctx, query, id, r.entityType, jsonData)
+	if err != nil {
+		return err
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return fmt.Errorf("%w: id %s is owned by another entity type", ErrAlreadyExists, id)
+	}
+
+	return nil
 }
 
 func (r *GenericRepository[T]) Update(ctx context.Context, id uuid.UUID, expectedVersion int32, data T) error {
