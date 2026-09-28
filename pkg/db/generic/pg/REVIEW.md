@@ -236,13 +236,14 @@ fail" assertion in `TestIntegerPoolService`.
 `Seed` non-idempotent by design — startup code that seeds unconditionally must
 tolerate `ErrPoolAlreadySeeded` (or check first).
 
-### 20. `Acquire` grow + record is not transactional — MEDIUM (robustness) — NEW
+### 20. `Acquire` grow + record is not transactional — MEDIUM (robustness) — FIXED
 
 The counter increment (`UPDATE ... RETURNING next - 1`) and the `record` insert
-are separate statements with no surrounding transaction. If the process dies or
-the `record` fails in between, the integer is lost forever: the counter has
-moved past it but no pool row exists, so it can never be acquired or released.
-**Fix:** wrap both statements in one transaction.
+now run inside a single transaction (`BeginTx` … `Commit`, deferred rollback).
+A failure or crash in between rolls back the counter advance, so an integer can
+no longer be skipped without a pool row existing. The free-row fast path
+(`FOR UPDATE SKIP LOCKED`) stays outside the transaction to avoid holding locks
+longer than necessary.
 
 ### 21. `AcquireUniqueInteger` ignores the lower bound — MEDIUM (correctness) — NEW
 

@@ -132,14 +132,22 @@ func (p *IntegerPool) Acquire(ctx context.Context, poolType PoolType) (uint32, e
 
 	// No released integer available, grow the pool from its range counter.
 	// The UPDATE gates on next <= max and is atomic, so concurrent acquires
-	// receive distinct, monotonically increasing values.
+	// receive distinct, monotonically increasing values. Growing the counter
+	// and recording the row run in one transaction so a failure in between
+	// cannot advance the counter without leaving a pool row behind.
+	tx, err := p.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = tx.Rollback() }() // no-op after commit
+
 	const grow = `
 		UPDATE integer_pool_state
 		SET next = next + 1
 		WHERE pool_type = $1 AND next <= max
 		RETURNING next - 1;
 	`
-	err = p.db.QueryRowContext(ctx, grow, string(poolType)).Scan(&acquiredID)
+	err = tx.QueryRowContext(ctx, grow, string(poolType)).Scan(&acquiredID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return 0, p.poolUnavailableError(ctx, poolType)
@@ -153,7 +161,11 @@ func (p *IntegerPool) Acquire(ctx context.Context, poolType PoolType) (uint32, e
 		VALUES ($1, $2, TRUE)
 		ON CONFLICT (pool_type, id) DO NOTHING;
 	`
-	if _, err := p.db.ExecContext(ctx, record, string(poolType), acquiredID); err != nil {
+	if _, err := tx.ExecContext(ctx, record, string(poolType), acquiredID); err != nil {
+		return 0, err
+	}
+
+	if err := tx.Commit(); err != nil {
 		return 0, err
 	}
 
