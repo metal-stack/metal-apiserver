@@ -343,17 +343,21 @@ func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *ap
 		return fmt.Errorf("unable to query switches: %w", err)
 	}
 
-	var orphanedSwitchNames []string
 	for _, sw := range sws {
-		if sw.Rack == m.Rack {
-			continue
+		if sw.Rack != m.Rack {
+			return errorutil.FailedPrecondition("machine wants to register at rack %q, but machine is already connected to rack %q; if you want to move the machine from one rack to another delete it first via admin api", m.Rack, sw.Rack)
 		}
-		orphanedSwitchNames = append(orphanedSwitchNames, sw.ID)
 	}
 
-	if len(orphanedSwitchNames) > 0 {
-		slices.Sort(orphanedSwitchNames)
-		return errorutil.FailedPrecondition("machine wants to register on rack %q, but machine connections are present on the following switches %v; if you want to move the machine from one rack to another delete it first via admin api", m.Rack, orphanedSwitchNames)
+	switchNames := lo.Map(sws, func(sw *metal.Switch, _ int) string {
+		return sw.Name
+	})
+
+	slices.Sort(neighs)
+	slices.Sort(switchNames)
+
+	if len(switchNames) > 0 && cmp.Diff(neighs, switchNames) != "" {
+		return errorutil.FailedPrecondition("machine wants to register at switches %v but is already connected to switches %v; if you want to migrate machine connections from one switch to another call switch migrate first", neighs, switchNames)
 	}
 
 	var newMachineNics metal.Nics
