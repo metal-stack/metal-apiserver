@@ -117,6 +117,29 @@ func Test_updateNicsOnRegister(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "existing nic with empty identifier keeps its vrf when the report provides the mac as identifier",
+			old: metal.Nics{
+				{
+					Identifier: "",
+					Name:       "Ethernet0",
+					Vrf:        "Vrf100",
+				},
+			},
+			new: metal.Nics{
+				{
+					Identifier: "aa:bb:cc:dd:ee:ff",
+					Name:       "Ethernet0",
+				},
+			},
+			want: metal.Nics{
+				{
+					Identifier: "aa:bb:cc:dd:ee:ff",
+					Name:       "Ethernet0",
+					Vrf:        "Vrf100",
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

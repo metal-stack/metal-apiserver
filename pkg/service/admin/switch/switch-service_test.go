@@ -327,7 +327,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 				nic1 := &apiv2.SwitchNic{
 					Name:       "Ethernet0",
 					Identifier: "Ethernet0",
-					Mac:        new("11:11:11:11:11:11"),
+					Mac:        new("11:11:11:11:11:11"), // nolint:staticcheck
 					Vrf:        new("Vrf100"),
 					BgpFilter:  &apiv2.BGPFilter{},
 					Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
@@ -347,7 +347,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 				nic2 := &apiv2.SwitchNic{
 					Name:       "Ethernet2",
 					Identifier: "Ethernet2",
-					Mac:        new("aa:aa:aa:aa:aa:aa"),
+					Mac:        new("aa:aa:aa:aa:aa:aa"), // nolint:staticcheck
 					Vrf:        nil,
 					BgpFilter:  &apiv2.BGPFilter{},
 					Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
@@ -382,7 +382,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 						nic1 := &apiv2.SwitchNic{
 							Name:       "Ethernet0",
 							Identifier: "Ethernet0",
-							Mac:        new("11:11:11:11:11:11"),
+							Mac:        new("11:11:11:11:11:11"), // nolint:staticcheck
 							Vrf:        new("Vrf100"),
 							BgpFilter:  &apiv2.BGPFilter{},
 							Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
@@ -402,7 +402,7 @@ func Test_switchServiceServer_Update(t *testing.T) {
 						nic2 := &apiv2.SwitchNic{
 							Name:       "Ethernet2",
 							Identifier: "Ethernet2",
-							Mac:        new("aa:aa:aa:aa:aa:aa"),
+							Mac:        new("aa:aa:aa:aa:aa:aa"), // nolint:staticcheck
 							Vrf:        nil,
 							BgpFilter:  &apiv2.BGPFilter{},
 							Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
