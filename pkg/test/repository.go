@@ -64,6 +64,7 @@ type (
 		hc                     *headscale.Client
 		mr                     *miniredis.Miniredis
 		headscaleControllerURL string
+		queue                  *queue.Queue
 
 		audit auditing.Auditing
 	}
@@ -236,6 +237,7 @@ func StartRepositoryWithCleanup(t testing.TB, testOpts ...testOpt) (*testStore, 
 		task  = task.NewClient(log, rc)
 		queue = queue.New(log, vc)
 	)
+
 	if withPostgres {
 		tc, tenantApiserverCloser = StartTenantApiserverWithPostgres(t, log)
 	} else {
@@ -300,6 +302,7 @@ func StartRepositoryWithCleanup(t testing.TB, testOpts ...testOpt) (*testStore, 
 		hc:                     hc,
 		mr:                     mr,
 		headscaleControllerURL: headscaleControllerURL,
+		queue:                  queue,
 	}, closer
 }
 
@@ -387,6 +390,10 @@ func (t *testStore) GetHeadscaleControllerURL() string {
 
 func (t *testStore) GetAuditBackend() auditing.Auditing {
 	return t.audit
+}
+
+func (t *testStore) GetQueue() *queue.Queue {
+	return t.queue
 }
 
 func (t *testStore) GetToken(subject string, cr *apiv2.TokenServiceCreateRequest) *apiv2.Token {

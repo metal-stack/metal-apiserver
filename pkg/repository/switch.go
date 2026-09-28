@@ -1042,7 +1042,7 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 		switchNics = append(switchNics, &apiv2.SwitchNic{
 			Name:       nic.Name,
 			Identifier: identifier,
-			Mac:        pointer.PointerOrNil(nic.MacAddress),
+			Mac:        pointer.PointerOrNil(nic.MacAddress), // nolint:staticcheck
 			Vrf:        pointer.PointerOrNil(nic.Vrf),
 			State: &apiv2.NicState{
 				Desired: desiredStatus,
@@ -1124,20 +1124,33 @@ func convertMachineConnections(machineConnections metal.ConnectionMap, nics []*a
 
 func updateNicNames(old, new metal.Nics) metal.Nics {
 	var (
-		updated metal.Nics
-		oldNics = old.MapByIdentifier()
-		newNics = new.MapByIdentifier()
+		updated    metal.Nics
+		oldByIdent = old.MapByIdentifier()
+		oldByName  = old.MapByName()
+		newNics    = new.MapByIdentifier()
 	)
 
-	for id, newNic := range newNics {
-		oldNic, ok := oldNics[id]
+	for _, newNic := range newNics {
+		// Prefer matching by (non-empty) identifier. Nics that are still stored with
+		// an empty identifier (persisted before metal-core v0.20.0) fall back to
+		// matching by name so that their known counterpart (e.g. with a set vrf) is
+		// found instead of being treated as a brand new nic.
+		oldNic, ok := oldByIdent[newNic.Identifier]
 		if !ok {
+			oldNic, ok = oldByName[newNic.Name]
+		}
+		if !ok {
+			// A genuinely new nic: adopt it from the report as is.
 			updated = append(updated, *newNic)
 			continue
 		}
 
+		// Keep the existing nic (preserving vrf, state, bgp port state, ...) and
+		// adopt name and identifier from the report. metal-core v0.20.0 always
+		// reports the mac as identifier, which also fills a previously empty one.
 		updatedNic := *oldNic
 		updatedNic.Name = newNic.Name
+		updatedNic.Identifier = newNic.Identifier
 		updated = append(updated, updatedNic)
 	}
 
@@ -1344,7 +1357,7 @@ func toMetalNic(switchNic *apiv2.SwitchNic, hostname string) (*metal.Nic, error)
 		Name:         switchNic.Name,
 		Hostname:     hostname,
 		Identifier:   switchNic.Identifier,
-		MacAddress:   pointer.SafeDeref(switchNic.Mac),
+		MacAddress:   pointer.SafeDeref(switchNic.Mac), // nolint:staticcheck
 		Vrf:          pointer.SafeDeref(switchNic.Vrf),
 		State:        nicState,
 		BGPPortState: bgpPortState,
