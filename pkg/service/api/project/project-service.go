@@ -36,11 +36,6 @@ type projectServiceServer struct {
 	tokenStore  token.TokenStore
 }
 
-// AddMember implements [apiv2connect.ProjectServiceHandler].
-func (p *projectServiceServer) AddMember(context.Context, *apiv2.ProjectServiceAddMemberRequest) (*apiv2.ProjectServiceAddMemberResponse, error) {
-	return nil, errorutil.Unimplemented("")
-}
-
 func New(c Config) apiv2connect.ProjectServiceHandler {
 	return &projectServiceServer{
 		log:         c.Log.WithGroup("projectService"),
@@ -194,14 +189,6 @@ func (p *projectServiceServer) List(ctx context.Context, req *apiv2.ProjectServi
 }
 
 func (p *projectServiceServer) Create(ctx context.Context, req *apiv2.ProjectServiceCreateRequest) (*apiv2.ProjectServiceCreateResponse, error) {
-	var (
-		t, ok = token.TokenFromContext(ctx)
-	)
-
-	if !ok || t == nil {
-		return nil, errorutil.Unauthenticated("no token found in request")
-	}
-
 	project, err := p.repo.UnscopedProject().Create(ctx, req)
 	if err != nil {
 		return nil, err
@@ -253,12 +240,14 @@ func (p *projectServiceServer) RemoveMember(ctx context.Context, req *apiv2.Proj
 		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
-	_, err := p.repo.Project(req.Project).AdditionalMethods().Member().Delete(ctx, req.Member)
+	member, err := p.repo.Project(req.Project).AdditionalMethods().Member().Delete(ctx, req.Member)
 	if err != nil {
 		return nil, err
 	}
 
-	return &apiv2.ProjectServiceRemoveMemberResponse{}, nil
+	return &apiv2.ProjectServiceRemoveMemberResponse{
+		ProjectMember: member,
+	}, nil
 }
 
 func (p *projectServiceServer) Leave(ctx context.Context, req *apiv2.ProjectServiceLeaveRequest) (*apiv2.ProjectServiceLeaveResponse, error) {
@@ -276,6 +265,20 @@ func (p *projectServiceServer) Leave(ctx context.Context, req *apiv2.ProjectServ
 	}
 
 	return &apiv2.ProjectServiceLeaveResponse{}, nil
+}
+
+func (p *projectServiceServer) AddMember(ctx context.Context, req *apiv2.ProjectServiceAddMemberRequest) (*apiv2.ProjectServiceAddMemberResponse, error) {
+	member, err := p.repo.Project(req.Project).AdditionalMethods().Member().Create(ctx, &api.ProjectMemberCreateRequest{
+		TenantId: req.Member,
+		Role:     req.Role,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &apiv2.ProjectServiceAddMemberResponse{
+		ProjectMember: member,
+	}, nil
 }
 
 func (p *projectServiceServer) UpdateMember(ctx context.Context, req *apiv2.ProjectServiceUpdateMemberRequest) (*apiv2.ProjectServiceUpdateMemberResponse, error) {
@@ -322,7 +325,9 @@ func (p *projectServiceServer) UpdateMember(ctx context.Context, req *apiv2.Proj
 		return nil, err
 	}
 
-	return &apiv2.ProjectServiceUpdateMemberResponse{ProjectMember: pm}, nil
+	return &apiv2.ProjectServiceUpdateMemberResponse{
+		ProjectMember: pm,
+	}, nil
 }
 
 func (p *projectServiceServer) createProjectMembership(ctx context.Context, tenantID, projectID string, role apiv2.ProjectRole) (*apiv2.ProjectMember, error) {

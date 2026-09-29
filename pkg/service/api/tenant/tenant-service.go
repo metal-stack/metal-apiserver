@@ -34,11 +34,6 @@ type tenantServiceServer struct {
 	tokenStore  token.TokenStore
 }
 
-// AddMember implements [TenantService].
-func (u *tenantServiceServer) AddMember(context.Context, *apiv2.TenantServiceAddMemberRequest) (*apiv2.TenantServiceAddMemberResponse, error) {
-	return nil, errorutil.Unimplemented("")
-}
-
 type TenantService interface {
 	apiv2connect.TenantServiceHandler
 }
@@ -382,13 +377,29 @@ func (u *tenantServiceServer) InvitesList(ctx context.Context, req *apiv2.Tenant
 	return &apiv2.TenantServiceInvitesListResponse{Invites: invites}, nil
 }
 
-func (u *tenantServiceServer) RemoveMember(ctx context.Context, req *apiv2.TenantServiceRemoveMemberRequest) (*apiv2.TenantServiceRemoveMemberResponse, error) {
-	_, err := u.repo.Tenant().AdditionalMethods().Member(req.Login).Delete(ctx, req.Member)
+func (u *tenantServiceServer) AddMember(ctx context.Context, req *apiv2.TenantServiceAddMemberRequest) (*apiv2.TenantServiceAddMemberResponse, error) {
+	member, err := u.repo.Tenant().AdditionalMethods().Member(req.Login).Create(ctx, &api.TenantMemberCreateRequest{
+		MemberID: req.Member,
+		Role:     req.Role,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	return &apiv2.TenantServiceRemoveMemberResponse{}, nil
+	return &apiv2.TenantServiceAddMemberResponse{
+		TenantMember: member,
+	}, nil
+}
+
+func (u *tenantServiceServer) RemoveMember(ctx context.Context, req *apiv2.TenantServiceRemoveMemberRequest) (*apiv2.TenantServiceRemoveMemberResponse, error) {
+	member, err := u.repo.Tenant().AdditionalMethods().Member(req.Login).Delete(ctx, req.Member)
+	if err != nil {
+		return nil, err
+	}
+
+	return &apiv2.TenantServiceRemoveMemberResponse{
+		TenantMember: member,
+	}, nil
 }
 
 func (u *tenantServiceServer) UpdateMember(ctx context.Context, req *apiv2.TenantServiceUpdateMemberRequest) (*apiv2.TenantServiceUpdateMemberResponse, error) {
@@ -399,9 +410,7 @@ func (u *tenantServiceServer) UpdateMember(ctx context.Context, req *apiv2.Tenan
 		return nil, err
 	}
 
-	return &apiv2.TenantServiceUpdateMemberResponse{TenantMember: &apiv2.TenantMember{
-		Id:        req.Member,
-		Role:      req.Role,
-		CreatedAt: updatedMember.CreatedAt,
-	}}, nil
+	return &apiv2.TenantServiceUpdateMemberResponse{
+		TenantMember: updatedMember,
+	}, nil
 }

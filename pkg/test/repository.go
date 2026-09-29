@@ -624,7 +624,7 @@ func CreateProjects(t testing.TB, testStore *testStore, projects []*apiv2.Projec
 	for _, p := range projects {
 		resp, err := testStore.UnscopedProject().AdditionalMethods().CreateWithID(t.Context(), p, p.GetName())
 		require.NoError(t, err)
-		projectMap[p.Login] = resp.Meta.Id
+		projectMap[p.Login] = resp.Uuid
 	}
 	return projectMap
 }
