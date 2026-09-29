@@ -48,7 +48,7 @@ func (t *tenantMemberRepository) convertToInternal(ctx context.Context, msg *api
 
 func (t *tenantMemberRepository) convertToProto(ctx context.Context, e *tenantMemberEntity) (*apiv2.TenantMember, error) {
 	return &apiv2.TenantMember{
-		Id:        e.TenantId,
+		Id:        e.MemberId,
 		Role:      TenantRoleFromMap(e.Meta.Annotations),
 		CreatedAt: e.Meta.CreatedTime,
 	}, nil
