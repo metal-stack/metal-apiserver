@@ -29,6 +29,244 @@ Could be made possible by checking if the reference is a uuid, otherwise query b
     })
 ```
 
+## Migrating from RethinkDB to Postgres
+
+### Why this is not a drop-in swap
+
+The repository layer (`pkg/repository`) does not talk to a storage abstraction
+today; it talks to RethinkDB through `generic.Datastore`:
+
+- `Storage[E].Find/List` take an `EntityQuery` (`func(r.Term) r.Term`), so ReQL
+  leaks into ~30 repository files and the whole `pkg/db/queries` package.
+- `Storage[E]` addresses entities by `string` id and updates by the
+  `changed`/`generation` pair, whereas `pg.GenericRepository[T]` uses
+  `uuid.UUID` ids, an optimistic `version int32`, and a `QueryFilter`+`Pagination`
+  query model.
+- RethinkDB has **no multi-document transactions**; the codebase compensates
+  with the distributed `SharedMutex`. Postgres has real transactions, so some
+  invariants become cheaper — and some cross-store operations become harder
+  while data is split.
+- Non-UUID ids (IP, Size, Partition, Image, FilesystemLayout) need a strategy
+  (UUIDv7 + lookup by name, see above), and JSON keys are now frozen to
+  snake_case.
+
+Any gradual migration therefore has to answer three questions first:
+
+1. **Where is the seam?** (repository → datastore port, or a wrapper around the
+   concrete stores)
+2. **How is a split across two stores kept consistent?** (dual-write, CDC,
+   read-through, or a write-freeze window per entity)
+3. **How do ids, concurrency tokens (`generation` vs `version`) and queries map?**
+
+### Options
+
+#### Option 1 — Entity-by-entity backfill + cutover (direct)
+
+Extend the `migrations` package per entity: read from RethinkDB, write to
+Postgres, then flip the repository for that entity to Postgres.
+
+- **Pros:** incremental and independently testable/observable per entity; small
+  blast radius; no permanent dual-write code; matches what `MigrateMachine`
+  already does; low-volume/leaf entities migrate trivially.
+- **Cons:** during the transition, entities live in two stores, so
+  *cross-entity* references and *multi-entity writes* are no longer atomic;
+  a backfill without a write-freeze silently loses concurrent writes; rollback
+  after cutover is only possible if RethinkDB was kept current or a reverse
+  migration exists.
+- **Mitigations:** migrate in dependency order (leaves first); freeze or
+  dual-write writes for the entity during its backfill; serialize multi-entity
+  writes that span stores with the existing `SharedMutex`.
+
+#### Option 2 — Dual-write / parallel-run wrapper
+
+Implement a `Datastore`/`Storage[E]` wrapper that writes to both stores and reads
+from a configurable primary (per entity). RethinkDB stays authoritative, Postgres
+is fed in parallel.
+
+- **Pros:** no downtime; instant rollback by flipping the read source; the
+  backfill happens as a side effect of normal writes; enables **shadow reads**
+  (same query against both stores, diff the results) to validate fidelity before
+  trusting Postgres.
+- **Cons:** dual-write is not atomic — one store can succeed while the other
+  fails, so divergence handling (outbox + retry, idempotent upserts) is required;
+  extra write latency and load; the query model still has to be abstracted;
+  reads keep paying the RethinkDB cost until the per-entity flip.
+- **Useful first step:** *shadow writes* only (write both, read RethinkDB,
+  best-effort/async Postgres write) — cheap, no rollback risk, validates the pg
+  write path under real traffic.
+
+#### Option 3 — CDC / changefeed replication
+
+Run a sync worker that subscribes to RethinkDB `.changes()` per table and applies
+idempotent upserts to Postgres (initial lookup + continuous tail).
+
+- **Pros:** application code untouched; RethinkDB remains the single source of
+  truth; sync lag is observable; cut over when lag has been zero for long enough;
+  the primitive is already used in this repo (`shared_mutex.go` uses `.Changes`).
+- **Cons:** RethinkDB changefeeds are per-table with no global ordering, and
+  restarts can miss windows, so exactly-once semantics must be built (ids +
+  version/generation guard); deletes need tombstones; still needs a mapping of
+  the old document shape to the new JSONB schema; an extra service to operate;
+  less trustworthy than a WAL-based CDC.
+- **Best fit:** backfilling large, append-heavy tables (events) without a
+  write-freeze.
+
+#### Option 4 — Neutral storage port + strangler fig (recommended)
+
+Introduce a backend-agnostic port (`Storage[E]` with domain semantics, a neutral
+filter model, pagination, and the `ErrNotFound`/`ErrAlreadyExists`/
+`ErrOptimisticLockConflict` sentinels) and implement it twice: a thin RethinkDB
+adapter and a Postgres adapter. Route per entity via configuration, and use
+Options 1–3 as the *execution* mechanics behind that seam.
+
+- **Pros:** the only option that cleanly supports per-entity flips (1) *and*
+  safe rollback via dual-write (2) *and* optional CDC backfill (3); removes
+  `r.Term` from the repository and lets the test/datacenter framework run against
+  both backends (already a TODO); each phase is independently shippable.
+- **Cons:** upfront refactor of ~30 repository files and the query packages; the
+  neutral filter model must cover the subset actually used — the `q/` package is
+  a good inventory of that subset — and both backends must implement it.
+- **Note:** this is a prerequisite for doing Options 1/2 *safely*, not an
+  alternative to them.
+
+#### Option 5 — Read-through / lazy migration
+
+Read from Postgres; on a miss fall back to RethinkDB and backfill the row.
+
+- **Pros:** no bulk backfill; ideal for cold, low-volume entities; can be added
+  per entity with little code.
+- **Cons:** cannot distinguish "never migrated" from "genuinely absent/deleted";
+  read latency and staleness; entities never read stay in RethinkDB forever, so a
+  final backfill is still required before decommissioning; complicates the read
+  path for every entity.
+- **Best fit:** a complement for rarely-accessed entities, never as the only
+  strategy.
+
+#### Option 6 — Big-bang cutover with a maintenance window
+
+One-shot full migration, then deploy the Postgres-only version.
+
+- **Pros:** simplest code and operations; no dual stack, no temporary
+  abstractions; no long-lived divergence risk.
+- **Cons:** downtime proportional to data size/validation time; no gradual
+  validation against real traffic; rollback means restoring the RethinkDB state
+  and redeploying — expensive and risky.
+- **Best fit:** only if the dataset is small enough for a short window; a
+  fallback, not the plan.
+
+#### Option 7 — Shard-by-tenant / per-project migration
+
+Move subsets of data (e.g. a project or partition) at a time so a consistency
+cluster moves together.
+
+- **Pros:** preserves referential consistency within a shard; smaller blast
+  radius; can run shards in parallel.
+- **Cons:** global entities (Partition, Size, Image, FilesystemLayout, shared
+  networks) do not shard cleanly; queries need routing or fan-out across stores;
+  adds a routing key to every query. High complexity for this schema.
+
+#### Rejected alternative — transliterate ReQL to SQL
+
+Make Postgres satisfy the existing `generic.Storage[E]` interface by translating
+the `EntityQuery` (`func(r.Term) r.Term`) closures into SQL. It sounds like a
+zero-application-change migration, but it requires reimplementing / interpreting
+ReQL at runtime, can only ever cover the subset of terms actually used (and fails
+silently on the rest), and produces opaque SQL. The `q/` package exists precisely
+because writing the filters twice in a typed way is more maintainable. Rejected:
+the neutral port (Option 4) achieves the same "repository doesn't care" outcome
+without a query-language interpreter.
+
+### Comparison
+
+| Option                     | Downtime                         | Rollback              | Cross-entity consistency | Validates pg under real traffic | Effort             |
+|----------------------------|----------------------------------|-----------------------|--------------------------|---------------------------------|--------------------|
+| 1 Entity-by-entity cutover | per-entity freeze, or dual-write | hard after cutover    | at risk while split      | partly                          | medium             |
+| 2 Dual-write wrapper       | none                             | easy (flip read flag) | at risk while split      | yes (shadow reads)              | medium/high        |
+| 3 CDC replication          | none                             | easy (keep rethink)   | via replication lag      | no (async tail)                 | high (new service) |
+| 4 Neutral port + strangler | none                             | easy per entity       | controlled by port       | yes                             | high upfront       |
+| 5 Read-through             | none                             | easy                  | at risk while split      | no                              | low/medium         |
+| 6 Big-bang                 | yes                              | restore + redeploy    | n/a                      | no                              | low                |
+| 7 Shard-by-tenant          | none                             | medium                | preserved per shard      | partly                          | very high          |
+
+### Recommendation
+
+Go with **Option 4 as the seam**, and execute the cutover with the mechanics of
+Options 1 and 2 (backfill + shadow-write, then dual-write + per-entity read
+flip). Use Option 3 only if a large table (events) must be backfilled without a
+write-freeze. Keep Option 5 as a targeted complement for cold entities and
+Option 6 as an emergency fallback.
+
+Rationale: the hard part is not copying data, it is keeping cross-entity
+invariants while entities are split. A neutral port plus dual-write gives a
+one-flag rollback at every step and lets the same repository tests run against
+both backends.
+
+### Phased plan
+
+**Phase 0 — Foundation (no behaviour change)**
+
+- Define the port: storage interfaces, neutral filter model, pagination, error
+  sentinels. Implement the RethinkDB adapter as a thin delegate to the existing
+  `generic` code; make `pkg/repository` depend on the port only.
+- Decide and implement id/version mapping: UUIDv7 for keyed entities;
+  for IP/Size/Partition/Image/FSL prefer an indexed natural key + resolve-by-name
+  (avoids rewriting references) over re-keying every reference.
+- Make the test/datacenter framework run against both adapters
+  (the "Adopt Test and Datacenter framework" TODO).
+
+**Phase 1 — Postgres adapter + backfill + shadow writes**
+
+- Implement the port over `pg.GenericRepository` + `q/` filters.
+- Backfill entity by entity via `migrations` (Machine done), in dependency order;
+  validate with row counts and content checksums.
+- Enable shadow writes behind a flag (RethinkDB authoritative, Postgres
+  best-effort/async) and a shadow-read comparison job that alerts on diffs.
+
+**Phase 2 — Per-entity read flip (dual-write)**
+
+Suggested order, leaves first:
+
+1. Size, Image, Partition, FilesystemLayout, SizeImageConstraint, SizeReservation
+2. Network, IP
+3. Machine, Event, Switch, SwitchStatus
+
+- Flip reads per entity via config; keep dual-writes so RethinkDB stays warm.
+- Serialize cross-store multi-entity writes with the existing `SharedMutex` until
+  all entities involved live in Postgres.
+- Exit criteria per entity: shadow-read agreement, error/latency parity, and a
+  tested flag-off rollback.
+
+**Phase 3 — Contract (remove RethinkDB)**
+
+- Flip writes to Postgres-only; stop dual-writes; run a final reconciliation.
+- Migrate the remaining infrastructure to the Postgres implementations that
+  already exist (`pg.SharedMutex`, `pg.IntegerPool`).
+- Remove `pkg/db/queries`, the RethinkDB driver/config, and the migration
+  tooling after a retention period. Delete the neutral adapter's RethinkDB side.
+
+### Cross-cutting decisions
+
+- **Dual-write failures:** use an outbox (the existing asynq queue/task infra)
+  plus idempotent `Upsert` (already bumps `version` only on change).
+- **Observability:** per-store latency/error metrics, dual-write divergence
+  counters, reconciliation reports; for CDC, sync lag.
+- **Deployment config:** per-entity primary/read/write flags, so a rollback is a
+  config change, not a release.
+- **Postgres operations:** `CREATE EXTENSION pg_trgm` needs a superuser — install
+  it via migrations, not at startup (see `REVIEW.md` #4g).
+- **Stable keys:** entity types are currently derived from Go type names; switch
+  to explicit, stable entity-type strings before the first data is written
+  (`REVIEW.md` #4f).
+
+### Rollback strategy
+
+- Phases 0–2: rollback = flip the feature flag back; RethinkDB is still current
+  because it was never write-disabled.
+- Phase 3: after Postgres-only writes, rollback needs a reverse migration and
+  loses writes made in the meantime — so run Phase 3 only after a soak period
+  with zero shadow-read mismatches, and keep a tested reverse path for the
+  retention window.
+
 ## TODO
 
 - [x] add json tags to all properties of the metal entities (snake_case)
