@@ -123,7 +123,7 @@ func ToIPType(ipt *apiv2.IPType) (IPType, error) {
 	case apiv2.IPType_IP_TYPE_UNSPECIFIED:
 		fallthrough
 	default:
-		return Ephemeral, errorutil.InvalidArgument("given ip type is not supported:%s", ipt.String())
+		return Ephemeral, errorutil.InvalidArgument("given ip type is not supported: %s", ipt.String())
 	}
 }
 

@@ -168,8 +168,7 @@ func (s *Switch) ConnectMachine(machineID string, machineNics Nics) (int, error)
 		return 0, nil
 	}
 
-	delete(s.MachineConnections, machineID)
-	s.MachineConnections[machineID] = append(s.MachineConnections[machineID], physicalConnections...)
+	s.MachineConnections[machineID] = physicalConnections
 	return len(physicalConnections), nil
 }
 

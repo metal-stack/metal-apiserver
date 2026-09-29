@@ -321,37 +321,6 @@ func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *ap
 		return errorutil.FailedPrecondition("machine %s is not connected to exactly two switches, found connections to switches %v", m.Uuid, neighs)
 	}
 
-	metalMachine, err := r.s.ds.Machine().Get(ctx, m.Uuid)
-	if err != nil && !errorutil.IsNotFound(err) {
-		return errorutil.Internal("failed to connect machine with switches: %w", err)
-	}
-
-	if metalMachine != nil {
-		oldNeighs := lo.Uniq(lo.Flatten(
-			lo.Map(metalMachine.Hardware.Nics, func(nic metal.Nic, _ int) []string {
-				return lo.Map(nic.Neighbors, func(neigh metal.Nic, _ int) string {
-					return neigh.Hostname
-				})
-			}),
-		))
-
-		prev, _ := lo.Difference(oldNeighs, neighs)
-		for _, id := range prev {
-			s, err := r.get(ctx, id)
-			if err != nil {
-				return fmt.Errorf("failed to remove machine connection from switch %s: %w", id, err)
-			}
-
-			cons := s.MachineConnections
-			delete(cons, m.Uuid)
-
-			err = r.s.ds.Switch().Update(ctx, s)
-			if err != nil {
-				return fmt.Errorf("failed to remove machine connection from switch %s: %w", id, err)
-			}
-		}
-	}
-
 	s1, err := r.get(ctx, neighs[0])
 	if err != nil {
 		return fmt.Errorf("failed to add machine connections to switch %s: %w", neighs[0], err)
@@ -374,19 +343,21 @@ func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *ap
 		return fmt.Errorf("unable to query switches: %w", err)
 	}
 
-	var orphanedSwitchNames []string
-
 	for _, sw := range sws {
-		if sw.Rack == m.Rack {
-			continue
+		if sw.Rack != m.Rack {
+			return errorutil.FailedPrecondition("machine wants to register at rack %q, but machine is already connected to rack %q; if you want to move the machine from one rack to another delete it first via admin api", m.Rack, sw.Rack)
 		}
-
-		orphanedSwitchNames = append(orphanedSwitchNames, sw.ID)
 	}
 
-	if len(orphanedSwitchNames) > 0 {
-		slices.Sort(orphanedSwitchNames)
-		return errorutil.FailedPrecondition("machine wants to register on rack %q, but machine connections are present on the following switches %v, likely the machine was moved in the data center but not deleted through the admin api", m.Rack, orphanedSwitchNames)
+	switchNames := lo.Map(sws, func(sw *metal.Switch, _ int) string {
+		return sw.Name
+	})
+
+	slices.Sort(neighs)
+	slices.Sort(switchNames)
+
+	if len(switchNames) > 0 && cmp.Diff(neighs, switchNames) != "" {
+		return errorutil.FailedPrecondition("machine wants to register at switches %v but is already connected to switches %v; if you want to migrate machine connections from one switch to another call switch migrate first", neighs, switchNames)
 	}
 
 	var newMachineNics metal.Nics

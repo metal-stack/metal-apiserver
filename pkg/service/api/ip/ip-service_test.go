@@ -740,7 +740,7 @@ func Test_ipServiceServer_Create(t *testing.T) {
 				Ip:      new("1.2.3.1"),
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument(`given ip "1.2.3.1" is already allocated`),
+			wantErr: errorutil.Conflict(`given ip "1.2.3.1" is already allocated`),
 		},
 		{
 			name: "allocate a static specific ip outside prefix",
