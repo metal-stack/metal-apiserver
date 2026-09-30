@@ -194,6 +194,7 @@ func Test_getTokenPermissions(t *testing.T) {
 				"/metalstack.infra.v2.BootService/MachineToken":                  {"*": {}},
 				"/metalstack.infra.v2.BootService/InstallationSucceeded":         {"*": {}},
 				"/metalstack.infra.v2.BootService/Register":                      {"*": {}},
+				"/metalstack.infra.v2.BootService/SendEvent":                     {"*": {}},
 				"/metalstack.infra.v2.BootService/SuperUserPassword":             {"*": {}},
 				"/metalstack.infra.v2.BootService/Wait":                          {"*": {}},
 				"/metalstack.infra.v2.ComponentService/Ping":                     {"*": {}},
