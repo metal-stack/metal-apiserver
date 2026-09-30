@@ -111,7 +111,7 @@ idempotent upserts to Postgres (initial lookup + continuous tail).
 - **Best fit:** backfilling large, append-heavy tables (events) without a
   write-freeze.
 
-#### Option 4 — Neutral storage port + strangler fig (recommended)
+#### Option 4 — Neutral storage port + strangler fig (recommended) — implemented (config toggle)
 
 Introduce a backend-agnostic port (`Storage[E]` with domain semantics, a neutral
 filter model, pagination, and the `ErrNotFound`/`ErrAlreadyExists`/
@@ -128,6 +128,49 @@ Options 1–3 as the *execution* mechanics behind that seam.
   a good inventory of that subset — and both backends must implement it.
 - **Note:** this is a prerequisite for doing Options 1/2 *safely*, not an
   alternative to them.
+
+The **configuration toggle** is implemented in
+[`pkg/db/routing`](../../routing). It is the first slice of this option: every
+entity can be served by RethinkDB, Postgres, or both, purely by configuration.
+
+```go
+import "github.com/metal-stack/metal-apiserver/pkg/db/routing"
+
+// from a compact string (e.g. read from the environment / deployment config):
+//   "default=rethink,read=rethink,machine=both,network=postgres"
+cfg, err := routing.Parse(os.Getenv("DB_ROUTING"))
+
+// per entity, build a routed storage from the two adapters
+rethinkStorage := routing.NewRethinkStorage(ds.Machine())                       // generic.Storage[*metal.Machine]
+postgresStorage := routing.NewPostgresStorage(pgMachineRepo)                    // *pg.GenericRepository[*metal.Machine]
+machineStore, err := routing.NewRouter[*metal.Machine](log, cfg, "Machine", rethinkStorage, postgresStorage)
+```
+
+Semantics:
+
+| Mode       | Reads                               | Writes                |
+|------------|-------------------------------------|-----------------------|
+| `rethink`  | RethinkDB                           | RethinkDB             |
+| `postgres` | Postgres                            | Postgres              |
+| `both`     | `read=` backend (default RethinkDB) | both, RethinkDB first |
+
+- `both` is the transition mode: RethinkDB stays authoritative while Postgres is
+  mirrored, so switching the read backend (or rolling back) is a config change.
+- A failed mirror write returns `routing.ErrPartialWrite` (the primary write
+  already happened, so the backend needs reconciliation).
+- Queries carry both representations (`routing.Filter{Rethink: ..., Postgres: ...}`),
+  built from the existing `pkg/db/queries` and `pkg/db/generic/pg/q` packages —
+  no ReQL→SQL translation. A read requires the filter for the read backend.
+- Ids: the Postgres adapter requires a UUID id; entities with natural ids
+  (IP, Size, Partition, Image, FilesystemLayout) are rejected with a clear error
+  until the id strategy is implemented.
+- Concurrency: the adapter maps RethinkDB's `generation` to Postgres' `version`
+  with the invariant `version = generation + 1`. Under `both`, the Postgres
+  mirror is handed a copy of the pre-update entity so the optimistically locked
+  version stays correct while the RethinkDB adapter mutates the original.
+
+Not part of this slice (follow-ups): wiring `pkg/repository` onto the port,
+shadow reads / reconciliation, pagination, and the non-UUID id strategy.
 
 #### Option 5 — Read-through / lazy migration
 
