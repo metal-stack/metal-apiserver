@@ -76,10 +76,24 @@ func (r *projectRepository) matchScope(p *projectEntity) bool {
 }
 
 func (r *projectRepository) create(ctx context.Context, e *apiv2.ProjectServiceCreateRequest) (*projectEntity, error) {
-	return r.CreateWithID(ctx, e, "")
+	return r.createWithID(ctx, e, "")
 }
 
-func (r *projectRepository) CreateWithID(ctx context.Context, e *apiv2.ProjectServiceCreateRequest, id string) (*projectEntity, error) {
+func (t *projectRepository) CreateWithID(ctx context.Context, c *apiv2.ProjectServiceCreateRequest, id string) (*apiv2.Project, error) {
+	project, err := t.createWithID(ctx, c, id)
+	if err != nil {
+		return nil, err
+	}
+
+	converted, err := t.convertToProto(ctx, project)
+	if err != nil {
+		return nil, err
+	}
+
+	return converted, nil
+}
+
+func (r *projectRepository) createWithID(ctx context.Context, e *apiv2.ProjectServiceCreateRequest, id string) (*projectEntity, error) {
 	ann := map[string]string{}
 
 	if e.AvatarUrl != nil {

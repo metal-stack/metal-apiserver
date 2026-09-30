@@ -82,6 +82,7 @@ func Test_getTokenPermissions(t *testing.T) {
 				"/metalstack.admin.v2.PartitionService/Create":                   {"*": {}},
 				"/metalstack.admin.v2.PartitionService/Delete":                   {"*": {}},
 				"/metalstack.admin.v2.PartitionService/Update":                   {"*": {}},
+				"/metalstack.admin.v2.ProjectService/Create":                     {"*": {}},
 				"/metalstack.admin.v2.ProjectService/List":                       {"*": {}},
 				"/metalstack.admin.v2.SizeImageConstraintService/Create":         {"*": {}},
 				"/metalstack.admin.v2.SizeImageConstraintService/Delete":         {"*": {}},

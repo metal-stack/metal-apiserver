@@ -199,9 +199,9 @@ func TestDatacenter_AssertSnapshot(t *testing.T) {
 				return &Asserters{
 					Projects: func(projects map[string][]*apiv2.Project) {
 						projects["john.doe"] = append(projects["john.doe"], &apiv2.Project{
-							Uuid:   p.Meta.Id,
+							Uuid:   p.Uuid,
 							Meta:   &apiv2.Meta{},
-							Tenant: p.TenantId,
+							Tenant: p.Tenant,
 							Name:   p.Name,
 						})
 					},
@@ -489,9 +489,9 @@ func TestDatacenter_Assert(t *testing.T) {
 				return &Asserters{
 					Projects: func(projects map[string][]*apiv2.Project) {
 						projects["john.doe"] = append(projects["john.doe"], &apiv2.Project{
-							Uuid:   p.Meta.Id,
+							Uuid:   p.Uuid,
 							Meta:   &apiv2.Meta{},
-							Tenant: p.TenantId,
+							Tenant: p.Tenant,
 							Name:   p.Name,
 						})
 					},
