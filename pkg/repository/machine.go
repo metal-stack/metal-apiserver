@@ -396,13 +396,13 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 		for _, neigh := range nic.Neighbors {
 			neighs = append(neighs, &apiv2.MachineNic{
 				Hostname:   neigh.Hostname,
-				Mac:        string(neigh.MacAddress),
+				Mac:        string(neigh.MacAddress), //nolint:staticcheck
 				Name:       neigh.Name,
 				Identifier: neigh.Identifier,
 			})
 		}
 		nics = append(nics, &apiv2.MachineNic{
-			Mac:        string(nic.MacAddress),
+			Mac:        string(nic.MacAddress), //nolint:staticcheck
 			Name:       nic.Name,
 			Identifier: nic.Identifier,
 			Neighbors:  neighs,
@@ -781,14 +781,14 @@ func (r *machineRepository) Register(ctx context.Context, req *infrav2.BootServi
 		for _, neigh := range nic.Neighbors {
 			neighs = append(neighs, metal.Nic{
 				Name:       neigh.Name,
-				MacAddress: neigh.Mac,
+				MacAddress: neigh.Mac, //nolint:staticcheck
 				Hostname:   neigh.Hostname,
 				Identifier: neigh.Identifier,
 			})
 		}
 		nics = append(nics, metal.Nic{
 			Name:       nic.Name,
-			MacAddress: nic.Mac,
+			MacAddress: nic.Mac, //nolint:staticcheck
 			Identifier: nic.Identifier,
 			Neighbors:  neighs,
 		})
