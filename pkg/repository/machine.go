@@ -104,7 +104,7 @@ func (r *machineRepository) SendEvent(ctx context.Context, machineID string, eve
 	// in a machine lifecycle
 	if errorutil.IsNotFound(err) {
 		if _, err := uuid.Parse(machineID); err != nil {
-			return errorutil.InvalidArgument("given machineid is not a well formed uuid:%w", err)
+			return errorutil.InvalidArgument("given machineid is not a well formed uuid: %w", err)
 		}
 
 		if _, err := r.s.ds.Machine().Create(ctx, &metal.Machine{ID: machineID}); err != nil {
