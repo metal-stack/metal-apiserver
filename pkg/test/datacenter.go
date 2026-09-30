@@ -369,9 +369,6 @@ func (dc *Datacenter) createTenantsAndMembers(spec *scenarios.DatacenterSpec) {
 		projectCreateReq []*apiv2.ProjectServiceCreateRequest
 	)
 
-	assert.LessOrEqual(dc.t, len(tenantCreateReq), 9)
-	assert.LessOrEqual(dc.t, len(projectCreateReq), 9)
-
 	// TODO only works for 9 tenants with 9 projects
 	const uuidtmpl = "%d0000000-0000-0000-0000-00000000000%d"
 	for ti, tenant := range spec.Tenants {
@@ -385,6 +382,9 @@ func (dc *Datacenter) createTenantsAndMembers(spec *scenarios.DatacenterSpec) {
 			})
 		}
 	}
+
+	assert.LessOrEqual(dc.t, len(tenantCreateReq), 9)
+	assert.LessOrEqual(dc.t, len(projectCreateReq), 9)
 
 	CreateTenants(dc.t, dc.testStore, tenantCreateReq)
 	CreateProjects(dc.t, dc.testStore, projectCreateReq)
