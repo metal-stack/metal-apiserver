@@ -626,10 +626,15 @@ func Test_switchServiceServer_Port(t *testing.T) {
 		ctx = t.Context()
 	)
 
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
+	defer dc.Close()
+
 	tests := []struct {
 		name    string
 		rq      *adminv2.SwitchServicePortRequest
-		want    func(*test.Datacenter) *adminv2.SwitchServicePortResponse
+		spec    func() *sc.DatacenterSpec
+		want    func(*test.Entities) *adminv2.SwitchServicePortResponse
 		mods    func() *test.Asserters
 		wantErr error
 	}{
@@ -642,15 +647,19 @@ func Test_switchServiceServer_Port(t *testing.T) {
 		{
 			name: "port status UNKNOWN is invalid",
 			rq: &adminv2.SwitchServicePortRequest{
-				Status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNKNOWN,
+				Config: &apiv2.StaticPortConfig{
+					Status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNKNOWN,
+				},
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("port status \"UNKNOWN\" must be one of [\"UP\", \"DOWN\"]"),
+			wantErr: errorutil.InvalidArgument("port status %q must be one of [%q, %q]", apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UNKNOWN, apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP, apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN),
 		},
 		{
 			name: "switch does not exist",
 			rq: &adminv2.SwitchServicePortRequest{
-				Status:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+				Config: &apiv2.StaticPortConfig{
+					Status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+				},
 				Id:      "sw10",
 				NicName: "Ethernet0"},
 			want:    nil,
@@ -659,22 +668,26 @@ func Test_switchServiceServer_Port(t *testing.T) {
 		{
 			name: "port does not exist on switch",
 			rq: &adminv2.SwitchServicePortRequest{
-				Status:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+				Config: &apiv2.StaticPortConfig{
+					Status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+				},
 				Id:      sc.P01Rack01Switch1,
 				NicName: "swp1",
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("port swp1 does not exist on switch %s", sc.P01Rack01Switch1),
+			wantErr: errorutil.InvalidArgument("port \"swp1\" does not exist on switch %q", sc.P01Rack01Switch1),
 		},
 		{
 			name: "nic is not connected to a machine, port update still works",
 			rq: &adminv2.SwitchServicePortRequest{
-				Status:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+				Config: &apiv2.StaticPortConfig{
+					Status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+				},
 				Id:      sc.P01Rack01Switch1,
 				NicName: "Ethernet1",
 			},
-			want: func(dc *test.Datacenter) *adminv2.SwitchServicePortResponse {
-				sw := dc.GetSwitches()[sc.P01Rack01Switch1]
+			want: func(entities *test.Entities) *adminv2.SwitchServicePortResponse {
+				sw := entities.Switches[sc.P01Rack01Switch1]
 				sw.Nics[1].State.Desired = apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP.Enum()
 				return &adminv2.SwitchServicePortResponse{
 					Switch: sw,
@@ -693,19 +706,20 @@ func Test_switchServiceServer_Port(t *testing.T) {
 		{
 			name: "nic update for connected nic successful",
 			rq: &adminv2.SwitchServicePortRequest{
-				Status:  apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
+				Config: &apiv2.StaticPortConfig{
+					Status: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN,
+				},
 				Id:      sc.P01Rack01Switch1,
 				NicName: "Ethernet0",
 			},
-			want: func(dc *test.Datacenter) *adminv2.SwitchServicePortResponse {
-				sw := dc.GetSwitches()[sc.P01Rack01Switch1]
+			want: func(entities *test.Entities) *adminv2.SwitchServicePortResponse {
+				sw := entities.Switches[sc.P01Rack01Switch1]
 				sw.Nics[0].State.Desired = apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN.Enum()
 				con, found := lo.Find(sw.MachineConnections, func(c *apiv2.MachineConnection) bool {
 					return c.Nic.Name == "Ethernet0"
 				})
 				require.True(t, found)
 				con.Nic.State.Desired = apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN.Enum()
-
 				return &adminv2.SwitchServicePortResponse{
 					Switch: sw,
 				}
@@ -725,20 +739,121 @@ func Test_switchServiceServer_Port(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		{
+			name: "cannot change membership of internal port",
+			rq: &adminv2.SwitchServicePortRequest{
+				Id:      sc.P01Rack01Switch1,
+				NicName: "Ethernet0",
+				Config: &apiv2.StaticPortConfig{
+					Status:     apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+					Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
+				},
+			},
+			wantErr: errorutil.InvalidArgument("cannot change membership of port %q on switch %q to %q because it is an internal port", "Ethernet0", sc.P01Rack01Switch1, apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED.String()),
+		},
+		{
+			name: "cannot make a port internal",
+			rq: &adminv2.SwitchServicePortRequest{
+				Id:      sc.P01Rack01Switch1,
+				NicName: "Ethernet1",
+				Config: &apiv2.StaticPortConfig{
+					Status:     apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+					Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL,
+				},
+			},
+			wantErr: errorutil.InvalidArgument("cannot change membership of port %q on switch %q to %q; this type of membership is automatically acquired when a registered machine connects to the switch", "Ethernet1", sc.P01Rack01Switch1, apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL.String()),
+		},
+		{
+			name: "external membership requires a network",
+			rq: &adminv2.SwitchServicePortRequest{
+				Id:      sc.P01Rack01Switch1,
+				NicName: "Ethernet1",
+				Config: &apiv2.StaticPortConfig{
+					Status:     apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+					Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL,
+				},
+			},
+			wantErr: errorutil.InvalidArgument("to make a port external you must specify a network it should be a member of"),
+		},
+		{
+			name: "if network is specified membership must be external",
+			rq: &adminv2.SwitchServicePortRequest{
+				Id:      sc.P01Rack01Switch1,
+				NicName: "Ethernet1",
+				Config: &apiv2.StaticPortConfig{
+					Status:     apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+					Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNMANAGED,
+					Network:    new(sc.NetworkExternal),
+				},
+			},
+			wantErr: errorutil.InvalidArgument("if you want to add port %q of switch %q to network %q you must set its membership to %q", "Ethernet1", sc.P01Rack01Switch1, sc.NetworkExternal, apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL.String()),
+		},
+		{
+			name: "cannot change external port's network",
+			rq: &adminv2.SwitchServicePortRequest{
+				Id:      sc.P01Rack01Switch1,
+				NicName: "Ethernet1",
+				Config: &apiv2.StaticPortConfig{
+					Status:     apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+					Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL,
+					Network:    new(sc.NetworkNameTenantPartition1),
+				},
+			},
+			spec: func() *sc.DatacenterSpec {
+				spec, err := sc.SwitchesWithNetworks.DeepCopy()
+				require.NoError(t, err)
+
+				spec.Switches[0].Nics[1].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL
+				spec.Switches[0].Nics[1].Vrf = new("vrf100")
+				spec.Switches[1].Nics[1].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL
+				spec.Switches[1].Nics[1].Vrf = new("vrf100")
+
+				return spec
+			},
+			wantErr: errorutil.InvalidArgument("cannot change network of external port %q on switch %q; make it unmanaged first", "Ethernet1", sc.P01Rack01Switch1),
+		},
+		// {
+		// 	name: "add external membership to port",
+		// 	rq: &adminv2.SwitchServicePortRequest{
+		// 		Id:      sc.P01Rack01Switch1,
+		// 		NicName: "Ethernet1",
+		// 		Config: &apiv2.StaticPortConfig{
+		// 			Status:     apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
+		// 			Membership: apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL,
+		// 			Network:    new(sc.NetworkExternal),
+		// 		},
+		// 	},
+		// 	want: func(dc *test.Datacenter) *adminv2.SwitchServicePortResponse {
+		// 		sw := dc.GetSwitches()[sc.P01Rack01Switch1]
+		// 		sw.Nics[1].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL
+		// 		sw.Nics[1].Vrf = new("vrf100")
+		// 		return &adminv2.SwitchServicePortResponse{}
+		// 	},
+		// 	mods: func() *test.Asserters {
+		// 		return &test.Asserters{
+		// 			Switches: func(switches map[string]*apiv2.Switch) {
+		// 				sw := switches[sc.P01Rack01Switch1]
+		// 				sw.Nics[1].Membership = apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL
+		// 				sw.Nics[1].Vrf = new("vrf100")
+		// 			},
+		// 		}
+		// 	},
+		// 	wantErr: nil,
+		// },
 	}
-
-	dc := test.NewDatacenter(t)
-	log := dc.GetTestStore().GetLogger()
-	defer dc.Close()
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			dc.Create(&sc.SwitchesWithMachinesDatacenter)
+			spec, err := sc.SwitchesWithNetworks.DeepCopy()
+			require.NoError(t, err)
+			if tt.spec != nil {
+				spec = tt.spec()
+			}
+			dc.Create(spec)
 			defer dc.Cleanup()
 
 			var want *adminv2.SwitchServicePortResponse
 			if tt.want != nil {
-				want = tt.want(dc)
+				want = tt.want(dc.Snapshot())
 			}
 
 			s := &switchServiceServer{

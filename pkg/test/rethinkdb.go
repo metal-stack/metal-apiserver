@@ -18,7 +18,13 @@ import (
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
 
-const rethinkDbImage = "rethinkdb:2.4.4-bookworm-slim"
+const (
+	asnPoolMin     = 1
+	asnPoolMax     = 100
+	vrfPoolMin     = 1
+	vrfPoolMax     = 100
+	rethinkDbImage = "rethinkdb:2.4.4-bookworm-slim"
+)
 
 var (
 	rethinkDbConnectOpts r.ConnectOpts
@@ -70,7 +76,7 @@ func StartRethink(t testing.TB, log *slog.Logger) (generic.Datastore, r.ConnectO
 		MaxOpen:    2000,
 	}
 
-	ds, err := generic.Initialize(t.Context(), log, rethinkDbConnectOpts, generic.AsnPoolRange(uint(1), uint(100)), generic.VrfPoolRange(uint(1), uint(100)), generic.NewMutexOptCheckInterval(3*time.Second))
+	ds, err := generic.Initialize(t.Context(), log, rethinkDbConnectOpts, generic.AsnPoolRange(asnPoolMin, asnPoolMax), generic.VrfPoolRange(vrfPoolMin, vrfPoolMax), generic.NewMutexOptCheckInterval(3*time.Second))
 	require.NoError(t, err)
 
 	return ds, rethinkDbConnectOpts, rethinkDbCloser

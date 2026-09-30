@@ -321,10 +321,13 @@ func (s *testStore) Cleanup(t testing.TB) {
 		require.NoError(t, err)
 	}
 
-	for i := range 99 {
-		err := s.ds.AsnPool().ReleaseUniqueInteger(t.Context(), uint(i+1))
+	for i := asnPoolMin; i <= asnPoolMax; i++ {
+		err := s.ds.AsnPool().ReleaseUniqueInteger(t.Context(), uint(i))
 		require.NoError(t, err)
-		err = s.ds.VrfPool().ReleaseUniqueInteger(t.Context(), uint(i+1))
+	}
+
+	for i := vrfPoolMin; i <= vrfPoolMax; i++ {
+		err := s.ds.VrfPool().ReleaseUniqueInteger(t.Context(), uint(i))
 		require.NoError(t, err)
 	}
 

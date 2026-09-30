@@ -6,6 +6,7 @@ import (
 	"net/netip"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -158,27 +159,79 @@ func (r *switchRepository) Migrate(ctx context.Context, oldSwitch, newSwitch str
 	return converted, nil
 }
 
-func (r *switchRepository) Port(ctx context.Context, id, port string, status apiv2.SwitchPortStatus) (*apiv2.Switch, error) {
-	metalStatus, err := metal.ToSwitchPortStatus(status)
+func (r *switchRepository) Port(ctx context.Context, rq *adminv2.SwitchServicePortRequest) (*apiv2.Switch, error) {
+	if rq == nil {
+		return nil, errorutil.InvalidArgument("request is empty")
+	}
+
+	config := pointer.SafeDeref(rq.Config)
+	// TODO: allow unspecified status -> will leave port status untouched
+	metalStatus, err := metal.ToSwitchPortStatus(config.Status)
 	if err != nil {
-		return nil, errorutil.InvalidArgument("failed to parse port status %q: %w", status, err)
+		return nil, errorutil.InvalidArgument("failed to parse port status %q: %w", config.Status, err)
 	}
 
-	if status != apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP && status != apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN {
-		return nil, errorutil.InvalidArgument("port status %q must be one of [%q, %q]", metalStatus, metal.SwitchPortStatusUp, metal.SwitchPortStatusDown)
+	if config.Status != apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP && config.Status != apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN {
+		return nil, errorutil.InvalidArgument("port status %q must be one of [%q, %q]", config.Status, apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP, apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN)
 	}
 
-	sw, err := r.s.ds.Switch().Get(ctx, id)
+	sw, err := r.s.ds.Switch().Get(ctx, rq.Id)
 	if err != nil {
 		return nil, err
 	}
 
 	nic, found := lo.Find(sw.Nics, func(nic metal.Nic) bool {
-		return nic.Name == port
+		return nic.Name == rq.NicName
 	})
 	if !found {
-		return nil, errorutil.InvalidArgument("port %s does not exist on switch %s", port, id)
+		return nil, errorutil.InvalidArgument("port %q does not exist on switch %q", rq.NicName, rq.Id)
 	}
+
+	if config.Membership == apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_INTERNAL {
+		return nil, errorutil.InvalidArgument("cannot change membership of port %q on switch %q to %q; this type of membership is automatically acquired when a registered machine connects to the switch", rq.NicName, rq.Id, config.Membership)
+	}
+
+	if nic.Membership == metal.SwitchPortMembershipInternal && config.Membership != apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_UNSPECIFIED {
+		return nil, errorutil.InvalidArgument("cannot change membership of port %q on switch %q to %q because it is an internal port", rq.NicName, rq.Id, config.Membership.String())
+	}
+
+	if config.Membership == apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL && config.Network == nil {
+		return nil, errorutil.InvalidArgument("to make a port external you must specify a network it should be a member of")
+	}
+
+	if config.Network != nil && config.Membership != apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL {
+		return nil, errorutil.InvalidArgument("if you want to add port %q of switch %q to network %q you must set its membership to %q", rq.NicName, rq.Id, pointer.SafeDeref(config.Network), apiv2.SwitchPortMembership_SWITCH_PORT_MEMBERSHIP_EXTERNAL.String())
+	}
+
+	if config.Network != nil {
+		nw, err := r.s.UnscopedNetwork().Get(ctx, pointer.SafeDeref(config.Network))
+		if err != nil {
+			return nil, fmt.Errorf("failed to add port %q of switch %q to network %q: %w", rq.NicName, rq.Id, pointer.SafeDeref(config.Network), err)
+		}
+
+		vrfStr := strings.TrimPrefix(nic.Vrf, "vrf")
+		vrf, err := strconv.Atoi(vrfStr)
+		if err != nil {
+			return nil, errorutil.Internal("failed to parse vrf of port %q on switch %q: %w", nic.Name, rq.Id, err)
+		}
+
+		currentNetwork, err := r.s.UnscopedNetwork().Find(ctx, &apiv2.NetworkQuery{
+			Vrf: new(uint32(vrf)),
+		})
+		if err != nil {
+			return nil, errorutil.Internal("failed to find network for vrf %d: %w", vrf, err)
+		}
+
+		nwVrf := fmt.Sprintf("vrf%d", pointer.SafeDeref(nw.Vrf))
+		if nwVrf != nic.Vrf {
+			return nil, errorutil.InvalidArgument("trying to add port %q of switch %q to network %q but it is already member of network %q; if you want to change a port's network make it unmanaged first", rq.NicName, rq.Id, pointer.SafeDeref(config.Network), currentNetwork.Id)
+		}
+	}
+
+	// validate
+	// - can't change external ports' network
+	// - twin ports must be in the same network
+	// - if not unmanaged twin ports must have same membership
 
 	nic.State.Desired = &metalStatus
 	err = r.s.ds.Switch().Update(ctx, sw)
@@ -1378,7 +1431,6 @@ func toMetalNic(switchNic *apiv2.SwitchNic, hostname string) (*metal.Nic, error)
 		Name:         switchNic.Name,
 		Hostname:     hostname,
 		Identifier:   switchNic.Identifier,
-		MacAddress:   pointer.SafeDeref(switchNic.Mac), // nolint:staticcheck
 		Vrf:          pointer.SafeDeref(switchNic.Vrf),
 		State:        nicState,
 		BGPPortState: bgpPortState,

@@ -143,7 +143,10 @@ func (ip *integerPool) AcquireRandomUniqueInteger(ctx context.Context) (uint, er
 		func() error {
 			var err2 error
 			integer, err2 = ip.genericAcquire(ctx, &t)
-			return err2
+			if err2 != nil {
+				return fmt.Errorf("failed to acquire random integer: %w", err2)
+			}
+			return nil
 		},
 		retry.Attempts(10),
 		retry.MaxDelay(100*time.Millisecond),
@@ -161,8 +164,12 @@ func (ip *integerPool) AcquireUniqueInteger(ctx context.Context, value uint) (ui
 	}
 
 	t := ip.table.Get(value)
+	i, err := ip.genericAcquire(ctx, &t)
+	if err != nil {
+		return 0, fmt.Errorf("failed to acquire unique integer %d: %w", value, err)
+	}
 
-	return ip.genericAcquire(ctx, &t)
+	return i, nil
 }
 
 // ReleaseUniqueInteger returns a unique integer to the pool.

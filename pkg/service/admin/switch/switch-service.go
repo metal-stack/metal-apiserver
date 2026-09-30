@@ -84,7 +84,7 @@ func (s *switchServiceServer) Migrate(ctx context.Context, rq *adminv2.SwitchSer
 }
 
 func (s *switchServiceServer) Port(ctx context.Context, rq *adminv2.SwitchServicePortRequest) (*adminv2.SwitchServicePortResponse, error) {
-	sw, err := s.repo.Switch().AdditionalMethods().Port(ctx, rq.Id, rq.NicName, rq.Status)
+	sw, err := s.repo.Switch().AdditionalMethods().Port(ctx, rq)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
