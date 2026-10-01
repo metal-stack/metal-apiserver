@@ -330,10 +330,10 @@ func createMachine(t *testing.T, apiClient client.Client, allocationType apiv2.M
 		t.FailNow()
 	}
 
-	require.EventuallyWithT(t, func(collect *assert.CollectT) {
-		require.NotNil(t, machineWaitResponse)
-		require.NotNil(t, machineWaitResponse.Allocation)
-		require.NotEmpty(t, machineWaitResponse.Allocation.Networks)
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		require.NotNil(c, machineWaitResponse)
+		require.NotNil(c, machineWaitResponse.Allocation)
+		require.NotEmpty(c, machineWaitResponse.Allocation.Networks)
 	}, 30*time.Second, 100*time.Millisecond)
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
