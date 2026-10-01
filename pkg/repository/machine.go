@@ -1333,7 +1333,7 @@ func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, 
 	const bmcCommandTimeout = 45 * time.Second
 
 	var (
-		runSync   = false
+		runSync   = true
 		cmd       = *cmdString
 		commandId = machineUUID + ":machine-bmc-command:" + cmd
 	)
