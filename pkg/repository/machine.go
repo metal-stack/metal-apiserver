@@ -1004,7 +1004,7 @@ func (r *machineRepository) InstallationSucceeded(ctx context.Context, req *infr
 		return nil, fmt.Errorf("the machine %q could not be enslaved into the vrf %s, error: %w", req.Uuid, vrf, err)
 	}
 
-	_, err = r.MachineBMCCommand(ctx, m.ID, m.PartitionID, apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_MACHINE_CREATED, runBMCCommandAsync())
+	_, err = r.MachineBMCCommand(ctx, m.ID, m.PartitionID, apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_MACHINE_CREATED, runCommandSynchronously(false))
 	if err != nil {
 		return nil, fmt.Errorf("unable to send machine bmc command to trigger boot to disk: %w", err)
 	}
@@ -1313,10 +1313,14 @@ func (r *machineRepository) convertToBMCReport(machine *metal.Machine) *apiv2.Ma
 
 type machineBMCCommandOption any
 
-type async struct{}
+type syncOpt struct {
+	sync bool
+}
 
-func runBMCCommandAsync() machineBMCCommandOption {
-	return &async{}
+func runCommandSynchronously(sync bool) machineBMCCommandOption {
+	return &syncOpt{
+		sync: sync,
+	}
 }
 
 func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, partition string, command apiv2.MachineBMCCommand, opts ...machineBMCCommandOption) (string, error) {
@@ -1329,15 +1333,15 @@ func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, 
 	const bmcCommandTimeout = 45 * time.Second
 
 	var (
-		runAsync  = false
+		runSync   = false
 		cmd       = *cmdString
 		commandId = machineUUID + ":machine-bmc-command:" + cmd
 	)
 
 	for _, opt := range opts {
 		switch o := opt.(type) {
-		case *async:
-			runAsync = true
+		case *syncOpt:
+			runSync = o.sync
 		default:
 			return "", fmt.Errorf("unknown datastore opt: %T", o)
 		}
@@ -1358,7 +1362,7 @@ func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, 
 
 	r.s.log.Info("machine bmc command enqueued", "info", info)
 
-	if !runAsync {
+	if runSync {
 		if _, err = r.s.Task().WatchForTaskCompletion(ctx, &task.WatchConfig{
 			Timeout:  new(bmcCommandTimeout),
 			Interval: new(1 * time.Second),

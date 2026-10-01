@@ -330,6 +330,12 @@ func createMachine(t *testing.T, apiClient client.Client, allocationType apiv2.M
 		t.FailNow()
 	}
 
+	require.EventuallyWithT(t, func(collect *assert.CollectT) {
+		require.NotNil(t, machineWaitResponse)
+		require.NotNil(t, machineWaitResponse.Allocation)
+		require.NotEmpty(t, machineWaitResponse.Allocation.Networks)
+	}, 5*time.Second, 100*time.Millisecond)
+
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		resp, err := apiClient.Apiv2().Machine().Get(ctx, &apiv2.MachineServiceGetRequest{
 			Uuid:    machine.Uuid,
