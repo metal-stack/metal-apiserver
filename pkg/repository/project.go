@@ -118,10 +118,10 @@ func (r *projectRepository) update(ctx context.Context, p *projectEntity, rq *ap
 		p.Name = *rq.Name
 	}
 
-	ann := p.Meta.Annotations
-	if ann == nil {
-		ann = map[string]string{}
+	if p.Meta.Annotations == nil {
+		p.Meta.Annotations = map[string]string{}
 	}
+	ann := p.Meta.Annotations
 
 	if rq.AvatarUrl != nil {
 		ann[avatarURLAnnotation] = *rq.AvatarUrl
@@ -205,6 +205,7 @@ func (r *projectRepository) convertToInternal(ctx context.Context, p *apiv2.Proj
 		CreatedTime: p.Meta.CreatedAt,
 		UpdatedTime: p.Meta.UpdatedAt,
 		Labels:      labels,
+		Annotations: make(map[string]string),
 	}
 
 	if p.AvatarUrl != nil {
