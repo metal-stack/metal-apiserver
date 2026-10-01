@@ -1004,7 +1004,7 @@ func (r *machineRepository) InstallationSucceeded(ctx context.Context, req *infr
 		return nil, fmt.Errorf("the machine %q could not be enslaved into the vrf %s, error: %w", req.Uuid, vrf, err)
 	}
 
-	_, err = r.MachineBMCCommand(ctx, m.ID, m.PartitionID, apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_MACHINE_CREATED)
+	_, err = r.MachineBMCCommand(ctx, m.ID, m.PartitionID, apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_MACHINE_CREATED, runBMCCommandAsync())
 	if err != nil {
 		return nil, fmt.Errorf("unable to send machine bmc command to trigger boot to disk: %w", err)
 	}
@@ -1311,7 +1311,15 @@ func (r *machineRepository) convertToBMCReport(machine *metal.Machine) *apiv2.Ma
 	return bmcReport
 }
 
-func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, partition string, command apiv2.MachineBMCCommand) (string, error) {
+type machineBMCCommandOption any
+
+type async struct{}
+
+func runBMCCommandAsync() machineBMCCommandOption {
+	return &async{}
+}
+
+func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, partition string, command apiv2.MachineBMCCommand, opts ...machineBMCCommandOption) (string, error) {
 	cmdString, err := enum.GetStringValue(command)
 	if err != nil {
 		return "", errorutil.InvalidArgument("unknown command: %s", command)
@@ -1321,9 +1329,19 @@ func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, 
 	const bmcCommandTimeout = 45 * time.Second
 
 	var (
+		runAsync  = false
 		cmd       = *cmdString
 		commandId = machineUUID + ":machine-bmc-command:" + cmd
 	)
+
+	for _, opt := range opts {
+		switch o := opt.(type) {
+		case *async:
+			runAsync = true
+		default:
+			return "", fmt.Errorf("unknown datastore opt: %T", o)
+		}
+	}
 
 	info, err := r.s.task.NewTask(&task.MachineBMCCommandPayload{
 		UUID:      machineUUID,
@@ -1340,11 +1358,13 @@ func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, 
 
 	r.s.log.Info("machine bmc command enqueued", "info", info)
 
-	if _, err = r.s.Task().WatchForTaskCompletion(ctx, &task.WatchConfig{
-		Timeout:  new(bmcCommandTimeout),
-		Interval: new(1 * time.Second),
-	}, info.Queue, info.ID); err != nil {
-		return info.ID, errorutil.Internal("error waiting for task %q of type %q to complete: %w", info.ID, info.Type, err)
+	if !runAsync {
+		if _, err = r.s.Task().WatchForTaskCompletion(ctx, &task.WatchConfig{
+			Timeout:  new(bmcCommandTimeout),
+			Interval: new(1 * time.Second),
+		}, info.Queue, info.ID); err != nil {
+			return info.ID, errorutil.Internal("error waiting for task %q of type %q to complete: %w", info.ID, info.Type, err)
+		}
 	}
 
 	return info.ID, nil
@@ -1361,6 +1381,7 @@ func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWa
 
 	if machine.Allocation != nil {
 		r.s.log.Debug("send existing allocation to machine", "allocation", machine.Allocation)
+
 		err = srv.Send(&infrav2.BootServiceWaitResponse{
 			Allocation: machine.Allocation,
 		})
@@ -1368,6 +1389,7 @@ func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWa
 			return err
 		}
 	}
+
 	err = r.setMachineWaitingFlag(ctx, machineID, true)
 	if err != nil {
 		return err
