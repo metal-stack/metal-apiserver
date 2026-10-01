@@ -1372,7 +1372,6 @@ func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, 
 
 func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWaitRequest, srv *connect.ServerStream[infrav2.BootServiceWaitResponse]) error {
 	machineID := req.Uuid
-	r.s.log.Info("wait for allocation called by", "machineID", machineID)
 
 	machine, err := r.s.UnscopedMachine().Get(ctx, machineID)
 	if err != nil {
@@ -1380,7 +1379,7 @@ func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWa
 	}
 
 	if machine.Allocation != nil {
-		r.s.log.Debug("send existing allocation to machine", "allocation", machine.Allocation)
+		r.s.log.Debug("wait for machine allocation called, allocation for machine already exists", "allocation", machine.Allocation)
 
 		err = srv.Send(&infrav2.BootServiceWaitResponse{
 			Allocation: machine.Allocation,
@@ -1390,14 +1389,15 @@ func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWa
 		}
 	}
 
+	r.s.log.Debug("set machine waiting flag to true", "machineID", machineID)
+
 	err = r.setMachineWaitingFlag(ctx, machineID, true)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		if err != nil {
-			return
-		}
+		r.s.log.Debug("set machine waiting flag to false", "machineID", machineID)
+
 		// TODO This is prone to fail with optlock, either retry or async task
 		err = r.setMachineWaitingFlag(ctx, machineID, false)
 		if err != nil {
@@ -1405,29 +1405,30 @@ func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWa
 		}
 	}()
 
-	allocationChan := r.s.queue.WaitMachineAllocation(ctx, machineID)
+	changes, err := r.s.ds.Machine().Watch(ctx, machineID)
+	if err != nil {
+		return err
+	}
 
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-allocationChan:
-			machine, err := r.s.UnscopedMachine().Get(ctx, machineID)
-			if err != nil {
-				return err
-			}
-			if machine.Allocation == nil {
-				return errorutil.Internal("machine %s is not allocated", machineID)
-			}
-			r.s.log.Debug("send allocation to machine", "allocation", machine.Allocation)
-			err = srv.Send(&infrav2.BootServiceWaitResponse{
-				Allocation: machine.Allocation,
-			})
-			if err != nil {
-				return err
-			}
+	for change := range changes {
+		if change.New == nil || change.New.Allocation == nil {
+			continue
+		}
+
+		machine, err := r.convertToProto(ctx, change.New)
+		if err != nil {
+			return err
+		}
+
+		err = srv.Send(&infrav2.BootServiceWaitResponse{
+			Allocation: machine.Allocation,
+		})
+		if err != nil {
+			return err
 		}
 	}
+
+	return nil
 }
 
 func (r *machineRepository) WaitForBMCCommand(ctx context.Context, req *infrav2.WaitForBMCCommandRequest, stream *connect.ServerStream[infrav2.WaitForBMCCommandResponse]) error {
