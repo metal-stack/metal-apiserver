@@ -169,8 +169,25 @@ Semantics:
   mirror is handed a copy of the pre-update entity so the optimistically locked
   version stays correct while the RethinkDB adapter mutates the original.
 
-Not part of this slice (follow-ups): wiring `pkg/repository` onto the port,
-shadow reads / reconciliation, pagination, and the non-UUID id strategy.
+`routing.Datastore` wires the routers into the existing `generic.Datastore`
+interface (per entity, delegating pools/lock/version to RethinkDB), so the
+repository and the test harness run on top of it without call-site changes. The
+test harness exposes it via `test.WithRoutingConfig(...)`:
+
+```go
+s, closer := test.StartRepositoryWithCleanup(t, test.WithRoutingConfig(routing.Config{
+    Default:  routing.ModeRethink,
+    Entities: map[string]routing.Mode{"Network": routing.ModeBoth},
+}))
+```
+
+Covered by `pkg/test/routing_test.go` (dual write to both stores, read-back from
+RethinkDB, read backend flipped to Postgres, and connect-error mapping).
+
+Not part of this slice (follow-ups): **filtered** Postgres reads (the repository
+builds only the RethinkDB `EntityQuery`; a filtered read against Postgres needs
+the `q/` representation at the call site), shadow reads / reconciliation,
+pagination, and the non-UUID id strategy.
 
 #### Option 5 — Read-through / lazy migration
 
