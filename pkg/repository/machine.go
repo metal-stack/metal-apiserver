@@ -1004,7 +1004,7 @@ func (r *machineRepository) InstallationSucceeded(ctx context.Context, req *infr
 		return nil, fmt.Errorf("the machine %q could not be enslaved into the vrf %s, error: %w", req.Uuid, vrf, err)
 	}
 
-	_, err = r.MachineBMCCommand(ctx, m.ID, m.PartitionID, apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_MACHINE_CREATED, runCommandSynchronously(false))
+	_, err = r.MachineBMCCommand(ctx, m.ID, m.PartitionID, apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_MACHINE_CREATED, RunSync(false))
 	if err != nil {
 		return nil, fmt.Errorf("unable to send machine bmc command to trigger boot to disk: %w", err)
 	}
@@ -1317,7 +1317,7 @@ type syncOpt struct {
 	sync bool
 }
 
-func runCommandSynchronously(sync bool) machineBMCCommandOption {
+func RunSync(sync bool) machineBMCCommandOption {
 	return &syncOpt{
 		sync: sync,
 	}
@@ -1343,7 +1343,7 @@ func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, 
 		case *syncOpt:
 			runSync = o.sync
 		default:
-			return "", fmt.Errorf("unknown datastore opt: %T", o)
+			return "", fmt.Errorf("unknown bmc command opt: %T", o)
 		}
 	}
 
