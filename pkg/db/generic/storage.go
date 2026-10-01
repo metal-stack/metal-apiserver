@@ -2,7 +2,6 @@ package generic
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/metal-stack/api/go/errorutil"
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
+	rencoding "gopkg.in/rethinkdb/rethinkdb-go.v6/encoding"
 )
 
 type storage[E Entity] struct {
@@ -244,7 +244,7 @@ func (s *storage[E]) Watch(ctx context.Context, id string) (<-chan struct {
 	New E
 }, error) {
 	cursor, err := s.table.Get(id).Changes(r.ChangesOpts{
-		Squash: false,
+		Squash: true,
 	}).Run(s.r.queryExecutor, r.RunOpts{
 		Context: ctx,
 	})
@@ -281,22 +281,12 @@ func (s *storage[E]) Watch(ctx context.Context, id string) (<-chan struct {
 					newValue = new(E)
 				)
 
-				tmp, err := json.Marshal(change.OldValue)
-				if err != nil {
-					s.r.log.Error("unable to marshal old value", "error", err)
-					return
-				}
-				if err := json.Unmarshal(tmp, oldValue); err != nil {
+				if err := rencoding.Decode(oldValue, change.OldValue); err != nil {
 					s.r.log.Error("unable to unmarshal old value", "error", err)
 					return
 				}
 
-				tmp, err = json.Marshal(change.NewValue)
-				if err != nil {
-					s.r.log.Error("unable to marshal new value", "error", err)
-					return
-				}
-				if err := json.Unmarshal(tmp, newValue); err != nil {
+				if err := rencoding.Decode(newValue, change.NewValue); err != nil {
 					s.r.log.Error("unable to unmarshal new value", "error", err)
 					return
 				}

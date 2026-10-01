@@ -17,8 +17,23 @@ func Test_storage_Watch(t *testing.T) {
 	t.Parallel()
 
 	var (
-		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-		ctx = t.Context()
+		log         = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+		ctx         = t.Context()
+		testMachine = &metal.Machine{
+			ID: "123",
+			Allocation: &metal.MachineAllocation{
+				UUID: "456",
+				MachineNetworks: []*metal.MachineNetwork{
+					{
+						NetworkID: "a",
+						IPs: []string{
+							"1.2.3.4",
+						},
+						NetworkType: metal.NetworkTypeChildShared,
+					},
+				},
+			},
+		}
 	)
 
 	ds, _, rethinkCloser := test.StartRethink(t, log)
@@ -29,15 +44,10 @@ func Test_storage_Watch(t *testing.T) {
 	watchCtx, watchCancel := context.WithTimeout(ctx, 5*time.Second)
 	defer watchCancel()
 
-	channel, err := ds.Machine().Watch(watchCtx, "123")
+	channel, err := ds.Machine().Watch(watchCtx, testMachine.ID)
 	require.NoError(t, err)
 
-	m, err := ds.Machine().Create(ctx, &metal.Machine{
-		ID: "123",
-		Allocation: &metal.MachineAllocation{
-			UUID: "456",
-		},
-	})
+	m, err := ds.Machine().Create(ctx, testMachine)
 	require.NoError(t, err)
 
 	pair := <-channel
@@ -46,10 +56,13 @@ func Test_storage_Watch(t *testing.T) {
 	require.NotNil(t, pair.New)
 	assert.Equal(t, "123", pair.New.ID)
 	require.NotNil(t, pair.New.Allocation)
+	require.NotNil(t, pair.New.Allocation.MachineNetworks)
+	require.Len(t, pair.New.Allocation.MachineNetworks, 1)
 	assert.Equal(t, "456", pair.New.Allocation.UUID)
+	assert.Equal(t, "a", pair.New.Allocation.MachineNetworks[0].NetworkID)
 
 	err = ds.Machine().Update(ctx, &metal.Machine{
-		ID:      "123",
+		ID:      testMachine.ID,
 		Changed: m.Changed,
 	})
 	require.NoError(t, err)
