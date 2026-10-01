@@ -20,8 +20,10 @@ import (
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	pgq "github.com/metal-stack/metal-apiserver/pkg/db/generic/pg/q"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
+	"github.com/metal-stack/metal-apiserver/pkg/db/routing"
 	"github.com/metal-stack/metal-apiserver/pkg/fsm"
 	"github.com/metal-stack/metal-apiserver/pkg/issues"
 	"github.com/metal-stack/metal-apiserver/pkg/tags"
@@ -230,16 +232,25 @@ func (r *machineRepository) delete(ctx context.Context, m *metal.Machine) (*dele
 }
 
 func (r *machineRepository) find(ctx context.Context, rq *apiv2.MachineQuery) (*metal.Machine, error) {
-	ms, err := r.s.ds.Machine().Find(ctx, r.scopedMachineFilters(queries.MachineFilter(rq))...)
-	if err != nil {
-		return nil, err
+	// The routed datastore can serve a query from either backend when both
+	// filter representations are supplied; the plain rethinkdb datastore cannot.
+	if fs, ok := r.s.ds.Machine().(routing.FilteredStorage[*metal.Machine]); ok {
+		return fs.FindFiltered(ctx, r.machineFilters(rq)...)
 	}
 
-	return ms, nil
+	return r.s.ds.Machine().Find(ctx, r.scopedMachineFilters(queries.MachineFilter(rq))...)
 }
 
 func (r *machineRepository) list(ctx context.Context, rq *apiv2.MachineQuery) ([]*metal.Machine, error) {
-	machines, err := r.s.ds.Machine().List(ctx, r.scopedMachineFilters(queries.MachineFilter(rq))...)
+	var (
+		machines []*metal.Machine
+		err      error
+	)
+	if fs, ok := r.s.ds.Machine().(routing.FilteredStorage[*metal.Machine]); ok {
+		machines, err = fs.ListFiltered(ctx, r.machineFilters(rq)...)
+	} else {
+		machines, err = r.s.ds.Machine().List(ctx, r.scopedMachineFilters(queries.MachineFilter(rq))...)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -249,6 +260,28 @@ func (r *machineRepository) list(ctx context.Context, rq *apiv2.MachineQuery) ([
 	})
 
 	return machines, nil
+}
+
+// machineFilters builds the machine query for both backends so it can be served
+// from RethinkDB or Postgres (see routing.FilteredStorage).
+func (r *machineRepository) machineFilters(rq *apiv2.MachineQuery) []routing.Filter {
+	var filters []routing.Filter
+
+	if r.scope != nil {
+		filters = append(filters, routing.Filter{
+			Rethink:  queries.MachineProjectScoped(r.scope.projectID),
+			Postgres: pgq.MachineProjectScoped(r.scope.projectID),
+		})
+	}
+
+	if mf := queries.MachineFilter(rq); mf != nil {
+		filters = append(filters, routing.Filter{
+			Rethink:  mf,
+			Postgres: pgq.MachineFilter(rq),
+		})
+	}
+
+	return filters
 }
 
 func (r *machineRepository) convertToInternal(ctx context.Context, machine *apiv2.Machine) (*metal.Machine, error) {

@@ -106,39 +106,41 @@ func newEntityStorage[E generic.Entity](log *slog.Logger, cfg Config, entity str
 	return NewRouter[E](log, cfg, entity, NewRethinkStorage(rethink), postgres)
 }
 
-func (d *Datastore) IP() generic.Storage[*metal.IP] { return genericStorage[*metal.IP]{port: d.ip} }
+func (d *Datastore) IP() generic.Storage[*metal.IP] {
+	return genericStorage[*metal.IP]{port: d.ip, name: "ip"}
+}
 func (d *Datastore) Machine() generic.Storage[*metal.Machine] {
-	return genericStorage[*metal.Machine]{port: d.machine}
+	return genericStorage[*metal.Machine]{port: d.machine, name: "machine"}
 }
 func (d *Datastore) Size() generic.Storage[*metal.Size] {
-	return genericStorage[*metal.Size]{port: d.size}
+	return genericStorage[*metal.Size]{port: d.size, name: "size"}
 }
 func (d *Datastore) SizeImageConstraint() generic.Storage[*metal.SizeImageConstraint] {
-	return genericStorage[*metal.SizeImageConstraint]{port: d.sizeImageConstraint}
+	return genericStorage[*metal.SizeImageConstraint]{port: d.sizeImageConstraint, name: "sizeimageconstraint"}
 }
 func (d *Datastore) SizeReservation() generic.Storage[*metal.SizeReservation] {
-	return genericStorage[*metal.SizeReservation]{port: d.sizeReservation}
+	return genericStorage[*metal.SizeReservation]{port: d.sizeReservation, name: "sizereservation"}
 }
 func (d *Datastore) Partition() generic.Storage[*metal.Partition] {
-	return genericStorage[*metal.Partition]{port: d.partition}
+	return genericStorage[*metal.Partition]{port: d.partition, name: "partition"}
 }
 func (d *Datastore) Network() generic.Storage[*metal.Network] {
-	return genericStorage[*metal.Network]{port: d.network}
+	return genericStorage[*metal.Network]{port: d.network, name: "network"}
 }
 func (d *Datastore) FilesystemLayout() generic.Storage[*metal.FilesystemLayout] {
-	return genericStorage[*metal.FilesystemLayout]{port: d.filesystemLayout}
+	return genericStorage[*metal.FilesystemLayout]{port: d.filesystemLayout, name: "filesystemlayout"}
 }
 func (d *Datastore) Image() generic.Storage[*metal.Image] {
-	return genericStorage[*metal.Image]{port: d.image}
+	return genericStorage[*metal.Image]{port: d.image, name: "image"}
 }
 func (d *Datastore) Switch() generic.Storage[*metal.Switch] {
-	return genericStorage[*metal.Switch]{port: d.sw}
+	return genericStorage[*metal.Switch]{port: d.sw, name: "switch"}
 }
 func (d *Datastore) SwitchStatus() generic.Storage[*metal.SwitchStatus] {
-	return genericStorage[*metal.SwitchStatus]{port: d.switchStatus}
+	return genericStorage[*metal.SwitchStatus]{port: d.switchStatus, name: "switchstatus"}
 }
 func (d *Datastore) Event() generic.Storage[*metal.ProvisioningEventContainer] {
-	return genericStorage[*metal.ProvisioningEventContainer]{port: d.event}
+	return genericStorage[*metal.ProvisioningEventContainer]{port: d.event, name: "event"}
 }
 
 // genericStorage adapts the routing port back to the generic.Storage interface
@@ -147,9 +149,15 @@ func (d *Datastore) Event() generic.Storage[*metal.ProvisioningEventContainer] {
 // reads and id-based operations work in any mode.
 type genericStorage[E generic.Entity] struct {
 	port Storage[E]
+	// name is the legacy rethinkdb table name. It is used to reproduce the
+	// exact not-found error messages of the generic rethinkdb storage.
+	name string
 }
 
-var _ generic.Storage[*metal.Machine] = genericStorage[*metal.Machine]{}
+var (
+	_ generic.Storage[*metal.Machine] = genericStorage[*metal.Machine]{}
+	_ FilteredStorage[*metal.Machine] = genericStorage[*metal.Machine]{}
+)
 
 func (g genericStorage[E]) Create(ctx context.Context, e E) (E, error) {
 	created, err := g.port.Create(ctx, e)
@@ -170,16 +178,41 @@ func (g genericStorage[E]) Delete(ctx context.Context, e E) error {
 
 func (g genericStorage[E]) Get(ctx context.Context, id string) (E, error) {
 	e, err := g.port.Get(ctx, id)
+	if errors.Is(err, ErrNotFound) {
+		var zero E
+		return zero, errorutil.NotFound("no %v with id %q found", g.name, id)
+	}
 	return e, toGenericError(err)
 }
 
 func (g genericStorage[E]) Find(ctx context.Context, queries ...generic.EntityQuery) (E, error) {
 	e, err := g.port.Find(ctx, toFilters(queries)...)
+	if errors.Is(err, ErrNotFound) {
+		var zero E
+		return zero, errorutil.NotFound("no %v found", g.name)
+	}
 	return e, toGenericError(err)
 }
 
 func (g genericStorage[E]) List(ctx context.Context, queries ...generic.EntityQuery) ([]E, error) {
 	entities, err := g.port.List(ctx, toFilters(queries)...)
+	return entities, toGenericError(err)
+}
+
+// FindFiltered and ListFiltered implement FilteredStorage: the caller supplies
+// filters that carry a representation for both backends, so the read works on
+// either.
+func (g genericStorage[E]) FindFiltered(ctx context.Context, filters ...Filter) (E, error) {
+	e, err := g.port.Find(ctx, filters...)
+	if errors.Is(err, ErrNotFound) {
+		var zero E
+		return zero, errorutil.NotFound("no %v found", g.name)
+	}
+	return e, toGenericError(err)
+}
+
+func (g genericStorage[E]) ListFiltered(ctx context.Context, filters ...Filter) ([]E, error) {
+	entities, err := g.port.List(ctx, filters...)
 	return entities, toGenericError(err)
 }
 

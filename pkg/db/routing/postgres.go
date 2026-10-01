@@ -2,6 +2,7 @@ package routing
 
 import (
 	"context"
+	"crypto/sha1"
 	"errors"
 	"fmt"
 	"reflect"
@@ -16,13 +17,18 @@ import (
 
 var _ Storage[*metal.Machine] = (*postgresStorage[*metal.Machine])(nil)
 
+// passThroughNamespace prefixes the deterministic id derivation so derived ids
+// cannot collide with real (random) UUIDs.
+const passThroughNamespace = "metal-apiserver/routing/"
+
 // postgresStorage adapts a pg.GenericRepository to the routing port.
 //
-// Identity: the port addresses entities by their metal string id, so the
-// adapter requires that id to be a UUID (Postgres stores entities keyed by
-// uuidv7). Entities with natural, non-UUID ids (IP, Size, Partition, Image,
-// FilesystemLayout) are therefore not supported yet — the README calls out that
-// they need a re-keying or a name-lookup strategy.
+// Identity: the port addresses entities by their metal string id. A UUID id is
+// used as the Postgres primary key as-is. Non-UUID ids (legacy entities such as
+// IP/Size/Partition/Image/FilesystemLayout, and test fixtures) are keyed by a
+// deterministic UUID derived from the entity type and the id, so the same id
+// always maps to the same row while the original id stays in the stored JSON
+// (and in the entity returned to callers).
 //
 // Concurrency: RethinkDB guards updates with the `changed` timestamp and keeps
 // a `generation` counter; Postgres guards updates with an integer `version`.
@@ -161,11 +167,24 @@ func entityUUID[E generic.Entity](e E) (uuid.UUID, error) {
 }
 
 func parseEntityID[E generic.Entity](id string) (uuid.UUID, error) {
-	parsed, err := uuid.Parse(id)
-	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("%s has a non-uuid id %q, which the postgres backend does not support yet: %w", EntityName[E](), id, err)
+	if parsed, err := uuid.Parse(id); err == nil {
+		return parsed, nil
 	}
-	return parsed, nil
+	// Deterministic fallback for non-UUID ids: the entity type is part of the
+	// derivation so ids only need to be unique within their type.
+	return derivedUUID(EntityName[E](), id), nil
+}
+
+// derivedUUID maps a (entityType, id) pair to a stable UUIDv5-style value.
+func derivedUUID(entityType, id string) uuid.UUID {
+	sum := sha1.Sum([]byte(passThroughNamespace + entityType + "\x00" + id))
+
+	var u uuid.UUID
+	copy(u[:], sum[:len(u)])
+	u[6] = (u[6] & 0x0f) | 0x50 // version 5 (name-based)
+	u[8] = (u[8] & 0x3f) | 0x80 // RFC 4122 variant
+
+	return u
 }
 
 func mapPostgresError(err error) error {

@@ -58,6 +58,18 @@ type Storage[E generic.Entity] interface {
 	List(ctx context.Context, filters ...Filter) ([]E, error)
 }
 
+// FilteredStorage is the migration-aware read interface. A caller that can build
+// a query for both backends (for example from an API query via pkg/db/queries
+// and pkg/db/generic/pg/q) uses it instead of the rethink-only generic.Storage
+// interface, so the read works regardless of which backend serves it.
+//
+// The plain rethinkdb datastore does not implement it; callers must fall back to
+// generic.Storage in that case.
+type FilteredStorage[E generic.Entity] interface {
+	FindFiltered(ctx context.Context, filters ...Filter) (E, error)
+	ListFiltered(ctx context.Context, filters ...Filter) ([]E, error)
+}
+
 // Router is a Storage implementation that dispatches to a backend according to
 // the configured Mode:
 //

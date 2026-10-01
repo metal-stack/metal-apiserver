@@ -161,9 +161,13 @@ Semantics:
 - Queries carry both representations (`routing.Filter{Rethink: ..., Postgres: ...}`),
   built from the existing `pkg/db/queries` and `pkg/db/generic/pg/q` packages —
   no ReQL→SQL translation. A read requires the filter for the read backend.
-- Ids: the Postgres adapter requires a UUID id; entities with natural ids
-  (IP, Size, Partition, Image, FilesystemLayout) are rejected with a clear error
-  until the id strategy is implemented.
+  Callers that can build both sides (e.g. the machine repository via
+  `routing.FilteredStorage`) use the migration-aware read interface, so a
+  Postgres-backed read works even for filtered queries.
+- Ids: a UUID id is used as the Postgres primary key as-is. Non-UUID ids
+  (IP, Size, Partition, Image, FilesystemLayout, and arbitrary test ids) are
+  keyed by a deterministic derived UUID (`entity_type` + id), so the same id
+  always maps to the same row while the original id stays in the stored JSON.
 - Concurrency: the adapter maps RethinkDB's `generation` to Postgres' `version`
   with the invariant `version = generation + 1`. Under `both`, the Postgres
   mirror is handed a copy of the pre-update entity so the optimistically locked
@@ -184,10 +188,9 @@ s, closer := test.StartRepositoryWithCleanup(t, test.WithRoutingConfig(routing.C
 Covered by `pkg/test/routing_test.go` (dual write to both stores, read-back from
 RethinkDB, read backend flipped to Postgres, and connect-error mapping).
 
-Not part of this slice (follow-ups): **filtered** Postgres reads (the repository
-builds only the RethinkDB `EntityQuery`; a filtered read against Postgres needs
-the `q/` representation at the call site), shadow reads / reconciliation,
-pagination, and the non-UUID id strategy.
+Not part of this slice (follow-ups): rolling the dual filter representation out
+to the remaining entities (currently Machine; the others still build only the
+RethinkDB `EntityQuery`), shadow reads / reconciliation, and pagination.
 
 #### Option 5 — Read-through / lazy migration
 

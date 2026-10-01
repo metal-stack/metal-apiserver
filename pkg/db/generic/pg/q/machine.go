@@ -331,3 +331,10 @@ func MachineFilter(rq *apiv2.MachineQuery) []pg.QueryFilter {
 
 	return filters
 }
+
+// MachineProjectScoped is the postgres representation of the project scope
+// filter and mirrors queries.MachineProjectScoped: it restricts the result to
+// machines allocated to the given project.
+func MachineProjectScoped(project string) []pg.QueryFilter {
+	return []pg.QueryFilter{{Path: machinePaths.AllocProject, Op: "=", Value: project}}
+}
