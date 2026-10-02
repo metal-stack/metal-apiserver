@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -9,14 +10,18 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/hibiken/asynq"
+	"github.com/metal-stack/api/go/enum"
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/metal-stack/metal-apiserver/pkg/db/routing"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -32,7 +37,12 @@ var (
 func Test_machineServiceServer_Get(t *testing.T) {
 	t.Parallel()
 
-	testStore, closer := test.StartRepositoryWithCleanup(t)
+	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithRoutingConfig(routing.Config{
+		Default: routing.ModeRethink,
+		Entities: map[string]routing.Mode{
+			"Machine": routing.ModeBoth,
+		},
+	}))
 	log := testStore.GetLogger()
 	defer closer()
 
@@ -131,7 +141,12 @@ func Test_machineServiceServer_Get(t *testing.T) {
 func Test_machineServiceServer_List(t *testing.T) {
 	t.Parallel()
 
-	testStore, closer := test.StartRepositoryWithCleanup(t)
+	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithRoutingConfig(routing.Config{
+		Default: routing.ModeRethink,
+		Entities: map[string]routing.Mode{
+			"Machine": routing.ModeBoth,
+		},
+	}))
 	log := testStore.GetLogger()
 	defer closer()
 
@@ -283,7 +298,12 @@ func Test_machineServiceServer_List(t *testing.T) {
 func Test_machineServiceServer_BMCCommand(t *testing.T) {
 	t.Parallel()
 
-	testStore, closer := test.StartRepositoryWithCleanup(t)
+	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithRoutingConfig(routing.Config{
+		Default: routing.ModeRethink,
+		Entities: map[string]routing.Mode{
+			"Machine": routing.ModeBoth,
+		},
+	}))
 	log := testStore.GetLogger()
 	defer closer()
 
@@ -354,6 +374,40 @@ func Test_machineServiceServer_BMCCommand(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
+
+			g, _ := errgroup.WithContext(t.Context())
+
+			bmcCtx, bmcCancelWatch := context.WithCancel(t.Context())
+			defer bmcCancelWatch()
+
+			strVal, err := enum.GetStringValue(tt.rq.Command)
+			require.NoError(t, err)
+
+			if tt.wantErr == nil {
+				g.Go(func() error {
+					msgs := testStore.GetQueue().WaitMachineCommand(bmcCtx, "partition-1")
+
+					select {
+					case msg := <-msgs:
+						if diff := cmp.Diff(*strVal, msg.Command); diff != "" {
+							return fmt.Errorf("bmc cmd diff: %s", diff)
+						}
+
+						_, err := testStore.UnscopedMachine().AdditionalMethods().BMCCommandDone(bmcCtx, &infrav2.BMCCommandDoneRequest{
+							CommandId: msg.CommandID,
+							Error:     nil,
+						})
+						if err != nil {
+							return err
+						}
+
+						return nil
+					case <-bmcCtx.Done():
+						return nil
+					}
+				})
+			}
+
 			got, err := m.BMCCommand(ctx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
@@ -363,25 +417,21 @@ func Test_machineServiceServer_BMCCommand(t *testing.T) {
 				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
-					&apiv2.Image{}, "expires_at",
-				),
-				protocmp.IgnoreFields(
-					&apiv2.Meta{}, "created_at", "updated_at",
-				),
-				protocmp.IgnoreFields(
-					&apiv2.MachineProvisioningEvent{}, "time",
+					&adminv2.MachineServiceBMCCommandResponse{}, "task_id",
 				),
 			); diff != "" {
 				t.Errorf("machineServiceServer.BMCCommand() = %v, want %v diff: %s", got, tt.want, diff)
 			}
 
 			if tt.want != nil {
-				tasks, err := m.repo.Task().List(nil)
+				task, err := m.repo.Task().GetTaskInfo("default", got.TaskId)
 				require.NoError(t, err)
-				require.Len(t, tasks, 1)
-				require.Equal(t, asynq.TaskStatePending, tasks[0].State)
-				require.Contains(t, string(tasks[0].Payload), "boot-from-disk")
+				require.Equal(t, asynq.TaskStateCompleted, task.State)
+				require.Contains(t, string(task.Payload), "boot-from-disk")
 			}
+
+			bmcCancelWatch()
+			require.NoError(t, g.Wait())
 		})
 	}
 }
@@ -389,7 +439,12 @@ func Test_machineServiceServer_BMCCommand(t *testing.T) {
 func Test_machineServiceServer_Issues(t *testing.T) {
 	t.Parallel()
 
-	testStore, closer := test.StartRepositoryWithCleanup(t)
+	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithRoutingConfig(routing.Config{
+		Default: routing.ModeRethink,
+		Entities: map[string]routing.Mode{
+			"Machine": routing.ModeBoth,
+		},
+	}))
 	log := testStore.GetLogger()
 	defer closer()
 

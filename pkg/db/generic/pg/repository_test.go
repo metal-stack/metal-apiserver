@@ -56,6 +56,14 @@ func TestGenericRepository(t *testing.T) {
 	require.Equal(t, int32(1), ent.Version)
 	require.Equal(t, "Munich", ent.Data.Address.City)
 
+	// Creating an existing id fails with ErrAlreadyExists and leaves the row untouched
+	err = repo.Create(ctx, userID, UserProfile{Name: "Impostor"})
+	require.ErrorIs(t, err, pg.ErrAlreadyExists)
+	ent, err = repo.Get(ctx, userID)
+	require.NoError(t, err)
+	require.Equal(t, int32(1), ent.Version)
+	require.Equal(t, "Alice", ent.Data.Name)
+
 	// 2. Test Optimistic Locking (Success Path)
 	updatedProfile := ent.Data
 	updatedProfile.Address.City = "Berlin"
@@ -117,7 +125,11 @@ func TestGenericRepository(t *testing.T) {
 	results3, err := repo.Query(ctx, nil, nil)
 	require.NoError(t, err)
 	require.Len(t, results3, 2)
-	require.ElementsMatch(t, results3, []*UserProfile{
+	var data3 []UserProfile
+	for _, e := range results3 {
+		data3 = append(data3, e.Data)
+	}
+	require.ElementsMatch(t, data3, []UserProfile{
 		{
 			Name: "Bob",
 			Age:  25,
@@ -130,7 +142,7 @@ func TestGenericRepository(t *testing.T) {
 			Name: "Alice",
 			Age:  30,
 			Address: Address{
-				City:    "Munich",
+				City:    "Berlin",
 				Country: "Germany",
 			},
 		},
@@ -150,9 +162,64 @@ func TestGenericRepository(t *testing.T) {
 	require.ErrorIs(t, err, pg.ErrNotFound)
 }
 
+func TestGenericRepositoryUpsert(t *testing.T) {
+	ctx := t.Context()
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	db, closer := test.StartPostgres(t, log)
+	defer closer()
+
+	repo, err := pg.NewGenericRepository[UserProfile](log, db)
+	require.NoError(t, err)
+	userID := uuid.NewV7()
+
+	profile := UserProfile{
+		Name:    "Alice",
+		Age:     30,
+		Address: Address{City: "Munich", Country: "Germany"},
+	}
+	require.NoError(t, repo.Upsert(ctx, userID, profile))
+
+	ent, err := repo.Get(ctx, userID)
+	require.NoError(t, err)
+	require.Equal(t, int32(1), ent.Version)
+
+	// Upsert with changed data replaces it and bumps the version
+	changed := profile
+	changed.Address.City = "Berlin"
+	require.NoError(t, repo.Upsert(ctx, userID, changed))
+	ent, err = repo.Get(ctx, userID)
+	require.NoError(t, err)
+	require.Equal(t, int32(2), ent.Version)
+	require.Equal(t, "Berlin", ent.Data.Address.City)
+
+	// Upsert with identical data is a no-op: the version stays put
+	require.NoError(t, repo.Upsert(ctx, userID, changed))
+	ent, err = repo.Get(ctx, userID)
+	require.NoError(t, err)
+	require.Equal(t, int32(2), ent.Version)
+
+	// With a table per entity type, another entity type can use the same id
+	// independently without interfering with the profile above.
+	type OtherEntity struct {
+		X int `json:"x"`
+	}
+	otherRepo, err := pg.NewGenericRepository[OtherEntity](log, db)
+	require.NoError(t, err)
+	require.NoError(t, otherRepo.Upsert(ctx, userID, OtherEntity{X: 1}))
+
+	otherEnt, err := otherRepo.Get(ctx, userID)
+	require.NoError(t, err)
+	require.Equal(t, 1, otherEnt.Data.X)
+
+	// The profile row is untouched by the other entity type.
+	ent, err = repo.Get(ctx, userID)
+	require.NoError(t, err)
+	require.Equal(t, int32(2), ent.Version)
+}
+
 func TestGenericRepositoryPagination(t *testing.T) {
 	ctx := t.Context()
-	log := slog.Default()
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	db, closer := test.StartPostgres(t, log)
 	defer closer()
 

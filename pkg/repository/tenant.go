@@ -194,10 +194,10 @@ func (t *tenantRepository) update(ctx context.Context, tenant *tenantEntity, rq 
 		tenant.Description = *rq.Description
 	}
 
-	ann := tenant.Meta.Annotations
-	if ann == nil {
-		ann = map[string]string{}
+	if tenant.Meta.Annotations == nil {
+		tenant.Meta.Annotations = map[string]string{}
 	}
+	ann := tenant.Meta.Annotations
 
 	if rq.Email != nil {
 		ann[api.TenantTagEmail] = *rq.Email

@@ -18,6 +18,11 @@ var (
 
 	ErrNotFound = errors.New("entity not found")
 
+	// ErrAlreadyExists is returned by Create when an entity with the same id
+	// already exists, and by Upsert when the id is owned by a different
+	// entity type.
+	ErrAlreadyExists = errors.New("entity already exists")
+
 	// allowedQueryOps is the allowlist of operators accepted in QueryFilter.Op.
 	// The operator is interpolated into the SQL query string, so anything not in
 	// this list must be rejected to prevent SQL injection.
@@ -102,22 +107,58 @@ func NewGenericRepository[T any](log *slog.Logger, db *sql.DB) (*GenericReposito
 	}, nil
 }
 
+// Create inserts a new entity. It returns ErrAlreadyExists if an entity with
+// the same id already exists; the existing row is left untouched.
 func (r *GenericRepository[T]) Create(ctx context.Context, id uuid.UUID, data T) error {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return err
 	}
 
-	// Upsert with version initialization or increment
 	var query = `
 		INSERT INTO ` + r.entityType + ` (id, version, data)
 		VALUES ($1, 1, $2)
-		ON CONFLICT (id) DO UPDATE 
-		SET data = EXCLUDED.data, 
-		    version = ` + r.entityType + `.version + 1
+		ON CONFLICT (id) DO NOTHING
 	`
 
 	r.log.Debug("create", "id", id, "data", jsonData)
+
+	result, err := r.db.ExecContext(ctx, query, id, jsonData)
+	if err != nil {
+		return err
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return fmt.Errorf("%w: id %s", ErrAlreadyExists, id)
+	}
+
+	return nil
+}
+
+// Upsert inserts the entity or replaces the data of the existing entity with
+// the same id. The version is bumped only when the data actually changes, so
+// upserting identical data is a no-op.
+func (r *GenericRepository[T]) Upsert(ctx context.Context, id uuid.UUID, data T) error {
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+
+	var query = `
+		INSERT INTO ` + r.entityType + ` (id, version, data)
+		VALUES ($1, 1, $2)
+		ON CONFLICT (id) DO UPDATE
+		SET data = EXCLUDED.data,
+		    version = CASE WHEN ` + r.entityType + `.data IS DISTINCT FROM EXCLUDED.data
+		                  THEN ` + r.entityType + `.version + 1
+		                  ELSE ` + r.entityType + `.version END
+	`
+
+	r.log.Debug("upsert", "id", id, "data", jsonData)
 
 	_, err = r.db.ExecContext(ctx, query, id, jsonData)
 	return err
@@ -233,9 +274,6 @@ func (r *GenericRepository[T]) Query(ctx context.Context, filters []QueryFilter,
 	)
 
 	for _, f := range filters {
-		if !allowedQueryOps[f.Op] {
-			return nil, fmt.Errorf("unsupported query operator %q", f.Op)
-		}
 		if firstFilter {
 			// Add WHERE for the first filter only, all following must be AND
 			queryBuilder.WriteString(" WHERE")
@@ -244,7 +282,8 @@ func (r *GenericRepository[T]) Query(ctx context.Context, filters []QueryFilter,
 			queryBuilder.WriteString(" AND")
 		}
 
-		if f.Op == "=" {
+		switch f.Op {
+		case "=":
 			// Exact equality is expressed with the `@>` containment operator, which the
 			// GIN index on `data` accelerates. `#>>` text extraction (below) cannot use it.
 			jsonValue, err := jsonPathValue(f.Path, f.Value)
@@ -254,17 +293,91 @@ func (r *GenericRepository[T]) Query(ctx context.Context, filters []QueryFilter,
 			fmt.Fprintf(&queryBuilder, " data @> $%d", argIdx)
 			args = append(args, jsonValue)
 			argIdx++
-			continue
+
+		case "@>":
+			// Direct JSON containment with a caller-provided structured value (map/slice).
+			// Unlike `=`, the value is used verbatim instead of being wrapped at the
+			// given path. This expresses membership inside nested arrays and maps,
+			// e.g. `{"Hardware":{"Nics":[{"MacAddress":"aa:bb"}]}}` matches any machine
+			// whose nics array contains an element with that mac. It uses the same
+			// GIN-indexable `@>` operator as `=`.
+			jsonValue, err := json.Marshal(f.Value)
+			if err != nil {
+				return nil, err
+			}
+			fmt.Fprintf(&queryBuilder, " data @> $%d", argIdx)
+			args = append(args, string(jsonValue))
+			argIdx++
+
+		case "IS NULL", "IS NOT NULL":
+			// Presence check: `data #>> path` returns NULL when the key (or any
+			// ancestor key) is absent, so this expresses "field is present/absent".
+			var (
+				parts       = strings.Split(f.Path, ".")
+				jsonPath    = "{" + strings.Join(parts, ",") + "}"
+				nullKeyword = "NULL"
+			)
+			if f.Op == "IS NOT NULL" {
+				nullKeyword = "NOT NULL"
+			}
+			fmt.Fprintf(&queryBuilder, " (data #>> $%d) IS %s", argIdx, nullKeyword)
+			args = append(args, jsonPath)
+			argIdx++
+
+		case "SUM_EQ":
+			// Sum of a numeric field across an array of objects equals the value.
+			// The path's last segment is the numeric field within each element; the
+			// preceding segments identify the array, e.g. "Hardware.MetalCPUs.Cores"
+			// sums the `Cores` field over data.Hardware.MetalCPUs.
+			//
+			// The `jsonb_typeof` guard treats a missing/`null`/scalar value at the
+			// array path as an empty array so that `jsonb_array_elements` never
+			// errors on a non-array value (a nil slice marshals to JSON `null`).
+			var (
+				parts    = strings.Split(f.Path, ".")
+				field    = parts[len(parts)-1]
+				arrParts = parts[:len(parts)-1]
+				arrPath  = "{" + strings.Join(arrParts, ",") + "}"
+			)
+			fmt.Fprintf(&queryBuilder, " (SELECT COALESCE(SUM((elem->>$%d)::numeric),0) FROM jsonb_array_elements(CASE WHEN jsonb_typeof(data #> $%d) = 'array' THEN data #> $%d ELSE '[]'::jsonb END) AS elem) = $%d", argIdx, argIdx+1, argIdx+1, argIdx+2)
+			args = append(args, field, arrPath, f.Value)
+			argIdx += 3
+
+		case "ARRAY_ELEM_LIKE":
+			// Match if any element of an array of objects has the given field
+			// matching a LIKE pattern. The path's last segment is the field within
+			// each element; the preceding segments identify the array, e.g.
+			// "Prefixes.IP" checks the `IP` field of every element in data.Prefixes.
+			//
+			// The `jsonb_typeof` guard treats a missing/`null`/scalar value at the
+			// array path as an empty array, so the EXISTS never errors.
+			var (
+				parts    = strings.Split(f.Path, ".")
+				field    = parts[len(parts)-1]
+				arrParts = parts[:len(parts)-1]
+				arrPath  = "{" + strings.Join(arrParts, ",") + "}"
+			)
+			fmt.Fprintf(&queryBuilder, " EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(data #> $%d) = 'array' THEN data #> $%d ELSE '[]'::jsonb END) AS elem WHERE elem->>$%d LIKE $%d)", argIdx, argIdx, argIdx+1, argIdx+2)
+			args = append(args, arrPath, field, f.Value)
+			argIdx += 3
+
+		default:
+			if !allowedQueryOps[f.Op] {
+				return nil, fmt.Errorf("unsupported query operator %q", f.Op)
+			}
+
+			// Convert dot notation "profile.address.city" into a Postgres text array representation '{profile,address,city}'
+			var (
+				parts    = strings.Split(f.Path, ".")
+				jsonPath = "{" + strings.Join(parts, ",") + "}"
+			)
+			fmt.Fprintf(&queryBuilder, " (data #>> $%d) %s $%d", argIdx, f.Op, argIdx+1)
+			args = append(args, jsonPath, f.Value)
+			argIdx += 2
 		}
-
-		// Convert dot notation "profile.address.city" into a Postgres text array representation '{profile,address,city}'
-		parts := strings.Split(f.Path, ".")
-		jsonPath := "{" + strings.Join(parts, ",") + "}"
-
-		fmt.Fprintf(&queryBuilder, " (data #>> $%d) %s $%d", argIdx, f.Op, argIdx+1)
-		args = append(args, jsonPath, f.Value)
-		argIdx += 2
 	}
+
+	fmt.Fprintf(&queryBuilder, " ORDER BY id")
 
 	if pagination != nil && pagination.Limit > 0 {
 		if pagination.Limit > MaxPaginationLimit {

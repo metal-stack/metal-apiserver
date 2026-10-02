@@ -1,6 +1,7 @@
 package test
 
 import (
+	"database/sql"
 	"log/slog"
 	"os"
 	"testing"
@@ -19,6 +20,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
+	"github.com/metal-stack/metal-apiserver/pkg/db/routing"
 	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
@@ -47,6 +49,8 @@ type (
 		*repository.Store
 		log           *slog.Logger
 		ds            generic.Datastore
+		rethink       generic.Datastore
+		routingPgDB   *sql.DB
 		dbName        string
 		queryExecutor *r.Session
 		ipam          apiv1connect.IpamServiceClient
@@ -64,6 +68,7 @@ type (
 		hc                     *headscale.Client
 		mr                     *miniredis.Miniredis
 		headscaleControllerURL string
+		queue                  *queue.Queue
 
 		audit auditing.Auditing
 	}
@@ -78,6 +83,9 @@ type (
 	}
 	testOptRethink struct {
 		with bool
+	}
+	testOptRouting struct {
+		config routing.Config
 	}
 	testOptHeadscale struct {
 		with bool
@@ -105,6 +113,13 @@ func WithValkey(with bool) *testOptValkey {
 	return &testOptValkey{
 		with: with,
 	}
+}
+
+// WithRoutingConfig enables the configuration-driven storage router. A postgres
+// container is started for the entities whose mode is "postgres" or "both"; the
+// remaining entities stay on rethink. Requires rethink to be enabled.
+func WithRoutingConfig(config routing.Config) *testOptRouting {
+	return &testOptRouting{config: config}
 }
 
 // WithRethink if set to true a rethink database container is started, defaults to false.
@@ -155,6 +170,7 @@ func StartRepositoryWithCleanup(t testing.TB, testOpts ...testOpt) (*testStore, 
 
 		providerTenant            = DefaultProviderTenant
 		renewCertBeforeExpiration *time.Duration
+		routingConfig             *routing.Config
 		log                       = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: lvl}))
 	)
 
@@ -166,6 +182,9 @@ func StartRepositoryWithCleanup(t testing.TB, testOpts ...testOpt) (*testStore, 
 			withValkey = o.with
 		case *testOptRethink:
 			withRethink = o.with
+		case *testOptRouting:
+			cfg := o.config
+			routingConfig = &cfg
 		case *testOptHeadscale:
 			withHeadscale = o.with
 		case *testOptContainer:
@@ -205,6 +224,26 @@ func StartRepositoryWithCleanup(t testing.TB, testOpts ...testOpt) (*testStore, 
 		session, err = r.Connect(opts)
 		require.NoError(t, err)
 	}
+	rethinkDS := ds
+
+	// Wire the configuration-driven storage router on top of the rethink
+	// datastore. A postgres container is only started when at least one entity
+	// is configured for postgres.
+	var (
+		routingPgCloser func()
+		routingPgDB     *sql.DB
+	)
+	if routingConfig != nil {
+		require.True(t, withRethink, "the routing datastore requires rethink to be enabled")
+
+		pgDB, pgCloser := StartPostgres(t, log)
+		routingPgCloser = pgCloser
+		routingPgDB = pgDB
+
+		routed, err := routing.NewDatastore(log, *routingConfig, ds, pgDB)
+		require.NoError(t, err)
+		ds = routed
+	}
 
 	if withValkey {
 		rc, vc, _, valkeyCloser = StartValkey(t)
@@ -236,6 +275,7 @@ func StartRepositoryWithCleanup(t testing.TB, testOpts ...testOpt) (*testStore, 
 		task  = task.NewClient(log, rc)
 		queue = queue.New(log, vc)
 	)
+
 	if withPostgres {
 		tc, tenantApiserverCloser = StartTenantApiserverWithPostgres(t, log)
 	} else {
@@ -268,6 +308,9 @@ func StartRepositoryWithCleanup(t testing.TB, testOpts ...testOpt) (*testStore, 
 		if withRethink {
 			rethinkCloser()
 		}
+		if routingPgCloser != nil {
+			routingPgCloser()
+		}
 		ipamCloser()
 		tenantApiserverCloser()
 		asyncCloser()
@@ -285,6 +328,8 @@ func StartRepositoryWithCleanup(t testing.TB, testOpts ...testOpt) (*testStore, 
 		Store:                  repo,
 		log:                    log,
 		ds:                     ds,
+		rethink:                rethinkDS,
+		routingPgDB:            routingPgDB,
 		dbName:                 opts.Database,
 		queryExecutor:          session,
 		ipam:                   ipam,
@@ -300,6 +345,7 @@ func StartRepositoryWithCleanup(t testing.TB, testOpts ...testOpt) (*testStore, 
 		hc:                     hc,
 		mr:                     mr,
 		headscaleControllerURL: headscaleControllerURL,
+		queue:                  queue,
 	}, closer
 }
 
@@ -387,6 +433,10 @@ func (t *testStore) GetHeadscaleControllerURL() string {
 
 func (t *testStore) GetAuditBackend() auditing.Auditing {
 	return t.audit
+}
+
+func (t *testStore) GetQueue() *queue.Queue {
+	return t.queue
 }
 
 func (t *testStore) GetToken(subject string, cr *apiv2.TokenServiceCreateRequest) *apiv2.Token {

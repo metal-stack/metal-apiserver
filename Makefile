@@ -11,7 +11,7 @@ MINI_LAB_KUBECONFIG := $(shell pwd)/../mini-lab/.kubeconfig
 ifeq ($(CI),true)
   GO_TEST_ARGS=-p 1 -count=1
 else
-  GO_TEST_ARGS=
+  GO_TEST_ARGS=$(or ${GO_TEST},)
 endif
 
 all: fmt test server
