@@ -52,6 +52,25 @@ CREATE INDEX IF NOT EXISTS idx_generic_entities_type ON generic_entities(entity_
 CREATE INDEX IF NOT EXISTS idx_generic_entities_data ON generic_entities USING gin (data);
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE INDEX IF NOT EXISTS idx_generic_entities_type_data ON generic_entities USING gin (entity_type gin_trgm_ops, data);
+
+CREATE OR REPLACE FUNCTION generic_entities_notify_change() RETURNS trigger AS $$
+BEGIN
+    PERFORM pg_notify(
+        'generic_entities_changes',
+        json_build_object(
+            'id', (COALESCE(NEW.id, OLD.id))::text,
+            'entity_type', COALESCE(NEW.entity_type, OLD.entity_type),
+            'op', TG_OP
+        )::text
+    );
+    RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS generic_entities_notify_change ON generic_entities;
+CREATE TRIGGER generic_entities_notify_change
+    AFTER INSERT OR UPDATE OR DELETE ON generic_entities
+    FOR EACH ROW EXECUTE FUNCTION generic_entities_notify_change();
 `
 )
 
@@ -80,17 +99,39 @@ type (
 		log        *slog.Logger
 		db         *sql.DB
 		entityType string
+		watcher    *Watcher
+	}
+
+	// RepositoryOption customizes how a GenericRepository is built.
+	RepositoryOption func(*repositoryOptions)
+
+	repositoryOptions struct {
+		watcher *Watcher
 	}
 )
+
+// WithWatcher attaches a PostgreSQL watcher to the repository, enabling the
+// Watch method. A single Watcher can be shared by every repository that uses
+// the same database. Without a watcher, Watch returns ErrWatchNotConfigured.
+func WithWatcher(w *Watcher) RepositoryOption {
+	return func(o *repositoryOptions) {
+		o.watcher = w
+	}
+}
 
 // MaxPaginationLimit defines the maximum allowed result size defined by pagination
 const MaxPaginationLimit = 10000
 
 // Beware: if T changes its name over time, data will be stored/queried in another entityType
-func NewGenericRepository[T any](log *slog.Logger, db *sql.DB) (*GenericRepository[T], error) {
+func NewGenericRepository[T any](log *slog.Logger, db *sql.DB, opts ...RepositoryOption) (*GenericRepository[T], error) {
 	_, err := db.ExecContext(context.Background(), RepositorySchema)
 	if err != nil {
 		return nil, err
+	}
+
+	options := &repositoryOptions{}
+	for _, opt := range opts {
+		opt(options)
 	}
 
 	tType := reflect.TypeFor[T]()
@@ -104,6 +145,7 @@ func NewGenericRepository[T any](log *slog.Logger, db *sql.DB) (*GenericReposito
 		log:        log.WithGroup("generic").WithGroup(entityTypeName),
 		db:         db,
 		entityType: entityTypeName,
+		watcher:    options.watcher,
 	}, nil
 }
 
@@ -274,6 +316,81 @@ func (r *GenericRepository[T]) Get(ctx context.Context, id uuid.UUID) (*Entity[T
 	}
 
 	return &ent, nil
+}
+
+// Watch streams changes of the entity with the given id. The returned channel
+// yields the old and the new value of every change and is closed when ctx is
+// cancelled or the watcher is closed.
+//
+// Changes are delivered through native PostgreSQL NOTIFY/LISTEN: a trigger on
+// generic_entities announces the id of every changed row, the Watcher loads the
+// committed row and the repository decodes it into T. The old value is the
+// value observed before the change, so the first change of an entity has a zero
+// Old value and a deletion has a zero New value.
+func (r *GenericRepository[T]) Watch(ctx context.Context, id uuid.UUID) (<-chan struct {
+	Old T
+	New T
+}, error) {
+	if r.watcher == nil {
+		return nil, ErrWatchNotConfigured
+	}
+
+	changes, err := r.watcher.Subscribe(ctx, r.entityType, id.String())
+	if err != nil {
+		return nil, err
+	}
+
+	results := make(chan struct {
+		Old T
+		New T
+	})
+
+	go func() {
+		defer close(results)
+
+		var previous T
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case change, ok := <-changes:
+				if !ok {
+					return
+				}
+
+				var pair struct {
+					Old T
+					New T
+				}
+
+				if len(change.New) > 0 {
+					var current T
+					if err := json.Unmarshal(change.New, &current); err != nil {
+						r.log.Error("unable to decode changed entity", "id", id, "error", err)
+						continue
+					}
+					pair.Old = previous
+					pair.New = current
+					previous = current
+				} else {
+					// A deletion carries no new state; the previously observed
+					// value becomes the old value.
+					pair.Old = previous
+					var zero T
+					previous = zero
+				}
+
+				select {
+				case results <- pair:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}
+	}()
+
+	return results, nil
 }
 
 func (r *GenericRepository[T]) Query(ctx context.Context, filters []QueryFilter, pagination *Pagination) ([]Entity[T], error) {

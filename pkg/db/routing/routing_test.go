@@ -128,6 +128,23 @@ func (f *fakeStorage) List(_ context.Context, filters ...Filter) ([]*testEntity,
 	return f.listRes, nil
 }
 
+func (f *fakeStorage) Watch(_ context.Context, id string) (<-chan struct {
+	Old *testEntity
+	New *testEntity
+}, error) {
+	f.calls = append(f.calls, "watch")
+	f.lastID = id
+	if f.err != nil {
+		return nil, f.err
+	}
+	ch := make(chan struct {
+		Old *testEntity
+		New *testEntity
+	}, 1)
+	close(ch)
+	return ch, nil
+}
+
 func (f *fakeStorage) record(op string, e *testEntity) {
 	f.calls = append(f.calls, op)
 	f.lastEntity = e
@@ -261,6 +278,22 @@ func TestRouterReadsPrimary(t *testing.T) {
 	require.Equal(t, "from-postgres", got.ID)
 	require.Equal(t, []string{"get"}, rethink.calls, "rethinkdb was only read by the first router")
 	require.Equal(t, []string{"get"}, postgres.calls)
+}
+
+func TestRouterWatchReadsPrimary(t *testing.T) {
+	rethink := &fakeStorage{name: "rethink"}
+	postgres := &fakeStorage{name: "postgres"}
+
+	router := newRouter(t, Config{Default: ModeBoth}, rethink, postgres)
+	_, err := router.Watch(context.Background(), "id-1")
+	require.NoError(t, err)
+	require.Equal(t, []string{"watch"}, rethink.calls)
+	require.Empty(t, postgres.calls)
+
+	router = newRouter(t, Config{Default: ModeBoth, ReadFrom: ModePostgres}, rethink, postgres)
+	_, err = router.Watch(context.Background(), "id-1")
+	require.NoError(t, err)
+	require.Equal(t, []string{"watch"}, postgres.calls)
 }
 
 func TestRouterRequiresFilterForReadBackend(t *testing.T) {

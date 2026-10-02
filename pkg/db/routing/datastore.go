@@ -39,64 +39,85 @@ type Datastore struct {
 	event               Storage[*metal.ProvisioningEventContainer]
 }
 
+// DatastoreOption customizes how a routing Datastore is built.
+type DatastoreOption func(*datastoreOptions)
+
+type datastoreOptions struct {
+	watcher *pg.Watcher
+}
+
+// WithPostgresWatcher attaches a PostgreSQL watcher to the postgres-backed
+// entities, enabling Watch for them. The watcher must be created with
+// pg.NewWatcher and be closed by the caller.
+func WithPostgresWatcher(w *pg.Watcher) DatastoreOption {
+	return func(o *datastoreOptions) {
+		o.watcher = w
+	}
+}
+
 // NewDatastore builds a configuration-driven generic.Datastore. pgDB is only
 // required (and may only be nil) when at least one entity is configured for
 // "postgres" or "both".
-func NewDatastore(log *slog.Logger, cfg Config, rethink generic.Datastore, pgDB *sql.DB) (*Datastore, error) {
+func NewDatastore(log *slog.Logger, cfg Config, rethink generic.Datastore, pgDB *sql.DB, opts ...DatastoreOption) (*Datastore, error) {
 	if rethink == nil {
 		return nil, errors.New("routing datastore requires a rethinkdb datastore")
+	}
+
+	options := &datastoreOptions{}
+	for _, opt := range opts {
+		opt(options)
 	}
 
 	d := &Datastore{Datastore: rethink}
 
 	var err error
-	if d.ip, err = newEntityStorage(log, cfg, "IP", rethink.IP(), pgDB); err != nil {
+	if d.ip, err = newEntityStorage(log, cfg, "IP", rethink.IP(), pgDB, options.watcher); err != nil {
 		return nil, err
 	}
-	if d.machine, err = newEntityStorage(log, cfg, "Machine", rethink.Machine(), pgDB); err != nil {
+	if d.machine, err = newEntityStorage(log, cfg, "Machine", rethink.Machine(), pgDB, options.watcher); err != nil {
 		return nil, err
 	}
-	if d.size, err = newEntityStorage(log, cfg, "Size", rethink.Size(), pgDB); err != nil {
+	if d.size, err = newEntityStorage(log, cfg, "Size", rethink.Size(), pgDB, options.watcher); err != nil {
 		return nil, err
 	}
-	if d.sizeImageConstraint, err = newEntityStorage(log, cfg, "SizeImageConstraint", rethink.SizeImageConstraint(), pgDB); err != nil {
+	if d.sizeImageConstraint, err = newEntityStorage(log, cfg, "SizeImageConstraint", rethink.SizeImageConstraint(), pgDB, options.watcher); err != nil {
 		return nil, err
 	}
-	if d.sizeReservation, err = newEntityStorage(log, cfg, "SizeReservation", rethink.SizeReservation(), pgDB); err != nil {
+	if d.sizeReservation, err = newEntityStorage(log, cfg, "SizeReservation", rethink.SizeReservation(), pgDB, options.watcher); err != nil {
 		return nil, err
 	}
-	if d.partition, err = newEntityStorage(log, cfg, "Partition", rethink.Partition(), pgDB); err != nil {
+	if d.partition, err = newEntityStorage(log, cfg, "Partition", rethink.Partition(), pgDB, options.watcher); err != nil {
 		return nil, err
 	}
-	if d.network, err = newEntityStorage(log, cfg, "Network", rethink.Network(), pgDB); err != nil {
+	if d.network, err = newEntityStorage(log, cfg, "Network", rethink.Network(), pgDB, options.watcher); err != nil {
 		return nil, err
 	}
-	if d.filesystemLayout, err = newEntityStorage(log, cfg, "FilesystemLayout", rethink.FilesystemLayout(), pgDB); err != nil {
+	if d.filesystemLayout, err = newEntityStorage(log, cfg, "FilesystemLayout", rethink.FilesystemLayout(), pgDB, options.watcher); err != nil {
 		return nil, err
 	}
-	if d.image, err = newEntityStorage(log, cfg, "Image", rethink.Image(), pgDB); err != nil {
+	if d.image, err = newEntityStorage(log, cfg, "Image", rethink.Image(), pgDB, options.watcher); err != nil {
 		return nil, err
 	}
-	if d.sw, err = newEntityStorage(log, cfg, "Switch", rethink.Switch(), pgDB); err != nil {
+	if d.sw, err = newEntityStorage(log, cfg, "Switch", rethink.Switch(), pgDB, options.watcher); err != nil {
 		return nil, err
 	}
-	if d.switchStatus, err = newEntityStorage(log, cfg, "SwitchStatus", rethink.SwitchStatus(), pgDB); err != nil {
+	if d.switchStatus, err = newEntityStorage(log, cfg, "SwitchStatus", rethink.SwitchStatus(), pgDB, options.watcher); err != nil {
 		return nil, err
 	}
-	if d.event, err = newEntityStorage(log, cfg, "Event", rethink.Event(), pgDB); err != nil {
+	if d.event, err = newEntityStorage(log, cfg, "Event", rethink.Event(), pgDB, options.watcher); err != nil {
 		return nil, err
 	}
 
 	return d, nil
 }
 
-func newEntityStorage[E generic.Entity](log *slog.Logger, cfg Config, entity string, rethink generic.Storage[E], pgDB *sql.DB) (Storage[E], error) {
+func newEntityStorage[E generic.Entity](log *slog.Logger, cfg Config, entity string, rethink generic.Storage[E], pgDB *sql.DB, watcher *pg.Watcher) (Storage[E], error) {
 	var postgres Storage[E]
 	if cfg.ModeFor(entity) != ModeRethink {
 		if pgDB == nil {
 			return nil, fmt.Errorf("entity %q is configured for postgres but no postgres database was provided", entity)
 		}
-		repo, err := pg.NewGenericRepository[E](log, pgDB)
+		repo, err := pg.NewGenericRepository[E](log, pgDB, pg.WithWatcher(watcher))
 		if err != nil {
 			return nil, fmt.Errorf("unable to create postgres repository for %q: %w", entity, err)
 		}
@@ -197,6 +218,14 @@ func (g genericStorage[E]) Find(ctx context.Context, queries ...generic.EntityQu
 func (g genericStorage[E]) List(ctx context.Context, queries ...generic.EntityQuery) ([]E, error) {
 	entities, err := g.port.List(ctx, toFilters(queries)...)
 	return entities, toGenericError(err)
+}
+
+func (g genericStorage[E]) Watch(ctx context.Context, id string) (<-chan struct {
+	Old E
+	New E
+}, error) {
+	changes, err := g.port.Watch(ctx, id)
+	return changes, toGenericError(err)
 }
 
 // FindFiltered and ListFiltered implement FilteredStorage: the caller supplies
