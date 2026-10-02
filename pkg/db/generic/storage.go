@@ -11,6 +11,7 @@ import (
 
 	"github.com/metal-stack/api/go/errorutil"
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
+	rencoding "gopkg.in/rethinkdb/rethinkdb-go.v6/encoding"
 )
 
 type storage[E Entity] struct {
@@ -235,6 +236,76 @@ func (s *storage[E]) Upsert(ctx context.Context, e E) error {
 	}
 
 	return nil
+}
+
+// Watch watches the given entity in the database and returns a stream holding the old and new value.
+func (s *storage[E]) Watch(ctx context.Context, id string) (<-chan struct {
+	Old E
+	New E
+}, error) {
+	cursor, err := s.table.Get(id).Changes(r.ChangesOpts{
+		Squash: true,
+	}).Run(s.r.queryExecutor, r.RunOpts{
+		Context: ctx,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var (
+		changes = make(chan r.ChangeResponse)
+		results = make(chan struct {
+			Old E
+			New E
+		})
+	)
+
+	go func() {
+		defer func() {
+			err := cursor.Close()
+			if err != nil {
+				s.r.log.Error("error while closing cursor", "error", err)
+			}
+		}()
+		defer close(results)
+
+		cursor.Listen(changes)
+
+		for {
+			select {
+			case change := <-changes:
+				s.r.log.Debug("document change received", "table", s.tableName, "id", id)
+
+				var (
+					oldValue = new(E)
+					newValue = new(E)
+				)
+
+				if err := rencoding.Decode(oldValue, change.OldValue); err != nil {
+					s.r.log.Error("unable to unmarshal old value", "error", err)
+					return
+				}
+
+				if err := rencoding.Decode(newValue, change.NewValue); err != nil {
+					s.r.log.Error("unable to unmarshal new value", "error", err)
+					return
+				}
+
+				results <- struct {
+					Old E
+					New E
+				}{
+					Old: *oldValue,
+					New: *newValue,
+				}
+
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	return results, nil
 }
 
 func (s storage[E]) setCreated(time time.Time, e E) error {
