@@ -120,3 +120,26 @@ func (b *bootServiceServer) MachineToken(ctx context.Context, req *infrav2.BootS
 		Secret: res.Secret,
 	}, nil
 }
+
+func (b *bootServiceServer) SendEvent(ctx context.Context, req *infrav2.BootServiceSendEventRequest) (*infrav2.BootServiceSendEventResponse, error) {
+	switch event := req.Event.Event; event {
+	case apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_ALIVE,
+		apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_CRASHED,
+		apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_PLANNED_REBOOT,
+		apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_PREPARING,
+		apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_REGISTERING,
+		apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_WAITING,
+		apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_INSTALLING,
+		apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_BOOTING_NEW_KERNEL:
+		// ok whitelist for metal-hammer
+	default:
+		return nil, errorutil.InvalidArgument("sending event %q is not allowed through this method", event)
+	}
+
+	err := b.repo.UnscopedMachine().AdditionalMethods().SendEvent(ctx, req.Uuid, req.Event)
+	if err != nil {
+		return nil, errorutil.Convert(err)
+	}
+
+	return &infrav2.BootServiceSendEventResponse{}, nil
+}

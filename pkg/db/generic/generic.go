@@ -36,6 +36,10 @@ type (
 		Get(ctx context.Context, id string) (E, error)
 		Find(ctx context.Context, queries ...EntityQuery) (E, error)
 		List(ctx context.Context, queries ...EntityQuery) ([]E, error)
+		Watch(ctx context.Context, id string) (<-chan struct {
+			Old E
+			New E
+		}, error)
 	}
 
 	Datastore interface {
