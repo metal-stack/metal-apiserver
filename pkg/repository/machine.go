@@ -1379,7 +1379,7 @@ func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWa
 		machineID = req.Uuid
 		log       = r.s.log.With("machine-id", machineID)
 
-		pollAllocation = func() (*apiv2.MachineAllocation, error) {
+		getAllocation = func() (*apiv2.MachineAllocation, error) {
 			machine, err := r.s.UnscopedMachine().Get(ctx, machineID)
 			if err != nil {
 				return nil, err
@@ -1393,7 +1393,7 @@ func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWa
 		}
 	)
 
-	alloc, err := pollAllocation()
+	alloc, err := getAllocation()
 	if err != nil {
 		return err
 	}
@@ -1459,8 +1459,7 @@ func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWa
 			return nil
 
 		case <-time.Tick(1 * time.Minute):
-
-			alloc, err := pollAllocation()
+			alloc, err := getAllocation()
 			if err != nil {
 				return err
 			}

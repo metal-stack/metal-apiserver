@@ -1397,12 +1397,11 @@ func Test_bootServiceServer_SendEvent(t *testing.T) {
 		tenantRoles    map[string]apiv2.TenantRole
 	}
 	tests := []struct {
-		name           string
-		sessionToken   *apiv2.Token
-		req            *infrav2.BootServiceSendEventRequest
-		state          state
-		wantErr        bool
-		wantErrMessage string
+		name         string
+		sessionToken *apiv2.Token
+		req          *infrav2.BootServiceSendEventRequest
+		state        state
+		wantErr      error
 	}{
 		{
 			name: "metal-hammer can send a machine event",
@@ -1451,8 +1450,7 @@ func Test_bootServiceServer_SendEvent(t *testing.T) {
 					"metal-hammer": apiv2.TenantRole_TENANT_ROLE_OWNER,
 				},
 			},
-			wantErr:        true,
-			wantErrMessage: `invalid_argument: sending event "MACHINE_PROVISIONING_EVENT_TYPE_PXE_BOOTING" is not allowed through this method`,
+			wantErr: errorutil.InvalidArgument(`sending event "MACHINE_PROVISIONING_EVENT_TYPE_PXE_BOOTING" is not allowed through this method`),
 		},
 	}
 
@@ -1510,24 +1508,18 @@ func Test_bootServiceServer_SendEvent(t *testing.T) {
 				Repo: testStore.Store,
 			})
 
-			if tt.wantErr == false {
-				// Execute proto based validation
+			if tt.wantErr != nil {
 				err := protovalidate.Validate(tt.req)
 				require.NoError(t, err)
 			}
 
 			response, err := service.SendEvent(ctx, tt.req)
-			switch {
-			case tt.wantErr && err != nil:
-				if dff := cmp.Diff(tt.wantErrMessage, err.Error()); dff != "" {
-					t.Fatal(dff)
-				}
-			case tt.wantErr && err == nil:
-				t.Fatalf("want error %q, got response %q", tt.wantErrMessage, response)
-			case err != nil:
-				t.Fatalf("want response, got error %q", err)
 
-			default:
+			if dff := cmp.Diff(tt.wantErr, err, errorutil.ErrorStringComparer()); dff != "" {
+				t.Fatal(dff)
+			}
+
+			if tt.wantErr == nil {
 				require.NotNil(t, response)
 			}
 		})
