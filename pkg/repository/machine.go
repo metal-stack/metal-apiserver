@@ -1375,37 +1375,54 @@ func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, 
 }
 
 func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWaitRequest, srv *connect.ServerStream[infrav2.BootServiceWaitResponse]) error {
-	machineID := req.Uuid
+	var (
+		machineID = req.Uuid
+		log       = r.s.log.With("machine-id", machineID)
 
-	machine, err := r.s.UnscopedMachine().Get(ctx, machineID)
+		pollAllocation = func() (*apiv2.MachineAllocation, error) {
+			machine, err := r.s.UnscopedMachine().Get(ctx, machineID)
+			if err != nil {
+				return nil, err
+			}
+
+			if machine.Allocation != nil {
+				return machine.Allocation, nil
+			}
+
+			return nil, nil
+		}
+	)
+
+	alloc, err := pollAllocation()
 	if err != nil {
 		return err
 	}
 
-	if machine.Allocation != nil {
-		r.s.log.Debug("wait for machine allocation called, allocation for machine already exists", "allocation", machine.Allocation)
+	if alloc != nil {
+		log.Debug("wait for machine allocation called, allocation for machine already exists", "allocation", alloc)
 
 		err = srv.Send(&infrav2.BootServiceWaitResponse{
-			Allocation: machine.Allocation,
+			Allocation: alloc,
 		})
 		if err != nil {
 			return err
 		}
+
+		return nil
 	}
 
-	r.s.log.Debug("set machine waiting flag to true", "machineID", machineID)
+	log.Debug("set machine waiting flag to true")
 
 	err = r.setMachineWaitingFlag(ctx, machineID, true)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		r.s.log.Debug("set machine waiting flag to false", "machineID", machineID)
+		log.Debug("set machine waiting flag to false")
 
-		// TODO This is prone to fail with optlock, either retry or async task
-		err = r.setMachineWaitingFlag(ctx, machineID, false)
+		err = r.setMachineWaitingFlag(context.Background(), machineID, false)
 		if err != nil {
-			r.s.log.Error("unable to remove waiting flag from machine", "machineID", machineID, "error", err)
+			log.Error("unable to remove waiting flag from machine", "error", err)
 		}
 	}()
 
@@ -1414,25 +1431,62 @@ func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWa
 		return err
 	}
 
-	for change := range changes {
-		if change.New == nil || change.New.Allocation == nil {
-			continue
-		}
+	for {
+		select {
+		case change, ok := <-changes:
+			if !ok {
+				changes = nil
+				continue
+			}
 
-		machine, err := r.convertToProto(ctx, change.New)
-		if err != nil {
-			return err
-		}
+			if change.New == nil || change.New.Allocation == nil {
+				continue
+			}
 
-		err = srv.Send(&infrav2.BootServiceWaitResponse{
-			Allocation: machine.Allocation,
-		})
-		if err != nil {
-			return err
+			log.Debug("machine was allocated, noticed by watching db", "allocation", alloc)
+
+			machine, err := r.convertToProto(ctx, change.New)
+			if err != nil {
+				return err
+			}
+
+			err = srv.Send(&infrav2.BootServiceWaitResponse{
+				Allocation: machine.Allocation,
+			})
+			if err != nil {
+				return err
+			}
+
+			return nil
+
+		case <-time.Tick(1 * time.Minute):
+
+			alloc, err := pollAllocation()
+			if err != nil {
+				return err
+			}
+
+			if alloc == nil {
+				continue
+			}
+
+			log.Debug("machine was allocated, noticed by polling db", "allocation", alloc)
+
+			err = srv.Send(&infrav2.BootServiceWaitResponse{
+				Allocation: alloc,
+			})
+			if err != nil {
+				return err
+			}
+
+			return nil
+
+		case <-ctx.Done():
+			log.Debug("machine wait ended", "allocation", alloc)
+
+			return nil
 		}
 	}
-
-	return nil
 }
 
 func (r *machineRepository) WaitForBMCCommand(ctx context.Context, req *infrav2.WaitForBMCCommandRequest, stream *connect.ServerStream[infrav2.WaitForBMCCommandResponse]) error {
@@ -1663,13 +1717,16 @@ func (r *machineRepository) Issues(ctx context.Context, req *adminv2.MachineServ
 }
 
 func (r *machineRepository) setMachineWaitingFlag(ctx context.Context, machineUUID string, waiting bool) error {
+	// TODO This is prone to fail with optlock, either retry or async task
+
 	m, err := r.s.ds.Machine().Get(ctx, machineUUID)
 	if err != nil {
 		return err
 	}
+
 	m.Waiting = waiting
-	err = r.s.ds.Machine().Update(ctx, m)
-	return err
+
+	return r.s.ds.Machine().Update(ctx, m)
 }
 
 func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
