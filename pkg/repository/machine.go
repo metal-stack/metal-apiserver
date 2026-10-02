@@ -1435,8 +1435,7 @@ func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWa
 		select {
 		case change, ok := <-changes:
 			if !ok {
-				changes = nil
-				continue
+				return fmt.Errorf("stream was closed unexpectedly")
 			}
 
 			if change.New == nil || change.New.Allocation == nil {
