@@ -18,6 +18,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/db/generic/pg"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/db/routing"
@@ -232,15 +233,20 @@ func StartRepositoryWithCleanup(t testing.TB, testOpts ...testOpt) (*testStore, 
 	var (
 		routingPgCloser func()
 		routingPgDB     *sql.DB
+		routingWatcher  *pg.Watcher
 	)
 	if routingConfig != nil {
 		require.True(t, withRethink, "the routing datastore requires rethink to be enabled")
 
-		pgDB, pgCloser := StartPostgres(t, log)
+		pgDB, pgDSN, pgCloser := StartPostgresWithDSN(t, log)
 		routingPgCloser = pgCloser
 		routingPgDB = pgDB
 
-		routed, err := routing.NewDatastore(log, *routingConfig, ds, pgDB)
+		watcher, err := pg.NewWatcher(log, pgDB, pgDSN)
+		require.NoError(t, err)
+		routingWatcher = watcher
+
+		routed, err := routing.NewDatastore(log, *routingConfig, ds, pgDB, routing.WithPostgresWatcher(watcher))
 		require.NoError(t, err)
 		ds = routed
 	}
@@ -307,6 +313,9 @@ func StartRepositoryWithCleanup(t testing.TB, testOpts ...testOpt) (*testStore, 
 	closer := func() {
 		if withRethink {
 			rethinkCloser()
+		}
+		if routingWatcher != nil {
+			_ = routingWatcher.Close()
 		}
 		if routingPgCloser != nil {
 			routingPgCloser()

@@ -16,6 +16,15 @@ import (
 // FIXME postgres can be shared across multiple tests if one database per test is created
 func StartPostgres(t testing.TB, log *slog.Logger) (*sql.DB, func()) {
 	t.Helper()
+	db, _, closer := StartPostgresWithDSN(t, log)
+	return db, closer
+}
+
+// StartPostgresWithDSN is like StartPostgres but also returns the connection
+// string, which is required to open a dedicated LISTEN connection for watching
+// entity changes.
+func StartPostgresWithDSN(t testing.TB, log *slog.Logger) (*sql.DB, string, func()) {
+	t.Helper()
 	ctx := t.Context()
 
 	pgContainer, err := postgres.Run(ctx,
@@ -48,5 +57,5 @@ func StartPostgres(t testing.TB, log *slog.Logger) (*sql.DB, func()) {
 		_ = pgContainer.Terminate(ctx)
 	}
 
-	return db, cleanup
+	return db, connStr, cleanup
 }

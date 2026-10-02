@@ -64,6 +64,14 @@ func (s *rethinkStorage[E]) List(ctx context.Context, filters ...Filter) ([]E, e
 	return entities, mapRethinkError(err)
 }
 
+func (s *rethinkStorage[E]) Watch(ctx context.Context, id string) (<-chan struct {
+	Old E
+	New E
+}, error) {
+	changes, err := s.storage.Watch(ctx, id)
+	return changes, mapRethinkError(err)
+}
+
 func rethinkQueries(filters []Filter) ([]generic.EntityQuery, error) {
 	if err := requireRethinkFilters(filters); err != nil {
 		return nil, err

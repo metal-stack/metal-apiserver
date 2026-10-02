@@ -56,6 +56,10 @@ type Storage[E generic.Entity] interface {
 	Get(ctx context.Context, id string) (E, error)
 	Find(ctx context.Context, filters ...Filter) (E, error)
 	List(ctx context.Context, filters ...Filter) ([]E, error)
+	Watch(ctx context.Context, id string) (<-chan struct {
+		Old E
+		New E
+	}, error)
 }
 
 // FilteredStorage is the migration-aware read interface. A caller that can build
@@ -251,6 +255,16 @@ func (r *Router[E]) List(ctx context.Context, filters ...Filter) ([]E, error) {
 		return nil, err
 	}
 	return r.rethink.List(ctx, filters...)
+}
+
+func (r *Router[E]) Watch(ctx context.Context, id string) (<-chan struct {
+	Old E
+	New E
+}, error) {
+	if r.readFrom == ModePostgres {
+		return r.postgres.Watch(ctx, id)
+	}
+	return r.rethink.Watch(ctx, id)
 }
 
 func requireRethinkFilters(filters []Filter) error {

@@ -146,6 +146,22 @@ func (s *postgresStorage[E]) List(ctx context.Context, filters ...Filter) ([]E, 
 	return out, nil
 }
 
+func (s *postgresStorage[E]) Watch(ctx context.Context, id string) (<-chan struct {
+	Old E
+	New E
+}, error) {
+	parsed, err := parseEntityID[E](id)
+	if err != nil {
+		return nil, err
+	}
+
+	changes, err := s.repo.Watch(ctx, parsed)
+	if err != nil {
+		return nil, mapPostgresError(err)
+	}
+	return changes, nil
+}
+
 func postgresFilters(filters []Filter) ([]pg.QueryFilter, error) {
 	if err := requirePostgresFilters(filters); err != nil {
 		return nil, err

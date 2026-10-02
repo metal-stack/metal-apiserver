@@ -1,7 +1,9 @@
 package test
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	"uuid"
 
@@ -80,6 +82,47 @@ func TestRoutingDatastoreBoth(t *testing.T) {
 		require.Error(t, err)
 		require.True(t, errorutil.IsNotFound(err), "expected a connect NotFound error, got: %v", err)
 	})
+}
+
+// TestRoutingDatastoreWatch verifies that watching an entity served by postgres
+// works end-to-end: the routed storage delegates Watch to the postgres adapter,
+// which is backed by native NOTIFY/LISTEN.
+func TestRoutingDatastoreWatch(t *testing.T) {
+	ctx := t.Context()
+
+	s, closer := StartRepositoryWithCleanup(t, WithRoutingConfig(routing.Config{
+		Default:  routing.ModeRethink,
+		Entities: map[string]routing.Mode{"Machine": routing.ModePostgres},
+	}))
+	defer closer()
+
+	ds := s.GetDatastore()
+
+	machineID := uuid.NewV7().String()
+
+	watchCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	changes, err := ds.Machine().Watch(watchCtx, machineID)
+	require.NoError(t, err)
+
+	_, err = ds.Machine().Create(ctx, &metal.Machine{
+		ID:         machineID,
+		Allocation: &metal.MachineAllocation{Project: "p1"},
+	})
+	require.NoError(t, err)
+
+	select {
+	case change, ok := <-changes:
+		require.True(t, ok, "watch channel was closed unexpectedly")
+		require.Nil(t, change.Old)
+		require.NotNil(t, change.New)
+		require.Equal(t, machineID, change.New.ID)
+		require.NotNil(t, change.New.Allocation)
+		require.Equal(t, "p1", change.New.Allocation.Project)
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out waiting for a machine change")
+	}
 }
 
 // TestRoutingDatastoreNotFoundMessage verifies that a not-found coming from the

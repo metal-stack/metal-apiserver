@@ -1,11 +1,13 @@
 package pg_test
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"os"
 	"strconv"
 	"testing"
+	"time"
 	"uuid"
 
 	_ "github.com/lib/pq"
@@ -160,6 +162,94 @@ func TestGenericRepository(t *testing.T) {
 	// Deleting a non-existent entity returns ErrNotFound
 	err = repo.Delete(ctx, userID)
 	require.ErrorIs(t, err, pg.ErrNotFound)
+}
+
+func TestGenericRepositoryWatch(t *testing.T) {
+	ctx := t.Context()
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	db, dsn, closer := test.StartPostgresWithDSN(t, log)
+	defer closer()
+
+	watcher, err := pg.NewWatcher(log, db, dsn)
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, watcher.Close())
+	}()
+
+	repo, err := pg.NewGenericRepository[UserProfile](log, db, pg.WithWatcher(watcher))
+	require.NoError(t, err)
+
+	userID := uuid.NewV7()
+
+	watchCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	changes, err := repo.Watch(watchCtx, userID)
+	require.NoError(t, err)
+
+	profile := UserProfile{
+		Name:    "Alice",
+		Age:     30,
+		Address: Address{City: "Munich", Country: "Germany"},
+	}
+	require.NoError(t, repo.Create(ctx, userID, profile))
+
+	insert := receiveChange(t, changes)
+	require.Equal(t, UserProfile{}, insert.Old)
+	require.Equal(t, "Alice", insert.New.Name)
+	require.Equal(t, "Munich", insert.New.Address.City)
+
+	ent, err := repo.Get(ctx, userID)
+	require.NoError(t, err)
+
+	updated := ent.Data
+	updated.Address.City = "Berlin"
+	require.NoError(t, repo.Update(ctx, userID, ent.Version, updated))
+
+	update := receiveChange(t, changes)
+	require.Equal(t, "Munich", update.Old.Address.City)
+	require.Equal(t, "Berlin", update.New.Address.City)
+
+	require.NoError(t, repo.Delete(ctx, userID))
+
+	deletion := receiveChange(t, changes)
+	require.Equal(t, "Berlin", deletion.Old.Address.City)
+	require.Equal(t, UserProfile{}, deletion.New)
+}
+
+func receiveChange(t *testing.T, changes <-chan struct {
+	Old UserProfile
+	New UserProfile
+}) struct {
+	Old UserProfile
+	New UserProfile
+} {
+	t.Helper()
+
+	select {
+	case change, ok := <-changes:
+		require.True(t, ok, "watch channel was closed unexpectedly")
+		return change
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out waiting for a change")
+		return struct {
+			Old UserProfile
+			New UserProfile
+		}{}
+	}
+}
+
+func TestGenericRepositoryWatchWithoutWatcher(t *testing.T) {
+	ctx := t.Context()
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+	db, closer := test.StartPostgres(t, log)
+	defer closer()
+
+	repo, err := pg.NewGenericRepository[UserProfile](log, db)
+	require.NoError(t, err)
+
+	_, err = repo.Watch(ctx, uuid.NewV7())
+	require.ErrorIs(t, err, pg.ErrWatchNotConfigured)
 }
 
 func TestGenericRepositoryUpsert(t *testing.T) {
