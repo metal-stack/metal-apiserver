@@ -543,7 +543,7 @@ func toSwitchBGPPortState(state *apiv2.SwitchBGPPortState) (*metal.SwitchBGPPort
 	}
 
 	bgpPortState := &metal.SwitchBGPPortState{
-		Neighbor:              state.Neighbor,
+		Neighbor:              pointer.SafeDeref(state.Neighbor),
 		PeerGroup:             state.PeerGroup,
 		VrfName:               state.VrfName,
 		BgpState:              bgpState,
@@ -952,7 +952,7 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 			}
 
 			bgpPortState = &apiv2.SwitchBGPPortState{
-				Neighbor:              nic.BGPPortState.Neighbor,
+				Neighbor:              pointer.PointerOrNil(nic.BGPPortState.Neighbor),
 				PeerGroup:             nic.BGPPortState.PeerGroup,
 				VrfName:               nic.BGPPortState.VrfName,
 				BgpState:              bgpState,

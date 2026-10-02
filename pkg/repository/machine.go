@@ -104,7 +104,7 @@ func (r *machineRepository) SendEvent(ctx context.Context, machineID string, eve
 	// in a machine lifecycle
 	if errorutil.IsNotFound(err) {
 		if _, err := uuid.Parse(machineID); err != nil {
-			return errorutil.InvalidArgument("given machineid is not a well formed uuid:%w", err)
+			return errorutil.InvalidArgument("given machineid is not a well formed uuid: %w", err)
 		}
 
 		if _, err := r.s.ds.Machine().Create(ctx, &metal.Machine{ID: machineID}); err != nil {
@@ -396,13 +396,13 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 		for _, neigh := range nic.Neighbors {
 			neighs = append(neighs, &apiv2.MachineNic{
 				Hostname:   neigh.Hostname,
-				Mac:        string(neigh.MacAddress),
+				Mac:        string(neigh.MacAddress), //nolint:staticcheck
 				Name:       neigh.Name,
 				Identifier: neigh.Identifier,
 			})
 		}
 		nics = append(nics, &apiv2.MachineNic{
-			Mac:        string(nic.MacAddress),
+			Mac:        string(nic.MacAddress), //nolint:staticcheck
 			Name:       nic.Name,
 			Identifier: nic.Identifier,
 			Neighbors:  neighs,
@@ -781,14 +781,14 @@ func (r *machineRepository) Register(ctx context.Context, req *infrav2.BootServi
 		for _, neigh := range nic.Neighbors {
 			neighs = append(neighs, metal.Nic{
 				Name:       neigh.Name,
-				MacAddress: neigh.Mac,
+				MacAddress: neigh.Mac, //nolint:staticcheck
 				Hostname:   neigh.Hostname,
 				Identifier: neigh.Identifier,
 			})
 		}
 		nics = append(nics, metal.Nic{
 			Name:       nic.Name,
-			MacAddress: nic.Mac,
+			MacAddress: nic.Mac, //nolint:staticcheck
 			Identifier: nic.Identifier,
 			Neighbors:  neighs,
 		})
@@ -1004,7 +1004,7 @@ func (r *machineRepository) InstallationSucceeded(ctx context.Context, req *infr
 		return nil, fmt.Errorf("the machine %q could not be enslaved into the vrf %s, error: %w", req.Uuid, vrf, err)
 	}
 
-	_, err = r.MachineBMCCommand(ctx, m.ID, m.PartitionID, apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_MACHINE_CREATED)
+	_, err = r.MachineBMCCommand(ctx, m.ID, m.PartitionID, apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_MACHINE_CREATED, RunSync(false))
 	if err != nil {
 		return nil, fmt.Errorf("unable to send machine bmc command to trigger boot to disk: %w", err)
 	}
@@ -1311,7 +1311,19 @@ func (r *machineRepository) convertToBMCReport(machine *metal.Machine) *apiv2.Ma
 	return bmcReport
 }
 
-func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, partition string, command apiv2.MachineBMCCommand) (string, error) {
+type machineBMCCommandOption any
+
+type syncOpt struct {
+	sync bool
+}
+
+func RunSync(sync bool) machineBMCCommandOption {
+	return &syncOpt{
+		sync: sync,
+	}
+}
+
+func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, partition string, command apiv2.MachineBMCCommand, opts ...machineBMCCommandOption) (string, error) {
 	cmdString, err := enum.GetStringValue(command)
 	if err != nil {
 		return "", errorutil.InvalidArgument("unknown command: %s", command)
@@ -1321,9 +1333,19 @@ func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, 
 	const bmcCommandTimeout = 45 * time.Second
 
 	var (
+		runSync   = true
 		cmd       = *cmdString
 		commandId = machineUUID + ":machine-bmc-command:" + cmd
 	)
+
+	for _, opt := range opts {
+		switch o := opt.(type) {
+		case *syncOpt:
+			runSync = o.sync
+		default:
+			return "", fmt.Errorf("unknown bmc command opt: %T", o)
+		}
+	}
 
 	info, err := r.s.task.NewTask(&task.MachineBMCCommandPayload{
 		UUID:      machineUUID,
@@ -1340,70 +1362,127 @@ func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, 
 
 	r.s.log.Info("machine bmc command enqueued", "info", info)
 
-	if _, err = r.s.Task().WatchForTaskCompletion(ctx, &task.WatchConfig{
-		Timeout:  new(bmcCommandTimeout),
-		Interval: new(1 * time.Second),
-	}, info.Queue, info.ID); err != nil {
-		return info.ID, errorutil.Internal("error waiting for task %q of type %q to complete: %w", info.ID, info.Type, err)
+	if runSync {
+		if _, err = r.s.Task().WatchForTaskCompletion(ctx, &task.WatchConfig{
+			Timeout:  new(bmcCommandTimeout),
+			Interval: new(1 * time.Second),
+		}, info.Queue, info.ID); err != nil {
+			return info.ID, errorutil.Internal("error waiting for task %q of type %q to complete: %w", info.ID, info.Type, err)
+		}
 	}
 
 	return info.ID, nil
 }
 
 func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWaitRequest, srv *connect.ServerStream[infrav2.BootServiceWaitResponse]) error {
-	machineID := req.Uuid
-	r.s.log.Info("wait for allocation called by", "machineID", machineID)
+	var (
+		machineID = req.Uuid
+		log       = r.s.log.With("machine-id", machineID)
 
-	machine, err := r.s.UnscopedMachine().Get(ctx, machineID)
+		getAllocation = func() (*apiv2.MachineAllocation, error) {
+			machine, err := r.s.UnscopedMachine().Get(ctx, machineID)
+			if err != nil {
+				return nil, err
+			}
+
+			if machine.Allocation != nil {
+				return machine.Allocation, nil
+			}
+
+			return nil, nil
+		}
+	)
+
+	alloc, err := getAllocation()
 	if err != nil {
 		return err
 	}
 
-	if machine.Allocation != nil {
-		r.s.log.Debug("send existing allocation to machine", "allocation", machine.Allocation)
+	if alloc != nil {
+		log.Debug("wait for machine allocation called, allocation for machine already exists", "allocation", alloc)
+
 		err = srv.Send(&infrav2.BootServiceWaitResponse{
-			Allocation: machine.Allocation,
+			Allocation: alloc,
 		})
 		if err != nil {
 			return err
 		}
+
+		return nil
 	}
+
+	log.Debug("set machine waiting flag to true")
+
 	err = r.setMachineWaitingFlag(ctx, machineID, true)
 	if err != nil {
 		return err
 	}
 	defer func() {
+		log.Debug("set machine waiting flag to false")
+
+		err = r.setMachineWaitingFlag(context.Background(), machineID, false)
 		if err != nil {
-			return
-		}
-		// TODO This is prone to fail with optlock, either retry or async task
-		err = r.setMachineWaitingFlag(ctx, machineID, false)
-		if err != nil {
-			r.s.log.Error("unable to remove waiting flag from machine", "machineID", machineID, "error", err)
+			log.Error("unable to remove waiting flag from machine", "error", err)
 		}
 	}()
 
-	allocationChan := r.s.queue.WaitMachineAllocation(ctx, machineID)
+	changes, err := r.s.ds.Machine().Watch(ctx, machineID)
+	if err != nil {
+		return err
+	}
 
 	for {
 		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-allocationChan:
-			machine, err := r.s.UnscopedMachine().Get(ctx, machineID)
+		case change, ok := <-changes:
+			if !ok {
+				return fmt.Errorf("stream was closed unexpectedly")
+			}
+
+			if change.New == nil || change.New.Allocation == nil {
+				continue
+			}
+
+			log.Debug("machine was allocated, noticed by watching db", "allocation", alloc)
+
+			machine, err := r.convertToProto(ctx, change.New)
 			if err != nil {
 				return err
 			}
-			if machine.Allocation == nil {
-				return errorutil.Internal("machine %s is not allocated", machineID)
-			}
-			r.s.log.Debug("send allocation to machine", "allocation", machine.Allocation)
+
 			err = srv.Send(&infrav2.BootServiceWaitResponse{
 				Allocation: machine.Allocation,
 			})
 			if err != nil {
 				return err
 			}
+
+			return nil
+
+		case <-time.Tick(1 * time.Minute):
+			alloc, err := getAllocation()
+			if err != nil {
+				return err
+			}
+
+			if alloc == nil {
+				continue
+			}
+
+			log.Debug("machine was allocated, noticed by polling db", "allocation", alloc)
+
+			err = srv.Send(&infrav2.BootServiceWaitResponse{
+				Allocation: alloc,
+			})
+			if err != nil {
+				return err
+			}
+
+			return nil
+
+		case <-ctx.Done():
+			log.Debug("machine wait ended", "allocation", alloc)
+
+			return nil
 		}
 	}
 }
@@ -1636,13 +1715,16 @@ func (r *machineRepository) Issues(ctx context.Context, req *adminv2.MachineServ
 }
 
 func (r *machineRepository) setMachineWaitingFlag(ctx context.Context, machineUUID string, waiting bool) error {
+	// TODO This is prone to fail with optlock, either retry or async task
+
 	m, err := r.s.ds.Machine().Get(ctx, machineUUID)
 	if err != nil {
 		return err
 	}
+
 	m.Waiting = waiting
-	err = r.s.ds.Machine().Update(ctx, m)
-	return err
+
+	return r.s.ds.Machine().Update(ctx, m)
 }
 
 func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
