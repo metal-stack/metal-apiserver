@@ -33,7 +33,7 @@ type Config struct {
 	Log                *slog.Logger
 	Repository         *repository.Store
 	Mux                *http.ServeMux
-	Interceptors       connect.Option
+	Interceptors       connect.HandlerOption
 	InviteStore        invite.TenantInviteStore
 	AuditSearchBackend auditing.Auditing
 }
