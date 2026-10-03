@@ -16,6 +16,7 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/metal-stack/metal-apiserver/pkg/db/routing"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
 	"github.com/stretchr/testify/assert"
@@ -36,7 +37,12 @@ var (
 func Test_machineServiceServer_Get(t *testing.T) {
 	t.Parallel()
 
-	testStore, closer := test.StartRepositoryWithCleanup(t)
+	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithRoutingConfig(routing.Config{
+		Default: routing.ModeRethink,
+		Entities: map[string]routing.Mode{
+			"Machine": routing.ModeBoth,
+		},
+	}))
 	log := testStore.GetLogger()
 	defer closer()
 
@@ -135,7 +141,12 @@ func Test_machineServiceServer_Get(t *testing.T) {
 func Test_machineServiceServer_List(t *testing.T) {
 	t.Parallel()
 
-	testStore, closer := test.StartRepositoryWithCleanup(t)
+	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithRoutingConfig(routing.Config{
+		Default: routing.ModeRethink,
+		Entities: map[string]routing.Mode{
+			"Machine": routing.ModeBoth,
+		},
+	}))
 	log := testStore.GetLogger()
 	defer closer()
 
@@ -287,7 +298,12 @@ func Test_machineServiceServer_List(t *testing.T) {
 func Test_machineServiceServer_BMCCommand(t *testing.T) {
 	t.Parallel()
 
-	testStore, closer := test.StartRepositoryWithCleanup(t)
+	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithRoutingConfig(routing.Config{
+		Default: routing.ModeRethink,
+		Entities: map[string]routing.Mode{
+			"Machine": routing.ModeBoth,
+		},
+	}))
 	log := testStore.GetLogger()
 	defer closer()
 
@@ -423,7 +439,12 @@ func Test_machineServiceServer_BMCCommand(t *testing.T) {
 func Test_machineServiceServer_Issues(t *testing.T) {
 	t.Parallel()
 
-	testStore, closer := test.StartRepositoryWithCleanup(t)
+	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithRoutingConfig(routing.Config{
+		Default: routing.ModeRethink,
+		Entities: map[string]routing.Mode{
+			"Machine": routing.ModeBoth,
+		},
+	}))
 	log := testStore.GetLogger()
 	defer closer()
 
