@@ -21,6 +21,12 @@ partially addressed, `NEW` = added in this re-review.
 Note: the package is not yet wired into production (only tests and the
 migration use it), so design changes are still cheap.
 
+Storage model: one table per entity type. The table name is the entity type
+(Postgres folds the unquoted Go type name to lowercase), and the shared
+`entity_table_notify_change` trigger derives it from `TG_TABLE_NAME`. There is
+no `entity_type` column and no shared `generic_entities` table; an id is unique
+per type, so the same id may exist independently in several entity tables.
+
 ---
 
 ## `repository.go`
@@ -46,26 +52,21 @@ Additional note: `SUM_EQ` and `ARRAY_ELEM_LIKE` run per-row
 index at all. Acceptable for small tables (machines), will not scale to larger
 entity types.
 
-### 2b. `@>` filter combined with `entity_type` — MEDIUM (performance) — FIXED
+### 2b. `@>` filter combined with `entity_type` — MEDIUM (performance) — OBSOLETE
 
-Every query filters on both `entity_type = $1` **and** `data @> $json`. A composite
-GIN index is now added to satisfy both predicates from the index:
+This finding applied to the former single-table layout, where every query also
+filtered on `entity_type = $1` and a composite `pg_trgm` GIN index was added to
+satisfy both predicates:
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE INDEX idx_generic_entities_type_data ON generic_entities USING gin (entity_type gin_trgm_ops, data);
 ```
 
-Note: this requires the `pg_trgm` extension, which needs a superuser to install
-(`CREATE EXTENSION`). If that is not acceptable in the target environment, drop
-this index — the existing btree index on `entity_type` plus the GIN index on `data`
-already let Postgres bitmap-combine the two predicates. The naive composite
-`USING gin (entity_type, data)` does **not** work (no default GIN operator class
-for `text`), so `gin_trgm_ops` is required here.
-
-Related caveat: maintaining **two** GIN indexes (`data` + the composite trgm
-index) doubles write amplification on every insert/update. Acceptable for now;
-revisit if writes become hot.
+With the table-per-entity strategy there is no `entity_type` column: each entity
+type is its own table, the query filters only on `data`, and the single
+`USING gin (data)` index is used. No composite index, no `pg_trgm` extension and
+hence no superuser requirement are needed.
 
 ### 3. `Query` has no result cap / pagination — MEDIUM (performance) — FIXED
 
@@ -83,17 +84,20 @@ documenting the invariant.
 ### 4a. `Create` silently skips on conflict — HIGH (design/correctness) — FIXED
 
 `Create` now checks `RowsAffected` and returns an `ErrAlreadyExists` sentinel
-when the id already exists (same **or different** entity type); the existing row
-is left untouched. Callers can distinguish "created" from "already present".
+when the id already exists **in that entity's table**; the existing row is left
+untouched. Callers can distinguish "created" from "already present".
 
 For the migration story, a new `Upsert` method was added: it inserts or replaces
-the data for the same entity type, bumps `version` only when the data actually
-changed (`IS DISTINCT FROM`), and returns `ErrAlreadyExists` if the id is owned
-by a different entity type. `migrations/machine.go` now uses `Upsert`, so
-re-running the migration converges machines whose data changed in RethinkDB in
+the data for the same entity type, and bumps `version` only when the data
+actually changed (`IS DISTINCT FROM`). `migrations/machine.go` now uses `Upsert`,
+so re-running the migration converges machines whose data changed in RethinkDB in
 between, while unchanged machines keep their version. Covered by
 `TestGenericRepositoryUpsert` and the "converges changed data on re-run"
 migration subtest.
+
+With one table per entity type, `Create`/`Upsert` are scoped to a single table:
+the same id may exist independently in several entity tables and no longer
+collides across types (`TestGenericRepositoryUpsert` asserts this).
 
 ### 4b. `Get`/`Delete` error semantics differ — LOW (consistency) — FIXED
 
@@ -124,24 +128,30 @@ order). Add a stable ordering (e.g. `ORDER BY id`).
 
 ### 4f. `entityType` derived from the bare Go type name — MEDIUM (design) — NEW
 
-`reflect.TypeFor[T]().Name()` has no package qualification (two `Machine` types
-in different packages collide on one partition), and renaming or moving a struct
-orphans all of its data (the "Beware" comment acknowledges this).
+`reflect.TypeFor[T]().Name()` has no package qualification, and with one table
+per entity that means two `Machine` types in different packages would both map to
+the `machine` table and share storage. Renaming or moving a struct orphans all of
+its data (the "Beware" comment acknowledges this).
+
+The name is lowercased before use so the entity type equals the table name that
+Postgres stores (unquoted identifiers fold to lowercase) and the `TG_TABLE_NAME`
+the trigger announces.
 
 **Fix:** take an explicit, stable entity-type string (type name as default).
 
 ### 4g. DDL executed at construction time — MEDIUM (operational) — NEW
 
 `NewGenericRepository` (and `NewSharedMutex`, `NewIntegerPool`) run
-`CREATE TABLE/INDEX/EXTENSION` at startup with `context.Background()`:
+`CREATE TABLE/INDEX/TRIGGER` at startup with `context.Background()`:
 
-- `CREATE EXTENSION pg_trgm` requires a superuser → with a least-privilege DB
-  user, repository construction fails outright.
 - Every replica runs the DDL concurrently; `CREATE INDEX` takes locks and
   contends across replicas.
+- For each repository it re-runs `CREATE OR REPLACE FUNCTION` and
+  `DROP TRIGGER`/`CREATE TRIGGER` (see #36), taking a lock on the table and
+  rewriting catalog state on every startup.
 
-**Fix:** move schema management (especially the extension) to migration
-tooling; constructors should assume the schema exists.
+**Fix:** move schema management to migration tooling; constructors should
+assume the schema exists.
 
 ### 4h. `SUM_EQ` numeric cast aborts the whole query — MEDIUM (robustness) — NEW
 
@@ -162,10 +172,10 @@ data (e.g. IPMI credentials) ending up in logs. Log ids/versions only, or redact
 
 ### 4k. No transaction API — MEDIUM (design) — NEW
 
-All entity types share one table, but the repository exposes no
-`BeginTx`-style support. Once this backs real entities, multi-entity
-operations (allocate machine + touch network/IP) cannot be made atomic. Needed
-before wiring into `repository.Store`.
+Each entity type is stored in its own table, but the repository exposes no
+`BeginTx`-style support. Once this backs real entities, multi-entity operations
+(allocate machine + touch network/IP) cannot be made atomic across tables.
+Needed before wiring into `repository.Store`.
 
 ### 4l. `DEFAULT uuidv7()` version claim and dead default — LOW (maintainability) — NEW
 
@@ -185,10 +195,12 @@ paths (scan/JSON errors) still close the rows before returning.
 ## `watch.go`
 
 The `Watch` method (`repository.go`) and its supporting `Watcher` (`watch.go`)
-stream entity changes over native PostgreSQL `NOTIFY`/`LISTEN`: a trigger on
-`generic_entities` announces `{id, entity_type, op}` for every row change, a
-shared `Watcher` decodes the payload, loads the committed row, and fans it out to
-per-id subscriptions. Findings below cover both files.
+stream entity changes over native PostgreSQL `NOTIFY`/`LISTEN`: every per-entity
+table carries the shared `entity_table_notify_change` trigger, which announces
+`{id, entity_type, op}` for each row change (the `entity_type` is the firing
+table, read from `TG_TABLE_NAME`). A shared `Watcher` decodes the payload, loads
+the committed row from that table, and fans it out to per-(entity, id)
+subscriptions. Findings below cover both files.
 
 ### 27. `Old` is the last *observed* value, not the true previous state — HIGH (correctness/design) — NEW
 
@@ -258,11 +270,11 @@ for watcher reads.
 
 ### 36. Trigger taxes every write on the hot path — MEDIUM (performance) — NEW
 
-`repository.go:70-73`. The `AFTER INSERT OR UPDATE OR DELETE` trigger fires on every
-write to `generic_entities` (all entity types, single table) and builds a JSON payload +
-`pg_notify`, even when nothing is watched. Small per-write cost but permanent. The
-`watch.go:174` guard correctly skips the fetch when no subscriber exists; the trigger
-itself still always runs.
+`repository.go` (`entity_table_notify_change`). The `AFTER INSERT OR UPDATE OR
+DELETE` trigger fires on every write to each per-entity table (it is created per
+table) and builds a JSON payload + `pg_notify`, even when nothing is watched.
+Small per-write cost but permanent. The `watch.go:174` guard correctly skips the
+fetch when no subscriber exists; the trigger itself still always runs.
 
 ### 37. Spurious watch events on no-op upserts — LOW (behavior) — NEW
 
@@ -272,10 +284,11 @@ event. Add a `WHEN` clause (or accept the noise).
 
 ### 38. Notify channel + payload keys are hand-synced string literals — MEDIUM (maintainability) — NEW
 
-`watch.go:18` (`NotifyChannel`), `repository.go:59` (`pg_notify('generic_entities_changes', …)`),
-and the JSON keys parsed at `watch.go:150-154` must agree; renaming one silently breaks the
-others. Derive the SQL literal from the const (inject into the schema) or assert equivalence
-in a test.
+`watch.go:18` (`NotifyChannel = "entity_table_changes"`),
+`repository.go:58` (`pg_notify('entity_table_changes', …)`), and the JSON keys
+parsed at `watch.go:150-154` must agree; renaming one silently breaks the others.
+Derive the SQL literal from the const (inject into the schema) or assert
+equivalence in a test.
 
 ### 39. `TG_OP` values compared as magic strings — LOW (maintainability) — NEW
 
@@ -293,8 +306,8 @@ bypassed by the length heuristic (#31). Trim the struct or actually use `Op`.
 anonymous channel type in several spots. Unavoidable given the interface shape, but easy
 to typo-drift; keep the doc/source in one place.
 
-Related: the trigger DDL executed at construction compounds #4g (DDL at startup, superuser
-required for `pg_trgm`).
+Related: the per-table trigger DDL executed at construction compounds #4g (DDL
+at startup).
 
 ---
 
@@ -533,8 +546,7 @@ and leave the version of unchanged entities alone (see #4a, `Upsert`).
    with data-change-only version bump; migration converges on re-run (#4a)
 4. **Make unique-acquire range checks real**: store and check the lower bound
    (#21), wrap grow+record in a transaction (#20) — MEDIUM, correctness
-5. **Move DDL out of constructors**, especially `CREATE EXTENSION pg_trgm`
-   (#4g) — MEDIUM, operational
+5. **Move DDL out of constructors** (#4g) — MEDIUM, operational
 6. **Robustness batch**: `SUM_EQ` cast guard, `LIKE` escaping, no silent filter
    drops, no `MustParsePrefix` panic (#4h, #4i, #17, #26) — MEDIUM
 7. **Explicit, stable `entityType` key** (#4f) — MEDIUM
@@ -552,10 +564,10 @@ and leave the version of unchanged entities alone (see #4a, `Upsert`).
 
 ### Minor / cosmetic
 
-- `Get`/`Delete`/`Update` include `entity_type` in the `WHERE` even though `id` is
-  the globally-unique primary key. Harmless (documents type-scoping intent) but
-  redundant; note that `id` collisions across entity types are therefore not
-  supported.
+- With one table per entity type, `id` is unique only within its table:
+  `Get`/`Delete`/`Update` address exactly one table, and the same id may exist
+  independently in several entity tables. The old single-table scoping on
+  `entity_type` (and its "no cross-type id collisions" caveat) no longer exists.
 - `mutexOpt any` / `lockOpt any` option pattern is verbose; plain functional
   options would be simpler.
 - `NewGenericRepository` ignores cancellation for its DDL

@@ -19,8 +19,7 @@ var (
 	ErrNotFound = errors.New("entity not found")
 
 	// ErrAlreadyExists is returned by Create when an entity with the same id
-	// already exists, and by Upsert when the id is owned by a different
-	// entity type.
+	// already exists in the entity's table.
 	ErrAlreadyExists = errors.New("entity already exists")
 
 	// allowedQueryOps is the allowlist of operators accepted in QueryFilter.Op.
