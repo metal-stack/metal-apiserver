@@ -1,6 +1,7 @@
 package test
 
 import (
+	"database/sql"
 	"log/slog"
 	"os"
 	"testing"
@@ -17,8 +18,10 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/db/generic/pg"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
+	"github.com/metal-stack/metal-apiserver/pkg/db/routing"
 	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
@@ -47,6 +50,8 @@ type (
 		*repository.Store
 		log           *slog.Logger
 		ds            generic.Datastore
+		rethink       generic.Datastore
+		routingPgDB   *sql.DB
 		dbName        string
 		queryExecutor *r.Session
 		ipam          apiv1connect.IpamServiceClient
@@ -80,6 +85,9 @@ type (
 	testOptRethink struct {
 		with bool
 	}
+	testOptRouting struct {
+		config routing.Config
+	}
 	testOptHeadscale struct {
 		with bool
 	}
@@ -106,6 +114,13 @@ func WithValkey(with bool) *testOptValkey {
 	return &testOptValkey{
 		with: with,
 	}
+}
+
+// WithRoutingConfig enables the configuration-driven storage router. A postgres
+// container is started for the entities whose mode is "postgres" or "both"; the
+// remaining entities stay on rethink. Requires rethink to be enabled.
+func WithRoutingConfig(config routing.Config) *testOptRouting {
+	return &testOptRouting{config: config}
 }
 
 // WithRethink if set to true a rethink database container is started, defaults to false.
@@ -156,6 +171,7 @@ func StartRepositoryWithCleanup(t testing.TB, testOpts ...testOpt) (*testStore, 
 
 		providerTenant            = DefaultProviderTenant
 		renewCertBeforeExpiration *time.Duration
+		routingConfig             *routing.Config
 		log                       = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: lvl}))
 	)
 
@@ -167,6 +183,9 @@ func StartRepositoryWithCleanup(t testing.TB, testOpts ...testOpt) (*testStore, 
 			withValkey = o.with
 		case *testOptRethink:
 			withRethink = o.with
+		case *testOptRouting:
+			cfg := o.config
+			routingConfig = &cfg
 		case *testOptHeadscale:
 			withHeadscale = o.with
 		case *testOptContainer:
@@ -205,6 +224,31 @@ func StartRepositoryWithCleanup(t testing.TB, testOpts ...testOpt) (*testStore, 
 		var err error
 		session, err = r.Connect(opts)
 		require.NoError(t, err)
+	}
+	rethinkDS := ds
+
+	// Wire the configuration-driven storage router on top of the rethink
+	// datastore. A postgres container is only started when at least one entity
+	// is configured for postgres.
+	var (
+		routingPgCloser func()
+		routingPgDB     *sql.DB
+		routingWatcher  *pg.Watcher
+	)
+	if routingConfig != nil {
+		require.True(t, withRethink, "the routing datastore requires rethink to be enabled")
+
+		pgDB, pgDSN, pgCloser := StartPostgresWithDSN(t, log)
+		routingPgCloser = pgCloser
+		routingPgDB = pgDB
+
+		watcher, err := pg.NewWatcher(log, pgDB, pgDSN)
+		require.NoError(t, err)
+		routingWatcher = watcher
+
+		routed, err := routing.NewDatastore(log, *routingConfig, ds, pgDB, routing.WithPostgresWatcher(watcher))
+		require.NoError(t, err)
+		ds = routed
 	}
 
 	if withValkey {
@@ -270,6 +314,12 @@ func StartRepositoryWithCleanup(t testing.TB, testOpts ...testOpt) (*testStore, 
 		if withRethink {
 			rethinkCloser()
 		}
+		if routingWatcher != nil {
+			_ = routingWatcher.Close()
+		}
+		if routingPgCloser != nil {
+			routingPgCloser()
+		}
 		ipamCloser()
 		tenantApiserverCloser()
 		asyncCloser()
@@ -287,6 +337,8 @@ func StartRepositoryWithCleanup(t testing.TB, testOpts ...testOpt) (*testStore, 
 		Store:                  repo,
 		log:                    log,
 		ds:                     ds,
+		rethink:                rethinkDS,
+		routingPgDB:            routingPgDB,
 		dbName:                 opts.Database,
 		queryExecutor:          session,
 		ipam:                   ipam,

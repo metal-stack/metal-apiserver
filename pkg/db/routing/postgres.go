@@ -1,0 +1,243 @@
+package routing
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"reflect"
+	"time"
+
+	"uuid"
+
+	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/db/generic/pg"
+	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+)
+
+var _ Storage[*metal.Machine] = (*postgresStorage[*metal.Machine])(nil)
+
+// postgresStorage adapts a pg.GenericRepository to the routing port.
+//
+// Identity: the port addresses entities by their metal string id, which is used
+// verbatim as the Postgres primary key (the column is TEXT). UUID-keyed entities
+// that leave their id empty get a generated UUIDv7; named entities (partition,
+// size, image, filesystemlayout, switch, ...) carry their meaningful name.
+//
+// Concurrency: RethinkDB guards updates with the `changed` timestamp and keeps
+// a `generation` counter; Postgres guards updates with an integer `version`.
+// The adapter maps them with the invariant `version = generation + 1`: create
+// stamps generation 0 (Postgres writes version 1) and update increments
+// generation by one, using the pre-increment generation as the expected version.
+type postgresStorage[E generic.Entity] struct {
+	repo *pg.GenericRepository[E]
+}
+
+// NewPostgresStorage wraps a Postgres repository in the routing port.
+func NewPostgresStorage[E generic.Entity](repo *pg.GenericRepository[E]) Storage[E] {
+	return &postgresStorage[E]{repo: repo}
+}
+
+func (s *postgresStorage[E]) Create(ctx context.Context, e E) (E, error) {
+	var zero E
+
+	id := entityID(e)
+	if err := stampCreate(e); err != nil {
+		return zero, err
+	}
+	if err := s.repo.Create(ctx, id, e); err != nil {
+		return zero, mapPostgresError(err)
+	}
+
+	return e, nil
+}
+
+func (s *postgresStorage[E]) Update(ctx context.Context, e E) error {
+	id := entityID(e)
+
+	expected := int32(e.GetGeneration()) + 1
+	if err := stampUpdate(e); err != nil {
+		return err
+	}
+
+	return mapPostgresError(s.repo.Update(ctx, id, expected, e))
+}
+
+func (s *postgresStorage[E]) Upsert(ctx context.Context, e E) error {
+	id := entityID(e)
+	if err := stampUpsert(e); err != nil {
+		return err
+	}
+
+	return mapPostgresError(s.repo.Upsert(ctx, id, e))
+}
+
+func (s *postgresStorage[E]) Delete(ctx context.Context, e E) error {
+	return mapPostgresError(s.repo.Delete(ctx, entityID(e)))
+}
+
+func (s *postgresStorage[E]) Get(ctx context.Context, id string) (E, error) {
+	var zero E
+
+	ent, err := s.repo.Get(ctx, id)
+	if err != nil {
+		return zero, mapPostgresError(err)
+	}
+
+	return ent.Data, nil
+}
+
+func (s *postgresStorage[E]) Find(ctx context.Context, filters ...Filter) (E, error) {
+	var zero E
+
+	entities, err := s.List(ctx, filters...)
+	if err != nil {
+		return zero, err
+	}
+	switch len(entities) {
+	case 0:
+		return zero, fmt.Errorf("%w: no %s found", ErrNotFound, EntityName[E]())
+	case 1:
+		return entities[0], nil
+	default:
+		return zero, fmt.Errorf("more than one %s found by query", EntityName[E]())
+	}
+}
+
+func (s *postgresStorage[E]) List(ctx context.Context, filters ...Filter) ([]E, error) {
+	pgFilters, err := postgresFilters(filters)
+	if err != nil {
+		return nil, err
+	}
+
+	entities, err := s.repo.Query(ctx, pgFilters, nil)
+	if err != nil {
+		return nil, mapPostgresError(err)
+	}
+
+	out := make([]E, 0, len(entities))
+	for _, ent := range entities {
+		out = append(out, ent.Data)
+	}
+	return out, nil
+}
+
+func (s *postgresStorage[E]) Watch(ctx context.Context, id string) (<-chan struct {
+	Old E
+	New E
+}, error) {
+	changes, err := s.repo.Watch(ctx, id)
+	if err != nil {
+		return nil, mapPostgresError(err)
+	}
+	return changes, nil
+}
+
+func postgresFilters(filters []Filter) ([]pg.QueryFilter, error) {
+	if err := requirePostgresFilters(filters); err != nil {
+		return nil, err
+	}
+	result := make([]pg.QueryFilter, 0, len(filters))
+	for _, f := range filters {
+		result = append(result, f.Postgres...)
+	}
+	return result, nil
+}
+
+// entityID returns the entity's primary key. An empty id is generated as a
+// UUIDv7 (for UUID-keyed entities that let the server assign one) and written
+// back to the entity; named entities supply their meaningful id up front and it
+// is used verbatim.
+func entityID[E generic.Entity](e E) string {
+	id := e.GetID()
+	if id == "" {
+		id = uuid.NewV7().String()
+		e.SetID(id)
+	}
+	return id
+}
+
+func mapPostgresError(err error) error {
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, pg.ErrNotFound):
+		return fmt.Errorf("%w: %v", ErrNotFound, err)
+	case errors.Is(err, pg.ErrAlreadyExists):
+		return fmt.Errorf("%w: %v", ErrAlreadyExists, err)
+	case errors.Is(err, pg.ErrOptimisticLockConflict):
+		return fmt.Errorf("%w: %v", ErrConflict, err)
+	default:
+		return err
+	}
+}
+
+func stampCreate(e any) error {
+	now := time.Now()
+	if err := setField(e, "Created", now); err != nil {
+		return err
+	}
+	if err := setField(e, "Changed", now); err != nil {
+		return err
+	}
+	return setField(e, "Generation", uint64(0))
+}
+
+func stampUpdate(e any) error {
+	if err := setField(e, "Changed", time.Now()); err != nil {
+		return err
+	}
+	return setField(e, "Generation", getGeneration(e)+1)
+}
+
+func stampUpsert(e any) error {
+	if created, ok := getTimeField(e, "Created"); ok && created.IsZero() {
+		if err := setField(e, "Created", time.Now()); err != nil {
+			return err
+		}
+	}
+	if err := setField(e, "Changed", time.Now()); err != nil {
+		return err
+	}
+	return setField(e, "Generation", getGeneration(e)+1)
+}
+
+func getGeneration(e any) uint64 {
+	rv := reflect.ValueOf(e)
+	if rv.Kind() != reflect.Pointer || rv.IsNil() {
+		return 0
+	}
+	f := rv.Elem().FieldByName("Generation")
+	if !f.IsValid() || f.Kind() != reflect.Uint64 {
+		return 0
+	}
+	return f.Uint()
+}
+
+func getTimeField(e any, name string) (time.Time, bool) {
+	rv := reflect.ValueOf(e)
+	if rv.Kind() != reflect.Pointer || rv.IsNil() {
+		return time.Time{}, false
+	}
+	f := rv.Elem().FieldByName(name)
+	if !f.IsValid() || f.Type() != reflect.TypeFor[time.Time]() {
+		return time.Time{}, false
+	}
+	return f.Interface().(time.Time), true
+}
+
+func setField(e any, name string, value any) error {
+	rv := reflect.ValueOf(e)
+	if rv.Kind() != reflect.Pointer || rv.IsNil() {
+		return fmt.Errorf("cannot set %s on non-pointer entity %T", name, e)
+	}
+	f := rv.Elem().FieldByName(name)
+	if !f.IsValid() || !f.CanSet() {
+		return fmt.Errorf("entity %T has no settable %s field", e, name)
+	}
+	v := reflect.ValueOf(value)
+	if !v.Type().AssignableTo(f.Type()) {
+		return fmt.Errorf("entity %T field %s is %s, cannot assign %T", e, name, f.Type(), value)
+	}
+	f.Set(v)
+	return nil
+}
