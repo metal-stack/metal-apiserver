@@ -7,8 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"uuid"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	_ "github.com/lib/pq"
@@ -96,9 +94,7 @@ func TestNetworkFilterPostgres(t *testing.T) {
 	ctx := t.Context()
 
 	for _, n := range pgNetworks {
-		id, err := uuid.Parse(n.ID)
-		require.NoError(t, err)
-		require.NoError(t, repo.Create(ctx, id, n))
+		require.NoError(t, repo.Create(ctx, n.ID, n))
 	}
 
 	// helper returns the data of all entities matching the given network query

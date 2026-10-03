@@ -14,8 +14,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	"uuid"
-
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic/pg"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
@@ -47,10 +45,5 @@ func MigrateMachine(ctx context.Context, log *slog.Logger, rdb generic.Datastore
 }
 
 func storeMachine(ctx context.Context, repo *pg.GenericRepository[*metal.Machine], m *metal.Machine) error {
-	id, err := uuid.Parse(m.GetID())
-	if err != nil {
-		return fmt.Errorf("machine id %q is not a valid uuid: %w", m.GetID(), err)
-	}
-
-	return repo.Upsert(ctx, id, m)
+	return repo.Upsert(ctx, m.GetID(), m)
 }

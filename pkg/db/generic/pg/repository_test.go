@@ -41,7 +41,7 @@ func TestGenericRepository(t *testing.T) {
 
 	repo, err := pg.NewGenericRepository[UserProfile](log, db)
 	require.NoError(t, err)
-	userID := uuid.NewV7()
+	userID := uuid.NewV7().String()
 
 	// 1. Test Create (Insert)
 	initialProfile := UserProfile{
@@ -93,12 +93,12 @@ func TestGenericRepository(t *testing.T) {
 	}
 
 	// Updating a non-existent id returns ErrNotFound, not a lock conflict
-	err = repo.Update(ctx, uuid.NewV7(), 1, updatedProfile)
+	err = repo.Update(ctx, uuid.NewV7().String(), 1, updatedProfile)
 	require.ErrorIs(t, err, pg.ErrNotFound)
 
 	// 4. Test Query Interface (Nested JSON Path)
 	// Insert a second entity to test filtering
-	user2ID := uuid.NewV7()
+	user2ID := uuid.NewV7().String()
 	err = repo.Create(ctx, user2ID, UserProfile{
 		Name: "Bob",
 		Age:  25,
@@ -184,7 +184,7 @@ func TestGenericRepositoryWatch(t *testing.T) {
 	repo, err := pg.NewGenericRepository[UserProfile](log, db, pg.WithWatcher(watcher))
 	require.NoError(t, err)
 
-	userID := uuid.NewV7()
+	userID := uuid.NewV7().String()
 
 	watchCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
@@ -271,23 +271,23 @@ func TestEntityTableNotifyChange(t *testing.T) {
 		deviceTable      = "device"
 	)
 
-	id := uuid.NewV7()
+	id := uuid.NewV7().String()
 
 	require.NoError(t, profileRepo.Create(ctx, id, UserProfile{Name: "Alice"}))
-	assertNotificationPayload(t, receiveNotification(t, listener), id.String(), userProfileTable, "INSERT")
+	assertNotificationPayload(t, receiveNotification(t, listener), id, userProfileTable, "INSERT")
 
 	require.NoError(t, deviceRepo.Create(ctx, id, Device{Model: "M1"}))
-	assertNotificationPayload(t, receiveNotification(t, listener), id.String(), deviceTable, "INSERT")
+	assertNotificationPayload(t, receiveNotification(t, listener), id, deviceTable, "INSERT")
 
 	ent, err := profileRepo.Get(ctx, id)
 	require.NoError(t, err)
 	updated := ent.Data
 	updated.Name = "Bob"
 	require.NoError(t, profileRepo.Update(ctx, id, ent.Version, updated))
-	assertNotificationPayload(t, receiveNotification(t, listener), id.String(), userProfileTable, "UPDATE")
+	assertNotificationPayload(t, receiveNotification(t, listener), id, userProfileTable, "UPDATE")
 
 	require.NoError(t, deviceRepo.Delete(ctx, id))
-	assertNotificationPayload(t, receiveNotification(t, listener), id.String(), deviceTable, "DELETE")
+	assertNotificationPayload(t, receiveNotification(t, listener), id, deviceTable, "DELETE")
 }
 
 func receiveNotification(t *testing.T, l *pq.Listener) pq.Notification {
@@ -326,7 +326,7 @@ func TestGenericRepositoryWatchWithoutWatcher(t *testing.T) {
 	repo, err := pg.NewGenericRepository[UserProfile](log, db)
 	require.NoError(t, err)
 
-	_, err = repo.Watch(ctx, uuid.NewV7())
+	_, err = repo.Watch(ctx, uuid.NewV7().String())
 	require.ErrorIs(t, err, pg.ErrWatchNotConfigured)
 }
 
@@ -338,7 +338,7 @@ func TestGenericRepositoryUpsert(t *testing.T) {
 
 	repo, err := pg.NewGenericRepository[UserProfile](log, db)
 	require.NoError(t, err)
-	userID := uuid.NewV7()
+	userID := uuid.NewV7().String()
 
 	profile := UserProfile{
 		Name:    "Alice",
@@ -397,7 +397,7 @@ func TestGenericRepositoryPagination(t *testing.T) {
 	// Insert 5 entities sharing a common city so paging over the result is meaningful
 	const total = 5
 	for i := range total {
-		err := repo.Create(ctx, uuid.NewV7(), UserProfile{
+		err := repo.Create(ctx, uuid.NewV7().String(), UserProfile{
 			Name:    "User" + strconv.Itoa(i),
 			Age:     i,
 			Address: Address{City: "Munich", Country: "Germany"},

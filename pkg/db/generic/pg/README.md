@@ -4,18 +4,14 @@ Provides two interfaces, one for Entity CRUD and one for Integer Pool.
 
 Main difference of the Entity CRUD compared to what we actually have with rethinkdb:
 
-1. ID must be a UUIDv7, this will hurt for Entities which actually have a non-UUID id:
-
-- IP
-- Size
-- Partition
-- Image
-- Filesystemlayout
-
-These Entities must get a UUIDv7 during migration and Queries must be adopted to search by the Name property of it.
-As these Entities are low volume, this should not hurt performance.
-Also Name Uniqueness must also be ensured on repository layer, or newly created machines must reference them by uuid instead ?
-Could be made possible by checking if the reference is a uuid, otherwise query by name.
+1. The primary key is `TEXT`, holding the entity's string id verbatim. Both
+   UUID-keyed entities (IP, Machine, Network, ...) and named entities (Size,
+   Partition, Image, FilesystemLayout, Switch, ...) are supported: UUID entities
+   store their UUID string (a UUIDv7 is generated when the id is empty), named
+   entities store their meaningful name. No UUID column, no derived/hashed UUID.
+   An id only has to be unique within its entity's table (one table per entity
+   type). References store the same string id the entity uses, so no
+   resolve-by-name indirection is required.
 
 1. Queries must be formatted in a different way
 
@@ -39,16 +35,15 @@ today; it talks to RethinkDB through `generic.Datastore`:
 - `Storage[E].Find/List` take an `EntityQuery` (`func(r.Term) r.Term`), so ReQL
   leaks into ~30 repository files and the whole `pkg/db/queries` package.
 - `Storage[E]` addresses entities by `string` id and updates by the
-  `changed`/`generation` pair, whereas `pg.GenericRepository[T]` uses
-  `uuid.UUID` ids, an optimistic `version int32`, and a `QueryFilter`+`Pagination`
-  query model.
+  `changed`/`generation` pair, whereas `pg.GenericRepository[T]` uses `string`
+  ids, an optimistic `version int32`, and a `QueryFilter`+`Pagination` query
+  model.
 - RethinkDB has **no multi-document transactions**; the codebase compensates
   with the distributed `SharedMutex`. Postgres has real transactions, so some
   invariants become cheaper — and some cross-store operations become harder
   while data is split.
-- Non-UUID ids (IP, Size, Partition, Image, FilesystemLayout) need a strategy
-  (UUIDv7 + lookup by name, see above), and JSON keys are now frozen to
-  snake_case.
+- Named entities keep their string id as the Postgres primary key (no re-keying
+  or lookup-by-name indirection), and JSON keys are now frozen to snake_case.
 
 Any gradual migration therefore has to answer three questions first:
 
@@ -164,10 +159,9 @@ Semantics:
   Callers that can build both sides (e.g. the machine repository via
   `routing.FilteredStorage`) use the migration-aware read interface, so a
   Postgres-backed read works even for filtered queries.
-- Ids: a UUID id is used as the Postgres primary key as-is. Non-UUID ids
-  (IP, Size, Partition, Image, FilesystemLayout, and arbitrary test ids) are
-  keyed by a deterministic derived UUID (`entity_type` + id), so the same id
-  always maps to the same row while the original id stays in the stored JSON.
+- Ids: the entity's string id is used verbatim as the Postgres primary key (the
+  column is `TEXT`). UUID-keyed entities that leave their id empty get a
+  generated UUIDv7; named entities keep their meaningful name.
 - Concurrency: the adapter maps RethinkDB's `generation` to Postgres' `version`
   with the invariant `version = generation + 1`. Under `both`, the Postgres
   mirror is handed a copy of the pre-update entity so the optimistically locked
@@ -271,9 +265,10 @@ both backends.
 - Define the port: storage interfaces, neutral filter model, pagination, error
   sentinels. Implement the RethinkDB adapter as a thin delegate to the existing
   `generic` code; make `pkg/repository` depend on the port only.
-- Decide and implement id/version mapping: UUIDv7 for keyed entities;
-  for IP/Size/Partition/Image/FSL prefer an indexed natural key + resolve-by-name
-  (avoids rewriting references) over re-keying every reference.
+- Implement id/version mapping: the entity's string id is the primary key
+  (`TEXT`); UUID-keyed entities generate a UUIDv7 when empty, named entities keep
+  their name. References store the same string id, so no resolve-by-name
+  indirection is needed.
 - Make the test/datacenter framework run against both adapters
   (the "Adopt Test and Datacenter framework" TODO).
 
@@ -315,8 +310,8 @@ Suggested order, leaves first:
   counters, reconciliation reports; for CDC, sync lag.
 - **Deployment config:** per-entity primary/read/write flags, so a rollback is a
   config change, not a release.
-- **Postgres operations:** `CREATE EXTENSION pg_trgm` needs a superuser — install
-  it via migrations, not at startup (see `REVIEW.md` #4g).
+- **Postgres operations:** schema DDL (tables/indexes/triggers) currently runs at
+  repository construction; move it to migrations (see `REVIEW.md` #4g).
 - **Stable keys:** entity types are currently derived from Go type names; switch
   to explicit, stable entity-type strings before the first data is written
   (`REVIEW.md` #4f).

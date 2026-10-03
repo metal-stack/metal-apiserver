@@ -314,33 +314,21 @@ func TestRouterRequiresFilterForReadBackend(t *testing.T) {
 	require.ErrorIs(t, err, ErrFilterUnsupported)
 }
 
-func TestEntityUUID(t *testing.T) {
+func TestEntityID(t *testing.T) {
 	t.Run("an empty id is generated and written back", func(t *testing.T) {
 		e := newTestEntity("")
-		id, err := entityUUID(e)
-		require.NoError(t, err)
+		id := entityID(e)
 		require.NotEmpty(t, e.ID)
-		require.Equal(t, e.ID, id.String())
+		require.Equal(t, e.ID, id)
 	})
 
 	t.Run("a uuid id is used as-is", func(t *testing.T) {
 		u := uuid.NewV7().String()
-		id, err := entityUUID(newTestEntity(u))
-		require.NoError(t, err)
-		require.Equal(t, u, id.String())
+		require.Equal(t, u, entityID(newTestEntity(u)))
 	})
 
-	t.Run("a non-uuid id maps deterministically", func(t *testing.T) {
-		a, err := entityUUID(newTestEntity("not-a-uuid"))
-		require.NoError(t, err)
-		b, err := entityUUID(newTestEntity("not-a-uuid"))
-		require.NoError(t, err)
-		require.Equal(t, a, b, "the same id must always map to the same key")
-		require.NotEqual(t, uuid.UUID{}, a)
-
-		other, err := entityUUID(newTestEntity("other-id"))
-		require.NoError(t, err)
-		require.NotEqual(t, a, other)
+	t.Run("a non-uuid id is used verbatim", func(t *testing.T) {
+		require.Equal(t, "not-a-uuid", entityID(newTestEntity("not-a-uuid")))
 	})
 }
 

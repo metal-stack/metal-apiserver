@@ -2,7 +2,6 @@ package routing
 
 import (
 	"context"
-	"crypto/sha1"
 	"errors"
 	"fmt"
 	"reflect"
@@ -17,18 +16,12 @@ import (
 
 var _ Storage[*metal.Machine] = (*postgresStorage[*metal.Machine])(nil)
 
-// passThroughNamespace prefixes the deterministic id derivation so derived ids
-// cannot collide with real (random) UUIDs.
-const passThroughNamespace = "metal-apiserver/routing/"
-
 // postgresStorage adapts a pg.GenericRepository to the routing port.
 //
-// Identity: the port addresses entities by their metal string id. A UUID id is
-// used as the Postgres primary key as-is. Non-UUID ids (legacy entities such as
-// IP/Size/Partition/Image/FilesystemLayout, and test fixtures) are keyed by a
-// deterministic UUID derived from the entity type and the id, so the same id
-// always maps to the same row while the original id stays in the stored JSON
-// (and in the entity returned to callers).
+// Identity: the port addresses entities by their metal string id, which is used
+// verbatim as the Postgres primary key (the column is TEXT). UUID-keyed entities
+// that leave their id empty get a generated UUIDv7; named entities (partition,
+// size, image, filesystemlayout, switch, ...) carry their meaningful name.
 //
 // Concurrency: RethinkDB guards updates with the `changed` timestamp and keeps
 // a `generation` counter; Postgres guards updates with an integer `version`.
@@ -47,10 +40,7 @@ func NewPostgresStorage[E generic.Entity](repo *pg.GenericRepository[E]) Storage
 func (s *postgresStorage[E]) Create(ctx context.Context, e E) (E, error) {
 	var zero E
 
-	id, err := entityUUID(e)
-	if err != nil {
-		return zero, err
-	}
+	id := entityID(e)
 	if err := stampCreate(e); err != nil {
 		return zero, err
 	}
@@ -62,10 +52,7 @@ func (s *postgresStorage[E]) Create(ctx context.Context, e E) (E, error) {
 }
 
 func (s *postgresStorage[E]) Update(ctx context.Context, e E) error {
-	id, err := entityUUID(e)
-	if err != nil {
-		return err
-	}
+	id := entityID(e)
 
 	expected := int32(e.GetGeneration()) + 1
 	if err := stampUpdate(e); err != nil {
@@ -76,10 +63,7 @@ func (s *postgresStorage[E]) Update(ctx context.Context, e E) error {
 }
 
 func (s *postgresStorage[E]) Upsert(ctx context.Context, e E) error {
-	id, err := entityUUID(e)
-	if err != nil {
-		return err
-	}
+	id := entityID(e)
 	if err := stampUpsert(e); err != nil {
 		return err
 	}
@@ -88,22 +72,13 @@ func (s *postgresStorage[E]) Upsert(ctx context.Context, e E) error {
 }
 
 func (s *postgresStorage[E]) Delete(ctx context.Context, e E) error {
-	id, err := entityUUID(e)
-	if err != nil {
-		return err
-	}
-
-	return mapPostgresError(s.repo.Delete(ctx, id))
+	return mapPostgresError(s.repo.Delete(ctx, entityID(e)))
 }
 
 func (s *postgresStorage[E]) Get(ctx context.Context, id string) (E, error) {
 	var zero E
 
-	parsed, err := parseEntityID[E](id)
-	if err != nil {
-		return zero, err
-	}
-	ent, err := s.repo.Get(ctx, parsed)
+	ent, err := s.repo.Get(ctx, id)
 	if err != nil {
 		return zero, mapPostgresError(err)
 	}
@@ -150,12 +125,7 @@ func (s *postgresStorage[E]) Watch(ctx context.Context, id string) (<-chan struc
 	Old E
 	New E
 }, error) {
-	parsed, err := parseEntityID[E](id)
-	if err != nil {
-		return nil, err
-	}
-
-	changes, err := s.repo.Watch(ctx, parsed)
+	changes, err := s.repo.Watch(ctx, id)
 	if err != nil {
 		return nil, mapPostgresError(err)
 	}
@@ -173,34 +143,17 @@ func postgresFilters(filters []Filter) ([]pg.QueryFilter, error) {
 	return result, nil
 }
 
-func entityUUID[E generic.Entity](e E) (uuid.UUID, error) {
+// entityID returns the entity's primary key. An empty id is generated as a
+// UUIDv7 (for UUID-keyed entities that let the server assign one) and written
+// back to the entity; named entities supply their meaningful id up front and it
+// is used verbatim.
+func entityID[E generic.Entity](e E) string {
 	id := e.GetID()
 	if id == "" {
 		id = uuid.NewV7().String()
 		e.SetID(id)
 	}
-	return parseEntityID[E](id)
-}
-
-func parseEntityID[E generic.Entity](id string) (uuid.UUID, error) {
-	if parsed, err := uuid.Parse(id); err == nil {
-		return parsed, nil
-	}
-	// Deterministic fallback for non-UUID ids: the entity type is part of the
-	// derivation so ids only need to be unique within their type.
-	return derivedUUID(EntityName[E](), id), nil
-}
-
-// derivedUUID maps a (entityType, id) pair to a stable UUIDv5-style value.
-func derivedUUID(entityType, id string) uuid.UUID {
-	sum := sha1.Sum([]byte(passThroughNamespace + entityType + "\x00" + id))
-
-	var u uuid.UUID
-	copy(u[:], sum[:len(u)])
-	u[6] = (u[6] & 0x0f) | 0x50 // version 5 (name-based)
-	u[8] = (u[8] & 0x3f) | 0x80 // RFC 4122 variant
-
-	return u
+	return id
 }
 
 func mapPostgresError(err error) error {

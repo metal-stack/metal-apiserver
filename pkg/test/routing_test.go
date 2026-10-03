@@ -40,9 +40,6 @@ func TestRoutingDatastoreBoth(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, created.GetID())
 
-	id, err := uuid.Parse(created.GetID())
-	require.NoError(t, err)
-
 	t.Run("written to rethinkdb", func(t *testing.T) {
 		fromRethink, err := s.rethink.Network().Get(ctx, created.GetID())
 		require.NoError(t, err)
@@ -50,7 +47,7 @@ func TestRoutingDatastoreBoth(t *testing.T) {
 	})
 
 	t.Run("mirrored to postgres", func(t *testing.T) {
-		fromPostgres, err := pgRepo.Get(ctx, id)
+		fromPostgres, err := pgRepo.Get(ctx, created.GetID())
 		require.NoError(t, err)
 		require.Equal(t, "n1", fromPostgres.Data.Name)
 	})

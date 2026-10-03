@@ -8,8 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"uuid"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	_ "github.com/lib/pq"
@@ -197,9 +195,7 @@ func TestMachineFilterPostgres(t *testing.T) {
 	ctx := t.Context()
 
 	for _, m := range pgMachines {
-		id, err := uuid.Parse(m.ID)
-		require.NoError(t, err)
-		require.NoError(t, repo.Create(ctx, id, m))
+		require.NoError(t, repo.Create(ctx, m.ID, m))
 	}
 
 	// helper returns the data of all entities matching the given machine query

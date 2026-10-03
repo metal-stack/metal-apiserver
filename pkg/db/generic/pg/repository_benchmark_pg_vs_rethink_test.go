@@ -47,11 +47,11 @@ func BenchmarkPgVsRethink(b *testing.B) {
 
 	// Seed the same entities into both databases.
 	for i := range numIPs {
-		id := uuid.NewV7()
+		id := uuid.NewV7().String()
 		valStr := strconv.Itoa(i)
 
 		ip := &metal.IP{
-			IPAddress:        id.String(),
+			IPAddress:        id,
 			AllocationUUID:   "alloc-" + valStr,
 			Name:             "ip-" + valStr,
 			ProjectID:        "project",
@@ -69,8 +69,8 @@ func BenchmarkPgVsRethink(b *testing.B) {
 	b.ResetTimer()
 
 	b.Run("Point_Get_By_ID_Postgres", func(b *testing.B) {
-		target := uuid.NewV7()
-		_ = pgRepo.Create(ctx, target, &metal.IP{IPAddress: target.String(), Type: metal.Ephemeral})
+		target := uuid.NewV7().String()
+		_ = pgRepo.Create(ctx, target, &metal.IP{IPAddress: target, Type: metal.Ephemeral})
 		b.ResetTimer()
 		for b.Loop() {
 			_, err := pgRepo.Get(ctx, target)
@@ -106,8 +106,8 @@ func BenchmarkPgVsRethink(b *testing.B) {
 
 	b.Run("Insert_Postgres", func(b *testing.B) {
 		for b.Loop() {
-			id := uuid.NewV7()
-			ip := &metal.IP{IPAddress: id.String(), Type: metal.Ephemeral}
+			id := uuid.NewV7().String()
+			ip := &metal.IP{IPAddress: id, Type: metal.Ephemeral}
 			require.NoError(b, pgRepo.Create(ctx, id, ip))
 		}
 	})
@@ -121,8 +121,8 @@ func BenchmarkPgVsRethink(b *testing.B) {
 	})
 
 	b.Run("Update_Postgres", func(b *testing.B) {
-		id := uuid.NewV7()
-		ip := &metal.IP{IPAddress: id.String(), Type: metal.Ephemeral}
+		id := uuid.NewV7().String()
+		ip := &metal.IP{IPAddress: id, Type: metal.Ephemeral}
 		require.NoError(b, pgRepo.Create(ctx, id, ip))
 		b.ResetTimer()
 		version := int32(1)

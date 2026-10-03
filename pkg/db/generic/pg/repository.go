@@ -10,7 +10,6 @@ import (
 	"reflect"
 	"slices"
 	"strings"
-	"uuid"
 )
 
 var (
@@ -40,8 +39,11 @@ var (
 
 const (
 	repositorySchema = `
+-- One table per entity type. The primary key is a text id: UUID-keyed
+-- entities store their UUID string, named entities (partition, size, image, ...)
+-- store their meaningful name. See Entity.ID.
 CREATE TABLE IF NOT EXISTS %s (
-    id UUID PRIMARY KEY DEFAULT uuidv7(), -- requires Postgres 17+
+    id TEXT PRIMARY KEY,
     version INT NOT NULL DEFAULT 1,
     data JSONB NOT NULL
 );
@@ -78,7 +80,7 @@ var RepositorySchema = func(entityName string) string {
 
 type (
 	Entity[T any] struct {
-		ID         uuid.UUID
+		ID         string
 		EntityType string
 		Version    int32
 		Data       T
@@ -156,7 +158,7 @@ func NewGenericRepository[T any](log *slog.Logger, db *sql.DB, opts ...Repositor
 
 // Create inserts a new entity. It returns ErrAlreadyExists if an entity with
 // the same id already exists; the existing row is left untouched.
-func (r *GenericRepository[T]) Create(ctx context.Context, id uuid.UUID, data T) error {
+func (r *GenericRepository[T]) Create(ctx context.Context, id string, data T) error {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return err
@@ -189,7 +191,7 @@ func (r *GenericRepository[T]) Create(ctx context.Context, id uuid.UUID, data T)
 // Upsert inserts the entity or replaces the data of the existing entity with
 // the same id. The version is bumped only when the data actually changes, so
 // upserting identical data is a no-op.
-func (r *GenericRepository[T]) Upsert(ctx context.Context, id uuid.UUID, data T) error {
+func (r *GenericRepository[T]) Upsert(ctx context.Context, id string, data T) error {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return err
@@ -211,7 +213,7 @@ func (r *GenericRepository[T]) Upsert(ctx context.Context, id uuid.UUID, data T)
 	return err
 }
 
-func (r *GenericRepository[T]) Update(ctx context.Context, id uuid.UUID, expectedVersion int32, data T) error {
+func (r *GenericRepository[T]) Update(ctx context.Context, id string, expectedVersion int32, data T) error {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return err
@@ -251,7 +253,7 @@ func (r *GenericRepository[T]) Update(ctx context.Context, id uuid.UUID, expecte
 }
 
 // exists reports whether an entity with the given id exists for this entity type.
-func (r *GenericRepository[T]) exists(ctx context.Context, id uuid.UUID) (bool, error) {
+func (r *GenericRepository[T]) exists(ctx context.Context, id string) (bool, error) {
 	var query = `SELECT EXISTS(SELECT 1 FROM  ` + r.entityType + `  WHERE id = $1)`
 
 	var found bool
@@ -264,7 +266,7 @@ func (r *GenericRepository[T]) exists(ctx context.Context, id uuid.UUID) (bool, 
 
 // Delete removes the entity with the given id. It returns ErrNotFound if no
 // entity matched the id for this entity type.
-func (r *GenericRepository[T]) Delete(ctx context.Context, id uuid.UUID) error {
+func (r *GenericRepository[T]) Delete(ctx context.Context, id string) error {
 	var query = `DELETE FROM ` + r.entityType + ` WHERE id = $1`
 
 	r.log.Debug("delete", "id", id)
@@ -286,7 +288,7 @@ func (r *GenericRepository[T]) Delete(ctx context.Context, id uuid.UUID) error {
 
 // Get returns the entity with the given id, or ErrNotFound if no entity matches
 // the id for this entity type.
-func (r *GenericRepository[T]) Get(ctx context.Context, id uuid.UUID) (*Entity[T], error) {
+func (r *GenericRepository[T]) Get(ctx context.Context, id string) (*Entity[T], error) {
 	var query = `SELECT id, version, data FROM ` + r.entityType + ` WHERE id = $1`
 
 	var (
@@ -318,7 +320,7 @@ func (r *GenericRepository[T]) Get(ctx context.Context, id uuid.UUID) (*Entity[T
 // Watcher loads the committed row and the repository decodes it into T. The old
 // value is the value observed before the change, so the first change of an
 // entity has a zero Old value and a deletion has a zero New value.
-func (r *GenericRepository[T]) Watch(ctx context.Context, id uuid.UUID) (<-chan struct {
+func (r *GenericRepository[T]) Watch(ctx context.Context, id string) (<-chan struct {
 	Old T
 	New T
 }, error) {
@@ -326,7 +328,7 @@ func (r *GenericRepository[T]) Watch(ctx context.Context, id uuid.UUID) (<-chan 
 		return nil, ErrWatchNotConfigured
 	}
 
-	changes, err := r.watcher.Subscribe(ctx, r.entityType, id.String())
+	changes, err := r.watcher.Subscribe(ctx, r.entityType, id)
 	if err != nil {
 		return nil, err
 	}

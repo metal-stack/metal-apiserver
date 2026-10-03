@@ -27,6 +27,13 @@ Storage model: one table per entity type. The table name is the entity type
 no `entity_type` column and no shared `generic_entities` table; an id is unique
 per type, so the same id may exist independently in several entity tables.
 
+Primary key: the `id` column is `TEXT`, holding the entity's string id verbatim.
+UUID-keyed entities store their UUID string (the routing adapter generates a
+UUIDv7 when the entity leaves its id empty); named entities (partition, size,
+image, filesystemlayout, switch, ...) store their meaningful name. There is no
+`uuid` column and no derived/hashed UUID; the routing adapter no longer maps
+non-UUID ids.
+
 ---
 
 ## `repository.go`
@@ -177,12 +184,11 @@ Each entity type is stored in its own table, but the repository exposes no
 (allocate machine + touch network/IP) cannot be made atomic across tables.
 Needed before wiring into `repository.Store`.
 
-### 4l. `DEFAULT uuidv7()` version claim and dead default — LOW (maintainability) — NEW
+### 4l. `DEFAULT uuidv7()` version claim and dead default — LOW (maintainability) — OBSOLETE
 
-The schema comment says "requires Postgres 18+", but verify which release
-actually ships `uuidv7()` (tests run against `postgres:19beta3-alpine`, a beta
-image). Also note the default is effectively dead code: every write path
-supplies an explicit id, so the `DEFAULT` only matters for out-of-band inserts.
+Resolved by the TEXT primary key: the column no longer defaults to `uuidv7()`,
+so there is no Postgres-version-dependent default. UUID ids are generated in Go
+by the routing adapter (`entityID`) when an entity leaves its id empty.
 
 ### 7. `rows.Close` error ignored — LOW — FIXED
 

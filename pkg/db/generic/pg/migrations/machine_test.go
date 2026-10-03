@@ -6,8 +6,6 @@ import (
 	"os"
 	"testing"
 
-	"uuid"
-
 	_ "github.com/lib/pq"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic/pg"
@@ -36,10 +34,7 @@ func TestMigrateMachine(t *testing.T) {
 
 	t.Run("migrates all machines preserving data", func(t *testing.T) {
 		for _, m := range testMachines {
-			id, err := uuid.Parse(m.id)
-			require.NoError(t, err)
-
-			ent, err := repo.Get(ctx, id)
+			ent, err := repo.Get(ctx, m.id)
 			require.NoError(t, err)
 			require.NotNil(t, ent)
 			require.Equal(t, m.name, ent.Data.Name)
@@ -76,9 +71,7 @@ func TestMigrateMachine(t *testing.T) {
 
 		require.NoError(t, migrations.MigrateMachine(ctx, log, rdb, pgdb))
 
-		id, err := uuid.Parse(machineID)
-		require.NoError(t, err)
-		ent, err := repo.Get(ctx, id)
+		ent, err := repo.Get(ctx, machineID)
 		require.NoError(t, err)
 		require.Equal(t, "machine-1-renamed", ent.Data.Name)
 	})

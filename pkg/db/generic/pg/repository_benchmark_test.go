@@ -51,7 +51,7 @@ func BenchmarkQueryPerformance(b *testing.B) {
 
 	// Seed 1,000 records each to test index search overhead
 	for i := range 1000 {
-		id := uuid.NewV7()
+		id := uuid.NewV7().String()
 		valStr := strconv.Itoa(i)
 
 		_ = simpleRepo.Create(ctx, id, SimpleEntity{
@@ -109,8 +109,8 @@ func BenchmarkUpdatePerformance(b *testing.B) {
 	deepRepo, err := pg.NewGenericRepository[DeepEntity](log, db)
 	require.NoError(b, err)
 
-	simpleID := uuid.NewV7()
-	deepID := uuid.NewV7()
+	simpleID := uuid.NewV7().String()
+	deepID := uuid.NewV7().String()
 
 	_ = simpleRepo.Create(ctx, simpleID, SimpleEntity{Name: "Initial", City: "Munich"})
 	_ = deepRepo.Create(ctx, deepID, DeepEntity{
