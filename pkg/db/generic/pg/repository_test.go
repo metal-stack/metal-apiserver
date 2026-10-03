@@ -431,3 +431,36 @@ func TestGenericRepositoryPagination(t *testing.T) {
 	}
 	require.Len(t, paged, total)
 }
+
+func TestGenericRepositoryLikeEscaping(t *testing.T) {
+	ctx := t.Context()
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	db, closer := test.StartPostgres(t, log)
+	defer closer()
+
+	repo, err := pg.NewGenericRepository[UserProfile](log, db)
+	require.NoError(t, err)
+
+	for i, name := range []string{"literal_1", "literalA1", "100%", "100x"} {
+		require.NoError(t, repo.Create(ctx, "id-"+strconv.Itoa(i), UserProfile{Name: name}))
+	}
+
+	// `_` is a single-character wildcard; escaped it must match only the literal.
+	results, err := repo.Query(ctx, []pg.QueryFilter{{Path: "name", Op: "LIKE", Value: "literal_1"}}, nil)
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	require.Equal(t, "literal_1", results[0].Data.Name)
+
+	// `%` is a multi-character wildcard; escaped (here with ILIKE) it must match
+	// only the literal.
+	results, err = repo.Query(ctx, []pg.QueryFilter{{Path: "name", Op: "ILIKE", Value: "100%"}}, nil)
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	require.Equal(t, "100%", results[0].Data.Name)
+
+	// A caller-supplied wildcard is treated literally, so "literal%" matches
+	// no row instead of both "literal"-prefixed names.
+	results, err = repo.Query(ctx, []pg.QueryFilter{{Path: "name", Op: "LIKE", Value: "literal%"}}, nil)
+	require.NoError(t, err)
+	require.Empty(t, results)
+}

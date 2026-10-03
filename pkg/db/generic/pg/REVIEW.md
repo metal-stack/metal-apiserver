@@ -166,10 +166,18 @@ assume the schema exists.
 non-numeric value at that path, failing the entire query instead of just not
 matching. Guard the cast (regex check or `CASE`).
 
-### 4i. `LIKE`/`ILIKE` values are not escaped — LOW (robustness) — NEW
+### 4i. `LIKE`/`ILIKE` values are not escaped — LOW (robustness) — FIXED
 
-User-provided values containing `%` or `_` act as wildcards. Escape pattern
-characters in the value before binding.
+`Query` now runs the caller value through `escapeLikePattern` for the `LIKE` and
+`ILIKE` operators and appends an `ESCAPE '\'` clause, so `%`, `_` and `\` in a
+user-provided value match literally instead of acting as wildcards. Covered by
+`TestGenericRepositoryLikeEscaping` (escaped `_`/`%` match only the literal, and
+a caller-supplied `%` matches nothing).
+
+`ARRAY_ELEM_LIKE` is deliberately **not** escaped: it is an internal operator for
+already-formatted patterns — `q/network.go` passes `%.%` / `%:%` to detect the
+address family — and is not fed user input. User values must go through
+`LIKE`/`ILIKE`.
 
 ### 4j. Debug logs marshal full entity JSON — LOW (security/performance) — NEW
 

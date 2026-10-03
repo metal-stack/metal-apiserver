@@ -475,6 +475,10 @@ func (r *GenericRepository[T]) Query(ctx context.Context, filters []QueryFilter,
 			//
 			// The `jsonb_typeof` guard treats a missing/`null`/scalar value at the
 			// array path as an empty array, so the EXISTS never errors.
+			// Note: the value is an already-formatted LIKE pattern (e.g. the
+			// address-family checks in q/network.go pass `%.%` / `%:%`), so it
+			// is intentionally not escaped. User-provided values must go through
+			// the LIKE/ILIKE operators instead, which are escaped below.
 			var (
 				parts    = strings.Split(f.Path, ".")
 				field    = parts[len(parts)-1]
@@ -495,8 +499,24 @@ func (r *GenericRepository[T]) Query(ctx context.Context, filters []QueryFilter,
 				parts    = strings.Split(f.Path, ".")
 				jsonPath = "{" + strings.Join(parts, ",") + "}"
 			)
-			fmt.Fprintf(&queryBuilder, " (data #>> $%d) %s $%d", argIdx, f.Op, argIdx+1)
-			args = append(args, jsonPath, f.Value)
+
+			// LIKE/ILIKE treat %, _ and the escape character as pattern
+			// metacharacters. Escape them in the caller-provided value so a
+			// user-supplied string is matched literally instead of acting as a
+			// wildcard pattern.
+			var (
+				value  = f.Value
+				escape = ""
+			)
+			if f.Op == "LIKE" || f.Op == "ILIKE" {
+				if s, ok := value.(string); ok {
+					value = escapeLikePattern(s)
+					escape = ` ESCAPE '\'`
+				}
+			}
+
+			fmt.Fprintf(&queryBuilder, " (data #>> $%d) %s $%d%s", argIdx, f.Op, argIdx+1, escape)
+			args = append(args, jsonPath, value)
 			argIdx += 2
 		}
 	}
@@ -550,6 +570,18 @@ func (r *GenericRepository[T]) Query(ctx context.Context, filters []QueryFilter,
 	}
 
 	return results, nil
+}
+
+// escapeLikePattern escapes the LIKE/ILIKE metacharacters `%`, `_` and the
+// escape character `\` in a caller-provided value. Combined with the
+// `ESCAPE '\'` clause this makes the value match literally, so user input
+// cannot smuggle in wildcards (REVIEW.md #4i).
+func escapeLikePattern(s string) string {
+	return strings.NewReplacer(
+		`\`, `\\`,
+		`%`, `\%`,
+		`_`, `\_`,
+	).Replace(s)
 }
 
 // jsonPathValue builds a nested JSON object from a dotted path and a scalar
