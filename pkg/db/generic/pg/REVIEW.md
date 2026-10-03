@@ -8,6 +8,7 @@ caveats.
 Files reviewed:
 
 - `repository.go`
+- `watch.go`
 - `query.go`
 - `integer-pool.go`
 - `shared-mutex.go`
@@ -178,6 +179,122 @@ supplies an explicit id, so the `DEFAULT` only matters for out-of-band inserts.
 `repository.go` closes `rows` explicitly after draining and returns the close
 error (rather than swallowing it in a deferred `_ = rows.Close()`). Early-return
 paths (scan/JSON errors) still close the rows before returning.
+
+---
+
+## `watch.go`
+
+The `Watch` method (`repository.go`) and its supporting `Watcher` (`watch.go`)
+stream entity changes over native PostgreSQL `NOTIFY`/`LISTEN`: a trigger on
+`generic_entities` announces `{id, entity_type, op}` for every row change, a
+shared `Watcher` decodes the payload, loads the committed row, and fans it out to
+per-id subscriptions. Findings below cover both files.
+
+### 27. `Old` is the last *observed* value, not the true previous state — HIGH (correctness/design) — NEW
+
+`repository.go:351,373-381`. `previous` only advances when the watcher delivers an
+event, so:
+
+- a watch started after the row exists reports `Old = zero` on the first change,
+  whereas RethinkDB `.Changes()` returns the real before-image;
+- any dropped/skipped change (#28) makes the next `Old` wrong.
+
+This makes the watch **level-triggered** (always "current committed state"), not an
+edge-triggered changelog. Callers ported from rethink get different data. Document
+the semantics loudly and treat it as push-assisted polling, or capture the genuine
+old value (e.g. in the trigger / an outbox).
+
+### 28. Changes are silently dropped under backpressure — HIGH (reliability) — NEW
+
+`watch.go:197-207`. `send` is non-blocking with a `default:` drop on a 64-buffer. A
+stalled consumer loses intermediate events with no log, metric, or error; combined
+with #27 this corrupts the `Old` chain. Surface drops (log + counter) or guarantee
+at-least-once delivery for the subscribed id.
+
+### 29. `Watcher.Close()` does not unblock active watches — MEDIUM (design) — NEW
+
+`watch.go:103-108,143-162`. Closing stops `dispatch`, but subscriber channels are
+only closed by their own `ctx` goroutine (`watch.go:127-138`). After `Close()`, a
+consumer blocked on `<-changes` hangs until it independently cancels ctx. Fan a
+"watcher closed" signal out to all subscribers on `Close()`.
+
+### 30. Notification window lost on reconnect — MEDIUM (reliability, inherent to NOTIFY) — NEW
+
+`watch.go:145-148`. On a transient DB blip `pq.Listener` reconnects and re-`LISTEN`s,
+but `NOTIFY` is fire-and-forget: anything fired during the gap is lost with no
+indication. This is not at-least-once. Document it so operators don't assume
+durability; consider a version/generation guard or a catch-up read on reconnect.
+
+### 31. Deletion detected via `len(change.New) > 0` — LOW (robustness) — NEW
+
+`repository.go:367`. Branching on byte-length rather than `Op` is indirect. An UPDATE
+whose row vanished before the fetch (race → `sql.ErrNoRows` → nil) is misclassified
+as a deletion. Use `change.Op == "DELETE"` explicitly (you already carry `Op`).
+
+### 32. `NewWatcher(log, db, dsn)` threads a raw DSN and can block on connect — LOW (design/operational) — NEW
+
+`watch.go:69-95`. Requires passing a credentials-bearing DSN alongside the `*sql.DB`
+(two sources of truth for connection params). `listener.Listen` retries 10s→1m and may
+block a long time on a bad/unreachable DSN, stalling startup. Derive the listener
+config from the same source that built the pool and bound the initial connect.
+
+### 33. One dispatch goroutine does a synchronous DB round-trip per notification — HIGH (performance) — NEW
+
+`watch.go:143-192`. Every notification with ≥1 subscriber issues `SELECT data …` inline
+in the single `dispatch` loop, so one slow query serializes delivery to all entities
+(throughput ≈ 1/fetch latency). Bound the fetch with a timeout context (#34) and/or move
+the read off the dispatch loop (per-subscriber goroutine or a worker pool).
+
+### 34. Fetch uses `context.Background()` — MEDIUM (performance/robustness) — NEW
+
+`watch.go:181`. No timeout, no cancellation; a wedged backend parks the dispatcher
+forever (compounds #33). Use a short-lived timed context.
+
+### 35. Watcher reads share the application connection pool — MEDIUM (performance) — NEW
+
+`watch.go:181`. High watch churn competes with normal CRUD for pooled connections; a
+burst of notifications can starve the pool. Consider a dedicated small pool/connection
+for watcher reads.
+
+### 36. Trigger taxes every write on the hot path — MEDIUM (performance) — NEW
+
+`repository.go:70-73`. The `AFTER INSERT OR UPDATE OR DELETE` trigger fires on every
+write to `generic_entities` (all entity types, single table) and builds a JSON payload +
+`pg_notify`, even when nothing is watched. Small per-write cost but permanent. The
+`watch.go:174` guard correctly skips the fetch when no subscriber exists; the trigger
+itself still always runs.
+
+### 37. Spurious watch events on no-op upserts — LOW (behavior) — NEW
+
+`repository.go:195-202`. `Upsert` always executes `SET data = EXCLUDED.data`, so Postgres
+fires the UPDATE trigger even when data is identical → a watch receives an `Old == New`
+event. Add a `WHEN` clause (or accept the noise).
+
+### 38. Notify channel + payload keys are hand-synced string literals — MEDIUM (maintainability) — NEW
+
+`watch.go:18` (`NotifyChannel`), `repository.go:59` (`pg_notify('generic_entities_changes', …)`),
+and the JSON keys parsed at `watch.go:150-154` must agree; renaming one silently breaks the
+others. Derive the SQL literal from the const (inject into the schema) or assert equivalence
+in a test.
+
+### 39. `TG_OP` values compared as magic strings — LOW (maintainability) — NEW
+
+`watch.go:179` compares `op != "DELETE"` while the trigger emits `TG_OP`. Define named
+constants for the ops.
+
+### 40. `Change.EntityID` / `Change.Op` are dead weight — LOW (maintainability) — NEW
+
+`watch.go:29-34`. The repository only reads `Change.New`; `EntityID` is unused and `Op` is
+bypassed by the length heuristic (#31). Trim the struct or actually use `Op`.
+
+### 41. Anonymous `struct{Old E; New E}` channel type repeated verbatim — LOW (maintainability) — NEW
+
+`repository.go:330-346` and the `generic.Storage`/routing interfaces repeat the same
+anonymous channel type in several spots. Unavoidable given the interface shape, but easy
+to typo-drift; keep the doc/source in one place.
+
+Related: the trigger DDL executed at construction compounds #4g (DDL at startup, superuser
+required for `pg_trgm`).
 
 ---
 
@@ -425,6 +542,13 @@ and leave the version of unchanged entities alone (see #4a, `Upsert`).
    `PathOf` removal (#6), unbounded `Offset` (#4d)
 9. **Before wiring into production**: transaction API (#4k), decide JSON key
    naming (#15)
+10. **Harden the watch path**: bound the per-notification fetch with a timeout and
+    take it off the single dispatch goroutine (#33, #34); make drops observable and
+    have `Close()` fan out to subscribers (#28, #29); document the level-triggered /
+    best-effort semantics (#27, #30) — HIGH/MEDIUM
+11. **De-duplicate watch identifiers**: derive the notify channel + payload keys from
+    one source (#38), name the `TG_OP` values (#39), drop dead `Change` fields (#40) —
+    LOW/MEDIUM
 
 ### Minor / cosmetic
 
