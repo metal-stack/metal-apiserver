@@ -49,13 +49,16 @@ CREATE TABLE IF NOT EXISTS %s (
 
 CREATE INDEX IF NOT EXISTS idx_%s_data ON %s USING gin (data);
 
-CREATE OR REPLACE FUNCTION generic_entities_notify_change() RETURNS trigger AS $$
+-- One shared trigger function serves every per-entity table: the table name
+-- is the entity type, so it is read from TG_TABLE_NAME rather than from a
+-- trigger argument that would have to be kept in sync with the table.
+CREATE OR REPLACE FUNCTION entity_table_notify_change() RETURNS trigger AS $$
 BEGIN
     PERFORM pg_notify(
-        'generic_entities_changes',
+        'entity_table_changes',
         json_build_object(
             'id', (COALESCE(NEW.id, OLD.id))::text,
-            'entity_type', TG_ARGV[0],
+            'entity_type', TG_TABLE_NAME,
             'op', TG_OP
         )::text
     );
@@ -63,15 +66,15 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS generic_entities_notify_change ON %s;
-CREATE TRIGGER generic_entities_notify_change
+DROP TRIGGER IF EXISTS entity_table_notify_change ON %s;
+CREATE TRIGGER entity_table_notify_change
     AFTER INSERT OR UPDATE OR DELETE ON %s
-    FOR EACH ROW EXECUTE FUNCTION generic_entities_notify_change('%s');
+    FOR EACH ROW EXECUTE FUNCTION entity_table_notify_change();
 `
 )
 
 var RepositorySchema = func(entityName string) string {
-	return fmt.Sprintf(repositorySchema, entityName, entityName, entityName, entityName, entityName, entityName)
+	return fmt.Sprintf(repositorySchema, entityName, entityName, entityName, entityName, entityName)
 }
 
 type (
@@ -129,7 +132,10 @@ func NewGenericRepository[T any](log *slog.Logger, db *sql.DB, opts ...Repositor
 		tType = tType.Elem()
 	}
 
-	entityTypeName := tType.Name()
+	// Postgres folds unquoted identifiers to lowercase, so the table name -
+	// and thus the entity type announced by the trigger (TG_TABLE_NAME) - is
+	// the lowercased Go type name.
+	entityTypeName := strings.ToLower(tType.Name())
 
 	options := &repositoryOptions{}
 	for _, opt := range opts {

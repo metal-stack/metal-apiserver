@@ -12,10 +12,10 @@ import (
 	"github.com/lib/pq"
 )
 
-// NotifyChannel is the PostgreSQL channel on which every change to the
-// generic_entities table is announced. It is kept in sync with the trigger
+// NotifyChannel is the PostgreSQL channel on which every change to any
+// per-entity table is announced. It is kept in sync with the trigger
 // created by RepositorySchema.
-const NotifyChannel = "generic_entities_changes"
+const NotifyChannel = "entity_table_changes"
 
 // ErrWatchNotConfigured is returned when Watch is called on a repository that
 // was not given a Watcher. Postgres watch support requires a dedicated

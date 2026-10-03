@@ -2,6 +2,7 @@ package pg_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"os"
@@ -10,7 +11,7 @@ import (
 	"time"
 	"uuid"
 
-	_ "github.com/lib/pq"
+	"github.com/lib/pq"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic/pg"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/stretchr/testify/require"
@@ -26,6 +27,10 @@ type UserProfile struct {
 	Name    string  `json:"name"`
 	Age     int     `json:"age"`
 	Address Address `json:"address"`
+}
+
+type Device struct {
+	Model string `json:"model"`
 }
 
 func TestGenericRepository(t *testing.T) {
@@ -237,6 +242,79 @@ func receiveChange(t *testing.T, changes <-chan struct {
 			New UserProfile
 		}{}
 	}
+}
+
+// TestEntityTableNotifyChange verifies that the single shared trigger
+// function serves every per-entity table and derives the entity type from
+// the table it fired on, so two tables may hold the same id independently.
+func TestEntityTableNotifyChange(t *testing.T) {
+	ctx := t.Context()
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	db, dsn, closer := test.StartPostgresWithDSN(t, log)
+	defer closer()
+
+	listener := pq.NewListener(dsn, 10*time.Second, time.Minute, nil)
+	require.NoError(t, listener.Listen(pg.NotifyChannel))
+	defer func() {
+		require.NoError(t, listener.Close())
+	}()
+
+	profileRepo, err := pg.NewGenericRepository[UserProfile](log, db)
+	require.NoError(t, err)
+	deviceRepo, err := pg.NewGenericRepository[Device](log, db)
+	require.NoError(t, err)
+
+	// The entity type is the table name as Postgres stores it: unquoted
+	// identifiers are folded to lowercase.
+	const (
+		userProfileTable = "userprofile"
+		deviceTable      = "device"
+	)
+
+	id := uuid.NewV7()
+
+	require.NoError(t, profileRepo.Create(ctx, id, UserProfile{Name: "Alice"}))
+	assertNotificationPayload(t, receiveNotification(t, listener), id.String(), userProfileTable, "INSERT")
+
+	require.NoError(t, deviceRepo.Create(ctx, id, Device{Model: "M1"}))
+	assertNotificationPayload(t, receiveNotification(t, listener), id.String(), deviceTable, "INSERT")
+
+	ent, err := profileRepo.Get(ctx, id)
+	require.NoError(t, err)
+	updated := ent.Data
+	updated.Name = "Bob"
+	require.NoError(t, profileRepo.Update(ctx, id, ent.Version, updated))
+	assertNotificationPayload(t, receiveNotification(t, listener), id.String(), userProfileTable, "UPDATE")
+
+	require.NoError(t, deviceRepo.Delete(ctx, id))
+	assertNotificationPayload(t, receiveNotification(t, listener), id.String(), deviceTable, "DELETE")
+}
+
+func receiveNotification(t *testing.T, l *pq.Listener) pq.Notification {
+	t.Helper()
+
+	select {
+	case n := <-l.NotificationChannel():
+		require.NotNil(t, n)
+		return *n
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out waiting for a notification")
+		return pq.Notification{}
+	}
+}
+
+func assertNotificationPayload(t *testing.T, n pq.Notification, id, entityType, op string) {
+	t.Helper()
+
+	var payload struct {
+		ID         string `json:"id"`
+		EntityType string `json:"entity_type"`
+		Op         string `json:"op"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(n.Extra), &payload))
+	require.Equal(t, id, payload.ID)
+	require.Equal(t, entityType, payload.EntityType)
+	require.Equal(t, op, payload.Op)
 }
 
 func TestGenericRepositoryWatchWithoutWatcher(t *testing.T) {
