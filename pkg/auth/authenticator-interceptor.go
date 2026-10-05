@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"strings"
 	"time"
 
@@ -72,73 +73,19 @@ func NewAuthenticatorInterceptor(c Config) (*auth, error) {
 	}, nil
 }
 
-func (o *auth) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
-	return func(ctx context.Context, spec connect.Spec) connect.StreamingClientConn {
-		return next(ctx, spec)
-	}
-}
-
-// WrapStreamingHandler is a StreamServerInterceptor for the
-// server. Only one stream interceptor can be installed.
-// If you want to add extra functionality you might decorate this function.
-func (o *auth) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
-	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
-		wrapper := &wrapper{
-			StreamingHandlerConn: conn,
-			ctx:                  ctx,
-			o:                    o,
-		}
-		return next(ctx, wrapper)
-	}
-}
-
-type wrapper struct {
-	connect.StreamingHandlerConn
-	ctx context.Context
-	o   *auth
-}
-
-func (s *wrapper) Receive(m any) error {
-	if err := s.StreamingHandlerConn.Receive(m); err != nil {
-		return err
-	}
-
-	_, err := s.o.extractAndValidateJWTToken(s.ctx, s.StreamingHandlerConn.RequestHeader().Get)
+func (o *auth) Authenticate(ctx context.Context, spec connect.Spec, peer connect.Peer, header http.Header) (context.Context, error) {
+	log := o.log.With("procedure", spec.Procedure, "peer", peer.Addr)
+	log.Debug("authenticate")
+	t, err := o.extractAndValidateJWTToken(ctx, header.Get)
 	if err != nil {
-		return err
+		log.Error("authenticate, access denied")
+		return ctx, err
 	}
-
-	return nil
-}
-
-// WrapUnary is a UnaryServerInterceptor for the
-// server. Only one unary interceptor can be installed.
-// If you want to add extra functionality you might decorate this function.
-func (o *auth) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
-	// Same as previous UnaryInterceptorFunc.
-	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-		o.log.Debug("authz unary", "req", req)
-		callinfo, ok := connect.CallInfoForHandlerContext(ctx)
-		if !ok {
-			return nil, fmt.Errorf("no callinfo in handler context found")
-		}
-		t, err := o.extractAndValidateJWTToken(ctx, callinfo.RequestHeader().Get)
-		if err != nil {
-			return nil, err
-		}
-
-		// Store the token in the context for later use in the service methods
-		if t != nil {
-			ctx = token.ContextWithToken(ctx, t)
-		}
-
-		resp, err := next(ctx, req)
-		if err != nil {
-			return nil, fmt.Errorf("unable to process request: %w", err)
-		}
-
-		return resp, nil
+	// Store the token in the context for later use in the service methods
+	if t != nil {
+		ctx = token.ContextWithToken(ctx, t)
 	}
+	return ctx, nil
 }
 
 func (o *auth) extractAndValidateJWTToken(ctx context.Context, jwtTokenfunc func(string) string) (*v2.Token, error) {

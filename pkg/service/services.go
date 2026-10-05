@@ -135,9 +135,9 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 			MaxRequestsPerMinuteUnauthenticated: c.MaxRequestsPerMinuteUnauthenticated,
 		})
 
-		allInterceptors      = []connect.Interceptor{metricsInterceptor, logInterceptor, authz, authorizeInterceptor, ratelimitInterceptor, validationInterceptor, tenantInterceptor}
-		allAdminInterceptors = []connect.Interceptor{metricsInterceptor, logInterceptor, authz, authorizeInterceptor, validationInterceptor, tenantInterceptor}
-		allInfraInterceptors = []connect.Interceptor{metricsInterceptor, logInterceptor, authz, authorizeInterceptor, validationInterceptor}
+		allInterceptors      = []connect.Interceptor{metricsInterceptor, logInterceptor, authorizeInterceptor, ratelimitInterceptor, validationInterceptor, tenantInterceptor}
+		allAdminInterceptors = []connect.Interceptor{metricsInterceptor, logInterceptor, authorizeInterceptor, validationInterceptor, tenantInterceptor}
+		allInfraInterceptors = []connect.Interceptor{metricsInterceptor, logInterceptor, authorizeInterceptor, validationInterceptor}
 	)
 
 	if len(c.AuditBackends) > 0 {
@@ -163,9 +163,10 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 	}
 
 	var (
-		interceptors      = connect.WithInterceptors(allInterceptors...)
-		adminInterceptors = connect.WithInterceptors(allAdminInterceptors...)
-		infraInterceptors = connect.WithInterceptors(allInfraInterceptors...)
+		requestGate       = connect.WithRequestGate(authz.Authenticate)
+		interceptors      = connect.WithHandlerOptions(requestGate, connect.WithInterceptors(allInterceptors...))
+		adminInterceptors = connect.WithHandlerOptions(requestGate, connect.WithInterceptors(allAdminInterceptors...))
+		infraInterceptors = connect.WithHandlerOptions(requestGate, connect.WithInterceptors(allInfraInterceptors...))
 	)
 
 	mux := http.NewServeMux()
