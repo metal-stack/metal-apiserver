@@ -115,6 +115,30 @@ func (b *bootServiceServer) MachineToken(ctx context.Context, req *infrav2.BootS
 		return nil, err
 	}
 
+	// we cleanup existing tokens after creation in order to let the create verification run before cleanup
+	existingTokens, err := b.repo.UnscopedToken().List(ctx, &apiv2.TokenQuery{
+		User:      &req.User,
+		TokenType: apiv2.TokenType_TOKEN_TYPE_API.Enum(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, tok := range existingTokens {
+		if res.Token.Uuid == tok.Token.Uuid {
+			// keep the newly created token
+			continue
+		}
+		if _, ok := tok.Token.MachineRoles[req.Uuid]; !ok {
+			// keep tokens for the tenant that were not related with machine management
+			continue
+		}
+
+		if _, err := b.repo.Token(tok.Token.User).Delete(ctx, tok.Token.Uuid); err != nil {
+			return nil, errorutil.Internal("unable to revoke previous machine token: %w", err)
+		}
+	}
+
 	return &infrav2.BootServiceMachineTokenResponse{
 		Token:  res.Token,
 		Secret: res.Secret,

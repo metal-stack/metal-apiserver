@@ -364,7 +364,12 @@ func (s *testStore) Cleanup(t testing.TB) {
 	DeleteIPs(t, s)
 	DeleteNetworks(t, s)
 
-	// TODO valkey
+	tokens, err := s.tokenStore.AdminList(t.Context())
+	require.NoError(t, err)
+
+	for _, tok := range tokens {
+		require.NoError(t, s.tokenStore.Revoke(t.Context(), tok.User, tok.Uuid))
+	}
 
 	tables := s.ds.GetTableNames()
 
