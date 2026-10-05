@@ -56,8 +56,6 @@ type (
 		SwitchStatus() Storage[*metal.SwitchStatus]
 		Event() Storage[*metal.ProvisioningEventContainer]
 
-		// sizeimageConstraint Storage[*metal.SizeImageConstraint]
-
 		// Pools
 		AsnPool() *integerPool
 		VrfPool() *integerPool
