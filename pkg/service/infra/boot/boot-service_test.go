@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 	"time"
 
@@ -1365,6 +1366,10 @@ func Test_bootServiceServer_MachineToken(t *testing.T) {
 				}
 				require.NotNil(t, tt.wantToken, "token returned, nil expected")
 
+				response, err := service.MachineToken(ctx, tt.req)
+				require.NoError(t, err, "failed repeated machine token call")
+				require.NotNil(t, tt.wantToken, "token returned, nil expected")
+
 				if diff := cmp.Diff(
 					tt.wantToken, response.Token,
 					protocmp.Transform(),
@@ -1377,6 +1382,17 @@ func Test_bootServiceServer_MachineToken(t *testing.T) {
 				); diff != "" {
 					innerT.Errorf("diff: %s", diff)
 				}
+
+				tokens, err := testStore.Token(tt.req.User).List(ctx, &apiv2.TokenQuery{
+					User:      &tt.req.User,
+					TokenType: apiv2.TokenType_TOKEN_TYPE_API.Enum(),
+				})
+				tokens = slices.DeleteFunc(tokens, func(tok *api.TokenWithSecret) bool {
+					return len(tok.Token.MachineRoles) == 0
+				})
+
+				require.NoError(t, err)
+				require.Len(t, tokens, 1, "old tokens were not revoked")
 			}
 		})
 	}
