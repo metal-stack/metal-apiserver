@@ -129,11 +129,11 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 	}
 
 	if req.Partition != nil {
-		parent, err := r.s.ds.Network().Find(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{
+		parent, err := findNetwork(ctx, r.s.ds, &apiv2.NetworkQuery{
 			Partition: req.Partition,
 			Project:   new(""),
 			Type:      apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
-		}))
+		})
 		if err != nil {
 			return errorutil.FailedPrecondition("unable to find a super in partition %q: %w", *req.Partition, err)
 		}
@@ -158,10 +158,10 @@ func (r *networkRepository) validateCreateNetworkTypeChild(ctx context.Context, 
 	}
 
 	if req.Type == apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED {
-		childSharedNetworksOfProject, err := r.s.ds.Network().List(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{
+		childSharedNetworksOfProject, err := listNetworks(ctx, r.s.ds, &apiv2.NetworkQuery{
 			Project: req.Project,
 			Type:    apiv2.NetworkType_NETWORK_TYPE_CHILD_SHARED.Enum(),
-		}))
+		})
 		if err != nil {
 			return errorutil.NewInternal(err)
 		}

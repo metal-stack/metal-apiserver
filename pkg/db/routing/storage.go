@@ -74,6 +74,36 @@ type FilteredStorage[E generic.Entity] interface {
 	ListFiltered(ctx context.Context, filters ...Filter) ([]E, error)
 }
 
+// Find resolves a single entity through the migration-aware read path. It
+// centralizes the FilteredStorage dispatch so repository implementations do not
+// have to type-assert: a routed storage is queried with both representations,
+// while a plain rethinkdb storage falls back to the rethinkdb representation.
+func Find[E generic.Entity](ctx context.Context, storage generic.Storage[E], filters ...Filter) (E, error) {
+	if fs, ok := storage.(FilteredStorage[E]); ok {
+		return fs.FindFiltered(ctx, filters...)
+	}
+
+	var zero E
+	queries, err := rethinkQueries(filters)
+	if err != nil {
+		return zero, err
+	}
+	return storage.Find(ctx, queries...)
+}
+
+// List is the list counterpart of Find.
+func List[E generic.Entity](ctx context.Context, storage generic.Storage[E], filters ...Filter) ([]E, error) {
+	if fs, ok := storage.(FilteredStorage[E]); ok {
+		return fs.ListFiltered(ctx, filters...)
+	}
+
+	queries, err := rethinkQueries(filters)
+	if err != nil {
+		return nil, err
+	}
+	return storage.List(ctx, queries...)
+}
+
 // Router is a Storage implementation that dispatches to a backend according to
 // the configured Mode:
 //

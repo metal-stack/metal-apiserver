@@ -2,12 +2,15 @@ package test
 
 import (
 	"database/sql"
+	"errors"
 	"log/slog"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
+	"github.com/lib/pq"
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -378,6 +381,14 @@ func (s *testStore) Cleanup(t testing.TB) {
 		require.NoError(t, err)
 	}
 
+	if s.routingPgDB != nil {
+		// postgres stores one table per entity type, named after the (lowercased)
+		// entity; only the tables of entities configured for postgres exist.
+		for _, tableName := range tables {
+			execIgnoreUndefinedTable(t, s.routingPgDB, "DELETE FROM "+pq.QuoteIdentifier(tableName))
+		}
+	}
+
 	for i := range 99 {
 		err := s.ds.AsnPool().ReleaseUniqueInteger(t.Context(), uint(i+1))
 		require.NoError(t, err)
@@ -570,6 +581,32 @@ func DeleteNetworks(t testing.TB, testStore *testStore) {
 	_, err = r.DB(testStore.dbName).Table("network").Delete().RunWrite(testStore.queryExecutor)
 	require.NoError(t, err)
 
+	deletePostgresEntities(t, testStore, "Network")
+}
+
+// deletePostgresEntities clears the postgres-backed entities of the given types.
+// It is a no-op when the store does not use the routing postgres backend.
+func deletePostgresEntities(t testing.TB, testStore *testStore, entityTypes ...string) {
+	if testStore.routingPgDB == nil {
+		return
+	}
+	for _, entityType := range entityTypes {
+		execIgnoreUndefinedTable(t, testStore.routingPgDB, "DELETE FROM "+pq.QuoteIdentifier(strings.ToLower(entityType)))
+	}
+}
+
+// execIgnoreUndefinedTable runs a statement, ignoring "undefined_table" (42P01)
+// errors. It is used for cleanup of postgres tables that only exist for entities
+// configured to use the postgres backend.
+func execIgnoreUndefinedTable(t testing.TB, db *sql.DB, query string, args ...any) {
+	_, err := db.ExecContext(t.Context(), query, args...)
+
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) && pqErr.Code == "42P01" {
+		return
+	}
+
+	require.NoError(t, err)
 }
 
 func DeleteIPs(t testing.TB, testStore *testStore) {
@@ -587,11 +624,15 @@ func DeleteIPs(t testing.TB, testStore *testStore) {
 
 	_, err = r.DB(testStore.dbName).Table("ip").Delete().RunWrite(testStore.queryExecutor)
 	require.NoError(t, err)
+
+	deletePostgresEntities(t, testStore, "IP")
 }
 
 func DeleteMachines(t testing.TB, testStore *testStore) {
 	_, err := r.DB(testStore.dbName).Table("machine").Delete().RunWrite(testStore.queryExecutor)
 	require.NoError(t, err)
+
+	deletePostgresEntities(t, testStore, "Machine")
 }
 
 func (t *testStore) DeleteTenants() {

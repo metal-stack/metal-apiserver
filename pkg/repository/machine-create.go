@@ -438,10 +438,10 @@ func (r *machineRepository) convertToMetalAllocationNetworks(ctx context.Context
 
 	// Add underlay to firewall
 	if role == metal.RoleFirewall {
-		underlay, err := r.s.ds.Network().Find(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{
+		underlay, err := findNetwork(ctx, r.s.ds, &apiv2.NetworkQuery{
 			Partition: &partition,
 			Type:      apiv2.NetworkType_NETWORK_TYPE_UNDERLAY.Enum(),
-		}))
+		})
 		if err != nil {
 			return nil, err
 		}

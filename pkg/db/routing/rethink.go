@@ -2,7 +2,6 @@ package routing
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/metal-stack/api/go/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
@@ -83,17 +82,20 @@ func rethinkQueries(filters []Filter) ([]generic.EntityQuery, error) {
 	return queries, nil
 }
 
+// mapRethinkError maps the rethinkdb connect errors to the backend-agnostic
+// sentinels. The message is not carried over: genericStorage renders the final
+// connect error so both backends report identical messages.
 func mapRethinkError(err error) error {
 	if err == nil {
 		return nil
 	}
 	switch {
 	case errorutil.IsNotFound(err):
-		return fmt.Errorf("%w: %v", ErrNotFound, err)
+		return ErrNotFound
 	case errorutil.IsConflict(err):
-		return fmt.Errorf("%w: %v", ErrAlreadyExists, err)
+		return ErrAlreadyExists
 	case errorutil.IsAborted(err):
-		return fmt.Errorf("%w: %v", ErrConflict, err)
+		return ErrConflict
 	default:
 		return err
 	}

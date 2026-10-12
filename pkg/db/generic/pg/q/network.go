@@ -145,3 +145,9 @@ func NetworkFilter(rq *apiv2.NetworkQuery) []pg.QueryFilter {
 
 	return filters
 }
+
+// NetworkProjectScoped is the postgres representation of the project scope
+// filter and mirrors queries.NetworkProjectScoped.
+func NetworkProjectScoped(project string) []pg.QueryFilter {
+	return []pg.QueryFilter{{Path: networkPaths.ProjectID, Op: "=", Value: project}}
+}

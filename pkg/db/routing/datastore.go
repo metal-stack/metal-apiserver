@@ -124,7 +124,7 @@ func newEntityStorage[E generic.Entity](log *slog.Logger, cfg Config, entity str
 		postgres = NewPostgresStorage(repo)
 	}
 
-	return NewRouter[E](log, cfg, entity, NewRethinkStorage(rethink), postgres)
+	return NewRouter(log, cfg, entity, NewRethinkStorage(rethink), postgres)
 }
 
 func (d *Datastore) IP() generic.Storage[*metal.IP] {
@@ -180,21 +180,55 @@ var (
 	_ FilteredStorage[*metal.Machine] = genericStorage[*metal.Machine]{}
 )
 
+// entityAlreadyModifiedMessage mirrors the rethinkdb generic storage so the
+// routed backend returns the same optimistic-lock error.
+const entityAlreadyModifiedMessage = "the entity was already modified, please retry"
+
 func (g genericStorage[E]) Create(ctx context.Context, e E) (E, error) {
 	created, err := g.port.Create(ctx, e)
-	return created, toGenericError(err)
+	switch {
+	case err == nil:
+		return created, nil
+	case errors.Is(err, ErrAlreadyExists):
+		return created, errorutil.Conflict("cannot create %v in database, entity already exists: %s", g.name, e.GetID())
+	default:
+		return created, toGenericError(err)
+	}
 }
 
 func (g genericStorage[E]) Update(ctx context.Context, e E) error {
-	return toGenericError(g.port.Update(ctx, e))
+	err := g.port.Update(ctx, e)
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, ErrConflict):
+		return errorutil.Aborted("cannot update %v (%s): %s", g.name, e.GetID(), entityAlreadyModifiedMessage)
+	case errors.Is(err, ErrNotFound):
+		return errorutil.NotFound("no %v with id %q found", g.name, e.GetID())
+	default:
+		return toGenericError(err)
+	}
 }
 
 func (g genericStorage[E]) Upsert(ctx context.Context, e E) error {
-	return toGenericError(g.port.Upsert(ctx, e))
+	err := g.port.Upsert(ctx, e)
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, ErrAlreadyExists):
+		return errorutil.Conflict("cannot upsert %v (%s) in database: entity already exists", g.name, e.GetID())
+	default:
+		return toGenericError(err)
+	}
 }
 
 func (g genericStorage[E]) Delete(ctx context.Context, e E) error {
-	return toGenericError(g.port.Delete(ctx, e))
+	err := g.port.Delete(ctx, e)
+	if err == nil || errors.Is(err, ErrNotFound) {
+		// rethinkdb deletes are idempotent: deleting a missing entity is a no-op.
+		return nil
+	}
+	return toGenericError(err)
 }
 
 func (g genericStorage[E]) Get(ctx context.Context, id string) (E, error) {

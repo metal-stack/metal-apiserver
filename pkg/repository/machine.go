@@ -19,8 +19,7 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
-	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
-	pgq "github.com/metal-stack/metal-apiserver/pkg/db/generic/pg/q"
+	"github.com/metal-stack/metal-apiserver/pkg/db/filters"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/db/routing"
@@ -232,25 +231,11 @@ func (r *machineRepository) delete(ctx context.Context, m *metal.Machine) (*dele
 }
 
 func (r *machineRepository) find(ctx context.Context, rq *apiv2.MachineQuery) (*metal.Machine, error) {
-	// The routed datastore can serve a query from either backend when both
-	// filter representations are supplied; the plain rethinkdb datastore cannot.
-	if fs, ok := r.s.ds.Machine().(routing.FilteredStorage[*metal.Machine]); ok {
-		return fs.FindFiltered(ctx, r.machineFilters(rq)...)
-	}
-
-	return r.s.ds.Machine().Find(ctx, r.scopedMachineFilters(queries.MachineFilter(rq))...)
+	return routing.Find(ctx, r.s.ds.Machine(), filters.Machine(rq, r.scopeProjectID())...)
 }
 
 func (r *machineRepository) list(ctx context.Context, rq *apiv2.MachineQuery) ([]*metal.Machine, error) {
-	var (
-		machines []*metal.Machine
-		err      error
-	)
-	if fs, ok := r.s.ds.Machine().(routing.FilteredStorage[*metal.Machine]); ok {
-		machines, err = fs.ListFiltered(ctx, r.machineFilters(rq)...)
-	} else {
-		machines, err = r.s.ds.Machine().List(ctx, r.scopedMachineFilters(queries.MachineFilter(rq))...)
-	}
+	machines, err := routing.List(ctx, r.s.ds.Machine(), filters.Machine(rq, r.scopeProjectID())...)
 	if err != nil {
 		return nil, err
 	}
@@ -262,26 +247,13 @@ func (r *machineRepository) list(ctx context.Context, rq *apiv2.MachineQuery) ([
 	return machines, nil
 }
 
-// machineFilters builds the machine query for both backends so it can be served
-// from RethinkDB or Postgres (see routing.FilteredStorage).
-func (r *machineRepository) machineFilters(rq *apiv2.MachineQuery) []routing.Filter {
-	var filters []routing.Filter
-
-	if r.scope != nil {
-		filters = append(filters, routing.Filter{
-			Rethink:  queries.MachineProjectScoped(r.scope.projectID),
-			Postgres: pgq.MachineProjectScoped(r.scope.projectID),
-		})
+// scopeProjectID returns the project the repository is scoped to, or an empty
+// string for an unscoped repository.
+func (r *machineRepository) scopeProjectID() string {
+	if r.scope == nil {
+		return ""
 	}
-
-	if mf := queries.MachineFilter(rq); mf != nil {
-		filters = append(filters, routing.Filter{
-			Rethink:  mf,
-			Postgres: pgq.MachineFilter(rq),
-		})
-	}
-
-	return filters
+	return r.scope.projectID
 }
 
 func (r *machineRepository) convertToInternal(ctx context.Context, machine *apiv2.Machine) (*metal.Machine, error) {
@@ -1875,20 +1847,6 @@ func (r *Store) MachineBMCCommandHandleFn(ctx context.Context, t *asynq.Task) er
 	case <-ctx.Done():
 		return ctx.Err()
 	}
-}
-
-func (r *machineRepository) scopedMachineFilters(filter generic.EntityQuery) []generic.EntityQuery {
-	var qs []generic.EntityQuery
-
-	if r.scope != nil {
-		qs = append(qs, queries.MachineProjectScoped(r.scope.projectID))
-	}
-
-	if filter != nil {
-		qs = append(qs, filter)
-	}
-
-	return qs
 }
 
 func (r *machineRepository) releaseVpnNodeTask(ctx context.Context, payload *task.MachineDecommissionPayload) error {

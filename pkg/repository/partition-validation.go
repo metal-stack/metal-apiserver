@@ -85,7 +85,7 @@ func (p *partitionRepository) validateDelete(ctx context.Context, req *metal.Par
 
 	errs = validate(errs, len(ms) == 0, "there are still machines in %q", req.ID)
 
-	nwsresp, err := p.s.ds.Network().List(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{Partition: &req.ID}))
+	nwsresp, err := listNetworks(ctx, p.s.ds, &apiv2.NetworkQuery{Partition: &req.ID})
 	if err != nil {
 		return errorutil.NewInternal(err)
 	}

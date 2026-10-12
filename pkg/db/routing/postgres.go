@@ -156,16 +156,19 @@ func entityID[E generic.Entity](e E) string {
 	return id
 }
 
+// mapPostgresError maps the postgres sentinels to the backend-agnostic
+// sentinels. The message is not carried over: genericStorage renders the final
+// connect error so both backends report identical messages.
 func mapPostgresError(err error) error {
 	switch {
 	case err == nil:
 		return nil
 	case errors.Is(err, pg.ErrNotFound):
-		return fmt.Errorf("%w: %v", ErrNotFound, err)
+		return ErrNotFound
 	case errors.Is(err, pg.ErrAlreadyExists):
-		return fmt.Errorf("%w: %v", ErrAlreadyExists, err)
+		return ErrAlreadyExists
 	case errors.Is(err, pg.ErrOptimisticLockConflict):
-		return fmt.Errorf("%w: %v", ErrConflict, err)
+		return ErrConflict
 	default:
 		return err
 	}
