@@ -4,9 +4,8 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"net/http"
 
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
 	"github.com/metal-stack/api/go/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 
@@ -37,50 +36,42 @@ func NewInterceptor(c *Config) *ratelimitInterceptor {
 	}
 }
 
-// WrapUnary will check if the rate limit for the given token is raised.
-func (i *ratelimitInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
-	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-		var (
-			err   error
-			t, ok = token.TokenFromContext(ctx)
-		)
+// Interceptor checks if the rate limit for the given token is raised.
+func (i *ratelimitInterceptor) Interceptor() connect.ServerInterceptor {
+	return func(next connect.ServerFunc) connect.ServerFunc {
+		return func(ctx context.Context, spec connect.Spec, stream connect.ServerStream) error {
+			var (
+				err   error
+				t, ok = token.TokenFromContext(ctx)
+			)
 
-		if ok && t != nil {
-			_, err = i.ratelimiter.CheckLimitTokenAccess(ctx, t, i.maxRequestsPerMinuteToken)
-		} else {
-			clientIP, ok := extractClientIP(req.Header())
-			if !ok {
-				i.log.Warn("not finding original client ip in forwarding header, skipping rate-limiter for unauthenticated api access. please configure the ingress-controller to contain the original client ip address in the header.")
-				return next(ctx, req)
+			if ok && t != nil {
+				_, err = i.ratelimiter.CheckLimitTokenAccess(ctx, t, i.maxRequestsPerMinuteToken)
+			} else {
+				info, _ := connect.CallInfoForServerContext(ctx)
+
+				clientIP, ok := extractClientIP(info.RequestHeader())
+				if !ok {
+					i.log.Warn("not finding original client ip in forwarding header, skipping rate-limiter for unauthenticated api access. please configure the ingress-controller to contain the original client ip address in the header.")
+					return next(ctx, spec, stream)
+				}
+
+				_, err = i.ratelimiter.CheckLimitUnauthenticatedAccess(ctx, clientIP, i.maxRequestsPerMinuteUnauthenticated)
 			}
 
-			_, err = i.ratelimiter.CheckLimitUnauthenticatedAccess(ctx, clientIP, i.maxRequestsPerMinuteUnauthenticated)
-		}
-
-		if err != nil {
-			if ratelimiterError, ok := errors.AsType[*errRatelimitReached](err); ok {
-				return nil, errorutil.NewResourceExhausted(ratelimiterError)
+			if err != nil {
+				if ratelimiterError, ok := errors.AsType[*errRatelimitReached](err); ok {
+					return errorutil.NewResourceExhausted(ratelimiterError)
+				}
+				return errorutil.NewInternal(err)
 			}
-			return nil, errorutil.NewInternal(err)
+
+			return next(ctx, spec, stream)
 		}
-
-		return next(ctx, req)
 	}
 }
 
-func (i *ratelimitInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
-	return func(ctx context.Context, spec connect.Spec) connect.StreamingClientConn {
-		return next(ctx, spec)
-	}
-}
-
-func (i *ratelimitInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
-	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
-		return next(ctx, conn)
-	}
-}
-
-func extractClientIP(header http.Header) (string, bool) {
+func extractClientIP(header *connect.Header) (string, bool) {
 	ip := header.Get("X-Forwarded-For")
 	if ip != "" {
 		return ip, true

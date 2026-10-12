@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"time"
 
-	"connectrpc.com/connect"
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -86,7 +85,7 @@ func (b *bootServiceServer) SuperUserPassword(ctx context.Context, req *infrav2.
 	return resp, nil
 }
 
-func (b *bootServiceServer) Wait(ctx context.Context, req *infrav2.BootServiceWaitRequest, srv *connect.ServerStream[infrav2.BootServiceWaitResponse]) error {
+func (b *bootServiceServer) Wait(ctx context.Context, req *infrav2.BootServiceWaitRequest, srv infrav2connect.BootServiceWaitServerStream) error {
 	return b.repo.UnscopedMachine().AdditionalMethods().Wait(ctx, req, srv)
 }
 

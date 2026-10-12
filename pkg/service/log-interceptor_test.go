@@ -8,7 +8,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
+	"connectrpc.com/connect/v2/connecthttp"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 
 	"github.com/metal-stack/api/go/client"
@@ -17,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type interceptorTestFn func(string, []connect.Interceptor, func(context.Context)) *connect.Handler
+type interceptorTestFn func(string, func(context.Context)) connect.Method
 
 func Test_logInterceptor_AuditingCtx(t *testing.T) {
 	tests := []struct {
@@ -62,22 +63,21 @@ func Test_logInterceptor_AuditingCtx(t *testing.T) {
 				logger         = slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: tt.level}))
 				logInterceptor = newLogRequestInterceptor(logger)
 				called         = false
-
-				interceptors = []connect.Interceptor{
-					logInterceptor,
-				}
 			)
 
-			mux := http.NewServeMux()
-			mux.Handle(tt.method, tt.handler(tt.method, interceptors, func(ctx context.Context) {
+			server := connect.NewServer(logInterceptor.Interceptor())
+			server.Register(tt.handler(tt.method, func(ctx context.Context) {
 				called = true
 			}))
 
-			server := httptest.NewServer(mux)
-			defer server.Close()
+			mux := http.NewServeMux()
+			connecthttp.Mount(mux, server)
+
+			httpServer := httptest.NewServer(mux)
+			defer httpServer.Close()
 
 			c, err := client.New(&client.DialConfig{
-				BaseURL: server.URL,
+				BaseURL: httpServer.URL,
 				Log:     logger,
 			})
 			require.NoError(t, err)
@@ -95,15 +95,21 @@ func Test_logInterceptor_AuditingCtx(t *testing.T) {
 }
 
 func handler[Req, Resp any]() interceptorTestFn {
-	return func(procedure string, interceptors []connect.Interceptor, test func(context.Context)) *connect.Handler {
-		return connect.NewUnaryHandler(
-			procedure,
-			func(ctx context.Context, r *connect.Request[Req]) (*connect.Response[Resp], error) {
+	return func(procedure string, test func(context.Context)) connect.Method {
+		return connect.Method{
+			Spec: connect.Spec{
+				Procedure:  procedure,
+				StreamType: connect.StreamTypeUnary,
+			},
+			Handler: func(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+				var req Req
+				if err := stream.Receive(&req); err != nil {
+					return err
+				}
 				test(ctx)
 				var zero Resp
-				return connect.NewResponse(&zero), nil
+				return stream.Send(&zero)
 			},
-			connect.WithInterceptors(interceptors...),
-		)
+		}
 	}
 }

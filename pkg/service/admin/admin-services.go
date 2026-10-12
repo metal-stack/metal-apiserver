@@ -2,9 +2,8 @@ package admin
 
 import (
 	"log/slog"
-	"net/http"
 
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
@@ -32,8 +31,7 @@ import (
 type Config struct {
 	Log                *slog.Logger
 	Repository         *repository.Store
-	Mux                *http.ServeMux
-	Interceptors       connect.HandlerOption
+	Server             *connect.Server
 	InviteStore        invite.TenantInviteStore
 	AuditSearchBackend auditing.Auditing
 }
@@ -70,21 +68,21 @@ func AdminServices(cfg Config) {
 		})
 	)
 
-	cfg.Mux.Handle(adminv2connect.NewAuditServiceHandler(adminAuditService, cfg.Interceptors))
-	cfg.Mux.Handle(adminv2connect.NewComponentServiceHandler(adminComponentService, cfg.Interceptors))
-	cfg.Mux.Handle(adminv2connect.NewFilesystemServiceHandler(adminFilesystemService, cfg.Interceptors))
-	cfg.Mux.Handle(adminv2connect.NewImageServiceHandler(adminImageService, cfg.Interceptors))
-	cfg.Mux.Handle(adminv2connect.NewIPServiceHandler(adminIpService, cfg.Interceptors))
-	cfg.Mux.Handle(adminv2connect.NewMachineServiceHandler(adminMachineService, cfg.Interceptors))
-	cfg.Mux.Handle(adminv2connect.NewNetworkServiceHandler(adminNetworkService, cfg.Interceptors))
-	cfg.Mux.Handle(adminv2connect.NewPartitionServiceHandler(adminPartitionService, cfg.Interceptors))
-	cfg.Mux.Handle(adminv2connect.NewProjectServiceHandler(adminProjectService, cfg.Interceptors))
-	cfg.Mux.Handle(adminv2connect.NewSizeImageConstraintServiceHandler(adminSizeImageConstraintService, cfg.Interceptors))
-	cfg.Mux.Handle(adminv2connect.NewSizeReservationServiceHandler(adminSizeReservationService, cfg.Interceptors))
-	cfg.Mux.Handle(adminv2connect.NewSizeServiceHandler(adminSizeService, cfg.Interceptors))
-	cfg.Mux.Handle(adminv2connect.NewSwitchServiceHandler(adminSwitchService, cfg.Interceptors))
-	cfg.Mux.Handle(adminv2connect.NewTaskServiceHandler(adminTaskService, cfg.Interceptors))
-	cfg.Mux.Handle(adminv2connect.NewTenantServiceHandler(adminTenantService, cfg.Interceptors))
-	cfg.Mux.Handle(adminv2connect.NewTokenServiceHandler(adminTokenService, cfg.Interceptors))
-	cfg.Mux.Handle(adminv2connect.NewVPNServiceHandler(adminVPNService))
+	adminv2connect.RegisterAuditServiceHandler(cfg.Server, adminAuditService)
+	adminv2connect.RegisterComponentServiceHandler(cfg.Server, adminComponentService)
+	adminv2connect.RegisterFilesystemServiceHandler(cfg.Server, adminFilesystemService)
+	adminv2connect.RegisterImageServiceHandler(cfg.Server, adminImageService)
+	adminv2connect.RegisterIPServiceHandler(cfg.Server, adminIpService)
+	adminv2connect.RegisterMachineServiceHandler(cfg.Server, adminMachineService)
+	adminv2connect.RegisterNetworkServiceHandler(cfg.Server, adminNetworkService)
+	adminv2connect.RegisterPartitionServiceHandler(cfg.Server, adminPartitionService)
+	adminv2connect.RegisterProjectServiceHandler(cfg.Server, adminProjectService)
+	adminv2connect.RegisterSizeImageConstraintServiceHandler(cfg.Server, adminSizeImageConstraintService)
+	adminv2connect.RegisterSizeReservationServiceHandler(cfg.Server, adminSizeReservationService)
+	adminv2connect.RegisterSizeServiceHandler(cfg.Server, adminSizeService)
+	adminv2connect.RegisterSwitchServiceHandler(cfg.Server, adminSwitchService)
+	adminv2connect.RegisterTaskServiceHandler(cfg.Server, adminTaskService)
+	adminv2connect.RegisterTenantServiceHandler(cfg.Server, adminTenantService)
+	adminv2connect.RegisterTokenServiceHandler(cfg.Server, adminTokenService)
+	adminv2connect.RegisterVPNServiceHandler(cfg.Server, adminVPNService)
 }

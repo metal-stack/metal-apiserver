@@ -8,9 +8,10 @@ import (
 	"net/url"
 	"time"
 
-	"connectrpc.com/connect"
-	"connectrpc.com/grpchealth"
-	"connectrpc.com/grpcreflect"
+	"connectrpc.com/connect/v2"
+	"connectrpc.com/connect/v2/connecthttp"
+	"connectrpc.com/grpchealth/v2"
+	"connectrpc.com/grpcreflect/v2"
 	"connectrpc.com/otelconnect"
 	"connectrpc.com/validate"
 
@@ -110,7 +111,7 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 		authorizeInterceptor = authpkg.NewAuthorizeInterceptor(log, func(ctx context.Context, userId string) (*repoapi.ProjectsAndTenants, error) {
 			return c.Repository.UnscopedProject().AdditionalMethods().GetProjectsAndTenants(ctx, userId)
 		})
-		validationInterceptor = validate.NewInterceptor()
+		validationInterceptor = validate.NewServerInterceptor()
 	)
 
 	// metrics interceptor
@@ -120,24 +121,30 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 	}
 
 	provider := metric.NewMeterProvider(metric.WithReader(exporter))
-	metricsInterceptor, err := otelconnect.NewInterceptor(otelconnect.WithMeterProvider(provider))
+	metricsInterceptor, err := otelconnect.NewServerInterceptor(otelconnect.WithMeterProvider(provider))
 	if err != nil {
 		return nil, err
 	}
 
 	var (
-		logInterceptor       = newLogRequestInterceptor(log)
-		tenantInterceptor    = tenant.NewInterceptor(log, c.TenantClient)
+		logInterceptor       = newLogRequestInterceptor(log).Interceptor()
+		tenantInterceptor    = tenant.NewInterceptor(log, c.TenantClient).Interceptor()
 		ratelimitInterceptor = ratelimiter.NewInterceptor(&ratelimiter.Config{
 			Log:                                 log,
 			RedisClient:                         c.RedisConfig.RateLimitClient,
 			MaxRequestsPerMinuteToken:           c.MaxRequestsPerMinuteToken,
 			MaxRequestsPerMinuteUnauthenticated: c.MaxRequestsPerMinuteUnauthenticated,
-		})
+		}).Interceptor()
 
-		allInterceptors      = []connect.Interceptor{metricsInterceptor, logInterceptor, authorizeInterceptor, ratelimitInterceptor, validationInterceptor, tenantInterceptor}
-		allAdminInterceptors = []connect.Interceptor{metricsInterceptor, logInterceptor, authorizeInterceptor, validationInterceptor, tenantInterceptor}
-		allInfraInterceptors = []connect.Interceptor{metricsInterceptor, logInterceptor, authorizeInterceptor, validationInterceptor}
+		allInterceptors = []connect.ServerInterceptor{
+			authz.Interceptor(), metricsInterceptor, logInterceptor, authorizeInterceptor.Interceptor(), ratelimitInterceptor, validationInterceptor, tenantInterceptor,
+		}
+		allAdminInterceptors = []connect.ServerInterceptor{
+			authz.Interceptor(), metricsInterceptor, logInterceptor, authorizeInterceptor.Interceptor(), validationInterceptor, tenantInterceptor,
+		}
+		allInfraInterceptors = []connect.ServerInterceptor{
+			authz.Interceptor(), metricsInterceptor, logInterceptor, authorizeInterceptor.Interceptor(), validationInterceptor,
+		}
 	)
 
 	if len(c.AuditBackends) > 0 {
@@ -152,7 +159,7 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 		}
 
 		for _, backend := range c.AuditBackends {
-			auditInterceptor, err := auditingconnectrpc.NewConnectInterceptor(backend, log, shouldAudit)
+			auditInterceptor, err := auditingconnectrpc.NewConnectV2Interceptor(backend, log, shouldAudit)
 			if err != nil {
 				return nil, fmt.Errorf("unable to create auditing interceptor: %w", err)
 			}
@@ -163,10 +170,9 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 	}
 
 	var (
-		requestGate       = connect.WithRequestGate(authz.Authenticate)
-		interceptors      = connect.WithHandlerOptions(requestGate, connect.WithInterceptors(allInterceptors...))
-		adminInterceptors = connect.WithHandlerOptions(requestGate, connect.WithInterceptors(allAdminInterceptors...))
-		infraInterceptors = connect.WithHandlerOptions(requestGate, connect.WithInterceptors(allInfraInterceptors...))
+		apiServer   = connect.NewServer(allInterceptors...)
+		adminServer = connect.NewServer(allAdminInterceptors...)
+		infraServer = connect.NewServer(allInfraInterceptors...)
 	)
 
 	mux := http.NewServeMux()
@@ -177,8 +183,7 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 		Datastore:          c.Datastore,
 		IpamClient:         c.IpamClient,
 		TenantClient:       c.TenantClient,
-		Mux:                mux,
-		Interceptors:       interceptors,
+		Server:             apiServer,
 		ProjectInviteStore: projectInviteStore,
 		TenantInviteStore:  tenantInviteStore,
 		TokenStore:         tokenStore,
@@ -197,8 +202,7 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 	admin.AdminServices(admin.Config{
 		Log:                log,
 		Repository:         c.Repository,
-		Mux:                mux,
-		Interceptors:       adminInterceptors,
+		Server:             adminServer,
 		InviteStore:        tenantInviteStore,
 		AuditSearchBackend: c.AuditSearchBackend,
 	})
@@ -206,23 +210,27 @@ func New(ctx context.Context, log *slog.Logger, c Config) (*http.ServeMux, error
 	infra.InfraServices(infra.Config{
 		Log:                  log,
 		Repository:           c.Repository,
-		Mux:                  mux,
-		Interceptors:         infraInterceptors,
+		Server:               infraServer,
 		ComponentExpiration:  c.ComponentExpiration,
 		BMCSuperuserPassword: c.BMCSuperuserPassword,
 	})
 
-	var (
-		allServiceNames = permissions.GetServices()
-		checker         = grpchealth.NewStaticChecker(allServiceNames...)
-		reflector       = grpcreflect.NewStaticReflector(allServiceNames...)
-	)
+	var allServiceNames = permissions.GetServices()
 
-	// Static HealthCheckers
-	mux.Handle(grpchealth.NewHandler(checker))
+	// Static health checkers and remote service listing (reflection) are served
+	// on a dedicated server without interceptors, so they are reachable without
+	// authentication.
+	var systemServer = connect.NewServer()
+	grpchealth.Register(systemServer, grpchealth.NewStaticChecker(allServiceNames...))
 	// enable remote service listing by enabling reflection
-	mux.Handle(grpcreflect.NewHandlerV1(reflector))
-	mux.Handle(grpcreflect.NewHandlerV1Alpha(reflector))
+	grpcreflect.Register(systemServer, grpcreflect.WithNamer(grpcreflect.NamerFunc(func() []string {
+		return allServiceNames
+	})))
+
+	connecthttp.Mount(mux, apiServer, connecthttp.WithReadMaxBytes(0))
+	connecthttp.Mount(mux, adminServer, connecthttp.WithReadMaxBytes(0))
+	connecthttp.Mount(mux, infraServer, connecthttp.WithReadMaxBytes(0))
+	connecthttp.Mount(mux, systemServer, connecthttp.WithReadMaxBytes(0))
 
 	// Add OIDC Handlers
 	authHandlerPath, authHandler, err := oidcAuthHandler(log, c)

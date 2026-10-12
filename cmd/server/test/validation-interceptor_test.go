@@ -6,7 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
+	"connectrpc.com/connect/v2/connecthttp"
 	"connectrpc.com/validate"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
@@ -16,12 +17,15 @@ import (
 
 func TestWithValidator(t *testing.T) {
 	t.Parallel()
-	interceptor := validate.NewInterceptor()
+	interceptor := validate.NewServerInterceptor()
+
+	server := connect.NewServer(interceptor)
+	apiv2connect.RegisterTokenServiceHandler(server, token.New(token.Config{
+		Log: slog.Default(),
+	}))
 
 	mux := http.NewServeMux()
-	mux.Handle(apiv2connect.NewTokenServiceHandler(token.New(token.Config{
-		Log: slog.Default(),
-	}), connect.WithInterceptors(interceptor)))
+	connecthttp.Mount(mux, server)
 	srv := startHTTPServer(t, mux)
 
 	req := &apiv2.TokenServiceCreateRequest{
@@ -36,7 +40,8 @@ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 `,
 	}
-	_, err := apiv2connect.NewTokenServiceClient(srv.Client(), srv.URL).Create(t.Context(), req)
+	client := apiv2connect.NewTokenServiceClient(connect.NewClient(connecthttp.NewTransport(srv.Client(), srv.URL)))
+	_, err := client.Create(t.Context(), req)
 	require.Error(t, err)
 	require.EqualError(t, err, "invalid_argument: validation error: description: must be shorter than 256 characters")
 	require.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
