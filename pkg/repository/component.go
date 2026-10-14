@@ -34,6 +34,14 @@ type (
 func (e *componentEntity) SetChanged(time time.Time) {
 }
 
+func (c *componentRepository) Id(cType apiv2.ComponentType, identifier string) (string, error) {
+	typeAsString, err := enum.GetStringValue(cType)
+	if err != nil {
+		return "", err
+	}
+	return id(*typeAsString, identifier), nil
+}
+
 func id(typeString, identifier string) string {
 	return newSHA1(nameSpaceOID, []byte(typeString+":"+identifier)).String()
 }
@@ -92,7 +100,6 @@ func (c *componentRepository) create(ctx context.Context, rq *api.ComponentServi
 	if err != nil {
 		return nil, fmt.Errorf("unable to get component key: %w", err)
 	}
-
 	err = c.s.component.Do(ctx, c.s.component.B().Set().Key(key).Value(string(payload)).Ex(rq.Expiration).Build()).Error()
 	if err != nil {
 		return nil, fmt.Errorf("unable to store component: %w", err)

@@ -78,7 +78,7 @@ func (o *auth) Authenticate(ctx context.Context, spec connect.Spec, peer connect
 	log.Debug("authenticate")
 	t, err := o.extractAndValidateJWTToken(ctx, header.Get)
 	if err != nil {
-		log.Error("authenticate, access denied")
+		log.Error("authenticate, access denied", "error", err)
 		return ctx, err
 	}
 	// Store the token in the context for later use in the service methods
