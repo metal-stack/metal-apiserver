@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
@@ -57,15 +58,18 @@ func New(log *slog.Logger, opts r.ConnectOpts, dsOpts ...dataStoreOption) (*data
 		dbname:        opts.Database,
 	}
 
+	// Cache entities which are rarely modified
+	cacheExpiration := new(60 * time.Minute)
+
 	ds.ip = newStorage[*metal.IP](ds, "ip")
 	ds.machine = newStorage[*metal.Machine](ds, "machine")
-	ds.size = newStorage[*metal.Size](ds, "size")
+	ds.size = newCachedStorage[*metal.Size](ds, "size", cacheExpiration)
 	ds.sizeImageConstraint = newStorage[*metal.SizeImageConstraint](ds, "sizeimageconstraint")
 	ds.sizeReservation = newStorage[*metal.SizeReservation](ds, "sizereservation")
-	ds.partition = newStorage[*metal.Partition](ds, "partition")
+	ds.partition = newCachedStorage[*metal.Partition](ds, "partition", cacheExpiration)
 	ds.network = newStorage[*metal.Network](ds, "network")
-	ds.fsl = newStorage[*metal.FilesystemLayout](ds, "filesystemlayout")
-	ds.image = newStorage[*metal.Image](ds, "image")
+	ds.fsl = newCachedStorage[*metal.FilesystemLayout](ds, "filesystemlayout", cacheExpiration)
+	ds.image = newCachedStorage[*metal.Image](ds, "image", cacheExpiration)
 	ds.event = newStorage[*metal.ProvisioningEventContainer](ds, "event")
 	ds.sw = newStorage[*metal.Switch](ds, "switch")
 	ds.switchStatus = newStorage[*metal.SwitchStatus](ds, "switchstatus")
