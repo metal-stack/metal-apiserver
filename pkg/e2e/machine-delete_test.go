@@ -71,10 +71,11 @@ func deleteMachine(t *testing.T, apiClient client.Client, m *apiv2.Machine) {
 		defer func() {
 			_ = stream.Close()
 		}()
-		for stream.Receive() {
+		msg, err := stream.Receive()
+		if err == nil {
 			mu.Lock()
 			defer mu.Unlock()
-			bmcDoneResponse = stream.Msg()
+			bmcDoneResponse = msg
 
 			_, err = apiClient.Infrav2().BMC().BMCCommandDone(ctx, &infrav2.BMCCommandDoneRequest{
 				CommandId: bmcDoneResponse.CommandId,
@@ -84,7 +85,6 @@ func deleteMachine(t *testing.T, apiClient client.Client, m *apiv2.Machine) {
 			bmcerror = err
 
 			t.Logf("bmc command wait stopped %v", bmcDoneResponse)
-			return
 		}
 	}
 	go machineBmcDeleteSimulation()

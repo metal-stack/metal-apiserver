@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"connectrpc.com/connect/v2"
+	"connectrpc.com/connect/v2/connecthttp"
 	"github.com/jmoiron/sqlx"
 	tenant "github.com/metal-stack/tenant-api/go/client"
 	apiv1 "github.com/metal-stack/tenant-api/go/tenant/api/v1"
@@ -65,23 +67,26 @@ func startTenantApiserverWithDB(t testing.TB, log *slog.Logger, dbcloser func(),
 	tenantMemberService := service.NewTenantMemberService(log, ts, tms)
 	versionService := service.NewVersionService()
 
-	mux := http.NewServeMux()
-	mux.Handle(apiv1connect.NewProjectServiceHandler(projectService))
-	mux.Handle(apiv1connect.NewProjectMemberServiceHandler(projectMemberService))
-	mux.Handle(apiv1connect.NewTenantServiceHandler(tenantService))
-	mux.Handle(apiv1connect.NewTenantMemberServiceHandler(tenantMemberService))
-	mux.Handle(apiv1connect.NewVersionServiceHandler(versionService))
+	server := connect.NewServer()
+	apiv1connect.RegisterProjectServiceHandler(server, projectService)
+	apiv1connect.RegisterProjectMemberServiceHandler(server, projectMemberService)
+	apiv1connect.RegisterTenantServiceHandler(server, tenantService)
+	apiv1connect.RegisterTenantMemberServiceHandler(server, tenantMemberService)
+	apiv1connect.RegisterVersionServiceHandler(server, versionService)
 
-	server := httptest.NewUnstartedServer(mux)
-	server.EnableHTTP2 = true
-	server.Start()
+	mux := http.NewServeMux()
+	connecthttp.Mount(mux, server)
+
+	httpServer := httptest.NewUnstartedServer(mux)
+	httpServer.EnableHTTP2 = true
+	httpServer.Start()
 	closer := func() {
 		dbcloser()
-		server.Close()
+		httpServer.Close()
 	}
 
 	conn, err := tenant.New(&tenant.DialConfig{
-		BaseURL:   server.URL,
+		BaseURL:   httpServer.URL,
 		Namespace: "metal-stack.io",
 		Log:       log,
 	})
@@ -103,22 +108,25 @@ func StartTenantApiserverInMemory(t testing.TB, log *slog.Logger) (tenant.Client
 	tenantMemberService := service.NewTenantMemberService(log, ts, tms)
 	versionService := service.NewVersionService()
 
-	mux := http.NewServeMux()
-	mux.Handle(apiv1connect.NewProjectServiceHandler(projectService))
-	mux.Handle(apiv1connect.NewProjectMemberServiceHandler(projectMemberService))
-	mux.Handle(apiv1connect.NewTenantServiceHandler(tenantService))
-	mux.Handle(apiv1connect.NewTenantMemberServiceHandler(tenantMemberService))
-	mux.Handle(apiv1connect.NewVersionServiceHandler(versionService))
+	server := connect.NewServer()
+	apiv1connect.RegisterProjectServiceHandler(server, projectService)
+	apiv1connect.RegisterProjectMemberServiceHandler(server, projectMemberService)
+	apiv1connect.RegisterTenantServiceHandler(server, tenantService)
+	apiv1connect.RegisterTenantMemberServiceHandler(server, tenantMemberService)
+	apiv1connect.RegisterVersionServiceHandler(server, versionService)
 
-	server := httptest.NewUnstartedServer(mux)
-	server.EnableHTTP2 = true
-	server.Start()
+	mux := http.NewServeMux()
+	connecthttp.Mount(mux, server)
+
+	httpServer := httptest.NewUnstartedServer(mux)
+	httpServer.EnableHTTP2 = true
+	httpServer.Start()
 	closer := func() {
-		server.Close()
+		httpServer.Close()
 	}
 
 	conn, err := tenant.New(&tenant.DialConfig{
-		BaseURL:   server.URL,
+		BaseURL:   httpServer.URL,
 		Namespace: "metal-stack.io",
 	})
 	require.NoError(t, err)

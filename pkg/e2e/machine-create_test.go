@@ -262,12 +262,12 @@ func createMachine(t *testing.T, apiClient client.Client, allocationType apiv2.M
 		defer func() {
 			_ = stream.Close()
 		}()
-		for stream.Receive() {
+		msg, err := stream.Receive()
+		if err == nil {
 			mu.Lock()
 			defer mu.Unlock()
-			machineWaitResponse = stream.Msg()
+			machineWaitResponse = msg
 			t.Logf("machine wait stopped %v", machineWaitResponse)
-			return
 		}
 	}
 

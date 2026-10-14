@@ -3,11 +3,9 @@ package request
 import (
 	"context"
 	"log/slog"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
 	"github.com/metal-stack/api/go/errorutil"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
@@ -689,21 +687,12 @@ func Test_authorizer_allowed(t *testing.T) {
 }
 
 func Test_authorizer_Allowed(t *testing.T) {
-	mux := http.NewServeMux()
-	mux.Handle(apiv2connect.NewIPServiceHandler(apiv2connect.UnimplementedIPServiceHandler{}))
-	server := httptest.NewTLSServer(mux)
-	server.EnableHTTP2 = true
-	defer func() {
-		server.Close()
-	}()
-
 	tests := []struct {
 		name               string
 		token              *apiv2.Token
 		projectsAndTenants *api.ProjectsAndTenants
 		adminSubjects      []string
-		req                *connect.Request[apiv2.IPServiceGetRequest]
-		callFn             func()
+		req                *apiv2.IPServiceGetRequest
 		wantErr            error
 	}{
 		{
@@ -720,7 +709,7 @@ func Test_authorizer_Allowed(t *testing.T) {
 					"project-a": apiv2.ProjectRole_PROJECT_ROLE_VIEWER,
 				},
 			},
-			req:     connect.NewRequest(&apiv2.IPServiceGetRequest{Project: "project-a"}),
+			req:     &apiv2.IPServiceGetRequest{Project: "project-a"},
 			wantErr: nil,
 		},
 		{
@@ -737,7 +726,7 @@ func Test_authorizer_Allowed(t *testing.T) {
 					"project-a": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 			},
-			req:     connect.NewRequest(&apiv2.IPServiceGetRequest{Project: "project-a"}),
+			req:     &apiv2.IPServiceGetRequest{Project: "project-a"},
 			wantErr: errorutil.PermissionDenied("access to:\"/metalstack.api.v2.IPService/Get\" is not allowed because it is not part of the token permissions"),
 		},
 		{
@@ -754,7 +743,7 @@ func Test_authorizer_Allowed(t *testing.T) {
 					"project-a": apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
 				},
 			},
-			req:     connect.NewRequest(&apiv2.IPServiceGetRequest{Project: "project-b"}),
+			req:     &apiv2.IPServiceGetRequest{Project: "project-b"},
 			wantErr: errorutil.PermissionDenied("access to:\"/metalstack.api.v2.IPService/Get\" with subject:\"project-b\" is not allowed because it is not part of the token permissions, allowed subjects are:[\"project-a\"]"),
 		},
 	}
@@ -771,22 +760,17 @@ func Test_authorizer_Allowed(t *testing.T) {
 				return tt.projectsAndTenants, nil
 			}
 
-			client := apiv2connect.NewIPServiceClient(server.Client(), server.URL, connect.WithInterceptors(connect.UnaryInterceptorFunc(
-				func(next connect.UnaryFunc) connect.UnaryFunc {
-					return connect.UnaryFunc(func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-						gotErr := a.Authorize(t.Context(), tt.token, req)
-						if tt.wantErr != nil {
-							require.EqualError(t, gotErr, tt.wantErr.Error())
-						} else if gotErr != nil {
-							require.NoError(t, gotErr)
-						}
-						return next(ctx, req)
-					})
-				},
-			)))
+			spec := connect.Spec{
+				Procedure:  apiv2connect.IPServiceGetProcedure,
+				StreamType: connect.StreamTypeUnary,
+			}
 
-			// Swallow response and error, comparison is done inside the interceptor
-			_, _ = client.Get(t.Context(), tt.req.Msg)
+			gotErr := a.Authorize(t.Context(), tt.token, spec, tt.req)
+			if tt.wantErr != nil {
+				require.EqualError(t, gotErr, tt.wantErr.Error())
+			} else if gotErr != nil {
+				require.NoError(t, gotErr)
+			}
 		})
 	}
 }

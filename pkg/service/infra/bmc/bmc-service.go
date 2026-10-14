@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 
-	"connectrpc.com/connect"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/api/go/metalstack/infra/v2/infrav2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
@@ -31,7 +30,7 @@ func (b *bmcServiceServer) UpdateBMCInfo(ctx context.Context, req *infrav2.Updat
 	return b.repo.UnscopedMachine().AdditionalMethods().UpdateBMCInfo(ctx, req)
 }
 
-func (b *bmcServiceServer) WaitForBMCCommand(ctx context.Context, req *infrav2.WaitForBMCCommandRequest, srv *connect.ServerStream[infrav2.WaitForBMCCommandResponse]) error {
+func (b *bmcServiceServer) WaitForBMCCommand(ctx context.Context, req *infrav2.WaitForBMCCommandRequest, srv infrav2connect.BMCServiceWaitForBMCCommandServerStream) error {
 	return b.repo.UnscopedMachine().AdditionalMethods().WaitForBMCCommand(ctx, req, srv)
 }
 

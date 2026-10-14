@@ -4,7 +4,8 @@ import (
 	"context"
 	"log/slog"
 
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/connectutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/request"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
@@ -24,25 +25,27 @@ func NewAuthorizeInterceptor(log *slog.Logger, patg api.ProjectsAndTenantsGetter
 	}
 }
 
-func (a *authorizeInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
-	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-		t, _ := token.TokenFromContext(ctx)
+// Interceptor returns a connect server interceptor that authorizes the request
+// against the permissions of the token found in the context.
+func (a *authorizeInterceptor) Interceptor() connect.ServerInterceptor {
+	return func(next connect.ServerFunc) connect.ServerFunc {
+		return func(ctx context.Context, spec connect.Spec, stream connect.ServerStream) error {
+			req, ok, err := connectutil.ReceiveFirstMessage(stream, spec)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return next(ctx, spec, stream)
+			}
 
-		err := a.authorizer.Authorize(ctx, t, req)
-		if err != nil {
-			return nil, err
+			t, _ := token.TokenFromContext(ctx)
+
+			err = a.authorizer.Authorize(ctx, t, spec, req)
+			if err != nil {
+				return err
+			}
+
+			return next(ctx, spec, connectutil.ReplayStream(stream, req))
 		}
-		return next(ctx, req)
-	}
-}
-
-func (a *authorizeInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
-	return func(ctx context.Context, spec connect.Spec) connect.StreamingClientConn {
-		return next(ctx, spec)
-	}
-}
-func (a *authorizeInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
-	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
-		return next(ctx, conn)
 	}
 }

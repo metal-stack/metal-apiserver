@@ -5,11 +5,12 @@ import (
 	"log/slog"
 	"slices"
 
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
 	"github.com/metal-stack/api/go/errorutil"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/permissions"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
+	"google.golang.org/protobuf/proto"
 )
 
 type (
@@ -23,8 +24,8 @@ type (
 	Authorizer interface {
 		// Authorize checks if with the given token the request is allowed.
 		// If the access is not allowed, a PermissionDenied Error is returned with a proper error message.
-		// req is only fully populated after a interceptor call.
-		Authorize(ctx context.Context, token *apiv2.Token, req connect.AnyRequest) error
+		// req is the decoded request message of the RPC.
+		Authorize(ctx context.Context, token *apiv2.Token, spec connect.Spec, req proto.Message) error
 		// TokenPermissions returns the permissions based on the given token
 		TokenPermissions(ctx context.Context, token *apiv2.Token) (tokenPermissions, error)
 	}
@@ -38,17 +39,17 @@ func NewAuthorizer(log *slog.Logger, patg api.ProjectsAndTenantsGetter) Authoriz
 	}
 }
 
-func (a *authorizer) Authorize(ctx context.Context, token *apiv2.Token, req connect.AnyRequest) error {
+func (a *authorizer) Authorize(ctx context.Context, token *apiv2.Token, spec connect.Spec, req proto.Message) error {
 	var (
-		method  = req.Spec().Procedure
+		method  = spec.Procedure
 		subject string
 	)
 	if req == nil {
 		return errorutil.Internal("request is nil")
 	}
 
-	if permissions.IsProjectScope(req) {
-		project, ok := permissions.GetProjectFromRequest(req)
+	if permissions.IsProjectScope(spec) {
+		project, ok := permissions.GetProjectFromRequest(spec, req)
 		if ok {
 			subject = project
 		} else {
@@ -56,8 +57,8 @@ func (a *authorizer) Authorize(ctx context.Context, token *apiv2.Token, req conn
 		}
 	}
 
-	if permissions.IsTenantScope(req) {
-		tenant, ok := permissions.GetTenantFromRequest(req)
+	if permissions.IsTenantScope(spec) {
+		tenant, ok := permissions.GetTenantFromRequest(spec, req)
 		if ok {
 			subject = tenant
 		} else {
@@ -65,8 +66,8 @@ func (a *authorizer) Authorize(ctx context.Context, token *apiv2.Token, req conn
 		}
 	}
 
-	if permissions.IsMachineScope(req) {
-		machineId, ok := permissions.GetMachineIdFromRequest(req)
+	if permissions.IsMachineScope(spec) {
+		machineId, ok := permissions.GetMachineIdFromRequest(spec, req)
 		if ok {
 			subject = machineId
 		} else {
