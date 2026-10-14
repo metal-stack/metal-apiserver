@@ -117,29 +117,35 @@ func BenchmarkUpdatePerformance(b *testing.B) {
 		Root: Level1{Level2: Level2{Level3: Level3{Level4: Level4{Value: "Initial"}}}},
 	})
 
+	// The versions live in the parent scope on purpose: with -count > 1 the
+	// parent body runs once while every sub-benchmark repeats, so a counter
+	// declared inside a sub would reset between counts and hit an optimistic
+	// lock conflict against the already bumped row.
+	var (
+		simpleVersion = int32(1)
+		deepVersion   = int32(1)
+	)
+
 	b.ResetTimer()
 
 	b.Run("Shallow_Update", func(b *testing.B) {
-		version := int32(1)
-
 		for b.Loop() {
-			err := simpleRepo.Update(ctx, simpleID, version, SimpleEntity{
+			err := simpleRepo.Update(ctx, simpleID, simpleVersion, SimpleEntity{
 				Name: "Updated",
-				City: fmt.Sprintf("City_%d", version),
+				City: fmt.Sprintf("City_%d", simpleVersion),
 			})
 			require.NoError(b, err)
-			version++
+			simpleVersion++
 		}
 	})
 
 	b.Run("Deep_Update", func(b *testing.B) {
-		version := int32(1)
 		for b.Loop() {
-			err := deepRepo.Update(ctx, deepID, version, DeepEntity{
-				Root: Level1{Level2: Level2{Level3: Level3{Level4: Level4{Value: fmt.Sprintf("Val_%d", version)}}}},
+			err := deepRepo.Update(ctx, deepID, deepVersion, DeepEntity{
+				Root: Level1{Level2: Level2{Level3: Level3{Level4: Level4{Value: fmt.Sprintf("Val_%d", deepVersion)}}}},
 			})
 			require.NoError(b, err)
-			version++
+			deepVersion++
 		}
 	})
 }

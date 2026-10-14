@@ -32,8 +32,17 @@ CREATE INDEX IF NOT EXISTS idx_shared_mutex_expires_at ON shared_mutex (expires_
 	defaultSharedMutexRetryInterval = 100 * time.Millisecond
 	// defaultSharedMutexCheckInterval is the interval in which it is checked whether mutexes have expired.
 	// if they have expired, they will be released. this is a safety mechanism in case a mutex was forgotten
-	// to be released to prevent the whole machinery to lock up forever.
+	// to be released to prevent the whole machinery from locking up forever.
 	defaultSharedMutexCheckInterval = 30 * time.Second
+
+	// Queries which get prepared
+	qMutexTryLock = `
+		INSERT INTO shared_mutex (key, locked_at, expires_at)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (key) DO NOTHING
+	`
+	qMutexUnlock = `DELETE FROM shared_mutex WHERE key = $1`
+	qMutexExpire = `DELETE FROM shared_mutex WHERE expires_at < NOW()`
 )
 
 type (
@@ -47,6 +56,12 @@ type (
 		retryinterval time.Duration
 		checkinterval time.Duration
 		log           *slog.Logger
+
+		// Fixed statements are prepared once at construction time (see
+		// GenericRepository for the rationale and measured gains).
+		stmtTryLock *sql.Stmt
+		stmtUnlock  *sql.Stmt
+		stmtExpire  *sql.Stmt
 	}
 
 	sharedMutexDoc struct {
@@ -102,6 +117,15 @@ func NewSharedMutex(ctx context.Context, log *slog.Logger, db *sql.DB, opts ...m
 		db:            db,
 		retryinterval: defaultSharedMutexRetryInterval,
 		checkinterval: checkinterval,
+	}
+
+	preparer := newStatementPreparer(db)
+	m.stmtTryLock = preparer.prepare(qMutexTryLock)
+	m.stmtUnlock = preparer.prepare(qMutexUnlock)
+	m.stmtExpire = preparer.prepare(qMutexExpire)
+	if preparer.err != nil {
+		preparer.close()
+		return nil, fmt.Errorf("unable to prepare shared mutex statements: %w", preparer.err)
 	}
 
 	go m.expireloop(ctx)
@@ -180,9 +204,7 @@ func (m *SharedMutex) Lock(ctx context.Context, key string, opts ...lockOpt) err
 
 // Unlock releases the mutex for the given key.
 func (m *SharedMutex) Unlock(ctx context.Context, key string) {
-	const query = `DELETE FROM shared_mutex WHERE key = $1`
-
-	if _, err := m.db.ExecContext(ctx, query, key); err != nil {
+	if _, err := m.stmtUnlock.ExecContext(ctx, key); err != nil {
 		m.log.Error("unable to release shared mutex", "key", key, "error", err)
 	}
 }
@@ -191,12 +213,6 @@ func (m *SharedMutex) Unlock(ctx context.Context, key string) {
 // mutex was acquired. A nil error with locked==false means another holder owns
 // the mutex.
 func (m *SharedMutex) tryLock(ctx context.Context, key string, expiration time.Duration) (bool, error) {
-	const query = `
-		INSERT INTO shared_mutex (key, locked_at, expires_at)
-		VALUES ($1, $2, $3)
-		ON CONFLICT (key) DO NOTHING
-	`
-
 	var (
 		now = time.Now()
 		doc = &sharedMutexDoc{
@@ -206,7 +222,7 @@ func (m *SharedMutex) tryLock(ctx context.Context, key string, expiration time.D
 		}
 	)
 
-	res, err := m.db.ExecContext(ctx, query, doc.Key, doc.LockedAt, doc.ExpiresAt)
+	res, err := m.stmtTryLock.ExecContext(ctx, doc.Key, doc.LockedAt, doc.ExpiresAt)
 	if err != nil {
 		return false, err
 	}
@@ -220,8 +236,6 @@ func (m *SharedMutex) tryLock(ctx context.Context, key string, expiration time.D
 }
 
 func (m *SharedMutex) expireloop(ctx context.Context) {
-	const query = `DELETE FROM shared_mutex WHERE expires_at < NOW()`
-
 	ticker := time.NewTicker(m.checkinterval)
 	defer ticker.Stop()
 
@@ -230,7 +244,7 @@ func (m *SharedMutex) expireloop(ctx context.Context) {
 		case <-ticker.C:
 			m.log.Debug("checking for expired mutexes")
 
-			res, err := m.db.ExecContext(ctx, query)
+			res, err := m.stmtExpire.ExecContext(ctx)
 			if err != nil {
 				m.log.Error("unable to release shared mutexes", "error", err)
 				continue

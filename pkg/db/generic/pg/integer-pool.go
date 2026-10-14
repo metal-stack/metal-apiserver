@@ -29,7 +29,59 @@ const (
 		next BIGINT NOT NULL,
 		max BIGINT NOT NULL
 	);
-`
+	`
+	// Queries which get prepared
+	qPoolSeed = `
+		INSERT INTO integer_pool_state (pool_type, next, max)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (pool_type) DO NOTHING;
+	`
+	qPoolTakeFree = `
+		WITH next_num AS (
+			SELECT pool_type, id
+			FROM integer_pool
+			WHERE pool_type = $1 AND is_allocated = FALSE
+			ORDER BY id ASC
+			LIMIT 1
+			FOR UPDATE SKIP LOCKED
+		)
+		UPDATE integer_pool
+		SET is_allocated = TRUE, allocated_at = NOW()
+		FROM next_num
+		WHERE integer_pool.pool_type = next_num.pool_type
+		  AND integer_pool.id = next_num.id
+		RETURNING integer_pool.id;
+	`
+	qPoolGrow = `
+		UPDATE integer_pool_state
+		SET next = next + 1
+		WHERE pool_type = $1 AND next <= max
+		RETURNING next - 1;
+	`
+	qPoolRecord = `
+		INSERT INTO integer_pool (pool_type, id, is_allocated)
+		VALUES ($1, $2, TRUE)
+		ON CONFLICT (pool_type, id) DO NOTHING;
+	`
+	qPoolMax = `
+		SELECT max
+		FROM integer_pool_state
+		WHERE pool_type = $1;
+	`
+	qPoolClaim = `
+		INSERT INTO integer_pool (pool_type, id, is_allocated, allocated_at)
+		VALUES ($1, $2, TRUE, NOW())
+		ON CONFLICT (pool_type, id) DO UPDATE
+		SET is_allocated = TRUE, allocated_at = NOW()
+		WHERE integer_pool.is_allocated = FALSE
+		RETURNING id;
+	`
+	qPoolState   = `SELECT 1 FROM integer_pool_state WHERE pool_type = $1`
+	qPoolRelease = `
+		UPDATE integer_pool
+		SET is_allocated = FALSE, allocated_at = NULL
+		WHERE pool_type = $1 AND id = $2 AND is_allocated = TRUE;
+	`
 )
 
 var (
@@ -49,6 +101,17 @@ var (
 type IntegerPool struct {
 	log *slog.Logger
 	db  *sql.DB
+
+	// Fixed statements are prepared once at construction time (see
+	// GenericRepository for the rationale and measured gains). qPoolGrow and
+	// qPoolRecord are deliberately not prepared: they run inside a
+	// transaction and must execute on the transaction's own connection.
+	stmtSeed     *sql.Stmt
+	stmtTakeFree *sql.Stmt
+	stmtMax      *sql.Stmt
+	stmtClaim    *sql.Stmt
+	stmtState    *sql.Stmt
+	stmtRelease  *sql.Stmt
 }
 
 func NewIntegerPool(log *slog.Logger, db *sql.DB) (*IntegerPool, error) {
@@ -57,10 +120,24 @@ func NewIntegerPool(log *slog.Logger, db *sql.DB) (*IntegerPool, error) {
 		return nil, err
 	}
 
-	return &IntegerPool{
+	p := &IntegerPool{
 		log: log.WithGroup("integer-pool"),
 		db:  db,
-	}, nil
+	}
+
+	preparer := newStatementPreparer(db)
+	p.stmtSeed = preparer.prepare(qPoolSeed)
+	p.stmtTakeFree = preparer.prepare(qPoolTakeFree)
+	p.stmtMax = preparer.prepare(qPoolMax)
+	p.stmtClaim = preparer.prepare(qPoolClaim)
+	p.stmtState = preparer.prepare(qPoolState)
+	p.stmtRelease = preparer.prepare(qPoolRelease)
+	if preparer.err != nil {
+		preparer.close()
+		return nil, fmt.Errorf("unable to prepare integer pool statements: %w", preparer.err)
+	}
+
+	return p, nil
 }
 
 // Seed configures the range of a pool. It does not precompute the individual
@@ -75,14 +152,9 @@ func (p *IntegerPool) Seed(ctx context.Context, poolType PoolType, startID, endI
 		return fmt.Errorf("invalid range for pool '%s': start %d must not exceed end %d", poolType, startID, endID)
 	}
 
-	const query = `
-		INSERT INTO integer_pool_state (pool_type, next, max)
-		VALUES ($1, $2, $3)
-		ON CONFLICT (pool_type) DO NOTHING;
-	`
 	p.log.Debug("seed", "pool", poolType, "start", startID, "end", endID)
 
-	res, err := p.db.ExecContext(ctx, query, string(poolType), startID, endID)
+	res, err := p.stmtSeed.ExecContext(ctx, string(poolType), startID, endID)
 	if err != nil {
 		return err
 	}
@@ -102,27 +174,10 @@ func (p *IntegerPool) Seed(ctx context.Context, poolType PoolType, startID, endI
 // Released integers are reused first (ordered ASC); if none are free the pool
 // grows by taking the next integer from its configured range.
 func (p *IntegerPool) Acquire(ctx context.Context, poolType PoolType) (uint32, error) {
-	const takeFree = `
-		WITH next_num AS (
-			SELECT pool_type, id
-			FROM integer_pool
-			WHERE pool_type = $1 AND is_allocated = FALSE
-			ORDER BY id ASC
-			LIMIT 1
-			FOR UPDATE SKIP LOCKED
-		)
-		UPDATE integer_pool
-		SET is_allocated = TRUE, allocated_at = NOW()
-		FROM next_num
-		WHERE integer_pool.pool_type = next_num.pool_type
-		  AND integer_pool.id = next_num.id
-		RETURNING integer_pool.id;
-	`
-
 	var acquiredID uint32
 	p.log.Debug("acquire", "pool", poolType)
 
-	err := p.db.QueryRowContext(ctx, takeFree, string(poolType)).Scan(&acquiredID)
+	err := p.stmtTakeFree.QueryRowContext(ctx, string(poolType)).Scan(&acquiredID)
 	if err == nil {
 		return acquiredID, nil
 	}
@@ -141,13 +196,7 @@ func (p *IntegerPool) Acquire(ctx context.Context, poolType PoolType) (uint32, e
 	}
 	defer func() { _ = tx.Rollback() }() // no-op after commit
 
-	const grow = `
-		UPDATE integer_pool_state
-		SET next = next + 1
-		WHERE pool_type = $1 AND next <= max
-		RETURNING next - 1;
-	`
-	err = tx.QueryRowContext(ctx, grow, string(poolType)).Scan(&acquiredID)
+	err = tx.QueryRowContext(ctx, qPoolGrow, string(poolType)).Scan(&acquiredID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return 0, p.poolUnavailableError(ctx, poolType)
@@ -156,12 +205,7 @@ func (p *IntegerPool) Acquire(ctx context.Context, poolType PoolType) (uint32, e
 	}
 
 	// Record the grown integer as allocated so Release can validate it.
-	const record = `
-		INSERT INTO integer_pool (pool_type, id, is_allocated)
-		VALUES ($1, $2, TRUE)
-		ON CONFLICT (pool_type, id) DO NOTHING;
-	`
-	if _, err := tx.ExecContext(ctx, record, string(poolType), acquiredID); err != nil {
+	if _, err := tx.ExecContext(ctx, qPoolRecord, string(poolType), acquiredID); err != nil {
 		return 0, err
 	}
 
@@ -179,13 +223,8 @@ func (p *IntegerPool) Acquire(ctx context.Context, poolType PoolType) (uint32, e
 // error is returned.
 func (p *IntegerPool) AcquireUniqueInteger(ctx context.Context, poolType PoolType, value uint32) (uint32, error) {
 	// Ensure the requested value lies within the pool's configured range.
-	const maxQuery = `
-		SELECT max
-		FROM integer_pool_state
-		WHERE pool_type = $1;
-	`
 	var maxID uint32
-	err := p.db.QueryRowContext(ctx, maxQuery, string(poolType)).Scan(&maxID)
+	err := p.stmtMax.QueryRowContext(ctx, string(poolType)).Scan(&maxID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, fmt.Errorf("%w: pool '%s'", ErrPoolNotSeeded, poolType)
 	}
@@ -202,16 +241,8 @@ func (p *IntegerPool) AcquireUniqueInteger(ctx context.Context, poolType PoolTyp
 	// created lazily by Acquire, so a specific value may not have a row yet), or
 	// flip an existing free row to allocated. Zero returned rows mean the value
 	// is already allocated. Under concurrency only one caller can win.
-	const claim = `
-		INSERT INTO integer_pool (pool_type, id, is_allocated, allocated_at)
-		VALUES ($1, $2, TRUE, NOW())
-		ON CONFLICT (pool_type, id) DO UPDATE
-		SET is_allocated = TRUE, allocated_at = NOW()
-		WHERE integer_pool.is_allocated = FALSE
-		RETURNING id;
-	`
 	var claimed uint32
-	err = p.db.QueryRowContext(ctx, claim, string(poolType), value).Scan(&claimed)
+	err = p.stmtClaim.QueryRowContext(ctx, string(poolType), value).Scan(&claimed)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, fmt.Errorf("%w: %d in pool '%s'", ErrIntegerAlreadyAcquired, value, poolType)
 	}
@@ -226,10 +257,8 @@ func (p *IntegerPool) AcquireUniqueInteger(ctx context.Context, poolType PoolTyp
 // pool has no configured range at all (ErrPoolNotSeeded) or its range is fully
 // allocated (ErrPoolExhausted). It is only called on the failure path of Acquire.
 func (p *IntegerPool) poolUnavailableError(ctx context.Context, poolType PoolType) error {
-	const query = `SELECT 1 FROM integer_pool_state WHERE pool_type = $1`
-
 	var exists int
-	err := p.db.QueryRowContext(ctx, query, string(poolType)).Scan(&exists)
+	err := p.stmtState.QueryRowContext(ctx, string(poolType)).Scan(&exists)
 	if errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf("%w: pool '%s'", ErrPoolNotSeeded, poolType)
 	}
@@ -242,14 +271,8 @@ func (p *IntegerPool) poolUnavailableError(ctx context.Context, poolType PoolTyp
 
 // Release makes an integer in a specific pool available again.
 func (p *IntegerPool) Release(ctx context.Context, poolType PoolType, id uint32) error {
-	const query = `
-		UPDATE integer_pool
-		SET is_allocated = FALSE, allocated_at = NULL
-		WHERE pool_type = $1 AND id = $2 AND is_allocated = TRUE;
-	`
-
 	p.log.Debug("release", "pool", poolType, "id", id)
-	res, err := p.db.ExecContext(ctx, query, string(poolType), id)
+	res, err := p.stmtRelease.ExecContext(ctx, string(poolType), id)
 	if err != nil {
 		return err
 	}

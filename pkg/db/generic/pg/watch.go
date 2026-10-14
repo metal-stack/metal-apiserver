@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -12,10 +13,16 @@ import (
 	"github.com/lib/pq"
 )
 
-// NotifyChannel is the PostgreSQL channel on which every change to any
-// per-entity table is announced. It is kept in sync with the trigger
-// created by RepositorySchema.
-const NotifyChannel = "entity_table_changes"
+const (
+	// NotifyChannel is the PostgreSQL channel on which every change to any
+	// per-entity table is announced. It is kept in sync with the trigger
+	// created by RepositorySchema.
+	NotifyChannel = "entity_table_changes"
+
+	// qWatcherLoad loads the current data of a changed row. %[1]s is the entity
+	// (table) name.
+	qWatcherLoad = `SELECT data FROM %[1]s WHERE id = $1`
+)
 
 // ErrWatchNotConfigured is returned when Watch is called on a repository that
 // was not given a Watcher. Postgres watch support requires a dedicated
@@ -54,6 +61,10 @@ type (
 
 		mu   sync.RWMutex
 		subs map[watchKey]map[*subscriber]struct{}
+
+		// loadStmts caches one prepared statement per entity type used by
+		// notify to load the changed row.
+		loadStmts sync.Map // map[string]*sql.Stmt
 	}
 
 	watchKey struct {
@@ -179,8 +190,12 @@ func (w *Watcher) notify(id, entityType, op string) {
 	if op != "DELETE" {
 		// With a table per entity type, entityType is also the table name (the
 		// same identifier the repository writes to).
-		query := `SELECT data FROM ` + entityType + ` WHERE id = $1`
-		err := w.db.QueryRowContext(context.Background(), query, id).Scan(&newData)
+		stmt, err := w.loadStmt(entityType)
+		if err != nil {
+			w.log.Error("unable to prepare load statement", "entity_type", entityType, "error", err)
+			return
+		}
+		err = stmt.QueryRowContext(context.Background(), id).Scan(&newData)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			w.log.Error("unable to load changed entity", "id", id, "entity_type", entityType, "error", err)
 			return
@@ -191,6 +206,12 @@ func (w *Watcher) notify(id, entityType, op string) {
 	for _, sub := range subs {
 		sub.send(change)
 	}
+}
+
+// loadStmt returns a prepared statement that loads the data column of a row
+// from the given entity table, caching one per entity type.
+func (w *Watcher) loadStmt(entityType string) (*sql.Stmt, error) {
+	return cachedStmt(&w.loadStmts, w.db, entityType, fmt.Sprintf(qWatcherLoad, entityType))
 }
 
 // send delivers a change without ever blocking the dispatch loop. If the
