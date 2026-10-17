@@ -4,14 +4,14 @@ import "github.com/samber/lo"
 
 type (
 	Nic struct {
-		MacAddress   string              `rethinkdb:"macAddress"`
-		Name         string              `rethinkdb:"name"`
-		Identifier   string              `rethinkdb:"identifier"`
-		Vrf          string              `rethinkdb:"vrf"`
-		Neighbors    Nics                `rethinkdb:"neighbors"`
-		Hostname     string              `rethinkdb:"hostname"`
-		State        *NicState           `rethinkdb:"state"`
-		BGPPortState *SwitchBGPPortState `rethinkdb:"bgpPortState"`
+		MacAddress   string              `rethinkdb:"macAddress" json:"mac_address"`
+		Name         string              `rethinkdb:"name" json:"name"`
+		Identifier   string              `rethinkdb:"identifier" json:"identifier"`
+		Vrf          string              `rethinkdb:"vrf" json:"vrf"`
+		Neighbors    Nics                `rethinkdb:"neighbors" json:"neighbors"`
+		Hostname     string              `rethinkdb:"hostname" json:"hostname"`
+		State        *NicState           `rethinkdb:"state" json:"state"`
+		BGPPortState *SwitchBGPPortState `rethinkdb:"bgpPortState" json:"bgp_port_state"`
 	}
 
 	Nics []Nic
@@ -19,8 +19,8 @@ type (
 	NicMap map[string]*Nic
 
 	NicState struct {
-		Desired *SwitchPortStatus `rethinkdb:"desired"`
-		Actual  SwitchPortStatus  `rethinkdb:"actual"`
+		Desired *SwitchPortStatus `rethinkdb:"desired" json:"desired"`
+		Actual  SwitchPortStatus  `rethinkdb:"actual" json:"actual"`
 	}
 
 	BGPState         string

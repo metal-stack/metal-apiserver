@@ -8,8 +8,8 @@ import (
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/db/filters"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/issues"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/samber/lo"
@@ -103,7 +103,7 @@ func (p *partitionRepository) update(ctx context.Context, e *metal.Partition, re
 }
 
 func (p *partitionRepository) find(ctx context.Context, query *apiv2.PartitionQuery) (*metal.Partition, error) {
-	partition, err := p.s.ds.Partition().Find(ctx, queries.PartitionFilter(query))
+	partition, err := p.s.ds.Partition().Find(ctx, filters.Partition(query)...)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -111,7 +111,7 @@ func (p *partitionRepository) find(ctx context.Context, query *apiv2.PartitionQu
 }
 
 func (p *partitionRepository) list(ctx context.Context, query *apiv2.PartitionQuery) ([]*metal.Partition, error) {
-	partitions, err := p.s.ds.Partition().List(ctx, queries.PartitionFilter(query))
+	partitions, err := p.s.ds.Partition().List(ctx, filters.Partition(query)...)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -244,7 +244,7 @@ func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.Partitio
 		machineQuery.Partition = rq.Id
 	} else {
 		var err error
-		ps, err = p.s.ds.Partition().List(ctx, queries.PartitionFilter(&apiv2.PartitionQuery{}))
+		ps, err = p.s.ds.Partition().List(ctx, filters.Partition(&apiv2.PartitionQuery{})...)
 		if err != nil {
 			return nil, err
 		}
@@ -253,7 +253,7 @@ func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.Partitio
 	// if filtered on partition get all without more filters for issues evaluation
 	// to identify issues in requested machines, all machines are required.
 	// One example is to find machines with duplicate bmc addresses.
-	allMs, err := p.s.ds.Machine().List(ctx, queries.MachineFilter(machineQuery))
+	allMs, err := p.s.ds.Machine().List(ctx, filters.MachineQuery(machineQuery)...)
 	if err != nil {
 		return nil, err
 	}
@@ -271,17 +271,17 @@ func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.Partitio
 		ms = allMs
 	}
 
-	ecs, err := p.s.ds.Event().List(ctx, nil)
+	ecs, err := p.s.ds.Event().List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to fetch provisioning event containers: %w", err)
 	}
 
-	sizes, err := p.s.ds.Size().List(ctx, queries.SizeFilter(&apiv2.SizeQuery{}))
+	sizes, err := p.s.ds.Size().List(ctx, filters.Size(&apiv2.SizeQuery{})...)
 	if err != nil {
 		return nil, fmt.Errorf("unable to list sizes: %w", err)
 	}
 
-	sizeReservations, err := p.s.ds.SizeReservation().List(ctx, queries.SizeReservationFilter(&apiv2.SizeReservationQuery{}))
+	sizeReservations, err := p.s.ds.SizeReservation().List(ctx, filters.SizeReservation(&apiv2.SizeReservationQuery{})...)
 	if err != nil {
 		return nil, fmt.Errorf("unable to list size reservations: %w", err)
 	}

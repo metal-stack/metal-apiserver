@@ -11,8 +11,8 @@ import (
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/db/filters"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 )
 
 const (
@@ -78,23 +78,23 @@ func (p *partitionRepository) validateCreate(ctx context.Context, req *adminv2.P
 func (p *partitionRepository) validateDelete(ctx context.Context, req *metal.Partition) error {
 	var errs []error
 
-	ms, err := p.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{Partition: &req.ID}))
+	ms, err := p.s.ds.Machine().List(ctx, filters.MachineQuery(&apiv2.MachineQuery{Partition: &req.ID})...)
 	if err != nil {
 		return errorutil.NewInternal(err)
 	}
 
 	errs = validate(errs, len(ms) == 0, "there are still machines in %q", req.ID)
 
-	nwsresp, err := p.s.ds.Network().List(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{Partition: &req.ID}))
+	nwsresp, err := listNetworks(ctx, p.s.ds, &apiv2.NetworkQuery{Partition: &req.ID})
 	if err != nil {
 		return errorutil.NewInternal(err)
 	}
 
 	errs = validate(errs, len(nwsresp) == 0, "there are still networks in %q", req.ID)
 
-	sizeReservations, err := p.s.ds.SizeReservation().List(ctx, queries.SizeReservationFilter(&apiv2.SizeReservationQuery{
+	sizeReservations, err := p.s.ds.SizeReservation().List(ctx, filters.SizeReservation(&apiv2.SizeReservationQuery{
 		Partition: &req.ID,
-	}))
+	})...)
 	if err != nil {
 		return errorutil.NewInternal(err)
 	}

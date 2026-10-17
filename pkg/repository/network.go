@@ -14,9 +14,9 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
+	"github.com/metal-stack/metal-apiserver/pkg/db/filters"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -370,16 +370,11 @@ func (r *networkRepository) update(ctx context.Context, nw *metal.Network, req *
 }
 
 func (r *networkRepository) find(ctx context.Context, query *apiv2.NetworkQuery) (*metal.Network, error) {
-	nw, err := r.s.ds.Network().Find(ctx, r.scopedNetworkFilters(queries.NetworkFilter(query))...)
-	if err != nil {
-		return nil, err
-	}
-
-	return nw, nil
+	return r.s.ds.Network().Find(ctx, filters.Network(query, r.scopeProjectID())...)
 }
 
 func (r *networkRepository) list(ctx context.Context, query *apiv2.NetworkQuery) ([]*metal.Network, error) {
-	nws, err := r.s.ds.Network().List(ctx, r.scopedNetworkFilters(queries.NetworkFilter(query))...)
+	nws, err := r.s.ds.Network().List(ctx, filters.Network(query, r.scopeProjectID())...)
 	if err != nil {
 		return nil, err
 	}
@@ -526,15 +521,25 @@ func (r *networkRepository) getNetworkUsage(ctx context.Context, nw *metal.Netwo
 	return consumption, nil
 }
 
-func (r *networkRepository) scopedNetworkFilters(filter generic.EntityQuery) []generic.EntityQuery {
-	var qs []generic.EntityQuery
-	if r.scope != nil {
-		qs = append(qs, queries.NetworkProjectScoped(r.scope.projectID))
+// scopeProjectID returns the project the repository is scoped to, or an empty
+// string for an unscoped repository.
+func (r *networkRepository) scopeProjectID() string {
+	if r.scope == nil {
+		return ""
 	}
-	if filter != nil {
-		qs = append(qs, filter)
-	}
-	return qs
+	return r.scope.projectID
+}
+
+// findNetwork finds a network by the given query without applying a project
+// scope, working on both backends.
+func findNetwork(ctx context.Context, ds generic.Datastore, query *apiv2.NetworkQuery) (*metal.Network, error) {
+	return ds.Network().Find(ctx, filters.NetworkQuery(query)...)
+}
+
+// listNetworks lists networks by the given query without applying a project
+// scope, working on both backends.
+func listNetworks(ctx context.Context, ds generic.Datastore, query *apiv2.NetworkQuery) ([]*metal.Network, error) {
+	return ds.Network().List(ctx, filters.NetworkQuery(query)...)
 }
 
 func (r *networkRepository) calculatePrefixDifferences(existingNetwork *metal.Network, prefixes []string) (toRemoved, toAdded metal.Prefixes, err error) {
@@ -580,10 +585,10 @@ func (r *networkRepository) allocateChildPrefixes(ctx context.Context, projectId
 		parent = p
 
 	} else {
-		p, err := r.s.ds.Network().Find(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{
+		p, err := findNetwork(ctx, r.s.ds, &apiv2.NetworkQuery{
 			Partition: partitionId,
 			Type:      apiv2.NetworkType_NETWORK_TYPE_SUPER.Enum(),
-		}))
+		})
 		if err != nil {
 			return nil, nil, errorutil.FailedPrecondition("unable to find a private super in partition:%s %w", *partitionId, err)
 		}

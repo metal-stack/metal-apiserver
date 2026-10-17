@@ -17,6 +17,7 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/metal-stack/metal-apiserver/pkg/db/routing"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -40,7 +41,12 @@ var (
 func Test_machineServiceServer_Get(t *testing.T) {
 	t.Parallel()
 
-	testStore, closer := test.StartRepositoryWithCleanup(t)
+	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithRoutingConfig(routing.Config{
+		Default: routing.ModeRethink,
+		Entities: map[string]routing.Mode{
+			"Machine": routing.ModeBoth,
+		},
+	}))
 	log := testStore.GetLogger()
 	defer closer()
 
@@ -122,9 +128,9 @@ func Test_machineServiceServer_Get(t *testing.T) {
 		},
 		{
 			name:    "get non existing",
-			rq:      &apiv2.MachineServiceGetRequest{Uuid: "m99"},
+			rq:      &apiv2.MachineServiceGetRequest{Uuid: "fa1c6f1f-97df-41e8-b1c9-8244afb08a9b"},
 			want:    nil,
-			wantErr: errorutil.NotFound(`no machine with id "m99" found`),
+			wantErr: errorutil.NotFound(`no machine with id "fa1c6f1f-97df-41e8-b1c9-8244afb08a9b" found`),
 		},
 	}
 	for _, tt := range tests {
@@ -164,7 +170,12 @@ func Test_machineServiceServer_Get(t *testing.T) {
 func Test_machineServiceServer_List(t *testing.T) {
 	t.Parallel()
 
-	testStore, closer := test.StartRepositoryWithCleanup(t)
+	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithRoutingConfig(routing.Config{
+		Default: routing.ModeRethink,
+		Entities: map[string]routing.Mode{
+			"Machine": routing.ModePostgres,
+		},
+	}))
 	log := testStore.GetLogger()
 	defer closer()
 
@@ -316,7 +327,12 @@ func Test_machineServiceServer_List(t *testing.T) {
 func Test_machineServiceServer_Update(t *testing.T) {
 	t.Parallel()
 
-	testStore, closer := test.StartRepositoryWithCleanup(t)
+	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithRoutingConfig(routing.Config{
+		Default: routing.ModeRethink,
+		Entities: map[string]routing.Mode{
+			"Machine": routing.ModePostgres,
+		},
+	}))
 	log := testStore.GetLogger()
 	defer closer()
 

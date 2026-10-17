@@ -6,9 +6,8 @@ import (
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/db/filters"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -102,7 +101,7 @@ func (r *sizeRepository) delete(ctx context.Context, e *metal.Size) (*deleteInfo
 }
 
 func (r *sizeRepository) find(ctx context.Context, rq *apiv2.SizeQuery) (*metal.Size, error) {
-	size, err := r.s.ds.Size().Find(ctx, r.sizeFilters(queries.SizeFilter(rq))...)
+	size, err := r.s.ds.Size().Find(ctx, filters.Size(rq)...)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +110,7 @@ func (r *sizeRepository) find(ctx context.Context, rq *apiv2.SizeQuery) (*metal.
 }
 
 func (r *sizeRepository) list(ctx context.Context, rq *apiv2.SizeQuery) ([]*metal.Size, error) {
-	sizes, err := r.s.ds.Size().List(ctx, r.sizeFilters(queries.SizeFilter(rq))...)
+	sizes, err := r.s.ds.Size().List(ctx, filters.Size(rq)...)
 	if err != nil {
 		return nil, err
 	}
@@ -185,15 +184,6 @@ func (r *sizeRepository) convertToProto(ctx context.Context, e *metal.Size) (*ap
 			Generation: e.Generation,
 		},
 	}, nil
-}
-
-func (r *sizeRepository) sizeFilters(filter generic.EntityQuery) []generic.EntityQuery {
-	var qs []generic.EntityQuery
-	if filter != nil {
-		qs = append(qs, filter)
-	}
-
-	return qs
 }
 
 // FromHardware tries to find a size which matches the given hardware specs.

@@ -14,9 +14,8 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
-	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/db/filters"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/samber/lo"
@@ -195,7 +194,7 @@ func (r *switchRepository) GetSwitchesWithConnectedMachines(ctx context.Context,
 		switchesWithMachines []*apiv2.SwitchWithMachines
 	)
 
-	metalMachines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(query))
+	metalMachines, err := r.s.ds.Machine().List(ctx, filters.MachineQuery(query)...)
 	if err != nil {
 		return nil, err
 	}
@@ -267,7 +266,7 @@ func (r *switchRepository) GetSwitchesWithConnectedMachines(ctx context.Context,
 func (r *switchRepository) SearchSwitchesConnectedToMachine(ctx context.Context, m *metal.Machine) ([]*metal.Switch, error) {
 	var switches []*metal.Switch
 
-	rackSwitches, err := r.s.ds.Switch().List(ctx, queries.SwitchFilter(&apiv2.SwitchQuery{Rack: &m.RackID}))
+	rackSwitches, err := r.s.ds.Switch().List(ctx, filters.Switch(&apiv2.SwitchQuery{Rack: &m.RackID})...)
 	if err != nil {
 		return nil, err
 	}
@@ -336,9 +335,9 @@ func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *ap
 	m.Rack = s1.Rack
 	m.Room = s1.Room
 
-	sws, err := r.s.ds.Switch().List(ctx, queries.SwitchFilter(&apiv2.SwitchQuery{
+	sws, err := r.s.ds.Switch().List(ctx, filters.Switch(&apiv2.SwitchQuery{
 		ConnectedMachineId: &m.Uuid,
-	}))
+	})...)
 	if err != nil {
 		return fmt.Errorf("unable to query switches: %w", err)
 	}
@@ -423,9 +422,9 @@ func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *ap
 }
 
 func (r *switchRepository) RemoveMachineFromSwitches(ctx context.Context, machineID string) error {
-	switches, err := r.s.ds.Switch().List(ctx, queries.SwitchFilter(&apiv2.SwitchQuery{
+	switches, err := r.s.ds.Switch().List(ctx, filters.Switch(&apiv2.SwitchQuery{
 		ConnectedMachineId: &machineID,
-	}))
+	})...)
 	if err != nil {
 		return fmt.Errorf("unable to query switches: %w", err)
 	}
@@ -680,7 +679,7 @@ func (r *switchRepository) replace(ctx context.Context, oldSwitch, newSwitch *ap
 }
 
 func (r *switchRepository) find(ctx context.Context, query *apiv2.SwitchQuery) (*metal.Switch, error) {
-	sw, err := r.s.ds.Switch().Find(ctx, r.switchFilters(queries.SwitchFilter(query))...)
+	sw, err := r.s.ds.Switch().Find(ctx, filters.Switch(query)...)
 	if err != nil {
 		return nil, err
 	}
@@ -688,7 +687,7 @@ func (r *switchRepository) find(ctx context.Context, query *apiv2.SwitchQuery) (
 }
 
 func (r *switchRepository) list(ctx context.Context, query *apiv2.SwitchQuery) ([]*metal.Switch, error) {
-	switches, err := r.s.ds.Switch().List(ctx, r.switchFilters(queries.SwitchFilter(query))...)
+	switches, err := r.s.ds.Switch().List(ctx, filters.Switch(query)...)
 	if err != nil {
 		return nil, err
 	}
@@ -823,14 +822,6 @@ func (r *switchRepository) convertToProto(ctx context.Context, sw *metal.Switch)
 func (r *switchRepository) matchScope(sw *metal.Switch) bool {
 	// switches are not project scoped
 	return true
-}
-
-func (r *switchRepository) switchFilters(filter generic.EntityQuery) []generic.EntityQuery {
-	var qs []generic.EntityQuery
-	if filter != nil {
-		qs = append(qs, filter)
-	}
-	return qs
 }
 
 func (r *switchRepository) findTwinSwitch(ctx context.Context, newSwitch *metal.Switch) (*metal.Switch, error) {
@@ -984,13 +975,13 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 		}
 
 		if m != nil && m.Allocation != nil {
-			projectMachines, err = r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
+			projectMachines, err = r.s.ds.Machine().List(ctx, filters.MachineQuery(&apiv2.MachineQuery{
 				Allocation: &apiv2.MachineAllocationQuery{
 					Project: new(m.Allocation.Project),
 				},
 				Partition: new(sw.Partition),
 				Rack:      new(sw.Rack),
-			}))
+			})...)
 			if err != nil {
 				return nil, err
 			}
