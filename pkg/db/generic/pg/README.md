@@ -182,11 +182,19 @@ s, closer := test.StartRepositoryWithCleanup(t, test.WithRoutingConfig(routing.C
 ```
 
 Covered by `pkg/test/routing_test.go` (dual write to both stores, read-back from
-RethinkDB, read backend flipped to Postgres, and connect-error mapping).
+RethinkDB, read backend flipped to Postgres, connect-error mapping, and the ip
+read flip end-to-end through the repository).
 
-Not part of this slice (follow-ups): rolling the dual filter representation out
-to the remaining entities (currently Machine; the others still build only the
-RethinkDB `EntityQuery`), shadow reads / reconciliation, and pagination.
+Every entity now carries both representations: `pkg/db/filters` builds the
+RethinkDB `EntityQuery` and the Postgres `q.<Entity>Filter` side by side, and
+`pkg/db/generic/pg/q` provides a filter builder for each entity (Machine,
+Network, IP, Size, SizeReservation, SizeImageConstraint, Image, Partition,
+Switch, FilesystemLayout, Event). IP is the first entity whose filtered reads
+run end-to-end on Postgres (see `TestRoutingIPListFilteredFromPostgres`).
+
+Not part of this slice (follow-ups): per-entity backfill for the remaining
+entities (Machine and IP have data migrations), flipping the remaining entities'
+read backend via config, shadow reads / reconciliation, and pagination.
 
 #### Option 5 — Read-through / lazy migration
 
@@ -278,8 +286,8 @@ both backends.
 **Phase 1 — Postgres adapter + backfill + shadow writes**
 
 - Implement the port over `pg.GenericRepository` + `q/` filters.
-- Backfill entity by entity via `migrations` (Machine done), in dependency order;
-  validate with row counts and content checksums.
+- Backfill entity by entity via `migrations` (Machine and IP done), in dependency
+  order; validate with row counts and content checksums.
 - Enable shadow writes behind a flag (RethinkDB authoritative, Postgres
   best-effort/async) and a shadow-read comparison job that alerts on diffs.
 
@@ -337,6 +345,7 @@ Suggested order, leaves first:
 This should be done Entity by Entity
 
 - [x] metal.Machine
+- [x] metal.IP
 
 ### Adopt Test and Datacenter framework
 

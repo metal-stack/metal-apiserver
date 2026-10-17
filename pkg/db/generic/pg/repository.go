@@ -492,6 +492,19 @@ func (r *GenericRepository[T]) Query(ctx context.Context, filters []QueryFilter,
 			args = append(args, field, arrPath, f.Value)
 			argIdx += 3
 
+		case "LIKE_PATTERN":
+			// Scalar LIKE with a system-provided pattern, matched unescaped for
+			// the same reason as ARRAY_ELEM_LIKE: the caller (e.g. the ip and
+			// network address-family checks in q/) builds the pattern itself as
+			// `%.%` / `%:%`. User input must go through LIKE/ILIKE, which escape.
+			var (
+				parts    = strings.Split(f.Path, ".")
+				jsonPath = "{" + strings.Join(parts, ",") + "}"
+			)
+			fmt.Fprintf(&queryBuilder, " (data #>> $%d) LIKE $%d", argIdx, argIdx+1)
+			args = append(args, jsonPath, f.Value)
+			argIdx += 2
+
 		case "ARRAY_ELEM_LIKE":
 			// Match if any element of an array of objects has the given field
 			// matching a LIKE pattern. The path's last segment is the field within

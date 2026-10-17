@@ -4,15 +4,13 @@
 //
 // Centralizing this here keeps the repository implementations free of
 // backend-specific query plumbing: a repository only describes which entity and
-// API query it wants, and the entity storage takes care of the rest. Entities
-// that have no Postgres query builder yet only carry the RethinkDB
-// representation; that is sufficient while the entity is served by the
-// RethinkDB backend.
+// API query it wants, and the entity storage takes care of the rest.
 package filters
 
 import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/db/generic/pg"
 	pgq "github.com/metal-stack/metal-apiserver/pkg/db/generic/pg/q"
 	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/db/storage"
@@ -39,17 +37,7 @@ func Machine(rq *apiv2.MachineQuery, scopeProject string) []storage.Filter {
 
 // MachineQuery returns only the machine query filter, without a project scope.
 func MachineQuery(rq *apiv2.MachineQuery) []storage.Filter {
-	if isEmptyQuery(rq) {
-		return nil
-	}
-	rethinkFilter := queries.MachineFilter(rq)
-	if rethinkFilter == nil {
-		return nil
-	}
-	return []storage.Filter{{
-		Rethink:  generic.EntityQuery(rethinkFilter),
-		Postgres: pgq.MachineFilter(rq),
-	}}
+	return both(isEmptyQuery(rq), queries.MachineFilter(rq), pgq.MachineFilter(rq))
 }
 
 // Network returns the network query for both backends. A non-empty scopeProject
@@ -71,80 +59,70 @@ func Network(rq *apiv2.NetworkQuery, scopeProject string) []storage.Filter {
 
 // NetworkQuery returns only the network query filter, without a project scope.
 func NetworkQuery(rq *apiv2.NetworkQuery) []storage.Filter {
-	if isEmptyQuery(rq) {
-		return nil
-	}
-	rethinkFilter := queries.NetworkFilter(rq)
-	if rethinkFilter == nil {
-		return nil
-	}
-	return []storage.Filter{{
-		Rethink:  generic.EntityQuery(rethinkFilter),
-		Postgres: pgq.NetworkFilter(rq),
-	}}
+	return both(isEmptyQuery(rq), queries.NetworkFilter(rq), pgq.NetworkFilter(rq))
 }
 
 // IPByProject returns a filter restricting IPs to those of the given project.
 func IPByProject(project string) []storage.Filter {
-	return []storage.Filter{{Rethink: generic.EntityQuery(queries.IpProjectScoped(project))}}
+	return []storage.Filter{{
+		Rethink:  generic.EntityQuery(queries.IpProjectScoped(project)),
+		Postgres: pgq.IpProjectScoped(project),
+	}}
 }
 
-// IP returns the IP query filter (RethinkDB backend only).
+// IP returns the IP query filter.
 func IP(rq *apiv2.IPQuery) []storage.Filter {
-	return rethinkOnly(isEmptyQuery(rq), queries.IpFilter(rq))
+	return both(isEmptyQuery(rq), queries.IpFilter(rq), pgq.IpFilter(rq))
 }
 
-// Size returns the size query filter (RethinkDB backend only).
+// Size returns the size query filter.
 func Size(rq *apiv2.SizeQuery) []storage.Filter {
-	return rethinkOnly(isEmptyQuery(rq), queries.SizeFilter(rq))
+	return both(isEmptyQuery(rq), queries.SizeFilter(rq), pgq.SizeFilter(rq))
 }
 
-// SizeReservation returns the size reservation query filter (RethinkDB backend
-// only).
+// SizeReservation returns the size reservation query filter.
 func SizeReservation(rq *apiv2.SizeReservationQuery) []storage.Filter {
-	return rethinkOnly(isEmptyQuery(rq), queries.SizeReservationFilter(rq))
+	return both(isEmptyQuery(rq), queries.SizeReservationFilter(rq), pgq.SizeReservationFilter(rq))
 }
 
-// SizeImageConstraint returns the size image constraint query filter (RethinkDB
-// backend only).
+// SizeImageConstraint returns the size image constraint query filter.
 func SizeImageConstraint(rq *apiv2.SizeImageConstraintQuery) []storage.Filter {
-	return rethinkOnly(isEmptyQuery(rq), queries.SizeImageConstraintFilter(rq))
+	return both(isEmptyQuery(rq), queries.SizeImageConstraintFilter(rq), pgq.SizeImageConstraintFilter(rq))
 }
 
-// Image returns the image query filter (RethinkDB backend only).
+// Image returns the image query filter.
 func Image(rq *apiv2.ImageQuery) []storage.Filter {
-	return rethinkOnly(isEmptyQuery(rq), queries.ImageFilter(rq))
+	return both(isEmptyQuery(rq), queries.ImageFilter(rq), pgq.ImageFilter(rq))
 }
 
-// Partition returns the partition query filter (RethinkDB backend only).
+// Partition returns the partition query filter.
 func Partition(rq *apiv2.PartitionQuery) []storage.Filter {
-	return rethinkOnly(isEmptyQuery(rq), queries.PartitionFilter(rq))
+	return both(isEmptyQuery(rq), queries.PartitionFilter(rq), pgq.PartitionFilter(rq))
 }
 
-// Switch returns the switch query filter (RethinkDB backend only).
+// Switch returns the switch query filter.
 func Switch(rq *apiv2.SwitchQuery) []storage.Filter {
-	return rethinkOnly(isEmptyQuery(rq), queries.SwitchFilter(rq))
+	return both(isEmptyQuery(rq), queries.SwitchFilter(rq), pgq.SwitchFilter(rq))
 }
 
-// FilesystemLayout returns the filesystem layout query filter (RethinkDB
-// backend only).
+// FilesystemLayout returns the filesystem layout query filter.
 func FilesystemLayout(rq *apiv2.FilesystemServiceListRequest) []storage.Filter {
-	return rethinkOnly(isEmptyQuery(rq), queries.FileSystemLayoutFilter(rq))
+	return both(isEmptyQuery(rq), queries.FileSystemLayoutFilter(rq), pgq.FileSystemLayoutFilter(rq))
 }
 
-// Event returns the provisioning event query filter for a machine (RethinkDB
-// backend only).
+// Event returns the provisioning event query filter for a machine.
 func Event(machineID string) []storage.Filter {
-	return []storage.Filter{{Rethink: generic.EntityQuery(queries.EventFilter(machineID))}}
+	return both(machineID == "", queries.EventFilter(machineID), pgq.EventFilter(machineID))
 }
 
-// rethinkOnly wraps a RethinkDB query builder in a backend-agnostic filter. An
-// empty query expresses no filter and yields no filter at all.
-func rethinkOnly(empty bool, builder generic.EntityQuery) []storage.Filter {
-	if empty || builder == nil {
+// both wraps the RethinkDB and Postgres representations of a query into one
+// backend-agnostic filter. An empty query, or a nil RethinkDB builder, means the
+// query expresses no filter and yields no filter at all.
+func both(empty bool, rethink generic.EntityQuery, postgres []pg.QueryFilter) []storage.Filter {
+	if empty || rethink == nil {
 		return nil
 	}
-	return []storage.Filter{{Rethink: builder}}
+	return []storage.Filter{{Rethink: rethink, Postgres: postgres}}
 }
 
 // isEmptyQuery reports whether a proto query message has no fields set, i.e. it

@@ -194,3 +194,61 @@ func TestRoutingMachineListFilteredFromPostgres(t *testing.T) {
 	}
 	require.ElementsMatch(t, []string{"m1", uuidID}, ids)
 }
+
+// TestRoutingIPListFilteredFromPostgres flips the ip entity to the Postgres read
+// backend end-to-end through the repository: the scope filter (IPByProject) and
+// the query filter (IpFilter) both need their Postgres representation, and the
+// results are served from Postgres. It covers scalar, tag and address-family
+// filters, mirroring the RethinkDB-backed TestIPFilter.
+func TestRoutingIPListFilteredFromPostgres(t *testing.T) {
+	ctx := t.Context()
+
+	s, closer := StartRepositoryWithCleanup(t, WithRoutingConfig(routing.Config{
+		Default:  routing.ModeRethink,
+		Entities: map[string]routing.Mode{"IP": routing.ModePostgres},
+	}))
+	defer closer()
+
+	const project = "project-1"
+	for _, ip := range []*metal.IP{
+		{IPAddress: "10.0.0.1", AllocationUUID: "uuid-1", Name: "ip-one", ProjectID: project, NetworkID: "n1", Type: metal.Ephemeral, Tags: []string{"color=red"}},
+		{IPAddress: "10.0.0.2", AllocationUUID: "uuid-2", Name: "ip-two", ProjectID: "other", NetworkID: "n1", Type: metal.Static, Tags: []string{"color=blue"}},
+		{IPAddress: "2001:db8::1", AllocationUUID: "uuid-3", Name: "ip-v6", ProjectID: project, NetworkID: "n2", Type: metal.Ephemeral, Tags: []string{}},
+	} {
+		_, err := s.ds.IP().Create(ctx, ip)
+		require.NoError(t, err)
+	}
+
+	ips := func(t *testing.T, got []*apiv2.IP) []string {
+		t.Helper()
+		res := make([]string, 0, len(got))
+		for _, ip := range got {
+			res = append(res, ip.Ip)
+		}
+		return res
+	}
+
+	t.Run("type filter is served from postgres", func(t *testing.T) {
+		got, err := s.IP(project).List(ctx, &apiv2.IPQuery{Type: apiv2.IPType_IP_TYPE_EPHEMERAL.Enum()})
+		require.NoError(t, err)
+		require.ElementsMatch(t, []string{"10.0.0.1", "2001:db8::1"}, ips(t, got))
+	})
+
+	t.Run("label filter is served from postgres", func(t *testing.T) {
+		got, err := s.IP(project).List(ctx, &apiv2.IPQuery{Labels: &apiv2.Labels{Labels: map[string]string{"color": "red"}}})
+		require.NoError(t, err)
+		require.ElementsMatch(t, []string{"10.0.0.1"}, ips(t, got))
+	})
+
+	t.Run("address family filter is served from postgres", func(t *testing.T) {
+		got, err := s.IP(project).List(ctx, &apiv2.IPQuery{AddressFamily: apiv2.IPAddressFamily_IP_ADDRESS_FAMILY_V4.Enum()})
+		require.NoError(t, err)
+		require.ElementsMatch(t, []string{"10.0.0.1"}, ips(t, got))
+	})
+
+	t.Run("scope is enforced by postgres", func(t *testing.T) {
+		got, err := s.IP("other").List(ctx, nil)
+		require.NoError(t, err)
+		require.ElementsMatch(t, []string{"10.0.0.2"}, ips(t, got))
+	})
+}
