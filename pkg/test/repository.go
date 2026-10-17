@@ -20,10 +20,10 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/async/queue"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
+	"github.com/metal-stack/metal-apiserver/pkg/db/filters"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic/pg"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/db/routing"
 	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
@@ -471,7 +471,7 @@ func (t *testStore) GetToken(subject string, cr *apiv2.TokenServiceCreateRequest
 }
 
 func (t *testStore) GetEventContainer(machineID string) *metal.ProvisioningEventContainer {
-	resp, err := t.ds.Event().Find(t.t.Context(), queries.EventFilter(machineID))
+	resp, err := t.ds.Event().Find(t.t.Context(), filters.Event(machineID)...)
 	require.NoError(t.t, err)
 	return resp
 }

@@ -14,9 +14,9 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/tag"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
+	"github.com/metal-stack/metal-apiserver/pkg/db/filters"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/tags"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	metalcommon "github.com/metal-stack/metal-lib/pkg/metal"
@@ -102,7 +102,7 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 
 	if req.FilesystemLayout == nil {
 		var fsls metal.FilesystemLayouts
-		fsls, err := r.s.ds.FilesystemLayout().List(ctx, nil)
+		fsls, err := r.s.ds.FilesystemLayout().List(ctx)
 		if err != nil {
 			return result, err
 		}
@@ -275,7 +275,7 @@ func (r *machineRepository) rollback(ctx context.Context, rollbackEntities *roll
 
 			r.s.log.Info("ip delete enqueued", "info", info)
 		} else {
-			metalIP, err := r.s.ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Uuid: &ip.AllocationUUID}))
+			metalIP, err := r.s.ds.IP().Find(ctx, filters.IP(&apiv2.IPQuery{Uuid: &ip.AllocationUUID})...)
 			if err != nil {
 				r.s.log.Error("unable to get ip", "error", err)
 				continue
@@ -328,14 +328,14 @@ func (r *machineRepository) findWaitingMachine(ctx context.Context, partition, p
 	}
 	defer r.s.ds.Unlock(ctx, partition)
 
-	candidates, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
+	candidates, err := r.s.ds.Machine().List(ctx, filters.MachineQuery(&apiv2.MachineQuery{
 		Partition:    &partition,
 		Size:         &size,
 		State:        apiv2.MachineState_MACHINE_STATE_AVAILABLE.Enum(), // Machines which are locked or tainted are not considered
 		Waiting:      new(true),
 		Preallocated: new(false),
 		NotAllocated: new(true),
-	}))
+	})...)
 	if err != nil {
 		return nil, err
 	}
@@ -345,7 +345,7 @@ func (r *machineRepository) findWaitingMachine(ctx context.Context, partition, p
 
 	// TODO check with a waiting and crashing metal-hammer if the machine does not stay in waiting for longer
 	// If this is the case we can remove the whole provisioningEvent fetching and evaluating
-	ecs, err := r.s.ds.Event().List(ctx, nil)
+	ecs, err := r.s.ds.Event().List(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -372,14 +372,14 @@ func (r *machineRepository) findWaitingMachine(ctx context.Context, partition, p
 	if role == metal.RoleFirewall {
 		allocationType = apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL.Enum()
 	}
-	projectMachines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
+	projectMachines, err := r.s.ds.Machine().List(ctx, filters.MachineQuery(&apiv2.MachineQuery{
 		Partition: &partition,
 		Size:      &size,
 		Allocation: &apiv2.MachineAllocationQuery{
 			Project:        &project,
 			AllocationType: allocationType,
 		},
-	}))
+	})...)
 	if err != nil {
 		return nil, err
 	}

@@ -9,14 +9,16 @@ import (
 
 	"uuid"
 
-	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/api/go/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic/pg"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/metal-stack/metal-apiserver/pkg/db/storage"
 )
 
-var _ Storage[*metal.Machine] = (*postgresStorage[*metal.Machine])(nil)
+var _ storage.Storage[*metal.Machine] = (*postgresStorage[*metal.Machine])(nil)
 
-// postgresStorage adapts a pg.GenericRepository to the routing port.
+// postgresStorage adapts a pg.GenericRepository to the neutral Entity Storage
+// port.
 //
 // Identity: the port addresses entities by their metal string id, which is used
 // verbatim as the Postgres primary key (the column is TEXT). UUID-keyed entities
@@ -28,13 +30,19 @@ var _ Storage[*metal.Machine] = (*postgresStorage[*metal.Machine])(nil)
 // The adapter maps them with the invariant `version = generation + 1`: create
 // stamps generation 0 (Postgres writes version 1) and update increments
 // generation by one, using the pre-increment generation as the expected version.
-type postgresStorage[E generic.Entity] struct {
+//
+// Errors: the repository returns backend-agnostic sentinels; this adapter
+// renders them as the connect errors the Repository layer expects, using the
+// entity's legacy name so both backends report identical messages.
+type postgresStorage[E storage.Entity] struct {
 	repo *pg.GenericRepository[E]
+	name string
 }
 
-// NewPostgresStorage wraps a Postgres repository in the routing port.
-func NewPostgresStorage[E generic.Entity](repo *pg.GenericRepository[E]) Storage[E] {
-	return &postgresStorage[E]{repo: repo}
+// NewPostgresStorage wraps a Postgres repository in the neutral port. name is
+// the entity's legacy (lowercase) name, used in error messages.
+func NewPostgresStorage[E storage.Entity](repo *pg.GenericRepository[E], name string) storage.Storage[E] {
+	return &postgresStorage[E]{repo: repo, name: name}
 }
 
 func (s *postgresStorage[E]) Create(ctx context.Context, e E) (E, error) {
@@ -45,7 +53,10 @@ func (s *postgresStorage[E]) Create(ctx context.Context, e E) (E, error) {
 		return zero, err
 	}
 	if err := s.repo.Create(ctx, id, e); err != nil {
-		return zero, mapPostgresError(err)
+		if errors.Is(err, pg.ErrAlreadyExists) {
+			return zero, errorutil.Conflict("cannot create %s in database, entity already exists: %s", s.name, id)
+		}
+		return zero, toConnectError(err)
 	}
 
 	return e, nil
@@ -59,7 +70,17 @@ func (s *postgresStorage[E]) Update(ctx context.Context, e E) error {
 		return err
 	}
 
-	return mapPostgresError(s.repo.Update(ctx, id, expected, e))
+	err := s.repo.Update(ctx, id, expected, e)
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, pg.ErrOptimisticLockConflict):
+		return errorutil.Aborted("cannot update %s (%s): %s", s.name, e.GetID(), entityAlreadyModifiedMessage)
+	case errors.Is(err, pg.ErrNotFound):
+		return errorutil.NotFound("no %s with id %q found", s.name, e.GetID())
+	default:
+		return toConnectError(err)
+	}
 }
 
 func (s *postgresStorage[E]) Upsert(ctx context.Context, e E) error {
@@ -68,11 +89,20 @@ func (s *postgresStorage[E]) Upsert(ctx context.Context, e E) error {
 		return err
 	}
 
-	return mapPostgresError(s.repo.Upsert(ctx, id, e))
+	err := s.repo.Upsert(ctx, id, e)
+	if err != nil && errors.Is(err, pg.ErrAlreadyExists) {
+		return errorutil.Conflict("cannot upsert %s (%s) in database: entity already exists", s.name, e.GetID())
+	}
+	return toConnectError(err)
 }
 
 func (s *postgresStorage[E]) Delete(ctx context.Context, e E) error {
-	return mapPostgresError(s.repo.Delete(ctx, entityID(e)))
+	err := s.repo.Delete(ctx, entityID(e))
+	if errors.Is(err, pg.ErrNotFound) {
+		// deletes are idempotent: deleting a missing entity is a no-op.
+		return nil
+	}
+	return toConnectError(err)
 }
 
 func (s *postgresStorage[E]) Get(ctx context.Context, id string) (E, error) {
@@ -80,13 +110,16 @@ func (s *postgresStorage[E]) Get(ctx context.Context, id string) (E, error) {
 
 	ent, err := s.repo.Get(ctx, id)
 	if err != nil {
-		return zero, mapPostgresError(err)
+		if errors.Is(err, pg.ErrNotFound) {
+			return zero, errorutil.NotFound("no %s with id %q found", s.name, id)
+		}
+		return zero, toConnectError(err)
 	}
 
 	return ent.Data, nil
 }
 
-func (s *postgresStorage[E]) Find(ctx context.Context, filters ...Filter) (E, error) {
+func (s *postgresStorage[E]) Find(ctx context.Context, filters ...storage.Filter) (E, error) {
 	var zero E
 
 	entities, err := s.List(ctx, filters...)
@@ -95,15 +128,15 @@ func (s *postgresStorage[E]) Find(ctx context.Context, filters ...Filter) (E, er
 	}
 	switch len(entities) {
 	case 0:
-		return zero, fmt.Errorf("%w: no %s found", ErrNotFound, EntityName[E]())
+		return zero, errorutil.NotFound("no %s found", s.name)
 	case 1:
 		return entities[0], nil
 	default:
-		return zero, fmt.Errorf("more than one %s found by query", EntityName[E]())
+		return zero, fmt.Errorf("more than one %s found by query", s.name)
 	}
 }
 
-func (s *postgresStorage[E]) List(ctx context.Context, filters ...Filter) ([]E, error) {
+func (s *postgresStorage[E]) List(ctx context.Context, filters ...storage.Filter) ([]E, error) {
 	pgFilters, err := postgresFilters(filters)
 	if err != nil {
 		return nil, err
@@ -111,7 +144,7 @@ func (s *postgresStorage[E]) List(ctx context.Context, filters ...Filter) ([]E, 
 
 	entities, err := s.repo.Query(ctx, pgFilters, nil)
 	if err != nil {
-		return nil, mapPostgresError(err)
+		return nil, toConnectError(err)
 	}
 
 	out := make([]E, 0, len(entities))
@@ -127,18 +160,23 @@ func (s *postgresStorage[E]) Watch(ctx context.Context, id string) (<-chan struc
 }, error) {
 	changes, err := s.repo.Watch(ctx, id)
 	if err != nil {
-		return nil, mapPostgresError(err)
+		return nil, toConnectError(err)
 	}
 	return changes, nil
 }
 
-func postgresFilters(filters []Filter) ([]pg.QueryFilter, error) {
+// postgresFilters extracts the Postgres representation from every filter.
+func postgresFilters(filters []storage.Filter) ([]pg.QueryFilter, error) {
 	if err := requirePostgresFilters(filters); err != nil {
 		return nil, err
 	}
 	result := make([]pg.QueryFilter, 0, len(filters))
-	for _, f := range filters {
-		result = append(result, f.Postgres...)
+	for i, f := range filters {
+		pf, ok := f.Postgres.([]pg.QueryFilter)
+		if !ok {
+			return nil, fmt.Errorf("%w: filter %d has no postgres representation", storage.ErrFilterUnsupported, i)
+		}
+		result = append(result, pf...)
 	}
 	return result, nil
 }
@@ -147,7 +185,7 @@ func postgresFilters(filters []Filter) ([]pg.QueryFilter, error) {
 // UUIDv7 (for UUID-keyed entities that let the server assign one) and written
 // back to the entity; named entities supply their meaningful id up front and it
 // is used verbatim.
-func entityID[E generic.Entity](e E) string {
+func entityID[E storage.Entity](e E) string {
 	id := e.GetID()
 	if id == "" {
 		id = uuid.NewV7().String()
@@ -156,19 +194,19 @@ func entityID[E generic.Entity](e E) string {
 	return id
 }
 
-// mapPostgresError maps the postgres sentinels to the backend-agnostic
-// sentinels. The message is not carried over: genericStorage renders the final
-// connect error so both backends report identical messages.
-func mapPostgresError(err error) error {
+// toConnectError maps the postgres sentinels to the connect errors callers
+// expect. The message is rendered from the sentinel; per-operation callers
+// override it with the entity name where a more specific message is needed.
+func toConnectError(err error) error {
 	switch {
 	case err == nil:
 		return nil
 	case errors.Is(err, pg.ErrNotFound):
-		return ErrNotFound
+		return errorutil.NotFound("%v", err)
 	case errors.Is(err, pg.ErrAlreadyExists):
-		return ErrAlreadyExists
+		return errorutil.Conflict("%v", err)
 	case errors.Is(err, pg.ErrOptimisticLockConflict):
-		return ErrConflict
+		return errorutil.Aborted("%v", err)
 	default:
 		return err
 	}

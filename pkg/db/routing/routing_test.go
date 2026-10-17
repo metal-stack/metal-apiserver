@@ -8,8 +8,10 @@ import (
 
 	"uuid"
 
+	"github.com/metal-stack/api/go/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic/pg"
+	"github.com/metal-stack/metal-apiserver/pkg/db/storage"
 	"github.com/stretchr/testify/require"
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
@@ -57,10 +59,10 @@ type fakeStorage struct {
 	listRes    []*testEntity
 	lastEntity *testEntity
 	lastID     string
-	lastFilter []Filter
+	lastFilter []storage.Filter
 }
 
-var _ Storage[*testEntity] = (*fakeStorage)(nil)
+var _ storage.Storage[*testEntity] = (*fakeStorage)(nil)
 
 func (f *fakeStorage) Create(_ context.Context, e *testEntity) (*testEntity, error) {
 	f.record("create", e)
@@ -110,7 +112,7 @@ func (f *fakeStorage) Get(_ context.Context, id string) (*testEntity, error) {
 	return f.getRes, nil
 }
 
-func (f *fakeStorage) Find(_ context.Context, filters ...Filter) (*testEntity, error) {
+func (f *fakeStorage) Find(_ context.Context, filters ...storage.Filter) (*testEntity, error) {
 	f.calls = append(f.calls, "find")
 	f.lastFilter = filters
 	if f.err != nil {
@@ -119,7 +121,7 @@ func (f *fakeStorage) Find(_ context.Context, filters ...Filter) (*testEntity, e
 	return f.findRes, nil
 }
 
-func (f *fakeStorage) List(_ context.Context, filters ...Filter) ([]*testEntity, error) {
+func (f *fakeStorage) List(_ context.Context, filters ...storage.Filter) ([]*testEntity, error) {
 	f.calls = append(f.calls, "list")
 	f.lastFilter = filters
 	if f.err != nil {
@@ -153,8 +155,8 @@ func (f *fakeStorage) record(op string, e *testEntity) {
 func newRouter(t *testing.T, cfg Config, rethink, postgres *fakeStorage) *Router[*testEntity] {
 	t.Helper()
 	var (
-		r Storage[*testEntity]
-		p Storage[*testEntity]
+		r storage.Storage[*testEntity]
+		p storage.Storage[*testEntity]
 	)
 	if rethink != nil {
 		r = rethink
@@ -297,8 +299,8 @@ func TestRouterWatchReadsPrimary(t *testing.T) {
 }
 
 func TestRouterRequiresFilterForReadBackend(t *testing.T) {
-	rethinkOnlyFilter := Filter{Rethink: noopRethinkFilter()}
-	postgresOnlyFilter := Filter{Postgres: []pg.QueryFilter{{Path: "name", Op: "=", Value: "x"}}}
+	rethinkOnlyFilter := storage.Filter{Rethink: noopRethinkFilter()}
+	postgresOnlyFilter := storage.Filter{Postgres: []pg.QueryFilter{{Path: "name", Op: "=", Value: "x"}}}
 
 	rethink := &fakeStorage{name: "rethink"}
 	postgres := &fakeStorage{name: "postgres"}
@@ -306,12 +308,12 @@ func TestRouterRequiresFilterForReadBackend(t *testing.T) {
 	// reading from rethinkdb with a postgres-only filter must fail
 	router := newRouter(t, Config{Default: ModeBoth}, rethink, postgres)
 	_, err := router.List(context.Background(), postgresOnlyFilter)
-	require.ErrorIs(t, err, ErrFilterUnsupported)
+	require.ErrorIs(t, err, storage.ErrFilterUnsupported)
 
 	// reading from postgres with a rethink-only filter must fail
 	router = newRouter(t, Config{Default: ModeBoth, ReadFrom: ModePostgres}, rethink, postgres)
 	_, err = router.List(context.Background(), rethinkOnlyFilter)
-	require.ErrorIs(t, err, ErrFilterUnsupported)
+	require.ErrorIs(t, err, storage.ErrFilterUnsupported)
 }
 
 func TestEntityID(t *testing.T) {
@@ -366,12 +368,12 @@ func TestStampHelpers(t *testing.T) {
 	})
 }
 
-func TestMapPostgresError(t *testing.T) {
-	require.NoError(t, mapPostgresError(nil))
-	require.ErrorIs(t, mapPostgresError(pg.ErrNotFound), ErrNotFound)
-	require.ErrorIs(t, mapPostgresError(pg.ErrAlreadyExists), ErrAlreadyExists)
-	require.ErrorIs(t, mapPostgresError(pg.ErrOptimisticLockConflict), ErrConflict)
+func TestToConnectError(t *testing.T) {
+	require.NoError(t, toConnectError(nil))
+	require.True(t, errorutil.IsNotFound(toConnectError(pg.ErrNotFound)))
+	require.True(t, errorutil.IsConflict(toConnectError(pg.ErrAlreadyExists)))
+	require.True(t, errorutil.IsAborted(toConnectError(pg.ErrOptimisticLockConflict)))
 
 	other := errors.New("boom")
-	require.Equal(t, other, mapPostgresError(other))
+	require.Equal(t, other, toConnectError(other))
 }

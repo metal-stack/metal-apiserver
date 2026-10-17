@@ -2,45 +2,28 @@ package generic
 
 import (
 	"context"
-	"time"
 
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/metal-stack/metal-apiserver/pkg/db/storage"
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
 
 const entityAlreadyModifiedErrorMessage = "the entity was already modified, please retry"
 
 type (
-	// Entity is an interface that allows metal entities to be created and stored
-	// into the database with the generic creation and update functions.
-	Entity interface {
-		// GetID returns the entity's id
-		GetID() string
-		// SetID sets the entity's id
-		SetID(id string)
-		// GetChanged returns the entity's changed time
-		GetChanged() time.Time
-		// GetCreated returns the entity's creation time
-		GetCreated() time.Time
-		// GetGeneration returns the entity's generation
-		GetGeneration() uint64
-	}
+	// Entity is the persistence contract an Entity satisfies. It is an alias of
+	// the neutral storage.Entity so the RethinkDB implementation and the port
+	// share one definition.
+	Entity = storage.Entity
 
+	// EntityQuery is the RethinkDB-specific representation of a query. It is an
+	// implementation detail of the RethinkDB adapter; callers build it through
+	// pkg/db/queries and carry it in a storage.Filter.
 	EntityQuery func(q r.Term) r.Term
 
-	Storage[E Entity] interface {
-		Create(ctx context.Context, e E) (E, error)
-		Update(ctx context.Context, e E) error
-		Upsert(ctx context.Context, e E) error
-		Delete(ctx context.Context, e E) error
-		Get(ctx context.Context, id string) (E, error)
-		Find(ctx context.Context, queries ...EntityQuery) (E, error)
-		List(ctx context.Context, queries ...EntityQuery) ([]E, error)
-		Watch(ctx context.Context, id string) (<-chan struct {
-			Old E
-			New E
-		}, error)
-	}
+	// Storage is the backend-agnostic Entity Storage port. It is an alias of
+	// storage.Storage; the RethinkDB implementation lives in this package.
+	Storage[E Entity] = storage.Storage[E]
 
 	Datastore interface {
 		IP() Storage[*metal.IP]

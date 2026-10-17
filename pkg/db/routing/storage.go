@@ -6,125 +6,40 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
-	"github.com/metal-stack/metal-apiserver/pkg/db/generic/pg"
+	"github.com/metal-stack/metal-apiserver/pkg/db/storage"
 )
 
-var (
-	// ErrPartialWrite is returned when a dual write succeeded on the read
-	// backend but failed on the other one. The data is now inconsistent and the
-	// failed backend needs to be reconciled.
-	ErrPartialWrite = errors.New("partial write: backend mirror failed")
+// entityAlreadyModifiedMessage is the user-facing text for an optimistic-lock
+// conflict. It matches the RethinkDB adapter so both backends report the same
+// message.
+const entityAlreadyModifiedMessage = "the entity was already modified, please retry"
 
-	// ErrFilterUnsupported is returned when a query does not carry a filter
-	// representation for the backend that serves the read.
-	ErrFilterUnsupported = errors.New("filter is not available for the read backend")
+// ErrPartialWrite is returned when a dual write succeeded on the read
+// backend but failed on the other one. The data is now inconsistent and the
+// failed backend needs to be reconciled.
+var ErrPartialWrite = errors.New("partial write: backend mirror failed")
 
-	// ErrNotFound is returned when an entity does not exist.
-	ErrNotFound = errors.New("entity not found")
-	// ErrAlreadyExists is returned when a create conflicts with an existing
-	// entity.
-	ErrAlreadyExists = errors.New("entity already exists")
-	// ErrConflict is returned when an optimistic-lock conflict was detected.
-	ErrConflict = errors.New("entity was modified concurrently")
-)
-
-// Filter carries the backend-specific representation of a query. A caller
-// builds the side(s) it needs; a routed read requires the representation of the
-// backend that serves reads. This keeps the port free of a ReQL interpreter
-// while still allowing a single call to serve either backend.
-//
-// The representations are produced by the existing, backend-specific query
-// packages:
-//
-//	Filter{
-//	    Rethink:  queries.MachineFilter(rq),   // pkg/db/queries
-//	    Postgres: q.MachineFilter(rq),         // pkg/db/generic/pg/q
-//	}
-type Filter struct {
-	Rethink  generic.EntityQuery
-	Postgres []pg.QueryFilter
-}
-
-// Storage is the backend-agnostic port for metal entities. Both the RethinkDB
-// and the Postgres backend implement it, and Router dispatches to one of them.
-type Storage[E generic.Entity] interface {
-	Create(ctx context.Context, e E) (E, error)
-	Update(ctx context.Context, e E) error
-	Upsert(ctx context.Context, e E) error
-	Delete(ctx context.Context, e E) error
-	Get(ctx context.Context, id string) (E, error)
-	Find(ctx context.Context, filters ...Filter) (E, error)
-	List(ctx context.Context, filters ...Filter) ([]E, error)
-	Watch(ctx context.Context, id string) (<-chan struct {
-		Old E
-		New E
-	}, error)
-}
-
-// FilteredStorage is the migration-aware read interface. A caller that can build
-// a query for both backends (for example from an API query via pkg/db/queries
-// and pkg/db/generic/pg/q) uses it instead of the rethink-only generic.Storage
-// interface, so the read works regardless of which backend serves it.
-//
-// The plain rethinkdb datastore does not implement it; callers must fall back to
-// generic.Storage in that case.
-type FilteredStorage[E generic.Entity] interface {
-	FindFiltered(ctx context.Context, filters ...Filter) (E, error)
-	ListFiltered(ctx context.Context, filters ...Filter) ([]E, error)
-}
-
-// Find resolves a single entity through the migration-aware read path. It
-// centralizes the FilteredStorage dispatch so repository implementations do not
-// have to type-assert: a routed storage is queried with both representations,
-// while a plain rethinkdb storage falls back to the rethinkdb representation.
-func Find[E generic.Entity](ctx context.Context, storage generic.Storage[E], filters ...Filter) (E, error) {
-	if fs, ok := storage.(FilteredStorage[E]); ok {
-		return fs.FindFiltered(ctx, filters...)
-	}
-
-	var zero E
-	queries, err := rethinkQueries(filters)
-	if err != nil {
-		return zero, err
-	}
-	return storage.Find(ctx, queries...)
-}
-
-// List is the list counterpart of Find.
-func List[E generic.Entity](ctx context.Context, storage generic.Storage[E], filters ...Filter) ([]E, error) {
-	if fs, ok := storage.(FilteredStorage[E]); ok {
-		return fs.ListFiltered(ctx, filters...)
-	}
-
-	queries, err := rethinkQueries(filters)
-	if err != nil {
-		return nil, err
-	}
-	return storage.List(ctx, queries...)
-}
-
-// Router is a Storage implementation that dispatches to a backend according to
-// the configured Mode:
+// Router is a storage.Storage implementation that dispatches to a backend
+// according to the configured Mode:
 //
 //   - ModeRethink:  only the RethinkDB adapter is used
 //   - ModePostgres: only the Postgres adapter is used
 //   - ModeBoth:     writes go to both (RethinkDB first), reads go to ReadFrom
 //
 // It is the configuration-driven seam described in Option 4 of the pg README.
-type Router[E generic.Entity] struct {
+type Router[E storage.Entity] struct {
 	log      *slog.Logger
 	entity   string
 	mode     Mode
 	readFrom Mode
 
-	rethink  Storage[E]
-	postgres Storage[E]
+	rethink  storage.Storage[E]
+	postgres storage.Storage[E]
 }
 
 // NewRouter builds a routed storage for a single entity type. The backends
 // required by the configured mode must be non-nil.
-func NewRouter[E generic.Entity](log *slog.Logger, cfg Config, entity string, rethink, postgres Storage[E]) (*Router[E], error) {
+func NewRouter[E storage.Entity](log *slog.Logger, cfg Config, entity string, rethink, postgres storage.Storage[E]) (*Router[E], error) {
 	if log == nil {
 		log = slog.Default()
 	}
@@ -259,7 +174,7 @@ func (r *Router[E]) Get(ctx context.Context, id string) (E, error) {
 	return r.rethink.Get(ctx, id)
 }
 
-func (r *Router[E]) Find(ctx context.Context, filters ...Filter) (E, error) {
+func (r *Router[E]) Find(ctx context.Context, filters ...storage.Filter) (E, error) {
 	if r.readFrom == ModePostgres {
 		if err := requirePostgresFilters(filters); err != nil {
 			var zero E
@@ -274,7 +189,7 @@ func (r *Router[E]) Find(ctx context.Context, filters ...Filter) (E, error) {
 	return r.rethink.Find(ctx, filters...)
 }
 
-func (r *Router[E]) List(ctx context.Context, filters ...Filter) ([]E, error) {
+func (r *Router[E]) List(ctx context.Context, filters ...storage.Filter) ([]E, error) {
 	if r.readFrom == ModePostgres {
 		if err := requirePostgresFilters(filters); err != nil {
 			return nil, err
@@ -297,19 +212,19 @@ func (r *Router[E]) Watch(ctx context.Context, id string) (<-chan struct {
 	return r.rethink.Watch(ctx, id)
 }
 
-func requireRethinkFilters(filters []Filter) error {
+func requireRethinkFilters(filters []storage.Filter) error {
 	for i, f := range filters {
 		if f.Rethink == nil {
-			return fmt.Errorf("%w: filter %d has no rethinkdb representation", ErrFilterUnsupported, i)
+			return fmt.Errorf("%w: filter %d has no rethinkdb representation", storage.ErrFilterUnsupported, i)
 		}
 	}
 	return nil
 }
 
-func requirePostgresFilters(filters []Filter) error {
+func requirePostgresFilters(filters []storage.Filter) error {
 	for i, f := range filters {
-		if len(f.Postgres) == 0 {
-			return fmt.Errorf("%w: filter %d has no postgres representation", ErrFilterUnsupported, i)
+		if f.Postgres == nil {
+			return fmt.Errorf("%w: filter %d has no postgres representation", storage.ErrFilterUnsupported, i)
 		}
 	}
 	return nil

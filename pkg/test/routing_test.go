@@ -13,6 +13,7 @@ import (
 	pgq "github.com/metal-stack/metal-apiserver/pkg/db/generic/pg/q"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/routing"
+	"github.com/metal-stack/metal-apiserver/pkg/db/storage"
 	"github.com/stretchr/testify/require"
 )
 
@@ -156,8 +157,8 @@ func TestRoutingDatastoreNotFoundMessage(t *testing.T) {
 
 // TestRoutingMachineListFilteredFromPostgres guards the migration-aware read
 // path: a filtered machine query is served from Postgres by supplying the
-// Postgres filter representation (routing.FilteredStorage), including for
-// non-UUID ids which are keyed by a derived UUID.
+// Postgres filter representation in the storage.Filter, including for non-UUID
+// ids which are used verbatim as the Postgres key.
 func TestRoutingMachineListFilteredFromPostgres(t *testing.T) {
 	ctx := t.Context()
 
@@ -180,10 +181,7 @@ func TestRoutingMachineListFilteredFromPostgres(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	fs, ok := ds.Machine().(routing.FilteredStorage[*metal.Machine])
-	require.True(t, ok, "routed machine storage must support filtered reads")
-
-	got, err := fs.ListFiltered(ctx, routing.Filter{
+	got, err := ds.Machine().List(ctx, storage.Filter{
 		Postgres: pgq.MachineFilter(&apiv2.MachineQuery{
 			Allocation: &apiv2.MachineAllocationQuery{Project: new(project)},
 		}),

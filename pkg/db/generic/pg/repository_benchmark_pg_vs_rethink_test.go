@@ -11,6 +11,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic/pg"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/metal-stack/metal-apiserver/pkg/db/storage"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/stretchr/testify/require"
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
@@ -99,7 +100,7 @@ func BenchmarkPgVsRethink(b *testing.B) {
 
 	b.Run("Filtered_Query_Rethink", func(b *testing.B) {
 		for b.Loop() {
-			_, err := rethinkRepo.List(ctx, ipTypeFilter(metal.Ephemeral))
+			_, err := rethinkRepo.List(ctx, storage.Filter{Rethink: ipTypeFilter(metal.Ephemeral)})
 			require.NoError(b, err)
 		}
 	})

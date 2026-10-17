@@ -109,10 +109,10 @@ idempotent upserts to Postgres (initial lookup + continuous tail).
 #### Option 4 — Neutral storage port + strangler fig (recommended) — implemented (config toggle)
 
 Introduce a backend-agnostic port (`Storage[E]` with domain semantics, a neutral
-filter model, pagination, and the `ErrNotFound`/`ErrAlreadyExists`/
-`ErrOptimisticLockConflict` sentinels) and implement it twice: a thin RethinkDB
-adapter and a Postgres adapter. Route per entity via configuration, and use
-Options 1–3 as the *execution* mechanics behind that seam.
+filter model, pagination, and connect errors named after the entity) and
+implement it twice: a thin RethinkDB adapter and a Postgres adapter. Route per
+entity via configuration, and use Options 1–3 as the *execution* mechanics
+behind that seam.
 
 - **Pros:** the only option that cleanly supports per-entity flips (1) *and*
   safe rollback via dual-write (2) *and* optional CDC backfill (3); removes
@@ -129,15 +129,18 @@ The **configuration toggle** is implemented in
 entity can be served by RethinkDB, Postgres, or both, purely by configuration.
 
 ```go
-import "github.com/metal-stack/metal-apiserver/pkg/db/routing"
+import (
+	"github.com/metal-stack/metal-apiserver/pkg/db/routing"
+	"github.com/metal-stack/metal-apiserver/pkg/db/storage"
+)
 
 // from a compact string (e.g. read from the environment / deployment config):
 //   "default=rethink,read=rethink,machine=both,network=postgres"
 cfg, err := routing.Parse(os.Getenv("DB_ROUTING"))
 
 // per entity, build a routed storage from the two adapters
-rethinkStorage := routing.NewRethinkStorage(ds.Machine())                       // generic.Storage[*metal.Machine]
-postgresStorage := routing.NewPostgresStorage(pgMachineRepo)                    // *pg.GenericRepository[*metal.Machine]
+rethinkStorage := ds.Machine()                                  // storage.Storage[*metal.Machine], backed by RethinkDB
+postgresStorage := routing.NewPostgresStorage(pgMachineRepo, "machine")
 machineStore, err := routing.NewRouter[*metal.Machine](log, cfg, "Machine", rethinkStorage, postgresStorage)
 ```
 
@@ -153,12 +156,11 @@ Semantics:
   mirrored, so switching the read backend (or rolling back) is a config change.
 - A failed mirror write returns `routing.ErrPartialWrite` (the primary write
   already happened, so the backend needs reconciliation).
-- Queries carry both representations (`routing.Filter{Rethink: ..., Postgres: ...}`),
+- Queries carry both representations (`storage.Filter{Rethink: ..., Postgres: ...}`),
   built from the existing `pkg/db/queries` and `pkg/db/generic/pg/q` packages —
-  no ReQL→SQL translation. A read requires the filter for the read backend.
-  Callers that can build both sides (e.g. the machine repository via
-  `routing.FilteredStorage`) use the migration-aware read interface, so a
-  Postgres-backed read works even for filtered queries.
+  no ReQL→SQL translation. A read requires the filter for the read backend and
+  `storage.Storage.Find/List` takes `...storage.Filter`, so a Postgres-backed read
+  works even for filtered queries.
 - Ids: the entity's string id is used verbatim as the Postgres primary key (the
   column is `TEXT`). UUID-keyed entities that leave their id empty get a
   generated UUIDv7; named entities keep their meaningful name.
@@ -262,9 +264,10 @@ both backends.
 
 **Phase 0 — Foundation (no behaviour change)**
 
-- Define the port: storage interfaces, neutral filter model, pagination, error
-  sentinels. Implement the RethinkDB adapter as a thin delegate to the existing
-  `generic` code; make `pkg/repository` depend on the port only.
+- Define the port: storage interfaces, neutral filter model, pagination, and an
+  error contract (connect errors named after the entity). Implement the RethinkDB
+  adapter as a thin delegate to the existing `generic` code; make
+  `pkg/repository` depend on the port only.
 - Implement id/version mapping: the entity's string id is the primary key
   (`TEXT`); UUID-keyed entities generate a UUIDv7 when empty, named entities keep
   their name. References store the same string id, so no resolve-by-name

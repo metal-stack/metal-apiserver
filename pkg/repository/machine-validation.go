@@ -100,7 +100,7 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 	}
 	if req.FilesystemLayout == nil {
 		var fsls metal.FilesystemLayouts
-		fsls, err := r.s.ds.FilesystemLayout().List(ctx, nil)
+		fsls, err := r.s.ds.FilesystemLayout().List(ctx)
 		if err != nil {
 			return err
 		}

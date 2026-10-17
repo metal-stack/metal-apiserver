@@ -17,7 +17,6 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/filters"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/db/routing"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -371,11 +370,11 @@ func (r *networkRepository) update(ctx context.Context, nw *metal.Network, req *
 }
 
 func (r *networkRepository) find(ctx context.Context, query *apiv2.NetworkQuery) (*metal.Network, error) {
-	return routing.Find(ctx, r.s.ds.Network(), filters.Network(query, r.scopeProjectID())...)
+	return r.s.ds.Network().Find(ctx, filters.Network(query, r.scopeProjectID())...)
 }
 
 func (r *networkRepository) list(ctx context.Context, query *apiv2.NetworkQuery) ([]*metal.Network, error) {
-	nws, err := routing.List(ctx, r.s.ds.Network(), filters.Network(query, r.scopeProjectID())...)
+	nws, err := r.s.ds.Network().List(ctx, filters.Network(query, r.scopeProjectID())...)
 	if err != nil {
 		return nil, err
 	}
@@ -534,13 +533,13 @@ func (r *networkRepository) scopeProjectID() string {
 // findNetwork finds a network by the given query without applying a project
 // scope, working on both backends.
 func findNetwork(ctx context.Context, ds generic.Datastore, query *apiv2.NetworkQuery) (*metal.Network, error) {
-	return routing.Find(ctx, ds.Network(), filters.NetworkQuery(query)...)
+	return ds.Network().Find(ctx, filters.NetworkQuery(query)...)
 }
 
 // listNetworks lists networks by the given query without applying a project
 // scope, working on both backends.
 func listNetworks(ctx context.Context, ds generic.Datastore, query *apiv2.NetworkQuery) ([]*metal.Network, error) {
-	return routing.List(ctx, ds.Network(), filters.NetworkQuery(query)...)
+	return ds.Network().List(ctx, filters.NetworkQuery(query)...)
 }
 
 func (r *networkRepository) calculatePrefixDifferences(existingNetwork *metal.Network, prefixes []string) (toRemoved, toAdded metal.Prefixes, err error) {

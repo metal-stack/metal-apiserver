@@ -13,8 +13,8 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	goipam "github.com/metal-stack/go-ipam"
 	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
+	"github.com/metal-stack/metal-apiserver/pkg/db/filters"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 )
 
@@ -612,9 +612,9 @@ func (r *networkRepository) validateDelete(ctx context.Context, nw *metal.Networ
 		return errorutil.FailedPrecondition("cannot remove network with existing child networks")
 	}
 
-	machines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
+	machines, err := r.s.ds.Machine().List(ctx, filters.MachineQuery(&apiv2.MachineQuery{
 		Network: &apiv2.MachineNetworkQuery{Networks: []string{nw.ID}},
-	}))
+	})...)
 	if err != nil {
 		return errorutil.NewInternal(err)
 	}
