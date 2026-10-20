@@ -23,6 +23,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/headscale"
+	ipamutil "github.com/metal-stack/metal-apiserver/pkg/ipam"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-apiserver/pkg/service"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
@@ -357,12 +358,12 @@ func createIpamClient(ctx context.Context, cmd *cli.Command, log *slog.Logger) (
 		return ipam, nil
 	}
 
-	ipamService := ipamv1connect.NewIpamServiceClient(
+	ipamService := ipamutil.New(ipamv1connect.NewIpamServiceClient(
 		http.DefaultClient,
 		ipamgrpcendpoint,
 		connect.WithGRPC(),
 		compress.WithAll(compress.LevelBalanced),
-	)
+	))
 
 	err := retry.Do(func() error {
 		version, err := ipamService.Version(ctx, &ipamv1.VersionRequest{})

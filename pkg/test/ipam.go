@@ -7,6 +7,7 @@ import (
 
 	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	ipamtest "github.com/metal-stack/go-ipam/pkg/test"
+	"github.com/metal-stack/metal-apiserver/pkg/ipam"
 )
 
 func StartIpam(t testing.TB) (ipamv1connect.IpamServiceClient, func()) {
@@ -17,5 +18,5 @@ func StartIpam(t testing.TB) (ipamv1connect.IpamServiceClient, func()) {
 
 	ipamclient, closer := ipamtest.NewTestServer(ctx, log)
 
-	return ipamclient, closer
+	return ipam.New(ipamclient), closer
 }

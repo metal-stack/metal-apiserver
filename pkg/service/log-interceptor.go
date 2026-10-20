@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 )
@@ -21,74 +21,83 @@ func newLogRequestInterceptor(log *slog.Logger) *logInterceptor {
 	}
 }
 
-func (i *logInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
-	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-		var (
-			log   = i.log.With("procedure", req.Spec().Procedure)
-			debug = i.log.Enabled(ctx, slog.LevelDebug)
-			start = time.Now()
-		)
+// Interceptor returns a connect server interceptor that logs every RPC.
+func (i *logInterceptor) Interceptor() connect.ServerInterceptor {
+	return func(next connect.ServerFunc) connect.ServerFunc {
+		return func(ctx context.Context, spec connect.Spec, stream connect.ServerStream) error {
+			var (
+				log   = i.log.With("procedure", spec.Procedure)
+				debug = i.log.Enabled(ctx, slog.LevelDebug)
+				start = time.Now()
+			)
 
-		tokenId, ok := tokenId(ctx)
-		if ok {
-			log = log.With("token", tokenId)
+			if tokenId, ok := tokenId(ctx); ok {
+				log = log.With("token", tokenId)
+			}
+
+			if debug {
+				log.Debug("handling unary call")
+			}
+
+			var (
+				request  any
+				response any
+			)
+
+			wrapped := &loggingStream{
+				ServerStream: stream,
+				onReceive: func(m any) {
+					if request == nil {
+						request = m
+					}
+				},
+				onSend: func(m any) {
+					response = m
+				},
+			}
+
+			err := next(ctx, spec, wrapped)
+
+			if debug && request != nil {
+				log = log.With("request", request)
+			}
+
+			log = log.With("duration", time.Since(start).String())
+
+			if debug && response != nil {
+				log = log.With("response", response)
+			}
+
+			if err != nil {
+				log.Error("error during unary call", "error", err)
+			}
+
+			log.Info("handled unary call")
+
+			return err
 		}
-
-		if debug {
-			log = log.With("request", req.Any())
-			log.Debug("handling unary call")
-		}
-
-		response, err := next(ctx, req)
-
-		log = log.With("duration", time.Since(start).String())
-
-		if debug && response != nil {
-			log = log.With("response", response.Any())
-		}
-
-		if err != nil {
-			log.Error("error during unary call", "error", err)
-		}
-
-		log.Info("handled unary call")
-
-		return response, err
 	}
 }
 
-func (i *logInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
-	return func(ctx context.Context, spec connect.Spec) connect.StreamingClientConn {
-		i.log.Warn("streamclient called", "procedure", spec.Procedure)
-		return next(ctx, spec)
+type loggingStream struct {
+	connect.ServerStream
+	onReceive func(any)
+	onSend    func(any)
+}
+
+func (w *loggingStream) Send(m any) error {
+	if w.onSend != nil {
+		w.onSend(m)
 	}
+	return w.ServerStream.Send(m)
 }
 
-func (i *logInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
-	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
-		wrapper := &wrapper{
-			StreamingHandlerConn: conn,
-			log:                  i.log,
-		}
-		return next(ctx, wrapper)
+func (w *loggingStream) Receive(m any) error {
+	err := w.ServerStream.Receive(m)
+	if err == nil && w.onReceive != nil {
+		w.onReceive(m)
 	}
-}
-
-type wrapper struct {
-	connect.StreamingHandlerConn
-	log *slog.Logger
-}
-
-func (w *wrapper) Send(m any) error {
-	procedure := w.StreamingHandlerConn.Spec().Procedure
-	w.log.Debug("streaminghandler send called", "procedure", procedure, "message", m)
-	return w.StreamingHandlerConn.Send(m)
-}
-
-func (w *wrapper) Receive(m any) error {
-	procedure := w.StreamingHandlerConn.Spec().Procedure
-	w.log.Debug("streaminghandler receive called", "procedure", procedure, "message", m)
-	return w.StreamingHandlerConn.Receive(m)
+	return err
 }
 
 const (
@@ -97,7 +106,7 @@ const (
 )
 
 func tokenId(ctx context.Context) (string, bool) {
-	callinfo, ok := connect.CallInfoForHandlerContext(ctx)
+	callinfo, ok := connect.CallInfoForServerContext(ctx)
 	if !ok {
 		return "", false
 	}

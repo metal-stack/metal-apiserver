@@ -10,7 +10,7 @@ import (
 
 	"uuid"
 
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
 	"github.com/avast/retry-go/v4"
 	"github.com/hibiken/asynq"
 	"github.com/metal-stack/api/go/enum"
@@ -18,6 +18,7 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
+	"github.com/metal-stack/api/go/metalstack/infra/v2/infrav2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
@@ -1370,7 +1371,7 @@ func (r *machineRepository) MachineBMCCommand(ctx context.Context, machineUUID, 
 	return info.ID, nil
 }
 
-func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWaitRequest, srv *connect.ServerStream[infrav2.BootServiceWaitResponse]) error {
+func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWaitRequest, srv infrav2connect.BootServiceWaitServerStream) error {
 	var (
 		machineID = req.Uuid
 		log       = r.s.log.With("machine-id", machineID)
@@ -1483,7 +1484,7 @@ func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWa
 	}
 }
 
-func (r *machineRepository) WaitForBMCCommand(ctx context.Context, req *infrav2.WaitForBMCCommandRequest, stream *connect.ServerStream[infrav2.WaitForBMCCommandResponse]) error {
+func (r *machineRepository) WaitForBMCCommand(ctx context.Context, req *infrav2.WaitForBMCCommandRequest, stream infrav2connect.BMCServiceWaitForBMCCommandServerStream) error {
 	// Stream messages to client
 	cmdChan := r.s.queue.WaitMachineCommand(ctx, req.Partition)
 

@@ -5,12 +5,16 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
+	"connectrpc.com/connect/v2/connecthttp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
 
 	"github.com/metal-stack/api/go/client"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
@@ -22,7 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type interceptorTestFn func(string, []connect.Interceptor, func(context.Context)) *connect.Handler
+type interceptorTestFn func(*testing.T, string, func(context.Context)) connect.Method
 
 func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 	t.Parallel()
@@ -287,9 +291,9 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 				tenantInterceptor = NewInterceptor(slog.Default(), testStore.GetTenantApiserverClient())
 				called            = false
 
-				interceptors = []connect.Interceptor{
-					&tokenInjector{token: tt.token},
-					tenantInterceptor,
+				interceptors = []connect.ServerInterceptor{
+					(&tokenInjector{token: tt.token}).Interceptor(),
+					tenantInterceptor.Interceptor(),
 				}
 			)
 
@@ -301,19 +305,22 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 				testStore.DeleteTenants()
 			}()
 
-			mux := http.NewServeMux()
-			mux.Handle(tt.method, tt.handler(tt.method, interceptors, func(ctx context.Context) {
+			server := connect.NewServer(interceptors...)
+			server.Register(tt.handler(t, tt.method, func(ctx context.Context) {
 				called = true
 
 				user := auditing.GetUserFromContext(ctx)
 				assert.Equal(t, tt.wantUser, user)
 			}))
 
-			server := httptest.NewServer(mux)
-			defer server.Close()
+			mux := http.NewServeMux()
+			connecthttp.Mount(mux, server)
+
+			httpServer := httptest.NewServer(mux)
+			defer httpServer.Close()
 
 			c, err := client.New(&client.DialConfig{
-				BaseURL: server.URL,
+				BaseURL: httpServer.URL,
 				Log:     log,
 			})
 			require.NoError(t, err)
@@ -332,43 +339,55 @@ func Test_tenantInterceptor_AuditingCtx(t *testing.T) {
 }
 
 func handler[Req, Resp any]() interceptorTestFn {
-	return func(procedure string, interceptors []connect.Interceptor, test func(context.Context)) *connect.Handler {
-		return connect.NewUnaryHandler(
-			procedure,
-			func(ctx context.Context, r *connect.Request[Req]) (*connect.Response[Resp], error) {
+	return func(t *testing.T, procedure string, test func(context.Context)) connect.Method {
+		return connect.Method{
+			Spec: connect.Spec{
+				Procedure:  procedure,
+				StreamType: connect.StreamTypeUnary,
+				Schema:     methodDescriptor(t, procedure),
+			},
+			Handler: func(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+				var req Req
+				if err := stream.Receive(&req); err != nil {
+					return err
+				}
 				test(ctx)
 				var zero Resp
-				return connect.NewResponse(&zero), nil
+				return stream.Send(&zero)
 			},
-			connect.WithInterceptors(interceptors...),
-		)
+		}
 	}
+}
+
+func methodDescriptor(t *testing.T, procedure string) protoreflect.MethodDescriptor {
+	t.Helper()
+
+	serviceName, methodName, ok := strings.Cut(strings.TrimPrefix(procedure, "/"), "/")
+	require.True(t, ok, "invalid procedure %q", procedure)
+
+	descriptor, err := protoregistry.GlobalFiles.FindDescriptorByName(protoreflect.FullName(serviceName))
+	require.NoError(t, err)
+
+	service, ok := descriptor.(protoreflect.ServiceDescriptor)
+	require.True(t, ok, "descriptor for %q is not a service", serviceName)
+
+	method := service.Methods().ByName(protoreflect.Name(methodName))
+	require.NotNil(t, method, "method %q not found in service %q", methodName, serviceName)
+
+	return method
 }
 
 type tokenInjector struct {
 	token *apiv2.Token
 }
 
-// WrapStreamingClient implements connect.Interceptor.
-func (t *tokenInjector) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
-	return func(ctx context.Context, spec connect.Spec) connect.StreamingClientConn {
-		return next(ctx, spec)
-	}
-}
-
-// WrapStreamingHandler implements connect.Interceptor.
-func (t *tokenInjector) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
-	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
-		return next(ctx, conn)
-	}
-}
-
-// WrapUnary implements connect.Interceptor.
-func (t *tokenInjector) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
-	return func(ctx context.Context, ar connect.AnyRequest) (connect.AnyResponse, error) {
-		if t.token != nil {
-			ctx = token.ContextWithToken(ctx, t.token)
+func (t *tokenInjector) Interceptor() connect.ServerInterceptor {
+	return func(next connect.ServerFunc) connect.ServerFunc {
+		return func(ctx context.Context, spec connect.Spec, stream connect.ServerStream) error {
+			if t.token != nil {
+				ctx = token.ContextWithToken(ctx, t.token)
+			}
+			return next(ctx, spec, stream)
 		}
-		return next(ctx, ar)
 	}
 }

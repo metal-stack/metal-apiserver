@@ -4,11 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"strings"
 	"time"
 
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
 	"github.com/lestrrat-go/jwx/v4/jwk"
 	"github.com/metal-stack/api/go/errorutil"
 	v2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -73,8 +72,8 @@ func NewAuthenticatorInterceptor(c Config) (*auth, error) {
 	}, nil
 }
 
-func (o *auth) Authenticate(ctx context.Context, spec connect.Spec, peer connect.Peer, header http.Header) (context.Context, error) {
-	log := o.log.With("procedure", spec.Procedure, "peer", peer.Addr)
+func (o *auth) Authenticate(ctx context.Context, spec connect.Spec, peerAddr string, header *connect.Header) (context.Context, error) {
+	log := o.log.With("procedure", spec.Procedure, "peer", peerAddr)
 	log.Debug("authenticate")
 	t, err := o.extractAndValidateJWTToken(ctx, header.Get)
 	if err != nil {
@@ -86,6 +85,22 @@ func (o *auth) Authenticate(ctx context.Context, spec connect.Spec, peer connect
 		ctx = token.ContextWithToken(ctx, t)
 	}
 	return ctx, nil
+}
+
+// Interceptor returns a connect server interceptor that authenticates the
+// request before it is passed on to the next interceptor or handler.
+func (o *auth) Interceptor() connect.ServerInterceptor {
+	return func(next connect.ServerFunc) connect.ServerFunc {
+		return func(ctx context.Context, spec connect.Spec, stream connect.ServerStream) error {
+			info, _ := connect.CallInfoForServerContext(ctx)
+			ctx, err := o.Authenticate(ctx, spec, info.PeerAddr, info.RequestHeader())
+			if err != nil {
+				return err
+			}
+
+			return next(ctx, spec, stream)
+		}
+	}
 }
 
 func (o *auth) extractAndValidateJWTToken(ctx context.Context, jwtTokenfunc func(string) string) (*v2.Token, error) {

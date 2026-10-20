@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
 	"github.com/metal-stack/api/go/client"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
@@ -63,7 +62,7 @@ func TestWaitForBMCCommand(t *testing.T) {
 	g, _ := errgroup.WithContext(t.Context())
 
 	g.Go(func() error {
-		messages, errs := client.ReconnectingStreamRead(ctx, func(ctx context.Context) (*connect.ServerStreamForClient[infrav2.WaitForBMCCommandResponse], error) {
+		messages, errs := client.ReconnectingStreamRead(ctx, func(ctx context.Context) (client.Stream[infrav2.WaitForBMCCommandResponse], error) {
 			return apiClient.Infrav2().BMC().WaitForBMCCommand(ctx, &infrav2.WaitForBMCCommandRequest{Partition: p.Partition.Id})
 		}, client.WithStreamBackoff(0), client.WithStreamLogger(log))
 

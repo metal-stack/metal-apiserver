@@ -4,10 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"time"
 
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
@@ -46,8 +45,7 @@ type Config struct {
 	Repository         *repository.Store
 	TenantClient       tenantclient.Client
 	IpamClient         ipamv1connect.IpamServiceClient
-	Mux                *http.ServeMux
-	Interceptors       connect.HandlerOption
+	Server             *connect.Server
 	ProjectInviteStore invite.ProjectInviteStore
 	TenantInviteStore  invite.TenantInviteStore
 	TokenStore         tokencommon.TokenStore
@@ -114,23 +112,23 @@ func ApiServices(ctx context.Context, cfg Config) error {
 	}
 
 	// Register the services
-	cfg.Mux.Handle(apiv2connect.NewAuditServiceHandler(auditService, cfg.Interceptors))
-	cfg.Mux.Handle(apiv2connect.NewFilesystemServiceHandler(filesystemService, cfg.Interceptors))
-	cfg.Mux.Handle(apiv2connect.NewHealthServiceHandler(healthService, cfg.Interceptors))
-	cfg.Mux.Handle(apiv2connect.NewImageServiceHandler(imageService, cfg.Interceptors))
-	cfg.Mux.Handle(apiv2connect.NewIPServiceHandler(ipService, cfg.Interceptors))
-	cfg.Mux.Handle(apiv2connect.NewMachineServiceHandler(machineService, cfg.Interceptors))
-	cfg.Mux.Handle(apiv2connect.NewMethodServiceHandler(methodService, cfg.Interceptors))
-	cfg.Mux.Handle(apiv2connect.NewNetworkServiceHandler(networkService, cfg.Interceptors))
-	cfg.Mux.Handle(apiv2connect.NewPartitionServiceHandler(partitionService, cfg.Interceptors))
-	cfg.Mux.Handle(apiv2connect.NewProjectServiceHandler(projectService, cfg.Interceptors))
-	cfg.Mux.Handle(apiv2connect.NewSizeImageConstraintServiceHandler(sizeImageConstraintService, cfg.Interceptors))
-	cfg.Mux.Handle(apiv2connect.NewSizeReservationServiceHandler(sizeReservationService, cfg.Interceptors))
-	cfg.Mux.Handle(apiv2connect.NewSizeServiceHandler(sizeService, cfg.Interceptors))
-	cfg.Mux.Handle(apiv2connect.NewTenantServiceHandler(tenantService, cfg.Interceptors))
-	cfg.Mux.Handle(apiv2connect.NewTokenServiceHandler(tokenService, cfg.Interceptors))
-	cfg.Mux.Handle(apiv2connect.NewUserServiceHandler(userService, cfg.Interceptors))
-	cfg.Mux.Handle(apiv2connect.NewVersionServiceHandler(versionService, cfg.Interceptors))
+	apiv2connect.RegisterAuditServiceHandler(cfg.Server, auditService)
+	apiv2connect.RegisterFilesystemServiceHandler(cfg.Server, filesystemService)
+	apiv2connect.RegisterHealthServiceHandler(cfg.Server, healthService)
+	apiv2connect.RegisterImageServiceHandler(cfg.Server, imageService)
+	apiv2connect.RegisterIPServiceHandler(cfg.Server, ipService)
+	apiv2connect.RegisterMachineServiceHandler(cfg.Server, machineService)
+	apiv2connect.RegisterMethodServiceHandler(cfg.Server, methodService)
+	apiv2connect.RegisterNetworkServiceHandler(cfg.Server, networkService)
+	apiv2connect.RegisterPartitionServiceHandler(cfg.Server, partitionService)
+	apiv2connect.RegisterProjectServiceHandler(cfg.Server, projectService)
+	apiv2connect.RegisterSizeImageConstraintServiceHandler(cfg.Server, sizeImageConstraintService)
+	apiv2connect.RegisterSizeReservationServiceHandler(cfg.Server, sizeReservationService)
+	apiv2connect.RegisterSizeServiceHandler(cfg.Server, sizeService)
+	apiv2connect.RegisterTenantServiceHandler(cfg.Server, tenantService)
+	apiv2connect.RegisterTokenServiceHandler(cfg.Server, tokenService)
+	apiv2connect.RegisterUserServiceHandler(cfg.Server, userService)
+	apiv2connect.RegisterVersionServiceHandler(cfg.Server, versionService)
 
 	return nil
 }

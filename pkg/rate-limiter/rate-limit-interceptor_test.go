@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"testing"
 
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
@@ -14,9 +14,9 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 )
 
-type testMsg struct{}
+const testProcedure = "/metalstack.api.v2.VersionService/Get"
 
-func Test_ratelimitInterceptor_WrapUnary(t *testing.T) {
+func Test_ratelimitInterceptor_Unary(t *testing.T) {
 	s := miniredis.RunT(t)
 
 	adminRole := apiv2.AdminRole_ADMIN_ROLE_EDITOR
@@ -25,7 +25,7 @@ func Test_ratelimitInterceptor_WrapUnary(t *testing.T) {
 		name      string
 		maxToken  int
 		maxUnauth int
-		setup     func() (context.Context, connect.AnyRequest)
+		setup     func() (context.Context, *connect.CallInfo)
 		calls     int // total wrapped calls before the assertion on the last call
 		wantErr   bool
 		wantCode  connect.Code
@@ -35,9 +35,9 @@ func Test_ratelimitInterceptor_WrapUnary(t *testing.T) {
 			name:      "authenticated request within limit succeeds",
 			maxToken:  5,
 			maxUnauth: 3,
-			setup: func() (context.Context, connect.AnyRequest) {
+			setup: func() (context.Context, *connect.CallInfo) {
 				ctx := token.ContextWithToken(t.Context(), &apiv2.Token{User: "u1", Uuid: "t1"})
-				return ctx, connect.NewRequest(&testMsg{})
+				return ctx, &connect.CallInfo{}
 			},
 			calls:    1,
 			wantNext: true,
@@ -46,9 +46,9 @@ func Test_ratelimitInterceptor_WrapUnary(t *testing.T) {
 			name:      "authenticated request exceeding limit fails with ResourceExhausted",
 			maxToken:  5,
 			maxUnauth: 3,
-			setup: func() (context.Context, connect.AnyRequest) {
+			setup: func() (context.Context, *connect.CallInfo) {
 				ctx := token.ContextWithToken(t.Context(), &apiv2.Token{User: "u1", Uuid: "t1"})
-				return ctx, connect.NewRequest(&testMsg{})
+				return ctx, &connect.CallInfo{}
 			},
 			calls:    7, // maxToken=5 allows 6 calls before rejection
 			wantErr:  true,
@@ -59,9 +59,9 @@ func Test_ratelimitInterceptor_WrapUnary(t *testing.T) {
 			name:      "admin token bypasses rate limit",
 			maxToken:  5,
 			maxUnauth: 3,
-			setup: func() (context.Context, connect.AnyRequest) {
+			setup: func() (context.Context, *connect.CallInfo) {
 				ctx := token.ContextWithToken(t.Context(), &apiv2.Token{User: "admin", Uuid: "t-admin", AdminRole: &adminRole})
-				return ctx, connect.NewRequest(&testMsg{})
+				return ctx, &connect.CallInfo{}
 			},
 			calls:    10,
 			wantNext: true,
@@ -70,10 +70,10 @@ func Test_ratelimitInterceptor_WrapUnary(t *testing.T) {
 			name:      "unauthenticated request with X-Forwarded-For within limit succeeds",
 			maxToken:  5,
 			maxUnauth: 3,
-			setup: func() (context.Context, connect.AnyRequest) {
-				req := connect.NewRequest(&testMsg{})
-				req.Header().Set("X-Forwarded-For", "10.0.0.1")
-				return t.Context(), req
+			setup: func() (context.Context, *connect.CallInfo) {
+				info := &connect.CallInfo{}
+				info.RequestHeader().Set("X-Forwarded-For", "10.0.0.1")
+				return t.Context(), info
 			},
 			calls:    1,
 			wantNext: true,
@@ -82,10 +82,10 @@ func Test_ratelimitInterceptor_WrapUnary(t *testing.T) {
 			name:      "unauthenticated request with X-Forwarded-For exceeding limit fails with ResourceExhausted",
 			maxToken:  5,
 			maxUnauth: 3,
-			setup: func() (context.Context, connect.AnyRequest) {
-				req := connect.NewRequest(&testMsg{})
-				req.Header().Set("X-Forwarded-For", "10.0.0.1")
-				return t.Context(), req
+			setup: func() (context.Context, *connect.CallInfo) {
+				info := &connect.CallInfo{}
+				info.RequestHeader().Set("X-Forwarded-For", "10.0.0.1")
+				return t.Context(), info
 			},
 			calls:    5, // maxUnauth=3 allows 4 calls before rejection
 			wantErr:  true,
@@ -96,8 +96,8 @@ func Test_ratelimitInterceptor_WrapUnary(t *testing.T) {
 			name:      "unauthenticated request without client IP skips rate limiter",
 			maxToken:  5,
 			maxUnauth: 3,
-			setup: func() (context.Context, connect.AnyRequest) {
-				return t.Context(), connect.NewRequest(&testMsg{})
+			setup: func() (context.Context, *connect.CallInfo) {
+				return t.Context(), &connect.CallInfo{}
 			},
 			calls:    10,
 			wantNext: true,
@@ -118,20 +118,27 @@ func Test_ratelimitInterceptor_WrapUnary(t *testing.T) {
 			}
 
 			var nextCallCount int
-			wrapped := interceptor.WrapUnary(func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-				nextCallCount++
-				return connect.NewResponse(&testMsg{}), nil
+			server := connect.NewServer(interceptor.Interceptor())
+			server.Register(connect.Method{
+				Spec: connect.Spec{
+					Procedure:  testProcedure,
+					StreamType: connect.StreamTypeUnary,
+				},
+				Handler: func(_ context.Context, _ connect.Spec, _ connect.ServerStream) error {
+					nextCallCount++
+					return nil
+				},
 			})
 
-			ctx, req := tt.setup()
+			ctx, info := tt.setup()
 
 			for i := range tt.calls - 1 {
-				_, err := wrapped(ctx, req)
+				err := server.Call(ctx, testProcedure, info, nil)
 				require.NoError(t, err, "unexpected error on call %d during exhaustion", i)
 			}
 
 			nextBefore := nextCallCount
-			_, err := wrapped(ctx, req)
+			err := server.Call(ctx, testProcedure, info, nil)
 
 			if tt.wantErr {
 				require.Error(t, err)

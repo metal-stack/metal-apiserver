@@ -6,9 +6,10 @@ import (
 	"log/slog"
 	"time"
 
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
 	"github.com/metal-stack/api/go/errorutil"
 	"github.com/metal-stack/api/go/permissions"
+	"github.com/metal-stack/metal-apiserver/pkg/connectutil"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/cache"
@@ -17,6 +18,7 @@ import (
 	tenantv1 "github.com/metal-stack/tenant-api/go/tenant/api/v1"
 
 	"github.com/metal-stack/metal-lib/auditing"
+	"google.golang.org/protobuf/proto"
 )
 
 type (
@@ -41,156 +43,168 @@ func NewInterceptor(log *slog.Logger, tenantClient tenant.Client) *tenantInterce
 	}
 }
 
-// TenantUnaryInterceptor will check if the request targets a project, if yes, checks if tenant of this project
-// already exists, if not an error is returned.
-func (i *tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
-	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-		var (
-			tok, tokenInCtx = token.TokenFromContext(ctx)
-			user            = &auditing.User{
-				EMail:   "",
-				Name:    "",
-				Tenant:  "",
-				Subject: pointer.SafeDeref(tok).User,
-			}
-
-			setUserFieldsByTenantLookup = func(tenantID string) error {
-				tgr, err := i.tenantClient.Apiv1().Tenant().Get(ctx, &tenantv1.TenantServiceGetRequest{Id: tenantID})
-				if errorutil.IsNotFound(err) {
-					return errorutil.NewNotFound(err)
-				}
-				if err != nil {
-					return errorutil.NewInternal(err)
-				}
-
-				user.Tenant = tgr.Tenant.Meta.Id
-				user.EMail = tgr.Tenant.Meta.Annotations[api.TenantTagEmail]
-
-				// update the context with the user information BEFORE calling next
-				ctx = auditing.PutUserInContext(ctx, user)
-
-				return nil
-			}
-		)
-
-		if permissions.IsPublicScope(req) {
-			i.log.Debug("tenant interceptor", "request-scope", "public")
-
-			if tokenInCtx {
-				err := setUserFieldsByTenantLookup(tok.User)
-				if err != nil {
-					return nil, err
-				}
-
-				user.Tenant = "" // public methods do not operate on a tenant, therefore erase again
-			} else {
-				ctx = auditing.PutUserInContext(ctx, user)
-			}
-
-			return next(ctx, req)
-		}
-
-		if !tokenInCtx {
-			return nil, errorutil.Unauthenticated("token must be present when requesting non-public scope method")
-		}
-
-		if permissions.IsSelfScope(req) {
-			i.log.Debug("tenant interceptor", "request-scope", "self")
-
-			err := setUserFieldsByTenantLookup(tok.User)
+// Interceptor determines the tenant/project/machine scope of an RPC, checks
+// that the request is allowed to target it and enriches the context with the
+// auditing user derived from the request.
+func (i *tenantInterceptor) Interceptor() connect.ServerInterceptor {
+	return func(next connect.ServerFunc) connect.ServerFunc {
+		return func(ctx context.Context, spec connect.Spec, stream connect.ServerStream) error {
+			req, ok, err := connectutil.ReceiveFirstMessage(stream, spec)
 			if err != nil {
-				return nil, err
+				return err
+			}
+			if !ok {
+				return next(ctx, spec, stream)
 			}
 
-			return next(ctx, req)
-		}
-
-		if permissions.IsAdminScope(req) {
-			i.log.Debug("tenant interceptor", "request-scope", "admin")
-
-			err := setUserFieldsByTenantLookup(tok.User)
+			ctx, err = i.prepare(ctx, spec, req)
 			if err != nil {
-				return nil, err
+				return err
 			}
 
-			user.Tenant = "" // admin methods do not operate on a tenant, therefore erase again
+			return next(ctx, spec, connectutil.ReplayStream(stream, req))
+		}
+	}
+}
 
-			return next(ctx, req)
+// prepare checks the scope of the given request and returns a context enriched
+// with the auditing user. If the request targets a project, it also checks if
+// the tenant of this project already exists, if not an error is returned.
+func (i *tenantInterceptor) prepare(ctx context.Context, spec connect.Spec, req proto.Message) (context.Context, error) {
+	var (
+		tok, tokenInCtx = token.TokenFromContext(ctx)
+		user            = &auditing.User{
+			EMail:   "",
+			Name:    "",
+			Tenant:  "",
+			Subject: pointer.SafeDeref(tok).User,
 		}
 
-		if permissions.IsMachineScope(req) {
-			i.log.Debug("tenant interceptor", "request-scope", "machine")
-
-			user := &auditing.User{
-				Name: tok.User,
+		setUserFieldsByTenantLookup = func(tenantID string) error {
+			tgr, err := i.tenantClient.Apiv1().Tenant().Get(ctx, &tenantv1.TenantServiceGetRequest{Id: tenantID})
+			if errorutil.IsNotFound(err) {
+				return errorutil.NewNotFound(err)
+			}
+			if err != nil {
+				return errorutil.NewInternal(err)
 			}
 
-			machineId, ok := permissions.GetMachineIdFromRequest(req)
-			if ok {
-				user.Subject = machineId
-			}
+			user.Tenant = tgr.Tenant.Meta.Id
+			user.EMail = tgr.Tenant.Meta.Annotations[api.TenantTagEmail]
 
-			// machine methods do not operate on a tenant, therefore create the security user from the machine id
+			// update the context with the user information BEFORE calling next
 			ctx = auditing.PutUserInContext(ctx, user)
 
-			return next(ctx, req)
+			return nil
 		}
+	)
 
-		if permissions.IsInfraScope(req) {
-			i.log.Debug("tenant interceptor", "request-scope", "infra")
+	if permissions.IsPublicScope(spec) {
+		i.log.Debug("tenant interceptor", "request-scope", "public")
 
-			// infra methods do not operate on a tenant, therefore create the security user from the token id
-			ctx = auditing.PutUserInContext(ctx, &auditing.User{
-				Name:    tok.User,
-				Subject: tok.User,
-			})
-
-			return next(ctx, req)
-		}
-
-		if tenantID, ok := permissions.GetTenantFromRequest(req); ok {
-			i.log.Debug("tenant interceptor", "request-scope", "tenant", "id", tenantID)
-
-			err := setUserFieldsByTenantLookup(tenantID)
+		if tokenInCtx {
+			err := setUserFieldsByTenantLookup(tok.User)
 			if err != nil {
-				return nil, err
+				return ctx, err
 			}
 
-			return next(ctx, req)
+			user.Tenant = "" // public methods do not operate on a tenant, therefore erase again
+		} else {
+			ctx = auditing.PutUserInContext(ctx, user)
 		}
 
-		if projectID, ok := permissions.GetProjectFromRequest(req); ok {
-			i.log.Debug("tenant interceptor", "request-scope", "project", "id", projectID)
+		return ctx, nil
+	}
 
-			project, err := i.projectCache.Get(ctx, projectID)
-			if errorutil.IsNotFound(err) {
-				return nil, errorutil.NewNotFound(err)
-			}
-			if err != nil {
-				return nil, errorutil.NewInternal(err)
-			}
+	if !tokenInCtx {
+		return ctx, errorutil.Unauthenticated("token must be present when requesting non-public scope method")
+	}
 
-			user.Project = projectID
+	if permissions.IsSelfScope(spec) {
+		i.log.Debug("tenant interceptor", "request-scope", "self")
 
-			err = setUserFieldsByTenantLookup(project.TenantId)
-			if err != nil {
-				return nil, err
-			}
-
-			return next(ctx, req)
+		err := setUserFieldsByTenantLookup(tok.User)
+		if err != nil {
+			return ctx, err
 		}
 
-		return nil, errorutil.Internal("unable to determine request scope: %q", req.Spec().Procedure)
+		return ctx, nil
 	}
-}
 
-func (i *tenantInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
-	return func(ctx context.Context, spec connect.Spec) connect.StreamingClientConn {
-		return next(ctx, spec)
+	if permissions.IsAdminScope(spec) {
+		i.log.Debug("tenant interceptor", "request-scope", "admin")
+
+		err := setUserFieldsByTenantLookup(tok.User)
+		if err != nil {
+			return ctx, err
+		}
+
+		user.Tenant = "" // admin methods do not operate on a tenant, therefore erase again
+
+		return ctx, nil
 	}
-}
-func (i *tenantInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
-	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
-		return next(ctx, conn)
+
+	if permissions.IsMachineScope(spec) {
+		i.log.Debug("tenant interceptor", "request-scope", "machine")
+
+		user := &auditing.User{
+			Name: tok.User,
+		}
+
+		machineId, ok := permissions.GetMachineIdFromRequest(spec, req)
+		if ok {
+			user.Subject = machineId
+		}
+
+		// machine methods do not operate on a tenant, therefore create the security user from the machine id
+		ctx = auditing.PutUserInContext(ctx, user)
+
+		return ctx, nil
 	}
+
+	if permissions.IsInfraScope(spec) {
+		i.log.Debug("tenant interceptor", "request-scope", "infra")
+
+		// infra methods do not operate on a tenant, therefore create the security user from the token id
+		ctx = auditing.PutUserInContext(ctx, &auditing.User{
+			Name:    tok.User,
+			Subject: tok.User,
+		})
+
+		return ctx, nil
+	}
+
+	if tenantID, ok := permissions.GetTenantFromRequest(spec, req); ok {
+		i.log.Debug("tenant interceptor", "request-scope", "tenant", "id", tenantID)
+
+		err := setUserFieldsByTenantLookup(tenantID)
+		if err != nil {
+			return ctx, err
+		}
+
+		return ctx, nil
+	}
+
+	if projectID, ok := permissions.GetProjectFromRequest(spec, req); ok {
+		i.log.Debug("tenant interceptor", "request-scope", "project", "id", projectID)
+
+		project, err := i.projectCache.Get(ctx, projectID)
+		if errorutil.IsNotFound(err) {
+			return ctx, errorutil.NewNotFound(err)
+		}
+		if err != nil {
+			return ctx, errorutil.NewInternal(err)
+		}
+
+		user.Project = projectID
+
+		err = setUserFieldsByTenantLookup(project.TenantId)
+		if err != nil {
+			return ctx, err
+		}
+
+		return ctx, nil
+	}
+
+	return ctx, errorutil.Internal("unable to determine request scope: %q", spec.Procedure)
 }
