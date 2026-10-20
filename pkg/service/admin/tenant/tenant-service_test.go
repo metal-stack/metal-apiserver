@@ -1,8 +1,6 @@
 package admin
 
 import (
-	"log/slog"
-	"os"
 	"strconv"
 	"testing"
 	"time"
@@ -24,9 +22,7 @@ import (
 func Test_tenantServiceServer_List(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
+	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithPostgres(true))
 	defer closer()
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{
@@ -134,7 +130,7 @@ func Test_tenantServiceServer_List(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			u := &tenantServiceServer{
-				log:  log,
+				log:  testStore.GetLogger(),
 				repo: testStore.Store,
 			}
 			role := apiv2.AdminRole_ADMIN_ROLE_EDITOR
@@ -171,9 +167,8 @@ func Test_tenantServiceServer_List(t *testing.T) {
 func Test_tenantServiceServer_AddMember(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
+	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithPostgres(true))
+	log := testStore.GetLogger()
 	defer closer()
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{
@@ -237,9 +232,8 @@ func Test_tenantServiceServer_AddMember(t *testing.T) {
 func Test_tenantServiceServer_Create(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
+	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithPostgres(true))
+	log := testStore.GetLogger()
 	defer closer()
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{
@@ -328,9 +322,7 @@ func Test_tenantServiceServer_Create(t *testing.T) {
 func Test_EnsureProviderTenant(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true))
+	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithPostgres(true))
 	defer closer()
 
 	tests := []struct {

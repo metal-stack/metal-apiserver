@@ -2,8 +2,6 @@ package machine
 
 import (
 	"context"
-	"log/slog"
-	"os"
 	"testing"
 	"time"
 
@@ -23,7 +21,6 @@ import (
 
 func TestMachineCreate_Rollback(t *testing.T) {
 	t.Parallel()
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
 	testToken := apiv2.Token{
@@ -32,7 +29,8 @@ func TestMachineCreate_Rollback(t *testing.T) {
 	}
 	ctx = token.ContextWithToken(ctx, &testToken)
 
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
 
 	testDC := sc.DefaultDatacenter
 	testDC.Networks = append(testDC.Networks, &adminv2.NetworkServiceCreateRequest{

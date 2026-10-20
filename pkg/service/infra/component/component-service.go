@@ -5,8 +5,6 @@ import (
 	"log/slog"
 	"time"
 
-	"uuid"
-
 	"github.com/metal-stack/api/go/errorutil"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
@@ -46,8 +44,13 @@ func (c *componentServiceServer) Ping(ctx context.Context, req *infrav2.Componen
 		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
+	uuid, err := c.repo.Component().AdditionalMethods().Id(req.Type, req.Identifier)
+	if err != nil {
+		return nil, err
+	}
+
 	component := &apiv2.Component{
-		Uuid:       uuid.NewV7().String(),
+		Uuid:       uuid,
 		Type:       req.Type,
 		Identifier: req.Identifier,
 		StartedAt:  req.StartedAt,
@@ -57,7 +60,7 @@ func (c *componentServiceServer) Ping(ctx context.Context, req *infrav2.Componen
 		Token:      t,
 	}
 
-	_, err := c.repo.Component().Create(ctx, &api.ComponentServiceCreateRequest{Component: component, Expiration: c.expiration})
+	_, err = c.repo.Component().Create(ctx, &api.ComponentServiceCreateRequest{Component: component, Expiration: c.expiration})
 	if err != nil {
 		return nil, err
 	}

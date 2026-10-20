@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
+	"github.com/avast/retry-go/v4"
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
 
@@ -60,10 +62,25 @@ func Initialize(ctx context.Context, log *slog.Logger, opts r.ConnectOpts, dsOpt
 
 	log.Info("ensuring demoted user can read and write")
 
-	_, err = db.Grant(demotedUser, map[string]any{"read": true, "write": true}).RunWrite(session, r.RunOpts{Context: ctx})
+	// sometimes it needs a bit until rethinkdb really has the database available
+	// (especially when running CI tests), so we just retry for a short period of time
+	err = retry.Do(
+		func() error {
+			_, err = db.Grant(demotedUser, map[string]any{"read": true, "write": true}).RunWrite(session, r.RunOpts{Context: ctx})
+			if err != nil {
+				return fmt.Errorf("unable to grant read / write permissions to metal user on database %s: %w", opts.Database, err)
+			}
+
+			return nil
+		},
+		retry.Attempts(10),
+		retry.MaxDelay(100*time.Millisecond),
+		retry.LastErrorOnly(true),
+	)
 	if err != nil {
-		return fmt.Errorf("unable to grant read / write permissions to metal user on database %s: %w", opts.Database, err)
+		return err
 	}
+
 	_, err = r.DB("rethinkdb").Grant(demotedUser, map[string]any{"read": true}).RunWrite(session, r.RunOpts{Context: ctx})
 	if err != nil {
 		return fmt.Errorf("unable to grant read / write permissions to metal user on rethinkdb database: %w", err)

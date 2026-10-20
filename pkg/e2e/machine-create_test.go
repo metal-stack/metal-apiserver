@@ -3,10 +3,8 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -93,8 +91,7 @@ var (
 )
 
 func TestMachineCreate(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	baseURL, adminToken, _, closer := StartApiserver(t, log)
+	log, baseURL, adminToken, _, closer := StartApiserver(t)
 	defer closer()
 	require.NotNil(t, baseURL, adminToken)
 
@@ -110,8 +107,7 @@ func TestMachineCreate(t *testing.T) {
 }
 
 func TestFirewallCreate(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	baseURL, adminToken, _, closer := StartApiserver(t, log)
+	log, baseURL, adminToken, _, closer := StartApiserver(t)
 	defer closer()
 	require.NotNil(t, baseURL, adminToken)
 
@@ -333,6 +329,12 @@ func createMachine(t *testing.T, apiClient client.Client, allocationType apiv2.M
 	default:
 		t.FailNow()
 	}
+
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		require.NotNil(c, machineWaitResponse)
+		require.NotNil(c, machineWaitResponse.Allocation)
+		require.NotEmpty(c, machineWaitResponse.Allocation.Networks)
+	}, 30*time.Second, 100*time.Millisecond)
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		resp, err := apiClient.Apiv2().Machine().Get(ctx, &apiv2.MachineServiceGetRequest{

@@ -50,7 +50,7 @@ func (r *machineRepository) releaseASN(ctx context.Context, asn uint32) error {
 	return r.s.ds.AsnPool().ReleaseUniqueInteger(ctx, i)
 }
 
-func (r *machineRepository) releaseAsnTask(ctx context.Context, payload *task.MachineDeletePayload) error {
+func (r *machineRepository) releaseAsnTask(ctx context.Context, payload *task.MachineDecommissionPayload) error {
 	r.s.log.Debug("machine delete attempting to release asn")
 
 	m, err := r.s.ds.Machine().Find(ctx, queries.MachineFilter(&apiv2.MachineQuery{

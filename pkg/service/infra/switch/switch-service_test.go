@@ -1,8 +1,6 @@
 package infra
 
 import (
-	"log/slog"
-	"os"
 	"testing"
 	"time"
 
@@ -22,7 +20,6 @@ import (
 )
 
 func Test_switchServiceServer_Register(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
 	tests := []struct {
@@ -259,7 +256,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 							Nic: &apiv2.SwitchNic{
 								Name:       "Ethernet0",
 								Identifier: "Ethernet0",
-								Mac:        new("11:11:11:11:11:11"),
+								Mac:        new("11:11:11:11:11:11"), // nolint:staticcheck
 								State: &apiv2.NicState{
 									Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
 								},
@@ -306,7 +303,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 								Nic: &apiv2.SwitchNic{
 									Name:       "Ethernet0",
 									Identifier: "Ethernet0",
-									Mac:        new("11:11:11:11:11:11"),
+									Mac:        new("11:11:11:11:11:11"), // nolint:staticcheck
 									BgpFilter:  &apiv2.BGPFilter{},
 									State: &apiv2.NicState{
 										Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -351,7 +348,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 						nic1 := &apiv2.SwitchNic{
 							Name:       "Ethernet0",
 							Identifier: "Ethernet0",
-							Mac:        new("11:11:11:11:11:11"),
+							Mac:        new("11:11:11:11:11:11"), // nolint:staticcheck
 							BgpFilter:  &apiv2.BGPFilter{},
 							State: &apiv2.NicState{
 								Actual: apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_UP,
@@ -395,7 +392,8 @@ func Test_switchServiceServer_Register(t *testing.T) {
 		},
 	}
 
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 
 	for _, tt := range tests {
@@ -443,7 +441,6 @@ func Test_switchServiceServer_Register(t *testing.T) {
 }
 
 func Test_switchServiceServer_Get(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
 	tests := []struct {
@@ -474,7 +471,8 @@ func Test_switchServiceServer_Get(t *testing.T) {
 		},
 	}
 
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 	dc.Create(&sc.SwitchesWithMachinesDatacenter)
 
@@ -512,7 +510,6 @@ func Test_switchServiceServer_Get(t *testing.T) {
 }
 
 func Test_switchServiceServer_Heartbeat(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
 	tests := []struct {
@@ -535,7 +532,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 					},
 					BgpPortStates: map[string]*apiv2.SwitchBGPPortState{
 						"Ethernet1": {
-							Neighbor:              "Ethernet2",
+							Neighbor:              new("Ethernet2"),
 							PeerGroup:             "external",
 							VrfName:               "Vrf200",
 							BgpState:              apiv2.BGPState_BGP_STATE_CONNECT,
@@ -576,7 +573,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 						require.True(t, found)
 						nic.State.Actual = apiv2.SwitchPortStatus_SWITCH_PORT_STATUS_DOWN
 						nic.BgpPortState = &apiv2.SwitchBGPPortState{
-							Neighbor:              "Ethernet2",
+							Neighbor:              new("Ethernet2"),
 							PeerGroup:             "external",
 							VrfName:               "Vrf200",
 							BgpState:              apiv2.BGPState_BGP_STATE_CONNECT,
@@ -654,7 +651,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 					},
 					BgpPortStates: map[string]*apiv2.SwitchBGPPortState{
 						"Ethernet1": {
-							Neighbor:              "Ethernet2",
+							Neighbor:              new("Ethernet2"),
 							PeerGroup:             "external",
 							VrfName:               "Vrf200",
 							BgpState:              apiv2.BGPState_BGP_STATE_ESTABLISHED,
@@ -687,7 +684,7 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 							Error:    new("failed to sync"),
 						}
 						sw.Nics[1].BgpPortState = &apiv2.SwitchBGPPortState{
-							Neighbor:              "Ethernet2",
+							Neighbor:              new("Ethernet2"),
 							PeerGroup:             "external",
 							VrfName:               "Vrf200",
 							BgpState:              apiv2.BGPState_BGP_STATE_ESTABLISHED,
@@ -767,7 +764,8 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 		},
 	}
 
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 
 	for _, tt := range tests {
@@ -832,10 +830,9 @@ func Test_switchServiceServer_Heartbeat(t *testing.T) {
 
 // added this test here because using testStore inside the repository package creates an import cycle
 func Test_switchRepository_ConnectMachineWithSwitches(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
 	defer dc.Close()
 
 	tests := []struct {
@@ -1026,7 +1023,7 @@ func Test_switchRepository_ConnectMachineWithSwitches(t *testing.T) {
 			wantErr: errorutil.FailedPrecondition("machine %s is connected to port swp1s1 on switch %s but not to the corresponding port Ethernet1 of switch %s", sc.Machine2, sc.P01Rack02Switch1, sc.P01Rack02Switch2),
 		},
 		{
-			name: "machine is connected to different switches than before",
+			name: "machine is connected to different rack than before",
 			m: func() *apiv2.Machine {
 				return &apiv2.Machine{
 					Uuid: sc.Machine1,
@@ -1059,7 +1056,43 @@ func Test_switchRepository_ConnectMachineWithSwitches(t *testing.T) {
 					},
 				}
 			},
-			wantErr: errorutil.FailedPrecondition(`machine wants to register on rack %q, but machine connections are present on the following switches [%s %s], likely the machine was moved in the data center but not deleted through the admin api`, sc.P01Rack02, sc.P01Rack01Switch1, sc.P01Rack01Switch2),
+			wantErr: errorutil.FailedPrecondition("machine wants to register at rack %q, but machine is already connected to rack %q; if you want to move the machine from one rack to another delete it first via admin api", sc.P01Rack02, sc.P01Rack01),
+		},
+		{
+			name: "can't connect machine to different switches (even in the same rack) than before",
+			m: func() *apiv2.Machine {
+				return &apiv2.Machine{
+					Uuid: sc.Machine1,
+					Partition: &apiv2.Partition{
+						Id: sc.Partition1,
+					},
+					Hardware: &apiv2.MachineHardware{
+						Nics: []*apiv2.MachineNic{
+							{
+								Name: "lan0",
+								Neighbors: []*apiv2.MachineNic{
+									{
+										Name:       "Ethernet0",
+										Identifier: "Ethernet0",
+										Hostname:   sc.P01Rack01Switch1,
+									},
+								},
+							},
+							{
+								Name: "lan1",
+								Neighbors: []*apiv2.MachineNic{
+									{
+										Name:       "Ethernet0",
+										Identifier: "Ethernet0",
+										Hostname:   sc.P01Rack01Switch2_1,
+									},
+								},
+							},
+						},
+					},
+				}
+			},
+			wantErr: errorutil.FailedPrecondition("machine wants to register at switches %v but is already connected to switches %v; if you want to migrate machine connections from one switch to another call switch migrate first", []string{sc.P01Rack01Switch1, sc.P01Rack01Switch2_1}, []string{sc.P01Rack01Switch1, sc.P01Rack01Switch2}),
 		},
 		{
 			name: "machine connections don't change",

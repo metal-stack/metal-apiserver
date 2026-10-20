@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -61,8 +60,8 @@ type (
 	}
 )
 
-func NewDatacenter(t testing.TB, log *slog.Logger, testOpts ...testOpt) *Datacenter {
-	testStore, closer := StartRepositoryWithCleanup(t, log, testOpts...)
+func NewDatacenter(t testing.TB, testOpts ...testOpt) *Datacenter {
+	testStore, closer := StartRepositoryWithCleanup(t, testOpts...)
 
 	dc := &Datacenter{
 		t:         t,
@@ -370,9 +369,6 @@ func (dc *Datacenter) createTenantsAndMembers(spec *scenarios.DatacenterSpec) {
 		projectCreateReq []*apiv2.ProjectServiceCreateRequest
 	)
 
-	assert.LessOrEqual(dc.t, len(tenantCreateReq), 9)
-	assert.LessOrEqual(dc.t, len(projectCreateReq), 9)
-
 	// TODO only works for 9 tenants with 9 projects
 	const uuidtmpl = "%d0000000-0000-0000-0000-00000000000%d"
 	for ti, tenant := range spec.Tenants {
@@ -386,6 +382,9 @@ func (dc *Datacenter) createTenantsAndMembers(spec *scenarios.DatacenterSpec) {
 			})
 		}
 	}
+
+	assert.LessOrEqual(dc.t, len(tenantCreateReq), 9)
+	assert.LessOrEqual(dc.t, len(projectCreateReq), 9)
 
 	CreateTenants(dc.t, dc.testStore, tenantCreateReq)
 	CreateProjects(dc.t, dc.testStore, projectCreateReq)
@@ -406,16 +405,14 @@ func (dc *Datacenter) createImages(spec *scenarios.DatacenterSpec) {
 	dc.closers = append(dc.closers, ts.Close)
 
 	var req []*adminv2.ImageServiceCreateRequest
-	for name, feature := range spec.Images {
+	for _, img := range spec.Images {
+		img.Url = ts.URL
+
 		req = append(req, &adminv2.ImageServiceCreateRequest{
-			Image: &apiv2.Image{
-				Id:             name,
-				Url:            ts.URL,
-				Features:       []apiv2.ImageFeature{feature},
-				Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED,
-			},
+			Image: img,
 		})
 	}
+
 	CreateImages(dc.t, dc.testStore, req)
 }
 

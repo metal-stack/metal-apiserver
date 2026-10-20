@@ -1,8 +1,6 @@
 package bench
 
 import (
-	"log/slog"
-	"os"
 	"testing"
 
 	"github.com/metal-stack/api/go/client"
@@ -14,8 +12,7 @@ import (
 )
 
 func Benchmark_e2e_ipService_Create(b *testing.B) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
-	baseURL, adminToken, _, closer := e2e.StartApiserver(b, log)
+	log, baseURL, adminToken, _, closer := e2e.StartApiserver(b)
 	defer closer()
 	require.NotNil(b, baseURL, adminToken)
 

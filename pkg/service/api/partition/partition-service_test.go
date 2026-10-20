@@ -2,7 +2,6 @@ package partition
 
 import (
 	"fmt"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -18,9 +17,8 @@ import (
 func Test_partitionServiceServer_Get(t *testing.T) {
 	t.Parallel()
 
-	log := slog.Default()
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
+	log := testStore.GetLogger()
 	defer closer()
 
 	ctx := t.Context()
@@ -110,9 +108,8 @@ func Test_partitionServiceServer_Get(t *testing.T) {
 func Test_partitionServiceServer_List(t *testing.T) {
 	t.Parallel()
 
-	log := slog.Default()
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
+	log := testStore.GetLogger()
 	defer closer()
 
 	ctx := t.Context()

@@ -33,7 +33,7 @@ type Config struct {
 	Log                *slog.Logger
 	Repository         *repository.Store
 	Mux                *http.ServeMux
-	Interceptors       connect.Option
+	Interceptors       connect.HandlerOption
 	InviteStore        invite.TenantInviteStore
 	AuditSearchBackend auditing.Auditing
 }
@@ -86,5 +86,5 @@ func AdminServices(cfg Config) {
 	cfg.Mux.Handle(adminv2connect.NewTaskServiceHandler(adminTaskService, cfg.Interceptors))
 	cfg.Mux.Handle(adminv2connect.NewTenantServiceHandler(adminTenantService, cfg.Interceptors))
 	cfg.Mux.Handle(adminv2connect.NewTokenServiceHandler(adminTokenService, cfg.Interceptors))
-	cfg.Mux.Handle(adminv2connect.NewVPNServiceHandler(adminVPNService))
+	cfg.Mux.Handle(adminv2connect.NewVPNServiceHandler(adminVPNService, cfg.Interceptors))
 }

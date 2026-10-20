@@ -422,6 +422,11 @@ func (s *store[R, E, M, C, U, Q]) Find(ctx context.Context, query Q) (M, error) 
 		return zero, errorutil.Convert(err)
 	}
 
+	ok := s.matchScope(e)
+	if !ok {
+		return zero, errorutil.NotFound("%T not found with query %v", e, query)
+	}
+
 	converted, err := s.convertToProto(ctx, e)
 	if err != nil {
 		return zero, protoConversionError(err)
@@ -460,6 +465,11 @@ func (s *store[R, E, M, C, U, Q]) List(ctx context.Context, query Q) ([]M, error
 	var res []M
 
 	for _, e := range es {
+		ok := s.matchScope(e)
+		if !ok {
+			continue
+		}
+
 		converted, err := s.convertToProto(ctx, e)
 		if err != nil {
 			return nil, protoConversionError(err)

@@ -47,7 +47,7 @@ type Config struct {
 	TenantClient       tenantclient.Client
 	IpamClient         ipamv1connect.IpamServiceClient
 	Mux                *http.ServeMux
-	Interceptors       connect.Option
+	Interceptors       connect.HandlerOption
 	ProjectInviteStore invite.ProjectInviteStore
 	TenantInviteStore  invite.TenantInviteStore
 	TokenStore         tokencommon.TokenStore

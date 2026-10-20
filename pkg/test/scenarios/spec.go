@@ -102,7 +102,7 @@ type (
 		Partitions           []string
 		Tenants              []string
 		ProjectsPerTenant    int
-		Images               map[string]apiv2.ImageFeature
+		Images               []*apiv2.Image
 		FilesystemLayouts    []*adminv2.FilesystemServiceCreateRequest
 		Sizes                []*apiv2.Size
 		SizeReservations     []*adminv2.SizeReservationServiceCreateRequest

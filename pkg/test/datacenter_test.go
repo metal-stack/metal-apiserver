@@ -2,10 +2,8 @@ package test
 
 import (
 	"fmt"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 	"time"
 
@@ -24,10 +22,9 @@ import (
 )
 
 func TestDatacenter_AssertSnapshot(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
-	dc := NewDatacenter(t, log)
+	dc := NewDatacenter(t)
 	defer dc.Close()
 
 	tests := []struct {
@@ -315,10 +312,9 @@ func TestDatacenter_AssertSnapshot(t *testing.T) {
 }
 
 func TestDatacenter_Assert(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
-	dc := NewDatacenter(t, log)
+	dc := NewDatacenter(t)
 	defer dc.Close()
 
 	tests := []struct {

@@ -98,10 +98,10 @@ func (c *Client) WatchForTaskCompletion(ctx context.Context, cfg *WatchConfig, q
 	)
 
 	if cfg != nil {
-		switch {
-		case cfg.Timeout != nil:
+		if cfg.Timeout != nil {
 			timeout = *cfg.Timeout
-		case cfg.Interval != nil:
+		}
+		if cfg.Interval != nil {
 			interval = *cfg.Interval
 		}
 	}

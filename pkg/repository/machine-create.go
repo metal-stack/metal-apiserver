@@ -92,7 +92,10 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 			Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED.Enum(),
 		})
 		if err != nil {
-			return result, err
+			if errorutil.IsNotFound(err) {
+				return nil, errorutil.InvalidArgument("no latest image version found for %q which has status %q", req.Image, apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED.String())
+			}
+			return nil, err
 		}
 		imageID = image.Id
 	}

@@ -1,23 +1,31 @@
 package boot
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"os"
+	"slices"
 	"testing"
+	"time"
 
+	"buf.build/go/protovalidate"
 	"github.com/google/go-cmp/cmp"
+	"github.com/metal-stack/api/go/enum"
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
+	"github.com/metal-stack/api/go/tag"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
+	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var (
@@ -93,9 +101,8 @@ var (
 func Test_bootServiceServer_Boot(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
+	log := testStore.GetLogger()
 	defer closer()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -167,9 +174,8 @@ func Test_bootServiceServer_Boot(t *testing.T) {
 func Test_bootServiceServer_Dhcp(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
+	log := testStore.GetLogger()
 	defer closer()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -367,9 +373,7 @@ func Test_bootServiceServer_SuperUserPassword(t *testing.T) {
 func Test_bootServiceServer_Register(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
 	defer closer()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -736,9 +740,7 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 	// TODO this test is only completely useful if the register call is also done before to have the machine connections in the switch.
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
 	defer closer()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -749,6 +751,7 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 	defer ts.Close()
 
 	ctx := t.Context()
+	log := slog.Default()
 
 	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
 	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{{Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
@@ -1040,13 +1043,45 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			b := &bootServiceServer{
-				log:  slog.Default(),
+				log:  log,
 				repo: testStore.Store,
 			}
 			if tt.wantErr == nil {
 				// Execute proto based validation
 				test.Validate(t, tt.req)
 			}
+
+			g, _ := errgroup.WithContext(t.Context())
+
+			bmcCtx, bmcCancelWatch := context.WithCancel(t.Context())
+			defer bmcCancelWatch()
+
+			strVal, err := enum.GetStringValue(apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_MACHINE_CREATED)
+			require.NoError(t, err)
+
+			g.Go(func() error {
+				msgs := testStore.GetQueue().WaitMachineCommand(bmcCtx, partition1)
+
+				select {
+				case msg := <-msgs:
+					if diff := cmp.Diff(*strVal, msg.Command); diff != "" {
+						return fmt.Errorf("bmc cmd diff: %s", diff)
+					}
+
+					_, err := testStore.UnscopedMachine().AdditionalMethods().BMCCommandDone(bmcCtx, &infrav2.BMCCommandDoneRequest{
+						CommandId: msg.CommandID,
+						Error:     nil,
+					})
+					if err != nil {
+						return err
+					}
+
+					return nil
+				case <-bmcCtx.Done():
+					return nil
+				}
+			})
+
 			got, err := b.InstallationSucceeded(ctx, tt.req)
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("bootServiceServer.InstallationSucceeded() error diff = %s", diff)
@@ -1095,6 +1130,413 @@ func Test_bootServiceServer_InstallationSucceeded(t *testing.T) {
 				); diff != "" {
 					t.Errorf("bootServiceServer.InstallationSucceeded() switches diff =%s", diff)
 				}
+			}
+
+			bmcCancelWatch()
+			require.NoError(t, g.Wait())
+		})
+	}
+}
+
+func Test_bootServiceServer_MachineToken(t *testing.T) {
+	t.Parallel()
+
+	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithValkey(true), test.WithPostgres(true))
+	log := testStore.GetLogger()
+	defer closer()
+
+	type state struct {
+		providerTenant     string
+		projectRoles       map[string]apiv2.ProjectRole
+		tenantRoles        map[string]apiv2.TenantRole
+		independentTenants map[string]*apiv2.Labels
+	}
+	tests := []struct {
+		name           string
+		sessionToken   *apiv2.Token
+		req            *infrav2.BootServiceMachineTokenRequest
+		state          state
+		wantErr        bool
+		wantErrMessage string
+		wantToken      *apiv2.Token
+	}{
+		{
+			name: "pixie-core can create token for metal-hammer with machine roles",
+			sessionToken: &apiv2.Token{
+				User:      "pixie-core",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				InfraRole: apiv2.InfraRole_INFRA_ROLE_EDITOR.Enum(),
+				MachineRoles: map[string]apiv2.MachineRole{
+					"*": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+			},
+			req: &infrav2.BootServiceMachineTokenRequest{
+				Uuid: "de240964-ff9f-4e3d-95b2-8a96e43788f1",
+				User: "metal-hammer",
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+				tenantRoles:    map[string]apiv2.TenantRole{},
+				independentTenants: map[string]*apiv2.Labels{
+					"metal-hammer": {
+						Labels: map[string]string{
+							tag.MachineBootstrapperTenant: "",
+						},
+					},
+				},
+			},
+			wantToken: &apiv2.Token{
+				User:        "metal-hammer",
+				Description: "machine token for de240964-ff9f-4e3d-95b2-8a96e43788f1",
+				TokenType:   apiv2.TokenType_TOKEN_TYPE_API,
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+				Meta: &apiv2.Meta{},
+			},
+		},
+		{
+			name: "pixie-core misses infra role editor",
+			sessionToken: &apiv2.Token{
+				User:      "pixie-core",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+			},
+			req: &infrav2.BootServiceMachineTokenRequest{
+				Uuid: "de240964-ff9f-4e3d-95b2-8a96e43788f1",
+				User: "metal-hammer",
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+				tenantRoles:    map[string]apiv2.TenantRole{},
+				independentTenants: map[string]*apiv2.Labels{
+					"metal-hammer": {
+						Labels: map[string]string{
+							tag.MachineBootstrapperTenant: "",
+						},
+					},
+				},
+			},
+			wantErr:        true,
+			wantErrMessage: "permission_denied: no permissions to create tokens for other users",
+		},
+		{
+			name: "pixie-core misses permissions for machine roles",
+			sessionToken: &apiv2.Token{
+				User:      "pixie-core",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				InfraRole: apiv2.InfraRole_INFRA_ROLE_EDITOR.Enum(),
+			},
+			req: &infrav2.BootServiceMachineTokenRequest{
+				Uuid: "de240964-ff9f-4e3d-95b2-8a96e43788f1",
+				User: "metal-hammer",
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+				tenantRoles:    map[string]apiv2.TenantRole{},
+				independentTenants: map[string]*apiv2.Labels{
+					"metal-hammer": {
+						Labels: map[string]string{
+							tag.MachineBootstrapperTenant: "",
+						},
+					},
+				},
+			},
+			wantErr:        true,
+			wantErrMessage: "permission_denied: requested machine roles are not allowed: [de240964-ff9f-4e3d-95b2-8a96e43788f1]",
+		},
+		{
+			name: "cannot create token for tenant that has no special bootstrapper label",
+			sessionToken: &apiv2.Token{
+				User:      "pixie-core",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				InfraRole: apiv2.InfraRole_INFRA_ROLE_EDITOR.Enum(),
+				MachineRoles: map[string]apiv2.MachineRole{
+					"*": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+			},
+			req: &infrav2.BootServiceMachineTokenRequest{
+				Uuid: "de240964-ff9f-4e3d-95b2-8a96e43788f1",
+				User: "metal-hammer",
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+				tenantRoles:    map[string]apiv2.TenantRole{},
+				independentTenants: map[string]*apiv2.Labels{
+					"metal-hammer": {
+						Labels: map[string]string{
+							"a": "b",
+						},
+					},
+				},
+			},
+			wantErr:        true,
+			wantErrMessage: `invalid_argument: tenant "metal-hammer" must have a label "tenant.metal-stack.io/machine-bootstrapper" to be used for machine token creation`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(innerT *testing.T) {
+			defer testStore.Cleanup(t)
+
+			ctx, cancel := context.WithCancel(token.ContextWithToken(innerT.Context(), tt.sessionToken))
+			defer cancel()
+
+			test.CreateTenants(innerT, testStore, []*apiv2.TenantServiceCreateRequest{
+				{
+					Name: tt.sessionToken.User,
+				},
+			})
+			test.CreateTenantMemberships(innerT, testStore, tt.sessionToken.User, []*api.TenantMemberCreateRequest{
+				{
+					MemberID: tt.sessionToken.User,
+					Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			})
+
+			for id, perm := range tt.state.tenantRoles {
+				if id != tt.sessionToken.User {
+					test.CreateTenants(innerT, testStore, []*apiv2.TenantServiceCreateRequest{
+						{
+							Name: id,
+						},
+					})
+				}
+				test.CreateTenantMemberships(innerT, testStore, id, []*api.TenantMemberCreateRequest{
+					{
+						MemberID: tt.sessionToken.User,
+						Role:     perm,
+					},
+				})
+			}
+
+			for id, labels := range tt.state.independentTenants {
+				test.CreateTenants(innerT, testStore, []*apiv2.TenantServiceCreateRequest{
+					{
+						Name:   id,
+						Labels: labels,
+					},
+				})
+				test.CreateTenantMemberships(innerT, testStore, id, []*api.TenantMemberCreateRequest{
+					{
+						MemberID: id,
+						Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
+					},
+				})
+			}
+
+			for id, perm := range tt.state.projectRoles {
+				test.CreateProjects(innerT, testStore, []*apiv2.ProjectServiceCreateRequest{
+					{
+						Login: tt.sessionToken.User,
+						Name:  id,
+					},
+				})
+				test.CreateProjectMemberships(innerT, testStore, id, []*api.ProjectMemberCreateRequest{
+					{
+						TenantId: tt.sessionToken.User,
+						Role:     perm,
+					},
+				})
+			}
+			service := New(Config{
+				Log:  log,
+				Repo: testStore.Store,
+			})
+
+			if tt.wantErr == false {
+				// Execute proto based validation
+				err := protovalidate.Validate(tt.req)
+				require.NoError(t, err)
+			}
+
+			response, err := service.MachineToken(ctx, tt.req)
+			switch {
+			case tt.wantErr && err != nil:
+				if dff := cmp.Diff(tt.wantErrMessage, err.Error()); dff != "" {
+					t.Fatal(dff)
+				}
+			case tt.wantErr && err == nil:
+				t.Fatalf("want error %q, got response %q", tt.wantErrMessage, response)
+			case err != nil:
+				t.Fatalf("want response, got error %q", err)
+
+			default:
+				if response.Secret == "" {
+					t.Error("response secret for token may not be empty")
+				}
+				require.NotNil(t, tt.wantToken, "token returned, nil expected")
+
+				response, err := service.MachineToken(ctx, tt.req)
+				require.NoError(t, err, "failed repeated machine token call")
+				require.NotNil(t, tt.wantToken, "token returned, nil expected")
+
+				if diff := cmp.Diff(
+					tt.wantToken, response.Token,
+					protocmp.Transform(),
+					protocmp.IgnoreFields(
+						&apiv2.Token{}, "issued_at", "expires", "uuid",
+					),
+					protocmp.IgnoreFields(
+						&apiv2.Meta{}, "created_at", "updated_at", "generation",
+					),
+				); diff != "" {
+					innerT.Errorf("diff: %s", diff)
+				}
+
+				tokens, err := testStore.Token(tt.req.User).List(ctx, &apiv2.TokenQuery{
+					User:      &tt.req.User,
+					TokenType: apiv2.TokenType_TOKEN_TYPE_API.Enum(),
+				})
+				tokens = slices.DeleteFunc(tokens, func(tok *api.TokenWithSecret) bool {
+					return len(tok.Token.MachineRoles) == 0
+				})
+
+				require.NoError(t, err)
+				require.Len(t, tokens, 1, "old tokens were not revoked")
+			}
+		})
+	}
+}
+
+func Test_bootServiceServer_SendEvent(t *testing.T) {
+	t.Parallel()
+
+	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithValkey(true), test.WithPostgres(true))
+	log := testStore.GetLogger()
+	defer closer()
+
+	now := time.Now()
+
+	type state struct {
+		providerTenant string
+		projectRoles   map[string]apiv2.ProjectRole
+		tenantRoles    map[string]apiv2.TenantRole
+	}
+	tests := []struct {
+		name         string
+		sessionToken *apiv2.Token
+		req          *infrav2.BootServiceSendEventRequest
+		state        state
+		wantErr      error
+	}{
+		{
+			name: "metal-hammer can send a machine event",
+			sessionToken: &apiv2.Token{
+				User:      "metal-hammer",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+			},
+			req: &infrav2.BootServiceSendEventRequest{
+				Uuid: "de240964-ff9f-4e3d-95b2-8a96e43788f1",
+				Event: &apiv2.MachineProvisioningEvent{
+					Time:    timestamppb.New(now),
+					Event:   apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_ALIVE,
+					Message: "alive",
+				},
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+				tenantRoles: map[string]apiv2.TenantRole{
+					"metal-hammer": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+		},
+		{
+			name: "can not send pxe boot event, this is sent by the pixiecore",
+			sessionToken: &apiv2.Token{
+				User:      "metal-hammer",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				MachineRoles: map[string]apiv2.MachineRole{
+					"de240964-ff9f-4e3d-95b2-8a96e43788f1": apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+			},
+			req: &infrav2.BootServiceSendEventRequest{
+				Uuid: "de240964-ff9f-4e3d-95b2-8a96e43788f1",
+				Event: &apiv2.MachineProvisioningEvent{
+					Time:    timestamppb.New(now),
+					Event:   apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_PXE_BOOTING,
+					Message: "alive",
+				},
+			},
+			state: state{
+				providerTenant: test.DefaultProviderTenant,
+				tenantRoles: map[string]apiv2.TenantRole{
+					"metal-hammer": apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			wantErr: errorutil.InvalidArgument(`sending event "MACHINE_PROVISIONING_EVENT_TYPE_PXE_BOOTING" is not allowed through this method`),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(innerT *testing.T) {
+			defer testStore.Cleanup(t)
+
+			ctx, cancel := context.WithCancel(token.ContextWithToken(innerT.Context(), tt.sessionToken))
+			defer cancel()
+
+			test.CreateTenants(innerT, testStore, []*apiv2.TenantServiceCreateRequest{
+				{
+					Name: tt.sessionToken.User,
+				},
+			})
+			test.CreateTenantMemberships(innerT, testStore, tt.sessionToken.User, []*api.TenantMemberCreateRequest{
+				{
+					MemberID: tt.sessionToken.User,
+					Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			})
+
+			for id, perm := range tt.state.tenantRoles {
+				if id != tt.sessionToken.User {
+					test.CreateTenants(innerT, testStore, []*apiv2.TenantServiceCreateRequest{
+						{
+							Name: id,
+						},
+					})
+				}
+				test.CreateTenantMemberships(innerT, testStore, id, []*api.TenantMemberCreateRequest{
+					{
+						MemberID: tt.sessionToken.User,
+						Role:     perm,
+					},
+				})
+			}
+
+			for id, perm := range tt.state.projectRoles {
+				test.CreateProjects(innerT, testStore, []*apiv2.ProjectServiceCreateRequest{
+					{
+						Login: tt.sessionToken.User,
+						Name:  id,
+					},
+				})
+				test.CreateProjectMemberships(innerT, testStore, id, []*api.ProjectMemberCreateRequest{
+					{
+						TenantId: tt.sessionToken.User,
+						Role:     perm,
+					},
+				})
+			}
+			service := New(Config{
+				Log:  log,
+				Repo: testStore.Store,
+			})
+
+			if tt.wantErr != nil {
+				err := protovalidate.Validate(tt.req)
+				require.NoError(t, err)
+			}
+
+			response, err := service.SendEvent(ctx, tt.req)
+
+			if dff := cmp.Diff(tt.wantErr, err, errorutil.ErrorStringComparer()); dff != "" {
+				t.Fatal(dff)
+			}
+
+			if tt.wantErr == nil {
+				require.NotNil(t, response)
 			}
 		})
 	}

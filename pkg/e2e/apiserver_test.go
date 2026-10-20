@@ -1,8 +1,6 @@
 package e2e
 
 import (
-	"log/slog"
-	"os"
 	"testing"
 	"time"
 
@@ -15,8 +13,7 @@ import (
 
 func TestUnauthenticated(t *testing.T) {
 	t.Parallel()
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	baseURL, adminToken, _, closer := StartApiserver(t, log)
+	log, baseURL, adminToken, _, closer := StartApiserver(t)
 	defer closer()
 	require.NotNil(t, baseURL, adminToken)
 
@@ -36,8 +33,7 @@ func TestUnauthenticated(t *testing.T) {
 
 func TestAuthenticated(t *testing.T) {
 	t.Parallel()
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	baseURL, adminToken, _, closer := StartApiserver(t, log)
+	log, baseURL, adminToken, _, closer := StartApiserver(t)
 	defer closer()
 	require.NotNil(t, baseURL, adminToken)
 
@@ -58,8 +54,7 @@ func TestAuthenticated(t *testing.T) {
 
 func TestListBaseNetworks(t *testing.T) {
 	t.Parallel()
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	baseURL, adminToken, tenantTokenSecrets, closer := StartApiserver(t, log, "user-a")
+	log, baseURL, adminToken, tenantTokenSecrets, closer := StartApiserver(t, "user-a")
 	defer closer()
 	require.NotNil(t, baseURL, adminToken)
 	log.Info("token", "secret", tenantTokenSecrets["user-a"])
@@ -112,8 +107,7 @@ func TestListBaseNetworks(t *testing.T) {
 
 func TestHealthGet(t *testing.T) {
 	t.Parallel()
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	baseURL, adminToken, tenantTokenSecrets, closer := StartApiserver(t, log, "user-a")
+	log, baseURL, adminToken, tenantTokenSecrets, closer := StartApiserver(t, "user-a")
 	defer closer()
 	require.NotNil(t, baseURL, adminToken)
 	log.Info("token", "secret", tenantTokenSecrets["user-a"])

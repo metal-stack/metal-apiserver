@@ -1,23 +1,26 @@
 package admin
 
 import (
+	"context"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/hibiken/asynq"
+	"github.com/metal-stack/api/go/enum"
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -32,9 +35,9 @@ var (
 
 func Test_machineServiceServer_Get(t *testing.T) {
 	t.Parallel()
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
+	log := testStore.GetLogger()
 	defer closer()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -131,9 +134,9 @@ func Test_machineServiceServer_Get(t *testing.T) {
 
 func Test_machineServiceServer_List(t *testing.T) {
 	t.Parallel()
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
+	log := testStore.GetLogger()
 	defer closer()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -283,9 +286,9 @@ func Test_machineServiceServer_List(t *testing.T) {
 
 func Test_machineServiceServer_BMCCommand(t *testing.T) {
 	t.Parallel()
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
+	log := testStore.GetLogger()
 	defer closer()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -355,6 +358,40 @@ func Test_machineServiceServer_BMCCommand(t *testing.T) {
 				// Execute proto based validation
 				test.Validate(t, tt.rq)
 			}
+
+			g, _ := errgroup.WithContext(t.Context())
+
+			bmcCtx, bmcCancelWatch := context.WithCancel(t.Context())
+			defer bmcCancelWatch()
+
+			strVal, err := enum.GetStringValue(tt.rq.Command)
+			require.NoError(t, err)
+
+			if tt.wantErr == nil {
+				g.Go(func() error {
+					msgs := testStore.GetQueue().WaitMachineCommand(bmcCtx, "partition-1")
+
+					select {
+					case msg := <-msgs:
+						if diff := cmp.Diff(*strVal, msg.Command); diff != "" {
+							return fmt.Errorf("bmc cmd diff: %s", diff)
+						}
+
+						_, err := testStore.UnscopedMachine().AdditionalMethods().BMCCommandDone(bmcCtx, &infrav2.BMCCommandDoneRequest{
+							CommandId: msg.CommandID,
+							Error:     nil,
+						})
+						if err != nil {
+							return err
+						}
+
+						return nil
+					case <-bmcCtx.Done():
+						return nil
+					}
+				})
+			}
+
 			got, err := m.BMCCommand(ctx, tt.rq)
 			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
 				t.Errorf("diff = %s", diff)
@@ -364,34 +401,30 @@ func Test_machineServiceServer_BMCCommand(t *testing.T) {
 				tt.want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
-					&apiv2.Image{}, "expires_at",
-				),
-				protocmp.IgnoreFields(
-					&apiv2.Meta{}, "created_at", "updated_at",
-				),
-				protocmp.IgnoreFields(
-					&apiv2.MachineProvisioningEvent{}, "time",
+					&adminv2.MachineServiceBMCCommandResponse{}, "task_id",
 				),
 			); diff != "" {
 				t.Errorf("machineServiceServer.BMCCommand() = %v, want %v diff: %s", got, tt.want, diff)
 			}
 
 			if tt.want != nil {
-				tasks, err := m.repo.Task().List(nil)
+				task, err := m.repo.Task().GetTaskInfo("default", got.TaskId)
 				require.NoError(t, err)
-				require.Len(t, tasks, 1)
-				require.Equal(t, asynq.TaskStatePending, tasks[0].State)
-				require.Contains(t, string(tasks[0].Payload), "boot-from-disk")
+				require.Equal(t, asynq.TaskStateCompleted, task.State)
+				require.Contains(t, string(task.Payload), "boot-from-disk")
 			}
+
+			bmcCancelWatch()
+			require.NoError(t, g.Wait())
 		})
 	}
 }
 
 func Test_machineServiceServer_Issues(t *testing.T) {
 	t.Parallel()
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
+	log := testStore.GetLogger()
 	defer closer()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -950,9 +983,9 @@ func Test_machineServiceServer_Issues(t *testing.T) {
 
 func Test_machineServiceServer_SetState(t *testing.T) {
 	t.Parallel()
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 
 	testDC := sc.DefaultDatacenter
@@ -1129,7 +1162,6 @@ func Test_machineServiceServer_SetState(t *testing.T) {
 
 func Test_machineServiceServer_Delete(t *testing.T) {
 	var (
-		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 		ctx = t.Context()
 	)
 
@@ -1147,14 +1179,18 @@ func Test_machineServiceServer_Delete(t *testing.T) {
 				return &adminv2.MachineServiceDeleteRequest{Uuid: sc.Machine1}
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("can only delete dead machines, if you power off this machine it will reach dead state."),
+			wantErr: errorutil.FailedPrecondition("can only delete dead machines, if you power off this machine it will reach dead state"),
 		},
 		{
 			name: "delete allocated machine",
 			scenario: func() *sc.DatacenterSpec {
 				s := sc.SwitchesWithMachinesDatacenter
-				s.Images = map[string]apiv2.ImageFeature{
-					sc.ImageDebian13: apiv2.ImageFeature_IMAGE_FEATURE_MACHINE,
+				s.Images = []*apiv2.Image{
+					{
+						Id:             sc.ImageDebian13,
+						Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE},
+						Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED,
+					},
 				}
 				s.Machines = []*sc.MachineWithLiveliness{
 					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive, false),
@@ -1172,14 +1208,18 @@ func Test_machineServiceServer_Delete(t *testing.T) {
 				return &adminv2.MachineServiceDeleteRequest{Uuid: sc.Machine2}
 			},
 			want:    nil,
-			wantErr: errorutil.InvalidArgument("machine is allocated and can not be deleted"),
+			wantErr: errorutil.FailedPrecondition("machine is allocated and can not be deleted"),
 		},
 		{
 			name: "delete dead machine",
 			scenario: func() *sc.DatacenterSpec {
 				s := sc.SwitchesWithMachinesDatacenter
-				s.Images = map[string]apiv2.ImageFeature{
-					sc.ImageDebian13: apiv2.ImageFeature_IMAGE_FEATURE_MACHINE,
+				s.Images = []*apiv2.Image{
+					{
+						Id:             sc.ImageDebian13,
+						Features:       []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE},
+						Classification: apiv2.ImageClassification_IMAGE_CLASSIFICATION_SUPPORTED,
+					},
 				}
 				s.Machines = []*sc.MachineWithLiveliness{
 					sc.MachineFunc(sc.Machine1, sc.Partition1, sc.SizeC1Large, "", "", metal.MachineLivelinessAlive, false),
@@ -1197,8 +1237,11 @@ func Test_machineServiceServer_Delete(t *testing.T) {
 				return &adminv2.MachineServiceDeleteRequest{Uuid: sc.Machine3}
 			},
 			want: func(e *test.Entities) *adminv2.MachineServiceDeleteResponse {
+				m := e.Machines[sc.Machine3]
+				m.Status = nil
+				m.RecentProvisioningEvents = nil
 				return &adminv2.MachineServiceDeleteResponse{
-					Machine: e.Machines[sc.Machine3],
+					Machine: m,
 				}
 			},
 			mods: func() *test.Asserters {
@@ -1220,7 +1263,9 @@ func Test_machineServiceServer_Delete(t *testing.T) {
 		},
 	}
 
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
+
 	defer dc.Close()
 
 	for _, tt := range tests {
@@ -1261,9 +1306,14 @@ func Test_machineServiceServer_Delete(t *testing.T) {
 			if diff := cmp.Diff(want, got,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
-					&apiv2.Meta{}, "created_at", "updated_at", "generation",
+					&apiv2.Meta{}, "created_at", "updated_at", "generation", "deletion_task_id",
 				)); diff != "" {
 				t.Errorf("machineServiceServer.Delete() diff = %s", diff)
+			}
+
+			if tt.wantErr == nil {
+				require.NotNil(t, got.Machine.Meta.DeletionTaskId)
+				assert.NotEmpty(t, got.Machine.Meta.DeletionTaskId)
 			}
 
 			var mods *test.Asserters

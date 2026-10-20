@@ -2,6 +2,7 @@ package test
 
 import (
 	"log/slog"
+	"os"
 	"testing"
 	"time"
 
@@ -44,6 +45,7 @@ type (
 	testStore struct {
 		t testing.TB
 		*repository.Store
+		log           *slog.Logger
 		ds            generic.Datastore
 		dbName        string
 		queryExecutor *r.Session
@@ -62,6 +64,7 @@ type (
 		hc                     *headscale.Client
 		mr                     *miniredis.Miniredis
 		headscaleControllerURL string
+		queue                  *queue.Queue
 
 		audit auditing.Auditing
 	}
@@ -138,7 +141,12 @@ func WithRenewCertBeforeExpiration(renew *time.Duration) *testOptRenewCertBefore
 	}
 }
 
-func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...testOpt) (*testStore, func()) {
+func StartRepositoryWithCleanup(t testing.TB, testOpts ...testOpt) (*testStore, func()) {
+	lvl := slog.LevelDebug
+	if os.Getenv("CI") != "" {
+		lvl = slog.LevelError
+	}
+
 	var (
 		withPostgres   = false
 		withValkey     = false
@@ -148,6 +156,7 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 
 		providerTenant            = DefaultProviderTenant
 		renewCertBeforeExpiration *time.Duration
+		log                       = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: lvl}))
 	)
 
 	for _, opt := range testOpts {
@@ -228,6 +237,7 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		task  = task.NewClient(log, rc)
 		queue = queue.New(log, vc)
 	)
+
 	if withPostgres {
 		tc, tenantApiserverCloser = StartTenantApiserverWithPostgres(t, log)
 	} else {
@@ -275,6 +285,7 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 	return &testStore{
 		t:                      t,
 		Store:                  repo,
+		log:                    log,
 		ds:                     ds,
 		dbName:                 opts.Database,
 		queryExecutor:          session,
@@ -291,6 +302,7 @@ func StartRepositoryWithCleanup(t testing.TB, log *slog.Logger, testOpts ...test
 		hc:                     hc,
 		mr:                     mr,
 		headscaleControllerURL: headscaleControllerURL,
+		queue:                  queue,
 	}, closer
 }
 
@@ -300,7 +312,12 @@ func (s *testStore) Cleanup(t testing.TB) {
 	DeleteIPs(t, s)
 	DeleteNetworks(t, s)
 
-	// TODO valkey
+	tokens, err := s.tokenStore.AdminList(t.Context())
+	require.NoError(t, err)
+
+	for _, tok := range tokens {
+		require.NoError(t, s.tokenStore.Revoke(t.Context(), tok.User, tok.Uuid))
+	}
 
 	tables := s.ds.GetTableNames()
 
@@ -322,6 +339,10 @@ func (s *testStore) Cleanup(t testing.TB) {
 	for _, tok := range toks {
 		require.NoError(t, s.tokenStore.Revoke(t.Context(), tok.User, tok.Uuid))
 	}
+}
+
+func (t *testStore) GetLogger() *slog.Logger {
+	return t.log
 }
 
 func (t *testStore) GetDatastore() generic.Datastore {
@@ -374,6 +395,10 @@ func (t *testStore) GetHeadscaleControllerURL() string {
 
 func (t *testStore) GetAuditBackend() auditing.Auditing {
 	return t.audit
+}
+
+func (t *testStore) GetQueue() *queue.Queue {
+	return t.queue
 }
 
 func (t *testStore) GetToken(subject string, cr *apiv2.TokenServiceCreateRequest) *apiv2.Token {
@@ -482,7 +507,10 @@ func DeleteNetworks(t testing.TB, testStore *testStore) {
 		require.NoError(t, err)
 
 		for _, prefix := range resp.Prefixes {
-			_, err := testStore.ipam.DeletePrefix(t.Context(), &ipamv1.DeletePrefixRequest{Cidr: prefix.Cidr})
+			_, err := testStore.ipam.DeletePrefix(t.Context(), &ipamv1.DeletePrefixRequest{
+				Cidr:      prefix.Cidr,
+				Namespace: new(ns),
+			})
 			require.NoError(t, err)
 		}
 	}

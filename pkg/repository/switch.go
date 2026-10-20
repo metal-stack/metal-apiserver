@@ -321,37 +321,6 @@ func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *ap
 		return errorutil.FailedPrecondition("machine %s is not connected to exactly two switches, found connections to switches %v", m.Uuid, neighs)
 	}
 
-	metalMachine, err := r.s.ds.Machine().Get(ctx, m.Uuid)
-	if err != nil && !errorutil.IsNotFound(err) {
-		return errorutil.Internal("failed to connect machine with switches: %w", err)
-	}
-
-	if metalMachine != nil {
-		oldNeighs := lo.Uniq(lo.Flatten(
-			lo.Map(metalMachine.Hardware.Nics, func(nic metal.Nic, _ int) []string {
-				return lo.Map(nic.Neighbors, func(neigh metal.Nic, _ int) string {
-					return neigh.Hostname
-				})
-			}),
-		))
-
-		prev, _ := lo.Difference(oldNeighs, neighs)
-		for _, id := range prev {
-			s, err := r.get(ctx, id)
-			if err != nil {
-				return fmt.Errorf("failed to remove machine connection from switch %s: %w", id, err)
-			}
-
-			cons := s.MachineConnections
-			delete(cons, m.Uuid)
-
-			err = r.s.ds.Switch().Update(ctx, s)
-			if err != nil {
-				return fmt.Errorf("failed to remove machine connection from switch %s: %w", id, err)
-			}
-		}
-	}
-
 	s1, err := r.get(ctx, neighs[0])
 	if err != nil {
 		return fmt.Errorf("failed to add machine connections to switch %s: %w", neighs[0], err)
@@ -374,19 +343,21 @@ func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *ap
 		return fmt.Errorf("unable to query switches: %w", err)
 	}
 
-	var orphanedSwitchNames []string
-
 	for _, sw := range sws {
-		if sw.Rack == m.Rack {
-			continue
+		if sw.Rack != m.Rack {
+			return errorutil.FailedPrecondition("machine wants to register at rack %q, but machine is already connected to rack %q; if you want to move the machine from one rack to another delete it first via admin api", m.Rack, sw.Rack)
 		}
-
-		orphanedSwitchNames = append(orphanedSwitchNames, sw.ID)
 	}
 
-	if len(orphanedSwitchNames) > 0 {
-		slices.Sort(orphanedSwitchNames)
-		return errorutil.FailedPrecondition("machine wants to register on rack %q, but machine connections are present on the following switches %v, likely the machine was moved in the data center but not deleted through the admin api", m.Rack, orphanedSwitchNames)
+	switchNames := lo.Map(sws, func(sw *metal.Switch, _ int) string {
+		return sw.Name
+	})
+
+	slices.Sort(neighs)
+	slices.Sort(switchNames)
+
+	if len(switchNames) > 0 && cmp.Diff(neighs, switchNames) != "" {
+		return errorutil.FailedPrecondition("machine wants to register at switches %v but is already connected to switches %v; if you want to migrate machine connections from one switch to another call switch migrate first", neighs, switchNames)
 	}
 
 	var newMachineNics metal.Nics
@@ -451,16 +422,16 @@ func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *ap
 	return nil
 }
 
-func (r *switchRepository) RemoveMachineFromSwitches(ctx context.Context, m *apiv2.Machine) error {
-
+func (r *switchRepository) RemoveMachineFromSwitches(ctx context.Context, machineID string) error {
 	switches, err := r.s.ds.Switch().List(ctx, queries.SwitchFilter(&apiv2.SwitchQuery{
-		ConnectedMachineId: &m.Uuid,
+		ConnectedMachineId: &machineID,
 	}))
 	if err != nil {
 		return fmt.Errorf("unable to query switches: %w", err)
 	}
+
 	for _, sw := range switches {
-		delete(sw.MachineConnections, m.Uuid)
+		delete(sw.MachineConnections, machineID)
 
 		if err := r.s.ds.Switch().Update(ctx, sw); err != nil {
 			return err
@@ -572,7 +543,7 @@ func toSwitchBGPPortState(state *apiv2.SwitchBGPPortState) (*metal.SwitchBGPPort
 	}
 
 	bgpPortState := &metal.SwitchBGPPortState{
-		Neighbor:              state.Neighbor,
+		Neighbor:              pointer.SafeDeref(state.Neighbor),
 		PeerGroup:             state.PeerGroup,
 		VrfName:               state.VrfName,
 		BgpState:              bgpState,
@@ -617,7 +588,7 @@ func (r *switchRepository) create(ctx context.Context, req *api.SwitchServiceCre
 	if req.Switch == nil {
 		return nil, nil
 	}
-	sw, err := r.convertToInternal(ctx, req.Switch)
+	sw, err := r.convertToInternal(req.Switch)
 	if err != nil {
 		return nil, err
 	}
@@ -673,11 +644,11 @@ func (r *switchRepository) delete(ctx context.Context, sw *metal.Switch) (*delet
 }
 
 func (r *switchRepository) replace(ctx context.Context, oldSwitch, newSwitch *apiv2.Switch) (*metal.Switch, error) {
-	old, err := r.convertToInternal(ctx, oldSwitch)
+	old, err := r.convertToInternal(oldSwitch)
 	if err != nil {
 		return nil, fmt.Errorf("failed to replace switch %s by %s: %w", oldSwitch.Id, newSwitch.Id, err)
 	}
-	new, err := r.convertToInternal(ctx, newSwitch)
+	new, err := r.convertToInternal(newSwitch)
 	if err != nil {
 		return nil, fmt.Errorf("failed to replace switch %s by %s: %w", oldSwitch.Id, newSwitch.Id, err)
 	}
@@ -724,7 +695,7 @@ func (r *switchRepository) list(ctx context.Context, query *apiv2.SwitchQuery) (
 	return switches, err
 }
 
-func (r *switchRepository) convertToInternal(ctx context.Context, sw *apiv2.Switch) (*metal.Switch, error) {
+func (r *switchRepository) convertToInternal(sw *apiv2.Switch) (*metal.Switch, error) {
 	if sw == nil {
 		return nil, nil
 	}
@@ -981,7 +952,7 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 			}
 
 			bgpPortState = &apiv2.SwitchBGPPortState{
-				Neighbor:              nic.BGPPortState.Neighbor,
+				Neighbor:              pointer.PointerOrNil(nic.BGPPortState.Neighbor),
 				PeerGroup:             nic.BGPPortState.PeerGroup,
 				VrfName:               nic.BGPPortState.VrfName,
 				BgpState:              bgpState,
@@ -1042,7 +1013,7 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 		switchNics = append(switchNics, &apiv2.SwitchNic{
 			Name:       nic.Name,
 			Identifier: identifier,
-			Mac:        pointer.PointerOrNil(nic.MacAddress),
+			Mac:        pointer.PointerOrNil(nic.MacAddress), // nolint:staticcheck
 			Vrf:        pointer.PointerOrNil(nic.Vrf),
 			State: &apiv2.NicState{
 				Desired: desiredStatus,
@@ -1124,20 +1095,33 @@ func convertMachineConnections(machineConnections metal.ConnectionMap, nics []*a
 
 func updateNicNames(old, new metal.Nics) metal.Nics {
 	var (
-		updated metal.Nics
-		oldNics = old.MapByIdentifier()
-		newNics = new.MapByIdentifier()
+		updated    metal.Nics
+		oldByIdent = old.MapByIdentifier()
+		oldByName  = old.MapByName()
+		newNics    = new.MapByIdentifier()
 	)
 
-	for id, newNic := range newNics {
-		oldNic, ok := oldNics[id]
+	for _, newNic := range newNics {
+		// Prefer matching by (non-empty) identifier. Nics that are still stored with
+		// an empty identifier (persisted before metal-core v0.20.0) fall back to
+		// matching by name so that their known counterpart (e.g. with a set vrf) is
+		// found instead of being treated as a brand new nic.
+		oldNic, ok := oldByIdent[newNic.Identifier]
 		if !ok {
+			oldNic, ok = oldByName[newNic.Name]
+		}
+		if !ok {
+			// A genuinely new nic: adopt it from the report as is.
 			updated = append(updated, *newNic)
 			continue
 		}
 
+		// Keep the existing nic (preserving vrf, state, bgp port state, ...) and
+		// adopt name and identifier from the report. metal-core v0.20.0 always
+		// reports the mac as identifier, which also fills a previously empty one.
 		updatedNic := *oldNic
 		updatedNic.Name = newNic.Name
+		updatedNic.Identifier = newNic.Identifier
 		updated = append(updated, updatedNic)
 	}
 
@@ -1344,7 +1328,7 @@ func toMetalNic(switchNic *apiv2.SwitchNic, hostname string) (*metal.Nic, error)
 		Name:         switchNic.Name,
 		Hostname:     hostname,
 		Identifier:   switchNic.Identifier,
-		MacAddress:   pointer.SafeDeref(switchNic.Mac),
+		MacAddress:   pointer.SafeDeref(switchNic.Mac), // nolint:staticcheck
 		Vrf:          pointer.SafeDeref(switchNic.Vrf),
 		State:        nicState,
 		BGPPortState: bgpPortState,

@@ -32,7 +32,7 @@ func (r *filesystemLayoutRepository) matchScope(_ *metal.FilesystemLayout) bool 
 }
 
 func (r *filesystemLayoutRepository) create(ctx context.Context, rq *adminv2.FilesystemServiceCreateRequest) (*metal.FilesystemLayout, error) {
-	fsl, err := r.convertToInternal(ctx, rq.FilesystemLayout)
+	fsl, err := r.convertToInternal(rq.FilesystemLayout)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -220,7 +220,7 @@ func (r *filesystemLayoutRepository) list(ctx context.Context, rq *apiv2.Filesys
 	return fsls, nil
 }
 
-func (r *filesystemLayoutRepository) convertToInternal(ctx context.Context, f *apiv2.FilesystemLayout) (*metal.FilesystemLayout, error) {
+func (r *filesystemLayoutRepository) convertToInternal(f *apiv2.FilesystemLayout) (*metal.FilesystemLayout, error) {
 	var (
 		fss = []metal.Filesystem{}
 		ds  = []metal.Disk{}

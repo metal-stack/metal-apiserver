@@ -21,7 +21,7 @@ type partitionRepository struct {
 }
 
 func (p *partitionRepository) create(ctx context.Context, c *adminv2.PartitionServiceCreateRequest) (*metal.Partition, error) {
-	partition, err := p.convertToInternal(ctx, c.Partition)
+	partition, err := p.convertToInternal(c.Partition)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -123,7 +123,7 @@ func (p *partitionRepository) matchScope(e *metal.Partition) bool {
 	return true
 }
 
-func (p *partitionRepository) convertToInternal(ctx context.Context, msg *apiv2.Partition) (*metal.Partition, error) {
+func (p *partitionRepository) convertToInternal(msg *apiv2.Partition) (*metal.Partition, error) {
 	mgm := ""
 	if len(msg.MgmtServiceAddresses) > 0 {
 		// FIXME migrate metal model to slice as well
@@ -423,7 +423,13 @@ func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.Partitio
 
 		for _, cap := range pc.MachineSizeCapacities {
 			cap.RemainingReservations = cap.Reservations - cap.UsedReservations
+			sort.Strings(cap.FaultyMachines)
+			sort.Strings(cap.OtherMachines)
 		}
+
+		sort.SliceStable(pc.MachineSizeCapacities, func(i, j int) bool {
+			return pc.MachineSizeCapacities[i].Size < pc.MachineSizeCapacities[j].Size
+		})
 
 		res = append(res, pc)
 	}

@@ -56,7 +56,6 @@ type (
 		find(ctx context.Context, query Q) (E, error)
 		list(ctx context.Context, query Q) ([]E, error)
 
-		convertToInternal(ctx context.Context, msg M) (E, error)
 		convertToProto(ctx context.Context, e E) (M, error)
 
 		matchScope(e E) bool

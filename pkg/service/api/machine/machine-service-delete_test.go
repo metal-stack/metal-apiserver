@@ -2,8 +2,6 @@ package machine
 
 import (
 	"fmt"
-	"log/slog"
-	"os"
 	"slices"
 	"testing"
 	"time"
@@ -28,7 +26,6 @@ import (
 func Test_machineServiceServer_DeleteMachine(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
 	// Add token to be able to get the user from the context
@@ -111,7 +108,8 @@ func Test_machineServiceServer_DeleteMachine(t *testing.T) {
 		},
 	}
 
-	dc := test.NewDatacenter(t, log, test.WithPostgres(true))
+	dc := test.NewDatacenter(t, test.WithPostgres(true))
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 
 	for _, tt := range tests {

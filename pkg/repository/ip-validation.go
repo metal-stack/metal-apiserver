@@ -44,7 +44,7 @@ func (r *ipRepository) validateCreate(ctx context.Context, req *apiv2.IPServiceC
 	if req.Ip != nil {
 		existingIP, err := r.s.ds.IP().Get(ctx, metal.CreateNamespacedIPAddress(nw.Namespace, *req.Ip))
 		if err == nil || existingIP != nil {
-			return fmt.Errorf("given ip %q is already allocated", *req.Ip)
+			return errorutil.Conflict("given ip %q is already allocated", *req.Ip)
 		}
 		if !errorutil.IsNotFound(err) {
 			return errorutil.NewFailedPrecondition(err)

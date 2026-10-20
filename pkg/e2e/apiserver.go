@@ -21,10 +21,11 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
-func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string) (baseURL, adminToken string, tenantTokens map[string]string, closer func()) {
+func StartApiserver(t testing.TB, additionalTenants ...string) (log *slog.Logger, baseURL, adminToken string, tenantTokens map[string]string, closer func()) {
 	ctx := t.Context()
 
-	testStore, repocloser := test.StartRepositoryWithCleanup(t, log, test.WithPostgres(true), test.WithValkey(true), test.WithHeadscale(true))
+	testStore, repocloser := test.StartRepositoryWithCleanup(t, test.WithPostgres(true), test.WithValkey(true), test.WithHeadscale(true))
+	log = testStore.GetLogger()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "{}")
@@ -65,7 +66,7 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 		ComponentExpiration:                 time.Hour,
 	}
 
-	mux, err := service.New(ctx, log, c)
+	mux, err := service.New(ctx, testStore.GetLogger(), c)
 	require.NoError(t, err)
 
 	server := httptest.NewUnstartedServer(mux)
@@ -137,7 +138,7 @@ func StartApiserver(t testing.TB, log *slog.Logger, additionalTenants ...string)
 
 	tenantTokenSecrets := createTenantTokens(t, testStore.Store, additionalTenants...)
 
-	return server.URL, resp.Secret, tenantTokenSecrets, closer
+	return log, server.URL, resp.Secret, tenantTokenSecrets, closer
 }
 
 func createTenantTokens(t testing.TB, repo *repository.Store, tenants ...string) map[string]string {

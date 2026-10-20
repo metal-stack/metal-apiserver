@@ -2,10 +2,8 @@ package admin
 
 import (
 	"fmt"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -34,9 +32,8 @@ var (
 func Test_partitionServiceServer_Create(t *testing.T) {
 	t.Parallel()
 
-	log := slog.Default()
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
+	log := testStore.GetLogger()
 	defer closer()
 
 	ctx := t.Context()
@@ -158,9 +155,8 @@ func Test_partitionServiceServer_Create(t *testing.T) {
 func Test_partitionServiceServer_Update(t *testing.T) {
 	t.Parallel()
 
-	log := slog.Default()
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
+	log := testStore.GetLogger()
 	defer closer()
 
 	ctx := t.Context()
@@ -389,9 +385,8 @@ func Test_partitionServiceServer_Update(t *testing.T) {
 func Test_partitionServiceServer_Delete(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
+	log := testStore.GetLogger()
 	defer closer()
 
 	ctx := t.Context()
@@ -521,10 +516,10 @@ func Test_partitionServiceServer_Delete(t *testing.T) {
 func Test_partitionServiceServer_Capacity(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 
 	tests := []struct {

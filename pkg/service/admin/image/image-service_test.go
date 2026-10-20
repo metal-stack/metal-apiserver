@@ -2,10 +2,8 @@ package admin
 
 import (
 	"fmt"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 
@@ -24,9 +22,8 @@ import (
 func Test_imageServiceServer_Create(t *testing.T) {
 	t.Parallel()
 
-	log := slog.Default()
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
+	log := testStore.GetLogger()
 	defer closer()
 
 	ctx := t.Context()
@@ -106,9 +103,8 @@ func Test_imageServiceServer_Create(t *testing.T) {
 func Test_imageServiceServer_Update(t *testing.T) {
 	t.Parallel()
 
-	log := slog.Default()
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
+	log := testStore.GetLogger()
 	defer closer()
 
 	ctx := t.Context()
@@ -270,9 +266,8 @@ func Test_imageServiceServer_Update(t *testing.T) {
 func Test_imageServiceServer_Delete(t *testing.T) {
 	t.Parallel()
 
-	log := slog.Default()
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
+	log := testStore.GetLogger()
 	defer closer()
 
 	ctx := t.Context()
@@ -369,10 +364,10 @@ func Test_imageServiceServer_Delete(t *testing.T) {
 func Test_imageServiceServer_Usage(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 	dc.Create(&sc.DefaultDatacenter)
 

@@ -2,8 +2,6 @@ package machine
 
 import (
 	"context"
-	"log/slog"
-	"os"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -21,16 +19,15 @@ import (
 func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-
 	// Add token to be able to get the user from the context
 	testToken := apiv2.Token{
 		User:      "unit-test-user",
 		AdminRole: apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
 	}
 
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
 	dc.Create(&sc.DefaultDatacenter)
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 
 	tests := []struct {
@@ -896,7 +893,6 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 func Test_machineServiceServer_ValidateCreateFirewall(t *testing.T) {
 	t.Parallel()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx := t.Context()
 	// Add token to be able to get the user from the context
 	testToken := apiv2.Token{
@@ -905,8 +901,9 @@ func Test_machineServiceServer_ValidateCreateFirewall(t *testing.T) {
 	}
 	ctx = token.ContextWithToken(ctx, &testToken)
 
-	dc := test.NewDatacenter(t, log)
+	dc := test.NewDatacenter(t)
 	dc.Create(&sc.DefaultDatacenter)
+	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 
 	tests := []struct {

@@ -1,7 +1,6 @@
 package infra
 
 import (
-	"log/slog"
 	"testing"
 	"time"
 
@@ -19,9 +18,8 @@ import (
 func Test_eventServiceServer_Send(t *testing.T) {
 	t.Parallel()
 
-	log := slog.Default()
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, log)
+	testStore, closer := test.StartRepositoryWithCleanup(t)
+	log := testStore.GetLogger()
 	defer closer()
 
 	ctx := t.Context()

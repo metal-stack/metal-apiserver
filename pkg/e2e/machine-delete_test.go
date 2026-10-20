@@ -2,8 +2,6 @@ package e2e
 
 import (
 	"context"
-	"log/slog"
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -17,8 +15,7 @@ import (
 )
 
 func TestMachineDelete(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	baseURL, adminToken, _, closer := StartApiserver(t, log)
+	log, baseURL, adminToken, _, closer := StartApiserver(t)
 	defer closer()
 	require.NotNil(t, baseURL, adminToken)
 
@@ -36,8 +33,7 @@ func TestMachineDelete(t *testing.T) {
 }
 
 func TestFirewallDelete(t *testing.T) {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	baseURL, adminToken, _, closer := StartApiserver(t, log)
+	log, baseURL, adminToken, _, closer := StartApiserver(t)
 	defer closer()
 	require.NotNil(t, baseURL, adminToken)
 
