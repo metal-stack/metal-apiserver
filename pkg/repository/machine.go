@@ -1190,11 +1190,15 @@ func (r *machineRepository) GetBMC(ctx context.Context, req *adminv2.MachineServ
 		return nil, err
 	}
 
+	if ok := r.matchScope(machine); !ok {
+		return nil, errorutil.NotFound("%T with id %q not found", machine, req.Uuid)
+	}
+
 	details := &apiv2.MachineBMCDetails{
 		Uuid:      machine.ID,
 		Partition: machine.PartitionID,
 		Rack:      machine.RackID,
-		Room:      machine.RackID,
+		Room:      machine.RoomID,
 		Size:      machine.SizeID,
 		BmcReport: r.convertToBMCReport(machine),
 	}
