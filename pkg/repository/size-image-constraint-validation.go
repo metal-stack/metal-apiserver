@@ -9,7 +9,7 @@ import (
 )
 
 func (r *sizeImageConstraintRepository) validateCreate(ctx context.Context, req *adminv2.SizeImageConstraintServiceCreateRequest) error {
-	sic, err := r.convertToInternal(ctx, &apiv2.SizeImageConstraint{
+	sic, err := r.convertToInternal(&apiv2.SizeImageConstraint{
 		Size:             req.Size,
 		ImageConstraints: req.ImageConstraints,
 	})
@@ -27,7 +27,7 @@ func (r *sizeImageConstraintRepository) validateCreate(ctx context.Context, req 
 }
 
 func (r *sizeImageConstraintRepository) validateUpdate(ctx context.Context, req *adminv2.SizeImageConstraintServiceUpdateRequest, _ *metal.SizeImageConstraint) error {
-	sic, err := r.convertToInternal(ctx, &apiv2.SizeImageConstraint{
+	sic, err := r.convertToInternal(&apiv2.SizeImageConstraint{
 		Size:             req.Size,
 		ImageConstraints: req.ImageConstraints,
 	})

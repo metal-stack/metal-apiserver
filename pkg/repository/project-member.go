@@ -23,19 +23,6 @@ type (
 
 func (t *projectMemberEntity) SetChanged(time time.Time) {}
 
-func (t *projectMemberRepository) convertToInternal(ctx context.Context, msg *apiv2.ProjectMember) (*projectMemberEntity, error) {
-	return &projectMemberEntity{
-		ProjectMember: &tenantv1.ProjectMember{
-			Meta: &tenantv1.Meta{
-				Id: msg.Id,
-				Annotations: map[string]string{
-					api.ProjectRoleAnnotation: msg.Role.String(),
-				},
-			},
-		},
-	}, nil
-}
-
 func (t *projectMemberRepository) convertToProto(ctx context.Context, e *projectMemberEntity) (*apiv2.ProjectMember, error) {
 	if e.Meta.Annotations == nil {
 		e.Meta.Annotations = map[string]string{}
