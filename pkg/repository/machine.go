@@ -1198,7 +1198,7 @@ func (r *machineRepository) GetBMC(ctx context.Context, req *adminv2.MachineServ
 		Uuid:      machine.ID,
 		Partition: machine.PartitionID,
 		Rack:      machine.RackID,
-		Room:      machine.RackID,
+		Room:      machine.RoomID,
 		Size:      machine.SizeID,
 		BmcReport: r.convertToBMCReport(machine),
 	}
