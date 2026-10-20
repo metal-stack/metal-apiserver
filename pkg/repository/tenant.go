@@ -218,30 +218,6 @@ func (t *tenantRepository) update(ctx context.Context, tenant *tenantEntity, rq 
 	return &tenantEntity{Tenant: resp.Tenant}, nil
 }
 
-func (t *tenantRepository) convertToInternal(ctx context.Context, tenant *apiv2.Tenant) (*tenantEntity, error) {
-	ann := map[string]string{
-		api.TenantTagEmail:     tenant.Email,
-		api.TenantTagAvatarURL: tenant.AvatarUrl,
-		api.TenantTagCreator:   tenant.CreatedBy,
-	}
-
-	var labels []string
-	if tenant.Meta != nil && tenant.Meta.Labels != nil && len(tenant.Meta.Labels.Labels) > 0 {
-		labels = tags.ToTags(tenant.Meta.Labels.Labels)
-	}
-
-	return &tenantEntity{Tenant: &tenantv1.Tenant{
-		Meta: &tenantv1.Meta{
-			Id:          tenant.Login,
-			Kind:        "Tenant",
-			Annotations: ann,
-			Labels:      labels,
-		},
-		Name:        tenant.Name,
-		Description: tenant.Description,
-	}}, nil
-}
-
 func (t *tenantRepository) convertToProto(ctx context.Context, tenant *tenantEntity) (*apiv2.Tenant, error) {
 	var labels *apiv2.Labels
 

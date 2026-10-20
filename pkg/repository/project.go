@@ -194,34 +194,6 @@ func (r *projectRepository) list(ctx context.Context, query *apiv2.ProjectQuery)
 	return ps, nil
 }
 
-func (r *projectRepository) convertToInternal(ctx context.Context, p *apiv2.Project) (*projectEntity, error) {
-	var labels []string
-	if p.Meta != nil && p.Meta.Labels != nil && len(p.Meta.Labels.Labels) > 0 {
-		labels = tags.ToTags(p.Meta.Labels.Labels)
-	}
-
-	meta := &tenantv1.Meta{
-		Id:          p.Uuid,
-		CreatedTime: p.Meta.CreatedAt,
-		UpdatedTime: p.Meta.UpdatedAt,
-		Labels:      labels,
-		Annotations: make(map[string]string),
-	}
-
-	if p.AvatarUrl != nil {
-		meta.Annotations["avatarUrl"] = *p.AvatarUrl
-	}
-
-	return &projectEntity{
-		Project: &tenantv1.Project{
-			Meta:        meta,
-			Name:        p.Name,
-			Description: p.Description,
-			TenantId:    p.Tenant,
-		},
-	}, nil
-}
-
 func (r *projectRepository) convertToProto(ctx context.Context, p *projectEntity) (*apiv2.Project, error) {
 	if p.Meta == nil {
 		return nil, errors.New("project meta is nil")

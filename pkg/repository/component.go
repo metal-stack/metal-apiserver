@@ -180,10 +180,6 @@ func (c *componentRepository) list(ctx context.Context, query *apiv2.ComponentQu
 	return result, nil
 }
 
-func (c *componentRepository) convertToInternal(ctx context.Context, msg *apiv2.Component) (*componentEntity, error) {
-	return nil, errorutil.Unimplemented("")
-}
-
 func (c *componentRepository) convertToProto(ctx context.Context, e *componentEntity) (*apiv2.Component, error) {
 	return e.Component, nil
 }

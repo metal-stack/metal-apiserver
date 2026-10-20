@@ -98,12 +98,7 @@ func (m *machineServiceServer) BMCCommand(ctx context.Context, req *apiv2.Machin
 }
 
 func (m *machineServiceServer) GetBMC(ctx context.Context, req *apiv2.MachineServiceGetBMCRequest) (*apiv2.MachineServiceGetBMCResponse, error) {
-	machine, err := m.repo.Machine(req.Project).Get(ctx, req.Uuid)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := m.repo.Machine(req.Project).AdditionalMethods().GetBMC(ctx, &adminv2.MachineServiceGetBMCRequest{Uuid: machine.Uuid})
+	resp, err := m.repo.Machine(req.Project).AdditionalMethods().GetBMC(ctx, &adminv2.MachineServiceGetBMCRequest{Uuid: req.Uuid})
 	if err != nil {
 		return nil, err
 	}

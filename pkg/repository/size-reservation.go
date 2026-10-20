@@ -42,7 +42,7 @@ func (r *sizeReservationRepository) create(ctx context.Context, req *adminv2.Siz
 	if req.SizeReservation == nil {
 		return nil, nil
 	}
-	sizeReservation, err := r.convertToInternal(ctx, req.SizeReservation)
+	sizeReservation, err := r.convertToInternal(req.SizeReservation)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +107,7 @@ func (r *sizeReservationRepository) list(ctx context.Context, rq *apiv2.SizeRese
 	return sizeReservations, nil
 }
 
-func (r *sizeReservationRepository) convertToInternal(ctx context.Context, e *apiv2.SizeReservation) (*metal.SizeReservation, error) {
+func (r *sizeReservationRepository) convertToInternal(e *apiv2.SizeReservation) (*metal.SizeReservation, error) {
 	if e == nil {
 		return nil, nil
 	}

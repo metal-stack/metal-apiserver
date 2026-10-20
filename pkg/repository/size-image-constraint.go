@@ -110,7 +110,7 @@ func (r *sizeImageConstraintRepository) list(ctx context.Context, rq *apiv2.Size
 	return sizeReservations, nil
 }
 
-func (r *sizeImageConstraintRepository) convertToInternal(ctx context.Context, e *apiv2.SizeImageConstraint) (*metal.SizeImageConstraint, error) {
+func (r *sizeImageConstraintRepository) convertToInternal(e *apiv2.SizeImageConstraint) (*metal.SizeImageConstraint, error) {
 	if e == nil {
 		return nil, nil
 	}

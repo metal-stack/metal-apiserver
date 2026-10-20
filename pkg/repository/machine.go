@@ -251,10 +251,6 @@ func (r *machineRepository) list(ctx context.Context, rq *apiv2.MachineQuery) ([
 	return machines, nil
 }
 
-func (r *machineRepository) convertToInternal(ctx context.Context, machine *apiv2.Machine) (*metal.Machine, error) {
-	return nil, errorutil.Unimplemented("")
-}
-
 func (r *machineRepository) convertFirewallRulesToInternal(firewallRules *apiv2.FirewallRules) (*metal.FirewallRules, error) {
 	var (
 		fwrules = &metal.FirewallRules{
@@ -1192,6 +1188,10 @@ func (r *machineRepository) GetBMC(ctx context.Context, req *adminv2.MachineServ
 	machine, err := r.s.ds.Machine().Get(ctx, req.Uuid)
 	if err != nil {
 		return nil, err
+	}
+
+	if ok := r.matchScope(machine); !ok {
+		return nil, errorutil.NotFound("%T with id %q not found", machine, req.Uuid)
 	}
 
 	details := &apiv2.MachineBMCDetails{
