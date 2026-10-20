@@ -52,13 +52,12 @@ func (m *machineServiceServer) Delete(ctx context.Context, req *adminv2.MachineS
 }
 
 func (m *machineServiceServer) List(ctx context.Context, rq *adminv2.MachineServiceListRequest) (*adminv2.MachineServiceListResponse, error) {
-	partitions, err := m.repo.Partition().List(ctx, &apiv2.PartitionQuery{})
-	if err != nil {
-		return nil, err
-	}
-
 	partition := rq.Partition
 	if partition == nil {
+		partitions, err := m.repo.Partition().List(ctx, &apiv2.PartitionQuery{})
+		if err != nil {
+			return nil, err
+		}
 		if len(partitions) > 1 {
 			return nil, errorutil.InvalidArgument("no partition specified, but %d partitions available", len(partitions))
 		}
@@ -70,10 +69,9 @@ func (m *machineServiceServer) List(ctx context.Context, rq *adminv2.MachineServ
 	if rq.Query == nil {
 		rq.Query = &apiv2.MachineQuery{}
 	}
-	q := rq.Query
-	q.Partition = partition
+	rq.Query.Partition = partition
 
-	machines, err := m.repo.UnscopedMachine().List(ctx, q)
+	machines, err := m.repo.UnscopedMachine().List(ctx, rq.Query)
 	if err != nil {
 		return nil, err
 	}
