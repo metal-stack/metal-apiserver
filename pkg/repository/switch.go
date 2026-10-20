@@ -588,7 +588,7 @@ func (r *switchRepository) create(ctx context.Context, req *api.SwitchServiceCre
 	if req.Switch == nil {
 		return nil, nil
 	}
-	sw, err := r.convertToInternal(ctx, req.Switch)
+	sw, err := r.convertToInternal(req.Switch)
 	if err != nil {
 		return nil, err
 	}
@@ -644,11 +644,11 @@ func (r *switchRepository) delete(ctx context.Context, sw *metal.Switch) (*delet
 }
 
 func (r *switchRepository) replace(ctx context.Context, oldSwitch, newSwitch *apiv2.Switch) (*metal.Switch, error) {
-	old, err := r.convertToInternal(ctx, oldSwitch)
+	old, err := r.convertToInternal(oldSwitch)
 	if err != nil {
 		return nil, fmt.Errorf("failed to replace switch %s by %s: %w", oldSwitch.Id, newSwitch.Id, err)
 	}
-	new, err := r.convertToInternal(ctx, newSwitch)
+	new, err := r.convertToInternal(newSwitch)
 	if err != nil {
 		return nil, fmt.Errorf("failed to replace switch %s by %s: %w", oldSwitch.Id, newSwitch.Id, err)
 	}
@@ -695,7 +695,7 @@ func (r *switchRepository) list(ctx context.Context, query *apiv2.SwitchQuery) (
 	return switches, err
 }
 
-func (r *switchRepository) convertToInternal(ctx context.Context, sw *apiv2.Switch) (*metal.Switch, error) {
+func (r *switchRepository) convertToInternal(sw *apiv2.Switch) (*metal.Switch, error) {
 	if sw == nil {
 		return nil, nil
 	}

@@ -22,7 +22,7 @@ func (r *switchRepository) validateCreate(ctx context.Context, req *api.SwitchSe
 		errs = append(errs, errorutil.NewInternal(err))
 	}
 
-	sw, err := r.convertToInternal(ctx, req.Switch)
+	sw, err := r.convertToInternal(req.Switch)
 	if err != nil {
 		errs = append(errs, err)
 		return errors.Join(errs...)
