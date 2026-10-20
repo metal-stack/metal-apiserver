@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"golang.org/x/crypto/ssh"
 
@@ -539,4 +540,145 @@ func generateSSHPublicKey(t *testing.T) string {
 	sshBytes := ssh.MarshalAuthorizedKey(publicKey)
 
 	return strings.TrimSpace(string(sshBytes))
+}
+
+func Test_machineServiceServer_GetBMC(t *testing.T) {
+	t.Parallel()
+
+	testStore, closer := test.StartRepositoryWithCleanup(t)
+	log := testStore.GetLogger()
+	defer closer()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintln(w, "a image")
+	}))
+
+	validURL := ts.URL
+	defer ts.Close()
+
+	ctx := t.Context()
+
+	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
+	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{{Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
+	test.CreatePartitions(t, testStore, []*adminv2.PartitionServiceCreateRequest{
+		{
+			Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
+		},
+	})
+	test.CreateSizes(t, testStore, []*adminv2.SizeServiceCreateRequest{
+		{
+			Size: &apiv2.Size{Id: "c1-large-x86"},
+		},
+	})
+	test.CreateImages(t, testStore, []*adminv2.ImageServiceCreateRequest{
+		{Image: &apiv2.Image{Id: "debian-12", Url: validURL, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}}},
+	})
+
+	// We need to create machines directly on the database because there is no MachineCreateRequest available and never will.
+	// Once the boot-service is available we can simulate a pxe booting machine the actually create a machine from the api level.
+	test.CreateMachines(t, testStore, []*metal.Machine{
+		{
+			ID: m1, PartitionID: "partition-1", RackID: "rack-01", RoomID: "room-01", SizeID: "c1-large-x86",
+			Allocation: &metal.MachineAllocation{Project: p1, ImageID: "debian-12"},
+			IPMI: metal.IPMI{
+				Fru: metal.Fru{
+					ChassisPartNumber: "chassis-01",
+					BoardPartNumber:   "board-01",
+				},
+				BMCVersion: "bmc-v1",
+			},
+			BIOS: metal.BIOS{
+				Version: "bios-v1",
+				Vendor:  "smc",
+			},
+		},
+	})
+
+	tests := []struct {
+		name    string
+		rq      *apiv2.MachineServiceGetBMCRequest
+		want    *apiv2.MachineServiceGetBMCResponse
+		wantErr error
+	}{
+		{
+			name: "get existing",
+			rq:   &apiv2.MachineServiceGetBMCRequest{Uuid: m1, Project: p1},
+			want: &apiv2.MachineServiceGetBMCResponse{
+				BmcDetails: &apiv2.MachineBMCDetails{
+					Uuid:      m1,
+					Partition: "partition-1",
+					Rack:      "rack-01",
+					Room:      "room-01",
+					Size:      "c1-large-x86",
+					BmcReport: &apiv2.MachineBMCReport{
+						Bios: &apiv2.MachineBios{
+							Version: "bios-v1",
+							Vendor:  "smc",
+						},
+						Bmc: &apiv2.MachineBMC{
+							Version: "bmc-v1",
+						},
+						Fru: &apiv2.MachineFRU{
+							ChassisPartNumber:   new("chassis-01"),
+							ChassisPartSerial:   new(""),
+							BoardPartNumber:     new("board-01"),
+							BoardMfg:            new(""),
+							BoardMfgSerial:      new(""),
+							ProductManufacturer: new(""),
+							ProductPartNumber:   new(""),
+							ProductSerial:       new(""),
+						},
+						LedState:  &apiv2.MachineChassisIdentifyLEDState{},
+						Uuid:      m1,
+						UpdatedAt: timestamppb.New(time.Time{}),
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:    "get existing with wrong project",
+			rq:      &apiv2.MachineServiceGetBMCRequest{Uuid: m1, Project: p2},
+			want:    nil,
+			wantErr: errorutil.NotFound(`*metal.Machine with id %q not found`, m1),
+		},
+		{
+			name:    "get non existing",
+			rq:      &apiv2.MachineServiceGetBMCRequest{Uuid: "m99"},
+			want:    nil,
+			wantErr: errorutil.NotFound(`no machine with id "m99" found`),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := &machineServiceServer{
+				log:  log,
+				repo: testStore.Store,
+			}
+			if tt.wantErr == nil {
+				// Execute proto based validation
+				test.Validate(t, tt.rq)
+			}
+			got, err := m.GetBMC(ctx, tt.rq)
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("diff = %s", diff)
+			}
+
+			if diff := cmp.Diff(
+				tt.want, got,
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Image{}, "expires_at",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.MachineProvisioningEvent{}, "time",
+				),
+			); diff != "" {
+				t.Errorf("machineServiceServer.Get() = %v, want %v diff: %s", got, tt.want, diff)
+			}
+		})
+	}
 }
