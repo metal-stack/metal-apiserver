@@ -1286,10 +1286,10 @@ func Test_bootServiceServer_MachineToken(t *testing.T) {
 					Name: tt.sessionToken.User,
 				},
 			})
-			test.CreateTenantMemberships(innerT, testStore, tt.sessionToken.User, []*api.TenantMemberCreateRequest{
+			test.CreateTenantMemberships(innerT, testStore, tt.sessionToken.User, []*apiv2.TenantMemberServiceCreateRequest{
 				{
-					MemberID: tt.sessionToken.User,
-					Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
+					Member: tt.sessionToken.User,
+					Role:   apiv2.TenantRole_TENANT_ROLE_OWNER,
 				},
 			})
 
@@ -1301,10 +1301,10 @@ func Test_bootServiceServer_MachineToken(t *testing.T) {
 						},
 					})
 				}
-				test.CreateTenantMemberships(innerT, testStore, id, []*api.TenantMemberCreateRequest{
+				test.CreateTenantMemberships(innerT, testStore, id, []*apiv2.TenantMemberServiceCreateRequest{
 					{
-						MemberID: tt.sessionToken.User,
-						Role:     perm,
+						Member: tt.sessionToken.User,
+						Role:   perm,
 					},
 				})
 			}
@@ -1316,10 +1316,10 @@ func Test_bootServiceServer_MachineToken(t *testing.T) {
 						Labels: labels,
 					},
 				})
-				test.CreateTenantMemberships(innerT, testStore, id, []*api.TenantMemberCreateRequest{
+				test.CreateTenantMemberships(innerT, testStore, id, []*apiv2.TenantMemberServiceCreateRequest{
 					{
-						MemberID: id,
-						Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
+						Member: id,
+						Role:   apiv2.TenantRole_TENANT_ROLE_OWNER,
 					},
 				})
 			}
@@ -1331,10 +1331,10 @@ func Test_bootServiceServer_MachineToken(t *testing.T) {
 						Name:  id,
 					},
 				})
-				test.CreateProjectMemberships(innerT, testStore, id, []*api.ProjectMemberCreateRequest{
+				test.CreateProjectMemberships(innerT, testStore, id, []*apiv2.ProjectMemberServiceCreateRequest{
 					{
-						TenantId: tt.sessionToken.User,
-						Role:     perm,
+						Member: tt.sessionToken.User,
+						Role:   perm,
 					},
 				})
 			}
@@ -1482,10 +1482,10 @@ func Test_bootServiceServer_SendEvent(t *testing.T) {
 					Name: tt.sessionToken.User,
 				},
 			})
-			test.CreateTenantMemberships(innerT, testStore, tt.sessionToken.User, []*api.TenantMemberCreateRequest{
+			test.CreateTenantMemberships(innerT, testStore, tt.sessionToken.User, []*apiv2.TenantMemberServiceCreateRequest{
 				{
-					MemberID: tt.sessionToken.User,
-					Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
+					Member: tt.sessionToken.User,
+					Role:   apiv2.TenantRole_TENANT_ROLE_OWNER,
 				},
 			})
 
@@ -1497,10 +1497,10 @@ func Test_bootServiceServer_SendEvent(t *testing.T) {
 						},
 					})
 				}
-				test.CreateTenantMemberships(innerT, testStore, id, []*api.TenantMemberCreateRequest{
+				test.CreateTenantMemberships(innerT, testStore, id, []*apiv2.TenantMemberServiceCreateRequest{
 					{
-						MemberID: tt.sessionToken.User,
-						Role:     perm,
+						Member: tt.sessionToken.User,
+						Role:   perm,
 					},
 				})
 			}
@@ -1512,10 +1512,10 @@ func Test_bootServiceServer_SendEvent(t *testing.T) {
 						Name:  id,
 					},
 				})
-				test.CreateProjectMemberships(innerT, testStore, id, []*api.ProjectMemberCreateRequest{
+				test.CreateProjectMemberships(innerT, testStore, id, []*apiv2.ProjectMemberServiceCreateRequest{
 					{
-						TenantId: tt.sessionToken.User,
-						Role:     perm,
+						Member: tt.sessionToken.User,
+						Role:   perm,
 					},
 				})
 			}

@@ -395,7 +395,7 @@ func (a *auth) ensureTenant(ctx context.Context, u *providerUser) error {
 		}
 	}
 
-	_, err = a.repo.Tenant().AdditionalMethods().Member(u.Login).Get(ctx, u.Login)
+	_, err = a.repo.TenantMember(u.Login).Get(ctx, u.Login)
 	if err == nil {
 		return nil
 	}
@@ -404,9 +404,9 @@ func (a *auth) ensureTenant(ctx context.Context, u *providerUser) error {
 		return err
 	}
 
-	_, err = a.repo.Tenant().AdditionalMethods().Member(u.Login).Create(ctx, &api.TenantMemberCreateRequest{
-		Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
-		MemberID: u.Login,
+	_, err = a.repo.TenantMember(u.Login).Create(ctx, &apiv2.TenantMemberServiceCreateRequest{
+		Role:   apiv2.TenantRole_TENANT_ROLE_OWNER,
+		Member: u.Login,
 	})
 
 	return err

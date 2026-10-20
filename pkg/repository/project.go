@@ -30,28 +30,6 @@ type (
 
 func (t *projectEntity) SetChanged(time time.Time) {}
 
-func (r *projectRepository) Member() ProjectMember {
-	return r.projectMember(&ProjectScope{
-		projectID: r.scope.projectID,
-	})
-}
-
-func (r *projectRepository) UnscopedMember() ProjectMember {
-	return r.projectMember(nil)
-}
-
-func (r *projectRepository) projectMember(scope *ProjectScope) ProjectMember {
-	repository := &projectMemberRepository{
-		s:     r.s,
-		scope: scope,
-	}
-
-	return &store[*projectMemberRepository, *projectMemberEntity, *apiv2.ProjectMember, *api.ProjectMemberCreateRequest, *api.ProjectMemberUpdateRequest, *api.ProjectMemberQuery]{
-		typed:      repository,
-		repository: repository,
-	}
-}
-
 func (r *projectRepository) get(ctx context.Context, id string) (*projectEntity, error) {
 	resp, err := r.s.tc.Apiv1().Project().Get(ctx, &tenantv1.ProjectServiceGetRequest{Id: id})
 	if err != nil {
@@ -221,19 +199,6 @@ func (r *projectRepository) convertToProto(ctx context.Context, p *projectEntity
 	}, nil
 }
 
-func projectRoleFromMap(annotations map[string]string) apiv2.ProjectRole {
-	if annotations == nil {
-		return apiv2.ProjectRole_PROJECT_ROLE_UNSPECIFIED
-	}
-
-	var (
-		annotation  = annotations[api.ProjectRoleAnnotation]
-		projectRole = apiv2.ProjectRole(apiv2.ProjectRole_value[annotation])
-	)
-
-	return projectRole
-}
-
 // GetProjectsAndTenants returns all projects and tenants that the user is participating in
 func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
 	var (
@@ -254,7 +219,7 @@ func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId st
 		return nil, errorutil.Convert(err)
 	}
 
-	tenantResp, err := r.s.Tenant().AdditionalMethods().FindParticipatingTenants(ctx, userId, true)
+	tenantResp, err := r.s.Tenant().AdditionalMethods().findParticipatingTenants(ctx, userId, true)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -262,16 +227,16 @@ func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId st
 	for _, projectWithAnnotations := range projectResp.Projects {
 		p := projectWithAnnotations.Project
 
-		apip, err := r.convertToProto(ctx, &projectEntity{Project: p})
+		converted, err := r.convertToProto(ctx, &projectEntity{Project: p})
 		if err != nil {
-			return nil, errorutil.Internal("unable to convert project %w", err)
+			return nil, errorutil.Internal("unable to convert project: %w", err)
 		}
 
-		projects = append(projects, apip)
+		projects = append(projects, converted)
 
 		var (
 			projectRole = projectRoleFromMap(projectWithAnnotations.ProjectAnnotations)
-			tenantRole  = TenantRoleFromMap(projectWithAnnotations.TenantAnnotations)
+			tenantRole  = tenantRoleFromMap(projectWithAnnotations.TenantAnnotations)
 		)
 
 		switch {
@@ -295,22 +260,27 @@ func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId st
 	for _, tenantWithAnnotations := range tenantResp {
 		t := tenantWithAnnotations.Tenant
 
-		if t.Login == userId {
-			defaultTenant = t
+		converted, err := r.s.Tenant().AdditionalMethods().convertToProto(ctx, &tenantEntity{Tenant: t})
+		if err != nil {
+			return nil, errorutil.Internal("unable to convert tenant: %w", err)
 		}
 
-		tenants = append(tenants, t)
+		if t.Meta.Id == userId {
+			defaultTenant = converted
+		}
+
+		tenants = append(tenants, converted)
 
 		var (
 			projectRole = projectRoleFromMap(tenantWithAnnotations.ProjectAnnotations)
-			tenantRole  = TenantRoleFromMap(tenantWithAnnotations.TenantAnnotations)
+			tenantRole  = tenantRoleFromMap(tenantWithAnnotations.TenantAnnotations)
 		)
 
 		if tenantRole == apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED && projectRole > 0 {
 			tenantRole = apiv2.TenantRole_TENANT_ROLE_GUEST
 		}
 
-		tenantRoles[t.Login] = tenantRole
+		tenantRoles[t.Meta.Id] = tenantRole
 	}
 
 	if defaultTenant == nil {

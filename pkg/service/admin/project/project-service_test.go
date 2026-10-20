@@ -8,7 +8,6 @@ import (
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -36,14 +35,14 @@ func Test_projectServiceServer_List(t *testing.T) {
 		{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
 	})
 
-	test.CreateProjectMemberships(t, testStore, p0, []*api.ProjectMemberCreateRequest{
-		{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
+	test.CreateProjectMemberships(t, testStore, p0, []*apiv2.ProjectMemberServiceCreateRequest{
+		{Member: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
 	})
-	test.CreateProjectMemberships(t, testStore, "jane.roe@github", []*api.ProjectMemberCreateRequest{
-		{TenantId: "jane.roe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
+	test.CreateProjectMemberships(t, testStore, "jane.roe@github", []*apiv2.ProjectMemberServiceCreateRequest{
+		{Member: "jane.roe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
 	})
-	test.CreateProjectMemberships(t, testStore, "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", []*api.ProjectMemberCreateRequest{
-		{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_EDITOR},
+	test.CreateProjectMemberships(t, testStore, "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", []*apiv2.ProjectMemberServiceCreateRequest{
+		{Member: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_EDITOR},
 	})
 
 	tests := []struct {

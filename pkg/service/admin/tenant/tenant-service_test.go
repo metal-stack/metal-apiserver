@@ -10,7 +10,6 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/tag"
-	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/stretchr/testify/assert"
@@ -177,8 +176,8 @@ func Test_tenantServiceServer_AddMember(t *testing.T) {
 		{Name: "sam.sane@github"},
 	})
 	// CreateTenants creates tenants directly without OWNER memberships, so we add one explicitly.
-	test.CreateTenantMemberships(t, testStore, "john.doe@github", []*api.TenantMemberCreateRequest{
-		{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+	test.CreateTenantMemberships(t, testStore, "john.doe@github", []*apiv2.TenantMemberServiceCreateRequest{
+		{Member: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 	})
 
 	tests := []struct {
@@ -249,15 +248,18 @@ func Test_tenantServiceServer_Create(t *testing.T) {
 		{
 			name: "create a tenant",
 			rq: &adminv2.TenantServiceCreateRequest{
-				Name:        "jane.roe@github",
-				Description: new("desc"),
-				Email:       new("mail@test.com"),
-				AvatarUrl:   new("http://avatar-url.com"),
-				Labels: &apiv2.Labels{
-					Labels: map[string]string{
-						"a": "b",
+				Tenant: &apiv2.TenantServiceCreateRequest{
+					Name:        "jane.roe@github",
+					Description: new("desc"),
+					Email:       new("mail@test.com"),
+					AvatarUrl:   new("http://avatar-url.com"),
+					Labels: &apiv2.Labels{
+						Labels: map[string]string{
+							"a": "b",
+						},
 					},
 				},
+				Login: new("abc"),
 			},
 			want: &adminv2.TenantServiceCreateResponse{
 				Tenant: &apiv2.Tenant{
@@ -268,7 +270,7 @@ func Test_tenantServiceServer_Create(t *testing.T) {
 							},
 						},
 					},
-					Login:       "<some-uuid>",
+					Login:       "abc",
 					Name:        "jane.roe@github",
 					Email:       "mail@test.com",
 					Description: "desc",
@@ -308,7 +310,7 @@ func Test_tenantServiceServer_Create(t *testing.T) {
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
 				protocmp.IgnoreFields(
-					&apiv2.Tenant{}, "login",
+					&apiv2.Tenant{},
 				),
 			); diff != "" {
 				t.Errorf("%v, want %v diff: %s", got, tt.want, diff)
@@ -436,7 +438,7 @@ func Test_EnsureProviderTenant(t *testing.T) {
 				Labels: map[string]string{tag.ProviderTenant: "true"},
 			}, tenant.Meta.Labels, "provider tenant missing provider tenant label")
 
-			member, err := testStore.Tenant().AdditionalMethods().Member(tenant.Login).Get(ctx, tenant.Login)
+			member, err := testStore.TenantMember(tenant.Login).Get(ctx, tenant.Login)
 			require.NoError(innerT, err)
 
 			assert.Equal(innerT, apiv2.TenantRole_TENANT_ROLE_OWNER, member.Role)

@@ -4,14 +4,12 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"sort"
 	"time"
 
 	"github.com/metal-stack/api/go/errorutil"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
-	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/tags"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/samber/lo"
@@ -21,29 +19,23 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 )
 
-type Config struct {
-	Log         *slog.Logger
-	Repo        *repository.Store
-	InviteStore invite.TenantInviteStore
-	TokenStore  token.TokenStore
-}
-type tenantServiceServer struct {
-	log         *slog.Logger
-	repo        *repository.Store
-	inviteStore invite.TenantInviteStore
-	tokenStore  token.TokenStore
-}
+type (
+	Config struct {
+		Log         *slog.Logger
+		Repo        *repository.Store
+		InviteStore invite.TenantInviteStore
+		TokenStore  token.TokenStore
+	}
 
-// AddMember implements [TenantService].
-func (u *tenantServiceServer) AddMember(context.Context, *apiv2.TenantServiceAddMemberRequest) (*apiv2.TenantServiceAddMemberResponse, error) {
-	return nil, errorutil.Unimplemented("")
-}
+	tenantServiceServer struct {
+		log         *slog.Logger
+		repo        *repository.Store
+		inviteStore invite.TenantInviteStore
+		tokenStore  token.TokenStore
+	}
+)
 
-type TenantService interface {
-	apiv2connect.TenantServiceHandler
-}
-
-func New(c Config) TenantService {
+func New(c Config) apiv2connect.TenantServiceHandler {
 	return &tenantServiceServer{
 		log:         c.Log.WithGroup("tenantService"),
 		inviteStore: c.InviteStore,
@@ -131,9 +123,9 @@ func (u *tenantServiceServer) Create(ctx context.Context, req *apiv2.TenantServi
 	}
 
 	// make tenant owner and member of its own tenant
-	_, err = u.repo.Tenant().AdditionalMethods().Member(tenant.Login).Create(ctx, &api.TenantMemberCreateRequest{
-		MemberID: t.GetUser(),
-		Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
+	_, err = u.repo.TenantMember(tenant.Login).Create(ctx, &apiv2.TenantMemberServiceCreateRequest{
+		Member: t.GetUser(),
+		Role:   apiv2.TenantRole_TENANT_ROLE_OWNER,
 	})
 	if err != nil {
 		return nil, err // TODO: give more instructions what to do now!
@@ -172,7 +164,7 @@ func (u *tenantServiceServer) Get(ctx context.Context, req *apiv2.TenantServiceG
 				CreatedAt: tenant.Meta.CreatedAt,
 				UpdatedAt: tenant.Meta.UpdatedAt,
 			},
-		}, TenantMembers: nil}, nil
+		}}, nil
 	case apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED:
 		if token.IsAdminToken(t) {
 			break
@@ -182,48 +174,7 @@ func (u *tenantServiceServer) Get(ctx context.Context, req *apiv2.TenantServiceG
 		return nil, errorutil.Unauthenticated("tenant role insufficient")
 	}
 
-	members, err := u.repo.Tenant().AdditionalMethods().ListTenantMembers(ctx, req.Login, true)
-	if err != nil {
-		return nil, errorutil.Internal("unable to list tenant members: %w", err)
-	}
-
-	var tenantMembers []*apiv2.TenantMember
-	for _, member := range members {
-		tenantRole := repository.TenantRoleFromMap(member.TenantAnnotations)
-		if tenantRole == apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED {
-			tenantRole = apiv2.TenantRole_TENANT_ROLE_GUEST
-		}
-
-		tenantMembers = append(tenantMembers, &apiv2.TenantMember{
-			Id:        member.Tenant.Login,
-			Role:      tenantRole,
-			CreatedAt: member.Tenant.Meta.CreatedAt,
-			Projects:  member.ProjectIds,
-		})
-	}
-
-	sort.Slice(tenantMembers, func(i, j int) bool {
-		return tenantMembers[i].Id < tenantMembers[j].Id
-	})
-
-	return &apiv2.TenantServiceGetResponse{Tenant: tenant, TenantMembers: tenantMembers}, nil
-}
-
-func (u *tenantServiceServer) Leave(ctx context.Context, req *apiv2.TenantServiceLeaveRequest) (*apiv2.TenantServiceLeaveResponse, error) {
-	var (
-		t, ok = token.TokenFromContext(ctx)
-	)
-
-	if !ok || t == nil {
-		return nil, errorutil.Unauthenticated("no token found in request")
-	}
-
-	_, err := u.repo.Tenant().AdditionalMethods().Member(req.Login).Delete(ctx, t.User)
-	if err != nil {
-		return nil, err
-	}
-
-	return &apiv2.TenantServiceLeaveResponse{}, nil
+	return &apiv2.TenantServiceGetResponse{Tenant: tenant}, nil
 }
 
 func (u *tenantServiceServer) Update(ctx context.Context, req *apiv2.TenantServiceUpdateRequest) (*apiv2.TenantServiceUpdateResponse, error) {
@@ -323,8 +274,8 @@ func (u *tenantServiceServer) InviteAccept(ctx context.Context, req *apiv2.Tenan
 		return nil, errorutil.InvalidArgument("an owner cannot accept invitations to own tenants")
 	}
 
-	memberships, err := u.repo.Tenant().AdditionalMethods().Member(inv.TargetTenant).List(ctx, &api.TenantMemberQuery{
-		MemberId: &invitee.Login,
+	memberships, err := u.repo.TenantMember(inv.TargetTenant).List(ctx, &apiv2.TenantMemberQuery{
+		Member: &invitee.Login,
 	})
 	if err != nil {
 		return nil, err
@@ -339,9 +290,9 @@ func (u *tenantServiceServer) InviteAccept(ctx context.Context, req *apiv2.Tenan
 		return nil, errorutil.NewInternal(err)
 	}
 
-	_, err = u.repo.Tenant().AdditionalMethods().Member(inv.TargetTenant).Create(ctx, &api.TenantMemberCreateRequest{
-		MemberID: invitee.Login,
-		Role:     inv.Role,
+	_, err = u.repo.TenantMember(inv.TargetTenant).Create(ctx, &apiv2.TenantMemberServiceCreateRequest{
+		Member: invitee.Login,
+		Role:   inv.Role,
 	})
 	if err != nil {
 		return nil, err
@@ -380,28 +331,4 @@ func (u *tenantServiceServer) InvitesList(ctx context.Context, req *apiv2.Tenant
 	}
 
 	return &apiv2.TenantServiceInvitesListResponse{Invites: invites}, nil
-}
-
-func (u *tenantServiceServer) RemoveMember(ctx context.Context, req *apiv2.TenantServiceRemoveMemberRequest) (*apiv2.TenantServiceRemoveMemberResponse, error) {
-	_, err := u.repo.Tenant().AdditionalMethods().Member(req.Login).Delete(ctx, req.Member)
-	if err != nil {
-		return nil, err
-	}
-
-	return &apiv2.TenantServiceRemoveMemberResponse{}, nil
-}
-
-func (u *tenantServiceServer) UpdateMember(ctx context.Context, req *apiv2.TenantServiceUpdateMemberRequest) (*apiv2.TenantServiceUpdateMemberResponse, error) {
-	updatedMember, err := u.repo.Tenant().AdditionalMethods().Member(req.Login).Update(ctx, req.Member, &api.TenantMemberUpdateRequest{
-		Role: req.Role,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return &apiv2.TenantServiceUpdateMemberResponse{TenantMember: &apiv2.TenantMember{
-		Id:        req.Member,
-		Role:      req.Role,
-		CreatedAt: updatedMember.CreatedAt,
-	}}, nil
 }

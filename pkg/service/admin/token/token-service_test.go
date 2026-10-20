@@ -10,7 +10,6 @@ import (
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	tokenservice "github.com/metal-stack/metal-apiserver/pkg/service/admin/token"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
@@ -772,10 +771,10 @@ func Test_Create(t *testing.T) {
 					Name: tt.sessionToken.User,
 				},
 			})
-			test.CreateTenantMemberships(innerT, testStore, tt.sessionToken.User, []*api.TenantMemberCreateRequest{
+			test.CreateTenantMemberships(innerT, testStore, tt.sessionToken.User, []*apiv2.TenantMemberServiceCreateRequest{
 				{
-					MemberID: tt.sessionToken.User,
-					Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
+					Member: tt.sessionToken.User,
+					Role:   apiv2.TenantRole_TENANT_ROLE_OWNER,
 				},
 			})
 
@@ -787,10 +786,10 @@ func Test_Create(t *testing.T) {
 						},
 					})
 				}
-				test.CreateTenantMemberships(innerT, testStore, id, []*api.TenantMemberCreateRequest{
+				test.CreateTenantMemberships(innerT, testStore, id, []*apiv2.TenantMemberServiceCreateRequest{
 					{
-						MemberID: tt.sessionToken.User,
-						Role:     perm,
+						Member: tt.sessionToken.User,
+						Role:   perm,
 					},
 				})
 			}
@@ -802,10 +801,10 @@ func Test_Create(t *testing.T) {
 						Name:  id,
 					},
 				})
-				test.CreateProjectMemberships(innerT, testStore, id, []*api.ProjectMemberCreateRequest{
+				test.CreateProjectMemberships(innerT, testStore, id, []*apiv2.ProjectMemberServiceCreateRequest{
 					{
-						TenantId: tt.sessionToken.User,
-						Role:     perm,
+						Member: tt.sessionToken.User,
+						Role:   perm,
 					},
 				})
 			}

@@ -390,9 +390,9 @@ func (dc *Datacenter) createTenantsAndMembers(spec *scenarios.DatacenterSpec) {
 	CreateProjects(dc.t, dc.testStore, projectCreateReq)
 
 	for _, tenant := range spec.Tenants {
-		CreateTenantMemberships(dc.t, dc.testStore, tenant, []*api.TenantMemberCreateRequest{
+		CreateTenantMemberships(dc.t, dc.testStore, tenant, []*apiv2.TenantMemberServiceCreateRequest{
 			{
-				MemberID: tenant, Role: apiv2.TenantRole_TENANT_ROLE_OWNER,
+				Member: tenant, Role: apiv2.TenantRole_TENANT_ROLE_OWNER,
 			},
 		})
 	}
