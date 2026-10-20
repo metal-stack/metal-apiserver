@@ -14,8 +14,7 @@ import (
 
 type (
 	sizeRepository struct {
-		s     *Store
-		scope *ProjectScope
+		s *Store
 	}
 )
 
@@ -46,7 +45,7 @@ func (r *sizeRepository) create(ctx context.Context, req *adminv2.SizeServiceCre
 	if req.Size == nil {
 		return nil, nil
 	}
-	size, err := r.convertToInternal(ctx, req.Size)
+	size, err := r.convertToInternal(req.Size)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +117,7 @@ func (r *sizeRepository) list(ctx context.Context, rq *apiv2.SizeQuery) ([]*meta
 	return sizes, nil
 }
 
-func (r *sizeRepository) convertToInternal(ctx context.Context, e *apiv2.Size) (*metal.Size, error) {
+func (r *sizeRepository) convertToInternal(e *apiv2.Size) (*metal.Size, error) {
 	if e == nil {
 		return nil, nil
 	}

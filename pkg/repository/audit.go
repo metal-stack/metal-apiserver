@@ -141,10 +141,6 @@ func (a *auditRepository) update(ctx context.Context, audit *auditEntity, rq *au
 	return nil, errorutil.Unimplemented("")
 }
 
-func (a *auditRepository) convertToInternal(ctx context.Context, audit *apiv2.AuditTrace) (*auditEntity, error) {
-	return nil, errorutil.Unimplemented("")
-}
-
 func (a *auditRepository) convertToProto(ctx context.Context, e *auditEntity) (*apiv2.AuditTrace, error) {
 	sourceIP := e.ForwardedFor
 	if sourceIP == "" {

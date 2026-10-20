@@ -385,9 +385,6 @@ func (r *networkRepository) list(ctx context.Context, query *apiv2.NetworkQuery)
 
 	return nws, nil
 }
-func (r *networkRepository) convertToInternal(ctx context.Context, msg *apiv2.Network) (*metal.Network, error) {
-	return nil, errorutil.Unimplemented("")
-}
 
 func (r *networkRepository) convertToProto(ctx context.Context, e *metal.Network) (*apiv2.Network, error) {
 	var (

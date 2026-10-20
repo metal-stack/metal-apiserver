@@ -11,7 +11,7 @@ import (
 )
 
 func (r *filesystemLayoutRepository) validateCreate(ctx context.Context, req *adminv2.FilesystemServiceCreateRequest) error {
-	fsl, err := r.convertToInternal(ctx, req.FilesystemLayout)
+	fsl, err := r.convertToInternal(req.FilesystemLayout)
 	if err != nil {
 		return err
 	}
@@ -38,7 +38,7 @@ func (r *filesystemLayoutRepository) validateUpdate(ctx context.Context, req *ad
 		Constraints:    req.Constraints,
 	}
 
-	fsl, err := r.convertToInternal(ctx, filesystemLayout)
+	fsl, err := r.convertToInternal(filesystemLayout)
 	if err != nil {
 		return err
 	}

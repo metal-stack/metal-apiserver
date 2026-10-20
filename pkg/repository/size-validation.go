@@ -144,7 +144,7 @@ func (r *sizeRepository) validateSizesNotOverlapping(ctx context.Context, size *
 		return errorutil.NewInternal(err)
 	}
 
-	metalSize, err := r.convertToInternal(ctx, size)
+	metalSize, err := r.convertToInternal(size)
 	if err != nil {
 		return err
 	}

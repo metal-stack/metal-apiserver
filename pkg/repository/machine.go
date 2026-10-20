@@ -254,10 +254,6 @@ func (r *machineRepository) scopeProjectID() string {
 	return r.scope.projectID
 }
 
-func (r *machineRepository) convertToInternal(ctx context.Context, machine *apiv2.Machine) (*metal.Machine, error) {
-	return nil, errorutil.Unimplemented("")
-}
-
 func (r *machineRepository) convertFirewallRulesToInternal(firewallRules *apiv2.FirewallRules) (*metal.FirewallRules, error) {
 	var (
 		fwrules = &metal.FirewallRules{

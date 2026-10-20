@@ -261,10 +261,6 @@ func (t *tokenRepository) matchScope(e *api.TokenWithSecret) bool {
 	return e.Token.User == t.scope.user
 }
 
-func (t *tokenRepository) convertToInternal(ctx context.Context, msg *api.TokenWithSecret) (*api.TokenWithSecret, error) {
-	return msg, nil
-}
-
 func (t *tokenRepository) convertToProto(ctx context.Context, e *api.TokenWithSecret) (*api.TokenWithSecret, error) {
 	return e, nil
 }
