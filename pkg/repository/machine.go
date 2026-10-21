@@ -1728,6 +1728,10 @@ func (r *machineRepository) setMachineWaitingFlag(ctx context.Context, machineUU
 				return err
 			}
 
+			if m.Waiting == waiting {
+				return nil
+			}
+
 			m.Waiting = waiting
 
 			return r.s.ds.Machine().Update(ctx, m)
