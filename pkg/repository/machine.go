@@ -1422,7 +1422,7 @@ func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWa
 
 		err = r.setMachineWaitingFlag(context.Background(), machineID, false)
 		if err != nil {
-			log.Error("unable to remove waiting flag from machine", "error", err)
+			log.Error("unable to toggle machine waiting flag back to false", "error", err)
 		}
 	}()
 
