@@ -1465,6 +1465,12 @@ func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWa
 			}
 
 			if alloc == nil {
+				// re-ensure this one is really set
+				err = r.setMachineWaitingFlag(ctx, machineID, true)
+				if err != nil {
+					return err
+				}
+
 				continue
 			}
 
@@ -1715,16 +1721,21 @@ func (r *machineRepository) Issues(ctx context.Context, req *adminv2.MachineServ
 }
 
 func (r *machineRepository) setMachineWaitingFlag(ctx context.Context, machineUUID string, waiting bool) error {
-	// TODO This is prone to fail with optlock, either retry or async task
+	return retry.Do(
+		func() error {
+			m, err := r.s.ds.Machine().Get(ctx, machineUUID)
+			if err != nil {
+				return err
+			}
 
-	m, err := r.s.ds.Machine().Get(ctx, machineUUID)
-	if err != nil {
-		return err
-	}
+			m.Waiting = waiting
 
-	m.Waiting = waiting
-
-	return r.s.ds.Machine().Update(ctx, m)
+			return r.s.ds.Machine().Update(ctx, m)
+		},
+		retry.Attempts(10),
+		retry.MaxDelay(100*time.Millisecond),
+		retry.LastErrorOnly(true),
+	)
 }
 
 func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
