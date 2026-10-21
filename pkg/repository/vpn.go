@@ -73,6 +73,7 @@ func (v *vpn) CreateAuthKey(ctx context.Context, req *adminv2.VPNServiceAuthKeyR
 	resp, err := v.c.CreatePreAuthKey(ctx, &headscalev1.CreatePreAuthKeyRequest{
 		User:       headscaleUser.Id,
 		Ephemeral:  req.Ephemeral,
+		Reusable:   req.Reusable,
 		Expiration: timestamppb.New(expiration),
 	})
 	if err != nil {
@@ -83,6 +84,7 @@ func (v *vpn) CreateAuthKey(ctx context.Context, req *adminv2.VPNServiceAuthKeyR
 		Address:   v.c.ControllerURL(),
 		AuthKey:   resp.PreAuthKey.Key,
 		Ephemeral: resp.PreAuthKey.Ephemeral,
+		Reusable:  resp.PreAuthKey.Reusable,
 		ExpiresAt: resp.PreAuthKey.Expiration,
 		CreatedAt: resp.PreAuthKey.CreatedAt,
 	}, nil

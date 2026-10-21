@@ -137,6 +137,7 @@ func (r *machineRepository) allocateMachine(ctx context.Context, req *apiv2.Mach
 			key, err := r.s.VPN(req.Project).CreateAuthKey(ctx, &adminv2.VPNServiceAuthKeyRequest{
 				Project:   req.Project,
 				Ephemeral: false,
+				Reusable:  true,
 				Expires:   durationpb.New(2 * time.Hour),
 			})
 			if err != nil {
