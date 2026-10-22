@@ -7,20 +7,28 @@ import (
 	"github.com/metal-stack/api/go/errorutil"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
+	tenantv1 "github.com/metal-stack/tenant-api/go/tenant/api/v1"
 )
 
 func (t *projectMemberRepository) validateCreate(ctx context.Context, req *apiv2.ProjectMemberServiceCreateRequest) error {
+	if t.scope == nil {
+		return errorutil.FailedPrecondition("project member create cannot be called unscoped")
+	}
+
 	if req.Role == apiv2.ProjectRole_PROJECT_ROLE_UNSPECIFIED {
 		return fmt.Errorf("role must not be %s", req.Role)
 	}
 
 	// TODO: this should actually be checked by the tenant-apiserver? if this goes wrong then the state is corrupted and users cannot lookup members anymore
-	existing, err := t.get(ctx, req.Member)
-	if err != nil && !errorutil.IsNotFound(err) {
-		return errorutil.Internal("error looking up tenant member: %w", err)
+	resp, err := t.s.tc.Apiv1().ProjectMember().List(ctx, &tenantv1.ProjectMemberServiceListRequest{
+		ProjectId: &t.scope.projectID,
+		TenantId:  &req.Member,
+	})
+	if err != nil {
+		return errorutil.Internal("error looking up project member: %w", err)
 	}
-	if existing != nil {
-		return errorutil.Conflict("%q is already member of project %q", req.Member, req.Project)
+	if len(resp.ProjectMembers) > 0 {
+		return errorutil.Conflict("%q is already member of project %q", req.Member, t.scope.projectID)
 	}
 
 	return nil

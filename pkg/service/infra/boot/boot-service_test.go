@@ -1496,13 +1496,13 @@ func Test_bootServiceServer_SendEvent(t *testing.T) {
 							Name: id,
 						},
 					})
+					test.CreateTenantMemberships(innerT, testStore, id, []*apiv2.TenantMemberServiceCreateRequest{
+						{
+							Member: tt.sessionToken.User,
+							Role:   perm,
+						},
+					})
 				}
-				test.CreateTenantMemberships(innerT, testStore, id, []*apiv2.TenantMemberServiceCreateRequest{
-					{
-						Member: tt.sessionToken.User,
-						Role:   perm,
-					},
-				})
 			}
 
 			for id, perm := range tt.state.projectRoles {

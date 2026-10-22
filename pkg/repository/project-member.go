@@ -286,15 +286,10 @@ func (t *projectMemberRepository) convertToProto(ctx context.Context, e *project
 		}
 	}
 
-	inherited := false
-	if e.Meta.Id == "" {
-		inherited = true
-	}
-
 	return &apiv2.ProjectMember{
 		Member:              e.TenantId,
 		Role:                projectRoleFromMap(e.Meta.Annotations),
-		InheritedMembership: inherited,
+		InheritedMembership: e.Meta.Id == "",
 		Project:             e.ProjectId,
 		Meta: &apiv2.Meta{
 			Labels:     labels,

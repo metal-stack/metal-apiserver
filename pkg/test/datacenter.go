@@ -61,7 +61,12 @@ type (
 )
 
 func NewDatacenter(t testing.TB, testOpts ...testOpt) *Datacenter {
-	testStore, closer := StartRepositoryWithCleanup(t, testOpts...)
+	opts := []testOpt{WithPostgres(true)}
+	if len(testOpts) > 0 {
+		opts = append(opts, testOpts...)
+	}
+
+	testStore, closer := StartRepositoryWithCleanup(t, opts...)
 
 	dc := &Datacenter{
 		t:         t,

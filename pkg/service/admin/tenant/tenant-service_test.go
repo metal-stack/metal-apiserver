@@ -200,7 +200,7 @@ func Test_tenantServiceServer_AddMember(t *testing.T) {
 				Member: "john.doe@github",
 				Role:   apiv2.TenantRole_TENANT_ROLE_EDITOR,
 			},
-			wantErr: errorutil.Conflict(`tenant with id "john.doe@github" already is member in tenant: "john.doe@github"`),
+			wantErr: errorutil.Conflict(`"john.doe@github" is already member of tenant "john.doe@github"`),
 		},
 	}
 	for _, tt := range tests {

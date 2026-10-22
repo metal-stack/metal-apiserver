@@ -439,6 +439,7 @@ func Test_tenantServiceServer_Create(t *testing.T) {
 					Member:   "john.doe@github",
 					Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
 					Projects: []string{},
+					Meta:     &apiv2.Meta{},
 				},
 			},
 			wantErr: nil,
@@ -512,16 +513,22 @@ func Test_tenantServiceServer_Create(t *testing.T) {
 			); diff != "" {
 				t.Errorf("%v, want %v diff: %s", getResp.Tenant, tt.want.Tenant, diff)
 			}
-			// FIXME
-			// if diff := cmp.Diff(
-			// 	tt.wantMembers, pointer.SafeDeref(getResp).TenantMembers,
-			// 	protocmp.Transform(),
-			// 	protocmp.IgnoreFields(
-			// 		&apiv2.TenantMember{}, "created_at",
-			// 	),
-			// ); diff != "" {
-			// 	t.Errorf("%v, want %v diff: %s", getResp.TenantMembers, tt.wantMembers, diff)
-			// }
+
+			members, err := testStore.Store.TenantMember(tt.want.Tenant.Login).List(reqCtx, nil)
+			require.NoError(t, err)
+
+			if diff := cmp.Diff(
+				tt.wantMembers, members,
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.TenantMember{}, "tenant",
+				),
+			); diff != "" {
+				t.Errorf("%v, want %v diff: %s", members, tt.wantMembers, diff)
+			}
 		})
 	}
 }

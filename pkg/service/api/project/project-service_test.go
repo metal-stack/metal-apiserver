@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -58,7 +59,6 @@ func Test_projectServiceServer_Get(t *testing.T) {
 		{Member: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_EDITOR},
 	})
 	test.CreateTenantMemberships(t, testStore, "john.doe@github", []*apiv2.TenantMemberServiceCreateRequest{
-		{Member: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 		{Member: "tina.turner@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 	})
 
@@ -1156,14 +1156,16 @@ func Test_projectServiceServer_InviteAccept(t *testing.T) {
 			},
 			wantMembers: []*apiv2.ProjectMember{
 				{
-					Member: "john.doe@github",
-					Role:   apiv2.ProjectRole_PROJECT_ROLE_OWNER,
-					Meta:   &apiv2.Meta{},
+					Member:  "john.doe@github",
+					Role:    apiv2.ProjectRole_PROJECT_ROLE_OWNER,
+					Meta:    &apiv2.Meta{},
+					Project: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
 				},
 				{
-					Member: "will.smith@github",
-					Role:   apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
-					Meta:   &apiv2.Meta{},
+					Member:  "will.smith@github",
+					Role:    apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+					Meta:    &apiv2.Meta{},
+					Project: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
 				},
 			},
 			wantErr: nil,
@@ -1307,6 +1309,7 @@ func Test_projectServiceServer_InviteAccept(t *testing.T) {
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at",
 				),
+				cmpopts.SortSlices(func(a, b *apiv2.ProjectMember) bool { return a.Member < b.Member }),
 			); diff != "" {
 				t.Errorf("diff: %s", diff)
 			}

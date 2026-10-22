@@ -9,7 +9,6 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 
-	"github.com/metal-stack/api/go/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 )
@@ -70,7 +69,7 @@ func (t *tenantServiceServer) AddMember(ctx context.Context, req *adminv2.Tenant
 		Role:   req.Role,
 	})
 	if err != nil {
-		return nil, errorutil.Internal("failed to add member to tenant: %w", err)
+		return nil, err
 	}
 
 	t.log.Debug("member added successfully", "memberId", req.Member)
