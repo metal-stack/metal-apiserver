@@ -27,7 +27,7 @@ require (
 	github.com/lib/pq v1.12.3
 	github.com/looplab/fsm v1.0.4
 	github.com/markbates/goth v1.82.0
-	github.com/metal-stack/api v0.8.2
+	github.com/metal-stack/api v0.8.3
 	github.com/metal-stack/go-ipam v1.16.0
 	github.com/metal-stack/metal-lib v0.26.3
 	github.com/metal-stack/tenant-api v0.2.1
@@ -119,7 +119,7 @@ require (
 	github.com/mdelapenya/tlscert v0.2.0 // indirect
 	github.com/mdlayher/netlink v1.11.2 // indirect
 	github.com/mdlayher/socket v0.8.0 // indirect
-	github.com/minio/minlz v1.2.2 // indirect
+	github.com/minio/minlz v1.2.3 // indirect
 	github.com/mitchellh/go-ps v1.0.0 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/go-archive v0.3.3 // indirect
