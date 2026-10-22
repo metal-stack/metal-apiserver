@@ -50,6 +50,7 @@ func Test_vpnService_AuthKey(t *testing.T) {
 			req: &adminv2.VPNServiceAuthKeyRequest{
 				Project:   p0,
 				Ephemeral: false,
+				Reusable:  true,
 				Expires:   durationpb.New(time.Hour),
 			},
 			want: &adminv2.VPNServiceAuthKeyResponse{
