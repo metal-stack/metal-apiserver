@@ -15,9 +15,9 @@ import (
 	"github.com/metal-stack/api/go/tag"
 	ipamapiv1 "github.com/metal-stack/go-ipam/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
-	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/db/filters"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
+	"github.com/metal-stack/metal-apiserver/pkg/db/storage"
 	"github.com/metal-stack/metal-apiserver/pkg/tags"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/samber/lo"
@@ -195,7 +195,7 @@ func (r *ipRepository) delete(ctx context.Context, e *metal.IP) (*deleteInfo, er
 }
 
 func (r *ipRepository) find(ctx context.Context, rq *apiv2.IPQuery) (*metal.IP, error) {
-	ip, err := r.s.ds.IP().Find(ctx, r.scopedIPFilters(queries.IpFilter(rq))...)
+	ip, err := r.s.ds.IP().Find(ctx, r.scopedIPFilters(rq)...)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +204,7 @@ func (r *ipRepository) find(ctx context.Context, rq *apiv2.IPQuery) (*metal.IP, 
 }
 
 func (r *ipRepository) list(ctx context.Context, rq *apiv2.IPQuery) ([]*metal.IP, error) {
-	ip, err := r.s.ds.IP().List(ctx, r.scopedIPFilters(queries.IpFilter(rq))...)
+	ip, err := r.s.ds.IP().List(ctx, r.scopedIPFilters(rq)...)
 	if err != nil {
 		return nil, err
 	}
@@ -318,7 +318,7 @@ func (r *Store) IpDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
 
 	r.log.Info("delete ip", "uuid", payload.AllocationUUID, "ip", payload.IP)
 
-	ip, err := r.ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{Uuid: &payload.AllocationUUID}))
+	ip, err := r.ds.IP().Find(ctx, filters.IP(&apiv2.IPQuery{Uuid: &payload.AllocationUUID})...)
 	if err != nil && !errorutil.IsNotFound(err) {
 		return err
 	}
@@ -346,13 +346,11 @@ func (r *Store) IpDeleteHandleFn(ctx context.Context, t *asynq.Task) error {
 	return nil
 }
 
-func (r *ipRepository) scopedIPFilters(filter generic.EntityQuery) []generic.EntityQuery {
-	var qs []generic.EntityQuery
+func (r *ipRepository) scopedIPFilters(rq *apiv2.IPQuery) []storage.Filter {
+	var qs []storage.Filter
 	if r.scope != nil {
-		qs = append(qs, queries.IpProjectScoped(r.scope.projectID))
+		qs = append(qs, filters.IPByProject(r.scope.projectID)...)
 	}
-	if filter != nil {
-		qs = append(qs, filter)
-	}
+	qs = append(qs, filters.IP(rq)...)
 	return qs
 }

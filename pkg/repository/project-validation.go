@@ -5,7 +5,7 @@ import (
 
 	"github.com/metal-stack/api/go/errorutil"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
+	"github.com/metal-stack/metal-apiserver/pkg/db/filters"
 )
 
 func (r *projectRepository) validateCreate(ctx context.Context, req *apiv2.ProjectServiceCreateRequest) error {
@@ -35,11 +35,11 @@ func (r *projectRepository) validateDelete(ctx context.Context, req *projectEnti
 		return errorutil.FailedPrecondition("there are still networks associated with this project, you need to delete them first")
 	}
 
-	ms, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
+	ms, err := r.s.ds.Machine().List(ctx, filters.MachineQuery(&apiv2.MachineQuery{
 		Allocation: &apiv2.MachineAllocationQuery{
 			Project: &req.Meta.Id,
 		},
-	}))
+	})...)
 	if err != nil {
 		return errorutil.NewInternal(err)
 	}
@@ -48,9 +48,9 @@ func (r *projectRepository) validateDelete(ctx context.Context, req *projectEnti
 		return errorutil.FailedPrecondition("there are still machines associated with this project, you need to delete them first")
 	}
 
-	sizeReservations, err := r.s.ds.SizeReservation().List(ctx, queries.SizeReservationFilter(&apiv2.SizeReservationQuery{
+	sizeReservations, err := r.s.ds.SizeReservation().List(ctx, filters.SizeReservation(&apiv2.SizeReservationQuery{
 		Project: &req.Meta.Id,
-	}))
+	})...)
 	if err != nil {
 		return errorutil.NewInternal(err)
 	}

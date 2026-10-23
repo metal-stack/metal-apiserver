@@ -11,6 +11,7 @@ import (
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/db/routing"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
@@ -31,7 +32,14 @@ var (
 func Test_networkServiceServer_CreateChildNetwork(t *testing.T) {
 	t.Parallel()
 
-	testStore, closer := test.StartRepositoryWithCleanup(t)
+	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithRoutingConfig(routing.Config{
+		Default: routing.ModeRethink,
+		Entities: map[string]routing.Mode{
+			"Machine":   routing.ModePostgres,
+			"Network":   routing.ModePostgres,
+			"Partition": routing.ModePostgres,
+		},
+	}))
 	log := testStore.GetLogger()
 	defer closer()
 

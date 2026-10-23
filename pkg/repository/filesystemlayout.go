@@ -8,8 +8,8 @@ import (
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/db/filters"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -203,7 +203,7 @@ func (r *filesystemLayoutRepository) delete(ctx context.Context, e *metal.Filesy
 }
 
 func (r *filesystemLayoutRepository) find(ctx context.Context, rq *apiv2.FilesystemServiceListRequest) (*metal.FilesystemLayout, error) {
-	fsl, err := r.s.ds.FilesystemLayout().Find(ctx, queries.FileSystemLayoutFilter(rq))
+	fsl, err := r.s.ds.FilesystemLayout().Find(ctx, filters.FilesystemLayout(rq)...)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}
@@ -212,7 +212,7 @@ func (r *filesystemLayoutRepository) find(ctx context.Context, rq *apiv2.Filesys
 }
 
 func (r *filesystemLayoutRepository) list(ctx context.Context, rq *apiv2.FilesystemServiceListRequest) ([]*metal.FilesystemLayout, error) {
-	fsls, err := r.s.ds.FilesystemLayout().List(ctx, queries.FileSystemLayoutFilter(rq))
+	fsls, err := r.s.ds.FilesystemLayout().List(ctx, filters.FilesystemLayout(rq)...)
 	if err != nil {
 		return nil, errorutil.Convert(err)
 	}

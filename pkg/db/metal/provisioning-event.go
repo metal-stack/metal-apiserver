@@ -13,19 +13,19 @@ type (
 	ProvisioningEvents    []ProvisioningEvent
 
 	ProvisioningEvent struct {
-		Time    time.Time             `rethinkdb:"time"`
-		Event   ProvisioningEventType `rethinkdb:"event"`
-		Message string                `rethinkdb:"message"`
+		Time    time.Time             `rethinkdb:"time" json:"time"`
+		Event   ProvisioningEventType `rethinkdb:"event" json:"event"`
+		Message string                `rethinkdb:"message" json:"message"`
 	}
 
 	ProvisioningEventContainer struct {
 		Base
-		Liveliness           MachineLiveliness  `rethinkdb:"liveliness"`
-		Events               ProvisioningEvents `rethinkdb:"events"`
-		LastEventTime        *time.Time         `rethinkdb:"last_event_time"`
-		LastErrorEvent       *ProvisioningEvent `rethinkdb:"last_error_event"`
-		CrashLoop            bool               `rethinkdb:"crash_loop"`
-		FailedMachineReclaim bool               `rethinkdb:"failed_machine_reclaim"`
+		Liveliness           MachineLiveliness  `rethinkdb:"liveliness" json:"liveliness"`
+		Events               ProvisioningEvents `rethinkdb:"events" json:"events"`
+		LastEventTime        *time.Time         `rethinkdb:"last_event_time" json:"last_event_time"`
+		LastErrorEvent       *ProvisioningEvent `rethinkdb:"last_error_event" json:"last_error_event"`
+		CrashLoop            bool               `rethinkdb:"crash_loop" json:"crash_loop"`
+		FailedMachineReclaim bool               `rethinkdb:"failed_machine_reclaim" json:"failed_machine_reclaim"`
 	}
 )
 

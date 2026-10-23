@@ -16,8 +16,8 @@ import (
 // A Size represents a supported machine size.
 type Size struct {
 	Base
-	Constraints []Constraint      `rethinkdb:"constraints"`
-	Labels      map[string]string `rethinkdb:"labels"`
+	Constraints []Constraint      `rethinkdb:"constraints" json:"constraints"`
+	Labels      map[string]string `rethinkdb:"labels" json:"labels"`
 }
 
 // ConstraintType ...
@@ -35,10 +35,10 @@ var allConstraintTypes = []ConstraintType{CoreConstraint, MemoryConstraint, Stor
 
 // A Constraint describes the hardware constraints for a given size.
 type Constraint struct {
-	Type       ConstraintType `rethinkdb:"type"`
-	Min        uint64         `rethinkdb:"min"`
-	Max        uint64         `rethinkdb:"max"`
-	Identifier string         `rethinkdb:"identifier" description:"glob of the identifier of this type"`
+	Type       ConstraintType `rethinkdb:"type" json:"type"`
+	Min        uint64         `rethinkdb:"min" json:"min"`
+	Max        uint64         `rethinkdb:"max" json:"max"`
+	Identifier string         `rethinkdb:"identifier" json:"identifier" description:"glob of the identifier of this type"`
 }
 
 func FromConstraint(c Constraint) (*apiv2.SizeConstraint, error) {
