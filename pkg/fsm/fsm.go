@@ -53,7 +53,7 @@ func HandleProvisioningEvent(ctx context.Context, log *slog.Logger, ec *metal.Pr
 		container.LastErrorEvent = event
 
 		switch e := event.Event; e {
-		case metal.ProvisioningEventPXEBooting, metal.ProvisioningEventPreparing:
+		case metal.ProvisioningEventPXEBooting, metal.ProvisioningEventISOBooting, metal.ProvisioningEventPreparing:
 			container.CrashLoop = true
 			container.Events = append([]metal.ProvisioningEvent{*event}, container.Events...)
 		case metal.ProvisioningEventAlive:

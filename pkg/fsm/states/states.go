@@ -13,7 +13,7 @@ const (
 	Initial          stateType = "State Initial"
 	Alive            stateType = "State Alive"
 	Crashing         stateType = "State Crashing"
-	PXEBooting       stateType = "State PXE Booting"
+	Booting          stateType = "State Booting"
 	Preparing        stateType = "State Preparing"
 	Registering      stateType = "State Registering"
 	Waiting          stateType = "State Waiting"
@@ -56,7 +56,7 @@ func AllStates(c *StateConfig) map[string]IFSMState {
 		Alive.String():            newAlive(c),
 		Crashing.String():         newCrash(c),
 		Initial.String():          newInitial(c),
-		PXEBooting.String():       newPXEBooting(c),
+		Booting.String():          newBooting(c),
 		Preparing.String():        newPreparing(c),
 		Registering.String():      newRegistering(c),
 		Waiting.String():          newWaiting(c),

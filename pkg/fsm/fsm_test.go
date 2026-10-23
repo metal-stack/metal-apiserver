@@ -10,6 +10,53 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 )
 
+func TestHandleProvisioningEventSwitchBootMechanism(t *testing.T) {
+	for _, initial := range []metal.ProvisioningEventType{metal.ProvisioningEventPXEBooting, metal.ProvisioningEventISOBooting} {
+		other := metal.ProvisioningEventISOBooting
+		if initial == other {
+			other = metal.ProvisioningEventPXEBooting
+		}
+		for _, tc := range []struct {
+			name      string
+			crashLoop bool
+		}{
+			{name: "healthy"},
+			{name: "existing crash loop", crashLoop: true},
+		} {
+			t.Run(initial.String()+"/"+tc.name, func(t *testing.T) {
+				now := time.Now()
+				container := &metal.ProvisioningEventContainer{
+					Events:     metal.ProvisioningEvents{{Time: now, Event: initial}},
+					Liveliness: metal.MachineLivelinessAlive,
+					CrashLoop:  tc.crashLoop,
+				}
+				wantEvents := append(metal.ProvisioningEvents{}, container.Events...)
+				for i, eventType := range []metal.ProvisioningEventType{other, other, initial, initial} {
+					eventTime := now.Add(time.Duration(i+1) * time.Second)
+					event := metal.ProvisioningEvent{Time: eventTime, Event: eventType}
+					if i%2 == 0 {
+						wantEvents = append(metal.ProvisioningEvents{event}, wantEvents...)
+					}
+					got, err := HandleProvisioningEvent(t.Context(), slog.Default(), container, &event)
+					if err != nil {
+						t.Fatal(err)
+					}
+					want := &metal.ProvisioningEventContainer{
+						Events:        wantEvents,
+						Liveliness:    metal.MachineLivelinessAlive,
+						CrashLoop:     tc.crashLoop,
+						LastEventTime: &eventTime,
+					}
+					if diff := cmp.Diff(want, got); diff != "" {
+						t.Fatalf("step %d (%s) mismatch (-want +got):\n%s", i, eventType, diff)
+					}
+					container = got
+				}
+			})
+		}
+	}
+}
+
 func TestHandleProvisioningEvent(t *testing.T) {
 	now := time.Now()
 	lastEventTime := now.Add(-time.Minute * 4)
@@ -226,6 +273,169 @@ func TestHandleProvisioningEvent(t *testing.T) {
 					{
 						Time:  lastEventTime,
 						Event: metal.ProvisioningEventInstalling,
+					},
+				},
+			},
+		},
+		{
+			name: "iso booting is first event in container",
+			container: &metal.ProvisioningEventContainer{
+				Events:     metal.ProvisioningEvents{},
+				Liveliness: metal.MachineLivelinessAlive,
+			},
+			event: &metal.ProvisioningEvent{
+				Time:  now,
+				Event: metal.ProvisioningEventISOBooting,
+			},
+			wantErr: nil,
+			want: &metal.ProvisioningEventContainer{
+				CrashLoop:            false,
+				FailedMachineReclaim: false,
+				Liveliness:           metal.MachineLivelinessAlive,
+				LastEventTime:        &now,
+				Events: metal.ProvisioningEvents{
+					{
+						Time:  now,
+						Event: metal.ProvisioningEventISOBooting,
+					},
+				},
+			},
+		},
+		{
+			name: "valid transition from ISO booting to ISO booting (swallow repeated)",
+			container: &metal.ProvisioningEventContainer{
+				Events: metal.ProvisioningEvents{
+					{
+						Time:  lastEventTime,
+						Event: metal.ProvisioningEventISOBooting,
+					},
+				},
+				Liveliness: metal.MachineLivelinessAlive,
+			},
+			event: &metal.ProvisioningEvent{
+				Time:  now,
+				Event: metal.ProvisioningEventISOBooting,
+			},
+			wantErr: nil,
+			want: &metal.ProvisioningEventContainer{
+				CrashLoop:            false,
+				FailedMachineReclaim: false,
+				Liveliness:           metal.MachineLivelinessAlive,
+				LastEventTime:        &now,
+				Events: metal.ProvisioningEvents{
+					{
+						Time:  lastEventTime,
+						Event: metal.ProvisioningEventISOBooting,
+					},
+				},
+			},
+		},
+		{
+			name: "valid transition from ISO booting to preparing",
+			container: &metal.ProvisioningEventContainer{
+				Events: metal.ProvisioningEvents{
+					{
+						Time:  lastEventTime,
+						Event: metal.ProvisioningEventISOBooting,
+					},
+				},
+				Liveliness: metal.MachineLivelinessAlive,
+			},
+			event: &metal.ProvisioningEvent{
+				Time:  now,
+				Event: metal.ProvisioningEventPreparing,
+			},
+			wantErr: nil,
+			want: &metal.ProvisioningEventContainer{
+				CrashLoop:            false,
+				FailedMachineReclaim: false,
+				Liveliness:           metal.MachineLivelinessAlive,
+				LastEventTime:        &now,
+				Events: metal.ProvisioningEvents{
+					{
+						Time:  now,
+						Event: metal.ProvisioningEventPreparing,
+					},
+					{
+						Time:  lastEventTime,
+						Event: metal.ProvisioningEventISOBooting,
+					},
+				},
+			},
+		},
+		{
+			name: "valid transition from crashing to iso booting, maintaining crash loop",
+			container: &metal.ProvisioningEventContainer{
+				Events: metal.ProvisioningEvents{
+					{
+						Time:  lastEventTime,
+						Event: metal.ProvisioningEventCrashed,
+					},
+					{
+						Time:  lastEventTime.Add(-1 * time.Minute),
+						Event: metal.ProvisioningEventInstalling,
+					},
+				},
+				CrashLoop:  true,
+				Liveliness: metal.MachineLivelinessAlive,
+			},
+			event: &metal.ProvisioningEvent{
+				Time:  now,
+				Event: metal.ProvisioningEventISOBooting,
+			},
+			wantErr: nil,
+			want: &metal.ProvisioningEventContainer{
+				CrashLoop:            true,
+				FailedMachineReclaim: false,
+				Liveliness:           metal.MachineLivelinessAlive,
+				LastEventTime:        &now,
+				Events: metal.ProvisioningEvents{
+					{
+						Time:  now,
+						Event: metal.ProvisioningEventISOBooting,
+					},
+					{
+						Time:  lastEventTime,
+						Event: metal.ProvisioningEventCrashed,
+					},
+					{
+						Time:  lastEventTime.Add(-1 * time.Minute),
+						Event: metal.ProvisioningEventInstalling,
+					},
+				},
+			},
+		},
+		{
+			name: "reset failed reclaim flag with ISO booting event",
+			container: &metal.ProvisioningEventContainer{
+				Events: metal.ProvisioningEvents{
+					{
+						Time:  lastEventTime,
+						Event: metal.ProvisioningEventMachineReclaim,
+					},
+				},
+				Liveliness:           metal.MachineLivelinessAlive,
+				LastEventTime:        &lastEventTime,
+				FailedMachineReclaim: true,
+			},
+			event: &metal.ProvisioningEvent{
+				Time:  now,
+				Event: metal.ProvisioningEventISOBooting,
+			},
+			wantErr: nil,
+			want: &metal.ProvisioningEventContainer{
+				CrashLoop:            false,
+				FailedMachineReclaim: false,
+				Liveliness:           metal.MachineLivelinessAlive,
+				LastEventTime:        &now,
+				Events: metal.ProvisioningEvents{
+					{
+						Time:  now,
+						Event: metal.ProvisioningEventISOBooting,
+					},
+					{
+						Time:  lastEventTime,
+						Event: metal.ProvisioningEventMachineReclaim,
 					},
 				},
 			},

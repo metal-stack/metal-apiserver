@@ -20,20 +20,32 @@ func Events() fsm.Events {
 				states.Crashing.String(),
 				states.Initial.String(),
 			},
-			Dst: states.PXEBooting.String(),
+			Dst: states.Booting.String(),
 		},
 		{
-			// PXE boot events may occur multiple times in a row
 			Name: metal.ProvisioningEventPXEBooting.String(),
+			Src:  []string{states.Booting.String()},
+			Dst:  SelfTransitionState,
+		},
+		{
+			Name: metal.ProvisioningEventISOBooting.String(),
 			Src: []string{
-				states.PXEBooting.String(),
+				states.PlannedReboot.String(),
+				states.MachineReclaim.String(),
+				states.Crashing.String(),
+				states.Initial.String(),
 			},
-			Dst: SelfTransitionState,
+			Dst: states.Booting.String(),
+		},
+		{
+			Name: metal.ProvisioningEventISOBooting.String(),
+			Src:  []string{states.Booting.String()},
+			Dst:  SelfTransitionState,
 		},
 		{
 			Name: metal.ProvisioningEventPreparing.String(),
 			Src: []string{
-				states.PXEBooting.String(),
+				states.Booting.String(),
 				states.PlannedReboot.String(),  // can happen because some machine are incapable of sending PXE boot events
 				states.MachineReclaim.String(), // can happen because some machine are incapable of sending PXE boot events
 				states.Crashing.String(),
@@ -88,7 +100,7 @@ func Events() fsm.Events {
 			Src: []string{
 				states.PlannedReboot.String(),
 				states.PhonedHome.String(),
-				states.PXEBooting.String(),
+				states.Booting.String(),
 				states.Preparing.String(),
 				states.Registering.String(),
 				states.Waiting.String(),
@@ -122,7 +134,7 @@ func Events() fsm.Events {
 		{
 			Name: metal.ProvisioningEventAlive.String(),
 			Src: []string{
-				states.PXEBooting.String(),
+				states.Booting.String(),
 				states.Preparing.String(),
 				states.Registering.String(),
 				states.Waiting.String(),
@@ -135,7 +147,7 @@ func Events() fsm.Events {
 		{
 			Name: metal.ProvisioningEventCrashed.String(),
 			Src: []string{
-				states.PXEBooting.String(),
+				states.Booting.String(),
 				states.Preparing.String(),
 				states.Registering.String(),
 				states.Waiting.String(),

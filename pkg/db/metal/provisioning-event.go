@@ -54,6 +54,7 @@ const (
 	ProvisioningEventBootingNewKernel = ProvisioningEventType("Booting New Kernel")
 	ProvisioningEventPhonedHome       = ProvisioningEventType("Phoned Home")
 	ProvisioningEventMachineReclaim   = ProvisioningEventType("Machine Reclaim")
+	ProvisioningEventISOBooting       = ProvisioningEventType("ISO Booting")
 )
 
 var (
@@ -69,6 +70,7 @@ var (
 		ProvisioningEventBootingNewKernel: true,
 		ProvisioningEventPhonedHome:       true,
 		ProvisioningEventMachineReclaim:   true,
+		ProvisioningEventISOBooting:       true,
 	}
 )
 

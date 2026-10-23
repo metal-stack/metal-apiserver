@@ -6,12 +6,12 @@ import (
 	"github.com/looplab/fsm"
 )
 
-type PXEBootingState struct {
+type BootingState struct {
 	*FSMState
 }
 
-func newPXEBooting(c *StateConfig) *PXEBootingState {
-	return &PXEBootingState{
+func newBooting(c *StateConfig) *BootingState {
+	return &BootingState{
 		FSMState: &FSMState{
 			container: c.Container,
 			event:     c.Event,
@@ -20,14 +20,13 @@ func newPXEBooting(c *StateConfig) *PXEBootingState {
 	}
 }
 
-func (p *PXEBootingState) OnTransition(ctx context.Context, e *fsm.Event) {
+func (p *BootingState) OnTransition(ctx context.Context, e *fsm.Event) {
 	if p.swallowBufferedPhonedHome(e) {
 		return
 	}
 	p.container.FailedMachineReclaim = false
 
-	if e.Src == PXEBooting.String() {
-		// swallow repeated pxe booting events, which happens regularly
+	if e.Src == Booting.String() && len(p.container.Events) > 0 && p.container.Events[0].Event == p.event.Event {
 		updateTimeAndLiveliness(p.event, p.container)
 		return
 	}
