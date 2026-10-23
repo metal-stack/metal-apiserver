@@ -26,7 +26,7 @@ require (
 	github.com/lestrrat-go/jwx/v4 v4.5.0
 	github.com/looplab/fsm v1.0.4
 	github.com/markbates/goth v1.82.0
-	github.com/metal-stack/api v0.8.3
+	github.com/metal-stack/api v0.8.4-0.20261022091114-6f57d8360622
 	github.com/metal-stack/go-ipam v1.16.0
 	github.com/metal-stack/metal-lib v0.26.4
 	github.com/metal-stack/tenant-api v0.2.1
@@ -118,7 +118,7 @@ require (
 	github.com/magiconair/properties v1.18.12 // indirect
 	github.com/mdelapenya/tlscert v0.2.0 // indirect
 	github.com/mdlayher/netlink v1.11.2 // indirect
-	github.com/mdlayher/socket v0.8.0 // indirect
+	github.com/mdlayher/socket v0.7.0 // indirect
 	github.com/minio/minlz v1.2.3 // indirect
 	github.com/mitchellh/go-ps v1.0.0 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect

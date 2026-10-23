@@ -27,7 +27,7 @@ func Benchmark_e2e_ipService_Create(b *testing.B) {
 	ctx := b.Context()
 
 	tcr, err := apiClient.Adminv2().Tenant().Create(ctx, &adminv2.TenantServiceCreateRequest{
-		Name: "benchmark",
+		Login: new("benchmark"),
 	})
 	require.NoError(b, err)
 

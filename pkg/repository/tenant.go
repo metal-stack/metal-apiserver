@@ -242,57 +242,7 @@ func (t *tenantRepository) convertToProto(ctx context.Context, tenant *tenantEnt
 	}, nil
 }
 
-func (t *tenantRepository) Member(tenantID string) TenantMember {
-	return t.tenantMember(&TenantScope{
-		tenantID: tenantID,
-	})
-}
-
-func (t *tenantRepository) UnscopedMember() TenantMember {
-	return t.tenantMember(nil)
-}
-
-func (t *tenantRepository) tenantMember(scope *TenantScope) TenantMember {
-	repository := &tenantMemberRepository{
-		s:     t.s,
-		scope: scope,
-	}
-
-	return &store[*tenantMemberRepository, *tenantMemberEntity, *apiv2.TenantMember, *api.TenantMemberCreateRequest, *api.TenantMemberUpdateRequest, *api.TenantMemberQuery]{
-		repository: repository,
-		typed:      repository,
-	}
-}
-
-func (t *tenantRepository) ListTenantMembers(ctx context.Context, tenant string, includeInherited bool) ([]*api.TenantWithMembershipAnnotations, error) {
-	resp, err := t.s.tc.Apiv1().Tenant().ListTenantMembers(ctx, &tenantv1.TenantServiceListTenantMembersRequest{
-		TenantId:         tenant,
-		IncludeInherited: new(includeInherited),
-	})
-	if err != nil {
-		return nil, errorutil.Convert(err)
-	}
-
-	var res []*api.TenantWithMembershipAnnotations
-
-	for _, tenant := range resp.Tenants {
-		converted, err := t.convertToProto(ctx, &tenantEntity{Tenant: tenant.Tenant})
-		if err != nil {
-			return nil, err
-		}
-
-		res = append(res, &api.TenantWithMembershipAnnotations{
-			Tenant:             converted,
-			ProjectAnnotations: tenant.ProjectAnnotations,
-			TenantAnnotations:  tenant.TenantAnnotations,
-			ProjectIds:         tenant.ProjectIds,
-		})
-	}
-
-	return res, nil
-}
-
-func (t *tenantRepository) FindParticipatingTenants(ctx context.Context, tenant string, includeInherited bool) ([]*api.TenantWithMembershipAnnotations, error) {
+func (t *tenantRepository) findParticipatingTenants(ctx context.Context, tenant string, includeInherited bool) ([]*tenantv1.TenantWithMembershipAnnotations, error) {
 	resp, err := t.s.tc.Apiv1().Tenant().FindParticipatingTenants(ctx, &tenantv1.TenantServiceFindParticipatingTenantsRequest{
 		TenantId:         tenant,
 		IncludeInherited: new(includeInherited),
@@ -301,36 +251,7 @@ func (t *tenantRepository) FindParticipatingTenants(ctx context.Context, tenant 
 		return nil, errorutil.Convert(err)
 	}
 
-	var res []*api.TenantWithMembershipAnnotations
-
-	for _, tenant := range resp.Tenants {
-		converted, err := t.convertToProto(ctx, &tenantEntity{Tenant: tenant.Tenant})
-		if err != nil {
-			return nil, err
-		}
-
-		res = append(res, &api.TenantWithMembershipAnnotations{
-			Tenant:             converted,
-			ProjectAnnotations: tenant.ProjectAnnotations,
-			TenantAnnotations:  tenant.TenantAnnotations,
-			ProjectIds:         tenant.ProjectIds,
-		})
-	}
-
-	return res, nil
-}
-
-func TenantRoleFromMap(annotations map[string]string) apiv2.TenantRole {
-	if annotations == nil {
-		return apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED
-	}
-
-	var (
-		annotation = annotations[api.TenantRoleAnnotation]
-		tenantRole = apiv2.TenantRole(apiv2.TenantRole_value[annotation])
-	)
-
-	return tenantRole
+	return resp.Tenants, nil
 }
 
 func (t *tenantRepository) EnsureProviderTenant(ctx context.Context, providerTenantID string) error {
@@ -391,7 +312,7 @@ func (t *tenantRepository) EnsureProviderTenant(ctx context.Context, providerTen
 		return errorutil.InvalidArgument("provider tenant %q already exists, refusing to create another one with id %q", providerTenant.Login, providerTenantID)
 	}
 
-	_, err = t.Member(providerTenantID).Get(ctx, providerTenantID)
+	_, err = t.s.TenantMember(providerTenantID).Get(ctx, providerTenantID)
 	if err == nil {
 		return nil
 	}
@@ -400,9 +321,9 @@ func (t *tenantRepository) EnsureProviderTenant(ctx context.Context, providerTen
 		return errorutil.Convert(err)
 	}
 
-	_, err = t.Member(providerTenantID).Create(ctx, &api.TenantMemberCreateRequest{
-		MemberID: providerTenantID,
-		Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
+	_, err = t.s.TenantMember(providerTenantID).Create(ctx, &apiv2.TenantMemberServiceCreateRequest{
+		Member: providerTenantID,
+		Role:   apiv2.TenantRole_TENANT_ROLE_OWNER,
 	})
 	if err != nil {
 		return errorutil.Convert(err)

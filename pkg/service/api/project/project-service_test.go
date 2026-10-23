@@ -5,12 +5,12 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
-	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
@@ -54,13 +54,12 @@ func Test_projectServiceServer_Get(t *testing.T) {
 		},
 	})
 
-	test.CreateProjectMemberships(t, testStore, p0, []*api.ProjectMemberCreateRequest{
-		{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
-		{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_EDITOR},
+	test.CreateProjectMemberships(t, testStore, p0, []*apiv2.ProjectMemberServiceCreateRequest{
+		{Member: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
+		{Member: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_EDITOR},
 	})
-	test.CreateTenantMemberships(t, testStore, "john.doe@github", []*api.TenantMemberCreateRequest{
-		{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
-		{MemberID: "tina.turner@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+	test.CreateTenantMemberships(t, testStore, "john.doe@github", []*apiv2.TenantMemberServiceCreateRequest{
+		{Member: "tina.turner@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 	})
 
 	tests := []struct {
@@ -90,21 +89,6 @@ func Test_projectServiceServer_Get(t *testing.T) {
 					Description: "a description",
 					AvatarUrl:   new("http://test"),
 				},
-				ProjectMembers: []*apiv2.ProjectMember{
-					{
-						Id:   "john.doe@github",
-						Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER,
-					},
-					{
-						Id:                  "tina.turner@github",
-						InheritedMembership: true,
-						Role:                apiv2.ProjectRole_PROJECT_ROLE_OWNER,
-					},
-					{
-						Id:   "will.smith@github",
-						Role: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
-					},
-				},
 			},
 			wantErr: nil,
 		},
@@ -129,16 +113,6 @@ func Test_projectServiceServer_Get(t *testing.T) {
 					Uuid:        p0,
 					Tenant:      "john.doe@github",
 				},
-				ProjectMembers: []*apiv2.ProjectMember{
-					{
-						Id:   "john.doe@github",
-						Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER,
-					},
-					{
-						Id:   "will.smith@github",
-						Role: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
-					},
-				},
 			},
 			wantErr: nil,
 		},
@@ -157,7 +131,6 @@ func Test_projectServiceServer_Get(t *testing.T) {
 				log:         log,
 				repo:        testStore.Store,
 				inviteStore: testStore.GetProjectInviteStore(),
-				tokenStore:  testStore.GetTokenStore(),
 			}
 
 			as := apiv2.TenantRole_TENANT_ROLE_OWNER
@@ -191,9 +164,6 @@ func Test_projectServiceServer_Get(t *testing.T) {
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at", "updated_at",
 				),
-				protocmp.IgnoreFields(
-					&apiv2.ProjectMember{}, "created_at",
-				),
 			); diff != "" {
 				t.Errorf("%v, want %v diff: %s", got, tt.want, diff)
 			}
@@ -218,14 +188,14 @@ func Test_projectServiceServer_List(t *testing.T) {
 		{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github", Labels: &apiv2.Labels{Labels: map[string]string{"a": "b", "c": "d"}}},
 	})
 
-	test.CreateProjectMemberships(t, testStore, p0, []*api.ProjectMemberCreateRequest{
-		{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
+	test.CreateProjectMemberships(t, testStore, p0, []*apiv2.ProjectMemberServiceCreateRequest{
+		{Member: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
 	})
-	test.CreateProjectMemberships(t, testStore, "will.smith@github", []*api.ProjectMemberCreateRequest{
-		{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
+	test.CreateProjectMemberships(t, testStore, "will.smith@github", []*apiv2.ProjectMemberServiceCreateRequest{
+		{Member: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
 	})
-	test.CreateProjectMemberships(t, testStore, "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", []*api.ProjectMemberCreateRequest{
-		{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_EDITOR},
+	test.CreateProjectMemberships(t, testStore, "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", []*apiv2.ProjectMemberServiceCreateRequest{
+		{Member: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_EDITOR},
 	})
 
 	tests := []struct {
@@ -390,7 +360,6 @@ func Test_projectServiceServer_List(t *testing.T) {
 				log:         log,
 				repo:        testStore.Store,
 				inviteStore: testStore.GetProjectInviteStore(),
-				tokenStore:  testStore.GetTokenStore(),
 			}
 
 			tok := testStore.GetToken("john.doe@github", &apiv2.TokenServiceCreateRequest{
@@ -435,11 +404,10 @@ func Test_projectServiceServer_Create(t *testing.T) {
 	})
 
 	tests := []struct {
-		name        string
-		rq          *apiv2.ProjectServiceCreateRequest
-		want        *apiv2.ProjectServiceCreateResponse
-		wantMembers []*apiv2.ProjectMember
-		wantErr     error
+		name    string
+		rq      *apiv2.ProjectServiceCreateRequest
+		want    *apiv2.ProjectServiceCreateResponse
+		wantErr error
 	}{
 		{
 			name: "create a project",
@@ -469,12 +437,6 @@ func Test_projectServiceServer_Create(t *testing.T) {
 					AvatarUrl:   new("http://test"),
 				},
 			},
-			wantMembers: []*apiv2.ProjectMember{
-				{
-					Id:   "john.doe@github",
-					Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER,
-				},
-			},
 			wantErr: nil,
 		},
 	}
@@ -484,7 +446,6 @@ func Test_projectServiceServer_Create(t *testing.T) {
 				log:         log,
 				repo:        testStore.Store,
 				inviteStore: testStore.GetProjectInviteStore(),
-				tokenStore:  testStore.GetTokenStore(),
 			}
 
 			tok := testStore.GetToken("john.doe@github", &apiv2.TokenServiceCreateRequest{
@@ -518,6 +479,7 @@ func Test_projectServiceServer_Create(t *testing.T) {
 			); diff != "" {
 				t.Errorf("%v, want %v diff: %s", got, tt.want, diff)
 			}
+
 		})
 	}
 }
@@ -598,7 +560,6 @@ func Test_projectServiceServer_Update(t *testing.T) {
 				log:         log,
 				repo:        testStore.Store,
 				inviteStore: testStore.GetProjectInviteStore(),
-				tokenStore:  testStore.GetTokenStore(),
 			}
 
 			tok := testStore.GetToken("john.doe@github", &apiv2.TokenServiceCreateRequest{
@@ -734,7 +695,6 @@ func Test_projectServiceServer_Delete(t *testing.T) {
 				log:         log,
 				repo:        testStore.Store,
 				inviteStore: testStore.GetProjectInviteStore(),
-				tokenStore:  testStore.GetTokenStore(),
 			}
 
 			test.CreateProjects(t, testStore, tt.existingProjects)
@@ -773,294 +733,6 @@ func Test_projectServiceServer_Delete(t *testing.T) {
 				),
 			); diff != "" {
 				t.Errorf("%v, want %v diff: %s", got, tt.want, diff)
-			}
-		})
-	}
-}
-
-func Test_projectServiceServer_MemberUpdate(t *testing.T) {
-	t.Parallel()
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithPostgres(true))
-	log := testStore.GetLogger()
-	defer closer()
-
-	tests := []struct {
-		name                   string
-		rq                     *apiv2.ProjectServiceUpdateMemberRequest
-		existingTenants        []*apiv2.TenantServiceCreateRequest
-		existingTenantMembers  map[string][]*api.TenantMemberCreateRequest
-		existingProjects       []*apiv2.ProjectServiceCreateRequest
-		existingProjectMembers map[string][]*api.ProjectMemberCreateRequest
-		want                   *apiv2.ProjectServiceUpdateMemberResponse
-		wantErr                error
-	}{
-		{
-			name: "update a member",
-			rq: &apiv2.ProjectServiceUpdateMemberRequest{
-				Project: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
-				Member:  "will.smith@github",
-				Role:    apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
-			},
-			existingTenants: []*apiv2.TenantServiceCreateRequest{
-				{Name: "john.doe@github"},
-				{Name: "will.smith@github"},
-			},
-			existingProjects: []*apiv2.ProjectServiceCreateRequest{
-				{Name: p0, Login: "john.doe@github"},
-				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
-				{Name: p1, Login: "will.smith@github"},
-			},
-			existingProjectMembers: map[string][]*api.ProjectMemberCreateRequest{
-				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
-					{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
-					{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
-				},
-			},
-			want: &apiv2.ProjectServiceUpdateMemberResponse{
-				ProjectMember: &apiv2.ProjectMember{
-					Id:   "will.smith@github",
-					Role: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
-				},
-			},
-			wantErr: nil,
-		},
-		{
-			name: "unable to demote last owner",
-			rq: &apiv2.ProjectServiceUpdateMemberRequest{
-				Project: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
-				Member:  "john.doe@github",
-				Role:    apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
-			},
-			existingTenants: []*apiv2.TenantServiceCreateRequest{
-				{Name: "john.doe@github"},
-			},
-			existingProjects: []*apiv2.ProjectServiceCreateRequest{
-				{Name: p0, Login: "john.doe@github"},
-				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
-			},
-			existingProjectMembers: map[string][]*api.ProjectMemberCreateRequest{
-				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
-					{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
-				},
-			},
-			wantErr: errorutil.FailedPrecondition("cannot demote last owner's permissions"),
-		},
-		{
-			name: "unable to update a project member that is neither member of this project nor inherited member through tenant membership",
-			rq: &apiv2.ProjectServiceUpdateMemberRequest{
-				Project: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
-				Member:  "will.smith@github",
-				Role:    apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
-			},
-			existingTenants: []*apiv2.TenantServiceCreateRequest{
-				{Name: "john.doe@github"},
-				{Name: "will.smith@github"},
-			},
-			existingProjects: []*apiv2.ProjectServiceCreateRequest{
-				{Name: p0, Login: "john.doe@github"},
-				{Name: p1, Login: "will.smith@github"},
-				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
-			},
-			existingProjectMembers: map[string][]*api.ProjectMemberCreateRequest{
-				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
-					{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
-				},
-			},
-			wantErr: errorutil.InvalidArgument("tenant is not part of the project's tenants"),
-		},
-		{
-			name: "create direct membership if belongs to tenant",
-			rq: &apiv2.ProjectServiceUpdateMemberRequest{
-				Project: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
-				Member:  "will.smith@github",
-				Role:    apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
-			},
-			existingTenants: []*apiv2.TenantServiceCreateRequest{
-				{Name: "john.doe@github"},
-				{Name: "will.smith@github"},
-			},
-			existingTenantMembers: map[string][]*api.TenantMemberCreateRequest{
-				"john.doe@github": {
-					{MemberID: "will.smith@github", Role: apiv2.TenantRole_TENANT_ROLE_EDITOR},
-				},
-			},
-			existingProjects: []*apiv2.ProjectServiceCreateRequest{
-				{Name: p0, Login: "john.doe@github"},
-				{Name: p1, Login: "will.smith@github"},
-				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
-			},
-			existingProjectMembers: map[string][]*api.ProjectMemberCreateRequest{
-				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
-					{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
-				},
-			},
-			want: &apiv2.ProjectServiceUpdateMemberResponse{
-				ProjectMember: &apiv2.ProjectMember{
-					Id:   "will.smith@github",
-					Role: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
-				},
-			},
-			wantErr: nil,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			u := &projectServiceServer{
-				log:         log,
-				repo:        testStore.Store,
-				inviteStore: testStore.GetProjectInviteStore(),
-				tokenStore:  testStore.GetTokenStore(),
-			}
-
-			test.CreateTenants(t, testStore, tt.existingTenants)
-			if tt.existingTenantMembers != nil {
-				for tenant, members := range tt.existingTenantMembers {
-					test.CreateTenantMemberships(t, testStore, tenant, members)
-				}
-			}
-			test.CreateProjects(t, testStore, tt.existingProjects)
-			if tt.existingProjectMembers != nil {
-				for project, members := range tt.existingProjectMembers {
-					test.CreateProjectMemberships(t, testStore, project, members)
-				}
-			}
-			defer func() {
-				testStore.DeleteProjects()
-				testStore.DeleteTenants()
-			}()
-
-			tok := testStore.GetToken("john.doe@github", &apiv2.TokenServiceCreateRequest{
-				Expires: durationpb.New(time.Hour),
-				TenantRoles: map[string]apiv2.TenantRole{
-					"john.doe@github": apiv2.TenantRole_TENANT_ROLE_OWNER,
-				},
-			})
-
-			reqCtx := token.ContextWithToken(t.Context(), tok)
-			if tt.wantErr == nil {
-				// Execute proto based validation
-				test.Validate(t, tt.rq)
-			}
-			got, err := u.UpdateMember(reqCtx, tt.rq)
-			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
-				t.Errorf("diff = %s", diff)
-			}
-
-			if diff := cmp.Diff(
-				tt.want, got,
-				protocmp.Transform(),
-				protocmp.IgnoreFields(
-					&apiv2.ProjectMember{}, "created_at",
-				),
-			); diff != "" {
-				t.Errorf("%v, want %v diff: %s", got, tt.want, diff)
-			}
-		})
-	}
-}
-
-func Test_projectServiceServer_MemberRemove(t *testing.T) {
-	t.Parallel()
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithPostgres(true))
-	log := testStore.GetLogger()
-	defer closer()
-
-	tests := []struct {
-		name                   string
-		existingTenants        []*apiv2.TenantServiceCreateRequest
-		existingTenantMembers  map[string][]*api.TenantMemberCreateRequest
-		existingProjects       []*apiv2.ProjectServiceCreateRequest
-		existingProjectMembers map[string][]*api.ProjectMemberCreateRequest
-		rq                     *apiv2.ProjectServiceRemoveMemberRequest
-		wantErr                error
-	}{
-		{
-			name: "remove a member",
-			rq: &apiv2.ProjectServiceRemoveMemberRequest{
-				Project: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
-				Member:  "will.smith@github",
-			},
-			existingTenants: []*apiv2.TenantServiceCreateRequest{
-				{Name: "john.doe@github"},
-				{Name: "will.smith@github"},
-			},
-			existingProjects: []*apiv2.ProjectServiceCreateRequest{
-				{Name: "john.doe@github", Login: "john.doe@github"},
-				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
-				{Name: "will.smith@github", Login: "will.smith@github"},
-			},
-			existingProjectMembers: map[string][]*api.ProjectMemberCreateRequest{
-				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
-					{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
-					{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
-				},
-			},
-			wantErr: nil,
-		},
-		{
-			name: "unable to remove last owner",
-			rq: &apiv2.ProjectServiceRemoveMemberRequest{
-				Project: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
-				Member:  "john.doe@github",
-			},
-			existingTenants: []*apiv2.TenantServiceCreateRequest{
-				{Name: "john.doe@github"},
-			},
-			existingProjects: []*apiv2.ProjectServiceCreateRequest{
-				{Name: "john.doe@github", Login: "john.doe@github"},
-				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
-			},
-			existingProjectMembers: map[string][]*api.ProjectMemberCreateRequest{
-				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
-					{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
-				},
-			},
-			wantErr: errorutil.FailedPrecondition("cannot remove last owner of a project"),
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			u := &projectServiceServer{
-				log:         log,
-				repo:        testStore.Store,
-				inviteStore: testStore.GetProjectInviteStore(),
-				tokenStore:  testStore.GetTokenStore(),
-			}
-
-			test.CreateTenants(t, testStore, tt.existingTenants)
-			if tt.existingTenantMembers != nil {
-				for tenant, members := range tt.existingTenantMembers {
-					test.CreateTenantMemberships(t, testStore, tenant, members)
-				}
-			}
-			test.CreateProjects(t, testStore, tt.existingProjects)
-			if tt.existingProjectMembers != nil {
-				for project, members := range tt.existingProjectMembers {
-					test.CreateProjectMemberships(t, testStore, project, members)
-				}
-			}
-			defer func() {
-				testStore.DeleteProjects()
-				testStore.DeleteTenants()
-			}()
-
-			tok := testStore.GetToken("john.doe@github", &apiv2.TokenServiceCreateRequest{
-				Expires: durationpb.New(time.Hour),
-				ProjectRoles: map[string]apiv2.ProjectRole{
-					"john.doe@github": apiv2.ProjectRole_PROJECT_ROLE_OWNER,
-				},
-			})
-
-			reqCtx := token.ContextWithToken(t.Context(), tok)
-			if tt.wantErr == nil {
-				// Execute proto based validation
-				test.Validate(t, tt.rq)
-			}
-			_, err := u.RemoveMember(reqCtx, tt.rq)
-			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
-				t.Errorf("diff = %s", diff)
 			}
 		})
 	}
@@ -1130,7 +802,6 @@ func Test_projectServiceServer_Invite(t *testing.T) {
 				log:         log,
 				repo:        testStore.Store,
 				inviteStore: testStore.GetProjectInviteStore(),
-				tokenStore:  testStore.GetTokenStore(),
 			}
 
 			tok := testStore.GetToken("john.doe@github", &apiv2.TokenServiceCreateRequest{
@@ -1227,7 +898,6 @@ func Test_projectServiceServer_InviteGet(t *testing.T) {
 				log:         log,
 				repo:        testStore.Store,
 				inviteStore: testStore.GetProjectInviteStore(),
-				tokenStore:  testStore.GetTokenStore(),
 			}
 
 			tok := testStore.GetToken("john.doe@github", &apiv2.TokenServiceCreateRequest{
@@ -1328,7 +998,6 @@ func Test_projectServiceServer_InvitesList(t *testing.T) {
 				log:         log,
 				repo:        testStore.Store,
 				inviteStore: testStore.GetProjectInviteStore(),
-				tokenStore:  testStore.GetTokenStore(),
 			}
 
 			tok := testStore.GetToken("john.doe@github", &apiv2.TokenServiceCreateRequest{
@@ -1403,7 +1072,6 @@ func Test_projectServiceServer_InviteDelete(t *testing.T) {
 				log:         log,
 				repo:        testStore.Store,
 				inviteStore: testStore.GetProjectInviteStore(),
-				tokenStore:  testStore.GetTokenStore(),
 			}
 
 			tok := testStore.GetToken("john.doe@github", &apiv2.TokenServiceCreateRequest{
@@ -1444,7 +1112,7 @@ func Test_projectServiceServer_InviteAccept(t *testing.T) {
 		existingInvites        []*apiv2.ProjectInvite
 		existingTenants        []*apiv2.TenantServiceCreateRequest
 		existingProjects       []*apiv2.ProjectServiceCreateRequest
-		existingProjectMembers map[string][]*api.ProjectMemberCreateRequest
+		existingProjectMembers map[string][]*apiv2.ProjectMemberServiceCreateRequest
 		rq                     *apiv2.ProjectServiceInviteAcceptRequest
 		want                   *apiv2.ProjectServiceInviteAcceptResponse
 		wantMembers            []*apiv2.ProjectMember
@@ -1464,10 +1132,10 @@ func Test_projectServiceServer_InviteAccept(t *testing.T) {
 				{Name: p1, Login: "will.smith@github"},
 				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
 			},
-			existingProjectMembers: map[string][]*api.ProjectMemberCreateRequest{
-				p0:                                     {{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER}},
-				p1:                                     {{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER}},
-				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER}},
+			existingProjectMembers: map[string][]*apiv2.ProjectMemberServiceCreateRequest{
+				p0:                                     {{Member: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER}},
+				p1:                                     {{Member: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER}},
+				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {{Member: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER}},
 			},
 			existingInvites: []*apiv2.ProjectInvite{
 				{
@@ -1488,12 +1156,16 @@ func Test_projectServiceServer_InviteAccept(t *testing.T) {
 			},
 			wantMembers: []*apiv2.ProjectMember{
 				{
-					Id:   "john.doe@github",
-					Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER,
+					Member:  "john.doe@github",
+					Role:    apiv2.ProjectRole_PROJECT_ROLE_OWNER,
+					Meta:    &apiv2.Meta{},
+					Project: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
 				},
 				{
-					Id:   "will.smith@github",
-					Role: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+					Member:  "will.smith@github",
+					Role:    apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+					Meta:    &apiv2.Meta{},
+					Project: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
 				},
 			},
 			wantErr: nil,
@@ -1512,12 +1184,12 @@ func Test_projectServiceServer_InviteAccept(t *testing.T) {
 				{Name: p1, Login: "will.smith@github"},
 				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
 			},
-			existingProjectMembers: map[string][]*api.ProjectMemberCreateRequest{
-				p0: {{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER}},
-				p1: {{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER}},
+			existingProjectMembers: map[string][]*apiv2.ProjectMemberServiceCreateRequest{
+				p0: {{Member: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER}},
+				p1: {{Member: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER}},
 				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
-					{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
-					{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_EDITOR},
+					{Member: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
+					{Member: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_EDITOR},
 				},
 			},
 			existingInvites: []*apiv2.ProjectInvite{
@@ -1546,8 +1218,8 @@ func Test_projectServiceServer_InviteAccept(t *testing.T) {
 			existingProjects: []*apiv2.ProjectServiceCreateRequest{
 				{Name: p1, Login: "will.smith@github"},
 			},
-			existingProjectMembers: map[string][]*api.ProjectMemberCreateRequest{
-				p1: {{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER}},
+			existingProjectMembers: map[string][]*apiv2.ProjectMemberServiceCreateRequest{
+				p1: {{Member: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER}},
 			},
 			existingInvites: []*apiv2.ProjectInvite{
 				{
@@ -1571,7 +1243,6 @@ func Test_projectServiceServer_InviteAccept(t *testing.T) {
 				log:         log,
 				repo:        testStore.Store,
 				inviteStore: testStore.GetProjectInviteStore(),
-				tokenStore:  testStore.GetTokenStore(),
 			}
 
 			test.CreateTenants(t, testStore, tt.existingTenants)
@@ -1628,193 +1299,19 @@ func Test_projectServiceServer_InviteAccept(t *testing.T) {
 
 			reqCtx = token.ContextWithToken(t.Context(), tok)
 
-			getResp, err := u.Get(reqCtx, &apiv2.ProjectServiceGetRequest{
-				Project: acceptResp.Project,
-			})
+			getResp, err := testStore.ProjectMember(acceptResp.Project).List(reqCtx, nil)
 			require.NoError(t, err)
 
 			if diff := cmp.Diff(
 				tt.wantMembers,
-				pointer.SafeDeref(getResp).ProjectMembers,
+				getResp,
 				protocmp.Transform(),
 				protocmp.IgnoreFields(
-					&apiv2.ProjectMember{}, "created_at",
+					&apiv2.Meta{}, "created_at",
 				),
+				cmpopts.SortSlices(func(a, b *apiv2.ProjectMember) bool { return a.Member < b.Member }),
 			); diff != "" {
 				t.Errorf("diff: %s", diff)
-			}
-		})
-	}
-}
-
-func Test_projectServiceServer_Leave(t *testing.T) {
-	t.Parallel()
-
-	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithPostgres(true))
-	log := testStore.GetLogger()
-	defer closer()
-
-	tests := []struct {
-		name                   string
-		existingTenants        []*apiv2.TenantServiceCreateRequest
-		existingTenantMembers  map[string][]*api.TenantMemberCreateRequest
-		existingProjects       []*apiv2.ProjectServiceCreateRequest
-		existingProjectMembers map[string][]*api.ProjectMemberCreateRequest
-		rq                     *apiv2.ProjectServiceLeaveRequest
-		wantErr                error
-	}{
-		{
-			name: "leave project",
-			rq: &apiv2.ProjectServiceLeaveRequest{
-				Project: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
-			},
-			existingTenants: []*apiv2.TenantServiceCreateRequest{
-				{Name: "john.doe@github"},
-				{Name: "will.smith@github"},
-			},
-			existingProjects: []*apiv2.ProjectServiceCreateRequest{
-				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "will.smith@github"},
-			},
-			existingProjectMembers: map[string][]*api.ProjectMemberCreateRequest{
-				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
-					{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
-					{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_VIEWER},
-				},
-			},
-			wantErr: nil,
-		},
-		{
-			name: "john.doe@github wants to leave project but is only owner",
-			rq: &apiv2.ProjectServiceLeaveRequest{
-				Project: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
-			},
-			existingTenants: []*apiv2.TenantServiceCreateRequest{
-				{Name: "john.doe@github"},
-			},
-			existingProjects: []*apiv2.ProjectServiceCreateRequest{
-				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "john.doe@github"},
-			},
-			existingProjectMembers: map[string][]*api.ProjectMemberCreateRequest{
-				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
-					{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
-				},
-			},
-			wantErr: errorutil.FailedPrecondition("cannot remove last owner of a project"),
-		},
-		{
-			name: "john.doe@github has already left the project",
-			rq: &apiv2.ProjectServiceLeaveRequest{
-				Project: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
-			},
-			existingTenants: []*apiv2.TenantServiceCreateRequest{
-				{Name: "john.doe@github"},
-				{Name: "will.smith@github"},
-			},
-			existingProjects: []*apiv2.ProjectServiceCreateRequest{
-				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "will.smith@github"},
-			},
-			existingProjectMembers: map[string][]*api.ProjectMemberCreateRequest{
-				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
-					{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
-				},
-			},
-			wantErr: errorutil.NotFound("tenant john.doe@github is not a member of project b950f4f5-d8b8-4252-aa02-ae08a1d2b044"),
-		},
-		{
-			name: "john.doe@github wants to leave project but is only indirect member",
-			rq: &apiv2.ProjectServiceLeaveRequest{
-				Project: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
-			},
-			existingTenants: []*apiv2.TenantServiceCreateRequest{
-				{Name: "john.doe@github"},
-				{Name: "will.smith@github"},
-				{Name: "3086f178-efd2-404c-9643-6493f8720be1"},
-			},
-			existingTenantMembers: map[string][]*api.TenantMemberCreateRequest{
-				"3086f178-efd2-404c-9643-6493f8720be1": {
-					{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_EDITOR},
-				},
-			},
-			existingProjects: []*apiv2.ProjectServiceCreateRequest{
-				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "will.smith@github"},
-			},
-			existingProjectMembers: map[string][]*api.ProjectMemberCreateRequest{
-				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
-					{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
-					{TenantId: "3086f178-efd2-404c-9643-6493f8720be1", Role: apiv2.ProjectRole_PROJECT_ROLE_VIEWER},
-				},
-			},
-			wantErr: errorutil.NotFound("tenant john.doe@github is not a member of project b950f4f5-d8b8-4252-aa02-ae08a1d2b044"),
-		},
-		{
-			name: "john.doe@github wants to leave project and is direct member as well as indirect member",
-			rq: &apiv2.ProjectServiceLeaveRequest{
-				Project: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044",
-			},
-			existingTenants: []*apiv2.TenantServiceCreateRequest{
-				{Name: "john.doe@github"},
-				{Name: "will.smith@github"},
-				{Name: "3086f178-efd2-404c-9643-6493f8720be1"},
-			},
-			existingTenantMembers: map[string][]*api.TenantMemberCreateRequest{
-				"3086f178-efd2-404c-9643-6493f8720be1": {
-					{MemberID: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_EDITOR},
-				},
-			},
-			existingProjects: []*apiv2.ProjectServiceCreateRequest{
-				{Name: "b950f4f5-d8b8-4252-aa02-ae08a1d2b044", Login: "will.smith@github"},
-			},
-			existingProjectMembers: map[string][]*api.ProjectMemberCreateRequest{
-				"b950f4f5-d8b8-4252-aa02-ae08a1d2b044": {
-					{TenantId: "will.smith@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
-					{TenantId: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_VIEWER},
-					{TenantId: "3086f178-efd2-404c-9643-6493f8720be1", Role: apiv2.ProjectRole_PROJECT_ROLE_VIEWER},
-				},
-			},
-			wantErr: nil,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			u := &projectServiceServer{
-				log:         log,
-				repo:        testStore.Store,
-				inviteStore: testStore.GetProjectInviteStore(),
-				tokenStore:  testStore.GetTokenStore(),
-			}
-
-			test.CreateTenants(t, testStore, tt.existingTenants)
-			if tt.existingTenantMembers != nil {
-				for tenant, members := range tt.existingTenantMembers {
-					test.CreateTenantMemberships(t, testStore, tenant, members)
-				}
-			}
-			test.CreateProjects(t, testStore, tt.existingProjects)
-			if tt.existingProjectMembers != nil {
-				for project, members := range tt.existingProjectMembers {
-					test.CreateProjectMemberships(t, testStore, project, members)
-				}
-			}
-			defer func() {
-				testStore.DeleteProjects()
-				testStore.DeleteTenants()
-			}()
-
-			tok := testStore.GetToken("john.doe@github", &apiv2.TokenServiceCreateRequest{
-				Expires: durationpb.New(time.Hour),
-				ProjectRoles: map[string]apiv2.ProjectRole{
-					"john.doe@github": apiv2.ProjectRole_PROJECT_ROLE_VIEWER,
-				},
-			})
-
-			reqCtx := token.ContextWithToken(t.Context(), tok)
-			if tt.wantErr == nil {
-				// Execute proto based validation
-				test.Validate(t, tt.rq)
-			}
-			_, err := u.Leave(reqCtx, tt.rq)
-			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
-				t.Errorf("diff = %s", diff)
 			}
 		})
 	}

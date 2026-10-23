@@ -108,7 +108,7 @@ func Test_machineServiceServer_DeleteMachine(t *testing.T) {
 		},
 	}
 
-	dc := test.NewDatacenter(t, test.WithPostgres(true))
+	dc := test.NewDatacenter(t)
 	log := dc.GetTestStore().GetLogger()
 	defer dc.Close()
 

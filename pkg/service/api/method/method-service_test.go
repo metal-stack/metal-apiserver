@@ -8,7 +8,6 @@ import (
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
-	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/method"
@@ -29,21 +28,21 @@ func Test_methodServiceServer_List(t *testing.T) {
 		{Name: "foo.bar@github.com"},
 		{Name: "viewer@github.com"},
 	})
-	test.CreateTenantMemberships(t, testStore, "john.doe@github.com", []*api.TenantMemberCreateRequest{
-		{MemberID: "john.doe@github.com", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
-		{MemberID: "viewer@github.com", Role: apiv2.TenantRole_TENANT_ROLE_VIEWER},
+	test.CreateTenantMemberships(t, testStore, "john.doe@github.com", []*apiv2.TenantMemberServiceCreateRequest{
+		{Member: "john.doe@github.com", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+		{Member: "viewer@github.com", Role: apiv2.TenantRole_TENANT_ROLE_VIEWER},
 	})
-	test.CreateTenantMemberships(t, testStore, "viewer@github.com", []*api.TenantMemberCreateRequest{
-		{MemberID: "viewer@github.com", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+	test.CreateTenantMemberships(t, testStore, "viewer@github.com", []*apiv2.TenantMemberServiceCreateRequest{
+		{Member: "viewer@github.com", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 	})
-	test.CreateTenantMemberships(t, testStore, "foo.bar@github.com", []*api.TenantMemberCreateRequest{
-		{MemberID: "foo.bar@github.com", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+	test.CreateTenantMemberships(t, testStore, "foo.bar@github.com", []*apiv2.TenantMemberServiceCreateRequest{
+		{Member: "foo.bar@github.com", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 	})
 	projectMap := test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{
 		{Login: "john.doe@github.com"},
 	})
-	test.CreateProjectMemberships(t, testStore, projectMap["john.doe@github.com"], []*api.ProjectMemberCreateRequest{
-		{TenantId: "foo.bar@github.com", Role: apiv2.ProjectRole_PROJECT_ROLE_VIEWER},
+	test.CreateProjectMemberships(t, testStore, projectMap["john.doe@github.com"], []*apiv2.ProjectMemberServiceCreateRequest{
+		{Member: "foo.bar@github.com", Role: apiv2.ProjectRole_PROJECT_ROLE_VIEWER},
 	})
 
 	tests := []struct {
@@ -111,18 +110,25 @@ func Test_methodServiceServer_List(t *testing.T) {
 					"/metalstack.api.v2.NetworkService/ListBaseNetworks",
 					"/metalstack.api.v2.PartitionService/Get",
 					"/metalstack.api.v2.PartitionService/List",
+					"/metalstack.api.v2.ProjectMemberService/Get",
+					"/metalstack.api.v2.ProjectMemberService/Leave",
+					"/metalstack.api.v2.ProjectMemberService/List",
 					"/metalstack.api.v2.ProjectService/Create",
 					"/metalstack.api.v2.ProjectService/Get",
 					"/metalstack.api.v2.ProjectService/InviteAccept",
 					"/metalstack.api.v2.ProjectService/InviteGet",
-					"/metalstack.api.v2.ProjectService/Leave",
 					"/metalstack.api.v2.ProjectService/List",
 					"/metalstack.api.v2.SizeImageConstraintService/Try",
 					"/metalstack.api.v2.SizeReservationService/Get",
 					"/metalstack.api.v2.SizeReservationService/List",
 					"/metalstack.api.v2.SizeService/Get",
 					"/metalstack.api.v2.SizeService/List",
-					"/metalstack.api.v2.TenantService/AddMember",
+					"/metalstack.api.v2.TenantMemberService/Create",
+					"/metalstack.api.v2.TenantMemberService/Delete",
+					"/metalstack.api.v2.TenantMemberService/Get",
+					"/metalstack.api.v2.TenantMemberService/Leave",
+					"/metalstack.api.v2.TenantMemberService/List",
+					"/metalstack.api.v2.TenantMemberService/Update",
 					"/metalstack.api.v2.TenantService/Create",
 					"/metalstack.api.v2.TenantService/Delete",
 					"/metalstack.api.v2.TenantService/Get",
@@ -132,9 +138,7 @@ func Test_methodServiceServer_List(t *testing.T) {
 					"/metalstack.api.v2.TenantService/InviteGet",
 					"/metalstack.api.v2.TenantService/InvitesList",
 					"/metalstack.api.v2.TenantService/List",
-					"/metalstack.api.v2.TenantService/RemoveMember",
 					"/metalstack.api.v2.TenantService/Update",
-					"/metalstack.api.v2.TenantService/UpdateMember",
 					"/metalstack.api.v2.TokenService/Create",
 					"/metalstack.api.v2.TokenService/Get",
 					"/metalstack.api.v2.TokenService/List",

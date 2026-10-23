@@ -7,11 +7,10 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-lib/pkg/pointer"
 
-	"github.com/metal-stack/api/go/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
-	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 )
 
 type Config struct {
@@ -38,20 +37,14 @@ func New(c Config) TenantService {
 }
 
 func (t *tenantServiceServer) Create(ctx context.Context, req *adminv2.TenantServiceCreateRequest) (*adminv2.TenantServiceCreateResponse, error) {
-	tenant, err := t.repo.Tenant().Create(ctx, &apiv2.TenantServiceCreateRequest{
-		Name:        req.Name,
-		Description: req.Description,
-		Email:       req.Email,
-		AvatarUrl:   req.AvatarUrl,
-		Labels:      req.Labels,
-	})
+	tenant, err := t.repo.Tenant().AdditionalMethods().CreateWithID(ctx, req.Tenant, pointer.SafeDeref(req.Login))
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = t.repo.Tenant().AdditionalMethods().Member(tenant.Login).Create(ctx, &api.TenantMemberCreateRequest{
-		MemberID: tenant.Login,
-		Role:     apiv2.TenantRole_TENANT_ROLE_OWNER,
+	_, err = t.repo.TenantMember(tenant.Login).Create(ctx, &apiv2.TenantMemberServiceCreateRequest{
+		Member: tenant.Login,
+		Role:   apiv2.TenantRole_TENANT_ROLE_OWNER,
 	})
 	if err != nil {
 		return nil, err
@@ -70,32 +63,31 @@ func (t *tenantServiceServer) List(ctx context.Context, req *adminv2.TenantServi
 }
 
 func (t *tenantServiceServer) AddMember(ctx context.Context, req *adminv2.TenantServiceAddMemberRequest) (*adminv2.TenantServiceAddMemberResponse, error) {
-	existing, err := t.repo.Tenant().AdditionalMethods().Member(req.Tenant).Get(ctx, req.Member)
-
-	if err != nil && !errorutil.IsNotFound(err) {
-		return nil, errorutil.Internal("error reading tenant member:%w", err)
-	}
-	if existing != nil {
-		return nil, errorutil.Conflict("tenant with id %q already is member in tenant: %q", req.Member, req.Tenant)
-	}
-
-	_, err = t.repo.Tenant().AdditionalMethods().Member(req.Tenant).Create(ctx, &api.TenantMemberCreateRequest{
-		MemberID: req.Member,
-		Role:     req.Role,
+	member, err := t.repo.TenantMember(req.Tenant).Create(ctx, &apiv2.TenantMemberServiceCreateRequest{
+		Login:  req.Tenant,
+		Member: req.Member,
+		Role:   req.Role,
 	})
 	if err != nil {
-		return nil, errorutil.Internal("failed to add member to tenant: %w", err)
+		return nil, err
 	}
 
 	t.log.Debug("member added successfully", "memberId", req.Member)
-	return &adminv2.TenantServiceAddMemberResponse{}, nil
+
+	return &adminv2.TenantServiceAddMemberResponse{
+		Member: member,
+	}, nil
 }
+
 func (t *tenantServiceServer) RemoveMember(ctx context.Context, req *adminv2.TenantServiceRemoveMemberRequest) (*adminv2.TenantServiceRemoveMemberResponse, error) {
-	_, err := t.repo.Tenant().AdditionalMethods().Member(req.Tenant).Delete(ctx, req.Member)
+	member, err := t.repo.TenantMember(req.Tenant).Delete(ctx, req.Member)
 	if err != nil {
 		return nil, err
 	}
 
 	t.log.Debug("member removed successfully", "memberId", req.Member)
-	return &adminv2.TenantServiceRemoveMemberResponse{}, nil
+
+	return &adminv2.TenantServiceRemoveMemberResponse{
+		Member: member,
+	}, nil
 }

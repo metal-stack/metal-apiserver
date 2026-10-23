@@ -3,9 +3,7 @@ package project
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
-	"slices"
 	"sort"
 	"time"
 
@@ -14,7 +12,6 @@ import (
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
-	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/tags"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
@@ -26,34 +23,25 @@ type Config struct {
 	Log         *slog.Logger
 	Repo        *repository.Store
 	InviteStore invite.ProjectInviteStore
-	TokenStore  token.TokenStore
 }
 
 type projectServiceServer struct {
 	log         *slog.Logger
 	repo        *repository.Store
 	inviteStore invite.ProjectInviteStore
-	tokenStore  token.TokenStore
-}
-
-// AddMember implements [apiv2connect.ProjectServiceHandler].
-func (p *projectServiceServer) AddMember(context.Context, *apiv2.ProjectServiceAddMemberRequest) (*apiv2.ProjectServiceAddMemberResponse, error) {
-	return nil, errorutil.Unimplemented("")
 }
 
 func New(c Config) apiv2connect.ProjectServiceHandler {
 	return &projectServiceServer{
 		log:         c.Log.WithGroup("projectService"),
 		inviteStore: c.InviteStore,
-		tokenStore:  c.TokenStore,
 		repo:        c.Repo,
 	}
 }
 
 func (p *projectServiceServer) Get(ctx context.Context, req *apiv2.ProjectServiceGetRequest) (*apiv2.ProjectServiceGetResponse, error) {
 	var (
-		t, ok                   = token.TokenFromContext(ctx)
-		includeInheritedMembers bool
+		t, ok = token.TokenFromContext(ctx)
 	)
 	if !ok || t == nil {
 		return nil, errorutil.Unauthenticated("no token found in request")
@@ -64,81 +52,7 @@ func (p *projectServiceServer) Get(ctx context.Context, req *apiv2.ProjectServic
 		return nil, err
 	}
 
-	// TODO: maybe we should shadow some fields of the project when a tenant guest accesses this endpoint
-	// e.g. project annotations should not be completely visible?
-
-	projectMembers, err := p.repo.Project(req.Project).AdditionalMethods().Member().List(ctx, &api.ProjectMemberQuery{})
-	if err != nil {
-		return nil, err
-	}
-
-	memberMap := map[string]*apiv2.ProjectMember{}
-
-	for _, pm := range projectMembers {
-		memberMap[pm.Id] = pm
-	}
-
-	role := t.TenantRoles[project.Tenant]
-
-	if role != apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED && role < apiv2.TenantRole_TENANT_ROLE_GUEST {
-		includeInheritedMembers = true
-	}
-	if t.AdminRole != nil {
-		includeInheritedMembers = true
-	}
-
-	if includeInheritedMembers {
-		// we are at least viewer for this tenant, we should also be able to see all indirect members of this project
-
-		tenantMembers, err := p.repo.Tenant().AdditionalMethods().ListTenantMembers(ctx, project.Tenant, includeInheritedMembers)
-		if err != nil {
-			return nil, fmt.Errorf("unable to list project members: %w", err)
-		}
-
-		for _, tm := range tenantMembers {
-			var projectRole apiv2.ProjectRole
-			switch repository.TenantRoleFromMap(tm.TenantAnnotations) {
-			case apiv2.TenantRole_TENANT_ROLE_OWNER:
-				projectRole = apiv2.ProjectRole_PROJECT_ROLE_OWNER
-			case apiv2.TenantRole_TENANT_ROLE_EDITOR:
-				projectRole = apiv2.ProjectRole_PROJECT_ROLE_EDITOR
-			case apiv2.TenantRole_TENANT_ROLE_VIEWER:
-				projectRole = apiv2.ProjectRole_PROJECT_ROLE_VIEWER
-			case apiv2.TenantRole_TENANT_ROLE_GUEST, apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED:
-				continue
-			default:
-				continue
-			}
-
-			member, ok := memberMap[tm.Tenant.Login]
-			if !ok {
-				memberMap[tm.Tenant.Login] = &apiv2.ProjectMember{
-					Id:                  tm.Tenant.Login,
-					Role:                projectRole,
-					CreatedAt:           tm.Tenant.Meta.CreatedAt,
-					InheritedMembership: true,
-				}
-
-				continue
-			}
-
-			if member.Role > projectRole {
-				member.Role = projectRole
-				memberMap[tm.Tenant.Login] = member
-			}
-		}
-	}
-
-	var memberResult []*apiv2.ProjectMember
-	for _, m := range memberMap {
-		memberResult = append(memberResult, m)
-	}
-
-	sort.Slice(memberResult, func(i, j int) bool {
-		return memberResult[i].Id < memberResult[j].Id
-	})
-
-	return &apiv2.ProjectServiceGetResponse{Project: project, ProjectMembers: memberResult}, nil
+	return &apiv2.ProjectServiceGetResponse{Project: project}, nil
 }
 
 func (p *projectServiceServer) List(ctx context.Context, req *apiv2.ProjectServiceListRequest) (*apiv2.ProjectServiceListResponse, error) {
@@ -194,22 +108,14 @@ func (p *projectServiceServer) List(ctx context.Context, req *apiv2.ProjectServi
 }
 
 func (p *projectServiceServer) Create(ctx context.Context, req *apiv2.ProjectServiceCreateRequest) (*apiv2.ProjectServiceCreateResponse, error) {
-	var (
-		t, ok = token.TokenFromContext(ctx)
-	)
-
-	if !ok || t == nil {
-		return nil, errorutil.Unauthenticated("no token found in request")
-	}
-
 	project, err := p.repo.UnscopedProject().Create(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = p.repo.Project(project.Uuid).AdditionalMethods().Member().Create(ctx, &api.ProjectMemberCreateRequest{
-		TenantId: req.Login,
-		Role:     apiv2.ProjectRole_PROJECT_ROLE_OWNER,
+	_, err = p.repo.ProjectMember(project.Uuid).Create(ctx, &apiv2.ProjectMemberServiceCreateRequest{
+		Member: req.Login,
+		Role:   apiv2.ProjectRole_PROJECT_ROLE_OWNER,
 	})
 	if err != nil {
 		return nil, err
@@ -219,14 +125,6 @@ func (p *projectServiceServer) Create(ctx context.Context, req *apiv2.ProjectSer
 }
 
 func (p *projectServiceServer) Delete(ctx context.Context, req *apiv2.ProjectServiceDeleteRequest) (*apiv2.ProjectServiceDeleteResponse, error) {
-	var (
-		t, ok = token.TokenFromContext(ctx)
-	)
-
-	if !ok || t == nil {
-		return nil, errorutil.Unauthenticated("no token found in request")
-	}
-
 	project, err := p.repo.Project(req.Project).Delete(ctx, req.Project)
 	if err != nil {
 		return nil, err
@@ -242,103 +140,6 @@ func (p *projectServiceServer) Update(ctx context.Context, req *apiv2.ProjectSer
 	}
 
 	return &apiv2.ProjectServiceUpdateResponse{Project: project}, nil
-}
-
-func (p *projectServiceServer) RemoveMember(ctx context.Context, req *apiv2.ProjectServiceRemoveMemberRequest) (*apiv2.ProjectServiceRemoveMemberResponse, error) {
-	var (
-		t, ok = token.TokenFromContext(ctx)
-	)
-
-	if !ok || t == nil {
-		return nil, errorutil.Unauthenticated("no token found in request")
-	}
-
-	_, err := p.repo.Project(req.Project).AdditionalMethods().Member().Delete(ctx, req.Member)
-	if err != nil {
-		return nil, err
-	}
-
-	return &apiv2.ProjectServiceRemoveMemberResponse{}, nil
-}
-
-func (p *projectServiceServer) Leave(ctx context.Context, req *apiv2.ProjectServiceLeaveRequest) (*apiv2.ProjectServiceLeaveResponse, error) {
-	var (
-		t, ok = token.TokenFromContext(ctx)
-	)
-
-	if !ok || t == nil {
-		return nil, errorutil.Unauthenticated("no token found in request")
-	}
-
-	_, err := p.repo.Project(req.Project).AdditionalMethods().Member().Delete(ctx, t.User)
-	if err != nil {
-		return nil, err
-	}
-
-	return &apiv2.ProjectServiceLeaveResponse{}, nil
-}
-
-func (p *projectServiceServer) UpdateMember(ctx context.Context, req *apiv2.ProjectServiceUpdateMemberRequest) (*apiv2.ProjectServiceUpdateMemberResponse, error) {
-	pm, err := p.repo.Project(req.Project).AdditionalMethods().Member().Update(ctx, req.Member, &api.ProjectMemberUpdateRequest{
-		Role: req.Role,
-	})
-
-	if errorutil.IsNotFound(err) {
-		// if there does not exist a direct membership for this user but the user belongs to the tenant already, we create a direct membership for the project
-		projectGuest, projecterr := p.repo.Project(req.Project).Get(ctx, req.Project)
-		if projecterr != nil {
-			return nil, err
-		}
-
-		partiTenants, err := p.repo.Tenant().AdditionalMethods().FindParticipatingTenants(ctx, req.Member, true)
-		if err != nil {
-			return nil, err
-		}
-
-		if !slices.ContainsFunc(partiTenants, func(t *api.TenantWithMembershipAnnotations) bool {
-			return t.Tenant.Login == projectGuest.Tenant
-		}) {
-			return nil, errorutil.InvalidArgument("tenant is not part of the project's tenants")
-		}
-
-		// Create new project membership since the user is part of the tenant
-		membership, err := p.createProjectMembership(ctx, req.Member, req.Project, req.Role)
-
-		if err != nil {
-			return nil, err
-		}
-
-		return &apiv2.ProjectServiceUpdateMemberResponse{
-			ProjectMember: &apiv2.ProjectMember{
-				Id:                  req.Member,
-				Role:                req.Role,
-				InheritedMembership: false,
-				CreatedAt:           membership.CreatedAt,
-			},
-		}, nil
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &apiv2.ProjectServiceUpdateMemberResponse{ProjectMember: pm}, nil
-}
-
-func (p *projectServiceServer) createProjectMembership(ctx context.Context, tenantID, projectID string, role apiv2.ProjectRole) (*apiv2.ProjectMember, error) {
-	if role == apiv2.ProjectRole_PROJECT_ROLE_UNSPECIFIED {
-		role = apiv2.ProjectRole_PROJECT_ROLE_VIEWER
-	}
-
-	created, err := p.repo.Project(projectID).AdditionalMethods().Member().Create(ctx, &api.ProjectMemberCreateRequest{
-		TenantId: tenantID,
-		Role:     role,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return created, nil
 }
 
 func (p *projectServiceServer) InviteGet(ctx context.Context, req *apiv2.ProjectServiceInviteGetRequest) (*apiv2.ProjectServiceInviteGetResponse, error) {
@@ -400,11 +201,8 @@ func (p *projectServiceServer) Invite(ctx context.Context, req *apiv2.ProjectSer
 }
 
 func (p *projectServiceServer) InviteAccept(ctx context.Context, req *apiv2.ProjectServiceInviteAcceptRequest) (*apiv2.ProjectServiceInviteAcceptResponse, error) {
-	var (
-		t, ok = token.TokenFromContext(ctx)
-	)
-
-	if !ok || t == nil {
+	token, ok := token.TokenFromContext(ctx)
+	if !ok || token == nil {
 		return nil, errorutil.Unauthenticated("no token found in request")
 	}
 
@@ -416,7 +214,7 @@ func (p *projectServiceServer) InviteAccept(ctx context.Context, req *apiv2.Proj
 		return nil, errorutil.NewInternal(err)
 	}
 
-	invitee, err := p.repo.Tenant().Get(ctx, t.User)
+	invitee, err := p.repo.Tenant().Get(ctx, token.User)
 	if err != nil {
 		return nil, err
 	}
@@ -430,8 +228,8 @@ func (p *projectServiceServer) InviteAccept(ctx context.Context, req *apiv2.Proj
 		return nil, errorutil.InvalidArgument("an owner cannot accept invitations to own projects")
 	}
 
-	memberships, err := p.repo.Project(inv.Project).AdditionalMethods().Member().List(ctx, &api.ProjectMemberQuery{
-		TenantId: &invitee.Login,
+	memberships, err := p.repo.ProjectMember(inv.Project).List(ctx, &apiv2.ProjectMemberQuery{
+		Member: &invitee.Login,
 	})
 	if err != nil {
 		return nil, err
@@ -446,9 +244,9 @@ func (p *projectServiceServer) InviteAccept(ctx context.Context, req *apiv2.Proj
 		return nil, errorutil.NewInternal(err)
 	}
 
-	_, err = p.repo.Project(inv.Project).AdditionalMethods().Member().Create(ctx, &api.ProjectMemberCreateRequest{
-		Role:     inv.Role,
-		TenantId: invitee.Login,
+	_, err = p.repo.ProjectMember(inv.Project).Create(ctx, &apiv2.ProjectMemberServiceCreateRequest{
+		Role:   inv.Role,
+		Member: invitee.Login,
 	})
 	if err != nil {
 		return nil, err
