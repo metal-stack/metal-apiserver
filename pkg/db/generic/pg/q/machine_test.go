@@ -503,6 +503,43 @@ func TestMachineFilterPostgres(t *testing.T) {
 			}
 		})
 	}
+
+	// MachineProjectScoped restricts machines to those allocated to the given
+	// project.
+	for _, tt := range []struct {
+		name    string
+		project string
+		want    []*metal.Machine
+	}{
+		{name: "scoped to project p1", project: "p1", want: []*metal.Machine{pgM1}},
+		{name: "scoped to project p2", project: "p2", want: []*metal.Machine{pgM2}},
+		{name: "scoped to unknown project", project: "nonexistent", want: nil},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			ents, err := repo.Query(ctx, q.MachineProjectScoped(tt.project), nil)
+			require.NoError(t, err)
+			got := make([]*metal.Machine, 0, len(ents))
+			for _, e := range ents {
+				got = append(got, e.Data)
+			}
+			if len(got) == 0 {
+				got = nil
+			}
+
+			slices.SortFunc(got, func(a, b *metal.Machine) int {
+				return strings.Compare(a.ID, b.ID)
+			})
+
+			if diff := cmp.Diff(
+				tt.want, got,
+				cmpopts.IgnoreFields(
+					metal.Machine{}, "Created", "Changed",
+				),
+			); diff != "" {
+				t.Errorf("machine list = %v, want %v diff: %s", got, tt.want, diff)
+			}
+		})
+	}
 }
 
 func TestMachineFilter(t *testing.T) {

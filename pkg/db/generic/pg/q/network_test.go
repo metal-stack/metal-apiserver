@@ -1,6 +1,7 @@
 package q_test
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"slices"
@@ -279,6 +280,51 @@ func TestNetworkFilterPostgres(t *testing.T) {
 			}
 		})
 	}
+
+	// NetworkProjectScoped restricts networks to those of the given project.
+	for _, tt := range []struct {
+		name    string
+		project string
+		want    []*metal.Network
+	}{
+		{name: "scoped to project p1", project: "p1", want: []*metal.Network{pgN1}},
+		{name: "scoped to project p2", project: "p2", want: []*metal.Network{pgN2}},
+		{name: "scoped to project p3", project: "p3", want: []*metal.Network{pgN3}},
+		{name: "scoped to unknown project", project: "nonexistent", want: nil},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got := listWith(t, ctx, repo, q.NetworkProjectScoped(tt.project))
+
+			slices.SortFunc(got, func(a, b *metal.Network) int {
+				return strings.Compare(a.ID, b.ID)
+			})
+
+			if diff := cmp.Diff(
+				tt.want, got,
+				cmpopts.IgnoreFields(
+					metal.Network{}, "Created", "Changed",
+				),
+			); diff != "" {
+				t.Errorf("network list = %v, want %v diff: %s", got, tt.want, diff)
+			}
+		})
+	}
+}
+
+// listWith runs an arbitrary set of postgres query filters against the network
+// repository and returns the decoded data, or nil when nothing matches.
+func listWith(t *testing.T, ctx context.Context, repo *pg.GenericRepository[*metal.Network], filters []pg.QueryFilter) []*metal.Network {
+	t.Helper()
+	ents, err := repo.Query(ctx, filters, nil)
+	require.NoError(t, err)
+	got := make([]*metal.Network, 0, len(ents))
+	for _, e := range ents {
+		got = append(got, e.Data)
+	}
+	if len(got) == 0 {
+		return nil
+	}
+	return got
 }
 
 func TestNetworkFilterNilQuery(t *testing.T) {
