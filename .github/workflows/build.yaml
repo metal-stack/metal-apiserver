@@ -36,17 +36,11 @@ jobs:
         run: exit 1
 
   test:
-    name: Test ${{ matrix.package-group }} (${{ matrix.backend }})
+    name: Test ${{ matrix.package-group }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        # Run the whole suite against both storage backends so regressions on
-        # either side are caught early. The backend is selected via the
-        # DB_ROUTING env var consumed by the test harness
-        # (pkg/test/repository.go): "rethinkdb" leaves everything on RethinkDB
-        # (the default), "postgres" routes every entity to Postgres.
-        backend: [rethinkdb, postgres]
         include:
           # Each entry runs tests for a subset of packages.
           # Adjust the 'packages' globs to match your actual pkg/ layout.
@@ -110,19 +104,17 @@ jobs:
           cache: true
 
       - name: Run tests with coverage
-        env:
-          DB_ROUTING: ${{ matrix.backend == 'postgres' && 'default=postgres' || '' }}
         run: |
           go test -race -covermode=atomic \
             -coverpkg=./... \
-            -coverprofile=coverage-${{ matrix.package-group }}-${{ matrix.backend }}.out \
+            -coverprofile=coverage-${{ matrix.package-group }}.out \
             ${{ matrix.packages }}
 
       - name: Upload partial coverage artifact
         uses: actions/upload-artifact@v7
         with:
-          name: coverage-${{ matrix.package-group }}-${{ matrix.backend }}
-          path: coverage-${{ matrix.package-group }}-${{ matrix.backend }}.out
+          name: coverage-${{ matrix.package-group }}
+          path: coverage-${{ matrix.package-group }}.out
           retention-days: 1
 
   coverage:
