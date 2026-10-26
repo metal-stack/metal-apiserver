@@ -377,8 +377,8 @@ github.com/mdlayher/sdnotify v1.0.0 h1:Ma9XeLVN/l0qpyx1tNeMSeTjCPH6NtuD6/N9XdTlQ
 github.com/mdlayher/sdnotify v1.0.0/go.mod h1:HQUmpM4XgYkhDLtd+Uad8ZFK1T9D5+pNxnXQjCeJlGE=
 github.com/mdlayher/socket v0.8.0 h1:1lIVvHAs3sT623kPkPDa+I0nLVusskwnpWzp6ZUcNyc=
 github.com/mdlayher/socket v0.8.0/go.mod h1:EhNb63aXqexVoTJDblxvDOSuIGIJinC4H5ZktnaJ6Rk=
-github.com/metal-stack/api v0.8.3 h1:ii29tTXP1HLN6dUGLwgFjBlDiz0BHTtla5gUJtxPe34=
-github.com/metal-stack/api v0.8.3/go.mod h1:U0CJxoo35jpS87HNDbVDrilxR106TnE5rJ/xSmgQkPg=
+github.com/metal-stack/api v0.8.4-0.20261026064708-134cdf44b2a5 h1:AeGQU0dQacV3mb8MYc7/T6xxK7BDLbZS4wOt9NNhBrw=
+github.com/metal-stack/api v0.8.4-0.20261026064708-134cdf44b2a5/go.mod h1:U0CJxoo35jpS87HNDbVDrilxR106TnE5rJ/xSmgQkPg=
 github.com/metal-stack/go-ipam v1.16.0 h1:HRFji/d797kgjSA3nBtZgcKfCNC6C+BObkDBVAkSQNk=
 github.com/metal-stack/go-ipam v1.16.0/go.mod h1:eWSe79eBW8e1nPN6G/CEGSS+ZYVuEkOE4JmBxp2eSig=
 github.com/metal-stack/goth v0.1.0 h1:sdadAH9QG+xAjLNKAJq8+esfXct6icTs58juoR4BKrQ=
