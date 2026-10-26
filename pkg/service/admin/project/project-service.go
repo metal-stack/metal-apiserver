@@ -62,6 +62,7 @@ func (p *projectServiceServer) AddMember(ctx context.Context, req *adminv2.Proje
 		Project: req.Project,
 		Member:  req.Member,
 		Role:    req.Role,
+		Labels:  req.Labels,
 	})
 	if err != nil {
 		return nil, errorutil.Internal("failed to add member to project: %w", err)

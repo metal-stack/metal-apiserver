@@ -67,6 +67,7 @@ func (t *tenantServiceServer) AddMember(ctx context.Context, req *adminv2.Tenant
 		Login:  req.Tenant,
 		Member: req.Member,
 		Role:   req.Role,
+		Labels: req.Labels,
 	})
 	if err != nil {
 		return nil, err
