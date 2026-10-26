@@ -58,6 +58,10 @@ func (t *projectMemberRepository) create(ctx context.Context, c *apiv2.ProjectMe
 		},
 	})
 	if err != nil {
+		if errorutil.IsConflict(err) {
+			return nil, errorutil.Conflict("%q is already member of project %q", c.Member, t.scope.projectID)
+		}
+
 		return nil, errorutil.Convert(err)
 	}
 

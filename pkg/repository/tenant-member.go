@@ -59,6 +59,10 @@ func (t *tenantMemberRepository) create(ctx context.Context, c *apiv2.TenantMemb
 		},
 	})
 	if err != nil {
+		if errorutil.IsConflict(err) {
+			return nil, errorutil.Conflict("%q is already member of tenant %q", c.Member, t.scope.tenantID)
+		}
+
 		return nil, errorutil.Convert(err)
 	}
 

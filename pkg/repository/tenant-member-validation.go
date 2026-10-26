@@ -13,15 +13,6 @@ func (t *tenantMemberRepository) validateCreate(ctx context.Context, req *apiv2.
 		return fmt.Errorf("role must not be %s", req.Role)
 	}
 
-	// TODO: this should actually be checked by the tenant-apiserver? if this goes wrong then the state is corrupted and users cannot lookup members anymore
-	existing, err := t.get(ctx, req.Member)
-	if err != nil && !errorutil.IsNotFound(err) {
-		return errorutil.Internal("error looking up tenant member: %w", err)
-	}
-	if existing != nil {
-		return errorutil.Conflict("%q is already member of tenant %q", req.Member, req.Login)
-	}
-
 	return nil
 }
 
