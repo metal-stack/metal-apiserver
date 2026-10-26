@@ -111,7 +111,7 @@ jobs:
 
       - name: Run tests with coverage
         env:
-          DB_ROUTING: ${{ if(matrix.backend == 'postgres', 'default=postgres', '') }}
+          DB_ROUTING: ${{ matrix.backend == 'postgres' && 'default=postgres' || '' }}
         run: |
           go test -race -covermode=atomic \
             -coverpkg=./... \
