@@ -13,7 +13,6 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/db/routing"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -33,14 +32,7 @@ var (
 func Test_partitionServiceServer_Create(t *testing.T) {
 	t.Parallel()
 
-	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithRoutingConfig(routing.Config{
-		Default: routing.ModeRethink,
-		Entities: map[string]routing.Mode{
-			"Machine":   routing.ModePostgres,
-			"Network":   routing.ModePostgres,
-			"Partition": routing.ModePostgres,
-		},
-	}))
+	testStore, closer := test.StartRepositoryWithCleanup(t)
 	log := testStore.GetLogger()
 	defer closer()
 

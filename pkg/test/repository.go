@@ -119,6 +119,13 @@ func WithValkey(with bool) *testOptValkey {
 	}
 }
 
+// DBRoutingEnv is the environment variable that configures the storage router
+// when a test does not pass an explicit WithRoutingConfig option. It uses the
+// same compact format as production (see routing.Parse), e.g.
+// "default=postgres" runs every entity against postgres. An empty value keeps
+// everything on rethinkdb.
+const DBRoutingEnv = "DB_ROUTING"
+
 // WithRoutingConfig enables the configuration-driven storage router. A postgres
 // container is started for the entities whose mode is "postgres" or "both"; the
 // remaining entities stay on rethink. Requires rethink to be enabled.
@@ -206,6 +213,19 @@ func StartRepositoryWithCleanup(t testing.TB, testOpts ...testOpt) (*testStore, 
 		withPostgres = false
 		withRethink = false
 		withValkey = false
+	}
+
+	// When the test does not configure the storage router explicitly, fall
+	// back to the DB_ROUTING environment variable. It uses the same compact
+	// format as production (routing.Parse), so CI can run the whole suite
+	// against a different backend mix (e.g. DB_ROUTING=default=postgres)
+	// without touching individual tests.
+	if routingConfig == nil {
+		if cfgStr := os.Getenv(DBRoutingEnv); cfgStr != "" {
+			cfg, err := routing.Parse(cfgStr)
+			require.NoError(t, err, "invalid %s configuration", DBRoutingEnv)
+			routingConfig = &cfg
+		}
 	}
 
 	var (

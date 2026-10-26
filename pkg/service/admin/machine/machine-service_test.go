@@ -141,12 +141,7 @@ func Test_machineServiceServer_Get(t *testing.T) {
 func Test_machineServiceServer_List(t *testing.T) {
 	t.Parallel()
 
-	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithRoutingConfig(routing.Config{
-		Default: routing.ModeRethink,
-		Entities: map[string]routing.Mode{
-			"Machine": routing.ModeBoth,
-		},
-	}))
+	testStore, closer := test.StartRepositoryWithCleanup(t)
 	log := testStore.GetLogger()
 	defer closer()
 
@@ -298,12 +293,7 @@ func Test_machineServiceServer_List(t *testing.T) {
 func Test_machineServiceServer_BMCCommand(t *testing.T) {
 	t.Parallel()
 
-	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithRoutingConfig(routing.Config{
-		Default: routing.ModeRethink,
-		Entities: map[string]routing.Mode{
-			"Machine": routing.ModeBoth,
-		},
-	}))
+	testStore, closer := test.StartRepositoryWithCleanup(t)
 	log := testStore.GetLogger()
 	defer closer()
 
@@ -439,12 +429,7 @@ func Test_machineServiceServer_BMCCommand(t *testing.T) {
 func Test_machineServiceServer_Issues(t *testing.T) {
 	t.Parallel()
 
-	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithRoutingConfig(routing.Config{
-		Default: routing.ModeRethink,
-		Entities: map[string]routing.Mode{
-			"Machine": routing.ModeBoth,
-		},
-	}))
+	testStore, closer := test.StartRepositoryWithCleanup(t)
 	log := testStore.GetLogger()
 	defer closer()
 
