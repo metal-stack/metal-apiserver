@@ -13,6 +13,8 @@ import (
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
+	"github.com/metal-stack/api/go/metalstack/infra/v2/infrav2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/request"
@@ -751,8 +753,48 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			},
 			wantError: errorutil.PermissionDenied(`requested tenant roles are not allowed: [%s]`, tenant1),
 		},
-		// - users can not obtain wildcard tokens in any form at the moment, implement this
+		// - users can not obtain wildcard roles in any form at the moment.
 		// - make sure api tokens can not elevate their permissions with wildcards (because they were scoped to specific roles)
+		{
+			name: "user can request wildcard tenant permissions",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					tenant1: apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Permissions: []*apiv2.PermissionsByVisibility{
+					{
+						Visibility: &apiv2.PermissionsByVisibility_Tenant{
+							Tenant: &apiv2.TenantPermissions{
+								Login:   request.AnySubject,
+								Methods: []string{apiv2connect.AuditServiceListProcedure},
+							},
+						},
+					},
+				},
+			},
+			state: state{
+				providerTenant: "metal-stack",
+				tenantRoles: map[string]apiv2.TenantRole{
+					tenant1: apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			wantToken: &apiv2.Token{
+				User:      "phippy",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: request.AnySubject,
+						Methods: []string{apiv2connect.AuditServiceListProcedure},
+					},
+				},
+			},
+		},
 		{
 			name: "user token can request wildcard tenant roles",
 			sessionToken: &apiv2.Token{
@@ -1468,6 +1510,161 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 				},
 			},
 			wantError: errorutil.PermissionDenied(`requested machine roles are not allowed: [%s]`, machineID1),
+		},
+		{
+			name: "single-machine token cannot escalate to a wildcard machine permission",
+			sessionToken: &apiv2.Token{
+				User:      "pixie-core",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				MachineRoles: map[string]apiv2.MachineRole{
+					machineID1: apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Permissions: []*apiv2.PermissionsByVisibility{
+					{
+						Visibility: &apiv2.PermissionsByVisibility_Machine{
+							Machine: &apiv2.MachinePermissions{
+								Uuid:    request.AnySubject,
+								Methods: []string{infrav2connect.BootServiceRegisterProcedure},
+							},
+						},
+					},
+				},
+			},
+			wantError: errorutil.PermissionDenied(
+				`method %q is not allowed on subject %q with your current user permissions`, infrav2connect.BootServiceRegisterProcedure, request.AnySubject,
+			),
+		},
+		{
+			name: "single-machine token can request its own machine",
+			sessionToken: &apiv2.Token{
+				User:      "pixie-core",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				MachineRoles: map[string]apiv2.MachineRole{
+					machineID1: apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Permissions: []*apiv2.PermissionsByVisibility{
+					{
+						Visibility: &apiv2.PermissionsByVisibility_Machine{
+							Machine: &apiv2.MachinePermissions{
+								Uuid:    machineID1,
+								Methods: []string{infrav2connect.BootServiceRegisterProcedure},
+							},
+						},
+					},
+				},
+			},
+			wantToken: &apiv2.Token{
+				User:      "pixie-core",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: machineID1,
+						Methods: []string{infrav2connect.BootServiceRegisterProcedure},
+					},
+				},
+			},
+		},
+		{
+			name: "single-machine token cannot request another machine",
+			sessionToken: &apiv2.Token{
+				User:      "pixie-core",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				MachineRoles: map[string]apiv2.MachineRole{
+					machineID1: apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Permissions: []*apiv2.PermissionsByVisibility{
+					{
+						Visibility: &apiv2.PermissionsByVisibility_Machine{
+							Machine: &apiv2.MachinePermissions{
+								Uuid:    machineID2,
+								Methods: []string{infrav2connect.BootServiceRegisterProcedure},
+							},
+						},
+					},
+				},
+			},
+			wantError: errorutil.PermissionDenied(
+				`method %q is not allowed on subject %q with your current user permissions`, infrav2connect.BootServiceRegisterProcedure, machineID2,
+			),
+		},
+		{
+			name: "wildcard-machine token can request a wildcard machine permission",
+			sessionToken: &apiv2.Token{
+				User:      "pixie-core",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				MachineRoles: map[string]apiv2.MachineRole{
+					request.AnySubject: apiv2.MachineRole_MACHINE_ROLE_EDITOR,
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Permissions: []*apiv2.PermissionsByVisibility{
+					{
+						Visibility: &apiv2.PermissionsByVisibility_Machine{
+							Machine: &apiv2.MachinePermissions{
+								Uuid:    request.AnySubject,
+								Methods: []string{infrav2connect.BootServiceRegisterProcedure},
+							},
+						},
+					},
+				},
+			},
+			wantToken: &apiv2.Token{
+				User:      "pixie-core",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: request.AnySubject,
+						Methods: []string{infrav2connect.BootServiceRegisterProcedure},
+					},
+				},
+			},
+		},
+		{
+			// Guard against over-restriction: a project wildcard request must stay
+			// allowed. Its subject is resolved against the caller's live project
+			// membership at request time (unlike a machine wildcard), so a fix that
+			// simply rejects every "*" subject would wrongly break this.
+			name: "project wildcard permission is still allowed for a project member",
+			sessionToken: &apiv2.Token{
+				User:      "phippy",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				ProjectRoles: map[string]apiv2.ProjectRole{
+					project1: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+			},
+			state: state{
+				projectRoles: map[string]apiv2.ProjectRole{
+					project1: apiv2.ProjectRole_PROJECT_ROLE_EDITOR,
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Permissions: []*apiv2.PermissionsByVisibility{
+					{
+						Visibility: &apiv2.PermissionsByVisibility_Project{
+							Project: &apiv2.ProjectPermissions{
+								Project: request.AnySubject,
+								Methods: []string{apiv2connect.IPServiceGetProcedure},
+							},
+						},
+					},
+				},
+			},
+			wantToken: &apiv2.Token{
+				User:      "phippy",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: request.AnySubject,
+						Methods: []string{apiv2connect.IPServiceGetProcedure},
+					},
+				},
+			},
 		},
 
 		// ============================================================================
