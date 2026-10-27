@@ -123,9 +123,9 @@ func Test_machineServiceServer_Get(t *testing.T) {
 		},
 		{
 			name:    "get non existing",
-			rq:      &apiv2.MachineServiceGetRequest{Uuid: "m99"},
+			rq:      &apiv2.MachineServiceGetRequest{Uuid: "fa1c6f1f-97df-41e8-b1c9-8244afb08a9b"},
 			want:    nil,
-			wantErr: errorutil.NotFound(`no machine with id "m99" found`),
+			wantErr: errorutil.NotFound(`no machine with id "fa1c6f1f-97df-41e8-b1c9-8244afb08a9b" found`),
 		},
 	}
 	for _, tt := range tests {
