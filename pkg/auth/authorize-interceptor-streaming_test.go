@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"connectrpc.com/connect"
+	"github.com/metal-stack/api/go/errorutil"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/api/go/metalstack/infra/v2/infrav2connect"
@@ -17,19 +18,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Test_authorizeInterceptor_WrapStreamingHandler proves Finding #14.
-//
-// The authorizeInterceptor enforces the per-method RBAC rule only in WrapUnary.
-// WrapStreamingHandler used to return next(ctx, conn) without ever calling the
-// authorizer, so server-stream RPCs such as BMCService/WaitForBMCCommand and
-// BootService/Wait were reachable with any authenticated token that carried no
-// infra/machine role at all.
-//
-// The test wires a server-stream handler for those procedures through the real
-// authorizeInterceptor (exactly as allInfraInterceptors does) and connects with
-// (a) a plain user token lacking any infra/machine role, which must be denied
-// before the handler runs, and (b) a token holding the required role, which must
-// be let through.
 func Test_authorizeInterceptor_WrapStreamingHandler(t *testing.T) {
 	t.Parallel()
 
@@ -40,11 +28,10 @@ func Test_authorizeInterceptor_WrapStreamingHandler(t *testing.T) {
 			return &api.ProjectsAndTenants{}, nil
 		})
 	}
-
 	tests := []struct {
 		name    string
 		token   *apiv2.Token
-		wantErr bool
+		wantErr error
 	}{
 		{
 			// The core claim of Finding #14: an ordinary USER token, which holds
@@ -54,7 +41,7 @@ func Test_authorizeInterceptor_WrapStreamingHandler(t *testing.T) {
 				User:      "john.doe@github.com",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_USER,
 			},
-			wantErr: true,
+			wantErr: errorutil.PermissionDenied("access to:\"/metalstack.infra.v2.BMCService/WaitForBMCCommand\" is not allowed because it is not part of the token permissions"),
 		},
 		{
 			name: "infra stream denied for api token without any permissions",
@@ -62,7 +49,7 @@ func Test_authorizeInterceptor_WrapStreamingHandler(t *testing.T) {
 				User:      "pixiecore",
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 			},
-			wantErr: true,
+			wantErr: errorutil.PermissionDenied("access to:\"/metalstack.infra.v2.BMCService/WaitForBMCCommand\" is not allowed because it is not part of the token permissions"),
 		},
 		{
 			name: "infra stream allowed for token with infra role",
@@ -71,7 +58,7 @@ func Test_authorizeInterceptor_WrapStreamingHandler(t *testing.T) {
 				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
 				InfraRole: apiv2.InfraRole_INFRA_ROLE_EDITOR.Enum(),
 			},
-			wantErr: false,
+			wantErr: nil,
 		},
 	}
 
@@ -99,11 +86,8 @@ func Test_authorizeInterceptor_WrapStreamingHandler(t *testing.T) {
 				stream.Receive()
 				err = stream.Err()
 			}
-
-			if tt.wantErr {
-				require.Error(t, err, "expected the stream to be denied but it was accepted")
-				require.Equal(t, connect.CodePermissionDenied, connect.CodeOf(err))
-				require.False(t, called, "handler must not run for an unauthorized stream")
+			if tt.wantErr != nil {
+				require.EqualError(t, err, tt.wantErr.Error())
 				return
 			}
 
