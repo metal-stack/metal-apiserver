@@ -12,6 +12,10 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
+const (
+	p0 = "00000000-0000-0000-0000-000000000000"
+)
+
 func Test_tenantMemberServiceServer_Get(t *testing.T) {
 	t.Parallel()
 
@@ -532,11 +536,19 @@ func Test_tenantMemberServiceServer_List(t *testing.T) {
 		{Name: "john.doe@github"},
 		{Name: "will.smith@github"},
 		{Name: "tina.turner@github"},
+		{Name: "ed.wood@github"},
 	})
 	test.CreateTenantMemberships(t, testStore, "john.doe@github", []*apiv2.TenantMemberServiceCreateRequest{
 		{Member: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 		{Member: "will.smith@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 		{Member: "tina.turner@github", Role: apiv2.TenantRole_TENANT_ROLE_VIEWER, Labels: &apiv2.Labels{Labels: map[string]string{"a": "b"}}},
+	})
+
+	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{
+		{Login: "john.doe@github", Name: p0},
+	})
+	test.CreateProjectMemberships(t, testStore, p0, []*apiv2.ProjectMemberServiceCreateRequest{
+		{Project: p0, Member: "ed.wood@github", Role: apiv2.ProjectRole_PROJECT_ROLE_EDITOR, Labels: &apiv2.Labels{Labels: map[string]string{"c": "d"}}},
 	})
 
 	tests := []struct {
@@ -552,6 +564,12 @@ func Test_tenantMemberServiceServer_List(t *testing.T) {
 			},
 			want: &apiv2.TenantMemberServiceListResponse{
 				Members: []*apiv2.TenantMember{
+					{
+						Member: "ed.wood@github",
+						Role:   apiv2.TenantRole_TENANT_ROLE_GUEST,
+						Tenant: "john.doe@github",
+						Meta:   &apiv2.Meta{},
+					},
 					{
 						Member: "john.doe@github",
 						Role:   apiv2.TenantRole_TENANT_ROLE_OWNER,
@@ -581,7 +599,7 @@ func Test_tenantMemberServiceServer_List(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "list members filtered by role",
+			name: "list members filtered by owner role",
 			req: &apiv2.TenantMemberServiceListRequest{
 				Login: "john.doe@github",
 				Query: &apiv2.TenantMemberQuery{
@@ -599,6 +617,26 @@ func Test_tenantMemberServiceServer_List(t *testing.T) {
 					{
 						Member: "will.smith@github",
 						Role:   apiv2.TenantRole_TENANT_ROLE_OWNER,
+						Tenant: "john.doe@github",
+						Meta:   &apiv2.Meta{},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "list members filtered by guest role",
+			req: &apiv2.TenantMemberServiceListRequest{
+				Login: "john.doe@github",
+				Query: &apiv2.TenantMemberQuery{
+					Role: new(apiv2.TenantRole_TENANT_ROLE_GUEST),
+				},
+			},
+			want: &apiv2.TenantMemberServiceListResponse{
+				Members: []*apiv2.TenantMember{
+					{
+						Member: "ed.wood@github",
+						Role:   apiv2.TenantRole_TENANT_ROLE_GUEST,
 						Tenant: "john.doe@github",
 						Meta:   &apiv2.Meta{},
 					},

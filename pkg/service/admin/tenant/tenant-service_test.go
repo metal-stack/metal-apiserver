@@ -228,6 +228,122 @@ func Test_tenantServiceServer_AddMember(t *testing.T) {
 	}
 }
 
+func Test_tenantServiceServer_RemoveMember(t *testing.T) {
+	t.Parallel()
+
+	testStore, closer := test.StartRepositoryWithCleanup(t, test.WithPostgres(true))
+	log := testStore.GetLogger()
+	defer closer()
+
+	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{
+		{Name: "john.doe@github"},
+		{Name: "will.smith@github"},
+		{Name: "tina.turner@github"},
+		{Name: "1"},
+	})
+	// CreateTenants creates tenants directly without OWNER memberships, so we add one explicitly.
+	test.CreateTenantMemberships(t, testStore, "john.doe@github", []*apiv2.TenantMemberServiceCreateRequest{
+		{Member: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+		{Member: "will.smith@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+	})
+	test.CreateTenantMemberships(t, testStore, "1", []*apiv2.TenantMemberServiceCreateRequest{
+		{Member: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+		{Member: "will.smith@github", Role: apiv2.TenantRole_TENANT_ROLE_EDITOR},
+	})
+
+	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{
+		{Login: "john.doe@github", Name: "a"},
+	})
+	test.CreateProjectMemberships(t, testStore, "a", []*apiv2.ProjectMemberServiceCreateRequest{
+		{Member: "john.doe@github", Role: apiv2.ProjectRole_PROJECT_ROLE_OWNER},
+		{Member: "tina.turner@github", Role: apiv2.ProjectRole_PROJECT_ROLE_EDITOR},
+	})
+
+	tests := []struct {
+		name    string
+		rq      *adminv2.TenantServiceRemoveMemberRequest
+		want    *adminv2.TenantServiceRemoveMemberResponse
+		wantErr error
+	}{
+		{
+			name: "remove from own default tenant",
+			rq: &adminv2.TenantServiceRemoveMemberRequest{
+				Tenant: "john.doe@github",
+				Member: "john.doe@github",
+			},
+			wantErr: errorutil.FailedPrecondition("cannot remove a member from their own default tenant"),
+		},
+		{
+			name: "remove last owner",
+			rq: &adminv2.TenantServiceRemoveMemberRequest{
+				Tenant: "1",
+				Member: "john.doe@github",
+			},
+			wantErr: errorutil.FailedPrecondition("cannot remove last owner of a tenant"),
+		},
+		{
+			name: "remove member",
+			rq: &adminv2.TenantServiceRemoveMemberRequest{
+				Tenant: "john.doe@github",
+				Member: "will.smith@github",
+			},
+			want: &adminv2.TenantServiceRemoveMemberResponse{
+				Member: &apiv2.TenantMember{
+					Member: "will.smith@github",
+					Role:   apiv2.TenantRole_TENANT_ROLE_OWNER,
+					Meta:   &apiv2.Meta{},
+					Tenant: "john.doe@github",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "tenant guest cannot be removed through tenant member remove", // TODO: maybe this should work in the future? then kick the guest out from all projects
+			rq: &adminv2.TenantServiceRemoveMemberRequest{
+				Tenant: "john.doe@github",
+				Member: "tina.turner@github",
+			},
+			wantErr: errorutil.NotFound("tenantmember with id: not found sql: no rows in result set"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			u := &tenantServiceServer{
+				log:  log,
+				repo: testStore.Store,
+			}
+			role := apiv2.AdminRole_ADMIN_ROLE_EDITOR
+			tok := testStore.GetToken("john.doe@github", &apiv2.TokenServiceCreateRequest{
+				Expires:   durationpb.New(time.Hour),
+				AdminRole: &role,
+			})
+
+			reqCtx := token.ContextWithToken(t.Context(), tok)
+			if tt.wantErr == nil {
+				test.Validate(t, tt.rq)
+			}
+
+			got, err := u.RemoveMember(reqCtx, tt.rq)
+			if diff := cmp.Diff(err, tt.wantErr, errorutil.ConnectErrorComparer()); diff != "" {
+				t.Errorf("diff = %s", diff)
+			}
+
+			if diff := cmp.Diff(
+				tt.want, got,
+				protocmp.Transform(),
+				protocmp.IgnoreFields(
+					&apiv2.Meta{}, "created_at", "updated_at",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.Tenant{},
+				),
+			); diff != "" {
+				t.Errorf("%v, want %v diff: %s", got, tt.want, diff)
+			}
+		})
+	}
+}
+
 func Test_tenantServiceServer_Create(t *testing.T) {
 	t.Parallel()
 

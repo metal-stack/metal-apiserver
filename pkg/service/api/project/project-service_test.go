@@ -21,8 +21,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// FIXME add proto validation before each service call
-var (
+const (
 	p0  = "00000000-0000-0000-0000-000000000000"
 	p1  = "00000000-0000-0000-0000-000000000001"
 	p99 = "00000000-0000-0000-0000-000000000099"

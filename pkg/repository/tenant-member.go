@@ -181,6 +181,10 @@ NEXT:
 
 		for k, v := range annotations {
 			if ann, ok := tm.TenantAnnotations[k]; !ok || ann != v {
+				if !ok && (k == api.TenantRoleAnnotation && v == apiv2.TenantRole_TENANT_ROLE_GUEST.String()) {
+					continue
+				}
+
 				continue NEXT
 			}
 		}
@@ -286,7 +290,7 @@ func (t *tenantMemberRepository) convertToProto(ctx context.Context, e *tenantMe
 
 func tenantRoleFromMap(annotations map[string]string) apiv2.TenantRole {
 	if annotations == nil {
-		return apiv2.TenantRole_TENANT_ROLE_UNSPECIFIED
+		return apiv2.TenantRole_TENANT_ROLE_GUEST
 	}
 
 	var (
