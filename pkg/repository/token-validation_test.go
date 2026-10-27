@@ -753,8 +753,48 @@ func Test_roleAndPermissionCombinations(t *testing.T) {
 			},
 			wantError: errorutil.PermissionDenied(`requested tenant roles are not allowed: [%s]`, tenant1),
 		},
-		// - users can not obtain wildcard tokens in any form at the moment, implement this
+		// - users can not obtain wildcard roles in any form at the moment.
 		// - make sure api tokens can not elevate their permissions with wildcards (because they were scoped to specific roles)
+		{
+			name: "user can request wildcard tenant permissions",
+			sessionToken: &apiv2.Token{
+				User:         "phippy",
+				TokenType:    apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions:  []*apiv2.MethodPermission{},
+				ProjectRoles: map[string]apiv2.ProjectRole{},
+				TenantRoles: map[string]apiv2.TenantRole{
+					tenant1: apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			req: &apiv2.TokenServiceCreateRequest{
+				Permissions: []*apiv2.PermissionsByVisibility{
+					{
+						Visibility: &apiv2.PermissionsByVisibility_Tenant{
+							Tenant: &apiv2.TenantPermissions{
+								Login:   request.AnySubject,
+								Methods: []string{apiv2connect.AuditServiceListProcedure},
+							},
+						},
+					},
+				},
+			},
+			state: state{
+				providerTenant: "metal-stack",
+				tenantRoles: map[string]apiv2.TenantRole{
+					tenant1: apiv2.TenantRole_TENANT_ROLE_OWNER,
+				},
+			},
+			wantToken: &apiv2.Token{
+				User:      "phippy",
+				TokenType: apiv2.TokenType_TOKEN_TYPE_API,
+				Permissions: []*apiv2.MethodPermission{
+					{
+						Subject: request.AnySubject,
+						Methods: []string{apiv2connect.AuditServiceListProcedure},
+					},
+				},
+			},
+		},
 		{
 			name: "user token can request wildcard tenant roles",
 			sessionToken: &apiv2.Token{
