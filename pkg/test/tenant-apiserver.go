@@ -12,6 +12,7 @@ import (
 	"github.com/metal-stack/tenant-api/go/tenant/api/v1/apiv1connect"
 	memorydatastore "github.com/metal-stack/tenant-apiserver/pkg/datastore/memory"
 	pgdatastore "github.com/metal-stack/tenant-apiserver/pkg/datastore/postgres"
+	"github.com/metal-stack/tenant-apiserver/pkg/health"
 	"github.com/metal-stack/tenant-apiserver/pkg/service"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -44,12 +45,7 @@ func StartTenantApiserverWithPostgres(t testing.TB, log *slog.Logger) (tenant.Cl
 }
 
 func startTenantApiserverWithDB(t testing.TB, log *slog.Logger, dbcloser func(), db *sqlx.DB) (tenant.Client, func()) {
-
 	log = log.WithGroup("tenant-apiserver")
-	ps := pgdatastore.New(log, db, &apiv1.Project{})
-	pms := pgdatastore.New(log, db, &apiv1.ProjectMember{})
-	ts := pgdatastore.New(log, db, &apiv1.Tenant{})
-	tms := pgdatastore.New(log, db, &apiv1.TenantMember{})
 
 	err := pgdatastore.InitTables(log, db,
 		&apiv1.Project{},
@@ -59,11 +55,20 @@ func startTenantApiserverWithDB(t testing.TB, log *slog.Logger, dbcloser func(),
 	)
 	require.NoError(t, err)
 
-	projectService := service.NewProjectService(log, ps, pms, ts)
-	projectMemberService := service.NewProjectMemberService(log, ps, pms, ts)
-	tenantService := service.NewTenantService(db, log, ts, tms)
-	tenantMemberService := service.NewTenantMemberService(log, ts, tms)
-	versionService := service.NewVersionService()
+	require.NoError(t, pgdatastore.MigrateDB(log, db, health.NewHealthServer()))
+
+	var (
+		ps  = pgdatastore.New(log, db, &apiv1.Project{})
+		pms = pgdatastore.New(log, db, &apiv1.ProjectMember{})
+		ts  = pgdatastore.New(log, db, &apiv1.Tenant{})
+		tms = pgdatastore.New(log, db, &apiv1.TenantMember{})
+
+		projectService       = service.NewProjectService(log, ps, pms, ts)
+		projectMemberService = service.NewProjectMemberService(log, ps, pms, ts)
+		tenantService        = service.NewTenantService(db, log, ts, tms)
+		tenantMemberService  = service.NewTenantMemberService(log, ts, tms)
+		versionService       = service.NewVersionService()
+	)
 
 	mux := http.NewServeMux()
 	mux.Handle(apiv1connect.NewProjectServiceHandler(projectService))

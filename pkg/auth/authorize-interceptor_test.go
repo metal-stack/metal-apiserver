@@ -41,33 +41,33 @@ func Test_authorizeInterceptor_WrapUnary(t *testing.T) {
 		{Name: "metal-hammer"},
 		{Name: "pixiecore"},
 	})
-	test.CreateTenantMemberships(t, testStore, "john.doe@github.com", []*api.TenantMemberCreateRequest{
-		{MemberID: "john.doe@github.com", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
-		{MemberID: "viewer@github.com", Role: apiv2.TenantRole_TENANT_ROLE_VIEWER},
+	test.CreateTenantMemberships(t, testStore, "john.doe@github.com", []*apiv2.TenantMemberServiceCreateRequest{
+		{Member: "john.doe@github.com", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+		{Member: "viewer@github.com", Role: apiv2.TenantRole_TENANT_ROLE_VIEWER},
 	})
-	test.CreateTenantMemberships(t, testStore, "viewer@github.com", []*api.TenantMemberCreateRequest{
-		{MemberID: "viewer@github.com", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+	test.CreateTenantMemberships(t, testStore, "viewer@github.com", []*apiv2.TenantMemberServiceCreateRequest{
+		{Member: "viewer@github.com", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 	})
-	test.CreateTenantMemberships(t, testStore, "foo.bar@github.com", []*api.TenantMemberCreateRequest{
-		{MemberID: "foo.bar@github.com", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+	test.CreateTenantMemberships(t, testStore, "foo.bar@github.com", []*apiv2.TenantMemberServiceCreateRequest{
+		{Member: "foo.bar@github.com", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 	})
-	test.CreateTenantMemberships(t, testStore, "metal-image-cache-sync", []*api.TenantMemberCreateRequest{
-		{MemberID: "metal-image-cache-sync", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+	test.CreateTenantMemberships(t, testStore, "metal-image-cache-sync", []*apiv2.TenantMemberServiceCreateRequest{
+		{Member: "metal-image-cache-sync", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 	})
-	test.CreateTenantMemberships(t, testStore, "metal-hammer", []*api.TenantMemberCreateRequest{
-		{MemberID: "metal-hammer", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+	test.CreateTenantMemberships(t, testStore, "metal-hammer", []*apiv2.TenantMemberServiceCreateRequest{
+		{Member: "metal-hammer", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 	})
-	test.CreateTenantMemberships(t, testStore, "pixiecore", []*api.TenantMemberCreateRequest{
-		{MemberID: "pixiecore", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+	test.CreateTenantMemberships(t, testStore, "pixiecore", []*apiv2.TenantMemberServiceCreateRequest{
+		{Member: "pixiecore", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 	})
-	test.CreateTenantMemberships(t, testStore, "ansible", []*api.TenantMemberCreateRequest{
-		{MemberID: "ansible", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+	test.CreateTenantMemberships(t, testStore, "ansible", []*apiv2.TenantMemberServiceCreateRequest{
+		{Member: "ansible", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 	})
 	projectMap := test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{
 		{Login: "john.doe@github.com"},
 	})
-	test.CreateProjectMemberships(t, testStore, projectMap["john.doe@github.com"], []*api.ProjectMemberCreateRequest{
-		{TenantId: "foo.bar@github.com", Role: apiv2.ProjectRole_PROJECT_ROLE_VIEWER},
+	test.CreateProjectMemberships(t, testStore, projectMap["john.doe@github.com"], []*apiv2.ProjectMemberServiceCreateRequest{
+		{Member: "foo.bar@github.com", Role: apiv2.ProjectRole_PROJECT_ROLE_VIEWER},
 	})
 
 	tests := []struct {

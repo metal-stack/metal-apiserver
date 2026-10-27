@@ -28,10 +28,12 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/network"
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/partition"
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/project"
+	"github.com/metal-stack/metal-apiserver/pkg/service/api/projectmember"
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/size"
 	sizeimageconstraint "github.com/metal-stack/metal-apiserver/pkg/service/api/size-image-constraint"
 	sizereservation "github.com/metal-stack/metal-apiserver/pkg/service/api/size-reservation"
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/tenant"
+	"github.com/metal-stack/metal-apiserver/pkg/service/api/tenantmember"
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/token"
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/user"
 	"github.com/metal-stack/metal-apiserver/pkg/service/api/version"
@@ -75,8 +77,8 @@ func ApiServices(ctx context.Context, cfg Config) error {
 			Log:         cfg.Log,
 			InviteStore: cfg.ProjectInviteStore,
 			Repo:        cfg.Repository,
-			TokenStore:  cfg.TokenStore,
 		})
+		projectMemberService       = projectmember.New(projectmember.Config{Log: cfg.Log, Repo: cfg.Repository})
 		sizeImageConstraintService = sizeimageconstraint.New(sizeimageconstraint.Config{Log: cfg.Log, Repo: cfg.Repository})
 		sizeReservationService     = sizereservation.New(sizereservation.Config{Log: cfg.Log, Repo: cfg.Repository})
 		sizeService                = size.New(size.Config{Log: cfg.Log, Repo: cfg.Repository})
@@ -86,7 +88,8 @@ func ApiServices(ctx context.Context, cfg Config) error {
 			InviteStore: cfg.TenantInviteStore,
 			TokenStore:  cfg.TokenStore,
 		})
-		tokenService = token.New(token.Config{
+		tenantMemberService = tenantmember.New(tenantmember.Config{Log: cfg.Log, Repo: cfg.Repository})
+		tokenService        = token.New(token.Config{
 			Log:  cfg.Log,
 			Repo: cfg.Repository,
 		})
@@ -124,10 +127,12 @@ func ApiServices(ctx context.Context, cfg Config) error {
 	cfg.Mux.Handle(apiv2connect.NewNetworkServiceHandler(networkService, cfg.Interceptors))
 	cfg.Mux.Handle(apiv2connect.NewPartitionServiceHandler(partitionService, cfg.Interceptors))
 	cfg.Mux.Handle(apiv2connect.NewProjectServiceHandler(projectService, cfg.Interceptors))
+	cfg.Mux.Handle(apiv2connect.NewProjectMemberServiceHandler(projectMemberService, cfg.Interceptors))
 	cfg.Mux.Handle(apiv2connect.NewSizeImageConstraintServiceHandler(sizeImageConstraintService, cfg.Interceptors))
 	cfg.Mux.Handle(apiv2connect.NewSizeReservationServiceHandler(sizeReservationService, cfg.Interceptors))
 	cfg.Mux.Handle(apiv2connect.NewSizeServiceHandler(sizeService, cfg.Interceptors))
 	cfg.Mux.Handle(apiv2connect.NewTenantServiceHandler(tenantService, cfg.Interceptors))
+	cfg.Mux.Handle(apiv2connect.NewTenantMemberServiceHandler(tenantMemberService, cfg.Interceptors))
 	cfg.Mux.Handle(apiv2connect.NewTokenServiceHandler(tokenService, cfg.Interceptors))
 	cfg.Mux.Handle(apiv2connect.NewUserServiceHandler(userService, cfg.Interceptors))
 	cfg.Mux.Handle(apiv2connect.NewVersionServiceHandler(versionService, cfg.Interceptors))

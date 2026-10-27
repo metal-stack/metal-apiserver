@@ -114,7 +114,7 @@ type (
 	}
 
 	ProjectMember interface {
-		Repository[*projectMemberRepository, *apiv2.ProjectMember, *api.ProjectMemberCreateRequest, *api.ProjectMemberUpdateRequest, *api.ProjectMemberQuery]
+		Repository[*projectMemberRepository, *apiv2.ProjectMember, *apiv2.ProjectMemberServiceCreateRequest, *apiv2.ProjectMemberServiceUpdateRequest, *apiv2.ProjectMemberQuery]
 	}
 
 	Tenant interface {
@@ -122,7 +122,7 @@ type (
 	}
 
 	TenantMember interface {
-		Repository[*tenantMemberRepository, *apiv2.TenantMember, *api.TenantMemberCreateRequest, *api.TenantMemberUpdateRequest, *api.TenantMemberQuery]
+		Repository[*tenantMemberRepository, *apiv2.TenantMember, *apiv2.TenantMemberServiceCreateRequest, *apiv2.TenantMemberServiceUpdateRequest, *apiv2.TenantMemberQuery]
 	}
 
 	FilesystemLayout interface {

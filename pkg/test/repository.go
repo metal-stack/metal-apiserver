@@ -637,9 +637,9 @@ func CreateProjects(t testing.TB, testStore *testStore, projects []*apiv2.Projec
 	return projectMap
 }
 
-func CreateProjectMemberships(t testing.TB, testStore *testStore, project string, memberships []*api.ProjectMemberCreateRequest) {
+func CreateProjectMemberships(t testing.TB, testStore *testStore, project string, memberships []*apiv2.ProjectMemberServiceCreateRequest) {
 	for _, membership := range memberships {
-		_, err := testStore.Project(project).AdditionalMethods().Member().Create(t.Context(), membership)
+		_, err := testStore.ProjectMember(project).Create(t.Context(), membership)
 		require.NoError(t, err)
 	}
 }
@@ -669,9 +669,9 @@ func CreateTenants(t testing.TB, testStore *testStore, tenants []*apiv2.TenantSe
 	return tenantList
 }
 
-func CreateTenantMemberships(t testing.TB, testStore *testStore, tenant string, memberships []*api.TenantMemberCreateRequest) {
+func CreateTenantMemberships(t testing.TB, testStore *testStore, tenant string, memberships []*apiv2.TenantMemberServiceCreateRequest) {
 	for _, membership := range memberships {
-		_, err := testStore.Tenant().AdditionalMethods().Member(tenant).Create(t.Context(), membership)
+		_, err := testStore.TenantMember(tenant).Create(t.Context(), membership)
 		require.NoError(t, err)
 	}
 }
