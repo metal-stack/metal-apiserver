@@ -326,12 +326,12 @@ func (t *tokenRepository) validateTokenRequest(ctx context.Context, currentToken
 		if _, ok := currentSubjects[request.AnySubject]; ok {
 			continue
 		}
-		// It is possible to request any subjects to be able to have a token
-		// which is able to make calls to projects which will be created in the future.
-		// The actually possible subjects are calculated at request time.
-		if _, ok := subjects[request.AnySubject]; ok {
-			continue
-		}
+		// A requested wildcard subject ("*") is deliberately not accepted here.
+		// It is only legitimate when the caller already holds the wildcard subject
+		// for this method (handled above), which covers admins and project/tenant
+		// wildcards whose subjects get resolved against live membership in
+		// getTokenPermissions. Machine scoped wildcard subjects are never resolved,
+		// so accepting one would widen a single-machine token to the whole fleet.
 
 		for subject := range subjects {
 			if _, ok := currentSubjects[subject]; !ok {
