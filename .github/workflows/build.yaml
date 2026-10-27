@@ -47,6 +47,17 @@ jobs:
         # (pkg/test/repository.go): "rethinkdb" leaves everything on RethinkDB
         # (the default), "postgres" routes every entity to Postgres.
         backend: [rethinkdb, postgres]
+        package-group:
+            - ip-network
+            - project-tenant
+            - token
+            - db-and-testframework
+            - machine-switch
+            - partition-vpn
+            - image-size
+            - infra
+            - e2e
+            - other
         include:
           # Each entry runs tests for a subset of packages.
           # Adjust the 'packages' globs to match your actual pkg/ layout.
@@ -68,8 +79,8 @@ jobs:
             packages: ./pkg/service/infra/...
           - package-group: e2e
             packages: ./pkg/e2e
-          - package-group: other
             # Catch-all: everything not covered above, including cmd/ and top-level pkg/
+          - package-group: other
             packages: >-
               $(go list ./... |
                 grep -v "metal-apiserver/pkg/e2e$" |
