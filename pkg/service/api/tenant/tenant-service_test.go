@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/metal-stack/api/go/errorutil"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
@@ -1600,6 +1601,7 @@ func Test_tenantServiceServer_InviteFlow(t *testing.T) {
 			protocmp.IgnoreFields(
 				&apiv2.Meta{}, "created_at",
 			),
+			cmpopts.SortSlices(func(a, b *apiv2.TenantMember) bool { return a.Member < b.Member }),
 		); diff != "" {
 			t.Errorf("diff: %s", diff)
 		}
