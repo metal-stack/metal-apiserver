@@ -3917,3 +3917,77 @@ func Test_validateTokenRequest(t *testing.T) {
 		})
 	}
 }
+
+func Test_isAdminRoleRequestAllowed(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		providerTenant string
+		tenantRoles    map[string]apiv2.TenantRole
+		requestedRole  *apiv2.AdminRole
+		wantErr        error
+	}{
+		{
+			name:           "no admin role requested is always allowed",
+			providerTenant: "metal-stack",
+			requestedRole:  nil,
+			wantErr:        nil,
+		},
+		{
+			name:           "admin role requested without provider tenant membership is rejected",
+			providerTenant: "metal-stack",
+			requestedRole:  apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			wantErr:        errors.New(`requested adminrole "ADMIN_ROLE_EDITOR" is not allowed because you are not member of provider tenant`),
+		},
+		{
+			name:           "admin role requested with membership in a different tenant is rejected",
+			providerTenant: "metal-stack",
+			tenantRoles: map[string]apiv2.TenantRole{
+				tenant1: apiv2.TenantRole_TENANT_ROLE_OWNER,
+			},
+			requestedRole: apiv2.AdminRole_ADMIN_ROLE_VIEWER.Enum(),
+			wantErr:       errors.New(`requested adminrole "ADMIN_ROLE_VIEWER" is not allowed because you are not member of provider tenant`),
+		},
+		{
+			name:           "admin editor role requested as provider tenant owner is allowed",
+			providerTenant: "metal-stack",
+			tenantRoles: map[string]apiv2.TenantRole{
+				"metal-stack": apiv2.TenantRole_TENANT_ROLE_OWNER,
+			},
+			requestedRole: apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			wantErr:       nil,
+		},
+		{
+			name:           "admin editor role requested as provider tenant viewer is rejected",
+			providerTenant: "metal-stack",
+			tenantRoles: map[string]apiv2.TenantRole{
+				"metal-stack": apiv2.TenantRole_TENANT_ROLE_VIEWER,
+			},
+			requestedRole: apiv2.AdminRole_ADMIN_ROLE_EDITOR.Enum(),
+			wantErr:       errors.New(`your provider tenant membership only allows "ADMIN_ROLE_VIEWER", but you requested "ADMIN_ROLE_EDITOR"`),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tokenRepo := tokenRepository{
+				s: &Store{
+					log:            slog.Default(),
+					providerTenant: tt.providerTenant,
+				},
+			}
+
+			pat := &api.ProjectsAndTenants{
+				TenantRoles: tt.tenantRoles,
+			}
+
+			err := tokenRepo.isAdminRoleRequestAllowed(pat, tt.requestedRole)
+			if tt.wantErr != nil {
+				require.EqualError(t, err, tt.wantErr.Error())
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
