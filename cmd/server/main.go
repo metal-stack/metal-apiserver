@@ -112,6 +112,11 @@ var (
 		Usage:   "skip tls verification when talking to the oidc provider",
 		Sources: cli.EnvVars("OIDC_TLS_SKIP_VERIFY"),
 	}
+	oidcScopesFlag = &cli.StringSliceFlag{
+		Name:    "oidc-scopes",
+		Usage:   "additional scopes requested from the oidc provider, merged with the defaults openid, email, profile",
+		Sources: cli.EnvVars("OIDC_SCOPES"),
+	}
 	logLevelFlag = &cli.StringFlag{
 		Name:    "log-level",
 		Value:   "info",
