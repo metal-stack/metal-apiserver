@@ -24,14 +24,12 @@ type (
 		Log         *slog.Logger
 		Repo        *repository.Store
 		InviteStore invite.TenantInviteStore
-		TokenStore  token.TokenStore
 	}
 
 	tenantServiceServer struct {
 		log         *slog.Logger
 		repo        *repository.Store
 		inviteStore invite.TenantInviteStore
-		tokenStore  token.TokenStore
 	}
 )
 
@@ -39,7 +37,6 @@ func New(c Config) apiv2connect.TenantServiceHandler {
 	return &tenantServiceServer{
 		log:         c.Log.WithGroup("tenantService"),
 		inviteStore: c.InviteStore,
-		tokenStore:  c.TokenStore,
 		repo:        c.Repo,
 	}
 }

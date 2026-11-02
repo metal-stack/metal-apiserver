@@ -86,7 +86,6 @@ func ApiServices(ctx context.Context, cfg Config) error {
 			Log:         cfg.Log,
 			Repo:        cfg.Repository,
 			InviteStore: cfg.TenantInviteStore,
-			TokenStore:  cfg.TokenStore,
 		})
 		tenantMemberService = tenantmember.New(tenantmember.Config{Log: cfg.Log, Repo: cfg.Repository})
 		tokenService        = token.New(token.Config{

@@ -121,7 +121,6 @@ func Test_tenantServiceServer_Get(t *testing.T) {
 				log:         log,
 				repo:        testStore.Store,
 				inviteStore: testStore.GetTenantInviteStore(),
-				tokenStore:  testStore.GetTokenStore(),
 			}
 
 			as := apiv2.TenantRole_TENANT_ROLE_OWNER
@@ -346,7 +345,6 @@ func Test_tenantServiceServer_List(t *testing.T) {
 				log:         log,
 				repo:        testStore.Store,
 				inviteStore: testStore.GetTenantInviteStore(),
-				tokenStore:  testStore.GetTokenStore(),
 			}
 
 			tok := testStore.GetToken("john.doe@github", &apiv2.TokenServiceCreateRequest{
@@ -452,7 +450,6 @@ func Test_tenantServiceServer_Create(t *testing.T) {
 				log:         log,
 				repo:        testStore.Store,
 				inviteStore: testStore.GetTenantInviteStore(),
-				tokenStore:  testStore.GetTokenStore(),
 			}
 
 			tok := testStore.GetToken("john.doe@github", &apiv2.TokenServiceCreateRequest{
@@ -607,7 +604,6 @@ func Test_tenantServiceServer_Update(t *testing.T) {
 				log:         log,
 				repo:        testStore.Store,
 				inviteStore: testStore.GetTenantInviteStore(),
-				tokenStore:  testStore.GetTokenStore(),
 			}
 
 			tok := testStore.GetToken("john.doe@github", &apiv2.TokenServiceCreateRequest{
@@ -717,7 +713,6 @@ func Test_tenantServiceServer_Delete(t *testing.T) {
 				log:         log,
 				repo:        testStore.Store,
 				inviteStore: testStore.GetTenantInviteStore(),
-				tokenStore:  testStore.GetTokenStore(),
 			}
 
 			test.CreateTenants(t, testStore, tt.existingTenants)
@@ -821,7 +816,6 @@ func Test_tenantServiceServer_Invite(t *testing.T) {
 				log:         log,
 				repo:        testStore.Store,
 				inviteStore: testStore.GetTenantInviteStore(),
-				tokenStore:  testStore.GetTokenStore(),
 			}
 
 			tok := testStore.GetToken("john.doe@github", &apiv2.TokenServiceCreateRequest{
@@ -920,7 +914,6 @@ func Test_tenantServiceServer_InviteGet(t *testing.T) {
 				log:         log,
 				repo:        testStore.Store,
 				inviteStore: testStore.GetTenantInviteStore(),
-				tokenStore:  testStore.GetTokenStore(),
 			}
 
 			tok := testStore.GetToken("john.doe@github", &apiv2.TokenServiceCreateRequest{
@@ -1022,7 +1015,6 @@ func Test_tenantServiceServer_InvitesList(t *testing.T) {
 				log:         log,
 				repo:        testStore.Store,
 				inviteStore: testStore.GetTenantInviteStore(),
-				tokenStore:  testStore.GetTokenStore(),
 			}
 
 			tok := testStore.GetToken("john.doe@github", &apiv2.TokenServiceCreateRequest{
@@ -1098,7 +1090,6 @@ func Test_tenantServiceServer_InviteDelete(t *testing.T) {
 				log:         log,
 				repo:        testStore.Store,
 				inviteStore: testStore.GetTenantInviteStore(),
-				tokenStore:  testStore.GetTokenStore(),
 			}
 
 			tok := testStore.GetToken("john.doe@github", &apiv2.TokenServiceCreateRequest{
@@ -1259,7 +1250,6 @@ func Test_tenantServiceServer_InviteAccept(t *testing.T) {
 				log:         log,
 				repo:        testStore.Store,
 				inviteStore: testStore.GetTenantInviteStore(),
-				tokenStore:  testStore.GetTokenStore(),
 			}
 
 			test.CreateTenants(t, testStore, tt.existingTenants)
@@ -1357,7 +1347,6 @@ func Test_tenantServiceServer_InviteFlow(t *testing.T) {
 		log:         log,
 		repo:        testStore.Store,
 		inviteStore: testStore.GetTenantInviteStore(),
-		tokenStore:  testStore.GetTokenStore(),
 	}
 
 	var inviteSecret string
