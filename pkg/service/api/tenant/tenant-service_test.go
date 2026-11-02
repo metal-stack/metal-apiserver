@@ -1326,6 +1326,9 @@ func Test_tenantServiceServer_InviteAccept(t *testing.T) {
 				protocmp.IgnoreFields(
 					&apiv2.Meta{}, "created_at",
 				),
+				cmpopts.SortSlices(func(a, b *apiv2.TenantMember) bool {
+					return a.Member < b.Member
+				}),
 			); diff != "" {
 				t.Errorf("diff: %s", diff)
 			}
