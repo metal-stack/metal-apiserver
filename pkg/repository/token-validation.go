@@ -310,10 +310,8 @@ func (t *tokenRepository) validateTokenRequest(ctx context.Context, currentToken
 	slices.Sort(methods)
 
 	for _, method := range methods {
-		subjects, ok := requestedPermissions[method]
-		if !ok {
-			continue
-		}
+		// no need to check if method is present
+		subjects := requestedPermissions[method]
 		currentSubjects, ok := currentPermissions[method]
 		if !ok {
 			errMsg := fmt.Sprintf("the following method %q is not allowed", method)
