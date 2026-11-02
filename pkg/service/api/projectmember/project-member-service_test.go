@@ -32,7 +32,7 @@ func Test_projectMemberServiceServer_Get(t *testing.T) {
 	test.CreateTenantMemberships(t, testStore, "john.doe@github", []*apiv2.TenantMemberServiceCreateRequest{
 		{Member: "john.doe@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
 		{Member: "tina.turner@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
-		{Member: "will.smith@github", Role: apiv2.TenantRole_TENANT_ROLE_OWNER},
+		{Member: "will.smith@github", Role: apiv2.TenantRole_TENANT_ROLE_VIEWER},
 	})
 
 	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{
