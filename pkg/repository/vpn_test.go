@@ -131,7 +131,7 @@ func Test_vpnService_CreateUser(t *testing.T) {
 			name:     "create existing user",
 			username: p1,
 			want:     nil,
-			wantErr:  errorutil.Conflict("rpc error: code = Internal desc = failed to create user: creating user: constraint failed: UNIQUE constraint failed: users.name (2067)"),
+			wantErr:  errorutil.Conflict("rpc error: code = Internal desc = creating user: creating user: constraint failed: UNIQUE constraint failed: users.name (2067)"),
 		},
 	}
 	for _, tt := range tests {

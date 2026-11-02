@@ -61,7 +61,12 @@ type (
 )
 
 func NewDatacenter(t testing.TB, testOpts ...testOpt) *Datacenter {
-	testStore, closer := StartRepositoryWithCleanup(t, testOpts...)
+	opts := []testOpt{WithPostgres(true)}
+	if len(testOpts) > 0 {
+		opts = append(opts, testOpts...)
+	}
+
+	testStore, closer := StartRepositoryWithCleanup(t, opts...)
 
 	dc := &Datacenter{
 		t:         t,
@@ -390,9 +395,9 @@ func (dc *Datacenter) createTenantsAndMembers(spec *scenarios.DatacenterSpec) {
 	CreateProjects(dc.t, dc.testStore, projectCreateReq)
 
 	for _, tenant := range spec.Tenants {
-		CreateTenantMemberships(dc.t, dc.testStore, tenant, []*api.TenantMemberCreateRequest{
+		CreateTenantMemberships(dc.t, dc.testStore, tenant, []*apiv2.TenantMemberServiceCreateRequest{
 			{
-				MemberID: tenant, Role: apiv2.TenantRole_TENANT_ROLE_OWNER,
+				Member: tenant, Role: apiv2.TenantRole_TENANT_ROLE_OWNER,
 			},
 		})
 	}
