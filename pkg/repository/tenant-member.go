@@ -173,11 +173,12 @@ func (t *tenantMemberRepository) list(ctx context.Context, query *apiv2.TenantMe
 		return nil, errorutil.Convert(err)
 	}
 
-NEXT:
 	for _, tm := range resp.Tenants {
 		if query.Member != nil && *query.Member != tm.Tenant.Meta.Id {
 			continue
 		}
+
+		skip := false
 
 		for k, v := range annotations {
 			if ann, ok := tm.TenantAnnotations[k]; !ok || ann != v {
@@ -185,8 +186,13 @@ NEXT:
 					continue
 				}
 
-				continue NEXT
+				skip = true
+				break
 			}
+		}
+
+		if skip {
+			continue
 		}
 
 		if query.Labels != nil {

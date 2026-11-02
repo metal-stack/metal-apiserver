@@ -197,16 +197,21 @@ func (t *projectMemberRepository) list(ctx context.Context, query *apiv2.Project
 			return nil, errorutil.Convert(err)
 		}
 
-	NEXT:
 		for _, tm := range resp.GetTenants() {
 			if query.Member != nil && *query.Member != tm.Tenant.Meta.Id {
 				continue
 			}
 
+			skip := false
+
 			for k, v := range annotations {
 				if ann, ok := tm.TenantAnnotations[k]; !ok || ann != v {
-					continue NEXT
+					skip = true
+					break
 				}
+			}
+			if skip {
+				continue
 			}
 
 			if query.Labels != nil {
