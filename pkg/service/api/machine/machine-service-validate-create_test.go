@@ -56,13 +56,13 @@ func Test_machineServiceServer_ValidateCreateMachine(t *testing.T) {
 			name:    "no project given",
 			req:     &apiv2.MachineServiceCreateRequest{},
 			want:    nil,
-			wantErr: errorutil.NotFound("get of project with id "),
+			wantErr: errorutil.NotFound("project with id: not found sql: no rows in result set"),
 		},
 		{
 			name:    "project does not exist",
 			req:     &apiv2.MachineServiceCreateRequest{Project: "abc"},
 			want:    nil,
-			wantErr: errorutil.NotFound("get of project with id abc"),
+			wantErr: errorutil.NotFound("project with id:abc not found sql: no rows in result set"),
 		},
 		{
 			name:    "partition does not exist",

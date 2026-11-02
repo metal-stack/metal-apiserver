@@ -11,21 +11,6 @@ const (
 )
 
 type (
-	ProjectMemberCreateRequest struct {
-		TenantId string
-		Role     apiv2.ProjectRole
-	}
-
-	ProjectMemberUpdateRequest struct {
-		Role apiv2.ProjectRole
-		Meta apiv2.Meta
-	}
-
-	ProjectMemberQuery struct {
-		TenantId    *string
-		Annotations map[string]string
-	}
-
 	ProjectsAndTenants struct {
 		Projects      []*apiv2.Project
 		Tenants       []*apiv2.Tenant
@@ -36,7 +21,3 @@ type (
 
 	ProjectsAndTenantsGetter func(ctx context.Context, userId string) (*ProjectsAndTenants, error)
 )
-
-func (*ProjectMemberUpdateRequest) GetUpdateMeta() *apiv2.UpdateMeta {
-	return &apiv2.UpdateMeta{}
-}

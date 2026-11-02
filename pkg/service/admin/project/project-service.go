@@ -7,6 +7,7 @@ import (
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
+	"github.com/metal-stack/metal-lib/pkg/pointer"
 )
 
 type Config struct {
@@ -35,5 +36,21 @@ func (p *projectServiceServer) List(ctx context.Context, req *adminv2.ProjectSer
 
 	return &adminv2.ProjectServiceListResponse{
 		Projects: projects,
+	}, nil
+}
+
+func (p *projectServiceServer) Create(ctx context.Context, req *adminv2.ProjectServiceCreateRequest) (*adminv2.ProjectServiceCreateResponse, error) {
+	project, err := p.repo.UnscopedProject().AdditionalMethods().CreateWithID(ctx, req.Project, pointer.SafeDeref(req.Id))
+	if err != nil {
+		return nil, err
+	}
+
+	converted, err := p.repo.UnscopedProject().Get(ctx, project.Meta.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	return &adminv2.ProjectServiceCreateResponse{
+		Project: converted,
 	}, nil
 }

@@ -202,12 +202,56 @@ func (s *Store) project(scope *ProjectScope) Project {
 	}
 }
 
+func (s *Store) ProjectMember(project string) ProjectMember {
+	return s.projectMember(&ProjectScope{
+		projectID: project,
+	})
+}
+
+func (s *Store) UnscopedProjectMember() ProjectMember {
+	return s.projectMember(nil)
+}
+
+func (s *Store) projectMember(scope *ProjectScope) ProjectMember {
+	repository := &projectMemberRepository{
+		s:     s,
+		scope: scope,
+	}
+
+	return &store[*projectMemberRepository, *projectMemberEntity, *apiv2.ProjectMember, *apiv2.ProjectMemberServiceCreateRequest, *apiv2.ProjectMemberServiceUpdateRequest, *apiv2.ProjectMemberQuery]{
+		repository: repository,
+		typed:      repository,
+	}
+}
+
 func (s *Store) Tenant() Tenant {
 	repository := &tenantRepository{
 		s: s,
 	}
 
 	return &store[*tenantRepository, *tenantEntity, *apiv2.Tenant, *apiv2.TenantServiceCreateRequest, *apiv2.TenantServiceUpdateRequest, *apiv2.TenantQuery]{
+		repository: repository,
+		typed:      repository,
+	}
+}
+
+func (s *Store) TenantMember(tenant string) TenantMember {
+	return s.tenantMember(&TenantScope{
+		tenantID: tenant,
+	})
+}
+
+func (s *Store) UnscopedTenantMember() TenantMember {
+	return s.tenantMember(nil)
+}
+
+func (s *Store) tenantMember(scope *TenantScope) TenantMember {
+	repository := &tenantMemberRepository{
+		s:     s,
+		scope: scope,
+	}
+
+	return &store[*tenantMemberRepository, *tenantMemberEntity, *apiv2.TenantMember, *apiv2.TenantMemberServiceCreateRequest, *apiv2.TenantMemberServiceUpdateRequest, *apiv2.TenantMemberQuery]{
 		repository: repository,
 		typed:      repository,
 	}
