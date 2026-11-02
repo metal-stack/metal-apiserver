@@ -6,7 +6,6 @@ import (
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
-	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 )
@@ -53,36 +52,5 @@ func (p *projectServiceServer) Create(ctx context.Context, req *adminv2.ProjectS
 
 	return &adminv2.ProjectServiceCreateResponse{
 		Project: converted,
-	}, nil
-}
-
-func (p *projectServiceServer) AddMember(ctx context.Context, req *adminv2.ProjectServiceAddMemberRequest) (*adminv2.ProjectServiceAddMemberResponse, error) {
-	member, err := p.repo.ProjectMember(req.Project).Create(ctx, &apiv2.ProjectMemberServiceCreateRequest{
-		Project: req.Project,
-		Member:  req.Member,
-		Role:    req.Role,
-		Labels:  req.Labels,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	p.log.Debug("member added successfully", "memberId", req.Member)
-
-	return &adminv2.ProjectServiceAddMemberResponse{
-		Member: member,
-	}, nil
-}
-
-func (p *projectServiceServer) RemoveMember(ctx context.Context, req *adminv2.ProjectServiceRemoveMemberRequest) (*adminv2.ProjectServiceRemoveMemberResponse, error) {
-	member, err := p.repo.ProjectMember(req.Project).Delete(ctx, req.Member)
-	if err != nil {
-		return nil, err
-	}
-
-	p.log.Debug("member removed successfully", "memberId", req.Member)
-
-	return &adminv2.ProjectServiceRemoveMemberResponse{
-		Member: member,
 	}, nil
 }

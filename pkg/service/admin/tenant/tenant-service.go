@@ -61,34 +61,3 @@ func (t *tenantServiceServer) List(ctx context.Context, req *adminv2.TenantServi
 
 	return &adminv2.TenantServiceListResponse{Tenants: tenants}, nil
 }
-
-func (t *tenantServiceServer) AddMember(ctx context.Context, req *adminv2.TenantServiceAddMemberRequest) (*adminv2.TenantServiceAddMemberResponse, error) {
-	member, err := t.repo.TenantMember(req.Tenant).Create(ctx, &apiv2.TenantMemberServiceCreateRequest{
-		Login:  req.Tenant,
-		Member: req.Member,
-		Role:   req.Role,
-		Labels: req.Labels,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	t.log.Debug("member added successfully", "memberId", req.Member)
-
-	return &adminv2.TenantServiceAddMemberResponse{
-		Member: member,
-	}, nil
-}
-
-func (t *tenantServiceServer) RemoveMember(ctx context.Context, req *adminv2.TenantServiceRemoveMemberRequest) (*adminv2.TenantServiceRemoveMemberResponse, error) {
-	member, err := t.repo.TenantMember(req.Tenant).Delete(ctx, req.Member)
-	if err != nil {
-		return nil, err
-	}
-
-	t.log.Debug("member removed successfully", "memberId", req.Member)
-
-	return &adminv2.TenantServiceRemoveMemberResponse{
-		Member: member,
-	}, nil
-}

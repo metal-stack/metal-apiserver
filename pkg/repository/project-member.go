@@ -247,7 +247,7 @@ func (t *projectMemberRepository) list(ctx context.Context, query *apiv2.Project
 				continue
 			}
 
-			if indirectRole > projectRoleFromMap(member.Meta.Annotations) {
+			if indirectRole < projectRoleFromMap(member.Meta.Annotations) {
 				member.Meta.Annotations[api.ProjectRoleAnnotation] = indirectRole.String()
 				memberMap[tm.Tenant.Meta.Id] = member
 			}
