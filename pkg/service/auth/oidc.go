@@ -28,22 +28,6 @@ type ProviderConfig struct {
 	Scopes        []string
 }
 
-var defaultOIDCScopes = []string{"openid", "email", "profile"}
-
-func resolveScopes(customScopes []string) []string {
-	scopes := make([]string, 0, len(defaultOIDCScopes)+len(customScopes))
-	scopes = append(scopes, defaultOIDCScopes...)
-
-	for _, entry := range customScopes {
-		for s := range strings.FieldsSeq(entry) {
-			if !slices.Contains(scopes, s) {
-				scopes = append(scopes, s)
-			}
-		}
-	}
-	return scopes
-}
-
 func OIDCHubProvider(c ProviderConfig) authOption {
 	return func(a *auth) error {
 		if c.ClientID == "" || c.ClientSecret == "" {
@@ -117,4 +101,20 @@ func (g *provider) User(ctx context.Context, user goth.User) (*providerUser, err
 
 func (g *provider) getLogin(s string) string {
 	return s + "@" + g.Name()
+}
+
+func resolveScopes(additionalScopes []string) []string {
+	defaultOIDCScopes := []string{"openid", "email", "profile"}
+
+	scopes := make([]string, 0, len(defaultOIDCScopes)+len(additionalScopes))
+	scopes = append(scopes, defaultOIDCScopes...)
+
+	for _, entry := range additionalScopes {
+		for s := range strings.FieldsSeq(entry) {
+			if !slices.Contains(scopes, s) {
+				scopes = append(scopes, s)
+			}
+		}
+	}
+	return scopes
 }
