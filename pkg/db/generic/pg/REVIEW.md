@@ -550,6 +550,98 @@ and leave the version of unchanged entities alone (see #4a, `Upsert`).
 
 ---
 
+## Standards conformance review (`generic-repository-table-per-entity` vs `main`)
+
+A second pass reviewing the whole branch against the repo's documented standards
+(`GLOSSARY.md`, ADR 0001) plus a code-smell baseline. Findings here span
+`pkg/db/routing`, `pkg/db/storage` and `pkg/db/filters` in addition to `pg/`;
+where one duplicates an existing item it is cross-referenced rather than
+re-filed.
+
+### Documented-standard breaches
+
+### 42. Glossary terms used despite the `_Avoid_` list — LOW (standards) — NEW
+
+`GLOSSARY.md` defines **Entity Storage** with `_Avoid_: datastore, database,
+table`. The change introduces/reuses the avoided vocabulary:
+
+- `pkg/db/storage/storage.go:3,9` doc comments: "independent of which *database*
+  serves it", "free of any *database* query language".
+- `pkg/db/routing/postgres.go:57,94` user-facing errors: "cannot create %s in
+  *database*…".
+- New identifiers `routing.Datastore`, `routing.NewDatastore`,
+  `datastoreOptions`, and the file `datastore.go`.
+
+Judgement call: ADR 0001 itself refers to `generic.Datastore`, so the type name
+is partly sanctioned, but the `_Avoid_` list is normative and prefers
+"Entity Storage"/"Backend". Rename the doc/error wording at minimum.
+
+### 43. ADR 0001 says exactly one sentinel survives; a second is exported — LOW (standards) — NEW
+
+ADR 0001 states "The one retained sentinel is `storage.ErrFilterUnsupported`."
+`pkg/db/routing/storage.go:20` adds exported `routing.ErrPartialWrite`. It is a
+router outcome (not a storage outcome) and new callers must handle it, so the
+ADR as written is now inaccurate — update the ADR or unexport/wrap the sentinel.
+
+### 44. ADR 0001's "error mapping lives in the adapters" contradicted for filters — MEDIUM (standards) — NEW
+
+ADR 0001 places error mapping in the adapters, not the orchestrator. Filter
+validation is nevertheless split between the Router
+(`requireRethinkFilters`/`requirePostgresFilters`, `routing/storage.go:212,221`)
+and the adapter (`postgresFilters`, `routing/postgres.go:186`). Duplicated
+placement of the same concern; consolidate in one layer.
+
+### Baseline smells (all judgement calls)
+
+### 45. Duplicated mirror-write block in the Router — LOW (maintainability) — NEW
+
+`Create`/`Update`/`Upsert`/`Delete` in `routing/storage.go:83-165` repeat the same
+ModeBoth "mirror then log then return `ErrPartialWrite`" block;
+`requireRethinkFilters`/`requirePostgresFilters` differ only in the field they
+read. Extract one mirror helper.
+
+### 46. Reflection helpers re-implemented in the routing adapter — LOW (maintainability) — NEW
+
+`routing/postgres.go` `setField`/`getTimeField`/`getGeneration` re-implement the
+reflection helpers already in `generic/storage.go`. Export and reuse.
+
+### 47. `migrations/machine.go` `storeMachine` is a Middle Man — LOW (maintainability) — NEW
+
+`storeMachine` (machine.go:47) only forwards to `repo.Upsert`; inline it. Related
+to #18.
+
+### 48. Mysterious names: `netwWrap`, package `q`, `filters.both` — LOW (naming) — NEW
+
+`q/machine.go:120` `netwWrap` (truncated abbreviation), the package name `q`, and
+`filters.both` do not reveal what they hold/do. Rename (e.g. `networkWrap`,
+`pgfilter`, `bothFilter`).
+
+### 49. Speculative generality on the Postgres side — LOW (design) — NEW
+
+- `pg.PathOf`/`resolveJSONTag`/`ensureInitialized` (`pg/query.go`) have no
+  non-test caller (see also #6).
+- `sharedMutexDoc` and its JSON tags (`shared-mutex.go:82`) are never marshalled.
+- `Pagination` is only ever passed `nil` (`routing/postgres.go:180`).
+
+### 50. `switch r.mode` repeated across the Router — LOW (design) — NEW
+
+The same `switch` over `Mode` recurs in eight Router methods, plus `Mode.Valid`
+and `config.readBackend`; a repeated switch that wants one shared dispatch table
+or polymorphism.
+
+### 51. `QueryFilter.Op` is primitive obsession — LOW (design) — NEW
+
+`QueryFilter.Op string` stands in for a fixed operator set that is enforced
+separately by `allowedQueryOps` (#1). A small `Op` type with the allowlist as its
+method would keep the two in sync.
+
+### Not re-filed
+
+- Anonymous `struct{Old E; New E}` data clump — see #41.
+- `containsJSON` vs `jsonPathValue` duplication — see #16.
+
+---
+
 ## Top recommendations (priority order)
 
 1. **Fix the shared mutex**: ownership token on unlock + server-side expiry
@@ -575,6 +667,9 @@ and leave the version of unchanged entities alone (see #4a, `Upsert`).
 11. **De-duplicate watch identifiers**: derive the notify channel + payload keys from
     one source (#38), name the `TG_OP` values (#39), drop dead `Change` fields (#40) —
     LOW/MEDIUM
+12. **Standards conformance**: fix the glossary terminology + ADR drift and consolidate
+    the split filter validation (#42–#44); de-duplicate the Router mirror block and
+    reflection helpers (#45, #46) — LOW/MEDIUM
 
 ### Minor / cosmetic
 
