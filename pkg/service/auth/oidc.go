@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
+	"strings"
 
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/providers/openidConnect"
@@ -23,6 +25,7 @@ type ProviderConfig struct {
 	EndsessionURL string
 	UniqueUserKey *string
 	TLSSkipVerify bool
+	Scopes        []string
 }
 
 func OIDCHubProvider(c ProviderConfig) authOption {
@@ -34,7 +37,7 @@ func OIDCHubProvider(c ProviderConfig) authOption {
 			log: a.log,
 			pc:  c,
 		}
-		scopes := []string{"openid", "email", "profile"}
+		scopes := resolveScopes(c.Scopes)
 
 		tlsConf := &tls.Config{
 			MinVersion:         tls.VersionTLS13,
@@ -98,4 +101,20 @@ func (g *provider) User(ctx context.Context, user goth.User) (*providerUser, err
 
 func (g *provider) getLogin(s string) string {
 	return s + "@" + g.Name()
+}
+
+func resolveScopes(additionalScopes []string) []string {
+	defaultOIDCScopes := []string{"openid", "email", "profile"}
+
+	scopes := make([]string, 0, len(defaultOIDCScopes)+len(additionalScopes))
+	scopes = append(scopes, defaultOIDCScopes...)
+
+	for _, entry := range additionalScopes {
+		for s := range strings.FieldsSeq(entry) {
+			if !slices.Contains(scopes, s) {
+				scopes = append(scopes, s)
+			}
+		}
+	}
+	return scopes
 }
