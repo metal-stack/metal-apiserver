@@ -44,6 +44,10 @@ func (v *vpn) Enabled() bool {
 	return v.c != nil
 }
 
+func (v *vpn) Version(ctx context.Context) (string, error) {
+	return v.c.Version(ctx)
+}
+
 func (v *vpn) CreateAuthKey(ctx context.Context, req *adminv2.VPNServiceAuthKeyRequest) (*adminv2.VPNServiceAuthKeyResponse, error) {
 	projectID := req.Project
 	if v.scope != nil {
