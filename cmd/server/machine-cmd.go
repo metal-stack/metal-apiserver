@@ -121,7 +121,7 @@ func newMachineCmd() *cli.Command {
 				},
 			},
 			{
-				Name:        "vpn-connected-machines",
+				Name:        "vpn-connected",
 				Description: "evaluates whether machines connected to vpn and detects their vpn ip addresses",
 				Flags: []cli.Flag{
 					rethinkdbAddressesFlag,
