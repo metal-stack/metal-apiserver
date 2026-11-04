@@ -259,6 +259,20 @@ func Test_vpnService_SetDefaultPolicy(t *testing.T) {
 	}
 }
 
+func Test_vpnService_Version(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+
+	testStore, repocloser := test.StartRepositoryWithCleanup(t, test.WithHeadscale(true))
+	defer repocloser()
+
+	version, err := testStore.UnscopedVPN().Version(ctx)
+	require.NoError(t, err)
+	require.NotEmpty(t, version)
+	require.Equal(t, "v0.29.7", version)
+}
+
 func connectVPNClient(t testing.TB, hostname, controllerURL, authkey string) {
 	s := &tsnet.Server{
 		Hostname:   hostname,
