@@ -707,7 +707,7 @@ func Test_machineServiceServer_MachineLiveliness(t *testing.T) {
 	setLastEventTime(m3, &old)
 	// m4: no event time at all -> liveliness must be left untouched
 
-	err := testStore.UnscopedMachine().AdditionalMethods().MachineLiveliness(ctx)
+	_, err := testStore.UnscopedMachine().AdditionalMethods().MachineLiveliness(ctx)
 	require.NoError(t, err)
 
 	require.Equal(t, metal.MachineLivelinessAlive, testStore.GetEventContainer(m1).Liveliness)
@@ -839,7 +839,7 @@ func Test_machineServiceServer_Resurrect(t *testing.T) {
 				}()
 			}
 
-			err = testStore.UnscopedMachine().AdditionalMethods().Resurrect(ctx)
+			_, err = testStore.UnscopedMachine().AdditionalMethods().Resurrect(ctx)
 			require.NoError(t, err)
 
 			if tt.wantResurrected {

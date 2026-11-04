@@ -1727,16 +1727,17 @@ func (r *machineRepository) Issues(ctx context.Context, req *adminv2.MachineServ
 	return &adminv2.MachineServiceIssuesResponse{Issues: allIssues}, nil
 }
 
-func (r *machineRepository) Resurrect(ctx context.Context) error {
+func (r *machineRepository) Resurrect(ctx context.Context) ([]string, error) {
 	r.s.log.Info("machine resurrection was requested")
 
 	machines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
 		NotAllocated: new(true),
 	}))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
+	var processedMachines []string
 	for _, m := range machines {
 		provisioningEvents, err := r.s.ds.Event().Find(ctx, queries.EventFilter(m.ID))
 		if err != nil {
@@ -1756,6 +1757,7 @@ func (r *machineRepository) Resurrect(ctx context.Context) error {
 			if err != nil {
 				r.s.log.Error("error during machine resurrection", "machineID", m.ID, "error", err)
 			}
+			processedMachines = append(processedMachines, m.ID)
 			continue
 		}
 
@@ -1766,27 +1768,29 @@ func (r *machineRepository) Resurrect(ctx context.Context) error {
 			if err != nil {
 				r.s.log.Error("error during machine resurrection", "machineID", m.ID, "error", err)
 			}
+			processedMachines = append(processedMachines, m.ID)
 			continue
 		}
 	}
 
 	r.s.log.Info("finished machine resurrection")
-	return nil
+	return processedMachines, nil
 }
 
-func (r *machineRepository) MachineLiveliness(ctx context.Context) error {
+func (r *machineRepository) MachineLiveliness(ctx context.Context) ([]string, error) {
 	r.s.log.Info("machine liveliness was requested")
 
 	machines, err := r.list(ctx, &apiv2.MachineQuery{})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var (
-		unknown = 0
-		alive   = 0
-		dead    = 0
-		errs    = 0
+		unknown           = 0
+		alive             = 0
+		dead              = 0
+		errs              = 0
+		processedMachines []string
 	)
 
 	for _, m := range machines {
@@ -1804,11 +1808,12 @@ func (r *machineRepository) MachineLiveliness(ctx context.Context) error {
 		case metal.MachineLivelinessUnknown:
 			unknown++
 		}
+		processedMachines = append(processedMachines, m.ID)
 	}
 
 	r.s.log.Info("machine liveliness evaluated", "alive", alive, "dead", dead, "unknown", unknown, "errors", errs)
 
-	return nil
+	return processedMachines, nil
 }
 
 func (r *machineRepository) evaluateMachineLiveliness(ctx context.Context, m *metal.Machine) (metal.MachineLiveliness, error) {
