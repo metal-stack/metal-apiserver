@@ -56,6 +56,7 @@ type Config struct {
 	OIDCEndSessionURL                   string
 	OIDCUniqueUserKey                   string
 	OIDCTLSSkipVerify                   bool
+	OIDCAdditionalScopes                []string
 	Datastore                           generic.Datastore
 	Repository                          *repository.Store
 	TenantClient                        tenantclient.Client
@@ -274,6 +275,7 @@ func oidcAuthHandler(log *slog.Logger, c Config) (string, http.Handler, error) {
 			EndsessionURL: c.OIDCEndSessionURL,
 			UniqueUserKey: &c.OIDCUniqueUserKey,
 			TLSSkipVerify: c.OIDCTLSSkipVerify,
+			Scopes:        c.OIDCAdditionalScopes,
 		}),
 	)
 	if err != nil {
