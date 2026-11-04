@@ -386,6 +386,7 @@ func main() {
 			newTokenCmd(),
 			newDatastoreCmd(),
 			newVPNCmd(),
+			newMachineCmd(),
 		},
 	}
 

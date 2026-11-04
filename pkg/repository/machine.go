@@ -1720,6 +1720,70 @@ func (r *machineRepository) Issues(ctx context.Context, req *adminv2.MachineServ
 	return &adminv2.MachineServiceIssuesResponse{Issues: allIssues}, nil
 }
 
+func (r *machineRepository) MachineLiveliness(ctx context.Context) error {
+	machines, err := r.list(ctx, &apiv2.MachineQuery{})
+	if err != nil {
+		return err
+	}
+
+	var (
+		unknown = 0
+		alive   = 0
+		dead    = 0
+		errs    = 0
+	)
+
+	for _, m := range machines {
+		lvlness, err := r.evaluateMachineLiveliness(ctx, m)
+		if err != nil {
+			r.s.log.Error("cannot update liveliness", "error", err, "machine", m)
+			errs++
+			// fall through, so the rest of the machines is getting evaluated
+		}
+		switch lvlness {
+		case metal.MachineLivelinessAlive:
+			alive++
+		case metal.MachineLivelinessDead:
+			dead++
+		case metal.MachineLivelinessUnknown:
+			unknown++
+		}
+	}
+
+	r.s.log.Info("machine liveliness evaluated", "alive", alive, "dead", dead, "unknown", unknown, "errors", errs)
+
+	return nil
+}
+
+func (r *machineRepository) evaluateMachineLiveliness(ctx context.Context, m *metal.Machine) (metal.MachineLiveliness, error) {
+	provisioningEvents, err := r.s.ds.Event().Find(ctx, queries.EventFilter(m.ID))
+	if err != nil {
+		// we have no provisioning events... we cannot tell
+		return metal.MachineLivelinessUnknown, fmt.Errorf("no provisioning event container found for machine: %s", m.ID)
+	}
+
+	if provisioningEvents.LastEventTime != nil {
+		if time.Since(*provisioningEvents.LastEventTime) > metal.MachineDeadAfter {
+			if m.Allocation != nil {
+				// the machine is either dead or the customer did turn off the phone home service
+				provisioningEvents.Liveliness = metal.MachineLivelinessUnknown
+			} else {
+				// the machine is just dead
+				provisioningEvents.Liveliness = metal.MachineLivelinessDead
+			}
+		} else {
+			provisioningEvents.Liveliness = metal.MachineLivelinessAlive
+		}
+
+		err = r.s.ds.Event().Update(ctx, provisioningEvents)
+		if err != nil {
+			return provisioningEvents.Liveliness, err
+		}
+	}
+
+	return provisioningEvents.Liveliness, nil
+}
+
 func (r *machineRepository) setMachineWaitingFlag(ctx context.Context, machineUUID string, waiting bool) error {
 	return retry.Do(
 		func() error {
