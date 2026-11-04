@@ -29,6 +29,7 @@ func newMachineCmd() *cli.Command {
 					rethinkdbDBNameFlag,
 					rethinkdbPasswordFlag,
 					rethinkdbUserFlag,
+					tenantApiserverBaseURLFlag,
 				},
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					log, err := createLogger(cmd)
@@ -50,9 +51,15 @@ func newMachineCmd() *cli.Command {
 						return fmt.Errorf("unable to create datastore: %w", err)
 					}
 
+					tc, err := createTenantApiserverClient(cmd, log)
+					if err != nil {
+						return err
+					}
+
 					repo := repository.New(repository.Config{
-						Log:       log,
-						Datastore: ds,
+						Log:                   log,
+						Datastore:             ds,
+						TenantApiserverClient: tc,
 					})
 
 					return repo.UnscopedMachine().AdditionalMethods().MachineLiveliness(ctx)
@@ -62,15 +69,16 @@ func newMachineCmd() *cli.Command {
 				Name:        "resurrect",
 				Description: "resurrect dead machines",
 				Flags: []cli.Flag{
-					rethinkdbAddressesFlag,
-					rethinkdbDBNameFlag,
-					rethinkdbPasswordFlag,
-					rethinkdbUserFlag,
 					headscaleAddressFlag,
 					headscaleApikeyFlag,
 					headscaleEnabledFlag,
 					headscaleControlplaneAddressFlag,
 					ipamGrpcEndpointFlag,
+					rethinkdbAddressesFlag,
+					rethinkdbDBNameFlag,
+					rethinkdbPasswordFlag,
+					rethinkdbUserFlag,
+					tenantApiserverBaseURLFlag,
 				},
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					log, err := createLogger(cmd)
@@ -110,11 +118,17 @@ func newMachineCmd() *cli.Command {
 						compress.WithAll(compress.LevelBalanced),
 					)
 
+					tc, err := createTenantApiserverClient(cmd, log)
+					if err != nil {
+						return err
+					}
+
 					repo := repository.New(repository.Config{
-						Log:             log,
-						Datastore:       ds,
-						HeadscaleClient: hc,
-						Ipam:            ipamService,
+						Log:                   log,
+						Datastore:             ds,
+						TenantApiserverClient: tc,
+						HeadscaleClient:       hc,
+						Ipam:                  ipamService,
 					})
 
 					return repo.UnscopedMachine().AdditionalMethods().Resurrect(ctx)
@@ -124,14 +138,16 @@ func newMachineCmd() *cli.Command {
 				Name:        "vpn-connected",
 				Description: "evaluates whether machines connected to vpn and detects their vpn ip addresses",
 				Flags: []cli.Flag{
-					rethinkdbAddressesFlag,
-					rethinkdbDBNameFlag,
-					rethinkdbPasswordFlag,
-					rethinkdbUserFlag,
 					headscaleAddressFlag,
 					headscaleApikeyFlag,
 					headscaleEnabledFlag,
 					headscaleControlplaneAddressFlag,
+					ipamGrpcEndpointFlag,
+					rethinkdbAddressesFlag,
+					rethinkdbDBNameFlag,
+					rethinkdbPasswordFlag,
+					rethinkdbUserFlag,
+					tenantApiserverBaseURLFlag,
 				},
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					log, err := createLogger(cmd)
@@ -168,10 +184,16 @@ func newMachineCmd() *cli.Command {
 						return fmt.Errorf("unable to create datastore: %w", err)
 					}
 
+					tc, err := createTenantApiserverClient(cmd, log)
+					if err != nil {
+						return err
+					}
+
 					repo := repository.New(repository.Config{
-						Log:             log,
-						Datastore:       ds,
-						HeadscaleClient: hc,
+						Log:                   log,
+						Datastore:             ds,
+						TenantApiserverClient: tc,
+						HeadscaleClient:       hc,
 					})
 
 					_, err = vpn.EvaluateVPNConnected(ctx, log, repo)
