@@ -270,6 +270,42 @@ func Test_mapPortName(t *testing.T) {
 			want:     "Ethernet12",
 			wantErr:  nil,
 		},
+		{
+			name:     "sonic to bisdn",
+			port:     "Ethernet124",
+			sourceOS: SwitchOSVendorSonic,
+			targetOS: SwitchOSVendorBISDN,
+			allLines: []int{0, 124},
+			want:     "port32",
+			wantErr:  nil,
+		},
+		{
+			name:     "bisdn to sonic",
+			port:     "port1",
+			sourceOS: SwitchOSVendorBISDN,
+			targetOS: SwitchOSVendorSonic,
+			allLines: []int{0, 4},
+			want:     "Ethernet0",
+			wantErr:  nil,
+		},
+		{
+			name:     "bisdn to cumulus",
+			port:     "port2",
+			sourceOS: SwitchOSVendorBISDN,
+			targetOS: SwitchOSVendorCumulus,
+			allLines: []int{0, 4},
+			want:     "swp2",
+			wantErr:  nil,
+		},
+		{
+			name:     "sonic breakout lane to bisdn",
+			port:     "Ethernet1",
+			sourceOS: SwitchOSVendorSonic,
+			targetOS: SwitchOSVendorBISDN,
+			allLines: []int{0, 1, 2, 3},
+			want:     "",
+			wantErr:  fmt.Errorf("line 1 is a breakout lane, which has no BISDN Linux port name"),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1003,5 +1039,58 @@ func TestSwitch_SetVrfOfMachine(t *testing.T) {
 				t.Errorf("Switch.SetVrfOfMachine() diff = %s", diff)
 			}
 		})
+	}
+}
+
+func Test_bisdnPortNameToLine(t *testing.T) {
+	tests := []struct {
+		port    string
+		want    int
+		wantErr bool
+	}{
+		{port: "port1", want: 0},
+		{port: "port2", want: 4},
+		{port: "port32", want: 124},
+		{port: "port0", wantErr: true},
+		{port: "port-1", wantErr: true},
+		{port: "Ethernet0", wantErr: true},
+		{port: "xport1", wantErr: true},
+		{port: "port1s1", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.port, func(t *testing.T) {
+			got, err := bisdnPortNameToLine(tt.port)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("bisdnPortNameToLine(%q) error = %v, wantErr %v", tt.port, err, tt.wantErr)
+			}
+			if !tt.wantErr && got != tt.want {
+				t.Errorf("bisdnPortNameToLine(%q) = %d, want %d", tt.port, got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_bisdnPortByLineNumber(t *testing.T) {
+	for line, want := range map[int]string{0: "port1", 4: "port2", 124: "port32"} {
+		got, err := bisdnPortByLineNumber(line)
+		if err != nil || got != want {
+			t.Errorf("bisdnPortByLineNumber(%d) = %q, %v, want %q", line, got, err, want)
+		}
+	}
+	for _, line := range []int{1, 2, 3, 5} {
+		if _, err := bisdnPortByLineNumber(line); err == nil {
+			t.Errorf("bisdnPortByLineNumber(%d): breakout lane accepted", line)
+		}
+	}
+}
+
+func Test_bisdnSwitchOSVendor(t *testing.T) {
+	vendor, err := ToSwitchOSVendor(apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_BISDN)
+	if err != nil || vendor != SwitchOSVendorBISDN {
+		t.Fatalf("ToSwitchOSVendor(BISDN) = %q, %v", vendor, err)
+	}
+	back, err := FromSwitchOSVendor(vendor)
+	if err != nil || back != apiv2.SwitchOSVendor_SWITCH_OS_VENDOR_BISDN {
+		t.Fatalf("FromSwitchOSVendor(%q) = %v, %v", vendor, back, err)
 	}
 }
