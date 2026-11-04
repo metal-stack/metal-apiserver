@@ -3,7 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 
+	"connectrpc.com/connect"
+	compress "github.com/klauspost/connect-compress/v2"
+	ipamv1connect "github.com/metal-stack/go-ipam/api/v1/apiv1connect"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
@@ -15,39 +19,20 @@ func newMachineCmd() *cli.Command {
 	return &cli.Command{
 		Name:        "machine",
 		Description: "evaluates whether machines liveliness or resurrect dead machines",
-		Flags: []cli.Flag{
-			rethinkdbAddressesFlag,
-			rethinkdbDBNameFlag,
-			rethinkdbPasswordFlag,
-			rethinkdbUserFlag,
-			headscaleAddressFlag,
-			headscaleApikeyFlag,
-			headscaleEnabledFlag,
-			headscaleControlplaneAddressFlag,
-		},
 		Commands: []*cli.Command{
 			{
 				Name:        "liveliness",
 				Description: "evaluates whether machines are still alive or if they have died",
+				Flags: []cli.Flag{
+					rethinkdbAddressesFlag,
+					rethinkdbDBNameFlag,
+					rethinkdbPasswordFlag,
+					rethinkdbUserFlag,
+				},
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					log, err := createLogger(cmd)
 					if err != nil {
 						return fmt.Errorf("unable to create logger %w", err)
-					}
-
-					if !cmd.Bool(headscaleEnabledFlag.Name) {
-						log.Info("headscale is disabled, not checking for connected machines")
-						return nil
-					}
-
-					hc, err := headscale.NewClient(headscale.Config{
-						Log:           log,
-						Apikey:        cmd.String(headscaleApikeyFlag.Name),
-						Endpoint:      cmd.String(headscaleAddressFlag.Name),
-						ControllerURL: cmd.String(headscaleControlplaneAddressFlag.Name),
-					})
-					if err != nil {
-						return err
 					}
 
 					connectOpts := rethinkdb.ConnectOpts{
@@ -65,12 +50,73 @@ func newMachineCmd() *cli.Command {
 					}
 
 					repo := repository.New(repository.Config{
-						Log:             log,
-						Datastore:       ds,
-						HeadscaleClient: hc,
+						Log:       log,
+						Datastore: ds,
 					})
 
 					return repo.UnscopedMachine().AdditionalMethods().MachineLiveliness(ctx)
+				},
+			},
+			{
+				Name:        "resurrect",
+				Description: "resurrect dead machines",
+				Flags: []cli.Flag{
+					rethinkdbAddressesFlag,
+					rethinkdbDBNameFlag,
+					rethinkdbPasswordFlag,
+					rethinkdbUserFlag,
+					headscaleAddressFlag,
+					headscaleApikeyFlag,
+					headscaleEnabledFlag,
+					headscaleControlplaneAddressFlag,
+					ipamGrpcEndpointFlag,
+				},
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					log, err := createLogger(cmd)
+					if err != nil {
+						return fmt.Errorf("unable to create logger %w", err)
+					}
+
+					connectOpts := rethinkdb.ConnectOpts{
+						Addresses:  cmd.StringSlice(rethinkdbAddressesFlag.Name),
+						Database:   cmd.String(rethinkdbDBNameFlag.Name),
+						Username:   cmd.String(rethinkdbUserFlag.Name),
+						Password:   cmd.String(rethinkdbPasswordFlag.Name),
+						InitialCap: 10,
+						MaxOpen:    20,
+					}
+
+					ds, err := generic.New(log.WithGroup("datastore"), connectOpts)
+					if err != nil {
+						return fmt.Errorf("unable to create datastore: %w", err)
+					}
+
+					hc, err := headscale.NewClient(headscale.Config{
+						Log:           log,
+						Apikey:        cmd.String(headscaleApikeyFlag.Name),
+						Endpoint:      cmd.String(headscaleAddressFlag.Name),
+						ControllerURL: cmd.String(headscaleControlplaneAddressFlag.Name),
+					})
+					if err != nil {
+						return err
+					}
+
+					ipamgrpcendpoint := cmd.String(ipamGrpcEndpointFlag.Name)
+					ipamService := ipamv1connect.NewIpamServiceClient(
+						http.DefaultClient,
+						ipamgrpcendpoint,
+						connect.WithGRPC(),
+						compress.WithAll(compress.LevelBalanced),
+					)
+
+					repo := repository.New(repository.Config{
+						Log:             log,
+						Datastore:       ds,
+						HeadscaleClient: hc,
+						Ipam:            ipamService,
+					})
+
+					return repo.UnscopedMachine().AdditionalMethods().Resurrect(ctx)
 				},
 			},
 		},

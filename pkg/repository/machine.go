@@ -1720,7 +1720,58 @@ func (r *machineRepository) Issues(ctx context.Context, req *adminv2.MachineServ
 	return &adminv2.MachineServiceIssuesResponse{Issues: allIssues}, nil
 }
 
+func (r *machineRepository) Resurrect(ctx context.Context) error {
+	r.s.log.Info("machine resurrection was requested")
+
+	machines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
+		NotAllocated: new(true),
+	}))
+	if err != nil {
+		return err
+	}
+
+	r.scope = &ProjectScope{
+		// empty scope to allow to call Decommission
+	}
+
+	for _, m := range machines {
+		provisioningEvents, err := r.s.ds.Event().Find(ctx, queries.EventFilter(m.ID))
+		if err != nil {
+			// we have no provisioning events... we cannot tell
+			r.s.log.Debug("no provisioningEvents found for resurrection", "machineID", m.ID, "error", err)
+			continue
+		}
+
+		if provisioningEvents.LastEventTime == nil {
+			continue
+		}
+
+		if provisioningEvents.Liveliness == metal.MachineLivelinessDead && time.Since(*provisioningEvents.LastEventTime) > metal.MachineResurrectAfter {
+			r.s.log.Info("resurrecting dead machine", "machineID", m.ID, "liveliness", provisioningEvents.Liveliness, "since", time.Since(*provisioningEvents.LastEventTime).String())
+			_, err := r.Decommission(ctx, &apiv2.MachineServiceDeleteRequest{Uuid: m.ID, Project: m.Allocation.Project})
+			if err != nil {
+				r.s.log.Error("error during machine resurrection", "machineID", m.ID, "error", err)
+			}
+			continue
+		}
+
+		if provisioningEvents.FailedMachineReclaim {
+			r.s.log.Info("resurrecting machine with failed reclaim", "machineID", m.ID, "liveliness", provisioningEvents.Liveliness, "since", time.Since(*provisioningEvents.LastEventTime).String())
+			_, err := r.Decommission(ctx, &apiv2.MachineServiceDeleteRequest{Uuid: m.ID, Project: m.Allocation.Project})
+			if err != nil {
+				r.s.log.Error("error during machine resurrection", "machineID", m.ID, "error", err)
+			}
+			continue
+		}
+	}
+
+	r.s.log.Info("finished machine resurrection")
+	return nil
+}
+
 func (r *machineRepository) MachineLiveliness(ctx context.Context) error {
+	r.s.log.Info("machine liveliness was requested")
+
 	machines, err := r.list(ctx, &apiv2.MachineQuery{})
 	if err != nil {
 		return err
