@@ -69,7 +69,7 @@ func New(c Config) (apiv2connect.HealthServiceHandler, error) {
 		checkers = append(checkers, &valkeyHealthChecker{valkey: c.Valkey})
 	}
 	if c.Headscale != nil {
-		checkers = append(checkers, &vpnHealthChecker{client: c.Headscale})
+		checkers = append(checkers, &vpnHealthChecker{client: c.Headscale, log: log.WithGroup("vpn")})
 	}
 	if len(c.AuditBackends) > 0 {
 		checkers = append(checkers, &auditHealthChecker{backends: c.AuditBackends, log: log.WithGroup("audit")})
