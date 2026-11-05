@@ -75,6 +75,7 @@ const (
 
 	SwitchOSVendorCumulus = SwitchOSVendor("Cumulus")
 	SwitchOSVendorSonic   = SwitchOSVendor("SONiC")
+	SwitchOSVendorBISDN   = SwitchOSVendor("BISDN")
 )
 
 func ToReplaceMode(mode apiv2.SwitchReplaceMode) (SwitchReplaceMode, error) {
@@ -270,6 +271,8 @@ func mapPortName(port string, sourceOS, targetOS SwitchOSVendor, allLines []int)
 		return sonicPortByLineNumber(line), nil
 	case SwitchOSVendorCumulus:
 		return cumulusPortByLineNumber(line, allLines), nil
+	case SwitchOSVendorBISDN:
+		return bisdnPortByLineNumber(line)
 	default:
 		return "", fmt.Errorf("unknown target switch os %s", targetOS)
 	}
@@ -295,6 +298,8 @@ func portNameToLine(port string, os SwitchOSVendor) (int, error) {
 		return sonicPortNameToLine(port)
 	case SwitchOSVendorCumulus:
 		return cumulusPortNameToLine(port)
+	case SwitchOSVendorBISDN:
+		return bisdnPortNameToLine(port)
 	default:
 		return 0, fmt.Errorf("unknown switch os %s", os)
 	}
@@ -368,6 +373,41 @@ func cumulusPortNameToLine(port string) (int, error) {
 	}
 
 	return line, nil
+}
+
+// bisdnPortNameToLine maps BISDN Linux's front panel ports port1..portN to
+// lines: portN is front panel port N with 4 lanes, as swpN on Cumulus.
+func bisdnPortNameToLine(port string) (int, error) {
+	// to prevent accidentally parsing a substring to a negative number
+	if strings.Contains(port, "-") {
+		return 0, fmt.Errorf("invalid token '-' in port name %s", port)
+	}
+
+	prefix, suffix, found := strings.Cut(port, "port")
+	if !found || prefix != "" {
+		return 0, fmt.Errorf("invalid port name %s, port name is expected to start with 'port'", port)
+	}
+
+	count, err := strconv.Atoi(suffix)
+	if err != nil {
+		return 0, fmt.Errorf("unable to convert port name to line number: %w", err)
+	}
+	if count <= 0 {
+		return 0, fmt.Errorf("invalid port name %s would map to negative number", port)
+	}
+
+	return (count - 1) * 4, nil
+}
+
+// bisdnPortByLineNumber is the BISDN Linux port of a line. Lanes of a broken
+// out port have no BISDN name that follows from the line: BISDN Linux names
+// them by the Broadcom SDK configuration (e.g. port1 broken out to 4x25G
+// becomes port1 and, on AS7726-32X, port35..port37).
+func bisdnPortByLineNumber(line int) (string, error) {
+	if line%4 > 0 {
+		return "", fmt.Errorf("line %d is a breakout lane, which has no BISDN Linux port name", line)
+	}
+	return fmt.Sprintf("port%d", line/4+1), nil
 }
 
 func sonicPortByLineNumber(line int) string {
