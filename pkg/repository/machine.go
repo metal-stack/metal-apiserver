@@ -1803,7 +1803,7 @@ func (r *machineRepository) MachineLiveliness(ctx context.Context) ([]*adminv2.M
 	)
 
 	for _, m := range machines {
-		lvlness, err := r.evaluateMachineLiveliness(ctx, m)
+		lvlness, changed, err := r.evaluateMachineLiveliness(ctx, m)
 		if err != nil {
 			r.s.log.Error("cannot update liveliness", "error", err, "machine", m)
 			errs++
@@ -1821,6 +1821,9 @@ func (r *machineRepository) MachineLiveliness(ctx context.Context) ([]*adminv2.M
 			unknown++
 			v2lvlness = apiv2.MachineLiveliness_MACHINE_LIVELINESS_UNKNOWN
 		}
+		if !changed {
+			continue
+		}
 		processedMachines = append(processedMachines, &adminv2.MachineWithLiveliness{
 			Uuid:       m.ID,
 			Liveliness: v2lvlness,
@@ -1832,14 +1835,15 @@ func (r *machineRepository) MachineLiveliness(ctx context.Context) ([]*adminv2.M
 	return processedMachines, nil
 }
 
-func (r *machineRepository) evaluateMachineLiveliness(ctx context.Context, m *metal.Machine) (metal.MachineLiveliness, error) {
+func (r *machineRepository) evaluateMachineLiveliness(ctx context.Context, m *metal.Machine) (metal.MachineLiveliness, bool, error) {
 	provisioningEvents, err := r.s.ds.Event().Find(ctx, queries.EventFilter(m.ID))
 	if err != nil {
 		// we have no provisioning events... we cannot tell
-		return metal.MachineLivelinessUnknown, fmt.Errorf("no provisioning event container found for machine: %s", m.ID)
+		return metal.MachineLivelinessUnknown, false, fmt.Errorf("no provisioning event container found for machine: %s", m.ID)
 	}
 
 	if provisioningEvents.LastEventTime != nil {
+		previousLiveliness := provisioningEvents.Liveliness
 		if time.Since(*provisioningEvents.LastEventTime) > metal.MachineDeadAfter {
 			if m.Allocation != nil {
 				// the machine is either dead or the customer did turn off the phone home service
@@ -1852,13 +1856,16 @@ func (r *machineRepository) evaluateMachineLiveliness(ctx context.Context, m *me
 			provisioningEvents.Liveliness = metal.MachineLivelinessAlive
 		}
 
+		if previousLiveliness == provisioningEvents.Liveliness {
+			return previousLiveliness, false, nil
+		}
 		err = r.s.ds.Event().Update(ctx, provisioningEvents)
 		if err != nil {
-			return provisioningEvents.Liveliness, err
+			return provisioningEvents.Liveliness, true, err
 		}
 	}
 
-	return provisioningEvents.Liveliness, nil
+	return provisioningEvents.Liveliness, false, nil
 }
 
 func (r *machineRepository) setMachineWaitingFlag(ctx context.Context, machineUUID string, waiting bool) error {
