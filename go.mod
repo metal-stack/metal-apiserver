@@ -26,7 +26,7 @@ require (
 	github.com/lestrrat-go/jwx/v4 v4.6.0
 	github.com/looplab/fsm v1.0.4
 	github.com/markbates/goth v1.82.0
-	github.com/metal-stack/api v0.9.1-0.20261105065148-30bdfe14ab53
+	github.com/metal-stack/api v0.9.1-0.20261105083043-c057a14048cb
 	github.com/metal-stack/go-ipam v1.16.0
 	github.com/metal-stack/metal-lib v0.26.4
 	github.com/metal-stack/tenant-api v0.2.1
@@ -185,8 +185,8 @@ require (
 	golang.org/x/time v0.16.0 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
 	golang.zx2c4.com/wireguard/windows v1.0.1 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20261026165753-2ffab32bce7e // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20261026165753-2ffab32bce7e // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20261104224025-d1e00e9f33ab // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20261104224025-d1e00e9f33ab // indirect
 	gopkg.in/cenkalti/backoff.v2 v2.2.1 // indirect
 	gvisor.dev/gvisor v0.0.0-20260915211658-a6f909f08a72 // indirect
 )

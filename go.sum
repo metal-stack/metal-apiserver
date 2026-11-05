@@ -379,8 +379,8 @@ github.com/mdlayher/sdnotify v1.0.0 h1:Ma9XeLVN/l0qpyx1tNeMSeTjCPH6NtuD6/N9XdTlQ
 github.com/mdlayher/sdnotify v1.0.0/go.mod h1:HQUmpM4XgYkhDLtd+Uad8ZFK1T9D5+pNxnXQjCeJlGE=
 github.com/mdlayher/socket v0.7.0 h1:qVREPVwtUMg17pwvveQxpurq0PVisMxi3FGgpsorMYQ=
 github.com/mdlayher/socket v0.7.0/go.mod h1:f7iKql2EK/rfsWYDKofKjk2Ig7I+6HQWdMIdn1tO4A4=
-github.com/metal-stack/api v0.9.1-0.20261105065148-30bdfe14ab53 h1:C3tXQ9AnJ4paROSLCcTbS/P0GzPvvZxP/cXMeCEssVw=
-github.com/metal-stack/api v0.9.1-0.20261105065148-30bdfe14ab53/go.mod h1:HFPC2zOhi2wB+q48Yq6P3G5o6K1Vl3sy04Dxpx89XtM=
+github.com/metal-stack/api v0.9.1-0.20261105083043-c057a14048cb h1:5zYKnoTDULNK+y98xAQfo8clP8lGdmZ+EVaH0fmaqWY=
+github.com/metal-stack/api v0.9.1-0.20261105083043-c057a14048cb/go.mod h1:aL6rQWsPR1WphjO1YxF02H1eJbw3TmE7GIQi2m69b74=
 github.com/metal-stack/go-ipam v1.16.0 h1:HRFji/d797kgjSA3nBtZgcKfCNC6C+BObkDBVAkSQNk=
 github.com/metal-stack/go-ipam v1.16.0/go.mod h1:eWSe79eBW8e1nPN6G/CEGSS+ZYVuEkOE4JmBxp2eSig=
 github.com/metal-stack/goth v0.1.0 h1:sdadAH9QG+xAjLNKAJq8+esfXct6icTs58juoR4BKrQ=
@@ -752,10 +752,10 @@ golang.zx2c4.com/wireguard/windows v1.0.1 h1:eOxiDVbywPC+ZQqvdCK7x+ZwWXKbYv50TtH
 golang.zx2c4.com/wireguard/windows v1.0.1/go.mod h1:+fbT3FFdX4zzYDLwJh5+HPEcNN/3HyNdzhNSVsQM+zs=
 gonum.org/v1/gonum v0.17.0 h1:VbpOemQlsSMrYmn7T2OUvQ4dqxQXU+ouZFQsZOx50z4=
 gonum.org/v1/gonum v0.17.0/go.mod h1:El3tOrEuMpv2UdMrbNlKEh9vd86bmQ6vqIcDwxEOc1E=
-google.golang.org/genproto/googleapis/api v0.0.0-20261026165753-2ffab32bce7e h1:e789sLZjeTdc02ZCQGTSzHOu0fR73+dwPQVKUp67Z88=
-google.golang.org/genproto/googleapis/api v0.0.0-20261026165753-2ffab32bce7e/go.mod h1:vHV3wJM9WZyfV7GyB+OQGq5dWVrFwCDxapPK4WlRD88=
-google.golang.org/genproto/googleapis/rpc v0.0.0-20261026165753-2ffab32bce7e h1:w3fy/G8OrJHYexn+u5y7hFyc8YRRIr7DCevtIOwAcGY=
-google.golang.org/genproto/googleapis/rpc v0.0.0-20261026165753-2ffab32bce7e/go.mod h1:OaIUM3+LpYcK2GXM4FTmhWoIq371Owdr+Cc7/BsYHHc=
+google.golang.org/genproto/googleapis/api v0.0.0-20261104224025-d1e00e9f33ab h1:n6IDWZ1RzI/NberLoLLFNrjl1H45uhc4+WYsUf5lPPc=
+google.golang.org/genproto/googleapis/api v0.0.0-20261104224025-d1e00e9f33ab/go.mod h1:vHV3wJM9WZyfV7GyB+OQGq5dWVrFwCDxapPK4WlRD88=
+google.golang.org/genproto/googleapis/rpc v0.0.0-20261104224025-d1e00e9f33ab h1:8sYjjefPfQ+FZEh1ZwBAqK/NifJVhOxut8nRh3SJzZM=
+google.golang.org/genproto/googleapis/rpc v0.0.0-20261104224025-d1e00e9f33ab/go.mod h1:OaIUM3+LpYcK2GXM4FTmhWoIq371Owdr+Cc7/BsYHHc=
 google.golang.org/grpc v1.85.0 h1:BPBCfuVRQ1qvBhKDOq9uvQllMvO59rKsYhXpp7Dd8vw=
 google.golang.org/grpc v1.85.0/go.mod h1:0rQrOD58yjal/0EaVbGBANindixsCZNQPDV3VKtaKuQ=
 google.golang.org/protobuf v1.36.12 h1:pJOKDDOyeXErUroCihFAd5LQuwXBSpVnKGrj5o/fwxc=
