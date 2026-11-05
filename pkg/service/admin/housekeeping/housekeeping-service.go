@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
@@ -28,33 +27,33 @@ func New(c Config) adminv2connect.HousekeepingServiceHandler {
 	}
 }
 
-func (m *housekeepingServiceServer) Machine(ctx context.Context, req *adminv2.HousekeepingServiceMachineRequest) (*adminv2.HousekeepingServiceMachineResponse, error) {
-	var (
-		machines []string
-		err      error
-	)
-	switch req.Action {
-	case adminv2.MachineHousekeepingAction_MACHINE_HOUSEKEEPING_ACTION_LIVELINESS:
-		machines, err = m.repo.UnscopedMachine().AdditionalMethods().MachineLiveliness(ctx)
-		if err != nil {
-			return nil, err
-		}
-	case adminv2.MachineHousekeepingAction_MACHINE_HOUSEKEEPING_ACTION_RESURRECT:
-		machines, err = m.repo.UnscopedMachine().AdditionalMethods().Resurrect(ctx)
-		if err != nil {
-			return nil, err
-		}
-	case adminv2.MachineHousekeepingAction_MACHINE_HOUSEKEEPING_ACTION_VPN_CONNECTED:
-		ms, err := vpn.EvaluateVPNConnected(ctx, m.log, m.repo)
-		if err != nil {
-			return nil, err
-		}
-		for _, m := range ms {
-			machines = append(machines, m.Uuid)
-		}
-	default:
-		return nil, errorutil.InvalidArgument("given action is not supported %q", req.Action)
+func (m *housekeepingServiceServer) MachineLiveliness(ctx context.Context, _ *adminv2.HousekeepingServiceMachineLivelinessRequest) (*adminv2.HousekeepingServiceMachineLivelinessResponse, error) {
+	modified, err := m.repo.UnscopedMachine().AdditionalMethods().MachineLiveliness(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &adminv2.HousekeepingServiceMachineLivelinessResponse{
+		ModifiedMachines: modified,
+	}, nil
+}
+
+func (m *housekeepingServiceServer) MachineResurrect(ctx context.Context, _ *adminv2.HousekeepingServiceMachineResurrectRequest) (*adminv2.HousekeepingServiceMachineResurrectResponse, error) {
+	modified, err := m.repo.UnscopedMachine().AdditionalMethods().Resurrect(ctx)
+	if err != nil {
+		return nil, err
 	}
 
-	return &adminv2.HousekeepingServiceMachineResponse{Action: req.Action, ModifiedMachineIds: machines}, nil
+	return &adminv2.HousekeepingServiceMachineResurrectResponse{
+		ModifiedMachines: modified,
+	}, nil
+}
+
+func (m *housekeepingServiceServer) MachineVPNConnected(ctx context.Context, _ *adminv2.HousekeepingServiceMachineVPNConnectedRequest) (*adminv2.HousekeepingServiceMachineVPNConnectedResponse, error) {
+	modified, err := vpn.EvaluateVPNConnected(ctx, m.log, m.repo)
+	if err != nil {
+		return nil, err
+	}
+	return &adminv2.HousekeepingServiceMachineVPNConnectedResponse{
+		ModifiedMachines: modified,
+	}, nil
 }

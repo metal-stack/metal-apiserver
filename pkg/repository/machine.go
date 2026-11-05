@@ -1727,7 +1727,7 @@ func (r *machineRepository) Issues(ctx context.Context, req *adminv2.MachineServ
 	return &adminv2.MachineServiceIssuesResponse{Issues: allIssues}, nil
 }
 
-func (r *machineRepository) Resurrect(ctx context.Context) ([]string, error) {
+func (r *machineRepository) Resurrect(ctx context.Context) ([]*apiv2.Machine, error) {
 	r.s.log.Info("machine resurrection was requested")
 
 	machines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
@@ -1737,7 +1737,7 @@ func (r *machineRepository) Resurrect(ctx context.Context) ([]string, error) {
 		return nil, err
 	}
 
-	var processedMachines []string
+	var processedMachines []*apiv2.Machine
 	for _, m := range machines {
 		provisioningEvents, err := r.s.ds.Event().Find(ctx, queries.EventFilter(m.ID))
 		if err != nil {
@@ -1757,7 +1757,12 @@ func (r *machineRepository) Resurrect(ctx context.Context) ([]string, error) {
 			if err != nil {
 				r.s.log.Error("error during machine resurrection", "machineID", m.ID, "error", err)
 			}
-			processedMachines = append(processedMachines, m.ID)
+
+			v2machine, err := r.convertToProto(ctx, m)
+			if err != nil {
+				return nil, err
+			}
+			processedMachines = append(processedMachines, v2machine)
 			continue
 		}
 
@@ -1768,7 +1773,11 @@ func (r *machineRepository) Resurrect(ctx context.Context) ([]string, error) {
 			if err != nil {
 				r.s.log.Error("error during machine resurrection", "machineID", m.ID, "error", err)
 			}
-			processedMachines = append(processedMachines, m.ID)
+			v2machine, err := r.convertToProto(ctx, m)
+			if err != nil {
+				return nil, err
+			}
+			processedMachines = append(processedMachines, v2machine)
 			continue
 		}
 	}
@@ -1777,7 +1786,7 @@ func (r *machineRepository) Resurrect(ctx context.Context) ([]string, error) {
 	return processedMachines, nil
 }
 
-func (r *machineRepository) MachineLiveliness(ctx context.Context) ([]string, error) {
+func (r *machineRepository) MachineLiveliness(ctx context.Context) ([]*adminv2.MachineWithLiveliness, error) {
 	r.s.log.Info("machine liveliness was requested")
 
 	machines, err := r.list(ctx, &apiv2.MachineQuery{})
@@ -1790,7 +1799,7 @@ func (r *machineRepository) MachineLiveliness(ctx context.Context) ([]string, er
 		alive             = 0
 		dead              = 0
 		errs              = 0
-		processedMachines []string
+		processedMachines []*adminv2.MachineWithLiveliness
 	)
 
 	for _, m := range machines {
@@ -1800,15 +1809,22 @@ func (r *machineRepository) MachineLiveliness(ctx context.Context) ([]string, er
 			errs++
 			// fall through, so the rest of the machines is getting evaluated
 		}
+		var v2lvlness apiv2.MachineLiveliness
 		switch lvlness {
 		case metal.MachineLivelinessAlive:
 			alive++
+			v2lvlness = apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE
 		case metal.MachineLivelinessDead:
 			dead++
+			v2lvlness = apiv2.MachineLiveliness_MACHINE_LIVELINESS_DEAD
 		case metal.MachineLivelinessUnknown:
 			unknown++
+			v2lvlness = apiv2.MachineLiveliness_MACHINE_LIVELINESS_UNKNOWN
 		}
-		processedMachines = append(processedMachines, m.ID)
+		processedMachines = append(processedMachines, &adminv2.MachineWithLiveliness{
+			Uuid:       m.ID,
+			Liveliness: v2lvlness,
+		})
 	}
 
 	r.s.log.Info("machine liveliness evaluated", "alive", alive, "dead", dead, "unknown", unknown, "errors", errs)
