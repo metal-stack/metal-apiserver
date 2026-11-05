@@ -159,17 +159,17 @@ func (m *machineServiceServer) Housekeeping(ctx context.Context, req *adminv2.Ma
 		err      error
 	)
 	switch req.Action {
-	case adminv2.HousekeepingAction_HOUSEKEEPING_ACTION_MACHINE_LIVELINESS:
+	case adminv2.MachineHousekeepingAction_MACHINE_HOUSEKEEPING_ACTION_LIVELINESS:
 		machines, err = m.repo.UnscopedMachine().AdditionalMethods().MachineLiveliness(ctx)
 		if err != nil {
 			return nil, err
 		}
-	case adminv2.HousekeepingAction_HOUSEKEEPING_ACTION_MACHINE_RESURRECT:
+	case adminv2.MachineHousekeepingAction_MACHINE_HOUSEKEEPING_ACTION_RESURRECT:
 		machines, err = m.repo.UnscopedMachine().AdditionalMethods().Resurrect(ctx)
 		if err != nil {
 			return nil, err
 		}
-	case adminv2.HousekeepingAction_HOUSEKEEPING_ACTION_MACHINE_VPN_CONNECTED:
+	case adminv2.MachineHousekeepingAction_MACHINE_HOUSEKEEPING_ACTION_VPN_CONNECTED:
 		ms, err := vpn.EvaluateVPNConnected(ctx, m.log, m.repo)
 		if err != nil {
 			return nil, err
