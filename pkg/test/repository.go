@@ -89,6 +89,9 @@ type (
 	testOptProviderTenant struct {
 		t string
 	}
+	testOptMinSwitchesPerMachine struct {
+		n int
+	}
 	testOptRenewCertBeforeExpiration struct {
 		renew *time.Duration
 	}
@@ -135,6 +138,13 @@ func WithProviderTenant(t string) *testOptProviderTenant {
 	}
 }
 
+// WithMinSwitchesPerMachine sets repository.Config.MinSwitchesPerMachine, defaults to 2.
+func WithMinSwitchesPerMachine(n int) *testOptMinSwitchesPerMachine {
+	return &testOptMinSwitchesPerMachine{
+		n: n,
+	}
+}
+
 func WithRenewCertBeforeExpiration(renew *time.Duration) *testOptRenewCertBeforeExpiration {
 	return &testOptRenewCertBeforeExpiration{
 		renew: renew,
@@ -155,6 +165,7 @@ func StartRepositoryWithCleanup(t testing.TB, testOpts ...testOpt) (*testStore, 
 		withContainers = true
 
 		providerTenant            = DefaultProviderTenant
+		minSwitchesPerMachine     int
 		renewCertBeforeExpiration *time.Duration
 		log                       = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: lvl}))
 	)
@@ -173,6 +184,8 @@ func StartRepositoryWithCleanup(t testing.TB, testOpts ...testOpt) (*testStore, 
 			withContainers = o.with
 		case *testOptProviderTenant:
 			providerTenant = o.t
+		case *testOptMinSwitchesPerMachine:
+			minSwitchesPerMachine = o.n
 		case *testOptRenewCertBeforeExpiration:
 			renewCertBeforeExpiration = o.renew
 		default:
@@ -254,6 +267,7 @@ func StartRepositoryWithCleanup(t testing.TB, testOpts ...testOpt) (*testStore, 
 		Component:             vc, // Use same valkey instance as queue for tests
 		Auditing:              auditingBackend,
 		HeadscaleClient:       hc,
+		MinSwitchesPerMachine: minSwitchesPerMachine,
 		TokenConfig: repository.TokenConfig{
 			TokenStore:     tokenStore,
 			CertStore:      certStore,
