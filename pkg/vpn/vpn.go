@@ -53,7 +53,7 @@ func EvaluateVPNConnected(ctx context.Context, log *slog.Logger, repo *repositor
 		ips := node.IpAddresses
 
 		if m.Allocation.Vpn.Connected == connected && slices.Equal(m.Allocation.Vpn.Ips, ips) {
-			log.Info("not updating vpn because already up-to-date", "machine", m.Uuid, "connected", connected, "ips", ips)
+			log.Info("not updating vpn because already up-to-date", "machine", m.Uuid, "node connected", connected, "allocation connected", m.Allocation.Vpn.Connected, "node ips", ips, "allocation ips", m.Allocation.Vpn.Ips)
 			continue
 		}
 
