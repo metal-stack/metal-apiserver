@@ -1808,6 +1808,7 @@ func (r *machineRepository) MachineLiveliness(ctx context.Context) ([]*adminv2.M
 			r.s.log.Error("cannot update liveliness", "error", err, "machine", m)
 			errs++
 			// fall through, so the rest of the machines is getting evaluated
+			continue
 		}
 		var v2lvlness apiv2.MachineLiveliness
 		switch lvlness {
@@ -1863,6 +1864,7 @@ func (r *machineRepository) evaluateMachineLiveliness(ctx context.Context, m *me
 		if err != nil {
 			return provisioningEvents.Liveliness, true, err
 		}
+		return provisioningEvents.Liveliness, true, nil
 	}
 
 	return provisioningEvents.Liveliness, false, nil
