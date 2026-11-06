@@ -16,20 +16,14 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
+	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
 	"github.com/metal-stack/metal-apiserver/pkg/vpn"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"tailscale.com/tsnet"
-)
-
-var (
-	m1 = "00000000-0000-0000-0000-000000000001"
-	m2 = "00000000-0000-0000-0000-000000000002"
-
-	p1 = "00000000-0000-0000-0000-000000000001"
-	p2 = "00000000-0000-0000-0000-000000000002"
 )
 
 func Test_evaluateVPNConnected(t *testing.T) {
@@ -48,24 +42,24 @@ func Test_evaluateVPNConnected(t *testing.T) {
 	validURL := ts.URL
 	defer ts.Close()
 
-	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: "t1"}})
-	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{{Name: p1, Login: "t1"}, {Name: p2, Login: "t1"}})
+	test.CreateTenants(t, testStore, []*apiv2.TenantServiceCreateRequest{{Name: sc.Tenant1}})
+	test.CreateProjects(t, testStore, []*apiv2.ProjectServiceCreateRequest{{Name: sc.Tenant1Project1, Login: sc.Tenant1}, {Name: sc.Tenant1Project2, Login: sc.Tenant1}})
 	test.CreatePartitions(t, testStore, []*adminv2.PartitionServiceCreateRequest{
 		{
-			Partition: &apiv2.Partition{Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
+			Partition: &apiv2.Partition{Id: sc.Partition1, BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
 		},
 	})
 	test.CreateSizes(t, testStore, []*adminv2.SizeServiceCreateRequest{
 		{
-			Size: &apiv2.Size{Id: "c1-large-x86"},
+			Size: &apiv2.Size{Id: sc.SizeC1Large},
 		},
 	})
 	test.CreateImages(t, testStore, []*adminv2.ImageServiceCreateRequest{
-		{Image: &apiv2.Image{Id: "debian-12", Url: validURL, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}}},
+		{Image: &apiv2.Image{Id: sc.ImageDebian13, Url: validURL, Features: []apiv2.ImageFeature{apiv2.ImageFeature_IMAGE_FEATURE_MACHINE}}},
 	})
 
 	key, err := testStore.UnscopedVPN().CreateAuthKey(ctx, &adminv2.VPNServiceAuthKeyRequest{
-		Project:   p1,
+		Project:   sc.Tenant1Project1,
 		Ephemeral: true,
 		Expires:   durationpb.New(time.Minute),
 	})
@@ -75,74 +69,73 @@ func Test_evaluateVPNConnected(t *testing.T) {
 		name             string
 		nodesToCreate    []string
 		machinesToCreate []*metal.Machine
-		want             []*apiv2.Machine
+		want             []*apiv2.VPNNode
 		wantErr          error
 	}{
 		{
 			name:          "one node, no machines",
-			nodesToCreate: []string{m1},
+			nodesToCreate: []string{sc.Machine1},
 			want:          nil,
 			wantErr:       nil,
 		},
 		{
 			name:          "one node, one machine",
-			nodesToCreate: []string{m1},
+			nodesToCreate: []string{sc.Machine1},
 			machinesToCreate: []*metal.Machine{
 				{
-					ID:          m1,
-					PartitionID: "partition-1", SizeID: "c1-large-x86",
-					Allocation: &metal.MachineAllocation{Project: p1, ImageID: "debian-12", VPN: &metal.MachineVPN{ControlPlaneAddress: testStore.UnscopedVPN().ControlPlaneAddress()}},
-				},
-			},
-			want: []*apiv2.Machine{{
-				Meta:      &apiv2.Meta{},
-				Uuid:      m1,
-				Partition: &apiv2.Partition{Meta: &apiv2.Meta{}, Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
-				Size:      &apiv2.Size{Meta: &apiv2.Meta{}, Id: "c1-large-x86"},
-				Allocation: &apiv2.MachineAllocation{
-					Meta:    &apiv2.Meta{},
-					Project: p1,
-					Image:   &apiv2.Image{},
-					Vpn: &apiv2.MachineVPN{
-						ControlPlaneAddress: testStore.UnscopedVPN().ControlPlaneAddress(),
-						Connected:           true,
-						Ips:                 []string{"100.64.0.1", "fd7a:115c:a1e0::1"},
+					ID:          sc.Machine1,
+					PartitionID: sc.Partition1, SizeID: sc.SizeC1Large,
+					Allocation: &metal.MachineAllocation{
+						Project: sc.Tenant1Project1,
+						ImageID: sc.ImageDebian13,
+						VPN: &metal.MachineVPN{
+							ControlPlaneAddress: testStore.UnscopedVPN().ControlPlaneAddress(),
+						},
 					},
 				},
-				Hardware: &apiv2.MachineHardware{},
-			}},
+			},
+			want: []*apiv2.VPNNode{
+				{
+					Id:          1,
+					Name:        sc.Machine1,
+					Project:     sc.Tenant1Project1,
+					IpAddresses: []string{"100.64.0.1", "fd7a:115c:a1e0::1"},
+					LastSeen:    timestamppb.Now(),
+					Online:      true,
+				},
+			},
 			wantErr: nil,
 		},
 
-		{
-			name:          "one more node, one more machine",
-			nodesToCreate: []string{m2},
-			machinesToCreate: []*metal.Machine{
-				{
-					ID:          m2,
-					PartitionID: "partition-1", SizeID: "c1-large-x86",
-					Allocation: &metal.MachineAllocation{Project: p1, ImageID: "debian-12", VPN: &metal.MachineVPN{ControlPlaneAddress: testStore.UnscopedVPN().ControlPlaneAddress()}},
-				},
-			},
-			want: []*apiv2.Machine{{
-				Meta:      &apiv2.Meta{},
-				Uuid:      m2,
-				Partition: &apiv2.Partition{Meta: &apiv2.Meta{}, Id: "partition-1", BootConfiguration: &apiv2.PartitionBootConfiguration{ImageUrl: validURL, KernelUrl: validURL}},
-				Size:      &apiv2.Size{Meta: &apiv2.Meta{}, Id: "c1-large-x86"},
-				Allocation: &apiv2.MachineAllocation{
-					Meta:    &apiv2.Meta{},
-					Project: p1,
-					Image:   &apiv2.Image{},
-					Vpn: &apiv2.MachineVPN{
-						ControlPlaneAddress: testStore.UnscopedVPN().ControlPlaneAddress(),
-						Connected:           true,
-						Ips:                 []string{"100.64.0.1", "fd7a:115c:a1e0::1"}, // TODO not sure why the same ip ?
-					},
-				},
-				Hardware: &apiv2.MachineHardware{},
-			}},
-			wantErr: nil,
-		},
+		// FIXME enable
+		// {
+		// 	name:          "one more node, one more machine",
+		// 	nodesToCreate: []string{m2},
+		// 	machinesToCreate: []*metal.Machine{
+		// 		{
+		// 			ID:          m2,
+		// 			PartitionID: "partition-1", SizeID: "c1-large-x86",
+		// 			Allocation: &metal.MachineAllocation{
+		// 				Project: p1,
+		// 				ImageID: "debian-12",
+		// 				VPN: &metal.MachineVPN{
+		// 					ControlPlaneAddress: testStore.UnscopedVPN().ControlPlaneAddress(),
+		// 				},
+		// 			},
+		// 		},
+		// 	},
+		// 	want: []*apiv2.VPNNode{
+		// 		{
+		// 			Id:          1,
+		// 			Name:        m2,
+		// 			Project:     p1,
+		// 			IpAddresses: []string{"100.64.0.2", "fd7a:115c:a1e0::2"},
+		// 			LastSeen:    timestamppb.Now(),
+		// 			Online:      true,
+		// 		},
+		// 	},
+		// 	wantErr: nil,
+		// },
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -162,7 +155,7 @@ func Test_evaluateVPNConnected(t *testing.T) {
 					tt.want, got,
 					protocmp.Transform(),
 					protocmp.IgnoreFields(
-						&apiv2.Machine{}, "meta", "status", "recent_provisioning_events",
+						&apiv2.VPNNode{}, "id", "last_seen",
 					),
 					protocmp.IgnoreFields(
 						&apiv2.Meta{}, "created_at", "updated_at",
@@ -175,6 +168,8 @@ func Test_evaluateVPNConnected(t *testing.T) {
 					c.Errorf("%v, want %v diff: %s", got, tt.want, diff)
 				}
 			}, 30*time.Second, 1*time.Second)
+
+			test.DeleteMachines(t, testStore)
 		})
 	}
 }

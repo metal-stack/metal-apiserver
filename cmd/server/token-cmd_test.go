@@ -7,6 +7,7 @@ import (
 	"buf.build/go/protoyaml"
 	"github.com/google/go-cmp/cmp"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
+	"github.com/metal-stack/api/go/metalstack/admin/v2/adminv2connect"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/api/go/metalstack/api/v2/apiv2connect"
 	"github.com/stretchr/testify/require"
@@ -42,6 +43,25 @@ func TestTokenCreateConfigTest(t *testing.T) {
 				Expires: durationpb.New(time.Hour * 48),
 			},
 		},
+		"housekeeping_cronjobs": {
+			User: new("housekeeping_cronjobs"),
+			TokenCreateRequest: &apiv2.TokenServiceCreateRequest{
+				Permissions: []*apiv2.PermissionsByVisibility{
+					{
+						Visibility: &apiv2.PermissionsByVisibility_Admin{
+							Admin: &apiv2.AdminPermissions{
+								Methods: []string{
+									adminv2connect.HousekeepingServiceMachineLivelinessProcedure,
+									adminv2connect.HousekeepingServiceMachineResurrectProcedure,
+									adminv2connect.HousekeepingServiceMachineVPNConnectedProcedure,
+								},
+							},
+						},
+					},
+				},
+				Expires: durationpb.New(time.Hour * 48),
+			},
+		},
 	}
 
 	userInput := `
@@ -58,6 +78,16 @@ metal_console:
                 methods:
                   - /metalstack.api.v2.MethodService/TokenScopedList
                   - /metalstack.api.v2.TokenService/Refresh
+        expires: 172800s
+housekeeping_cronjobs:
+    user: housekeeping_cronjobs
+    tokenCreateRequest:
+        permissions:
+            - admin:
+                methods:
+                  - /metalstack.admin.v2.HousekeepingService/MachineLiveliness
+                  - /metalstack.admin.v2.HousekeepingService/MachineResurrect
+                  - /metalstack.admin.v2.HousekeepingService/MachineVPNConnected
         expires: 172800s
     `
 
