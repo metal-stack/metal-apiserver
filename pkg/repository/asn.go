@@ -7,8 +7,8 @@ import (
 	"github.com/metal-stack/api/go/errorutil"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
+	"github.com/metal-stack/metal-apiserver/pkg/db/filters"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 )
 
 const (
@@ -53,11 +53,11 @@ func (r *machineRepository) releaseASN(ctx context.Context, asn uint32) error {
 func (r *machineRepository) releaseAsnTask(ctx context.Context, payload *task.MachineDecommissionPayload) error {
 	r.s.log.Debug("machine delete attempting to release asn")
 
-	m, err := r.s.ds.Machine().Find(ctx, queries.MachineFilter(&apiv2.MachineQuery{
+	m, err := r.s.ds.Machine().Find(ctx, filters.MachineQuery(&apiv2.MachineQuery{
 		Allocation: &apiv2.MachineAllocationQuery{
 			Uuid: &payload.AllocationUUID,
 		},
-	}))
+	})...)
 	if err != nil {
 		if errorutil.IsNotFound(err) {
 			return nil

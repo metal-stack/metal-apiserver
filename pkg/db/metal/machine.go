@@ -15,57 +15,57 @@ import (
 // be filled. Any unallocated (free) machine won't have such values.
 type Machine struct {
 	Base
-	Allocation   *MachineAllocation      `rethinkdb:"allocation"`
-	PartitionID  string                  `rethinkdb:"partitionid"`
-	SizeID       string                  `rethinkdb:"sizeid"`
-	RackID       string                  `rethinkdb:"rackid"`
-	RoomID       string                  `rethinkdb:"roomid"`
-	Waiting      bool                    `rethinkdb:"waiting"`
-	PreAllocated bool                    `rethinkdb:"preallocated"`
-	Hardware     MachineHardware         `rethinkdb:"hardware"`
-	State        MachineState            `rethinkdb:"state"`
-	LEDState     ChassisIdentifyLEDState `rethinkdb:"ledstate"`
-	Tags         []string                `rethinkdb:"tags"`
-	IPMI         IPMI                    `rethinkdb:"ipmi"`
-	BIOS         BIOS                    `rethinkdb:"bios"`
+	Allocation   *MachineAllocation      `rethinkdb:"allocation" json:"allocation"`
+	PartitionID  string                  `rethinkdb:"partitionid" json:"partition_id"`
+	SizeID       string                  `rethinkdb:"sizeid" json:"size_id"`
+	RackID       string                  `rethinkdb:"rackid" json:"rack_id"`
+	RoomID       string                  `rethinkdb:"roomid" json:"room_id"`
+	Waiting      bool                    `rethinkdb:"waiting" json:"waiting"`
+	PreAllocated bool                    `rethinkdb:"preallocated" json:"pre_allocated"`
+	Hardware     MachineHardware         `rethinkdb:"hardware" json:"hardware"`
+	State        MachineState            `rethinkdb:"state" json:"state"`
+	LEDState     ChassisIdentifyLEDState `rethinkdb:"ledstate" json:"led_state"`
+	Tags         []string                `rethinkdb:"tags" json:"tags"`
+	IPMI         IPMI                    `rethinkdb:"ipmi" json:"ipmi"`
+	BIOS         BIOS                    `rethinkdb:"bios" json:"bios"`
 }
 
 // A MachineAllocation stores the data which are only present for allocated machines.
 type MachineAllocation struct {
-	Creator     string    `rethinkdb:"creator"`
-	Created     time.Time `rethinkdb:"created"`
-	Name        string    `rethinkdb:"name"`
-	Description string    `rethinkdb:"description"`
-	Project     string    `rethinkdb:"project"`
-	ImageID     string    `rethinkdb:"imageid"`
+	Creator     string    `rethinkdb:"creator" json:"creator"`
+	Created     time.Time `rethinkdb:"created" json:"created"`
+	Name        string    `rethinkdb:"name" json:"name"`
+	Description string    `rethinkdb:"description" json:"description"`
+	Project     string    `rethinkdb:"project" json:"project"`
+	ImageID     string    `rethinkdb:"imageid" json:"image_id"`
 	// FIXME once we implement machine create, store the reference to the fsl instead of the whole copy here
-	FilesystemLayoutID string `rethinkdb:"filesystemlayoutid"`
+	FilesystemLayoutID string `rethinkdb:"filesystemlayoutid" json:"filesystem_layout_id"`
 	// FIXME remove and replace with a reference
-	FilesystemLayout *FilesystemLayout `rethinkdb:"filesystemlayout"`
-	MachineNetworks  []*MachineNetwork `rethinkdb:"networks"`
-	Hostname         string            `rethinkdb:"hostname"`
-	SSHPubKeys       []string          `rethinkdb:"sshPubKeys"`
-	UserData         string            `rethinkdb:"userdata"`
-	ConsolePassword  string            `rethinkdb:"console_password"`
-	Succeeded        bool              `rethinkdb:"succeeded"`
-	Role             Role              `rethinkdb:"role"`
-	VPN              *MachineVPN       `rethinkdb:"vpn"`
-	UUID             string            `rethinkdb:"uuid"`
-	FirewallRules    *FirewallRules    `rethinkdb:"firewall_rules"`
-	DNSServers       DNSServers        `rethinkdb:"dns_servers"`
-	NTPServers       NTPServers        `rethinkdb:"ntp_servers"`
-	Labels           map[string]string `rethinkdb:"labels"`
-	PlacementLabels  map[string]string `rethinkdb:"placement_labels"`
+	FilesystemLayout *FilesystemLayout `rethinkdb:"filesystemlayout" json:"filesystem_layout"`
+	MachineNetworks  []*MachineNetwork `rethinkdb:"networks" json:"machine_networks"`
+	Hostname         string            `rethinkdb:"hostname" json:"hostname"`
+	SSHPubKeys       []string          `rethinkdb:"sshPubKeys" json:"ssh_pub_keys"`
+	UserData         string            `rethinkdb:"userdata" json:"user_data"`
+	ConsolePassword  string            `rethinkdb:"console_password" json:"console_password"`
+	Succeeded        bool              `rethinkdb:"succeeded" json:"succeeded"`
+	Role             Role              `rethinkdb:"role" json:"role"`
+	VPN              *MachineVPN       `rethinkdb:"vpn" json:"vpn"`
+	UUID             string            `rethinkdb:"uuid" json:"uuid"`
+	FirewallRules    *FirewallRules    `rethinkdb:"firewall_rules" json:"firewall_rules"`
+	DNSServers       DNSServers        `rethinkdb:"dns_servers" json:"dns_servers"`
+	NTPServers       NTPServers        `rethinkdb:"ntp_servers" json:"ntp_servers"`
+	Labels           map[string]string `rethinkdb:"labels" json:"labels"`
+	PlacementLabels  map[string]string `rethinkdb:"placement_labels" json:"placement_labels"`
 }
 
 // A MachineState describes the state of a machine. If the Value is AvailableState,
 // the machine will be available for allocation. In all other cases the allocation
 // must explicitly point to this machine.
 type MachineState struct {
-	Value              MState `rethinkdb:"value"`
-	Description        string `rethinkdb:"description"`
-	Issuer             string `rethinkdb:"issuer"`
-	MetalHammerVersion string `rethinkdb:"metal_hammer_version"`
+	Value              MState `rethinkdb:"value" json:"value"`
+	Description        string `rethinkdb:"description" json:"description"`
+	Issuer             string `rethinkdb:"issuer" json:"issuer"`
+	MetalHammerVersion string `rethinkdb:"metal_hammer_version" json:"metal_hammer_version"`
 }
 
 // A MState is an enum which indicates the state of a machine
@@ -91,23 +91,23 @@ var (
 )
 
 type FirewallRules struct {
-	Egress  []EgressRule  `rethinkdb:"egress"`
-	Ingress []IngressRule `rethinkdb:"ingress"`
+	Egress  []EgressRule  `rethinkdb:"egress" json:"egress"`
+	Ingress []IngressRule `rethinkdb:"ingress" json:"ingress"`
 }
 
 type EgressRule struct {
-	Protocol Protocol `rethinkdb:"protocol"`
-	Ports    []int    `rethinkdb:"ports"`
-	To       []string `rethinkdb:"to"`
-	Comment  string   `rethinkdb:"comment"`
+	Protocol Protocol `rethinkdb:"protocol" json:"protocol"`
+	Ports    []int    `rethinkdb:"ports" json:"ports"`
+	To       []string `rethinkdb:"to" json:"to"`
+	Comment  string   `rethinkdb:"comment" json:"comment"`
 }
 
 type IngressRule struct {
-	Protocol Protocol `rethinkdb:"protocol"`
-	Ports    []int    `rethinkdb:"ports"`
-	To       []string `rethinkdb:"to"`
-	From     []string `rethinkdb:"from"`
-	Comment  string   `rethinkdb:"comment"`
+	Protocol Protocol `rethinkdb:"protocol" json:"protocol"`
+	Ports    []int    `rethinkdb:"ports" json:"ports"`
+	To       []string `rethinkdb:"to" json:"to"`
+	From     []string `rethinkdb:"from" json:"from"`
+	Comment  string   `rethinkdb:"comment" json:"comment"`
 }
 
 type Protocol string
@@ -227,44 +227,44 @@ func validateCIDRs(cidrs []string) error {
 
 // MachineNetwork stores the Network details of the machine
 type MachineNetwork struct {
-	NetworkID           string   `rethinkdb:"networkid"`
-	Prefixes            []string `rethinkdb:"prefixes"`
-	IPs                 []string `rethinkdb:"ips"`
-	DestinationPrefixes []string `rethinkdb:"destinationprefixes"`
-	Vrf                 uint     `rethinkdb:"vrf"`
+	NetworkID           string   `rethinkdb:"networkid" json:"network_id"`
+	Prefixes            []string `rethinkdb:"prefixes" json:"prefixes"`
+	IPs                 []string `rethinkdb:"ips" json:"ips"`
+	DestinationPrefixes []string `rethinkdb:"destinationprefixes" json:"destination_prefixes"`
+	Vrf                 uint     `rethinkdb:"vrf" json:"vrf"`
 	// FIXME convert to new types
-	PrivatePrimary bool   `rethinkdb:"privateprimary"`
-	Private        bool   `rethinkdb:"private"`
-	ASN            uint32 `rethinkdb:"asn"`
-	Nat            bool   `rethinkdb:"nat"`
-	Underlay       bool   `rethinkdb:"underlay"`
-	Shared         bool   `rethinkdb:"shared"`
+	PrivatePrimary bool   `rethinkdb:"privateprimary" json:"private_primary"`
+	Private        bool   `rethinkdb:"private" json:"private"`
+	ASN            uint32 `rethinkdb:"asn" json:"asn"`
+	Nat            bool   `rethinkdb:"nat" json:"nat"`
+	Underlay       bool   `rethinkdb:"underlay" json:"underlay"`
+	Shared         bool   `rethinkdb:"shared" json:"shared"`
 
 	// New network properties, keep the old for backward compatibility
-	ProjectID   string      `rethinkdb:"projectid" json:"projectid"`
-	NetworkType NetworkType `rethinkdb:"networktype"`
-	NATType     NATType     `rethinkdb:"nattype"`
+	ProjectID   string      `rethinkdb:"projectid" json:"project_id"`
+	NetworkType NetworkType `rethinkdb:"networktype" json:"network_type"`
+	NATType     NATType     `rethinkdb:"nattype" json:"nat_type"`
 }
 
 // MachineHardware stores the data which is collected by our system on the hardware when it registers itself.
 type MachineHardware struct {
-	Memory    uint64        `rethinkdb:"memory"`
-	Nics      Nics          `rethinkdb:"network_interfaces"`
-	Disks     []BlockDevice `rethinkdb:"block_devices"`
-	MetalCPUs []MetalCPU    `rethinkdb:"cpus"`
-	MetalGPUs []MetalGPU    `rethinkdb:"gpus"`
+	Memory    uint64        `rethinkdb:"memory" json:"memory"`
+	Nics      Nics          `rethinkdb:"network_interfaces" json:"nics"`
+	Disks     []BlockDevice `rethinkdb:"block_devices" json:"disks"`
+	MetalCPUs []MetalCPU    `rethinkdb:"cpus" json:"metal_cpus"`
+	MetalGPUs []MetalGPU    `rethinkdb:"gpus" json:"metal_gpus"`
 }
 
 type MetalCPU struct {
-	Vendor  string `rethinkdb:"vendor"`
-	Model   string `rethinkdb:"model"`
-	Cores   uint32 `rethinkdb:"cores"`
-	Threads uint32 `rethinkdb:"threads"`
+	Vendor  string `rethinkdb:"vendor" json:"vendor"`
+	Model   string `rethinkdb:"model" json:"model"`
+	Cores   uint32 `rethinkdb:"cores" json:"cores"`
+	Threads uint32 `rethinkdb:"threads" json:"threads"`
 }
 
 type MetalGPU struct {
-	Vendor string `rethinkdb:"vendor"`
-	Model  string `rethinkdb:"model"`
+	Vendor string `rethinkdb:"vendor" json:"vendor"`
+	Model  string `rethinkdb:"model" json:"model"`
 }
 
 // MachineLiveliness indicates the liveliness of a machine
@@ -281,81 +281,81 @@ const (
 
 // BlockDevice information.
 type BlockDevice struct {
-	Name string `rethinkdb:"name"`
-	Size uint64 `rethinkdb:"size"`
+	Name string `rethinkdb:"name" json:"name"`
+	Size uint64 `rethinkdb:"size" json:"size"`
 }
 
 // Fru (Field Replaceable Unit) data
 type Fru struct {
-	ChassisPartNumber   string `rethinkdb:"chassis_part_number"`
-	ChassisPartSerial   string `rethinkdb:"chassis_part_serial"`
-	BoardMfg            string `rethinkdb:"board_mfg"`
-	BoardMfgSerial      string `rethinkdb:"board_mfg_serial"`
-	BoardPartNumber     string `rethinkdb:"board_part_number"`
-	ProductManufacturer string `rethinkdb:"product_manufacturer"`
-	ProductPartNumber   string `rethinkdb:"product_part_number"`
-	ProductSerial       string `rethinkdb:"product_serial"`
+	ChassisPartNumber   string `rethinkdb:"chassis_part_number" json:"chassis_part_number"`
+	ChassisPartSerial   string `rethinkdb:"chassis_part_serial" json:"chassis_part_serial"`
+	BoardMfg            string `rethinkdb:"board_mfg" json:"board_mfg"`
+	BoardMfgSerial      string `rethinkdb:"board_mfg_serial" json:"board_mfg_serial"`
+	BoardPartNumber     string `rethinkdb:"board_part_number" json:"board_part_number"`
+	ProductManufacturer string `rethinkdb:"product_manufacturer" json:"product_manufacturer"`
+	ProductPartNumber   string `rethinkdb:"product_part_number" json:"product_part_number"`
+	ProductSerial       string `rethinkdb:"product_serial" json:"product_serial"`
 }
 
 // IPMI connection data
 type IPMI struct {
 	// Address is host:port of the connection to the ipmi BMC, host can be either a ip address or a hostname
-	Address       string        `rethinkdb:"address"`
-	MacAddress    string        `rethinkdb:"mac"`
-	User          string        `rethinkdb:"user"`
-	Password      string        `rethinkdb:"password"`
-	Interface     string        `rethinkdb:"interface"`
-	Fru           Fru           `rethinkdb:"fru"`
-	BMCVersion    string        `rethinkdb:"bmcversion"`
-	PowerState    string        `rethinkdb:"powerstate"`
-	PowerMetric   *PowerMetric  `rethinkdb:"powermetric"`
-	PowerSupplies PowerSupplies `rethinkdb:"powersupplies"`
-	LastUpdated   time.Time     `rethinkdb:"last_updated"`
+	Address       string        `rethinkdb:"address" json:"address"`
+	MacAddress    string        `rethinkdb:"mac" json:"mac_address"`
+	User          string        `rethinkdb:"user" json:"user"`
+	Password      string        `rethinkdb:"password" json:"password"`
+	Interface     string        `rethinkdb:"interface" json:"interface"`
+	Fru           Fru           `rethinkdb:"fru" json:"fru"`
+	BMCVersion    string        `rethinkdb:"bmcversion" json:"bmc_version"`
+	PowerState    string        `rethinkdb:"powerstate" json:"power_state"`
+	PowerMetric   *PowerMetric  `rethinkdb:"powermetric" json:"power_metric"`
+	PowerSupplies PowerSupplies `rethinkdb:"powersupplies" json:"power_supplies"`
+	LastUpdated   time.Time     `rethinkdb:"last_updated" json:"last_updated"`
 }
 
 type PowerMetric struct {
 	// AverageConsumedWatts shall represent the
 	// average power level that occurred averaged over the last IntervalInMin
 	// minutes.
-	AverageConsumedWatts float32 `rethinkdb:"averageconsumedwatts"`
+	AverageConsumedWatts float32 `rethinkdb:"averageconsumedwatts" json:"average_consumed_watts"`
 	// IntervalInMin shall represent the time
 	// interval (or window), in minutes, in which the PowerMetrics properties
 	// are measured over.
 	// Should be an integer, but some Dell implementations return as a float.
-	IntervalInMin float32 `rethinkdb:"intervalinmin"`
+	IntervalInMin float32 `rethinkdb:"intervalinmin" json:"interval_in_min"`
 	// MaxConsumedWatts shall represent the
 	// maximum power level in watts that occurred within the last
 	// IntervalInMin minutes.
-	MaxConsumedWatts float32 `rethinkdb:"maxconsumedwatts"`
+	MaxConsumedWatts float32 `rethinkdb:"maxconsumedwatts" json:"max_consumed_watts"`
 	// MinConsumedWatts shall represent the
 	// minimum power level in watts that occurred within the last
 	// IntervalInMin minutes.
-	MinConsumedWatts float32 `rethinkdb:"minconsumedwatts"`
+	MinConsumedWatts float32 `rethinkdb:"minconsumedwatts" json:"min_consumed_watts"`
 }
 
 type PowerSupplies []PowerSupply
 type PowerSupply struct {
 	// Status shall contain any status or health properties
 	// of the resource.
-	Status PowerSupplyStatus `rethinkdb:"status"`
+	Status PowerSupplyStatus `rethinkdb:"status" json:"status"`
 }
 type PowerSupplyStatus struct {
-	Health string `rethinkdb:"health"`
-	State  string `rethinkdb:"state"`
+	Health string `rethinkdb:"health" json:"health"`
+	State  string `rethinkdb:"state" json:"state"`
 }
 
 // BIOS contains machine bios information
 type BIOS struct {
-	Version string `rethinkdb:"version"`
-	Vendor  string `rethinkdb:"vendor"`
-	Date    string `rethinkdb:"date"`
+	Version string `rethinkdb:"version" json:"version"`
+	Vendor  string `rethinkdb:"vendor" json:"vendor"`
+	Date    string `rethinkdb:"date" json:"date"`
 }
 
 type MachineVPN struct {
-	ControlPlaneAddress string   `rethinkdb:"address"`
-	AuthKey             string   `rethinkdb:"auth_key"`
-	Connected           bool     `rethinkdb:"connected"`
-	IPs                 []string `rethinkdb:"ips"`
+	ControlPlaneAddress string   `rethinkdb:"address" json:"control_plane_address"`
+	AuthKey             string   `rethinkdb:"auth_key" json:"auth_key"`
+	Connected           bool     `rethinkdb:"connected" json:"connected"`
+	IPs                 []string `rethinkdb:"ips" json:"ips"`
 }
 
 // LEDState is the state of the LED of the Machine
@@ -382,8 +382,8 @@ func LEDStateFrom(name string) (LEDState, error) {
 
 // A ChassisIdentifyLEDState describes the state of a chassis identify LED, i.e. LED-ON/LED-OFF.
 type ChassisIdentifyLEDState struct {
-	Value       LEDState `rethinkdb:"value"`
-	Description string   `rethinkdb:"description"`
+	Value       LEDState `rethinkdb:"value" json:"value"`
+	Description string   `rethinkdb:"description" json:"description"`
 }
 
 func (n *MachineNetwork) ContainsIP(ip string) bool {

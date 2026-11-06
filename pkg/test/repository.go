@@ -1,12 +1,16 @@
 package test
 
 import (
+	"database/sql"
+	"errors"
 	"log/slog"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
+	"github.com/lib/pq"
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
@@ -16,9 +20,11 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/async/queue"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
+	"github.com/metal-stack/metal-apiserver/pkg/db/filters"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/db/generic/pg"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
+	"github.com/metal-stack/metal-apiserver/pkg/db/routing"
 	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/invite"
 	"github.com/metal-stack/metal-apiserver/pkg/repository"
@@ -47,6 +53,8 @@ type (
 		*repository.Store
 		log           *slog.Logger
 		ds            generic.Datastore
+		rethink       generic.Datastore
+		routingPgDB   *sql.DB
 		dbName        string
 		queryExecutor *r.Session
 		ipam          apiv1connect.IpamServiceClient
@@ -80,6 +88,9 @@ type (
 	testOptRethink struct {
 		with bool
 	}
+	testOptRouting struct {
+		config routing.Config
+	}
 	testOptHeadscale struct {
 		with bool
 	}
@@ -106,6 +117,20 @@ func WithValkey(with bool) *testOptValkey {
 	return &testOptValkey{
 		with: with,
 	}
+}
+
+// DBRoutingEnv is the environment variable that configures the storage router
+// when a test does not pass an explicit WithRoutingConfig option. It uses the
+// same compact format as production (see routing.Parse), e.g.
+// "default=postgres" runs every entity against postgres. An empty value keeps
+// everything on rethinkdb.
+const DBRoutingEnv = "DB_ROUTING"
+
+// WithRoutingConfig enables the configuration-driven storage router. A postgres
+// container is started for the entities whose mode is "postgres" or "both"; the
+// remaining entities stay on rethink. Requires rethink to be enabled.
+func WithRoutingConfig(config routing.Config) *testOptRouting {
+	return &testOptRouting{config: config}
 }
 
 // WithRethink if set to true a rethink database container is started, defaults to false.
@@ -156,6 +181,7 @@ func StartRepositoryWithCleanup(t testing.TB, testOpts ...testOpt) (*testStore, 
 
 		providerTenant            = DefaultProviderTenant
 		renewCertBeforeExpiration *time.Duration
+		routingConfig             *routing.Config
 		log                       = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: lvl}))
 	)
 
@@ -167,6 +193,9 @@ func StartRepositoryWithCleanup(t testing.TB, testOpts ...testOpt) (*testStore, 
 			withValkey = o.with
 		case *testOptRethink:
 			withRethink = o.with
+		case *testOptRouting:
+			cfg := o.config
+			routingConfig = &cfg
 		case *testOptHeadscale:
 			withHeadscale = o.with
 		case *testOptContainer:
@@ -184,6 +213,19 @@ func StartRepositoryWithCleanup(t testing.TB, testOpts ...testOpt) (*testStore, 
 		withPostgres = false
 		withRethink = false
 		withValkey = false
+	}
+
+	// When the test does not configure the storage router explicitly, fall
+	// back to the DB_ROUTING environment variable. It uses the same compact
+	// format as production (routing.Parse), so CI can run the whole suite
+	// against a different backend mix (e.g. DB_ROUTING=default=postgres)
+	// without touching individual tests.
+	if routingConfig == nil {
+		if cfgStr := os.Getenv(DBRoutingEnv); cfgStr != "" {
+			cfg, err := routing.Parse(cfgStr)
+			require.NoError(t, err, "invalid %s configuration", DBRoutingEnv)
+			routingConfig = &cfg
+		}
 	}
 
 	var (
@@ -205,6 +247,31 @@ func StartRepositoryWithCleanup(t testing.TB, testOpts ...testOpt) (*testStore, 
 		var err error
 		session, err = r.Connect(opts)
 		require.NoError(t, err)
+	}
+	rethinkDS := ds
+
+	// Wire the configuration-driven storage router on top of the rethink
+	// datastore. A postgres container is only started when at least one entity
+	// is configured for postgres.
+	var (
+		routingPgCloser func()
+		routingPgDB     *sql.DB
+		routingWatcher  *pg.Watcher
+	)
+	if routingConfig != nil {
+		require.True(t, withRethink, "the routing datastore requires rethink to be enabled")
+
+		pgDB, pgDSN, pgCloser := StartPostgresWithDSN(t, log)
+		routingPgCloser = pgCloser
+		routingPgDB = pgDB
+
+		watcher, err := pg.NewWatcher(log, pgDB, pgDSN)
+		require.NoError(t, err)
+		routingWatcher = watcher
+
+		routed, err := routing.NewDatastore(log, *routingConfig, ds, pgDB, routing.WithPostgresWatcher(watcher))
+		require.NoError(t, err)
+		ds = routed
 	}
 
 	if withValkey {
@@ -270,6 +337,12 @@ func StartRepositoryWithCleanup(t testing.TB, testOpts ...testOpt) (*testStore, 
 		if withRethink {
 			rethinkCloser()
 		}
+		if routingWatcher != nil {
+			_ = routingWatcher.Close()
+		}
+		if routingPgCloser != nil {
+			routingPgCloser()
+		}
 		ipamCloser()
 		tenantApiserverCloser()
 		asyncCloser()
@@ -287,6 +360,8 @@ func StartRepositoryWithCleanup(t testing.TB, testOpts ...testOpt) (*testStore, 
 		Store:                  repo,
 		log:                    log,
 		ds:                     ds,
+		rethink:                rethinkDS,
+		routingPgDB:            routingPgDB,
 		dbName:                 opts.Database,
 		queryExecutor:          session,
 		ipam:                   ipam,
@@ -324,6 +399,14 @@ func (s *testStore) Cleanup(t testing.TB) {
 	for _, tableName := range tables {
 		_, err := r.DB(databaseNameFromT(t)).Table(tableName).Delete().RunWrite(s.queryExecutor, r.RunOpts{Context: t.Context()})
 		require.NoError(t, err)
+	}
+
+	if s.routingPgDB != nil {
+		// postgres stores one table per entity type, named after the (lowercased)
+		// entity; only the tables of entities configured for postgres exist.
+		for _, tableName := range tables {
+			execIgnoreUndefinedTable(t, s.routingPgDB, "DELETE FROM "+pq.QuoteIdentifier(tableName))
+		}
 	}
 
 	for i := range 99 {
@@ -408,7 +491,7 @@ func (t *testStore) GetToken(subject string, cr *apiv2.TokenServiceCreateRequest
 }
 
 func (t *testStore) GetEventContainer(machineID string) *metal.ProvisioningEventContainer {
-	resp, err := t.ds.Event().Find(t.t.Context(), queries.EventFilter(machineID))
+	resp, err := t.ds.Event().Find(t.t.Context(), filters.Event(machineID)...)
 	require.NoError(t.t, err)
 	return resp
 }
@@ -518,6 +601,32 @@ func DeleteNetworks(t testing.TB, testStore *testStore) {
 	_, err = r.DB(testStore.dbName).Table("network").Delete().RunWrite(testStore.queryExecutor)
 	require.NoError(t, err)
 
+	deletePostgresEntities(t, testStore, "Network")
+}
+
+// deletePostgresEntities clears the postgres-backed entities of the given types.
+// It is a no-op when the store does not use the routing postgres backend.
+func deletePostgresEntities(t testing.TB, testStore *testStore, entityTypes ...string) {
+	if testStore.routingPgDB == nil {
+		return
+	}
+	for _, entityType := range entityTypes {
+		execIgnoreUndefinedTable(t, testStore.routingPgDB, "DELETE FROM "+pq.QuoteIdentifier(strings.ToLower(entityType)))
+	}
+}
+
+// execIgnoreUndefinedTable runs a statement, ignoring "undefined_table" (42P01)
+// errors. It is used for cleanup of postgres tables that only exist for entities
+// configured to use the postgres backend.
+func execIgnoreUndefinedTable(t testing.TB, db *sql.DB, query string, args ...any) {
+	_, err := db.ExecContext(t.Context(), query, args...)
+
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) && pqErr.Code == "42P01" {
+		return
+	}
+
+	require.NoError(t, err)
 }
 
 func DeleteIPs(t testing.TB, testStore *testStore) {
@@ -535,11 +644,15 @@ func DeleteIPs(t testing.TB, testStore *testStore) {
 
 	_, err = r.DB(testStore.dbName).Table("ip").Delete().RunWrite(testStore.queryExecutor)
 	require.NoError(t, err)
+
+	deletePostgresEntities(t, testStore, "IP")
 }
 
 func DeleteMachines(t testing.TB, testStore *testStore) {
 	_, err := r.DB(testStore.dbName).Table("machine").Delete().RunWrite(testStore.queryExecutor)
 	require.NoError(t, err)
+
+	deletePostgresEntities(t, testStore, "Machine")
 }
 
 func (t *testStore) DeleteTenants() {
