@@ -34,8 +34,8 @@ func EvaluateVPNConnected(ctx context.Context, log *slog.Logger, repo *repositor
 	}
 
 	var (
-		errs            []error
-		updatedMachines []*apiv2.VPNNode
+		errs         []error
+		updatedNodes []*apiv2.VPNNode
 	)
 	for _, m := range ms {
 		if m.Allocation == nil || m.Allocation.Vpn == nil {
@@ -64,7 +64,7 @@ func EvaluateVPNConnected(ctx context.Context, log *slog.Logger, repo *repositor
 			continue
 		}
 
-		updatedMachines = append(updatedMachines, node)
+		updatedNodes = append(updatedNodes, node)
 		log.Info("updated vpn connected state", "machine", m.Uuid, "connected", connected, "ips", ips)
 	}
 
@@ -72,5 +72,5 @@ func EvaluateVPNConnected(ctx context.Context, log *slog.Logger, repo *repositor
 		return nil, fmt.Errorf("errors occurred when evaluating machine vpn connections:%w", errors.Join(errs...))
 	}
 
-	return updatedMachines, nil
+	return updatedNodes, nil
 }
