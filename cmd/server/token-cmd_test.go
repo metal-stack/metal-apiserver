@@ -43,8 +43,8 @@ func TestTokenCreateConfigTest(t *testing.T) {
 				Expires: durationpb.New(time.Hour * 48),
 			},
 		},
-		"metalctlv2_cronjobs": {
-			User: new("metalctlv2_cronjobs"),
+		"housekeeping_cronjobs": {
+			User: new("housekeeping_cronjobs"),
 			TokenCreateRequest: &apiv2.TokenServiceCreateRequest{
 				Permissions: []*apiv2.PermissionsByVisibility{
 					{
@@ -79,8 +79,8 @@ metal_console:
                   - /metalstack.api.v2.MethodService/TokenScopedList
                   - /metalstack.api.v2.TokenService/Refresh
         expires: 172800s
-metalctlv2_cronjobs:
-    user: metalctlv2_cronjobs
+housekeeping_cronjobs:
+    user: housekeeping_cronjobs
     tokenCreateRequest:
         permissions:
             - admin:
