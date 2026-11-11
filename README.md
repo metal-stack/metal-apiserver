@@ -2,7 +2,6 @@
 
 [![Actions](https://github.com/metal-stack/metal-apiserver/actions/workflows/build.yaml/badge.svg?branch=main)](https://github.com/metal-stack/metal-apiserver/actions)
 [![Slack](https://img.shields.io/badge/slack-metal--stack-brightgreen.svg?logo=slack)](https://metal-stack.slack.com/)
-[![Go Report Card](https://goreportcard.com/badge/github.com/metal-stack/metal-apiserver)](https://goreportcard.com/report/github.com/metal-stack/metal-apiserver)
 [![codecov](https://codecov.io/gh/metal-stack/metal-apiserver/branch/main/graph/badge.svg)](https://codecov.io/gh/metal-stack/metal-apiserver)
 [![go.dev reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white&style=flat-square)](https://pkg.go.dev/github.com/metal-stack/metal-apiserver)
 
@@ -58,30 +57,12 @@ flowchart LR
 | [headscale](https://github.com/juanfont/headscale)               | no       | VPN access to machines                                        |
 | TimescaleDB / Splunk                                             | no       | Audit trail                                                   |
 
-## Repository Layout
-
-| Path                           | Content                                                                   |
-| ------------------------------ | ------------------------------------------------------------------------- |
-| `cmd/server`                   | Entrypoint and subcommands (`serve`, `datastore`, `token`, `vpn`)         |
-| `pkg/service/{api,admin,infra}`| Implementations of the v2 API services                                    |
-| `pkg/repository`               | Business logic and access to all backends                                 |
-| `pkg/db`                       | RethinkDB datastore, entities, queries and migrations                     |
-| `pkg/auth`, `pkg/token`        | Authentication, authorization and token handling                          |
-| `pkg/async`                    | Asynchronous tasks and queues                                             |
-| `pkg/fsm`, `pkg/issues`        | Machine state machine and machine issue evaluation                        |
-| `pkg/headscale`, `pkg/vpn`     | VPN integration                                                           |
-| `pkg/test`, `pkg/e2e`          | Test helpers (testcontainers based backends) and end-to-end tests         |
-
 ## Usage
 
 The server binary provides the following subcommands:
 
 ```bash
 server serve                 # start the api server
-server datastore init        # initialize the datastore, required before the first start
-server datastore migrate     # run datastore migrations (supports --dry-run and --target-version)
-server token                 # create api tokens for services depending on the api-server
-server vpn connected-machines # list machines connected via vpn
 ```
 
 Every flag can also be set with an environment variable. Run `server serve --help` for the complete list. The most important ones are:
