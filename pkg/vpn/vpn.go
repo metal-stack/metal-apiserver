@@ -14,7 +14,7 @@ import (
 	"github.com/samber/lo"
 )
 
-func EvaluateVPNConnected(ctx context.Context, log *slog.Logger, repo *repository.Store) ([]*apiv2.Machine, error) {
+func EvaluateVPNConnected(ctx context.Context, log *slog.Logger, repo *repository.Store) ([]*apiv2.VPNNode, error) {
 	ms, err := repo.UnscopedMachine().List(ctx, &apiv2.MachineQuery{
 		Allocation: &apiv2.MachineAllocationQuery{
 			// Return only allocated machines which have a vpn configured
@@ -34,8 +34,8 @@ func EvaluateVPNConnected(ctx context.Context, log *slog.Logger, repo *repositor
 	}
 
 	var (
-		errs            []error
-		updatedMachines []*apiv2.Machine
+		errs         []error
+		updatedNodes []*apiv2.VPNNode
 	)
 	for _, m := range ms {
 		if m.Allocation == nil || m.Allocation.Vpn == nil {
@@ -53,18 +53,18 @@ func EvaluateVPNConnected(ctx context.Context, log *slog.Logger, repo *repositor
 		ips := node.IpAddresses
 
 		if m.Allocation.Vpn.Connected == connected && slices.Equal(m.Allocation.Vpn.Ips, ips) {
-			log.Info("not updating vpn because already up-to-date", "machine", m.Uuid, "connected", connected, "ips", ips)
+			log.Info("not updating vpn because already up-to-date", "machine", m.Uuid, "node connected", connected, "allocation connected", m.Allocation.Vpn.Connected, "node ips", ips, "allocation ips", m.Allocation.Vpn.Ips)
 			continue
 		}
 
-		updatedMachine, err := repo.UnscopedMachine().AdditionalMethods().SetMachineConnectedToVPN(ctx, m.Uuid, connected, ips)
+		_, err := repo.UnscopedMachine().AdditionalMethods().SetMachineConnectedToVPN(ctx, m.Uuid, connected, ips)
 		if err != nil {
 			errs = append(errs, err)
 			log.Error("unable to update vpn connected state, continue anyway", "machine", m.Uuid, "error", err)
 			continue
 		}
 
-		updatedMachines = append(updatedMachines, updatedMachine)
+		updatedNodes = append(updatedNodes, node)
 		log.Info("updated vpn connected state", "machine", m.Uuid, "connected", connected, "ips", ips)
 	}
 
@@ -72,5 +72,5 @@ func EvaluateVPNConnected(ctx context.Context, log *slog.Logger, repo *repositor
 		return nil, fmt.Errorf("errors occurred when evaluating machine vpn connections:%w", errors.Join(errs...))
 	}
 
-	return updatedMachines, nil
+	return updatedNodes, nil
 }
