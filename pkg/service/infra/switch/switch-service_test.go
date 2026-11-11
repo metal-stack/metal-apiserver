@@ -1,6 +1,7 @@
 package infra
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -882,6 +883,28 @@ func Test_switchRepository_ConnectMachineWithSwitches(t *testing.T) {
 			wantErr: errorutil.FailedPrecondition("machine m1 is not connected to exactly two switches, found connections to switches []"),
 		},
 		{
+			name: "machine is connected to only one switch",
+			m: func() *apiv2.Machine {
+				return &apiv2.Machine{
+					Uuid: sc.Machine8,
+					Partition: &apiv2.Partition{
+						Id: sc.Partition1,
+					},
+					Hardware: &apiv2.MachineHardware{
+						Nics: []*apiv2.MachineNic{
+							{
+								Name: "lan0",
+								Neighbors: []*apiv2.MachineNic{
+									{Name: "Ethernet1", Identifier: "Ethernet1", Hostname: sc.P01Rack01Switch1},
+								},
+							},
+						},
+					},
+				}
+			},
+			wantErr: errorutil.FailedPrecondition("machine %s is not connected to exactly two switches, found connections to switches [%s]", sc.Machine8, sc.P01Rack01Switch1),
+		},
+		{
 			name: "machine is connected to three switches",
 			m: func() *apiv2.Machine {
 				return &apiv2.Machine{
@@ -1198,6 +1221,128 @@ func Test_switchRepository_ConnectMachineWithSwitches(t *testing.T) {
 			}
 
 			err := s.repo.Switch().AdditionalMethods().ConnectMachineWithSwitches(ctx, m)
+			if diff := cmp.Diff(tt.wantErr, err, errorutil.ErrorStringComparer()); diff != "" {
+				t.Errorf("switchRepository.ConnectMachineWithSwitches() error diff = %s", diff)
+				return
+			}
+
+			var mods *test.Asserters
+			if tt.mods != nil {
+				mods = tt.mods()
+			}
+			err = dc.Assert(mods,
+				cmpopts.IgnoreFields(
+					metal.SwitchSync{}, "Time",
+				),
+				protocmp.IgnoreFields(
+					&timestamppb.Timestamp{}, "seconds", "nanos",
+				),
+				protocmp.IgnoreFields(
+					&apiv2.SwitchSync{}, "time",
+				),
+			)
+			require.NoError(t, err)
+		})
+	}
+}
+
+func Test_switchRepository_ConnectMachineWithSwitches_MinOneSwitch(t *testing.T) {
+	ctx := t.Context()
+
+	dc := test.NewDatacenter(t, test.WithMinSwitchesPerMachine(1))
+	defer dc.Close()
+
+	machine := func(uuid string, neighbors ...[2]string) func() *apiv2.Machine {
+		return func() *apiv2.Machine {
+			m := &apiv2.Machine{
+				Uuid:      uuid,
+				Partition: &apiv2.Partition{Id: sc.Partition1},
+				Hardware:  &apiv2.MachineHardware{},
+			}
+			for i, n := range neighbors {
+				m.Hardware.Nics = append(m.Hardware.Nics, &apiv2.MachineNic{
+					Name:      fmt.Sprintf("lan%d", i),
+					Neighbors: []*apiv2.MachineNic{{Name: n[1], Identifier: n[1], Hostname: n[0]}},
+				})
+			}
+			return m
+		}
+	}
+	connect := func(machineID string, switchNames ...string) func() *test.Asserters {
+		return func() *test.Asserters {
+			return &test.Asserters{
+				Switches: func(switches map[string]*apiv2.Switch) {
+					for _, name := range switchNames {
+						sw := switches[name]
+						sw.MachineConnections = append(sw.MachineConnections, &apiv2.MachineConnection{
+							MachineId: machineID,
+							Nic:       sw.Nics[1],
+						})
+					}
+				},
+			}
+		}
+	}
+
+	tests := []struct {
+		name    string
+		m       func() *apiv2.Machine
+		mods    func() *test.Asserters
+		wantErr error
+	}{
+		{
+			name:    "machine is not connected",
+			m:       machine(sc.Machine8),
+			wantErr: errorutil.FailedPrecondition("machine %s must be connected to one or two switches, found connections to switches []", sc.Machine8),
+		},
+		{
+			name: "machine is connected to three switches",
+			m: machine(sc.Machine8,
+				[2]string{sc.P01Rack01Switch1, "Ethernet1"},
+				[2]string{sc.P01Rack01Switch2, "Ethernet1"},
+				[2]string{sc.P01Rack01Switch2_1, "Ethernet1"},
+			),
+			wantErr: errorutil.FailedPrecondition("machine %s must be connected to one or two switches, found connections to switches %v", sc.Machine8, []string{sc.P01Rack01Switch1, sc.P01Rack01Switch2, sc.P01Rack01Switch2_1}),
+		},
+		{
+			name:    "connect new machine to a single switch",
+			m:       machine(sc.Machine8, [2]string{sc.P01Rack01Switch1, "Ethernet1"}),
+			mods:    connect(sc.Machine8, sc.P01Rack01Switch1),
+			wantErr: nil,
+		},
+		{
+			name: "connect new machine to two switches still works",
+			m: machine(sc.Machine8,
+				[2]string{sc.P01Rack01Switch1, "Ethernet1"},
+				[2]string{sc.P01Rack01Switch2, "Ethernet1"},
+			),
+			mods:    connect(sc.Machine8, sc.P01Rack01Switch1, sc.P01Rack01Switch2),
+			wantErr: nil,
+		},
+		{
+			name: "two switches must still reside in the same rack",
+			m: machine(sc.Machine8,
+				[2]string{sc.P01Rack01Switch1, "Ethernet1"},
+				[2]string{sc.P01Rack02Switch2, "Ethernet1"},
+			),
+			wantErr: errorutil.FailedPrecondition("connected switches of a machine must reside in the same rack, rack of switch %s: %s, rack of switch %s: %s, machine: %s", sc.P01Rack01Switch1, sc.P01Rack01, sc.P01Rack02Switch2, sc.P01Rack02, sc.Machine8),
+		},
+		{
+			name:    "dual-homed machine cannot silently lose a switch",
+			m:       machine(sc.Machine1, [2]string{sc.P01Rack01Switch1, "Ethernet0"}),
+			wantErr: errorutil.FailedPrecondition("machine wants to register at switches %v but is already connected to switches %v; if you want to migrate machine connections from one switch to another call switch migrate first", []string{sc.P01Rack01Switch1}, []string{sc.P01Rack01Switch1, sc.P01Rack01Switch2}),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dc.Create(&sc.SwitchesWithMachinesDatacenter)
+			defer dc.Cleanup()
+
+			s := &switchServiceServer{
+				repo: dc.GetTestStore().Store,
+			}
+
+			err := s.repo.Switch().AdditionalMethods().ConnectMachineWithSwitches(ctx, tt.m())
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ErrorStringComparer()); diff != "" {
 				t.Errorf("switchRepository.ConnectMachineWithSwitches() error diff = %s", diff)
 				return

@@ -40,6 +40,8 @@ type (
 		tokens          token.TokenStore
 		issuer          string
 		providerTenant  string
+
+		minSwitchesPerMachine int
 	}
 
 	Config struct {
@@ -53,6 +55,10 @@ type (
 		Auditing              auditing.Auditing
 		HeadscaleClient       *headscale.Client
 		TokenConfig           TokenConfig
+		// MinSwitchesPerMachine is the number of leaf switches a machine must be connected to when it registers.
+		// Production setups are dual-homed (2, the default when unset). 1 allows single-switch partitions,
+		// e.g. hardware labs; machines may then be connected to one or two switches.
+		MinSwitchesPerMachine int
 	}
 
 	TokenConfig struct {
@@ -71,7 +77,14 @@ type (
 	}
 )
 
+// DefaultMinSwitchesPerMachine is used when Config.MinSwitchesPerMachine is not set.
+const DefaultMinSwitchesPerMachine = 2
+
 func New(c Config) *Store {
+	minSwitches := c.MinSwitchesPerMachine
+	if minSwitches == 0 {
+		minSwitches = DefaultMinSwitchesPerMachine
+	}
 	return &Store{
 		log:             c.Log,
 		tc:              c.TenantApiserverClient,
@@ -86,6 +99,8 @@ func New(c Config) *Store {
 		tokens:          c.TokenConfig.TokenStore,
 		issuer:          c.TokenConfig.Issuer,
 		providerTenant:  c.TokenConfig.ProviderTenant,
+
+		minSwitchesPerMachine: minSwitches,
 	}
 }
 
