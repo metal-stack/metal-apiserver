@@ -30,6 +30,12 @@ server: fmt
 test:
 	go test ./... -race -coverpkg=./... -coverprofile=coverage.out -covermode=atomic $(GO_TEST_ARGS) -timeout=300s && go tool cover -func=coverage.out
 
+# Same as 'test', but routes every entity to postgres (the postgres leg of the
+# CI matrix), to catch backend-specific breakage early.
+.PHONY: test-postgres
+test-postgres:
+	DB_ROUTING=default=postgres go test ./... -race -coverpkg=./... -covermode=atomic $(GO_TEST_ARGS) -timeout=300s
+
 .PHONY: fmt
 fmt:
 	go fmt ./...

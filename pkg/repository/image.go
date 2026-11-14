@@ -15,8 +15,8 @@ import (
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/db/filters"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 )
 
 type imageRepository struct {
@@ -104,7 +104,7 @@ func (r *imageRepository) delete(ctx context.Context, e *metal.Image) (*deleteIn
 }
 
 func (r *imageRepository) find(ctx context.Context, rq *apiv2.ImageQuery) (*metal.Image, error) {
-	image, err := r.s.ds.Image().Find(ctx, queries.ImageFilter(rq))
+	image, err := r.s.ds.Image().Find(ctx, filters.Image(rq)...)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +113,7 @@ func (r *imageRepository) find(ctx context.Context, rq *apiv2.ImageQuery) (*meta
 }
 
 func (r *imageRepository) list(ctx context.Context, rq *apiv2.ImageQuery) ([]*metal.Image, error) {
-	images, err := r.s.ds.Image().List(ctx, queries.ImageFilter(rq))
+	images, err := r.s.ds.Image().List(ctx, filters.Image(rq)...)
 	if err != nil {
 		return nil, err
 	}

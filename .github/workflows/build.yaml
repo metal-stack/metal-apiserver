@@ -36,11 +36,28 @@ jobs:
         run: exit 1
 
   test:
-    name: Test ${{ matrix.package-group }}
+    name: Test ${{ matrix.package-group }} (${{ matrix.backend }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
+        # Run the whole suite against both storage backends so regressions on
+        # either side are caught early. The backend is selected via the
+        # DB_ROUTING env var consumed by the test harness
+        # (pkg/test/repository.go): "rethinkdb" leaves everything on RethinkDB
+        # (the default), "postgres" routes every entity to Postgres.
+        backend: [rethinkdb, postgres]
+        package-group:
+            - ip-network
+            - project-tenant
+            - token
+            - db-and-testframework
+            - machine-switch
+            - partition-vpn
+            - image-size
+            - infra
+            - e2e
+            - other
         include:
           # Each entry runs tests for a subset of packages.
           # Adjust the 'packages' globs to match your actual pkg/ layout.
@@ -62,8 +79,8 @@ jobs:
             packages: ./pkg/service/infra/...
           - package-group: e2e
             packages: ./pkg/e2e
-          - package-group: other
             # Catch-all: everything not covered above, including cmd/ and top-level pkg/
+          - package-group: other
             packages: >-
               $(go list ./... |
                 grep -v "metal-apiserver/pkg/e2e$" |
@@ -104,17 +121,26 @@ jobs:
           cache: true
 
       - name: Run tests with coverage
+        # The postgres leg runs informationally: it must surface breakage in the
+        # checks without failing the workflow, so the (pre-existing) gaps the
+        # matrix exposes can be fixed incrementally. The rethinkdb leg stays
+        # blocking as before.
+        continue-on-error: ${{ matrix.backend == 'postgres' }}
+        env:
+          DB_ROUTING: ${{ matrix.backend == 'postgres' && 'default=postgres' || '' }}
         run: |
           go test -race -covermode=atomic \
             -coverpkg=./... \
-            -coverprofile=coverage-${{ matrix.package-group }}.out \
+            -coverprofile=coverage-${{ matrix.package-group }}-${{ matrix.backend }}.out \
             ${{ matrix.packages }}
 
       - name: Upload partial coverage artifact
+        if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: coverage-${{ matrix.package-group }}
-          path: coverage-${{ matrix.package-group }}.out
+          name: coverage-${{ matrix.package-group }}-${{ matrix.backend }}
+          path: coverage-${{ matrix.package-group }}-${{ matrix.backend }}.out
+          if-no-files-found: ignore
           retention-days: 1
 
   coverage:

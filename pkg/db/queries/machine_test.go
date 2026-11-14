@@ -11,8 +11,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/db/filters"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/stretchr/testify/require"
 )
@@ -584,7 +584,7 @@ func TestMachineFilter(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ds.Machine().List(ctx, queries.MachineFilter(tt.rq))
+			got, err := ds.Machine().List(ctx, filters.MachineQuery(tt.rq)...)
 			require.NoError(t, err)
 
 			slices.SortFunc(got, func(a, b *metal.Machine) int {

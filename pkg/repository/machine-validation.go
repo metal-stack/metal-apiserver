@@ -8,7 +8,6 @@ import (
 	"github.com/metal-stack/api/go/errorutil"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"golang.org/x/crypto/ssh"
@@ -101,7 +100,7 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 	}
 	if req.FilesystemLayout == nil {
 		var fsls metal.FilesystemLayouts
-		fsls, err := r.s.ds.FilesystemLayout().List(ctx, nil)
+		fsls, err := r.s.ds.FilesystemLayout().List(ctx)
 		if err != nil {
 			return err
 		}
@@ -119,10 +118,10 @@ func (r *machineRepository) validateCreate(ctx context.Context, req *apiv2.Machi
 		if err := r.validateFirewallSpec(req.FirewallSpec); err != nil {
 			return err
 		}
-		underlay, err := r.s.ds.Network().Find(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{
+		underlay, err := findNetwork(ctx, r.s.ds, &apiv2.NetworkQuery{
 			Partition: &partitionId,
 			Type:      apiv2.NetworkType_NETWORK_TYPE_UNDERLAY.Enum(),
-		}))
+		})
 		if err != nil {
 			return err
 		}

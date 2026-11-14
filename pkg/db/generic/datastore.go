@@ -11,24 +11,27 @@ import (
 
 const demotedUser = "metal"
 
+// rethinkStorage satisfies the neutral Entity Storage port.
+var _ Storage[*metal.IP] = (*rethinkStorage[*metal.IP])(nil)
+
 type (
 	datastore struct {
 		log           *slog.Logger
 		queryExecutor r.QueryExecutor
 		dbname        string
 
-		ip                  *storage[*metal.IP]
-		machine             *storage[*metal.Machine]
-		event               *storage[*metal.ProvisioningEventContainer]
-		size                *storage[*metal.Size]
-		sizeImageConstraint *storage[*metal.SizeImageConstraint]
-		sizeReservation     *storage[*metal.SizeReservation]
-		partition           *storage[*metal.Partition]
-		network             *storage[*metal.Network]
-		fsl                 *storage[*metal.FilesystemLayout]
-		image               *storage[*metal.Image]
-		sw                  *storage[*metal.Switch]
-		switchStatus        *storage[*metal.SwitchStatus]
+		ip                  *rethinkStorage[*metal.IP]
+		machine             *rethinkStorage[*metal.Machine]
+		event               *rethinkStorage[*metal.ProvisioningEventContainer]
+		size                *rethinkStorage[*metal.Size]
+		sizeImageConstraint *rethinkStorage[*metal.SizeImageConstraint]
+		sizeReservation     *rethinkStorage[*metal.SizeReservation]
+		partition           *rethinkStorage[*metal.Partition]
+		network             *rethinkStorage[*metal.Network]
+		fsl                 *rethinkStorage[*metal.FilesystemLayout]
+		image               *rethinkStorage[*metal.Image]
+		sw                  *rethinkStorage[*metal.Switch]
+		switchStatus        *rethinkStorage[*metal.SwitchStatus]
 
 		asnPool *integerPool
 		vrfPool *integerPool

@@ -8,8 +8,8 @@ import (
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/db/filters"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 )
 
 func (r *sizeRepository) validateCreate(ctx context.Context, req *adminv2.SizeServiceCreateRequest) error {
@@ -66,9 +66,9 @@ func (r *sizeRepository) validateUpdate(ctx context.Context, req *adminv2.SizeSe
 }
 
 func (r *sizeRepository) validateDelete(ctx context.Context, req *metal.Size) error {
-	machines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
+	machines, err := r.s.ds.Machine().List(ctx, filters.MachineQuery(&apiv2.MachineQuery{
 		Size: &req.ID,
-	}))
+	})...)
 	if err != nil {
 		return errorutil.NewInternal(err)
 	}
@@ -77,9 +77,9 @@ func (r *sizeRepository) validateDelete(ctx context.Context, req *metal.Size) er
 		return errorutil.FailedPrecondition("cannot remove size with existing machines of this size")
 	}
 
-	sizeReservations, err := r.s.ds.SizeReservation().List(ctx, queries.SizeReservationFilter(&apiv2.SizeReservationQuery{
+	sizeReservations, err := r.s.ds.SizeReservation().List(ctx, filters.SizeReservation(&apiv2.SizeReservationQuery{
 		Size: &req.ID,
-	}))
+	})...)
 	if err != nil {
 		return errorutil.NewInternal(err)
 	}
@@ -88,9 +88,9 @@ func (r *sizeRepository) validateDelete(ctx context.Context, req *metal.Size) er
 		return errorutil.FailedPrecondition("cannot remove size with existing size reservations of this size")
 	}
 
-	sizeImageConstraints, err := r.s.ds.SizeImageConstraint().List(ctx, queries.SizeImageConstraintFilter(&apiv2.SizeImageConstraintQuery{
+	sizeImageConstraints, err := r.s.ds.SizeImageConstraint().List(ctx, filters.SizeImageConstraint(&apiv2.SizeImageConstraintQuery{
 		Size: &req.ID,
-	}))
+	})...)
 	if err != nil {
 		return errorutil.NewInternal(err)
 	}
