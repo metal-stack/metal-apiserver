@@ -49,8 +49,10 @@ func startTenantApiserverWithDB(t testing.TB, log *slog.Logger, dbcloser func(),
 
 	err := pgdatastore.InitTables(log, db,
 		&apiv1.Project{},
+		&apiv1.ProjectConfig{},
 		&apiv1.ProjectMember{},
 		&apiv1.Tenant{},
+		&apiv1.TenantConfig{},
 		&apiv1.TenantMember{},
 	)
 	require.NoError(t, err)
