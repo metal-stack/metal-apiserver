@@ -1431,6 +1431,9 @@ func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWa
 		return err
 	}
 
+	pollTicker := time.NewTicker(1 * time.Minute)
+	defer pollTicker.Stop()
+
 	for {
 		select {
 		case change, ok := <-changes:
@@ -1458,7 +1461,7 @@ func (r *machineRepository) Wait(ctx context.Context, req *infrav2.BootServiceWa
 
 			return nil
 
-		case <-time.Tick(1 * time.Minute):
+		case <-pollTicker.C:
 			alloc, err := getAllocation()
 			if err != nil {
 				return err

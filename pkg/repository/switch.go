@@ -7,6 +7,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -29,8 +30,108 @@ import (
 type (
 	switchRepository struct {
 		s *Store
+
+		// conversionCache memoizes read-only data that is required to convert a
+		// switch into its api representation. It prevents re-reading the complete
+		// network and ip tables (and repeatedly fetching the same machines) for
+		// every single switch that is converted within one store operation, e.g.
+		// when listing all switches. The repository instance is created per
+		// Store.Switch() call, so the cache is scoped to a single request.
+		conversionCache switchConversionCache
+	}
+
+	switchConversionCache struct {
+		mu sync.Mutex
+
+		baseLoaded bool
+		networks   []*metal.Network
+		ips        []*metal.IP
+
+		machinesByID    map[string]*metal.Machine
+		machinesByQuery map[string][]*metal.Machine
 	}
 )
+
+// baseData returns all networks and ips, reading them from the backend only once
+// per repository instance.
+func (r *switchRepository) baseData(ctx context.Context) ([]*metal.Network, []*metal.IP, error) {
+	c := &r.conversionCache
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if !c.baseLoaded {
+		networks, err := r.s.ds.Network().List(ctx)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		ips, err := r.s.ds.IP().List(ctx)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		c.networks = networks
+		c.ips = ips
+		c.baseLoaded = true
+	}
+
+	return c.networks, c.ips, nil
+}
+
+// machineByID fetches a machine by its id, caching the result for the lifetime of
+// the repository instance.
+func (r *switchRepository) machineByID(ctx context.Context, id string) (*metal.Machine, error) {
+	c := &r.conversionCache
+
+	c.mu.Lock()
+	if m, ok := c.machinesByID[id]; ok {
+		c.mu.Unlock()
+		return m, nil
+	}
+	c.mu.Unlock()
+
+	m, err := r.s.ds.Machine().Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	c.mu.Lock()
+	if c.machinesByID == nil {
+		c.machinesByID = make(map[string]*metal.Machine)
+	}
+	c.machinesByID[id] = m
+	c.mu.Unlock()
+
+	return m, nil
+}
+
+// machinesByQuery returns the machines matching the given query, executing the
+// query only once per distinct query key for the lifetime of the repository instance.
+func (r *switchRepository) machinesByQuery(ctx context.Context, key string, query *apiv2.MachineQuery) ([]*metal.Machine, error) {
+	c := &r.conversionCache
+
+	c.mu.Lock()
+	if machines, ok := c.machinesByQuery[key]; ok {
+		c.mu.Unlock()
+		return machines, nil
+	}
+	c.mu.Unlock()
+
+	machines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(query))
+	if err != nil {
+		return nil, err
+	}
+
+	c.mu.Lock()
+	if c.machinesByQuery == nil {
+		c.machinesByQuery = make(map[string][]*metal.Machine)
+	}
+	c.machinesByQuery[key] = machines
+	c.mu.Unlock()
+
+	return machines, nil
+}
 
 func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServiceRegisterRequest) (*apiv2.Switch, error) {
 	if req == nil || req.Switch == nil {
@@ -200,6 +301,16 @@ func (r *switchRepository) GetSwitchesWithConnectedMachines(ctx context.Context,
 		return nil, err
 	}
 
+	machinesByUUID := make(map[string]*apiv2.Machine, len(machines))
+	for _, m := range machines {
+		machinesByUUID[m.Uuid] = m
+	}
+
+	metalMachinesByID := make(map[string]*metal.Machine, len(metalMachines))
+	for _, m := range metalMachines {
+		metalMachinesByID[m.ID] = m
+	}
+
 	for _, sw := range switches {
 		var (
 			id          = sw.Id
@@ -213,16 +324,12 @@ func (r *switchRepository) GetSwitchesWithConnectedMachines(ctx context.Context,
 				continue
 			}
 
-			machine, found := lo.Find(machines, func(m *apiv2.Machine) bool {
-				return m.Uuid == con.MachineId
-			})
+			machine, found := machinesByUUID[con.MachineId]
 			if !found {
 				continue
 			}
 
-			metalMachine, found := lo.Find(metalMachines, func(m *metal.Machine) bool {
-				return m.ID == con.MachineId
-			})
+			metalMachine, found := metalMachinesByID[con.MachineId]
 			if !found {
 				continue
 			}
@@ -929,12 +1036,7 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 		projectMachines []*metal.Machine
 	)
 
-	networks, err := r.s.ds.Network().List(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	ips, err := r.s.ds.IP().List(ctx)
+	networks, ips, err := r.baseData(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -984,13 +1086,13 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 		}
 
 		if m != nil && m.Allocation != nil {
-			projectMachines, err = r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
+			projectMachines, err = r.machinesByQuery(ctx, m.Allocation.Project+"\x00"+sw.Partition+"\x00"+sw.Rack, &apiv2.MachineQuery{
 				Allocation: &apiv2.MachineAllocationQuery{
 					Project: new(m.Allocation.Project),
 				},
 				Partition: new(sw.Partition),
 				Rack:      new(sw.Rack),
-			}))
+			})
 			if err != nil {
 				return nil, err
 			}
@@ -1041,12 +1143,7 @@ func (r *switchRepository) getConnectedMachineForNic(ctx context.Context, nic me
 		return nil, nil
 	}
 
-	m, err := r.s.ds.Machine().Get(ctx, connection.MachineID)
-	if err != nil {
-		return nil, err
-	}
-
-	return m, nil
+	return r.machineByID(ctx, connection.MachineID)
 }
 
 func convertMachineConnections(machineConnections metal.ConnectionMap, nics []*apiv2.SwitchNic) ([]*apiv2.MachineConnection, error) {
