@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
@@ -74,6 +75,14 @@ func (s *server) Run(ctx context.Context) error {
 
 	metricsMux := http.NewServeMux()
 	metricsMux.Handle("/metrics", promhttp.Handler())
+	// pprof is registered on the internal metrics server only and must never be
+	// added to the public api mux. Handlers are registered explicitly to avoid
+	// the implicit registration on http.DefaultServeMux by importing net/http/pprof.
+	metricsMux.HandleFunc("/debug/pprof/", pprof.Index)
+	metricsMux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	metricsMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	metricsMux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	metricsMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 	ms := &http.Server{
 		Addr:              s.c.MetricsServerEndpoint,
 		Handler:           metricsMux,
@@ -81,6 +90,7 @@ func (s *server) Run(ctx context.Context) error {
 	}
 	go func() {
 		s.log.Info("serving metrics at", "addr", ms.Addr+"/metrics")
+		s.log.Info("serving pprof at", "addr", ms.Addr+"/debug/pprof/")
 		err := ms.ListenAndServe()
 		if err != nil {
 			s.log.Error("unable to start metric endpoint", "error", err)
