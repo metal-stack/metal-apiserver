@@ -57,34 +57,6 @@ flowchart LR
 | [headscale](https://github.com/juanfont/headscale)               | no       | VPN access to machines                                        |
 | TimescaleDB / Splunk                                             | no       | Audit trail                                                   |
 
-## Usage
-
-The server binary provides the following subcommands:
-
-```bash
-server serve                 # start the api server
-```
-
-Every flag can also be set with an environment variable. Run `server serve --help` for the complete list. The most important ones are:
-
-| Flag                         | Environment variable       | Description                                                     |
-| ---------------------------- | -------------------------- | --------------------------------------------------------------- |
-| `--http-server-endpoint`     | `HTTP_SERVER_ENDPOINT`     | Bind address of the API server (default `localhost:8081`)       |
-| `--metric-server-endpoint`   | `METRIC_SERVER_ENDPOINT`   | Bind address of the metrics server (default `localhost:2112`)   |
-| `--server-http-url`          | `SERVER_HTTP_URL`          | External URL of the API, used for OIDC callbacks                |
-| `--session-secret`           | `SESSION_SECRET`           | Secret to encrypt the session cookie (required)                 |
-| `--rethinkdb-addresses`      | `RETHINKDB_ADDRESSES`      | RethinkDB addresses (required)                                  |
-| `--rethinkdb-password`       | `RETHINKDB_PASSWORD`       | RethinkDB password (required)                                   |
-| `--redis-addr`               | `REDIS_ADDR`               | Address of Redis / Valkey                                       |
-| `--ipam-grpc-endpoint`       | `IPAM_GRPC_ENDPOINT`       | go-ipam endpoint (default `http://ipam:9090`)                   |
-| `--tenant-apiserver-baseurl` | `TENANT_APISERVER_BASEURL` | tenant-apiserver endpoint (default `http://tenant-apiserver:8080`) |
-| `--oidc-discovery-url`       | `OIDC_DISCOVERY_URL`       | OIDC discovery URL (required)                                   |
-| `--oidc-client-id`           | `OIDC_CLIENT_ID`           | OIDC client id (required)                                       |
-| `--oidc-client-secret`       | `OIDC_CLIENT_SECRET`       | OIDC client secret (required)                                   |
-| `--oidc-end-session-url`     | `OIDC_END_SESSION_URL`     | OIDC end session URL (required)                                 |
-| `--provider-tenant`          | `PROVIDER_TENANT`          | Tenant whose members may obtain admin roles (default `metal-stack`) |
-| `--headscale-enabled`        | `HEADSCALE_ENABLED`        | Enable VPN services via headscale                               |
-
 ## Deployment
 
 The metal-apiserver is deployed as part of the metal-stack control plane with the [metal-roles](https://github.com/metal-stack/metal-roles) Ansible roles. Container images are built for every release.
@@ -107,10 +79,6 @@ To test changes in a running [mini-lab](https://github.com/metal-stack/mini-lab)
 ```bash
 make mini-lab-push
 ```
-
-## Contributing
-
-Contributions are welcome! Please read the [contribution guidelines](https://metal-stack.io/community/contribution-guideline) and reach out on [Slack](https://metal-stack.slack.com/) if you have questions.
 
 ## License
 
