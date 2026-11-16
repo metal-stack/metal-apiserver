@@ -666,13 +666,6 @@ func (r *machineRepository) Decommission(ctx context.Context, req *apiv2.Machine
 		return nil, errorutil.WrapConnectErr(connect.CodeInvalidArgument, err)
 	}
 
-	return r.decommission(ctx, m, req.Project)
-}
-
-// decommission runs the decommission workflow for the given machine.
-// In contrast to Decommission it does not require the machine to be allocated and therefore can also
-// be used to reset an unallocated machine, e.g. during machine resurrection.
-func (r *machineRepository) decommission(ctx context.Context, m *metal.Machine, project string) (*apiv2.MachineServiceDeleteResponse, error) {
 	var (
 		alloc                    = pointer.SafeDeref(m.Allocation)
 		machineIpAllocationUUIDs []string
@@ -681,7 +674,7 @@ func (r *machineRepository) decommission(ctx context.Context, m *metal.Machine, 
 
 	for _, nw := range alloc.MachineNetworks {
 		for _, ipAddress := range nw.IPs {
-			ip, err := r.s.IP(project).Get(ctx, ipAddress)
+			ip, err := r.s.IP(req.Project).Get(ctx, ipAddress)
 			if err != nil {
 				if errorutil.IsNotFound(err) {
 					continue
@@ -691,19 +684,6 @@ func (r *machineRepository) decommission(ctx context.Context, m *metal.Machine, 
 			}
 
 			machineIpAllocationUUIDs = append(machineIpAllocationUUIDs, ip.Uuid)
-		}
-	}
-
-	// An unallocated machine can still have acquired ips that are tagged with its machine id, e.g. when a
-	// previous decommission did not finish. These must be released as well so that resurrection does not leak ips.
-	if m.Allocation == nil {
-		ips, err := r.s.ds.IP().List(ctx, queries.IpFilter(&apiv2.IPQuery{Machine: &m.ID}))
-		if err != nil {
-			return nil, err
-		}
-
-		for _, ip := range ips {
-			machineIpAllocationUUIDs = append(machineIpAllocationUUIDs, ip.AllocationUUID)
 		}
 	}
 
@@ -1766,8 +1746,7 @@ func (r *machineRepository) Resurrect(ctx context.Context) ([]*apiv2.Machine, er
 		if provisioningEvents.Liveliness == metal.MachineLivelinessDead && time.Since(*provisioningEvents.LastEventTime) > metal.MachineResurrectAfter {
 			r.s.log.Info("resurrecting dead machine", "machineID", m.ID, "liveliness", provisioningEvents.Liveliness, "since", time.Since(*provisioningEvents.LastEventTime).String())
 			// the machine is not allocated, therefore no project scope applies during resurrection
-			_, err := r.decommission(ctx, m, "")
-			if err != nil {
+			if _, err := r.MachineBMCCommand(ctx, m.ID, m.PartitionID, apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_MACHINE_DELETED); err != nil {
 				r.s.log.Error("error during machine resurrection", "machineID", m.ID, "error", err)
 			}
 
@@ -1782,8 +1761,7 @@ func (r *machineRepository) Resurrect(ctx context.Context) ([]*apiv2.Machine, er
 		if provisioningEvents.FailedMachineReclaim {
 			r.s.log.Info("resurrecting machine with failed reclaim", "machineID", m.ID, "liveliness", provisioningEvents.Liveliness, "since", time.Since(*provisioningEvents.LastEventTime).String())
 			// the machine is not allocated, therefore no project scope applies during resurrection
-			_, err := r.decommission(ctx, m, "")
-			if err != nil {
+			if _, err := r.MachineBMCCommand(ctx, m.ID, m.PartitionID, apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_MACHINE_DELETED); err != nil {
 				r.s.log.Error("error during machine resurrection", "machineID", m.ID, "error", err)
 			}
 			v2machine, err := r.convertToProto(ctx, m)
