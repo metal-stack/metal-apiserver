@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
+	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
@@ -135,10 +137,20 @@ func Test_machineServiceServer_Resurrect(t *testing.T) {
 
 			testStore := dc.GetTestStore()
 
+			// Give the unallocated machine an acquired ip so we can verify that it is released on resurrection.
+			_, err := testStore.UnscopedIP().Create(ctx, &apiv2.IPServiceCreateRequest{
+				Ip:      new("1.2.3.3"),
+				Network: sc.NetworkInternet,
+				Project: sc.Tenant1Project1,
+				Type:    apiv2.IPType_IP_TYPE_EPHEMERAL.Enum(),
+				Machine: new(sc.Machine2),
+			})
+			require.NoError(t, err)
+
 			// Machine2 is not allocated, so it is the one that is evaluated for resurrection.
 			ec := testStore.GetEventContainer(sc.Machine2)
 			tt.configureEC(ec)
-			err := testStore.GetDatastore().Event().Update(ctx, ec)
+			err = testStore.GetDatastore().Event().Update(ctx, ec)
 			require.NoError(t, err)
 
 			var (
@@ -220,6 +232,14 @@ func Test_machineServiceServer_Resurrect(t *testing.T) {
 				return e.Event == metal.ProvisioningEventMachineReclaim
 			})
 			require.Equal(t, tt.wantResurrected, hasReclaimEvent, "unexpected machine reclaim event state")
+
+			// The acquired ip must only be released when the machine was actually resurrected.
+			_, err = testStore.UnscopedIP().Get(ctx, "1.2.3.3")
+			if tt.wantResurrected {
+				require.True(t, errorutil.IsNotFound(err), "acquired ip was not freed after resurrection: %v", err)
+			} else {
+				require.NoError(t, err)
+			}
 		})
 	}
 }

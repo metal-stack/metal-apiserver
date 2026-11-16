@@ -694,6 +694,19 @@ func (r *machineRepository) decommission(ctx context.Context, m *metal.Machine, 
 		}
 	}
 
+	// An unallocated machine can still have acquired ips that are tagged with its machine id, e.g. when a
+	// previous decommission did not finish. These must be released as well so that resurrection does not leak ips.
+	if m.Allocation == nil {
+		ips, err := r.s.ds.IP().List(ctx, queries.IpFilter(&apiv2.IPQuery{Machine: &m.ID}))
+		if err != nil {
+			return nil, err
+		}
+
+		for _, ip := range ips {
+			machineIpAllocationUUIDs = append(machineIpAllocationUUIDs, ip.AllocationUUID)
+		}
+	}
+
 	if alloc.Role == metal.RoleFirewall && r.s.UnscopedVPN().Enabled() && alloc.VPN != nil {
 		node, err := r.s.VPN(alloc.Project).getNode(ctx, m.ID, alloc.Project)
 

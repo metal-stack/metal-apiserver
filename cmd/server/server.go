@@ -78,6 +78,8 @@ func (s *server) Run(ctx context.Context) error {
 	// pprof is registered on the internal metrics server only and must never be
 	// added to the public api mux. Handlers are registered explicitly to avoid
 	// the implicit registration on http.DefaultServeMux by importing net/http/pprof.
+	// access it for example with:
+	// go tool pprof http://localhost:2112/debug/pprof/heap
 	metricsMux.HandleFunc("/debug/pprof/", pprof.Index)
 	metricsMux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
 	metricsMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
