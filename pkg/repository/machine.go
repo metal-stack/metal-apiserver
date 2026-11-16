@@ -1746,7 +1746,7 @@ func (r *machineRepository) Resurrect(ctx context.Context) ([]*apiv2.Machine, er
 		if provisioningEvents.Liveliness == metal.MachineLivelinessDead && time.Since(*provisioningEvents.LastEventTime) > metal.MachineResurrectAfter {
 			r.s.log.Info("resurrecting dead machine", "machineID", m.ID, "liveliness", provisioningEvents.Liveliness, "since", time.Since(*provisioningEvents.LastEventTime).String())
 			// the machine is not allocated, therefore no project scope applies during resurrection
-			if _, err := r.MachineBMCCommand(ctx, m.ID, m.PartitionID, apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_MACHINE_DELETED); err != nil {
+			if _, err := r.MachineBMCCommand(ctx, m.ID, m.PartitionID, apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_MACHINE_DELETED, RunSync(false)); err != nil {
 				r.s.log.Error("error during machine resurrection", "machineID", m.ID, "error", err)
 			}
 
@@ -1761,7 +1761,7 @@ func (r *machineRepository) Resurrect(ctx context.Context) ([]*apiv2.Machine, er
 		if provisioningEvents.FailedMachineReclaim {
 			r.s.log.Info("resurrecting machine with failed reclaim", "machineID", m.ID, "liveliness", provisioningEvents.Liveliness, "since", time.Since(*provisioningEvents.LastEventTime).String())
 			// the machine is not allocated, therefore no project scope applies during resurrection
-			if _, err := r.MachineBMCCommand(ctx, m.ID, m.PartitionID, apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_MACHINE_DELETED); err != nil {
+			if _, err := r.MachineBMCCommand(ctx, m.ID, m.PartitionID, apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_MACHINE_DELETED, RunSync(false)); err != nil {
 				r.s.log.Error("error during machine resurrection", "machineID", m.ID, "error", err)
 			}
 			v2machine, err := r.convertToProto(ctx, m)
