@@ -310,16 +310,6 @@ func (r *switchRepository) GetSwitchesWithConnectedMachines(ctx context.Context,
 		return nil, err
 	}
 
-	machinesByUUID := make(map[string]*apiv2.Machine, len(machines))
-	for _, m := range machines {
-		machinesByUUID[m.Uuid] = m
-	}
-
-	metalMachinesByID := make(map[string]*metal.Machine, len(metalMachines))
-	for _, m := range metalMachines {
-		metalMachinesByID[m.ID] = m
-	}
-
 	for _, sw := range switches {
 		var (
 			id          = sw.Id
@@ -333,12 +323,16 @@ func (r *switchRepository) GetSwitchesWithConnectedMachines(ctx context.Context,
 				continue
 			}
 
-			machine, found := machinesByUUID[con.MachineId]
+			machine, found := lo.Find(machines, func(m *apiv2.Machine) bool {
+				return m.Uuid == con.MachineId
+			})
 			if !found {
 				continue
 			}
 
-			metalMachine, found := metalMachinesByID[con.MachineId]
+			metalMachine, found := lo.Find(metalMachines, func(m *metal.Machine) bool {
+				return m.ID == con.MachineId
+			})
 			if !found {
 				continue
 			}
