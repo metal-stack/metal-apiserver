@@ -116,6 +116,32 @@ func (c *switchConverter) machineByID(ctx context.Context, id string) (*metal.Ma
 	return m, nil
 }
 
+// prefetchMachines resolves all given machine ids with a single query and seeds
+// the converter's machine cache, so that subsequent machineByID calls for these
+// ids are served without additional round trips. Ids that do not exist are left
+// unseeded and are resolved (and reported as not found) individually on first
+// access.
+func (c *switchConverter) prefetchMachines(ctx context.Context, ids []string) error {
+	ids = lo.Uniq(ids)
+	if len(ids) == 0 {
+		return nil
+	}
+
+	machines, err := c.ds.Machine().List(ctx, queries.MachineByIDs(ids...))
+	if err != nil {
+		return err
+	}
+
+	if c.machinesByID == nil {
+		c.machinesByID = make(map[string]*metal.Machine, len(machines))
+	}
+	for _, m := range machines {
+		c.machinesByID[m.ID] = m
+	}
+
+	return nil
+}
+
 // machinesByProjectPartitionRack returns the machines of the given project in
 // the given partition/rack, executing the query at most once per distinct
 // combination for the lifetime of the converter.
@@ -143,18 +169,27 @@ func (c *switchConverter) machinesByProjectPartitionRack(ctx context.Context, pr
 }
 
 // connectedMachines resolves the machine connected to each port of the given
-// switch, keyed by port name. Connections are flattened once and machines are
-// fetched at most once per machine id.
+// switch, keyed by port name. All machines connected to the switch's ports are
+// fetched in a single query instead of one Get per port.
 func (c *switchConverter) connectedMachines(ctx context.Context, sw *metal.Switch) (map[string]*metal.Machine, error) {
-	var (
-		flatConnections = lo.Flatten(lo.Values(sw.MachineConnections))
-		machineIDByNic  = make(map[string]string, len(flatConnections))
-	)
+	flatConnections := lo.Flatten(lo.Values(sw.MachineConnections))
 
-	for _, c := range flatConnections {
-		if _, ok := machineIDByNic[c.Nic.Name]; !ok {
-			machineIDByNic[c.Nic.Name] = c.MachineID
+	machineIDByNic := make(map[string]string, len(flatConnections))
+	for _, conn := range flatConnections {
+		if _, ok := machineIDByNic[conn.Nic.Name]; !ok {
+			machineIDByNic[conn.Nic.Name] = conn.MachineID
 		}
+	}
+
+	connectedIDs := make([]string, 0, len(sw.Nics))
+	for _, nic := range sw.Nics {
+		if machineID, ok := machineIDByNic[nic.Name]; ok {
+			connectedIDs = append(connectedIDs, machineID)
+		}
+	}
+
+	if err := c.prefetchMachines(ctx, connectedIDs); err != nil {
+		return nil, err
 	}
 
 	machines := make(map[string]*metal.Machine, len(sw.Nics))
