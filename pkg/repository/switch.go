@@ -43,7 +43,16 @@ type (
 		networksByID         map[string]*metal.Network
 		ipsByProjectCache    map[string][]*metal.IP
 		machinesByID         map[string]*metal.Machine
-		machinesByQueryCache map[string][]*metal.Machine
+		machinesByQueryCache map[switchMachineQuery][]*metal.Machine
+	}
+
+	// switchMachineQuery identifies the machine list needed to build the bgp
+	// filter of the machines of one project in one partition/rack. It is used as
+	// a comparable map key, so the fields are never encoded into a string.
+	switchMachineQuery struct {
+		project   string
+		partition string
+		rack      string
 	}
 )
 
@@ -107,20 +116,26 @@ func (c *switchConverter) machineByID(ctx context.Context, id string) (*metal.Ma
 	return m, nil
 }
 
-// machinesByQuery returns the machines matching the given query, executing the
-// query only once per distinct query key for the lifetime of the converter.
-func (c *switchConverter) machinesByQuery(ctx context.Context, key string, query *apiv2.MachineQuery) ([]*metal.Machine, error) {
+// machinesByProjectPartitionRack returns the machines of the given project in
+// the given partition/rack, executing the query at most once per distinct
+// combination for the lifetime of the converter.
+func (c *switchConverter) machinesByProjectPartitionRack(ctx context.Context, project, partition, rack string) ([]*metal.Machine, error) {
+	key := switchMachineQuery{project: project, partition: partition, rack: rack}
 	if machines, ok := c.machinesByQueryCache[key]; ok {
 		return machines, nil
 	}
 
-	machines, err := c.ds.Machine().List(ctx, queries.MachineFilter(query))
+	machines, err := c.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
+		Allocation: &apiv2.MachineAllocationQuery{Project: new(project)},
+		Partition:  new(partition),
+		Rack:       new(rack),
+	}))
 	if err != nil {
 		return nil, err
 	}
 
 	if c.machinesByQueryCache == nil {
-		c.machinesByQueryCache = make(map[string][]*metal.Machine)
+		c.machinesByQueryCache = make(map[switchMachineQuery][]*metal.Machine)
 	}
 	c.machinesByQueryCache[key] = machines
 
@@ -1152,13 +1167,7 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 		m := machines[nic.Name]
 
 		if m != nil && m.Allocation != nil {
-			projectMachines, err = c.machinesByQuery(ctx, m.Allocation.Project+"\x00"+sw.Partition+"\x00"+sw.Rack, &apiv2.MachineQuery{
-				Allocation: &apiv2.MachineAllocationQuery{
-					Project: new(m.Allocation.Project),
-				},
-				Partition: new(sw.Partition),
-				Rack:      new(sw.Rack),
-			})
+			projectMachines, err = c.machinesByProjectPartitionRack(ctx, m.Allocation.Project, sw.Partition, sw.Rack)
 			if err != nil {
 				return nil, err
 			}
