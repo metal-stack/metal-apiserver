@@ -1834,31 +1834,32 @@ func (r *machineRepository) evaluateMachineLiveliness(ctx context.Context, m *me
 		return metal.MachineLivelinessUnknown, false, fmt.Errorf("no provisioning event container found for machine: %s", m.ID)
 	}
 
-	if provisioningEvents.LastEventTime != nil {
-		previousLiveliness := provisioningEvents.Liveliness
-		if time.Since(*provisioningEvents.LastEventTime) > metal.MachineDeadAfter {
-			if m.Allocation != nil {
-				// the machine is either dead or the customer did turn off the phone home service
-				provisioningEvents.Liveliness = metal.MachineLivelinessUnknown
-			} else {
-				// the machine is just dead
-				provisioningEvents.Liveliness = metal.MachineLivelinessDead
-			}
-		} else {
-			provisioningEvents.Liveliness = metal.MachineLivelinessAlive
-		}
-
-		if previousLiveliness == provisioningEvents.Liveliness {
-			return previousLiveliness, false, nil
-		}
-		err = r.s.ds.Event().Update(ctx, provisioningEvents)
-		if err != nil {
-			return provisioningEvents.Liveliness, true, err
-		}
-		return provisioningEvents.Liveliness, true, nil
+	if provisioningEvents.LastEventTime == nil {
+		return provisioningEvents.Liveliness, false, nil
 	}
 
-	return provisioningEvents.Liveliness, false, nil
+	previousLiveliness := provisioningEvents.Liveliness
+	if time.Since(*provisioningEvents.LastEventTime) > metal.MachineDeadAfter {
+		if m.Allocation != nil {
+			// the machine is either dead or the customer did turn off the phone home service
+			provisioningEvents.Liveliness = metal.MachineLivelinessUnknown
+		} else {
+			// the machine is just dead
+			provisioningEvents.Liveliness = metal.MachineLivelinessDead
+		}
+	} else {
+		provisioningEvents.Liveliness = metal.MachineLivelinessAlive
+	}
+
+	if previousLiveliness == provisioningEvents.Liveliness {
+		return previousLiveliness, false, nil
+	}
+
+	if err = r.s.ds.Event().Update(ctx, provisioningEvents); err != nil {
+		return provisioningEvents.Liveliness, true, err
+	}
+	return provisioningEvents.Liveliness, true, nil
+
 }
 
 func (r *machineRepository) setMachineWaitingFlag(ctx context.Context, machineUUID string, waiting bool) error {
