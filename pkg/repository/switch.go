@@ -7,7 +7,6 @@ import (
 	"slices"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -30,130 +29,100 @@ import (
 type (
 	switchRepository struct {
 		s *Store
-
-		// conversionCache memoizes read-only data that is required to convert a
-		// switch into its api representation. It prevents fetching the same
-		// machines, networks and ips over and over again for every switch (and every
-		// port) that is converted within one store operation, e.g. when listing all
-		// switches. The repository instance is created per Store.Switch() call, so
-		// the cache is scoped to a single request.
-		conversionCache switchConversionCache
 	}
 
-	switchConversionCache struct {
-		mu sync.Mutex
+	// switchConverter memoizes the read-only lookups (networks, ips and machines)
+	// that are required to build the api representation of a single switch. It
+	// prevents fetching the same machine, network or project ips over and over
+	// again for every port of that switch. A converter is created per switch
+	// conversion and is never shared, so it cannot outlive the request it belongs
+	// to and can never serve stale data.
+	switchConverter struct {
+		ds generic.Datastore
 
-		networksByID    map[string]*metal.Network
-		ipsByProject    map[string][]*metal.IP
-		machinesByID    map[string]*metal.Machine
-		machinesByQuery map[string][]*metal.Machine
+		networksByID         map[string]*metal.Network
+		ipsByProjectCache    map[string][]*metal.IP
+		machinesByID         map[string]*metal.Machine
+		machinesByQueryCache map[string][]*metal.Machine
 	}
 )
 
 // networkByID fetches a network by its id, caching the result for the lifetime of
-// the repository instance.
-func (r *switchRepository) networkByID(ctx context.Context, id string) (*metal.Network, error) {
-	c := &r.conversionCache
-
-	c.mu.Lock()
+// the converter.
+func (c *switchConverter) networkByID(ctx context.Context, id string) (*metal.Network, error) {
 	if n, ok := c.networksByID[id]; ok {
-		c.mu.Unlock()
 		return n, nil
 	}
-	c.mu.Unlock()
 
-	n, err := r.s.ds.Network().Get(ctx, id)
+	n, err := c.ds.Network().Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	c.mu.Lock()
 	if c.networksByID == nil {
 		c.networksByID = make(map[string]*metal.Network)
 	}
 	c.networksByID[id] = n
-	c.mu.Unlock()
 
 	return n, nil
 }
 
 // ipsByProject returns all ips of the given project, executing the query only
-// once per project for the lifetime of the repository instance.
-func (r *switchRepository) ipsByProject(ctx context.Context, project string) ([]*metal.IP, error) {
-	c := &r.conversionCache
-
-	c.mu.Lock()
-	if ips, ok := c.ipsByProject[project]; ok {
-		c.mu.Unlock()
+// once per project for the lifetime of the converter.
+func (c *switchConverter) ipsByProject(ctx context.Context, project string) ([]*metal.IP, error) {
+	if ips, ok := c.ipsByProjectCache[project]; ok {
 		return ips, nil
 	}
-	c.mu.Unlock()
 
-	ips, err := r.s.ds.IP().List(ctx, queries.IpFilter(&apiv2.IPQuery{Project: new(project)}))
+	ips, err := c.ds.IP().List(ctx, queries.IpFilter(&apiv2.IPQuery{Project: new(project)}))
 	if err != nil {
 		return nil, err
 	}
 
-	c.mu.Lock()
-	if c.ipsByProject == nil {
-		c.ipsByProject = make(map[string][]*metal.IP)
+	if c.ipsByProjectCache == nil {
+		c.ipsByProjectCache = make(map[string][]*metal.IP)
 	}
-	c.ipsByProject[project] = ips
-	c.mu.Unlock()
+	c.ipsByProjectCache[project] = ips
 
 	return ips, nil
 }
 
 // machineByID fetches a machine by its id, caching the result for the lifetime of
-// the repository instance.
-func (r *switchRepository) machineByID(ctx context.Context, id string) (*metal.Machine, error) {
-	c := &r.conversionCache
-
-	c.mu.Lock()
+// the converter.
+func (c *switchConverter) machineByID(ctx context.Context, id string) (*metal.Machine, error) {
 	if m, ok := c.machinesByID[id]; ok {
-		c.mu.Unlock()
 		return m, nil
 	}
-	c.mu.Unlock()
 
-	m, err := r.s.ds.Machine().Get(ctx, id)
+	m, err := c.ds.Machine().Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	c.mu.Lock()
 	if c.machinesByID == nil {
 		c.machinesByID = make(map[string]*metal.Machine)
 	}
 	c.machinesByID[id] = m
-	c.mu.Unlock()
 
 	return m, nil
 }
 
 // machinesByQuery returns the machines matching the given query, executing the
-// query only once per distinct query key for the lifetime of the repository instance.
-func (r *switchRepository) machinesByQuery(ctx context.Context, key string, query *apiv2.MachineQuery) ([]*metal.Machine, error) {
-	c := &r.conversionCache
-
-	c.mu.Lock()
-	if machines, ok := c.machinesByQuery[key]; ok {
-		c.mu.Unlock()
+// query only once per distinct query key for the lifetime of the converter.
+func (c *switchConverter) machinesByQuery(ctx context.Context, key string, query *apiv2.MachineQuery) ([]*metal.Machine, error) {
+	if machines, ok := c.machinesByQueryCache[key]; ok {
 		return machines, nil
 	}
-	c.mu.Unlock()
 
-	machines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(query))
+	machines, err := c.ds.Machine().List(ctx, queries.MachineFilter(query))
 	if err != nil {
 		return nil, err
 	}
 
-	c.mu.Lock()
-	if c.machinesByQuery == nil {
-		c.machinesByQuery = make(map[string][]*metal.Machine)
+	if c.machinesByQueryCache == nil {
+		c.machinesByQueryCache = make(map[string][]*metal.Machine)
 	}
-	c.machinesByQuery[key] = machines
-	c.mu.Unlock()
+	c.machinesByQueryCache[key] = machines
 
 	return machines, nil
 }
@@ -1065,7 +1034,7 @@ func updateAllButNics(sw *metal.Switch, req *adminv2.SwitchServiceUpdateRequest)
 //
 // Firewall machines build their filter from their allocation's machine networks
 // only, hence they do not contribute any needed networks or ips.
-func (r *switchRepository) relevantBGPFilterData(ctx context.Context, machines map[string]*metal.Machine) ([]*metal.Network, []*metal.IP, error) {
+func (c *switchConverter) relevantBGPFilterData(ctx context.Context, machines map[string]*metal.Machine) ([]*metal.Network, []*metal.IP, error) {
 	var (
 		networkIDs = map[string]struct{}{}
 		projects   = map[string]struct{}{}
@@ -1091,7 +1060,7 @@ func (r *switchRepository) relevantBGPFilterData(ctx context.Context, machines m
 	)
 
 	for id := range networkIDs {
-		n, err := r.networkByID(ctx, id)
+		n, err := c.networkByID(ctx, id)
 		if err != nil {
 			if errorutil.IsNotFound(err) {
 				// skip the network and let makeBGPFilterMachine report the missing
@@ -1102,7 +1071,7 @@ func (r *switchRepository) relevantBGPFilterData(ctx context.Context, machines m
 		}
 		networks = append(networks, n)
 
-		parent, err := r.networkByID(ctx, n.ParentNetworkID)
+		parent, err := c.networkByID(ctx, n.ParentNetworkID)
 		if err != nil {
 			if errorutil.IsNotFound(err) {
 				continue
@@ -1113,7 +1082,7 @@ func (r *switchRepository) relevantBGPFilterData(ctx context.Context, machines m
 	}
 
 	for project := range projects {
-		projectIPs, err := r.ipsByProject(ctx, project)
+		projectIPs, err := c.ipsByProject(ctx, project)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1129,12 +1098,14 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 		projectMachines []*metal.Machine
 	)
 
-	machines, err := r.connectedMachines(ctx, sw)
+	c := &switchConverter{ds: r.s.ds}
+
+	machines, err := c.connectedMachines(ctx, sw)
 	if err != nil {
 		return nil, err
 	}
 
-	networks, ips, err := r.relevantBGPFilterData(ctx, machines)
+	networks, ips, err := c.relevantBGPFilterData(ctx, machines)
 	if err != nil {
 		return nil, err
 	}
@@ -1181,7 +1152,7 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 		m := machines[nic.Name]
 
 		if m != nil && m.Allocation != nil {
-			projectMachines, err = r.machinesByQuery(ctx, m.Allocation.Project+"\x00"+sw.Partition+"\x00"+sw.Rack, &apiv2.MachineQuery{
+			projectMachines, err = c.machinesByQuery(ctx, m.Allocation.Project+"\x00"+sw.Partition+"\x00"+sw.Rack, &apiv2.MachineQuery{
 				Allocation: &apiv2.MachineAllocationQuery{
 					Project: new(m.Allocation.Project),
 				},
@@ -1231,7 +1202,7 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 // connectedMachines resolves the machine connected to each port of the given
 // switch, keyed by port name. Connections are flattened once and machines are
 // fetched at most once per machine id.
-func (r *switchRepository) connectedMachines(ctx context.Context, sw *metal.Switch) (map[string]*metal.Machine, error) {
+func (c *switchConverter) connectedMachines(ctx context.Context, sw *metal.Switch) (map[string]*metal.Machine, error) {
 	var (
 		flatConnections = lo.Flatten(lo.Values(sw.MachineConnections))
 		machineIDByNic  = make(map[string]string, len(flatConnections))
@@ -1250,7 +1221,7 @@ func (r *switchRepository) connectedMachines(ctx context.Context, sw *metal.Swit
 			continue
 		}
 
-		m, err := r.machineByID(ctx, machineID)
+		m, err := c.machineByID(ctx, machineID)
 		if err != nil {
 			return nil, err
 		}
