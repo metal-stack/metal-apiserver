@@ -106,36 +106,6 @@ func Test_evaluateVPNConnected(t *testing.T) {
 			},
 			wantErr: nil,
 		},
-
-		// FIXME enable
-		// {
-		// 	name:          "one more node, one more machine",
-		// 	nodesToCreate: []string{m2},
-		// 	machinesToCreate: []*metal.Machine{
-		// 		{
-		// 			ID:          m2,
-		// 			PartitionID: "partition-1", SizeID: "c1-large-x86",
-		// 			Allocation: &metal.MachineAllocation{
-		// 				Project: p1,
-		// 				ImageID: "debian-12",
-		// 				VPN: &metal.MachineVPN{
-		// 					ControlPlaneAddress: testStore.UnscopedVPN().ControlPlaneAddress(),
-		// 				},
-		// 			},
-		// 		},
-		// 	},
-		// 	want: []*apiv2.VPNNode{
-		// 		{
-		// 			Id:          1,
-		// 			Name:        m2,
-		// 			Project:     p1,
-		// 			IpAddresses: []string{"100.64.0.2", "fd7a:115c:a1e0::2"},
-		// 			LastSeen:    timestamppb.Now(),
-		// 			Online:      true,
-		// 		},
-		// 	},
-		// 	wantErr: nil,
-		// },
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
