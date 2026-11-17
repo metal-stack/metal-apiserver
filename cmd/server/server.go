@@ -92,6 +92,7 @@ func (s *server) Run(ctx context.Context) error {
 	}
 	go func() {
 		s.log.Info("serving metrics at", "addr", ms.Addr+"/metrics")
+		s.log.Info("serving pprof at", "addr", ms.Addr+"/debug/pprof/")
 		err := ms.ListenAndServe()
 		if err != nil {
 			s.log.Error("unable to start metric endpoint", "error", err)

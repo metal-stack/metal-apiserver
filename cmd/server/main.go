@@ -391,7 +391,6 @@ func main() {
 			newServeCmd(),
 			newTokenCmd(),
 			newDatastoreCmd(),
-			newVPNCmd(),
 		},
 	}
 
