@@ -142,6 +142,107 @@ func (c *switchConverter) machinesByProjectPartitionRack(ctx context.Context, pr
 	return machines, nil
 }
 
+// connectedMachines resolves the machine connected to each port of the given
+// switch, keyed by port name. Connections are flattened once and machines are
+// fetched at most once per machine id.
+func (c *switchConverter) connectedMachines(ctx context.Context, sw *metal.Switch) (map[string]*metal.Machine, error) {
+	var (
+		flatConnections = lo.Flatten(lo.Values(sw.MachineConnections))
+		machineIDByNic  = make(map[string]string, len(flatConnections))
+	)
+
+	for _, c := range flatConnections {
+		if _, ok := machineIDByNic[c.Nic.Name]; !ok {
+			machineIDByNic[c.Nic.Name] = c.MachineID
+		}
+	}
+
+	machines := make(map[string]*metal.Machine, len(sw.Nics))
+	for _, nic := range sw.Nics {
+		machineID, ok := machineIDByNic[nic.Name]
+		if !ok {
+			continue
+		}
+
+		m, err := c.machineByID(ctx, machineID)
+		if err != nil {
+			return nil, err
+		}
+
+		machines[nic.Name] = m
+	}
+
+	return machines, nil
+}
+
+// relevantBGPFilterData returns only the networks and ips that makeBGPFilter can
+// possibly require for the given switch, instead of reading the complete network
+// and ip tables. To build the bgp filters of the switch's connected machines only
+// the following data is needed:
+//   - the private network each allocated, non-firewall machine is connected to and
+//     that network's parent
+//   - all ips of the projects the allocated, non-firewall machines belong to
+//
+// Firewall machines build their filter from their allocation's machine networks
+// only, hence they do not contribute any needed networks or ips.
+func (c *switchConverter) relevantBGPFilterData(ctx context.Context, machines map[string]*metal.Machine) ([]*metal.Network, []*metal.IP, error) {
+	var (
+		networkIDs = map[string]struct{}{}
+		projects   = map[string]struct{}{}
+	)
+
+	for _, m := range machines {
+		if m == nil || m.Allocation == nil || m.Allocation.Role == metal.RoleFirewall {
+			continue
+		}
+
+		projects[m.Allocation.Project] = struct{}{}
+
+		for _, mnw := range m.Allocation.MachineNetworks {
+			if mnw != nil && mnw.Private {
+				networkIDs[mnw.NetworkID] = struct{}{}
+			}
+		}
+	}
+
+	var (
+		networks []*metal.Network
+		ips      []*metal.IP
+	)
+
+	for id := range networkIDs {
+		n, err := c.networkByID(ctx, id)
+		if err != nil {
+			if errorutil.IsNotFound(err) {
+				// skip the network and let makeBGPFilterMachine report the missing
+				// network with a consistent error message
+				continue
+			}
+			return nil, nil, err
+		}
+		networks = append(networks, n)
+
+		parent, err := c.networkByID(ctx, n.ParentNetworkID)
+		if err != nil {
+			if errorutil.IsNotFound(err) {
+				continue
+			}
+			return nil, nil, err
+		}
+		networks = append(networks, parent)
+	}
+
+	for project := range projects {
+		projectIPs, err := c.ipsByProject(ctx, project)
+		if err != nil {
+			return nil, nil, err
+		}
+		ips = append(ips, projectIPs...)
+	}
+
+	return networks, ips, nil
+}
+
 func (r *switchRepository) Register(ctx context.Context, req *infrav2.SwitchServiceRegisterRequest) (*apiv2.Switch, error) {
 	if req == nil || req.Switch == nil {
 		return nil, errorutil.InvalidArgument("empty request")
@@ -1033,74 +1134,6 @@ func updateAllButNics(sw *metal.Switch, req *adminv2.SwitchServiceUpdateRequest)
 	return nil
 }
 
-// relevantBGPFilterData returns only the networks and ips that makeBGPFilter can
-// possibly require for the given switch, instead of reading the complete network
-// and ip tables. To build the bgp filters of the switch's connected machines only
-// the following data is needed:
-//   - the private network each allocated, non-firewall machine is connected to and
-//     that network's parent
-//   - all ips of the projects the allocated, non-firewall machines belong to
-//
-// Firewall machines build their filter from their allocation's machine networks
-// only, hence they do not contribute any needed networks or ips.
-func (c *switchConverter) relevantBGPFilterData(ctx context.Context, machines map[string]*metal.Machine) ([]*metal.Network, []*metal.IP, error) {
-	var (
-		networkIDs = map[string]struct{}{}
-		projects   = map[string]struct{}{}
-	)
-
-	for _, m := range machines {
-		if m == nil || m.Allocation == nil || m.Allocation.Role == metal.RoleFirewall {
-			continue
-		}
-
-		projects[m.Allocation.Project] = struct{}{}
-
-		for _, mnw := range m.Allocation.MachineNetworks {
-			if mnw != nil && mnw.Private {
-				networkIDs[mnw.NetworkID] = struct{}{}
-			}
-		}
-	}
-
-	var (
-		networks []*metal.Network
-		ips      []*metal.IP
-	)
-
-	for id := range networkIDs {
-		n, err := c.networkByID(ctx, id)
-		if err != nil {
-			if errorutil.IsNotFound(err) {
-				// skip the network and let makeBGPFilterMachine report the missing
-				// network with a consistent error message
-				continue
-			}
-			return nil, nil, err
-		}
-		networks = append(networks, n)
-
-		parent, err := c.networkByID(ctx, n.ParentNetworkID)
-		if err != nil {
-			if errorutil.IsNotFound(err) {
-				continue
-			}
-			return nil, nil, err
-		}
-		networks = append(networks, parent)
-	}
-
-	for project := range projects {
-		projectIPs, err := c.ipsByProject(ctx, project)
-		if err != nil {
-			return nil, nil, err
-		}
-		ips = append(ips, projectIPs...)
-	}
-
-	return networks, ips, nil
-}
-
 func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Switch) ([]*apiv2.SwitchNic, error) {
 	var (
 		switchNics      []*apiv2.SwitchNic
@@ -1200,39 +1233,6 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 	})
 
 	return switchNics, nil
-}
-
-// connectedMachines resolves the machine connected to each port of the given
-// switch, keyed by port name. Connections are flattened once and machines are
-// fetched at most once per machine id.
-func (c *switchConverter) connectedMachines(ctx context.Context, sw *metal.Switch) (map[string]*metal.Machine, error) {
-	var (
-		flatConnections = lo.Flatten(lo.Values(sw.MachineConnections))
-		machineIDByNic  = make(map[string]string, len(flatConnections))
-	)
-
-	for _, c := range flatConnections {
-		if _, ok := machineIDByNic[c.Nic.Name]; !ok {
-			machineIDByNic[c.Nic.Name] = c.MachineID
-		}
-	}
-
-	machines := make(map[string]*metal.Machine, len(sw.Nics))
-	for _, nic := range sw.Nics {
-		machineID, ok := machineIDByNic[nic.Name]
-		if !ok {
-			continue
-		}
-
-		m, err := c.machineByID(ctx, machineID)
-		if err != nil {
-			return nil, err
-		}
-
-		machines[nic.Name] = m
-	}
-
-	return machines, nil
 }
 
 func convertMachineConnections(machineConnections metal.ConnectionMap, nics []*apiv2.SwitchNic) ([]*apiv2.MachineConnection, error) {
