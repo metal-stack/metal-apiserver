@@ -8,6 +8,7 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
+	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
@@ -15,6 +16,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	sc "github.com/metal-stack/metal-apiserver/pkg/test/scenarios"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/testing/protocmp"
 )
 
 func Test_machineServiceServer_MachineLiveliness(t *testing.T) {
@@ -42,6 +44,7 @@ func Test_machineServiceServer_MachineLiveliness(t *testing.T) {
 
 	testDC.Machines = append(testDC.Machines, machines...)
 	dc.Create(&testDC)
+	defer dc.Cleanup()
 
 	var (
 		recent = time.Now().Add(-1 * time.Minute) // younger than metal.MachineDeadAfter
@@ -73,10 +76,14 @@ func Test_machineServiceServer_MachineLiveliness(t *testing.T) {
 	require.NotNil(t, modifiedMachines)
 	require.Len(t, modifiedMachines.ModifiedMachines, 2)
 
-	require.Equal(t, metal.MachineLivelinessAlive, dc.GetTestStore().GetEventContainer(sc.Machine1).Liveliness)
-	require.Equal(t, metal.MachineLivelinessDead, dc.GetTestStore().GetEventContainer(sc.Machine2).Liveliness)
-	require.Equal(t, metal.MachineLivelinessUnknown, dc.GetTestStore().GetEventContainer(sc.Machine3).Liveliness)
-	require.Equal(t, metal.MachineLivelinessAlive, dc.GetTestStore().GetEventContainer(sc.Machine4).Liveliness)
+	require.NoError(t, dc.Assert(&test.Asserters{
+		Machines: func(machines map[string]*apiv2.Machine) {
+			machines[sc.Machine1].Status.Liveliness = apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE
+			machines[sc.Machine2].Status.Liveliness = apiv2.MachineLiveliness_MACHINE_LIVELINESS_DEAD
+			machines[sc.Machine3].Status.Liveliness = apiv2.MachineLiveliness_MACHINE_LIVELINESS_UNKNOWN
+			machines[sc.Machine4].Status.Liveliness = apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE
+		},
+	}, protocmp.IgnoreFields(&apiv2.MachineRecentProvisioningEvents{}, "last_event_time")))
 }
 
 func Test_machineServiceServer_Resurrect(t *testing.T) {
@@ -84,12 +91,13 @@ func Test_machineServiceServer_Resurrect(t *testing.T) {
 
 	ctx := t.Context()
 	// older than metal.MachineResurrectAfter so that a dead machine qualifies for resurrection
-	resurrectableLastEventTime := time.Now().Add(-2 * time.Hour)
+	resurrectableLastEventTime := time.Now().Add(-1*time.Hour - metal.MachineResurrectAfter)
 
 	tests := []struct {
 		name            string
 		configureEC     func(ec *metal.ProvisioningEventContainer)
 		wantResurrected bool
+		mods            *test.Asserters
 	}{
 		{
 			name: "resurrects a dead machine",
@@ -98,6 +106,16 @@ func Test_machineServiceServer_Resurrect(t *testing.T) {
 				ec.LastEventTime = &resurrectableLastEventTime
 			},
 			wantResurrected: true,
+			mods: &test.Asserters{
+				Machines: func(machines map[string]*apiv2.Machine) {
+					machines[sc.Machine2].RecentProvisioningEvents.Events = append([]*apiv2.MachineProvisioningEvent{
+						{
+							Event:   apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_PLANNED_REBOOT,
+							Message: "machine housekeeping resurrected machine",
+						},
+					}, machines[sc.Machine2].RecentProvisioningEvents.Events...)
+				},
+			},
 		},
 		{
 			name: "resurrects a machine with failed machine reclaim",
@@ -106,6 +124,16 @@ func Test_machineServiceServer_Resurrect(t *testing.T) {
 				ec.LastEventTime = &resurrectableLastEventTime
 			},
 			wantResurrected: true,
+			mods: &test.Asserters{
+				Machines: func(machines map[string]*apiv2.Machine) {
+					machines[sc.Machine2].RecentProvisioningEvents.Events = append([]*apiv2.MachineProvisioningEvent{
+						{
+							Event:   apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_PLANNED_REBOOT,
+							Message: "machine housekeeping resurrected machine",
+						},
+					}, machines[sc.Machine2].RecentProvisioningEvents.Events...)
+				},
+			},
 		},
 		{
 			name: "does not resurrect an alive machine",
@@ -114,6 +142,7 @@ func Test_machineServiceServer_Resurrect(t *testing.T) {
 				ec.LastEventTime = &resurrectableLastEventTime
 			},
 			wantResurrected: false,
+			mods:            nil,
 		},
 		{
 			name: "does not resurrect a machine without last event time",
@@ -121,6 +150,11 @@ func Test_machineServiceServer_Resurrect(t *testing.T) {
 				ec.Liveliness = metal.MachineLivelinessDead
 			},
 			wantResurrected: false,
+			mods: &test.Asserters{
+				Machines: func(machines map[string]*apiv2.Machine) {
+					machines[sc.Machine2].Status.Liveliness = apiv2.MachineLiveliness_MACHINE_LIVELINESS_DEAD
+				},
+			},
 		},
 	}
 
@@ -215,12 +249,10 @@ func Test_machineServiceServer_Resurrect(t *testing.T) {
 				require.NoError(t, simErr)
 			}
 
-			// FIXME
-			// ec = testStore.GetEventContainer(sc.Machine2)
-			// hasReclaimEvent := slices.ContainsFunc(ec.Events, func(e metal.ProvisioningEvent) bool {
-			// 	return e.Event == metal.ProvisioningEventMachineReclaim
-			// })
-			// require.Equal(t, tt.wantResurrected, hasReclaimEvent, "unexpected machine reclaim event state")
+			require.NoError(t, dc.Assert(tt.mods,
+				protocmp.IgnoreFields(&apiv2.MachineRecentProvisioningEvents{}, "last_event_time"),
+				protocmp.IgnoreFields(&apiv2.MachineProvisioningEvent{}, "time"),
+			))
 		})
 	}
 }
