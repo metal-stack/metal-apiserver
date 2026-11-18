@@ -1723,6 +1723,158 @@ func (r *machineRepository) Issues(ctx context.Context, req *adminv2.MachineServ
 	return &adminv2.MachineServiceIssuesResponse{Issues: allIssues}, nil
 }
 
+func (r *machineRepository) Resurrect(ctx context.Context) ([]*apiv2.Machine, error) {
+	r.s.log.Info("machine resurrection was requested")
+
+	machines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
+		NotAllocated: new(true),
+	}))
+	if err != nil {
+		return nil, err
+	}
+
+	var processedMachines []*apiv2.Machine
+
+	for _, m := range machines {
+		log := r.s.log.With("machineID", m.ID)
+
+		if m.State.Value == metal.LockedState || m.State.Value == metal.TaintedState {
+			log.Debug("not considering machine for resurrection because locked or tainted")
+			continue
+		}
+
+		provisioningEvents, err := r.s.ds.Event().Get(ctx, m.ID)
+		if err != nil {
+			// we have no provisioning events... we cannot tell
+			log.Debug("no provisioning events found for resurrection", "error", err)
+			continue
+		}
+
+		if provisioningEvents.LastEventTime == nil {
+			continue
+		}
+
+		var (
+			isDead = provisioningEvents.Liveliness == metal.MachineLivelinessDead && time.Since(*provisioningEvents.LastEventTime) > metal.MachineResurrectAfter
+		)
+
+		if isDead || provisioningEvents.FailedMachineReclaim {
+			log.Info("resurrecting machine", "liveliness", provisioningEvents.Liveliness, "since", time.Since(*provisioningEvents.LastEventTime).String())
+
+			if _, err := r.MachineBMCCommand(ctx, m.ID, m.PartitionID, apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_MACHINE_DELETED, RunSync(false)); err != nil {
+				log.Error("error during machine resurrection", "error", err)
+				continue
+			}
+
+			if err := r.SendEvent(ctx, m.ID, &apiv2.MachineProvisioningEvent{
+				Time:    timestamppb.Now(),
+				Event:   apiv2.MachineProvisioningEventType_MACHINE_PROVISIONING_EVENT_TYPE_PLANNED_REBOOT,
+				Message: "machine housekeeping resurrected machine",
+			}); err != nil {
+				log.Error("unable to send machine event", "error", err)
+			}
+
+			v2machine, err := r.convertToProto(ctx, m)
+			if err != nil {
+				return nil, err
+			}
+
+			processedMachines = append(processedMachines, v2machine)
+
+			continue
+		}
+	}
+
+	r.s.log.Info("finished machine resurrection")
+
+	return processedMachines, nil
+}
+
+func (r *machineRepository) MachineLiveliness(ctx context.Context) ([]*adminv2.MachineWithLiveliness, error) {
+	r.s.log.Info("machine liveliness was requested")
+
+	machines, err := r.list(ctx, &apiv2.MachineQuery{})
+	if err != nil {
+		return nil, err
+	}
+
+	var (
+		unknown           = 0
+		alive             = 0
+		dead              = 0
+		errs              = 0
+		processedMachines []*adminv2.MachineWithLiveliness
+	)
+
+	for _, m := range machines {
+		lvlness, changed, err := r.evaluateMachineLiveliness(ctx, m)
+		if err != nil {
+			r.s.log.Error("cannot update liveliness", "error", err, "machine", m)
+			errs++
+			// fall through, so the rest of the machines is getting evaluated
+			continue
+		}
+		var v2lvlness apiv2.MachineLiveliness
+		switch lvlness {
+		case metal.MachineLivelinessAlive:
+			alive++
+			v2lvlness = apiv2.MachineLiveliness_MACHINE_LIVELINESS_ALIVE
+		case metal.MachineLivelinessDead:
+			dead++
+			v2lvlness = apiv2.MachineLiveliness_MACHINE_LIVELINESS_DEAD
+		case metal.MachineLivelinessUnknown:
+			unknown++
+			v2lvlness = apiv2.MachineLiveliness_MACHINE_LIVELINESS_UNKNOWN
+		}
+		if !changed {
+			continue
+		}
+		processedMachines = append(processedMachines, &adminv2.MachineWithLiveliness{
+			Uuid:       m.ID,
+			Liveliness: v2lvlness,
+		})
+	}
+
+	r.s.log.Info("machine liveliness evaluated", "alive", alive, "dead", dead, "unknown", unknown, "errors", errs)
+
+	return processedMachines, nil
+}
+
+func (r *machineRepository) evaluateMachineLiveliness(ctx context.Context, m *metal.Machine) (metal.MachineLiveliness, bool, error) {
+	provisioningEvents, err := r.s.ds.Event().Find(ctx, queries.EventFilter(m.ID))
+	if err != nil {
+		// we have no provisioning events... we cannot tell
+		return metal.MachineLivelinessUnknown, false, fmt.Errorf("no provisioning event container found for machine: %s", m.ID)
+	}
+
+	if provisioningEvents.LastEventTime == nil {
+		return provisioningEvents.Liveliness, false, nil
+	}
+
+	previousLiveliness := provisioningEvents.Liveliness
+	if time.Since(*provisioningEvents.LastEventTime) > metal.MachineDeadAfter {
+		if m.Allocation != nil {
+			// the machine is either dead or the customer did turn off the phone home service
+			provisioningEvents.Liveliness = metal.MachineLivelinessUnknown
+		} else {
+			// the machine is just dead
+			provisioningEvents.Liveliness = metal.MachineLivelinessDead
+		}
+	} else {
+		provisioningEvents.Liveliness = metal.MachineLivelinessAlive
+	}
+
+	if previousLiveliness == provisioningEvents.Liveliness {
+		return previousLiveliness, false, nil
+	}
+
+	if err = r.s.ds.Event().Update(ctx, provisioningEvents); err != nil {
+		return provisioningEvents.Liveliness, true, err
+	}
+	return provisioningEvents.Liveliness, true, nil
+
+}
+
 func (r *machineRepository) setMachineWaitingFlag(ctx context.Context, machineUUID string, waiting bool) error {
 	return retry.Do(
 		func() error {
