@@ -15,6 +15,10 @@ import (
 )
 
 func EvaluateVPNConnected(ctx context.Context, log *slog.Logger, repo *repository.Store) ([]*apiv2.VPNNode, error) {
+	if !repo.UnscopedVPN().Enabled() {
+		return nil, nil
+	}
+
 	ms, err := repo.UnscopedMachine().List(ctx, &apiv2.MachineQuery{
 		Allocation: &apiv2.MachineAllocationQuery{
 			// Return only allocated machines which have a vpn configured
