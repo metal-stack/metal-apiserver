@@ -49,8 +49,10 @@ func startTenantApiserverWithDB(t testing.TB, log *slog.Logger, dbcloser func(),
 
 	err := pgdatastore.InitTables(log, db,
 		&apiv1.Project{},
+		&apiv1.ProjectConfig{},
 		&apiv1.ProjectMember{},
 		&apiv1.Tenant{},
+		&apiv1.TenantConfig{},
 		&apiv1.TenantMember{},
 	)
 	require.NoError(t, err)
@@ -59,13 +61,15 @@ func startTenantApiserverWithDB(t testing.TB, log *slog.Logger, dbcloser func(),
 
 	var (
 		ps  = pgdatastore.New(log, db, &apiv1.Project{})
+		pc  = pgdatastore.New(log, db, &apiv1.ProjectConfig{})
 		pms = pgdatastore.New(log, db, &apiv1.ProjectMember{})
 		ts  = pgdatastore.New(log, db, &apiv1.Tenant{})
+		tc  = pgdatastore.New(log, db, &apiv1.TenantConfig{})
 		tms = pgdatastore.New(log, db, &apiv1.TenantMember{})
 
-		projectService       = service.NewProjectService(log, ps, pms, ts)
+		projectService       = service.NewProjectService(log, ps, pc, pms, ts)
 		projectMemberService = service.NewProjectMemberService(log, ps, pms, ts)
-		tenantService        = service.NewTenantService(db, log, ts, tms)
+		tenantService        = service.NewTenantService(db, log, ts, tc, tms)
 		tenantMemberService  = service.NewTenantMemberService(log, ts, tms)
 		versionService       = service.NewVersionService()
 	)
@@ -98,13 +102,15 @@ func StartTenantApiserverInMemory(t testing.TB, log *slog.Logger) (tenant.Client
 	log = log.WithGroup("tenant-apiserver")
 
 	ps := memorydatastore.NewMemory(log, &apiv1.Project{})
+	pc := memorydatastore.NewMemory(log, &apiv1.ProjectConfig{})
 	pms := memorydatastore.NewMemory(log, &apiv1.ProjectMember{})
 	ts := memorydatastore.NewMemory(log, &apiv1.Tenant{})
+	tc := memorydatastore.NewMemory(log, &apiv1.TenantConfig{})
 	tms := memorydatastore.NewMemory(log, &apiv1.TenantMember{})
 
-	projectService := service.NewProjectService(log, ps, pms, ts)
+	projectService := service.NewProjectService(log, ps, pc, pms, ts)
 	projectMemberService := service.NewProjectMemberService(log, ps, pms, ts)
-	tenantService := service.NewTenantService(nil, log, ts, tms)
+	tenantService := service.NewTenantService(nil, log, ts, tc, tms)
 	tenantMemberService := service.NewTenantMemberService(log, ts, tms)
 	versionService := service.NewVersionService()
 

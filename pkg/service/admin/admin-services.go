@@ -13,6 +13,7 @@ import (
 	auditadmin "github.com/metal-stack/metal-apiserver/pkg/service/admin/audit"
 	componentadmin "github.com/metal-stack/metal-apiserver/pkg/service/admin/component"
 	filesystemadmin "github.com/metal-stack/metal-apiserver/pkg/service/admin/filesystem"
+	housekeepingadmin "github.com/metal-stack/metal-apiserver/pkg/service/admin/housekeeping"
 	imageadmin "github.com/metal-stack/metal-apiserver/pkg/service/admin/image"
 	ipadmin "github.com/metal-stack/metal-apiserver/pkg/service/admin/ip"
 	machineadmin "github.com/metal-stack/metal-apiserver/pkg/service/admin/machine"
@@ -44,6 +45,7 @@ func AdminServices(cfg Config) {
 		adminAuditService               = auditadmin.New(auditadmin.Config{Log: cfg.Log, Repo: cfg.Repository, AuditClient: cfg.AuditSearchBackend})
 		adminComponentService           = componentadmin.New(componentadmin.Config{Log: cfg.Log, Repo: cfg.Repository})
 		adminFilesystemService          = filesystemadmin.New(filesystemadmin.Config{Log: cfg.Log, Repo: cfg.Repository})
+		adminHousekeepingService        = housekeepingadmin.New(housekeepingadmin.Config{Log: cfg.Log, Repo: cfg.Repository})
 		adminImageService               = imageadmin.New(imageadmin.Config{Log: cfg.Log, Repo: cfg.Repository})
 		adminIpService                  = ipadmin.New(ipadmin.Config{Log: cfg.Log, Repo: cfg.Repository})
 		adminMachineService             = machineadmin.New(machineadmin.Config{Log: cfg.Log, Repo: cfg.Repository})
@@ -73,6 +75,7 @@ func AdminServices(cfg Config) {
 	cfg.Mux.Handle(adminv2connect.NewAuditServiceHandler(adminAuditService, cfg.Interceptors))
 	cfg.Mux.Handle(adminv2connect.NewComponentServiceHandler(adminComponentService, cfg.Interceptors))
 	cfg.Mux.Handle(adminv2connect.NewFilesystemServiceHandler(adminFilesystemService, cfg.Interceptors))
+	cfg.Mux.Handle(adminv2connect.NewHousekeepingServiceHandler(adminHousekeepingService, cfg.Interceptors))
 	cfg.Mux.Handle(adminv2connect.NewImageServiceHandler(adminImageService, cfg.Interceptors))
 	cfg.Mux.Handle(adminv2connect.NewIPServiceHandler(adminIpService, cfg.Interceptors))
 	cfg.Mux.Handle(adminv2connect.NewMachineServiceHandler(adminMachineService, cfg.Interceptors))
