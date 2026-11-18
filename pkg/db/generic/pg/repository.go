@@ -101,7 +101,7 @@ type (
 
 	QueryFilter struct {
 		Path  string // e.g., "address.city" or "profile.settings.theme"
-		Op    string // e.g., "=", ">", "LIKE"
+		Op    string // e.g., "=", ">", "LIKE", "IN" (Value is a []string for IN)
 		Value any
 	}
 
@@ -458,6 +458,36 @@ func (r *GenericRepository[T]) Query(ctx context.Context, filters []QueryFilter,
 			args = append(args, string(jsonValue))
 			argIdx++
 
+		case "IN":
+			// Membership test: the field at Path must equal one of the given
+			// values. The values are compared as text against the text extraction
+			// `data #>> path`, so callers pass a slice of ids/names. An empty set
+			// matches no row (an `IN ()` list would be invalid SQL).
+			values, err := toStringSlice(f.Value)
+			if err != nil {
+				return nil, err
+			}
+			if len(values) == 0 {
+				queryBuilder.WriteString(" FALSE")
+				continue
+			}
+			var (
+				parts    = strings.Split(f.Path, ".")
+				jsonPath = "{" + strings.Join(parts, ",") + "}"
+			)
+			fmt.Fprintf(&queryBuilder, " (data #>> $%d) IN (", argIdx)
+			args = append(args, jsonPath)
+			argIdx++
+			for i, v := range values {
+				if i > 0 {
+					queryBuilder.WriteString(", ")
+				}
+				fmt.Fprintf(&queryBuilder, "$%d", argIdx)
+				args = append(args, v)
+				argIdx++
+			}
+			queryBuilder.WriteString(")")
+
 		case "IS NULL", "IS NOT NULL":
 			// Presence check: `data #>> path` returns NULL when the key (or any
 			// ancestor key) is absent, so this expresses "field is present/absent".
@@ -625,6 +655,32 @@ func escapeLikePattern(s string) string {
 		`%`, `\%`,
 		`_`, `\_`,
 	).Replace(s)
+}
+
+// toStringSlice coerces a filter value into the text values used by the IN
+// operator. It accepts any slice or array and renders each element as text,
+// because the operator compares against the text extraction `data #>> path`.
+func toStringSlice(value any) ([]string, error) {
+	if value == nil {
+		return nil, nil
+	}
+
+	rv := reflect.ValueOf(value)
+	if rv.Kind() != reflect.Slice && rv.Kind() != reflect.Array {
+		return nil, fmt.Errorf("IN operator requires a slice or array value, got %T", value)
+	}
+
+	values := make([]string, 0, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		el := rv.Index(i)
+		if el.Kind() == reflect.String {
+			values = append(values, el.String())
+			continue
+		}
+		values = append(values, fmt.Sprintf("%v", el.Interface()))
+	}
+
+	return values, nil
 }
 
 // jsonPathValue builds a nested JSON object from a dotted path and a scalar

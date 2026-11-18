@@ -600,6 +600,61 @@ func TestMachineFilterNilQuery(t *testing.T) {
 	require.Nil(t, q.MachineFilter(nil))
 }
 
+func TestMachineByIDsPostgres(t *testing.T) {
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	db, closer := test.StartPostgres(t, log)
+	defer closer()
+
+	repo, err := pg.NewGenericRepository[*metal.Machine](log, db)
+	require.NoError(t, err)
+
+	ctx := t.Context()
+
+	for _, m := range pgMachines {
+		require.NoError(t, repo.Create(ctx, m.ID, m))
+	}
+
+	// helper returns the data of all entities matching the given ids
+	list := func(ids ...string) []*metal.Machine {
+		t.Helper()
+		ents, err := repo.Query(ctx, q.MachineByIDs(ids...), nil)
+		require.NoError(t, err)
+		got := make([]*metal.Machine, 0, len(ents))
+		for _, e := range ents {
+			got = append(got, e.Data)
+		}
+		return got
+	}
+
+	idsOf := func(machines []*metal.Machine) []string {
+		out := make([]string, 0, len(machines))
+		for _, m := range machines {
+			out = append(out, m.ID)
+		}
+		return out
+	}
+
+	// No ids yields no filter, so the lookup is unfiltered.
+	require.Nil(t, q.MachineByIDs())
+	require.ElementsMatch(t, idsOf(pgMachines), idsOf(list()))
+
+	// A single id matches exactly that machine.
+	got := list(pgM1.ID)
+	require.Equal(t, []string{pgM1.ID}, idsOf(got))
+
+	// Multiple ids match the matching subset.
+	require.ElementsMatch(t, []string{pgM1.ID, pgM3.ID}, idsOf(list(pgM1.ID, pgM3.ID)))
+
+	// Duplicate ids do not duplicate results.
+	require.Equal(t, []string{pgM2.ID}, idsOf(list(pgM2.ID, pgM2.ID)))
+
+	// An unknown id matches nothing.
+	require.Empty(t, list("6b22ccd6-4c93-4a1f-8c8f-2f63b3c6e0ff"))
+
+	// A mix of known and unknown ids matches only the known ones.
+	require.Equal(t, []string{pgM4.ID}, idsOf(list(pgM4.ID, "6b22ccd6-4c93-4a1f-8c8f-2f63b3c6e0ff")))
+}
+
 func TestMachineFilterAllocationType(t *testing.T) {
 	allocType := apiv2.MachineAllocationType_MACHINE_ALLOCATION_TYPE_FIREWALL
 

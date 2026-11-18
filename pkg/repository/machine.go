@@ -1726,9 +1726,9 @@ func (r *machineRepository) Issues(ctx context.Context, req *adminv2.MachineServ
 func (r *machineRepository) Resurrect(ctx context.Context) ([]*apiv2.Machine, error) {
 	r.s.log.Info("machine resurrection was requested")
 
-	machines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
+	machines, err := r.s.ds.Machine().List(ctx, filters.MachineQuery(&apiv2.MachineQuery{
 		NotAllocated: new(true),
-	}))
+	})...)
 	if err != nil {
 		return nil, err
 	}
@@ -1841,7 +1841,7 @@ func (r *machineRepository) MachineLiveliness(ctx context.Context) ([]*adminv2.M
 }
 
 func (r *machineRepository) evaluateMachineLiveliness(ctx context.Context, m *metal.Machine) (metal.MachineLiveliness, bool, error) {
-	provisioningEvents, err := r.s.ds.Event().Find(ctx, queries.EventFilter(m.ID))
+	provisioningEvents, err := r.s.ds.Event().Find(ctx, filters.Event(m.ID)...)
 	if err != nil {
 		// we have no provisioning events... we cannot tell
 		return metal.MachineLivelinessUnknown, false, fmt.Errorf("no provisioning event container found for machine: %s", m.ID)

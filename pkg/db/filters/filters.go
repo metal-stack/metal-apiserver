@@ -40,6 +40,14 @@ func MachineQuery(rq *apiv2.MachineQuery) []storage.Filter {
 	return both(isEmptyQuery(rq), queries.MachineFilter(rq), pgq.MachineFilter(rq))
 }
 
+// MachineByIDs returns a filter restricting the result to the machines with any
+// of the given ids, for both backends. With no ids it expresses no filter and
+// returns nil, so the query is unfiltered; callers that must match nothing have
+// to guard the empty case themselves.
+func MachineByIDs(ids ...string) []storage.Filter {
+	return both(len(ids) == 0, queries.MachineByIDs(ids...), pgq.MachineByIDs(ids...))
+}
+
 // Network returns the network query for both backends. A non-empty scopeProject
 // restricts the result to networks of that project.
 func Network(rq *apiv2.NetworkQuery, scopeProject string) []storage.Filter {

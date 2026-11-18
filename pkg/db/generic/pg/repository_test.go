@@ -432,6 +432,61 @@ func TestGenericRepositoryPagination(t *testing.T) {
 	require.Len(t, paged, total)
 }
 
+func TestGenericRepositoryIn(t *testing.T) {
+	ctx := t.Context()
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	db, closer := test.StartPostgres(t, log)
+	defer closer()
+
+	repo, err := pg.NewGenericRepository[UserProfile](log, db)
+	require.NoError(t, err)
+
+	for i, p := range []UserProfile{
+		{Name: "Alice", Age: 30, Address: Address{City: "Berlin", Country: "Germany"}},
+		{Name: "Bob", Age: 25, Address: Address{City: "Vienna", Country: "Austria"}},
+		{Name: "Carol", Age: 40, Address: Address{City: "Munich", Country: "Germany"}},
+	} {
+		require.NoError(t, repo.Create(ctx, "id-"+strconv.Itoa(i), p))
+	}
+
+	names := func(ents []pg.Entity[UserProfile]) []string {
+		out := make([]string, 0, len(ents))
+		for _, e := range ents {
+			out = append(out, e.Data.Name)
+		}
+		return out
+	}
+
+	// Multiple values match exactly the matching subset.
+	results, err := repo.Query(ctx, []pg.QueryFilter{{Path: "name", Op: "IN", Value: []string{"Alice", "Carol"}}}, nil)
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{"Alice", "Carol"}, names(results))
+
+	// A single value behaves like "=".
+	results, err = repo.Query(ctx, []pg.QueryFilter{{Path: "name", Op: "IN", Value: []string{"Bob"}}}, nil)
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{"Bob"}, names(results))
+
+	// The path may point into nested objects.
+	results, err = repo.Query(ctx, []pg.QueryFilter{{Path: "address.country", Op: "IN", Value: []string{"Germany"}}}, nil)
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{"Alice", "Carol"}, names(results))
+
+	// A value that matches nothing yields no rows.
+	results, err = repo.Query(ctx, []pg.QueryFilter{{Path: "name", Op: "IN", Value: []string{"Nobody"}}}, nil)
+	require.NoError(t, err)
+	require.Empty(t, results)
+
+	// An empty set matches no row (and must not produce invalid SQL).
+	results, err = repo.Query(ctx, []pg.QueryFilter{{Path: "name", Op: "IN", Value: []string{}}}, nil)
+	require.NoError(t, err)
+	require.Empty(t, results)
+
+	// A non-slice value is rejected.
+	_, err = repo.Query(ctx, []pg.QueryFilter{{Path: "name", Op: "IN", Value: "Alice"}}, nil)
+	require.Error(t, err)
+}
+
 func TestGenericRepositoryLikeEscaping(t *testing.T) {
 	ctx := t.Context()
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
