@@ -186,6 +186,10 @@ func (r *sizeRepository) convertToProto(ctx context.Context, e *metal.Size) (*ap
 	}, nil
 }
 
+func (r *sizeRepository) convertToProtoList(ctx context.Context, es []*metal.Size) ([]*apiv2.Size, error) {
+	return convertEach(ctx, es, r.convertToProto)
+}
+
 func (r *sizeRepository) sizeFilters(filter generic.EntityQuery) []generic.EntityQuery {
 	var qs []generic.EntityQuery
 	if filter != nil {

@@ -265,6 +265,10 @@ func (t *tokenRepository) convertToProto(ctx context.Context, e *api.TokenWithSe
 	return e, nil
 }
 
+func (t *tokenRepository) convertToProtoList(ctx context.Context, es []*api.TokenWithSecret) ([]*api.TokenWithSecret, error) {
+	return convertEach(ctx, es, t.convertToProto)
+}
+
 func (t *tokenRepository) CreateUserTokenWithoutPermissionCheck(ctx context.Context, subject string, expiration *time.Duration) (*apiv2.TokenServiceCreateResponse, error) {
 	if t.scope != nil {
 		return nil, errorutil.FailedPrecondition("tokens without permission check can only be created unscoped")

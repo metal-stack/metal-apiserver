@@ -212,6 +212,10 @@ func (r *imageRepository) convertToProto(ctx context.Context, in *metal.Image) (
 	}, nil
 }
 
+func (r *imageRepository) convertToProtoList(ctx context.Context, es []*metal.Image) ([]*apiv2.Image, error) {
+	return convertEach(ctx, es, r.convertToProto)
+}
+
 // GetMostRecentImageFor
 // the id is in the form of: <name>-<version>
 // where name is for example ubuntu or firewall

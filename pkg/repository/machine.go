@@ -321,7 +321,147 @@ func (r *machineRepository) convertFirewallRulesToInternal(firewallRules *apiv2.
 	return fwrules, nil
 }
 
+// machineLookup holds all entities which are required to convert machines to their api representation.
+// It is filled once per conversion batch so that converting many machines does not issue backend calls per machine.
+type machineLookup struct {
+	partitions map[string]*apiv2.Partition
+	sizes      map[string]*apiv2.Size
+	images     map[string]*apiv2.Image
+	fsls       map[string]*apiv2.FilesystemLayout
+	networks   map[string]*metal.Network
+	events     map[string]*metal.ProvisioningEventContainer
+}
+
+func (r *machineRepository) prefetchMachineLookup(ctx context.Context, ms []*metal.Machine) (*machineLookup, error) {
+	var (
+		partitionIDs, sizeIDs, imageIDs, fslIDs, networkIDs, machineIDs []string
+
+		l = &machineLookup{
+			partitions: map[string]*apiv2.Partition{},
+			sizes:      map[string]*apiv2.Size{},
+			images:     map[string]*apiv2.Image{},
+			fsls:       map[string]*apiv2.FilesystemLayout{},
+		}
+	)
+
+	for _, m := range ms {
+		machineIDs = append(machineIDs, m.ID)
+		partitionIDs = append(partitionIDs, m.PartitionID)
+		sizeIDs = append(sizeIDs, m.SizeID)
+
+		if m.Allocation == nil {
+			continue
+		}
+
+		imageIDs = append(imageIDs, m.Allocation.ImageID)
+		if m.Allocation.FilesystemLayout != nil {
+			fslIDs = append(fslIDs, m.Allocation.FilesystemLayout.ID)
+		}
+		for _, nw := range m.Allocation.MachineNetworks {
+			networkIDs = append(networkIDs, nw.NetworkID)
+		}
+	}
+
+	var (
+		g, gctx    = errgroup.WithContext(ctx)
+		partitions map[string]*metal.Partition
+		sizes      map[string]*metal.Size
+		images     map[string]*metal.Image
+		fsls       map[string]*metal.FilesystemLayout
+	)
+
+	g.Go(func() (err error) {
+		partitions, err = getManyByID(gctx, r.s.ds.Partition(), partitionIDs)
+		return err
+	})
+	g.Go(func() (err error) {
+		sizes, err = getManyByID(gctx, r.s.ds.Size(), sizeIDs)
+		return err
+	})
+	g.Go(func() (err error) {
+		images, err = getManyByID(gctx, r.s.ds.Image(), imageIDs)
+		return err
+	})
+	g.Go(func() (err error) {
+		fsls, err = getManyByID(gctx, r.s.ds.FilesystemLayout(), fslIDs)
+		return err
+	})
+	g.Go(func() (err error) {
+		l.networks, err = getManyByID(gctx, r.s.ds.Network(), networkIDs)
+		return err
+	})
+	g.Go(func() (err error) {
+		l.events, err = getManyByID(gctx, r.s.ds.Event(), machineIDs)
+		return err
+	})
+
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
+	// every referenced entity is only converted once and shared between the machines of this batch
+
+	for id, p := range partitions {
+		converted, err := r.s.Partition().AdditionalMethods().convertToProto(ctx, p)
+		if err != nil {
+			return nil, err
+		}
+		l.partitions[id] = converted
+	}
+	for id, size := range sizes {
+		converted, err := r.s.Size().AdditionalMethods().convertToProto(ctx, size)
+		if err != nil {
+			return nil, err
+		}
+		l.sizes[id] = converted
+	}
+	for id, image := range images {
+		converted, err := r.s.Image().AdditionalMethods().convertToProto(ctx, image)
+		if err != nil {
+			return nil, err
+		}
+		l.images[id] = converted
+	}
+	for id, fsl := range fsls {
+		converted, err := r.s.FilesystemLayout().AdditionalMethods().convertToProto(ctx, fsl)
+		if err != nil {
+			return nil, err
+		}
+		l.fsls[id] = converted
+	}
+
+	return l, nil
+}
+
 func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine) (*apiv2.Machine, error) {
+	res, err := r.convertToProtoList(ctx, []*metal.Machine{m})
+	if err != nil {
+		return nil, err
+	}
+
+	return res[0], nil
+}
+
+func (r *machineRepository) convertToProtoList(ctx context.Context, ms []*metal.Machine) ([]*apiv2.Machine, error) {
+	l, err := r.prefetchMachineLookup(ctx, ms)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]*apiv2.Machine, 0, len(ms))
+	for _, m := range ms {
+		converted, err := r.convertMachine(m, l)
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, converted)
+	}
+
+	return res, nil
+}
+
+// convertMachine converts a machine to its api representation, it must not do any backend calls.
+func (r *machineRepository) convertMachine(m *metal.Machine, l *machineLookup) (*apiv2.Machine, error) {
 	var (
 		labels           *apiv2.Labels
 		allocationLabels *apiv2.Labels
@@ -344,16 +484,10 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 	}
 
 	// For machines which are initially created there is no known partition yet
-	partition, err := r.s.Partition().Get(ctx, m.PartitionID)
-	if err != nil && !errorutil.IsNotFound(err) {
-		return nil, err
-	}
+	partition := l.partitions[m.PartitionID]
 	// For machines which are initially created there is no known size yet
-	size, err = r.s.Size().Get(ctx, m.SizeID)
-	if err != nil {
-		if !errorutil.IsNotFound(err) {
-			return nil, err
-		}
+	size, ok := l.sizes[m.SizeID]
+	if !ok {
 		size = r.s.Size().AdditionalMethods().unknownSize()
 	}
 
@@ -416,15 +550,15 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 	if m.Allocation != nil {
 		alloc := m.Allocation
 
-		image, err := r.s.Image().Get(ctx, alloc.ImageID)
-		if err != nil {
-			return nil, err
+		image, ok := l.images[alloc.ImageID]
+		if !ok {
+			return nil, errorutil.NotFound("no image with id %q found", alloc.ImageID)
 		}
 
 		if alloc.FilesystemLayout != nil {
-			filesystemLayout, err = r.s.FilesystemLayout().Get(ctx, alloc.FilesystemLayout.ID)
-			if err != nil {
-				return nil, err
+			filesystemLayout, ok = l.fsls[alloc.FilesystemLayout.ID]
+			if !ok {
+				return nil, errorutil.NotFound("no filesystemlayout with id %q found", alloc.FilesystemLayout.ID)
 			}
 		}
 
@@ -491,9 +625,9 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 		}
 
 		for _, nw := range alloc.MachineNetworks {
-			metalNetwork, err := r.s.ds.Network().Get(ctx, nw.NetworkID)
-			if err != nil {
-				return nil, err
+			metalNetwork, ok := l.networks[nw.NetworkID]
+			if !ok {
+				return nil, errorutil.NotFound("no network with id %q found", nw.NetworkID)
 			}
 			networkType, err := metal.FromNetworkType(metalNetwork.NetworkType)
 			if err != nil {
@@ -585,12 +719,7 @@ func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine
 		Allocation: allocation,
 	}
 
-	event, err := r.s.ds.Event().Get(ctx, m.ID)
-	if err != nil && !errorutil.IsNotFound(err) {
-		return nil, err
-	}
-
-	if event != nil {
+	if event, ok := l.events[m.ID]; ok {
 
 		liveliness, err := enum.GetEnum[apiv2.MachineLiveliness](strings.ToLower(string(event.Liveliness)))
 		if err != nil {

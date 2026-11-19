@@ -199,6 +199,10 @@ func (r *projectRepository) convertToProto(ctx context.Context, p *projectEntity
 	}, nil
 }
 
+func (r *projectRepository) convertToProtoList(ctx context.Context, es []*projectEntity) ([]*apiv2.Project, error) {
+	return convertEach(ctx, es, r.convertToProto)
+}
+
 // GetProjectsAndTenants returns all projects and tenants that the user is participating in
 func (r *projectRepository) GetProjectsAndTenants(ctx context.Context, userId string) (*api.ProjectsAndTenants, error) {
 	var (
