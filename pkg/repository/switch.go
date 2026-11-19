@@ -768,7 +768,7 @@ func (r *switchRepository) prefetchSwitchLookup(ctx context.Context, sws []*meta
 		switchIDs  []string
 		machineIDs []string
 		partitions []string
-		l          = &switchLookup{
+		lookup     = &switchLookup{
 			firewalls: map[switchProjectRack][]*metal.Machine{},
 			ips:       metal.IPsMap{},
 		}
@@ -785,11 +785,11 @@ func (r *switchRepository) prefetchSwitchLookup(ctx context.Context, sws []*meta
 	}
 
 	g.Go(func() (err error) {
-		l.machines, err = getManyByID(gctx, r.s.ds.Machine(), machineIDs)
+		lookup.machines, err = getManyByID(gctx, r.s.ds.Machine(), machineIDs)
 		return err
 	})
 	g.Go(func() (err error) {
-		l.statuses, err = getManyByID(gctx, r.s.ds.SwitchStatus(), switchIDs)
+		lookup.statuses, err = getManyByID(gctx, r.s.ds.SwitchStatus(), switchIDs)
 		return err
 	})
 	g.Go(func() (err error) {
@@ -801,10 +801,10 @@ func (r *switchRepository) prefetchSwitchLookup(ctx context.Context, sws []*meta
 		return nil, err
 	}
 
-	l.networks = metal.NetworksById(networks)
+	lookup.networks = metal.NetworksById(networks)
 
 	var projects []string
-	for _, m := range l.machines {
+	for _, m := range lookup.machines {
 		if m.Allocation != nil {
 			projects = append(projects, m.Allocation.Project)
 		}
@@ -812,7 +812,7 @@ func (r *switchRepository) prefetchSwitchLookup(ctx context.Context, sws []*meta
 	projects = lo.Uniq(projects)
 
 	if len(projects) == 0 {
-		return l, nil
+		return lookup, nil
 	}
 
 	var (
@@ -836,14 +836,14 @@ func (r *switchRepository) prefetchSwitchLookup(ctx context.Context, sws []*meta
 		return nil, err
 	}
 
-	l.ips = metal.IPsByProject(ips)
+	lookup.ips = metal.IPsByProject(ips)
 
 	for _, fw := range firewalls {
 		key := switchProjectRack{project: fw.Allocation.Project, partition: fw.PartitionID, rack: fw.RackID}
-		l.firewalls[key] = append(l.firewalls[key], fw)
+		lookup.firewalls[key] = append(lookup.firewalls[key], fw)
 	}
 
-	return l, nil
+	return lookup, nil
 }
 
 func (r *switchRepository) convertToProto(ctx context.Context, sw *metal.Switch) (*apiv2.Switch, error) {
@@ -860,14 +860,14 @@ func (r *switchRepository) convertToProto(ctx context.Context, sw *metal.Switch)
 }
 
 func (r *switchRepository) convertToProtoList(ctx context.Context, sws []*metal.Switch) ([]*apiv2.Switch, error) {
-	l, err := r.prefetchSwitchLookup(ctx, sws)
+	lookup, err := r.prefetchSwitchLookup(ctx, sws)
 	if err != nil {
 		return nil, err
 	}
 
 	res := make([]*apiv2.Switch, 0, len(sws))
 	for _, sw := range sws {
-		converted, err := r.convertSwitch(sw, l)
+		converted, err := r.convertSwitch(sw, lookup)
 		if err != nil {
 			return nil, err
 		}

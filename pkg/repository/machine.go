@@ -334,7 +334,7 @@ func (r *machineRepository) prefetchMachineLookup(ctx context.Context, ms []*met
 	var (
 		partitionIDs, sizeIDs, imageIDs, fslIDs, networkIDs, machineIDs []string
 
-		l = &machineLookup{
+		lookup = &machineLookup{
 			partitions: map[string]*apiv2.Partition{},
 			sizes:      map[string]*apiv2.Size{},
 			images:     map[string]*apiv2.Image{},
@@ -385,11 +385,11 @@ func (r *machineRepository) prefetchMachineLookup(ctx context.Context, ms []*met
 		return err
 	})
 	g.Go(func() (err error) {
-		l.networks, err = getManyByID(gctx, r.s.ds.Network(), networkIDs)
+		lookup.networks, err = getManyByID(gctx, r.s.ds.Network(), networkIDs)
 		return err
 	})
 	g.Go(func() (err error) {
-		l.events, err = getManyByID(gctx, r.s.ds.Event(), machineIDs)
+		lookup.events, err = getManyByID(gctx, r.s.ds.Event(), machineIDs)
 		return err
 	})
 
@@ -404,31 +404,31 @@ func (r *machineRepository) prefetchMachineLookup(ctx context.Context, ms []*met
 		if err != nil {
 			return nil, err
 		}
-		l.partitions[id] = converted
+		lookup.partitions[id] = converted
 	}
 	for id, size := range sizes {
 		converted, err := r.s.Size().AdditionalMethods().convertToProto(ctx, size)
 		if err != nil {
 			return nil, err
 		}
-		l.sizes[id] = converted
+		lookup.sizes[id] = converted
 	}
 	for id, image := range images {
 		converted, err := r.s.Image().AdditionalMethods().convertToProto(ctx, image)
 		if err != nil {
 			return nil, err
 		}
-		l.images[id] = converted
+		lookup.images[id] = converted
 	}
 	for id, fsl := range fsls {
 		converted, err := r.s.FilesystemLayout().AdditionalMethods().convertToProto(ctx, fsl)
 		if err != nil {
 			return nil, err
 		}
-		l.fsls[id] = converted
+		lookup.fsls[id] = converted
 	}
 
-	return l, nil
+	return lookup, nil
 }
 
 func (r *machineRepository) convertToProto(ctx context.Context, m *metal.Machine) (*apiv2.Machine, error) {
