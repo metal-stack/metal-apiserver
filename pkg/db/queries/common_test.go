@@ -24,7 +24,7 @@ func TestByIDs(t *testing.T) {
 	ctx := t.Context()
 
 	for _, id := range []string{"a", "b", "c", "d"} {
-		_, err := ds.Machine().Create(ctx, &metal.Machine{Base: metal.Base{ID: id}, PartitionID: "p-" + id})
+		_, err := ds.Machine().Create(ctx, &metal.Machine{ID: id, PartitionID: "p-" + id})
 		require.NoError(t, err)
 	}
 

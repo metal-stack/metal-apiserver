@@ -755,8 +755,8 @@ type switchLookup struct {
 	networks metal.NetworkMap
 	// ips contains the ips of all projects which have allocated machines connected to the switches of this batch
 	ips metal.IPsMap
-	// projectMachines contains the machines of a project in a rack, used to find firewall ips
-	projectMachines map[switchProjectRack][]*metal.Machine
+	// firewalls contains the firewalls of a project in a rack, used to find firewall ips
+	firewalls map[switchProjectRack][]*metal.Machine
 }
 
 type switchProjectRack struct {
@@ -767,9 +767,10 @@ func (r *switchRepository) prefetchSwitchLookup(ctx context.Context, sws []*meta
 	var (
 		switchIDs  []string
 		machineIDs []string
+		partitions []string
 		l          = &switchLookup{
-			projectMachines: map[switchProjectRack][]*metal.Machine{},
-			ips:             metal.IPsMap{},
+			firewalls: map[switchProjectRack][]*metal.Machine{},
+			ips:       metal.IPsMap{},
 		}
 		g, gctx  = errgroup.WithContext(ctx)
 		networks []*metal.Network
@@ -777,6 +778,7 @@ func (r *switchRepository) prefetchSwitchLookup(ctx context.Context, sws []*meta
 
 	for _, sw := range sws {
 		switchIDs = append(switchIDs, sw.ID)
+		partitions = append(partitions, sw.Partition)
 		for _, c := range lo.Flatten(lo.Values(sw.MachineConnections)) {
 			machineIDs = append(machineIDs, c.MachineID)
 		}
@@ -813,37 +815,32 @@ func (r *switchRepository) prefetchSwitchLookup(ctx context.Context, sws []*meta
 		return l, nil
 	}
 
-	ips, err := r.s.ds.IP().List(ctx, queries.IPProjectsFilter(projects))
-	if err != nil {
+	var (
+		ips       []*metal.IP
+		firewalls []*metal.Machine
+	)
+
+	g, gctx = errgroup.WithContext(ctx)
+
+	g.Go(func() (err error) {
+		ips, err = r.s.ds.IP().List(gctx, queries.IPProjectsFilter(projects))
+		return err
+	})
+	g.Go(func() (err error) {
+		// only firewalls are relevant for the bgp filter, so fetch all of them at once and group them in memory
+		firewalls, err = r.s.ds.Machine().List(gctx, queries.MachineFirewallsFilter(projects, lo.Uniq(partitions)))
+		return err
+	})
+
+	if err := g.Wait(); err != nil {
 		return nil, err
 	}
+
 	l.ips = metal.IPsByProject(ips)
 
-	for _, sw := range sws {
-		for _, c := range lo.Flatten(lo.Values(sw.MachineConnections)) {
-			m, ok := l.machines[c.MachineID]
-			if !ok || m.Allocation == nil {
-				continue
-			}
-
-			key := switchProjectRack{project: m.Allocation.Project, partition: sw.Partition, rack: sw.Rack}
-			if _, ok := l.projectMachines[key]; ok {
-				continue
-			}
-
-			projectMachines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
-				Allocation: &apiv2.MachineAllocationQuery{
-					Project: new(key.project),
-				},
-				Partition: new(key.partition),
-				Rack:      new(key.rack),
-			}))
-			if err != nil {
-				return nil, err
-			}
-
-			l.projectMachines[key] = projectMachines
-		}
+	for _, fw := range firewalls {
+		key := switchProjectRack{project: fw.Allocation.Project, partition: fw.PartitionID, rack: fw.RackID}
+		l.firewalls[key] = append(l.firewalls[key], fw)
 	}
 
 	return l, nil
@@ -1097,12 +1094,12 @@ func (r *switchRepository) convertToSwitchNics(sw *metal.Switch, l *switchLookup
 			return nil, err
 		}
 
-		var projectMachines []*metal.Machine
+		var firewalls []*metal.Machine
 		if m != nil && m.Allocation != nil {
-			projectMachines = l.projectMachines[switchProjectRack{project: m.Allocation.Project, partition: sw.Partition, rack: sw.Rack}]
+			firewalls = l.firewalls[switchProjectRack{project: m.Allocation.Project, partition: sw.Partition, rack: sw.Rack}]
 		}
 
-		filter, err := makeBGPFilterFromMaps(m, projectMachines, nic.Vrf, l.networks, l.ips)
+		filter, err := makeBGPFilterFromMaps(m, firewalls, nic.Vrf, l.networks, l.ips)
 		if err != nil {
 			return nil, err
 		}

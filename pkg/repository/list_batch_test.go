@@ -142,7 +142,26 @@ func TestSwitchList_BatchedLookups(t *testing.T) {
 		}
 		require.NoError(t, ds.Machine().Update(ctx, m))
 	}
-	_, err := ds.IP().Create(ctx, &metal.IP{IPAddress: "212.34.83.10", ProjectID: "p1", ParentPrefixCidr: "212.34.83.0/24"})
+	for _, ip := range []string{"192.168.0.10", "192.168.0.20"} {
+		_, err := ds.IP().Create(ctx, &metal.IP{
+			IPAddress:        ip,
+			ProjectID:        "p1",
+			ParentPrefixCidr: "192.168.0.0/16"},
+		)
+		require.NoError(t, err)
+	}
+
+	// a firewall of the same project in the rack of machine 1 (but not of machine 4), its ip must not be announced for machine 1
+	_, err := ds.Machine().Create(ctx, &metal.Machine{
+		ID:          "firewall-p01-rack01",
+		PartitionID: sc.Partition1,
+		RackID:      sc.P01Rack01,
+		Allocation: &metal.MachineAllocation{
+			Project:         "p1",
+			Role:            metal.RoleFirewall,
+			MachineNetworks: []*metal.MachineNetwork{{IPs: []string{"192.168.0.10"}}},
+		},
+	})
 	require.NoError(t, err)
 
 	store, reads := newCountingStore(dc)
@@ -151,14 +170,15 @@ func TestSwitchList_BatchedLookups(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, switches, len(dc.GetSwitches()))
 
-	// 1 list query + machines, switch statuses, networks, ips + one query per distinct (project, partition, rack) of allocated connected machines
-	require.LessOrEqual(t, reads.Load(), int64(5+2), "switch list must not do lookups per switch or per nic")
+	// list + machines, switch statuses, networks + ips, firewalls
+	require.Equal(t, int64(6), reads.Load(), "switch list must not do lookups per switch, per nic or per rack")
 
-	var foundFilter bool
+	// collect the bgp filters of the nics connected to the allocated machines
+	cidrsByMachine := map[string][]string{}
 	for _, sw := range switches {
-		for _, nic := range sw.Nics {
-			if len(nic.BgpFilter.GetCidrs()) > 0 {
-				foundFilter = true
+		for _, con := range sw.MachineConnections {
+			if con.Nic.BgpFilter != nil && len(con.Nic.BgpFilter.Cidrs) > 0 {
+				cidrsByMachine[con.MachineId] = con.Nic.BgpFilter.Cidrs
 			}
 		}
 
@@ -168,5 +188,9 @@ func TestSwitchList_BatchedLookups(t *testing.T) {
 			t.Errorf("switch %s differs between list and get (-get +list):\n%s", sw.Id, diff)
 		}
 	}
-	require.True(t, foundFilter, "expected at least one nic with a bgp filter derived from project ips")
+
+	require.Equal(t, map[string][]string{
+		sc.Machine1: {"192.168.0.20/32"},                    // firewall ip in the same rack is excluded
+		sc.Machine4: {"192.168.0.10/32", "192.168.0.20/32"}, // firewall is in another rack
+	}, cidrsByMachine)
 }
