@@ -35,7 +35,7 @@ func BenchmarkMachineList(b *testing.B) {
 	require.NoError(b, err)
 	require.NotEmpty(b, templates)
 
-	for i := 0; i < benchMachines-len(templates); i++ {
+	for i := range benchMachines - len(templates) {
 		tpl := templates[i%len(templates)]
 		m := *tpl
 		m.ID = fmt.Sprintf("bench-machine-%05d", i)
@@ -59,6 +59,7 @@ func BenchmarkMachineList(b *testing.B) {
 		require.NoError(b, err)
 		require.Len(b, ms, benchMachines)
 	}
+
 	b.ReportMetric(float64(reads.Load())/float64(b.N), "queries/op")
 }
 
@@ -77,10 +78,17 @@ func BenchmarkSwitchList(b *testing.B) {
 		m.Allocation = &metal.MachineAllocation{Project: "p1", Role: metal.RoleMachine}
 		require.NoError(b, ds.Machine().Update(ctx, m))
 	}
+
 	var ips []*metal.IP
+
 	for i := range 200 {
-		ip, err := ds.IP().Create(ctx, &metal.IP{IPAddress: fmt.Sprintf("192.168.%d.%d", i/250, i%250+1), ProjectID: fmt.Sprintf("p%d", i%20), ParentPrefixCidr: "192.168.0.0/16"})
+		ip, err := ds.IP().Create(ctx, &metal.IP{
+			IPAddress:        fmt.Sprintf("192.168.%d.%d", i/250, i%250+1),
+			ProjectID:        fmt.Sprintf("p%d", i%20),
+			ParentPrefixCidr: "192.168.0.0/16"},
+		)
 		require.NoError(b, err)
+
 		ips = append(ips, ip)
 	}
 	// these ips only exist in the datastore and not in ipam, so they must be removed before the datacenter cleanup releases ips in ipam
@@ -93,7 +101,11 @@ func BenchmarkSwitchList(b *testing.B) {
 	templates, err := ds.Switch().List(ctx)
 	require.NoError(b, err)
 
-	for r := 1; r < benchSwitchReplicas; r++ {
+	for r := range benchSwitchReplicas {
+		if r == 0 {
+			continue
+		}
+
 		for _, tpl := range templates {
 			sw := *tpl
 			sw.ID = fmt.Sprintf("%s-bench-%d", tpl.ID, r)
@@ -113,5 +125,6 @@ func BenchmarkSwitchList(b *testing.B) {
 		require.NoError(b, err)
 		require.Len(b, sws, total)
 	}
+
 	b.ReportMetric(float64(reads.Load())/float64(b.N), "queries/op")
 }

@@ -321,8 +321,6 @@ func (r *machineRepository) convertFirewallRulesToInternal(firewallRules *apiv2.
 	return fwrules, nil
 }
 
-// machineLookup holds all entities which are required to convert machines to their api representation.
-// It is filled once per conversion batch so that converting many machines does not issue backend calls per machine.
 type machineLookup struct {
 	partitions map[string]*apiv2.Partition
 	sizes      map[string]*apiv2.Size

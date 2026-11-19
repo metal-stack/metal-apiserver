@@ -10,7 +10,6 @@ import (
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
 
-// IPProjectsFilter returns all ips which belong to one of the given projects.
 func IPProjectsFilter(projects []string) func(q r.Term) r.Term {
 	return func(q r.Term) r.Term {
 		return q.Filter(func(row r.Term) r.Term {
