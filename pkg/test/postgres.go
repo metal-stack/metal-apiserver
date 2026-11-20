@@ -28,7 +28,7 @@ func StartPostgresWithDSN(t testing.TB, log *slog.Logger) (*sql.DB, string, func
 	ctx := t.Context()
 
 	pgContainer, err := postgres.Run(ctx,
-		"postgres:19rc1-alpine",
+		"postgres:19-alpine",
 		postgres.WithDatabase("testdb"),
 		postgres.WithUsername("testuser"),
 		postgres.WithPassword("testpass"),
