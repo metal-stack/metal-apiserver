@@ -53,7 +53,7 @@ func StartValkey(t testing.TB, testOpts ...testOpt) (*redis.Client, valkeygo.Cli
 	}
 
 	valkeyContainer, err := valkey.Run(ctx,
-		"valkey/valkey:9-alpine",
+		"valkey/valkey:9.2-alpine",
 		valkey.WithSnapshotting(1000, 1000),
 		valkey.WithLogLevel(valkey.LogLevelVerbose),
 		testcontainers.WithTmpfs(map[string]string{"/data": "rw"}),
