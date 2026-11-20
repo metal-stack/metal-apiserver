@@ -956,13 +956,6 @@ func (r *machineRepository) InstallationSucceeded(ctx context.Context, req *infr
 		return nil, fmt.Errorf("the machine %q is not allocated", req.Uuid)
 	}
 
-	m.Allocation.ConsolePassword = req.ConsolePassword
-
-	err = r.s.ds.Machine().Update(ctx, m)
-	if err != nil {
-		return nil, err
-	}
-
 	vrf := ""
 	switch role := m.Allocation.Role; role {
 	case metal.RoleFirewall:
@@ -984,8 +977,10 @@ func (r *machineRepository) InstallationSucceeded(ctx context.Context, req *infr
 	}
 
 	info, err := r.s.task.NewTask(&task.MachineInstallationSucceededPayload{
-		UUID: m.ID,
-		Vrf:  vrf,
+		UUID:            m.ID,
+		AllocationUUID:  m.Allocation.UUID,
+		ConsolePassword: req.ConsolePassword,
+		Vrf:             vrf,
 	})
 	if err != nil {
 		return nil, err
@@ -1923,6 +1918,17 @@ func (r *Store) MachineInstallationSucceededHandleFn(ctx context.Context, t *asy
 	m, err := r.ds.Machine().Get(ctx, payload.UUID)
 	if err != nil {
 		return err
+	}
+	if m.Allocation.UUID != payload.AllocationUUID {
+		return fmt.Errorf("%w machine %q because allocation changed", asynq.SkipRetry, payload.UUID)
+	}
+
+	if m.Allocation.ConsolePassword != payload.ConsolePassword {
+		m.Allocation.ConsolePassword = payload.ConsolePassword
+
+		if err := r.ds.Machine().Update(ctx, m); err != nil {
+			return err
+		}
 	}
 
 	if _, err := r.Switch().AdditionalMethods().SetVrfAtSwitches(ctx, m, payload.Vrf); err != nil {

@@ -58,6 +58,10 @@ type (
 	MachineInstallationSucceededPayload struct {
 		// UUID of the machine which should be deleted (the machine)
 		UUID string `json:"uuid"`
+		// AllocationUUID is the uuid of the machine allocation
+		AllocationUUID string `json:"allocation_uuid"`
+		// ConsolePassword which was generated during allocation
+		ConsolePassword string `json:"console_password"`
 		// Vrf in which this machine should be enslaved on the switch
 		Vrf string `json:"vrf"`
 	}
