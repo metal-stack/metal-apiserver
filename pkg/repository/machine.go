@@ -983,26 +983,18 @@ func (r *machineRepository) InstallationSucceeded(ctx context.Context, req *infr
 		return nil, fmt.Errorf("the machine %q could not be put into the vrf because no vrf was found", req.Uuid)
 	}
 
-	// TODO convert to tasks
-	err = retry.Do(
-		func() error {
-			_, err := r.s.Switch().AdditionalMethods().SetVrfAtSwitches(ctx, m, vrf)
-			return err
-		},
-		retry.Attempts(10),
-		retry.RetryIf(func(err error) bool {
-			return errorutil.IsConflict(err)
-		}),
-		retry.DelayType(retry.CombineDelay(retry.BackOffDelay, retry.RandomDelay)),
-		retry.LastErrorOnly(true),
-	)
+	info, err := r.s.task.NewTask(&task.MachineInstallationSucceededPayload{
+		UUID: m.ID,
+		Vrf:  vrf,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("the machine %q could not be enslaved into the vrf %s, error: %w", req.Uuid, vrf, err)
+		return nil, err
 	}
 
-	_, err = r.MachineBMCCommand(ctx, m.ID, m.PartitionID, apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_MACHINE_CREATED, RunSync(false))
-	if err != nil {
-		return nil, fmt.Errorf("unable to send machine bmc command to trigger boot to disk: %w", err)
+	r.s.log.Info("machine installation succeed enqueued, polling for completion", "info", info)
+
+	if _, err := r.s.Task().WatchForTaskCompletion(ctx, nil, info.Queue, info.ID); err != nil {
+		return nil, errorutil.Internal("error waiting for task %q of type %q to complete: %w", info.ID, info.Type, err)
 	}
 
 	return m, nil
@@ -1920,6 +1912,27 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 		}
 	}
 
+	return nil
+}
+func (r *Store) MachineInstallationSucceededHandleFn(ctx context.Context, t *asynq.Task) error {
+	payload, err := task.DecodePayload[*task.MachineInstallationSucceededPayload](t.Payload())
+	if err != nil {
+		return err
+	}
+
+	m, err := r.ds.Machine().Get(ctx, payload.UUID)
+	if err != nil {
+		return err
+	}
+
+	if _, err := r.Switch().AdditionalMethods().SetVrfAtSwitches(ctx, m, payload.Vrf); err != nil {
+		return err
+	}
+	_, err = r.UnscopedMachine().AdditionalMethods().MachineBMCCommand(ctx, m.ID, m.PartitionID, apiv2.MachineBMCCommand_MACHINE_BMC_COMMAND_MACHINE_CREATED, RunSync(false))
+	if err != nil {
+		return fmt.Errorf("unable to send machine bmc command to trigger boot to disk: %w", err)
+	}
+	r.log.Debug("machine was enslaved into vrf", "vrf", payload.Vrf, "machine", payload.UUID)
 	return nil
 }
 
