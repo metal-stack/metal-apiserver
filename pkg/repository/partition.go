@@ -226,6 +226,10 @@ func (p *partitionRepository) convertToProto(ctx context.Context, e *metal.Parti
 	}, nil
 }
 
+func (p *partitionRepository) convertToProtoList(ctx context.Context, es []*metal.Partition) ([]*apiv2.Partition, error) {
+	return convertEach(ctx, es, p.convertToProto)
+}
+
 func (p *partitionRepository) Capacity(ctx context.Context, rq *adminv2.PartitionServiceCapacityRequest) (*adminv2.PartitionServiceCapacityResponse, error) {
 	var (
 		ms           []*metal.Machine

@@ -177,6 +177,10 @@ func (a *auditRepository) convertToProto(ctx context.Context, e *auditEntity) (*
 	}, nil
 }
 
+func (a *auditRepository) convertToProtoList(ctx context.Context, es []*auditEntity) ([]*apiv2.AuditTrace, error) {
+	return convertEach(ctx, es, a.convertToProto)
+}
+
 func (a auditEntity) SetChanged(time time.Time) {}
 
 func (auditEntity) GetUpdateMeta() *apiv2.UpdateMeta {

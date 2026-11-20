@@ -162,6 +162,10 @@ func (r *sizeReservationRepository) convertToProto(ctx context.Context, e *metal
 	}, nil
 }
 
+func (r *sizeReservationRepository) convertToProtoList(ctx context.Context, es []*metal.SizeReservation) ([]*apiv2.SizeReservation, error) {
+	return convertEach(ctx, es, r.convertToProto)
+}
+
 func (r *sizeReservationRepository) sizeReservationFilters(filter generic.EntityQuery) []generic.EntityQuery {
 	var qs []generic.EntityQuery
 	if filter != nil {

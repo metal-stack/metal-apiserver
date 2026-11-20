@@ -309,6 +309,10 @@ func (t *projectMemberRepository) convertToProto(ctx context.Context, e *project
 	}, nil
 }
 
+func (t *projectMemberRepository) convertToProtoList(ctx context.Context, es []*projectMemberEntity) ([]*apiv2.ProjectMember, error) {
+	return convertEach(ctx, es, t.convertToProto)
+}
+
 func projectRoleFromMap(annotations map[string]string) apiv2.ProjectRole {
 	if annotations == nil {
 		return apiv2.ProjectRole_PROJECT_ROLE_UNSPECIFIED

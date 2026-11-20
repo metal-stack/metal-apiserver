@@ -473,6 +473,10 @@ func (r *filesystemLayoutRepository) convertToProto(ctx context.Context, in *met
 	}, nil
 }
 
+func (r *filesystemLayoutRepository) convertToProtoList(ctx context.Context, es []*metal.FilesystemLayout) ([]*apiv2.FilesystemLayout, error) {
+	return convertEach(ctx, es, r.convertToProto)
+}
+
 func (r *filesystemLayoutRepository) FromMachineAndFSL(ctx context.Context, matchMachine *adminv2.MatchMachineAndFilesystemLayout) (*apiv2.FilesystemLayout, error) {
 	fsl, err := r.s.ds.FilesystemLayout().Get(ctx, matchMachine.FilesystemLayout)
 	if err != nil {

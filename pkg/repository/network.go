@@ -458,6 +458,10 @@ func (r *networkRepository) convertToProto(ctx context.Context, e *metal.Network
 	return nw, nil
 }
 
+func (r *networkRepository) convertToProtoList(ctx context.Context, es []*metal.Network) ([]*apiv2.Network, error) {
+	return convertEach(ctx, es, r.convertToProto)
+}
+
 func (r *networkRepository) toProtoChildPrefixLength(childPrefixLength metal.ChildPrefixLength) (*apiv2.ChildPrefixLength, error) {
 	var result *apiv2.ChildPrefixLength
 	for af, length := range childPrefixLength {
