@@ -69,6 +69,7 @@ func newServeCmd() *cli.Command {
 			redisAddrFlag,
 			redisPasswordFlag,
 			providerTenantFlag,
+			minSwitchesPerMachineFlag,
 			maxRequestsPerMinuteFlag,
 			maxRequestsPerMinuteUnauthenticatedFlag,
 			ipamGrpcEndpointFlag,
@@ -162,6 +163,7 @@ func newServeCmd() *cli.Command {
 					Component:             redisConfig.ComponentClient,
 					Auditing:              auditSearchBackend,
 					HeadscaleClient:       hc,
+					MinSwitchesPerMachine: cmd.Int(minSwitchesPerMachineFlag.Name),
 					TokenConfig: repository.TokenConfig{
 						TokenStore: token.NewRedisStore(redisConfig.TokenClient),
 						CertStore: certs.NewRedisStore(&certs.Config{
@@ -382,4 +384,20 @@ func createIpamClient(ctx context.Context, cmd *cli.Command, log *slog.Logger) (
 
 	log.Info("ipam initialized")
 	return ipamService, nil
+}
+
+var minSwitchesPerMachineFlag = &cli.IntFlag{
+	Name:  "min-switches-per-machine",
+	Value: repository.DefaultMinSwitchesPerMachine,
+	Usage: `the number of leaf switches a machine must be connected to when it registers.
+Production setups are dual-homed (2). Set to 1 for single-switch partitions, e.g. hardware labs;
+machines may then be connected to one or two switches.
+`,
+	Sources: cli.EnvVars("MIN_SWITCHES_PER_MACHINE"),
+	Action: func(ctx context.Context, cmd *cli.Command, n int) error {
+		if n != 1 && n != 2 {
+			return fmt.Errorf("min-switches-per-machine must be 1 or 2, got %d", n)
+		}
+		return nil
+	},
 }
