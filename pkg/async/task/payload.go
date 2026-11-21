@@ -14,6 +14,7 @@ const (
 	TypeMachineDecommission          TaskType = "machine:decommission"
 	TypeMachineBMCCommand            TaskType = "machine:bmc-command"
 	TypeMachineInstallationSucceeded TaskType = "machine:installation-succeeded"
+	TypeMachineRegister              TaskType = "machine:register"
 )
 
 type (
@@ -66,6 +67,11 @@ type (
 		Vrf string `json:"vrf"`
 	}
 
+	MachineRegisterPayload struct {
+		// UUID of the machine which should be deleted (the machine)
+		UUID string `json:"uuid"`
+	}
+
 	MachineBMCCommandPayload struct {
 		// UUID of the machine where the command should be executed against
 		UUID string `json:"uuid,omitempty"`
@@ -109,6 +115,10 @@ func (p *MachineBMCCommandPayload) Type() TaskType {
 
 func (p *MachineInstallationSucceededPayload) Type() TaskType {
 	return TypeMachineInstallationSucceeded
+}
+
+func (p *MachineRegisterPayload) Type() TaskType {
+	return TypeMachineRegister
 }
 
 // EncodePayload can be used to encode a task payload using json marshal.
