@@ -10,20 +10,21 @@ import (
 	"uuid"
 
 	"github.com/metal-stack/api/go/errorutil"
+	"github.com/metal-stack/metal-apiserver/pkg/db/storage"
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 	rencoding "gopkg.in/rethinkdb/rethinkdb-go.v6/encoding"
 )
 
-type storage[E Entity] struct {
+type rethinkStorage[E Entity] struct {
 	r         *datastore
 	table     r.Term
 	tableName string
 }
 
 // newStorage creates a new Storage which uses the given database abstraction.
-func newStorage[E Entity](re *datastore, tableName string) *storage[E] {
+func newStorage[E Entity](re *datastore, tableName string) *rethinkStorage[E] {
 	re.tableNames = append(re.tableNames, tableName)
-	return &storage[E]{
+	return &rethinkStorage[E]{
 		r:         re,
 		table:     r.DB(re.dbname).Table(tableName),
 		tableName: tableName,
@@ -33,7 +34,7 @@ func newStorage[E Entity](re *datastore, tableName string) *storage[E] {
 // Create creates the given entity in the database. in case it is already present, a conflict error will be returned.
 
 // if the ID field of the entity is an empty string, the ID will be generated automatically as UUIDv7.
-func (s *storage[E]) Create(ctx context.Context, e E) (E, error) {
+func (s *rethinkStorage[E]) Create(ctx context.Context, e E) (E, error) {
 	var (
 		now  = time.Now()
 		zero E
@@ -67,7 +68,7 @@ func (s *storage[E]) Create(ctx context.Context, e E) (E, error) {
 }
 
 // Delete deletes the given entity from the database.
-func (s *storage[E]) Delete(ctx context.Context, e E) error {
+func (s *rethinkStorage[E]) Delete(ctx context.Context, e E) error {
 	_, err := s.table.Get(e.GetID()).Delete().RunWrite(s.r.queryExecutor, r.RunOpts{Context: ctx})
 	if err != nil {
 		return fmt.Errorf("cannot delete %v with id %q from database: %w", s.tableName, e.GetID(), err)
@@ -76,12 +77,17 @@ func (s *storage[E]) Delete(ctx context.Context, e E) error {
 	return nil
 }
 
-// Find attempts to find a single entity from the given set of queries.
+// Find attempts to find a single entity from the given set of filters.
 //
 // if either none or more than one entities were found by the query, an error gets returned.
-func (s *storage[E]) Find(ctx context.Context, queries ...EntityQuery) (E, error) {
+func (s *rethinkStorage[E]) Find(ctx context.Context, filters ...storage.Filter) (E, error) {
 	query := s.table
-	for _, q := range queries {
+	for _, f := range filters {
+		q, err := rethinkFilter(f)
+		if err != nil {
+			var zero E
+			return zero, err
+		}
 		query = q(query)
 	}
 	s.r.log.Debug("find", "table", s.tableName, "query", query.String())
@@ -116,12 +122,13 @@ func (s *storage[E]) Find(ctx context.Context, queries ...EntityQuery) (E, error
 	return *e, nil
 }
 
-// List returns all entities present in the database, optionally filtered by the given set of queries.
-func (s *storage[E]) List(ctx context.Context, queries ...EntityQuery) ([]E, error) {
+// List returns all entities present in the database, optionally filtered by the given set of filters.
+func (s *rethinkStorage[E]) List(ctx context.Context, filters ...storage.Filter) ([]E, error) {
 	query := s.table
-	for _, q := range queries {
-		if q == nil {
-			continue
+	for _, f := range filters {
+		q, err := rethinkFilter(f)
+		if err != nil {
+			return nil, err
 		}
 		query = q(query)
 	}
@@ -149,7 +156,7 @@ func (s *storage[E]) List(ctx context.Context, queries ...EntityQuery) ([]E, err
 }
 
 // Get returns the entity of the given ID  from the database.
-func (s *storage[E]) Get(ctx context.Context, id string) (E, error) {
+func (s *rethinkStorage[E]) Get(ctx context.Context, id string) (E, error) {
 	var zero E
 	res, err := s.table.Get(id).Run(s.r.queryExecutor, r.RunOpts{Context: ctx})
 	if err != nil {
@@ -178,7 +185,7 @@ func (s *storage[E]) Get(ctx context.Context, id string) (E, error) {
 //
 // it uses the "changed" timestamp of the old entity to figure out if it was already modified by some other process.
 // if this happens a conflict error will be returned.
-func (s *storage[E]) Update(ctx context.Context, e E) error {
+func (s *rethinkStorage[E]) Update(ctx context.Context, e E) error {
 	if e.GetChanged().IsZero() {
 		return fmt.Errorf("cannot update %v (%s): no changed timestamp set on entity", s.tableName, e.GetID())
 	}
@@ -208,7 +215,7 @@ func (s *storage[E]) Update(ctx context.Context, e E) error {
 }
 
 // Upsert inserts the given entity into the database, replacing it completely if it is already present.
-func (s *storage[E]) Upsert(ctx context.Context, e E) error {
+func (s *rethinkStorage[E]) Upsert(ctx context.Context, e E) error {
 	now := time.Now()
 
 	if e.GetCreated().IsZero() {
@@ -239,7 +246,7 @@ func (s *storage[E]) Upsert(ctx context.Context, e E) error {
 }
 
 // Watch watches the given entity in the database and returns a stream holding the old and new value.
-func (s *storage[E]) Watch(ctx context.Context, id string) (<-chan struct {
+func (s *rethinkStorage[E]) Watch(ctx context.Context, id string) (<-chan struct {
 	Old E
 	New E
 }, error) {
@@ -308,27 +315,27 @@ func (s *storage[E]) Watch(ctx context.Context, id string) (<-chan struct {
 	return results, nil
 }
 
-func (s storage[E]) setCreated(time time.Time, e E) error {
+func (s rethinkStorage[E]) setCreated(time time.Time, e E) error {
 	return s.setTimeField("Created", time, e)
 }
 
-func (s storage[E]) setChanged(time time.Time, e E) error {
+func (s rethinkStorage[E]) setChanged(time time.Time, e E) error {
 	return s.setTimeField("Changed", time, e)
 }
 
-func (s storage[E]) setGeneration(generation uint64, e E) error {
+func (s rethinkStorage[E]) setGeneration(generation uint64, e E) error {
 	return s.setUint64Field("Generation", generation, e)
 }
 
-func (s storage[E]) setTimeField(fieldName string, desiredTime time.Time, e E) error {
+func (s rethinkStorage[E]) setTimeField(fieldName string, desiredTime time.Time, e E) error {
 	return s.setField(fieldName, reflect.TypeFor[time.Time]().Kind(), desiredTime, e)
 }
 
-func (s storage[E]) setUint64Field(fieldName string, desired uint64, e E) error {
+func (s rethinkStorage[E]) setUint64Field(fieldName string, desired uint64, e E) error {
 	return s.setField(fieldName, reflect.Uint64, desired, e)
 }
 
-func (s storage[E]) setField(fieldName string, kind reflect.Kind, val any, e E) error {
+func (s rethinkStorage[E]) setField(fieldName string, kind reflect.Kind, val any, e E) error {
 	var (
 		// pointer to struct - addressable
 		ps = reflect.ValueOf(e)
@@ -358,4 +365,13 @@ func (s storage[E]) setField(fieldName string, kind reflect.Kind, val any, e E) 
 		}
 	}
 	return nil
+}
+
+// rethinkFilter extracts the RethinkDB representation from a storage.Filter.
+func rethinkFilter(f storage.Filter) (EntityQuery, error) {
+	q, ok := f.Rethink.(EntityQuery)
+	if !ok {
+		return nil, fmt.Errorf("%w: filter has no rethinkdb representation", storage.ErrFilterUnsupported)
+	}
+	return q, nil
 }

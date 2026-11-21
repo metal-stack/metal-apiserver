@@ -36,23 +36,23 @@ const (
 // IP of a machine/firewall.
 type IP struct {
 	// IPAddress is stored either as the plain IP or prefixed with the namespace if the namespace is not nil
-	IPAddress string `rethinkdb:"id"`
+	IPAddress string `rethinkdb:"id" json:"ip_address"`
 	// AllocationID will be randomly generated during IP creation and helps identifying the point in time
 	// when an IP was created. This is not the primary key!
 	// This field can help to distinguish whether an IP address was re-acquired or
 	// if it is still the same ip address as before.
-	AllocationUUID   string    `rethinkdb:"allocationuuid"`
-	Namespace        *string   `rethinkdb:"namespace" description:"if this is a ip in a namespaced private network, the namespace is stored here, otherwise nil"`
-	ParentPrefixCidr string    `rethinkdb:"prefix"`
-	Name             string    `rethinkdb:"name"`
-	Description      string    `rethinkdb:"description"`
-	ProjectID        string    `rethinkdb:"projectid"`
-	NetworkID        string    `rethinkdb:"networkid"`
-	Type             IPType    `rethinkdb:"type"`
-	Tags             []string  `rethinkdb:"tags"`
-	Created          time.Time `rethinkdb:"created"`
-	Changed          time.Time `rethinkdb:"changed"`
-	Generation       uint64    `rethinkdb:"generation"`
+	AllocationUUID   string    `rethinkdb:"allocationuuid" json:"allocation_uuid"`
+	Namespace        *string   `rethinkdb:"namespace" json:"namespace" description:"if this is a ip in a namespaced private network, the namespace is stored here, otherwise nil"`
+	ParentPrefixCidr string    `rethinkdb:"prefix" json:"parent_prefix_cidr"`
+	Name             string    `rethinkdb:"name" json:"name"`
+	Description      string    `rethinkdb:"description" json:"description"`
+	ProjectID        string    `rethinkdb:"projectid" json:"project_id"`
+	NetworkID        string    `rethinkdb:"networkid" json:"network_id"`
+	Type             IPType    `rethinkdb:"type" json:"type"`
+	Tags             []string  `rethinkdb:"tags" json:"tags"`
+	Created          time.Time `rethinkdb:"created" json:"created"`
+	Changed          time.Time `rethinkdb:"changed" json:"changed"`
+	Generation       uint64    `rethinkdb:"generation" json:"generation"`
 }
 
 type IPs []*IP

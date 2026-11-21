@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/db/filters"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 )
 
@@ -241,7 +241,7 @@ func TestIPFilter(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ds.IP().List(ctx, queries.IpFilter(tt.rq))
+			got, err := ds.IP().List(ctx, filters.IP(tt.rq)...)
 			require.NoError(t, err)
 
 			if diff := cmp.Diff(
@@ -297,7 +297,7 @@ func TestIpProjectScoped(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ds.IP().List(ctx, queries.IpProjectScoped(tt.project))
+			got, err := ds.IP().List(ctx, filters.IPByProject(tt.project)...)
 			require.NoError(t, err)
 
 			var gotIDs []string
