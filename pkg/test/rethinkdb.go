@@ -70,7 +70,7 @@ func StartRethink(t testing.TB, log *slog.Logger) (generic.Datastore, r.ConnectO
 		MaxOpen:    2000,
 	}
 
-	ds, err := generic.Initialize(t.Context(), log, rethinkDbConnectOpts, generic.AsnPoolRange(uint(1), uint(100)), generic.VrfPoolRange(uint(1), uint(100)), generic.NewMutexOptCheckInterval(3*time.Second))
+	ds, err := generic.Initialize(t.Context(), log, rethinkDbConnectOpts, generic.AsnPoolRange(uint(1), uint(100)), generic.VrfPoolRange(uint(1), uint(100)))
 	require.NoError(t, err)
 
 	return ds, rethinkDbConnectOpts, rethinkDbCloser
