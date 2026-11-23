@@ -762,6 +762,10 @@ func (r *machineRepository) Register(ctx context.Context, req *infrav2.BootServi
 		}
 	}
 
+	if m.Allocation != nil {
+		return nil, errorutil.FailedPrecondition("machine %q is allocated, register not possible", req.Uuid)
+	}
+
 	disks := []metal.BlockDevice{}
 	for i := range req.Hardware.Disks {
 		d := req.Hardware.Disks[i]
@@ -891,57 +895,22 @@ func (r *machineRepository) Register(ctx context.Context, req *infrav2.BootServi
 		m.State.MetalHammerVersion = req.MetalHammerVersion
 		m.PartitionID = req.Partition
 
-		err = r.s.ds.Machine().Update(ctx, m)
-		if err != nil {
+		if err = r.s.ds.Machine().Update(ctx, m); err != nil {
 			return nil, err
 		}
 	}
 
-	ec, err := r.s.ds.Event().Get(ctx, m.ID)
-	if err != nil && !errorutil.IsNotFound(err) {
-		return nil, err
-	}
-	if ec == nil {
-		_, err = r.s.ds.Event().Create(ctx, &metal.ProvisioningEventContainer{
-			ID: m.ID,
-			Events: metal.ProvisioningEvents{
-				{
-					Event:   metal.ProvisioningEventAlive,
-					Time:    time.Now(),
-					Message: "machine registered",
-				},
-			},
-		},
-		)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// TODO migrate to task
-	err = retry.Do(
-		func() error {
-			machine, err := r.convertToProto(ctx, m)
-			if err != nil {
-				return err
-			}
-			err = r.s.Switch().AdditionalMethods().ConnectMachineWithSwitches(ctx, machine)
-			if err != nil {
-				return err
-			}
-			m.RackID = machine.Rack
-			m.RoomID = machine.Room
-			return r.s.ds.Machine().Update(ctx, m)
-		},
-		retry.Attempts(10),
-		retry.RetryIf(func(err error) bool {
-			return errorutil.IsConflict(err)
-		}),
-		retry.DelayType(retry.CombineDelay(retry.BackOffDelay, retry.RandomDelay)),
-		retry.LastErrorOnly(true),
-	)
+	info, err := r.s.task.NewTask(&task.MachineRegisterPayload{
+		UUID: m.ID,
+	})
 	if err != nil {
 		return nil, err
+	}
+
+	r.s.log.Info("machine registration task enqueued, polling for completion", "info", info)
+
+	if _, err := r.s.Task().WatchForTaskCompletion(ctx, nil, info.Queue, info.ID); err != nil {
+		return nil, errorutil.Internal("error waiting for task %q of type %q to complete: %w", info.ID, info.Type, err)
 	}
 
 	return m, nil
@@ -1909,6 +1878,7 @@ func (r *Store) MachineDeleteHandleFn(ctx context.Context, t *asynq.Task) error 
 
 	return nil
 }
+
 func (r *Store) MachineInstallationSucceededHandleFn(ctx context.Context, t *asynq.Task) error {
 	payload, err := task.DecodePayload[*task.MachineInstallationSucceededPayload](t.Payload())
 	if err != nil {
@@ -1939,6 +1909,60 @@ func (r *Store) MachineInstallationSucceededHandleFn(ctx context.Context, t *asy
 		return fmt.Errorf("unable to send machine bmc command to trigger boot to disk: %w", err)
 	}
 	r.log.Debug("machine was enslaved into vrf", "vrf", payload.Vrf, "machine", payload.UUID)
+	return nil
+}
+
+func (r *Store) MachineRegisterHandleFn(ctx context.Context, t *asynq.Task) error {
+	payload, err := task.DecodePayload[*task.MachineRegisterPayload](t.Payload())
+	if err != nil {
+		return err
+	}
+
+	m, err := r.ds.Machine().Get(ctx, payload.UUID)
+	if err != nil {
+		return err
+	}
+
+	ec, err := r.ds.Event().Get(ctx, m.ID)
+	if err != nil && !errorutil.IsNotFound(err) {
+		return err
+	}
+	if ec == nil {
+		_, err = r.ds.Event().Create(ctx, &metal.ProvisioningEventContainer{
+			ID: m.ID,
+			Events: metal.ProvisioningEvents{
+				{
+					Event:   metal.ProvisioningEventAlive,
+					Time:    time.Now(),
+					Message: "machine registered",
+				},
+			},
+		},
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	machine, err := r.UnscopedMachine().AdditionalMethods().convertToProto(ctx, m)
+	if err != nil {
+		return err
+	}
+
+	if err := r.Switch().AdditionalMethods().ConnectMachineWithSwitches(ctx, machine); err != nil {
+		return err
+	}
+
+	// Rack and Room are calculated during previous call
+	if m.RackID != machine.Rack || m.RoomID != machine.Room {
+		m.RackID = machine.Rack
+		m.RoomID = machine.Room
+		if err := r.ds.Machine().Update(ctx, m); err != nil {
+			return err
+		}
+	}
+
+	r.log.Debug("machine was registered", "machine", payload.UUID)
 	return nil
 }
 
