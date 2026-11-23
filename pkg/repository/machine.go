@@ -762,6 +762,10 @@ func (r *machineRepository) Register(ctx context.Context, req *infrav2.BootServi
 		}
 	}
 
+	if m.Allocation != nil {
+		return nil, errorutil.FailedPrecondition("machine %q is allocated, register not possible", req.Uuid)
+	}
+
 	disks := []metal.BlockDevice{}
 	for i := range req.Hardware.Disks {
 		d := req.Hardware.Disks[i]
@@ -896,27 +900,6 @@ func (r *machineRepository) Register(ctx context.Context, req *infrav2.BootServi
 		}
 	}
 
-	ec, err := r.s.ds.Event().Get(ctx, m.ID)
-	if err != nil && !errorutil.IsNotFound(err) {
-		return nil, err
-	}
-	if ec == nil {
-		_, err = r.s.ds.Event().Create(ctx, &metal.ProvisioningEventContainer{
-			ID: m.ID,
-			Events: metal.ProvisioningEvents{
-				{
-					Event:   metal.ProvisioningEventAlive,
-					Time:    time.Now(),
-					Message: "machine registered",
-				},
-			},
-		},
-		)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	info, err := r.s.task.NewTask(&task.MachineRegisterPayload{
 		UUID: m.ID,
 	})
@@ -924,7 +907,7 @@ func (r *machineRepository) Register(ctx context.Context, req *infrav2.BootServi
 		return nil, err
 	}
 
-	r.s.log.Info("machine registration tasl enqueued, polling for completion", "info", info)
+	r.s.log.Info("machine registration task enqueued, polling for completion", "info", info)
 
 	if _, err := r.s.Task().WatchForTaskCompletion(ctx, nil, info.Queue, info.ID); err != nil {
 		return nil, errorutil.Internal("error waiting for task %q of type %q to complete: %w", info.ID, info.Type, err)
@@ -1938,6 +1921,27 @@ func (r *Store) MachineRegisterHandleFn(ctx context.Context, t *asynq.Task) erro
 	m, err := r.ds.Machine().Get(ctx, payload.UUID)
 	if err != nil {
 		return err
+	}
+
+	ec, err := r.ds.Event().Get(ctx, m.ID)
+	if err != nil && !errorutil.IsNotFound(err) {
+		return err
+	}
+	if ec == nil {
+		_, err = r.ds.Event().Create(ctx, &metal.ProvisioningEventContainer{
+			ID: m.ID,
+			Events: metal.ProvisioningEvents{
+				{
+					Event:   metal.ProvisioningEventAlive,
+					Time:    time.Now(),
+					Message: "machine registered",
+				},
+			},
+		},
+		)
+		if err != nil {
+			return err
+		}
 	}
 
 	machine, err := r.UnscopedMachine().AdditionalMethods().convertToProto(ctx, m)
