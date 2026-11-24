@@ -59,6 +59,7 @@ func Test_getTokenPermissions(t *testing.T) {
 				"/metalstack.admin.v2.HousekeepingService/MachineLiveliness":     {"*": {}},
 				"/metalstack.admin.v2.HousekeepingService/MachineResurrect":      {"*": {}},
 				"/metalstack.admin.v2.HousekeepingService/MachineVPNConnected":   {"*": {}},
+				"/metalstack.admin.v2.HousekeepingService/NetworksConsistent":    {"*": {}},
 				"/metalstack.admin.v2.IPService/List":                            {"*": {}},
 				"/metalstack.admin.v2.ImageService/Create":                       {"*": {}},
 				"/metalstack.admin.v2.ImageService/Delete":                       {"*": {}},
