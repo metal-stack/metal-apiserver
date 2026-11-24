@@ -47,6 +47,7 @@ type (
 // the prefixes and ips stored in ipam. It returns all entities which only exist in one
 // of both systems.
 func (r *networkRepository) NetworksConsistent(ctx context.Context) (*adminv2.HousekeepingServiceNetworksConsistentResponse, error) {
+	r.s.log.Info("running network consistency check")
 	metalNetworks, err := r.s.ds.Network().List(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{}))
 	if err != nil {
 		return nil, err
