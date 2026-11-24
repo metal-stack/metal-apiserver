@@ -7,7 +7,6 @@ import (
 	ipamv1 "github.com/metal-stack/go-ipam/api/v1"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,26 +22,26 @@ func TestNetworkRepositoryNetworksConsistent(t *testing.T) {
 
 	metalNetworks := []*metal.Network{
 		{
-			Base:        metal.Base{ID: "consistent-root"},
+			ID:          "consistent-root",
 			Prefixes:    metal.Prefixes{{IP: "10.0.0.0", Length: "24"}},
 			NetworkType: metal.NetworkTypeExternal,
 			NATType:     metal.NATTypeNone,
 		},
 		{
-			Base:        metal.Base{ID: "missing-in-ipam"},
+			ID:          "missing-in-ipam",
 			Prefixes:    metal.Prefixes{{IP: "10.0.1.0", Length: "24"}},
 			NetworkType: metal.NetworkTypeExternal,
 			NATType:     metal.NATTypeNone,
 		},
 		{
-			Base:        metal.Base{ID: "consistent-tenant"},
+			ID:          "consistent-tenant",
 			Prefixes:    metal.Prefixes{{IP: "10.0.0.0", Length: "24"}},
 			Namespace:   tenantNamespace,
 			NetworkType: metal.NetworkTypeChild,
 			NATType:     metal.NATTypeNone,
 		},
 		{
-			Base:        metal.Base{ID: "namespaced-super"},
+			ID:          "namespaced-super",
 			Prefixes:    metal.Prefixes{{IP: "10.10.0.0", Length: "16"}},
 			NetworkType: metal.NetworkTypeSuperNamespaced,
 			NATType:     metal.NATTypeNone,
@@ -108,7 +107,7 @@ func TestNetworkRepositoryNetworksConsistent(t *testing.T) {
 	for _, ip := range ipamIPs {
 		_, err := ipam.AcquireIP(ctx, &ipamv1.AcquireIPRequest{
 			PrefixCidr: "10.0.0.0/24",
-			Ip:         pointer.Pointer(ip.address),
+			Ip:         &ip.address,
 			Namespace:  ip.namespace,
 		})
 		require.NoError(t, err)
