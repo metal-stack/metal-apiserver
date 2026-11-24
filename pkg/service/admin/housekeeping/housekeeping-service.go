@@ -57,3 +57,7 @@ func (m *housekeepingServiceServer) MachineVPNConnected(ctx context.Context, _ *
 		ModifiedMachines: modified,
 	}, nil
 }
+
+func (m *housekeepingServiceServer) NetworksConsistent(ctx context.Context, _ *adminv2.HousekeepingServiceNetworksConsistentRequest) (*adminv2.HousekeepingServiceNetworksConsistentResponse, error) {
+	return m.repo.UnscopedNetwork().AdditionalMethods().NetworksConsistent(ctx)
+}
