@@ -878,6 +878,11 @@ func (r *switchRepository) updateOnRegister(ctx context.Context, sw *metal.Switc
 			return nil, err
 		}
 		sw.Nics = updateNicNames(sw.Nics, nics)
+		// Nic identifiers can change on registration while machine connections keep
+		// the nic snapshot from when the machine was connected. Keep the
+		// connections in sync with the current nics so that they can still be
+		// resolved (e.g. when setting the vrf).
+		sw.MachineConnections = updateMachineConnections(sw.MachineConnections, sw.Nics)
 	}
 
 	err = r.s.ds.Switch().Update(ctx, sw)
@@ -1098,21 +1103,34 @@ func updateNicNames(old, new metal.Nics) metal.Nics {
 		updated    metal.Nics
 		oldByIdent = old.MapByIdentifier()
 		oldByName  = old.MapByName()
-		newNics    = new.MapByIdentifier()
+		oldByMac   = map[string]*metal.Nic{}
 	)
 
-	for _, newNic := range newNics {
+	for i := range old {
+		if old[i].MacAddress == "" {
+			continue
+		}
+		oldByMac[old[i].MacAddress] = &old[i]
+	}
+
+	// Iterate the reported nics instead of a map keyed by identifier so that nics
+	// without an identifier (e.g. reported by metal-core before v0.20.0) are kept
+	// instead of silently removing them from the switch.
+	for _, newNic := range new {
 		// Prefer matching by (non-empty) identifier. Nics that are still stored with
-		// an empty identifier (persisted before metal-core v0.20.0) fall back to
-		// matching by name so that their known counterpart (e.g. with a set vrf) is
-		// found instead of being treated as a brand new nic.
+		// an empty identifier fall back to the mac address and finally to the name so
+		// that their known counterpart (e.g. with a set vrf) is found instead of
+		// being treated as a brand new nic.
 		oldNic, ok := oldByIdent[newNic.Identifier]
+		if !ok && newNic.MacAddress != "" {
+			oldNic, ok = oldByMac[newNic.MacAddress]
+		}
 		if !ok {
 			oldNic, ok = oldByName[newNic.Name]
 		}
 		if !ok {
 			// A genuinely new nic: adopt it from the report as is.
-			updated = append(updated, *newNic)
+			updated = append(updated, newNic)
 			continue
 		}
 
@@ -1126,10 +1144,41 @@ func updateNicNames(old, new metal.Nics) metal.Nics {
 	}
 
 	slices.SortStableFunc(updated, func(n1, n2 metal.Nic) int {
-		return strings.Compare(n1.Identifier, n2.Identifier)
+		if c := strings.Compare(n1.Identifier, n2.Identifier); c != 0 {
+			return c
+		}
+		return strings.Compare(n1.Name, n2.Name)
 	})
 
 	return updated
+}
+
+// updateMachineConnections refreshes the nic snapshots stored in machine
+// connections so that they reference the current nics of the switch. Nic
+// identifiers may change on switch registration, while the port name is stable.
+func updateMachineConnections(connections metal.ConnectionMap, nics metal.Nics) metal.ConnectionMap {
+	if len(connections) == 0 {
+		return connections
+	}
+
+	nicsByIdentifier := nics.MapByIdentifier()
+	nicsByName := nics.MapByName()
+
+	for machineID, cons := range connections {
+		for i, con := range cons {
+			nic, ok := nicsByIdentifier[con.Nic.Identifier]
+			if !ok {
+				nic, ok = nicsByName[con.Nic.Name]
+			}
+			if !ok {
+				continue
+			}
+			cons[i].Nic = *nic
+		}
+		connections[machineID] = cons
+	}
+
+	return connections
 }
 
 func makeBGPFilter(m *metal.Machine, projectMachines []*metal.Machine, vrf string, networks []*metal.Network, ips []*metal.IP) (*apiv2.BGPFilter, error) {

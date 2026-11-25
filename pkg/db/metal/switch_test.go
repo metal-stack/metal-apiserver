@@ -995,6 +995,83 @@ func TestSwitch_SetVrfOfMachine(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "set vrf when the connection still has the old identifier but the same port name",
+			s: &Switch{
+				Nics: Nics{
+					{
+						Identifier: "aa:bb:cc:dd:ee:ff",
+						Name:       "Ethernet0",
+						Vrf:        "vrf200",
+					},
+					{
+						Identifier: "aa:bb:cc:dd:ee:fe",
+						Name:       "Ethernet1",
+						Vrf:        "vrf300",
+					},
+				},
+				MachineConnections: ConnectionMap{
+					"m1": {
+						{
+							Nic:       Nic{Name: "Ethernet1"},
+							MachineID: "m1",
+						},
+					},
+				},
+			},
+			m: &Machine{
+				ID: "m1",
+			},
+			vrf: "vrf100",
+			wantNics: Nics{
+				{
+					Identifier: "aa:bb:cc:dd:ee:fe",
+					Name:       "Ethernet1",
+					Vrf:        "vrf100",
+				},
+				{
+					Identifier: "aa:bb:cc:dd:ee:ff",
+					Name:       "Ethernet0",
+					Vrf:        "vrf200",
+				},
+			},
+		},
+		{
+			name: "nics with an empty identifier are not dropped",
+			s: &Switch{
+				Nics: Nics{
+					{
+						Name: "Ethernet0",
+					},
+					{
+						Identifier: "aa:bb:cc:dd:ee:ff",
+						Name:       "Ethernet1",
+					},
+				},
+				MachineConnections: ConnectionMap{
+					"m1": {
+						{
+							Nic:       Nic{Name: "Ethernet1"},
+							MachineID: "m1",
+						},
+					},
+				},
+			},
+			m: &Machine{
+				ID: "m1",
+			},
+			vrf: "vrf100",
+			wantNics: Nics{
+				{
+					Name: "Ethernet0",
+				},
+				{
+					Identifier: "aa:bb:cc:dd:ee:ff",
+					Name:       "Ethernet1",
+					Vrf:        "vrf100",
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

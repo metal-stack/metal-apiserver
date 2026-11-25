@@ -97,12 +97,121 @@ func Test_updateNicNames(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "reported nic without identifier is kept",
+			old: metal.Nics{
+				{
+					Identifier: "aa:bb:cc:dd:ee:ff",
+					Name:       "Ethernet0",
+					Vrf:        "Vrf100",
+				},
+			},
+			new: metal.Nics{
+				{
+					Identifier: "",
+					Name:       "Ethernet0",
+				},
+			},
+			want: metal.Nics{
+				{
+					Identifier: "",
+					Name:       "Ethernet0",
+					Vrf:        "Vrf100",
+				},
+			},
+		},
+		{
+			name: "existing nic with empty identifier is matched by mac address",
+			old: metal.Nics{
+				{
+					Identifier: "",
+					MacAddress: "aa:bb:cc:dd:ee:ff",
+					Name:       "EthernetOld",
+					Vrf:        "Vrf100",
+				},
+			},
+			new: metal.Nics{
+				{
+					Identifier: "aa:bb:cc:dd:ee:ff",
+					MacAddress: "aa:bb:cc:dd:ee:ff",
+					Name:       "Ethernet0",
+				},
+			},
+			want: metal.Nics{
+				{
+					Identifier: "aa:bb:cc:dd:ee:ff",
+					MacAddress: "aa:bb:cc:dd:ee:ff",
+					Name:       "Ethernet0",
+					Vrf:        "Vrf100",
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := updateNicNames(tt.old, tt.new)
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("updateNics() diff = %s", diff)
+			}
+		})
+	}
+}
+
+func Test_updateMachineConnections(t *testing.T) {
+	tests := []struct {
+		name        string
+		connections metal.ConnectionMap
+		nics        metal.Nics
+		want        metal.ConnectionMap
+	}{
+		{
+			name:        "no connections nothing to do",
+			connections: metal.ConnectionMap{},
+			nics: metal.Nics{
+				{Identifier: "aa:bb:cc:dd:ee:ff", Name: "Ethernet0"},
+			},
+			want: metal.ConnectionMap{},
+		},
+		{
+			name: "stale connection identifier is refreshed by name",
+			connections: metal.ConnectionMap{
+				"m1": {
+					{Nic: metal.Nic{Name: "Ethernet0"}, MachineID: "m1"},
+				},
+			},
+			nics: metal.Nics{
+				{Identifier: "aa:bb:cc:dd:ee:ff", Name: "Ethernet0", Vrf: "vrf100"},
+				{Identifier: "aa:bb:cc:dd:ee:fe", Name: "Ethernet1"},
+			},
+			want: metal.ConnectionMap{
+				"m1": {
+					{Nic: metal.Nic{Identifier: "aa:bb:cc:dd:ee:ff", Name: "Ethernet0", Vrf: "vrf100"}, MachineID: "m1"},
+				},
+			},
+		},
+		{
+			name: "connection identifier is refreshed when it changed",
+			connections: metal.ConnectionMap{
+				"m1": {
+					{Nic: metal.Nic{Identifier: "old-identifier", Name: "Ethernet1"}, MachineID: "m1"},
+				},
+			},
+			nics: metal.Nics{
+				{Identifier: "aa:bb:cc:dd:ee:ff", Name: "Ethernet0"},
+				{Identifier: "aa:bb:cc:dd:ee:fe", Name: "Ethernet1"},
+			},
+			want: metal.ConnectionMap{
+				"m1": {
+					{Nic: metal.Nic{Identifier: "aa:bb:cc:dd:ee:fe", Name: "Ethernet1"}, MachineID: "m1"},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := updateMachineConnections(tt.connections, tt.nics)
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Errorf("updateMachineConnections() diff = %s", diff)
 			}
 		})
 	}

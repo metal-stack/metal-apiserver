@@ -173,28 +173,49 @@ func (s *Switch) ConnectMachine(machineID string, machineNics Nics) (int, error)
 }
 
 func (s *Switch) SetVrfOfMachine(m *Machine, vrf string) {
-	affected := map[string]bool{}
-	for _, c := range s.MachineConnections[m.ID] {
-		affected[c.Nic.Identifier] = true
-	}
-
-	if len(affected) == 0 {
+	connections := s.MachineConnections[m.ID]
+	if len(connections) == 0 {
 		return
 	}
 
-	nics := Nics{}
-	for k, old := range s.Nics.MapByIdentifier() {
-		e := old
-		if _, ok := affected[k]; ok {
-			e.Vrf = vrf
+	// Connections store a snapshot of the switch nic at the time the machine was
+	// connected. The identifier of a nic can change when a switch registers again
+	// (e.g. metal-core started reporting the mac address as identifier), while the
+	// port name stays stable. Resolve the connection against the current nics by
+	// identifier first and fall back to the name so that a stale identifier does
+	// not prevent the port from being enslaved into the vrf.
+	nicsByIdentifier := s.Nics.MapByIdentifier()
+	nicsByName := s.Nics.MapByName()
+
+	affectedIdentifiers := map[string]bool{}
+	affectedNames := map[string]bool{}
+	for _, c := range connections {
+		if nic, ok := nicsByIdentifier[c.Nic.Identifier]; ok {
+			affectedIdentifiers[nic.Identifier] = true
+			continue
 		}
-		nics = append(nics, *e)
+		if nic, ok := nicsByName[c.Nic.Name]; ok {
+			affectedNames[nic.Name] = true
+		}
 	}
 
-	slices.SortFunc(nics, func(a, b Nic) int {
-		return strings.Compare(a.Identifier, b.Identifier)
+	if len(affectedIdentifiers) == 0 && len(affectedNames) == 0 {
+		return
+	}
+
+	for i := range s.Nics {
+		nic := &s.Nics[i]
+		if affectedIdentifiers[nic.Identifier] || affectedNames[nic.Name] {
+			nic.Vrf = vrf
+		}
+	}
+
+	slices.SortFunc(s.Nics, func(a, b Nic) int {
+		if c := strings.Compare(a.Identifier, b.Identifier); c != 0 {
+			return c
+		}
+		return strings.Compare(a.Name, b.Name)
 	})
-	s.Nics = nics
 }
 
 // TranslateNicMap creates a NicMap where the keys are translated to the naming convention of the target OS
