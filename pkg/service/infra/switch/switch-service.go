@@ -116,7 +116,7 @@ func (s *switchServiceServer) Heartbeat(ctx context.Context, rq *infrav2.SwitchS
 			Id: sw.Id,
 			UpdateMeta: &apiv2.UpdateMeta{
 				UpdatedAt:       sw.Meta.UpdatedAt,
-				LockingStrategy: apiv2.OptimisticLockingStrategy_OPTIMISTIC_LOCKING_STRATEGY_SERVER,
+				LockingStrategy: apiv2.OptimisticLockingStrategy_OPTIMISTIC_LOCKING_STRATEGY_CLIENT,
 			},
 			Nics: sw.Nics,
 		}
