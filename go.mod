@@ -16,7 +16,6 @@ require (
 	github.com/dustin/go-humanize v1.1.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/go-cmp v0.7.0
-	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/securecookie v1.1.2
 	github.com/gorilla/sessions v1.4.0
 	github.com/hibiken/asynq v0.26.0
@@ -26,7 +25,7 @@ require (
 	github.com/lestrrat-go/jwx/v4 v4.6.0
 	github.com/looplab/fsm v1.0.4
 	github.com/markbates/goth v1.82.0
-	github.com/metal-stack/api v0.10.0
+	github.com/metal-stack/api v0.10.1
 	github.com/metal-stack/go-ipam v1.16.0
 	github.com/metal-stack/metal-lib v0.26.4
 	github.com/metal-stack/tenant-api v0.3.0
@@ -101,6 +100,7 @@ require (
 	github.com/golang/snappy v1.0.0 // indirect
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.34.0 // indirect
 	github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed // indirect
 	github.com/hdevalence/ed25519consensus v0.2.0 // indirect
