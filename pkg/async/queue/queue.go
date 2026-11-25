@@ -114,7 +114,12 @@ func Wait[E any](ctx context.Context, log *slog.Logger, client valkeygo.Client, 
 				continue
 			}
 
-			resChan <- elem
+			select {
+			case resChan <- elem:
+			case <-ctx.Done():
+				log.Debug("context closed")
+				return
+			}
 
 		}
 	}()
