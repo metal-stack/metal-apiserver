@@ -80,8 +80,11 @@ func (s *server) Run(ctx context.Context) error {
 	// the implicit registration on http.DefaultServeMux by importing net/http/pprof.
 	// access it for example with:
 	// go tool pprof http://localhost:2112/debug/pprof/heap
+	// go tool pprof http://localhost:2112/debug/pprof/goroutine
+	// curl 'http://localhost:2112/debug/pprof/goroutine?debug=2' (human readable goroutine dump)
 	metricsMux.HandleFunc("/debug/pprof/", pprof.Index)
 	metricsMux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	metricsMux.HandleFunc("/debug/pprof/goroutine", pprof.Handler("goroutine").ServeHTTP)
 	metricsMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
 	metricsMux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 	metricsMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
