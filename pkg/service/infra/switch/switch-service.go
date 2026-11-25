@@ -115,8 +115,13 @@ func (s *switchServiceServer) Heartbeat(ctx context.Context, rq *infrav2.SwitchS
 		updateReq := &adminv2.SwitchServiceUpdateRequest{
 			Id: sw.Id,
 			UpdateMeta: &apiv2.UpdateMeta{
-				UpdatedAt:       sw.Meta.UpdatedAt,
-				LockingStrategy: apiv2.OptimisticLockingStrategy_OPTIMISTIC_LOCKING_STRATEGY_SERVER,
+				UpdatedAt: sw.Meta.UpdatedAt,
+				// Use the version this request was built from for optimistic
+				// locking. The update sends the complete nics list, so with server
+				// side locking a concurrent change (for example the vrf being set
+				// during machine installation) between our read and the update would
+				// be silently overwritten with this stale nics list.
+				LockingStrategy: apiv2.OptimisticLockingStrategy_OPTIMISTIC_LOCKING_STRATEGY_CLIENT,
 			},
 			Nics: sw.Nics,
 		}
