@@ -762,10 +762,6 @@ func (r *machineRepository) Register(ctx context.Context, req *infrav2.BootServi
 		}
 	}
 
-	if m.Allocation != nil {
-		return nil, errorutil.FailedPrecondition("machine %q is allocated, register not possible", req.Uuid)
-	}
-
 	disks := []metal.BlockDevice{}
 	for i := range req.Hardware.Disks {
 		d := req.Hardware.Disks[i]
