@@ -317,21 +317,28 @@ func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *ap
 		}),
 	))
 
-	if len(neighs) != 2 {
-		return errorutil.FailedPrecondition("machine %s is not connected to exactly two switches, found connections to switches %v", m.Uuid, neighs)
+	minSwitches := r.s.minSwitchesPerMachine
+	if len(neighs) < minSwitches || len(neighs) > 2 {
+		if minSwitches == 2 {
+			return errorutil.FailedPrecondition("machine %s is not connected to exactly two switches, found connections to switches %v", m.Uuid, neighs)
+		}
+		return errorutil.FailedPrecondition("machine %s must be connected to one or two switches, found connections to switches %v", m.Uuid, neighs)
 	}
 
-	s1, err := r.get(ctx, neighs[0])
-	if err != nil {
-		return fmt.Errorf("failed to add machine connections to switch %s: %w", neighs[0], err)
+	switches := make([]*metal.Switch, 0, len(neighs))
+	for _, neigh := range neighs {
+		sw, err := r.get(ctx, neigh)
+		if err != nil {
+			return fmt.Errorf("failed to add machine connections to switch %s: %w", neigh, err)
+		}
+		switches = append(switches, sw)
 	}
-	s2, err := r.get(ctx, neighs[1])
-	if err != nil {
-		return fmt.Errorf("failed to add machine connections to switch %s: %w", neighs[1], err)
-	}
+	s1 := switches[0]
 
-	if s1.Rack != s2.Rack {
-		return errorutil.FailedPrecondition("connected switches of a machine must reside in the same rack, rack of switch %s: %s, rack of switch %s: %s, machine: %s", s1.Name, s1.Rack, s2.Name, s2.Rack, m.Uuid)
+	for _, s2 := range switches[1:] {
+		if s1.Rack != s2.Rack {
+			return errorutil.FailedPrecondition("connected switches of a machine must reside in the same rack, rack of switch %s: %s, rack of switch %s: %s, machine: %s", s1.Name, s1.Rack, s2.Name, s2.Rack, m.Uuid)
+		}
 	}
 	m.Rack = s1.Rack
 	m.Room = s1.Room
@@ -373,50 +380,51 @@ func (r *switchRepository) ConnectMachineWithSwitches(ctx context.Context, m *ap
 		newMachineNics = append(newMachineNics, newNic)
 	}
 
-	_, err = s1.ConnectMachine(m.Uuid, newMachineNics)
-	if err != nil {
-		return fmt.Errorf("failed to update machine connections for switch %s: %w", s1.ID, err)
-	}
-	_, err = s2.ConnectMachine(m.Uuid, newMachineNics)
-	if err != nil {
-		return fmt.Errorf("failed to update machine connections for switch %s: %w", s2.ID, err)
-	}
-
-	cons1 := s1.MachineConnections[m.Uuid]
-	cons2 := s2.MachineConnections[m.Uuid]
-
-	if len(cons1) != len(cons2) {
-		return errorutil.FailedPrecondition("machine connections must be identical on both switches but machine %s has %d connections to switch %s and %d connections to switch %s", m.Uuid, len(cons1), s1.ID, len(cons2), s2.ID)
-	}
-
-	byNicName, err := s2.MachineConnections.ByNicName()
-	if err != nil {
-		return fmt.Errorf("failed to map machine connections of switch %s by nic names", s2.ID)
-	}
-
-	// e.g. "swp1s0" -> "Ethernet0"
-	switchPortMapping, err := s1.MapPortNames(s2.OS.Vendor)
-	if err != nil {
-		return fmt.Errorf("could not create port mapping %w", err)
-	}
-
-	for _, con := range s1.MachineConnections[m.Uuid] {
-		name, ok := switchPortMapping[con.Nic.Name]
-		if !ok {
-			return fmt.Errorf("could not translate port name %s to equivalent port name of switch os %s", con.Nic.Name, s1.OS.Vendor)
-		}
-		if _, has := byNicName[name]; !has {
-			return errorutil.FailedPrecondition("machine %s is connected to port %s on switch %s but not to the corresponding port %s of switch %s", m.Uuid, con.Nic.Name, s1.ID, name, s2.ID)
+	for _, sw := range switches {
+		_, err = sw.ConnectMachine(m.Uuid, newMachineNics)
+		if err != nil {
+			return fmt.Errorf("failed to update machine connections for switch %s: %w", sw.ID, err)
 		}
 	}
 
-	err = r.s.ds.Switch().Update(ctx, s1)
-	if err != nil {
-		return fmt.Errorf("failed to update machine connections for switch %s: %w", s1.ID, err)
+	// a machine connected to a single switch (only allowed with min switches per machine 1) has no twin
+	// to cross-check its connections against
+	if len(switches) == 2 {
+		s2 := switches[1]
+		cons1 := s1.MachineConnections[m.Uuid]
+		cons2 := s2.MachineConnections[m.Uuid]
+
+		if len(cons1) != len(cons2) {
+			return errorutil.FailedPrecondition("machine connections must be identical on both switches but machine %s has %d connections to switch %s and %d connections to switch %s", m.Uuid, len(cons1), s1.ID, len(cons2), s2.ID)
+		}
+
+		byNicName, err := s2.MachineConnections.ByNicName()
+		if err != nil {
+			return fmt.Errorf("failed to map machine connections of switch %s by nic names", s2.ID)
+		}
+
+		// e.g. "swp1s0" -> "Ethernet0"
+		switchPortMapping, err := s1.MapPortNames(s2.OS.Vendor)
+		if err != nil {
+			return fmt.Errorf("could not create port mapping %w", err)
+		}
+
+		for _, con := range s1.MachineConnections[m.Uuid] {
+			name, ok := switchPortMapping[con.Nic.Name]
+			if !ok {
+				return fmt.Errorf("could not translate port name %s to equivalent port name of switch os %s", con.Nic.Name, s1.OS.Vendor)
+			}
+			if _, has := byNicName[name]; !has {
+				return errorutil.FailedPrecondition("machine %s is connected to port %s on switch %s but not to the corresponding port %s of switch %s", m.Uuid, con.Nic.Name, s1.ID, name, s2.ID)
+			}
+		}
 	}
-	err = r.s.ds.Switch().Update(ctx, s2)
-	if err != nil {
-		return fmt.Errorf("failed to update machine connections for switch %s: %w", s2.ID, err)
+
+	for _, sw := range switches {
+		err = r.s.ds.Switch().Update(ctx, sw)
+		if err != nil {
+			return fmt.Errorf("failed to update machine connections for switch %s: %w", sw.ID, err)
+		}
 	}
 
 	return nil
