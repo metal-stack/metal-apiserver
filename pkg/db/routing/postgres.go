@@ -183,6 +183,8 @@ func withRowVersion[E storage.Entity](ent *pg.Entity[E]) (E, error) {
 	return ent.Data, nil
 }
 
+// Watch streams changes of the entity. Old is the last delivered value, not the
+// stored pre-image; see storage.Storage.Watch and pg.GenericRepository.Watch.
 func (s *postgresStorage[E]) Watch(ctx context.Context, id string) (<-chan struct {
 	Old E
 	New E

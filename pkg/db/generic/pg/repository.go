@@ -425,9 +425,14 @@ func (r *GenericRepository[T]) Get(ctx context.Context, id string) (*Entity[T], 
 //
 // Changes are delivered through native PostgreSQL NOTIFY/LISTEN: the per-entity
 // table carries a trigger that announces the id of every changed row, the
-// Watcher loads the committed row and the repository decodes it into T. The old
-// value is the value observed before the change, so the first change of an
-// entity has a zero Old value and a deletion has a zero New value.
+// Watcher loads the committed row and the repository decodes it into T.
+//
+// Old is NOT the stored pre-image of the change (unlike a RethinkDB changefeed's
+// old_val): it is the last value this watch delivered. The first change of an
+// entity therefore has a zero Old value. Because the watcher loads the current
+// row when it handles a notification, drops changes for slow consumers and
+// redelivers the current state after a reconnect, consecutive changes can be
+// coalesced and Old may equal New. A deletion has a zero New value.
 func (r *GenericRepository[T]) Watch(ctx context.Context, id string) (<-chan struct {
 	Old T
 	New T

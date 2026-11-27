@@ -66,6 +66,16 @@ type Storage[E Entity] interface {
 	Get(ctx context.Context, id string) (E, error)
 	Find(ctx context.Context, filters ...Filter) (E, error)
 	List(ctx context.Context, filters ...Filter) ([]E, error)
+	// Watch streams changes of the entity with the given id until ctx is
+	// cancelled. New is the state after the change (zero for a deletion).
+	//
+	// The meaning of Old depends on the backend, so callers should rely on New
+	// only:
+	//   - RethinkDB: the stored state before the change (changefeed old_val).
+	//   - Postgres: the last state this watch delivered, not the stored
+	//     pre-image. It is zero for the first change, and changes may be
+	//     coalesced or redelivered (e.g. after a reconnect), so Old can lag
+	//     several changes behind or equal New.
 	Watch(ctx context.Context, id string) (<-chan struct {
 		Old E
 		New E
