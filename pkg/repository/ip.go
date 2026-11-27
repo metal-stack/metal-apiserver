@@ -302,6 +302,10 @@ func (r *ipRepository) convertToProto(ctx context.Context, metalIP *metal.IP) (*
 	}, nil
 }
 
+func (r *ipRepository) convertToProtoList(ctx context.Context, es []*metal.IP) ([]*apiv2.IP, error) {
+	return convertEach(ctx, es, r.convertToProto)
+}
+
 //---------------------------------------------------------------
 // Write a function HandleXXXTask to handle the input task.
 // Note that it satisfies the asynq.HandlerFunc interface.

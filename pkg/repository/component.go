@@ -184,6 +184,10 @@ func (c *componentRepository) convertToProto(ctx context.Context, e *componentEn
 	return e.Component, nil
 }
 
+func (c *componentRepository) convertToProtoList(ctx context.Context, es []*componentEntity) ([]*apiv2.Component, error) {
+	return convertEach(ctx, es, c.convertToProto)
+}
+
 func (c *componentRepository) matchScope(e *componentEntity) bool {
 	return true
 }

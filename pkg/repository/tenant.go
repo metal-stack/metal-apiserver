@@ -242,6 +242,10 @@ func (t *tenantRepository) convertToProto(ctx context.Context, tenant *tenantEnt
 	}, nil
 }
 
+func (t *tenantRepository) convertToProtoList(ctx context.Context, es []*tenantEntity) ([]*apiv2.Tenant, error) {
+	return convertEach(ctx, es, t.convertToProto)
+}
+
 func (t *tenantRepository) findParticipatingTenants(ctx context.Context, tenant string, includeInherited bool) ([]*tenantv1.TenantWithMembershipAnnotations, error) {
 	resp, err := t.s.tc.Apiv1().Tenant().FindParticipatingTenants(ctx, &tenantv1.TenantServiceFindParticipatingTenantsRequest{
 		TenantId:         tenant,

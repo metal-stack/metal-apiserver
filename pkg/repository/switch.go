@@ -21,6 +21,7 @@ import (
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"github.com/samber/lo"
 	"go4.org/netipx"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -745,12 +746,136 @@ func (r *switchRepository) convertToInternal(sw *apiv2.Switch) (*metal.Switch, e
 	}, nil
 }
 
+// switchLookup holds all entities which are required to convert switches to their api representation.
+// It is filled once per conversion batch so that converting many switches does not issue backend calls per switch or per nic.
+type switchLookup struct {
+	connectedMachines map[string]*metal.Machine
+	statuses          map[string]*metal.SwitchStatus
+	networks          metal.NetworkMap
+	ips               metal.IPsMap
+	firewalls         map[string]*metal.Machine
+}
+
+type switchProjectRack struct {
+	project, partition, rack string
+}
+
+func (r *switchRepository) prefetchSwitchLookup(ctx context.Context, sws []*metal.Switch) (*switchLookup, error) {
+	var (
+		switchIDs  []string
+		machineIDs []string
+		partitions []string
+		lookup     = &switchLookup{
+			firewalls: map[string]*metal.Machine{},
+			ips:       metal.IPsMap{},
+		}
+		g, gctx  = errgroup.WithContext(ctx)
+		networks []*metal.Network
+	)
+
+	for _, sw := range sws {
+		switchIDs = append(switchIDs, sw.ID)
+		partitions = append(partitions, sw.Partition)
+		for _, c := range lo.Flatten(lo.Values(sw.MachineConnections)) {
+			machineIDs = append(machineIDs, c.MachineID)
+		}
+	}
+
+	g.Go(func() (err error) {
+		lookup.connectedMachines, err = getManyByID(gctx, r.s.ds.Machine(), machineIDs)
+		return err
+	})
+	g.Go(func() (err error) {
+		lookup.statuses, err = getManyByID(gctx, r.s.ds.SwitchStatus(), switchIDs)
+		return err
+	})
+	g.Go(func() (err error) {
+		networks, err = r.s.ds.Network().List(gctx)
+		return err
+	})
+
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
+	lookup.networks = metal.NetworksById(networks)
+
+	var projects []string
+	for _, m := range lookup.connectedMachines {
+		if m.Allocation != nil {
+			projects = append(projects, m.Allocation.Project)
+		}
+	}
+	projects = lo.Uniq(projects)
+
+	if len(projects) == 0 {
+		return lookup, nil
+	}
+
+	var (
+		ips       []*metal.IP
+		firewalls []*metal.Machine
+	)
+
+	g, gctx = errgroup.WithContext(ctx)
+
+	g.Go(func() (err error) {
+		ips, err = r.s.ds.IP().List(gctx, queries.IPProjectsFilter(projects))
+		return err
+	})
+	g.Go(func() (err error) {
+		// only firewalls are relevant for the bgp filter, so fetch all of them at once and group them in memory
+		firewalls, err = r.s.ds.Machine().List(gctx, queries.MachineFirewallsFilter(projects))
+		return err
+	})
+
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
+	lookup.ips = metal.IPsByProject(ips)
+
+	for _, fw := range firewalls {
+		lookup.firewalls[fw.ID] = fw
+	}
+
+	return lookup, nil
+}
+
 func (r *switchRepository) convertToProto(ctx context.Context, sw *metal.Switch) (*apiv2.Switch, error) {
 	if sw == nil {
 		return nil, nil
 	}
 
-	nics, err := r.convertToSwitchNics(ctx, sw)
+	res, err := r.convertToProtoList(ctx, []*metal.Switch{sw})
+	if err != nil {
+		return nil, err
+	}
+
+	return res[0], nil
+}
+
+func (r *switchRepository) convertToProtoList(ctx context.Context, sws []*metal.Switch) ([]*apiv2.Switch, error) {
+	lookup, err := r.prefetchSwitchLookup(ctx, sws)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]*apiv2.Switch, 0, len(sws))
+	for _, sw := range sws {
+		converted, err := r.convertSwitch(sw, lookup)
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, converted)
+	}
+
+	return res, nil
+}
+
+// convertSwitch converts a switch to its api representation, it must not do any backend calls.
+func (r *switchRepository) convertSwitch(sw *metal.Switch, l *switchLookup) (*apiv2.Switch, error) {
+	nics, err := r.convertToSwitchNics(sw, l)
 	if err != nil {
 		return nil, err
 	}
@@ -775,12 +900,7 @@ func (r *switchRepository) convertToProto(ctx context.Context, sw *metal.Switch)
 		lastErrorSync *apiv2.SwitchSync
 	)
 
-	status, err := r.s.ds.SwitchStatus().Get(ctx, sw.ID)
-	if err != nil && !errorutil.IsNotFound(err) {
-		return nil, err
-	}
-
-	if status != nil {
+	if status, ok := l.statuses[sw.ID]; ok {
 		lastSync = &apiv2.SwitchSync{
 			Time:     timestamppb.New(pointer.SafeDeref(status.LastSync).Time),
 			Duration: durationpb.New(pointer.SafeDeref(status.LastSync).Duration),
@@ -923,21 +1043,8 @@ func updateAllButNics(sw *metal.Switch, req *adminv2.SwitchServiceUpdateRequest)
 	return nil
 }
 
-func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Switch) ([]*apiv2.SwitchNic, error) {
-	var (
-		switchNics      []*apiv2.SwitchNic
-		projectMachines []*metal.Machine
-	)
-
-	networks, err := r.s.ds.Network().List(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	ips, err := r.s.ds.IP().List(ctx)
-	if err != nil {
-		return nil, err
-	}
+func (r *switchRepository) convertToSwitchNics(sw *metal.Switch, l *switchLookup) ([]*apiv2.SwitchNic, error) {
+	var switchNics []*apiv2.SwitchNic
 
 	for _, nic := range sw.Nics {
 		var (
@@ -978,25 +1085,12 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 			return nil, errorutil.InvalidArgument("failed to parse actual port status for nic %s: %w", nic.Name, err)
 		}
 
-		m, err := r.getConnectedMachineForNic(ctx, nic, sw.MachineConnections)
+		m, err := getConnectedMachineForNic(nic, sw.MachineConnections, l.connectedMachines)
 		if err != nil {
 			return nil, err
 		}
 
-		if m != nil && m.Allocation != nil {
-			projectMachines, err = r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
-				Allocation: &apiv2.MachineAllocationQuery{
-					Project: new(m.Allocation.Project),
-				},
-				Partition: new(sw.Partition),
-				Rack:      new(sw.Rack),
-			}))
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		filter, err := makeBGPFilter(m, projectMachines, nic.Vrf, networks, ips)
+		filter, err := makeBGPFilterFromMaps(m, l.firewalls, nic.Vrf, l.networks, l.ips)
 		if err != nil {
 			return nil, err
 		}
@@ -1031,7 +1125,7 @@ func (r *switchRepository) convertToSwitchNics(ctx context.Context, sw *metal.Sw
 	return switchNics, nil
 }
 
-func (r *switchRepository) getConnectedMachineForNic(ctx context.Context, nic metal.Nic, connections metal.ConnectionMap) (*metal.Machine, error) {
+func getConnectedMachineForNic(nic metal.Nic, connections metal.ConnectionMap, machines map[string]*metal.Machine) (*metal.Machine, error) {
 	flatConnections := lo.Flatten(lo.Values(connections))
 	connection, found := lo.Find(flatConnections, func(c metal.Connection) bool {
 		return c.Nic.Name == nic.Name
@@ -1041,9 +1135,9 @@ func (r *switchRepository) getConnectedMachineForNic(ctx context.Context, nic me
 		return nil, nil
 	}
 
-	m, err := r.s.ds.Machine().Get(ctx, connection.MachineID)
-	if err != nil {
-		return nil, err
+	m, ok := machines[connection.MachineID]
+	if !ok {
+		return nil, errorutil.NotFound("no machine with id %q found", connection.MachineID)
 	}
 
 	return m, nil
@@ -1132,7 +1226,11 @@ func updateNicNames(old, new metal.Nics) metal.Nics {
 	return updated
 }
 
-func makeBGPFilter(m *metal.Machine, projectMachines []*metal.Machine, vrf string, networks []*metal.Network, ips []*metal.IP) (*apiv2.BGPFilter, error) {
+func makeBGPFilter(m *metal.Machine, firewalls map[string]*metal.Machine, vrf string, networks []*metal.Network, ips []*metal.IP) (*apiv2.BGPFilter, error) {
+	return makeBGPFilterFromMaps(m, firewalls, vrf, metal.NetworksById(networks), metal.IPsByProject(ips))
+}
+
+func makeBGPFilterFromMaps(m *metal.Machine, firewalls map[string]*metal.Machine, vrf string, networks metal.NetworkMap, ips metal.IPsMap) (*apiv2.BGPFilter, error) {
 	if m == nil || m.Allocation == nil {
 		return &apiv2.BGPFilter{}, nil
 	}
@@ -1144,7 +1242,7 @@ func makeBGPFilter(m *metal.Machine, projectMachines []*metal.Machine, vrf strin
 		return &apiv2.BGPFilter{}, nil
 	}
 
-	return makeBGPFilterMachine(m, projectMachines, metal.NetworksById(networks), metal.IPsByProject(ips))
+	return makeBGPFilterMachine(m, firewalls, networks, ips)
 }
 
 func makeBGPFilterFirewall(machineNetworks []*metal.MachineNetwork) (*apiv2.BGPFilter, error) {
@@ -1175,59 +1273,30 @@ func makeBGPFilterFirewall(machineNetworks []*metal.MachineNetwork) (*apiv2.BGPF
 	}, nil
 }
 
-func makeBGPFilterMachine(m *metal.Machine, projectMachines []*metal.Machine, networks metal.NetworkMap, ips metal.IPsMap) (*apiv2.BGPFilter, error) {
+func makeBGPFilterMachine(m *metal.Machine, firewalls map[string]*metal.Machine, networks metal.NetworkMap, ips metal.IPsMap) (*apiv2.BGPFilter, error) {
 	if m.Allocation == nil {
 		return &apiv2.BGPFilter{}, nil
 	}
 
-	var (
-		cidrs             []string
-		private, underlay *metal.MachineNetwork
-	)
+	var cidrs []string
 
-	for _, net := range m.Allocation.MachineNetworks {
-		if net == nil {
-			continue
+	if idx := slices.IndexFunc(m.Allocation.MachineNetworks, func(n *metal.MachineNetwork) bool {
+		return metal.IsChildNetwork(n.NetworkType)
+	}); idx >= 0 {
+		net, ok := networks[m.Allocation.MachineNetworks[idx].NetworkID]
+		if ok {
+			cidrs = append(cidrs, net.Prefixes.String()...)
 		}
-		if net.Private {
-			private = net
-			continue
-		}
-		if net.Underlay {
-			underlay = net
+
+		parent, ok := networks[net.ParentNetworkID]
+		if ok {
+			cidrs = append(cidrs, parent.AdditionalAnnouncableCIDRs...)
 		}
 	}
 
-	if private != nil {
-		cidrs = append(cidrs, private.Prefixes...)
-
-		privateNetwork, ok := networks[private.NetworkID]
-		if !ok {
-			return nil, fmt.Errorf("no private network found for id:%s", private.NetworkID)
-		}
-		parentNetwork, ok := networks[privateNetwork.ParentNetworkID]
-		if !ok {
-			return nil, fmt.Errorf("parent network %s not found for id:%s", privateNetwork.ParentNetworkID, private.NetworkID)
-		}
-		if len(parentNetwork.AdditionalAnnouncableCIDRs) > 0 {
-			cidrs = append(cidrs, parentNetwork.AdditionalAnnouncableCIDRs...)
-		}
-	}
-
-	for _, i := range ips[m.Allocation.Project] {
-		if underlay != nil && underlay.ContainsIP(i.IPAddress) {
-			continue
-		}
-
-		ipAddress, err := i.GetIPAddress()
-		if err != nil {
-			return nil, err
-		}
-		if isFirewallIP(ipAddress, projectMachines) {
-			continue
-		}
-
-		ipwithMask, err := ipWithMask(i.IPAddress)
+	for _, ip := range ips[m.Allocation.Project] {
+		// TODO: filter out firewall ips
+		ipwithMask, err := ipWithMask(ip.IPAddress)
 		if err != nil {
 			return nil, err
 		}

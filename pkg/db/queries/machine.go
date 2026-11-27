@@ -6,6 +6,7 @@ import (
 
 	"github.com/metal-stack/api/go/enum"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
@@ -14,6 +15,19 @@ func MachineProjectScoped(project string) func(q r.Term) r.Term {
 	return func(q r.Term) r.Term {
 		return q.Filter(func(row r.Term) r.Term {
 			return row.Field("allocation").Field("project").Eq(project)
+		})
+	}
+}
+
+// MachineFirewallsFilter returns all firewalls which are allocated in one of the given projects and are located in one of the given partitions.
+func MachineFirewallsFilter(projects []string) func(q r.Term) r.Term {
+	return func(q r.Term) r.Term {
+		return q.Filter(func(row r.Term) r.Term {
+			return row.HasFields("allocation")
+		}).Filter(func(row r.Term) r.Term {
+			return row.Field("allocation").Field("role").Eq(string(metal.RoleFirewall))
+		}).Filter(func(row r.Term) r.Term {
+			return r.Expr(projects).Contains(row.Field("allocation").Field("project"))
 		})
 	}
 }

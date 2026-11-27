@@ -269,13 +269,13 @@ func Test_makeBGPFilterFirewall(t *testing.T) {
 
 func Test_makeBGPFilterMachine(t *testing.T) {
 	tests := []struct {
-		name            string
-		m               *metal.Machine
-		projectMachines []*metal.Machine
-		networks        metal.NetworkMap
-		ips             metal.IPsMap
-		want            *apiv2.BGPFilter
-		wantErr         error
+		name      string
+		m         *metal.Machine
+		networks  metal.NetworkMap
+		ips       metal.IPsMap
+		firewalls map[string]*metal.Machine
+		want      *apiv2.BGPFilter
+		wantErr   error
 	}{
 		{
 			name:     "no allocation",
@@ -343,18 +343,6 @@ func Test_makeBGPFilterMachine(t *testing.T) {
 					Project: "project-a",
 				},
 			},
-			projectMachines: []*metal.Machine{
-				{
-					Allocation: &metal.MachineAllocation{
-						Role: metal.RoleFirewall,
-						MachineNetworks: []*metal.MachineNetwork{
-							{
-								IPs: []string{"4.4.4.4"},
-							},
-						},
-					},
-				},
-			},
 			networks: metal.NetworkMap{
 				"private-1": &metal.Network{
 					ParentNetworkID: "private",
@@ -393,7 +381,7 @@ func Test_makeBGPFilterMachine(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := makeBGPFilterMachine(tt.m, tt.projectMachines, tt.networks, tt.ips)
+			got, err := makeBGPFilterMachine(tt.m, tt.firewalls, tt.networks, tt.ips)
 			if diff := cmp.Diff(tt.wantErr, err, errorutil.ErrorStringComparer()); diff != "" {
 				t.Errorf("makeBGPFilterMachine() error diff = %s", diff)
 				return

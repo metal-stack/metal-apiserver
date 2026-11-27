@@ -12,11 +12,13 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/certs"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/headscale"
 	"github.com/metal-stack/metal-apiserver/pkg/repository/api"
 	"github.com/metal-stack/metal-apiserver/pkg/request"
 	"github.com/metal-stack/metal-apiserver/pkg/token"
 	"github.com/metal-stack/metal-lib/auditing"
+	"github.com/samber/lo"
 	"github.com/valkey-io/valkey-go"
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
@@ -506,7 +508,7 @@ func (s *store[R, E, M, C, U, Q]) List(ctx context.Context, query Q) ([]M, error
 		return nil, errorutil.Convert(err)
 	}
 
-	var res []M
+	var inScope []E
 
 	for _, e := range es {
 		ok := s.matchScope(e)
@@ -514,12 +516,16 @@ func (s *store[R, E, M, C, U, Q]) List(ctx context.Context, query Q) ([]M, error
 			continue
 		}
 
-		converted, err := s.convertToProto(ctx, e)
-		if err != nil {
-			return nil, protoConversionError(err)
-		}
+		inScope = append(inScope, e)
+	}
 
-		res = append(res, converted)
+	if len(inScope) == 0 {
+		return nil, nil
+	}
+
+	res, err := s.convertToProtoList(ctx, inScope)
+	if err != nil {
+		return nil, protoConversionError(err)
 	}
 
 	return res, nil
@@ -581,6 +587,37 @@ func setUpdateMeta(u UpdateMessage, e Entity) error {
 	}
 
 	return nil
+}
+
+func getManyByID[E generic.Entity](ctx context.Context, s generic.Storage[E], ids []string) (map[string]E, error) {
+	// Note that rethinkdb limits arrays in a query to 100,000 elements by default (array_limit),
+	// so a call with more distinct ids fails.
+	ids = lo.Uniq(lo.Compact(ids))
+	if len(ids) == 0 {
+		return map[string]E{}, nil
+	}
+
+	es, err := s.List(ctx, queries.ByIDs(ids...))
+	if err != nil {
+		return nil, err
+	}
+
+	return lo.KeyBy(es, func(e E) string { return e.GetID() }), nil
+}
+
+func convertEach[E Entity, M Message](ctx context.Context, es []E, convert func(context.Context, E) (M, error)) ([]M, error) {
+	res := make([]M, 0, len(es))
+
+	for _, e := range es {
+		converted, err := convert(ctx, e)
+		if err != nil {
+			return nil, err
+		}
+
+		res = append(res, converted)
+	}
+
+	return res, nil
 }
 
 func protoConversionError(err error) error {

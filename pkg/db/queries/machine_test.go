@@ -603,3 +603,48 @@ func TestMachineFilter(t *testing.T) {
 		})
 	}
 }
+
+func TestMachineFirewallsFilter(t *testing.T) {
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	ds, _, rethinkCloser := test.StartRethink(t, log)
+	defer rethinkCloser()
+
+	ctx := t.Context()
+
+	for _, m := range []*metal.Machine{
+		{ID: "fw-p1-a", PartitionID: "a", Allocation: &metal.MachineAllocation{Project: "p1", Role: metal.RoleFirewall}},
+		{ID: "fw-p2-a", PartitionID: "a", Allocation: &metal.MachineAllocation{Project: "p2", Role: metal.RoleFirewall}},
+		{ID: "fw-p1-b", PartitionID: "b", Allocation: &metal.MachineAllocation{Project: "p1", Role: metal.RoleFirewall}},
+		{ID: "m-p1-a", PartitionID: "a", Allocation: &metal.MachineAllocation{Project: "p1", Role: metal.RoleMachine}},
+		{ID: "free-a", PartitionID: "a"},
+	} {
+		_, err := ds.Machine().Create(ctx, m)
+		require.NoError(t, err)
+	}
+
+	tests := []struct {
+		name     string
+		projects []string
+		want     []string
+	}{
+		{name: "one project, one partition", projects: []string{"p1"}, want: []string{"fw-p1-a"}},
+		{name: "many projects", projects: []string{"p1", "p2"}, want: []string{"fw-p1-a", "fw-p2-a"}},
+		{name: "many partitions", projects: []string{"p1"}, want: []string{"fw-p1-a", "fw-p1-b"}},
+		{name: "unknown project", projects: []string{"p3"}, want: nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ms, err := ds.Machine().List(ctx, queries.MachineFirewallsFilter(tt.projects))
+			require.NoError(t, err)
+
+			var got []string
+			for _, m := range ms {
+				got = append(got, m.ID)
+			}
+			slices.Sort(got)
+
+			require.Equal(t, tt.want, got)
+		})
+	}
+}

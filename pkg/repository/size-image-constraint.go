@@ -156,6 +156,10 @@ func (r *sizeImageConstraintRepository) convertToProto(ctx context.Context, e *m
 	}, nil
 }
 
+func (r *sizeImageConstraintRepository) convertToProtoList(ctx context.Context, es []*metal.SizeImageConstraint) ([]*apiv2.SizeImageConstraint, error) {
+	return convertEach(ctx, es, r.convertToProto)
+}
+
 func (r *sizeImageConstraintRepository) sizeImageConstraintFilters(filter generic.EntityQuery) []generic.EntityQuery {
 	var qs []generic.EntityQuery
 	if filter != nil {

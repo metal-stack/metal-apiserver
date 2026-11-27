@@ -57,6 +57,12 @@ type (
 		list(ctx context.Context, query Q) ([]E, error)
 
 		convertToProto(ctx context.Context, e E) (M, error)
+		// convertToProtoList converts many entities at once.
+		// Repositories which need to look up dependent entities should prefetch them here
+		// with a constant number of backend calls instead of looking them up per entity.
+		// Repositories without such needs can simply use convertEach.
+		// The returned slice must have the same length and order as the given entities.
+		convertToProtoList(ctx context.Context, es []E) ([]M, error)
 
 		matchScope(e E) bool
 	}

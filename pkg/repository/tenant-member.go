@@ -294,6 +294,10 @@ func (t *tenantMemberRepository) convertToProto(ctx context.Context, e *tenantMe
 	}, nil
 }
 
+func (t *tenantMemberRepository) convertToProtoList(ctx context.Context, es []*tenantMemberEntity) ([]*apiv2.TenantMember, error) {
+	return convertEach(ctx, es, t.convertToProto)
+}
+
 func tenantRoleFromMap(annotations map[string]string) apiv2.TenantRole {
 	if annotations == nil {
 		return apiv2.TenantRole_TENANT_ROLE_GUEST
