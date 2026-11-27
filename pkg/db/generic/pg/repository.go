@@ -46,13 +46,22 @@ const (
 -- One table per entity type. The primary key is a text id: UUID-keyed
 -- entities store their UUID string, named entities (partition, size, image, ...)
 -- store their meaningful name. See Entity.ID.
-CREATE TABLE IF NOT EXISTS %s (
+CREATE TABLE IF NOT EXISTS %[1]s (
     id TEXT PRIMARY KEY,
     version INT NOT NULL DEFAULT 1,
     data JSONB NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_%s_data ON %s USING gin (data);
+-- The GIN index serves the @> containment operator, which "=" filters and all
+-- array/map membership filters compile to. No other filter operator can use a
+-- GIN index on data (#>>, LIKE, IN, IS NULL extract text), so jsonb_path_ops is
+-- used: it supports only @>, but is smaller and faster than the default
+-- jsonb_ops for lookups and writes.
+CREATE INDEX IF NOT EXISTS idx_%[1]s_data_path ON %[1]s USING gin (data jsonb_path_ops);
+
+-- Replaced by idx_%[1]s_data_path. Dropping an index that does not exist does
+-- not lock the table.
+DROP INDEX IF EXISTS idx_%[1]s_data;
 `
 
 	// repositoryNotifySchema installs the change notification trigger. It is
@@ -119,7 +128,7 @@ $$;
 // without a watcher (e.g. by a migration) must not disable the Watch of
 // another process using the same table.
 func RepositorySchema(entityName string, notify bool) string {
-	schema := fmt.Sprintf(repositorySchema, entityName, entityName, entityName)
+	schema := fmt.Sprintf(repositorySchema, entityName)
 	if notify {
 		schema += fmt.Sprintf(repositoryNotifySchema, entityName)
 	}

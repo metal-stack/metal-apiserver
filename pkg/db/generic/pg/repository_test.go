@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 	"uuid"
@@ -578,4 +579,68 @@ func TestGenericRepositoryLikeEscaping(t *testing.T) {
 	results, err = repo.Query(ctx, []pg.QueryFilter{{Path: "name", Op: "LIKE", Value: "literal%"}}, nil)
 	require.NoError(t, err)
 	require.Empty(t, results)
+}
+
+// TestGenericRepositoryDataIndex verifies that the data column is indexed with
+// jsonb_path_ops and that the former jsonb_ops index is replaced.
+func TestGenericRepositoryDataIndex(t *testing.T) {
+	ctx := t.Context()
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+	db, closer := test.StartPostgres(t, log)
+	defer closer()
+
+	// Simulate a table created by an earlier version with the jsonb_ops index.
+	_, err := db.ExecContext(ctx, `
+		CREATE TABLE device (id TEXT PRIMARY KEY, version INT NOT NULL DEFAULT 1, data JSONB NOT NULL);
+		CREATE INDEX idx_device_data ON device USING gin (data);
+	`)
+	require.NoError(t, err)
+
+	_, err = pg.NewGenericRepository[Device](log, db)
+	require.NoError(t, err)
+
+	rows, err := db.QueryContext(ctx, `SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'device' AND indexdef LIKE '%USING gin%'`)
+	require.NoError(t, err)
+	defer func() { _ = rows.Close() }()
+
+	indexes := map[string]string{}
+	for rows.Next() {
+		var name, def string
+		require.NoError(t, rows.Scan(&name, &def))
+		indexes[name] = def
+	}
+	require.NoError(t, rows.Err())
+
+	require.Len(t, indexes, 1, "only the jsonb_path_ops index must remain: %v", indexes)
+	require.Contains(t, indexes["idx_device_data_path"], "jsonb_path_ops")
+
+	// The index serves containment queries.
+	repo, err := pg.NewGenericRepository[Device](log, db)
+	require.NoError(t, err)
+	require.NoError(t, repo.Create(ctx, "d1", Device{Model: "M1"}))
+
+	results, err := repo.Query(ctx, []pg.QueryFilter{{Path: "model", Op: "=", Value: "M1"}}, nil)
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+
+	// With sequential scans disabled (the table is tiny), the planner must be
+	// able to answer a containment query from the index.
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	defer func() { _ = tx.Rollback() }()
+	_, err = tx.ExecContext(ctx, `SET LOCAL enable_seqscan = off`)
+	require.NoError(t, err)
+
+	planRows, err := tx.QueryContext(ctx, `EXPLAIN SELECT id FROM device WHERE data @> '{"model":"M1"}'`)
+	require.NoError(t, err)
+	defer func() { _ = planRows.Close() }()
+
+	var plan []string
+	for planRows.Next() {
+		var line string
+		require.NoError(t, planRows.Scan(&line))
+		plan = append(plan, line)
+	}
+	require.NoError(t, planRows.Err())
+	require.Contains(t, strings.Join(plan, "\n"), "idx_device_data_path")
 }

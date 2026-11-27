@@ -52,7 +52,7 @@ func setupBenchTable(b *testing.B, db *sql.DB) string {
 			version INT NOT NULL DEFAULT 1,
 			data JSONB NOT NULL
 		);
-		CREATE INDEX idx_%s_data ON %s USING gin (data);
+		CREATE INDEX idx_%s_data ON %s USING gin (data jsonb_path_ops);
 	`, benchTable, benchTable, benchTable, benchTable))
 	require.NoError(b, err)
 
