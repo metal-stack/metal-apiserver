@@ -17,9 +17,7 @@ Main difference of the Entity CRUD compared to what we actually have with rethin
 
 ```golang
     machineRepo := pg.NewGenericRepository[Machine](db)
-    imagePath := pg.PathOf(func(m *Machine) any {
-        return &m.Image.Name
-    })
+    imagePath := pg.SelectorPath[Machine]("Image", "Name")
     machines, err := repo.Query(ctx, []pg.QueryFilter{
         {Path: imagePath, Op: "=", Value: "debian-13.0.20260812"},
     })

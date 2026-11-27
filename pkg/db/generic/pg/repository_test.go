@@ -117,10 +117,8 @@ func TestGenericRepository(t *testing.T) {
 	require.Len(t, results, 1)
 	require.Equal(t, userID, results[0].ID)
 
-	// Query by nested JSON path with the PathOf helper
-	countryPath := pg.PathOf(func(u *UserProfile) any {
-		return &u.Address.Country
-	})
+	// Query by nested JSON path with the SelectorPath helper
+	countryPath := pg.SelectorPath[UserProfile]("Address", "Country")
 	results2, err := repo.Query(ctx, []pg.QueryFilter{
 		{Path: countryPath, Op: "=", Value: "Austria"},
 	}, nil)
