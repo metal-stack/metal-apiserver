@@ -23,7 +23,7 @@ func StartTenantApiserverWithPostgres(t testing.TB, log *slog.Logger) (tenant.Cl
 	ctx := t.Context()
 
 	postgres, err := postgres.Run(ctx,
-		"postgres:18-alpine",
+		"postgres:19-alpine",
 		postgres.WithPassword("password"),
 		postgres.BasicWaitStrategies(),
 		testcontainers.WithTmpfs(map[string]string{"/var/lib/postgresql": "rw"}),
