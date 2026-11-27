@@ -8,11 +8,13 @@ import (
 )
 
 const (
-	TypeIpDelete            TaskType = "ip:delete"
-	TypeNetworkDelete       TaskType = "network:delete"
-	TypeMachineDelete       TaskType = "machine:delete"
-	TypeMachineDecommission TaskType = "machine:decommission"
-	TypeMachineBMCCommand   TaskType = "machine:bmc-command"
+	TypeIpDelete                     TaskType = "ip:delete"
+	TypeNetworkDelete                TaskType = "network:delete"
+	TypeMachineDelete                TaskType = "machine:delete"
+	TypeMachineDecommission          TaskType = "machine:decommission"
+	TypeMachineBMCCommand            TaskType = "machine:bmc-command"
+	TypeMachineInstallationSucceeded TaskType = "machine:installation-succeeded"
+	TypeMachineRegister              TaskType = "machine:register"
 )
 
 type (
@@ -50,6 +52,22 @@ type (
 	}
 
 	MachineDeletePayload struct {
+		// UUID of the machine which should be deleted (the machine)
+		UUID string `json:"uuid"`
+	}
+
+	MachineInstallationSucceededPayload struct {
+		// UUID of the machine which should be deleted (the machine)
+		UUID string `json:"uuid"`
+		// AllocationUUID is the uuid of the machine allocation
+		AllocationUUID string `json:"allocation_uuid"`
+		// ConsolePassword which was generated during allocation
+		ConsolePassword string `json:"console_password"`
+		// Vrf in which this machine should be enslaved on the switch
+		Vrf string `json:"vrf"`
+	}
+
+	MachineRegisterPayload struct {
 		// UUID of the machine which should be deleted (the machine)
 		UUID string `json:"uuid"`
 	}
@@ -93,6 +111,14 @@ func (p *MachineDecommissionPayload) Type() TaskType {
 
 func (p *MachineBMCCommandPayload) Type() TaskType {
 	return TypeMachineBMCCommand
+}
+
+func (p *MachineInstallationSucceededPayload) Type() TaskType {
+	return TypeMachineInstallationSucceeded
+}
+
+func (p *MachineRegisterPayload) Type() TaskType {
+	return TypeMachineRegister
 }
 
 // EncodePayload can be used to encode a task payload using json marshal.

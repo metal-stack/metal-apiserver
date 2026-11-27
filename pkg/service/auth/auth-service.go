@@ -16,7 +16,6 @@ import (
 
 	"uuid"
 
-	"github.com/gorilla/mux"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
 	"github.com/markbates/goth"
@@ -89,9 +88,6 @@ func New(c Config, options ...authOption) (*auth, error) {
 
 func (a *auth) NewHandler() (string, http.Handler, error) {
 	a.log.Info("authhandler", "isDevStage", a.isDevStage)
-	// FIXME: since go-1.22 and goth v1.81 can be replaced by
-	// r := http.NewServeMux()
-	r := mux.NewRouter()
 	if a.isDevStage {
 		_, err := a.With(FakeProvider())
 		if err != nil {
@@ -111,12 +107,22 @@ func (a *auth) NewHandler() (string, http.Handler, error) {
 		},
 	}
 
-	// Register oauth login handler
-	r.HandleFunc("/auth/{provider}/callback", a.Callback)
-	// Register oauth login handler
-	r.HandleFunc("/auth/{provider}", a.Login)
+	// Logout and login/callback are registered on separate muxes because
+	// "/auth/logout/{provider}" and "/auth/{provider}/callback" are ambiguous
+	// patterns for net/http's ServeMux and would make it panic.
+	logoutRoutes := http.NewServeMux()
 	// Register oauth logout handler
-	r.HandleFunc("/auth/logout/{provider}", a.Logout)
+	logoutRoutes.HandleFunc("/auth/logout/{provider}", a.Logout)
+
+	authRoutes := http.NewServeMux()
+	// Register oauth login callback handler
+	authRoutes.HandleFunc("/auth/{provider}/callback", a.Callback)
+	// Register oauth login handler
+	authRoutes.HandleFunc("/auth/{provider}", a.Login)
+
+	r := http.NewServeMux()
+	r.Handle("/auth/logout/", logoutRoutes)
+	r.Handle("/auth/", authRoutes)
 
 	return "/auth/", r, nil
 }
