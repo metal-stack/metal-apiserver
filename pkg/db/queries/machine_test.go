@@ -623,20 +623,19 @@ func TestMachineFirewallsFilter(t *testing.T) {
 	}
 
 	tests := []struct {
-		name       string
-		projects   []string
-		partitions []string
-		want       []string
+		name     string
+		projects []string
+		want     []string
 	}{
-		{name: "one project, one partition", projects: []string{"p1"}, partitions: []string{"a"}, want: []string{"fw-p1-a"}},
-		{name: "many projects", projects: []string{"p1", "p2"}, partitions: []string{"a"}, want: []string{"fw-p1-a", "fw-p2-a"}},
-		{name: "many partitions", projects: []string{"p1"}, partitions: []string{"a", "b"}, want: []string{"fw-p1-a", "fw-p1-b"}},
-		{name: "unknown project", projects: []string{"p3"}, partitions: []string{"a", "b"}, want: nil},
+		{name: "one project, one partition", projects: []string{"p1"}, want: []string{"fw-p1-a"}},
+		{name: "many projects", projects: []string{"p1", "p2"}, want: []string{"fw-p1-a", "fw-p2-a"}},
+		{name: "many partitions", projects: []string{"p1"}, want: []string{"fw-p1-a", "fw-p1-b"}},
+		{name: "unknown project", projects: []string{"p3"}, want: nil},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ms, err := ds.Machine().List(ctx, queries.MachineFirewallsFilter(tt.projects, tt.partitions))
+			ms, err := ds.Machine().List(ctx, queries.MachineFirewallsFilter(tt.projects))
 			require.NoError(t, err)
 
 			var got []string

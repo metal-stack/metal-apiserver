@@ -20,7 +20,7 @@ func MachineProjectScoped(project string) func(q r.Term) r.Term {
 }
 
 // MachineFirewallsFilter returns all firewalls which are allocated in one of the given projects and are located in one of the given partitions.
-func MachineFirewallsFilter(projects, partitions []string) func(q r.Term) r.Term {
+func MachineFirewallsFilter(projects []string) func(q r.Term) r.Term {
 	return func(q r.Term) r.Term {
 		return q.Filter(func(row r.Term) r.Term {
 			return row.HasFields("allocation")
@@ -28,8 +28,6 @@ func MachineFirewallsFilter(projects, partitions []string) func(q r.Term) r.Term
 			return row.Field("allocation").Field("role").Eq(string(metal.RoleFirewall))
 		}).Filter(func(row r.Term) r.Term {
 			return r.Expr(projects).Contains(row.Field("allocation").Field("project"))
-		}).Filter(func(row r.Term) r.Term {
-			return r.Expr(partitions).Contains(row.Field("partitionid"))
 		})
 	}
 }
