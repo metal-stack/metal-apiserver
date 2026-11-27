@@ -5,5 +5,3 @@
 # One top-level test name per line. Remove a line once the test passes on
 # postgres - a newly failing test must not be added here without an issue.
 #
-# pkg/service/infra/switch
-Test_switchServiceServer_Register

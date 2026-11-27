@@ -834,6 +834,12 @@ func (r *switchRepository) findTwinSwitch(ctx context.Context, newSwitch *metal.
 		return nil, errorutil.NotFound("could not find any switch in rack %v", newSwitch.Rack)
 	}
 
+	// The backends return switches in different orders; sort them so the
+	// result and the error message are deterministic.
+	slices.SortFunc(rackSwitches, func(a, b *metal.Switch) int {
+		return strings.Compare(a.ID, b.ID)
+	})
+
 	var twin *metal.Switch
 	for i := range rackSwitches {
 		sw := rackSwitches[i]
