@@ -124,7 +124,9 @@ func (s *postgresStorage[E]) Get(ctx context.Context, id string) (E, error) {
 func (s *postgresStorage[E]) Find(ctx context.Context, filters ...storage.Filter) (E, error) {
 	var zero E
 
-	entities, err := s.List(ctx, filters...)
+	// Two rows are enough to tell "exactly one" from "more than one", so the
+	// remaining matches are neither loaded nor decoded.
+	entities, err := s.list(ctx, &pg.Pagination{Limit: 2}, filters...)
 	if err != nil {
 		return zero, err
 	}
@@ -139,12 +141,16 @@ func (s *postgresStorage[E]) Find(ctx context.Context, filters ...storage.Filter
 }
 
 func (s *postgresStorage[E]) List(ctx context.Context, filters ...storage.Filter) ([]E, error) {
+	return s.list(ctx, nil, filters...)
+}
+
+func (s *postgresStorage[E]) list(ctx context.Context, pagination *pg.Pagination, filters ...storage.Filter) ([]E, error) {
 	pgFilters, err := postgresFilters(filters)
 	if err != nil {
 		return nil, err
 	}
 
-	entities, err := s.repo.Query(ctx, pgFilters, nil)
+	entities, err := s.repo.Query(ctx, pgFilters, pagination)
 	if err != nil {
 		return nil, toConnectError(err)
 	}

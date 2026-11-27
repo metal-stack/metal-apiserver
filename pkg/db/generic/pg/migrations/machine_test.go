@@ -7,11 +7,13 @@ import (
 	"testing"
 
 	_ "github.com/lib/pq"
+	"github.com/metal-stack/api/go/errorutil"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic/pg"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic/pg/migrations"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
 	"github.com/metal-stack/metal-apiserver/pkg/db/routing"
+	"github.com/metal-stack/metal-apiserver/pkg/db/storage"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/stretchr/testify/require"
 )
@@ -102,6 +104,20 @@ func TestMigrateMachine(t *testing.T) {
 		require.Equal(t, "machine-2-updated", m.Name)
 		m.Name = "machine-2-updated-again"
 		require.NoError(t, s.Update(ctx, m))
+	})
+	t.Run("find through the postgres storage", func(t *testing.T) {
+		s := routing.NewPostgresStorage(repo, "machine")
+		filter := func(qf ...pg.QueryFilter) storage.Filter { return storage.Filter{Postgres: qf} }
+
+		m, err := s.Find(ctx, filter(pg.QueryFilter{Path: "partition_id", Op: "=", Value: "partition-2"}))
+		require.NoError(t, err)
+		require.Equal(t, "6b22ccd6-4c93-4a1f-8c8f-2f63b3c6e003", m.ID)
+
+		_, err = s.Find(ctx, filter(pg.QueryFilter{Path: "partition_id", Op: "=", Value: "partition-1"}))
+		require.EqualError(t, err, "more than one machine found by query")
+
+		_, err = s.Find(ctx, filter(pg.QueryFilter{Path: "partition_id", Op: "=", Value: "unknown"}))
+		require.True(t, errorutil.IsNotFound(err))
 	})
 }
 
