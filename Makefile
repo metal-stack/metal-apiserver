@@ -36,6 +36,12 @@ test:
 test-postgres:
 	DB_ROUTING=default=postgres go test ./... -race -coverpkg=./... -covermode=atomic $(GO_TEST_ARGS) -timeout=300s
 
+# Benchmarks comparing the postgres implementations with RethinkDB. They are
+# behind the compare_rethink build tag because they need both databases.
+.PHONY: bench-pg-vs-rethink
+bench-pg-vs-rethink:
+	go test -tags compare_rethink -run '^$$' -bench 'PgVsRethink' ./pkg/db/generic/pg/
+
 .PHONY: fmt
 fmt:
 	go fmt ./...

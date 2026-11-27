@@ -1,3 +1,10 @@
+//go:build compare_rethink
+
+// Comparison benchmarks against RethinkDB. They need both a RethinkDB and a
+// Postgres container and are excluded from the regular test run; run them with
+//
+//	make bench-pg-vs-rethink
+
 package pg_test
 
 import (
