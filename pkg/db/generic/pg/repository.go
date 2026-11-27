@@ -53,10 +53,20 @@ CREATE TABLE IF NOT EXISTS %s (
 );
 
 CREATE INDEX IF NOT EXISTS idx_%s_data ON %s USING gin (data);
+`
 
--- One shared trigger function serves every per-entity table: the table name
--- is the entity type, so it is read from TG_TABLE_NAME rather than from a
--- trigger argument that would have to be kept in sync with the table.
+	// repositoryNotifySchema installs the change notification trigger. It is
+	// only installed on tables of repositories with a Watcher: pg_notify
+	// serializes committing transactions on a database wide lock, so it must
+	// not run for writes nobody listens to.
+	//
+	// One shared trigger function serves every per-entity table: the table name
+	// is the entity type, so it is read from TG_TABLE_NAME rather than from a
+	// trigger argument that would have to be kept in sync with the table.
+	//
+	// The trigger is only created if it is missing, so a restart does not take
+	// a lock on the table.
+	repositoryNotifySchema = `
 CREATE OR REPLACE FUNCTION entity_table_notify_change() RETURNS trigger AS $$
 BEGIN
     PERFORM pg_notify(
@@ -71,11 +81,24 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS entity_table_notify_change ON %s;
-CREATE TRIGGER entity_table_notify_change
-    AFTER INSERT OR UPDATE OR DELETE ON %s
-    FOR EACH ROW EXECUTE FUNCTION entity_table_notify_change();
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger
+        WHERE tgname = 'entity_table_notify_change' AND tgrelid = '%[1]s'::regclass
+    ) THEN
+        CREATE TRIGGER entity_table_notify_change
+            AFTER INSERT OR UPDATE OR DELETE ON %[1]s
+            FOR EACH ROW EXECUTE FUNCTION entity_table_notify_change();
+    END IF;
+END
+$$;
 `
+
+	// schemaLockID is the advisory lock key that serializes schema setup, so
+	// replicas starting at the same time do not race on DDL (e.g. "tuple
+	// concurrently updated" on CREATE OR REPLACE FUNCTION).
+	schemaLockID = 0x6d6574616c // "metal"
 	// The repository statements are templates: %[1]s is the entity (table) name.
 	qRepositoryCreate = `INSERT INTO %[1]s (id, version, data) VALUES ($1, 1, $2) ON CONFLICT (id) DO NOTHING`
 	qRepositoryUpsert = `INSERT INTO %[1]s (id, version, data) VALUES ($1, 1, $2)
@@ -90,8 +113,35 @@ CREATE TRIGGER entity_table_notify_change
 	qRepositoryGet    = `SELECT id, version, data FROM %[1]s WHERE id = $1`
 )
 
-var RepositorySchema = func(entityName string) string {
-	return fmt.Sprintf(repositorySchema, entityName, entityName, entityName, entityName, entityName)
+// RepositorySchema returns the DDL for the table of the given entity. With
+// notify, the change notification trigger used by Watch is installed as well.
+// Without notify an existing trigger is left in place: a repository built
+// without a watcher (e.g. by a migration) must not disable the Watch of
+// another process using the same table.
+func RepositorySchema(entityName string, notify bool) string {
+	schema := fmt.Sprintf(repositorySchema, entityName, entityName, entityName)
+	if notify {
+		schema += fmt.Sprintf(repositoryNotifySchema, entityName)
+	}
+	return schema
+}
+
+// execSchema runs schema in a transaction that holds the schema advisory lock.
+func execSchema(ctx context.Context, db *sql.DB, schema string) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }() // no-op after commit
+
+	if _, err := tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock($1)", schemaLockID); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, schema); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 type (
@@ -152,8 +202,10 @@ type (
 )
 
 // WithWatcher attaches a PostgreSQL watcher to the repository, enabling the
-// Watch method. A single Watcher can be shared by every repository that uses
-// the same database. Without a watcher, Watch returns ErrWatchNotConfigured.
+// Watch method and installing the change notification trigger on the entity
+// table. A single Watcher can be shared by every repository that uses the same
+// database. Without a watcher, Watch returns ErrWatchNotConfigured and no
+// notifications are emitted for the table. A nil watcher is ignored.
 func WithWatcher(w *Watcher) RepositoryOption {
 	return func(o *repositoryOptions) {
 		o.watcher = w
@@ -192,7 +244,7 @@ func NewGenericRepository[T any](log *slog.Logger, db *sql.DB, opts ...Repositor
 		opt(options)
 	}
 
-	_, err := db.ExecContext(context.Background(), RepositorySchema(entityTypeName))
+	err := execSchema(context.Background(), db, RepositorySchema(entityTypeName, options.watcher != nil))
 	if err != nil {
 		return nil, err
 	}

@@ -22,6 +22,15 @@ const (
 	// qWatcherLoad loads the current data of a changed row. %[1]s is the entity
 	// (table) name.
 	qWatcherLoad = `SELECT data FROM %[1]s WHERE id = $1`
+
+	// watcherLoadTimeout bounds loading a changed row. Notifications are
+	// dispatched one by one, so a hanging load would stall every subscriber.
+	watcherLoadTimeout = 5 * time.Second
+
+	// opResync is the op of a change emitted after the listener reconnected.
+	// Notifications sent while the connection was down are lost, so the
+	// current state of every watched entity is delivered again.
+	opResync = "RESYNC"
 )
 
 // ErrWatchNotConfigured is returned when Watch is called on a repository that
@@ -155,6 +164,9 @@ func (w *Watcher) dispatch() {
 	for notification := range w.listener.NotificationChannel() {
 		if notification == nil {
 			// The listener signals a reconnect with a nil notification.
+			// Changes during the outage were not announced, so deliver the
+			// current state of every watched entity.
+			w.resync()
 			continue
 		}
 
@@ -169,6 +181,22 @@ func (w *Watcher) dispatch() {
 		}
 
 		w.notify(payload.ID, payload.EntityType, payload.Op)
+	}
+}
+
+// resync delivers the current state of every subscribed entity.
+func (w *Watcher) resync() {
+	w.mu.RLock()
+	keys := make([]watchKey, 0, len(w.subs))
+	for key := range w.subs {
+		keys = append(keys, key)
+	}
+	w.mu.RUnlock()
+
+	w.log.Info("postgres listener reconnected, resyncing watched entities", "count", len(keys))
+
+	for _, key := range keys {
+		w.notify(key.id, key.entityType, opResync)
 	}
 }
 
@@ -195,7 +223,9 @@ func (w *Watcher) notify(id, entityType, op string) {
 			w.log.Error("unable to prepare load statement", "entity_type", entityType, "error", err)
 			return
 		}
-		err = stmt.QueryRowContext(context.Background(), id).Scan(&newData)
+		ctx, cancel := context.WithTimeout(context.Background(), watcherLoadTimeout)
+		err = stmt.QueryRowContext(ctx, id).Scan(&newData)
+		cancel()
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			w.log.Error("unable to load changed entity", "id", id, "entity_type", entityType, "error", err)
 			return

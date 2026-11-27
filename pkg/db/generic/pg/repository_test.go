@@ -259,9 +259,15 @@ func TestEntityTableNotifyChange(t *testing.T) {
 		require.NoError(t, listener.Close())
 	}()
 
-	profileRepo, err := pg.NewGenericRepository[UserProfile](log, db)
+	watcher, err := pg.NewWatcher(log, db, dsn)
 	require.NoError(t, err)
-	deviceRepo, err := pg.NewGenericRepository[Device](log, db)
+	defer func() {
+		require.NoError(t, watcher.Close())
+	}()
+
+	profileRepo, err := pg.NewGenericRepository[UserProfile](log, db, pg.WithWatcher(watcher))
+	require.NoError(t, err)
+	deviceRepo, err := pg.NewGenericRepository[Device](log, db, pg.WithWatcher(watcher))
 	require.NoError(t, err)
 
 	// The entity type is the table name as Postgres stores it: unquoted
@@ -288,6 +294,35 @@ func TestEntityTableNotifyChange(t *testing.T) {
 
 	require.NoError(t, deviceRepo.Delete(ctx, id))
 	assertNotificationPayload(t, receiveNotification(t, listener), id, deviceTable, "DELETE")
+
+	// Constructing a repository again does not duplicate the trigger, every
+	// change is announced exactly once.
+	_, err = pg.NewGenericRepository[Device](log, db, pg.WithWatcher(watcher))
+	require.NoError(t, err)
+	require.NoError(t, deviceRepo.Create(ctx, id, Device{Model: "M2"}))
+	assertNotificationPayload(t, receiveNotification(t, listener), id, deviceTable, "INSERT")
+
+	// A repository without a watcher leaves an existing trigger in place.
+	_, err = pg.NewGenericRepository[Device](log, db)
+	require.NoError(t, err)
+	require.NoError(t, deviceRepo.Delete(ctx, id))
+	assertNotificationPayload(t, receiveNotification(t, listener), id, deviceTable, "DELETE")
+
+	// A table of a repository without a watcher gets no trigger, writes to it
+	// are not announced.
+	unwatched, err := pg.NewGenericRepository[Unwatched](log, db)
+	require.NoError(t, err)
+	require.NoError(t, unwatched.Create(ctx, id, Unwatched{Name: "x"}))
+
+	select {
+	case n := <-listener.NotificationChannel():
+		t.Fatalf("unexpected notification for a table without watcher: %v", n)
+	case <-time.After(500 * time.Millisecond):
+	}
+}
+
+type Unwatched struct {
+	Name string `json:"name"`
 }
 
 func receiveNotification(t *testing.T, l *pq.Listener) pq.Notification {

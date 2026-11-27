@@ -47,7 +47,7 @@ type datastoreOptions struct {
 }
 
 // WithPostgresWatcher attaches a PostgreSQL watcher to the postgres-backed
-// entities, enabling Watch for them. The watcher must be created with
+// entities listed in watchedEntities, enabling Watch for them. The watcher must be created with
 // pg.NewWatcher and be closed by the caller.
 func WithPostgresWatcher(w *pg.Watcher) DatastoreOption {
 	return func(o *datastoreOptions) {
@@ -111,13 +111,25 @@ func NewDatastore(log *slog.Logger, cfg Config, rethink generic.Datastore, pgDB 
 	return d, nil
 }
 
+// watchedEntities are the entities whose Watch is used by the repository
+// layer. Only their tables get the change notification trigger: every
+// pg_notify serializes commits on a database wide lock, so it must not run
+// for entities nobody watches.
+var watchedEntities = map[string]bool{
+	"Machine": true,
+}
+
 func newEntityStorage[E storage.Entity](log *slog.Logger, cfg Config, entity string, rethink storage.Storage[E], pgDB *sql.DB, watcher *pg.Watcher) (storage.Storage[E], error) {
 	var postgres storage.Storage[E]
 	if cfg.ModeFor(entity) != ModeRethink {
 		if pgDB == nil {
 			return nil, fmt.Errorf("entity %q is configured for postgres but no postgres database was provided", entity)
 		}
-		repo, err := pg.NewGenericRepository[E](log, pgDB, pg.WithWatcher(watcher))
+		var opts []pg.RepositoryOption
+		if watcher != nil && watchedEntities[entity] {
+			opts = append(opts, pg.WithWatcher(watcher))
+		}
+		repo, err := pg.NewGenericRepository[E](log, pgDB, opts...)
 		if err != nil {
 			return nil, fmt.Errorf("unable to create postgres repository for %q: %w", entity, err)
 		}
