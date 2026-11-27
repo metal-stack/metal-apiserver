@@ -121,3 +121,59 @@ func Test_sharedMutex_expires(t *testing.T) {
 		t.Errorf("shared mutex has not expired")
 	}
 }
+
+func Test_sharedMutex_expiredMutexIsTakenOverWithoutExpireLoop(t *testing.T) {
+	t.Parallel()
+	var (
+		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+		ctx = t.Context()
+	)
+
+	db, closer := test.StartPostgres(t, log)
+	defer closer()
+
+	// the expiration loop never runs during the test
+	mutex, err := pg.NewSharedMutex(ctx, log, db, pg.NewMutexOptCheckInterval(time.Hour))
+	require.NoError(t, err)
+
+	err = mutex.Lock(ctx, "test", pg.NewLockOptExpirationTimeout(200*time.Millisecond), pg.NewLockOptAcquireTimeout(100*time.Millisecond))
+	require.NoError(t, err)
+
+	err = mutex.Lock(ctx, "test", pg.NewLockOptExpirationTimeout(time.Second), pg.NewLockOptAcquireTimeout(2*time.Second))
+	require.NoError(t, err)
+}
+
+func Test_sharedMutex_unlockDoesNotReleaseForeignMutex(t *testing.T) {
+	t.Parallel()
+	var (
+		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+		ctx = t.Context()
+	)
+
+	db, closer := test.StartPostgres(t, log)
+	defer closer()
+
+	// two instances simulate two replicas
+	first, err := pg.NewSharedMutex(ctx, log, db, pg.NewMutexOptCheckInterval(time.Hour))
+	require.NoError(t, err)
+	second, err := pg.NewSharedMutex(ctx, log, db, pg.NewMutexOptCheckInterval(time.Hour))
+	require.NoError(t, err)
+
+	err = first.Lock(ctx, "test", pg.NewLockOptExpirationTimeout(200*time.Millisecond), pg.NewLockOptAcquireTimeout(100*time.Millisecond))
+	require.NoError(t, err)
+
+	// second takes over after the expiry
+	err = second.Lock(ctx, "test", pg.NewLockOptExpirationTimeout(10*time.Second), pg.NewLockOptAcquireTimeout(2*time.Second))
+	require.NoError(t, err)
+
+	// the late unlock of the expired holder must not release the mutex
+	first.Unlock(ctx, "test")
+
+	err = first.Lock(ctx, "test", pg.NewLockOptExpirationTimeout(10*time.Second), pg.NewLockOptAcquireTimeout(200*time.Millisecond))
+	require.ErrorContains(t, err, "unable to acquire mutex")
+
+	second.Unlock(ctx, "test")
+
+	err = first.Lock(ctx, "test", pg.NewLockOptExpirationTimeout(10*time.Second), pg.NewLockOptAcquireTimeout(200*time.Millisecond))
+	require.NoError(t, err)
+}

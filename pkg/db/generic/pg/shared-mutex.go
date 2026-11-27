@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"log/slog"
 	"time"
+
+	"uuid"
 )
 
 const (
@@ -21,6 +23,7 @@ CREATE TABLE IF NOT EXISTS shared_mutex (
     expires_at TIMESTAMPTZ NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_shared_mutex_expires_at ON shared_mutex (expires_at);
+ALTER TABLE shared_mutex ADD COLUMN IF NOT EXISTS owner TEXT NOT NULL DEFAULT '';
 `
 
 	// defaultSharedMutexAcquireTimeout defines a timeout for the context for the acquisition of the mutex.
@@ -36,12 +39,22 @@ CREATE INDEX IF NOT EXISTS idx_shared_mutex_expires_at ON shared_mutex (expires_
 	defaultSharedMutexCheckInterval = 30 * time.Second
 
 	// Queries which get prepared
+	//
+	// All timestamps are taken from the database clock (NOW()), so replicas
+	// with skewed clocks agree on when a mutex expires. An expired mutex is
+	// taken over directly instead of waiting for the expiration loop.
 	qMutexTryLock = `
-		INSERT INTO shared_mutex (key, locked_at, expires_at)
-		VALUES ($1, $2, $3)
-		ON CONFLICT (key) DO NOTHING
+		INSERT INTO shared_mutex (key, owner, locked_at, expires_at)
+		VALUES ($1, $2, NOW(), NOW() + $3 * INTERVAL '1 millisecond')
+		ON CONFLICT (key) DO UPDATE
+		SET owner = EXCLUDED.owner,
+		    locked_at = EXCLUDED.locked_at,
+		    expires_at = EXCLUDED.expires_at
+		WHERE shared_mutex.expires_at < NOW()
 	`
-	qMutexUnlock = `DELETE FROM shared_mutex WHERE key = $1`
+	// Only the owner releases the mutex: once a mutex expired and was taken
+	// over, a late Unlock of the previous holder must not release it.
+	qMutexUnlock = `DELETE FROM shared_mutex WHERE key = $1 AND owner = $2`
 	qMutexExpire = `DELETE FROM shared_mutex WHERE expires_at < NOW()`
 )
 
@@ -52,7 +65,10 @@ type (
 	// the performance of this is remarkably worse than running code without
 	// this mutex, so only make use of this when it really makes sense.
 	SharedMutex struct {
-		db            *sql.DB
+		db *sql.DB
+		// owner identifies this mutex instance (and thus this replica) as the
+		// holder of the mutexes it acquired.
+		owner         string
 		retryinterval time.Duration
 		checkinterval time.Duration
 		log           *slog.Logger
@@ -62,12 +78,6 @@ type (
 		stmtTryLock *sql.Stmt
 		stmtUnlock  *sql.Stmt
 		stmtExpire  *sql.Stmt
-	}
-
-	sharedMutexDoc struct {
-		Key       string    `json:"key"`
-		LockedAt  time.Time `json:"locked_at"`
-		ExpiresAt time.Time `json:"expires_at"`
 	}
 
 	mutexOpt any
@@ -115,6 +125,7 @@ func NewSharedMutex(ctx context.Context, log *slog.Logger, db *sql.DB, opts ...m
 	m := &SharedMutex{
 		log:           log.WithGroup("shared-mutex"),
 		db:            db,
+		owner:         uuid.NewV7().String(),
 		retryinterval: defaultSharedMutexRetryInterval,
 		checkinterval: checkinterval,
 	}
@@ -202,10 +213,21 @@ func (m *SharedMutex) Lock(ctx context.Context, key string, opts ...lockOpt) err
 	}
 }
 
-// Unlock releases the mutex for the given key.
+// Unlock releases the mutex for the given key if it is held by this
+// SharedMutex. A mutex that expired and was acquired by another replica in
+// the meantime is left untouched.
+//
+// Ownership is tracked per SharedMutex instance, not per Lock call: within one
+// instance, a late Unlock still releases a mutex that another caller of the
+// same instance acquired after the expiry.
 func (m *SharedMutex) Unlock(ctx context.Context, key string) {
-	if _, err := m.stmtUnlock.ExecContext(ctx, key); err != nil {
+	res, err := m.stmtUnlock.ExecContext(ctx, key, m.owner)
+	if err != nil {
 		m.log.Error("unable to release shared mutex", "key", key, "error", err)
+		return
+	}
+	if rows, err := res.RowsAffected(); err == nil && rows == 0 {
+		m.log.Warn("shared mutex was not held by this instance, it probably expired", "key", key)
 	}
 }
 
@@ -213,16 +235,7 @@ func (m *SharedMutex) Unlock(ctx context.Context, key string) {
 // mutex was acquired. A nil error with locked==false means another holder owns
 // the mutex.
 func (m *SharedMutex) tryLock(ctx context.Context, key string, expiration time.Duration) (bool, error) {
-	var (
-		now = time.Now()
-		doc = &sharedMutexDoc{
-			Key:       key,
-			LockedAt:  now,
-			ExpiresAt: now.Add(expiration),
-		}
-	)
-
-	res, err := m.stmtTryLock.ExecContext(ctx, doc.Key, doc.LockedAt, doc.ExpiresAt)
+	res, err := m.stmtTryLock.ExecContext(ctx, key, m.owner, expiration.Milliseconds())
 	if err != nil {
 		return false, err
 	}
