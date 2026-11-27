@@ -219,8 +219,9 @@ func StartRepositoryWithCleanup(t testing.TB, testOpts ...testOpt) (*testStore, 
 	// back to the DB_ROUTING environment variable. It uses the same compact
 	// format as production (routing.Parse), so CI can run the whole suite
 	// against a different backend mix (e.g. DB_ROUTING=default=postgres)
-	// without touching individual tests.
-	if routingConfig == nil {
+	// without touching individual tests. Tests without a database (e.g.
+	// WithContainers(false)) are not affected by it.
+	if routingConfig == nil && withRethink {
 		if cfgStr := os.Getenv(DBRoutingEnv); cfgStr != "" {
 			cfg, err := routing.Parse(cfgStr)
 			require.NoError(t, err, "invalid %s configuration", DBRoutingEnv)
