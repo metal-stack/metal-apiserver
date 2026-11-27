@@ -57,7 +57,7 @@ var machinePaths = struct {
 	Nics            string
 	Disks           string
 }{
-	ID:              pg.SelectorPath[*metal.Machine]("ID"),
+	ID:              pg.PrimaryKeyPath,
 	Name:            pg.SelectorPath[*metal.Machine]("Name"),
 	PartitionID:     pg.SelectorPath[*metal.Machine]("PartitionID"),
 	SizeID:          pg.SelectorPath[*metal.Machine]("SizeID"),

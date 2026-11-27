@@ -11,6 +11,9 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
+
+	"github.com/lib/pq"
 )
 
 var (
@@ -134,9 +137,10 @@ type (
 		// queryStmts caches one prepared statement per distinct SQL shape
 		// built by Query. The text contains positional placeholders, so two
 		// calls with the same text always bind the same number of arguments
-		// and can safely share a statement. The shape space is bounded by
-		// the combinations of supported filter operators.
-		queryStmts sync.Map // map[string]*sql.Stmt
+		// and can safely share a statement. The number of shapes grows with
+		// the number of filters, so at most maxCachedQueryStmts are kept.
+		queryStmts      sync.Map // map[string]*sql.Stmt
+		queryStmtsCount atomic.Int64
 	}
 
 	// RepositoryOption customizes how a GenericRepository is built.
@@ -158,6 +162,18 @@ func WithWatcher(w *Watcher) RepositoryOption {
 
 // MaxPaginationLimit defines the maximum allowed result size defined by pagination
 const MaxPaginationLimit = 10000
+
+// PrimaryKeyPath is the QueryFilter path that addresses the primary key column
+// (the entity id passed to Create/Upsert) instead of a field inside the JSON
+// document. Filters on it use the primary key index. Only the "=" and "IN"
+// operators are supported.
+const PrimaryKeyPath = "#id"
+
+// maxCachedQueryStmts bounds the number of distinct Query shapes that are kept
+// as prepared statements. The shape depends on the number of filters, which is
+// caller (and therefore API user) controlled, so the cache must not grow
+// without bound. Shapes beyond the limit are executed unprepared.
+const maxCachedQueryStmts = 256
 
 // Beware: if T changes its name over time, data will be stored/queried in another entityType
 func NewGenericRepository[T any](log *slog.Logger, db *sql.DB, opts ...RepositoryOption) (*GenericRepository[T], error) {
@@ -203,10 +219,25 @@ func NewGenericRepository[T any](log *slog.Logger, db *sql.DB, opts ...Repositor
 	return repo, nil
 }
 
-// preparedQuery returns a prepared statement for the given SQL text, caching
-// one per distinct shape in r.queryStmts.
-func (r *GenericRepository[T]) preparedQuery(sqlText string) (*sql.Stmt, error) {
-	return cachedStmt(&r.queryStmts, r.db, sqlText, sqlText)
+// queryRows runs a Query statement. The statement is prepared and cached per
+// distinct shape in r.queryStmts until maxCachedQueryStmts shapes are cached;
+// any further shape is executed without preparing it.
+func (r *GenericRepository[T]) queryRows(ctx context.Context, sqlText string, args ...any) (*sql.Rows, error) {
+	if v, ok := r.queryStmts.Load(sqlText); ok {
+		return v.(*sql.Stmt).QueryContext(ctx, args...)
+	}
+
+	if r.queryStmtsCount.Load() >= maxCachedQueryStmts {
+		return r.db.QueryContext(ctx, sqlText, args...)
+	}
+
+	stmt, err := cachedStmt(&r.queryStmts, r.db, sqlText, sqlText)
+	if err != nil {
+		return nil, err
+	}
+	r.queryStmtsCount.Add(1)
+
+	return stmt.QueryContext(ctx, args...)
 }
 
 // Create inserts a new entity. It returns ErrAlreadyExists if an entity with
@@ -431,6 +462,25 @@ func (r *GenericRepository[T]) Query(ctx context.Context, filters []QueryFilter,
 			queryBuilder.WriteString(" AND")
 		}
 
+		if f.Path == PrimaryKeyPath {
+			switch f.Op {
+			case "=":
+				fmt.Fprintf(&queryBuilder, " id = $%d", argIdx)
+				args = append(args, fmt.Sprintf("%v", f.Value))
+			case "IN":
+				values, err := toStringSlice(f.Value)
+				if err != nil {
+					return nil, err
+				}
+				fmt.Fprintf(&queryBuilder, " id = ANY($%d)", argIdx)
+				args = append(args, pq.Array(values))
+			default:
+				return nil, fmt.Errorf("unsupported query operator %q on the primary key", f.Op)
+			}
+			argIdx++
+			continue
+		}
+
 		switch f.Op {
 		case "=":
 			// Exact equality is expressed with the `@>` containment operator, which the
@@ -461,32 +511,20 @@ func (r *GenericRepository[T]) Query(ctx context.Context, filters []QueryFilter,
 		case "IN":
 			// Membership test: the field at Path must equal one of the given
 			// values. The values are compared as text against the text extraction
-			// `data #>> path`, so callers pass a slice of ids/names. An empty set
-			// matches no row (an `IN ()` list would be invalid SQL).
+			// `data #>> path`, so callers pass a slice of ids/names. The values
+			// are bound as a single text array, so the SQL shape does not depend
+			// on the number of values. An empty set matches no row.
 			values, err := toStringSlice(f.Value)
 			if err != nil {
 				return nil, err
-			}
-			if len(values) == 0 {
-				queryBuilder.WriteString(" FALSE")
-				continue
 			}
 			var (
 				parts    = strings.Split(f.Path, ".")
 				jsonPath = "{" + strings.Join(parts, ",") + "}"
 			)
-			fmt.Fprintf(&queryBuilder, " (data #>> $%d) IN (", argIdx)
-			args = append(args, jsonPath)
-			argIdx++
-			for i, v := range values {
-				if i > 0 {
-					queryBuilder.WriteString(", ")
-				}
-				fmt.Fprintf(&queryBuilder, "$%d", argIdx)
-				args = append(args, v)
-				argIdx++
-			}
-			queryBuilder.WriteString(")")
+			fmt.Fprintf(&queryBuilder, " (data #>> $%d) = ANY($%d)", argIdx, argIdx+1)
+			args = append(args, jsonPath, pq.Array(values))
+			argIdx += 2
 
 		case "IS NULL", "IS NOT NULL":
 			// Presence check: `data #>> path` returns NULL when the key (or any
@@ -608,11 +646,7 @@ func (r *GenericRepository[T]) Query(ctx context.Context, filters []QueryFilter,
 	sqlText := queryBuilder.String()
 	r.log.Debug("query", "query", sqlText, "args", args)
 
-	stmt, err := r.preparedQuery(sqlText)
-	if err != nil {
-		return nil, err
-	}
-	rows, err := stmt.QueryContext(ctx, args...)
+	rows, err := r.queryRows(ctx, sqlText, args...)
 	if err != nil {
 		return nil, err
 	}

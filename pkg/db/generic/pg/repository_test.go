@@ -485,6 +485,33 @@ func TestGenericRepositoryIn(t *testing.T) {
 	// A non-slice value is rejected.
 	_, err = repo.Query(ctx, []pg.QueryFilter{{Path: "name", Op: "IN", Value: "Alice"}}, nil)
 	require.Error(t, err)
+
+	// The primary key can be addressed with "=" and "IN".
+	results, err = repo.Query(ctx, []pg.QueryFilter{{Path: pg.PrimaryKeyPath, Op: "=", Value: "id-1"}}, nil)
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{"Bob"}, names(results))
+
+	results, err = repo.Query(ctx, []pg.QueryFilter{{Path: pg.PrimaryKeyPath, Op: "IN", Value: []string{"id-0", "id-2", "id-9"}}}, nil)
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{"Alice", "Carol"}, names(results))
+
+	results, err = repo.Query(ctx, []pg.QueryFilter{{Path: pg.PrimaryKeyPath, Op: "IN", Value: []string{}}}, nil)
+	require.NoError(t, err)
+	require.Empty(t, results)
+
+	_, err = repo.Query(ctx, []pg.QueryFilter{{Path: pg.PrimaryKeyPath, Op: "LIKE", Value: "id-%"}}, nil)
+	require.Error(t, err)
+
+	// More distinct query shapes than the statement cache holds still work.
+	for i := range 300 {
+		filters := make([]pg.QueryFilter, 0, i+1)
+		for range i + 1 {
+			filters = append(filters, pg.QueryFilter{Path: "address.country", Op: "=", Value: "Germany"})
+		}
+		results, err = repo.Query(ctx, filters, nil)
+		require.NoError(t, err)
+		require.Len(t, results, 2)
+	}
 }
 
 func TestGenericRepositoryLikeEscaping(t *testing.T) {

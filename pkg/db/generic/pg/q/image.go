@@ -18,7 +18,7 @@ var imagePaths = struct {
 	Classification string
 	Labels         string
 }{
-	ID:             pg.SelectorPath[*metal.Image]("ID"),
+	ID:             pg.PrimaryKeyPath,
 	OS:             pg.SelectorPath[*metal.Image]("OS"),
 	Version:        pg.SelectorPath[*metal.Image]("Version"),
 	Name:           pg.SelectorPath[*metal.Image]("Name"),

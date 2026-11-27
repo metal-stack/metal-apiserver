@@ -17,7 +17,7 @@ var switchPaths = struct {
 	OSVersion          string
 	MachineConnections string
 }{
-	ID:                 pg.SelectorPath[*metal.Switch]("ID"),
+	ID:                 pg.PrimaryKeyPath,
 	Rack:               pg.SelectorPath[*metal.Switch]("Rack"),
 	Room:               pg.SelectorPath[*metal.Switch]("Room"),
 	Partition:          pg.SelectorPath[*metal.Switch]("Partition"),

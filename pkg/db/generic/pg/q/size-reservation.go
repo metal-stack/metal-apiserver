@@ -16,7 +16,7 @@ var sizeReservationPaths = struct {
 	ProjectID    string
 	PartitionIDs string
 }{
-	ID:           pg.SelectorPath[*metal.SizeReservation]("ID"),
+	ID:           pg.PrimaryKeyPath,
 	SizeID:       pg.SelectorPath[*metal.SizeReservation]("SizeID"),
 	Name:         pg.SelectorPath[*metal.SizeReservation]("Name"),
 	Description:  pg.SelectorPath[*metal.SizeReservation]("Description"),

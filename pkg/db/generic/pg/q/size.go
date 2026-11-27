@@ -13,7 +13,7 @@ var sizePaths = struct {
 	Description string
 	Labels      string
 }{
-	ID:          pg.SelectorPath[*metal.Size]("ID"),
+	ID:          pg.PrimaryKeyPath,
 	Name:        pg.SelectorPath[*metal.Size]("Name"),
 	Description: pg.SelectorPath[*metal.Size]("Description"),
 	Labels:      pg.SelectorPath[*metal.Size]("Labels"),

@@ -28,7 +28,7 @@ var networkPaths = struct {
 	PrefixIP            string
 	DestinationPrefixes string
 }{
-	ID:                  pg.SelectorPath[*metal.Network]("ID"),
+	ID:                  pg.PrimaryKeyPath,
 	Name:                pg.SelectorPath[*metal.Network]("Name"),
 	Description:         pg.SelectorPath[*metal.Network]("Description"),
 	PartitionID:         pg.SelectorPath[*metal.Network]("PartitionID"),

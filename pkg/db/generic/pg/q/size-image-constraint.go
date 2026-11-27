@@ -13,7 +13,7 @@ var sizeImageConstraintPaths = struct {
 	Name        string
 	Description string
 }{
-	ID:          pg.SelectorPath[*metal.SizeImageConstraint]("ID"),
+	ID:          pg.PrimaryKeyPath,
 	Name:        pg.SelectorPath[*metal.SizeImageConstraint]("Name"),
 	Description: pg.SelectorPath[*metal.SizeImageConstraint]("Description"),
 }
