@@ -101,7 +101,11 @@ func TestIntegerPoolService(t *testing.T) {
 
 		// A value outside the pool's configured range should fail
 		_, err = service.AcquireUniqueInteger(ctx, uniquePool, uint32(99999))
-		require.EqualError(t, err, "value 99999 is outside of the allowed range 0 - 202 for pool 'UNIQUE_TEST'")
+		require.EqualError(t, err, "value 99999 is outside of the allowed range 200 - 202 for pool 'UNIQUE_TEST'")
+
+		// A value below the pool's configured range should fail as well
+		_, err = service.AcquireUniqueInteger(ctx, uniquePool, uint32(1))
+		require.EqualError(t, err, "value 1 is outside of the allowed range 200 - 202 for pool 'UNIQUE_TEST'")
 
 		// Releasing the specific integer makes it acquirable again
 		err = service.Release(ctx, uniquePool, uint32(201))
@@ -114,6 +118,30 @@ func TestIntegerPoolService(t *testing.T) {
 		_, err = service.AcquireUniqueInteger(ctx, "UNSEEDED_POOL", uint32(1))
 		require.ErrorIs(t, err, pg.ErrPoolNotSeeded)
 		require.EqualError(t, err, "pool not seeded: pool 'UNSEEDED_POOL'")
+	})
+
+	t.Run("Acquire skips integers claimed by AcquireUniqueInteger", func(t *testing.T) {
+		const pool pg.PoolType = "UNIQUE_THEN_GROW"
+
+		err := service.Seed(ctx, pool, uint32(300), uint32(303))
+		require.NoError(t, err)
+
+		// Claim values ahead of the growth counter.
+		_, err = service.AcquireUniqueInteger(ctx, pool, uint32(300))
+		require.NoError(t, err)
+		_, err = service.AcquireUniqueInteger(ctx, pool, uint32(302))
+		require.NoError(t, err)
+
+		id, err := service.Acquire(ctx, pool)
+		require.NoError(t, err)
+		require.Equal(t, uint32(301), id)
+
+		id, err = service.Acquire(ctx, pool)
+		require.NoError(t, err)
+		require.Equal(t, uint32(303), id)
+
+		_, err = service.Acquire(ctx, pool)
+		require.ErrorIs(t, err, pg.ErrPoolExhausted)
 	})
 
 	t.Run("Concurrent Acquisition Safety", func(t *testing.T) {

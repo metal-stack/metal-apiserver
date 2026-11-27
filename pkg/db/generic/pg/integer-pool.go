@@ -26,14 +26,16 @@ const (
 	CREATE INDEX IF NOT EXISTS idx_integer_pool_type_free ON integer_pool (pool_type, id) WHERE is_allocated = FALSE;
 	CREATE TABLE IF NOT EXISTS integer_pool_state (
 		pool_type VARCHAR(64) PRIMARY KEY,
+		start BIGINT NOT NULL DEFAULT 0,
 		next BIGINT NOT NULL,
 		max BIGINT NOT NULL
 	);
+	ALTER TABLE integer_pool_state ADD COLUMN IF NOT EXISTS start BIGINT NOT NULL DEFAULT 0;
 	`
 	// Queries which get prepared
 	qPoolSeed = `
-		INSERT INTO integer_pool_state (pool_type, next, max)
-		VALUES ($1, $2, $3)
+		INSERT INTO integer_pool_state (pool_type, start, next, max)
+		VALUES ($1, $2, $2, $3)
 		ON CONFLICT (pool_type) DO NOTHING;
 	`
 	qPoolTakeFree = `
@@ -58,13 +60,8 @@ const (
 		WHERE pool_type = $1 AND next <= max
 		RETURNING next - 1;
 	`
-	qPoolRecord = `
-		INSERT INTO integer_pool (pool_type, id, is_allocated)
-		VALUES ($1, $2, TRUE)
-		ON CONFLICT (pool_type, id) DO NOTHING;
-	`
-	qPoolMax = `
-		SELECT max
+	qPoolRange = `
+		SELECT start, max
 		FROM integer_pool_state
 		WHERE pool_type = $1;
 	`
@@ -103,12 +100,13 @@ type IntegerPool struct {
 	db  *sql.DB
 
 	// Fixed statements are prepared once at construction time (see
-	// GenericRepository for the rationale and measured gains). qPoolGrow and
-	// qPoolRecord are deliberately not prepared: they run inside a
-	// transaction and must execute on the transaction's own connection.
+	// GenericRepository for the rationale and measured gains). The grow path
+	// of Acquire (qPoolGrow + qPoolClaim) is deliberately not run through
+	// these statements: it runs inside a transaction and must execute on the
+	// transaction's own connection.
 	stmtSeed     *sql.Stmt
 	stmtTakeFree *sql.Stmt
-	stmtMax      *sql.Stmt
+	stmtRange    *sql.Stmt
 	stmtClaim    *sql.Stmt
 	stmtState    *sql.Stmt
 	stmtRelease  *sql.Stmt
@@ -128,7 +126,7 @@ func NewIntegerPool(log *slog.Logger, db *sql.DB) (*IntegerPool, error) {
 	preparer := newStatementPreparer(db)
 	p.stmtSeed = preparer.prepare(qPoolSeed)
 	p.stmtTakeFree = preparer.prepare(qPoolTakeFree)
-	p.stmtMax = preparer.prepare(qPoolMax)
+	p.stmtRange = preparer.prepare(qPoolRange)
 	p.stmtClaim = preparer.prepare(qPoolClaim)
 	p.stmtState = preparer.prepare(qPoolState)
 	p.stmtRelease = preparer.prepare(qPoolRelease)
@@ -188,7 +186,7 @@ func (p *IntegerPool) Acquire(ctx context.Context, poolType PoolType) (uint32, e
 	// No released integer available, grow the pool from its range counter.
 	// The UPDATE gates on next <= max and is atomic, so concurrent acquires
 	// receive distinct, monotonically increasing values. Growing the counter
-	// and recording the row run in one transaction so a failure in between
+	// and claiming the row run in one transaction so a failure in between
 	// cannot advance the counter without leaving a pool row behind.
 	tx, err := p.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -196,17 +194,27 @@ func (p *IntegerPool) Acquire(ctx context.Context, poolType PoolType) (uint32, e
 	}
 	defer func() { _ = tx.Rollback() }() // no-op after commit
 
-	err = tx.QueryRowContext(ctx, qPoolGrow, string(poolType)).Scan(&acquiredID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return 0, p.poolUnavailableError(ctx, poolType)
+	for {
+		var grown uint32
+		err = tx.QueryRowContext(ctx, qPoolGrow, string(poolType)).Scan(&grown)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return 0, p.poolUnavailableError(ctx, poolType)
+			}
+			return 0, err
 		}
-		return 0, err
-	}
 
-	// Record the grown integer as allocated so Release can validate it.
-	if _, err := tx.ExecContext(ctx, qPoolRecord, string(poolType), acquiredID); err != nil {
-		return 0, err
+		// Claim the grown integer. AcquireUniqueInteger may already have
+		// taken a value ahead of the counter; the claim then returns no row
+		// and the counter is advanced past it instead of handing it out twice.
+		err = tx.QueryRowContext(ctx, qPoolClaim, string(poolType), grown).Scan(&acquiredID)
+		if errors.Is(err, sql.ErrNoRows) {
+			continue
+		}
+		if err != nil {
+			return 0, err
+		}
+		break
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -223,16 +231,16 @@ func (p *IntegerPool) Acquire(ctx context.Context, poolType PoolType) (uint32, e
 // error is returned.
 func (p *IntegerPool) AcquireUniqueInteger(ctx context.Context, poolType PoolType, value uint32) (uint32, error) {
 	// Ensure the requested value lies within the pool's configured range.
-	var maxID uint32
-	err := p.stmtMax.QueryRowContext(ctx, string(poolType)).Scan(&maxID)
+	var minID, maxID uint32
+	err := p.stmtRange.QueryRowContext(ctx, string(poolType)).Scan(&minID, &maxID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, fmt.Errorf("%w: pool '%s'", ErrPoolNotSeeded, poolType)
 	}
 	if err != nil {
 		return 0, err
 	}
-	if value > maxID {
-		return 0, fmt.Errorf("value %d is outside of the allowed range 0 - %d for pool '%s'", value, maxID, poolType)
+	if value < minID || value > maxID {
+		return 0, fmt.Errorf("value %d is outside of the allowed range %d - %d for pool '%s'", value, minID, maxID, poolType)
 	}
 
 	p.log.Debug("acquire-unique", "pool", poolType, "id", value)
