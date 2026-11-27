@@ -240,7 +240,7 @@ func Test_switchServiceServer_Register(t *testing.T) {
 				},
 			},
 			want:    nil,
-			wantErr: errorutil.FailedPrecondition("failed to determine twin for switch %s: found multiple twin switches for %s (%s and %s)", sc.P01Rack01Switch2_1, sc.P01Rack01Switch2_1, sc.P01Rack01Switch2, sc.P01Rack01Switch1),
+			wantErr: errorutil.FailedPrecondition("failed to determine twin for switch %s: found multiple twin switches for %s (%s and %s)", sc.P01Rack01Switch2_1, sc.P01Rack01Switch2_1, sc.P01Rack01Switch1, sc.P01Rack01Switch2),
 		},
 		{
 			name: "successful replacement",

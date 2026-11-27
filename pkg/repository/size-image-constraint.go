@@ -8,9 +8,8 @@ import (
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/db/filters"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -89,7 +88,7 @@ func (r *sizeImageConstraintRepository) delete(ctx context.Context, e *metal.Siz
 }
 
 func (r *sizeImageConstraintRepository) find(ctx context.Context, rq *apiv2.SizeImageConstraintQuery) (*metal.SizeImageConstraint, error) {
-	sizeReservation, err := r.s.ds.SizeImageConstraint().Find(ctx, r.sizeImageConstraintFilters(queries.SizeImageConstraintFilter(rq))...)
+	sizeReservation, err := r.s.ds.SizeImageConstraint().Find(ctx, filters.SizeImageConstraint(rq)...)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +97,7 @@ func (r *sizeImageConstraintRepository) find(ctx context.Context, rq *apiv2.Size
 }
 
 func (r *sizeImageConstraintRepository) list(ctx context.Context, rq *apiv2.SizeImageConstraintQuery) ([]*metal.SizeImageConstraint, error) {
-	sizeReservations, err := r.s.ds.SizeImageConstraint().List(ctx, r.sizeImageConstraintFilters(queries.SizeImageConstraintFilter(rq))...)
+	sizeReservations, err := r.s.ds.SizeImageConstraint().List(ctx, filters.SizeImageConstraint(rq)...)
 	if err != nil {
 		return nil, err
 	}
@@ -154,15 +153,6 @@ func (r *sizeImageConstraintRepository) convertToProto(ctx context.Context, e *m
 		},
 		ImageConstraints: imageConstraints,
 	}, nil
-}
-
-func (r *sizeImageConstraintRepository) sizeImageConstraintFilters(filter generic.EntityQuery) []generic.EntityQuery {
-	var qs []generic.EntityQuery
-	if filter != nil {
-		qs = append(qs, filter)
-	}
-
-	return qs
 }
 
 func (r sizeImageConstraintRepository) Try(ctx context.Context, req *apiv2.SizeImageConstraintServiceTryRequest) error {

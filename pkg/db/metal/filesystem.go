@@ -53,17 +53,17 @@ type (
 	FilesystemLayout struct {
 		Base
 		// Filesystems to create on the server
-		Filesystems []Filesystem `rethinkdb:"filesystems"`
+		Filesystems []Filesystem `rethinkdb:"filesystems" json:"filesystems"`
 		// Disks to configure in the server with their partitions
-		Disks []Disk `rethinkdb:"disks"`
+		Disks []Disk `rethinkdb:"disks" json:"disks"`
 		// Raid if not empty, create raid arrays out of the individual disks, to place filesystems onto
-		Raid []Raid `rethinkdb:"raid"`
+		Raid []Raid `rethinkdb:"raid" json:"raid"`
 		// VolumeGroups to create
-		VolumeGroups []VolumeGroup `rethinkdb:"volumegroups"`
+		VolumeGroups []VolumeGroup `rethinkdb:"volumegroups" json:"volume_groups"`
 		// LogicalVolumes to create on top of VolumeGroups
-		LogicalVolumes LogicalVolumes `rethinkdb:"logicalvolumes"`
+		LogicalVolumes LogicalVolumes `rethinkdb:"logicalvolumes" json:"logical_volumes"`
 		// Constraints which must match to select this Layout
-		Constraints FilesystemLayoutConstraints `rethinkdb:"constraints"`
+		Constraints FilesystemLayoutConstraints `rethinkdb:"constraints" json:"constraints"`
 	}
 
 	// LogicalVolumes is a slice of LogicalVolume
@@ -71,10 +71,10 @@ type (
 
 	FilesystemLayoutConstraints struct {
 		// Sizes defines the list of sizes this layout applies to
-		Sizes []string `rethinkdb:"sizes"`
+		Sizes []string `rethinkdb:"sizes" json:"sizes"`
 		// Images defines a map from os to versionconstraint
 		// the combination of os and versionconstraint per size must be conflict free over all filesystemlayouts
-		Images map[string]string `rethinkdb:"images"`
+		Images map[string]string `rethinkdb:"images" json:"images"`
 	}
 
 	RaidLevel string
@@ -85,74 +85,74 @@ type (
 	// Filesystem defines a single filesystem to be mounted
 	Filesystem struct {
 		// Path defines the mountpoint, if nil, it will not be mounted
-		Path *string `rethinkdb:"path"`
+		Path *string `rethinkdb:"path" json:"path"`
 		// Device where the filesystem is created on, must be the full device path seen by the OS
-		Device string `rethinkdb:"device"`
+		Device string `rethinkdb:"device" json:"device"`
 		// Format is the type of filesystem should be created
-		Format Format `rethinkdb:"format"`
+		Format Format `rethinkdb:"format" json:"format"`
 		// Label is optional enhances readability
-		Label *string `rethinkdb:"label"`
+		Label *string `rethinkdb:"label" json:"label"`
 		// MountOptions which might be required
-		MountOptions []string `rethinkdb:"mountoptions"`
+		MountOptions []string `rethinkdb:"mountoptions" json:"mount_options"`
 		// CreateOptions during filesystem creation
-		CreateOptions []string `rethinkdb:"createoptions"`
+		CreateOptions []string `rethinkdb:"createoptions" json:"create_options"`
 	}
 
 	// Disk represents a single block device visible from the OS, required
 	Disk struct {
 		// Device is the full device path
-		Device string `rethinkdb:"device"`
+		Device string `rethinkdb:"device" json:"device"`
 		// Partitions to create on this device
-		Partitions []DiskPartition `rethinkdb:"partitions"`
+		Partitions []DiskPartition `rethinkdb:"partitions" json:"partitions"`
 	}
 
 	// Raid is optional, if given the devices must match.
 	Raid struct {
 		// ArrayName of the raid device, most often this will be /dev/md0 and so forth
-		ArrayName string `rethinkdb:"arrayname"`
+		ArrayName string `rethinkdb:"arrayname" json:"array_name"`
 		// Devices the devices to form a raid device
-		Devices []string `rethinkdb:"devices"`
+		Devices []string `rethinkdb:"devices" json:"devices"`
 		// Level the raidlevel to use, can be one of 0,1
-		Level RaidLevel `rethinkdb:"raidlevel"`
+		Level RaidLevel `rethinkdb:"raidlevel" json:"level"`
 		// CreateOptions required during raid creation, example: --metadata=1.0 for uefi boot partition
-		CreateOptions []string `rethinkdb:"createoptions"`
+		CreateOptions []string `rethinkdb:"createoptions" json:"create_options"`
 		// Spares defaults to 0
-		Spares int `rethinkdb:"spares"`
+		Spares int `rethinkdb:"spares" json:"spares"`
 	}
 
 	// VolumeGroup is optional, if given the devices must match.
 	VolumeGroup struct {
 		// Name of the volumegroup without the /dev prefix
-		Name string `rethinkdb:"name"`
+		Name string `rethinkdb:"name" json:"name"`
 		// Devices the devices to form a volumegroup device
-		Devices []string `rethinkdb:"devices"`
+		Devices []string `rethinkdb:"devices" json:"devices"`
 		// Tags to attach to the volumegroup
-		Tags []string `rethinkdb:"tags"`
+		Tags []string `rethinkdb:"tags" json:"tags"`
 	}
 
 	// LogicalVolume is a block devices created with lvm on top of a volumegroup
 	LogicalVolume struct {
 		// Name the name of the logical volume, without /dev prefix, will be accessible at /dev/vgname/lvname
-		Name string `rethinkdb:"name"`
+		Name string `rethinkdb:"name" json:"name"`
 		// VolumeGroup the name of the volumegroup
-		VolumeGroup string `rethinkdb:"volumegroup"`
+		VolumeGroup string `rethinkdb:"volumegroup" json:"volume_group"`
 		// Size of this LV in mebibytes (MiB), if zero all remaining space in the vg will be used.
-		Size uint64 `rethinkdb:"size"`
+		Size uint64 `rethinkdb:"size" json:"size"`
 		// LVMType can be either linear, striped or raid1
-		LVMType LVMType `rethinkdb:"lvmtype"`
+		LVMType LVMType `rethinkdb:"lvmtype" json:"lvm_type"`
 	}
 
 	// DiskPartition is a single partition on a device, only GPT partition types are supported
 	DiskPartition struct {
 		// Number of this partition, will be added to partitionprefix
-		Number uint8 `rethinkdb:"number"`
+		Number uint8 `rethinkdb:"number" json:"number"`
 		// Label to enhance readability
-		Label *string `rethinkdb:"label"`
+		Label *string `rethinkdb:"label" json:"label"`
 		// Size of this partition in mebibytes (MiB)
 		// if "0" is given the rest of the device will be used, this requires Number to be the highest in this partition
-		Size uint64 `rethinkdb:"size"`
+		Size uint64 `rethinkdb:"size" json:"size"`
 		// GPTType defines the GPT partition type
-		GPTType *GPTType `rethinkdb:"gpttype"`
+		GPTType *GPTType `rethinkdb:"gpttype" json:"gpt_type"`
 	}
 )
 

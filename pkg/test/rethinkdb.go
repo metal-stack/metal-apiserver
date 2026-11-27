@@ -27,7 +27,19 @@ var (
 	rethinkDbMtx         sync.Mutex
 )
 
+// StartRethink starts a rethinkdb datastore with the default integer pool
+// ranges (1-100 for both the ASN and the VRF pool).
 func StartRethink(t testing.TB, log *slog.Logger) (generic.Datastore, r.ConnectOpts, func()) {
+	return startRethink(t, log, 1, 100, 1, 100)
+}
+
+// StartRethinkWithPoolRanges starts a rethinkdb datastore with custom integer
+// pool ranges.
+func StartRethinkWithPoolRanges(t testing.TB, log *slog.Logger, asnMin, asnMax, vrfMin, vrfMax uint) (generic.Datastore, r.ConnectOpts, func()) {
+	return startRethink(t, log, asnMin, asnMax, vrfMin, vrfMax)
+}
+
+func startRethink(t testing.TB, log *slog.Logger, asnMin, asnMax, vrfMin, vrfMax uint) (generic.Datastore, r.ConnectOpts, func()) {
 	rethinkDbMtx.Lock()
 	defer rethinkDbMtx.Unlock()
 
@@ -70,7 +82,7 @@ func StartRethink(t testing.TB, log *slog.Logger) (generic.Datastore, r.ConnectO
 		MaxOpen:    2000,
 	}
 
-	err := generic.Initialize(t.Context(), log, rethinkDbConnectOpts, generic.AsnPoolRange(uint(1), uint(100)), generic.VrfPoolRange(uint(1), uint(100)), generic.NewMutexOptCheckInterval(3*time.Second))
+	err := generic.Initialize(t.Context(), log, rethinkDbConnectOpts, generic.AsnPoolRange(asnMin, asnMax), generic.VrfPoolRange(vrfMin, vrfMax), generic.NewMutexOptCheckInterval(3*time.Second))
 	require.NoError(t, err)
 
 	ds, err := generic.New(log, rethinkDbConnectOpts)

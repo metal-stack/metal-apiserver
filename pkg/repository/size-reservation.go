@@ -7,9 +7,8 @@ import (
 
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
-	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/db/filters"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -90,7 +89,7 @@ func (r *sizeReservationRepository) delete(ctx context.Context, e *metal.SizeRes
 }
 
 func (r *sizeReservationRepository) find(ctx context.Context, rq *apiv2.SizeReservationQuery) (*metal.SizeReservation, error) {
-	sizeReservation, err := r.s.ds.SizeReservation().Find(ctx, r.sizeReservationFilters(queries.SizeReservationFilter(rq))...)
+	sizeReservation, err := r.s.ds.SizeReservation().Find(ctx, filters.SizeReservation(rq)...)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +98,7 @@ func (r *sizeReservationRepository) find(ctx context.Context, rq *apiv2.SizeRese
 }
 
 func (r *sizeReservationRepository) list(ctx context.Context, rq *apiv2.SizeReservationQuery) ([]*metal.SizeReservation, error) {
-	sizeReservations, err := r.s.ds.SizeReservation().List(ctx, r.sizeReservationFilters(queries.SizeReservationFilter(rq))...)
+	sizeReservations, err := r.s.ds.SizeReservation().List(ctx, filters.SizeReservation(rq)...)
 	if err != nil {
 		return nil, err
 	}
@@ -162,15 +161,6 @@ func (r *sizeReservationRepository) convertToProto(ctx context.Context, e *metal
 	}, nil
 }
 
-func (r *sizeReservationRepository) sizeReservationFilters(filter generic.EntityQuery) []generic.EntityQuery {
-	var qs []generic.EntityQuery
-	if filter != nil {
-		qs = append(qs, filter)
-	}
-
-	return qs
-}
-
 func (r *sizeReservationRepository) check(ctx context.Context, candidates []*metal.Machine, partition, project, size string) error {
 	r.s.log.Debug("check", "partition", partition, "project", project, "size", size)
 
@@ -186,10 +176,10 @@ func (r *sizeReservationRepository) check(ctx context.Context, candidates []*met
 		return nil
 	}
 
-	partitionMachines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
+	partitionMachines, err := r.s.ds.Machine().List(ctx, filters.MachineQuery(&apiv2.MachineQuery{
 		Partition: &partition,
 		Size:      &size,
-	}))
+	})...)
 	if err != nil {
 		return err
 	}

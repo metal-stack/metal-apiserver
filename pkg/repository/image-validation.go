@@ -8,8 +8,8 @@ import (
 	"github.com/metal-stack/api/go/errorutil"
 	adminv2 "github.com/metal-stack/api/go/metalstack/admin/v2"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/db/filters"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	metalcommon "github.com/metal-stack/metal-lib/pkg/metal"
 )
 
@@ -91,9 +91,9 @@ func (r *imageRepository) validateUpdate(ctx context.Context, req *adminv2.Image
 }
 
 func (r *imageRepository) validateDelete(ctx context.Context, img *metal.Image) error {
-	machines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
+	machines, err := r.s.ds.Machine().List(ctx, filters.MachineQuery(&apiv2.MachineQuery{
 		Allocation: &apiv2.MachineAllocationQuery{Image: &img.ID},
-	}))
+	})...)
 	if err != nil {
 		return errorutil.NewInternal(err)
 	}

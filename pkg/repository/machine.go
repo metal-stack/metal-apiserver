@@ -19,9 +19,8 @@ import (
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
 	infrav2 "github.com/metal-stack/api/go/metalstack/infra/v2"
 	"github.com/metal-stack/metal-apiserver/pkg/async/task"
-	"github.com/metal-stack/metal-apiserver/pkg/db/generic"
+	"github.com/metal-stack/metal-apiserver/pkg/db/filters"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/fsm"
 	"github.com/metal-stack/metal-apiserver/pkg/issues"
 	"github.com/metal-stack/metal-apiserver/pkg/tags"
@@ -230,16 +229,11 @@ func (r *machineRepository) delete(ctx context.Context, m *metal.Machine) (*dele
 }
 
 func (r *machineRepository) find(ctx context.Context, rq *apiv2.MachineQuery) (*metal.Machine, error) {
-	ms, err := r.s.ds.Machine().Find(ctx, r.scopedMachineFilters(queries.MachineFilter(rq))...)
-	if err != nil {
-		return nil, err
-	}
-
-	return ms, nil
+	return r.s.ds.Machine().Find(ctx, filters.Machine(rq, r.scopeProjectID())...)
 }
 
 func (r *machineRepository) list(ctx context.Context, rq *apiv2.MachineQuery) ([]*metal.Machine, error) {
-	machines, err := r.s.ds.Machine().List(ctx, r.scopedMachineFilters(queries.MachineFilter(rq))...)
+	machines, err := r.s.ds.Machine().List(ctx, filters.Machine(rq, r.scopeProjectID())...)
 	if err != nil {
 		return nil, err
 	}
@@ -249,6 +243,15 @@ func (r *machineRepository) list(ctx context.Context, rq *apiv2.MachineQuery) ([
 	})
 
 	return machines, nil
+}
+
+// scopeProjectID returns the project the repository is scoped to, or an empty
+// string for an unscoped repository.
+func (r *machineRepository) scopeProjectID() string {
+	if r.scope == nil {
+		return ""
+	}
+	return r.scope.projectID
 }
 
 func (r *machineRepository) convertFirewallRulesToInternal(firewallRules *apiv2.FirewallRules) (*metal.FirewallRules, error) {
@@ -970,7 +973,7 @@ func (r *machineRepository) UpdateBMCInfo(ctx context.Context, req *infrav2.Upda
 		return nil, err
 	}
 
-	ms, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{Partition: &partition.ID}))
+	ms, err := r.s.ds.Machine().List(ctx, filters.MachineQuery(&apiv2.MachineQuery{Partition: &partition.ID})...)
 	if err != nil {
 		return nil, err
 	}
@@ -1161,7 +1164,7 @@ func (r *machineRepository) GetBMC(ctx context.Context, req *adminv2.MachineServ
 }
 
 func (r *machineRepository) ListBMC(ctx context.Context, req *adminv2.MachineServiceListBMCRequest) (*adminv2.MachineServiceListBMCResponse, error) {
-	machines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(req.Query))
+	machines, err := r.s.ds.Machine().List(ctx, filters.MachineQuery(req.Query)...)
 	if err != nil {
 		return nil, err
 	}
@@ -1614,12 +1617,12 @@ func (r *machineRepository) Issues(ctx context.Context, req *adminv2.MachineServ
 	// TODO if only some machines are specified in the machine query the certain issues cannot
 	// be identified because the comparison with other machines is not possible.
 	// One example would be bmc_without_distinct_ip
-	ms, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(req.Query.MachineQuery))
+	ms, err := r.s.ds.Machine().List(ctx, filters.MachineQuery(req.Query.MachineQuery)...)
 	if err != nil {
 		return nil, err
 	}
 
-	ecs, err := r.s.ds.Event().List(ctx, nil)
+	ecs, err := r.s.ds.Event().List(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1675,9 +1678,9 @@ func (r *machineRepository) Issues(ctx context.Context, req *adminv2.MachineServ
 func (r *machineRepository) Resurrect(ctx context.Context) ([]*apiv2.Machine, error) {
 	r.s.log.Info("machine resurrection was requested")
 
-	machines, err := r.s.ds.Machine().List(ctx, queries.MachineFilter(&apiv2.MachineQuery{
+	machines, err := r.s.ds.Machine().List(ctx, filters.MachineQuery(&apiv2.MachineQuery{
 		NotAllocated: new(true),
-	}))
+	})...)
 	if err != nil {
 		return nil, err
 	}
@@ -1790,7 +1793,7 @@ func (r *machineRepository) MachineLiveliness(ctx context.Context) ([]*adminv2.M
 }
 
 func (r *machineRepository) evaluateMachineLiveliness(ctx context.Context, m *metal.Machine) (metal.MachineLiveliness, bool, error) {
-	provisioningEvents, err := r.s.ds.Event().Find(ctx, queries.EventFilter(m.ID))
+	provisioningEvents, err := r.s.ds.Event().Find(ctx, filters.Event(m.ID)...)
 	if err != nil {
 		// we have no provisioning events... we cannot tell
 		return metal.MachineLivelinessUnknown, false, fmt.Errorf("no provisioning event container found for machine: %s", m.ID)
@@ -2050,20 +2053,6 @@ func (r *Store) MachineBMCCommandHandleFn(ctx context.Context, t *asynq.Task) er
 	}
 }
 
-func (r *machineRepository) scopedMachineFilters(filter generic.EntityQuery) []generic.EntityQuery {
-	var qs []generic.EntityQuery
-
-	if r.scope != nil {
-		qs = append(qs, queries.MachineProjectScoped(r.scope.projectID))
-	}
-
-	if filter != nil {
-		qs = append(qs, filter)
-	}
-
-	return qs
-}
-
 func (r *machineRepository) releaseVpnNodeTask(ctx context.Context, payload *task.MachineDecommissionPayload) error {
 	r.s.log.Debug("machine delete attempting to delete vpn node", "vpn-user-id", payload.Project, "vpn-node-id", payload.UUID)
 
@@ -2108,11 +2097,11 @@ func (r *machineRepository) releaseVpnNodeTask(ctx context.Context, payload *tas
 func (r *machineRepository) releaseAllocationTask(ctx context.Context, payload *task.MachineDecommissionPayload) error {
 	r.s.log.Debug("machine delete attempting to remove allocation", "allocation-uuid", payload.AllocationUUID)
 
-	m, err := r.s.ds.Machine().Find(ctx, queries.MachineFilter(&apiv2.MachineQuery{
+	m, err := r.s.ds.Machine().Find(ctx, filters.MachineQuery(&apiv2.MachineQuery{
 		Allocation: &apiv2.MachineAllocationQuery{
 			Uuid: &payload.AllocationUUID,
 		},
-	}))
+	})...)
 	if err != nil {
 		if errorutil.IsNotFound(err) {
 			return nil
@@ -2140,9 +2129,9 @@ func (r *machineRepository) releaseMachineIPsTask(ctx context.Context, payload *
 
 	for _, uuid := range payload.MachineIpAllocationUUIDs {
 		g.Go(func() error {
-			ip, err := r.s.ds.IP().Find(ctx, queries.IpFilter(&apiv2.IPQuery{
+			ip, err := r.s.ds.IP().Find(ctx, filters.IP(&apiv2.IPQuery{
 				Uuid: &uuid,
-			}))
+			})...)
 			if err != nil {
 				if errorutil.IsNotFound(err) {
 					return nil

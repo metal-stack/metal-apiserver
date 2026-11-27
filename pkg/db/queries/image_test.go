@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/db/filters"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 )
 
@@ -184,7 +184,7 @@ func TestImageFilter(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ds.Image().List(ctx, queries.ImageFilter(tt.rq))
+			got, err := ds.Image().List(ctx, filters.Image(tt.rq)...)
 			require.NoError(t, err)
 
 			sliceCmpOpts := []cmp.Option{

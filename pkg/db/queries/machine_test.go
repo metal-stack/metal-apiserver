@@ -11,8 +11,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	apiv2 "github.com/metal-stack/api/go/metalstack/api/v2"
+	"github.com/metal-stack/metal-apiserver/pkg/db/filters"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
-	"github.com/metal-stack/metal-apiserver/pkg/db/queries"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/stretchr/testify/require"
 )
@@ -284,6 +284,56 @@ var (
 	}
 	machines = []*metal.Machine{m1, m2, m3, m4}
 )
+
+func TestMachineByIDs(t *testing.T) {
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	ds, _, rethinkCloser := test.StartRethink(t, log)
+	defer func() {
+		rethinkCloser()
+	}()
+
+	ctx := t.Context()
+
+	for _, m := range machines {
+		createdMachine, err := ds.Machine().Create(ctx, m)
+		require.NoError(t, err)
+		require.NotNil(t, createdMachine)
+	}
+
+	tests := []struct {
+		name string
+		ids  []string
+		want []*metal.Machine
+	}{
+		{name: "no ids matches nothing", ids: nil, want: nil},
+		{name: "single id", ids: []string{m1.ID}, want: []*metal.Machine{m1}},
+		{name: "multiple ids", ids: []string{m1.ID, m3.ID}, want: []*metal.Machine{m1, m3}},
+		{name: "all ids", ids: []string{m1.ID, m2.ID, m3.ID, m4.ID}, want: machines},
+		{name: "duplicate ids are collapsed", ids: []string{m2.ID, m2.ID}, want: []*metal.Machine{m2}},
+		{name: "unknown id yields nothing", ids: []string{"unknown"}, want: nil},
+		{name: "mix of known and unknown", ids: []string{m4.ID, "unknown"}, want: []*metal.Machine{m4}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ds.Machine().List(ctx, filters.MachineByIDs(tt.ids...)...)
+			require.NoError(t, err)
+
+			slices.SortFunc(got, func(a, b *metal.Machine) int {
+				return strings.Compare(a.ID, b.ID)
+			})
+
+			if diff := cmp.Diff(
+				tt.want, got,
+				cmpopts.EquateEmpty(),
+				cmpopts.IgnoreFields(
+					metal.Machine{}, "Created", "Changed",
+				),
+			); diff != "" {
+				t.Errorf("MachineByIDs() = %v, want %v\ndiff: %s", got, tt.want, diff)
+			}
+		})
+	}
+}
 
 func TestMachineFilter(t *testing.T) {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
@@ -584,7 +634,7 @@ func TestMachineFilter(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ds.Machine().List(ctx, queries.MachineFilter(tt.rq))
+			got, err := ds.Machine().List(ctx, filters.MachineQuery(tt.rq)...)
 			require.NoError(t, err)
 
 			slices.SortFunc(got, func(a, b *metal.Machine) int {

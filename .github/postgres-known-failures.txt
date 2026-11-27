@@ -1,0 +1,7 @@
+# Tests that are known to fail when every entity is routed to postgres
+# (DB_ROUTING=default=postgres). They are skipped in the postgres CI leg and
+# in `make test-postgres`, so the leg can be blocking for everything else.
+#
+# One top-level test name per line. Remove a line once the test passes on
+# postgres - a newly failing test must not be added here without an issue.
+#

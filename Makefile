@@ -30,6 +30,24 @@ server: fmt
 test:
 	go test ./... -race -coverpkg=./... -coverprofile=coverage.out -covermode=atomic $(GO_TEST_ARGS) -timeout=300s && go tool cover -func=coverage.out
 
+# Same as 'test', but routes every entity to postgres (the postgres leg of the
+# CI matrix), to catch backend-specific breakage early. Tests listed in
+# .github/postgres-known-failures.txt are skipped.
+.PHONY: test-postgres
+test-postgres:
+	DB_ROUTING=default=postgres go test ./... -race -coverpkg=./... -covermode=atomic -skip "$$(make -s postgres-known-failures-regex)" $(GO_TEST_ARGS) -timeout=300s
+
+# Prints the known postgres failures as a -skip regex, e.g. ^TestA$$|^TestB$$
+.PHONY: postgres-known-failures-regex
+postgres-known-failures-regex:
+	@grep -v -e '^#' -e '^[[:space:]]*$$' .github/postgres-known-failures.txt | sed 's/.*/^&$$/' | paste -sd'|' -
+
+# Benchmarks comparing the postgres implementations with RethinkDB. They are
+# behind the compare_rethink build tag because they need both databases.
+.PHONY: bench-pg-vs-rethink
+bench-pg-vs-rethink:
+	go test -tags compare_rethink -run '^$$' -bench 'PgVsRethink' ./pkg/db/generic/pg/
+
 .PHONY: fmt
 fmt:
 	go fmt ./...
