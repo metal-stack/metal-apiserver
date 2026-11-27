@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/lib/pq"
 )
@@ -117,6 +118,11 @@ $$;
 		                  THEN %[1]s.version + 1
 		                  ELSE %[1]s.version END`
 	qRepositoryUpdate = `UPDATE %[1]s SET data = $1, version = version + 1 WHERE id = $2 AND version = $3`
+	// The changed timestamps are compared as timestamptz, which ignores the
+	// time zone offset JSON encoded times carry and rounds both sides to
+	// microseconds.
+	qRepositoryUpdateIfChanged = `UPDATE %[1]s SET data = $1, version = version + 1
+		WHERE id = $2 AND version = $3 AND (data->>'changed')::timestamptz = $4`
 	qRepositoryExists = `SELECT EXISTS(SELECT 1 FROM %[1]s WHERE id = $1)`
 	qRepositoryDelete = `DELETE FROM %[1]s WHERE id = $1`
 	qRepositoryGet    = `SELECT id, version, data FROM %[1]s WHERE id = $1`
@@ -189,9 +195,11 @@ type (
 		stmtCreate *sql.Stmt
 		stmtUpsert *sql.Stmt
 		stmtUpdate *sql.Stmt
-		stmtExists *sql.Stmt
-		stmtDelete *sql.Stmt
-		stmtGet    *sql.Stmt
+		// stmtUpdateIfChanged additionally checks the changed timestamp.
+		stmtUpdateIfChanged *sql.Stmt
+		stmtExists          *sql.Stmt
+		stmtDelete          *sql.Stmt
+		stmtGet             *sql.Stmt
 
 		// queryStmts caches one prepared statement per distinct SQL shape
 		// built by Query. The text contains positional placeholders, so two
@@ -269,6 +277,7 @@ func NewGenericRepository[T any](log *slog.Logger, db *sql.DB, opts ...Repositor
 	repo.stmtCreate = preparer.prepare(fmt.Sprintf(qRepositoryCreate, entityTypeName))
 	repo.stmtUpsert = preparer.prepare(fmt.Sprintf(qRepositoryUpsert, entityTypeName))
 	repo.stmtUpdate = preparer.prepare(fmt.Sprintf(qRepositoryUpdate, entityTypeName))
+	repo.stmtUpdateIfChanged = preparer.prepare(fmt.Sprintf(qRepositoryUpdateIfChanged, entityTypeName))
 	repo.stmtExists = preparer.prepare(fmt.Sprintf(qRepositoryExists, entityTypeName))
 	repo.stmtDelete = preparer.prepare(fmt.Sprintf(qRepositoryDelete, entityTypeName))
 	repo.stmtGet = preparer.prepare(fmt.Sprintf(qRepositoryGet, entityTypeName))
@@ -355,7 +364,26 @@ func (r *GenericRepository[T]) Update(ctx context.Context, id string, expectedVe
 	}
 
 	r.log.Debug("update", "id", id, "version", expectedVersion, "data", jsonData)
-	result, err := r.stmtUpdate.ExecContext(ctx, jsonData, id, expectedVersion)
+	return r.update(ctx, id, r.stmtUpdate, jsonData, id, expectedVersion)
+}
+
+// UpdateIfChanged is Update with an additional optimistic lock on the
+// top-level "changed" timestamp of the stored data: the update only succeeds
+// if it equals expectedChanged. This is the lock token the API hands to
+// clients (meta.updated_at), while the version is never sent to clients.
+// It returns ErrOptimisticLockConflict if either check fails.
+func (r *GenericRepository[T]) UpdateIfChanged(ctx context.Context, id string, expectedVersion int32, expectedChanged time.Time, data T) error {
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+
+	r.log.Debug("update", "id", id, "version", expectedVersion, "changed", expectedChanged, "data", jsonData)
+	return r.update(ctx, id, r.stmtUpdateIfChanged, jsonData, id, expectedVersion, expectedChanged)
+}
+
+func (r *GenericRepository[T]) update(ctx context.Context, id string, stmt *sql.Stmt, args ...any) error {
+	result, err := stmt.ExecContext(ctx, args...)
 	if err != nil {
 		return err
 	}

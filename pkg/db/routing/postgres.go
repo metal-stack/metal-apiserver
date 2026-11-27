@@ -67,12 +67,20 @@ func (s *postgresStorage[E]) Create(ctx context.Context, e E) (E, error) {
 func (s *postgresStorage[E]) Update(ctx context.Context, e E) error {
 	id := entityID(e)
 
+	// Like the RethinkDB storage, the changed timestamp is the optimistic lock
+	// token: with the client locking strategy it is the updated_at the client
+	// sent, otherwise the stored one. The row version additionally guards the
+	// window between the caller's read and this write.
+	expectedChanged := e.GetChanged()
+	if expectedChanged.IsZero() {
+		return fmt.Errorf("cannot update %s (%s): no changed timestamp set on entity", s.name, e.GetID())
+	}
 	expected := int32(e.GetGeneration()) + 1
 	if err := stampUpdate(e); err != nil {
 		return err
 	}
 
-	err := s.repo.Update(ctx, id, expected, e)
+	err := s.repo.UpdateIfChanged(ctx, id, expected, expectedChanged, e)
 	switch {
 	case err == nil:
 		return nil
