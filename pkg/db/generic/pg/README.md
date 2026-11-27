@@ -320,10 +320,9 @@ Suggested order, leaves first:
 - **Deployment config:** per-entity primary/read/write flags, so a rollback is a
   config change, not a release.
 - **Postgres operations:** schema DDL (tables/indexes/triggers) currently runs at
-  repository construction; move it to migrations (see `REVIEW.md` #4g).
+  repository construction; move it to migrations.
 - **Stable keys:** entity types are currently derived from Go type names; switch
-  to explicit, stable entity-type strings before the first data is written
-  (`REVIEW.md` #4f).
+  to explicit, stable entity-type strings before the first data is written.
 
 ### Rollback strategy
 

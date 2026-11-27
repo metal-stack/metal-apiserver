@@ -734,7 +734,7 @@ func (r *GenericRepository[T]) Query(ctx context.Context, filters []QueryFilter,
 // escapeLikePattern escapes the LIKE/ILIKE metacharacters `%`, `_` and the
 // escape character `\` in a caller-provided value. Combined with the
 // `ESCAPE '\'` clause this makes the value match literally, so user input
-// cannot smuggle in wildcards (REVIEW.md #4i).
+// cannot smuggle in wildcards.
 func escapeLikePattern(s string) string {
 	return strings.NewReplacer(
 		`\`, `\\`,
