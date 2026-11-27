@@ -63,6 +63,10 @@ func NewDatastore(log *slog.Logger, cfg Config, rethink generic.Datastore, pgDB 
 		return nil, errors.New("routing datastore requires a rethinkdb datastore")
 	}
 
+	if err := cfg.ValidateEntities(entityNames...); err != nil {
+		return nil, err
+	}
+
 	options := &datastoreOptions{}
 	for _, opt := range opts {
 		opt(options)
@@ -109,6 +113,23 @@ func NewDatastore(log *slog.Logger, cfg Config, rethink generic.Datastore, pgDB 
 	}
 
 	return d, nil
+}
+
+// entityNames are the entity names the routing config accepts, matching the
+// names passed to newEntityStorage in NewDatastore.
+var entityNames = []string{
+	"IP",
+	"Machine",
+	"Size",
+	"SizeImageConstraint",
+	"SizeReservation",
+	"Partition",
+	"Network",
+	"FilesystemLayout",
+	"Image",
+	"Switch",
+	"SwitchStatus",
+	"Event",
 }
 
 // watchedEntities are the entities whose Watch is used by the repository

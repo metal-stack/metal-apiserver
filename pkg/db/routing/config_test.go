@@ -98,3 +98,13 @@ func TestModeValid(t *testing.T) {
 	require.True(t, ModeBoth.Valid())
 	require.False(t, Mode("mysql").Valid())
 }
+
+func TestConfigValidateEntities(t *testing.T) {
+	cfg, err := Parse("default=rethink,machine=postgres,Network=both")
+	require.NoError(t, err)
+	require.NoError(t, cfg.ValidateEntities(entityNames...))
+
+	cfg, err = Parse("machnie=postgres")
+	require.NoError(t, err)
+	require.EqualError(t, cfg.ValidateEntities("Machine", "Network"), `unknown entity "machnie" in routing config, known entities are: Machine, Network`)
+}

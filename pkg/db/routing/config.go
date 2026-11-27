@@ -91,6 +91,32 @@ func (c Config) Validate() error {
 	return nil
 }
 
+// ValidateEntities checks that every configured entity is one of the known
+// entity names (matched case-insensitively), so a typo does not silently leave
+// an entity on the default backend.
+func (c Config) ValidateEntities(known ...string) error {
+	entities := make([]string, 0, len(c.Entities))
+	for entity := range c.Entities {
+		entities = append(entities, entity)
+	}
+	sort.Strings(entities)
+
+	for _, entity := range entities {
+		found := false
+		for _, k := range known {
+			if strings.EqualFold(entity, k) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("unknown entity %q in routing config, known entities are: %s", entity, strings.Join(known, ", "))
+		}
+	}
+
+	return nil
+}
+
 // ModeFor returns the configured mode for the given entity, falling back to
 // Default (or ModeRethink if unset). Entity names are matched case-insensitively
 // (Parse lowercases its keys), so both "Machine" and "machine" resolve.
