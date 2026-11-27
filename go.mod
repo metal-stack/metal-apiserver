@@ -25,8 +25,8 @@ require (
 	github.com/lestrrat-go/jwx/v4 v4.6.0
 	github.com/looplab/fsm v1.0.4
 	github.com/markbates/goth v1.82.0
-	github.com/metal-stack/api v0.10.1
-	github.com/metal-stack/go-ipam v1.16.0
+	github.com/metal-stack/api v0.10.2-0.20261127171451-01b7a0c979ba
+	github.com/metal-stack/go-ipam v1.16.1-0.20261124090118-a96cb9a150a7
 	github.com/metal-stack/metal-lib v0.26.4
 	github.com/metal-stack/tenant-api v0.3.0
 	github.com/metal-stack/tenant-apiserver v0.4.0
@@ -108,7 +108,7 @@ require (
 	github.com/jackc/pgtype v1.14.4 // indirect
 	github.com/jackc/pgx/v4 v4.18.3 // indirect
 	github.com/jsimonetti/rtnetlink v1.4.2 // indirect
-	github.com/klauspost/compress v1.20.4 // indirect
+	github.com/klauspost/compress v1.20.5 // indirect
 	github.com/klauspost/cpuid/v2 v2.4.2 // indirect
 	github.com/lann/builder v0.0.0-20180802200727-47ae307949d0 // indirect
 	github.com/lann/ps v0.0.0-20150810152359-62de8c46ede0 // indirect
@@ -120,7 +120,7 @@ require (
 	github.com/mdelapenya/tlscert v0.2.0 // indirect
 	github.com/mdlayher/netlink v1.11.2 // indirect
 	github.com/mdlayher/socket v0.8.0 // indirect
-	github.com/minio/minlz v1.3.0 // indirect
+	github.com/minio/minlz v1.3.1 // indirect
 	github.com/mitchellh/go-ps v1.0.0 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/go-archive v0.3.3 // indirect
@@ -162,12 +162,12 @@ require (
 	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78 // indirect
 	github.com/yuin/gopher-lua v1.1.2 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
-	github.com/zeebo/xxh3 v1.1.1-0.20260908150653-f7225998cebf // indirect
+	github.com/zeebo/xxh3 v1.1.1-0.20261118193009-e05079abbd7d // indirect
 	go.etcd.io/etcd/api/v3 v3.7.4 // indirect
 	go.etcd.io/etcd/client/pkg/v3 v3.7.4 // indirect
 	go.etcd.io/etcd/client/v3 v3.7.4 // indirect
 	go.mongodb.org/mongo-driver v1.17.10 // indirect
-	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
+	go.opentelemetry.io/auto/sdk v1.2.2 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.72.0 // indirect
 	go.opentelemetry.io/otel v1.47.0 // indirect
 	go.opentelemetry.io/otel/log v1.47.0 // indirect
@@ -178,7 +178,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.28.0 // indirect
 	go4.org/mem v0.0.0-20240501181205-ae6ca9944745 // indirect
-	golang.org/x/exp v0.0.0-20261119141654-b15d094f3610 // indirect
+	golang.org/x/exp v0.0.0-20261124000051-d6646c509b6d // indirect
 	golang.org/x/net v0.63.0 // indirect
 	golang.org/x/sys v0.50.0 // indirect
 	golang.org/x/term v0.48.0 // indirect
@@ -186,8 +186,8 @@ require (
 	golang.org/x/time v0.16.0 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
 	golang.zx2c4.com/wireguard/windows v1.0.1 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20261118221215-c8830f628b3f // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20261118221215-c8830f628b3f // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20261123191846-1e707ab9fbc2 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20261123191846-1e707ab9fbc2 // indirect
 	gopkg.in/cenkalti/backoff.v2 v2.2.1 // indirect
 	gvisor.dev/gvisor v0.0.0-20260915211658-a6f909f08a72 // indirect
 )

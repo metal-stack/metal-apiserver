@@ -76,6 +76,7 @@ func Test_getTokenPermissions(t *testing.T) {
 				"/metalstack.admin.v2.NetworkService/Create":                     {"*": {}},
 				"/metalstack.admin.v2.NetworkService/Delete":                     {"*": {}},
 				"/metalstack.admin.v2.NetworkService/Get":                        {"*": {}},
+				"/metalstack.admin.v2.NetworkService/Issues":                     {"*": {}},
 				"/metalstack.admin.v2.NetworkService/List":                       {"*": {}},
 				"/metalstack.admin.v2.NetworkService/Update":                     {"*": {}},
 				"/metalstack.admin.v2.PartitionService/Capacity":                 {"*": {}},
