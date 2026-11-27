@@ -59,9 +59,9 @@ func TestEventFilter(t *testing.T) {
 		want      []*metal.ProvisioningEventContainer
 	}{
 		{
-			name:      "empty machine id returns all",
+			name:      "empty machine id returns nothing",
 			machineID: "",
-			want:      eventContainers,
+			want:      nil,
 		},
 		{
 			name:      "by machine id",

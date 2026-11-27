@@ -305,7 +305,7 @@ func TestMachineByIDs(t *testing.T) {
 		ids  []string
 		want []*metal.Machine
 	}{
-		{name: "no ids leaves the query unfiltered", ids: nil, want: machines},
+		{name: "no ids matches nothing", ids: nil, want: nil},
 		{name: "single id", ids: []string{m1.ID}, want: []*metal.Machine{m1}},
 		{name: "multiple ids", ids: []string{m1.ID, m3.ID}, want: []*metal.Machine{m1, m3}},
 		{name: "all ids", ids: []string{m1.ID, m2.ID, m3.ID, m4.ID}, want: machines},

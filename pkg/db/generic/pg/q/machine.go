@@ -342,12 +342,7 @@ func MachineProjectScoped(project string) []pg.QueryFilter {
 // MachineByIDs returns a filter matching the machines with any of the given
 // ids. It mirrors queries.MachineByIDs and is the postgres representation of a
 // batch id lookup. Duplicate ids are harmless: `IN` matches each row at most
-// once. It returns nil when no ids are given, so an empty lookup applies no
-// filter - callers that must match nothing should guard against empty input.
+// once. No ids match no machine.
 func MachineByIDs(ids ...string) []pg.QueryFilter {
-	if len(ids) == 0 {
-		return nil
-	}
-
 	return []pg.QueryFilter{{Path: machinePaths.ID, Op: "IN", Value: ids}}
 }

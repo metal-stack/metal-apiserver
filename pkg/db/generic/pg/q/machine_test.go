@@ -634,9 +634,8 @@ func TestMachineByIDsPostgres(t *testing.T) {
 		return out
 	}
 
-	// No ids yields no filter, so the lookup is unfiltered.
-	require.Nil(t, q.MachineByIDs())
-	require.ElementsMatch(t, idsOf(pgMachines), idsOf(list()))
+	// No ids match nothing.
+	require.Empty(t, list())
 
 	// A single id matches exactly that machine.
 	got := list(pgM1.ID)

@@ -20,12 +20,12 @@ func MachineProjectScoped(project string) func(q r.Term) r.Term {
 
 // MachineByIDs filters machines by the given ids, fetching them in a single
 // query with GetAll instead of one Get per machine. GetAll returns a machine
-// once per given key, so repeated ids are collapsed. It returns nil when no ids
-// are given, so an empty lookup applies no filter - callers that must match
-// nothing should guard against empty input.
+// once per given key, so repeated ids are collapsed. No ids match no machine.
 func MachineByIDs(ids ...string) func(q r.Term) r.Term {
 	if len(ids) == 0 {
-		return nil
+		return func(q r.Term) r.Term {
+			return q.Filter(false)
+		}
 	}
 
 	seen := make(map[string]struct{}, len(ids))

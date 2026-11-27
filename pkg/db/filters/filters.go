@@ -41,11 +41,9 @@ func MachineQuery(rq *apiv2.MachineQuery) []storage.Filter {
 }
 
 // MachineByIDs returns a filter restricting the result to the machines with any
-// of the given ids, for both backends. With no ids it expresses no filter and
-// returns nil, so the query is unfiltered; callers that must match nothing have
-// to guard the empty case themselves.
+// of the given ids, for both backends. No ids match no machine.
 func MachineByIDs(ids ...string) []storage.Filter {
-	return both(len(ids) == 0, queries.MachineByIDs(ids...), pgq.MachineByIDs(ids...))
+	return both(false, queries.MachineByIDs(ids...), pgq.MachineByIDs(ids...))
 }
 
 // Network returns the network query for both backends. A non-empty scopeProject
@@ -118,9 +116,10 @@ func FilesystemLayout(rq *apiv2.FilesystemServiceListRequest) []storage.Filter {
 	return both(isEmptyQuery(rq), queries.FileSystemLayoutFilter(rq), pgq.FileSystemLayoutFilter(rq))
 }
 
-// Event returns the provisioning event query filter for a machine.
+// Event returns the provisioning event query filter for a machine. An empty
+// machine id matches no event container.
 func Event(machineID string) []storage.Filter {
-	return both(machineID == "", queries.EventFilter(machineID), pgq.EventFilter(machineID))
+	return both(false, queries.EventFilter(machineID), pgq.EventFilter(machineID))
 }
 
 // both wraps the RethinkDB and Postgres representations of a query into one

@@ -58,7 +58,7 @@ func TestEventFilterPostgres(t *testing.T) {
 		machineID string
 		want      []*metal.ProvisioningEventContainer
 	}{
-		{name: "empty machine id returns all", machineID: "", want: pgEvents},
+		{name: "empty machine id returns nothing", machineID: "", want: nil},
 		{name: "by machine id", machineID: "m-ev1", want: []*metal.ProvisioningEventContainer{pgEvent1}},
 		{name: "by machine id 2", machineID: "m-ev2", want: []*metal.ProvisioningEventContainer{pgEvent2}},
 		{name: "no result by machine id", machineID: "nonexistent", want: nil},
