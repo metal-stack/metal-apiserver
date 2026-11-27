@@ -30,6 +30,8 @@ var _ storage.Storage[*metal.Machine] = (*postgresStorage[*metal.Machine])(nil)
 // The adapter maps them with the invariant `version = generation + 1`: create
 // stamps generation 0 (Postgres writes version 1) and update increments
 // generation by one, using the pre-increment generation as the expected version.
+// The row version is authoritative: reads derive Generation from it (see
+// withRowVersion), so a generation stored in the document never has to match.
 //
 // Errors: the repository returns backend-agnostic sentinels; this adapter
 // renders them as the connect errors the Repository layer expects, using the
@@ -116,7 +118,7 @@ func (s *postgresStorage[E]) Get(ctx context.Context, id string) (E, error) {
 		return zero, toConnectError(err)
 	}
 
-	return ent.Data, nil
+	return withRowVersion(ent)
 }
 
 func (s *postgresStorage[E]) Find(ctx context.Context, filters ...storage.Filter) (E, error) {
@@ -149,9 +151,30 @@ func (s *postgresStorage[E]) List(ctx context.Context, filters ...storage.Filter
 
 	out := make([]E, 0, len(entities))
 	for _, ent := range entities {
-		out = append(out, ent.Data)
+		e, err := withRowVersion(&ent)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, e)
 	}
 	return out, nil
+}
+
+// withRowVersion returns the entity data with its Generation derived from the
+// row version (generation = version - 1). The row version is the single source
+// of truth for optimistic locking: the generation stored inside the JSON
+// document can lag behind, e.g. for rows written by a migration (which inserts
+// version 1 regardless of the RethinkDB generation) or after a partial dual
+// write. Deriving it on read keeps the next Update's expected version correct.
+func withRowVersion[E storage.Entity](ent *pg.Entity[E]) (E, error) {
+	var zero E
+	if ent.Version < 1 {
+		return zero, fmt.Errorf("invalid row version %d for entity %q", ent.Version, ent.ID)
+	}
+	if err := setField(ent.Data, "Generation", uint64(ent.Version-1)); err != nil {
+		return zero, err
+	}
+	return ent.Data, nil
 }
 
 func (s *postgresStorage[E]) Watch(ctx context.Context, id string) (<-chan struct {

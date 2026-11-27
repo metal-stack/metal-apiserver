@@ -11,6 +11,7 @@ import (
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic/pg"
 	"github.com/metal-stack/metal-apiserver/pkg/db/generic/pg/migrations"
 	"github.com/metal-stack/metal-apiserver/pkg/db/metal"
+	"github.com/metal-stack/metal-apiserver/pkg/db/routing"
 	"github.com/metal-stack/metal-apiserver/pkg/test"
 	"github.com/stretchr/testify/require"
 )
@@ -74,6 +75,33 @@ func TestMigrateMachine(t *testing.T) {
 		ent, err := repo.Get(ctx, machineID)
 		require.NoError(t, err)
 		require.Equal(t, "machine-1-renamed", ent.Data.Name)
+	})
+
+	t.Run("migrated machines can be updated through the postgres storage", func(t *testing.T) {
+		const machineID = "6b22ccd6-4c93-4a1f-8c8f-2f63b3c6e002"
+
+		// Bump the rethinkdb generation several times, so the migrated document
+		// carries a generation that does not match the postgres row version.
+		for range 3 {
+			m, err := rdb.Machine().Get(ctx, machineID)
+			require.NoError(t, err)
+			m.Description += "!"
+			require.NoError(t, rdb.Machine().Update(ctx, m))
+		}
+		require.NoError(t, migrations.MigrateMachine(ctx, log, rdb, pgdb))
+
+		s := routing.NewPostgresStorage(repo, "machine")
+
+		m, err := s.Get(ctx, machineID)
+		require.NoError(t, err)
+		m.Name = "machine-2-updated"
+		require.NoError(t, s.Update(ctx, m))
+
+		m, err = s.Get(ctx, machineID)
+		require.NoError(t, err)
+		require.Equal(t, "machine-2-updated", m.Name)
+		m.Name = "machine-2-updated-again"
+		require.NoError(t, s.Update(ctx, m))
 	})
 }
 
