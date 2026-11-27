@@ -80,46 +80,32 @@ type (
 		stmtExpire  *sql.Stmt
 	}
 
-	mutexOpt any
+	// MutexOption configures a SharedMutex.
+	MutexOption func(*SharedMutex)
 
-	mutexOptCheckInterval struct {
-		interval time.Duration
-	}
+	// LockOption configures a single Lock call.
+	LockOption func(*lockOptions)
 
-	lockOpt any
-
-	lockOptAcquireTimeout struct {
-		timeout time.Duration
-	}
-
-	lockOptExpirationTimeout struct {
-		expiration time.Duration
+	lockOptions struct {
+		acquireTimeout time.Duration
+		expiration     time.Duration
 	}
 )
 
 // NewMutexOptCheckInterval sets the interval in which the expiration loop
 // checks for expired mutexes.
-func NewMutexOptCheckInterval(interval time.Duration) *mutexOptCheckInterval {
-	return &mutexOptCheckInterval{interval: interval}
+func NewMutexOptCheckInterval(interval time.Duration) MutexOption {
+	return func(m *SharedMutex) {
+		m.checkinterval = interval
+	}
 }
 
 // NewSharedMutex creates a shared mutex backed by the given postgres
 // connection and starts its expiration loop. The loop is stopped when ctx is
 // cancelled.
-func NewSharedMutex(ctx context.Context, log *slog.Logger, db *sql.DB, opts ...mutexOpt) (*SharedMutex, error) {
+func NewSharedMutex(ctx context.Context, log *slog.Logger, db *sql.DB, opts ...MutexOption) (*SharedMutex, error) {
 	if _, err := db.ExecContext(context.Background(), SharedMutexSchema); err != nil {
 		return nil, err
-	}
-
-	checkinterval := defaultSharedMutexCheckInterval
-
-	for _, opt := range opts {
-		switch o := opt.(type) {
-		case *mutexOptCheckInterval:
-			checkinterval = o.interval
-		default:
-			return nil, fmt.Errorf("unknown option: %T", opt)
-		}
 	}
 
 	m := &SharedMutex{
@@ -127,7 +113,11 @@ func NewSharedMutex(ctx context.Context, log *slog.Logger, db *sql.DB, opts ...m
 		db:            db,
 		owner:         uuid.NewV7().String(),
 		retryinterval: defaultSharedMutexRetryInterval,
-		checkinterval: checkinterval,
+		checkinterval: defaultSharedMutexCheckInterval,
+	}
+
+	for _, opt := range opts {
+		opt(m)
 	}
 
 	preparer := newStatementPreparer(db)
@@ -146,34 +136,35 @@ func NewSharedMutex(ctx context.Context, log *slog.Logger, db *sql.DB, opts ...m
 
 // NewLockOptAcquireTimeout sets the maximum time to wait for the mutex to be
 // released before giving up.
-func NewLockOptAcquireTimeout(t time.Duration) *lockOptAcquireTimeout {
-	return &lockOptAcquireTimeout{timeout: t}
+func NewLockOptAcquireTimeout(t time.Duration) LockOption {
+	return func(o *lockOptions) {
+		o.acquireTimeout = t
+	}
 }
 
 // NewLockOptExpirationTimeout sets how long the mutex is held before it is
 // considered expired and released by the expiration loop.
-func NewLockOptExpirationTimeout(expiration time.Duration) *lockOptExpirationTimeout {
-	return &lockOptExpirationTimeout{expiration: expiration}
+func NewLockOptExpirationTimeout(expiration time.Duration) LockOption {
+	return func(o *lockOptions) {
+		o.expiration = expiration
+	}
 }
 
 // Lock acquires the mutex for the given key. It returns an error if the mutex
 // could not be acquired within the acquire timeout.
-func (m *SharedMutex) Lock(ctx context.Context, key string, opts ...lockOpt) error {
-	var (
-		expiration = defaultSharedMutexExpirationTimeout
-		timeout    = defaultSharedMutexAcquireTimeout
-	)
-
-	for _, opt := range opts {
-		switch o := opt.(type) {
-		case *lockOptAcquireTimeout:
-			timeout = o.timeout
-		case *lockOptExpirationTimeout:
-			expiration = o.expiration
-		default:
-			return fmt.Errorf("unknown lock option: %T", opt)
-		}
+func (m *SharedMutex) Lock(ctx context.Context, key string, opts ...LockOption) error {
+	o := &lockOptions{
+		acquireTimeout: defaultSharedMutexAcquireTimeout,
+		expiration:     defaultSharedMutexExpirationTimeout,
 	}
+	for _, opt := range opts {
+		opt(o)
+	}
+
+	var (
+		expiration = o.expiration
+		timeout    = o.acquireTimeout
+	)
 
 	locked, err := m.tryLock(ctx, key, expiration)
 	if err != nil {
