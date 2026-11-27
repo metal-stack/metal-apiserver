@@ -51,14 +51,16 @@ type (
 	testStore struct {
 		t testing.TB
 		*repository.Store
-		log           *slog.Logger
-		ds            generic.Datastore
-		rethink       generic.Datastore
-		routingPgDB   *sql.DB
-		dbName        string
-		queryExecutor *r.Session
-		ipam          apiv1connect.IpamServiceClient
-		ipamcloser    func()
+		log         *slog.Logger
+		ds          generic.Datastore
+		rethink     generic.Datastore
+		routingPgDB *sql.DB
+		// routingPgTables are the postgres tables of the routed entities.
+		routingPgTables []string
+		dbName          string
+		queryExecutor   *r.Session
+		ipam            apiv1connect.IpamServiceClient
+		ipamcloser      func()
 
 		projectInviteStore invite.ProjectInviteStore
 		tenantInviteStore  invite.TenantInviteStore
@@ -257,6 +259,7 @@ func StartRepositoryWithCleanup(t testing.TB, testOpts ...testOpt) (*testStore, 
 	var (
 		routingPgCloser func()
 		routingPgDB     *sql.DB
+		routingPgTables []string
 		routingWatcher  *pg.Watcher
 	)
 	if routingConfig != nil {
@@ -273,6 +276,7 @@ func StartRepositoryWithCleanup(t testing.TB, testOpts ...testOpt) (*testStore, 
 		routed, err := routing.NewDatastore(log, *routingConfig, ds, pgDB, routing.WithPostgresWatcher(watcher))
 		require.NoError(t, err)
 		ds = routed
+		routingPgTables = routed.PostgresTableNames()
 	}
 
 	if withValkey {
@@ -363,6 +367,7 @@ func StartRepositoryWithCleanup(t testing.TB, testOpts ...testOpt) (*testStore, 
 		ds:                     ds,
 		rethink:                rethinkDS,
 		routingPgDB:            routingPgDB,
+		routingPgTables:        routingPgTables,
 		dbName:                 opts.Database,
 		queryExecutor:          session,
 		ipam:                   ipam,
@@ -403,10 +408,11 @@ func (s *testStore) Cleanup(t testing.TB) {
 	}
 
 	if s.routingPgDB != nil {
-		// postgres stores one table per entity type, named after the (lowercased)
-		// entity; only the tables of entities configured for postgres exist.
-		for _, tableName := range tables {
-			execIgnoreUndefinedTable(t, s.routingPgDB, "DELETE FROM "+pq.QuoteIdentifier(tableName))
+		// The postgres table names differ from the RethinkDB ones for some
+		// entities (events), so the routing datastore's names are used.
+		for _, tableName := range s.routingPgTables {
+			_, err := s.routingPgDB.ExecContext(t.Context(), "DELETE FROM "+pq.QuoteIdentifier(tableName))
+			require.NoError(t, err)
 		}
 	}
 

@@ -280,6 +280,12 @@ func NewGenericRepository[T any](log *slog.Logger, db *sql.DB, opts ...Repositor
 	return repo, nil
 }
 
+// TableName returns the name of the table the repository stores its entities
+// in: the lowercased Go type name of T.
+func (r *GenericRepository[T]) TableName() string {
+	return r.entityType
+}
+
 // queryRows runs a Query statement. The statement is prepared and cached per
 // distinct shape in r.queryStmts until maxCachedQueryStmts shapes are cached;
 // any further shape is executed without preparing it.

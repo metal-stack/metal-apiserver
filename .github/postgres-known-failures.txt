@@ -5,30 +5,7 @@
 # One top-level test name per line. Remove a line once the test passes on
 # postgres - a newly failing test must not be added here without an issue.
 #
-# pkg/service/admin/housekeeping
-Test_machineServiceServer_Resurrect
-# pkg/service/admin/machine
-Test_machineServiceServer_Delete
 # pkg/service/admin/partition
 Test_partitionServiceServer_Update
-Test_partitionServiceServer_Capacity
-# pkg/service/admin/switch
-Test_switchServiceServer_Update
-Test_switchServiceServer_Delete
-Test_switchServiceServer_Port
-Test_switchServiceServer_Migrate
-# pkg/service/api/machine
-TestMachineCreateIntegration
-Test_machineServiceServer_ValidateCreateMachine
-Test_machineServiceServer_ValidateCreateFirewall
-Test_machineServiceServer_CreateMachine
-Test_machineServiceServer_DeleteMachine
-Test_machineServiceServer_CreateFirewallWithoutVPN
-Test_machineServiceServer_CreateFirewallWithVPN
 # pkg/service/infra/switch
 Test_switchServiceServer_Register
-Test_switchServiceServer_Heartbeat
-Test_switchRepository_ConnectMachineWithSwitches
-# pkg/test
-TestDatacenter_AssertSnapshot
-TestDatacenter_Assert
