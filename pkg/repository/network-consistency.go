@@ -46,7 +46,7 @@ type (
 // NetworksConsistent compares the networks and ips stored in the metal database with
 // the prefixes and ips stored in ipam. It returns all entities which only exist in one
 // of both systems.
-func (r *networkRepository) NetworksConsistent(ctx context.Context) (*adminv2.HousekeepingServiceNetworksConsistentResponse, error) {
+func (r *networkRepository) NetworksConsistent(ctx context.Context) (*adminv2.NetworkServiceIssuesResponse, error) {
 	r.s.log.Info("running network consistency check")
 	metalNetworks, err := r.s.ds.Network().List(ctx, queries.NetworkFilter(&apiv2.NetworkQuery{}))
 	if err != nil {
@@ -80,7 +80,7 @@ func (r *networkRepository) NetworksConsistent(ctx context.Context) (*adminv2.Ho
 		}
 	}
 
-	response := &adminv2.HousekeepingServiceNetworksConsistentResponse{}
+	response := &adminv2.NetworkServiceIssuesResponse{}
 
 	for _, mn := range metalNetworks {
 		ns := normalizeNetworkNamespace(mn.Namespace)
@@ -319,7 +319,7 @@ func normalizedNamespacePointer(namespace *string) *string {
 	return &ns
 }
 
-func sortNetworksConsistentResponse(response *adminv2.HousekeepingServiceNetworksConsistentResponse) {
+func sortNetworksConsistentResponse(response *adminv2.NetworkServiceIssuesResponse) {
 	slices.SortFunc(response.NetworksMissingInIpam, func(a, b *apiv2.Network) int {
 		return strings.Compare(a.Id, b.Id)
 	})

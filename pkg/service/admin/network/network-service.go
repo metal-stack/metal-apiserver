@@ -75,3 +75,7 @@ func (n *networkServiceServer) Update(ctx context.Context, req *adminv2.NetworkS
 
 	return &adminv2.NetworkServiceUpdateResponse{Network: nw}, nil
 }
+
+func (m *networkServiceServer) Issues(ctx context.Context, _ *adminv2.NetworkServiceIssuesRequest) (*adminv2.NetworkServiceIssuesResponse, error) {
+	return m.repo.UnscopedNetwork().AdditionalMethods().NetworksConsistent(ctx)
+}
